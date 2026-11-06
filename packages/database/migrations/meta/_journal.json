@@ -414,6 +414,13 @@
       "when": 1793886902594,
       "tag": "0058_shipment_label_prints",
       "breakpoints": true
+    },
+    {
+      "idx": 59,
+      "version": "7",
+      "when": 1793895679052,
+      "tag": "0059_supplier_store_closed",
+      "breakpoints": true
     }
   ]
 }

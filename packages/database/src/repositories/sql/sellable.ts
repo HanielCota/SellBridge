@@ -26,12 +26,32 @@ export function productListableColumn(): SQL<boolean> {
   return sql<boolean>`${productListable()}`.mapWith(Boolean);
 }
 
+/** The supplier keeps the store open for sales. Needs `suppliers` in the FROM clause. */
+function supplierOpen(): SQL {
+  return sql`(${suppliers.salesClosedAt} is null)`;
+}
+
+/** `supplierOpen` as a column, for `CatalogAvailability.supplierOpen`. */
+export function supplierOpenColumn(): SQL<boolean> {
+  return sql<boolean>`${supplierOpen()}`.mapWith(Boolean);
+}
+
 /**
  * Mirrors `unavailableReason` (shared/domain/catalog-availability.ts) being null: a listable
- * product of an active supplier. Where the reseller lives plays no part. Needs
- * `supplier_products` and `suppliers` in the FROM clause.
+ * product of an active supplier whose store is open. Where the reseller lives plays no part.
+ * Needs `supplier_products` and `suppliers` in the FROM clause.
  */
 export function sellableOnMarketplace(): SQL {
+  return sql`(${sellableBySupplier()} and ${supplierOpen()})`;
+}
+
+/**
+ * `sellableOnMarketplace` without the store check: a listable product of an active supplier.
+ * A closed store only holds the stock at zero, so a publication that finishes meanwhile still
+ * goes live and gets its stock back when the store opens. Needs `supplier_products` and
+ * `suppliers` in the FROM clause.
+ */
+export function sellableBySupplier(): SQL {
   return sql`(${productListable()} and ${suppliers.active})`;
 }
 

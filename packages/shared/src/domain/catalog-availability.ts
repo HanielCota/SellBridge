@@ -8,21 +8,31 @@ export interface CatalogAvailability {
   productActive: boolean;
   supplierActive: boolean;
   /**
+   * The supplier keeps the store open for sales. Closing it (holidays, no stock) holds new
+   * orders without touching the listings: opening again sends their stock back by itself.
+   */
+  supplierOpen: boolean;
+  /**
    * The listing's price is above the supplier's current cost. A supplier raising the cost past
    * the price made every sale a loss, and nothing stopped it or told the reseller.
    */
   priceCoversCost: boolean;
 }
 
-export type UnavailableReason = "supplier_inactive" | "product_inactive" | "cost_above_price";
+export type UnavailableReason =
+  "supplier_inactive" | "supplier_closed" | "product_inactive" | "cost_above_price";
 
 /**
  * The first check that fails, supplier first: reactivating the product alone would not help,
- * and a new price only matters once the product can be sold at all.
+ * and a new price only matters once the product can be sold at all. A supplier switched off by
+ * the team outranks one that only closed the store: opening it again would not bring it back.
  */
 export function unavailableReason(availability: CatalogAvailability): UnavailableReason | null {
   if (!availability.supplierActive) {
     return "supplier_inactive";
+  }
+  if (!availability.supplierOpen) {
+    return "supplier_closed";
   }
   if (!availability.productActive) {
     return "product_inactive";
@@ -36,6 +46,8 @@ export function unavailableReason(availability: CatalogAvailability): Unavailabl
 const UNAVAILABLE_MESSAGES: Record<UnavailableReason, string> = {
   supplier_inactive:
     "O fornecedor deste produto está inativo. Quando ele voltar ao catálogo, reprocesse a publicação.",
+  supplier_closed:
+    "O fornecedor fechou a loja para vendas por um tempo. Reprocesse a publicação quando ele reabrir.",
   product_inactive:
     "Este produto está indisponível. Tente publicar novamente quando ele estiver disponível.",
   cost_above_price:
@@ -49,6 +61,7 @@ export function unavailableMessage(reason: UnavailableReason): string {
 
 const LISTING_LABELS: Record<UnavailableReason, string> = {
   supplier_inactive: "Fornecedor inativo",
+  supplier_closed: "Fornecedor em pausa",
   product_inactive: "Produto indisponível",
   cost_above_price: "Custo acima do preço",
 };
@@ -56,6 +69,8 @@ const LISTING_LABELS: Record<UnavailableReason, string> = {
 const LISTING_MESSAGES: Record<UnavailableReason, string> = {
   supplier_inactive:
     "O fornecedor está inativo. O anúncio fica pausado; reative quando ele voltar ao catálogo.",
+  supplier_closed:
+    "O fornecedor fechou a loja por um tempo. O estoque volta sozinho quando ele reabrir.",
   product_inactive:
     "Este produto está indisponível. Os anúncios ficam pausados até ele estar disponível novamente e você reativá-los.",
   cost_above_price: "O fornecedor subiu o custo. Aumente o preço para voltar a vender.",
@@ -64,6 +79,7 @@ const LISTING_MESSAGES: Record<UnavailableReason, string> = {
 /** One line each: the bell cuts its detail at the panel's width. */
 const BELL_LINES: Record<UnavailableReason, string> = {
   supplier_inactive: "Fornecedor inativo. Reative quando ele voltar.",
+  supplier_closed: "Fornecedor em pausa. Volta sozinho ao reabrir.",
   product_inactive: "Produto indisponível no fornecedor.",
   cost_above_price: "Custo subiu. Aumente o preço para vender.",
 };

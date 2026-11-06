@@ -1,0 +1,1 @@
+ALTER TABLE "suppliers" ADD COLUMN "sales_closed_at" timestamp with time zone;

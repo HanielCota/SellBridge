@@ -99,6 +99,7 @@ describe("account profiles", () => {
       id: created?.id,
       name: "Ateliê Perfil",
       active: true,
+      salesClosedAt: null,
     });
   });
 

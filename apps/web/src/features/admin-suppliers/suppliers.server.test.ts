@@ -77,6 +77,7 @@ const savedSupplier = {
   acceptWithinHours: 24,
   dispatchWithinHours: 48,
   active: true,
+  salesClosedAt: null,
   organizationId: null,
   catalogKind: "supplier" as const,
   ownerTenantId: null,

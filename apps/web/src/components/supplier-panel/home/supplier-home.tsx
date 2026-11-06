@@ -6,7 +6,11 @@ import { Button } from "@/components/ui/button";
 import { ErrorState } from "@/components/feedback/error-state";
 import { PageHeader } from "@/components/layout/page-header";
 import { supplierHomeQueryOptions } from "@/features/supplier-panel/home/home.queries";
-import { usePanelSupplierActive } from "@/features/supplier-panel/use-panel-supplier";
+import {
+  usePanelStoreClosed,
+  usePanelSupplierActive,
+} from "@/features/supplier-panel/use-panel-supplier";
+import { StoreOpenSwitch } from "@/components/supplier-panel/store/store-open-switch";
 import { HomeQueue, HomeQueueSkeleton } from "./home-queue";
 import { TeamNoticesCard } from "./team-notices-card";
 import { SupplierSalesOverview } from "./supplier-sales-overview";
@@ -23,9 +27,12 @@ interface SupplierHomeProps {
  * The shortcuts beside "Cadastrar produto", so the products, the spreadsheet import and the brand
  * sit in the header instead of a card of their own above the list.
  */
-function SupplierHeaderActions({ active }: { active: boolean }) {
+function SupplierHeaderActions({ supplierId, active }: { supplierId: string; active: boolean }) {
+  const closed = usePanelStoreClosed();
   return (
     <>
+      {/* The team's switch-off outranks the store: only the team brings that account back. */}
+      {active ? <StoreOpenSwitch supplierId={supplierId} closed={closed} /> : null}
       <Button asChild variant="outline">
         <Link to="/fornecedor/painel/produtos">Meus produtos</Link>
       </Button>
@@ -63,7 +70,7 @@ export function SupplierHome(props: SupplierHomeProps) {
     <PageHeader
       title="Painel do fornecedor"
       {...(query.data === undefined ? {} : { description: query.data.supplierName })}
-      actions={<SupplierHeaderActions active={active} />}
+      actions={<SupplierHeaderActions supplierId={supplierId} active={active} />}
     />
   );
   return (

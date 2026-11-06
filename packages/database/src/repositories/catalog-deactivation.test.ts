@@ -6,6 +6,7 @@ import { listings, listingTargets, supplierProducts, suppliers } from "../schema
 import {
   createTestDatabase,
   createTestTenants,
+  createTestUsers,
   publishTestProduct,
   type TestSeller,
   testStoreInput,
@@ -19,9 +20,14 @@ import {
 } from "./admin-suppliers.ts";
 import { setListingsPaused } from "./listing-actions.ts";
 import { getListingOverview, listListingOverview } from "./listing-overview.ts";
-import { getTargetForPublishing } from "./listings.ts";
-import { listNotificationEvents } from "./notifications.ts";
+import {
+  createListingWithTargets,
+  getTargetForPublishing,
+  markTargetPublished,
+} from "./listings.ts";
+import { listNotificationEvents, markNotificationsSeen } from "./notifications.ts";
 import { upsertStoreConnection } from "./stores.ts";
+import { setSupplierStoreOpen } from "./supplier-store-open.ts";
 
 const database = createTestDatabase();
 let tenants: Awaited<ReturnType<typeof createTestTenants>>;
@@ -261,6 +267,107 @@ describe("what the reseller sees", () => {
     const row = await getListingOverview(database, first.tenantId, listingId);
 
     expect(row.unavailable).toBe("supplier_inactive");
+  });
+
+  it("tells the listing card and the bell that the supplier closed the store, until it opens", async () => {
+    const supplierId = await newSupplier();
+    const product = await publishedProduct(supplierId);
+    const listingId = await listingIdOf(product.targets.get(first.tenantId) ?? "");
+    const now = new Date("2026-11-05T15:00:00Z");
+    await setSupplierStoreOpen(database, { supplierId, open: false, now });
+
+    const closed = await getListingOverview(database, first.tenantId, listingId);
+
+    expect(closed.unavailable).toBe("supplier_closed");
+    expect(await unavailableInBell(first.tenantId, listingId)).toEqual([
+      expect.objectContaining({ reason: "supplier_closed" }),
+    ]);
+    // Closing pauses nothing: the listing keeps its place and only its stock goes to zero.
+    expect(await statusesOf(product.targets)).toEqual(["published", "published"]);
+
+    await setSupplierStoreOpen(database, { supplierId, open: true, now });
+    expect((await getListingOverview(database, first.tenantId, listingId)).unavailable).toBeNull();
+    expect(await unavailableInBell(first.tenantId, listingId)).toEqual([]);
+  });
+
+  it("shows the closing as news to a reseller who had already seen the bell", async () => {
+    const supplierId = await newSupplier();
+    const product = await publishedProduct(supplierId);
+    const listingId = await listingIdOf(product.targets.get(first.tenantId) ?? "");
+    const readers = await createTestUsers(database, 1);
+    const [userId] = readers.ids;
+    if (userId === undefined) {
+      throw new Error("usuário não criado");
+    }
+    try {
+      await markNotificationsSeen(database, { tenantId: first.tenantId, userId });
+
+      await setSupplierStoreOpen(database, {
+        supplierId,
+        open: false,
+        now: new Date(Date.now() + 60_000),
+      });
+
+      const { events, seenAt } = await listNotificationEvents(database, {
+        tenantId: first.tenantId,
+        userId,
+        reviewableSince: REVIEWABLE_SINCE,
+      });
+      const closing = events.find(
+        (event) => event.kind === "listing_unavailable" && event.entityId === listingId,
+      );
+      expect(closing).toMatchObject({ reason: "supplier_closed" });
+      // The bell counts as new what came after the last look: the closing must, not the publish.
+      expect(seenAt).not.toBeNull();
+      expect((closing?.at.getTime() ?? 0) > (seenAt?.getTime() ?? Number.MAX_SAFE_INTEGER)).toBe(
+        true,
+      );
+    } finally {
+      await readers.cleanup();
+    }
+  });
+
+  it("lets a publication that finishes while the store is closed go live, at zero stock", async () => {
+    const supplierId = await newSupplier();
+    const product = await saveAdminSupplierProduct(database, {
+      supplierId,
+      sku: `PUB-${randomUUID().slice(0, 8)}`,
+      title: "Produto publicando",
+      description: "Descrição",
+      costCents: 1500,
+      suggestedPriceCents: 3990,
+      stock: 5,
+      categoryId: null,
+      imageUrls: [],
+      mercadoLivreAttributes: {},
+    });
+    const listing = await createListingWithTargets(
+      database,
+      first.tenantId,
+      {
+        supplierProductId: product.id,
+        title: "Publicando",
+        description: "Descrição",
+        priceCents: 3990,
+      },
+      [first.storeId],
+    );
+    const [targetId] = listing.targetIds;
+    if (targetId === undefined) {
+      throw new Error("destino não criado");
+    }
+    await setSupplierStoreOpen(database, { supplierId, open: false, now: new Date() });
+
+    await markTargetPublished(database, targetId, {
+      externalId: `MLB-${targetId}`,
+      externalUrl: null,
+    });
+
+    const [target] = await database
+      .select({ status: listingTargets.status, pauseRequested: listingTargets.pauseRequested })
+      .from(listingTargets)
+      .where(eq(listingTargets.id, targetId));
+    expect(target).toEqual({ status: "published", pauseRequested: false });
   });
 
   it("warns each affected reseller in the bell, nobody else, until the product is back", async () => {

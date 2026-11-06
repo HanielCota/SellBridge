@@ -17,7 +17,12 @@ import {
   suppliers,
 } from "../schema/index.ts";
 import { isCountedOrder } from "./sql/counted-orders.ts";
-import { listingCoversCostColumn, listingSellable, productListableColumn } from "./sql/sellable.ts";
+import {
+  listingCoversCostColumn,
+  listingSellable,
+  productListableColumn,
+  supplierOpenColumn,
+} from "./sql/sellable.ts";
 import { countPendingReviews } from "./supplier-reviews.ts";
 import { shipmentLateEvents, type ShipmentLateEvent } from "./shipment-timing.ts";
 import {
@@ -299,7 +304,8 @@ async function stockShortageEvents(
 
 /**
  * Listings the supplier keeps off the marketplaces, dated by their last status change (the
- * pause, when the admin turned the product off). Gone once the product can be sold again.
+ * pause, when the admin turned the product off) or by when the supplier closed the store, which
+ * changes no listing. Gone once the product can be sold again.
  */
 async function listingUnavailableEvents(
   database: Database,
@@ -308,13 +314,18 @@ async function listingUnavailableEvents(
   const lastChange = sql<Date>`(select max(${listingTargets.updatedAt}) from ${listingTargets}
     where ${listingTargets.listingId} = ${listings.id}
       and ${listingTargets.status} in ('published', 'paused'))`.mapWith(listingTargets.updatedAt);
+  // Greatest ignores the null of an open store.
+  const changedAt = sql<Date>`greatest(${lastChange}, ${suppliers.salesClosedAt})`.mapWith(
+    listingTargets.updatedAt,
+  );
   const rows = await database
     .select({
       entityId: listings.id,
       listingTitle: listings.title,
-      at: lastChange,
+      at: changedAt,
       productActive: productListableColumn(),
       supplierActive: suppliers.active,
+      supplierOpen: supplierOpenColumn(),
       priceCoversCost: listingCoversCostColumn(),
     })
     .from(listings)
@@ -327,12 +338,19 @@ async function listingUnavailableEvents(
         sql`${lastChange} is not null`,
       ),
     )
-    .orderBy(desc(lastChange))
+    .orderBy(desc(changedAt))
     .limit(PER_KIND);
-  return rows.flatMap(({ productActive, supplierActive, priceCoversCost, ...row }) => {
-    const reason = unavailableReason({ productActive, supplierActive, priceCoversCost });
-    return reason === null ? [] : [{ ...row, reason, kind: "listing_unavailable" as const }];
-  });
+  return rows.flatMap(
+    ({ productActive, supplierActive, supplierOpen, priceCoversCost, ...row }) => {
+      const reason = unavailableReason({
+        productActive,
+        supplierActive,
+        supplierOpen,
+        priceCoversCost,
+      });
+      return reason === null ? [] : [{ ...row, reason, kind: "listing_unavailable" as const }];
+    },
+  );
 }
 
 async function listingErrorEvents(
