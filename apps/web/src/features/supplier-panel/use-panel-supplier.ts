@@ -19,3 +19,9 @@ export function usePanelSupplierActive(): boolean {
   const { supplier } = panelRoute.useLoaderData();
   return supplier?.active ?? true;
 }
+
+/** Whether the supplier closed its store for sales (listings at zero stock until it reopens). */
+export function usePanelStoreClosed(): boolean {
+  const { supplier } = panelRoute.useLoaderData();
+  return supplier?.salesClosedAt != null;
+}

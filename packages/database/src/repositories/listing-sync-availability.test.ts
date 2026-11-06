@@ -11,6 +11,7 @@ import {
   testStoreInput,
 } from "../testing/fixtures.ts";
 import { findTargetsNeedingSync, markTargetSynced } from "./listing-sync.ts";
+import { setSupplierStoreOpen } from "./supplier-store-open.ts";
 import { upsertStoreConnection } from "./stores.ts";
 
 const database = createTestDatabase();
@@ -118,5 +119,34 @@ describe("sync of products the reseller can no longer sell", () => {
     await markTargetSynced(database, targetId, { stock: 0, priceCents: 3990 });
 
     expect(await stockQueued(product)).toEqual({ [sellerTwo.tenantId]: undefined });
+  });
+});
+
+describe("sync of a supplier that closed the store for sales", () => {
+  const now = new Date("2026-11-05T15:00:00Z");
+
+  it("sends zero to every reseller while the store is closed", async () => {
+    const product = await publishedBy([sellerOne, sellerTwo]);
+
+    await setSupplierStoreOpen(database, { supplierId: product.supplierId, open: false, now });
+
+    expect(await stockQueued(product)).toEqual({
+      [sellerOne.tenantId]: 0,
+      [sellerTwo.tenantId]: 0,
+    });
+  });
+
+  it("sends the real stock back once the store opens again, with no reseller step", async () => {
+    const product = await publishedBy([sellerOne]);
+    const targetId = product.targets.get(sellerOne.tenantId);
+    if (targetId === undefined) {
+      throw new Error("destino não criado");
+    }
+    await setSupplierStoreOpen(database, { supplierId: product.supplierId, open: false, now });
+    await markTargetSynced(database, targetId, { stock: 0, priceCents: 3990 });
+
+    await setSupplierStoreOpen(database, { supplierId: product.supplierId, open: true, now });
+
+    expect(await stockQueued(product)).toEqual({ [sellerOne.tenantId]: 5 });
   });
 });

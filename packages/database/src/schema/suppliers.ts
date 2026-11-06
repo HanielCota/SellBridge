@@ -36,6 +36,12 @@ export const suppliers = pgTable(
     dispatchWithinHours: integer().notNull().default(48),
     active: boolean().notNull().default(true),
     /**
+     * When the supplier closed the store for sales (holidays, no stock); null while open. Unlike
+     * `active`, which the team owns, the supplier switches it: listings sync zero stock while it
+     * is set and get their stock back once it is cleared.
+     */
+    salesClosedAt: timestamp({ withTimezone: true }),
+    /**
      * The supplier profile (organization of kind `supplier`) that runs this catalog from the
      * supplier panel. Null for suppliers the team still manages on their behalf.
      */
