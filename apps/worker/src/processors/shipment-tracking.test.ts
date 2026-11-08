@@ -1,5 +1,5 @@
 import { schema } from "@sellbridge/database";
-import { forwardOrder } from "@sellbridge/database/repositories";
+import { applyMarketplaceShipment, forwardOrder } from "@sellbridge/database/repositories";
 import { marketplaceError } from "@sellbridge/marketplaces";
 import { eq } from "drizzle-orm";
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
@@ -137,8 +137,11 @@ describe("shipment tracking", () => {
 
     await createShipmentTrackingProcessor({ database, cipher, readShipping })();
     const first = await shipmentOf(order.id);
-    readShipping.mockResolvedValue({ ...reading, logisticType: null });
-    await createShipmentTrackingProcessor({ database, cipher, readShipping })();
+    // The next reading straight on this order: the job may serve older parcels first.
+    await applyMarketplaceShipment(database, order.tenantId, order.id, {
+      ...reading,
+      logisticType: null,
+    });
     const second = await shipmentOf(order.id);
 
     expect(first?.marketplaceLogisticType).toBe("cross_docking");
