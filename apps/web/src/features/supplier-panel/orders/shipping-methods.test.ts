@@ -7,13 +7,17 @@ describe("shippingMethod", () => {
     ["xd_drop_off", "Agência"],
     ["drop_off", "Agência"],
     ["self_service", "Flex"],
-    ["fulfillment", "Full"],
+    ["fulfillment", "Full: não despachar"],
   ])("names %s as %s", (logisticType, short) => {
     expect(shippingMethod(logisticType)?.short).toBe(short);
   });
 
   it("explains a pickup in the order's own words", () => {
     expect(shippingMethod("cross_docking")?.long).toBe("Coleta: o Mercado Livre busca");
+  });
+
+  it("sends both drop-offs to the point printed on the label", () => {
+    expect(shippingMethod("drop_off")?.long).toBe(shippingMethod("xd_drop_off")?.long);
   });
 
   it("shows nothing before the marketplace says how the parcel goes", () => {

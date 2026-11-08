@@ -10,10 +10,15 @@ export interface ShippingMethod {
  */
 const SHIPPING_METHODS: Readonly<Record<string, ShippingMethod>> = {
   cross_docking: { short: "Coleta", long: "Coleta: o Mercado Livre busca" },
-  xd_drop_off: { short: "Agência", long: "Agência: você leva a uma agência do Mercado Livre" },
-  drop_off: { short: "Agência", long: "Agência: você leva aos Correios" },
+  // Both drop-offs read the same: which counter takes the parcel is printed on the label.
+  xd_drop_off: { short: "Agência", long: "Agência: você leva ao ponto indicado na etiqueta" },
+  drop_off: { short: "Agência", long: "Agência: você leva ao ponto indicado na etiqueta" },
   self_service: { short: "Flex", long: "Flex: você mesmo entrega" },
-  fulfillment: { short: "Full", long: "Full: sai do estoque do Mercado Livre" },
+  // Full ships from Mercado Livre's own warehouse: the supplier has nothing to send.
+  fulfillment: {
+    short: "Full: não despachar",
+    long: "Full: o Mercado Livre envia do estoque dele",
+  },
 };
 
 /**
