@@ -1,6 +1,7 @@
 import { StorefrontIcon } from "@phosphor-icons/react";
 import { cn } from "@/lib/utils";
 import type { ReactNode } from "react";
+import { MARKETPLACE_COLORS } from "./marketplace-colors";
 import { SHOPEE_PATH, TIKTOK_PATH } from "./marketplace-logo-paths";
 
 /** Mercado Livre's emblem, the handshake in its oval; the wordmark is unreadable at tile size. */
@@ -36,10 +37,10 @@ function TikTokLogo() {
   );
 }
 
-const MARKS: Record<string, { logo: ReactNode; className: string }> = {
-  mercado_livre: { logo: <MercadoLivreLogo />, className: "bg-[#ffe600]" },
-  shopee: { logo: <ShopeeLogo />, className: "bg-[#ee4d2d]" },
-  tiktok_shop: { logo: <TikTokLogo />, className: "bg-black ring-1 ring-white/10" },
+const MARKS: Record<string, { logo: ReactNode; className: string | undefined }> = {
+  mercado_livre: { logo: <MercadoLivreLogo />, className: MARKETPLACE_COLORS.mercado_livre?.tile },
+  shopee: { logo: <ShopeeLogo />, className: MARKETPLACE_COLORS.shopee?.tile },
+  tiktok_shop: { logo: <TikTokLogo />, className: MARKETPLACE_COLORS.tiktok_shop?.tile },
 };
 
 /** The marketplace's logo on its brand color, so stores are told apart at a glance. */

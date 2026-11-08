@@ -17,6 +17,7 @@ import { formatAbsoluteTime } from "@/lib/relative-time";
 import type { SupplierOrderRow } from "@/features/supplier-panel/orders/use-order-actions";
 import { CONTROL_HINTS, SUPPLIER_NEXT_STEP_HINTS } from "@/components/icons/action-icons";
 import { Hint } from "@/components/ui/hint";
+import { ChannelLine } from "./channel-line";
 
 /** "2× Camiseta (CAM-01) e mais 1 item": enough to pick the parcel without opening it. */
 export function itemsSummary(items: SupplierOrderRow["items"]): string {
@@ -49,6 +50,7 @@ export function OrderSummary({
       >
         Pedido {row.externalOrderId}
       </button>
+      <ChannelLine marketplace={row.marketplace} logisticType={row.marketplaceLogisticType} />
       <p className="truncate text-footnote">
         {row.shopName} · {displayBuyerName(row.buyerName)}
       </p>

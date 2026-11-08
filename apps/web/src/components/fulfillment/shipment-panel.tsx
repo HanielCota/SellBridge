@@ -50,6 +50,8 @@ export interface ShipmentView {
   carrier: string | null;
   trackingCode: string | null;
   trackingUrl: string | null;
+  /** Where carrier and tracking came from before dispatch, e.g. "do Mercado Livre". */
+  trackingFromChannel?: string | null;
   /** The marketplace's dates and what is late; absent on the supplier link. */
   estimatedDeliveryAt?: Date | null;
   dispatchDeadlineAt?: Date | null;
@@ -237,6 +239,16 @@ function ShipmentActions({
         <p className="text-sm text-muted-foreground">{DELIVERY_CONFIRMED_BY}</p>
       ) : null}
       {next === "shipped" ? <DispatchFields update={update} /> : null}
+      {/* Only while the fields still hold what the channel sent: an edited code is the supplier's. */}
+      {next === "shipped" &&
+      shipment.trackingFromChannel != null &&
+      update.carrier === (shipment.carrier ?? "") &&
+      update.trackingCode === shipment.trackingCode ? (
+        <p className="text-footnote text-muted-foreground">
+          Veio {shipment.trackingFromChannel}: confira e marque como enviado. Não precisa digitar
+          nada.
+        </p>
+      ) : null}
       <Field
         label="Observação da etapa (opcional)"
         value={update.note}

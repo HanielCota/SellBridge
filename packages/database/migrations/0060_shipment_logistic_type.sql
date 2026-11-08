@@ -1,0 +1,1 @@
+ALTER TABLE "order_shipments" ADD COLUMN "marketplace_logistic_type" text;

@@ -1,5 +1,5 @@
 import { schema } from "@sellbridge/database";
-import { forwardOrder } from "@sellbridge/database/repositories";
+import { applyMarketplaceShipment, forwardOrder } from "@sellbridge/database/repositories";
 import { marketplaceError } from "@sellbridge/marketplaces";
 import { eq } from "drizzle-orm";
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
@@ -97,6 +97,7 @@ function shipping(overrides: Partial<TrackedShipping> = {}): TrackedShipping {
     buyerReturnDelivered: false,
     carrier: "Mercado Envios",
     trackingCode: "ML-TRK",
+    logisticType: "cross_docking",
     estimatedDeliveryAt: new Date("2026-10-20T03:00:00.000Z"),
     dispatchDeadlineAt: new Date("2026-10-16T03:00:00.000Z"),
     ...overrides,
@@ -127,6 +128,24 @@ describe("shipment tracking", () => {
     const row = await shipmentOf(order.id);
     expect(row?.status).toBe("shipped");
     expect(row?.estimatedDeliveryAt?.toISOString()).toBe("2026-10-20T03:00:00.000Z");
+  });
+
+  it("keeps the marketplace's shipping method, and the known one when a reading lacks it", async () => {
+    const order = await forwardedOrder(`TRK-METHOD-${Date.now()}`);
+    const reading = shipping({ status: "ready_to_ship", trackingStatus: null });
+    const readShipping = vi.fn<ShipmentTrackingDependencies["readShipping"]>(async () => reading);
+
+    await createShipmentTrackingProcessor({ database, cipher, readShipping })();
+    const first = await shipmentOf(order.id);
+    // The next reading straight on this order: the job may serve older parcels first.
+    await applyMarketplaceShipment(database, order.tenantId, order.id, {
+      ...reading,
+      logisticType: null,
+    });
+    const second = await shipmentOf(order.id);
+
+    expect(first?.marketplaceLogisticType).toBe("cross_docking");
+    expect(second?.marketplaceLogisticType).toBe("cross_docking");
   });
 
   it("keeps going when one order fails and stops reading parcels that are over", async () => {

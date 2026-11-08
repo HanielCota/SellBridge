@@ -59,6 +59,11 @@ export const orderShipments = pgTable(
     labelWaitingSince: timestamp({ withTimezone: true }),
     /** The marketplace's own shipment id, read when its label is emitted: its label barcode. */
     marketplaceShipmentId: text(),
+    /**
+     * How the marketplace moves the parcel (Mercado Livre's `logistic_type`, e.g. cross_docking
+     * for a pickup), read with its tracking: the supplier sees whether to wait or take it out.
+     */
+    marketplaceLogisticType: text(),
     createdAt: timestamp({ withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp({ withTimezone: true }).notNull().defaultNow(),
   },

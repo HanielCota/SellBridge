@@ -421,6 +421,13 @@
       "when": 1793895679052,
       "tag": "0059_supplier_store_closed",
       "breakpoints": true
+    },
+    {
+      "idx": 60,
+      "version": "7",
+      "when": 1794157300953,
+      "tag": "0060_shipment_logistic_type",
+      "breakpoints": true
     }
   ]
 }

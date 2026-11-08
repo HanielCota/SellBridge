@@ -57,6 +57,7 @@ const rowColumns = {
   destinationState: sql<string>`${orderShipments.address}->>'state'`,
   carrier: orderShipments.carrier,
   trackingCode: orderShipments.trackingCode,
+  marketplaceLogisticType: orderShipments.marketplaceLogisticType,
   dispatchDeadlineAt: orderShipments.dispatchDeadlineAt,
   estimatedDeliveryAt: orderShipments.estimatedDeliveryAt,
   updatedAt: orderShipments.updatedAt,

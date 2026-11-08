@@ -2,6 +2,7 @@ import { useQuery } from "@tanstack/react-query";
 import { formatCents } from "@sellbridge/shared/money";
 import { DISPATCHED_FULFILLMENT_STATUSES } from "@sellbridge/shared/schemas";
 import { ShipmentPanel } from "@/components/fulfillment/shipment-panel";
+import { shippingMethod } from "@/features/supplier-panel/orders/shipping-methods";
 import { ErrorState } from "@/components/feedback/error-state";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
@@ -15,7 +16,7 @@ import {
 import { Skeleton } from "@/components/ui/skeleton";
 import { isShippingBlocked } from "@/features/fulfillment/shipping-block";
 import { displayBuyerName } from "@/features/orders/buyer-name";
-import { channelLabel } from "@/features/supplier-panel/orders/channel-labels";
+import { channelLabel, channelSource } from "@/features/supplier-panel/orders/channel-labels";
 import { supplierPanelShipmentQueryOptions } from "@/features/supplier-panel/orders/orders.queries";
 import { useSupplierShipmentUpdate } from "@/features/supplier-panel/orders/use-order-actions";
 import { errorMessage } from "@/lib/errors";
@@ -48,6 +49,10 @@ function OrderFacts({ shipment }: { shipment: PanelShipment }) {
     { term: "Cliente", detail: displayBuyerName(shipment.buyerName) },
     { term: "Você recebe", detail: formatCents(shipment.receivableCents) },
   ];
+  const method = shippingMethod(shipment.marketplaceLogisticType);
+  if (method !== null) {
+    facts.push({ term: "Forma de envio", detail: method.long });
+  }
   return (
     <div className="space-y-3 rounded-2xl bg-muted/50 p-4">
       <dl className="grid grid-cols-1 gap-x-6 gap-y-2 text-subhead sm:grid-cols-2">
@@ -119,6 +124,9 @@ function PanelBody({ supplierId, shipmentId }: { supplierId: string; shipmentId:
   }
   const blocked = isShippingBlocked(query.data.orderStatus);
   const tracked = DISPATCHED_FULFILLMENT_STATUSES.includes(query.data.status);
+  // Before dispatch only the marketplace writes the tracking: people type it when shipping.
+  const trackingFromChannel =
+    tracked || query.data.trackingCode === null ? null : channelSource(query.data.marketplace);
   return (
     <div className="space-y-4">
       <OrderFacts shipment={query.data} />
@@ -130,7 +138,7 @@ function PanelBody({ supplierId, shipmentId }: { supplierId: string; shipmentId:
       ) : null}
       {tracked ? <SupplierParcelTracking supplierId={supplierId} shipmentId={shipmentId} /> : null}
       <ShipmentPanel
-        shipment={query.data}
+        shipment={{ ...query.data, trackingFromChannel }}
         externalOrderId={query.data.externalOrderId}
         actsAs="supplier"
         blocked={blocked}
