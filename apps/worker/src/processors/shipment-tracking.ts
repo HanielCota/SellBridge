@@ -17,6 +17,7 @@ export interface TrackedShipping {
   buyerReturnDelivered: boolean;
   carrier: string | null;
   trackingCode: string | null;
+  logisticType: string | null;
   estimatedDeliveryAt: Date | null;
   dispatchDeadlineAt: Date | null;
 }

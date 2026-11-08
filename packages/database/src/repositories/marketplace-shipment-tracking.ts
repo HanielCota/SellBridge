@@ -31,6 +31,7 @@ function trackedValues(
   shipping: {
     carrier: string | null;
     trackingCode: string | null;
+    logisticType?: string | null;
     estimatedDeliveryAt?: Date | null;
     dispatchDeadlineAt?: Date | null;
   },
@@ -40,6 +41,7 @@ function trackedValues(
   return {
     carrier: shipping.carrier ?? shipment.carrier,
     trackingCode: shipping.trackingCode ?? shipment.trackingCode,
+    marketplaceLogisticType: shipping.logisticType ?? shipment.marketplaceLogisticType,
     estimatedDeliveryAt: shipping.estimatedDeliveryAt ?? shipment.estimatedDeliveryAt,
     dispatchDeadlineAt: shipping.dispatchDeadlineAt ?? shipment.dispatchDeadlineAt,
     trackedAt: now,
@@ -145,6 +147,8 @@ export async function applyMarketplaceShipment(
     buyerReturnDelivered: boolean;
     carrier: string | null;
     trackingCode: string | null;
+    /** How the marketplace moves the parcel (pickup, drop-off, Flex); kept when absent. */
+    logisticType?: string | null;
     /** The marketplace's dates; a reading without them keeps the ones already known. */
     estimatedDeliveryAt?: Date | null;
     dispatchDeadlineAt?: Date | null;
