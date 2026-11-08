@@ -1,13 +1,6 @@
+import { MARKETPLACE_COLORS } from "@/components/stores/marketplace-colors";
 import { channelLabel } from "@/features/supplier-panel/orders/channel-labels";
 import { shippingMethod } from "@/features/supplier-panel/orders/shipping-methods";
-
-/** Each channel in its own colors, so the supplier tells them apart at a glance. */
-const CHANNEL_COLORS: Readonly<Record<string, string>> = {
-  mercado_livre: "bg-[#ffe600] text-[#2d3277]",
-  // A deeper orange than the brand's keeps white text readable (WCAG AA, 4.5:1).
-  shopee: "bg-[#c4381c] text-white",
-  tiktok_shop: "bg-black text-white dark:bg-white dark:text-black",
-};
 
 /** "Mercado Livre · Coleta": where the sale came from and how the parcel leaves. */
 export function ChannelLine({
@@ -18,7 +11,7 @@ export function ChannelLine({
   logisticType: string | null;
 }) {
   const method = shippingMethod(logisticType);
-  const colors = CHANNEL_COLORS[marketplace] ?? "bg-muted text-foreground";
+  const colors = MARKETPLACE_COLORS[marketplace]?.badge ?? "bg-muted text-foreground";
   return (
     <p className="flex flex-wrap items-center gap-x-1.5 gap-y-1 text-footnote font-medium">
       <span
