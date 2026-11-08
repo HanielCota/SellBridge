@@ -16,7 +16,7 @@ import {
 import { Skeleton } from "@/components/ui/skeleton";
 import { isShippingBlocked } from "@/features/fulfillment/shipping-block";
 import { displayBuyerName } from "@/features/orders/buyer-name";
-import { channelLabel } from "@/features/supplier-panel/orders/channel-labels";
+import { channelLabel, channelSource } from "@/features/supplier-panel/orders/channel-labels";
 import { supplierPanelShipmentQueryOptions } from "@/features/supplier-panel/orders/orders.queries";
 import { useSupplierShipmentUpdate } from "@/features/supplier-panel/orders/use-order-actions";
 import { errorMessage } from "@/lib/errors";
@@ -126,7 +126,7 @@ function PanelBody({ supplierId, shipmentId }: { supplierId: string; shipmentId:
   const tracked = DISPATCHED_FULFILLMENT_STATUSES.includes(query.data.status);
   // Before dispatch only the marketplace writes the tracking: people type it when shipping.
   const trackingFromChannel =
-    tracked || query.data.trackingCode === null ? null : channelLabel(query.data.marketplace);
+    tracked || query.data.trackingCode === null ? null : channelSource(query.data.marketplace);
   return (
     <div className="space-y-4">
       <OrderFacts shipment={query.data} />

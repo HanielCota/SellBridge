@@ -50,7 +50,7 @@ export interface ShipmentView {
   carrier: string | null;
   trackingCode: string | null;
   trackingUrl: string | null;
-  /** The sales channel whose own data filled carrier and tracking before dispatch. */
+  /** Where carrier and tracking came from before dispatch, e.g. "do Mercado Livre". */
   trackingFromChannel?: string | null;
   /** The marketplace's dates and what is late; absent on the supplier link. */
   estimatedDeliveryAt?: Date | null;
@@ -245,7 +245,7 @@ function ShipmentActions({
       update.carrier === (shipment.carrier ?? "") &&
       update.trackingCode === shipment.trackingCode ? (
         <p className="text-footnote text-muted-foreground">
-          Veio do {shipment.trackingFromChannel}: confira e marque como enviado. Não precisa digitar
+          Veio {shipment.trackingFromChannel}: confira e marque como enviado. Não precisa digitar
           nada.
         </p>
       ) : null}
