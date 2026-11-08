@@ -4,7 +4,8 @@ import { shippingMethod } from "@/features/supplier-panel/orders/shipping-method
 /** Each channel in its own colors, so the supplier tells them apart at a glance. */
 const CHANNEL_COLORS: Readonly<Record<string, string>> = {
   mercado_livre: "bg-[#ffe600] text-[#2d3277]",
-  shopee: "bg-[#ee4d2d] text-white",
+  // A deeper orange than the brand's keeps white text readable (WCAG AA, 4.5:1).
+  shopee: "bg-[#c4381c] text-white",
   tiktok_shop: "bg-black text-white dark:bg-white dark:text-black",
 };
 
