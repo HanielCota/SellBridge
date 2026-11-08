@@ -239,7 +239,11 @@ function ShipmentActions({
         <p className="text-sm text-muted-foreground">{DELIVERY_CONFIRMED_BY}</p>
       ) : null}
       {next === "shipped" ? <DispatchFields update={update} /> : null}
-      {next === "shipped" && shipment.trackingFromChannel != null ? (
+      {/* Only while the fields still hold what the channel sent: an edited code is the supplier's. */}
+      {next === "shipped" &&
+      shipment.trackingFromChannel != null &&
+      update.carrier === (shipment.carrier ?? "") &&
+      update.trackingCode === shipment.trackingCode ? (
         <p className="text-footnote text-muted-foreground">
           Veio do {shipment.trackingFromChannel}: confira e marque como enviado. Não precisa digitar
           nada.

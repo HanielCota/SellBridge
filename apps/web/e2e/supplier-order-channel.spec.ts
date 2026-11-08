@@ -123,7 +123,10 @@ test("o fornecedor vê o canal e a forma de envio, e despacha sem digitar o rast
   await expect(dialog.getByText("Forma de envio")).toBeVisible();
   await expect(dialog.getByText("Coleta: o Mercado Livre busca")).toBeVisible();
   await expect(dialog.getByLabel("Código de rastreio")).toHaveValue(TRACKING);
-  await expect(
-    dialog.getByText("Veio do Mercado Livre: confira e marque como enviado."),
-  ).toBeVisible();
+  const hint = dialog.getByText("Veio do Mercado Livre: confira e marque como enviado.");
+  await expect(hint).toBeVisible();
+
+  // A code the supplier types is theirs: the hint no longer says it came from the channel.
+  await dialog.getByLabel("Código de rastreio").fill("BR123456789XX");
+  await expect(hint).toBeHidden();
 });
