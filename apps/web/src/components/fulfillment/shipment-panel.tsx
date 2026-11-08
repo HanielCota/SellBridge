@@ -50,6 +50,8 @@ export interface ShipmentView {
   carrier: string | null;
   trackingCode: string | null;
   trackingUrl: string | null;
+  /** The sales channel whose own data filled carrier and tracking before dispatch. */
+  trackingFromChannel?: string | null;
   /** The marketplace's dates and what is late; absent on the supplier link. */
   estimatedDeliveryAt?: Date | null;
   dispatchDeadlineAt?: Date | null;
@@ -237,6 +239,12 @@ function ShipmentActions({
         <p className="text-sm text-muted-foreground">{DELIVERY_CONFIRMED_BY}</p>
       ) : null}
       {next === "shipped" ? <DispatchFields update={update} /> : null}
+      {next === "shipped" && shipment.trackingFromChannel != null ? (
+        <p className="text-footnote text-muted-foreground">
+          Veio do {shipment.trackingFromChannel}: confira e marque como enviado. Não precisa digitar
+          nada.
+        </p>
+      ) : null}
       <Field
         label="Observação da etapa (opcional)"
         value={update.note}
