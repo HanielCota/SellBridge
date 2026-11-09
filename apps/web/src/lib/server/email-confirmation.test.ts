@@ -1,5 +1,46 @@
 import { describe, expect, it } from "vitest";
-import { mustConfirmBeforeSession } from "./email-confirmation.ts";
+import { createSendCooldown, mustConfirmBeforeSession } from "./email-confirmation.ts";
+
+describe("createSendCooldown", () => {
+  it("sends one link per address per minute", () => {
+    const cooldown = createSendCooldown();
+
+    const first = cooldown.tryStart("Dono@Exemplo.com.br", 0);
+    const repeated = cooldown.tryStart("dono@exemplo.com.br ", 59_999);
+
+    expect([first, repeated]).toEqual([true, false]);
+  });
+
+  it("sends again once the minute has passed", () => {
+    const cooldown = createSendCooldown();
+    cooldown.tryStart("dono@exemplo.com.br", 0);
+
+    const later = cooldown.tryStart("dono@exemplo.com.br", 60_000);
+
+    expect(later).toBe(true);
+  });
+
+  it("keeps other addresses independent", () => {
+    const cooldown = createSendCooldown();
+    cooldown.tryStart("dono@exemplo.com.br", 0);
+
+    const other = cooldown.tryStart("outra@exemplo.com.br", 1);
+
+    expect(other).toBe(true);
+  });
+
+  it("forgets the oldest address when the cap is reached", () => {
+    const cooldown = createSendCooldown();
+    cooldown.tryStart("primeira@exemplo.com.br", 0);
+    for (let index = 0; index < 1_000; index += 1) {
+      cooldown.tryStart(`conta-${index}@exemplo.com.br`, 1);
+    }
+
+    const firstAgain = cooldown.tryStart("primeira@exemplo.com.br", 2);
+
+    expect(firstAgain).toBe(true);
+  });
+});
 
 describe("mustConfirmBeforeSession", () => {
   it("holds the session of a new sign-up whose e-mail is not confirmed", () => {

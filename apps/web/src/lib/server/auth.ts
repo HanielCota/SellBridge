@@ -46,9 +46,11 @@ import {
 import { logger } from "@sellbridge/shared/logger";
 import { AppError } from "@sellbridge/shared/errors";
 import { teamInviteEmail } from "../../features/admin/team-invite-email.ts";
-import { CONFIRMATION_CALLBACK_URL } from "../../features/auth/pending-confirmation.ts";
-import { EMAIL_NOT_CONFIRMED_CODE } from "../../features/auth/sign-in-error.ts";
-import { mustConfirmBeforeSession } from "./email-confirmation.ts";
+import {
+  CONFIRMATION_CALLBACK_URL,
+  EMAIL_NOT_CONFIRMED_CODE,
+} from "../../features/auth/sign-in-error.ts";
+import { createSendCooldown, mustConfirmBeforeSession } from "./email-confirmation.ts";
 import { parseSignUpBody } from "./sign-up-body.ts";
 import { isLeakedPasswordCheckOn, leakedPasswordCheck } from "./leaked-password";
 import {
@@ -308,8 +310,17 @@ async function sendExistingAccountEmail({ user }: { user: { email: string } }) {
   await sendEmail({ to: user.email, ...email });
 }
 
+const E_MAIL_SIGN_IN_PATH = "/sign-in/email";
+
+const confirmationLinkCooldown = createSendCooldown();
+
 /** The refusal below must happen even when the mailer is down: the failure is only logged. */
 async function sendConfirmationLink(email: string): Promise<void> {
+  // Server calls skip Better Auth's rate limit, so repeated sign-ins must not flood the mailbox.
+  if (!confirmationLinkCooldown.tryStart(email, Date.now())) {
+    logger.info("auth.confirmation_link_cooling_down");
+    return;
+  }
   try {
     await auth.api.sendVerificationEmail({
       body: { email, callbackURL: CONFIRMATION_CALLBACK_URL },
@@ -560,8 +571,12 @@ export const auth = betterAuth({
     },
     session: {
       create: {
-        before: async (session) => {
-          await refuseUnconfirmedSession(session);
+        before: async (session, context) => {
+          // Only a password sign-in can open an unconfirmed new account: the link marks it
+          // confirmed first, Google never links to it and the sign-up opens no session.
+          if (context !== null && context.path === E_MAIL_SIGN_IN_PATH) {
+            await refuseUnconfirmedSession(session);
+          }
           const organizationId = await findFirstOrganizationId(session.userId);
           return { data: { ...session, activeOrganizationId: organizationId } };
         },

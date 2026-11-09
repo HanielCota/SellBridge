@@ -18,3 +18,32 @@ export function mustConfirmBeforeSession(
   }
   return account.emailConfirmationRequired && !account.emailVerified;
 }
+
+const SEND_COOLDOWN_IN_MS = 60_000;
+const MAX_TRACKED_ADDRESSES = 1_000;
+
+/**
+ * Lets one confirmation link per address go out per minute. Kept in memory and capped: a restart
+ * only allows one extra e-mail, and the oldest addresses are dropped when the cap is reached.
+ */
+export function createSendCooldown() {
+  const lastSentAt = new Map<string, number>();
+  return {
+    tryStart(email: string, nowInMs: number): boolean {
+      const key = email.trim().toLowerCase();
+      const previous = lastSentAt.get(key);
+      if (previous !== undefined && nowInMs - previous < SEND_COOLDOWN_IN_MS) {
+        return false;
+      }
+      lastSentAt.delete(key);
+      if (lastSentAt.size >= MAX_TRACKED_ADDRESSES) {
+        const oldest = lastSentAt.keys().next();
+        if (oldest.done !== true) {
+          lastSentAt.delete(oldest.value);
+        }
+      }
+      lastSentAt.set(key, nowInMs);
+      return true;
+    },
+  };
+}
