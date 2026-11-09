@@ -93,13 +93,16 @@ async function submitSignUp(page: Page, path: string, input: { name: string; ema
   await expect(page).toHaveURL(/\/confirme-seu-email/);
 }
 
-/** Signs a just-created account in on its setup, as opening the confirmation link does. */
+/**
+ * Signs a just-created account in through the setup, as opening the confirmation link does. The
+ * setup may send it on (a new supplier goes to its brand page), so this only waits to leave /login.
+ */
 export async function enterNewAccount(page: Page, email: string): Promise<void> {
   await gotoHydrated(page, "/login?redirect=/onboarding");
   await page.getByLabel("E-mail").fill(email);
   await page.getByLabel("Senha", { exact: true }).fill(SIGN_UP_PASSWORD);
   await page.getByRole("button", { name: "Entrar", exact: true }).click();
-  await expect(page).toHaveURL(/^[^?]*\/onboarding(?:[?#]|$)/);
+  await expect(page).not.toHaveURL(/\/login/);
 }
 
 /**

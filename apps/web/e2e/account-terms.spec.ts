@@ -51,6 +51,7 @@ test("o cadastro pede o aceite dos termos e o grava; sem aceite, o app pede ante
   await expect.poll(async () => acceptedVersions(email)).toHaveLength(1);
   await confirmEmail(email);
   await enterNewAccount(page, email);
+  await expect(page).toHaveURL(/^[^?]*\/onboarding(?:[?#]|$)/);
 
   // As an account from Google or before a new version of the terms: nothing accepted yet.
   await database
