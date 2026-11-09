@@ -1,5 +1,17 @@
 import { describe, expect, it } from "vitest";
-import { signInErrorMessage } from "./sign-in-error";
+import { isUnconfirmedEmail, signInErrorMessage } from "./sign-in-error";
+
+describe("isUnconfirmedEmail", () => {
+  it("recognizes an account that still has to confirm its e-mail", () => {
+    expect(isUnconfirmedEmail({ status: 403, code: "EMAIL_NOT_VERIFIED" })).toBe(true);
+  });
+
+  it("leaves a wrong password and a blocked account to the error message", () => {
+    expect(isUnconfirmedEmail({ status: 401, code: "INVALID_EMAIL_OR_PASSWORD" })).toBe(false);
+    expect(isUnconfirmedEmail({ status: 403, code: "BANNED_USER" })).toBe(false);
+    expect(isUnconfirmedEmail({ status: 403 })).toBe(false);
+  });
+});
 
 // Regression (25/10/2026, idioma-pt): the login showed "E-mail ou senha incorretos." for every
 // error, also too many attempts, a blocked account and a server that did not answer.

@@ -28,6 +28,7 @@ import { Route as AppOnboardingRouteImport } from './routes/_app/onboarding'
 import { Route as AppPerfilRouteImport } from './routes/_app/perfil'
 import { Route as AppProductsRouteImport } from './routes/_app/products'
 import { Route as AuthCadastroRouteImport } from './routes/_auth/cadastro'
+import { Route as AuthConfirmeSeuEmailRouteImport } from './routes/_auth/confirme-seu-email'
 import { Route as AuthEsqueciSenhaRouteImport } from './routes/_auth/esqueci-senha'
 import { Route as AuthLoginRouteImport } from './routes/_auth/login'
 import { Route as AuthRedefinirSenhaRouteImport } from './routes/_auth/redefinir-senha'
@@ -213,6 +214,11 @@ const AppProductsRoute = AppProductsRouteImport.update({
 const AuthCadastroRoute = AuthCadastroRouteImport.update({
   id: '/cadastro',
   path: '/cadastro',
+  getParentRoute: () => AuthRouteRoute,
+} as any)
+const AuthConfirmeSeuEmailRoute = AuthConfirmeSeuEmailRouteImport.update({
+  id: '/confirme-seu-email',
+  path: '/confirme-seu-email',
   getParentRoute: () => AuthRouteRoute,
 } as any)
 const AuthEsqueciSenhaRoute = AuthEsqueciSenhaRouteImport.update({
@@ -743,6 +749,7 @@ export interface FileRoutesByFullPath {
   '/perfil': typeof AppPerfilRoute
   '/products': typeof AppProductsRoute
   '/cadastro': typeof AuthCadastroRoute
+  '/confirme-seu-email': typeof AuthConfirmeSeuEmailRoute
   '/esqueci-senha': typeof AuthEsqueciSenhaRoute
   '/login': typeof AuthLoginRoute
   '/redefinir-senha': typeof AuthRedefinirSenhaRoute
@@ -854,6 +861,7 @@ export interface FileRoutesByTo {
   '/perfil': typeof AppPerfilRoute
   '/products': typeof AppProductsRoute
   '/cadastro': typeof AuthCadastroRoute
+  '/confirme-seu-email': typeof AuthConfirmeSeuEmailRoute
   '/esqueci-senha': typeof AuthEsqueciSenhaRoute
   '/login': typeof AuthLoginRoute
   '/redefinir-senha': typeof AuthRedefinirSenhaRoute
@@ -967,6 +975,7 @@ export interface FileRoutesById {
   '/_app/perfil': typeof AppPerfilRoute
   '/_app/products': typeof AppProductsRoute
   '/_auth/cadastro': typeof AuthCadastroRoute
+  '/_auth/confirme-seu-email': typeof AuthConfirmeSeuEmailRoute
   '/_auth/esqueci-senha': typeof AuthEsqueciSenhaRoute
   '/_auth/login': typeof AuthLoginRoute
   '/_auth/redefinir-senha': typeof AuthRedefinirSenhaRoute
@@ -1081,6 +1090,7 @@ export interface FileRouteTypes {
     | '/perfil'
     | '/products'
     | '/cadastro'
+    | '/confirme-seu-email'
     | '/esqueci-senha'
     | '/login'
     | '/redefinir-senha'
@@ -1192,6 +1202,7 @@ export interface FileRouteTypes {
     | '/perfil'
     | '/products'
     | '/cadastro'
+    | '/confirme-seu-email'
     | '/esqueci-senha'
     | '/login'
     | '/redefinir-senha'
@@ -1304,6 +1315,7 @@ export interface FileRouteTypes {
     | '/_app/perfil'
     | '/_app/products'
     | '/_auth/cadastro'
+    | '/_auth/confirme-seu-email'
     | '/_auth/esqueci-senha'
     | '/_auth/login'
     | '/_auth/redefinir-senha'
@@ -1588,6 +1600,13 @@ declare module '@tanstack/react-router' {
       path: '/cadastro'
       fullPath: '/cadastro'
       preLoaderRoute: typeof AuthCadastroRouteImport
+      parentRoute: typeof AuthRouteRoute
+    }
+    '/_auth/confirme-seu-email': {
+      id: '/_auth/confirme-seu-email'
+      path: '/confirme-seu-email'
+      fullPath: '/confirme-seu-email'
+      preLoaderRoute: typeof AuthConfirmeSeuEmailRouteImport
       parentRoute: typeof AuthRouteRoute
     }
     '/_auth/esqueci-senha': {
@@ -2406,6 +2425,7 @@ const AppRouteRouteWithChildren = AppRouteRoute._addFileChildren(
 
 interface AuthRouteRouteChildren {
   AuthCadastroRoute: typeof AuthCadastroRoute
+  AuthConfirmeSeuEmailRoute: typeof AuthConfirmeSeuEmailRoute
   AuthEsqueciSenhaRoute: typeof AuthEsqueciSenhaRoute
   AuthLoginRoute: typeof AuthLoginRoute
   AuthRedefinirSenhaRoute: typeof AuthRedefinirSenhaRoute
@@ -2414,6 +2434,7 @@ interface AuthRouteRouteChildren {
 
 const AuthRouteRouteChildren: AuthRouteRouteChildren = {
   AuthCadastroRoute: AuthCadastroRoute,
+  AuthConfirmeSeuEmailRoute: AuthConfirmeSeuEmailRoute,
   AuthEsqueciSenhaRoute: AuthEsqueciSenhaRoute,
   AuthLoginRoute: AuthLoginRoute,
   AuthRedefinirSenhaRoute: AuthRedefinirSenhaRoute,

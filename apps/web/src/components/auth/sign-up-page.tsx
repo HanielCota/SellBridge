@@ -20,7 +20,8 @@ import { liveFieldBindings, submitHandler } from "@/components/form/form-binding
 import { FloatingPasswordField, FloatingTextField } from "@/components/form/floating-field";
 import { InlineFormError } from "@/components/form/inline-form-error";
 import { rememberSignUpProfileFn } from "@/features/auth/sign-up-profile.functions";
-import { acceptTermsFn } from "@/features/onboarding/terms.functions";
+import { CONFIRMATION_CALLBACK_URL } from "@/components/auth/resend-confirmation-button";
+import { rememberPendingConfirmation } from "@/features/auth/pending-confirmation";
 import { authClient } from "@/lib/auth-client";
 import { succeedsOrReports } from "@/lib/report-route-error";
 
@@ -53,17 +54,6 @@ function signUpErrorMessage(code: string | undefined): string {
   return SIGN_UP_ERRORS[code] ?? GENERIC_SIGN_UP_ERROR;
 }
 
-/**
- * Stores the box ticked on sign-up with version and date (item 26.a). If it fails, the account
- * still exists and the app asks the terms again on the next page (`needsTermsAcceptance`).
- */
-async function recordAcceptance(): Promise<void> {
-  await succeedsOrReports(
-    async () => acceptTermsFn({ data: { version: TERMS_VERSION } }),
-    "/_auth/cadastro",
-  );
-}
-
 function useSignUpForm(profileKind: ProfileKind) {
   const navigate = useNavigate();
   const [submitError, setSubmitError] = useState<string | null>(null);
@@ -84,13 +74,20 @@ function useSignUpForm(profileKind: ProfileKind) {
         setSubmitError(GENERIC_SIGN_UP_ERROR);
         return;
       }
-      const result = await authClient.signUp.email(account);
+      // The server stores the ticked box with the account (item 26.a): there is no session yet.
+      // `acceptedTermsVersion` is read by the server guard, not a user field the client knows.
+      const signUpBody = {
+        ...account,
+        acceptedTermsVersion: TERMS_VERSION,
+        callbackURL: CONFIRMATION_CALLBACK_URL,
+      };
+      const result = await authClient.signUp.email(signUpBody);
       if (result.error) {
         setSubmitError(signUpErrorMessage(result.error.code));
         return;
       }
-      await recordAcceptance();
-      await navigate({ to: "/onboarding" });
+      rememberPendingConfirmation(account.email);
+      await navigate({ to: "/confirme-seu-email" });
     },
   });
 

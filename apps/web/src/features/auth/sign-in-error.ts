@@ -11,6 +11,17 @@ const FIRST_SERVER_ERROR = 500;
 
 const WRONG_CREDENTIALS = "E-mail ou senha incorretos.";
 
+/** Better Auth's code for an account that must confirm its e-mail before it gets a session. */
+export const EMAIL_NOT_CONFIRMED_CODE = "EMAIL_NOT_VERIFIED";
+
+/**
+ * The password was right but the e-mail is not confirmed yet: the login shows the notice with the
+ * new link instead of an error. The server only answers this after checking the password.
+ */
+export function isUnconfirmedEmail(failure: SignInFailure): boolean {
+  return failure.code === EMAIL_NOT_CONFIRMED_CODE;
+}
+
 /** Codes Better Auth only returns once the password was right, so naming them reveals nothing. */
 const MESSAGE_BY_CODE: Readonly<Record<string, string>> = {
   BANNED_USER: "Esta conta está bloqueada. Fale com o suporte para entender o motivo.",

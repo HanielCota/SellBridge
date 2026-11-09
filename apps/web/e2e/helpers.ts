@@ -12,6 +12,17 @@ export async function confirmEmail(email: string): Promise<void> {
 }
 
 /**
+ * Turns a fresh sign-up into an account from before the confirmation rule: it signs in without
+ * confirming and keeps the "Confirme seu e-mail" step of the setup.
+ */
+export async function makeAccountPredateConfirmation(email: string): Promise<void> {
+  await database
+    .update(user)
+    .set({ emailConfirmationRequired: false })
+    .where(eq(user.email, email));
+}
+
+/**
  * Waits until React has hydrated the current document. Needed after any full page load:
  * before hydration a click submits the form natively and the page just reloads.
  */
@@ -71,9 +82,30 @@ export function uniqueEmail(prefix = "e2e"): string {
 /** The password every account made by `signUp` gets, for signing in again. */
 export const SIGN_UP_PASSWORD = "senha-segura-123";
 
+/** Fills and sends a sign-up page; the account waits for its e-mail on "Confira seu e-mail". */
+async function submitSignUp(page: Page, path: string, input: { name: string; email: string }) {
+  await gotoHydrated(page, path);
+  await page.getByLabel("Nome").fill(input.name);
+  await page.getByLabel("E-mail").fill(input.email);
+  await page.getByLabel("Senha", { exact: true }).fill(SIGN_UP_PASSWORD);
+  await page.getByLabel(/Li e aceito os termos de uso/).check();
+  await page.getByRole("button", { name: "Criar conta" }).click();
+  await expect(page).toHaveURL(/\/confirme-seu-email/);
+}
+
+/** Signs a just-created account in on its setup, as opening the confirmation link does. */
+export async function enterNewAccount(page: Page, email: string): Promise<void> {
+  await gotoHydrated(page, "/login?redirect=/onboarding");
+  await page.getByLabel("E-mail").fill(email);
+  await page.getByLabel("Senha", { exact: true }).fill(SIGN_UP_PASSWORD);
+  await page.getByRole("button", { name: "Entrar", exact: true }).click();
+  await expect(page).toHaveURL(/^[^?]*\/onboarding(?:[?#]|$)/);
+}
+
 /**
- * Creates an account through /cadastro. The e-mail comes back confirmed, since a new store waits
- * for it (item 26.b); `confirm: false` keeps it pending.
+ * Creates an account through /cadastro and enters it on the setup with the e-mail confirmed, since
+ * a new store waits for it (item 26.b). `confirm: false` gives an account from before the
+ * confirmation rule instead: signed in with the e-mail still pending.
  */
 export async function signUp(
   page: Page,
@@ -81,29 +113,23 @@ export async function signUp(
   options: { confirm?: boolean } = {},
 ): Promise<string> {
   const email = uniqueEmail();
-  await gotoHydrated(page, "/cadastro");
-  await page.getByLabel("Nome").fill(name);
-  await page.getByLabel("E-mail").fill(email);
-  await page.getByLabel("Senha", { exact: true }).fill(SIGN_UP_PASSWORD);
-  await page.getByLabel(/Li e aceito os termos de uso/).check();
-  await page.getByRole("button", { name: "Criar conta" }).click();
-  await expect(page).not.toHaveURL(/\/cadastro/);
+  await submitSignUp(page, "/cadastro", { name, email });
+  if (options.confirm === false) {
+    await makeAccountPredateConfirmation(email);
+  }
   if (options.confirm !== false) {
     await confirmEmail(email);
   }
+  await enterNewAccount(page, email);
   return email;
 }
 
-/** Creates an account through /cadastro/fornecedor, which opens on "Quero fornecer". */
+/** Creates a confirmed account through /cadastro/fornecedor, which opens on "Quero fornecer". */
 export async function signUpAsSupplier(page: Page, name: string): Promise<string> {
   const email = uniqueEmail("fornecedor");
-  await gotoHydrated(page, "/cadastro/fornecedor");
-  await page.getByLabel("Nome").fill(name);
-  await page.getByLabel("E-mail").fill(email);
-  await page.getByLabel("Senha", { exact: true }).fill(SIGN_UP_PASSWORD);
-  await page.getByLabel(/Li e aceito os termos de uso/).check();
-  await page.getByRole("button", { name: "Criar conta" }).click();
-  await expect(page).not.toHaveURL(/\/cadastro/);
+  await submitSignUp(page, "/cadastro/fornecedor", { name, email });
+  await confirmEmail(email);
+  await enterNewAccount(page, email);
   return email;
 }
 
