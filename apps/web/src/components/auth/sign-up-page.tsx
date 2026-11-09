@@ -20,10 +20,8 @@ import { liveFieldBindings, submitHandler } from "@/components/form/form-binding
 import { FloatingPasswordField, FloatingTextField } from "@/components/form/floating-field";
 import { InlineFormError } from "@/components/form/inline-form-error";
 import { rememberSignUpProfileFn } from "@/features/auth/sign-up-profile.functions";
-import {
-  CONFIRMATION_CALLBACK_URL,
-  rememberPendingConfirmation,
-} from "@/features/auth/pending-confirmation";
+import { rememberPendingConfirmation } from "@/features/auth/pending-confirmation";
+import { CONFIRMATION_CALLBACK_URL } from "@/features/auth/sign-in-error";
 import { authClient } from "@/lib/auth-client";
 import { succeedsOrReports } from "@/lib/report-route-error";
 

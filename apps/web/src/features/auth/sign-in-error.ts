@@ -11,6 +11,9 @@ const FIRST_SERVER_ERROR = 500;
 
 const WRONG_CREDENTIALS = "E-mail ou senha incorretos.";
 
+/** Where the confirmation link lands: the account opens on its setup. */
+export const CONFIRMATION_CALLBACK_URL = "/onboarding";
+
 /** Better Auth's code for an account that must confirm its e-mail before it gets a session. */
 export const EMAIL_NOT_CONFIRMED_CODE = "EMAIL_NOT_VERIFIED";
 
