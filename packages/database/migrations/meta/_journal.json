@@ -428,6 +428,13 @@
       "when": 1794157300953,
       "tag": "0060_shipment_logistic_type",
       "breakpoints": true
+    },
+    {
+      "idx": 61,
+      "version": "7",
+      "when": 1794252828556,
+      "tag": "0061_email_confirmation_required",
+      "breakpoints": true
     }
   ]
 }

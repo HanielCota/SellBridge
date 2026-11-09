@@ -7,6 +7,11 @@ export const user = pgTable("user", {
   name: text("name").notNull(),
   email: text("email").notNull().unique(),
   emailVerified: boolean("email_verified").default(false).notNull(),
+  /**
+   * Set on e-mail and password sign-ups: no session until the e-mail is confirmed. Accounts from
+   * before this rule, Google and the team keep false and sign in as they always did.
+   */
+  emailConfirmationRequired: boolean("email_confirmation_required").default(false).notNull(),
   image: text("image"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at")
