@@ -9,8 +9,8 @@ export function UnconfirmedEmailNotice({ email }: { email: string }) {
       <strong className="font-medium text-foreground">Falta confirmar seu e-mail</strong>
       <span className="text-sm text-muted-foreground">
         Acabamos de mandar um link novo para{" "}
-        <strong className="font-medium break-all text-foreground">{email}</strong>. Abra o e-mail e
-        toque em Confirmar e-mail para entrar.
+        <strong className="font-medium wrap-anywhere text-foreground">{email}</strong>. Abra o
+        e-mail e toque em Confirmar e-mail para entrar.
       </span>
       <span className="flex flex-wrap items-center gap-x-1 text-sm text-muted-foreground">
         Não chegou?

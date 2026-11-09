@@ -44,7 +44,7 @@ function CheckEmailHeader({ email }: { email: string | null }) {
         ) : (
           <>
             Enviamos um link de confirmação para{" "}
-            <strong className="font-medium break-all text-foreground">{email}</strong>.
+            <strong className="font-medium wrap-anywhere text-foreground">{email}</strong>.
           </>
         )}
       </p>
@@ -79,7 +79,11 @@ function CheckEmailPage() {
           Não chegou em 2 minutos? Olhe no spam ou na aba Promoções. O link vale por 1 hora.
         </p>
         {email === null ? null : (
-          <ResendConfirmationButton email={email} variant="outline" className="h-13 w-full" />
+          <ResendConfirmationButton
+            email={email}
+            variant="outline"
+            className="h-13 w-full text-body"
+          />
         )}
         <p className="text-center text-subhead text-muted-foreground">
           E-mail errado?{" "}
