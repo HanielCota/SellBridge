@@ -78,7 +78,15 @@ function CheckEmailPage() {
         <p className="text-subhead text-muted-foreground">
           Não chegou em 2 minutos? Olhe no spam ou na aba Promoções. O link vale por 1 hora.
         </p>
-        {email === null ? null : (
+        {email === null ? (
+          <p className="text-subhead text-muted-foreground">
+            Precisa de um link novo?{" "}
+            <Link to="/login" className={LINK_CLASS_NAME}>
+              Entre com seu e-mail e senha
+            </Link>{" "}
+            e mandamos outro na hora.
+          </p>
+        ) : (
           <ResendConfirmationButton
             email={email}
             variant="outline"

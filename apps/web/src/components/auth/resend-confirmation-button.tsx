@@ -1,10 +1,8 @@
 import { useMutation } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
+import { CONFIRMATION_CALLBACK_URL } from "@/features/auth/pending-confirmation";
 import { authClient } from "@/lib/auth-client";
-
-/** Where the confirmation link lands: the account opens on its setup. */
-export const CONFIRMATION_CALLBACK_URL = "/onboarding";
 
 /** Sends the confirmation link again without a session (the account has none until confirmed). */
 export function ResendConfirmationButton({

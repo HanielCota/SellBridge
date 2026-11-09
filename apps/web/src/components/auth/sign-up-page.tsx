@@ -20,8 +20,10 @@ import { liveFieldBindings, submitHandler } from "@/components/form/form-binding
 import { FloatingPasswordField, FloatingTextField } from "@/components/form/floating-field";
 import { InlineFormError } from "@/components/form/inline-form-error";
 import { rememberSignUpProfileFn } from "@/features/auth/sign-up-profile.functions";
-import { CONFIRMATION_CALLBACK_URL } from "@/components/auth/resend-confirmation-button";
-import { rememberPendingConfirmation } from "@/features/auth/pending-confirmation";
+import {
+  CONFIRMATION_CALLBACK_URL,
+  rememberPendingConfirmation,
+} from "@/features/auth/pending-confirmation";
 import { authClient } from "@/lib/auth-client";
 import { succeedsOrReports } from "@/lib/report-route-error";
 
@@ -38,11 +40,10 @@ const PAGE_COPY: Record<ProfileKind, { description: string }> = {
 };
 
 const GENERIC_SIGN_UP_ERROR = "Não foi possível criar sua conta. Tente novamente.";
-const EXISTING_ACCOUNT_MESSAGE = "Já existe uma conta com este e-mail.";
 
+// No "account already exists" message: the sign-up answers like a new one and the mailbox owner
+// is told by e-mail (`onExistingUserSignUp`), so the page never reveals which e-mails exist.
 const SIGN_UP_ERRORS: Record<string, string> = {
-  USER_ALREADY_EXISTS: EXISTING_ACCOUNT_MESSAGE,
-  USER_ALREADY_EXISTS_USE_ANOTHER_EMAIL: EXISTING_ACCOUNT_MESSAGE,
   PASSWORD_TOO_SHORT: "A senha é muito curta.",
   [PASSWORD_COMPROMISED_CODE]: PASSWORD_COMPROMISED_MESSAGE,
 };

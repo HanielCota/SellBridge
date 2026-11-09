@@ -5,6 +5,9 @@
 
 const PENDING_EMAIL_KEY = "sellbridge.pending-confirmation-email";
 
+/** Where the confirmation link lands: the account opens on its setup. */
+export const CONFIRMATION_CALLBACK_URL = "/onboarding";
+
 /** Called right after the sign-up, before opening "Confira seu e-mail". */
 export function rememberPendingConfirmation(email: string): void {
   try {

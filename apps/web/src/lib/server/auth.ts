@@ -46,6 +46,7 @@ import {
 import { logger } from "@sellbridge/shared/logger";
 import { AppError } from "@sellbridge/shared/errors";
 import { teamInviteEmail } from "../../features/admin/team-invite-email.ts";
+import { CONFIRMATION_CALLBACK_URL } from "../../features/auth/pending-confirmation.ts";
 import { EMAIL_NOT_CONFIRMED_CODE } from "../../features/auth/sign-in-error.ts";
 import { mustConfirmBeforeSession } from "./email-confirmation.ts";
 import { parseSignUpBody } from "./sign-up-body.ts";
@@ -307,14 +308,11 @@ async function sendExistingAccountEmail({ user }: { user: { email: string } }) {
   await sendEmail({ to: user.email, ...email });
 }
 
-/** Opening the link signs the person in and lands on the setup (`autoSignInAfterVerification`). */
-const CONFIRMATION_CALLBACK_PATH = "/onboarding";
-
 /** The refusal below must happen even when the mailer is down: the failure is only logged. */
 async function sendConfirmationLink(email: string): Promise<void> {
   try {
     await auth.api.sendVerificationEmail({
-      body: { email, callbackURL: CONFIRMATION_CALLBACK_PATH },
+      body: { email, callbackURL: CONFIRMATION_CALLBACK_URL },
     });
   } catch (error) {
     logger.error("auth.confirmation_link_failed", { error });
@@ -356,7 +354,14 @@ async function recordSignUpTerms(userId: string, body: unknown): Promise<void> {
     logger.error("terms.sign_up_body_invalid", { userId });
     throw new AppError("VALIDATION", "Não foi possível guardar o aceite dos termos.");
   }
-  await recordTermsAcceptance(database, userId, parsed.data.acceptedTermsVersion);
+  try {
+    await recordTermsAcceptance(database, userId, parsed.data.acceptedTermsVersion);
+  } catch (error) {
+    // The account already exists: failing here would only hide it from the person.
+    // `needsTermsAcceptance` asks the terms again after the first sign-in.
+    logger.error("terms.sign_up_record_failed", { userId, error });
+    return;
+  }
   logger.info("terms.accepted", { userId, version: parsed.data.acceptedTermsVersion });
 }
 
