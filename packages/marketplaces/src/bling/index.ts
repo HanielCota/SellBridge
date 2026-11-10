@@ -6,6 +6,13 @@ export {
   type BlingNewProduct,
 } from "./client.ts";
 export {
+  type BlingAddress,
+  type BlingInvoice,
+  type BlingNewContact,
+  type BlingNewSaleOrder,
+  type BlingSaleOrderItem,
+} from "./invoices.ts";
+export {
   readBlingCatalog,
   type BlingCatalogProgress,
   type BlingCatalogRead,

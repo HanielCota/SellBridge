@@ -35,9 +35,26 @@ async function readJson(response: Response): Promise<unknown> {
   }
 }
 
+/** Bling's words for what is wrong: each field's message, else the error's description. */
+function blingIssues(error: z.infer<typeof blingErrorResponseSchema>["error"]): string[] {
+  const fieldMessages = (error.fields ?? []).flatMap((field) => [
+    field.msg,
+    ...(field.collection ?? []).map((line) => line.msg),
+  ]);
+  const messages = fieldMessages
+    .map((message) => message.trim())
+    .filter((message) => message !== "");
+  if (messages.length > 0) {
+    return messages;
+  }
+  const description = error.description?.trim() ?? "";
+  return description === "" ? [] : [description];
+}
+
 function blingFailure(response: Response, body: unknown): Error {
   const parsed = blingErrorResponseSchema.safeParse(body);
   const type = parsed.success ? parsed.data.error.type : null;
+  const issues = parsed.success ? blingIssues(parsed.data.error) : [];
   if (response.status === 401) {
     return marketplaceAuthError(RECONNECT_MESSAGE);
   }
@@ -53,6 +70,7 @@ function blingFailure(response: Response, body: unknown): Error {
     retryable,
     status: response.status,
     causes: type === null ? [] : [type],
+    issues,
   });
 }
 
