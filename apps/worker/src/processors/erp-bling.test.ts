@@ -1,6 +1,7 @@
 import { schema } from "@sellbridge/database";
 import { findErpConnection, upsertErpConnection } from "@sellbridge/database/repositories";
 import { createBlingRateLimiter } from "@sellbridge/marketplaces/bling";
+import { logger } from "@sellbridge/shared/logger";
 import { eq } from "drizzle-orm";
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 import { createTestProduct, createWorkerTestEnvironment } from "../testing/fixtures.ts";
@@ -9,7 +10,7 @@ import {
   gramsFromAttribute,
   toBlingNewProduct,
 } from "./erp-catalog-export.ts";
-import { createErpTokenRefreshProcessor } from "./erp-token-refresh.ts";
+import { createErpTokenRefreshProcessor, runTokenRefreshes } from "./erp-token-refresh.ts";
 
 const { database, cipher } = createWorkerTestEnvironment();
 const credentials = { clientId: "id", clientSecret: "secret" };
@@ -115,9 +116,75 @@ describe("erp catalog export", () => {
     const methods = fetchImplementation.mock.calls.map(([, init]) => init?.method ?? "GET");
     expect(methods.filter((method) => method !== "GET")).toEqual(["POST"]);
   });
+
+  it("stops when Bling refuses the account instead of counting every product as refused", async () => {
+    await connect(new Date(Date.now() + 6 * 3600_000));
+    const fetchImplementation = vi.fn<typeof fetch>(async (input, init) => {
+      const url = requestUrl(input);
+      if (url.pathname.endsWith("/oauth/token")) {
+        return json(400, { error: { type: "invalid_grant" } });
+      }
+      if (init?.method === "POST") {
+        return json(401, { error: { type: "invalid_token" } });
+      }
+      return json(200, { data: [] });
+    });
+    const process = createErpCatalogExportProcessor({
+      database,
+      cipher,
+      blingCredentials: credentials,
+      limiter,
+      fetchImplementation,
+    });
+
+    const exporting = process({ supplierId: supplier.supplierId });
+
+    await expect(exporting).rejects.toThrow("Conecte o Bling de novo");
+    const creations = fetchImplementation.mock.calls.filter(
+      ([input, init]) =>
+        init?.method === "POST" && requestUrl(input).pathname.endsWith("/produtos"),
+    );
+    expect(creations).toHaveLength(1);
+  });
 });
 
 describe("erp token refresh", () => {
+  it("renews the Bling tokens even when the store refresh fails in the same job", async () => {
+    const erp = vi.fn<() => Promise<string>>(async () => "erp renewed");
+
+    const running = runTokenRefreshes({
+      stores: async () => {
+        throw new Error("store refresh failed");
+      },
+      erp,
+    });
+
+    await expect(running).rejects.toThrow("store refresh failed");
+    expect(erp).toHaveBeenCalledTimes(1);
+  });
+
+  it("logs the ERP failure when both refreshes fail, so it is not lost", async () => {
+    const error = vi.spyOn(logger, "error").mockImplementation(() => undefined);
+
+    try {
+      const running = runTokenRefreshes({
+        stores: async () => {
+          throw new Error("store refresh failed");
+        },
+        erp: async () => {
+          throw new Error("erp refresh failed");
+        },
+      });
+
+      await expect(running).rejects.toThrow("store refresh failed");
+      expect(error).toHaveBeenCalledWith("erp.token_refresh_job_failed", {
+        error: expect.objectContaining({ message: "erp refresh failed" }),
+      });
+    } finally {
+      error.mockRestore();
+    }
+  });
+
   it("renews an expiring Bling connection and keeps it connected", async () => {
     await connect(new Date(Date.now() + 60_000));
     const fetchImplementation = vi.fn<typeof fetch>(async () =>

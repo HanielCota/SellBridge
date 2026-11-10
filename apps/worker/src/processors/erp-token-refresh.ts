@@ -113,3 +113,29 @@ export function createErpTokenRefreshProcessor(dependencies: ErpTokenRefreshDepe
     return summary;
   };
 }
+
+function asError(reason: unknown): Error {
+  return reason instanceof Error ? reason : new Error(String(reason));
+}
+
+/**
+ * Runs the store and the ERP token refreshes of one job independently, so a failure in one never
+ * keeps the other from renewing its tokens. The first failure is thrown once both have run.
+ */
+export async function runTokenRefreshes<Stores, Erp>(refreshes: {
+  stores: () => Promise<Stores>;
+  erp: () => Promise<Erp>;
+}): Promise<{ stores: Stores; erp: Erp }> {
+  const [stores, erp] = await Promise.allSettled([refreshes.stores(), refreshes.erp()]);
+  if (stores.status === "rejected") {
+    if (erp.status === "rejected") {
+      // Only one error fails the job; the ERP one is logged so it is not lost.
+      logger.error("erp.token_refresh_job_failed", { error: asError(erp.reason) });
+    }
+    throw asError(stores.reason);
+  }
+  if (erp.status === "rejected") {
+    throw asError(erp.reason);
+  }
+  return { stores: stores.value, erp: erp.value };
+}
