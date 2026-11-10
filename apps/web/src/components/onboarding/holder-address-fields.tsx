@@ -120,6 +120,8 @@ function StreetInputs({ form, showErrors }: { form: HolderFormApi; showErrors: b
               onValueChange={(next) => {
                 const masked = formatCep(next);
                 field.handleChange(masked);
+                // The old city code goes with the old CEP; the lookup fills the new one.
+                form.setFieldValue("address.ibgeCode", "");
                 void cep.lookUp(masked);
               }}
             />
@@ -217,7 +219,10 @@ function PlaceInputs({ form, showErrors }: { form: HolderFormApi; showErrors: bo
               value={field.state.value}
               errors={visibleErrors(field.state.meta.errors, showErrors)}
               onBlur={field.handleBlur}
-              onValueChange={field.handleChange}
+              onValueChange={(state) => {
+                field.handleChange(state);
+                form.setFieldValue("address.ibgeCode", "");
+              }}
             />
           </div>
         )}

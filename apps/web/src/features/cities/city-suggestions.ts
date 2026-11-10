@@ -1,4 +1,5 @@
 import { stripAccents } from "@sellbridge/shared/text";
+import type { IbgeCity } from "./ibge-cities.server";
 
 /** How many cities the list shows at once; typing narrows the rest. */
 export const MAX_CITY_SUGGESTIONS = 6;
@@ -35,4 +36,25 @@ export function suggestCities(
       ? [capital, ...matches.filter((city) => city !== capital)]
       : matches;
   return capitalFirst.slice(0, MAX_CITY_SUGGESTIONS);
+}
+
+/** Reports the typed or picked city, and its IBGE code when someone listens for it. */
+export function cityChangeHandler(
+  cities: readonly IbgeCity[],
+  onValueChange: (value: string) => void,
+  onIbgeCodeChange: ((ibgeCode: string) => void) | undefined,
+) {
+  return (city: string) => {
+    onValueChange(city);
+    // While the state's list loads nothing is known: a code the CEP filled stays.
+    if (cities.length > 0) {
+      onIbgeCodeChange?.(ibgeCodeOf(cities, city));
+    }
+  };
+}
+
+/** The typed city's IBGE code: an exact match, accents and case aside. */
+function ibgeCodeOf(cities: readonly IbgeCity[], typed: string): string {
+  const folded = foldCityName(typed);
+  return cities.find((city) => foldCityName(city.name) === folded)?.ibgeCode ?? "";
 }

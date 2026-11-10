@@ -42,6 +42,16 @@ describe("stateRegistrationSchema", () => {
 });
 
 describe("supplierFiscalProfileSchema", () => {
+  it("refuses a city code from another state than the address", () => {
+    const result = supplierFiscalProfileSchema.safeParse({
+      ...PROFILE,
+      address: { ...PROFILE.address, state: "SP" },
+    });
+
+    expect(result.success).toBe(false);
+    expect(result.error?.issues[0]?.path).toEqual(["address", "ibgeCode"]);
+  });
+
   it("accepts a Simples Nacional company with its suggested defaults", () => {
     const result = supplierFiscalProfileSchema.safeParse(PROFILE);
 

@@ -132,7 +132,8 @@ function CepField({ values, errors, onChange }: BrandFiscalCardProps) {
         errors={errorsOf(errors, "fiscalCep")}
         onValueChange={(next) => {
           const masked = formatCep(next);
-          onChange({ fiscalCep: masked });
+          // The old city code goes with the old CEP; the lookup fills the new one.
+          onChange({ fiscalCep: masked, fiscalIbgeCode: "" });
           void cep.lookUp(masked);
         }}
       />
@@ -171,7 +172,7 @@ function AddressFields(props: BrandFiscalCardProps) {
           error={firstErrorMessage(errorsOf(errors, "fiscalState"))}
           options={STATE_OPTIONS}
           placeholder="UF"
-          onValueChange={(fiscalState) => onChange({ fiscalState })}
+          onValueChange={(fiscalState) => onChange({ fiscalState, fiscalIbgeCode: "" })}
         />
       </div>
     </fieldset>

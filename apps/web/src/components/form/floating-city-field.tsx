@@ -3,8 +3,7 @@ import { useQuery } from "@tanstack/react-query";
 import { type KeyboardEvent, useState } from "react";
 import { FloatingTextField } from "@/components/form/floating-field";
 import { stateCitiesQueryOptions } from "@/features/cities/cities.queries";
-import { foldCityName, suggestCities } from "@/features/cities/city-suggestions";
-import type { IbgeCity } from "@/features/cities/ibge-cities.server";
+import { cityChangeHandler, suggestCities } from "@/features/cities/city-suggestions";
 import { cn } from "@/lib/utils";
 
 interface FloatingCityFieldProps {
@@ -18,24 +17,6 @@ interface FloatingCityFieldProps {
   onBlur: () => void;
   /** The IBGE code of the city typed or picked, "" when it is not one of the state's cities. */
   onIbgeCodeChange?: ((ibgeCode: string) => void) | undefined;
-}
-
-/** Reports the typed or picked city, and its IBGE code when someone listens for it. */
-function cityChangeHandler(
-  cities: readonly IbgeCity[],
-  onValueChange: (value: string) => void,
-  onIbgeCodeChange: ((ibgeCode: string) => void) | undefined,
-) {
-  return (city: string) => {
-    onValueChange(city);
-    onIbgeCodeChange?.(ibgeCodeOf(cities, city));
-  };
-}
-
-/** The typed city's IBGE code: an exact match, accents and case aside. */
-function ibgeCodeOf(cities: readonly IbgeCity[], typed: string): string {
-  const folded = foldCityName(typed);
-  return cities.find((city) => foldCityName(city.name) === folded)?.ibgeCode ?? "";
 }
 
 /** The open list's keyboard: arrows move, Enter picks, Escape closes. */

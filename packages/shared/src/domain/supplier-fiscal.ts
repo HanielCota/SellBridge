@@ -1,6 +1,7 @@
 import { z } from "zod";
 import { cnpjSchema } from "./account-documents.ts";
 import { billingAddressSchema, ibgeCityCodeSchema } from "./billing-address.ts";
+import { isCityOfState } from "./brazilian-states.ts";
 import {
   cfopInStateSchema,
   cfopOutOfStateSchema,
@@ -60,6 +61,13 @@ export const supplierFiscalProfileSchema = z
     defaults: supplierTaxDefaultsSchema,
   })
   .superRefine((profile, context) => {
+    if (!isCityOfState(profile.address.ibgeCode, profile.address.state)) {
+      context.addIssue({
+        code: "custom",
+        path: ["address", "ibgeCode"],
+        message: `O código da cidade não é de ${profile.address.state}. Busque o endereço pelo CEP de novo.`,
+      });
+    }
     if (!icmsCodeFitsRegime(profile.defaults.icmsCode, profile.regime)) {
       context.addIssue({
         code: "custom",
