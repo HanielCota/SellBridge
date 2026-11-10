@@ -1,5 +1,5 @@
 {
-  "id": "590c217b-1883-427f-948e-f6a456f61371",
+  "id": "20134cb0-03f9-478b-8ff1-1bb90315aec9",
   "prevId": "574ef86e-f665-4231-8553-7f7a13dad521",
   "version": "7",
   "dialect": "postgresql",
@@ -6428,6 +6428,127 @@
       "checkConstraints": {},
       "isRLSEnabled": false
     },
+    "public.erp_catalog_reads": {
+      "name": "erp_catalog_reads",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "supplier_id": {
+          "name": "supplier_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "provider": {
+          "name": "provider",
+          "type": "erp_provider",
+          "typeSchema": "public",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "status": {
+          "name": "status",
+          "type": "erp_catalog_read_status",
+          "typeSchema": "public",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'reading'"
+        },
+        "total_products": {
+          "name": "total_products",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "read_products": {
+          "name": "read_products",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "default": 0
+        },
+        "result": {
+          "name": "result",
+          "type": "jsonb",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "error": {
+          "name": "error",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "started_at": {
+          "name": "started_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "finished_at": {
+          "name": "finished_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "expires_at": {
+          "name": "expires_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true
+        }
+      },
+      "indexes": {
+        "erp_catalog_reads_supplier_provider_idx": {
+          "name": "erp_catalog_reads_supplier_provider_idx",
+          "columns": [
+            {
+              "expression": "supplier_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "provider",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": true,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {
+        "erp_catalog_reads_supplier_id_suppliers_id_fk": {
+          "name": "erp_catalog_reads_supplier_id_suppliers_id_fk",
+          "tableFrom": "erp_catalog_reads",
+          "tableTo": "suppliers",
+          "columnsFrom": [
+            "supplier_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
     "public.erp_oauth_states": {
       "name": "erp_oauth_states",
       "schema": "",
@@ -6555,6 +6676,24 @@
           "primaryKey": false,
           "notNull": false
         },
+        "account_name": {
+          "name": "account_name",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "reseller_discount_tenths": {
+          "name": "reseller_discount_tenths",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "last_import_at": {
+          "name": "last_import_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": false
+        },
         "connected_by_user_id": {
           "name": "connected_by_user_id",
           "type": "text",
@@ -6665,6 +6804,15 @@
         "ticket",
         "onboarding",
         "cooling"
+      ]
+    },
+    "public.erp_catalog_read_status": {
+      "name": "erp_catalog_read_status",
+      "schema": "public",
+      "values": [
+        "reading",
+        "ready",
+        "failed"
       ]
     },
     "public.erp_provider": {

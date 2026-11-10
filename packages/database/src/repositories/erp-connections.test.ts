@@ -7,12 +7,19 @@ import {
 import {
   consumeErpOAuthState,
   createErpOAuthState,
+  deleteErpConnection,
+  failErpCatalogRead,
+  findErpCatalogRead,
   findErpConnection,
   findErpConnectionsExpiringBefore,
   findSupplierProductCostsBySku,
+  finishErpCatalogRead,
   listSupplierProductsForErpExport,
+  recordErpCatalogReadProgress,
+  recordErpImport,
   recordErpRefreshFailure,
   rotateErpTokens,
+  startErpCatalogRead,
   upsertErpConnection,
 } from "./erp-connections.ts";
 
@@ -228,5 +235,99 @@ describe("current reseller costs by SKU", () => {
     });
 
     expect(costs.size).toBe(0);
+  });
+});
+
+function key() {
+  return { supplierId: supplier.supplierId, provider: "bling" as const };
+}
+
+describe("ERP catalog read", () => {
+  it("records progress and the result while it is the current read", async () => {
+    const read = await startErpCatalogRead(database, { ...key(), ttlMilliseconds: 60_000 });
+
+    await recordErpCatalogReadProgress(database, {
+      readId: read.id,
+      readProducts: 120,
+      totalProducts: 400,
+    });
+    const finished = await finishErpCatalogRead(database, {
+      readId: read.id,
+      result: { items: [] },
+    });
+    const found = await findErpCatalogRead(database, key());
+
+    expect(finished).toBe(true);
+    expect(found).toMatchObject({
+      id: read.id,
+      status: "ready",
+      readProducts: 120,
+      totalProducts: 400,
+      result: { items: [] },
+    });
+  });
+
+  it("ignores a job of a read that a new one replaced", async () => {
+    const old = await startErpCatalogRead(database, { ...key(), ttlMilliseconds: 60_000 });
+    const current = await startErpCatalogRead(database, { ...key(), ttlMilliseconds: 60_000 });
+
+    const finishedOld = await finishErpCatalogRead(database, { readId: old.id, result: {} });
+    const found = await findErpCatalogRead(database, key());
+
+    expect(finishedOld).toBe(false);
+    expect(found).toMatchObject({ id: current.id, status: "reading" });
+  });
+
+  it("keeps the failure reason and stops taking a result", async () => {
+    const read = await startErpCatalogRead(database, { ...key(), ttlMilliseconds: 60_000 });
+
+    await failErpCatalogRead(database, { readId: read.id, error: "O Bling não respondeu." });
+    const finished = await finishErpCatalogRead(database, { readId: read.id, result: {} });
+
+    expect(finished).toBe(false);
+    expect(await findErpCatalogRead(database, key())).toMatchObject({
+      status: "failed",
+      error: "O Bling não respondeu.",
+    });
+  });
+
+  it("treats an expired read as gone", async () => {
+    await startErpCatalogRead(database, { ...key(), ttlMilliseconds: -1 });
+
+    const found = await findErpCatalogRead(database, key());
+
+    expect(found).toBeNull();
+  });
+});
+
+describe("ERP import and disconnection", () => {
+  it("remembers the discount rule, the import date and clears the read", async () => {
+    await upsertErpConnection(database, { ...key(), userId, tokens: tokens("import") });
+    await startErpCatalogRead(database, { ...key(), ttlMilliseconds: 60_000 });
+
+    await recordErpImport(database, { ...key(), resellerDiscountTenths: 300 });
+    const connection = await findErpConnection(database, key());
+
+    expect(connection?.resellerDiscountTenths).toBe(300);
+    expect(connection?.lastImportAt).toBeInstanceOf(Date);
+    expect(await findErpCatalogRead(database, key())).toBeNull();
+  });
+
+  it("keeps the saved discount when an import had no rule", async () => {
+    await recordErpImport(database, { ...key(), resellerDiscountTenths: null });
+
+    const connection = await findErpConnection(database, key());
+
+    expect(connection?.resellerDiscountTenths).toBe(300);
+  });
+
+  it("forgets the account and its read on disconnection", async () => {
+    await startErpCatalogRead(database, { ...key(), ttlMilliseconds: 60_000 });
+
+    const deleted = await deleteErpConnection(database, key());
+
+    expect(deleted).toBe(true);
+    expect(await findErpConnection(database, key())).toBeNull();
+    expect(await findErpCatalogRead(database, key())).toBeNull();
   });
 });

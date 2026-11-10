@@ -1,6 +1,11 @@
 import { and, asc, eq, gt, inArray, isNotNull, lt } from "drizzle-orm";
-import type { Database } from "../client.ts";
-import { erpOAuthStates, supplierErpConnections, supplierProducts } from "../schema/index.ts";
+import type { Database, DatabaseExecutor } from "../client.ts";
+import {
+  erpCatalogReads,
+  erpOAuthStates,
+  supplierErpConnections,
+  supplierProducts,
+} from "../schema/index.ts";
 
 type ErpConnectionRow = typeof supplierErpConnections.$inferSelect;
 export type ErpProvider = ErpConnectionRow["provider"];
@@ -59,10 +64,17 @@ export async function consumeErpOAuthState(
 /** Saves the supplier's ERP account as connected; reconnecting replaces the old tokens. */
 export async function upsertErpConnection(
   database: Database,
-  input: { supplierId: string; provider: ErpProvider; userId: string | null; tokens: ErpTokens },
+  input: {
+    supplierId: string;
+    provider: ErpProvider;
+    userId: string | null;
+    tokens: ErpTokens;
+    accountName?: string | null;
+  },
 ): Promise<ErpConnection> {
   const values = {
     ...input.tokens,
+    accountName: input.accountName ?? null,
     status: "connected" as const,
     lastError: null,
     connectedByUserId: input.userId,
@@ -236,4 +248,153 @@ export async function listSupplierProductsForErpExport(
     .where(and(...conditions))
     .orderBy(asc(supplierProducts.id))
     .limit(input.limit);
+}
+
+type ErpCatalogReadRow = typeof erpCatalogReads.$inferSelect;
+export type ErpCatalogRead = ErpCatalogReadRow;
+
+/**
+ * Starts a new read of the supplier's ERP catalog, replacing the previous one. The row gets a new
+ * id, so a job still running for the old read can no longer write into this one.
+ */
+export async function startErpCatalogRead(
+  database: Database,
+  input: { supplierId: string; provider: ErpProvider; ttlMilliseconds: number },
+): Promise<ErpCatalogRead> {
+  const values = {
+    id: crypto.randomUUID(),
+    status: "reading" as const,
+    totalProducts: null,
+    readProducts: 0,
+    result: null,
+    error: null,
+    startedAt: new Date(),
+    finishedAt: null,
+    expiresAt: new Date(Date.now() + input.ttlMilliseconds),
+  };
+  const [row] = await database
+    .insert(erpCatalogReads)
+    .values({ supplierId: input.supplierId, provider: input.provider, ...values })
+    .onConflictDoUpdate({
+      target: [erpCatalogReads.supplierId, erpCatalogReads.provider],
+      set: values,
+    })
+    .returning();
+  if (row === undefined) {
+    throw new Error(`ERP catalog read not started for supplier ${input.supplierId}`);
+  }
+  return row;
+}
+
+function whileReading(readId: string) {
+  return and(eq(erpCatalogReads.id, readId), eq(erpCatalogReads.status, "reading"));
+}
+
+/** How far the read got; ignored once the read finished or was replaced. */
+export async function recordErpCatalogReadProgress(
+  database: Database,
+  input: { readId: string; readProducts: number; totalProducts: number },
+): Promise<void> {
+  await database
+    .update(erpCatalogReads)
+    .set({ readProducts: input.readProducts, totalProducts: input.totalProducts })
+    .where(whileReading(input.readId));
+}
+
+/** Stores what was read; false when the read was replaced or already over. */
+export async function finishErpCatalogRead(
+  database: Database,
+  input: { readId: string; result: unknown },
+): Promise<boolean> {
+  const updated = await database
+    .update(erpCatalogReads)
+    .set({ status: "ready", result: input.result, finishedAt: new Date() })
+    .where(whileReading(input.readId))
+    .returning({ id: erpCatalogReads.id });
+  return updated.length > 0;
+}
+
+/** Ends the read with a short reason for the supplier. */
+export async function failErpCatalogRead(
+  database: Database,
+  input: { readId: string; error: string },
+): Promise<boolean> {
+  const updated = await database
+    .update(erpCatalogReads)
+    .set({ status: "failed", error: input.error, finishedAt: new Date() })
+    .where(whileReading(input.readId))
+    .returning({ id: erpCatalogReads.id });
+  return updated.length > 0;
+}
+
+/** The supplier's latest catalog read, or null when there is none or it expired. */
+export async function findErpCatalogRead(
+  database: Database,
+  input: { supplierId: string; provider: ErpProvider },
+): Promise<ErpCatalogRead | null> {
+  const [row] = await database
+    .select()
+    .from(erpCatalogReads)
+    .where(
+      and(
+        eq(erpCatalogReads.supplierId, input.supplierId),
+        eq(erpCatalogReads.provider, input.provider),
+        gt(erpCatalogReads.expiresAt, new Date()),
+      ),
+    );
+  return row ?? null;
+}
+
+export async function deleteErpCatalogRead(
+  database: DatabaseExecutor,
+  input: { supplierId: string; provider: ErpProvider },
+): Promise<void> {
+  await database
+    .delete(erpCatalogReads)
+    .where(
+      and(
+        eq(erpCatalogReads.supplierId, input.supplierId),
+        eq(erpCatalogReads.provider, input.provider),
+      ),
+    );
+}
+
+function connectionOf(input: { supplierId: string; provider: ErpProvider }) {
+  return and(
+    eq(supplierErpConnections.supplierId, input.supplierId),
+    eq(supplierErpConnections.provider, input.provider),
+  );
+}
+
+/**
+ * Records an import from the ERP: when it happened and the discount rule used for new products
+ * (tenths of a percent), remembered for the next import. The read it came from is cleared.
+ */
+export async function recordErpImport(
+  database: Database,
+  input: { supplierId: string; provider: ErpProvider; resellerDiscountTenths: number | null },
+): Promise<void> {
+  await database.transaction(async (transaction) => {
+    const set =
+      input.resellerDiscountTenths === null
+        ? { lastImportAt: new Date() }
+        : { lastImportAt: new Date(), resellerDiscountTenths: input.resellerDiscountTenths };
+    await transaction.update(supplierErpConnections).set(set).where(connectionOf(input));
+    await deleteErpCatalogRead(transaction, input);
+  });
+}
+
+/** Forgets the supplier's ERP account and its catalog read; true when there was one. */
+export async function deleteErpConnection(
+  database: Database,
+  input: { supplierId: string; provider: ErpProvider },
+): Promise<boolean> {
+  return database.transaction(async (transaction) => {
+    await deleteErpCatalogRead(transaction, input);
+    const deleted = await transaction
+      .delete(supplierErpConnections)
+      .where(connectionOf(input))
+      .returning({ id: supplierErpConnections.id });
+    return deleted.length > 0;
+  });
 }
