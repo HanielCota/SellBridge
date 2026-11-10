@@ -110,6 +110,8 @@ export interface BlingImportOutcome extends SupplierImportResult {
   readonly failedRowsCsv: string;
 }
 
+const integer = new Intl.NumberFormat("pt-BR");
+
 /** A read still moving: a new one would only replace it and spend the account's quota twice. */
 export function isBlingReadRunning(overview: BlingOverview): boolean {
   return overview.read?.status === "reading";
@@ -117,7 +119,7 @@ export function isBlingReadRunning(overview: BlingOverview): boolean {
 
 /** Why products of a read were left out: no code in Bling, or a code another product already has. */
 export function skippedProductsNote(count: number): string {
-  const amount = new Intl.NumberFormat("pt-BR").format(count);
+  const amount = integer.format(count);
   const subject = count === 1 ? `${amount} produto ficou` : `${amount} produtos ficaram`;
   return `${subject} de fora por não ter código no Bling ou por repetir o código de outro produto.`;
 }

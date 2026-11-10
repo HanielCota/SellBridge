@@ -73,10 +73,6 @@ async function skusInBling(client: BlingClient, skus: readonly string[]): Promis
   return found;
 }
 
-/**
- * Creates one product. A refusal for this product's data (400) is counted and the rest go on; a
- * passing failure or a lost connection stops the job, which BullMQ retries.
- */
 /** The account itself was refused (expired or revoked), not this product: every other one would fail too. */
 function isLostConnection(error: unknown): boolean {
   if (isMarketplaceAuthError(error)) {
@@ -85,6 +81,10 @@ function isLostConnection(error: unknown): boolean {
   return hasErrorCode(error, "CONFLICT") && error.userMessage === BLING_RECONNECT_MESSAGE;
 }
 
+/**
+ * Creates one product. A refusal for this product's data (400) is counted and the rest go on; a
+ * passing failure or a lost connection stops the job, which BullMQ retries.
+ */
 async function createOne(
   client: BlingClient,
   product: CatalogExportProduct,
