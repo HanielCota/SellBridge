@@ -192,3 +192,12 @@ export function formatNcm(ncm: string): string {
 export function isNoGtin(value: string): boolean {
   return value.trim().toUpperCase() === NO_GTIN;
 }
+
+/** Masks an NCM while it is typed: "61091" → "6109.1", up to "6109.10.00". */
+export function maskNcmInput(input: string): string {
+  return input
+    .replace(/\D/g, "")
+    .slice(0, NCM_LENGTH)
+    .replace(/^(\d{4})(\d)/, "$1.$2")
+    .replace(/^(\d{4})\.(\d{2})(\d)/, "$1.$2.$3");
+}

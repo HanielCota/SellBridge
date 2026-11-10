@@ -99,13 +99,22 @@ export function CompletenessMeter({
         onFix={onFix}
       />
       <IssueList
+        title="Para emitir nota"
+        hint="Dados que a nota fiscal precisa. O produto continua à venda enquanto você completa."
+        issues={report.fiscal}
+        tone="warning"
+        onFix={onFix}
+      />
+      <IssueList
         title="Melhora o anúncio"
         hint={TERM_HINTS.improvementIssues}
         issues={report.improvements}
         tone="warning"
         onFix={onFix}
       />
-      {report.blocking.length === 0 && report.improvements.length === 0 ? (
+      {report.blocking.length === 0 &&
+      report.improvements.length === 0 &&
+      report.fiscal.length === 0 ? (
         <p className="flex items-center gap-2 text-sm text-emerald-700 dark:text-emerald-400">
           <CheckCircleIcon weight="fill" className="size-4" aria-hidden="true" />
           Nada pendente.

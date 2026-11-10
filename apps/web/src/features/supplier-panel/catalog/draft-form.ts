@@ -11,6 +11,11 @@ import {
 } from "@sellbridge/shared/supplier-panel-catalog-completeness";
 import type { EditableProductFields } from "@sellbridge/shared/supplier-panel-catalog-status";
 import { attributeFieldLabel } from "@sellbridge/shared/supplier-product-attributes";
+import {
+  formatNcm,
+  readProductFiscal,
+  type ProductFiscal,
+} from "@sellbridge/shared/product-fiscal";
 
 /** The form's steps, in order; a field key decides which step shows it. */
 export const FORM_STEPS = [
@@ -42,6 +47,109 @@ export interface PanelFormValues {
   categoryId: string;
   imageUrls: readonly string[];
   attributes: Readonly<Record<string, string>>;
+  fiscal: FiscalFormValues;
+}
+
+/** The NF-e fields as typed; every one is text, "" while empty. */
+export interface FiscalFormValues {
+  ncm: string;
+  origin: string;
+  unit: string;
+  cest: string;
+  netWeight: string;
+  cfopInState: string;
+  cfopOutOfState: string;
+  icmsCode: string;
+  pisCofinsCst: string;
+}
+
+const FISCAL_KEYS = [
+  "ncm",
+  "origin",
+  "unit",
+  "cest",
+  "netWeight",
+  "cfopInState",
+  "cfopOutOfState",
+  "icmsCode",
+  "pisCofinsCst",
+] as const satisfies readonly (keyof FiscalFormValues)[];
+
+/** Form key → product field key ("netWeight" is stored as `netWeightGrams`). */
+const FISCAL_FIELD_OF: Readonly<Record<keyof FiscalFormValues, keyof ProductFiscal>> = {
+  ncm: "ncm",
+  origin: "origin",
+  unit: "unit",
+  cest: "cest",
+  netWeight: "netWeightGrams",
+  cfopInState: "cfopInState",
+  cfopOutOfState: "cfopOutOfState",
+  icmsCode: "icmsCode",
+  pisCofinsCst: "pisCofinsCst",
+};
+
+export const EMPTY_FISCAL_FORM_VALUES: FiscalFormValues = {
+  ncm: "",
+  origin: "",
+  unit: "",
+  cest: "",
+  netWeight: "",
+  cfopInState: "",
+  cfopOutOfState: "",
+  icmsCode: "",
+  pisCofinsCst: "",
+};
+
+function fiscalFormValues(stored: unknown): FiscalFormValues {
+  const fiscal = readProductFiscal(stored);
+  return {
+    ncm: fiscal.ncm === null ? "" : formatNcm(fiscal.ncm),
+    origin: textOf(fiscal.origin),
+    unit: textOf(fiscal.unit),
+    cest: textOf(fiscal.cest),
+    netWeight: textOf(fiscal.netWeightGrams),
+    cfopInState: textOf(fiscal.cfopInState),
+    cfopOutOfState: textOf(fiscal.cfopOutOfState),
+    icmsCode: textOf(fiscal.icmsCode),
+    pisCofinsCst: textOf(fiscal.pisCofinsCst),
+  };
+}
+
+function textOf(value: string | number | null): string {
+  return value === null ? "" : String(value);
+}
+
+function textOrNull(value: string): string | null {
+  return value.trim() === "" ? null : value.trim();
+}
+
+/** Whole numbers as numbers; a typo becomes NaN so the schema names the field. */
+function numberOrNull(value: string): number | null {
+  const trimmed = value.trim();
+  if (trimmed === "") {
+    return null;
+  }
+  return /^\d+$/.test(trimmed) ? Number(trimmed) : Number.NaN;
+}
+
+/** What the fields hold as the product stores it: blanks are null, numbers are numbers. */
+function fiscalCandidate(values: FiscalFormValues) {
+  return {
+    ncm: textOrNull(values.ncm),
+    origin: numberOrNull(values.origin),
+    unit: textOrNull(values.unit),
+    cest: textOrNull(values.cest),
+    netWeightGrams: numberOrNull(values.netWeight),
+    cfopInState: textOrNull(values.cfopInState),
+    cfopOutOfState: textOrNull(values.cfopOutOfState),
+    icmsCode: textOrNull(values.icmsCode),
+    pisCofinsCst: textOrNull(values.pisCofinsCst),
+  };
+}
+
+/** The fiscal data as completeness reads it while typing: a value with a typo counts as missing. */
+export function fiscalForCompleteness(values: FiscalFormValues): ProductFiscal {
+  return readProductFiscal(fiscalCandidate(values));
 }
 
 export function stepOfField(field: string): FormStepId {
@@ -73,6 +181,7 @@ export function panelFormValues(product?: EditableProductFields | null): PanelFo
     categoryId: product?.categoryId ?? "",
     imageUrls: product?.imageUrls ?? [],
     attributes: product?.mercadoLivreAttributes ?? {},
+    fiscal: fiscalFormValues(product?.fiscal),
   };
 }
 
@@ -127,6 +236,7 @@ export function parseDraft(values: PanelFormValues, expectedStock?: number): Dra
     categoryId: values.categoryId === "" ? null : values.categoryId,
     imageUrls: [...values.imageUrls],
     mercadoLivreAttributes: filledAttributes(values.attributes),
+    fiscal: fiscalCandidate(values.fiscal),
   });
   if (parsed.success && !keepsNegativeShelfOnly(parsed.data.stock, expectedStock)) {
     return { ok: false, errors: { stock: NEGATIVE_STOCK_MESSAGE } };
@@ -137,7 +247,7 @@ export function parseDraft(values: PanelFormValues, expectedStock?: number): Dra
   const errors: Record<string, string> = {};
   for (const issue of parsed.error.issues) {
     const [root, key] = issue.path.map(String);
-    const field = root === "mercadoLivreAttributes" ? `attributes.${key ?? ""}` : (root ?? "form");
+    const field = errorFieldOf(root, key);
     // A half-typed amount ("12,") reaches the schema as NaN: the hint fits better than a message
     // about the value received, which the supplier is still typing.
     errors[field] ??=
@@ -146,6 +256,16 @@ export function parseDraft(values: PanelFormValues, expectedStock?: number): Dra
         : issue.message;
   }
   return { ok: false, errors };
+}
+
+function errorFieldOf(root: string | undefined, key: string | undefined): string {
+  if (root === "mercadoLivreAttributes") {
+    return `attributes.${key ?? ""}`;
+  }
+  if (root === "fiscal") {
+    return `fiscal.${key ?? ""}`;
+  }
+  return root ?? "form";
 }
 
 /** Under the description: progress toward the recommended length, then only that it is met. */
@@ -174,6 +294,12 @@ function changedAttributes(initial: PanelFormValues, current: PanelFormValues): 
     .map((id) => `attributes.${id}`);
 }
 
+function changedFiscal(initial: PanelFormValues, current: PanelFormValues): string[] {
+  return FISCAL_KEYS.filter((key) => initial.fiscal[key].trim() !== current.fiscal[key].trim()).map(
+    (key) => `fiscal.${FISCAL_FIELD_OF[key]}`,
+  );
+}
+
 /**
  * Fields the supplier changed since the form opened, by product field key: a rejection reason
  * on one of them reads as being fixed instead of staying an open alarm.
@@ -187,5 +313,10 @@ export function editedFields(
   );
   const images =
     JSON.stringify(initial.imageUrls) === JSON.stringify(current.imageUrls) ? [] : ["imageUrls"];
-  return new Set([...texts, ...images, ...changedAttributes(initial, current)]);
+  return new Set([
+    ...texts,
+    ...images,
+    ...changedAttributes(initial, current),
+    ...changedFiscal(initial, current),
+  ]);
 }

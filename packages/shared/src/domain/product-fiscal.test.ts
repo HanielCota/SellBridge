@@ -9,6 +9,7 @@ import {
   icmsCodeFitsRegime,
   icmsCodeLabel,
   isNoGtin,
+  maskNcmInput,
   ncmSchema,
   readProductFiscal,
 } from "./product-fiscal.ts";
@@ -95,5 +96,15 @@ describe("formatting", () => {
   it("recognises SEM GTIN in any case", () => {
     expect(isNoGtin(" sem gtin ")).toBe(true);
     expect(isNoGtin("7891234567895")).toBe(false);
+  });
+});
+
+describe("maskNcmInput", () => {
+  it("adds the dots as the digits come in and stops at 8 digits", () => {
+    expect(maskNcmInput("6109")).toBe("6109");
+    expect(maskNcmInput("61091")).toBe("6109.1");
+    expect(maskNcmInput("6109100")).toBe("6109.10.0");
+    expect(maskNcmInput("6109.10.0099")).toBe("6109.10.00");
+    expect(maskNcmInput("ab")).toBe("");
   });
 });

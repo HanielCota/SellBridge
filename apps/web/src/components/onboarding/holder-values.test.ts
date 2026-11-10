@@ -22,6 +22,7 @@ const PERSON: HolderFormValues = {
     neighborhood: "Bela Vista",
     city: "São Paulo",
     state: "SP",
+    ibgeCode: "",
   },
 };
 
@@ -35,6 +36,7 @@ const EMPTY_ADDRESS = {
   neighborhood: "",
   city: "",
   state: "",
+  ibgeCode: "",
 };
 
 const COMPANY: HolderFormValues = {
@@ -155,5 +157,14 @@ describe("holderDefaults", () => {
       address: SAVED_ADDRESS,
     };
     expect(holderDefaults(holder, "Ana")).toEqual(COMPANY);
+  });
+});
+
+describe("holderInput address", () => {
+  it("sends the city's IBGE code only when the lookup found one", () => {
+    const withCode = { ...PERSON, address: { ...PERSON.address, ibgeCode: "3550308" } };
+
+    expect(holderInput(PERSON).address).not.toHaveProperty("ibgeCode");
+    expect(holderInput(withCode).address).toMatchObject({ ibgeCode: "3550308" });
   });
 });

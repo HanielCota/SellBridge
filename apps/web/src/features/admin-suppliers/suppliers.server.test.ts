@@ -64,6 +64,8 @@ const reviewColumns = {
   submittedAt: null,
   reviewedAt: null,
   reviewedBy: null,
+  fiscal: {},
+  fiscalRequired: false,
 };
 const savedSupplier = {
   id: supplierId,
@@ -82,9 +84,10 @@ const savedSupplier = {
   catalogKind: "supplier" as const,
   ownerTenantId: null,
   createdAt: new Date("2026-10-01T00:00:00Z"),
+  fiscalProfile: null,
 };
 function importPlan(revision = "initial"): SupplierProductImportPlan {
-  return { created: 1, updated: 0, errors: [], products: [product], revision };
+  return { created: 1, updated: 0, errors: [], products: [product], newSkus: [], revision };
 }
 beforeEach(() => {
   vi.resetAllMocks();

@@ -130,11 +130,13 @@ function StepContent({
   step,
   form,
   categories,
+  taxDefaults,
   supplierId,
 }: {
   step: FormStepId;
   form: ProductForm;
   categories: FormData["categories"];
+  taxDefaults: FormData["taxDefaults"];
   supplierId: string;
 }) {
   const stepProps = {
@@ -148,7 +150,7 @@ function StepContent({
       return <StepCategory {...stepProps} categories={categories} />;
     }
     case "details": {
-      return <StepDetails {...stepProps} required={form.required} />;
+      return <StepDetails {...stepProps} required={form.required} taxDefaults={taxDefaults} />;
     }
     case "images": {
       return <StepImages {...stepProps} supplierId={supplierId} />;
@@ -183,6 +185,7 @@ function LoadedForm({
     productId,
     product: data.product,
     categories: data.categories,
+    taxDefaults: data.taxDefaults,
   });
   const [step, setStep] = useState<FormStepId>(() =>
     focusField === undefined ? "category" : stepOfField(focusField),
@@ -210,6 +213,7 @@ function LoadedForm({
             step={step}
             form={form}
             categories={data.categories}
+            taxDefaults={data.taxDefaults}
             supplierId={supplierId}
           />
           <AutosaveIndicator

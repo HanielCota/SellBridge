@@ -5,7 +5,7 @@ import {
   type SupplierFiscalProfile,
 } from "@sellbridge/shared/supplier-fiscal";
 import { eq } from "drizzle-orm";
-import type { Database } from "../client.ts";
+import type { Database, DatabaseExecutor } from "../client.ts";
 import { isUniqueViolation } from "../postgres-errors.ts";
 import { suppliers } from "../schema/index.ts";
 
@@ -109,4 +109,17 @@ export async function updateSupplierBrand(
     );
   }
   return updated;
+}
+
+/** The supplier's regime and default tax codes, for its products' NF-e data; null until filled. */
+export async function getSupplierTaxDefaults(
+  database: DatabaseExecutor,
+  supplierId: string,
+): Promise<Pick<SupplierFiscalProfile, "regime" | "defaults"> | null> {
+  const [found] = await database
+    .select({ fiscalProfile: suppliers.fiscalProfile })
+    .from(suppliers)
+    .where(eq(suppliers.id, supplierId));
+  const profile = readSupplierFiscalProfile(found?.fiscalProfile ?? null);
+  return profile === null ? null : { regime: profile.regime, defaults: profile.defaults };
 }

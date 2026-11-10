@@ -1,6 +1,8 @@
+import type { ProductTaxDefaults } from "@/components/supplier-panel/catalog/fiscal-fields";
 import {
   evaluateCompleteness,
   requiredAttributesFor,
+  type RequiredAttribute,
 } from "@sellbridge/shared/supplier-panel-catalog-completeness";
 import type { ProductReviewStatus } from "@sellbridge/shared/supplier-panel-catalog-status";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
@@ -12,10 +14,31 @@ import { useUnsavedChanges } from "@/hooks/use-unsaved-changes";
 import {
   completenessInput,
   editedFields,
+  fiscalForCompleteness,
   panelFormValues,
   type PanelFormValues,
 } from "./draft-form";
 import { useDraftAutosave, type SavedProduct } from "./use-draft-autosave";
+
+/** The completeness while the supplier types, NF-e data included. */
+function useLiveCompleteness(
+  values: PanelFormValues,
+  required: readonly RequiredAttribute[],
+  fiscalRequired: boolean,
+) {
+  return useMemo(
+    () =>
+      evaluateCompleteness(
+        {
+          ...completenessInput(values),
+          fiscal: fiscalForCompleteness(values.fiscal),
+          fiscalRequired,
+        },
+        required,
+      ),
+    [values, required, fiscalRequired],
+  );
+}
 
 export interface CategoryOption {
   id: string;
@@ -28,13 +51,15 @@ interface ProductFormOptions {
   productId: string;
   product: SavedProduct | null;
   categories: readonly CategoryOption[];
+  taxDefaults: ProductTaxDefaults | null;
 }
 
 /**
  * Everything the step form holds: the values being typed, the live completeness, the server
  * autosave and the submission for review.
  */
-export function useProductForm({ supplierId, productId, product, categories }: ProductFormOptions) {
+export function useProductForm(options: ProductFormOptions) {
+  const { supplierId, productId, product, categories, taxDefaults } = options;
   const queryClient = useQueryClient();
   const [values, setValues] = useState<PanelFormValues>(() => panelFormValues(product));
   const [openedWith] = useState<PanelFormValues>(() => panelFormValues(product));
@@ -42,10 +67,8 @@ export function useProductForm({ supplierId, productId, product, categories }: P
   const [saved, setSaved] = useState<SavedProduct | null>(product);
   const category = categories.find((option) => option.id === values.categoryId);
   const required = useMemo(() => requiredAttributesFor(category?.slug), [category?.slug]);
-  const report = useMemo(
-    () => evaluateCompleteness(completenessInput(values), required),
-    [values, required],
-  );
+  // A new product needs NCM, origin and unit to be published; one from before that rule does not.
+  const report = useLiveCompleteness(values, required, saved?.fiscalRequired ?? true);
   const autosave = useDraftAutosave({
     supplierId,
     productId,
@@ -58,6 +81,7 @@ export function useProductForm({ supplierId, productId, product, categories }: P
         {
           product: stored,
           categories: [...categories],
+          taxDefaults,
         },
       );
       // A sale moved the shelf while the supplier left stock alone: show the real count.
