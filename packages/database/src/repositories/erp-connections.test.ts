@@ -10,6 +10,7 @@ import {
   deleteErpConnection,
   failErpCatalogRead,
   findErpCatalogRead,
+  findErpCatalogReadProgress,
   findErpConnection,
   findErpConnectionsExpiringBefore,
   findSupplierProductCostsBySku,
@@ -297,6 +298,26 @@ describe("ERP catalog read", () => {
     const found = await findErpCatalogRead(database, key());
 
     expect(found).toBeNull();
+  });
+
+  it("reports the progress of a finished read without its result", async () => {
+    const read = await startErpCatalogRead(database, { ...key(), ttlMilliseconds: 60_000 });
+    await recordErpCatalogReadProgress(database, {
+      readId: read.id,
+      readProducts: 400,
+      totalProducts: 400,
+    });
+    await finishErpCatalogRead(database, { readId: read.id, result: { items: [] } });
+
+    const progress = await findErpCatalogReadProgress(database, key());
+
+    expect(progress).toEqual({
+      id: read.id,
+      status: "ready",
+      readProducts: 400,
+      totalProducts: 400,
+      error: null,
+    });
   });
 });
 

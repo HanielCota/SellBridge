@@ -345,6 +345,38 @@ export async function findErpCatalogRead(
   return row ?? null;
 }
 
+export type ErpCatalogReadProgress = Pick<
+  ErpCatalogRead,
+  "id" | "status" | "readProducts" | "totalProducts" | "error"
+>;
+
+/**
+ * The latest read's progress without its result: the import page polls this every few seconds,
+ * and the result holds up to thousands of items.
+ */
+export async function findErpCatalogReadProgress(
+  database: Database,
+  input: { supplierId: string; provider: ErpProvider },
+): Promise<ErpCatalogReadProgress | null> {
+  const [row] = await database
+    .select({
+      id: erpCatalogReads.id,
+      status: erpCatalogReads.status,
+      readProducts: erpCatalogReads.readProducts,
+      totalProducts: erpCatalogReads.totalProducts,
+      error: erpCatalogReads.error,
+    })
+    .from(erpCatalogReads)
+    .where(
+      and(
+        eq(erpCatalogReads.supplierId, input.supplierId),
+        eq(erpCatalogReads.provider, input.provider),
+        gt(erpCatalogReads.expiresAt, new Date()),
+      ),
+    );
+  return row ?? null;
+}
+
 export async function deleteErpCatalogRead(
   database: DatabaseExecutor,
   input: { supplierId: string; provider: ErpProvider },

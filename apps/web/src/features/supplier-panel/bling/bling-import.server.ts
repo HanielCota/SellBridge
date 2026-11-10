@@ -2,6 +2,7 @@ import {
   deleteErpCatalogRead,
   deleteErpConnection,
   findErpCatalogRead,
+  findErpCatalogReadProgress,
   findErpConnection,
   findSupplierProductCostsBySku,
   recordErpImport,
@@ -51,7 +52,7 @@ export async function loadBlingOverview(supplierId: string): Promise<BlingOvervi
   }
   const [connection, read] = await Promise.all([
     findErpConnection(database, { supplierId, ...BLING }),
-    findErpCatalogRead(database, { supplierId, ...BLING }),
+    findErpCatalogReadProgress(database, { supplierId, ...BLING }),
   ]);
   return blingOverviewFrom({ available, connection, read });
 }
