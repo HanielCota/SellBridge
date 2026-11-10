@@ -54,6 +54,13 @@ const CST_ICMS_CODES = new Set(["00", "10", "20", "30", "40", "41", "50", "51", 
 const NCM_LENGTH = 8;
 const CEST_LENGTH = 7;
 const MAX_NET_WEIGHT_GRAMS = 100_000;
+/** "0000.00.00" is what some ERPs fill in when nobody knew the code; SEFAZ refuses it. */
+const PLACEHOLDER_NCM = "0".repeat(NCM_LENGTH);
+const GRAMS_FORMAT = new Intl.NumberFormat("pt-BR");
+
+function onlyDigits(length: number): RegExp {
+  return new RegExp(`^\\d{${length}}$`);
+}
 
 function digitsOf(value: string): string {
   return value.replace(/[.\s-]/g, "");
@@ -67,9 +74,9 @@ export const ncmSchema = z
   .pipe(
     z
       .string()
-      .regex(/^\d{8}$/, `O NCM tem ${NCM_LENGTH} números, como 6402.99.90`)
+      .regex(onlyDigits(NCM_LENGTH), `O NCM tem ${NCM_LENGTH} números, como 6402.99.90`)
       .refine(
-        (ncm) => ncm !== "00000000",
+        (ncm) => ncm !== PLACEHOLDER_NCM,
         "O NCM não pode ser 0000.00.00. Confira na nota de compra do produto.",
       ),
   );
@@ -78,7 +85,9 @@ export const cestSchema = z
   .string()
   .trim()
   .transform(digitsOf)
-  .pipe(z.string().regex(/^\d{7}$/, `O CEST tem ${CEST_LENGTH} números, como 28.063.00`));
+  .pipe(
+    z.string().regex(onlyDigits(CEST_LENGTH), `O CEST tem ${CEST_LENGTH} números, como 28.063.00`),
+  );
 
 export const productOriginSchema = z
   .number("Escolha a origem")
@@ -119,7 +128,12 @@ export function icmsCodeFitsRegime(code: string, regime: TaxRegime): boolean {
 
 /** "CSOSN" for Simples Nacional, "CST ICMS" for the other regimes, as the form names the field. */
 export function icmsCodeLabel(regime: TaxRegime): string {
-  return regime === "simples" ? "CSOSN (Simples Nacional)" : "CST ICMS";
+  return regime === "simples" ? "CSOSN (Simples Nacional)" : icmsCodeShortLabel(regime);
+}
+
+/** "CSOSN" or "CST ICMS": the field's name where the regime is already on screen. */
+export function icmsCodeShortLabel(regime: TaxRegime): string {
+  return regime === "simples" ? "CSOSN" : "CST ICMS";
 }
 
 /** A product's fiscal data; every field may still be empty while the supplier fills it in. */
@@ -132,7 +146,10 @@ export const productFiscalSchema = z.object({
     .number("Informe o peso em gramas")
     .int("Use gramas inteiras")
     .min(1, "O peso é de pelo menos 1 g")
-    .max(MAX_NET_WEIGHT_GRAMS, "O peso é de até 100.000 g (100 kg)")
+    .max(
+      MAX_NET_WEIGHT_GRAMS,
+      `O peso é de até ${GRAMS_FORMAT.format(MAX_NET_WEIGHT_GRAMS)} g (${MAX_NET_WEIGHT_GRAMS / 1000} kg)`,
+    )
     .nullable(),
   /** Null: the supplier's default applies. */
   cfopInState: cfopInStateSchema.nullable(),
@@ -166,12 +183,28 @@ export function readProductFiscal(stored: unknown): ProductFiscal {
   if (typeof stored !== "object" || stored === null) {
     return EMPTY_PRODUCT_FISCAL;
   }
-  const entries = Object.entries(productFiscalSchema.shape).map(([key, schema]) => {
-    const value: unknown = Reflect.get(stored, key);
-    const parsed = schema.safeParse(value);
-    return [key, parsed.success ? parsed.data : null];
-  });
-  return { ...EMPTY_PRODUCT_FISCAL, ...Object.fromEntries(entries) };
+  const shape = productFiscalSchema.shape;
+  return {
+    ncm: readStoredField(stored, "ncm", shape.ncm),
+    origin: readStoredField(stored, "origin", shape.origin),
+    unit: readStoredField(stored, "unit", shape.unit),
+    cest: readStoredField(stored, "cest", shape.cest),
+    netWeightGrams: readStoredField(stored, "netWeightGrams", shape.netWeightGrams),
+    cfopInState: readStoredField(stored, "cfopInState", shape.cfopInState),
+    cfopOutOfState: readStoredField(stored, "cfopOutOfState", shape.cfopOutOfState),
+    icmsCode: readStoredField(stored, "icmsCode", shape.icmsCode),
+    pisCofinsCst: readStoredField(stored, "pisCofinsCst", shape.pisCofinsCst),
+  };
+}
+
+/** One stored field, or null when it is missing or no longer passes its rule. */
+function readStoredField<Value>(
+  stored: object,
+  key: keyof ProductFiscal,
+  schema: z.ZodType<Value>,
+): Value | null {
+  const parsed = schema.safeParse(Reflect.get(stored, key));
+  return parsed.success ? parsed.data : null;
 }
 
 /** NCM, origin and unit: what an NF-e cannot leave out (the rest has supplier defaults). */

@@ -30,6 +30,12 @@ export const ibgeCityCodeSchema = z
   .trim()
   .regex(/^\d{7}$/, "O código IBGE da cidade tem 7 números");
 
+/** The CEP's 8 digits, masked or not; null while it is incomplete or too long. */
+export function completeCepDigits(input: string): string | null {
+  const digits = digitsOf(input);
+  return digits.length === CEP_LENGTH ? digits : null;
+}
+
 /** Masks while typing: 01310-100, from the digits that are there. */
 export function formatCep(input: string): string {
   return digitsOf(input)

@@ -1,6 +1,6 @@
 import type { z } from "zod";
 import {
-  productFiscalSchema,
+  productFiscalPatchSchema,
   type ProductFiscal,
   type ProductFiscalPatch,
 } from "./product-fiscal.ts";
@@ -44,31 +44,45 @@ export const PRODUCT_CSV_FISCAL_COLUMNS: readonly string[] = FISCAL_COLUMNS.map(
 
 type FiscalResult = { fiscal: ProductFiscalPatch } | { reason: string };
 
-function parseCell(entry: FiscalColumn, value: string): FiscalResult {
-  const schema: z.ZodType = productFiscalSchema.shape[entry.field];
-  const parsed = schema.safeParse(entry.read(value));
-  if (!parsed.success) {
-    return {
-      reason: `${entry.label}: "${value}" ${parsed.error.issues[0]?.message ?? "valor inválido"}`,
-    };
-  }
-  return { fiscal: { [entry.field]: parsed.data } };
-}
+const COLUMN_OF_FIELD: ReadonlyMap<PropertyKey, FiscalColumn> = new Map(
+  FISCAL_COLUMNS.map((entry) => [entry.field, entry] as const),
+);
 
 /** The fiscal cells of one line; blank cells are left out. Every bad cell is named. */
 export function parseCsvFiscal(values: Readonly<Record<string, string>>): FiscalResult {
-  const results = FISCAL_COLUMNS.flatMap((entry) => {
+  const cells = new Map<keyof ProductFiscal, string>();
+  const read: Record<string, unknown> = {};
+  for (const entry of FISCAL_COLUMNS) {
     const value = (values[entry.column] ?? "").trim();
-    return value === "" ? [] : [parseCell(entry, value)];
-  });
-  const failures = results.flatMap((result) => ("reason" in result ? [result.reason] : []));
-  if (failures.length > 0) {
-    return { reason: failures.join("; ") };
+    if (value !== "") {
+      cells.set(entry.field, value);
+      read[entry.field] = entry.read(value);
+    }
   }
-  return {
-    fiscal: Object.assign(
-      {},
-      ...results.map((result) => ("fiscal" in result ? result.fiscal : {})),
-    ),
-  };
+  const parsed = productFiscalPatchSchema.safeParse(read);
+  if (parsed.success) {
+    return { fiscal: parsed.data };
+  }
+  return { reason: failureReasons(parsed.error.issues, cells).join("; ") };
+}
+
+/** One reason per bad cell (its first issue), in the spreadsheet's column order. */
+function failureReasons(
+  issues: readonly z.core.$ZodIssue[],
+  cells: ReadonlyMap<keyof ProductFiscal, string>,
+): string[] {
+  const reasons = new Map<FiscalColumn, string>();
+  for (const issue of issues) {
+    const entry = COLUMN_OF_FIELD.get(issue.path[0] ?? "");
+    if (entry === undefined) {
+      throw new Error(`A fiscal issue points at no spreadsheet column: "${issue.path.join(".")}"`);
+    }
+    if (!reasons.has(entry)) {
+      reasons.set(entry, `${entry.label}: "${cells.get(entry.field) ?? ""}" ${issue.message}`);
+    }
+  }
+  return FISCAL_COLUMNS.flatMap((entry) => {
+    const reason = reasons.get(entry);
+    return reason === undefined ? [] : [reason];
+  });
 }

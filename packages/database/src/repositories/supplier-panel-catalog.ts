@@ -101,7 +101,7 @@ async function countByStatus(
   supplierId: string,
   filters: { query: string | undefined; onlyMissingFiscal: boolean },
 ): Promise<SupplierPanelStatusCounts> {
-  const { query } = filters;
+  const { query, onlyMissingFiscal } = filters;
   const rows = await database
     .select({ status: supplierProducts.reviewStatus, value: count() })
     .from(supplierProducts)
@@ -111,7 +111,7 @@ async function countByStatus(
         query === undefined
           ? undefined
           : matchesEveryWord(query, [supplierProducts.sku, supplierProducts.title]),
-        filters.onlyMissingFiscal ? missingFiscalData : undefined,
+        onlyMissingFiscal ? missingFiscalData : undefined,
       ),
     )
     .groupBy(supplierProducts.reviewStatus);

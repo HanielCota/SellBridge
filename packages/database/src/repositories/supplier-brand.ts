@@ -3,6 +3,7 @@ import type { AdminSupplierValues } from "@sellbridge/shared/schemas";
 import {
   readSupplierFiscalProfile,
   type SupplierFiscalProfile,
+  type SupplierTaxSetup,
 } from "@sellbridge/shared/supplier-fiscal";
 import { eq } from "drizzle-orm";
 import type { Database, DatabaseExecutor } from "../client.ts";
@@ -115,7 +116,7 @@ export async function updateSupplierBrand(
 export async function getSupplierTaxDefaults(
   database: DatabaseExecutor,
   supplierId: string,
-): Promise<Pick<SupplierFiscalProfile, "regime" | "defaults"> | null> {
+): Promise<SupplierTaxSetup | null> {
   const [found] = await database
     .select({ fiscalProfile: suppliers.fiscalProfile })
     .from(suppliers)

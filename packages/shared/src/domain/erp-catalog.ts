@@ -152,21 +152,17 @@ function toCsvFields(
 }
 
 /** A value the import would refuse is sent blank: the product then waits for it as a draft. */
-function validOrBlank(
-  schema: z.ZodType,
-  value: unknown,
-  cell: (parsed: unknown) => string,
-): string {
+function validOrBlank(schema: z.ZodType, value: unknown): string {
   const parsed = schema.safeParse(value);
-  return parsed.success ? cell(parsed.data) : "";
+  return parsed.success ? String(parsed.data) : "";
 }
 
 function fiscalCells(fiscal: ErpFiscalData): string[] {
   return [
-    validOrBlank(ncmSchema, fiscal.ncm, String),
-    validOrBlank(productOriginSchema, fiscal.origin, String),
-    validOrBlank(productUnitSchema, fiscal.unit?.trim().toUpperCase(), String),
-    validOrBlank(cestSchema, fiscal.cest, String),
+    validOrBlank(ncmSchema, fiscal.ncm),
+    validOrBlank(productOriginSchema, fiscal.origin),
+    validOrBlank(productUnitSchema, fiscal.unit?.trim().toUpperCase()),
+    validOrBlank(cestSchema, fiscal.cest),
   ];
 }
 

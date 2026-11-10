@@ -71,6 +71,9 @@ export const supplierFiscalProfileSchema = z
 export type SupplierFiscalProfile = z.infer<typeof supplierFiscalProfileSchema>;
 export type SupplierFiscalProfileInput = z.input<typeof supplierFiscalProfileSchema>;
 
+/** The regime and default tax codes a supplier's products follow unless one overrides them. */
+export type SupplierTaxSetup = Pick<SupplierFiscalProfile, "regime" | "defaults">;
+
 function regimeName(regime: TaxRegime): string {
   return regime === "simples" ? "o Simples Nacional" : "o seu regime";
 }
