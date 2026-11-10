@@ -3,7 +3,7 @@ import { useQuery } from "@tanstack/react-query";
 import { type KeyboardEvent, useState } from "react";
 import { FloatingTextField } from "@/components/form/floating-field";
 import { stateCitiesQueryOptions } from "@/features/cities/cities.queries";
-import { suggestCities } from "@/features/cities/city-suggestions";
+import { cityChangeHandler, suggestCities } from "@/features/cities/city-suggestions";
 import { cn } from "@/lib/utils";
 
 interface FloatingCityFieldProps {
@@ -15,6 +15,8 @@ interface FloatingCityFieldProps {
   errors: readonly unknown[];
   onValueChange: (value: string) => void;
   onBlur: () => void;
+  /** The IBGE code of the city typed or picked, "" when it is not one of the state's cities. */
+  onIbgeCodeChange?: ((ibgeCode: string) => void) | undefined;
 }
 
 /** The open list's keyboard: arrows move, Enter picks, Escape closes. */
@@ -139,15 +141,17 @@ export function FloatingCityField({
   errors,
   onValueChange,
   onBlur,
+  onIbgeCodeChange,
 }: FloatingCityFieldProps) {
   const chosen = parseState(state);
   const cities = useQuery(stateCitiesQueryOptions(chosen)).data ?? [];
   const capital = chosen === null ? null : BRAZILIAN_STATE_CAPITALS[chosen];
+  const changeCity = cityChangeHandler(cities, onValueChange, onIbgeCodeChange);
   const { suggestions, keys, open, close, pick } = useCityList(
-    cities,
+    cities.map((city) => city.name),
     value,
     capital,
-    onValueChange,
+    changeCity,
   );
   const listId = `${id}-suggestions`;
   const isListShown = suggestions.length > 0;
@@ -174,7 +178,7 @@ export function FloatingCityField({
         }}
         onKeyDown={(event) => keys.onKeyDown(event, close)}
         onValueChange={(next) => {
-          onValueChange(next);
+          changeCity(next);
           open();
         }}
       />

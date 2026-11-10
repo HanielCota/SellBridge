@@ -5,6 +5,12 @@ import { createAsyncCache } from "@/lib/server/async-cache";
 
 export type FetchCities = (url: string, init: RequestInit) => Promise<Response>;
 
+/** A city with its 7-digit IBGE code, which an NF-e address needs. */
+export interface IbgeCity {
+  readonly name: string;
+  readonly ibgeCode: string;
+}
+
 const IBGE_CITIES_URL = "https://servicodados.ibge.gov.br/api/v1/localidades/estados";
 /** The city field stays free text: past this, the seller just types without suggestions. */
 const LOOKUP_TIMEOUT_MILLISECONDS = 4000;
@@ -14,7 +20,12 @@ const RETRY_DELAY_MILLISECONDS = 300;
 const MAX_CITIES_PER_STATE = 1000;
 
 const ibgeCitiesSchema = z
-  .array(z.object({ nome: z.string().trim().min(1).max(100) }))
+  .array(
+    z.object({
+      id: z.number().int().min(1_000_000).max(9_999_999),
+      nome: z.string().trim().min(1).max(100),
+    }),
+  )
   .max(MAX_CITIES_PER_STATE);
 
 function isTransientStatus(status: number): boolean {
@@ -29,7 +40,7 @@ async function wait(milliseconds: number): Promise<void> {
 async function requestCities(
   state: BrazilianState,
   fetchCities: FetchCities,
-): Promise<readonly string[] | null> {
+): Promise<readonly IbgeCity[] | null> {
   try {
     const response = await fetchCities(`${IBGE_CITIES_URL}/${state}/municipios`, {
       headers: { Accept: "application/json" },
@@ -44,7 +55,7 @@ async function requestCities(
       logger.warn("cities.lookup_unexpected_reply", { state });
       return [];
     }
-    return parsed.data.map((city) => city.nome);
+    return parsed.data.map((city) => ({ name: city.nome, ibgeCode: String(city.id) }));
   } catch (error) {
     logger.warn("cities.lookup_failed", { state, error });
     return null;
@@ -55,7 +66,7 @@ async function requestCities(
 async function requestWithRetry(
   state: BrazilianState,
   fetchCities: FetchCities,
-): Promise<readonly string[]> {
+): Promise<readonly IbgeCity[]> {
   for (let attempt = 1; attempt <= LOOKUP_ATTEMPTS; attempt += 1) {
     const cities = await requestCities(state, fetchCities);
     if (cities !== null) {
@@ -70,7 +81,7 @@ async function requestWithRetry(
 
 /** Successful lists last a day; an outage has a short cooldown before another attempt. */
 export function createCitiesLookup(fetchCities: FetchCities = fetch, now: () => number = Date.now) {
-  return createAsyncCache<BrazilianState, readonly string[]>({
+  return createAsyncCache<BrazilianState, readonly IbgeCity[]>({
     load: (state) => requestWithRetry(state, fetchCities),
     maxEntries: 27,
     ttlMilliseconds: (cities) => (cities.length > 0 ? 24 * 60 * 60_000 : 30_000),

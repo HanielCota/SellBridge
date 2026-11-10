@@ -113,13 +113,47 @@ describe("buildErpCatalogCsv", () => {
     expect(parsed.rows[0]?.product.stock).toBe(0);
   });
 
-  it("leaves out a GTIN that is not a barcode, such as SEM GTIN", () => {
+  it("keeps SEM GTIN, which the NF-e accepts for a product without a barcode", () => {
     const csv = buildErpCatalogCsv([{ ...ITEM, gtin: "SEM GTIN" }], new Map([[ITEM.sku, 2500]]));
 
     const parsed = parseProductCsv(csv);
 
     expect(parsed.errors).toEqual([]);
+    expect(parsed.rows[0]?.product.mercadoLivreAttributes?.GTIN).toBe("SEM GTIN");
+  });
+
+  it("leaves out a GTIN that is not a barcode", () => {
+    const csv = buildErpCatalogCsv([{ ...ITEM, gtin: "12345" }], new Map([[ITEM.sku, 2500]]));
+
+    const parsed = parseProductCsv(csv);
+
+    expect(parsed.errors).toEqual([]);
     expect(parsed.rows[0]?.product.mercadoLivreAttributes?.GTIN).toBeUndefined();
+  });
+
+  it("brings the ERP's NCM, origin, unit and CEST into the import", () => {
+    const fiscal = { ncm: "64029990", origin: 0, unit: "Par", cest: "2806300" };
+    const csv = buildErpCatalogCsv([{ ...ITEM, fiscal }], new Map([[ITEM.sku, 2500]]));
+
+    const parsed = parseProductCsv(csv);
+
+    expect(parsed.errors).toEqual([]);
+    expect(parsed.rows[0]?.product.fiscal).toEqual({
+      ncm: "64029990",
+      origin: 0,
+      unit: "PAR",
+      cest: "2806300",
+    });
+  });
+
+  it("leaves blank an ERP fiscal value the import would refuse, so the line still imports", () => {
+    const fiscal = { ncm: "00000000", origin: 9, unit: "caixote", cest: "1" };
+    const csv = buildErpCatalogCsv([{ ...ITEM, fiscal }], new Map([[ITEM.sku, 2500]]));
+
+    const parsed = parseProductCsv(csv);
+
+    expect(parsed.errors).toEqual([]);
+    expect(parsed.rows[0]?.product.fiscal).toEqual({});
   });
 
   it.each([0, -1990, Number.NaN, 39.9])(

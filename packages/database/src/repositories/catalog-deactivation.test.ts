@@ -1,4 +1,5 @@
 import { randomUUID } from "node:crypto";
+import { EMPTY_PRODUCT_FISCAL } from "@sellbridge/shared/product-fiscal";
 import { parseProductCsv } from "@sellbridge/shared/product-csv";
 import { eq, inArray } from "drizzle-orm";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
@@ -59,6 +60,9 @@ async function newSupplier() {
   return supplier.id;
 }
 
+/** NF-e data a new product needs to go on sale (fiscal rule of 10/11/2026). */
+const ON_SALE_FISCAL = { ...EMPTY_PRODUCT_FISCAL, ncm: "61091000", origin: 0, unit: "UN" as const };
+
 /** A product of `supplierId` published by both sellers; returns its id, listing and targets. */
 async function publishedProduct(supplierId: string, sku = `DES-${randomUUID().slice(0, 8)}`) {
   const product = await saveAdminSupplierProduct(database, {
@@ -72,6 +76,7 @@ async function publishedProduct(supplierId: string, sku = `DES-${randomUUID().sl
     categoryId: null,
     imageUrls: [],
     mercadoLivreAttributes: {},
+    fiscal: ON_SALE_FISCAL,
   });
   const targets = await publishTestProduct(database, product.id, [first, second]);
   return { productId: product.id, sku, targets };
@@ -340,6 +345,7 @@ describe("what the reseller sees", () => {
       categoryId: null,
       imageUrls: [],
       mercadoLivreAttributes: {},
+      fiscal: ON_SALE_FISCAL,
     });
     const listing = await createListingWithTargets(
       database,

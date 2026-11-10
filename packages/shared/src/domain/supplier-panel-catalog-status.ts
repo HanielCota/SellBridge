@@ -24,7 +24,7 @@ export const PRODUCT_REVIEW_STATUS_LABELS: Readonly<Record<ProductReviewStatus, 
 export const productFieldKeySchema = z
   .string()
   .regex(
-    /^(sku|title|description|costCents|suggestedPriceCents|stock|categoryId|imageUrls|attributes\.[A-Z][A-Z0-9_]{0,99})$/,
+    /^(sku|title|description|costCents|suggestedPriceCents|stock|categoryId|imageUrls|attributes\.[A-Z][A-Z0-9_]{0,99}|fiscal\.[a-zA-Z]{1,40})$/,
     "Use um campo do produto, como title ou attributes.BRAND",
   );
 export type ProductFieldKey = z.infer<typeof productFieldKeySchema>;
@@ -137,6 +137,19 @@ export interface EditableProductFields {
   readonly categoryId: string | null;
   readonly imageUrls: readonly string[];
   readonly mercadoLivreAttributes: Readonly<Record<string, string>>;
+  /** Absent where the edit does not carry fiscal data (it is then left as stored). */
+  readonly fiscal?: Readonly<Record<string, unknown>>;
+}
+
+function sameFiscal(
+  left: Readonly<Record<string, unknown>> | undefined,
+  right: Readonly<Record<string, unknown>> | undefined,
+): boolean {
+  if (left === undefined || right === undefined) {
+    return true;
+  }
+  const keys = new Set([...Object.keys(left), ...Object.keys(right)]);
+  return [...keys].every((key) => (left[key] ?? null) === (right[key] ?? null));
 }
 
 function sameAttributes(
@@ -173,6 +186,9 @@ export function changedProductFields(
   }
   if (!sameAttributes(before.mercadoLivreAttributes, after.mercadoLivreAttributes)) {
     changed.push("mercadoLivreAttributes");
+  }
+  if (!sameFiscal(before.fiscal, after.fiscal)) {
+    changed.push("fiscal");
   }
   return changed;
 }

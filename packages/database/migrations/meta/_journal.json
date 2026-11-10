@@ -442,6 +442,13 @@
       "when": 1794286280056,
       "tag": "0062_erp_connections",
       "breakpoints": true
+    },
+    {
+      "idx": 63,
+      "version": "7",
+      "when": 1794303031739,
+      "tag": "0063_fiscal_fields",
+      "breakpoints": true
     }
   ]
 }

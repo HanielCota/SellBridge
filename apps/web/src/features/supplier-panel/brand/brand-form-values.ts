@@ -1,5 +1,6 @@
 import type { SupplierBrand } from "@sellbridge/database/repositories";
 import { SUPPLIER_SLA_DEFAULTS } from "@sellbridge/shared/schemas";
+import { supplierFiscalFormValues } from "@/features/admin-suppliers/fiscal-form-values";
 
 /** Same shape as the team's supplier form (`supplierFormValues`), so its pieces fit here. */
 export function brandFormValues(brand: SupplierBrand | null, loginEmail: string) {
@@ -15,6 +16,7 @@ export function brandFormValues(brand: SupplierBrand | null, loginEmail: string)
     dispatchWithinHours: String(
       brand?.dispatchWithinHours ?? SUPPLIER_SLA_DEFAULTS.dispatchWithinHours,
     ),
+    ...supplierFiscalFormValues(brand?.fiscalProfile ?? null),
   };
 }
 

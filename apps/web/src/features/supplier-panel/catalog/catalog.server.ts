@@ -6,6 +6,7 @@ import {
   listSupplierPanelProducts,
   rejectSupplierPanelProduct,
   reserveShortItems,
+  getSupplierTaxDefaults,
   saveSupplierPanelDraft,
   setAdminSupplierProductActive,
   submitSupplierPanelProduct,
@@ -31,7 +32,7 @@ export async function loadPanelProductForm(input: {
   supplierId: string;
   productId?: string | undefined;
 }) {
-  const [product, categories] = await Promise.all([
+  const [product, categories, taxDefaults] = await Promise.all([
     input.productId === undefined
       ? Promise.resolve(null)
       : getSupplierPanelProduct(database, {
@@ -39,8 +40,9 @@ export async function loadPanelProductForm(input: {
           productId: input.productId,
         }),
     loadProductCategories(),
+    getSupplierTaxDefaults(database, input.supplierId),
   ]);
-  return { product, categories };
+  return { product, categories, taxDefaults };
 }
 
 /** Database failures become one clear message; typed errors pass through unchanged. */

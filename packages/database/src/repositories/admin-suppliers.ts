@@ -8,6 +8,13 @@ import {
   type Pagination,
 } from "@sellbridge/shared/schemas";
 import type { ProductCsvError, ProductCsvRow } from "@sellbridge/shared/product-csv";
+import {
+  hasRequiredFiscalData,
+  icmsOverrideProblem,
+  readProductFiscal,
+  type ProductFiscalPatch,
+  type TaxRegime,
+} from "@sellbridge/shared/product-fiscal";
 import { and, asc, count, eq, inArray, or, sql } from "drizzle-orm";
 import type { Database, DatabaseExecutor } from "../client.ts";
 import {
@@ -247,6 +254,32 @@ const STOCK_MOVED_MESSAGE =
  * Saves an edit without undoing sales: an untouched shelf count is not written back, and a
  * changed one only lands while the shelf still holds what the form showed.
  */
+/**
+ * A product created under the fiscal rule leaves sale when the team erases its NCM, origin or
+ * unit, as it does when the supplier erases them in the panel.
+ */
+async function fiscalRuleStatus(
+  transaction: DatabaseExecutor,
+  ids: { supplierId: string; productId: string },
+  fiscal: AdminProductValues["fiscal"],
+): Promise<{ reviewStatus?: "draft" }> {
+  const [stored] = await transaction
+    .select({
+      fiscal: supplierProducts.fiscal,
+      fiscalRequired: supplierProducts.fiscalRequired,
+      reviewStatus: supplierProducts.reviewStatus,
+    })
+    .from(supplierProducts)
+    .where(
+      and(eq(supplierProducts.id, ids.productId), eq(supplierProducts.supplierId, ids.supplierId)),
+    );
+  if (stored === undefined || !stored.fiscalRequired || stored.reviewStatus !== "approved") {
+    return {};
+  }
+  const next = readProductFiscal(fiscal ?? stored.fiscal);
+  return hasRequiredFiscalData(next) ? {} : { reviewStatus: "draft" };
+}
+
 async function updateProduct(
   transaction: DatabaseExecutor,
   ids: { supplierId: string; productId: string },
@@ -255,9 +288,10 @@ async function updateProduct(
 ) {
   const { stock, ...rest } = values;
   const keepsShelf = expectedStock !== undefined && stock === expectedStock;
+  const status = await fiscalRuleStatus(transaction, ids, values.fiscal);
   const [product] = await transaction
     .update(supplierProducts)
-    .set(keepsShelf ? rest : values)
+    .set({ ...(keepsShelf ? rest : values), ...status })
     .where(
       and(
         eq(supplierProducts.id, ids.productId),
@@ -283,6 +317,22 @@ async function updateProduct(
   return undefined;
 }
 
+/** A product's own ICMS code must fit the supplier's regime, in the team form as in the panel. */
+async function assertIcmsFitsSupplierRegime(
+  transaction: DatabaseExecutor,
+  supplierId: string,
+  fiscal: AdminProductValues["fiscal"],
+): Promise<void> {
+  const [supplier] = await transaction
+    .select({ fiscalProfile: suppliers.fiscalProfile })
+    .from(suppliers)
+    .where(eq(suppliers.id, supplierId));
+  const problem = icmsOverrideProblem(fiscal?.icmsCode, supplier?.fiscalProfile?.regime ?? null);
+  if (problem !== null) {
+    throw validationError(problem);
+  }
+}
+
 export async function saveAdminSupplierProduct(
   database: Database,
   input: AdminProductValues & {
@@ -298,6 +348,7 @@ export async function saveAdminSupplierProduct(
   return await database.transaction(async (transaction) => {
     await lockSupplier(transaction, supplierId);
     await assertCategory(transaction, values.categoryId);
+    await assertIcmsFitsSupplierRegime(transaction, supplierId, values.fiscal);
     const [duplicate] = await transaction
       .select({ id: supplierProducts.id })
       .from(supplierProducts)
@@ -311,7 +362,15 @@ export async function saveAdminSupplierProduct(
       ? [await updateProduct(transaction, { supplierId, productId }, values, expectedStock)]
       : await transaction
           .insert(supplierProducts)
-          .values({ supplierId, ...values })
+          .values({
+            supplierId,
+            ...values,
+            // A new product needs NF-e data to go on sale; without it the admin saves a draft.
+            fiscalRequired: true,
+            ...(hasRequiredFiscalData(readProductFiscal(values.fiscal ?? {}))
+              ? {}
+              : { reviewStatus: "draft" as const }),
+          })
           .returning();
     if (!product) {
       throw notFoundError("Produto não encontrado neste fornecedor");
@@ -343,15 +402,19 @@ export async function setAdminSupplierProductActive(
   });
 }
 
-interface ImportProduct extends AdminProductValues {
+interface ImportProduct extends Omit<AdminProductValues, "fiscal"> {
   supplierId: string;
   active: boolean;
+  /** Only the fiscal cells the line filled; the upsert merges them into what is stored. */
+  fiscal?: ProductFiscalPatch | undefined;
 }
 export interface SupplierProductImportPlan {
   created: number;
   updated: number;
   errors: ProductCsvError[];
   products: ImportProduct[];
+  /** SKUs the import creates: they need NF-e data to go on sale (fiscal rule of 10/11/2026). */
+  newSkus: string[];
   revision: string;
 }
 
@@ -360,6 +423,8 @@ function planImportRows(input: {
   rows: readonly ProductCsvRow[];
   existing: AdminSupplierProduct[];
   availableCategories: Awaited<ReturnType<typeof listAdminCategories>>;
+  /** The supplier's regime, to check a line's own ICMS code; null while it is not filled. */
+  regime: TaxRegime | null;
 }): SupplierProductImportPlan {
   const existingBySku = new Map(input.existing.map((product) => [product.sku, product]));
   const categoryBySlug = new Map(
@@ -370,6 +435,7 @@ function planImportRows(input: {
     updated: 0,
     errors: [],
     products: [],
+    newSkus: [],
     revision: "",
   };
   for (const row of input.rows) {
@@ -379,8 +445,16 @@ function planImportRows(input: {
       plan.errors.push({ line: row.line, reason: `Categoria desconhecida: ${categorySlug}` });
       continue;
     }
+    const icmsProblem = icmsOverrideProblem(product.fiscal?.icmsCode, input.regime);
+    if (icmsProblem !== null) {
+      plan.errors.push({ line: row.line, reason: icmsProblem });
+      continue;
+    }
     const previous = existingBySku.get(product.sku);
     plan[previous ? "updated" : "created"] += 1;
+    if (previous === undefined) {
+      plan.newSkus.push(product.sku);
+    }
     plan.products.push({
       ...product,
       active: product.active ?? previous?.active ?? true,
@@ -395,9 +469,22 @@ function planImportRows(input: {
         ),
     });
   }
-  // Only what the import writes: a sale moving `reserved_stock` (or `updated_at`) between the
-  // preview and the confirmation must not invalidate it; a new shelf count must.
-  plan.revision = JSON.stringify({
+  plan.revision = importRevision(input, plan.products);
+  return plan;
+}
+
+/**
+ * Only what the import writes: a sale moving `reserved_stock` (or `updated_at`) between the
+ * preview and the confirmation must not invalidate it; a new shelf count must.
+ */
+function importRevision(
+  input: {
+    existing: AdminSupplierProduct[];
+    availableCategories: Awaited<ReturnType<typeof listAdminCategories>>;
+  },
+  products: readonly ImportProduct[],
+): string {
+  return JSON.stringify({
     existing: input.existing.map((product) => ({
       sku: product.sku,
       title: product.title,
@@ -409,11 +496,11 @@ function planImportRows(input: {
       active: product.active,
       suggestedPriceCents: product.suggestedPriceCents,
       mercadoLivreAttributes: product.mercadoLivreAttributes,
+      fiscal: product.fiscal,
     })),
     categories: input.availableCategories.map((category) => [category.slug, category.id]),
-    products: plan.products,
+    products,
   });
-  return plan;
 }
 
 export async function previewSupplierProductImport(
@@ -421,7 +508,7 @@ export async function previewSupplierProductImport(
   supplierId: string,
   rows: readonly ProductCsvRow[],
 ) {
-  await getAdminSupplier(database, supplierId);
+  const { supplier } = await getAdminSupplier(database, supplierId);
   const existing =
     rows.length === 0
       ? []
@@ -439,7 +526,36 @@ export async function previewSupplierProductImport(
           )
           .orderBy(asc(supplierProducts.sku));
   const availableCategories = await listAdminCategories(database);
-  return planImportRows({ supplierId, rows, existing, availableCategories });
+  return planImportRows({
+    supplierId,
+    rows,
+    existing,
+    availableCategories,
+    regime: supplier.fiscalProfile?.regime ?? null,
+  });
+}
+
+/**
+ * A product the import creates needs NCM, origin and unit to go on sale: it is flagged as such
+ * and, when the line leaves them out, lands as a draft instead of approved. Updated products
+ * keep their flag and status (the conflict clause does not touch them).
+ */
+function withNewProductFiscalRule<
+  TProduct extends { sku: string; fiscal?: ProductFiscalPatch | undefined },
+>(products: readonly TProduct[], newSkus: readonly string[]) {
+  const created = new Set(newSkus);
+  return products.map((product) => {
+    if (!created.has(product.sku)) {
+      return { ...product, fiscal: product.fiscal ?? {} };
+    }
+    const complete = hasRequiredFiscalData(readProductFiscal(product.fiscal ?? {}));
+    return {
+      ...product,
+      fiscal: product.fiscal ?? {},
+      fiscalRequired: true,
+      ...(complete ? {} : { reviewStatus: "draft" as const }),
+    };
+  });
 }
 
 /** All rows commit together; conflicts preserve product ids and therefore listing/order references. */
@@ -472,7 +588,7 @@ export async function importSupplierProducts(
     const reviewed = await reviewedImportValues(transaction, input, plan.products);
     const written = await transaction
       .insert(supplierProducts)
-      .values(reviewed?.values ?? plan.products)
+      .values(withNewProductFiscalRule(reviewed?.values ?? plan.products, plan.newSkus))
       .onConflictDoUpdate({
         target: [supplierProducts.supplierId, supplierProducts.sku],
         set: {
@@ -486,6 +602,8 @@ export async function importSupplierProducts(
           suggestedPriceCents: sql`excluded.suggested_price_cents`,
           // Item 18: the CSV's attributes win; blank cells (absent keys) keep the product's own.
           mercadoLivreAttributes: sql`${supplierProducts.mercadoLivreAttributes} || excluded.mercado_livre_attributes`,
+          // Same for the fiscal cells; `fiscal_required` is left as the stored product has it.
+          fiscal: sql`${supplierProducts.fiscal} || excluded.fiscal`,
           ...reviewed?.conflictSet,
           updatedAt: new Date(),
         },

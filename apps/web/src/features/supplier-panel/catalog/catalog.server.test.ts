@@ -75,7 +75,9 @@ function stored(reviewStatus: Stored["reviewStatus"]): Stored {
     updatedAt: now,
     categoryName: null,
     categorySlug: null,
-    completeness: { score: 0, blocking: [], improvements: [], canSubmit: true },
+    fiscal: {},
+    fiscalRequired: false,
+    completeness: { score: 0, blocking: [], improvements: [], fiscal: [], canSubmit: true },
   };
 }
 

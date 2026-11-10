@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   BRAZILIAN_STATE_NAMES,
   BRAZILIAN_STATES,
+  isCityOfState,
   parseState,
   stateLabel,
   stateSchema,
@@ -40,5 +41,13 @@ describe("parseState", () => {
     expect(parseState("AM")).toBe("AM");
     expect(parseState("")).toBeNull();
     expect(parseState("am")).toBeNull();
+  });
+});
+
+describe("isCityOfState", () => {
+  it("tells a city's state by the first two digits of its IBGE code", () => {
+    expect(isCityOfState("3122306", "MG")).toBe(true);
+    expect(isCityOfState("3122306", "SP")).toBe(false);
+    expect(isCityOfState("5300108", "DF")).toBe(true);
   });
 });

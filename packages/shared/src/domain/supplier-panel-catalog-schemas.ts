@@ -31,6 +31,8 @@ export const catalogListSearchSchema = z.object({
   direction: withFallback(z.enum(["asc", "desc"]).default("desc"), "desc"),
   page: withFallback(pageNumberSchema.default(1), 1),
   pageSize: withFallback(z.coerce.number().int().min(10).max(100).default(25), 25),
+  /** "missing": only products without NCM, origin or unit (the "Completar" link). */
+  fiscal: withFallback(z.enum(["all", "missing"]).default("all"), "all"),
 });
 export type CatalogListSearch = z.infer<typeof catalogListSearchSchema>;
 export const catalogListInputSchema = supplierScopeSchema.extend(catalogListSearchSchema.shape);

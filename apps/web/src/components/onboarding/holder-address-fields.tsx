@@ -1,7 +1,9 @@
 import { billingAddressSchema, formatCep } from "@sellbridge/shared/billing-address";
 import type { BillingAddress } from "@sellbridge/shared/billing-address";
 import { useStore } from "@tanstack/react-form";
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
+import type { CepAddress } from "@/features/cities/cep-lookup";
+import { useCepAutofill } from "@/features/cities/use-cep-autofill";
 import { FloatingCityField } from "@/components/form/floating-city-field";
 import { FloatingTextField } from "@/components/form/floating-field";
 import { FloatingStateSelect } from "@/components/form/floating-state-select";
@@ -85,13 +87,28 @@ function AddressInputs({ form, showErrors }: { form: HolderFormApi; showErrors: 
   );
 }
 
+/** A complete CEP fills street, district, city, state and the IBGE code; all stay editable. */
+function useAddressFromCep(form: HolderFormApi) {
+  const apply = useCallback(
+    (address: CepAddress) => {
+      form.setFieldValue("address.street", address.street);
+      form.setFieldValue("address.neighborhood", address.neighborhood);
+      form.setFieldValue("address.state", address.state);
+      form.setFieldValue("address.city", address.city);
+      form.setFieldValue("address.ibgeCode", address.ibgeCode);
+    },
+    [form],
+  );
+  return useCepAutofill(apply);
+}
+
 function StreetInputs({ form, showErrors }: { form: HolderFormApi; showErrors: boolean }) {
+  const cep = useAddressFromCep(form);
   return (
     <>
       <form.Field name="address.cep" validators={{ onChange: fields.cep }}>
         {(field) => (
-          <div className="col-span-2">
-            {/* Typed by hand for now; a CEP lookup (ViaCEP) will fill street to state later. */}
+          <div className="col-span-2 grid gap-1">
             <FloatingTextField
               id={CEP_FIELD_ID}
               label="CEP"
@@ -100,8 +117,17 @@ function StreetInputs({ form, showErrors }: { form: HolderFormApi; showErrors: b
               value={field.state.value}
               errors={visibleErrors(field.state.meta.errors, showErrors)}
               onBlur={field.handleBlur}
-              onValueChange={(next) => field.handleChange(formatCep(next))}
+              onValueChange={(next) => {
+                const masked = formatCep(next);
+                field.handleChange(masked);
+                // The old city code goes with the old CEP; the lookup fills the new one.
+                form.setFieldValue("address.ibgeCode", "");
+                void cep.lookUp(masked);
+              }}
             />
+            <p aria-live="polite" className="px-1 text-footnote text-muted-foreground">
+              {cep.message ?? "Digite o CEP: rua, bairro e cidade vêm sozinhos."}
+            </p>
           </div>
         )}
       </form.Field>
@@ -193,7 +219,10 @@ function PlaceInputs({ form, showErrors }: { form: HolderFormApi; showErrors: bo
               value={field.state.value}
               errors={visibleErrors(field.state.meta.errors, showErrors)}
               onBlur={field.handleBlur}
-              onValueChange={field.handleChange}
+              onValueChange={(state) => {
+                field.handleChange(state);
+                form.setFieldValue("address.ibgeCode", "");
+              }}
             />
           </div>
         )}
@@ -209,6 +238,7 @@ function PlaceInputs({ form, showErrors }: { form: HolderFormApi; showErrors: bo
               errors={visibleErrors(field.state.meta.errors, showErrors)}
               onBlur={field.handleBlur}
               onValueChange={field.handleChange}
+              onIbgeCodeChange={(ibgeCode) => form.setFieldValue("address.ibgeCode", ibgeCode)}
             />
           </div>
         )}

@@ -3,8 +3,10 @@ import {
   completenessInput,
   descriptionLengthHint,
   editedFields,
+  initialFormValues,
   inputIdOf,
   panelFormValues,
+  EMPTY_PRODUCT_FISCAL_FORM_VALUES,
   parseDraft,
   stepOfField,
   type PanelFormValues,
@@ -20,7 +22,34 @@ const FILLED: PanelFormValues = {
   categoryId: "",
   imageUrls: ["https://imagens.test/1.jpg"],
   attributes: { BRAND: " Marca ", MODEL: " " },
+  fiscal: EMPTY_PRODUCT_FISCAL_FORM_VALUES,
 };
+
+const STORED = {
+  sku: "A",
+  title: "T",
+  description: "",
+  costCents: 2590,
+  suggestedPriceCents: 4990,
+  stock: 3,
+  categoryId: null,
+  imageUrls: [],
+  mercadoLivreAttributes: {},
+};
+
+describe("initialFormValues", () => {
+  it("starts a new product with the supplier's default origin and unit", () => {
+    const values = initialFormValues(null, { origin: 0, unit: "UN" });
+
+    expect(values.fiscal).toMatchObject({ origin: "0", unit: "UN", ncm: "" });
+  });
+
+  it("keeps a stored product's own origin and unit", () => {
+    const values = initialFormValues(STORED, { origin: 0, unit: "UN" });
+
+    expect(values.fiscal).toMatchObject({ origin: "", unit: "" });
+  });
+});
 
 describe("panelFormValues", () => {
   it("starts a new product blank", () => {
@@ -133,5 +162,43 @@ describe("editedFields", () => {
       attributes: { BRAND: "Marca", MODEL: "" },
     });
     expect(edited.size).toBe(0);
+  });
+});
+
+describe("fiscal fields", () => {
+  it("saves the NCM as digits and the blanks as empty", () => {
+    const values = {
+      ...FILLED,
+      fiscal: { ...EMPTY_PRODUCT_FISCAL_FORM_VALUES, ncm: "6109.10.00", origin: "0", unit: "UN" },
+    };
+
+    const parsed = parseDraft(values);
+
+    expect(parsed).toMatchObject({
+      ok: true,
+      values: {
+        fiscal: { ncm: "61091000", origin: 0, unit: "UN", cest: null, netWeightGrams: null },
+      },
+    });
+  });
+
+  it("names the fiscal field that is wrong, with the reason", () => {
+    const values = {
+      ...FILLED,
+      fiscal: { ...EMPTY_PRODUCT_FISCAL_FORM_VALUES, ncm: "0000.00.00" },
+    };
+
+    const parsed = parseDraft(values);
+
+    expect(parsed.ok).toBe(false);
+    expect(parsed.ok ? {} : parsed.errors).toHaveProperty("fiscal.ncm");
+  });
+
+  it("shows a stored NCM with its mask and lists a fiscal edit by its product field", () => {
+    const opened = panelFormValues({ ...STORED, fiscal: { ncm: "61091000", netWeightGrams: 300 } });
+    const edited = { ...opened, fiscal: { ...opened.fiscal, netWeight: "320" } };
+
+    expect(opened.fiscal.ncm).toBe("6109.10.00");
+    expect(editedFields(opened, edited)).toEqual(new Set(["fiscal.netWeightGrams"]));
   });
 });

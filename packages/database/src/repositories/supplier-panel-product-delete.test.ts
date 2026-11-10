@@ -25,6 +25,7 @@ const LIST: CatalogListSearch = {
   query: undefined,
   sort: "updatedAt",
   direction: "desc",
+  fiscal: "all",
   page: 1,
   pageSize: 25,
 };

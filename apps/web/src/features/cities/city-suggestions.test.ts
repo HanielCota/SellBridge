@@ -1,5 +1,10 @@
-import { describe, expect, it } from "vitest";
-import { foldCityName, MAX_CITY_SUGGESTIONS, suggestCities } from "./city-suggestions";
+import { describe, expect, it, vi } from "vitest";
+import {
+  cityChangeHandler,
+  foldCityName,
+  MAX_CITY_SUGGESTIONS,
+  suggestCities,
+} from "./city-suggestions";
 
 const AMAZONAS = ["Tefé", "Parintins", "Manaus", "Manacapuru", "Itacoatiara", "Humaitá", "Coari"];
 
@@ -40,5 +45,25 @@ describe("suggestCities", () => {
     const many = Array.from({ length: 30 }, (_, index) => `Cidade ${index}`);
 
     expect(suggestCities(many, "", null)).toHaveLength(MAX_CITY_SUGGESTIONS);
+  });
+});
+
+describe("cityChangeHandler", () => {
+  const MINAS = [{ name: "Divinópolis", ibgeCode: "3122306" }];
+
+  it("reports the IBGE code of a typed city, accents and case aside", () => {
+    const onIbgeCodeChange = vi.fn<(ibgeCode: string) => void>();
+
+    cityChangeHandler(MINAS, () => undefined, onIbgeCodeChange)("divinopolis");
+
+    expect(onIbgeCodeChange).toHaveBeenCalledWith("3122306");
+  });
+
+  it("keeps the code the CEP filled while the state's cities are still loading", () => {
+    const onIbgeCodeChange = vi.fn<(ibgeCode: string) => void>();
+
+    cityChangeHandler([], () => undefined, onIbgeCodeChange)("Divinópolis");
+
+    expect(onIbgeCodeChange).not.toHaveBeenCalled();
   });
 });

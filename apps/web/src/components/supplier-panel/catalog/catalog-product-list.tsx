@@ -1,3 +1,4 @@
+import { MissingFiscalNotice } from "./missing-fiscal-notice";
 import type {
   CatalogListSearch,
   CatalogStatusFilter,
@@ -180,6 +181,46 @@ function ProductListActions({ onCreateProduct }: { onCreateProduct: () => void }
   );
 }
 
+/** The status tabs and the search box above the list. */
+function CatalogFilters({
+  counts,
+  search,
+  onSearchChange,
+}: {
+  counts: Partial<Record<CatalogStatusFilter, number>> | undefined;
+  search: CatalogListSearch;
+  onSearchChange: (change: Partial<CatalogListSearch>) => void;
+}) {
+  const { term, setTerm } = useUrlSearchQuery({
+    urlQuery: search.query,
+    commitQuery: (value) => onSearchChange({ query: value, page: 1 }),
+  });
+  return (
+    <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+      <div className="max-w-full overflow-x-auto">
+        <FilterTabs
+          legend="Situação dos produtos"
+          tabs={STATUS_TABS.map((tab) => ({ ...tab, count: counts?.[tab.value] }))}
+          value={search.status}
+          onChange={(status) => onSearchChange({ status, page: 1 })}
+        />
+      </div>
+      <SearchInput
+        label="Buscar produtos"
+        placeholder="Buscar por código ou título"
+        value={term}
+        onValueChange={setTerm}
+        maxLength={100}
+        className="lg:w-80"
+      />
+    </div>
+  );
+}
+
+function fiscalFilter(filtering: boolean): Partial<CatalogListSearch> {
+  return { fiscal: filtering ? "missing" : "all", page: 1 };
+}
+
 export function CatalogProductList({
   supplierId,
   search,
@@ -189,11 +230,6 @@ export function CatalogProductList({
   headerActions,
 }: CatalogProductListProps) {
   const query = useQuery(supplierPanelProductsQueryOptions(supplierId, search));
-  const { term, setTerm } = useUrlSearchQuery({
-    urlQuery: search.query,
-    commitQuery: (value) => onSearchChange({ query: value, page: 1 }),
-  });
-  const counts = query.data?.counts;
   return (
     <div className="space-y-6">
       <PageHeader
@@ -206,24 +242,12 @@ export function CatalogProductList({
           </>
         }
       />
-      <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
-        <div className="max-w-full overflow-x-auto">
-          <FilterTabs
-            legend="Situação dos produtos"
-            tabs={STATUS_TABS.map((tab) => ({ ...tab, count: counts?.[tab.value] }))}
-            value={search.status}
-            onChange={(status) => onSearchChange({ status, page: 1 })}
-          />
-        </div>
-        <SearchInput
-          label="Buscar produtos"
-          placeholder="Buscar por código ou título"
-          value={term}
-          onValueChange={setTerm}
-          maxLength={100}
-          className="lg:w-80"
-        />
-      </div>
+      <MissingFiscalNotice
+        count={query.data?.missingFiscalCount ?? 0}
+        filtering={search.fiscal === "missing"}
+        onFilterChange={(filtering) => onSearchChange(fiscalFilter(filtering))}
+      />
+      <CatalogFilters counts={query.data?.counts} search={search} onSearchChange={onSearchChange} />
       <MobileSortSelect search={search} onChange={onSearchChange} />
       <div aria-busy={query.isFetching}>
         <CatalogListBody
