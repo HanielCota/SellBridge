@@ -49,6 +49,14 @@ describe("buildErpCatalogCsv", () => {
     expect(parsed.rows).toEqual([]);
   });
 
+  it("keeps a product the supplier took off sale off sale", () => {
+    const csv = buildErpCatalogCsv([ITEM], new Map([[ITEM.sku, 2500]]));
+
+    const parsed = parseProductCsv(csv);
+
+    expect(parsed.rows[0]?.product.active).toBeUndefined();
+  });
+
   it("shows a negative ERP balance as no stock", () => {
     const csv = buildErpCatalogCsv([{ ...ITEM, stock: -4 }], new Map([[ITEM.sku, 2500]]));
 

@@ -107,7 +107,8 @@ function toCsvFields(item: ErpCatalogItem, resellerCostCents: number | undefined
     priceCell(resellerCostCents ?? null),
     stockCell(item.stock),
     item.imageUrls.join("|"),
-    "sim",
+    // Blank keeps what SellBridge has (a product taken off sale stays off); a new one goes on sale.
+    "",
     priceCell(item.priceCents),
     item.brand ?? "",
     gtinCell(item.gtin),
