@@ -79,8 +79,11 @@ export function ShipmentPanel({
   blocked = false,
   actsAs = "reseller",
   showHistory = true,
+  payment = null,
 }: {
   shipment: ShipmentView;
+  /** Whether the supplier was paid for the parcel, under its name. */
+  payment?: React.ReactNode;
   externalOrderId: string;
   blocked?: boolean;
   /** Who works the panel: the supplier (by link) cannot declare the delivery. */
@@ -95,7 +98,7 @@ export function ShipmentPanel({
   const closed = SETTLED_FULFILLMENT_STATUSES.includes(shipment.status);
   return (
     <section className="surface-card space-y-4 rounded-2xl bg-card p-5">
-      <ShipmentSummary shipment={shipment} />
+      <ShipmentSummary shipment={shipment} payment={payment} />
       <ShipmentToolbar shipment={shipment} externalOrderId={externalOrderId} operator={actsAs}>
         {children}
       </ShipmentToolbar>
@@ -107,6 +110,7 @@ export function ShipmentPanel({
           shipment={shipment}
           next={blocked ? null : next}
           actsAs={actsAs}
+          quietStep={payment !== null}
         />
       )}
       {shipment.status === "shipped" && shipment.trackingCode !== null && !blocked ? (
@@ -223,11 +227,13 @@ function ShipmentActions({
   shipment,
   next,
   actsAs,
+  quietStep,
 }: {
   update: ShipmentUpdate;
   shipment: ShipmentView;
   next: FulfillmentStatus | null;
   actsAs: ShipmentOperator;
+  quietStep: boolean;
 }) {
   const { noteError, setNoteError, contactInNote, sendWithNote } = useStepNote(update);
   const pending = update.mutation.isPending;
@@ -266,6 +272,7 @@ function ShipmentActions({
             operator={operator}
             disabled={pending}
             onAdvance={() => sendWithNote(next)}
+            quiet={quietStep}
           />
         ) : null}
         {DISPATCHED_FULFILLMENT_STATUSES.includes(shipment.status) ? null : (
@@ -415,25 +422,39 @@ function useShipmentUpdate(
   };
 }
 
+/** Who handles the parcel and where it stands. */
+function ShipmentHeading({ shipment }: { shipment: ShipmentView }) {
+  return (
+    <div className="flex flex-wrap items-start justify-between gap-2">
+      <h3 className="font-medium">
+        {shipment.catalogKind === "seller" ? "Seu envio" : shipment.supplierName}
+      </h3>
+      <div className="flex flex-col items-start gap-1 sm:items-end">
+        <ToneStatus
+          tone={FULFILLMENT_TONES[shipment.status]}
+          label={shipmentStatusLabel(shipment.status, shipment.catalogKind)}
+        />
+        {shipment.delay ? (
+          <ToneStatus tone="warning" label={SHIPMENT_DELAY_LABELS[shipment.delay]} />
+        ) : null}
+      </div>
+    </div>
+  );
+}
+
 /** The marketplace's date that matters now: when to dispatch, then when it should arrive. */
-function ShipmentSummary({ shipment }: { shipment: ShipmentView }) {
+function ShipmentSummary({
+  shipment,
+  payment,
+}: {
+  shipment: ShipmentView;
+  payment: React.ReactNode;
+}) {
   return (
     <>
       {" "}
-      <div className="flex flex-wrap items-start justify-between gap-2">
-        <h3 className="font-medium">
-          {shipment.catalogKind === "seller" ? "Seu envio" : shipment.supplierName}
-        </h3>
-        <div className="flex flex-col items-start gap-1 sm:items-end">
-          <ToneStatus
-            tone={FULFILLMENT_TONES[shipment.status]}
-            label={shipmentStatusLabel(shipment.status, shipment.catalogKind)}
-          />
-          {shipment.delay ? (
-            <ToneStatus tone="warning" label={SHIPMENT_DELAY_LABELS[shipment.delay]} />
-          ) : null}
-        </div>
-      </div>
+      <ShipmentHeading shipment={shipment} />
+      {payment}
       {shipment.catalogKind === "seller" ? (
         <p className="text-sm text-muted-foreground">Você prepara e envia estes itens.</p>
       ) : null}

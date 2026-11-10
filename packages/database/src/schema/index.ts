@@ -19,3 +19,4 @@ export * from "./terms.ts";
 export * from "./return-claims.ts";
 export * from "./report-snapshots.ts";
 export * from "./erp.ts";
+export * from "./payments.ts";

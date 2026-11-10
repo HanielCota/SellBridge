@@ -1,3 +1,4 @@
+import type { SupplierPaymentBadge } from "@sellbridge/shared/shipment-payments";
 import { FULFILLMENT_LABELS, type FulfillmentStatus } from "@sellbridge/shared/schemas";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
@@ -15,7 +16,10 @@ import { supplierOrdersKey } from "./orders.queries";
 export type SupplierOrdersPage = Awaited<
   ReturnType<typeof import("./orders.functions").listSupplierShipmentsFn>
 >;
-export type SupplierOrderRow = SupplierOrdersPage["items"][number];
+/** A parcel row; the home page's rows come without the payment badge, which only the list shows. */
+export type SupplierOrderRow = Omit<SupplierOrdersPage["items"][number], "supplierPayment"> & {
+  supplierPayment?: SupplierPaymentBadge;
+};
 
 export type ShipmentUpdateInput = Parameters<
   typeof updateSupplierPanelShipmentFn

@@ -40,7 +40,9 @@ export type StaffPermission =
    */
   | "reviews.moderate"
   /** Reads every customer's parcels and their tracking, to answer "cadê meu pedido?". */
-  | "shipments.view";
+  | "shipments.view"
+  /** Platform-wide values, like SellBridge's fee on supplier payments: money, so admins only. */
+  | "settings.manage";
 
 const PERMISSIONS: Record<StaffRole, readonly StaffPermission[]> = {
   agent: [
@@ -75,6 +77,7 @@ const PERMISSIONS: Record<StaffRole, readonly StaffPermission[]> = {
     "suppliers.flag",
     "reviews.moderate",
     "shipments.view",
+    "settings.manage",
   ],
 };
 

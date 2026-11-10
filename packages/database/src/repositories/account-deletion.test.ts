@@ -10,6 +10,7 @@ import {
   orders,
   storeConnections,
   supplierErpConnections,
+  supplierPaymentAccounts,
   suppliers,
   ticketAttachments,
   ticketMessages,
@@ -151,6 +152,39 @@ describe("account deletion", () => {
     await supplier.cleanup();
 
     expect(left).toEqual([]);
+  });
+
+  it("deletes the payment account of the workspace's supplier", async () => {
+    const tenantId = await createOrganization();
+    const [supplier] = await database
+      .insert(suppliers)
+      .values({
+        name: "Fornecedor que sai",
+        niche: "Teste",
+        state: "ZZ",
+        city: "X",
+        organizationId: tenantId,
+      })
+      .returning({ id: suppliers.id });
+    if (supplier === undefined) {
+      throw new Error("fornecedor não criado");
+    }
+    await database.insert(supplierPaymentAccounts).values({
+      supplierId: supplier.id,
+      provider: "mercado_pago",
+      accessTokenEnc: "enc-access",
+      refreshTokenEnc: "enc-refresh",
+    });
+
+    await deleteTenantData(database, tenantId);
+
+    expect(
+      await database
+        .select()
+        .from(supplierPaymentAccounts)
+        .where(eq(supplierPaymentAccounts.supplierId, supplier.id)),
+    ).toEqual([]);
+    await database.delete(suppliers).where(eq(suppliers.id, supplier.id));
   });
 
   it("also lists attachments of messages the user wrote in another workspace's ticket", async () => {

@@ -14,6 +14,9 @@ import {
   type CarrierTrackingProviderName,
 } from "@/features/tracking/carrier-tracking";
 
+const MERCADO_PAGO_API_URL = "https://api.mercadopago.com";
+const MERCADO_PAGO_AUTH_URL = "https://auth.mercadopago.com";
+
 /** The value .env.example ships with: fine locally, never in production. */
 const PLACEHOLDER_SECRET_PREFIX = "troque-por-";
 
@@ -86,6 +89,19 @@ const serverEnvironmentShape = z.object({
   BLING_CLIENT_ID: z.string().min(1).optional(),
   BLING_CLIENT_SECRET: z.string().min(1).optional(),
   /**
+   * SellBridge's Mercado Pago marketplace application: suppliers link their accounts through it
+   * and resellers pay them with the split. Paying suppliers here is off until all three are set.
+   */
+  MERCADO_PAGO_CLIENT_ID: z.string().min(1).optional(),
+  MERCADO_PAGO_CLIENT_SECRET: z.string().min(1).optional(),
+  /** The application's secret signature, to check the `x-signature` of payment notices. */
+  MERCADO_PAGO_WEBHOOK_SECRET: z.string().min(1).optional(),
+  /** Asks Mercado Pago for test credentials when a supplier links (test users only). */
+  MERCADO_PAGO_TEST_MODE: booleanFlagEnvironmentSchema,
+  /** Mercado Pago's hosts; only the browser tests point them to their local stand-in. */
+  MERCADO_PAGO_API_URL: z.url().default(MERCADO_PAGO_API_URL),
+  MERCADO_PAGO_AUTH_URL: z.url().default(MERCADO_PAGO_AUTH_URL),
+  /**
    * Lets webhook endpoints point to localhost and private networks (local development only).
    * Off in production: otherwise a customer could make the server call internal services.
    */
@@ -145,12 +161,27 @@ function checkProductionBilling(value: ServerEnvironmentShape, context: z.Refine
   }
 }
 
+/** Production talks to Mercado Pago itself, never to a stand-in that could fake a payment. */
+function checkProductionMercadoPagoHosts(value: ServerEnvironmentShape, context: z.RefinementCtx) {
+  const hosts = [
+    ["MERCADO_PAGO_API_URL", value.MERCADO_PAGO_API_URL, MERCADO_PAGO_API_URL],
+    ["MERCADO_PAGO_AUTH_URL", value.MERCADO_PAGO_AUTH_URL, MERCADO_PAGO_AUTH_URL],
+  ] as const;
+  for (const [key, configured, official] of hosts) {
+    if (configured === official) {
+      continue;
+    }
+    context.addIssue({ code: "custom", path: [key], message: `deve ser ${official} em produção` });
+  }
+}
+
 export const serverEnvironmentSchema = serverEnvironmentShape.superRefine((value, context) => {
   if (value.NODE_ENV !== "production") {
     return;
   }
   checkPlaceholderSecret(value, context);
   checkProductionBilling(value, context);
+  checkProductionMercadoPagoHosts(value, context);
   refusePrivateWebhookUrlsInProduction(value, context);
 });
 

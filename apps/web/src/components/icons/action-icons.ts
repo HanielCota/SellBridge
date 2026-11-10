@@ -17,6 +17,8 @@ import {
   CreditCardIcon,
   DownloadSimpleIcon,
   EnvelopeSimpleIcon,
+  GearSixIcon,
+  HandCoinsIcon,
   LinkBreakIcon,
   LinkSimpleIcon,
   PrinterIcon,
@@ -154,6 +156,10 @@ export const ACTION_ICONS = {
   },
   supplierOrders: { icon: ShoppingBagIcon, hint: "Todos os pedidos dos revendedores, por etapa" },
   supplierSales: { icon: ChartLineUpIcon, hint: "O que vendeu no mês, por dia e por marketplace" },
+  supplierReceiving: {
+    icon: HandCoinsIcon,
+    hint: "Ligue sua conta Mercado Pago para receber dos revendedores",
+  },
   supplierProducts: { icon: PackageIcon, hint: "Seus produtos, estoque e o que está à venda" },
   importProducts: { icon: FileArrowUpIcon, hint: "Cadastrar ou atualizar produtos por planilha" },
   performance: { icon: GaugeIcon, hint: "Prazos, cancelamentos e notas que os revendedores veem" },
@@ -205,6 +211,10 @@ export const ACTION_ICONS = {
   },
   productReview: { icon: ClipboardTextIcon, hint: "Produtos dos fornecedores esperando análise" },
   audit: { icon: ClockCounterClockwiseIcon, hint: "Quem fez o quê na administração, e quando" },
+  platformSettings: {
+    icon: GearSixIcon,
+    hint: "A taxa do SellBridge nos pagamentos aos fornecedores",
+  },
   /** Shrinks the sidebar to its icons and back. */
   collapseSidebar: { icon: SidebarSimpleIcon },
   /** The folded profile tabs in admin mode; the label already names the profile. */
@@ -365,6 +375,7 @@ export const NAV_TAB_ICONS: Readonly<Record<string, ActionIconName>> = {
   "/fornecedor/painel": "supplierHome",
   "/fornecedor/painel/pedidos": "supplierOrders",
   "/fornecedor/painel/vendas": "supplierSales",
+  "/fornecedor/painel/recebimentos": "supplierReceiving",
   "/fornecedor/painel/produtos": "supplierProducts",
   "/fornecedor/painel/importar": "importProducts",
   "/fornecedor/painel/desempenho": "performance",
@@ -383,4 +394,5 @@ export const NAV_TAB_ICONS: Readonly<Record<string, ActionIconName>> = {
   "/admin/chamados/metricas": "supportMetrics",
   "/admin/fornecedores/analise": "productReview",
   "/admin/auditoria": "audit",
+  "/admin/configuracoes": "platformSettings",
 };

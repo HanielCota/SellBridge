@@ -7,6 +7,8 @@ import {
   member,
   organization,
   supplierErpConnections,
+  paymentOAuthStates,
+  supplierPaymentAccounts,
   suppliers,
   ticketAttachments,
   ticketMessages,
@@ -67,7 +69,8 @@ export async function accountFileKeys(
 /**
  * Deletes a workspace and everything in it: stores, sales, listings, tickets and the holder's
  * CPF all cascade from the organization. A supplier's catalog outlives the workspace (it is only
- * detached), so its ERP tokens, read and pending states are deleted with it here.
+ * detached), so its ERP and payment account tokens, its ERP catalog read and pending states are
+ * deleted with it here.
  */
 export async function deleteTenantData(database: Database, tenantId: string): Promise<void> {
   await database.transaction(async (transaction) => {
@@ -82,6 +85,12 @@ export async function deleteTenantData(database: Database, tenantId: string): Pr
       .delete(erpCatalogReads)
       .where(inArray(erpCatalogReads.supplierId, ranSupplier));
     await transaction.delete(erpOAuthStates).where(inArray(erpOAuthStates.supplierId, ranSupplier));
+    await transaction
+      .delete(supplierPaymentAccounts)
+      .where(inArray(supplierPaymentAccounts.supplierId, ranSupplier));
+    await transaction
+      .delete(paymentOAuthStates)
+      .where(inArray(paymentOAuthStates.supplierId, ranSupplier));
     await transaction.delete(organization).where(eq(organization.id, tenantId));
   });
 }

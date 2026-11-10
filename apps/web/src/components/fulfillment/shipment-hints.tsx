@@ -84,15 +84,18 @@ export function StepButton({
   operator,
   disabled,
   onAdvance,
+  quiet = false,
 }: {
   next: FulfillmentStatus;
   operator: ShipmentOperator;
   disabled: boolean;
   onAdvance: () => void;
+  /** Outlined when another action (paying the supplier) is the panel's main one. */
+  quiet?: boolean;
 }) {
   return (
     <ShipmentActionHint action="advanceStep" operator={operator} label={stepHint(next, operator)}>
-      <Button disabled={disabled} onClick={onAdvance}>
+      <Button disabled={disabled} onClick={onAdvance} variant={quiet ? "outline" : "default"}>
         <ShipmentActionIcon action="advanceStep" />
         {stepButtonLabel(next)}
       </Button>

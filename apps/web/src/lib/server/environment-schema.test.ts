@@ -171,4 +171,33 @@ describe("serverEnvironmentSchema", () => {
       expect(parsed.WEBHOOK_ALLOW_PRIVATE_URLS).toBe(true);
     });
   });
+
+  describe("Mercado Pago hosts", () => {
+    const production = { ...validEnvironment, NODE_ENV: "production", BILLING_UNLIMITED: "true" };
+
+    it("defaults to Mercado Pago's own hosts", () => {
+      const parsed = serverEnvironmentSchema.parse(validEnvironment);
+
+      expect(parsed.MERCADO_PAGO_API_URL).toBe("https://api.mercadopago.com");
+      expect(parsed.MERCADO_PAGO_AUTH_URL).toBe("https://auth.mercadopago.com");
+    });
+
+    it("refuses a stand-in host in production", () => {
+      const parsed = serverEnvironmentSchema.safeParse({
+        ...production,
+        MERCADO_PAGO_API_URL: "http://localhost:3200/__e2e/mercado-pago/api",
+      });
+
+      expect(parsed.error?.issues[0]?.path).toEqual(["MERCADO_PAGO_API_URL"]);
+    });
+
+    it("accepts a stand-in host outside production", () => {
+      const parsed = serverEnvironmentSchema.safeParse({
+        ...validEnvironment,
+        MERCADO_PAGO_API_URL: "http://localhost:3200/__e2e/mercado-pago/api",
+      });
+
+      expect(parsed.success).toBe(true);
+    });
+  });
 });
