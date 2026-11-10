@@ -5,11 +5,12 @@ import {
   orders,
   orderShipments,
   organization,
+  platformSettings,
   storeConnections,
   supplierProducts,
 } from "@sellbridge/database/schema";
 import { eq } from "drizzle-orm";
-import { DEMO_USER, gotoHydrated, signIn } from "./helpers";
+import { ADMIN_USER, DEMO_USER, gotoHydrated, signIn } from "./helpers";
 import { e2eDatabase } from "./database";
 import { giveTestBrand, supplierAccounts } from "./supplier-accounts";
 
@@ -19,6 +20,7 @@ const PRODUCT = `Bolsa de palha e2e ${randomUUID().slice(0, 8)}`;
 const orderIds: string[] = [];
 
 test.afterAll(async () => {
+  await database.delete(platformSettings);
   // Orders first: their parcels hold the supplier in place.
   for (const orderId of orderIds) {
     await database.delete(orders).where(eq(orders.id, orderId));
@@ -135,4 +137,39 @@ test("o fornecedor liga o Mercado Pago e o revendedor paga o pedido com Pix", as
       .locator("visible=true")
       .first(),
   ).toBeVisible();
+});
+
+test("o admin define a taxa do SellBridge e ela vale no próximo pagamento", async ({
+  page,
+  browser,
+}) => {
+  const email = await accounts.signUp(page, "Ateliê Taxa E2E");
+  const supplierId = await giveTestBrand(database, email, "Ateliê Taxa E2E");
+  const sale = await forwardedSale(supplierId);
+  await gotoHydrated(page, "/fornecedor/painel/recebimentos");
+  await page.getByRole("link", { name: "Ligar conta Mercado Pago" }).click();
+  await page.getByRole("button", { name: "Autorizar" }).click();
+  await expect(page.getByRole("status")).toContainText("Conta Mercado Pago ligada");
+
+  const admin = await (await browser.newContext({ locale: "pt-BR" })).newPage();
+  await signIn(admin, ADMIN_USER);
+  await gotoHydrated(admin, "/admin/configuracoes");
+  const fee = admin.getByLabel("Taxa (%)");
+  await fee.fill("31");
+  await fee.blur();
+  await expect(admin.getByRole("alert")).toHaveText("A taxa vai de 0 a 30%. Diminua o valor.");
+  await fee.fill("5");
+  await expect(
+    admin.getByText("Num pedido de R$ 100,00, o SellBridge fica com R$ 5,00."),
+  ).toBeVisible();
+  await admin.getByRole("button", { name: "Salvar taxa" }).click();
+  await expect(admin.getByText(/^5% · desde/)).toBeVisible();
+  await admin.context().close();
+
+  const reseller = await (await browser.newContext({ locale: "pt-BR" })).newPage();
+  await signIn(reseller, DEMO_USER);
+  await gotoHydrated(reseller, `/pedidos/${sale.orderId}`);
+  await reseller.getByRole("button", { name: "Pagar com Pix ou cartão" }).click();
+  await expect(reseller.getByText("Taxa do marketplace: R$ 4,00")).toBeVisible();
+  await reseller.context().close();
 });

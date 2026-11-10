@@ -113,6 +113,13 @@ export const ADMIN_NAV_ITEMS: NavItem[] = [
   },
   { label: "Equipe", to: "/admin/equipe", permission: "customers.manage", group: "Equipe" },
   { label: "Auditoria", to: "/admin/auditoria", permission: "audit.view", group: "Equipe" },
+  // SellBridge's fee on supplier payments is money: admins only.
+  {
+    label: "Configurações",
+    to: "/admin/configuracoes",
+    permission: "settings.manage",
+    group: "Equipe",
+  },
 ];
 
 /** Support sits at the foot of the menu for every profile, under its own pages. */

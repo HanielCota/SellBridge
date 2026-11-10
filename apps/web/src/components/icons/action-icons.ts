@@ -17,6 +17,7 @@ import {
   CreditCardIcon,
   DownloadSimpleIcon,
   EnvelopeSimpleIcon,
+  GearSixIcon,
   HandCoinsIcon,
   LinkBreakIcon,
   LinkSimpleIcon,
@@ -210,6 +211,10 @@ export const ACTION_ICONS = {
   },
   productReview: { icon: ClipboardTextIcon, hint: "Produtos dos fornecedores esperando análise" },
   audit: { icon: ClockCounterClockwiseIcon, hint: "Quem fez o quê na administração, e quando" },
+  platformSettings: {
+    icon: GearSixIcon,
+    hint: "A taxa do SellBridge nos pagamentos aos fornecedores",
+  },
   /** Shrinks the sidebar to its icons and back. */
   collapseSidebar: { icon: SidebarSimpleIcon },
   /** The folded profile tabs in admin mode; the label already names the profile. */
@@ -389,4 +394,5 @@ export const NAV_TAB_ICONS: Readonly<Record<string, ActionIconName>> = {
   "/admin/chamados/metricas": "supportMetrics",
   "/admin/fornecedores/analise": "productReview",
   "/admin/auditoria": "audit",
+  "/admin/configuracoes": "platformSettings",
 };

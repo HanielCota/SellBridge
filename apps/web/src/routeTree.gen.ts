@@ -38,6 +38,7 @@ import { Route as RastreioTokenRouteImport } from './routes/rastreio/$token'
 import { Route as AppAdminAuditoriaRouteImport } from './routes/_app/admin/auditoria'
 import { Route as AppAdminAvaliacoesRouteImport } from './routes/_app/admin/avaliacoes'
 import { Route as AppAdminClientesRouteRouteImport } from './routes/_app/admin/clientes/route'
+import { Route as AppAdminConfiguracoesRouteImport } from './routes/_app/admin/configuracoes'
 import { Route as AppAdminEnviosRouteImport } from './routes/_app/admin/envios'
 import { Route as AppAdminEquipeRouteImport } from './routes/_app/admin/equipe'
 import { Route as AppAdminProductsRouteImport } from './routes/_app/admin/products'
@@ -268,6 +269,11 @@ const AppAdminAvaliacoesRoute = AppAdminAvaliacoesRouteImport.update({
 const AppAdminClientesRouteRoute = AppAdminClientesRouteRouteImport.update({
   id: '/clientes',
   path: '/clientes',
+  getParentRoute: () => AppAdminRouteRoute,
+} as any)
+const AppAdminConfiguracoesRoute = AppAdminConfiguracoesRouteImport.update({
+  id: '/configuracoes',
+  path: '/configuracoes',
   getParentRoute: () => AppAdminRouteRoute,
 } as any)
 const AppAdminEnviosRoute = AppAdminEnviosRouteImport.update({
@@ -787,6 +793,7 @@ export interface FileRoutesByFullPath {
   '/fornecedor/painel': typeof AppFornecedorPainelRouteRouteWithChildren
   '/admin/auditoria': typeof AppAdminAuditoriaRoute
   '/admin/avaliacoes': typeof AppAdminAvaliacoesRoute
+  '/admin/configuracoes': typeof AppAdminConfiguracoesRoute
   '/admin/envios': typeof AppAdminEnviosRoute
   '/admin/equipe': typeof AppAdminEquipeRoute
   '/admin/products': typeof AppAdminProductsRoute
@@ -901,6 +908,7 @@ export interface FileRoutesByTo {
   '/rastreio/$token': typeof RastreioTokenRoute
   '/admin/auditoria': typeof AppAdminAuditoriaRoute
   '/admin/avaliacoes': typeof AppAdminAvaliacoesRoute
+  '/admin/configuracoes': typeof AppAdminConfiguracoesRoute
   '/admin/envios': typeof AppAdminEnviosRoute
   '/admin/equipe': typeof AppAdminEquipeRoute
   '/admin/products': typeof AppAdminProductsRoute
@@ -1021,6 +1029,7 @@ export interface FileRoutesById {
   '/_app/fornecedor/painel': typeof AppFornecedorPainelRouteRouteWithChildren
   '/_app/admin/auditoria': typeof AppAdminAuditoriaRoute
   '/_app/admin/avaliacoes': typeof AppAdminAvaliacoesRoute
+  '/_app/admin/configuracoes': typeof AppAdminConfiguracoesRoute
   '/_app/admin/envios': typeof AppAdminEnviosRoute
   '/_app/admin/equipe': typeof AppAdminEquipeRoute
   '/_app/admin/products': typeof AppAdminProductsRoute
@@ -1140,6 +1149,7 @@ export interface FileRouteTypes {
     | '/fornecedor/painel'
     | '/admin/auditoria'
     | '/admin/avaliacoes'
+    | '/admin/configuracoes'
     | '/admin/envios'
     | '/admin/equipe'
     | '/admin/products'
@@ -1254,6 +1264,7 @@ export interface FileRouteTypes {
     | '/rastreio/$token'
     | '/admin/auditoria'
     | '/admin/avaliacoes'
+    | '/admin/configuracoes'
     | '/admin/envios'
     | '/admin/equipe'
     | '/admin/products'
@@ -1373,6 +1384,7 @@ export interface FileRouteTypes {
     | '/_app/fornecedor/painel'
     | '/_app/admin/auditoria'
     | '/_app/admin/avaliacoes'
+    | '/_app/admin/configuracoes'
     | '/_app/admin/envios'
     | '/_app/admin/equipe'
     | '/_app/admin/products'
@@ -1724,6 +1736,13 @@ declare module '@tanstack/react-router' {
       path: '/clientes'
       fullPath: '/admin/clientes'
       preLoaderRoute: typeof AppAdminClientesRouteRouteImport
+      parentRoute: typeof AppAdminRouteRoute
+    }
+    '/_app/admin/configuracoes': {
+      id: '/_app/admin/configuracoes'
+      path: '/configuracoes'
+      fullPath: '/admin/configuracoes'
+      preLoaderRoute: typeof AppAdminConfiguracoesRouteImport
       parentRoute: typeof AppAdminRouteRoute
     }
     '/_app/admin/envios': {
@@ -2364,6 +2383,7 @@ interface AppAdminRouteRouteChildren {
   AppAdminClientesRouteRoute: typeof AppAdminClientesRouteRouteWithChildren
   AppAdminAuditoriaRoute: typeof AppAdminAuditoriaRoute
   AppAdminAvaliacoesRoute: typeof AppAdminAvaliacoesRoute
+  AppAdminConfiguracoesRoute: typeof AppAdminConfiguracoesRoute
   AppAdminEnviosRoute: typeof AppAdminEnviosRoute
   AppAdminEquipeRoute: typeof AppAdminEquipeRoute
   AppAdminProductsRoute: typeof AppAdminProductsRoute
@@ -2382,6 +2402,7 @@ const AppAdminRouteRouteChildren: AppAdminRouteRouteChildren = {
   AppAdminClientesRouteRoute: AppAdminClientesRouteRouteWithChildren,
   AppAdminAuditoriaRoute: AppAdminAuditoriaRoute,
   AppAdminAvaliacoesRoute: AppAdminAvaliacoesRoute,
+  AppAdminConfiguracoesRoute: AppAdminConfiguracoesRoute,
   AppAdminEnviosRoute: AppAdminEnviosRoute,
   AppAdminEquipeRoute: AppAdminEquipeRoute,
   AppAdminProductsRoute: AppAdminProductsRoute,
