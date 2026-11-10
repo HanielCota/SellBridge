@@ -207,3 +207,41 @@ export function formatAccessKey(accessKey: string): string {
   }
   return groups.join(" ");
 }
+
+/** Why a note must stop before its next step; each one has its own message for the supplier. */
+export type InvoiceStopReason =
+  "erp_disconnected" | "sale_not_going_ahead" | "emission_off" | "missing_lines";
+
+/** What the job checks again on every run, since the note may have waited an hour for a retry. */
+export interface InvoiceGuardInput {
+  readonly status: InvoiceStatus;
+  /** The supplier's ERP account is still linked and connected. */
+  readonly erpConnected: boolean;
+  /** Neither the order nor the parcel was cancelled, returned or left undelivered. */
+  readonly saleGoesAhead: boolean;
+  /** The supplier still has emission through the ERP turned on. */
+  readonly emissionOn: boolean;
+  /** Parcel items with no matching order line, which would leave the note incomplete. */
+  readonly missingLines: number;
+}
+
+/**
+ * Why the note must stop before its next step, or null when it may go on. A note already handed
+ * to SEFAZ only needs the connection to read the answer; one not sent yet must still be for a
+ * sale that goes ahead, with emission on and every item found.
+ */
+export function invoiceStopReason(input: InvoiceGuardInput): InvoiceStopReason | null {
+  if (!input.erpConnected) {
+    return "erp_disconnected";
+  }
+  if (input.status !== "queued") {
+    return null;
+  }
+  if (!input.saleGoesAhead) {
+    return "sale_not_going_ahead";
+  }
+  if (!input.emissionOn) {
+    return "emission_off";
+  }
+  return input.missingLines > 0 ? "missing_lines" : null;
+}

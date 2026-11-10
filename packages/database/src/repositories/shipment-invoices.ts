@@ -135,6 +135,14 @@ export interface ShipmentInvoiceWork {
     readonly accessTokenEnc: string | null;
   };
   readonly lines: readonly ShipmentInvoiceLine[];
+  /** Neither the order nor the parcel was cancelled, returned or left undelivered. */
+  readonly saleGoesAhead: boolean;
+  /** The supplier's ERP account is still linked and connected. */
+  readonly erpConnected: boolean;
+  /** The supplier still has emission through the ERP turned on. */
+  readonly emissionOn: boolean;
+  /** Parcel items with no matching order line. */
+  readonly missingLines: number;
 }
 
 async function invoiceHeader(database: Database, invoiceId: string) {
@@ -144,6 +152,10 @@ async function invoiceHeader(database: Database, invoiceId: string) {
       fiscalProfile: suppliers.fiscalProfile,
       address: orderShipments.address,
       items: orderShipments.items,
+      shipmentStatus: orderShipments.status,
+      orderStatus: orders.status,
+      erpStatus: supplierErpConnections.status,
+      invoiceEnabledAt: supplierErpConnections.invoiceEnabledAt,
       orderId: orders.id,
       externalOrderId: orders.externalOrderId,
       orderedAt: orders.orderedAt,
@@ -160,7 +172,8 @@ async function invoiceHeader(database: Database, invoiceId: string) {
     .innerJoin(orders, eq(orders.id, orderShipments.orderId))
     .innerJoin(storeConnections, eq(storeConnections.id, orders.storeConnectionId))
     .innerJoin(suppliers, eq(suppliers.id, shipmentInvoices.supplierId))
-    .innerJoin(
+    // A left join: a note whose ERP was disconnected still loads, to tell the supplier so.
+    .leftJoin(
       supplierErpConnections,
       and(
         eq(supplierErpConnections.supplierId, shipmentInvoices.supplierId),
@@ -216,9 +229,13 @@ async function invoiceLines(
   });
 }
 
+function isOneOf(value: string, values: readonly string[]): boolean {
+  return values.some((candidate) => candidate === value);
+}
+
 /**
- * The invoice with its parcel, order, store, supplier profile and lines; null when it
- * no longer exists (its parcel was deleted) or the supplier's ERP was disconnected.
+ * The invoice with its parcel, order, store, supplier profile and lines, and what the job checks
+ * again before each step; null when it no longer exists (its parcel was deleted).
  */
 export async function loadShipmentInvoiceWork(
   database: Database,
@@ -246,6 +263,12 @@ export async function loadShipmentInvoiceWork(
     buyerName: header.buyerName,
     store: header.store,
     lines,
+    saleGoesAhead:
+      !isOneOf(header.shipmentStatus, UNINVOICED_SHIPMENT_STATUSES) &&
+      !isOneOf(header.orderStatus, UNINVOICED_ORDER_STATUSES),
+    erpConnected: header.erpStatus === "connected",
+    emissionOn: header.invoiceEnabledAt !== null,
+    missingLines: header.items.length - lines.length,
   };
 }
 

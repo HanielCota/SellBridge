@@ -1,5 +1,5 @@
 import { schema } from "@sellbridge/database";
-import { upsertErpConnection } from "@sellbridge/database/repositories";
+import { queueNewShipmentInvoices, upsertErpConnection } from "@sellbridge/database/repositories";
 import { createInvoiceScenario } from "@sellbridge/database/testing/shipment-invoice";
 import type { BuyerBilling } from "@sellbridge/marketplaces";
 import { createBlingRateLimiter } from "@sellbridge/marketplaces/bling";
@@ -245,6 +245,27 @@ describe("erp invoice issue", () => {
     expect((await invoiceOf(shipmentId))?.problem).toBe(
       "O Bling recusou a nota: A natureza de operação não foi encontrada",
     );
+  });
+
+  it("stops a queued note without calling Bling when the order was cancelled meanwhile", async () => {
+    const { shipmentId, sku } = await scenario();
+    await queueNewShipmentInvoices(database);
+    const [parcel] = await database
+      .select({ orderId: schema.orderShipments.orderId })
+      .from(schema.orderShipments)
+      .where(eq(schema.orderShipments.id, shipmentId));
+    await database
+      .update(schema.orders)
+      .set({ status: "cancelled" })
+      .where(eq(schema.orders.id, parcel?.orderId ?? ""));
+    const bling = fakeBling({ sku });
+
+    await processor(bling)();
+
+    const invoice = await invoiceOf(shipmentId);
+    expect(invoice?.status).toBe("attention");
+    expect(invoice?.problem).toContain("cancelado");
+    expect(bling).not.toHaveBeenCalled();
   });
 
   it("stops before calling Bling when a product has no NCM", async () => {

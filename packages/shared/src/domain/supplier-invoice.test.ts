@@ -5,6 +5,7 @@ import {
   blingInvoiceOutcome,
   formatAccessKey,
   invoiceCfopProblem,
+  invoiceStopReason,
   MissingInvoiceDataError,
   nextInvoiceAttemptAt,
   resolveInvoiceItemTax,
@@ -187,5 +188,41 @@ describe("formatAccessKey", () => {
     const formatted = formatAccessKey("31261111222333000181550010000012341000012345");
 
     expect(formatted).toBe("3126 1111 2223 3300 0181 5500 1000 0012 3410 0001 2345");
+  });
+});
+
+describe("invoiceStopReason", () => {
+  const ready = {
+    status: "queued",
+    erpConnected: true,
+    saleGoesAhead: true,
+    emissionOn: true,
+    missingLines: 0,
+  } as const;
+
+  it("lets a note for a sale that goes ahead go on", () => {
+    expect(invoiceStopReason(ready)).toBeNull();
+  });
+
+  it("stops a note not sent yet when the order was cancelled", () => {
+    expect(invoiceStopReason({ ...ready, saleGoesAhead: false })).toBe("sale_not_going_ahead");
+  });
+
+  it("stops a note not sent yet when the supplier turned emission off", () => {
+    expect(invoiceStopReason({ ...ready, emissionOn: false })).toBe("emission_off");
+  });
+
+  it("stops a note that would leave an item out", () => {
+    expect(invoiceStopReason({ ...ready, missingLines: 1 })).toBe("missing_lines");
+  });
+
+  it("stops any note when the ERP was disconnected", () => {
+    expect(invoiceStopReason({ ...ready, status: "sent", erpConnected: false })).toBe(
+      "erp_disconnected",
+    );
+  });
+
+  it("keeps reading the answer of a note already sent to SEFAZ", () => {
+    expect(invoiceStopReason({ ...ready, status: "sent", saleGoesAhead: false })).toBeNull();
   });
 });

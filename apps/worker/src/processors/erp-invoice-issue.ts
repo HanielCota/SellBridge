@@ -11,9 +11,11 @@ import { BLING_RECONNECT_MESSAGE, type BlingAppCredentials } from "@sellbridge/m
 import { hasErrorCode } from "@sellbridge/shared/errors";
 import { logger } from "@sellbridge/shared/logger";
 import {
+  invoiceStopReason,
   MAX_INVOICE_ATTEMPTS,
   MissingInvoiceDataError,
   nextInvoiceAttemptAt,
+  type InvoiceStopReason,
 } from "@sellbridge/shared/supplier-invoice";
 import { supplierBlingClient, type ErpBlingDependencies } from "./erp-bling-client.ts";
 import { advanceInvoice, InvoiceStopError } from "./erp-invoice-steps.ts";
@@ -37,6 +39,17 @@ const CLAIM_LEASE_IN_MS = 10 * 60_000;
 const RECONNECT_PROBLEM = `O Bling foi desconectado. ${BLING_RECONNECT_MESSAGE} Depois, peça para tentar de novo.`;
 const TOO_MANY_ATTEMPTS_PROBLEM =
   "O Bling não respondeu depois de várias tentativas. Confira se o Bling está no ar e tente de novo.";
+
+/** What the supplier reads when a note stops before its next step. */
+const STOP_PROBLEMS: Readonly<Record<InvoiceStopReason, string>> = {
+  erp_disconnected: RECONNECT_PROBLEM,
+  sale_not_going_ahead:
+    "O pedido foi cancelado ou devolvido antes da nota sair. Nenhuma nota foi emitida para ele.",
+  emission_off:
+    "A nota pelo Bling foi desligada antes desta nota sair. Emita direto no Bling, ou ligue de novo e peça para tentar de novo.",
+  missing_lines:
+    "Um item desta entrega não foi encontrado no pedido. A nota não foi emitida para não sair incompleta: emita direto no Bling.",
+};
 
 function missingDataProblem(sku: string): string {
   return `Falta o NCM do produto ${sku}. Preencha em Produtos e peça para tentar de novo.`;
@@ -106,6 +119,16 @@ async function processOne(
 ): Promise<void> {
   const work = await loadShipmentInvoiceWork(dependencies.database, invoiceId);
   if (work === null) {
+    return;
+  }
+  // The note may have waited up to an hour: the sale, the switch and the link are checked again.
+  const stop = invoiceStopReason(work);
+  if (stop !== null) {
+    logger.warn("erp.invoice_stopped", { invoiceId, supplierId: work.supplierId, reason: stop });
+    await markShipmentInvoiceAttention(dependencies.database, {
+      invoiceId,
+      problem: STOP_PROBLEMS[stop],
+    });
     return;
   }
   try {
