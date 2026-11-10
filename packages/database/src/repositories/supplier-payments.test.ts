@@ -22,6 +22,8 @@ import {
   findPaymentAccountsByProviderAccount,
   getPaymentFeeSetting,
   listSuppliersReceivingPayments,
+  markSupplierPaymentAccountError,
+  releaseShipmentPaymentReservation,
   setPaymentFeeSetting,
   startShipmentPayment,
   upsertSupplierPaymentAccount,
@@ -69,6 +71,8 @@ async function forwardedShipmentId(): Promise<string> {
   return shipment.id;
 }
 
+const RESERVATION_IN_MS = 60_000;
+
 async function startPayment(shipmentId: string) {
   const payment = await startShipmentPayment(database, {
     shipmentId,
@@ -77,6 +81,8 @@ async function startPayment(shipmentId: string) {
     amountCents: 5990,
     platformFeeCents: 300,
     platformFeeBasisPoints: 500,
+    now: new Date(),
+    reservedUntil: new Date(Date.now() + RESERVATION_IN_MS),
   });
   if (payment === null) throw new Error("Payment not started");
   return payment;
@@ -192,6 +198,33 @@ describe("supplier payment account", () => {
       accounts.find((account) => account.supplierId === supplier.supplierId)?.accessTokenEnc,
     ).toBeNull();
   });
+
+  it("does not mark in error an account whose tokens were renewed in between", async () => {
+    const account = await upsertSupplierPaymentAccount(database, {
+      supplierId: supplier.supplierId,
+      provider: "mercado_pago",
+      userId: null,
+      tokens: { accessTokenEnc: "a2", refreshTokenEnc: "r2", expiresAt: new Date() },
+      providerAccountId: "654321",
+    });
+
+    const marked = await markSupplierPaymentAccountError(database, {
+      accountId: account.id,
+      lastError: "refresh_refused",
+      refreshTokenEnc: "r1",
+    });
+    const accounts = await findPaymentAccountsByProviderAccount(database, {
+      provider: "mercado_pago",
+      providerAccountId: "654321",
+    });
+    await disconnectSupplierPaymentAccount(database, {
+      supplierId: supplier.supplierId,
+      provider: "mercado_pago",
+    });
+
+    expect(marked).toBe(false);
+    expect(accounts.find((item) => item.id === account.id)?.status).toBe("connected");
+  });
 });
 
 describe("payable shipment", () => {
@@ -278,6 +311,8 @@ describe("shipment payment", () => {
       amountCents: 5990,
       platformFeeCents: 0,
       platformFeeBasisPoints: 0,
+      now: new Date(),
+      reservedUntil: new Date(Date.now() + RESERVATION_IN_MS),
     });
 
     expect(again).toBeNull();
@@ -298,6 +333,34 @@ describe("shipment payment", () => {
 
     expect(again.id).toBe(payment.id);
     expect(again.status).toBe("pending");
+  });
+
+  it("does not open a second checkout while another request is creating one", async () => {
+    const shipmentId = await forwardedShipmentId();
+    await startPayment(shipmentId);
+
+    const second = await startShipmentPayment(database, {
+      shipmentId,
+      supplierId: supplier.supplierId,
+      provider: "mercado_pago",
+      amountCents: 5990,
+      platformFeeCents: 300,
+      platformFeeBasisPoints: 500,
+      now: new Date(),
+      reservedUntil: new Date(Date.now() + RESERVATION_IN_MS),
+    });
+
+    expect(second).toBeNull();
+  });
+
+  it("lets the reseller try again once a failed checkout is released", async () => {
+    const shipmentId = await forwardedShipmentId();
+    const payment = await startPayment(shipmentId);
+    await releaseShipmentPaymentReservation(database, payment.id);
+
+    const again = await startPayment(shipmentId);
+
+    expect(again.id).toBe(payment.id);
   });
 });
 
@@ -330,6 +393,8 @@ describe("a second payment for the same parcel", () => {
       amountCents: 5990,
       platformFeeCents: 0,
       platformFeeBasisPoints: 0,
+      now: new Date(),
+      reservedUntil: new Date(Date.now() + RESERVATION_IN_MS),
     });
 
     expect(again).toBeNull();

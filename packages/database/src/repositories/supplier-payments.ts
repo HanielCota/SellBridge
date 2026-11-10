@@ -1,6 +1,6 @@
 import type { FulfillmentStatus } from "@sellbridge/shared/schemas";
 import type { ShipmentPaymentStatus } from "@sellbridge/shared/shipment-payments";
-import { and, eq, inArray, lt, notInArray } from "drizzle-orm";
+import { and, eq, inArray, isNull, lt, lte, ne, notInArray, or } from "drizzle-orm";
 import type { Database } from "../client.ts";
 import {
   orderItems,
@@ -170,15 +170,28 @@ export async function rotatePaymentAccountTokens(
   return updated.length > 0;
 }
 
-/** Marks the account in error (the provider refused its token); the supplier links it again. */
+/**
+ * Marks the account in error (the provider refused its token); the supplier links it again. Only
+ * while it still holds the refused tokens: a parallel refresh or a new link in between wins.
+ */
 export async function markSupplierPaymentAccountError(
   database: Database,
-  input: { accountId: string; lastError: string },
-): Promise<void> {
-  await database
+  input: { accountId: string; lastError: string; refreshTokenEnc: string | null },
+): Promise<boolean> {
+  const updated = await database
     .update(supplierPaymentAccounts)
     .set({ status: "error", lastError: input.lastError })
-    .where(eq(supplierPaymentAccounts.id, input.accountId));
+    .where(
+      and(
+        eq(supplierPaymentAccounts.id, input.accountId),
+        eq(supplierPaymentAccounts.status, "connected"),
+        input.refreshTokenEnc === null
+          ? isNull(supplierPaymentAccounts.refreshTokenEnc)
+          : eq(supplierPaymentAccounts.refreshTokenEnc, input.refreshTokenEnc),
+      ),
+    )
+    .returning({ id: supplierPaymentAccounts.id });
+  return updated.length > 0;
 }
 
 /** The linked accounts behind a provider account id, as payment notices name it. */
@@ -347,8 +360,10 @@ export async function findShipmentPaymentById(
 }
 
 /**
- * Starts (or restarts) the parcel's payment as pending with a fresh amount and fee. A paid
- * parcel is never touched: the result is null and nothing is charged again.
+ * Starts (or restarts) the parcel's payment as pending with a fresh amount and fee, holding it
+ * until `reservedUntil` while the checkout is created. A paid parcel, or one whose checkout is
+ * still open or being created by another request, is never touched: the result is null and no
+ * second checkout is opened.
  */
 export async function startShipmentPayment(
   database: Database,
@@ -359,6 +374,8 @@ export async function startShipmentPayment(
     amountCents: number;
     platformFeeCents: number;
     platformFeeBasisPoints: number;
+    now: Date;
+    reservedUntil: Date;
   },
 ): Promise<ShipmentPayment | null> {
   const values = {
@@ -369,18 +386,29 @@ export async function startShipmentPayment(
     platformFeeBasisPoints: input.platformFeeBasisPoints,
     preferenceId: null,
     checkoutUrl: null,
-    checkoutExpiresAt: null,
+    checkoutExpiresAt: input.reservedUntil,
     providerPaymentId: null,
     paymentMethod: null,
     paidAt: null,
   };
+  const restartable = and(
+    notInArray(shipmentPayments.status, LOCKED_STATUSES),
+    or(
+      ne(shipmentPayments.status, "pending"),
+      isNull(shipmentPayments.checkoutExpiresAt),
+      lte(shipmentPayments.checkoutExpiresAt, input.now),
+    ),
+  );
+  if (restartable === undefined) {
+    throw new Error("The restart condition of a shipment payment came out empty");
+  }
   const [row] = await database
     .insert(shipmentPayments)
     .values({ shipmentId: input.shipmentId, supplierId: input.supplierId, ...values })
     .onConflictDoUpdate({
       target: shipmentPayments.shipmentId,
       set: values,
-      setWhere: notInArray(shipmentPayments.status, LOCKED_STATUSES),
+      setWhere: restartable,
     })
     .returning();
   return row ?? null;
@@ -409,6 +437,23 @@ export async function savePaymentPreference(
       checkoutExpiresAt: input.checkoutExpiresAt,
     })
     .where(eq(shipmentPayments.id, input.paymentId));
+}
+
+/** Frees a parcel whose checkout could not be created, so the reseller can try again at once. */
+export async function releaseShipmentPaymentReservation(
+  database: Database,
+  paymentId: string,
+): Promise<void> {
+  await database
+    .update(shipmentPayments)
+    .set({ checkoutExpiresAt: null })
+    .where(
+      and(
+        eq(shipmentPayments.id, paymentId),
+        eq(shipmentPayments.status, "pending"),
+        isNull(shipmentPayments.checkoutUrl),
+      ),
+    );
 }
 
 /** The parcel's checkout still taking payments, to send a second click to the same one. */
@@ -476,9 +521,9 @@ export async function applyProviderPayment(
     )
     .returning();
   if (row === undefined) {
-    // A parallel notice changed the row first: report what it holds now.
-    const latest = await findShipmentPaymentById(database, input.paymentId);
-    return latest === null ? null : { kind: "unchanged", payment: latest };
+    // A parallel notice changed the row first: judge this one again against what it holds now,
+    // so a second approval is still reported as a duplicate.
+    return applyProviderPayment(database, input);
   }
   return { kind: "applied", payment: row };
 }
