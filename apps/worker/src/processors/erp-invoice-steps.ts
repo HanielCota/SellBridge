@@ -4,6 +4,7 @@ import {
   markShipmentInvoiceCancelled,
   markShipmentInvoiceSent,
   recordShipmentInvoiceProgress,
+  scheduleShipmentInvoiceRetry,
   type ShipmentInvoiceWork,
 } from "@sellbridge/database/repositories";
 import { isRetryableError, type BuyerBilling } from "@sellbridge/marketplaces";
@@ -19,6 +20,8 @@ import {
   blingInvoiceOutcome,
   INVOICE_STATUS_CHECK_IN_MS,
   invoiceCfopProblem,
+  MAX_INVOICE_ATTEMPTS,
+  nextInvoiceAttemptAt,
   refusedInvoiceReason,
   resolveInvoiceItemTax,
   type InvoiceItemTax,
@@ -60,6 +63,8 @@ const NO_BUYER_DOCUMENT =
   "O canal de venda não informou o CPF ou CNPJ do comprador. Emita esta nota direto no Bling.";
 const STUCK_IN_BLING =
   "A nota ficou no Bling sem ir para a SEFAZ. Abra a nota no Bling e envie por lá.";
+const NO_ANSWER_FROM_SEFAZ =
+  "A SEFAZ não respondeu sobre esta nota depois de algumas horas. Veja a situação da nota no Bling e peça para tentar de novo.";
 
 function now(dependencies: InvoiceStepDependencies): Date {
   return dependencies.now?.() ?? new Date();
@@ -248,6 +253,25 @@ async function ensureInvoice(
   return invoiceId;
 }
 
+/**
+ * SEFAZ has not answered a note already sent: ask again later, waiting longer each time (2 minutes
+ * doubling, at most an hour), and stop after the last check, a few hours after sending.
+ */
+async function keepWaiting(
+  dependencies: InvoiceStepDependencies,
+  work: ShipmentInvoiceWork,
+): Promise<void> {
+  const checks = work.attempts + 1;
+  if (checks >= MAX_INVOICE_ATTEMPTS) {
+    throw new InvoiceStopError(NO_ANSWER_FROM_SEFAZ);
+  }
+  await scheduleShipmentInvoiceRetry(dependencies.database, {
+    invoiceId: work.id,
+    attempts: checks,
+    retryAt: nextInvoiceAttemptAt(checks, now(dependencies)),
+  });
+}
+
 /** Saves what Bling says of a note already handed over (or decided) by SEFAZ. */
 async function recordAnswer(
   dependencies: InvoiceStepDependencies,
@@ -276,6 +300,10 @@ async function recordAnswer(
   }
   if (outcome === "editable") {
     throw new InvoiceStopError(STUCK_IN_BLING);
+  }
+  if (work.status === "sent") {
+    await keepWaiting(dependencies, work);
+    return;
   }
   await markShipmentInvoiceSent(database, {
     invoiceId: work.id,

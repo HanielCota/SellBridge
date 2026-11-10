@@ -2,6 +2,7 @@ import { schema } from "@sellbridge/database";
 import { queueNewShipmentInvoices, upsertErpConnection } from "@sellbridge/database/repositories";
 import { createInvoiceScenario } from "@sellbridge/database/testing/shipment-invoice";
 import type { BuyerBilling } from "@sellbridge/marketplaces";
+import { MAX_INVOICE_ATTEMPTS } from "@sellbridge/shared/supplier-invoice";
 import { createBlingRateLimiter } from "@sellbridge/marketplaces/bling";
 import { eq } from "drizzle-orm";
 import { afterAll, afterEach, describe, expect, it, vi } from "vitest";
@@ -45,6 +46,8 @@ interface FakeBlingOptions {
   loseFirstGeneratedNote?: boolean;
   /** The buyer is already a contact (id 78) in Bling, with this address. */
   knownContactAddress?: Record<string, string>;
+  /** SEFAZ never answers the sent note (Bling keeps it "waiting for the protocol"). */
+  sefazSilent?: boolean;
 }
 
 /** A Bling account in SEFAZ homologation, faked over HTTP: no real call ever leaves the test. */
@@ -52,6 +55,23 @@ function fakeBling(options: FakeBlingOptions) {
   let sent = false;
   let generated = false;
   const failures = new Map(Object.entries(options.failOnce ?? {}));
+  function noteAnswer() {
+    const itens = [{ codigo: options.sku, cfop: options.cfop ?? "6108" }];
+    if (!sent) {
+      return { situacao: 1, itens };
+    }
+    if (options.sefazSilent === true) {
+      return { situacao: 8, itens };
+    }
+    return {
+      situacao: 5,
+      numero: "1234",
+      serie: 1,
+      chaveAcesso: ACCESS_KEY,
+      linkDanfe: DANFE_URL,
+      itens,
+    };
+  }
   const routes: Record<string, () => Response> = {
     "GET /Api/v3/contatos": () =>
       json(200, { data: options.knownContactAddress === undefined ? [] : [{ id: 78 }] }),
@@ -83,19 +103,7 @@ function fakeBling(options: FakeBlingOptions) {
         ? json(504, { error: { type: "SERVER_ERROR", message: "timeout" } })
         : json(201, { data: { idNotaFiscal: 900 } });
     },
-    "GET /Api/v3/nfe/900": () =>
-      json(200, {
-        data: sent
-          ? {
-              situacao: 5,
-              numero: "1234",
-              serie: 1,
-              chaveAcesso: ACCESS_KEY,
-              linkDanfe: DANFE_URL,
-              itens: [{ codigo: options.sku, cfop: options.cfop ?? "6108" }],
-            }
-          : { situacao: 1, itens: [{ codigo: options.sku, cfop: options.cfop ?? "6108" }] },
-      }),
+    "GET /Api/v3/nfe/900": () => json(200, { data: noteAnswer() }),
     "POST /Api/v3/nfe/900/enviar": () => {
       sent = true;
       return json(200, { data: { xml: "<nfe/>" } });
@@ -295,6 +303,21 @@ describe("erp invoice issue", () => {
       dataSaida: "2099-03-10",
       dataPrevista: "2099-03-10",
     });
+  });
+
+  it("stops asking SEFAZ after a bounded number of checks with the reason", async () => {
+    const { shipmentId, sku } = await scenario();
+    const bling = fakeBling({ sku, sefazSilent: true });
+
+    await processor(bling)();
+    for (let run = 1; run <= MAX_INVOICE_ATTEMPTS + 2; run++) {
+      await processor(bling, { now: minutesFromNow(70 * run) })();
+    }
+
+    const invoice = await invoiceOf(shipmentId);
+    expect(invoice?.status).toBe("attention");
+    expect(invoice?.problem).toContain("A SEFAZ não respondeu");
+    expect(callsTo(bling, "GET /Api/v3/nfe/900")).toHaveLength(1 + MAX_INVOICE_ATTEMPTS);
   });
 
   it("stops with the buyer's missing document in the supplier's words", async () => {
