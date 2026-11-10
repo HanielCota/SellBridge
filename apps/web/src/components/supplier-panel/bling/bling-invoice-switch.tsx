@@ -81,7 +81,7 @@ export function BlingInvoiceSwitch({
 
   return (
     <div className="flex items-start justify-between gap-4 border-t pt-4">
-      <div className="grid gap-1.5">
+      <div className="grid justify-items-start gap-1.5">
         <label htmlFor={SWITCH_ID} className="text-subhead font-medium">
           Nota fiscal pelo Bling
         </label>

@@ -232,7 +232,7 @@ function CfopFields({ values, errors, onChange }: BrandFiscalCardProps) {
 function DefaultsFields({ values, errors, onChange }: BrandFiscalCardProps) {
   const regime: TaxRegime = values.fiscalRegime;
   return (
-    <fieldset className="grid gap-4 sm:grid-cols-2">
+    <fieldset className="grid items-start gap-4 sm:grid-cols-2">
       <legend className="mb-1 text-sm font-semibold">Padrões dos produtos</legend>
       <p className="text-sm text-muted-foreground sm:col-span-2">
         Valem para todos os produtos. Um produto pode mudar só para ele. Na dúvida, confirme com o

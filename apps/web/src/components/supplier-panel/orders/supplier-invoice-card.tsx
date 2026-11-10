@@ -2,6 +2,7 @@ import {
   ArrowClockwiseIcon,
   CheckIcon,
   ClockIcon,
+  CopyIcon,
   FileTextIcon,
   PrinterIcon,
   WarningIcon,
@@ -13,10 +14,10 @@ import {
 } from "@sellbridge/shared/supplier-invoice";
 import type { ReactNode } from "react";
 import { type StatusTone, TonePill } from "@/components/data/tone-status";
-import { CopyButton } from "@/components/integrations/copy-button";
 import { Button } from "@/components/ui/button";
 import { SUPPLIER_PANEL_BASE_PATH } from "@/features/supplier-panel/home/attention-links";
 import { useRetrySupplierInvoice } from "@/features/supplier-panel/orders/use-order-actions";
+import { copyToClipboard } from "@/lib/clipboard";
 import { formatAbsoluteTime } from "@/lib/relative-time";
 import { useTabProfileLink } from "@/lib/tab-profile";
 
@@ -93,9 +94,13 @@ function AuthorizedDetails({ invoice }: { invoice: SupplierInvoice }) {
           </Button>
         )}
         {invoice.accessKey === null ? null : (
-          <CopyButton value={invoice.accessKey} label="Copiar chave de acesso">
+          <Button
+            variant="outline"
+            onClick={() => void copyToClipboard(invoice.accessKey ?? "", "Chave de acesso copiada")}
+          >
+            <CopyIcon aria-hidden="true" />
             Copiar chave
-          </CopyButton>
+          </Button>
         )}
       </div>
       <p className="text-footnote text-muted-foreground">
