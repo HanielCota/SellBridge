@@ -1,6 +1,10 @@
 import { createDatabase } from "@sellbridge/database/client";
 import { deliverOrderMessageNotice, orderMessageMoments } from "@sellbridge/database/repositories";
-import { getMercadoLivreShipping, type ConnectorRegistry } from "@sellbridge/marketplaces";
+import {
+  getMercadoLivreShipping,
+  readMercadoLivreBuyerBilling,
+  type ConnectorRegistry,
+} from "@sellbridge/marketplaces";
 import { createBlingRateLimiter, type BlingAppCredentials } from "@sellbridge/marketplaces/bling";
 import { createTokenCipher } from "@sellbridge/shared/token-cipher";
 import { installErrorAlerts } from "@sellbridge/shared/error-alerts";
@@ -33,6 +37,8 @@ import { createTokenRefreshProcessor } from "./processors/token-refresh.ts";
 import { createErpTokenRefreshProcessor } from "./processors/erp-token-refresh.ts";
 import { createErpCatalogExportProcessor } from "./processors/erp-catalog-export.ts";
 import { createErpCatalogReadProcessor } from "./processors/erp-catalog-read.ts";
+import { createErpInvoiceProcessor } from "./processors/erp-invoice-issue.ts";
+import { resolveStoreCredentials } from "./lib/store-access.ts";
 import { createNotificationDeliveryProcessor } from "./processors/notification-delivery.ts";
 import { createOrderMessageFollowUpProcessor } from "./processors/order-message-follow-up.ts";
 import { createWebhookDeliveryProcessor } from "./processors/webhook-delivery.ts";
@@ -56,6 +62,7 @@ function createQueues(connection: { url: string; maxRetriesPerRequest: null }) {
     ticketClose: new Queue(QUEUE_NAMES.ticketAutoClose, { connection }),
     shipmentTracking: new Queue(QUEUE_NAMES.shipmentTracking, { connection }),
     notifications: new Queue(QUEUE_NAMES.notificationDelivery, { connection }),
+    erpInvoices: new Queue(QUEUE_NAMES.erpInvoiceIssue, { connection }),
   };
 }
 
@@ -163,6 +170,19 @@ function erpWorkers(context: WorkerContext): Worker[] {
   };
   const processExport = createErpCatalogExportProcessor(dependencies);
   const processRead = createErpCatalogReadProcessor(dependencies);
+  const processInvoices = createErpInvoiceProcessor({
+    ...dependencies,
+    readBuyerBilling: async (work) => {
+      if (work.store.marketplace !== "mercado_livre") {
+        return null;
+      }
+      const store = resolveStoreCredentials(context.cipher, work.store);
+      if (store === null) {
+        return null;
+      }
+      return readMercadoLivreBuyerBilling(context.mercadoLivreConfig, store, work.externalOrderId);
+    },
+  });
   return [
     new Worker(QUEUE_NAMES.erpCatalogExport, async (job) => processExport(job.data), {
       connection: context.connection,
@@ -171,6 +191,10 @@ function erpWorkers(context: WorkerContext): Worker[] {
     new Worker(QUEUE_NAMES.erpCatalogRead, async (job) => processRead(job.data), {
       connection: context.connection,
       concurrency: 2,
+    }),
+    new Worker(QUEUE_NAMES.erpInvoiceIssue, async () => processInvoices(), {
+      connection: context.connection,
+      concurrency: 1,
     }),
   ];
 }
@@ -315,6 +339,7 @@ async function scheduleQueues(queues: WorkerContext["queues"]): Promise<void> {
   await scheduleRecurring(queues.ticketClose, "close-idle-tickets", 60 * 60 * 1000);
   await scheduleRecurring(queues.tokenRefresh, "refresh-expiring-tokens", 10 * 60 * 1000);
   await scheduleRecurring(queues.shipmentTracking, "track-shipments", 30 * 60 * 1000);
+  await scheduleRecurring(queues.erpInvoices, "issue-erp-invoices", 2 * 60 * 1000);
 }
 
 function observeWorkers(workers: readonly Worker[]): void {
