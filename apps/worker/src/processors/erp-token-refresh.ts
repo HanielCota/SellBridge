@@ -41,6 +41,11 @@ async function refreshOne(
 ): Promise<keyof ErpTokenRefreshSummary> {
   const refreshTokenEnc = connection.refreshTokenEnc;
   if (refreshTokenEnc === null) {
+    logger.warn("erp.token_refresh_skipped", {
+      connectionId: connection.id,
+      supplierId: connection.supplierId,
+      reason: "missing_refresh_token",
+    });
     return "failed";
   }
   try {

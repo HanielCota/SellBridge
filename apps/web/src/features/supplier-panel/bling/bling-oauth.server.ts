@@ -22,6 +22,8 @@ import {
 } from "./bling-connection";
 
 const STATE_TTL_IN_MS = 10 * 60 * 1000;
+/** 192 random bits for the one-time OAuth state. */
+const STATE_BYTES = 24;
 const IMPORT_PAGE = "/fornecedor/painel/importar";
 
 interface SupplierProfile {
@@ -98,7 +100,7 @@ export async function handleBlingConnectStart(request: Request): Promise<Respons
   if (refusal !== null) {
     return importPage(request, refusal);
   }
-  const state = randomBytes(24).toString("base64url");
+  const state = randomBytes(STATE_BYTES).toString("base64url");
   await createErpOAuthState(database, {
     state,
     supplierId,

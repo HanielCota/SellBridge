@@ -38,6 +38,10 @@ const EXPIRY_MARGIN_IN_MS = 60_000;
 /** Bling's largest page for `GET /produtos`. */
 export const BLING_PAGE_LIMIT = 100;
 
+/** `criterio` of `GET /produtos`: 2 lists active products, 5 lists every status. */
+const ACTIVE_PRODUCTS = 2;
+const ANY_STATUS = 5;
+
 /** Body of `POST /produtos` for a product SellBridge has and the ERP does not. */
 export interface BlingNewProduct {
   readonly sku: string;
@@ -122,7 +126,7 @@ export function createBlingClient(options: BlingClientOptions) {
       const query = new URLSearchParams({
         pagina: String(input.page),
         limite: String(BLING_PAGE_LIMIT),
-        criterio: String(input.criterio ?? 2),
+        criterio: String(input.criterio ?? ACTIVE_PRODUCTS),
       });
       const response = await call({
         path: `/produtos?${query.toString()}`,
@@ -145,7 +149,10 @@ export function createBlingClient(options: BlingClientOptions) {
       if (codes.length === 0) {
         return [];
       }
-      const query = new URLSearchParams({ criterio: "5", limite: String(BLING_PAGE_LIMIT) });
+      const query = new URLSearchParams({
+        criterio: String(ANY_STATUS),
+        limite: String(BLING_PAGE_LIMIT),
+      });
       for (const code of codes) {
         query.append("codigos[]", code);
       }
