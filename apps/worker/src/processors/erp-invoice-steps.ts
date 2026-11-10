@@ -4,6 +4,7 @@ import {
   markShipmentInvoiceCancelled,
   markShipmentInvoiceSent,
   recordShipmentInvoiceProgress,
+  scheduleShipmentInvoiceRetry,
   type ShipmentInvoiceWork,
 } from "@sellbridge/database/repositories";
 import { isRetryableError, type BuyerBilling } from "@sellbridge/marketplaces";
@@ -19,6 +20,8 @@ import {
   blingInvoiceOutcome,
   INVOICE_STATUS_CHECK_IN_MS,
   invoiceCfopProblem,
+  MAX_INVOICE_ATTEMPTS,
+  nextInvoiceAttemptAt,
   refusedInvoiceReason,
   resolveInvoiceItemTax,
   type InvoiceItemTax,
@@ -60,6 +63,8 @@ const NO_BUYER_DOCUMENT =
   "O canal de venda não informou o CPF ou CNPJ do comprador. Emita esta nota direto no Bling.";
 const STUCK_IN_BLING =
   "A nota ficou no Bling sem ir para a SEFAZ. Abra a nota no Bling e envie por lá.";
+const NO_ANSWER_FROM_SEFAZ =
+  "A SEFAZ não respondeu sobre esta nota depois de algumas horas. Veja a situação da nota no Bling e peça para tentar de novo.";
 
 function now(dependencies: InvoiceStepDependencies): Date {
   return dependencies.now?.() ?? new Date();
@@ -147,6 +152,9 @@ async function ensureContact(
   }
   const { client } = dependencies;
   const found = await client.findContactByDocument(billing.document);
+  if (found !== null) {
+    await client.updateContactAddress(found, deliveryAddress(work));
+  }
   const contactId =
     found ??
     (await client.createContact({
@@ -189,8 +197,16 @@ async function orderItems(
   });
 }
 
-function isoDate(date: Date): string {
-  return date.toISOString().slice(0, 10);
+/** Bling takes the sale order's dates as calendar days in Brazil (en-CA writes YYYY-MM-DD). */
+const BRAZIL_DAY = new Intl.DateTimeFormat("en-CA", {
+  timeZone: "America/Sao_Paulo",
+  year: "numeric",
+  month: "2-digit",
+  day: "2-digit",
+});
+
+function brazilDay(date: Date): string {
+  return BRAZIL_DAY.format(date);
 }
 
 async function ensureSaleOrder(
@@ -209,7 +225,8 @@ async function ensureSaleOrder(
     found ??
     (await client.createSaleOrder({
       storeOrderNumber: work.externalOrderId,
-      date: isoDate(work.orderedAt),
+      date: brazilDay(work.orderedAt),
+      shippingDate: brazilDay(now(dependencies)),
       contact: { id: contactId, name: recipientName(work, plan.billing) },
       items: await orderItems(client, plan.lines),
       notes: `Venda ${work.externalOrderId}, enviada pelo SellBridge.`,
@@ -228,9 +245,31 @@ async function ensureInvoice(
   }
   const contactId = await ensureContact(dependencies, work, plan.billing);
   const orderId = await ensureSaleOrder(dependencies, work, plan, contactId);
-  const invoiceId = await dependencies.client.generateInvoice(orderId);
+  const { client } = dependencies;
+  // A "gerar-nfe" whose answer was lost (timeout, restart) may have made the note already.
+  const invoiceId =
+    (await client.findSaleOrderInvoice(orderId)) ?? (await client.generateInvoice(orderId));
   await recordShipmentInvoiceProgress(dependencies.database, work.id, { erpInvoiceId: invoiceId });
   return invoiceId;
+}
+
+/**
+ * SEFAZ has not answered a note already sent: ask again later, waiting longer each time (2 minutes
+ * doubling, at most an hour), and stop after the last check, a few hours after sending.
+ */
+async function keepWaiting(
+  dependencies: InvoiceStepDependencies,
+  work: ShipmentInvoiceWork,
+): Promise<void> {
+  const checks = work.attempts + 1;
+  if (checks >= MAX_INVOICE_ATTEMPTS) {
+    throw new InvoiceStopError(NO_ANSWER_FROM_SEFAZ);
+  }
+  await scheduleShipmentInvoiceRetry(dependencies.database, {
+    invoiceId: work.id,
+    attempts: checks,
+    retryAt: nextInvoiceAttemptAt(checks, now(dependencies)),
+  });
 }
 
 /** Saves what Bling says of a note already handed over (or decided) by SEFAZ. */
@@ -261,6 +300,10 @@ async function recordAnswer(
   }
   if (outcome === "editable") {
     throw new InvoiceStopError(STUCK_IN_BLING);
+  }
+  if (work.status === "sent") {
+    await keepWaiting(dependencies, work);
+    return;
   }
   await markShipmentInvoiceSent(database, {
     invoiceId: work.id,

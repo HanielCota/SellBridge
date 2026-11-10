@@ -63,6 +63,33 @@ describe("Bling contact calls", () => {
     expect(sentRequest(fetchImplementation).url).toContain("numeroDocumento=52998224725");
   });
 
+  it("leaves a known contact alone when Bling already has this address", async () => {
+    const { client, fetchImplementation } = setup(
+      json(200, {
+        data: {
+          id: 77,
+          nome: "Maria Silva",
+          endereco: {
+            geral: {
+              endereco: "Rua das Flores",
+              numero: "10",
+              complemento: "Apto 2",
+              bairro: "Centro",
+              municipio: "São Paulo",
+              uf: "SP",
+              cep: "01001-000",
+            },
+          },
+        },
+      }),
+    );
+
+    await client.updateContactAddress(77, ADDRESS);
+
+    expect(fetchImplementation).toHaveBeenCalledTimes(1);
+    expect(sentRequest(fetchImplementation).url).toContain("/contatos/77");
+  });
+
   it("creates a person as a non-taxpayer with the delivery address", async () => {
     const { client, fetchImplementation } = setup(json(201, { data: { id: 78 } }));
 
@@ -110,6 +137,7 @@ describe("Bling sale order and NF-e calls", () => {
     const id = await client.createSaleOrder({
       storeOrderNumber: "2000010733434062",
       date: "2026-11-10",
+      shippingDate: "2026-11-12",
       contact: { id: 78, name: "Maria Silva" },
       items: [
         {
@@ -129,6 +157,9 @@ describe("Bling sale order and NF-e calls", () => {
     expect(request.method).toBe("POST");
     expect(request.body).toMatchObject({
       numeroLoja: "2000010733434062",
+      data: "2026-11-10",
+      dataSaida: "2026-11-12",
+      dataPrevista: "2026-11-12",
       contato: { id: 78 },
       itens: [{ codigo: "SB-1", produto: { id: 10 }, quantidade: 2, valor: 49.9, unidade: "PAR" }],
     });

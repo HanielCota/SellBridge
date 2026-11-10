@@ -2,6 +2,7 @@ import { schema } from "@sellbridge/database";
 import { queueNewShipmentInvoices, upsertErpConnection } from "@sellbridge/database/repositories";
 import { createInvoiceScenario } from "@sellbridge/database/testing/shipment-invoice";
 import type { BuyerBilling } from "@sellbridge/marketplaces";
+import { MAX_INVOICE_ATTEMPTS } from "@sellbridge/shared/supplier-invoice";
 import { createBlingRateLimiter } from "@sellbridge/marketplaces/bling";
 import { eq } from "drizzle-orm";
 import { afterAll, afterEach, describe, expect, it, vi } from "vitest";
@@ -41,14 +42,51 @@ interface FakeBlingOptions {
   cfop?: string;
   /** Answers given once, before the normal one, keyed by "METHOD /path". */
   failOnce?: Record<string, Response>;
+  /** The first "gerar-nfe" makes the note, but its answer is lost (Bling times out). */
+  loseFirstGeneratedNote?: boolean;
+  /** The buyer is already a contact (id 78) in Bling, with this address. */
+  knownContactAddress?: Record<string, string>;
+  /** SEFAZ never answers the sent note (Bling keeps it "waiting for the protocol"). */
+  sefazSilent?: boolean;
 }
 
 /** A Bling account in SEFAZ homologation, faked over HTTP: no real call ever leaves the test. */
 function fakeBling(options: FakeBlingOptions) {
   let sent = false;
+  let generated = false;
   const failures = new Map(Object.entries(options.failOnce ?? {}));
+  function noteAnswer() {
+    const itens = [{ codigo: options.sku, cfop: options.cfop ?? "6108" }];
+    if (!sent) {
+      return { situacao: 1, itens };
+    }
+    if (options.sefazSilent === true) {
+      return { situacao: 8, itens };
+    }
+    return {
+      situacao: 5,
+      numero: "1234",
+      serie: 1,
+      chaveAcesso: ACCESS_KEY,
+      linkDanfe: DANFE_URL,
+      itens,
+    };
+  }
   const routes: Record<string, () => Response> = {
-    "GET /Api/v3/contatos": () => json(200, { data: [] }),
+    "GET /Api/v3/contatos": () =>
+      json(200, { data: options.knownContactAddress === undefined ? [] : [{ id: 78 }] }),
+    "GET /Api/v3/contatos/78": () =>
+      json(200, {
+        data: {
+          id: 78,
+          nome: "Maria Silva",
+          situacao: "A",
+          tipo: "F",
+          telefone: "11 3333-4444",
+          endereco: { geral: options.knownContactAddress, cobranca: { cep: "30130-010" } },
+        },
+      }),
+    "PUT /Api/v3/contatos/78": () => new Response(null, { status: 204 }),
     "POST /Api/v3/contatos": () => json(201, { data: { id: 78 } }),
     "GET /Api/v3/pedidos/vendas": () => json(200, { data: [] }),
     "GET /Api/v3/produtos": () =>
@@ -56,20 +94,16 @@ function fakeBling(options: FakeBlingOptions) {
         data: [{ id: 10, nome: "Chinelo", codigo: options.sku, formato: "S", situacao: "A" }],
       }),
     "POST /Api/v3/pedidos/vendas": () => json(201, { data: { id: 500 } }),
-    "POST /Api/v3/pedidos/vendas/500/gerar-nfe": () => json(201, { data: { idNotaFiscal: 900 } }),
-    "GET /Api/v3/nfe/900": () =>
-      json(200, {
-        data: sent
-          ? {
-              situacao: 5,
-              numero: "1234",
-              serie: 1,
-              chaveAcesso: ACCESS_KEY,
-              linkDanfe: DANFE_URL,
-              itens: [{ codigo: options.sku, cfop: options.cfop ?? "6108" }],
-            }
-          : { situacao: 1, itens: [{ codigo: options.sku, cfop: options.cfop ?? "6108" }] },
-      }),
+    "GET /Api/v3/pedidos/vendas/500": () =>
+      json(200, { data: { id: 500, notaFiscal: { id: generated ? 900 : 0 } } }),
+    "POST /Api/v3/pedidos/vendas/500/gerar-nfe": () => {
+      const answerLost = options.loseFirstGeneratedNote === true && !generated;
+      generated = true;
+      return answerLost
+        ? json(504, { error: { type: "SERVER_ERROR", message: "timeout" } })
+        : json(201, { data: { idNotaFiscal: 900 } });
+    },
+    "GET /Api/v3/nfe/900": () => json(200, { data: noteAnswer() }),
     "POST /Api/v3/nfe/900/enviar": () => {
       sent = true;
       return json(200, { data: { xml: "<nfe/>" } });
@@ -213,6 +247,77 @@ describe("erp invoice issue", () => {
     expect(waiting).toMatchObject({ status: "queued", attempts: 1, erpContactId: 78 });
     expect((await invoiceOf(shipmentId))?.status).toBe("sent");
     expect(callsTo(bling, "POST /Api/v3/contatos")).toHaveLength(1);
+  });
+
+  it("reuses the note Bling already made when the answer to gerar-nfe was lost", async () => {
+    const { shipmentId, sku } = await scenario();
+    const bling = fakeBling({ sku, loseFirstGeneratedNote: true });
+
+    await processor(bling)();
+    const waiting = await invoiceOf(shipmentId);
+    await processor(bling, { now: minutesFromNow(3) })();
+
+    expect(waiting).toMatchObject({ status: "queued", erpOrderId: 500, erpInvoiceId: null });
+    expect(await invoiceOf(shipmentId)).toMatchObject({ status: "sent", erpInvoiceId: 900 });
+    expect(callsTo(bling, "POST /Api/v3/pedidos/vendas/500/gerar-nfe")).toHaveLength(1);
+  });
+
+  it("puts this parcel's address on a buyer Bling already has as a contact", async () => {
+    const { shipmentId, sku } = await scenario();
+    const bling = fakeBling({
+      sku,
+      knownContactAddress: { endereco: "Rua Antiga", numero: "1", cep: "30130-010", uf: "MG" },
+    });
+
+    await processor(bling)();
+
+    expect(await invoiceOf(shipmentId)).toMatchObject({ status: "sent", erpContactId: 78 });
+    expect(callsTo(bling, "POST /Api/v3/contatos")).toHaveLength(0);
+    const [update] = callsTo(bling, "PUT /Api/v3/contatos/78");
+    expect(sentBody(update)).toMatchObject({
+      telefone: "11 3333-4444",
+      endereco: {
+        geral: { endereco: "Rua das Flores", numero: "10", cep: "01001000", uf: "SP" },
+        cobranca: { cep: "30130-010" },
+      },
+    });
+  });
+
+  it("dates the sale order by Brazil's calendar for a sale late in the evening", async () => {
+    const { shipmentId, sku } = await scenario();
+    const [parcel] = await database
+      .select({ orderId: schema.orderShipments.orderId })
+      .from(schema.orderShipments)
+      .where(eq(schema.orderShipments.id, shipmentId));
+    await database
+      .update(schema.orders)
+      .set({ orderedAt: new Date("2026-03-10T01:30:00Z") })
+      .where(eq(schema.orders.id, parcel?.orderId ?? ""));
+    const bling = fakeBling({ sku });
+
+    await processor(bling, { now: () => new Date("2099-03-11T02:00:00Z") })();
+
+    const [orderCall] = callsTo(bling, "POST /Api/v3/pedidos/vendas");
+    expect(sentBody(orderCall)).toMatchObject({
+      data: "2026-03-09",
+      dataSaida: "2099-03-10",
+      dataPrevista: "2099-03-10",
+    });
+  });
+
+  it("stops asking SEFAZ after a bounded number of checks with the reason", async () => {
+    const { shipmentId, sku } = await scenario();
+    const bling = fakeBling({ sku, sefazSilent: true });
+
+    await processor(bling)();
+    for (let run = 1; run <= MAX_INVOICE_ATTEMPTS + 2; run++) {
+      await processor(bling, { now: minutesFromNow(70 * run) })();
+    }
+
+    const invoice = await invoiceOf(shipmentId);
+    expect(invoice?.status).toBe("attention");
+    expect(invoice?.problem).toContain("A SEFAZ não respondeu");
+    expect(callsTo(bling, "GET /Api/v3/nfe/900")).toHaveLength(1 + MAX_INVOICE_ATTEMPTS);
   });
 
   it("stops with the buyer's missing document in the supplier's words", async () => {
