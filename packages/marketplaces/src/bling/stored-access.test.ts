@@ -84,6 +84,36 @@ describe("storedBlingAccess", () => {
     expect(store.markExpired).toHaveBeenCalledTimes(1);
   });
 
+  it("uses the tokens another refresh just saved instead of asking to reconnect", async () => {
+    const { store, saved } = storeWith();
+    const renewed = {
+      ...saved,
+      accessTokenEnc: cipher.encrypt("access-new"),
+      refreshTokenEnc: cipher.encrypt("refresh-new"),
+      expiresAt: new Date(Date.now() + 6 * 3600_000),
+    };
+    const loads = [saved, renewed];
+    const racingStore: BlingConnectionStore = {
+      ...store,
+      load: async () => loads.shift() ?? renewed,
+    };
+    const fetchImplementation = vi.fn<typeof fetch>(async () =>
+      json(400, { error: { type: "invalid_grant", message: "x" } }),
+    );
+    const access = storedBlingAccess({
+      accountKey: "s1",
+      credentials,
+      cipher,
+      store: racingStore,
+      fetchImplementation,
+    });
+
+    const tokens = await access.refresh();
+
+    expect(tokens.accessToken).toBe("access-new");
+    expect(store.markExpired).not.toHaveBeenCalled();
+  });
+
   it("asks to connect again when the connection is not connected", async () => {
     const { store } = storeWith("expired");
     const access = storedBlingAccess({

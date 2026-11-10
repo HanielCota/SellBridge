@@ -63,6 +63,30 @@ async function usableConnection(store: BlingConnectionStore): Promise<UsableConn
   };
 }
 
+function decrypt(cipher: TokenCipher, connection: UsableConnection): BlingTokens {
+  return {
+    accessToken: cipher.decrypt(connection.accessTokenEnc),
+    refreshToken: cipher.decrypt(connection.refreshTokenEnc),
+    expiresAt: connection.expiresAt,
+  };
+}
+
+/**
+ * The tokens another refresh saved after `used` was read (the web app and the worker refresh the
+ * same account), or null when the saved refresh token is still the one that was refused.
+ */
+async function tokensRenewedSince(
+  store: BlingConnectionStore,
+  cipher: TokenCipher,
+  used: UsableConnection,
+): Promise<BlingTokens | null> {
+  const latest = await usableConnection(store);
+  if (latest.refreshTokenEnc === used.refreshTokenEnc) {
+    return null;
+  }
+  return decrypt(cipher, latest);
+}
+
 function encrypt(cipher: TokenCipher, tokens: BlingTokens): EncryptedTokens {
   return {
     accessTokenEnc: cipher.encrypt(tokens.accessToken),
@@ -86,12 +110,7 @@ export function storedBlingAccess(input: {
   return {
     accountKey: input.accountKey,
     async currentTokens() {
-      const connection = await usableConnection(store);
-      return {
-        accessToken: cipher.decrypt(connection.accessTokenEnc),
-        refreshToken: cipher.decrypt(connection.refreshTokenEnc),
-        expiresAt: connection.expiresAt,
-      };
+      return decrypt(cipher, await usableConnection(store));
     },
     async refresh() {
       const connection = await usableConnection(store);
@@ -105,6 +124,10 @@ export function storedBlingAccess(input: {
       } catch (error) {
         if (!isMarketplaceAuthError(error)) {
           throw error;
+        }
+        const renewed = await tokensRenewedSince(store, cipher, connection);
+        if (renewed !== null) {
+          return renewed;
         }
         await store.markExpired(connection.id, connection.refreshTokenEnc, BLING_RECONNECT_MESSAGE);
         logger.warn("bling.connection_expired", { accountKey: input.accountKey });
