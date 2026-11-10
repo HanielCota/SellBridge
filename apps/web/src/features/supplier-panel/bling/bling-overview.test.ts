@@ -15,17 +15,20 @@ const read = {
   readProducts: 120,
   totalProducts: 400,
   error: null,
+  startedAt: new Date("2026-11-10T12:05:00Z"),
 };
+
+const NOW = new Date("2026-11-10T12:10:00Z");
 
 describe("blingOverviewFrom", () => {
   it("hides the Bling card while the app keys are not configured", () => {
-    const overview = blingOverviewFrom({ available: false, connection, read });
+    const overview = blingOverviewFrom({ available: false, connection, read, now: NOW });
 
     expect(overview).toEqual({ available: false, connection: null, read: null });
   });
 
   it("shows the connection and the read in progress", () => {
-    const overview = blingOverviewFrom({ available: true, connection, read });
+    const overview = blingOverviewFrom({ available: true, connection, read, now: NOW });
 
     expect(overview.connection).toMatchObject({
       status: "connected",
@@ -36,8 +39,22 @@ describe("blingOverviewFrom", () => {
   });
 
   it("ignores a read left from an account that is no longer connected", () => {
-    const overview = blingOverviewFrom({ available: true, connection: null, read });
+    const overview = blingOverviewFrom({ available: true, connection: null, read, now: NOW });
 
     expect(overview).toEqual({ available: true, connection: null, read: null });
+  });
+
+  it("ends a read that stopped moving, so the supplier can start another", () => {
+    const overview = blingOverviewFrom({
+      available: true,
+      connection,
+      read,
+      now: new Date("2026-11-10T12:36:00Z"),
+    });
+
+    expect(overview.read).toMatchObject({
+      status: "failed",
+      error: "A leitura do Bling parou no meio. Clique em Importar do Bling para tentar de novo.",
+    });
   });
 });

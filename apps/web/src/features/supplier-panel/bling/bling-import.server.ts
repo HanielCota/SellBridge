@@ -49,13 +49,13 @@ function requireCredentials() {
 export async function loadBlingOverview(supplierId: string): Promise<BlingOverview> {
   const available = blingCredentials() !== null;
   if (!available) {
-    return blingOverviewFrom({ available, connection: null, read: null });
+    return blingOverviewFrom({ available, connection: null, read: null, now: new Date() });
   }
   const [connection, read] = await Promise.all([
     findErpConnection(database, { supplierId, ...BLING }),
     findErpCatalogReadProgress(database, { supplierId, ...BLING }),
   ]);
-  return blingOverviewFrom({ available, connection, read });
+  return blingOverviewFrom({ available, connection, read, now: new Date() });
 }
 
 /** Starts reading the supplier's Bling catalog in the worker; the page follows its progress. */

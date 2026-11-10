@@ -44,6 +44,29 @@ interface ReadRow {
   readonly readProducts: number;
   readonly totalProducts: number | null;
   readonly error: string | null;
+  readonly startedAt: Date;
+}
+
+/**
+ * A full read (1,000 products at 3 per second) takes about six minutes; one still "reading" long
+ * after that lost its worker, and would keep the page waiting until it expires a day later.
+ */
+const STALLED_READ_AFTER_IN_MS = 30 * 60 * 1000;
+const STALLED_READ_MESSAGE =
+  "A leitura do Bling parou no meio. Clique em Importar do Bling para tentar de novo.";
+
+function readView(read: ReadRow, now: Date): BlingReadView {
+  const view = {
+    id: read.id,
+    status: read.status,
+    readProducts: read.readProducts,
+    totalProducts: read.totalProducts,
+    error: read.error,
+  };
+  const stalled =
+    read.status === "reading" &&
+    now.getTime() - read.startedAt.getTime() > STALLED_READ_AFTER_IN_MS;
+  return stalled ? { ...view, status: "failed", error: STALLED_READ_MESSAGE } : view;
 }
 
 /** The page's view; nothing about the account leaks while the feature is off. */
@@ -51,6 +74,7 @@ export function blingOverviewFrom(input: {
   available: boolean;
   connection: ConnectionRow | null;
   read: ReadRow | null;
+  now: Date;
 }): BlingOverview {
   if (!input.available) {
     return { available: false, connection: null, read: null };
@@ -68,16 +92,7 @@ export function blingOverviewFrom(input: {
             lastImportAt: connection.lastImportAt?.toISOString() ?? null,
             resellerDiscountTenths: connection.resellerDiscountTenths,
           },
-    read:
-      connection === null || read === null
-        ? null
-        : {
-            id: read.id,
-            status: read.status,
-            readProducts: read.readProducts,
-            totalProducts: read.totalProducts,
-            error: read.error,
-          },
+    read: connection === null || read === null ? null : readView(read, input.now),
   };
 }
 

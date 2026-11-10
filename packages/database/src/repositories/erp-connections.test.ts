@@ -344,6 +344,7 @@ describe("ERP catalog read", () => {
       readProducts: 400,
       totalProducts: 400,
       error: null,
+      startedAt: read.startedAt,
     });
   });
 });

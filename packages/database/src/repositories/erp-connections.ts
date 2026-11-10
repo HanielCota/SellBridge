@@ -349,7 +349,7 @@ export async function findErpCatalogRead(
 
 export type ErpCatalogReadProgress = Pick<
   ErpCatalogRead,
-  "id" | "status" | "readProducts" | "totalProducts" | "error"
+  "id" | "status" | "readProducts" | "totalProducts" | "error" | "startedAt"
 >;
 
 /**
@@ -367,6 +367,7 @@ export async function findErpCatalogReadProgress(
       readProducts: erpCatalogReads.readProducts,
       totalProducts: erpCatalogReads.totalProducts,
       error: erpCatalogReads.error,
+      startedAt: erpCatalogReads.startedAt,
     })
     .from(erpCatalogReads)
     .where(
