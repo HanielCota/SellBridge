@@ -1,5 +1,9 @@
 import {
   enqueueStoreOrderCatchUpJob,
+  erpCatalogExportJobId,
+  erpCatalogExportJobSchema,
+  type ErpCatalogExportJob,
+  releaseFinishedJob,
   enqueueWebhookEventJob,
   pingQueueConnection,
   PUBLISH_JOB_OPTIONS,
@@ -91,4 +95,24 @@ export async function enqueueOrderMessageFollowUp(
     jobId: orderMessageFollowUpJobId(job, input.runAt),
     delay: Math.max(0, input.runAt.getTime() - Date.now()),
   });
+}
+
+let erpCatalogExportQueue: Queue | null = null;
+
+/** One waiting export per supplier: asking again while it waits adds nothing. */
+export async function enqueueErpCatalogExport(input: ErpCatalogExportJob): Promise<void> {
+  erpCatalogExportQueue ??= new Queue(QUEUE_NAMES.erpCatalogExport, {
+    connection: { url: environment.REDIS_URL },
+  });
+  const job = erpCatalogExportJobSchema.parse(input);
+  const jobId = erpCatalogExportJobId(job);
+  if (await releaseFinishedJob(erpCatalogExportQueue, jobId)) {
+    await erpCatalogExportQueue.add("erp-catalog-export", job, {
+      jobId,
+      attempts: 3,
+      backoff: { type: "exponential", delay: 60_000 },
+      removeOnComplete: 50,
+      removeOnFail: 100,
+    });
+  }
 }
