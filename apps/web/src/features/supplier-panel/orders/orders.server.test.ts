@@ -10,6 +10,9 @@ const mocks = vi.hoisted(() => ({
 vi.mock("@sellbridge/database/repositories", () => ({ supplierOwnedShipments: mocks.owned }));
 vi.mock("@/lib/server/database", () => ({ database: {} }));
 vi.mock("@/features/fulfillment/shipments.server", () => ({ writeShipmentUpdate: mocks.write }));
+vi.mock("@/features/supplier-payments/supplier-payments.server", () => ({
+  supplierPaymentBadges: vi.fn<() => Promise<Map<string, unknown>>>(),
+}));
 vi.mock("@sellbridge/shared/logger", () => ({
   logger: { error: mocks.error, info: mocks.info },
 }));
