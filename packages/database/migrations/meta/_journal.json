@@ -435,6 +435,13 @@
       "when": 1794252828556,
       "tag": "0061_email_confirmation_required",
       "breakpoints": true
+    },
+    {
+      "idx": 62,
+      "version": "7",
+      "when": 1794282272750,
+      "tag": "0062_erp_connections",
+      "breakpoints": true
     }
   ]
 }

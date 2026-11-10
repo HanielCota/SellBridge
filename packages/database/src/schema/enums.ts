@@ -107,3 +107,6 @@ export const notificationDeliveryStatusEnum = pgEnum("notification_delivery_stat
   "failed",
   "skipped",
 ]);
+
+/** ERP accounts a supplier can connect (catalog import and, later, invoices). */
+export const erpProviderEnum = pgEnum("erp_provider", ["bling"]);
