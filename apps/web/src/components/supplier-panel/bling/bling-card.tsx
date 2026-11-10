@@ -11,6 +11,7 @@ import { useBlingActions } from "@/features/supplier-panel/bling/use-bling";
 import { errorMessage } from "@/lib/errors";
 import { formatAbsoluteTime } from "@/lib/relative-time";
 import { BlingBadge } from "./bling-badge";
+import { BlingInvoiceSwitch } from "./bling-invoice-switch";
 
 function connectHref(supplierId: string): string {
   return `/api/integracoes/bling/conectar?fornecedor=${encodeURIComponent(supplierId)}`;
@@ -232,6 +233,7 @@ export function BlingConnectedCard(props: {
         &ldquo;Enviar ao Bling&rdquo; só cria lá os produtos que ainda não existem. Nada do que já
         está no seu Bling é alterado.
       </p>
+      <BlingInvoiceSwitch supplierId={props.supplierId} connection={props.connection} />
     </CardShell>
   );
 }

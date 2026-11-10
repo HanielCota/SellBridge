@@ -6,7 +6,9 @@ import {
   findErpConnection,
   findSupplierProductCostsBySku,
   findSupplierProductFieldsKeptOnErpImport,
+  getSupplierTaxDefaults,
   recordErpImport,
+  setErpInvoicing,
   startErpCatalogRead,
   type ErpCatalogRead,
 } from "@sellbridge/database/repositories";
@@ -30,7 +32,12 @@ import {
   previewSupplierImport,
 } from "@/features/supplier-panel/import/supplier-import.server";
 import { blingCredentials } from "./bling-access.server";
-import { catalogExportRefusal, erpOwnerActionRefusal, type ErpActor } from "./bling-connection";
+import {
+  catalogExportRefusal,
+  erpOwnerActionRefusal,
+  invoicingRefusal,
+  type ErpActor,
+} from "./bling-connection";
 import { blingOverviewFrom, type BlingImportOutcome, type BlingOverview } from "./bling-overview";
 
 /** A read is kept a day: enough to come back to the import, small enough to clean itself up. */
@@ -51,13 +58,54 @@ function requireCredentials() {
 export async function loadBlingOverview(supplierId: string): Promise<BlingOverview> {
   const available = blingCredentials() !== null;
   if (!available) {
-    return blingOverviewFrom({ available, connection: null, read: null, now: new Date() });
+    return blingOverviewFrom({
+      available,
+      connection: null,
+      read: null,
+      fiscalReady: false,
+      now: new Date(),
+    });
   }
-  const [connection, read] = await Promise.all([
+  const [connection, read, taxSetup] = await Promise.all([
     findErpConnection(database, { supplierId, ...BLING }),
     findErpCatalogReadProgress(database, { supplierId, ...BLING }),
+    getSupplierTaxDefaults(database, supplierId),
   ]);
-  return blingOverviewFrom({ available, connection, read, now: new Date() });
+  return blingOverviewFrom({
+    available,
+    connection,
+    read,
+    fiscalReady: taxSetup !== null,
+    now: new Date(),
+  });
+}
+
+/**
+ * Turns the NF-e through Bling on (new orders from now on) or off. Logged with who did it: turning
+ * it on makes notes with fiscal value.
+ */
+export async function setBlingInvoicing(input: {
+  supplierId: string;
+  enabled: boolean;
+  actor: ErpActor;
+}): Promise<BlingOverview> {
+  requireCredentials();
+  const [connection, taxSetup] = await Promise.all([
+    findErpConnection(database, { supplierId: input.supplierId, ...BLING }),
+    getSupplierTaxDefaults(database, input.supplierId),
+  ]);
+  const refusal = invoicingRefusal({
+    actor: input.actor,
+    enabling: input.enabled,
+    connectionStatus: connection?.status ?? null,
+    fiscalReady: taxSetup !== null,
+  });
+  if (refusal !== null) {
+    throw conflictError(refusal);
+  }
+  await setErpInvoicing(database, { supplierId: input.supplierId, enabled: input.enabled });
+  logger.info("bling.invoicing_changed", { supplierId: input.supplierId, enabled: input.enabled });
+  return loadBlingOverview(input.supplierId);
 }
 
 /** Starts reading the supplier's Bling catalog in the worker; the page follows its progress. */

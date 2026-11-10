@@ -7,6 +7,7 @@ import {
   supplierBlingOverview,
   supplierBlingReadRows,
   supplierBlingSendCatalog,
+  supplierBlingSetInvoicing,
   supplierBlingStartRead,
 } from "./bling.functions";
 
@@ -51,7 +52,12 @@ export function useBlingActions(supplierId: string) {
     mutationFn: async () => await supplierBlingDiscardRead({ data: { supplierId } }),
     onSuccess: refresh,
   });
-  return { startRead, sendCatalog, disconnect, discardRead, refresh };
+  const setInvoicing = useMutation({
+    mutationFn: async (enabled: boolean) =>
+      await supplierBlingSetInvoicing({ data: { supplierId, enabled } }),
+    onSuccess: (overview) => queryClient.setQueryData(overviewKey(supplierId), overview),
+  });
+  return { startRead, sendCatalog, disconnect, discardRead, setInvoicing, refresh };
 }
 
 /** The products of a finished read, loaded once per read. */

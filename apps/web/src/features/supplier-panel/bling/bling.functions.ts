@@ -9,6 +9,7 @@ import {
   discardBlingRead,
   disconnectBling,
   importBlingRead,
+  setBlingInvoicing,
   loadBlingOverview,
   loadBlingReadRows,
   requestBlingCatalogExport,
@@ -65,6 +66,19 @@ export const supplierBlingSendCatalog = createServerFn({ method: "POST" })
     });
     return { queued: true };
   });
+
+/** Turns the NF-e through Bling on or off for the supplier's new orders. */
+export const supplierBlingSetInvoicing = createServerFn({ method: "POST" })
+  .middleware([supplierPanelMiddleware])
+  .validator(supplierImportSupplierSchema.extend({ enabled: z.boolean() }))
+  .handler(
+    async ({ data, context }) =>
+      await setBlingInvoicing({
+        supplierId: data.supplierId,
+        enabled: data.enabled,
+        actor: { viewerKind: context.viewer.kind, impersonatedBy: context.impersonatedBy },
+      }),
+  );
 
 /** Forgets the supplier's Bling account; the imported products stay. */
 export const supplierBlingDisconnect = createServerFn({ method: "POST" })

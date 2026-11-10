@@ -7,6 +7,7 @@ const connection = {
   connectedAt: new Date("2026-11-10T12:00:00Z"),
   lastImportAt: null,
   resellerDiscountTenths: 300,
+  invoiceEnabledAt: null,
 };
 
 const read = {
@@ -22,13 +23,25 @@ const NOW = new Date("2026-11-10T12:10:00Z");
 
 describe("blingOverviewFrom", () => {
   it("hides the Bling card while the app keys are not configured", () => {
-    const overview = blingOverviewFrom({ available: false, connection, read, now: NOW });
+    const overview = blingOverviewFrom({
+      available: false,
+      connection,
+      read,
+      fiscalReady: true,
+      now: NOW,
+    });
 
     expect(overview).toEqual({ available: false, connection: null, read: null });
   });
 
   it("shows the connection and the read in progress", () => {
-    const overview = blingOverviewFrom({ available: true, connection, read, now: NOW });
+    const overview = blingOverviewFrom({
+      available: true,
+      connection,
+      read,
+      fiscalReady: true,
+      now: NOW,
+    });
 
     expect(overview.connection).toMatchObject({
       status: "connected",
@@ -38,8 +51,31 @@ describe("blingOverviewFrom", () => {
     expect(overview.read).toMatchObject({ readProducts: 120, totalProducts: 400 });
   });
 
+  it("tells since when the NF-e is on and whether the fiscal data is ready", () => {
+    const enabled = { ...connection, invoiceEnabledAt: new Date("2026-11-10T13:00:00Z") };
+
+    const overview = blingOverviewFrom({
+      available: true,
+      connection: enabled,
+      read: null,
+      fiscalReady: false,
+      now: NOW,
+    });
+
+    expect(overview.connection).toMatchObject({
+      invoiceEnabledAt: "2026-11-10T13:00:00.000Z",
+      fiscalReady: false,
+    });
+  });
+
   it("ignores a read left from an account that is no longer connected", () => {
-    const overview = blingOverviewFrom({ available: true, connection: null, read, now: NOW });
+    const overview = blingOverviewFrom({
+      available: true,
+      connection: null,
+      read,
+      fiscalReady: true,
+      now: NOW,
+    });
 
     expect(overview).toEqual({ available: true, connection: null, read: null });
   });
@@ -49,6 +85,7 @@ describe("blingOverviewFrom", () => {
       available: true,
       connection,
       read,
+      fiscalReady: true,
       now: new Date("2026-11-10T12:36:00Z"),
     });
 
