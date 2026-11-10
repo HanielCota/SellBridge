@@ -29,6 +29,8 @@ interface Preference {
 interface Payment {
   id: string;
   accountId: string;
+  preferenceId: string;
+  fee: number;
   status: string;
   externalReference: string;
   amount: number;
@@ -190,6 +192,8 @@ function finishCheckout(preference: Preference, outcome: string, response: Serve
   const payment: Payment = {
     id: String(randomInt(1_000_000_000, 9_999_999_999)),
     accountId: preference.accountId,
+    preferenceId: preference.id,
+    fee: preference.fee,
     status: approved ? "approved" : "rejected",
     externalReference: preference.externalReference,
     amount: preference.amount,
@@ -253,7 +257,31 @@ function paymentEndpoint(request: IncomingMessage, url: URL, response: ServerRes
     date_approved: payment.approvedAt,
     transaction_amount: payment.amount,
     payment_type_id: "bank_transfer",
+    fee_details: payment.fee > 0 ? [{ type: "application_fee", amount: payment.fee }] : [],
   });
+}
+
+/** The merchant orders of one preference, holding the payments made through it. */
+function merchantOrderSearch(request: IncomingMessage, url: URL, response: ServerResponse): void {
+  const accountId = accountOf(request);
+  const preferenceId = url.searchParams.get("preference_id");
+  if (accountId === null || preferenceId === null) {
+    json(response, 401, { message: "invalid token" });
+    return;
+  }
+  const paid = [...payments.values()].filter(
+    (payment) => payment.accountId === accountId && payment.preferenceId === preferenceId,
+  );
+  const elements =
+    paid.length === 0
+      ? []
+      : [
+          {
+            preference_id: preferenceId,
+            payments: paid.map((payment) => ({ id: Number(payment.id) })),
+          },
+        ];
+  json(response, 200, { elements, next_offset: elements.length, total: elements.length });
 }
 
 async function handle(request: IncomingMessage, response: ServerResponse): Promise<boolean> {
@@ -273,6 +301,10 @@ async function handle(request: IncomingMessage, response: ServerResponse): Promi
   }
   if (path === "/checkout") {
     checkoutPage(url, response);
+    return true;
+  }
+  if (path === "/api/merchant_orders/search") {
+    merchantOrderSearch(request, url, response);
     return true;
   }
   if (path.startsWith("/api/v1/payments/")) {

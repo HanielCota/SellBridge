@@ -7,6 +7,8 @@ import type { MercadoPagoSettings } from "./mercado-pago-connection";
  * Preferences https://www.mercadopago.com.br/developers/pt/reference/online-payments/checkout-pro/preferences/create-preference/post
  * Marketplace fee https://www.mercadopago.com.br/developers/pt/docs/split-payments/split-1-1/integration-configuration/integrate-marketplace
  * Payments https://www.mercadopago.com.br/developers/en/reference/online-payments/checkout-api-payments/get-payment/get
+ * Fee details https://www.mercadopago.com.ar/developers/es/reference/online-payments/checkout-api-payments/create-payment/post
+ * Merchant orders https://www.mercadopago.com.br/developers/pt/reference/online-payments/checkout-pro/merchant_orders/search-merchant-order/get
  */
 
 const REQUEST_TIMEOUT_IN_MS = 10_000;
@@ -250,7 +252,14 @@ const paymentResponseSchema = z.object({
     .union([z.number().int(), z.string().min(1)])
     .nullable()
     .optional(),
+  fee_details: z
+    .array(z.object({ type: z.string(), amount: z.number() }))
+    .nullable()
+    .optional(),
 });
+
+/** The fee entry Mercado Pago documents as the marketplace's commission. */
+const APPLICATION_FEE_TYPE = "application_fee";
 
 export interface MercadoPagoPayment {
   id: string;
@@ -262,6 +271,23 @@ export interface MercadoPagoPayment {
   currency: string | null;
   /** The Mercado Pago account the money went to. */
   collectorId: string | null;
+  /** The marketplace commission kept from this payment, in cents (0 when there is none). */
+  applicationFeeCents: number;
+}
+
+function centsFrom(amountInReais: number): number {
+  return Math.round(amountInReais * 100);
+}
+
+function applicationFeeCentsFrom(
+  feeDetails: readonly { type: string; amount: number }[] | null | undefined,
+): number {
+  if (feeDetails == null) {
+    return 0;
+  }
+  return feeDetails
+    .filter((fee) => fee.type === APPLICATION_FEE_TYPE)
+    .reduce((total, fee) => total + centsFrom(fee.amount), 0);
 }
 
 function dateOrNull(value: string | null | undefined): Date | null {
@@ -295,9 +321,59 @@ export async function getMercadoPagoPayment(
     status: parsed.data.status,
     externalReference: parsed.data.external_reference ?? null,
     approvedAt: dateOrNull(parsed.data.date_approved),
-    amountCents: Math.round(parsed.data.transaction_amount * 100),
+    amountCents: centsFrom(parsed.data.transaction_amount),
     paymentMethod: parsed.data.payment_type_id ?? null,
     currency: parsed.data.currency_id ?? null,
     collectorId: parsed.data.collector_id == null ? null : String(parsed.data.collector_id),
+    applicationFeeCents: applicationFeeCentsFrom(parsed.data.fee_details),
   };
+}
+
+const paymentIdSchema = z.union([z.number().int(), z.string().min(1)]);
+
+const merchantOrderSearchSchema = z.object({
+  elements: z
+    .array(
+      z.object({
+        preference_id: z.string().nullable().optional(),
+        payments: z
+          .array(z.object({ id: paymentIdSchema.nullable().optional() }))
+          .nullable()
+          .optional(),
+      }),
+    )
+    .nullable()
+    .optional(),
+});
+
+/**
+ * The ids of the payments made through one Checkout Pro preference, read from its merchant
+ * orders with the token of the account the preference belongs to.
+ */
+export async function listPreferencePaymentIds(
+  settings: MercadoPagoSettings,
+  input: { accessToken: string; preferenceId: string },
+): Promise<string[]> {
+  const path = `/merchant_orders/search?preference_id=${encodeURIComponent(input.preferenceId)}`;
+  const payload = await callMercadoPago(settings, {
+    path,
+    method: "GET",
+    accessToken: input.accessToken,
+  });
+  const parsed = merchantOrderSearchSchema.safeParse(payload);
+  if (!parsed.success) {
+    throw new MercadoPagoError("Unexpected merchant order search response", null);
+  }
+  const ids: string[] = [];
+  for (const order of parsed.data.elements ?? []) {
+    if (order.preference_id !== input.preferenceId) {
+      continue;
+    }
+    for (const payment of order.payments ?? []) {
+      if (payment.id != null) {
+        ids.push(String(payment.id));
+      }
+    }
+  }
+  return ids;
 }

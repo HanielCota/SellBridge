@@ -47,7 +47,15 @@ const account = {
   refreshTokenEnc: "enc:refresh",
   expiresAt: new Date(Date.now() + 90 * 24 * 60 * 60 * 1000),
 };
-const localPayment = { id: PAYMENT_ROW_ID, supplierId: SUPPLIER_ID, amountCents: 5990 };
+const PREFERENCE_ID = "112233-preference-1";
+const localPayment = {
+  id: PAYMENT_ROW_ID,
+  supplierId: SUPPLIER_ID,
+  amountCents: 5990,
+  platformFeeCents: 300,
+  preferenceId: PREFERENCE_ID,
+  providerPaymentId: null,
+};
 
 function notice(
   input: { dataId?: string; bodyDataId?: string; type?: string; secret?: string } = {},
@@ -86,13 +94,38 @@ function remotePayment(overrides: Record<string, unknown> = {}) {
       payment_type_id: "bank_transfer",
       currency_id: "BRL",
       collector_id: 112233,
+      fee_details: [
+        { type: "mercadopago_fee", amount: 0.59, fee_payer: "collector" },
+        { type: "application_fee", amount: 3, fee_payer: "collector" },
+      ],
       ...overrides,
     }),
     { status: 200 },
   );
 }
 
+function merchantOrders(paymentIds: number[] = [987654321]) {
+  return new Response(
+    JSON.stringify({
+      elements: [{ preference_id: PREFERENCE_ID, payments: paymentIds.map((id) => ({ id })) }],
+      next_offset: 1,
+      total: 1,
+    }),
+    { status: 200 },
+  );
+}
+
 const fetchMock = vi.fn<(...input: unknown[]) => Promise<Response>>();
+
+/** Answers the payment read with `payment` and the checkout's merchant orders with `orders`. */
+function mercadoPagoAnswers(payment: Response, orders: Response = merchantOrders()): void {
+  fetchMock.mockImplementation(async (url: unknown) => {
+    if (String(url).includes("/merchant_orders/search")) {
+      return orders;
+    }
+    return payment;
+  });
+}
 
 beforeEach(() => {
   vi.stubGlobal("fetch", fetchMock);
@@ -111,7 +144,7 @@ afterEach(() => {
 
 describe("handleMercadoPagoWebhook", () => {
   it("records an approved payment read back with the supplier's token", async () => {
-    fetchMock.mockResolvedValue(remotePayment());
+    mercadoPagoAnswers(remotePayment());
 
     const response = await handleMercadoPagoWebhook(notice());
 
@@ -131,6 +164,69 @@ describe("handleMercadoPagoWebhook", () => {
         paymentMethod: "bank_transfer",
       }),
     );
+  });
+
+  it("records a payment from SellBridge's checkout that keeps SellBridge's fee", async () => {
+    mercadoPagoAnswers(remotePayment());
+
+    await handleMercadoPagoWebhook(notice());
+
+    expect(fetchMock).toHaveBeenCalledWith(
+      `https://api.mercadopago.test/merchant_orders/search?preference_id=${PREFERENCE_ID}`,
+      expect.anything(),
+    );
+    expect(mocks.apply).toHaveBeenCalledTimes(1);
+  });
+
+  it("does not mark paid a payment of the right amount, account and currency without SellBridge's fee", async () => {
+    mercadoPagoAnswers(remotePayment({ fee_details: [] }));
+
+    const response = await handleMercadoPagoWebhook(notice());
+
+    expect(response.status).toBe(200);
+    expect(mocks.apply).not.toHaveBeenCalled();
+  });
+
+  it("does not mark paid a payment that keeps a smaller fee than the parcel's", async () => {
+    mercadoPagoAnswers(
+      remotePayment({
+        fee_details: [{ type: "application_fee", amount: 0.01, fee_payer: "collector" }],
+      }),
+    );
+
+    await handleMercadoPagoWebhook(notice());
+
+    expect(mocks.apply).not.toHaveBeenCalled();
+  });
+
+  it("does not mark paid a payment made outside SellBridge's checkout for the parcel", async () => {
+    mercadoPagoAnswers(remotePayment(), merchantOrders([111]));
+
+    await handleMercadoPagoWebhook(notice());
+
+    expect(mocks.apply).not.toHaveBeenCalled();
+  });
+
+  it("does not mark paid a payment for a parcel that never opened a checkout", async () => {
+    mercadoPagoAnswers(remotePayment());
+    mocks.findPayment.mockResolvedValue({ ...localPayment, preferenceId: null });
+
+    await handleMercadoPagoWebhook(notice());
+
+    expect(mocks.apply).not.toHaveBeenCalled();
+  });
+
+  it("records the refund of the payment already on the parcel even when its fee changed", async () => {
+    mercadoPagoAnswers(remotePayment({ status: "refunded", fee_details: [] }));
+    mocks.findPayment.mockResolvedValue({
+      ...localPayment,
+      status: "approved",
+      providerPaymentId: "987654321",
+    });
+
+    await handleMercadoPagoWebhook(notice());
+
+    expect(mocks.apply).toHaveBeenCalledWith({}, expect.objectContaining({ status: "refunded" }));
   });
 
   it("refuses a notice with a wrong signature without calling Mercado Pago", async () => {
