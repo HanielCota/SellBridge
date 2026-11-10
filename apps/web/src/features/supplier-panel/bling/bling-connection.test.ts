@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   blingCallbackQuerySchema,
   blingCredentialsFrom,
+  blingOutcomeSearch,
   erpConnectRefusal,
 } from "./bling-connection";
 
@@ -50,5 +51,16 @@ describe("blingCallbackQuerySchema", () => {
 
   it("refuses a callback without code or error", () => {
     expect(blingCallbackQuerySchema.safeParse({ state: "s" }).success).toBe(false);
+  });
+});
+
+describe("blingOutcomeSearch", () => {
+  it("keeps a known outcome of the Bling consent page", () => {
+    expect(blingOutcomeSearch({ bling: "conectado", perfil: "x" })).toEqual({ bling: "conectado" });
+  });
+
+  it("drops an outcome the page does not know, so a link cannot make it say anything", () => {
+    expect(blingOutcomeSearch({ bling: "<b>oi</b>" })).toEqual({});
+    expect(blingOutcomeSearch({})).toEqual({});
   });
 });

@@ -12,6 +12,59 @@ export type BlingConnectOutcome =
   | "resposta_invalida"
   | "falhou";
 
+const BLING_OUTCOMES = [
+  "conectado",
+  "indisponivel",
+  "sem_permissao",
+  "visita",
+  "cancelado",
+  "expirado",
+  "resposta_invalida",
+  "falhou",
+] as const satisfies readonly BlingConnectOutcome[];
+
+const blingOutcomeSchema = z.enum(BLING_OUTCOMES);
+
+/** The import page's `?bling=` after the Bling consent page; anything else is dropped. */
+export function blingOutcomeSearch(search: Record<string, unknown>): {
+  bling?: BlingConnectOutcome;
+} {
+  const parsed = blingOutcomeSchema.safeParse(search.bling);
+  return parsed.success ? { bling: parsed.data } : {};
+}
+
+/** What the supplier reads after coming back from Bling, and whether it went well. */
+export const BLING_OUTCOME_MESSAGES: Readonly<
+  Record<BlingConnectOutcome, { readonly ok: boolean; readonly text: string }>
+> = {
+  conectado: { ok: true, text: "Bling conectado. Agora é só importar os produtos." },
+  indisponivel: { ok: false, text: "A integração com o Bling ainda não está disponível." },
+  sem_permissao: {
+    ok: false,
+    text: "Só quem faz parte deste fornecedor pode conectar o Bling dele.",
+  },
+  visita: {
+    ok: false,
+    text: "Durante a visita da equipe não dá para conectar o Bling do fornecedor.",
+  },
+  cancelado: {
+    ok: false,
+    text: "A conexão foi cancelada no Bling. Clique em Conectar Bling quando quiser tentar de novo.",
+  },
+  expirado: {
+    ok: false,
+    text: "A conexão demorou demais para voltar do Bling. Clique em Conectar Bling de novo.",
+  },
+  resposta_invalida: {
+    ok: false,
+    text: "O Bling respondeu de um jeito inesperado. Clique em Conectar Bling de novo.",
+  },
+  falhou: {
+    ok: false,
+    text: "Não foi possível conectar o Bling agora. Tente de novo em alguns minutos.",
+  },
+};
+
 /** The app's keys, or null while they are not configured (the feature is off). */
 export function blingCredentialsFrom(environment: {
   BLING_CLIENT_ID?: string | undefined;

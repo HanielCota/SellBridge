@@ -2,7 +2,10 @@ import {
   enqueueStoreOrderCatchUpJob,
   erpCatalogExportJobId,
   erpCatalogExportJobSchema,
+  erpCatalogReadJobId,
+  erpCatalogReadJobSchema,
   type ErpCatalogExportJob,
+  type ErpCatalogReadJob,
   releaseFinishedJob,
   enqueueWebhookEventJob,
   pingQueueConnection,
@@ -115,4 +118,20 @@ export async function enqueueErpCatalogExport(input: ErpCatalogExportJob): Promi
       removeOnFail: 100,
     });
   }
+}
+
+let erpCatalogReadQueue: Queue | null = null;
+
+/** One job per read; a new read gets a new id, so it never waits behind an old one. */
+export async function enqueueErpCatalogRead(input: ErpCatalogReadJob): Promise<void> {
+  erpCatalogReadQueue ??= new Queue(QUEUE_NAMES.erpCatalogRead, {
+    connection: { url: environment.REDIS_URL },
+  });
+  const job = erpCatalogReadJobSchema.parse(input);
+  await erpCatalogReadQueue.add("erp-catalog-read", job, {
+    jobId: erpCatalogReadJobId(job),
+    attempts: 1,
+    removeOnComplete: 50,
+    removeOnFail: 100,
+  });
 }

@@ -166,15 +166,15 @@ export function planErpCatalogImport(
   });
 }
 
-const MAX_ERP_IMPORT_ITEMS = 1000;
+/** Parents read per import: about six minutes at the ERP's 3 requests per second. */
+export const MAX_ERP_READ_PRODUCTS = 1000;
+/** Items kept from one read (variations count one each), so a stored read stays bounded. */
+export const MAX_ERP_READ_ITEMS = 3000;
 const MAX_RESELLER_COST_CENTS = 100_000_000;
 
 const nullableText = (max: number) => z.string().max(max).nullable();
 
-/**
- * An ERP product sent back by the import screen with the typed prices. It is the supplier's own
- * catalog, as trusted as a spreadsheet they upload; the product import still checks every rule.
- */
+/** An ERP product as a catalog read stores it; the product import still checks every rule. */
 export const erpCatalogItemSchema = z.object({
   sku: z.string().trim().min(1).max(100),
   title: z.string().max(500),
@@ -205,9 +205,7 @@ export const erpResellerCostsSchema = z
         .max(MAX_RESELLER_COST_CENTS, "O preço para o revendedor pode ser de até R$ 1.000.000,00"),
     }),
   )
-  .max(MAX_ERP_IMPORT_ITEMS);
-
-export const erpCatalogItemsSchema = z.array(erpCatalogItemSchema).min(1).max(MAX_ERP_IMPORT_ITEMS);
+  .max(MAX_ERP_READ_ITEMS);
 
 export type ErpResellerCost = z.infer<typeof erpResellerCostsSchema>[number];
 
@@ -238,11 +236,6 @@ export function mergeResellerCosts(input: {
   }
   return { ok: true, costs };
 }
-
-/** Parents read per import: about six minutes at the ERP's 3 requests per second. */
-export const MAX_ERP_READ_PRODUCTS = 1000;
-/** Items kept from one read (variations count one each), so a stored read stays bounded. */
-export const MAX_ERP_READ_ITEMS = 3000;
 
 /** A stored catalog read, validated whenever it is read back from the database. */
 export const erpCatalogReadResultSchema = z.object({

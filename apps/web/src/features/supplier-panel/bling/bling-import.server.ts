@@ -1,47 +1,40 @@
-import { findSupplierProductCostsBySku } from "@sellbridge/database/repositories";
-import { readBlingCatalog, type SkippedBlingProduct } from "@sellbridge/marketplaces/bling";
+import {
+  deleteErpCatalogRead,
+  deleteErpConnection,
+  findErpCatalogRead,
+  findErpConnection,
+  findSupplierProductCostsBySku,
+  recordErpImport,
+  startErpCatalogRead,
+  type ErpCatalogRead,
+} from "@sellbridge/database/repositories";
 import {
   buildErpCatalogCsv,
+  erpCatalogReadResultSchema,
   mergeResellerCosts,
   planErpCatalogImport,
   type ErpCatalogItem,
+  type ErpCatalogReadResult,
   type ErpImportRow,
   type ErpResellerCost,
 } from "@sellbridge/shared/erp-catalog";
-import { conflictError, validationError } from "@sellbridge/shared/errors";
+import { conflictError, forbiddenError, validationError } from "@sellbridge/shared/errors";
 import { logger } from "@sellbridge/shared/logger";
-import type { SupplierImportPreview } from "@sellbridge/shared/supplier-panel-import-schemas";
 import { database } from "@/lib/server/database";
-import { enqueueErpCatalogExport } from "@/lib/server/queues";
-import { previewSupplierImport } from "@/features/supplier-panel/import/supplier-import.server";
-import { blingCredentials, supplierBlingClient } from "./bling-access.server";
+import { enqueueErpCatalogExport, enqueueErpCatalogRead } from "@/lib/server/queues";
+import {
+  confirmSupplierImport,
+  previewSupplierImport,
+} from "@/features/supplier-panel/import/supplier-import.server";
+import { blingCredentials } from "./bling-access.server";
+import { blingOverviewFrom, type BlingImportOutcome, type BlingOverview } from "./bling-overview";
 
-/**
- * Parents read per import. With their variations they stay under the import's 1000 rows for
- * typical catalogs, and at 3 requests per second the read takes about two minutes.
- */
-const MAX_BLING_PRODUCTS = 300;
+/** A read is kept a day: enough to come back to the import, small enough to clean itself up. */
+const READ_TTL_IN_MS = 24 * 60 * 60 * 1000;
+/** Rows per import file, the spreadsheet import's own limit. */
+const IMPORT_CHUNK_ROWS = 1000;
 
-/**
- * The Bling catalog ready to import. Products the supplier already has keep the reseller cost
- * they have; new ones wait for the supplier to type it (`needsCost`), so `preview` only holds
- * products with a known reseller price and the usual confirmation (`supplierImportConfirm`)
- * never saves one without it.
- */
-export interface BlingImportPlan {
-  readonly rows: ErpImportRow[];
-  /** The products as read, sent back with the typed prices (`previewBlingImportWithCosts`). */
-  readonly items: ErpCatalogItem[];
-  /** The import preview of the products that have a reseller price; null when none has. */
-  readonly preview: SupplierImportPreview | null;
-}
-
-export interface BlingImportPreview extends BlingImportPlan {
-  /** Bling products left out before the preview (no code), named for the supplier. */
-  readonly skipped: SkippedBlingProduct[];
-  /** The catalog had more than `MAX_BLING_PRODUCTS` products; the rest needs another round. */
-  readonly truncated: boolean;
-}
+const BLING = { provider: "bling" } as const;
 
 function requireCredentials() {
   const credentials = blingCredentials();
@@ -51,81 +44,207 @@ function requireCredentials() {
   return credentials;
 }
 
-async function previewPricedItems(
+export async function loadBlingOverview(supplierId: string): Promise<BlingOverview> {
+  const available = blingCredentials() !== null;
+  if (!available) {
+    return blingOverviewFrom({ available, connection: null, read: null });
+  }
+  const [connection, read] = await Promise.all([
+    findErpConnection(database, { supplierId, ...BLING }),
+    findErpCatalogRead(database, { supplierId, ...BLING }),
+  ]);
+  return blingOverviewFrom({ available, connection, read });
+}
+
+/** Starts reading the supplier's Bling catalog in the worker; the page follows its progress. */
+export async function startBlingRead(supplierId: string): Promise<BlingOverview> {
+  requireCredentials();
+  const connection = await findErpConnection(database, { supplierId, ...BLING });
+  if (connection?.status !== "connected") {
+    throw conflictError("Conecte o Bling antes de importar os produtos.");
+  }
+  const read = await startErpCatalogRead(database, {
+    supplierId,
+    ...BLING,
+    ttlMilliseconds: READ_TTL_IN_MS,
+  });
+  await enqueueErpCatalogRead({ supplierId, readId: read.id });
+  logger.info("bling.read_started", { supplierId, readId: read.id });
+  return loadBlingOverview(supplierId);
+}
+
+/** The finished read with this id, its stored result validated again. */
+async function readyResult(supplierId: string, readId: string): Promise<ErpCatalogReadResult> {
+  const read: ErpCatalogRead | null = await findErpCatalogRead(database, { supplierId, ...BLING });
+  if (read?.id !== readId || read.status !== "ready") {
+    throw conflictError("Esta leitura do Bling não está mais disponível. Importe de novo.");
+  }
+  const parsed = erpCatalogReadResultSchema.safeParse(read.result);
+  if (!parsed.success) {
+    logger.error("bling.read_result_invalid", { supplierId, readId });
+    throw conflictError("Não foi possível abrir esta leitura do Bling. Importe de novo.");
+  }
+  return parsed.data;
+}
+
+export interface BlingReadRows {
+  readonly rows: ErpImportRow[];
+  readonly skipped: ErpCatalogReadResult["skipped"];
+  readonly truncated: boolean;
+}
+
+/** The products of a finished read as the preview lists them, with what each one needs. */
+export async function loadBlingReadRows(
+  supplierId: string,
+  readId: string,
+): Promise<BlingReadRows> {
+  const result = await readyResult(supplierId, readId);
+  const existingCosts = await findSupplierProductCostsBySku(database, {
+    supplierId,
+    skus: result.items.map((item) => item.sku),
+  });
+  return {
+    rows: planErpCatalogImport(result.items, existingCosts),
+    skipped: result.skipped,
+    truncated: result.truncated,
+  };
+}
+
+/** The new products of a read as an import spreadsheet with the reseller price left blank. */
+export async function buildBlingNewProductsCsv(
+  supplierId: string,
+  readId: string,
+): Promise<string> {
+  const result = await readyResult(supplierId, readId);
+  const existingCosts = await findSupplierProductCostsBySku(database, {
+    supplierId,
+    skus: result.items.map((item) => item.sku),
+  });
+  const newItems = result.items.filter((item) => !existingCosts.has(item.sku));
+  return buildErpCatalogCsv(newItems, new Map());
+}
+
+function chunksOf<Item>(items: readonly Item[], size: number): Item[][] {
+  const chunks: Item[][] = [];
+  for (let start = 0; start < items.length; start += size) {
+    chunks.push(items.slice(start, start + size));
+  }
+  return chunks;
+}
+
+/** Joins two CSVs of the same columns, keeping the header line once. */
+function appendCsvRows(collected: string, next: string): string {
+  if (collected === "") {
+    return next;
+  }
+  const lineBreak = next.indexOf("\n");
+  return lineBreak === -1 ? collected : collected + next.slice(lineBreak + 1);
+}
+
+/** Previews and confirms one import file of priced products. */
+async function importChunk(
   supplierId: string,
   items: readonly ErpCatalogItem[],
-  costs: ReadonlyMap<string, number>,
-): Promise<SupplierImportPreview | null> {
-  const priced = items.filter((item) => costs.has(item.sku));
-  if (priced.length === 0) {
-    return null;
-  }
-  const csv = buildErpCatalogCsv(priced, costs);
-  return previewSupplierImport({
+  costs: Map<string, number>,
+) {
+  const csv = buildErpCatalogCsv(items, costs);
+  const preview = await previewSupplierImport({
     supplierId,
     fileName: "bling.csv",
     fileBase64: Buffer.from(csv, "utf8").toString("base64"),
   });
+  const imported =
+    preview.confirmation === null
+      ? null
+      : await confirmSupplierImport({ supplierId, ...preview.confirmation });
+  return { preview, imported };
 }
 
 /**
- * Plans the import of these ERP products: current costs come from SellBridge, typed ones only
- * for new products of this list. Fiscal data travels in `items` but is not imported yet: the
- * product has no fiscal columns until the fiscal-fields work adds them to `erp-catalog`.
+ * Imports a finished read: products SellBridge has keep their reseller cost, new ones take the
+ * prices the supplier typed, and nothing without a price is saved. Large reads go in files of
+ * the spreadsheet import's size, each one previewed and confirmed by the usual rules.
  */
-async function planImport(
-  supplierId: string,
-  items: readonly ErpCatalogItem[],
-  typedCosts: readonly ErpResellerCost[],
-): Promise<BlingImportPlan> {
+export async function importBlingRead(input: {
+  supplierId: string;
+  readId: string;
+  costs: readonly ErpResellerCost[];
+  resellerDiscountTenths: number | null;
+}): Promise<BlingImportOutcome> {
+  const { supplierId } = input;
+  const result = await readyResult(supplierId, input.readId);
   const existingCosts = await findSupplierProductCostsBySku(database, {
     supplierId,
-    skus: items.map((item) => item.sku),
+    skus: result.items.map((item) => item.sku),
   });
-  const merged = mergeResellerCosts({ items, existingCosts, typedCosts });
+  const merged = mergeResellerCosts({
+    items: result.items,
+    existingCosts,
+    typedCosts: input.costs,
+  });
   if (!merged.ok) {
     throw validationError(merged.message);
   }
-  const preview = await previewPricedItems(supplierId, items, merged.costs);
-  const rows = planErpCatalogImport(items, existingCosts);
-  logger.info("bling.import_planned", {
+  const missing = result.items.filter((item) => !merged.costs.has(item.sku)).length;
+  if (missing > 0) {
+    throw validationError(`Faltam ${missing} preços para o revendedor antes de importar.`);
+  }
+  const outcome = {
+    created: 0,
+    updated: 0,
+    pausedTargets: 0,
+    synchronizationQueued: false,
+    failedRows: 0,
+    failedRowsCsv: "",
+  };
+  for (const chunk of chunksOf(result.items, IMPORT_CHUNK_ROWS)) {
+    const { preview, imported } = await importChunk(supplierId, chunk, merged.costs);
+    outcome.created += imported?.created ?? 0;
+    outcome.updated += imported?.updated ?? 0;
+    outcome.pausedTargets += imported?.pausedTargets ?? 0;
+    outcome.synchronizationQueued ||= imported?.synchronizationQueued ?? false;
+    outcome.failedRows += preview.failedRows;
+    outcome.failedRowsCsv = appendCsvRows(outcome.failedRowsCsv, preview.failedRowsCsv);
+  }
+  await recordErpImport(database, {
     supplierId,
-    items: items.length,
-    keepingCost: existingCosts.size,
-    typedCosts: typedCosts.length,
-    waitingForCost: items.length - merged.costs.size,
+    ...BLING,
+    resellerDiscountTenths: input.resellerDiscountTenths,
   });
-  return { rows, items: [...items], preview };
-}
-
-/** Reads the supplier's Bling catalog and plans its import (see `BlingImportPlan`). */
-export async function previewBlingImport(supplierId: string): Promise<BlingImportPreview> {
-  const client = supplierBlingClient(supplierId, requireCredentials());
-  const catalog = await readBlingCatalog(client, { maxProducts: MAX_BLING_PRODUCTS });
-  const plan = await planImport(supplierId, catalog.items, []);
-  logger.info("bling.import_previewed", {
+  logger.info("bling.imported", {
     supplierId,
-    skipped: catalog.skipped.length,
-    truncated: catalog.truncated,
+    created: outcome.created,
+    updated: outcome.updated,
+    failedRows: outcome.failedRows,
+    typedCosts: input.costs.length,
   });
-  return { ...plan, skipped: catalog.skipped, truncated: catalog.truncated };
-}
-
-/**
- * The same plan with the reseller prices the supplier typed for new products. The items come
- * back from the screen: the supplier's own catalog, as trusted as a spreadsheet they upload,
- * and the import checks every product rule again.
- */
-export async function previewBlingImportWithCosts(input: {
-  supplierId: string;
-  items: readonly ErpCatalogItem[];
-  costs: readonly ErpResellerCost[];
-}): Promise<BlingImportPlan> {
-  return planImport(input.supplierId, input.items, input.costs);
+  return outcome;
 }
 
 /** Queues the sending of the products Bling does not have yet (worker `erp-catalog-export`). */
 export async function requestBlingCatalogExport(supplierId: string): Promise<void> {
   requireCredentials();
   await enqueueErpCatalogExport({ supplierId });
+}
+
+/**
+ * Forgets the supplier's Bling account; the products already imported stay as they are. A team
+ * visit cannot do it, as it cannot connect it either.
+ */
+export async function disconnectBling(input: {
+  supplierId: string;
+  impersonatedBy: string | null;
+}): Promise<void> {
+  if (input.impersonatedBy !== null) {
+    throw forbiddenError(
+      "Durante a visita da equipe não dá para desconectar o Bling do fornecedor.",
+    );
+  }
+  const deleted = await deleteErpConnection(database, { supplierId: input.supplierId, ...BLING });
+  logger.info("bling.disconnected", { supplierId: input.supplierId, deleted });
+}
+
+/** Drops the finished read without importing it ("Cancelar" on the preview). */
+export async function discardBlingRead(supplierId: string): Promise<void> {
+  await deleteErpCatalogRead(database, { supplierId, ...BLING });
 }
