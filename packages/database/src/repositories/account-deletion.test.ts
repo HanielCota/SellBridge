@@ -9,17 +9,25 @@ import {
   organization,
   orders,
   storeConnections,
+  supplierErpConnections,
+  suppliers,
   ticketAttachments,
   ticketMessages,
   tickets,
 } from "../schema/index.ts";
-import { createTestDatabase, createTestUsers, testStoreInput } from "../testing/fixtures.ts";
+import {
+  createTestDatabase,
+  createTestSupplierProduct,
+  createTestUsers,
+  testStoreInput,
+} from "../testing/fixtures.ts";
 import {
   accountFileKeys,
   deleteTenantData,
   findSoleOwnedTenants,
   forgetBillingCustomer,
 } from "./account-deletion.ts";
+import { upsertErpConnection } from "./erp-connections.ts";
 import { upsertStoreConnection } from "./stores.ts";
 
 const database = createTestDatabase();
@@ -114,6 +122,35 @@ describe("account deletion", () => {
     expect(
       await database.select().from(storeConnections).where(eq(storeConnections.tenantId, tenantId)),
     ).toEqual([]);
+  });
+
+  it("forgets the Bling account of the supplier the deleted workspace ran", async () => {
+    const tenantId = await createOrganization();
+    const supplier = await createTestSupplierProduct(database, {
+      sku: `DEL-ERP-${tenantId.slice(0, 8)}`,
+      title: "Produto",
+      costCents: 1000,
+      suggestedPriceCents: 2000,
+    });
+    await database
+      .update(suppliers)
+      .set({ organizationId: tenantId })
+      .where(eq(suppliers.id, supplier.supplierId));
+    await upsertErpConnection(database, {
+      supplierId: supplier.supplierId,
+      provider: "bling",
+      userId: leaving,
+      tokens: { accessTokenEnc: "a", refreshTokenEnc: "r", expiresAt: new Date() },
+    });
+
+    await deleteTenantData(database, tenantId);
+    const left = await database
+      .select({ id: supplierErpConnections.id })
+      .from(supplierErpConnections)
+      .where(eq(supplierErpConnections.supplierId, supplier.supplierId));
+    await supplier.cleanup();
+
+    expect(left).toEqual([]);
   });
 
   it("also lists attachments of messages the user wrote in another workspace's ticket", async () => {
