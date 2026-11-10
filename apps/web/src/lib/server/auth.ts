@@ -3,6 +3,7 @@ import {
   isPendingTeamInvite,
   promoteVerifiedOwner,
   recordAdminEvent,
+  recordTermsAcceptance,
   setOrganizationKind,
   touchUserActivity,
 } from "@sellbridge/database/repositories";
@@ -37,9 +38,20 @@ import { environment } from "./environment.ts";
 import { sendEmail } from "./mailer.ts";
 import { findFirstOrganizationId } from "./membership.ts";
 import { findVisitingStaff } from "./visiting-staff.ts";
-import { createProfileForNewUser, isSelfSignUpPath } from "./sign-up-profile.ts";
+import {
+  createProfileForNewUser,
+  E_MAIL_SIGN_UP_PATH,
+  isSelfSignUpPath,
+} from "./sign-up-profile.ts";
 import { logger } from "@sellbridge/shared/logger";
+import { AppError } from "@sellbridge/shared/errors";
 import { teamInviteEmail } from "../../features/admin/team-invite-email.ts";
+import {
+  CONFIRMATION_CALLBACK_URL,
+  EMAIL_NOT_CONFIRMED_CODE,
+} from "../../features/auth/sign-in-error.ts";
+import { createSendCooldown, mustConfirmBeforeSession } from "./email-confirmation.ts";
+import { parseSignUpBody } from "./sign-up-body.ts";
 import { isLeakedPasswordCheckOn, leakedPasswordCheck } from "./leaked-password";
 import {
   afterAccountDeletion,
@@ -67,9 +79,6 @@ async function createOrganizationForUser(input: { userId: string; name: string }
   logger.info("organization.created_for_user", { userId: input.userId });
   return { id: created.id };
 }
-
-/** Sign-up takes the same name rules as the profile, so a name is never megabytes or blank. */
-const signUpBodySchema = z.object({ name: nameSchema }).passthrough();
 
 const updateUserBodySchema = z.object({
   name: nameSchema.optional(),
@@ -117,12 +126,10 @@ async function guardProtectedAccounts(context: HookContext): Promise<void> {
   );
 }
 
-function assertSignUpName(body: unknown): void {
-  const parsed = signUpBodySchema.safeParse(body);
+function assertSignUpBody(body: unknown): void {
+  const parsed = parseSignUpBody(body);
   if (!parsed.success) {
-    throw new APIError("BAD_REQUEST", {
-      message: parsed.error.issues[0]?.message ?? "Dados inválidos",
-    });
+    throw new APIError("BAD_REQUEST", { message: parsed.message });
   }
 }
 
@@ -138,8 +145,8 @@ const guardAccountRoutes = createAuthMiddleware(async (context) => {
   }
   await guardProtectedAccounts(context);
   await guardImpersonation(context);
-  if (context.path === "/sign-up/email") {
-    assertSignUpName(context.body);
+  if (context.path === E_MAIL_SIGN_UP_PATH) {
+    assertSignUpBody(context.body);
     return;
   }
   if (context.path === "/delete-user") {
@@ -280,6 +287,95 @@ async function sendVerificationEmail({ user, url }: { user: { email: string }; u
   await sendEmail({ to: user.email, ...email });
 }
 
+/**
+ * A sign-up with an address that already has an account answers like a new one, so the page never
+ * tells which e-mails exist; the mailbox owner learns it here instead.
+ */
+async function sendExistingAccountEmail({ user }: { user: { email: string } }) {
+  const email = renderActionEmail(
+    {
+      subject: "Você já tem uma conta no SellBridge",
+      preview: "Este e-mail já tem uma conta. Entre com ele ou crie uma nova senha.",
+      heading: "Você já tem uma conta",
+      paragraphs: [
+        "Alguém tentou criar uma conta no SellBridge com este e-mail, que já tem uma conta.",
+        "Se foi você, entre com seu e-mail e senha. Esqueceu a senha? Na tela de entrar, toque em “Esqueceu a senha?”.",
+      ],
+      actionLabel: "Entrar no SellBridge",
+      actionUrl: new URL("/login", environment.APP_URL).toString(),
+      footnote: "Se não foi você, pode ignorar este e-mail. Sua conta continua como estava.",
+    },
+    environment.APP_URL,
+  );
+  await sendEmail({ to: user.email, ...email });
+}
+
+const E_MAIL_SIGN_IN_PATH = "/sign-in/email";
+
+const confirmationLinkCooldown = createSendCooldown();
+
+/** The refusal below must happen even when the mailer is down: the failure is only logged. */
+async function sendConfirmationLink(email: string): Promise<void> {
+  // Server calls skip Better Auth's rate limit, so repeated sign-ins must not flood the mailbox.
+  if (!confirmationLinkCooldown.tryStart(email, Date.now())) {
+    logger.info("auth.confirmation_link_cooling_down");
+    return;
+  }
+  try {
+    await auth.api.sendVerificationEmail({
+      body: { email, callbackURL: CONFIRMATION_CALLBACK_URL },
+    });
+  } catch (error) {
+    logger.error("auth.confirmation_link_failed", { error });
+  }
+}
+
+/**
+ * Better Auth only creates a session after the password was checked, so this answer tells
+ * nothing to someone guessing which e-mails exist. The person gets a new link with it.
+ */
+async function refuseUnconfirmedSession(session: { userId: string }): Promise<void> {
+  const [account] = await database
+    .select({
+      email: schema.user.email,
+      emailVerified: schema.user.emailVerified,
+      emailConfirmationRequired: schema.user.emailConfirmationRequired,
+    })
+    .from(schema.user)
+    .where(eq(schema.user.id, session.userId));
+  if (account === undefined) {
+    return;
+  }
+  if (!mustConfirmBeforeSession(account, impersonatorOf(session) !== null)) {
+    return;
+  }
+  await sendConfirmationLink(account.email);
+  logger.info("auth.session_waits_for_email_confirmation", { userId: session.userId });
+  throw new APIError("FORBIDDEN", {
+    code: EMAIL_NOT_CONFIRMED_CODE,
+    message: "Confirme seu e-mail para entrar.",
+  });
+}
+
+/** The terms box ticked on /cadastro, stored with version and date once the account exists. */
+async function recordSignUpTerms(userId: string, body: unknown): Promise<void> {
+  const parsed = parseSignUpBody(body);
+  if (!parsed.success) {
+    // `guardAccountRoutes` refuses this body before the account is created.
+    logger.error("terms.sign_up_body_invalid", { userId });
+    throw new AppError("VALIDATION", "Não foi possível guardar o aceite dos termos.");
+  }
+  try {
+    await recordTermsAcceptance(database, userId, parsed.data.acceptedTermsVersion);
+  } catch (error) {
+    // The account already exists: failing here would only hide it from the person.
+    // `needsTermsAcceptance` asks the terms again after the first sign-in.
+    logger.error("terms.sign_up_record_failed", { userId, error });
+    return;
+  }
+  logger.info("terms.accepted", { userId, version: parsed.data.acceptedTermsVersion });
+}
+
 /** The admin behind a session opened with "Entrar como cliente", or null for the user's own. */
 function impersonatorOf(session: object): string | null {
   if (!("impersonatedBy" in session)) {
@@ -409,15 +505,27 @@ export const auth = betterAuth({
     resetPasswordTokenExpiresIn: RESET_PASSWORD_EXPIRES_IN_SECONDS,
     revokeSessionsOnPasswordReset: true,
     sendResetPassword: sendResetPasswordEmail,
+    // The sign-up opens no session: the person confirms the e-mail first (`refuseUnconfirmedSession`).
+    autoSignIn: false,
+    onExistingUserSignUp: sendExistingAccountEmail,
   },
   emailVerification: {
     sendVerificationEmail,
-    // A new store waits for the confirmed e-mail (item 26.b), so the link goes out on sign-up.
     sendOnSignUp: true,
+    autoSignInAfterVerification: true,
   },
   socialProviders: googleProvider(),
   // Self-service deletion (LGPD), always with the password: see account-deletion.server.ts.
   user: {
+    additionalFields: {
+      // Set by the server on e-mail sign-ups only (`user.create.before`); never by the client.
+      emailConfirmationRequired: {
+        type: "boolean",
+        required: false,
+        defaultValue: false,
+        input: false,
+      },
+    },
     deleteUser: {
       enabled: true,
       beforeDelete: async (user) => beforeAccountDeletion(user),
@@ -428,11 +536,21 @@ export const auth = betterAuth({
   databaseHooks: {
     user: {
       create: {
-        before: async (user) => {
+        before: async (user, context) => {
           const isAdmin = user.emailVerified && isAdminEmail(user.email);
-          return { data: { ...user, role: isAdmin ? "admin" : "user" } };
+          const isEmailSignUp = context !== null && context.path === E_MAIL_SIGN_UP_PATH;
+          return {
+            data: {
+              ...user,
+              role: isAdmin ? "admin" : "user",
+              emailConfirmationRequired: isEmailSignUp,
+            },
+          };
         },
         after: async (user, context) => {
+          if (context !== null && context.path === E_MAIL_SIGN_UP_PATH) {
+            await recordSignUpTerms(user.id, context.body);
+          }
           const request =
             context === null || !isSelfSignUpPath(context.path)
               ? null
@@ -453,7 +571,12 @@ export const auth = betterAuth({
     },
     session: {
       create: {
-        before: async (session) => {
+        before: async (session, context) => {
+          // Only a password sign-in can open an unconfirmed new account: the link marks it
+          // confirmed first, Google never links to it and the sign-up opens no session.
+          if (context !== null && context.path === E_MAIL_SIGN_IN_PATH) {
+            await refuseUnconfirmedSession(session);
+          }
           const organizationId = await findFirstOrganizationId(session.userId);
           return { data: { ...session, activeOrganizationId: organizationId } };
         },

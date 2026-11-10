@@ -45,6 +45,6 @@ test("cadastra como fornecedor e cria o perfil de fornecedor", async ({ page }) 
   await page.getByLabel(/Li e aceito os termos de uso/).check();
   await page.getByRole("button", { name: "Criar conta" }).click();
 
-  await expect(page).not.toHaveURL(/\/cadastro/);
+  await expect(page).toHaveURL(/\/confirme-seu-email/);
   expect(await profileKindOf(email)).toBe("supplier");
 });

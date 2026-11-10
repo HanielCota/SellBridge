@@ -11,7 +11,7 @@ export interface SignUpRequest {
   readonly getCookie: (name: string) => string | undefined;
 }
 
-const E_MAIL_SIGN_UP_PATH = "/sign-up/email";
+export const E_MAIL_SIGN_UP_PATH = "/sign-up/email";
 const OAUTH_CALLBACK_PREFIX = "/callback/";
 
 /**

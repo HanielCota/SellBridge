@@ -20,7 +20,8 @@ import { liveFieldBindings, submitHandler } from "@/components/form/form-binding
 import { FloatingPasswordField, FloatingTextField } from "@/components/form/floating-field";
 import { InlineFormError } from "@/components/form/inline-form-error";
 import { rememberSignUpProfileFn } from "@/features/auth/sign-up-profile.functions";
-import { acceptTermsFn } from "@/features/onboarding/terms.functions";
+import { rememberPendingConfirmation } from "@/features/auth/pending-confirmation";
+import { CONFIRMATION_CALLBACK_URL } from "@/features/auth/sign-in-error";
 import { authClient } from "@/lib/auth-client";
 import { succeedsOrReports } from "@/lib/report-route-error";
 
@@ -37,11 +38,10 @@ const PAGE_COPY: Record<ProfileKind, { description: string }> = {
 };
 
 const GENERIC_SIGN_UP_ERROR = "Não foi possível criar sua conta. Tente novamente.";
-const EXISTING_ACCOUNT_MESSAGE = "Já existe uma conta com este e-mail.";
 
+// No "account already exists" message: the sign-up answers like a new one and the mailbox owner
+// is told by e-mail (`onExistingUserSignUp`), so the page never reveals which e-mails exist.
 const SIGN_UP_ERRORS: Record<string, string> = {
-  USER_ALREADY_EXISTS: EXISTING_ACCOUNT_MESSAGE,
-  USER_ALREADY_EXISTS_USE_ANOTHER_EMAIL: EXISTING_ACCOUNT_MESSAGE,
   PASSWORD_TOO_SHORT: "A senha é muito curta.",
   [PASSWORD_COMPROMISED_CODE]: PASSWORD_COMPROMISED_MESSAGE,
 };
@@ -51,17 +51,6 @@ function signUpErrorMessage(code: string | undefined): string {
     return GENERIC_SIGN_UP_ERROR;
   }
   return SIGN_UP_ERRORS[code] ?? GENERIC_SIGN_UP_ERROR;
-}
-
-/**
- * Stores the box ticked on sign-up with version and date (item 26.a). If it fails, the account
- * still exists and the app asks the terms again on the next page (`needsTermsAcceptance`).
- */
-async function recordAcceptance(): Promise<void> {
-  await succeedsOrReports(
-    async () => acceptTermsFn({ data: { version: TERMS_VERSION } }),
-    "/_auth/cadastro",
-  );
 }
 
 function useSignUpForm(profileKind: ProfileKind) {
@@ -84,13 +73,20 @@ function useSignUpForm(profileKind: ProfileKind) {
         setSubmitError(GENERIC_SIGN_UP_ERROR);
         return;
       }
-      const result = await authClient.signUp.email(account);
+      // The server stores the ticked box with the account (item 26.a): there is no session yet.
+      // `acceptedTermsVersion` is read by the server guard, not a user field the client knows.
+      const signUpBody = {
+        ...account,
+        acceptedTermsVersion: TERMS_VERSION,
+        callbackURL: CONFIRMATION_CALLBACK_URL,
+      };
+      const result = await authClient.signUp.email(signUpBody);
       if (result.error) {
         setSubmitError(signUpErrorMessage(result.error.code));
         return;
       }
-      await recordAcceptance();
-      await navigate({ to: "/onboarding" });
+      rememberPendingConfirmation(account.email);
+      await navigate({ to: "/confirme-seu-email" });
     },
   });
 

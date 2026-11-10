@@ -8,7 +8,8 @@ import { GoogleSignIn } from "@/components/auth/google-sign-in";
 import { liveFieldBindings, submitHandler } from "@/components/form/form-bindings";
 import { FloatingPasswordField, FloatingTextField } from "@/components/form/floating-field";
 import { InlineFormError } from "@/components/form/inline-form-error";
-import { NO_RESPONSE, signInErrorMessage } from "@/features/auth/sign-in-error";
+import { UnconfirmedEmailNotice } from "@/components/auth/unconfirmed-email-notice";
+import { isUnconfirmedEmail, NO_RESPONSE, signInErrorMessage } from "@/features/auth/sign-in-error";
 import { authClient } from "@/lib/auth-client";
 import { shareMeta } from "@/lib/share-meta";
 
@@ -40,18 +41,25 @@ function useLoginForm() {
   const navigate = useNavigate();
   const search = Route.useSearch();
   const [submitError, setSubmitError] = useState<string | null>(null);
+  const [unconfirmedEmail, setUnconfirmedEmail] = useState<string | null>(null);
 
   const form = useForm({
     defaultValues: { email: "", password: "" },
     validators: { onSubmit: signInSchema },
     onSubmit: async ({ value }) => {
       setSubmitError(null);
+      setUnconfirmedEmail(null);
       let result: Awaited<ReturnType<typeof authClient.signIn.email>>;
       try {
         result = await authClient.signIn.email(value);
       } catch {
         // The client rejects instead of returning an error when the request never got an answer.
         setSubmitError(signInErrorMessage({ status: NO_RESPONSE }));
+        return;
+      }
+      if (result.error && isUnconfirmedEmail(result.error)) {
+        // The server already sent a new link: a notice, not a failure.
+        setUnconfirmedEmail(value.email);
         return;
       }
       if (result.error) {
@@ -62,7 +70,15 @@ function useLoginForm() {
     },
   });
 
-  return { form, submitError, clearSubmitError: () => setSubmitError(null) };
+  return {
+    form,
+    submitError,
+    unconfirmedEmail,
+    clearSubmitError: () => {
+      setSubmitError(null);
+      setUnconfirmedEmail(null);
+    },
+  };
 }
 
 type LoginFormApi = ReturnType<typeof useLoginForm>["form"];
@@ -123,7 +139,7 @@ function LoginFields({ form, hasSubmitted, submitError, clearSubmitError }: Logi
 }
 
 function LoginForm() {
-  const { form, submitError, clearSubmitError } = useLoginForm();
+  const { form, submitError, unconfirmedEmail, clearSubmitError } = useLoginForm();
   const hasSubmitted = useStore(form.store, (state) => state.submissionAttempts > 0);
 
   return (
@@ -145,6 +161,7 @@ function LoginForm() {
           <AuthSubmitButton isPending={isSubmitting} idleLabel="Entrar" pendingLabel="Entrando…" />
         )}
       </form.Subscribe>
+      {unconfirmedEmail === null ? null : <UnconfirmedEmailNotice email={unconfirmedEmail} />}
     </form>
   );
 }

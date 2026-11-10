@@ -3,7 +3,16 @@ import { expect, test } from "@playwright/test";
 import { termsAcceptances, user } from "@sellbridge/database/schema";
 import { eq } from "drizzle-orm";
 import { e2eDatabase } from "./database";
-import { fillBillingAddress, gotoHydrated, pickSupplier, testCpf, uniqueEmail } from "./helpers";
+import {
+  confirmEmail,
+  enterNewAccount,
+  fillBillingAddress,
+  gotoHydrated,
+  pickSupplier,
+  signUp,
+  testCpf,
+  uniqueEmail,
+} from "./helpers";
 
 const database = e2eDatabase();
 
@@ -37,8 +46,12 @@ test("o cadastro pede o aceite dos termos e o grava; sem aceite, o app pede ante
   ).toBeVisible();
   await page.getByLabel(/Li e aceito os termos de uso/).check();
   await page.getByRole("button", { name: "Criar conta" }).click();
-  await expect(page).toHaveURL(/\/onboarding/);
+  await expect(page).toHaveURL(/\/confirme-seu-email/);
+  // Stored with the account, before any session exists.
   await expect.poll(async () => acceptedVersions(email)).toHaveLength(1);
+  await confirmEmail(email);
+  await enterNewAccount(page, email);
+  await expect(page).toHaveURL(/^[^?]*\/onboarding(?:[?#]|$)/);
 
   // As an account from Google or before a new version of the terms: nothing accepted yet.
   await database
@@ -65,13 +78,7 @@ test("os dados da conta guardam telefone e, para empresa, CNPJ e razão social",
   page,
 }) => {
   test.setTimeout(120_000);
-  await gotoHydrated(page, "/cadastro");
-  await page.getByLabel("Nome").fill("Revendedora Empresa");
-  await page.getByLabel("E-mail").fill(uniqueEmail("empresa"));
-  await page.getByLabel("Senha", { exact: true }).fill("senha-segura-123");
-  await page.getByLabel(/Li e aceito os termos de uso/).check();
-  await page.getByRole("button", { name: "Criar conta" }).click();
-  await expect(page).toHaveURL(/\/onboarding/);
+  await signUp(page, "Revendedora Empresa");
 
   await page.getByLabel("Nome completo").fill("Revendedora Empresa Lima");
   await page.getByLabel("CPF").fill(testCpf());
