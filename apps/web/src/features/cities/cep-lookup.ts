@@ -1,6 +1,8 @@
+import { completeCepDigits } from "@sellbridge/shared/billing-address";
 import { parseState, type BrazilianState } from "@sellbridge/shared/brazilian-states";
 import { queryOptions, skipToken } from "@tanstack/react-query";
 import { z } from "zod";
+import { reportRouteError } from "@/lib/report-route-error";
 
 /**
  * Fills an address from its CEP with ViaCEP (https://viacep.com.br), which also gives the
@@ -10,8 +12,8 @@ import { z } from "zod";
 
 const VIA_CEP_URL = "https://viacep.com.br/ws";
 const LOOKUP_TIMEOUT_MILLISECONDS = 4000;
-const CEP_LENGTH = 8;
 const DAY_MILLISECONDS = 24 * 60 * 60_000;
+const RETRY_UNAVAILABLE_AFTER_MILLISECONDS = 30_000;
 
 export type FetchCep = (url: string, init: RequestInit) => Promise<Response>;
 
@@ -68,8 +70,8 @@ export function parseViaCepReply(body: unknown): CepLookupResult {
 
 /** The CEP's address; never throws, since the supplier can always type it instead. */
 export async function lookUpCep(cep: string, fetchCep: FetchCep = fetch): Promise<CepLookupResult> {
-  const digits = cep.replace(/\D/g, "");
-  if (digits.length !== CEP_LENGTH) {
+  const digits = completeCepDigits(cep);
+  if (digits === null) {
     return { kind: "not_found" };
   }
   try {
@@ -84,19 +86,34 @@ export async function lookUpCep(cep: string, fetchCep: FetchCep = fetch): Promis
       return { kind: "unavailable" };
     }
     return parseViaCepReply(await response.json());
-  } catch {
-    // Offline, timed out or blocked: the form says so and the fields stay free to type.
+  } catch (error) {
+    // Offline, timed out or blocked is expected and only shown on the form; anything else is a bug.
+    if (!isNetworkFailure(error)) {
+      await reportRouteError(error, "cep-lookup");
+    }
     return { kind: "unavailable" };
   }
 }
 
+/** What `fetch` throws when the request never got an answer: no network, a timeout, a block. */
+function isNetworkFailure(error: unknown): boolean {
+  if (error instanceof DOMException) {
+    return error.name === "TimeoutError" || error.name === "AbortError";
+  }
+  // A body that is not JSON (a captive portal page, say) is the service failing, not our code.
+  return error instanceof TypeError || error instanceof SyntaxError;
+}
+
 /** One lookup per CEP; an address does not change within a day, a failure is retried soon. */
 export const cepLookupQueryOptions = (cep: string) => {
-  const digits = cep.replace(/\D/g, "");
+  const digits = completeCepDigits(cep);
   return queryOptions({
-    queryKey: ["cep", digits],
-    queryFn: digits.length === CEP_LENGTH ? () => lookUpCep(digits) : skipToken,
-    staleTime: (query) => (query.state.data?.kind === "unavailable" ? 30_000 : DAY_MILLISECONDS),
+    queryKey: ["cep", digits ?? cep],
+    queryFn: digits === null ? skipToken : () => lookUpCep(digits),
+    staleTime: (query) =>
+      query.state.data?.kind === "unavailable"
+        ? RETRY_UNAVAILABLE_AFTER_MILLISECONDS
+        : DAY_MILLISECONDS,
     gcTime: DAY_MILLISECONDS,
     retry: false,
   });

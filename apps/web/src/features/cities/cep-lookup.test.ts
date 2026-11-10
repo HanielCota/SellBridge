@@ -1,5 +1,10 @@
 import { describe, expect, it, vi } from "vitest";
+import { reportRouteError } from "@/lib/report-route-error";
 import { lookUpCep, parseViaCepReply, type FetchCep } from "./cep-lookup";
+
+vi.mock("@/lib/report-route-error", () => ({
+  reportRouteError: vi.fn<typeof reportRouteError>(async () => null),
+}));
 
 const VIA_CEP_REPLY = {
   cep: "35500-024",
@@ -70,6 +75,29 @@ describe("lookUpCep", () => {
 
     expect(await lookUpCep("35500024", failing)).toEqual({ kind: "unavailable" });
     expect(await lookUpCep("35500024", offline)).toEqual({ kind: "unavailable" });
+  });
+
+  it("reports a failure that is not the network and still reads it as unavailable", async () => {
+    vi.mocked(reportRouteError).mockClear();
+    const broken = vi.fn<FetchCep>(async () => {
+      throw new RangeError("unexpected");
+    });
+
+    const result = await lookUpCep("35500024", broken);
+
+    expect(result).toEqual({ kind: "unavailable" });
+    expect(reportRouteError).toHaveBeenCalledOnce();
+  });
+
+  it("does not report a lookup that timed out", async () => {
+    vi.mocked(reportRouteError).mockClear();
+    const slow = vi.fn<FetchCep>(async () => {
+      throw new DOMException("timed out", "TimeoutError");
+    });
+
+    await lookUpCep("35500024", slow);
+
+    expect(reportRouteError).not.toHaveBeenCalled();
   });
 
   it("reads ViaCEP's 400 for a malformed CEP as not found", async () => {

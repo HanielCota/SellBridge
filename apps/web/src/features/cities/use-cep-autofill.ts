@@ -1,12 +1,7 @@
+import { completeCepDigits } from "@sellbridge/shared/billing-address";
 import { useQueryClient } from "@tanstack/react-query";
 import { useRef, useState } from "react";
 import { cepLookupQueryOptions, type CepAddress, type CepLookupResult } from "./cep-lookup";
-
-const CEP_LENGTH = 8;
-
-function digitsOf(cep: string): string {
-  return cep.replace(/\D/g, "");
-}
 
 /**
  * Looks a CEP up as it is typed and hands the address to `apply` when it is found; a CEP typed
@@ -17,9 +12,9 @@ export function useCepAutofill(apply: (address: CepAddress) => void) {
   const [result, setResult] = useState<CepLookupResult | null>(null);
   const latest = useRef("");
   async function lookUp(cep: string): Promise<void> {
-    const digits = digitsOf(cep);
-    latest.current = digits;
-    if (digits.length !== CEP_LENGTH) {
+    const digits = completeCepDigits(cep);
+    latest.current = digits ?? cep;
+    if (digits === null) {
       setResult(null);
       return;
     }
