@@ -101,7 +101,9 @@
     "./seller-catalog-schemas": "./src/domain/seller-catalog-schemas.ts",
     "./product-sources": "./src/domain/product-sources.ts",
     "./return-claims": "./src/domain/return-claims.ts",
-    "./prohibited-products": "./src/domain/prohibited-products.ts"
+    "./prohibited-products": "./src/domain/prohibited-products.ts",
+    "./erp-catalog": "./src/domain/erp-catalog.ts",
+    "./erp-reseller-price": "./src/domain/erp-reseller-price.ts"
   },
   "scripts": {
     "typecheck": "tsc --noEmit",

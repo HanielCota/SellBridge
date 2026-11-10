@@ -22,6 +22,10 @@ export const QUEUE_NAMES = {
   notificationDelivery: "notification-delivery",
   /** The "new message" e-mail held back to the end of its 15-minute window (item 5). */
   orderMessageFollowUp: "order-message-follow-up",
+  /** Creates in the supplier's ERP (Bling) the products it does not have yet. */
+  erpCatalogExport: "erp-catalog-export",
+  /** Reads the supplier's ERP catalog for an import, reporting progress (minutes for 400+). */
+  erpCatalogRead: "erp-catalog-read",
 } as const;
 
 export const publishListingJobSchema = z.object({
@@ -29,6 +33,22 @@ export const publishListingJobSchema = z.object({
   listingTargetId: z.uuid(),
 });
 export type PublishListingJob = z.infer<typeof publishListingJobSchema>;
+
+/** One supplier's catalog sent to its ERP; a second request while one waits adds nothing. */
+export const erpCatalogExportJobSchema = z.object({ supplierId: z.uuid() });
+export type ErpCatalogExportJob = z.infer<typeof erpCatalogExportJobSchema>;
+
+export function erpCatalogExportJobId(job: ErpCatalogExportJob): string {
+  return `erp-catalog-export-${job.supplierId}`;
+}
+
+/** One read of a supplier's ERP catalog; the id ties the job to the read row it fills. */
+export const erpCatalogReadJobSchema = z.object({ supplierId: z.uuid(), readId: z.uuid() });
+export type ErpCatalogReadJob = z.infer<typeof erpCatalogReadJobSchema>;
+
+export function erpCatalogReadJobId(job: ErpCatalogReadJob): string {
+  return `erp-catalog-read-${job.readId}`;
+}
 
 export const webhookEventJobSchema = z.object({
   webhookEventId: z.uuid(),

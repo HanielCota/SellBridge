@@ -1,5 +1,12 @@
 import {
   enqueueStoreOrderCatchUpJob,
+  erpCatalogExportJobId,
+  erpCatalogExportJobSchema,
+  erpCatalogReadJobId,
+  erpCatalogReadJobSchema,
+  type ErpCatalogExportJob,
+  type ErpCatalogReadJob,
+  releaseFinishedJob,
   enqueueWebhookEventJob,
   pingQueueConnection,
   PUBLISH_JOB_OPTIONS,
@@ -90,5 +97,41 @@ export async function enqueueOrderMessageFollowUp(
     ...ORDER_MESSAGE_FOLLOW_UP_JOB_OPTIONS,
     jobId: orderMessageFollowUpJobId(job, input.runAt),
     delay: Math.max(0, input.runAt.getTime() - Date.now()),
+  });
+}
+
+let erpCatalogExportQueue: Queue | null = null;
+
+/** One waiting export per supplier: asking again while it waits adds nothing. */
+export async function enqueueErpCatalogExport(input: ErpCatalogExportJob): Promise<void> {
+  erpCatalogExportQueue ??= new Queue(QUEUE_NAMES.erpCatalogExport, {
+    connection: { url: environment.REDIS_URL },
+  });
+  const job = erpCatalogExportJobSchema.parse(input);
+  const jobId = erpCatalogExportJobId(job);
+  if (await releaseFinishedJob(erpCatalogExportQueue, jobId)) {
+    await erpCatalogExportQueue.add("erp-catalog-export", job, {
+      jobId,
+      attempts: 3,
+      backoff: { type: "exponential", delay: 60_000 },
+      removeOnComplete: 50,
+      removeOnFail: 100,
+    });
+  }
+}
+
+let erpCatalogReadQueue: Queue | null = null;
+
+/** One job per read; a new read gets a new id, so it never waits behind an old one. */
+export async function enqueueErpCatalogRead(input: ErpCatalogReadJob): Promise<void> {
+  erpCatalogReadQueue ??= new Queue(QUEUE_NAMES.erpCatalogRead, {
+    connection: { url: environment.REDIS_URL },
+  });
+  const job = erpCatalogReadJobSchema.parse(input);
+  await erpCatalogReadQueue.add("erp-catalog-read", job, {
+    jobId: erpCatalogReadJobId(job),
+    attempts: 1,
+    removeOnComplete: 50,
+    removeOnFail: 100,
   });
 }

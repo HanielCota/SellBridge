@@ -98,6 +98,8 @@ import { Route as ApiFornecedorExportarPedidosRouteImport } from './routes/api/f
 import { Route as ApiFornecedorExportarProdutosRouteImport } from './routes/api/fornecedor/exportar/produtos'
 import { Route as ApiFornecedorProdutosImagensRouteImport } from './routes/api/fornecedor/produtos/imagens'
 import { Route as ApiFornecedorVendasExportarRouteImport } from './routes/api/fornecedor/vendas/exportar'
+import { Route as ApiIntegracoesBlingConectarRouteImport } from './routes/api/integracoes/bling/conectar'
+import { Route as ApiIntegracoesBlingRetornoRouteImport } from './routes/api/integracoes/bling/retorno'
 import { Route as ApiOauthMarketplaceCallbackRouteImport } from './routes/api/oauth/$marketplace/callback'
 import { Route as ApiOauthMarketplaceStartRouteImport } from './routes/api/oauth/$marketplace/start'
 import { Route as ApiPedidosOrderIdEtiquetaRouteImport } from './routes/api/pedidos/$orderId/etiqueta'
@@ -592,6 +594,18 @@ const ApiFornecedorVendasExportarRoute =
     path: '/api/fornecedor/vendas/exportar',
     getParentRoute: () => rootRouteImport,
   } as any)
+const ApiIntegracoesBlingConectarRoute =
+  ApiIntegracoesBlingConectarRouteImport.update({
+    id: '/api/integracoes/bling/conectar',
+    path: '/api/integracoes/bling/conectar',
+    getParentRoute: () => rootRouteImport,
+  } as any)
+const ApiIntegracoesBlingRetornoRoute =
+  ApiIntegracoesBlingRetornoRouteImport.update({
+    id: '/api/integracoes/bling/retorno',
+    path: '/api/integracoes/bling/retorno',
+    getParentRoute: () => rootRouteImport,
+  } as any)
 const ApiOauthMarketplaceCallbackRoute =
   ApiOauthMarketplaceCallbackRouteImport.update({
     id: '/api/oauth/$marketplace/callback',
@@ -814,6 +828,8 @@ export interface FileRoutesByFullPath {
   '/api/fornecedor/exportar/produtos': typeof ApiFornecedorExportarProdutosRoute
   '/api/fornecedor/produtos/imagens': typeof ApiFornecedorProdutosImagensRoute
   '/api/fornecedor/vendas/exportar': typeof ApiFornecedorVendasExportarRoute
+  '/api/integracoes/bling/conectar': typeof ApiIntegracoesBlingConectarRoute
+  '/api/integracoes/bling/retorno': typeof ApiIntegracoesBlingRetornoRoute
   '/api/oauth/$marketplace/callback': typeof ApiOauthMarketplaceCallbackRoute
   '/api/oauth/$marketplace/start': typeof ApiOauthMarketplaceStartRoute
   '/api/pedidos/$orderId/etiqueta': typeof ApiPedidosOrderIdEtiquetaRoute
@@ -924,6 +940,8 @@ export interface FileRoutesByTo {
   '/api/fornecedor/exportar/produtos': typeof ApiFornecedorExportarProdutosRoute
   '/api/fornecedor/produtos/imagens': typeof ApiFornecedorProdutosImagensRoute
   '/api/fornecedor/vendas/exportar': typeof ApiFornecedorVendasExportarRoute
+  '/api/integracoes/bling/conectar': typeof ApiIntegracoesBlingConectarRoute
+  '/api/integracoes/bling/retorno': typeof ApiIntegracoesBlingRetornoRoute
   '/api/oauth/$marketplace/callback': typeof ApiOauthMarketplaceCallbackRoute
   '/api/oauth/$marketplace/start': typeof ApiOauthMarketplaceStartRoute
   '/api/pedidos/$orderId/etiqueta': typeof ApiPedidosOrderIdEtiquetaRoute
@@ -1040,6 +1058,8 @@ export interface FileRoutesById {
   '/api/fornecedor/exportar/produtos': typeof ApiFornecedorExportarProdutosRoute
   '/api/fornecedor/produtos/imagens': typeof ApiFornecedorProdutosImagensRoute
   '/api/fornecedor/vendas/exportar': typeof ApiFornecedorVendasExportarRoute
+  '/api/integracoes/bling/conectar': typeof ApiIntegracoesBlingConectarRoute
+  '/api/integracoes/bling/retorno': typeof ApiIntegracoesBlingRetornoRoute
   '/api/oauth/$marketplace/callback': typeof ApiOauthMarketplaceCallbackRoute
   '/api/oauth/$marketplace/start': typeof ApiOauthMarketplaceStartRoute
   '/api/pedidos/$orderId/etiqueta': typeof ApiPedidosOrderIdEtiquetaRoute
@@ -1155,6 +1175,8 @@ export interface FileRouteTypes {
     | '/api/fornecedor/exportar/produtos'
     | '/api/fornecedor/produtos/imagens'
     | '/api/fornecedor/vendas/exportar'
+    | '/api/integracoes/bling/conectar'
+    | '/api/integracoes/bling/retorno'
     | '/api/oauth/$marketplace/callback'
     | '/api/oauth/$marketplace/start'
     | '/api/pedidos/$orderId/etiqueta'
@@ -1265,6 +1287,8 @@ export interface FileRouteTypes {
     | '/api/fornecedor/exportar/produtos'
     | '/api/fornecedor/produtos/imagens'
     | '/api/fornecedor/vendas/exportar'
+    | '/api/integracoes/bling/conectar'
+    | '/api/integracoes/bling/retorno'
     | '/api/oauth/$marketplace/callback'
     | '/api/oauth/$marketplace/start'
     | '/api/pedidos/$orderId/etiqueta'
@@ -1380,6 +1404,8 @@ export interface FileRouteTypes {
     | '/api/fornecedor/exportar/produtos'
     | '/api/fornecedor/produtos/imagens'
     | '/api/fornecedor/vendas/exportar'
+    | '/api/integracoes/bling/conectar'
+    | '/api/integracoes/bling/retorno'
     | '/api/oauth/$marketplace/callback'
     | '/api/oauth/$marketplace/start'
     | '/api/pedidos/$orderId/etiqueta'
@@ -1445,6 +1471,8 @@ export interface RootRouteChildren {
   ApiFornecedorExportarProdutosRoute: typeof ApiFornecedorExportarProdutosRoute
   ApiFornecedorProdutosImagensRoute: typeof ApiFornecedorProdutosImagensRoute
   ApiFornecedorVendasExportarRoute: typeof ApiFornecedorVendasExportarRoute
+  ApiIntegracoesBlingConectarRoute: typeof ApiIntegracoesBlingConectarRoute
+  ApiIntegracoesBlingRetornoRoute: typeof ApiIntegracoesBlingRetornoRoute
   ApiOauthMarketplaceCallbackRoute: typeof ApiOauthMarketplaceCallbackRoute
   ApiOauthMarketplaceStartRoute: typeof ApiOauthMarketplaceStartRoute
   ApiPedidosOrderIdEtiquetaRoute: typeof ApiPedidosOrderIdEtiquetaRoute
@@ -2092,6 +2120,20 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiFornecedorVendasExportarRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/integracoes/bling/conectar': {
+      id: '/api/integracoes/bling/conectar'
+      path: '/api/integracoes/bling/conectar'
+      fullPath: '/api/integracoes/bling/conectar'
+      preLoaderRoute: typeof ApiIntegracoesBlingConectarRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/integracoes/bling/retorno': {
+      id: '/api/integracoes/bling/retorno'
+      path: '/api/integracoes/bling/retorno'
+      fullPath: '/api/integracoes/bling/retorno'
+      preLoaderRoute: typeof ApiIntegracoesBlingRetornoRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/oauth/$marketplace/callback': {
       id: '/api/oauth/$marketplace/callback'
       path: '/api/oauth/$marketplace/callback'
@@ -2491,6 +2533,8 @@ const rootRouteChildren: RootRouteChildren = {
   ApiFornecedorExportarProdutosRoute: ApiFornecedorExportarProdutosRoute,
   ApiFornecedorProdutosImagensRoute: ApiFornecedorProdutosImagensRoute,
   ApiFornecedorVendasExportarRoute: ApiFornecedorVendasExportarRoute,
+  ApiIntegracoesBlingConectarRoute: ApiIntegracoesBlingConectarRoute,
+  ApiIntegracoesBlingRetornoRoute: ApiIntegracoesBlingRetornoRoute,
   ApiOauthMarketplaceCallbackRoute: ApiOauthMarketplaceCallbackRoute,
   ApiOauthMarketplaceStartRoute: ApiOauthMarketplaceStartRoute,
   ApiPedidosOrderIdEtiquetaRoute: ApiPedidosOrderIdEtiquetaRoute,

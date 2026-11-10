@@ -19,6 +19,10 @@ for (const key of [
   process.env[key] = "";
 }
 process.env.AUTO_FORWARD_ENABLED = "false";
+// The Bling card shows only with app keys; these fake ones never reach Bling, since the specs
+// seed the connection and the catalog read instead of going through Bling.
+process.env.BLING_CLIENT_ID = "e2e-bling-client";
+process.env.BLING_CLIENT_SECRET = "e2e-bling-secret";
 
 process.env.E2E_MARKETPLACE_SECRET ??= randomBytes(32).toString("hex");
 
