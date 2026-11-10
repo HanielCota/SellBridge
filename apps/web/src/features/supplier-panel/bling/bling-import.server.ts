@@ -38,7 +38,12 @@ import {
   invoicingRefusal,
   type ErpActor,
 } from "./bling-connection";
-import { blingOverviewFrom, type BlingImportOutcome, type BlingOverview } from "./bling-overview";
+import {
+  blingOverviewFrom,
+  isBlingReadRunning,
+  type BlingImportOutcome,
+  type BlingOverview,
+} from "./bling-overview";
 
 /** A read is kept a day: enough to come back to the import, small enough to clean itself up. */
 const READ_TTL_IN_MS = 24 * 60 * 60 * 1000;
@@ -114,6 +119,11 @@ export async function startBlingRead(supplierId: string): Promise<BlingOverview>
   const connection = await findErpConnection(database, { supplierId, ...BLING });
   if (connection?.status !== "connected") {
     throw conflictError("Conecte o Bling antes de importar os produtos.");
+  }
+  // A second click or tab follows the read already running instead of starting another one.
+  const current = await loadBlingOverview(supplierId);
+  if (isBlingReadRunning(current)) {
+    return current;
   }
   const read = await startErpCatalogRead(database, {
     supplierId,

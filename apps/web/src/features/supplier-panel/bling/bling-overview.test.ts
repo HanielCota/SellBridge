@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { blingOverviewFrom } from "./bling-overview";
+import { blingOverviewFrom, isBlingReadRunning, skippedProductsNote } from "./bling-overview";
 
 const connection = {
   status: "connected" as const,
@@ -93,5 +93,55 @@ describe("blingOverviewFrom", () => {
       status: "failed",
       error: "A leitura do Bling parou no meio. Clique em Importar do Bling para tentar de novo.",
     });
+  });
+});
+
+describe("isBlingReadRunning", () => {
+  const now = new Date("2026-11-10T12:00:00Z");
+  const runningRead = {
+    id: "read-1",
+    status: "reading" as const,
+    readProducts: 3,
+    totalProducts: 10,
+    error: null,
+    startedAt: new Date(now.getTime() - 60_000),
+  };
+
+  it("sees a read that is still moving, so a second click does not start another", () => {
+    const overview = blingOverviewFrom({
+      available: true,
+      connection,
+      read: runningRead,
+      fiscalReady: true,
+      now,
+    });
+
+    expect(isBlingReadRunning(overview)).toBe(true);
+  });
+
+  it("lets a new read start once the old one stalled", () => {
+    const stalled = { ...runningRead, startedAt: new Date(now.getTime() - 3_600_000) };
+
+    const overview = blingOverviewFrom({
+      available: true,
+      connection,
+      read: stalled,
+      fiscalReady: true,
+      now,
+    });
+
+    expect(isBlingReadRunning(overview)).toBe(false);
+  });
+});
+
+describe("skippedProductsNote", () => {
+  it("names both reasons a product is left out, not only a missing code", () => {
+    expect(skippedProductsNote(2)).toBe(
+      "2 produtos ficaram de fora por não ter código no Bling ou por repetir o código de outro produto.",
+    );
+  });
+
+  it("uses the singular for one product", () => {
+    expect(skippedProductsNote(1)).toContain("1 produto ficou de fora");
   });
 });

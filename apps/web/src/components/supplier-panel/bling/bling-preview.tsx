@@ -5,7 +5,10 @@ import { toast } from "sonner";
 import { ErrorState } from "@/components/feedback/error-state";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
-import type { BlingImportOutcome } from "@/features/supplier-panel/bling/bling-overview";
+import {
+  skippedProductsNote,
+  type BlingImportOutcome,
+} from "@/features/supplier-panel/bling/bling-overview";
 import { pricedImport, pricesFromDiscount } from "@/features/supplier-panel/bling/bling-prices";
 import { supplierBlingNewProductsCsv } from "@/features/supplier-panel/bling/bling.functions";
 import {
@@ -50,10 +53,7 @@ function Summary({
         {fresh === 1 ? "é novo e precisa" : "são novos e precisam"} do preço para o revendedor.
       </p>
       {skipped > 0 ? (
-        <p className="text-sm text-muted-foreground">
-          {count(skipped, "produto ficou de fora", "produtos ficaram de fora")} por não ter código
-          no Bling.
-        </p>
+        <p className="text-sm text-muted-foreground">{skippedProductsNote(skipped)}</p>
       ) : null}
       {truncated ? (
         <p className="text-sm text-muted-foreground">
