@@ -114,11 +114,8 @@ export function createErpTokenRefreshProcessor(dependencies: ErpTokenRefreshDepe
   };
 }
 
-function failureOf(result: PromiseSettledResult<unknown>): Error | null {
-  if (result.status === "fulfilled") {
-    return null;
-  }
-  return result.reason instanceof Error ? result.reason : new Error(String(result.reason));
+function asError(reason: unknown): Error {
+  return reason instanceof Error ? reason : new Error(String(reason));
 }
 
 /**
@@ -130,12 +127,15 @@ export async function runTokenRefreshes<Stores, Erp>(refreshes: {
   erp: () => Promise<Erp>;
 }): Promise<{ stores: Stores; erp: Erp }> {
   const [stores, erp] = await Promise.allSettled([refreshes.stores(), refreshes.erp()]);
-  const failure = failureOf(stores) ?? failureOf(erp);
-  if (failure !== null) {
-    throw failure;
+  if (stores.status === "rejected") {
+    if (erp.status === "rejected") {
+      // Only one error fails the job; the ERP one is logged so it is not lost.
+      logger.error("erp.token_refresh_job_failed", { error: asError(erp.reason) });
+    }
+    throw asError(stores.reason);
   }
-  if (stores.status !== "fulfilled" || erp.status !== "fulfilled") {
-    throw new Error("A token refresh neither failed nor finished");
+  if (erp.status === "rejected") {
+    throw asError(erp.reason);
   }
   return { stores: stores.value, erp: erp.value };
 }

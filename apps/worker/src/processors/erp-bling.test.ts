@@ -1,6 +1,7 @@
 import { schema } from "@sellbridge/database";
 import { findErpConnection, upsertErpConnection } from "@sellbridge/database/repositories";
 import { createBlingRateLimiter } from "@sellbridge/marketplaces/bling";
+import { logger } from "@sellbridge/shared/logger";
 import { eq } from "drizzle-orm";
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 import { createTestProduct, createWorkerTestEnvironment } from "../testing/fixtures.ts";
@@ -160,6 +161,28 @@ describe("erp token refresh", () => {
 
     await expect(running).rejects.toThrow("store refresh failed");
     expect(erp).toHaveBeenCalledTimes(1);
+  });
+
+  it("logs the ERP failure when both refreshes fail, so it is not lost", async () => {
+    const error = vi.spyOn(logger, "error").mockImplementation(() => undefined);
+
+    try {
+      const running = runTokenRefreshes({
+        stores: async () => {
+          throw new Error("store refresh failed");
+        },
+        erp: async () => {
+          throw new Error("erp refresh failed");
+        },
+      });
+
+      await expect(running).rejects.toThrow("store refresh failed");
+      expect(error).toHaveBeenCalledWith("erp.token_refresh_job_failed", {
+        error: expect.objectContaining({ message: "erp refresh failed" }),
+      });
+    } finally {
+      error.mockRestore();
+    }
   });
 
   it("renews an expiring Bling connection and keeps it connected", async () => {
