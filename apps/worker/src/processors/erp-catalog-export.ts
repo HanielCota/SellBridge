@@ -47,13 +47,16 @@ export function gramsFromAttribute(value: string | undefined): number | null {
   return Number.isFinite(grams) && grams > 0 ? grams : null;
 }
 
-/** SellBridge's cost to resellers is the supplier's sale price, so it becomes Bling's price. */
+/**
+ * Bling's price is the supplier's retail price (the import reads it back as the suggested price);
+ * the reseller cost stays in SellBridge and never reaches the ERP.
+ */
 export function toBlingNewProduct(product: CatalogExportProduct): BlingNewProduct {
   return {
     sku: product.sku,
     title: product.title,
     description: product.description,
-    priceCents: product.costCents,
+    priceCents: product.suggestedPriceCents,
     imageUrls: product.imageUrls,
     gtin: product.attributes.GTIN ?? null,
     brand: product.attributes.BRAND ?? null,

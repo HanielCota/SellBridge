@@ -66,18 +66,19 @@ afterAll(async () => {
 });
 
 describe("toBlingNewProduct", () => {
-  it("sends the reseller cost as Bling's price and reads the package weight", () => {
+  it("sends the suggested retail price as Bling's price and reads the package weight", () => {
     const product = toBlingNewProduct({
       id: "p1",
       sku: "SB-1",
       title: "Chinelo",
       description: "",
       costCents: 6990,
+      suggestedPriceCents: 9990,
       imageUrls: [],
       attributes: { SELLER_PACKAGE_WEIGHT: "350 g", GTIN: "7891234567895" },
     });
 
-    expect(product).toMatchObject({ priceCents: 6990, weightGrams: 350, gtin: "7891234567895" });
+    expect(product).toMatchObject({ priceCents: 9990, weightGrams: 350, gtin: "7891234567895" });
   });
 
   it("reads no weight from a value that is not grams", () => {

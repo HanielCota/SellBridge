@@ -200,6 +200,8 @@ export interface CatalogExportProduct {
   title: string;
   description: string;
   costCents: number;
+  /** The retail price the supplier suggests to resellers; it becomes the ERP's sale price. */
+  suggestedPriceCents: number;
   imageUrls: string[];
   attributes: Record<string, string>;
 }
@@ -226,6 +228,7 @@ export async function listSupplierProductsForErpExport(
       title: supplierProducts.title,
       description: supplierProducts.description,
       costCents: supplierProducts.costCents,
+      suggestedPriceCents: supplierProducts.suggestedPriceCents,
       imageUrls: supplierProducts.imageUrls,
       attributes: supplierProducts.mercadoLivreAttributes,
     })
