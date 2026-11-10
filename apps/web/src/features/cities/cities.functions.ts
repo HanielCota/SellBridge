@@ -2,10 +2,10 @@ import { stateSchema } from "@sellbridge/shared/brazilian-states";
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 import { tenantMiddleware } from "@/lib/server/middleware";
-import { listCitiesOfState } from "./ibge-cities.server";
+import { listCitiesOfState, type IbgeCity } from "./ibge-cities.server";
 
-/** The chosen state's cities, so the billing city can be picked instead of typed. */
+/** The chosen state's cities with their IBGE codes, so the billing city can be picked. */
 export const getStateCities = createServerFn({ method: "GET" })
   .middleware([tenantMiddleware])
   .validator(z.object({ state: stateSchema }))
-  .handler(async ({ data }): Promise<readonly string[]> => listCitiesOfState(data.state));
+  .handler(async ({ data }): Promise<readonly IbgeCity[]> => listCitiesOfState(data.state));

@@ -14,6 +14,7 @@ import {
   PRODUCT_REVIEW_STATUSES,
   type ProductReviewStatus,
 } from "@sellbridge/shared/supplier-panel-catalog-status";
+import { readProductFiscal } from "@sellbridge/shared/product-fiscal";
 import { and, asc, count, desc, eq, sql, type AnyColumn } from "drizzle-orm";
 import type { DatabaseExecutor } from "../client.ts";
 import { categories, listings, orderItems, supplierProducts, suppliers } from "../schema/index.ts";
@@ -41,6 +42,17 @@ export const neverListedNorSold = sql<boolean>`not exists (select 1 from ${listi
 
 export type SupplierPanelStatusCounts = Record<ProductReviewStatus | "all", number>;
 
+/** A product without NCM, origin or unit: its NF-e cannot be issued yet. */
+export const missingFiscalData = sql<boolean>`(${supplierProducts.fiscal} ->> 'ncm' is null or ${supplierProducts.fiscal} ->> 'origin' is null or ${supplierProducts.fiscal} ->> 'unit' is null)`;
+
+async function countMissingFiscal(database: DatabaseExecutor, supplierId: string): Promise<number> {
+  const [row] = await database
+    .select({ value: count() })
+    .from(supplierProducts)
+    .where(and(eq(supplierProducts.supplierId, supplierId), missingFiscalData));
+  return row?.value ?? 0;
+}
+
 const SORT_COLUMNS: Readonly<Record<CatalogSortColumn, AnyColumn>> = {
   title: supplierProducts.title,
   sku: supplierProducts.sku,
@@ -64,7 +76,10 @@ export function withPanelCompleteness(row: {
     ...row.product,
     categoryName: row.categoryName,
     categorySlug: row.categorySlug,
-    completeness: evaluateCompleteness(row.product, requiredAttributesFor(row.categorySlug)),
+    completeness: evaluateCompleteness(
+      { ...row.product, fiscal: readProductFiscal(row.product.fiscal) },
+      requiredAttributesFor(row.categorySlug),
+    ),
   };
 }
 
@@ -84,8 +99,9 @@ export async function assertPanelSupplier(
 async function countByStatus(
   database: DatabaseExecutor,
   supplierId: string,
-  query: string | undefined,
+  filters: { query: string | undefined; onlyMissingFiscal: boolean },
 ): Promise<SupplierPanelStatusCounts> {
+  const { query, onlyMissingFiscal } = filters;
   const rows = await database
     .select({ status: supplierProducts.reviewStatus, value: count() })
     .from(supplierProducts)
@@ -95,6 +111,7 @@ async function countByStatus(
         query === undefined
           ? undefined
           : matchesEveryWord(query, [supplierProducts.sku, supplierProducts.title]),
+        onlyMissingFiscal ? missingFiscalData : undefined,
       ),
     )
     .groupBy(supplierProducts.reviewStatus);
@@ -124,9 +141,10 @@ export async function listSupplierPanelProducts(
     input.query === undefined
       ? undefined
       : matchesEveryWord(input.query, [supplierProducts.sku, supplierProducts.title]),
+    input.fiscal === "missing" ? missingFiscalData : undefined,
   );
   const order = input.direction === "asc" ? asc : desc;
-  const [rows, counts] = await Promise.all([
+  const [rows, counts, missingFiscalCount] = await Promise.all([
     database
       .select({ ...panelProductColumns, deletable: neverListedNorSold })
       .from(supplierProducts)
@@ -135,7 +153,11 @@ export async function listSupplierPanelProducts(
       .orderBy(order(SORT_COLUMNS[input.sort]), asc(supplierProducts.id))
       .limit(input.pageSize)
       .offset((input.page - 1) * input.pageSize),
-    countByStatus(database, input.supplierId, input.query),
+    countByStatus(database, input.supplierId, {
+      query: input.query,
+      onlyMissingFiscal: input.fiscal === "missing",
+    }),
+    countMissingFiscal(database, input.supplierId),
   ]);
   const pagination = { page: input.page, pageSize: input.pageSize };
   return {
@@ -148,6 +170,7 @@ export async function listSupplierPanelProducts(
       pagination,
     ),
     counts,
+    missingFiscalCount,
   };
 }
 

@@ -6,6 +6,7 @@ import { errorMessage } from "@/lib/errors";
 import {
   acceptSupplierShipmentsFn,
   printSupplierLabelsFn,
+  retrySupplierInvoiceFn,
   updateSupplierPanelShipmentFn,
 } from "./orders.functions";
 import { attentionCountsQueryOptions } from "@/features/navigation/navigation.queries";
@@ -88,5 +89,19 @@ export function useBatchLabels(supplierId: string) {
     mutationFn: async (shipmentIds: string[]) =>
       await printSupplierLabelsFn({ data: { supplierId, shipmentIds } }),
     onSettled: async () => await refresh(),
+  });
+}
+
+/** "Tentar de novo" on a stopped NF-e: the job takes it up within a couple of minutes. */
+export function useRetrySupplierInvoice(supplierId: string) {
+  const refresh = useRefreshOrders(supplierId);
+  return useMutation({
+    mutationFn: async (shipmentId: string) =>
+      await retrySupplierInvoiceFn({ data: { supplierId, shipmentId } }),
+    onSuccess: async () => {
+      toast.success("Nota na fila de novo. Em até 2 minutos ela vai para o Bling.");
+      await refresh();
+    },
+    onError: (error) => toast.error(errorMessage(error)),
   });
 }

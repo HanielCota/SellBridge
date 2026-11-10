@@ -1,5 +1,5 @@
 {
-  "id": "9c4150dd-ca37-4e08-8a78-298a37014c98",
+  "id": "20134cb0-03f9-478b-8ff1-1bb90315aec9",
   "prevId": "574ef86e-f665-4231-8553-7f7a13dad521",
   "version": "7",
   "dialect": "postgresql",
@@ -6428,8 +6428,129 @@
       "checkConstraints": {},
       "isRLSEnabled": false
     },
-    "public.payment_oauth_states": {
-      "name": "payment_oauth_states",
+    "public.erp_catalog_reads": {
+      "name": "erp_catalog_reads",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "supplier_id": {
+          "name": "supplier_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "provider": {
+          "name": "provider",
+          "type": "erp_provider",
+          "typeSchema": "public",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "status": {
+          "name": "status",
+          "type": "erp_catalog_read_status",
+          "typeSchema": "public",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'reading'"
+        },
+        "total_products": {
+          "name": "total_products",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "read_products": {
+          "name": "read_products",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "default": 0
+        },
+        "result": {
+          "name": "result",
+          "type": "jsonb",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "error": {
+          "name": "error",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "started_at": {
+          "name": "started_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "finished_at": {
+          "name": "finished_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "expires_at": {
+          "name": "expires_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true
+        }
+      },
+      "indexes": {
+        "erp_catalog_reads_supplier_provider_idx": {
+          "name": "erp_catalog_reads_supplier_provider_idx",
+          "columns": [
+            {
+              "expression": "supplier_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "provider",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": true,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {
+        "erp_catalog_reads_supplier_id_suppliers_id_fk": {
+          "name": "erp_catalog_reads_supplier_id_suppliers_id_fk",
+          "tableFrom": "erp_catalog_reads",
+          "tableTo": "suppliers",
+          "columnsFrom": [
+            "supplier_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "public.erp_oauth_states": {
+      "name": "erp_oauth_states",
       "schema": "",
       "columns": {
         "state": {
@@ -6452,7 +6573,7 @@
         },
         "provider": {
           "name": "provider",
-          "type": "payment_provider",
+          "type": "erp_provider",
           "typeSchema": "public",
           "primaryKey": false,
           "notNull": true
@@ -6466,9 +6587,9 @@
       },
       "indexes": {},
       "foreignKeys": {
-        "payment_oauth_states_supplier_id_suppliers_id_fk": {
-          "name": "payment_oauth_states_supplier_id_suppliers_id_fk",
-          "tableFrom": "payment_oauth_states",
+        "erp_oauth_states_supplier_id_suppliers_id_fk": {
+          "name": "erp_oauth_states_supplier_id_suppliers_id_fk",
+          "tableFrom": "erp_oauth_states",
           "tableTo": "suppliers",
           "columnsFrom": [
             "supplier_id"
@@ -6479,9 +6600,9 @@
           "onDelete": "cascade",
           "onUpdate": "no action"
         },
-        "payment_oauth_states_user_id_user_id_fk": {
-          "name": "payment_oauth_states_user_id_user_id_fk",
-          "tableFrom": "payment_oauth_states",
+        "erp_oauth_states_user_id_user_id_fk": {
+          "name": "erp_oauth_states_user_id_user_id_fk",
+          "tableFrom": "erp_oauth_states",
           "tableTo": "user",
           "columnsFrom": [
             "user_id"
@@ -6499,261 +6620,8 @@
       "checkConstraints": {},
       "isRLSEnabled": false
     },
-    "public.platform_settings": {
-      "name": "platform_settings",
-      "schema": "",
-      "columns": {
-        "id": {
-          "name": "id",
-          "type": "smallint",
-          "primaryKey": true,
-          "notNull": true,
-          "default": 1
-        },
-        "payment_fee_basis_points": {
-          "name": "payment_fee_basis_points",
-          "type": "integer",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "updated_by_user_id": {
-          "name": "updated_by_user_id",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "updated_at": {
-          "name": "updated_at",
-          "type": "timestamp with time zone",
-          "primaryKey": false,
-          "notNull": true,
-          "default": "now()"
-        }
-      },
-      "indexes": {},
-      "foreignKeys": {
-        "platform_settings_updated_by_user_id_user_id_fk": {
-          "name": "platform_settings_updated_by_user_id_user_id_fk",
-          "tableFrom": "platform_settings",
-          "tableTo": "user",
-          "columnsFrom": [
-            "updated_by_user_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
-          "onDelete": "set null",
-          "onUpdate": "no action"
-        }
-      },
-      "compositePrimaryKeys": {},
-      "uniqueConstraints": {},
-      "policies": {},
-      "checkConstraints": {
-        "platform_settings_single_row_check": {
-          "name": "platform_settings_single_row_check",
-          "value": "\"platform_settings\".\"id\" = 1"
-        },
-        "platform_settings_payment_fee_check": {
-          "name": "platform_settings_payment_fee_check",
-          "value": "\"platform_settings\".\"payment_fee_basis_points\" is null or (\"platform_settings\".\"payment_fee_basis_points\" >= 0 and \"platform_settings\".\"payment_fee_basis_points\" <= 3000)"
-        }
-      },
-      "isRLSEnabled": false
-    },
-    "public.shipment_payments": {
-      "name": "shipment_payments",
-      "schema": "",
-      "columns": {
-        "id": {
-          "name": "id",
-          "type": "uuid",
-          "primaryKey": true,
-          "notNull": true,
-          "default": "gen_random_uuid()"
-        },
-        "shipment_id": {
-          "name": "shipment_id",
-          "type": "uuid",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "supplier_id": {
-          "name": "supplier_id",
-          "type": "uuid",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "provider": {
-          "name": "provider",
-          "type": "payment_provider",
-          "typeSchema": "public",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "status": {
-          "name": "status",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "default": "'pending'"
-        },
-        "amount_cents": {
-          "name": "amount_cents",
-          "type": "integer",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "platform_fee_cents": {
-          "name": "platform_fee_cents",
-          "type": "integer",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "platform_fee_basis_points": {
-          "name": "platform_fee_basis_points",
-          "type": "integer",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "preference_id": {
-          "name": "preference_id",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "checkout_url": {
-          "name": "checkout_url",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "checkout_expires_at": {
-          "name": "checkout_expires_at",
-          "type": "timestamp with time zone",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "provider_payment_id": {
-          "name": "provider_payment_id",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "payment_method": {
-          "name": "payment_method",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "paid_at": {
-          "name": "paid_at",
-          "type": "timestamp with time zone",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "created_at": {
-          "name": "created_at",
-          "type": "timestamp with time zone",
-          "primaryKey": false,
-          "notNull": true,
-          "default": "now()"
-        },
-        "updated_at": {
-          "name": "updated_at",
-          "type": "timestamp with time zone",
-          "primaryKey": false,
-          "notNull": true,
-          "default": "now()"
-        }
-      },
-      "indexes": {
-        "shipment_payments_shipment_idx": {
-          "name": "shipment_payments_shipment_idx",
-          "columns": [
-            {
-              "expression": "shipment_id",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            }
-          ],
-          "isUnique": true,
-          "concurrently": false,
-          "method": "btree",
-          "with": {}
-        },
-        "shipment_payments_provider_payment_idx": {
-          "name": "shipment_payments_provider_payment_idx",
-          "columns": [
-            {
-              "expression": "provider",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            },
-            {
-              "expression": "provider_payment_id",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            }
-          ],
-          "isUnique": true,
-          "concurrently": false,
-          "method": "btree",
-          "with": {}
-        }
-      },
-      "foreignKeys": {
-        "shipment_payments_shipment_id_order_shipments_id_fk": {
-          "name": "shipment_payments_shipment_id_order_shipments_id_fk",
-          "tableFrom": "shipment_payments",
-          "tableTo": "order_shipments",
-          "columnsFrom": [
-            "shipment_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
-          "onDelete": "cascade",
-          "onUpdate": "no action"
-        },
-        "shipment_payments_supplier_id_suppliers_id_fk": {
-          "name": "shipment_payments_supplier_id_suppliers_id_fk",
-          "tableFrom": "shipment_payments",
-          "tableTo": "suppliers",
-          "columnsFrom": [
-            "supplier_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
-          "onDelete": "cascade",
-          "onUpdate": "no action"
-        }
-      },
-      "compositePrimaryKeys": {},
-      "uniqueConstraints": {},
-      "policies": {},
-      "checkConstraints": {
-        "shipment_payments_status_check": {
-          "name": "shipment_payments_status_check",
-          "value": "\"shipment_payments\".\"status\" in ('pending','in_process','approved','rejected','cancelled','refunded','charged_back')"
-        },
-        "shipment_payments_amount_check": {
-          "name": "shipment_payments_amount_check",
-          "value": "\"shipment_payments\".\"amount_cents\" > 0"
-        },
-        "shipment_payments_fee_check": {
-          "name": "shipment_payments_fee_check",
-          "value": "\"shipment_payments\".\"platform_fee_cents\" >= 0 and \"shipment_payments\".\"platform_fee_cents\" <= \"shipment_payments\".\"amount_cents\""
-        }
-      },
-      "isRLSEnabled": false
-    },
-    "public.supplier_payment_accounts": {
-      "name": "supplier_payment_accounts",
+    "public.supplier_erp_connections": {
+      "name": "supplier_erp_connections",
       "schema": "",
       "columns": {
         "id": {
@@ -6771,7 +6639,7 @@
         },
         "provider": {
           "name": "provider",
-          "type": "payment_provider",
+          "type": "erp_provider",
           "typeSchema": "public",
           "primaryKey": false,
           "notNull": true
@@ -6808,9 +6676,21 @@
           "primaryKey": false,
           "notNull": false
         },
-        "provider_account_id": {
-          "name": "provider_account_id",
+        "account_name": {
+          "name": "account_name",
           "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "reseller_discount_tenths": {
+          "name": "reseller_discount_tenths",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "last_import_at": {
+          "name": "last_import_at",
+          "type": "timestamp with time zone",
           "primaryKey": false,
           "notNull": false
         },
@@ -6836,8 +6716,8 @@
         }
       },
       "indexes": {
-        "supplier_payment_accounts_supplier_provider_idx": {
-          "name": "supplier_payment_accounts_supplier_provider_idx",
+        "supplier_erp_connections_supplier_provider_idx": {
+          "name": "supplier_erp_connections_supplier_provider_idx",
           "columns": [
             {
               "expression": "supplier_id",
@@ -6857,17 +6737,17 @@
           "method": "btree",
           "with": {}
         },
-        "supplier_payment_accounts_provider_account_idx": {
-          "name": "supplier_payment_accounts_provider_account_idx",
+        "supplier_erp_connections_expiry_idx": {
+          "name": "supplier_erp_connections_expiry_idx",
           "columns": [
             {
-              "expression": "provider",
+              "expression": "status",
               "isExpression": false,
               "asc": true,
               "nulls": "last"
             },
             {
-              "expression": "provider_account_id",
+              "expression": "expires_at",
               "isExpression": false,
               "asc": true,
               "nulls": "last"
@@ -6880,9 +6760,9 @@
         }
       },
       "foreignKeys": {
-        "supplier_payment_accounts_supplier_id_suppliers_id_fk": {
-          "name": "supplier_payment_accounts_supplier_id_suppliers_id_fk",
-          "tableFrom": "supplier_payment_accounts",
+        "supplier_erp_connections_supplier_id_suppliers_id_fk": {
+          "name": "supplier_erp_connections_supplier_id_suppliers_id_fk",
+          "tableFrom": "supplier_erp_connections",
           "tableTo": "suppliers",
           "columnsFrom": [
             "supplier_id"
@@ -6893,9 +6773,9 @@
           "onDelete": "cascade",
           "onUpdate": "no action"
         },
-        "supplier_payment_accounts_connected_by_user_id_user_id_fk": {
-          "name": "supplier_payment_accounts_connected_by_user_id_user_id_fk",
-          "tableFrom": "supplier_payment_accounts",
+        "supplier_erp_connections_connected_by_user_id_user_id_fk": {
+          "name": "supplier_erp_connections_connected_by_user_id_user_id_fk",
+          "tableFrom": "supplier_erp_connections",
           "tableTo": "user",
           "columnsFrom": [
             "connected_by_user_id"
@@ -6924,6 +6804,22 @@
         "ticket",
         "onboarding",
         "cooling"
+      ]
+    },
+    "public.erp_catalog_read_status": {
+      "name": "erp_catalog_read_status",
+      "schema": "public",
+      "values": [
+        "reading",
+        "ready",
+        "failed"
+      ]
+    },
+    "public.erp_provider": {
+      "name": "erp_provider",
+      "schema": "public",
+      "values": [
+        "bling"
       ]
     },
     "public.listing_target_status": {
@@ -7090,13 +6986,6 @@
         "in_review",
         "approved",
         "rejected"
-      ]
-    },
-    "public.payment_provider": {
-      "name": "payment_provider",
-      "schema": "public",
-      "values": [
-        "mercado_pago"
       ]
     }
   },

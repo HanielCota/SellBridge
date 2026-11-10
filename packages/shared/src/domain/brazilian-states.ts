@@ -106,3 +106,39 @@ export const BRAZILIAN_STATE_CAPITALS: Readonly<Record<BrazilianState, string>> 
 export function stateLabel(state: BrazilianState): string {
   return `${BRAZILIAN_STATE_NAMES[state]} (${state})`;
 }
+
+/** The IBGE code of each state: the first two digits of every city code in it. */
+const BRAZILIAN_STATE_IBGE_CODES: Readonly<Record<BrazilianState, string>> = {
+  RO: "11",
+  AC: "12",
+  AM: "13",
+  RR: "14",
+  PA: "15",
+  AP: "16",
+  TO: "17",
+  MA: "21",
+  PI: "22",
+  CE: "23",
+  RN: "24",
+  PB: "25",
+  PE: "26",
+  AL: "27",
+  SE: "28",
+  BA: "29",
+  MG: "31",
+  ES: "32",
+  RJ: "33",
+  SP: "35",
+  PR: "41",
+  SC: "42",
+  RS: "43",
+  MS: "50",
+  MT: "51",
+  GO: "52",
+  DF: "53",
+};
+
+/** Whether a city's IBGE code belongs to the state ("3122306" is in MG, not in SP). */
+export function isCityOfState(ibgeCityCode: string, state: BrazilianState): boolean {
+  return ibgeCityCode.startsWith(BRAZILIAN_STATE_IBGE_CODES[state]);
+}

@@ -93,4 +93,6 @@ export * from "./seller-report.ts";
 export * from "./supplier-report.ts";
 export * from "./admin-report.ts";
 export * from "./admin-exports.ts";
+export * from "./erp-connections.ts";
+export * from "./shipment-invoices.ts";
 export * from "./supplier-payments.ts";

@@ -14,8 +14,17 @@ import {
   reviewTransition,
   statusAfterEdit,
   submitTransition,
+  type ProductReviewStatus,
   type RejectionReason,
 } from "@sellbridge/shared/supplier-panel-catalog-status";
+import {
+  hasRequiredFiscalData,
+  icmsOverrideProblem,
+  readProductFiscal,
+  type ProductFiscal,
+  type TaxRegime,
+} from "@sellbridge/shared/product-fiscal";
+import { readSupplierFiscalProfile } from "@sellbridge/shared/supplier-fiscal";
 import { firstTextWithContact, SUPPLIER_TEXT_CONTACT_REFUSED } from "@sellbridge/shared/schemas";
 import { and, eq, ne } from "drizzle-orm";
 import type { Database, DatabaseExecutor } from "../client.ts";
@@ -33,7 +42,11 @@ const STOCK_MOVED_MESSAGE =
 /** Serializes the supplier's catalog writes (same lock the admin form and CSV import take). */
 async function lockSupplier(transaction: DatabaseExecutor, supplierId: string) {
   const [supplier] = await transaction
-    .select({ id: suppliers.id, catalogKind: suppliers.catalogKind })
+    .select({
+      id: suppliers.id,
+      catalogKind: suppliers.catalogKind,
+      fiscalProfile: suppliers.fiscalProfile,
+    })
     .from(suppliers)
     .where(eq(suppliers.id, supplierId))
     .for("update");
@@ -116,11 +129,47 @@ async function assertUniqueSku(transaction: DatabaseExecutor, input: CatalogSave
   }
 }
 
-function blockingCount(values: CatalogDraftValues, categorySlug: string | null): number {
+function assertIcmsFitsRegime(input: CatalogSaveDraftInput, regime: TaxRegime | null): void {
+  const problem = icmsOverrideProblem(input.values.fiscal?.icmsCode, regime);
+  if (problem !== null) {
+    throw validationError(problem);
+  }
+}
+
+/** NF-e data as the rules read it; `fiscalRequired` is false for products from before it. */
+interface FiscalState {
+  readonly fiscal: ProductFiscal;
+  readonly fiscalRequired: boolean;
+}
+
+function blockingCount(
+  values: Omit<CatalogDraftValues, "fiscal">,
+  categorySlug: string | null,
+  fiscalState: FiscalState,
+): number {
   return evaluateCompleteness(
-    { ...values, mercadoLivreAttributes: values.mercadoLivreAttributes ?? {} },
+    {
+      ...values,
+      mercadoLivreAttributes: values.mercadoLivreAttributes ?? {},
+      ...fiscalState,
+    },
     requiredAttributesFor(categorySlug),
   ).blocking.length;
+}
+
+/**
+ * A product created under the fiscal rule leaves sale when its NCM, origin or unit is erased:
+ * an edit that is not reviewed (the fiscal block itself) would otherwise keep it approved.
+ */
+function withFiscalRule(next: ProductReviewStatus, fiscalState: FiscalState): ProductReviewStatus {
+  if (next !== "approved" || !fiscalState.fiscalRequired) {
+    return next;
+  }
+  return hasRequiredFiscalData(fiscalState.fiscal) ? next : "draft";
+}
+
+function storedFiscalState(stored: SupplierPanelProductRow): FiscalState {
+  return { fiscal: readProductFiscal(stored.fiscal), fiscalRequired: stored.fiscalRequired };
 }
 
 /**
@@ -131,6 +180,7 @@ function valuesToWrite(stored: SupplierPanelProductRow, input: CatalogSaveDraftI
   const values = {
     ...input.values,
     mercadoLivreAttributes: input.values.mercadoLivreAttributes ?? stored.mercadoLivreAttributes,
+    fiscal: input.values.fiscal ?? readProductFiscal(stored.fiscal),
   };
   if (input.expectedStock === undefined || values.stock === input.expectedStock) {
     return { ...values, stock: input.expectedStock === undefined ? values.stock : stored.stock };
@@ -169,18 +219,25 @@ async function updateDraft(
 ): Promise<void> {
   const { now, reviewRequired } = options;
   const values = valuesToWrite(stored, input);
-  const changed = changedProductFields(stored, values);
+  const changed = changedProductFields(
+    { ...stored, fiscal: readProductFiscal(stored.fiscal) },
+    values,
+  );
   assertFreshVersion(stored, input, changed);
   if (changed.length === 0) {
     return;
   }
   const categorySlug = await categorySlugOf(transaction, values.categoryId);
-  const reviewedNext = statusAfterEdit({
-    current: stored.reviewStatus,
-    changedFields: changed,
-    blockingIssueCount: blockingCount(values, categorySlug),
-    prohibited: isProhibitedProduct(values),
-  });
+  const fiscalState = { fiscal: values.fiscal, fiscalRequired: stored.fiscalRequired };
+  const reviewedNext = withFiscalRule(
+    statusAfterEdit({
+      current: stored.reviewStatus,
+      changedFields: changed,
+      blockingIssueCount: blockingCount(values, categorySlug, fiscalState),
+      prohibited: isProhibitedProduct(values),
+    }),
+    fiscalState,
+  );
   const contentReady = evaluateCompleteness(
     values,
     requiredAttributesFor(categorySlug),
@@ -211,6 +268,7 @@ export async function saveSupplierPanelDraft(
 ): Promise<SupplierPanelProduct> {
   return await database.transaction(async (transaction) => {
     const source = await lockSupplier(transaction, input.supplierId);
+    assertIcmsFitsRegime(input, readSupplierFiscalProfile(source.fiscalProfile)?.regime ?? null);
     await assertUniqueSku(transaction, input);
     const stored = await lockProduct(transaction, input);
     if (stored !== undefined) {
@@ -232,6 +290,8 @@ export async function saveSupplierPanelDraft(
         supplierId: input.supplierId,
         ...input.values,
         reviewStatus: "draft",
+        // A supplier's new product needs NF-e data to be published; a seller's own one does not.
+        fiscalRequired: source.catalogKind === "supplier",
       })
       .onConflictDoNothing({ target: supplierProducts.id })
       .returning({ id: supplierProducts.id });
@@ -253,7 +313,10 @@ export async function submitSupplierPanelProduct(
     const stored = await lockExistingProduct(transaction, ref);
     assertTextsWithoutContact(stored);
     const categorySlug = await categorySlugOf(transaction, stored.categoryId);
-    const transition = submitTransition(stored.reviewStatus, blockingCount(stored, categorySlug));
+    const transition = submitTransition(
+      stored.reviewStatus,
+      blockingCount(stored, categorySlug, storedFiscalState(stored)),
+    );
     if (!transition.allowed) {
       throw validationError(transition.message);
     }

@@ -1,3 +1,5 @@
+import { isNoGtin, NO_GTIN } from "./product-fiscal.ts";
+
 /**
  * Item 18: the CSV columns that become Mercado Livre attributes. The marketplace refuses a
  * listing whose category requires brand, model or barcode and gets none, and needs the package
@@ -94,9 +96,12 @@ function textAttribute(entry: TextColumn, value: string): AttributeResult {
 }
 
 function gtinAttribute(value: string): AttributeResult {
+  if (isNoGtin(value)) {
+    return { attributes: { [GTIN_COLUMN.attribute]: NO_GTIN } };
+  }
   if (!isValidGtin(value)) {
     return {
-      reason: `GTIN: "${value}" não é um código de barras válido (8, 12, 13 ou 14 dígitos com dígito verificador)`,
+      reason: `GTIN: "${value}" não é um código de barras válido (8, 12, 13 ou 14 dígitos com dígito verificador, ou SEM GTIN)`,
     };
   }
   return { attributes: { [GTIN_COLUMN.attribute]: value } };

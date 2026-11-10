@@ -12,7 +12,7 @@ import { ProductVisual } from "@/components/catalog/product-visual";
 import { Button } from "@/components/ui/button";
 import { ProductDeleteButton } from "./product-delete-button";
 import { ProductSaleToggle } from "./product-sale-toggle";
-import { CompletenessBadge, ProductStatus } from "./review-status";
+import { CompletenessBadge, MissingFiscalBadge, ProductStatus } from "./review-status";
 import { SortableHeader, type CatalogSort } from "./sortable-header";
 import { CONTROL_HINTS, TERM_HINTS } from "@/components/icons/action-icons";
 import { Hint, HintedText } from "@/components/ui/hint";
@@ -183,10 +183,13 @@ function catalogColumns(
       id: "completeness",
       header: () => <CompletenessHeader />,
       cell: (information) => (
-        <CompletenessBadge
-          score={information.row.original.completeness.score}
-          blocking={information.row.original.completeness.blocking.length}
-        />
+        <div className="flex flex-wrap items-center gap-1.5">
+          <CompletenessBadge
+            score={information.row.original.completeness.score}
+            blocking={information.row.original.completeness.blocking.length}
+          />
+          <MissingFiscalBadge fiscal={information.row.original.fiscal} />
+        </div>
       ),
     }),
     columnHelper.accessor("costCents", {
@@ -235,6 +238,7 @@ function MobileProductRow({
           score={product.completeness.score}
           blocking={product.completeness.blocking.length}
         />
+        <MissingFiscalBadge fiscal={product.fiscal} />
       </div>
       <ProductActions product={product} onOpen={onOpen} />
     </div>

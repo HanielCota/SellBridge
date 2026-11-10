@@ -2,8 +2,11 @@ import { and, eq, inArray, ne, or } from "drizzle-orm";
 import type { Database } from "../client.ts";
 import {
   billingAccounts,
+  erpCatalogReads,
+  erpOAuthStates,
   member,
   organization,
+  supplierErpConnections,
   paymentOAuthStates,
   supplierPaymentAccounts,
   suppliers,
@@ -66,7 +69,8 @@ export async function accountFileKeys(
 /**
  * Deletes a workspace and everything in it: stores, sales, listings, tickets and the holder's
  * CPF all cascade from the organization. A supplier's catalog outlives the workspace (it is only
- * detached), so its payment account tokens and pending states are deleted with it here.
+ * detached), so its ERP and payment account tokens, its ERP catalog read and pending states are
+ * deleted with it here.
  */
 export async function deleteTenantData(database: Database, tenantId: string): Promise<void> {
   await database.transaction(async (transaction) => {
@@ -74,6 +78,13 @@ export async function deleteTenantData(database: Database, tenantId: string): Pr
       .select({ id: suppliers.id })
       .from(suppliers)
       .where(eq(suppliers.organizationId, tenantId));
+    await transaction
+      .delete(supplierErpConnections)
+      .where(inArray(supplierErpConnections.supplierId, ranSupplier));
+    await transaction
+      .delete(erpCatalogReads)
+      .where(inArray(erpCatalogReads.supplierId, ranSupplier));
+    await transaction.delete(erpOAuthStates).where(inArray(erpOAuthStates.supplierId, ranSupplier));
     await transaction
       .delete(supplierPaymentAccounts)
       .where(inArray(supplierPaymentAccounts.supplierId, ranSupplier));

@@ -1,4 +1,5 @@
 import { isAppError } from "@sellbridge/shared/errors";
+import { isNoGtin } from "@sellbridge/shared/product-fiscal";
 import { logger } from "@sellbridge/shared/logger";
 import { z } from "zod";
 import { marketplaceError } from "../errors.ts";
@@ -64,7 +65,8 @@ function itemBody(
     seller_custom_field: input.idempotencyKey,
     attributes: [
       ...Object.entries(input.mercadoLivreAttributes ?? {})
-        .filter(([id]) => id !== "SELLER_SKU")
+        // "SEM GTIN" is for the NF-e; Mercado Livre refuses it as a barcode, so it is left out.
+        .filter(([id, value]) => id !== "SELLER_SKU" && !(id === "GTIN" && isNoGtin(value)))
         .map(([id, value_name]) => ({ id, value_name })),
       { id: "SELLER_SKU", value_name: input.sku },
     ],

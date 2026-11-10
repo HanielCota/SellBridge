@@ -18,6 +18,9 @@
     "./supplier-panel-import-table": "./src/domain/supplier-panel-import-table.ts",
     "./brazilian-states": "./src/domain/brazilian-states.ts",
     "./billing-address": "./src/domain/billing-address.ts",
+    "./product-fiscal": "./src/domain/product-fiscal.ts",
+    "./supplier-fiscal": "./src/domain/supplier-fiscal.ts",
+    "./supplier-invoice": "./src/domain/supplier-invoice.ts",
     "./cpf": "./src/domain/cpf.ts",
     "./account-documents": "./src/domain/account-documents.ts",
     "./terms": "./src/domain/terms.ts",
@@ -102,7 +105,9 @@
     "./seller-catalog-schemas": "./src/domain/seller-catalog-schemas.ts",
     "./product-sources": "./src/domain/product-sources.ts",
     "./return-claims": "./src/domain/return-claims.ts",
-    "./prohibited-products": "./src/domain/prohibited-products.ts"
+    "./prohibited-products": "./src/domain/prohibited-products.ts",
+    "./erp-catalog": "./src/domain/erp-catalog.ts",
+    "./erp-reseller-price": "./src/domain/erp-reseller-price.ts"
   },
   "scripts": {
     "typecheck": "tsc --noEmit",

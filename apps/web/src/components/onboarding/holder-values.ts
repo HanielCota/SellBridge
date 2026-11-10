@@ -25,13 +25,18 @@ const EMPTY_ADDRESS: AddressFormValues = {
   neighborhood: "",
   city: "",
   state: "",
+  ibgeCode: "",
 };
 
 function addressDefaults(holder: BillingHolder | null): AddressFormValues {
   if (holder === null || holder.address === null) {
     return EMPTY_ADDRESS;
   }
-  return { ...holder.address, cep: formatCep(holder.address.cep) };
+  return {
+    ...holder.address,
+    cep: formatCep(holder.address.cep),
+    ibgeCode: holder.address.ibgeCode ?? "",
+  };
 }
 
 export function holderDefaults(
@@ -76,6 +81,12 @@ export function holderInput(values: HolderFormValues): BillingHolderInput {
     cpf: values.cpf,
     phone: values.phone,
     company,
-    address: values.address,
+    address: addressInput(values.address),
   };
+}
+
+/** The IBGE code only goes along when the CEP or city lookup found one. */
+function addressInput(address: AddressFormValues): BillingHolderInput["address"] {
+  const { ibgeCode, ...rest } = address;
+  return ibgeCode === "" ? rest : { ...rest, ibgeCode };
 }

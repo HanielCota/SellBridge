@@ -3,6 +3,7 @@ import {
   isProhibitedProduct,
   requiredAttributesFor,
 } from "@sellbridge/shared/supplier-panel-catalog-completeness";
+import { readProductFiscal, type ProductFiscalPatch } from "@sellbridge/shared/product-fiscal";
 import type { EditableProductFields } from "@sellbridge/shared/supplier-panel-catalog-status";
 import { supplierImportStatus } from "@sellbridge/shared/supplier-panel-import-status";
 import { and, eq, inArray, sql } from "drizzle-orm";
@@ -10,8 +11,10 @@ import type { DatabaseExecutor } from "../client.ts";
 import { categories, supplierProducts } from "../schema/index.ts";
 
 /** An import row as the admin import plans it: attributes may be absent (blank cells). */
-type ImportedRow = Omit<EditableProductFields, "mercadoLivreAttributes"> & {
+type ImportedRow = Omit<EditableProductFields, "mercadoLivreAttributes" | "fiscal"> & {
   readonly mercadoLivreAttributes?: Readonly<Record<string, string>> | undefined;
+  /** Only the fiscal cells the line filled (merged into what is stored, as the upsert does). */
+  readonly fiscal?: ProductFiscalPatch | undefined;
 };
 
 /**
@@ -56,6 +59,9 @@ export async function reviewedImportValues<TProduct extends ImportedRow>(
         ...previous?.mercadoLivreAttributes,
         ...product.mercadoLivreAttributes,
       },
+      fiscal: readProductFiscal({ ...previous?.fiscal, ...product.fiscal }),
+      // A product the import creates needs NF-e data to go on sale; old ones keep their flag.
+      fiscalRequired: previous?.fiscalRequired ?? true,
     };
     const slug = product.categoryId === null ? null : slugById.get(product.categoryId);
     const blocking = evaluateCompleteness(next, requiredAttributesFor(slug)).blocking.length;

@@ -439,8 +439,29 @@
     {
       "idx": 62,
       "version": "7",
-      "when": 1794320688220,
-      "tag": "0062_supplier_payments",
+      "when": 1794286280056,
+      "tag": "0062_erp_connections",
+      "breakpoints": true
+    },
+    {
+      "idx": 63,
+      "version": "7",
+      "when": 1794303031739,
+      "tag": "0063_fiscal_fields",
+      "breakpoints": true
+    },
+    {
+      "idx": 64,
+      "version": "7",
+      "when": 1794318109119,
+      "tag": "0064_shipment_invoices",
+      "breakpoints": true
+    },
+    {
+      "idx": 65,
+      "version": "7",
+      "when": 1794336603519,
+      "tag": "0065_supplier_payments",
       "breakpoints": true
     }
   ]

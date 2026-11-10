@@ -1,6 +1,11 @@
 import { createDatabase } from "@sellbridge/database/client";
 import { deliverOrderMessageNotice, orderMessageMoments } from "@sellbridge/database/repositories";
-import { getMercadoLivreShipping, type ConnectorRegistry } from "@sellbridge/marketplaces";
+import {
+  getMercadoLivreShipping,
+  readMercadoLivreBuyerBilling,
+  type ConnectorRegistry,
+} from "@sellbridge/marketplaces";
+import { createBlingRateLimiter, type BlingAppCredentials } from "@sellbridge/marketplaces/bling";
 import { createTokenCipher } from "@sellbridge/shared/token-cipher";
 import { installErrorAlerts } from "@sellbridge/shared/error-alerts";
 import { installPortugueseZodMessages } from "@sellbridge/shared/zod-messages";
@@ -29,6 +34,11 @@ import { createAutoForwardProcessor } from "./processors/order-auto-forward.ts";
 import { createStockPriceSyncProcessor } from "./processors/stock-price-sync.ts";
 import { createTicketAutoCloseProcessor } from "./processors/ticket-auto-close.ts";
 import { createTokenRefreshProcessor } from "./processors/token-refresh.ts";
+import { createErpTokenRefreshProcessor } from "./processors/erp-token-refresh.ts";
+import { createErpCatalogExportProcessor } from "./processors/erp-catalog-export.ts";
+import { createErpCatalogReadProcessor } from "./processors/erp-catalog-read.ts";
+import { createErpInvoiceProcessor } from "./processors/erp-invoice-issue.ts";
+import { resolveStoreCredentials } from "./lib/store-access.ts";
 import { createNotificationDeliveryProcessor } from "./processors/notification-delivery.ts";
 import { createOrderMessageFollowUpProcessor } from "./processors/order-message-follow-up.ts";
 import { createWebhookDeliveryProcessor } from "./processors/webhook-delivery.ts";
@@ -52,7 +62,18 @@ function createQueues(connection: { url: string; maxRetriesPerRequest: null }) {
     ticketClose: new Queue(QUEUE_NAMES.ticketAutoClose, { connection }),
     shipmentTracking: new Queue(QUEUE_NAMES.shipmentTracking, { connection }),
     notifications: new Queue(QUEUE_NAMES.notificationDelivery, { connection }),
+    erpInvoices: new Queue(QUEUE_NAMES.erpInvoiceIssue, { connection }),
   };
+}
+
+/** The Bling app keys, or null while they are not set: ERP jobs then do nothing. */
+function blingCredentials(): BlingAppCredentials | null {
+  const clientId = environment.BLING_CLIENT_ID;
+  const clientSecret = environment.BLING_CLIENT_SECRET;
+  if (clientId === undefined || clientSecret === undefined) {
+    return null;
+  }
+  return { clientId, clientSecret };
 }
 
 function createContext(connectors: ConnectorRegistry) {
@@ -113,6 +134,12 @@ function marketplaceWorkers(context: WorkerContext): Worker[] {
   const processPublish = createPublishListingProcessor(options);
   const processStock = createStockPriceSyncProcessor(options);
   const processRefresh = createTokenRefreshProcessor({ database, connectors, cipher });
+  const processErpRefresh = createErpTokenRefreshProcessor({
+    database,
+    cipher,
+    blingCredentials: blingCredentials(),
+    fetchImplementation: fetch,
+  });
   return [
     new Worker(QUEUE_NAMES.publishListing, async (job) => processPublish(toJobContext(job)), {
       connection,
@@ -123,8 +150,50 @@ function marketplaceWorkers(context: WorkerContext): Worker[] {
       connection,
       concurrency: 1,
     }),
-    new Worker(QUEUE_NAMES.tokenRefresh, async () => processRefresh(), {
-      connection,
+    new Worker(
+      QUEUE_NAMES.tokenRefresh,
+      async () => ({ stores: await processRefresh(), erp: await processErpRefresh() }),
+      { connection, concurrency: 1 },
+    ),
+  ];
+}
+
+/** The supplier's catalog sent to its ERP; one at a time, the ERP quota is per account. */
+function erpWorkers(context: WorkerContext): Worker[] {
+  // One limiter for both jobs: an account's 3 requests per second are shared.
+  const dependencies = {
+    database: context.database,
+    cipher: context.cipher,
+    blingCredentials: blingCredentials(),
+    limiter: createBlingRateLimiter(),
+    fetchImplementation: fetch,
+  };
+  const processExport = createErpCatalogExportProcessor(dependencies);
+  const processRead = createErpCatalogReadProcessor(dependencies);
+  const processInvoices = createErpInvoiceProcessor({
+    ...dependencies,
+    readBuyerBilling: async (work) => {
+      if (work.store.marketplace !== "mercado_livre") {
+        return null;
+      }
+      const store = resolveStoreCredentials(context.cipher, work.store);
+      if (store === null) {
+        return null;
+      }
+      return readMercadoLivreBuyerBilling(context.mercadoLivreConfig, store, work.externalOrderId);
+    },
+  });
+  return [
+    new Worker(QUEUE_NAMES.erpCatalogExport, async (job) => processExport(job.data), {
+      connection: context.connection,
+      concurrency: 1,
+    }),
+    new Worker(QUEUE_NAMES.erpCatalogRead, async (job) => processRead(job.data), {
+      connection: context.connection,
+      concurrency: 2,
+    }),
+    new Worker(QUEUE_NAMES.erpInvoiceIssue, async () => processInvoices(), {
+      connection: context.connection,
       concurrency: 1,
     }),
   ];
@@ -270,6 +339,7 @@ async function scheduleQueues(queues: WorkerContext["queues"]): Promise<void> {
   await scheduleRecurring(queues.ticketClose, "close-idle-tickets", 60 * 60 * 1000);
   await scheduleRecurring(queues.tokenRefresh, "refresh-expiring-tokens", 10 * 60 * 1000);
   await scheduleRecurring(queues.shipmentTracking, "track-shipments", 30 * 60 * 1000);
+  await scheduleRecurring(queues.erpInvoices, "issue-erp-invoices", 2 * 60 * 1000);
 }
 
 function observeWorkers(workers: readonly Worker[]): void {
@@ -337,6 +407,7 @@ export async function startWorker(connectors: ConnectorRegistry): Promise<void> 
     ...orderWorkers(context),
     ...recoveryWorkers(context),
     ...deliveryWorkers(context),
+    ...erpWorkers(context),
   ];
   observeWorkers(workers);
   // Expose health before scheduling: a Redis outage must not leave probes waiting for startup.

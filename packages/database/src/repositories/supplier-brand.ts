@@ -1,7 +1,12 @@
 import { conflictError, notFoundError } from "@sellbridge/shared/errors";
 import type { AdminSupplierValues } from "@sellbridge/shared/schemas";
+import {
+  readSupplierFiscalProfile,
+  type SupplierFiscalProfile,
+  type SupplierTaxSetup,
+} from "@sellbridge/shared/supplier-fiscal";
 import { eq } from "drizzle-orm";
-import type { Database } from "../client.ts";
+import type { Database, DatabaseExecutor } from "../client.ts";
 import { isUniqueViolation } from "../postgres-errors.ts";
 import { suppliers } from "../schema/index.ts";
 
@@ -20,6 +25,7 @@ const brandColumns = {
   acceptWithinHours: suppliers.acceptWithinHours,
   dispatchWithinHours: suppliers.dispatchWithinHours,
   active: suppliers.active,
+  fiscalProfile: suppliers.fiscalProfile,
 };
 
 /** What a supplier sees and edits of its own catalog on "Dados da marca". */
@@ -36,6 +42,8 @@ export interface SupplierBrand {
   acceptWithinHours: number;
   dispatchWithinHours: number;
   active: boolean;
+  /** CNPJ, state registration, regime, fiscal address and tax defaults; null until filled. */
+  fiscalProfile: SupplierFiscalProfile | null;
 }
 
 interface BrandWrite {
@@ -58,7 +66,10 @@ export async function getSupplierBrand(
     .select(brandColumns)
     .from(suppliers)
     .where(eq(suppliers.organizationId, organizationId));
-  return found ?? null;
+  if (found === undefined) {
+    return null;
+  }
+  return { ...found, fiscalProfile: readSupplierFiscalProfile(found.fiscalProfile) };
 }
 
 /** The brand step: creates the profile's supplier; a second one is refused. */
@@ -74,7 +85,7 @@ export async function createSupplierBrand(
     if (created === undefined) {
       throw new Error("Marca não criada");
     }
-    return created;
+    return { ...created, fiscalProfile: readSupplierFiscalProfile(created.fiscalProfile) };
   } catch (error) {
     if (isUniqueViolation(error, PROFILE_SUPPLIER_INDEX)) {
       throw conflictError("Esta conta já tem uma marca cadastrada. Edite os dados da marca.");
@@ -98,5 +109,18 @@ export async function updateSupplierBrand(
       `Nenhuma marca cadastrada para este perfil (perfil recebido: ${input.organizationId})`,
     );
   }
-  return updated;
+  return { ...updated, fiscalProfile: readSupplierFiscalProfile(updated.fiscalProfile) };
+}
+
+/** The supplier's regime and default tax codes, for its products' NF-e data; null until filled. */
+export async function getSupplierTaxDefaults(
+  database: DatabaseExecutor,
+  supplierId: string,
+): Promise<SupplierTaxSetup | null> {
+  const [found] = await database
+    .select({ fiscalProfile: suppliers.fiscalProfile })
+    .from(suppliers)
+    .where(eq(suppliers.id, supplierId));
+  const profile = readSupplierFiscalProfile(found?.fiscalProfile ?? null);
+  return profile === null ? null : { regime: profile.regime, defaults: profile.defaults };
 }

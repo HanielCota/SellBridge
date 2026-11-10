@@ -1,3 +1,5 @@
+import { productFiscalSchema } from "../domain/product-fiscal.ts";
+import { supplierFiscalProfileSchema } from "../domain/supplier-fiscal.ts";
 import { z } from "zod";
 import { refuseSupplierTextContact } from "./contact-guard.ts";
 import { freeText, pageNumberSchema, searchQuery } from "./common.ts";
@@ -143,6 +145,8 @@ export const adminSupplierValuesSchema = z
     contactEmail: supplierContactEmailSchema,
     acceptWithinHours: supplierDeadlineSchema,
     dispatchWithinHours: supplierDeadlineSchema,
+    /** Left out by callers that do not edit it (the stored profile is then kept as it is). */
+    fiscalProfile: supplierFiscalProfileSchema.nullable().optional(),
   })
   .superRefine(({ acceptWithinHours, dispatchWithinHours }, context) => {
     if (acceptWithinHours > dispatchWithinHours) {
@@ -186,6 +190,8 @@ export const adminProductValuesSchema = z.object({
       `Informe no máximo ${MAX_MERCADO_LIVRE_ATTRIBUTES} atributos`,
     )
     .optional(),
+  /** Left out by callers that do not edit it (the stored data is then kept as it is). */
+  fiscal: productFiscalSchema.optional(),
 });
 export type AdminProductValues = z.infer<typeof adminProductValuesSchema>;
 export const adminSaveProductSchema = adminProductValuesSchema

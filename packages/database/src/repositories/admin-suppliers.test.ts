@@ -1,6 +1,7 @@
 import { randomUUID } from "node:crypto";
 import { conflictError } from "@sellbridge/shared/errors";
 import { parseProductCsv } from "@sellbridge/shared/product-csv";
+import { suggestedTaxDefaults } from "@sellbridge/shared/supplier-fiscal";
 import { and, eq, inArray } from "drizzle-orm";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { listings, storeConnections, supplierProducts, suppliers } from "../schema/index.ts";
@@ -169,6 +170,125 @@ describe("admin suppliers", () => {
       dispatchWithinHours: 48,
     });
     if (created) await database.delete(suppliers).where(eq(suppliers.id, created.id));
+  });
+
+  it("refuses an import line whose own ICMS code does not fit the supplier's regime", async () => {
+    await database
+      .update(suppliers)
+      .set({
+        fiscalProfile: {
+          cnpj: "11222333000181",
+          legalName: "Fornecedor Teste Ltda",
+          stateRegistration: "ISENTO",
+          regime: "simples",
+          address: {
+            cep: "35500024",
+            street: "Rua Goiás",
+            number: "120",
+            complement: "",
+            neighborhood: "Centro",
+            city: "Divinópolis",
+            state: "MG",
+            ibgeCode: "3122306",
+          },
+          defaults: suggestedTaxDefaults("simples"),
+        },
+      })
+      .where(eq(suppliers.id, supplierId));
+    const content = "sku;titulo;custo;estoque;csosn_cst\nICMS-1;Camiseta;12,90;5;00";
+
+    const plan = await previewSupplierProductImport(
+      database,
+      supplierId,
+      parseProductCsv(content).rows,
+    );
+
+    await database
+      .update(suppliers)
+      .set({ fiscalProfile: null })
+      .where(eq(suppliers.id, supplierId));
+    expect(plan.created).toBe(0);
+    expect(plan.errors[0]?.reason).toContain("CSOSN");
+  });
+
+  it("takes a product off sale when the team erases its NCM", async () => {
+    const fiscal = {
+      ncm: "61091000",
+      origin: 0,
+      unit: "UN" as const,
+      cest: null,
+      netWeightGrams: null,
+      cfopInState: null,
+      cfopOutOfState: null,
+      icmsCode: null,
+      pisCofinsCst: null,
+    };
+    const created = await saveAdminSupplierProduct(database, {
+      supplierId,
+      ...productValues,
+      sku: "ADMIN-FISCAL-1",
+      fiscal,
+    });
+
+    const updated = await saveAdminSupplierProduct(database, {
+      supplierId,
+      ...productValues,
+      sku: "ADMIN-FISCAL-1",
+      productId: created.id,
+      fiscal: { ...fiscal, ncm: null },
+    });
+
+    await database.delete(supplierProducts).where(eq(supplierProducts.id, created.id));
+    expect(created.reviewStatus).toBe("approved");
+    expect(updated.reviewStatus).toBe("draft");
+  });
+
+  it("refuses a team-saved product whose own ICMS code does not fit the supplier's regime", async () => {
+    await database
+      .update(suppliers)
+      .set({
+        fiscalProfile: {
+          cnpj: "11222333000181",
+          legalName: "Fornecedor Teste Ltda",
+          stateRegistration: "ISENTO",
+          regime: "simples",
+          address: {
+            cep: "35500024",
+            street: "Rua Goiás",
+            number: "120",
+            complement: "",
+            neighborhood: "Centro",
+            city: "Divinópolis",
+            state: "MG",
+            ibgeCode: "3122306",
+          },
+          defaults: suggestedTaxDefaults("simples"),
+        },
+      })
+      .where(eq(suppliers.id, supplierId));
+
+    const refusal = await saveAdminSupplierProduct(database, {
+      supplierId,
+      ...productValues,
+      sku: "ADMIN-ICMS-1",
+      fiscal: {
+        ncm: "61091000",
+        origin: 0,
+        unit: "UN",
+        cest: null,
+        netWeightGrams: null,
+        cfopInState: null,
+        cfopOutOfState: null,
+        icmsCode: "00",
+        pisCofinsCst: null,
+      },
+    }).catch((error: unknown) => error);
+
+    await database
+      .update(suppliers)
+      .set({ fiscalProfile: null })
+      .where(eq(suppliers.id, supplierId));
+    expect(refusal).toMatchObject({ message: expect.stringContaining("CSOSN") });
   });
 
   it("previews and upserts by supplier/SKU while retaining ids and suggested prices", async () => {

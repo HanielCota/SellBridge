@@ -13,15 +13,18 @@ import { importSupplierProducts, saveAdminSupplier } from "./admin-suppliers.ts"
  */
 const database = createTestDatabase();
 const REVIEWED_AT = new Date("2026-10-16T12:00:00Z");
-const HEADER = "sku;titulo;custo;estoque;imagens;categoria";
+const HEADER = "sku;titulo;custo;estoque;imagens;categoria;ncm;origem;unidade";
+/** NF-e data every new product needs to go on sale (fiscal rule of 10/11/2026). */
+const FISCAL_CELLS = "6109.10.00;0;UN";
 const categorySlug = `importacao-revisao-${randomUUID().slice(0, 8)}`;
 let supplierId = "";
 
-async function importCsv(lines: readonly string[], reviewAt?: Date) {
+async function importCsv(lines: readonly string[], reviewAt?: Date, fiscalCells = FISCAL_CELLS) {
   return await importSupplierProducts(database, {
     supplierId,
-    rows: parseProductCsv([HEADER, ...lines.map((line) => `${line};${categorySlug}`)].join("\n"))
-      .rows,
+    rows: parseProductCsv(
+      [HEADER, ...lines.map((line) => `${line};${categorySlug};${fiscalCells}`)].join("\n"),
+    ).rows,
     validatePreview: () => undefined,
     ...(reviewAt === undefined ? {} : { reviewAt }),
   });
@@ -82,6 +85,40 @@ describe("supplier spreadsheet import review", () => {
     expect((await statusOf(sku))?.status).toBe("approved");
 
     await importCsv([`${sku};Bebedouro fonte gatos 2 litros;47,00;30;${image}`], REVIEWED_AT);
+    expect((await statusOf(sku))?.status).toBe("approved");
+  });
+
+  it("keeps a new product without NCM, origin and unit as a draft, in both imports", async () => {
+    const fromSupplier = `REV-NONCM-${randomUUID().slice(0, 6)}`;
+    const fromAdmin = `REV-NONCM-ADM-${randomUUID().slice(0, 6)}`;
+    const image = "https://imagens.test/coleira.jpg";
+
+    await importCsv(
+      [`${fromSupplier};Coleira refletiva para cães;12,50;40;${image}`],
+      REVIEWED_AT,
+      ";;",
+    );
+    await importCsv(
+      [`${fromAdmin};Coleira refletiva para cães;12,50;40;${image}`],
+      undefined,
+      ";;",
+    );
+
+    expect((await statusOf(fromSupplier))?.status).toBe("draft");
+    expect((await statusOf(fromAdmin))?.status).toBe("draft");
+  });
+
+  it("keeps an existing product on sale when its line brings no NCM", async () => {
+    const sku = `REV-OLD-${randomUUID().slice(0, 6)}`;
+    const image = "https://imagens.test/bebedouro.jpg";
+    await importCsv([`${sku};Bebedouro fonte para gatos;45,90;25;${image}`]);
+    await database
+      .update(supplierProducts)
+      .set({ fiscal: {}, fiscalRequired: false })
+      .where(eq(supplierProducts.sku, sku));
+
+    await importCsv([`${sku};Bebedouro fonte gatos 2 litros;47,00;30;${image}`], REVIEWED_AT, ";;");
+
     expect((await statusOf(sku))?.status).toBe("approved");
   });
 

@@ -93,7 +93,8 @@ export const IMPORT_COLUMNS: readonly ImportColumnGuide[] = [
     column: "gtin",
     label: "GTIN",
     required: false,
-    format: "Código de barras de 8, 12, 13 ou 14 dígitos, com dígito verificador certo",
+    format:
+      "Código de barras de 8, 12, 13 ou 14 dígitos, com dígito verificador certo, ou SEM GTIN",
     example: "7891234567895",
   },
   {
@@ -116,6 +117,70 @@ export const IMPORT_COLUMNS: readonly ImportColumnGuide[] = [
     format: `${label} da embalagem em cm, de 0,1 a 300, com até 1 casa decimal`,
     example,
   })),
+  {
+    column: "ncm",
+    label: "NCM",
+    required: false,
+    format:
+      "Código fiscal do produto, 8 números (com ou sem pontos), não pode ser 00000000. Produto novo só é publicado com NCM, origem e unidade",
+    example: "6402.99.90",
+  },
+  {
+    column: "origem",
+    label: "Origem",
+    required: false,
+    format: "Número de 0 a 8 da tabela da SEFAZ: 0 é nacional",
+    example: "0",
+  },
+  {
+    column: "unidade",
+    label: "Unidade",
+    required: false,
+    format: "UN, PAR, KIT, CX, PC, CJ, MT, KG ou LT",
+    example: "PAR",
+  },
+  {
+    column: "cest",
+    label: "CEST",
+    required: false,
+    format: "7 números, ou vazio se o produto não tiver",
+    example: "2806300",
+  },
+  {
+    column: "peso_liquido_g",
+    label: "Peso líquido",
+    required: false,
+    format: "Peso do produto sem embalagem em g, número inteiro de 1 a 100000",
+    example: "300",
+  },
+  {
+    column: "cfop_estado",
+    label: "CFOP dentro do estado",
+    required: false,
+    format: "Só se for diferente do padrão da marca: 4 números começando com 5",
+    example: "5102",
+  },
+  {
+    column: "cfop_fora",
+    label: "CFOP para outro estado",
+    required: false,
+    format: "Só se for diferente do padrão da marca: 4 números começando com 6",
+    example: "6102",
+  },
+  {
+    column: "csosn_cst",
+    label: "CSOSN/CST",
+    required: false,
+    format: "Só se for diferente do padrão da marca: CSOSN (como 102) ou CST de ICMS (como 00)",
+    example: "102",
+  },
+  {
+    column: "cst_pis_cofins",
+    label: "CST PIS/COFINS",
+    required: false,
+    format: "Só se for diferente do padrão da marca: 2 números",
+    example: "49",
+  },
 ];
 
 /** Exported files carry the reason for each failed row here; a re-import ignores it. */

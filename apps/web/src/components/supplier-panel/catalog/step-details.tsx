@@ -8,7 +8,12 @@ import {
   inputIdOf,
   type PanelFormValues,
 } from "@/features/supplier-panel/catalog/draft-form";
+import { NO_GTIN } from "@sellbridge/shared/product-fiscal";
+import type { SupplierTaxSetup } from "@sellbridge/shared/supplier-fiscal";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Label } from "@/components/ui/label";
 import { FieldReason, type ReasonsByField } from "./field-reason";
+import { FiscalFields } from "./fiscal-fields";
 
 /** Codes are typed as they are: no capital first letter, autocorrect or spell check. */
 const CODE_INPUT = {
@@ -69,13 +74,33 @@ function attributeList(values: PanelFormValues, required: readonly RequiredAttri
   });
 }
 
+/** For the NF-e, a product without a barcode carries "SEM GTIN" in its GTIN field. */
+function NoGtinCheckbox({ values, onChange }: Pick<StepProps, "values" | "onChange">) {
+  const checked = values.attributes.GTIN === NO_GTIN;
+  return (
+    <div className="flex min-h-11 items-center gap-3">
+      <Checkbox
+        id="panel-product-no-gtin"
+        checked={checked}
+        onCheckedChange={(next) =>
+          onChange({ attributes: { ...values.attributes, GTIN: next === true ? NO_GTIN : "" } })
+        }
+      />
+      <Label htmlFor="panel-product-no-gtin" className="font-normal">
+        Não tem código de barras (SEM GTIN)
+      </Label>
+    </div>
+  );
+}
+
 function AttributeFields({
   values,
   errors,
   reasons,
   onChange,
   required,
-}: StepProps & { required: readonly RequiredAttribute[] }) {
+  showFiscal,
+}: StepProps & { required: readonly RequiredAttribute[]; showFiscal: boolean }) {
   const requiredIds = new Set(required.map((attribute) => attribute.id));
   return (
     <fieldset className="grid gap-4 sm:grid-cols-2">
@@ -99,6 +124,9 @@ function AttributeFields({
                 : { ...CODE_INPUT, ...ATTRIBUTE_INPUTS[attribute.id] })}
             />
             <FieldReason field={field} reasons={reasons} />
+            {showFiscal && attribute.id === "GTIN" ? (
+              <NoGtinCheckbox values={values} onChange={onChange} />
+            ) : null}
           </div>
         );
       })}
@@ -106,8 +134,14 @@ function AttributeFields({
   );
 }
 
-export function StepDetails(props: StepProps & { required: readonly RequiredAttribute[] }) {
-  const { values, errors, reasons, onChange } = props;
+export function StepDetails(
+  props: StepProps & {
+    required: readonly RequiredAttribute[];
+    /** Set for a supplier's product (NF-e data); left out for a seller's own one. */
+    taxDefaults?: SupplierTaxSetup | null | undefined;
+  },
+) {
+  const { values, errors, reasons, onChange, taxDefaults } = props;
   return (
     <div className="grid gap-8">
       <div className="grid gap-4 sm:grid-cols-2">
@@ -145,7 +179,16 @@ export function StepDetails(props: StepProps & { required: readonly RequiredAttr
           <FieldReason field="description" reasons={reasons} />
         </div>
       </div>
-      <AttributeFields {...props} />
+      <AttributeFields {...props} showFiscal={taxDefaults !== undefined} />
+      {taxDefaults === undefined ? null : (
+        <FiscalFields
+          values={values}
+          errors={errors}
+          reasons={reasons}
+          onChange={onChange}
+          taxDefaults={taxDefaults}
+        />
+      )}
     </div>
   );
 }

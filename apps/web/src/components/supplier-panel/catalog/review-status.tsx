@@ -1,4 +1,5 @@
 import type { SupplierPanelProduct } from "@sellbridge/database/repositories";
+import { hasRequiredFiscalData, readProductFiscal } from "@sellbridge/shared/product-fiscal";
 import {
   PRODUCT_REVIEW_STATUS_LABELS,
   type ProductReviewStatus,
@@ -66,6 +67,20 @@ export function CompletenessBadge({ score, blocking }: { score: number; blocking
       >
         <span>{score}%</span>
         <span className="font-normal opacity-80">· {completenessLabel(score, blocking)}</span>
+      </span>
+    </HintedText>
+  );
+}
+
+/** A product whose NF-e cannot be issued yet: no NCM, origin or unit. It may still be on sale. */
+export function MissingFiscalBadge({ fiscal }: { fiscal: unknown }) {
+  if (hasRequiredFiscalData(readProductFiscal(fiscal))) {
+    return null;
+  }
+  return (
+    <HintedText label="Faltam NCM, origem ou unidade para emitir a nota fiscal. O produto continua à venda.">
+      <span className="inline-flex items-center rounded-full bg-amber-700 px-2.5 py-0.5 text-footnote font-semibold whitespace-nowrap text-white">
+        Falta NCM
       </span>
     </HintedText>
   );

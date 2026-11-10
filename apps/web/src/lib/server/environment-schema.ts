@@ -85,6 +85,9 @@ const serverEnvironmentShape = z.object({
   GOOGLE_CLIENT_SECRET: z.string().min(1).optional(),
   MERCADO_LIVRE_CLIENT_ID: z.string().optional(),
   MERCADO_LIVRE_CLIENT_SECRET: z.string().optional(),
+  /** Bling ERP app (supplier catalog import); the feature stays off until both are set. */
+  BLING_CLIENT_ID: z.string().min(1).optional(),
+  BLING_CLIENT_SECRET: z.string().min(1).optional(),
   /**
    * SellBridge's Mercado Pago marketplace application: suppliers link their accounts through it
    * and resellers pay them with the split. Paying suppliers here is off until all three are set.

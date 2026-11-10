@@ -1,4 +1,5 @@
 import type { AdminSupplier } from "@sellbridge/database/repositories";
+import { BrandFiscalCard } from "@/components/supplier-panel/brand/brand-fiscal-card";
 import { adminSaveSupplierSchema } from "@sellbridge/shared/schemas";
 import { useState, type FormEvent } from "react";
 import { TextField } from "@/components/form/form-field";
@@ -95,6 +96,11 @@ export function SupplierForm({ detail, onSaved }: SupplierFormProps) {
             onValueChange={(description) => setValues((current) => ({ ...current, description }))}
           />
           <SupplierContactFields
+            values={values}
+            errors={errors}
+            onChange={(change) => setValues((current) => ({ ...current, ...change }))}
+          />
+          <BrandFiscalCard
             values={values}
             errors={errors}
             onChange={(change) => setValues((current) => ({ ...current, ...change }))}

@@ -3,15 +3,48 @@ import { formatCentsForInput } from "@sellbridge/shared/money";
 import { parseCsvMoney } from "@sellbridge/shared/product-csv";
 import { SUPPLIER_SLA_DEFAULTS } from "@sellbridge/shared/schemas";
 import type { z } from "zod";
+import {
+  fiscalCandidate,
+  productFiscalFormValues,
+} from "@/features/supplier-panel/catalog/draft-form";
+import {
+  fiscalErrorField,
+  supplierFiscalFormValues,
+  fiscalProfileInput,
+  MISSING_IBGE_CODE_MESSAGE,
+  type SupplierFiscalFormValues,
+} from "./fiscal-form-values";
+
+/** A form field of the profile when the issue is inside `fiscalProfile`, else the top field. */
+function issueField(path: readonly PropertyKey[]): string {
+  if (path[0] === "fiscalProfile") {
+    return fiscalErrorField(path.slice(1));
+  }
+  if (path[0] === "fiscal") {
+    if (path[1] === undefined) {
+      throw new Error("A product fiscal issue has no field in its path");
+    }
+    return `fiscal.${String(path[1])}`;
+  }
+  return String(path[0] ?? "form");
+}
+
+function issueMessage(issue: z.core.$ZodIssue): string {
+  if (issue.path.join(".") === "fiscalProfile.address.ibgeCode") {
+    return MISSING_IBGE_CODE_MESSAGE;
+  }
+  return /^(Invalid|Too|Expected)\b/.test(issue.message)
+    ? "Valor inválido. Revise este campo."
+    : issue.message;
+}
 
 export function catalogFormErrors(error: z.ZodError): Record<string, string[]> {
   const errors: Record<string, string[]> = {};
   for (const issue of error.issues) {
-    const field = String(issue.path[0] ?? "form");
-    const message = /^(Invalid|Too|Expected)\b/.test(issue.message)
-      ? "Valor inválido. Revise este campo."
-      : issue.message;
-    errors[field] = [...(errors[field] ?? []), message];
+    const field = issueField(issue.path);
+    const messages = errors[field] ?? [];
+    messages.push(issueMessage(issue));
+    errors[field] = messages;
   }
   return errors;
 }
@@ -32,6 +65,7 @@ export function supplierFormValues(detail?: { supplier: AdminSupplier }) {
     dispatchWithinHours: String(
       supplier?.dispatchWithinHours ?? SUPPLIER_SLA_DEFAULTS.dispatchWithinHours,
     ),
+    ...supplierFiscalFormValues(supplier?.fiscalProfile ?? null),
   };
 }
 
@@ -43,7 +77,8 @@ function hoursInput(text: string): number | string {
 
 /** What the supplier form sends to `adminSaveSupplierSchema`. */
 export function supplierFormInput(
-  values: ReturnType<typeof supplierFormValues>,
+  values: Omit<ReturnType<typeof supplierFormValues>, keyof SupplierFiscalFormValues> &
+    SupplierFiscalFormValues,
   supplierId: string | undefined,
 ) {
   return {
@@ -53,6 +88,7 @@ export function supplierFormInput(
     contactEmail: values.contactEmail.trim() || null,
     acceptWithinHours: hoursInput(values.acceptWithinHours),
     dispatchWithinHours: hoursInput(values.dispatchWithinHours),
+    fiscalProfile: fiscalProfileInput(values),
   };
 }
 
@@ -70,6 +106,8 @@ export function productFormValues(product?: AdminSupplierProduct) {
     mercadoLivreAttributes: Object.entries(product?.mercadoLivreAttributes ?? {})
       .map(([id, value]) => `${id}=${value}`)
       .join("\n"),
+    // Kept whole, so the tax-code overrides the supplier set survive a team edit.
+    fiscal: productFiscalFormValues(product?.fiscal),
   };
 }
 
@@ -95,6 +133,7 @@ export function productFormInput(
       .split(/\r?\n/)
       .map((url) => url.trim())
       .filter(Boolean),
+    fiscal: fiscalCandidate(values.fiscal),
   };
 }
 
