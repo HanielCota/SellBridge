@@ -4,7 +4,8 @@ import { z } from "zod";
  * The calls that turn a parcel into an NF-e in the supplier's Bling: the recipient as a contact,
  * the sale order, the note generated from it and its sending to SEFAZ. Fields follow the official
  * OpenAPI (developer.bling.com.br): `POST /contatos`, `POST /pedidos/vendas`,
- * `POST /pedidos/vendas/{id}/gerar-nfe`, `GET /nfe/{id}`, `POST /nfe/{id}/enviar`.
+ * `GET /pedidos/vendas/{id}`, `POST /pedidos/vendas/{id}/gerar-nfe`, `GET /nfe/{id}`,
+ * `POST /nfe/{id}/enviar`.
  */
 
 /** Calls the API for one account with the client's limit, token and refresh. */
@@ -72,6 +73,9 @@ const NOT_ICMS_TAXPAYER = 9;
 
 const idResponseSchema = z.object({ data: z.object({ id: z.number().int() }) });
 const listedIdsSchema = z.object({ data: z.array(z.object({ id: z.number().int() })) });
+const saleOrderInvoiceSchema = z.object({
+  data: z.object({ notaFiscal: z.object({ id: z.number().int() }).nullish() }),
+});
 const generatedInvoiceSchema = z.object({ data: z.object({ idNotaFiscal: z.number().int() }) });
 const sentInvoiceSchema = z.object({ data: z.object({ xml: z.string().nullish() }).nullish() });
 
@@ -196,6 +200,16 @@ function saleOrderCalls(call: BlingCall) {
         schema: listedIdsSchema,
       });
       return response.data[0]?.id ?? null;
+    },
+
+    /** The NF-e already generated from this sale order, or null while it has none (id 0). */
+    async findSaleOrderInvoice(saleOrderId: number): Promise<number | null> {
+      const response = await call({
+        path: `/pedidos/vendas/${saleOrderId}`,
+        schema: saleOrderInvoiceSchema,
+      });
+      const invoiceId = response.data.notaFiscal?.id ?? 0;
+      return invoiceId > 0 ? invoiceId : null;
     },
 
     async createSaleOrder(order: BlingNewSaleOrder): Promise<number> {

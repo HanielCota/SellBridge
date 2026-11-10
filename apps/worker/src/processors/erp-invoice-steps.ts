@@ -228,7 +228,10 @@ async function ensureInvoice(
   }
   const contactId = await ensureContact(dependencies, work, plan.billing);
   const orderId = await ensureSaleOrder(dependencies, work, plan, contactId);
-  const invoiceId = await dependencies.client.generateInvoice(orderId);
+  const { client } = dependencies;
+  // A "gerar-nfe" whose answer was lost (timeout, restart) may have made the note already.
+  const invoiceId =
+    (await client.findSaleOrderInvoice(orderId)) ?? (await client.generateInvoice(orderId));
   await recordShipmentInvoiceProgress(dependencies.database, work.id, { erpInvoiceId: invoiceId });
   return invoiceId;
 }

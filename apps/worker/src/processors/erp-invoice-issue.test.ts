@@ -41,11 +41,14 @@ interface FakeBlingOptions {
   cfop?: string;
   /** Answers given once, before the normal one, keyed by "METHOD /path". */
   failOnce?: Record<string, Response>;
+  /** The first "gerar-nfe" makes the note, but its answer is lost (Bling times out). */
+  loseFirstGeneratedNote?: boolean;
 }
 
 /** A Bling account in SEFAZ homologation, faked over HTTP: no real call ever leaves the test. */
 function fakeBling(options: FakeBlingOptions) {
   let sent = false;
+  let generated = false;
   const failures = new Map(Object.entries(options.failOnce ?? {}));
   const routes: Record<string, () => Response> = {
     "GET /Api/v3/contatos": () => json(200, { data: [] }),
@@ -56,7 +59,15 @@ function fakeBling(options: FakeBlingOptions) {
         data: [{ id: 10, nome: "Chinelo", codigo: options.sku, formato: "S", situacao: "A" }],
       }),
     "POST /Api/v3/pedidos/vendas": () => json(201, { data: { id: 500 } }),
-    "POST /Api/v3/pedidos/vendas/500/gerar-nfe": () => json(201, { data: { idNotaFiscal: 900 } }),
+    "GET /Api/v3/pedidos/vendas/500": () =>
+      json(200, { data: { id: 500, notaFiscal: { id: generated ? 900 : 0 } } }),
+    "POST /Api/v3/pedidos/vendas/500/gerar-nfe": () => {
+      const answerLost = options.loseFirstGeneratedNote === true && !generated;
+      generated = true;
+      return answerLost
+        ? json(504, { error: { type: "SERVER_ERROR", message: "timeout" } })
+        : json(201, { data: { idNotaFiscal: 900 } });
+    },
     "GET /Api/v3/nfe/900": () =>
       json(200, {
         data: sent
@@ -213,6 +224,19 @@ describe("erp invoice issue", () => {
     expect(waiting).toMatchObject({ status: "queued", attempts: 1, erpContactId: 78 });
     expect((await invoiceOf(shipmentId))?.status).toBe("sent");
     expect(callsTo(bling, "POST /Api/v3/contatos")).toHaveLength(1);
+  });
+
+  it("reuses the note Bling already made when the answer to gerar-nfe was lost", async () => {
+    const { shipmentId, sku } = await scenario();
+    const bling = fakeBling({ sku, loseFirstGeneratedNote: true });
+
+    await processor(bling)();
+    const waiting = await invoiceOf(shipmentId);
+    await processor(bling, { now: minutesFromNow(3) })();
+
+    expect(waiting).toMatchObject({ status: "queued", erpOrderId: 500, erpInvoiceId: null });
+    expect(await invoiceOf(shipmentId)).toMatchObject({ status: "sent", erpInvoiceId: 900 });
+    expect(callsTo(bling, "POST /Api/v3/pedidos/vendas/500/gerar-nfe")).toHaveLength(1);
   });
 
   it("stops with the buyer's missing document in the supplier's words", async () => {
