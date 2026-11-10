@@ -2,8 +2,13 @@ import {
   listSupplierProductsForErpExport,
   type CatalogExportProduct,
 } from "@sellbridge/database/repositories";
-import { isRetryableError } from "@sellbridge/marketplaces";
-import type { BlingClient, BlingNewProduct } from "@sellbridge/marketplaces/bling";
+import { isMarketplaceAuthError, isRetryableError } from "@sellbridge/marketplaces";
+import {
+  BLING_RECONNECT_MESSAGE,
+  type BlingClient,
+  type BlingNewProduct,
+} from "@sellbridge/marketplaces/bling";
+import { hasErrorCode } from "@sellbridge/shared/errors";
 import { logger } from "@sellbridge/shared/logger";
 import { erpCatalogExportJobSchema } from "@sellbridge/shared/queues";
 import { supplierBlingClient, type ErpBlingDependencies } from "./erp-bling-client.ts";
@@ -72,6 +77,14 @@ async function skusInBling(client: BlingClient, skus: readonly string[]): Promis
  * Creates one product. A refusal for this product's data (400) is counted and the rest go on; a
  * passing failure or a lost connection stops the job, which BullMQ retries.
  */
+/** The account itself was refused (expired or revoked), not this product: every other one would fail too. */
+function isLostConnection(error: unknown): boolean {
+  if (isMarketplaceAuthError(error)) {
+    return true;
+  }
+  return hasErrorCode(error, "CONFLICT") && error.userMessage === BLING_RECONNECT_MESSAGE;
+}
+
 async function createOne(
   client: BlingClient,
   product: CatalogExportProduct,
@@ -80,7 +93,7 @@ async function createOne(
     await client.createProduct(toBlingNewProduct(product));
     return "created";
   } catch (error) {
-    if (isRetryableError(error)) {
+    if (isRetryableError(error) || isLostConnection(error)) {
       throw error;
     }
     logger.warn("erp.catalog_export_refused", { productId: product.id, error });
