@@ -96,6 +96,9 @@ export const shipmentPayments = pgTable(
     /** The fee rate the share was computed with, in basis points (500 = 5%). */
     platformFeeBasisPoints: integer().notNull(),
     preferenceId: text(),
+    /** The open checkout and until when it takes payments: a new click reuses it meanwhile. */
+    checkoutUrl: text(),
+    checkoutExpiresAt: timestamp({ withTimezone: true }),
     providerPaymentId: text(),
     /** The provider's payment type (`pix`, `credit_card`...), once a payment exists. */
     paymentMethod: text(),

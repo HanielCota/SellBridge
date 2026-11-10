@@ -143,6 +143,9 @@ export async function refreshMercadoPagoTokens(
   return tokensFrom(payload, "/oauth/token");
 }
 
+/** How long a checkout takes payments, Pix included: a later click opens a new one. */
+export const CHECKOUT_TTL_IN_MS = 30 * 60 * 1000;
+
 export interface CheckoutRequest {
   title: string;
   amountCents: number;
@@ -152,6 +155,8 @@ export interface CheckoutRequest {
   returnUrl: string;
   /** Where Mercado Pago posts the payment notices; it must be HTTPS. */
   notificationUrl: string | null;
+  /** Until when the checkout and its Pix code take payments. */
+  expiresAt: Date;
 }
 
 const preferenceResponseSchema = z.object({
@@ -198,6 +203,10 @@ export async function createMercadoPagoCheckout(
       excluded_payment_types: [{ id: "ticket" }, { id: "atm" }],
       installments: 1,
     },
+    expires: true,
+    expiration_date_from: new Date().toISOString(),
+    expiration_date_to: checkout.expiresAt.toISOString(),
+    date_of_expiration: checkout.expiresAt.toISOString(),
   };
   const payload = await callMercadoPago(settings, {
     path: "/checkout/preferences",
@@ -211,7 +220,22 @@ export async function createMercadoPagoCheckout(
   }
   const testUrl = parsed.data.sandbox_init_point;
   const checkoutUrl = settings.testMode && testUrl !== undefined ? testUrl : parsed.data.init_point;
+  if (!isMercadoPagoCheckoutUrl(checkoutUrl, settings)) {
+    throw new MercadoPagoError("Checkout address outside Mercado Pago", null);
+  }
   return { preferenceId: parsed.data.id, checkoutUrl };
+}
+
+/**
+ * The browser is sent to this address: only Mercado Pago's own HTTPS hosts, or the host the API
+ * itself is on (the browser tests' local stand-in; production pins the official API host).
+ */
+export function isMercadoPagoCheckoutUrl(address: string, settings: MercadoPagoSettings): boolean {
+  const url = new URL(address);
+  if (url.origin === new URL(settings.apiUrl).origin) {
+    return true;
+  }
+  return url.protocol === "https:" && /(^|\.)mercadopago\.com(\.br)?$/.test(url.hostname);
 }
 
 const paymentResponseSchema = z.object({
@@ -221,6 +245,11 @@ const paymentResponseSchema = z.object({
   date_approved: z.string().nullable().optional(),
   transaction_amount: z.number(),
   payment_type_id: z.string().nullable().optional(),
+  currency_id: z.string().nullable().optional(),
+  collector_id: z
+    .union([z.number().int(), z.string().min(1)])
+    .nullable()
+    .optional(),
 });
 
 export interface MercadoPagoPayment {
@@ -230,6 +259,9 @@ export interface MercadoPagoPayment {
   approvedAt: Date | null;
   amountCents: number;
   paymentMethod: string | null;
+  currency: string | null;
+  /** The Mercado Pago account the money went to. */
+  collectorId: string | null;
 }
 
 function dateOrNull(value: string | null | undefined): Date | null {
@@ -265,5 +297,7 @@ export async function getMercadoPagoPayment(
     approvedAt: dateOrNull(parsed.data.date_approved),
     amountCents: Math.round(parsed.data.transaction_amount * 100),
     paymentMethod: parsed.data.payment_type_id ?? null,
+    currency: parsed.data.currency_id ?? null,
+    collectorId: parsed.data.collector_id == null ? null : String(parsed.data.collector_id),
   };
 }

@@ -58,6 +58,11 @@ export async function handleMercadoPagoWebhook(request: Request): Promise<Respon
   if (!notice.success) {
     return reply(400, { error: "notificação inválida" });
   }
+  // The signature covers the address's data.id only: the body must name the same payment.
+  if (queryDataId !== null && queryDataId !== String(notice.data.data.id)) {
+    logger.warn("mercado_pago.webhook_rejected", { reason: "data_id_mismatch" });
+    return reply(400, { error: "notificação inválida" });
+  }
   if (notice.data.type !== "payment") {
     return reply(200, { status: "ignorada" });
   }

@@ -17,6 +17,7 @@ import {
   consumePaymentOAuthState,
   createPaymentOAuthState,
   disconnectSupplierPaymentAccount,
+  openCheckoutUrl,
   findPayableShipment,
   findPaymentAccountsByProviderAccount,
   getPaymentFeeSetting,
@@ -233,8 +234,8 @@ describe("shipment payment", () => {
       approvedAt: new Date("2026-11-11T09:00:00.000Z"),
     });
 
-    expect(repeated?.status).toBe("approved");
-    expect(repeated?.paidAt?.toISOString()).toBe(approvedAt.toISOString());
+    expect(repeated?.payment.status).toBe("approved");
+    expect(repeated?.payment.paidAt?.toISOString()).toBe(approvedAt.toISOString());
   });
 
   it("does not turn a paid parcel back to pending on a late notice", async () => {
@@ -256,7 +257,7 @@ describe("shipment payment", () => {
       approvedAt: null,
     });
 
-    expect(late?.status).toBe("approved");
+    expect(late?.payment.status).toBe("approved");
   });
 
   it("does not start a new checkout for a paid parcel", async () => {
@@ -297,6 +298,105 @@ describe("shipment payment", () => {
 
     expect(again.id).toBe(payment.id);
     expect(again.status).toBe("pending");
+  });
+});
+
+function approve(paymentId: string, providerPaymentId: string) {
+  return applyProviderPayment(database, {
+    paymentId,
+    providerPaymentId,
+    status: "approved",
+    paymentMethod: "pix",
+    approvedAt: new Date(),
+  });
+}
+
+describe("a second payment for the same parcel", () => {
+  it("does not start a new checkout while a payment is under review", async () => {
+    const shipmentId = await forwardedShipmentId();
+    const payment = await startPayment(shipmentId);
+    await applyProviderPayment(database, {
+      paymentId: payment.id,
+      providerPaymentId: "p-5",
+      status: "in_process",
+      paymentMethod: "credit_card",
+      approvedAt: null,
+    });
+
+    const again = await startShipmentPayment(database, {
+      shipmentId,
+      supplierId: supplier.supplierId,
+      provider: "mercado_pago",
+      amountCents: 5990,
+      platformFeeCents: 0,
+      platformFeeBasisPoints: 0,
+    });
+
+    expect(again).toBeNull();
+  });
+
+  it("reports a second approval as a duplicate and keeps the first payment", async () => {
+    const payment = await startPayment(await forwardedShipmentId());
+    await approve(payment.id, "p-6");
+
+    const second = await approve(payment.id, "p-7");
+
+    expect(second?.kind).toBe("duplicate");
+    expect(second?.payment.providerPaymentId).toBe("p-6");
+  });
+
+  it("does not let the refund of another payment undo the paid one", async () => {
+    const payment = await startPayment(await forwardedShipmentId());
+    await approve(payment.id, "p-8");
+
+    const refund = await applyProviderPayment(database, {
+      paymentId: payment.id,
+      providerPaymentId: "p-9",
+      status: "refunded",
+      paymentMethod: "pix",
+      approvedAt: null,
+    });
+
+    expect(refund?.kind).toBe("unchanged");
+    expect(refund?.payment.status).toBe("approved");
+  });
+
+  it("lets another approved attempt settle a rejected one", async () => {
+    const payment = await startPayment(await forwardedShipmentId());
+    await applyProviderPayment(database, {
+      paymentId: payment.id,
+      providerPaymentId: "p-10",
+      status: "rejected",
+      paymentMethod: "credit_card",
+      approvedAt: null,
+    });
+
+    const approved = await approve(payment.id, "p-11");
+
+    expect(approved?.kind).toBe("applied");
+    expect(approved?.payment.providerPaymentId).toBe("p-11");
+  });
+});
+
+describe("openCheckoutUrl", () => {
+  const now = new Date("2026-11-10T17:00:00.000Z");
+  const open = {
+    status: "pending" as const,
+    checkoutUrl: "https://www.mercadopago.com.br/checkout/v1/redirect?pref_id=1",
+    checkoutExpiresAt: new Date("2026-11-10T17:20:00.000Z"),
+  };
+
+  it("reuses a pending checkout that still takes payments", async () => {
+    const payment = await startPayment(await forwardedShipmentId());
+
+    expect(openCheckoutUrl({ ...payment, ...open }, now)).toBe(open.checkoutUrl);
+  });
+
+  it("opens a new checkout once the old one expired", async () => {
+    const payment = await startPayment(await forwardedShipmentId());
+    const expired = { ...payment, ...open, checkoutExpiresAt: new Date("2026-11-10T16:59:00Z") };
+
+    expect(openCheckoutUrl(expired, now)).toBeNull();
   });
 });
 

@@ -26,6 +26,8 @@ CREATE TABLE "shipment_payments" (
 	"platform_fee_cents" integer NOT NULL,
 	"platform_fee_basis_points" integer NOT NULL,
 	"preference_id" text,
+	"checkout_url" text,
+	"checkout_expires_at" timestamp with time zone,
 	"provider_payment_id" text,
 	"payment_method" text,
 	"paid_at" timestamp with time zone,

@@ -41,6 +41,7 @@ const PAYMENT_ROW_ID = "0b8f7a6e-1c2d-4e3f-8a9b-7c6d5e4f3a21";
 const account = {
   id: "account-1",
   supplierId: SUPPLIER_ID,
+  providerAccountId: "112233",
   status: "connected",
   accessTokenEnc: "enc:seller-token",
   refreshTokenEnc: "enc:refresh",
@@ -48,13 +49,15 @@ const account = {
 };
 const localPayment = { id: PAYMENT_ROW_ID, supplierId: SUPPLIER_ID, amountCents: 5990 };
 
-function notice(input: { dataId?: string; type?: string; secret?: string } = {}): Request {
+function notice(
+  input: { dataId?: string; bodyDataId?: string; type?: string; secret?: string } = {},
+): Request {
   const dataId = input.dataId ?? "987654321";
   const body = JSON.stringify({
     type: input.type ?? "payment",
     action: "payment.updated",
     user_id: 112233,
-    data: { id: dataId },
+    data: { id: input.bodyDataId ?? dataId },
   });
   const signature = mercadoPagoSignatureFor({
     secret: input.secret ?? "signature-secret",
@@ -81,6 +84,8 @@ function remotePayment(overrides: Record<string, unknown> = {}) {
       date_approved: "2026-11-10T14:32:00.000-03:00",
       transaction_amount: 59.9,
       payment_type_id: "bank_transfer",
+      currency_id: "BRL",
+      collector_id: 112233,
       ...overrides,
     }),
     { status: 200 },
@@ -93,7 +98,10 @@ beforeEach(() => {
   vi.stubGlobal("fetch", fetchMock);
   mocks.findAccounts.mockResolvedValue([account]);
   mocks.findPayment.mockResolvedValue(localPayment);
-  mocks.apply.mockResolvedValue({ ...localPayment, status: "approved" });
+  mocks.apply.mockResolvedValue({
+    kind: "applied",
+    payment: { ...localPayment, status: "approved" },
+  });
 });
 
 afterEach(() => {
@@ -158,6 +166,21 @@ describe("handleMercadoPagoWebhook", () => {
 
     expect(response.status).toBe(200);
     expect(mocks.findPayment).not.toHaveBeenCalled();
+  });
+
+  it("does not mark paid a payment that went to another Mercado Pago account", async () => {
+    fetchMock.mockResolvedValue(remotePayment({ collector_id: 999 }));
+
+    await handleMercadoPagoWebhook(notice());
+
+    expect(mocks.apply).not.toHaveBeenCalled();
+  });
+
+  it("refuses a signed address whose body names another payment", async () => {
+    const response = await handleMercadoPagoWebhook(notice({ bodyDataId: "111" }));
+
+    expect(response.status).toBe(400);
+    expect(fetchMock).not.toHaveBeenCalled();
   });
 
   it("answers 500 when Mercado Pago fails, so the notice comes again", async () => {

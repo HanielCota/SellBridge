@@ -368,6 +368,8 @@ export async function startShipmentPayment(
     platformFeeCents: input.platformFeeCents,
     platformFeeBasisPoints: input.platformFeeBasisPoints,
     preferenceId: null,
+    checkoutUrl: null,
+    checkoutExpiresAt: null,
     providerPaymentId: null,
     paymentMethod: null,
     paidAt: null,
@@ -384,23 +386,54 @@ export async function startShipmentPayment(
   return row ?? null;
 }
 
-/** Statuses a new checkout may not overwrite: the money moved (or came back) already. */
-const LOCKED_STATUSES: ShipmentPaymentStatus[] = ["approved", "refunded", "charged_back"];
+/**
+ * Statuses a new checkout may not overwrite: the money moved (or came back) already, or a
+ * payment is under review and a second one would charge the reseller twice.
+ */
+const LOCKED_STATUSES: ShipmentPaymentStatus[] = [
+  "in_process",
+  "approved",
+  "refunded",
+  "charged_back",
+];
 
 export async function savePaymentPreference(
   database: Database,
-  input: { paymentId: string; preferenceId: string },
+  input: { paymentId: string; preferenceId: string; checkoutUrl: string; checkoutExpiresAt: Date },
 ): Promise<void> {
   await database
     .update(shipmentPayments)
-    .set({ preferenceId: input.preferenceId })
+    .set({
+      preferenceId: input.preferenceId,
+      checkoutUrl: input.checkoutUrl,
+      checkoutExpiresAt: input.checkoutExpiresAt,
+    })
     .where(eq(shipmentPayments.id, input.paymentId));
 }
+
+/** The parcel's checkout still taking payments, to send a second click to the same one. */
+export function openCheckoutUrl(payment: ShipmentPayment | null, now: Date): string | null {
+  if (payment?.status !== "pending" || payment.checkoutUrl === null) {
+    return null;
+  }
+  if (payment.checkoutExpiresAt === null || payment.checkoutExpiresAt <= now) {
+    return null;
+  }
+  return payment.checkoutUrl;
+}
+
+/** What a provider notice did to the parcel's payment. */
+export type ProviderPaymentOutcome =
+  | { kind: "applied"; payment: ShipmentPayment }
+  | { kind: "unchanged"; payment: ShipmentPayment }
+  | { kind: "duplicate"; payment: ShipmentPayment };
 
 /**
  * Records what the provider says about the payment. Repeated or late notices are harmless: the
  * row changes only when the status does, a paid parcel never goes back to pending or rejected,
- * and the first approval's date is kept.
+ * and the first approval's date is kept. Once a payment is attached, another payment only takes
+ * its place by being approved; a second approval of a paid parcel is a duplicate charge, reported
+ * and never recorded over the first.
  */
 export async function applyProviderPayment(
   database: Database,
@@ -411,13 +444,22 @@ export async function applyProviderPayment(
     paymentMethod: string | null;
     approvedAt: Date | null;
   },
-): Promise<ShipmentPayment | null> {
+): Promise<ProviderPaymentOutcome | null> {
   const current = await findShipmentPaymentById(database, input.paymentId);
   if (current === null) {
     return null;
   }
+  const attached = current.providerPaymentId;
+  if (attached !== null && attached !== input.providerPaymentId) {
+    if (input.status === "approved" && current.status === "approved") {
+      return { kind: "duplicate", payment: current };
+    }
+    if (input.status !== "approved") {
+      return { kind: "unchanged", payment: current };
+    }
+  }
   if (!isAllowedTransition(current.status, input.status)) {
-    return current;
+    return { kind: "unchanged", payment: current };
   }
   const paidAt =
     input.status === "approved" ? (current.paidAt ?? input.approvedAt) : current.paidAt;
@@ -433,7 +475,12 @@ export async function applyProviderPayment(
       and(eq(shipmentPayments.id, input.paymentId), eq(shipmentPayments.status, current.status)),
     )
     .returning();
-  return row ?? (await findShipmentPaymentById(database, input.paymentId));
+  if (row === undefined) {
+    // A parallel notice changed the row first: report what it holds now.
+    const latest = await findShipmentPaymentById(database, input.paymentId);
+    return latest === null ? null : { kind: "unchanged", payment: latest };
+  }
+  return { kind: "applied", payment: row };
 }
 
 function isAllowedTransition(from: ShipmentPaymentStatus, to: ShipmentPaymentStatus): boolean {

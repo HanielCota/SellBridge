@@ -16,6 +16,7 @@ import {
   getMercadoPagoPayment,
   isMercadoPagoError,
   refreshMercadoPagoTokens,
+  type MercadoPagoPayment,
 } from "./mercado-pago-client.server";
 import { mercadoPagoSettingsFrom, type MercadoPagoSettings } from "./mercado-pago-connection";
 
@@ -102,15 +103,35 @@ export type PaymentSyncResult =
 
 const externalReferenceSchema = z.uuid();
 
+/** Why a payment read back from Mercado Pago does not settle this parcel, or null when it does. */
+function mismatchReason(
+  remote: MercadoPagoPayment,
+  local: ShipmentPayment,
+  account: SupplierPaymentAccount,
+): string | null {
+  if (remote.collectorId !== null && remote.collectorId !== account.providerAccountId) {
+    return "other_collector";
+  }
+  if (remote.currency !== null && remote.currency !== "BRL") {
+    return "other_currency";
+  }
+  if (remote.amountCents !== local.amountCents) {
+    return "amount_mismatch";
+  }
+  return null;
+}
+
 /**
  * Reads the payment from Mercado Pago with the supplier's token and records its status on the
- * parcel it was made for. The payment must name one of this supplier's parcels and match its
- * amount; anything else is ignored, never applied.
+ * parcel it was made for. The payment must name one of this supplier's parcels (the expected one,
+ * when the caller knows it), be paid to the linked account in reais and match the amount;
+ * anything else is ignored, never applied.
  */
 export async function syncMercadoPagoPayment(input: {
   settings: MercadoPagoSettings;
   account: SupplierPaymentAccount;
   providerPaymentId: string;
+  expectedPaymentId?: string;
 }): Promise<PaymentSyncResult> {
   const accessToken = await supplierAccessToken(input.settings, input.account);
   const remote = await getMercadoPagoPayment(input.settings, {
@@ -121,31 +142,39 @@ export async function syncMercadoPagoPayment(input: {
   if (!reference.success) {
     return { kind: "ignored", reason: "foreign_reference" };
   }
+  if (input.expectedPaymentId !== undefined && reference.data !== input.expectedPaymentId) {
+    return { kind: "ignored", reason: "other_parcel" };
+  }
   const local = await findShipmentPaymentById(database, reference.data);
   if (local === null || local.supplierId !== input.account.supplierId) {
     return { kind: "ignored", reason: "unknown_payment" };
   }
-  if (remote.amountCents !== local.amountCents) {
-    logger.warn("mercado_pago.amount_mismatch", {
-      shipmentPaymentId: local.id,
-      expectedCents: local.amountCents,
-      receivedCents: remote.amountCents,
-    });
-    return { kind: "ignored", reason: "amount_mismatch" };
+  const mismatch = mismatchReason(remote, local, input.account);
+  if (mismatch !== null) {
+    logger.warn("mercado_pago.payment_mismatch", { shipmentPaymentId: local.id, reason: mismatch });
+    return { kind: "ignored", reason: mismatch };
   }
-  const applied = await applyProviderPayment(database, {
+  const outcome = await applyProviderPayment(database, {
     paymentId: local.id,
     providerPaymentId: remote.id,
     status: shipmentPaymentStatusFrom(remote.status),
     paymentMethod: remote.paymentMethod,
     approvedAt: remote.approvedAt,
   });
-  if (applied === null) {
+  if (outcome === null) {
     return { kind: "ignored", reason: "unknown_payment" };
   }
+  if (outcome.kind === "duplicate") {
+    // Two approved payments for one parcel: the reseller paid twice and must be refunded by hand.
+    logger.error("mercado_pago.duplicate_payment", {
+      shipmentPaymentId: local.id,
+      providerPaymentId: remote.id,
+    });
+  }
   logger.info("mercado_pago.payment_synced", {
-    shipmentPaymentId: applied.id,
-    status: applied.status,
+    shipmentPaymentId: outcome.payment.id,
+    status: outcome.payment.status,
+    outcome: outcome.kind,
   });
-  return { kind: "applied", payment: applied };
+  return { kind: "applied", payment: outcome.payment };
 }

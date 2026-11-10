@@ -4,6 +4,7 @@ import {
   findSupplierPaymentAccount,
   getPaymentFeeSetting,
   listShipmentPaymentSummaries,
+  openCheckoutUrl,
   listSuppliersReceivingPayments,
   savePaymentPreference,
   setPaymentFeeSetting,
@@ -29,7 +30,7 @@ import {
   supplierAccessToken,
   syncMercadoPagoPayment,
 } from "./mercado-pago-accounts.server";
-import { createMercadoPagoCheckout } from "./mercado-pago-client.server";
+import { CHECKOUT_TTL_IN_MS, createMercadoPagoCheckout } from "./mercado-pago-client.server";
 import {
   paymentAccountOwnerRefusal,
   type MercadoPagoSettings,
@@ -114,6 +115,9 @@ function checkoutRefusal(payable: PayableShipment, linked: boolean): string | nu
   }
   if (SETTLED_FULFILLMENT_STATUSES.includes(payable.status)) {
     return "Este envio já foi encerrado: não dá mais para pagar por aqui.";
+  }
+  if (payable.payment?.status === "in_process") {
+    return "O pagamento está em análise no Mercado Pago. Assim que ele confirmar, aparece aqui.";
   }
   if (payable.amountCents <= 0) {
     return "Este pedido não tem o valor do fornecedor. Combine o pagamento com ele por fora.";
@@ -215,6 +219,10 @@ export async function startSupplierCheckout(input: {
     throw validationError("O pagamento pelo Mercado Pago ainda não está disponível.");
   }
   const { payable, account } = await payableWithAccount(input);
+  const open = openCheckoutUrl(payable.payment, new Date());
+  if (open !== null) {
+    return { checkoutUrl: open };
+  }
   const feeBasisPoints = (await getPaymentFeeSetting(database)).basisPoints ?? 0;
   const payment = await startShipmentPayment(database, {
     shipmentId: payable.shipmentId,
@@ -227,6 +235,7 @@ export async function startSupplierCheckout(input: {
   if (payment === null) {
     throw validationError("Este fornecedor já foi pago por este pedido.");
   }
+  const expiresAt = new Date(Date.now() + CHECKOUT_TTL_IN_MS);
   const checkout = await createMercadoPagoCheckout(settings, {
     accessToken: await checkoutAccessToken(settings, account),
     checkout: {
@@ -236,11 +245,14 @@ export async function startSupplierCheckout(input: {
       externalReference: payment.id,
       returnUrl: orderPageUrl(payable.orderId, payable.shipmentId),
       notificationUrl: mercadoPagoNotificationUrl(),
+      expiresAt,
     },
   });
   await savePaymentPreference(database, {
     paymentId: payment.id,
     preferenceId: checkout.preferenceId,
+    checkoutUrl: checkout.checkoutUrl,
+    checkoutExpiresAt: expiresAt,
   });
   logger.info("mercado_pago.checkout_started", {
     shipmentPaymentId: payment.id,
@@ -276,6 +288,7 @@ export async function confirmSupplierPaymentReturn(input: {
       settings,
       account,
       providerPaymentId: input.providerPaymentId,
+      expectedPaymentId: payable.payment.id,
     });
     if (result.kind === "ignored") {
       logger.warn("mercado_pago.return_ignored", { reason: result.reason });
