@@ -18,7 +18,11 @@ import type { z } from "zod";
 import { database } from "@/lib/server/database";
 import { writeShipmentUpdate } from "@/features/fulfillment/shipments.server";
 import { acceptEachShipment, acceptRefusal, type BatchAcceptReport } from "./batch-accept";
-import { conflictError } from "@sellbridge/shared/errors";
+import { conflictError, forbiddenError } from "@sellbridge/shared/errors";
+import {
+  erpOwnerActionRefusal,
+  type ErpActor,
+} from "@/features/supplier-panel/bling/bling-connection";
 
 /*
  * The supplier panel's Pedidos: every read and write is scoped to the `supplierId` passed in,
@@ -49,9 +53,23 @@ export async function loadSupplierShipment(input: { supplierId: string; shipment
   return await getSupplierPanelShipment(database, input);
 }
 
-/** Sends a stopped NF-e back to the job, after the supplier fixed what its problem said. */
-export async function retrySupplierInvoice(input: { supplierId: string; shipmentId: string }) {
-  await retrySupplierShipmentInvoice(database, input);
+/**
+ * Sends a stopped NF-e back to the job, after the supplier fixed what its problem said. Only the
+ * supplier itself, like turning emission on: a note is the supplier's own fiscal act.
+ */
+export async function retrySupplierInvoice(input: {
+  supplierId: string;
+  shipmentId: string;
+  actor: ErpActor;
+}) {
+  const refusal = erpOwnerActionRefusal(input.actor);
+  if (refusal !== null) {
+    throw forbiddenError(refusal);
+  }
+  await retrySupplierShipmentInvoice(database, {
+    supplierId: input.supplierId,
+    shipmentId: input.shipmentId,
+  });
 }
 
 type ShipmentUpdate = z.infer<typeof shipmentUpdateSchema>;

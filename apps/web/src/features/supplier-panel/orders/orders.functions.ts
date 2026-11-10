@@ -53,7 +53,13 @@ export const updateSupplierPanelShipmentFn = createServerFn({ method: "POST" })
 export const retrySupplierInvoiceFn = createServerFn({ method: "POST" })
   .middleware([supplierPanelMiddleware])
   .validator(supplierShipmentDetailSchema)
-  .handler(async ({ data }) => await retrySupplierInvoice(data));
+  .handler(
+    async ({ data, context }) =>
+      await retrySupplierInvoice({
+        ...data,
+        actor: { viewerKind: context.viewer.kind, impersonatedBy: context.impersonatedBy },
+      }),
+  );
 
 export const acceptSupplierShipmentsFn = createServerFn({ method: "POST" })
   .middleware([supplierPanelMiddleware])
