@@ -1,4 +1,5 @@
 import type { AdminSupplierProduct } from "@sellbridge/database/repositories";
+import { ProductFiscalFields } from "@/components/admin-suppliers/product-fiscal-fields";
 import { adminSaveProductSchema } from "@sellbridge/shared/schemas";
 import { useState, type FormEvent } from "react";
 import { TextField } from "@/components/form/form-field";
@@ -151,6 +152,8 @@ export function ProductForm({ supplierId, product, categories, onClose }: Produc
   const [values, setValues] = useState(() => productFormValues(product));
   const [errors, setErrors] = useState<Record<string, string[]>>({});
   const save = useCatalogAction(adminSaveProduct, "Produto salvo", onClose);
+  const change = (next: Partial<typeof values>) =>
+    setValues((current) => ({ ...current, ...next }));
   function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     const parsed = adminSaveProductSchema.safeParse(productFormInput(values, supplierId, product));
@@ -166,23 +169,19 @@ export function ProductForm({ supplierId, product, categories, onClose }: Produc
     >
       <form noValidate onSubmit={submit}>
         <fieldset disabled={save.isPending} className="grid gap-4">
-          <ProductTextFields
-            values={values}
-            errors={errors}
-            onChange={(change) => setValues((current) => ({ ...current, ...change }))}
-          />
+          <ProductTextFields values={values} errors={errors} onChange={change} />
           <TextareaField
             id="product-description"
             label="Descrição"
             value={values.description}
             maxLength={20_000}
             errors={errors.description ?? []}
-            onValueChange={(description) => setValues((current) => ({ ...current, description }))}
+            onValueChange={(description) => change({ description })}
           />
           <CategoryField
             categories={categories}
             value={values.categoryId}
-            onChange={(categoryId) => setValues((current) => ({ ...current, categoryId }))}
+            onChange={(categoryId) => change({ categoryId })}
           />
           <TextareaField
             id="product-images"
@@ -190,14 +189,17 @@ export function ProductForm({ supplierId, product, categories, onClose }: Produc
             {...CODE_INPUT}
             value={values.images}
             errors={errors.imageUrls ?? []}
-            onValueChange={(images) => setValues((current) => ({ ...current, images }))}
+            onValueChange={(images) => change({ images })}
+          />
+          <ProductFiscalFields
+            values={values.fiscal}
+            errors={errors}
+            onChange={(fiscal) => change({ fiscal })}
           />
           <MercadoLivreAttributesField
             value={values.mercadoLivreAttributes}
             errors={errors.mercadoLivreAttributes ?? []}
-            onChange={(mercadoLivreAttributes) =>
-              setValues((current) => ({ ...current, mercadoLivreAttributes }))
-            }
+            onChange={(mercadoLivreAttributes) => change({ mercadoLivreAttributes })}
           />
           <FormErrorAlert message={save.isError ? errorMessage(save.error) : null} />
           <ProductFormActions isPending={save.isPending} onClose={onClose} />

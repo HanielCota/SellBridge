@@ -1,6 +1,7 @@
 import type { SupplierBrand } from "@sellbridge/database/repositories";
 import { FormErrorAlert, PendingSubmitButton } from "@/components/form/form-feedback";
 import { SectionCard } from "@/components/layout/section-card";
+import { BrandFiscalCard } from "@/components/supplier-panel/brand/brand-fiscal-card";
 import { BrandIdentityFields } from "@/components/supplier-panel/brand/brand-identity-fields";
 import { BrandOrdersCard } from "@/components/supplier-panel/brand/brand-orders-card";
 import { BrandPublicCard } from "@/components/supplier-panel/brand/brand-public-card";
@@ -69,6 +70,7 @@ export function BrandForm({ brand, loginEmail, categoryNames, onSaved }: BrandFo
           onChange={form.change}
         />
         <BrandOrdersCard values={form.values} errors={form.errors} onChange={form.change} />
+        <BrandFiscalCard values={form.values} errors={form.errors} onChange={form.change} />
       </fieldset>
       <FormErrorAlert message={form.failure} />
       {form.isDirty ? <BrandSaveBar isPending={form.isPending} onDiscard={form.discard} /> : null}

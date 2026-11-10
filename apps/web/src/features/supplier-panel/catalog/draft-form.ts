@@ -100,7 +100,8 @@ export const EMPTY_FISCAL_FORM_VALUES: FiscalFormValues = {
   pisCofinsCst: "",
 };
 
-function fiscalFormValues(stored: unknown): FiscalFormValues {
+/** A product's stored NF-e data as the form fields show it. */
+export function fiscalFormValues(stored: unknown): FiscalFormValues {
   const fiscal = readProductFiscal(stored);
   return {
     ncm: fiscal.ncm === null ? "" : formatNcm(fiscal.ncm),
@@ -133,7 +134,7 @@ function numberOrNull(value: string): number | null {
 }
 
 /** What the fields hold as the product stores it: blanks are null, numbers are numbers. */
-function fiscalCandidate(values: FiscalFormValues) {
+export function fiscalCandidate(values: FiscalFormValues) {
   return {
     ncm: textOrNull(values.ncm),
     origin: numberOrNull(values.origin),
