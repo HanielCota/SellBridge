@@ -28,6 +28,11 @@ const billingInfoSchema = z.object({
       identification: z
         .object({ type: z.string().nullish(), number: z.string().nullish() })
         .nullish(),
+      taxes: z
+        .object({
+          inscriptions: z.object({ state_registration: z.string().nullish() }).nullish(),
+        })
+        .nullish(),
     }),
   }),
 });
@@ -38,6 +43,8 @@ export interface BuyerBilling {
   readonly document: string;
   /** The name on the billing data; null when the marketplace sent none. */
   readonly name: string | null;
+  /** A company's state registration (digits); null for a person or a company without one. */
+  readonly stateRegistration: string | null;
 }
 
 const DOCUMENT_LENGTHS = { CPF: 11, CNPJ: 14 } as const;
@@ -49,6 +56,14 @@ function fullName(first: string | null | undefined, last: string | null | undefi
     .filter((part) => part !== "")
     .join(" ");
   return name === "" ? null : name;
+}
+
+/** "ISENTO", blank or no digits all mean the company is not an ICMS taxpayer. */
+function stateRegistration(
+  billing: z.infer<typeof billingInfoSchema>["buyer"]["billing_info"],
+): string | null {
+  const digits = (billing.taxes?.inscriptions?.state_registration ?? "").replace(/\D/g, "");
+  return digits === "" ? null : digits;
 }
 
 /** The CPF or CNPJ with the right number of digits, or null for anything else. */
@@ -63,7 +78,12 @@ export function toBuyerBilling(
   if (digits.length !== DOCUMENT_LENGTHS[type]) {
     return null;
   }
-  return { documentType: type, document: digits, name: fullName(billing.name, billing.last_name) };
+  return {
+    documentType: type,
+    document: digits,
+    name: fullName(billing.name, billing.last_name),
+    stateRegistration: type === "CNPJ" ? stateRegistration(billing) : null,
+  };
 }
 
 /**

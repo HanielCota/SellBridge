@@ -37,7 +37,12 @@ describe("readMercadoLivreBuyerBilling", () => {
 
     const billing = await readMercadoLivreBuyerBilling(config, store, "55");
 
-    expect(billing).toEqual({ documentType: "CPF", document: "52998224725", name: "Maria Silva" });
+    expect(billing).toEqual({
+      documentType: "CPF",
+      document: "52998224725",
+      name: "Maria Silva",
+      stateRegistration: null,
+    });
     expect(request.mock.calls[1]?.[0]).toBe(
       "https://api.mercadolibre.com/orders/billing-info/MLB/677487519924852462",
     );
@@ -69,6 +74,24 @@ describe("toBuyerBilling", () => {
     });
 
     expect(billing).toMatchObject({ documentType: "CNPJ", document: "45723174000110" });
+  });
+
+  it("reads a company's state registration", () => {
+    const billing = toBuyerBilling({
+      identification: { type: "CNPJ", number: "45723174000110" },
+      taxes: { inscriptions: { state_registration: "307.030.885.34" } },
+    });
+
+    expect(billing?.stateRegistration).toBe("30703088534");
+  });
+
+  it("treats an exempt company as without state registration", () => {
+    const billing = toBuyerBilling({
+      identification: { type: "CNPJ", number: "45723174000110" },
+      taxes: { inscriptions: { state_registration: "ISENTO" } },
+    });
+
+    expect(billing?.stateRegistration).toBeNull();
   });
 
   it("returns null for a CPF with the wrong number of digits", () => {
