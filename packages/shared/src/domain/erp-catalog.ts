@@ -1,9 +1,17 @@
 import { z } from "zod";
+import {
+  cestSchema,
+  isNoGtin,
+  ncmSchema,
+  NO_GTIN,
+  productOriginSchema,
+  productUnitSchema,
+} from "./product-fiscal.ts";
 
 /**
  * A product read from a supplier's ERP (Bling first), before it becomes a row of the product
- * import. The fiscal fields travel with it but do not reach the import yet: the product has no
- * fiscal columns until the fiscal-fields work adds them (then `toCsvFields` gains them too).
+ * import. Its NCM, origin, unit and CEST go into the import's fiscal columns when they pass the
+ * same rules as a typed value; one that does not is left blank instead of refusing the line.
  */
 export interface ErpCatalogItem {
   readonly sku: string;
@@ -46,6 +54,10 @@ const CSV_HEADER = [
   "gtin",
   "peso_g",
   "categoria",
+  "ncm",
+  "origem",
+  "unidade",
+  "cest",
 ] as const;
 
 const GTIN_PATTERN = /^\d{8}$|^\d{12,14}$/;
@@ -80,6 +92,9 @@ function stockCell(stock: number): string {
 function gtinCell(gtin: string | null): string {
   if (gtin === null) {
     return "";
+  }
+  if (isNoGtin(gtin)) {
+    return NO_GTIN;
   }
   const digits = gtin.trim();
   return GTIN_PATTERN.test(digits) ? digits : "";
@@ -132,6 +147,26 @@ function toCsvFields(
     weightCell(item.weightGrams),
     // The ERP has no SellBridge category: an existing product keeps its own, a new one has none.
     kept?.categorySlug ?? "",
+    ...fiscalCells(item.fiscal),
+  ];
+}
+
+/** A value the import would refuse is sent blank: the product then waits for it as a draft. */
+function validOrBlank(
+  schema: z.ZodType,
+  value: unknown,
+  cell: (parsed: unknown) => string,
+): string {
+  const parsed = schema.safeParse(value);
+  return parsed.success ? cell(parsed.data) : "";
+}
+
+function fiscalCells(fiscal: ErpFiscalData): string[] {
+  return [
+    validOrBlank(ncmSchema, fiscal.ncm, String),
+    validOrBlank(productOriginSchema, fiscal.origin, String),
+    validOrBlank(productUnitSchema, fiscal.unit?.trim().toUpperCase(), String),
+    validOrBlank(cestSchema, fiscal.cest, String),
   ];
 }
 
