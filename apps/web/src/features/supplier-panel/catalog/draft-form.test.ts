@@ -3,6 +3,7 @@ import {
   completenessInput,
   descriptionLengthHint,
   editedFields,
+  initialFormValues,
   inputIdOf,
   panelFormValues,
   EMPTY_PRODUCT_FISCAL_FORM_VALUES,
@@ -35,6 +36,20 @@ const STORED = {
   imageUrls: [],
   mercadoLivreAttributes: {},
 };
+
+describe("initialFormValues", () => {
+  it("starts a new product with the supplier's default origin and unit", () => {
+    const values = initialFormValues(null, { origin: 0, unit: "UN" });
+
+    expect(values.fiscal).toMatchObject({ origin: "0", unit: "UN", ncm: "" });
+  });
+
+  it("keeps a stored product's own origin and unit", () => {
+    const values = initialFormValues(STORED, { origin: 0, unit: "UN" });
+
+    expect(values.fiscal).toMatchObject({ origin: "", unit: "" });
+  });
+});
 
 describe("panelFormValues", () => {
   it("starts a new product blank", () => {
