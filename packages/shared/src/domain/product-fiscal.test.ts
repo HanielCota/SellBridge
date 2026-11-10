@@ -8,6 +8,7 @@ import {
   hasRequiredFiscalData,
   icmsCodeFitsRegime,
   icmsCodeLabel,
+  icmsOverrideProblem,
   isNoGtin,
   maskNcmInput,
   ncmSchema,
@@ -62,6 +63,16 @@ describe("icms code by regime", () => {
     expect(icmsCodeFitsRegime("102", "real")).toBe(false);
     expect(icmsCodeLabel("simples")).toBe("CSOSN (Simples Nacional)");
     expect(icmsCodeLabel("real")).toBe("CST ICMS");
+  });
+
+  it("refuses a product's own CST ICMS for a Simples Nacional supplier", () => {
+    expect(icmsOverrideProblem("00", "simples")).toContain("CSOSN");
+  });
+
+  it("accepts a fitting code, no code, or a supplier without a regime yet", () => {
+    expect(icmsOverrideProblem("102", "simples")).toBeNull();
+    expect(icmsOverrideProblem(null, "simples")).toBeNull();
+    expect(icmsOverrideProblem("00", null)).toBeNull();
   });
 });
 

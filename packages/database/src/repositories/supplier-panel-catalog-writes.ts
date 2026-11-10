@@ -16,7 +16,13 @@ import {
   submitTransition,
   type RejectionReason,
 } from "@sellbridge/shared/supplier-panel-catalog-status";
-import { readProductFiscal, type ProductFiscal } from "@sellbridge/shared/product-fiscal";
+import {
+  icmsOverrideProblem,
+  readProductFiscal,
+  type ProductFiscal,
+  type TaxRegime,
+} from "@sellbridge/shared/product-fiscal";
+import { readSupplierFiscalProfile } from "@sellbridge/shared/supplier-fiscal";
 import { firstTextWithContact, SUPPLIER_TEXT_CONTACT_REFUSED } from "@sellbridge/shared/schemas";
 import { and, eq, ne } from "drizzle-orm";
 import type { Database, DatabaseExecutor } from "../client.ts";
@@ -34,7 +40,11 @@ const STOCK_MOVED_MESSAGE =
 /** Serializes the supplier's catalog writes (same lock the admin form and CSV import take). */
 async function lockSupplier(transaction: DatabaseExecutor, supplierId: string) {
   const [supplier] = await transaction
-    .select({ id: suppliers.id, catalogKind: suppliers.catalogKind })
+    .select({
+      id: suppliers.id,
+      catalogKind: suppliers.catalogKind,
+      fiscalProfile: suppliers.fiscalProfile,
+    })
     .from(suppliers)
     .where(eq(suppliers.id, supplierId))
     .for("update");
@@ -114,6 +124,13 @@ async function assertUniqueSku(transaction: DatabaseExecutor, input: CatalogSave
     );
   if (duplicate !== undefined) {
     throw conflictError(`Já existe um produto com o SKU "${input.values.sku}" neste fornecedor`);
+  }
+}
+
+function assertIcmsFitsRegime(input: CatalogSaveDraftInput, regime: TaxRegime | null): void {
+  const problem = icmsOverrideProblem(input.values.fiscal?.icmsCode, regime);
+  if (problem !== null) {
+    throw validationError(problem);
   }
 }
 
@@ -198,13 +215,11 @@ async function updateDraft(
     return;
   }
   const categorySlug = await categorySlugOf(transaction, values.categoryId);
+  const fiscalState = { fiscal: values.fiscal, fiscalRequired: stored.fiscalRequired };
   const reviewedNext = statusAfterEdit({
     current: stored.reviewStatus,
     changedFields: changed,
-    blockingIssueCount: blockingCount(values, categorySlug, {
-      fiscal: values.fiscal,
-      fiscalRequired: stored.fiscalRequired,
-    }),
+    blockingIssueCount: blockingCount(values, categorySlug, fiscalState),
     prohibited: isProhibitedProduct(values),
   });
   const contentReady = evaluateCompleteness(
@@ -237,6 +252,7 @@ export async function saveSupplierPanelDraft(
 ): Promise<SupplierPanelProduct> {
   return await database.transaction(async (transaction) => {
     const source = await lockSupplier(transaction, input.supplierId);
+    assertIcmsFitsRegime(input, readSupplierFiscalProfile(source.fiscalProfile)?.regime ?? null);
     await assertUniqueSku(transaction, input);
     const stored = await lockProduct(transaction, input);
     if (stored !== undefined) {

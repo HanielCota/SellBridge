@@ -10,8 +10,10 @@ import {
 import type { ProductCsvError, ProductCsvRow } from "@sellbridge/shared/product-csv";
 import {
   hasRequiredFiscalData,
+  icmsOverrideProblem,
   readProductFiscal,
   type ProductFiscalPatch,
+  type TaxRegime,
 } from "@sellbridge/shared/product-fiscal";
 import { and, asc, count, eq, inArray, or, sql } from "drizzle-orm";
 import type { Database, DatabaseExecutor } from "../client.ts";
@@ -377,6 +379,8 @@ function planImportRows(input: {
   rows: readonly ProductCsvRow[];
   existing: AdminSupplierProduct[];
   availableCategories: Awaited<ReturnType<typeof listAdminCategories>>;
+  /** The supplier's regime, to check a line's own ICMS code; null while it is not filled. */
+  regime: TaxRegime | null;
 }): SupplierProductImportPlan {
   const existingBySku = new Map(input.existing.map((product) => [product.sku, product]));
   const categoryBySlug = new Map(
@@ -395,6 +399,11 @@ function planImportRows(input: {
     const categoryId = categorySlug ? categoryBySlug.get(categorySlug) : null;
     if (categoryId === undefined) {
       plan.errors.push({ line: row.line, reason: `Categoria desconhecida: ${categorySlug}` });
+      continue;
+    }
+    const icmsProblem = icmsOverrideProblem(product.fiscal?.icmsCode, input.regime);
+    if (icmsProblem !== null) {
+      plan.errors.push({ line: row.line, reason: icmsProblem });
       continue;
     }
     const previous = existingBySku.get(product.sku);
@@ -455,7 +464,7 @@ export async function previewSupplierProductImport(
   supplierId: string,
   rows: readonly ProductCsvRow[],
 ) {
-  await getAdminSupplier(database, supplierId);
+  const { supplier } = await getAdminSupplier(database, supplierId);
   const existing =
     rows.length === 0
       ? []
@@ -473,7 +482,13 @@ export async function previewSupplierProductImport(
           )
           .orderBy(asc(supplierProducts.sku));
   const availableCategories = await listAdminCategories(database);
-  return planImportRows({ supplierId, rows, existing, availableCategories });
+  return planImportRows({
+    supplierId,
+    rows,
+    existing,
+    availableCategories,
+    regime: supplier.fiscalProfile?.regime ?? null,
+  });
 }
 
 /**

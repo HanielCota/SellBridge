@@ -126,6 +126,23 @@ export function icmsCodeFitsRegime(code: string, regime: TaxRegime): boolean {
   return regime === "simples" ? CSOSN_CODES.has(code) : CST_ICMS_CODES.has(code);
 }
 
+/**
+ * Why a product's own ICMS code cannot go with the supplier's regime, or null when it can (or
+ * when there is no code or no regime yet to compare it with).
+ */
+export function icmsOverrideProblem(
+  icmsCode: string | null | undefined,
+  regime: TaxRegime | null,
+): string | null {
+  if (icmsCode === null || icmsCode === undefined || regime === null) {
+    return null;
+  }
+  if (icmsCodeFitsRegime(icmsCode, regime)) {
+    return null;
+  }
+  return `${icmsCodeLabel(regime)}: "${icmsCode}" não vale para ${TAX_REGIME_LABELS[regime]}. Deixe em branco para usar o padrão da marca.`;
+}
+
 /** "CSOSN" for Simples Nacional, "CST ICMS" for the other regimes, as the form names the field. */
 export function icmsCodeLabel(regime: TaxRegime): string {
   return regime === "simples" ? "CSOSN (Simples Nacional)" : icmsCodeShortLabel(regime);

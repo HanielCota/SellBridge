@@ -1,6 +1,7 @@
 import { randomUUID } from "node:crypto";
 import { hasErrorCode } from "@sellbridge/shared/errors";
 import { EMPTY_PRODUCT_FISCAL } from "@sellbridge/shared/product-fiscal";
+import { suggestedTaxDefaults } from "@sellbridge/shared/supplier-fiscal";
 import { SUPPLIER_TEXT_CONTACT_REFUSED } from "@sellbridge/shared/schemas";
 import type {
   CatalogDraftValues,
@@ -320,6 +321,47 @@ describe("review flow", () => {
     );
 
     expect(String(error)).toContain("Corrija 1 pendência");
+  });
+
+  it("refuses a product's own ICMS code that does not fit the supplier's regime", async () => {
+    await database
+      .update(suppliers)
+      .set({
+        fiscalProfile: {
+          cnpj: "11222333000181",
+          legalName: "Fornecedor Teste Ltda",
+          stateRegistration: "ISENTO",
+          regime: "simples",
+          address: {
+            cep: "35500024",
+            street: "Rua Goiás",
+            number: "120",
+            complement: "",
+            neighborhood: "Centro",
+            city: "Divinópolis",
+            state: "MG",
+            ibgeCode: "3122306",
+          },
+          defaults: suggestedTaxDefaults("simples"),
+        },
+      })
+      .where(eq(suppliers.id, supplierId));
+
+    const saving = saveSupplierPanelDraft(database, {
+      supplierId,
+      productId: randomUUID(),
+      values: {
+        ...readyValues("ICMS-0"),
+        fiscal: { ...EMPTY_PRODUCT_FISCAL, ncm: "61091000", origin: 0, unit: "UN", icmsCode: "00" },
+      },
+    });
+
+    const error = await expectAppError(saving, "VALIDATION");
+    await database
+      .update(suppliers)
+      .set({ fiscalProfile: null })
+      .where(eq(suppliers.id, supplierId));
+    expect(String(error)).toContain("CSOSN");
   });
 
   it("keeps a product from before the fiscal fields on sale when it is edited without NCM", async () => {
