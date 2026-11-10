@@ -109,3 +109,39 @@ export const blingCallbackQuerySchema = z.union([
   z.object({ code: z.string().min(1).max(4096), state: z.string().min(1).max(200) }),
   z.object({ error: z.string().min(1).max(200), state: z.string().max(200).optional() }),
 ]);
+
+/** Who asks to act on the supplier's ERP account, as the supplier panel sees them. */
+export interface ErpActor {
+  readonly viewerKind: "team" | "supplier" | "seller";
+  /** The team member behind an "Entrar como cliente" visit, or null. */
+  readonly impersonatedBy: string | null;
+}
+
+/**
+ * Writing to the supplier's ERP or forgetting its account is the supplier's own act, like
+ * connecting it: neither the team on its own nor a team visit does it.
+ */
+export function erpOwnerActionRefusal(actor: ErpActor): string | null {
+  if (actor.impersonatedBy !== null) {
+    return "Durante a visita da equipe não dá para mexer no Bling do fornecedor.";
+  }
+  if (actor.viewerKind !== "supplier") {
+    return "Só quem faz parte deste fornecedor pode mexer no Bling dele.";
+  }
+  return null;
+}
+
+/** Sending products to Bling needs the supplier itself and an account that is still connected. */
+export function catalogExportRefusal(
+  actor: ErpActor,
+  connectionStatus: "connected" | "expired" | "error" | "disconnected" | null,
+): string | null {
+  const refusal = erpOwnerActionRefusal(actor);
+  if (refusal !== null) {
+    return refusal;
+  }
+  if (connectionStatus !== "connected") {
+    return "Conecte o Bling antes de enviar os produtos.";
+  }
+  return null;
+}

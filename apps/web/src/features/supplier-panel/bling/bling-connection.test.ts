@@ -3,7 +3,9 @@ import {
   blingCallbackQuerySchema,
   blingCredentialsFrom,
   blingOutcomeSearch,
+  catalogExportRefusal,
   erpConnectRefusal,
+  erpOwnerActionRefusal,
 } from "./bling-connection";
 
 const SUPPLIER = "8b0f6f7e-1c1f-4d9a-9a39-5c1f6f0b2a11";
@@ -62,5 +64,51 @@ describe("blingOutcomeSearch", () => {
   it("drops an outcome the page does not know, so a link cannot make it say anything", () => {
     expect(blingOutcomeSearch({ bling: "<b>oi</b>" })).toEqual({});
     expect(blingOutcomeSearch({})).toEqual({});
+  });
+});
+
+describe("erpOwnerActionRefusal", () => {
+  it("lets the supplier's own member act on its Bling", () => {
+    const refusal = erpOwnerActionRefusal({ viewerKind: "supplier", impersonatedBy: null });
+
+    expect(refusal).toBeNull();
+  });
+
+  it("refuses the team acting on a supplier's Bling outside a visit", () => {
+    const refusal = erpOwnerActionRefusal({ viewerKind: "team", impersonatedBy: null });
+
+    expect(refusal).toBe("Só quem faz parte deste fornecedor pode mexer no Bling dele.");
+  });
+
+  it("refuses during a team member's visit", () => {
+    const refusal = erpOwnerActionRefusal({ viewerKind: "supplier", impersonatedBy: "admin-1" });
+
+    expect(refusal).toBe("Durante a visita da equipe não dá para mexer no Bling do fornecedor.");
+  });
+});
+
+describe("catalogExportRefusal", () => {
+  it("sends the catalog for the supplier's connected account", () => {
+    const refusal = catalogExportRefusal(
+      { viewerKind: "supplier", impersonatedBy: null },
+      "connected",
+    );
+
+    expect(refusal).toBeNull();
+  });
+
+  it("refuses sending the catalog while the account is not connected", () => {
+    const actor = { viewerKind: "supplier", impersonatedBy: null } as const;
+
+    expect(catalogExportRefusal(actor, null)).toBe("Conecte o Bling antes de enviar os produtos.");
+    expect(catalogExportRefusal(actor, "expired")).toBe(
+      "Conecte o Bling antes de enviar os produtos.",
+    );
+  });
+
+  it("refuses the team sending products to a supplier's Bling", () => {
+    const refusal = catalogExportRefusal({ viewerKind: "team", impersonatedBy: null }, "connected");
+
+    expect(refusal).not.toBeNull();
   });
 });

@@ -28,6 +28,7 @@ import {
   previewSupplierImport,
 } from "@/features/supplier-panel/import/supplier-import.server";
 import { blingCredentials } from "./bling-access.server";
+import { catalogExportRefusal, erpOwnerActionRefusal, type ErpActor } from "./bling-connection";
 import { blingOverviewFrom, type BlingImportOutcome, type BlingOverview } from "./bling-overview";
 
 /** A read is kept a day: enough to come back to the import, small enough to clean itself up. */
@@ -223,23 +224,30 @@ export async function importBlingRead(input: {
 }
 
 /** Queues the sending of the products Bling does not have yet (worker `erp-catalog-export`). */
-export async function requestBlingCatalogExport(supplierId: string): Promise<void> {
+export async function requestBlingCatalogExport(input: {
+  supplierId: string;
+  actor: ErpActor;
+}): Promise<void> {
   requireCredentials();
-  await enqueueErpCatalogExport({ supplierId });
+  const connection = await findErpConnection(database, { supplierId: input.supplierId, ...BLING });
+  const refusal = catalogExportRefusal(input.actor, connection?.status ?? null);
+  if (refusal !== null) {
+    throw conflictError(refusal);
+  }
+  await enqueueErpCatalogExport({ supplierId: input.supplierId });
 }
 
 /**
- * Forgets the supplier's Bling account; the products already imported stay as they are. A team
- * visit cannot do it, as it cannot connect it either.
+ * Forgets the supplier's Bling account; the products already imported stay as they are. Only the
+ * supplier does it, as only the supplier connects it.
  */
 export async function disconnectBling(input: {
   supplierId: string;
-  impersonatedBy: string | null;
+  actor: ErpActor;
 }): Promise<void> {
-  if (input.impersonatedBy !== null) {
-    throw forbiddenError(
-      "Durante a visita da equipe não dá para desconectar o Bling do fornecedor.",
-    );
+  const refusal = erpOwnerActionRefusal(input.actor);
+  if (refusal !== null) {
+    throw forbiddenError(refusal);
   }
   const deleted = await deleteErpConnection(database, { supplierId: input.supplierId, ...BLING });
   logger.info("bling.disconnected", { supplierId: input.supplierId, deleted });

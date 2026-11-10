@@ -58,8 +58,11 @@ export const supplierBlingImport = createServerFn({ method: "POST" })
 export const supplierBlingSendCatalog = createServerFn({ method: "POST" })
   .middleware([supplierPanelMiddleware])
   .validator(supplierImportSupplierSchema)
-  .handler(async ({ data }) => {
-    await requestBlingCatalogExport(data.supplierId);
+  .handler(async ({ data, context }) => {
+    await requestBlingCatalogExport({
+      supplierId: data.supplierId,
+      actor: { viewerKind: context.viewer.kind, impersonatedBy: context.impersonatedBy },
+    });
     return { queued: true };
   });
 
@@ -70,7 +73,7 @@ export const supplierBlingDisconnect = createServerFn({ method: "POST" })
   .handler(async ({ data, context }) => {
     await disconnectBling({
       supplierId: data.supplierId,
-      impersonatedBy: context.impersonatedBy,
+      actor: { viewerKind: context.viewer.kind, impersonatedBy: context.impersonatedBy },
     });
     return { disconnected: true };
   });
