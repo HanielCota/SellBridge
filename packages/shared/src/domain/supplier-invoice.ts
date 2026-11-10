@@ -4,15 +4,27 @@ import type { SupplierTaxDefaults } from "./supplier-fiscal.ts";
 
 /**
  * The NF-e a supplier's ERP issues for one parcel (one order, one supplier). Every tax choice
- * comes from settings: the supplier's defaults, a product's own override, and the connection's
- * choice of who the note is made out to. None is fixed in code, so the accountant's answer is a
- * change of setting.
+ * comes from settings: the supplier's defaults and a product's own override. None is fixed in
+ * code, so the accountant's answer is a change of setting (docs/DECISOES.md, 10/11/2026).
  */
 
-/** Who the NF-e is made out to: the marketplace buyer, or the reseller's company. */
-export const INVOICE_RECIPIENTS = ["buyer", "reseller"] as const;
-export type InvoiceRecipient = (typeof INVOICE_RECIPIENTS)[number];
-export const invoiceRecipientSchema = z.enum(INVOICE_RECIPIENTS);
+/**
+ * How the sale is invoiced ("Como sai a nota"):
+ * - direct: one sale NF-e from the supplier straight to the marketplace buyer (model A);
+ * - on_behalf: "venda à ordem", three notes with the reseller in the middle (model B, not built
+ *   yet: the screen shows it as "em breve" and the job holds such parcels back).
+ */
+export const INVOICE_MODELS = ["direct", "on_behalf"] as const;
+export type InvoiceModel = (typeof INVOICE_MODELS)[number];
+export const invoiceModelSchema = z.enum(INVOICE_MODELS, "Escolha como sai a nota");
+
+export const INVOICE_MODEL_LABELS: Readonly<Record<InvoiceModel, string>> = {
+  direct: "Direto para o cliente",
+  on_behalf: "Venda à ordem",
+};
+
+/** Models the job can issue today; the others are shown as coming soon. */
+export const AVAILABLE_INVOICE_MODELS: readonly InvoiceModel[] = ["direct"];
 
 /**
  * - queued: waiting for the job (first try or a retry after a passing failure);
@@ -53,10 +65,33 @@ export class MissingInvoiceDataError extends Error {
   }
 }
 
+interface CfopChoice {
+  readonly product: ProductFiscal;
+  readonly defaults: SupplierTaxDefaults;
+  readonly inState: boolean;
+  readonly recipientPaysIcms: boolean;
+}
+
+/**
+ * In-state: the in-state CFOP (5102). Out of state: the company CFOP (6102) for a recipient with
+ * a state registration, else the final-consumer CFOP (6108). A product's own in-state and company
+ * codes beat the supplier's; the final-consumer code is the supplier's only.
+ */
+function chooseCfop(choice: CfopChoice): string {
+  const { product, defaults } = choice;
+  if (choice.inState) {
+    return product.cfopInState ?? defaults.cfopInState;
+  }
+  if (choice.recipientPaysIcms) {
+    return product.cfopOutOfState ?? defaults.cfopOutOfState;
+  }
+  return defaults.cfopOutOfStateConsumer;
+}
+
 /**
  * The line's tax data: the product's own value when it has one, else the supplier's default.
- * The CFOP is the in-state one when the supplier and the recipient are in the same state.
  *
+ * @param input.recipientPaysIcms - Whether the buyer is a company with a state registration.
  * @throws {MissingInvoiceDataError} When the product has no NCM (there is no default for it).
  */
 export function resolveInvoiceItemTax(input: {
@@ -65,17 +100,15 @@ export function resolveInvoiceItemTax(input: {
   defaults: SupplierTaxDefaults;
   supplierState: string;
   recipientState: string;
+  recipientPaysIcms: boolean;
 }): InvoiceItemTax {
   const { product, defaults } = input;
   if (product.ncm === null) {
     throw new MissingInvoiceDataError(input.sku);
   }
   const inState = input.supplierState.toUpperCase() === input.recipientState.toUpperCase();
-  const cfop = inState
-    ? (product.cfopInState ?? defaults.cfopInState)
-    : (product.cfopOutOfState ?? defaults.cfopOutOfState);
   return {
-    cfop,
+    cfop: chooseCfop({ product, defaults, inState, recipientPaysIcms: input.recipientPaysIcms }),
     icmsCode: product.icmsCode ?? defaults.icmsCode,
     pisCofinsCst: product.pisCofinsCst ?? defaults.pisCofinsCst,
     ncm: product.ncm,

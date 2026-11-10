@@ -20,21 +20,51 @@ describe("resolveInvoiceItemTax", () => {
       defaults: DEFAULTS,
       supplierState: "MG",
       recipientState: "mg",
+      recipientPaysIcms: false,
     });
 
     expect(tax.cfop).toBe("5102");
   });
 
-  it("uses the out-of-state CFOP when the recipient is in another state", () => {
+  it("uses the final-consumer CFOP for a person in another state", () => {
     const tax = resolveInvoiceItemTax({
       sku: "SB-1",
       product: PRODUCT,
       defaults: DEFAULTS,
       supplierState: "MG",
       recipientState: "SP",
+      recipientPaysIcms: false,
+    });
+
+    expect(tax.cfop).toBe("6108");
+  });
+
+  it("uses the company CFOP for a buyer with a state registration in another state", () => {
+    const tax = resolveInvoiceItemTax({
+      sku: "SB-1",
+      product: PRODUCT,
+      defaults: DEFAULTS,
+      supplierState: "MG",
+      recipientState: "SP",
+      recipientPaysIcms: true,
     });
 
     expect(tax.cfop).toBe("6102");
+  });
+
+  it("follows the supplier's own final-consumer CFOP", () => {
+    const defaults = { ...DEFAULTS, cfopOutOfStateConsumer: "6107" };
+
+    const tax = resolveInvoiceItemTax({
+      sku: "SB-1",
+      product: { ...PRODUCT, cfopOutOfState: "6108" },
+      defaults,
+      supplierState: "MG",
+      recipientState: "SP",
+      recipientPaysIcms: false,
+    });
+
+    expect(tax.cfop).toBe("6107");
   });
 
   it("lets the product's own codes beat the supplier's defaults", () => {
@@ -51,6 +81,7 @@ describe("resolveInvoiceItemTax", () => {
       defaults: DEFAULTS,
       supplierState: "MG",
       recipientState: "SP",
+      recipientPaysIcms: true,
     });
 
     expect(tax).toMatchObject({ cfop: "6108", icmsCode: "500", pisCofinsCst: "07", unit: "PAR" });
@@ -65,6 +96,7 @@ describe("resolveInvoiceItemTax", () => {
       defaults: DEFAULTS,
       supplierState: "MG",
       recipientState: "MG",
+      recipientPaysIcms: false,
     });
 
     expect(tax).toMatchObject({ origin: 0, unit: "UN" });
@@ -80,6 +112,7 @@ describe("resolveInvoiceItemTax", () => {
         defaults: DEFAULTS,
         supplierState: "MG",
         recipientState: "MG",
+        recipientPaysIcms: false,
       });
 
     expect(resolve).toThrow(MissingInvoiceDataError);

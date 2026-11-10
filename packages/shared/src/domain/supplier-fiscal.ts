@@ -14,6 +14,7 @@ import {
   type TaxRegime,
 } from "./product-fiscal.ts";
 import { freeText } from "../schemas/common.ts";
+import { invoiceModelSchema } from "./supplier-invoice.ts";
 
 /**
  * The supplier's company as its NF-e names it, plus the tax codes its products use unless a
@@ -38,9 +39,15 @@ export const stateRegistrationSchema = z
 
 export const taxRegimeSchema = z.enum(TAX_REGIMES, "Escolha o regime tributário");
 
+/** Out-of-state sale to a final consumer who pays no ICMS (a person, or a company without IE). */
+export const DEFAULT_CFOP_OUT_OF_STATE_CONSUMER = "6108";
+
 export const supplierTaxDefaultsSchema = z.object({
   cfopInState: cfopInStateSchema,
+  /** Out-of-state sale to a company with a state registration (an ICMS taxpayer). */
   cfopOutOfState: cfopOutOfStateSchema,
+  /** Profiles saved before this field existed read the usual code. */
+  cfopOutOfStateConsumer: cfopOutOfStateSchema.default(DEFAULT_CFOP_OUT_OF_STATE_CONSUMER),
   icmsCode: z.string().trim(),
   pisCofinsCst: pisCofinsCstSchema,
   origin: productOriginSchema,
@@ -59,6 +66,7 @@ export const supplierFiscalProfileSchema = z
     regime: taxRegimeSchema,
     address: billingAddressSchema.extend({ ibgeCode: ibgeCityCodeSchema }),
     defaults: supplierTaxDefaultsSchema,
+    invoiceModel: invoiceModelSchema.default("direct"),
   })
   .superRefine((profile, context) => {
     if (!isCityOfState(profile.address.ibgeCode, profile.address.state)) {
@@ -96,6 +104,7 @@ export function suggestedTaxDefaults(regime: TaxRegime): SupplierTaxDefaults {
   return {
     cfopInState: "5102",
     cfopOutOfState: "6102",
+    cfopOutOfStateConsumer: DEFAULT_CFOP_OUT_OF_STATE_CONSUMER,
     icmsCode: defaultIcmsCode(regime),
     pisCofinsCst: "49",
     origin: 0,

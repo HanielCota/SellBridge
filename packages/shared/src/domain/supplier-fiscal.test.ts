@@ -84,4 +84,14 @@ describe("readSupplierFiscalProfile", () => {
   it("reads a broken stored profile as null instead of failing the page", () => {
     expect(readSupplierFiscalProfile({ cnpj: "1" })).toBeNull();
   });
+
+  it("gives a profile saved before the NF-e choices the final-consumer CFOP and direct notes", () => {
+    const { cfopOutOfStateConsumer: _consumer, ...olderDefaults } = PROFILE.defaults;
+    const stored = { ...PROFILE, defaults: olderDefaults };
+
+    const profile = readSupplierFiscalProfile(stored);
+
+    expect(profile?.defaults.cfopOutOfStateConsumer).toBe("6108");
+    expect(profile?.invoiceModel).toBe("direct");
+  });
 });
