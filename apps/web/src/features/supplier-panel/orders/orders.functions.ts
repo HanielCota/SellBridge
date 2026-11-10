@@ -20,6 +20,7 @@ import {
   loadSupplierShipment,
   loadSupplierShipmentCounts,
   loadSupplierShipments,
+  retrySupplierInvoice,
   writeSupplierShipmentUpdate,
 } from "./orders.server";
 import { loadSupplierParcelTracking } from "./parcel-tracking.server";
@@ -48,6 +49,11 @@ export const updateSupplierPanelShipmentFn = createServerFn({ method: "POST" })
   .middleware([supplierPanelMiddleware, blockedContactLogging("supplier_panel")])
   .validator(z.object({ supplierId: supplierIdSchema, update: shipmentUpdateSchema }))
   .handler(async ({ data }) => await writeSupplierShipmentUpdate(data));
+
+export const retrySupplierInvoiceFn = createServerFn({ method: "POST" })
+  .middleware([supplierPanelMiddleware])
+  .validator(supplierShipmentDetailSchema)
+  .handler(async ({ data }) => await retrySupplierInvoice(data));
 
 export const acceptSupplierShipmentsFn = createServerFn({ method: "POST" })
   .middleware([supplierPanelMiddleware])

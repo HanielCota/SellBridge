@@ -195,3 +195,15 @@ export function invoiceCfopProblem(lines: readonly InvoiceLineCheck[]): string |
   const actual = wrong.actualCfop === null ? "sem CFOP" : `com CFOP ${wrong.actualCfop.trim()}`;
   return `O Bling montou a nota do produto ${wrong.sku} ${actual}, mas o cadastro fiscal pede ${wrong.expectedCfop}. Ajuste a natureza de operação no Bling ou o CFOP em Marca e tente de novo.`;
 }
+
+const ACCESS_KEY_GROUP = 4;
+
+/** "3126 1111 2223 …": the 44-digit access key in groups of four, as the DANFE prints it. */
+export function formatAccessKey(accessKey: string): string {
+  const digits = accessKey.replace(/\D/g, "");
+  const groups: string[] = [];
+  for (let start = 0; start < digits.length; start += ACCESS_KEY_GROUP) {
+    groups.push(digits.slice(start, start + ACCESS_KEY_GROUP));
+  }
+  return groups.join(" ");
+}

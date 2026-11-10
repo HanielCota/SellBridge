@@ -4,6 +4,7 @@ import {
   listSupplierResellerStores,
   listSupplierShipments,
   supplierOwnedShipments,
+  retrySupplierShipmentInvoice,
 } from "@sellbridge/database/repositories";
 import { resolvePeriod } from "@sellbridge/shared/period-range";
 import { logger } from "@sellbridge/shared/logger";
@@ -46,6 +47,11 @@ export async function loadSupplierResellerStores(supplierId: string) {
 
 export async function loadSupplierShipment(input: { supplierId: string; shipmentId: string }) {
   return await getSupplierPanelShipment(database, input);
+}
+
+/** Sends a stopped NF-e back to the job, after the supplier fixed what its problem said. */
+export async function retrySupplierInvoice(input: { supplierId: string; shipmentId: string }) {
+  await retrySupplierShipmentInvoice(database, input);
 }
 
 type ShipmentUpdate = z.infer<typeof shipmentUpdateSchema>;

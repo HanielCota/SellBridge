@@ -3,6 +3,7 @@ import { EMPTY_PRODUCT_FISCAL, type ProductFiscal } from "./product-fiscal.ts";
 import { suggestedTaxDefaults } from "./supplier-fiscal.ts";
 import {
   blingInvoiceOutcome,
+  formatAccessKey,
   invoiceCfopProblem,
   MissingInvoiceDataError,
   nextInvoiceAttemptAt,
@@ -178,5 +179,13 @@ describe("invoiceCfopProblem", () => {
     const problem = invoiceCfopProblem([{ sku: "SB-1", expectedCfop: "5102", actualCfop: null }]);
 
     expect(problem).toContain("sem CFOP");
+  });
+});
+
+describe("formatAccessKey", () => {
+  it("prints the 44 digits in groups of four", () => {
+    const formatted = formatAccessKey("31261111222333000181550010000012341000012345");
+
+    expect(formatted).toBe("3126 1111 2223 3300 0181 5500 1000 0012 3410 0001 2345");
   });
 });
