@@ -32,6 +32,7 @@ import { createTicketAutoCloseProcessor } from "./processors/ticket-auto-close.t
 import { createTokenRefreshProcessor } from "./processors/token-refresh.ts";
 import { createErpTokenRefreshProcessor } from "./processors/erp-token-refresh.ts";
 import { createErpCatalogExportProcessor } from "./processors/erp-catalog-export.ts";
+import { createErpCatalogReadProcessor } from "./processors/erp-catalog-read.ts";
 import { createNotificationDeliveryProcessor } from "./processors/notification-delivery.ts";
 import { createOrderMessageFollowUpProcessor } from "./processors/order-message-follow-up.ts";
 import { createWebhookDeliveryProcessor } from "./processors/webhook-delivery.ts";
@@ -152,17 +153,24 @@ function marketplaceWorkers(context: WorkerContext): Worker[] {
 
 /** The supplier's catalog sent to its ERP; one at a time, the ERP quota is per account. */
 function erpWorkers(context: WorkerContext): Worker[] {
-  const processExport = createErpCatalogExportProcessor({
+  // One limiter for both jobs: an account's 3 requests per second are shared.
+  const dependencies = {
     database: context.database,
     cipher: context.cipher,
     blingCredentials: blingCredentials(),
     limiter: createBlingRateLimiter(),
     fetchImplementation: fetch,
-  });
+  };
+  const processExport = createErpCatalogExportProcessor(dependencies);
+  const processRead = createErpCatalogReadProcessor(dependencies);
   return [
     new Worker(QUEUE_NAMES.erpCatalogExport, async (job) => processExport(job.data), {
       connection: context.connection,
       concurrency: 1,
+    }),
+    new Worker(QUEUE_NAMES.erpCatalogRead, async (job) => processRead(job.data), {
+      connection: context.connection,
+      concurrency: 2,
     }),
   ];
 }

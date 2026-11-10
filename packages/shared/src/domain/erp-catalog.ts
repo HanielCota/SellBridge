@@ -238,3 +238,19 @@ export function mergeResellerCosts(input: {
   }
   return { ok: true, costs };
 }
+
+/** Parents read per import: about six minutes at the ERP's 3 requests per second. */
+export const MAX_ERP_READ_PRODUCTS = 1000;
+/** Items kept from one read (variations count one each), so a stored read stays bounded. */
+export const MAX_ERP_READ_ITEMS = 3000;
+
+/** A stored catalog read, validated whenever it is read back from the database. */
+export const erpCatalogReadResultSchema = z.object({
+  items: z.array(erpCatalogItemSchema).max(MAX_ERP_READ_ITEMS),
+  skipped: z
+    .array(z.object({ name: z.string().max(500), reason: z.string().max(500) }))
+    .max(MAX_ERP_READ_ITEMS),
+  truncated: z.boolean(),
+});
+
+export type ErpCatalogReadResult = z.infer<typeof erpCatalogReadResultSchema>;

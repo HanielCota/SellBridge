@@ -1,31 +1,14 @@
-import type { Database } from "@sellbridge/database";
 import {
-  findErpConnection,
   listSupplierProductsForErpExport,
-  recordErpRefreshFailure,
-  rotateErpTokens,
   type CatalogExportProduct,
 } from "@sellbridge/database/repositories";
-import { isRetryableError, type FetchLike } from "@sellbridge/marketplaces";
-import {
-  createBlingClient,
-  storedBlingAccess,
-  type BlingAppCredentials,
-  type BlingClient,
-  type BlingNewProduct,
-  type BlingRateLimiter,
-} from "@sellbridge/marketplaces/bling";
+import { isRetryableError } from "@sellbridge/marketplaces";
+import type { BlingClient, BlingNewProduct } from "@sellbridge/marketplaces/bling";
 import { logger } from "@sellbridge/shared/logger";
 import { erpCatalogExportJobSchema } from "@sellbridge/shared/queues";
-import type { TokenCipher } from "@sellbridge/shared/token-cipher";
+import { supplierBlingClient, type ErpBlingDependencies } from "./erp-bling-client.ts";
 
-export interface ErpCatalogExportDependencies {
-  readonly database: Database;
-  readonly cipher: TokenCipher;
-  readonly blingCredentials: BlingAppCredentials | null;
-  readonly limiter: BlingRateLimiter;
-  readonly fetchImplementation: FetchLike;
-}
+export type ErpCatalogExportDependencies = ErpBlingDependencies;
 
 export interface ErpCatalogExportSummary {
   created: number;
@@ -135,36 +118,6 @@ function addCounts(
   };
 }
 
-function blingClientFor(
-  dependencies: ErpCatalogExportDependencies & { blingCredentials: BlingAppCredentials },
-  supplierId: string,
-): BlingClient {
-  const { database } = dependencies;
-  return createBlingClient({
-    http: { fetchImplementation: dependencies.fetchImplementation },
-    limiter: dependencies.limiter,
-    access: storedBlingAccess({
-      accountKey: supplierId,
-      credentials: dependencies.blingCredentials,
-      cipher: dependencies.cipher,
-      fetchImplementation: dependencies.fetchImplementation,
-      store: {
-        load: async () => findErpConnection(database, { supplierId, provider: "bling" }),
-        rotate: async (connectionId, previousRefreshTokenEnc, tokens) =>
-          rotateErpTokens(database, { connectionId, previousRefreshTokenEnc, tokens }),
-        markExpired: async (connectionId, refreshTokenEnc, lastError) => {
-          await recordErpRefreshFailure(database, {
-            connectionId,
-            refreshTokenEnc,
-            lastError,
-            expired: true,
-          });
-        },
-      },
-    }),
-  });
-}
-
 /**
  * Sends the supplier's active products that Bling does not have yet (matched by SKU). Products
  * already in Bling are never changed: Bling is the source of truth for the catalog.
@@ -178,7 +131,10 @@ export function createErpCatalogExportProcessor(dependencies: ErpCatalogExportDe
       logger.warn("erp.catalog_export_unconfigured", { supplierId });
       return summary;
     }
-    const client = blingClientFor({ ...dependencies, blingCredentials: credentials }, supplierId);
+    const client = supplierBlingClient(
+      { ...dependencies, blingCredentials: credentials },
+      supplierId,
+    );
     let afterId: string | null = null;
     for (;;) {
       const page = await listSupplierProductsForErpExport(dependencies.database, {
