@@ -47,11 +47,11 @@ export interface PanelFormValues {
   categoryId: string;
   imageUrls: readonly string[];
   attributes: Readonly<Record<string, string>>;
-  fiscal: FiscalFormValues;
+  fiscal: ProductFiscalFormValues;
 }
 
 /** The NF-e fields as typed; every one is text, "" while empty. */
-export interface FiscalFormValues {
+export interface ProductFiscalFormValues {
   ncm: string;
   origin: string;
   unit: string;
@@ -73,10 +73,10 @@ const FISCAL_KEYS = [
   "cfopOutOfState",
   "icmsCode",
   "pisCofinsCst",
-] as const satisfies readonly (keyof FiscalFormValues)[];
+] as const satisfies readonly (keyof ProductFiscalFormValues)[];
 
 /** Form key → product field key ("netWeight" is stored as `netWeightGrams`). */
-const FISCAL_FIELD_OF: Readonly<Record<keyof FiscalFormValues, keyof ProductFiscal>> = {
+const FISCAL_FIELD_OF: Readonly<Record<keyof ProductFiscalFormValues, keyof ProductFiscal>> = {
   ncm: "ncm",
   origin: "origin",
   unit: "unit",
@@ -88,7 +88,7 @@ const FISCAL_FIELD_OF: Readonly<Record<keyof FiscalFormValues, keyof ProductFisc
   pisCofinsCst: "pisCofinsCst",
 };
 
-export const EMPTY_FISCAL_FORM_VALUES: FiscalFormValues = {
+export const EMPTY_PRODUCT_FISCAL_FORM_VALUES: ProductFiscalFormValues = {
   ncm: "",
   origin: "",
   unit: "",
@@ -101,7 +101,7 @@ export const EMPTY_FISCAL_FORM_VALUES: FiscalFormValues = {
 };
 
 /** A product's stored NF-e data as the form fields show it. */
-export function fiscalFormValues(stored: unknown): FiscalFormValues {
+export function productFiscalFormValues(stored: unknown): ProductFiscalFormValues {
   const fiscal = readProductFiscal(stored);
   return {
     ncm: fiscal.ncm === null ? "" : formatNcm(fiscal.ncm),
@@ -134,7 +134,7 @@ function numberOrNull(value: string): number | null {
 }
 
 /** What the fields hold as the product stores it: blanks are null, numbers are numbers. */
-export function fiscalCandidate(values: FiscalFormValues) {
+export function fiscalCandidate(values: ProductFiscalFormValues) {
   return {
     ncm: textOrNull(values.ncm),
     origin: numberOrNull(values.origin),
@@ -149,7 +149,7 @@ export function fiscalCandidate(values: FiscalFormValues) {
 }
 
 /** The fiscal data as completeness reads it while typing: a value with a typo counts as missing. */
-export function fiscalForCompleteness(values: FiscalFormValues): ProductFiscal {
+export function fiscalForCompleteness(values: ProductFiscalFormValues): ProductFiscal {
   return readProductFiscal(fiscalCandidate(values));
 }
 
@@ -182,7 +182,7 @@ export function panelFormValues(product?: EditableProductFields | null): PanelFo
     categoryId: product?.categoryId ?? "",
     imageUrls: product?.imageUrls ?? [],
     attributes: product?.mercadoLivreAttributes ?? {},
-    fiscal: fiscalFormValues(product?.fiscal),
+    fiscal: productFiscalFormValues(product?.fiscal),
   };
 }
 

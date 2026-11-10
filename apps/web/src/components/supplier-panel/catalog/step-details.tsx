@@ -9,10 +9,11 @@ import {
   type PanelFormValues,
 } from "@/features/supplier-panel/catalog/draft-form";
 import { NO_GTIN } from "@sellbridge/shared/product-fiscal";
+import type { SupplierTaxSetup } from "@sellbridge/shared/supplier-fiscal";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
 import { FieldReason, type ReasonsByField } from "./field-reason";
-import { FiscalFields, type ProductTaxDefaults } from "./fiscal-fields";
+import { FiscalFields } from "./fiscal-fields";
 
 /** Codes are typed as they are: no capital first letter, autocorrect or spell check. */
 const CODE_INPUT = {
@@ -137,7 +138,7 @@ export function StepDetails(
   props: StepProps & {
     required: readonly RequiredAttribute[];
     /** Set for a supplier's product (NF-e data); left out for a seller's own one. */
-    taxDefaults?: ProductTaxDefaults | null | undefined;
+    taxDefaults?: SupplierTaxSetup | null | undefined;
   },
 ) {
   const { values, errors, reasons, onChange, taxDefaults } = props;

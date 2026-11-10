@@ -11,7 +11,7 @@ import {
  * field like their other values. Every field is text; the tax defaults start with the usual
  * resale codes so most suppliers only fill in the company.
  */
-export interface FiscalFormValues {
+export interface SupplierFiscalFormValues {
   fiscalCnpj: string;
   fiscalLegalName: string;
   fiscalStateRegistration: string;
@@ -42,9 +42,9 @@ const COMPANY_FIELDS = [
   "fiscalNumber",
   "fiscalNeighborhood",
   "fiscalCity",
-] as const satisfies readonly (keyof FiscalFormValues)[];
+] as const satisfies readonly (keyof SupplierFiscalFormValues)[];
 
-function emptyFiscalValues(): FiscalFormValues {
+function emptyFiscalValues(): SupplierFiscalFormValues {
   const defaults = suggestedTaxDefaults("simples");
   return {
     fiscalCnpj: "",
@@ -69,7 +69,7 @@ function emptyFiscalValues(): FiscalFormValues {
 }
 
 /** The stored profile in the form; a missing or broken one starts from the suggestions. */
-export function fiscalFormValues(stored: unknown): FiscalFormValues {
+export function supplierFiscalFormValues(stored: unknown): SupplierFiscalFormValues {
   const profile = readSupplierFiscalProfile(stored ?? null);
   if (profile === null) {
     return emptyFiscalValues();
@@ -106,7 +106,7 @@ function originInput(text: string): number | string {
  * What the forms send as `fiscalProfile`: null while the company fields are all empty (nothing
  * started), else the whole profile for the schema to check.
  */
-export function fiscalProfileInput(values: FiscalFormValues) {
+export function fiscalProfileInput(values: SupplierFiscalFormValues) {
   if (COMPANY_FIELDS.every((field) => values[field].trim() === "")) {
     return null;
   }
@@ -136,7 +136,7 @@ export function fiscalProfileInput(values: FiscalFormValues) {
   };
 }
 
-const ERROR_FIELDS: Readonly<Record<string, keyof FiscalFormValues>> = {
+const ERROR_FIELDS: Readonly<Record<string, keyof SupplierFiscalFormValues>> = {
   cnpj: "fiscalCnpj",
   legalName: "fiscalLegalName",
   stateRegistration: "fiscalStateRegistration",
@@ -158,10 +158,18 @@ const ERROR_FIELDS: Readonly<Record<string, keyof FiscalFormValues>> = {
   "defaults.unit": "fiscalUnit",
 };
 
-/** The form field a `fiscalProfile` issue points at, from its path inside the profile. */
+/**
+ * The form field a `fiscalProfile` issue points at, from its path inside the profile.
+ *
+ * @throws {Error} When the path has no field: the profile gained a field the form does not show.
+ */
 export function fiscalErrorField(path: readonly PropertyKey[]): string {
   const key = path.map(String).join(".");
-  return ERROR_FIELDS[key] ?? "fiscalCnpj";
+  const field = ERROR_FIELDS[key];
+  if (field === undefined) {
+    throw new Error(`No form field for the fiscal profile issue at "${key}"`);
+  }
+  return field;
 }
 
 /** Shown under the CEP when the address has no IBGE code yet. */

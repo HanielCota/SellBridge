@@ -3,65 +3,31 @@ import { formatCep } from "@sellbridge/shared/billing-address";
 import { BRAZILIAN_STATES } from "@sellbridge/shared/brazilian-states";
 import {
   icmsCodeLabel,
-  PRODUCT_ORIGIN_LABELS,
-  PRODUCT_UNIT_LABELS,
-  PRODUCT_UNITS,
   TAX_REGIME_LABELS,
   TAX_REGIMES,
   type TaxRegime,
 } from "@sellbridge/shared/product-fiscal";
 import { defaultIcmsCode } from "@sellbridge/shared/supplier-fiscal";
 import { useCallback } from "react";
+import { PRODUCT_ORIGIN_OPTIONS, PRODUCT_UNIT_OPTIONS } from "@/components/form/fiscal-options";
 import { firstErrorMessage, TextField } from "@/components/form/form-field";
+import { SelectField } from "@/components/form/select-field";
 import { SectionCard } from "@/components/layout/section-card";
-import { Label } from "@/components/ui/label";
-import type { FiscalFormValues } from "@/features/admin-suppliers/fiscal-form-values";
+import type { SupplierFiscalFormValues } from "@/features/admin-suppliers/fiscal-form-values";
 import type { CepAddress } from "@/features/cities/cep-lookup";
 import { useCepAutofill } from "@/features/cities/use-cep-autofill";
 
 interface BrandFiscalCardProps {
-  values: FiscalFormValues;
+  values: SupplierFiscalFormValues;
   errors: Record<string, string[]>;
-  onChange: (change: Partial<FiscalFormValues>) => void;
+  onChange: (change: Partial<SupplierFiscalFormValues>) => void;
 }
 
-const SELECT_CLASS =
-  "h-11 w-full rounded-xl border border-field-border bg-card px-3 text-body aria-invalid:border-destructive";
-
-function errorsOf(errors: Record<string, string[]>, field: keyof FiscalFormValues): string[] {
+function errorsOf(
+  errors: Record<string, string[]>,
+  field: keyof SupplierFiscalFormValues,
+): string[] {
   return errors[field] ?? [];
-}
-
-function FiscalSelect(props: {
-  id: string;
-  label: string;
-  value: string;
-  errors: readonly string[];
-  options: readonly { value: string; label: string }[];
-  placeholder?: string;
-  onValueChange: (value: string) => void;
-}) {
-  const message = firstErrorMessage(props.errors);
-  return (
-    <div className="grid gap-2">
-      <Label htmlFor={props.id}>{props.label}</Label>
-      <select
-        id={props.id}
-        className={SELECT_CLASS}
-        value={props.value}
-        aria-invalid={message === null ? undefined : true}
-        onChange={(event) => props.onValueChange(event.target.value)}
-      >
-        {props.placeholder === undefined ? null : <option value="">{props.placeholder}</option>}
-        {props.options.map((option) => (
-          <option key={option.value} value={option.value}>
-            {option.label}
-          </option>
-        ))}
-      </select>
-      {message === null ? null : <p className="text-sm text-destructive">{message}</p>}
-    </div>
-  );
 }
 
 const REGIME_OPTIONS = TAX_REGIMES.map((regime) => ({
@@ -69,15 +35,6 @@ const REGIME_OPTIONS = TAX_REGIMES.map((regime) => ({
   label: TAX_REGIME_LABELS[regime],
 }));
 const STATE_OPTIONS = BRAZILIAN_STATES.map((state) => ({ value: state, label: state }));
-const ORIGIN_OPTIONS = PRODUCT_ORIGIN_LABELS.map((label, origin) => ({
-  value: String(origin),
-  label,
-}));
-const UNIT_OPTIONS = PRODUCT_UNITS.map((unit) => ({
-  value: unit,
-  label: PRODUCT_UNIT_LABELS[unit],
-}));
-
 function CompanyFields({ values, errors, onChange }: BrandFiscalCardProps) {
   const changeRegime = (next: string) => {
     const regime = TAX_REGIMES.find((option) => option === next) ?? "simples";
@@ -116,11 +73,11 @@ function CompanyFields({ values, errors, onChange }: BrandFiscalCardProps) {
         />
         <p className="text-footnote text-muted-foreground">Não tem? Escreva ISENTO.</p>
       </div>
-      <FiscalSelect
+      <SelectField
         id="brand-fiscal-regime"
         label="Regime tributário"
         value={values.fiscalRegime}
-        errors={errorsOf(errors, "fiscalRegime")}
+        error={firstErrorMessage(errorsOf(errors, "fiscalRegime"))}
         options={REGIME_OPTIONS}
         onValueChange={changeRegime}
       />
@@ -207,11 +164,11 @@ function AddressFields(props: BrandFiscalCardProps) {
         </div>
       ))}
       <div className="sm:col-span-1">
-        <FiscalSelect
+        <SelectField
           id="brand-fiscal-state"
           label="UF"
           value={values.fiscalState}
-          errors={errorsOf(errors, "fiscalState")}
+          error={firstErrorMessage(errorsOf(errors, "fiscalState"))}
           options={STATE_OPTIONS}
           placeholder="UF"
           onValueChange={(fiscalState) => onChange({ fiscalState })}
@@ -262,20 +219,20 @@ function DefaultsFields({ values, errors, onChange }: BrandFiscalCardProps) {
         errors={errorsOf(errors, "fiscalPisCofinsCst")}
         onValueChange={(fiscalPisCofinsCst) => onChange({ fiscalPisCofinsCst })}
       />
-      <FiscalSelect
+      <SelectField
         id="brand-fiscal-origin"
         label="Origem"
         value={values.fiscalOrigin}
-        errors={errorsOf(errors, "fiscalOrigin")}
-        options={ORIGIN_OPTIONS}
+        error={firstErrorMessage(errorsOf(errors, "fiscalOrigin"))}
+        options={PRODUCT_ORIGIN_OPTIONS}
         onValueChange={(fiscalOrigin) => onChange({ fiscalOrigin })}
       />
-      <FiscalSelect
+      <SelectField
         id="brand-fiscal-unit"
         label="Unidade"
         value={values.fiscalUnit}
-        errors={errorsOf(errors, "fiscalUnit")}
-        options={UNIT_OPTIONS}
+        error={firstErrorMessage(errorsOf(errors, "fiscalUnit"))}
+        options={PRODUCT_UNIT_OPTIONS}
         onValueChange={(fiscalUnit) => onChange({ fiscalUnit })}
       />
     </fieldset>

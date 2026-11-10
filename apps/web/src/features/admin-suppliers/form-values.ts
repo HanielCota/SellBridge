@@ -5,14 +5,14 @@ import { SUPPLIER_SLA_DEFAULTS } from "@sellbridge/shared/schemas";
 import type { z } from "zod";
 import {
   fiscalCandidate,
-  fiscalFormValues as fiscalFormValuesOf,
+  productFiscalFormValues,
 } from "@/features/supplier-panel/catalog/draft-form";
 import {
   fiscalErrorField,
-  fiscalFormValues,
+  supplierFiscalFormValues,
   fiscalProfileInput,
   MISSING_IBGE_CODE_MESSAGE,
-  type FiscalFormValues,
+  type SupplierFiscalFormValues,
 } from "./fiscal-form-values";
 
 /** A form field of the profile when the issue is inside `fiscalProfile`, else the top field. */
@@ -21,7 +21,10 @@ function issueField(path: readonly PropertyKey[]): string {
     return fiscalErrorField(path.slice(1));
   }
   if (path[0] === "fiscal") {
-    return `fiscal.${String(path[1] ?? "ncm")}`;
+    if (path[1] === undefined) {
+      throw new Error("A product fiscal issue has no field in its path");
+    }
+    return `fiscal.${String(path[1])}`;
   }
   return String(path[0] ?? "form");
 }
@@ -39,7 +42,9 @@ export function catalogFormErrors(error: z.ZodError): Record<string, string[]> {
   const errors: Record<string, string[]> = {};
   for (const issue of error.issues) {
     const field = issueField(issue.path);
-    errors[field] = [...(errors[field] ?? []), issueMessage(issue)];
+    const messages = errors[field] ?? [];
+    messages.push(issueMessage(issue));
+    errors[field] = messages;
   }
   return errors;
 }
@@ -60,7 +65,7 @@ export function supplierFormValues(detail?: { supplier: AdminSupplier }) {
     dispatchWithinHours: String(
       supplier?.dispatchWithinHours ?? SUPPLIER_SLA_DEFAULTS.dispatchWithinHours,
     ),
-    ...fiscalFormValues(supplier?.fiscalProfile ?? null),
+    ...supplierFiscalFormValues(supplier?.fiscalProfile ?? null),
   };
 }
 
@@ -72,7 +77,8 @@ function hoursInput(text: string): number | string {
 
 /** What the supplier form sends to `adminSaveSupplierSchema`. */
 export function supplierFormInput(
-  values: Omit<ReturnType<typeof supplierFormValues>, keyof FiscalFormValues> & FiscalFormValues,
+  values: Omit<ReturnType<typeof supplierFormValues>, keyof SupplierFiscalFormValues> &
+    SupplierFiscalFormValues,
   supplierId: string | undefined,
 ) {
   return {
@@ -101,7 +107,7 @@ export function productFormValues(product?: AdminSupplierProduct) {
       .map(([id, value]) => `${id}=${value}`)
       .join("\n"),
     // Kept whole, so the tax-code overrides the supplier set survive a team edit.
-    fiscal: fiscalFormValuesOf(product?.fiscal),
+    fiscal: productFiscalFormValues(product?.fiscal),
   };
 }
 

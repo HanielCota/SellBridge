@@ -5,7 +5,7 @@ import {
   editedFields,
   inputIdOf,
   panelFormValues,
-  EMPTY_FISCAL_FORM_VALUES,
+  EMPTY_PRODUCT_FISCAL_FORM_VALUES,
   parseDraft,
   stepOfField,
   type PanelFormValues,
@@ -21,7 +21,7 @@ const FILLED: PanelFormValues = {
   categoryId: "",
   imageUrls: ["https://imagens.test/1.jpg"],
   attributes: { BRAND: " Marca ", MODEL: " " },
-  fiscal: EMPTY_FISCAL_FORM_VALUES,
+  fiscal: EMPTY_PRODUCT_FISCAL_FORM_VALUES,
 };
 
 const STORED = {
@@ -154,7 +154,7 @@ describe("fiscal fields", () => {
   it("saves the NCM as digits and the blanks as empty", () => {
     const values = {
       ...FILLED,
-      fiscal: { ...EMPTY_FISCAL_FORM_VALUES, ncm: "6109.10.00", origin: "0", unit: "UN" },
+      fiscal: { ...EMPTY_PRODUCT_FISCAL_FORM_VALUES, ncm: "6109.10.00", origin: "0", unit: "UN" },
     };
 
     const parsed = parseDraft(values);
@@ -168,7 +168,10 @@ describe("fiscal fields", () => {
   });
 
   it("names the fiscal field that is wrong, with the reason", () => {
-    const values = { ...FILLED, fiscal: { ...EMPTY_FISCAL_FORM_VALUES, ncm: "0000.00.00" } };
+    const values = {
+      ...FILLED,
+      fiscal: { ...EMPTY_PRODUCT_FISCAL_FORM_VALUES, ncm: "0000.00.00" },
+    };
 
     const parsed = parseDraft(values);
 

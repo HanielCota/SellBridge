@@ -1,4 +1,4 @@
-import type { ProductTaxDefaults } from "@/components/supplier-panel/catalog/fiscal-fields";
+import type { SupplierTaxSetup } from "@sellbridge/shared/supplier-fiscal";
 import {
   evaluateCompleteness,
   requiredAttributesFor,
@@ -51,7 +51,7 @@ interface ProductFormOptions {
   productId: string;
   product: SavedProduct | null;
   categories: readonly CategoryOption[];
-  taxDefaults: ProductTaxDefaults | null;
+  taxDefaults: SupplierTaxSetup | null;
 }
 
 /**

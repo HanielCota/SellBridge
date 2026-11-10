@@ -1,38 +1,23 @@
-import {
-  icmsCodeLabel,
-  maskNcmInput,
-  PRODUCT_ORIGIN_LABELS,
-  PRODUCT_UNIT_LABELS,
-  PRODUCT_UNITS,
-} from "@sellbridge/shared/product-fiscal";
-import type { SupplierTaxDefaults } from "@sellbridge/shared/supplier-fiscal";
-import type { TaxRegime } from "@sellbridge/shared/product-fiscal";
+import { icmsCodeLabel, icmsCodeShortLabel, maskNcmInput } from "@sellbridge/shared/product-fiscal";
+import type { SupplierTaxSetup } from "@sellbridge/shared/supplier-fiscal";
 import { Link } from "@tanstack/react-router";
+import { PRODUCT_ORIGIN_OPTIONS, PRODUCT_UNIT_OPTIONS } from "@/components/form/fiscal-options";
 import { TextField } from "@/components/form/form-field";
-import { Label } from "@/components/ui/label";
+import { SelectField } from "@/components/form/select-field";
 import {
   inputIdOf,
-  type FiscalFormValues,
   type PanelFormValues,
+  type ProductFiscalFormValues,
 } from "@/features/supplier-panel/catalog/draft-form";
 import { FieldReason, type ReasonsByField } from "./field-reason";
-
-/** The supplier's regime and default tax codes, from "Dados fiscais da empresa"; null until set. */
-export interface ProductTaxDefaults {
-  readonly regime: TaxRegime;
-  readonly defaults: SupplierTaxDefaults;
-}
 
 interface FiscalFieldsProps {
   values: PanelFormValues;
   errors: Readonly<Record<string, string>>;
   reasons: ReasonsByField;
   onChange: (change: Partial<PanelFormValues>) => void;
-  taxDefaults: ProductTaxDefaults | null;
+  taxDefaults: SupplierTaxSetup | null;
 }
-
-const SELECT_CLASS =
-  "h-11 w-full rounded-xl border border-field-border bg-card px-3 text-body aria-invalid:border-destructive";
 
 function errorsOf(errors: Readonly<Record<string, string>>, field: string): string[] {
   const message = errors[field];
@@ -40,59 +25,9 @@ function errorsOf(errors: Readonly<Record<string, string>>, field: string): stri
 }
 
 function useFiscalChange(props: FiscalFieldsProps) {
-  return (change: Partial<FiscalFormValues>) =>
+  return (change: Partial<ProductFiscalFormValues>) =>
     props.onChange({ fiscal: { ...props.values.fiscal, ...change } });
 }
-
-function FiscalSelect(props: {
-  field: string;
-  label: string;
-  hint?: string;
-  value: string;
-  error: string | undefined;
-  placeholder: string;
-  options: readonly { value: string; label: string }[];
-  onValueChange: (value: string) => void;
-}) {
-  const id = inputIdOf(props.field);
-  return (
-    <div className="grid gap-2">
-      <Label htmlFor={id}>{props.label}</Label>
-      <select
-        id={id}
-        className={SELECT_CLASS}
-        value={props.value}
-        aria-invalid={props.error === undefined ? undefined : true}
-        aria-describedby={props.error === undefined ? undefined : `${id}-error`}
-        onChange={(event) => props.onValueChange(event.target.value)}
-      >
-        <option value="">{props.placeholder}</option>
-        {props.options.map((option) => (
-          <option key={option.value} value={option.value}>
-            {option.label}
-          </option>
-        ))}
-      </select>
-      {props.error === undefined ? null : (
-        <p id={`${id}-error`} className="text-sm text-destructive">
-          {props.error}
-        </p>
-      )}
-      {props.hint === undefined ? null : (
-        <p className="text-footnote text-muted-foreground">{props.hint}</p>
-      )}
-    </div>
-  );
-}
-
-const ORIGIN_OPTIONS = PRODUCT_ORIGIN_LABELS.map((label, origin) => ({
-  value: String(origin),
-  label,
-}));
-const UNIT_OPTIONS = PRODUCT_UNITS.map((unit) => ({
-  value: unit,
-  label: PRODUCT_UNIT_LABELS[unit],
-}));
 
 /** A typed code field of the block, with its hint under it when there is one. */
 function FiscalTextField(props: {
@@ -139,23 +74,23 @@ function ProductFiscalCodes(props: FiscalFieldsProps) {
         />
         <FieldReason field="fiscal.ncm" reasons={reasons} />
       </div>
-      <FiscalSelect
-        field="fiscal.origin"
+      <SelectField
+        id={inputIdOf("fiscal.origin")}
         label="Origem"
         value={values.fiscal.origin}
-        error={errors["fiscal.origin"]}
+        error={errors["fiscal.origin"] ?? null}
         placeholder="Escolha a origem"
-        options={ORIGIN_OPTIONS}
+        options={PRODUCT_ORIGIN_OPTIONS}
         onValueChange={(origin) => change({ origin })}
       />
-      <FiscalSelect
-        field="fiscal.unit"
+      <SelectField
+        id={inputIdOf("fiscal.unit")}
         label="Unidade"
         hint="PAR para calçados, KIT para conjuntos"
         value={values.fiscal.unit}
-        error={errors["fiscal.unit"]}
+        error={errors["fiscal.unit"] ?? null}
         placeholder="Escolha a unidade"
-        options={UNIT_OPTIONS}
+        options={PRODUCT_UNIT_OPTIONS}
         onValueChange={(unit) => change({ unit })}
       />
       <FiscalTextField
@@ -179,15 +114,14 @@ function ProductFiscalCodes(props: FiscalFieldsProps) {
   );
 }
 
-function defaultsSummary(taxDefaults: ProductTaxDefaults): string {
+function defaultsSummary(taxDefaults: SupplierTaxSetup): string {
   const { defaults, regime } = taxDefaults;
-  const icms = regime === "simples" ? "CSOSN" : "CST ICMS";
-  return `CFOP ${defaults.cfopInState}/${defaults.cfopOutOfState} · ${icms} ${defaults.icmsCode} · PIS/COFINS ${defaults.pisCofinsCst}`;
+  return `CFOP ${defaults.cfopInState}/${defaults.cfopOutOfState} · ${icmsCodeShortLabel(regime)} ${defaults.icmsCode} · PIS/COFINS ${defaults.pisCofinsCst}`;
 }
 
 const OVERRIDE_KEYS = ["cfopInState", "cfopOutOfState", "icmsCode", "pisCofinsCst"] as const;
 
-function overrideLabel(key: (typeof OVERRIDE_KEYS)[number], taxDefaults: ProductTaxDefaults) {
+function overrideLabel(key: (typeof OVERRIDE_KEYS)[number], taxDefaults: SupplierTaxSetup) {
   const labels = {
     cfopInState: "CFOP dentro do estado",
     cfopOutOfState: "CFOP para outro estado",
