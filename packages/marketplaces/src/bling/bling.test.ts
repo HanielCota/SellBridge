@@ -308,4 +308,58 @@ describe("readBlingCatalog", () => {
     expect(catalog.items).toHaveLength(2);
     expect(catalog.truncated).toBe(true);
   });
+
+  it("reports how many of the listed products it read", async () => {
+    const list = [10, 11, 12].map((id) => ({
+      id,
+      nome: `P${id}`,
+      codigo: `C${id}`,
+      formato: "S",
+      situacao: "A",
+    }));
+    const fetchImplementation = vi.fn<typeof fetch>(async (input) => {
+      const url = new URL(requestUrl(input));
+      if (url.pathname.endsWith("/produtos")) {
+        return json(200, { data: list });
+      }
+      return json(200, { data: { ...simpleProduct, codigo: url.pathname } });
+    });
+    const { access } = accountAccess();
+    const progress: string[] = [];
+
+    await readBlingCatalog(client(fetchImplementation, access), {
+      maxProducts: 50,
+      onProgress: async ({ read, total }) => {
+        progress.push(`${read}/${total}`);
+      },
+    });
+
+    expect(progress).toEqual(["1/3", "2/3", "3/3"]);
+  });
+
+  it("stops before the item cap and says the catalog was cut", async () => {
+    const list = [10, 11, 12].map((id) => ({
+      id,
+      nome: `P${id}`,
+      codigo: `C${id}`,
+      formato: "S",
+      situacao: "A",
+    }));
+    const fetchImplementation = vi.fn<typeof fetch>(async (input) => {
+      const url = new URL(requestUrl(input));
+      if (url.pathname.endsWith("/produtos")) {
+        return json(200, { data: list });
+      }
+      return json(200, { data: { ...simpleProduct, codigo: url.pathname } });
+    });
+    const { access } = accountAccess();
+
+    const catalog = await readBlingCatalog(client(fetchImplementation, access), {
+      maxProducts: 50,
+      maxItems: 2,
+    });
+
+    expect(catalog.items).toHaveLength(2);
+    expect(catalog.truncated).toBe(true);
+  });
 });

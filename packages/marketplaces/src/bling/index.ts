@@ -5,7 +5,12 @@ export {
   type BlingClient,
   type BlingNewProduct,
 } from "./client.ts";
-export { readBlingCatalog, type BlingCatalogRead } from "./catalog.ts";
+export {
+  readBlingCatalog,
+  type BlingCatalogProgress,
+  type BlingCatalogRead,
+  type BlingCatalogReadOptions,
+} from "./catalog.ts";
 export {
   blingAuthorizationUrl,
   exchangeBlingCode,
