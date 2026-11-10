@@ -25,6 +25,7 @@ import { refreshMarketplaceTrackingFn } from "@/features/fulfillment/marketplace
 import { errorMessage } from "@/lib/errors";
 import { ForwardForm } from "./forward-form";
 import { ShipmentPanel } from "./shipment-panel";
+import { ResellerSupplierPayment } from "@/components/supplier-payments/reseller-supplier-payment";
 import { TrackParcelLink } from "@/components/tracking/track-parcel-link";
 import { useTabProfileLink } from "@/lib/tab-profile";
 import { ShipmentActionHint, ShipmentActionIcon } from "./shipment-hints";
@@ -78,6 +79,11 @@ function ShipmentList({
       shipment={shipment}
       externalOrderId={detail.order.externalOrderId}
       blocked={blocked}
+      payment={
+        shipment.catalogKind === "seller" ? null : (
+          <ResellerSupplierPayment shipmentId={shipment.id} />
+        )
+      }
       onUpdate={async (input) => {
         await updateShipmentFn({ data: input });
         await refresh();

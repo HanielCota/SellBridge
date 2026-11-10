@@ -7,6 +7,24 @@ import { oauthStates } from "@sellbridge/database/schema";
 import { eq } from "drizzle-orm";
 import base from "../vite.config.ts";
 import { e2eDatabase } from "./database.ts";
+import {
+  E2E_MERCADO_PAGO_ENV,
+  MERCADO_PAGO_FIXTURE_PREFIX,
+  mercadoPagoFixture,
+} from "./mercado-pago.fixture.ts";
+
+/** Mercado Pago points to the local stand-in: never the real service, never real money. */
+function useMercadoPagoStandIn(): void {
+  Object.assign(process.env, E2E_MERCADO_PAGO_ENV);
+  process.env.MERCADO_PAGO_API_URL = new URL(
+    `${MERCADO_PAGO_FIXTURE_PREFIX}/api`,
+    process.env.APP_URL,
+  ).href;
+  process.env.MERCADO_PAGO_AUTH_URL = new URL(
+    `${MERCADO_PAGO_FIXTURE_PREFIX}/auth`,
+    process.env.APP_URL,
+  ).href;
+}
 
 const escape = (value: string) =>
   value
@@ -76,6 +94,7 @@ export default defineConfig(({ command }) => {
   if (command !== "serve" || process.env.NODE_ENV === "production") {
     throw new Error("The E2E Vite configuration cannot build or serve production.");
   }
+  useMercadoPagoStandIn();
   return mergeConfig(base, {
     resolve: {
       alias: {
@@ -84,6 +103,6 @@ export default defineConfig(({ command }) => {
         ),
       },
     },
-    plugins: [consentFixture()],
+    plugins: [consentFixture(), mercadoPagoFixture()],
   });
 });

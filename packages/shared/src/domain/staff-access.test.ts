@@ -76,3 +76,11 @@ describe("shipments.view", () => {
     expect(hasStaffPermission("admin", "shipments.view")).toBe(true);
   });
 });
+
+describe("settings.manage", () => {
+  it("lets only admins change platform settings", () => {
+    expect(hasStaffPermission("admin", "settings.manage")).toBe(true);
+    expect(hasStaffPermission("supervisor", "settings.manage")).toBe(false);
+    expect(hasStaffPermission("agent", "settings.manage")).toBe(false);
+  });
+});

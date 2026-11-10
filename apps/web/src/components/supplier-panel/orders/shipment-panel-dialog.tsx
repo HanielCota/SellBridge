@@ -2,6 +2,7 @@ import { useQuery } from "@tanstack/react-query";
 import { formatCents } from "@sellbridge/shared/money";
 import { DISPATCHED_FULFILLMENT_STATUSES } from "@sellbridge/shared/schemas";
 import { ShipmentPanel } from "@/components/fulfillment/shipment-panel";
+import { SupplierPaymentBadgeView } from "@/components/supplier-payments/supplier-payment-badge";
 import { shippingMethod } from "@/features/supplier-panel/orders/shipping-methods";
 import { ErrorState } from "@/components/feedback/error-state";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
@@ -55,6 +56,7 @@ function OrderFacts({ shipment }: { shipment: PanelShipment }) {
   }
   return (
     <div className="space-y-3 rounded-2xl bg-muted/50 p-4">
+      <SupplierPaymentBadgeView badge={shipment.supplierPayment} />
       <dl className="grid grid-cols-1 gap-x-6 gap-y-2 text-subhead sm:grid-cols-2">
         {facts.map((fact) => (
           <div key={fact.term} className="min-w-0">

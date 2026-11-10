@@ -6,6 +6,7 @@ import {
   supplierOwnedShipments,
 } from "@sellbridge/database/repositories";
 import { resolvePeriod } from "@sellbridge/shared/period-range";
+import type { SupplierPaymentBadge } from "@sellbridge/shared/shipment-payments";
 import { logger } from "@sellbridge/shared/logger";
 import type { shipmentUpdateSchema } from "@sellbridge/shared/schemas";
 import type {
@@ -15,6 +16,7 @@ import type {
 } from "@sellbridge/shared/supplier-panel-orders-schema";
 import type { z } from "zod";
 import { database } from "@/lib/server/database";
+import { supplierPaymentBadges } from "@/features/supplier-payments/supplier-payments.server";
 import { writeShipmentUpdate } from "@/features/fulfillment/shipments.server";
 import { acceptEachShipment, acceptRefusal, type BatchAcceptReport } from "./batch-accept";
 import { conflictError } from "@sellbridge/shared/errors";
@@ -32,9 +34,23 @@ function withSaleDates<TSearch extends SupplierShipmentCountsSearch>(search: TSe
   return { ...filters, orderedFrom: range?.from, orderedTo: range?.to };
 }
 
+/** The page of parcels, each with whether the reseller already paid the supplier for it. */
 export async function loadSupplierShipments(search: SupplierShipmentsSearch) {
-  return await listSupplierShipments(database, withSaleDates(search));
+  const page = await listSupplierShipments(database, withSaleDates(search));
+  const badges = await supplierPaymentBadges({
+    supplierId: search.supplierId,
+    shipmentIds: page.items.map((item) => item.id),
+  });
+  return {
+    ...page,
+    items: page.items.map((item) => ({
+      ...item,
+      supplierPayment: badges.get(item.id) ?? OUTSIDE_PAYMENT,
+    })),
+  };
 }
+
+const OUTSIDE_PAYMENT: SupplierPaymentBadge = { kind: "outside" };
 
 export async function loadSupplierShipmentCounts(input: SupplierShipmentCountsSearch) {
   return await countSupplierShipmentsByTab(database, withSaleDates(input));
@@ -45,7 +61,11 @@ export async function loadSupplierResellerStores(supplierId: string) {
 }
 
 export async function loadSupplierShipment(input: { supplierId: string; shipmentId: string }) {
-  return await getSupplierPanelShipment(database, input);
+  const [shipment, badges] = await Promise.all([
+    getSupplierPanelShipment(database, input),
+    supplierPaymentBadges({ supplierId: input.supplierId, shipmentIds: [input.shipmentId] }),
+  ]);
+  return { ...shipment, supplierPayment: badges.get(input.shipmentId) ?? OUTSIDE_PAYMENT };
 }
 
 type ShipmentUpdate = z.infer<typeof shipmentUpdateSchema>;

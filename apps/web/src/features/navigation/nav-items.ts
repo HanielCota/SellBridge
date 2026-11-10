@@ -58,6 +58,7 @@ export const SUPPLIER_NAV_ITEMS: NavItem[] = [
   },
   { label: "Vendas", to: "/fornecedor/painel/vendas", group: "Vendas" },
   { label: "Mensagens", to: "/suporte/revendedores", badge: "storeMessages", group: "Vendas" },
+  { label: "Recebimentos", to: "/fornecedor/painel/recebimentos", group: "Vendas" },
   { label: "Produtos", to: "/fornecedor/painel/produtos", group: "Catálogo" },
   { label: "Importar planilha", to: "/fornecedor/painel/importar", group: "Catálogo" },
   { label: "Desempenho", to: "/fornecedor/painel/desempenho", group: "Catálogo" },

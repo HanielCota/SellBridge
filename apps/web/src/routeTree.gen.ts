@@ -68,6 +68,7 @@ import { Route as ApiV1MeRouteImport } from './routes/api/v1/me'
 import { Route as ApiV1OpenapiDotjsonRouteImport } from './routes/api/v1/openapi[.]json'
 import { Route as ApiV1StoresRouteImport } from './routes/api/v1/stores'
 import { Route as ApiWebhooksMarketplaceRouteImport } from './routes/api/webhooks/$marketplace'
+import { Route as ApiWebhooksMercadoPagoRouteImport } from './routes/api/webhooks/mercado-pago'
 import { Route as ApiWebhooksStripeRouteImport } from './routes/api/webhooks/stripe'
 import { Route as FornecedorPedidoTokenRouteImport } from './routes/fornecedor/pedido/$token'
 import { Route as AppAdminChamadosIndexRouteImport } from './routes/_app/admin/chamados/index'
@@ -84,6 +85,7 @@ import { Route as AppFornecedorPainelImportarRouteImport } from './routes/_app/f
 import { Route as AppFornecedorPainelMarcaRouteImport } from './routes/_app/fornecedor/painel/marca'
 import { Route as AppFornecedorPainelPedidosRouteImport } from './routes/_app/fornecedor/painel/pedidos'
 import { Route as AppFornecedorPainelProdutosRouteImport } from './routes/_app/fornecedor/painel/produtos'
+import { Route as AppFornecedorPainelRecebimentosRouteImport } from './routes/_app/fornecedor/painel/recebimentos'
 import { Route as AppFornecedorPainelRegrasRouteImport } from './routes/_app/fornecedor/painel/regras'
 import { Route as AppFornecedorPainelRelatorioRouteImport } from './routes/_app/fornecedor/painel/relatorio'
 import { Route as AppFornecedorPainelVendasRouteImport } from './routes/_app/fornecedor/painel/vendas'
@@ -98,6 +100,8 @@ import { Route as ApiFornecedorExportarPedidosRouteImport } from './routes/api/f
 import { Route as ApiFornecedorExportarProdutosRouteImport } from './routes/api/fornecedor/exportar/produtos'
 import { Route as ApiFornecedorProdutosImagensRouteImport } from './routes/api/fornecedor/produtos/imagens'
 import { Route as ApiFornecedorVendasExportarRouteImport } from './routes/api/fornecedor/vendas/exportar'
+import { Route as ApiIntegracoesMercadoPagoConectarRouteImport } from './routes/api/integracoes/mercado-pago/conectar'
+import { Route as ApiIntegracoesMercadoPagoRetornoRouteImport } from './routes/api/integracoes/mercado-pago/retorno'
 import { Route as ApiOauthMarketplaceCallbackRouteImport } from './routes/api/oauth/$marketplace/callback'
 import { Route as ApiOauthMarketplaceStartRouteImport } from './routes/api/oauth/$marketplace/start'
 import { Route as ApiPedidosOrderIdEtiquetaRouteImport } from './routes/api/pedidos/$orderId/etiqueta'
@@ -418,6 +422,11 @@ const ApiWebhooksMarketplaceRoute = ApiWebhooksMarketplaceRouteImport.update({
   path: '/api/webhooks/$marketplace',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiWebhooksMercadoPagoRoute = ApiWebhooksMercadoPagoRouteImport.update({
+  id: '/api/webhooks/mercado-pago',
+  path: '/api/webhooks/mercado-pago',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ApiWebhooksStripeRoute = ApiWebhooksStripeRouteImport.update({
   id: '/api/webhooks/stripe',
   path: '/api/webhooks/stripe',
@@ -509,6 +518,12 @@ const AppFornecedorPainelProdutosRoute =
     path: '/produtos',
     getParentRoute: () => AppFornecedorPainelRouteRoute,
   } as any)
+const AppFornecedorPainelRecebimentosRoute =
+  AppFornecedorPainelRecebimentosRouteImport.update({
+    id: '/recebimentos',
+    path: '/recebimentos',
+    getParentRoute: () => AppFornecedorPainelRouteRoute,
+  } as any)
 const AppFornecedorPainelRegrasRoute =
   AppFornecedorPainelRegrasRouteImport.update({
     id: '/regras',
@@ -590,6 +605,18 @@ const ApiFornecedorVendasExportarRoute =
   ApiFornecedorVendasExportarRouteImport.update({
     id: '/api/fornecedor/vendas/exportar',
     path: '/api/fornecedor/vendas/exportar',
+    getParentRoute: () => rootRouteImport,
+  } as any)
+const ApiIntegracoesMercadoPagoConectarRoute =
+  ApiIntegracoesMercadoPagoConectarRouteImport.update({
+    id: '/api/integracoes/mercado-pago/conectar',
+    path: '/api/integracoes/mercado-pago/conectar',
+    getParentRoute: () => rootRouteImport,
+  } as any)
+const ApiIntegracoesMercadoPagoRetornoRoute =
+  ApiIntegracoesMercadoPagoRetornoRouteImport.update({
+    id: '/api/integracoes/mercado-pago/retorno',
+    path: '/api/integracoes/mercado-pago/retorno',
     getParentRoute: () => rootRouteImport,
   } as any)
 const ApiOauthMarketplaceCallbackRoute =
@@ -785,6 +812,7 @@ export interface FileRoutesByFullPath {
   '/api/v1/openapi.json': typeof ApiV1OpenapiDotjsonRoute
   '/api/v1/stores': typeof ApiV1StoresRoute
   '/api/webhooks/$marketplace': typeof ApiWebhooksMarketplaceRoute
+  '/api/webhooks/mercado-pago': typeof ApiWebhooksMercadoPagoRoute
   '/api/webhooks/stripe': typeof ApiWebhooksStripeRoute
   '/fornecedor/pedido/$token': typeof FornecedorPedidoTokenRoute
   '/fornecedores/': typeof AppFornecedoresIndexRoute
@@ -801,6 +829,7 @@ export interface FileRoutesByFullPath {
   '/fornecedor/painel/marca': typeof AppFornecedorPainelMarcaRoute
   '/fornecedor/painel/pedidos': typeof AppFornecedorPainelPedidosRoute
   '/fornecedor/painel/produtos': typeof AppFornecedorPainelProdutosRoute
+  '/fornecedor/painel/recebimentos': typeof AppFornecedorPainelRecebimentosRoute
   '/fornecedor/painel/regras': typeof AppFornecedorPainelRegrasRoute
   '/fornecedor/painel/relatorio': typeof AppFornecedorPainelRelatorioRoute
   '/fornecedor/painel/vendas': typeof AppFornecedorPainelVendasRoute
@@ -814,6 +843,8 @@ export interface FileRoutesByFullPath {
   '/api/fornecedor/exportar/produtos': typeof ApiFornecedorExportarProdutosRoute
   '/api/fornecedor/produtos/imagens': typeof ApiFornecedorProdutosImagensRoute
   '/api/fornecedor/vendas/exportar': typeof ApiFornecedorVendasExportarRoute
+  '/api/integracoes/mercado-pago/conectar': typeof ApiIntegracoesMercadoPagoConectarRoute
+  '/api/integracoes/mercado-pago/retorno': typeof ApiIntegracoesMercadoPagoRetornoRoute
   '/api/oauth/$marketplace/callback': typeof ApiOauthMarketplaceCallbackRoute
   '/api/oauth/$marketplace/start': typeof ApiOauthMarketplaceStartRoute
   '/api/pedidos/$orderId/etiqueta': typeof ApiPedidosOrderIdEtiquetaRoute
@@ -895,6 +926,7 @@ export interface FileRoutesByTo {
   '/api/v1/openapi.json': typeof ApiV1OpenapiDotjsonRoute
   '/api/v1/stores': typeof ApiV1StoresRoute
   '/api/webhooks/$marketplace': typeof ApiWebhooksMarketplaceRoute
+  '/api/webhooks/mercado-pago': typeof ApiWebhooksMercadoPagoRoute
   '/api/webhooks/stripe': typeof ApiWebhooksStripeRoute
   '/fornecedor/pedido/$token': typeof FornecedorPedidoTokenRoute
   '/fornecedores': typeof AppFornecedoresIndexRoute
@@ -911,6 +943,7 @@ export interface FileRoutesByTo {
   '/fornecedor/painel/marca': typeof AppFornecedorPainelMarcaRoute
   '/fornecedor/painel/pedidos': typeof AppFornecedorPainelPedidosRoute
   '/fornecedor/painel/produtos': typeof AppFornecedorPainelProdutosRoute
+  '/fornecedor/painel/recebimentos': typeof AppFornecedorPainelRecebimentosRoute
   '/fornecedor/painel/regras': typeof AppFornecedorPainelRegrasRoute
   '/fornecedor/painel/relatorio': typeof AppFornecedorPainelRelatorioRoute
   '/fornecedor/painel/vendas': typeof AppFornecedorPainelVendasRoute
@@ -924,6 +957,8 @@ export interface FileRoutesByTo {
   '/api/fornecedor/exportar/produtos': typeof ApiFornecedorExportarProdutosRoute
   '/api/fornecedor/produtos/imagens': typeof ApiFornecedorProdutosImagensRoute
   '/api/fornecedor/vendas/exportar': typeof ApiFornecedorVendasExportarRoute
+  '/api/integracoes/mercado-pago/conectar': typeof ApiIntegracoesMercadoPagoConectarRoute
+  '/api/integracoes/mercado-pago/retorno': typeof ApiIntegracoesMercadoPagoRetornoRoute
   '/api/oauth/$marketplace/callback': typeof ApiOauthMarketplaceCallbackRoute
   '/api/oauth/$marketplace/start': typeof ApiOauthMarketplaceStartRoute
   '/api/pedidos/$orderId/etiqueta': typeof ApiPedidosOrderIdEtiquetaRoute
@@ -1011,6 +1046,7 @@ export interface FileRoutesById {
   '/api/v1/openapi.json': typeof ApiV1OpenapiDotjsonRoute
   '/api/v1/stores': typeof ApiV1StoresRoute
   '/api/webhooks/$marketplace': typeof ApiWebhooksMarketplaceRoute
+  '/api/webhooks/mercado-pago': typeof ApiWebhooksMercadoPagoRoute
   '/api/webhooks/stripe': typeof ApiWebhooksStripeRoute
   '/fornecedor/pedido/$token': typeof FornecedorPedidoTokenRoute
   '/_app/fornecedores/': typeof AppFornecedoresIndexRoute
@@ -1027,6 +1063,7 @@ export interface FileRoutesById {
   '/_app/fornecedor/painel/marca': typeof AppFornecedorPainelMarcaRoute
   '/_app/fornecedor/painel/pedidos': typeof AppFornecedorPainelPedidosRoute
   '/_app/fornecedor/painel/produtos': typeof AppFornecedorPainelProdutosRoute
+  '/_app/fornecedor/painel/recebimentos': typeof AppFornecedorPainelRecebimentosRoute
   '/_app/fornecedor/painel/regras': typeof AppFornecedorPainelRegrasRoute
   '/_app/fornecedor/painel/relatorio': typeof AppFornecedorPainelRelatorioRoute
   '/_app/fornecedor/painel/vendas': typeof AppFornecedorPainelVendasRoute
@@ -1040,6 +1077,8 @@ export interface FileRoutesById {
   '/api/fornecedor/exportar/produtos': typeof ApiFornecedorExportarProdutosRoute
   '/api/fornecedor/produtos/imagens': typeof ApiFornecedorProdutosImagensRoute
   '/api/fornecedor/vendas/exportar': typeof ApiFornecedorVendasExportarRoute
+  '/api/integracoes/mercado-pago/conectar': typeof ApiIntegracoesMercadoPagoConectarRoute
+  '/api/integracoes/mercado-pago/retorno': typeof ApiIntegracoesMercadoPagoRetornoRoute
   '/api/oauth/$marketplace/callback': typeof ApiOauthMarketplaceCallbackRoute
   '/api/oauth/$marketplace/start': typeof ApiOauthMarketplaceStartRoute
   '/api/pedidos/$orderId/etiqueta': typeof ApiPedidosOrderIdEtiquetaRoute
@@ -1126,6 +1165,7 @@ export interface FileRouteTypes {
     | '/api/v1/openapi.json'
     | '/api/v1/stores'
     | '/api/webhooks/$marketplace'
+    | '/api/webhooks/mercado-pago'
     | '/api/webhooks/stripe'
     | '/fornecedor/pedido/$token'
     | '/fornecedores/'
@@ -1142,6 +1182,7 @@ export interface FileRouteTypes {
     | '/fornecedor/painel/marca'
     | '/fornecedor/painel/pedidos'
     | '/fornecedor/painel/produtos'
+    | '/fornecedor/painel/recebimentos'
     | '/fornecedor/painel/regras'
     | '/fornecedor/painel/relatorio'
     | '/fornecedor/painel/vendas'
@@ -1155,6 +1196,8 @@ export interface FileRouteTypes {
     | '/api/fornecedor/exportar/produtos'
     | '/api/fornecedor/produtos/imagens'
     | '/api/fornecedor/vendas/exportar'
+    | '/api/integracoes/mercado-pago/conectar'
+    | '/api/integracoes/mercado-pago/retorno'
     | '/api/oauth/$marketplace/callback'
     | '/api/oauth/$marketplace/start'
     | '/api/pedidos/$orderId/etiqueta'
@@ -1236,6 +1279,7 @@ export interface FileRouteTypes {
     | '/api/v1/openapi.json'
     | '/api/v1/stores'
     | '/api/webhooks/$marketplace'
+    | '/api/webhooks/mercado-pago'
     | '/api/webhooks/stripe'
     | '/fornecedor/pedido/$token'
     | '/fornecedores'
@@ -1252,6 +1296,7 @@ export interface FileRouteTypes {
     | '/fornecedor/painel/marca'
     | '/fornecedor/painel/pedidos'
     | '/fornecedor/painel/produtos'
+    | '/fornecedor/painel/recebimentos'
     | '/fornecedor/painel/regras'
     | '/fornecedor/painel/relatorio'
     | '/fornecedor/painel/vendas'
@@ -1265,6 +1310,8 @@ export interface FileRouteTypes {
     | '/api/fornecedor/exportar/produtos'
     | '/api/fornecedor/produtos/imagens'
     | '/api/fornecedor/vendas/exportar'
+    | '/api/integracoes/mercado-pago/conectar'
+    | '/api/integracoes/mercado-pago/retorno'
     | '/api/oauth/$marketplace/callback'
     | '/api/oauth/$marketplace/start'
     | '/api/pedidos/$orderId/etiqueta'
@@ -1351,6 +1398,7 @@ export interface FileRouteTypes {
     | '/api/v1/openapi.json'
     | '/api/v1/stores'
     | '/api/webhooks/$marketplace'
+    | '/api/webhooks/mercado-pago'
     | '/api/webhooks/stripe'
     | '/fornecedor/pedido/$token'
     | '/_app/fornecedores/'
@@ -1367,6 +1415,7 @@ export interface FileRouteTypes {
     | '/_app/fornecedor/painel/marca'
     | '/_app/fornecedor/painel/pedidos'
     | '/_app/fornecedor/painel/produtos'
+    | '/_app/fornecedor/painel/recebimentos'
     | '/_app/fornecedor/painel/regras'
     | '/_app/fornecedor/painel/relatorio'
     | '/_app/fornecedor/painel/vendas'
@@ -1380,6 +1429,8 @@ export interface FileRouteTypes {
     | '/api/fornecedor/exportar/produtos'
     | '/api/fornecedor/produtos/imagens'
     | '/api/fornecedor/vendas/exportar'
+    | '/api/integracoes/mercado-pago/conectar'
+    | '/api/integracoes/mercado-pago/retorno'
     | '/api/oauth/$marketplace/callback'
     | '/api/oauth/$marketplace/start'
     | '/api/pedidos/$orderId/etiqueta'
@@ -1435,6 +1486,7 @@ export interface RootRouteChildren {
   ApiV1OpenapiDotjsonRoute: typeof ApiV1OpenapiDotjsonRoute
   ApiV1StoresRoute: typeof ApiV1StoresRoute
   ApiWebhooksMarketplaceRoute: typeof ApiWebhooksMarketplaceRoute
+  ApiWebhooksMercadoPagoRoute: typeof ApiWebhooksMercadoPagoRoute
   ApiWebhooksStripeRoute: typeof ApiWebhooksStripeRoute
   FornecedorPedidoTokenRoute: typeof FornecedorPedidoTokenRoute
   ApiAdminExportarAuditoriaRoute: typeof ApiAdminExportarAuditoriaRoute
@@ -1445,6 +1497,8 @@ export interface RootRouteChildren {
   ApiFornecedorExportarProdutosRoute: typeof ApiFornecedorExportarProdutosRoute
   ApiFornecedorProdutosImagensRoute: typeof ApiFornecedorProdutosImagensRoute
   ApiFornecedorVendasExportarRoute: typeof ApiFornecedorVendasExportarRoute
+  ApiIntegracoesMercadoPagoConectarRoute: typeof ApiIntegracoesMercadoPagoConectarRoute
+  ApiIntegracoesMercadoPagoRetornoRoute: typeof ApiIntegracoesMercadoPagoRetornoRoute
   ApiOauthMarketplaceCallbackRoute: typeof ApiOauthMarketplaceCallbackRoute
   ApiOauthMarketplaceStartRoute: typeof ApiOauthMarketplaceStartRoute
   ApiPedidosOrderIdEtiquetaRoute: typeof ApiPedidosOrderIdEtiquetaRoute
@@ -1882,6 +1936,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiWebhooksMarketplaceRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/webhooks/mercado-pago': {
+      id: '/api/webhooks/mercado-pago'
+      path: '/api/webhooks/mercado-pago'
+      fullPath: '/api/webhooks/mercado-pago'
+      preLoaderRoute: typeof ApiWebhooksMercadoPagoRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/webhooks/stripe': {
       id: '/api/webhooks/stripe'
       path: '/api/webhooks/stripe'
@@ -1994,6 +2055,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppFornecedorPainelProdutosRouteImport
       parentRoute: typeof AppFornecedorPainelRouteRoute
     }
+    '/_app/fornecedor/painel/recebimentos': {
+      id: '/_app/fornecedor/painel/recebimentos'
+      path: '/recebimentos'
+      fullPath: '/fornecedor/painel/recebimentos'
+      preLoaderRoute: typeof AppFornecedorPainelRecebimentosRouteImport
+      parentRoute: typeof AppFornecedorPainelRouteRoute
+    }
     '/_app/fornecedor/painel/regras': {
       id: '/_app/fornecedor/painel/regras'
       path: '/regras'
@@ -2090,6 +2158,20 @@ declare module '@tanstack/react-router' {
       path: '/api/fornecedor/vendas/exportar'
       fullPath: '/api/fornecedor/vendas/exportar'
       preLoaderRoute: typeof ApiFornecedorVendasExportarRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/integracoes/mercado-pago/conectar': {
+      id: '/api/integracoes/mercado-pago/conectar'
+      path: '/api/integracoes/mercado-pago/conectar'
+      fullPath: '/api/integracoes/mercado-pago/conectar'
+      preLoaderRoute: typeof ApiIntegracoesMercadoPagoConectarRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/integracoes/mercado-pago/retorno': {
+      id: '/api/integracoes/mercado-pago/retorno'
+      path: '/api/integracoes/mercado-pago/retorno'
+      fullPath: '/api/integracoes/mercado-pago/retorno'
+      preLoaderRoute: typeof ApiIntegracoesMercadoPagoRetornoRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/api/oauth/$marketplace/callback': {
@@ -2340,6 +2422,7 @@ interface AppFornecedorPainelRouteRouteChildren {
   AppFornecedorPainelMarcaRoute: typeof AppFornecedorPainelMarcaRoute
   AppFornecedorPainelPedidosRoute: typeof AppFornecedorPainelPedidosRoute
   AppFornecedorPainelProdutosRoute: typeof AppFornecedorPainelProdutosRoute
+  AppFornecedorPainelRecebimentosRoute: typeof AppFornecedorPainelRecebimentosRoute
   AppFornecedorPainelRegrasRoute: typeof AppFornecedorPainelRegrasRoute
   AppFornecedorPainelRelatorioRoute: typeof AppFornecedorPainelRelatorioRoute
   AppFornecedorPainelVendasRoute: typeof AppFornecedorPainelVendasRoute
@@ -2354,6 +2437,7 @@ const AppFornecedorPainelRouteRouteChildren: AppFornecedorPainelRouteRouteChildr
     AppFornecedorPainelMarcaRoute: AppFornecedorPainelMarcaRoute,
     AppFornecedorPainelPedidosRoute: AppFornecedorPainelPedidosRoute,
     AppFornecedorPainelProdutosRoute: AppFornecedorPainelProdutosRoute,
+    AppFornecedorPainelRecebimentosRoute: AppFornecedorPainelRecebimentosRoute,
     AppFornecedorPainelRegrasRoute: AppFornecedorPainelRegrasRoute,
     AppFornecedorPainelRelatorioRoute: AppFornecedorPainelRelatorioRoute,
     AppFornecedorPainelVendasRoute: AppFornecedorPainelVendasRoute,
@@ -2481,6 +2565,7 @@ const rootRouteChildren: RootRouteChildren = {
   ApiV1OpenapiDotjsonRoute: ApiV1OpenapiDotjsonRoute,
   ApiV1StoresRoute: ApiV1StoresRoute,
   ApiWebhooksMarketplaceRoute: ApiWebhooksMarketplaceRoute,
+  ApiWebhooksMercadoPagoRoute: ApiWebhooksMercadoPagoRoute,
   ApiWebhooksStripeRoute: ApiWebhooksStripeRoute,
   FornecedorPedidoTokenRoute: FornecedorPedidoTokenRoute,
   ApiAdminExportarAuditoriaRoute: ApiAdminExportarAuditoriaRoute,
@@ -2491,6 +2576,9 @@ const rootRouteChildren: RootRouteChildren = {
   ApiFornecedorExportarProdutosRoute: ApiFornecedorExportarProdutosRoute,
   ApiFornecedorProdutosImagensRoute: ApiFornecedorProdutosImagensRoute,
   ApiFornecedorVendasExportarRoute: ApiFornecedorVendasExportarRoute,
+  ApiIntegracoesMercadoPagoConectarRoute:
+    ApiIntegracoesMercadoPagoConectarRoute,
+  ApiIntegracoesMercadoPagoRetornoRoute: ApiIntegracoesMercadoPagoRetornoRoute,
   ApiOauthMarketplaceCallbackRoute: ApiOauthMarketplaceCallbackRoute,
   ApiOauthMarketplaceStartRoute: ApiOauthMarketplaceStartRoute,
   ApiPedidosOrderIdEtiquetaRoute: ApiPedidosOrderIdEtiquetaRoute,
