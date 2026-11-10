@@ -65,6 +65,7 @@
     "./webhook-signature": "./src/public-api/webhook-signature.ts",
     "./token-cipher": "./src/runtime/token-cipher.ts",
     "./shipment-delay": "./src/domain/shipment-delay.ts",
+    "./shipment-payments": "./src/domain/shipment-payments.ts",
     "./sleep": "./src/runtime/sleep.ts",
     "./deadline": "./src/runtime/deadline.ts",
     "./health": "./src/runtime/health.ts",

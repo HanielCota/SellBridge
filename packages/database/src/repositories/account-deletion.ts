@@ -4,6 +4,9 @@ import {
   billingAccounts,
   member,
   organization,
+  paymentOAuthStates,
+  supplierPaymentAccounts,
+  suppliers,
   ticketAttachments,
   ticketMessages,
   tickets,
@@ -62,10 +65,23 @@ export async function accountFileKeys(
 
 /**
  * Deletes a workspace and everything in it: stores, sales, listings, tickets and the holder's
- * CPF all cascade from the organization in one statement.
+ * CPF all cascade from the organization. A supplier's catalog outlives the workspace (it is only
+ * detached), so its payment account tokens and pending states are deleted with it here.
  */
 export async function deleteTenantData(database: Database, tenantId: string): Promise<void> {
-  await database.delete(organization).where(eq(organization.id, tenantId));
+  await database.transaction(async (transaction) => {
+    const ranSupplier = transaction
+      .select({ id: suppliers.id })
+      .from(suppliers)
+      .where(eq(suppliers.organizationId, tenantId));
+    await transaction
+      .delete(supplierPaymentAccounts)
+      .where(inArray(supplierPaymentAccounts.supplierId, ranSupplier));
+    await transaction
+      .delete(paymentOAuthStates)
+      .where(inArray(paymentOAuthStates.supplierId, ranSupplier));
+    await transaction.delete(organization).where(eq(organization.id, tenantId));
+  });
 }
 
 /**
