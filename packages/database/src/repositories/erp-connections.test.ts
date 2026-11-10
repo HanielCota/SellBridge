@@ -1,4 +1,6 @@
+import { eq } from "drizzle-orm";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
+import { erpOAuthStates } from "../schema/index.ts";
 import {
   createTestDatabase,
   createTestSupplierProduct,
@@ -107,6 +109,31 @@ describe("ERP OAuth state", () => {
     const consumed = await consumeErpOAuthState(database, { state, userId, provider: "bling" });
 
     expect(consumed).toBeNull();
+  });
+
+  it("clears abandoned expired states when a new one is created", async () => {
+    const abandoned = crypto.randomUUID();
+    await createErpOAuthState(database, {
+      state: abandoned,
+      supplierId: supplier.supplierId,
+      userId,
+      provider: "bling",
+      ttlMilliseconds: -1,
+    });
+
+    await createErpOAuthState(database, {
+      state: crypto.randomUUID(),
+      supplierId: supplier.supplierId,
+      userId,
+      provider: "bling",
+      ttlMilliseconds: 60_000,
+    });
+    const left = await database
+      .select({ state: erpOAuthStates.state })
+      .from(erpOAuthStates)
+      .where(eq(erpOAuthStates.state, abandoned));
+
+    expect(left).toEqual([]);
   });
 });
 

@@ -28,6 +28,8 @@ export async function createErpOAuthState(
     ttlMilliseconds: number;
   },
 ): Promise<void> {
+  // Abandoned consents are never consumed: each new one clears the expired ones.
+  await database.delete(erpOAuthStates).where(lt(erpOAuthStates.expiresAt, new Date()));
   await database.insert(erpOAuthStates).values({
     state: input.state,
     supplierId: input.supplierId,
