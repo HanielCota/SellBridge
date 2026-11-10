@@ -364,6 +364,23 @@ describe("review flow", () => {
     expect(String(error)).toContain("CSOSN");
   });
 
+  it("takes a new product off sale when its NCM is erased after it was published", async () => {
+    const productId = randomUUID();
+    await saveSupplierPanelDraft(database, { supplierId, productId, values: readyValues("NEW-0") });
+    await submitSupplierPanelProduct(database, { supplierId, productId });
+    const stored = await getSupplierPanelProduct(database, { supplierId, productId });
+
+    const saved = await saveSupplierPanelDraft(database, {
+      supplierId,
+      productId,
+      values: { ...readyValues("NEW-0"), fiscal: EMPTY_PRODUCT_FISCAL },
+      expectedUpdatedAt: stored.updatedAt.toISOString(),
+    });
+
+    expect(stored.reviewStatus).toBe("approved");
+    expect(saved.reviewStatus).toBe("draft");
+  });
+
   it("keeps a product from before the fiscal fields on sale when it is edited without NCM", async () => {
     const productId = randomUUID();
     await saveSupplierPanelDraft(database, { supplierId, productId, values: readyValues("OLD-0") });

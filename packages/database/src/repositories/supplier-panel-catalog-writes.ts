@@ -14,9 +14,11 @@ import {
   reviewTransition,
   statusAfterEdit,
   submitTransition,
+  type ProductReviewStatus,
   type RejectionReason,
 } from "@sellbridge/shared/supplier-panel-catalog-status";
 import {
+  hasRequiredFiscalData,
   icmsOverrideProblem,
   readProductFiscal,
   type ProductFiscal,
@@ -155,6 +157,17 @@ function blockingCount(
   ).blocking.length;
 }
 
+/**
+ * A product created under the fiscal rule leaves sale when its NCM, origin or unit is erased:
+ * an edit that is not reviewed (the fiscal block itself) would otherwise keep it approved.
+ */
+function withFiscalRule(next: ProductReviewStatus, fiscalState: FiscalState): ProductReviewStatus {
+  if (next !== "approved" || !fiscalState.fiscalRequired) {
+    return next;
+  }
+  return hasRequiredFiscalData(fiscalState.fiscal) ? next : "draft";
+}
+
 function storedFiscalState(stored: SupplierPanelProductRow): FiscalState {
   return { fiscal: readProductFiscal(stored.fiscal), fiscalRequired: stored.fiscalRequired };
 }
@@ -216,12 +229,15 @@ async function updateDraft(
   }
   const categorySlug = await categorySlugOf(transaction, values.categoryId);
   const fiscalState = { fiscal: values.fiscal, fiscalRequired: stored.fiscalRequired };
-  const reviewedNext = statusAfterEdit({
-    current: stored.reviewStatus,
-    changedFields: changed,
-    blockingIssueCount: blockingCount(values, categorySlug, fiscalState),
-    prohibited: isProhibitedProduct(values),
-  });
+  const reviewedNext = withFiscalRule(
+    statusAfterEdit({
+      current: stored.reviewStatus,
+      changedFields: changed,
+      blockingIssueCount: blockingCount(values, categorySlug, fiscalState),
+      prohibited: isProhibitedProduct(values),
+    }),
+    fiscalState,
+  );
   const contentReady = evaluateCompleteness(
     values,
     requiredAttributesFor(categorySlug),
