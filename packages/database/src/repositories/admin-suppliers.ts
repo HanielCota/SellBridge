@@ -8,6 +8,11 @@ import {
   type Pagination,
 } from "@sellbridge/shared/schemas";
 import type { ProductCsvError, ProductCsvRow } from "@sellbridge/shared/product-csv";
+import {
+  hasRequiredFiscalData,
+  readProductFiscal,
+  type ProductFiscalPatch,
+} from "@sellbridge/shared/product-fiscal";
 import { and, asc, count, eq, inArray, or, sql } from "drizzle-orm";
 import type { Database, DatabaseExecutor } from "../client.ts";
 import {
@@ -311,7 +316,15 @@ export async function saveAdminSupplierProduct(
       ? [await updateProduct(transaction, { supplierId, productId }, values, expectedStock)]
       : await transaction
           .insert(supplierProducts)
-          .values({ supplierId, ...values })
+          .values({
+            supplierId,
+            ...values,
+            // A new product needs NF-e data to go on sale; without it the admin saves a draft.
+            fiscalRequired: true,
+            ...(hasRequiredFiscalData(readProductFiscal(values.fiscal ?? {}))
+              ? {}
+              : { reviewStatus: "draft" as const }),
+          })
           .returning();
     if (!product) {
       throw notFoundError("Produto não encontrado neste fornecedor");
@@ -343,15 +356,19 @@ export async function setAdminSupplierProductActive(
   });
 }
 
-interface ImportProduct extends AdminProductValues {
+interface ImportProduct extends Omit<AdminProductValues, "fiscal"> {
   supplierId: string;
   active: boolean;
+  /** Only the fiscal cells the line filled; the upsert merges them into what is stored. */
+  fiscal?: ProductFiscalPatch | undefined;
 }
 export interface SupplierProductImportPlan {
   created: number;
   updated: number;
   errors: ProductCsvError[];
   products: ImportProduct[];
+  /** SKUs the import creates: they need NF-e data to go on sale (fiscal rule of 10/11/2026). */
+  newSkus: string[];
   revision: string;
 }
 
@@ -370,6 +387,7 @@ function planImportRows(input: {
     updated: 0,
     errors: [],
     products: [],
+    newSkus: [],
     revision: "",
   };
   for (const row of input.rows) {
@@ -381,6 +399,9 @@ function planImportRows(input: {
     }
     const previous = existingBySku.get(product.sku);
     plan[previous ? "updated" : "created"] += 1;
+    if (previous === undefined) {
+      plan.newSkus.push(product.sku);
+    }
     plan.products.push({
       ...product,
       active: product.active ?? previous?.active ?? true,
@@ -395,9 +416,22 @@ function planImportRows(input: {
         ),
     });
   }
-  // Only what the import writes: a sale moving `reserved_stock` (or `updated_at`) between the
-  // preview and the confirmation must not invalidate it; a new shelf count must.
-  plan.revision = JSON.stringify({
+  plan.revision = importRevision(input, plan.products);
+  return plan;
+}
+
+/**
+ * Only what the import writes: a sale moving `reserved_stock` (or `updated_at`) between the
+ * preview and the confirmation must not invalidate it; a new shelf count must.
+ */
+function importRevision(
+  input: {
+    existing: AdminSupplierProduct[];
+    availableCategories: Awaited<ReturnType<typeof listAdminCategories>>;
+  },
+  products: readonly ImportProduct[],
+): string {
+  return JSON.stringify({
     existing: input.existing.map((product) => ({
       sku: product.sku,
       title: product.title,
@@ -409,11 +443,11 @@ function planImportRows(input: {
       active: product.active,
       suggestedPriceCents: product.suggestedPriceCents,
       mercadoLivreAttributes: product.mercadoLivreAttributes,
+      fiscal: product.fiscal,
     })),
     categories: input.availableCategories.map((category) => [category.slug, category.id]),
-    products: plan.products,
+    products,
   });
-  return plan;
 }
 
 export async function previewSupplierProductImport(
@@ -440,6 +474,29 @@ export async function previewSupplierProductImport(
           .orderBy(asc(supplierProducts.sku));
   const availableCategories = await listAdminCategories(database);
   return planImportRows({ supplierId, rows, existing, availableCategories });
+}
+
+/**
+ * A product the import creates needs NCM, origin and unit to go on sale: it is flagged as such
+ * and, when the line leaves them out, lands as a draft instead of approved. Updated products
+ * keep their flag and status (the conflict clause does not touch them).
+ */
+function withNewProductFiscalRule<
+  TProduct extends { sku: string; fiscal?: ProductFiscalPatch | undefined },
+>(products: readonly TProduct[], newSkus: readonly string[]) {
+  const created = new Set(newSkus);
+  return products.map((product) => {
+    if (!created.has(product.sku)) {
+      return { ...product, fiscal: product.fiscal ?? {} };
+    }
+    const complete = hasRequiredFiscalData(readProductFiscal(product.fiscal ?? {}));
+    return {
+      ...product,
+      fiscal: product.fiscal ?? {},
+      fiscalRequired: true,
+      ...(complete ? {} : { reviewStatus: "draft" as const }),
+    };
+  });
 }
 
 /** All rows commit together; conflicts preserve product ids and therefore listing/order references. */
@@ -472,7 +529,7 @@ export async function importSupplierProducts(
     const reviewed = await reviewedImportValues(transaction, input, plan.products);
     const written = await transaction
       .insert(supplierProducts)
-      .values(reviewed?.values ?? plan.products)
+      .values(withNewProductFiscalRule(reviewed?.values ?? plan.products, plan.newSkus))
       .onConflictDoUpdate({
         target: [supplierProducts.supplierId, supplierProducts.sku],
         set: {
@@ -486,6 +543,8 @@ export async function importSupplierProducts(
           suggestedPriceCents: sql`excluded.suggested_price_cents`,
           // Item 18: the CSV's attributes win; blank cells (absent keys) keep the product's own.
           mercadoLivreAttributes: sql`${supplierProducts.mercadoLivreAttributes} || excluded.mercado_livre_attributes`,
+          // Same for the fiscal cells; `fiscal_required` is left as the stored product has it.
+          fiscal: sql`${supplierProducts.fiscal} || excluded.fiscal`,
           ...reviewed?.conflictSet,
           updatedAt: new Date(),
         },

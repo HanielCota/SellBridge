@@ -16,6 +16,8 @@ import {
   PRODUCT_REVIEW_STATUSES,
   type RejectionReason,
 } from "@sellbridge/shared/supplier-panel-catalog-status";
+import type { ProductFiscalPatch } from "@sellbridge/shared/product-fiscal";
+import type { SupplierFiscalProfile } from "@sellbridge/shared/supplier-fiscal";
 import { organization } from "./auth.ts";
 
 export const suppliers = pgTable(
@@ -52,6 +54,11 @@ export const suppliers = pgTable(
       .default("supplier"),
     /** Private sources belong to a seller tenant and never enter the supplier directory. */
     ownerTenantId: text().references(() => organization.id, { onDelete: "cascade" }),
+    /**
+     * The company as its NF-e names it (CNPJ, state registration, regime, fiscal address with the
+     * IBGE city code) and the tax codes its products default to. Null until the supplier fills it.
+     */
+    fiscalProfile: jsonb().$type<SupplierFiscalProfile>(),
     createdAt: timestamp({ withTimezone: true }).defaultNow().notNull(),
   },
   (table) => [
@@ -103,6 +110,14 @@ export const supplierProducts = pgTable(
       .notNull()
       .default(sql`'{}'::text[]`),
     mercadoLivreAttributes: jsonb().$type<Record<string, string>>().notNull().default({}),
+    /** NCM, origin, unit, CEST, net weight and tax-code overrides; read with `readProductFiscal`. */
+    fiscal: jsonb().$type<ProductFiscalPatch>().notNull().default({}),
+    /**
+     * Whether publishing needs NCM, origin and unit. False for products that existed before the
+     * fiscal fields (they keep selling while the supplier completes them); the panel, the admin
+     * form, the spreadsheet and the ERP import set it on every product they create.
+     */
+    fiscalRequired: boolean().notNull().default(false),
     active: boolean().notNull().default(true),
     /**
      * Only approved products reach resellers. Admin form and CSV rows default to approved (the

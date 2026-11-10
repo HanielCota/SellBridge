@@ -16,6 +16,7 @@ import {
   submitTransition,
   type RejectionReason,
 } from "@sellbridge/shared/supplier-panel-catalog-status";
+import { readProductFiscal, type ProductFiscal } from "@sellbridge/shared/product-fiscal";
 import { firstTextWithContact, SUPPLIER_TEXT_CONTACT_REFUSED } from "@sellbridge/shared/schemas";
 import { and, eq, ne } from "drizzle-orm";
 import type { Database, DatabaseExecutor } from "../client.ts";
@@ -116,11 +117,29 @@ async function assertUniqueSku(transaction: DatabaseExecutor, input: CatalogSave
   }
 }
 
-function blockingCount(values: CatalogDraftValues, categorySlug: string | null): number {
+/** NF-e data as the rules read it; `fiscalRequired` is false for products from before it. */
+interface FiscalState {
+  readonly fiscal: ProductFiscal;
+  readonly fiscalRequired: boolean;
+}
+
+function blockingCount(
+  values: Omit<CatalogDraftValues, "fiscal">,
+  categorySlug: string | null,
+  fiscalState: FiscalState,
+): number {
   return evaluateCompleteness(
-    { ...values, mercadoLivreAttributes: values.mercadoLivreAttributes ?? {} },
+    {
+      ...values,
+      mercadoLivreAttributes: values.mercadoLivreAttributes ?? {},
+      ...fiscalState,
+    },
     requiredAttributesFor(categorySlug),
   ).blocking.length;
+}
+
+function storedFiscalState(stored: SupplierPanelProductRow): FiscalState {
+  return { fiscal: readProductFiscal(stored.fiscal), fiscalRequired: stored.fiscalRequired };
 }
 
 /**
@@ -131,6 +150,7 @@ function valuesToWrite(stored: SupplierPanelProductRow, input: CatalogSaveDraftI
   const values = {
     ...input.values,
     mercadoLivreAttributes: input.values.mercadoLivreAttributes ?? stored.mercadoLivreAttributes,
+    fiscal: input.values.fiscal ?? readProductFiscal(stored.fiscal),
   };
   if (input.expectedStock === undefined || values.stock === input.expectedStock) {
     return { ...values, stock: input.expectedStock === undefined ? values.stock : stored.stock };
@@ -169,7 +189,10 @@ async function updateDraft(
 ): Promise<void> {
   const { now, reviewRequired } = options;
   const values = valuesToWrite(stored, input);
-  const changed = changedProductFields(stored, values);
+  const changed = changedProductFields(
+    { ...stored, fiscal: readProductFiscal(stored.fiscal) },
+    values,
+  );
   assertFreshVersion(stored, input, changed);
   if (changed.length === 0) {
     return;
@@ -178,7 +201,10 @@ async function updateDraft(
   const reviewedNext = statusAfterEdit({
     current: stored.reviewStatus,
     changedFields: changed,
-    blockingIssueCount: blockingCount(values, categorySlug),
+    blockingIssueCount: blockingCount(values, categorySlug, {
+      fiscal: values.fiscal,
+      fiscalRequired: stored.fiscalRequired,
+    }),
     prohibited: isProhibitedProduct(values),
   });
   const contentReady = evaluateCompleteness(
@@ -232,6 +258,8 @@ export async function saveSupplierPanelDraft(
         supplierId: input.supplierId,
         ...input.values,
         reviewStatus: "draft",
+        // A supplier's new product needs NF-e data to be published; a seller's own one does not.
+        fiscalRequired: source.catalogKind === "supplier",
       })
       .onConflictDoNothing({ target: supplierProducts.id })
       .returning({ id: supplierProducts.id });
@@ -253,7 +281,10 @@ export async function submitSupplierPanelProduct(
     const stored = await lockExistingProduct(transaction, ref);
     assertTextsWithoutContact(stored);
     const categorySlug = await categorySlugOf(transaction, stored.categoryId);
-    const transition = submitTransition(stored.reviewStatus, blockingCount(stored, categorySlug));
+    const transition = submitTransition(
+      stored.reviewStatus,
+      blockingCount(stored, categorySlug, storedFiscalState(stored)),
+    );
     if (!transition.allowed) {
       throw validationError(transition.message);
     }

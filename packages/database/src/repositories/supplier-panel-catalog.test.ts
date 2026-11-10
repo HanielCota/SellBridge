@@ -1,5 +1,6 @@
 import { randomUUID } from "node:crypto";
 import { hasErrorCode } from "@sellbridge/shared/errors";
+import { EMPTY_PRODUCT_FISCAL } from "@sellbridge/shared/product-fiscal";
 import { SUPPLIER_TEXT_CONTACT_REFUSED } from "@sellbridge/shared/schemas";
 import type {
   CatalogDraftValues,
@@ -28,6 +29,7 @@ const LIST: CatalogListSearch = {
   query: undefined,
   sort: "updatedAt",
   direction: "desc",
+  fiscal: "all",
   page: 1,
   pageSize: 25,
 };
@@ -43,6 +45,7 @@ function readyValues(sku: string): CatalogDraftValues {
     categoryId,
     imageUrls: ["https://imagens.test/1.jpg"],
     mercadoLivreAttributes: {},
+    fiscal: { ...EMPTY_PRODUCT_FISCAL, ncm: "61091000", origin: 0, unit: "UN" },
   };
 }
 
@@ -303,6 +306,49 @@ describe("review flow", () => {
     expect(String(error)).toContain("Corrija 1 pendência");
   });
 
+  it("refuses to publish a new product without NCM, origin and unit", async () => {
+    const productId = randomUUID();
+    await saveSupplierPanelDraft(database, {
+      supplierId,
+      productId,
+      values: { ...readyValues("NO-NCM"), fiscal: EMPTY_PRODUCT_FISCAL },
+    });
+
+    const error = await expectAppError(
+      submitSupplierPanelProduct(database, { supplierId, productId }),
+      "VALIDATION",
+    );
+
+    expect(String(error)).toContain("Corrija 1 pendência");
+  });
+
+  it("keeps a product from before the fiscal fields on sale when it is edited without NCM", async () => {
+    const productId = randomUUID();
+    await saveSupplierPanelDraft(database, { supplierId, productId, values: readyValues("OLD-0") });
+    await submitSupplierPanelProduct(database, { supplierId, productId });
+    await database
+      .update(supplierProducts)
+      .set({ fiscal: {}, fiscalRequired: false })
+      .where(eq(supplierProducts.id, productId));
+    const stored = await getSupplierPanelProduct(database, { supplierId, productId });
+
+    const saved = await saveSupplierPanelDraft(database, {
+      supplierId,
+      productId,
+      values: {
+        ...readyValues("OLD-0"),
+        title: "Camiseta básica algodão - Preta nova",
+        fiscal: EMPTY_PRODUCT_FISCAL,
+      },
+      expectedUpdatedAt: stored.updatedAt.toISOString(),
+    });
+
+    expect(saved.reviewStatus).toBe("approved");
+    expect(saved.completeness.fiscal).toEqual([
+      expect.objectContaining({ field: "fiscal.ncm", severity: "fiscal" }),
+    ]);
+  });
+
   it("puts a complete draft on sale as soon as it is published, with no team review", async () => {
     const productId = randomUUID();
     await saveSupplierPanelDraft(database, {
@@ -426,6 +472,26 @@ describe("listSupplierPanelProducts", () => {
     expect(searched.items.map((item) => item.sku)).toEqual(["FLOW-1"]);
     expect(searched.counts).toMatchObject({ all: 1, approved: 1, draft: 0 });
     expect(searched.items[0]?.categoryName).toBe("Painel teste");
+  });
+
+  it("counts and lists only the products still missing NF-e data", async () => {
+    const productId = randomUUID();
+    await saveSupplierPanelDraft(database, {
+      supplierId,
+      productId,
+      values: { ...readyValues("FISCAL-MISSING"), fiscal: EMPTY_PRODUCT_FISCAL },
+    });
+
+    const missing = await listSupplierPanelProducts(database, {
+      ...LIST,
+      supplierId,
+      fiscal: "missing",
+      pageSize: 100,
+    });
+
+    expect(missing.items.map((item) => item.sku)).toContain("FISCAL-MISSING");
+    expect(missing.items.some((item) => item.sku === "FLOW-1")).toBe(false);
+    expect(missing.missingFiscalCount).toBe(missing.total);
   });
 
   it("never lists another supplier's products and fails for an unknown supplier", async () => {
