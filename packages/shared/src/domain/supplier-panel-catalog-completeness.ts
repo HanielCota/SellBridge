@@ -4,9 +4,14 @@
  * runs it on every keystroke and the server runs it again before accepting a submission.
  */
 
+import { hasRequiredFiscalData, type ProductFiscal } from "./product-fiscal.ts";
 import { findProhibitedProduct, prohibitedProductMessage } from "./prohibited-products.ts";
 
-export type CompletenessSeverity = "blocking" | "improvement";
+/**
+ * "fiscal": missing NF-e data on a product created before the fiscal fields existed; it is
+ * listed apart ("Para emitir nota") and does not stop the product from selling.
+ */
+export type CompletenessSeverity = "blocking" | "improvement" | "fiscal";
 
 export interface CompletenessIssue {
   readonly field: string;
@@ -20,6 +25,8 @@ export interface CompletenessReport {
   readonly score: number;
   readonly blocking: readonly CompletenessIssue[];
   readonly improvements: readonly CompletenessIssue[];
+  /** NF-e data still missing on a product that keeps selling without it. */
+  readonly fiscal: readonly CompletenessIssue[];
   readonly canSubmit: boolean;
 }
 
@@ -32,6 +39,10 @@ export interface CompletenessProduct {
   readonly categoryId: string | null;
   readonly imageUrls: readonly string[];
   readonly mercadoLivreAttributes: Readonly<Record<string, string>>;
+  /** Left out by screens that do not deal with NF-e data (a seller's own products). */
+  readonly fiscal?: ProductFiscal;
+  /** True for products created after the fiscal fields: publishing needs NCM, origin and unit. */
+  readonly fiscalRequired?: boolean;
 }
 
 export interface RequiredAttribute {
@@ -87,6 +98,39 @@ function blockingRule(field: string, rule: string, message: string, passes: bool
 
 function improvementRule(field: string, rule: string, message: string, passes: boolean): Rule {
   return { field, rule, severity: "improvement", message, passes };
+}
+
+/** The first of NCM, origin and unit still empty, so the form can jump straight to it. */
+function firstMissingFiscalField(fiscal: ProductFiscal): string {
+  if (fiscal.ncm === null) {
+    return "fiscal.ncm";
+  }
+  if (fiscal.origin === null) {
+    return "fiscal.origin";
+  }
+  return "fiscal.unit";
+}
+
+function fiscalRules(product: CompletenessProduct): Rule[] {
+  if (product.fiscal === undefined) {
+    return [];
+  }
+  const passes = hasRequiredFiscalData(product.fiscal);
+  const field = firstMissingFiscalField(product.fiscal);
+  if (product.fiscalRequired === true) {
+    return [
+      blockingRule(field, "fiscal_required", "Informe NCM, origem e unidade para publicar", passes),
+    ];
+  }
+  return [
+    {
+      field,
+      rule: "fiscal_recommended",
+      severity: "fiscal",
+      message: "Informe NCM, origem e unidade. O produto continua à venda.",
+      passes,
+    },
+  ];
 }
 
 function attributeValue(product: CompletenessProduct, id: string): string {
@@ -211,6 +255,7 @@ export function evaluateCompleteness(
   const requiredIds = new Set(requiredAttributes.map((attribute) => attribute.id));
   const rules = [
     ...blockingRules(product, requiredAttributes),
+    ...fiscalRules(product),
     ...improvementRules(product, requiredIds),
   ];
   const totalWeight = rules.reduce((sum, rule) => sum + weightOf(rule), 0);
@@ -227,6 +272,7 @@ export function evaluateCompleteness(
     score: Math.floor((passedWeight / totalWeight) * 100),
     blocking,
     improvements: failed.filter((rule) => rule.severity === "improvement").map(toIssue),
+    fiscal: failed.filter((rule) => rule.severity === "fiscal").map(toIssue),
     canSubmit: blocking.length === 0,
   };
 }

@@ -10,9 +10,11 @@ import {
 import { freeText } from "../schemas/common.ts";
 import { LISTING_MAX_PRICE_CENTS } from "../schemas/stores.ts";
 import { PRODUCT_CSV_ATTRIBUTE_COLUMNS, parseCsvAttributes } from "./product-csv-attributes.ts";
+import { PRODUCT_CSV_FISCAL_COLUMNS, parseCsvFiscal } from "./product-csv-fiscal.ts";
+import { productFiscalPatchSchema, type ProductFiscalPatch } from "./product-fiscal.ts";
 
 export const PRODUCT_CSV_TEMPLATE =
-  "\uFEFFsku;titulo;descricao;custo;estoque;categoria;imagens;ativo;preco_sugerido;marca;modelo;gtin;peso_g;altura_cm;largura_cm;comprimento_cm\r\nEXEMPLO-001;Produto de exemplo;Descrição do produto;12,90;10;;https://example.com/produto.jpg;sim;19,90;Marca Exemplo;MOD-01;7891234567895;350;10;15;20\r\n";
+  "\uFEFFsku;titulo;descricao;custo;estoque;categoria;imagens;ativo;preco_sugerido;marca;modelo;gtin;peso_g;altura_cm;largura_cm;comprimento_cm;ncm;origem;unidade;cest;peso_liquido_g;cfop_estado;cfop_fora;csosn_cst;cst_pis_cofins\r\nEXEMPLO-001;Produto de exemplo;Descrição do produto;12,90;10;;https://example.com/produto.jpg;sim;19,90;Marca Exemplo;MOD-01;7891234567895;350;10;15;20;6402.99.90;0;PAR;;300;;;;\r\n";
 const requiredColumns = ["sku", "titulo", "custo", "estoque"];
 const allowedColumns = [
   ...requiredColumns,
@@ -22,6 +24,7 @@ const allowedColumns = [
   "ativo",
   "preco_sugerido",
   ...PRODUCT_CSV_ATTRIBUTE_COLUMNS,
+  ...PRODUCT_CSV_FISCAL_COLUMNS,
 ];
 export interface ProductCsvError {
   line: number;
@@ -44,8 +47,13 @@ interface CsvCursor {
 }
 export interface ProductCsvRow {
   line: number;
-  product: Omit<z.infer<typeof adminProductValuesSchema>, "categoryId" | "suggestedPriceCents"> & {
+  product: Omit<
+    z.infer<typeof adminProductValuesSchema>,
+    "categoryId" | "suggestedPriceCents" | "fiscal"
+  > & {
     categorySlug: string | null;
+    /** Only the fiscal cells the line fills; the others keep what the product has. */
+    fiscal?: ProductFiscalPatch | undefined;
     suggestedPriceCents?: number | undefined;
     active?: boolean | undefined;
   };
@@ -164,8 +172,9 @@ function parseActive(value: string): boolean | null | undefined {
 }
 
 const csvRowSchema = adminProductValuesSchema
-  .omit({ categoryId: true, suggestedPriceCents: true })
+  .omit({ categoryId: true, suggestedPriceCents: true, fiscal: true })
   .extend({
+    fiscal: productFiscalPatchSchema.optional(),
     costCents: knownCostCentsSchema,
     categorySlug: freeText().trim().max(100).nullable(),
     suggestedPriceCents: adminProductValuesSchema.shape.suggestedPriceCents.optional(),
@@ -182,6 +191,7 @@ const fieldLabels: Record<string, string> = {
   active: "Ativo",
   categorySlug: "Categoria",
   mercadoLivreAttributes: "Atributos do Mercado Livre",
+  fiscal: "Dados fiscais",
 };
 
 /** A contact refusal says what is not allowed; any other bad cell keeps the short wording. */
@@ -193,6 +203,7 @@ function rowCandidate(
   values: Readonly<Record<string, string>>,
   sku: string,
   mercadoLivreAttributes: Record<string, string>,
+  fiscal: ProductFiscalPatch,
 ) {
   const stock = values.estoque ?? "";
   const suggestedPrice = values.preco_sugerido ?? "";
@@ -210,6 +221,7 @@ function rowCandidate(
     active: parseActive(values.ativo ?? ""),
     suggestedPriceCents: suggestedPrice ? parseCsvMoney(suggestedPrice) : undefined,
     mercadoLivreAttributes,
+    fiscal,
   };
 }
 
@@ -234,8 +246,14 @@ function validateRecord(
   }
   seen.add(sku);
   const attributes = parseCsvAttributes(values);
+  const fiscal = parseCsvFiscal(values);
   const parsed = csvRowSchema.safeParse(
-    rowCandidate(values, sku, "attributes" in attributes ? attributes.attributes : {}),
+    rowCandidate(
+      values,
+      sku,
+      "attributes" in attributes ? attributes.attributes : {},
+      "fiscal" in fiscal ? fiscal.fiscal : {},
+    ),
   );
   // Every bad cell at once (schema fields, then Mercado Livre attributes), so one round of
   // fixes clears the line instead of a new error showing up after each one.
@@ -247,6 +265,7 @@ function validateRecord(
             `${fieldLabels[String(issue.path[0])] ?? "Linha"}: ${issueReason(issue.message)}`,
         )),
     ...("reason" in attributes ? [attributes.reason] : []),
+    ...("reason" in fiscal ? [fiscal.reason] : []),
   ];
   if (!parsed.success || reasons.length > 0) {
     return { line: record.line, reason: reasons.join("; ") };

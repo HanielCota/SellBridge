@@ -24,6 +24,12 @@ export const cepSchema = z
     message: "Informe os 8 números do CEP, como 01310-100",
   });
 
+/** The 7-digit IBGE code of a city ("3106200" is Belo Horizonte). */
+export const ibgeCityCodeSchema = z
+  .string()
+  .trim()
+  .regex(/^\d{7}$/, "O código IBGE da cidade tem 7 números");
+
 /** Masks while typing: 01310-100, from the digits that are there. */
 export function formatCep(input: string): string {
   return digitsOf(input)
@@ -52,6 +58,11 @@ export const billingAddressSchema = z.strictObject({
   city: requiredText("Informe a cidade", PLACE_MAX_LENGTH),
   /** Typed as any text so a form can hold "" before a state is picked. */
   state: z.string().pipe(z.enum(BRAZILIAN_STATES, { error: "Escolha o estado" })),
+  /**
+   * The city's IBGE code, filled by the CEP or city lookup: an NF-e is refused without it.
+   * Optional so addresses saved before the lookup existed stay valid.
+   */
+  ibgeCode: ibgeCityCodeSchema.optional(),
 });
 export type BillingAddress = z.output<typeof billingAddressSchema>;
 export type BillingAddressInput = z.input<typeof billingAddressSchema>;

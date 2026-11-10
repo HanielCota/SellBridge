@@ -4,6 +4,7 @@ import {
   requiredAttributesFor,
   type CompletenessProduct,
 } from "./supplier-panel-catalog-completeness.ts";
+import { EMPTY_PRODUCT_FISCAL } from "./product-fiscal.ts";
 
 const COMPLETE: CompletenessProduct = {
   sku: "CAM-001",
@@ -31,7 +32,13 @@ function product(overrides: Partial<CompletenessProduct>): CompletenessProduct {
 describe("evaluateCompleteness", () => {
   it("scores a complete product at 100 with nothing to fix", () => {
     const report = evaluateCompleteness(COMPLETE);
-    expect(report).toEqual({ score: 100, blocking: [], improvements: [], canSubmit: true });
+    expect(report).toEqual({
+      score: 100,
+      blocking: [],
+      improvements: [],
+      fiscal: [],
+      canSubmit: true,
+    });
   });
 
   it("blocks a product from a category the marketplaces refuse", () => {
@@ -152,5 +159,36 @@ describe("requiredAttributesFor", () => {
     expect(requiredAttributesFor("papelaria")).toEqual([]);
     expect(requiredAttributesFor(null)).toEqual([]);
     expect(requiredAttributesFor(undefined)).toEqual([]);
+  });
+});
+
+describe("evaluateCompleteness fiscal data", () => {
+  const withoutNcm = { ...EMPTY_PRODUCT_FISCAL, origin: 0, unit: "UN" as const };
+
+  it("blocks publishing a new product without NCM, origin and unit", () => {
+    const report = evaluateCompleteness(product({ fiscal: withoutNcm, fiscalRequired: true }));
+
+    expect(report.canSubmit).toBe(false);
+    expect(report.blocking).toEqual([
+      expect.objectContaining({ field: "fiscal.ncm", rule: "fiscal_required" }),
+    ]);
+  });
+
+  it("keeps an existing product sellable and lists the missing data apart", () => {
+    const report = evaluateCompleteness(product({ fiscal: withoutNcm, fiscalRequired: false }));
+
+    expect(report.canSubmit).toBe(true);
+    expect(report.fiscal).toEqual([
+      expect.objectContaining({ field: "fiscal.ncm", severity: "fiscal" }),
+    ]);
+  });
+
+  it("asks nothing fiscal of a product with NCM, origin and unit", () => {
+    const fiscal = { ...withoutNcm, ncm: "61091000" };
+
+    const report = evaluateCompleteness(product({ fiscal, fiscalRequired: true }));
+
+    expect(report.blocking).toEqual([]);
+    expect(report.fiscal).toEqual([]);
   });
 });
