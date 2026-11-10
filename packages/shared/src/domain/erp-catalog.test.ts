@@ -1,5 +1,11 @@
 import { describe, expect, it } from "vitest";
-import { buildErpCatalogCsv, type ErpCatalogItem } from "./erp-catalog.ts";
+import {
+  buildErpCatalogCsv,
+  erpResellerCostsSchema,
+  mergeResellerCosts,
+  planErpCatalogImport,
+  type ErpCatalogItem,
+} from "./erp-catalog.ts";
 import { parseProductCsv } from "./product-csv.ts";
 
 const ITEM: ErpCatalogItem = {
@@ -15,9 +21,11 @@ const ITEM: ErpCatalogItem = {
   fiscal: { ncm: "94049000", origin: 0, unit: "UN", cest: null },
 };
 
+const NEW_ITEM: ErpCatalogItem = { ...ITEM, sku: "054-TRA-ECO-BRA-K2", priceCents: 6990 };
+
 describe("buildErpCatalogCsv", () => {
-  it("writes a file the product import reads back", () => {
-    const csv = buildErpCatalogCsv([ITEM]);
+  it("writes the reseller cost from SellBridge and the ERP price as the suggested price", () => {
+    const csv = buildErpCatalogCsv([ITEM], new Map([[ITEM.sku, 2500]]));
 
     const parsed = parseProductCsv(csv);
 
@@ -25,14 +33,24 @@ describe("buildErpCatalogCsv", () => {
     expect(parsed.rows[0]?.product).toMatchObject({
       sku: "054-TRA-ECO-BRA",
       title: 'Travesseiro "Eco-Pluma" 70x50',
-      costCents: 3990,
+      costCents: 2500,
+      suggestedPriceCents: 3990,
       stock: 100,
       imageUrls: ["https://cdn.exemplo.com/a.jpg", "https://cdn.exemplo.com/b.jpg"],
     });
   });
 
+  it("leaves the cost blank without a reseller price, so the import refuses the row", () => {
+    const csv = buildErpCatalogCsv([ITEM], new Map());
+
+    const parsed = parseProductCsv(csv);
+
+    expect(parsed.errors.length).toBeGreaterThan(0);
+    expect(parsed.rows).toEqual([]);
+  });
+
   it("shows a negative ERP balance as no stock", () => {
-    const csv = buildErpCatalogCsv([{ ...ITEM, stock: -4 }]);
+    const csv = buildErpCatalogCsv([{ ...ITEM, stock: -4 }], new Map([[ITEM.sku, 2500]]));
 
     const parsed = parseProductCsv(csv);
 
@@ -40,7 +58,7 @@ describe("buildErpCatalogCsv", () => {
   });
 
   it("leaves out a GTIN that is not a barcode, such as SEM GTIN", () => {
-    const csv = buildErpCatalogCsv([{ ...ITEM, gtin: "SEM GTIN" }]);
+    const csv = buildErpCatalogCsv([{ ...ITEM, gtin: "SEM GTIN" }], new Map([[ITEM.sku, 2500]]));
 
     const parsed = parseProductCsv(csv);
 
@@ -48,11 +66,117 @@ describe("buildErpCatalogCsv", () => {
     expect(parsed.rows[0]?.product.mercadoLivreAttributes?.GTIN).toBeUndefined();
   });
 
-  it("leaves the cost blank when the ERP has no price, so the preview names the row", () => {
-    const csv = buildErpCatalogCsv([{ ...ITEM, priceCents: null }]);
+  it.each([0, -1990, Number.NaN, 39.9])(
+    "drops an ERP price of %s instead of suggesting it",
+    (priceCents) => {
+      const csv = buildErpCatalogCsv([{ ...ITEM, priceCents }], new Map([[ITEM.sku, 2500]]));
 
-    const parsed = parseProductCsv(csv);
+      const parsed = parseProductCsv(csv);
 
-    expect(parsed.errors.length).toBeGreaterThan(0);
+      expect(parsed.errors).toEqual([]);
+      expect(parsed.rows[0]?.product.suggestedPriceCents).toBeUndefined();
+    },
+  );
+});
+
+describe("planErpCatalogImport", () => {
+  it("keeps the reseller cost SellBridge has for a product it already sells", () => {
+    const rows = planErpCatalogImport([ITEM], new Map([[ITEM.sku, 2500]]));
+
+    expect(rows).toEqual([
+      {
+        sku: ITEM.sku,
+        title: ITEM.title,
+        imageUrl: "https://cdn.exemplo.com/a.jpg",
+        erpPriceCents: 3990,
+        currentCostCents: 2500,
+        needsCost: false,
+      },
+    ]);
+  });
+
+  it("asks the reseller price of a product SellBridge does not have", () => {
+    const rows = planErpCatalogImport([NEW_ITEM], new Map([[ITEM.sku, 2500]]));
+
+    expect(rows[0]).toMatchObject({ currentCostCents: null, needsCost: true, erpPriceCents: 6990 });
+  });
+
+  it.each([0, -5, Number.NaN, null])("shows no ERP price when it is %s", (priceCents) => {
+    const rows = planErpCatalogImport([{ ...NEW_ITEM, priceCents, imageUrls: [] }], new Map());
+
+    expect(rows[0]).toMatchObject({ erpPriceCents: null, imageUrl: null });
+  });
+});
+
+describe("mergeResellerCosts", () => {
+  const existingCosts = new Map([[ITEM.sku, 2500]]);
+
+  it("adds the typed price of a new product to the current costs", () => {
+    const result = mergeResellerCosts({
+      items: [ITEM, NEW_ITEM],
+      existingCosts,
+      typedCosts: [{ sku: NEW_ITEM.sku, costCents: 4500 }],
+    });
+
+    expect(result).toEqual({
+      ok: true,
+      costs: new Map([
+        [ITEM.sku, 2500],
+        [NEW_ITEM.sku, 4500],
+      ]),
+    });
+  });
+
+  it("refuses a price for a SKU outside this import", () => {
+    const result = mergeResellerCosts({
+      items: [ITEM],
+      existingCosts,
+      typedCosts: [{ sku: "OUTRO-SKU", costCents: 4500 }],
+    });
+
+    expect(result).toEqual({ ok: false, message: 'O SKU "OUTRO-SKU" não está nesta importação.' });
+  });
+
+  it("refuses a typed price for a product that keeps its current cost", () => {
+    const result = mergeResellerCosts({
+      items: [ITEM],
+      existingCosts,
+      typedCosts: [{ sku: ITEM.sku, costCents: 100 }],
+    });
+
+    expect(result.ok).toBe(false);
+  });
+
+  it("refuses the same SKU typed twice", () => {
+    const result = mergeResellerCosts({
+      items: [NEW_ITEM],
+      existingCosts: new Map(),
+      typedCosts: [
+        { sku: NEW_ITEM.sku, costCents: 4500 },
+        { sku: NEW_ITEM.sku, costCents: 100 },
+      ],
+    });
+
+    expect(result.ok).toBe(false);
+  });
+});
+
+describe("erpResellerCostsSchema", () => {
+  it("accepts a price in whole cents", () => {
+    const parsed = erpResellerCostsSchema.safeParse([{ sku: "SKU-1", costCents: 4590 }]);
+
+    expect(parsed.success).toBe(true);
+  });
+
+  it.each([0, -100, 45.9, Number.NaN, 100_000_001])("refuses a price of %s cents", (costCents) => {
+    const parsed = erpResellerCostsSchema.safeParse([{ sku: "SKU-1", costCents }]);
+
+    expect(parsed.success).toBe(false);
+  });
+
+  it("refuses a blank SKU", () => {
+    const parsed = erpResellerCostsSchema.safeParse([{ sku: "  ", costCents: 4590 }]);
+
+    expect(parsed.success).toBe(false);
   });
 });

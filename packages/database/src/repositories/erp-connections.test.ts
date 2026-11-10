@@ -9,6 +9,7 @@ import {
   createErpOAuthState,
   findErpConnection,
   findErpConnectionsExpiringBefore,
+  findSupplierProductCostsBySku,
   listSupplierProductsForErpExport,
   recordErpRefreshFailure,
   rotateErpTokens,
@@ -16,6 +17,7 @@ import {
 } from "./erp-connections.ts";
 
 const database = createTestDatabase();
+const PRODUCT_SKU = `ERP-${crypto.randomUUID().slice(0, 8)}`;
 let supplier: Awaited<ReturnType<typeof createTestSupplierProduct>>;
 let users: Awaited<ReturnType<typeof createTestUsers>>;
 let userId = "";
@@ -23,7 +25,7 @@ let otherUserId = "";
 
 beforeAll(async () => {
   supplier = await createTestSupplierProduct(database, {
-    sku: `ERP-${crypto.randomUUID().slice(0, 8)}`,
+    sku: PRODUCT_SKU,
     title: "Travesseiro",
     costCents: 3990,
     suggestedPriceCents: 5990,
@@ -189,5 +191,42 @@ describe("catalog export listing", () => {
 
     expect(firstPage.map((product) => product.id)).toEqual([supplier.productId]);
     expect(nextPage).toEqual([]);
+  });
+});
+
+describe("current reseller costs by SKU", () => {
+  it("returns the cost of the supplier's own SKUs and leaves unknown ones out", async () => {
+    const costs = await findSupplierProductCostsBySku(database, {
+      supplierId: supplier.supplierId,
+      skus: [PRODUCT_SKU, "SKU-QUE-NAO-EXISTE"],
+    });
+
+    expect(costs).toEqual(new Map([[PRODUCT_SKU, 3990]]));
+  });
+
+  it("does not read another supplier's product with the same SKU", async () => {
+    const other = await createTestSupplierProduct(database, {
+      sku: `ERP-OUTRO-${crypto.randomUUID().slice(0, 8)}`,
+      title: "Outro",
+      costCents: 1000,
+      suggestedPriceCents: 2000,
+    });
+
+    const costs = await findSupplierProductCostsBySku(database, {
+      supplierId: other.supplierId,
+      skus: [PRODUCT_SKU],
+    });
+    await other.cleanup();
+
+    expect(costs.size).toBe(0);
+  });
+
+  it("answers an empty list without querying", async () => {
+    const costs = await findSupplierProductCostsBySku(database, {
+      supplierId: supplier.supplierId,
+      skus: [],
+    });
+
+    expect(costs.size).toBe(0);
   });
 });

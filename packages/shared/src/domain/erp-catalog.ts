@@ -1,3 +1,5 @@
+import { z } from "zod";
+
 /**
  * A product read from a supplier's ERP (Bling first), before it becomes a row of the product
  * import. The fiscal fields travel with it but do not reach the import yet: the product has no
@@ -7,7 +9,11 @@ export interface ErpCatalogItem {
   readonly sku: string;
   readonly title: string;
   readonly description: string;
-  /** The ERP's sale price, in cents; it becomes the reseller's cost. Null when the ERP has none. */
+  /**
+   * The ERP's sale price, in cents. Most likely the retail price (StockShopp's Bling holds its
+   * marketplace prices), so it becomes the suggested price, never the reseller's cost. Null when
+   * the ERP has none.
+   */
   readonly priceCents: number | null;
   readonly stock: number;
   readonly imageUrls: readonly string[];
@@ -35,6 +41,7 @@ const CSV_HEADER = [
   "estoque",
   "imagens",
   "ativo",
+  "preco_sugerido",
   "marca",
   "gtin",
   "peso_g",
@@ -84,15 +91,24 @@ function weightCell(weightGrams: number | null): string {
   return String(Math.round(weightGrams));
 }
 
-function toCsvFields(item: ErpCatalogItem): string[] {
+/** A positive whole number of cents, or null for anything else (zero, negative, NaN, fraction). */
+function validCents(cents: number | null): number | null {
+  if (cents === null || !Number.isInteger(cents) || cents <= 0) {
+    return null;
+  }
+  return cents;
+}
+
+function toCsvFields(item: ErpCatalogItem, resellerCostCents: number | undefined): string[] {
   return [
     item.sku,
     item.title,
     item.description,
-    priceCell(item.priceCents),
+    priceCell(resellerCostCents ?? null),
     stockCell(item.stock),
     item.imageUrls.join("|"),
     "sim",
+    priceCell(item.priceCents),
     item.brand ?? "",
     gtinCell(item.gtin),
     weightCell(item.weightGrams),
@@ -101,12 +117,124 @@ function toCsvFields(item: ErpCatalogItem): string[] {
 
 /**
  * The ERP catalog as a product import file (";" separated, quoted cells), so it goes through the
- * same preview, rules and confirmation as a spreadsheet the supplier uploads.
+ * same preview, rules and confirmation as a spreadsheet the supplier uploads. The reseller's cost
+ * comes from `resellerCosts` (by SKU); the ERP price is only the suggested price. An item with no
+ * cost there gets a blank cost, which the import refuses: it is never saved with a wrong price.
  */
-export function buildErpCatalogCsv(items: readonly ErpCatalogItem[]): string {
+export function buildErpCatalogCsv(
+  items: readonly ErpCatalogItem[],
+  resellerCosts: ReadonlyMap<string, number>,
+): string {
   const lines = [
     CSV_HEADER.join(";"),
-    ...items.map((item) => toCsvFields(item).map(quoteCsv).join(";")),
+    ...items.map((item) => toCsvFields(item, resellerCosts.get(item.sku)).map(quoteCsv).join(";")),
   ];
   return `${lines.join("\r\n")}\r\n`;
+}
+
+/** One ERP product as the import screen lists it, with what still needs the supplier. */
+export interface ErpImportRow {
+  readonly sku: string;
+  readonly title: string;
+  readonly imageUrl: string | null;
+  /** The ERP price in cents (shown as the suggested retail price); null when it is not valid. */
+  readonly erpPriceCents: number | null;
+  /** What the reseller pays today in SellBridge; null for a product SellBridge does not have. */
+  readonly currentCostCents: number | null;
+  /** A new product: the supplier types the reseller price before it can be imported. */
+  readonly needsCost: boolean;
+}
+
+/**
+ * How each ERP product enters the import: a product the supplier already has keeps the reseller
+ * cost it has today; a new one waits for the supplier to type it.
+ */
+export function planErpCatalogImport(
+  items: readonly ErpCatalogItem[],
+  existingCosts: ReadonlyMap<string, number>,
+): ErpImportRow[] {
+  return items.map((item) => {
+    const currentCostCents = existingCosts.get(item.sku) ?? null;
+    return {
+      sku: item.sku,
+      title: item.title,
+      imageUrl: item.imageUrls[0] ?? null,
+      erpPriceCents: validCents(item.priceCents),
+      currentCostCents,
+      needsCost: currentCostCents === null,
+    };
+  });
+}
+
+const MAX_ERP_IMPORT_ITEMS = 1000;
+const MAX_RESELLER_COST_CENTS = 100_000_000;
+
+const nullableText = (max: number) => z.string().max(max).nullable();
+
+/**
+ * An ERP product sent back by the import screen with the typed prices. It is the supplier's own
+ * catalog, as trusted as a spreadsheet they upload; the product import still checks every rule.
+ */
+export const erpCatalogItemSchema = z.object({
+  sku: z.string().trim().min(1).max(100),
+  title: z.string().max(500),
+  description: z.string().max(50_000),
+  priceCents: z.number().int().nullable(),
+  stock: z.number().finite(),
+  imageUrls: z.array(z.string().max(2000)).max(20),
+  brand: nullableText(200),
+  gtin: nullableText(50),
+  weightGrams: z.number().finite().nullable(),
+  fiscal: z.object({
+    ncm: nullableText(20),
+    origin: z.number().int().nullable(),
+    unit: nullableText(20),
+    cest: nullableText(20),
+  }),
+});
+
+/** The reseller prices the supplier typed for new products, in cents. */
+export const erpResellerCostsSchema = z
+  .array(
+    z.object({
+      sku: z.string().trim().min(1).max(100),
+      costCents: z
+        .number()
+        .int("O preço para o revendedor precisa ter até 2 casas decimais")
+        .min(1, "Informe o preço para o revendedor (acima de R$ 0,00)")
+        .max(MAX_RESELLER_COST_CENTS, "O preço para o revendedor pode ser de até R$ 1.000.000,00"),
+    }),
+  )
+  .max(MAX_ERP_IMPORT_ITEMS);
+
+export const erpCatalogItemsSchema = z.array(erpCatalogItemSchema).min(1).max(MAX_ERP_IMPORT_ITEMS);
+
+export type ErpResellerCost = z.infer<typeof erpResellerCostsSchema>[number];
+
+/**
+ * The reseller cost of every product that has one: the current cost of products SellBridge has,
+ * plus the prices typed for new ones. A typed price only counts for a new product of this import.
+ */
+export function mergeResellerCosts(input: {
+  items: readonly ErpCatalogItem[];
+  existingCosts: ReadonlyMap<string, number>;
+  typedCosts: readonly ErpResellerCost[];
+}): { ok: true; costs: Map<string, number> } | { ok: false; message: string } {
+  const importSkus = new Set(input.items.map((item) => item.sku));
+  const costs = new Map(input.existingCosts);
+  const typedSkus = new Set<string>();
+  for (const typed of input.typedCosts) {
+    if (!importSkus.has(typed.sku)) {
+      return { ok: false, message: `O SKU "${typed.sku}" não está nesta importação.` };
+    }
+    if (input.existingCosts.has(typed.sku) || typedSkus.has(typed.sku)) {
+      return {
+        ok: false,
+        message: `O SKU "${typed.sku}" já tem preço para o revendedor nesta importação.`,
+      };
+    }
+    typedSkus.add(typed.sku);
+    costs.set(typed.sku, typed.costCents);
+  }
+  return { ok: true, costs };
 }

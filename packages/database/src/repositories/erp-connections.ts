@@ -1,4 +1,4 @@
-import { and, asc, eq, gt, isNotNull, lt } from "drizzle-orm";
+import { and, asc, eq, gt, inArray, isNotNull, lt } from "drizzle-orm";
 import type { Database } from "../client.ts";
 import { erpOAuthStates, supplierErpConnections, supplierProducts } from "../schema/index.ts";
 
@@ -169,6 +169,29 @@ export async function findErpConnectionsExpiringBefore(
     )
     .orderBy(asc(supplierErpConnections.expiresAt))
     .limit(limit);
+}
+
+/**
+ * What the reseller pays today for the supplier's products with these SKUs, by SKU. An ERP
+ * import keeps these costs: the ERP price is only a suggestion.
+ */
+export async function findSupplierProductCostsBySku(
+  database: Database,
+  input: { supplierId: string; skus: readonly string[] },
+): Promise<Map<string, number>> {
+  if (input.skus.length === 0) {
+    return new Map();
+  }
+  const rows = await database
+    .select({ sku: supplierProducts.sku, costCents: supplierProducts.costCents })
+    .from(supplierProducts)
+    .where(
+      and(
+        eq(supplierProducts.supplierId, input.supplierId),
+        inArray(supplierProducts.sku, [...input.skus]),
+      ),
+    );
+  return new Map(rows.map((row) => [row.sku, row.costCents]));
 }
 
 export interface CatalogExportProduct {
