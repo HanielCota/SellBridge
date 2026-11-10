@@ -760,3 +760,13 @@ Antes, o aviso de venda de uma loja expirada ou com erro ficava sem processar, e
 - Pedido já salvo só é atualizado; pedido pago é encaminhado uma vez (job por pedido). A recuperação passa de 24 horas para até 30 dias.
 - Descartado: apagar avisos não processados depois de 30 dias (quebraria a regra de inspeção) e limitar avisos por loja (perderia vendas reais de loja com muito movimento).
 - A conexão da loja não espera a busca: se o pedido do job falhar, a loja fica conectada e o log `store.order_catch_up_not_queued` guarda a loja e a data.
+
+## 2026-11-10: Repasse ao fornecedor pela divisão de pagamento do Mercado Pago
+
+O revendedor paga o fornecedor pelo Checkout Pro do Mercado Pago com a divisão do marketplace. Cada fornecedor liga a conta Mercado Pago dele uma vez (OAuth pelo aplicativo de marketplace do SellBridge, tokens cifrados como os das lojas). A preferência é criada com o token do fornecedor, então o dinheiro cai na conta dele, e o SellBridge recebe a sua parte como `marketplace_fee`. O SellBridge não guarda saldo de ninguém. Decisões do Guilherme: "Esquece asaas por hora" (06/11) e "o 3 eu aprovo vai ser assim mesmo" (09/11).
+
+- A taxa dessa divisão é a primeira configuração em tabela (`platform_settings`, uma linha), editável pelo admin ("Tem como fazer editavel no painel de admin?", 10/11). Enquanto não for definida, vale 0. A taxa da plataforma nos relatórios continua em `PLATFORM_FEE_BASIS_POINTS`.
+- Um pagamento é registrado só depois de lido de volta no Mercado Pago, com o token do fornecedor, e só se ele cita a parcela, foi pago para a conta ligada, em reais e com o mesmo valor. O aviso assinado e a volta do checkout usam o mesmo caminho, porque o aviso não chega a um servidor sem HTTPS.
+- Uma parcela tem um pagamento só: um segundo clique reaproveita o checkout aberto (30 minutos, Pix incluído), e um pagamento em análise impede outro. Uma segunda aprovação fica registrada no log como pagamento duplicado, para ser devolvida à mão.
+- Pix e cartão, cartão à vista. Ficam fora desta primeira versão: Asaas, Pagar.me, devolução e contestação depois do pagamento, e extrato dentro do SellBridge.
+- Descartado: guardar o saldo no SellBridge e repassar depois (custódia de dinheiro de terceiros).
