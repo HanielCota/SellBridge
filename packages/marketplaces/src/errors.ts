@@ -12,6 +12,8 @@ export function marketplaceError(
     cause?: unknown;
     /** Codes the marketplace gave for the refusal (Mercado Livre's `cause[].code`). */
     causes?: readonly string[];
+    /** The provider's own words for what is wrong with the data (Bling's `error.fields[].msg`). */
+    issues?: readonly string[];
   },
 ): AppError {
   return new AppError("EXTERNAL_PROVIDER", message, {
@@ -19,6 +21,9 @@ export function marketplaceError(
       retryable: options.retryable,
       status: options.status ?? null,
       ...(options.causes === undefined ? {} : { causes: [...options.causes] }),
+      ...(options.issues === undefined || options.issues.length === 0
+        ? {}
+        : { issues: [...options.issues] }),
     },
     cause: options.cause,
   });

@@ -8,11 +8,19 @@ import {
   type TaxRegime,
 } from "@sellbridge/shared/product-fiscal";
 import { defaultIcmsCode } from "@sellbridge/shared/supplier-fiscal";
+import {
+  AVAILABLE_INVOICE_MODELS,
+  INVOICE_MODEL_LABELS,
+  INVOICE_MODELS,
+  type InvoiceModel,
+} from "@sellbridge/shared/supplier-invoice";
 import { useCallback } from "react";
 import { PRODUCT_ORIGIN_OPTIONS, PRODUCT_UNIT_OPTIONS } from "@/components/form/fiscal-options";
 import { firstErrorMessage, TextField } from "@/components/form/form-field";
 import { SelectField } from "@/components/form/select-field";
+import { TonePill } from "@/components/data/tone-status";
 import { SectionCard } from "@/components/layout/section-card";
+import { cn } from "@/lib/utils";
 import type { SupplierFiscalFormValues } from "@/features/admin-suppliers/fiscal-form-values";
 import type { CepAddress } from "@/features/cities/cep-lookup";
 import { useCepAutofill } from "@/features/cities/use-cep-autofill";
@@ -179,15 +187,10 @@ function AddressFields(props: BrandFiscalCardProps) {
   );
 }
 
-function DefaultsFields({ values, errors, onChange }: BrandFiscalCardProps) {
-  const regime: TaxRegime = values.fiscalRegime;
+/** The sale CFOPs: in the state, and out of it for a final consumer or a company with IE. */
+function CfopFields({ values, errors, onChange }: BrandFiscalCardProps) {
   return (
-    <fieldset className="grid gap-4 sm:grid-cols-2">
-      <legend className="mb-1 text-sm font-semibold">Padrões dos produtos</legend>
-      <p className="text-sm text-muted-foreground sm:col-span-2">
-        Valem para todos os produtos. Um produto pode mudar só para ele. Na dúvida, confirme com o
-        seu contador.
-      </p>
+    <>
       <TextField
         id="brand-fiscal-cfop-in-state"
         label="CFOP dentro do estado"
@@ -196,14 +199,46 @@ function DefaultsFields({ values, errors, onChange }: BrandFiscalCardProps) {
         errors={errorsOf(errors, "fiscalCfopInState")}
         onValueChange={(fiscalCfopInState) => onChange({ fiscalCfopInState })}
       />
-      <TextField
-        id="brand-fiscal-cfop-out-of-state"
-        label="CFOP para outro estado"
-        value={values.fiscalCfopOutOfState}
-        inputMode="numeric"
-        errors={errorsOf(errors, "fiscalCfopOutOfState")}
-        onValueChange={(fiscalCfopOutOfState) => onChange({ fiscalCfopOutOfState })}
-      />
+      <div className="grid gap-1">
+        <TextField
+          id="brand-fiscal-cfop-out-of-state-consumer"
+          label="CFOP outro estado · consumidor final"
+          value={values.fiscalCfopOutOfStateConsumer}
+          inputMode="numeric"
+          errors={errorsOf(errors, "fiscalCfopOutOfStateConsumer")}
+          onValueChange={(fiscalCfopOutOfStateConsumer) =>
+            onChange({ fiscalCfopOutOfStateConsumer })
+          }
+        />
+        <p className="text-xs text-muted-foreground">
+          Pessoa física ou empresa sem inscrição estadual
+        </p>
+      </div>
+      <div className="grid gap-1">
+        <TextField
+          id="brand-fiscal-cfop-out-of-state"
+          label="CFOP outro estado · empresa"
+          value={values.fiscalCfopOutOfState}
+          inputMode="numeric"
+          errors={errorsOf(errors, "fiscalCfopOutOfState")}
+          onValueChange={(fiscalCfopOutOfState) => onChange({ fiscalCfopOutOfState })}
+        />
+        <p className="text-xs text-muted-foreground">Empresa com inscrição estadual</p>
+      </div>
+    </>
+  );
+}
+
+function DefaultsFields({ values, errors, onChange }: BrandFiscalCardProps) {
+  const regime: TaxRegime = values.fiscalRegime;
+  return (
+    <fieldset className="grid items-start gap-4 sm:grid-cols-2">
+      <legend className="mb-1 text-sm font-semibold">Padrões dos produtos</legend>
+      <p className="text-sm text-muted-foreground sm:col-span-2">
+        Valem para todos os produtos. Um produto pode mudar só para ele. Na dúvida, confirme com o
+        seu contador.
+      </p>
+      <CfopFields values={values} errors={errors} onChange={onChange} />
       <TextField
         id="brand-fiscal-icms-code"
         label={icmsCodeLabel(regime)}
@@ -240,6 +275,51 @@ function DefaultsFields({ values, errors, onChange }: BrandFiscalCardProps) {
   );
 }
 
+const INVOICE_MODEL_DESCRIPTIONS: Readonly<Record<InvoiceModel, string>> = {
+  direct: "Você emite uma nota de venda para quem comprou no marketplace.",
+  on_behalf: "Três notas, com o revendedor no meio.",
+};
+
+/** "Como sai a nota": direct to the buyer today; the order sale shows as coming soon. */
+function InvoiceModelFields({ values, onChange }: BrandFiscalCardProps) {
+  return (
+    <fieldset className="grid gap-3 sm:grid-cols-2">
+      <legend className="mb-1 text-sm font-semibold">Como sai a nota</legend>
+      {INVOICE_MODELS.map((model) => {
+        const available = AVAILABLE_INVOICE_MODELS.includes(model);
+        const descriptionId = `brand-invoice-model-${model}-description`;
+        return (
+          <label
+            key={model}
+            className={cn(
+              "grid grid-cols-[auto_1fr] gap-x-3 gap-y-1 rounded-2xl border p-4 has-checked:border-2 has-checked:border-brand has-focus-visible:ring-3 has-focus-visible:ring-ring/50",
+              available ? "cursor-pointer" : "cursor-not-allowed text-muted-foreground",
+            )}
+          >
+            <input
+              type="radio"
+              name="brand-invoice-model"
+              value={model}
+              checked={values.fiscalInvoiceModel === model}
+              disabled={!available}
+              aria-describedby={descriptionId}
+              onChange={() => onChange({ fiscalInvoiceModel: model })}
+              className="mt-1 size-4 accent-brand"
+            />
+            <span className="flex flex-wrap items-center gap-2 text-sm font-medium">
+              {INVOICE_MODEL_LABELS[model]}
+              {available ? null : <TonePill tone="muted" label="Em breve" showDot={false} />}
+            </span>
+            <span id={descriptionId} className="col-start-2 text-sm text-muted-foreground">
+              {INVOICE_MODEL_DESCRIPTIONS[model]}
+            </span>
+          </label>
+        );
+      })}
+    </fieldset>
+  );
+}
+
 /** "Dados fiscais da empresa": what the supplier's NF-e names, and its products' tax codes. */
 export function BrandFiscalCard(props: BrandFiscalCardProps) {
   return (
@@ -250,6 +330,7 @@ export function BrandFiscalCard(props: BrandFiscalCardProps) {
       <div className="grid gap-6">
         <CompanyFields {...props} />
         <AddressFields {...props} />
+        <InvoiceModelFields {...props} />
         <DefaultsFields {...props} />
       </div>
     </SectionCard>

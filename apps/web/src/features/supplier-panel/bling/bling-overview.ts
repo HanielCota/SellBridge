@@ -18,6 +18,10 @@ export interface BlingConnectionView {
   readonly lastImportAt: string | null;
   /** The discount rule saved by the last import, in tenths of a percent. */
   readonly resellerDiscountTenths: number | null;
+  /** Since when new orders get their NF-e through Bling (ISO 8601, UTC); null while off. */
+  readonly invoiceEnabledAt: string | null;
+  /** Whether the supplier's fiscal data on Marca is complete enough to issue notes. */
+  readonly fiscalReady: boolean;
 }
 
 export type BlingReadStatus = "reading" | "ready" | "failed";
@@ -36,6 +40,7 @@ interface ConnectionRow {
   readonly connectedAt: Date;
   readonly lastImportAt: Date | null;
   readonly resellerDiscountTenths: number | null;
+  readonly invoiceEnabledAt: Date | null;
 }
 
 interface ReadRow {
@@ -74,6 +79,7 @@ export function blingOverviewFrom(input: {
   available: boolean;
   connection: ConnectionRow | null;
   read: ReadRow | null;
+  fiscalReady: boolean;
   now: Date;
 }): BlingOverview {
   if (!input.available) {
@@ -91,6 +97,8 @@ export function blingOverviewFrom(input: {
             connectedAt: connection.connectedAt.toISOString(),
             lastImportAt: connection.lastImportAt?.toISOString() ?? null,
             resellerDiscountTenths: connection.resellerDiscountTenths,
+            invoiceEnabledAt: connection.invoiceEnabledAt?.toISOString() ?? null,
+            fiscalReady: input.fiscalReady,
           },
     read: connection === null || read === null ? null : readView(read, input.now),
   };

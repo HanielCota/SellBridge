@@ -12,6 +12,7 @@ import {
   storeConnections,
   suppliers,
 } from "../schema/index.ts";
+import { findSupplierShipmentInvoice } from "./shipment-invoices.ts";
 import { supplierDeadlines, supplierTimingColumns } from "./shipment-timing.ts";
 
 /** What the supplier receives for the parcel: each item's cost times its quantity, in cents. */
@@ -74,7 +75,7 @@ async function panelShipmentRow(
 /**
  * One of the supplier's parcels for the shipment panel: what the supplier link
  * (`getSupplierShipment`) shows, plus the reseller's store, the buyer's name, what the supplier
- * receives and the label records. No link token, no tenant, no buyer contact, and no buyer
+ * receives, the label records and the NF-e. No link token, no tenant, no buyer contact, and no buyer
  * address once the parcel is settled or the sale was cancelled or returned. Another supplier's
  * parcel is "not found".
  */
@@ -91,13 +92,14 @@ export async function getSupplierPanelShipment(
     tenantId: _tenant,
     ...shipment
   } = row.shipment;
-  const [events, receivable] = await Promise.all([
+  const [events, receivable, invoice] = await Promise.all([
     database
       .select()
       .from(shipmentEvents)
       .where(eq(shipmentEvents.shipmentId, shipment.id))
       .orderBy(asc(shipmentEvents.createdAt), asc(shipmentEvents.id)),
     receivableCents(database, shipment.orderId, shipment.items),
+    findSupplierShipmentInvoice(database, input),
   ]);
   const entry = describeQueueEntry({ ...shipment, ...row }, now, { orderStatus: row.orderStatus });
   const over =
@@ -120,5 +122,7 @@ export async function getSupplierPanelShipment(
     supplierName: row.supplierName,
     ...supplierDeadlines(shipment, row),
     events,
+    /** The parcel's NF-e issued through the supplier's ERP; null while there is none. */
+    invoice,
   };
 }

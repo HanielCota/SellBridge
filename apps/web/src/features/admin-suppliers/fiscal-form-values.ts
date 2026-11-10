@@ -5,6 +5,7 @@ import {
   readSupplierFiscalProfile,
   suggestedTaxDefaults,
 } from "@sellbridge/shared/supplier-fiscal";
+import type { InvoiceModel } from "@sellbridge/shared/supplier-invoice";
 
 /**
  * "Dados fiscais da empresa" as typed, flat so the brand and team forms compare it field by
@@ -26,10 +27,12 @@ export interface SupplierFiscalFormValues {
   fiscalIbgeCode: string;
   fiscalCfopInState: string;
   fiscalCfopOutOfState: string;
+  fiscalCfopOutOfStateConsumer: string;
   fiscalIcmsCode: string;
   fiscalPisCofinsCst: string;
   fiscalOrigin: string;
   fiscalUnit: string;
+  fiscalInvoiceModel: InvoiceModel;
 }
 
 /** The company fields: with all of them empty the supplier has not started its fiscal data. */
@@ -61,10 +64,12 @@ function emptyFiscalValues(): SupplierFiscalFormValues {
     fiscalIbgeCode: "",
     fiscalCfopInState: defaults.cfopInState,
     fiscalCfopOutOfState: defaults.cfopOutOfState,
+    fiscalCfopOutOfStateConsumer: defaults.cfopOutOfStateConsumer,
     fiscalIcmsCode: defaults.icmsCode,
     fiscalPisCofinsCst: defaults.pisCofinsCst,
     fiscalOrigin: String(defaults.origin),
     fiscalUnit: defaults.unit,
+    fiscalInvoiceModel: "direct",
   };
 }
 
@@ -90,10 +95,12 @@ export function supplierFiscalFormValues(stored: unknown): SupplierFiscalFormVal
     fiscalIbgeCode: address.ibgeCode,
     fiscalCfopInState: defaults.cfopInState,
     fiscalCfopOutOfState: defaults.cfopOutOfState,
+    fiscalCfopOutOfStateConsumer: defaults.cfopOutOfStateConsumer,
     fiscalIcmsCode: defaults.icmsCode,
     fiscalPisCofinsCst: defaults.pisCofinsCst,
     fiscalOrigin: String(defaults.origin),
     fiscalUnit: defaults.unit,
+    fiscalInvoiceModel: profile.invoiceModel,
   };
 }
 
@@ -128,11 +135,13 @@ export function fiscalProfileInput(values: SupplierFiscalFormValues) {
     defaults: {
       cfopInState: values.fiscalCfopInState,
       cfopOutOfState: values.fiscalCfopOutOfState,
+      cfopOutOfStateConsumer: values.fiscalCfopOutOfStateConsumer,
       icmsCode: values.fiscalIcmsCode,
       pisCofinsCst: values.fiscalPisCofinsCst,
       origin: originInput(values.fiscalOrigin),
       unit: values.fiscalUnit,
     },
+    invoiceModel: values.fiscalInvoiceModel,
   };
 }
 
@@ -152,6 +161,8 @@ const ERROR_FIELDS: Readonly<Record<string, keyof SupplierFiscalFormValues>> = {
   "address.ibgeCode": "fiscalCep",
   "defaults.cfopInState": "fiscalCfopInState",
   "defaults.cfopOutOfState": "fiscalCfopOutOfState",
+  "defaults.cfopOutOfStateConsumer": "fiscalCfopOutOfStateConsumer",
+  invoiceModel: "fiscalInvoiceModel",
   "defaults.icmsCode": "fiscalIcmsCode",
   "defaults.pisCofinsCst": "fiscalPisCofinsCst",
   "defaults.origin": "fiscalOrigin",

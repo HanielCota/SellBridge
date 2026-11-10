@@ -145,3 +145,27 @@ export function catalogExportRefusal(
   }
   return null;
 }
+
+/**
+ * Turning the NF-e on makes every new order produce a note with fiscal value, so it needs the
+ * supplier itself, a connected account and the company's fiscal data. Turning it off only needs
+ * the supplier.
+ */
+export function invoicingRefusal(input: {
+  actor: ErpActor;
+  enabling: boolean;
+  connectionStatus: "connected" | "expired" | "error" | "disconnected" | null;
+  fiscalReady: boolean;
+}): string | null {
+  const refusal = erpOwnerActionRefusal(input.actor);
+  if (refusal !== null || !input.enabling) {
+    return refusal;
+  }
+  if (input.connectionStatus !== "connected") {
+    return "Conecte o Bling antes de ligar a nota fiscal.";
+  }
+  if (!input.fiscalReady) {
+    return "Preencha os dados fiscais da empresa em Marca antes de ligar a nota fiscal.";
+  }
+  return null;
+}

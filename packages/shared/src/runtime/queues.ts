@@ -26,6 +26,8 @@ export const QUEUE_NAMES = {
   erpCatalogExport: "erp-catalog-export",
   /** Reads the supplier's ERP catalog for an import, reporting progress (minutes for 400+). */
   erpCatalogRead: "erp-catalog-read",
+  /** Issues the NF-e of new parcels through the supplier's ERP and follows SEFAZ's answer. */
+  erpInvoiceIssue: "erp-invoice-issue",
 } as const;
 
 export const publishListingJobSchema = z.object({

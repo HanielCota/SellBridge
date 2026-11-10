@@ -6,6 +6,7 @@ import {
   catalogExportRefusal,
   erpConnectRefusal,
   erpOwnerActionRefusal,
+  invoicingRefusal,
 } from "./bling-connection";
 
 const SUPPLIER = "8b0f6f7e-1c1f-4d9a-9a39-5c1f6f0b2a11";
@@ -108,6 +109,65 @@ describe("catalogExportRefusal", () => {
 
   it("refuses the team sending products to a supplier's Bling", () => {
     const refusal = catalogExportRefusal({ viewerKind: "team", impersonatedBy: null }, "connected");
+
+    expect(refusal).not.toBeNull();
+  });
+});
+
+describe("invoicingRefusal", () => {
+  const supplier = { viewerKind: "supplier", impersonatedBy: null } as const;
+
+  it("lets the supplier turn the NF-e on with a connected account and fiscal data", () => {
+    const refusal = invoicingRefusal({
+      actor: supplier,
+      enabling: true,
+      connectionStatus: "connected",
+      fiscalReady: true,
+    });
+
+    expect(refusal).toBeNull();
+  });
+
+  it("asks for the fiscal data on Marca before turning the NF-e on", () => {
+    const refusal = invoicingRefusal({
+      actor: supplier,
+      enabling: true,
+      connectionStatus: "connected",
+      fiscalReady: false,
+    });
+
+    expect(refusal).toContain("Marca");
+  });
+
+  it("asks to connect Bling before turning the NF-e on", () => {
+    const refusal = invoicingRefusal({
+      actor: supplier,
+      enabling: true,
+      connectionStatus: "expired",
+      fiscalReady: true,
+    });
+
+    expect(refusal).toContain("Conecte o Bling");
+  });
+
+  it("lets the supplier turn it off even without fiscal data", () => {
+    const refusal = invoicingRefusal({
+      actor: supplier,
+      enabling: false,
+      connectionStatus: "expired",
+      fiscalReady: false,
+    });
+
+    expect(refusal).toBeNull();
+  });
+
+  it("refuses a team visit", () => {
+    const refusal = invoicingRefusal({
+      actor: { viewerKind: "supplier", impersonatedBy: "admin-1" },
+      enabling: true,
+      connectionStatus: "connected",
+      fiscalReady: true,
+    });
 
     expect(refusal).not.toBeNull();
   });

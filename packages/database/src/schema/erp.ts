@@ -1,4 +1,8 @@
+import { sql } from "drizzle-orm";
+import type { InvoiceStatus } from "@sellbridge/shared/supplier-invoice";
 import {
+  bigint,
+  check,
   index,
   integer,
   jsonb,
@@ -10,6 +14,7 @@ import {
 } from "drizzle-orm/pg-core";
 import { user } from "./auth.ts";
 import { erpCatalogReadStatusEnum, erpProviderEnum, storeConnectionStatusEnum } from "./enums.ts";
+import { orderShipments } from "./fulfillment.ts";
 import { suppliers } from "./suppliers.ts";
 
 /**
@@ -38,6 +43,11 @@ export const supplierErpConnections = pgTable(
      */
     resellerDiscountTenths: integer(),
     lastImportAt: timestamp({ withTimezone: true }),
+    /**
+     * Since when the ERP issues the NF-e of this supplier's new parcels; null while it is off.
+     * Parcels created before it are never invoiced here.
+     */
+    invoiceEnabledAt: timestamp({ withTimezone: true }),
     /** The supplier member who authorized it, kept for the audit trail. */
     connectedByUserId: text().references(() => user.id, { onDelete: "set null" }),
     connectedAt: timestamp({ withTimezone: true }).defaultNow().notNull(),
@@ -96,5 +106,55 @@ export const erpCatalogReads = pgTable(
   },
   (table) => [
     uniqueIndex("erp_catalog_reads_supplier_provider_idx").on(table.supplierId, table.provider),
+  ],
+);
+
+/**
+ * The NF-e of one parcel, issued through the supplier's ERP: the ERP's ids of each step (so a
+ * retry goes on from where it stopped instead of creating twice), and what the supplier sees.
+ */
+export const shipmentInvoices = pgTable(
+  "shipment_invoices",
+  {
+    id: uuid().primaryKey().defaultRandom(),
+    shipmentId: uuid()
+      .notNull()
+      .references(() => orderShipments.id, { onDelete: "cascade" }),
+    supplierId: uuid()
+      .notNull()
+      .references(() => suppliers.id, { onDelete: "cascade" }),
+    provider: erpProviderEnum().notNull(),
+    status: text().$type<InvoiceStatus>().notNull().default("queued"),
+    /** The ERP's contact, sale order and note ids, set as each step succeeds. */
+    erpContactId: bigint({ mode: "number" }),
+    erpOrderId: bigint({ mode: "number" }),
+    erpInvoiceId: bigint({ mode: "number" }),
+    number: text(),
+    series: text(),
+    accessKey: text(),
+    danfeUrl: text(),
+    /** What the supplier must do, in their words, while the status is "attention". */
+    problem: text(),
+    /** Passing failures in a row; reset when a step succeeds. */
+    attempts: integer().notNull().default(0),
+    nextAttemptAt: timestamp({ withTimezone: true }).defaultNow().notNull(),
+    authorizedAt: timestamp({ withTimezone: true }),
+    createdAt: timestamp({ withTimezone: true }).defaultNow().notNull(),
+    updatedAt: timestamp({ withTimezone: true })
+      .defaultNow()
+      .$onUpdate(() => new Date())
+      .notNull(),
+  },
+  (table) => [
+    uniqueIndex("shipment_invoices_shipment_idx").on(table.shipmentId),
+    /** The job reads the notes due, the oldest first. */
+    index("shipment_invoices_due_idx")
+      .on(table.nextAttemptAt)
+      .where(sql`${table.status} in ('queued','sent')`),
+    index("shipment_invoices_supplier_idx").on(table.supplierId),
+    check(
+      "shipment_invoices_status_check",
+      sql`${table.status} in ('queued','sent','authorized','attention','cancelled')`,
+    ),
   ],
 );

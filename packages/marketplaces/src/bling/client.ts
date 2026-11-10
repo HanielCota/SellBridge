@@ -5,6 +5,7 @@ import {
   blingRequest,
   type BlingHttpOptions,
 } from "./http.ts";
+import { blingInvoiceCalls } from "./invoices.ts";
 import type { BlingTokens } from "./oauth.ts";
 import type { BlingRateLimiter } from "./rate-limit.ts";
 import {
@@ -121,6 +122,7 @@ export function createBlingClient(options: BlingClientOptions) {
   const call = createBlingCaller(options);
 
   return {
+    ...blingInvoiceCalls(call),
     /** One page of the summary list (active products by default). */
     async listProducts(input: { page: number; criterio?: 1 | 2 | 3 | 4 | 5 }) {
       const query = new URLSearchParams({

@@ -23,6 +23,7 @@ import { errorMessage } from "@/lib/errors";
 import { useTabProfileLink } from "@/lib/tab-profile";
 import { formatAbsoluteTime } from "@/lib/relative-time";
 import { LabelStatus } from "./order-row-parts";
+import { SupplierInvoiceCard } from "./supplier-invoice-card";
 import { SupplierParcelTracking } from "./supplier-parcel-tracking";
 
 type PanelShipment = Awaited<
@@ -130,6 +131,11 @@ function PanelBody({ supplierId, shipmentId }: { supplierId: string; shipmentId:
   return (
     <div className="space-y-4">
       <OrderFacts shipment={query.data} />
+      <SupplierInvoiceCard
+        supplierId={supplierId}
+        shipmentId={shipmentId}
+        invoice={query.data.invoice}
+      />
       {blocked ? (
         <Alert variant="destructive">
           <AlertTitle>Venda não liberada</AlertTitle>

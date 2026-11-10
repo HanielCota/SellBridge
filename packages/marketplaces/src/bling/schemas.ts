@@ -82,10 +82,17 @@ export const blingCreatedProductResponseSchema = z.object({
   data: z.object({ id: z.number() }),
 });
 
+const blingFieldErrorSchema = z.object({
+  msg: z.string(),
+  collection: z.array(z.object({ msg: z.string() })).nullish(),
+});
+
 export const blingErrorResponseSchema = z.object({
   error: z.object({
     type: z.string(),
     message: z.string(),
     description: z.string().nullish(),
+    /** Each refused field, with the item lines inside `collection`. */
+    fields: z.array(blingFieldErrorSchema).nullish(),
   }),
 });

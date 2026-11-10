@@ -85,7 +85,7 @@ export async function createSupplierBrand(
     if (created === undefined) {
       throw new Error("Marca não criada");
     }
-    return created;
+    return { ...created, fiscalProfile: readSupplierFiscalProfile(created.fiscalProfile) };
   } catch (error) {
     if (isUniqueViolation(error, PROFILE_SUPPLIER_INDEX)) {
       throw conflictError("Esta conta já tem uma marca cadastrada. Edite os dados da marca.");
@@ -109,7 +109,7 @@ export async function updateSupplierBrand(
       `Nenhuma marca cadastrada para este perfil (perfil recebido: ${input.organizationId})`,
     );
   }
-  return updated;
+  return { ...updated, fiscalProfile: readSupplierFiscalProfile(updated.fiscalProfile) };
 }
 
 /** The supplier's regime and default tax codes, for its products' NF-e data; null until filled. */
