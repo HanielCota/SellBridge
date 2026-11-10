@@ -286,6 +286,37 @@ describe("readBlingCatalog", () => {
     expect(fetchImplementation).toHaveBeenCalledTimes(3);
   });
 
+  it("keeps one item per code and lists the repeated one as left out", async () => {
+    const list = [
+      { id: 10, nome: "Travesseiro", codigo: "054-TRA-ECO-BRA", formato: "S", situacao: "A" },
+      { id: 11, nome: "Travesseiro cópia", codigo: "054-TRA-ECO-BRA", formato: "S", situacao: "A" },
+    ];
+    const details: Record<string, unknown> = {
+      "10": simpleProduct,
+      "11": { ...simpleProduct, id: 11, nome: "Travesseiro cópia" },
+    };
+    const fetchImplementation = vi.fn<typeof fetch>(async (input) => {
+      const url = new URL(requestUrl(input));
+      if (url.pathname.endsWith("/produtos")) {
+        return json(200, { data: list });
+      }
+      return json(200, { data: details[url.pathname.split("/").at(-1) ?? ""] });
+    });
+    const { access } = accountAccess();
+
+    const catalog = await readBlingCatalog(client(fetchImplementation, access), {
+      maxProducts: 50,
+    });
+
+    expect(catalog.items.map((item) => item.sku)).toEqual(["054-TRA-ECO-BRA"]);
+    expect(catalog.skipped).toEqual([
+      {
+        name: "Travesseiro cópia",
+        reason: "Código 054-TRA-ECO-BRA repetido em outro produto do Bling",
+      },
+    ]);
+  });
+
   it("stops at the product limit and says so", async () => {
     const list = [10, 11, 12].map((id) => ({
       id,

@@ -45,6 +45,30 @@ async function listTopLevelIds(client: BlingClient, maxProducts: number) {
 }
 
 /**
+ * The import takes one row per SKU, so a code Bling repeats keeps its first product; the others
+ * are listed as left out, with the reason.
+ */
+function withoutRepeatedCodes(
+  items: readonly ErpCatalogItem[],
+  seen: Set<string>,
+): { unique: ErpCatalogItem[]; repeated: SkippedBlingProduct[] } {
+  const unique: ErpCatalogItem[] = [];
+  const repeated: SkippedBlingProduct[] = [];
+  for (const item of items) {
+    if (seen.has(item.sku)) {
+      repeated.push({
+        name: item.title,
+        reason: `Código ${item.sku} repetido em outro produto do Bling`,
+      });
+      continue;
+    }
+    seen.add(item.sku);
+    unique.push(item);
+  }
+  return { unique, repeated };
+}
+
+/**
  * Reads the account's active products: first the summary list (to know how many there are),
  * then each product's detail (NCM, weight and images only come there), reporting progress after
  * each one. At 3 requests per second, 400 products take a little over two minutes.
@@ -57,13 +81,15 @@ export async function readBlingCatalog(
   const maxItems = options.maxItems ?? Number.POSITIVE_INFINITY;
   const items: ErpCatalogItem[] = [];
   const skipped: SkippedBlingProduct[] = [];
+  const seenCodes = new Set<string>();
   for (const [index, id] of listed.ids.entries()) {
     const mapped = blingProductToItems(await client.getProduct(id));
-    if (items.length + mapped.items.length > maxItems) {
+    const { unique, repeated } = withoutRepeatedCodes(mapped.items, seenCodes);
+    if (items.length + unique.length > maxItems) {
       return { items, skipped, truncated: true };
     }
-    items.push(...mapped.items);
-    skipped.push(...mapped.skipped);
+    items.push(...unique);
+    skipped.push(...mapped.skipped, ...repeated);
     await options.onProgress?.({ read: index + 1, total: listed.ids.length });
   }
   return { items, skipped, truncated: listed.truncated };
