@@ -254,6 +254,32 @@ const STOCK_MOVED_MESSAGE =
  * Saves an edit without undoing sales: an untouched shelf count is not written back, and a
  * changed one only lands while the shelf still holds what the form showed.
  */
+/**
+ * A product created under the fiscal rule leaves sale when the team erases its NCM, origin or
+ * unit, as it does when the supplier erases them in the panel.
+ */
+async function fiscalRuleStatus(
+  transaction: DatabaseExecutor,
+  ids: { supplierId: string; productId: string },
+  fiscal: AdminProductValues["fiscal"],
+): Promise<{ reviewStatus?: "draft" }> {
+  const [stored] = await transaction
+    .select({
+      fiscal: supplierProducts.fiscal,
+      fiscalRequired: supplierProducts.fiscalRequired,
+      reviewStatus: supplierProducts.reviewStatus,
+    })
+    .from(supplierProducts)
+    .where(
+      and(eq(supplierProducts.id, ids.productId), eq(supplierProducts.supplierId, ids.supplierId)),
+    );
+  if (stored === undefined || !stored.fiscalRequired || stored.reviewStatus !== "approved") {
+    return {};
+  }
+  const next = readProductFiscal(fiscal ?? stored.fiscal);
+  return hasRequiredFiscalData(next) ? {} : { reviewStatus: "draft" };
+}
+
 async function updateProduct(
   transaction: DatabaseExecutor,
   ids: { supplierId: string; productId: string },
@@ -262,9 +288,10 @@ async function updateProduct(
 ) {
   const { stock, ...rest } = values;
   const keepsShelf = expectedStock !== undefined && stock === expectedStock;
+  const status = await fiscalRuleStatus(transaction, ids, values.fiscal);
   const [product] = await transaction
     .update(supplierProducts)
-    .set(keepsShelf ? rest : values)
+    .set({ ...(keepsShelf ? rest : values), ...status })
     .where(
       and(
         eq(supplierProducts.id, ids.productId),
@@ -290,6 +317,22 @@ async function updateProduct(
   return undefined;
 }
 
+/** A product's own ICMS code must fit the supplier's regime, in the team form as in the panel. */
+async function assertIcmsFitsSupplierRegime(
+  transaction: DatabaseExecutor,
+  supplierId: string,
+  fiscal: AdminProductValues["fiscal"],
+): Promise<void> {
+  const [supplier] = await transaction
+    .select({ fiscalProfile: suppliers.fiscalProfile })
+    .from(suppliers)
+    .where(eq(suppliers.id, supplierId));
+  const problem = icmsOverrideProblem(fiscal?.icmsCode, supplier?.fiscalProfile?.regime ?? null);
+  if (problem !== null) {
+    throw validationError(problem);
+  }
+}
+
 export async function saveAdminSupplierProduct(
   database: Database,
   input: AdminProductValues & {
@@ -305,6 +348,7 @@ export async function saveAdminSupplierProduct(
   return await database.transaction(async (transaction) => {
     await lockSupplier(transaction, supplierId);
     await assertCategory(transaction, values.categoryId);
+    await assertIcmsFitsSupplierRegime(transaction, supplierId, values.fiscal);
     const [duplicate] = await transaction
       .select({ id: supplierProducts.id })
       .from(supplierProducts)

@@ -15,7 +15,7 @@ import {
   completenessInput,
   editedFields,
   fiscalForCompleteness,
-  panelFormValues,
+  initialFormValues,
   type PanelFormValues,
 } from "./draft-form";
 import { useDraftAutosave, type SavedProduct } from "./use-draft-autosave";
@@ -61,8 +61,9 @@ interface ProductFormOptions {
 export function useProductForm(options: ProductFormOptions) {
   const { supplierId, productId, product, categories, taxDefaults } = options;
   const queryClient = useQueryClient();
-  const [values, setValues] = useState<PanelFormValues>(() => panelFormValues(product));
-  const [openedWith] = useState<PanelFormValues>(() => panelFormValues(product));
+  // The defaults are not an edit: they reach the product with the supplier's first change.
+  const [openedWith] = useState(() => initialFormValues(product, taxDefaults?.defaults ?? null));
+  const [values, setValues] = useState<PanelFormValues>(openedWith);
   const edited = useMemo(() => editedFields(openedWith, values), [openedWith, values]);
   const [saved, setSaved] = useState<SavedProduct | null>(product);
   const category = categories.find((option) => option.id === values.categoryId);

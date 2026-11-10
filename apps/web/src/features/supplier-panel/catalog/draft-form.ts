@@ -186,6 +186,24 @@ export function panelFormValues(product?: EditableProductFields | null): PanelFo
   };
 }
 
+/**
+ * The values a product opens with: a new one starts with the origin and unit the supplier set as
+ * defaults in Marca, so the NF-e rule does not ask for them again on every product.
+ */
+export function initialFormValues(
+  product: EditableProductFields | null,
+  defaults: { readonly origin: number; readonly unit: string } | null,
+): PanelFormValues {
+  const values = panelFormValues(product);
+  if (product !== null || defaults === null) {
+    return values;
+  }
+  return {
+    ...values,
+    fiscal: { ...values.fiscal, origin: String(defaults.origin), unit: defaults.unit },
+  };
+}
+
 function wholeUnits(text: string): number {
   const trimmed = text.trim();
   return /^\d+$/.test(trimmed) ? Number(trimmed) : 0;
