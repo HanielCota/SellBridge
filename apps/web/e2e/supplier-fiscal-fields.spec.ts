@@ -62,8 +62,10 @@ test("um produto novo só é publicado depois de NCM, origem e unidade", async (
   await expect(fiscal.getByLabel("NCM (código fiscal do produto, 8 números)")).toHaveValue(
     "9405.50.00",
   );
-  await fiscal.getByLabel("Origem").selectOption("0");
-  await fiscal.getByLabel("Unidade").selectOption("UN");
+  await fiscal.getByLabel("Origem").click();
+  await page.getByRole("option", { name: "0 – Nacional (fabricado no Brasil)" }).click();
+  await fiscal.getByLabel("Unidade").click();
+  await page.getByRole("option", { name: "UN – unidade" }).click();
   await expect(page.getByText("Salvo", { exact: false }).first()).toBeVisible();
 
   await page.getByRole("button", { name: /Revisão/ }).click();
