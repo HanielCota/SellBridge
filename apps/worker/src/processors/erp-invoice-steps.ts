@@ -192,8 +192,16 @@ async function orderItems(
   });
 }
 
-function isoDate(date: Date): string {
-  return date.toISOString().slice(0, 10);
+/** Bling takes the sale order's dates as calendar days in Brazil (en-CA writes YYYY-MM-DD). */
+const BRAZIL_DAY = new Intl.DateTimeFormat("en-CA", {
+  timeZone: "America/Sao_Paulo",
+  year: "numeric",
+  month: "2-digit",
+  day: "2-digit",
+});
+
+function brazilDay(date: Date): string {
+  return BRAZIL_DAY.format(date);
 }
 
 async function ensureSaleOrder(
@@ -212,7 +220,8 @@ async function ensureSaleOrder(
     found ??
     (await client.createSaleOrder({
       storeOrderNumber: work.externalOrderId,
-      date: isoDate(work.orderedAt),
+      date: brazilDay(work.orderedAt),
+      shippingDate: brazilDay(now(dependencies)),
       contact: { id: contactId, name: recipientName(work, plan.billing) },
       items: await orderItems(client, plan.lines),
       notes: `Venda ${work.externalOrderId}, enviada pelo SellBridge.`,

@@ -137,6 +137,7 @@ describe("Bling sale order and NF-e calls", () => {
     const id = await client.createSaleOrder({
       storeOrderNumber: "2000010733434062",
       date: "2026-11-10",
+      shippingDate: "2026-11-12",
       contact: { id: 78, name: "Maria Silva" },
       items: [
         {
@@ -156,6 +157,9 @@ describe("Bling sale order and NF-e calls", () => {
     expect(request.method).toBe("POST");
     expect(request.body).toMatchObject({
       numeroLoja: "2000010733434062",
+      data: "2026-11-10",
+      dataSaida: "2026-11-12",
+      dataPrevista: "2026-11-12",
       contato: { id: 78 },
       itens: [{ codigo: "SB-1", produto: { id: 10 }, quantidade: 2, valor: 49.9, unidade: "PAR" }],
     });

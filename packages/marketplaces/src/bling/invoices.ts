@@ -49,8 +49,13 @@ export interface BlingSaleOrderItem {
 export interface BlingNewSaleOrder {
   /** The marketplace order number, kept as `numeroLoja` to find the order again on a retry. */
   readonly storeOrderNumber: string;
-  /** YYYY-MM-DD. */
+  /** The sale's day in Brazil, YYYY-MM-DD. */
   readonly date: string;
+  /**
+   * The day the note is made, in Brazil, YYYY-MM-DD: its exit date may not come before its issue
+   * date (SEFAZ rejection 505), and the parcel may ship days after the sale.
+   */
+  readonly shippingDate: string;
   readonly contact: { readonly id: number; readonly name: string };
   readonly items: readonly BlingSaleOrderItem[];
   readonly notes: string;
@@ -159,8 +164,8 @@ function saleOrderBody(order: BlingNewSaleOrder) {
   return {
     numeroLoja: order.storeOrderNumber,
     data: order.date,
-    dataSaida: order.date,
-    dataPrevista: order.date,
+    dataSaida: order.shippingDate,
+    dataPrevista: order.shippingDate,
     contato: { id: order.contact.id, nome: order.contact.name },
     itens: order.items.map((item) => ({
       codigo: item.sku,

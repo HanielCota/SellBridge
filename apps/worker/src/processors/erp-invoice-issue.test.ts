@@ -275,6 +275,28 @@ describe("erp invoice issue", () => {
     });
   });
 
+  it("dates the sale order by Brazil's calendar for a sale late in the evening", async () => {
+    const { shipmentId, sku } = await scenario();
+    const [parcel] = await database
+      .select({ orderId: schema.orderShipments.orderId })
+      .from(schema.orderShipments)
+      .where(eq(schema.orderShipments.id, shipmentId));
+    await database
+      .update(schema.orders)
+      .set({ orderedAt: new Date("2026-03-10T01:30:00Z") })
+      .where(eq(schema.orders.id, parcel?.orderId ?? ""));
+    const bling = fakeBling({ sku });
+
+    await processor(bling, { now: () => new Date("2099-03-11T02:00:00Z") })();
+
+    const [orderCall] = callsTo(bling, "POST /Api/v3/pedidos/vendas");
+    expect(sentBody(orderCall)).toMatchObject({
+      data: "2026-03-09",
+      dataSaida: "2099-03-10",
+      dataPrevista: "2099-03-10",
+    });
+  });
+
   it("stops with the buyer's missing document in the supplier's words", async () => {
     const { shipmentId, sku } = await scenario();
 
