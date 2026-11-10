@@ -168,7 +168,13 @@ describe("rejection reasons", () => {
 describe("catalog schemas", () => {
   it("falls back to defaults on malformed list filters", () => {
     expect(
-      catalogListSearchSchema.parse({ status: "nope", sort: "price", page: "-1", pageSize: "7" }),
+      catalogListSearchSchema.parse({
+        status: "nope",
+        sort: "price",
+        page: "-1",
+        pageSize: "7",
+        fiscal: "nope",
+      }),
     ).toEqual({
       status: "all",
       query: undefined,
@@ -176,7 +182,12 @@ describe("catalog schemas", () => {
       direction: "desc",
       page: 1,
       pageSize: 25,
+      fiscal: "all",
     });
+  });
+
+  it("keeps the filter of products missing NF-e data", () => {
+    expect(catalogListSearchSchema.parse({ fiscal: "missing" }).fiscal).toBe("missing");
   });
 
   it("stores a draft with an empty title but never without a SKU", () => {
