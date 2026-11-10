@@ -24,6 +24,9 @@ const workerEnvironmentSchema = z
     ALERT_WEBHOOK_URL: alertWebhookUrlEnvironmentSchema,
     MERCADO_LIVRE_CLIENT_ID: z.string().optional(),
     MERCADO_LIVRE_CLIENT_SECRET: z.string().optional(),
+    /** Bling ERP app: token refresh and catalog sending stay off until both are set. */
+    BLING_CLIENT_ID: z.string().min(1).optional(),
+    BLING_CLIENT_SECRET: z.string().min(1).optional(),
     WORKER_CONCURRENCY: z.coerce.number().int().min(1).max(50).default(5),
     /**
      * Sellable units kept off the marketplaces, per product, as a buffer against shelf counts

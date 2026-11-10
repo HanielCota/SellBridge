@@ -59,7 +59,7 @@ export async function consumeErpOAuthState(
 /** Saves the supplier's ERP account as connected; reconnecting replaces the old tokens. */
 export async function upsertErpConnection(
   database: Database,
-  input: { supplierId: string; provider: ErpProvider; userId: string; tokens: ErpTokens },
+  input: { supplierId: string; provider: ErpProvider; userId: string | null; tokens: ErpTokens },
 ): Promise<ErpConnection> {
   const values = {
     ...input.tokens,

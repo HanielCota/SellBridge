@@ -1,0 +1,195 @@
+import type { Database } from "@sellbridge/database";
+import {
+  findErpConnection,
+  listSupplierProductsForErpExport,
+  recordErpRefreshFailure,
+  rotateErpTokens,
+  type CatalogExportProduct,
+} from "@sellbridge/database/repositories";
+import { isRetryableError, type FetchLike } from "@sellbridge/marketplaces";
+import {
+  createBlingClient,
+  storedBlingAccess,
+  type BlingAppCredentials,
+  type BlingClient,
+  type BlingNewProduct,
+  type BlingRateLimiter,
+} from "@sellbridge/marketplaces/bling";
+import { logger } from "@sellbridge/shared/logger";
+import { erpCatalogExportJobSchema } from "@sellbridge/shared/queues";
+import type { TokenCipher } from "@sellbridge/shared/token-cipher";
+
+export interface ErpCatalogExportDependencies {
+  readonly database: Database;
+  readonly cipher: TokenCipher;
+  readonly blingCredentials: BlingAppCredentials | null;
+  readonly limiter: BlingRateLimiter;
+  readonly fetchImplementation: FetchLike;
+}
+
+export interface ErpCatalogExportSummary {
+  created: number;
+  alreadyInErp: number;
+  refused: number;
+}
+
+const PRODUCTS_PER_PAGE = 100;
+/** SKUs per `GET /produtos?codigos[]=` lookup, keeping the URL short. */
+const CODES_PER_LOOKUP = 20;
+
+/** "350 g", as the product import stores the package weight; null when absent or unreadable. */
+export function gramsFromAttribute(value: string | undefined): number | null {
+  const match = /^(\d+(?:[.,]\d+)?)\s*g$/i.exec((value ?? "").trim());
+  if (match?.[1] === undefined) {
+    return null;
+  }
+  const grams = Number(match[1].replace(",", "."));
+  return Number.isFinite(grams) && grams > 0 ? grams : null;
+}
+
+/** SellBridge's cost to resellers is the supplier's sale price, so it becomes Bling's price. */
+export function toBlingNewProduct(product: CatalogExportProduct): BlingNewProduct {
+  return {
+    sku: product.sku,
+    title: product.title,
+    description: product.description,
+    priceCents: product.costCents,
+    imageUrls: product.imageUrls,
+    gtin: product.attributes.GTIN ?? null,
+    brand: product.attributes.BRAND ?? null,
+    weightGrams: gramsFromAttribute(product.attributes.SELLER_PACKAGE_WEIGHT),
+  };
+}
+
+function chunks<Item>(items: readonly Item[], size: number): Item[][] {
+  const result: Item[][] = [];
+  for (let start = 0; start < items.length; start += size) {
+    result.push(items.slice(start, start + size));
+  }
+  return result;
+}
+
+async function skusInBling(client: BlingClient, skus: readonly string[]): Promise<Set<string>> {
+  const found = new Set<string>();
+  for (const group of chunks(skus, CODES_PER_LOOKUP)) {
+    const existing = await client.findProductsByCodes(group);
+    for (const product of existing) {
+      if (product.codigo != null) {
+        found.add(product.codigo);
+      }
+    }
+  }
+  return found;
+}
+
+/**
+ * Creates one product. A refusal for this product's data (400) is counted and the rest go on; a
+ * passing failure or a lost connection stops the job, which BullMQ retries.
+ */
+async function createOne(
+  client: BlingClient,
+  product: CatalogExportProduct,
+): Promise<"created" | "refused"> {
+  try {
+    await client.createProduct(toBlingNewProduct(product));
+    return "created";
+  } catch (error) {
+    if (isRetryableError(error)) {
+      throw error;
+    }
+    logger.warn("erp.catalog_export_refused", { productId: product.id, error });
+    return "refused";
+  }
+}
+
+async function exportPage(
+  client: BlingClient,
+  page: readonly CatalogExportProduct[],
+): Promise<ErpCatalogExportSummary> {
+  const existing = await skusInBling(
+    client,
+    page.map((product) => product.sku),
+  );
+  const counts: ErpCatalogExportSummary = { created: 0, alreadyInErp: 0, refused: 0 };
+  for (const product of page) {
+    if (existing.has(product.sku)) {
+      counts.alreadyInErp += 1;
+      continue;
+    }
+    counts[await createOne(client, product)] += 1;
+  }
+  return counts;
+}
+
+function addCounts(
+  total: ErpCatalogExportSummary,
+  page: ErpCatalogExportSummary,
+): ErpCatalogExportSummary {
+  return {
+    created: total.created + page.created,
+    alreadyInErp: total.alreadyInErp + page.alreadyInErp,
+    refused: total.refused + page.refused,
+  };
+}
+
+function blingClientFor(
+  dependencies: ErpCatalogExportDependencies & { blingCredentials: BlingAppCredentials },
+  supplierId: string,
+): BlingClient {
+  const { database } = dependencies;
+  return createBlingClient({
+    http: { fetchImplementation: dependencies.fetchImplementation },
+    limiter: dependencies.limiter,
+    access: storedBlingAccess({
+      accountKey: supplierId,
+      credentials: dependencies.blingCredentials,
+      cipher: dependencies.cipher,
+      fetchImplementation: dependencies.fetchImplementation,
+      store: {
+        load: async () => findErpConnection(database, { supplierId, provider: "bling" }),
+        rotate: async (connectionId, previousRefreshTokenEnc, tokens) =>
+          rotateErpTokens(database, { connectionId, previousRefreshTokenEnc, tokens }),
+        markExpired: async (connectionId, refreshTokenEnc, lastError) => {
+          await recordErpRefreshFailure(database, {
+            connectionId,
+            refreshTokenEnc,
+            lastError,
+            expired: true,
+          });
+        },
+      },
+    }),
+  });
+}
+
+/**
+ * Sends the supplier's active products that Bling does not have yet (matched by SKU). Products
+ * already in Bling are never changed: Bling is the source of truth for the catalog.
+ */
+export function createErpCatalogExportProcessor(dependencies: ErpCatalogExportDependencies) {
+  return async function processErpCatalogExport(data: unknown): Promise<ErpCatalogExportSummary> {
+    const { supplierId } = erpCatalogExportJobSchema.parse(data);
+    let summary: ErpCatalogExportSummary = { created: 0, alreadyInErp: 0, refused: 0 };
+    const credentials = dependencies.blingCredentials;
+    if (credentials === null) {
+      logger.warn("erp.catalog_export_unconfigured", { supplierId });
+      return summary;
+    }
+    const client = blingClientFor({ ...dependencies, blingCredentials: credentials }, supplierId);
+    let afterId: string | null = null;
+    for (;;) {
+      const page = await listSupplierProductsForErpExport(dependencies.database, {
+        supplierId,
+        afterId,
+        limit: PRODUCTS_PER_PAGE,
+      });
+      summary = addCounts(summary, await exportPage(client, page));
+      if (page.length < PRODUCTS_PER_PAGE) {
+        break;
+      }
+      afterId = page.at(-1)?.id ?? null;
+    }
+    logger.info("erp.catalog_exported", { supplierId, ...summary });
+    return summary;
+  };
+}
