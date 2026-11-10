@@ -1,5 +1,5 @@
 import { sql } from "drizzle-orm";
-import type { InvoiceRecipient, InvoiceStatus } from "@sellbridge/shared/supplier-invoice";
+import type { InvoiceStatus } from "@sellbridge/shared/supplier-invoice";
 import {
   bigint,
   check,
@@ -48,8 +48,6 @@ export const supplierErpConnections = pgTable(
      * Parcels created before it are never invoiced here.
      */
     invoiceEnabledAt: timestamp({ withTimezone: true }),
-    /** Who the NF-e is made out to; a setting while the accountant confirms it. */
-    invoiceRecipient: text().$type<InvoiceRecipient>().notNull().default("buyer"),
     /** The supplier member who authorized it, kept for the audit trail. */
     connectedByUserId: text().references(() => user.id, { onDelete: "set null" }),
     connectedAt: timestamp({ withTimezone: true }).defaultNow().notNull(),
@@ -65,10 +63,6 @@ export const supplierErpConnections = pgTable(
     ),
     /** The refresh job reads connected rows by expiry. */
     index("supplier_erp_connections_expiry_idx").on(table.status, table.expiresAt),
-    check(
-      "supplier_erp_connections_invoice_recipient_check",
-      sql`${table.invoiceRecipient} in ('buyer','reseller')`,
-    ),
   ],
 );
 

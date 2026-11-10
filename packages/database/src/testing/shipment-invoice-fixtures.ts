@@ -32,9 +32,11 @@ export const TEST_SUPPLIER_FISCAL: SupplierFiscalProfile = {
     state: "MG",
     ibgeCode: "3122306",
   },
+  invoiceModel: "direct",
   defaults: {
     cfopInState: "5102",
     cfopOutOfState: "6102",
+    cfopOutOfStateConsumer: "6108",
     icmsCode: "102",
     pisCofinsCst: "49",
     origin: 0,

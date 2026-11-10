@@ -17,7 +17,7 @@ import {
   type RejectionReason,
 } from "@sellbridge/shared/supplier-panel-catalog-status";
 import type { ProductFiscalPatch } from "@sellbridge/shared/product-fiscal";
-import type { SupplierFiscalProfile } from "@sellbridge/shared/supplier-fiscal";
+import type { SupplierFiscalProfileInput } from "@sellbridge/shared/supplier-fiscal";
 import { organization } from "./auth.ts";
 
 export const suppliers = pgTable(
@@ -58,7 +58,8 @@ export const suppliers = pgTable(
      * The company as its NF-e names it (CNPJ, state registration, regime, fiscal address with the
      * IBGE city code) and the tax codes its products default to. Null until the supplier fills it.
      */
-    fiscalProfile: jsonb().$type<SupplierFiscalProfile>(),
+    /** As saved, possibly before later fields existed: read it with `readSupplierFiscalProfile`. */
+    fiscalProfile: jsonb().$type<SupplierFiscalProfileInput>(),
     createdAt: timestamp({ withTimezone: true }).defaultNow().notNull(),
   },
   (table) => [

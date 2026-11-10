@@ -121,9 +121,7 @@ describe("loadShipmentInvoiceWork", () => {
 
     const work = await loadShipmentInvoiceWork(database, invoice?.id ?? "");
 
-    expect(work?.recipient).toBe("buyer");
     expect(work?.supplierFiscal?.address.state).toBe("MG");
-    expect(work?.reseller?.cnpj).toBe("45723174000110");
     expect(work?.lines).toEqual([
       expect.objectContaining({
         sku,

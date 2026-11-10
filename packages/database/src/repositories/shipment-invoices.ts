@@ -1,11 +1,10 @@
-import type { BillingAddress } from "@sellbridge/shared/billing-address";
 import { readProductFiscal, type ProductFiscal } from "@sellbridge/shared/product-fiscal";
 import type { DeliveryAddress } from "@sellbridge/shared/schemas";
 import {
   readSupplierFiscalProfile,
   type SupplierFiscalProfile,
 } from "@sellbridge/shared/supplier-fiscal";
-import type { InvoiceRecipient, InvoiceStatus } from "@sellbridge/shared/supplier-invoice";
+import type { InvoiceStatus } from "@sellbridge/shared/supplier-invoice";
 import { conflictError, notFoundError } from "@sellbridge/shared/errors";
 import { and, asc, eq, gte, inArray, isNotNull, isNull, lte, notInArray, sql } from "drizzle-orm";
 import type { Database } from "../client.ts";
@@ -18,7 +17,6 @@ import {
   supplierErpConnections,
   supplierProducts,
   suppliers,
-  tenantProfile,
 } from "../schema/index.ts";
 
 /** Parcels in these states are not invoiced: the sale did not go ahead. */
@@ -115,15 +113,6 @@ export interface ShipmentInvoiceLine {
   readonly fiscal: ProductFiscal;
 }
 
-/** The reseller's company or person, as its profile has it; null fields were never filled. */
-export interface InvoiceReseller {
-  readonly fullName: string | null;
-  readonly cpf: string | null;
-  readonly cnpj: string | null;
-  readonly companyName: string | null;
-  readonly billingAddress: BillingAddress | null;
-}
-
 /** Everything the job needs to take an invoice one step further. */
 export interface ShipmentInvoiceWork {
   readonly id: string;
@@ -133,7 +122,6 @@ export interface ShipmentInvoiceWork {
   readonly erpOrderId: number | null;
   readonly erpInvoiceId: number | null;
   readonly supplierId: string;
-  readonly recipient: InvoiceRecipient;
   readonly supplierFiscal: SupplierFiscalProfile | null;
   readonly shipmentId: string;
   readonly address: DeliveryAddress;
@@ -146,7 +134,6 @@ export interface ShipmentInvoiceWork {
     readonly externalShopId: string;
     readonly accessTokenEnc: string | null;
   };
-  readonly reseller: InvoiceReseller | null;
   readonly lines: readonly ShipmentInvoiceLine[];
 }
 
@@ -154,11 +141,9 @@ async function invoiceHeader(database: Database, invoiceId: string) {
   const [row] = await database
     .select({
       invoice: shipmentInvoices,
-      recipient: supplierErpConnections.invoiceRecipient,
       fiscalProfile: suppliers.fiscalProfile,
       address: orderShipments.address,
       items: orderShipments.items,
-      tenantId: orderShipments.tenantId,
       orderId: orders.id,
       externalOrderId: orders.externalOrderId,
       orderedAt: orders.orderedAt,
@@ -231,25 +216,8 @@ async function invoiceLines(
   });
 }
 
-async function invoiceReseller(
-  database: Database,
-  tenantId: string,
-): Promise<InvoiceReseller | null> {
-  const [row] = await database
-    .select({
-      fullName: tenantProfile.fullName,
-      cpf: tenantProfile.cpf,
-      cnpj: tenantProfile.cnpj,
-      companyName: tenantProfile.companyName,
-      billingAddress: tenantProfile.billingAddress,
-    })
-    .from(tenantProfile)
-    .where(eq(tenantProfile.tenantId, tenantId));
-  return row ?? null;
-}
-
 /**
- * The invoice with its parcel, order, store, supplier profile, reseller and lines; null when it
+ * The invoice with its parcel, order, store, supplier profile and lines; null when it
  * no longer exists (its parcel was deleted) or the supplier's ERP was disconnected.
  */
 export async function loadShipmentInvoiceWork(
@@ -261,10 +229,7 @@ export async function loadShipmentInvoiceWork(
     return null;
   }
   const { invoice } = header;
-  const [lines, reseller] = await Promise.all([
-    invoiceLines(database, header.orderId, header.items),
-    invoiceReseller(database, header.tenantId),
-  ]);
+  const lines = await invoiceLines(database, header.orderId, header.items);
   return {
     id: invoice.id,
     status: invoice.status,
@@ -273,7 +238,6 @@ export async function loadShipmentInvoiceWork(
     erpOrderId: invoice.erpOrderId,
     erpInvoiceId: invoice.erpInvoiceId,
     supplierId: invoice.supplierId,
-    recipient: header.recipient,
     supplierFiscal: readSupplierFiscalProfile(header.fiscalProfile),
     shipmentId: invoice.shipmentId,
     address: header.address,
@@ -281,7 +245,6 @@ export async function loadShipmentInvoiceWork(
     orderedAt: header.orderedAt,
     buyerName: header.buyerName,
     store: header.store,
-    reseller,
     lines,
   };
 }
@@ -424,12 +387,12 @@ export async function retrySupplierShipmentInvoice(
 }
 
 /**
- * Turns the ERP's NF-e emission on (from now: earlier parcels stay out) or off, and sets who the
- * note is made out to. Returns whether the supplier has a connection to change.
+ * Turns the ERP's NF-e emission on (from now: earlier parcels stay out) or off. Returns whether
+ * the supplier has a connection to change.
  */
 export async function setErpInvoicing(
   database: Database,
-  input: { supplierId: string; enabled: boolean; recipient?: InvoiceRecipient; now?: Date },
+  input: { supplierId: string; enabled: boolean; now?: Date },
 ): Promise<boolean> {
   const updated = await database
     .update(supplierErpConnections)
@@ -438,7 +401,6 @@ export async function setErpInvoicing(
       invoiceEnabledAt: input.enabled
         ? sql`coalesce(${supplierErpConnections.invoiceEnabledAt}, ${(input.now ?? new Date()).toISOString()}::timestamptz)`
         : null,
-      ...(input.recipient === undefined ? {} : { invoiceRecipient: input.recipient }),
     })
     .where(
       and(
