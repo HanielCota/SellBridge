@@ -147,6 +147,9 @@ async function ensureContact(
   }
   const { client } = dependencies;
   const found = await client.findContactByDocument(billing.document);
+  if (found !== null) {
+    await client.updateContactAddress(found, deliveryAddress(work));
+  }
   const contactId =
     found ??
     (await client.createContact({

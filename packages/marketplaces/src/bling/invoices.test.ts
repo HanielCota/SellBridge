@@ -63,6 +63,33 @@ describe("Bling contact calls", () => {
     expect(sentRequest(fetchImplementation).url).toContain("numeroDocumento=52998224725");
   });
 
+  it("leaves a known contact alone when Bling already has this address", async () => {
+    const { client, fetchImplementation } = setup(
+      json(200, {
+        data: {
+          id: 77,
+          nome: "Maria Silva",
+          endereco: {
+            geral: {
+              endereco: "Rua das Flores",
+              numero: "10",
+              complemento: "Apto 2",
+              bairro: "Centro",
+              municipio: "São Paulo",
+              uf: "SP",
+              cep: "01001-000",
+            },
+          },
+        },
+      }),
+    );
+
+    await client.updateContactAddress(77, ADDRESS);
+
+    expect(fetchImplementation).toHaveBeenCalledTimes(1);
+    expect(sentRequest(fetchImplementation).url).toContain("/contatos/77");
+  });
+
   it("creates a person as a non-taxpayer with the delivery address", async () => {
     const { client, fetchImplementation } = setup(json(201, { data: { id: 78 } }));
 

@@ -43,6 +43,8 @@ interface FakeBlingOptions {
   failOnce?: Record<string, Response>;
   /** The first "gerar-nfe" makes the note, but its answer is lost (Bling times out). */
   loseFirstGeneratedNote?: boolean;
+  /** The buyer is already a contact (id 78) in Bling, with this address. */
+  knownContactAddress?: Record<string, string>;
 }
 
 /** A Bling account in SEFAZ homologation, faked over HTTP: no real call ever leaves the test. */
@@ -51,7 +53,20 @@ function fakeBling(options: FakeBlingOptions) {
   let generated = false;
   const failures = new Map(Object.entries(options.failOnce ?? {}));
   const routes: Record<string, () => Response> = {
-    "GET /Api/v3/contatos": () => json(200, { data: [] }),
+    "GET /Api/v3/contatos": () =>
+      json(200, { data: options.knownContactAddress === undefined ? [] : [{ id: 78 }] }),
+    "GET /Api/v3/contatos/78": () =>
+      json(200, {
+        data: {
+          id: 78,
+          nome: "Maria Silva",
+          situacao: "A",
+          tipo: "F",
+          telefone: "11 3333-4444",
+          endereco: { geral: options.knownContactAddress, cobranca: { cep: "30130-010" } },
+        },
+      }),
+    "PUT /Api/v3/contatos/78": () => new Response(null, { status: 204 }),
     "POST /Api/v3/contatos": () => json(201, { data: { id: 78 } }),
     "GET /Api/v3/pedidos/vendas": () => json(200, { data: [] }),
     "GET /Api/v3/produtos": () =>
@@ -237,6 +252,27 @@ describe("erp invoice issue", () => {
     expect(waiting).toMatchObject({ status: "queued", erpOrderId: 500, erpInvoiceId: null });
     expect(await invoiceOf(shipmentId)).toMatchObject({ status: "sent", erpInvoiceId: 900 });
     expect(callsTo(bling, "POST /Api/v3/pedidos/vendas/500/gerar-nfe")).toHaveLength(1);
+  });
+
+  it("puts this parcel's address on a buyer Bling already has as a contact", async () => {
+    const { shipmentId, sku } = await scenario();
+    const bling = fakeBling({
+      sku,
+      knownContactAddress: { endereco: "Rua Antiga", numero: "1", cep: "30130-010", uf: "MG" },
+    });
+
+    await processor(bling)();
+
+    expect(await invoiceOf(shipmentId)).toMatchObject({ status: "sent", erpContactId: 78 });
+    expect(callsTo(bling, "POST /Api/v3/contatos")).toHaveLength(0);
+    const [update] = callsTo(bling, "PUT /Api/v3/contatos/78");
+    expect(sentBody(update)).toMatchObject({
+      telefone: "11 3333-4444",
+      endereco: {
+        geral: { endereco: "Rua das Flores", numero: "10", cep: "01001000", uf: "SP" },
+        cobranca: { cep: "30130-010" },
+      },
+    });
   });
 
   it("stops with the buyer's missing document in the supplier's words", async () => {
