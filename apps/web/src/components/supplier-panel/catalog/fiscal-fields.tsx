@@ -116,7 +116,7 @@ function ProductFiscalCodes(props: FiscalFieldsProps) {
 
 function defaultsSummary(taxDefaults: SupplierTaxSetup): string {
   const { defaults, regime } = taxDefaults;
-  return `CFOP ${defaults.cfopInState}/${defaults.cfopOutOfState} · ${icmsCodeShortLabel(regime)} ${defaults.icmsCode} · PIS/COFINS ${defaults.pisCofinsCst}`;
+  return `CFOP ${defaults.cfopInState}/${defaults.cfopOutOfStateConsumer}/${defaults.cfopOutOfState} · ${icmsCodeShortLabel(regime)} ${defaults.icmsCode} · PIS/COFINS ${defaults.pisCofinsCst}`;
 }
 
 const OVERRIDE_KEYS = ["cfopInState", "cfopOutOfState", "icmsCode", "pisCofinsCst"] as const;
@@ -124,7 +124,7 @@ const OVERRIDE_KEYS = ["cfopInState", "cfopOutOfState", "icmsCode", "pisCofinsCs
 function overrideLabel(key: (typeof OVERRIDE_KEYS)[number], taxDefaults: SupplierTaxSetup) {
   const labels = {
     cfopInState: "CFOP dentro do estado",
-    cfopOutOfState: "CFOP para outro estado",
+    cfopOutOfState: "CFOP outro estado · empresa",
     icmsCode: icmsCodeLabel(taxDefaults.regime),
     pisCofinsCst: "CST PIS/COFINS",
   };
