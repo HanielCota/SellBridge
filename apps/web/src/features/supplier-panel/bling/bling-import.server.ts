@@ -5,6 +5,7 @@ import {
   findErpCatalogReadProgress,
   findErpConnection,
   findSupplierProductCostsBySku,
+  findSupplierProductFieldsKeptOnErpImport,
   recordErpImport,
   startErpCatalogRead,
   type ErpCatalogRead,
@@ -17,6 +18,7 @@ import {
   type ErpCatalogItem,
   type ErpCatalogReadResult,
   type ErpImportRow,
+  type ErpKeptFields,
   type ErpResellerCost,
 } from "@sellbridge/shared/erp-catalog";
 import { conflictError, forbiddenError, validationError } from "@sellbridge/shared/errors";
@@ -148,8 +150,9 @@ async function importChunk(
   supplierId: string,
   items: readonly ErpCatalogItem[],
   costs: Map<string, number>,
+  keptFields: ReadonlyMap<string, ErpKeptFields>,
 ) {
-  const csv = buildErpCatalogCsv(items, costs);
+  const csv = buildErpCatalogCsv(items, costs, keptFields);
   const preview = await previewSupplierImport({
     supplierId,
     fileName: "bling.csv",
@@ -175,10 +178,11 @@ export async function importBlingRead(input: {
 }): Promise<BlingImportOutcome> {
   const { supplierId } = input;
   const result = await readyResult(supplierId, input.readId);
-  const existingCosts = await findSupplierProductCostsBySku(database, {
-    supplierId,
-    skus: result.items.map((item) => item.sku),
-  });
+  const skus = result.items.map((item) => item.sku);
+  const [existingCosts, keptFields] = await Promise.all([
+    findSupplierProductCostsBySku(database, { supplierId, skus }),
+    findSupplierProductFieldsKeptOnErpImport(database, { supplierId, skus }),
+  ]);
   const merged = mergeResellerCosts({
     items: result.items,
     existingCosts,
@@ -200,7 +204,7 @@ export async function importBlingRead(input: {
     failedRowsCsv: "",
   };
   for (const chunk of chunksOf(result.items, IMPORT_CHUNK_ROWS)) {
-    const { preview, imported } = await importChunk(supplierId, chunk, merged.costs);
+    const { preview, imported } = await importChunk(supplierId, chunk, merged.costs, keptFields);
     outcome.created += imported?.created ?? 0;
     outcome.updated += imported?.updated ?? 0;
     outcome.pausedTargets += imported?.pausedTargets ?? 0;

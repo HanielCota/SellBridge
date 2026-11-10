@@ -1,6 +1,6 @@
 import { eq } from "drizzle-orm";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
-import { erpOAuthStates } from "../schema/index.ts";
+import { categories, erpOAuthStates, supplierProducts } from "../schema/index.ts";
 import {
   createTestDatabase,
   createTestSupplierProduct,
@@ -16,6 +16,7 @@ import {
   findErpConnection,
   findErpConnectionsExpiringBefore,
   findSupplierProductCostsBySku,
+  findSupplierProductFieldsKeptOnErpImport,
   finishErpCatalogRead,
   listSupplierProductsForErpExport,
   recordErpCatalogReadProgress,
@@ -263,6 +264,68 @@ describe("current reseller costs by SKU", () => {
     });
 
     expect(costs.size).toBe(0);
+  });
+});
+
+describe("fields an ERP import keeps by SKU", () => {
+  it("returns the category slug, photos and description of the supplier's own SKUs", async () => {
+    const slug = `erp-categoria-${crypto.randomUUID().slice(0, 8)}`;
+    const sku = `ERP-KEPT-${crypto.randomUUID().slice(0, 8)}`;
+    const [category] = await database
+      .insert(categories)
+      .values({ name: "Categoria ERP", slug })
+      .returning({ id: categories.id });
+    const product = await createTestSupplierProduct(database, {
+      sku,
+      title: "Com categoria",
+      costCents: 1000,
+      suggestedPriceCents: 2000,
+    });
+    await database
+      .update(supplierProducts)
+      .set({
+        categoryId: category?.id ?? null,
+        imageUrls: ["https://cdn.exemplo.com/a.jpg"],
+        description: "Descrição",
+      })
+      .where(eq(supplierProducts.id, product.productId));
+
+    const kept = await findSupplierProductFieldsKeptOnErpImport(database, {
+      supplierId: product.supplierId,
+      skus: [sku, "SKU-QUE-NAO-EXISTE"],
+    });
+    await product.cleanup();
+    await database.delete(categories).where(eq(categories.slug, slug));
+
+    expect(kept).toEqual(
+      new Map([
+        [
+          sku,
+          {
+            categorySlug: slug,
+            imageUrls: ["https://cdn.exemplo.com/a.jpg"],
+            description: "Descrição",
+          },
+        ],
+      ]),
+    );
+  });
+
+  it("does not read another supplier's product with the same SKU", async () => {
+    const other = await createTestSupplierProduct(database, {
+      sku: `ERP-OUTRO-${crypto.randomUUID().slice(0, 8)}`,
+      title: "Outro",
+      costCents: 1000,
+      suggestedPriceCents: 2000,
+    });
+
+    const kept = await findSupplierProductFieldsKeptOnErpImport(database, {
+      supplierId: other.supplierId,
+      skus: [PRODUCT_SKU],
+    });
+    await other.cleanup();
+
+    expect(kept.size).toBe(0);
   });
 });
 

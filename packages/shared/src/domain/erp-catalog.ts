@@ -45,6 +45,7 @@ const CSV_HEADER = [
   "marca",
   "gtin",
   "peso_g",
+  "categoria",
 ] as const;
 
 const GTIN_PATTERN = /^\d{8}$|^\d{12,14}$/;
@@ -99,20 +100,38 @@ function validCents(cents: number | null): number | null {
   return cents;
 }
 
-function toCsvFields(item: ErpCatalogItem, resellerCostCents: number | undefined): string[] {
+/**
+ * What a product SellBridge already has keeps when the ERP leaves it blank: the import writes
+ * category, photos and description as they come, so a blank cell would wipe them.
+ */
+export interface ErpKeptFields {
+  readonly categorySlug: string | null;
+  readonly imageUrls: readonly string[];
+  readonly description: string;
+}
+
+function toCsvFields(
+  item: ErpCatalogItem,
+  resellerCostCents: number | undefined,
+  kept: ErpKeptFields | undefined,
+): string[] {
+  const description = item.description === "" ? (kept?.description ?? "") : item.description;
+  const imageUrls = item.imageUrls.length === 0 ? (kept?.imageUrls ?? []) : item.imageUrls;
   return [
     item.sku,
     item.title,
-    item.description,
+    description,
     priceCell(resellerCostCents ?? null),
     stockCell(item.stock),
-    item.imageUrls.join("|"),
+    imageUrls.join("|"),
     // Blank keeps what SellBridge has (a product taken off sale stays off); a new one goes on sale.
     "",
     priceCell(item.priceCents),
     item.brand ?? "",
     gtinCell(item.gtin),
     weightCell(item.weightGrams),
+    // The ERP has no SellBridge category: an existing product keeps its own, a new one has none.
+    kept?.categorySlug ?? "",
   ];
 }
 
@@ -121,14 +140,21 @@ function toCsvFields(item: ErpCatalogItem, resellerCostCents: number | undefined
  * same preview, rules and confirmation as a spreadsheet the supplier uploads. The reseller's cost
  * comes from `resellerCosts` (by SKU); the ERP price is only the suggested price. An item with no
  * cost there gets a blank cost, which the import refuses: it is never saved with a wrong price.
+ * Products SellBridge already has keep their category, and their photos and description when the
+ * ERP has none (`keptFields`, by SKU).
  */
 export function buildErpCatalogCsv(
   items: readonly ErpCatalogItem[],
   resellerCosts: ReadonlyMap<string, number>,
+  keptFields: ReadonlyMap<string, ErpKeptFields> = new Map(),
 ): string {
   const lines = [
     CSV_HEADER.join(";"),
-    ...items.map((item) => toCsvFields(item, resellerCosts.get(item.sku)).map(quoteCsv).join(";")),
+    ...items.map((item) =>
+      toCsvFields(item, resellerCosts.get(item.sku), keptFields.get(item.sku))
+        .map(quoteCsv)
+        .join(";"),
+    ),
   ];
   return `${lines.join("\r\n")}\r\n`;
 }

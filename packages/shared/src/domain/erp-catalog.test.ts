@@ -57,6 +57,54 @@ describe("buildErpCatalogCsv", () => {
     expect(parsed.rows[0]?.product.active).toBeUndefined();
   });
 
+  it("keeps an existing product's category, photos and description when the ERP leaves them blank", () => {
+    const blankItem: ErpCatalogItem = { ...ITEM, description: "", imageUrls: [] };
+    const kept = new Map([
+      [
+        ITEM.sku,
+        {
+          categorySlug: "casa-e-decoracao",
+          imageUrls: ["https://cdn.exemplo.com/antiga.jpg"],
+          description: "Descrição do SellBridge",
+        },
+      ],
+    ]);
+
+    const csv = buildErpCatalogCsv([blankItem], new Map([[ITEM.sku, 2500]]), kept);
+
+    const parsed = parseProductCsv(csv);
+
+    expect(parsed.errors).toEqual([]);
+    expect(parsed.rows[0]?.product).toMatchObject({
+      categorySlug: "casa-e-decoracao",
+      imageUrls: ["https://cdn.exemplo.com/antiga.jpg"],
+      description: "Descrição do SellBridge",
+    });
+  });
+
+  it("uses the ERP's own photos and description over the kept ones when it has them", () => {
+    const kept = new Map([
+      [
+        ITEM.sku,
+        {
+          categorySlug: "casa-e-decoracao",
+          imageUrls: ["https://cdn.exemplo.com/antiga.jpg"],
+          description: "Descrição do SellBridge",
+        },
+      ],
+    ]);
+
+    const csv = buildErpCatalogCsv([ITEM], new Map([[ITEM.sku, 2500]]), kept);
+
+    const parsed = parseProductCsv(csv);
+
+    expect(parsed.rows[0]?.product).toMatchObject({
+      categorySlug: "casa-e-decoracao",
+      imageUrls: ITEM.imageUrls,
+      description: ITEM.description,
+    });
+  });
+
   it("shows a negative ERP balance as no stock", () => {
     const csv = buildErpCatalogCsv([{ ...ITEM, stock: -4 }], new Map([[ITEM.sku, 2500]]));
 

@@ -1,6 +1,7 @@
 import { and, asc, eq, gt, inArray, isNotNull, lt } from "drizzle-orm";
 import type { Database, DatabaseExecutor } from "../client.ts";
 import {
+  categories,
   erpCatalogReads,
   erpOAuthStates,
   supplierErpConnections,
@@ -206,6 +207,41 @@ export async function findSupplierProductCostsBySku(
       ),
     );
   return new Map(rows.map((row) => [row.sku, row.costCents]));
+}
+
+export interface ErpKeptProductFields {
+  categorySlug: string | null;
+  imageUrls: string[];
+  description: string;
+}
+
+/**
+ * What the supplier's products with these SKUs have that an ERP may leave blank, by SKU. The
+ * import overwrites category, photos and description, so an ERP import fills its blanks with these.
+ */
+export async function findSupplierProductFieldsKeptOnErpImport(
+  database: Database,
+  input: { supplierId: string; skus: readonly string[] },
+): Promise<Map<string, ErpKeptProductFields>> {
+  if (input.skus.length === 0) {
+    return new Map();
+  }
+  const rows = await database
+    .select({
+      sku: supplierProducts.sku,
+      categorySlug: categories.slug,
+      imageUrls: supplierProducts.imageUrls,
+      description: supplierProducts.description,
+    })
+    .from(supplierProducts)
+    .leftJoin(categories, eq(categories.id, supplierProducts.categoryId))
+    .where(
+      and(
+        eq(supplierProducts.supplierId, input.supplierId),
+        inArray(supplierProducts.sku, [...input.skus]),
+      ),
+    );
+  return new Map(rows.map(({ sku, ...fields }) => [sku, fields]));
 }
 
 export interface CatalogExportProduct {
