@@ -207,4 +207,25 @@ describe("handleMercadoPagoWebhook", () => {
     expect(response.status).toBe(200);
     expect(fetchMock).not.toHaveBeenCalled();
   });
+
+  it("asks Mercado Pago to retry a notice for a supplier whose account is in error", async () => {
+    mocks.findAccounts.mockResolvedValue([{ ...account, status: "error" }]);
+
+    const response = await handleMercadoPagoWebhook(notice());
+
+    expect(response.status).toBe(503);
+    expect(mocks.apply).not.toHaveBeenCalled();
+  });
+
+  it("marks the account in error and asks for a retry when Mercado Pago refuses its token", async () => {
+    fetchMock.mockResolvedValue(new Response("{}", { status: 401 }));
+
+    const response = await handleMercadoPagoWebhook(notice());
+
+    expect(response.status).toBe(503);
+    expect(mocks.markError).toHaveBeenCalledWith(
+      {},
+      expect.objectContaining({ accountId: "account-1", refreshTokenEnc: "enc:refresh" }),
+    );
+  });
 });

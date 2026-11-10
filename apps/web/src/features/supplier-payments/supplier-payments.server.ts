@@ -1,11 +1,13 @@
 import {
   disconnectSupplierPaymentAccount,
   findPayableShipment,
+  findShipmentPayment,
   findSupplierPaymentAccount,
   getPaymentFeeSetting,
   listShipmentPaymentSummaries,
   openCheckoutUrl,
   listSuppliersReceivingPayments,
+  releaseShipmentPaymentReservation,
   savePaymentPreference,
   setPaymentFeeSetting,
   startShipmentPayment,
@@ -29,8 +31,13 @@ import {
   PaymentAccountUnavailableError,
   supplierAccessToken,
   syncMercadoPagoPayment,
+  withSupplierAccount,
 } from "./mercado-pago-accounts.server";
-import { CHECKOUT_TTL_IN_MS, createMercadoPagoCheckout } from "./mercado-pago-client.server";
+import {
+  CHECKOUT_TTL_IN_MS,
+  createMercadoPagoCheckout,
+  type CheckoutRequest,
+} from "./mercado-pago-client.server";
 import {
   paymentAccountOwnerRefusal,
   type MercadoPagoSettings,
@@ -184,17 +191,43 @@ async function payableWithAccount(input: { tenantId: string; shipmentId: string 
   return { payable, account };
 }
 
-async function checkoutAccessToken(
+const RELINK_MESSAGE =
+  "A conta Mercado Pago deste fornecedor precisa ser ligada de novo. Combine o pagamento com ele por fora.";
+
+/** Long enough to create the preference; a failed attempt frees the parcel right away. */
+const CHECKOUT_RESERVATION_IN_MS = 60_000;
+
+/** Why no new checkout was opened, after another request or a payment got there first. */
+async function refusedCheckout(shipmentId: string): Promise<{ checkoutUrl: string }> {
+  const current = await findShipmentPayment(database, shipmentId);
+  const open = openCheckoutUrl(current, new Date());
+  if (open !== null) {
+    return { checkoutUrl: open };
+  }
+  if (current?.status === "pending") {
+    throw validationError("O pagamento já está sendo aberto. Tente de novo em alguns segundos.");
+  }
+  throw validationError("Este fornecedor já foi pago por este pedido.");
+}
+
+/** The preference, created with the supplier's token; a failure frees the reserved parcel. */
+async function createCheckout(
   settings: MercadoPagoSettings,
   account: SupplierPaymentAccount,
-): Promise<string> {
+  input: { paymentId: string; checkout: Omit<CheckoutRequest, "externalReference"> },
+) {
   try {
-    return await supplierAccessToken(settings, account);
+    const accessToken = await supplierAccessToken(settings, account);
+    return await withSupplierAccount(account, async () =>
+      createMercadoPagoCheckout(settings, {
+        accessToken,
+        checkout: { ...input.checkout, externalReference: input.paymentId },
+      }),
+    );
   } catch (error) {
+    await releaseShipmentPaymentReservation(database, input.paymentId);
     if (error instanceof PaymentAccountUnavailableError) {
-      throw validationError(
-        "A conta Mercado Pago deste fornecedor precisa ser ligada de novo. Combine o pagamento com ele por fora.",
-      );
+      throw validationError(RELINK_MESSAGE);
     }
     throw error;
   }
@@ -224,6 +257,8 @@ export async function startSupplierCheckout(input: {
     return { checkoutUrl: open };
   }
   const feeBasisPoints = (await getPaymentFeeSetting(database)).basisPoints ?? 0;
+  const now = new Date();
+  // Reserving the parcel makes a second click or tab wait instead of opening another checkout.
   const payment = await startShipmentPayment(database, {
     shipmentId: payable.shipmentId,
     supplierId: payable.supplierId,
@@ -231,18 +266,19 @@ export async function startSupplierCheckout(input: {
     amountCents: payable.amountCents,
     platformFeeCents: platformFeeCents(payable.amountCents, feeBasisPoints),
     platformFeeBasisPoints: feeBasisPoints,
+    now,
+    reservedUntil: new Date(now.getTime() + CHECKOUT_RESERVATION_IN_MS),
   });
   if (payment === null) {
-    throw validationError("Este fornecedor já foi pago por este pedido.");
+    return refusedCheckout(payable.shipmentId);
   }
   const expiresAt = new Date(Date.now() + CHECKOUT_TTL_IN_MS);
-  const checkout = await createMercadoPagoCheckout(settings, {
-    accessToken: await checkoutAccessToken(settings, account),
+  const checkout = await createCheckout(settings, account, {
+    paymentId: payment.id,
     checkout: {
       title: `Pedido ${payable.externalOrderId} · ${payable.supplierName}`,
       amountCents: payment.amountCents,
       platformFeeCents: payment.platformFeeCents,
-      externalReference: payment.id,
       returnUrl: orderPageUrl(payable.orderId, payable.shipmentId),
       notificationUrl: mercadoPagoNotificationUrl(),
       expiresAt,

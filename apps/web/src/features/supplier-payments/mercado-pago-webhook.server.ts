@@ -13,6 +13,7 @@ import { isValidMercadoPagoSignature } from "./mercado-pago-signature";
 
 const MAX_BODY_BYTES = 64 * 1024;
 const NOT_FOUND = 404;
+const SERVICE_UNAVAILABLE = 503;
 
 const noticeSchema = z.object({
   type: z.string().min(1).max(100),
@@ -84,10 +85,16 @@ async function processPaymentNotice(input: {
     provider: "mercado_pago",
     providerAccountId: input.accountId,
   });
-  const linked = accounts.filter((account) => account.status === "connected");
-  if (linked.length === 0) {
+  if (accounts.length === 0) {
     logger.info("mercado_pago.webhook_ignored", { reason: "no_linked_account" });
     return reply(200, { status: "ignorada" });
+  }
+  const linked = accounts.filter((account) => account.status === "connected");
+  if (linked.length === 0) {
+    // A supplier's account in error or unlinked may still be owed this payment: Mercado Pago
+    // keeps retrying, so it is applied once the supplier links again.
+    logger.warn("mercado_pago.webhook_deferred", { reason: "account_not_connected" });
+    return reply(SERVICE_UNAVAILABLE, { error: "tente de novo" });
   }
   try {
     for (const account of linked) {
@@ -107,7 +114,7 @@ async function processPaymentNotice(input: {
     }
     if (error instanceof PaymentAccountUnavailableError) {
       logger.warn("mercado_pago.webhook_account_unavailable", { error });
-      return reply(200, { status: "ignorada" });
+      return reply(SERVICE_UNAVAILABLE, { error: "tente de novo" });
     }
     logger.error("mercado_pago.webhook_failed", { error });
     return reply(500, { error: "tente de novo" });

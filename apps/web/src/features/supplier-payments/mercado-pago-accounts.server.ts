@@ -90,8 +90,39 @@ export async function supplierAccessToken(
       await markSupplierPaymentAccountError(database, {
         accountId: account.id,
         lastError: "refresh_refused",
+        refreshTokenEnc: account.refreshTokenEnc,
       });
       throw new PaymentAccountUnavailableError(`Mercado Pago refused account ${account.id}`);
+    }
+    throw error;
+  }
+}
+
+const UNAUTHORIZED = 401;
+
+/**
+ * Runs a call made with the supplier's token. A 401 means the supplier revoked SellBridge in
+ * Mercado Pago: the account is marked in error, so it shows "Ligar de novo" instead of failing
+ * every checkout and notice.
+ *
+ * @throws {PaymentAccountUnavailableError} When Mercado Pago refuses the token.
+ */
+export async function withSupplierAccount<Result>(
+  account: SupplierPaymentAccount,
+  call: () => Promise<Result>,
+): Promise<Result> {
+  try {
+    return await call();
+  } catch (error) {
+    if (isMercadoPagoError(error) && error.status === UNAUTHORIZED) {
+      await markSupplierPaymentAccountError(database, {
+        accountId: account.id,
+        lastError: "token_refused",
+        refreshTokenEnc: account.refreshTokenEnc,
+      });
+      throw new PaymentAccountUnavailableError(
+        `Mercado Pago refused the token of account ${account.id}`,
+      );
     }
     throw error;
   }
@@ -134,10 +165,9 @@ export async function syncMercadoPagoPayment(input: {
   expectedPaymentId?: string;
 }): Promise<PaymentSyncResult> {
   const accessToken = await supplierAccessToken(input.settings, input.account);
-  const remote = await getMercadoPagoPayment(input.settings, {
-    accessToken,
-    paymentId: input.providerPaymentId,
-  });
+  const remote = await withSupplierAccount(input.account, async () =>
+    getMercadoPagoPayment(input.settings, { accessToken, paymentId: input.providerPaymentId }),
+  );
   const reference = externalReferenceSchema.safeParse(remote.externalReference);
   if (!reference.success) {
     return { kind: "ignored", reason: "foreign_reference" };
