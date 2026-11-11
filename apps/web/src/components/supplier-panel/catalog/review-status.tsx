@@ -4,7 +4,7 @@ import {
   PRODUCT_REVIEW_STATUS_LABELS,
   type ProductReviewStatus,
 } from "@sellbridge/shared/supplier-panel-catalog-status";
-import { ToneStatus, type StatusTone } from "@/components/data/tone-status";
+import { type StatusTone, TonePill } from "@/components/data/tone-status";
 import { cn } from "@/lib/utils";
 import { TERM_HINTS } from "@/components/icons/action-icons";
 import { HintedText } from "@/components/ui/hint";
@@ -17,7 +17,7 @@ const REVIEW_TONES: Readonly<Record<ProductReviewStatus, StatusTone>> = {
 };
 
 export function ReviewStatus({ status }: { status: ProductReviewStatus }) {
-  return <ToneStatus tone={REVIEW_TONES[status]} label={PRODUCT_REVIEW_STATUS_LABELS[status]} />;
+  return <TonePill tone={REVIEW_TONES[status]} label={PRODUCT_REVIEW_STATUS_LABELS[status]} />;
 }
 
 /** The review status, plus "Desativado" while the product is off sale. */
@@ -25,7 +25,7 @@ export function ProductStatus({ product }: { product: SupplierPanelProduct }) {
   return (
     <span className="inline-flex flex-wrap items-center gap-x-3 gap-y-1">
       <ReviewStatus status={product.reviewStatus} />
-      {product.active ? null : <ToneStatus tone="muted" label="Desativado" />}
+      {product.active ? null : <TonePill tone="muted" label="Desativado" />}
     </span>
   );
 }

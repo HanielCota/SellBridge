@@ -1,4 +1,3 @@
-import { FULFILLMENT_LABELS } from "@sellbridge/shared/schemas";
 import {
   SUPPLIER_LABEL_STATE_LABELS,
   type SupplierLabelState,
@@ -7,11 +6,14 @@ import {
   SUPPLIER_ORDER_PROBLEM_HINTS,
   SUPPLIER_ORDER_PROBLEM_LABELS,
 } from "@sellbridge/shared/supplier-panel-orders-tabs";
-import { type StatusTone, ToneStatus } from "@/components/data/tone-status";
+import { type StatusTone, ToneStatus, TonePill } from "@/components/data/tone-status";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { isShippingBlocked } from "@/features/fulfillment/shipping-block";
-import { FULFILLMENT_TONES } from "@/features/fulfillment/shipment-timeline";
+import {
+  FULFILLMENT_TONES,
+  supplierShipmentStatusLabel,
+} from "@/features/fulfillment/shipment-timeline";
 import { displayBuyerName } from "@/features/orders/buyer-name";
 import { formatAbsoluteTime } from "@/lib/relative-time";
 import type { SupplierOrderRow } from "@/features/supplier-panel/orders/use-order-actions";
@@ -69,7 +71,12 @@ export function OrderSummary({
 }
 
 export function StepStatus({ row }: { row: SupplierOrderRow }) {
-  return <ToneStatus tone={FULFILLMENT_TONES[row.status]} label={FULFILLMENT_LABELS[row.status]} />;
+  return (
+    <TonePill
+      tone={FULFILLMENT_TONES[row.status]}
+      label={supplierShipmentStatusLabel(row.status)}
+    />
+  );
 }
 
 const LABEL_TONES: Record<SupplierLabelState, StatusTone> = {
@@ -94,10 +101,7 @@ export function LabelStatus({
   // A line of its own: on a phone the row's action button follows it.
   return (
     <div>
-      <ToneStatus
-        tone={LABEL_TONES[state]}
-        label={`${SUPPLIER_LABEL_STATE_LABELS[state]}${when}`}
-      />
+      <TonePill tone={LABEL_TONES[state]} label={`${SUPPLIER_LABEL_STATE_LABELS[state]}${when}`} />
     </div>
   );
 }

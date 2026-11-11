@@ -1,5 +1,10 @@
 import { describe, expect, it } from "vitest";
-import { FULFILLMENT_TONES, shipmentTimeline, shipmentsSummary } from "./shipment-timeline";
+import {
+  FULFILLMENT_TONES,
+  shipmentTimeline,
+  shipmentsSummary,
+  supplierShipmentStatusLabel,
+} from "./shipment-timeline";
 
 describe("shipment status tone", () => {
   it.each([
@@ -45,5 +50,15 @@ describe("shipmentsSummary", () => {
         { status: "shipped", catalogKind: "supplier", supplierName: "Casa Bela" },
       ]),
     ).toMatch(/^Seu envio: .+ · Casa Bela: .+$/);
+  });
+});
+
+describe("supplierShipmentStatusLabel", () => {
+  it("tells the supplier a forwarded parcel waits for its own acceptance", () => {
+    expect(supplierShipmentStatusLabel("forwarded")).toBe("Aguardando seu aceite");
+  });
+
+  it("keeps the shared word for the later steps", () => {
+    expect(supplierShipmentStatusLabel("shipped")).toBe("Enviado");
   });
 });
