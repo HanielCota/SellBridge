@@ -1,4 +1,4 @@
-import { and, asc, eq, gt, inArray, isNotNull, lt } from "drizzle-orm";
+import { and, asc, eq, gt, inArray, isNotNull, lt, sql } from "drizzle-orm";
 import type { Database, DatabaseExecutor } from "../client.ts";
 import {
   categories,
@@ -83,12 +83,19 @@ export async function upsertErpConnection(
     connectedByUserId: input.userId,
     connectedAt: new Date(),
   };
+  // Parcels from while the account was not connected stay out of NF-e emission, as when the
+  // switch is turned off: the supplier may have issued those notes by hand meanwhile.
+  const invoiceEnabledAt = sql`case
+    when ${supplierErpConnections.status} = 'connected' then ${supplierErpConnections.invoiceEnabledAt}
+    when ${supplierErpConnections.invoiceEnabledAt} is null then null
+    else ${values.connectedAt.toISOString()}::timestamptz
+  end`;
   const [row] = await database
     .insert(supplierErpConnections)
     .values({ supplierId: input.supplierId, provider: input.provider, ...values })
     .onConflictDoUpdate({
       target: [supplierErpConnections.supplierId, supplierErpConnections.provider],
-      set: values,
+      set: { ...values, invoiceEnabledAt },
     })
     .returning();
   if (row === undefined) {
@@ -328,15 +335,29 @@ function whileReading(readId: string) {
   return and(eq(erpCatalogReads.id, readId), eq(erpCatalogReads.status, "reading"));
 }
 
-/** How far the read got; ignored once the read finished or was replaced. */
+/**
+ * How far the read got; ignored once the read finished or was replaced. False when it no longer
+ * applies, so the job can stop instead of reading the ERP for nothing.
+ */
 export async function recordErpCatalogReadProgress(
   database: Database,
   input: { readId: string; readProducts: number; totalProducts: number },
-): Promise<void> {
-  await database
+): Promise<boolean> {
+  const updated = await database
     .update(erpCatalogReads)
     .set({ readProducts: input.readProducts, totalProducts: input.totalProducts })
-    .where(whileReading(input.readId));
+    .where(whileReading(input.readId))
+    .returning({ id: erpCatalogReads.id });
+  return updated.length > 0;
+}
+
+/** Whether a job may still read for this read: it was neither discarded nor replaced. */
+export async function isErpCatalogReadOpen(database: Database, readId: string): Promise<boolean> {
+  const [row] = await database
+    .select({ id: erpCatalogReads.id })
+    .from(erpCatalogReads)
+    .where(whileReading(readId));
+  return row !== undefined;
 }
 
 /** Stores what was read; false when the read was replaced or already over. */

@@ -4,6 +4,11 @@ import { orderShipments, shipmentInvoices } from "../schema/index.ts";
 import { createTestDatabase } from "../testing/fixtures.ts";
 import { createInvoiceScenario } from "../testing/shipment-invoice-fixtures.ts";
 import {
+  findErpConnection,
+  recordErpRefreshFailure,
+  upsertErpConnection,
+} from "./erp-connections.ts";
+import {
   claimDueShipmentInvoices,
   findSupplierShipmentInvoice,
   loadShipmentInvoiceWork,
@@ -11,6 +16,7 @@ import {
   queueNewShipmentInvoices,
   retrySupplierShipmentInvoice,
   setErpInvoicing,
+  whileHoldingShipmentInvoice,
 } from "./shipment-invoices.ts";
 
 const database = createTestDatabase();
@@ -28,6 +34,32 @@ async function invoiceOf(shipmentId: string) {
     .from(shipmentInvoices)
     .where(eq(shipmentInvoices.shipmentId, shipmentId));
   return row;
+}
+
+const TOKENS = {
+  accessTokenEnc: "enc-access-2",
+  refreshTokenEnc: "enc-refresh-2",
+  expiresAt: new Date(Date.now() + 3_600_000),
+};
+
+/** Bling refuses the refresh token, then the supplier links the account again. */
+async function expireAndReconnect(supplierId: string): Promise<void> {
+  const connection = await findErpConnection(database, { supplierId, provider: "bling" });
+  if (connection === null || connection.refreshTokenEnc === null) {
+    throw new Error("connection not created");
+  }
+  await recordErpRefreshFailure(database, {
+    connectionId: connection.id,
+    refreshTokenEnc: connection.refreshTokenEnc,
+    lastError: "refresh refused",
+    expired: true,
+  });
+  await upsertErpConnection(database, {
+    supplierId,
+    provider: "bling",
+    userId: null,
+    tokens: TOKENS,
+  });
 }
 
 afterEach(async () => {
@@ -63,6 +95,29 @@ describe("queueNewShipmentInvoices", () => {
     await queueNewShipmentInvoices(database);
 
     expect(await invoiceOf(shipmentId)).toBeUndefined();
+  });
+
+  it("leaves out parcels created while the ERP account was expired", async () => {
+    const { shipmentId, supplierId } = await scenario();
+    await expireAndReconnect(supplierId);
+
+    await queueNewShipmentInvoices(database);
+
+    expect(await invoiceOf(shipmentId)).toBeUndefined();
+  });
+
+  it("keeps queuing earlier parcels when a connected account is authorized again", async () => {
+    const { shipmentId, supplierId } = await scenario();
+    await upsertErpConnection(database, {
+      supplierId,
+      provider: "bling",
+      userId: null,
+      tokens: TOKENS,
+    });
+
+    await queueNewShipmentInvoices(database);
+
+    expect((await invoiceOf(shipmentId))?.status).toBe("queued");
   });
 
   it("leaves out a cancelled parcel", async () => {
@@ -110,6 +165,46 @@ describe("claimDueShipmentInvoices", () => {
 
     expect(first).toContain(invoice?.id);
     expect(second).not.toContain(invoice?.id);
+  });
+});
+
+describe("whileHoldingShipmentInvoice", () => {
+  it("does not run the work for a note another run stopped after it was claimed", async () => {
+    const { shipmentId } = await scenario();
+    await queueNewShipmentInvoices(database);
+    const invoice = await invoiceOf(shipmentId);
+    if (invoice === undefined) {
+      throw new Error("invoice not queued");
+    }
+    await markShipmentInvoiceAttention(database, {
+      invoiceId: invoice.id,
+      problem: "Pedido cancelado",
+    });
+    let ran = false;
+
+    const held = await whileHoldingShipmentInvoice(database, invoice.id, async () => {
+      ran = true;
+    });
+
+    expect(held).toBe(false);
+    expect(ran).toBe(false);
+  });
+
+  it("runs the work for a note still waiting for its next step", async () => {
+    const { shipmentId } = await scenario();
+    await queueNewShipmentInvoices(database);
+    const invoice = await invoiceOf(shipmentId);
+    if (invoice === undefined) {
+      throw new Error("invoice not queued");
+    }
+    let ran = false;
+
+    const held = await whileHoldingShipmentInvoice(database, invoice.id, async () => {
+      ran = true;
+    });
+
+    expect(held).toBe(true);
+    expect(ran).toBe(true);
   });
 });
 

@@ -219,6 +219,30 @@ describe("erp invoice issue", () => {
     });
   });
 
+  it("leaves a note to the run already working on it, even after its lease ran out", async () => {
+    const { sku } = await scenario();
+    const bling = fakeBling({ sku });
+    let otherRunDone = false;
+    const first = createErpInvoiceProcessor({
+      database,
+      cipher,
+      blingCredentials: credentials,
+      limiter: createBlingRateLimiter({ sleep: async () => {} }),
+      fetchImplementation: bling,
+      readBuyerBilling: async () => {
+        if (!otherRunDone) {
+          otherRunDone = true;
+          await processor(bling, { now: minutesFromNow(11) })();
+        }
+        return PERSON;
+      },
+    });
+
+    await first();
+
+    expect(callsTo(bling, "POST /Api/v3/pedidos/vendas")).toHaveLength(1);
+  });
+
   it("holds the note back when Bling's rules put another CFOP than the settings ask", async () => {
     const { shipmentId, sku } = await scenario();
     const bling = fakeBling({ sku, cfop: "6102" });

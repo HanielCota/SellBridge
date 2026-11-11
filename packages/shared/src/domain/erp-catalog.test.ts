@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   buildErpCatalogCsv,
+  erpCatalogReadResultSchema,
   erpResellerCostsSchema,
   mergeResellerCosts,
   planErpCatalogImport,
@@ -268,5 +269,30 @@ describe("erpResellerCostsSchema", () => {
     const parsed = erpResellerCostsSchema.safeParse([{ sku: "  ", costCents: 4590 }]);
 
     expect(parsed.success).toBe(false);
+  });
+});
+
+describe("erpCatalogReadResultSchema", () => {
+  it("refuses a read whose variations repeat a long description past the stored budget", () => {
+    const description = "x".repeat(50_000);
+    const items = Array.from({ length: 2_500 }, (_, index) => ({
+      ...ITEM,
+      sku: `V-${index}`,
+      description,
+    }));
+
+    const parsed = erpCatalogReadResultSchema.safeParse({ items, skipped: [], truncated: false });
+
+    expect(parsed.success).toBe(false);
+  });
+
+  it("keeps a read of ordinary products", () => {
+    const parsed = erpCatalogReadResultSchema.safeParse({
+      items: [ITEM, NEW_ITEM],
+      skipped: [],
+      truncated: false,
+    });
+
+    expect(parsed.success).toBe(true);
   });
 });

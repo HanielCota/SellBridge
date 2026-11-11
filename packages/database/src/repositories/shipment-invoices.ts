@@ -101,6 +101,43 @@ export async function claimDueShipmentInvoices(
   });
 }
 
+/** Notes that still wait for a step from the job: the ones it claims. */
+const WAITING_INVOICE_STATUSES: readonly InvoiceStatus[] = ["queued", "sent"];
+
+/** Namespace of the per-invoice advisory locks, so they never meet another feature's locks. */
+const INVOICE_LOCK_NAMESPACE = 7_310_481;
+
+/**
+ * Runs `work` while this connection holds the invoice's lock, or returns false at once when
+ * another run holds it. The lease alone is a time window: a slow run that outlived it would be
+ * joined by the next one, and both would create the note in the ERP. The lock lasts as long as
+ * the work, and a crashed process releases it with its connection.
+ */
+export async function whileHoldingShipmentInvoice(
+  database: Database,
+  invoiceId: string,
+  work: () => Promise<void>,
+): Promise<boolean> {
+  return database.transaction(async (transaction) => {
+    const [row] = await transaction.execute<{ locked: boolean }>(
+      sql`select pg_try_advisory_xact_lock(${INVOICE_LOCK_NAMESPACE}, hashtext(${invoiceId})) as locked`,
+    );
+    if (row?.locked !== true) {
+      return false;
+    }
+    // A run that claimed the note before another one stopped or finished it must leave it alone.
+    const [current] = await transaction
+      .select({ status: shipmentInvoices.status })
+      .from(shipmentInvoices)
+      .where(eq(shipmentInvoices.id, invoiceId));
+    if (current === undefined || !WAITING_INVOICE_STATUSES.includes(current.status)) {
+      return false;
+    }
+    await work();
+    return true;
+  });
+}
+
 /** One line of the note: the parcel's item with its price and the product's fiscal data. */
 export interface ShipmentInvoiceLine {
   readonly sku: string;

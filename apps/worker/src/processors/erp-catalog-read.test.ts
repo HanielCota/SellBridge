@@ -1,4 +1,5 @@
 import {
+  deleteErpCatalogRead,
   findErpCatalogRead,
   startErpCatalogRead,
   upsertErpConnection,
@@ -134,5 +135,60 @@ describe("erp catalog read", () => {
 
     expect(outcome).toBe("failed");
     expect(fetchImplementation).not.toHaveBeenCalled();
+  });
+
+  it("does not call Bling for a read the supplier discarded before it ran", async () => {
+    const read = await startErpCatalogRead(database, { ...key(), ttlMilliseconds: 60_000 });
+    await deleteErpCatalogRead(database, key());
+    const fetchImplementation = vi.fn<typeof fetch>(async () => json(200, { data: [] }));
+    const process = createErpCatalogReadProcessor({
+      database,
+      cipher,
+      blingCredentials: credentials,
+      limiter,
+      fetchImplementation,
+    });
+
+    const outcome = await process({ supplierId: supplier.supplierId, readId: read.id });
+
+    expect(outcome).toBe("superseded");
+    expect(fetchImplementation).not.toHaveBeenCalled();
+  });
+
+  it("stops reading once a newer read replaced it", async () => {
+    const read = await startErpCatalogRead(database, { ...key(), ttlMilliseconds: 60_000 });
+    const listed = [10, 11, 12].map((id) => ({
+      id,
+      nome: `${product.nome} ${id}`,
+      codigo: `${product.codigo}-${id}`,
+      formato: "S",
+      situacao: "A",
+    }));
+    const fetchImplementation = vi.fn<typeof fetch>(async (input) => {
+      const url = requestUrl(input);
+      if (url.pathname.endsWith("/produtos")) {
+        return json(200, { data: url.searchParams.get("pagina") === "1" ? listed : [] });
+      }
+      const id = Number(url.pathname.split("/").at(-1));
+      if (id === 10) {
+        await startErpCatalogRead(database, { ...key(), ttlMilliseconds: 60_000 });
+      }
+      return json(200, { data: { ...product, id, codigo: `${product.codigo}-${id}` } });
+    });
+    const process = createErpCatalogReadProcessor({
+      database,
+      cipher,
+      blingCredentials: credentials,
+      limiter,
+      fetchImplementation,
+    });
+
+    const outcome = await process({ supplierId: supplier.supplierId, readId: read.id });
+
+    expect(outcome).toBe("superseded");
+    const detailCalls = fetchImplementation.mock.calls.filter(
+      ([input]) => !requestUrl(input).pathname.endsWith("/produtos"),
+    );
+    expect(detailCalls).toHaveLength(1);
   });
 });

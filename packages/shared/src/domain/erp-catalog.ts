@@ -295,9 +295,34 @@ export function mergeResellerCosts(input: {
   return { ok: true, costs };
 }
 
+/**
+ * Text kept from one read: variations repeat their parent's description and photo links, so the
+ * item count alone let one ERP answer turn into hundreds of MB stored and reloaded on every page.
+ */
+export const MAX_ERP_READ_CHARACTERS = 30_000_000;
+
+/** Characters of the texts a stored read keeps for its items. */
+export function erpCatalogReadCharacters(
+  items: readonly Pick<ErpCatalogItem, "title" | "description" | "imageUrls">[],
+): number {
+  let characters = 0;
+  for (const item of items) {
+    characters += item.title.length + item.description.length;
+    for (const url of item.imageUrls) {
+      characters += url.length;
+    }
+  }
+  return characters;
+}
+
 /** A stored catalog read, validated whenever it is read back from the database. */
 export const erpCatalogReadResultSchema = z.object({
-  items: z.array(erpCatalogItemSchema).max(MAX_ERP_READ_ITEMS),
+  items: z
+    .array(erpCatalogItemSchema)
+    .max(MAX_ERP_READ_ITEMS)
+    .refine((items) => erpCatalogReadCharacters(items) <= MAX_ERP_READ_CHARACTERS, {
+      message: "A leitura do catálogo tem texto demais para guardar",
+    }),
   skipped: z
     .array(z.object({ name: z.string().max(500), reason: z.string().max(500) }))
     .max(MAX_ERP_READ_ITEMS),
