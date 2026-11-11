@@ -13,6 +13,7 @@ import { errorMessage } from "@/lib/errors";
 import { ImportDropZone } from "./import-drop-zone";
 import { ImportIssueList } from "./import-issue-list";
 import { ImportPreviewSummary } from "./import-preview-summary";
+import { ImportSteps } from "./import-steps";
 import { ImportTemplatePanel } from "./import-template-panel";
 import { ACTION_ICONS, CONTROL_HINTS } from "@/components/icons/action-icons";
 import { Hint } from "@/components/ui/hint";
@@ -114,11 +115,13 @@ export function SupplierProductImport({ supplierId }: { supplierId: string }) {
           />
         ) : (
           <>
-            <ImportDropZone
-              file={state.file}
-              busy={busy}
-              onChoose={(file) => void state.chooseFile(file)}
-            />
+            <ImportSteps files={state.files}>
+              <ImportDropZone
+                file={state.file}
+                busy={busy}
+                onChoose={(file) => void state.chooseFile(file)}
+              />
+            </ImportSteps>
             <PreviewArea state={state} />
           </>
         )}
