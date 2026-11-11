@@ -1,4 +1,4 @@
-import { and, asc, eq, gt, inArray, isNotNull, lt } from "drizzle-orm";
+import { and, asc, eq, gt, inArray, isNotNull, lt, sql } from "drizzle-orm";
 import type { Database, DatabaseExecutor } from "../client.ts";
 import {
   categories,
@@ -83,12 +83,19 @@ export async function upsertErpConnection(
     connectedByUserId: input.userId,
     connectedAt: new Date(),
   };
+  // Parcels from while the account was not connected stay out of NF-e emission, as when the
+  // switch is turned off: the supplier may have issued those notes by hand meanwhile.
+  const invoiceEnabledAt = sql`case
+    when ${supplierErpConnections.status} = 'connected' then ${supplierErpConnections.invoiceEnabledAt}
+    when ${supplierErpConnections.invoiceEnabledAt} is null then null
+    else ${values.connectedAt.toISOString()}::timestamptz
+  end`;
   const [row] = await database
     .insert(supplierErpConnections)
     .values({ supplierId: input.supplierId, provider: input.provider, ...values })
     .onConflictDoUpdate({
       target: [supplierErpConnections.supplierId, supplierErpConnections.provider],
-      set: values,
+      set: { ...values, invoiceEnabledAt },
     })
     .returning();
   if (row === undefined) {

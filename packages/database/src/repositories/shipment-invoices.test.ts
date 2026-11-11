@@ -4,6 +4,11 @@ import { orderShipments, shipmentInvoices } from "../schema/index.ts";
 import { createTestDatabase } from "../testing/fixtures.ts";
 import { createInvoiceScenario } from "../testing/shipment-invoice-fixtures.ts";
 import {
+  findErpConnection,
+  recordErpRefreshFailure,
+  upsertErpConnection,
+} from "./erp-connections.ts";
+import {
   claimDueShipmentInvoices,
   findSupplierShipmentInvoice,
   loadShipmentInvoiceWork,
@@ -28,6 +33,32 @@ async function invoiceOf(shipmentId: string) {
     .from(shipmentInvoices)
     .where(eq(shipmentInvoices.shipmentId, shipmentId));
   return row;
+}
+
+const TOKENS = {
+  accessTokenEnc: "enc-access-2",
+  refreshTokenEnc: "enc-refresh-2",
+  expiresAt: new Date(Date.now() + 3_600_000),
+};
+
+/** Bling refuses the refresh token, then the supplier links the account again. */
+async function expireAndReconnect(supplierId: string): Promise<void> {
+  const connection = await findErpConnection(database, { supplierId, provider: "bling" });
+  if (connection === null) {
+    throw new Error("connection not created");
+  }
+  await recordErpRefreshFailure(database, {
+    connectionId: connection.id,
+    refreshTokenEnc: connection.refreshTokenEnc,
+    lastError: "refresh refused",
+    expired: true,
+  });
+  await upsertErpConnection(database, {
+    supplierId,
+    provider: "bling",
+    userId: null,
+    tokens: TOKENS,
+  });
 }
 
 afterEach(async () => {
@@ -63,6 +94,29 @@ describe("queueNewShipmentInvoices", () => {
     await queueNewShipmentInvoices(database);
 
     expect(await invoiceOf(shipmentId)).toBeUndefined();
+  });
+
+  it("leaves out parcels created while the ERP account was expired", async () => {
+    const { shipmentId, supplierId } = await scenario();
+    await expireAndReconnect(supplierId);
+
+    await queueNewShipmentInvoices(database);
+
+    expect(await invoiceOf(shipmentId)).toBeUndefined();
+  });
+
+  it("keeps queuing earlier parcels when a connected account is authorized again", async () => {
+    const { shipmentId, supplierId } = await scenario();
+    await upsertErpConnection(database, {
+      supplierId,
+      provider: "bling",
+      userId: null,
+      tokens: TOKENS,
+    });
+
+    await queueNewShipmentInvoices(database);
+
+    expect((await invoiceOf(shipmentId))?.status).toBe("queued");
   });
 
   it("leaves out a cancelled parcel", async () => {
