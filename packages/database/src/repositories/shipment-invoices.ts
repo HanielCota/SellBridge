@@ -101,6 +101,9 @@ export async function claimDueShipmentInvoices(
   });
 }
 
+/** Notes that still wait for a step from the job: the ones it claims. */
+const WAITING_INVOICE_STATUSES: readonly InvoiceStatus[] = ["queued", "sent"];
+
 /** Namespace of the per-invoice advisory locks, so they never meet another feature's locks. */
 const INVOICE_LOCK_NAMESPACE = 7_310_481;
 
@@ -120,6 +123,14 @@ export async function whileHoldingShipmentInvoice(
       sql`select pg_try_advisory_xact_lock(${INVOICE_LOCK_NAMESPACE}, hashtext(${invoiceId})) as locked`,
     );
     if (row?.locked !== true) {
+      return false;
+    }
+    // A run that claimed the note before another one stopped or finished it must leave it alone.
+    const [current] = await transaction
+      .select({ status: shipmentInvoices.status })
+      .from(shipmentInvoices)
+      .where(eq(shipmentInvoices.id, invoiceId));
+    if (current === undefined || !WAITING_INVOICE_STATUSES.includes(current.status)) {
       return false;
     }
     await work();

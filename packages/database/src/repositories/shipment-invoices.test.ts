@@ -16,6 +16,7 @@ import {
   queueNewShipmentInvoices,
   retrySupplierShipmentInvoice,
   setErpInvoicing,
+  whileHoldingShipmentInvoice,
 } from "./shipment-invoices.ts";
 
 const database = createTestDatabase();
@@ -164,6 +165,46 @@ describe("claimDueShipmentInvoices", () => {
 
     expect(first).toContain(invoice?.id);
     expect(second).not.toContain(invoice?.id);
+  });
+});
+
+describe("whileHoldingShipmentInvoice", () => {
+  it("does not run the work for a note another run stopped after it was claimed", async () => {
+    const { shipmentId } = await scenario();
+    await queueNewShipmentInvoices(database);
+    const invoice = await invoiceOf(shipmentId);
+    if (invoice === undefined) {
+      throw new Error("invoice not queued");
+    }
+    await markShipmentInvoiceAttention(database, {
+      invoiceId: invoice.id,
+      problem: "Pedido cancelado",
+    });
+    let ran = false;
+
+    const held = await whileHoldingShipmentInvoice(database, invoice.id, async () => {
+      ran = true;
+    });
+
+    expect(held).toBe(false);
+    expect(ran).toBe(false);
+  });
+
+  it("runs the work for a note still waiting for its next step", async () => {
+    const { shipmentId } = await scenario();
+    await queueNewShipmentInvoices(database);
+    const invoice = await invoiceOf(shipmentId);
+    if (invoice === undefined) {
+      throw new Error("invoice not queued");
+    }
+    let ran = false;
+
+    const held = await whileHoldingShipmentInvoice(database, invoice.id, async () => {
+      ran = true;
+    });
+
+    expect(held).toBe(true);
+    expect(ran).toBe(true);
   });
 });
 
