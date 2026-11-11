@@ -213,6 +213,47 @@ describe("readXlsxSheets", () => {
       userMessage: "A planilha .xlsx tem células demais para importar",
     });
   });
+
+  it("deve recusar linha com elementos de célula demais", async () => {
+    const crowded = `<worksheet><sheetData><row r="1">${'<c r="A"/>'.repeat(200_000)}</row></sheetData></worksheet>`;
+
+    await expect(readXlsxSheets(await buildZip(withFirstSheet(crowded)))).rejects.toMatchObject({
+      userMessage: "A planilha aceita no máximo 500 colunas",
+    });
+  });
+
+  it("deve contar as linhas vazias puladas no limite de células", async () => {
+    const listed = `<sheet name="x" sheetId="1" r:id="rId1"/>`.repeat(100);
+    const files = withFirstSheet(
+      `<worksheet><sheetData><row r="50000"><c/><c/></row></sheetData></worksheet>`,
+    ).map((file) =>
+      file.name === "xl/workbook.xml"
+        ? { ...file, content: `<workbook><sheets>${listed}</sheets></workbook>` }
+        : file,
+    );
+
+    await expect(readXlsxSheets(await buildZip(files))).rejects.toMatchObject({
+      userMessage: "A planilha .xlsx tem células demais para importar",
+    });
+  });
+
+  it("deve recusar relações demais na pasta de trabalho", async () => {
+    const files = workbookFiles({ deflate: true }).map((file) =>
+      file.name === "xl/_rels/workbook.xml.rels"
+        ? {
+            ...file,
+            content: file.content.replace(
+              "<Relationships>",
+              `<Relationships>${"<Relationship/>".repeat(300_000)}`,
+            ),
+          }
+        : file,
+    );
+
+    await expect(readXlsxSheets(await buildZip(files))).rejects.toMatchObject({
+      userMessage: "A planilha .xlsx é grande demais para importar",
+    });
+  });
 });
 
 function withFirstSheet(content: string): ZipFile[] {
