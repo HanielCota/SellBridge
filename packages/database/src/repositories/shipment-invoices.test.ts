@@ -44,7 +44,7 @@ const TOKENS = {
 /** Bling refuses the refresh token, then the supplier links the account again. */
 async function expireAndReconnect(supplierId: string): Promise<void> {
   const connection = await findErpConnection(database, { supplierId, provider: "bling" });
-  if (connection === null) {
+  if (connection === null || connection.refreshTokenEnc === null) {
     throw new Error("connection not created");
   }
   await recordErpRefreshFailure(database, {
