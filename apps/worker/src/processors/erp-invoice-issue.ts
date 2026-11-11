@@ -1,5 +1,6 @@
 import {
   claimDueShipmentInvoices,
+  whileHoldingShipmentInvoice,
   loadShipmentInvoiceWork,
   markShipmentInvoiceAttention,
   queueNewShipmentInvoices,
@@ -164,7 +165,12 @@ export function createErpInvoiceProcessor(dependencies: ErpInvoiceDependencies) 
     });
     // One at a time: a supplier's Bling quota is per account, and most runs carry a few notes.
     for (const invoiceId of ids) {
-      await processOne({ ...dependencies, blingCredentials: credentials }, invoiceId);
+      const held = await whileHoldingShipmentInvoice(dependencies.database, invoiceId, async () =>
+        processOne({ ...dependencies, blingCredentials: credentials }, invoiceId),
+      );
+      if (!held) {
+        logger.info("erp.invoice_held_by_another_run", { invoiceId });
+      }
     }
     return { queued, processed: ids.length };
   };
