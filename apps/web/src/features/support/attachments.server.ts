@@ -74,8 +74,9 @@ const ATTACHMENTS_PAUSED_MESSAGE =
   "O envio de anexos está pausado no momento. Mande a mensagem sem anexo ou tente mais tarde.";
 
 /**
- * Writes the files one by one, after checking the shared disk keeps room for them. When one fails (full disk, permissions), the ones already
- * written are deleted before the error goes on: a half-stored message leaves nothing behind.
+ * Writes the files one by one, after checking the shared disk keeps room for them. When one fails
+ * (full disk, permissions), the ones already written are deleted before the error goes on: a
+ * half-stored message leaves nothing behind.
  */
 export async function storeAttachments(
   storage: FileStorage,
