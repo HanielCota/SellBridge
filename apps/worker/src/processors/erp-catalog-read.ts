@@ -1,6 +1,7 @@
 import {
   failErpCatalogRead,
   finishErpCatalogRead,
+  isErpCatalogReadOpen,
   recordErpCatalogReadProgress,
 } from "@sellbridge/database/repositories";
 import { isMarketplaceAuthError } from "@sellbridge/marketplaces";
@@ -17,6 +18,9 @@ import { supplierBlingClient, type ErpBlingDependencies } from "./erp-bling-clie
 const UNAVAILABLE_MESSAGE = "A integração com o Bling não está disponível no momento.";
 const FAILED_MESSAGE = "Não foi possível ler o seu Bling agora. Tente de novo em alguns minutos.";
 
+/** The supplier discarded the read or started a newer one while this job was waiting or running. */
+class ErpCatalogReadSupersededError extends Error {}
+
 function failureMessage(error: unknown): string {
   if (isMarketplaceAuthError(error)) {
     return BLING_RECONNECT_MESSAGE;
@@ -30,8 +34,14 @@ function failureMessage(error: unknown): string {
  * a short reason instead of retrying: the supplier starts a new read when they want.
  */
 export function createErpCatalogReadProcessor(dependencies: ErpBlingDependencies) {
-  return async function processErpCatalogRead(data: unknown): Promise<"ready" | "failed"> {
+  return async function processErpCatalogRead(
+    data: unknown,
+  ): Promise<"ready" | "failed" | "superseded"> {
     const { supplierId, readId } = erpCatalogReadJobSchema.parse(data);
+    if (!(await isErpCatalogReadOpen(dependencies.database, readId))) {
+      logger.info("erp.catalog_read_superseded", { supplierId });
+      return "superseded";
+    }
     const credentials = dependencies.blingCredentials;
     if (credentials === null) {
       logger.warn("erp.catalog_read_unconfigured", { supplierId });
@@ -47,11 +57,14 @@ export function createErpCatalogReadProcessor(dependencies: ErpBlingDependencies
         maxProducts: MAX_ERP_READ_PRODUCTS,
         maxItems: MAX_ERP_READ_ITEMS,
         onProgress: async ({ read, total }) => {
-          await recordErpCatalogReadProgress(dependencies.database, {
+          const stillOpen = await recordErpCatalogReadProgress(dependencies.database, {
             readId,
             readProducts: read,
             totalProducts: total,
           });
+          if (!stillOpen) {
+            throw new ErpCatalogReadSupersededError();
+          }
         },
       });
       const result = erpCatalogReadResultSchema.parse(catalog);
@@ -64,6 +77,10 @@ export function createErpCatalogReadProcessor(dependencies: ErpBlingDependencies
       });
       return "ready";
     } catch (error) {
+      if (error instanceof ErpCatalogReadSupersededError) {
+        logger.info("erp.catalog_read_superseded", { supplierId });
+        return "superseded";
+      }
       logger.warn("erp.catalog_read_failed", { supplierId, error });
       await failErpCatalogRead(dependencies.database, { readId, error: failureMessage(error) });
       return "failed";
