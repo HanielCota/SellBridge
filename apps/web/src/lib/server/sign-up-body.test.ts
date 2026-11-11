@@ -38,4 +38,10 @@ describe("parseSignUpBody", () => {
 
     expect(result).toEqual({ success: false, message: "Informe seu nome" });
   });
+
+  it("refuses a profile photo sent with the sign-up", () => {
+    const result = parseSignUpBody({ ...SIGN_UP, image: "https://outro-site.example/foto.png" });
+
+    expect(result.success).toBe(false);
+  });
 });

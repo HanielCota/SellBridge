@@ -46,6 +46,7 @@ import {
 import { logger } from "@sellbridge/shared/logger";
 import { AppError } from "@sellbridge/shared/errors";
 import { teamInviteEmail } from "../../features/admin/team-invite-email.ts";
+import { isOwnAvatarImage } from "../../features/profile/avatar-key.ts";
 import {
   CONFIRMATION_CALLBACK_URL,
   EMAIL_NOT_CONFIRMED_CODE,
@@ -184,7 +185,7 @@ const guardAccountRoutes = createAuthMiddleware(async (context) => {
       });
     }
     const { image } = parsed.data;
-    if (image && !image.startsWith(`/api/perfil/foto/${session.user.id}/`)) {
+    if (image && !isOwnAvatarImage(image, session.user.id)) {
       throw new APIError("BAD_REQUEST", { message: "Foto inválida" });
     }
   }

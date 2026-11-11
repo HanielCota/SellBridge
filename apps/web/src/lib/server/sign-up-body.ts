@@ -13,6 +13,10 @@ const signUpBodySchema = z
     acceptedTermsVersion: z.literal(TERMS_VERSION, {
       error: "Marque que você aceita os termos para criar a conta.",
     }),
+    // The photo is sent from the profile page, where /update-user checks it belongs to the account.
+    image: z
+      .undefined({ error: "Envie a foto pela página do perfil depois de criar a conta." })
+      .optional(),
   })
   .passthrough();
 
