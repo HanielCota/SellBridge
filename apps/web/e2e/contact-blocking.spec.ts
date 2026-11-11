@@ -16,8 +16,20 @@ import {
 } from "@sellbridge/database/schema";
 import { CONTACT_DETAILS_REFUSED } from "@sellbridge/shared/schemas";
 import { and, eq, gt, ilike, inArray, sql } from "drizzle-orm";
-import { DEMO_USER, gotoHydrated, SIGN_UP_PASSWORD, signIn, signUpAsSupplier } from "./helpers";
+import {
+  DEMO_USER,
+  gotoHydrated,
+  SIGN_UP_PASSWORD,
+  signIn,
+  signUpAsSupplier,
+  stubCepNotFound,
+} from "./helpers";
 import { e2eDatabase } from "./database";
+
+// The forward form looks the typed CEP up: answered here, the typed address stays.
+test.beforeEach(async ({ page }) => {
+  await stubCepNotFound(page);
+});
 
 /*
  * The user's rule: reseller and supplier never get each other's phone, e-mail or social network.
@@ -142,9 +154,9 @@ async function tamperNextPost(page: Page, from: string, to: string) {
 async function openForwardDialog(page: Page) {
   await gotoHydrated(page, "/pedidos");
   await page.getByLabel("Buscar por pedido ou comprador").fill(externalOrderId);
-  await expect(page.getByRole("button", { name: "Operar pedido" })).toHaveCount(1);
-  await page.getByRole("button", { name: "Operar pedido" }).click();
-  const dialog = page.getByRole("dialog", { name: "Operar pedido" });
+  await expect(page.getByRole("button", { name: "Abrir pedido" })).toHaveCount(1);
+  await page.getByRole("button", { name: "Abrir pedido" }).click();
+  const dialog = page.getByRole("dialog", { name: "Pedido" });
   for (const [label, value] of Object.entries({
     Destinatário: "Maria Teste",
     Rua: "Rua das Flores",
@@ -205,7 +217,7 @@ test("a phone in the instructions is refused on the form and on the server, then
   await signIn(page, DEMO_USER);
   const dialog = await openForwardDialog(page);
   const instructions = dialog.getByRole("textbox", { name: /^Instruções para o fornecedor/ });
-  const send = dialog.getByRole("button", { name: "Criar ordens e encaminhar aos fornecedores" });
+  const send = dialog.getByRole("button", { name: "Enviar pedido ao fornecedor" });
 
   // Said when leaving the field, and sending does nothing while the phone is there.
   await instructions.fill("Qualquer coisa me chama no (11) 98765-4321");
@@ -247,9 +259,9 @@ test("the supplier cannot send a contact back, by the link or by the panel", asy
   await signIn(page, DEMO_USER);
   await gotoHydrated(page, "/pedidos");
   await page.getByLabel("Buscar por pedido ou comprador").fill(externalOrderId);
-  await expect(page.getByRole("button", { name: "Operar pedido" })).toHaveCount(1);
-  await page.getByRole("button", { name: "Operar pedido" }).click();
-  const dialog = page.getByRole("dialog", { name: "Operar pedido" });
+  await expect(page.getByRole("button", { name: "Abrir pedido" })).toHaveCount(1);
+  await page.getByRole("button", { name: "Abrir pedido" }).click();
+  const dialog = page.getByRole("dialog", { name: "Pedido" });
   await dialog
     .getByRole("button", { name: /Gerar novo link/ })
     .first()

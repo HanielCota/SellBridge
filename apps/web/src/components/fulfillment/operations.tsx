@@ -250,7 +250,7 @@ function OperationRow({
       </div>
       <Hint label={ACTION_ICONS.openOrder.hint} openOnTap={false}>
         <Button variant="outline" onClick={() => onOpen(row)}>
-          Operar pedido
+          Abrir pedido
           <OpenOrderIcon aria-hidden="true" />
         </Button>
       </Hint>

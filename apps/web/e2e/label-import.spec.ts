@@ -67,9 +67,9 @@ for (const [kind, fileName] of LABEL_FILES) {
     await signIn(page, DEMO_USER);
     await gotoHydrated(page, "/pedidos");
     await page.getByLabel("Buscar por pedido ou comprador").fill(externalId);
-    await expect(page.getByRole("button", { name: "Operar pedido" })).toHaveCount(1);
-    await page.getByRole("button", { name: "Operar pedido" }).click();
-    const dialog = page.getByRole("dialog", { name: "Operar pedido" });
+    await expect(page.getByRole("button", { name: "Abrir pedido" })).toHaveCount(1);
+    await page.getByRole("button", { name: "Abrir pedido" }).click();
+    const dialog = page.getByRole("dialog", { name: "Pedido" });
     await dialog.getByLabel("Arquivo da etiqueta de envio").setInputFiles(fixture(fileName));
     for (const [label, value] of Object.entries(EXPECTED_ADDRESS))
       await expect(dialog.getByLabel(label, { exact: true })).toHaveValue(value, {

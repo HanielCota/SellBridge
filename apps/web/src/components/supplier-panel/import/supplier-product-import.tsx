@@ -1,6 +1,5 @@
-import { CheckCircleIcon, TableIcon } from "@phosphor-icons/react";
+import { CheckCircleIcon } from "@phosphor-icons/react";
 import type { SupplierImportResult } from "@sellbridge/shared/supplier-panel-import-schemas";
-import { EmptyState } from "@/components/feedback/empty-state";
 import { ErrorState } from "@/components/feedback/error-state";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -78,14 +77,9 @@ function PreviewArea({ state }: { state: SupplierImportState }) {
     return <ErrorState message={state.error} />;
   }
   const preview = state.preview.data;
+  // Before a file there is nothing to preview: the drop zone already says what comes next.
   if (preview === undefined) {
-    return (
-      <EmptyState
-        icon={TableIcon}
-        title="Prévia"
-        description="As linhas da planilha aparecem aqui antes de entrar no catálogo."
-      />
-    );
+    return null;
   }
   return (
     <div className="space-y-4">

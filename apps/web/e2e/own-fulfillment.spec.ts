@@ -12,8 +12,13 @@ import {
 } from "@sellbridge/database/schema";
 import { eq } from "drizzle-orm";
 import { testStoreInput } from "../../../packages/database/src/testing/fixtures";
-import { gotoHydrated, signUp } from "./helpers";
+import { gotoHydrated, signUp, stubCepNotFound } from "./helpers";
 import { e2eDatabase } from "./database";
+
+// The forward form looks the typed CEP up: answered here, the typed address stays.
+test.beforeEach(async ({ page }) => {
+  await stubCepNotFound(page);
+});
 
 const database = e2eDatabase();
 const externalId = `OWN-FUL-${randomUUID()}`;
@@ -99,8 +104,8 @@ test.afterAll(async () => {
 async function openOrder(page: Page) {
   await gotoHydrated(page, "/pedidos");
   await page.getByLabel("Buscar por pedido ou comprador").fill(externalId);
-  await page.getByRole("button", { name: "Operar pedido", exact: true }).click();
-  return page.getByRole("dialog", { name: "Operar pedido" });
+  await page.getByRole("button", { name: "Abrir pedido", exact: true }).click();
+  return page.getByRole("dialog", { name: "Pedido" });
 }
 
 test("mixed parcels separate access and let the owner stop, restart and ship their preparation", async ({
@@ -183,7 +188,7 @@ test("mixed parcels separate access and let the owner stop, restart and ship the
   await supplier.getByRole("button", { name: "Marcar como enviado", exact: true }).click();
   await expect(supplier.getByText("EXTERNAL123BR", { exact: false })).toBeVisible();
   await openOrderAfterRefresh(page);
-  const refreshed = page.getByRole("dialog", { name: "Operar pedido" });
+  const refreshed = page.getByRole("dialog", { name: "Pedido" });
   await refreshed.getByRole("button", { name: "Marcar como entregue", exact: true }).click();
   await expect
     .poll(async () => {

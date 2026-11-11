@@ -135,10 +135,10 @@ export const deliveryAddressSchema = z.object({
     .superRefine(refuseContactDetails),
   state: freeText()
     .trim()
-    .regex(/^[A-Z]{2}$/, "Informe a UF com duas letras"),
+    .regex(/^[A-Z]{2}$/, "Informe a UF com duas letras. Exemplo: SP"),
   postalCode: freeText()
     .trim()
-    .regex(/^\d{5}-?\d{3}$/, "CEP inválido"),
+    .regex(/^\d{5}-?\d{3}$/, "Informe os 8 números do CEP, como 01310-100"),
 });
 export type DeliveryAddress = z.infer<typeof deliveryAddressSchema>;
 export const forwardOrderSchema = z.object({

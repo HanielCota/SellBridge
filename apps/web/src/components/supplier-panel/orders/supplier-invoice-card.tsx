@@ -16,6 +16,7 @@ import type { ReactNode } from "react";
 import { type StatusTone, TonePill } from "@/components/data/tone-status";
 import { Button } from "@/components/ui/button";
 import { SUPPLIER_PANEL_BASE_PATH } from "@/features/supplier-panel/home/attention-links";
+import { invoiceFixLink } from "@/features/supplier-panel/orders/invoice-fix-link";
 import { useRetrySupplierInvoice } from "@/features/supplier-panel/orders/use-order-actions";
 import { copyToClipboard } from "@/lib/clipboard";
 import { formatAbsoluteTime } from "@/lib/relative-time";
@@ -121,6 +122,7 @@ function ProblemDetails({
 }) {
   const retry = useRetrySupplierInvoice(supplierId);
   const withProfile = useTabProfileLink();
+  const fix = invoiceFixLink(problem);
   return (
     <div className="space-y-3">
       <p className="text-subhead">{problem ?? "Abra o pedido no Bling para ver o motivo."}</p>
@@ -134,7 +136,7 @@ function ProblemDetails({
           {retry.isPending ? "Enviando..." : "Tentar de novo"}
         </Button>
         <Button asChild variant="link">
-          <a href={withProfile(`${SUPPLIER_PANEL_BASE_PATH}/marca`)}>Abrir Marca</a>
+          <a href={withProfile(`${SUPPLIER_PANEL_BASE_PATH}${fix.path}`)}>{fix.label}</a>
         </Button>
       </div>
       <p className="text-footnote text-muted-foreground">
