@@ -13,7 +13,10 @@ function okFetch(): FetchMock {
 }
 
 /** The JSON body of the n-th call to the mocked fetch. */
-function sentBody(fetchMock: FetchMock, call = 0): { text: string; content: string } {
+function sentBody(
+  fetchMock: FetchMock,
+  call = 0,
+): { text: string; content: string; allowed_mentions?: unknown } {
   const init = fetchMock.mock.calls[call]?.[1];
   if (init === undefined || typeof init.body !== "string") {
     throw new Error("nenhum alerta enviado");
@@ -70,6 +73,19 @@ describe("error alerts", () => {
     expect(body.content).toBe(body.text);
     expect(body.text).not.toContain("maria@example.com");
     expect(body.text).not.toContain("secret-token");
+  });
+
+  it("posts logged text as plain text, never as a chat mention or markup", async () => {
+    const fetchMock = okFetch();
+    uninstall = installErrorAlerts({ webhookUrl: WEBHOOK_URL, service: "web", fetch: fetchMock });
+    logger.error("order.save_failed", { note: "@everyone <!channel> <users/all> a & b" });
+    await flush();
+
+    const body = sentBody(fetchMock);
+    expect(body.allowed_mentions).toEqual({ parse: [] });
+    expect(body.text).not.toContain("<!channel>");
+    expect(body.text).not.toContain("<users/all>");
+    expect(body.text).toContain("&lt;!channel&gt;");
   });
 
   it("ignores warnings and info", async () => {
