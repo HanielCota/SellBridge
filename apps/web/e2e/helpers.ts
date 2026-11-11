@@ -221,3 +221,13 @@ export async function enableAdminMode(page: Page): Promise<void> {
   // Every team role sees the support inbox; customer accounts are for admins only.
   await expect(page.getByRole("link", { name: "Chamados" })).toBeVisible();
 }
+
+/**
+ * Answers every CEP lookup with "not found", so a typed test address is never replaced by
+ * whatever ViaCEP knows about that CEP (and no test depends on reaching it).
+ */
+export async function stubCepNotFound(page: Page): Promise<void> {
+  await page.route("https://viacep.com.br/ws/**", async (route) => {
+    await route.fulfill({ json: { erro: true } });
+  });
+}

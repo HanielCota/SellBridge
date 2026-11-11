@@ -1,9 +1,18 @@
-import { type ComponentProps, useState } from "react";
+import { type ComponentProps, type Dispatch, type SetStateAction, useState } from "react";
 import { useMutation } from "@tanstack/react-query";
+import { formatCep } from "@sellbridge/shared/billing-address";
 import { forwardOrderSchema, type DeliveryAddress } from "@sellbridge/shared/schemas";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
+import type { CepAddress } from "@/features/cities/cep-lookup";
+import { useCepAutofill } from "@/features/cities/use-cep-autofill";
 import { contactWarning } from "@/features/fulfillment/contact-warning";
+import {
+  clearForwardErrors,
+  type ForwardErrors,
+  firstForwardErrorField,
+  forwardErrorsByField,
+} from "@/features/fulfillment/forward-errors";
 import { forwardOrderFn } from "@/features/fulfillment/fulfillment.functions";
 import { addressImportNeeded } from "@/features/fulfillment/address-import-needed";
 import { marketplaceAddressNote } from "@/features/fulfillment/marketplace-address-note";
@@ -22,13 +31,13 @@ type Detail = Awaited<
  */
 const ADDRESS_KEYS = [
   "recipient",
+  "postalCode",
   "street",
   "number",
   "complement",
   "neighborhood",
   "city",
   "state",
-  "postalCode",
 ] as const;
 const ADDRESS_LABELS: Record<keyof DeliveryAddress, string> = {
   recipient: "Destinatário",
@@ -46,11 +55,15 @@ const ADDRESS_LABELS: Record<keyof DeliveryAddress, string> = {
  * addresses, and this is the buyer's.
  */
 const ADDRESS_INPUTS: Partial<
-  Record<keyof DeliveryAddress, Pick<ComponentProps<"input">, "inputMode" | "maxLength">>
+  Record<
+    keyof DeliveryAddress,
+    Pick<ComponentProps<"input">, "inputMode" | "maxLength" | "placeholder">
+  >
 > = {
   state: { maxLength: 2 },
-  postalCode: { inputMode: "numeric", maxLength: 9 },
+  postalCode: { inputMode: "numeric", maxLength: 9, placeholder: "00000-000" },
 };
+const FIELD_ID_PREFIX = "forward-";
 export function ForwardForm({
   detail,
   onForwarded,
@@ -58,11 +71,8 @@ export function ForwardForm({
   detail: Detail;
   onForwarded: (links: Awaited<ReturnType<typeof forwardOrderFn>>) => Promise<void>;
 }) {
-  const { address, setAddress, notes, setNotes, loadAddress, forward } = useForwardForm(
-    detail,
-    onForwarded,
-  );
-  const [notesChecked, setNotesChecked] = useState(false);
+  const form = useForwardForm(detail, onForwarded);
+  const { address, setAddress, notes, setNotes, loadAddress, forward } = form;
   const ownsItems = detail.items.some((item) => item.catalogKind === "seller");
   const unmapped = !detail.items.length || detail.items.some((item) => !item.supplierId);
   return (
@@ -71,10 +81,7 @@ export function ForwardForm({
       className="space-y-4"
       onSubmit={(event) => {
         event.preventDefault();
-        setNotesChecked(true);
-        if (contactWarning(notes) === null) {
-          forward.mutate();
-        }
+        form.submit();
       }}
     >
       {/* Forwarding creates the supplier orders. Enter in an address field would submit the form
@@ -88,15 +95,17 @@ export function ForwardForm({
       />
       <AddressFields
         address={address}
-        onChange={(key, value) => setAddress((previous) => ({ ...previous, [key]: value }))}
+        errors={form.errors}
+        onChange={form.changeField}
+        onCepAddress={form.applyCepAddress}
       />
       <Field
         label={ownsItems ? "Instruções de envio" : "Instruções para o fornecedor"}
         value={notes}
         // Pointed out when leaving the field or sending: a long order number looks like a phone
         // until it is typed in full.
-        error={notesChecked ? contactWarning(notes) : null}
-        onBlur={() => setNotesChecked(true)}
+        error={form.notesChecked ? contactWarning(notes) : null}
+        onBlur={() => form.setNotesChecked(true)}
         onChange={setNotes}
       />
       {unmapped ? (
@@ -143,7 +152,7 @@ function ForwardButton({
   ownsItems: boolean;
   blocked: boolean;
 }) {
-  const idleLabel = ownsItems ? "Preparar envios" : "Criar ordens e encaminhar aos fornecedores";
+  const idleLabel = ownsItems ? "Preparar envios" : "Enviar pedido ao fornecedor";
   return (
     // The label is long: on a narrow phone it wraps inside the button instead of overflowing.
     <Button
@@ -151,7 +160,7 @@ function ForwardButton({
       className="h-auto min-h-9 w-full py-2 text-balance whitespace-normal sm:w-auto"
       disabled={pending || blocked}
     >
-      {pending ? "Preparando…" : idleLabel}
+      {pending ? "Enviando…" : idleLabel}
     </Button>
   );
 }
@@ -161,7 +170,7 @@ function PreparationExplanation({ ownsItems }: { ownsItems: boolean }) {
     <p className="text-xs text-muted-foreground">
       {ownsItems
         ? "Você prepara e envia seus produtos; cada fornecedor recebe apenas os itens dele."
-        : "Cada fornecedor recebe apenas os itens dele. Compartilhe o link de acesso exibido em cada envio do fornecedor."}
+        : "Cada fornecedor recebe só os itens dele. Depois de enviar, aparece o link do pedido para você mandar ao fornecedor."}
     </p>
   );
 }
@@ -174,6 +183,8 @@ function useForwardForm(
     () => detail.order.marketplaceAddress ?? emptyAddress(detail.order.buyerName),
   );
   const [notes, setNotes] = useState("");
+  const editing = useAddressEditing(setAddress);
+  const { errors, setErrors } = editing;
   const loadAddress = useMutation({
     mutationFn: () => getMarketplaceShippingFn({ data: { orderId: detail.order.id } }),
     onSuccess: (result) => {
@@ -195,7 +206,58 @@ function useForwardForm(
     onSuccess: onForwarded,
     onError: (error) => toast.error(errorMessage(error)),
   });
-  return { address, setAddress, notes, setNotes, loadAddress, forward };
+  const [notesChecked, setNotesChecked] = useState(false);
+  function submit() {
+    setNotesChecked(true);
+    if (contactWarning(notes) !== null) {
+      return;
+    }
+    const found = checkForward(detail.order.id, address, notes);
+    setErrors(found);
+    const first = firstForwardErrorField(found);
+    if (first !== null) {
+      document.getElementById(`${FIELD_ID_PREFIX}${first}`)?.focus();
+      return;
+    }
+    forward.mutate();
+  }
+  return {
+    address,
+    setAddress,
+    notes,
+    setNotes,
+    notesChecked,
+    setNotesChecked,
+    loadAddress,
+    forward,
+    errors,
+    submit,
+    changeField: editing.changeField,
+    applyCepAddress: editing.applyCepAddress,
+  };
+}
+
+/** Typing in a field, or a CEP that filled some, takes their old problem away. */
+function useAddressEditing(setAddress: Dispatch<SetStateAction<DeliveryAddress>>) {
+  const [errors, setErrors] = useState<ForwardErrors>({});
+  function changeField(key: keyof DeliveryAddress, value: string) {
+    setAddress((previous) => ({ ...previous, [key]: value }));
+    setErrors((previous) => clearForwardErrors(previous, [key]));
+  }
+  function applyCepAddress(found: CepAddress) {
+    const { street, neighborhood, city, state } = found;
+    setAddress((previous) => ({ ...previous, street, neighborhood, city, state }));
+    setErrors((previous) =>
+      clearForwardErrors(previous, ["street", "neighborhood", "city", "state"]),
+    );
+  }
+  return { errors, setErrors, changeField, applyCepAddress };
+}
+
+/** The server's own schema, checked before sending: each problem goes under its field. */
+function checkForward(orderId: string, address: DeliveryAddress, notes: string): ForwardErrors {
+  const parsed = forwardOrderSchema.safeParse({ orderId, address, notes });
+  return parsed.success ? {} : forwardErrorsByField(parsed.error.issues);
 }
 
 function emptyAddress(buyerName: string | null): DeliveryAddress {
@@ -230,23 +292,41 @@ function ForwardItems({ detail }: { detail: Detail }) {
 
 function AddressFields({
   address,
+  errors,
   onChange,
+  onCepAddress,
 }: {
   address: DeliveryAddress;
+  errors: ForwardErrors;
   onChange: (key: keyof DeliveryAddress, value: string) => void;
+  onCepAddress: (address: CepAddress) => void;
 }) {
+  const cep = useCepAutofill(onCepAddress);
   return (
     <div className="grid gap-3 sm:grid-cols-2">
       {ADDRESS_KEYS.map((key) => (
         <Field
           key={key}
+          id={`${FIELD_ID_PREFIX}${key}`}
           label={ADDRESS_LABELS[key]}
           autoComplete="off"
           {...ADDRESS_INPUTS[key]}
           value={address[key]}
-          onChange={(value) => onChange(key, key === "state" ? value.toUpperCase() : value)}
+          error={errors[key] ?? null}
+          hint={key === "postalCode" ? (cep.message ?? CEP_HINT) : null}
+          onChange={(value) => {
+            if (key === "postalCode") {
+              const masked = formatCep(value);
+              onChange(key, masked);
+              void cep.lookUp(masked);
+              return;
+            }
+            onChange(key, key === "state" ? value.toUpperCase() : value);
+          }}
         />
       ))}
     </div>
   );
 }
+
+const CEP_HINT = "Digite o CEP: rua, bairro e cidade vêm sozinhos.";

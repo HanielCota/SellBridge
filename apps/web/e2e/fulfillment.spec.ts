@@ -13,9 +13,14 @@ import {
   supplierProducts,
   suppliers,
 } from "@sellbridge/database/schema";
-import { DEMO_USER, gotoHydrated, signIn } from "./helpers";
+import { DEMO_USER, gotoHydrated, signIn, stubCepNotFound } from "./helpers";
 import { forwardableProduct } from "./catalog-fixtures";
 import { e2eDatabase } from "./database";
+
+// The forward form looks the typed CEP up: answered here, the typed address stays.
+test.beforeEach(async ({ page }) => {
+  await stubCepNotFound(page);
+});
 const database = e2eDatabase();
 let orderId = "";
 const externalId = `E2E-FUL-${randomUUID()}`;
@@ -66,9 +71,9 @@ test("reseller forwards an order and an unauthenticated supplier completes prepa
   await signIn(page, DEMO_USER);
   await gotoHydrated(page, "/pedidos");
   await page.getByLabel("Buscar por pedido ou comprador").fill(externalId);
-  await expect(page.getByRole("button", { name: "Operar pedido" })).toHaveCount(1);
-  await page.getByRole("button", { name: "Operar pedido" }).click();
-  const dialog = page.getByRole("dialog", { name: "Operar pedido" });
+  await expect(page.getByRole("button", { name: "Abrir pedido" })).toHaveCount(1);
+  await page.getByRole("button", { name: "Abrir pedido" }).click();
+  const dialog = page.getByRole("dialog", { name: "Pedido" });
   for (const [label, value] of Object.entries({
     Destinatário: "Maria Silva",
     Rua: "Rua das Flores",
@@ -89,7 +94,7 @@ test("reseller forwards an order and an unauthenticated supplier completes prepa
   expect(posts).toEqual([]);
   const link = dialog.getByLabel("Link do fornecedor");
   await expect(link).toHaveCount(0);
-  await dialog.getByRole("button", { name: "Criar ordens e encaminhar aos fornecedores" }).click();
+  await dialog.getByRole("button", { name: "Enviar pedido ao fornecedor" }).click();
   await expect(link).toBeVisible();
   const supplierUrl = await link.inputValue();
   const supplierContext = await browser.newContext();
@@ -139,9 +144,9 @@ test("reseller forwards an order and an unauthenticated supplier completes prepa
   // The reseller confirms it.
   await gotoHydrated(page, "/pedidos");
   await page.getByLabel("Buscar por pedido ou comprador").fill(externalId);
-  await expect(page.getByRole("button", { name: "Operar pedido" })).toHaveCount(1);
-  await page.getByRole("button", { name: "Operar pedido" }).click();
-  const reopened = page.getByRole("dialog", { name: "Operar pedido" });
+  await expect(page.getByRole("button", { name: "Abrir pedido" })).toHaveCount(1);
+  await page.getByRole("button", { name: "Abrir pedido" }).click();
+  const reopened = page.getByRole("dialog", { name: "Pedido" });
   await reopened.getByRole("button", { name: "Marcar como entregue", exact: true }).click();
   // Newest first: the delivery heads the history, with who confirmed it.
   const latest = reopened
@@ -204,9 +209,9 @@ test("shows a parcel that failed and came back on the shipment timeline", async 
     await signIn(page, DEMO_USER);
     await gotoHydrated(page, "/pedidos");
     await page.getByLabel("Buscar por pedido ou comprador").fill(returnedId);
-    await expect(page.getByRole("button", { name: "Operar pedido" })).toHaveCount(1);
-    await page.getByRole("button", { name: "Operar pedido" }).click();
-    const dialog = page.getByRole("dialog", { name: "Operar pedido" });
+    await expect(page.getByRole("button", { name: "Abrir pedido" })).toHaveCount(1);
+    await page.getByRole("button", { name: "Abrir pedido" }).click();
+    const dialog = page.getByRole("dialog", { name: "Pedido" });
     const history = dialog.getByRole("list", { name: "Histórico do envio" }).getByRole("listitem");
     await expect(history.nth(0)).toContainText("Devolvido");
     await expect(history.nth(0)).toContainText("por Mercado Livre");
@@ -291,9 +296,9 @@ test("the reseller learns a supplier cancelled and re-forwards the parcel", asyn
 
     // And sends it to the supplier again: a new link that opens the parcel from the start.
     await page.getByLabel("Buscar por pedido ou comprador").fill(cancelledId);
-    await expect(page.getByRole("button", { name: "Operar pedido" })).toHaveCount(1);
-    await page.getByRole("button", { name: "Operar pedido" }).click();
-    const dialog = page.getByRole("dialog", { name: "Operar pedido" });
+    await expect(page.getByRole("button", { name: "Abrir pedido" })).toHaveCount(1);
+    await page.getByRole("button", { name: "Abrir pedido" }).click();
+    const dialog = page.getByRole("dialog", { name: "Pedido" });
     await dialog.getByRole("button", { name: "Reencaminhar ao fornecedor" }).click();
     const newLink = dialog.getByLabel("Link do fornecedor");
     await expect(newLink).toBeVisible();
@@ -356,9 +361,9 @@ test("the reseller confirms before cancelling a supplier's parcel", async ({ pag
     await signIn(page, DEMO_USER);
     await gotoHydrated(page, "/pedidos");
     await page.getByLabel("Buscar por pedido ou comprador").fill(externalOrderId);
-    await expect(page.getByRole("button", { name: "Operar pedido" })).toHaveCount(1);
-    await page.getByRole("button", { name: "Operar pedido" }).click();
-    const panel = page.getByRole("dialog", { name: "Operar pedido" });
+    await expect(page.getByRole("button", { name: "Abrir pedido" })).toHaveCount(1);
+    await page.getByRole("button", { name: "Abrir pedido" }).click();
+    const panel = page.getByRole("dialog", { name: "Pedido" });
     await panel.getByRole("button", { name: "Cancelar envio" }).click();
     const confirm = page.getByRole("dialog", { name: /^Cancelar o envio de .+\?$/ });
     await expect(confirm).toContainText("reencaminhar");
@@ -443,7 +448,7 @@ test("a parcel past its delivery estimate shows as late in operations, the order
     await signIn(page, DEMO_USER);
     await gotoHydrated(page, "/pedidos");
     await page.getByLabel("Buscar por pedido ou comprador").fill(externalOrderId);
-    await expect(page.getByRole("button", { name: "Operar pedido" })).toHaveCount(1);
+    await expect(page.getByRole("button", { name: "Abrir pedido" })).toHaveCount(1);
     await expect(page.getByText("Entrega atrasada").first()).toBeVisible();
 
     await gotoHydrated(page, `/pedidos/${order.id}`);
@@ -494,9 +499,9 @@ test("forwarding e-mails the link to a supplier with an order e-mail", async ({ 
     await signIn(page, DEMO_USER);
     await gotoHydrated(page, "/pedidos");
     await page.getByLabel("Buscar por pedido ou comprador").fill(externalOrderId);
-    await expect(page.getByRole("button", { name: "Operar pedido" })).toHaveCount(1);
-    await page.getByRole("button", { name: "Operar pedido" }).click();
-    const dialog = page.getByRole("dialog", { name: "Operar pedido" });
+    await expect(page.getByRole("button", { name: "Abrir pedido" })).toHaveCount(1);
+    await page.getByRole("button", { name: "Abrir pedido" }).click();
+    const dialog = page.getByRole("dialog", { name: "Pedido" });
     for (const [label, value] of Object.entries({
       Destinatário: "Maria Silva",
       Rua: "Rua das Flores",
@@ -507,9 +512,7 @@ test("forwarding e-mails the link to a supplier with an order e-mail", async ({ 
       CEP: "01001-000",
     }))
       await dialog.getByLabel(label, { exact: true }).fill(value);
-    await dialog
-      .getByRole("button", { name: "Criar ordens e encaminhar aos fornecedores" })
-      .click();
+    await dialog.getByRole("button", { name: "Enviar pedido ao fornecedor" }).click();
     await expect(dialog.getByLabel("Link do fornecedor")).toBeVisible();
     await expect(dialog.getByText("Enviamos este link para o e-mail do fornecedor.")).toBeVisible();
   } finally {
@@ -536,7 +539,7 @@ test("a parcel the supplier did not accept in time shows as late, and the suppli
     await signIn(page, DEMO_USER);
     await gotoHydrated(page, "/pedidos");
     await page.getByLabel("Buscar por pedido ou comprador").fill(externalOrderId);
-    await expect(page.getByRole("button", { name: "Operar pedido" })).toHaveCount(1);
+    await expect(page.getByRole("button", { name: "Abrir pedido" })).toHaveCount(1);
     await expect(page.getByText("Aceite atrasado").first()).toBeVisible();
     await gotoHydrated(page, `/pedidos/${order.id}`);
     await expect(page.getByText("Aceite atrasado").first()).toBeVisible();

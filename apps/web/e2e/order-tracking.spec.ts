@@ -163,8 +163,8 @@ test("reseller tracks an order by code, by order number, by hand and from the or
 
   await page.getByRole("button", { name: "Operação" }).click();
   await page.getByLabel("Buscar por pedido ou comprador").fill(externalId);
-  await expect(page.getByRole("button", { name: "Operar pedido" })).toHaveCount(1);
-  await page.getByRole("button", { name: "Operar pedido" }).click();
+  await expect(page.getByRole("button", { name: "Abrir pedido" })).toHaveCount(1);
+  await page.getByRole("button", { name: "Abrir pedido" }).click();
   await page.getByRole("dialog").getByRole("link", { name: "Acompanhar rastreio" }).click();
   await expect(page).toHaveURL(/view=tracking/);
   await expect(parcel).toBeVisible();

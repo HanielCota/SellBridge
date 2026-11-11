@@ -67,9 +67,9 @@ async function openForwardDialog(page: Page, externalOrderId: string) {
   await signIn(page, DEMO_USER);
   await gotoHydrated(page, "/pedidos");
   await page.getByLabel("Buscar por pedido ou comprador").fill(externalOrderId);
-  await expect(page.getByRole("button", { name: "Operar pedido" })).toHaveCount(1);
-  await page.getByRole("button", { name: "Operar pedido" }).click();
-  const dialog = page.getByRole("dialog", { name: "Operar pedido" });
+  await expect(page.getByRole("button", { name: "Abrir pedido" })).toHaveCount(1);
+  await page.getByRole("button", { name: "Abrir pedido" }).click();
+  const dialog = page.getByRole("dialog", { name: "Pedido" });
   await expect(dialog.getByText(/^Endereço preenchido pelo pedido d/)).toBeVisible();
   return dialog;
 }
@@ -101,6 +101,54 @@ test("keeps the label reader when the marketplace address is incomplete", async 
   await expect(dialog.getByLabel("Rua", { exact: true })).toHaveValue(address.street);
   await expect(dialog.getByLabel("Bairro", { exact: true })).toHaveValue("");
   await expect(dialog.getByRole("button", { name: "Preencher com a etiqueta" })).toBeVisible();
+});
+
+test("keeps the forward dialog inside a phone screen", async ({ page }) => {
+  await page.setViewportSize({ width: 375, height: 812 });
+  const dialog = await openForwardDialog(page, completeExternalId);
+  await expect(dialog.getByRole("link", { name: "Abrir etiqueta de postagem" })).toBeVisible();
+
+  const overflow = await dialog.evaluate((element) => element.scrollWidth - element.clientWidth);
+
+  expect(overflow).toBeLessThanOrEqual(0);
+});
+
+test("fills the street, district and city from the typed CEP", async ({ page }) => {
+  await page.route("https://viacep.com.br/ws/01310100/json/", async (route) => {
+    await route.fulfill({
+      json: {
+        cep: "01310-100",
+        logradouro: "Avenida Paulista",
+        bairro: "Bela Vista",
+        localidade: "São Paulo",
+        uf: "SP",
+        ibge: "3550308",
+      },
+    });
+  });
+  const dialog = await openForwardDialog(page, incompleteExternalId);
+
+  await dialog.getByLabel("CEP", { exact: true }).fill("01310100");
+
+  await expect(dialog.getByLabel("CEP", { exact: true })).toHaveValue("01310-100");
+  await expect(dialog.getByLabel("Rua", { exact: true })).toHaveValue("Avenida Paulista");
+  await expect(dialog.getByLabel("Bairro", { exact: true })).toHaveValue("Bela Vista");
+  await expect(dialog.getByLabel("Cidade", { exact: true })).toHaveValue("São Paulo");
+  await expect(dialog.getByLabel("UF", { exact: true })).toHaveValue("SP");
+  await expect(
+    dialog.getByText("Endereço encontrado pelo CEP. Confira e complete o número."),
+  ).toBeVisible();
+});
+
+test("shows each address problem under its own field", async ({ page }) => {
+  const dialog = await openForwardDialog(page, incompleteExternalId);
+  await dialog.getByLabel("CEP", { exact: true }).fill("1301");
+
+  await dialog.getByRole("button", { name: "Enviar pedido ao fornecedor" }).click();
+
+  await expect(dialog.getByLabel("CEP", { exact: true })).toBeFocused();
+  await expect(dialog.getByText("Informe o bairro")).toBeVisible();
+  await expect(dialog.getByText("Informe os 8 números do CEP, como 01310-100")).toBeVisible();
 });
 
 const EXPECTED_FIELDS = {

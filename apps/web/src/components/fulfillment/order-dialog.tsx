@@ -49,7 +49,7 @@ export function FulfillmentDialog({
     >
       <DialogContent className="max-h-[90svh] overflow-y-auto sm:max-w-3xl">
         <DialogHeader>
-          <DialogTitle>Operar pedido {order?.externalOrderId}</DialogTitle>
+          <DialogTitle>Pedido {order?.externalOrderId}</DialogTitle>
           <DialogDescription>
             Prepare seus envios e acompanhe cada pacote até a entrega.
           </DialogDescription>
@@ -171,6 +171,8 @@ export function OrderOperations({ orderId }: { orderId: string }) {
     </div>
   );
 }
+const WRAPPING_BUTTON = "h-auto min-h-9 max-w-full py-2 text-balance whitespace-normal";
+
 function MarketplaceActions({
   orderId,
   onRefresh,
@@ -188,17 +190,24 @@ function MarketplaceActions({
   });
   const withProfile = useTabProfileLink();
   return (
+    // The labels wrap inside the buttons: unwrapped, they are wider than a 375 px dialog and
+    // pushed every field past its right edge.
     <div className="flex flex-wrap gap-2">
-      <Button variant="outline" disabled={refresh.isPending} onClick={() => refresh.mutate()}>
-        Atualizar rastreio do marketplace
+      <Button
+        variant="outline"
+        className={WRAPPING_BUTTON}
+        disabled={refresh.isPending}
+        onClick={() => refresh.mutate()}
+      >
+        {refresh.isPending ? "Consultando…" : "Atualizar rastreio"}
       </Button>
-      <Button variant="outline" asChild>
+      <Button variant="outline" className={WRAPPING_BUTTON} asChild>
         <a
           href={withProfile(`/api/pedidos/${orderId}/etiqueta`)}
           target="_blank"
           rel="noopener noreferrer"
         >
-          Gerar etiqueta de postagem do marketplace
+          Abrir etiqueta de postagem
         </a>
       </Button>
     </div>

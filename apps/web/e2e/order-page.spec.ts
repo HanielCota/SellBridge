@@ -108,9 +108,7 @@ test("opens an order from operations with its items, money, progress and shippin
   await expect(money.getByText("Lucro")).toBeVisible();
   await expect(page.getByRole("region", { name: "Andamento do pedido" })).toContainText("Pago");
   // Shipping is the same operation as the dialog: not forwarded yet, so the forward form.
-  await expect(
-    page.getByRole("button", { name: "Criar ordens e encaminhar aos fornecedores" }),
-  ).toBeVisible();
+  await expect(page.getByRole("button", { name: "Enviar pedido ao fornecedor" })).toBeVisible();
   await page.getByRole("main").getByRole("link", { name: "Pedidos", exact: true }).click();
   await expect(page).toHaveURL(/\/pedidos(\?|$)/);
 });
