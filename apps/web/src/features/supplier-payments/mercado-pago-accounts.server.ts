@@ -211,6 +211,35 @@ async function newPaymentRefusal(input: {
 }
 
 /**
+ * The payment named by a signed notice proves the token when it is refused. One named on the
+ * buyer's return is any id the buyer typed: a refusal there may be about the payment, not the
+ * token, so the supplier's account is never marked in error for it.
+ */
+async function readPaymentToSync(
+  input: {
+    settings: MercadoPagoSettings;
+    account: SupplierPaymentAccount;
+    providerPaymentId: string;
+    expectedPaymentId?: string;
+  },
+  accessToken: string,
+): Promise<MercadoPagoPayment | null> {
+  const read = async () =>
+    getMercadoPagoPayment(input.settings, { accessToken, paymentId: input.providerPaymentId });
+  if (input.expectedPaymentId === undefined) {
+    return withSupplierAccount(input.account, read);
+  }
+  try {
+    return await read();
+  } catch (error) {
+    if (isMercadoPagoError(error) && error.status === UNAUTHORIZED) {
+      return null;
+    }
+    throw error;
+  }
+}
+
+/**
  * Reads the payment from Mercado Pago with the supplier's token and records its status on the
  * parcel it was made for. The payment must name one of this supplier's parcels (the expected one,
  * when the caller knows it), be paid to the linked account in reais and match the amount; before
@@ -224,9 +253,10 @@ export async function syncMercadoPagoPayment(input: {
   expectedPaymentId?: string;
 }): Promise<PaymentSyncResult> {
   const accessToken = await supplierAccessToken(input.settings, input.account);
-  const remote = await withSupplierAccount(input.account, async () =>
-    getMercadoPagoPayment(input.settings, { accessToken, paymentId: input.providerPaymentId }),
-  );
+  const remote = await readPaymentToSync(input, accessToken);
+  if (remote === null) {
+    return { kind: "ignored", reason: "payment_unreadable" };
+  }
   const reference = externalReferenceSchema.safeParse(remote.externalReference);
   if (!reference.success) {
     return { kind: "ignored", reason: "foreign_reference" };
