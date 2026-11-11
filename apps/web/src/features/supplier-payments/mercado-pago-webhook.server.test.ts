@@ -34,6 +34,7 @@ vi.mock("@/lib/server/environment", () => ({
   },
 }));
 
+import { mercadoPagoSettings, syncMercadoPagoPayment } from "./mercado-pago-accounts.server";
 import { handleMercadoPagoWebhook } from "./mercado-pago-webhook.server";
 
 const SUPPLIER_ID = "5f0c9a3e-6a1f-4d7e-9a43-8b2d1c3e4f50";
@@ -323,5 +324,31 @@ describe("handleMercadoPagoWebhook", () => {
       {},
       expect.objectContaining({ accountId: "account-1", refreshTokenEnc: "enc:refresh" }),
     );
+  });
+
+  it("keeps the account linked when only a payment the buyer named cannot be read", async () => {
+    fetchMock.mockResolvedValue(new Response("{}", { status: 401 }));
+    const settings = mercadoPagoSettings();
+    if (settings === null) {
+      throw new Error("Mercado Pago settings missing in the test environment");
+    }
+
+    const result = await syncMercadoPagoPayment({
+      settings,
+      account: {
+        ...account,
+        provider: "mercado_pago",
+        status: "connected",
+        connectedAt: new Date(),
+        connectedByUserId: null,
+        lastError: null,
+        updatedAt: new Date(),
+      },
+      providerPaymentId: "555",
+      expectedPaymentId: PAYMENT_ROW_ID,
+    });
+
+    expect(result).toEqual({ kind: "ignored", reason: "payment_unreadable" });
+    expect(mocks.markError).not.toHaveBeenCalled();
   });
 });
