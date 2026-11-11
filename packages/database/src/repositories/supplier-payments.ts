@@ -476,9 +476,9 @@ export type ProviderPaymentOutcome =
 /**
  * Records what the provider says about the payment. Repeated or late notices are harmless: the
  * row changes only when the status does, a paid parcel never goes back to pending or rejected,
- * and the first approval's date is kept. Once a payment is attached, another payment only takes
- * its place by being approved; a second approval of a paid parcel is a duplicate charge, reported
- * and never recorded over the first.
+ * and the first approval's date is kept. Once a payment is attached, another payment takes its
+ * place by being approved, or by still being open or under review after a failed attempt; a second
+ * approval of a paid parcel is a duplicate charge, reported and never recorded over the first.
  */
 export async function applyProviderPayment(
   database: Database,
@@ -499,7 +499,7 @@ export async function applyProviderPayment(
     if (input.status === "approved" && current.status === "approved") {
       return { kind: "duplicate", payment: current };
     }
-    if (input.status !== "approved") {
+    if (input.status !== "approved" && !replacesUnpaidAttempt(current.status, input.status)) {
       return { kind: "unchanged", payment: current };
     }
   }
@@ -526,6 +526,25 @@ export async function applyProviderPayment(
     return applyProviderPayment(database, input);
   }
   return { kind: "applied", payment: row };
+}
+
+const FAILED_ATTEMPT_STATUSES: readonly ShipmentPaymentStatus[] = ["rejected", "cancelled"];
+
+/**
+ * A buyer may retry on the same checkout after a failed attempt: that newer attempt, while still
+ * open or under review, must take the parcel's place so the lock against a second checkout holds.
+ */
+function replacesUnpaidAttempt(
+  current: ShipmentPaymentStatus,
+  incoming: ShipmentPaymentStatus,
+): boolean {
+  if (incoming === "in_process") {
+    return current === "pending" || FAILED_ATTEMPT_STATUSES.includes(current);
+  }
+  if (incoming === "pending") {
+    return FAILED_ATTEMPT_STATUSES.includes(current);
+  }
+  return false;
 }
 
 function isAllowedTransition(from: ShipmentPaymentStatus, to: ShipmentPaymentStatus): boolean {

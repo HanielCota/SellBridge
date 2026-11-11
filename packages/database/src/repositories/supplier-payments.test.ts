@@ -426,6 +426,61 @@ describe("a second payment for the same parcel", () => {
     expect(refund?.payment.status).toBe("approved");
   });
 
+  it("keeps the parcel locked while a later attempt of the same checkout is under review", async () => {
+    const shipmentId = await forwardedShipmentId();
+    const payment = await startPayment(shipmentId);
+    await applyProviderPayment(database, {
+      paymentId: payment.id,
+      providerPaymentId: "p-20",
+      status: "rejected",
+      paymentMethod: "credit_card",
+      approvedAt: null,
+    });
+    const retry = await applyProviderPayment(database, {
+      paymentId: payment.id,
+      providerPaymentId: "p-21",
+      status: "in_process",
+      paymentMethod: "credit_card",
+      approvedAt: null,
+    });
+
+    const again = await startShipmentPayment(database, {
+      shipmentId,
+      supplierId: supplier.supplierId,
+      provider: "mercado_pago",
+      amountCents: 5990,
+      platformFeeCents: 0,
+      platformFeeBasisPoints: 0,
+      now: new Date(),
+      reservedUntil: new Date(Date.now() + RESERVATION_IN_MS),
+    });
+
+    expect(retry?.payment.providerPaymentId).toBe("p-21");
+    expect(again).toBeNull();
+  });
+
+  it("keeps a rejected attempt on record when another attempt is rejected too", async () => {
+    const payment = await startPayment(await forwardedShipmentId());
+    await applyProviderPayment(database, {
+      paymentId: payment.id,
+      providerPaymentId: "p-22",
+      status: "in_process",
+      paymentMethod: "credit_card",
+      approvedAt: null,
+    });
+
+    const other = await applyProviderPayment(database, {
+      paymentId: payment.id,
+      providerPaymentId: "p-23",
+      status: "rejected",
+      paymentMethod: "credit_card",
+      approvedAt: null,
+    });
+
+    expect(other?.kind).toBe("unchanged");
+    expect(other?.payment.status).toBe("in_process");
+  });
+
   it("lets another approved attempt settle a rejected one", async () => {
     const payment = await startPayment(await forwardedShipmentId());
     await applyProviderPayment(database, {
