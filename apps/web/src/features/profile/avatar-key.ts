@@ -25,3 +25,17 @@ export function avatarStorageKey(
   }
   return `avatars/${parsed.data.userId}/${parsed.data.fileName}`;
 }
+
+/**
+ * Whether `image` is exactly the address of a photo in this account's own folder. A prefix check
+ * let a stored value carry dot segments or a query, which the browsers of people who see the photo
+ * resolve to another address of the site, fetched with their session.
+ */
+export function isOwnAvatarImage(image: string, ownerId: string): boolean {
+  const storageKey = avatarStorageKey(image, ownerId);
+  if (storageKey === null) {
+    return false;
+  }
+  const fileName = storageKey.split("/").at(-1);
+  return image === `${AVATAR_URL_PREFIX}${ownerId}/${fileName}`;
+}
