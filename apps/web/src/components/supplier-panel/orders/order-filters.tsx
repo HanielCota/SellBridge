@@ -203,6 +203,7 @@ function FoldedOnPhone({ active, children }: { active: number; children: ReactNo
       <Button
         type="button"
         variant="outline"
+        size="lg"
         className="w-fit sm:hidden"
         aria-expanded={open}
         aria-controls={panelId}
