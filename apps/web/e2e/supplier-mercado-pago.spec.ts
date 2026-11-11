@@ -171,5 +171,7 @@ test("o admin define a taxa do SellBridge e ela vale no próximo pagamento", asy
   await gotoHydrated(reseller, `/pedidos/${sale.orderId}`);
   await reseller.getByRole("button", { name: "Pagar com Pix ou cartão" }).click();
   await expect(reseller.getByText("Taxa do marketplace: R$ 4,00")).toBeVisible();
+  await reseller.getByRole("button", { name: "Pagar com Pix" }).click();
+  await expect(reseller.getByText(/Fornecedor pago ·/)).toBeVisible();
   await reseller.context().close();
 });
