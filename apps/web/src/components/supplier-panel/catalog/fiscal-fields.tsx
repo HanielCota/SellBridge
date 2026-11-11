@@ -62,7 +62,7 @@ function ProductFiscalCodes(props: FiscalFieldsProps) {
   const { values, errors, reasons } = props;
   const change = useFiscalChange(props);
   return (
-    <div className="grid gap-4 sm:grid-cols-2">
+    <div className="grid items-start gap-4 sm:grid-cols-2">
       <div className="grid gap-2">
         <FiscalTextField
           field="fiscal.ncm"
