@@ -17,6 +17,7 @@ import { nextWebhookAttemptAt } from "../lib/webhook-retry.ts";
 import {
   assertDeliverableWebhookUrl,
   resolveHostWithDns,
+  UNREACHABLE_HOST_MESSAGE,
   type ResolveHost,
 } from "../lib/webhook-url-guard.ts";
 
@@ -54,8 +55,8 @@ type AttemptResult =
 const NETWORK_ERRORS: Readonly<Record<string, string>> = {
   ECONNREFUSED: "Conexão recusada pelo servidor",
   ECONNRESET: "Conexão encerrada pelo servidor",
-  ENOTFOUND: "Endereço não encontrado",
-  EAI_AGAIN: "Endereço não encontrado",
+  ENOTFOUND: UNREACHABLE_HOST_MESSAGE,
+  EAI_AGAIN: UNREACHABLE_HOST_MESSAGE,
   ETIMEDOUT: "Tempo esgotado",
   UND_ERR_CONNECT_TIMEOUT: "Tempo esgotado",
 };
