@@ -15,6 +15,7 @@ import { tokenCipher } from "@/lib/server/marketplaces";
 import {
   getMercadoPagoPayment,
   isMercadoPagoError,
+  listPreferencePaymentIds,
   refreshMercadoPagoTokens,
   type MercadoPagoPayment,
 } from "./mercado-pago-client.server";
@@ -153,10 +154,68 @@ function mismatchReason(
 }
 
 /**
+ * Why a payment not yet recorded on the parcel did not come from SellBridge's checkout for it, or
+ * null when it did: it must keep exactly the fee set on the parcel's preference and be one of
+ * that preference's payments. A supplier's own charge naming the parcel fails here.
+ */
+async function checkoutRefusalReason(input: {
+  settings: MercadoPagoSettings;
+  account: SupplierPaymentAccount;
+  accessToken: string;
+  remote: MercadoPagoPayment;
+  local: ShipmentPayment;
+}): Promise<string | null> {
+  const { remote, local } = input;
+  if (remote.applicationFeeCents !== local.platformFeeCents) {
+    return "fee_mismatch";
+  }
+  const preferenceId = local.preferenceId;
+  if (preferenceId === null) {
+    return "no_checkout";
+  }
+  const checkoutPaymentIds = await withSupplierAccount(input.account, async () =>
+    listPreferencePaymentIds(input.settings, { accessToken: input.accessToken, preferenceId }),
+  );
+  if (checkoutPaymentIds.includes(remote.id)) {
+    return null;
+  }
+  return "outside_checkout";
+}
+
+/**
+ * The refusal of a payment not yet recorded on the parcel, logged, or null when it may be
+ * recorded. Later notices for the recorded payment (refunds, chargebacks) are not checked again:
+ * it was checked when recorded, and a refund may change its fee.
+ */
+async function newPaymentRefusal(input: {
+  settings: MercadoPagoSettings;
+  account: SupplierPaymentAccount;
+  accessToken: string;
+  remote: MercadoPagoPayment;
+  local: ShipmentPayment;
+}): Promise<string | null> {
+  const { remote, local } = input;
+  if (local.providerPaymentId === remote.id) {
+    return null;
+  }
+  const refusal = await checkoutRefusalReason(input);
+  if (refusal !== null) {
+    logger.warn("mercado_pago.payment_refused", {
+      shipmentPaymentId: local.id,
+      reason: refusal,
+      expectedFeeCents: local.platformFeeCents,
+      receivedFeeCents: remote.applicationFeeCents,
+    });
+  }
+  return refusal;
+}
+
+/**
  * Reads the payment from Mercado Pago with the supplier's token and records its status on the
  * parcel it was made for. The payment must name one of this supplier's parcels (the expected one,
- * when the caller knows it), be paid to the linked account in reais and match the amount;
- * anything else is ignored, never applied.
+ * when the caller knows it), be paid to the linked account in reais and match the amount; before
+ * it is first recorded, it must also come from the parcel's checkout with SellBridge's fee.
+ * Anything else is ignored, never applied.
  */
 export async function syncMercadoPagoPayment(input: {
   settings: MercadoPagoSettings;
@@ -183,6 +242,11 @@ export async function syncMercadoPagoPayment(input: {
   if (mismatch !== null) {
     logger.warn("mercado_pago.payment_mismatch", { shipmentPaymentId: local.id, reason: mismatch });
     return { kind: "ignored", reason: mismatch };
+  }
+  const { settings, account } = input;
+  const refusal = await newPaymentRefusal({ settings, account, accessToken, remote, local });
+  if (refusal !== null) {
+    return { kind: "ignored", reason: refusal };
   }
   const outcome = await applyProviderPayment(database, {
     paymentId: local.id,
