@@ -312,6 +312,45 @@ describe("migrations", { timeout: MIGRATION_TEST_TIMEOUT }, () => {
     expect(rows[1]?.last_error).toBeNull();
     expect(rows[2]?.access_token_enc).toBe("cipher");
   });
+  it("0066 clears profile photos that are not the account's own upload or its Google photo", async () => {
+    const url = await throwawayDatabase();
+    await applyMigrationsUpTo(url, 65);
+    const ownPhoto = "/api/perfil/foto/user-own/0f6c2d1e-8a4b-4c3d-9e2f-1a2b3c4d5e6f.webp";
+    const googlePhoto = "https://lh3.googleusercontent.com/a/photo";
+    await withClient(url, async (sql) => {
+      await sql`
+        insert into "user" (id, name, email, email_verified, image, created_at, updated_at) values
+          ('user-own', 'Dona', 'own@example.com', true, ${ownPhoto}, now(), now()),
+          ('user-google', 'Google', 'google@example.com', true, ${googlePhoto}, now(), now()),
+          ('user-none', 'Sem foto', 'none@example.com', true, null, now(), now()),
+          ('user-other-folder', 'Outra pasta', 'other@example.com', true,
+            '/api/perfil/foto/user-own/0f6c2d1e-8a4b-4c3d-9e2f-1a2b3c4d5e6f.webp', now(), now()),
+          ('user-dots', 'Pontos', 'dots@example.com', true,
+            '/api/perfil/foto/user-dots/../../admin', now(), now()),
+          ('user-typed', 'Digitada', 'typed@example.com', true, 'https://example.com/photo.png', now(), now())`;
+      await sql`
+        insert into account (id, account_id, provider_id, user_id, created_at, updated_at) values
+          ('account-google', 'google-sub', 'google', 'user-google', now(), now()),
+          ('account-typed', 'user-typed', 'credential', 'user-typed', now(), now())`;
+    });
+
+    await runMigrator(url);
+
+    const rows = await withClient(
+      url,
+      (sql) =>
+        sql<{ id: string; image: string | null }[]>`select id, image from "user" order by id`,
+    );
+    expect(rows).toEqual([
+      { id: "user-dots", image: null },
+      { id: "user-google", image: googlePhoto },
+      { id: "user-none", image: null },
+      { id: "user-other-folder", image: null },
+      { id: "user-own", image: ownPhoto },
+      { id: "user-typed", image: null },
+    ]);
+  });
+
   it("M1: the region leftovers of the CPF change are gone and the holder stays", async () => {
     const url = await throwawayDatabase();
     await runMigrator(url);
