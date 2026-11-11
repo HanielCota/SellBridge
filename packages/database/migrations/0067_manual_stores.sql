@@ -1,0 +1,1 @@
+ALTER TABLE "store_connections" ADD COLUMN "manual" boolean DEFAULT false NOT NULL;

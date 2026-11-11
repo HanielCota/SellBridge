@@ -77,7 +77,11 @@ export async function billingUsage(database: DatabaseExecutor, tenantId: string)
       .select({ value: count() })
       .from(storeConnections)
       .where(
-        and(eq(storeConnections.tenantId, tenantId), ne(storeConnections.status, "disconnected")),
+        and(
+          eq(storeConnections.tenantId, tenantId),
+          ne(storeConnections.status, "disconnected"),
+          eq(storeConnections.manual, false),
+        ),
       ),
   ]);
   return { listings: listingCounts[0]?.value ?? 0, stores: storeCounts[0]?.value ?? 0 };

@@ -36,6 +36,7 @@ export async function assertPrivateProductPublication(
       and(
         eq(storeConnections.tenantId, tenantId),
         eq(storeConnections.status, "connected"),
+        eq(storeConnections.manual, false),
         inArray(storeConnections.id, [...storeIds]),
       ),
     );

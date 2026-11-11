@@ -32,7 +32,8 @@ export type UpsertOrderResult = {
 type OrderWriteResult = Omit<UpsertOrderResult, "stockMoves">;
 
 interface ResolvedListing {
-  listingTargetId: string;
+  /** Null for a manual sale: the product was sold without one of our listings. */
+  listingTargetId: string | null;
   supplierProductId: string;
   costCents: number;
 }
@@ -341,4 +342,82 @@ async function reserveOrderShortages(database: Database, orderId: string): Promi
     ...new Set(items.flatMap((item) => (item.productId ? [item.productId] : []))),
   ];
   return reserveShortItems(database, productIds);
+}
+
+export interface ManualOrderItem {
+  readonly supplierProductId: string;
+  readonly title: string;
+  readonly quantity: number;
+  readonly unitPriceCents: number;
+  readonly costCents: number;
+}
+
+export interface ManualOrder {
+  readonly externalOrderId: string;
+  readonly buyerName: string;
+  readonly orderedAt: Date;
+  readonly items: readonly ManualOrderItem[];
+}
+
+function manualListingId(supplierProductId: string): string {
+  return `manual-${supplierProductId}`;
+}
+
+/**
+ * Records a sale the reseller made on a channel without integration as a paid order of its manual
+ * store, so it is forwarded, paid and shipped like a synced one, and reserves its stock.
+ *
+ * @throws {ConflictError} When the store already has an order with that number.
+ */
+export async function recordManualOrder(
+  database: Database,
+  tenantId: string,
+  storeConnectionId: string,
+  order: ManualOrder,
+): Promise<UpsertOrderResult> {
+  if (order.items.length === 0) {
+    throw new Error("A manual order needs at least one item");
+  }
+  const listingsByExternalId = new Map(
+    order.items.map((item): [string, ResolvedListing] => [
+      manualListingId(item.supplierProductId),
+      {
+        listingTargetId: null,
+        supplierProductId: item.supplierProductId,
+        costCents: item.costCents,
+      },
+    ]),
+  );
+  const incoming: IncomingOrder = {
+    externalOrderId: order.externalOrderId,
+    status: "paid",
+    totalCents: order.items.reduce((total, item) => total + item.quantity * item.unitPriceCents, 0),
+    marketplaceFeeCents: 0,
+    buyerName: order.buyerName,
+    orderedAt: order.orderedAt,
+    items: order.items.map((item) => ({
+      externalListingId: manualListingId(item.supplierProductId),
+      title: item.title,
+      quantity: item.quantity,
+      unitPriceCents: item.unitPriceCents,
+    })),
+  };
+  const result = await database.transaction(async (transaction) => {
+    const created = await createOrder({
+      transaction,
+      tenantId,
+      storeConnectionId,
+      order: incoming,
+      listingsByExternalId,
+    });
+    if (created === null) {
+      throw conflictError(
+        `Já existe uma venda com o número ${order.externalOrderId} neste canal. Confira o número do pedido.`,
+      );
+    }
+    const stockMoves = await applyStockMoves(transaction, created.orderId, "paid");
+    return { ...created, stockMoves };
+  });
+  const reserved = await reserveOrderShortages(database, result.orderId);
+  return { ...result, stockMoves: result.stockMoves + reserved };
 }
