@@ -3,7 +3,7 @@ import {
   orderStatusSchema,
   type OrderStatus,
 } from "@sellbridge/shared/schemas";
-import { type StatusTone, ToneStatus } from "@/components/data/tone-status";
+import { type StatusTone, TonePill } from "@/components/data/tone-status";
 
 export const ORDER_TONES: Record<OrderStatus, StatusTone> = {
   pending: "warning",
@@ -18,7 +18,7 @@ export const ORDER_TONES: Record<OrderStatus, StatusTone> = {
 export function OrderStatusBadge({ status }: { status: string }) {
   const parsed = orderStatusSchema.safeParse(status);
   if (!parsed.success) {
-    return <ToneStatus tone="muted" label={status} />;
+    return <TonePill tone="muted" label={status} />;
   }
-  return <ToneStatus tone={ORDER_TONES[parsed.data]} label={ORDER_STATUS_LABELS[parsed.data]} />;
+  return <TonePill tone={ORDER_TONES[parsed.data]} label={ORDER_STATUS_LABELS[parsed.data]} />;
 }

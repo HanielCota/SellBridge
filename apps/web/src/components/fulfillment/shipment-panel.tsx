@@ -17,7 +17,7 @@ import { ShipmentDates } from "./shipment-dates";
 import { ConfirmDialog } from "@/components/feedback/confirm-dialog";
 import { FormErrorAlert } from "@/components/form/form-feedback";
 import { TextareaField } from "@/components/form/textarea-field";
-import { TONE_DOT_CLASSES, ToneStatus } from "@/components/data/tone-status";
+import { TONE_DOT_CLASSES, TonePill } from "@/components/data/tone-status";
 import { Button } from "@/components/ui/button";
 import { errorMessage } from "@/lib/errors";
 import { contactWarning } from "@/features/fulfillment/contact-warning";
@@ -27,6 +27,7 @@ import {
   FULFILLMENT_TONES,
   shipmentTimeline,
   shipmentStatusLabel,
+  supplierShipmentStatusLabel,
 } from "@/features/fulfillment/shipment-timeline";
 import { trackingLine } from "@/features/fulfillment/tracking-line";
 import { ShipmentActionHint, ShipmentActionIcon, StepButton } from "./shipment-hints";
@@ -98,7 +99,7 @@ export function ShipmentPanel({
   const closed = SETTLED_FULFILLMENT_STATUSES.includes(shipment.status);
   return (
     <section className="surface-card space-y-4 rounded-2xl bg-card p-5">
-      <ShipmentSummary shipment={shipment} payment={payment} />
+      <ShipmentSummary shipment={shipment} payment={payment} viewer={actsAs} />
       <ShipmentToolbar shipment={shipment} externalOrderId={externalOrderId} operator={actsAs}>
         {children}
       </ShipmentToolbar>
@@ -423,19 +424,29 @@ function useShipmentUpdate(
 }
 
 /** Who handles the parcel and where it stands. */
-function ShipmentHeading({ shipment }: { shipment: ShipmentView }) {
+function ShipmentHeading({
+  shipment,
+  viewer,
+}: {
+  shipment: ShipmentView;
+  viewer: ShipmentOperator;
+}) {
   return (
     <div className="flex flex-wrap items-start justify-between gap-2">
       <h3 className="font-medium">
         {shipment.catalogKind === "seller" ? "Seu envio" : shipment.supplierName}
       </h3>
       <div className="flex flex-col items-start gap-1 sm:items-end">
-        <ToneStatus
+        <TonePill
           tone={FULFILLMENT_TONES[shipment.status]}
-          label={shipmentStatusLabel(shipment.status, shipment.catalogKind)}
+          label={
+            viewer === "supplier"
+              ? supplierShipmentStatusLabel(shipment.status)
+              : shipmentStatusLabel(shipment.status, shipment.catalogKind)
+          }
         />
         {shipment.delay ? (
-          <ToneStatus tone="warning" label={SHIPMENT_DELAY_LABELS[shipment.delay]} />
+          <TonePill tone="warning" label={SHIPMENT_DELAY_LABELS[shipment.delay]} />
         ) : null}
       </div>
     </div>
@@ -446,14 +457,16 @@ function ShipmentHeading({ shipment }: { shipment: ShipmentView }) {
 function ShipmentSummary({
   shipment,
   payment,
+  viewer,
 }: {
   shipment: ShipmentView;
   payment: React.ReactNode;
+  viewer: ShipmentOperator;
 }) {
   return (
     <>
       {" "}
-      <ShipmentHeading shipment={shipment} />
+      <ShipmentHeading shipment={shipment} viewer={viewer} />
       {payment}
       {shipment.catalogKind === "seller" ? (
         <p className="text-sm text-muted-foreground">Você prepara e envia estes itens.</p>

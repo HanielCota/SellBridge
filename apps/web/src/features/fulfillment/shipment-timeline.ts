@@ -46,6 +46,14 @@ export function shipmentStatusLabel(
   return catalogKind === "seller" ? SELLER_FULFILLMENT_LABELS[status] : FULFILLMENT_LABELS[status];
 }
 
+/**
+ * The status as the supplier reads it on its own screens: a forwarded parcel waits for them, so
+ * "Aguardando fornecedor" would point at themselves.
+ */
+export function supplierShipmentStatusLabel(status: FulfillmentStatus): string {
+  return status === "forwarded" ? "Aguardando seu aceite" : FULFILLMENT_LABELS[status];
+}
+
 /** What the order list shows under an order before any parcel exists. */
 const NOT_FORWARDED_YET = "Ainda não encaminhado ao fornecedor";
 
