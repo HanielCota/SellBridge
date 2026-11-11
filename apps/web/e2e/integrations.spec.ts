@@ -108,3 +108,22 @@ test("cadastra um webhook, mostra o segredo, desativa e exclui", async ({ page }
   await expect(page.getByText("Webhook excluído").filter({ visible: true })).toBeVisible();
   await expect(page.getByRole("listitem", { name: url })).toHaveCount(0);
 });
+
+test("usa a mesma largura das outras páginas em telas largas", async ({ page }) => {
+  await signIn(page, DEMO_USER);
+  await page.setViewportSize({ width: 1920, height: 1000 });
+  await gotoHydrated(page, "/integracoes");
+
+  const widths = await page.locator("#chaves-de-api").evaluate((section) => {
+    const main = document.getElementById("main-content");
+    if (main === null) {
+      throw new Error("The page has no #main-content");
+    }
+    const style = getComputedStyle(main);
+    const contentWidth =
+      main.clientWidth - parseFloat(style.paddingLeft) - parseFloat(style.paddingRight);
+    return { section: section.getBoundingClientRect().width, content: contentWidth };
+  });
+
+  expect(widths.section).toBeCloseTo(widths.content, 0);
+});
