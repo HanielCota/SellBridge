@@ -3,6 +3,7 @@ import { ConfirmDialog } from "@/components/feedback/confirm-dialog";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
 import { useDisconnectStore } from "@/features/stores/use-disconnect-store";
+import { OTHER_ACCOUNT_HINT } from "./add-store";
 
 export interface StoreToDisconnect {
   id: string;
@@ -71,6 +72,7 @@ export function DisconnectStoreDialog({
       }}
     >
       <PauseListingsOption checked={pauseListings} onCheckedChange={setPauseListings} />
+      <p className="text-footnote text-muted-foreground">{OTHER_ACCOUNT_HINT}</p>
     </ConfirmDialog>
   );
 }
