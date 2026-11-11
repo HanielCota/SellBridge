@@ -3,8 +3,9 @@ import { z } from "zod";
 /**
  * The calls that turn a parcel into an NF-e in the supplier's Bling: the recipient as a contact,
  * the sale order, the note generated from it and its sending to SEFAZ. Fields follow the official
- * OpenAPI (developer.bling.com.br): `POST /contatos`, `POST /pedidos/vendas`,
- * `POST /pedidos/vendas/{id}/gerar-nfe`, `GET /nfe/{id}`, `POST /nfe/{id}/enviar`.
+ * OpenAPI (developer.bling.com.br): `POST /contatos`, `GET` and `PUT /contatos/{id}`,
+ * `POST /pedidos/vendas`, `GET /pedidos/vendas/{id}`, `POST /pedidos/vendas/{id}/gerar-nfe`,
+ * `GET /nfe/{id}`, `POST /nfe/{id}/enviar`.
  */
 
 /** Calls the API for one account with the client's limit, token and refresh. */
@@ -48,8 +49,13 @@ export interface BlingSaleOrderItem {
 export interface BlingNewSaleOrder {
   /** The marketplace order number, kept as `numeroLoja` to find the order again on a retry. */
   readonly storeOrderNumber: string;
-  /** YYYY-MM-DD. */
+  /** The sale's day in Brazil, YYYY-MM-DD. */
   readonly date: string;
+  /**
+   * The day the note is made, in Brazil, YYYY-MM-DD: its exit date may not come before its issue
+   * date (SEFAZ rejection 505), and the parcel may ship days after the sale.
+   */
+  readonly shippingDate: string;
   readonly contact: { readonly id: number; readonly name: string };
   readonly items: readonly BlingSaleOrderItem[];
   readonly notes: string;
@@ -72,6 +78,15 @@ const NOT_ICMS_TAXPAYER = 9;
 
 const idResponseSchema = z.object({ data: z.object({ id: z.number().int() }) });
 const listedIdsSchema = z.object({ data: z.array(z.object({ id: z.number().int() })) });
+/** The contact as Bling has it; unknown fields are kept so an update sends them back as they are. */
+const contactResponseSchema = z.object({
+  data: z.looseObject({
+    endereco: z.looseObject({ geral: z.record(z.string(), z.unknown()).nullish() }).nullish(),
+  }),
+});
+const saleOrderInvoiceSchema = z.object({
+  data: z.object({ notaFiscal: z.object({ id: z.number().int() }).nullish() }),
+});
 const generatedInvoiceSchema = z.object({ data: z.object({ idNotaFiscal: z.number().int() }) });
 const sentInvoiceSchema = z.object({ data: z.object({ xml: z.string().nullish() }).nullish() });
 
@@ -106,6 +121,24 @@ function blingAddress(address: BlingAddress) {
   };
 }
 
+function comparableAddressPart(key: string, value: unknown): string {
+  const text = typeof value === "string" ? value.trim() : "";
+  return key === "cep" ? text.replace(/\D/g, "") : text;
+}
+
+function isSameAddress(
+  current: Readonly<Record<string, unknown>> | null | undefined,
+  wanted: ReturnType<typeof blingAddress>,
+): boolean {
+  if (current === null || current === undefined) {
+    return false;
+  }
+  return Object.entries(wanted).every(
+    ([key, value]) =>
+      comparableAddressPart(key, current[key]) === comparableAddressPart(key, value),
+  );
+}
+
 function priceInReais(cents: number): number {
   return cents / 100;
 }
@@ -131,8 +164,8 @@ function saleOrderBody(order: BlingNewSaleOrder) {
   return {
     numeroLoja: order.storeOrderNumber,
     data: order.date,
-    dataSaida: order.date,
-    dataPrevista: order.date,
+    dataSaida: order.shippingDate,
+    dataPrevista: order.shippingDate,
     contato: { id: order.contact.id, nome: order.contact.name },
     itens: order.items.map((item) => ({
       codigo: item.sku,
@@ -174,6 +207,30 @@ function contactCalls(call: BlingCall) {
       return response.data[0]?.id ?? null;
     },
 
+    /**
+     * Puts this address on a contact Bling already has (a returning buyer may have moved), so
+     * the note goes where this parcel goes. The contact's other data is sent back unchanged.
+     */
+    async updateContactAddress(contactId: number, address: BlingAddress): Promise<void> {
+      const { data: contact } = await call({
+        path: `/contatos/${contactId}`,
+        schema: contactResponseSchema,
+      });
+      const wanted = blingAddress(address);
+      if (isSameAddress(contact.endereco?.geral, wanted)) {
+        return;
+      }
+      const updated = {
+        ...contact,
+        endereco: { ...contact.endereco, geral: { ...contact.endereco?.geral, ...wanted } },
+      };
+      await call({
+        path: `/contatos/${contactId}`,
+        init: { method: "PUT", body: JSON.stringify(updated) },
+        schema: z.unknown(),
+      });
+    },
+
     async createContact(contact: BlingNewContact): Promise<number> {
       const response = await call({
         path: "/contatos",
@@ -196,6 +253,16 @@ function saleOrderCalls(call: BlingCall) {
         schema: listedIdsSchema,
       });
       return response.data[0]?.id ?? null;
+    },
+
+    /** The NF-e already generated from this sale order, or null while it has none (id 0). */
+    async findSaleOrderInvoice(saleOrderId: number): Promise<number | null> {
+      const response = await call({
+        path: `/pedidos/vendas/${saleOrderId}`,
+        schema: saleOrderInvoiceSchema,
+      });
+      const invoiceId = response.data.notaFiscal?.id ?? 0;
+      return invoiceId > 0 ? invoiceId : null;
     },
 
     async createSaleOrder(order: BlingNewSaleOrder): Promise<number> {

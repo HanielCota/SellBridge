@@ -34,7 +34,10 @@ import { createAutoForwardProcessor } from "./processors/order-auto-forward.ts";
 import { createStockPriceSyncProcessor } from "./processors/stock-price-sync.ts";
 import { createTicketAutoCloseProcessor } from "./processors/ticket-auto-close.ts";
 import { createTokenRefreshProcessor } from "./processors/token-refresh.ts";
-import { createErpTokenRefreshProcessor } from "./processors/erp-token-refresh.ts";
+import {
+  createErpTokenRefreshProcessor,
+  runTokenRefreshes,
+} from "./processors/erp-token-refresh.ts";
 import { createErpCatalogExportProcessor } from "./processors/erp-catalog-export.ts";
 import { createErpCatalogReadProcessor } from "./processors/erp-catalog-read.ts";
 import { createErpInvoiceProcessor } from "./processors/erp-invoice-issue.ts";
@@ -152,7 +155,7 @@ function marketplaceWorkers(context: WorkerContext): Worker[] {
     }),
     new Worker(
       QUEUE_NAMES.tokenRefresh,
-      async () => ({ stores: await processRefresh(), erp: await processErpRefresh() }),
+      async () => runTokenRefreshes({ stores: processRefresh, erp: processErpRefresh }),
       { connection, concurrency: 1 },
     ),
   ];
