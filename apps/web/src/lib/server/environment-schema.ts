@@ -175,6 +175,21 @@ function checkProductionMercadoPagoHosts(value: ServerEnvironmentShape, context:
   }
 }
 
+/** Nothing on our side tells a sandbox payment from a real one, so production never asks for one. */
+function refuseMercadoPagoTestModeInProduction(
+  value: ServerEnvironmentShape,
+  context: z.RefinementCtx,
+) {
+  if (!value.MERCADO_PAGO_TEST_MODE) {
+    return;
+  }
+  context.addIssue({
+    code: "custom",
+    path: ["MERCADO_PAGO_TEST_MODE"],
+    message: "deve ficar desligado em produção (só para usuários de teste)",
+  });
+}
+
 export const serverEnvironmentSchema = serverEnvironmentShape.superRefine((value, context) => {
   if (value.NODE_ENV !== "production") {
     return;
@@ -182,6 +197,7 @@ export const serverEnvironmentSchema = serverEnvironmentShape.superRefine((value
   checkPlaceholderSecret(value, context);
   checkProductionBilling(value, context);
   checkProductionMercadoPagoHosts(value, context);
+  refuseMercadoPagoTestModeInProduction(value, context);
   refusePrivateWebhookUrlsInProduction(value, context);
 });
 
