@@ -172,8 +172,36 @@ describe("webhook-delivery processor", () => {
     await deliver();
     const [delivery] = await deliveriesOf(endpoint.id);
     expect(delivery).toMatchObject({ status: "pending", attempts: 1, lastStatusCode: null });
-    expect(delivery?.lastError).toContain("não público");
+    expect(delivery?.lastError).toBe("Endereço não encontrado na internet pública");
     expect(received.filter((item) => item.headers["sellbridge-signature"])).toHaveLength(before);
+  });
+
+  it("records the same error for a host that resolves privately and one that does not exist", async () => {
+    const internal = await createEndpoint("/internal-name");
+    await recordApiEvent(database, { tenantId, type: "order.created", data: orderData });
+    await createWebhookDeliveryProcessor({
+      database,
+      cipher,
+      allowPrivateUrls: false,
+      tenantId,
+      resolveHost: async () => ["10.0.0.5"],
+    })();
+    const missing = await createEndpoint("/missing-name");
+    await recordApiEvent(database, { tenantId, type: "order.created", data: orderData });
+    await createWebhookDeliveryProcessor({
+      database,
+      cipher,
+      allowPrivateUrls: false,
+      tenantId,
+      resolveHost: async (host) => {
+        throw Object.assign(new Error(`getaddrinfo ENOTFOUND ${host}`), { code: "ENOTFOUND" });
+      },
+    })();
+
+    const [internalDelivery] = await deliveriesOf(internal.id);
+    const missingDeliveries = await deliveriesOf(missing.id);
+    expect(internalDelivery?.lastError).not.toBeNull();
+    expect(missingDeliveries.at(-1)?.lastError).toBe(internalDelivery?.lastError);
   });
 
   it("records a network failure by kind, without the addresses Node puts in its message", async () => {

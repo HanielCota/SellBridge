@@ -22,10 +22,18 @@ interface EventWindow {
   repeats: number;
 }
 
+/**
+ * Log lines can carry text a customer or a provider chose. Slack and Google Chat read `<...>` as
+ * mentions and links, so those characters go out escaped; Discord mentions are off per message.
+ */
+function asPlainChatText(text: string): string {
+  return text.replaceAll("&", "&amp;").replaceAll("<", "&lt;").replaceAll(">", "&gt;");
+}
+
 function alertText(service: string, entry: ErrorLogEntry, repeats: number): string {
   const header = `[SellBridge ${service}] erro: ${entry.event}`;
   const repeated = repeats > 0 ? ` (+${repeats} repetições desde o último alerta)` : "";
-  const text = `${header}${repeated}\n${entry.line}`;
+  const text = asPlainChatText(`${header}${repeated}\n${entry.line}`);
   if (text.length <= MAXIMUM_MESSAGE_LENGTH) {
     return text;
   }
@@ -41,8 +49,8 @@ async function deliver(fetchImplementation: typeof fetch, url: string, text: str
     const response = await fetchImplementation(url, {
       method: "POST",
       headers: { "content-type": "application/json" },
-      // Slack and Google Chat read `text`; Discord reads `content`.
-      body: JSON.stringify({ text, content: text }),
+      // Slack and Google Chat read `text`; Discord reads `content` and `allowed_mentions`.
+      body: JSON.stringify({ text, content: text, allowed_mentions: { parse: [] } }),
       signal: AbortSignal.timeout(DELIVERY_TIMEOUT_MILLISECONDS),
     });
     if (!response.ok) {

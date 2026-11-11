@@ -142,8 +142,8 @@ export async function fetchOrder(
 ): Promise<MarketplaceOrder> {
   const match = /^\/?orders\/(\d+)$/.exec(resource);
   if (!match?.[1]) {
-    // The resource comes from an unsigned notification; a long one stays out of the logs.
-    throw marketplaceError(`Recurso de pedido inválido: ${resource.slice(0, 100)}`, {
+    // The resource comes from an unsigned notification: its text stays out of errors and alerts.
+    throw marketplaceError("Recurso de pedido inválido: a notificação não aponta para um pedido", {
       retryable: false,
     });
   }

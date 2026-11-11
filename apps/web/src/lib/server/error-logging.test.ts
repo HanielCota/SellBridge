@@ -6,9 +6,10 @@ type Handler = (input: {
 }) => Promise<unknown>;
 const mocks = vi.hoisted(() => ({
   log: vi.fn<(event: string, fields: Record<string, unknown>) => void>(),
+  warn: vi.fn<(event: string, fields: Record<string, unknown>) => void>(),
   handlers: [] as Handler[],
 }));
-vi.mock("@sellbridge/shared/logger", () => ({ logger: { error: mocks.log } }));
+vi.mock("@sellbridge/shared/logger", () => ({ logger: { error: mocks.log, warn: mocks.warn } }));
 vi.mock("@tanstack/react-start", () => ({
   createMiddleware: () => ({
     server: (handler: Handler) => {
@@ -18,6 +19,7 @@ vi.mock("@tanstack/react-start", () => ({
   }),
 }));
 import { redirect } from "@tanstack/react-router";
+import { forbiddenError } from "@sellbridge/shared/errors";
 import "./error-logging";
 
 const meta = { name: "getAppSession", id: "function-123" };
@@ -54,5 +56,26 @@ describe("server function diagnostics", () => {
       }),
     ).rejects.toBe(navigation);
     expect(mocks.log).not.toHaveBeenCalled();
+  });
+
+  it("keeps a refusal the caller caused out of the error alerts", async () => {
+    mocks.log.mockClear();
+    mocks.warn.mockClear();
+    const refusal = forbiddenError('O perfil "x" não está na sua conta.');
+
+    await expect(
+      handler({
+        next: async () => {
+          throw refusal;
+        },
+        serverFnMeta: meta,
+      }),
+    ).rejects.toBe(refusal);
+
+    expect(mocks.log).not.toHaveBeenCalled();
+    expect(mocks.warn).toHaveBeenCalledWith(
+      "web.server_function_refused",
+      expect.objectContaining({ functionName: "getAppSession", code: "FORBIDDEN" }),
+    );
   });
 });

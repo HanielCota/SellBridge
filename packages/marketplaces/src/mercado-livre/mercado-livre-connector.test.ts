@@ -377,6 +377,16 @@ describe("orders", () => {
     });
   });
 
+  it("refuses a resource that is not an order without repeating the notice's text", async () => {
+    const { ml } = connector({});
+    const notice = "<!channel> @everyone ligue 0800 000 0000";
+
+    const refusal = ml.fetchOrder(store, notice);
+
+    await expect(refusal).rejects.toMatchObject({ code: "EXTERNAL_PROVIDER" });
+    await expect(refusal).rejects.not.toHaveProperty("message", expect.stringContaining("0800"));
+  });
+
   it("maps unknown statuses to pending and cancellations", async () => {
     const { ml } = connector({
       [`GET ${API}/orders/search`]: () =>

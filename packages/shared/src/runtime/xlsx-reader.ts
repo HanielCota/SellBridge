@@ -17,6 +17,8 @@ const MAX_ENTRY_BYTES = 100 * 1024 * 1024;
 /** Inflated XML read across the whole workbook: sheets listed many times cannot multiply the work. */
 const MAX_WORKBOOK_XML_CHARACTERS = 200 * 1024 * 1024;
 const MAX_SHEETS = 100;
+/** Workbook relationships: sheets plus a handful of styles, theme and shared-string parts. */
+const MAX_RELATIONSHIPS = 1_000;
 const MAX_ROWS = 50_000;
 const MAX_COLUMNS = 500;
 /** Cells kept across all sheets, padding included: a few KB of `<c r="SE"/>` rows would hold millions. */
@@ -256,8 +258,28 @@ function* scanElements(xml: string, tag: string): Generator<XmlElement> {
   }
 }
 
-function elements(xml: string, tag: string): XmlElement[] {
-  return [...scanElements(xml, tag)];
+/** Elements read lazily and refused past `max`, before a flood of tiny tags is held in memory. */
+function boundedElements(
+  xml: string,
+  tag: string,
+  max: number,
+  tooMany: () => Error,
+): XmlElement[] {
+  const found: XmlElement[] = [];
+  for (const element of scanElements(xml, tag)) {
+    if (found.length === max) {
+      throw tooMany();
+    }
+    found.push(element);
+  }
+  return found;
+}
+
+function firstElement(xml: string, tag: string): XmlElement | undefined {
+  for (const element of scanElements(xml, tag)) {
+    return element;
+  }
+  return undefined;
 }
 
 function withoutElements(xml: string, tag: string): string {
@@ -273,9 +295,11 @@ function withoutElements(xml: string, tag: string): string {
 
 /** Text of `<t>` runs, ignoring phonetic hints (`<rPh>`). */
 function richText(xml: string): string {
-  return elements(withoutElements(xml, "rPh"), "t")
-    .map((element) => decodeXml(element.body))
-    .join("");
+  let text = "";
+  for (const element of scanElements(withoutElements(xml, "rPh"), "t")) {
+    text += decodeXml(element.body);
+  }
+  return text;
 }
 
 function columnIndex(reference: string | undefined, fallback: number): number {
@@ -294,16 +318,18 @@ function columnIndex(reference: string | undefined, fallback: number): number {
 const CELL_READERS: Record<string, (body: string, shared: readonly string[]) => string> = {
   // "s" is the cell type of the shared string table.
   ["s"]: (body, shared) => shared[Number.parseInt(cellValue(body), 10)] ?? "",
-  inlineStr: (body) => richText(elements(body, "is")[0]?.body ?? ""),
+  inlineStr: (body) => richText(firstElement(body, "is")?.body ?? ""),
 };
 
 function cellValue(body: string): string {
-  return decodeXml(elements(body, "v")[0]?.body ?? "");
+  return decodeXml(firstElement(body, "v")?.body ?? "");
 }
+
+const tooManyColumns = () => validationError(`A planilha aceita no máximo ${MAX_COLUMNS} colunas`);
 
 function parseRow(xml: string, shared: readonly string[]): string[] {
   const values: string[] = [];
-  for (const cell of elements(xml, "c")) {
+  for (const cell of boundedElements(xml, "c", MAX_COLUMNS, tooManyColumns)) {
     const attributes = parseAttributes(cell.attributes);
     const column = columnIndex(attributes.get("r"), values.length);
     if (column >= MAX_COLUMNS) {
@@ -336,6 +362,11 @@ function parseSheet(
       throw validationError(`A planilha aceita no máximo ${MAX_ROWS} linhas`);
     }
 
+    // Skipped rows are kept as empty arrays, so they count against the cell budget too.
+    cells += Math.max(0, index - rows.length);
+    if (cells > MAX_WORKBOOK_CELLS) {
+      throw tooManyCells();
+    }
     while (rows.length < index) {
       rows.push([]);
     }
@@ -413,15 +444,16 @@ export async function readXlsxSheets(
   xmlCharacters += sharedXml.length;
   const shared = readSharedStrings(sharedXml, options.maxSharedStrings ?? MAX_SHARED_STRINGS);
   const targets = new Map(
-    elements(relationships, "Relationship").map((relationship) => {
-      const attributes = parseAttributes(relationship.attributes);
-      return [attributes.get("Id") ?? "", resolveTarget(attributes.get("Target") ?? "")];
-    }),
+    boundedElements(relationships, "Relationship", MAX_RELATIONSHIPS, tooLarge).map(
+      (relationship) => {
+        const attributes = parseAttributes(relationship.attributes);
+        return [attributes.get("Id") ?? "", resolveTarget(attributes.get("Target") ?? "")];
+      },
+    ),
   );
-  const listed = elements(workbook, "sheet");
-  if (listed.length > MAX_SHEETS) {
-    throw validationError(`A planilha aceita no máximo ${MAX_SHEETS} abas`);
-  }
+  const listed = boundedElements(workbook, "sheet", MAX_SHEETS, () =>
+    validationError(`A planilha aceita no máximo ${MAX_SHEETS} abas`),
+  );
 
   const sheets: XlsxSheet[] = [];
   let cells = 0;

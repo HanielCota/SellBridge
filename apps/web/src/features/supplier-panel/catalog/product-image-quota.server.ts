@@ -1,6 +1,7 @@
 import { validationError } from "@sellbridge/shared/errors";
 import { logger } from "@sellbridge/shared/logger";
 import type { FileStorage, StoredFile } from "@/lib/server/storage";
+import { assertUploadDiskHasRoom } from "@/lib/server/upload-disk";
 import { productImageFolder } from "./product-image-key";
 
 /**
@@ -13,12 +14,6 @@ export const MAX_SUPPLIER_IMAGE_FILES = 20_000;
 /** A photo is sent before its product is saved; one no product uses a day later was dropped. */
 const UNLINKED_GRACE_MILLISECONDS = 24 * 60 * 60 * 1000;
 const DELETE_BATCH_SIZE = 50;
-/**
- * Below this share of free disk no photo is accepted. Anyone can open a supplier account, so the
- * per-supplier space alone does not keep the disk the whole site shares from filling up.
- */
-const MIN_FREE_DISK_SHARE = 0.1;
-
 export const DISK_FULL_MESSAGE =
   "O envio de fotos está pausado no momento. Fale com o suporte para continuar.";
 
@@ -50,26 +45,6 @@ async function deleteAll(storage: ImageQuotaDependencies["storage"], files: read
   }
 }
 
-/** Refuses the photo when the shared disk would keep less than `MIN_FREE_DISK_SHARE` free. */
-async function assertDiskHasRoom(
-  storage: ImageQuotaDependencies["storage"],
-  incomingBytes: number,
-): Promise<void> {
-  const { freeBytes, totalBytes } = await storage.space();
-  if (totalBytes <= 0) {
-    throw new Error(`Uploads disk reports a total of ${totalBytes} bytes`);
-  }
-
-  const freeShare = (freeBytes - incomingBytes) / totalBytes;
-  if (freeShare >= MIN_FREE_DISK_SHARE) {
-    return;
-  }
-
-  // Error level: the team hears of it in the alert channel, at most once per alert window.
-  logger.error("uploads.disk_almost_full", { freePercent: Math.floor(freeShare * 100) });
-  throw validationError(DISK_FULL_MESSAGE);
-}
-
 /**
  * Makes sure one more photo of `incomingBytes` fits the shared disk and the supplier's space.
  * When the supplier's space is full, the photos no product uses that are over a day old are
@@ -82,7 +57,7 @@ export async function makeRoomForProductImage(
   dependencies: ImageQuotaDependencies,
   input: { supplierId: string; incomingBytes: number },
 ): Promise<void> {
-  await assertDiskHasRoom(dependencies.storage, input.incomingBytes);
+  await assertUploadDiskHasRoom(dependencies.storage, input.incomingBytes, DISK_FULL_MESSAGE);
   const files = await dependencies.storage.list(productImageFolder(input.supplierId));
   if (fitsAnother(files, input.incomingBytes)) {
     return;

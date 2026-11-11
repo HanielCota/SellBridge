@@ -13,6 +13,12 @@ export type ResolveHost = (hostname: string) => Promise<string[]>;
  */
 const LOOKUP_DEADLINE_MILLISECONDS = 5_000;
 
+/**
+ * One answer for a host that does not exist and one that resolves inside a private network, so
+ * an endpoint's delivery errors never tell which internal names exist.
+ */
+export const UNREACHABLE_HOST_MESSAGE = "Endereço não encontrado na internet pública";
+
 export const resolveHostWithDns: ResolveHost = async (hostname) => {
   const addresses = await withDeadline(
     lookup(hostname, { all: true, verbatim: true }),
@@ -41,6 +47,6 @@ export async function assertDeliverableWebhookUrl(
   }
   const addresses = await options.resolveHost(hostnameWithoutBrackets(parsed.hostname));
   if (addresses.length === 0 || addresses.some((address) => isNonPublicAddress(address))) {
-    throw validationError("URL de webhook aponta para um endereço de rede não público");
+    throw validationError(UNREACHABLE_HOST_MESSAGE);
   }
 }

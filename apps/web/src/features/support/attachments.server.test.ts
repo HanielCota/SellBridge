@@ -7,7 +7,9 @@ function fakeStorage() {
     get: vi.fn<(key: string) => Promise<Uint8Array | null>>(),
     delete: vi.fn<(key: string) => Promise<void>>().mockResolvedValue(undefined),
     list: vi.fn<(prefix: string) => Promise<[]>>().mockResolvedValue([]),
-    space: vi.fn<() => Promise<{ freeBytes: number; totalBytes: number }>>(),
+    space: vi
+      .fn<() => Promise<{ freeBytes: number; totalBytes: number }>>()
+      .mockResolvedValue({ freeBytes: 900_000, totalBytes: 1_000_000 }),
   };
 }
 
@@ -64,5 +66,15 @@ describe("storeAttachments", () => {
     );
     const [written] = storage.put.mock.calls.map(([key]) => key);
     expect(storage.delete.mock.calls.map(([key]) => key)).toEqual([written]);
+  });
+
+  it("writes nothing when the shared disk would keep less than a tenth free", async () => {
+    const storage = fakeStorage();
+    storage.space.mockResolvedValue({ freeBytes: 5, totalBytes: 100 });
+
+    await expect(storeAttachments(storage, "t1", [pdf("a.pdf")])).rejects.toMatchObject({
+      code: "VALIDATION",
+    });
+    expect(storage.put).not.toHaveBeenCalled();
   });
 });
