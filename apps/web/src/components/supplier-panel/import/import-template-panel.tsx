@@ -19,8 +19,8 @@ export function ImportTemplatePanel({ files }: { files: SupplierImportState["fil
   const data = files.data;
   return (
     <SectionCard
-      title="Modelo"
-      description="Reenviar a planilha atualiza os produtos pelo código, sem duplicar."
+      title="Modelo da planilha"
+      description="Baixe o modelo, preencha no Excel e envie. Reenviar a planilha atualiza os produtos pelo código, sem duplicar."
     >
       <div className="space-y-5">
         <div className="flex flex-wrap gap-2">
@@ -52,8 +52,12 @@ export function ImportTemplatePanel({ files }: { files: SupplierImportState["fil
         <dl className="divide-y divide-border text-sm">
           {IMPORT_COLUMNS.map((entry) => (
             <div key={entry.column} className="grid gap-0.5 py-2.5 first:pt-0">
-              <dt className="flex items-center gap-2">
-                <span className="font-mono text-footnote font-medium">{entry.column}</span>
+              {/* The word first, the header to look for in the spreadsheet after it. */}
+              <dt className="flex flex-wrap items-baseline gap-x-2">
+                <span className="font-medium">{entry.label}</span>
+                <span className="font-mono text-footnote text-muted-foreground">
+                  coluna {entry.column}
+                </span>
                 {entry.required ? (
                   <span className="text-caption text-muted-foreground">obrigatória</span>
                 ) : null}

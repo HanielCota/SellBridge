@@ -172,6 +172,10 @@ function StepContent({
   }
 }
 
+const NEW_PRODUCT_HINT =
+  "Informe o código do produto (SKU) para começar a salvar sozinho. Depois, você pode sair e continuar o cadastro quando quiser.";
+const SAVED_PRODUCT_HINT = "Tudo o que você muda é salvo sozinho.";
+
 function LoadedForm({
   supplierId,
   productId,
@@ -203,7 +207,7 @@ function LoadedForm({
           />
         }
         title={form.values.title.trim() === "" ? "Novo produto" : form.values.title}
-        description="Informe o código do produto (SKU) para iniciar o salvamento automático. Depois de salvar, você pode voltar e continuar o cadastro."
+        description={form.saved === null ? NEW_PRODUCT_HINT : SAVED_PRODUCT_HINT}
         actions={form.saved === null ? undefined : <ReviewStatus status={form.status} />}
       />
       <div className="grid items-start gap-6 lg:grid-cols-[minmax(0,1fr)_20rem]">

@@ -77,6 +77,7 @@ function ProductFiscalCodes(props: FiscalFieldsProps) {
       <SelectField
         id={inputIdOf("fiscal.origin")}
         label="Origem"
+        hint="Feito no Brasil: 0 – Nacional. Importado: veja na nota de compra."
         value={values.fiscal.origin}
         error={errors["fiscal.origin"] ?? null}
         placeholder="Escolha a origem"

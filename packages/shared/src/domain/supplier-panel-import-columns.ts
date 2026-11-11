@@ -22,7 +22,7 @@ export const IMPORT_COLUMNS: readonly ImportColumnGuide[] = [
     column: "sku",
     label: "SKU",
     required: true,
-    format: "Código de 1 a 100 caracteres, sem repetir no arquivo",
+    format: "Código do produto, de 1 a 100 caracteres, sem repetir no arquivo",
     example: "CAMISETA-AZUL-M",
   },
   {
