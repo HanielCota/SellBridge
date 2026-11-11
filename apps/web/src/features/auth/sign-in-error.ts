@@ -11,8 +11,41 @@ const FIRST_SERVER_ERROR = 500;
 
 const WRONG_CREDENTIALS = "E-mail ou senha incorretos.";
 
-/** Where the confirmation link lands: the account opens on its setup. */
-export const CONFIRMATION_CALLBACK_URL = "/onboarding";
+/**
+ * Where the confirmation link lands: the sign-in, which then opens the account's setup. The link
+ * opens no session, so neither a mail scanner that fetches it nor whoever opens it enters an
+ * account someone else may have registered with this address.
+ */
+export const CONFIRMATION_CALLBACK_URL = "/login?emailConfirmado=true&redirect=%2Fonboarding";
+
+/** What the sign-in reads from the address the confirmation link redirected to. */
+export interface ConfirmationLinkArrival {
+  readonly emailConfirmado?: boolean | undefined;
+  /** Better Auth's code when the link was expired, invalid or for a removed account. */
+  readonly error?: string | undefined;
+}
+
+export interface ConfirmationLinkNotice {
+  readonly confirmed: boolean;
+  readonly message: string;
+}
+
+/** The notice above the sign-in after the confirmation link, or null for any other visit. */
+export function confirmationLinkNotice(
+  arrival: ConfirmationLinkArrival,
+): ConfirmationLinkNotice | null {
+  if (arrival.emailConfirmado !== true) {
+    return null;
+  }
+  if (arrival.error !== undefined) {
+    return {
+      confirmed: false,
+      message:
+        "Este link venceu ou já foi usado. Entre com seu e-mail e senha: se ainda faltar confirmar, enviamos um link novo.",
+    };
+  }
+  return { confirmed: true, message: "E-mail confirmado. Entre com seu e-mail e senha." };
+}
 
 /** Better Auth's code for an account that must confirm its e-mail before it gets a session. */
 export const EMAIL_NOT_CONFIRMED_CODE = "EMAIL_NOT_VERIFIED";

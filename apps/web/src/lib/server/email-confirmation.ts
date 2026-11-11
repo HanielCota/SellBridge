@@ -5,9 +5,10 @@ export interface EmailConfirmationState {
 }
 
 /**
- * An e-mail and password sign-up gets no session before its link is opened, so whoever typed
- * someone else's address never enters that account. An admin's visit ("Entrar como cliente") is
- * not the customer signing in and passes; accounts from before the rule keep signing in.
+ * An e-mail and password sign-up gets no session before its link is opened, and the link itself
+ * opens none, so opening it never lands anyone in an account someone else registered. An admin's
+ * visit ("Entrar como cliente") is not the customer signing in and passes; accounts from before
+ * the rule keep signing in.
  */
 export function mustConfirmBeforeSession(
   account: EmailConfirmationState,

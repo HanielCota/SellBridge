@@ -1,6 +1,7 @@
 import { schema } from "@sellbridge/database";
 import {
   isPendingTeamInvite,
+  dropEmailSignUpPassword,
   promoteVerifiedOwner,
   recordAdminEvent,
   recordTermsAcceptance,
@@ -358,6 +359,25 @@ async function refuseUnconfirmedSession(session: { userId: string }): Promise<vo
   });
 }
 
+/**
+ * Google linking into an e-mail sign-up proves the mailbox; the password may still be whoever
+ * registered the address first, so it goes before the Google session opens.
+ */
+async function dropPasswordWhenGoogleLinks(account: {
+  userId: string;
+  providerId: string;
+}): Promise<void> {
+  if (account.providerId === "credential") {
+    return;
+  }
+  if (await dropEmailSignUpPassword(database, account.userId)) {
+    logger.info("auth.email_sign_up_password_dropped", {
+      userId: account.userId,
+      providerId: account.providerId,
+    });
+  }
+}
+
 /** The terms box ticked on /cadastro, stored with version and date once the account exists. */
 async function recordSignUpTerms(userId: string, body: unknown): Promise<void> {
   const parsed = parseSignUpBody(body);
@@ -513,7 +533,9 @@ export const auth = betterAuth({
   emailVerification: {
     sendVerificationEmail,
     sendOnSignUp: true,
-    autoSignInAfterVerification: true,
+    // The link proves the mailbox, not who set the password: it opens no session, so whoever
+    // opens it (or a mail scanner) never lands in an account someone else registered.
+    autoSignInAfterVerification: false,
   },
   socialProviders: googleProvider(),
   // Self-service deletion (LGPD), always with the password: see account-deletion.server.ts.
@@ -567,6 +589,13 @@ export const auth = betterAuth({
         // The verification link (Better Auth 1.7 does not link Google to an unverified account).
         after: async (user) => {
           await promoteVerifiedAdmin(user);
+        },
+      },
+    },
+    account: {
+      create: {
+        after: async (account) => {
+          await dropPasswordWhenGoogleLinks(account);
         },
       },
     },

@@ -9,7 +9,12 @@ import { liveFieldBindings, submitHandler } from "@/components/form/form-binding
 import { FloatingPasswordField, FloatingTextField } from "@/components/form/floating-field";
 import { InlineFormError } from "@/components/form/inline-form-error";
 import { UnconfirmedEmailNotice } from "@/components/auth/unconfirmed-email-notice";
-import { isUnconfirmedEmail, NO_RESPONSE, signInErrorMessage } from "@/features/auth/sign-in-error";
+import {
+  confirmationLinkNotice,
+  isUnconfirmedEmail,
+  NO_RESPONSE,
+  signInErrorMessage,
+} from "@/features/auth/sign-in-error";
 import { authClient } from "@/lib/auth-client";
 import { shareMeta } from "@/lib/share-meta";
 
@@ -20,6 +25,8 @@ const loginSearchSchema = z.object({
   error: z.string().optional(),
   /** Set after a successful password reset. */
   senhaRedefinida: z.boolean().optional(),
+  /** Set by the e-mail confirmation link, which lands here without opening a session. */
+  emailConfirmado: z.boolean().optional(),
 });
 
 const passwordRequiredSchema = signInSchema.shape.password;
@@ -168,6 +175,17 @@ function LoginForm() {
 
 function LoginNotices() {
   const search = Route.useSearch();
+  const confirmation = confirmationLinkNotice(search);
+  if (confirmation !== null && !confirmation.confirmed) {
+    return <InlineFormError message={confirmation.message} />;
+  }
+  if (confirmation !== null) {
+    return (
+      <output className="block text-center text-subhead text-brand-text">
+        {confirmation.message}
+      </output>
+    );
+  }
   if (search.senhaRedefinida) {
     return (
       <output className="block text-center text-subhead text-brand-text">

@@ -1,5 +1,27 @@
 import { describe, expect, it } from "vitest";
-import { isUnconfirmedEmail, signInErrorMessage } from "./sign-in-error";
+import { confirmationLinkNotice, isUnconfirmedEmail, signInErrorMessage } from "./sign-in-error";
+
+describe("confirmationLinkNotice", () => {
+  it("tells the person the e-mail is confirmed and asks for the password", () => {
+    const notice = confirmationLinkNotice({ emailConfirmado: true });
+
+    expect(notice).toEqual({
+      confirmed: true,
+      message: "E-mail confirmado. Entre com seu e-mail e senha.",
+    });
+  });
+
+  it("explains an expired or used link instead of a Google failure", () => {
+    const notice = confirmationLinkNotice({ emailConfirmado: true, error: "TOKEN_EXPIRED" });
+
+    expect(notice?.confirmed).toBe(false);
+    expect(notice?.message).toContain("Este link venceu ou já foi usado.");
+  });
+
+  it("stays quiet on a sign-in that did not come from the link", () => {
+    expect(confirmationLinkNotice({ error: "access_denied" })).toBeNull();
+  });
+});
 
 describe("isUnconfirmedEmail", () => {
   it("recognizes an account that still has to confirm its e-mail", () => {
