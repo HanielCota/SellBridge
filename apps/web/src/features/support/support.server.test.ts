@@ -14,7 +14,12 @@ const mocks = vi.hoisted(() => ({
 }));
 
 vi.mock("@/lib/server/storage", () => ({
-  fileStorage: { put: mocks.put, get: vi.fn<() => Promise<null>>(), delete: mocks.remove },
+  fileStorage: {
+    put: mocks.put,
+    get: vi.fn<() => Promise<null>>(),
+    delete: mocks.remove,
+    space: async () => ({ freeBytes: 900_000_000, totalBytes: 1_000_000_000 }),
+  },
 }));
 vi.mock("@/lib/server/database", () => ({ database: {} }));
 vi.mock("@/lib/server/environment", () => ({

@@ -9,6 +9,7 @@ import {
 import { readFormDataWithin } from "@sellbridge/shared/http-body";
 import { MAX_ATTACHMENT_BYTES, MAX_ATTACHMENTS } from "@sellbridge/shared/schemas";
 import type { FileStorage } from "@/lib/server/storage";
+import { assertUploadDiskHasRoom } from "@/lib/server/upload-disk";
 
 export interface ValidatedFile {
   bytes: Uint8Array;
@@ -69,8 +70,11 @@ export async function validateAttachments(formData: FormData): Promise<Validated
   return validated;
 }
 
+const ATTACHMENTS_PAUSED_MESSAGE =
+  "O envio de anexos está pausado no momento. Mande a mensagem sem anexo ou tente mais tarde.";
+
 /**
- * Writes the files one by one. When one fails (full disk, permissions), the ones already
+ * Writes the files one by one, after checking the shared disk keeps room for them. When one fails (full disk, permissions), the ones already
  * written are deleted before the error goes on: a half-stored message leaves nothing behind.
  */
 export async function storeAttachments(
@@ -78,6 +82,10 @@ export async function storeAttachments(
   tenantId: string,
   files: readonly ValidatedFile[],
 ): Promise<NewAttachment[]> {
+  const incomingBytes = files.reduce((total, file) => total + file.sizeBytes, 0);
+  if (incomingBytes > 0) {
+    await assertUploadDiskHasRoom(storage, incomingBytes, ATTACHMENTS_PAUSED_MESSAGE);
+  }
   const stored: NewAttachment[] = [];
   try {
     for (const file of files) {
