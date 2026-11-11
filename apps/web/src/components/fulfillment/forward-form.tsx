@@ -72,7 +72,7 @@ export function ForwardForm({
   onForwarded: (links: Awaited<ReturnType<typeof forwardOrderFn>>) => Promise<void>;
 }) {
   const form = useForwardForm(detail, onForwarded);
-  const { address, setAddress, notes, setNotes, loadAddress, forward } = form;
+  const { address, notes, loadAddress, forward } = form;
   const ownsItems = detail.items.some((item) => item.catalogKind === "seller");
   const unmapped = !detail.items.length || detail.items.some((item) => !item.supplierId);
   return (
@@ -90,7 +90,7 @@ export function ForwardForm({
       <ForwardItems detail={detail} />
       <AddressSource
         order={detail.order}
-        onAddress={(found) => setAddress((previous) => ({ ...previous, ...found }))}
+        onAddress={(found) => form.importAddress((previous) => ({ ...previous, ...found }))}
         marketplaceImport={detail.order.marketplace === "mercado_livre" ? loadAddress : null}
       />
       <AddressFields
@@ -100,13 +100,14 @@ export function ForwardForm({
         onCepAddress={form.applyCepAddress}
       />
       <Field
+        id={`${FIELD_ID_PREFIX}notes`}
         label={ownsItems ? "Instruções de envio" : "Instruções para o fornecedor"}
         value={notes}
         // Pointed out when leaving the field or sending: a long order number looks like a phone
         // until it is typed in full.
-        error={form.notesChecked ? contactWarning(notes) : null}
+        error={form.errors.notes ?? (form.notesChecked ? contactWarning(notes) : null)}
         onBlur={() => form.setNotesChecked(true)}
-        onChange={setNotes}
+        onChange={form.changeNotes}
       />
       {unmapped ? (
         <p className="text-sm text-destructive">
@@ -183,13 +184,13 @@ function useForwardForm(
     () => detail.order.marketplaceAddress ?? emptyAddress(detail.order.buyerName),
   );
   const [notes, setNotes] = useState("");
-  const editing = useAddressEditing(setAddress);
-  const { errors, setErrors } = editing;
+  const editing = useAddressEditing(setAddress, setNotes);
+  const { errors, setErrors, importAddress } = editing;
   const loadAddress = useMutation({
     mutationFn: () => getMarketplaceShippingFn({ data: { orderId: detail.order.id } }),
     onSuccess: (result) => {
       if (result.address) {
-        setAddress(result.address);
+        importAddress(result.address);
         return;
       }
       toast.error("O marketplace não informou o endereço completo");
@@ -223,9 +224,8 @@ function useForwardForm(
   }
   return {
     address,
-    setAddress,
+    importAddress,
     notes,
-    setNotes,
     notesChecked,
     setNotesChecked,
     loadAddress,
@@ -233,12 +233,16 @@ function useForwardForm(
     errors,
     submit,
     changeField: editing.changeField,
+    changeNotes: editing.changeNotes,
     applyCepAddress: editing.applyCepAddress,
   };
 }
 
 /** Typing in a field, or a CEP that filled some, takes their old problem away. */
-function useAddressEditing(setAddress: Dispatch<SetStateAction<DeliveryAddress>>) {
+function useAddressEditing(
+  setAddress: Dispatch<SetStateAction<DeliveryAddress>>,
+  setNotes: (notes: string) => void,
+) {
   const [errors, setErrors] = useState<ForwardErrors>({});
   function changeField(key: keyof DeliveryAddress, value: string) {
     setAddress((previous) => ({ ...previous, [key]: value }));
@@ -251,7 +255,16 @@ function useAddressEditing(setAddress: Dispatch<SetStateAction<DeliveryAddress>>
       clearForwardErrors(previous, ["street", "neighborhood", "city", "state"]),
     );
   }
-  return { errors, setErrors, changeField, applyCepAddress };
+  /** An address brought in from elsewhere takes the old address problems away with it. */
+  function importAddress(next: SetStateAction<DeliveryAddress>) {
+    setAddress(next);
+    setErrors((previous) => clearForwardErrors(previous, ADDRESS_KEYS));
+  }
+  function changeNotes(value: string) {
+    setNotes(value);
+    setErrors((previous) => clearForwardErrors(previous, ["notes"]));
+  }
+  return { errors, setErrors, changeField, applyCepAddress, importAddress, changeNotes };
 }
 
 /** The server's own schema, checked before sending: each problem goes under its field. */

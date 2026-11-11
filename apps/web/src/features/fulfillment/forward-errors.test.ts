@@ -62,3 +62,12 @@ describe("clearForwardErrors", () => {
     expect(cleared).toEqual({ notes: "Sem telefone" });
   });
 });
+
+describe("notes problems", () => {
+  it("reports a too-long note under the notes field so the form can show it", () => {
+    const errors = errorsFor(COMPLETE_ADDRESS, "a".repeat(1001));
+
+    expect(Object.keys(errors)).toEqual(["notes"]);
+    expect(firstForwardErrorField(errors)).toBe("notes");
+  });
+});
