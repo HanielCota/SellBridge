@@ -12,10 +12,13 @@ import {
   SUPPLIER_ORDER_TABS,
   type SupplierOrderTab,
 } from "@sellbridge/shared/supplier-panel-orders-tabs";
+import { FunnelSimpleIcon } from "@phosphor-icons/react";
 import { useQuery } from "@tanstack/react-query";
+import { type ReactNode, useId, useState } from "react";
 import { FilterTabs } from "@/components/data/filter-tabs";
 import { SearchInput } from "@/components/data/search-input";
 import { PeriodFilters } from "@/components/reports/period-filters";
+import { Button } from "@/components/ui/button";
 import {
   Select,
   SelectContent,
@@ -23,6 +26,10 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import {
+  activeOrderFilterCount,
+  filterButtonLabel,
+} from "@/features/supplier-panel/orders/active-filters";
 import { CHANNEL_LABELS } from "@/features/supplier-panel/orders/channel-labels";
 import {
   shipmentFiltersOf,
@@ -31,6 +38,7 @@ import {
 } from "@/features/supplier-panel/orders/orders.queries";
 import { useNow } from "@/hooks/use-now";
 import { useUrlSearchQuery } from "@/hooks/use-url-search-query";
+import { cn } from "@/lib/utils";
 
 const EVERY = "__all__";
 const SELECT_CLASS_NAME = "w-full min-w-44 rounded-full sm:w-auto";
@@ -175,8 +183,37 @@ export function OrderFilters({
         onValueChange={setTerm}
         className="sm:max-w-md"
       />
-      <ShipmentPeriodFilters supplierId={supplierId} search={search} onChange={onChange} />
+      <FoldedOnPhone active={activeOrderFilterCount(search)}>
+        <ShipmentPeriodFilters supplierId={supplierId} search={search} onChange={onChange} />
+      </FoldedOnPhone>
       <p className="text-footnote text-muted-foreground">{sortDescription(search.tab)}</p>
     </div>
+  );
+}
+
+/**
+ * On a phone the period, store, channel and label filters fold behind one "Filtrar" button,
+ * so the first order shows right under the search; from `sm` up they always show.
+ */
+function FoldedOnPhone({ active, children }: { active: number; children: ReactNode }) {
+  const [open, setOpen] = useState(false);
+  const panelId = useId();
+  return (
+    <>
+      <Button
+        type="button"
+        variant="outline"
+        className="w-fit sm:hidden"
+        aria-expanded={open}
+        aria-controls={panelId}
+        onClick={() => setOpen((previous) => !previous)}
+      >
+        <FunnelSimpleIcon aria-hidden="true" />
+        {filterButtonLabel(active)}
+      </Button>
+      <div id={panelId} className={cn(open ? "block" : "hidden", "sm:block")}>
+        {children}
+      </div>
+    </>
   );
 }

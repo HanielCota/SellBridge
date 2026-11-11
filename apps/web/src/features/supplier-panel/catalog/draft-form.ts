@@ -24,7 +24,18 @@ export const FORM_STEPS = [
   { id: "images", label: "Imagens" },
   { id: "review", label: "Revisão" },
 ] as const;
+
 export type FormStepId = (typeof FORM_STEPS)[number]["id"];
+
+/** "Etapa 2 de 4 · Dados obrigatórios": on a phone the tabs show only their numbers. */
+export function phoneStepLine(current: FormStepId): string {
+  const index = FORM_STEPS.findIndex((step) => step.id === current);
+  const step = FORM_STEPS[index];
+  if (step === undefined) {
+    throw new Error(`Unknown product form step: ${current}`);
+  }
+  return `Etapa ${index + 1} de ${FORM_STEPS.length} · ${step.label}`;
+}
 
 /** The attributes the "Dados obrigatórios" step always offers, besides the category's own. */
 export const COMMON_ATTRIBUTES = [

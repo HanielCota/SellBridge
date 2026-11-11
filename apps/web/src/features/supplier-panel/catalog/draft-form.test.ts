@@ -8,6 +8,7 @@ import {
   panelFormValues,
   EMPTY_PRODUCT_FISCAL_FORM_VALUES,
   parseDraft,
+  phoneStepLine,
   stepOfField,
   type PanelFormValues,
 } from "./draft-form";
@@ -200,5 +201,11 @@ describe("fiscal fields", () => {
 
     expect(opened.fiscal.ncm).toBe("6109.10.00");
     expect(editedFields(opened, edited)).toEqual(new Set(["fiscal.netWeightGrams"]));
+  });
+});
+
+describe("phoneStepLine", () => {
+  it("names the step and where it sits among the four", () => {
+    expect(phoneStepLine("details")).toBe("Etapa 2 de 4 · Dados obrigatórios");
   });
 });

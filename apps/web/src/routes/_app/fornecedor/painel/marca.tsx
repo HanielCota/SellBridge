@@ -1,4 +1,5 @@
 import { createFileRoute, useNavigate, useRouter } from "@tanstack/react-router";
+import { PageHeader } from "@/components/layout/page-header";
 import { BrandForm } from "@/components/supplier-panel/brand/brand-form";
 import { getOwnBrandFn } from "@/features/supplier-panel/brand/brand.functions";
 
@@ -13,7 +14,11 @@ function SupplierBrandPage() {
   const router = useRouter();
   const navigate = useNavigate();
   return (
-    <div className="w-full">
+    <div className="w-full space-y-6">
+      <PageHeader
+        title="Marca"
+        description="O que os revendedores veem da sua marca, como os pedidos chegam até você e os dados da nota fiscal."
+      />
       <BrandForm
         key={brand?.id ?? "new"}
         brand={brand}
