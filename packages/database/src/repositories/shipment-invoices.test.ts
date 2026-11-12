@@ -1,7 +1,13 @@
+import { randomUUID } from "node:crypto";
 import { eq } from "drizzle-orm";
 import { afterEach, describe, expect, it } from "vitest";
-import { orderShipments, shipmentInvoices } from "../schema/index.ts";
-import { createTestDatabase } from "../testing/fixtures.ts";
+import {
+  member,
+  notificationDeliveries,
+  orderShipments,
+  shipmentInvoices,
+} from "../schema/index.ts";
+import { createTestDatabase, createTestUsers } from "../testing/fixtures.ts";
 import { createInvoiceScenario } from "../testing/shipment-invoice-fixtures.ts";
 import {
   findErpConnection,
@@ -9,10 +15,13 @@ import {
   upsertErpConnection,
 } from "./erp-connections.ts";
 import {
+  authorizedShipmentInvoices,
   claimDueShipmentInvoices,
+  findShipmentInvoiceFiles,
   findSupplierShipmentInvoice,
   loadShipmentInvoiceWork,
   markShipmentInvoiceAttention,
+  markShipmentInvoiceAuthorized,
   queueNewShipmentInvoices,
   retrySupplierShipmentInvoice,
   setErpInvoicing,
@@ -265,5 +274,95 @@ describe("retrySupplierShipmentInvoice", () => {
     });
 
     expect(found).toBeNull();
+  });
+});
+
+const AUTHORIZED_ACCESS_KEY = "31261111222333000181550010000012341000012345";
+
+async function authorizedScenario() {
+  const created = await scenario();
+  await queueNewShipmentInvoices(database);
+  const invoice = await invoiceOf(created.shipmentId);
+  if (invoice === undefined) {
+    throw new Error("invoice not queued");
+  }
+  return { ...created, invoiceId: invoice.id };
+}
+
+async function addMember(tenantId: string): Promise<string> {
+  const users = await createTestUsers(database, 1);
+  cleanups.push(users.cleanup);
+  const [userId] = users.ids;
+  if (userId === undefined) {
+    throw new Error("user not created");
+  }
+  await database
+    .insert(member)
+    .values({ id: randomUUID(), organizationId: tenantId, userId, createdAt: new Date() });
+  return userId;
+}
+
+function authorize(invoiceId: string) {
+  return markShipmentInvoiceAuthorized(database, {
+    invoiceId,
+    number: "1234",
+    series: "1",
+    accessKey: AUTHORIZED_ACCESS_KEY,
+    danfeUrl: null,
+    authorizedAt: new Date(),
+  });
+}
+
+describe("authorized notes for the reseller", () => {
+  it("e-mails the reseller's people once, with the parcel's note to attach", async () => {
+    const created = await authorizedScenario();
+    const userId = await addMember(created.tenantId);
+
+    await authorize(created.invoiceId);
+    await authorize(created.invoiceId);
+
+    const deliveries = await database
+      .select()
+      .from(notificationDeliveries)
+      .where(eq(notificationDeliveries.tenantId, created.tenantId));
+    expect(deliveries).toHaveLength(1);
+    expect(deliveries[0]).toMatchObject({
+      recipientId: userId,
+      event: "invoice_authorized",
+      channel: "email",
+      content: { invoiceShipmentId: created.shipmentId },
+    });
+  });
+
+  it("lists a parcel's note only once SEFAZ authorized it", async () => {
+    const created = await authorizedScenario();
+
+    const before = await authorizedShipmentInvoices(database, [created.shipmentId]);
+    await authorize(created.invoiceId);
+    const after = await authorizedShipmentInvoices(database, [created.shipmentId]);
+
+    expect(before.size).toBe(0);
+    expect(after.get(created.shipmentId)).toMatchObject({
+      number: "1234",
+      accessKey: AUTHORIZED_ACCESS_KEY,
+    });
+  });
+
+  it("gives the note's files with who may download them, only when authorized", async () => {
+    const created = await authorizedScenario();
+
+    const before = await findShipmentInvoiceFiles(database, created.shipmentId);
+    await authorize(created.invoiceId);
+    const after = await findShipmentInvoiceFiles(database, created.shipmentId);
+
+    expect(before).toBeNull();
+    expect(after).toEqual({
+      shipmentId: created.shipmentId,
+      orderId: created.orderId,
+      tenantId: created.tenantId,
+      supplierId: created.supplierId,
+      number: "1234",
+      accessKey: AUTHORIZED_ACCESS_KEY,
+    });
   });
 });

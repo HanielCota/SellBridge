@@ -1,6 +1,7 @@
 import { createFulfillmentParcels } from "./create-fulfillment-parcels.ts";
 import { syncOrderFromShipments } from "./fulfillment-status.ts";
 import { linkFieldsFor } from "./shipment-link-fields.ts";
+import { authorizedShipmentInvoices } from "./shipment-invoices.ts";
 import * as timing from "./shipment-timing.ts";
 import {
   and,
@@ -246,10 +247,11 @@ export async function getFulfillmentDetail(database: Database, tenantId: string,
   ]);
   const [store] = stores;
   if (!store) throw notFoundError("Loja do pedido não encontrada");
-  const events = await eventsForShipments(
-    database,
-    shipments.map((row) => row.id),
-  );
+  const shipmentIds = shipments.map((row) => row.id);
+  const [events, invoices] = await Promise.all([
+    eventsForShipments(database, shipmentIds),
+    authorizedShipmentInvoices(database, shipmentIds),
+  ]);
   return {
     order: {
       id: order.id,
@@ -264,6 +266,8 @@ export async function getFulfillmentDetail(database: Database, tenantId: string,
     shipments: shipments.map((shipment) => ({
       ...timing.withShipmentDelay(shipment, new Date()),
       events: events.filter((event) => event.shipmentId === shipment.id),
+      /** The NF-e the supplier issued for this parcel, once SEFAZ authorized it. */
+      invoice: invoices.get(shipment.id) ?? null,
     })),
   };
 }
