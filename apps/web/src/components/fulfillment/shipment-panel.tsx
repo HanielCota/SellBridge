@@ -23,6 +23,7 @@ import { errorMessage } from "@/lib/errors";
 import { contactWarning } from "@/features/fulfillment/contact-warning";
 import { dispatchFieldsFor } from "@/features/fulfillment/dispatch-fields";
 import { printShipment } from "@/features/fulfillment/print-shipment";
+import { resellerStepNote } from "@/features/fulfillment/reseller-step-note";
 import {
   FULFILLMENT_TONES,
   shipmentTimeline,
@@ -238,7 +239,6 @@ function ShipmentActions({
 }) {
   const { noteError, setNoteError, contactInNote, sendWithNote } = useStepNote(update);
   const pending = update.mutation.isPending;
-  const operator = actsAs;
   return (
     <div className="space-y-3">
       {/* Shipped, seen by the supplier: say who confirms the delivery instead of offering it. */}
@@ -266,11 +266,12 @@ function ShipmentActions({
           setNoteError(null);
         }}
       />
+      <ResellerStepNote actsAs={actsAs} next={next} catalogKind={shipment.catalogKind} />
       <div className="flex flex-wrap gap-2">
         {next ? (
           <StepButton
             next={next}
-            operator={operator}
+            operator={actsAs}
             disabled={pending}
             onAdvance={() => sendWithNote(next)}
             quiet={quietStep}
@@ -282,6 +283,22 @@ function ShipmentActions({
       </div>
     </div>
   );
+}
+
+/** Only the reseller records a supplier's step on their behalf, so only they get the sentence. */
+function ResellerStepNote(props: {
+  actsAs: ShipmentOperator;
+  next: FulfillmentStatus | null;
+  catalogKind: ShipmentView["catalogKind"];
+}) {
+  if (props.actsAs !== "reseller" || props.next === null) {
+    return null;
+  }
+  const note = resellerStepNote(props.next, props.catalogKind);
+  if (note === null) {
+    return null;
+  }
+  return <p className="text-footnote text-muted-foreground">{note}</p>;
 }
 
 /** What cancelling means for whoever does it: the supplier hands the order back to the store. */
