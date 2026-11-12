@@ -57,7 +57,14 @@ function OrderFacts({ shipment }: { shipment: PanelShipment }) {
   }
   return (
     <div className="space-y-3 rounded-2xl bg-muted/50 p-4">
-      <SupplierPaymentBadgeView badge={shipment.supplierPayment} />
+      <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
+        <SupplierPaymentBadgeView badge={shipment.supplierPayment} />
+        {shipment.supplierPayment.kind === "outside" ? (
+          <span className="text-footnote text-muted-foreground">
+            O revendedor paga você por fora, como hoje.
+          </span>
+        ) : null}
+      </div>
       <dl className="grid grid-cols-1 gap-x-6 gap-y-2 text-subhead sm:grid-cols-2">
         {facts.map((fact) => (
           <div key={fact.term} className="min-w-0">

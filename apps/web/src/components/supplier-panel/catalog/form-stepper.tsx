@@ -2,6 +2,7 @@ import type { CompletenessIssue } from "@sellbridge/shared/supplier-panel-catalo
 import { CheckIcon } from "@phosphor-icons/react";
 import {
   FORM_STEPS,
+  phoneStepLine,
   stepOfField,
   type FormStepId,
 } from "@/features/supplier-panel/catalog/draft-form";
@@ -79,9 +80,7 @@ export function FormStepper({
           );
         })}
       </ol>
-      <p className="mt-2 text-sm font-medium sm:hidden">
-        {FORM_STEPS.find((step) => step.id === current)?.label}
-      </p>
+      <p className="mt-2 text-sm font-medium sm:hidden">{phoneStepLine(current)}</p>
     </nav>
   );
 }
