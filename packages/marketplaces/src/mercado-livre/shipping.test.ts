@@ -2,6 +2,7 @@ import type { FetchLike } from "../http.ts";
 import { describe, expect, it, vi } from "vitest";
 import { SHIPMENT_LEAD_TIME, SHIPMENT_SLA, shipmentBase } from "./fixtures/shipments.ts";
 import { hasMarketplaceCause } from "../errors.ts";
+import { zipArchive } from "../testing/zip-archive.ts";
 import {
   getMercadoLivreLabel,
   getMercadoLivreLabels,
@@ -220,8 +221,9 @@ describe("Mercado Livre shipping", () => {
   it("gets the official PDF only for printable shipments", async () => {
     const { request, config } = setup();
     request.mockResolvedValueOnce(new Response("%PDF-1.4 test"));
-    const label = await getMercadoLivreLabel(config, store, "55");
-    expect(new TextDecoder().decode(label.pdf)).toBe("%PDF-1.4 test");
+    const label = await getMercadoLivreLabel(config, store, "55", "pdf");
+    expect(label.file.format).toBe("pdf");
+    expect(new TextDecoder().decode(label.file.bytes)).toBe("%PDF-1.4 test");
     expect(label.shipmentId).toBe("123");
     expect(request.mock.calls[3]?.[0]).toBe(
       "https://api.mercadolibre.com/shipment_labels?shipment_ids=123&response_type=pdf",
@@ -231,7 +233,7 @@ describe("Mercado Livre shipping", () => {
     "rejects unavailable label %j",
     async (overrides) => {
       const { request, config } = setup(overrides);
-      await expect(getMercadoLivreLabel(config, store, "55")).rejects.toMatchObject({
+      await expect(getMercadoLivreLabel(config, store, "55", "pdf")).rejects.toMatchObject({
         code: "EXTERNAL_PROVIDER",
       });
       expect(request).toHaveBeenCalledTimes(3);
@@ -240,7 +242,7 @@ describe("Mercado Livre shipping", () => {
   it("marks a label the marketplace has not released yet, so it can be retried later", async () => {
     const { config } = setup({ status: "pending" });
 
-    const failure = await getMercadoLivreLabel(config, store, "55").catch(
+    const failure = await getMercadoLivreLabel(config, store, "55", "pdf").catch(
       (error: unknown) => error,
     );
 
@@ -271,7 +273,7 @@ describe("Mercado Livre shipping", () => {
       retry: { retries: 0 },
     };
 
-    const batch = await getMercadoLivreLabels(config, store, ["55", "56"]);
+    const batch = await getMercadoLivreLabels(config, store, ["55", "56"], "pdf");
 
     expect(batch.printed).toEqual([{ orderId: "55", shipmentId: "123" }]);
     expect(batch.refused.map((refusal) => refusal.orderId)).toEqual(["56"]);
@@ -283,9 +285,9 @@ describe("Mercado Livre shipping", () => {
   it("asks for no PDF when no order of the batch can print", async () => {
     const { request, config } = setup({ status: "pending" });
 
-    const batch = await getMercadoLivreLabels(config, store, ["55"]);
+    const batch = await getMercadoLivreLabels(config, store, ["55"], "pdf");
 
-    expect(batch.pdf).toBeNull();
+    expect(batch.file).toBeNull();
     expect(request).toHaveBeenCalledTimes(3);
   });
   it("rejects an order of another seller and does not request its address", async () => {
@@ -296,10 +298,77 @@ describe("Mercado Livre shipping", () => {
     });
     expect(request).toHaveBeenCalledTimes(1);
   });
+  it("gets the Zebra (ZPL) label from the ZIP Mercado Livre sends for zpl2", async () => {
+    const { request, config } = setup();
+    const zip = zipArchive([
+      { name: "Etiqueta de envio.txt", content: "^XA^FDPedido 55^FS^XZ", deflate: true },
+    ]);
+    request.mockResolvedValueOnce(new Response(zip));
+
+    const label = await getMercadoLivreLabel(config, store, "55", "zpl");
+
+    expect(label.file.format).toBe("zpl");
+    expect(new TextDecoder().decode(label.file.bytes)).toBe("^XA^FDPedido 55^FS^XZ");
+    expect(request.mock.calls[3]?.[0]).toBe(
+      "https://api.mercadolibre.com/shipment_labels?shipment_ids=123&response_type=zpl2",
+    );
+  });
+  it("joins every ZPL file of the ZIP and leaves the other files out", async () => {
+    const { request, config } = setup();
+    const zip = zipArchive([
+      { name: "1.txt", content: "^XA^FDum^FS^XZ", deflate: true },
+      { name: "leia-me.txt", content: "Instruções", deflate: false },
+      { name: "2.txt", content: "^XA^FDdois^FS^XZ", deflate: false },
+    ]);
+    request.mockResolvedValueOnce(new Response(zip));
+
+    const label = await getMercadoLivreLabel(config, store, "55", "zpl");
+
+    expect(new TextDecoder().decode(label.file.bytes)).toBe("^XA^FDum^FS^XZ\n^XA^FDdois^FS^XZ");
+  });
+  it("takes ZPL sent as plain text too", async () => {
+    const { request, config } = setup();
+    request.mockResolvedValueOnce(new Response("^XA^FDPedido 55^FS^XZ"));
+
+    const label = await getMercadoLivreLabel(config, store, "55", "zpl");
+
+    expect(new TextDecoder().decode(label.file.bytes)).toBe("^XA^FDPedido 55^FS^XZ");
+  });
+  it.each([
+    ["a PDF", new Response("%PDF-1.4 test")],
+    ["an error page", Response.json({ message: "error" })],
+    [
+      "a damaged ZIP",
+      new Response(zipArchive([{ name: "a.txt", content: "^XA", deflate: false }]).subarray(0, 40)),
+    ],
+    [
+      "a ZIP without ZPL",
+      new Response(zipArchive([{ name: "a.txt", content: "texto", deflate: false }])),
+    ],
+  ])("rejects %s answered for a ZPL label", async (_kind, answer) => {
+    const { request, config } = setup();
+    request.mockResolvedValueOnce(answer);
+
+    await expect(getMercadoLivreLabel(config, store, "55", "zpl")).rejects.toMatchObject({
+      code: "EXTERNAL_PROVIDER",
+      message: "O marketplace não retornou uma etiqueta ZPL válida",
+    });
+  });
+  it("prints a batch as one ZPL file", async () => {
+    const { request, config } = setup();
+    request.mockResolvedValueOnce(new Response("^XA^FDum^FS^XZ"));
+
+    const batch = await getMercadoLivreLabels(config, store, ["55"], "zpl");
+
+    expect(batch.file?.format).toBe("zpl");
+    expect(request.mock.calls.at(-1)?.[0]).toBe(
+      "https://api.mercadolibre.com/shipment_labels?shipment_ids=123&response_type=zpl2",
+    );
+  });
   it("rejects HTML or JSON masquerading as a PDF", async () => {
     const { request, config } = setup();
     request.mockResolvedValueOnce(new Response("<html>error</html>"));
-    await expect(getMercadoLivreLabel(config, store, "55")).rejects.toMatchObject({
+    await expect(getMercadoLivreLabel(config, store, "55", "pdf")).rejects.toMatchObject({
       code: "EXTERNAL_PROVIDER",
     });
   });

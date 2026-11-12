@@ -13,6 +13,7 @@ export {
   getMercadoLivreShipping,
   LABEL_NOT_READY_CAUSE,
   type MercadoLivreLabelBatch,
+  type MercadoLivreLabelFile,
   type PrintedLabel,
 } from "./mercado-livre/shipping.ts";
 export {
