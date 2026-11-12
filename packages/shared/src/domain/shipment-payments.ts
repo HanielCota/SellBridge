@@ -17,7 +17,17 @@ export type ShipmentPaymentStatus = (typeof SHIPMENT_PAYMENT_STATUSES)[number];
 
 /** The highest fee the admin may set: 30%, in basis points. */
 export const MAX_PAYMENT_FEE_BASIS_POINTS = 3000;
+/** The fee payments use until an admin saves one: 1%, in basis points. */
+export const DEFAULT_PAYMENT_FEE_BASIS_POINTS = 100;
 const BASIS_POINTS_PER_WHOLE = 10_000;
+
+/** The fee rate a payment uses: the one the admin saved, or the default while none is saved. */
+export function effectivePaymentFeeBasisPoints(savedBasisPoints: number | null): number {
+  if (savedBasisPoints === null) {
+    return DEFAULT_PAYMENT_FEE_BASIS_POINTS;
+  }
+  return savedBasisPoints;
+}
 
 export class InvalidPaymentFeeError extends Error {
   constructor(message: string) {
