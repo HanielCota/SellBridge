@@ -111,6 +111,35 @@ function explainCause(cause: MercadoLivreCause): string {
   return `${unexplained} Fale com o suporte e informe o código ${code}.`;
 }
 
+/** Shown when the item was closed or deleted on Mercado Livre: it can never sell again. */
+export const LISTING_ENDED_MESSAGE =
+  "Este anúncio foi encerrado ou excluído no Mercado Livre e não vende mais. Para vender de novo, clique em Reprocessar: o SellBridge cria um anúncio novo.";
+
+const ITEM_NOT_OPEN_MESSAGE =
+  "O Mercado Livre só aceita mudanças em anúncios ativos ou pausados, e este não está assim agora (pode ter sido encerrado, excluído ou estar em revisão). Confira o anúncio no Mercado Livre.";
+
+/**
+ * An update of a closed item is refused with a generic validation error whose message carries
+ * the item's state, e.g. "Cannot update item MLB1 [status:closed, has_bids:false]" (seen in
+ * production on 2026-11-12, with causes item.price.not_modifiable and field_not_updatable).
+ */
+const CLOSED_ITEM_REFUSAL = /\[status:closed\b/;
+
+/** A refusal about the item's state rather than the data sent; null for any other refusal. */
+function itemStateRefusal(body: unknown): string | null {
+  const parsed = errorBodySchema.safeParse(body);
+  if (!parsed.success) {
+    return null;
+  }
+  if (CLOSED_ITEM_REFUSAL.test(parsed.data.message ?? "")) {
+    return LISTING_ENDED_MESSAGE;
+  }
+  if (parsed.data.error === "item.status.invalid") {
+    return ITEM_NOT_OPEN_MESSAGE;
+  }
+  return null;
+}
+
 /** The blocking causes of a refusal: warnings are informative and never reach the reseller. */
 export function blockingCauses(body: unknown): MercadoLivreCause[] {
   const parsed = errorBodySchema.safeParse(body);
@@ -126,6 +155,10 @@ export function blockingCauses(body: unknown): MercadoLivreCause[] {
 
 /** The message a refusal reaches the reseller with (and the listing card shows). */
 export function explainMercadoLivreError(body: unknown, status: number): string {
+  const stateRefusal = itemStateRefusal(body);
+  if (stateRefusal !== null) {
+    return stateRefusal;
+  }
   const blocking = blockingCauses(body);
   if (blocking.length > 0) {
     return blocking.slice(0, SHOWN_ERRORS).map(explainCause).join(" ");
