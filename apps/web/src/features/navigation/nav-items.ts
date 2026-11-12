@@ -34,7 +34,9 @@ export interface NavGroup {
 
 export const NAV_ITEMS: NavItem[] = [
   { label: "Visão geral", to: "/dashboard" },
-  { label: "Catálogo", to: "/catalogo", also: ["/fornecedores"], group: "Vender" },
+  // Resellers did not find the supplier list while it lived only under Catálogo.
+  { label: "Fornecedores", to: "/fornecedores", group: "Vender" },
+  { label: "Catálogo", to: "/catalogo", group: "Vender" },
   { label: "Publicações", to: "/publicacoes", badge: "failedListings", group: "Vender" },
   { label: "Pedidos", to: "/pedidos", badge: "parcelAlerts", group: "Vender" },
   { label: "Financeiro", to: "/financeiro", group: "Dinheiro" },
