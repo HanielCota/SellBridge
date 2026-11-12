@@ -44,7 +44,10 @@ function useProductSourceChoice(profile: OnboardingProfile, onSaved: () => Promi
   const saving = useSaveSources(onSaved);
   // An old own-only or mixed account saving the same supplier still moves to "suppliers".
   const dirty = supplierId !== initialSupplierId || profile.productSourceMode !== SUPPLIERS_MODE;
-  const canDiscard = useUnsavedChanges(dirty && supplierId !== null && !saving.isSaved);
+  // Only replacing a saved supplier asks before leaving: a first pick loses nothing, and the
+  // warning kept new resellers from looking around before choosing.
+  const replacesSavedSupplier = initialSupplierId !== null && supplierId !== null;
+  const canDiscard = useUnsavedChanges(dirty && replacesSavedSupplier && !saving.isSaved);
   const disabled = saving.isSaving || saving.isSaved || supplierId === null;
   return { supplierId, setSupplierId, saving, canDiscard, disabled };
 }
