@@ -1,11 +1,14 @@
 import {
   getTargetForPublishing,
+  markTargetListingEnded,
   markTargetSynced,
   markTargetSyncFailed,
   type TargetForPublishing,
 } from "@sellbridge/database/repositories";
+import { isMarketplaceListingEndedError } from "@sellbridge/marketplaces";
 import { unavailableReason } from "@sellbridge/shared/catalog-availability";
 import { userMessageOr } from "@sellbridge/shared/errors";
+import { logger } from "@sellbridge/shared/logger";
 import { marketplaceUnits } from "@sellbridge/shared/marketplace-units";
 import { offeredUnits } from "@sellbridge/shared/stock-reservation";
 import { storeSupplierRefusal } from "@sellbridge/shared/store-supplier";
@@ -117,6 +120,10 @@ export async function reconcilePublicationStock(
     }
     throw new Error("Publication changed during synchronization. Retry the stock update.");
   } catch (error) {
+    if (isMarketplaceListingEndedError(error)) {
+      await endPublication(dependencies, scope, error.message);
+      throw error;
+    }
     await markTargetSyncFailed(
       dependencies.database,
       scope.targetId,
@@ -124,4 +131,21 @@ export async function reconcilePublicationStock(
     );
     throw error;
   }
+}
+
+/**
+ * The marketplace closed or deleted the item: no later sync can reach it, so the publication
+ * ends with the reason instead of failing on every run.
+ */
+export async function endPublication(
+  dependencies: Pick<Dependencies, "database">,
+  scope: Pick<PublicationScope, "tenantId" | "targetId">,
+  reason: string,
+): Promise<void> {
+  const ended = await markTargetListingEnded(dependencies.database, scope.targetId, reason);
+  logger.info("listing.ended_on_marketplace", {
+    tenantId: scope.tenantId,
+    listingTargetId: scope.targetId,
+    ended,
+  });
 }

@@ -445,6 +445,50 @@ export async function markTargetFailed(
   });
 }
 
+/** A publication can only end while it is on the marketplace. */
+const LIVE_TARGET_STATUSES = ["published", "paused"] as const;
+
+/**
+ * The marketplace closed or deleted the item, so it can never be synced again. The target turns
+ * "error" with the reason: the stock, price and description syncs leave it, and "Reprocessar"
+ * publishes a new item. What was sent to the old item and its creation guard are cleared.
+ * Integrators and the reseller hear about it like any final failure. Returns whether it ended now.
+ */
+export async function markTargetListingEnded(
+  database: Database,
+  listingTargetId: string,
+  reason: string,
+): Promise<boolean> {
+  return database.transaction(async (transaction) => {
+    const [updated] = await transaction
+      .update(listingTargets)
+      .set({
+        status: "error",
+        errorReason: reason,
+        syncedStock: null,
+        syncedPriceCents: null,
+        syncError: null,
+        descriptionError: null,
+        descriptionFailedAt: null,
+        descriptionAttempts: 0,
+        creationStartedAt: null,
+      })
+      .where(
+        and(
+          eq(listingTargets.id, listingTargetId),
+          inArray(listingTargets.status, LIVE_TARGET_STATUSES),
+        ),
+      )
+      .returning(listingEventColumns);
+    if (updated === undefined) {
+      return false;
+    }
+    await recordListingEvent(transaction, "listing.failed", updated);
+    await notifyListingFailed(transaction, listingTargetId, new Date());
+    return true;
+  });
+}
+
 /**
  * The claim a publish job holds: `attempts` only grows, so it tells this run apart from a
  * later one that reclaimed the target after the stalled sweeper and a reprocess.

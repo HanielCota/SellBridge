@@ -329,6 +329,59 @@ describe("publishing", () => {
   });
 });
 
+describe("items closed on Mercado Livre", () => {
+  const closedItemRoutes: Record<string, Responder> = {
+    [`PUT ${API}/items/MLB1/description`]: () => json(400, ERROR_FIXTURES.closedItemDescription),
+    [`PUT ${API}/items/MLB1`]: () => json(400, ERROR_FIXTURES.closedItemUpdate),
+    [`GET ${API}/items/MLB1`]: () => json(200, { ...remoteItem, status: "closed" }),
+  };
+
+  it("reports the listing as ended when a stock update hits a closed item", async () => {
+    const { ml } = connector(closedItemRoutes);
+
+    const update = ml.updateStockPrice(store, { externalId: "MLB1", priceCents: 4990, stock: 0 });
+
+    await expect(update).rejects.toMatchObject({
+      details: { listingEnded: true, retryable: false, status: 400 },
+      message: expect.stringMatching(/^Este anúncio foi encerrado ou excluído no Mercado Livre/),
+    });
+  });
+
+  it("reports the listing as ended when a description resend hits a closed item", async () => {
+    const { ml } = connector(closedItemRoutes);
+
+    const resend = ml.updateDescription(store, { externalId: "MLB1", plainText: "Texto" });
+
+    await expect(resend).rejects.toMatchObject({ details: { listingEnded: true } });
+  });
+
+  it("keeps an ordinary refusal when the item is still active", async () => {
+    const { ml } = connector({
+      [`PUT ${API}/items/MLB1`]: () => json(400, ERROR_FIXTURES.missingRequiredAttributes),
+      [`GET ${API}/items/MLB1`]: () => json(200, remoteItem),
+    });
+
+    const update = ml.updateStockPrice(store, { externalId: "MLB1", stock: 3 });
+
+    await expect(update).rejects.toMatchObject({
+      details: { retryable: false, status: 400 },
+      message: expect.stringMatching(/^Faltam atributos obrigatórios/),
+    });
+    await expect(update).rejects.not.toMatchObject({ details: { listingEnded: true } });
+  });
+
+  it("keeps the refusal when the item's state cannot be read", async () => {
+    const { ml } = connector({
+      [`PUT ${API}/items/MLB1`]: () => json(400, ERROR_FIXTURES.closedItemUpdate),
+      [`GET ${API}/items/MLB1`]: () => json(500, {}),
+    });
+
+    const update = ml.updateStockPrice(store, { externalId: "MLB1", stock: 3 });
+
+    await expect(update).rejects.not.toMatchObject({ details: { listingEnded: true } });
+  });
+});
+
 const rawOrder = {
   id: 2000003508897196,
   status: "paid",
@@ -665,7 +718,7 @@ describe("publication recovery", () => {
     expect(calls.some((call) => call.method === "POST" && call.url === `${API}/items`)).toBe(true);
   });
 
-  it.each([{ seller_id: 123 }, { seller_custom_field: null }, { status: "closed" }])(
+  it.each([{ seller_id: 123 }, { seller_custom_field: null }, { status: "under_review" }])(
     "refuses unsafe recovery: %j",
     async (overrides) => {
       const { ml, calls } = connector({
@@ -678,6 +731,23 @@ describe("publication recovery", () => {
       expect(calls.some((call) => call.url === `${API}/items`)).toBe(false);
     },
   );
+
+  it("publishes a new item when the only match was closed on Mercado Livre", async () => {
+    const { ml, calls } = connector({
+      ...recoveryRoutes,
+      [`GET ${API}/items/MLB1`]: () => json(200, { ...remoteItem, status: "closed" }),
+      [`GET ${API}/sites/MLB/domain_discovery/search`]: () => json(200, [{ category_id: "MLB1" }]),
+      [`POST ${API}/items`]: () => json(201, { id: "MLB2", permalink: null }),
+      [`POST ${API}/items/MLB2/description`]: () => json(201, {}),
+    });
+
+    const result = await ml.publishProduct(store, product);
+
+    expect(result).toMatchObject({ externalId: "MLB2", descriptionError: null });
+    expect(calls.some((call) => call.method === "PUT" && call.url.includes("/items/MLB1"))).toBe(
+      false,
+    );
+  });
 
   it("refuses multiple exact matches", async () => {
     const { ml } = connector({

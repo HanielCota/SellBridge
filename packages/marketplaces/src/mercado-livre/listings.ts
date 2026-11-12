@@ -1,8 +1,8 @@
-import { isAppError } from "@sellbridge/shared/errors";
+import { type AppError, isAppError } from "@sellbridge/shared/errors";
 import { isNoGtin } from "@sellbridge/shared/product-fiscal";
 import { logger } from "@sellbridge/shared/logger";
 import { z } from "zod";
-import { marketplaceError } from "../errors.ts";
+import { marketplaceError, marketplaceListingEndedError } from "../errors.ts";
 import type {
   DescriptionUpdate,
   PublishedListing,
@@ -12,18 +12,81 @@ import type {
   StoreCredentials,
 } from "../types.ts";
 import { type MercadoLivreContext, requestJson } from "./client.ts";
+import { LISTING_ENDED_MESSAGE } from "./error-messages.ts";
 import {
   categoryAttributesSchema,
   conditionalAttributesSchema,
   createdItemSchema,
   domainDiscoverySchema,
   itemSearchSchema,
+  itemStatusSchema,
   reconciledItemSchema,
   sellerCapabilitiesSchema,
 } from "./schemas.ts";
 
 const SITE_ID = "MLB";
 const MAX_TITLE_LENGTH = 60;
+/** Mercado Livre's state for an item closed by the seller, by itself or deleted: it never reopens. */
+const ENDED_ITEM_STATUS = "closed";
+/** States a recovered item may be adopted in. */
+const ADOPTABLE_ITEM_STATUSES: readonly string[] = ["active", "paused"];
+
+/** A refusal that may come from the item's state rather than from the data sent. */
+function mayBeEndedItemRefusal(error: unknown): error is AppError {
+  if (!isAppError(error) || error.code !== "EXTERNAL_PROVIDER") {
+    return false;
+  }
+  return error.details.status === 400 || error.details.status === 404;
+}
+
+/** Whether Mercado Livre shows the item closed; false whenever the reading fails. */
+async function itemHasEnded(
+  context: MercadoLivreContext,
+  store: StoreCredentials,
+  externalId: string,
+): Promise<boolean> {
+  try {
+    const item = await requestJson(context, {
+      schema: itemStatusSchema,
+      path: `/items/${encodeURIComponent(externalId)}`,
+      init: { accessToken: store.accessToken },
+    });
+    return item.status === ENDED_ITEM_STATUS;
+  } catch (error) {
+    logger.warn("mercado_livre.item_state_unknown", {
+      externalShopId: store.externalShopId,
+      externalId,
+      error,
+    });
+    return false;
+  }
+}
+
+/**
+ * Runs an update of a live item. When Mercado Livre refuses it and the item turns out closed,
+ * the refusal becomes a "listing ended" error, so the caller stops syncing it for good; the
+ * refusal's wording alone is not trusted for that.
+ */
+async function updateLiveItem(
+  context: MercadoLivreContext,
+  item: { store: StoreCredentials; externalId: string },
+  update: () => Promise<void>,
+): Promise<void> {
+  try {
+    await update();
+  } catch (error) {
+    if (
+      mayBeEndedItemRefusal(error) &&
+      (await itemHasEnded(context, item.store, item.externalId))
+    ) {
+      throw marketplaceListingEndedError(LISTING_ENDED_MESSAGE, {
+        status: error.details.status ?? null,
+        cause: error,
+      });
+    }
+    throw error;
+  }
+}
 
 async function predictCategory(
   context: MercadoLivreContext,
@@ -139,15 +202,17 @@ export async function updateDescription(
   store: StoreCredentials,
   update: DescriptionUpdate,
 ): Promise<void> {
-  await requestJson(context, {
-    schema: z.unknown(),
-    path: `/items/${encodeURIComponent(update.externalId)}/description?api_version=2`,
-    init: {
-      method: "PUT",
-      accessToken: store.accessToken,
-      headers: { "content-type": "application/json" },
-      body: JSON.stringify({ plain_text: update.plainText }),
-    },
+  await updateLiveItem(context, { store, externalId: update.externalId }, async () => {
+    await requestJson(context, {
+      schema: z.unknown(),
+      path: `/items/${encodeURIComponent(update.externalId)}/description?api_version=2`,
+      init: {
+        method: "PUT",
+        accessToken: store.accessToken,
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ plain_text: update.plainText }),
+      },
+    });
   });
 }
 
@@ -191,11 +256,14 @@ async function findExistingItem(
         { retryable: false },
       );
     }
-    if (item.seller_custom_field === input.idempotencyKey) matches.push(item);
+    // A closed item never sells again: the publication it belonged to ended and gets a new item.
+    if (item.seller_custom_field === input.idempotencyKey && item.status !== ENDED_ITEM_STATUS) {
+      matches.push(item);
+    }
   }
-  if (matches.length > 1 || (matches[0] && !["active", "paused"].includes(matches[0].status))) {
+  if (matches.length > 1 || (matches[0] && !ADOPTABLE_ITEM_STATUSES.includes(matches[0].status))) {
     throw marketplaceError(
-      "A conciliação encontrou anúncios duplicados ou encerrados. Confira-os no Mercado Livre antes de reprocessar.",
+      "A conciliação encontrou anúncios duplicados ou que não estão ativos nem pausados. Confira-os no Mercado Livre antes de reprocessar.",
       { retryable: false },
     );
   }
@@ -369,14 +437,16 @@ export async function updateStockPrice(
   if (Object.keys(body).length === 0) {
     return;
   }
-  await requestJson(context, {
-    schema: z.unknown(),
-    path: `/items/${encodeURIComponent(update.externalId)}`,
-    init: {
-      method: "PUT",
-      accessToken: store.accessToken,
-      headers: { "content-type": "application/json" },
-      body: JSON.stringify(body),
-    },
+  await updateLiveItem(context, { store, externalId: update.externalId }, async () => {
+    await requestJson(context, {
+      schema: z.unknown(),
+      path: `/items/${encodeURIComponent(update.externalId)}`,
+      init: {
+        method: "PUT",
+        accessToken: store.accessToken,
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify(body),
+      },
+    });
   });
 }
