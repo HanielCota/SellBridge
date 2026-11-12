@@ -96,11 +96,15 @@ test("reseller forwards an order and an unauthenticated supplier completes prepa
   await expect(link).toHaveCount(0);
   await dialog.getByRole("button", { name: "Enviar pedido ao fornecedor" }).click();
   await expect(link).toBeVisible();
+  // The step is the supplier's: the reseller records it only after the supplier confirmed it.
+  const resellerStepNote = "Use só se o fornecedor já te confirmou que aceitou o pedido";
+  await expect(dialog.getByText(resellerStepNote)).toBeVisible();
   const supplierUrl = await link.inputValue();
   const supplierContext = await browser.newContext();
   const supplier = await supplierContext.newPage();
   await gotoHydrated(supplier, supplierUrl);
   await expect(supplier.getByRole("heading", { level: 1 })).toHaveText(/^Pedido /);
+  await expect(supplier.getByText(resellerStepNote)).toHaveCount(0);
   for (const status of [
     "Marcar como aceito",
     "Marcar como em separação",
