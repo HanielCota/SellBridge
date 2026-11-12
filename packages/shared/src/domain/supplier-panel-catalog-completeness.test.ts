@@ -183,6 +183,20 @@ describe("evaluateCompleteness fiscal data", () => {
     ]);
   });
 
+  it("asks only for what is still empty, so origin and unit from Marca are not asked again", () => {
+    const report = evaluateCompleteness(product({ fiscal: withoutNcm, fiscalRequired: false }));
+
+    expect(report.fiscal[0]?.message).toBe("Informe NCM. O produto continua à venda.");
+  });
+
+  it("asks for NCM, origin and unit when all three are empty", () => {
+    const report = evaluateCompleteness(
+      product({ fiscal: EMPTY_PRODUCT_FISCAL, fiscalRequired: true }),
+    );
+
+    expect(report.blocking[0]?.message).toBe("Informe NCM, origem e unidade para publicar");
+  });
+
   it("asks nothing fiscal of a product with NCM, origin and unit", () => {
     const fiscal = { ...withoutNcm, ncm: "61091000" };
 

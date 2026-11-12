@@ -108,7 +108,11 @@ export async function listSellerProducts(
     .orderBy(desc(supplierProducts.updatedAt), asc(supplierProducts.id))
     .limit(input.pageSize)
     .offset((input.page - 1) * input.pageSize);
-  return toPaginated(rows.map(withPanelCompleteness), total?.value ?? 0, input);
+  return toPaginated(
+    rows.map((row) => withPanelCompleteness(row)),
+    total?.value ?? 0,
+    input,
+  );
 }
 
 async function lockSellerCatalog(database: DatabaseExecutor, tenantId: string) {

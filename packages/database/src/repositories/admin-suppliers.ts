@@ -12,6 +12,8 @@ import {
   hasRequiredFiscalData,
   icmsOverrideProblem,
   readProductFiscal,
+  withFiscalFallback,
+  type FiscalFallback,
   type ProductFiscalPatch,
   type TaxRegime,
 } from "@sellbridge/shared/product-fiscal";
@@ -30,6 +32,7 @@ import {
 import { timestampOf } from "./sql/raw-values.ts";
 import { matchesEveryWord } from "./sql/search-pattern.ts";
 import { reviewedImportValues } from "./supplier-panel-import-review.ts";
+import { getSupplierFiscalFallback } from "./supplier-brand.ts";
 import { publicSupplier } from "./sql/sellable.ts";
 
 export type AdminSupplier = typeof suppliers.$inferSelect;
@@ -276,7 +279,8 @@ async function fiscalRuleStatus(
   if (stored === undefined || !stored.fiscalRequired || stored.reviewStatus !== "approved") {
     return {};
   }
-  const next = readProductFiscal(fiscal ?? stored.fiscal);
+  const fallback = await getSupplierFiscalFallback(transaction, ids.supplierId);
+  const next = withFiscalFallback(readProductFiscal(fiscal ?? stored.fiscal), fallback);
   return hasRequiredFiscalData(next) ? {} : { reviewStatus: "draft" };
 }
 
@@ -358,6 +362,7 @@ export async function saveAdminSupplierProduct(
     if (duplicate && duplicate.id !== productId) {
       throw conflictError("Já existe um produto com este SKU neste fornecedor");
     }
+    const fiscalFallback = await getSupplierFiscalFallback(transaction, supplierId);
     const [product] = productId
       ? [await updateProduct(transaction, { supplierId, productId }, values, expectedStock)]
       : await transaction
@@ -367,7 +372,9 @@ export async function saveAdminSupplierProduct(
             ...values,
             // A new product needs NF-e data to go on sale; without it the admin saves a draft.
             fiscalRequired: true,
-            ...(hasRequiredFiscalData(readProductFiscal(values.fiscal ?? {}))
+            ...(hasRequiredFiscalData(
+              withFiscalFallback(readProductFiscal(values.fiscal ?? {}), fiscalFallback),
+            )
               ? {}
               : { reviewStatus: "draft" as const }),
           })
@@ -542,13 +549,15 @@ export async function previewSupplierProductImport(
  */
 function withNewProductFiscalRule<
   TProduct extends { sku: string; fiscal?: ProductFiscalPatch | undefined },
->(products: readonly TProduct[], newSkus: readonly string[]) {
+>(products: readonly TProduct[], newSkus: readonly string[], fallback: FiscalFallback | null) {
   const created = new Set(newSkus);
   return products.map((product) => {
     if (!created.has(product.sku)) {
       return { ...product, fiscal: product.fiscal ?? {} };
     }
-    const complete = hasRequiredFiscalData(readProductFiscal(product.fiscal ?? {}));
+    const complete = hasRequiredFiscalData(
+      withFiscalFallback(readProductFiscal(product.fiscal ?? {}), fallback),
+    );
     return {
       ...product,
       fiscal: product.fiscal ?? {},
@@ -586,9 +595,12 @@ export async function importSupplierProducts(
       throw validationError("Corrija os erros do CSV antes de importar");
     }
     const reviewed = await reviewedImportValues(transaction, input, plan.products);
+    const fiscalFallback = await getSupplierFiscalFallback(transaction, input.supplierId);
     const written = await transaction
       .insert(supplierProducts)
-      .values(withNewProductFiscalRule(reviewed?.values ?? plan.products, plan.newSkus))
+      .values(
+        withNewProductFiscalRule(reviewed?.values ?? plan.products, plan.newSkus, fiscalFallback),
+      )
       .onConflictDoUpdate({
         target: [supplierProducts.supplierId, supplierProducts.sku],
         set: {

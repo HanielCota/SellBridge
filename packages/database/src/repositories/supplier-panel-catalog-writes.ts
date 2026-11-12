@@ -21,6 +21,8 @@ import {
   hasRequiredFiscalData,
   icmsOverrideProblem,
   readProductFiscal,
+  withFiscalFallback,
+  type FiscalFallback,
   type ProductFiscal,
   type TaxRegime,
 } from "@sellbridge/shared/product-fiscal";
@@ -29,6 +31,7 @@ import { firstTextWithContact, SUPPLIER_TEXT_CONTACT_REFUSED } from "@sellbridge
 import { and, eq, ne } from "drizzle-orm";
 import type { Database, DatabaseExecutor } from "../client.ts";
 import { categories, supplierProducts, suppliers } from "../schema/index.ts";
+import { getSupplierFiscalFallback } from "./supplier-brand.ts";
 import {
   getSupplierPanelProduct,
   neverListedNorSold,
@@ -136,7 +139,10 @@ function assertIcmsFitsRegime(input: CatalogSaveDraftInput, regime: TaxRegime | 
   }
 }
 
-/** NF-e data as the rules read it; `fiscalRequired` is false for products from before it. */
+/**
+ * NF-e data as the rules read it, origin and unit from Marca filling the product's empty ones;
+ * `fiscalRequired` is false for products from before the rule.
+ */
 interface FiscalState {
   readonly fiscal: ProductFiscal;
   readonly fiscalRequired: boolean;
@@ -168,8 +174,14 @@ function withFiscalRule(next: ProductReviewStatus, fiscalState: FiscalState): Pr
   return hasRequiredFiscalData(fiscalState.fiscal) ? next : "draft";
 }
 
-function storedFiscalState(stored: SupplierPanelProductRow): FiscalState {
-  return { fiscal: readProductFiscal(stored.fiscal), fiscalRequired: stored.fiscalRequired };
+function storedFiscalState(
+  stored: SupplierPanelProductRow,
+  fallback: FiscalFallback | null,
+): FiscalState {
+  return {
+    fiscal: withFiscalFallback(readProductFiscal(stored.fiscal), fallback),
+    fiscalRequired: stored.fiscalRequired,
+  };
 }
 
 /**
@@ -215,9 +227,9 @@ async function updateDraft(
   transaction: DatabaseExecutor,
   stored: SupplierPanelProductRow,
   input: CatalogSaveDraftInput,
-  options: { now: Date; reviewRequired: boolean },
+  options: { now: Date; reviewRequired: boolean; fiscalFallback: FiscalFallback | null },
 ): Promise<void> {
-  const { now, reviewRequired } = options;
+  const { now, reviewRequired, fiscalFallback } = options;
   const values = valuesToWrite(stored, input);
   const changed = changedProductFields(
     { ...stored, fiscal: readProductFiscal(stored.fiscal) },
@@ -228,7 +240,10 @@ async function updateDraft(
     return;
   }
   const categorySlug = await categorySlugOf(transaction, values.categoryId);
-  const fiscalState = { fiscal: values.fiscal, fiscalRequired: stored.fiscalRequired };
+  const fiscalState = {
+    fiscal: withFiscalFallback(values.fiscal, fiscalFallback),
+    fiscalRequired: stored.fiscalRequired,
+  };
   const reviewedNext = withFiscalRule(
     statusAfterEdit({
       current: stored.reviewStatus,
@@ -268,13 +283,15 @@ export async function saveSupplierPanelDraft(
 ): Promise<SupplierPanelProduct> {
   return await database.transaction(async (transaction) => {
     const source = await lockSupplier(transaction, input.supplierId);
-    assertIcmsFitsRegime(input, readSupplierFiscalProfile(source.fiscalProfile)?.regime ?? null);
+    const profile = readSupplierFiscalProfile(source.fiscalProfile);
+    assertIcmsFitsRegime(input, profile?.regime ?? null);
     await assertUniqueSku(transaction, input);
     const stored = await lockProduct(transaction, input);
     if (stored !== undefined) {
       await updateDraft(transaction, stored, input, {
         now,
         reviewRequired: source.catalogKind === "supplier",
+        fiscalFallback: profile?.defaults ?? null,
       });
       return await getSupplierPanelProduct(transaction, input);
     }
@@ -313,9 +330,10 @@ export async function submitSupplierPanelProduct(
     const stored = await lockExistingProduct(transaction, ref);
     assertTextsWithoutContact(stored);
     const categorySlug = await categorySlugOf(transaction, stored.categoryId);
+    const fiscalFallback = await getSupplierFiscalFallback(transaction, ref.supplierId);
     const transition = submitTransition(
       stored.reviewStatus,
-      blockingCount(stored, categorySlug, storedFiscalState(stored)),
+      blockingCount(stored, categorySlug, storedFiscalState(stored, fiscalFallback)),
     );
     if (!transition.allowed) {
       throw validationError(transition.message);

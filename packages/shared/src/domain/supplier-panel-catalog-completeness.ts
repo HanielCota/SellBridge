@@ -39,7 +39,10 @@ export interface CompletenessProduct {
   readonly categoryId: string | null;
   readonly imageUrls: readonly string[];
   readonly mercadoLivreAttributes: Readonly<Record<string, string>>;
-  /** Left out by screens that do not deal with NF-e data (a seller's own products). */
+  /**
+   * Left out by screens that do not deal with NF-e data (a seller's own products). Pass it through
+   * `withFiscalFallback` so origin and unit saved in Marca count as filled in.
+   */
   readonly fiscal?: ProductFiscal;
   /** True for products created after the fiscal fields: publishing needs NCM, origin and unit. */
   readonly fiscalRequired?: boolean;
@@ -111,23 +114,34 @@ function firstMissingFiscalField(fiscal: ProductFiscal): string {
   return "fiscal.unit";
 }
 
+const MISSING_FISCAL_LIST = new Intl.ListFormat("pt-BR", { type: "conjunction" });
+
+/** "NCM, origem e unidade", or only what is still empty: Marca may already give origin and unit. */
+function missingFiscalNames(fiscal: ProductFiscal): string {
+  const names = [
+    fiscal.ncm === null ? "NCM" : null,
+    fiscal.origin === null ? "origem" : null,
+    fiscal.unit === null ? "unidade" : null,
+  ].filter((name) => name !== null);
+  return MISSING_FISCAL_LIST.format(names);
+}
+
 function fiscalRules(product: CompletenessProduct): Rule[] {
   if (product.fiscal === undefined) {
     return [];
   }
   const passes = hasRequiredFiscalData(product.fiscal);
   const field = firstMissingFiscalField(product.fiscal);
+  const missing = missingFiscalNames(product.fiscal);
   if (product.fiscalRequired === true) {
-    return [
-      blockingRule(field, "fiscal_required", "Informe NCM, origem e unidade para publicar", passes),
-    ];
+    return [blockingRule(field, "fiscal_required", `Informe ${missing} para publicar`, passes)];
   }
   return [
     {
       field,
       rule: "fiscal_recommended",
       severity: "fiscal",
-      message: "Informe NCM, origem e unidade. O produto continua à venda.",
+      message: `Informe ${missing}. O produto continua à venda.`,
       passes,
     },
   ];
