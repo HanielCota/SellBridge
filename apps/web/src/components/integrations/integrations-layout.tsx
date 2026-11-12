@@ -34,7 +34,7 @@ function DocumentationLinks() {
  */
 export function IntegrationsLayout({ children }: { children: ReactNode }) {
   return (
-    <div className="mx-auto w-full max-w-4xl space-y-8">
+    <div className="space-y-8">
       <PageHeader
         title="Integrações"
         description="Conecte seu ERP, planilhas ou sistema próprio ao SellBridge pela API: consulte catálogo, anúncios, pedidos e finanças e publique anúncios sem abrir o app."
