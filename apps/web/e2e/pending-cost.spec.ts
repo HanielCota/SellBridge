@@ -1,7 +1,7 @@
 import { randomUUID } from "node:crypto";
 import { expect, test } from "@playwright/test";
 import { organization, orderItems, orders, storeConnections } from "@sellbridge/database/schema";
-import { eq } from "drizzle-orm";
+import { and, eq } from "drizzle-orm";
 import { DEMO_USER, gotoHydrated, signIn } from "./helpers";
 import { e2eDatabase } from "./database";
 
@@ -22,7 +22,7 @@ test.beforeAll(async () => {
   const [store] = await database
     .select()
     .from(storeConnections)
-    .where(eq(storeConnections.tenantId, tenant.id));
+    .where(and(eq(storeConnections.tenantId, tenant.id), eq(storeConnections.manual, false)));
   if (!store) throw new Error("Seed store missing");
   const [created] = await database
     .insert(orders)

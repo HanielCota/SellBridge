@@ -49,6 +49,7 @@ import { Route as AppFornecedoresIndexRouteImport } from './routes/_app/forneced
 import { Route as AppFornecedoresSupplierIdRouteImport } from './routes/_app/fornecedores/$supplierId'
 import { Route as AppPedidosIndexRouteImport } from './routes/_app/pedidos/index'
 import { Route as AppPedidosOrderIdRouteImport } from './routes/_app/pedidos/$orderId'
+import { Route as AppPedidosVendaManualRouteImport } from './routes/_app/pedidos/venda-manual'
 import { Route as AppPublicacoesIndexRouteImport } from './routes/_app/publicacoes/index'
 import { Route as AppPublicacoesNovaRouteImport } from './routes/_app/publicacoes/nova'
 import { Route as AppSuporteIndexRouteImport } from './routes/_app/suporte/index'
@@ -328,6 +329,11 @@ const AppPedidosIndexRoute = AppPedidosIndexRouteImport.update({
 const AppPedidosOrderIdRoute = AppPedidosOrderIdRouteImport.update({
   id: '/pedidos/$orderId',
   path: '/pedidos/$orderId',
+  getParentRoute: () => AppRouteRoute,
+} as any)
+const AppPedidosVendaManualRoute = AppPedidosVendaManualRouteImport.update({
+  id: '/pedidos/venda-manual',
+  path: '/pedidos/venda-manual',
   getParentRoute: () => AppRouteRoute,
 } as any)
 const AppPublicacoesIndexRoute = AppPublicacoesIndexRouteImport.update({
@@ -815,6 +821,7 @@ export interface FileRoutesByFullPath {
   '/financeiro/relatorio': typeof AppFinanceiroRelatorioRoute
   '/fornecedores/$supplierId': typeof AppFornecedoresSupplierIdRoute
   '/pedidos/$orderId': typeof AppPedidosOrderIdRoute
+  '/pedidos/venda-manual': typeof AppPedidosVendaManualRoute
   '/publicacoes/nova': typeof AppPublicacoesNovaRoute
   '/suporte/$ticketId': typeof AppSuporteTicketIdRoute
   '/suporte/novo': typeof AppSuporteNovoRoute
@@ -932,6 +939,7 @@ export interface FileRoutesByTo {
   '/financeiro/relatorio': typeof AppFinanceiroRelatorioRoute
   '/fornecedores/$supplierId': typeof AppFornecedoresSupplierIdRoute
   '/pedidos/$orderId': typeof AppPedidosOrderIdRoute
+  '/pedidos/venda-manual': typeof AppPedidosVendaManualRoute
   '/publicacoes/nova': typeof AppPublicacoesNovaRoute
   '/suporte/$ticketId': typeof AppSuporteTicketIdRoute
   '/suporte/novo': typeof AppSuporteNovoRoute
@@ -1055,6 +1063,7 @@ export interface FileRoutesById {
   '/_app/financeiro_/relatorio': typeof AppFinanceiroRelatorioRoute
   '/_app/fornecedores/$supplierId': typeof AppFornecedoresSupplierIdRoute
   '/_app/pedidos/$orderId': typeof AppPedidosOrderIdRoute
+  '/_app/pedidos/venda-manual': typeof AppPedidosVendaManualRoute
   '/_app/publicacoes/nova': typeof AppPublicacoesNovaRoute
   '/_app/suporte/$ticketId': typeof AppSuporteTicketIdRoute
   '/_app/suporte/novo': typeof AppSuporteNovoRoute
@@ -1177,6 +1186,7 @@ export interface FileRouteTypes {
     | '/financeiro/relatorio'
     | '/fornecedores/$supplierId'
     | '/pedidos/$orderId'
+    | '/pedidos/venda-manual'
     | '/publicacoes/nova'
     | '/suporte/$ticketId'
     | '/suporte/novo'
@@ -1294,6 +1304,7 @@ export interface FileRouteTypes {
     | '/financeiro/relatorio'
     | '/fornecedores/$supplierId'
     | '/pedidos/$orderId'
+    | '/pedidos/venda-manual'
     | '/publicacoes/nova'
     | '/suporte/$ticketId'
     | '/suporte/novo'
@@ -1416,6 +1427,7 @@ export interface FileRouteTypes {
     | '/_app/financeiro_/relatorio'
     | '/_app/fornecedores/$supplierId'
     | '/_app/pedidos/$orderId'
+    | '/_app/pedidos/venda-manual'
     | '/_app/publicacoes/nova'
     | '/_app/suporte/$ticketId'
     | '/_app/suporte/novo'
@@ -1841,6 +1853,13 @@ declare module '@tanstack/react-router' {
       path: '/pedidos/$orderId'
       fullPath: '/pedidos/$orderId'
       preLoaderRoute: typeof AppPedidosOrderIdRouteImport
+      parentRoute: typeof AppRouteRoute
+    }
+    '/_app/pedidos/venda-manual': {
+      id: '/_app/pedidos/venda-manual'
+      path: '/pedidos/venda-manual'
+      fullPath: '/pedidos/venda-manual'
+      preLoaderRoute: typeof AppPedidosVendaManualRouteImport
       parentRoute: typeof AppRouteRoute
     }
     '/_app/publicacoes/': {
@@ -2527,6 +2546,7 @@ interface AppRouteRouteChildren {
   AppFornecedorPainelRouteRoute: typeof AppFornecedorPainelRouteRouteWithChildren
   AppFinanceiroRelatorioRoute: typeof AppFinanceiroRelatorioRoute
   AppPedidosOrderIdRoute: typeof AppPedidosOrderIdRoute
+  AppPedidosVendaManualRoute: typeof AppPedidosVendaManualRoute
   AppPublicacoesNovaRoute: typeof AppPublicacoesNovaRoute
   AppSuporteTicketIdRoute: typeof AppSuporteTicketIdRoute
   AppSuporteNovoRoute: typeof AppSuporteNovoRoute
@@ -2554,6 +2574,7 @@ const AppRouteRouteChildren: AppRouteRouteChildren = {
   AppFornecedorPainelRouteRoute: AppFornecedorPainelRouteRouteWithChildren,
   AppFinanceiroRelatorioRoute: AppFinanceiroRelatorioRoute,
   AppPedidosOrderIdRoute: AppPedidosOrderIdRoute,
+  AppPedidosVendaManualRoute: AppPedidosVendaManualRoute,
   AppPublicacoesNovaRoute: AppPublicacoesNovaRoute,
   AppSuporteTicketIdRoute: AppSuporteTicketIdRoute,
   AppSuporteNovoRoute: AppSuporteNovoRoute,

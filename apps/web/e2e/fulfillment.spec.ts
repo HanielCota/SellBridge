@@ -33,7 +33,7 @@ test.beforeAll(async () => {
   const [store] = await database
     .select()
     .from(storeConnections)
-    .where(eq(storeConnections.tenantId, tenant.id));
+    .where(and(eq(storeConnections.tenantId, tenant.id), eq(storeConnections.manual, false)));
   const product = await forwardableProduct(database);
   if (!store || !product) throw new Error("Seed catalog missing");
   const [order] = await database

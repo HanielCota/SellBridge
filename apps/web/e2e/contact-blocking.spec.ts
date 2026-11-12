@@ -91,7 +91,7 @@ async function paidOrderOfDemoSeller(): Promise<string> {
   const [store] = await database
     .select()
     .from(storeConnections)
-    .where(eq(storeConnections.tenantId, tenant.id));
+    .where(and(eq(storeConnections.tenantId, tenant.id), eq(storeConnections.manual, false)));
   const [product] = await database
     .insert(supplierProducts)
     .values({

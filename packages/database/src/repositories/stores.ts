@@ -1,5 +1,6 @@
 import { assertBillingCapacity, lockBillingTenant } from "./billing.ts";
 import { conflictError, notFoundError } from "@sellbridge/shared/errors";
+import type { ManualSaleChannel } from "@sellbridge/shared/schemas";
 import { and, asc, eq, inArray, isNotNull, isNull, gt, lt, ne, or, sql } from "drizzle-orm";
 import type { Database, DatabaseExecutor } from "../client.ts";
 import { isUniqueViolation } from "../postgres-errors.ts";
@@ -47,7 +48,11 @@ export async function listStoreConnections(
     .select(summaryColumns)
     .from(storeConnections)
     .where(
-      and(eq(storeConnections.tenantId, tenantId), ne(storeConnections.status, "disconnected")),
+      and(
+        eq(storeConnections.tenantId, tenantId),
+        ne(storeConnections.status, "disconnected"),
+        eq(storeConnections.manual, false),
+      ),
     )
     .orderBy(asc(storeConnections.connectedAt), asc(storeConnections.id));
 }
@@ -69,8 +74,57 @@ export async function findConnectedStores(
         eq(storeConnections.tenantId, tenantId),
         inArray(storeConnections.id, [...storeConnectionIds]),
         eq(storeConnections.status, "connected"),
+        eq(storeConnections.manual, false),
       ),
     );
+}
+
+const MANUAL_STORE_NAMES: Readonly<Record<ManualSaleChannel, string>> = {
+  shopee: "Shopee (vendas manuais)",
+  tiktok_shop: "TikTok Shop (vendas manuais)",
+};
+
+/**
+ * The tenant's manual store for a channel, created on its first manual sale. Its shop id carries
+ * the tenant id because a shop id is unique per marketplace across all organizations.
+ */
+export async function ensureManualStore(
+  database: DatabaseExecutor,
+  tenantId: string,
+  channel: ManualSaleChannel,
+): Promise<string> {
+  const externalShopId = `manual-${tenantId}`;
+  await database
+    .insert(storeConnections)
+    .values({
+      tenantId,
+      marketplace: channel,
+      externalShopId,
+      shopName: MANUAL_STORE_NAMES[channel],
+      manual: true,
+    })
+    .onConflictDoNothing({
+      target: [
+        storeConnections.tenantId,
+        storeConnections.marketplace,
+        storeConnections.externalShopId,
+      ],
+    });
+  const [store] = await database
+    .select({ id: storeConnections.id })
+    .from(storeConnections)
+    .where(
+      and(
+        eq(storeConnections.tenantId, tenantId),
+        eq(storeConnections.marketplace, channel),
+        eq(storeConnections.externalShopId, externalShopId),
+        eq(storeConnections.manual, true),
+      ),
+    );
+  if (store === undefined) {
+    throw new Error(`Manual store for ${channel} could not be created`);
+  }
+  return store.id;
 }
 
 export interface UpsertStoreConnectionInput {

@@ -15,7 +15,7 @@ import {
   storeConnections,
   user,
 } from "@sellbridge/database/schema";
-import { eq } from "drizzle-orm";
+import { and, eq } from "drizzle-orm";
 import { forwardableProduct } from "./catalog-fixtures";
 import { DEMO_USER, gotoHydrated, signIn } from "./helpers";
 import { e2eDatabase } from "./database";
@@ -38,7 +38,10 @@ async function forwardedOrder() {
     .from(organization)
     .where(eq(organization.slug, "ana-revendedora-demo"));
   const [store] = tenant
-    ? await database.select().from(storeConnections).where(eq(storeConnections.tenantId, tenant.id))
+    ? await database
+        .select()
+        .from(storeConnections)
+        .where(and(eq(storeConnections.tenantId, tenant.id), eq(storeConnections.manual, false)))
     : [];
   const product = await forwardableProduct(database);
   if (!tenant || !store || !product) throw new Error("Seed demo missing");

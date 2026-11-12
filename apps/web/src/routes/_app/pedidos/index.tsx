@@ -6,8 +6,8 @@ import {
   type OrderReviewSearch,
 } from "@sellbridge/shared/schemas";
 import { useQuery, type QueryClient } from "@tanstack/react-query";
-import { createFileRoute, useNavigate, useRouter } from "@tanstack/react-router";
-import { ReceiptIcon } from "@phosphor-icons/react";
+import { createFileRoute, Link, useNavigate, useRouter } from "@tanstack/react-router";
+import { PlusIcon, ReceiptIcon } from "@phosphor-icons/react";
 import { useCallback, useState } from "react";
 import type { z } from "zod";
 import { ChoiceChips } from "@/components/data/choice-chips";
@@ -27,6 +27,7 @@ import { OrderStatusBadge } from "@/components/reports/order-status-badge";
 import { ORDER_STATUS_HINTS } from "@/components/icons/action-icons";
 import { HintedText } from "@/components/ui/hint";
 import { SupplierLogo } from "@/components/suppliers/supplier-logo";
+import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { operationsQueryOptions } from "@/features/fulfillment/fulfillment.queries";
 import type { listOrderReviews } from "@/features/orders/orders.functions";
@@ -96,6 +97,18 @@ const VIEW_TABS: readonly FilterTab<OrdersSearch["view"]>[] = [
   { value: "tracking", label: "Rastreio" },
 ];
 
+/** Sales from Shopee and TikTok Shop, which have no integration yet, are registered by hand. */
+function ManualSaleLink() {
+  return (
+    <Button asChild variant="outline">
+      <Link to="/pedidos/venda-manual">
+        <PlusIcon aria-hidden="true" />
+        Registrar venda manual
+      </Link>
+    </Button>
+  );
+}
+
 function OrdersPage() {
   const [target, setTarget] = useState<ReviewTarget | null>(null);
   const search = Route.useSearch();
@@ -119,6 +132,7 @@ function OrdersPage() {
       <PageHeader
         title="Pedidos"
         description="Encaminhe vendas aos fornecedores, acompanhe a separação, imprima etiquetas e consulte o rastreio."
+        actions={<ManualSaleLink />}
       />
       <UnderlineTabs
         legend="Visão dos pedidos"

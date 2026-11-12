@@ -10,7 +10,7 @@ import {
   storeConnections,
   suppliers,
 } from "@sellbridge/database/schema";
-import { eq } from "drizzle-orm";
+import { and, eq } from "drizzle-orm";
 import { forwardableProduct } from "./catalog-fixtures";
 import { e2eDatabase } from "./database";
 import { DEMO_USER, gotoHydrated, signIn } from "./helpers";
@@ -37,7 +37,7 @@ test.beforeAll(async () => {
   const [store] = await database
     .select()
     .from(storeConnections)
-    .where(eq(storeConnections.tenantId, tenant.id));
+    .where(and(eq(storeConnections.tenantId, tenant.id), eq(storeConnections.manual, false)));
   const product = await forwardableProduct(database);
   if (!store || !product) throw new Error("Seed catalog missing");
   storeName = store.shopName;

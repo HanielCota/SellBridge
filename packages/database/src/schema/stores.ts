@@ -1,5 +1,5 @@
 import { sql } from "drizzle-orm";
-import { index, pgTable, text, timestamp, uniqueIndex, uuid } from "drizzle-orm/pg-core";
+import { boolean, index, pgTable, text, timestamp, uniqueIndex, uuid } from "drizzle-orm/pg-core";
 import { organization } from "./auth.ts";
 import { marketplaceEnum, storeConnectionStatusEnum } from "./enums.ts";
 import { suppliers } from "./suppliers.ts";
@@ -27,6 +27,11 @@ export const storeConnections = pgTable(
     lastError: text(),
     /** When the marketplace last sent an event about this shop (store health on /lojas). */
     lastWebhookAt: timestamp({ withTimezone: true }),
+    /**
+     * A channel with no integration (Shopee, TikTok Shop) where the reseller registers sales by
+     * hand: no tokens, never synced, not counted as a store on the plan and not listed on /lojas.
+     */
+    manual: boolean().notNull().default(false),
     connectedAt: timestamp({ withTimezone: true }).defaultNow().notNull(),
     updatedAt: timestamp({ withTimezone: true })
       .defaultNow()

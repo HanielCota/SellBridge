@@ -8,7 +8,7 @@ import {
   storeConnections,
   supplierProducts,
 } from "@sellbridge/database/schema";
-import { eq } from "drizzle-orm";
+import { and, eq } from "drizzle-orm";
 import { gotoHydrated } from "./helpers";
 import { e2eDatabase } from "./database";
 import { giveTestBrand, supplierAccounts } from "./supplier-accounts";
@@ -38,7 +38,7 @@ async function readySale(supplierId: string, productId: string) {
   const [store] = await database
     .select()
     .from(storeConnections)
-    .where(eq(storeConnections.tenantId, tenant.id));
+    .where(and(eq(storeConnections.tenantId, tenant.id), eq(storeConnections.manual, false)));
   if (!store || store.marketplace !== "mercado_livre") throw new Error("Seed ML store missing");
   const [order] = await database
     .insert(orders)

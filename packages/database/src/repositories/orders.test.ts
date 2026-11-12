@@ -17,8 +17,9 @@ import {
 } from "../testing/fixtures.ts";
 import { findTargetsNeedingSync, markTargetSynced } from "./listing-sync.ts";
 import { createListingWithTargets, markTargetPublished } from "./listings.ts";
-import { upsertMarketplaceOrder } from "./orders.ts";
-import { upsertStoreConnection } from "./stores.ts";
+import { billingUsage } from "./billing.ts";
+import { recordManualOrder, upsertMarketplaceOrder } from "./orders.ts";
+import { ensureManualStore, listStoreConnections, upsertStoreConnection } from "./stores.ts";
 
 const database = createTestDatabase();
 let tenants: Awaited<ReturnType<typeof createTestTenantPair>>;
@@ -404,5 +405,82 @@ describe("marketplace orders and sync", () => {
     expect(
       (await findTargetsNeedingSync(database, 500)).map((target) => target.targetId),
     ).not.toContain(targetId);
+  });
+});
+
+describe("recordManualOrder", () => {
+  it("records a paid order on the channel's manual store with the product cost and its stock", async () => {
+    const storeId = await ensureManualStore(database, tenantB, "shopee");
+    const [before] = await database
+      .select({ reserved: supplierProducts.reservedStock })
+      .from(supplierProducts)
+      .where(eq(supplierProducts.id, productId));
+    const externalOrderId = `SHOPEE-${randomUUID()}`;
+
+    const result = await recordManualOrder(database, tenantB, storeId, {
+      externalOrderId,
+      buyerName: "Compradora Shopee",
+      orderedAt: new Date("2026-11-11T21:00:00Z"),
+      items: [
+        {
+          supplierProductId: productId,
+          title: "Produto F4",
+          quantity: 2,
+          unitPriceCents: 3990,
+          costCents: 1500,
+        },
+      ],
+    });
+
+    const [order] = await database.select().from(orders).where(eq(orders.id, result.orderId));
+    expect(order).toMatchObject({
+      status: "paid",
+      totalCents: 7980,
+      buyerName: "Compradora Shopee",
+    });
+    const items = await database
+      .select({ productId: orderItems.supplierProductId, cost: orderItems.unitCostCents })
+      .from(orderItems)
+      .where(eq(orderItems.orderId, result.orderId));
+    expect(items).toEqual([{ productId, cost: 1500 }]);
+    const [after] = await database
+      .select({ reserved: supplierProducts.reservedStock })
+      .from(supplierProducts)
+      .where(eq(supplierProducts.id, productId));
+    expect((after?.reserved ?? 0) - (before?.reserved ?? 0)).toBe(2);
+  });
+
+  it("refuses a second sale with the same number on the same channel", async () => {
+    const storeId = await ensureManualStore(database, tenantB, "tiktok_shop");
+    const sale = {
+      externalOrderId: `TIKTOK-${randomUUID()}`,
+      buyerName: "Comprador TikTok",
+      orderedAt: new Date("2026-11-11T21:00:00Z"),
+      items: [
+        {
+          supplierProductId: productId,
+          title: "Produto F4",
+          quantity: 1,
+          unitPriceCents: 3990,
+          costCents: 1500,
+        },
+      ],
+    };
+    await recordManualOrder(database, tenantB, storeId, sale);
+
+    await expect(recordManualOrder(database, tenantB, storeId, sale)).rejects.toThrow(
+      /Já existe uma venda com o número/,
+    );
+  });
+
+  it("keeps manual stores off the store list and the plan's store count", async () => {
+    const first = await ensureManualStore(database, tenantB, "shopee");
+
+    const second = await ensureManualStore(database, tenantB, "shopee");
+
+    expect(second).toBe(first);
+    const listed = await listStoreConnections(database, tenantB);
+    expect(listed.map((store) => store.id)).not.toContain(first);
+    expect((await billingUsage(database, tenantB)).stores).toBe(listed.length);
   });
 });
