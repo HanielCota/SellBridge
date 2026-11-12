@@ -53,6 +53,21 @@ describe("createMailer", () => {
     expect(JSON.stringify(logs.info.mock.calls)).not.toContain(email.to);
   });
 
+  it("sends attachments to Resend as base64 with their file names", async () => {
+    const fetcher = vi.fn<typeof fetch>(async () => new Response("{}", { status: 200 }));
+    const attachment = { filename: "nfe-1234.xml", content: new TextEncoder().encode("<nfe/>") };
+
+    await createMailer({ apiKey: "re_test", from, production: true, fetch: fetcher })({
+      ...email,
+      attachments: [attachment],
+    });
+
+    const [, init] = fetcher.mock.calls[0] ?? [];
+    expect(JSON.parse(typeof init?.body === "string" ? init.body : "")).toMatchObject({
+      attachments: [{ filename: "nfe-1234.xml", content: btoa("<nfe/>") }],
+    });
+  });
+
   it.each([
     [422, false],
     [429, true],
