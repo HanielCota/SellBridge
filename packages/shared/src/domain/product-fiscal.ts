@@ -229,6 +229,30 @@ export function hasRequiredFiscalData(fiscal: ProductFiscal): boolean {
   return fiscal.ncm !== null && fiscal.origin !== null && fiscal.unit !== null;
 }
 
+/** The origin and unit the supplier saved in Marca: the NF-e uses them when a product has none. */
+export interface FiscalFallback {
+  readonly origin: NonNullable<ProductFiscal["origin"]>;
+  readonly unit: NonNullable<ProductFiscal["unit"]>;
+}
+
+/**
+ * The product's NF-e data as the note will read it: its own origin and unit, else the supplier's.
+ * Only for checking what is missing; what is stored stays the product's own.
+ */
+export function withFiscalFallback(
+  fiscal: ProductFiscal,
+  fallback: FiscalFallback | null,
+): ProductFiscal {
+  if (fallback === null) {
+    return fiscal;
+  }
+  return {
+    ...fiscal,
+    origin: fiscal.origin ?? fallback.origin,
+    unit: fiscal.unit ?? fallback.unit,
+  };
+}
+
 /** "64029990" → "6402.99.90", the mask the form shows. */
 export function formatNcm(ncm: string): string {
   const digits = digitsOf(ncm);

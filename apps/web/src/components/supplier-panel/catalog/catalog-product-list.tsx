@@ -245,6 +245,7 @@ export function CatalogProductList({
       <MissingFiscalNotice
         count={query.data?.missingFiscalCount ?? 0}
         filtering={search.fiscal === "missing"}
+        brandHasFiscalDefaults={query.data?.brandHasFiscalDefaults ?? false}
         onFilterChange={(filtering) => onSearchChange(fiscalFilter(filtering))}
       />
       <CatalogFilters counts={query.data?.counts} search={search} onSearchChange={onSearchChange} />

@@ -1,5 +1,6 @@
 import { expect, test } from "@playwright/test";
 import { categories, supplierProducts, suppliers } from "@sellbridge/database/schema";
+import { suggestedTaxDefaults } from "@sellbridge/shared/supplier-fiscal";
 import { eq } from "drizzle-orm";
 import { e2eDatabase } from "./database";
 import { DEMO_USER, gotoHydrated, signIn } from "./helpers";
@@ -95,6 +96,64 @@ test("um produto de antes continua à venda e a lista avisa que falta NCM", asyn
   await notice.getByRole("button", { name: "Completar" }).click();
   await expect(page).toHaveURL(/fiscal=missing/);
   await expect(notice.getByRole("button", { name: "Ver todos os produtos" })).toBeVisible();
+});
+
+/** Marca's fiscal data with origin 0 and unit UN, as the supplier saves it in "Dados fiscais". */
+async function giveFiscalDefaults(supplierId: string) {
+  await database
+    .update(suppliers)
+    .set({
+      fiscalProfile: {
+        cnpj: "11222333000181",
+        legalName: "Marca Padrão Teste Ltda",
+        stateRegistration: "ISENTO",
+        regime: "simples",
+        address: {
+          cep: "35500024",
+          street: "Rua Goiás",
+          number: "120",
+          complement: "",
+          neighborhood: "Centro",
+          city: "Divinópolis",
+          state: "MG",
+          ibgeCode: "3122306",
+        },
+        defaults: suggestedTaxDefaults("simples"),
+      },
+    })
+    .where(eq(suppliers.id, supplierId));
+}
+
+test("com origem e unidade na Marca, o produto de antes pede só o NCM", async ({ page }) => {
+  const email = await accounts.signUp(page, `Fornecedor padrão ${stamp}`);
+  const supplierId = await giveTestBrand(database, email, `Marca padrão ${stamp}`);
+  await giveFiscalDefaults(supplierId);
+  const productId = await draftWithoutNcm(supplierId, `PAD-${stamp}`, false);
+
+  await gotoHydrated(page, "/fornecedor/painel/produtos");
+  const notice = page.getByRole("region", { name: "Produtos sem dados fiscais" });
+  await expect(
+    notice.getByText("preencha o NCM para poder emitir nota", { exact: false }),
+  ).toBeVisible();
+
+  await gotoHydrated(page, `/fornecedor/painel/produtos?product=${productId}&field=fiscal.ncm`);
+  const fiscal = page.getByRole("group", { name: "Dados fiscais (vão na nota fiscal)" });
+  await expect(page.getByText("Informe NCM. O produto continua à venda.").first()).toBeVisible();
+  await expect(fiscal.getByText("Padrão da Marca: 0 – Nacional", { exact: true })).toBeVisible();
+  await fiscal.getByLabel("NCM (código fiscal do produto, 8 números)").fill("94055000");
+  const storedFiscal = async () => {
+    const [stored] = await database
+      .select({ fiscal: supplierProducts.fiscal })
+      .from(supplierProducts)
+      .where(eq(supplierProducts.id, productId));
+    return stored?.fiscal ?? null;
+  };
+  await expect.poll(storedFiscal).toMatchObject({ ncm: "94055000" });
+
+  await gotoHydrated(page, "/fornecedor/painel/produtos");
+  await expect(page.getByText(`PAD-${stamp}`).filter({ visible: true }).first()).toBeVisible();
+  await expect(notice).toHaveCount(0);
+  expect(await storedFiscal()).toMatchObject({ ncm: "94055000", origin: null, unit: null });
 });
 
 test("a marca guarda os dados fiscais da empresa com o endereço pelo CEP", async ({ page }) => {

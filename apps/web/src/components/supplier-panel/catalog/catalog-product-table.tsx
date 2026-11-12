@@ -188,7 +188,7 @@ function catalogColumns(
             score={information.row.original.completeness.score}
             blocking={information.row.original.completeness.blocking.length}
           />
-          <MissingFiscalBadge fiscal={information.row.original.fiscal} />
+          <MissingFiscalBadge completeness={information.row.original.completeness} />
         </div>
       ),
     }),
@@ -238,7 +238,7 @@ function MobileProductRow({
           score={product.completeness.score}
           blocking={product.completeness.blocking.length}
         />
-        <MissingFiscalBadge fiscal={product.fiscal} />
+        <MissingFiscalBadge completeness={product.completeness} />
       </div>
       <ProductActions product={product} onOpen={onOpen} />
     </div>

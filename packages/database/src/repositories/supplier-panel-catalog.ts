@@ -14,11 +14,16 @@ import {
   PRODUCT_REVIEW_STATUSES,
   type ProductReviewStatus,
 } from "@sellbridge/shared/supplier-panel-catalog-status";
-import { readProductFiscal } from "@sellbridge/shared/product-fiscal";
+import {
+  readProductFiscal,
+  withFiscalFallback,
+  type FiscalFallback,
+} from "@sellbridge/shared/product-fiscal";
 import { and, asc, count, desc, eq, sql, type AnyColumn } from "drizzle-orm";
 import type { DatabaseExecutor } from "../client.ts";
 import { categories, listings, orderItems, supplierProducts, suppliers } from "../schema/index.ts";
 import { matchesEveryWord } from "./sql/search-pattern.ts";
+import { getSupplierFiscalFallback } from "./supplier-brand.ts";
 
 export type SupplierPanelProductRow = typeof supplierProducts.$inferSelect;
 
@@ -42,14 +47,27 @@ export const neverListedNorSold = sql<boolean>`not exists (select 1 from ${listi
 
 export type SupplierPanelStatusCounts = Record<ProductReviewStatus | "all", number>;
 
-/** A product without NCM, origin or unit: its NF-e cannot be issued yet. */
-export const missingFiscalData = sql<boolean>`(${supplierProducts.fiscal} ->> 'ncm' is null or ${supplierProducts.fiscal} ->> 'origin' is null or ${supplierProducts.fiscal} ->> 'unit' is null)`;
+/**
+ * A product whose NF-e cannot be issued yet: no NCM, or no origin or unit while Marca has none
+ * to lend it either.
+ */
+function missingFiscalData(fallback: FiscalFallback | null) {
+  const noNcm = sql<boolean>`${supplierProducts.fiscal} ->> 'ncm' is null`;
+  if (fallback !== null) {
+    return noNcm;
+  }
+  return sql<boolean>`(${noNcm} or ${supplierProducts.fiscal} ->> 'origin' is null or ${supplierProducts.fiscal} ->> 'unit' is null)`;
+}
 
-async function countMissingFiscal(database: DatabaseExecutor, supplierId: string): Promise<number> {
+async function countMissingFiscal(
+  database: DatabaseExecutor,
+  supplierId: string,
+  fallback: FiscalFallback | null,
+): Promise<number> {
   const [row] = await database
     .select({ value: count() })
     .from(supplierProducts)
-    .where(and(eq(supplierProducts.supplierId, supplierId), missingFiscalData));
+    .where(and(eq(supplierProducts.supplierId, supplierId), missingFiscalData(fallback)));
   return row?.value ?? 0;
 }
 
@@ -67,17 +85,23 @@ export const panelProductColumns = {
   categorySlug: categories.slug,
 };
 
-export function withPanelCompleteness(row: {
-  product: SupplierPanelProductRow;
-  categoryName: string | null;
-  categorySlug: string | null;
-}): SupplierPanelProduct {
+export function withPanelCompleteness(
+  row: {
+    product: SupplierPanelProductRow;
+    categoryName: string | null;
+    categorySlug: string | null;
+  },
+  fiscalFallback: FiscalFallback | null = null,
+): SupplierPanelProduct {
   return {
     ...row.product,
     categoryName: row.categoryName,
     categorySlug: row.categorySlug,
     completeness: evaluateCompleteness(
-      { ...row.product, fiscal: readProductFiscal(row.product.fiscal) },
+      {
+        ...row.product,
+        fiscal: withFiscalFallback(readProductFiscal(row.product.fiscal), fiscalFallback),
+      },
       requiredAttributesFor(row.categorySlug),
     ),
   };
@@ -99,9 +123,13 @@ export async function assertPanelSupplier(
 async function countByStatus(
   database: DatabaseExecutor,
   supplierId: string,
-  filters: { query: string | undefined; onlyMissingFiscal: boolean },
+  filters: {
+    query: string | undefined;
+    onlyMissingFiscal: boolean;
+    fiscalFallback: FiscalFallback | null;
+  },
 ): Promise<SupplierPanelStatusCounts> {
-  const { query, onlyMissingFiscal } = filters;
+  const { query, onlyMissingFiscal, fiscalFallback } = filters;
   const rows = await database
     .select({ status: supplierProducts.reviewStatus, value: count() })
     .from(supplierProducts)
@@ -111,7 +139,7 @@ async function countByStatus(
         query === undefined
           ? undefined
           : matchesEveryWord(query, [supplierProducts.sku, supplierProducts.title]),
-        onlyMissingFiscal ? missingFiscalData : undefined,
+        onlyMissingFiscal ? missingFiscalData(fiscalFallback) : undefined,
       ),
     )
     .groupBy(supplierProducts.reviewStatus);
@@ -135,13 +163,14 @@ export async function listSupplierPanelProducts(
   input: CatalogListSearch & { supplierId: string },
 ) {
   await assertPanelSupplier(database, input.supplierId);
+  const fiscalFallback = await getSupplierFiscalFallback(database, input.supplierId);
   const condition = and(
     eq(supplierProducts.supplierId, input.supplierId),
     input.status === "all" ? undefined : eq(supplierProducts.reviewStatus, input.status),
     input.query === undefined
       ? undefined
       : matchesEveryWord(input.query, [supplierProducts.sku, supplierProducts.title]),
-    input.fiscal === "missing" ? missingFiscalData : undefined,
+    input.fiscal === "missing" ? missingFiscalData(fiscalFallback) : undefined,
   );
   const order = input.direction === "asc" ? asc : desc;
   const [rows, counts, missingFiscalCount] = await Promise.all([
@@ -156,14 +185,15 @@ export async function listSupplierPanelProducts(
     countByStatus(database, input.supplierId, {
       query: input.query,
       onlyMissingFiscal: input.fiscal === "missing",
+      fiscalFallback,
     }),
-    countMissingFiscal(database, input.supplierId),
+    countMissingFiscal(database, input.supplierId, fiscalFallback),
   ]);
   const pagination = { page: input.page, pageSize: input.pageSize };
   return {
     ...toPaginated(
       rows.map((row): SupplierPanelListProduct => ({
-        ...withPanelCompleteness(row),
+        ...withPanelCompleteness(row, fiscalFallback),
         deletable: row.deletable,
       })),
       counts[input.status],
@@ -171,6 +201,8 @@ export async function listSupplierPanelProducts(
     ),
     counts,
     missingFiscalCount,
+    /** Marca has origin and unit, so a product only misses its NCM. */
+    brandHasFiscalDefaults: fiscalFallback !== null,
   };
 }
 
@@ -179,15 +211,21 @@ export async function getSupplierPanelProduct(
   database: DatabaseExecutor,
   ref: CatalogProductRef,
 ): Promise<SupplierPanelProduct> {
-  const [row] = await database
-    .select(panelProductColumns)
-    .from(supplierProducts)
-    .leftJoin(categories, eq(categories.id, supplierProducts.categoryId))
-    .where(
-      and(eq(supplierProducts.id, ref.productId), eq(supplierProducts.supplierId, ref.supplierId)),
-    );
+  const [[row], fiscalFallback] = await Promise.all([
+    database
+      .select(panelProductColumns)
+      .from(supplierProducts)
+      .leftJoin(categories, eq(categories.id, supplierProducts.categoryId))
+      .where(
+        and(
+          eq(supplierProducts.id, ref.productId),
+          eq(supplierProducts.supplierId, ref.supplierId),
+        ),
+      ),
+    getSupplierFiscalFallback(database, ref.supplierId),
+  ]);
   if (row === undefined) {
     throw notFoundError(`Produto ${ref.productId} não encontrado neste fornecedor`);
   }
-  return withPanelCompleteness(row);
+  return withPanelCompleteness(row, fiscalFallback);
 }

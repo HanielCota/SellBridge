@@ -50,6 +50,31 @@ function readyValues(sku: string): CatalogDraftValues {
   };
 }
 
+const FISCAL_PROFILE = {
+  cnpj: "11222333000181",
+  legalName: "Fornecedor Teste Ltda",
+  stateRegistration: "ISENTO",
+  regime: "simples" as const,
+  address: {
+    cep: "35500024",
+    street: "Rua Goiás",
+    number: "120",
+    complement: "",
+    neighborhood: "Centro",
+    city: "Divinópolis",
+    state: "MG" as const,
+    ibgeCode: "3122306",
+  },
+  defaults: suggestedTaxDefaults("simples"),
+};
+
+async function setFiscalProfile(profile: typeof FISCAL_PROFILE | null) {
+  await database
+    .update(suppliers)
+    .set({ fiscalProfile: profile })
+    .where(eq(suppliers.id, supplierId));
+}
+
 /** A complete product still waiting in the review queue that publishing replaced on 2026-11-04. */
 async function legacyInReview(sku: string) {
   const productId = randomUUID();
@@ -324,28 +349,7 @@ describe("review flow", () => {
   });
 
   it("refuses a product's own ICMS code that does not fit the supplier's regime", async () => {
-    await database
-      .update(suppliers)
-      .set({
-        fiscalProfile: {
-          cnpj: "11222333000181",
-          legalName: "Fornecedor Teste Ltda",
-          stateRegistration: "ISENTO",
-          regime: "simples",
-          address: {
-            cep: "35500024",
-            street: "Rua Goiás",
-            number: "120",
-            complement: "",
-            neighborhood: "Centro",
-            city: "Divinópolis",
-            state: "MG",
-            ibgeCode: "3122306",
-          },
-          defaults: suggestedTaxDefaults("simples"),
-        },
-      })
-      .where(eq(suppliers.id, supplierId));
+    await setFiscalProfile(FISCAL_PROFILE);
 
     const saving = saveSupplierPanelDraft(database, {
       supplierId,
@@ -357,11 +361,31 @@ describe("review flow", () => {
     });
 
     const error = await expectAppError(saving, "VALIDATION");
-    await database
-      .update(suppliers)
-      .set({ fiscalProfile: null })
-      .where(eq(suppliers.id, supplierId));
+    await setFiscalProfile(null);
     expect(String(error)).toContain("CSOSN");
+  });
+
+  it("publishes a new product with only the NCM when Marca has origin and unit", async () => {
+    await setFiscalProfile(FISCAL_PROFILE);
+    const productId = randomUUID();
+    await saveSupplierPanelDraft(database, {
+      supplierId,
+      productId,
+      values: { ...readyValues("BRAND-0"), fiscal: { ...EMPTY_PRODUCT_FISCAL, ncm: "61091000" } },
+    });
+
+    const published = await submitSupplierPanelProduct(database, { supplierId, productId });
+    const missing = await listSupplierPanelProducts(database, {
+      ...LIST,
+      supplierId,
+      fiscal: "missing",
+      pageSize: 100,
+    });
+    await setFiscalProfile(null);
+
+    expect(published.reviewStatus).toBe("approved");
+    expect(published.fiscal).toMatchObject({ origin: null, unit: null });
+    expect(missing.items.some((item) => item.sku === "BRAND-0")).toBe(false);
   });
 
   it("takes a new product off sale when its NCM is erased after it was published", async () => {

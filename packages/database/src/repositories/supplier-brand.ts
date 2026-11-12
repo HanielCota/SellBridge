@@ -5,6 +5,7 @@ import {
   type SupplierFiscalProfile,
   type SupplierTaxSetup,
 } from "@sellbridge/shared/supplier-fiscal";
+import type { FiscalFallback } from "@sellbridge/shared/product-fiscal";
 import { eq } from "drizzle-orm";
 import type { Database, DatabaseExecutor } from "../client.ts";
 import { isUniqueViolation } from "../postgres-errors.ts";
@@ -110,6 +111,15 @@ export async function updateSupplierBrand(
     );
   }
   return { ...updated, fiscalProfile: readSupplierFiscalProfile(updated.fiscalProfile) };
+}
+
+/** The origin and unit saved in Marca, which a product's NF-e uses when it has none. */
+export async function getSupplierFiscalFallback(
+  database: DatabaseExecutor,
+  supplierId: string,
+): Promise<FiscalFallback | null> {
+  const setup = await getSupplierTaxDefaults(database, supplierId);
+  return setup?.defaults ?? null;
 }
 
 /** The supplier's regime and default tax codes, for its products' NF-e data; null until filled. */

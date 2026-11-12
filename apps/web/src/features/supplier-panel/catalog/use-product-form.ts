@@ -1,3 +1,4 @@
+import { withFiscalFallback, type FiscalFallback } from "@sellbridge/shared/product-fiscal";
 import type { SupplierTaxSetup } from "@sellbridge/shared/supplier-fiscal";
 import {
   evaluateCompleteness,
@@ -20,23 +21,24 @@ import {
 } from "./draft-form";
 import { useDraftAutosave, type SavedProduct } from "./use-draft-autosave";
 
-/** The completeness while the supplier types, NF-e data included. */
+/** The completeness while the supplier types, NF-e data included (origin and unit from Marca). */
 function useLiveCompleteness(
   values: PanelFormValues,
   required: readonly RequiredAttribute[],
-  fiscalRequired: boolean,
+  fiscal: { required: boolean; fallback: FiscalFallback | null },
 ) {
+  const { required: fiscalRequired, fallback } = fiscal;
   return useMemo(
     () =>
       evaluateCompleteness(
         {
           ...completenessInput(values),
-          fiscal: fiscalForCompleteness(values.fiscal),
+          fiscal: withFiscalFallback(fiscalForCompleteness(values.fiscal), fallback),
           fiscalRequired,
         },
         required,
       ),
-    [values, required, fiscalRequired],
+    [values, required, fiscalRequired, fallback],
   );
 }
 
@@ -69,7 +71,10 @@ export function useProductForm(options: ProductFormOptions) {
   const category = categories.find((option) => option.id === values.categoryId);
   const required = useMemo(() => requiredAttributesFor(category?.slug), [category?.slug]);
   // A new product needs NCM, origin and unit to be published; one from before that rule does not.
-  const report = useLiveCompleteness(values, required, saved?.fiscalRequired ?? true);
+  const report = useLiveCompleteness(values, required, {
+    required: saved?.fiscalRequired ?? true,
+    fallback: taxDefaults?.defaults ?? null,
+  });
   const autosave = useDraftAutosave({
     supplierId,
     productId,

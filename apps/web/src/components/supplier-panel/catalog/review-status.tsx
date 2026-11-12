@@ -1,5 +1,5 @@
 import type { SupplierPanelProduct } from "@sellbridge/database/repositories";
-import { hasRequiredFiscalData, readProductFiscal } from "@sellbridge/shared/product-fiscal";
+import type { CompletenessReport } from "@sellbridge/shared/supplier-panel-catalog-completeness";
 import {
   PRODUCT_REVIEW_STATUS_LABELS,
   type ProductReviewStatus,
@@ -72,15 +72,23 @@ export function CompletenessBadge({ score, blocking }: { score: number; blocking
   );
 }
 
-/** A product whose NF-e cannot be issued yet: no NCM, origin or unit. It may still be on sale. */
-export function MissingFiscalBadge({ fiscal }: { fiscal: unknown }) {
-  if (hasRequiredFiscalData(readProductFiscal(fiscal))) {
+const FISCAL_RULES: ReadonlySet<string> = new Set(["fiscal_required", "fiscal_recommended"]);
+
+/**
+ * A product whose NF-e cannot be issued yet. The completeness already counts the origin and unit
+ * saved in Marca, so a product missing only those while Marca has them shows nothing.
+ */
+export function MissingFiscalBadge({ completeness }: { completeness: CompletenessReport }) {
+  const issue = [...completeness.blocking, ...completeness.fiscal].find((candidate) =>
+    FISCAL_RULES.has(candidate.rule),
+  );
+  if (issue === undefined) {
     return null;
   }
   return (
-    <HintedText label="Faltam NCM, origem ou unidade para emitir a nota fiscal. O produto continua à venda.">
+    <HintedText label={issue.message}>
       <span className="inline-flex items-center rounded-full bg-amber-700 px-2.5 py-0.5 text-footnote font-semibold whitespace-nowrap text-white">
-        Falta NCM
+        {issue.field === "fiscal.ncm" ? "Falta NCM" : "Falta dado da nota"}
       </span>
     </HintedText>
   );

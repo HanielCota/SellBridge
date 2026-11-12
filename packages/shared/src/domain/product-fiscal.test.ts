@@ -13,6 +13,7 @@ import {
   maskNcmInput,
   ncmSchema,
   readProductFiscal,
+  withFiscalFallback,
 } from "./product-fiscal.ts";
 
 describe("ncmSchema", () => {
@@ -96,6 +97,40 @@ describe("hasRequiredFiscalData", () => {
     expect(hasRequiredFiscalData(complete)).toBe(true);
     expect(hasRequiredFiscalData({ ...complete, unit: null })).toBe(false);
     expect(hasRequiredFiscalData({ ...complete, origin: null })).toBe(false);
+  });
+});
+
+describe("withFiscalFallback", () => {
+  const brand = { origin: 0, unit: "UN" } as const;
+
+  it("fills an empty origin and unit with the ones saved in Marca", () => {
+    const fiscal = { ...EMPTY_PRODUCT_FISCAL, ncm: "61091000" };
+
+    const read = withFiscalFallback(fiscal, brand);
+
+    expect(read).toMatchObject({ ncm: "61091000", origin: 0, unit: "UN" });
+    expect(hasRequiredFiscalData(read)).toBe(true);
+  });
+
+  it("keeps the product's own origin and unit over Marca's", () => {
+    const fiscal = { ...EMPTY_PRODUCT_FISCAL, origin: 1, unit: "PAR" as const };
+
+    const read = withFiscalFallback(fiscal, brand);
+
+    expect(read).toMatchObject({ origin: 1, unit: "PAR" });
+  });
+
+  it("changes nothing when Marca has no fiscal data", () => {
+    const read = withFiscalFallback(EMPTY_PRODUCT_FISCAL, null);
+
+    expect(read).toEqual(EMPTY_PRODUCT_FISCAL);
+  });
+
+  it("never lends an NCM, which has no default", () => {
+    const read = withFiscalFallback(EMPTY_PRODUCT_FISCAL, brand);
+
+    expect(read.ncm).toBeNull();
+    expect(hasRequiredFiscalData(read)).toBe(false);
   });
 });
 

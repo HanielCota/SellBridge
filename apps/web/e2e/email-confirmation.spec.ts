@@ -67,7 +67,7 @@ test("a conta nova só entra depois de abrir o link de confirmação", async ({ 
   await page.goto("/dashboard");
   await expect(page).toHaveURL(/\/login/);
 
-  await page.goto(await confirmationLink(email));
+  await gotoHydrated(page, await confirmationLink(email));
   await expect(page).toHaveURL(/\/login\?/);
   await expect(page.getByText("E-mail confirmado. Entre com seu e-mail e senha.")).toBeVisible();
 

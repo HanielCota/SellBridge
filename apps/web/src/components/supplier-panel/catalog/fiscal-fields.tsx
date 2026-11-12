@@ -1,4 +1,10 @@
-import { icmsCodeLabel, icmsCodeShortLabel, maskNcmInput } from "@sellbridge/shared/product-fiscal";
+import {
+  icmsCodeLabel,
+  icmsCodeShortLabel,
+  maskNcmInput,
+  PRODUCT_ORIGIN_LABELS,
+  PRODUCT_UNIT_LABELS,
+} from "@sellbridge/shared/product-fiscal";
 import type { SupplierTaxSetup } from "@sellbridge/shared/supplier-fiscal";
 import { Link } from "@tanstack/react-router";
 import { PRODUCT_ORIGIN_OPTIONS, PRODUCT_UNIT_OPTIONS } from "@/components/form/fiscal-options";
@@ -58,6 +64,24 @@ function FiscalTextField(props: {
   );
 }
 
+/** An empty origin or unit is not missing when Marca has one: the NF-e uses Marca's. */
+function originPlaceholder(taxDefaults: SupplierTaxSetup | null): string {
+  if (taxDefaults === null) {
+    return "Escolha a origem";
+  }
+  const { origin } = taxDefaults.defaults;
+  // "0 – Nacional", without the explanation in brackets, so it fits a phone-wide field.
+  const label = PRODUCT_ORIGIN_LABELS[origin]?.split(" (")[0] ?? String(origin);
+  return `Padrão da Marca: ${label}`;
+}
+
+function unitPlaceholder(taxDefaults: SupplierTaxSetup | null): string {
+  if (taxDefaults === null) {
+    return "Escolha a unidade";
+  }
+  return `Padrão da Marca: ${PRODUCT_UNIT_LABELS[taxDefaults.defaults.unit]}`;
+}
+
 function ProductFiscalCodes(props: FiscalFieldsProps) {
   const { values, errors, reasons } = props;
   const change = useFiscalChange(props);
@@ -80,7 +104,7 @@ function ProductFiscalCodes(props: FiscalFieldsProps) {
         hint="Feito no Brasil: 0 – Nacional. Importado: veja na nota de compra."
         value={values.fiscal.origin}
         error={errors["fiscal.origin"] ?? null}
-        placeholder="Escolha a origem"
+        placeholder={originPlaceholder(props.taxDefaults)}
         options={PRODUCT_ORIGIN_OPTIONS}
         onValueChange={(origin) => change({ origin })}
       />
@@ -90,7 +114,7 @@ function ProductFiscalCodes(props: FiscalFieldsProps) {
         hint="PAR para calçados, KIT para conjuntos"
         value={values.fiscal.unit}
         error={errors["fiscal.unit"] ?? null}
-        placeholder="Escolha a unidade"
+        placeholder={unitPlaceholder(props.taxDefaults)}
         options={PRODUCT_UNIT_OPTIONS}
         onValueChange={(unit) => change({ unit })}
       />
