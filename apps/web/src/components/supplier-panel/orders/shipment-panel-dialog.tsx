@@ -201,6 +201,7 @@ function PanelBody({ supplierId, shipmentId }: { supplierId: string; shipmentId:
       <SupplierInvoiceCard
         supplierId={supplierId}
         shipmentId={shipmentId}
+        orderId={query.data.orderId}
         invoice={query.data.invoice}
       />
       {blocked ? (
