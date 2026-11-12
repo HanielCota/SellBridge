@@ -101,6 +101,9 @@ export default defineConfig(({ command }) => {
         "@/lib/server/marketplaces": fileURLToPath(
           new URL("./marketplaces.server.ts", import.meta.url),
         ),
+        "@/features/supplier-panel/bling/bling-access.server": fileURLToPath(
+          new URL("./bling-access.server.ts", import.meta.url),
+        ),
       },
     },
     plugins: [consentFixture(), mercadoPagoFixture()],
