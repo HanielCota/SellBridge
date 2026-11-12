@@ -93,6 +93,13 @@ test("sem Bling conectado, o fornecedor vê um botão para conectar e a planilha
     `/api/integracoes/bling/conectar?fornecedor=${supplierId}`,
   );
   await expect(page.getByRole("heading", { name: "Ou envie uma planilha" })).toBeVisible();
+  const steps = page.getByRole("list", { name: "Como importar pela planilha" });
+  await expect(steps.getByRole("heading")).toHaveText([
+    "Baixe o modelo",
+    "Preencha no Excel",
+    "Envie a planilha",
+  ]);
+  await expect(steps.getByRole("button", { name: "Baixar modelo" })).toBeVisible();
 });
 
 test("o fornecedor importa do Bling dando o preço dos novos com uma regra e ajustando um", async ({

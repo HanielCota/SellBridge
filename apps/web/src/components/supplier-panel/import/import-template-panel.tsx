@@ -1,54 +1,20 @@
 import { CaretDownIcon } from "@phosphor-icons/react";
 import { IMPORT_COLUMNS } from "@sellbridge/shared/supplier-panel-import-columns";
 import { SectionCard } from "@/components/layout/section-card";
-import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
-import { downloadCsv } from "@/features/supplier-panel/import/import-file";
 import type { SupplierImportState } from "@/features/supplier-panel/import/use-supplier-import";
-import { errorMessage } from "@/lib/errors";
-import { ACTION_ICONS, CONTROL_HINTS } from "@/components/icons/action-icons";
-import { Hint } from "@/components/ui/hint";
-
-const DownloadIcon = ACTION_ICONS.downloadFile.icon;
 
 /**
- * The model to fill and what each column takes. Categories are the platform's own (the
+ * What each column of the template takes. Categories are the platform's own (the
  * Mercado Livre attributes a listing needs are checked when it is published, not here).
  */
 export function ImportTemplatePanel({ files }: { files: SupplierImportState["files"] }) {
-  const data = files.data;
   return (
     <SectionCard
-      title="Modelo da planilha"
-      description="Baixe o modelo, preencha no Excel e envie. Reenviar a planilha atualiza os produtos pelo código, sem duplicar."
+      title="Colunas da planilha"
+      description="O que vai em cada coluna. Reenviar a planilha atualiza os produtos pelo código, sem duplicar."
     >
       <div className="space-y-5">
-        <div className="flex flex-wrap gap-2">
-          <Hint label={CONTROL_HINTS.downloadTemplate} openOnTap={false}>
-            <Button
-              variant="outline"
-              disabled={data === undefined}
-              onClick={() => data && downloadCsv("modelo-produtos.csv", data.templateCsv)}
-            >
-              <DownloadIcon aria-hidden="true" />
-              Baixar modelo
-            </Button>
-          </Hint>
-          <Hint label={CONTROL_HINTS.downloadGuide} openOnTap={false}>
-            <Button
-              variant="ghost"
-              disabled={data === undefined}
-              onClick={() => data && downloadCsv("guia-colunas.csv", data.guideCsv)}
-            >
-              Baixar guia
-            </Button>
-          </Hint>
-        </div>
-        {files.isError ? (
-          <p role="alert" className="text-sm text-destructive">
-            {errorMessage(files.error)}
-          </p>
-        ) : null}
         <dl className="divide-y divide-border text-sm">
           {IMPORT_COLUMNS.map((entry) => (
             <div key={entry.column} className="grid gap-0.5 py-2.5 first:pt-0">

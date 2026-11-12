@@ -14,7 +14,7 @@ import type { z } from "zod";
 import { PaginationBar } from "@/components/data/pagination-bar";
 import { SearchInput } from "@/components/data/search-input";
 import { SmartDate } from "@/components/data/smart-date";
-import { ToneStatus } from "@/components/data/tone-status";
+import { TonePill } from "@/components/data/tone-status";
 import { SHIPMENT_DELAY_LABELS } from "@sellbridge/shared/shipment-delay";
 import { EmptyState } from "@/components/feedback/empty-state";
 import { ErrorState } from "@/components/feedback/error-state";
@@ -245,7 +245,7 @@ function OperationRow({
         <HintedText label={ORDER_STATUS_HINTS[row.status] ?? "Situação do pedido"}>
           <OrderStatusBadge status={row.status} />
         </HintedText>
-        {row.stockShort ? <ToneStatus tone="warning" label="Falta estoque" /> : null}
+        {row.stockShort ? <TonePill tone="warning" label="Falta estoque" /> : null}
         <ShipmentDelayBadge shipments={row.shipments} />
       </div>
       <Hint label={ACTION_ICONS.openOrder.hint} openOnTap={false}>
