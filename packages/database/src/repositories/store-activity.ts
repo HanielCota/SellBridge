@@ -8,6 +8,8 @@ import { timestampOf } from "./sql/raw-values.ts";
 export interface StoreActivity {
   /** Listings live in the store (published or paused). */
   liveListings: number;
+  /** Listings on the store held at zero stock until the reseller reactivates them. */
+  pausedListings: number;
   failedListings: number;
   /** Listings queued or on their way to the marketplace: chosen, just not live yet. */
   publishingListings: number;
@@ -20,6 +22,7 @@ export interface StoreActivity {
 
 export const EMPTY_STORE_ACTIVITY: StoreActivity = {
   liveListings: 0,
+  pausedListings: 0,
   failedListings: 0,
   publishingListings: 0,
   orders: 0,
@@ -32,6 +35,9 @@ async function listingCounts(database: Database, tenantId: string, storeIds: str
     .select({
       storeId: listingTargets.storeConnectionId,
       live: sql<number>`count(*) filter (where ${listingTargets.status} in ('published', 'paused'))`.mapWith(
+        Number,
+      ),
+      paused: sql<number>`count(*) filter (where ${listingTargets.status} = 'paused')`.mapWith(
         Number,
       ),
       failed: sql<number>`count(*) filter (where ${listingTargets.status} = 'error')`.mapWith(
@@ -99,6 +105,7 @@ export async function getStoreActivity(
         id,
         {
           liveListings: listingCount?.live ?? EMPTY_STORE_ACTIVITY.liveListings,
+          pausedListings: listingCount?.paused ?? EMPTY_STORE_ACTIVITY.pausedListings,
           failedListings: listingCount?.failed ?? EMPTY_STORE_ACTIVITY.failedListings,
           publishingListings: listingCount?.publishing ?? EMPTY_STORE_ACTIVITY.publishingListings,
           orders: sales?.orders ?? EMPTY_STORE_ACTIVITY.orders,

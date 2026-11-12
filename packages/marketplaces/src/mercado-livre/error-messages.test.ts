@@ -77,6 +77,19 @@ describe("explainMercadoLivreError", () => {
     );
   });
 
+  it("says a closed item no longer sells and how to publish it again", () => {
+    expect(explainMercadoLivreError(ERROR_FIXTURES.closedItemUpdate, 400)).toBe(
+      "Este anúncio foi encerrado ou excluído no Mercado Livre e não vende mais. " +
+        "Para vender de novo, clique em Reprocessar: o SellBridge cria um anúncio novo.",
+    );
+  });
+
+  it("explains a description refused because the item is not active or paused", () => {
+    expect(explainMercadoLivreError(ERROR_FIXTURES.closedItemDescription, 400)).toMatch(
+      /^O Mercado Livre só aceita mudanças em anúncios ativos ou pausados/,
+    );
+  });
+
   it("gives the status and code, in Portuguese, when the body has no cause", () => {
     expect(explainMercadoLivreError(ERROR_FIXTURES.withoutCause, 400)).toBe(
       "O Mercado Livre respondeu com erro 400 (código bad_request). " +

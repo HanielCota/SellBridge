@@ -29,6 +29,24 @@ export function marketplaceError(
   });
 }
 
+/**
+ * The item was closed or deleted on the marketplace: updating it can never succeed again, so the
+ * publication ends and a new item has to be published.
+ */
+export function marketplaceListingEndedError(
+  message: string,
+  options: { status: number | null; cause?: unknown },
+): AppError {
+  return new AppError("EXTERNAL_PROVIDER", message, {
+    details: { retryable: false, status: options.status, listingEnded: true },
+    cause: options.cause,
+  });
+}
+
+export function isMarketplaceListingEndedError(value: unknown): value is AppError {
+  return hasErrorCode(value, "EXTERNAL_PROVIDER") && value.details.listingEnded === true;
+}
+
 /** The stored token is no longer accepted; the store must be reconnected. */
 export function marketplaceAuthError(
   message = "A loja precisa ser reconectada: o acesso foi revogado ou expirou",

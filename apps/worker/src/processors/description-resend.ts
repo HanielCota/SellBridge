@@ -4,7 +4,7 @@ import {
   markDescriptionSent,
   type TargetWithPendingDescription,
 } from "@sellbridge/database/repositories";
-import { isRetryableError } from "@sellbridge/marketplaces";
+import { isMarketplaceListingEndedError, isRetryableError } from "@sellbridge/marketplaces";
 import { userMessageOr } from "@sellbridge/shared/errors";
 import { logger } from "@sellbridge/shared/logger";
 import {
@@ -12,6 +12,7 @@ import {
   resolveStoreCredentials,
   storeRateKey,
 } from "../lib/store-access.ts";
+import { endPublication } from "./publication-stock.ts";
 import type { StockPriceSyncDependencies } from "./stock-price-sync.ts";
 
 /** Descriptions resent per run: a few, so one bad batch never delays the stock and price sync. */
@@ -45,6 +46,14 @@ async function resendOne(
     await markDescriptionSent(dependencies.database, target.targetId);
     return true;
   } catch (error) {
+    if (isMarketplaceListingEndedError(error)) {
+      await endPublication(
+        dependencies,
+        { tenantId: target.store.tenantId, targetId: target.targetId },
+        error.message,
+      );
+      return false;
+    }
     logger.warn("listing.description_resend_failed", { listingTargetId: target.targetId, error });
     await expireStoreOnAuthError(dependencies.database, target.store, error);
     await markDescriptionFailed(dependencies.database, target.targetId, {

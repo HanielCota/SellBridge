@@ -4,7 +4,7 @@ import {
   markTargetSyncFailed,
   type TargetNeedingSync,
 } from "@sellbridge/database/repositories";
-import type { ConnectorRegistry } from "@sellbridge/marketplaces";
+import { type ConnectorRegistry, isMarketplaceListingEndedError } from "@sellbridge/marketplaces";
 import type { TokenCipher } from "@sellbridge/shared/token-cipher";
 import { userMessageOr } from "@sellbridge/shared/errors";
 import { logger } from "@sellbridge/shared/logger";
@@ -65,6 +65,10 @@ async function syncOne(
     });
     return "synced";
   } catch (error) {
+    // Already ended with its reason: the target left the sync, there is no attempt to record.
+    if (isMarketplaceListingEndedError(error)) {
+      return "failed";
+    }
     logger.warn("listing.sync_failed", { listingTargetId: target.targetId, error });
     const expired = await expireStoreOnAuthError(dependencies.database, target.store, error);
     await recordSyncFailure(dependencies, target, userMessageOr(error, SYNC_FAILURE_REASON));

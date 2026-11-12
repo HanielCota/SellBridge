@@ -124,3 +124,49 @@ test("the store menu shows Desconectar on a short laptop screen and explains how
   await expect(dialog.getByText("Vai conectar outra conta?")).toBeVisible();
   await dialog.getByRole("button", { name: "Cancelar" }).click();
 });
+
+// Regression: a reconnected store kept the listings its disconnection paused at zero stock, and
+// nothing told the reseller, who reconnected again and again while they sold nothing.
+test("reconnecting tells the reseller the paused listings wait to be reactivated", async ({
+  page,
+}) => {
+  const email = await signUp(page, "Revendedora Reconexão");
+  await completeOnboarding(page, SUPPLIER);
+  const shopName = `Loja reconexão ${Date.now()}`;
+  await connectMockStore(page, shopName);
+  const targetId = await publishedListingOn(email, shopName);
+  await gotoHydrated(page, "/lojas");
+  await page.getByRole("button", { name: `Opções de ${shopName}` }).click();
+  await page.getByRole("menuitem", { name: "Desconectar" }).click();
+  await page.getByRole("dialog").getByRole("button", { name: "Desconectar" }).click();
+  await expect(
+    page.getByText("1 anúncio pausado no marketplace (estoque zero).").filter({ visible: true }),
+  ).toBeVisible();
+  // What the OAuth callback does for the same shop (the simulated store makes a new shop on
+  // every consent): the store connected again, then the stores page with `conectada`.
+  const [store] = await database
+    .update(storeConnections)
+    .set({ status: "connected", accessTokenEnc: "reconnected", refreshTokenEnc: null })
+    .where(eq(storeConnections.shopName, shopName))
+    .returning({ id: storeConnections.id });
+
+  await gotoHydrated(page, `/lojas?conectada=${store?.id ?? ""}`);
+
+  await expect(
+    page
+      .getByText(
+        "1 anúncio desta loja continua pausado, com estoque zero no marketplace. Para voltar a vender, reative em Publicações.",
+      )
+      .filter({ visible: true }),
+  ).toBeVisible();
+  await expect(
+    page.getByRole("link", { name: `1 anúncio pausado em ${shopName}: reative em Publicações` }),
+  ).toBeVisible();
+  await page.getByRole("button", { name: "Ver anúncios pausados" }).click();
+  await expect(page).toHaveURL(/\/publicacoes\?status=paused/);
+  const [target] = await database
+    .select({ status: listingTargets.status })
+    .from(listingTargets)
+    .where(eq(listingTargets.id, targetId));
+  expect(target?.status).toBe("paused");
+});

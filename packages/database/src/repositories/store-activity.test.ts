@@ -58,6 +58,7 @@ describe("store activity", () => {
     expect(activity.get(storeA)?.liveListings).toBeGreaterThanOrEqual(1);
     expect(activity.get(storeB)).toEqual({
       liveListings: 0,
+      pausedListings: 0,
       failedListings: 0,
       publishingListings: 0,
       orders: 0,
@@ -76,6 +77,20 @@ describe("store activity", () => {
     const activity = await getStoreActivity(database, tenantB, [storeB]);
     expect(activity.get(storeB)).toMatchObject({ liveListings: 0, publishingListings: 1 });
     await database.delete(listingTargets).where(eq(listingTargets.id, created.targetIds[0] ?? ""));
+  });
+
+  // Regression: a reconnected store kept the listings its disconnection paused at zero stock,
+  // and its card never said so, so the reseller did not know to reactivate them.
+  it("counts the listings paused on the store", async () => {
+    // The store's listing from the first test, paused by the store's disconnection.
+    await database
+      .update(listingTargets)
+      .set({ status: "paused" })
+      .where(eq(listingTargets.storeConnectionId, storeA));
+
+    const activity = await getStoreActivity(database, tenantA, [storeA]);
+
+    expect(activity.get(storeA)?.pausedListings).toBe(1);
   });
 
   it("dates the store's last sync by its most recently synced listing", async () => {
