@@ -484,6 +484,13 @@
       "when": 1794494028818,
       "tag": "0068_supplier_shipments_by_reseller",
       "breakpoints": true
+    },
+    {
+      "idx": 69,
+      "version": "7",
+      "when": 1794504758318,
+      "tag": "0069_remove_description_emojis",
+      "breakpoints": true
     }
   ]
 }
