@@ -57,3 +57,13 @@ export const SHIPMENT_LEAD_TIME = {
   estimated_delivery_time: { type: "known", date: "2026-10-20T00:00:00.000-03:00" },
   estimated_handling_limit: { date: "2026-10-16T00:00:00.000-03:00" },
 };
+
+/**
+ * The dispatch deadline as `GET /shipments/{id}/sla` returns it (official "Gerenciamento de
+ * envios" page, "Prazo máximo de despacho (SLA)", read on 2026-11-12); the date is ours.
+ */
+export const SHIPMENT_SLA = {
+  status: "on_time",
+  expected_date: "2026-10-16T23:59:59-03:00",
+  last_updated: "2026-10-15T17:16:04Z",
+};

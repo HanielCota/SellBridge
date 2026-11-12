@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { logger } from "@sellbridge/shared/logger";
 import { deliveryAddressSchema, type MarketplaceTrackingStatus } from "@sellbridge/shared/schemas";
 import { type ShippingAddressReading, shippingAddressReading } from "../shipping-address.ts";
 import type { StoreCredentials } from "../types.ts";
@@ -187,13 +188,59 @@ async function buyerReturnDelivered(
   return returns.some((parcel) => parcel.status === "delivered");
 }
 
+/** `GET /shipments/{id}/sla`: the date and time by which the seller must dispatch the parcel. */
+const shipmentSlaSchema = z.object({
+  expected_date: z.iso.datetime({ offset: true }).nullable().optional(),
+});
+
+/**
+ * Shipments the SLA is asked for: still before dispatch, and never Fulfillment or cancelled ones,
+ * which Mercado Livre says it has no SLA for (gerenciamento-de-envios, "Prazo máximo de despacho").
+ */
+const SLA_SHIPMENT_STATUSES = new Set(["pending", "handling", "ready_to_ship"]);
+
+function needsDispatchSla(shipping: { status: string; logisticType: string }): boolean {
+  return SLA_SHIPMENT_STATUSES.has(shipping.status) && shipping.logisticType !== "fulfillment";
+}
+
+/**
+ * The dispatch deadline from the SLA resource. Since 13 May 2025 Mercado Livre serves it there
+ * only (`lead_time.estimated_handling_limit` is deprecated). A failed or empty answer is null:
+ * the deadline is extra information and never fails the shipment reading.
+ */
+async function dispatchSlaDate(
+  context: MercadoLivreContext,
+  store: StoreCredentials,
+  shipmentId: string,
+): Promise<Date | null> {
+  try {
+    const sla = await requestJson(context, {
+      schema: shipmentSlaSchema,
+      path: `/shipments/${encodeURIComponent(shipmentId)}/sla`,
+      init: { accessToken: store.accessToken },
+    });
+    return sla.expected_date == null ? null : new Date(sla.expected_date);
+  } catch (error) {
+    logger.warn("mercado_livre.shipment_sla_failed", { shipmentId, error });
+    return null;
+  }
+}
+
 export async function getMercadoLivreShipping(
   config: MercadoLivreConfig,
   store: StoreCredentials,
   orderId: string,
 ) {
   const { context, refs, shipping } = await loadSaleShipment(config, store, orderId);
-  return { ...shipping, buyerReturnDelivered: await buyerReturnDelivered(context, store, refs) };
+  const returned = await buyerReturnDelivered(context, store, refs);
+  const slaDate = needsDispatchSla(shipping)
+    ? await dispatchSlaDate(context, store, shipping.shipmentId)
+    : null;
+  return {
+    ...shipping,
+    dispatchDeadlineAt: slaDate ?? shipping.dispatchDeadlineAt,
+    buyerReturnDelivered: returned,
+  };
 }
 /**
  * The buyer's address from the sale shipment, read by the same calls as `getMercadoLivreShipping`

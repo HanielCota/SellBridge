@@ -1,6 +1,6 @@
 import type { FetchLike } from "../http.ts";
 import { describe, expect, it, vi } from "vitest";
-import { SHIPMENT_LEAD_TIME, shipmentBase } from "./fixtures/shipments.ts";
+import { SHIPMENT_LEAD_TIME, SHIPMENT_SLA, shipmentBase } from "./fixtures/shipments.ts";
 import { hasMarketplaceCause } from "../errors.ts";
 import {
   getMercadoLivreLabel,
@@ -18,8 +18,9 @@ const shipmentRefs = [
   { id: 123, type: "forward" },
 ];
 function setup(overrides = {}, refs: unknown = shipmentRefs) {
+  // Any call past the scripted ones (the dispatch SLA) answers an empty SLA.
   const request = vi
-    .fn<FetchLike>()
+    .fn<FetchLike>(async () => Response.json({}))
     .mockResolvedValueOnce(Response.json(order))
     .mockResolvedValueOnce(Response.json(refs))
     .mockResolvedValueOnce(Response.json({ ...shipment, ...overrides }));
@@ -137,8 +138,56 @@ describe("Mercado Livre shipping", () => {
     expect(await getMercadoLivreShipping(config, store, "55")).toMatchObject({
       buyerReturnDelivered: false,
     });
-    expect(request).toHaveBeenCalledTimes(3);
+    expect(request.mock.calls.map(([url]) => url)).toEqual([
+      "https://api.mercadolibre.com/orders/55",
+      "https://api.mercadolibre.com/orders/55/shipments",
+      "https://api.mercadolibre.com/shipments/123",
+      "https://api.mercadolibre.com/shipments/123/sla",
+    ]);
   });
+  it("reads the dispatch deadline from the SLA, which replaced lead_time's handling limit", async () => {
+    const { request, config } = setup(
+      { lead_time: { estimated_delivery_time: SHIPMENT_LEAD_TIME.estimated_delivery_time } },
+      [{ id: 123, type: "forward" }],
+    );
+    request.mockResolvedValueOnce(Response.json(SHIPMENT_SLA));
+
+    const shipping = await getMercadoLivreShipping(config, store, "55");
+
+    expect(shipping.dispatchDeadlineAt?.toISOString()).toBe("2026-10-17T02:59:59.000Z");
+    const headers = new Headers(request.mock.calls[3]?.[1]?.headers);
+    expect(headers.get("authorization")).toBe("Bearer test-token");
+  });
+  it("prefers the SLA over the deprecated handling limit when both come", async () => {
+    const { request, config } = setup({ lead_time: SHIPMENT_LEAD_TIME }, [
+      { id: 123, type: "forward" },
+    ]);
+    request.mockResolvedValueOnce(Response.json(SHIPMENT_SLA));
+
+    const shipping = await getMercadoLivreShipping(config, store, "55");
+
+    expect(shipping.dispatchDeadlineAt?.toISOString()).toBe("2026-10-17T02:59:59.000Z");
+  });
+  it("keeps the handling limit when the SLA cannot be read", async () => {
+    const { request, config } = setup({ lead_time: SHIPMENT_LEAD_TIME }, [
+      { id: 123, type: "forward" },
+    ]);
+    request.mockResolvedValueOnce(new Response("{}", { status: 404 }));
+
+    const shipping = await getMercadoLivreShipping(config, store, "55");
+
+    expect(shipping.dispatchDeadlineAt?.toISOString()).toBe("2026-10-16T03:00:00.000Z");
+  });
+  it.each([{ status: "shipped" }, { status: "cancelled" }, { logistic_type: "fulfillment" }])(
+    "asks no SLA for a shipment that has none to keep: %j",
+    async (overrides) => {
+      const { request, config } = setup(overrides, [{ id: 123, type: "forward" }]);
+
+      await getMercadoLivreShipping(config, store, "55");
+
+      expect(request).toHaveBeenCalledTimes(3);
+    },
+  );
   it("says when the order has no shipment yet (HTTP 204)", async () => {
     const request = vi
       .fn<FetchLike>()
