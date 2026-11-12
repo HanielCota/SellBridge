@@ -1,3 +1,4 @@
+import { gzipSync } from "node:zlib";
 import { describe, expect, it, vi } from "vitest";
 import { createBlingClient } from "./client.ts";
 import { createBlingRateLimiter } from "./rate-limit.ts";
@@ -236,5 +237,60 @@ describe("Bling sale order and NF-e calls", () => {
     await expect(creation).rejects.toMatchObject({
       details: { retryable: false, issues: ["O contato informado não existe"] },
     });
+  });
+});
+
+function packed(text: string): string {
+  return gzipSync(Buffer.from(text)).toString("base64");
+}
+
+describe("Bling invoice documents", () => {
+  const ACCESS_KEY = "31261111222333000181550010000012341000012345";
+
+  it("reads the note's XML by its access key and unpacks it", async () => {
+    const { client, fetchImplementation } = setup(
+      json(200, { data: [{ nome: "nfe-1234.xml", conteudo: packed("<nfeProc/>") }] }),
+    );
+
+    const document = await client.getInvoiceDocument(ACCESS_KEY, "xml");
+
+    expect(new TextDecoder().decode(document.content)).toBe("<nfeProc/>");
+    expect(document.fileName).toBe("nfe-1234.xml");
+    expect(sentRequest(fetchImplementation).url).toContain(
+      `/nfe/documento/${ACCESS_KEY}?formato=xml`,
+    );
+  });
+
+  it("names the DANFE after its key when Bling gives no name", async () => {
+    const { client } = setup(json(200, { data: [{ conteudo: packed("%PDF-1.4") }] }));
+
+    const document = await client.getInvoiceDocument(ACCESS_KEY, "pdf");
+
+    expect(document.fileName).toBe(`${ACCESS_KEY}.pdf`);
+  });
+
+  it("refuses a key that is not 44 digits without calling Bling", async () => {
+    const { client, fetchImplementation } = setup();
+
+    const reading = client.getInvoiceDocument("../contatos", "xml");
+
+    await expect(reading).rejects.toMatchObject({ details: { retryable: false } });
+    expect(fetchImplementation).not.toHaveBeenCalled();
+  });
+
+  it("refuses an answer without the file", async () => {
+    const { client } = setup(json(200, { data: [] }));
+
+    const reading = client.getInvoiceDocument(ACCESS_KEY, "pdf");
+
+    await expect(reading).rejects.toMatchObject({ details: { retryable: false } });
+  });
+
+  it("refuses content that is not GZIP", async () => {
+    const { client } = setup(json(200, { data: [{ conteudo: "bm90IGd6aXA=" }] }));
+
+    const reading = client.getInvoiceDocument(ACCESS_KEY, "xml");
+
+    await expect(reading).rejects.toMatchObject({ details: { retryable: false } });
   });
 });

@@ -1,11 +1,13 @@
+import { gunzipSync } from "node:zlib";
 import { z } from "zod";
+import { marketplaceError } from "../errors.ts";
 
 /**
  * The calls that turn a parcel into an NF-e in the supplier's Bling: the recipient as a contact,
  * the sale order, the note generated from it and its sending to SEFAZ. Fields follow the official
  * OpenAPI (developer.bling.com.br): `POST /contatos`, `GET` and `PUT /contatos/{id}`,
  * `POST /pedidos/vendas`, `GET /pedidos/vendas/{id}`, `POST /pedidos/vendas/{id}/gerar-nfe`,
- * `GET /nfe/{id}`, `POST /nfe/{id}/enviar`.
+ * `GET /nfe/{id}`, `POST /nfe/{id}/enviar`, `GET /nfe/documento/{chaveAcesso}`.
  */
 
 /** Calls the API for one account with the client's limit, token and refresh. */
@@ -71,6 +73,18 @@ export interface BlingInvoice {
   readonly lines: readonly { readonly sku: string; readonly cfop: string | null }[];
 }
 
+/** The files of an authorized note: its XML, or its DANFE as a PDF. */
+export type BlingInvoiceDocumentFormat = "xml" | "pdf";
+
+export interface BlingInvoiceDocument {
+  readonly fileName: string;
+  readonly content: Uint8Array;
+}
+
+/** A DANFE is a few hundred kilobytes; anything far larger is refused instead of held in memory. */
+const MAX_INVOICE_DOCUMENT_BYTES = 10 * 1024 * 1024;
+const ACCESS_KEY_PATTERN = /^\d{44}$/;
+
 /** `situacao` "A": an active contact; `indicadorIe` 1: ICMS taxpayer, 9: not a taxpayer. */
 const ACTIVE = "A";
 const ICMS_TAXPAYER = 1;
@@ -88,6 +102,10 @@ const saleOrderInvoiceSchema = z.object({
   data: z.object({ notaFiscal: z.object({ id: z.number().int() }).nullish() }),
 });
 const generatedInvoiceSchema = z.object({ data: z.object({ idNotaFiscal: z.number().int() }) });
+/** `conteudo` is the file compressed with GZIP and encoded in base64. */
+const invoiceDocumentSchema = z.object({
+  data: z.array(z.object({ nome: z.string().nullish(), conteudo: z.string() })),
+});
 const sentInvoiceSchema = z.object({ data: z.object({ xml: z.string().nullish() }).nullish() });
 
 const invoiceResponseSchema = z.object({
@@ -193,6 +211,22 @@ function presentText(value: string | number | null | undefined): string | null {
   }
   const text = String(value).trim();
   return text === "" ? null : text;
+}
+
+function unpackedDocument(packed: string): Uint8Array {
+  try {
+    return gunzipSync(Buffer.from(packed, "base64"), {
+      maxOutputLength: MAX_INVOICE_DOCUMENT_BYTES,
+    });
+  } catch (error) {
+    throw marketplaceError(
+      "O Bling devolveu o arquivo da nota num formato que não deu para abrir",
+      {
+        retryable: false,
+        cause: error,
+      },
+    );
+  }
 }
 
 function contactCalls(call: BlingCall) {
@@ -301,6 +335,36 @@ function noteCalls(call: BlingCall) {
           sku: line.codigo,
           cfop: presentText(line.cfop),
         })),
+      };
+    },
+
+    /**
+     * The note's XML or DANFE (PDF) by its access key, unpacked.
+     *
+     * @throws {AppError} EXTERNAL_PROVIDER, not retryable, when the key is not 44 digits, Bling
+     * has no file for it, or the file does not unpack (or passes 10 MB).
+     */
+    async getInvoiceDocument(
+      accessKey: string,
+      format: BlingInvoiceDocumentFormat,
+    ): Promise<BlingInvoiceDocument> {
+      if (!ACCESS_KEY_PATTERN.test(accessKey)) {
+        throw marketplaceError("A chave de acesso da nota não tem 44 números", {
+          retryable: false,
+        });
+      }
+      const query = new URLSearchParams({ formato: format });
+      const response = await call({
+        path: `/nfe/documento/${accessKey}?${query.toString()}`,
+        schema: invoiceDocumentSchema,
+      });
+      const [document] = response.data;
+      if (document === undefined || document.conteudo.trim() === "") {
+        throw marketplaceError("O Bling não tem o arquivo desta nota", { retryable: false });
+      }
+      return {
+        fileName: presentText(document.nome) ?? `${accessKey}.${format}`,
+        content: unpackedDocument(document.conteudo),
       };
     },
 
