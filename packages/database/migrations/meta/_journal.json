@@ -463,6 +463,13 @@
       "when": 1794336603519,
       "tag": "0065_supplier_payments",
       "breakpoints": true
+    },
+    {
+      "idx": 66,
+      "version": "7",
+      "when": 1794420173468,
+      "tag": "0066_clear_foreign_profile_photos",
+      "breakpoints": true
     }
   ]
 }
