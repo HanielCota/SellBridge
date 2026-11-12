@@ -43,7 +43,14 @@ async function tokenLabelShipmentId(token: string, orderId: string): Promise<str
 /** The format the form asks for (`formato`); a form without one gets the PDF. */
 function formatOf(form: URLSearchParams | null): LabelFormat {
   const asked = form?.get("formato") ?? null;
-  return asked === null ? "pdf" : labelFormatSchema.parse(asked);
+  if (asked === null) {
+    return "pdf";
+  }
+  const format = labelFormatSchema.safeParse(asked);
+  if (!format.success) {
+    throw validationError("Escolha a etiqueta em PDF ou em ZPL.");
+  }
+  return format.data;
 }
 
 /**

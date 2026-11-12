@@ -150,7 +150,7 @@ function OrderFacts({ shipment }: { shipment: PanelShipment }) {
 /**
  * Opens the marketplace label in a new tab, like the supplier link's page does, but from the
  * signed-in panel: the ids go in the form body and the server checks the panel session. The PDF
- * opens there; the ZPL downloads (the tab closes itself), and an error shows in the tab.
+ * opens there, the browser downloads the ZPL, and an error shows in the tab.
  */
 function MarketplaceLabelForm({
   supplierId,
