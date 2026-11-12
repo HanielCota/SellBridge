@@ -4,15 +4,47 @@ import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import type { BatchLabelsReport, LabelFile } from "@/features/supplier-panel/orders/batch-labels";
 
-/** The PDF of one store as a link the browser opens in a new tab, ready to print. */
-function pdfUrl(file: LabelFile): string {
-  const bytes = Uint8Array.from(atob(file.pdfBase64), (character) => character.charCodeAt(0));
-  return URL.createObjectURL(new Blob([bytes], { type: "application/pdf" }));
+const MEDIA_TYPES = { pdf: "application/pdf", zpl: "text/plain" } as const;
+
+/** One store's labels as a local link: the PDF opens to print, the ZPL downloads. */
+function fileUrl(file: LabelFile): string {
+  const bytes = Uint8Array.from(atob(file.contentBase64), (character) => character.charCodeAt(0));
+  return URL.createObjectURL(new Blob([bytes], { type: MEDIA_TYPES[file.format] }));
 }
 
-/** One link per reseller store's PDF, freed when the result closes. */
+/** "etiquetas-zebra-loja-centro.txt": the store in the name, so two downloads never mix up. */
+export function zplFileName(storeName: string): string {
+  const slug = storeName
+    .normalize("NFD")
+    .replace(/\p{Diacritic}/gu, "")
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "");
+  return slug === "" ? "etiquetas-zebra.txt" : `etiquetas-zebra-${slug}.txt`;
+}
+
+function LabelFileLink({ file, url }: { file: LabelFile; url: string }) {
+  if (file.format === "zpl") {
+    return (
+      <Button asChild size="sm">
+        <a href={url} download={zplFileName(file.storeName)}>
+          Baixar etiquetas Zebra · {file.storeName} ({file.labelCount})
+        </a>
+      </Button>
+    );
+  }
+  return (
+    <Button asChild size="sm">
+      <a href={url} target="_blank" rel="noopener noreferrer">
+        Abrir etiquetas · {file.storeName} ({file.labelCount})
+      </a>
+    </Button>
+  );
+}
+
+/** One link per reseller store's file, freed when the result closes. */
 function useLabelLinks(files: readonly LabelFile[]) {
-  const links = useMemo(() => files.map((file) => ({ file, url: pdfUrl(file) })), [files]);
+  const links = useMemo(() => files.map((file) => ({ file, url: fileUrl(file) })), [files]);
   useEffect(
     () => () => {
       for (const link of links) {
@@ -25,7 +57,7 @@ function useLabelLinks(files: readonly LabelFile[]) {
 }
 
 /**
- * After a batch print: one PDF per reseller store to open and print, and, for each order whose
+ * After a batch print: one file per reseller store to open or download, and, for each order whose
  * label did not come, the reason ("not released yet" is the most common).
  */
 export function BatchLabelsResult({
@@ -57,15 +89,17 @@ export function BatchLabelsResult({
             <ul className="flex flex-wrap gap-2">
               {links.map((link) => (
                 <li key={link.url}>
-                  <Button asChild size="sm">
-                    <a href={link.url} target="_blank" rel="noopener noreferrer">
-                      Abrir etiquetas · {link.file.storeName} ({link.file.labelCount})
-                    </a>
-                  </Button>
+                  <LabelFileLink file={link.file} url={link.url} />
                 </li>
               ))}
             </ul>
           )}
+          {links.some((link) => link.file.format === "zpl") ? (
+            <p>
+              Abra o arquivo no programa da sua impressora Zebra, como faz com a etiqueta baixada no
+              Mercado Livre.
+            </p>
+          ) : null}
           {failures.length === 0 ? null : (
             <ul className="space-y-1">
               {failures.map((failure) => (

@@ -7,7 +7,11 @@ import {
 import { hasMarketplaceCause, LABEL_NOT_READY_CAUSE } from "@sellbridge/marketplaces";
 import { conflictError, isAppError, validationError } from "@sellbridge/shared/errors";
 import { logger } from "@sellbridge/shared/logger";
-import { supplierTokenSchema } from "@sellbridge/shared/schemas";
+import {
+  type LabelFormat,
+  labelFormatSchema,
+  supplierTokenSchema,
+} from "@sellbridge/shared/schemas";
 import { z } from "zod";
 import { orderShipments } from "@sellbridge/database/schema";
 import { eq } from "drizzle-orm";
@@ -36,26 +40,37 @@ async function tokenLabelShipmentId(token: string, orderId: string): Promise<str
   return shipment.id;
 }
 
+/** The format the form asks for (`formato`); a form without one gets the PDF. */
+function formatOf(form: URLSearchParams | null): LabelFormat {
+  const asked = form?.get("formato") ?? null;
+  return asked === null ? "pdf" : labelFormatSchema.parse(asked);
+}
+
 /**
- * The reseller opens the label with a GET from their session. The supplier posts a form: the
- * link's token (see supplier-link-token.ts), or, from the signed-in panel, its supplier and
- * parcel ids. A token in the URL, from an old link, is refused without being read.
+ * The reseller opens the label with a GET from their session, as a PDF. The supplier posts a
+ * form: the link's token (see supplier-link-token.ts), or, from the signed-in panel, its supplier
+ * and parcel ids, and the format. A token in the URL, from an old link, is refused unread.
  */
-async function labelTenant(request: Request, orderId: string) {
+async function labelRequest(
+  request: Request,
+  orderId: string,
+): Promise<{ tenantId: string; format: LabelFormat }> {
   if (hasTokenInUrl(request)) {
     throw validationError("Abra a etiqueta pelo botão da página do pedido.");
   }
   if (request.method !== "POST") {
-    return (await requireSellerRequest(request)).tenantId;
+    return { tenantId: (await requireSellerRequest(request)).tenantId, format: "pdf" };
   }
   const form = await readLabelForm(request);
+  const format = formatOf(form);
   const token = tokenOf(form);
   if (token !== null) {
-    return shipmentTenantId(await tokenLabelShipmentId(token, orderId));
+    return { tenantId: await shipmentTenantId(await tokenLabelShipmentId(token, orderId)), format };
   }
   const panelIds = panelLabelIds(form);
   if (panelIds !== null) {
-    return shipmentTenantId(await panelLabelShipmentId(request, orderId, panelIds));
+    const shipmentId = await panelLabelShipmentId(request, orderId, panelIds);
+    return { tenantId: await shipmentTenantId(shipmentId), format };
   }
   throw validationError("Abra a etiqueta pelo botão da página do pedido.");
 }
@@ -63,14 +78,14 @@ async function labelTenant(request: Request, orderId: string) {
  * The label of an order allowed to see it, recorded on its parcel: emitted, or not released by
  * the marketplace yet. The supplier's list reads these records as the label's state.
  */
-async function recordedLabel(tenantId: string, orderId: string): Promise<Uint8Array<ArrayBuffer>> {
+async function recordedLabel(tenantId: string, orderId: string, format: LabelFormat) {
   try {
-    const label = await loadMarketplaceLabel(tenantId, orderId);
+    const label = await loadMarketplaceLabel(tenantId, orderId, format);
     await keepLabelRecord(
       async () =>
         await recordLabelsPrinted(database, [{ orderId, marketplaceShipmentId: label.shipmentId }]),
     );
-    return label.pdf;
+    return label;
   } catch (error) {
     if (hasMarketplaceCause(error, LABEL_NOT_READY_CAUSE)) {
       await keepLabelRecord(async () => await recordLabelsWaiting(database, [orderId]));
@@ -78,15 +93,32 @@ async function recordedLabel(tenantId: string, orderId: string): Promise<Uint8Ar
     throw error;
   }
 }
+/**
+ * The PDF opens in the browser, ready to print; the ZPL downloads as the text file the Zebra
+ * printer's program sends, named like Mercado Livre's own (a .txt).
+ */
+function labelHeaders(label: Awaited<ReturnType<typeof recordedLabel>>, orderId: string) {
+  if (label.file.format === "zpl") {
+    const orderNumber = label.externalOrderId.replace(/[^0-9A-Za-z-]/g, "");
+    return {
+      "content-type": "text/plain; charset=utf-8",
+      "content-disposition": `attachment; filename="etiqueta-zebra-pedido-${orderNumber}.txt"`,
+    };
+  }
+  return {
+    "content-type": "application/pdf",
+    "content-disposition": `inline; filename="etiqueta-${orderId}.pdf"`,
+  };
+}
+
 async function handleLabel(request: Request, orderId: string) {
   try {
     const validOrderId = z.uuid().parse(orderId);
-    const tenantId = await labelTenant(request, validOrderId);
-    const pdf = await recordedLabel(tenantId, validOrderId);
-    return new Response(pdf, {
+    const { tenantId, format } = await labelRequest(request, validOrderId);
+    const label = await recordedLabel(tenantId, validOrderId, format);
+    return new Response(label.file.bytes, {
       headers: {
-        "content-type": "application/pdf",
-        "content-disposition": `inline; filename="etiqueta-${validOrderId}.pdf"`,
+        ...labelHeaders(label, validOrderId),
         "cache-control": "no-store",
         "referrer-policy": "no-referrer",
       },

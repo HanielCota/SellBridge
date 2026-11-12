@@ -6,6 +6,7 @@ import {
 import { hasMarketplaceCause, LABEL_NOT_READY_CAUSE } from "@sellbridge/marketplaces";
 import { isAppError } from "@sellbridge/shared/errors";
 import { logger } from "@sellbridge/shared/logger";
+import type { LabelFormat } from "@sellbridge/shared/schemas";
 import type { BatchLabelsInput } from "@sellbridge/shared/supplier-panel-orders-schema";
 import { keepLabelRecord } from "@/features/fulfillment/label-records.server";
 import {
@@ -47,10 +48,11 @@ async function recordBatch(batch: StoreLabelBatch): Promise<void> {
   ]);
 }
 
-/** One reseller store's labels: its PDF, each parcel's result, and the label records kept. */
+/** One reseller store's labels: its file, each parcel's result, and the label records kept. */
 async function printStoreLabels(
   supplierId: string,
   group: readonly LabelCandidate[],
+  format: LabelFormat,
 ): Promise<{ file: LabelFile | null; results: LabelItemResult[] }> {
   const [first] = group;
   if (first === undefined) {
@@ -69,6 +71,7 @@ async function printStoreLabels(
     const batch = await loadMarketplaceLabels(
       first.tenantId,
       group.map((candidate) => candidate.orderId),
+      format,
     );
     await recordBatch(batch);
     const results: LabelItemResult[] = [
@@ -83,12 +86,13 @@ async function printStoreLabels(
       })),
     ];
     const file =
-      batch.pdf === null
+      batch.file === null
         ? null
         : {
             storeName: first.shopName,
             labelCount: batch.printed.length,
-            pdfBase64: Buffer.from(batch.pdf).toString("base64"),
+            format: batch.file.format,
+            contentBase64: Buffer.from(batch.file.bytes).toString("base64"),
           };
     return { file, results };
   } catch (error) {
@@ -101,8 +105,8 @@ async function printStoreLabels(
 }
 
 /**
- * The marketplace labels of the selected parcels, one PDF per reseller store (each store has its
- * own Mercado Livre account). Every emitted label is recorded, so the list shows it printed.
+ * The marketplace labels of the selected parcels in the format asked for, one file per reseller
+ * store (each store has its own Mercado Livre account). Every emitted label is recorded, so the list shows it printed.
  */
 export async function printSupplierLabels(input: BatchLabelsInput): Promise<BatchLabelsReport> {
   const candidates = await supplierLabelShipments(database, input.supplierId, input.shipmentIds);
@@ -111,7 +115,7 @@ export async function printSupplierLabels(input: BatchLabelsInput): Promise<Batc
   const files: LabelFile[] = [];
   const results: LabelItemResult[] = [...plan.refused];
   for (const group of plan.stores) {
-    const store = await printStoreLabels(input.supplierId, group);
+    const store = await printStoreLabels(input.supplierId, group, input.format);
     results.push(...store.results);
     if (store.file !== null) {
       files.push(store.file);
@@ -120,6 +124,7 @@ export async function printSupplierLabels(input: BatchLabelsInput): Promise<Batc
   const printedCount = results.filter((result) => result.printed).length;
   logger.info("supplier_panel.batch_labels", {
     supplierId: input.supplierId,
+    format: input.format,
     printed: printedCount,
     failed: results.length - printedCount,
   });

@@ -1,5 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
-import type { ReactNode } from "react";
+import type { LabelFormat } from "@sellbridge/shared/schemas";
+import { type ReactNode, useRef } from "react";
 import { formatCents } from "@sellbridge/shared/money";
 import { DISPATCHED_FULFILLMENT_STATUSES } from "@sellbridge/shared/schemas";
 import { ShipmentPanel } from "@/components/fulfillment/shipment-panel";
@@ -8,7 +9,6 @@ import { SupplierPaymentBadgeView } from "@/components/supplier-payments/supplie
 import { shippingMethod } from "@/features/supplier-panel/orders/shipping-methods";
 import { ErrorState } from "@/components/feedback/error-state";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
-import { Button } from "@/components/ui/button";
 import {
   Dialog,
   DialogContent,
@@ -28,6 +28,7 @@ import { useTabProfileLink } from "@/lib/tab-profile";
 import { formatAbsoluteTime } from "@/lib/relative-time";
 import { cn } from "@/lib/utils";
 import { useNow } from "@/hooks/use-now";
+import { LabelFormatMenu } from "./label-format-menu";
 import { LabelStatus, PostingDeadlineStatus } from "./order-row-parts";
 import { SupplierInvoiceCard } from "./supplier-invoice-card";
 import { SupplierParcelTracking } from "./supplier-parcel-tracking";
@@ -148,7 +149,8 @@ function OrderFacts({ shipment }: { shipment: PanelShipment }) {
 
 /**
  * Opens the marketplace label in a new tab, like the supplier link's page does, but from the
- * signed-in panel: the ids go in the form body and the server checks the panel session.
+ * signed-in panel: the ids go in the form body and the server checks the panel session. The PDF
+ * opens there; the ZPL downloads (the tab closes itself), and an error shows in the tab.
  */
 function MarketplaceLabelForm({
   supplierId,
@@ -162,8 +164,18 @@ function MarketplaceLabelForm({
   printed: boolean;
 }) {
   const withProfile = useTabProfileLink();
+  const formRef = useRef<HTMLFormElement>(null);
+  const formatRef = useRef<HTMLInputElement>(null);
+  const print = (format: LabelFormat) => {
+    if (formRef.current === null || formatRef.current === null) {
+      return;
+    }
+    formatRef.current.value = format;
+    formRef.current.requestSubmit();
+  };
   return (
     <form
+      ref={formRef}
       method="post"
       action={withProfile(`/api/pedidos/${orderId}/etiqueta`)}
       target="_blank"
@@ -171,9 +183,10 @@ function MarketplaceLabelForm({
     >
       <input type="hidden" name="supplierId" value={supplierId} />
       <input type="hidden" name="shipmentId" value={shipmentId} />
-      <Button type="submit" variant="outline">
+      <input ref={formatRef} type="hidden" name="formato" defaultValue="pdf" />
+      <LabelFormatMenu size="default" onChoose={print}>
         {printed ? "Reimprimir etiqueta do marketplace" : "Imprimir etiqueta do marketplace"}
-      </Button>
+      </LabelFormatMenu>
     </form>
   );
 }
