@@ -1,6 +1,6 @@
 import type { DueNotificationDelivery } from "@sellbridge/database/repositories";
 import { renderActionEmail } from "@sellbridge/shared/email-layout";
-import type { SendEmail } from "@sellbridge/shared/mailer";
+import type { EmailAttachment, SendEmail } from "@sellbridge/shared/mailer";
 import type { QueuedNotificationChannel } from "@sellbridge/shared/notification-content";
 
 /** `skipped`: the channel cannot deliver at all; retrying would not help. */
@@ -15,17 +15,29 @@ export interface NotificationChannel {
   deliver(delivery: DueNotificationDelivery): Promise<ChannelOutcome>;
 }
 
+/** The files an e-mail carries (a parcel's NF-e); throwing retries the delivery later. */
+export type EmailAttachmentsFor = (delivery: DueNotificationDelivery) => Promise<EmailAttachment[]>;
+
+async function noAttachments(): Promise<EmailAttachment[]> {
+  return [];
+}
+
 /** E-mail in the branded layout; the stored path becomes a link under APP_URL. */
-export function createEmailChannel(sendEmail: SendEmail, appUrl: string): NotificationChannel {
+export function createEmailChannel(
+  sendEmail: SendEmail,
+  appUrl: string,
+  attachmentsFor: EmailAttachmentsFor = noAttachments,
+): NotificationChannel {
   return {
     name: "email",
     async deliver(delivery) {
-      const { actionPath, ...content } = delivery.content;
+      const { actionPath, invoiceShipmentId: _invoice, ...content } = delivery.content;
+      const attachments = await attachmentsFor(delivery);
       const email = renderActionEmail(
         { ...content, actionUrl: new URL(actionPath, appUrl).toString() },
         appUrl,
       );
-      await sendEmail({ to: delivery.recipientEmail, ...email });
+      await sendEmail({ to: delivery.recipientEmail, ...email, attachments });
       return { status: "sent" };
     },
   };

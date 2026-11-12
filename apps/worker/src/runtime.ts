@@ -43,6 +43,7 @@ import { createErpCatalogReadProcessor } from "./processors/erp-catalog-read.ts"
 import { createErpInvoiceProcessor } from "./processors/erp-invoice-issue.ts";
 import { resolveStoreCredentials } from "./lib/store-access.ts";
 import { createNotificationDeliveryProcessor } from "./processors/notification-delivery.ts";
+import { blingInvoiceFileReader, createInvoiceAttachments } from "./lib/invoice-attachments.ts";
 import { createOrderMessageFollowUpProcessor } from "./processors/order-message-follow-up.ts";
 import { createWebhookDeliveryProcessor } from "./processors/webhook-delivery.ts";
 import { createShipmentTrackingProcessor } from "./processors/shipment-tracking.ts";
@@ -297,6 +298,16 @@ function deliveryWorkers(context: WorkerContext): Worker[] {
     database,
     sendEmail,
     appUrl: environment.APP_URL,
+    emailAttachments: createInvoiceAttachments({
+      database,
+      readFile: blingInvoiceFileReader({
+        database,
+        cipher,
+        blingCredentials: blingCredentials(),
+        limiter: createBlingRateLimiter(),
+        fetchImplementation: fetch,
+      }),
+    }),
   });
   const processMessages = createOrderMessageFollowUpProcessor({
     loadMessages: async (shipmentId) => orderMessageMoments(database, shipmentId),

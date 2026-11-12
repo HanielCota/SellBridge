@@ -15,6 +15,7 @@ import {
   createEmailChannel,
   createPushChannel,
   type ChannelOutcome,
+  type EmailAttachmentsFor,
   type NotificationChannel,
 } from "../lib/notification-channels.ts";
 
@@ -22,6 +23,8 @@ export interface NotificationDeliveryDependencies {
   database: Database;
   sendEmail: SendEmail;
   appUrl: string;
+  /** The files some e-mails carry (a parcel's NF-e); none when absent. */
+  emailAttachments?: EmailAttachmentsFor;
   now?: () => Date;
   /** Tests only: claim one tenant's deliveries so parallel test files don't take each other's. */
   tenantId?: string;
@@ -149,9 +152,14 @@ export function createNotificationDeliveryProcessor(
 ) {
   const currentTime = dependencies.now ?? (() => new Date());
   const channels = new Map<string, NotificationChannel>(
-    [createEmailChannel(dependencies.sendEmail, dependencies.appUrl), createPushChannel()].map(
-      (channel) => [channel.name, channel],
-    ),
+    [
+      createEmailChannel(
+        dependencies.sendEmail,
+        dependencies.appUrl,
+        dependencies.emailAttachments,
+      ),
+      createPushChannel(),
+    ].map((channel) => [channel.name, channel]),
   );
 
   let lastSweptAt = 0;
