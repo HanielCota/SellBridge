@@ -477,6 +477,13 @@
       "when": 1794448841950,
       "tag": "0067_manual_stores",
       "breakpoints": true
+    },
+    {
+      "idx": 68,
+      "version": "7",
+      "when": 1794494028818,
+      "tag": "0068_supplier_shipments_by_reseller",
+      "breakpoints": true
     }
   ]
 }

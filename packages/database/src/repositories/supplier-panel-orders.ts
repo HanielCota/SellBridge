@@ -10,7 +10,13 @@ import {
 } from "@sellbridge/shared/supplier-panel-orders-tabs";
 import { and, asc, desc, eq, inArray, sql, type SQL } from "drizzle-orm";
 import type { Database } from "../client.ts";
-import { orders, orderShipments, storeConnections, suppliers } from "../schema/index.ts";
+import {
+  organization,
+  orders,
+  orderShipments,
+  storeConnections,
+  suppliers,
+} from "../schema/index.ts";
 import { supplierTimingColumns } from "./shipment-timing.ts";
 import {
   emailFailed,
@@ -219,16 +225,36 @@ export async function supplierOwnedShipments(
     );
 }
 
-/** The reseller stores this supplier has parcels from, for the store filter, by name. */
+/**
+ * The reseller stores this supplier has parcels from, for the store filter, by name. Each names
+ * its reseller, so picking a reseller narrows the store choice to its own stores.
+ */
 export async function listSupplierResellerStores(
   database: Database,
   supplierId: string,
-): Promise<{ id: string; name: string }[]> {
+): Promise<{ id: string; name: string; resellerId: string }[]> {
   return database
-    .selectDistinct({ id: storeConnections.id, name: storeConnections.shopName })
+    .selectDistinct({
+      id: storeConnections.id,
+      name: storeConnections.shopName,
+      resellerId: storeConnections.tenantId,
+    })
     .from(orderShipments)
     .innerJoin(orders, eq(orders.id, orderShipments.orderId))
     .innerJoin(storeConnections, eq(storeConnections.id, orders.storeConnectionId))
     .where(eq(orderShipments.supplierId, supplierId))
     .orderBy(asc(storeConnections.shopName), asc(storeConnections.id));
+}
+
+/** The resellers this supplier has parcels from, for the reseller filter, by name. */
+export async function listSupplierResellers(
+  database: Database,
+  supplierId: string,
+): Promise<{ id: string; name: string }[]> {
+  return database
+    .selectDistinct({ id: organization.id, name: organization.name })
+    .from(orderShipments)
+    .innerJoin(organization, eq(organization.id, orderShipments.tenantId))
+    .where(eq(orderShipments.supplierId, supplierId))
+    .orderBy(asc(organization.name), asc(organization.id));
 }

@@ -6,15 +6,17 @@ describe("activeOrderFilterCount", () => {
     expect(activeOrderFilterCount({ period: "all" })).toBe(0);
   });
 
-  it("counts the period, the store, the channel and the label that narrow the list", () => {
+  it("counts every filter that narrows the list", () => {
     const count = activeOrderFilterCount({
       period: "7d",
+      reseller: "org_abc",
       store: "6f1c2a4e-8a1b-4c3d-9e2f-1a2b3c4d5e6f",
       channel: "mercado_livre",
       label: "pending",
+      payment: "unpaid",
     });
 
-    expect(count).toBe(4);
+    expect(count).toBe(6);
   });
 });
 

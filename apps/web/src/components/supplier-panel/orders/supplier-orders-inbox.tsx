@@ -7,6 +7,7 @@ import { PaginationBar } from "@/components/data/pagination-bar";
 import { EmptyState } from "@/components/feedback/empty-state";
 import { ErrorState } from "@/components/feedback/error-state";
 import { Skeleton } from "@/components/ui/skeleton";
+import { activeOrderFilterCount } from "@/features/supplier-panel/orders/active-filters";
 import type { BatchAcceptReport } from "@/features/supplier-panel/orders/batch-accept";
 import type { BatchLabelsReport } from "@/features/supplier-panel/orders/batch-labels";
 import {
@@ -71,13 +72,7 @@ function EmptyOrders({ tab, searching }: { tab: SupplierOrderTab; searching: boo
 
 /** Whether anything narrows the list besides the tab, so an empty list says to check it. */
 function isFiltered(search: SupplierOrdersUrlSearch): boolean {
-  return (
-    (search.query ?? "") !== "" ||
-    search.period !== "all" ||
-    search.channel !== undefined ||
-    search.store !== undefined ||
-    search.label !== undefined
-  );
+  return (search.query ?? "") !== "" || activeOrderFilterCount(search) > 0;
 }
 
 /** The orders picked for a batch accept; updates read the latest state, so quick clicks add up. */

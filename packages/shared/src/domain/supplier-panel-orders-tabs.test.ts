@@ -87,4 +87,18 @@ describe("supplierOrdersUrlSearchSchema", () => {
       page: 1,
     });
   });
+
+  it("keeps the reseller and the payment filter from the address", () => {
+    const search = supplierOrdersUrlSearchSchema.parse({ reseller: "org_abc", payment: "unpaid" });
+
+    expect(search.reseller).toBe("org_abc");
+    expect(search.payment).toBe("unpaid");
+  });
+
+  it("drops an unknown payment filter and a blank reseller", () => {
+    const search = supplierOrdersUrlSearchSchema.parse({ reseller: "  ", payment: "maybe" });
+
+    expect(search.reseller).toBeUndefined();
+    expect(search.payment).toBeUndefined();
+  });
 });
