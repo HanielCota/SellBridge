@@ -1,10 +1,29 @@
 import { describe, expect, test } from "vitest";
 import {
+  DEFAULT_PAYMENT_FEE_BASIS_POINTS,
+  effectivePaymentFeeBasisPoints,
   InvalidPaymentFeeError,
   platformFeeCents,
   shipmentPaymentStatusFrom,
   supplierPaymentBadge,
 } from "./shipment-payments.ts";
+
+describe("effectivePaymentFeeBasisPoints", () => {
+  test("uses 1% while the admin has saved no fee", () => {
+    const fee = effectivePaymentFeeBasisPoints(null);
+
+    expect(fee).toBe(100);
+    expect(fee).toBe(DEFAULT_PAYMENT_FEE_BASIS_POINTS);
+  });
+
+  test("uses the fee the admin saved, zero included", () => {
+    const saved = effectivePaymentFeeBasisPoints(450);
+    const free = effectivePaymentFeeBasisPoints(0);
+
+    expect(saved).toBe(450);
+    expect(free).toBe(0);
+  });
+});
 
 describe("platformFeeCents", () => {
   test("takes the rate of the amount", () => {

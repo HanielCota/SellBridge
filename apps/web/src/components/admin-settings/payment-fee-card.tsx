@@ -17,22 +17,21 @@ import { formatAbsoluteTime } from "@/lib/relative-time";
 /** The example order the card works out the fee on: R$ 100,00. */
 const EXAMPLE_ORDER_CENTS = 10_000;
 
-function feeField(basisPoints: number | null): string {
-  if (basisPoints === null) {
-    return "";
-  }
+function feeField(basisPoints: number): string {
   return formatFeePercent(basisPoints).replace("%", "");
 }
 
 function FeeStatus({
   basisPoints,
+  isDefault,
   updatedAt,
 }: {
-  basisPoints: number | null;
+  basisPoints: number;
+  isDefault: boolean;
   updatedAt: string | null;
 }) {
-  if (basisPoints === null || updatedAt === null) {
-    return <PaymentPill tone="warning">Ainda não definida</PaymentPill>;
+  if (isDefault || updatedAt === null) {
+    return <PaymentPill tone="success">{`${formatFeePercent(basisPoints)} · padrão`}</PaymentPill>;
   }
   return (
     <PaymentPill tone="success">
@@ -64,7 +63,7 @@ function FeeInput({
           id={fieldId}
           inputMode="decimal"
           autoComplete="off"
-          placeholder="Ex.: 5"
+          placeholder="Ex.: 1"
           value={typed}
           aria-invalid={error === null ? undefined : true}
           aria-describedby={`${fieldId}-hint`}
@@ -91,7 +90,7 @@ function FeeInput({
   );
 }
 
-function FeeForm({ saved }: { saved: number | null }) {
+function FeeForm({ saved }: { saved: number }) {
   const queryClient = useQueryClient();
   const [typed, setTyped] = useState(feeField(saved));
   const [touched, setTouched] = useState(false);
@@ -149,7 +148,11 @@ export function PaymentFeeCard() {
           Taxa do SellBridge nos pagamentos
         </h2>
         {query.data === undefined ? null : (
-          <FeeStatus basisPoints={query.data.basisPoints} updatedAt={query.data.updatedAt} />
+          <FeeStatus
+            basisPoints={query.data.basisPoints}
+            isDefault={query.data.isDefault}
+            updatedAt={query.data.updatedAt}
+          />
         )}
       </div>
       <p className="text-sm text-muted-foreground">
