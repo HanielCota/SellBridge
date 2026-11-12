@@ -59,6 +59,7 @@ export * from "./buyer-tracking.ts";
 export * from "./auto-forward.ts";
 export { reserveShortItems } from "./stock-reservations.ts";
 export * from "./ticket-links.ts";
+export * from "./email-sign-up-password.ts";
 export * from "./owner-promotion.ts";
 export * from "./notification-deliveries.ts";
 export * from "./notification-producers.ts";

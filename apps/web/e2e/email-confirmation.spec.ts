@@ -1,4 +1,5 @@
-import { expect, type Page, test } from "@playwright/test";
+import { type APIRequestContext, expect, type Page, test } from "@playwright/test";
+import { TERMS_VERSION } from "@sellbridge/shared/terms";
 import { createEmailVerificationToken } from "better-auth/api";
 import { requireEnvironmentVariable } from "./environment";
 import { gotoHydrated, SIGN_UP_PASSWORD, uniqueEmail } from "./helpers";
@@ -9,7 +10,21 @@ async function confirmationLink(email: string): Promise<string> {
     requireEnvironmentVariable("BETTER_AUTH_SECRET"),
     email,
   );
-  return `/api/auth/verify-email?token=${token}&callbackURL=${encodeURIComponent("/onboarding")}`;
+  const callbackURL = "/login?emailConfirmado=true&redirect=%2Fonboarding";
+  return `/api/auth/verify-email?token=${token}&callbackURL=${encodeURIComponent(callbackURL)}`;
+}
+
+async function sessionUserId(request: APIRequestContext): Promise<string | null> {
+  const response = await request.get("/api/auth/get-session");
+  const body: unknown = await response.json();
+  if (typeof body !== "object" || body === null || !("user" in body)) {
+    return null;
+  }
+  const { user } = body;
+  if (typeof user !== "object" || user === null || !("id" in user)) {
+    return null;
+  }
+  return typeof user.id === "string" ? user.id : null;
 }
 
 async function fillLogin(page: Page, email: string, password: string) {
@@ -53,6 +68,30 @@ test("a conta nova só entra depois de abrir o link de confirmação", async ({ 
   await expect(page).toHaveURL(/\/login/);
 
   await page.goto(await confirmationLink(email));
+  await expect(page).toHaveURL(/\/login\?/);
+  await expect(page.getByText("E-mail confirmado. Entre com seu e-mail e senha.")).toBeVisible();
+
+  await fillLogin(page, email, SIGN_UP_PASSWORD);
   await expect(page).toHaveURL(/^[^?]*\/onboarding(?:[?#]|$)/);
   await expect(page.getByRole("heading", { name: "Configure sua conta" })).toBeVisible();
+});
+
+test("o link de confirmação não abre sessão para quem o abre", async ({ browser, request }) => {
+  const email = uniqueEmail("pre-cadastro");
+  const signUp = await request.post("/api/auth/sign-up/email", {
+    data: {
+      name: "Fulano Teste",
+      email,
+      password: SIGN_UP_PASSWORD,
+      acceptedTermsVersion: TERMS_VERSION,
+    },
+  });
+  expect(signUp.ok()).toBe(true);
+  const opener = await browser.newContext();
+
+  const opened = await opener.request.get(await confirmationLink(email), { maxRedirects: 0 });
+
+  expect(opened.status()).toBe(302);
+  expect(await sessionUserId(opener.request)).toBeNull();
+  await opener.close();
 });
