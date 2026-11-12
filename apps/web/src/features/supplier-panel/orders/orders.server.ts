@@ -1,6 +1,7 @@
 import {
   countSupplierShipmentsByTab,
   getSupplierPanelShipment,
+  listSupplierResellers,
   listSupplierResellerStores,
   listSupplierShipments,
   supplierOwnedShipments,
@@ -63,6 +64,10 @@ export async function loadSupplierShipmentCounts(input: SupplierShipmentCountsSe
 
 export async function loadSupplierResellerStores(supplierId: string) {
   return await listSupplierResellerStores(database, supplierId);
+}
+
+export async function loadSupplierResellers(supplierId: string) {
+  return await listSupplierResellers(database, supplierId);
 }
 
 export async function loadSupplierShipment(input: { supplierId: string; shipmentId: string }) {

@@ -75,7 +75,7 @@ describe("menu groups", () => {
       navGroups(NAV_ITEMS).map((group) => [group.heading, group.items.map((item) => item.label)]),
     ).toEqual([
       [null, ["Visão geral"]],
-      ["Vender", ["Catálogo", "Publicações", "Pedidos"]],
+      ["Vender", ["Fornecedores", "Catálogo", "Publicações", "Pedidos"]],
       ["Dinheiro", ["Financeiro"]],
       ["Lojas", ["Lojas", "Integrações"]],
     ]);
@@ -149,7 +149,7 @@ describe("active tab", () => {
   });
 
   it("lights a tab for the sections that live under it and nothing elsewhere", () => {
-    expect(activeNavItemTo(NAV_ITEMS, "/fornecedores/abc")).toBe("/catalogo");
+    expect(activeNavItemTo(NAV_ITEMS, "/fornecedores/abc")).toBe("/fornecedores");
     expect(activeNavItemTo(NAV_ITEMS, "/conta")).toBeNull();
   });
 });

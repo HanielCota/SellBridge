@@ -7,6 +7,7 @@ import {
   orders,
   orderShipments,
   shipmentEvents,
+  shipmentPayments,
   storeConnections,
   suppliers,
 } from "../schema/index.ts";
@@ -29,6 +30,7 @@ import { findSupplierShipmentsByCode } from "./supplier-panel-scan.ts";
 import {
   countSupplierShipmentsByTab,
   listSupplierHomeShipments,
+  listSupplierResellers,
   listSupplierResellerStores,
   listSupplierShipments,
 } from "./supplier-panel-orders.ts";
@@ -434,7 +436,78 @@ describe("finding a parcel", () => {
   it("lists the reseller stores the supplier has parcels from, never another supplier's", async () => {
     const stores = await listSupplierResellerStores(database, otherSupplier.supplierId);
 
-    expect(stores.map((store) => store.id)).toEqual([storeIds[tenants.tenantA]]);
+    expect(stores).toEqual([
+      expect.objectContaining({ id: storeIds[tenants.tenantA], resellerId: tenants.tenantA }),
+    ]);
+  });
+
+  it("lists the resellers the supplier has parcels from, never another supplier's", async () => {
+    const resellers = await listSupplierResellers(database, otherSupplier.supplierId);
+
+    expect(resellers.map((reseller) => reseller.id)).toEqual([tenants.tenantA]);
+    expect(resellers[0]?.name).not.toBe("");
+  });
+
+  it("keeps only the parcels of the reseller asked for", async () => {
+    const buyer = `Revenda ${randomUUID().slice(0, 6)}`;
+    await forwardedShipment({ buyerName: buyer, tenantId: tenants.tenantA });
+    const fromB = await forwardedShipment({ buyerName: buyer, tenantId: tenants.tenantB });
+
+    const result = await listSupplierShipments(database, {
+      supplierId: supplier.supplierId,
+      tab: "todo",
+      query: buyer,
+      page: 1,
+      reseller: tenants.tenantB,
+    });
+
+    expect(result.items.map((item) => item.id)).toEqual([fromB.shipmentId]);
+  });
+});
+
+async function recordPayment(shipmentId: string, status: "approved" | "refunded") {
+  await database.insert(shipmentPayments).values({
+    shipmentId,
+    supplierId: supplier.supplierId,
+    provider: "mercado_pago",
+    status,
+    amountCents: 1000,
+    platformFeeCents: 50,
+    platformFeeBasisPoints: 500,
+    paidAt: new Date(),
+  });
+}
+
+describe("payment filter", () => {
+  it("tells parcels paid here from the refunded and the never paid", async () => {
+    const buyer = `Pagamento ${randomUUID().slice(0, 6)}`;
+    const paid = await forwardedShipment({ buyerName: buyer });
+    const refunded = await forwardedShipment({ buyerName: buyer });
+    const never = await forwardedShipment({ buyerName: buyer });
+    await recordPayment(paid.shipmentId, "approved");
+    await recordPayment(refunded.shipmentId, "refunded");
+    const list = (payment: "paid" | "unpaid") =>
+      listSupplierShipments(database, {
+        supplierId: supplier.supplierId,
+        tab: "todo",
+        query: buyer,
+        page: 1,
+        payment,
+      });
+
+    const paidOnes = await list("paid");
+    const unpaidOnes = await list("unpaid");
+    const counts = await countSupplierShipmentsByTab(database, {
+      supplierId: supplier.supplierId,
+      query: buyer,
+      payment: "unpaid",
+    });
+
+    expect(paidOnes.items.map((item) => item.id)).toEqual([paid.shipmentId]);
+    expect(unpaidOnes.items.map((item) => item.id).toSorted()).toEqual(
+      [refunded.shipmentId, never.shipmentId].toSorted(),
+    );
+    expect(counts.todo).toBe(2);
   });
 });
 

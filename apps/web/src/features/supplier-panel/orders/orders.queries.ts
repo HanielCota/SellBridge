@@ -8,6 +8,7 @@ import {
   countSupplierShipmentsFn,
   getSupplierPanelShipmentFn,
   getSupplierParcelTrackingFn,
+  listSupplierResellersFn,
   listSupplierResellerStoresFn,
   listSupplierShipmentsFn,
 } from "./orders.functions";
@@ -38,8 +39,10 @@ export function shipmentFiltersOf(
     from: search.from,
     to: search.to,
     channel: search.channel,
+    reseller: search.reseller,
     store: search.store,
     label: search.label,
+    payment: search.payment,
   };
 }
 
@@ -69,5 +72,13 @@ export const supplierResellerStoresQueryOptions = (supplierId: string) =>
   queryOptions({
     queryKey: [...supplierOrdersKey(supplierId), "stores"],
     queryFn: () => listSupplierResellerStoresFn({ data: { supplierId } }),
+    staleTime: 5 * 60_000,
+  });
+
+/** The resellers the supplier has orders from, for the reseller filter. */
+export const supplierResellersQueryOptions = (supplierId: string) =>
+  queryOptions({
+    queryKey: [...supplierOrdersKey(supplierId), "resellers"],
+    queryFn: () => listSupplierResellersFn({ data: { supplierId } }),
     staleTime: 5 * 60_000,
   });

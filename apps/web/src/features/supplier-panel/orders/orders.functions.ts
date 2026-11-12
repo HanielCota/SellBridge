@@ -16,6 +16,7 @@ import { printSupplierLabels } from "./batch-labels.server";
 import { scanSupplierShipment } from "./scan.server";
 import {
   acceptSupplierShipments,
+  loadSupplierResellers,
   loadSupplierResellerStores,
   loadSupplierShipment,
   loadSupplierShipmentCounts,
@@ -75,6 +76,11 @@ export const listSupplierResellerStoresFn = createServerFn({ method: "GET" })
   .middleware([supplierPanelMiddleware])
   .validator(z.object({ supplierId: supplierIdSchema }))
   .handler(async ({ data }) => await loadSupplierResellerStores(data.supplierId));
+
+export const listSupplierResellersFn = createServerFn({ method: "GET" })
+  .middleware([supplierPanelMiddleware])
+  .validator(z.object({ supplierId: supplierIdSchema }))
+  .handler(async ({ data }) => await loadSupplierResellers(data.supplierId));
 
 export const scanSupplierShipmentFn = createServerFn({ method: "POST" })
   .middleware([supplierPanelMiddleware])

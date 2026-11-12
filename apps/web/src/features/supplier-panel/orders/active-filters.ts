@@ -1,17 +1,22 @@
 import type { SupplierOrdersUrlSearch } from "@sellbridge/shared/supplier-panel-orders-schema";
 
 /**
- * How many of the folded filters narrow the list (period other than "Tudo", store, channel,
- * label), so the phone's "Filtrar" button says when something is hiding orders.
+ * How many of the folded filters narrow the list (period other than "Tudo", reseller, store,
+ * channel, label, payment), so the phone's "Filtrar" button says when something is hiding orders.
  */
 export function activeOrderFilterCount(
-  search: Pick<SupplierOrdersUrlSearch, "period" | "store" | "channel" | "label">,
+  search: Pick<
+    SupplierOrdersUrlSearch,
+    "period" | "reseller" | "store" | "channel" | "label" | "payment"
+  >,
 ): number {
   const narrowing = [
     search.period !== "all",
+    search.reseller !== undefined,
     search.store !== undefined,
     search.channel !== undefined,
     search.label !== undefined,
+    search.payment !== undefined,
   ];
   return narrowing.filter(Boolean).length;
 }

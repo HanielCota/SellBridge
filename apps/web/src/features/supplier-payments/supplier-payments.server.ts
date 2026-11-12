@@ -19,6 +19,7 @@ import { notFoundError, validationError } from "@sellbridge/shared/errors";
 import { logger } from "@sellbridge/shared/logger";
 import { SETTLED_FULFILLMENT_STATUSES } from "@sellbridge/shared/schemas";
 import {
+  effectivePaymentFeeBasisPoints,
   platformFeeCents,
   supplierPaymentBadge,
   type SupplierPaymentBadge,
@@ -58,7 +59,7 @@ export async function loadPaymentAccount(supplierId: string) {
     status: account?.status ?? "none",
     connectedAt: account?.connectedAt.toISOString() ?? null,
     updatedAt: account?.updatedAt.toISOString() ?? null,
-    feeBasisPoints: fee.basisPoints ?? 0,
+    feeBasisPoints: effectivePaymentFeeBasisPoints(fee.basisPoints),
   };
 }
 
@@ -256,7 +257,9 @@ export async function startSupplierCheckout(input: {
   if (open !== null) {
     return { checkoutUrl: open };
   }
-  const feeBasisPoints = (await getPaymentFeeSetting(database)).basisPoints ?? 0;
+  const feeBasisPoints = effectivePaymentFeeBasisPoints(
+    (await getPaymentFeeSetting(database)).basisPoints,
+  );
   const now = new Date();
   // Reserving the parcel makes a second click or tab wait instead of opening another checkout.
   const payment = await startShipmentPayment(database, {
@@ -333,11 +336,12 @@ export async function confirmSupplierPaymentReturn(input: {
   return loadResellerSupplierPayment(input);
 }
 
-/** The fee rate the admin sees and edits. */
+/** The fee rate the admin sees and edits; the default one while none is saved. */
 export async function loadPaymentFee() {
   const fee = await getPaymentFeeSetting(database);
   return {
-    basisPoints: fee.basisPoints,
+    basisPoints: effectivePaymentFeeBasisPoints(fee.basisPoints),
+    isDefault: fee.basisPoints === null,
     updatedAt: fee.updatedAt?.toISOString() ?? null,
   };
 }

@@ -5,7 +5,11 @@ import {
   SUPPLIER_LABEL_STATES,
   type SupplierLabelState,
 } from "@sellbridge/shared/supplier-order-labels";
-import type { SupplierOrdersUrlSearch } from "@sellbridge/shared/supplier-panel-orders-schema";
+import {
+  SUPPLIER_PAYMENT_FILTERS,
+  type SupplierOrdersUrlSearch,
+  type SupplierPaymentFilter,
+} from "@sellbridge/shared/supplier-panel-orders-schema";
 import {
   isQueueTab,
   SUPPLIER_ORDER_TAB_LABELS,
@@ -33,9 +37,14 @@ import {
 import { CHANNEL_LABELS } from "@/features/supplier-panel/orders/channel-labels";
 import {
   shipmentFiltersOf,
+  supplierResellersQueryOptions,
   supplierResellerStoresQueryOptions,
   supplierShipmentCountsQueryOptions,
 } from "@/features/supplier-panel/orders/orders.queries";
+import {
+  storeAfterResellerChange,
+  storesOfReseller,
+} from "@/features/supplier-panel/orders/reseller-stores";
 import { useNow } from "@/hooks/use-now";
 import { useUrlSearchQuery } from "@/hooks/use-url-search-query";
 import { cn } from "@/lib/utils";
@@ -95,8 +104,66 @@ const LABEL_OPTIONS = SUPPLIER_LABEL_STATES.map((state) => ({
   value: state,
   label: SUPPLIER_LABEL_STATE_LABELS[state],
 }));
+const PAYMENT_FILTER_LABELS: Record<SupplierPaymentFilter, string> = {
+  paid: "Pagos a você",
+  unpaid: "Ainda não pagos",
+};
+const PAYMENT_OPTIONS = SUPPLIER_PAYMENT_FILTERS.map((payment) => ({
+  value: payment,
+  label: PAYMENT_FILTER_LABELS[payment],
+}));
 
-/** Sale date, reseller store, channel and label: the reports' period controls plus the screen's own. */
+/** Reseller first, then only its stores: picking another reseller drops a store not its own. */
+function ResellerAndStoreSelects({
+  supplierId,
+  search,
+  onChange,
+}: {
+  supplierId: string;
+  search: SupplierOrdersUrlSearch;
+  onChange: (patch: Partial<SupplierOrdersUrlSearch>) => void;
+}) {
+  const resellers = useQuery(supplierResellersQueryOptions(supplierId));
+  const stores = useQuery(supplierResellerStoresQueryOptions(supplierId));
+  const allStores = stores.data ?? [];
+  const resellerOptions = (resellers.data ?? []).map((reseller) => ({
+    value: reseller.id,
+    label: reseller.name,
+  }));
+  const storeOptions = storesOfReseller(allStores, search.reseller).map((store) => ({
+    value: store.id,
+    label: store.name,
+  }));
+  return (
+    <>
+      <OptionSelect<string>
+        label="Revendedor"
+        everyLabel="Todos os revendedores"
+        options={resellerOptions}
+        value={search.reseller}
+        onChange={(reseller) =>
+          onChange({
+            reseller,
+            store: storeAfterResellerChange(allStores, search.store, reseller),
+            page: 1,
+          })
+        }
+      />
+      <OptionSelect<string>
+        label="Loja"
+        everyLabel="Todas as lojas"
+        options={storeOptions}
+        value={search.store}
+        onChange={(store) => onChange({ store, page: 1 })}
+      />
+    </>
+  );
+}
+
+/**
+ * Sale date, reseller, reseller store, channel, label and payment: the reports' period controls
+ * plus the screen's own.
+ */
 function ShipmentPeriodFilters({
   supplierId,
   search,
@@ -106,7 +173,6 @@ function ShipmentPeriodFilters({
   search: SupplierOrdersUrlSearch;
   onChange: (patch: Partial<SupplierOrdersUrlSearch>) => void;
 }) {
-  const stores = useQuery(supplierResellerStoresQueryOptions(supplierId));
   const now = useNow();
   // A custom range opens on the last 30 days; "Tudo" has no dates of its own.
   const shown = resolvePeriod(
@@ -117,12 +183,12 @@ function ShipmentPeriodFilters({
     <PeriodFilters
       search={search}
       presets={OPERATION_PERIODS}
-      stores={stores.data ?? []}
       resolvedFrom={shown.fromDate}
       resolvedTo={shown.toDate}
       onChange={(patch) => onChange({ ...patch, page: 1 })}
       extra={
         <>
+          <ResellerAndStoreSelects supplierId={supplierId} search={search} onChange={onChange} />
           <OptionSelect<(typeof MARKETPLACES)[number]>
             label="Canal"
             everyLabel="Todos os canais"
@@ -136,6 +202,13 @@ function ShipmentPeriodFilters({
             options={LABEL_OPTIONS}
             value={search.label}
             onChange={(label) => onChange({ label, page: 1 })}
+          />
+          <OptionSelect<SupplierPaymentFilter>
+            label="Pagamento"
+            everyLabel="Todos os pagamentos"
+            options={PAYMENT_OPTIONS}
+            value={search.payment}
+            onChange={(payment) => onChange({ payment, page: 1 })}
           />
         </>
       }
@@ -192,8 +265,9 @@ export function OrderFilters({
 }
 
 /**
- * On a phone the period, store, channel and label filters fold behind one "Filtrar" button,
- * so the first order shows right under the search; from `sm` up they always show.
+ * On a phone the period, reseller, store, channel, label and payment filters fold behind one
+ * "Filtrar" button, so the first order shows right under the search; from `sm` up they always
+ * show.
  */
 function FoldedOnPhone({ active, children }: { active: number; children: ReactNode }) {
   const [open, setOpen] = useState(false);
