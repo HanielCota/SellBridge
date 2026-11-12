@@ -222,8 +222,11 @@ export function StoreMenu({
           </Button>
         </DropdownMenuTrigger>
       </Hint>
+      {/* Beside the button it slides up on short screens; below it, "Desconectar" got hidden. */}
       <DropdownMenuContent
-        align="end"
+        side="left"
+        align="start"
+        collisionPadding={8}
         className="w-72"
         onCloseAutoFocus={(event) => {
           if (!openedWithPointer.current) {

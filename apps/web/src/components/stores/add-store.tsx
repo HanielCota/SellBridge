@@ -26,6 +26,13 @@ const DESCRIPTIONS: Record<string, string> = {
   tiktok_shop: "Entre com a conta da sua loja no TikTok Shop.",
 };
 
+/**
+ * The marketplace signs in with the account already open in the browser and offers no way to
+ * pick another one, so connecting a second account starts with leaving the first.
+ */
+export const OTHER_ACCOUNT_HINT =
+  "Vai conectar outra conta? Antes, saia da conta atual no site do marketplace (ou use uma janela anônima). O marketplace entra sozinho com a conta que já está aberta no navegador.";
+
 function AvailableOption({
   option,
   supplier,
@@ -162,14 +169,17 @@ export function AddStore({
   const available = marketplaces.filter((option) => option.available);
   const comingSoon = marketplaces.filter((option) => !option.available);
   return (
-    <GroupedList>
-      <SupplierRow supplier={supplier} onChooseSupplier={onChooseSupplier} />
-      {available.map((option) => (
-        <AvailableOption key={option.id} option={option} supplier={supplier} />
-      ))}
-      {comingSoon.map((option) => (
-        <ComingSoonOption key={option.id} option={option} />
-      ))}
-    </GroupedList>
+    <div className="space-y-3">
+      <GroupedList>
+        <SupplierRow supplier={supplier} onChooseSupplier={onChooseSupplier} />
+        {available.map((option) => (
+          <AvailableOption key={option.id} option={option} supplier={supplier} />
+        ))}
+        {comingSoon.map((option) => (
+          <ComingSoonOption key={option.id} option={option} />
+        ))}
+      </GroupedList>
+      <p className="px-1 text-footnote text-muted-foreground">{OTHER_ACCOUNT_HINT}</p>
+    </div>
   );
 }

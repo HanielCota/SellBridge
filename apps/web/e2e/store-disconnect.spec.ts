@@ -9,7 +9,14 @@ import {
   user,
 } from "@sellbridge/database/schema";
 import { and, eq } from "drizzle-orm";
-import { completeOnboarding, gotoHydrated, signUp, waitForHydration } from "./helpers";
+import {
+  completeOnboarding,
+  DEMO_USER,
+  gotoHydrated,
+  signIn,
+  signUp,
+  waitForHydration,
+} from "./helpers";
 import { e2eDatabase } from "./database";
 
 const database = e2eDatabase();
@@ -97,4 +104,23 @@ test("disconnecting pauses the store's live listings on the marketplace by defau
     .from(listingTargets)
     .where(eq(listingTargets.id, targetId));
   expect(target).toEqual({ status: "paused", syncedStock: 0 });
+});
+
+test("the store menu shows Desconectar on a short laptop screen and explains how to switch accounts", async ({
+  page,
+}) => {
+  // The demo store has the longest menu (health, supplier and support entries), as real stores do.
+  await signIn(page, DEMO_USER);
+  await page.setViewportSize({ width: 1280, height: 620 });
+
+  await gotoHydrated(page, "/lojas");
+  await expect(page.getByText("Vai conectar outra conta?")).toBeVisible();
+  await page.getByRole("button", { name: "Opções de Ana Moda" }).click();
+  const disconnect = page.getByRole("menuitem", { name: "Desconectar" });
+
+  await expect(disconnect).toBeInViewport({ ratio: 1 });
+  await disconnect.click();
+  const dialog = page.getByRole("dialog");
+  await expect(dialog.getByText("Vai conectar outra conta?")).toBeVisible();
+  await dialog.getByRole("button", { name: "Cancelar" }).click();
 });
