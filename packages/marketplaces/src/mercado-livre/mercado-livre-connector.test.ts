@@ -201,6 +201,66 @@ describe("descriptions", () => {
     expect((await ml.publishProduct(store, product)).descriptionError).toBeNull();
   });
 
+  // Regression: a supplier spreadsheet full of emojis reached Mercado Livre as it was, the
+  // marketplace refused it (12/11/2026) and the listing went live without a description.
+  it("sends the description without emojis, keeping accents and line breaks", async () => {
+    const { ml, calls } = connector({
+      [`GET ${API}/sites/MLB/domain_discovery/search`]: () => json(200, [{ category_id: "MLB1" }]),
+      [`POST ${API}/items/MLB1/description`]: () => json(201, {}),
+      [`POST ${API}/items`]: () => json(201, { id: "MLB1", permalink: null }),
+    });
+
+    const result = await ml.publishProduct(store, {
+      ...product,
+      description: "🔥 Camiseta de algodão 🔥\n✅ Tamanho M #verão",
+    });
+
+    const call = calls.find((recorded) => recorded.url === `${API}/items/MLB1/description`);
+    expect(JSON.parse(call?.body ?? "{}")).toEqual({
+      plain_text: "Camiseta de algodão\nTamanho M #verão",
+    });
+    expect(result.descriptionError).toBeNull();
+  });
+
+  it("reports a description that was only emojis without sending it", async () => {
+    const { ml, calls } = connector({
+      [`GET ${API}/sites/MLB/domain_discovery/search`]: () => json(200, [{ category_id: "MLB1" }]),
+      [`POST ${API}/items/MLB1/description`]: () => json(201, {}),
+      [`POST ${API}/items`]: () => json(201, { id: "MLB1", permalink: null }),
+    });
+
+    const result = await ml.publishProduct(store, { ...product, description: "🔥🔥🔥 ✨✨" });
+
+    expect(result).toMatchObject({ externalId: "MLB1" });
+    expect(result.descriptionError).toMatch(/^A descrição tem caracteres que o Mercado Livre/);
+    expect(calls.some((recorded) => recorded.url.includes("/description"))).toBe(false);
+  });
+
+  it("resends a description without emojis", async () => {
+    const { ml, calls } = connector({
+      [`PUT ${API}/items/MLB9/description`]: () => json(200, {}),
+    });
+
+    await ml.updateDescription(store, { externalId: "MLB9", plainText: "Texto novo 😀" });
+
+    const call = calls.find((recorded) => recorded.method === "PUT");
+    expect(JSON.parse(call?.body ?? "{}")).toEqual({ plain_text: "Texto novo" });
+  });
+
+  it("refuses to resend a description that was only emojis", async () => {
+    const { ml, calls } = connector({
+      [`PUT ${API}/items/MLB9/description`]: () => json(200, {}),
+    });
+
+    await expect(
+      ml.updateDescription(store, { externalId: "MLB9", plainText: "😀" }),
+    ).rejects.toMatchObject({
+      details: { retryable: false },
+      message: expect.stringMatching(/^A descrição tem caracteres/),
+    });
+    expect(calls).toHaveLength(0);
+  });
+
   it("replaces a description with PUT, as the official page says", async () => {
     const { ml, calls } = connector({
       [`PUT ${API}/items/MLB9/description`]: () => json(200, {}),

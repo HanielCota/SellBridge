@@ -784,3 +784,13 @@ O revendedor paga o fornecedor pelo Checkout Pro do Mercado Pago com a divisão 
 - Uma parcela tem um pagamento só: um segundo clique reaproveita o checkout aberto (30 minutos, Pix incluído), e um pagamento em análise impede outro. Uma segunda aprovação fica registrada no log como pagamento duplicado, para ser devolvida à mão.
 - Pix e cartão, cartão à vista. Ficam fora desta primeira versão: Asaas, Pagar.me, devolução e contestação depois do pagamento, e extrato dentro do SellBridge.
 - Descartado: guardar o saldo no SellBridge e repassar depois (custódia de dinheiro de terceiros).
+
+## 2026-11-12: Descrição sem emojis
+
+Um revendedor contou (áudio de 12/11) que o Mercado Livre recusou as descrições dos produtos da StockShopp por causa dos emojis da planilha: o anúncio entrava sem descrição. A página oficial "Descrição de produtos" pede texto simples e o exemplo de recusa (`item.description.type.invalid`) aponta o emoji.
+
+- **Não guardar emojis** ("Acho melhor so proibir os emotes no campo para nem no sellbridge guardar eles", Guilherme, 12/11). A regra é uma só (`packages/shared/src/domain/emoji.ts`): as descrições de produto e de anúncio recusam emojis no servidor; os campos de descrição (painel do fornecedor, equipe, produto próprio e publicação do revendedor) tiram os emojis assim que são digitados ou colados e dizem por quê.
+- **Importações tiram sozinhas** (escolha do Guilherme, 12/11): planilha da equipe, planilha do painel e Bling guardam a descrição sem emojis e a prévia diz em quantos produtos tirou. Nenhum produto fica de fora por emoji.
+- **Os já guardados** saem na migration 0069 (escolha do Guilherme, 12/11: "Limpar todos de uma vez"), em `supplier_products` e `listings`. A lista de caracteres do SQL é gerada do mesmo padrão do app e um teste compara os dois. Não dá para desfazer.
+- **Ficam:** acentos, quebras de linha, pontuação, `#` (a página não fala de hashtags) e ©, ® e ™.
+- **Descartado:** só limpar no envio ao Mercado Livre (a primeira versão), porque o texto com emoji continuava guardado e aparecia para fornecedor e revendedor.

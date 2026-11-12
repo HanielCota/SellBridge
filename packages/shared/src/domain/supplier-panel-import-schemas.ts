@@ -49,6 +49,8 @@ export interface SupplierImportPreview {
   /** Of the valid rows: new SKUs and SKUs the supplier already has. */
   readonly created: number;
   readonly updated: number;
+  /** Of the valid rows: descriptions that came with emojis and are stored without them. */
+  readonly emojisRemoved: number;
   readonly issues: readonly ImportRowIssues[];
   /** Only the failed rows plus an "erro" column; empty when nothing failed. */
   readonly failedRowsCsv: string;

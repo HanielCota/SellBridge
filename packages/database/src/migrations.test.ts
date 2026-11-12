@@ -1,6 +1,7 @@
 import { createHash, randomBytes } from "node:crypto";
 import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
+import { removeEmojis } from "@sellbridge/shared/emoji";
 import { loadRootEnvironmentFile } from "@sellbridge/shared/environment-file";
 import { drizzle } from "drizzle-orm/postgres-js";
 import { migrate } from "drizzle-orm/postgres-js/migrator";
@@ -349,6 +350,52 @@ describe("migrations", { timeout: MIGRATION_TEST_TIMEOUT }, () => {
       { id: "user-own", image: ownPhoto },
       { id: "user-typed", image: null },
     ]);
+  });
+
+  it("0069 takes emojis out of stored descriptions exactly as the app does", async () => {
+    const url = await throwawayDatabase();
+    await applyMigrationsUpTo(url, 68);
+    const descriptions = [
+      "🔥 Camiseta de algodão 🔥\n✅ Tamanho M #verão\n  - Lavar à mão.",
+      "Oferta🔥imperdível\r\nKit 👍🏽 família 👨‍👩‍👧 Brasil 🇧🇷 passo 1️⃣",
+      "🔥🔥🔥\n✨ ✨",
+      "  Sem emoji, com recuo e acento: ótima. Marca® Algodão™ ©  ",
+    ];
+    await withClient(url, async (sql) => {
+      await sql`
+        insert into organization (id, name, slug, created_at)
+        values ('org-emoji', 'Loja', 'loja-emoji', now())`;
+      await sql`
+        insert into suppliers (id, name, niche, state, city)
+        values ('00000000-0000-4000-8000-000000000069', 'Fornecedor', 'Moda', 'SP', 'São Paulo')`;
+      for (const [index, description] of descriptions.entries()) {
+        const productId = `00000000-0000-4000-8000-00000000010${index}`;
+        await sql`
+          insert into supplier_products (id, supplier_id, sku, title, description, cost_cents, suggested_price_cents)
+          values (${productId}, '00000000-0000-4000-8000-000000000069', ${`SKU-${index}`}, 'Produto', ${description}, 100, 200)`;
+        await sql`
+          insert into listings (tenant_id, supplier_product_id, title, description, price_cents)
+          values ('org-emoji', ${productId}, 'Anúncio', ${description}, 200)`;
+      }
+    });
+
+    await runMigrator(url);
+
+    const expected = descriptions.map((description) => removeEmojis(description));
+    const products = await withClient(
+      url,
+      (sql) =>
+        sql<{ description: string }[]>`select description from supplier_products order by sku`,
+    );
+    const listings = await withClient(
+      url,
+      (sql) => sql<{ description: string }[]>`
+        select listings.description from listings
+        join supplier_products on supplier_products.id = listings.supplier_product_id
+        order by supplier_products.sku`,
+    );
+    expect(products.map((row) => row.description)).toEqual(expected);
+    expect(listings.map((row) => row.description)).toEqual(expected);
   });
 
   it("M1: the region leftovers of the CPF change are gone and the holder stays", async () => {

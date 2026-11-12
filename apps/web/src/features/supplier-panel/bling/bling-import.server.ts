@@ -260,6 +260,7 @@ export async function importBlingRead(input: {
     synchronizationQueued: false,
     failedRows: 0,
     failedRowsCsv: "",
+    emojisRemoved: 0,
   };
   for (const chunk of chunksOf(result.items, IMPORT_CHUNK_ROWS)) {
     const { preview, imported } = await importChunk(supplierId, chunk, merged.costs, keptFields);
@@ -268,6 +269,7 @@ export async function importBlingRead(input: {
     outcome.pausedTargets += imported?.pausedTargets ?? 0;
     outcome.synchronizationQueued ||= imported?.synchronizationQueued ?? false;
     outcome.failedRows += preview.failedRows;
+    outcome.emojisRemoved += preview.emojisRemoved;
     outcome.failedRowsCsv = appendCsvRows(outcome.failedRowsCsv, preview.failedRowsCsv);
   }
   await recordErpImport(database, {

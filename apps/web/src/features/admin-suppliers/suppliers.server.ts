@@ -115,6 +115,7 @@ export async function previewAdminProductCsv(input: z.infer<typeof adminProductC
   return {
     created: plan.created,
     updated: plan.updated,
+    emojisRemoved: parsed.emojisRemoved,
     errors: [...parsed.errors, ...plan.errors].toSorted(
       (first, second) => first.line - second.line,
     ),

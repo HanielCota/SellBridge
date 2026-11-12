@@ -16,7 +16,7 @@ import { toast } from "sonner";
 import { z } from "zod";
 import { ToneStatus } from "@/components/data/tone-status";
 import { firstErrorMessage, TextField } from "@/components/form/form-field";
-import { TextareaField } from "@/components/form/textarea-field";
+import { EmojiFreeTextareaField } from "@/components/form/emoji-free-textarea-field";
 import { EmptyState } from "@/components/feedback/empty-state";
 import { ErrorState } from "@/components/feedback/error-state";
 import { PageHeader } from "@/components/layout/page-header";
@@ -431,7 +431,7 @@ function ListingTextFields({
       <form.Field name="description">
         {(field) => (
           <div className="relative">
-            <TextareaField
+            <EmojiFreeTextareaField
               id="description"
               label="Descrição"
               rows={4}

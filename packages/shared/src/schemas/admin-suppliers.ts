@@ -2,6 +2,7 @@ import { productFiscalSchema } from "../domain/product-fiscal.ts";
 import { supplierFiscalProfileSchema } from "../domain/supplier-fiscal.ts";
 import { z } from "zod";
 import { refuseSupplierTextContact } from "./contact-guard.ts";
+import { refuseEmoji } from "./emoji-guard.ts";
 import { freeText, pageNumberSchema, searchQuery } from "./common.ts";
 import { stateSchema } from "../domain/brazilian-states.ts";
 import { formatCents } from "../domain/money.ts";
@@ -170,7 +171,11 @@ export const adminProductValuesSchema = z.object({
     .min(1, "Informe o título")
     .max(300)
     .superRefine(refuseSupplierTextContact),
-  description: freeText().trim().max(20_000).superRefine(refuseSupplierTextContact),
+  description: freeText()
+    .trim()
+    .max(20_000)
+    .superRefine(refuseSupplierTextContact)
+    .superRefine(refuseEmoji),
   costCents: productPriceCentsSchema("O custo"),
   suggestedPriceCents: productPriceCentsSchema("O preço sugerido"),
   stock: productStockSchema,

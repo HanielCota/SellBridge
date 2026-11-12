@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { freeText, pageNumberSchema, sliceWholeCharacters, searchQuery } from "./common.ts";
+import { refuseEmoji } from "./emoji-guard.ts";
 import { withFallback, optionalParameter } from "./fallback.ts";
 
 export const MARKETPLACES = ["mercado_livre", "shopee", "tiktok_shop"] as const;
@@ -69,7 +70,8 @@ export const listingDescriptionSchema = freeText()
     LISTING_DESCRIPTION_MIN_LENGTH,
     `Descreva o produto com ao menos ${LISTING_DESCRIPTION_MIN_LENGTH} caracteres`,
   )
-  .max(LISTING_DESCRIPTION_MAX_LENGTH, "A descrição deve ter no máximo 5.000 caracteres");
+  .max(LISTING_DESCRIPTION_MAX_LENGTH, "A descrição deve ter no máximo 5.000 caracteres")
+  .superRefine(refuseEmoji);
 
 /** R$ 1.000.000,00: far above any real listing, and well inside the database integer. */
 export const LISTING_MAX_PRICE_CENTS = 100_000_000;

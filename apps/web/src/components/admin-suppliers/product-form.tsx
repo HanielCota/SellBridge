@@ -4,6 +4,7 @@ import { adminSaveProductSchema } from "@sellbridge/shared/schemas";
 import { useState, type FormEvent } from "react";
 import { TextField } from "@/components/form/form-field";
 import { TextareaField } from "@/components/form/textarea-field";
+import { EmojiFreeTextareaField } from "@/components/form/emoji-free-textarea-field";
 import { FormErrorAlert, PendingSubmitButton } from "@/components/form/form-feedback";
 import { SectionCard } from "@/components/layout/section-card";
 import { Label } from "@/components/ui/label";
@@ -170,7 +171,7 @@ export function ProductForm({ supplierId, product, categories, onClose }: Produc
       <form noValidate onSubmit={submit}>
         <fieldset disabled={save.isPending} className="grid gap-4">
           <ProductTextFields values={values} errors={errors} onChange={change} />
-          <TextareaField
+          <EmojiFreeTextareaField
             id="product-description"
             label="Descrição"
             value={values.description}
