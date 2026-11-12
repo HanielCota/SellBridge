@@ -5,6 +5,7 @@ import {
   type SupplierLabelState,
 } from "@sellbridge/shared/supplier-order-labels";
 import { SUPPLIER_QUEUE_STATUSES } from "@sellbridge/shared/supplier-panel-orders";
+import type { SupplierPaymentFilter } from "@sellbridge/shared/supplier-panel-orders-schema";
 import { BLOCKED_ORDER_STATUSES } from "@sellbridge/shared/supplier-panel-orders-tabs";
 import {
   and,
@@ -25,6 +26,7 @@ import {
   orders,
   orderShipments,
   shipmentEvents,
+  shipmentPayments,
   storeConnections,
   suppliers,
 } from "../schema/index.ts";
@@ -128,7 +130,28 @@ export function labelFilter(state: SupplierLabelState, now: Date): SQL | undefin
   return and(inTime, isNull(orderShipments.labelWaitingSince));
 }
 
-/** The list filters besides the tab: search, sale date, channel, reseller store and label. */
+/**
+ * SQL twin of the "paid" badge (`supplierPaymentBadge`): an approved payment with its date. Any
+ * other parcel, refunded or paid off the system included, counts as not paid here.
+ */
+const paidHere = sql<boolean>`exists (
+  select 1 from ${shipmentPayments}
+  where ${shipmentPayments.shipmentId} = ${orderShipments.id}
+    and ${shipmentPayments.status} = 'approved'
+    and ${shipmentPayments.paidAt} is not null
+)`;
+
+export function paymentFilter(payment: SupplierPaymentFilter): SQL {
+  if (payment === "paid") {
+    return paidHere;
+  }
+  return not(paidHere);
+}
+
+/**
+ * The list filters besides the tab: search, sale date, channel, reseller, reseller store, label
+ * and payment.
+ */
 export interface SupplierShipmentFilters {
   query: string;
   /** Inclusive start of the sale date. */
@@ -136,9 +159,12 @@ export interface SupplierShipmentFilters {
   /** Exclusive end of the sale date. */
   orderedTo?: Date | undefined;
   channel?: Marketplace | undefined;
+  /** The reseller's organization (tenant) id. */
+  reseller?: string | undefined;
   /** The reseller's store connection. */
   store?: string | undefined;
   label?: SupplierLabelState | undefined;
+  payment?: SupplierPaymentFilter | undefined;
 }
 
 /** All the list filters as one condition; a filter left out narrows nothing. */
@@ -148,8 +174,10 @@ export function shipmentFilters(filters: SupplierShipmentFilters, now: Date): SQ
     filters.orderedFrom === undefined ? undefined : gte(orders.orderedAt, filters.orderedFrom),
     filters.orderedTo === undefined ? undefined : lt(orders.orderedAt, filters.orderedTo),
     filters.channel === undefined ? undefined : eq(storeConnections.marketplace, filters.channel),
+    filters.reseller === undefined ? undefined : eq(orderShipments.tenantId, filters.reseller),
     filters.store === undefined ? undefined : eq(orders.storeConnectionId, filters.store),
     filters.label === undefined ? undefined : labelFilter(filters.label, now),
+    filters.payment === undefined ? undefined : paymentFilter(filters.payment),
   );
 }
 

@@ -13,12 +13,20 @@ import { SUPPLIER_ORDER_TABS } from "./supplier-panel-orders-tabs.ts";
  */
 export const supplierIdSchema = z.uuid({ error: "Fornecedor inválido" });
 
+/** Whether the reseller already paid the supplier for the parcel through SellBridge. */
+export const SUPPLIER_PAYMENT_FILTERS = ["paid", "unpaid"] as const;
+export type SupplierPaymentFilter = (typeof SUPPLIER_PAYMENT_FILTERS)[number];
+
+/** The reseller's organization id, as the auth library writes it: text, not a uuid. */
+const resellerIdSchema = z.string().trim().min(1).max(200);
+
 /** Shipments a batch may move at once: a screenful, so the confirmation lists every one. */
 export const MAX_BATCH_SHIPMENTS = 50;
 
 /**
  * The list filters besides the tab: the search (order number, tracking code, buyer, reseller
- * store or SKU), the sale date, the channel, the reseller's store and the label state.
+ * store or SKU), the sale date, the channel, the reseller, the reseller's store, the label state
+ * and whether the supplier was paid.
  */
 const shipmentFiltersShape = {
   query: searchQuery().default(""),
@@ -26,8 +34,10 @@ const shipmentFiltersShape = {
   from: isoDateSchema.optional(),
   to: isoDateSchema.optional(),
   channel: marketplaceSchema.optional(),
+  reseller: resellerIdSchema.optional(),
   store: z.uuid().optional(),
   label: z.enum(SUPPLIER_LABEL_STATES).optional(),
+  payment: z.enum(SUPPLIER_PAYMENT_FILTERS).optional(),
 };
 
 export const supplierShipmentsSearchSchema = z.object({
@@ -71,8 +81,10 @@ export const supplierOrdersUrlSearchSchema = z.object({
   from: optionalParameter(isoDateSchema),
   to: optionalParameter(isoDateSchema),
   channel: optionalParameter(marketplaceSchema),
+  reseller: optionalParameter(resellerIdSchema),
   store: optionalParameter(z.uuid()),
   label: optionalParameter(z.enum(SUPPLIER_LABEL_STATES)),
+  payment: optionalParameter(z.enum(SUPPLIER_PAYMENT_FILTERS)),
   page: withFallback(z.coerce.number().int().min(1).max(MAX_PAGE).default(1), 1),
 });
 export type SupplierOrdersUrlSearch = z.infer<typeof supplierOrdersUrlSearchSchema>;

@@ -1,0 +1,1 @@
+CREATE INDEX "order_shipments_supplier_tenant_idx" ON "order_shipments" USING btree ("supplier_id","tenant_id");

@@ -74,6 +74,8 @@ export const orderShipments = pgTable(
     index("order_shipments_tenant_status_idx").on(table.tenantId, table.status),
     // Supplier queues and health reports read parcels across reseller tenants.
     index("order_shipments_supplier_status_idx").on(table.supplierId, table.status),
+    // The supplier's Pedidos filtered by one reseller.
+    index("order_shipments_supplier_tenant_idx").on(table.supplierId, table.tenantId),
     // The tracking job reads parcels still on their way, the least recently read first.
     index("order_shipments_tracking_idx")
       .on(table.trackedAt.asc().nullsFirst())
