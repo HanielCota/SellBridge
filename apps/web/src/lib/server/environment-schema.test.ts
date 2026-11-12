@@ -199,5 +199,23 @@ describe("serverEnvironmentSchema", () => {
 
       expect(parsed.success).toBe(true);
     });
+
+    it("refuses the test mode in production", () => {
+      const parsed = serverEnvironmentSchema.safeParse({
+        ...production,
+        MERCADO_PAGO_TEST_MODE: "true",
+      });
+
+      expect(parsed.error?.issues.map((issue) => issue.path)).toEqual([["MERCADO_PAGO_TEST_MODE"]]);
+    });
+
+    it("keeps the test mode available outside production", () => {
+      const parsed = serverEnvironmentSchema.parse({
+        ...validEnvironment,
+        MERCADO_PAGO_TEST_MODE: "true",
+      });
+
+      expect(parsed.MERCADO_PAGO_TEST_MODE).toBe(true);
+    });
   });
 });
