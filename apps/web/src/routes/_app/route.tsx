@@ -1,4 +1,5 @@
-import { useQuery } from "@tanstack/react-query";
+import type { ProfileKind } from "@sellbridge/shared/profile-kind";
+import { useQuery, type QueryClient } from "@tanstack/react-query";
 import {
   createFileRoute,
   Outlet,
@@ -84,8 +85,29 @@ export const Route = createFileRoute("/_app")({
     }
     return { session };
   },
+  loader: ({ context, location }) =>
+    prefetchSetupProgress(context.queryClient, context.session.profileKind, location.pathname),
   component: AppLayout,
 });
+
+/**
+ * The setup strip sits above every page: drawn after the paint, it pushed the page down under a
+ * click aimed at the header. Awaited only when nothing is cached, so later navigations stay instant.
+ */
+async function prefetchSetupProgress(
+  queryClient: QueryClient,
+  profileKind: ProfileKind,
+  pathname: string,
+): Promise<void> {
+  if (profileKind !== "seller" || isTeamPage(pathname)) {
+    return;
+  }
+  const options = setupProgressQueryOptions();
+  if (queryClient.getQueryData(options.queryKey) !== undefined) {
+    return;
+  }
+  await queryClient.prefetchQuery(options);
+}
 
 /** Pages that already guide the setup themselves, or are not about the reseller's store. */
 const NO_SETUP_STRIP = ["/dashboard", "/onboarding", "/admin", "/perfil", "/suporte"];
@@ -95,6 +117,8 @@ function SetupReminder() {
   const hidden = NO_SETUP_STRIP.some(
     (path) => pathname === path || pathname.startsWith(`${path}/`),
   );
+  // Disabled, not unmounted: the observer keeps the loader's data cached on pages without the
+  // strip, so it is already there on the next page.
   const query = useQuery({ ...setupProgressQueryOptions(), enabled: !hidden });
   if (hidden || !query.data) {
     return null;
