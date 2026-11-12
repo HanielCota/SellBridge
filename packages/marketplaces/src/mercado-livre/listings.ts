@@ -12,6 +12,8 @@ import type {
   StoreCredentials,
 } from "../types.ts";
 import { type MercadoLivreContext, requestJson } from "./client.ts";
+import { DESCRIPTION_NOT_PLAIN_TEXT } from "./error-messages.ts";
+import { toMercadoLivrePlainText } from "./plain-text.ts";
 import {
   categoryAttributesSchema,
   conditionalAttributesSchema,
@@ -81,6 +83,15 @@ function descriptionFailure(error: unknown): string {
   return "O Mercado Livre não recebeu a descrição. Reenvie a descrição.";
 }
 
+/** The description as `plain_text` takes it; one with nothing left is refused here, never sent. */
+function descriptionBody(description: string): string {
+  const plainText = toMercadoLivrePlainText(description);
+  if (plainText === "") {
+    throw marketplaceError(DESCRIPTION_NOT_PLAIN_TEXT, { retryable: false });
+  }
+  return JSON.stringify({ plain_text: plainText });
+}
+
 /**
  * The description is optional for the listing: a failure never fails the publication, but it
  * is reported back so the reseller sees it and can resend (item 13.b). Null when it went through.
@@ -97,7 +108,7 @@ async function postDescription(
         method: "POST",
         accessToken: description.store.accessToken,
         headers: { "content-type": "application/json" },
-        body: JSON.stringify({ plain_text: description.plainText }),
+        body: descriptionBody(description.plainText),
       },
     });
     return null;
@@ -146,7 +157,7 @@ export async function updateDescription(
       method: "PUT",
       accessToken: store.accessToken,
       headers: { "content-type": "application/json" },
-      body: JSON.stringify({ plain_text: update.plainText }),
+      body: descriptionBody(update.plainText),
     },
   });
 }

@@ -62,6 +62,9 @@ const PICTURE_UNREACHABLE =
   "O Mercado Livre não conseguiu baixar uma das fotos do produto. Tente publicar de novo; se continuar, fale com o suporte.";
 const LONG_ATTRIBUTE = `Um atributo do produto passou do tamanho que o Mercado Livre aceita. ${ASK_SUPPORT}`;
 
+export const DESCRIPTION_NOT_PLAIN_TEXT =
+  "A descrição tem caracteres que o Mercado Livre não aceita (emojis, HTML ou símbolos especiais). Fale com o suporte para deixar só texto simples na descrição.";
+
 const EXPLANATIONS: Readonly<Record<string, (cause: MercadoLivreCause) => string>> = {
   "item.attributes.missing_required": missingAttributes,
   "item.attribute.missing_conditional_required": missingAttributes,
@@ -80,8 +83,7 @@ const EXPLANATIONS: Readonly<Record<string, (cause: MercadoLivreCause) => string
     `O título é curto demais para o Mercado Livre. Inclua mais características do produto no título ${AGAIN}`,
   "invalid.title.gender": () =>
     `O título fala de um gênero diferente do informado na ficha do produto. Ajuste o título ${AGAIN}`,
-  "item.description.type.invalid": () =>
-    "A descrição tem caracteres que o Mercado Livre não aceita (emojis, HTML ou símbolos especiais). Fale com o suporte para deixar só texto simples na descrição.",
+  "item.description.type.invalid": () => DESCRIPTION_NOT_PLAIN_TEXT,
   "item.descriptions.length_exceeded": () =>
     `A descrição passou do limite de caracteres do Mercado Livre. Encurte a descrição ${AGAIN}`,
   "item.attributes.invalid_length": () => LONG_ATTRIBUTE,
