@@ -52,12 +52,23 @@ export const Route = createFileRoute("/_app/lojas")({
   component: StoresPage,
 });
 
+/** How long the reconnection notice stays: it carries a step the reseller still has to take. */
+const PAUSED_NOTICE_DURATION_MILLISECONDS = 15_000;
+
+function pausedAfterReconnection(count: number): string {
+  const listings =
+    count === 1
+      ? "1 anúncio desta loja continua pausado"
+      : `${count.toLocaleString("pt-BR")} anúncios desta loja continuam pausados`;
+  return `${listings}, com estoque zero no marketplace. Para voltar a vender, reative em Publicações.`;
+}
+
 function useOAuthResultToast() {
   const search = Route.useSearch();
   const stores = useQuery(storesQueryOptions());
-  const connectedName = stores.data?.stores.find(
-    (store) => store.id === search.conectada,
-  )?.shopName;
+  const connected = stores.data?.stores.find((store) => store.id === search.conectada);
+  const connectedName = connected?.shopName;
+  const pausedListings = connected?.activity.pausedListings ?? 0;
   const navigate = useNavigate({ from: Route.fullPath });
   const shownKey = useRef<string | null>(null);
   useEffect(() => {
@@ -74,13 +85,25 @@ function useOAuthResultToast() {
     }
     shownKey.current = key;
     if (search.conectada) {
-      toast.success(connectedName ? `Loja "${connectedName}" conectada` : "Loja conectada");
+      // Disconnecting paused the store's listings; reconnecting leaves them paused on purpose.
+      const pausedNotice = {
+        description: pausedAfterReconnection(pausedListings),
+        duration: PAUSED_NOTICE_DURATION_MILLISECONDS,
+        action: {
+          label: "Ver anúncios pausados",
+          onClick: () => void navigate({ to: "/publicacoes", search: { status: "paused" } }),
+        },
+      };
+      toast.success(
+        connectedName ? `Loja "${connectedName}" conectada` : "Loja conectada",
+        pausedListings > 0 ? pausedNotice : undefined,
+      );
     }
     if (search.erro) {
       toast.error(STORE_CONNECT_ERROR_MESSAGES[search.erro]);
     }
     void navigate({ search: {}, replace: true });
-  }, [connectedName, navigate, search.conectada, search.erro, stores.isPending]);
+  }, [connectedName, navigate, pausedListings, search.conectada, search.erro, stores.isPending]);
 }
 
 function StoresPage() {
