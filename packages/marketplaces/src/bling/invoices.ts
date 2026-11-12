@@ -76,11 +76,6 @@ export interface BlingInvoice {
 /** The files of an authorized note: its XML, or its DANFE as a PDF. */
 export type BlingInvoiceDocumentFormat = "xml" | "pdf";
 
-export interface BlingInvoiceDocument {
-  readonly fileName: string;
-  readonly content: Uint8Array;
-}
-
 /** A DANFE is a few hundred kilobytes; anything far larger is refused instead of held in memory. */
 const MAX_INVOICE_DOCUMENT_BYTES = 10 * 1024 * 1024;
 const ACCESS_KEY_PATTERN = /^\d{44}$/;
@@ -104,7 +99,7 @@ const saleOrderInvoiceSchema = z.object({
 const generatedInvoiceSchema = z.object({ data: z.object({ idNotaFiscal: z.number().int() }) });
 /** `conteudo` is the file compressed with GZIP and encoded in base64. */
 const invoiceDocumentSchema = z.object({
-  data: z.array(z.object({ nome: z.string().nullish(), conteudo: z.string() })),
+  data: z.array(z.object({ conteudo: z.string() })),
 });
 const sentInvoiceSchema = z.object({ data: z.object({ xml: z.string().nullish() }).nullish() });
 
@@ -347,7 +342,7 @@ function noteCalls(call: BlingCall) {
     async getInvoiceDocument(
       accessKey: string,
       format: BlingInvoiceDocumentFormat,
-    ): Promise<BlingInvoiceDocument> {
+    ): Promise<Uint8Array> {
       if (!ACCESS_KEY_PATTERN.test(accessKey)) {
         throw marketplaceError("A chave de acesso da nota não tem 44 números", {
           retryable: false,
@@ -362,10 +357,7 @@ function noteCalls(call: BlingCall) {
       if (document === undefined || document.conteudo.trim() === "") {
         throw marketplaceError("O Bling não tem o arquivo desta nota", { retryable: false });
       }
-      return {
-        fileName: presentText(document.nome) ?? `${accessKey}.${format}`,
-        content: unpackedDocument(document.conteudo),
-      };
+      return unpackedDocument(document.conteudo);
     },
 
     /** Sends the note to SEFAZ; Bling does not e-mail it (the supplier ships the DANFE). */

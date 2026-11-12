@@ -254,19 +254,21 @@ describe("Bling invoice documents", () => {
 
     const document = await client.getInvoiceDocument(ACCESS_KEY, "xml");
 
-    expect(new TextDecoder().decode(document.content)).toBe("<nfeProc/>");
-    expect(document.fileName).toBe("nfe-1234.xml");
+    expect(new TextDecoder().decode(document)).toBe("<nfeProc/>");
     expect(sentRequest(fetchImplementation).url).toContain(
       `/nfe/documento/${ACCESS_KEY}?formato=xml`,
     );
   });
 
-  it("names the DANFE after its key when Bling gives no name", async () => {
-    const { client } = setup(json(200, { data: [{ conteudo: packed("%PDF-1.4") }] }));
+  it("asks for the DANFE as a PDF", async () => {
+    const { client, fetchImplementation } = setup(
+      json(200, { data: [{ conteudo: packed("%PDF-1.4") }] }),
+    );
 
     const document = await client.getInvoiceDocument(ACCESS_KEY, "pdf");
 
-    expect(document.fileName).toBe(`${ACCESS_KEY}.pdf`);
+    expect(new TextDecoder().decode(document)).toBe("%PDF-1.4");
+    expect(sentRequest(fetchImplementation).url).toContain("formato=pdf");
   });
 
   it("refuses a key that is not 44 digits without calling Bling", async () => {

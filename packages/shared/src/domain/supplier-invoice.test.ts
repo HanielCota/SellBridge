@@ -4,6 +4,7 @@ import { suggestedTaxDefaults } from "./supplier-fiscal.ts";
 import {
   blingInvoiceOutcome,
   formatAccessKey,
+  invoiceFileName,
   invoiceCfopProblem,
   invoiceStopReason,
   MissingInvoiceDataError,
@@ -224,5 +225,22 @@ describe("invoiceStopReason", () => {
 
   it("keeps reading the answer of a note already sent to SEFAZ", () => {
     expect(invoiceStopReason({ ...ready, status: "sent", saleGoesAhead: false })).toBeNull();
+  });
+});
+
+describe("invoiceFileName", () => {
+  const accessKey = "31261111222333000181550010000012341000012345";
+
+  it("names the files by the note's number", () => {
+    expect(invoiceFileName({ number: "1234", accessKey }, "xml")).toBe("nfe-1234.xml");
+    expect(invoiceFileName({ number: "1234", accessKey }, "danfe")).toBe("danfe-1234.pdf");
+  });
+
+  it("keeps quotes and slashes out of the name", () => {
+    expect(invoiceFileName({ number: '12"/../34', accessKey }, "xml")).toBe("nfe-1234.xml");
+  });
+
+  it("falls back to the access key when the note has no number", () => {
+    expect(invoiceFileName({ number: null, accessKey }, "danfe")).toBe(`danfe-${accessKey}.pdf`);
   });
 });

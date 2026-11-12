@@ -400,7 +400,7 @@ export function invoiceAuthorizedContent(notice: InvoiceAuthorizedNotice): Notif
     heading: "A nota fiscal foi emitida",
     paragraphs: [
       `${notice.supplierName} emitiu a nota fiscal ${notice.invoiceNumber} do pedido #${notice.externalOrderId}, direto para o comprador.`,
-      "O XML e o DANFE (PDF) vão anexos. Eles também ficam no pedido, para baixar quando precisar.",
+      "O XML e o DANFE (PDF) da nota também ficam no pedido, para baixar quando precisar.",
     ],
     actionLabel: "Abrir o pedido",
     actionPath: `/pedidos/${notice.orderId}`,
