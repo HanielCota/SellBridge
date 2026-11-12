@@ -113,7 +113,6 @@ export async function updateSupplierBrand(
   return { ...updated, fiscalProfile: readSupplierFiscalProfile(updated.fiscalProfile) };
 }
 
-/** The supplier's regime and default tax codes, for its products' NF-e data; null until filled. */
 /** The origin and unit saved in Marca, which a product's NF-e uses when it has none. */
 export async function getSupplierFiscalFallback(
   database: DatabaseExecutor,
@@ -123,6 +122,7 @@ export async function getSupplierFiscalFallback(
   return setup?.defaults ?? null;
 }
 
+/** The supplier's regime and default tax codes, for its products' NF-e data; null until filled. */
 export async function getSupplierTaxDefaults(
   database: DatabaseExecutor,
   supplierId: string,
