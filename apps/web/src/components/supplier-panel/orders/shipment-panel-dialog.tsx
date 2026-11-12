@@ -27,7 +27,8 @@ import { errorMessage } from "@/lib/errors";
 import { useTabProfileLink } from "@/lib/tab-profile";
 import { formatAbsoluteTime } from "@/lib/relative-time";
 import { cn } from "@/lib/utils";
-import { LabelStatus } from "./order-row-parts";
+import { useNow } from "@/hooks/use-now";
+import { LabelStatus, PostingDeadlineStatus } from "./order-row-parts";
 import { SupplierInvoiceCard } from "./supplier-invoice-card";
 import { SupplierParcelTracking } from "./supplier-parcel-tracking";
 
@@ -101,6 +102,7 @@ function OrderStepsList({ shipment }: { shipment: PanelShipment }) {
 
 /** Who sold, who bought, through which channel, what the supplier receives, and the label. */
 function OrderFacts({ shipment }: { shipment: PanelShipment }) {
+  const now = useNow();
   const history = labelHistory(shipment);
   const facts: { term: string; detail: ReactNode }[] = [
     { term: "Canal", detail: <ChannelWithLogo marketplace={shipment.marketplace} /> },
@@ -130,6 +132,7 @@ function OrderFacts({ shipment }: { shipment: PanelShipment }) {
           </div>
         ))}
       </dl>
+      <PostingDeadlineStatus parcel={shipment} now={now} />
       {shipment.labelState === null ? null : (
         <div className="space-y-1">
           <LabelStatus state={shipment.labelState} printedAt={null} />

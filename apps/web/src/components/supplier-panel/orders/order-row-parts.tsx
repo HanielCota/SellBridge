@@ -21,6 +21,11 @@ import { CONTROL_HINTS, SUPPLIER_NEXT_STEP_HINTS } from "@/components/icons/acti
 import { Hint } from "@/components/ui/hint";
 import { ChannelLine } from "./channel-line";
 import { SupplierPaymentBadgeView } from "@/components/supplier-payments/supplier-payment-badge";
+import {
+  type PostingDeadlineParcel,
+  type PostingDeadlineState,
+  postingDeadline,
+} from "@/features/supplier-panel/orders/posting-deadline";
 
 /** "2× Camiseta (CAM-01) e mais 1 item": enough to pick the parcel without opening it. */
 export function itemsSummary(items: SupplierOrderRow["items"]): string {
@@ -102,6 +107,31 @@ export function LabelStatus({
   return (
     <div>
       <TonePill tone={LABEL_TONES[state]} label={`${SUPPLIER_LABEL_STATE_LABELS[state]}${when}`} />
+    </div>
+  );
+}
+
+const POSTING_TONES: Record<PostingDeadlineState, StatusTone> = {
+  on_time: "info",
+  today: "warning",
+  late: "danger",
+};
+
+/** Mercado Livre's date for the parcel to reach the carrier, in color, words and date. */
+export function PostingDeadlineStatus({
+  parcel,
+  now,
+}: {
+  parcel: PostingDeadlineParcel;
+  now: Date;
+}) {
+  const deadline = postingDeadline(parcel, now);
+  if (deadline === null) {
+    return null;
+  }
+  return (
+    <div>
+      <TonePill tone={POSTING_TONES[deadline.state]} label={deadline.label} timeBased />
     </div>
   );
 }
