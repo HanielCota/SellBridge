@@ -180,3 +180,22 @@ describe("contact details in a spreadsheet row", () => {
     ]);
   });
 });
+
+describe("product CSV descriptions with emojis", () => {
+  it("imports the row with the description stored without emojis, and counts it", () => {
+    const content = [
+      "sku;titulo;descricao;custo;estoque",
+      "EMO-1;Camiseta básica;🔥 Camiseta de algodão 🔥 #verão;12,90;5",
+      "EMO-2;Camiseta lisa;Sem emoji, com acento: ótima;12,90;5",
+    ].join("\n");
+
+    const parsed = parseProductCsv(content);
+
+    expect(parsed.errors).toEqual([]);
+    expect(parsed.rows.map((row) => row.product.description)).toEqual([
+      "Camiseta de algodão #verão",
+      "Sem emoji, com acento: ótima",
+    ]);
+    expect(parsed.emojisRemoved).toBe(1);
+  });
+});

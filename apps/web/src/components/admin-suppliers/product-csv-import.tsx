@@ -1,4 +1,5 @@
 import { CaretDownIcon } from "@phosphor-icons/react";
+import { emojisRemovedNotice } from "@sellbridge/shared/emoji";
 import { findSourceLine, SPREADSHEET_KIND_LABEL } from "@sellbridge/shared/catalog-spreadsheet";
 import { PRODUCT_CSV_TEMPLATE, type ProductCsvError } from "@sellbridge/shared/product-csv";
 import { useRef } from "react";
@@ -70,6 +71,10 @@ function SpreadsheetSummaryNotice({ summary }: { summary: SpreadsheetSummary }) 
 const DownloadIcon = ACTION_ICONS.downloadFile.icon;
 const ChooseFileIcon = ACTION_ICONS.importProducts.icon;
 
+function withLeadingSpace(sentence: string | null): string {
+  return sentence === null ? "" : ` ${sentence}`;
+}
+
 function CsvPreview({ importer }: { importer: ReturnType<typeof useProductCsv> }) {
   const result = importer.preview.data;
   if (!result) {
@@ -85,6 +90,7 @@ function CsvPreview({ importer }: { importer: ReturnType<typeof useProductCsv> }
         <AlertDescription>
           {result.created} produtos serão criados e {result.updated} atualizados.{" "}
           {result.errors.length} linhas com erro.
+          {withLeadingSpace(emojisRemovedNotice(result.emojisRemoved))}
         </AlertDescription>
       </Alert>
       {result.errors.length > 0 ? (

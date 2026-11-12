@@ -5,6 +5,7 @@
   "type": "module",
   "exports": {
     "./money": "./src/domain/money.ts",
+    "./emoji": "./src/domain/emoji.ts",
     "./product-csv": "./src/domain/product-csv.ts",
     "./catalog-spreadsheet": "./src/domain/catalog-spreadsheet.ts",
     "./supplier-catalog-file": "./src/domain/supplier-catalog-file.ts",

@@ -108,6 +108,8 @@ export interface BlingImportOutcome extends SupplierImportResult {
   /** Rows the import refused (a product rule), with the reasons in `failedRowsCsv`. */
   readonly failedRows: number;
   readonly failedRowsCsv: string;
+  /** Imported products whose description came with emojis, stored without them. */
+  readonly emojisRemoved: number;
 }
 
 const integer = new Intl.NumberFormat("pt-BR");

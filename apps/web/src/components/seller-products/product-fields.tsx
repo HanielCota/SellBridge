@@ -3,7 +3,7 @@ import type { SellerProductFormData } from "@/features/seller-products/use-produ
 import { COMMON_ATTRIBUTES } from "@/features/supplier-panel/catalog/draft-form";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Textarea } from "@/components/ui/textarea";
+import { EmojiFreeTextareaField } from "@/components/form/emoji-free-textarea-field";
 
 const FIELDS = [
   { key: "sku", label: "SKU" },
@@ -115,13 +115,14 @@ export function ProductFields({
           ))}
         </select>
       </div>
-      <div className="grid gap-2 sm:col-span-2">
-        <Label htmlFor="seller-description">Descrição</Label>
-        <Textarea
+      <div className="sm:col-span-2">
+        <EmojiFreeTextareaField
           id="seller-description"
+          label="Descrição"
           rows={6}
           value={values.description}
-          onChange={(event) => onChange({ description: event.target.value })}
+          errors={[]}
+          onValueChange={(description) => onChange({ description })}
         />
       </div>
       <ProductAttributes values={values} onChange={onChange} required={required} />

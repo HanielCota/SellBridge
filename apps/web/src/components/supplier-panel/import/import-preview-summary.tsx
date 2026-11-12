@@ -1,3 +1,4 @@
+import { emojisRemovedNotice } from "@sellbridge/shared/emoji";
 import type { SupplierImportPreview } from "@sellbridge/shared/supplier-panel-import-schemas";
 import { useState, type ReactNode } from "react";
 import { ToneStatus } from "@/components/data/tone-status";
@@ -41,6 +42,14 @@ function fileDescription(file: SupplierImportPreview["file"]): string {
   return `CSV ${file.encodingLabel ?? "UTF-8"}, separado por ${file.delimiterLabel ?? "ponto e vírgula"}`;
 }
 
+function EmojiNotice({ products }: { products: number }) {
+  const notice = emojisRemovedNotice(products);
+  if (notice === null) {
+    return null;
+  }
+  return <p className="text-sm text-muted-foreground">{notice}</p>;
+}
+
 function SummaryHeader({ preview }: { preview: SupplierImportPreview }) {
   return (
     <>
@@ -72,6 +81,7 @@ function SummaryHeader({ preview }: { preview: SupplierImportPreview }) {
           tone="danger"
         />
       </dl>
+      <EmojiNotice products={preview.emojisRemoved} />
     </>
   );
 }

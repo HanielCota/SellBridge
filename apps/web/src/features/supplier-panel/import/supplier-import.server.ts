@@ -154,6 +154,7 @@ export async function previewSupplierImport(
     failedRows: issues.length,
     created: prepared?.preview.created ?? 0,
     updated: prepared?.preview.updated ?? 0,
+    emojisRemoved: prepared?.preview.emojisRemoved ?? 0,
     issues: onSpreadsheetRows(issues, catalog),
     failedRowsCsv:
       issues.length === 0 ? "" : buildFailedRowsCsv(normalized, normalized.records, issues),

@@ -33,6 +33,7 @@ function fakePreview(input: { supplierId: string; content: string }) {
   return Promise.resolve({
     created: parsed.rows.length,
     updated: 0,
+    emojisRemoved: parsed.emojisRemoved,
     errors: parsed.errors,
     previewToken: token,
   });
@@ -115,6 +116,7 @@ describe("previewSupplierImport", () => {
     mocks.preview.mockImplementationOnce(fakePreview).mockResolvedValueOnce({
       created: 0,
       updated: 0,
+      emojisRemoved: 0,
       errors: [{ line: 2, reason: "x" }],
       previewToken: token,
     });

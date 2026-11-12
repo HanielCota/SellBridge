@@ -8,6 +8,7 @@ import {
   MAX_PRODUCT_CSV_ROWS,
 } from "../schemas/admin-suppliers.ts";
 import { freeText } from "../schemas/common.ts";
+import { hasEmoji, removeEmojis } from "./emoji.ts";
 import { LISTING_MAX_PRICE_CENTS } from "../schemas/stores.ts";
 import { PRODUCT_CSV_ATTRIBUTE_COLUMNS, parseCsvAttributes } from "./product-csv-attributes.ts";
 import { PRODUCT_CSV_FISCAL_COLUMNS, parseCsvFiscal } from "./product-csv-fiscal.ts";
@@ -61,6 +62,8 @@ export interface ProductCsvRow {
 export interface ParsedProductCsv {
   rows: ProductCsvRow[];
   errors: ProductCsvError[];
+  /** Valid rows whose description came with emojis, stored without them (Mercado Livre refuses them). */
+  emojisRemoved: number;
 }
 
 /** Decimal separator is unambiguous; grouping separators and rounding are rejected. */
@@ -210,7 +213,7 @@ function rowCandidate(
   return {
     sku,
     title: values.titulo,
-    description: values.descricao ?? "",
+    description: removeEmojis(values.descricao ?? ""),
     costCents: parseCsvMoney(values.custo ?? ""),
     stock: /^\d+$/.test(stock) ? Number(stock) : null,
     categorySlug: values.categoria || null,
@@ -295,8 +298,9 @@ export function parseProductCsv(input: string): ParsedProductCsv {
   if (recordsToValidate.length === 0) {
     throw validationError("O CSV não contém produtos");
   }
-  const result: ParsedProductCsv = { rows: [], errors: [] };
+  const result: ParsedProductCsv = { rows: [], errors: [], emojisRemoved: 0 };
   const seen = new Set<string>();
+  const descriptionColumn = headers.indexOf("descricao");
   for (const record of recordsToValidate) {
     const validated = validateRecord(record, headers, seen);
     if ("reason" in validated) {
@@ -304,6 +308,9 @@ export function parseProductCsv(input: string): ParsedProductCsv {
       continue;
     }
     result.rows.push(validated);
+    if (hasEmoji(record.fields[descriptionColumn] ?? "")) {
+      result.emojisRemoved += 1;
+    }
   }
   return result;
 }

@@ -1,7 +1,7 @@
 import type { RequiredAttribute } from "@sellbridge/shared/supplier-panel-catalog-completeness";
 import { attributeFieldLabel } from "@sellbridge/shared/supplier-product-attributes";
 import { TextField } from "@/components/form/form-field";
-import { TextareaField } from "@/components/form/textarea-field";
+import { EmojiFreeTextareaField } from "@/components/form/emoji-free-textarea-field";
 import {
   COMMON_ATTRIBUTES,
   descriptionLengthHint,
@@ -164,7 +164,7 @@ export function StepDetails(
           </div>
         ))}
         <div className="grid gap-2 sm:col-span-2">
-          <TextareaField
+          <EmojiFreeTextareaField
             id={inputIdOf("description")}
             label="Descrição"
             value={values.description}

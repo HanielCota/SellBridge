@@ -1,4 +1,5 @@
 import { CheckCircleIcon } from "@phosphor-icons/react";
+import { emojisRemovedNotice } from "@sellbridge/shared/emoji";
 import { ErrorState } from "@/components/feedback/error-state";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -50,6 +51,9 @@ function ImportDone({ outcome, onBack }: { outcome: BlingImportOutcome; onBack: 
           {outcome.failedRows > 0
             ? ` ${integer.format(outcome.failedRows)} ficaram de fora: baixe a lista para ver o motivo de cada um.`
             : ""}
+          {emojisRemovedNotice(outcome.emojisRemoved) === null
+            ? ""
+            : ` ${emojisRemovedNotice(outcome.emojisRemoved)}`}
         </p>
       </div>
       <div className="flex flex-wrap justify-center gap-2">
