@@ -154,3 +154,6 @@ export const reconciledItemSchema = createdItemSchema.extend({
   seller_custom_field: z.string().nullable(),
   status: z.string(),
 });
+
+/** An item's state alone, read to tell whether a refused update hit a closed item. */
+export const itemStatusSchema = z.object({ status: z.string().max(40) });

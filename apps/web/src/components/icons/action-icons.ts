@@ -365,6 +365,7 @@ export const CONTROL_HINTS = {
  */
 export const NAV_TAB_ICONS: Readonly<Record<string, ActionIconName>> = {
   "/dashboard": "overview",
+  "/fornecedores": "suppliers",
   "/catalogo": "catalog",
   "/publicacoes": "listings",
   "/pedidos": "orders",

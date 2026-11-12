@@ -18,6 +18,8 @@ export interface AppErrorDetails {
   readonly status?: number | null;
   /** Field-level validation problems. */
   readonly issues?: readonly string[];
+  /** The marketplace closed or deleted the item: it can never be updated again. */
+  readonly listingEnded?: boolean;
 }
 
 /**

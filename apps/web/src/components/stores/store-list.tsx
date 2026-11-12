@@ -72,6 +72,30 @@ function problemMessage(status: StoreProblem, lastError: string | null) {
 }
 
 /**
+ * Paused listings sell nothing until the reseller reactivates them, so they get a line of their
+ * own under the subtitle (never cut off with it) leading to where they are reactivated.
+ */
+function PausedListingsLine({ store, storeName }: { store: StoreWithActivity; storeName: string }) {
+  const count = store.activity.pausedListings;
+  if (store.status !== "connected" || count === 0) {
+    return null;
+  }
+  const label = count === 1 ? "1 anúncio pausado" : `${count} anúncios pausados`;
+  return (
+    <p className="text-sm">
+      <Link
+        to="/publicacoes"
+        search={{ status: "paused" }}
+        aria-label={`${label} em ${storeName}: reative em Publicações`}
+        className="text-amber-700 underline-offset-4 hover:underline dark:text-amber-400"
+      >
+        {label} · reative em Publicações
+      </Link>
+    </p>
+  );
+}
+
+/**
  * A connected store whose last refresh failed for a passing reason: it keeps syncing and is
  * retried, so the figures stay, but the reason replaces "Conectada" in the warning tone.
  */
@@ -263,6 +287,7 @@ function StoreRow({
               {name}
             </h2>
             <StoreSubtitle store={store} storeName={name} marketplaceLabel={marketplaceLabel} />
+            <PausedListingsLine store={store} storeName={name} />
             <StoreSupplierLine
               store={store}
               supplier={supplier}

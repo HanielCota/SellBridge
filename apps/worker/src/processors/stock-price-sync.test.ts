@@ -1,4 +1,6 @@
 import { schema } from "@sellbridge/database";
+import { resetListingErrorsForRetry } from "@sellbridge/database/repositories";
+import { marketplaceListingEndedError } from "@sellbridge/marketplaces";
 import { eq } from "drizzle-orm";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import {
@@ -20,6 +22,8 @@ let targetId = "";
 let failingTargetId = "";
 let describedTargetId = "";
 let refusedTargetId = "";
+let closedTargetId = "";
+let closedDescriptionTargetId = "";
 
 beforeAll(async () => {
   tenants = await createTestTenants(database, 1);
@@ -69,7 +73,39 @@ beforeAll(async () => {
     .update(schema.listings)
     .set({ description: "Texto [descricao recusada]" })
     .where(eq(schema.listings.id, refused?.listingId ?? ""));
+  // The reseller deleted these on the marketplace, which now refuses any update to them.
+  closedTargetId = await createPublishedTestTarget(database, {
+    tenantId,
+    productId: catalog.productId,
+    storeId: store.id,
+    title: "Anúncio encerrado no marketplace",
+    externalId: "MOCK-ITEM-CLOSED",
+  });
+  closedDescriptionTargetId = await createPublishedTestTarget(database, {
+    tenantId,
+    productId: catalog.productId,
+    storeId: store.id,
+    title: "Anúncio encerrado com descrição pendente",
+    externalId: "MOCK-ITEM-CLOSED-DESC",
+  });
+  await database
+    .update(schema.listingTargets)
+    .set({ descriptionError: "A descrição não chegou", descriptionFailedAt: new Date() })
+    .where(eq(schema.listingTargets.id, closedDescriptionTargetId));
 });
+
+/** Only the description resend reaches the second one: its stock update still goes through. */
+const CLOSED_FOR_STOCK = new Set(["MOCK-ITEM-CLOSED"]);
+const CLOSED_FOR_DESCRIPTION = new Set(["MOCK-ITEM-CLOSED", "MOCK-ITEM-CLOSED-DESC"]);
+const ENDED_REASON = "Este anúncio foi encerrado no marketplace.";
+const closedItemCalls: string[] = [];
+
+function refuseClosedItem(closed: ReadonlySet<string>, externalId: string): void {
+  if (closed.has(externalId)) {
+    closedItemCalls.push(externalId);
+    throw marketplaceListingEndedError(ENDED_REASON, { status: 400 });
+  }
+}
 
 /** Mock connectors whose stock update fails for the listing deleted on the marketplace. */
 const connectorsWithDeletedItem = {
@@ -83,7 +119,14 @@ const connectorsWithDeletedItem = {
       if (update.externalId === "MOCK-ITEM-GONE") {
         throw new Error("Anúncio não encontrado");
       }
+      refuseClosedItem(CLOSED_FOR_STOCK, update.externalId);
       await connectors.mock.updateStockPrice(credentials, update);
+    },
+    updateDescription: async (
+      ...parameters: Parameters<typeof connectors.mock.updateDescription>
+    ): Promise<void> => {
+      refuseClosedItem(CLOSED_FOR_DESCRIPTION, parameters[1].externalId);
+      await connectors.mock.updateDescription(...parameters);
     },
   },
 };
@@ -172,6 +215,46 @@ describe("stock-price-sync processor", () => {
       syncError: "Falha ao sincronizar estoque e preço",
     });
     expect(row?.syncAttemptedAt).not.toBeNull();
+  });
+
+  it("ends a publication whose item was closed on the marketplace and stops syncing it", async () => {
+    await sync();
+    closedItemCalls.length = 0;
+
+    await sync();
+
+    const row = await database.query.listingTargets.findFirst({
+      where: eq(schema.listingTargets.id, closedTargetId),
+    });
+    expect(row).toMatchObject({ status: "error", errorReason: ENDED_REASON, syncError: null });
+    expect(closedItemCalls).not.toContain("MOCK-ITEM-CLOSED");
+  });
+
+  it("ends a publication when its description resend hits a closed item", async () => {
+    await sync();
+
+    const row = await database.query.listingTargets.findFirst({
+      where: eq(schema.listingTargets.id, closedDescriptionTargetId),
+    });
+    expect(row).toMatchObject({
+      status: "error",
+      errorReason: ENDED_REASON,
+      descriptionError: null,
+      descriptionAttempts: 0,
+    });
+  });
+
+  it("lets the reseller publish an ended publication again", async () => {
+    await sync();
+    const ended = await database.query.listingTargets.findFirst({
+      where: eq(schema.listingTargets.id, closedTargetId),
+    });
+
+    const retried = await resetListingErrorsForRetry(database, tenantId, [ended?.listingId ?? ""], {
+      billingEnabled: false,
+    });
+
+    expect(retried).toContain(closedTargetId);
   });
 
   it("sends a failing target only once per run, however many batches follow", async () => {

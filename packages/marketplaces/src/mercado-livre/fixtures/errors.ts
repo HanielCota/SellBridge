@@ -138,6 +138,30 @@ export const ERROR_FIXTURES = {
       },
     ],
   },
+  /**
+   * `PUT /items/{id}` (price and stock) on an item closed or deleted by the seller, as production
+   * logged it on 2026-11-12 (item id ours).
+   */
+  closedItemUpdate: {
+    ...envelope,
+    message: "Cannot update item MLB1 [status:closed, has_bids:false]",
+    cause: [
+      { type: "error", code: "item.price.not_modifiable", message: "price is not modifiable." },
+      {
+        type: "error",
+        code: "field_not_updatable",
+        message: "available_quantity is not modifiable.",
+      },
+    ],
+  },
+  /** `PUT /items/{id}/description` on the same closed item, as production logged it. */
+  closedItemDescription: {
+    error: "item.status.invalid",
+    message:
+      "To add a description the item status should be one of [not_yet_active, active, paused, payment_required] or substatus waiting_for_patch",
+    status: 400,
+    cause: [],
+  },
   /** Older endpoints answer with no `cause` at all. */
   withoutCause: { message: "attribute BRAND is required", error: "bad_request", status: 400 },
 } as const;
