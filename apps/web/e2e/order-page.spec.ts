@@ -1,7 +1,7 @@
 import { randomUUID } from "node:crypto";
 import { expect, test } from "@playwright/test";
 import { organization, orderItems, orders, storeConnections } from "@sellbridge/database/schema";
-import { eq } from "drizzle-orm";
+import { and, eq } from "drizzle-orm";
 import { forwardableProduct } from "./catalog-fixtures";
 import { DEMO_USER, gotoHydrated, signIn } from "./helpers";
 import { e2eDatabase } from "./database";
@@ -31,7 +31,7 @@ async function insertOrder(order: SeedOrder): Promise<string> {
   const [store] = await database
     .select()
     .from(storeConnections)
-    .where(eq(storeConnections.tenantId, tenant.id));
+    .where(and(eq(storeConnections.tenantId, tenant.id), eq(storeConnections.manual, false)));
   const product = await forwardableProduct(database);
   if (!store || !product) throw new Error("Seed catalog missing");
   const [created] = await database

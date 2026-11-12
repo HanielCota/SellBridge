@@ -4,7 +4,7 @@ import { createDatabase } from "@sellbridge/database/client";
 import { organization, orderItems, orders, storeConnections } from "@sellbridge/database/schema";
 import { type MarketplaceShippingAddress, sealShippingAddress } from "@sellbridge/marketplaces";
 import { createTokenCipher } from "@sellbridge/shared/token-cipher";
-import { eq, inArray } from "drizzle-orm";
+import { and, eq, inArray } from "drizzle-orm";
 import { DEMO_USER, gotoHydrated, signIn } from "./helpers";
 import { forwardableProduct } from "./catalog-fixtures";
 import { requireEnvironmentVariable } from "./environment";
@@ -34,7 +34,7 @@ async function insertOrder(externalOrderId: string, shippingAddress: Marketplace
   const [store] = await database
     .select()
     .from(storeConnections)
-    .where(eq(storeConnections.tenantId, tenant.id));
+    .where(and(eq(storeConnections.tenantId, tenant.id), eq(storeConnections.manual, false)));
   const product = await forwardableProduct(database);
   if (!store || !product) throw new Error("Seed catalog missing");
   const [order] = await database
