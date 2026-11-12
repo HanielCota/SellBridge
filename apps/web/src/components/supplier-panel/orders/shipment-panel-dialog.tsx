@@ -1,7 +1,9 @@
 import { useQuery } from "@tanstack/react-query";
+import type { ReactNode } from "react";
 import { formatCents } from "@sellbridge/shared/money";
 import { DISPATCHED_FULFILLMENT_STATUSES } from "@sellbridge/shared/schemas";
 import { ShipmentPanel } from "@/components/fulfillment/shipment-panel";
+import { MarketplaceMark } from "@/components/stores/marketplace-mark";
 import { SupplierPaymentBadgeView } from "@/components/supplier-payments/supplier-payment-badge";
 import { shippingMethod } from "@/features/supplier-panel/orders/shipping-methods";
 import { ErrorState } from "@/components/feedback/error-state";
@@ -18,11 +20,13 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { isShippingBlocked } from "@/features/fulfillment/shipping-block";
 import { displayBuyerName } from "@/features/orders/buyer-name";
 import { channelLabel, channelSource } from "@/features/supplier-panel/orders/channel-labels";
+import { orderSteps } from "@/features/supplier-panel/orders/order-steps";
 import { supplierPanelShipmentQueryOptions } from "@/features/supplier-panel/orders/orders.queries";
 import { useSupplierShipmentUpdate } from "@/features/supplier-panel/orders/use-order-actions";
 import { errorMessage } from "@/lib/errors";
 import { useTabProfileLink } from "@/lib/tab-profile";
 import { formatAbsoluteTime } from "@/lib/relative-time";
+import { cn } from "@/lib/utils";
 import { LabelStatus } from "./order-row-parts";
 import { SupplierInvoiceCard } from "./supplier-invoice-card";
 import { SupplierParcelTracking } from "./supplier-parcel-tracking";
@@ -42,11 +46,64 @@ function labelHistory(shipment: PanelShipment): string | null {
   return `Impressa ${times}, a última em ${formatAbsoluteTime(shipment.labelPrintedAt)}.`;
 }
 
+/** The channel's logo beside its name, as the stores screen shows it. */
+function ChannelWithLogo({ marketplace }: { marketplace: string }) {
+  return (
+    <span className="flex items-center gap-2">
+      <MarketplaceMark marketplace={marketplace} className="size-6 rounded-lg" />
+      {channelLabel(marketplace)}
+    </span>
+  );
+}
+
+/** Each step the parcel went through with its date and time; the steps ahead say "Ainda não". */
+function OrderStepsList({ shipment }: { shipment: PanelShipment }) {
+  const steps = orderSteps({
+    events: shipment.events,
+    labelPrintedAt: shipment.labelPrintedAt,
+    hasMarketplaceLabel: shipment.labelState !== null,
+  });
+  return (
+    <div className="space-y-2">
+      <h3 className="text-footnote text-muted-foreground">Etapas</h3>
+      <ol className="space-y-1.5 text-subhead">
+        {steps.map((step) => (
+          <li key={step.key} className="flex items-center justify-between gap-3">
+            <span className="flex items-center gap-2">
+              <span
+                aria-hidden="true"
+                className={cn(
+                  "size-2.5 shrink-0 rounded-full",
+                  step.at === null ? "border border-muted-foreground" : "bg-emerald-700",
+                )}
+              />
+              <span className={step.at === null ? "text-muted-foreground" : "font-medium"}>
+                {step.label}
+              </span>
+            </span>
+            {step.at === null ? (
+              <span className="text-footnote text-muted-foreground">Ainda não</span>
+            ) : (
+              <time
+                dateTime={step.at.toISOString()}
+                className="text-footnote tabular-nums"
+                suppressHydrationWarning
+              >
+                {formatAbsoluteTime(step.at)}
+              </time>
+            )}
+          </li>
+        ))}
+      </ol>
+    </div>
+  );
+}
+
 /** Who sold, who bought, through which channel, what the supplier receives, and the label. */
 function OrderFacts({ shipment }: { shipment: PanelShipment }) {
   const history = labelHistory(shipment);
-  const facts = [
-    { term: "Canal", detail: channelLabel(shipment.marketplace) },
+  const facts: { term: string; detail: ReactNode }[] = [
+    { term: "Canal", detail: <ChannelWithLogo marketplace={shipment.marketplace} /> },
     { term: "Loja do revendedor", detail: shipment.shopName },
     { term: "Cliente", detail: displayBuyerName(shipment.buyerName) },
     { term: "Você recebe", detail: formatCents(shipment.receivableCents) },
@@ -81,6 +138,7 @@ function OrderFacts({ shipment }: { shipment: PanelShipment }) {
           )}
         </div>
       )}
+      <OrderStepsList shipment={shipment} />
     </div>
   );
 }
