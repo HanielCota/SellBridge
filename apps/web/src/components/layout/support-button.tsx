@@ -16,7 +16,7 @@ import {
 import { useNow } from "@/hooks/use-now";
 import { badgeCount } from "@/lib/badge-count";
 import { cn } from "@/lib/utils";
-import { navTabClassName } from "./nav-tab-parts";
+import { countTagClassName, navTabClassName } from "./nav-tab-parts";
 
 const SupportIcon = ACTION_ICONS.support.icon;
 
@@ -77,10 +77,7 @@ function SupportTriggerContent({ unread, collapsed }: { unread: number; collapse
       {/* Keeps "Suporte" and the badge apart as words, so the name check reads "Suporte 9+". */}{" "}
       {unread > 0 ? (
         <span
-          className={cn(
-            "flex h-5 min-w-5 items-center justify-center rounded-full bg-brand px-1 text-caption font-semibold text-primary-foreground tabular-nums",
-            collapsed && "absolute -top-1 -right-1 scale-90",
-          )}
+          className={cn(countTagClassName({}), collapsed && "absolute -top-1 -right-1 scale-90")}
         >
           {badgeCount(unread)}
         </span>

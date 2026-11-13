@@ -33,10 +33,27 @@ export function navTabClassName({
 }
 
 function badgeColors({ isError, onActive }: { isError: boolean; onActive: boolean }): string {
+  // A tint vanishes on the lit item's pill, so there the tag turns solid.
   if (onActive) {
-    return "bg-background text-foreground";
+    return isError ? "bg-destructive text-background" : "bg-brand text-primary-foreground";
   }
-  return isError ? "bg-destructive/15 text-destructive" : "bg-brand/20 text-brand-text";
+  return isError
+    ? "bg-destructive/15 text-destructive ring-1 ring-destructive/30 ring-inset"
+    : "bg-brand/15 text-brand-text ring-1 ring-brand/30 ring-inset";
+}
+
+/** The menu's counter: a small tinted tag beside the item's name. */
+export function countTagClassName({
+  isError = false,
+  onActive = false,
+}: {
+  isError?: boolean;
+  onActive?: boolean;
+}): string {
+  return cn(
+    "flex h-5 min-w-5 items-center justify-center rounded-md px-1.5 text-caption font-semibold tabular-nums",
+    badgeColors({ isError, onActive }),
+  );
 }
 
 /** Count beside a tab label; screen readers hear what it counts instead of the bare number. */
@@ -54,13 +71,7 @@ export function TabBadge({
 }) {
   return (
     <>
-      <span
-        aria-hidden="true"
-        className={cn(
-          "flex h-5 min-w-5 items-center justify-center rounded-full px-1.5 text-caption font-semibold tabular-nums",
-          badgeColors({ isError, onActive }),
-        )}
-      >
+      <span aria-hidden="true" className={countTagClassName({ isError, onActive })}>
         {count}
       </span>
       <span className="sr-only">, {description}</span>
