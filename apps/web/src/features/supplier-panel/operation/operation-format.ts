@@ -47,12 +47,15 @@ export function formatMonth(bucket: string): string {
   return `${name.charAt(0).toUpperCase()}${name.slice(1)}`;
 }
 
-/** "12 unidades em estoque"; a negative stock (held by paid orders) reads as none. */
-export function formatStockUnits(availableStock: number): string {
+/**
+ * "12 unidades em estoque"; null when nothing is left (a negative stock is held by paid orders),
+ * since the stock status beside it already says "Sem estoque".
+ */
+export function formatStockUnits(availableStock: number): string | null {
   if (Number.isFinite(availableStock) && availableStock > 0) {
     return `${plural(availableStock, "unidade", "unidades")} em estoque`;
   }
-  return "Nenhuma unidade em estoque";
+  return null;
 }
 
 /** "12 pedidos". */

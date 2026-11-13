@@ -66,10 +66,10 @@ describe("formatStockUnits", () => {
     expect(formatStockUnits(1)).toBe("1 unidade em estoque");
   });
 
-  it("reads zero, negative and invalid stock as none", () => {
-    expect(formatStockUnits(0)).toBe("Nenhuma unidade em estoque");
-    expect(formatStockUnits(-3)).toBe("Nenhuma unidade em estoque");
-    expect(formatStockUnits(Number.NaN)).toBe("Nenhuma unidade em estoque");
+  it("says nothing for zero, negative and invalid stock", () => {
+    expect(formatStockUnits(0)).toBeNull();
+    expect(formatStockUnits(-3)).toBeNull();
+    expect(formatStockUnits(Number.NaN)).toBeNull();
   });
 });
 

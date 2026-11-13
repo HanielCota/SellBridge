@@ -53,6 +53,7 @@ type TopProduct = SupplierSalesData["topProducts"][number];
 
 function TopProductRow({ product }: { product: TopProduct }) {
   const forecast = stockForecast(product.daysLeft);
+  const stockUnits = formatStockUnits(product.availableStock);
   return (
     <li className="flex items-center gap-3 py-2.5">
       <HomePhoto imageUrl={product.imageUrl} title={product.title} />
@@ -65,9 +66,9 @@ function TopProductRow({ product }: { product: TopProduct }) {
         </span>
         {/* No legend here: the card is one big link, so the row holds nothing else to focus. */}
         <ToneStatus tone={forecast.tone} label={forecast.label} />
-        <span className="block text-xs text-muted-foreground tabular-nums">
-          {formatStockUnits(product.availableStock)}
-        </span>
+        {stockUnits === null ? null : (
+          <span className="block text-xs text-muted-foreground tabular-nums">{stockUnits}</span>
+        )}
       </span>
       <span className="shrink-0 text-right">
         <span className="block text-sm font-medium tabular-nums">
