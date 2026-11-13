@@ -43,9 +43,19 @@ describe("supplier conversation topics", () => {
     ]);
   });
 
-  it("points at the order picker only for order and return topics", () => {
+  it("points at the order picker only for order, cancellation and return topics", () => {
     const suggesting = SUPPLIER_CONVERSATION_TOPICS.filter((topic) => topic.suggestsOrder);
-    expect(suggesting.map((topic) => topic.id)).toEqual(["order", "return"]);
+    expect(suggesting.map((topic) => topic.id)).toEqual(["order", "cancellation", "return"]);
+  });
+
+  it("asks for the cancellation receipt before and after shipping", () => {
+    const situations = findSupplierConversationTopic("cancellation")?.situations ?? [];
+    expect(situations.map((item) => item.label)).toEqual([
+      "Cancelou antes do envio",
+      "Cancelou depois do envio",
+      "Outro problema",
+    ]);
+    expect(situations.at(0)?.attachmentTip).toMatch(/comprovante/);
   });
 
   it("finds nothing for an unknown or missing id", () => {

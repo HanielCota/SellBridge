@@ -491,6 +491,13 @@
       "when": 1794504758318,
       "tag": "0069_remove_description_emojis",
       "breakpoints": true
+    },
+    {
+      "idx": 70,
+      "version": "7",
+      "when": 1794543166511,
+      "tag": "0070_supplier_conversation_cancellation",
+      "breakpoints": true
     }
   ]
 }
