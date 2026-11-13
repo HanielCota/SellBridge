@@ -181,9 +181,10 @@ export async function handleOAuthStart(request: Request, marketplaceParam: strin
   return Response.redirect(url, 302);
 }
 
+// The refusal is read first: TikTok Shop sends `code=null&error=auth_denied` together.
 const callbackQuerySchema = z.union([
-  z.object({ code: z.string().min(1), state: z.string().min(1) }),
   z.object({ error: z.string().min(1), state: z.string().optional() }),
+  z.object({ code: z.string().min(1), state: z.string().min(1) }),
 ]);
 
 interface ConnectStoreInput {
