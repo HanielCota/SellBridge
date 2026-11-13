@@ -22,7 +22,7 @@ export type ProblemListQuery = UseInfiniteQueryResult<InfiniteData<ProblemListPa
 function ProblemWhen({ item }: { item: ProblemListItem }) {
   const lastSeenAt = new Date(item.lastSeenAt);
   return (
-    <time dateTime={lastSeenAt.toISOString()} className="text-sm" suppressHydrationWarning>
+    <time dateTime={lastSeenAt.toISOString()} suppressHydrationWarning>
       {problemWhenLabel(lastSeenAt)}
     </time>
   );
@@ -67,7 +67,7 @@ function ProblemAccount({ item }: { item: ProblemListItem }) {
       <Link
         to="/admin/clientes/$userId"
         params={{ userId: item.accountUserId }}
-        className="font-medium underline-offset-4 hover:underline"
+        className="font-medium underline decoration-foreground/30 underline-offset-4 hover:decoration-foreground"
       >
         {item.accountName}
       </Link>
@@ -76,23 +76,24 @@ function ProblemAccount({ item }: { item: ProblemListItem }) {
   );
 }
 
+/** The message first, with the area and when it last happened under it. */
+function ProblemSummary({ item }: { item: ProblemListItem }) {
+  return (
+    <div className="max-w-2xl min-w-72 space-y-1.5">
+      <ProblemMessage item={item} />
+      <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
+        <AreaTag item={item} />
+        <ProblemWhen item={item} />
+      </div>
+    </div>
+  );
+}
+
 const columnHelper = createServerColumnHelper<ProblemListItem>();
 const columns = columnHelper.columns([
-  columnHelper.accessor("lastSeenAt", {
-    header: "Quando",
-    cell: (info) => <ProblemWhen item={info.row.original} />,
-  }),
-  columnHelper.accessor("area", {
-    header: "Área",
-    cell: (info) => <AreaTag item={info.row.original} />,
-  }),
   columnHelper.accessor("message", {
     header: "Problema",
-    cell: (info) => (
-      <div className="max-w-xl min-w-64">
-        <ProblemMessage item={info.row.original} />
-      </div>
-    ),
+    cell: (info) => <ProblemSummary item={info.row.original} />,
   }),
   columnHelper.accessor("occurrences", {
     header: "Repetições",
@@ -135,10 +136,8 @@ function ProblemSkeleton() {
       aria-label="Carregando problemas"
     >
       {["a", "b", "c", "d", "e"].map((key) => (
-        <div key={key} className="grid grid-cols-[9rem_6rem_1fr_5rem_9rem] items-center gap-4">
-          <Skeleton className="h-4" />
-          <Skeleton className="h-6" />
-          <Skeleton className="h-9" />
+        <div key={key} className="grid grid-cols-[1fr_5rem_9rem] items-center gap-4">
+          <Skeleton className="h-11" />
           <Skeleton className="h-4" />
           <Skeleton className="h-4" />
         </div>

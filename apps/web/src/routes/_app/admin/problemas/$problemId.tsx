@@ -102,7 +102,7 @@ function AccountFact({ problem }: { problem: ProblemDetail }) {
     <Link
       to="/admin/clientes/$userId"
       params={{ userId: problem.accountUserId }}
-      className="underline-offset-4 hover:underline"
+      className="underline decoration-foreground/30 underline-offset-4 hover:decoration-foreground"
     >
       {problem.accountName}
     </Link>
