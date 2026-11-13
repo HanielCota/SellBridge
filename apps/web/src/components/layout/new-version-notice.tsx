@@ -12,7 +12,8 @@ export function NewVersionNotice() {
   return (
     <button
       type="button"
-      aria-label="Atualizar para a nova versão do SellBridge"
+      // The phone hides the first words; the name keeps the whole text the computer shows.
+      aria-label="Nova versão do SellBridge · Atualizar"
       onClick={() => window.location.reload()}
       className="inline-flex h-10 items-center gap-2 rounded-full border border-amber-400 bg-amber-100 px-3.5 text-sm font-medium text-amber-900 transition-colors hover:bg-amber-200 focus-visible:ring-3 focus-visible:ring-ring/50 focus-visible:outline-none dark:border-amber-500/40 dark:bg-amber-950/60 dark:text-amber-200 dark:hover:bg-amber-900/70"
     >
