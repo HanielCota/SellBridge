@@ -12,7 +12,7 @@ function SideNavHome({ isSupplier }: { isSupplier: boolean }) {
     <Link
       to={isSupplier ? SUPPLIER_PANEL_PATH : SELLER_HOME_PATH}
       aria-label={isSupplier ? "SellBridge, painel do fornecedor" : "SellBridge, visão geral"}
-      className="flex items-center gap-2.5 rounded-xl px-2 outline-none focus-visible:ring-3 focus-visible:ring-ring/40"
+      className="mb-4 flex items-center gap-2.5 rounded-xl px-2 outline-none focus-visible:ring-3 focus-visible:ring-ring/40"
     >
       <BrandIcon className="size-9 shrink-0" />
       <span aria-hidden="true" className="text-lg font-semibold tracking-tight">
