@@ -23,6 +23,10 @@ function stockLabel(stock: number): string {
   return stock === 1 ? "1 em estoque" : `${stock} em estoque`;
 }
 
+function addLabel(isChosen: boolean): string {
+  return isChosen ? "Adicionado" : "Adicionar";
+}
+
 /** Finds the products to add: by name or code, from every supplier the reseller can sell. */
 export function ProductSearch({
   error,
@@ -108,10 +112,10 @@ function ProductResults({
             variant="outline"
             disabled={chosenIds.has(product.id)}
             onClick={() => onAdd(product)}
-            aria-label={`Adicionar ${product.title}, código ${product.sku}`}
+            aria-label={`${addLabel(chosenIds.has(product.id))} ${product.title}, código ${product.sku}`}
           >
             <PlusIcon aria-hidden="true" />
-            {chosenIds.has(product.id) ? "Adicionado" : "Adicionar"}
+            {addLabel(chosenIds.has(product.id))}
           </Button>
         </li>
       ))}

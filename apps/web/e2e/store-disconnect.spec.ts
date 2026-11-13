@@ -13,6 +13,7 @@ import {
   completeOnboarding,
   DEMO_USER,
   gotoHydrated,
+  labelContentMismatches,
   signIn,
   signUp,
   waitForHydration,
@@ -160,8 +161,9 @@ test("reconnecting tells the reseller the paused listings wait to be reactivated
       .filter({ visible: true }),
   ).toBeVisible();
   await expect(
-    page.getByRole("link", { name: `1 anúncio pausado em ${shopName}: reative em Publicações` }),
+    page.getByRole("link", { name: `${shopName}: 1 anúncio pausado · reative em Publicações` }),
   ).toBeVisible();
+  expect(await labelContentMismatches(page)).toEqual([]);
   await page.getByRole("button", { name: "Ver anúncios pausados" }).click();
   await expect(page).toHaveURL(/\/publicacoes\?status=paused/);
   const [target] = await database

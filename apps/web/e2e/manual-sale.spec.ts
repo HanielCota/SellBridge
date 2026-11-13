@@ -4,7 +4,13 @@ import { orders } from "@sellbridge/database/schema";
 import { eq } from "drizzle-orm";
 import { forwardableProduct } from "./catalog-fixtures";
 import { e2eDatabase } from "./database";
-import { DEMO_USER, gotoHydrated, signIn, stubCepNotFound } from "./helpers";
+import {
+  DEMO_USER,
+  gotoHydrated,
+  labelContentMismatches,
+  signIn,
+  stubCepNotFound,
+} from "./helpers";
 
 const database = e2eDatabase();
 const externalOrderId = `SHOPEE-E2E-${Date.now()}`;
@@ -47,6 +53,8 @@ test("registers a Shopee sale by hand, reads its label and forwards it to the su
   await page
     .getByRole("button", { name: `Adicionar ${product.title}, código ${product.sku}` })
     .click();
+  // The button now shows "Adicionado", and its name says so too.
+  expect(await labelContentMismatches(page)).toEqual([]);
   const item = page.getByRole("list", { name: "Produtos da venda" });
   await item.getByLabel("Quantidade").fill("2");
   await page.getByRole("button", { name: "Registrar venda" }).click();
