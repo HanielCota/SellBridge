@@ -1181,12 +1181,6 @@ function ChartHeadline({
 
 const COST_KEY = <span aria-hidden="true" className="size-2.5 rounded-sm bg-muted-foreground/30" />;
 const PROFIT_KEY = <span aria-hidden="true" className="size-2.5 rounded-sm bg-chart-profit" />;
-const REVENUE_LINE_KEY = (
-  <span aria-hidden="true" className="h-1 w-4 rounded-full bg-chart-revenue" />
-);
-const PROFIT_LINE_KEY = (
-  <span aria-hidden="true" className="h-1 w-4 rounded-full bg-chart-profit" />
-);
 const PENDING_KEY = (
   <span aria-hidden="true" className={cn("size-2.5 rounded-sm", PENDING_HATCH_CLASS)} />
 );
@@ -1220,12 +1214,6 @@ function legendItems({
     return [{ key: "period", mark: DASHED_KEY, text: "Tracejado: margem do período inteiro" }];
   }
   const items: { key: string; mark: ReactNode; text: string }[] = [];
-  if ((kind === "area" || kind === "cumulative") && series === "all") {
-    items.push(
-      { key: "revenue", mark: REVENUE_LINE_KEY, text: "Receita" },
-      { key: "profit", mark: PROFIT_LINE_KEY, text: "Lucro" },
-    );
-  }
   if (kind === "area" && bucket === "day" && layers.average) {
     items.push({ key: "average", mark: SOLID_KEY, text: "Linha cheia: média de 7 dias" });
   }
