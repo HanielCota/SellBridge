@@ -5,12 +5,19 @@ const RESEND_ENDPOINT = "https://api.resend.com/emails";
 /** A hung provider must not hold the caller (a sign-up, a forward) open. */
 const RESEND_TIMEOUT_MILLISECONDS = 10_000;
 
+/** A file sent with the e-mail; Resend takes at most 40 MB per e-mail, after base64. */
+export interface EmailAttachment {
+  filename: string;
+  content: Uint8Array;
+}
+
 export interface OutgoingEmail {
   to: string;
   subject: string;
   text: string;
   /** Optional HTML part; `text` stays as the fallback for clients without HTML. */
   html?: string;
+  attachments?: readonly EmailAttachment[];
 }
 
 /** Sends one e-mail; rejects with an `AppError` that says whether a later try may pass. */
@@ -41,6 +48,13 @@ function emailProviderError(status: number | null, cause?: unknown): AppError {
   });
 }
 
+function resendAttachment(attachment: EmailAttachment) {
+  return {
+    filename: attachment.filename,
+    content: Buffer.from(attachment.content).toString("base64"),
+  };
+}
+
 async function postToResend(
   options: MailerOptions & { apiKey: string },
   email: OutgoingEmail,
@@ -56,6 +70,9 @@ async function postToResend(
         subject: email.subject,
         text: email.text,
         ...(email.html ? { html: email.html } : {}),
+        ...(email.attachments === undefined || email.attachments.length === 0
+          ? {}
+          : { attachments: email.attachments.map(resendAttachment) }),
       }),
       signal: AbortSignal.timeout(RESEND_TIMEOUT_MILLISECONDS),
     });
@@ -77,7 +94,11 @@ export function createMailer(options: MailerOptions): SendEmail {
         throw configurationError("RESEND_API_KEY não configurada: não é possível enviar e-mails");
       }
       // Development: the message goes to the log, so links can be opened locally.
-      logger.info("email.development_preview", { subject: email.subject, body: email.text });
+      logger.info("email.development_preview", {
+        subject: email.subject,
+        body: email.text,
+        attachments: email.attachments?.map((attachment) => attachment.filename) ?? [],
+      });
       return;
     }
     const response = await postToResend({ ...options, apiKey }, email);

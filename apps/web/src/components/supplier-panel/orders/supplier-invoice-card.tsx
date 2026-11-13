@@ -2,6 +2,7 @@ import {
   ArrowClockwiseIcon,
   CheckIcon,
   ClockIcon,
+  CodeIcon,
   CopyIcon,
   FileTextIcon,
   PrinterIcon,
@@ -15,6 +16,7 @@ import {
 import type { ReactNode } from "react";
 import { type StatusTone, TonePill } from "@/components/data/tone-status";
 import { Button } from "@/components/ui/button";
+import { invoiceFileLink } from "@/features/fulfillment/invoice-file-link";
 import { SUPPLIER_PANEL_BASE_PATH } from "@/features/supplier-panel/home/attention-links";
 import { invoiceFixLink } from "@/features/supplier-panel/orders/invoice-fix-link";
 import { useRetrySupplierInvoice } from "@/features/supplier-panel/orders/use-order-actions";
@@ -62,7 +64,50 @@ function statusLabel(invoice: SupplierInvoice): string {
   return moment === null ? label : `${label} · ${formatAbsoluteTime(moment)}`;
 }
 
-function AuthorizedDetails({ invoice }: { invoice: SupplierInvoice }) {
+interface ParcelRef {
+  supplierId: string;
+  shipmentId: string;
+  orderId: string;
+}
+
+function AuthorizedActions({ invoice, parcel }: { invoice: SupplierInvoice; parcel: ParcelRef }) {
+  const withProfile = useTabProfileLink();
+  return (
+    <div className="flex flex-wrap gap-2">
+      {invoice.danfeUrl === null ? null : (
+        <Button asChild variant="outline">
+          <a href={invoice.danfeUrl} target="_blank" rel="noopener noreferrer">
+            <PrinterIcon aria-hidden="true" />
+            Imprimir DANFE
+          </a>
+        </Button>
+      )}
+      {invoice.accessKey === null ? null : (
+        <Button asChild variant="outline">
+          <a
+            href={withProfile(invoiceFileLink({ ...parcel, kind: "xml" }))}
+            target="_blank"
+            rel="noopener noreferrer"
+          >
+            <CodeIcon aria-hidden="true" />
+            Baixar XML
+          </a>
+        </Button>
+      )}
+      {invoice.accessKey === null ? null : (
+        <Button
+          variant="outline"
+          onClick={() => void copyToClipboard(invoice.accessKey ?? "", "Chave de acesso copiada")}
+        >
+          <CopyIcon aria-hidden="true" />
+          Copiar chave
+        </Button>
+      )}
+    </div>
+  );
+}
+
+function AuthorizedDetails({ invoice, parcel }: { invoice: SupplierInvoice; parcel: ParcelRef }) {
   const number =
     invoice.series === null ? invoice.number : `${invoice.number} · série ${invoice.series}`;
   return (
@@ -85,25 +130,7 @@ function AuthorizedDetails({ invoice }: { invoice: SupplierInvoice }) {
           </div>
         )}
       </dl>
-      <div className="flex flex-wrap gap-2">
-        {invoice.danfeUrl === null ? null : (
-          <Button asChild variant="outline">
-            <a href={invoice.danfeUrl} target="_blank" rel="noopener noreferrer">
-              <PrinterIcon aria-hidden="true" />
-              Imprimir DANFE
-            </a>
-          </Button>
-        )}
-        {invoice.accessKey === null ? null : (
-          <Button
-            variant="outline"
-            onClick={() => void copyToClipboard(invoice.accessKey ?? "", "Chave de acesso copiada")}
-          >
-            <CopyIcon aria-hidden="true" />
-            Copiar chave
-          </Button>
-        )}
-      </div>
+      <AuthorizedActions invoice={invoice} parcel={parcel} />
       <p className="text-footnote text-muted-foreground">
         Emitida pelo seu Bling. Para cancelar, use o Bling.
       </p>
@@ -153,10 +180,12 @@ function ProblemDetails({
 export function SupplierInvoiceCard({
   supplierId,
   shipmentId,
+  orderId,
   invoice,
 }: {
   supplierId: string;
   shipmentId: string;
+  orderId: string;
   invoice: SupplierInvoice | null;
 }) {
   if (invoice === null) {
@@ -176,7 +205,9 @@ export function SupplierInvoiceCard({
           icon={ICONS[invoice.status]}
         />
       </div>
-      {invoice.status === "authorized" ? <AuthorizedDetails invoice={invoice} /> : null}
+      {invoice.status === "authorized" ? (
+        <AuthorizedDetails invoice={invoice} parcel={{ supplierId, shipmentId, orderId }} />
+      ) : null}
       {invoice.status === "attention" ? (
         <ProblemDetails supplierId={supplierId} shipmentId={shipmentId} problem={invoice.problem} />
       ) : null}

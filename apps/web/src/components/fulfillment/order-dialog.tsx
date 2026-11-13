@@ -24,6 +24,7 @@ import {
 import { refreshMarketplaceTrackingFn } from "@/features/fulfillment/marketplace.functions";
 import { errorMessage } from "@/lib/errors";
 import { ForwardForm } from "./forward-form";
+import { ResellerInvoiceCard } from "./reseller-invoice-card";
 import { ShipmentPanel } from "./shipment-panel";
 import { ResellerSupplierPayment } from "@/components/supplier-payments/reseller-supplier-payment";
 import { TrackParcelLink } from "@/components/tracking/track-parcel-link";
@@ -59,6 +60,19 @@ export function FulfillmentDialog({
     </Dialog>
   );
 }
+function paymentLine(shipment: Detail["shipments"][number]) {
+  return shipment.catalogKind === "seller" ? null : (
+    <ResellerSupplierPayment shipmentId={shipment.id} />
+  );
+}
+function invoiceCard(orderId: string, shipment: Detail["shipments"][number]) {
+  if (shipment.invoice === null) {
+    return null;
+  }
+  return (
+    <ResellerInvoiceCard orderId={orderId} shipmentId={shipment.id} invoice={shipment.invoice} />
+  );
+}
 /** Each supplier's parcel, with the reseller's own controls: the link, and re-forwarding. */
 function ShipmentList({
   detail,
@@ -79,11 +93,8 @@ function ShipmentList({
       shipment={shipment}
       externalOrderId={detail.order.externalOrderId}
       blocked={blocked}
-      payment={
-        shipment.catalogKind === "seller" ? null : (
-          <ResellerSupplierPayment shipmentId={shipment.id} />
-        )
-      }
+      payment={paymentLine(shipment)}
+      invoice={invoiceCard(detail.order.id, shipment)}
       onUpdate={async (input) => {
         await updateShipmentFn({ data: input });
         await refresh();

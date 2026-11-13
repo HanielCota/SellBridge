@@ -208,6 +208,34 @@ export function formatAccessKey(accessKey: string): string {
   return groups.join(" ");
 }
 
+/** The note's two files: its XML and its DANFE (the printable PDF). */
+export const INVOICE_FILE_KINDS = ["xml", "danfe"] as const;
+export type InvoiceFileKind = (typeof INVOICE_FILE_KINDS)[number];
+
+/** Bling's name for each file's format in `GET /nfe/documento/{chaveAcesso}`. */
+export const INVOICE_FILE_FORMATS: Readonly<Record<InvoiceFileKind, "xml" | "pdf">> = {
+  xml: "xml",
+  danfe: "pdf",
+};
+
+export const INVOICE_FILE_CONTENT_TYPES: Readonly<Record<InvoiceFileKind, string>> = {
+  xml: "application/xml",
+  danfe: "application/pdf",
+};
+
+/**
+ * "nfe-1234.xml" or "danfe-1234.pdf": named by the note's number, else by its access key. Only
+ * letters, digits and hyphens get in, so the name is safe in a download header.
+ */
+export function invoiceFileName(
+  invoice: { number: string | null; accessKey: string },
+  kind: InvoiceFileKind,
+): string {
+  const number = (invoice.number ?? "").replace(/[^\dA-Za-z-]/g, "");
+  const name = number === "" ? invoice.accessKey.replace(/\D/g, "") : number;
+  return kind === "xml" ? `nfe-${name}.xml` : `danfe-${name}.pdf`;
+}
+
 /** Why a note must stop before its next step; each one has its own message for the supplier. */
 export type InvoiceStopReason =
   "erp_disconnected" | "sale_not_going_ahead" | "emission_off" | "missing_lines";

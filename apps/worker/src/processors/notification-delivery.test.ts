@@ -75,6 +75,25 @@ describe("notification-delivery processor", () => {
     expect((await rowOf("processor:sent"))?.status).toBe("sent");
   });
 
+  it("sends the files the e-mail carries as attachments", async () => {
+    const sent: OutgoingEmail[] = [];
+    await queue("processor:attachments", "email");
+    const attachment = { filename: "nfe-1234.xml", content: new TextEncoder().encode("<nfe/>") };
+    const process = createNotificationDeliveryProcessor({
+      database,
+      appUrl: "https://app.sellbridge.test",
+      sendEmail: async (email) => {
+        sent.push(email);
+      },
+      emailAttachments: async () => [attachment],
+      tenantId,
+    });
+
+    await process();
+
+    expect(sent[0]?.attachments).toEqual([attachment]);
+  });
+
   it("retries a failed e-mail later and gives up when attempts run out", async () => {
     await queue("processor:retry", "email");
     let now = new Date();

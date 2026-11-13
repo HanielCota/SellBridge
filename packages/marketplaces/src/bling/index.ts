@@ -8,6 +8,7 @@ export {
 export {
   type BlingAddress,
   type BlingInvoice,
+  type BlingInvoiceDocumentFormat,
   type BlingNewContact,
   type BlingNewSaleOrder,
   type BlingSaleOrderItem,

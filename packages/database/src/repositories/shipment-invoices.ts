@@ -4,10 +4,11 @@ import {
   readSupplierFiscalProfile,
   type SupplierFiscalProfile,
 } from "@sellbridge/shared/supplier-fiscal";
+import { invoiceAuthorizedContent } from "@sellbridge/shared/notification-events";
 import type { InvoiceStatus } from "@sellbridge/shared/supplier-invoice";
 import { conflictError, notFoundError } from "@sellbridge/shared/errors";
 import { and, asc, eq, gte, inArray, isNotNull, isNull, lte, notInArray, sql } from "drizzle-orm";
-import type { Database } from "../client.ts";
+import type { Database, DatabaseExecutor } from "../client.ts";
 import {
   orderItems,
   orders,
@@ -18,6 +19,7 @@ import {
   supplierProducts,
   suppliers,
 } from "../schema/index.ts";
+import { notifyWorkspace } from "./notification-producers.ts";
 
 /** Parcels in these states are not invoiced: the sale did not go ahead. */
 const UNINVOICED_SHIPMENT_STATUSES = ["cancelled", "returned", "not_delivered"] as const;
@@ -329,6 +331,37 @@ export async function markShipmentInvoiceSent(
     .where(eq(shipmentInvoices.id, input.invoiceId));
 }
 
+/** Tells the reseller's workspace the note is out; the e-mail carries its XML and DANFE. */
+async function queueInvoiceAuthorizedNotice(
+  transaction: DatabaseExecutor,
+  input: { invoiceId: string; number: string },
+): Promise<void> {
+  const [parcel] = await transaction
+    .select({
+      tenantId: orderShipments.tenantId,
+      orderId: orderShipments.orderId,
+      shipmentId: orderShipments.id,
+      externalOrderId: orders.externalOrderId,
+      supplierName: suppliers.name,
+    })
+    .from(shipmentInvoices)
+    .innerJoin(orderShipments, eq(orderShipments.id, shipmentInvoices.shipmentId))
+    .innerJoin(orders, eq(orders.id, orderShipments.orderId))
+    .innerJoin(suppliers, eq(suppliers.id, shipmentInvoices.supplierId))
+    .where(eq(shipmentInvoices.id, input.invoiceId));
+  if (parcel === undefined) {
+    return;
+  }
+  const { tenantId, ...notice } = parcel;
+  await notifyWorkspace(transaction, {
+    tenantId,
+    event: "invoice_authorized",
+    dedupeKey: `invoice_authorized:${input.invoiceId}`,
+    content: invoiceAuthorizedContent({ ...notice, invoiceNumber: input.number }),
+  });
+}
+
+/** Authorized by SEFAZ: saved with what the screens show, and the reseller is told. */
 export async function markShipmentInvoiceAuthorized(
   database: Database,
   input: {
@@ -340,19 +373,22 @@ export async function markShipmentInvoiceAuthorized(
     authorizedAt: Date;
   },
 ): Promise<void> {
-  await database
-    .update(shipmentInvoices)
-    .set({
-      status: "authorized",
-      number: input.number,
-      series: input.series,
-      accessKey: input.accessKey,
-      danfeUrl: input.danfeUrl,
-      authorizedAt: input.authorizedAt,
-      problem: null,
-      attempts: 0,
-    })
-    .where(eq(shipmentInvoices.id, input.invoiceId));
+  await database.transaction(async (transaction) => {
+    await transaction
+      .update(shipmentInvoices)
+      .set({
+        status: "authorized",
+        number: input.number,
+        series: input.series,
+        accessKey: input.accessKey,
+        danfeUrl: input.danfeUrl,
+        authorizedAt: input.authorizedAt,
+        problem: null,
+        attempts: 0,
+      })
+      .where(eq(shipmentInvoices.id, input.invoiceId));
+    await queueInvoiceAuthorizedNotice(transaction, input);
+  });
 }
 
 /** Cancelled in the ERP; nothing more happens to it here. */
@@ -470,4 +506,74 @@ export async function setErpInvoicing(
     )
     .returning({ id: supplierErpConnections.id });
   return updated.length > 0;
+}
+
+/** An authorized note as the reseller's order page shows it. */
+export interface AuthorizedShipmentInvoice {
+  readonly number: string | null;
+  readonly series: string | null;
+  readonly accessKey: string | null;
+  readonly authorizedAt: Date | null;
+}
+
+/** The authorized notes of these parcels, by parcel; parcels without one are left out. */
+export async function authorizedShipmentInvoices(
+  database: Database,
+  shipmentIds: readonly string[],
+): Promise<Map<string, AuthorizedShipmentInvoice>> {
+  if (shipmentIds.length === 0) {
+    return new Map();
+  }
+  const rows = await database
+    .select({
+      shipmentId: shipmentInvoices.shipmentId,
+      number: shipmentInvoices.number,
+      series: shipmentInvoices.series,
+      accessKey: shipmentInvoices.accessKey,
+      authorizedAt: shipmentInvoices.authorizedAt,
+    })
+    .from(shipmentInvoices)
+    .where(
+      and(
+        inArray(shipmentInvoices.shipmentId, [...shipmentIds]),
+        eq(shipmentInvoices.status, "authorized"),
+      ),
+    );
+  return new Map(rows.map(({ shipmentId, ...invoice }) => [shipmentId, invoice]));
+}
+
+/** Who may download an authorized note's files, and the key Bling finds them by. */
+export interface ShipmentInvoiceFiles {
+  readonly shipmentId: string;
+  readonly orderId: string;
+  /** The reseller's workspace. */
+  readonly tenantId: string;
+  readonly supplierId: string;
+  readonly number: string | null;
+  readonly accessKey: string;
+}
+
+/** The parcel's authorized note with its access key; null while it has none. */
+export async function findShipmentInvoiceFiles(
+  database: Database,
+  shipmentId: string,
+): Promise<ShipmentInvoiceFiles | null> {
+  const [row] = await database
+    .select({
+      shipmentId: orderShipments.id,
+      orderId: orderShipments.orderId,
+      tenantId: orderShipments.tenantId,
+      supplierId: shipmentInvoices.supplierId,
+      number: shipmentInvoices.number,
+      accessKey: shipmentInvoices.accessKey,
+    })
+    .from(shipmentInvoices)
+    .innerJoin(orderShipments, eq(orderShipments.id, shipmentInvoices.shipmentId))
+    .where(
+      and(eq(shipmentInvoices.shipmentId, shipmentId), eq(shipmentInvoices.status, "authorized")),
+    );
+  if (row === undefined || row.accessKey === null) {
+    return null;
+  }
+  return { ...row, accessKey: row.accessKey };
 }

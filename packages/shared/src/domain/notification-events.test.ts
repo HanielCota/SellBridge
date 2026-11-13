@@ -3,6 +3,7 @@ import { formatCents } from "./money.ts";
 import { notificationContentSchema } from "./notification-content.ts";
 import {
   channelEnabled,
+  invoiceAuthorizedContent,
   listingFailedContent,
   newTicketContent,
   orderDeliveredContent,
@@ -65,6 +66,13 @@ describe("every event renders valid content", () => {
     storeExpiredContent({ storeName: "Loja Centro" }),
     listingFailedContent({ listingTitle: "Fone", reason: null }),
     supportReplyContent({ ticketId: "t-1", subject: "Pedido atrasado" }),
+    invoiceAuthorizedContent({
+      orderId: "o-1",
+      shipmentId: "8a6e0804-2bd0-4672-b79a-d4b259a1b2a0",
+      externalOrderId: "2000001",
+      supplierName: "Casa Norte",
+      invoiceNumber: "1234",
+    }),
     newTicketContent({
       ticketId: "t-1",
       subject: "Repasse",
@@ -73,5 +81,22 @@ describe("every event renders valid content", () => {
     }),
   ])("%#", (content) => {
     expect(notificationContentSchema.safeParse(content).success).toBe(true);
+  });
+});
+
+describe("invoice authorized notice", () => {
+  it("reaches the reseller by e-mail only, with the parcel's note attached", () => {
+    const content = invoiceAuthorizedContent({
+      orderId: "o-1",
+      shipmentId: "8a6e0804-2bd0-4672-b79a-d4b259a1b2a0",
+      externalOrderId: "2000001",
+      supplierName: "Casa Norte",
+      invoiceNumber: "1234",
+    });
+
+    expect(content.invoiceShipmentId).toBe("8a6e0804-2bd0-4672-b79a-d4b259a1b2a0");
+    expect(content.actionPath).toBe("/pedidos/o-1");
+    expect(channelEnabled("invoice_authorized", "email", undefined)).toBe(true);
+    expect(channelEnabled("invoice_authorized", "in_app", undefined)).toBe(false);
   });
 });

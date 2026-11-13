@@ -14,6 +14,7 @@ export const NOTIFICATION_EVENTS = [
   "order_message",
   "supplier_conversation",
   "shipment_problem",
+  "invoice_authorized",
 ] as const;
 export type NotificationEventName = (typeof NOTIFICATION_EVENTS)[number];
 
@@ -91,6 +92,13 @@ export const NOTIFICATION_EVENT_DEFINITIONS: Record<NotificationEventName, Event
     label: "Problema na entrega",
     description: "A transportadora não conseguiu entregar um pacote, ou ele voltou.",
     defaults: { in_app: true, email: true, push: true },
+  },
+  // E-mail only: it carries the note's files, which the bell cannot.
+  invoice_authorized: {
+    audience: "reseller",
+    label: "Nota fiscal emitida",
+    description: "O fornecedor emitiu a nota fiscal de um pacote. O XML e o DANFE vão no e-mail.",
+    defaults: { email: true },
   },
   // The team already sees new tickets in the "Chamados" badge; e-mail is the outside nudge.
   ticket_created: {
@@ -373,5 +381,30 @@ export function supplierConversationContent(
     actionLabel: "Ler a resposta",
     actionPath: path,
     footnote: FOOTNOTE,
+  };
+}
+
+export interface InvoiceAuthorizedNotice {
+  orderId: string;
+  shipmentId: string;
+  externalOrderId: string;
+  supplierName: string;
+  invoiceNumber: string;
+}
+
+/** The note's files go attached; the order page keeps them for a later download. */
+export function invoiceAuthorizedContent(notice: InvoiceAuthorizedNotice): NotificationContent {
+  return {
+    subject: `Nota fiscal do pedido #${notice.externalOrderId}`,
+    preview: `Nota ${notice.invoiceNumber} emitida por ${notice.supplierName}.`,
+    heading: "A nota fiscal foi emitida",
+    paragraphs: [
+      `${notice.supplierName} emitiu a nota fiscal ${notice.invoiceNumber} do pedido #${notice.externalOrderId}, direto para o comprador.`,
+      "O XML e o DANFE (PDF) da nota também ficam no pedido, para baixar quando precisar.",
+    ],
+    actionLabel: "Abrir o pedido",
+    actionPath: `/pedidos/${notice.orderId}`,
+    footnote: FOOTNOTE,
+    invoiceShipmentId: notice.shipmentId,
   };
 }

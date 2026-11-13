@@ -82,8 +82,11 @@ export function ShipmentPanel({
   actsAs = "reseller",
   showHistory = true,
   payment = null,
+  invoice = null,
 }: {
   shipment: ShipmentView;
+  /** The parcel's NF-e, once issued. */
+  invoice?: React.ReactNode;
   /** Whether the supplier was paid for the parcel, under its name. */
   payment?: React.ReactNode;
   externalOrderId: string;
@@ -104,6 +107,7 @@ export function ShipmentPanel({
       <ShipmentToolbar shipment={shipment} externalOrderId={externalOrderId} operator={actsAs}>
         {children}
       </ShipmentToolbar>
+      {invoice}
       {closed ? null : shipment.catalogKind === "seller" ? (
         <OwnShipmentActions update={update} shipment={shipment} next={blocked ? null : next} />
       ) : (

@@ -29,6 +29,8 @@ export const notificationContentSchema = z.object({
   actionLabel: z.string().min(1).max(60),
   actionPath: appPathSchema,
   footnote: z.string().max(300),
+  /** The parcel whose NF-e (XML and DANFE) the e-mail carries attached, read when it is sent. */
+  invoiceShipmentId: z.uuid().optional(),
 });
 export type NotificationContent = z.infer<typeof notificationContentSchema>;
 

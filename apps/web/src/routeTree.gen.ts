@@ -109,6 +109,7 @@ import { Route as ApiIntegracoesMercadoPagoRetornoRouteImport } from './routes/a
 import { Route as ApiOauthMarketplaceCallbackRouteImport } from './routes/api/oauth/$marketplace/callback'
 import { Route as ApiOauthMarketplaceStartRouteImport } from './routes/api/oauth/$marketplace/start'
 import { Route as ApiPedidosOrderIdEtiquetaRouteImport } from './routes/api/pedidos/$orderId/etiqueta'
+import { Route as ApiPedidosOrderIdNotaFiscalRouteImport } from './routes/api/pedidos/$orderId/nota-fiscal'
 import { Route as ApiSuporteAnexosAttachmentIdRouteImport } from './routes/api/suporte/anexos/$attachmentId'
 import { Route as ApiSuporteChamadosIndexRouteImport } from './routes/api/suporte/chamados/index'
 import { Route as ApiSuporteConversasIndexRouteImport } from './routes/api/suporte/conversas/index'
@@ -663,6 +664,12 @@ const ApiPedidosOrderIdEtiquetaRoute =
     path: '/api/pedidos/$orderId/etiqueta',
     getParentRoute: () => rootRouteImport,
   } as any)
+const ApiPedidosOrderIdNotaFiscalRoute =
+  ApiPedidosOrderIdNotaFiscalRouteImport.update({
+    id: '/api/pedidos/$orderId/nota-fiscal',
+    path: '/api/pedidos/$orderId/nota-fiscal',
+    getParentRoute: () => rootRouteImport,
+  } as any)
 const ApiSuporteAnexosAttachmentIdRoute =
   ApiSuporteAnexosAttachmentIdRouteImport.update({
     id: '/api/suporte/anexos/$attachmentId',
@@ -878,6 +885,7 @@ export interface FileRoutesByFullPath {
   '/api/oauth/$marketplace/callback': typeof ApiOauthMarketplaceCallbackRoute
   '/api/oauth/$marketplace/start': typeof ApiOauthMarketplaceStartRoute
   '/api/pedidos/$orderId/etiqueta': typeof ApiPedidosOrderIdEtiquetaRoute
+  '/api/pedidos/$orderId/nota-fiscal': typeof ApiPedidosOrderIdNotaFiscalRoute
   '/api/suporte/anexos/$attachmentId': typeof ApiSuporteAnexosAttachmentIdRoute
   '/api/v1/financials/summary': typeof ApiV1FinancialsSummaryRoute
   '/api/v1/listings/$listingId': typeof ApiV1ListingsListingIdRoute
@@ -996,6 +1004,7 @@ export interface FileRoutesByTo {
   '/api/oauth/$marketplace/callback': typeof ApiOauthMarketplaceCallbackRoute
   '/api/oauth/$marketplace/start': typeof ApiOauthMarketplaceStartRoute
   '/api/pedidos/$orderId/etiqueta': typeof ApiPedidosOrderIdEtiquetaRoute
+  '/api/pedidos/$orderId/nota-fiscal': typeof ApiPedidosOrderIdNotaFiscalRoute
   '/api/suporte/anexos/$attachmentId': typeof ApiSuporteAnexosAttachmentIdRoute
   '/api/v1/financials/summary': typeof ApiV1FinancialsSummaryRoute
   '/api/v1/listings/$listingId': typeof ApiV1ListingsListingIdRoute
@@ -1120,6 +1129,7 @@ export interface FileRoutesById {
   '/api/oauth/$marketplace/callback': typeof ApiOauthMarketplaceCallbackRoute
   '/api/oauth/$marketplace/start': typeof ApiOauthMarketplaceStartRoute
   '/api/pedidos/$orderId/etiqueta': typeof ApiPedidosOrderIdEtiquetaRoute
+  '/api/pedidos/$orderId/nota-fiscal': typeof ApiPedidosOrderIdNotaFiscalRoute
   '/api/suporte/anexos/$attachmentId': typeof ApiSuporteAnexosAttachmentIdRoute
   '/api/v1/financials/summary': typeof ApiV1FinancialsSummaryRoute
   '/api/v1/listings/$listingId': typeof ApiV1ListingsListingIdRoute
@@ -1243,6 +1253,7 @@ export interface FileRouteTypes {
     | '/api/oauth/$marketplace/callback'
     | '/api/oauth/$marketplace/start'
     | '/api/pedidos/$orderId/etiqueta'
+    | '/api/pedidos/$orderId/nota-fiscal'
     | '/api/suporte/anexos/$attachmentId'
     | '/api/v1/financials/summary'
     | '/api/v1/listings/$listingId'
@@ -1361,6 +1372,7 @@ export interface FileRouteTypes {
     | '/api/oauth/$marketplace/callback'
     | '/api/oauth/$marketplace/start'
     | '/api/pedidos/$orderId/etiqueta'
+    | '/api/pedidos/$orderId/nota-fiscal'
     | '/api/suporte/anexos/$attachmentId'
     | '/api/v1/financials/summary'
     | '/api/v1/listings/$listingId'
@@ -1484,6 +1496,7 @@ export interface FileRouteTypes {
     | '/api/oauth/$marketplace/callback'
     | '/api/oauth/$marketplace/start'
     | '/api/pedidos/$orderId/etiqueta'
+    | '/api/pedidos/$orderId/nota-fiscal'
     | '/api/suporte/anexos/$attachmentId'
     | '/api/v1/financials/summary'
     | '/api/v1/listings/$listingId'
@@ -1554,6 +1567,7 @@ export interface RootRouteChildren {
   ApiOauthMarketplaceCallbackRoute: typeof ApiOauthMarketplaceCallbackRoute
   ApiOauthMarketplaceStartRoute: typeof ApiOauthMarketplaceStartRoute
   ApiPedidosOrderIdEtiquetaRoute: typeof ApiPedidosOrderIdEtiquetaRoute
+  ApiPedidosOrderIdNotaFiscalRoute: typeof ApiPedidosOrderIdNotaFiscalRoute
   ApiSuporteAnexosAttachmentIdRoute: typeof ApiSuporteAnexosAttachmentIdRoute
   ApiV1FinancialsSummaryRoute: typeof ApiV1FinancialsSummaryRoute
   ApiV1ListingsListingIdRoute: typeof ApiV1ListingsListingIdRoute
@@ -2275,6 +2289,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiPedidosOrderIdEtiquetaRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/pedidos/$orderId/nota-fiscal': {
+      id: '/api/pedidos/$orderId/nota-fiscal'
+      path: '/api/pedidos/$orderId/nota-fiscal'
+      fullPath: '/api/pedidos/$orderId/nota-fiscal'
+      preLoaderRoute: typeof ApiPedidosOrderIdNotaFiscalRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/suporte/anexos/$attachmentId': {
       id: '/api/suporte/anexos/$attachmentId'
       path: '/api/suporte/anexos/$attachmentId'
@@ -2668,6 +2689,7 @@ const rootRouteChildren: RootRouteChildren = {
   ApiOauthMarketplaceCallbackRoute: ApiOauthMarketplaceCallbackRoute,
   ApiOauthMarketplaceStartRoute: ApiOauthMarketplaceStartRoute,
   ApiPedidosOrderIdEtiquetaRoute: ApiPedidosOrderIdEtiquetaRoute,
+  ApiPedidosOrderIdNotaFiscalRoute: ApiPedidosOrderIdNotaFiscalRoute,
   ApiSuporteAnexosAttachmentIdRoute: ApiSuporteAnexosAttachmentIdRoute,
   ApiV1FinancialsSummaryRoute: ApiV1FinancialsSummaryRoute,
   ApiV1ListingsListingIdRoute: ApiV1ListingsListingIdRoute,
