@@ -17,6 +17,11 @@ const SENSITIVE_KEY_PATTERN =
   /token|secret|password|authorization|cookie|email|cpf|cnpj|phone|address|verifier/i;
 const REDACTED = "[redacted]";
 
+/** Whether a field's value never reaches the logs because of its name ("accessToken", "email"). */
+export function isSensitiveLogKey(key: string): boolean {
+  return key !== "" && SENSITIVE_KEY_PATTERN.test(key);
+}
+
 const logLevelSchema = withFallback(logLevelEnvironmentSchema, "info");
 
 function minimumLevel(): LogLevel {
@@ -24,7 +29,7 @@ function minimumLevel(): LogLevel {
 }
 
 function serializeValue(key: string, value: unknown): unknown {
-  if (key !== "" && SENSITIVE_KEY_PATTERN.test(key)) {
+  if (isSensitiveLogKey(key)) {
     return REDACTED;
   }
   if (value instanceof Error) {
@@ -66,29 +71,50 @@ function serializeError(error: Error): Record<string, unknown> {
   };
 }
 
-/** An error-level entry as written: `line` is the JSON already redacted. */
-export interface ErrorLogEntry {
+/** A warning or error entry as written: `line` is the JSON already redacted. */
+export interface ProblemLogEntry {
+  readonly level: "warn" | "error";
   readonly event: string;
   readonly line: string;
 }
 
-let errorLogListener: ((entry: ErrorLogEntry) => void) | null = null;
+/** The error alerts and the problem recorder (admin "Problemas") listen side by side. */
+const problemLogListeners = new Set<(entry: ProblemLogEntry) => void>();
+let notifying = false;
 
-/** Hears every error-level entry (error alerts); null removes it. One listener at a time. */
-export function setErrorLogListener(listener: ((entry: ErrorLogEntry) => void) | null): void {
-  errorLogListener = listener;
+/** Hears every warning and error entry; returns the function that stops listening. */
+export function addProblemLogListener(listener: (entry: ProblemLogEntry) => void): () => void {
+  problemLogListeners.add(listener);
+  return () => {
+    problemLogListeners.delete(listener);
+  };
 }
 
-/** A failing listener must never break the caller that was only logging an error. */
-function notifyErrorListener(entry: ErrorLogEntry): void {
-  if (errorLogListener === null) {
+/**
+ * A failing listener must never break the caller that was only logging. A listener that logs
+ * while it runs is not heard again, so a listener can never feed itself.
+ */
+function notifyProblemListeners(entry: ProblemLogEntry): void {
+  if (notifying || problemLogListeners.size === 0) {
     return;
   }
+  notifying = true;
   try {
-    errorLogListener(entry);
+    for (const listener of problemLogListeners) {
+      notifyOne(listener, entry);
+    }
+  } finally {
+    notifying = false;
+  }
+}
+
+function notifyOne(listener: (entry: ProblemLogEntry) => void, entry: ProblemLogEntry): void {
+  try {
+    listener(entry);
   } catch (error) {
     const failure = { level: "warn", event: "logger.listener_failed", error: String(error) };
-    process.stderr.write(`${JSON.stringify(failure)}\n`);
+    process.stderr.write(`${JSON.stringify(failure)}
+`);
   }
 }
 
@@ -98,13 +124,9 @@ function write(level: LogLevel, event: string, fields: LogFields): void {
   }
   const entry = { level, event, time: new Date().toISOString(), ...fields };
   const line = `${JSON.stringify(entry, serializeValue)}\n`;
-  if (level === "error") {
+  if (level === "error" || level === "warn") {
     process.stderr.write(line);
-    notifyErrorListener({ event, line: line.trimEnd() });
-    return;
-  }
-  if (level === "warn") {
-    process.stderr.write(line);
+    notifyProblemListeners({ level, event, line: line.trimEnd() });
     return;
   }
   process.stdout.write(line);

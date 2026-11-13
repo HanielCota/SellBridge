@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { logger } from "./logger.ts";
+import { addProblemLogListener, logger, type ProblemLogEntry } from "./logger.ts";
 
 /** Same shape as drizzle-orm's DrizzleQueryError: the values are in the message and the stack. */
 class FailedQuery extends Error {
@@ -38,5 +38,40 @@ describe("logger", () => {
     );
     expect(line).not.toContain("123.456.789-00");
     expect(line).not.toContain("11999990000");
+  });
+
+  it("tells every listener about warnings and errors, but not about info", () => {
+    vi.spyOn(process.stderr, "write").mockImplementation(() => true);
+    vi.spyOn(process.stdout, "write").mockImplementation(() => true);
+    const first: ProblemLogEntry[] = [];
+    const second: ProblemLogEntry[] = [];
+    const stopFirst = addProblemLogListener((entry) => first.push(entry));
+    const stopSecond = addProblemLogListener((entry) => second.push(entry));
+
+    logger.info("order.saved");
+    logger.warn("order.slow");
+    logger.error("order.failed");
+    stopFirst();
+    stopSecond();
+
+    expect(first.map((entry) => `${entry.level}:${entry.event}`)).toEqual([
+      "warn:order.slow",
+      "error:order.failed",
+    ]);
+    expect(second).toHaveLength(2);
+  });
+
+  it("does not feed a listener the entries it logs itself", () => {
+    vi.spyOn(process.stderr, "write").mockImplementation(() => true);
+    const heard: string[] = [];
+    const stop = addProblemLogListener((entry) => {
+      heard.push(entry.event);
+      logger.error("listener.echo");
+    });
+
+    logger.error("order.failed");
+    stop();
+
+    expect(heard).toEqual(["order.failed"]);
   });
 });
