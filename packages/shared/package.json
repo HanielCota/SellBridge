@@ -102,6 +102,7 @@
     "./supplier-panel-attention": "./src/domain/supplier-panel-attention.ts",
     "./supplier-panel-home-queue": "./src/domain/supplier-panel-home-queue.ts",
     "./supplier-panel-sales": "./src/domain/supplier-panel-sales.ts",
+    "./supplier-panel-operation": "./src/domain/supplier-panel-operation.ts",
     "./forward-notes": "./src/domain/forward-notes.ts",
     "./seller-catalog-schemas": "./src/domain/seller-catalog-schemas.ts",
     "./product-sources": "./src/domain/product-sources.ts",

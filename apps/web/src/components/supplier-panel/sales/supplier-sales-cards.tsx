@@ -7,6 +7,7 @@ import {
 import { ToneStatus } from "@/components/data/tone-status";
 import { BreakdownSection } from "@/components/reports/breakdown-section";
 import type { SupplierSalesData } from "@/features/supplier-panel/sales/sales.queries";
+import { formatStockUnits } from "@/features/supplier-panel/operation/operation-format";
 import { stockForecast } from "@/features/supplier-panel/sales/stock-forecast";
 import { HomePhoto } from "../home/home-photo";
 
@@ -52,6 +53,7 @@ type TopProduct = SupplierSalesData["topProducts"][number];
 
 function TopProductRow({ product }: { product: TopProduct }) {
   const forecast = stockForecast(product.daysLeft);
+  const stockUnits = formatStockUnits(product.availableStock);
   return (
     <li className="flex items-center gap-3 py-2.5">
       <HomePhoto imageUrl={product.imageUrl} title={product.title} />
@@ -63,7 +65,11 @@ function TopProductRow({ product }: { product: TopProduct }) {
           {product.title}
         </span>
         {/* No legend here: the card is one big link, so the row holds nothing else to focus. */}
-        <ToneStatus tone={forecast.tone} label={forecast.label} />
+        {/* Wraps under a long forecast so it never runs into the price beside it. */}
+        <ToneStatus tone={forecast.tone} label={forecast.label} className="whitespace-normal" />
+        {stockUnits === null ? null : (
+          <span className="block text-xs text-muted-foreground tabular-nums">{stockUnits}</span>
+        )}
       </span>
       <span className="shrink-0 text-right">
         <span className="block text-sm font-medium tabular-nums">

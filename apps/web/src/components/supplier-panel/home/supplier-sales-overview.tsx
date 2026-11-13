@@ -13,6 +13,7 @@ import {
 import { errorMessage } from "@/lib/errors";
 import { useTabProfileLink } from "@/lib/tab-profile";
 import { cn } from "@/lib/utils";
+import { SupplierOperation } from "../operation/supplier-operation-cards";
 import { SupplierAttentionPanel } from "../sales/supplier-attention-panel";
 import { SupplierFirstSteps } from "../sales/supplier-first-steps";
 import { SupplierKpiTiles } from "../sales/supplier-kpi-tiles";
@@ -102,6 +103,10 @@ function SalesOverview({ data, home, supplierId, search, onSearchChange, hrefFor
           filters={<SupplierSalesFilters data={data} search={search} onChange={onSearchChange} />}
         />
       </div>
+      <SupplierOperation
+        supplierId={supplierId}
+        search={{ period: search.period, from: search.from, to: search.to }}
+      />
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
         <ParcelStagesCard stages={data.parcelStages} />
         <SupplierTopProducts products={data.topProducts} />

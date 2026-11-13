@@ -1,3 +1,4 @@
+import { AxeBuilder } from "@axe-core/playwright";
 import { expect, type Page } from "@playwright/test";
 import { user } from "@sellbridge/database/schema";
 import { eq } from "drizzle-orm";
@@ -204,6 +205,20 @@ export async function completeOnboarding(
   await expect(page.getByText("Etapa 2 de 2 · Fornecedor")).toBeVisible();
   await pickSupplier(page, supplierName);
   await page.getByRole("button", { name: "Salvar fornecedor" }).click();
+}
+
+/**
+ * Lists the buttons and links on the page whose accessible name leaves out the text they show
+ * (axe "label-content-name-mismatch": experimental in 4.13, so run by name; on by default in
+ * 4.14). Voice control users click by what they read.
+ */
+export async function labelContentMismatches(page: Page): Promise<string[]> {
+  const results = await new AxeBuilder({ page })
+    .withRules(["label-content-name-mismatch"])
+    .analyze();
+  return results.violations.flatMap((violation) =>
+    violation.nodes.map((node) => node.html.slice(0, 160)),
+  );
 }
 
 /** Turns on admin mode from the profile menu (team accounts only; it is off by default). */

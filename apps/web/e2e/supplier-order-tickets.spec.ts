@@ -115,7 +115,7 @@ test("a store reports a cancellation from the order and the supplier finishes it
   await expect(tabs.getByRole("button", { name: /A fazer\s*1/ })).toBeVisible();
   await expect(
     supplierPage
-      .getByText(new RegExp(`Cancelamento · Pedido #${order.externalOrderId}`))
+      .getByText(new RegExp(`Cancelamento · Pedido ${order.externalOrderId}`))
       .filter({ visible: true }),
   ).toBeVisible();
   await expect(
@@ -124,6 +124,26 @@ test("a store reports a cancellation from the order and the supplier finishes it
     "href",
     new RegExp(`/fornecedor/painel/pedidos\\?tab=shipped&query=${order.externalOrderId}`),
   );
+
+  // On a phone the conversation's own shortcuts are thumb-sized, like the queue's.
+  await supplierPage.setViewportSize({ width: 375, height: 812 });
+  await supplierPage
+    .getByRole("link", { name: "Cancelou depois do envio" })
+    .filter({ visible: true })
+    .click();
+  await expect(supplierPage).toHaveURL(/\/suporte\/conversas\//);
+  for (const action of [
+    supplierPage.getByRole("link", { name: "Ver pedido" }),
+    supplierPage.getByRole("button", { name: "Finalizar" }),
+  ]) {
+    await expect(action).toBeVisible();
+    // The header re-renders as the conversation loads, so the size is read until it settles.
+    await expect
+      .poll(async () => (await action.boundingBox())?.height ?? 0)
+      .toBeGreaterThanOrEqual(44);
+  }
+  await supplierPage.setViewportSize({ width: 1280, height: 720 });
+  await gotoHydrated(supplierPage, "/suporte/revendedores");
 
   await supplierPage.getByRole("button", { name: "Finalizar" }).filter({ visible: true }).click();
   await expect(supplierPage.getByText("Conversa finalizada")).toBeVisible();

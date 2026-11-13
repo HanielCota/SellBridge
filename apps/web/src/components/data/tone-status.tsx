@@ -21,14 +21,19 @@ export function ToneStatus({
   tone,
   label,
   timeBased = false,
+  className,
 }: {
   tone: StatusTone;
   label: string;
   timeBased?: boolean;
+  className?: string;
 }) {
   return (
     <span
-      className="inline-flex items-center gap-1.5 text-footnote font-medium whitespace-nowrap"
+      className={cn(
+        "inline-flex items-center gap-1.5 text-footnote font-medium whitespace-nowrap",
+        className,
+      )}
       suppressHydrationWarning={timeBased}
     >
       <span

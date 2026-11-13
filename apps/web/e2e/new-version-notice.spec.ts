@@ -1,7 +1,7 @@
 import { expect, test } from "@playwright/test";
-import { DEMO_USER, gotoHydrated, signIn } from "./helpers";
+import { DEMO_USER, gotoHydrated, labelContentMismatches, signIn } from "./helpers";
 
-const NOTICE = { name: "Atualizar para a nova versão do SellBridge" } as const;
+const NOTICE = { name: "Nova versão do SellBridge · Atualizar" } as const;
 
 /** A deploy made after the page's build. */
 const NEWER_BUILD = { buildId: "versao-nova-e2e", builtAt: "2999-01-01T00:00:00.000Z" };
@@ -29,6 +29,8 @@ test("com versão nova no servidor, o topo avisa e só recarrega quando a pessoa
   const notice = page.getByRole("button", NOTICE);
   await expect(notice).toBeVisible();
   await expect(notice).toContainText("Nova versão do SellBridge");
+  // Voice control users say what they read: the name holds the whole visible text.
+  expect(await labelContentMismatches(page)).toEqual([]);
   // Nothing reloads by itself: a marker left on the page survives until the click.
   await page.evaluate(() => {
     Object.assign(window, { versionNoticeMarker: true });

@@ -47,10 +47,10 @@ function AboutLine({
               params={{ orderId: order.orderId }}
               className="underline underline-offset-4 hover:text-foreground"
             >
-              Pedido #{order.externalOrderId}
+              Pedido {order.externalOrderId}
             </Link>
           ) : (
-            `Pedido #${order.externalOrderId}`
+            `Pedido ${order.externalOrderId}`
           )}
         </span>
       ))}

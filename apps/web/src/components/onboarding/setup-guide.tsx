@@ -1,6 +1,11 @@
-import { ArrowRightIcon, CheckIcon } from "@phosphor-icons/react";
+import {
+  ArrowRightIcon,
+  ArrowsInSimpleIcon,
+  ArrowsOutSimpleIcon,
+  CheckIcon,
+} from "@phosphor-icons/react";
 import { Link } from "@tanstack/react-router";
-import type { ReactNode } from "react";
+import { useCallback, useRef, type ReactNode, type Ref } from "react";
 import { cn } from "@/lib/utils";
 import { ResendVerificationButton } from "@/components/onboarding/resend-verification-button";
 import { Button } from "@/components/ui/button";
@@ -15,6 +20,7 @@ import {
   type SetupProgress,
   type SetupStep,
 } from "@/features/onboarding/setup-progress";
+import { setupGuideView, useSetupGuideChoice } from "@/features/onboarding/setup-guide-visibility";
 
 function ProgressBar({ progress }: { progress: SetupProgress }) {
   const done = countDoneSteps(progress);
@@ -76,6 +82,7 @@ export function StepCard({
   index,
   state,
   action,
+  compact = false,
 }: {
   title: string;
   description: string;
@@ -84,17 +91,21 @@ export function StepCard({
   index: number;
   state: "done" | "next" | "later";
   action: ReactNode;
+  /** Tighter spacing, for the reseller's dashboard guide that sits above the numbers. */
+  compact?: boolean;
 }) {
   return (
     <li
       className={cn(
-        "flex min-w-0 flex-col gap-4 rounded-2xl p-5",
+        "flex min-w-0 flex-col rounded-2xl",
+        compact ? "gap-3 p-4" : "gap-4 p-5",
         state === "next" ? "bg-muted ring-1 ring-brand/60" : "bg-muted/50",
       )}
     >
       <span
         className={cn(
-          "flex size-9 items-center justify-center rounded-full text-sm font-semibold",
+          "flex items-center justify-center rounded-full text-sm font-semibold",
+          compact ? "size-8" : "size-9",
           state === "done"
             ? "bg-brand text-primary-foreground"
             : "bg-background text-muted-foreground",
@@ -132,26 +143,48 @@ function stepState(
   return key === nextKey ? "next" : "later";
 }
 
-/** The dashboard for accounts still setting up: progress and the one next step in focus. */
-export function SetupGuide({ progress }: { progress: SetupProgress }) {
+interface GuideToggleProps {
+  onToggle: () => void;
+  /** The toggle button, focused after the guide switches format so the keyboard stays in place. */
+  toggleRef?: Ref<HTMLButtonElement> | undefined;
+}
+
+/** The dashboard's guide while the setup is not done: progress and the one next step in focus. */
+function SetupGuide({
+  progress,
+  onToggle,
+  toggleRef,
+}: { progress: SetupProgress } & GuideToggleProps) {
   const nextKey = findNextStep(progress)?.key;
   return (
     <section
       aria-labelledby="setup-title"
-      className="surface-card space-y-6 rounded-3xl bg-card p-6 sm:p-8"
+      className="surface-card space-y-4 rounded-3xl bg-card p-5 sm:p-6"
     >
       <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_320px] lg:items-end">
         <div className="space-y-2">
-          <h2 id="setup-title" className="text-2xl font-semibold tracking-tight sm:text-3xl">
+          <h2 id="setup-title" className="text-xl font-semibold tracking-tight sm:text-2xl">
             Falta pouco para sua primeira venda
           </h2>
           <p className="text-sm text-muted-foreground">
-            {SETUP_STEPS.length} passos e seus indicadores começam a aparecer aqui.
+            {SETUP_STEPS.length} passos e suas vendas começam a aparecer nos números abaixo.
           </p>
         </div>
         <div className="space-y-2">
           <ProgressBar progress={progress} />
-          <p className="text-xs text-muted-foreground">{setupEtaLabel(progress)}</p>
+          <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1">
+            <p className="text-xs text-muted-foreground">{setupEtaLabel(progress)}</p>
+            <Button
+              ref={toggleRef}
+              variant="ghost"
+              className="-mr-3"
+              aria-expanded={true}
+              onClick={onToggle}
+            >
+              <ArrowsInSimpleIcon aria-hidden="true" />
+              Minimizar
+            </Button>
+          </div>
         </div>
       </div>
       <ol className="grid gap-3 md:grid-cols-2 xl:grid-cols-5">
@@ -166,6 +199,7 @@ export function SetupGuide({ progress }: { progress: SetupProgress }) {
               index={index}
               state={state}
               action={<StepAction step={step} done={state === "done"} />}
+              compact
             />
           );
         })}
@@ -174,8 +208,59 @@ export function SetupGuide({ progress }: { progress: SetupProgress }) {
   );
 }
 
-/** A thin reminder on other pages until the setup is done. */
-export function SetupStrip({ progress }: { progress: SetupProgress }) {
+/**
+ * The setup guide on top of the dashboard until the setup is done: a mini tutorial, never
+ * removed. The reseller may minimize it to the strip the other pages show; this browser
+ * remembers it. Before hydration both are in the HTML and the mark the init script left on
+ * `<html>` keeps only the remembered one, so nothing jumps.
+ */
+export function DashboardSetupGuide({ progress }: { progress: SetupProgress }) {
+  const { choice, setHidden } = useSetupGuideChoice();
+  const view = setupGuideView(findNextStep(progress) === undefined, choice);
+  const focusAfterToggle = useRef(false);
+  // The toggle that just mounted takes the focus of the one the click removed.
+  const toggleRef = useCallback((button: HTMLButtonElement | null) => {
+    if (button !== null && focusAfterToggle.current) {
+      focusAfterToggle.current = false;
+      button.focus();
+    }
+  }, []);
+
+  function toggle(hidden: boolean) {
+    focusAfterToggle.current = true;
+    setHidden(hidden);
+  }
+
+  if (view === "none") {
+    return null;
+  }
+  if (view === "open") {
+    return <SetupGuide progress={progress} onToggle={() => toggle(true)} toggleRef={toggleRef} />;
+  }
+  if (view === "collapsed") {
+    return <SetupStrip progress={progress} onToggle={() => toggle(false)} toggleRef={toggleRef} />;
+  }
+  return (
+    <>
+      <div className="in-data-[setup-guide=hidden]:hidden">
+        <SetupGuide progress={progress} onToggle={() => toggle(true)} />
+      </div>
+      <div className="hidden in-data-[setup-guide=hidden]:block">
+        <SetupStrip progress={progress} onToggle={() => toggle(false)} />
+      </div>
+    </>
+  );
+}
+
+/**
+ * A thin reminder on other pages until the setup is done. On the dashboard it is the minimized
+ * guide, with the button that brings the whole guide back.
+ */
+export function SetupStrip({
+  progress,
+  onToggle,
+  toggleRef,
+}: { progress: SetupProgress } & Partial<GuideToggleProps>) {
   const next = findNextStep(progress);
   if (!next) {
     return null;
@@ -194,8 +279,14 @@ export function SetupStrip({ progress }: { progress: SetupProgress }) {
       <div className="flex-1 sm:max-w-48">
         <ProgressBar progress={progress} />
       </div>
-      <div className="sm:ml-auto">
+      <div className="flex flex-wrap gap-2 sm:ml-auto">
         <StepAction step={next} />
+        {onToggle === undefined ? null : (
+          <Button ref={toggleRef} variant="outline" aria-expanded={false} onClick={onToggle}>
+            <ArrowsOutSimpleIcon aria-hidden="true" />
+            Maximizar
+          </Button>
+        )}
       </div>
     </aside>
   );

@@ -28,6 +28,7 @@ import { getSupplierPanelShipment } from "./supplier-panel-orders-detail.ts";
 import { queueDueAt } from "./supplier-panel-orders-sql.ts";
 import { findSupplierShipmentsByCode } from "./supplier-panel-scan.ts";
 import {
+  countSupplierOperationNow,
   countSupplierShipmentsByTab,
   listSupplierHomeShipments,
   listSupplierResellers,
@@ -40,6 +41,7 @@ const database = createTestDatabase();
 let tenants: Awaited<ReturnType<typeof createTestTenantPair>>;
 let supplier: Awaited<ReturnType<typeof createTestSupplierProduct>>;
 let otherSupplier: Awaited<ReturnType<typeof createTestSupplierProduct>>;
+let operationSupplier: Awaited<ReturnType<typeof createTestSupplierProduct>>;
 const storeIds: Record<string, string> = {};
 
 async function forwardedShipment(
@@ -108,6 +110,12 @@ beforeAll(async () => {
     costCents: 1000,
     suggestedPriceCents: 5000,
   });
+  operationSupplier = await createTestSupplierProduct(database, {
+    sku: `NOW-${randomUUID().slice(0, 6)}`,
+    title: "Bolsa",
+    costCents: 2000,
+    suggestedPriceCents: 6000,
+  });
   for (const tenantId of [tenants.tenantA, tenants.tenantB]) {
     storeIds[tenantId] = (
       await upsertStoreConnection(database, testStoreInput(tenantId, randomUUID()))
@@ -119,6 +127,7 @@ afterAll(async () => {
   await tenants.cleanup();
   await supplier.cleanup();
   await otherSupplier.cleanup();
+  await operationSupplier.cleanup();
   await database.$client.end();
 });
 
@@ -667,5 +676,36 @@ describe("findSupplierShipmentsByCode", () => {
 
   it("finds nothing for an empty scan", async () => {
     expect(await findSupplierShipmentsByCode(database, supplier.supplierId, "   ")).toEqual([]);
+  });
+});
+
+describe("countSupplierOperationNow", () => {
+  let mercadoLivreStore = "";
+
+  beforeAll(async () => {
+    mercadoLivreStore = (
+      await upsertStoreConnection(database, {
+        ...testStoreInput(tenants.tenantA, randomUUID()),
+        marketplace: "mercado_livre",
+      })
+    ).id;
+  });
+
+  it("counts the waiting and late parcels and the labels to print, of this supplier only", async () => {
+    const productId = operationSupplier.productId;
+    await forwardedShipment({ productId, storeId: mercadoLivreStore, hoursAgo: 1 });
+    await forwardedShipment({ productId, storeId: mercadoLivreStore, hoursAgo: 30 });
+    const printed = await forwardedShipment({ productId, storeId: mercadoLivreStore, hoursAgo: 2 });
+    await setStatus(printed.shipmentId, "accepted");
+    await recordLabelsPrinted(database, [
+      { orderId: printed.order.id, marketplaceShipmentId: "5500" },
+    ]);
+    const gone = await forwardedShipment({ productId, hoursAgo: 50 });
+    await setStatus(gone.shipmentId, "shipped");
+    await forwardedShipment({ productId: otherSupplier.productId, hoursAgo: 30 });
+
+    const counts = await countSupplierOperationNow(database, operationSupplier.supplierId);
+
+    expect(counts).toEqual({ waiting: 3, late: 1, labelsToPrint: 1, labelsLate: 1 });
   });
 });

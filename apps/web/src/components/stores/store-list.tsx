@@ -86,7 +86,7 @@ function PausedListingsLine({ store, storeName }: { store: StoreWithActivity; st
       <Link
         to="/publicacoes"
         search={{ status: "paused" }}
-        aria-label={`${label} em ${storeName}: reative em Publicações`}
+        aria-label={`${storeName}: ${label} · reative em Publicações`}
         className="text-amber-700 underline-offset-4 hover:underline dark:text-amber-400"
       >
         {label} · reative em Publicações
