@@ -1,6 +1,13 @@
 import { AxeBuilder } from "@axe-core/playwright";
 import { expect, test, type Page } from "@playwright/test";
-import { ADMIN_USER, DEMO_USER, enableAdminMode, gotoHydrated, signIn } from "./helpers";
+import {
+  ADMIN_USER,
+  DEMO_USER,
+  enableAdminMode,
+  gotoHydrated,
+  labelContentMismatches,
+  signIn,
+} from "./helpers";
 
 const APP_PAGES = [
   "/dashboard",
@@ -48,21 +55,16 @@ for (const theme of ["dark", "light"] as const) {
 }
 
 /**
- * axe 4.13 ships "label-content-name-mismatch" as experimental (off by default; 4.14 turns it on),
- * so it is run by name: a button or link named by aria-label must say the text it shows, or voice
- * control users cannot click it by what they read. The demo seed has more than nine unread
- * support replies, so the support badge shows "9+". Every page is checked before failing, so one
- * run lists every mismatch.
+ * Runs "label-content-name-mismatch" (see `labelContentMismatches`) on every page. The demo seed
+ * has more than nine unread support replies, so the support badge shows "9+". Every page is
+ * checked before failing, so one run lists every mismatch.
  */
 async function nameMismatches(page: Page, paths: readonly string[]): Promise<string[]> {
   const found: string[] = [];
   for (const path of paths) {
     await gotoHydrated(page, path);
-    const results = await new AxeBuilder({ page })
-      .withRules(["label-content-name-mismatch"])
-      .analyze();
-    for (const node of results.violations.flatMap((violation) => violation.nodes)) {
-      found.push(`${path}: ${node.html.slice(0, 160)}`);
+    for (const html of await labelContentMismatches(page)) {
+      found.push(`${path}: ${html}`);
     }
   }
   return found;

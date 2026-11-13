@@ -50,6 +50,21 @@ describe("resolvePeriod", () => {
     expect(resolvePeriod({ period: "180d" }, now).bucket).toBe("week");
   });
 
+  it("resolves the last 12 months as 365 Brazil days ending today", () => {
+    const period = resolvePeriod({ period: "365d" }, now);
+
+    expect(period).toMatchObject({
+      days: 365,
+      bucket: "week",
+      fromDate: "2025-10-09",
+      toDate: "2026-10-08",
+    });
+  });
+
+  it("reads the 12-month period from the address", () => {
+    expect(periodSearchSchema.parse({ period: "365d" }).period).toBe("365d");
+  });
+
   it("accepts the first and last years a custom range may use", () => {
     expect(
       resolvePeriod({ period: "custom", from: "2000-01-01", to: "2000-01-31" }, now),

@@ -7,6 +7,7 @@ const PRESET_DAYS: Record<Exclude<PeriodPreset, "custom">, number> = {
   "30d": 30,
   "90d": 90,
   "180d": 180,
+  "365d": 365,
 };
 
 /** One day reads hour by hour: a single daily bucket would draw a lone dot. */

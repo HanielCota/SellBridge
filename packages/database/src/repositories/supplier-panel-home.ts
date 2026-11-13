@@ -81,10 +81,10 @@ export async function getSupplierPanelProfile(database: Database, supplierId: st
   return supplier;
 }
 
-/** The supplier's parcels whose latest forward is at or after `since`. */
+/** The supplier's parcels whose latest forward is at or after `since` (and before `until`). */
 export async function listSupplierShipmentHealthRecords(
   database: Database,
-  input: { supplierId: string; since: Date },
+  input: { supplierId: string; since: Date; until?: Date | undefined },
 ): Promise<ShipmentHealthRecord[]> {
   return database
     .select({
@@ -102,6 +102,9 @@ export async function listSupplierShipmentHealthRecords(
       and(
         eq(orderShipments.supplierId, input.supplierId),
         sql`${roundStartedAt} >= ${timestampOf(input.since)}`,
+        input.until === undefined
+          ? undefined
+          : sql`${roundStartedAt} < ${timestampOf(input.until)}`,
       ),
     );
 }

@@ -3,6 +3,7 @@ import { createRootRouteWithContext, HeadContent, Outlet, Scripts } from "@tanst
 import { type ReactNode, useEffect } from "react";
 import { NotFound } from "@/components/feedback/not-found";
 import { THEME_COLORS, themeInitScript } from "@/components/theme/theme-provider";
+import { setupGuideInitScript } from "@/features/onboarding/setup-guide-visibility";
 import { Toaster } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import appCss from "@/styles.css?url";
@@ -74,6 +75,7 @@ function RootDocument({ children }: { children: ReactNode }) {
         <HeadContent />
         {/* After the head tags, so the theme-color meta it updates already exists. */}
         <script dangerouslySetInnerHTML={{ __html: themeInitScript }} />
+        <script dangerouslySetInnerHTML={{ __html: setupGuideInitScript }} />
       </head>
       <body className="min-h-svh bg-background font-sans text-foreground antialiased">
         <a href="#main-content" className="skip-link">

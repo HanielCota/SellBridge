@@ -14,7 +14,7 @@ import { ErrorState } from "@/components/feedback/error-state";
 import { AttentionPanel } from "@/components/reports/attention-panel";
 import { PeriodFilters } from "@/components/reports/period-filters";
 import { StoreBreakdown, TopProducts } from "@/components/reports/sales-breakdown";
-import { SetupGuide } from "@/components/onboarding/setup-guide";
+import { DashboardSetupGuide } from "@/components/onboarding/setup-guide";
 import { findNextStep } from "@/features/onboarding/setup-progress";
 import { Skeleton } from "@/components/ui/skeleton";
 import { teamHomeFor } from "@/features/auth/team-mode";
@@ -96,19 +96,13 @@ function DashboardContent({ data }: { data: DashboardData }) {
   const search = Route.useSearch();
   const withProfile = useTabProfileLink();
   const { onboarding, summary, previous } = data;
-  const onboardingComplete = findNextStep(onboarding) === undefined;
-  if (!onboardingComplete && summary.orders === 0 && summary.cancelledOrders === 0) {
-    return (
-      <>
-        <DashboardHeader />
-        <SetupGuide progress={onboarding} />
-      </>
-    );
-  }
+  const setupPending = findNextStep(onboarding) !== undefined;
+  const beforeFirstSale = setupPending && summary.orders === 0 && summary.cancelledOrders === 0;
   return (
     <>
       <DashboardIntro
         caption={formatPeriodCaption(data.period)}
+        setup={<DashboardSetupGuide progress={onboarding} />}
         summary={
           <PeriodSummary
             current={summary}
@@ -132,6 +126,7 @@ function DashboardContent({ data }: { data: DashboardData }) {
           previous={previous}
           exportUrl={withProfile(financialExportUrl(financialSearchSchema.parse(search)))}
           filters={<DashboardFilters data={data} />}
+          beforeFirstSale={beforeFirstSale}
         />
       </div>
       <div className="grid gap-4 lg:grid-cols-3">

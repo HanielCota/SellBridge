@@ -20,6 +20,8 @@ import {
 import { supplierTimingColumns } from "./shipment-timing.ts";
 import {
   emailFailed,
+  labelFilter,
+  overdueAt,
   problemFilter,
   queueDueAt,
   shipmentFilters,
@@ -191,6 +193,44 @@ export async function countSupplierShipmentsByTab(
     .innerJoin(storeConnections, eq(storeConnections.id, orders.storeConnectionId))
     .where(and(supplierScope(input.supplierId), shipmentFilters(input, now)));
   return tabCounts(row);
+}
+
+/** What waits for the supplier right now, whatever the period on screen. */
+export interface SupplierOperationNow {
+  /** Parcels of the "A fazer" tab: waiting for the accept, the separation or the dispatch. */
+  waiting: number;
+  /** Among them, the ones past their accept or dispatch time. */
+  late: number;
+  /** Mercado Livre labels released and never printed, still within the dispatch time. */
+  labelsToPrint: number;
+  /** Labels never printed once the dispatch time is over. */
+  labelsLate: number;
+}
+
+/** The counts of `SupplierOperationNow`, with the same rules as the Pedidos tabs, in one read. */
+export async function countSupplierOperationNow(
+  database: Database,
+  supplierId: string,
+  now: Date = new Date(),
+): Promise<SupplierOperationNow> {
+  const [row] = await database
+    .select({
+      waiting: countColumn(tabFilter("todo", now)),
+      late: countColumn(overdueAt(now)),
+      labelsToPrint: countColumn(labelFilter("pending", now)),
+      labelsLate: countColumn(labelFilter("late", now)),
+    })
+    .from(orderShipments)
+    .innerJoin(suppliers, eq(suppliers.id, orderShipments.supplierId))
+    .innerJoin(orders, eq(orders.id, orderShipments.orderId))
+    .innerJoin(storeConnections, eq(storeConnections.id, orders.storeConnectionId))
+    .where(supplierScope(supplierId));
+  return {
+    waiting: row?.waiting ?? 0,
+    late: row?.late ?? 0,
+    labelsToPrint: row?.labelsToPrint ?? 0,
+    labelsLate: row?.labelsLate ?? 0,
+  };
 }
 
 function tabCounts(row: Record<string, number> | undefined): Record<SupplierOrderTab, number> {
