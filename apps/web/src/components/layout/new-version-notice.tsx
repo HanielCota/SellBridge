@@ -21,7 +21,8 @@ export function NewVersionNotice() {
         aria-hidden="true"
         className="size-2 rounded-full bg-amber-400 shadow-[0_0_0_4px] shadow-amber-400/20"
       />
-      <span className="hidden sm:inline">Nova versão do SellBridge ·</span>
+      {/* The space keeps "·" and "Atualizar" apart in the text axe compares with the name. */}
+      <span className="hidden sm:inline">Nova versão do SellBridge ·</span>{" "}
       <span className="font-semibold text-amber-950 dark:text-white">Atualizar</span>
     </button>
   );
