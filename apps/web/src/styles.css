@@ -41,6 +41,14 @@
   --color-field-border: var(--field-border);
   --color-chart-brand: var(--chart-brand);
   --color-chart-compare: var(--chart-compare);
+  --color-chart-revenue: var(--chart-revenue);
+  --color-chart-profit: var(--chart-profit);
+  --color-trend-good: var(--trend-good);
+  --color-trend-bad: var(--trend-bad);
+  --color-trend-good-ink: var(--trend-good-ink);
+  --color-trend-good-fill: var(--trend-good-fill);
+  --color-trend-bad-ink: var(--trend-bad-ink);
+  --color-trend-bad-fill: var(--trend-bad-fill);
   --color-finance-cost: var(--finance-cost);
   --color-finance-fee: var(--finance-fee);
   --color-finance-refund: var(--finance-refund);
@@ -87,6 +95,17 @@
   --chart-brand: oklch(0.62 0.16 152);
   /* The previous period next to the brand series: solid light blue, never a faded gray. */
   --chart-compare: oklch(0.78 0.08 240);
+  /* Revenue and profit as two series: blue and green, validated as a pair for color blindness. */
+  --chart-revenue: oklch(0.58 0.16 255);
+  --chart-profit: oklch(0.62 0.16 152);
+  /* Up or down against the previous period: good news green, bad news red (marks such as sparklines). */
+  --trend-good: oklch(0.5 0.13 152);
+  --trend-bad: oklch(0.53 0.22 27);
+  /* The up/down tag: a solid tint with dark ink of the same hue, above 6:1. */
+  --trend-good-ink: oklch(0.4 0.1 152);
+  --trend-good-fill: color-mix(in srgb, oklch(0.62 0.16 152) 22%, transparent);
+  --trend-bad-ink: oklch(0.45 0.19 27);
+  --trend-bad-fill: color-mix(in srgb, oklch(0.53 0.22 27) 18%, transparent);
   /* Finance outflows: cool, desaturated tones that stay distinct without competing with the green. */
   --finance-cost: oklch(0.6 0.07 255);
   --finance-fee: oklch(0.6 0.075 300);
@@ -141,6 +160,15 @@
   --field-border: oklch(1 0 0 / 8%);
   --chart-brand: oklch(0.76 0.17 150);
   --chart-compare: oklch(0.58 0.09 245);
+  --chart-revenue: oklch(0.63 0.16 255);
+  /* Darker than the mint brand, so neither series outshines the other on the graphite card. */
+  --chart-profit: oklch(0.66 0.17 150);
+  --trend-good: oklch(0.87 0.16 152);
+  --trend-bad: oklch(0.704 0.191 22.216);
+  --trend-good-ink: oklch(0.87 0.16 152);
+  --trend-good-fill: color-mix(in srgb, oklch(0.87 0.16 152) 20%, transparent);
+  --trend-bad-ink: oklch(0.82 0.12 22);
+  --trend-bad-fill: color-mix(in srgb, oklch(0.704 0.191 22.216) 22%, transparent);
   --finance-cost: oklch(0.74 0.065 255);
   --finance-fee: oklch(0.74 0.07 300);
   --finance-refund: oklch(0.76 0.065 350);
