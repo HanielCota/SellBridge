@@ -38,6 +38,8 @@ export interface PublishProductInput {
   imageUrls: readonly string[];
   /** Category attribute ids (BRAND, MODEL, GTIN...) and their actual values. */
   mercadoLivreAttributes?: Readonly<Record<string, string>>;
+  /** Packed weight in grams (the product's fiscal net weight); TikTok Shop requires it. */
+  packageWeightGrams?: number | null;
 }
 
 export interface PublishOptions {
