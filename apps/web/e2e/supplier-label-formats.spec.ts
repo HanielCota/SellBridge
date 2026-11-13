@@ -221,4 +221,17 @@ test("o fornecedor baixa a etiqueta em ZPL, de um pedido e em lote", async ({ pa
   expect(batch.suggestedFilename()).toBe(`etiquetas-zebra-loja-termica-${RUN.toLowerCase()}.txt`);
   expect(await readFile(await batch.path(), "utf8")).toBe(standInZpl(orderNumber));
   await expect(page.getByText("Abra o arquivo no programa da sua impressora Zebra")).toBeVisible();
+
+  // On a phone the longer reprint button wraps inside the panel instead of widening it.
+  await page.setViewportSize({ width: 375, height: 812 });
+  await orderButton(page, orderNumber).click();
+  const panel = page.getByRole("dialog");
+  await expect(
+    panel.getByRole("button", { name: "Reimprimir etiqueta do marketplace" }),
+  ).toBeVisible();
+  const overflowInPixels = await panel.evaluate(
+    (element) => element.scrollWidth - element.clientWidth,
+  );
+  // One pixel is sub-pixel rounding; the unwrapped button overflowed by about 30.
+  expect(overflowInPixels).toBeLessThanOrEqual(1);
 });

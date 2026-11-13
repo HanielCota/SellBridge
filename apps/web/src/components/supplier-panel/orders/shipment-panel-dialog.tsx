@@ -184,7 +184,12 @@ function MarketplaceLabelForm({
       <input type="hidden" name="supplierId" value={supplierId} />
       <input type="hidden" name="shipmentId" value={shipmentId} />
       <input ref={formatRef} type="hidden" name="formato" defaultValue="pdf" />
-      <LabelFormatMenu size="default" onChoose={print}>
+      {/* Wraps like the panel's other buttons, which the panel styles only as its own children. */}
+      <LabelFormatMenu
+        size="default"
+        className="h-auto min-h-9 max-w-full py-1.5 whitespace-normal"
+        onChoose={print}
+      >
         {printed ? "Reimprimir etiqueta do marketplace" : "Imprimir etiqueta do marketplace"}
       </LabelFormatMenu>
     </form>
