@@ -1,5 +1,14 @@
 import { sql } from "drizzle-orm";
-import { boolean, index, pgTable, text, timestamp, uniqueIndex, uuid } from "drizzle-orm/pg-core";
+import {
+  boolean,
+  index,
+  pgTable,
+  primaryKey,
+  text,
+  timestamp,
+  uniqueIndex,
+  uuid,
+} from "drizzle-orm/pg-core";
 import { organization } from "./auth.ts";
 import { marketplaceEnum, storeConnectionStatusEnum } from "./enums.ts";
 import { suppliers } from "./suppliers.ts";
@@ -15,8 +24,8 @@ export const storeConnections = pgTable(
     externalShopId: text().notNull(),
     shopName: text().notNull(),
     /**
-     * Each shop sells a single supplier's products. Null while pending: shops connected before
-     * the rule whose listings mixed suppliers, or whose supplier was deleted.
+     * @deprecated Read and write `store_suppliers` instead. Migration 0072 copied it there; the
+     * column stays only until every server runs the new code, then a later migration drops it.
      */
     supplierId: uuid().references(() => suppliers.id, { onDelete: "set null" }),
     /** AES-256-GCM ciphertext (see packages/shared/src/runtime/token-cipher.ts). */
@@ -69,3 +78,25 @@ export const oauthStates = pgTable("oauth_states", {
   supplierId: uuid().references(() => suppliers.id, { onDelete: "set null" }),
   expiresAt: timestamp({ withTimezone: true }).notNull(),
 });
+
+/**
+ * The suppliers whose products a shop sells. A shop with no row is pending: connected before the
+ * one-supplier rule with listings that mixed suppliers, or every supplier it sold was deleted.
+ */
+export const storeSuppliers = pgTable(
+  "store_suppliers",
+  {
+    storeConnectionId: uuid()
+      .notNull()
+      .references(() => storeConnections.id, { onDelete: "cascade" }),
+    supplierId: uuid()
+      .notNull()
+      .references(() => suppliers.id, { onDelete: "cascade" }),
+    createdAt: timestamp({ withTimezone: true }).defaultNow().notNull(),
+  },
+  (table) => [
+    primaryKey({ columns: [table.storeConnectionId, table.supplierId] }),
+    /** The foreign key, and the supplier's "linked shops" count. */
+    index("store_suppliers_supplier_idx").on(table.supplierId),
+  ],
+);
