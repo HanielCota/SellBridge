@@ -63,25 +63,16 @@ function SupportActions({ kind, onNavigate }: { kind: ProfileKind; onNavigate: (
   );
 }
 
-/** The row's icon, word and unread count; shrunk, the count sits on the icon's corner. */
-function SupportTriggerContent({ unread, collapsed }: { unread: number; collapsed: boolean }) {
+/** The row's icon, word and unread count. */
+function SupportTriggerContent({ unread }: { unread: number }) {
   return (
     <>
       <SupportIcon className="size-5 shrink-0" aria-hidden="true" />
-      <span
-        className={collapsed ? "sr-only" : "min-w-0 flex-1 truncate text-left"}
-        aria-hidden="true"
-      >
+      <span className="min-w-0 flex-1 truncate text-left" aria-hidden="true">
         Suporte
       </span>
       {/* Keeps "Suporte" and the badge apart as words, so the name check reads "Suporte 9+". */}{" "}
-      {unread > 0 ? (
-        <span
-          className={cn(countTagClassName({}), collapsed && "absolute -top-1 -right-1 scale-90")}
-        >
-          {badgeCount(unread)}
-        </span>
-      ) : null}
+      {unread > 0 ? <span className={countTagClassName({})}>{badgeCount(unread)}</span> : null}
     </>
   );
 }
@@ -93,31 +84,23 @@ function SupportTriggerContent({ unread, collapsed }: { unread: number; collapse
 export function SupportButton({
   unread,
   profileKind,
-  collapsed,
 }: {
   unread: number;
   profileKind: ProfileKind;
-  /** The sidebar shrunk to its icons: the word stays for screen readers. */
-  collapsed: boolean;
 }) {
   const [open, setOpen] = useState(false);
   const close = () => setOpen(false);
   return (
     <Popover.Root open={open} onOpenChange={setOpen}>
-      <Hint label={collapsed ? "Suporte" : ACTION_ICONS.support.hint} openOnTap={false}>
+      <Hint label={ACTION_ICONS.support.hint} openOnTap={false}>
         <Popover.Trigger
           aria-label={supportButtonLabel(unread)}
           className={cn(
-            navTabClassName({
-              isActive: false,
-              paintsOwnPill: true,
-              padding: collapsed ? "px-0" : "px-4",
-            }),
+            navTabClassName({ isActive: false, paintsOwnPill: true, padding: "px-4" }),
             "w-full data-[state=open]:bg-foreground/[0.06] data-[state=open]:text-foreground",
-            collapsed && "justify-center",
           )}
         >
-          <SupportTriggerContent unread={unread} collapsed={collapsed} />
+          <SupportTriggerContent unread={unread} />
         </Popover.Trigger>
       </Hint>
       <Popover.Portal>
