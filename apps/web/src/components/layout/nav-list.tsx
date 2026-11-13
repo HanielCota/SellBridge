@@ -7,6 +7,7 @@ import {
   activeNavItemTo,
   navGroups,
   SUPPORT_NAV_ITEM,
+  type NavGroup,
   type NavItem,
 } from "@/features/navigation/nav-items";
 import { PROFILE_LABELS, type ProfileSection } from "@/features/navigation/profile-sections";
@@ -97,31 +98,23 @@ export function ProfileSwitch({
   );
 }
 
-/**
- * The label over a run of items. Only "Administração" is a heading: the groups are named for
- * screen readers by their `role="group"`, so "Lojas" never doubles the page's own title.
- */
-function GroupHeading({
-  heading,
-  collapsed,
-  asHeading = false,
-}: {
-  heading: string;
-  collapsed: boolean;
-  asHeading?: boolean;
-}) {
-  if (collapsed) {
-    return <TeamDivider vertical={false} />;
-  }
-  const className = "px-4 pt-3 pb-1 text-caption font-medium text-muted-foreground";
-  if (asHeading) {
-    return <h2 className={className}>{heading}</h2>;
-  }
+/** The one written heading in the menu, over the team's pages. */
+function TeamHeading() {
   return (
-    <p aria-hidden="true" className={className}>
-      {heading}
-    </p>
+    <h2 className="px-4 pt-3 pb-1 text-caption font-medium text-muted-foreground">Administração</h2>
   );
+}
+
+/**
+ * A line sets a named group apart from the items before it. The list's first group has none
+ * (under "Administração" it read as an underline), except shrunk, where that line is all that
+ * sets the team's icons apart.
+ */
+function hasLineAbove(group: NavGroup, index: number, collapsed: boolean): boolean {
+  if (group.heading === null) {
+    return false;
+  }
+  return index > 0 || collapsed;
 }
 
 function ItemGroups({
@@ -142,6 +135,8 @@ function ItemGroups({
   withHint: boolean;
 }) {
   // A heading can come back later in the list, so the key carries the group's position too.
+  // Groups are set apart by a line: the written names cluttered the menu, and screen readers
+  // still hear each one through the group's label.
   return navGroups(items).map((group, index) => (
     <div
       key={`${index}-${group.heading ?? ""}`}
@@ -149,9 +144,7 @@ function ItemGroups({
       aria-label={group.heading ?? undefined}
       className="grid grid-cols-1 gap-1"
     >
-      {group.heading === null ? null : (
-        <GroupHeading heading={group.heading} collapsed={collapsed} />
-      )}
+      {hasLineAbove(group, index, collapsed) ? <TeamDivider vertical={false} /> : null}
       {group.items.map((item) => (
         <NavTab
           key={item.to}
@@ -186,7 +179,7 @@ export function NavList({
       {withTeam && navigation.teamItems.length > 0 ? (
         <>
           {/* Shrunk, the first team group's hairline already sets the team apart. */}
-          {collapsed ? null : <GroupHeading heading="Administração" collapsed={false} asHeading />}
+          {collapsed ? null : <TeamHeading />}
           <ItemGroups items={navigation.teamItems} profileSlug={null} {...shared} />
         </>
       ) : null}
