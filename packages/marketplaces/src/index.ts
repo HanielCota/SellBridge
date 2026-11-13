@@ -17,5 +17,7 @@ export {
 } from "./mercado-livre/shipping.ts";
 export {
   createTikTokShopConnector,
+  getTikTokShopShippingLabel,
   type TikTokShopConfig,
+  type TikTokShopLabel,
 } from "./tiktok-shop/tiktok-shop-connector.ts";

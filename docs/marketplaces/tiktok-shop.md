@@ -16,7 +16,7 @@ Consultado em 2026-11-13 na documentação oficial do TikTok Shop Partner Center
 - Host: `https://open-api.tiktokglobalshop.com`. Versão no caminho (`/product/202309/products`).
 - Em toda chamada: `app_key`, `timestamp` (segundos, até 5 min no passado e 30 s no futuro) e `sign` na query; `x-tts-access-token` no cabeçalho (fora da assinatura); `shop_cipher` na query quando a rota pede.
 - `sign` = HMAC-SHA256 em hexadecimal, chave = app secret, sobre `secret + caminho + {chave}{valor} das queries em ordem alfabética (sem sign e access_token) + corpo exato enviado + secret`. Corpo `multipart/form-data` fica fora.
-- Os dois exemplos da documentação viram testes: o de Get Authorized Shops (`b596b73e…2dc8`) e o da assinatura do webhook (`5dec0f11…ac05`).
+- Os dois exemplos da documentação viram testes: o de Get Authorized Shops (`b596b73e…2dc8`) e o do webhook (`5dec0f11…ac05`).
 
 ## Erros ([Common errors](https://partner.tiktokshop.com/docv2/page/common-errors))
 
@@ -35,16 +35,33 @@ Consultado em 2026-11-13 na documentação oficial do TikTok Shop Partner Center
 - Preço: `POST /product/202309/products/{product_id}/prices/update` com `skus[{id, price{amount,currency}}]`. Estoque: `POST /product/202309/products/{product_id}/inventory/update` com `skus[{id, inventory[{warehouse_id,quantity}]}]`. O `id` do SKU e o armazém vêm de `GET /product/202309/products/{product_id}`.
 - Descrição: `POST /product/202509/products/{product_id}/partial_edit` com `{ description }` (manda o produto para nova auditoria).
 
-## Pedidos, webhooks e etiqueta
+## Pedidos ([Get Order List](https://partner.tiktokshop.com/docv2/page/650aa8094a0bb702c06df242), [Get Order Detail](https://partner.tiktokshop.com/docv2/page/6894134ba28e5204961601a5))
 
-Ainda não lidos: a busca de pedidos e os webhooks respondem "ainda não está disponível", como antes do conector. Ficam para a próxima etapa, no mesmo formato do Mercado Livre.
+- Busca: `POST /order/202309/orders/search?page_size=…&sort_field=create_time&sort_order=DESC&page_token=…` com corpo `{ create_time_ge }` → `data.orders[]`, `data.next_page_token`.
+- Detalhe: `GET /order/202507/orders?ids=…` → `data.orders[]`.
+- Cada `line_items[]` é **uma unidade** (não há quantidade): o conector agrupa por `product_id` + `sku_id` e conta.
+- Situações: `UNPAID`, `ON_HOLD` → pendente; `AWAITING_SHIPMENT`, `PARTIALLY_SHIPPING`, `AWAITING_COLLECTION` → pago; `IN_TRANSIT` → enviado; `DELIVERED`, `COMPLETED` → entregue; `CANCELLED` → cancelado. `ON_HOLD` é pendente de propósito: o comprador ainda pode cancelar sem o vendedor.
+- Valores em texto decimal (`"59.90"`), convertidos para centavos sem arredondar ponto flutuante. `payment.total_amount` = total pago.
+- Tarifa do TikTok: o detalhe do pedido **não traz** a tarifa do vendedor (ela sai na API de Finanças depois do repasse). O conector grava 0 por enquanto. **[teste real]** decidir como trazer a tarifa.
+- Endereço: o TikTok mascara o nome em pedidos com logística da plataforma e o envio usa a etiqueta do TikTok, então o conector não importa o endereço (mesma resposta de "não suportado" do formulário de encaminhamento).
+
+## Webhooks ([Overview](https://partner.tiktokshop.com/docv2/page/tts-webhooks-overview), [Order status change](https://partner.tiktokshop.com/docv2/page/650300b8a57708028b430b4a))
+
+- `POST` no endereço cadastrado no app; assinatura no cabeçalho `Authorization`: HMAC-SHA256 hexadecimal, chave = app secret, sobre `app_key + corpo cru`.
+- Corpo: `{ type, tts_notification_id, shop_id, timestamp, data }`. Mudança de situação do pedido: `type: 1`, `data.order_id`, `data.order_status`. O evento guardado é o `tts_notification_id`; o pedido é sempre lido de novo na API (o corpo nunca é confiável).
+- Responder 200 em até 3 s (o SellBridge já guarda e processa em fila). Novas tentativas: 2 min, 30 min, 3 h, 12 h.
+
+## Etiqueta ([Get Package Shipping Document](https://partner.tiktokshop.com/docv2/page/650aa5fac16ffe02b8f112ca))
+
+- `GET /fulfillment/202309/packages/{package_id}/shipping_documents?document_type=SHIPPING_LABEL&document_format=PDF` → `data.doc_url` (vale 24 h), `data.tracking_number`. O `package_id` vem de `packages[].id` no detalhe do pedido.
+- Só funciona depois de o envio ser organizado no TikTok (`Ship Package`); antes disso o conector avisa em português. O SellBridge não organiza o envio sozinho. **[teste real]** o passo de organizar o envio no fluxo do fornecedor.
 
 ## Ativação (no dia em que as chaves chegarem)
 
 O conector fica desligado enquanto `TIKTOK_SHOP_APP_KEY`, `TIKTOK_SHOP_APP_SECRET` e `TIKTOK_SHOP_SERVICE_ID` não estiverem todos preenchidos; a tela de Lojas mostra o TikTok Shop como "Em breve".
 
-1. No Partner Center, no app: Redirect URL `https://app.sellbridge.com.br/api/oauth/tiktok_shop/callback`; permissões de produtos, pedidos, logística/fulfillment e loja.
+1. No Partner Center, no app: Redirect URL `https://app.sellbridge.com.br/api/oauth/tiktok_shop/callback`; webhook `https://app.sellbridge.com.br/api/webhooks/tiktok_shop` com o tópico `ORDER_STATUS_CHANGE` (e `SELLER_DEAUTHORIZATION`, `UPCOMING_AUTHORIZATION_EXPIRATION`); permissões de produtos, pedidos, logística/fulfillment e loja.
 2. No Coolify, no app web **e** no worker: `TIKTOK_SHOP_APP_KEY`, `TIKTOK_SHOP_APP_SECRET` e `TIKTOK_SHOP_SERVICE_ID` (o Service ID está na página do app). Reiniciar os dois.
 3. Em Partner Center > Development Shops, criar uma loja de teste do Brasil e autorizar pelo botão "Conectar TikTok Shop" da tela de Lojas.
-4. Conferir na loja de teste, nesta ordem: conexão e nome da loja; publicação de um produto com peso; mudança de preço e de estoque; troca da descrição; a renovação do acesso (forçar com `expires_at` perto de vencer).
+4. Conferir na loja de teste, nesta ordem: conexão e nome da loja; publicação de um produto com peso; mudança de preço e de estoque; um pedido de teste chegando pelo webhook e pela busca; a etiqueta depois de organizar o envio; a renovação do acesso (forçar com `expires_at` perto de vencer).
 5. Anotar aqui o que for diferente da documentação e tirar as marcas **[teste real]** resolvidas.
