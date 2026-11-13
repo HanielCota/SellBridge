@@ -128,9 +128,9 @@ function SupplierActions({ detail }: { detail: ConversationDetail }) {
   const { conversation, supplierOrder } = detail;
   return (
     <div className="flex flex-wrap gap-2">
-      <SupplierOrderButton order={supplierOrder} />
+      <SupplierOrderButton order={supplierOrder} size="responsive" />
       {conversation.status === "closed" ? null : (
-        <FinishConversationButton ticketId={conversation.id} />
+        <FinishConversationButton ticketId={conversation.id} size="responsive" />
       )}
     </div>
   );

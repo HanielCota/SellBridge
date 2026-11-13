@@ -10,10 +10,17 @@ import { errorMessage } from "@/lib/errors";
 import { useTabProfileLink } from "@/lib/tab-profile";
 import { cn } from "@/lib/utils";
 
-/** Phones get 44 px targets; the desktop table keeps the smaller buttons on one line. */
-type ActionSize = "touch" | "compact";
+/**
+ * Phones get 44 px targets; the desktop table keeps the smaller buttons on one line. A page
+ * seen on both takes the tall buttons below `sm`.
+ */
+type ActionSize = "touch" | "compact" | "responsive";
 
-const SIZE_CLASSES: Record<ActionSize, string> = { touch: "h-11", compact: "" };
+const SIZE_CLASSES: Record<ActionSize, string> = {
+  touch: "h-11",
+  compact: "",
+  responsive: "h-11 sm:h-8",
+};
 
 /** "Finalizar": closes the conversation; the store writing again brings it back to "A fazer". */
 export function FinishConversationButton({
