@@ -53,7 +53,6 @@ import {
   PlugsIcon,
   PresentationChartIcon,
   SealCheckIcon,
-  SidebarSimpleIcon,
   PlusIcon,
   ShoppingBagIcon,
   SquaresFourIcon,
@@ -217,8 +216,6 @@ export const ACTION_ICONS = {
     icon: GearSixIcon,
     hint: "A taxa do SellBridge nos pagamentos aos fornecedores",
   },
-  /** Shrinks the sidebar to its icons and back. */
-  collapseSidebar: { icon: SidebarSimpleIcon },
   /** The folded profile tabs in admin mode; the label already names the profile. */
   resellerTabs: { icon: BriefcaseIcon },
   supplierTabs: { icon: WarehouseIcon },
