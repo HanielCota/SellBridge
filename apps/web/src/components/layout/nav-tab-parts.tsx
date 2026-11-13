@@ -33,9 +33,12 @@ export function navTabClassName({
 }
 
 function badgeColors({ isError, onActive }: { isError: boolean; onActive: boolean }): string {
-  // A tint vanishes on the lit item's pill, so there the tag turns solid.
+  // The lit item's pill takes the other theme's color (black in light, white in dark), so its
+  // tag uses the green and red that read on that color.
   if (onActive) {
-    return isError ? "bg-destructive text-background" : "bg-brand text-primary-foreground";
+    return isError
+      ? "bg-red-400/20 text-red-400 ring-1 ring-red-400/40 ring-inset dark:bg-red-600/15 dark:text-red-700"
+      : "bg-brand/20 text-brand ring-1 ring-brand/40 ring-inset dark:text-emerald-700";
   }
   return isError
     ? "bg-destructive/15 text-destructive ring-1 ring-destructive/30 ring-inset"
