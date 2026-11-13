@@ -40,7 +40,8 @@ function marginText(store: StoreRow): string {
 
 /**
  * Hovering one row of a breakdown fades the others, so the row under the pointer stands out like
- * the hovered bar of a chart.
+ * the hovered bar of a chart. The cards link only through "Ver tudo": a whole-card link lies over
+ * the rows and would keep the pointer from ever reaching them.
  */
 const HOVER_LIST =
   "[&:has(>li:hover)>li:not(:hover)]:opacity-45 [&>li]:transition-opacity [&>li]:duration-150";
@@ -93,7 +94,12 @@ export function StoreBreakdown({ stores }: { stores: StoreRow[] }) {
   const totalRevenue = stores.reduce((sum, store) => sum + store.revenueCents, 0);
   const totalOrders = stores.reduce((sum, store) => sum + store.orders, 0);
   return (
-    <BreakdownSection title="Vendas por loja" to="/lojas" hint="Ver todas as suas lojas">
+    <BreakdownSection
+      title="Vendas por loja"
+      to="/lojas"
+      hint="Ver todas as suas lojas"
+      wholeCardLinks={false}
+    >
       {stores.length === 0 ? (
         <EmptyRows />
       ) : (
@@ -160,6 +166,7 @@ export function TopProducts({ products }: { products: ProductRow[] }) {
       title="Produtos mais vendidos"
       to="/publicacoes"
       hint="Ver todas as suas publicações"
+      wholeCardLinks={false}
     >
       {products.length === 0 ? (
         <EmptyRows />
