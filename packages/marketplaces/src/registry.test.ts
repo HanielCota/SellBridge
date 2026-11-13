@@ -15,6 +15,19 @@ describe("createConnectorRegistry", () => {
     ).rejects.toThrow(/ainda não está disponível/);
   });
 
+  it("enables TikTok Shop only with app key, secret and service id", () => {
+    const keysOnly = { appKey: "key", appSecret: "secret", serviceId: undefined };
+
+    const partial = createConnectorRegistry({ tiktokShop: keysOnly }).tiktok_shop;
+    const complete = createConnectorRegistry({
+      tiktokShop: { ...keysOnly, serviceId: "7123" },
+    }).tiktok_shop;
+
+    expect(createConnectorRegistry({}).tiktok_shop.isConfigured()).toBe(false);
+    expect(partial.isConfigured()).toBe(false);
+    expect(complete.isConfigured()).toBe(true);
+  });
+
   it("enables Mercado Livre only with real credentials", () => {
     expect(createConnectorRegistry({}).mercado_livre.isConfigured()).toBe(false);
     expect(
