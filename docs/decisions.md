@@ -794,3 +794,13 @@ Um revendedor contou (áudio de 12/11) que o Mercado Livre recusou as descriçõ
 - **Os já guardados** saem na migration 0069 (escolha do Guilherme, 12/11: "Limpar todos de uma vez"), em `supplier_products` e `listings`. A lista de caracteres do SQL é gerada do mesmo padrão do app e um teste compara os dois. Não dá para desfazer.
 - **Ficam:** acentos, quebras de linha, pontuação, `#` (a página não fala de hashtags) e ©, ® e ™.
 - **Descartado:** só limpar no envio ao Mercado Livre (a primeira versão), porque o texto com emoji continuava guardado e aparecia para fornecedor e revendedor.
+
+## 2026-11-13: Vários fornecedores na mesma loja
+
+O revendedor (StockShopp) quer publicar produtos de mais de um fornecedor na mesma loja. Guilherme, 13/11: "sim, um vendedor pode ter vários fornecedores". O plano foi aprovado em 13/11 ("Aprovo, pode começar") e entra em fatias. Esta decisão substitui a de "Um fornecedor por loja" (PR #96) e a parte "Uma loja, um fornecedor" de 2026-10-15.
+
+- **Modelo:** a tabela `store_suppliers` (loja, fornecedor) guarda a lista de fornecedores de cada loja. A migração copiou o fornecedor de hoje de cada loja. Loja sem nenhuma linha continua "pendente". A coluna `store_connections.supplier_id` fica parada até todos os servidores rodarem o código novo e depois sai numa migração própria.
+- **Regra:** publicar um produto numa loja exige que o fornecedor dele esteja na lista da loja; o estoque enviado ao marketplace segue a mesma regra.
+- **O pedido já se dividia** por fornecedor do produto (um envio por fornecedor, com pagamento, taxa, repasse e NF-e por envio). Nada disso muda.
+- **Etiqueta do Mercado Livre:** o ML dá uma etiqueta por pedido e por carrinho. Pedido ou carrinho com dois fornecedores se divide normalmente, mas a etiqueta do ML fica travada e o revendedor recebe o aviso do que fazer (decisão do Guilherme no mesmo ok de 13/11).
+- **Fica de fora:** devolução que abre pedido para todos os fornecedores, avaliação que espera o pedido inteiro, taxa, repasse, NF-e, cadastro inicial (continua um fornecedor) e cobrança.
