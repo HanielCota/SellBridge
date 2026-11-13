@@ -4,6 +4,7 @@ import { DeadlineCell, queueColumnsFor } from "./order-queue-columns";
 import {
   LabelStatus,
   OrderSummary,
+  PostingDeadlineStatus,
   ProblemList,
   RowAction,
   RowCheckbox,
@@ -33,6 +34,7 @@ function MobileQueueRow({ row }: { row: SupplierOrderRow }) {
           <StepStatus row={row} />
           <DeadlineCell row={row} now={context.now} />
         </div>
+        <PostingDeadlineStatus parcel={row} now={context.now} />
         <LabelStatus state={row.labelState} printedAt={row.labelPrintedAt} />
         <ProblemList row={row} />
         <RowAction

@@ -180,6 +180,12 @@ test("o fornecedor vê o prazo de postagem do Mercado Livre, no prazo e atrasado
 
   await orderButton(page, late).click();
   await expect(page.getByRole("dialog").getByText(lateLabel)).toBeVisible();
+  await page.keyboard.press("Escape");
+
+  // A phone draws each order as a card of its own.
+  await page.setViewportSize({ width: 375, height: 812 });
+  await expect(page.getByText(onTimeLabel).filter({ visible: true })).toBeVisible();
+  await expect(page.getByText(lateLabel).filter({ visible: true })).toBeVisible();
 });
 
 test("o fornecedor baixa a etiqueta em ZPL, de um pedido e em lote", async ({ page }) => {
