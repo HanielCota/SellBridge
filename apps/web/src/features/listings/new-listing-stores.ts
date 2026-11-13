@@ -2,7 +2,8 @@
 interface PublishableStore {
   id: string;
   status: string;
-  supplierId: string | null;
+  /** The suppliers the store sells; empty while it is pending. */
+  supplierIds: readonly string[];
 }
 
 export interface NewListingStoreChoice<Store extends PublishableStore> {
@@ -14,7 +15,7 @@ export interface NewListingStoreChoice<Store extends PublishableStore> {
   ownProductClosed: boolean;
 }
 
-/** Which stores the new listing page offers for a product: each store sells a single supplier. */
+/** Which stores the new listing page offers for a product: the ones selling its supplier. */
 export function chooseNewListingStores<Store extends PublishableStore>(
   product: { catalogKind: "seller" | "supplier"; supplierId: string },
   stores: readonly Store[],
@@ -26,9 +27,9 @@ export function chooseNewListingStores<Store extends PublishableStore>(
   const connected = stores.filter((store) => store.status === "connected");
   return {
     stores: connected
-      .filter((store) => store.supplierId === product.supplierId)
+      .filter((store) => store.supplierIds.includes(product.supplierId))
       .map((store) => ({ ...store, listed: listedStoreIds.has(store.id) })),
-    hasOtherStores: connected.some((store) => store.supplierId !== product.supplierId),
+    hasOtherStores: connected.some((store) => !store.supplierIds.includes(product.supplierId)),
     ownProductClosed: false,
   };
 }

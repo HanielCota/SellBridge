@@ -190,17 +190,24 @@ function StoreSubtitle({
   );
 }
 
+/** The supplier the row names: the store's oldest one while the row shows a single supplier. */
+function firstSupplier(
+  store: StoreWithActivity,
+  suppliers: ReadonlyMap<string, StoreSupplierLabel>,
+): StoreSupplierLabel | undefined {
+  const [supplierId] = store.supplierIds;
+  return supplierId === undefined ? undefined : suppliers.get(supplierId);
+}
+
 /** Who the shop sells; a shop with no supplier yet asks for one before it can publish again. */
 function StoreSupplierLine({
-  store,
   supplier,
   onChangeSupplier,
 }: {
-  store: StoreWithActivity;
   supplier: StoreSupplierLabel | undefined;
   onChangeSupplier: () => void;
 }) {
-  if (store.supplierId === null || supplier === undefined) {
+  if (supplier === undefined) {
     return (
       <button
         type="button"
@@ -288,11 +295,7 @@ function StoreRow({
             </h2>
             <StoreSubtitle store={store} storeName={name} marketplaceLabel={marketplaceLabel} />
             <PausedListingsLine store={store} storeName={name} />
-            <StoreSupplierLine
-              store={store}
-              supplier={supplier}
-              onChangeSupplier={actions.onChangeSupplier}
-            />
+            <StoreSupplierLine supplier={supplier} onChangeSupplier={actions.onChangeSupplier} />
           </div>
           <PublishAction store={store} storeName={name} />
         </div>
@@ -362,7 +365,7 @@ export function StoreList({
             key={store.id}
             store={store}
             marketplaceLabel={labels.get(store.marketplace) ?? store.marketplace}
-            supplier={store.supplierId === null ? undefined : suppliers.get(store.supplierId)}
+            supplier={firstSupplier(store, suppliers)}
             actions={{
               onDisconnect: () => onDisconnect(store),
               onChangeSupplier: () => onChangeSupplier(store),

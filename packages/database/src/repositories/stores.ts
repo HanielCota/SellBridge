@@ -5,7 +5,14 @@ import { and, asc, eq, inArray, isNotNull, isNull, gt, lt, ne, or, sql } from "d
 import type { Database, DatabaseExecutor } from "../client.ts";
 import { isUniqueViolation } from "../postgres-errors.ts";
 import { timestampOf } from "./sql/raw-values.ts";
-import { member, organization, oauthStates, storeConnections } from "../schema/index.ts";
+import { storeSupplierIds } from "./sql/store-supplier-match.ts";
+import {
+  member,
+  organization,
+  oauthStates,
+  storeConnections,
+  storeSuppliers,
+} from "../schema/index.ts";
 import { notifyStoreExpired } from "./notification-producers.ts";
 
 type StoreConnectionRow = typeof storeConnections.$inferSelect;
@@ -17,8 +24,8 @@ export interface StoreConnectionSummary {
   marketplace: Marketplace;
   shopName: string;
   externalShopId: string;
-  /** The one supplier whose products this shop sells; null while the seller has not picked one. */
-  supplierId: string | null;
+  /** The suppliers whose products this shop sells, oldest first; empty while it is pending. */
+  supplierIds: string[];
   status: StoreStatus;
   lastError: string | null;
   expiresAt: Date | null;
@@ -32,7 +39,7 @@ const summaryColumns = {
   marketplace: storeConnections.marketplace,
   shopName: storeConnections.shopName,
   externalShopId: storeConnections.externalShopId,
-  supplierId: storeConnections.supplierId,
+  supplierIds: storeSupplierIds(storeConnections.id),
   status: storeConnections.status,
   lastError: storeConnections.lastError,
   expiresAt: storeConnections.expiresAt,
@@ -216,23 +223,52 @@ async function saveStoreConnection(
   }
   const { billingEnabled: _billingEnabled, supplierId = null, ...connection } = input;
   const values = { ...connection, status: "connected" as const, lastError: null };
-  const [row] = await executor
+  const [saved] = await executor
     .insert(storeConnections)
-    .values({ ...values, supplierId, connectedAt: new Date() })
+    .values({ ...values, connectedAt: new Date() })
     .onConflictDoUpdate({
       target: [
         storeConnections.tenantId,
         storeConnections.marketplace,
         storeConnections.externalShopId,
       ],
-      // A reconnected shop keeps its supplier; a pending one takes the supplier just picked.
-      set: { ...values, supplierId: sql`coalesce(${storeConnections.supplierId}, ${supplierId})` },
+      set: values,
     })
-    .returning(summaryColumns);
-  if (!row) {
+    .returning({ id: storeConnections.id });
+  if (saved === undefined) {
+    throw conflictError("Não foi possível salvar a conexão da loja");
+  }
+  if (supplierId !== null) {
+    await linkSupplierToPendingStore(executor, saved.id, supplierId);
+  }
+  const [row] = await executor
+    .select(summaryColumns)
+    .from(storeConnections)
+    .where(eq(storeConnections.id, saved.id));
+  if (row === undefined) {
     throw conflictError("Não foi possível salvar a conexão da loja");
   }
   return row;
+}
+
+/** A reconnected shop keeps its suppliers; a new or pending one takes the supplier just picked. */
+async function linkSupplierToPendingStore(
+  executor: DatabaseExecutor,
+  storeConnectionId: string,
+  supplierId: string,
+): Promise<void> {
+  const [linked] = await executor
+    .select({ supplierId: storeSuppliers.supplierId })
+    .from(storeSuppliers)
+    .where(eq(storeSuppliers.storeConnectionId, storeConnectionId))
+    .limit(1);
+  if (linked !== undefined) {
+    return;
+  }
+  await executor
+    .insert(storeSuppliers)
+    .values({ storeConnectionId, supplierId })
+    .onConflictDoNothing();
 }
 
 export async function disconnectStore(

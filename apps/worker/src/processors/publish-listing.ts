@@ -200,8 +200,8 @@ function outcomeWithoutPublishing(row: TargetForPublishing): PublishOutcome | nu
 }
 
 /**
- * A product deactivated after the job was queued is not sent, nor one whose shop moved to another
- * supplier meanwhile (each shop sells a single supplier).
+ * A product deactivated after the job was queued is not sent, nor one whose shop stopped selling
+ * its supplier meanwhile.
  */
 async function requireSellable(
   dependencies: PublishDependencies,
@@ -220,7 +220,7 @@ async function requireSellable(
   }
   if (
     row.source.catalogKind === "supplier" &&
-    storeSupplierRefusal(row.store.supplierId, row.product.supplierId) === "other_supplier"
+    storeSupplierRefusal(row.storeSupplierIds, row.product.supplierId) === "other_supplier"
   ) {
     await failPermanently(dependencies, row.target.id, STORE_SUPPLIER_CHANGED_MESSAGE);
   }

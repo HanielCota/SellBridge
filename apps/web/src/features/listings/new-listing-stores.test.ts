@@ -6,12 +6,12 @@ const SUPPLIER_Y = "00000000-0000-4000-8000-00000000000b";
 const STORE_X = {
   id: "10000000-0000-4000-8000-000000000001",
   status: "connected",
-  supplierId: SUPPLIER_X,
+  supplierIds: [SUPPLIER_X],
 };
 const STORE_Y = {
   id: "10000000-0000-4000-8000-000000000002",
   status: "connected",
-  supplierId: SUPPLIER_Y,
+  supplierIds: [SUPPLIER_Y],
 };
 const NO_LISTINGS: ReadonlySet<string> = new Set();
 

@@ -12,6 +12,7 @@ import {
   orders,
   orderStatusChanges,
   storeConnections,
+  storeSuppliers,
   supplierProducts,
   suppliers,
 } from "../../schema/index.ts";
@@ -143,7 +144,6 @@ async function ensureDemoStores(
         marketplace: "mercado_livre" as const,
         externalShopId: store.externalShopId,
         shopName: store.shopName,
-        supplierId: supplierIds.get(store.supplierName) ?? null,
         status: store.status ?? "connected",
         lastError: store.status === "expired" ? EXPIRED_STORE_ERROR : null,
         // Simulated marketplace tokens, encrypted like real ones, so webhooks and sync work.
@@ -153,8 +153,8 @@ async function ensureDemoStores(
       })),
     )
     .onConflictDoNothing();
-  return database
-    .select({ id: storeConnections.id, supplierId: storeConnections.supplierId })
+  const saved = await database
+    .select({ id: storeConnections.id, externalShopId: storeConnections.externalShopId })
     .from(storeConnections)
     .where(
       and(
@@ -165,6 +165,22 @@ async function ensureDemoStores(
         ),
       ),
     );
+  const supplierByShop = new Map(
+    stores.map((store) => [store.externalShopId, supplierIds.get(store.supplierName) ?? null]),
+  );
+  const demoStores = saved.map((store) => ({
+    id: store.id,
+    supplierId: supplierByShop.get(store.externalShopId) ?? null,
+  }));
+  const links = demoStores.flatMap((store) =>
+    store.supplierId === null
+      ? []
+      : [{ storeConnectionId: store.id, supplierId: store.supplierId }],
+  );
+  if (links.length > 0) {
+    await database.insert(storeSuppliers).values(links).onConflictDoNothing();
+  }
+  return demoStores;
 }
 
 async function chooseDemoProducts(

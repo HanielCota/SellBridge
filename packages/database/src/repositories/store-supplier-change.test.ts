@@ -126,7 +126,7 @@ describe("changing the supplier of a shop", () => {
       supplierId: other.supplierId,
     });
     expect(reconnected.id).toBe(storeId);
-    expect(reconnected.supplierId).not.toBe(other.supplierId);
+    expect(reconnected.supplierIds).not.toContain(other.supplierId);
   });
 
   it("carries the picked supplier through the OAuth state", async () => {

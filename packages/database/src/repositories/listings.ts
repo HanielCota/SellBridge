@@ -9,6 +9,7 @@ import { hasActiveTargets } from "./active-targets.ts";
 import { recordApiEvent } from "./api-events.ts";
 import { containsPattern } from "./sql/search-pattern.ts";
 import { supplierOpenColumn } from "./sql/sellable.ts";
+import { storeSupplierIds } from "./sql/store-supplier-match.ts";
 import {
   listings,
   listingTargets,
@@ -218,6 +219,8 @@ export interface TargetForPublishing {
   listing: typeof listings.$inferSelect;
   product: typeof supplierProducts.$inferSelect;
   store: typeof storeConnections.$inferSelect;
+  /** The suppliers the shop sells, as `store_suppliers` holds them; empty while it is pending. */
+  storeSupplierIds: string[];
   availability: CatalogAvailability;
   source: Pick<typeof suppliers.$inferSelect, "catalogKind" | "ownerTenantId">;
 }
@@ -233,6 +236,7 @@ export async function getTargetForPublishing(
       listing: listings,
       product: supplierProducts,
       store: storeConnections,
+      storeSupplierIds: storeSupplierIds(storeConnections.id),
       supplierActive: suppliers.active,
       supplierOpen: supplierOpenColumn(),
       source: { catalogKind: suppliers.catalogKind, ownerTenantId: suppliers.ownerTenantId },
