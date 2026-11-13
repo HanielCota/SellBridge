@@ -7,6 +7,7 @@ export * from "./stores.ts";
 export * from "./store-names.ts";
 export * from "./store-suppliers.ts";
 export * from "./store-catalog.ts";
+export * from "./product-heat.ts";
 export * from "./store-activity.ts";
 export * from "./store-disconnect.ts";
 export * from "./account-export.ts";
