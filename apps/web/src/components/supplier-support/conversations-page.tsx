@@ -125,7 +125,7 @@ function ResellerFilters({
     <div className="flex flex-col gap-3 sm:flex-row">
       <SearchField
         search={search}
-        placeholder="Buscar pelo assunto, pela loja ou pelo pedido"
+        placeholder="Buscar por assunto, loja ou pedido"
         onChange={onChange}
       />
       <TicketStatusFilter
@@ -161,7 +161,7 @@ function SupplierQueueFilters({
       />
       <SearchField
         search={search}
-        placeholder="Buscar pelo assunto, pela loja ou pelo número do pedido"
+        placeholder="Buscar por assunto, loja ou pedido"
         onChange={onChange}
       />
     </div>

@@ -5,6 +5,7 @@ import {
   type ConversationSide,
 } from "@sellbridge/shared/supplier-conversation-topics";
 import { Link } from "@tanstack/react-router";
+import type { ReactNode } from "react";
 import { createServerColumnHelper, DataTable } from "@/components/data/data-table";
 import { PaginationBar } from "@/components/data/pagination-bar";
 import { SmartDate } from "@/components/data/smart-date";
@@ -26,11 +27,16 @@ function topicLabel(row: ConversationSummary): string {
 }
 
 /** "Cancelamento · Pedido #2000123": what it is about, with the order the supplier looks up. */
-function aboutLine(row: ConversationSummary): string {
+function aboutLine(row: ConversationSummary): ReactNode {
   if (row.order === null) {
     return topicLabel(row);
   }
-  return `${topicLabel(row)} · Pedido #${row.order.externalOrderId}`;
+  return (
+    <>
+      {topicLabel(row)} ·{" "}
+      <span className="whitespace-nowrap">Pedido #{row.order.externalOrderId}</span>
+    </>
+  );
 }
 
 function ConversationState({ row, side }: { row: ConversationSummary; side: ConversationSide }) {
