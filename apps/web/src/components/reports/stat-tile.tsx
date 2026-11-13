@@ -3,6 +3,7 @@ import type { ReactNode } from "react";
 import { ACTION_ICONS } from "@/components/icons/action-icons";
 import { Hint } from "@/components/ui/hint";
 import { cn } from "@/lib/utils";
+import type { TrendTone } from "@/features/reports/trend-tone";
 import { Sparkline } from "./figures";
 
 const SeeAllIcon = ACTION_ICONS.seeAll.icon;
@@ -21,6 +22,8 @@ export interface StatTileProps {
   change: ReactNode;
   /** The figure's shape over the period. */
   trend: readonly number[];
+  /** Colors the sparkline like the change: good news green, bad news red. */
+  trendTone?: TrendTone;
   /** Tooltip on the whole tile: where it leads, and what the name means when it is jargon. */
   hint: string;
   /** Dotted underline on a name a reader may not know; the hint explains it. */
@@ -29,7 +32,15 @@ export interface StatTileProps {
   link?: StatTileLink;
 }
 
-function TileBody({ label, figure, change, trend, isTerm = false, link }: StatTileProps) {
+function TileBody({
+  label,
+  figure,
+  change,
+  trend,
+  trendTone,
+  isTerm = false,
+  link,
+}: StatTileProps) {
   return (
     <>
       <div className="flex items-start justify-between gap-3">
@@ -48,7 +59,7 @@ function TileBody({ label, figure, change, trend, isTerm = false, link }: StatTi
           <div className="flex h-9 items-end text-[30px] leading-none">{figure}</div>
           <div className="flex min-h-4 flex-wrap items-center gap-x-1.5 text-xs">{change}</div>
         </div>
-        <Sparkline values={trend} className="mb-1" />
+        <Sparkline values={trend} tone={trendTone} className="mb-1" />
       </div>
     </>
   );

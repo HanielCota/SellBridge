@@ -1,6 +1,7 @@
 import { TERM_HINTS } from "@/components/icons/action-icons";
 import type { MetricPoint } from "@/features/reports/dashboard-metrics";
-import { MoneyFigure, TrendBadge } from "./figures";
+import { countTagParts, trendTagParts } from "@/features/reports/trend-tone";
+import { MoneyFigure, TrendTag } from "./figures";
 import { StatTile, type StatTileProps } from "./stat-tile";
 
 const count = new Intl.NumberFormat("pt-BR");
@@ -22,33 +23,36 @@ interface Totals {
   revenueCents: number;
   orders: number;
   averageTicketCents: number | null;
+  cancelledOrders: number;
 }
 
 interface KpiTilesProps {
-  summary: Totals & { cancelledOrders: number };
+  summary: Totals;
   previous: Totals;
   points: readonly MetricPoint[];
 }
 
 const VERSUS = "vs. anterior";
+const CANCELLED = { one: "cancelado", many: "cancelados" };
 
-/** Revenue, orders and average ticket, stacked beside the chart on wide screens. */
+/**
+ * Revenue, orders and average ticket, stacked beside the chart on wide screens. Each change is a
+ * tag (green up, red down) and the sparkline wears the same color, so the column reads in a glance.
+ */
 export function KpiTiles({ summary, previous, points }: KpiTilesProps) {
   const sold = points.filter((point) => point.orders > 0);
+  const revenue = trendTagParts(summary.revenueCents, previous.revenueCents);
+  const orders = trendTagParts(summary.orders, previous.orders);
+  const ticket = trendTagParts(summary.averageTicketCents, previous.averageTicketCents);
   return (
     <div className="grid gap-4 sm:grid-cols-3 xl:grid-cols-1">
       <KpiTile
         label="Receita"
         hint="Ver a receita em detalhes no Financeiro"
         figure={<MoneyFigure cents={summary.revenueCents} />}
-        change={
-          <TrendBadge
-            current={summary.revenueCents}
-            previous={previous.revenueCents}
-            suffix={VERSUS}
-          />
-        }
+        change={<TrendTag parts={revenue} suffix={VERSUS} />}
         trend={points.map((point) => point.revenueCents)}
+        trendTone={revenue?.tone ?? "neutral"}
       />
       <KpiTile
         label="Pedidos"
@@ -56,16 +60,14 @@ export function KpiTiles({ summary, previous, points }: KpiTilesProps) {
         figure={<span className="font-semibold">{count.format(summary.orders)}</span>}
         change={
           <>
-            <TrendBadge current={summary.orders} previous={previous.orders} suffix={VERSUS} />
-            {summary.cancelledOrders > 0 ? (
-              <span className="text-muted-foreground">
-                · {count.format(summary.cancelledOrders)}{" "}
-                {summary.cancelledOrders === 1 ? "cancelado" : "cancelados"}
-              </span>
-            ) : null}
+            <TrendTag parts={orders} suffix={VERSUS} />
+            <TrendTag
+              parts={countTagParts(summary.cancelledOrders, previous.cancelledOrders, CANCELLED)}
+            />
           </>
         }
         trend={points.map((point) => point.orders)}
+        trendTone={orders?.tone ?? "neutral"}
       />
       <KpiTile
         label="Ticket médio"
@@ -78,14 +80,9 @@ export function KpiTiles({ summary, previous, points }: KpiTilesProps) {
             <MoneyFigure cents={summary.averageTicketCents} />
           )
         }
-        change={
-          <TrendBadge
-            current={summary.averageTicketCents}
-            previous={previous.averageTicketCents}
-            suffix={VERSUS}
-          />
-        }
+        change={<TrendTag parts={ticket} suffix={VERSUS} />}
         trend={sold.map((point) => point.revenueCents / point.orders)}
+        trendTone={ticket?.tone ?? "neutral"}
       />
     </div>
   );

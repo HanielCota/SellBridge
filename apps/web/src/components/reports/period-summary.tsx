@@ -2,6 +2,8 @@ import { formatCents } from "@sellbridge/shared/money";
 import { formatPercent } from "@/lib/percent";
 import { cn } from "@/lib/utils";
 import type { ReactNode } from "react";
+import { trendTagParts, type TrendTagParts } from "@/features/reports/trend-tone";
+import { TrendTag } from "./figures";
 import {
   bestPoint,
   explainRevenue,
@@ -96,7 +98,7 @@ function Headline({ current, previous }: { current: Totals; previous: Totals }) 
   return (
     <>
       A receita {up ? "subiu" : "caiu"}{" "}
-      <Tone up={up}>{wholePercent.format(Math.abs(story.revenue))}%</Tone>
+      <SentenceTag parts={trendTagParts(current.revenueCents, previous.revenueCents)} />
       {why ? `:${why}` : "."}
     </>
   );
@@ -172,20 +174,10 @@ function ProfitSentence({ current, previous }: { current: Totals; previous: Tota
       Você lucrou <Strong>{formatCents(current.profitCents)}</Strong> no período
       {moved ? (
         <>
-          ,{" "}
-          {trend.isOffScale ? (
-            <>
-              <Tone up>mais de 10 vezes</Tone> o do período anterior
-            </>
-          ) : (
-            <>
-              <Tone up={trend.direction === "up"}>
-                {wholePercent.format(trend.percent)}% a{" "}
-                {trend.direction === "up" ? "mais" : "menos"}
-              </Tone>{" "}
-              que no anterior
-            </>
-          )}
+          , <SentenceTag parts={trendTagParts(current.profitCents, previous.profitCents)} />{" "}
+          {trend.isOffScale
+            ? "o do período anterior"
+            : `a ${trend.direction === "up" ? "mais" : "menos"} que no anterior`}
         </>
       ) : null}
       {margin === null ? null : (
@@ -210,6 +202,11 @@ function PendingCostNote({ current }: { current: Totals }) {
       {one ? "venda" : "vendas"} com custo pendente {one ? "ficou" : "ficaram"} fora do lucro.{" "}
     </>
   );
+}
+
+/** The change as a tag inside the sentence: arrow and percent, the sentence says the rest. */
+function SentenceTag({ parts }: { parts: TrendTagParts | null }) {
+  return <TrendTag parts={parts} withWord={false} className="px-1.5 text-[0.8em] leading-snug" />;
 }
 
 export function Tone({ up, children }: { up: boolean; children: ReactNode }) {
