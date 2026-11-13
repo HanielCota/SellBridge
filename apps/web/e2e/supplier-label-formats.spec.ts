@@ -42,7 +42,7 @@ test.afterAll(async () => {
 });
 
 /** A reseller of its own with a Mercado Livre store the stand-in answers for. */
-async function resellerStore() {
+async function createResellerStore() {
   const tenantId = randomUUID();
   await database.insert(organization).values({
     id: tenantId,
@@ -63,6 +63,14 @@ async function resellerStore() {
     .returning({ id: storeConnections.id });
   if (store === undefined) throw new Error("Store missing");
   return { tenantId, storeId: store.id };
+}
+
+// The stand-in answers for one seller, and a seller has one live store: the tests share it.
+let sharedResellerStore: ReturnType<typeof createResellerStore> | null = null;
+
+function resellerStore() {
+  sharedResellerStore ??= createResellerStore();
+  return sharedResellerStore;
 }
 
 interface Sale {
@@ -185,9 +193,10 @@ test("o fornecedor baixa a etiqueta em ZPL, de um pedido e em lote", async ({ pa
   await orderButton(page, orderNumber).click();
   const dialog = page.getByRole("dialog");
   await dialog.getByRole("button", { name: "Imprimir etiqueta do marketplace" }).click();
-  const popup = page.waitForEvent("popup");
+  // The form opens a tab, but a download is reported on the page that submitted it.
+  const formDownload = page.waitForEvent("download");
   await page.getByRole("menuitem", { name: /Em ZPL/ }).click();
-  const single = await (await popup).waitForEvent("download");
+  const single = await formDownload;
   expect(single.suggestedFilename()).toBe(`etiqueta-zebra-pedido-${orderNumber}.txt`);
   expect(await readFile(await single.path(), "utf8")).toBe(standInZpl(orderNumber));
   await page.keyboard.press("Escape");
@@ -201,7 +210,7 @@ test("o fornecedor baixa a etiqueta em ZPL, de um pedido e em lote", async ({ pa
   await page.getByRole("menuitem", { name: /Em ZPL/ }).click();
   await expect(page.getByText("1 etiqueta pronta")).toBeVisible();
   const download = page.waitForEvent("download");
-  await page.getByRole("link", { name: `Baixar etiquetas Zebra · ${STORE_NAME} (1)` }).click();
+  await page.getByRole("button", { name: `Baixar etiquetas Zebra · ${STORE_NAME} (1)` }).click();
   const batch = await download;
   expect(batch.suggestedFilename()).toBe(`etiquetas-zebra-loja-termica-${RUN.toLowerCase()}.txt`);
   expect(await readFile(await batch.path(), "utf8")).toBe(standInZpl(orderNumber));

@@ -23,16 +23,28 @@ export function zplFileName(storeName: string): string {
   return slug === "" ? "etiquetas-zebra.txt" : `etiquetas-zebra-${slug}.txt`;
 }
 
-function LabelFileLink({ file, url }: { file: LabelFile; url: string }) {
-  if (file.format === "zpl") {
-    return (
-      <Button asChild size="sm">
-        <a href={url} download={zplFileName(file.storeName)}>
-          Baixar etiquetas Zebra · {file.storeName} ({file.labelCount})
-        </a>
-      </Button>
-    );
-  }
+// Long enough for the browser to read the file: a link revoked while it saves cancels the download.
+const DOWNLOAD_URL_LIFETIME_IN_MS = 60_000;
+
+/** Saves the ZPL from a link made at the click, so a redraw of the result never cancels it. */
+function downloadZpl(file: LabelFile): void {
+  const url = fileUrl(file);
+  const link = document.createElement("a");
+  link.href = url;
+  link.download = zplFileName(file.storeName);
+  link.click();
+  setTimeout(() => URL.revokeObjectURL(url), DOWNLOAD_URL_LIFETIME_IN_MS);
+}
+
+function ZplFileButton({ file }: { file: LabelFile }) {
+  return (
+    <Button size="sm" onClick={() => downloadZpl(file)}>
+      Baixar etiquetas Zebra · {file.storeName} ({file.labelCount})
+    </Button>
+  );
+}
+
+function PdfFileLink({ file, url }: { file: LabelFile; url: string }) {
   return (
     <Button asChild size="sm">
       <a href={url} target="_blank" rel="noopener noreferrer">
@@ -42,9 +54,13 @@ function LabelFileLink({ file, url }: { file: LabelFile; url: string }) {
   );
 }
 
-/** One link per reseller store's file, freed when the result closes. */
-function useLabelLinks(files: readonly LabelFile[]) {
-  const links = useMemo(() => files.map((file) => ({ file, url: fileUrl(file) })), [files]);
+/** One link per reseller store's PDF, freed when the result closes. */
+function usePdfLinks(files: readonly LabelFile[]) {
+  const links = useMemo(
+    () =>
+      files.filter((file) => file.format === "pdf").map((file) => ({ file, url: fileUrl(file) })),
+    [files],
+  );
   useEffect(
     () => () => {
       for (const link of links) {
@@ -54,6 +70,38 @@ function useLabelLinks(files: readonly LabelFile[]) {
     [links],
   );
   return links;
+}
+
+/** Each store's file: the PDFs to open, the ZPLs to save, with how to print the ZPL. */
+function LabelFiles({ files }: { files: readonly LabelFile[] }) {
+  const pdfLinks = usePdfLinks(files);
+  const zplFiles = files.filter((file) => file.format === "zpl");
+  if (files.length === 0) {
+    return null;
+  }
+  return (
+    <>
+      <ul className="flex flex-wrap gap-2">
+        {pdfLinks.map((link) => (
+          <li key={link.url}>
+            <PdfFileLink file={link.file} url={link.url} />
+          </li>
+        ))}
+        {/* One file per store, in a fixed order: the position keeps two equal names apart. */}
+        {zplFiles.map((file, position) => (
+          <li key={`${position}-${file.storeName}`}>
+            <ZplFileButton file={file} />
+          </li>
+        ))}
+      </ul>
+      {zplFiles.length === 0 ? null : (
+        <p>
+          Abra o arquivo no programa da sua impressora Zebra, como faz com a etiqueta baixada no
+          Mercado Livre.
+        </p>
+      )}
+    </>
+  );
 }
 
 /**
@@ -69,7 +117,6 @@ export function BatchLabelsResult({
   orderNumbers: ReadonlyMap<string, string>;
   onDismiss: () => void;
 }) {
-  const links = useLabelLinks(report.files);
   const failures = report.results.flatMap((result) => (result.printed ? [] : [result]));
   const allPrinted = failures.length === 0;
   const Icon = allPrinted ? CheckCircleIcon : XCircleIcon;
@@ -85,21 +132,7 @@ export function BatchLabelsResult({
             : `, ${report.failedCount} não ${report.failedCount === 1 ? "veio" : "vieram"}`}
         </AlertTitle>
         <AlertDescription className="space-y-3">
-          {links.length === 0 ? null : (
-            <ul className="flex flex-wrap gap-2">
-              {links.map((link) => (
-                <li key={link.url}>
-                  <LabelFileLink file={link.file} url={link.url} />
-                </li>
-              ))}
-            </ul>
-          )}
-          {links.some((link) => link.file.format === "zpl") ? (
-            <p>
-              Abra o arquivo no programa da sua impressora Zebra, como faz com a etiqueta baixada no
-              Mercado Livre.
-            </p>
-          ) : null}
+          <LabelFiles files={report.files} />
           {failures.length === 0 ? null : (
             <ul className="space-y-1">
               {failures.map((failure) => (
