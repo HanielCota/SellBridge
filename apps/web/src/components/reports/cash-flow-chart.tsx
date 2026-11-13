@@ -973,11 +973,18 @@ function MarginLine({
   );
 }
 
-function EmptyChart() {
+/** Before the first sale there is no other period or store to try: the chart says what comes. */
+function EmptyChart({ beforeFirstSale }: { beforeFirstSale: boolean }) {
   return (
-    <div className="absolute inset-0 flex flex-col items-center justify-center gap-1 rounded-2xl border border-dashed border-border text-center">
-      <p className="text-sm font-medium">Sem vendas neste período</p>
-      <p className="text-sm text-muted-foreground">Escolha outro período ou outra loja.</p>
+    <div className="absolute inset-0 flex flex-col items-center justify-center gap-1 rounded-2xl border border-dashed border-border px-4 text-center">
+      <p className="text-sm font-medium">
+        {beforeFirstSale ? "Ainda sem vendas" : "Sem vendas neste período"}
+      </p>
+      <p className="text-sm text-muted-foreground">
+        {beforeFirstSale
+          ? "Sua primeira venda aparece aqui assim que chegar."
+          : "Escolha outro período ou outra loja."}
+      </p>
     </div>
   );
 }
@@ -997,16 +1004,18 @@ function ChartBody({
   series,
   layers,
   pick,
+  beforeFirstSale,
 }: {
   kind: ChartKind;
   input: ChartInput;
   series: SeriesKey;
   layers: ChartLayers;
   pick: DayPick | null;
+  beforeFirstSale: boolean;
 }) {
   const { points, previousPoints, monthlyPoints, bucket, periodDays, summary } = input;
   if (!hasSales(points)) {
-    return <EmptyChart />;
+    return <EmptyChart beforeFirstSale={beforeFirstSale} />;
   }
   // Only a chart of single days can pick one: weeks and months span many.
   const dayPick = bucket === "day" ? pick : null;
@@ -1314,6 +1323,8 @@ interface CashFlowChartProps {
   onPickDate?: (date: string | null) => void;
   /** Shown under the chart, inside the card. */
   footer?: ReactNode;
+  /** The account has not sold yet: the empty chart waits for the first sale. */
+  beforeFirstSale?: boolean;
 }
 
 /**
@@ -1335,6 +1346,7 @@ export function CashFlowChart({
   pickedDate = null,
   onPickDate,
   footer,
+  beforeFirstSale = false,
 }: CashFlowChartProps) {
   const [series, setSeries] = useState<SeriesKey>("all");
   const [card, setCard] = useState<HTMLElement | null>(null);
@@ -1373,6 +1385,7 @@ export function CashFlowChart({
           series={series}
           layers={layers}
           pick={pick}
+          beforeFirstSale={beforeFirstSale}
         />
       </figure>
       {footer}
