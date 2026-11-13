@@ -65,7 +65,8 @@ function TopProductRow({ product }: { product: TopProduct }) {
           {product.title}
         </span>
         {/* No legend here: the card is one big link, so the row holds nothing else to focus. */}
-        <ToneStatus tone={forecast.tone} label={forecast.label} />
+        {/* Wraps under a long forecast so it never runs into the price beside it. */}
+        <ToneStatus tone={forecast.tone} label={forecast.label} className="whitespace-normal" />
         {stockUnits === null ? null : (
           <span className="block text-xs text-muted-foreground tabular-nums">{stockUnits}</span>
         )}

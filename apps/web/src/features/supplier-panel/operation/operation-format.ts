@@ -1,3 +1,8 @@
+import {
+  HEALTH_METRIC_DEFINITIONS,
+  levelOfValue,
+  type HealthMetricDefinition,
+} from "@sellbridge/shared/supplier-panel-health";
 import type { OperationShare } from "@sellbridge/shared/supplier-panel-operation";
 
 /**
@@ -35,6 +40,56 @@ export function formatShareDetail(
     return noun.none;
   }
   return `${count.format(share.part)} de ${plural(share.total, noun.one, noun.many)}`;
+}
+
+export interface ShareWarning {
+  tone: "warning" | "danger";
+  label: string;
+}
+
+/**
+ * A word beside a rate that crossed the lines of the performance strip, so the same number
+ * never reads calm here and red up there. Nothing inside the target or below the strip's
+ * sample, where a single parcel would swing the rate.
+ */
+function shareWarning(value: number, total: number, definition: HealthMetricDefinition) {
+  if (total < definition.minSample) {
+    return null;
+  }
+  const level = levelOfValue(definition, value);
+  if (level === "red") {
+    return { tone: "danger", label: "Acima do limite" } satisfies ShareWarning;
+  }
+  if (level === "yellow") {
+    return { tone: "warning", label: "Perto do limite" } satisfies ShareWarning;
+  }
+  return null;
+}
+
+/** The late share is the other side of the strip's "Despacho no prazo". */
+export function lateDispatchWarning(share: OperationShare): ShareWarning | null {
+  if (share.rate === null) {
+    return null;
+  }
+  return shareWarning(1 - share.rate, share.total, HEALTH_METRIC_DEFINITIONS.dispatch_on_time);
+}
+
+export function cancellationWarning(share: OperationShare): ShareWarning | null {
+  if (share.rate === null) {
+    return null;
+  }
+  return shareWarning(share.rate, share.total, HEALTH_METRIC_DEFINITIONS.supplier_cancellations);
+}
+
+/** The months from the first one with a sale: a year of a new supplier is not a list of zeros. */
+export function monthsFromFirstSale<Month extends { orders: number }>(
+  months: readonly Month[],
+): Month[] {
+  const first = months.findIndex((month) => month.orders > 0);
+  if (first === -1) {
+    return [];
+  }
+  return months.slice(first);
 }
 
 /** "Novembro de 2026" from a month bucket ("2026-11-01"); the raw text when it is not a date. */

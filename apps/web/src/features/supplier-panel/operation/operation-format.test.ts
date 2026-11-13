@@ -1,6 +1,9 @@
 import { describe, expect, it } from "vitest";
 import {
+  cancellationWarning,
   formatMonth,
+  lateDispatchWarning,
+  monthsFromFirstSale,
   formatOrders,
   formatShareDetail,
   formatShareRate,
@@ -40,6 +43,79 @@ describe("formatShareDetail", () => {
     const text = formatShareDetail({ part: 0, total: 0, rate: null }, DISPATCHES);
 
     expect(text).toBe("Nenhum envio para medir");
+  });
+});
+
+describe("lateDispatchWarning", () => {
+  it("says nothing while nine in ten parcels leave on time", () => {
+    const warning = lateDispatchWarning({ part: 1, total: 11, rate: 1 / 11 });
+
+    expect(warning).toBeNull();
+  });
+
+  it("warns between the target and the floor of the performance strip", () => {
+    const warning = lateDispatchWarning({ part: 3, total: 20, rate: 0.15 });
+
+    expect(warning).toEqual({ tone: "warning", label: "Perto do limite" });
+  });
+
+  it("turns red past the floor", () => {
+    const warning = lateDispatchWarning({ part: 5, total: 20, rate: 0.25 });
+
+    expect(warning).toEqual({ tone: "danger", label: "Acima do limite" });
+  });
+
+  it("keeps calm when too few parcels were measured", () => {
+    const warning = lateDispatchWarning({ part: 2, total: 4, rate: 0.5 });
+
+    expect(warning).toBeNull();
+  });
+
+  it("says nothing when there is nothing to measure", () => {
+    expect(lateDispatchWarning({ part: 0, total: 0, rate: null })).toBeNull();
+  });
+});
+
+describe("cancellationWarning", () => {
+  it("turns red past the line where the public score loses points", () => {
+    const warning = cancellationWarning({ part: 1, total: 12, rate: 1 / 12 });
+
+    expect(warning).toEqual({ tone: "danger", label: "Acima do limite" });
+  });
+
+  it("says nothing inside the target", () => {
+    const warning = cancellationWarning({ part: 1, total: 100, rate: 0.01 });
+
+    expect(warning).toBeNull();
+  });
+
+  it("keeps calm when too few orders were counted", () => {
+    const warning = cancellationWarning({ part: 1, total: 3, rate: 1 / 3 });
+
+    expect(warning).toBeNull();
+  });
+});
+
+describe("monthsFromFirstSale", () => {
+  it("drops the empty months before the first sale and keeps the later ones", () => {
+    const months = [
+      { date: "2026-01-01", orders: 0 },
+      { date: "2026-02-01", orders: 3 },
+      { date: "2026-03-01", orders: 0 },
+      { date: "2026-04-01", orders: 5 },
+    ];
+
+    const kept = monthsFromFirstSale(months);
+
+    expect(kept.map((month) => month.date)).toEqual(["2026-02-01", "2026-03-01", "2026-04-01"]);
+  });
+
+  it("gives nothing back when no month sold", () => {
+    expect(monthsFromFirstSale([{ date: "2026-01-01", orders: 0 }])).toEqual([]);
+  });
+
+  it("gives nothing back for no months", () => {
+    expect(monthsFromFirstSale([])).toEqual([]);
   });
 });
 

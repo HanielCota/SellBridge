@@ -184,8 +184,13 @@ test("o Início do fornecedor mostra os números da operação e muda com o per�
   await expect(page.getByRole("radio", { name: "12 meses" })).toBeChecked();
   await expect(page).toHaveURL(/period=365d/);
   await expect(rates).toContainText("1 de 2 envios");
+  // The months before the first sale stay out of the list.
+  await expect(months.getByRole("listitem")).toHaveCount(1);
 
   await gotoHydrated(page, "/fornecedor/painel?period=custom&from=2025-01-01&to=2025-01-31");
   await expect(rates).toContainText("Nenhum prazo de envio venceu");
   await expect(rates).toContainText("Nenhum envio no período");
+  await expect(card(page, "Faturamento por mês")).toContainText(
+    "Quando seus produtos venderem, o valor de cada mês aparece aqui.",
+  );
 });

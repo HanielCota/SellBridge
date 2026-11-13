@@ -1,4 +1,6 @@
+import { CaretRightIcon } from "@phosphor-icons/react";
 import { formatCents } from "@sellbridge/shared/money";
+import { HEALTH_METRIC_LABELS } from "@sellbridge/shared/supplier-panel-health";
 import type { SupplierOrderTab } from "@sellbridge/shared/supplier-panel-orders-tabs";
 import type { SupplierLabelState } from "@sellbridge/shared/supplier-order-labels";
 import { useQuery } from "@tanstack/react-query";
@@ -7,10 +9,14 @@ import { ToneStatus } from "@/components/data/tone-status";
 import { ErrorState } from "@/components/feedback/error-state";
 import { BreakdownSection } from "@/components/reports/breakdown-section";
 import {
+  cancellationWarning,
   formatMonth,
   formatOrders,
   formatShareDetail,
   formatShareRate,
+  lateDispatchWarning,
+  monthsFromFirstSale,
+  type ShareWarning,
 } from "@/features/supplier-panel/operation/operation-format";
 import type { SupplierOperationSearch } from "@/features/supplier-panel/operation/operation-search";
 import {
@@ -24,11 +30,26 @@ import { formatDuration } from "../performance/performance-format";
 
 const count = new Intl.NumberFormat("pt-BR");
 
-function Figure({ label, value, detail }: { label: string; value: string; detail: string }) {
+function Figure({
+  label,
+  value,
+  detail,
+  warning = null,
+}: {
+  label: string;
+  value: string;
+  detail: string;
+  warning?: ShareWarning | null;
+}) {
   return (
     <div className="space-y-1">
       <dt className="text-sm text-muted-foreground">{label}</dt>
       <dd className="text-2xl font-semibold tabular-nums">{value}</dd>
+      {warning === null ? null : (
+        <dd>
+          <ToneStatus tone={warning.tone} label={warning.label} />
+        </dd>
+      )}
       <dd className="text-xs text-muted-foreground">{detail}</dd>
     </div>
   );
@@ -61,6 +82,7 @@ function OperationRatesCard({
         <Figure
           label="Envios atrasados"
           value={formatShareRate(rates.lateDispatches)}
+          warning={lateDispatchWarning(rates.lateDispatches)}
           detail={formatShareDetail(rates.lateDispatches, {
             one: "envio",
             many: "envios",
@@ -68,8 +90,9 @@ function OperationRatesCard({
           })}
         />
         <Figure
-          label="Cancelados por você"
+          label={HEALTH_METRIC_LABELS.supplier_cancellations}
           value={formatShareRate(rates.supplierCancellations)}
+          warning={cancellationWarning(rates.supplierCancellations)}
           detail={formatShareDetail(rates.supplierCancellations, {
             one: "pedido",
             many: "pedidos",
@@ -155,7 +178,13 @@ function OperationNowCard({ now }: { now: SupplierOperationData["now"] }) {
               ) : (
                 <span className="text-muted-foreground">{row.label}</span>
               )}
-              <span className="font-medium tabular-nums">{count.format(row.value)}</span>
+              <span className="flex items-center gap-2">
+                <span className="font-medium tabular-nums">{count.format(row.value)}</span>
+                <CaretRightIcon
+                  className="size-4 shrink-0 text-muted-foreground"
+                  aria-hidden="true"
+                />
+              </span>
             </Link>
           </li>
         ))}
@@ -166,20 +195,20 @@ function OperationNowCard({ now }: { now: SupplierOperationData["now"] }) {
 
 /** What the supplier receives in each month of the period, newest first. */
 function MonthlyRevenueCard({ months }: { months: SupplierOperationData["months"] }) {
-  const sold = months.some((month) => month.orders > 0);
+  const sold = monthsFromFirstSale(months);
   return (
     <BreakdownSection
       title="Faturamento por mês"
       to="/fornecedor/painel/vendas"
       hint="Ver suas vendas"
     >
-      {sold ? (
+      {sold.length > 0 ? (
         <>
           <p className="mb-2 text-xs text-muted-foreground">
             O que você recebe. O primeiro e o último mês contam só os dias do período.
           </p>
           <ol className="-my-1 divide-y text-sm" aria-label="Faturamento de cada mês">
-            {months.toReversed().map((month) => (
+            {sold.toReversed().map((month) => (
               <li key={month.date} className="flex items-center justify-between gap-3 py-2">
                 <span className="space-y-0.5">
                   <span className="block font-medium">{formatMonth(month.date)}</span>
@@ -195,7 +224,9 @@ function MonthlyRevenueCard({ months }: { months: SupplierOperationData["months"
           </ol>
         </>
       ) : (
-        <p className="py-6 text-center text-sm text-muted-foreground">Nenhuma venda no período.</p>
+        <p className="py-6 text-center text-sm text-muted-foreground">
+          Nenhuma venda no período. Quando seus produtos venderem, o valor de cada mês aparece aqui.
+        </p>
       )}
     </BreakdownSection>
   );
