@@ -3,6 +3,7 @@ import {
   SUPPLIER_SALES_SITUATIONS,
   type SupplierSalesSituation,
 } from "@sellbridge/shared/supplier-panel-sales";
+import type { PeriodPreset } from "@sellbridge/shared/schemas";
 import { PeriodFilters } from "@/components/reports/period-filters";
 import {
   Select,
@@ -15,6 +16,15 @@ import type { SupplierSalesData } from "@/features/supplier-panel/sales/sales.qu
 import type { SupplierSalesSearch } from "@/features/supplier-panel/sales/sales-search";
 
 const ALL_PRODUCTS = "__all__";
+
+/** Today, a week, a month, a year or the supplier's own dates; 90 days and 6 months stay out. */
+const SUPPLIER_HOME_PERIODS = [
+  "today",
+  "7d",
+  "30d",
+  "365d",
+  "custom",
+] as const satisfies readonly PeriodPreset[];
 const SELECT_CLASS_NAME = "w-full min-w-44 rounded-full sm:w-auto";
 
 function isSituation(value: string): value is SupplierSalesSituation {
@@ -96,6 +106,7 @@ export function SupplierSalesFilters({
   return (
     <PeriodFilters
       search={search}
+      presets={SUPPLIER_HOME_PERIODS}
       resolvedFrom={data.period.fromDate}
       resolvedTo={data.period.toDate}
       onChange={onChange}

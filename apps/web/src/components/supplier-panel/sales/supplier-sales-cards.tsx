@@ -7,6 +7,7 @@ import {
 import { ToneStatus } from "@/components/data/tone-status";
 import { BreakdownSection } from "@/components/reports/breakdown-section";
 import type { SupplierSalesData } from "@/features/supplier-panel/sales/sales.queries";
+import { formatStockUnits } from "@/features/supplier-panel/operation/operation-format";
 import { stockForecast } from "@/features/supplier-panel/sales/stock-forecast";
 import { HomePhoto } from "../home/home-photo";
 
@@ -64,6 +65,9 @@ function TopProductRow({ product }: { product: TopProduct }) {
         </span>
         {/* No legend here: the card is one big link, so the row holds nothing else to focus. */}
         <ToneStatus tone={forecast.tone} label={forecast.label} />
+        <span className="block text-xs text-muted-foreground tabular-nums">
+          {formatStockUnits(product.availableStock)}
+        </span>
       </span>
       <span className="shrink-0 text-right">
         <span className="block text-sm font-medium tabular-nums">
