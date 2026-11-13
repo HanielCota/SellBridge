@@ -60,3 +60,21 @@ test("o catálogo e a tela do produto mostram a temperatura com as vendas", asyn
     page.getByText(`${UNITS_SOLD} vendas em 30 dias no SellBridge`, { exact: true }),
   ).toBeVisible();
 });
+
+test("tocar no selo não marca o produto, tocar no cartão marca", async ({ page }) => {
+  await signIn(page, DEMO_USER);
+  await gotoHydrated(page, "/catalogo");
+  const card = page
+    .locator("article")
+    .filter({ has: page.getByRole("checkbox", { name: /^Selecionar / }) })
+    .first();
+  const checkbox = card.getByRole("checkbox", { name: /^Selecionar / });
+
+  await card.getByText(/^(Sem vendas ainda|Frio|Morno|Quente)$/).click();
+
+  await expect(checkbox).not.toBeChecked();
+
+  await card.getByRole("heading").click();
+
+  await expect(checkbox).toBeChecked();
+});
