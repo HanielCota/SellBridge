@@ -113,8 +113,8 @@ export function DeltaBadge({
 }
 
 const TAG_TONES: Record<TrendTone, string> = {
-  good: "bg-trend-good/12 text-trend-good",
-  bad: "bg-trend-bad/10 text-trend-bad",
+  good: "bg-trend-good-fill text-trend-good-ink",
+  bad: "bg-trend-bad-fill text-trend-bad-ink",
   neutral: "bg-muted text-muted-foreground",
 };
 
@@ -150,7 +150,7 @@ export function TrendTag({
           className,
         )}
       >
-        <Icon className="size-3" weight="bold" aria-hidden="true" />
+        <Icon className="size-3.5" weight="bold" aria-hidden="true" />
         {text}
         {parts.spoken === undefined ? null : <span className="sr-only"> ({parts.spoken})</span>}
       </span>
