@@ -18,6 +18,7 @@ import type { TicketCategory, TicketStatus } from "./ticket-rules.ts";
 /** Mirrors the `supplier_conversation_topic` enum. Stable ids: never rename one. */
 export const SUPPLIER_CONVERSATION_TOPIC_IDS = [
   "order",
+  "cancellation",
   "return",
   "stock_price",
   "product",
@@ -80,6 +81,37 @@ const BASE_TOPICS: readonly SupplierConversationTopic[] = [
         question: "O que o rastreio mostra?",
         example: "Exemplo: o rastreio diz entregue, mas o comprador não recebeu.",
       }),
+    ],
+  },
+  {
+    id: "cancellation",
+    category: "order",
+    label: "Cancelamento",
+    legend: "O comprador cancelou a compra",
+    question: "O que aconteceu com a venda?",
+    example: "Exemplo: o comprador cancelou no Mercado Livre hoje de manhã.",
+    suggestsOrder: true,
+    situations: [
+      situation(
+        "cancel-before-shipping",
+        {
+          label: "Cancelou antes do envio",
+          legend: "O pedido não deve ser enviado",
+          question: "Quando o comprador cancelou?",
+          example: "Exemplo: o comprador cancelou hoje às 10h, antes de o pedido sair.",
+        },
+        "O comprovante do cancelamento, como o print da venda cancelada.",
+      ),
+      situation(
+        "cancel-after-shipping",
+        {
+          label: "Cancelou depois do envio",
+          legend: "O pedido já saiu e vai voltar",
+          question: "O que o comprador fez com o pacote?",
+          example: "Exemplo: o comprador recusou o pacote na entrega e ele vai voltar.",
+        },
+        "O comprovante do cancelamento, como o print da venda cancelada.",
+      ),
     ],
   },
   {
@@ -177,6 +209,7 @@ export const SUPPLIER_CONVERSATION_TOPIC_LABELS: Readonly<
   Record<SupplierConversationTopicId, string>
 > = {
   order: "Pedido",
+  cancellation: "Cancelamento",
   return: "Troca ou devolução",
   stock_price: "Estoque ou preço",
   product: "Dúvida sobre um produto",
@@ -229,11 +262,11 @@ export type ConversationSide = "reseller" | "supplier";
 
 /**
  * The website ticket states in this channel's words. "Open" waits for the supplier: the reseller
- * reads "Aguardando fornecedor", the supplier "Aguardando sua resposta".
+ * reads "Aguardando fornecedor", the supplier finds it under "A fazer", the first tab of its queue.
  */
 export const CONVERSATION_STATUS_LABELS: Readonly<
   Record<ConversationSide, Readonly<Record<TicketStatus, string>>>
 > = {
   reseller: { open: "Aguardando fornecedor", answered: "Respondido", closed: "Resolvido" },
-  supplier: { open: "Aguardando sua resposta", answered: "Respondido", closed: "Resolvido" },
+  supplier: { open: "A fazer", answered: "Em andamento", closed: "Finalizado" },
 };

@@ -7,6 +7,11 @@ import { ConversationsPage } from "@/components/supplier-support/conversations-p
 import { myConversationsQueryOptions } from "@/features/supplier-support/supplier-support.queries";
 import { prefetchOnServer } from "@/lib/prefetch";
 
+/** The supplier's queue opens on "A fazer": what waits for its answer. */
+function withQueueTab(search: SupplierConversationsSearch): SupplierConversationsSearch {
+  return { ...search, status: search.status ?? "open" };
+}
+
 export const Route = createFileRoute("/_app/suporte/revendedores")({
   validateSearch: supplierConversationsSearchSchema,
   // A store's inbox has its own name: the suppliers it writes to.
@@ -15,7 +20,7 @@ export const Route = createFileRoute("/_app/suporte/revendedores")({
       throw redirect({ to: "/suporte/fornecedores" });
     }
   },
-  loaderDeps: ({ search }) => search,
+  loaderDeps: ({ search }) => withQueueTab(search),
   loader: ({ context, deps: search }) =>
     prefetchOnServer(context.queryClient, myConversationsQueryOptions(search)),
   head: () => ({ meta: [{ title: "Revendedores | Suporte | SellBridge" }] }),
@@ -23,7 +28,7 @@ export const Route = createFileRoute("/_app/suporte/revendedores")({
 });
 
 function ResellerConversationsRoute() {
-  const search = Route.useSearch();
+  const search = withQueueTab(Route.useSearch());
   const navigate = useNavigate({ from: Route.fullPath });
   function update(patch: Partial<SupplierConversationsSearch>) {
     void navigate({ search: (previous) => ({ ...previous, page: 1, ...patch }), replace: true });

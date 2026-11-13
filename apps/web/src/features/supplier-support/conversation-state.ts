@@ -40,8 +40,8 @@ const SUPPLIER_STATES: Record<TicketStatus, ConversationState> = {
   },
   closed: {
     tone: "closed",
-    headline: "Conversa resolvida",
-    detail: "Se a loja escrever de novo, a conversa volta para você.",
+    headline: "Conversa finalizada",
+    detail: "Se a loja escrever de novo, a conversa volta para A fazer.",
   },
 };
 

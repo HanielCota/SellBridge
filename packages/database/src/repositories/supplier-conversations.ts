@@ -1,7 +1,7 @@
 import { notFoundError, validationError } from "@sellbridge/shared/errors";
 import { toPaginated, type Paginated, type Pagination } from "@sellbridge/shared/schemas";
 import type { SupplierConversationTopicId } from "@sellbridge/shared/supplier-conversation-topics";
-import { and, count, desc, eq, ilike, ne, or, type SQL } from "drizzle-orm";
+import { and, count, desc, eq, exists, ilike, ne, or, type SQL } from "drizzle-orm";
 import type { Database } from "../client.ts";
 import {
   organization,
@@ -10,8 +10,14 @@ import {
   suppliers,
   ticketAttachments,
   ticketMessages,
+  ticketOrders,
   tickets,
 } from "../schema/index.ts";
+import {
+  listFirstPinnedOrders,
+  listLatestStoreAttachments,
+  type ConversationSummaryOrder,
+} from "./supplier-conversation-queue.ts";
 import { supplierConversationSql } from "./support-audience.ts";
 import { hasUnreadSql } from "./support-unread.ts";
 import { containsPattern } from "./sql/search-pattern.ts";
@@ -180,6 +186,30 @@ export interface ConversationSummary {
   /** The other side wrote after the reader last opened the conversation. */
   hasUnread: boolean;
   updatedAt: Date;
+  /** The first order pinned to the conversation, the one it is about. */
+  order: ConversationSummaryOrder | null;
+  /** The store's latest file (a receipt, a photo); null when the store sent none. */
+  latestStoreAttachmentId: string | null;
+}
+
+/** Subject, store name or the number of a pinned order: the supplier finds a case by its order. */
+function searchCondition(database: Database, search: string | undefined): SQL | undefined {
+  if (search === undefined) {
+    return undefined;
+  }
+  const term = containsPattern(search);
+  const pinnedOrderMatches = exists(
+    database
+      .select({ orderId: ticketOrders.orderId })
+      .from(ticketOrders)
+      .innerJoin(orders, eq(orders.id, ticketOrders.orderId))
+      .where(and(eq(ticketOrders.ticketId, tickets.id), ilike(orders.externalOrderId, term))),
+  );
+  return or(
+    ilike(tickets.subject, term),
+    ilike(storeConnections.shopName, term),
+    pinnedOrderMatches,
+  );
 }
 
 /** The viewer's conversations, newest activity first, with an unread dot for the reader. */
@@ -193,13 +223,10 @@ export async function listConversations(
   },
   pagination: Pagination,
 ): Promise<Paginated<ConversationSummary>> {
-  const term = input.search === undefined ? undefined : containsPattern(input.search);
   const where = and(
     viewerCondition(input.viewer),
     input.status === undefined ? undefined : eq(tickets.status, input.status),
-    term === undefined
-      ? undefined
-      : or(ilike(tickets.subject, term), ilike(storeConnections.shopName, term)),
+    searchCondition(database, input.search),
   );
   const [rows, totals] = await Promise.all([
     database
@@ -228,7 +255,35 @@ export async function listConversations(
       .leftJoin(storeConnections, eq(storeConnections.id, tickets.storeConnectionId))
       .where(where),
   ]);
-  return toPaginated(rows, totals.at(0)?.total ?? 0, pagination);
+  const ticketIds = rows.map((row) => row.id);
+  const [pinnedOrders, storeAttachments] = await Promise.all([
+    listFirstPinnedOrders(database, ticketIds),
+    listLatestStoreAttachments(database, ticketIds),
+  ]);
+  const items = rows.map((row) => ({
+    ...row,
+    order: pinnedOrders.get(row.id) ?? null,
+    latestStoreAttachmentId: storeAttachments.get(row.id) ?? null,
+  }));
+  return toPaginated(items, totals.at(0)?.total ?? 0, pagination);
+}
+
+/** How many of the viewer's conversations sit in each state, under the same search as the list. */
+export async function countConversationsByStatus(
+  database: Database,
+  input: { viewer: ConversationViewer; search?: string | undefined },
+): Promise<Record<TicketStatus, number>> {
+  const rows = await database
+    .select({ status: tickets.status, total: count() })
+    .from(tickets)
+    .leftJoin(storeConnections, eq(storeConnections.id, tickets.storeConnectionId))
+    .where(and(viewerCondition(input.viewer), searchCondition(database, input.search)))
+    .groupBy(tickets.status);
+  const totals: Record<TicketStatus, number> = { open: 0, answered: 0, closed: 0 };
+  for (const row of rows) {
+    totals[row.status] = row.total;
+  }
+  return totals;
 }
 
 /** Conversations with a message from the other side the reader has not opened yet. */

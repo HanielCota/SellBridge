@@ -8,6 +8,7 @@ import {
   CubeIcon,
   type Icon,
   PackageIcon,
+  ProhibitIcon,
   TagIcon,
 } from "@phosphor-icons/react";
 import { OPTION_CLASS } from "@/components/support/new-ticket/choice-steps";
@@ -20,6 +21,7 @@ import { cn } from "@/lib/utils";
 
 const TOPIC_ICONS: Record<SupplierConversationTopicId, Icon> = {
   order: PackageIcon,
+  cancellation: ProhibitIcon,
   return: ArrowsClockwiseIcon,
   stock_price: TagIcon,
   product: CubeIcon,
