@@ -205,16 +205,8 @@ function PendingCostNote({ current }: { current: Totals }) {
 }
 
 /** The change as a tag inside the sentence: arrow and percent, the sentence says the rest. */
-function SentenceTag({ parts }: { parts: TrendTagParts | null }) {
+export function SentenceTag({ parts }: { parts: TrendTagParts | null }) {
   return <TrendTag parts={parts} withWord={false} className="px-1.5 text-[0.8em] leading-snug" />;
-}
-
-export function Tone({ up, children }: { up: boolean; children: ReactNode }) {
-  return (
-    <span className={cn("font-medium", up ? "text-brand-text" : "text-destructive")}>
-      {children}
-    </span>
-  );
 }
 
 export function Strong({ children }: { children: ReactNode }) {
