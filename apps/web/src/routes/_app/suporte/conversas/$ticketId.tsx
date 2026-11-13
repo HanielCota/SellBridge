@@ -11,6 +11,10 @@ import {
   SUPPLIER_CONVERSATION,
 } from "@/components/supplier-support/conversation-perspective";
 import {
+  FinishConversationButton,
+  SupplierOrderButton,
+} from "@/components/supplier-support/supplier-conversation-actions";
+import {
   conversationsLabel,
   conversationsPath,
 } from "@/components/supplier-support/support-area-tabs";
@@ -95,7 +99,7 @@ function Composer({ detail }: { detail: ConversationDetail }) {
   if (!canWrite(side, conversation.status)) {
     return (
       <p className="rounded-3xl border border-dashed px-5 py-4 text-sm text-muted-foreground">
-        Conversa resolvida pela loja. Se ela escrever de novo, a conversa volta para você.
+        Conversa finalizada. Se a loja escrever de novo, a conversa volta para A fazer.
       </p>
     );
   }
@@ -119,11 +123,33 @@ function Composer({ detail }: { detail: ConversationDetail }) {
   );
 }
 
+/** The supplier's order shortcut and "Finalizar" while the conversation is still open. */
+function SupplierActions({ detail }: { detail: ConversationDetail }) {
+  const { conversation, supplierOrder } = detail;
+  return (
+    <div className="flex flex-wrap gap-2">
+      <SupplierOrderButton order={supplierOrder} />
+      {conversation.status === "closed" ? null : (
+        <FinishConversationButton ticketId={conversation.id} />
+      )}
+    </div>
+  );
+}
+
+function headerActions(detail: ConversationDetail) {
+  if (detail.side === "supplier") {
+    return <SupplierActions detail={detail} />;
+  }
+  // Like "Resolveu?" on a ticket: offered once the supplier has answered.
+  if (detail.conversation.status === "answered") {
+    return <ResolveButton ticketId={detail.conversation.id} />;
+  }
+  return null;
+}
+
 function ConversationView({ detail }: { detail: ConversationDetail }) {
   const { session } = Route.useRouteContext();
   const { conversation, side } = detail;
-  // Like "Resolveu?" on a ticket: offered once the supplier has answered.
-  const showsResolve = side === "reseller" && conversation.status === "answered";
   return (
     <div className="mx-auto w-full max-w-3xl space-y-6">
       <BackLink
@@ -134,7 +160,7 @@ function ConversationView({ detail }: { detail: ConversationDetail }) {
         conversation={conversation}
         orders={detail.orders}
         side={side}
-        actions={showsResolve ? <ResolveButton ticketId={conversation.id} /> : null}
+        actions={headerActions(detail)}
       />
       <TicketThread
         messages={detail.messages}

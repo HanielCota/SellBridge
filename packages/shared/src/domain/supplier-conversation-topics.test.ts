@@ -115,9 +115,13 @@ describe("planSupplierConversation", () => {
 });
 
 describe("conversation status labels", () => {
-  it("tells each side who the conversation waits for", () => {
+  it("tells the reseller who it waits for and gives the supplier its queue tabs", () => {
     expect(CONVERSATION_STATUS_LABELS.reseller.open).toBe("Aguardando fornecedor");
-    expect(CONVERSATION_STATUS_LABELS.supplier.open).toBe("Aguardando sua resposta");
+    expect(Object.values(CONVERSATION_STATUS_LABELS.supplier)).toEqual([
+      "A fazer",
+      "Em andamento",
+      "Finalizado",
+    ]);
     expect(CONVERSATION_STATUS_LABELS.reseller.closed).toBe("Resolvido");
   });
 });

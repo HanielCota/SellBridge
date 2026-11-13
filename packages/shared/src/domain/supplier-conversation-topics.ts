@@ -262,11 +262,11 @@ export type ConversationSide = "reseller" | "supplier";
 
 /**
  * The website ticket states in this channel's words. "Open" waits for the supplier: the reseller
- * reads "Aguardando fornecedor", the supplier "Aguardando sua resposta".
+ * reads "Aguardando fornecedor", the supplier finds it under "A fazer", the first tab of its queue.
  */
 export const CONVERSATION_STATUS_LABELS: Readonly<
   Record<ConversationSide, Readonly<Record<TicketStatus, string>>>
 > = {
   reseller: { open: "Aguardando fornecedor", answered: "Respondido", closed: "Resolvido" },
-  supplier: { open: "Aguardando sua resposta", answered: "Respondido", closed: "Resolvido" },
+  supplier: { open: "A fazer", answered: "Em andamento", closed: "Finalizado" },
 };

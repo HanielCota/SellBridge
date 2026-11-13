@@ -8,6 +8,7 @@ import { Link } from "@tanstack/react-router";
 import { createServerColumnHelper, DataTable } from "@/components/data/data-table";
 import { PaginationBar } from "@/components/data/pagination-bar";
 import { SmartDate } from "@/components/data/smart-date";
+import { SupplierConversationActions } from "@/components/supplier-support/supplier-conversation-actions";
 import { UnreadDot } from "@/components/support/ticket-badges";
 import { TicketStatusBadge } from "@/components/support/ticket-status-badge";
 
@@ -22,6 +23,14 @@ function counterpartLine(row: ConversationSummary, side: ConversationSide): stri
 
 function topicLabel(row: ConversationSummary): string {
   return row.topic === null ? "Conversa" : SUPPLIER_CONVERSATION_TOPIC_LABELS[row.topic];
+}
+
+/** "Cancelamento · Pedido #2000123": what it is about, with the order the supplier looks up. */
+function aboutLine(row: ConversationSummary): string {
+  if (row.order === null) {
+    return topicLabel(row);
+  }
+  return `${topicLabel(row)} · Pedido #${row.order.externalOrderId}`;
 }
 
 function ConversationState({ row, side }: { row: ConversationSummary; side: ConversationSide }) {
@@ -42,7 +51,7 @@ function ConversationSubject({ row, side }: { row: ConversationSummary; side: Co
         {row.subject}
       </Link>
       <p className="text-sm text-muted-foreground">
-        {counterpartLine(row, side)} · {topicLabel(row)}
+        {counterpartLine(row, side)} · {aboutLine(row)}
       </p>
     </div>
   );
@@ -55,6 +64,9 @@ function MobileConversationRow({
   row: ConversationSummary;
   side: ConversationSide;
 }) {
+  if (side === "supplier") {
+    return <MobileSupplierRow row={row} />;
+  }
   return (
     <Link
       to="/suporte/conversas/$ticketId"
@@ -66,35 +78,79 @@ function MobileConversationRow({
         <ConversationState row={row} side={side} />
       </div>
       <p className="text-xs text-muted-foreground">
-        {counterpartLine(row, side)} · <SmartDate date={row.updatedAt} />
+        {counterpartLine(row, side)} · {aboutLine(row)} · <SmartDate date={row.updatedAt} />
       </p>
     </Link>
   );
 }
 
-const columnHelper = createServerColumnHelper<ConversationSummary>();
-
-function columnsFor(side: ConversationSide) {
-  return columnHelper.columns([
-    columnHelper.accessor("subject", {
-      header: "Assunto",
-      cell: (info) => <ConversationSubject row={info.row.original} side={side} />,
-    }),
-    columnHelper.accessor("status", {
-      header: "Situação",
-      cell: (info) => <ConversationState row={info.row.original} side={side} />,
-    }),
-    columnHelper.accessor("updatedAt", {
-      header: "Última atualização",
-      cell: (info) => (
-        <SmartDate date={info.getValue()} className="whitespace-nowrap text-muted-foreground" />
-      ),
-    }),
-  ]);
+/** The supplier acts from the card, so only the subject opens the conversation. */
+function MobileSupplierRow({ row }: { row: ConversationSummary }) {
+  return (
+    <div className="space-y-3">
+      <div className="space-y-1.5">
+        <div className="flex items-start justify-between gap-3">
+          <Link
+            to="/suporte/conversas/$ticketId"
+            params={{ ticketId: row.id }}
+            className="min-w-0 font-medium underline-offset-4 hover:underline"
+          >
+            {row.subject}
+          </Link>
+          <ConversationState row={row} side="supplier" />
+        </div>
+        <p className="text-xs text-muted-foreground">
+          {counterpartLine(row, "supplier")} · {aboutLine(row)} · <SmartDate date={row.updatedAt} />
+        </p>
+      </div>
+      <SupplierConversationActions conversation={row} size="touch" />
+    </div>
+  );
 }
 
-const RESELLER_COLUMNS = columnsFor("reseller");
-const SUPPLIER_COLUMNS = columnsFor("supplier");
+const columnHelper = createServerColumnHelper<ConversationSummary>();
+
+const subjectColumn = (side: ConversationSide) =>
+  columnHelper.accessor("subject", {
+    header: "Assunto",
+    cell: (info) => <ConversationSubject row={info.row.original} side={side} />,
+  });
+
+const stateColumn = (side: ConversationSide) =>
+  columnHelper.accessor("status", {
+    header: "Situação",
+    cell: (info) => <ConversationState row={info.row.original} side={side} />,
+  });
+
+const updatedColumn = columnHelper.accessor("updatedAt", {
+  header: "Última atualização",
+  cell: (info) => (
+    <SmartDate date={info.getValue()} className="whitespace-nowrap text-muted-foreground" />
+  ),
+});
+
+const RESELLER_COLUMNS = columnHelper.columns([
+  subjectColumn("reseller"),
+  stateColumn("reseller"),
+  updatedColumn,
+]);
+
+const SUPPLIER_COLUMNS = columnHelper.columns([
+  subjectColumn("supplier"),
+  stateColumn("supplier"),
+  updatedColumn,
+  columnHelper.display({
+    id: "actions",
+    header: "Ações",
+    cell: (info) => (
+      <SupplierConversationActions
+        conversation={info.row.original}
+        size="compact"
+        className="flex-nowrap justify-end"
+      />
+    ),
+  }),
+]);
 
 export function ConversationTable({
   side,
@@ -110,6 +166,7 @@ export function ConversationTable({
       columns={side === "reseller" ? RESELLER_COLUMNS : SUPPLIER_COLUMNS}
       data={page.items}
       getRowId={(row) => row.id}
+      pinLastColumn={side === "supplier"}
       caption={
         side === "reseller" ? "Suas conversas com fornecedores" : "Conversas de revendedores"
       }

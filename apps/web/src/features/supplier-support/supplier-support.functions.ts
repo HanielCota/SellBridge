@@ -1,5 +1,7 @@
 import {
+  closeConversationForSupplier,
   closeTicketForCustomer,
+  countConversationsByStatus,
   countUnreadConversations,
   findConversationForViewer,
   findConversationOrder,
@@ -7,6 +9,7 @@ import {
   listConversationOrders,
   listConversations,
   listConversationStores,
+  listFirstPinnedOrders,
   listTicketOrders,
   markTicketRead,
 } from "@sellbridge/database/repositories";
@@ -54,18 +57,24 @@ export const getMyConversationOrder = createServerFn({ method: "GET" })
     findConversationOrder(database, { tenantId: context.tenantId, orderId: data.orderId }),
   );
 
-/** "Fornecedores" for a store, "Revendedores" for a supplier: the same list, per side. */
+/**
+ * "Fornecedores" for a store, "Revendedores" for a supplier: the same list, per side, with how
+ * many conversations each state holds under the same search (the supplier's tab counts).
+ */
 export const listMyConversations = createServerFn({ method: "GET" })
   .middleware([accountMiddleware])
   .validator(supplierConversationsSearchSchema)
   .handler(async ({ context, data }) => {
     const viewer = await conversationViewerOf(context);
-    const page = await listConversations(
-      database,
-      { viewer, readerId: context.userId, status: data.status, search: data.query },
-      { page: data.page, pageSize: data.pageSize },
-    );
-    return { ...page, side: viewer.side };
+    const [page, counts] = await Promise.all([
+      listConversations(
+        database,
+        { viewer, readerId: context.userId, status: data.status, search: data.query },
+        { page: data.page, pageSize: data.pageSize },
+      ),
+      countConversationsByStatus(database, { viewer, search: data.query }),
+    ]);
+    return { ...page, side: viewer.side, counts };
   });
 
 /** Conversations with a message from the other side this person has not read yet. */
@@ -97,14 +106,17 @@ export const getMyConversation = createServerFn({ method: "GET" })
   .validator(ticketIdInput)
   .handler(async ({ context, data }) => {
     const viewer = await requireConversation(context, data.ticketId);
-    const [thread, orders] = await Promise.all([
+    const [thread, orders, pinned] = await Promise.all([
       getTicketThread(database, data.ticketId, null),
       listTicketOrders(database, data.ticketId),
+      listFirstPinnedOrders(database, [data.ticketId]),
     ]);
     return {
       ...presentConversation(thread, orders, viewer.side),
       side: viewer.side,
       viewerId: context.userId,
+      // The supplier's "Ver pedido" needs where its parcel is; the store links its own order.
+      supplierOrder: viewer.side === "supplier" ? (pinned.get(data.ticketId) ?? null) : null,
     };
   });
 
@@ -137,6 +149,24 @@ export const closeMyConversation = createServerFn({ method: "POST" })
       userId: context.userId,
     });
     logger.info("supplier_support.closed", { ticketId: data.ticketId });
+    return { ok: true };
+  });
+
+/** "Finalizar": the supplier closes it; the store's next message brings it back to "A fazer". */
+export const finishMyConversation = createServerFn({ method: "POST" })
+  .middleware([accountMiddleware])
+  .validator(ticketIdInput)
+  .handler(async ({ context, data }) => {
+    const viewer = await conversationViewerOf(context);
+    if (viewer.side !== "supplier") {
+      throw notFoundError("Conversa não encontrada");
+    }
+    await closeConversationForSupplier(database, {
+      ticketId: data.ticketId,
+      supplierId: viewer.supplierId,
+      userId: context.userId,
+    });
+    logger.info("supplier_support.finished", { ticketId: data.ticketId });
     return { ok: true };
   });
 
