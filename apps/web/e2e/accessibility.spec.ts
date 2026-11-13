@@ -23,7 +23,7 @@ const APP_PAGES = [
 ];
 
 /** Team pages, opened as the admin in admin mode. */
-const TEAM_PAGES = ["/admin/auditoria"];
+const TEAM_PAGES = ["/admin/auditoria", "/admin/problemas"];
 
 async function violations(page: Page): Promise<string[]> {
   const results = await new AxeBuilder({ page }).analyze();

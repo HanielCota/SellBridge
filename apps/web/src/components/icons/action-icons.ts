@@ -3,6 +3,7 @@ import {
   ArrowUpRightIcon,
   BellZIcon,
   BriefcaseIcon,
+  BugIcon,
   CubeIcon,
   BellIcon,
   CalendarBlankIcon,
@@ -211,6 +212,7 @@ export const ACTION_ICONS = {
   },
   productReview: { icon: ClipboardTextIcon, hint: "Produtos dos fornecedores esperando análise" },
   audit: { icon: ClockCounterClockwiseIcon, hint: "Quem fez o quê na administração, e quando" },
+  problems: { icon: BugIcon, hint: "Erros que o sistema registrou, para a equipe corrigir" },
   platformSettings: {
     icon: GearSixIcon,
     hint: "A taxa do SellBridge nos pagamentos aos fornecedores",
@@ -395,5 +397,6 @@ export const NAV_TAB_ICONS: Readonly<Record<string, ActionIconName>> = {
   "/admin/chamados/metricas": "supportMetrics",
   "/admin/fornecedores/analise": "productReview",
   "/admin/auditoria": "audit",
+  "/admin/problemas": "problems",
   "/admin/configuracoes": "platformSettings",
 };
