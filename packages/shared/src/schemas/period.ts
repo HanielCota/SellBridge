@@ -1,8 +1,11 @@
 import { z } from "zod";
 import { withFallback, optionalParameter } from "./fallback.ts";
 
+/** The periods the reports offer by default. */
 export const PERIOD_PRESETS = ["today", "7d", "30d", "90d", "180d", "custom"] as const;
-export const periodPresetSchema = z.enum(PERIOD_PRESETS);
+/** A year back: only screens that ask for it offer it (the supplier home). */
+export const YEAR_PERIOD_PRESET = "365d";
+export const periodPresetSchema = z.enum([...PERIOD_PRESETS, YEAR_PERIOD_PRESET]);
 export type PeriodPreset = z.infer<typeof periodPresetSchema>;
 
 export const PERIOD_LABELS: Record<PeriodPreset, string> = {
@@ -11,6 +14,7 @@ export const PERIOD_LABELS: Record<PeriodPreset, string> = {
   "30d": "Últimos 30 dias",
   "90d": "Últimos 90 dias",
   "180d": "Últimos 6 meses",
+  "365d": "Últimos 12 meses",
   custom: "Personalizado",
 };
 

@@ -24,6 +24,7 @@ import {
   listSupplierHealthDrillDown,
   listSupplierOutOfStockListed,
   listSupplierRejectedProducts,
+  listSupplierShipmentHealthRecords,
   loadSupplierHealthInput,
 } from "./supplier-panel-home.ts";
 import { listSupplierOrderParcels } from "./supplier-panel-performance.ts";
@@ -196,6 +197,27 @@ describe("loadSupplierHealthInput", () => {
     expect(rows).toHaveLength(1);
     expect(rows[0]?.rating).toBe(2);
     expect(rows[0]?.tags).toEqual(["dispatch:bad"]);
+  });
+});
+
+describe("listSupplierShipmentHealthRecords", () => {
+  it("keeps only the parcels forwarded between the start and the end asked for", async () => {
+    const inside = await parcel({
+      supplierId: supplier.supplierId,
+      daysAgo: 300,
+      status: "shipped",
+      events: [{ status: "shipped", actor: supplierActor, hoursAfterForward: 5 }],
+    });
+    await parcel({ supplierId: supplier.supplierId, daysAgo: 320, status: "shipped", events: [] });
+    await parcel({ supplierId: supplier.supplierId, daysAgo: 280, status: "shipped", events: [] });
+
+    const records = await listSupplierShipmentHealthRecords(database, {
+      supplierId: supplier.supplierId,
+      since: new Date(NOW.getTime() - 310 * DAY),
+      until: new Date(NOW.getTime() - 290 * DAY),
+    });
+
+    expect(records.map((record) => record.orderId)).toEqual([inside.orderId]);
   });
 });
 

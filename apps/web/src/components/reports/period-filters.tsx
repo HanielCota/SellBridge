@@ -51,6 +51,7 @@ const SEGMENT_LABELS: Record<PeriodChoice, string> = {
   "30d": "30 dias",
   "90d": "90 dias",
   "180d": "6 meses",
+  "365d": "12 meses",
   custom: "Personalizado",
 };
 
@@ -65,6 +66,7 @@ const COMPACT_LABELS: Record<PeriodChoice, string> = {
   "30d": "30d",
   "90d": "90d",
   "180d": "6m",
+  "365d": "12m",
   custom: "",
 };
 
