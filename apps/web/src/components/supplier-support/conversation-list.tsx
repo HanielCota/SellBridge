@@ -26,7 +26,7 @@ function topicLabel(row: ConversationSummary): string {
   return row.topic === null ? "Conversa" : SUPPLIER_CONVERSATION_TOPIC_LABELS[row.topic];
 }
 
-/** "Cancelamento · Pedido #2000123": what it is about, with the order the supplier looks up. */
+/** "Cancelamento · Pedido 2000123": what it is about, with the order the supplier looks up. */
 function aboutLine(row: ConversationSummary): ReactNode {
   if (row.order === null) {
     return topicLabel(row);
@@ -34,7 +34,7 @@ function aboutLine(row: ConversationSummary): ReactNode {
   return (
     <>
       {topicLabel(row)} ·{" "}
-      <span className="whitespace-nowrap">Pedido #{row.order.externalOrderId}</span>
+      <span className="whitespace-nowrap">Pedido {row.order.externalOrderId}</span>
     </>
   );
 }

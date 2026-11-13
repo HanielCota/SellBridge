@@ -115,7 +115,7 @@ test("a store reports a cancellation from the order and the supplier finishes it
   await expect(tabs.getByRole("button", { name: /A fazer\s*1/ })).toBeVisible();
   await expect(
     supplierPage
-      .getByText(new RegExp(`Cancelamento · Pedido #${order.externalOrderId}`))
+      .getByText(new RegExp(`Cancelamento · Pedido ${order.externalOrderId}`))
       .filter({ visible: true }),
   ).toBeVisible();
   await expect(
