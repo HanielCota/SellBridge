@@ -154,6 +154,21 @@ async function countByStatus(
   };
 }
 
+/** The list's filters over one supplier's products: status tab, search, missing fiscal data. */
+function panelListCondition(
+  input: Pick<CatalogListSearch, "status" | "query" | "fiscal"> & { supplierId: string },
+  fiscalFallback: FiscalFallback | null,
+) {
+  return and(
+    eq(supplierProducts.supplierId, input.supplierId),
+    input.status === "all" ? undefined : eq(supplierProducts.reviewStatus, input.status),
+    input.query === undefined
+      ? undefined
+      : matchesEveryWord(input.query, [supplierProducts.sku, supplierProducts.title]),
+    input.fiscal === "missing" ? missingFiscalData(fiscalFallback) : undefined,
+  );
+}
+
 /**
  * The supplier's products for the panel list: one status tab, search on SKU and title, any
  * column sorted either way, plus how many products each tab holds for the same search.
@@ -164,14 +179,7 @@ export async function listSupplierPanelProducts(
 ) {
   await assertPanelSupplier(database, input.supplierId);
   const fiscalFallback = await getSupplierFiscalFallback(database, input.supplierId);
-  const condition = and(
-    eq(supplierProducts.supplierId, input.supplierId),
-    input.status === "all" ? undefined : eq(supplierProducts.reviewStatus, input.status),
-    input.query === undefined
-      ? undefined
-      : matchesEveryWord(input.query, [supplierProducts.sku, supplierProducts.title]),
-    input.fiscal === "missing" ? missingFiscalData(fiscalFallback) : undefined,
-  );
+  const condition = panelListCondition(input, fiscalFallback);
   const order = input.direction === "asc" ? asc : desc;
   const [rows, counts, missingFiscalCount] = await Promise.all([
     database
