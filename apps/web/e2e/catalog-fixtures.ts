@@ -118,5 +118,5 @@ export async function ownSellableListing(database: Database, email: string) {
     await database.delete(storeConnections).where(eq(storeConnections.id, store.id));
     await database.delete(suppliers).where(eq(suppliers.id, supplierId));
   }
-  return { title, storeId: store.id, remove };
+  return { title, productId, storeId: store.id, tenantId, remove };
 }
