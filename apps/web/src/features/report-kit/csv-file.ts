@@ -71,7 +71,7 @@ export function reportFileName(prefix: string, period: ReportPeriod, extension =
   return `${prefix}-${suffix}.${extension}`;
 }
 
-export function csvResponse(fileName: string, body: string): Response {
+export function csvResponse(fileName: string, body: BodyInit): Response {
   return new Response(body, {
     headers: {
       "content-type": "text/csv; charset=utf-8",

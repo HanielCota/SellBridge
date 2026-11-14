@@ -3,11 +3,8 @@ import { AppError, isAppError } from "@sellbridge/shared/errors";
 import { useState } from "react";
 import { errorMessage } from "@/lib/errors";
 import { assertImportableFile, fileToBase64 } from "./import-file";
-import {
-  supplierImportConfirm,
-  supplierImportFiles,
-  supplierImportPreview,
-} from "./supplier-import.functions";
+import { supplierImportConfirm, supplierImportPreview } from "./supplier-import.functions";
+import { supplierImportFilesQueryOptions } from "./supplier-import.queries";
 
 export interface ChosenFile {
   readonly name: string;
@@ -20,11 +17,7 @@ export function useSupplierImport(supplierId: string) {
   const [fileError, setFileError] = useState<string | null>(null);
   const preview = useMutation({ mutationFn: supplierImportPreview });
   const apply = useMutation({ mutationFn: supplierImportConfirm });
-  const files = useQuery({
-    queryKey: ["supplier-panel", "import-files", supplierId],
-    queryFn: async () => await supplierImportFiles({ data: { supplierId } }),
-    staleTime: 5 * 60 * 1000,
-  });
+  const files = useQuery(supplierImportFilesQueryOptions(supplierId));
 
   function reset() {
     preview.reset();

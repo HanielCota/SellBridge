@@ -10,7 +10,6 @@ import { FilterTabs } from "@/components/data/filter-tabs";
 import { SearchInput } from "@/components/data/search-input";
 import { EmptyState } from "@/components/feedback/empty-state";
 import { ErrorState } from "@/components/feedback/error-state";
-import { Link } from "@tanstack/react-router";
 import { PageHeader } from "@/components/layout/page-header";
 import { Button } from "@/components/ui/button";
 import {
@@ -27,6 +26,7 @@ import { usePanelSupplierActive } from "@/features/supplier-panel/use-panel-supp
 import { useUrlSearchQuery } from "@/hooks/use-url-search-query";
 import { errorMessage } from "@/lib/errors";
 import { CatalogProductTable, type OpenProduct } from "./catalog-product-table";
+import { ProductSpreadsheetMenu } from "./product-spreadsheet-menu";
 import { ACTION_ICONS } from "@/components/icons/action-icons";
 import { Hint } from "@/components/ui/hint";
 
@@ -150,34 +150,45 @@ interface CatalogProductListProps {
 }
 
 const CreateProductIcon = ACTION_ICONS.createProduct.icon;
-const ImportProductsIcon = ACTION_ICONS.importProducts.icon;
 
 /**
- * The header's ways to add products: the spreadsheet import (out of the menu since item 38) and
- * "Cadastrar produto". None for a switched-off supplier (the server refuses both too).
+ * The header's product actions: the spreadsheet menu (download, import, template) and
+ * "Cadastrar produto". A switched-off supplier keeps only the downloads (the server refuses
+ * new products too).
  */
-function ProductListActions({ onCreateProduct }: { onCreateProduct: () => void }) {
+function ProductListActions({
+  supplierId,
+  search,
+  productCount,
+  onCreateProduct,
+}: {
+  supplierId: string;
+  search: CatalogListSearch;
+  productCount: number | undefined;
+  onCreateProduct: () => void;
+}) {
   const canAddProducts = usePanelSupplierActive();
-  if (!canAddProducts) {
-    return null;
-  }
   return (
     <div className="flex flex-wrap gap-3">
-      <Hint label={ACTION_ICONS.importProducts.hint} openOnTap={false}>
-        <Button variant="outline" asChild>
-          <Link to="/fornecedor/painel/importar">
-            <ImportProductsIcon aria-hidden="true" />
-            Importar planilha
-          </Link>
-        </Button>
-      </Hint>
-      <Hint label={ACTION_ICONS.createProduct.hint} openOnTap={false}>
-        <Button onClick={onCreateProduct}>
-          <CreateProductIcon aria-hidden="true" />
-          Cadastrar produto
-        </Button>
-      </Hint>
+      <ProductSpreadsheetMenu
+        supplierId={supplierId}
+        filters={{ status: search.status, query: search.query, fiscal: search.fiscal }}
+        productCount={productCount}
+        canImport={canAddProducts}
+      />
+      {canAddProducts ? <CreateProductButton onCreateProduct={onCreateProduct} /> : null}
     </div>
+  );
+}
+
+function CreateProductButton({ onCreateProduct }: { onCreateProduct: () => void }) {
+  return (
+    <Hint label={ACTION_ICONS.createProduct.hint} openOnTap={false}>
+      <Button onClick={onCreateProduct}>
+        <CreateProductIcon aria-hidden="true" />
+        Cadastrar produto
+      </Button>
+    </Hint>
   );
 }
 
@@ -238,7 +249,12 @@ export function CatalogProductList({
         actions={
           <>
             {headerActions}
-            <ProductListActions onCreateProduct={onCreateProduct} />
+            <ProductListActions
+              supplierId={supplierId}
+              search={search}
+              productCount={query.data?.total}
+              onCreateProduct={onCreateProduct}
+            />
           </>
         }
       />
