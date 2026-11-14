@@ -24,6 +24,7 @@ const createdSchema = z.object({ ticketId: z.uuid() });
 
 interface ConversationDraft {
   storeConnectionId: string;
+  supplierId: string;
   topicId: SupplierConversationTopicId;
   situationId: string | undefined;
   orderId: string | undefined;
@@ -34,6 +35,7 @@ interface ConversationDraft {
 function buildFormData(draft: ConversationDraft): FormData {
   const formData = new FormData();
   formData.set("storeConnectionId", draft.storeConnectionId);
+  formData.set("supplierId", draft.supplierId);
   formData.set("topic", draft.topicId);
   formData.set("situation", draft.situationId ?? "");
   formData.set("orderId", draft.orderId ?? "");
@@ -44,22 +46,61 @@ function buildFormData(draft: ConversationDraft): FormData {
   return formData;
 }
 
-function answeringStore(stores: readonly ConversationStore[], id: string | undefined) {
-  const store = stores.find((item) => item.storeConnectionId === id);
-  return store?.supplierAnswers === true ? store : undefined;
+/** A store and one of the suppliers it sells: who the conversation goes to. */
+interface StorePick {
+  storeConnectionId: string;
+  supplierId: string;
+}
+
+function answeringOption(stores: readonly ConversationStore[], pick: StorePick) {
+  return stores.find(
+    (item) =>
+      item.storeConnectionId === pick.storeConnectionId &&
+      item.supplierId === pick.supplierId &&
+      item.supplierAnswers,
+  );
+}
+
+/** The store's answering supplier when it has exactly one; with several, the reseller picks. */
+function onlyAnsweringOption(stores: readonly ConversationStore[], storeId: string | undefined) {
+  const options = stores.filter(
+    (item) => item.storeConnectionId === storeId && item.supplierAnswers,
+  );
+  return options.length === 1 ? options[0] : undefined;
+}
+
+function storePickOf(store: ConversationStore | null): StorePick | null {
+  if (store?.supplierId == null) {
+    return null;
+  }
+  return { storeConnectionId: store.storeConnectionId, supplierId: store.supplierId };
+}
+
+function pickedStore(
+  options: readonly ConversationStore[],
+  choice: StorePick | null | undefined,
+  fromPage: string | undefined,
+) {
+  if (choice === undefined) {
+    return onlyAnsweringOption(options, fromPage);
+  }
+  if (choice === null) {
+    return undefined;
+  }
+  return answeringOption(options, choice);
 }
 
 /**
- * The store: picked on screen, else the one the page was opened from (an order's store, or
- * `loja`). `null` means the reseller pressed "Alterar" and must pick again.
+ * The store and supplier: picked on screen, else the store the page was opened from (an order's
+ * store, or `loja`) when it sells a single supplier that answers. `null` means the reseller
+ * pressed "Alterar" and must pick again.
  */
 function useStoreChoice(search: NewSupplierConversationSearch) {
   const stores = useQuery(myConversationStoresQueryOptions());
   const prefilledOrder = useQuery(myConversationOrderQueryOptions(search.pedido));
-  const [choice, setChoice] = useState<string | null | undefined>(undefined);
+  const [choice, setChoice] = useState<StorePick | null | undefined>(undefined);
   const fromPage = prefilledOrder.data?.storeConnectionId ?? search.loja;
-  const id = choice === undefined ? fromPage : (choice ?? undefined);
-  const store = answeringStore(stores.data ?? [], id);
+  const store = pickedStore(stores.data ?? [], choice, fromPage);
   const order: ConversationOrder | null =
     prefilledOrder.data?.storeConnectionId === store?.storeConnectionId
       ? (prefilledOrder.data ?? null)
@@ -139,15 +180,16 @@ export function useNewConversation(search: NewSupplierConversationSearch) {
   const orderId =
     orderChoice === undefined ? storeChoice.prefilledOrder?.orderId : (orderChoice ?? undefined);
 
-  function pickStore(next: string | null) {
-    storeChoice.setChoice(next);
+  function pickStore(next: ConversationStore | null) {
+    const pick = storePickOf(next);
+    storeChoice.setChoice(pick);
     setOrderChoice(null);
-    focusStepHeading(next === null ? STEP_HEADING_IDS.store : STEP_HEADING_IDS.topic);
+    focusStepHeading(pick === null ? STEP_HEADING_IDS.store : STEP_HEADING_IDS.topic);
   }
 
   async function send(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    if (store === undefined || topic === undefined || !isReadyToWrite) {
+    if (store?.supplierId == null || topic === undefined || !isReadyToWrite) {
       return;
     }
     if (body.trim().length < minimumDescriptionLength(situation)) {
@@ -157,6 +199,7 @@ export function useNewConversation(search: NewSupplierConversationSearch) {
     }
     await sending.sendDraft({
       storeConnectionId: store.storeConnectionId,
+      supplierId: store.supplierId,
       topicId: topic.id,
       situationId: situation?.id,
       orderId,

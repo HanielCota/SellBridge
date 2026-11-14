@@ -6,6 +6,7 @@ import {
 } from "./supplier-conversations.ts";
 
 const STORE = "6f1d2c3b-4a5e-4f60-8a7b-9c0d1e2f3a4b";
+const SUPPLIER = "8f8e7c1a-0000-4000-8000-0000000000b1";
 
 function replyIssue(body: string): string | undefined {
   const parsed = replySupplierConversationSchema.safeParse({ body });
@@ -29,6 +30,7 @@ describe("conversation messages", () => {
   it("refuses a contact in the first message of a new conversation", () => {
     const parsed = createSupplierConversationSchema.safeParse({
       storeConnectionId: STORE,
+      supplierId: SUPPLIER,
       topic: "order",
       situation: "order-late",
       body: "Me chama no zap 11 98765-4321 para combinar",
@@ -40,6 +42,7 @@ describe("conversation messages", () => {
   it("reads an empty order and situation as none picked", () => {
     const parsed = createSupplierConversationSchema.parse({
       storeConnectionId: STORE,
+      supplierId: SUPPLIER,
       topic: "product",
       situation: "",
       body: "A forma do tênis de corrida é pequena ou normal?",

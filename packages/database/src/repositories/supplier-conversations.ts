@@ -84,19 +84,27 @@ export async function listConversationStores(
   }));
 }
 
-/** The store a new conversation is about, refused when its supplier cannot answer. */
+/**
+ * The store and supplier a new conversation is about, refused when the store does not sell that
+ * supplier or the supplier cannot answer.
+ */
 export async function requireConversationStore(
   database: Database,
-  input: { tenantId: string; storeConnectionId: string },
+  input: { tenantId: string; storeConnectionId: string; supplierId: string },
 ): Promise<{ supplierId: string; storeName: string }> {
   const stores = await listConversationStores(database, input.tenantId);
-  const store = stores.find((item) => item.storeConnectionId === input.storeConnectionId);
-  if (store === undefined) {
+  const storeRows = stores.filter((item) => item.storeConnectionId === input.storeConnectionId);
+  const [anyRow] = storeRows;
+  if (anyRow === undefined) {
     throw notFoundError("Loja não encontrada");
   }
-  if (store.supplierId === null || !store.supplierAnswers) {
+  const store = storeRows.find((item) => item.supplierId === input.supplierId);
+  if (store === undefined && anyRow.supplierId !== null) {
+    throw validationError(`A loja ${anyRow.storeName} não vende mais este fornecedor`);
+  }
+  if (store === undefined || store.supplierId === null || !store.supplierAnswers) {
     throw validationError(
-      `A loja ${store.storeName} ainda não tem um fornecedor que atende pelo SellBridge`,
+      `A loja ${anyRow.storeName} ainda não tem um fornecedor que atende pelo SellBridge`,
     );
   }
   return { supplierId: store.supplierId, storeName: store.storeName };

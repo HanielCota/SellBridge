@@ -61,6 +61,7 @@ async function planConversation(session: TenantSession, input: CreateSupplierCon
   const store = await requireConversationStore(database, {
     tenantId: session.tenantId,
     storeConnectionId: input.storeConnectionId,
+    supplierId: input.supplierId,
   });
   if (input.orderId !== undefined) {
     await requireConversationOrder(database, {
@@ -76,6 +77,7 @@ async function readNewConversation(request: Request, session: TenantSession) {
   const formData = await readUploadForm(request, session.userId);
   const fields = {
     storeConnectionId: textField(formData, "storeConnectionId"),
+    supplierId: textField(formData, "supplierId"),
     topic: textField(formData, "topic"),
     situation: textField(formData, "situation"),
     body: textField(formData, "body"),
@@ -91,7 +93,7 @@ async function readNewConversation(request: Request, session: TenantSession) {
 
 /**
  * POST /api/suporte/conversas: a reseller writes to the supplier of one of their stores
- * (multipart: storeConnectionId, topic, situation, body, orderId, files).
+ * (multipart: storeConnectionId, supplierId, topic, situation, body, orderId, files).
  */
 export function handleCreateConversation(request: Request) {
   return handleApi("supplier_support.create", async () => {

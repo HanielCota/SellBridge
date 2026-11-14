@@ -16,9 +16,10 @@ import {
  */
 export const conversationBodySchema = ticketBodySchema.superRefine(refuseConversationContact);
 
-/** The guided form: the store (its supplier comes with it), the topic, the situation, the text. */
+/** The guided form: the store and which of its suppliers, the topic, the situation, the text. */
 export const createSupplierConversationSchema = z.object({
   storeConnectionId: z.uuid({ error: "Escolha a loja" }),
+  supplierId: z.uuid({ error: "Escolha o fornecedor" }),
   topic: z.enum(SUPPLIER_CONVERSATION_TOPIC_IDS, { error: "Escolha sobre o que é a conversa" }),
   situation: optionalFormText(40),
   body: conversationBodySchema,
