@@ -1,5 +1,5 @@
 import { expect, test } from "@playwright/test";
-import { DEMO_USER, gotoHydrated, signIn } from "./helpers";
+import { DEMO_USER, gotoHydrated, pickSupplier, signIn } from "./helpers";
 
 test("the stores page never shows text taken from its URL", async ({ page }) => {
   await signIn(page, DEMO_USER);
@@ -15,4 +15,29 @@ test("a connection error code shows the app's own message", async ({ page }) => 
   await expect(
     page.getByText("A solicitação de conexão expirou. Tente conectar novamente."),
   ).toBeVisible();
+});
+
+test("a connection the seller cancelled says how to try again", async ({ page }) => {
+  await signIn(page, DEMO_USER);
+  await gotoHydrated(page, "/lojas?erro=cancelled");
+  await expect(
+    page.getByText(
+      "A conexão foi cancelada no marketplace. Para tentar de novo, clique em Conectar e aceite o acesso.",
+    ),
+  ).toBeVisible();
+});
+
+test("on a phone the connect button still says Conectar, not just an arrow", async ({ page }) => {
+  await page.setViewportSize({ width: 375, height: 812 });
+  await signIn(page, DEMO_USER);
+  await gotoHydrated(page, "/lojas");
+  await page.getByRole("button", { name: "Escolher", exact: true }).click();
+  const picker = page.getByRole("dialog", { name: "Fornecedor da nova loja" });
+  await pickSupplier(page, "Rio Pet Atacado");
+  await picker.getByRole("button", { name: "Usar este fornecedor" }).click();
+  const connect = page.getByRole("link", { name: "Conectar Mercado Livre" });
+  await expect(connect.getByText("Conectar", { exact: true })).toBeVisible();
+  const name = connect.getByText("Mercado Livre", { exact: true });
+  const isCut = await name.evaluate((element) => element.scrollWidth > element.clientWidth);
+  expect(isCut).toBe(false);
 });

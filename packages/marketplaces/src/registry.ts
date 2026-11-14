@@ -1,9 +1,15 @@
 import { createMercadoLivreConnector } from "./mercado-livre/mercado-livre-connector.ts";
+import { createTikTokShopConnector } from "./tiktok-shop/tiktok-shop-connector.ts";
 import type { MarketplaceConnector, MarketplaceId } from "./types.ts";
 import { createUnavailableConnector } from "./unavailable-connector.ts";
 
 export interface ConnectorRegistryConfig {
   mercadoLivre?: { clientId: string | undefined; clientSecret: string | undefined };
+  tiktokShop?: {
+    appKey: string | undefined;
+    appSecret: string | undefined;
+    serviceId: string | undefined;
+  };
 }
 
 export type ConnectorRegistry = Record<MarketplaceId, MarketplaceConnector>;
@@ -23,8 +29,12 @@ export function createConnectorRegistry(config: ConnectorRegistryConfig): Connec
       clientId: config.mercadoLivre?.clientId,
       clientSecret: config.mercadoLivre?.clientSecret,
     }),
-    // No real connector yet: Shopee and TikTok Shop come after Mercado Livre.
+    // No real connector yet for Shopee.
     shopee: createUnavailableConnector("shopee", MARKETPLACE_LABELS.shopee),
-    tiktok_shop: createUnavailableConnector("tiktok_shop", MARKETPLACE_LABELS.tiktok_shop),
+    tiktok_shop: createTikTokShopConnector({
+      appKey: config.tiktokShop?.appKey,
+      appSecret: config.tiktokShop?.appSecret,
+      serviceId: config.tiktokShop?.serviceId,
+    }),
   };
 }
