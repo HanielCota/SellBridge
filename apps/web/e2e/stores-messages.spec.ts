@@ -16,3 +16,13 @@ test("a connection error code shows the app's own message", async ({ page }) => 
     page.getByText("A solicitação de conexão expirou. Tente conectar novamente."),
   ).toBeVisible();
 });
+
+test("a connection the seller cancelled says how to try again", async ({ page }) => {
+  await signIn(page, DEMO_USER);
+  await gotoHydrated(page, "/lojas?erro=cancelled");
+  await expect(
+    page.getByText(
+      "A conexão foi cancelada no marketplace. Para tentar de novo, clique em Conectar e aceite o acesso.",
+    ),
+  ).toBeVisible();
+});
