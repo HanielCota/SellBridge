@@ -9,6 +9,8 @@ export const SHOP_CIPHER = "GCP_XF90igAAAABh00qsWgtvOiGFNqyubMt3";
 export const PRODUCT_ID = "1729592969712207008";
 export const SKU_ID = "1729592969712207012";
 export const WAREHOUSE_ID = "7000714532876273410";
+export const ORDER_ID = "576461413038785752";
+export const PACKAGE_ID = "1152321127278713123";
 
 function envelope<Data>(data: Data) {
   return { code: 0, message: "success", request_id: "2024080809462301024509910319695C45", data };
@@ -102,6 +104,56 @@ export const PRODUCT_RESPONSE = envelope({
 
 /** Update Price / Update Inventory answer an empty `data` on success. */
 export const EMPTY_SUCCESS = envelope({});
+
+/** One order of Get Order Detail / Get Order List, as the sample, in BRL. */
+export function tiktokOrder(overrides: Record<string, unknown> = {}) {
+  return {
+    id: ORDER_ID,
+    status: "AWAITING_SHIPMENT",
+    create_time: 1619611561,
+    update_time: 1619621355,
+    payment: { currency: "BRL", sub_total: "119.80", shipping_fee: "0", total_amount: "119.80" },
+    packages: [{ id: PACKAGE_ID }],
+    cpf: "3213-31231412",
+    line_items: [
+      {
+        id: "577086512123755123",
+        sku_id: SKU_ID,
+        product_id: PRODUCT_ID,
+        product_name: "Chá verde 100 g",
+        sale_price: "59.9",
+        original_price: "69.9",
+        currency: "BRL",
+        seller_sku: "SKU-1",
+      },
+      {
+        id: "577086512123755124",
+        sku_id: SKU_ID,
+        product_id: PRODUCT_ID,
+        product_name: "Chá verde 100 g",
+        sale_price: "59.9",
+        original_price: "69.9",
+        currency: "BRL",
+        seller_sku: "SKU-1",
+      },
+    ],
+    ...overrides,
+  };
+}
+
+export function orderDetailResponse(orders: readonly unknown[]) {
+  return envelope({ orders });
+}
+
+export function orderSearchResponse(orders: readonly unknown[], nextPageToken: string) {
+  return envelope({ next_page_token: nextPageToken, total_count: orders.length, orders });
+}
+
+/** Get Package Shipping Document. */
+export const SHIPPING_DOCUMENT_RESPONSE = envelope({
+  doc_url: "https://magelng.bytedance.net/wsos_v2/oec_fulfillment_doc_tts/object/wsos641232",
+  tracking_number: "752455325694",
+});
 
 /** A business refusal: HTTP 200 with a non-zero code ("Common errors"). */
 export function refusal(code: number, message: string) {

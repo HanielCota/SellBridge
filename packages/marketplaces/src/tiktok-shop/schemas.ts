@@ -94,3 +94,66 @@ export const productSchema = z.object({
 });
 
 export type TikTokShopProduct = z.infer<typeof productSchema>;
+
+/** Decimal amount as TikTok writes it: "59.90", "5000". */
+const amount = z.string().max(20);
+
+const lineItemSchema = z.object({
+  id,
+  sku_id: id,
+  product_id: id,
+  product_name: z.string().max(500),
+  sale_price: amount,
+  currency: z.string().max(10).optional(),
+});
+
+export const orderSchema = z.object({
+  id,
+  status: z.string().max(40),
+  create_time: z.number().int().positive(),
+  update_time: z.number().int().optional(),
+  payment: z.object({
+    currency: z.string().max(10),
+    total_amount: amount,
+  }),
+  line_items: z.array(lineItemSchema).min(1).max(1000),
+  packages: z.array(z.object({ id })).max(100).optional(),
+});
+
+export type TikTokShopOrder = z.infer<typeof orderSchema>;
+
+export const orderSearchSchema = z.object({
+  orders: z.array(orderSchema).max(100).optional(),
+  next_page_token: z.string().max(500).optional(),
+  total_count: z.number().int().optional(),
+});
+
+export const orderDetailSchema = z.object({
+  orders: z.array(orderSchema).max(50),
+});
+
+export const shippingDocumentSchema = z.object({
+  doc_url: z.url({ protocol: /^https$/ }).max(2000),
+  tracking_number: z.string().max(100).optional(),
+});
+
+export const webhookSchema = z.object({
+  type: z.number().int(),
+  tts_notification_id: z.string().min(1).max(64),
+  shop_id: id,
+  timestamp: z.number().int(),
+  data: z.record(z.string(), z.unknown()),
+});
+
+/** "Order status change" (type 1): the order id is all the connector keeps from the payload. */
+export const orderStatusEventSchema = z.object({
+  type: z.literal(1),
+  tts_notification_id: z.string().min(1).max(64),
+  shop_id: id,
+  timestamp: z.number().int(),
+  data: z.object({
+    order_id: id,
+    order_status: z.string().max(40).optional(),
+    update_time: z.number().int().optional(),
+  }),
+});
