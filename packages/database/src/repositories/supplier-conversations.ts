@@ -7,6 +7,7 @@ import {
   organization,
   orders,
   storeConnections,
+  storeSuppliers,
   suppliers,
   ticketAttachments,
   ticketMessages,
@@ -56,7 +57,7 @@ export interface ConversationStore {
   supplierAnswers: boolean;
 }
 
-/** The reseller's live stores, each with the one supplier it sells. */
+/** The reseller's live stores, one row per supplier each sells; a pending store has one row. */
 export async function listConversationStores(
   database: Database,
   tenantId: string,
@@ -71,11 +72,12 @@ export async function listConversationStores(
       supplierActive: suppliers.active,
     })
     .from(storeConnections)
-    .leftJoin(suppliers, eq(suppliers.id, storeConnections.supplierId))
+    .leftJoin(storeSuppliers, eq(storeSuppliers.storeConnectionId, storeConnections.id))
+    .leftJoin(suppliers, eq(suppliers.id, storeSuppliers.supplierId))
     .where(
       and(eq(storeConnections.tenantId, tenantId), ne(storeConnections.status, "disconnected")),
     )
-    .orderBy(storeConnections.shopName);
+    .orderBy(storeConnections.shopName, storeSuppliers.createdAt, storeSuppliers.supplierId);
   return rows.map(({ supplierOrganizationId, supplierActive, ...store }) => ({
     ...store,
     supplierAnswers: supplierOrganizationId !== null && supplierActive === true,

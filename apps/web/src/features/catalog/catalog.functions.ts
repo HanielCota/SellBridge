@@ -60,7 +60,7 @@ export const getSellableCatalog = createServerFn({ method: "GET" })
         id: store.id,
         shopName: store.shopName,
         marketplaceLabel: MARKETPLACE_LABELS[store.marketplace],
-        hasSupplier: store.supplierId !== null,
+        hasSupplier: store.supplierIds.length > 0,
       })),
       // Bulk publishing still goes only to connected stores (and checks their supplier).
       stores: catalog.stores
@@ -69,7 +69,7 @@ export const getSellableCatalog = createServerFn({ method: "GET" })
           id: store.id,
           shopName: store.shopName,
           marketplace: store.marketplace,
-          supplierId: store.supplierId,
+          supplierIds: store.supplierIds,
         })),
     };
   });

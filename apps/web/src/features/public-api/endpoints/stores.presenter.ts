@@ -33,6 +33,6 @@ export function presentStore(store: StoreConnectionSummary): StoreDto | null {
     name: store.shopName,
     status: store.status,
     connectedAt: store.connectedAt.toISOString(),
-    supplierId: store.supplierId,
+    supplierId: store.supplierIds[0] ?? null,
   };
 }

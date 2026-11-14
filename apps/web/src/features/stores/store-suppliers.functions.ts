@@ -35,7 +35,7 @@ export const getStoreSuppliers = createServerFn({ method: "GET" })
       findOnboardingProfile(database, context.tenantId),
     ]);
     const starterId = profile.starterSupplier?.id ?? null;
-    const ids = stores.flatMap((store) => (store.supplierId === null ? [] : [store.supplierId]));
+    const ids = stores.flatMap((store) => store.supplierIds);
     const picked = data.pickedSupplierId;
     const extra = [starterId, picked].flatMap((id) =>
       id === null || id === undefined ? [] : [id],

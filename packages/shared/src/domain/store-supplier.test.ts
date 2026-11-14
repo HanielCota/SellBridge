@@ -7,15 +7,19 @@ import {
 
 describe("storeSupplierRefusal", () => {
   it("accepts a product of the shop's supplier", () => {
-    expect(storeSupplierRefusal("supplier-a", "supplier-a")).toBeNull();
+    expect(storeSupplierRefusal(["supplier-a"], "supplier-a")).toBeNull();
+  });
+
+  it("accepts a product of any supplier the shop sells", () => {
+    expect(storeSupplierRefusal(["supplier-a", "supplier-b"], "supplier-b")).toBeNull();
   });
 
   it("refuses a product of another supplier", () => {
-    expect(storeSupplierRefusal("supplier-a", "supplier-b")).toBe("other_supplier");
+    expect(storeSupplierRefusal(["supplier-a"], "supplier-b")).toBe("other_supplier");
   });
 
   it("refuses any product while the shop's supplier is pending", () => {
-    expect(storeSupplierRefusal(null, "supplier-a")).toBe("supplier_pending");
+    expect(storeSupplierRefusal([], "supplier-a")).toBe("supplier_pending");
   });
 
   it("tells the seller what to do for each refusal", () => {

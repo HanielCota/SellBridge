@@ -25,6 +25,7 @@ import {
   listingTargets,
   member,
   storeConnections,
+  storeSuppliers,
   supplierProducts,
   suppliers,
   user,
@@ -110,17 +111,19 @@ export async function listSupplierSellers(
           and o.ordered_at >= ${timestampOf(since)})`.mapWith(Number),
     })
     .from(storeConnections)
+    .innerJoin(
+      storeSuppliers,
+      and(
+        eq(storeSuppliers.storeConnectionId, storeConnections.id),
+        eq(storeSuppliers.supplierId, supplierId),
+      ),
+    )
     .leftJoin(
       member,
       and(eq(member.organizationId, storeConnections.tenantId), eq(member.role, "owner")),
     )
     .leftJoin(user, eq(user.id, member.userId))
-    .where(
-      and(
-        eq(storeConnections.supplierId, supplierId),
-        sql`${storeConnections.status} <> 'disconnected'`,
-      ),
-    )
+    .where(sql`${storeConnections.status} <> 'disconnected'`)
     .orderBy(asc(user.name), asc(storeConnections.shopName));
 }
 

@@ -50,7 +50,7 @@ afterAll(async () => {
 describe("store supplier", () => {
   it("starts pending and refuses publishing until the seller picks a supplier", async () => {
     const [store] = await listStoreConnections(database, tenants.tenantA);
-    expect(store?.supplierId).toBeNull();
+    expect(store?.supplierIds).toEqual([]);
     await expect(
       assertStoresSellSupplier(database, tenants.tenantA, [storeA], supplierOne.supplierId),
     ).rejects.toMatchObject({ code: "CONFLICT" });
@@ -63,7 +63,7 @@ describe("store supplier", () => {
       supplierId: supplierOne.supplierId,
     });
     const [store] = await listStoreConnections(database, tenants.tenantA);
-    expect(store?.supplierId).toBe(supplierOne.supplierId);
+    expect(store?.supplierIds).toEqual([supplierOne.supplierId]);
     await expect(
       assertStoresSellSupplier(database, tenants.tenantA, [storeA], supplierOne.supplierId),
     ).resolves.toBeUndefined();
@@ -102,7 +102,7 @@ describe("store supplier", () => {
   it("goes back to pending when its supplier is deleted", async () => {
     await supplierOne.cleanup();
     const [store] = await listStoreConnections(database, tenants.tenantA);
-    expect(store?.supplierId).toBeNull();
+    expect(store?.supplierIds).toEqual([]);
   });
 });
 
