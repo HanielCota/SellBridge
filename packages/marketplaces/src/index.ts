@@ -15,3 +15,7 @@ export {
   type MercadoLivreLabelBatch,
   type PrintedLabel,
 } from "./mercado-livre/shipping.ts";
+export {
+  createTikTokShopConnector,
+  type TikTokShopConfig,
+} from "./tiktok-shop/tiktok-shop-connector.ts";

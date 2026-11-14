@@ -15,6 +15,9 @@ for (const key of [
   "ALERT_WEBHOOK_URL",
   "MERCADO_LIVRE_CLIENT_ID",
   "MERCADO_LIVRE_CLIENT_SECRET",
+  "TIKTOK_SHOP_APP_KEY",
+  "TIKTOK_SHOP_APP_SECRET",
+  "TIKTOK_SHOP_SERVICE_ID",
 ]) {
   process.env[key] = "";
 }

@@ -3,7 +3,8 @@ export const STORE_CONNECT_ERROR_MESSAGES = {
   unknown_marketplace: "Marketplace desconhecido",
   unavailable: "Este marketplace ainda não está disponível",
   invalid_response: "Resposta de autorização inválida",
-  cancelled: "A conexão foi cancelada no marketplace",
+  cancelled:
+    "A conexão foi cancelada no marketplace. Para tentar de novo, clique em Conectar e aceite o acesso.",
   expired: "A solicitação de conexão expirou. Tente conectar novamente.",
   marketplace: "O marketplace recusou a conexão. Tente de novo em instantes.",
   shop_in_use:

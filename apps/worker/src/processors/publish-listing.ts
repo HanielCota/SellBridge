@@ -22,6 +22,7 @@ import {
 } from "@sellbridge/shared/store-supplier";
 import { hasErrorCode, userMessageOr } from "@sellbridge/shared/errors";
 import { logger } from "@sellbridge/shared/logger";
+import { readProductFiscal } from "@sellbridge/shared/product-fiscal";
 import { publishListingJobSchema } from "@sellbridge/shared/queues";
 import { UnrecoverableError } from "bullmq";
 import {
@@ -93,6 +94,7 @@ function toPublishProductInput(
     sku: row.product.sku,
     imageUrls: row.product.imageUrls,
     mercadoLivreAttributes: row.product.mercadoLivreAttributes,
+    packageWeightGrams: readProductFiscal(row.product.fiscal).netWeightGrams,
   };
 }
 

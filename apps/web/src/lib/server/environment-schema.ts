@@ -85,6 +85,10 @@ const serverEnvironmentShape = z.object({
   GOOGLE_CLIENT_SECRET: z.string().min(1).optional(),
   MERCADO_LIVRE_CLIENT_ID: z.string().optional(),
   MERCADO_LIVRE_CLIENT_SECRET: z.string().optional(),
+  /** TikTok Shop app (Partner Center); the connector stays off until all three are set. */
+  TIKTOK_SHOP_APP_KEY: z.string().optional(),
+  TIKTOK_SHOP_APP_SECRET: z.string().optional(),
+  TIKTOK_SHOP_SERVICE_ID: z.string().optional(),
   /** Bling ERP app (supplier catalog import); the feature stays off until both are set. */
   BLING_CLIENT_ID: z.string().min(1).optional(),
   BLING_CLIENT_SECRET: z.string().min(1).optional(),

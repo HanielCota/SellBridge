@@ -142,6 +142,19 @@ describe("OAuth callback", () => {
     expect(location.searchParams.has("conectada")).toBe(false);
   });
 
+  it("treats a refusal that also carries code=null as cancelled, never as a code", async () => {
+    const refused = new Request(
+      "https://sellbridge.test/api/oauth/mercado_livre/callback?code=null&error=auth_denied&state=state-1",
+    );
+
+    const response = await handleOAuthCallback(refused, "mercado_livre");
+
+    const location = new URL(response.headers.get("location") ?? "");
+    expect(location.searchParams.get("erro")).toBe("cancelled");
+    expect(mocks.consumeOAuthState).not.toHaveBeenCalled();
+    expect(mocks.exchangeCode).not.toHaveBeenCalled();
+  });
+
   it("refuses a state issued to another organization without touching the marketplace", async () => {
     mocks.consumeOAuthState.mockResolvedValue(null);
     const location = await redirectedTo();
