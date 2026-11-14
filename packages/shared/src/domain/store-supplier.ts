@@ -1,7 +1,7 @@
 /**
- * Each marketplace shop sells the products of the suppliers linked to it. A shop connected before
- * the one-supplier rule, whose listings mixed suppliers, has none yet ("pending") and takes no new
- * publications until the seller picks one; its existing listings keep selling.
+ * Each marketplace shop sells the products of the suppliers linked to it. A shop with none yet
+ * ("pending": connected before suppliers were linked, or every one it sold was deleted) takes no
+ * new publications until the seller picks one; its existing listings keep selling.
  */
 export type StoreSupplierRefusal = "supplier_pending" | "other_supplier";
 
@@ -22,7 +22,7 @@ export function storeSupplierRefusal(
 const REFUSAL_MESSAGES: Record<StoreSupplierRefusal, string> = {
   supplier_pending: "Escolha o fornecedor desta loja para continuar publicando nela.",
   other_supplier:
-    "Esta loja vende os produtos de outro fornecedor. Conecte uma loja para este fornecedor ou troque o fornecedor da loja.",
+    "Esta loja não vende os produtos deste fornecedor. Adicione o fornecedor à loja na página Lojas.",
 };
 
 /** What the seller sees when a publication is refused, and what they can do about it. */
@@ -30,9 +30,9 @@ export function storeSupplierRefusalMessage(refusal: StoreSupplierRefusal): stri
   return REFUSAL_MESSAGES[refusal];
 }
 
-/** Error left on publications a shop stopped selling when its supplier changed. */
+/** Error left on publications of a supplier the shop stopped selling. */
 export const STORE_SUPPLIER_CHANGED_MESSAGE =
-  "Esta loja passou a vender os produtos de outro fornecedor. Publique este produto em uma loja do fornecedor dele.";
+  "Esta loja deixou de vender os produtos deste fornecedor. Adicione o fornecedor de volta à loja na página Lojas.";
 
 /**
  * MVP (coordinator decision, 2026-10-22): resellers sell only suppliers' products. An own product

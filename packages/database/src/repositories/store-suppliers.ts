@@ -58,7 +58,8 @@ export async function assignStoreSupplier(
   });
 }
 
-async function linkStore(executor: DatabaseExecutor, input: AssignStoreSupplierInput) {
+/** Locks the tenant's live shop so concurrent supplier changes run one after the other. */
+async function lockStore(executor: DatabaseExecutor, input: AssignStoreSupplierInput) {
   const [store] = await executor
     .select({ id: storeConnections.id })
     .from(storeConnections)
@@ -74,6 +75,11 @@ async function linkStore(executor: DatabaseExecutor, input: AssignStoreSupplierI
   if (store === undefined) {
     throw notFoundError("Loja não encontrada");
   }
+  return store;
+}
+
+async function linkStore(executor: DatabaseExecutor, input: AssignStoreSupplierInput) {
+  const store = await lockStore(executor, input);
   await executor
     .delete(storeSuppliers)
     .where(
@@ -88,19 +94,66 @@ async function linkStore(executor: DatabaseExecutor, input: AssignStoreSupplierI
     .onConflictDoNothing();
 }
 
-/** What moving a shop to another supplier does to the publications it has today. */
+/**
+ * Adds `supplierId` to the suppliers the shop sells, keeping the others. Adding one it already
+ * sells changes nothing.
+ *
+ * @throws NOT_FOUND when the supplier is inactive or gone, or the shop is not the tenant's.
+ */
+export async function addStoreSupplier(
+  database: Database,
+  input: AssignStoreSupplierInput,
+): Promise<void> {
+  await database.transaction(async (executor) => {
+    await assertActiveSupplier(executor, input.supplierId);
+    const store = await lockStore(executor, input);
+    await executor
+      .insert(storeSuppliers)
+      .values({ storeConnectionId: store.id, supplierId: input.supplierId })
+      .onConflictDoNothing();
+  });
+}
+
+/** Refuses removing a supplier the shop does not sell, or the only one it sells. */
+async function assertRemovable(executor: DatabaseExecutor, input: AssignStoreSupplierInput) {
+  const linked = await executor
+    .select({ supplierId: storeSuppliers.supplierId })
+    .from(storeSuppliers)
+    .where(eq(storeSuppliers.storeConnectionId, input.storeConnectionId));
+  if (!linked.some((link) => link.supplierId === input.supplierId)) {
+    throw notFoundError("Esta loja não vende este fornecedor");
+  }
+  // A shop left with no supplier is pending, and pending shops accept every supplier's listings.
+  if (linked.length === 1) {
+    throw conflictError(
+      "A loja precisa vender pelo menos um fornecedor. Adicione outro antes de tirar este.",
+    );
+  }
+}
+
+/** What changing a shop's suppliers does to the publications it has today. */
 export interface StoreSupplierChangeImpact {
-  /** Live listings of other suppliers: paused at zero stock, never deleted. */
+  /** Live listings of the suppliers left out: paused at zero stock, never deleted. */
   livePaused: number;
-  /** Queued or failed publications of other suppliers: stopped, with the reason. */
+  /** Queued or failed publications of the suppliers left out: stopped, with the reason. */
   queuedStopped: number;
 }
 
 const LIVE_STATUSES: readonly ListingTargetStatus[] = ["published", "paused"];
 const QUEUED_STATUSES: readonly ListingTargetStatus[] = ["pending", "error"];
 
-/** Targets of the shop whose product comes from a supplier other than `supplierId`. */
-function otherSupplierTargets(executor: DatabaseExecutor, input: AssignStoreSupplierInput) {
+/** Which of the shop's targets a change reaches: `supplierId`'s own, or every other supplier's. */
+type SupplierMatch = "same" | "other";
+
+function supplierTargets(
+  executor: DatabaseExecutor,
+  input: AssignStoreSupplierInput,
+  match: SupplierMatch,
+) {
+  const supplierCondition =
+    match === "same"
+      ? eq(supplierProducts.supplierId, input.supplierId)
+      : ne(supplierProducts.supplierId, input.supplierId);
   return executor
     .select({ id: listingTargets.id })
     .from(listingTargets)
@@ -112,7 +165,7 @@ function otherSupplierTargets(executor: DatabaseExecutor, input: AssignStoreSupp
         publicSupplier(),
         eq(listingTargets.tenantId, input.tenantId),
         eq(listingTargets.storeConnectionId, input.storeConnectionId),
-        ne(supplierProducts.supplierId, input.supplierId),
+        supplierCondition,
       ),
     );
 }
@@ -120,6 +173,7 @@ function otherSupplierTargets(executor: DatabaseExecutor, input: AssignStoreSupp
 async function countTargets(
   executor: DatabaseExecutor,
   input: AssignStoreSupplierInput,
+  match: SupplierMatch,
   statuses: readonly ListingTargetStatus[],
 ): Promise<number> {
   const [row] = await executor
@@ -127,11 +181,55 @@ async function countTargets(
     .from(listingTargets)
     .where(
       and(
-        inArray(listingTargets.id, otherSupplierTargets(executor, input)),
+        inArray(listingTargets.id, supplierTargets(executor, input, match)),
         inArray(listingTargets.status, [...statuses]),
       ),
     );
   return row?.total ?? 0;
+}
+
+async function previewImpact(
+  database: Database,
+  input: AssignStoreSupplierInput,
+  match: SupplierMatch,
+): Promise<StoreSupplierChangeImpact> {
+  const [livePaused, queuedStopped] = await Promise.all([
+    countTargets(database, input, match, LIVE_STATUSES),
+    countTargets(database, input, match, QUEUED_STATUSES),
+  ]);
+  return { livePaused, queuedStopped };
+}
+
+/**
+ * Pauses the reached live listings (zero stock on the marketplace, still listed in the app) and
+ * stops the queued ones with the reason. Nothing is deleted.
+ */
+async function stopTargets(
+  executor: DatabaseExecutor,
+  input: AssignStoreSupplierInput,
+  match: SupplierMatch,
+): Promise<StoreSupplierChangeImpact> {
+  await executor
+    .update(listingTargets)
+    .set({ status: "paused" })
+    .where(
+      and(
+        inArray(listingTargets.id, supplierTargets(executor, input, match)),
+        eq(listingTargets.status, "published"),
+      ),
+    );
+  const livePaused = await countTargets(executor, input, match, ["paused"]);
+  const stopped = await executor
+    .update(listingTargets)
+    .set({ status: "error", errorReason: STORE_SUPPLIER_CHANGED_MESSAGE })
+    .where(
+      and(
+        inArray(listingTargets.id, supplierTargets(executor, input, match)),
+        inArray(listingTargets.status, [...QUEUED_STATUSES]),
+      ),
+    )
+    .returning({ id: listingTargets.id });
+  return { livePaused, queuedStopped: stopped.length };
 }
 
 /** The impact of moving the shop to `supplierId`, without changing anything. */
@@ -139,17 +237,12 @@ export async function previewStoreSupplierChange(
   database: Database,
   input: AssignStoreSupplierInput,
 ): Promise<StoreSupplierChangeImpact> {
-  const [livePaused, queuedStopped] = await Promise.all([
-    countTargets(database, input, LIVE_STATUSES),
-    countTargets(database, input, QUEUED_STATUSES),
-  ]);
-  return { livePaused, queuedStopped };
+  return previewImpact(database, input, "other");
 }
 
 /**
- * Moves the shop to another supplier. Its live listings of other suppliers pause (zero stock on
- * the marketplace, still listed in the app) and its queued ones stop with the reason; nothing is
- * deleted, and switching back lets the seller resume them.
+ * Moves the shop to another supplier. Its live listings of other suppliers pause and its queued
+ * ones stop with the reason; nothing is deleted, and switching back lets the seller resume them.
  */
 export async function changeStoreSupplier(
   database: Database,
@@ -158,27 +251,42 @@ export async function changeStoreSupplier(
   return database.transaction(async (executor) => {
     await assertActiveSupplier(executor, input.supplierId);
     await linkStore(executor, input);
+    return stopTargets(executor, input, "other");
+  });
+}
+
+/** What removing `supplierId` from the shop would pause or stop, without changing anything. */
+export async function previewStoreSupplierRemoval(
+  database: Database,
+  input: AssignStoreSupplierInput,
+): Promise<StoreSupplierChangeImpact> {
+  return previewImpact(database, input, "same");
+}
+
+/**
+ * Removes `supplierId` from the suppliers the shop sells. Its live listings of that supplier pause
+ * and its queued ones stop with the reason; nothing is deleted, and adding the supplier back lets
+ * the seller resume them.
+ *
+ * @throws NOT_FOUND when the shop is not the tenant's or does not sell the supplier.
+ * @throws CONFLICT when it is the only supplier the shop sells.
+ */
+export async function removeStoreSupplier(
+  database: Database,
+  input: AssignStoreSupplierInput,
+): Promise<StoreSupplierChangeImpact> {
+  return database.transaction(async (executor) => {
+    const store = await lockStore(executor, input);
+    await assertRemovable(executor, input);
     await executor
-      .update(listingTargets)
-      .set({ status: "paused" })
+      .delete(storeSuppliers)
       .where(
         and(
-          inArray(listingTargets.id, otherSupplierTargets(executor, input)),
-          eq(listingTargets.status, "published"),
+          eq(storeSuppliers.storeConnectionId, store.id),
+          eq(storeSuppliers.supplierId, input.supplierId),
         ),
       );
-    const livePaused = await countTargets(executor, input, ["paused"]);
-    const stopped = await executor
-      .update(listingTargets)
-      .set({ status: "error", errorReason: STORE_SUPPLIER_CHANGED_MESSAGE })
-      .where(
-        and(
-          inArray(listingTargets.id, otherSupplierTargets(executor, input)),
-          inArray(listingTargets.status, [...QUEUED_STATUSES]),
-        ),
-      )
-      .returning({ id: listingTargets.id });
-    return { livePaused, queuedStopped: stopped.length };
+    return stopTargets(executor, input, "same");
   });
 }
 
