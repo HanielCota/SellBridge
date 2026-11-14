@@ -52,6 +52,7 @@
     "./stock-reservation": "./src/domain/stock-reservation.ts",
     "./marketplace-units": "./src/domain/marketplace-units.ts",
     "./catalog-availability": "./src/domain/catalog-availability.ts",
+    "./product-heat": "./src/domain/product-heat.ts",
     "./support-assistant": "./src/domain/support-assistant.ts",
     "./support-assistant-faq": "./src/domain/support-assistant-faq.ts",
     "./catalog-scope": "./src/domain/catalog-scope.ts",
