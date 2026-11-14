@@ -3,6 +3,7 @@ import {
   ArrowUpRightIcon,
   BellZIcon,
   BriefcaseIcon,
+  BugIcon,
   CubeIcon,
   BellIcon,
   CalendarBlankIcon,
@@ -52,7 +53,6 @@ import {
   PlugsIcon,
   PresentationChartIcon,
   SealCheckIcon,
-  SidebarSimpleIcon,
   PlusIcon,
   ShoppingBagIcon,
   SquaresFourIcon,
@@ -211,12 +211,11 @@ export const ACTION_ICONS = {
   },
   productReview: { icon: ClipboardTextIcon, hint: "Produtos dos fornecedores esperando análise" },
   audit: { icon: ClockCounterClockwiseIcon, hint: "Quem fez o quê na administração, e quando" },
+  problems: { icon: BugIcon, hint: "Erros que o sistema registrou, para a equipe corrigir" },
   platformSettings: {
     icon: GearSixIcon,
     hint: "A taxa do SellBridge nos pagamentos aos fornecedores",
   },
-  /** Shrinks the sidebar to its icons and back. */
-  collapseSidebar: { icon: SidebarSimpleIcon },
   /** The folded profile tabs in admin mode; the label already names the profile. */
   resellerTabs: { icon: BriefcaseIcon },
   supplierTabs: { icon: WarehouseIcon },
@@ -395,5 +394,6 @@ export const NAV_TAB_ICONS: Readonly<Record<string, ActionIconName>> = {
   "/admin/chamados/metricas": "supportMetrics",
   "/admin/fornecedores/analise": "productReview",
   "/admin/auditoria": "audit",
+  "/admin/problemas": "problems",
   "/admin/configuracoes": "platformSettings",
 };

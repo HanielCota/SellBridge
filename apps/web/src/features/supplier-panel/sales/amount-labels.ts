@@ -1,4 +1,5 @@
 import type { SupplierSalesSituation } from "@sellbridge/shared/supplier-panel-sales";
+import type { TrendPolarity } from "@/features/reports/trend-tone";
 
 /** How the home names the money and the pieces of the orders on screen. */
 export interface SupplierAmountLabels {
@@ -25,4 +26,12 @@ const LEFT_OUT: SupplierAmountLabels = {
 
 export function supplierAmountLabels(situation: SupplierSalesSituation): SupplierAmountLabels {
   return situation === "lost" ? LEFT_OUT : RECEIVED;
+}
+
+/**
+ * Whether a rise is good news for the orders on screen: more cancelled or returned orders is bad,
+ * so their tags turn red when they grow.
+ */
+export function supplierTrendPolarity(situation: SupplierSalesSituation): TrendPolarity {
+  return situation === "lost" ? "lower-is-better" : "higher-is-better";
 }

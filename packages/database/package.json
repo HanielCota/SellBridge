@@ -7,6 +7,7 @@
     ".": "./src/index.ts",
     "./schema": "./src/schema/index.ts",
     "./client": "./src/client.ts",
+    "./problem-recorder": "./src/problem-recorder.ts",
     "./repositories": "./src/repositories/index.ts",
     "./testing/shipment-invoice": "./src/testing/shipment-invoice-fixtures.ts"
   },

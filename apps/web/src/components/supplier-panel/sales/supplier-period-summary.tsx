@@ -4,9 +4,9 @@ import {
   BEST_BUCKET_LEAD,
   bestBucketLabel,
   reason,
+  SentenceTag,
   sentenceReais,
   Strong,
-  Tone,
   withPeriod,
 } from "@/components/reports/period-summary";
 import {
@@ -14,6 +14,7 @@ import {
   explainRevenue,
   OFF_SCALE_PERCENT,
 } from "@/features/reports/dashboard-insights";
+import { trendTagParts } from "@/features/reports/trend-tone";
 
 interface Totals {
   receivableCents: number;
@@ -30,8 +31,6 @@ interface SupplierPeriodSummaryProps {
   situation: SupplierSalesSituation;
 }
 
-const wholePercent = new Intl.NumberFormat("pt-BR", { maximumFractionDigits: 0 });
-
 /** "12% a mais que no anterior: foram 22% mais vendas." — the reseller's two levers. */
 function Change({ current, previous }: { current: Totals; previous: Totals }) {
   const story = explainRevenue(
@@ -42,21 +41,16 @@ function Change({ current, previous }: { current: Totals; previous: Totals }) {
     return <>.</>;
   }
   const up = story.revenue > 0;
+  const tag = (
+    <SentenceTag parts={trendTagParts(current.receivableCents, previous.receivableCents)} />
+  );
   if (Math.abs(story.revenue) >= OFF_SCALE_PERCENT) {
-    return (
-      <>
-        , <Tone up>mais de 10 vezes</Tone> o do período anterior.
-      </>
-    );
+    return <>, {tag} o do período anterior.</>;
   }
   const why = reason(story.orders, story.ticket);
   return (
     <>
-      ,{" "}
-      <Tone up={up}>
-        {wholePercent.format(Math.abs(story.revenue))}% a {up ? "mais" : "menos"}
-      </Tone>{" "}
-      que no anterior{why ? `:${why}` : "."}
+      , {tag} a {up ? "mais" : "menos"} que no anterior{why ? `:${why}` : "."}
     </>
   );
 }

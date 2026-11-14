@@ -65,6 +65,7 @@ interface TestProductInput {
   costCents: number;
   suggestedPriceCents: number;
   stock?: number;
+  imageUrls?: string[];
 }
 
 /** Creates a throwaway supplier with one product; cleanup removes both. */
