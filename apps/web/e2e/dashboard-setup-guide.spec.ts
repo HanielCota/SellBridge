@@ -27,14 +27,18 @@ test.describe("guia de configuração na visão geral", () => {
     await expect(page.getByRole("heading", { name: "Precisa de você" })).toBeVisible();
   });
 
-  test("minimiza o guia, lembra depois de recarregar e maximiza de novo", async ({ page }) => {
+  test("esconde os passos pela seta do título, lembra depois de recarregar e mostra de novo", async ({
+    page,
+  }) => {
     await signUp(page, "Revendedora Guia Oculto");
     await gotoHydrated(page, "/dashboard");
 
-    await setupGuide(page).getByRole("button", { name: "Minimizar" }).click();
+    await setupGuide(page)
+      .getByRole("button", { name: /Esconder os passos/ })
+      .click();
 
     await expect(setupGuide(page)).toHaveCount(0);
-    const maximize = setupStrip(page).getByRole("button", { name: "Maximizar" });
+    const maximize = setupStrip(page).getByRole("button", { name: /Mostrar os passos/ });
     await expect(maximize).toBeFocused();
 
     await gotoHydrated(page, "/dashboard");
@@ -44,7 +48,9 @@ test.describe("guia de configuração na visão geral", () => {
     await maximize.click();
 
     await expect(setupGuide(page)).toBeVisible();
-    await expect(setupGuide(page).getByRole("button", { name: "Minimizar" })).toBeFocused();
+    await expect(
+      setupGuide(page).getByRole("button", { name: /Esconder os passos/ }),
+    ).toBeFocused();
     await gotoHydrated(page, "/dashboard");
     await expect(setupGuide(page)).toBeVisible();
     await expect(setupStrip(page)).toHaveCount(0);
@@ -56,7 +62,9 @@ test.describe("guia de configuração na visão geral", () => {
   test("o guia minimizado vale antes de a página terminar de carregar", async ({ page }) => {
     await signUp(page, "Revendedora Sem Pulo");
     await gotoHydrated(page, "/dashboard");
-    await setupGuide(page).getByRole("button", { name: "Minimizar" }).click();
+    await setupGuide(page)
+      .getByRole("button", { name: /Esconder os passos/ })
+      .click();
     await expect(setupStrip(page)).toBeVisible();
 
     await page.route("**/*", (route) =>

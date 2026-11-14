@@ -1,14 +1,10 @@
-import {
-  ArrowRightIcon,
-  ArrowsInSimpleIcon,
-  ArrowsOutSimpleIcon,
-  CheckIcon,
-} from "@phosphor-icons/react";
+import { ArrowRightIcon, CaretDownIcon, CaretUpIcon, CheckIcon } from "@phosphor-icons/react";
 import { Link } from "@tanstack/react-router";
 import { useCallback, useRef, type ReactNode, type Ref } from "react";
 import { cn } from "@/lib/utils";
 import { ResendVerificationButton } from "@/components/onboarding/resend-verification-button";
 import { Button } from "@/components/ui/button";
+import { Hint } from "@/components/ui/hint";
 import {
   countDoneSteps,
   findNextStep,
@@ -26,7 +22,7 @@ function ProgressBar({ progress }: { progress: SetupProgress }) {
   const done = countDoneSteps(progress);
   const percent = setupPercent(progress);
   return (
-    <div className="flex items-center gap-3">
+    <span className="flex items-center gap-3">
       <progress
         className="h-1.5 flex-1 appearance-none overflow-hidden rounded-full bg-muted [&::-moz-progress-bar]:bg-brand [&::-webkit-progress-bar]:bg-muted [&::-webkit-progress-value]:rounded-full [&::-webkit-progress-value]:bg-brand"
         aria-label="Configuração da conta"
@@ -35,9 +31,14 @@ function ProgressBar({ progress }: { progress: SetupProgress }) {
         value={done}
       />
       <span className="text-xs text-muted-foreground tabular-nums">{percent}%</span>
-    </div>
+    </span>
   );
 }
+
+const HIDE_STEPS_LABEL = "Esconder os passos";
+const SHOW_STEPS_LABEL = "Mostrar os passos";
+const TOGGLE_FOCUS_CLASS_NAME =
+  "rounded-2xl outline-none focus-visible:ring-3 focus-visible:ring-ring/40";
 
 const STEP_ACTION_CLASS_NAME = "h-auto min-h-9 w-fit max-w-full py-2 text-center whitespace-normal";
 
@@ -149,6 +150,30 @@ interface GuideToggleProps {
   toggleRef?: Ref<HTMLButtonElement> | undefined;
 }
 
+/** The guide's title is its fold button, so the arrow never stands alone without words. */
+function GuideTitleToggle({ onToggle, toggleRef }: GuideToggleProps) {
+  return (
+    <h2 className="text-xl font-semibold tracking-tight sm:text-2xl">
+      <Hint label={HIDE_STEPS_LABEL} openOnTap={false}>
+        <button
+          ref={toggleRef}
+          type="button"
+          aria-expanded={true}
+          onClick={onToggle}
+          className={cn(
+            "-m-1 flex w-full items-center justify-between gap-3 p-1 text-left",
+            TOGGLE_FOCUS_CLASS_NAME,
+          )}
+        >
+          <span id="setup-title">Falta pouco para sua primeira venda</span>
+          <span className="sr-only">{HIDE_STEPS_LABEL}</span>
+          <CaretUpIcon className="size-5 shrink-0 text-muted-foreground" aria-hidden="true" />
+        </button>
+      </Hint>
+    </h2>
+  );
+}
+
 /** The dashboard's guide while the setup is not done: progress and the one next step in focus. */
 function SetupGuide({
   progress,
@@ -163,28 +188,14 @@ function SetupGuide({
     >
       <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_320px] lg:items-end">
         <div className="space-y-2">
-          <h2 id="setup-title" className="text-xl font-semibold tracking-tight sm:text-2xl">
-            Falta pouco para sua primeira venda
-          </h2>
+          <GuideTitleToggle onToggle={onToggle} toggleRef={toggleRef} />
           <p className="text-sm text-muted-foreground">
             {SETUP_STEPS.length} passos e suas vendas começam a aparecer nos números abaixo.
           </p>
         </div>
         <div className="space-y-2">
+          <p className="text-xs text-muted-foreground">{setupEtaLabel(progress)}</p>
           <ProgressBar progress={progress} />
-          <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1">
-            <p className="text-xs text-muted-foreground">{setupEtaLabel(progress)}</p>
-            <Button
-              ref={toggleRef}
-              variant="ghost"
-              className="-mr-3"
-              aria-expanded={true}
-              onClick={onToggle}
-            >
-              <ArrowsInSimpleIcon aria-hidden="true" />
-              Minimizar
-            </Button>
-          </div>
         </div>
       </div>
       <ol className="grid gap-3 md:grid-cols-2 xl:grid-cols-5">
@@ -252,6 +263,43 @@ export function DashboardSetupGuide({ progress }: { progress: SetupProgress }) {
   );
 }
 
+/** On the dashboard the whole strip unfolds the guide; the next step keeps its own button. */
+function StripToggle({
+  onToggle,
+  toggleRef,
+  text,
+  bar,
+}: GuideToggleProps & { text: ReactNode; bar: ReactNode }) {
+  return (
+    <Hint label={SHOW_STEPS_LABEL} openOnTap={false}>
+      <button
+        ref={toggleRef}
+        type="button"
+        aria-expanded={false}
+        onClick={onToggle}
+        className={cn(
+          "-m-1 flex min-w-0 flex-1 flex-col gap-3 p-1 text-left sm:flex-row sm:items-center",
+          TOGGLE_FOCUS_CLASS_NAME,
+        )}
+      >
+        <span className="flex items-start justify-between gap-3 sm:contents">
+          {text}
+          <CaretDownIcon
+            className="size-5 shrink-0 text-muted-foreground sm:hidden"
+            aria-hidden="true"
+          />
+        </span>
+        {bar}
+        <span className="sr-only">{SHOW_STEPS_LABEL}</span>
+        <CaretDownIcon
+          className="hidden size-5 shrink-0 text-muted-foreground sm:ml-auto sm:block"
+          aria-hidden="true"
+        />
+      </button>
+    </Hint>
+  );
+}
+
 /**
  * A thin reminder on other pages until the setup is done. On the dashboard it is the minimized
  * guide, with the button that brings the whole guide back.
@@ -265,28 +313,34 @@ export function SetupStrip({
   if (!next) {
     return null;
   }
+  const text = (
+    <span className="block text-sm">
+      <span className="text-muted-foreground tabular-nums">
+        Configuração {setupPercent(progress)}% · ~{remainingSetupMinutes(progress)} min ·
+      </span>{" "}
+      Próximo passo: <span className="font-medium">{next.title.toLowerCase()}</span>
+    </span>
+  );
+  const bar = (
+    <span className="block flex-1 sm:max-w-48">
+      <ProgressBar progress={progress} />
+    </span>
+  );
   return (
     <aside
       aria-label="Configuração da conta"
       className="surface-card flex flex-col gap-3 rounded-3xl bg-card px-5 py-3 sm:flex-row sm:items-center"
     >
-      <p className="text-sm">
-        <span className="text-muted-foreground tabular-nums">
-          Configuração {setupPercent(progress)}% · ~{remainingSetupMinutes(progress)} min ·
-        </span>{" "}
-        Próximo passo: <span className="font-medium">{next.title.toLowerCase()}</span>
-      </p>
-      <div className="flex-1 sm:max-w-48">
-        <ProgressBar progress={progress} />
-      </div>
+      {onToggle === undefined ? (
+        <>
+          {text}
+          {bar}
+        </>
+      ) : (
+        <StripToggle onToggle={onToggle} toggleRef={toggleRef} text={text} bar={bar} />
+      )}
       <div className="flex flex-wrap gap-2 sm:ml-auto">
         <StepAction step={next} />
-        {onToggle === undefined ? null : (
-          <Button ref={toggleRef} variant="outline" aria-expanded={false} onClick={onToggle}>
-            <ArrowsOutSimpleIcon aria-hidden="true" />
-            Maximizar
-          </Button>
-        )}
       </div>
     </aside>
   );
