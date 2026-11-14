@@ -79,6 +79,20 @@ export function parseCsvMoney(input: string): number | null {
   return cents;
 }
 
+/**
+ * 123456 → "1234,56": what `parseCsvMoney` reads back. No thousands separator, since the import
+ * refuses one ("1.234" could be 1234 or 1,234).
+ *
+ * @throws {Error} When `cents` is not a non-negative safe integer.
+ */
+export function formatCsvMoney(cents: number): string {
+  if (!Number.isSafeInteger(cents) || cents < 0) {
+    throw new Error(`Money in cents must be a non-negative integer, got ${cents}`);
+  }
+  const fraction = String(cents % 100).padStart(2, "0");
+  return `${Math.floor(cents / 100)},${fraction}`;
+}
+
 function finishRecord(cursor: CsvCursor): CsvCursor {
   const fields = [...cursor.fields, cursor.field.trim()];
   const record = { line: cursor.startLine, fields, error: cursor.error };
