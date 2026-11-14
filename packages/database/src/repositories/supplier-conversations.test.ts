@@ -1,7 +1,7 @@
 import { randomUUID } from "node:crypto";
 import { inArray } from "drizzle-orm";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
-import { storeConnections, suppliers } from "../schema/index.ts";
+import { storeConnections, storeSuppliers, suppliers } from "../schema/index.ts";
 import { createTestDatabase, createTestTenants, createTestUsers } from "../testing/fixtures.ts";
 import {
   addTicketMessage,
@@ -63,11 +63,15 @@ async function insertStore(tenantId: string, shopName: string, supplier: string 
       marketplace: "mock",
       externalShopId: randomUUID(),
       shopName,
-      supplierId: supplier,
     })
     .returning({ id: storeConnections.id });
   if (row === undefined) {
     throw new Error("loja não criada");
+  }
+  if (supplier !== null) {
+    await database
+      .insert(storeSuppliers)
+      .values({ storeConnectionId: row.id, supplierId: supplier });
   }
   return row.id;
 }

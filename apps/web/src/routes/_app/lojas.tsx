@@ -273,7 +273,7 @@ function supplierLabels(suppliers: readonly StoreSupplier[] | undefined) {
 /** Shops connected before the one-supplier rule, or whose supplier was deleted, wait for one. */
 function PendingSupplierNotice({ stores }: { stores: readonly StoreWithActivity[] }) {
   const pending = stores.filter(
-    (store) => store.supplierId === null && store.status !== "disconnected",
+    (store) => store.supplierIds.length === 0 && store.status !== "disconnected",
   ).length;
   if (pending === 0) {
     return null;
@@ -293,7 +293,11 @@ function PendingSupplierNotice({ stores }: { stores: readonly StoreWithActivity[
 }
 
 function supplierTargetOf(store: StoreWithActivity): StoreSupplierTarget {
-  return { storeId: store.id, storeName: store.shopName, currentSupplierId: store.supplierId };
+  return {
+    storeId: store.id,
+    storeName: store.shopName,
+    currentSupplierId: store.supplierIds[0] ?? null,
+  };
 }
 
 function StoresContent() {

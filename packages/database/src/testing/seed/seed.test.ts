@@ -24,6 +24,7 @@ import {
   tickets,
   user,
 } from "../../schema/index.ts";
+import { storeSupplierIds } from "../../repositories/sql/store-supplier-match.ts";
 import { runSeed } from "./run.ts";
 
 /** Migrations, catalog and ~6 months of sales for several accounts, twice. */
@@ -54,7 +55,7 @@ async function tenantOf(email: string): Promise<string> {
 
 async function storesOf(tenantId: string) {
   return database
-    .select({ status: storeConnections.status, supplierId: storeConnections.supplierId })
+    .select({ status: storeConnections.status, supplierIds: storeSupplierIds(storeConnections.id) })
     .from(storeConnections)
     .where(eq(storeConnections.tenantId, tenantId));
 }
@@ -92,9 +93,9 @@ describe("seed", { timeout: SEED_TEST_TIMEOUT }, () => {
     const tenantId = await tenantOf("admin@sellbridge.local");
     const stores = await storesOf(tenantId);
     expect(stores.length).toBeGreaterThanOrEqual(1);
-    expect(stores.every((store) => store.status === "connected" && store.supplierId !== null)).toBe(
-      true,
-    );
+    expect(
+      stores.every((store) => store.status === "connected" && store.supplierIds.length > 0),
+    ).toBe(true);
     const [listingTotal] = await database
       .select({ total: count() })
       .from(listings)

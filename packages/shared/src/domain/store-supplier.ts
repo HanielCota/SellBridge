@@ -1,19 +1,19 @@
 /**
- * Each marketplace shop sells a single supplier's products. A shop connected before this rule,
- * whose listings mixed suppliers, has no supplier yet ("pending") and takes no new publications
- * until the seller picks one; its existing listings keep selling.
+ * Each marketplace shop sells the products of the suppliers linked to it. A shop connected before
+ * the one-supplier rule, whose listings mixed suppliers, has none yet ("pending") and takes no new
+ * publications until the seller picks one; its existing listings keep selling.
  */
 export type StoreSupplierRefusal = "supplier_pending" | "other_supplier";
 
 /** Why a product cannot be published in a shop, or null when the shop sells its supplier. */
 export function storeSupplierRefusal(
-  storeSupplierId: string | null,
+  storeSupplierIds: readonly string[],
   productSupplierId: string,
 ): StoreSupplierRefusal | null {
-  if (storeSupplierId === null) {
+  if (storeSupplierIds.length === 0) {
     return "supplier_pending";
   }
-  if (storeSupplierId !== productSupplierId) {
+  if (!storeSupplierIds.includes(productSupplierId)) {
     return "other_supplier";
   }
   return null;

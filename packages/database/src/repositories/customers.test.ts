@@ -7,6 +7,7 @@ import {
   organization,
   session,
   storeConnections,
+  storeSuppliers,
   tickets,
   user,
 } from "../schema/index.ts";
@@ -189,9 +190,8 @@ describe("customers", () => {
       ).toEqual([]);
     } finally {
       await database
-        .update(storeConnections)
-        .set({ supplierId: null })
-        .where(eq(storeConnections.tenantId, tenantId));
+        .delete(storeSuppliers)
+        .where(eq(storeSuppliers.supplierId, catalog.supplierId));
       await catalog.cleanup();
     }
   });

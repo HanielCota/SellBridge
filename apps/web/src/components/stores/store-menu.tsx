@@ -111,7 +111,7 @@ function TalkToSupportItem({ storeId, storeName }: { storeId: string; storeName:
 
 /** Opens a conversation with this store's supplier; a store without one has nobody to talk to. */
 function TalkToSupplierItem({ store }: { store: StoreWithActivity }) {
-  if (store.supplierId === null) {
+  if (store.supplierIds.length === 0) {
     return null;
   }
   return (
@@ -162,7 +162,7 @@ function StoreMenuEntries({
         <MenuTile tone="supplier">
           <ArrowsLeftRightIcon weight="bold" />
         </MenuTile>
-        {store.supplierId === null ? "Escolher fornecedor" : "Trocar fornecedor"}
+        {store.supplierIds.length === 0 ? "Escolher fornecedor" : "Trocar fornecedor"}
       </DropdownMenuItem>
       <TalkToSupportItem storeId={store.id} storeName={storeName} />
       <TalkToSupplierItem store={store} />

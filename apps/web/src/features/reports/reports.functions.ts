@@ -52,7 +52,7 @@ async function loadOnboardingState(
     hasSupplier: isProductSourceSetupComplete(
       profile.productSourceMode,
       profile.starterSupplier?.active === true,
-      stores.some((store) => store.supplierId !== null),
+      stores.some((store) => store.supplierIds.length > 0),
     ),
     productSourceMode: profile.productSourceMode,
     // An account that already has a store is past this step; /lojas explains it for a new one.

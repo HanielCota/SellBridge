@@ -53,7 +53,7 @@ function liveUnits(row: TargetForPublishing, settings: SentUnitsSettings) {
   if (unavailableReason(row.availability) !== null) return 0;
   if (
     row.source.catalogKind === "supplier" &&
-    storeSupplierRefusal(row.store.supplierId, row.product.supplierId) === "other_supplier"
+    storeSupplierRefusal(row.storeSupplierIds, row.product.supplierId) === "other_supplier"
   )
     return 0;
   return unitsToSend(row, settings);

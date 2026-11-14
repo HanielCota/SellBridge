@@ -131,9 +131,9 @@ function customerColumns(now: Date) {
       ),
     previousOrders: sql`(select count(*) from orders o where ${previousOrders})`.mapWith(Number),
     hasHolder: sql<boolean>`coalesce(${tenantProfile.cpf} is not null and ${tenantProfile.fullName} is not null, false)`,
-    hasSupplier: sql<boolean>`(${tenantProfile.starterSupplierId} is not null or exists (select 1 from store_connections s where s.tenant_id = ${tenantId} and s.status <> 'disconnected' and s.supplier_id is not null))`,
+    hasSupplier: sql<boolean>`(${tenantProfile.starterSupplierId} is not null or exists (select 1 from store_connections s join store_suppliers ss on ss.store_connection_id = s.id where s.tenant_id = ${tenantId} and s.status <> 'disconnected'))`,
     stores:
-      sql`(select coalesce(json_agg(json_build_object('marketplace', s.marketplace, 'shopName', s.shop_name, 'status', s.status, 'supplierName', f.name) order by s.shop_name), '[]'::json) from store_connections s left join suppliers f on f.id = s.supplier_id where s.tenant_id = ${tenantId} and s.status <> 'disconnected')`.mapWith(
+      sql`(select coalesce(json_agg(json_build_object('marketplace', s.marketplace, 'shopName', s.shop_name, 'status', s.status, 'supplierName', (select string_agg(f.name, ', ' order by f.name) from store_suppliers ss join suppliers f on f.id = ss.supplier_id where ss.store_connection_id = s.id)) order by s.shop_name), '[]'::json) from store_connections s where s.tenant_id = ${tenantId} and s.status <> 'disconnected')`.mapWith(
         parseStores,
       ),
     waitingTickets:
@@ -162,8 +162,9 @@ function customerSupplier(supplierId: string | undefined): SQL | undefined {
     where m.user_id = ${user.id} and m.role = 'owner'
       and (tp.starter_supplier_id = ${supplierId} or exists (
         select 1 from store_connections s
+        join store_suppliers ss on ss.store_connection_id = s.id
         where s.tenant_id = m.organization_id and s.status <> 'disconnected'
-          and s.supplier_id = ${supplierId}
+          and ss.supplier_id = ${supplierId}
       ))
   )`;
 }

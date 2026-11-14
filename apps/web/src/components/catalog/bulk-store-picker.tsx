@@ -10,11 +10,11 @@ export interface PublishStore {
   id: string;
   shopName: string;
   marketplace: string;
-  /** Each store sells a single supplier; null while the seller has not picked one. */
-  supplierId: string | null;
+  /** The suppliers the store sells; empty while the seller has not picked one. */
+  supplierIds: readonly string[];
 }
 
-/** Own products fit every store; external products must share its selected supplier. */
+/** Own products fit every store; external products need their suppliers sold by the store. */
 export function storesForProducts(
   products: readonly Pick<SellableCatalogProduct, "catalogKind" | "supplierId">[],
   stores: readonly PublishStore[],
@@ -26,11 +26,9 @@ export function storesForProducts(
       .map((product) => product.supplierId),
   );
   if (supplierIds.size === 0) return [...stores];
-  const [only] = supplierIds;
-  if (supplierIds.size !== 1 || only === undefined) {
-    return [];
-  }
-  return stores.filter((store) => store.supplierId === only);
+  return stores.filter((store) =>
+    [...supplierIds].every((supplierId) => store.supplierIds.includes(supplierId)),
+  );
 }
 
 /** "Loja Lote" when one store is on, "3 de 5 lojas" otherwise. */

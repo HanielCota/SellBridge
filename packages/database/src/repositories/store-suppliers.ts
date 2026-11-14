@@ -13,10 +13,12 @@ import {
   listings,
   listingTargets,
   storeConnections,
+  storeSuppliers,
   supplierProducts,
   suppliers,
 } from "../schema/index.ts";
 import { catalogVisibleTo, publicSupplier } from "./sql/sellable.ts";
+import { storeSupplierIds } from "./sql/store-supplier-match.ts";
 
 type ListingTargetStatus = (typeof listingTargets.$inferSelect)["status"];
 
@@ -42,21 +44,24 @@ export async function assertActiveSupplier(
 }
 
 /**
- * Links a shop of the tenant to the one supplier it sells. Moving the shop's existing listings
- * off the previous supplier is the caller's job (it shows the impact first).
+ * Makes `supplierId` the one supplier the shop sells, in place of the ones it had. Moving the
+ * shop's existing listings off the previous supplier is the caller's job (it shows the impact
+ * first).
  */
 export async function assignStoreSupplier(
   database: Database,
   input: AssignStoreSupplierInput,
 ): Promise<void> {
-  await assertActiveSupplier(database, input.supplierId);
-  await linkStore(database, input);
+  await database.transaction(async (executor) => {
+    await assertActiveSupplier(executor, input.supplierId);
+    await linkStore(executor, input);
+  });
 }
 
 async function linkStore(executor: DatabaseExecutor, input: AssignStoreSupplierInput) {
-  const updated = await executor
-    .update(storeConnections)
-    .set({ supplierId: input.supplierId })
+  const [store] = await executor
+    .select({ id: storeConnections.id })
+    .from(storeConnections)
     .where(
       and(
         eq(storeConnections.id, input.storeConnectionId),
@@ -64,10 +69,23 @@ async function linkStore(executor: DatabaseExecutor, input: AssignStoreSupplierI
         ne(storeConnections.status, "disconnected"),
       ),
     )
-    .returning({ id: storeConnections.id });
-  if (updated.length === 0) {
+    .for("update")
+    .limit(1);
+  if (store === undefined) {
     throw notFoundError("Loja não encontrada");
   }
+  await executor
+    .delete(storeSuppliers)
+    .where(
+      and(
+        eq(storeSuppliers.storeConnectionId, store.id),
+        ne(storeSuppliers.supplierId, input.supplierId),
+      ),
+    );
+  await executor
+    .insert(storeSuppliers)
+    .values({ storeConnectionId: store.id, supplierId: input.supplierId })
+    .onConflictDoNothing();
 }
 
 /** What moving a shop to another supplier does to the publications it has today. */
@@ -166,7 +184,7 @@ export async function changeStoreSupplier(
 
 /**
  * Refuses publishing a product of `supplierId` in any of the given shops unless each one sells
- * exactly that supplier. Shops of other tenants are ignored here: the caller already narrowed
+ * that supplier. Shops of other tenants are ignored here: the caller already narrowed
  * the list to the tenant's connected shops.
  */
 export async function assertStoresSellSupplier(
@@ -189,7 +207,7 @@ export async function assertStoresSellSupplier(
     return;
   }
   const stores = await executor
-    .select({ supplierId: storeConnections.supplierId })
+    .select({ supplierIds: storeSupplierIds(storeConnections.id) })
     .from(storeConnections)
     .where(
       and(
@@ -198,7 +216,7 @@ export async function assertStoresSellSupplier(
       ),
     );
   for (const store of stores) {
-    const refusal = storeSupplierRefusal(store.supplierId, supplierId);
+    const refusal = storeSupplierRefusal(store.supplierIds, supplierId);
     if (refusal !== null) {
       throw conflictError(storeSupplierRefusalMessage(refusal));
     }

@@ -4,8 +4,8 @@ import { resolveCatalogScope } from "./catalog-scope.ts";
 const SUPPLIER_X = "00000000-0000-4000-8000-00000000000a";
 const SUPPLIER_Y = "00000000-0000-4000-8000-00000000000b";
 const STARTER = "00000000-0000-4000-8000-00000000000c";
-const STORE_ONE = { id: "10000000-0000-4000-8000-000000000001", supplierId: SUPPLIER_X };
-const STORE_TWO = { id: "10000000-0000-4000-8000-000000000002", supplierId: SUPPLIER_Y };
+const STORE_ONE = { id: "10000000-0000-4000-8000-000000000001", supplierIds: [SUPPLIER_X] };
+const STORE_TWO = { id: "10000000-0000-4000-8000-000000000002", supplierIds: [SUPPLIER_Y] };
 
 // MVP function 1: the catalog shows only the supplier of the chosen store.
 describe("catalog scope", () => {
@@ -49,7 +49,7 @@ describe("catalog scope", () => {
   });
 
   it("keeps a store without a supplier empty, never falling back to the starter supplier", () => {
-    const orphan = { id: "10000000-0000-4000-8000-000000000003", supplierId: null };
+    const orphan = { id: "10000000-0000-4000-8000-000000000003", supplierIds: [] };
     expect(resolveCatalogScope([orphan, STORE_TWO], STARTER, orphan.id)).toEqual({
       kind: "store",
       storeId: orphan.id,

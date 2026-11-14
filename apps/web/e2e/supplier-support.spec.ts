@@ -5,6 +5,7 @@ import {
   adminAuditEvents,
   member,
   storeConnections,
+  storeSuppliers,
   suppliers,
   user,
 } from "@sellbridge/database/schema";
@@ -45,13 +46,12 @@ async function brandOf(email: string, name: string): Promise<string> {
 
 /** A connected store selling that brand, as the store page would leave it. */
 async function storeSelling(tenantId: string, supplierId: string, shopName: string) {
-  await database.insert(storeConnections).values({
-    tenantId,
-    marketplace: "mock",
-    externalShopId: randomUUID(),
-    shopName,
-    supplierId,
-  });
+  const [store] = await database
+    .insert(storeConnections)
+    .values({ tenantId, marketplace: "mock", externalShopId: randomUUID(), shopName })
+    .returning({ id: storeConnections.id });
+  if (store === undefined) throw new Error("Store missing");
+  await database.insert(storeSuppliers).values({ storeConnectionId: store.id, supplierId });
 }
 
 async function newPage(browser: Browser): Promise<Page> {

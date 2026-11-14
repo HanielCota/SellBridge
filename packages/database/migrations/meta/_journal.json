@@ -505,6 +505,13 @@
       "when": 1794606582179,
       "tag": "0071_problem_events",
       "breakpoints": true
+    },
+    {
+      "idx": 72,
+      "version": "7",
+      "when": 1794618534573,
+      "tag": "0072_store_suppliers",
+      "breakpoints": true
     }
   ]
 }

@@ -1,10 +1,12 @@
 /**
  * Whose products the reseller's catalog shows (MVP function 1). The platform sells only supplier
- * products and every store sells exactly one supplier, so the catalog follows the chosen store.
+ * products and the catalog follows the chosen store's supplier, its oldest one while the catalog
+ * still shows one supplier at a time.
  */
 export interface CatalogScopeStore {
   id: string;
-  supplierId: string | null;
+  /** Oldest link first; empty while the store is pending. */
+  supplierIds: readonly string[];
 }
 
 export type CatalogScope =
@@ -28,5 +30,5 @@ export function resolveCatalogScope(
     return { kind: "starter", storeId: null, supplierId: starterSupplierId };
   }
   const chosen = stores.find((store) => store.id === requestedStoreId) ?? first;
-  return { kind: "store", storeId: chosen.id, supplierId: chosen.supplierId };
+  return { kind: "store", storeId: chosen.id, supplierId: chosen.supplierIds[0] ?? null };
 }

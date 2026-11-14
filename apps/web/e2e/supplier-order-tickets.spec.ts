@@ -5,6 +5,7 @@ import {
   orders,
   orderShipments,
   storeConnections,
+  storeSuppliers,
   user,
 } from "@sellbridge/database/schema";
 import { eq } from "drizzle-orm";
@@ -39,9 +40,10 @@ async function tenantOf(email: string): Promise<string> {
 async function shippedSale(tenantId: string, supplierId: string, shopName: string) {
   const [store] = await database
     .insert(storeConnections)
-    .values({ tenantId, marketplace: "mock", externalShopId: randomUUID(), shopName, supplierId })
+    .values({ tenantId, marketplace: "mock", externalShopId: randomUUID(), shopName })
     .returning({ id: storeConnections.id });
   if (store === undefined) throw new Error("Store missing");
+  await database.insert(storeSuppliers).values({ storeConnectionId: store.id, supplierId });
   const [order] = await database
     .insert(orders)
     .values({

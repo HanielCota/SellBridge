@@ -326,9 +326,8 @@ describe("publish-listing processor", () => {
     const tenantId = tenants.first;
     const store = await createTestStore(environment, tenantId, "connected");
     await database
-      .update(schema.storeConnections)
-      .set({ supplierId: other.supplierId })
-      .where(eq(schema.storeConnections.id, store.id));
+      .insert(schema.storeSuppliers)
+      .values({ storeConnectionId: store.id, supplierId: other.supplierId });
     const targetId = await createTestTarget(database, {
       tenantId,
       productId: catalog.productId,

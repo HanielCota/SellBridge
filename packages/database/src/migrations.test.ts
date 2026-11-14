@@ -352,6 +352,42 @@ describe("migrations", { timeout: MIGRATION_TEST_TIMEOUT }, () => {
     ]);
   });
 
+  it("store_suppliers keeps each shop's supplier and leaves pending shops without one", async () => {
+    const migration = journal.entries.find((entry) => entry.tag.endsWith("_store_suppliers"));
+    if (migration === undefined) throw new Error("store_suppliers migration missing");
+    const url = await throwawayDatabase();
+    await applyMigrationsUpTo(url, migration.idx - 1);
+    await withClient(url, async (sql) => {
+      await sql`
+        insert into organization (id, name, slug, created_at)
+        values ('org-shops', 'Loja', 'loja-shops', now())`;
+      await sql`
+        insert into suppliers (id, name, niche, state, city)
+        values ('00000000-0000-4000-8000-000000000072', 'Fornecedor', 'Moda', 'SP', 'São Paulo')`;
+      await sql`
+        insert into store_connections (id, tenant_id, marketplace, external_shop_id, shop_name, supplier_id, connected_at) values
+          ('00000000-0000-4000-8000-000000000001', 'org-shops', 'mercado_livre', 'shop-1', 'Com fornecedor',
+            '00000000-0000-4000-8000-000000000072', '2026-03-01T00:00:00Z'),
+          ('00000000-0000-4000-8000-000000000002', 'org-shops', 'mercado_livre', 'shop-2', 'Pendente',
+            null, '2026-03-01T00:00:00Z')`;
+    });
+
+    await runMigrator(url);
+
+    const links = await withClient(
+      url,
+      (sql) => sql<{ store: string; supplier: string; created_at: Date }[]>`
+        select store_connection_id as store, supplier_id as supplier, created_at from store_suppliers`,
+    );
+    expect(links).toEqual([
+      {
+        store: "00000000-0000-4000-8000-000000000001",
+        supplier: "00000000-0000-4000-8000-000000000072",
+        created_at: new Date("2026-03-01T00:00:00Z"),
+      },
+    ]);
+  });
+
   it("0069 takes emojis out of stored descriptions exactly as the app does", async () => {
     const url = await throwawayDatabase();
     await applyMigrationsUpTo(url, 68);

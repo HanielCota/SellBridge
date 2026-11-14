@@ -1,7 +1,14 @@
 import { randomUUID } from "node:crypto";
 import { eq, inArray } from "drizzle-orm";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
-import { orderShipments, orders, storeConnections, suppliers, tickets } from "../schema/index.ts";
+import {
+  orderShipments,
+  orders,
+  storeConnections,
+  storeSuppliers,
+  suppliers,
+  tickets,
+} from "../schema/index.ts";
 import {
   createTestDatabase,
   createTestTenants,
@@ -122,13 +129,13 @@ beforeAll(async () => {
       marketplace: "mock",
       externalShopId: randomUUID(),
       shopName: "Loja Centro",
-      supplierId,
     })
     .returning({ id: storeConnections.id });
   if (store === undefined) {
     throw new Error("store not created");
   }
   storeId = store.id;
+  await database.insert(storeSuppliers).values({ storeConnectionId: storeId, supplierId });
   const orderId = await insertOrderWithShipment();
   cancellationId = await openConversation({
     topic: "cancellation",
