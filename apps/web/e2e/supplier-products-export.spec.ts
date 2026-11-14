@@ -80,7 +80,7 @@ test("o fornecedor baixa os próprios produtos pelo menu e reenvia a planilha se
   await expect(page.getByText(`Planilha baixada: ${download.suggestedFilename()}`)).toBeVisible();
   const file = await download.path();
   const csv = await readFile(file, "utf8");
-  const lines = csv.replace(/^﻿/, "").split("\r\n");
+  const lines = csv.replace(/^\uFEFF/, "").split("\r\n");
   expect(lines[0]).toMatch(/^sku;titulo;descricao;custo;estoque;/);
   expect(lines.filter((line) => line.startsWith("E2E-EXP-"))).toEqual([
     `${OWN_SKUS[0]};Saia plissada midi - Rosa;;1234,56;12;;;sim;2499,90;;;;;;;;62045200;0;UN;;;;;;`,
@@ -89,13 +89,11 @@ test("o fornecedor baixa os próprios produtos pelo menu e reenvia a planilha se
   expect(csv).not.toContain(FOREIGN_SKU);
 
   await gotoHydrated(page, "/fornecedor/painel/importar");
-  await page
-    .locator('input[type="file"]')
-    .setInputFiles({
-      name: download.suggestedFilename(),
-      mimeType: "text/csv",
-      buffer: Buffer.from(csv),
-    });
+  await page.locator('input[type="file"]').setInputFiles({
+    name: download.suggestedFilename(),
+    mimeType: "text/csv",
+    buffer: Buffer.from(csv),
+  });
 
   await expect(page.getByRole("heading", { name: /2 válidas, 0 com erro/ })).toBeVisible();
   await expect(page.getByText("Sem erros", { exact: true })).toBeVisible();
