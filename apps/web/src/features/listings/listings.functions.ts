@@ -1,6 +1,7 @@
 import { billingConfigured } from "@/features/billing/stripe.server";
 import {
   requestDescriptionResend,
+  countRecentUnitsSold,
   getSellableCatalogProduct,
   listListingOverview,
   listStoreConnections,
@@ -31,11 +32,16 @@ export const getNewListingData = createServerFn({ method: "GET" })
   .middleware([tenantMiddleware])
   .validator(z.object({ productId: z.uuid() }))
   .handler(async ({ context, data }) => {
-    const [product, stores, listedOn] = await Promise.all([
+    const [catalogProduct, stores, listedOn, unitsByProduct] = await Promise.all([
       getSellableCatalogProduct(database, data.productId, context.tenantId),
       listStoreConnections(database, context.tenantId),
       storesListingProduct(database, context.tenantId, data.productId),
+      countRecentUnitsSold(database, [data.productId]),
     ]);
+    const product = {
+      ...catalogProduct,
+      recentUnitsSold: unitsByProduct.get(catalogProduct.id) ?? 0,
+    };
     // One listing per product and store: a store that already sells it is shown, not offered.
     const listedIds = new Set(listedOn.map((store) => store.storeId));
     return { product, ...chooseNewListingStores(product, stores, listedIds) };

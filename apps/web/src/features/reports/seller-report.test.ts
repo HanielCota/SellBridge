@@ -58,6 +58,7 @@ const CURRENT: SellerPeriodNumbers = {
     {
       storeConnectionId: "s1",
       storeName: "Loja 1",
+      marketplace: "mercado_livre",
       orders: 5,
       revenueCents: 50_000,
       profitCents: 10_000,
@@ -66,13 +67,16 @@ const CURRENT: SellerPeriodNumbers = {
     {
       storeConnectionId: "s2",
       storeName: "Loja 2",
+      marketplace: "mercado_livre",
       orders: 3,
       revenueCents: 30_000,
       profitCents: 8000,
       pendingCostRevenueCents: 20_000,
     },
   ],
-  topProducts: [{ title: "Vestido", units: 4, revenueCents: 40_000 }],
+  topProducts: [
+    { title: "Vestido", units: 4, revenueCents: 40_000, imageUrl: null, categoryName: null },
+  ],
 };
 
 const PREVIOUS: SellerPeriodNumbers = {
@@ -87,13 +91,16 @@ const PREVIOUS: SellerPeriodNumbers = {
     {
       storeConnectionId: "s3",
       storeName: "Loja antiga",
+      marketplace: "mercado_livre",
       orders: 4,
       revenueCents: 40_000,
       profitCents: 12_000,
       pendingCostRevenueCents: 0,
     },
   ],
-  topProducts: [{ title: "Vestido", units: 1, revenueCents: 10_000 }],
+  topProducts: [
+    { title: "Vestido", units: 1, revenueCents: 10_000, imageUrl: null, categoryName: null },
+  ],
 };
 
 function input(overrides: Partial<SellerReportInput> = {}): SellerReportInput {
@@ -215,6 +222,7 @@ describe("seller report", () => {
     const many = Array.from({ length: STORE_BARS + 3 }, (_, index) => ({
       storeConnectionId: `m${index}`,
       storeName: `Loja ${index}`,
+      marketplace: "mercado_livre",
       orders: 1,
       revenueCents: 1000 * (index + 1),
       profitCents: 0,

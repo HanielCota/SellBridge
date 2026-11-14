@@ -1,16 +1,15 @@
 import { lookup } from "node:dns/promises";
 import { withDeadline } from "@sellbridge/shared/deadline";
+import { isAppError } from "@sellbridge/shared/errors";
 import { logger } from "@sellbridge/shared/logger";
 import { hostnameWithoutBrackets, isNonPublicAddress } from "@sellbridge/shared/network-address";
 import { isRetryableError, marketplaceError } from "../errors.ts";
-import { fetchWithRetry } from "../http.ts";
 import { requestShop, type ResolveHost, type TikTokShopContext } from "./client.ts";
+import { downloadPublicImage, NonPublicImageAddressError } from "./image-download.ts";
 import { uploadedImageSchema } from "./schemas.ts";
 
 /** Gallery limit of Create Product (`main_images`, max count 9). */
 export const MAX_PRODUCT_IMAGES = 9;
-/** Upload Product Image refuses files above 10 MB. */
-const MAX_IMAGE_BYTES = 10 * 1024 * 1024;
 const LOOKUP_DEADLINE_MILLISECONDS = 5_000;
 
 export const resolveHostWithDns: ResolveHost = async (hostname) => {
@@ -59,22 +58,30 @@ async function downloadImage(
     throw imageError(position, false);
   }
   await assertPublicImageUrl(context, url, position);
+  const resolveHost = context.config.resolveHost ?? resolveHostWithDns;
+  const download = context.config.downloadImage ?? downloadPublicImage(resolveHost);
   try {
-    const response = await fetchWithRetry(
-      context.fetchImplementation,
-      url.toString(),
-      { method: "GET", redirect: "error" },
-      { ...context.config.retry, maxBodyBytes: MAX_IMAGE_BYTES },
-    );
-    const type = response.headers.get("content-type") ?? "";
-    if (!response.ok || !type.startsWith("image/")) {
-      throw imageError(position, response.status >= 500);
+    const image = await download(url);
+    const ok = image.status >= 200 && image.status < 300;
+    if (!ok || !image.contentType.startsWith("image/")) {
+      throw imageError(position, image.status >= 500);
     }
-    return new Blob([await response.arrayBuffer()], { type });
+    return new Blob([image.bytes], { type: image.contentType });
   } catch (error) {
     logger.warn("tiktok_shop.image_download_failed", { host: url.host, position, error });
-    throw imageError(position, isRetryableError(error), error);
+    throw imageError(position, isRetryableDownloadError(error), error);
   }
+}
+
+/** A dropped connection or a timeout may pass later; a refused address or a size never will. */
+function isRetryableDownloadError(error: unknown): boolean {
+  if (isAppError(error)) {
+    return isRetryableError(error);
+  }
+  if (error instanceof NonPublicImageAddressError) {
+    return false;
+  }
+  return true;
 }
 
 /** Uploads one photo as a gallery image and returns the URI Create Product takes. */

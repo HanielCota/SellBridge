@@ -283,25 +283,22 @@ test("the supplier sidebar has the spreadsheet import as an item of its own", as
   );
 });
 
-test("the sidebar shrinks to its icons and remembers it after a reload", async ({ page }) => {
+// The icons-only mode hid the item names, so the sidebar always stays open, even for a browser
+// that kept the old choice to shrink it.
+test("the sidebar stays open with no button to shrink it", async ({ page }) => {
+  await page.addInitScript(() => {
+    localStorage.setItem("sellbridge-sidebar-collapsed", "on");
+  });
   await signIn(page, ADMIN_USER);
   await page.setViewportSize({ width: 1366, height: 900 });
   await gotoHydrated(page, "/dashboard");
   const aside = page.getByRole("complementary", { name: "Menu lateral" });
   const catalog = sidebar(page).getByRole("link", { name: "Catálogo" });
-  const catalogWidth = async () => (await catalog.boundingBox())?.width ?? 0;
-  await expect.poll(catalogWidth).toBeGreaterThan(150);
 
-  await aside.getByRole("button", { name: "Recolher menu" }).click();
-  // The label stays for screen readers; only the icon takes room.
-  await expect.poll(catalogWidth).toBeLessThan(64);
-  await expect(catalog.locator("svg")).toBeVisible();
-  await page.reload();
-  await expect(aside.getByRole("button", { name: "Abrir o menu lateral" })).toBeVisible();
-  await expect.poll(catalogWidth).toBeLessThan(64);
+  await expect(catalog).toBeVisible();
 
-  await aside.getByRole("button", { name: "Abrir o menu lateral" }).click();
-  await expect.poll(catalogWidth).toBeGreaterThan(150);
+  await expect.poll(async () => (await catalog.boundingBox())?.width ?? 0).toBeGreaterThan(150);
+  await expect(aside.getByRole("button", { name: /Recolher|Abrir o menu lateral/ })).toHaveCount(0);
 });
 
 test("support sits at the foot of the menu, the header keeps search, bell and account", async ({
@@ -348,33 +345,4 @@ test("the admin ticket table keeps every column in view beside the sidebar", asy
     return box.scrollWidth - box.clientWidth;
   });
   expect(hiddenWidth).toBeLessThanOrEqual(0);
-});
-
-// Regression: when the browser refused to store the choice, the button reread storage and the
-// sidebar never shrank.
-test("the sidebar still shrinks when the browser refuses to store the choice", async ({ page }) => {
-  await page.addInitScript(() => {
-    const original: unknown = Object.getOwnPropertyDescriptor(Storage.prototype, "setItem")?.value;
-    if (typeof original !== "function") {
-      throw new Error("Storage.setItem not found");
-    }
-    Storage.prototype.setItem = function refuseSidebarChoice(key: string, value: string) {
-      if (key === "sellbridge-sidebar-collapsed") {
-        throw new DOMException("Storage refused", "QuotaExceededError");
-      }
-      Reflect.apply(original, this, [key, value]);
-    };
-  });
-  await signIn(page, ADMIN_USER);
-  await page.setViewportSize({ width: 1366, height: 900 });
-  await gotoHydrated(page, "/dashboard");
-  const catalog = sidebar(page).getByRole("link", { name: "Catálogo" });
-  const catalogWidth = async () => (await catalog.boundingBox())?.width ?? 0;
-
-  await page
-    .getByRole("complementary", { name: "Menu lateral" })
-    .getByRole("button", { name: "Recolher menu" })
-    .click();
-
-  await expect.poll(catalogWidth).toBeLessThan(64);
 });

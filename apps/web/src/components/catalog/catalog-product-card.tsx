@@ -1,4 +1,4 @@
-import type { SellableCatalogProduct } from "@sellbridge/database/repositories";
+import type { StoreCatalogProduct } from "@sellbridge/database/repositories";
 import { formatCents } from "@sellbridge/shared/money";
 import { Link } from "@tanstack/react-router";
 import { CheckCircleIcon } from "@phosphor-icons/react";
@@ -9,12 +9,13 @@ import { Hint } from "@/components/ui/hint";
 import { Checkbox } from "@/components/ui/checkbox";
 import { estimateProfit, isThinMargin, wholeMarginPercent } from "@/features/listings/profit";
 import { useFeeSchedule } from "@/features/reports/fee-schedule.queries";
+import { ProductHeatTag } from "./product-heat-tag";
 import { ProductStockLine } from "./product-stock-line";
 import { ProductVisual } from "./product-visual";
 import { SoldOutFooter, SoldOutRibbon } from "./sold-out";
 
 /** Suggested price as the headline; cost and the margin it leaves underneath. */
-function PriceLines({ product, soldOut }: { product: SellableCatalogProduct; soldOut: boolean }) {
+function PriceLines({ product, soldOut }: { product: StoreCatalogProduct; soldOut: boolean }) {
   const schedule = useFeeSchedule();
   const margin = estimateProfit(
     product.suggestedPriceCents,
@@ -47,7 +48,7 @@ function PriceLines({ product, soldOut }: { product: SellableCatalogProduct; sol
   );
 }
 
-function CardBody({ product }: { product: SellableCatalogProduct }) {
+function CardBody({ product }: { product: StoreCatalogProduct }) {
   const soldOut = product.stock <= 0;
   return (
     <div className="flex flex-1 flex-col gap-3 p-4">
@@ -59,6 +60,7 @@ function CardBody({ product }: { product: SellableCatalogProduct }) {
           {product.title}
         </h2>
       </div>
+      <ProductHeatTag unitsSold={product.recentUnitsSold} />
       <PriceLines product={product} soldOut={soldOut} />
       {soldOut ? null : <StockFooter product={product} />}
     </div>
@@ -67,7 +69,7 @@ function CardBody({ product }: { product: SellableCatalogProduct }) {
 
 const PublishIcon = ACTION_ICONS.publish.icon;
 
-function StockFooter({ product }: { product: SellableCatalogProduct }) {
+function StockFooter({ product }: { product: StoreCatalogProduct }) {
   return (
     <div className="flex flex-wrap items-center justify-between gap-2 border-t border-border pt-3">
       {/* As tall as the publish button, so published cards keep the price row level. */}
@@ -110,7 +112,7 @@ export function CatalogProductCard({
   selected,
   onSelectedChange,
 }: {
-  product: SellableCatalogProduct;
+  product: StoreCatalogProduct;
   selected: boolean;
   onSelectedChange: (selected: boolean) => void;
 }) {
@@ -121,7 +123,10 @@ export function CatalogProductCard({
   function handleCardClick(event: React.MouseEvent<HTMLElement>) {
     if (!canSelect) return;
     if (!(event.target instanceof Element)) return;
-    if (event.target.closest("a, button, input, label")) return;
+    // A focusable element in the card (a legend's text) is its own control: tapping it never
+    // toggles the card. Ancestors outside it (the focusable <main>) do not count.
+    const control = event.target.closest("a, button, input, label, [tabindex]");
+    if (control !== null && event.currentTarget.contains(control)) return;
     onSelectedChange(!selected);
   }
 

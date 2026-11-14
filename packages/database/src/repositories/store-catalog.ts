@@ -3,6 +3,7 @@ import { toPaginated, type Paginated, type Pagination } from "@sellbridge/shared
 import { and, asc, eq } from "drizzle-orm";
 import type { Database } from "../client.ts";
 import { categories, supplierProducts, suppliers, tenantProfile } from "../schema/index.ts";
+import { countRecentUnitsSold } from "./product-heat.ts";
 import { productListable, publicSupplier } from "./sql/sellable.ts";
 import { listStoreConnections, type StoreConnectionSummary } from "./stores.ts";
 import {
@@ -10,6 +11,11 @@ import {
   type SellableCatalogFilters,
   type SellableCatalogProduct,
 } from "./suppliers.ts";
+
+/** A catalog product with its units sold in the heat window across SellBridge. */
+export interface StoreCatalogProduct extends SellableCatalogProduct {
+  recentUnitsSold: number;
+}
 
 /** The catalog of one store's supplier (MVP function 1): what the reseller page reads. */
 export interface StoreCatalog {
@@ -20,7 +26,7 @@ export interface StoreCatalog {
   pausedSupplier: { id: string; name: string } | null;
   /** The account's stores that still count (not disconnected), for the store picker. */
   stores: StoreConnectionSummary[];
-  products: Paginated<SellableCatalogProduct>;
+  products: Paginated<StoreCatalogProduct>;
   categories: { name: string; slug: string }[];
 }
 
@@ -98,12 +104,27 @@ export async function listStoreCatalog(
     found !== null && !found.active ? { id: found.id, name: found.name } : null;
   const supplier = found !== null && found.active ? { id: found.id, name: found.name } : null;
   if (supplier === null) {
-    const products = toPaginated<SellableCatalogProduct>([], 0, pagination);
+    const products = toPaginated<StoreCatalogProduct>([], 0, pagination);
     return { scope, supplier, pausedSupplier, stores, products, categories: [] };
   }
   const [products, supplierCategories] = await Promise.all([
     listSellableCatalog(database, tenantId, { ...filters, supplierId: supplier.id }, pagination),
     listSupplierCategories(database, supplier.id),
   ]);
-  return { scope, supplier, pausedSupplier, stores, products, categories: supplierCategories };
+  const unitsByProduct = await countRecentUnitsSold(
+    database,
+    products.items.map((product) => product.id),
+  );
+  const items = products.items.map((product) => ({
+    ...product,
+    recentUnitsSold: unitsByProduct.get(product.id) ?? 0,
+  }));
+  return {
+    scope,
+    supplier,
+    pausedSupplier,
+    stores,
+    products: { ...products, items },
+    categories: supplierCategories,
+  };
 }

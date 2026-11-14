@@ -33,10 +33,30 @@ export function navTabClassName({
 }
 
 function badgeColors({ isError, onActive }: { isError: boolean; onActive: boolean }): string {
+  // The lit item's pill takes the other theme's color (black in light, white in dark), so its
+  // tag uses the green and red that read on that color.
   if (onActive) {
-    return "bg-background text-foreground";
+    return isError
+      ? "bg-red-400/20 text-red-400 ring-1 ring-red-400/40 ring-inset dark:bg-red-600/15 dark:text-red-700"
+      : "bg-brand/20 text-brand ring-1 ring-brand/40 ring-inset dark:text-emerald-700";
   }
-  return isError ? "bg-destructive/15 text-destructive" : "bg-brand/20 text-brand-text";
+  return isError
+    ? "bg-destructive/15 text-destructive ring-1 ring-destructive/30 ring-inset"
+    : "bg-brand/15 text-brand-text ring-1 ring-brand/30 ring-inset";
+}
+
+/** The menu's counter: a small tinted tag beside the item's name. */
+export function countTagClassName({
+  isError = false,
+  onActive = false,
+}: {
+  isError?: boolean;
+  onActive?: boolean;
+}): string {
+  return cn(
+    "flex h-5 min-w-5 items-center justify-center rounded-md px-1.5 text-caption font-semibold tabular-nums",
+    badgeColors({ isError, onActive }),
+  );
 }
 
 /** Count beside a tab label; screen readers hear what it counts instead of the bare number. */
@@ -54,13 +74,7 @@ export function TabBadge({
 }) {
   return (
     <>
-      <span
-        aria-hidden="true"
-        className={cn(
-          "flex h-5 min-w-5 items-center justify-center rounded-full px-1.5 text-caption font-semibold tabular-nums",
-          badgeColors({ isError, onActive }),
-        )}
-      >
+      <span aria-hidden="true" className={countTagClassName({ isError, onActive })}>
         {count}
       </span>
       <span className="sr-only">, {description}</span>

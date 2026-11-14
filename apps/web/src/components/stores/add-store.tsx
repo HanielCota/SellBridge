@@ -59,13 +59,13 @@ function AvailableOption({
           <MarketplaceMark marketplace={option.id} className="size-10" />
         </MarkSlot>
         <span className="min-w-0 flex-1">
-          <span className="block truncate font-medium">{option.label}</span>
+          <span className="line-clamp-2 block font-medium break-words">{option.label}</span>
           <span className="hidden truncate text-sm text-muted-foreground sm:block">
             {DESCRIPTIONS[option.id]}
           </span>
         </span>
-        <span className="flex size-8 shrink-0 items-center justify-center gap-1.5 rounded-full bg-primary text-footnote font-semibold text-primary-foreground transition-transform group-active:scale-95 sm:w-auto sm:px-3.5">
-          <span className="hidden sm:inline">Conectar</span>
+        <span className="flex h-8 shrink-0 items-center justify-center gap-1.5 rounded-full bg-primary px-3.5 text-footnote font-semibold text-primary-foreground transition-transform group-active:scale-95">
+          <span>Conectar</span>
           <ArrowRightIcon className="size-3.5" aria-hidden="true" />
         </span>
       </a>

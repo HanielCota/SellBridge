@@ -261,6 +261,8 @@ export async function getSalesTimeseries(
 export interface StoreBreakdown {
   storeConnectionId: string;
   storeName: string;
+  /** The store's marketplace, for its logo ("mercado_livre", "shopee", ...). */
+  marketplace: string;
   orders: number;
   revenueCents: number;
   profitCents: number;
@@ -274,21 +276,24 @@ export async function getSalesByStore(
   const rows = await database.execute(sql`
     with ${orderFinanceCte(scope)}
     select
-      store_connection_id,
-      shop_name,
-      count(*) filter (where counted) as orders,
-      coalesce(sum(revenue), 0) as revenue,
-      coalesce(sum(profit), 0) as profit,
-      coalesce(sum(pending_revenue), 0) as pending_revenue
-    from order_profit
-    group by store_connection_id, shop_name
-    order by revenue desc, shop_name asc
+      f.store_connection_id,
+      f.shop_name,
+      s.marketplace,
+      count(*) filter (where f.counted) as orders,
+      coalesce(sum(f.revenue), 0) as revenue,
+      coalesce(sum(f.profit), 0) as profit,
+      coalesce(sum(f.pending_revenue), 0) as pending_revenue
+    from order_profit f
+    join store_connections s on s.id = f.store_connection_id and s.tenant_id = ${scope.tenantId}
+    group by f.store_connection_id, f.shop_name, s.marketplace
+    order by revenue desc, f.shop_name asc
   `);
   return z
     .array(
       z.object({
         store_connection_id: z.string(),
         shop_name: z.string(),
+        marketplace: z.string(),
         orders: count,
         revenue: cents,
         profit: cents,
@@ -299,6 +304,7 @@ export async function getSalesByStore(
     .map((row) => ({
       storeConnectionId: row.store_connection_id,
       storeName: row.shop_name,
+      marketplace: row.marketplace,
       orders: row.orders,
       revenueCents: row.revenue,
       profitCents: row.profit,
@@ -310,6 +316,9 @@ export interface TopProduct {
   title: string;
   units: number;
   revenueCents: number;
+  /** First photo of the catalog product sold under this title, when it has one. */
+  imageUrl: string | null;
+  categoryName: string | null;
 }
 
 export async function getTopProducts(
@@ -322,18 +331,38 @@ export async function getTopProducts(
     select
       i.title,
       sum(i.quantity) as units,
-      sum(i.unit_price_cents::bigint * i.quantity) as revenue
+      sum(i.unit_price_cents::bigint * i.quantity) as revenue,
+      (array_agg(p.image_urls[1] order by f.ordered_at desc)
+        filter (where p.image_urls[1] is not null))[1] as image_url,
+      (array_agg(c.name order by f.ordered_at desc) filter (where c.name is not null))[1]
+        as category_name
     from order_profit f
     join order_items i on i.order_id = f.id and i.tenant_id = ${scope.tenantId}
+    left join supplier_products p on p.id = i.supplier_product_id
+    left join categories c on c.id = p.category_id
     where f.counted
     group by i.title
     order by revenue desc, i.title asc
     limit ${limit}
   `);
   return z
-    .array(z.object({ title: z.string(), units: count, revenue: cents }))
+    .array(
+      z.object({
+        title: z.string(),
+        units: count,
+        revenue: cents,
+        image_url: z.string().nullable(),
+        category_name: z.string().nullable(),
+      }),
+    )
     .parse([...rows])
-    .map((row) => ({ title: row.title, units: row.units, revenueCents: row.revenue }));
+    .map((row) => ({
+      title: row.title,
+      units: row.units,
+      revenueCents: row.revenue,
+      imageUrl: row.image_url,
+      categoryName: row.category_name,
+    }));
 }
 
 const FINANCIAL_SORT_FIELDS = ["orderedAt", "revenue", "profit", "status"] as const;

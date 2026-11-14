@@ -7,10 +7,14 @@ import {
   type KindHints,
 } from "@/components/reports/chart-kind-menu";
 import { ExportLink } from "@/components/reports/export-link";
-import { MoneyFigure, TrendBadge } from "@/components/reports/figures";
+import { MoneyFigure, TrendTag } from "@/components/reports/figures";
 import type { SupplierSalesSituation } from "@sellbridge/shared/supplier-panel-sales";
 import { buildChartPoints } from "@/features/reports/chart-view";
-import { supplierAmountLabels } from "@/features/supplier-panel/sales/amount-labels";
+import { trendTagParts } from "@/features/reports/trend-tone";
+import {
+  supplierAmountLabels,
+  supplierTrendPolarity,
+} from "@/features/supplier-panel/sales/amount-labels";
 import { createChartKindStore } from "@/features/reports/chart-kind-store";
 import type { SupplierSalesData } from "@/features/supplier-panel/sales/sales.queries";
 import {
@@ -111,7 +115,10 @@ export function SupplierChartHeadline({
         ) : (
           <MoneyFigure cents={current} className="text-3xl" />
         )}
-        <TrendBadge current={current} previous={previous} suffix="vs. período anterior" />
+        <TrendTag
+          parts={trendTagParts(current, previous, supplierTrendPolarity(situation))}
+          suffix="vs. período anterior"
+        />
       </div>
     </div>
   );

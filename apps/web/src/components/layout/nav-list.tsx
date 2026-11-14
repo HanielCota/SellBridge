@@ -7,6 +7,7 @@ import {
   activeNavItemTo,
   navGroups,
   SUPPORT_NAV_ITEM,
+  type NavGroup,
   type NavItem,
 } from "@/features/navigation/nav-items";
 import { PROFILE_LABELS, type ProfileSection } from "@/features/navigation/profile-sections";
@@ -40,8 +41,6 @@ interface ListProps {
   shown: ShownMenu;
   counts: BadgeCounts;
   onNavigate?: (() => void) | undefined;
-  /** The sidebar shrunk to its icons: headings give way to hairlines. */
-  collapsed?: boolean;
   /** The team's pages under "Administração"; the desktop shows them in the header instead. */
   withTeam?: boolean;
   /** Desktop items explain their section on hover. */
@@ -97,31 +96,19 @@ export function ProfileSwitch({
   );
 }
 
-/**
- * The label over a run of items. Only "Administração" is a heading: the groups are named for
- * screen readers by their `role="group"`, so "Lojas" never doubles the page's own title.
- */
-function GroupHeading({
-  heading,
-  collapsed,
-  asHeading = false,
-}: {
-  heading: string;
-  collapsed: boolean;
-  asHeading?: boolean;
-}) {
-  if (collapsed) {
-    return <TeamDivider vertical={false} />;
-  }
-  const className = "px-4 pt-3 pb-1 text-caption font-medium text-muted-foreground";
-  if (asHeading) {
-    return <h2 className={className}>{heading}</h2>;
-  }
+/** The one written heading in the menu, over the team's pages. */
+function TeamHeading() {
   return (
-    <p aria-hidden="true" className={className}>
-      {heading}
-    </p>
+    <h2 className="px-4 pt-3 pb-1 text-caption font-medium text-muted-foreground">Administração</h2>
   );
+}
+
+/**
+ * A line sets a named group apart from the items before it. The list's first group has none:
+ * under "Administração" it read as an underline.
+ */
+function hasLineAbove(group: NavGroup, index: number): boolean {
+  return group.heading !== null && index > 0;
 }
 
 function ItemGroups({
@@ -130,7 +117,6 @@ function ItemGroups({
   counts,
   profileSlug,
   onNavigate,
-  collapsed,
   withHint,
 }: {
   items: readonly NavItem[];
@@ -138,10 +124,11 @@ function ItemGroups({
   counts: BadgeCounts;
   profileSlug: string | null;
   onNavigate: (() => void) | undefined;
-  collapsed: boolean;
   withHint: boolean;
 }) {
   // A heading can come back later in the list, so the key carries the group's position too.
+  // Groups are set apart by a line: the written names cluttered the menu, and screen readers
+  // still hear each one through the group's label.
   return navGroups(items).map((group, index) => (
     <div
       key={`${index}-${group.heading ?? ""}`}
@@ -149,9 +136,7 @@ function ItemGroups({
       aria-label={group.heading ?? undefined}
       className="grid grid-cols-1 gap-1"
     >
-      {group.heading === null ? null : (
-        <GroupHeading heading={group.heading} collapsed={collapsed} />
-      )}
+      {hasLineAbove(group, index) ? <TeamDivider vertical={false} /> : null}
       {group.items.map((item) => (
         <NavTab
           key={item.to}
@@ -161,7 +146,6 @@ function ItemGroups({
           count={item.badge && profileSlug === null ? counts[item.badge] : 0}
           profileSlug={profileSlug}
           onNavigate={onNavigate}
-          collapsed={collapsed}
           withHint={withHint}
         />
       ))}
@@ -175,18 +159,16 @@ export function NavList({
   shown,
   counts,
   onNavigate,
-  collapsed = false,
   withHint = false,
   withTeam = true,
 }: ListProps) {
-  const shared = { activeTo: shown.activeTo, counts, onNavigate, collapsed, withHint };
+  const shared = { activeTo: shown.activeTo, counts, onNavigate, withHint };
   return (
     <>
       <ItemGroups items={shown.items} profileSlug={shown.slug} {...shared} />
       {withTeam && navigation.teamItems.length > 0 ? (
         <>
-          {/* Shrunk, the first team group's hairline already sets the team apart. */}
-          {collapsed ? null : <GroupHeading heading="Administração" collapsed={false} asHeading />}
+          <TeamHeading />
           <ItemGroups items={navigation.teamItems} profileSlug={null} {...shared} />
         </>
       ) : null}
@@ -202,7 +184,6 @@ export function AccountNavList({
   shown,
   counts,
   onNavigate,
-  collapsed = false,
   withHint = false,
   supportPanel = null,
 }: Omit<ListProps, "navigation"> & { supportPanel?: ReactNode }) {
@@ -219,7 +200,6 @@ export function AccountNavList({
             count={item.badge && shown.slug === null ? counts[item.badge] : 0}
             profileSlug={shown.slug}
             onNavigate={onNavigate}
-            collapsed={collapsed}
             withHint={withHint}
           />
         ),

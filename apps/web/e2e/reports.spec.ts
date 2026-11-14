@@ -63,6 +63,18 @@ test.describe("dashboard", () => {
     await expect(page.getByText("Ana Casa & Beleza")).toHaveCount(0);
   });
 
+  test("passar o mouse numa loja esmaece as outras", async ({ page }) => {
+    await signIn(page, DEMO_USER);
+    await gotoHydrated(page, "/dashboard");
+    const stores = page.locator("li").filter({ hasText: "de margem" });
+    await expect(stores).toHaveCount(2);
+
+    await stores.first().hover();
+
+    await expect(stores.first()).toHaveCSS("opacity", "1");
+    await expect(stores.nth(1)).toHaveCSS("opacity", "0.45");
+  });
+
   // Regression: one day drew a single daily bucket, two lone dots instead of a line.
   test("Hoje mostra o dia hora a hora, comparado com o dia anterior", async ({ page }) => {
     await signIn(page, DEMO_USER);

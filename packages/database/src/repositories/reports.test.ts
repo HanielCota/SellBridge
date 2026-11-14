@@ -181,6 +181,10 @@ beforeAll(async () => {
     title: "Produto dos relatórios",
     costCents: 1000,
     suggestedPriceCents: 2000,
+    imageUrls: [
+      "https://cdn.example.com/relatorios-1.jpg",
+      "https://cdn.example.com/relatorios-2.jpg",
+    ],
   });
   tenants = await createTestTenants(database, 2);
   const [first, second] = tenants.ids;
@@ -463,8 +467,14 @@ describe("breakdowns", () => {
       ["Loja A1", 20_000],
       ["Loja A2", 20_000],
     ]);
+    expect(byStore.map((store) => store.marketplace)).toEqual(["mock", "mock"]);
     const top = await getTopProducts(database, scope());
-    expect(top.at(0)).toMatchObject({ title: "Tênis", units: 1, revenueCents: 20_000 });
+    expect(top.at(0)).toMatchObject({
+      title: "Tênis",
+      units: 1,
+      revenueCents: 20_000,
+      imageUrl: "https://cdn.example.com/relatorios-1.jpg",
+    });
     expect(top.map((product) => product.title)).not.toContain("Bolsa");
   });
 });

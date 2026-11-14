@@ -41,6 +41,7 @@ import { Route as AppAdminClientesRouteRouteImport } from './routes/_app/admin/c
 import { Route as AppAdminConfiguracoesRouteImport } from './routes/_app/admin/configuracoes'
 import { Route as AppAdminEnviosRouteImport } from './routes/_app/admin/envios'
 import { Route as AppAdminEquipeRouteImport } from './routes/_app/admin/equipe'
+import { Route as AppAdminProblemasRouteRouteImport } from './routes/_app/admin/problemas/route'
 import { Route as AppAdminProductsRouteImport } from './routes/_app/admin/products'
 import { Route as AppAdminRelatorioRouteImport } from './routes/_app/admin/relatorio'
 import { Route as AppFinanceiroRelatorioRouteImport } from './routes/_app/financeiro_.relatorio'
@@ -80,6 +81,8 @@ import { Route as AppAdminClientesIndexRouteImport } from './routes/_app/admin/c
 import { Route as AppAdminClientesUserIdRouteImport } from './routes/_app/admin/clientes/$userId'
 import { Route as AppAdminFornecedoresIndexRouteImport } from './routes/_app/admin/fornecedores/index'
 import { Route as AppAdminFornecedoresSupplierIdRouteImport } from './routes/_app/admin/fornecedores/$supplierId'
+import { Route as AppAdminProblemasIndexRouteImport } from './routes/_app/admin/problemas/index'
+import { Route as AppAdminProblemasProblemIdRouteImport } from './routes/_app/admin/problemas/$problemId'
 import { Route as AppFornecedorPainelIndexRouteImport } from './routes/_app/fornecedor/painel/index'
 import { Route as AppFornecedorPainelConferirRouteImport } from './routes/_app/fornecedor/painel/conferir'
 import { Route as AppFornecedorPainelDesempenhoRouteImport } from './routes/_app/fornecedor/painel/desempenho'
@@ -290,6 +293,11 @@ const AppAdminEquipeRoute = AppAdminEquipeRouteImport.update({
   path: '/equipe',
   getParentRoute: () => AppAdminRouteRoute,
 } as any)
+const AppAdminProblemasRouteRoute = AppAdminProblemasRouteRouteImport.update({
+  id: '/problemas',
+  path: '/problemas',
+  getParentRoute: () => AppAdminRouteRoute,
+} as any)
 const AppAdminProductsRoute = AppAdminProductsRouteImport.update({
   id: '/products',
   path: '/products',
@@ -490,6 +498,17 @@ const AppAdminFornecedoresSupplierIdRoute =
     id: '/fornecedores/$supplierId',
     path: '/fornecedores/$supplierId',
     getParentRoute: () => AppAdminRouteRoute,
+  } as any)
+const AppAdminProblemasIndexRoute = AppAdminProblemasIndexRouteImport.update({
+  id: '/',
+  path: '/',
+  getParentRoute: () => AppAdminProblemasRouteRoute,
+} as any)
+const AppAdminProblemasProblemIdRoute =
+  AppAdminProblemasProblemIdRouteImport.update({
+    id: '/$problemId',
+    path: '/$problemId',
+    getParentRoute: () => AppAdminProblemasRouteRoute,
   } as any)
 const AppFornecedorPainelIndexRoute =
   AppFornecedorPainelIndexRouteImport.update({
@@ -817,6 +836,7 @@ export interface FileRoutesByFullPath {
   '/api/version': typeof ApiVersionRoute
   '/rastreio/$token': typeof RastreioTokenRoute
   '/admin/clientes': typeof AppAdminClientesRouteRouteWithChildren
+  '/admin/problemas': typeof AppAdminProblemasRouteRouteWithChildren
   '/fornecedor/painel': typeof AppFornecedorPainelRouteRouteWithChildren
   '/admin/auditoria': typeof AppAdminAuditoriaRoute
   '/admin/avaliacoes': typeof AppAdminAvaliacoesRoute
@@ -858,6 +878,7 @@ export interface FileRoutesByFullPath {
   '/admin/chamados/metricas': typeof AppAdminChamadosMetricasRoute
   '/admin/clientes/$userId': typeof AppAdminClientesUserIdRoute
   '/admin/fornecedores/$supplierId': typeof AppAdminFornecedoresSupplierIdRoute
+  '/admin/problemas/$problemId': typeof AppAdminProblemasProblemIdRoute
   '/fornecedor/painel/conferir': typeof AppFornecedorPainelConferirRoute
   '/fornecedor/painel/desempenho': typeof AppFornecedorPainelDesempenhoRoute
   '/fornecedor/painel/importar': typeof AppFornecedorPainelImportarRoute
@@ -893,6 +914,7 @@ export interface FileRoutesByFullPath {
   '/admin/chamados/': typeof AppAdminChamadosIndexRoute
   '/admin/clientes/': typeof AppAdminClientesIndexRoute
   '/admin/fornecedores/': typeof AppAdminFornecedoresIndexRoute
+  '/admin/problemas/': typeof AppAdminProblemasIndexRoute
   '/fornecedor/painel/': typeof AppFornecedorPainelIndexRoute
   '/suporte/fornecedores/': typeof AppSuporteFornecedoresIndexRoute
   '/api/suporte/chamados/': typeof ApiSuporteChamadosIndexRoute
@@ -977,6 +999,7 @@ export interface FileRoutesByTo {
   '/admin/chamados/metricas': typeof AppAdminChamadosMetricasRoute
   '/admin/clientes/$userId': typeof AppAdminClientesUserIdRoute
   '/admin/fornecedores/$supplierId': typeof AppAdminFornecedoresSupplierIdRoute
+  '/admin/problemas/$problemId': typeof AppAdminProblemasProblemIdRoute
   '/fornecedor/painel/conferir': typeof AppFornecedorPainelConferirRoute
   '/fornecedor/painel/desempenho': typeof AppFornecedorPainelDesempenhoRoute
   '/fornecedor/painel/importar': typeof AppFornecedorPainelImportarRoute
@@ -1012,6 +1035,7 @@ export interface FileRoutesByTo {
   '/admin/chamados': typeof AppAdminChamadosIndexRoute
   '/admin/clientes': typeof AppAdminClientesIndexRoute
   '/admin/fornecedores': typeof AppAdminFornecedoresIndexRoute
+  '/admin/problemas': typeof AppAdminProblemasIndexRoute
   '/fornecedor/painel': typeof AppFornecedorPainelIndexRoute
   '/suporte/fornecedores': typeof AppSuporteFornecedoresIndexRoute
   '/api/suporte/chamados': typeof ApiSuporteChamadosIndexRoute
@@ -1061,6 +1085,7 @@ export interface FileRoutesById {
   '/api/version': typeof ApiVersionRoute
   '/rastreio/$token': typeof RastreioTokenRoute
   '/_app/admin/clientes': typeof AppAdminClientesRouteRouteWithChildren
+  '/_app/admin/problemas': typeof AppAdminProblemasRouteRouteWithChildren
   '/_app/fornecedor/painel': typeof AppFornecedorPainelRouteRouteWithChildren
   '/_app/admin/auditoria': typeof AppAdminAuditoriaRoute
   '/_app/admin/avaliacoes': typeof AppAdminAvaliacoesRoute
@@ -1102,6 +1127,7 @@ export interface FileRoutesById {
   '/_app/admin/chamados/metricas': typeof AppAdminChamadosMetricasRoute
   '/_app/admin/clientes/$userId': typeof AppAdminClientesUserIdRoute
   '/_app/admin/fornecedores/$supplierId': typeof AppAdminFornecedoresSupplierIdRoute
+  '/_app/admin/problemas/$problemId': typeof AppAdminProblemasProblemIdRoute
   '/_app/fornecedor/painel/conferir': typeof AppFornecedorPainelConferirRoute
   '/_app/fornecedor/painel/desempenho': typeof AppFornecedorPainelDesempenhoRoute
   '/_app/fornecedor/painel/importar': typeof AppFornecedorPainelImportarRoute
@@ -1137,6 +1163,7 @@ export interface FileRoutesById {
   '/_app/admin/chamados/': typeof AppAdminChamadosIndexRoute
   '/_app/admin/clientes/': typeof AppAdminClientesIndexRoute
   '/_app/admin/fornecedores/': typeof AppAdminFornecedoresIndexRoute
+  '/_app/admin/problemas/': typeof AppAdminProblemasIndexRoute
   '/_app/fornecedor/painel/': typeof AppFornecedorPainelIndexRoute
   '/_app/suporte/fornecedores/': typeof AppSuporteFornecedoresIndexRoute
   '/api/suporte/chamados/': typeof ApiSuporteChamadosIndexRoute
@@ -1185,6 +1212,7 @@ export interface FileRouteTypes {
     | '/api/version'
     | '/rastreio/$token'
     | '/admin/clientes'
+    | '/admin/problemas'
     | '/fornecedor/painel'
     | '/admin/auditoria'
     | '/admin/avaliacoes'
@@ -1226,6 +1254,7 @@ export interface FileRouteTypes {
     | '/admin/chamados/metricas'
     | '/admin/clientes/$userId'
     | '/admin/fornecedores/$supplierId'
+    | '/admin/problemas/$problemId'
     | '/fornecedor/painel/conferir'
     | '/fornecedor/painel/desempenho'
     | '/fornecedor/painel/importar'
@@ -1261,6 +1290,7 @@ export interface FileRouteTypes {
     | '/admin/chamados/'
     | '/admin/clientes/'
     | '/admin/fornecedores/'
+    | '/admin/problemas/'
     | '/fornecedor/painel/'
     | '/suporte/fornecedores/'
     | '/api/suporte/chamados/'
@@ -1345,6 +1375,7 @@ export interface FileRouteTypes {
     | '/admin/chamados/metricas'
     | '/admin/clientes/$userId'
     | '/admin/fornecedores/$supplierId'
+    | '/admin/problemas/$problemId'
     | '/fornecedor/painel/conferir'
     | '/fornecedor/painel/desempenho'
     | '/fornecedor/painel/importar'
@@ -1380,6 +1411,7 @@ export interface FileRouteTypes {
     | '/admin/chamados'
     | '/admin/clientes'
     | '/admin/fornecedores'
+    | '/admin/problemas'
     | '/fornecedor/painel'
     | '/suporte/fornecedores'
     | '/api/suporte/chamados'
@@ -1428,6 +1460,7 @@ export interface FileRouteTypes {
     | '/api/version'
     | '/rastreio/$token'
     | '/_app/admin/clientes'
+    | '/_app/admin/problemas'
     | '/_app/fornecedor/painel'
     | '/_app/admin/auditoria'
     | '/_app/admin/avaliacoes'
@@ -1469,6 +1502,7 @@ export interface FileRouteTypes {
     | '/_app/admin/chamados/metricas'
     | '/_app/admin/clientes/$userId'
     | '/_app/admin/fornecedores/$supplierId'
+    | '/_app/admin/problemas/$problemId'
     | '/_app/fornecedor/painel/conferir'
     | '/_app/fornecedor/painel/desempenho'
     | '/_app/fornecedor/painel/importar'
@@ -1504,6 +1538,7 @@ export interface FileRouteTypes {
     | '/_app/admin/chamados/'
     | '/_app/admin/clientes/'
     | '/_app/admin/fornecedores/'
+    | '/_app/admin/problemas/'
     | '/_app/fornecedor/painel/'
     | '/_app/suporte/fornecedores/'
     | '/api/suporte/chamados/'
@@ -1813,6 +1848,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppAdminEquipeRouteImport
       parentRoute: typeof AppAdminRouteRoute
     }
+    '/_app/admin/problemas': {
+      id: '/_app/admin/problemas'
+      path: '/problemas'
+      fullPath: '/admin/problemas'
+      preLoaderRoute: typeof AppAdminProblemasRouteRouteImport
+      parentRoute: typeof AppAdminRouteRoute
+    }
     '/_app/admin/products': {
       id: '/_app/admin/products'
       path: '/products'
@@ -2085,6 +2127,20 @@ declare module '@tanstack/react-router' {
       fullPath: '/admin/fornecedores/$supplierId'
       preLoaderRoute: typeof AppAdminFornecedoresSupplierIdRouteImport
       parentRoute: typeof AppAdminRouteRoute
+    }
+    '/_app/admin/problemas/': {
+      id: '/_app/admin/problemas/'
+      path: '/'
+      fullPath: '/admin/problemas/'
+      preLoaderRoute: typeof AppAdminProblemasIndexRouteImport
+      parentRoute: typeof AppAdminProblemasRouteRoute
+    }
+    '/_app/admin/problemas/$problemId': {
+      id: '/_app/admin/problemas/$problemId'
+      path: '/$problemId'
+      fullPath: '/admin/problemas/$problemId'
+      preLoaderRoute: typeof AppAdminProblemasProblemIdRouteImport
+      parentRoute: typeof AppAdminProblemasRouteRoute
     }
     '/_app/fornecedor/painel/': {
       id: '/_app/fornecedor/painel/'
@@ -2461,8 +2517,25 @@ const AppAdminClientesRouteRouteWithChildren =
     AppAdminClientesRouteRouteChildren,
   )
 
+interface AppAdminProblemasRouteRouteChildren {
+  AppAdminProblemasProblemIdRoute: typeof AppAdminProblemasProblemIdRoute
+  AppAdminProblemasIndexRoute: typeof AppAdminProblemasIndexRoute
+}
+
+const AppAdminProblemasRouteRouteChildren: AppAdminProblemasRouteRouteChildren =
+  {
+    AppAdminProblemasProblemIdRoute: AppAdminProblemasProblemIdRoute,
+    AppAdminProblemasIndexRoute: AppAdminProblemasIndexRoute,
+  }
+
+const AppAdminProblemasRouteRouteWithChildren =
+  AppAdminProblemasRouteRoute._addFileChildren(
+    AppAdminProblemasRouteRouteChildren,
+  )
+
 interface AppAdminRouteRouteChildren {
   AppAdminClientesRouteRoute: typeof AppAdminClientesRouteRouteWithChildren
+  AppAdminProblemasRouteRoute: typeof AppAdminProblemasRouteRouteWithChildren
   AppAdminAuditoriaRoute: typeof AppAdminAuditoriaRoute
   AppAdminAvaliacoesRoute: typeof AppAdminAvaliacoesRoute
   AppAdminConfiguracoesRoute: typeof AppAdminConfiguracoesRoute
@@ -2482,6 +2555,7 @@ interface AppAdminRouteRouteChildren {
 
 const AppAdminRouteRouteChildren: AppAdminRouteRouteChildren = {
   AppAdminClientesRouteRoute: AppAdminClientesRouteRouteWithChildren,
+  AppAdminProblemasRouteRoute: AppAdminProblemasRouteRouteWithChildren,
   AppAdminAuditoriaRoute: AppAdminAuditoriaRoute,
   AppAdminAvaliacoesRoute: AppAdminAvaliacoesRoute,
   AppAdminConfiguracoesRoute: AppAdminConfiguracoesRoute,

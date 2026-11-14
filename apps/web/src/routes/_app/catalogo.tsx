@@ -1,4 +1,4 @@
-import type { SellableCatalogProduct } from "@sellbridge/database/repositories";
+import type { StoreCatalogProduct } from "@sellbridge/database/repositories";
 import {
   PRODUCT_SORT_LABELS,
   PRODUCT_SORTS,
@@ -231,7 +231,7 @@ function CatalogFilters({ data }: { data: CatalogData }) {
   );
 }
 
-function productId(product: SellableCatalogProduct): string {
+function productId(product: StoreCatalogProduct): string {
   return product.id;
 }
 
@@ -242,11 +242,11 @@ function ProductGrid({
   selection,
 }: {
   data: CatalogData;
-  selection: Selection<SellableCatalogProduct>;
+  selection: Selection<StoreCatalogProduct>;
 }) {
   const search = Route.useSearch();
   const navigate = useNavigate({ from: Route.fullPath });
-  function select(product: SellableCatalogProduct, isSelected: boolean) {
+  function select(product: StoreCatalogProduct, isSelected: boolean) {
     if (isSelected && selection.selected.size >= MAX_BULK_PUBLISH) {
       toast.info(SELECTION_LIMIT_MESSAGE, { id: "selection-limit" });
       return;

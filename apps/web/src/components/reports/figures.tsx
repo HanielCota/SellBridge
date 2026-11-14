@@ -1,5 +1,6 @@
 import { ArrowDownIcon, ArrowRightIcon, ArrowUpIcon } from "@phosphor-icons/react";
 import { formatPercentChange, trendOf } from "@/features/reports/dashboard-insights";
+import type { TrendTagParts, TrendTone } from "@/features/reports/trend-tone";
 import { cn } from "@/lib/utils";
 
 const wholeNumber = new Intl.NumberFormat("pt-BR", { maximumFractionDigits: 0 });
@@ -111,15 +112,73 @@ export function DeltaBadge({
   );
 }
 
+const TAG_TONES: Record<TrendTone, string> = {
+  good: "bg-trend-good-fill text-trend-good-ink",
+  bad: "bg-trend-bad-fill text-trend-bad-ink",
+  neutral: "bg-muted text-muted-foreground",
+};
+
+/**
+ * Change against the previous period as a small tinted tag: arrow, word and percent ("↑ Subiu
+ * 19%"). Green for good news and red for bad, by the metric's polarity, so more cancellations read
+ * red even though the arrow points up. Inside a sentence that already says "subiu", `withWord`
+ * off leaves the arrow and the percent.
+ */
+export function TrendTag({
+  parts,
+  suffix,
+  withWord = true,
+  className,
+}: {
+  parts: TrendTagParts | null;
+  suffix?: string;
+  withWord?: boolean;
+  /** Sizes the tag itself, e.g. to the sentence it sits in. */
+  className?: string;
+}) {
+  if (parts === null) {
+    return null;
+  }
+  const Icon = DIRECTION_ICONS[parts.direction];
+  const text = [withWord ? parts.word : "", parts.amount].filter((part) => part !== "").join(" ");
+  return (
+    <span className="inline-flex flex-wrap items-center gap-x-1.5 gap-y-0.5 align-baseline">
+      <span
+        className={cn(
+          "inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs leading-4 font-semibold whitespace-nowrap tabular-nums",
+          TAG_TONES[parts.tone],
+          className,
+        )}
+      >
+        <Icon className="size-3.5" weight="bold" aria-hidden="true" />
+        {text}
+        {parts.spoken === undefined ? null : <span className="sr-only"> ({parts.spoken})</span>}
+      </span>
+      {suffix === undefined ? null : (
+        <span className="text-xs text-muted-foreground">{suffix}</span>
+      )}
+    </span>
+  );
+}
+
+const SPARKLINE_TONES: Record<TrendTone, string> = {
+  good: "text-trend-good",
+  bad: "text-trend-bad",
+  neutral: "text-muted-foreground",
+};
+
 /** Room inside the sparkline's box for the end dot (radius 3 plus its ring), so nothing is cut. */
 const INSET = 5;
 
 /** Tiny trend line for a tile: shape only, no axes; the last value is marked. */
 export function Sparkline({
   values,
+  tone,
   className,
 }: {
   values: readonly number[];
+  /** Colors the line like its tile's change; without one it keeps the brand color. */
+  tone?: TrendTone | undefined;
   className?: string;
 }) {
   if (values.length < 2) {
@@ -141,7 +200,11 @@ export function Sparkline({
   return (
     <svg
       viewBox={`0 0 ${width} ${height}`}
-      className={cn("h-8 w-24 shrink-0 text-chart-brand", className)}
+      className={cn(
+        "h-8 w-24 shrink-0",
+        tone === undefined ? "text-chart-brand" : SPARKLINE_TONES[tone],
+        className,
+      )}
       aria-hidden="true"
     >
       <path

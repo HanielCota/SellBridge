@@ -115,6 +115,8 @@ export const ADMIN_NAV_ITEMS: NavItem[] = [
   },
   { label: "Equipe", to: "/admin/equipe", permission: "customers.manage", group: "Equipe" },
   { label: "Auditoria", to: "/admin/auditoria", permission: "audit.view", group: "Equipe" },
+  // Errors the site and the worker logged, with their context, for whoever fixes them.
+  { label: "Problemas", to: "/admin/problemas", permission: "audit.view", group: "Equipe" },
   // SellBridge's fee on supplier payments is money: admins only.
   {
     label: "Configurações",

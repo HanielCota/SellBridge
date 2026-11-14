@@ -20,6 +20,7 @@ import { EmojiFreeTextareaField } from "@/components/form/emoji-free-textarea-fi
 import { EmptyState } from "@/components/feedback/empty-state";
 import { ErrorState } from "@/components/feedback/error-state";
 import { PageHeader } from "@/components/layout/page-header";
+import { ProductHeatTag } from "@/components/catalog/product-heat-tag";
 import { ListingPreview, ProfitCard } from "@/components/listings/new-listing-cards";
 import { profitTone } from "@/components/listings/profit-split";
 import { MarketplaceMark } from "@/components/stores/marketplace-mark";
@@ -277,6 +278,7 @@ function ListingForm({ product, stores }: Pick<NewListingData, "product" | "stor
             <ProfitSentence priceCents={parseBrlToCents(price)} costCents={product.costCents} />
           )}
         </form.Subscribe>
+        <ProductHeatTag unitsSold={product.recentUnitsSold} detailed className="pt-1" />
       </div>
       <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_340px]">
         <ListingFieldsCard

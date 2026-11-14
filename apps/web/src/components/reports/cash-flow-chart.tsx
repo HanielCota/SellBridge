@@ -15,6 +15,7 @@ import {
   LabelList,
   Line,
   LineChart,
+  type MouseHandlerDataParam,
   ReferenceLine,
   useActiveTooltipLabel,
   XAxis,
@@ -33,7 +34,7 @@ import {
 } from "@/components/reports/chart-frame";
 import { ChartKindMenu, type ChartLayers } from "@/components/reports/chart-kind-menu";
 import { ExportLink } from "@/components/reports/export-link";
-import { DeltaBadge, MoneyFigure, TrendBadge } from "@/components/reports/figures";
+import { MoneyFigure, TrendTag } from "@/components/reports/figures";
 import { ChartContainer, ChartTooltip, type ChartConfig } from "@/components/ui/chart";
 import { TooltipCard, TooltipRow, type TooltipProps } from "@/components/reports/chart-tooltip";
 import {
@@ -60,10 +61,16 @@ import { PENDING_COST_HINT, PENDING_HATCH_CLASS } from "@/components/reports/pen
 import { profitMargin } from "@/features/reports/dashboard-insights";
 import { useElementWidth } from "@/hooks/use-element-width";
 import { cn } from "@/lib/utils";
+import { formatCents } from "@sellbridge/shared/money";
+import { marginTagParts, trendTagParts } from "@/features/reports/trend-tone";
 
-/** Mint is reserved for profit (the hero metric); revenue is neutral context behind it. */
-const REVENUE_COLOR = "var(--muted-foreground)";
-const PROFIT_COLOR = "var(--chart-brand)";
+/**
+ * Revenue in blue and profit in green: two series, two hues, validated as a pair for color blindness
+ * in both themes. Red and the tag greens stay for good and bad news only. Costs are neutral gray.
+ */
+const REVENUE_COLOR = "var(--chart-revenue)";
+const PROFIT_COLOR = "var(--chart-profit)";
+const COST_COLOR = "var(--muted-foreground)";
 
 /**
  * Revenue of sales whose cost is unknown: hatched in the revenue's neutral gray, so it reads as
@@ -111,7 +118,7 @@ function SeriesPills({
           {series.color ? (
             <span
               aria-hidden="true"
-              className="size-2 rounded-full"
+              className="size-2.5 rounded-full"
               style={{ backgroundColor: series.color }}
             />
           ) : null}
@@ -148,7 +155,7 @@ function PendingRow({ cents }: { cents: number }) {
     <TooltipRow
       color={REVENUE_COLOR}
       label="Custo pendente"
-      value={formatMoney(cents)}
+      value={formatCents(cents)}
       variant="hatched"
     />
   );
@@ -176,7 +183,7 @@ function PreviousRow({
     <TooltipRow
       color={isRevenue ? REVENUE_COLOR : PROFIT_COLOR}
       label={`${isRevenue ? "Receita" : "Lucro"} no período anterior${layers.average ? ", média" : ""}`}
-      value={formatMoney(value)}
+      value={formatCents(value)}
       variant="dashed"
     />
   );
@@ -206,14 +213,14 @@ function ProfitTooltip({
       title={cumulative ? `Acumulado até ${date}` : date}
       footnote={<MarginFootnote margin={point.margin} />}
     >
-      <TooltipRow color={REVENUE_COLOR} label="Receita" value={formatMoney(point.revenue)} />
+      <TooltipRow color={REVENUE_COLOR} label="Receita" value={formatCents(point.revenue)} />
       <PendingRow cents={point.pending} />
-      <TooltipRow color={PROFIT_COLOR} label="Lucro" value={formatMoney(point.profit)} strong />
+      <TooltipRow color={PROFIT_COLOR} label="Lucro" value={formatCents(point.profit)} strong />
       {layers.average && point.averageProfit !== null ? (
         <TooltipRow
           color={PROFIT_COLOR}
           label="Lucro, média de 7 dias"
-          value={formatMoney(point.averageProfit)}
+          value={formatCents(point.averageProfit)}
           variant="faded"
         />
       ) : null}
@@ -236,15 +243,15 @@ function CompositionTooltip({
       title={formatTooltipDate(point.date, grain)}
       footnote={<MarginFootnote margin={point.margin} />}
     >
-      <TooltipRow color={REVENUE_COLOR} label="Receita" value={formatMoney(point.revenue)} />
+      <TooltipRow color={REVENUE_COLOR} label="Receita" value={formatCents(point.revenue)} />
       <TooltipRow
-        color={REVENUE_COLOR}
+        color={COST_COLOR}
         label="Custos e taxas"
-        value={formatMoney(point.cost)}
+        value={formatCents(point.cost)}
         variant="faded"
       />
       <PendingRow cents={point.pending} />
-      <TooltipRow color={PROFIT_COLOR} label="Lucro" value={formatMoney(point.profit)} strong />
+      <TooltipRow color={PROFIT_COLOR} label="Lucro" value={formatCents(point.profit)} strong />
     </TooltipCard>
   );
 }
@@ -268,9 +275,9 @@ function MarginTooltip({
   }
   return (
     <TooltipCard title={formatTooltipDate(point.date, grain)} footnote={marginFootnoteOf(point)}>
-      <TooltipRow color={REVENUE_COLOR} label="Receita" value={formatMoney(point.revenue)} />
+      <TooltipRow color={REVENUE_COLOR} label="Receita" value={formatCents(point.revenue)} />
       <PendingRow cents={point.pending} />
-      <TooltipRow color={PROFIT_COLOR} label="Lucro" value={formatMoney(point.profit)} strong />
+      <TooltipRow color={PROFIT_COLOR} label="Lucro" value={formatCents(point.profit)} strong />
     </TooltipCard>
   );
 }
@@ -321,7 +328,7 @@ function WaterfallTooltip({
         <TooltipRow
           color={REVENUE_COLOR}
           label="Fora do lucro"
-          value={formatMoney(Math.abs(step.cents))}
+          value={formatCents(Math.abs(step.cents))}
           variant="hatched"
           strong
         />
@@ -342,7 +349,7 @@ function WaterfallTooltip({
       <TooltipRow
         color={stepColor(step)}
         label={isTotal ? "Total" : direction}
-        value={formatMoney(Math.abs(step.cents))}
+        value={formatCents(Math.abs(step.cents))}
         strong
       />
     </TooltipCard>
@@ -352,6 +359,20 @@ function WaterfallTooltip({
 // ── Shared frame ────────────────────────────────────────────────────────────
 
 const BAR_CURSOR = { fill: "var(--muted)", fillOpacity: 0.5 };
+
+/** How far the marks the pointer is not on fade, so the hovered day stands out. */
+const DIMMED = 0.35;
+
+/** Which bucket the pointer is on, so the chart can dim the rest; null off the plot. */
+function useHoveredIndex() {
+  const [hovered, setHovered] = useState<number | null>(null);
+  const onMouseMove = useCallback((state: MouseHandlerDataParam) => {
+    const index = Number(state.activeTooltipIndex);
+    setHovered(Number.isInteger(index) ? index : null);
+  }, []);
+  const onMouseLeave = useCallback(() => setHovered(null), []);
+  return { hovered, onMouseMove, onMouseLeave };
+}
 
 /** Clicking a day picks it; clicking the picked day again lets it go. Daily charts only. */
 interface DayPick {
@@ -559,6 +580,7 @@ function renderAverageLine(
   dataKey: "averageRevenue" | "averageProfit",
   color: string,
   width: number,
+  isHovering: boolean,
 ) {
   return (
     <Line
@@ -566,6 +588,7 @@ function renderAverageLine(
       dataKey={dataKey}
       type="monotone"
       stroke={color}
+      strokeOpacity={isHovering ? 0.6 : 1}
       strokeWidth={width}
       strokeLinecap="round"
       dot={false}
@@ -595,14 +618,24 @@ const DAILY_AREAS = {
   },
 } as const;
 
-function renderDailyArea(area: (typeof DAILY_AREAS)[keyof typeof DAILY_AREAS], smooth: boolean) {
+/**
+ * While the pointer is on a day the areas step back and only its dots stay at full strength, so
+ * the hovered day is the brightest thing in the chart. Monotone curves never overshoot a value.
+ */
+function renderDailyArea(
+  area: (typeof DAILY_AREAS)[keyof typeof DAILY_AREAS],
+  smooth: boolean,
+  isHovering: boolean,
+) {
+  const strokeOpacity = smooth ? 0.4 : area.opacity;
   return (
     <Area
       key={area.dataKey}
       dataKey={area.dataKey}
       type="monotone"
       stroke={area.color}
-      strokeOpacity={smooth ? 0.4 : area.opacity}
+      strokeOpacity={isHovering ? strokeOpacity * 0.6 : strokeOpacity}
+      fillOpacity={isHovering ? 0.5 : 1}
       strokeWidth={smooth ? 1.5 : area.width}
       strokeLinecap="round"
       strokeLinejoin="round"
@@ -611,6 +644,30 @@ function renderDailyArea(area: (typeof DAILY_AREAS)[keyof typeof DAILY_AREAS], s
       isAnimationActive={false}
     />
   );
+}
+
+/** The daily areas and, with the 7-day average on, the smooth lines over them. */
+function renderCashSeries({
+  showRevenue,
+  showProfit,
+  smooth,
+  isHovering,
+}: {
+  showRevenue: boolean;
+  showProfit: boolean;
+  smooth: boolean;
+  isHovering: boolean;
+}) {
+  return [
+    showRevenue ? renderDailyArea(DAILY_AREAS.revenue, smooth, isHovering) : null,
+    showProfit ? renderDailyArea(DAILY_AREAS.profit, smooth, isHovering) : null,
+    smooth && showRevenue
+      ? renderAverageLine("averageRevenue", "var(--color-revenue)", 2.5, isHovering)
+      : null,
+    smooth && showProfit
+      ? renderAverageLine("averageProfit", "var(--color-profit)", 3, isHovering)
+      : null,
+  ];
 }
 
 /**
@@ -636,9 +693,17 @@ function CashAreas({
   const smooth = layers.average && !cumulative;
   const showRevenue = series !== "profit";
   const showProfit = series !== "revenue";
+  const { hovered, onMouseMove, onMouseLeave } = useHoveredIndex();
+  const isHovering = hovered !== null;
   return (
     <PlotContainer pick={pick}>
-      <ComposedChart data={data} margin={CHART_MARGIN} onClick={pickHandler(pick)}>
+      <ComposedChart
+        data={data}
+        margin={CHART_MARGIN}
+        onClick={pickHandler(pick)}
+        onMouseMove={onMouseMove}
+        onMouseLeave={onMouseLeave}
+      >
         {renderGradients()}
         {renderFrame({
           scale,
@@ -660,12 +725,7 @@ function CashAreas({
           }
         />
         {layers.compare ? renderComparison(showProfit, smooth) : null}
-        {showRevenue ? renderDailyArea(DAILY_AREAS.revenue, smooth) : null}
-        {showProfit ? renderDailyArea(DAILY_AREAS.profit, smooth) : null}
-        {smooth && showRevenue
-          ? renderAverageLine("averageRevenue", "var(--color-revenue)", 2.5)
-          : null}
-        {smooth && showProfit ? renderAverageLine("averageProfit", "var(--color-profit)", 3) : null}
+        {renderCashSeries({ showRevenue, showProfit, smooth, isHovering })}
       </ComposedChart>
     </PlotContainer>
   );
@@ -688,20 +748,35 @@ function stackedValues(data: readonly ChartPoint[], series: SeriesKey): number[]
   });
 }
 
+/** One cell per bar, faded unless the pointer is on its bucket (or on none). */
+function renderDimmedCells(data: readonly ChartPoint[], hovered: number | null, opacity: number) {
+  return data.map((point, index) => (
+    <Cell
+      key={point.date}
+      fillOpacity={hovered === null || hovered === index ? opacity : opacity * DIMMED}
+    />
+  ));
+}
+
 /**
  * The bars of "Composição": revenue alone, profit alone, or ("Tudo") costs, then the revenue of
  * unknown cost, then profit on top. Recharts reads the bars as direct children, so a function.
  */
-function renderCompositionLayers(series: SeriesKey) {
+function renderCompositionLayers(
+  series: SeriesKey,
+  data: readonly ChartPoint[],
+  hovered: number | null,
+) {
   if (series === "revenue") {
     return (
       <Bar
         dataKey="revenue"
         fill="var(--color-revenue)"
-        fillOpacity={0.7}
         radius={TOP_RADIUS}
         isAnimationActive={false}
-      />
+      >
+        {renderDimmedCells(data, hovered, 0.85)}
+      </Bar>
     );
   }
   const profit = (
@@ -712,27 +787,26 @@ function renderCompositionLayers(series: SeriesKey) {
       fill="var(--color-profit)"
       radius={TOP_RADIUS}
       isAnimationActive={false}
-    />
+    >
+      {renderDimmedCells(data, hovered, 1)}
+    </Bar>
   );
   if (series === "profit") {
     return profit;
   }
   return [
-    <Bar
-      key="cost"
-      dataKey="cost"
-      stackId="sale"
-      fill="var(--color-revenue)"
-      fillOpacity={0.3}
-      isAnimationActive={false}
-    />,
+    <Bar key="cost" dataKey="cost" stackId="sale" fill={COST_COLOR} isAnimationActive={false}>
+      {renderDimmedCells(data, hovered, 0.3)}
+    </Bar>,
     <Bar
       key="pending"
       dataKey="pending"
       stackId="sale"
       fill={PENDING_FILL}
       isAnimationActive={false}
-    />,
+    >
+      {renderDimmedCells(data, hovered, 1)}
+    </Bar>,
     profit,
   ];
 }
@@ -750,6 +824,7 @@ function CompositionBars({
   pick: DayPick | null;
 }) {
   const scale = niceScale(stackedValues(data, series));
+  const { hovered, onMouseMove, onMouseLeave } = useHoveredIndex();
   return (
     <PlotContainer pick={pick}>
       <BarChart
@@ -758,6 +833,8 @@ function CompositionBars({
         stackOffset="sign"
         maxBarSize={grain === "month" ? 56 : 28}
         onClick={pickHandler(pick)}
+        onMouseMove={onMouseMove}
+        onMouseLeave={onMouseLeave}
       >
         {renderHatch()}
         {renderFrame({
@@ -769,7 +846,7 @@ function CompositionBars({
         {renderPickedLine(pick)}
         {renderDayTracker(pick)}
         <ChartTooltip cursor={BAR_CURSOR} content={<CompositionTooltip grain={grain} />} />
-        {renderCompositionLayers(series)}
+        {renderCompositionLayers(series, data, hovered)}
       </BarChart>
     </PlotContainer>
   );
@@ -1067,32 +1144,6 @@ function totalsMargin(totals: PeriodTotals): number | null {
   return margin === null ? null : margin * 100;
 }
 
-function directionOf(delta: number): "up" | "down" | "flat" {
-  if (delta > 0) {
-    return "up";
-  }
-  if (delta < 0) {
-    return "down";
-  }
-  return "flat";
-}
-
-/** Margin change in percentage points: "+2,1 p.p.". */
-function MarginDelta({ current, previous }: { current: number | null; previous: number | null }) {
-  if (current === null || previous === null) {
-    return null;
-  }
-  const delta = Math.round((current - previous) * 10) / 10;
-  const direction = directionOf(delta);
-  return (
-    <DeltaBadge
-      direction={direction}
-      label={`${percent.format(Math.abs(delta))} p.p.`}
-      suffix="vs. período anterior"
-    />
-  );
-}
-
 /**
  * The number the chart is about, before the drawing: the profit (or the margin, on the margin
  * chart) and how it moved against the previous period.
@@ -1115,7 +1166,10 @@ function ChartHeadline({
           <span className="text-3xl font-semibold tracking-tight">
             {margin === null ? "—" : `${percent.format(margin)}%`}
           </span>
-          <MarginDelta current={margin} previous={totalsMargin(previous)} />
+          <TrendTag
+            parts={marginTagParts(margin, totalsMargin(previous))}
+            suffix="vs. período anterior"
+          />
         </div>
       </div>
     );
@@ -1125,9 +1179,8 @@ function ChartHeadline({
       <p className="text-sm text-muted-foreground">Lucro no período</p>
       <div className="mt-1 flex flex-wrap items-baseline gap-x-3 gap-y-1">
         <MoneyFigure cents={current.profitCents} className="text-3xl" />
-        <TrendBadge
-          current={current.profitCents}
-          previous={previous.profitCents}
+        <TrendTag
+          parts={trendTagParts(current.profitCents, previous.profitCents)}
           suffix="vs. período anterior"
         />
       </div>
@@ -1136,7 +1189,7 @@ function ChartHeadline({
 }
 
 const COST_KEY = <span aria-hidden="true" className="size-2.5 rounded-sm bg-muted-foreground/30" />;
-const PROFIT_KEY = <span aria-hidden="true" className="size-2.5 rounded-sm bg-chart-brand" />;
+const PROFIT_KEY = <span aria-hidden="true" className="size-2.5 rounded-sm bg-chart-profit" />;
 const PENDING_KEY = (
   <span aria-hidden="true" className={cn("size-2.5 rounded-sm", PENDING_HATCH_CLASS)} />
 );

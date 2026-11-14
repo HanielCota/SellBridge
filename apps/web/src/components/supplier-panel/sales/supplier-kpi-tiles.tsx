@@ -1,9 +1,13 @@
 import type { SupplierSalesPoint, SupplierSalesSummary } from "@sellbridge/database/repositories";
 import { TERM_HINTS } from "@/components/icons/action-icons";
-import { MoneyFigure, TrendBadge } from "@/components/reports/figures";
+import { MoneyFigure, TrendTag } from "@/components/reports/figures";
 import type { SupplierSalesSituation } from "@sellbridge/shared/supplier-panel-sales";
 import { StatTile, type StatTileProps } from "@/components/reports/stat-tile";
-import { supplierAmountLabels } from "@/features/supplier-panel/sales/amount-labels";
+import { trendTagParts } from "@/features/reports/trend-tone";
+import {
+  supplierAmountLabels,
+  supplierTrendPolarity,
+} from "@/features/supplier-panel/sales/amount-labels";
 
 const count = new Intl.NumberFormat("pt-BR");
 
@@ -60,33 +64,35 @@ export function SupplierKpiTiles({
 }: SupplierKpiTilesProps) {
   const sold = points.filter((point) => point.orders > 0);
   const labels = supplierAmountLabels(situation);
+  const polarity = supplierTrendPolarity(situation);
+  const amount = trendTagParts(summary.receivableCents, previous.receivableCents, polarity);
+  const orders = trendTagParts(summary.orders, previous.orders, polarity);
+  const units = trendTagParts(summary.units, previous.units, polarity);
+  const average = trendTagParts(summary.averageOrderCents, previous.averageOrderCents, polarity);
   return (
     <div className={className}>
       <KpiTile
         {...amountTileName(situation)}
         figure={<MoneyFigure cents={summary.receivableCents} />}
-        change={
-          <TrendBadge
-            current={summary.receivableCents}
-            previous={previous.receivableCents}
-            suffix={VERSUS}
-          />
-        }
+        change={<TrendTag parts={amount} suffix={VERSUS} />}
         trend={points.map((point) => point.receivableCents)}
+        trendTone={amount?.tone ?? "neutral"}
       />
       <KpiTile
         label="Pedidos"
         hint="Ver os pedidos dos revendedores"
         figure={<Count value={summary.orders} />}
-        change={<TrendBadge current={summary.orders} previous={previous.orders} suffix={VERSUS} />}
+        change={<TrendTag parts={orders} suffix={VERSUS} />}
         trend={points.map((point) => point.orders)}
+        trendTone={orders?.tone ?? "neutral"}
       />
       <KpiTile
         label={labels.units}
         hint="Unidades dos seus produtos nos pedidos do período"
         figure={<Count value={summary.units} />}
-        change={<TrendBadge current={summary.units} previous={previous.units} suffix={VERSUS} />}
+        change={<TrendTag parts={units} suffix={VERSUS} />}
         trend={points.map((point) => point.units)}
+        trendTone={units?.tone ?? "neutral"}
       />
       <KpiTile
         label="Valor médio por pedido"
@@ -99,14 +105,9 @@ export function SupplierKpiTiles({
             <MoneyFigure cents={summary.averageOrderCents} />
           )
         }
-        change={
-          <TrendBadge
-            current={summary.averageOrderCents}
-            previous={previous.averageOrderCents}
-            suffix={VERSUS}
-          />
-        }
+        change={<TrendTag parts={average} suffix={VERSUS} />}
         trend={sold.map((point) => point.receivableCents / point.orders)}
+        trendTone={average?.tone ?? "neutral"}
       />
     </div>
   );
