@@ -1,4 +1,4 @@
-import { type ErrorLogEntry, logger, setErrorLogListener } from "./logger.ts";
+import { addProblemLogListener, logger, type ProblemLogEntry } from "./logger.ts";
 
 /** Item 32.a: error-level logs posted to a chat webhook (Slack, Discord, Google Chat). */
 export interface ErrorAlertOptions {
@@ -30,7 +30,7 @@ function asPlainChatText(text: string): string {
   return text.replaceAll("&", "&amp;").replaceAll("<", "&lt;").replaceAll(">", "&gt;");
 }
 
-function alertText(service: string, entry: ErrorLogEntry, repeats: number): string {
+function alertText(service: string, entry: ProblemLogEntry, repeats: number): string {
   const header = `[SellBridge ${service}] erro: ${entry.event}`;
   const repeated = repeats > 0 ? ` (+${repeats} repetições desde o último alerta)` : "";
   const text = asPlainChatText(`${header}${repeated}\n${entry.line}`);
@@ -72,7 +72,10 @@ export function installErrorAlerts(options: ErrorAlertOptions): () => void {
   const cooldown = options.cooldownMilliseconds ?? DEFAULT_COOLDOWN_MILLISECONDS;
   const windows = new Map<string, EventWindow>();
 
-  setErrorLogListener((entry) => {
+  return addProblemLogListener((entry) => {
+    if (entry.level !== "error") {
+      return;
+    }
     const current = now();
     const window = windows.get(entry.event);
     if (window !== undefined && current - window.sentAt < cooldown) {
@@ -83,5 +86,4 @@ export function installErrorAlerts(options: ErrorAlertOptions): () => void {
     const text = alertText(options.service, entry, window?.repeats ?? 0);
     void deliver(fetchImplementation, webhookUrl, text);
   });
-  return () => setErrorLogListener(null);
 }

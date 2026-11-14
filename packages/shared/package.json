@@ -32,6 +32,8 @@
     "./environment-file": "./src/runtime/environment-file.ts",
     "./logger": "./src/runtime/logger.ts",
     "./error-alerts": "./src/runtime/error-alerts.ts",
+    "./problem-capture": "./src/runtime/problem-capture.ts",
+    "./problem-areas": "./src/domain/problem-areas.ts",
     "./queues": "./src/runtime/queues.ts",
     "./fee-model": "./src/domain/fee-model.ts",
     "./finance": "./src/domain/finance.ts",

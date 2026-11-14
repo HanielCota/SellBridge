@@ -59,6 +59,15 @@ function setup(routes: Record<string, Responder> = {}, publicHost = true) {
     retry: { retries: 0 },
     now: () => NOW,
     resolveHost,
+    // The real download pins its connection to public addresses (image-download.test.ts).
+    downloadImage: async (url) => {
+      const response = await api.fetchImplementation(url.toString(), { method: "GET" });
+      return {
+        status: response.status,
+        contentType: response.headers.get("content-type") ?? "",
+        bytes: new Uint8Array(await response.arrayBuffer()),
+      };
+    },
   });
   return { ...api, connector, resolveHost };
 }

@@ -8,6 +8,7 @@ import {
 import { createBlingRateLimiter, type BlingAppCredentials } from "@sellbridge/marketplaces/bling";
 import { createTokenCipher } from "@sellbridge/shared/token-cipher";
 import { installErrorAlerts } from "@sellbridge/shared/error-alerts";
+import { installProblemRecorder } from "@sellbridge/database/problem-recorder";
 import { installPortugueseZodMessages } from "@sellbridge/shared/zod-messages";
 import { logger } from "@sellbridge/shared/logger";
 import { createMailer } from "@sellbridge/shared/mailer";
@@ -416,6 +417,7 @@ export async function startWorker(connectors: ConnectorRegistry): Promise<void> 
   installErrorAlerts({ webhookUrl: environment.ALERT_WEBHOOK_URL, service: "worker" });
   installPortugueseZodMessages();
   const context = createContext(connectors);
+  installProblemRecorder(context.database, { service: "worker" });
   const workers = [
     ...marketplaceWorkers(context),
     ...orderWorkers(context),
