@@ -11,13 +11,19 @@ import {
   CREATED_PRODUCT_RESPONSE,
   EMPTY_SUCCESS,
   IMAGE_RESPONSE,
+  ORDER_ID,
+  orderDetailResponse,
+  orderSearchResponse,
+  PACKAGE_ID,
   PRODUCT_ID,
   PRODUCT_RESPONSE,
   refusal,
+  SHIPPING_DOCUMENT_RESPONSE,
   SHOP_CIPHER,
   SHOP_ID,
   SHOPS_RESPONSE,
   SKU_ID,
+  tiktokOrder,
   TOKEN_RESPONSE,
   WAREHOUSE_ID,
   WAREHOUSES_RESPONSE,
@@ -30,7 +36,7 @@ import {
   type Responder,
 } from "./testing/fake-tiktok-shop.ts";
 import type { ResolveHost } from "./client.ts";
-import { createTikTokShopConnector } from "./tiktok-shop-connector.ts";
+import { createTikTokShopConnector, getTikTokShopShippingLabel } from "./tiktok-shop-connector.ts";
 
 const API = "open-api.tiktokglobalshop.com";
 const AUTH = "auth.tiktok-shops.com";
@@ -406,9 +412,7 @@ describe("TikTok Shop request errors", () => {
         jsonResponse(refusal(105002, "Expired credentials")),
     });
 
-    const error = await caught(
-      connector.updateDescription(STORE, { externalId: PRODUCT_ID, plainText: "x" }),
-    );
+    const error = await caught(connector.listOrders(STORE, NOW));
 
     expect(isMarketplaceAuthError(error)).toBe(true);
   });
@@ -421,9 +425,7 @@ describe("TikTok Shop request errors", () => {
         ),
     });
 
-    const error = await caught(
-      connector.updateDescription(STORE, { externalId: PRODUCT_ID, plainText: "x" }),
-    );
+    const error = await caught(connector.listOrders(STORE, NOW));
 
     expect(isMarketplaceAuthError(error)).toBe(true);
   });
@@ -434,9 +436,7 @@ describe("TikTok Shop request errors", () => {
         jsonResponse(refusal(36009004, "Invalid timestamp.")),
     });
 
-    const error = await caught(
-      connector.updateDescription(STORE, { externalId: PRODUCT_ID, plainText: "x" }),
-    );
+    const error = await caught(connector.listOrders(STORE, NOW));
 
     expect(isMarketplaceAuthError(error)).toBe(false);
     expect(isAppError(error) && error.message).toMatch(/código 36009004/);
@@ -448,9 +448,7 @@ describe("TikTok Shop request errors", () => {
         jsonResponse(refusal(36009002, "Too many requests")),
     });
 
-    const error = await caught(
-      connector.updateDescription(STORE, { externalId: PRODUCT_ID, plainText: "x" }),
-    );
+    const error = await caught(connector.listOrders(STORE, NOW));
 
     expect(isRetryableError(error)).toBe(true);
   });
@@ -468,23 +466,125 @@ describe("TikTok Shop request errors", () => {
       now: () => NOW,
     });
 
-    const error = await caught(
-      connector.updateDescription(STORE, { externalId: PRODUCT_ID, plainText: "x" }),
-    );
+    const error = await caught(connector.listOrders(STORE, NOW));
 
     expect(isAppError(error) && error.message).toMatch(/código 106001/);
   });
 });
 
-describe("TikTok Shop orders before their reading exists", () => {
-  it("answers orders and webhooks as not available yet", async () => {
-    const { connector, calls } = setup();
+describe("TikTok Shop orders", () => {
+  it("lists orders since a date across pages and counts one unit per line item", async () => {
+    const second = tiktokOrder({ id: "576461413038785753", status: "IN_TRANSIT" });
+    const { connector, calls } = setup({
+      [`POST ${API}/order/202309/orders/search`]: (request) =>
+        jsonResponse(
+          request.query.get("page_token") === null
+            ? orderSearchResponse([tiktokOrder()], "next-1")
+            : orderSearchResponse([second], ""),
+        ),
+    });
 
-    const error = await caught(connector.listOrders(STORE, NOW));
-    const webhook = await connector.verifyWebhook({ headers: new Headers(), rawBody: "{}" });
+    const orders = await connector.listOrders(STORE, new Date("2026-11-01T00:00:00Z"));
 
-    expect(isAppError(error) && error.message).toMatch(/ainda não está disponível/);
-    expect(webhook.valid).toBe(false);
-    expect(calls).toHaveLength(0);
+    expect(orders.map((order) => order.status)).toEqual(["paid", "shipped"]);
+    expect(orders[0]).toMatchObject({
+      externalOrderId: ORDER_ID,
+      totalCents: 11980,
+      marketplaceFeeCents: 0,
+      items: [{ externalListingId: PRODUCT_ID, quantity: 2, unitPriceCents: 5990 }],
+    });
+    const searches = calls.filter((call) => call.path === "/order/202309/orders/search");
+    expect(searches[0]?.json).toEqual({ create_time_ge: 1793491200 });
+    expect(searches[1]?.query.get("page_token")).toBe("next-1");
+  });
+
+  it("holds ON_HOLD orders as pending: the buyer may still cancel", async () => {
+    const { connector } = setup({
+      [`GET ${API}/order/202507/orders`]: () =>
+        jsonResponse(orderDetailResponse([tiktokOrder({ status: "ON_HOLD" })])),
+    });
+
+    const order = await connector.fetchOrder(STORE, ORDER_ID);
+
+    expect(order.status).toBe("pending");
+  });
+
+  it("refuses an order in another currency", async () => {
+    const { connector } = setup({
+      [`GET ${API}/order/202507/orders`]: () =>
+        jsonResponse(
+          orderDetailResponse([
+            tiktokOrder({ payment: { currency: "IDR", total_amount: "5000" } }),
+          ]),
+        ),
+    });
+
+    const error = await caught(connector.fetchOrder(STORE, ORDER_ID));
+
+    expect(isAppError(error) && error.message).toMatch(/outra moeda/);
+  });
+
+  it("reads the order the webhook named, with its id in the query", async () => {
+    const { connector, calls } = setup({
+      [`GET ${API}/order/202507/orders`]: () => jsonResponse(orderDetailResponse([tiktokOrder()])),
+    });
+
+    await connector.fetchOrder(STORE, ORDER_ID);
+
+    expect(calls.at(-1)?.query.get("ids")).toBe(ORDER_ID);
+  });
+});
+
+describe("TikTok Shop shipping label", () => {
+  it("returns the label link of the order's package", async () => {
+    const api = fakeTikTokShop({
+      [`GET ${API}/authorization/202309/shops`]: () => jsonResponse(SHOPS_RESPONSE),
+      [`GET ${API}/order/202507/orders`]: () => jsonResponse(orderDetailResponse([tiktokOrder()])),
+      [`GET ${API}/fulfillment/202309/packages/${PACKAGE_ID}/shipping_documents`]: () =>
+        jsonResponse(SHIPPING_DOCUMENT_RESPONSE),
+    });
+    const config = {
+      appKey: APP_KEY,
+      appSecret: APP_SECRET,
+      serviceId: "1",
+      fetchImplementation: api.fetchImplementation,
+      retry: { retries: 0 },
+      now: () => NOW,
+    };
+
+    const label = await getTikTokShopShippingLabel(config, STORE, ORDER_ID);
+
+    expect(label).toEqual({
+      url: SHIPPING_DOCUMENT_RESPONSE.data.doc_url,
+      trackingNumber: "752455325694",
+    });
+    const document = api.calls.at(-1);
+    expect(document?.query.get("document_type")).toBe("SHIPPING_LABEL");
+    expect(document?.query.get("document_format")).toBe("PDF");
+  });
+
+  it("asks to arrange the shipment first when TikTok has no label yet", async () => {
+    const api = fakeTikTokShop({
+      [`GET ${API}/authorization/202309/shops`]: () => jsonResponse(SHOPS_RESPONSE),
+      [`GET ${API}/order/202507/orders`]: () => jsonResponse(orderDetailResponse([tiktokOrder()])),
+      [`GET ${API}/fulfillment/202309/packages/${PACKAGE_ID}/shipping_documents`]: () =>
+        jsonResponse(
+          refusal(21023035, "Please arrange shipment before retrieving the shipping document."),
+        ),
+    });
+    const config = {
+      appKey: APP_KEY,
+      appSecret: APP_SECRET,
+      serviceId: "1",
+      fetchImplementation: api.fetchImplementation,
+      retry: { retries: 0 },
+      now: () => NOW,
+    };
+
+    const error = await caught(getTikTokShopShippingLabel(config, STORE, ORDER_ID));
+
+    expect(isAppError(error) && error.message).toBe(
+      "Organize o envio do pedido no TikTok Shop antes de baixar a etiqueta.",
+    );
   });
 });

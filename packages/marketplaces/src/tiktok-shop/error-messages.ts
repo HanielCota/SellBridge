@@ -54,9 +54,25 @@ const ACCESS_MESSAGES: Readonly<Record<number, string>> = {
   36004004: "A autorização do TikTok Shop expirou antes de terminar. Conecte a loja de novo.",
 };
 
+const SHIPPING_MESSAGES: Readonly<Record<number, string>> = {
+  21023035: "Organize o envio do pedido no TikTok Shop antes de baixar a etiqueta.",
+  21042104: "Organize o envio do pedido no TikTok Shop antes de baixar a etiqueta.",
+  11034037: "O TikTok Shop ainda está gerando a etiqueta. Tente de novo em alguns minutos.",
+  11034023: "O TikTok Shop demorou para gerar a etiqueta. Tente de novo em alguns minutos.",
+  21042102: "A etiqueta não pode mais ser impressa: o pacote já foi coletado.",
+  21023059: "O pacote deste pedido foi cancelado no TikTok Shop.",
+  21008043:
+    "Este pedido é enviado pelo próprio TikTok (Fulfilled by TikTok): não há etiqueta para imprimir.",
+  11034002:
+    "Este pedido não usa o envio do TikTok Shop: a etiqueta é emitida fora dele e enviada pelo Seller Center.",
+  21008017:
+    "Este pedido não usa o envio do TikTok Shop: a etiqueta é emitida fora dele e enviada pelo Seller Center.",
+};
+
 const KNOWN_MESSAGES: Readonly<Record<number, string>> = {
   ...PRODUCT_MESSAGES,
   ...ACCESS_MESSAGES,
+  ...SHIPPING_MESSAGES,
 };
 
 /** The refusal of a TikTok Shop `code` in Portuguese; unknown codes are named for support. */
