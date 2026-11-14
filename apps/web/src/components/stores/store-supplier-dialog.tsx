@@ -1,8 +1,9 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { WarningIcon } from "@phosphor-icons/react";
+import { PlusIcon, WarningIcon } from "@phosphor-icons/react";
 import { useState } from "react";
 import { toast } from "sonner";
 import { type PickableSupplier, SupplierPicker } from "@/components/onboarding/supplier-picker";
+import { SupplierLogo } from "@/components/suppliers/supplier-logo";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -13,24 +14,220 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Skeleton } from "@/components/ui/skeleton";
-import { changeStoreSupplierFn } from "@/features/stores/store-suppliers.functions";
-import { storeSupplierPreviewQueryOptions } from "@/features/stores/store-suppliers.queries";
+import {
+  addStoreSupplierFn,
+  removeStoreSupplierFn,
+} from "@/features/stores/store-suppliers.functions";
+import { storeSupplierRemovalPreviewQueryOptions } from "@/features/stores/store-suppliers.queries";
 import { errorMessage } from "@/lib/errors";
 
-/** A connected shop whose supplier is being picked or changed. */
-export interface StoreSupplierTarget {
+/** A supplier as the stores page shows it. */
+export interface StoreSupplierOption {
+  id: string;
+  name: string;
+  niche: string;
+  city: string;
+  state: string;
+  logoUrl: string | null;
+  active: boolean;
+}
+
+/** A connected shop whose suppliers are being managed. */
+export interface StoreSuppliersTarget {
   storeId: string;
   storeName: string;
-  currentSupplierId: string | null;
+  /** The suppliers the shop sells, oldest first; known ones only. */
+  suppliers: readonly StoreSupplierOption[];
 }
+
+type DialogView =
+  { kind: "list" } | { kind: "add" } | { kind: "remove"; supplier: StoreSupplierOption };
+
+const FOOTER_CLASS = "sticky -bottom-5 -mx-5 -mb-5 bg-card/90 px-5 py-3 backdrop-blur-xl";
 
 function countLabel(count: number, one: string, many: string): string {
   return count === 1 ? `1 ${one}` : `${count.toLocaleString("pt-BR")} ${many}`;
 }
 
-/** What the change does to the shop's publications, before the seller confirms it. */
-function ChangeImpact({ storeId, supplierId }: { storeId: string; supplierId: string }) {
-  const query = useQuery(storeSupplierPreviewQueryOptions(storeId, supplierId));
+function useInvalidateStores() {
+  const queryClient = useQueryClient();
+  return () =>
+    Promise.all([
+      queryClient.invalidateQueries({ queryKey: ["stores"] }),
+      queryClient.invalidateQueries({ queryKey: ["setup-progress"] }),
+      queryClient.invalidateQueries({ queryKey: ["listings"] }),
+    ]);
+}
+
+function MutationError({ error }: { error: Error | null }) {
+  if (error === null) {
+    return null;
+  }
+  return (
+    <p role="alert" className="text-sm text-destructive">
+      {errorMessage(error)}
+    </p>
+  );
+}
+
+function SupplierRow({
+  supplier,
+  canRemove,
+  onRemove,
+}: {
+  supplier: StoreSupplierOption;
+  canRemove: boolean;
+  onRemove: () => void;
+}) {
+  return (
+    <li className="flex items-center gap-3 py-3">
+      <SupplierLogo name={supplier.name} logoUrl={supplier.logoUrl} />
+      <div className="min-w-0 flex-1">
+        <p className="truncate font-medium text-foreground">{supplier.name}</p>
+        <p className="truncate text-sm text-muted-foreground">
+          {supplier.niche} · {supplier.city} - {supplier.state}
+          {supplier.active ? null : " · fornecedor inativo"}
+        </p>
+      </div>
+      {canRemove ? (
+        <Button type="button" variant="outline" size="sm" onClick={onRemove}>
+          Tirar<span className="sr-only"> {supplier.name}</span>
+        </Button>
+      ) : null}
+    </li>
+  );
+}
+
+function SupplierListView({
+  target,
+  onAdd,
+  onRemove,
+  onClose,
+}: {
+  target: StoreSuppliersTarget;
+  onAdd: () => void;
+  onRemove: (supplier: StoreSupplierOption) => void;
+  onClose: () => void;
+}) {
+  const canRemove = target.suppliers.length > 1;
+  return (
+    <>
+      <DialogHeader>
+        <DialogTitle>Fornecedores de {target.storeName}</DialogTitle>
+        <DialogDescription>
+          A loja vende os produtos destes fornecedores. Cada um envia os próprios produtos ao
+          comprador.
+        </DialogDescription>
+      </DialogHeader>
+      <ul aria-label={`Fornecedores de ${target.storeName}`} className="divide-y">
+        {target.suppliers.map((supplier) => (
+          <SupplierRow
+            key={supplier.id}
+            supplier={supplier}
+            canRemove={canRemove}
+            onRemove={() => onRemove(supplier)}
+          />
+        ))}
+      </ul>
+      {canRemove ? null : (
+        <p className="text-sm leading-relaxed text-muted-foreground">
+          Para tirar este fornecedor, adicione outro antes: a loja precisa vender pelo menos um.
+        </p>
+      )}
+      <DialogFooter className={FOOTER_CLASS}>
+        <Button type="button" variant="ghost" onClick={onClose}>
+          Pronto
+        </Button>
+        <Button type="button" onClick={onAdd}>
+          <PlusIcon weight="bold" aria-hidden="true" />
+          Adicionar fornecedor
+        </Button>
+      </DialogFooter>
+    </>
+  );
+}
+
+function useAddSupplier(target: StoreSuppliersTarget, onDone: () => void) {
+  const invalidate = useInvalidateStores();
+  return useMutation({
+    mutationFn: (supplier: PickableSupplier) =>
+      addStoreSupplierFn({ data: { storeConnectionId: target.storeId, supplierId: supplier.id } }),
+    onSuccess: async (_result, supplier) => {
+      await invalidate();
+      toast.success(`${supplier.name} adicionado a ${target.storeName}`);
+      onDone();
+    },
+  });
+}
+
+function addHint(picked: PickableSupplier | null, alreadySold: boolean): string | null {
+  if (picked === null) {
+    return "Escolha um fornecedor na lista para continuar.";
+  }
+  if (alreadySold) {
+    return `${picked.name} já é fornecedor desta loja.`;
+  }
+  return null;
+}
+
+function AddSupplierView({
+  target,
+  onBack,
+  onDone,
+}: {
+  target: StoreSuppliersTarget;
+  onBack: () => void;
+  onDone: () => void;
+}) {
+  const [picked, setPicked] = useState<PickableSupplier | null>(null);
+  const mutation = useAddSupplier(target, onDone);
+  const isFirst = target.suppliers.length === 0;
+  const alreadySold =
+    picked !== null && target.suppliers.some((supplier) => supplier.id === picked.id);
+  const hint = addHint(picked, alreadySold);
+  return (
+    <>
+      <DialogHeader>
+        <DialogTitle>
+          {isFirst
+            ? `Escolha o fornecedor de ${target.storeName}`
+            : `Adicionar fornecedor a ${target.storeName}`}
+        </DialogTitle>
+        <DialogDescription>
+          Os produtos dele passam a poder ser publicados nesta loja. Os anúncios que a loja já tem
+          continuam iguais.
+        </DialogDescription>
+      </DialogHeader>
+      <SupplierPicker value={picked?.id ?? null} onChange={setPicked} />
+      <MutationError error={mutation.error} />
+      <DialogFooter className={`${FOOTER_CLASS} sm:items-center`}>
+        {hint === null ? null : (
+          <p aria-live="polite" className="text-sm text-muted-foreground sm:mr-auto">
+            {hint}
+          </p>
+        )}
+        <Button type="button" variant="ghost" onClick={onBack}>
+          {isFirst ? "Cancelar" : "Voltar"}
+        </Button>
+        <Button
+          type="button"
+          disabled={hint !== null || mutation.isPending}
+          onClick={() => {
+            if (picked !== null) {
+              mutation.mutate(picked);
+            }
+          }}
+        >
+          {mutation.isPending ? "Adicionando…" : "Adicionar fornecedor"}
+        </Button>
+      </DialogFooter>
+    </>
+  );
+}
+
+/** What removing the supplier does to the shop's publications, before the seller confirms. */
+function RemovalImpact({ storeId, supplierId }: { storeId: string; supplierId: string }) {
+  const query = useQuery(storeSupplierRemovalPreviewQueryOptions(storeId, supplierId));
   if (query.isPending) {
     return <Skeleton className="h-12 rounded-2xl" />;
   }
@@ -41,7 +238,7 @@ function ChangeImpact({ storeId, supplierId }: { storeId: string; supplierId: st
   if (livePaused === 0 && queuedStopped === 0) {
     return (
       <p className="rounded-2xl bg-muted/60 px-4 py-3 text-sm text-muted-foreground">
-        Nenhuma publicação desta loja é afetada.
+        Nenhum anúncio desta loja é afetado.
       </p>
     );
   }
@@ -60,104 +257,127 @@ function ChangeImpact({ storeId, supplierId }: { storeId: string; supplierId: st
   return (
     <p
       aria-live="polite"
-      className="flex gap-3 rounded-2xl bg-amber-500/10 px-4 py-3 text-sm text-amber-800 dark:text-amber-300"
+      className="flex gap-3 rounded-2xl bg-amber-500/10 px-4 py-3 text-sm leading-relaxed text-amber-800 dark:text-amber-300"
     >
       <WarningIcon weight="fill" className="mt-0.5 size-4 shrink-0" aria-hidden="true" />
       <span>
-        {parts.join(" e ")}. Eles são do fornecedor anterior; nada é apagado, e voltar ao fornecedor
-        anterior permite reativá-los.
+        {parts.join(" e ")}. Nada é apagado: se você adicionar o fornecedor de novo, pode reativar
+        os anúncios.
       </span>
     </p>
   );
 }
 
-function useChangeStoreSupplier(target: StoreSupplierTarget, onDone: () => void) {
-  const queryClient = useQueryClient();
+function useRemoveSupplier(
+  target: StoreSuppliersTarget,
+  supplier: StoreSupplierOption,
+  onDone: () => void,
+) {
+  const invalidate = useInvalidateStores();
   return useMutation({
-    mutationFn: (supplierId: string) =>
-      changeStoreSupplierFn({ data: { storeConnectionId: target.storeId, supplierId } }),
+    mutationFn: () =>
+      removeStoreSupplierFn({
+        data: { storeConnectionId: target.storeId, supplierId: supplier.id },
+      }),
     onSuccess: async () => {
-      await Promise.all([
-        queryClient.invalidateQueries({ queryKey: ["stores"] }),
-        queryClient.invalidateQueries({ queryKey: ["setup-progress"] }),
-        queryClient.invalidateQueries({ queryKey: ["listings"] }),
-      ]);
-      toast.success(`Fornecedor de ${target.storeName} atualizado`);
+      await invalidate();
+      toast.success(`${supplier.name} não é mais fornecedor de ${target.storeName}`);
       onDone();
     },
   });
 }
 
-function dialogTitle(target: StoreSupplierTarget): string {
-  return target.currentSupplierId === null
-    ? `Escolha o fornecedor de ${target.storeName}`
-    : `Trocar o fornecedor de ${target.storeName}`;
-}
-
-function StoreSupplierForm({
+function RemoveSupplierView({
   target,
-  onClose,
+  supplier,
+  onBack,
 }: {
-  target: StoreSupplierTarget;
-  onClose: () => void;
+  target: StoreSuppliersTarget;
+  supplier: StoreSupplierOption;
+  onBack: () => void;
 }) {
-  const [picked, setPicked] = useState<PickableSupplier | null>(null);
-  const mutation = useChangeStoreSupplier(target, onClose);
-  const pickedId = picked?.id ?? target.currentSupplierId;
-  const changed = picked !== null && picked.id !== target.currentSupplierId;
+  const mutation = useRemoveSupplier(target, supplier, onBack);
   return (
     <>
       <DialogHeader>
-        <DialogTitle>{dialogTitle(target)}</DialogTitle>
+        <DialogTitle>
+          Tirar {supplier.name} de {target.storeName}
+        </DialogTitle>
         <DialogDescription>
-          Cada loja vende os produtos de um único fornecedor, de qualquer lugar do Brasil.
+          A loja deixa de vender os produtos deste fornecedor. Os outros fornecedores continuam
+          iguais.
         </DialogDescription>
       </DialogHeader>
-      <SupplierPicker value={pickedId} onChange={setPicked} />
-      {changed ? <ChangeImpact storeId={target.storeId} supplierId={picked.id} /> : null}
-      {mutation.isError ? (
-        <p role="alert" className="text-sm text-destructive">
-          {errorMessage(mutation.error)}
-        </p>
-      ) : null}
-      <DialogFooter className="sticky -bottom-5 -mx-5 -mb-5 bg-card/90 px-5 py-3 backdrop-blur-xl">
-        <Button type="button" variant="ghost" onClick={onClose}>
-          Cancelar
+      <RemovalImpact storeId={target.storeId} supplierId={supplier.id} />
+      <MutationError error={mutation.error} />
+      <DialogFooter className={FOOTER_CLASS}>
+        <Button type="button" variant="ghost" onClick={onBack}>
+          Voltar
         </Button>
         <Button
           type="button"
-          disabled={!changed || mutation.isPending}
-          onClick={() => {
-            if (picked !== null) {
-              mutation.mutate(picked.id);
-            }
-          }}
+          variant="destructive"
+          disabled={mutation.isPending}
+          onClick={() => mutation.mutate()}
         >
-          {mutation.isPending ? "Salvando…" : "Salvar fornecedor"}
+          {mutation.isPending ? "Tirando…" : "Tirar fornecedor"}
         </Button>
       </DialogFooter>
     </>
   );
 }
 
-/** Picks or changes the one supplier a shop sells; open while `target` is set. */
+function SupplierDialogBody({
+  target,
+  onClose,
+}: {
+  target: StoreSuppliersTarget;
+  onClose: () => void;
+}) {
+  const isPending = target.suppliers.length === 0;
+  const [view, setView] = useState<DialogView>(isPending ? { kind: "add" } : { kind: "list" });
+  const showList = () => setView({ kind: "list" });
+  if (view.kind === "remove") {
+    return <RemoveSupplierView target={target} supplier={view.supplier} onBack={showList} />;
+  }
+  if (view.kind === "add") {
+    return (
+      <AddSupplierView target={target} onBack={isPending ? onClose : showList} onDone={showList} />
+    );
+  }
+  return (
+    <SupplierListView
+      target={target}
+      onAdd={() => setView({ kind: "add" })}
+      onRemove={(supplier) => setView({ kind: "remove", supplier })}
+      onClose={onClose}
+    />
+  );
+}
+
+/**
+ * Lists, adds and removes the suppliers a shop sells; open while `target` is set. A shop with no
+ * supplier yet opens straight on the picker.
+ */
 export function StoreSupplierDialog({
   target,
   onClose,
 }: {
-  target: StoreSupplierTarget | null;
+  target: StoreSuppliersTarget | null;
   onClose: () => void;
 }) {
   return (
     <Dialog open={target !== null} onOpenChange={(open) => (open ? undefined : onClose())}>
       <DialogContent className="max-h-[90svh] grid-cols-[minmax(0,1fr)] gap-5 overflow-y-auto rounded-[1.75rem] p-5 sm:max-w-2xl">
-        {target === null ? null : <StoreSupplierForm target={target} onClose={onClose} />}
+        {target === null ? null : (
+          <SupplierDialogBody key={target.storeId} target={target} onClose={onClose} />
+        )}
       </DialogContent>
     </Dialog>
   );
 }
 
-/** Picks the supplier the next shop will sell, before connecting it; open while `open`. */
+/** Picks the supplier the next shop starts with, before connecting it; open while `open`. */
 export function NewStoreSupplierDialog({
   open,
   currentSupplierId,
@@ -176,11 +396,12 @@ export function NewStoreSupplierDialog({
         <DialogHeader>
           <DialogTitle>Fornecedor da nova loja</DialogTitle>
           <DialogDescription>
-            A loja que você conectar agora vende os produtos deste fornecedor.
+            A loja que você conectar agora começa vendendo os produtos deste fornecedor. Depois dá
+            para adicionar outros.
           </DialogDescription>
         </DialogHeader>
         <SupplierPicker value={picked?.id ?? currentSupplierId} onChange={setPicked} />
-        <DialogFooter className="sticky -bottom-5 -mx-5 -mb-5 bg-card/90 px-5 py-3 backdrop-blur-xl">
+        <DialogFooter className={FOOTER_CLASS}>
           <Button type="button" variant="ghost" onClick={onClose}>
             Cancelar
           </Button>

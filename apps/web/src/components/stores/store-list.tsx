@@ -190,28 +190,32 @@ function StoreSubtitle({
   );
 }
 
-/** The supplier the row names: the store's oldest one while the row shows a single supplier. */
-function firstSupplier(
+/** The suppliers the row names, oldest first; ids not loaded yet are left out. */
+function storeSuppliersOf(
   store: StoreWithActivity,
   suppliers: ReadonlyMap<string, StoreSupplierLabel>,
-): StoreSupplierLabel | undefined {
-  const [supplierId] = store.supplierIds;
-  return supplierId === undefined ? undefined : suppliers.get(supplierId);
+): StoreSupplierLabel[] {
+  return store.supplierIds.flatMap((supplierId) => {
+    const supplier = suppliers.get(supplierId);
+    return supplier === undefined ? [] : [supplier];
+  });
 }
+
+const SUPPLIER_LIST_FORMAT = new Intl.ListFormat("pt-BR", { style: "long", type: "conjunction" });
 
 /** Who the shop sells; a shop with no supplier yet asks for one before it can publish again. */
 function StoreSupplierLine({
-  supplier,
-  onChangeSupplier,
+  suppliers,
+  onManageSuppliers,
 }: {
-  supplier: StoreSupplierLabel | undefined;
-  onChangeSupplier: () => void;
+  suppliers: readonly StoreSupplierLabel[];
+  onManageSuppliers: () => void;
 }) {
-  if (supplier === undefined) {
+  if (suppliers.length === 0) {
     return (
       <button
         type="button"
-        onClick={onChangeSupplier}
+        onClick={onManageSuppliers}
         className="flex items-center gap-1.5 rounded-md text-left text-sm font-medium text-amber-700 underline-offset-4 hover:underline focus-visible:ring-4 focus-visible:ring-ring/30 focus-visible:outline-none dark:text-amber-400"
       >
         <WarningCircleIcon weight="fill" className="size-4 shrink-0" aria-hidden="true" />
@@ -219,10 +223,13 @@ function StoreSupplierLine({
       </button>
     );
   }
+  const names = suppliers.map((supplier) =>
+    supplier.active ? supplier.name : `${supplier.name} (inativo)`,
+  );
   return (
     <p className="text-sm text-muted-foreground md:truncate">
-      Vende <span className="font-medium text-foreground">{supplier.name}</span>
-      {supplier.active ? null : " · fornecedor inativo"}
+      Vende{" "}
+      <span className="font-medium text-foreground">{SUPPLIER_LIST_FORMAT.format(names)}</span>
     </p>
   );
 }
@@ -234,7 +241,7 @@ function PublishAction({ store, storeName }: { store: StoreWithActivity; storeNa
   }
   return (
     <Button asChild variant="outline" size="sm" className="shrink-0">
-      {/* Only this store's supplier: products of another one could not be published here. */}
+      {/* The catalog opens on this store, so only its suppliers' products can be published. */}
       <Link
         to="/catalogo"
         search={{ store: store.id }}
@@ -272,12 +279,12 @@ function StoreFigures({ store }: { store: StoreWithActivity }) {
 function StoreRow({
   store,
   marketplaceLabel,
-  supplier,
+  suppliers,
   actions,
 }: {
   store: StoreWithActivity;
   marketplaceLabel: string;
-  supplier: StoreSupplierLabel | undefined;
+  suppliers: readonly StoreSupplierLabel[];
   actions: StoreRowActions;
 }) {
   const name = store.shopName;
@@ -295,7 +302,10 @@ function StoreRow({
             </h2>
             <StoreSubtitle store={store} storeName={name} marketplaceLabel={marketplaceLabel} />
             <PausedListingsLine store={store} storeName={name} />
-            <StoreSupplierLine supplier={supplier} onChangeSupplier={actions.onChangeSupplier} />
+            <StoreSupplierLine
+              suppliers={suppliers}
+              onManageSuppliers={actions.onManageSuppliers}
+            />
           </div>
           <PublishAction store={store} storeName={name} />
         </div>
@@ -335,13 +345,13 @@ export function StoreList({
   labels,
   suppliers,
   onDisconnect,
-  onChangeSupplier,
+  onManageSuppliers,
 }: {
   stores: StoreWithActivity[];
   labels: Map<string, string>;
   suppliers: Map<string, StoreSupplierLabel>;
   onDisconnect: (store: StoreWithActivity) => void;
-  onChangeSupplier: (store: StoreWithActivity) => void;
+  onManageSuppliers: (store: StoreWithActivity) => void;
 }) {
   return (
     <div className="space-y-2">
@@ -365,10 +375,10 @@ export function StoreList({
             key={store.id}
             store={store}
             marketplaceLabel={labels.get(store.marketplace) ?? store.marketplace}
-            supplier={firstSupplier(store, suppliers)}
+            suppliers={storeSuppliersOf(store, suppliers)}
             actions={{
               onDisconnect: () => onDisconnect(store),
-              onChangeSupplier: () => onChangeSupplier(store),
+              onManageSuppliers: () => onManageSuppliers(store),
             }}
           />
         ))}

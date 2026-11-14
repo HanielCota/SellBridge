@@ -19,7 +19,7 @@ import { StoreList, type StoreWithActivity } from "@/components/stores/store-lis
 import {
   NewStoreSupplierDialog,
   StoreSupplierDialog,
-  type StoreSupplierTarget,
+  type StoreSuppliersTarget,
 } from "@/components/stores/store-supplier-dialog";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -128,7 +128,7 @@ function StoresPage() {
 
 const ONBOARDING_STEPS = [
   "Autorize o SellBridge na sua conta do marketplace.",
-  "Publique seus próprios produtos e os produtos do fornecedor escolhido para a loja.",
+  "Publique os produtos dos fornecedores escolhidos para a loja.",
   "Pedidos, estoque e preço passam a ser sincronizados automaticamente.",
 ] as const;
 
@@ -233,7 +233,7 @@ function toNewStoreSupplier(supplier: StoreSupplier | PickableSupplier): NewStor
 
 /**
  * The supplier the next shop sells: the one picked here, else, for a first shop, the one picked
- * during onboarding. Further shops ask, since each one sells a single supplier.
+ * during onboarding. Further shops ask which supplier to start with.
  */
 function useNewStoreChoice(hasStores: boolean) {
   const { fornecedor } = Route.useSearch();
@@ -270,7 +270,7 @@ function supplierLabels(suppliers: readonly StoreSupplier[] | undefined) {
   );
 }
 
-/** Shops connected before the one-supplier rule, or whose supplier was deleted, wait for one. */
+/** Shops connected before suppliers were linked, or whose suppliers were deleted, wait for one. */
 function PendingSupplierNotice({ stores }: { stores: readonly StoreWithActivity[] }) {
   const pending = stores.filter(
     (store) => store.supplierIds.length === 0 && store.status !== "disconnected",
@@ -292,11 +292,25 @@ function PendingSupplierNotice({ stores }: { stores: readonly StoreWithActivity[
   );
 }
 
-function supplierTargetOf(store: StoreWithActivity): StoreSupplierTarget {
+/** The shop whose suppliers are being managed, read live so the dialog follows each change. */
+function suppliersTargetOf(
+  stores: readonly StoreWithActivity[],
+  storeId: string | null,
+  suppliers: readonly StoreSupplier[] | undefined,
+): StoreSuppliersTarget | null {
+  const store = stores.find((item) => item.id === storeId);
+  // Until the names load, a shop that sells suppliers would look pending and open the picker.
+  if (store === undefined || (suppliers === undefined && store.supplierIds.length > 0)) {
+    return null;
+  }
+  const byId = new Map((suppliers ?? []).map((supplier) => [supplier.id, supplier]));
   return {
     storeId: store.id,
     storeName: store.shopName,
-    currentSupplierId: store.supplierIds[0] ?? null,
+    suppliers: store.supplierIds.flatMap((supplierId) => {
+      const supplier = byId.get(supplierId);
+      return supplier === undefined ? [] : [supplier];
+    }),
   };
 }
 
@@ -304,7 +318,7 @@ function StoresContent() {
   const query = useQuery(storesQueryOptions());
   const suppliers = useQuery(storeSuppliersQueryOptions());
   const [pendingDisconnect, setPendingDisconnect] = useState<StoreToDisconnect | null>(null);
-  const [supplierTarget, setSupplierTarget] = useState<StoreSupplierTarget | null>(null);
+  const [suppliersStoreId, setSuppliersStoreId] = useState<string | null>(null);
   const newStore = useNewStoreChoice((query.data?.stores.length ?? 0) > 0);
   if (query.isPending) {
     return (
@@ -336,12 +350,15 @@ function StoresContent() {
           labels={labels}
           suppliers={supplierLabels(suppliers.data?.suppliers)}
           onDisconnect={(store) => setPendingDisconnect({ id: store.id, name: store.shopName })}
-          onChangeSupplier={(store) => setSupplierTarget(supplierTargetOf(store))}
+          onManageSuppliers={(store) => setSuppliersStoreId(store.id)}
         />
       </section>
       <AddStoreSection marketplaces={marketplaces} choice={newStore.choice} />
       <DisconnectStoreDialog store={pendingDisconnect} onClose={() => setPendingDisconnect(null)} />
-      <StoreSupplierDialog target={supplierTarget} onClose={() => setSupplierTarget(null)} />
+      <StoreSupplierDialog
+        target={suppliersTargetOf(stores, suppliersStoreId, suppliers.data?.suppliers)}
+        onClose={() => setSuppliersStoreId(null)}
+      />
       {newStore.dialog}
     </>
   );

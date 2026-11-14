@@ -1,9 +1,10 @@
 import {
-  changeStoreSupplier,
+  addStoreSupplier,
   findOnboardingProfile,
   findStoreSuppliersVisibleTo,
   listStoreConnections,
-  previewStoreSupplierChange,
+  previewStoreSupplierRemoval,
+  removeStoreSupplier,
   type StoreSupplier,
   type StoreSupplierChangeImpact,
 } from "@sellbridge/database/repositories";
@@ -58,21 +59,34 @@ const storeSupplierInputSchema = z.object({
   supplierId: z.uuid(),
 });
 
-/** What moving a shop to another supplier would pause or stop, without changing anything. */
-export const previewStoreSupplier = createServerFn({ method: "GET" })
+/** Adds a supplier to the ones a shop sells; nothing it publishes today changes. */
+export const addStoreSupplierFn = createServerFn({ method: "POST" })
+  .middleware([tenantMiddleware])
+  .validator(storeSupplierInputSchema)
+  .handler(async ({ context, data }): Promise<void> => {
+    await addStoreSupplier(database, { tenantId: context.tenantId, ...data });
+    logger.info("store.supplier_added", {
+      tenantId: context.tenantId,
+      storeConnectionId: data.storeConnectionId,
+      supplierId: data.supplierId,
+    });
+  });
+
+/** What removing a supplier from a shop would pause or stop, without changing anything. */
+export const previewStoreSupplierRemovalFn = createServerFn({ method: "GET" })
   .middleware([tenantMiddleware])
   .validator(storeSupplierInputSchema)
   .handler(async ({ context, data }): Promise<StoreSupplierChangeImpact> =>
-    previewStoreSupplierChange(database, { tenantId: context.tenantId, ...data }),
+    previewStoreSupplierRemoval(database, { tenantId: context.tenantId, ...data }),
   );
 
-/** Moves a shop to another supplier; the marketplaces get zero stock for the paused listings now. */
-export const changeStoreSupplierFn = createServerFn({ method: "POST" })
+/** Removes a supplier from a shop; the marketplaces get zero stock for its paused listings now. */
+export const removeStoreSupplierFn = createServerFn({ method: "POST" })
   .middleware([tenantMiddleware])
   .validator(storeSupplierInputSchema)
   .handler(async ({ context, data }): Promise<StoreSupplierChangeImpact> => {
-    const impact = await changeStoreSupplier(database, { tenantId: context.tenantId, ...data });
-    logger.info("store.supplier_changed", {
+    const impact = await removeStoreSupplier(database, { tenantId: context.tenantId, ...data });
+    logger.info("store.supplier_removed", {
       tenantId: context.tenantId,
       storeConnectionId: data.storeConnectionId,
       supplierId: data.supplierId,
