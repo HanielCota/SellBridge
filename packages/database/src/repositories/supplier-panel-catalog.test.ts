@@ -12,7 +12,11 @@ import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { categories, supplierProducts, suppliers } from "../schema/index.ts";
 import { createTestDatabase } from "../testing/fixtures.ts";
 import { saveAdminSupplier, saveAdminSupplierProduct } from "./admin-suppliers.ts";
-import { getSupplierPanelProduct, listSupplierPanelProducts } from "./supplier-panel-catalog.ts";
+import {
+  getSupplierPanelProduct,
+  listSupplierPanelProducts,
+  supplierCatalogExportBatches,
+} from "./supplier-panel-catalog.ts";
 import {
   approveSupplierPanelProduct,
   rejectSupplierPanelProduct,
@@ -591,5 +595,51 @@ describe("listSupplierPanelProducts", () => {
       getSupplierPanelProduct(database, { supplierId, productId: randomUUID() }),
       "NOT_FOUND",
     );
+  });
+});
+
+async function exportedBatches(filter: Parameters<typeof supplierCatalogExportBatches>[1]) {
+  return await Array.fromAsync(supplierCatalogExportBatches(database, filter, 2));
+}
+
+describe("supplierCatalogExportBatches", () => {
+  const EXPORT_FILTER = { status: "all", query: "EXPORTAR", fiscal: "all" } as const;
+
+  it("reads the list's products in SKU order, a batch at a time", async () => {
+    for (const sku of ["EXPORTAR-C", "EXPORTAR-A", "EXPORTAR-B"]) {
+      await saveSupplierPanelDraft(database, {
+        supplierId,
+        productId: randomUUID(),
+        values: readyValues(sku),
+      });
+    }
+
+    const batches = await exportedBatches({ ...EXPORT_FILTER, supplierId });
+
+    expect(batches.map((batch) => batch.map((product) => product.sku))).toEqual([
+      ["EXPORTAR-A", "EXPORTAR-B"],
+      ["EXPORTAR-C"],
+    ]);
+    expect(batches[0]?.[0]).toMatchObject({
+      costCents: 2500,
+      suggestedPriceCents: 4990,
+      stock: 8,
+      imageUrls: ["https://imagens.test/1.jpg"],
+      fiscal: { ncm: "61091000", origin: 0, unit: "UN" },
+    });
+  });
+
+  it("keeps the list's status filter", async () => {
+    const batches = await exportedBatches({ ...EXPORT_FILTER, status: "approved", supplierId });
+
+    expect(batches).toEqual([]);
+  });
+
+  it("never reads another supplier's products and fails for an unknown supplier", async () => {
+    const all = await exportedBatches({ ...EXPORT_FILTER, query: undefined, supplierId });
+    const unknown = exportedBatches({ ...EXPORT_FILTER, supplierId: randomUUID() });
+
+    expect(all.flat().some((product) => product.sku === "FOREIGN")).toBe(false);
+    await expectAppError(unknown, "NOT_FOUND");
   });
 });

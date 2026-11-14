@@ -19,9 +19,10 @@ import {
   withFiscalFallback,
   type FiscalFallback,
 } from "@sellbridge/shared/product-fiscal";
-import { and, asc, count, desc, eq, sql, type AnyColumn } from "drizzle-orm";
+import { and, asc, count, desc, eq, gt, sql, type AnyColumn } from "drizzle-orm";
 import type { DatabaseExecutor } from "../client.ts";
 import { categories, listings, orderItems, supplierProducts, suppliers } from "../schema/index.ts";
+import type { ProductExportSource } from "@sellbridge/shared/supplier-panel-export";
 import { matchesEveryWord } from "./sql/search-pattern.ts";
 import { getSupplierFiscalFallback } from "./supplier-brand.ts";
 
@@ -236,4 +237,58 @@ export async function getSupplierPanelProduct(
     throw notFoundError(`Produto ${ref.productId} não encontrado neste fornecedor`);
   }
   return withPanelCompleteness(row, fiscalFallback);
+}
+
+export type SupplierCatalogExportFilter = Pick<CatalogListSearch, "status" | "query" | "fiscal"> & {
+  supplierId: string;
+};
+
+const exportColumns = {
+  sku: supplierProducts.sku,
+  title: supplierProducts.title,
+  description: supplierProducts.description,
+  costCents: supplierProducts.costCents,
+  suggestedPriceCents: supplierProducts.suggestedPriceCents,
+  stock: supplierProducts.stock,
+  categorySlug: categories.slug,
+  imageUrls: supplierProducts.imageUrls,
+  active: supplierProducts.active,
+  mercadoLivreAttributes: supplierProducts.mercadoLivreAttributes,
+  fiscal: supplierProducts.fiscal,
+};
+
+/**
+ * The products the panel list shows with these filters, in SKU order, a batch at a time: the
+ * spreadsheet export writes each batch as it arrives, so a large catalog never sits whole in
+ * memory. Each batch starts after the last SKU of the one before (SKUs are unique per supplier).
+ *
+ * @throws {AppError} NOT_FOUND when the supplier does not exist.
+ */
+export async function* supplierCatalogExportBatches(
+  database: DatabaseExecutor,
+  filter: SupplierCatalogExportFilter,
+  batchSize: number,
+): AsyncGenerator<ProductExportSource[]> {
+  if (!Number.isSafeInteger(batchSize) || batchSize < 1) {
+    throw new Error(`The export batch size must be a positive integer, got ${batchSize}`);
+  }
+  await assertPanelSupplier(database, filter.supplierId);
+  const fiscalFallback = await getSupplierFiscalFallback(database, filter.supplierId);
+  const condition = panelListCondition(filter, fiscalFallback);
+  let afterSku: string | null = null;
+  let batchWasFull = true;
+  while (batchWasFull) {
+    const rows: ProductExportSource[] = await database
+      .select(exportColumns)
+      .from(supplierProducts)
+      .leftJoin(categories, eq(categories.id, supplierProducts.categoryId))
+      .where(and(condition, afterSku === null ? undefined : gt(supplierProducts.sku, afterSku)))
+      .orderBy(asc(supplierProducts.sku))
+      .limit(batchSize);
+    if (rows.length > 0) {
+      yield rows;
+    }
+    batchWasFull = rows.length === batchSize;
+    afterSku = rows.at(-1)?.sku ?? afterSku;
+  }
 }
