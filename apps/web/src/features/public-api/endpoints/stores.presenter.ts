@@ -12,11 +12,16 @@ export const storeSchema = z.object({
       "`connected`: funcionando; `expired`: o acesso venceu e precisa ser reconectado no SellBridge; `error`: a última tentativa de uso falhou.",
     ),
   connectedAt: z.iso.datetime().describe("Quando a loja foi conectada."),
+  supplierIds: z
+    .array(z.uuid())
+    .describe(
+      "Os fornecedores cujos produtos a loja vende, do mais antigo ao mais novo; vazio enquanto nenhum fornecedor foi escolhido no SellBridge.",
+    ),
   supplierId: z
     .uuid()
     .nullable()
     .describe(
-      "O único fornecedor cujos produtos a loja vende; `null` enquanto o fornecedor não foi escolhido no SellBridge.",
+      "Obsoleto: use `supplierIds`. O primeiro fornecedor da loja; `null` enquanto nenhum foi escolhido.",
     ),
 });
 
@@ -33,6 +38,7 @@ export function presentStore(store: StoreConnectionSummary): StoreDto | null {
     name: store.shopName,
     status: store.status,
     connectedAt: store.connectedAt.toISOString(),
+    supplierIds: store.supplierIds,
     supplierId: store.supplierIds[0] ?? null,
   };
 }
