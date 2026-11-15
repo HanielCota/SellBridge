@@ -138,13 +138,13 @@ function NewListingPage() {
             }
             description={
               hasOtherStores
-                ? "Cada loja vende os produtos de um único fornecedor. Conecte uma loja para este fornecedor."
+                ? "Adicione este fornecedor a uma das suas lojas, ou conecte uma loja nova para ele."
                 : "Você ainda não tem lojas conectadas."
             }
             action={
               <Button asChild>
                 <Link to="/lojas" search={{ fornecedor: product.supplierId }} hash="adicionar-loja">
-                  {hasOtherStores ? "Conectar uma loja para este fornecedor" : "Conectar loja"}
+                  {hasOtherStores ? "Escolher a loja" : "Conectar loja"}
                 </Link>
               </Button>
             }

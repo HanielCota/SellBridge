@@ -13,15 +13,27 @@ function sharedSupplierOf(products: readonly SellableCatalogProduct[]): string |
   return supplierIds.size === 1 ? only : undefined;
 }
 
-function noStoresMessage(products: readonly SellableCatalogProduct[], hasStores: boolean) {
+/** Why no store fits the batch, and the step that fixes it. */
+export function noStoresHelp(
+  products: readonly Pick<SellableCatalogProduct, "catalogKind" | "supplierId">[],
+  hasStores: boolean,
+): { message: string; action: string } {
   const external = products.filter((product) => product.catalogKind !== "seller");
   if (new Set(external.map((product) => product.supplierId)).size > 1) {
-    return "Escolha produtos de um fornecedor por vez. Você pode incluir seus próprios produtos no mesmo lote.";
+    return {
+      message:
+        "Nenhuma loja vende todos estes fornecedores. Adicione os fornecedores à mesma loja na página Lojas, ou publique os produtos de um fornecedor por vez.",
+      action: "Ir para Lojas",
+    };
   }
   if (hasStores) {
-    return "Nenhuma loja vende este fornecedor. Conecte uma loja para ele antes de publicar.";
+    return {
+      message:
+        "Nenhuma loja vende este fornecedor. Adicione-o a uma das suas lojas antes de publicar.",
+      action: "Escolher a loja",
+    };
   }
-  return "Conecte uma loja antes de publicar.";
+  return { message: "Conecte uma loja antes de publicar.", action: "Conectar loja" };
 }
 
 export function NoStores({
@@ -31,13 +43,14 @@ export function NoStores({
   products: readonly SellableCatalogProduct[];
   hasStores: boolean;
 }) {
+  const help = noStoresHelp(products, hasStores);
   return (
     <div className="space-y-3 text-sm">
-      <p>{noStoresMessage(products, hasStores)}</p>
+      <p>{help.message}</p>
       <Button asChild size="sm">
-        {/* The new store comes with this supplier picked, so it can publish these products. */}
+        {/* With one supplier, the stores page offers it for an existing store or a new one. */}
         <Link to="/lojas" search={{ fornecedor: sharedSupplierOf(products) }} hash="adicionar-loja">
-          Conectar loja
+          {help.action}
         </Link>
       </Button>
     </div>
