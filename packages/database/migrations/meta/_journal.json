@@ -512,6 +512,13 @@
       "when": 1794618534573,
       "tag": "0072_store_suppliers",
       "breakpoints": true
+    },
+    {
+      "idx": 73,
+      "version": "7",
+      "when": 1794779450566,
+      "tag": "0073_sale_paid_at",
+      "breakpoints": true
     }
   ]
 }

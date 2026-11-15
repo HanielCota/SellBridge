@@ -1,6 +1,6 @@
 import { randomUUID } from "node:crypto";
 import { and, eq, sql } from "drizzle-orm";
-import { afterAll, beforeAll, describe, expect, it } from "vitest";
+import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 import {
   apiEvents,
   listingTargets,
@@ -42,6 +42,23 @@ beforeAll(async () => {
   productId = catalog.productId;
   storeA = (await upsertStoreConnection(database, testStoreInput(tenantA, `shop-${tenantA}`))).id;
 });
+
+function incomingOrder(status: "pending" | "paid" | "cancelled", orderedAt: Date) {
+  return {
+    externalOrderId: `ORD-${randomUUID()}`,
+    status,
+    totalCents: 3990,
+    marketplaceFeeCents: 0,
+    buyerName: null,
+    orderedAt,
+    items: [],
+  };
+}
+
+async function paidAt(orderId: string): Promise<Date | null | undefined> {
+  const order = await database.query.orders.findFirst({ where: eq(orders.id, orderId) });
+  return order?.paidAt;
+}
 
 afterAll(async () => {
   await tenants.cleanup();
@@ -357,6 +374,58 @@ describe("marketplace orders and sync", () => {
       status: "delivered",
     });
     expect(await deliveredAt(late.orderId)).toEqual(orderedAt);
+  });
+
+  describe("payment date", () => {
+    // 15 Nov 2026, 12:00 in Brazil.
+    const NOW = new Date("2026-11-15T15:00:00Z");
+    beforeEach(() => {
+      vi.useFakeTimers({ toFake: ["Date"] });
+      vi.setSystemTime(NOW);
+    });
+
+    afterEach(() => {
+      vi.useRealTimers();
+    });
+
+    it("dates an order that arrives paid by its order date", async () => {
+      const orderedAt = new Date("2026-11-14T13:00:00Z");
+
+      const { orderId } = await upsertMarketplaceOrder(
+        database,
+        tenantA,
+        storeA,
+        incomingOrder("paid", orderedAt),
+      );
+
+      expect(await paidAt(orderId)).toEqual(orderedAt);
+    });
+
+    it("keeps a paid order of a month already over out of that month", async () => {
+      // 31 Oct 2026, 23:58 in Brazil, seen on 15 Nov.
+      const orderedAt = new Date("2026-11-01T02:58:00Z");
+
+      const { orderId } = await upsertMarketplaceOrder(
+        database,
+        tenantA,
+        storeA,
+        incomingOrder("paid", orderedAt),
+      );
+
+      expect(await paidAt(orderId)).toEqual(NOW);
+    });
+
+    it("dates the payment on the first sync that sees it and keeps it after a cancellation", async () => {
+      const order = incomingOrder("pending", new Date("2026-10-30T13:00:00Z"));
+      const { orderId } = await upsertMarketplaceOrder(database, tenantA, storeA, order);
+      expect(await paidAt(orderId)).toBeNull();
+
+      await upsertMarketplaceOrder(database, tenantA, storeA, { ...order, status: "paid" });
+      vi.setSystemTime(new Date("2026-11-20T15:00:00Z"));
+      await upsertMarketplaceOrder(database, tenantA, storeA, { ...order, status: "cancelled" });
+
+      expect(await paidAt(orderId)).toEqual(NOW);
+    });
   });
 
   it("lists published listings whose stock or price changed", async () => {

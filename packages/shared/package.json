@@ -40,6 +40,7 @@
     "./finance": "./src/domain/finance.ts",
     "./period-range": "./src/domain/period-range.ts",
     "./report-period": "./src/domain/report-period.ts",
+    "./sale-date": "./src/domain/sale-date.ts",
     "./time": "./src/domain/time.ts",
     "./text": "./src/domain/text.ts",
     "./bulk-publish-plan": "./src/domain/bulk-publish-plan.ts",

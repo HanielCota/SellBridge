@@ -1,6 +1,7 @@
 import { conflictError } from "@sellbridge/shared/errors";
 import { and, eq, inArray } from "drizzle-orm";
 import type { OrderEventData } from "@sellbridge/shared/public-api";
+import { paidAtOfKnownOrder, paidAtOfNewOrder } from "@sellbridge/shared/sale-date";
 import type { Database, Transaction } from "../client.ts";
 import { listings, listingTargets, orderItems, orders, supplierProducts } from "../schema/index.ts";
 import { reconciledOrderStatus } from "./fulfillment-status.ts";
@@ -121,6 +122,11 @@ async function updateExistingOrder(
       totalCents: write.order.totalCents,
       marketplaceFeeCents: write.order.marketplaceFeeCents,
       deliveredAt: deliveredAtOnUpdate(existing, write.order.status),
+      paidAt: paidAtOfKnownOrder({
+        paidAt: existing.paidAt,
+        status: write.order.status,
+        now: new Date(),
+      }),
       // A later delivery without the address (a status-only update) never erases it.
       shippingAddressEnc: write.order.shippingAddressEnc ?? existing.shippingAddressEnc,
     })
@@ -182,6 +188,11 @@ async function createOrder(write: OrderWrite): Promise<OrderWriteResult | null> 
       shippingAddressEnc: order.shippingAddressEnc ?? null,
       orderedAt: order.orderedAt,
       deliveredAt: order.status === "delivered" ? order.orderedAt : null,
+      paidAt: paidAtOfNewOrder({
+        status: order.status,
+        orderedAt: order.orderedAt,
+        now: new Date(),
+      }),
     })
     .onConflictDoNothing({ target: [orders.storeConnectionId, orders.externalOrderId] })
     .returning({ id: orders.id });
