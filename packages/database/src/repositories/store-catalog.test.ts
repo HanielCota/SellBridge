@@ -8,7 +8,7 @@ import {
   testStoreInput,
 } from "../testing/fixtures.ts";
 import { listStoreCatalog } from "./store-catalog.ts";
-import { assignStoreSupplier } from "./store-suppliers.ts";
+import { addStoreSupplier, assignStoreSupplier } from "./store-suppliers.ts";
 import { upsertStoreConnection } from "./stores.ts";
 
 const database = createTestDatabase();
@@ -24,6 +24,7 @@ let storeOne = "";
 let storeTwo = "";
 let orphanStore = "";
 let foreignStore = "";
+let sharedStore = "";
 
 function tenant(index: number): string {
   const id = tenants.ids[index];
@@ -44,7 +45,7 @@ function productIds(catalog: Awaited<ReturnType<typeof listStoreCatalog>>): stri
 }
 
 beforeAll(async () => {
-  tenants = await createTestTenants(database, 7);
+  tenants = await createTestTenants(database, 8);
   const suffix = tenant(0);
   supplierX = await createTestSupplierProduct(database, {
     sku: `SCX-${suffix}`,
@@ -84,6 +85,15 @@ beforeAll(async () => {
   // Tenant 5: a store whose supplier the platform later deactivated. Tenant 6: no store, and
   // a starter supplier that is deactivated.
   pausedStore = await addStore(tenant(5), `sc-paused-${suffix}`, paused.supplierId);
+  // Tenant 7: one store selling X, Y and the supplier the platform later deactivated.
+  sharedStore = await addStore(tenant(7), `sc-shared-${suffix}`, supplierX.supplierId);
+  for (const supplierId of [supplierY.supplierId, paused.supplierId]) {
+    await addStoreSupplier(database, {
+      tenantId: tenant(7),
+      storeConnectionId: sharedStore,
+      supplierId,
+    });
+  }
   await database.insert(tenantProfile).values([
     { tenantId: tenant(1), starterSupplierId: starter.supplierId },
     { tenantId: tenant(3), starterSupplierId: starter.supplierId },
@@ -104,14 +114,14 @@ afterAll(async () => {
   await database.$client.end();
 });
 
-// MVP function 1: each store sells exactly one supplier, and the catalog follows the store.
+// MVP function 1: the catalog follows the store and shows the suppliers it sells.
 describe("store catalog", () => {
   it("shows only X in store 1 and only Y in store 2", async () => {
     const first = await listStoreCatalog(database, tenant(0), { filters: FILTERS }, PAGE);
     expect(first.scope).toEqual({
       kind: "store",
       storeId: storeOne,
-      supplierId: supplierX.supplierId,
+      supplierIds: [supplierX.supplierId],
     });
     expect(productIds(first)).toEqual([supplierX.productId]);
     const second = await listStoreCatalog(
@@ -120,7 +130,7 @@ describe("store catalog", () => {
       { storeId: storeTwo, filters: FILTERS },
       PAGE,
     );
-    expect(second.supplier?.id).toBe(supplierY.supplierId);
+    expect(second.suppliers.map((supplier) => supplier.id)).toEqual([supplierY.supplierId]);
     expect(productIds(second)).toEqual([supplierY.productId]);
   });
 
@@ -142,14 +152,14 @@ describe("store catalog", () => {
     expect(catalog.scope).toEqual({
       kind: "starter",
       storeId: null,
-      supplierId: starter.supplierId,
+      supplierIds: [starter.supplierId],
     });
     expect(productIds(catalog)).toEqual([starter.productId]);
   });
 
   it("is empty with no store and no starter supplier", async () => {
     const catalog = await listStoreCatalog(database, tenant(2), { filters: FILTERS }, PAGE);
-    expect(catalog.supplier).toBeNull();
+    expect(catalog.suppliers).toEqual([]);
     expect(catalog.products.total).toBe(0);
     expect(catalog.categories).toEqual([]);
   });
@@ -161,8 +171,8 @@ describe("store catalog", () => {
       { storeId: orphanStore, filters: FILTERS },
       PAGE,
     );
-    expect(catalog.scope).toEqual({ kind: "store", storeId: orphanStore, supplierId: null });
-    expect(catalog.supplier).toBeNull();
+    expect(catalog.scope).toEqual({ kind: "store", storeId: orphanStore, supplierIds: [] });
+    expect(catalog.suppliers).toEqual([]);
     expect(catalog.products.total).toBe(0);
     expect(catalog.products.items).toEqual([]);
   });
@@ -184,15 +194,54 @@ describe("store catalog", () => {
       { storeId: pausedStore, filters: FILTERS },
       PAGE,
     );
-    expect(catalog.supplier).toBeNull();
-    expect(catalog.pausedSupplier?.id).toBe(paused.supplierId);
+    expect(catalog.suppliers).toEqual([]);
+    expect(catalog.pausedSuppliers.map((supplier) => supplier.id)).toEqual([paused.supplierId]);
     expect(catalog.products.total).toBe(0);
   });
 
   it("treats a deactivated starter supplier as no starter supplier", async () => {
     const catalog = await listStoreCatalog(database, tenant(6), { filters: FILTERS }, PAGE);
-    expect(catalog.scope).toEqual({ kind: "starter", storeId: null, supplierId: null });
-    expect(catalog.supplier).toBeNull();
+    expect(catalog.scope).toEqual({ kind: "starter", storeId: null, supplierIds: [] });
+    expect(catalog.suppliers).toEqual([]);
     expect(catalog.products.total).toBe(0);
+  });
+
+  it("shows the products of every active supplier the store sells", async () => {
+    const catalog = await listStoreCatalog(database, tenant(7), { filters: FILTERS }, PAGE);
+
+    expect(catalog.suppliers.map((supplier) => supplier.id)).toEqual([
+      supplierX.supplierId,
+      supplierY.supplierId,
+    ]);
+    expect(catalog.pausedSuppliers.map((supplier) => supplier.id)).toEqual([paused.supplierId]);
+    expect(catalog.supplierFilter).toBeNull();
+    expect(productIds(catalog).toSorted()).toEqual(
+      [supplierX.productId, supplierY.productId].toSorted(),
+    );
+  });
+
+  it("shows only the supplier the reseller filtered by", async () => {
+    const catalog = await listStoreCatalog(
+      database,
+      tenant(7),
+      { supplierId: supplierY.supplierId, filters: FILTERS },
+      PAGE,
+    );
+
+    expect(catalog.supplierFilter).toBe(supplierY.supplierId);
+    expect(productIds(catalog)).toEqual([supplierY.productId]);
+  });
+
+  it("ignores a supplier filter the store does not sell", async () => {
+    const catalog = await listStoreCatalog(
+      database,
+      tenant(7),
+      { supplierId: starter.supplierId, filters: FILTERS },
+      PAGE,
+    );
+
+    expect(catalog.supplierFilter).toBeNull();
+    expect(productIds(catalog)).not.toContain(starter.productId);
+    expect(catalog.products.total).toBe(2);
   });
 });

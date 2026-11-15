@@ -42,7 +42,7 @@ function StoreOptionText({ store }: { store: ScopeStoreOption }) {
   );
 }
 
-/** With 2 or more stores the reseller picks whose supplier the catalog shows (MVP function 1). */
+/** With 2 or more stores the reseller picks whose suppliers the catalog shows (MVP function 1). */
 export function CatalogStorePicker({
   stores,
   value,
@@ -76,19 +76,45 @@ export function CatalogStorePicker({
   );
 }
 
+const NAME_LIST_FORMAT = new Intl.ListFormat("pt-BR", { style: "long", type: "conjunction" });
+
 /** One line under the title: whose products these are, and for which store. */
 export function catalogDescription(
   scope: CatalogScope,
-  supplierName: string | null,
+  supplierNames: readonly string[],
   storeName: string | null,
 ): string {
-  if (supplierName === null) {
-    return "Cada loja vende os produtos de um fornecedor.";
+  if (supplierNames.length === 0) {
+    return "Cada loja vende os produtos dos fornecedores escolhidos para ela.";
   }
+  const names = NAME_LIST_FORMAT.format(supplierNames);
   if (scope.kind === "store" && storeName !== null) {
-    return `Produtos de ${supplierName} para a loja ${storeName}. Selecione vários para publicar de uma vez.`;
+    return `Produtos de ${names} para a loja ${storeName}. Selecione vários para publicar de uma vez.`;
   }
-  return `Produtos de ${supplierName}, o fornecedor que você escolheu. Selecione vários para publicar de uma vez.`;
+  return `Produtos de ${names}, o fornecedor que você escolheu. Selecione vários para publicar de uma vez.`;
+}
+
+/** "X está pausado" or "X e Y estão pausados", for the suppliers the platform deactivated. */
+export function pausedTitle(names: readonly string[]): string {
+  const verb = names.length === 1 ? "está pausado" : "estão pausados";
+  return `${NAME_LIST_FORMAT.format(names)} ${verb}`;
+}
+
+/** Some of the store's suppliers are paused: their products are missing from the list below. */
+export function PausedSuppliersNotice({ names }: { names: readonly string[] }) {
+  if (names.length === 0) {
+    return null;
+  }
+  const whose = names.length === 1 ? "dele" : "deles";
+  return (
+    <Alert className="border-amber-500/30 bg-amber-500/10 text-amber-900 dark:text-amber-200">
+      <WarningCircleIcon weight="fill" aria-hidden="true" />
+      <AlertDescription className="text-current">
+        {pausedTitle(names)}: os produtos {whose} não aparecem agora. Os outros fornecedores da loja
+        continuam iguais.
+      </AlertDescription>
+    </Alert>
+  );
 }
 
 /** No store yet: the starter supplier's products show, with the next step to sell them. */
@@ -109,28 +135,29 @@ export function NoStoreNotice() {
 /** What the empty catalog says; the button below each one leads to the page it names. */
 export const NO_SUPPLIER_TEXTS = {
   paused:
-    "Os produtos dele não podem ser vendidos agora. Escolha outro fornecedor para esta loja na página Lojas.",
+    "Os produtos não podem ser vendidos agora. Adicione outro fornecedor a esta loja na página Lojas.",
   storeWithoutSupplier:
     "Escolha o fornecedor desta loja na página Lojas. Depois os produtos dele aparecem aqui.",
 } as const;
 
 /**
- * The catalog has no supplier to show: a store without one, or an account that has neither a
+ * The catalog has no supplier to show: a store without one or with all of them paused, or an
+ * account that has neither a
  * store nor a starter supplier. Never another supplier's products in its place.
  */
 export function NoSupplierState({
   scope,
-  pausedSupplierName,
+  pausedSupplierNames,
 }: {
   scope: CatalogScope;
-  /** The store's supplier was deactivated by the platform. */
-  pausedSupplierName: string | null;
+  /** The store's suppliers, all deactivated by the platform. */
+  pausedSupplierNames: readonly string[];
 }) {
-  if (pausedSupplierName !== null) {
+  if (pausedSupplierNames.length > 0) {
     return (
       <EmptyState
         icon={StorefrontIcon}
-        title={`${pausedSupplierName} está pausado`}
+        title={pausedTitle(pausedSupplierNames)}
         description={NO_SUPPLIER_TEXTS.paused}
         action={
           <Button asChild>

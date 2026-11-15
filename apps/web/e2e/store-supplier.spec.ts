@@ -28,7 +28,7 @@ function storeRow(page: Page, shopName: string) {
 test("cada loja vende os fornecedores escolhidos, adicionados e tirados depois", async ({
   page,
 }) => {
-  test.setTimeout(120_000);
+  test.setTimeout(180_000);
   await signUp(page, "Revendedora Duas Lojas");
   await completeOnboarding(page, "BH Beauty Distribuidora");
   await expect(page).toHaveURL(/\/lojas/);
@@ -98,13 +98,31 @@ test("cada loja vende os fornecedores escolhidos, adicionados e tirados depois",
   await page.getByLabel("Só com estoque").click();
   await expect(page).toHaveURL(/inStock=true/);
   await expect(
-    page.getByText("Para publicar, escolha este fornecedor para uma das suas lojas."),
+    page.getByText("Para publicar, adicione este fornecedor a uma das suas lojas."),
   ).toBeVisible();
   await expect(page.getByRole("button", { name: "Publicar" }).first()).toBeDisabled();
   await page.getByRole("link", { name: "Vender este fornecedor" }).click();
 
-  // The new shop comes with that supplier picked, so connecting it unblocks publishing.
+  // The shops already connected can start selling it right there.
   await expect(page).toHaveURL(/\/lojas/);
+  const addStore = page.getByRole("region", { name: "Adicionar loja" });
+  await expect(
+    addStore.getByText("Vender BH Beauty Distribuidora numa loja que você já tem"),
+  ).toBeVisible();
+  await addStore
+    .getByRole("button", { name: "Adicionar BH Beauty Distribuidora a Loja Beleza" })
+    .click();
+  await expect(
+    page.getByText("BH Beauty Distribuidora adicionado a Loja Beleza").filter({ visible: true }),
+  ).toBeVisible();
+  await expect(
+    addStore.getByRole("listitem").filter({ hasText: "Loja Beleza" }).getByText("Já vende"),
+  ).toBeVisible();
+  await expect(
+    storeRow(page, "Loja Beleza").getByText("Rio Pet Atacado e BH Beauty Distribuidora"),
+  ).toBeVisible();
+
+  // A new shop can still start with that supplier picked.
   await expect(page.getByText("BH Beauty Distribuidora", { exact: true })).toBeVisible();
   await page.getByRole("link", { name: "Conectar Mercado Livre" }).click();
 
@@ -122,4 +140,21 @@ test("cada loja vende os fornecedores escolhidos, adicionados e tirados depois",
   await expect(
     storeRow(page, "Loja Beleza Nova").getByText("BH Beauty Distribuidora"),
   ).toBeVisible();
+
+  // The catalog of a shop with two suppliers shows both, and filters by one of them.
+  await gotoHydrated(page, "/catalogo");
+  await page.getByRole("combobox", { name: "Loja" }).click();
+  await page.getByRole("option", { name: /^Loja Beleza · / }).click();
+  await expect(
+    page.getByText(
+      "Produtos de Rio Pet Atacado e BH Beauty Distribuidora para a loja Loja Beleza.",
+    ),
+  ).toBeVisible();
+  await page.getByRole("combobox", { name: "Fornecedor" }).click();
+  await page.getByRole("option", { name: "BH Beauty Distribuidora" }).click();
+  await expect(page).toHaveURL(/supplier=/);
+  await expect(
+    page.getByText("Produtos de BH Beauty Distribuidora para a loja Loja Beleza."),
+  ).toBeVisible();
+  await expect(page.getByRole("link", { name: "Ver fornecedor" })).toBeVisible();
 });

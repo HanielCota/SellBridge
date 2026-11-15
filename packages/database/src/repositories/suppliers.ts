@@ -398,6 +398,8 @@ export interface SellableCatalogFilters {
   search?: string | undefined;
   categorySlug?: string | undefined;
   supplierId?: string | undefined;
+  /** Only these suppliers' products; an empty list matches nothing. */
+  supplierIds?: readonly string[] | undefined;
   inStockOnly?: boolean | undefined;
   unpublishedOnly?: boolean | undefined;
   sort: ProductSort;
@@ -439,6 +441,13 @@ function sellableCatalogConditions(tenantId: string, filters: SellableCatalogFil
   }
   if (filters.supplierId !== undefined) {
     conditions.push(eq(suppliers.id, filters.supplierId));
+  }
+  if (filters.supplierIds !== undefined) {
+    conditions.push(
+      filters.supplierIds.length === 0
+        ? sql`false`
+        : inArray(suppliers.id, [...filters.supplierIds]),
+    );
   }
   if (filters.inStockOnly) {
     conditions.push(gte(availableStock, 1));

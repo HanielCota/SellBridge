@@ -17,6 +17,7 @@ import {
   catalogDescription,
   NoStoreNotice,
   NoSupplierState,
+  PausedSuppliersNotice,
 } from "@/components/catalog/catalog-store-scope";
 import { CatalogProductCard } from "@/components/catalog/catalog-product-card";
 import { PaginationBar } from "@/components/data/pagination-bar";
@@ -170,9 +171,26 @@ function StorePickerSlot({ data }: { data: CatalogData }) {
       <CatalogStorePicker
         stores={data.scopeStores}
         value={data.scope.storeId}
-        onChange={(store) => updateSearch({ store })}
+        onChange={(store) => updateSearch({ store, supplier: undefined })}
       />
     </div>
+  );
+}
+
+/** With 2 or more suppliers in the store, the reseller can look at one of them at a time. */
+function SupplierFilter({ data }: { data: CatalogData }) {
+  const updateSearch = useUpdateSearch();
+  if (data.suppliers.length < 2) {
+    return null;
+  }
+  return (
+    <FilterSelect
+      label="Fornecedor"
+      value={data.supplierFilter ?? undefined}
+      allLabel="Fornecedores"
+      options={data.suppliers.map((supplier) => ({ value: supplier.id, label: supplier.name }))}
+      onChange={(supplier) => updateSearch({ supplier })}
+    />
   );
 }
 
@@ -180,12 +198,12 @@ function CatalogFilters({ data }: { data: CatalogData }) {
   const search = Route.useSearch();
   const updateSearch = useUpdateSearch();
   // With no supplier to show, the search and filters would do nothing: only the store picker stays.
-  if (data.supplier === null) {
+  if (data.suppliers.length === 0) {
     return (
       <CatalogStorePicker
         stores={data.scopeStores}
         value={data.scope.storeId}
-        onChange={(store) => updateSearch({ store })}
+        onChange={(store) => updateSearch({ store, supplier: undefined })}
       />
     );
   }
@@ -195,6 +213,7 @@ function CatalogFilters({ data }: { data: CatalogData }) {
       <div className="col-span-2 flex sm:flex-1">
         <CatalogSearchInput />
       </div>
+      <SupplierFilter data={data} />
       <FilterSelect
         label="Categoria"
         value={search.category}
@@ -280,6 +299,7 @@ function ProductGrid({
 function hasActiveFilters(search: SellableCatalogSearch): boolean {
   return (
     search.query !== undefined ||
+    search.supplier !== undefined ||
     search.category !== undefined ||
     search.inStock !== undefined ||
     search.unpublished !== undefined
@@ -309,6 +329,7 @@ function NoProducts() {
           onClick={() =>
             updateSearch({
               query: undefined,
+              supplier: undefined,
               category: undefined,
               inStock: undefined,
               unpublished: undefined,
@@ -335,9 +356,12 @@ function CatalogResults({ data }: { data: CatalogData }) {
   if (items.length === 0 && total > 0 && search.page > totalPages) {
     return <Navigate from={Route.fullPath} search={{ ...search, page: totalPages }} replace />;
   }
-  if (data.supplier === null) {
+  if (data.suppliers.length === 0) {
     return (
-      <NoSupplierState scope={data.scope} pausedSupplierName={data.pausedSupplier?.name ?? null} />
+      <NoSupplierState
+        scope={data.scope}
+        pausedSupplierNames={data.pausedSuppliers.map((supplier) => supplier.name)}
+      />
     );
   }
   return (
@@ -381,10 +405,19 @@ function CatalogSkeleton() {
   );
 }
 
-/** The scope's supplier page: the same supplier the catalog shows, never the whole directory. */
+/** The suppliers the list shows: the filtered one, or every active supplier of the scope. */
+function shownSuppliers(data: CatalogData): CatalogData["suppliers"] {
+  if (data.supplierFilter === null) {
+    return data.suppliers;
+  }
+  return data.suppliers.filter((supplier) => supplier.id === data.supplierFilter);
+}
+
+/** The page of the one supplier the catalog shows; with several, the filter picks one first. */
 function SupplierPageLink({ data }: { data: CatalogData | undefined }) {
-  const supplier = data?.supplier ?? null;
-  if (supplier === null) {
+  const shown = data === undefined ? [] : shownSuppliers(data);
+  const [supplier] = shown;
+  if (supplier === undefined || shown.length > 1) {
     return null;
   }
   return (
@@ -404,7 +437,8 @@ function headerDescription(data: CatalogData | undefined): string {
     return "Selecione vários produtos para publicar de uma vez.";
   }
   const store = data.scopeStores.find((option) => option.id === data.scope.storeId);
-  return catalogDescription(data.scope, data.supplier?.name ?? null, store?.shopName ?? null);
+  const names = shownSuppliers(data).map((supplier) => supplier.name);
+  return catalogDescription(data.scope, names, store?.shopName ?? null);
 }
 
 function CatalogPage() {
@@ -416,8 +450,13 @@ function CatalogPage() {
         description={headerDescription(query.data)}
         actions={<SupplierPageLink data={query.data} />}
       />
-      {query.data?.scope.kind === "starter" && query.data.supplier !== null ? (
+      {query.data?.scope.kind === "starter" && query.data.suppliers.length > 0 ? (
         <NoStoreNotice />
+      ) : null}
+      {query.data !== undefined && query.data.suppliers.length > 0 ? (
+        <PausedSuppliersNotice
+          names={query.data.pausedSuppliers.map((supplier) => supplier.name)}
+        />
       ) : null}
       {query.isPending ? <CatalogSkeleton /> : null}
       {query.isError ? (

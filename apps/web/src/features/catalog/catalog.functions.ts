@@ -32,13 +32,14 @@ export const getSellableCatalog = createServerFn({ method: "GET" })
   .middleware([tenantMiddleware])
   .validator(sellableCatalogSearchSchema)
   .handler(async ({ context, data }) => {
-    // The store and its supplier are decided here (MVP function 1): a store id from the URL that
+    // The store and its suppliers are decided here (MVP function 1): a store id from the URL that
     // is not one of the account's own is ignored, and a store without a supplier lists nothing.
     const catalog = await listStoreCatalog(
       database,
       context.tenantId,
       {
         storeId: data.store,
+        supplierId: data.supplier,
         filters: {
           search: data.query,
           categorySlug: data.category,
@@ -53,8 +54,9 @@ export const getSellableCatalog = createServerFn({ method: "GET" })
       products: catalog.products,
       categories: catalog.categories,
       scope: catalog.scope,
-      supplier: catalog.supplier,
-      pausedSupplier: catalog.pausedSupplier,
+      suppliers: catalog.suppliers,
+      pausedSuppliers: catalog.pausedSuppliers,
+      supplierFilter: catalog.supplierFilter,
       /** The store picker: every store that still counts, and whether it has a supplier yet. */
       scopeStores: catalog.stores.map((store) => ({
         id: store.id,
@@ -62,7 +64,7 @@ export const getSellableCatalog = createServerFn({ method: "GET" })
         marketplaceLabel: MARKETPLACE_LABELS[store.marketplace],
         hasSupplier: store.supplierIds.length > 0,
       })),
-      // Bulk publishing still goes only to connected stores (and checks their supplier).
+      // Bulk publishing still goes only to connected stores (and checks their suppliers).
       stores: catalog.stores
         .filter((store) => store.status === "connected")
         .map((store) => ({

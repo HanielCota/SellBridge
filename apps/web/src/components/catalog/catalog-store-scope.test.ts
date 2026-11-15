@@ -1,5 +1,10 @@
 import { describe, expect, it } from "vitest";
-import { catalogDescription, NO_SUPPLIER_TEXTS, storeOptionLabel } from "./catalog-store-scope";
+import {
+  catalogDescription,
+  NO_SUPPLIER_TEXTS,
+  pausedTitle,
+  storeOptionLabel,
+} from "./catalog-store-scope";
 
 const STORE = "10000000-0000-4000-8000-000000000001";
 
@@ -8,8 +13,8 @@ describe("catalog description", () => {
   it("names the supplier and the store", () => {
     expect(
       catalogDescription(
-        { kind: "store", storeId: STORE, supplierId: "x" },
-        "BH Beauty Distribuidora",
+        { kind: "store", storeId: STORE, supplierIds: ["x"] },
+        ["BH Beauty Distribuidora"],
         "Ana Moda",
       ),
     ).toBe(
@@ -20,8 +25,8 @@ describe("catalog description", () => {
   it("names the starter supplier while there is no store", () => {
     expect(
       catalogDescription(
-        { kind: "starter", storeId: null, supplierId: "x" },
-        "Rio Pet Atacado",
+        { kind: "starter", storeId: null, supplierIds: ["x"] },
+        ["Rio Pet Atacado"],
         null,
       ),
     ).toBe(
@@ -29,10 +34,34 @@ describe("catalog description", () => {
     );
   });
 
-  it("explains the one-supplier rule when there is no supplier to show", () => {
+  it("names every supplier of a store that sells several", () => {
     expect(
-      catalogDescription({ kind: "store", storeId: STORE, supplierId: null }, null, "Ana Moda"),
-    ).toBe("Cada loja vende os produtos de um fornecedor.");
+      catalogDescription(
+        { kind: "store", storeId: STORE, supplierIds: ["x", "y"] },
+        ["BH Beauty Distribuidora", "Rio Pet Atacado"],
+        "Ana Moda",
+      ),
+    ).toBe(
+      "Produtos de BH Beauty Distribuidora e Rio Pet Atacado para a loja Ana Moda. Selecione vários para publicar de uma vez.",
+    );
+  });
+
+  it("explains where the products come from when there is no supplier to show", () => {
+    expect(
+      catalogDescription({ kind: "store", storeId: STORE, supplierIds: [] }, [], "Ana Moda"),
+    ).toBe("Cada loja vende os produtos dos fornecedores escolhidos para ela.");
+  });
+});
+
+describe("paused title", () => {
+  it("says one supplier is paused", () => {
+    expect(pausedTitle(["Rio Pet Atacado"])).toBe("Rio Pet Atacado está pausado");
+  });
+
+  it("says several suppliers are paused", () => {
+    expect(pausedTitle(["Rio Pet Atacado", "BH Beauty"])).toBe(
+      "Rio Pet Atacado e BH Beauty estão pausados",
+    );
   });
 });
 

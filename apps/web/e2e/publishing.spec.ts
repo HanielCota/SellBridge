@@ -352,7 +352,7 @@ test("publicar sem lojas conectadas leva à conexão de loja", async ({ page }) 
   await gotoHydrated(page, "/fornecedores");
   await page.getByRole("link", { name: "BH Beauty Distribuidora" }).click();
   await expect(
-    page.getByText("Para publicar, escolha este fornecedor para uma das suas lojas."),
+    page.getByText("Para publicar, adicione este fornecedor a uma das suas lojas."),
   ).toBeVisible();
   await expect(page.getByRole("button", { name: "Publicar" }).first()).toBeDisabled();
   // An old link to the publish form still points to connecting a store.
