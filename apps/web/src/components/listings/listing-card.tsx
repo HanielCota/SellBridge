@@ -283,7 +283,7 @@ export function ListingCard({
         selected && "ring-2 ring-brand",
       )}
     >
-      <div className="relative">
+      <div className="@container relative">
         <ProductVisual
           imageUrl={row.imageUrl}
           title={row.title}

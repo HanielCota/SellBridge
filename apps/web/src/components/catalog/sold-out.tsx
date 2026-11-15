@@ -10,11 +10,13 @@ export function SoldOutRibbon() {
 /**
  * The ribbon's word as a solid tag in the photo's bottom-right corner, for the listing card,
  * whose top-right corner holds the status button: its width changes with the status word, so no
- * diagonal there stays clear of it on a two-column phone grid.
+ * diagonal there stays clear of it on a two-column phone grid. On a narrow photo (the caller's
+ * `@container`) the variant color chip in the other bottom corner leaves no room beside it, so
+ * the tag rises one row, above the chip.
  */
 export function SoldOutBadge() {
   return (
-    <span className="pointer-events-none absolute right-3 bottom-2.5 rounded-full bg-red-600 px-2 py-0.5 text-xs font-semibold text-white">
+    <span className="pointer-events-none absolute right-3 bottom-2.5 rounded-full bg-red-600 px-2 py-0.5 text-xs font-semibold text-white @max-[13rem]:bottom-8">
       Esgotado
     </span>
   );
