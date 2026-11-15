@@ -31,6 +31,7 @@ import { suppliersQueryOptions } from "@/features/suppliers/suppliers.queries";
 import { useUrlSearchQuery } from "@/hooks/use-url-search-query";
 import { errorMessage } from "@/lib/errors";
 import { prefetchOnServer } from "@/lib/prefetch";
+import { cn } from "@/lib/utils";
 
 const ALL_NICHES = "__all__";
 const ALL_CITIES = "__all__";
@@ -249,7 +250,13 @@ function SupplierList({ search }: { search: ReturnType<typeof Route.useSearch> }
   }
 
   return (
-    <ul className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
+    <ul
+      aria-busy={query.isPlaceholderData}
+      className={cn(
+        "grid gap-4 transition-opacity sm:grid-cols-2 xl:grid-cols-3",
+        query.isPlaceholderData && "opacity-60",
+      )}
+    >
       {query.data.suppliers.map((supplier) => (
         <li key={supplier.id}>
           <SupplierCard supplier={supplier} />

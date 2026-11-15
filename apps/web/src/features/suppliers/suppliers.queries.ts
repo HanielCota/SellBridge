@@ -6,6 +6,8 @@ export const suppliersQueryOptions = (search: SupplierListSearch) =>
   queryOptions({
     queryKey: ["suppliers", search],
     queryFn: () => listSuppliers({ data: search }),
+    // A new filter keeps the current cards on screen until the new ones arrive, without flashing.
+    placeholderData: keepPreviousData,
   });
 
 export const supplierCatalogQueryOptions = (supplierId: string, search: CatalogSearch) =>
