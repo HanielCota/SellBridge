@@ -203,7 +203,7 @@ describe("seller report", () => {
       }),
     );
 
-    const unpaid = metricRow("Ainda não pago", report);
+    const unpaid = metricRow("Valor aguardando pagamento", report);
 
     expect(unpaid).toMatchObject({
       count: 10_000,

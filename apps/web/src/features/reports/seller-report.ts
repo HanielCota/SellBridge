@@ -162,7 +162,7 @@ function moneyRows(input: SellerReportInput): ReportIndicatorRow[] {
       sense: "higher_is_better",
     }),
     metric({
-      label: "Ainda não pago",
+      label: "Valor aguardando pagamento",
       base: unpaidBaseOf(summary.unpaidOrders),
       count: summary.unpaidTotalCents,
       countFormat: "cents",

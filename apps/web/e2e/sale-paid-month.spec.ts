@@ -107,7 +107,7 @@ test("a sale paid after its month ends stays unpaid in that month and counts whe
   const unpaidCase = page.getByText(`Pedido ${externalId}`);
   await signIn(page, DEMO_USER);
   await gotoHydrated(page, `/financeiro/relatorio?mes=${previousMonth}`);
-  await expect(page.getByText("Ainda não pago", { exact: true })).toBeVisible();
+  await expect(page.getByText("Valor aguardando pagamento", { exact: true })).toBeVisible();
   await page.getByRole("tab", { name: "Aguardando pagamento" }).click();
   await expect(unpaidCase).toBeVisible();
 
