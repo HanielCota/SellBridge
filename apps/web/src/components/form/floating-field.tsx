@@ -85,7 +85,7 @@ function FloatingInput({
           aria-invalid={isInvalid ? true : undefined}
           aria-describedby={message || hint ? footnoteId : undefined}
           className={cn(
-            "peer h-14 w-full rounded-xl border border-field-border bg-field px-4 pt-5 pb-1.5 text-body tracking-tight text-foreground transition-[border-color,box-shadow] duration-150 outline-none",
+            "peer h-14 w-full rounded-xl border border-field-border bg-field px-4 pt-6 pb-2 text-body tracking-tight text-foreground transition-[border-color,box-shadow] duration-150 outline-none",
             "focus:border-brand-strong focus:ring-4 focus:ring-brand/20",
             "aria-invalid:border-destructive aria-invalid:focus:ring-destructive/15",
             leading ? "pl-11" : null,
@@ -102,7 +102,7 @@ function FloatingInput({
         <label
           htmlFor={id}
           className={cn(
-            "pointer-events-none absolute top-1/2 origin-left -translate-y-1/2 text-body text-muted-foreground transition-[top,font-size,color] duration-150 ease-out peer-focus:top-[1.15rem] peer-focus:text-xs peer-[:not(:placeholder-shown)]:top-[1.15rem] peer-[:not(:placeholder-shown)]:text-xs motion-reduce:transition-none",
+            "pointer-events-none absolute top-1/2 origin-left -translate-y-1/2 text-body text-muted-foreground transition-[top,font-size,color] duration-150 ease-out peer-focus:top-[0.8rem] peer-focus:text-xs peer-[:not(:placeholder-shown)]:top-[0.8rem] peer-[:not(:placeholder-shown)]:text-xs motion-reduce:transition-none",
             leading ? "left-11" : "left-4",
           )}
         >
