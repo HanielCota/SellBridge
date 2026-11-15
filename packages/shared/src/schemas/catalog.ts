@@ -149,3 +149,18 @@ export function priceForRule(
   const endingInNinety = Math.ceil((markedUpTimesHundred + 1_000) / 10_000) * 100 - 10;
   return Math.max(endingInNinety, product.costCents + 100);
 }
+
+/** The markup a product gets as its suggested price when the supplier leaves it out. */
+export const DEFAULT_SUGGESTED_MARKUP_PERCENT = 50;
+
+/**
+ * The suggested price of a product the supplier left without one: the cost plus 50%, ending in
+ * ,90, within what a listing may charge. Cents in, cents out.
+ */
+export function defaultSuggestedPriceCents(costCents: number): number {
+  const price = priceForRule(
+    { costCents, suggestedPriceCents: 0 },
+    { kind: "markup", percent: DEFAULT_SUGGESTED_MARKUP_PERCENT },
+  );
+  return Math.min(LISTING_MAX_PRICE_CENTS, price);
+}
