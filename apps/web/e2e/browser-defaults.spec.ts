@@ -39,7 +39,9 @@ test("the admin supplier form uses the app's own select, never the native one", 
   await expect(page.locator("select:not([aria-hidden='true'])")).toHaveCount(0);
 });
 
-test("a select with long options stays inside a phone screen", async ({ page }) => {
+test("a form select opens its list as wide as the field, inside a phone screen", async ({
+  page,
+}) => {
   await signIn(page, ADMIN_USER);
   await enableAdminMode(page);
   // On a phone the account menu sits inside the menu sheet; the admin mode is turned on first.
@@ -48,11 +50,13 @@ test("a select with long options stays inside a phone screen", async ({ page }) 
   const [supplier] = await database.select({ id: suppliers.id }).from(suppliers).limit(1);
   await database.$client.end();
   await gotoHydrated(page, `/admin/fornecedores/${supplier?.id ?? ""}`);
+  const field = page.getByLabel("Origem", { exact: true });
 
-  await page.getByLabel("Origem", { exact: true }).click();
+  await field.click();
+  const fieldBox = await field.boundingBox();
   const list = await page.getByRole("listbox").boundingBox();
 
-  expect(list?.x ?? -1).toBeGreaterThanOrEqual(0);
+  expect(Math.abs((list?.width ?? 0) - (fieldBox?.width ?? 0))).toBeLessThanOrEqual(1);
   expect((list?.x ?? 0) + (list?.width ?? 0)).toBeLessThanOrEqual(375);
 });
 
