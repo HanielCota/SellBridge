@@ -2,7 +2,12 @@ import { MAX_STORED_CENTS } from "@sellbridge/shared/money";
 import { logger } from "@sellbridge/shared/logger";
 import { marketplaceError } from "../errors.ts";
 import { readableOrders } from "../readable-orders.ts";
-import type { MarketplaceOrder, MarketplaceOrderItem, StoreCredentials } from "../types.ts";
+import type {
+  MarketplaceOrder,
+  MarketplaceOrderBatch,
+  MarketplaceOrderItem,
+  StoreCredentials,
+} from "../types.ts";
 import { requestShop, type TikTokShopContext } from "./client.ts";
 import {
   orderDetailSchema,
@@ -129,19 +134,20 @@ async function fetchOrdersPage(
     query: {
       page_size: String(ORDERS_PAGE_SIZE),
       sort_field: "create_time",
-      sort_order: "DESC",
+      // Oldest first: a read stopped at its limit continues from the last order it read.
+      sort_order: "ASC",
       ...(page.pageToken === null ? {} : { page_token: page.pageToken }),
     },
     json: { create_time_ge: Math.floor(page.since.getTime() / 1000) },
   });
 }
 
-/** Orders created since `since`, newest first, up to MAX_ORDERS_FETCHED. */
+/** Orders created since `since`, oldest first, up to MAX_ORDERS_FETCHED. */
 export async function listOrders(
   context: TikTokShopContext,
   store: StoreCredentials,
   since: Date,
-): Promise<MarketplaceOrder[]> {
+): Promise<MarketplaceOrderBatch> {
   const cipher = await shopCipher(context, store);
   const orders: MarketplaceOrder[] = [];
   let pageToken: string | null = null;
@@ -156,11 +162,12 @@ export async function listOrders(
     );
     const next = page.next_page_token ?? "";
     if (next === "" || (page.orders ?? []).length === 0) {
-      return orders;
+      return { orders, resumeFrom: null };
     }
     pageToken = next;
   }
-  return orders.slice(0, MAX_ORDERS_FETCHED);
+  const read = orders.slice(0, MAX_ORDERS_FETCHED);
+  return { orders: read, resumeFrom: read.at(-1)?.orderedAt ?? null };
 }
 
 async function readOrder(

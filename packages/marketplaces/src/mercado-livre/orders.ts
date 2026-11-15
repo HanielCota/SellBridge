@@ -1,7 +1,7 @@
 import { logger } from "@sellbridge/shared/logger";
 import { marketplaceError } from "../errors.ts";
 import { readableOrders } from "../readable-orders.ts";
-import type { MarketplaceOrder, StoreCredentials } from "../types.ts";
+import type { MarketplaceOrder, MarketplaceOrderBatch, StoreCredentials } from "../types.ts";
 import { type MercadoLivreContext, requestJson } from "./client.ts";
 import {
   type MercadoLivreOrder,
@@ -113,7 +113,8 @@ async function fetchOrdersPage(
   const query = new URLSearchParams({
     seller: page.store.externalShopId,
     "order.date_created.from": page.since.toISOString(),
-    sort: "date_desc",
+    // Oldest first: a read stopped at its limit continues from the last order it read.
+    sort: "date_asc",
     offset: String(page.offset),
     limit: String(ORDERS_PAGE_SIZE),
   });
@@ -128,7 +129,7 @@ export async function listOrders(
   context: MercadoLivreContext,
   store: StoreCredentials,
   since: Date,
-): Promise<MarketplaceOrder[]> {
+): Promise<MarketplaceOrderBatch> {
   const orders: MarketplaceOrder[] = [];
   for (let offset = 0; offset < MAX_ORDERS_FETCHED; offset += ORDERS_PAGE_SIZE) {
     const page = await fetchOrdersPage(context, { store, since, offset });
@@ -141,10 +142,10 @@ export async function listOrders(
     );
     const total = page.paging?.total ?? 0;
     if (page.results.length === 0 || offset + ORDERS_PAGE_SIZE >= total) {
-      return orders;
+      return { orders, resumeFrom: null };
     }
   }
-  return orders;
+  return { orders, resumeFrom: orders.at(-1)?.orderedAt ?? null };
 }
 
 export async function fetchOrder(

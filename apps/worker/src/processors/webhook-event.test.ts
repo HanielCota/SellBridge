@@ -25,6 +25,7 @@ const processWebhook = createWebhookEventProcessor({
   acquireRateLimit,
   requestStockSync,
   requestAutoForward,
+  requestCatchUp: async () => {},
 });
 
 let tenants: Awaited<ReturnType<typeof createTestTenants>>;

@@ -509,7 +509,7 @@ describe("TikTok Shop orders", () => {
         ),
     });
 
-    const orders = await connector.listOrders(STORE, new Date("2026-11-01T00:00:00Z"));
+    const { orders } = await connector.listOrders(STORE, new Date("2026-11-01T00:00:00Z"));
 
     expect(orders.map((order) => order.status)).toEqual(["paid", "shipped"]);
     expect(orders[0]).toMatchObject({
@@ -535,9 +535,32 @@ describe("TikTok Shop orders", () => {
         ),
     });
 
-    const orders = await connector.listOrders(STORE, new Date("2026-11-01T00:00:00Z"));
+    const { orders } = await connector.listOrders(STORE, new Date("2026-11-01T00:00:00Z"));
 
     expect(orders.map((order) => order.externalOrderId)).toEqual(["576461413038785753"]);
+  });
+
+  it("reads the oldest orders first and says where to continue when it stops at its limit", async () => {
+    let page = 0;
+    const { connector, calls } = setup({
+      [`POST ${API}/order/202309/orders/search`]: () => {
+        page += 1;
+        const orders = Array.from({ length: 50 }, (_, index) =>
+          tiktokOrder({
+            id: String(5_764_000_000 + page * 100 + index),
+            create_time: 1_793_491_200 + page * 100 + index,
+          }),
+        );
+        return jsonResponse(orderSearchResponse(orders, "next"));
+      },
+    });
+
+    const batch = await connector.listOrders(STORE, new Date("2026-11-01T00:00:00Z"));
+
+    const searches = calls.filter((call) => call.path === "/order/202309/orders/search");
+    expect(searches[0]?.query.get("sort_order")).toBe("ASC");
+    expect(batch.orders).toHaveLength(1000);
+    expect(batch.resumeFrom?.getTime()).toBe((1_793_491_200 + 20 * 100 + 49) * 1000);
   });
 
   it("holds ON_HOLD orders as pending: the buyer may still cancel", async () => {

@@ -61,9 +61,17 @@ export const webhookEventJobSchema = z.object({
  * webhook queue: notifications about a store without access are closed on arrival instead of
  * waiting for the reconnection, so this is how those sales come in.
  */
+/** Rounds one reconnection may take: 100 rounds read up to 100,000 orders and 50,000 events. */
+export const MAX_CATCH_UP_ROUNDS = 100;
+
 export const storeOrderCatchUpJobSchema = z.object({
   storeConnectionId: z.uuid(),
   since: z.iso.datetime(),
+  /** A later round: where the order read stopped; the held events still start at `since`. */
+  resumeFrom: z.iso.datetime().optional(),
+  /** A later round whose orders were all read: only held events are left. */
+  ordersDone: z.boolean().optional(),
+  round: z.number().int().min(1).max(MAX_CATCH_UP_ROUNDS).optional(),
 });
 export type StoreOrderCatchUpJob = z.infer<typeof storeOrderCatchUpJobSchema>;
 
@@ -75,7 +83,8 @@ export type StoreOrderCatchUpJob = z.infer<typeof storeOrderCatchUpJobSchema>;
 export function storeOrderCatchUpJobId(job: StoreOrderCatchUpJob): string {
   const sinceInMs = Date.parse(job.since);
   if (Number.isFinite(sinceInMs)) {
-    return `order-catch-up-${job.storeConnectionId}-${sinceInMs}`;
+    const base = `order-catch-up-${job.storeConnectionId}-${sinceInMs}`;
+    return job.round === undefined ? base : `${base}-round-${job.round}`;
   }
 
   throw new Error(`Invalid store order catch-up start date: ${JSON.stringify(job.since)}`);

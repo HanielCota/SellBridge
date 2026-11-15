@@ -68,6 +68,7 @@ describe("webhook event sweeper", () => {
       acquireRateLimit,
       requestStockSync,
       requestAutoForward,
+      requestCatchUp: async () => {},
       connectors: {
         ...connectors,
         mock: {
@@ -90,6 +91,7 @@ describe("webhook event sweeper", () => {
       acquireRateLimit,
       requestStockSync,
       requestAutoForward,
+      requestCatchUp: async () => {},
     });
     const sweep = createWebhookEventSweepProcessor({
       database,

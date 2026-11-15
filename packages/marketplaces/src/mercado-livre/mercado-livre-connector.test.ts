@@ -512,9 +512,29 @@ describe("orders", () => {
         }),
     });
 
-    const orders = await ml.listOrders(store, new Date("2026-03-01T00:00:00Z"));
+    const { orders } = await ml.listOrders(store, new Date("2026-03-01T00:00:00Z"));
 
     expect(orders.map((order) => order.externalOrderId)).toEqual(["2"]);
+  });
+
+  it("reads the oldest orders first and says where to continue when it stops at its limit", async () => {
+    const { ml, calls } = connector({
+      [`GET ${API}/orders/search`]: (request) => {
+        const offset = Number(new URL(request.url).searchParams.get("offset"));
+        const results = Array.from({ length: 50 }, (_, index) => ({
+          ...rawOrder,
+          id: offset + index + 1,
+          date_created: new Date(Date.UTC(2026, 2, 1, 0, offset + index)).toISOString(),
+        }));
+        return json(200, { results, paging: { total: 1500, offset, limit: 50 } });
+      },
+    });
+
+    const batch = await ml.listOrders(store, new Date("2026-03-01T00:00:00Z"));
+
+    expect(new URL(calls[0]?.url ?? "").searchParams.get("sort")).toBe("date_asc");
+    expect(batch.orders).toHaveLength(1000);
+    expect(batch.resumeFrom?.toISOString()).toBe("2026-03-01T16:39:00.000Z");
   });
 
   it("maps unknown statuses to pending and cancellations", async () => {
@@ -529,7 +549,7 @@ describe("orders", () => {
           paging: { total: 3, offset: 0, limit: 50 },
         }),
     });
-    const orders = await ml.listOrders(store, new Date("2026-03-01T00:00:00Z"));
+    const { orders } = await ml.listOrders(store, new Date("2026-03-01T00:00:00Z"));
     expect(orders.map((order) => order.status)).toEqual(["pending", "cancelled", "pending"]);
   });
 });
