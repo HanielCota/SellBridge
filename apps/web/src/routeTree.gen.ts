@@ -101,6 +101,7 @@ import { Route as ApiAdminExportarAuditoriaRouteImport } from './routes/api/admi
 import { Route as ApiAdminExportarChamadosRouteImport } from './routes/api/admin/exportar/chamados'
 import { Route as ApiAdminExportarClientesRouteImport } from './routes/api/admin/exportar/clientes'
 import { Route as ApiAdminExportarEquipeRouteImport } from './routes/api/admin/exportar/equipe'
+import { Route as ApiFornecedorExportarCatalogoRouteImport } from './routes/api/fornecedor/exportar/catalogo'
 import { Route as ApiFornecedorExportarPedidosRouteImport } from './routes/api/fornecedor/exportar/pedidos'
 import { Route as ApiFornecedorExportarProdutosRouteImport } from './routes/api/fornecedor/exportar/produtos'
 import { Route as ApiFornecedorProdutosImagensRouteImport } from './routes/api/fornecedor/produtos/imagens'
@@ -617,6 +618,12 @@ const ApiAdminExportarEquipeRoute = ApiAdminExportarEquipeRouteImport.update({
   path: '/api/admin/exportar/equipe',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiFornecedorExportarCatalogoRoute =
+  ApiFornecedorExportarCatalogoRouteImport.update({
+    id: '/api/fornecedor/exportar/catalogo',
+    path: '/api/fornecedor/exportar/catalogo',
+    getParentRoute: () => rootRouteImport,
+  } as any)
 const ApiFornecedorExportarPedidosRoute =
   ApiFornecedorExportarPedidosRouteImport.update({
     id: '/api/fornecedor/exportar/pedidos',
@@ -895,6 +902,7 @@ export interface FileRoutesByFullPath {
   '/api/admin/exportar/chamados': typeof ApiAdminExportarChamadosRoute
   '/api/admin/exportar/clientes': typeof ApiAdminExportarClientesRoute
   '/api/admin/exportar/equipe': typeof ApiAdminExportarEquipeRoute
+  '/api/fornecedor/exportar/catalogo': typeof ApiFornecedorExportarCatalogoRoute
   '/api/fornecedor/exportar/pedidos': typeof ApiFornecedorExportarPedidosRoute
   '/api/fornecedor/exportar/produtos': typeof ApiFornecedorExportarProdutosRoute
   '/api/fornecedor/produtos/imagens': typeof ApiFornecedorProdutosImagensRoute
@@ -1016,6 +1024,7 @@ export interface FileRoutesByTo {
   '/api/admin/exportar/chamados': typeof ApiAdminExportarChamadosRoute
   '/api/admin/exportar/clientes': typeof ApiAdminExportarClientesRoute
   '/api/admin/exportar/equipe': typeof ApiAdminExportarEquipeRoute
+  '/api/fornecedor/exportar/catalogo': typeof ApiFornecedorExportarCatalogoRoute
   '/api/fornecedor/exportar/pedidos': typeof ApiFornecedorExportarPedidosRoute
   '/api/fornecedor/exportar/produtos': typeof ApiFornecedorExportarProdutosRoute
   '/api/fornecedor/produtos/imagens': typeof ApiFornecedorProdutosImagensRoute
@@ -1144,6 +1153,7 @@ export interface FileRoutesById {
   '/api/admin/exportar/chamados': typeof ApiAdminExportarChamadosRoute
   '/api/admin/exportar/clientes': typeof ApiAdminExportarClientesRoute
   '/api/admin/exportar/equipe': typeof ApiAdminExportarEquipeRoute
+  '/api/fornecedor/exportar/catalogo': typeof ApiFornecedorExportarCatalogoRoute
   '/api/fornecedor/exportar/pedidos': typeof ApiFornecedorExportarPedidosRoute
   '/api/fornecedor/exportar/produtos': typeof ApiFornecedorExportarProdutosRoute
   '/api/fornecedor/produtos/imagens': typeof ApiFornecedorProdutosImagensRoute
@@ -1271,6 +1281,7 @@ export interface FileRouteTypes {
     | '/api/admin/exportar/chamados'
     | '/api/admin/exportar/clientes'
     | '/api/admin/exportar/equipe'
+    | '/api/fornecedor/exportar/catalogo'
     | '/api/fornecedor/exportar/pedidos'
     | '/api/fornecedor/exportar/produtos'
     | '/api/fornecedor/produtos/imagens'
@@ -1392,6 +1403,7 @@ export interface FileRouteTypes {
     | '/api/admin/exportar/chamados'
     | '/api/admin/exportar/clientes'
     | '/api/admin/exportar/equipe'
+    | '/api/fornecedor/exportar/catalogo'
     | '/api/fornecedor/exportar/pedidos'
     | '/api/fornecedor/exportar/produtos'
     | '/api/fornecedor/produtos/imagens'
@@ -1519,6 +1531,7 @@ export interface FileRouteTypes {
     | '/api/admin/exportar/chamados'
     | '/api/admin/exportar/clientes'
     | '/api/admin/exportar/equipe'
+    | '/api/fornecedor/exportar/catalogo'
     | '/api/fornecedor/exportar/pedidos'
     | '/api/fornecedor/exportar/produtos'
     | '/api/fornecedor/produtos/imagens'
@@ -1591,6 +1604,7 @@ export interface RootRouteChildren {
   ApiAdminExportarChamadosRoute: typeof ApiAdminExportarChamadosRoute
   ApiAdminExportarClientesRoute: typeof ApiAdminExportarClientesRoute
   ApiAdminExportarEquipeRoute: typeof ApiAdminExportarEquipeRoute
+  ApiFornecedorExportarCatalogoRoute: typeof ApiFornecedorExportarCatalogoRoute
   ApiFornecedorExportarPedidosRoute: typeof ApiFornecedorExportarPedidosRoute
   ApiFornecedorExportarProdutosRoute: typeof ApiFornecedorExportarProdutosRoute
   ApiFornecedorProdutosImagensRoute: typeof ApiFornecedorProdutosImagensRoute
@@ -2268,6 +2282,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiAdminExportarEquipeRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/fornecedor/exportar/catalogo': {
+      id: '/api/fornecedor/exportar/catalogo'
+      path: '/api/fornecedor/exportar/catalogo'
+      fullPath: '/api/fornecedor/exportar/catalogo'
+      preLoaderRoute: typeof ApiFornecedorExportarCatalogoRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/fornecedor/exportar/pedidos': {
       id: '/api/fornecedor/exportar/pedidos'
       path: '/api/fornecedor/exportar/pedidos'
@@ -2751,6 +2772,7 @@ const rootRouteChildren: RootRouteChildren = {
   ApiAdminExportarChamadosRoute: ApiAdminExportarChamadosRoute,
   ApiAdminExportarClientesRoute: ApiAdminExportarClientesRoute,
   ApiAdminExportarEquipeRoute: ApiAdminExportarEquipeRoute,
+  ApiFornecedorExportarCatalogoRoute: ApiFornecedorExportarCatalogoRoute,
   ApiFornecedorExportarPedidosRoute: ApiFornecedorExportarPedidosRoute,
   ApiFornecedorExportarProdutosRoute: ApiFornecedorExportarProdutosRoute,
   ApiFornecedorProdutosImagensRoute: ApiFornecedorProdutosImagensRoute,

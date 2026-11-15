@@ -33,7 +33,11 @@ export async function fileToBase64(file: Blob): Promise<string> {
 }
 
 export function downloadCsv(fileName: string, content: string): void {
-  const url = URL.createObjectURL(new Blob([content], { type: "text/csv;charset=utf-8" }));
+  downloadBlob(fileName, new Blob([content], { type: "text/csv;charset=utf-8" }));
+}
+
+export function downloadBlob(fileName: string, file: Blob): void {
+  const url = URL.createObjectURL(file);
   const link = document.createElement("a");
   link.href = url;
   link.download = fileName;

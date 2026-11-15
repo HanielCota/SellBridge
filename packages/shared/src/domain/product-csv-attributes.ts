@@ -150,3 +150,30 @@ export function parseCsvAttributes(values: Readonly<Record<string, string>>): At
     ),
   };
 }
+
+/** "32.5 cm" → "32,5"; blank when stored in another unit or in a form the import refuses. */
+function formatMeasure(entry: MeasureColumn, stored: string): string {
+  const match = /^(\d+(?:\.\d+)?) (g|cm)$/.exec(stored.trim());
+  if (match === null || match[2] !== entry.unit) {
+    return "";
+  }
+  const cell = (match[1] ?? "").replace(".", ",");
+  return parseMeasure(cell, entry.maximum) === null ? "" : cell;
+}
+
+/**
+ * A product's Mercado Livre attributes as spreadsheet cells, keyed by column: what
+ * `parseCsvAttributes` reads back. A blank cell keeps the stored value on a re-import, so a
+ * measure the import cannot take is left blank rather than changed.
+ */
+export function formatCsvAttributes(
+  attributes: Readonly<Record<string, string>>,
+): Record<string, string> {
+  const texts = TEXT_COLUMNS.map((entry) => [entry.column, attributes[entry.attribute] ?? ""]);
+  const gtin = [GTIN_COLUMN.column, attributes[GTIN_COLUMN.attribute] ?? ""];
+  const measures = MEASURE_COLUMNS.map((entry) => {
+    const stored = attributes[entry.attribute];
+    return [entry.column, stored === undefined ? "" : formatMeasure(entry, stored)];
+  });
+  return Object.fromEntries([...texts, gtin, ...measures]);
+}

@@ -10,6 +10,7 @@
     "./catalog-spreadsheet": "./src/domain/catalog-spreadsheet.ts",
     "./supplier-catalog-file": "./src/domain/supplier-catalog-file.ts",
     "./xlsx-reader": "./src/runtime/xlsx-reader.ts",
+    "./supplier-panel-export": "./src/domain/supplier-panel-export.ts",
     "./supplier-panel-import": "./src/domain/supplier-panel-import.ts",
     "./supplier-panel-import-columns": "./src/domain/supplier-panel-import-columns.ts",
     "./supplier-panel-import-decode": "./src/domain/supplier-panel-import-decode.ts",

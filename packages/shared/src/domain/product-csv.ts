@@ -79,6 +79,36 @@ export function parseCsvMoney(input: string): number | null {
   return cents;
 }
 
+/**
+ * 123456 → "1234,56": what `parseCsvMoney` reads back. No thousands separator, since the import
+ * refuses one ("1.234" could be 1234 or 1,234).
+ *
+ * @throws {Error} When `cents` is not a non-negative safe integer.
+ */
+export function formatCsvMoney(cents: number): string {
+  if (!Number.isSafeInteger(cents) || cents < 0) {
+    throw new Error(`Money in cents must be a non-negative integer, got ${cents}`);
+  }
+  const fraction = String(cents % 100).padStart(2, "0");
+  return `${Math.floor(cents / 100)},${fraction}`;
+}
+
+/**
+ * Excel runs a cell that starts with "=", "+" or "@" (or "-" before a digit or sign) as a
+ * formula; a leading apostrophe keeps it text. A "- item" list in a description is left as it is.
+ */
+const FORMULA_START = /^(?:[=+@\t\r]|-(?=[\d=+@(]))/;
+
+/** The cell as text a spreadsheet will not run; the import drops the apostrophe again. */
+export function guardFormulaCell(value: string): string {
+  return FORMULA_START.test(value) ? `'${value}` : value;
+}
+
+/** Drops the apostrophe `guardFormulaCell` adds, so an exported file imports back unchanged. */
+function readFormulaGuardedCell(value: string): string {
+  return value.startsWith("'") && FORMULA_START.test(value.slice(1)) ? value.slice(1) : value;
+}
+
 function finishRecord(cursor: CsvCursor): CsvCursor {
   const fields = [...cursor.fields, cursor.field.trim()];
   const record = { line: cursor.startLine, fields, error: cursor.error };
@@ -240,7 +270,7 @@ function validateRecord(
     return { line: record.line, reason: "Quantidade de colunas diferente do cabeçalho" };
   }
   const values = Object.fromEntries(
-    headers.map((header, index) => [header, record.fields[index] ?? ""]),
+    headers.map((header, index) => [header, readFormulaGuardedCell(record.fields[index] ?? "")]),
   );
   // Same form the schema stores (trimmed, NFC), so "CAFÉ-01" twice in two encodings is caught.
   const sku = (values.sku ?? "").trim().normalize("NFC");

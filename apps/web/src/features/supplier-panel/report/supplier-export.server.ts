@@ -53,7 +53,7 @@ async function findSession(request: Request): Promise<TenantSession | Response> 
 }
 
 /** The supplier of the tab's profile, or the response that says why there is no file. */
-async function findExportSupplier(request: Request): Promise<ExportSupplier | Response> {
+export async function findExportSupplier(request: Request): Promise<ExportSupplier | Response> {
   const session = await findSession(request);
   if (session instanceof Response) {
     return session;

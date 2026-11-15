@@ -1,3 +1,4 @@
+import { productExportRow, type ProductExportSource } from "./supplier-panel-export.ts";
 import { IMPORT_COLUMNS, IMPORT_ERROR_COLUMN } from "./supplier-panel-import-columns.ts";
 import type { ImportRowIssues, ImportTableShape } from "./supplier-panel-import-issues.ts";
 import { type ImportRecord, serializeSemicolonRow } from "./supplier-panel-import-table.ts";
@@ -11,17 +12,38 @@ const BOM = "\uFEFF";
 const EXCEL_LINE_BREAK = "\r\n";
 const ISSUE_SEPARATOR = " | ";
 
+/** The template's first line; the product export starts with the same one. */
+const IMPORT_HEADER: readonly string[] = IMPORT_COLUMNS.map((entry) => entry.column);
+
+function excelLines(rows: readonly (readonly string[])[]): string {
+  return rows.map((row) => `${serializeSemicolonRow(row)}${EXCEL_LINE_BREAK}`).join("");
+}
+
 function excelCsv(rows: readonly (readonly string[])[]): string {
-  return `${BOM}${rows.map((row) => serializeSemicolonRow(row)).join(EXCEL_LINE_BREAK)}${EXCEL_LINE_BREAK}`;
+  return `${BOM}${excelLines(rows)}`;
 }
 
 /** Every column, plus one example product; the category is a real one when the platform has any. */
 export function buildImportTemplateCsv(categorySlug: string | null): string {
-  const header = IMPORT_COLUMNS.map((entry) => entry.column);
   const example = IMPORT_COLUMNS.map((entry) =>
     entry.column === "categoria" ? (categorySlug ?? "") : entry.example,
   );
-  return excelCsv([header, example]);
+  return excelCsv([IMPORT_HEADER, example]);
+}
+
+/** How the product export starts: the BOM and the template's header. */
+export function productExportStart(): string {
+  return excelCsv([IMPORT_HEADER]);
+}
+
+/** One line per product, sent in batches after `productExportStart`. */
+export function productExportLines(products: readonly ProductExportSource[]): string {
+  return excelLines(products.map(productExportRow));
+}
+
+/** The supplier's products in the template's format, ready to edit and import back. */
+export function buildProductExportCsv(products: readonly ProductExportSource[]): string {
+  return `${productExportStart()}${productExportLines(products)}`;
 }
 
 /** What each column takes, then the category identifiers the "categoria" column accepts. */

@@ -86,3 +86,13 @@ function failureReasons(
     return reason === undefined ? [] : [reason];
   });
 }
+
+/** A product's fiscal data as spreadsheet cells, keyed by column: what `parseCsvFiscal` reads. */
+export function formatCsvFiscal(fiscal: ProductFiscal): Record<string, string> {
+  return Object.fromEntries(
+    FISCAL_COLUMNS.map((entry) => {
+      const value = fiscal[entry.field];
+      return [entry.column, value === null ? "" : String(value)];
+    }),
+  );
+}
