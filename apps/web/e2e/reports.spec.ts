@@ -63,6 +63,36 @@ test.describe("dashboard", () => {
     await expect(page.getByText("Ana Casa & Beleza")).toHaveCount(0);
   });
 
+  test("a hovered stat tile keeps its fill and only brightens its edge", async ({ page }) => {
+    await signIn(page, DEMO_USER);
+    await gotoHydrated(page, "/dashboard");
+    // Settle hover styles at once, so the reading is the end state, not a frame of the fade.
+    await page.addStyleTag({
+      content: "*, *::before, *::after { transition: none !important; }",
+    });
+    const tile = page.getByRole("link", { name: "Ver ticket médio no financeiro" });
+    const readSurface = () =>
+      tile.evaluate((element) => {
+        const tone = getComputedStyle(element, "::before");
+        return {
+          fill: getComputedStyle(element).backgroundColor,
+          tone: tone.content === "none" || tone.opacity === "0" ? "none" : tone.backgroundColor,
+          edge: getComputedStyle(element, "::after").boxShadow,
+        };
+      });
+    await page.mouse.move(0, 0);
+    const resting = await readSurface();
+
+    await tile.hover();
+    const hovered = await readSurface();
+
+    expect({ fill: hovered.fill, tone: hovered.tone }).toEqual({
+      fill: resting.fill,
+      tone: resting.tone,
+    });
+    expect(hovered.edge).not.toBe(resting.edge);
+  });
+
   test("passar o mouse numa loja esmaece as outras", async ({ page }) => {
     await signIn(page, DEMO_USER);
     await gotoHydrated(page, "/dashboard");
