@@ -122,8 +122,9 @@ export const orderSchema = z.object({
 
 export type TikTokShopOrder = z.infer<typeof orderSchema>;
 
+/** Each order is read on its own (`readableOrders`), so one malformed order never fails the page. */
 export const orderSearchSchema = z.object({
-  orders: z.array(orderSchema).max(100).optional(),
+  orders: z.array(z.unknown()).max(100).optional(),
   next_page_token: z.string().max(500).optional(),
   total_count: z.number().int().optional(),
 });

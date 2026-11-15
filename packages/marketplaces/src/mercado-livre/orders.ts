@@ -1,8 +1,14 @@
 import { logger } from "@sellbridge/shared/logger";
 import { marketplaceError } from "../errors.ts";
+import { readableOrders } from "../readable-orders.ts";
 import type { MarketplaceOrder, StoreCredentials } from "../types.ts";
 import { type MercadoLivreContext, requestJson } from "./client.ts";
-import { type MercadoLivreOrder, ordersSearchSchema, sellerOrderSchema } from "./schemas.ts";
+import {
+  type MercadoLivreOrder,
+  orderSchema,
+  ordersSearchSchema,
+  sellerOrderSchema,
+} from "./schemas.ts";
 
 const ORDERS_PAGE_SIZE = 50;
 /** Stops paginating order searches after this many results. */
@@ -126,7 +132,13 @@ export async function listOrders(
   const orders: MarketplaceOrder[] = [];
   for (let offset = 0; offset < MAX_ORDERS_FETCHED; offset += ORDERS_PAGE_SIZE) {
     const page = await fetchOrdersPage(context, { store, since, offset });
-    orders.push(...page.results.map(mapMercadoLivreOrder));
+    orders.push(
+      ...readableOrders(page.results, {
+        schema: orderSchema,
+        map: mapMercadoLivreOrder,
+        event: "mercado_livre.order_skipped",
+      }),
+    );
     const total = page.paging?.total ?? 0;
     if (page.results.length === 0 || offset + ORDERS_PAGE_SIZE >= total) {
       return orders;

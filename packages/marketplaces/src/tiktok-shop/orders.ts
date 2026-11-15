@@ -1,9 +1,15 @@
 import { MAX_STORED_CENTS } from "@sellbridge/shared/money";
 import { logger } from "@sellbridge/shared/logger";
 import { marketplaceError } from "../errors.ts";
+import { readableOrders } from "../readable-orders.ts";
 import type { MarketplaceOrder, MarketplaceOrderItem, StoreCredentials } from "../types.ts";
 import { requestShop, type TikTokShopContext } from "./client.ts";
-import { orderDetailSchema, orderSearchSchema, type TikTokShopOrder } from "./schemas.ts";
+import {
+  orderDetailSchema,
+  orderSchema,
+  orderSearchSchema,
+  type TikTokShopOrder,
+} from "./schemas.ts";
 import { shopCipher } from "./shops.ts";
 
 /** Get Order List takes 1 to 100 per page. */
@@ -141,7 +147,13 @@ export async function listOrders(
   let pageToken: string | null = null;
   while (orders.length < MAX_ORDERS_FETCHED) {
     const page = await fetchOrdersPage(context, { store, cipher, since, pageToken });
-    orders.push(...(page.orders ?? []).map(mapTikTokShopOrder));
+    orders.push(
+      ...readableOrders(page.orders ?? [], {
+        schema: orderSchema,
+        map: mapTikTokShopOrder,
+        event: "tiktok_shop.order_skipped",
+      }),
+    );
     const next = page.next_page_token ?? "";
     if (next === "" || (page.orders ?? []).length === 0) {
       return orders;

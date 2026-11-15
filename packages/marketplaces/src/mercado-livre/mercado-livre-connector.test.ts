@@ -500,6 +500,23 @@ describe("orders", () => {
     await expect(refusal).rejects.not.toHaveProperty("message", expect.stringContaining("0800"));
   });
 
+  it("skips an order it cannot read and keeps the others of the page", async () => {
+    const { ml } = connector({
+      [`GET ${API}/orders/search`]: () =>
+        json(200, {
+          results: [
+            { ...rawOrder, id: 1, payments: [{ transaction_amount_refunded: 99_999_999 }] },
+            { ...rawOrder, id: 2 },
+          ],
+          paging: { total: 2, offset: 0, limit: 50 },
+        }),
+    });
+
+    const orders = await ml.listOrders(store, new Date("2026-03-01T00:00:00Z"));
+
+    expect(orders.map((order) => order.externalOrderId)).toEqual(["2"]);
+  });
+
   it("maps unknown statuses to pending and cancellations", async () => {
     const { ml } = connector({
       [`GET ${API}/orders/search`]: () =>

@@ -523,6 +523,23 @@ describe("TikTok Shop orders", () => {
     expect(searches[1]?.query.get("page_token")).toBe("next-1");
   });
 
+  it("skips an order it cannot read and keeps the others of the page", async () => {
+    const readable = tiktokOrder({ id: "576461413038785753" });
+    const { connector } = setup({
+      [`POST ${API}/order/202309/orders/search`]: () =>
+        jsonResponse(
+          orderSearchResponse(
+            [tiktokOrder({ payment: { currency: "IDR", total_amount: "5000" } }), readable],
+            "",
+          ),
+        ),
+    });
+
+    const orders = await connector.listOrders(STORE, new Date("2026-11-01T00:00:00Z"));
+
+    expect(orders.map((order) => order.externalOrderId)).toEqual(["576461413038785753"]);
+  });
+
   it("holds ON_HOLD orders as pending: the buyer may still cancel", async () => {
     const { connector } = setup({
       [`GET ${API}/order/202507/orders`]: () =>
