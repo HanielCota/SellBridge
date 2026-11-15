@@ -72,7 +72,7 @@ function StateTrigger({
       </SelectPrimitive.Trigger>
       <label
         htmlFor={id}
-        className="pointer-events-none absolute top-[1.15rem] left-4 -translate-y-1/2 text-xs text-muted-foreground"
+        className="pointer-events-none absolute top-[0.8rem] left-4 -translate-y-1/2 text-xs text-muted-foreground"
       >
         {label}
       </label>
