@@ -142,7 +142,7 @@ test("the corner bubble opens the guided form in the profile of the current tab"
 test("forgets the signed-out account's profile before another account signs in", async () => {
   await gotoHydrated(tabA, `/suporte?perfil=${profiles.first}`);
   await tabA.getByRole("button", { name: "Menu do usuário" }).click();
-  await tabA.getByRole("menuitem", { name: "Sair", exact: true }).click();
+  await tabA.getByRole("menuitem", { name: "Sair da conta", exact: true }).click();
   await expect(tabA).toHaveURL(/\/login/);
   await signIn(tabA, DEMO_USER);
   await expect(tabA).not.toHaveURL(/\/outro-perfil/);

@@ -4,7 +4,6 @@ import { Link } from "@tanstack/react-router";
 import { BrandIcon } from "@/components/brand/brand-logo";
 import { SELLER_HOME_PATH, SUPPLIER_PANEL_PATH } from "@/features/auth/profile-routes";
 import type { SessionUser } from "@/features/auth/session.functions";
-import { AccountChip } from "./account-chip";
 import { AdminTabsBar } from "./admin-tabs-bar";
 import { MobileNav } from "./mobile-nav";
 import { CommandPalette } from "./command-palette";
@@ -33,26 +32,10 @@ interface TopNavProps {
   readonly state: AppNavigationState;
 }
 
-/** The account's photo right of the bell from `lg`; on phones the account sits in the menu sheet. */
-function HeaderAccount({ user, adminMode, profileKind, state }: TopNavProps) {
-  return (
-    <div className="hidden lg:block">
-      <AccountChip
-        user={user}
-        supportReplies={state.counts.supportReplies}
-        adminMode={adminMode}
-        profileKind={profileKind}
-        collapsed
-        side="bottom"
-      />
-    </div>
-  );
-}
-
 /**
- * App header over the page: the menu button and logo below `lg` (the sidebar holds both and
- * support from there), then search, the team's way in, the bell and the account. In team mode
- * the team's pages follow as a strip under it.
+ * App header over the page: the menu button and logo below `lg` (the sidebar holds both, support
+ * and the account from there), then search, the team's way in and the bell. In team mode the
+ * team's pages follow as a strip under it.
  */
 export function TopNav({ user, adminMode, profileKind, state }: TopNavProps) {
   const isSupplier = profileKind === "supplier";
@@ -81,12 +64,6 @@ export function TopNav({ user, adminMode, profileKind, state }: TopNavProps) {
             </div>
           )}
           <NotificationBell />
-          <HeaderAccount
-            user={user}
-            adminMode={adminMode}
-            profileKind={profileKind}
-            state={state}
-          />
         </div>
       </div>
       {adminMode ? (

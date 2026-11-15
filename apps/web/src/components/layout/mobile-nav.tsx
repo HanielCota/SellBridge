@@ -1,11 +1,12 @@
+import { XIcon } from "@phosphor-icons/react";
 import type { ProfileKind } from "@sellbridge/shared/profile-kind";
-import { useState } from "react";
+import { type ComponentProps, useState } from "react";
 import { ACTION_ICONS } from "@/components/icons/action-icons";
+import { Button } from "@/components/ui/button";
 import { Hint } from "@/components/ui/hint";
-import { Sheet, SheetContent, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
+import { Sheet, SheetClose, SheetContent, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
 import type { SessionUser } from "@/features/auth/session.functions";
 import { cn } from "@/lib/utils";
-import { AccountChip } from "./account-chip";
 import {
   AccountNavList,
   hasProfileSwitch,
@@ -14,12 +15,70 @@ import {
   shownMenu,
   type AppNavigation,
 } from "./nav-list";
-import { TeamDivider, type BadgeCounts } from "./nav-tab";
+import type { BadgeCounts } from "./nav-tab";
+import { ProfileCard } from "./profile-card";
+import { SideNavHome } from "./side-nav";
 import { TeamModeMenuEntry } from "./team-mode-entry";
 
 const MenuIcon = ACTION_ICONS.menu.icon;
 
-/** The menu on phones and tablets, opened from the header; the sidebar takes over from `lg`. */
+/** The sheet's top row: the logo over a thin line, as in the sidebar, and the close button. */
+function SheetHead({ isSupplier, onNavigate }: { isSupplier: boolean; onNavigate: () => void }) {
+  return (
+    <div className="flex items-center justify-between gap-2 border-b border-border py-3 pr-2 pl-4">
+      <SideNavHome isSupplier={isSupplier} onNavigate={onNavigate} />
+      <SheetClose asChild>
+        <Button variant="ghost" size="icon-lg" className="rounded-full">
+          <XIcon className="size-5" aria-hidden="true" />
+          <span className="sr-only">Fechar</span>
+        </Button>
+      </SheetClose>
+    </div>
+  );
+}
+
+/** The sheet's scrolling part: the profile switch, the team's way in, the list and its foot. */
+function SheetList({
+  list,
+  shownKind,
+  onShownKindChange,
+  teamModeRole,
+}: {
+  list: ComponentProps<typeof NavList> & { onNavigate: () => void };
+  shownKind: ProfileKind;
+  onShownKindChange: (kind: ProfileKind) => void;
+  teamModeRole: string | null;
+}) {
+  return (
+    <div className="flex min-h-0 flex-1 flex-col overflow-y-auto px-4 py-4">
+      <ProfileSwitch
+        sections={list.navigation.profileSections}
+        shownKind={shownKind}
+        onChange={onShownKindChange}
+      />
+      <nav
+        aria-label="Principal"
+        className={cn(
+          "flex flex-1 flex-col gap-1",
+          hasProfileSwitch(list.navigation) ? "mt-3" : null,
+        )}
+      >
+        {teamModeRole === null ? null : (
+          <TeamModeMenuEntry role={teamModeRole} onEnter={list.onNavigate} />
+        )}
+        <NavList {...list} />
+        <div className="mt-auto pt-6">
+          <AccountNavList {...list} />
+        </div>
+      </nav>
+    </div>
+  );
+}
+
+/**
+ * The menu on phones and tablets, opened from the header; the sidebar takes over from `lg`.
+ * Same structure as the sidebar: logo, the list, support at its foot, then the profile card.
+ */
 export function MobileNav({
   navigation,
   user,
@@ -46,7 +105,6 @@ export function MobileNav({
     setIsOpen(open);
   };
   const close = () => setIsOpen(false);
-  const account = { user, adminMode, profileKind, supportReplies: counts.supportReplies };
   const list = {
     navigation,
     shown: shownMenu(navigation, shownKind, pathname),
@@ -56,26 +114,26 @@ export function MobileNav({
   return (
     <Sheet open={isOpen} onOpenChange={openSheet}>
       <MenuTrigger />
-      <SheetContent side="left" className="w-72 overflow-y-auto p-4">
+      <SheetContent
+        side="left"
+        showCloseButton={false}
+        className="w-72 gap-0 overflow-hidden p-0 data-[side=left]:pt-[env(safe-area-inset-top)]"
+      >
         <SheetTitle className="sr-only">Navegação</SheetTitle>
-        <div className="mt-10">
-          <ProfileSwitch
-            sections={navigation.profileSections}
-            shownKind={shownKind}
-            onChange={setShownKind}
+        <SheetHead isSupplier={profileKind === "supplier"} onNavigate={close} />
+        <SheetList
+          list={list}
+          shownKind={shownKind}
+          onShownKindChange={setShownKind}
+          teamModeRole={teamModeRole}
+        />
+        <div className="border-t border-border p-2 pb-[max(0.5rem,env(safe-area-inset-bottom))]">
+          <ProfileCard
+            user={user}
+            adminMode={adminMode}
+            profileKind={profileKind}
+            onNavigate={close}
           />
-        </div>
-        <nav
-          aria-label="Principal"
-          className={cn("grid gap-1", hasProfileSwitch(navigation) ? "mt-3" : null)}
-        >
-          {teamModeRole === null ? null : <TeamModeMenuEntry role={teamModeRole} onEnter={close} />}
-          <NavList {...list} />
-          <TeamDivider vertical={false} />
-          <AccountNavList {...list} />
-        </nav>
-        <div className="mt-4 border-t border-border pt-3">
-          <AccountChip {...account} />
         </div>
       </SheetContent>
     </Sheet>

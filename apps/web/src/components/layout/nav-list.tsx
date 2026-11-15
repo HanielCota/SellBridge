@@ -1,5 +1,5 @@
 import type { ProfileKind } from "@sellbridge/shared/profile-kind";
-import { Fragment, type ReactNode } from "react";
+import { Fragment, type ReactNode, useId } from "react";
 import { ACTION_ICONS } from "@/components/icons/action-icons";
 import { SegmentedControl } from "@/components/data/segmented-control";
 import {
@@ -96,47 +96,49 @@ export function ProfileSwitch({
   );
 }
 
-/** The one written heading in the menu, over the team's pages. */
+/** Over the team's pages (phone sheet only): a line and a title, above their own group names. */
 function TeamHeading() {
   return (
-    <h2 className="px-4 pt-3 pb-1 text-caption font-medium text-muted-foreground">Administração</h2>
+    <>
+      <TeamDivider vertical={false} />
+      <h2 className="px-4 pt-2 text-sm font-semibold text-foreground">Administração</h2>
+    </>
   );
 }
 
-/**
- * A line sets a named group apart from the items before it. The list's first group has none:
- * under "Administração" it read as an underline.
- */
-function hasLineAbove(group: NavGroup, index: number): boolean {
-  return group.heading !== null && index > 0;
+/** A group's name, small and soft above its items, so the list reads in parts at a glance. */
+function GroupLabel({ id, children }: { id: string; children: string }) {
+  return (
+    <span id={id} className="px-4 pt-3 pb-1 text-caption font-medium text-muted-foreground">
+      {children}
+    </span>
+  );
 }
 
-function ItemGroups({
-  items,
+function ItemGroup({
+  group,
   activeTo,
   counts,
   profileSlug,
   onNavigate,
   withHint,
 }: {
-  items: readonly NavItem[];
+  group: NavGroup;
   activeTo: NavItem["to"] | null;
   counts: BadgeCounts;
   profileSlug: string | null;
   onNavigate: (() => void) | undefined;
   withHint: boolean;
 }) {
-  // A heading can come back later in the list, so the key carries the group's position too.
-  // Groups are set apart by a line: the written names cluttered the menu, and screen readers
-  // still hear each one through the group's label.
-  return navGroups(items).map((group, index) => (
+  const labelId = useId();
+  const hasLabel = group.heading !== null;
+  return (
     <div
-      key={`${index}-${group.heading ?? ""}`}
-      role={group.heading === null ? undefined : "group"}
-      aria-label={group.heading ?? undefined}
+      role={hasLabel ? "group" : undefined}
+      aria-labelledby={hasLabel ? labelId : undefined}
       className="grid grid-cols-1 gap-1"
     >
-      {hasLineAbove(group, index) ? <TeamDivider vertical={false} /> : null}
+      {group.heading === null ? null : <GroupLabel id={labelId}>{group.heading}</GroupLabel>}
       {group.items.map((item) => (
         <NavTab
           key={item.to}
@@ -150,6 +152,23 @@ function ItemGroups({
         />
       ))}
     </div>
+  );
+}
+
+function ItemGroups({
+  items,
+  ...shared
+}: {
+  items: readonly NavItem[];
+  activeTo: NavItem["to"] | null;
+  counts: BadgeCounts;
+  profileSlug: string | null;
+  onNavigate: (() => void) | undefined;
+  withHint: boolean;
+}) {
+  // A heading can come back later in the list, so the key carries the group's position too.
+  return navGroups(items).map((group, index) => (
+    <ItemGroup key={`${index}-${group.heading ?? ""}`} group={group} {...shared} />
   ));
 }
 

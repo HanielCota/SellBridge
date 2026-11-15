@@ -133,16 +133,13 @@ export const SUPPORT_NAV_ITEM: NavItem = {
   badge: "supportReplies",
 };
 
-const PROFILE_PAGE_ITEM: NavItem = { label: "Meu perfil", to: "/perfil" };
-
-/** The foot of the menu: the account's own pages, apart from the day-to-day work above. */
+/**
+ * The foot of the menu: support, then the account's own page, apart from the day-to-day work
+ * above. "Meu perfil" lives in the profile card's menu under them.
+ */
 export const ACCOUNT_NAV_ITEMS: Readonly<Record<ProfileKind, readonly NavItem[]>> = {
-  seller: [SUPPORT_NAV_ITEM, { label: "Assinatura", to: "/assinatura" }, PROFILE_PAGE_ITEM],
-  supplier: [
-    { label: "Marca", to: "/fornecedor/painel/marca" },
-    SUPPORT_NAV_ITEM,
-    PROFILE_PAGE_ITEM,
-  ],
+  seller: [SUPPORT_NAV_ITEM, { label: "Assinatura", to: "/assinatura" }],
+  supplier: [SUPPORT_NAV_ITEM, { label: "Marca", to: "/fornecedor/painel/marca" }],
 };
 
 /** Splits the items into runs under the same heading, keeping their order. */

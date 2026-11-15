@@ -1,14 +1,8 @@
-import { useTeamModeSwitch } from "@/features/auth/use-team-mode-switch";
-import { unreadRepliesText } from "@/features/support/response-time";
 import type { ProfileKind } from "@sellbridge/shared/profile-kind";
 import { isStaffRole } from "@sellbridge/shared/staff-access";
 import {
-  CaretDownIcon,
-  CreditCardIcon,
-  type Icon,
   IdentificationCardIcon,
   MoonIcon,
-  PlugsConnectedIcon,
   ShieldCheckIcon,
   SignOutIcon,
   SunIcon,
@@ -16,26 +10,23 @@ import {
 } from "@phosphor-icons/react";
 import { useQueryClient } from "@tanstack/react-query";
 import { Link, useNavigate } from "@tanstack/react-router";
-import { DropdownMenu as DropdownMenuPrimitive } from "radix-ui";
 import { type ReactNode, useRef } from "react";
 import { toast } from "sonner";
-import { type Theme, useTheme } from "@/components/theme/theme-provider";
+import { useTheme } from "@/components/theme/theme-provider";
 import {
   DropdownMenu,
   DropdownMenuCheckboxItem,
   DropdownMenuContent,
   DropdownMenuItem,
-  DropdownMenuLabel,
-  DropdownMenuRadioGroup,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import type { SessionUser } from "@/features/auth/session.functions";
+import { useTeamModeSwitch } from "@/features/auth/use-team-mode-switch";
 import { authClient } from "@/lib/auth-client";
 import { forgetTabProfile } from "@/lib/tab-profile";
 import { cn } from "@/lib/utils";
-import { accountPagesFor } from "./account-pages";
-import { ACTION_ICONS } from "@/components/icons/action-icons";
+import { type AccountMenuEntry, accountMenuEntries } from "./account-pages";
 
 function useSignOut() {
   const navigate = useNavigate();
@@ -54,62 +45,33 @@ function useSignOut() {
 }
 
 /** Rows read as plain choices: full-strength labels, quieter icons. */
-const SupportIcon = ACTION_ICONS.support.icon;
-
 const MENU_ROW =
   "gap-3 px-2.5 py-2.5 text-base text-foreground [&_svg:not([class*='size-'])]:size-5 [&_svg]:text-muted-foreground data-highlighted:[&_svg]:text-foreground";
 
-const THEME_OPTIONS = [
-  { value: "light", label: "Claro", icon: SunIcon },
-  { value: "dark", label: "Escuro", icon: MoonIcon },
-] as const satisfies readonly { value: Theme; label: string; icon: Icon }[];
-
 /**
- * Theme as a two-way switch that shows the current choice, like the period control, instead of
- * an action whose label names the theme you are not using. A raised pill (white in light, a lifted
- * gray in dark, never a black block) fills the chosen half; the menu stays open so the change is
- * seen.
+ * The label names the theme a click turns on. The menu stays open: the page changes color under
+ * it and the row flips to the way back, and closing it would animate the card's caret during the
+ * swap the theme keeps free of fades.
  */
-function ThemeChoice() {
-  const { theme, setTheme } = useTheme();
+function ThemeItem() {
+  const { theme, toggleTheme } = useTheme();
+  const ThemeIcon = theme === "dark" ? SunIcon : MoonIcon;
   return (
-    <div className="flex items-center justify-between gap-3 py-1 pr-1 pl-2.5">
-      <span id="theme-choice-label" className="text-base text-muted-foreground">
-        Tema
-      </span>
-      <DropdownMenuRadioGroup
-        aria-labelledby="theme-choice-label"
-        value={theme}
-        className="relative grid grid-cols-2 rounded-full bg-muted p-1"
-      >
-        <span
-          aria-hidden="true"
-          className={cn(
-            "absolute inset-y-1 left-1 w-[calc(50%-0.25rem)] rounded-full bg-card shadow-sm shadow-black/10 dark:bg-white/15 dark:shadow-none",
-            theme === "dark" && "translate-x-full",
-          )}
-        />
-        {THEME_OPTIONS.map((option) => (
-          <DropdownMenuPrimitive.RadioItem
-            key={option.value}
-            value={option.value}
-            onSelect={(event) => {
-              event.preventDefault();
-              setTheme(option.value);
-            }}
-            className="relative flex cursor-default items-center justify-center gap-1.5 rounded-full px-3.5 py-1.5 text-sm font-medium text-muted-foreground outline-none select-none data-[state=checked]:text-foreground data-[state=unchecked]:data-highlighted:text-foreground"
-          >
-            <option.icon className="size-4" aria-hidden="true" />
-            {option.label}
-          </DropdownMenuPrimitive.RadioItem>
-        ))}
-      </DropdownMenuRadioGroup>
-    </div>
+    <DropdownMenuItem
+      onSelect={(event) => {
+        event.preventDefault();
+        toggleTheme();
+      }}
+      className={MENU_ROW}
+    >
+      <ThemeIcon aria-hidden="true" />
+      {theme === "dark" ? "Modo claro" : "Modo escuro"}
+    </DropdownMenuItem>
   );
 }
 
 /** Shows or hides the team tools in the interface; only offered to team accounts. */
-function AdminModeItem({ enabled, role }: { enabled: boolean; role: string }) {
+function TeamModeItem({ enabled, role }: { enabled: boolean; role: string }) {
   const { name, switchTeamMode } = useTeamModeSwitch(role);
   return (
     <DropdownMenuCheckboxItem
@@ -139,124 +101,94 @@ function AdminModeItem({ enabled, role }: { enabled: boolean; role: string }) {
   );
 }
 
-function SupplierProductShortcut({ profileKind }: { profileKind: ProfileKind }) {
-  if (profileKind !== "supplier") return null;
+function MenuLink({
+  to,
+  icon,
+  label,
+  onNavigate,
+}: {
+  to: "/perfil" | "/onboarding";
+  icon: ReactNode;
+  label: string;
+  onNavigate: (() => void) | undefined;
+}) {
   return (
     <DropdownMenuItem asChild className={MENU_ROW}>
-      <Link to="/fornecedor/painel/produtos" search={{ product: "novo" }}>
-        <IdentificationCardIcon aria-hidden="true" />
-        Cadastrar produto
+      <Link to={to} onClick={onNavigate}>
+        {icon}
+        {label}
       </Link>
     </DropdownMenuItem>
   );
 }
 
-/** The pages about you; support shows how many answers are waiting. */
-function AccountLinks({
-  supportReplies,
-  profileKind,
+function MenuEntry({
+  entry,
+  user,
+  adminMode,
+  onNavigate,
+  onSignOut,
 }: {
-  supportReplies: number;
-  profileKind: ProfileKind;
+  entry: AccountMenuEntry;
+  user: SessionUser;
+  adminMode: boolean;
+  onNavigate: (() => void) | undefined;
+  onSignOut: () => void;
 }) {
-  const pages = new Set(accountPagesFor(profileKind));
+  if (entry === "profile") {
+    const icon = <UserCircleIcon aria-hidden="true" />;
+    return <MenuLink to="/perfil" icon={icon} label="Meu perfil" onNavigate={onNavigate} />;
+  }
+  if (entry === "sellerData") {
+    const icon = <IdentificationCardIcon aria-hidden="true" />;
+    return <MenuLink to="/onboarding" icon={icon} label="Meu cadastro" onNavigate={onNavigate} />;
+  }
+  if (entry === "teamMode") {
+    return <TeamModeItem enabled={adminMode} role={user.role} />;
+  }
+  if (entry === "theme") {
+    return <ThemeItem />;
+  }
   return (
     <>
-      <DropdownMenuItem asChild className={MENU_ROW}>
-        <Link to="/perfil">
-          <UserCircleIcon aria-hidden="true" />
-          Meu perfil
-        </Link>
-      </DropdownMenuItem>
-      <SupplierProductShortcut profileKind={profileKind} />
-      {pages.has("sellerData") ? (
-        <DropdownMenuItem asChild className={MENU_ROW}>
-          <Link to="/onboarding">
-            <IdentificationCardIcon aria-hidden="true" />
-            Meu cadastro
-          </Link>
-        </DropdownMenuItem>
-      ) : null}
-      {pages.has("billing") ? (
-        <DropdownMenuItem asChild className={MENU_ROW}>
-          <Link to="/assinatura" search={{ retorno: undefined }}>
-            <CreditCardIcon aria-hidden="true" />
-            Planos e assinatura
-          </Link>
-        </DropdownMenuItem>
-      ) : null}
-      {pages.has("integrations") ? (
-        <DropdownMenuItem asChild className={MENU_ROW}>
-          <Link to="/integracoes">
-            <PlugsConnectedIcon aria-hidden="true" />
-            Integrações
-          </Link>
-        </DropdownMenuItem>
-      ) : null}
-      <DropdownMenuItem asChild className={MENU_ROW}>
-        <Link to="/suporte">
-          <SupportIcon aria-hidden="true" />
-          Ajuda e suporte
-          {supportReplies > 0 ? (
-            <span className="ml-auto flex h-5 min-w-5 items-center justify-center rounded-full bg-brand/15 px-1.5 text-sm font-medium text-brand-text tabular-nums">
-              {supportReplies}
-              <span className="sr-only">, {unreadRepliesText(supportReplies)}</span>
-            </span>
-          ) : null}
-        </Link>
+      <DropdownMenuSeparator className="-mx-1.5" />
+      <DropdownMenuItem onSelect={onSignOut} className={MENU_ROW}>
+        <SignOutIcon aria-hidden="true" />
+        Sair da conta
       </DropdownMenuItem>
     </>
   );
 }
 
-/** The team's switch; the team's pages, the audit log included, are in the menu. Nothing for a customer. */
-function TeamItems({ role, adminMode }: { role: string; adminMode: boolean }) {
-  return isStaffRole(role) ? <AdminModeItem enabled={adminMode} role={role} /> : null;
-}
-
 interface UserMenuProps {
   user: SessionUser;
-  supportReplies: number;
   adminMode: boolean;
-  /** A supplier's menu leaves out the reseller's pages (`accountPagesFor`). */
+  /** A supplier's menu leaves out the reseller's registration (`accountMenuEntries`). */
   profileKind: ProfileKind;
-  /** What the chip shows before the caret (avatar, name); the whole chip opens the menu. */
+  /** What the card shows (photo, name, e-mail, caret); the whole card opens the menu. */
   children: ReactNode;
   className?: string;
-  /** Where the menu opens: up from the foot of the sidebar. */
-  side?: "top" | "bottom";
-  /** The shrunk sidebar shows only the photo, without the caret. */
-  compact?: boolean;
+  /** Closes the phone sheet when a link of the menu opens a page. */
+  onNavigate?: (() => void) | undefined;
 }
 
-/** The caret at the end of the chip; it flips while the menu is open. */
-function MenuCaret() {
-  return (
-    <span className="relative flex size-11 shrink-0 items-center justify-center rounded-full bg-muted text-muted-foreground transition-colors duration-150 group-hover:text-foreground group-data-[state=open]:text-foreground">
-      <CaretDownIcon
-        className="size-4 transition-transform duration-200 group-data-[state=open]:rotate-180"
-        weight="bold"
-        aria-hidden="true"
-      />
-    </span>
-  );
-}
-
-/** The account chip: a click anywhere on it opens the account pages, the theme and signing out. */
+/**
+ * The profile card's menu, opening above the card at the foot of the sidebar: the profile, the
+ * registration, the team mode, the theme and signing out, last.
+ */
 export function UserMenu({
   user,
-  supportReplies,
   adminMode,
   profileKind,
   children,
   className,
-  side = "bottom",
-  compact = false,
+  onNavigate,
 }: UserMenuProps) {
   const signOut = useSignOut();
-  // Opened with the mouse, closing should not hand focus back to the chip and light its ring;
+  // Opened with the mouse, closing should not hand focus back to the card and light its ring;
   // from the keyboard it still does, so you know where you are.
   const openedWithPointer = useRef(false);
+  const entries = accountMenuEntries({ profileKind, isStaff: isStaffRole(user.role) });
   return (
     <DropdownMenu>
       <DropdownMenuTrigger
@@ -274,33 +206,29 @@ export function UserMenu({
         {/* Named by its content, not an aria-label, so the name contains the visible name and role. */}
         <span className="sr-only">Menu do usuário: </span>
         {children}
-        {compact ? null : <MenuCaret />}
       </DropdownMenuTrigger>
       <DropdownMenuContent
-        side={side}
-        align={side === "top" ? "start" : "end"}
-        sideOffset={10}
+        side="top"
+        align="start"
+        sideOffset={8}
         onCloseAutoFocus={(event) => {
           if (openedWithPointer.current) {
             event.preventDefault();
           }
         }}
-        className="w-80 rounded-2xl border-0 p-2 shadow-black/15 ring-1 ring-border"
+        // As wide as the card, or wider when a row needs it ("Modo administrador" and its switch).
+        className="w-max max-w-[calc(100vw-2rem)] min-w-(--radix-dropdown-menu-trigger-width) rounded-2xl border-0 p-1.5 shadow-black/15 ring-1 ring-border"
       >
-        <DropdownMenuLabel className="px-2.5 pt-1.5 pb-2 font-normal">
-          <span className="block text-sm text-muted-foreground">Conectado como</span>
-          <span className="block truncate text-base font-medium text-foreground">{user.email}</span>
-        </DropdownMenuLabel>
-        <DropdownMenuSeparator className="-mx-2" />
-        <AccountLinks supportReplies={supportReplies} profileKind={profileKind} />
-        <TeamItems role={user.role} adminMode={adminMode} />
-        <DropdownMenuSeparator className="-mx-2" />
-        <ThemeChoice />
-        <DropdownMenuSeparator className="-mx-2" />
-        <DropdownMenuItem onSelect={() => void signOut()} className={MENU_ROW}>
-          <SignOutIcon aria-hidden="true" />
-          Sair
-        </DropdownMenuItem>
+        {entries.map((entry) => (
+          <MenuEntry
+            key={entry}
+            entry={entry}
+            user={user}
+            adminMode={adminMode}
+            onNavigate={onNavigate}
+            onSignOut={() => void signOut()}
+          />
+        ))}
       </DropdownMenuContent>
     </DropdownMenu>
   );
