@@ -389,16 +389,32 @@ describe("TikTok Shop stock, price and description", () => {
     expect(isMarketplaceListingEndedError(error)).toBe(true);
   });
 
-  it("refuses a stock above what TikTok accepts", async () => {
-    const { connector } = setup({
+  it("sends the most TikTok accepts when the stock is larger", async () => {
+    const { connector, calls } = setup({
       [`GET ${API}${productPath}`]: () => jsonResponse(PRODUCT_RESPONSE),
+      [`POST ${API}${productPath}/inventory/update`]: () => jsonResponse(EMPTY_SUCCESS),
+    });
+
+    await connector.updateStockPrice(STORE, { externalId: PRODUCT_ID, stock: 1_500_000 });
+
+    const stock = calls.find((call) => call.path.endsWith("/inventory/update"));
+    expect(stock?.json).toEqual({
+      skus: [{ id: SKU_ID, inventory: [{ warehouse_id: WAREHOUSE_ID, quantity: 999_999 }] }],
+    });
+  });
+
+  it("refuses an invalid stock before sending the price", async () => {
+    const { connector, calls } = setup({
+      [`GET ${API}${productPath}`]: () => jsonResponse(PRODUCT_RESPONSE),
+      [`POST ${API}${productPath}/prices/update`]: () => jsonResponse(EMPTY_SUCCESS),
     });
 
     const error = await caught(
-      connector.updateStockPrice(STORE, { externalId: PRODUCT_ID, stock: 1_000_000 }),
+      connector.updateStockPrice(STORE, { externalId: PRODUCT_ID, priceCents: 6490, stock: -1 }),
     );
 
-    expect(isAppError(error) && error.message).toMatch(/999\.999/);
+    expect(isAppError(error)).toBe(true);
+    expect(calls.some((call) => call.path.endsWith("/prices/update"))).toBe(false);
   });
 
   it("replaces the description through partial edit, as HTML", async () => {
