@@ -7,6 +7,19 @@ function setupGuide(page: Page) {
   return page.getByRole("region", { name: GUIDE_TITLE });
 }
 
+/**
+ * How far the open guide's arrow sits from the card's top right corner, the larger of the two
+ * gaps; infinite while the card or the arrow is not on screen.
+ */
+async function caretDistanceFromCorner(page: Page): Promise<number> {
+  const card = await setupGuide(page).boundingBox();
+  const caret = await setupGuide(page).getByTestId("setup-guide-caret").boundingBox();
+  if (card === null || caret === null) {
+    return Number.POSITIVE_INFINITY;
+  }
+  return Math.max(card.x + card.width - (caret.x + caret.width), caret.y - card.y);
+}
+
 /** The minimized guide: the same strip the other pages show. */
 function setupStrip(page: Page) {
   return page.getByRole("complementary", { name: "Configuração da conta" });
@@ -54,6 +67,18 @@ test.describe("guia de configuração na visão geral", () => {
     await gotoHydrated(page, "/dashboard");
     await expect(setupGuide(page)).toBeVisible();
     await expect(setupStrip(page)).toHaveCount(0);
+  });
+
+  test("a seta do guia aberto fica no canto de cima, à direita do cartão", async ({ page }) => {
+    await signUp(page, "Revendedora Seta No Canto");
+
+    for (const width of [1280, 375]) {
+      await page.setViewportSize({ width, height: 860 });
+      await gotoHydrated(page, "/dashboard");
+
+      // boundingBox() does not wait, and the guide may render again right after loading: poll.
+      await expect.poll(() => caretDistanceFromCorner(page)).toBeLessThanOrEqual(32);
+    }
   });
 
   // The server cannot read the browser's choice: before hydration the page must already show the
