@@ -563,6 +563,26 @@ describe("TikTok Shop orders", () => {
     expect(batch.resumeFrom?.getTime()).toBe((1_793_491_200 + 20 * 100 + 49) * 1000);
   });
 
+  it("keeps units of the same SKU sold at different prices on their own lines", async () => {
+    const line = tiktokOrder().line_items[0];
+    const lines = [
+      { ...line, id: "1", sale_price: "50.00" },
+      { ...line, id: "2", sale_price: "25.00" },
+      { ...line, id: "3", sale_price: "25.00" },
+    ];
+    const { connector } = setup({
+      [`GET ${API}/order/202507/orders`]: () =>
+        jsonResponse(orderDetailResponse([tiktokOrder({ line_items: lines })])),
+    });
+
+    const order = await connector.fetchOrder(STORE, ORDER_ID);
+
+    expect(order.items.map((item) => [item.quantity, item.unitPriceCents])).toEqual([
+      [1, 5000],
+      [2, 2500],
+    ]);
+  });
+
   it("holds ON_HOLD orders as pending: the buyer may still cancel", async () => {
     const { connector } = setup({
       [`GET ${API}/order/202507/orders`]: () =>

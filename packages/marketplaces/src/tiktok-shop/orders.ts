@@ -74,19 +74,20 @@ export function amountToCents(amount: string, field: string): number {
 }
 
 /**
- * Each line item is one unit (Get Order Detail has no quantity), so the units of a SKU are
- * counted. The unit price is the item's `sale_price`.
+ * Each line item is one unit (Get Order Detail has no quantity), so the units of a SKU sold at
+ * the same price are counted. Units of one SKU at different prices ("leve 2") keep their own
+ * lines, so the order's revenue is not the first unit's price times the count.
  */
 function orderItems(raw: TikTokShopOrder): MarketplaceOrderItem[] {
   const items = new Map<string, MarketplaceOrderItem>();
   for (const unit of raw.line_items) {
-    const key = `${unit.product_id}:${unit.sku_id}`;
-    const counted = items.get(key);
+    const unitPriceCents = amountToCents(unit.sale_price, "preço do item");
+    const key = `${unit.product_id}:${unit.sku_id}:${unitPriceCents}`;
     items.set(key, {
       externalListingId: unit.product_id,
       title: unit.product_name,
-      quantity: (counted?.quantity ?? 0) + 1,
-      unitPriceCents: counted?.unitPriceCents ?? amountToCents(unit.sale_price, "preço do item"),
+      quantity: (items.get(key)?.quantity ?? 0) + 1,
+      unitPriceCents,
     });
   }
   return [...items.values()];
