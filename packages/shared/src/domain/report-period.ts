@@ -103,7 +103,8 @@ function resolveMonth(month: string, now: Date): ReportPeriod {
   const whole = monthRange(month);
   const tomorrow = new Date(startOfBrazilDay(now).getTime() + DAY_MILLISECONDS);
   const to = new Date(Math.min(whole.to.getTime(), tomorrow.getTime()));
-  const status: ReportPeriodStatus = to.getTime() < whole.to.getTime() ? "partial" : "closed";
+  // On the last day `to` already equals the month's end; only the clock says it is still open.
+  const status: ReportPeriodStatus = now.getTime() < whole.to.getTime() ? "partial" : "closed";
   const lived = to.getTime() - whole.from.getTime();
   return {
     kind: "month",

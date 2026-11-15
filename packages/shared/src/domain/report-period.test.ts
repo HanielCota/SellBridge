@@ -46,6 +46,21 @@ describe("resolveReportPeriod", () => {
     expect(period.previous).toMatchObject({ fromDate: "2026-08-01", toDate: "2026-08-31" });
   });
 
+  it("keeps the month partial on its last day, so the report is not stored before it ends", () => {
+    const lastDay = new Date("2026-10-31T13:00:00.000Z");
+
+    const period = resolveReportPeriod({ mes: "2026-10" }, lastDay);
+
+    expect(period).toMatchObject({ status: "partial", toDate: "2026-10-31", days: 31 });
+    expect(period.previous).toMatchObject({ fromDate: "2026-09-01", toDate: "2026-09-30" });
+  });
+
+  it("closes the month once it has ended", () => {
+    const period = resolveReportPeriod({ mes: "2026-10" }, new Date("2026-11-01T03:00:00.000Z"));
+
+    expect(period.status).toBe("closed");
+  });
+
   it("falls back to the current month for a month in the future", () => {
     expect(resolveReportPeriod({ mes: "2026-12" }, NOW).month).toBe("2026-10");
   });
