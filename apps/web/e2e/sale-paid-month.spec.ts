@@ -122,3 +122,31 @@ test("a sale paid after its month ends stays unpaid in that month and counts whe
   const statement = page.getByLabel("Financeiro por pedido");
   await expect(statement.getByText(`pedido em ${placedOn}`)).toBeVisible();
 });
+
+test("a closed month kept by the old rule is rebuilt once under the payment-date rule", async ({
+  page,
+}) => {
+  await forgetPreviousMonthReport();
+  await database.insert(reportSnapshots).values({
+    scope: "seller",
+    ownerId: tenantId,
+    month: previousMonth,
+    payload: { version: 1, title: "Relatório de vendas" },
+  });
+
+  await signIn(page, DEMO_USER);
+  await gotoHydrated(page, `/financeiro/relatorio?mes=${previousMonth}`);
+
+  await expect(page.getByText("Valor aguardando pagamento", { exact: true })).toBeVisible();
+  const [kept] = await database
+    .select({ payload: reportSnapshots.payload })
+    .from(reportSnapshots)
+    .where(
+      and(
+        eq(reportSnapshots.scope, "seller"),
+        eq(reportSnapshots.ownerId, tenantId),
+        eq(reportSnapshots.month, previousMonth),
+      ),
+    );
+  expect(kept?.payload).toMatchObject({ version: 2 });
+});
