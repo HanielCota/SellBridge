@@ -200,7 +200,7 @@ test.describe("fornecedores e catálogo", () => {
     await expect(page.getByText(/não entrega/)).toHaveCount(0);
     await expect(page.getByRole("heading", { level: 3 }).first()).toBeVisible();
     await expect(
-      page.getByText("Para publicar, escolha este fornecedor para uma das suas lojas."),
+      page.getByText("Para publicar, adicione este fornecedor a uma das suas lojas."),
     ).toBeVisible();
     await expect(page.getByRole("link", { name: "Publicar" })).toHaveCount(0);
     await expect(page.getByRole("button", { name: "Publicar" }).first()).toBeDisabled();

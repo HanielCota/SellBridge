@@ -1,6 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
 import { createFileRoute, useLocation, useNavigate } from "@tanstack/react-router";
-import { useEffect, useRef, useState } from "react";
+import { type ReactNode, useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 import { z } from "zod";
 import { optionalParameter } from "@sellbridge/shared/schemas";
@@ -15,6 +15,10 @@ import {
   DisconnectStoreDialog,
   type StoreToDisconnect,
 } from "@/components/stores/disconnect-store-dialog";
+import {
+  SellSupplierInStores,
+  type SellSupplierStore,
+} from "@/components/stores/sell-supplier-in-stores";
 import { StoreList, type StoreWithActivity } from "@/components/stores/store-list";
 import {
   NewStoreSupplierDialog,
@@ -37,7 +41,7 @@ import { prefetchOnServer } from "@/lib/prefetch";
 const storesSearchSchema = z.object({
   conectada: optionalParameter(z.uuid()),
   erro: optionalParameter(z.enum(STORE_CONNECT_ERROR_CODES)),
-  /** "Vender este fornecedor": the new shop comes with this supplier picked. */
+  /** "Vender este fornecedor": offered to the shops already connected, and picked for a new one. */
   fornecedor: optionalParameter(z.uuid()),
 });
 
@@ -198,9 +202,12 @@ function useScrollIntoViewOnHash(anchor: string) {
 function AddStoreSection({
   marketplaces,
   choice,
+  sellInExisting,
 }: {
   marketplaces: MarketplaceOption[];
   choice: NewStoreChoice;
+  /** "Vender este fornecedor": the shops that could sell it, above the new shop. */
+  sellInExisting: ReactNode;
 }) {
   const ref = useScrollIntoViewOnHash(ADD_STORE_ANCHOR);
   return (
@@ -210,6 +217,7 @@ function AddStoreSection({
       aria-labelledby="add-store"
       className="scroll-mt-28 space-y-2 pt-6"
     >
+      {sellInExisting === null ? null : <div className="pb-4">{sellInExisting}</div>}
       <h2 id="add-store" className="px-5 text-footnote font-normal text-muted-foreground">
         Adicionar loja
       </h2>
@@ -314,12 +322,50 @@ function suppliersTargetOf(
   };
 }
 
+/** The shops that still count, each saying whether it already sells the chosen supplier. */
+function sellSupplierStores(
+  stores: readonly StoreWithActivity[],
+  labels: ReadonlyMap<string, string>,
+  supplierId: string,
+): SellSupplierStore[] {
+  return stores
+    .filter((store) => store.status !== "disconnected")
+    .map((store) => ({
+      id: store.id,
+      shopName: store.shopName,
+      marketplace: store.marketplace,
+      marketplaceLabel: labels.get(store.marketplace) ?? store.marketplace,
+      sells: store.supplierIds.includes(supplierId),
+    }));
+}
+
+/** The supplier the reseller came to sell, offered to the shops it already has. */
+function useSellInExisting(
+  stores: readonly StoreWithActivity[],
+  labels: ReadonlyMap<string, string>,
+): ReactNode {
+  const { fornecedor } = Route.useSearch();
+  const picked = useQuery(storeSuppliersQueryOptions(fornecedor)).data?.pickedSupplier ?? null;
+  if (picked === null) {
+    return null;
+  }
+  const choices = sellSupplierStores(stores, labels, picked.id);
+  if (choices.length === 0) {
+    return null;
+  }
+  return <SellSupplierInStores supplier={{ id: picked.id, name: picked.name }} stores={choices} />;
+}
+
 function StoresContent() {
   const query = useQuery(storesQueryOptions());
   const suppliers = useQuery(storeSuppliersQueryOptions());
   const [pendingDisconnect, setPendingDisconnect] = useState<StoreToDisconnect | null>(null);
   const [suppliersStoreId, setSuppliersStoreId] = useState<string | null>(null);
   const newStore = useNewStoreChoice((query.data?.stores.length ?? 0) > 0);
+  const labels = new Map(
+    (query.data?.marketplaces ?? []).map((option) => [option.id, option.label]),
+  );
+  const sellInExisting = useSellInExisting(query.data?.stores ?? [], labels);
   if (query.isPending) {
     return (
       <output className="block space-y-8" aria-busy="true" aria-label="Carregando lojas">
@@ -340,7 +386,6 @@ function StoresContent() {
       </>
     );
   }
-  const labels = new Map(marketplaces.map((option) => [option.id, option.label]));
   return (
     <>
       <section aria-label="Suas lojas" className="space-y-4">
@@ -353,7 +398,11 @@ function StoresContent() {
           onManageSuppliers={(store) => setSuppliersStoreId(store.id)}
         />
       </section>
-      <AddStoreSection marketplaces={marketplaces} choice={newStore.choice} />
+      <AddStoreSection
+        marketplaces={marketplaces}
+        choice={newStore.choice}
+        sellInExisting={sellInExisting}
+      />
       <DisconnectStoreDialog store={pendingDisconnect} onClose={() => setPendingDisconnect(null)} />
       <StoreSupplierDialog
         target={suppliersTargetOf(stores, suppliersStoreId, suppliers.data?.suppliers)}

@@ -49,7 +49,7 @@ function countLabel(count: number, one: string, many: string): string {
   return count === 1 ? `1 ${one}` : `${count.toLocaleString("pt-BR")} ${many}`;
 }
 
-function useInvalidateStores() {
+export function useInvalidateStores() {
   const queryClient = useQueryClient();
   return () =>
     Promise.all([

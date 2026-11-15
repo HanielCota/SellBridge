@@ -1,6 +1,6 @@
 /** The hint beside "Vender este fornecedor" while no store of the account sells this supplier. */
 export const PUBLISH_NEEDS_STORE_HINT =
-  "Para publicar, escolha este fornecedor para uma das suas lojas.";
+  "Para publicar, adicione este fornecedor a uma das suas lojas.";
 
 /**
  * A product of this supplier can only be published once one of the account's stores sells it. The server still refuses any other case;
