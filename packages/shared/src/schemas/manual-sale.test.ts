@@ -45,6 +45,31 @@ describe("manualSaleSchema", () => {
     ]);
   });
 
+  it("refuses a sale whose total does not fit a stored amount, on the products list", () => {
+    const items = [{ productId: PRODUCT_ID, quantity: 999, unitPriceCents: 2_150_000 }];
+
+    const result = manualSaleSchema.safeParse(sale({ items }));
+
+    expect(result.error?.issues).toMatchObject([
+      {
+        path: ["items"],
+        message: expect.stringMatching(/^O total da venda passa de R\$\s21\.474\.836,47\. Confira/),
+      },
+    ]);
+  });
+
+  it("accepts a sale whose total is exactly the largest stored amount", () => {
+    const items = [{ productId: PRODUCT_ID, quantity: 1, unitPriceCents: 7_483_647 }].concat(
+      Array.from({ length: 2 }, () => ({
+        productId: PRODUCT_ID,
+        quantity: 107,
+        unitPriceCents: 10_000_000,
+      })),
+    );
+
+    expect(manualSaleSchema.safeParse(sale({ items })).success).toBe(true);
+  });
+
   it("refuses a channel that has its own integration", () => {
     const result = manualSaleSchema.safeParse(sale({ channel: "mercado_livre" }));
 
