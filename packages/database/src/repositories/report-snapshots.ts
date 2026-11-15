@@ -1,4 +1,4 @@
-import { and, eq } from "drizzle-orm";
+import { and, eq, lt, sql } from "drizzle-orm";
 import type { Database } from "../client.ts";
 import { reportSnapshots } from "../schema/index.ts";
 
@@ -53,6 +53,36 @@ export async function saveReportSnapshot(
   const stored = await findReportSnapshot(database, key);
   if (stored === null) {
     throw new Error(`Report snapshot ${key.scope}/${key.month} was not saved`);
+  }
+  return stored;
+}
+
+/**
+ * Replaces a month kept before it ended: it missed the rest of its last day. Only a row captured
+ * before `monthEnd` is replaced, so readers racing to rebuild it write it once.
+ *
+ * @throws {Error} When no snapshot exists for the key.
+ */
+export async function replaceEarlyReportSnapshot(
+  database: Database,
+  key: ReportSnapshotKey,
+  payload: unknown,
+  monthEnd: Date,
+): Promise<StoredReportSnapshot> {
+  await database
+    .update(reportSnapshots)
+    .set({ payload, capturedAt: sql`now()` })
+    .where(
+      and(
+        eq(reportSnapshots.scope, key.scope),
+        eq(reportSnapshots.ownerId, key.ownerId),
+        eq(reportSnapshots.month, key.month),
+        lt(reportSnapshots.capturedAt, monthEnd),
+      ),
+    );
+  const stored = await findReportSnapshot(database, key);
+  if (stored === null) {
+    throw new Error(`Report snapshot ${key.scope}/${key.month} was not found`);
   }
   return stored;
 }
