@@ -26,14 +26,14 @@ function StoreOption({
   onPick,
 }: {
   store: ConversationStore;
-  onPick: (storeConnectionId: string) => void;
+  onPick: (store: ConversationStore) => void;
 }) {
   const reason = unavailableReason(store);
   return (
     <button
       type="button"
       aria-disabled={reason !== null}
-      onClick={() => (reason === null ? onPick(store.storeConnectionId) : undefined)}
+      onClick={() => (reason === null ? onPick(store) : undefined)}
       onKeyDown={moveChoiceFocus}
       className={cn(
         "flex items-start gap-2.5 rounded-2xl border bg-card px-3.5 py-3",
@@ -44,9 +44,14 @@ function StoreOption({
       <StorefrontIcon className="mt-0.5 size-4 shrink-0" aria-hidden="true" />
       <span className="min-w-0">
         <span className="block text-sm font-medium">{store.storeName}</span>
-        <span className="block text-sm text-muted-foreground">
-          {reason ?? `Fornecedor: ${store.supplierName ?? ""}`}
-        </span>
+        {store.supplierName === null ? null : (
+          <span className="block text-sm text-muted-foreground">
+            Fornecedor: {store.supplierName}
+          </span>
+        )}
+        {reason === null ? null : (
+          <span className="block text-sm text-muted-foreground">{reason}</span>
+        )}
       </span>
     </button>
   );
@@ -63,7 +68,7 @@ function NoStores() {
   );
 }
 
-/** Step one: the store. Each store sells one supplier, so picking it picks who answers. */
+/** Step one: the store, once per supplier it sells, so picking it picks who answers. */
 export function StoreStep({
   stores,
   total,
@@ -71,7 +76,7 @@ export function StoreStep({
 }: {
   stores: readonly ConversationStore[];
   total: number;
-  onPick: (storeConnectionId: string) => void;
+  onPick: (store: ConversationStore) => void;
 }) {
   return (
     <div className="grid gap-3">
@@ -79,8 +84,8 @@ export function StoreStep({
         id={STEP_HEADING_IDS.store}
         number={1}
         total={total}
-        question="Sobre qual loja?"
-        help="A conversa vai para o fornecedor desta loja."
+        question="Sobre qual loja e fornecedor?"
+        help="A conversa vai para o fornecedor que você escolher."
       />
       {stores.length === 0 ? (
         <NoStores />
@@ -90,7 +95,11 @@ export function StoreStep({
           className="m-0 grid min-w-0 grid-cols-1 gap-2 border-0 p-0 sm:grid-cols-2"
         >
           {stores.map((store) => (
-            <StoreOption key={store.storeConnectionId} store={store} onPick={onPick} />
+            <StoreOption
+              key={`${store.storeConnectionId}:${store.supplierId ?? "none"}`}
+              store={store}
+              onPick={onPick}
+            />
           ))}
         </fieldset>
       )}

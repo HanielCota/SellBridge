@@ -24,7 +24,9 @@ describe("storeSupplierRefusal", () => {
 
   it("tells the seller what to do for each refusal", () => {
     expect(storeSupplierRefusalMessage("supplier_pending")).toMatch(/Escolha o fornecedor/);
-    expect(storeSupplierRefusalMessage("other_supplier")).toMatch(/outro fornecedor/);
+    expect(storeSupplierRefusalMessage("other_supplier")).toMatch(
+      /não vende os produtos deste fornecedor/,
+    );
   });
 });
 

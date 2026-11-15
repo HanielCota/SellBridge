@@ -71,7 +71,7 @@ describe("store supplier", () => {
       assertStoresSellSupplier(database, tenants.tenantA, [storeA], supplierTwo.supplierId),
     ).rejects.toMatchObject({
       code: "CONFLICT",
-      message: expect.stringMatching(/outro fornecedor/),
+      message: expect.stringMatching(/não vende os produtos deste fornecedor/),
     });
   });
 

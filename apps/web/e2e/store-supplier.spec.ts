@@ -25,7 +25,7 @@ function storeRow(page: Page, shopName: string) {
   return page.getByRole("listitem").filter({ has: page.getByRole("heading", { name: shopName }) });
 }
 
-test("cada loja vende um único fornecedor, escolhido ao conectar e trocado depois", async ({
+test("cada loja vende os fornecedores escolhidos, adicionados e tirados depois", async ({
   page,
 }) => {
   test.setTimeout(120_000);
@@ -51,16 +51,45 @@ test("cada loja vende um único fornecedor, escolhido ao conectar e trocado depo
   await authorizeMockStore(page, "Loja Pet");
   await expect(storeRow(page, "Loja Pet").getByText("Rio Pet Atacado")).toBeVisible();
 
-  // Changing the supplier of a shop shows the impact first.
+  // A shop adds a second supplier and keeps the first.
   await page.getByRole("button", { name: "Opções de Loja Beleza" }).click();
-  await page.getByRole("menuitem", { name: "Trocar fornecedor" }).click();
-  const change = page.getByRole("dialog", { name: "Trocar o fornecedor de Loja Beleza" });
-  await pickSupplier(page, "Rio Pet Atacado");
-  await expect(change.getByText("Nenhuma publicação desta loja é afetada.")).toBeVisible();
-  await change.getByRole("button", { name: "Salvar fornecedor" }).click();
+  await page.getByRole("menuitem", { name: "Fornecedores da loja" }).click();
+  const suppliers = page.getByRole("dialog");
   await expect(
-    page.getByText("Fornecedor de Loja Beleza atualizado").filter({ visible: true }),
+    suppliers.getByRole("heading", { name: "Fornecedores de Loja Beleza" }),
   ).toBeVisible();
+  await expect(suppliers.getByText("a loja precisa vender pelo menos um")).toBeVisible();
+  await suppliers.getByRole("button", { name: "Adicionar fornecedor" }).click();
+  await expect(
+    suppliers.getByRole("heading", { name: "Adicionar fornecedor a Loja Beleza" }),
+  ).toBeVisible();
+  await pickSupplier(page, "Rio Pet Atacado");
+  await suppliers.getByRole("button", { name: "Adicionar fornecedor" }).click();
+  await expect(
+    page.getByText("Rio Pet Atacado adicionado a Loja Beleza").filter({ visible: true }),
+  ).toBeVisible();
+  await expect(suppliers.getByRole("button", { name: "Tirar Rio Pet Atacado" })).toBeVisible();
+  await suppliers.getByRole("button", { name: "Pronto" }).click();
+  await expect(
+    storeRow(page, "Loja Beleza").getByText("BH Beauty Distribuidora e Rio Pet Atacado"),
+  ).toBeVisible();
+
+  // Removing one shows what happens to its listings before it goes.
+  await page.getByRole("button", { name: "Opções de Loja Beleza" }).click();
+  await page.getByRole("menuitem", { name: "Fornecedores da loja" }).click();
+  await suppliers.getByRole("button", { name: "Tirar BH Beauty Distribuidora" }).click();
+  await expect(
+    suppliers.getByRole("heading", { name: "Tirar BH Beauty Distribuidora de Loja Beleza" }),
+  ).toBeVisible();
+  await expect(suppliers.getByText("Nenhum anúncio desta loja é afetado.")).toBeVisible();
+  await suppliers.getByRole("button", { name: "Tirar fornecedor" }).click();
+  await expect(
+    page
+      .getByText("BH Beauty Distribuidora não é mais fornecedor de Loja Beleza")
+      .filter({ visible: true }),
+  ).toBeVisible();
+  await expect(suppliers.getByRole("button", { name: /^Tirar/ })).toHaveCount(0);
+  await suppliers.getByRole("button", { name: "Pronto" }).click();
   await expect(storeRow(page, "Loja Beleza").getByText("Rio Pet Atacado")).toBeVisible();
 
   // No shop sells BH Beauty anymore: its products can't be published until one does.

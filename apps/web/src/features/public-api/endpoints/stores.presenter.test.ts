@@ -23,8 +23,20 @@ describe("presentStore", () => {
       name: "Loja da Ana",
       status: "connected",
       connectedAt: "2026-01-02T10:00:00.000Z",
+      supplierIds: [],
       supplierId: null,
     });
+  });
+
+  it("lists every supplier the store sells and keeps the oldest as supplierId", () => {
+    const suppliers = [
+      "8f8e7c1a-0000-4000-8000-0000000000a1",
+      "8f8e7c1a-0000-4000-8000-0000000000a2",
+    ];
+
+    const presented = presentStore({ ...store, supplierIds: suppliers });
+
+    expect(presented).toMatchObject({ supplierIds: suppliers, supplierId: suppliers[0] });
   });
 
   it("leaves disconnected stores out", () => {

@@ -1,11 +1,6 @@
 import { Link } from "@tanstack/react-router";
 import { type ReactNode, useId, useRef } from "react";
-import {
-  ArrowsLeftRightIcon,
-  ChatCircleDotsIcon,
-  DotsThreeIcon,
-  StorefrontIcon,
-} from "@phosphor-icons/react";
+import { ChatCircleDotsIcon, DotsThreeIcon, StorefrontIcon } from "@phosphor-icons/react";
 import { ACTION_ICONS, CONTROL_HINTS } from "@/components/icons/action-icons";
 import { Hint } from "@/components/ui/hint";
 import { storeHealth } from "@sellbridge/shared/store-attention";
@@ -28,6 +23,7 @@ import type { StoreWithActivity } from "./store-list";
 // Each action keeps the icon of its function across the app (docs/PLANO-UX-ICONES.md):
 // publishing is the paper plane, listings the megaphone, and disconnecting never borrows sign-out.
 const PublishIcon = ACTION_ICONS.publish.icon;
+const SuppliersIcon = ACTION_ICONS.suppliers.icon;
 const ListingsIcon = ACTION_ICONS.listings.icon;
 const DisconnectIcon = ACTION_ICONS.disconnectStore.icon;
 
@@ -65,7 +61,7 @@ function MenuTile({ tone, children }: { tone: keyof typeof MENU_TILE_TONES; chil
 /** What the store menu offers: who it is, where to go next and, set apart, disconnecting. */
 export interface StoreRowActions {
   onDisconnect: () => void;
-  onChangeSupplier: () => void;
+  onManageSuppliers: () => void;
 }
 
 /** Who the store is, its status and its health, above the actions. */
@@ -158,11 +154,11 @@ function StoreMenuEntries({
           Ver publicações
         </Link>
       </DropdownMenuItem>
-      <DropdownMenuItem onSelect={actions.onChangeSupplier} className="gap-2.5 py-1.5 pl-1.5">
+      <DropdownMenuItem onSelect={actions.onManageSuppliers} className="gap-2.5 py-1.5 pl-1.5">
         <MenuTile tone="supplier">
-          <ArrowsLeftRightIcon weight="bold" />
+          <SuppliersIcon weight="bold" />
         </MenuTile>
-        {store.supplierIds.length === 0 ? "Escolher fornecedor" : "Trocar fornecedor"}
+        {store.supplierIds.length === 0 ? "Escolher fornecedor" : "Fornecedores da loja"}
       </DropdownMenuItem>
       <TalkToSupportItem storeId={store.id} storeName={storeName} />
       <TalkToSupplierItem store={store} />

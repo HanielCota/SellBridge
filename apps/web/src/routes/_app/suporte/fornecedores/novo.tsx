@@ -37,11 +37,7 @@ function StoreAndTopicSteps({ flow }: { flow: Flow }) {
   const { store, topic } = flow;
   if (store === undefined) {
     return (
-      <StoreStep
-        stores={flow.stores.data ?? []}
-        total={flow.totalSteps}
-        onPick={(id) => flow.pickStore(id)}
-      />
+      <StoreStep stores={flow.stores.data ?? []} total={flow.totalSteps} onPick={flow.pickStore} />
     );
   }
   return (

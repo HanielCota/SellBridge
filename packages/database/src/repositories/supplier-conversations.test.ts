@@ -126,6 +126,7 @@ describe("conversation stores", () => {
       requireConversationStore(database, {
         tenantId: resellerTenant,
         storeConnectionId: storeWithoutSupplier,
+        supplierId,
       }),
     ).rejects.toThrow(/ainda não tem um fornecedor/);
   });
@@ -135,8 +136,31 @@ describe("conversation stores", () => {
       requireConversationStore(database, {
         tenantId: otherResellerTenant,
         storeConnectionId: storeWithSupplier,
+        supplierId,
       }),
     ).rejects.toThrow(/Loja não encontrada/);
+  });
+
+  it("refuses a supplier the store does not sell", async () => {
+    const otherSupplier = randomUUID();
+
+    const requiring = requireConversationStore(database, {
+      tenantId: resellerTenant,
+      storeConnectionId: storeWithSupplier,
+      supplierId: otherSupplier,
+    });
+
+    await expect(requiring).rejects.toThrow(/não vende mais este fornecedor/);
+  });
+
+  it("sends the conversation to the supplier picked with the store", async () => {
+    const store = await requireConversationStore(database, {
+      tenantId: resellerTenant,
+      storeConnectionId: storeWithSupplier,
+      supplierId,
+    });
+
+    expect(store).toEqual({ supplierId, storeName: "Loja Centro" });
   });
 });
 
