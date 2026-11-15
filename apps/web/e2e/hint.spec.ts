@@ -38,6 +38,9 @@ test.afterAll(async () => {
   }
 });
 
+/** Long enough for Chromium to drop the swipe's velocity to zero before the finger lifts. */
+const FINGER_REST_IN_MS = 200;
+
 async function swipeFrom(page: Page, trigger: Locator) {
   const box = await trigger.boundingBox();
   if (box === null) {
@@ -51,6 +54,14 @@ async function swipeFrom(page: Page, trigger: Locator) {
     // oxlint-disable-next-line id-length -- CDP requires the coordinate keys x and y.
     touchPoints: [{ x: touchX, y: touchY }],
   });
+  await session.send("Input.dispatchTouchEvent", {
+    type: "touchMove",
+    // oxlint-disable-next-line id-length -- CDP requires the coordinate keys x and y.
+    touchPoints: [{ x: touchX, y: touchY - 50 }],
+  });
+  // The finger stops before it lifts. Lifting mid-move flings the page, and Chromium spends the
+  // next tap on stopping that fling instead of clicking, so the test's own tap would be lost.
+  await page.waitForTimeout(FINGER_REST_IN_MS);
   await session.send("Input.dispatchTouchEvent", {
     type: "touchMove",
     // oxlint-disable-next-line id-length -- CDP requires the coordinate keys x and y.
