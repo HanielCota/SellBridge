@@ -151,6 +151,7 @@ export function sellerReportCharts(input: SellerReportInput): ReportChart[] {
 
 const CASE_TABS: { kind: SellerReportCaseKind; label: string }[] = [
   { kind: "cost_pending", label: "Custo pendente" },
+  { kind: "unpaid", label: "Aguardando pagamento" },
   { kind: "cancelled", label: "Cancelados" },
   { kind: "returned", label: "Devolvidos" },
 ];
@@ -179,7 +180,7 @@ export function sellerReportRules(platformFeeBasisPoints: number): ReportRule[] 
   return [
     {
       title: "Período e horário",
-      text: "Cada pedido conta no dia em que foi feito, no horário de Brasília. A comparação é com o mês anterior (num mês em andamento, os mesmos dias dele) ou, num intervalo escolhido, com os mesmos dias logo antes.",
+      text: "Cada venda conta no dia em que foi paga, no horário de Brasília: um pedido feito no fim de um mês e pago no começo do outro entra no mês do pagamento. Pedido ainda não pago aparece no dia em que foi feito, como aguardando pagamento. A comparação é com o mês anterior (num mês em andamento, os mesmos dias dele) ou, num intervalo escolhido, com os mesmos dias logo antes.",
     },
     {
       title: "Venda",
@@ -195,7 +196,7 @@ export function sellerReportRules(platformFeeBasisPoints: number): ReportRule[] 
     },
     {
       title: "Reembolsos",
-      text: "Reembolsos e comissões contam no mês em que o pedido foi feito, não no dia em que o dinheiro voltou.",
+      text: "Reembolsos, comissões e cancelamentos contam no mês em que a venda foi paga, não no dia em que o dinheiro voltou.",
     },
     {
       title: "Custo pendente",

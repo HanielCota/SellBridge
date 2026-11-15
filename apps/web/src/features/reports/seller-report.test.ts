@@ -25,6 +25,8 @@ function summary(overrides: Partial<SalesSummary> = {}): SalesSummary {
     profitCents: 0,
     pendingCostOrders: 0,
     pendingCostRevenueCents: 0,
+    unpaidOrders: 0,
+    unpaidTotalCents: 0,
     averageTicketCents: null,
     ...overrides,
   };
@@ -39,6 +41,7 @@ const EMPTY_PERIOD: SellerPeriodNumbers = {
 
 const NO_CASES: SellerReportInput["cases"] = {
   cost_pending: { total: 0, items: [] },
+  unpaid: { total: 0, items: [] },
   cancelled: { total: 0, items: [] },
   returned: { total: 0, items: [] },
 };
@@ -188,6 +191,33 @@ describe("seller report", () => {
       base: "de 8 vendas",
       previous: 0,
     });
+  });
+
+  it("shows the money of orders still awaiting payment apart from the revenue", () => {
+    const report = buildSellerReport(
+      input({
+        current: {
+          ...CURRENT,
+          summary: { ...CURRENT.summary, unpaidOrders: 1, unpaidTotalCents: 10_000 },
+        },
+      }),
+    );
+
+    const unpaid = metricRow("Ainda não pago", report);
+
+    expect(unpaid).toMatchObject({
+      count: 10_000,
+      countFormat: "cents",
+      base: "1 pedido: vira venda no mês em que for pago",
+      sense: "neutral",
+    });
+    expect(metricRow("Receita", report).count).toBe(80_000);
+  });
+
+  it("lists the orders awaiting payment among the cases", () => {
+    const keys = buildSellerReport(input()).cases.map((tab) => tab.key);
+
+    expect(keys).toEqual(["cost_pending", "unpaid", "cancelled", "returned"]);
   });
 
   it("computes the margin over the revenue of priced sales only", () => {

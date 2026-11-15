@@ -75,17 +75,36 @@ export function orderMargin(
   return row.profitCents / row.revenueCents;
 }
 
+type SaleDates = Pick<OrderFinancialRow, "orderedAt" | "paidAt">;
+
+/**
+ * The date the reports file an order under: when it was paid, or, never paid, when it was
+ * placed. The same rule as `saleDate` in the database's report queries.
+ */
+export function saleDateOf(row: SaleDates): Date {
+  return row.paidAt ?? row.orderedAt;
+}
+
+/** The order date, only when the order was paid on another (Brazil) day than it was placed. */
+export function placedOnAnotherDay(row: SaleDates): Date | null {
+  if (row.paidAt === null || brazilDayKey(row.paidAt) === brazilDayKey(row.orderedAt)) {
+    return null;
+  }
+  return row.orderedAt;
+}
+
 export interface OrderDay<TRow> {
   key: string;
   rows: TRow[];
 }
 
-/** Consecutive rows of the same day together, keeping the list's order (newest or oldest first). */
-export function groupOrdersByDay<TRow extends { orderedAt: Date }>(
-  rows: readonly TRow[],
-): OrderDay<TRow>[] {
+/**
+ * Consecutive rows of the same sale day together, keeping the list's order (newest or oldest
+ * first): the list is sorted by sale date, as its totals count.
+ */
+export function groupOrdersByDay<TRow extends SaleDates>(rows: readonly TRow[]): OrderDay<TRow>[] {
   return rows.reduce<OrderDay<TRow>[]>((days, row) => {
-    const key = brazilDayKey(row.orderedAt);
+    const key = brazilDayKey(saleDateOf(row));
     const last = days.at(-1);
     if (last?.key === key) {
       last.rows.push(row);

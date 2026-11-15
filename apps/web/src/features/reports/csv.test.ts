@@ -6,6 +6,7 @@ const row: OrderFinancialRow = {
   id: "1",
   externalOrderId: "ORD-1",
   orderedAt: new Date("2026-03-01T13:00:00Z"),
+  paidAt: new Date("2026-03-01T13:00:00Z"),
   deliveredAt: null,
   status: "delivered",
   storeConnectionId: "store-1",
@@ -56,7 +57,7 @@ describe("buildFinancialCsv", () => {
   it("writes a BOM, a header and one line per order", () => {
     const csv = buildFinancialCsv([row]);
     expect(csv.charCodeAt(0)).toBe(0xfeff);
-    expect(csv.slice(1).startsWith("Data;Pedido;")).toBe(true);
+    expect(csv.slice(1).startsWith("Data do pedido;Pago em;Pedido;")).toBe(true);
     expect(csv.trim().split("\r\n")).toHaveLength(2);
   });
 
@@ -72,6 +73,14 @@ describe("buildFinancialCsv", () => {
     const [header, line] = buildFinancialCsv([pending]).trim().split("\r\n");
     expect(header?.endsWith(";Lucro;Custo pendente")).toBe(true);
     expect(line?.endsWith(";;Sim")).toBe(true);
+  });
+
+  it("leaves the payment date blank for an order never paid", () => {
+    const unpaid = { ...row, status: "pending", paidAt: null };
+
+    const line = buildFinancialCsv([unpaid]).trim().split("\r\n")[1] ?? "";
+
+    expect(line.startsWith("01/03/2026, 10:00;;ORD-1;")).toBe(true);
   });
 
   it("handles an empty export", () => {
