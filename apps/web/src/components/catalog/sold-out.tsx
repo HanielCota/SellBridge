@@ -1,22 +1,20 @@
-import { cn } from "@/lib/utils";
+/** Diagonal sash across the photo's top-right corner, for a card with nothing else there. */
+export function SoldOutRibbon() {
+  return (
+    <span className="pointer-events-none absolute top-5 -right-11 w-40 rotate-[35deg] bg-red-600 py-1 text-center text-xs font-semibold text-white">
+      Esgotado
+    </span>
+  );
+}
 
 /**
- * Diagonal sash across the photo's top-right corner. `corner` hugs the corner (the catalog card
- * has nothing there); `clearOfMenu` runs further in, below the listing card's actions button.
- * On a narrow card (a phone's two columns, or four beside the menu) that button's state pill
- * covers the sash ("sgotado"), so there it steps aside: the struck price and the red footer
- * already say the product is sold out. The card is the container that decides.
+ * The ribbon's word as a solid tag in the photo's bottom-right corner, for the listing card,
+ * whose top-right corner holds the status button: its width changes with the status word, so no
+ * diagonal there stays clear of it on a two-column phone grid.
  */
-export function SoldOutRibbon({ placement = "corner" }: { placement?: "corner" | "clearOfMenu" }) {
+export function SoldOutBadge() {
   return (
-    <span
-      className={cn(
-        "pointer-events-none absolute bg-red-600 py-1 text-center text-xs font-semibold text-white",
-        placement === "corner" && "top-5 -right-11 w-40 rotate-[35deg]",
-        placement === "clearOfMenu" &&
-          "top-[46px] -right-[54px] w-56 rotate-45 @max-[17rem]:hidden",
-      )}
-    >
+    <span className="pointer-events-none absolute right-3 bottom-2.5 rounded-full bg-red-600 px-2 py-0.5 text-xs font-semibold text-white">
       Esgotado
     </span>
   );

@@ -1,6 +1,7 @@
 import { expect, type Page, test } from "@playwright/test";
 import { e2eDatabase } from "./database";
 import { ADMIN_USER, DEMO_USER, enableAdminMode, gotoHydrated, signIn } from "./helpers";
+import { expectSoldOutTagReadable } from "./sold-out-tag";
 import { giveTestBrand, supplierAccounts } from "./supplier-accounts";
 
 /*
@@ -91,19 +92,20 @@ test("on a phone the store figures keep their labels whole", async ({ page }) =>
   expect(box?.height ?? 0).toBeLessThan(20);
 });
 
-test("on a phone the sold-out sash steps aside instead of hiding under the state pill", async ({
-  page,
-}) => {
+test("on a phone the sold-out tag stays clear of the state pill", async ({ page }) => {
   await signIn(page, DEMO_USER);
   await page.setViewportSize(PHONE);
   await gotoHydrated(page, "/publicacoes");
-  await expect(page.getByText("Sem estoque no fornecedor").first()).toBeVisible();
+  const card = page
+    .locator("main article")
+    .filter({ hasText: "Sem estoque no fornecedor" })
+    .first();
+  await expect(card).toBeVisible();
 
-  const visibleSash = page.locator("main article span:visible", { hasText: /^Esgotado$/ });
-  await expect(visibleSash).toHaveCount(0);
+  await expectSoldOutTagReadable(card);
 });
 
-test("a narrow desktop card drops the sold-out sash too", async ({ page }) => {
+test("a narrow desktop card keeps the sold-out tag clear of the state pill", async ({ page }) => {
   await signIn(page, DEMO_USER);
   await page.setViewportSize({ width: 1280, height: 900 });
   await gotoHydrated(page, "/publicacoes");
@@ -118,7 +120,7 @@ test("a narrow desktop card drops the sold-out sash too", async ({ page }) => {
     element.style.setProperty("width", "250px");
   });
 
-  await expect(card.locator("span:visible", { hasText: /^Esgotado$/ })).toHaveCount(0);
+  await expectSoldOutTagReadable(card);
 });
 
 test("the new store's supplier name never breaks with a hyphen", async ({ page }) => {
