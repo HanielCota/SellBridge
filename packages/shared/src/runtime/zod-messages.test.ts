@@ -15,4 +15,22 @@ describe("Zod fallback messages", () => {
       "Pequeno demais: esperava que o texto tivesse >= 1 caracteres",
     );
   });
+
+  it('says a mistyped link points to nothing, never "UUID"', () => {
+    installPortugueseZodMessages();
+
+    const result = z.object({ orderId: z.uuid() }).safeParse({ orderId: "abc" });
+
+    expect(result.error?.issues[0]?.message).toBe(
+      "Não encontramos este item. Confira o link ou volte pelo menu",
+    );
+  });
+
+  it("keeps a field's own message for an invalid identifier", () => {
+    installPortugueseZodMessages();
+
+    const result = z.uuid("Escolha o produto de novo").safeParse("abc");
+
+    expect(result.error?.issues[0]?.message).toBe("Escolha o produto de novo");
+  });
 });
