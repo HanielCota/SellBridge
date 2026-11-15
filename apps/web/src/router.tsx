@@ -3,6 +3,7 @@ import { createRouter } from "@tanstack/react-router";
 import { setupRouterSsrQueryIntegration } from "@tanstack/react-router-ssr-query";
 import { DefaultCatchBoundary } from "@/components/feedback/default-catch-boundary";
 import { NotFound } from "@/components/feedback/not-found";
+import { keepScrollOnSamePage } from "@/lib/keep-scroll-on-same-page";
 import { routeTree } from "./routeTree.gen";
 
 export function getRouter() {
@@ -22,6 +23,9 @@ export function getRouter() {
     defaultNotFoundComponent: NotFound,
   });
   setupRouterSsrQueryIntegration({ router, queryClient });
+  const commitLocation = router.commitLocation;
+  router.commitLocation = (next) =>
+    commitLocation(keepScrollOnSamePage(next, router.latestLocation.pathname));
   return router;
 }
 
