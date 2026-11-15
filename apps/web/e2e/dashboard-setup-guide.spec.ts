@@ -56,6 +56,25 @@ test.describe("guia de configuração na visão geral", () => {
     await expect(setupStrip(page)).toHaveCount(0);
   });
 
+  test("a seta do guia aberto fica no canto de cima, à direita do cartão", async ({ page }) => {
+    await signUp(page, "Revendedora Seta No Canto");
+
+    for (const width of [1280, 375]) {
+      await page.setViewportSize({ width, height: 860 });
+      await gotoHydrated(page, "/dashboard");
+      const card = await setupGuide(page).boundingBox();
+      const caret = await page.getByTestId("setup-guide-caret").boundingBox();
+
+      expect(card).not.toBeNull();
+      expect(caret).not.toBeNull();
+      if (card === null || caret === null) {
+        return;
+      }
+      expect(card.x + card.width - (caret.x + caret.width)).toBeLessThanOrEqual(32);
+      expect(caret.y - card.y).toBeLessThanOrEqual(32);
+    }
+  });
+
   // The server cannot read the browser's choice: before hydration the page must already show the
   // strip, not the whole guide collapsing a moment later. Without the app's scripts the page
   // never hydrates, so what shows is the server's HTML and the inline script in the head.

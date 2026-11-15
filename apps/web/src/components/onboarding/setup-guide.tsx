@@ -150,7 +150,10 @@ interface GuideToggleProps {
   toggleRef?: Ref<HTMLButtonElement> | undefined;
 }
 
-/** The guide's title is its fold button, so the arrow never stands alone without words. */
+/**
+ * The guide's title is its fold button, so the arrow never stands alone without words. The arrow
+ * sits in the card's top corner, where the folded strip shows its own.
+ */
 function GuideTitleToggle({ onToggle, toggleRef }: GuideToggleProps) {
   return (
     <h2 className="text-xl font-semibold tracking-tight sm:text-2xl">
@@ -160,14 +163,17 @@ function GuideTitleToggle({ onToggle, toggleRef }: GuideToggleProps) {
           type="button"
           aria-expanded={true}
           onClick={onToggle}
-          className={cn(
-            "-m-1 flex w-full items-center justify-between gap-3 p-1 text-left",
-            TOGGLE_FOCUS_CLASS_NAME,
-          )}
+          className={cn("-m-1 p-1 text-left", TOGGLE_FOCUS_CLASS_NAME)}
         >
           <span id="setup-title">Falta pouco para sua primeira venda</span>
           <span className="sr-only">{HIDE_STEPS_LABEL}</span>
-          <CaretUpIcon className="size-5 shrink-0 text-muted-foreground" aria-hidden="true" />
+          <span
+            data-testid="setup-guide-caret"
+            className="absolute top-5 right-5 flex h-7 items-center sm:top-6 sm:right-6 sm:h-8"
+            aria-hidden="true"
+          >
+            <CaretUpIcon className="size-5 text-muted-foreground" />
+          </span>
         </button>
       </Hint>
     </h2>
@@ -184,9 +190,9 @@ function SetupGuide({
   return (
     <section
       aria-labelledby="setup-title"
-      className="surface-card space-y-4 rounded-3xl bg-card p-5 sm:p-6"
+      className="surface-card relative space-y-4 rounded-3xl bg-card p-5 sm:p-6"
     >
-      <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_320px] lg:items-end">
+      <div className="grid gap-4 pr-9 lg:grid-cols-[minmax(0,1fr)_320px] lg:items-end">
         <div className="space-y-2">
           <GuideTitleToggle onToggle={onToggle} toggleRef={toggleRef} />
           <p className="text-sm text-muted-foreground">
