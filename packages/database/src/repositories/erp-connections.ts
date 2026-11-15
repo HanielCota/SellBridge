@@ -211,6 +211,8 @@ export async function findSupplierProductCostsBySku(
       and(
         eq(supplierProducts.supplierId, input.supplierId),
         inArray(supplierProducts.sku, [...input.skus]),
+        // A draft saved before its cost was typed stores 0: that is "no cost yet", not a price.
+        gt(supplierProducts.costCents, 0),
       ),
     );
   return new Map(rows.map((row) => [row.sku, row.costCents]));
