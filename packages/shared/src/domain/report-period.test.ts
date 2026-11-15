@@ -81,6 +81,14 @@ describe("resolveReportPeriod", () => {
     expect(period).toMatchObject({ kind: "range", status: "partial", toDate: "2026-10-27" });
   });
 
+  it("cuts the range before at the current time of day when the range ends today", () => {
+    const period = resolveReportPeriod({ de: "2026-10-21", ate: "2026-10-27" }, NOW);
+
+    expect(period.previous.from.toISOString()).toBe("2026-10-14T03:00:00.000Z");
+    expect(period.previous.to.toISOString()).toBe("2026-10-20T13:00:00.000Z");
+    expect(period.previous).toMatchObject({ fromDate: "2026-10-14", toDate: "2026-10-20" });
+  });
+
   it("falls back to the current month when the range is reversed", () => {
     expect(resolveReportPeriod({ de: "2026-10-20", ate: "2026-10-01" }, NOW).kind).toBe("month");
   });
