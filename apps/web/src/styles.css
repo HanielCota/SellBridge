@@ -287,45 +287,28 @@
 }
 /*
  * Cards sit on the page with a hairline edge instead of a shadow, so they read as surfaces in both
- * themes without blur. On hover the edge brightens and the surface lifts a step in tone, enough to
- * tell which card is under the cursor while nothing moves, so a page full of cards stays calm.
- * Both are drawn on pseudo-elements: the tone on `::before`, behind the content, so it works on any
- * card background, and the edge on `::after`, never on the card's own box-shadow, so it never
- * fights `ring-*` or the focus ring.
+ * themes without blur. On hover only the edge brightens: the surface keeps its tone, because a
+ * lighter fill read as the card lighting up. The edge is drawn on `::after`, never on the card's
+ * own box-shadow, so it never fights `ring-*` or the focus ring.
  */
 @utility surface-card {
   position: relative;
   isolation: isolate;
   --surface-edge: 7%;
   --surface-edge-hover: 20%;
-  --surface-tone-hover: 3%;
 
-  &::before,
   &::after {
     content: "";
     position: absolute;
     inset: 0;
     border-radius: inherit;
     pointer-events: none;
-  }
-
-  &::before {
-    z-index: -1;
-    background: color-mix(in oklch, var(--foreground) var(--surface-tone-hover), transparent);
-    opacity: 0;
-    transition: opacity 200ms ease-out;
-  }
-
-  &::after {
     box-shadow: inset 0 0 0 1px
       color-mix(in oklch, var(--foreground) var(--surface-edge), transparent);
     transition: box-shadow 200ms ease-out;
   }
 
   @media (hover: hover) {
-    &:hover::before {
-      opacity: 1;
-    }
     &:hover::after {
       box-shadow: inset 0 0 0 1px
         color-mix(in oklch, var(--foreground) var(--surface-edge-hover), transparent);
@@ -334,7 +317,7 @@
 }
 
 /*
- * A card that is itself a link: the same edge and tone, a little stronger, plus a press on
+ * A card that is itself a link: the same edge, a little stronger on hover, plus a press on
  * pointer-down, so it reads as one big button rather than a panel.
  */
 @utility surface-interactive {
@@ -343,7 +326,6 @@
   /* Doubled so it wins over a plain `surface-card` on the same element (the base `Card`). */
   && {
     --surface-edge-hover: 26%;
-    --surface-tone-hover: 4.5%;
   }
   transition: transform 160ms ease-out;
 
@@ -371,7 +353,7 @@
 }
 
 /*
- * The highlighted row of a menu or list: the `surface-card` tone and edge, stronger because the
+ * The highlighted row of a menu or list: a tone and an edge, stronger than a card's because the
  * row is small and sits on a raised surface. Built from the foreground, so it reads on any
  * popover, dialog or card behind it.
  */

@@ -63,6 +63,36 @@ test.describe("dashboard", () => {
     await expect(page.getByText("Ana Casa & Beleza")).toHaveCount(0);
   });
 
+  test("a hovered stat tile keeps its fill and only brightens its edge", async ({ page }) => {
+    await signIn(page, DEMO_USER);
+    await gotoHydrated(page, "/dashboard");
+    // Settle hover styles at once, so the reading is the end state, not a frame of the fade.
+    await page.addStyleTag({
+      content: "*, *::before, *::after { transition: none !important; }",
+    });
+    const tile = page.getByRole("link", { name: "Ver ticket médio no financeiro" });
+    const readSurface = () =>
+      tile.evaluate((element) => {
+        const tone = getComputedStyle(element, "::before");
+        return {
+          fill: getComputedStyle(element).backgroundColor,
+          tone: tone.content === "none" || tone.opacity === "0" ? "none" : tone.backgroundColor,
+          edge: getComputedStyle(element, "::after").boxShadow,
+        };
+      });
+    await page.mouse.move(0, 0);
+    const resting = await readSurface();
+
+    await tile.hover();
+    const hovered = await readSurface();
+
+    expect({ fill: hovered.fill, tone: hovered.tone }).toEqual({
+      fill: resting.fill,
+      tone: resting.tone,
+    });
+    expect(hovered.edge).not.toBe(resting.edge);
+  });
+
   test("passar o mouse numa loja esmaece as outras", async ({ page }) => {
     await signIn(page, DEMO_USER);
     await gotoHydrated(page, "/dashboard");
@@ -121,6 +151,37 @@ test.describe("dashboard", () => {
 });
 
 test.describe("financeiro", () => {
+  test("a hovered statement row lights up to the card's bottom edge", async ({ page }) => {
+    await signIn(page, DEMO_USER);
+    await gotoHydrated(page, "/financeiro?period=30d");
+    await page.addStyleTag({ content: "*, *::before, *::after { transition: none !important; }" });
+    const list = page.getByRole("region", { name: "Financeiro por pedido" }).locator("ul").last();
+    const row = list.locator(":scope > li").last().getByRole("button").first();
+    await row.scrollIntoViewIfNeeded();
+
+    await row.hover();
+    const backgrounds = await list.evaluate(
+      (element, rowElement) => {
+        const box = element.getBoundingClientRect();
+        // The first non-transparent background up from the point paints it.
+        let painter = document.elementFromPoint(box.left + box.width / 2, box.bottom - 2);
+        while (
+          painter !== null &&
+          getComputedStyle(painter).backgroundColor === "rgba(0, 0, 0, 0)"
+        ) {
+          painter = painter.parentElement;
+        }
+        return {
+          row: getComputedStyle(rowElement).backgroundColor,
+          belowText: painter === null ? "none" : getComputedStyle(painter).backgroundColor,
+        };
+      },
+      await row.elementHandle(),
+    );
+
+    expect(backgrounds.belowText).toBe(backgrounds.row);
+  });
+
   test("ordena, filtra, pagina e exporta CSV com os mesmos filtros", async ({ page }) => {
     await signIn(page, DEMO_USER);
     // The dashboard's chart, with its tools; daily periods pick a day from the keyboard.
