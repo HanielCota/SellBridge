@@ -5,6 +5,7 @@ import {
   type adminListCatalogProductsFn,
 } from "@/features/seller-products/products.functions";
 import { ProductVisual } from "@/components/catalog/product-visual";
+import { SelectField } from "@/components/form/select-field";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -12,6 +13,12 @@ import { productStatus } from "./editor-controls";
 
 type AdminSearch = z.infer<typeof adminProductListSearchSchema>;
 type AdminProducts = Awaited<ReturnType<typeof adminListCatalogProductsFn>>["items"];
+
+const ORIGIN_OPTIONS = [
+  { value: "all", label: "Todas as origens" },
+  { value: "seller", label: "Produto próprio do revendedor" },
+  { value: "supplier", label: "Catálogo de fornecedores" },
+] as const;
 
 export function AdminProductsToolbar({
   search,
@@ -31,23 +38,20 @@ export function AdminProductsToolbar({
           onChange={(event) => onChange({ query: event.target.value || undefined, page: 1 })}
         />
       </div>
-      <div className="grid w-full gap-2 sm:w-auto">
-        <Label htmlFor="admin-product-origin">Origem do produto</Label>
-        <select
+      <div className="w-full sm:w-64">
+        <SelectField
           id="admin-product-origin"
-          className="h-11 w-full rounded-xl border border-input bg-background px-3 sm:w-auto"
+          label="Origem do produto"
           value={search.origin}
-          onChange={(event) =>
+          error={null}
+          options={ORIGIN_OPTIONS}
+          onValueChange={(origin) =>
             onChange({
-              origin: adminProductListSearchSchema.shape.origin.parse(event.target.value),
+              origin: adminProductListSearchSchema.shape.origin.parse(origin),
               page: 1,
             })
           }
-        >
-          <option value="all">Todas as origens</option>
-          <option value="seller">Produto próprio do revendedor</option>
-          <option value="supplier">Catálogo de fornecedores</option>
-        </select>
+        />
       </div>
       {search.tenantId ? (
         <Button variant="outline" onClick={() => onChange({ tenantId: undefined, page: 1 })}>

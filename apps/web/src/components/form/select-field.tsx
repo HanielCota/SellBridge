@@ -39,7 +39,12 @@ export function SelectField(props: {
         >
           <SelectValue placeholder={props.placeholder} />
         </SelectTrigger>
-        <SelectContent position="popper" align="start" className="max-h-80">
+        {/* As wide as the field, like the list of a form field: a long option wraps instead. */}
+        <SelectContent
+          position="popper"
+          align="start"
+          className="max-h-80 w-(--radix-select-trigger-width)"
+        >
           {props.options.map((option) => (
             <SelectItem key={option.value} value={option.value}>
               {option.label}
