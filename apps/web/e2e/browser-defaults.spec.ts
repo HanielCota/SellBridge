@@ -56,6 +56,18 @@ test("a select with long options stays inside a phone screen", async ({ page }) 
   expect((list?.x ?? 0) + (list?.width ?? 0)).toBeLessThanOrEqual(375);
 });
 
+test("the admin product management filter uses the app's own select", async ({ page }) => {
+  await signIn(page, ADMIN_USER);
+  await enableAdminMode(page);
+  await gotoHydrated(page, "/admin/products");
+
+  await page.getByLabel("Origem do produto").click();
+  await page.getByRole("option", { name: "Catálogo de fornecedores" }).click();
+
+  await expect(page).toHaveURL(/origin=supplier/);
+  await expect(page.locator("select:not([aria-hidden='true'])")).toHaveCount(0);
+});
+
 test("switching the theme swaps colors at once, with no reveal or fading", async ({ page }) => {
   await page.addInitScript(() => {
     localStorage.setItem("sellbridge-theme", "dark");
