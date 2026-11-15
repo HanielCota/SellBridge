@@ -78,8 +78,10 @@ export type SupplierListSearch = z.infer<typeof supplierListSearchSchema>;
 export const sellableCatalogSearchSchema = z.object({
   query: optionalParameter(searchQuery()),
   category: optionalParameter(freeText().trim().max(100)),
-  /** The store whose supplier the catalog shows (MVP function 1); the server checks it. */
+  /** The store whose suppliers the catalog shows (MVP function 1); the server checks it. */
   store: optionalParameter(z.uuid()),
+  /** One of the store's suppliers, to show only its products; the server checks it. */
+  supplier: optionalParameter(z.uuid()),
   inStock: optionalParameter(z.coerce.boolean()),
   /** Leaves out products the tenant already listed, so only new ones remain to publish. */
   unpublished: optionalParameter(z.coerce.boolean()),

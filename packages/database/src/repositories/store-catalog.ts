@@ -1,6 +1,10 @@
-import { resolveCatalogScope, type CatalogScope } from "@sellbridge/shared/catalog-scope";
+import {
+  resolveCatalogScope,
+  resolveSupplierFilter,
+  type CatalogScope,
+} from "@sellbridge/shared/catalog-scope";
 import { toPaginated, type Paginated, type Pagination } from "@sellbridge/shared/schemas";
-import { and, asc, eq } from "drizzle-orm";
+import { and, asc, eq, inArray } from "drizzle-orm";
 import type { Database } from "../client.ts";
 import { categories, supplierProducts, suppliers, tenantProfile } from "../schema/index.ts";
 import { countRecentUnitsSold } from "./product-heat.ts";
@@ -17,13 +21,20 @@ export interface StoreCatalogProduct extends SellableCatalogProduct {
   recentUnitsSold: number;
 }
 
-/** The catalog of one store's supplier (MVP function 1): what the reseller page reads. */
+interface CatalogSupplier {
+  id: string;
+  name: string;
+}
+
+/** The catalog of one store's suppliers (MVP function 1): what the reseller page reads. */
 export interface StoreCatalog {
   scope: CatalogScope;
-  /** The scope's active supplier, or null when it has none (no supplier, no starter, or paused). */
-  supplier: { id: string; name: string } | null;
-  /** The store's supplier when the platform deactivated it: the reseller must pick another. */
-  pausedSupplier: { id: string; name: string } | null;
+  /** The scope's active suppliers, oldest link first; empty when none can be sold. */
+  suppliers: CatalogSupplier[];
+  /** The scope's suppliers the platform deactivated: their products are left out. */
+  pausedSuppliers: CatalogSupplier[];
+  /** The supplier the catalog is filtered by, one of `suppliers`; null shows them all. */
+  supplierFilter: string | null;
   /** The account's stores that still count (not disconnected), for the store picker. */
   stores: StoreConnectionSummary[];
   products: Paginated<StoreCatalogProduct>;
@@ -33,7 +44,9 @@ export interface StoreCatalog {
 export interface StoreCatalogRequest {
   /** The store picked in the URL; ignored unless it is one of the account's own stores. */
   storeId?: string | undefined;
-  filters: Omit<SellableCatalogFilters, "supplierId">;
+  /** The supplier picked in the URL; ignored unless the chosen store sells it. */
+  supplierId?: string | undefined;
+  filters: Omit<SellableCatalogFilters, "supplierId" | "supplierIds">;
 }
 
 /** The supplier chosen in the onboarding; only an active public supplier counts. */
@@ -54,63 +67,65 @@ async function findStarterSupplierId(database: Database, tenantId: string): Prom
   return row?.supplierId ?? null;
 }
 
-/** A public supplier's name, or null when the id is not one (never a seller's private source). */
-async function findScopeSupplier(
+/** The scope's public suppliers in its own order (never a seller's private source). */
+async function findScopeSuppliers(
   database: Database,
-  supplierId: string,
-): Promise<{ id: string; name: string; active: boolean } | null> {
-  const [row] = await database
+  supplierIds: readonly string[],
+): Promise<{ id: string; name: string; active: boolean }[]> {
+  if (supplierIds.length === 0) {
+    return [];
+  }
+  const rows = await database
     .select({ id: suppliers.id, name: suppliers.name, active: suppliers.active })
     .from(suppliers)
-    .where(and(eq(suppliers.id, supplierId), publicSupplier()))
-    .limit(1);
-  return row ?? null;
+    .where(and(inArray(suppliers.id, [...supplierIds]), publicSupplier()));
+  const byId = new Map(rows.map((row) => [row.id, row]));
+  return supplierIds.flatMap((supplierId) => {
+    const row = byId.get(supplierId);
+    return row === undefined ? [] : [row];
+  });
 }
 
-/** Categories that have a listable product of this supplier. */
+/** Categories that have a listable product of these suppliers. */
 async function listSupplierCategories(
   database: Database,
-  supplierId: string,
+  supplierIds: readonly string[],
 ): Promise<{ name: string; slug: string }[]> {
   return database
     .selectDistinct({ name: categories.name, slug: categories.slug })
     .from(categories)
     .innerJoin(supplierProducts, eq(supplierProducts.categoryId, categories.id))
     .innerJoin(suppliers, eq(suppliers.id, supplierProducts.supplierId))
-    .where(and(eq(suppliers.id, supplierId), productListable(), eq(suppliers.active, true)))
+    .where(
+      and(inArray(suppliers.id, [...supplierIds]), productListable(), eq(suppliers.active, true)),
+    )
     .orderBy(asc(categories.name));
 }
 
-/**
- * The catalog of the chosen store's supplier, decided here on the server: a store id from the
- * URL that is not one of the account's own stores is ignored, a supplier filter from the URL is
- * never read, and a store without a supplier lists nothing (never the starter or another one).
- */
-export async function listStoreCatalog(
+function named(supplier: { id: string; name: string }): CatalogSupplier {
+  return { id: supplier.id, name: supplier.name };
+}
+
+function splitByActive(found: readonly { id: string; name: string; active: boolean }[]) {
+  return {
+    active: found.filter((supplier) => supplier.active).map(named),
+    paused: found.filter((supplier) => !supplier.active).map(named),
+  };
+}
+
+/** The page of products of the chosen suppliers, with each product's recent units sold. */
+async function listScopeProducts(
   database: Database,
   tenantId: string,
-  request: StoreCatalogRequest,
+  query: { supplierIds: readonly string[]; filters: StoreCatalogRequest["filters"] },
   pagination: Pagination,
-): Promise<StoreCatalog> {
-  const { storeId: requestedStoreId, filters } = request;
-  const [stores, starterSupplierId] = await Promise.all([
-    listStoreConnections(database, tenantId),
-    findStarterSupplierId(database, tenantId),
-  ]);
-  const scope = resolveCatalogScope(stores, starterSupplierId, requestedStoreId);
-  const found =
-    scope.supplierId === null ? null : await findScopeSupplier(database, scope.supplierId);
-  const pausedSupplier =
-    found !== null && !found.active ? { id: found.id, name: found.name } : null;
-  const supplier = found !== null && found.active ? { id: found.id, name: found.name } : null;
-  if (supplier === null) {
-    const products = toPaginated<StoreCatalogProduct>([], 0, pagination);
-    return { scope, supplier, pausedSupplier, stores, products, categories: [] };
-  }
-  const [products, supplierCategories] = await Promise.all([
-    listSellableCatalog(database, tenantId, { ...filters, supplierId: supplier.id }, pagination),
-    listSupplierCategories(database, supplier.id),
-  ]);
+): Promise<Paginated<StoreCatalogProduct>> {
+  const products = await listSellableCatalog(
+    database,
+    tenantId,
+    { ...query.filters, supplierIds: query.supplierIds },
+    pagination,
+  );
   const unitsByProduct = await countRecentUnitsSold(
     database,
     products.items.map((product) => product.id),
@@ -119,12 +134,46 @@ export async function listStoreCatalog(
     ...product,
     recentUnitsSold: unitsByProduct.get(product.id) ?? 0,
   }));
-  return {
-    scope,
-    supplier,
-    pausedSupplier,
-    stores,
-    products: { ...products, items },
-    categories: supplierCategories,
-  };
+  return { ...products, items };
+}
+
+/**
+ * The catalog of the chosen store's suppliers, decided here on the server: a store id from the
+ * URL that is not one of the account's own stores is ignored, a supplier filter the store does
+ * not sell is ignored, and a store without a supplier lists nothing (never the starter or
+ * another one).
+ */
+export async function listStoreCatalog(
+  database: Database,
+  tenantId: string,
+  request: StoreCatalogRequest,
+  pagination: Pagination,
+): Promise<StoreCatalog> {
+  const [stores, starterSupplierId] = await Promise.all([
+    listStoreConnections(database, tenantId),
+    findStarterSupplierId(database, tenantId),
+  ]);
+  const scope = resolveCatalogScope(stores, starterSupplierId, request.storeId);
+  const split = splitByActive(await findScopeSuppliers(database, scope.supplierIds));
+  const supplierFilter = resolveSupplierFilter(
+    split.active.map((supplier) => supplier.id),
+    request.supplierId,
+  );
+  const base = { scope, suppliers: split.active, pausedSuppliers: split.paused, supplierFilter };
+  if (split.active.length === 0) {
+    const products = toPaginated<StoreCatalogProduct>([], 0, pagination);
+    return { ...base, stores, products, categories: [] };
+  }
+  const shownIds =
+    supplierFilter === null ? split.active.map((supplier) => supplier.id) : [supplierFilter];
+  const [products, shownCategories] = await Promise.all([
+    listScopeProducts(
+      database,
+      tenantId,
+      { supplierIds: shownIds, filters: request.filters },
+      pagination,
+    ),
+    listSupplierCategories(database, shownIds),
+  ]);
+  return { ...base, stores, products, categories: shownCategories };
 }
