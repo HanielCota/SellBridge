@@ -62,8 +62,11 @@ test.describe("guia de configuração na visão geral", () => {
     for (const width of [1280, 375]) {
       await page.setViewportSize({ width, height: 860 });
       await gotoHydrated(page, "/dashboard");
+      const caretLocator = setupGuide(page).getByTestId("setup-guide-caret");
+      // boundingBox() does not wait: measure only once the guide has rendered.
+      await expect(caretLocator).toBeVisible();
       const card = await setupGuide(page).boundingBox();
-      const caret = await page.getByTestId("setup-guide-caret").boundingBox();
+      const caret = await caretLocator.boundingBox();
 
       expect(card).not.toBeNull();
       expect(caret).not.toBeNull();
