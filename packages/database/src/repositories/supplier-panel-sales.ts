@@ -4,6 +4,7 @@ import { sql, type SQL } from "drizzle-orm";
 import { z } from "zod";
 import type { Database } from "../client.ts";
 import type { ReportRange } from "./reports.ts";
+import { ORDER_SALE_DATE } from "./sql/counted-orders.ts";
 import { sqlIntegerSchema, timestampOf } from "./sql/raw-values.ts";
 import { BUCKET_SQL, type TimeseriesBucket } from "./sql/timeseries-buckets.ts";
 
@@ -37,8 +38,8 @@ function statusList(statuses: readonly OrderStatus[]): SQL {
 export function supplierLinesCte(scope: SupplierSalesScope): SQL {
   const conditions: SQL[] = [
     sql`p.supplier_id = ${scope.supplierId}`,
-    sql`o.ordered_at >= ${timestampOf(scope.range.from)}`,
-    sql`o.ordered_at < ${timestampOf(scope.range.to)}`,
+    sql`${ORDER_SALE_DATE} >= ${timestampOf(scope.range.from)}`,
+    sql`${ORDER_SALE_DATE} < ${timestampOf(scope.range.to)}`,
     sql`o.status::text in (${statusList(scope.statuses)})`,
   ];
   if (scope.supplierProductId !== undefined) {
@@ -50,6 +51,8 @@ export function supplierLinesCte(scope: SupplierSalesScope): SQL {
         o.id as order_id,
         o.tenant_id,
         o.ordered_at,
+        o.paid_at,
+        ${ORDER_SALE_DATE} as sale_date,
         i.supplier_product_id,
         i.quantity,
         i.unit_cost_cents::bigint * i.quantity as receivable
@@ -131,7 +134,7 @@ export async function getSupplierSalesTimeseries(
     ),
     grouped as (
       select
-        date_trunc(${unit}, ordered_at at time zone ${REPORT_TIME_ZONE}) as bucket,
+        date_trunc(${unit}, sale_date at time zone ${REPORT_TIME_ZONE}) as bucket,
         count(distinct order_id) as orders,
         sum(quantity) as units,
         sum(receivable) as receivable

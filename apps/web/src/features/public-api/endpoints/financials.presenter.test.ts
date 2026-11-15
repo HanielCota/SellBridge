@@ -17,6 +17,8 @@ describe("presentFinancialSummary", () => {
         profitCents: 9000,
         pendingCostOrders: 1,
         pendingCostRevenueCents: 4000,
+        unpaidOrders: 1,
+        unpaidTotalCents: 3000,
         averageTicketCents: 10_000,
       },
       { fromDate: "2026-03-01", toDate: "2026-03-07" },

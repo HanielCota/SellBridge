@@ -3,7 +3,7 @@ import { sql, type SQL } from "drizzle-orm";
 import { z } from "zod";
 import type { Database } from "../client.ts";
 import type { ReportScope } from "./reports.ts";
-import { isCountedOrder } from "./sql/counted-orders.ts";
+import { isCountedOrder, ORDER_SALE_DATE } from "./sql/counted-orders.ts";
 import { sqlIntegerSchema, timestampOf } from "./sql/raw-values.ts";
 
 /*
@@ -14,12 +14,12 @@ import { sqlIntegerSchema, timestampOf } from "./sql/raw-values.ts";
 
 const count = sqlIntegerSchema;
 
-/** Orders `o` of the scope: tenant, Brazil-day range and optional store. */
+/** Orders `o` of the scope: tenant, Brazil-day range (by sale date) and optional store. */
 function scopeConditions(scope: ReportScope): SQL {
   const conditions: SQL[] = [
     sql`o.tenant_id = ${scope.tenantId}`,
-    sql`o.ordered_at >= ${timestampOf(scope.range.from)}`,
-    sql`o.ordered_at < ${timestampOf(scope.range.to)}`,
+    sql`${ORDER_SALE_DATE} >= ${timestampOf(scope.range.from)}`,
+    sql`${ORDER_SALE_DATE} < ${timestampOf(scope.range.to)}`,
   ];
   if (scope.storeConnectionId) {
     conditions.push(sql`o.store_connection_id = ${scope.storeConnectionId}`);
@@ -79,7 +79,10 @@ export interface SalesHeatmapCell {
   orders: number;
 }
 
-/** Counted orders (sales) per weekday and six-hour band, Brazil time; empty cells are left out. */
+/**
+ * Counted orders (sales) per weekday and six-hour band, Brazil time; empty cells are left out.
+ * The cell is when the buyer ordered, the habit it shows, even for a sale paid later.
+ */
 export async function getSalesHeatmap(
   database: Database,
   scope: ReportScope,
@@ -97,10 +100,11 @@ export async function getSalesHeatmap(
   return z.array(z.object({ weekday: count, band: count, orders: count })).parse([...rows]);
 }
 
-export type SellerReportCaseKind = "cost_pending" | "cancelled" | "returned";
+export type SellerReportCaseKind = "cost_pending" | "unpaid" | "cancelled" | "returned";
 
 const CASE_CONDITIONS: Record<SellerReportCaseKind, SQL> = {
   cost_pending: sql`${isCountedOrder(sql.raw("o.status"))} and ${HAS_UNKNOWN_COST}`,
+  unpaid: sql`o.status = 'pending'`,
   cancelled: sql`o.status = 'cancelled'`,
   returned: sql`o.status = 'returned'`,
 };
@@ -134,7 +138,7 @@ export async function listSellerReportCases(
     from orders o
     join store_connections s on s.id = o.store_connection_id and s.tenant_id = o.tenant_id
     where ${scopeConditions(scope)} and ${CASE_CONDITIONS[query.kind]}
-    order by o.ordered_at desc, o.id
+    order by ${ORDER_SALE_DATE} desc, o.id
     limit ${query.limit}
   `);
   const parsed = z.array(caseRowSchema).parse([...rows]);

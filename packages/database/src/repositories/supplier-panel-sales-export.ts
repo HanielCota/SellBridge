@@ -14,6 +14,8 @@ export const SUPPLIER_EXPORT_LIMIT = 10_000;
  */
 export interface SupplierSaleLine {
   orderedAt: Date;
+  /** When the order first counted as a sale; null while it never did. */
+  paidAt: Date | null;
   externalOrderId: string;
   status: string;
   title: string;
@@ -24,6 +26,7 @@ export interface SupplierSaleLine {
 
 const lineRowSchema = z.object({
   ordered_at: z.coerce.date(),
+  paid_at: z.coerce.date().nullable(),
   external_order_id: z.string(),
   status: z.string(),
   title: z.string(),
@@ -32,7 +35,7 @@ const lineRowSchema = z.object({
   receivable: sqlIntegerSchema,
 });
 
-/** Every sold item of the scope, oldest first; refuses a period above `SUPPLIER_EXPORT_LIMIT`. */
+/** Every sold item of the scope, oldest sale first; refuses a period above `SUPPLIER_EXPORT_LIMIT`. */
 export async function exportSupplierSaleLines(
   database: Database,
   scope: SupplierSalesScope,
@@ -41,6 +44,7 @@ export async function exportSupplierSaleLines(
     with ${supplierLinesCte(scope)}
     select
       l.ordered_at,
+      l.paid_at,
       o.external_order_id,
       o.status,
       p.title,
@@ -50,7 +54,7 @@ export async function exportSupplierSaleLines(
     from supplier_lines l
     join orders o on o.id = l.order_id
     join supplier_products p on p.id = l.supplier_product_id
-    order by l.ordered_at asc, o.external_order_id asc, p.title asc
+    order by l.sale_date asc, o.external_order_id asc, p.title asc
     limit ${SUPPLIER_EXPORT_LIMIT + 1}
   `);
   if (rows.length > SUPPLIER_EXPORT_LIMIT) {
@@ -63,6 +67,7 @@ export async function exportSupplierSaleLines(
     .parse([...rows])
     .map((row) => ({
       orderedAt: row.ordered_at,
+      paidAt: row.paid_at,
       externalOrderId: row.external_order_id,
       status: row.status,
       title: row.title,
