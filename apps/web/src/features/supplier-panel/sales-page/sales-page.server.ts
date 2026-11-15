@@ -15,7 +15,12 @@ import type { ReportPeriodSearch } from "@sellbridge/shared/schemas";
 import { SUPPLIER_SALES_SITUATION_STATUSES } from "@sellbridge/shared/supplier-panel-sales";
 import { daysBefore } from "@sellbridge/shared/time";
 import { database } from "@/lib/server/database";
-import { chartBucketOf, marketplaceShares } from "./sales-page-format";
+import {
+  chartBucketOf,
+  marketplaceShares,
+  previousOffsetDays,
+  type SalesChartBucket,
+} from "./sales-page-format";
 
 /** Best sellers listed, by pieces or by value. */
 const BEST_SELLERS = 5;
@@ -44,6 +49,18 @@ async function loadSoldOut(supplierId: string, now: Date) {
   );
 }
 
+/** The period's buckets and the compared window's, for the tiles' comparison line. */
+function loadSeries(
+  scope: SupplierSalesScope,
+  previousRange: SupplierSalesScope["range"],
+  bucket: SalesChartBucket,
+) {
+  return Promise.all([
+    getSupplierSalesTimeseries(database, scope, bucket),
+    getSupplierSalesTimeseries(database, { ...scope, range: previousRange }, bucket),
+  ]);
+}
+
 /** The "Vendas" page for one month or range: totals, chart, channels and the shelf. */
 export async function loadSupplierSalesPage(
   supplierId: string,
@@ -57,7 +74,7 @@ export async function loadSupplierSalesPage(
     profile,
     summary,
     previous,
-    series,
+    [series, previousSeries],
     bestByUnits,
     bestByValue,
     marketplaces,
@@ -68,7 +85,7 @@ export async function loadSupplierSalesPage(
     getSupplierPanelProfile(database, supplierId),
     getSupplierSalesSummary(database, scope),
     getSupplierSalesSummary(database, { ...scope, range: period.previous }),
-    getSupplierSalesTimeseries(database, scope, bucket),
+    loadSeries(scope, period.previous, bucket),
     listSupplierProductSales(database, scope, BEST_SELLERS),
     listSupplierProductSales(database, scope, BEST_SELLERS, { sortBy: "value" }),
     listSupplierSalesByMarketplace(database, scope),
@@ -92,6 +109,8 @@ export async function loadSupplierSalesPage(
     summary,
     previous,
     series,
+    previousSeries,
+    previousOffsetDays: previousOffsetDays(period),
     bucket,
     bestByUnits,
     bestByValue,
