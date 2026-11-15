@@ -158,6 +158,25 @@ describe("buildCatalogImport", () => {
     });
   });
 
+  it("deve ler o custo de uma célula de número com três casas como decimal, não como milhar", () => {
+    // A formula such as 7,50 × 1,25 stores the number 9.375; only typed text carries a thousands dot.
+    const formulaCost = bag.with(3, "9.375").with(5, "1.000");
+    const sheet = detectSpreadsheet(
+      { name: "Sheet1", rows: [supplierHeader, formulaCost], numberColumns: [[], [3]] },
+      "fornecedor.xlsx",
+    );
+    if (sheet == null) {
+      throw new Error("supplier sheet not detected");
+    }
+
+    const result = buildCatalogImport({ sheets: [sheet], categories });
+
+    expect(parseProductCsv(result.csv).rows[0]?.product).toMatchObject({
+      costCents: 938,
+      stock: 1000,
+    });
+  });
+
   it("deve ler custo com milhar e centavos escrito como texto", () => {
     const typed = bag.with(3, "R$ 1.299,90");
 

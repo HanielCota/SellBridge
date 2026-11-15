@@ -127,10 +127,40 @@ export function detectSpreadsheet(sheet: XlsxSheet, fileName: string): DetectedS
       return [];
     }
 
-    const values = new Map(headers.map((name, column) => [name, (cells[column] ?? "").trim()]));
+    const numbers = new Set(sheet.numberColumns?.[index + offset + 1] ?? []);
+    const values = new Map(
+      headers.map((name, column) => [
+        name,
+        readCell(cells[column] ?? "", name, numbers.has(column)),
+      ]),
+    );
     return [{ rowNumber: index + offset + 2, values }];
   });
   return { kind, source: `${fileName} › ${sheet.name}`, headers, rows };
+}
+
+/** "1.299" or "1.000.000": a thousands dot, which only text typed in a cell can carry. */
+const THOUSANDS_GROUPED = /^\d{1,3}(?:\.\d{3})+$/;
+
+/** The columns read as money or units, where text typed with thousands dots means a whole number. */
+const AMOUNT_HEADERS: ReadonlySet<string> = new Set([
+  "preco de custo",
+  "preco de venda",
+  "preco",
+  "estoque",
+]);
+
+/**
+ * A cell's trimmed text, with a thousands dot typed as text ("1.299") read as a whole number. A
+ * number cell is left as it is: its "1.299" is one point two nine nine (typed "1,299" in Excel).
+ */
+function readCell(text: string, header: string, isNumber: boolean): string {
+  const trimmed = text.trim();
+  if (isNumber || !AMOUNT_HEADERS.has(header)) {
+    return trimmed;
+  }
+  const compact = trimmed.replace(/[R$\s]/g, "");
+  return THOUSANDS_GROUPED.test(compact) ? compact.replaceAll(".", "") : trimmed;
 }
 
 /**
@@ -155,15 +185,8 @@ export function tooManyProductsError() {
   );
 }
 
-/** "1.299" or "1.000.000": text typed with thousands dots, never a raw number from a cell. */
-const THOUSANDS_GROUPED = /^\d{1,3}(?:\.\d{3})+$/;
-
 function parseDecimal(text: string): number | null {
-  const compact = text.replace(/[R$\s]/g, "");
-  if (THOUSANDS_GROUPED.test(compact)) {
-    return Number(compact.replaceAll(".", ""));
-  }
-  const normalized = compact.replace(",", ".");
+  const normalized = text.replace(/[R$\s]/g, "").replace(",", ".");
   if (normalized.length === 0) {
     return null;
   }
