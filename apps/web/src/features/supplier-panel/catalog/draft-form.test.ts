@@ -10,6 +10,7 @@ import {
   parseDraft,
   phoneStepLine,
   stepOfField,
+  withSuggestedPriceFollowingCost,
   type PanelFormValues,
 } from "./draft-form";
 
@@ -80,12 +81,32 @@ describe("parseDraft", () => {
       ok: true,
       values: expect.objectContaining({
         costCents: 2590,
-        suggestedPriceCents: 0,
+        suggestedPriceCents: 3890,
         stock: 8,
         categoryId: null,
         mercadoLivreAttributes: { BRAND: "Marca" },
       }),
     });
+  });
+
+  it("saves a product left without a suggested price at the cost plus 50%, never at zero", () => {
+    const parsed = parseDraft({ ...FILLED, cost: "30,00", suggestedPrice: "" });
+
+    expect(parsed.ok ? parsed.values.suggestedPriceCents : parsed.errors).toBe(4590);
+  });
+
+  it("leaves the suggested price for later while the cost is not typed yet", () => {
+    const parsed = parseDraft({ ...FILLED, cost: "", suggestedPrice: "" });
+
+    expect(parsed.ok ? parsed.values.suggestedPriceCents : parsed.errors).toBe(0);
+  });
+
+  it("refuses a suggested price of zero, saying how to fix it", () => {
+    const parsed = parseDraft({ ...FILLED, suggestedPrice: "0,00" });
+
+    expect(parsed.ok ? parsed.values : parsed.errors.suggestedPriceCents).toMatch(
+      /maior que R\$ 0,00/,
+    );
   });
 
   it("holds the save while a value is half typed, naming the field", () => {
@@ -123,6 +144,32 @@ describe("parseDraft", () => {
   it("points a bad image link at the image step", () => {
     const parsed = parseDraft({ ...FILLED, imageUrls: ["ftp://x"] });
     expect(parsed.ok ? [] : Object.keys(parsed.errors)).toEqual(["imageUrls"]);
+  });
+});
+
+describe("withSuggestedPriceFollowingCost", () => {
+  it("fills the suggested price from the cost while the supplier has not changed it", () => {
+    const empty = { ...FILLED, cost: "", suggestedPrice: "" };
+
+    const first = withSuggestedPriceFollowingCost(empty, { cost: "30,00" });
+    const second = withSuggestedPriceFollowingCost({ ...empty, ...first }, { cost: "40,00" });
+
+    expect(first).toEqual({ cost: "30,00", suggestedPrice: "45,90" });
+    expect(second).toEqual({ cost: "40,00", suggestedPrice: "60,90" });
+  });
+
+  it("keeps a suggested price the supplier typed when the cost changes", () => {
+    const typed = { ...FILLED, cost: "30,00", suggestedPrice: "59,90" };
+
+    expect(withSuggestedPriceFollowingCost(typed, { cost: "40,00" })).toEqual({ cost: "40,00" });
+  });
+});
+
+describe("panelFormValues suggested price", () => {
+  it("shows the cost plus 50% for a stored product saved at zero", () => {
+    const values = panelFormValues({ ...STORED, suggestedPriceCents: 0 });
+
+    expect(values.suggestedPrice).toBe("38,90");
   });
 });
 

@@ -1,6 +1,10 @@
 import { formatCentsForInput } from "@sellbridge/shared/money";
 import { parseCsvMoney } from "@sellbridge/shared/product-csv";
-import { keepsNegativeShelfOnly, NEGATIVE_STOCK_MESSAGE } from "@sellbridge/shared/schemas";
+import {
+  defaultSuggestedPriceCents,
+  keepsNegativeShelfOnly,
+  NEGATIVE_STOCK_MESSAGE,
+} from "@sellbridge/shared/schemas";
 import {
   catalogDraftValuesSchema,
   type CatalogDraftValues,
@@ -179,16 +183,53 @@ export function inputIdOf(field: string): string {
   return `panel-product-${field.replace(".", "-")}`;
 }
 
+const ZERO_SUGGESTED_PRICE_MESSAGE =
+  "O preço sugerido precisa ser maior que R$ 0,00. Exemplo: 49,90";
+
+/** The suggested price a typed cost gives (cost + 50%, ending in ,90); blank until it is read. */
+export function suggestedPriceFor(cost: string): string {
+  const costCents = parseCsvMoney(cost);
+  if (costCents === null || costCents <= 0) {
+    return "";
+  }
+  return formatCentsForInput(defaultSuggestedPriceCents(costCents));
+}
+
+/**
+ * A change to the form with the suggested price following a new cost, while the supplier has not
+ * typed a price of their own (it is blank or still the one the old cost gave).
+ */
+export function withSuggestedPriceFollowingCost(
+  values: PanelFormValues,
+  change: Partial<PanelFormValues>,
+): Partial<PanelFormValues> {
+  if (change.cost === undefined) {
+    return change;
+  }
+  const untouched =
+    values.suggestedPrice.trim() === "" || values.suggestedPrice === suggestedPriceFor(values.cost);
+  return untouched ? { ...change, suggestedPrice: suggestedPriceFor(change.cost) } : change;
+}
+
+function suggestedPriceWithoutTyping(costCents: number | null): number {
+  return costCents !== null && costCents > 0 ? defaultSuggestedPriceCents(costCents) : 0;
+}
+
+function storedSuggestedPrice(product: EditableProductFields): string {
+  if (product.suggestedPriceCents > 0) {
+    return formatCentsForInput(product.suggestedPriceCents);
+  }
+  // Saved at zero before the form filled it: shown with the price its cost gives.
+  return suggestedPriceFor(formatCentsForInput(product.costCents));
+}
+
 export function panelFormValues(product?: EditableProductFields | null): PanelFormValues {
   return {
     sku: product?.sku ?? "",
     title: product?.title ?? "",
     description: product?.description ?? "",
     cost: product === undefined || product === null ? "" : formatCentsForInput(product.costCents),
-    suggestedPrice:
-      product === undefined || product === null
-        ? ""
-        : formatCentsForInput(product.suggestedPriceCents),
+    suggestedPrice: product === undefined || product === null ? "" : storedSuggestedPrice(product),
     stock: product === undefined || product === null ? "" : String(product.stock),
     categoryId: product?.categoryId ?? "",
     imageUrls: product?.imageUrls ?? [],
@@ -264,8 +305,14 @@ export type DraftParse =
  */
 export function parseDraft(values: PanelFormValues, expectedStock?: number): DraftParse {
   const costCents = values.cost.trim() === "" ? 0 : parseCsvMoney(values.cost);
+  if (values.suggestedPrice.trim() !== "" && parseCsvMoney(values.suggestedPrice) === 0) {
+    return { ok: false, errors: { suggestedPriceCents: ZERO_SUGGESTED_PRICE_MESSAGE } };
+  }
+  // Left blank: the price the cost gives, as the spreadsheet import does; zero only with no cost.
   const suggestedPriceCents =
-    values.suggestedPrice.trim() === "" ? 0 : parseCsvMoney(values.suggestedPrice);
+    values.suggestedPrice.trim() === ""
+      ? suggestedPriceWithoutTyping(costCents)
+      : parseCsvMoney(values.suggestedPrice);
   const stock = values.stock.trim() === "" ? 0 : parseStockCount(values.stock.trim());
   const parsed = catalogDraftValuesSchema.safeParse({
     sku: values.sku,
