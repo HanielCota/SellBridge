@@ -48,7 +48,12 @@ interface DataTableProps<TData extends RowData> {
    * sideways, so the action never hides past the edge of a narrow window.
    */
   pinLastColumn?: boolean;
+  /** Tighter space between columns, for a table with many columns beside the side menu. */
+  dense?: boolean;
 }
+
+/** The outer edges keep their wider padding; only the gaps between columns shrink. */
+const DENSE_TABLE_CLASSES = "[&_td]:px-3 [&_th]:px-3";
 
 /** The pinned column paints over what scrolls under it, with a hairline to separate them. */
 const PINNED_COLUMN_CLASSES = "sticky right-0 z-10 bg-card shadow-[inset_1px_0_0_var(--border)]";
@@ -129,6 +134,7 @@ export function DataTable<TData extends RowData>({
   renderMobileRow,
   renderRowDetail,
   pinLastColumn = false,
+  dense = false,
 }: DataTableProps<TData>) {
   const table = useTable({ features: serverTableFeatures, columns, data, getRowId });
   return (
@@ -141,7 +147,7 @@ export function DataTable<TData extends RowData>({
           renderMobileRow={renderMobileRow}
         />
       ) : null}
-      <Table className={renderMobileRow ? "max-md:hidden" : undefined}>
+      <Table className={cn(renderMobileRow && "max-md:hidden", dense && DENSE_TABLE_CLASSES)}>
         <caption className="sr-only">{caption}</caption>
         <HeaderRows table={table} pinLastColumn={pinLastColumn} />
         <TableBody>
