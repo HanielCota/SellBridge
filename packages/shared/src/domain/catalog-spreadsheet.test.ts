@@ -147,6 +147,25 @@ describe("buildCatalogImport", () => {
     expect(parseProductCsv(result.csv).rows[0]?.product.costCents).toBe(2050);
   });
 
+  it("deve ler ponto de milhar escrito como texto no custo e no estoque", () => {
+    const typed = bag.with(3, "1.299").with(5, "1.000");
+
+    const result = buildCatalogImport({ sheets: [supplierSheet([typed])], categories });
+
+    expect(parseProductCsv(result.csv).rows[0]?.product).toMatchObject({
+      costCents: 129_900,
+      stock: 1000,
+    });
+  });
+
+  it("deve ler custo com milhar e centavos escrito como texto", () => {
+    const typed = bag.with(3, "R$ 1.299,90");
+
+    const result = buildCatalogImport({ sheets: [supplierSheet([typed])], categories });
+
+    expect(parseProductCsv(result.csv).rows[0]?.product.costCents).toBe(129_990);
+  });
+
   it("deve completar com preço, título, descrição e imagens da Shopee pelo SKU", () => {
     const listing = [
       "58270000437",

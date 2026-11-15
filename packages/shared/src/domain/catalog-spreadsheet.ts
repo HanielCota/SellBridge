@@ -1,4 +1,5 @@
 import { validationError } from "../runtime/errors.ts";
+import { parseBrlToCents } from "./money.ts";
 import type { XlsxSheet } from "../runtime/xlsx-reader.ts";
 import { MAX_PRODUCT_CSV_BYTES, MAX_PRODUCT_CSV_ROWS } from "../schemas/admin-suppliers.ts";
 
@@ -154,8 +155,15 @@ export function tooManyProductsError() {
   );
 }
 
+/** "1.299" or "1.000.000": text typed with thousands dots, never a raw number from a cell. */
+const THOUSANDS_GROUPED = /^\d{1,3}(?:\.\d{3})+$/;
+
 function parseDecimal(text: string): number | null {
-  const normalized = text.replace(/[R$\s]/g, "").replace(",", ".");
+  const compact = text.replace(/[R$\s]/g, "");
+  if (THOUSANDS_GROUPED.test(compact)) {
+    return Number(compact.replaceAll(".", ""));
+  }
+  const normalized = compact.replace(",", ".");
   if (normalized.length === 0) {
     return null;
   }
@@ -170,6 +178,11 @@ function parseDecimal(text: string): number | null {
 
 /** Spreadsheet money arrives as binary floats (14.699999); round once to cents at the boundary. */
 function toCents(text: string): number | null {
+  // Text typed in Brazilian format ("1.299,90") is read as money; raw cell numbers are floats.
+  if (text.includes(",")) {
+    const cents = parseBrlToCents(text);
+    return cents == null || cents < 0 || cents > MAX_CENTS ? null : cents;
+  }
   const value = parseDecimal(text);
   if (value == null || value < 0) {
     return null;
