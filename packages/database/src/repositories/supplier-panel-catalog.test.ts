@@ -1,6 +1,7 @@
 import { randomUUID } from "node:crypto";
 import { hasErrorCode } from "@sellbridge/shared/errors";
 import { EMPTY_PRODUCT_FISCAL } from "@sellbridge/shared/product-fiscal";
+import type { ProductExportSource } from "@sellbridge/shared/supplier-panel-export";
 import { suggestedTaxDefaults } from "@sellbridge/shared/supplier-fiscal";
 import { SUPPLIER_TEXT_CONTACT_REFUSED } from "@sellbridge/shared/schemas";
 import type {
@@ -599,7 +600,11 @@ describe("listSupplierPanelProducts", () => {
 });
 
 async function exportedBatches(filter: Parameters<typeof supplierCatalogExportBatches>[1]) {
-  return await Array.fromAsync(supplierCatalogExportBatches(database, filter, 2));
+  const batches: ProductExportSource[][] = [];
+  for await (const batch of supplierCatalogExportBatches(database, filter, 2)) {
+    batches.push(batch);
+  }
+  return batches;
 }
 
 describe("supplierCatalogExportBatches", () => {
