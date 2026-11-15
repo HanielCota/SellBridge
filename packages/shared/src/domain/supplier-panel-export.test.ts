@@ -123,6 +123,24 @@ describe("product export", () => {
     expect(row[1]).toBe('\'=HYPERLINK("x")');
   });
 
+  it("imports back text that starts like a formula without the guarding apostrophe", () => {
+    const product = {
+      ...bareProduct,
+      title: "+ vendido da loja",
+      description: "-50% no segundo par",
+      mercadoLivreAttributes: { MODEL: "+Plus" },
+    };
+
+    const parsed = importExported([product]);
+
+    expect(parsed.errors).toEqual([]);
+    expect(parsed.rows[0]?.product).toMatchObject({
+      title: "+ vendido da loja",
+      description: "-50% no segundo par",
+      mercadoLivreAttributes: { MODEL: "+Plus" },
+    });
+  });
+
   it("leaves blank a measure stored in a unit the import does not take", () => {
     const parsed = importExported([
       { ...bareProduct, mercadoLivreAttributes: { SELLER_PACKAGE_WEIGHT: "0.35 kg" } },

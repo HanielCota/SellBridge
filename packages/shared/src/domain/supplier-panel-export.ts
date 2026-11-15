@@ -1,6 +1,6 @@
 import { formatCsvAttributes } from "./product-csv-attributes.ts";
 import { formatCsvFiscal } from "./product-csv-fiscal.ts";
-import { formatCsvMoney } from "./product-csv.ts";
+import { formatCsvMoney, guardFormulaCell } from "./product-csv.ts";
 import { readProductFiscal } from "./product-fiscal.ts";
 import { IMPORT_COLUMNS } from "./supplier-panel-import-columns.ts";
 
@@ -27,20 +27,9 @@ export interface ProductExportSource {
 
 const IMAGE_SEPARATOR = "|";
 
-/**
- * Excel runs a cell that starts with "=", "+" or "@" (or "-" before a digit or sign) as a
- * formula; the apostrophe keeps it text. A "- item" list in a description is left as it is, so
- * ordinary text comes back unchanged when the file is imported again.
- */
-const FORMULA_START = /^(?:[=+@\t\r]|-(?=[\d=+@(]))/;
-
-function asTextCell(value: string): string {
-  return FORMULA_START.test(value) ? `'${value}` : value;
-}
-
 function textCells(cells: Readonly<Record<string, string>>): Record<string, string> {
   return Object.fromEntries(
-    Object.entries(cells).map(([column, value]) => [column, asTextCell(value)]),
+    Object.entries(cells).map(([column, value]) => [column, guardFormulaCell(value)]),
   );
 }
 
@@ -53,8 +42,8 @@ function textCells(cells: Readonly<Record<string, string>>): Record<string, stri
 export function productExportRow(product: ProductExportSource): string[] {
   const cells: Record<string, string> = {
     sku: product.sku,
-    titulo: asTextCell(product.title),
-    descricao: asTextCell(product.description),
+    titulo: guardFormulaCell(product.title),
+    descricao: guardFormulaCell(product.description),
     custo: formatCsvMoney(product.costCents),
     estoque: String(product.stock),
     categoria: product.categorySlug ?? "",
