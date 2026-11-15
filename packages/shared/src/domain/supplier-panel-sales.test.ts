@@ -3,6 +3,7 @@ import {
   countParcelStages,
   isRunningOut,
   livedPeriodDays,
+  salesPaceDaysLeft,
   stockDaysLeft,
   SUPPLIER_SALES_SITUATION_STATUSES,
 } from "./supplier-panel-sales.ts";
@@ -69,6 +70,26 @@ describe("livedPeriodDays", () => {
     };
 
     expect(livedPeriodDays(period, new Date("2026-11-15T12:00:00.000Z"))).toBe(30);
+  });
+});
+
+describe("salesPaceDaysLeft", () => {
+  it("projects the stock from the product's sales, not from the cancellations the list shows", () => {
+    const soldUnits = new Map([["product-a", 2]]);
+
+    const daysLeft = salesPaceDaysLeft(
+      { productId: "product-a", availableStock: 10 },
+      soldUnits,
+      10,
+    );
+
+    expect(daysLeft).toBe(50);
+  });
+
+  it("has no forecast for a product that did not sell in the period", () => {
+    expect(
+      salesPaceDaysLeft({ productId: "product-b", availableStock: 10 }, new Map(), 10),
+    ).toBeNull();
   });
 });
 

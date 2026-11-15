@@ -102,6 +102,22 @@ export function stockDaysLeft(input: {
 }
 
 /**
+ * Days a product's stock lasts at its sales pace in the period, whatever the list around it shows
+ * (cancellations, returns): `soldUnits` holds the units sold per product id.
+ */
+export function salesPaceDaysLeft(
+  product: { productId: string; availableStock: number },
+  soldUnits: ReadonlyMap<string, number>,
+  periodDays: number,
+): number | null {
+  return stockDaysLeft({
+    availableStock: product.availableStock,
+    unitsSold: soldUnits.get(product.productId) ?? 0,
+    periodDays,
+  });
+}
+
+/**
  * Days of the period already lived, as a fraction: "Hoje" at 9 a.m. is 0.375 of a day, so ten
  * units sold by then are a pace of about 27 a day, not 10.
  */
