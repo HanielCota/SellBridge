@@ -5,7 +5,7 @@ import { ArrowClockwiseIcon } from "@phosphor-icons/react";
 import { useState } from "react";
 import { ProductStockLine } from "@/components/catalog/product-stock-line";
 import { ProductVisual } from "@/components/catalog/product-visual";
-import { SoldOutFooter, SoldOutRibbon } from "@/components/catalog/sold-out";
+import { SoldOutBadge, SoldOutFooter } from "@/components/catalog/sold-out";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { listingHealth, listingRunState } from "@/features/listings/listing-health";
@@ -279,18 +279,20 @@ export function ListingCard({
       aria-label={row.title}
       onClick={handleCardClick}
       className={cn(
-        "group surface-card @container flex w-full cursor-pointer flex-col overflow-hidden rounded-3xl bg-card select-none",
+        "group surface-card flex w-full cursor-pointer flex-col overflow-hidden rounded-3xl bg-card select-none",
         selected && "ring-2 ring-brand",
       )}
     >
-      <ProductVisual
-        imageUrl={row.imageUrl}
-        title={row.title}
-        categoryName={row.categoryName}
-        soldOut={soldOut}
-        className="aspect-[16/10]"
-      />
-      {outOfStock ? <SoldOutRibbon placement="clearOfMenu" /> : null}
+      <div className="@container relative">
+        <ProductVisual
+          imageUrl={row.imageUrl}
+          title={row.title}
+          categoryName={row.categoryName}
+          soldOut={soldOut}
+          className="aspect-[16/10]"
+        />
+        {outOfStock ? <SoldOutBadge /> : null}
+      </div>
       <Hint label={CONTROL_HINTS.selectListings} openOnTap={false}>
         <Checkbox
           aria-label={`Selecionar ${row.title}`}
