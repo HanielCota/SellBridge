@@ -382,7 +382,7 @@ function StatementCard({
     ? foldRows(rows, sameSaleKey)
     : rows.map((row) => ({ key: row.id, rows: [row] }));
   return (
-    <ul className="surface-card overflow-hidden rounded-3xl bg-card py-1.5">
+    <ul className="surface-card overflow-hidden rounded-3xl bg-card">
       {groups.map((group) => {
         const [only] = group.rows;
         if (only && group.rows.length === 1) {

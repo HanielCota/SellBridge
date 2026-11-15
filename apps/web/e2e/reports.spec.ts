@@ -151,6 +151,37 @@ test.describe("dashboard", () => {
 });
 
 test.describe("financeiro", () => {
+  test("a hovered statement row lights up to the card's bottom edge", async ({ page }) => {
+    await signIn(page, DEMO_USER);
+    await gotoHydrated(page, "/financeiro?period=30d");
+    await page.addStyleTag({ content: "*, *::before, *::after { transition: none !important; }" });
+    const list = page.getByRole("region", { name: "Financeiro por pedido" }).locator("ul").last();
+    const row = list.locator(":scope > li").last().getByRole("button").first();
+    await row.scrollIntoViewIfNeeded();
+
+    await row.hover();
+    const backgrounds = await list.evaluate(
+      (element, rowElement) => {
+        const box = element.getBoundingClientRect();
+        // The first non-transparent background up from the point paints it.
+        let painter = document.elementFromPoint(box.left + box.width / 2, box.bottom - 2);
+        while (
+          painter !== null &&
+          getComputedStyle(painter).backgroundColor === "rgba(0, 0, 0, 0)"
+        ) {
+          painter = painter.parentElement;
+        }
+        return {
+          row: getComputedStyle(rowElement).backgroundColor,
+          belowText: painter === null ? "none" : getComputedStyle(painter).backgroundColor,
+        };
+      },
+      await row.elementHandle(),
+    );
+
+    expect(backgrounds.belowText).toBe(backgrounds.row);
+  });
+
   test("ordena, filtra, pagina e exporta CSV com os mesmos filtros", async ({ page }) => {
     await signIn(page, DEMO_USER);
     // The dashboard's chart, with its tools; daily periods pick a day from the keyboard.
