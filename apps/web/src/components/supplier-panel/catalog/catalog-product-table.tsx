@@ -75,11 +75,30 @@ function ProductActions({
   );
 }
 
-function CompletenessHeader() {
+function StatusHeader() {
   return (
-    <HintedText label={TERM_HINTS.completeness} className="hinted-term">
-      Completude
-    </HintedText>
+    <span>
+      Situação e{" "}
+      <HintedText label={TERM_HINTS.completeness} className="hinted-term">
+        completude
+      </HintedText>
+    </span>
+  );
+}
+
+/** The review status above the completeness, as the phone card shows them, in one column. */
+function StatusCell({ product }: { product: SupplierPanelListProduct }) {
+  return (
+    <div className="flex flex-col items-start gap-1.5">
+      <ProductStatus product={product} />
+      <div className="flex flex-wrap items-center gap-1.5">
+        <CompletenessBadge
+          score={product.completeness.score}
+          blocking={product.completeness.blocking.length}
+        />
+        <MissingFiscalBadge completeness={product.completeness} />
+      </div>
+    </div>
   );
 }
 
@@ -108,7 +127,7 @@ function RejectionLine({ product }: { product: SupplierPanelProduct }) {
 /** The name opens the product too, on the field to fix: the obvious place to click. */
 function ProductCell({ product, onOpen }: { product: SupplierPanelProduct; onOpen: OpenProduct }) {
   return (
-    <div className="flex max-w-[23rem] min-w-[14.5rem] items-start gap-3 whitespace-normal">
+    <div className="flex max-w-[23rem] min-w-[12rem] items-start gap-3 whitespace-normal">
       <ProductThumbnail product={product} />
       <ProductCellText product={product} onOpen={onOpen} />
     </div>
@@ -172,25 +191,15 @@ function catalogColumns(
     columnHelper.accessor("sku", {
       header: header("sku", "Código"),
       cell: (information) => (
-        <span className="font-mono text-footnote">{information.getValue()}</span>
+        <span className="block max-w-[9rem] font-mono text-footnote break-all whitespace-normal">
+          {information.getValue()}
+        </span>
       ),
-    }),
-    columnHelper.accessor("reviewStatus", {
-      header: "Situação",
-      cell: (information) => <ProductStatus product={information.row.original} />,
     }),
     columnHelper.display({
-      id: "completeness",
-      header: () => <CompletenessHeader />,
-      cell: (information) => (
-        <div className="flex flex-wrap items-center gap-1.5">
-          <CompletenessBadge
-            score={information.row.original.completeness.score}
-            blocking={information.row.original.completeness.blocking.length}
-          />
-          <MissingFiscalBadge completeness={information.row.original.completeness} />
-        </div>
-      ),
+      id: "status",
+      header: () => <StatusHeader />,
+      cell: (information) => <StatusCell product={information.row.original} />,
     }),
     columnHelper.accessor("costCents", {
       header: header("costCents", "Custo"),
@@ -265,6 +274,7 @@ export function CatalogProductTable({
       caption="Produtos"
       getRowId={(row) => row.id}
       pinLastColumn
+      dense
       renderMobileRow={(row) => <MobileProductRow product={row} onOpen={onOpen} />}
       footer={
         <PaginationBar
