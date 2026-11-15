@@ -98,6 +98,18 @@ describe("parseDraft", () => {
     ]);
   });
 
+  it("reads a stock typed with a thousands dot as the whole count", () => {
+    const parsed = parseDraft({ ...FILLED, stock: "1.000" });
+
+    expect(parsed.ok ? parsed.values.stock : parsed.errors).toBe(1000);
+  });
+
+  it("holds the save when the stock has a fraction", () => {
+    const parsed = parseDraft({ ...FILLED, stock: "1.5" });
+
+    expect(parsed.ok ? parsed.values.stock : Object.keys(parsed.errors)).toEqual(["stock"]);
+  });
+
   it("saves a product whose shelf went below zero when the count is left as it opened", () => {
     const parsed = parseDraft({ ...FILLED, stock: "-3" }, -3);
     expect(parsed.ok ? parsed.values.stock : parsed.errors).toBe(-3);
@@ -122,6 +134,10 @@ describe("completenessInput", () => {
       categoryId: null,
       mercadoLivreAttributes: { BRAND: "Marca" },
     });
+  });
+
+  it("counts a stock typed with a thousands dot", () => {
+    expect(completenessInput({ ...FILLED, stock: "1.000" }).stock).toBe(1000);
   });
 });
 

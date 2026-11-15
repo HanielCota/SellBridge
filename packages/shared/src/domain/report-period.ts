@@ -1,5 +1,10 @@
 import type { ReportPeriodSearch } from "../schemas/report-period.ts";
-import { MIN_REPORT_YEAR, resolvePeriod, startOfBrazilDay } from "./period-range.ts";
+import {
+  comparablePreviousRange,
+  MIN_REPORT_YEAR,
+  resolvePeriod,
+  startOfBrazilDay,
+} from "./period-range.ts";
 import { DAY_MILLISECONDS } from "./time.ts";
 
 /** Brazil (America/Sao_Paulo) has had no DST since 2019: a fixed UTC−3 offset. */
@@ -103,7 +108,8 @@ function resolveMonth(month: string, now: Date): ReportPeriod {
   const whole = monthRange(month);
   const tomorrow = new Date(startOfBrazilDay(now).getTime() + DAY_MILLISECONDS);
   const to = new Date(Math.min(whole.to.getTime(), tomorrow.getTime()));
-  const status: ReportPeriodStatus = to.getTime() < whole.to.getTime() ? "partial" : "closed";
+  // On the last day `to` already equals the month's end; only the clock says it is still open.
+  const status: ReportPeriodStatus = now.getTime() < whole.to.getTime() ? "partial" : "closed";
   const lived = to.getTime() - whole.from.getTime();
   return {
     kind: "month",
@@ -154,8 +160,8 @@ function resolveRange(fromDate: string, toDate: string, now: Date): ReportPeriod
     toDate: resolved.toDate,
     days: resolved.days,
     previous: {
-      from: resolved.previousFrom,
-      to: resolved.previousTo,
+      // A range ending today is compared with the same lived hours, like a partial month.
+      ...comparablePreviousRange(resolved, now),
       fromDate: resolved.previousFromDate,
       toDate: resolved.previousToDate,
       month: null,

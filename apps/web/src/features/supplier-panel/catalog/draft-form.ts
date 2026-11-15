@@ -215,9 +215,20 @@ export function initialFormValues(
   };
 }
 
+/** Whole units only: "1.000" is a thousand, while "1." or "1.0" wait instead of saving 1. */
+function parseStockCount(text: string): number {
+  if (/^-?\d+$/.test(text)) {
+    return Number(text);
+  }
+  if (/^\d{1,3}(?:\.\d{3})+$/.test(text)) {
+    return Number(text.replaceAll(".", ""));
+  }
+  return Number.NaN;
+}
+
 function wholeUnits(text: string): number {
-  const trimmed = text.trim();
-  return /^\d+$/.test(trimmed) ? Number(trimmed) : 0;
+  const count = parseStockCount(text.trim());
+  return Number.isInteger(count) && count > 0 ? count : 0;
 }
 
 /** Filled attributes only: an emptied field removes the attribute instead of storing "". */
@@ -255,7 +266,7 @@ export function parseDraft(values: PanelFormValues, expectedStock?: number): Dra
   const costCents = values.cost.trim() === "" ? 0 : parseCsvMoney(values.cost);
   const suggestedPriceCents =
     values.suggestedPrice.trim() === "" ? 0 : parseCsvMoney(values.suggestedPrice);
-  const stock = values.stock.trim() === "" ? 0 : Number(values.stock.trim());
+  const stock = values.stock.trim() === "" ? 0 : parseStockCount(values.stock.trim());
   const parsed = catalogDraftValuesSchema.safeParse({
     sku: values.sku,
     title: values.title,

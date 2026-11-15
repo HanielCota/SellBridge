@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { formatCents, MAX_STORED_CENTS } from "../domain/money.ts";
 import { freeText } from "./common.ts";
 
 /** The channels a reseller registers sales of by hand, while they have no integration. */
@@ -31,6 +32,11 @@ export const manualSaleItemSchema = z.object({
     .max(MAX_UNIT_PRICE_CENTS, "O preço de venda é de até R$ 100.000,00"),
 });
 
+/** The order total is stored in one money column, so the sum of the items must fit it too. */
+function saleTotalCents(items: readonly { quantity: number; unitPriceCents: number }[]): number {
+  return items.reduce((total, item) => total + item.quantity * item.unitPriceCents, 0);
+}
+
 /** A sale made on Shopee or TikTok Shop, typed by the reseller from the channel's order. */
 export const manualSaleSchema = z.object({
   channel: z.enum(MANUAL_SALE_CHANNELS, "Escolha onde foi a venda"),
@@ -48,6 +54,9 @@ export const manualSaleSchema = z.object({
   items: z
     .array(manualSaleItemSchema)
     .min(1, "Adicione pelo menos um produto")
-    .max(MANUAL_SALE_MAX_ITEMS, `Uma venda tem até ${MANUAL_SALE_MAX_ITEMS} produtos`),
+    .max(MANUAL_SALE_MAX_ITEMS, `Uma venda tem até ${MANUAL_SALE_MAX_ITEMS} produtos`)
+    .refine((items) => saleTotalCents(items) <= MAX_STORED_CENTS, {
+      message: `O total da venda passa de ${formatCents(MAX_STORED_CENTS)}. Confira as quantidades e os preços`,
+    }),
 });
 export type ManualSale = z.infer<typeof manualSaleSchema>;

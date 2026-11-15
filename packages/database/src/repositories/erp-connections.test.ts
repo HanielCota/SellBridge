@@ -257,6 +257,24 @@ describe("current reseller costs by SKU", () => {
     expect(costs.size).toBe(0);
   });
 
+  it("leaves out a draft saved without a cost, so the import asks for its price", async () => {
+    const draftSku = `ERP-RASCUNHO-${crypto.randomUUID().slice(0, 8)}`;
+    const draft = await createTestSupplierProduct(database, {
+      sku: draftSku,
+      title: "Rascunho",
+      costCents: 0,
+      suggestedPriceCents: 0,
+    });
+
+    const costs = await findSupplierProductCostsBySku(database, {
+      supplierId: draft.supplierId,
+      skus: [draftSku],
+    });
+    await draft.cleanup();
+
+    expect(costs.size).toBe(0);
+  });
+
   it("answers an empty list without querying", async () => {
     const costs = await findSupplierProductCostsBySku(database, {
       supplierId: supplier.supplierId,

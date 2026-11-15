@@ -1,4 +1,5 @@
 import { validationError } from "../runtime/errors.ts";
+import { parseBrlToCents } from "./money.ts";
 import type { XlsxSheet } from "../runtime/xlsx-reader.ts";
 import { MAX_PRODUCT_CSV_BYTES, MAX_PRODUCT_CSV_ROWS } from "../schemas/admin-suppliers.ts";
 
@@ -126,10 +127,40 @@ export function detectSpreadsheet(sheet: XlsxSheet, fileName: string): DetectedS
       return [];
     }
 
-    const values = new Map(headers.map((name, column) => [name, (cells[column] ?? "").trim()]));
+    const numbers = new Set(sheet.numberColumns?.[index + offset + 1] ?? []);
+    const values = new Map(
+      headers.map((name, column) => [
+        name,
+        readCell(cells[column] ?? "", name, numbers.has(column)),
+      ]),
+    );
     return [{ rowNumber: index + offset + 2, values }];
   });
   return { kind, source: `${fileName} › ${sheet.name}`, headers, rows };
+}
+
+/** "1.299" or "1.000.000": a thousands dot, which only text typed in a cell can carry. */
+const THOUSANDS_GROUPED = /^\d{1,3}(?:\.\d{3})+$/;
+
+/** The columns read as money or units, where text typed with thousands dots means a whole number. */
+const AMOUNT_HEADERS: ReadonlySet<string> = new Set([
+  "preco de custo",
+  "preco de venda",
+  "preco",
+  "estoque",
+]);
+
+/**
+ * A cell's trimmed text, with a thousands dot typed as text ("1.299") read as a whole number. A
+ * number cell is left as it is: its "1.299" is one point two nine nine (typed "1,299" in Excel).
+ */
+function readCell(text: string, header: string, isNumber: boolean): string {
+  const trimmed = text.trim();
+  if (isNumber || !AMOUNT_HEADERS.has(header)) {
+    return trimmed;
+  }
+  const compact = trimmed.replace(/[R$\s]/g, "");
+  return THOUSANDS_GROUPED.test(compact) ? compact.replaceAll(".", "") : trimmed;
 }
 
 /**
@@ -170,6 +201,11 @@ function parseDecimal(text: string): number | null {
 
 /** Spreadsheet money arrives as binary floats (14.699999); round once to cents at the boundary. */
 function toCents(text: string): number | null {
+  // Text typed in Brazilian format ("1.299,90") is read as money; raw cell numbers are floats.
+  if (text.includes(",")) {
+    const cents = parseBrlToCents(text);
+    return cents == null || cents < 0 || cents > MAX_CENTS ? null : cents;
+  }
   const value = parseDecimal(text);
   if (value == null || value < 0) {
     return null;

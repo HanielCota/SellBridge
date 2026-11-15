@@ -19,6 +19,7 @@ import {
 import {
   countParcelStages,
   isRunningOut,
+  livedPeriodDays,
   stockDaysLeft,
   SUPPLIER_SALES_SITUATION_STATUSES,
 } from "@sellbridge/shared/supplier-panel-sales";
@@ -124,7 +125,7 @@ export async function loadSupplierSales(
     previous,
     timeseries,
     previousTimeseries,
-    topProducts: withDaysLeft(products, period.days),
+    topProducts: withDaysLeft(products, livedPeriodDays(period, now)),
     productSeries,
     parcelStages: countParcelStages(parcels),
     productOptions: options,

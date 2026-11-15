@@ -61,7 +61,9 @@ function freeLineAxis(values: readonly number[], target: number | null): ChartAx
   const high = Math.max(...all);
   const spread = high - low;
   const step = niceStep((spread === 0 ? Math.max(Math.abs(high), 1) : spread * 1.25) / AXIS_STEPS);
-  const min = Math.max(0, Math.floor(low / step) * step - (spread === 0 ? step * 2 : 0));
+  const floor = Math.floor(low / step) * step - (spread === 0 ? step * 2 : 0);
+  // Positive series start at zero at most; a month with a loss must sit below the zero line.
+  const min = low >= 0 ? Math.max(0, floor) : floor;
   const axis = axisFrom(min, step);
   if (axis.max >= high) {
     return axis;

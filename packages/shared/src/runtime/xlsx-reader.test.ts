@@ -94,8 +94,9 @@ describe("readXlsxSheets", () => {
           [],
           ["A&B é 👜", "", "14.699999999999999", "linha 1\nlinha 2", "1"],
         ],
+        numberColumns: [[], [], [2]],
       },
-      { name: "Outra & mais", rows: [["sem referência", "2"]] },
+      { name: "Outra & mais", rows: [["sem referência", "2"]], numberColumns: [[1]] },
     ]);
   });
 
