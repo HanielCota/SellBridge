@@ -233,7 +233,7 @@ test("o fornecedor baixa a etiqueta em ZPL, de um pedido e em lote", async ({ pa
   await expect(
     panel.getByRole("button", { name: "Reimprimir etiqueta do marketplace" }),
   ).toBeVisible();
-  const overflowInPixels = await panel.evaluate((element) => {
+  const overflowInPixels = await panel.evaluate((element: HTMLElement) => {
     const style = getComputedStyle(element);
     const borders =
       Number.parseFloat(style.borderLeftWidth) + Number.parseFloat(style.borderRightWidth);
