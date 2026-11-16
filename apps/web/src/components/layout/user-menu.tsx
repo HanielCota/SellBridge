@@ -1,6 +1,7 @@
 import type { ProfileKind } from "@sellbridge/shared/profile-kind";
 import { isStaffRole } from "@sellbridge/shared/staff-access";
 import {
+  CircleHalfIcon,
   IdentificationCardIcon,
   ShieldCheckIcon,
   SignOutIcon,
@@ -68,8 +69,7 @@ function ThemeItem() {
         "min-h-11 pr-2.5 *:data-[slot=dropdown-menu-checkbox-item-indicator]:hidden",
       )}
     >
-      {/* Keeps the word in line with the other rows' labels; the icons sit by the switch. */}
-      <span aria-hidden="true" className="size-5 shrink-0" />
+      <CircleHalfIcon aria-hidden="true" />
       <span>
         Tema<span className="sr-only"> escuro</span>
       </span>
