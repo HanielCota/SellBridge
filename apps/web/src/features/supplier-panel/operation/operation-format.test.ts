@@ -6,6 +6,7 @@ import {
   monthsFromFirstSale,
   formatOrders,
   formatShareDetail,
+  formatAverageDispatchTime,
   formatShareRate,
   formatStockUnits,
 } from "./operation-format";
@@ -19,10 +20,24 @@ describe("formatShareRate", () => {
     expect(text).toBe("7,5%");
   });
 
-  it("shows a dash when there is nothing to count", () => {
+  it("shows zero percent when there is nothing to count", () => {
     const text = formatShareRate({ part: 0, total: 0, rate: null });
 
-    expect(text).toBe("—");
+    expect(text).toBe("0%");
+  });
+});
+
+describe("formatAverageDispatchTime", () => {
+  it("reads the average dispatch time", () => {
+    const text = formatAverageDispatchTime((6 * 60 + 40) * 60_000);
+
+    expect(text).toBe("6 h 40 min");
+  });
+
+  it("shows zero minutes when nothing was dispatched", () => {
+    const text = formatAverageDispatchTime(null);
+
+    expect(text).toBe("0 min");
   });
 });
 

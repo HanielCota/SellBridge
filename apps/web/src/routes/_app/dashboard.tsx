@@ -115,7 +115,14 @@ function DashboardContent({ data }: { data: DashboardData }) {
         }
       />
       <div className="grid grid-cols-1 gap-4 xl:grid-cols-[300px_minmax(0,1fr)]">
-        <KpiTiles summary={summary} previous={previous} points={data.timeseries} />
+        <KpiTiles
+          summary={summary}
+          previous={previous}
+          points={data.timeseries}
+          previousPoints={data.previousTimeseries}
+          bucket={data.period.bucket}
+          offsetDays={data.period.days}
+        />
         <CashFlowChart
           points={data.timeseries}
           previousPoints={data.previousTimeseries}

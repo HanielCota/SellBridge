@@ -93,6 +93,29 @@ test.describe("dashboard", () => {
     expect(hovered.edge).not.toBe(resting.edge);
   });
 
+  test("each tile draws this period against the previous one and reads the hovered day", async ({
+    page,
+  }) => {
+    await signIn(page, DEMO_USER);
+    await gotoHydrated(page, "/dashboard");
+    const chart = page
+      .getByRole("link", { name: "Ver pedidos no financeiro" })
+      .locator('[data-slot="compare-sparkline"]');
+    await expect(chart.getByText("Este período")).toBeVisible();
+    await expect(chart.getByText("Período anterior")).toBeVisible();
+    await chart.scrollIntoViewIfNeeded();
+    const plot = await chart.locator('[data-slot="chart"]').boundingBox();
+    if (plot === null) {
+      throw new Error("the orders tile has no chart");
+    }
+
+    await page.mouse.move(plot.x + plot.width / 2, plot.y + plot.height / 2);
+
+    await expect(
+      chart.locator("p").filter({ hasText: /^.+: \d+ pedidos? · anterior: \d+$/ }),
+    ).toBeVisible();
+  });
+
   test("passar o mouse numa loja esmaece as outras", async ({ page }) => {
     await signIn(page, DEMO_USER);
     await gotoHydrated(page, "/dashboard");
@@ -147,6 +170,8 @@ test.describe("dashboard", () => {
       page.getByRole("heading", { name: "Falta pouco para sua primeira venda" }),
     ).toBeVisible();
     await expect(page.getByRole("link", { name: "Completar cadastro" })).toBeVisible();
+    // No sale in either period: the tiles say so quietly instead of drawing a flat line.
+    await expect(page.getByText("Nenhum pedido no período.")).toHaveCount(3);
   });
 });
 
