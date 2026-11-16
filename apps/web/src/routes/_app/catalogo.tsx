@@ -284,7 +284,7 @@ function ProductGrid({
     <>
       <ul className="grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-3 xl:grid-cols-4">
         {data.products.items.map((product) => (
-          <li key={product.id}>
+          <li key={product.id} className="row-span-2 grid grid-cols-1 grid-rows-subgrid gap-y-0">
             <CatalogProductCard
               product={product}
               selected={selection.isSelected(product.id)}

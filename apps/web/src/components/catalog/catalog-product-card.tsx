@@ -51,7 +51,7 @@ function PriceLines({ product, soldOut }: { product: StoreCatalogProduct; soldOu
 function CardBody({ product }: { product: StoreCatalogProduct }) {
   const soldOut = product.stock <= 0;
   return (
-    <div className="flex flex-1 flex-col gap-3 p-4">
+    <div className="flex flex-1 flex-col gap-3 px-4 pt-4 pb-3">
       <div className="space-y-1">
         <p className="truncate text-xs text-muted-foreground">
           {product.catalogKind === "seller" ? "Seu produto" : product.supplierName}
@@ -62,7 +62,6 @@ function CardBody({ product }: { product: StoreCatalogProduct }) {
       </div>
       <ProductHeatTag unitsSold={product.recentUnitsSold} />
       <PriceLines product={product} soldOut={soldOut} />
-      {soldOut ? null : <StockFooter product={product} />}
     </div>
   );
 }
@@ -71,7 +70,7 @@ const PublishIcon = ACTION_ICONS.publish.icon;
 
 function StockFooter({ product }: { product: StoreCatalogProduct }) {
   return (
-    <div className="flex flex-wrap items-center justify-between gap-2 border-t border-border pt-3">
+    <div className="mx-4 mb-4 flex flex-wrap items-center justify-between gap-2 self-start border-t border-border pt-3">
       {/* As tall as the publish button, so published cards keep the price row level. */}
       <span className="flex min-h-8 items-center">
         <ProductStockLine stock={product.stock} updatedAt={product.stockUpdatedAt} />
@@ -136,18 +135,23 @@ export function CatalogProductCard({
     <article
       onClick={handleCardClick}
       className={cn(
-        "surface-card flex h-full flex-col overflow-hidden rounded-3xl bg-card",
+        // Two rows shared with the other cards of the grid row (the list item is a subgrid too), so
+        // the stock footer starts at the same height and has the same size in every card.
+        "surface-card row-span-2 grid grid-cols-1 grid-rows-subgrid gap-y-0 overflow-hidden rounded-3xl bg-card",
         canSelect && "cursor-pointer select-none",
         selected && "ring-2 ring-brand",
       )}
     >
-      <ProductVisual
-        imageUrl={product.imageUrl}
-        title={product.title}
-        categoryName={product.categoryName}
-        soldOut={soldOut}
-        className="aspect-[16/10]"
-      />
+      <div className="flex flex-col">
+        <ProductVisual
+          imageUrl={product.imageUrl}
+          title={product.title}
+          categoryName={product.categoryName}
+          soldOut={soldOut}
+          className="aspect-[16/10]"
+        />
+        <CardBody product={product} />
+      </div>
       {soldOut ? <SoldOutRibbon /> : null}
       {canSelect ? (
         <Hint label={CONTROL_HINTS.selectForBulk} openOnTap={false}>
@@ -160,8 +164,7 @@ export function CatalogProductCard({
         </Hint>
       ) : null}
       {product.published ? <PublishedBadge /> : null}
-      <CardBody product={product} />
-      {soldOut ? <SoldOutFooter /> : null}
+      {soldOut ? <SoldOutFooter /> : <StockFooter product={product} />}
     </article>
   );
 }
