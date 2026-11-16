@@ -15,6 +15,7 @@ export const NOTIFICATION_EVENTS = [
   "supplier_conversation",
   "shipment_problem",
   "invoice_authorized",
+  "invoice_attention",
 ] as const;
 export type NotificationEventName = (typeof NOTIFICATION_EVENTS)[number];
 
@@ -98,6 +99,13 @@ export const NOTIFICATION_EVENT_DEFINITIONS: Record<NotificationEventName, Event
     audience: "reseller",
     label: "Nota fiscal emitida",
     description: "O fornecedor emitiu a nota fiscal de um pacote. O XML e o DANFE vão no e-mail.",
+    defaults: { email: true },
+  },
+  // For the supplier. E-mail only: in the app the parcel already sits in "Com problema".
+  invoice_attention: {
+    audience: "reseller",
+    label: "Nota fiscal com problema",
+    description: "A nota fiscal de um pacote parou e só sai depois que você corrigir.",
     defaults: { email: true },
   },
   // The team already sees new tickets in the "Chamados" badge; e-mail is the outside nudge.
@@ -406,5 +414,28 @@ export function invoiceAuthorizedContent(notice: InvoiceAuthorizedNotice): Notif
     actionPath: `/pedidos/${notice.orderId}`,
     footnote: FOOTNOTE,
     invoiceShipmentId: notice.shipmentId,
+  };
+}
+
+export interface InvoiceAttentionNotice {
+  externalOrderId: string;
+}
+
+/**
+ * For the supplier: the note stopped and waits for them. The reason stays in the panel, since a
+ * refusal from the ERP may quote the buyer's details.
+ */
+export function invoiceAttentionContent(notice: InvoiceAttentionNotice): NotificationContent {
+  return {
+    subject: `Nota fiscal com problema: pedido #${notice.externalOrderId}`,
+    preview: "A nota não saiu. Veja no painel o que corrigir.",
+    heading: "A nota fiscal não saiu",
+    paragraphs: [
+      `A nota fiscal do pedido #${notice.externalOrderId} parou e não vai sair sozinha.`,
+      "Abra o pedido no seu painel, na aba Com problema: lá diz o que corrigir. Depois, toque em Tentar de novo.",
+    ],
+    actionLabel: "Ver no painel",
+    actionPath: "/fornecedor/painel/pedidos?tab=problem",
+    footnote: FOOTNOTE,
   };
 }

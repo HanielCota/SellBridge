@@ -4,7 +4,10 @@ import {
   readSupplierFiscalProfile,
   type SupplierFiscalProfile,
 } from "@sellbridge/shared/supplier-fiscal";
-import { invoiceAuthorizedContent } from "@sellbridge/shared/notification-events";
+import {
+  invoiceAttentionContent,
+  invoiceAuthorizedContent,
+} from "@sellbridge/shared/notification-events";
 import type { InvoiceStatus } from "@sellbridge/shared/supplier-invoice";
 import { conflictError, notFoundError } from "@sellbridge/shared/errors";
 import { and, asc, eq, gte, inArray, isNotNull, isNull, lte, notInArray, sql } from "drizzle-orm";
@@ -361,6 +364,33 @@ async function queueInvoiceAuthorizedNotice(
   });
 }
 
+/** Tells the supplier's people a note stopped; the reseller's own stock has no one to tell. */
+async function queueInvoiceAttentionNotice(
+  transaction: DatabaseExecutor,
+  input: { invoiceId: string; stoppedSince: Date },
+): Promise<void> {
+  const [parcel] = await transaction
+    .select({
+      organizationId: suppliers.organizationId,
+      catalogKind: suppliers.catalogKind,
+      externalOrderId: orders.externalOrderId,
+    })
+    .from(shipmentInvoices)
+    .innerJoin(orderShipments, eq(orderShipments.id, shipmentInvoices.shipmentId))
+    .innerJoin(orders, eq(orders.id, orderShipments.orderId))
+    .innerJoin(suppliers, eq(suppliers.id, shipmentInvoices.supplierId))
+    .where(eq(shipmentInvoices.id, input.invoiceId));
+  if (parcel === undefined || parcel.organizationId === null || parcel.catalogKind !== "supplier") {
+    return;
+  }
+  await notifyWorkspace(transaction, {
+    tenantId: parcel.organizationId,
+    event: "invoice_attention",
+    dedupeKey: `invoice_attention:${input.invoiceId}:${input.stoppedSince.toISOString()}`,
+    content: invoiceAttentionContent({ externalOrderId: parcel.externalOrderId }),
+  });
+}
+
 /** Authorized by SEFAZ: saved with what the screens show, and the reseller is told. */
 export async function markShipmentInvoiceAuthorized(
   database: Database,
@@ -402,15 +432,36 @@ export async function markShipmentInvoiceCancelled(
     .where(eq(shipmentInvoices.id, invoiceId));
 }
 
-/** Stopped until the supplier acts; `problem` says what to do, in their words. */
+/**
+ * Stopped until the supplier acts; `problem` says what to do, in their words. The supplier's
+ * people get an e-mail the moment it stops, unless `tellSupplier` is false (nothing to fix).
+ */
 export async function markShipmentInvoiceAttention(
   database: Database,
-  input: { invoiceId: string; problem: string },
+  input: { invoiceId: string; problem: string; tellSupplier?: boolean },
 ): Promise<void> {
-  await database
-    .update(shipmentInvoices)
-    .set({ status: "attention", problem: input.problem })
-    .where(eq(shipmentInvoices.id, input.invoiceId));
+  await database.transaction(async (transaction) => {
+    const [before] = await transaction
+      .select({ status: shipmentInvoices.status, updatedAt: shipmentInvoices.updatedAt })
+      .from(shipmentInvoices)
+      .where(eq(shipmentInvoices.id, input.invoiceId))
+      .for("update");
+    if (before === undefined) {
+      return;
+    }
+    await transaction
+      .update(shipmentInvoices)
+      .set({ status: "attention", problem: input.problem })
+      .where(eq(shipmentInvoices.id, input.invoiceId));
+    if (before.status === "attention" || input.tellSupplier === false) {
+      return;
+    }
+    // Keyed by the moment it stopped: a note stopped again after a retry is news again.
+    await queueInvoiceAttentionNotice(transaction, {
+      invoiceId: input.invoiceId,
+      stoppedSince: before.updatedAt,
+    });
+  });
 }
 
 /** A passing failure: tried again at `retryAt`, counting the attempt. */

@@ -4,8 +4,10 @@ import { afterEach, describe, expect, it } from "vitest";
 import {
   member,
   notificationDeliveries,
+  organization,
   orderShipments,
   shipmentInvoices,
+  suppliers,
 } from "../schema/index.ts";
 import { createTestDatabase, createTestUsers } from "../testing/fixtures.ts";
 import { createInvoiceScenario } from "../testing/shipment-invoice-fixtures.ts";
@@ -364,5 +366,86 @@ describe("authorized notes for the reseller", () => {
       number: "1234",
       accessKey: AUTHORIZED_ACCESS_KEY,
     });
+  });
+});
+
+/** Gives the supplier its own workspace with one person in it, as a supplier account has. */
+async function supplierWorkspace(supplierId: string): Promise<string> {
+  const organizationId = randomUUID();
+  await database.insert(organization).values({
+    id: organizationId,
+    name: "Fornecedor",
+    slug: `nfe-supplier-${organizationId}`,
+    createdAt: new Date(),
+  });
+  cleanups.push(async () => {
+    await database.delete(organization).where(eq(organization.id, organizationId));
+  });
+  await database.update(suppliers).set({ organizationId }).where(eq(suppliers.id, supplierId));
+  await addMember(organizationId);
+  return organizationId;
+}
+
+async function attentionDeliveries(organizationId: string) {
+  return database
+    .select()
+    .from(notificationDeliveries)
+    .where(eq(notificationDeliveries.tenantId, organizationId));
+}
+
+describe("stopped notes for the supplier", () => {
+  it("e-mails the supplier's people once when a note stops", async () => {
+    const created = await authorizedScenario();
+    const organizationId = await supplierWorkspace(created.supplierId);
+
+    await markShipmentInvoiceAttention(database, {
+      invoiceId: created.invoiceId,
+      problem: "Falta o NCM",
+    });
+    await markShipmentInvoiceAttention(database, {
+      invoiceId: created.invoiceId,
+      problem: "Falta o NCM do produto",
+    });
+
+    const deliveries = await attentionDeliveries(organizationId);
+    expect(deliveries).toHaveLength(1);
+    expect(deliveries[0]).toMatchObject({
+      event: "invoice_attention",
+      channel: "email",
+      content: { actionPath: "/fornecedor/painel/pedidos?tab=problem" },
+    });
+  });
+
+  it("e-mails again when the note stops again after a retry", async () => {
+    const created = await authorizedScenario();
+    const organizationId = await supplierWorkspace(created.supplierId);
+    const stop = () =>
+      markShipmentInvoiceAttention(database, {
+        invoiceId: created.invoiceId,
+        problem: "Falta o NCM",
+      });
+
+    await stop();
+    await retrySupplierShipmentInvoice(database, {
+      supplierId: created.supplierId,
+      shipmentId: created.shipmentId,
+    });
+    await stop();
+
+    expect(await attentionDeliveries(organizationId)).toHaveLength(2);
+  });
+
+  it("tells no one when there is nothing for the supplier to fix", async () => {
+    const created = await authorizedScenario();
+    const organizationId = await supplierWorkspace(created.supplierId);
+
+    await markShipmentInvoiceAttention(database, {
+      invoiceId: created.invoiceId,
+      problem: "O pedido foi cancelado",
+      tellSupplier: false,
+    });
+
+    expect(await attentionDeliveries(organizationId)).toHaveLength(0);
+    expect(await invoiceOf(created.shipmentId)).toMatchObject({ status: "attention" });
   });
 });
