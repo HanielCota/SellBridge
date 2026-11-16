@@ -4,6 +4,7 @@ import { mercadoPagoSignatureFor } from "./mercado-pago-signature";
 const mocks = vi.hoisted(() => ({
   findAccounts: vi.fn<(...input: unknown[]) => Promise<unknown[]>>(),
   findPayment: vi.fn<(...input: unknown[]) => Promise<unknown>>(),
+  listCheckouts: vi.fn<(...input: unknown[]) => Promise<unknown[]>>(),
   apply: vi.fn<(...input: unknown[]) => Promise<unknown>>(),
   markError: vi.fn<(...input: unknown[]) => Promise<void>>(),
   rotate: vi.fn<(...input: unknown[]) => Promise<boolean>>(),
@@ -11,6 +12,7 @@ const mocks = vi.hoisted(() => ({
 vi.mock("@sellbridge/database/repositories", () => ({
   findPaymentAccountsByProviderAccount: mocks.findAccounts,
   findShipmentPaymentById: mocks.findPayment,
+  listShipmentPaymentCheckouts: mocks.listCheckouts,
   applyProviderPayment: mocks.apply,
   markSupplierPaymentAccountError: mocks.markError,
   rotatePaymentAccountTokens: mocks.rotate,
@@ -133,6 +135,9 @@ beforeEach(() => {
   vi.stubGlobal("fetch", fetchMock);
   mocks.findAccounts.mockResolvedValue([account]);
   mocks.findPayment.mockResolvedValue(localPayment);
+  mocks.listCheckouts.mockResolvedValue([
+    { preferenceId: PREFERENCE_ID, amountCents: 5990, platformFeeCents: 300 },
+  ]);
   mocks.apply.mockResolvedValue({
     kind: "applied",
     payment: { ...localPayment, status: "approved" },
@@ -212,6 +217,7 @@ describe("handleMercadoPagoWebhook", () => {
   it("does not mark paid a payment for a parcel that never opened a checkout", async () => {
     mercadoPagoAnswers(remotePayment());
     mocks.findPayment.mockResolvedValue({ ...localPayment, preferenceId: null });
+    mocks.listCheckouts.mockResolvedValue([]);
 
     await handleMercadoPagoWebhook(notice());
 
@@ -240,7 +246,7 @@ describe("handleMercadoPagoWebhook", () => {
   });
 
   it("does not mark paid a payment of another amount", async () => {
-    fetchMock.mockResolvedValue(remotePayment({ transaction_amount: 1 }));
+    mercadoPagoAnswers(remotePayment({ transaction_amount: 1 }));
 
     const response = await handleMercadoPagoWebhook(notice());
 

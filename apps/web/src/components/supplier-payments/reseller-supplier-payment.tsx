@@ -77,12 +77,19 @@ function useCheckoutReturn(shipmentId: string) {
 }
 
 function PayButton({ shipmentId }: { shipmentId: string }) {
+  const queryClient = useQueryClient();
   const start = useMutation({
     mutationFn: () => startSupplierCheckoutFn({ data: { shipmentId } }),
     onSuccess: ({ checkoutUrl }) => {
       window.location.assign(checkoutUrl);
     },
-    onError: (error) => toast.error(errorMessage(error)),
+    onError: async (error) => {
+      toast.error(errorMessage(error));
+      // The click may have found an earlier payment under review or approved: show it.
+      await queryClient.invalidateQueries({
+        queryKey: resellerSupplierPaymentQueryOptions(shipmentId).queryKey,
+      });
+    },
   });
   // Stays "Abrindo…" until the browser leaves for the checkout: a second click would not help.
   const busy = start.isPending || start.isSuccess;

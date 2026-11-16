@@ -30,7 +30,9 @@ import { environment } from "@/lib/server/environment";
 import {
   CHECKOUT_TTL_IN_MS,
   createMercadoPagoCheckout,
+  isMercadoPagoError,
   PaymentAccountUnavailableError,
+  reconcileShipmentPayment,
   supplierAccessToken,
   syncMercadoPagoPayment,
   withSupplierAccount,
@@ -115,6 +117,12 @@ export async function supplierPaymentBadges(input: {
   return new Map(input.shipmentIds.map((id) => [id, badgeFor(summaries.get(id), linked)]));
 }
 
+const IN_REVIEW_MESSAGE =
+  "O pagamento está em análise no Mercado Pago. Assim que ele confirmar, aparece aqui.";
+const ALREADY_PAID_MESSAGE = "Este envio já foi pago. O valor está na conta do fornecedor.";
+const UNCHECKED_MESSAGE =
+  "Não conseguimos conferir com o Mercado Pago agora. Tente de novo em alguns minutos.";
+
 /** Why the reseller cannot pay this parcel here, or null when it can. */
 function checkoutRefusal(payable: PayableShipment, linked: boolean): string | null {
   if (payable.catalogKind === "seller") {
@@ -124,7 +132,7 @@ function checkoutRefusal(payable: PayableShipment, linked: boolean): string | nu
     return "Este envio já foi encerrado: não dá mais para pagar por aqui.";
   }
   if (payable.payment?.status === "in_process") {
-    return "O pagamento está em análise no Mercado Pago. Assim que ele confirmar, aparece aqui.";
+    return IN_REVIEW_MESSAGE;
   }
   if (payable.amountCents <= 0) {
     return "Este pedido não tem o valor do fornecedor. Combine o pagamento com ele por fora.";
@@ -207,7 +215,51 @@ async function refusedCheckout(shipmentId: string): Promise<{ checkoutUrl: strin
   if (current?.status === "pending") {
     throw validationError("O pagamento já está sendo aberto. Tente de novo em alguns segundos.");
   }
-  throw validationError("Este fornecedor já foi pago por este pedido.");
+  if (current?.status === "in_process") {
+    throw validationError(IN_REVIEW_MESSAGE);
+  }
+  throw validationError(ALREADY_PAID_MESSAGE);
+}
+
+/**
+ * Before a new checkout, asks Mercado Pago about every payment of the parcel's earlier ones and
+ * records them: one under review or approved blocks the new checkout, a rejected one frees it.
+ * When Mercado Pago cannot answer, no new checkout opens, so a payment is never made twice.
+ */
+async function settleEarlierCheckouts(
+  context: MercadoPagoContext,
+  account: SupplierPaymentAccount,
+  payment: ShipmentPayment,
+): Promise<void> {
+  const settled = await reconcileBeforeCheckout(context, account, payment);
+  if (settled?.status === "in_process") {
+    throw validationError(IN_REVIEW_MESSAGE);
+  }
+  if (settled?.status === "approved") {
+    throw validationError(ALREADY_PAID_MESSAGE);
+  }
+}
+
+async function reconcileBeforeCheckout(
+  context: MercadoPagoContext,
+  account: SupplierPaymentAccount,
+  payment: ShipmentPayment,
+): Promise<ShipmentPayment | null> {
+  try {
+    return await reconcileShipmentPayment(context, { account, payment });
+  } catch (error) {
+    if (error instanceof PaymentAccountUnavailableError) {
+      throw validationError(RELINK_MESSAGE);
+    }
+    if (isMercadoPagoError(error)) {
+      logger.warn("mercado_pago.earlier_checkouts_unchecked", {
+        shipmentPaymentId: payment.id,
+        error,
+      });
+      throw validationError(UNCHECKED_MESSAGE);
+    }
+    throw error;
+  }
 }
 
 /** The preference, created with the supplier's token; a failure frees the reserved parcel. */
@@ -256,6 +308,18 @@ export async function startSupplierCheckout(input: {
   if (open !== null) {
     return { checkoutUrl: open };
   }
+  if (payable.payment !== null) {
+    await settleEarlierCheckouts(context, account, payable.payment);
+  }
+  return openNewCheckout(context, { payable, account });
+}
+
+/** Reserves the parcel, creates its checkout with the supplier's token and keeps it. */
+async function openNewCheckout(
+  context: MercadoPagoContext,
+  input: { payable: PayableShipment; account: SupplierPaymentAccount },
+): Promise<{ checkoutUrl: string }> {
+  const { payable, account } = input;
   const feeBasisPoints = effectivePaymentFeeBasisPoints(
     (await getPaymentFeeSetting(database)).basisPoints,
   );

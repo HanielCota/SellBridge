@@ -8,10 +8,12 @@ export {
   createMercadoPagoCheckout,
   exchangeMercadoPagoCode,
   isMercadoPagoError,
+  MercadoPagoError,
   mercadoPagoAuthorizationUrl,
   type CheckoutRequest,
 } from "./client.ts";
 export type { MercadoPagoContext } from "./context.ts";
+export { reconcileShipmentPayment } from "./payment-reconcile.ts";
 export { syncMercadoPagoPayment, type PaymentSyncResult } from "./payment-sync.ts";
 export {
   mercadoPagoEnvironmentFields,
