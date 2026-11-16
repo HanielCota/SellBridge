@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { isTeamModeOn, teamHomeFor } from "./team-mode";
+import { isTeamModeOn, isTeamOnlyAccount, teamHomeFor } from "./team-mode";
 
 /*
  * Regression: a new attendant started with the team mode off, landed on the reseller's
@@ -27,5 +27,18 @@ describe("team mode", () => {
     expect(teamHomeFor("agent", false)).toBeNull();
     expect(teamHomeFor("admin", true)).toBeNull();
     expect(teamHomeFor("user", false)).toBeNull();
+  });
+});
+
+describe("isTeamOnlyAccount", () => {
+  it("is a team member with no profile of their own, like an invited attendant", () => {
+    expect(isTeamOnlyAccount("agent", 0)).toBe(true);
+    expect(isTeamOnlyAccount("supervisor", 0)).toBe(true);
+  });
+
+  it("is not a team member with a store, nor a customer with no profile", () => {
+    expect(isTeamOnlyAccount("agent", 1)).toBe(false);
+    expect(isTeamOnlyAccount("admin", 2)).toBe(false);
+    expect(isTeamOnlyAccount("user", 0)).toBe(false);
   });
 });

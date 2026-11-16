@@ -129,6 +129,8 @@ async function processOne(
     await markShipmentInvoiceAttention(dependencies.database, {
       invoiceId,
       problem: STOP_PROBLEMS[stop],
+      // A sale that did not go ahead needs no note: nothing for the supplier to fix.
+      tellSupplier: stop !== "sale_not_going_ahead",
     });
     return;
   }

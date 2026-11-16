@@ -128,6 +128,29 @@ function supplierConversation(
   };
 }
 
+/** Deliveries the reseller has not reviewed yet, as one entry. */
+function reviewPending(event: Extract<NotificationEvent, { kind: "review_pending" }>) {
+  return {
+    id: `reviews:${event.pending}:${event.at.getTime()}`,
+    title:
+      event.pending === 1
+        ? "1 pedido esperando sua avaliação"
+        : `${event.pending} pedidos esperando sua avaliação`,
+    detail: "Avalie os fornecedores para formar a nota deles.",
+    href: "/pedidos?view=reviews&review=pending",
+  };
+}
+
+/** For the supplier: a parcel's note stopped, fixed from the orders with a problem. */
+function invoiceStopped(event: Extract<NotificationEvent, { kind: "invoice_stopped" }>) {
+  return {
+    id: `invoice-stopped:${event.entityId}`,
+    title: `Nota fiscal com problema no pedido #${event.externalOrderId}`,
+    detail: "A nota não saiu. Abra o pedido para ver o que corrigir.",
+    href: "/fornecedor/painel/pedidos?tab=problem",
+  };
+}
+
 /** Wording and destination of each kind of event, in the reseller's language. */
 export function presentNotification(event: NotificationEvent): AppNotification {
   const base = { kind: event.kind, at: event.at };
@@ -170,17 +193,10 @@ export function presentNotification(event: NotificationEvent): AppNotification {
       return { ...base, ...orderMessage(event) };
     case "supplier_conversation":
       return { ...base, ...supplierConversation(event) };
+    case "invoice_stopped":
+      return { ...base, ...invoiceStopped(event) };
     case "review_pending":
-      return {
-        ...base,
-        id: `reviews:${event.pending}:${event.at.getTime()}`,
-        title:
-          event.pending === 1
-            ? "1 pedido esperando sua avaliação"
-            : `${event.pending} pedidos esperando sua avaliação`,
-        detail: "Avalie os fornecedores para formar a nota deles.",
-        href: "/pedidos?view=reviews&review=pending",
-      };
+      return { ...base, ...reviewPending(event) };
   }
   return {
     ...base,

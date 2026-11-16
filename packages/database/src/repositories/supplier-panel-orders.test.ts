@@ -7,6 +7,7 @@ import {
   orders,
   orderShipments,
   shipmentEvents,
+  shipmentInvoices,
   shipmentPayments,
   storeConnections,
   suppliers,
@@ -30,6 +31,7 @@ import { findSupplierShipmentsByCode } from "./supplier-panel-scan.ts";
 import {
   countSupplierOperationNow,
   countSupplierShipmentsByTab,
+  countSupplierStoppedInvoices,
   listSupplierHomeShipments,
   listSupplierResellers,
   listSupplierResellerStores,
@@ -42,6 +44,7 @@ let tenants: Awaited<ReturnType<typeof createTestTenantPair>>;
 let supplier: Awaited<ReturnType<typeof createTestSupplierProduct>>;
 let otherSupplier: Awaited<ReturnType<typeof createTestSupplierProduct>>;
 let operationSupplier: Awaited<ReturnType<typeof createTestSupplierProduct>>;
+let invoicingSupplier: Awaited<ReturnType<typeof createTestSupplierProduct>>;
 const storeIds: Record<string, string> = {};
 
 async function forwardedShipment(
@@ -116,6 +119,12 @@ beforeAll(async () => {
     costCents: 2000,
     suggestedPriceCents: 6000,
   });
+  invoicingSupplier = await createTestSupplierProduct(database, {
+    sku: `NFE-${randomUUID().slice(0, 6)}`,
+    title: "Chinelo",
+    costCents: 2000,
+    suggestedPriceCents: 5000,
+  });
   for (const tenantId of [tenants.tenantA, tenants.tenantB]) {
     storeIds[tenantId] = (
       await upsertStoreConnection(database, testStoreInput(tenantId, randomUUID()))
@@ -128,6 +137,7 @@ afterAll(async () => {
   await supplier.cleanup();
   await otherSupplier.cleanup();
   await operationSupplier.cleanup();
+  await invoicingSupplier.cleanup();
   await database.$client.end();
 });
 
@@ -374,6 +384,52 @@ describe("a sale not released for shipping", () => {
       urgency: "normal",
       problems: ["order_blocked"],
     });
+  });
+});
+
+async function invoicedShipment(status: "queued" | "attention") {
+  const created = await forwardedShipment({ productId: invoicingSupplier.productId });
+  await database.insert(shipmentInvoices).values({
+    shipmentId: created.shipmentId,
+    supplierId: invoicingSupplier.supplierId,
+    provider: "bling",
+    status,
+  });
+  return created;
+}
+
+describe("a parcel whose note stopped", () => {
+  it("lists it under the problems with the note's status", async () => {
+    const { shipmentId, order } = await invoicedShipment("attention");
+
+    const result = await listSupplierShipments(database, {
+      supplierId: invoicingSupplier.supplierId,
+      tab: "problem",
+      query: order.externalOrderId,
+      page: 1,
+    });
+
+    expect(result.items).toHaveLength(1);
+    expect(result.items[0]).toMatchObject({
+      id: shipmentId,
+      invoiceStatus: "attention",
+      problems: ["invoice_stopped"],
+    });
+  });
+
+  it("counts only stopped notes of sales still released for the home", async () => {
+    const before = await countSupplierStoppedInvoices(database, invoicingSupplier.supplierId);
+    await invoicedShipment("attention");
+    await invoicedShipment("queued");
+    const cancelled = await invoicedShipment("attention");
+    await database
+      .update(orders)
+      .set({ status: "cancelled" })
+      .where(eq(orders.id, cancelled.order.id));
+
+    const after = await countSupplierStoppedInvoices(database, invoicingSupplier.supplierId);
+
+    expect(after - before).toBe(1);
   });
 });
 

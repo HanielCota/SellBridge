@@ -1,8 +1,9 @@
 import { z } from "zod";
 import { SUPPLIER_CONVERSATION_TOPIC_IDS } from "../domain/supplier-conversation-topics.ts";
+import type { SupplierReportDays } from "../domain/supplier-support-report/index.ts";
 import { freeText } from "./common.ts";
 import { refuseConversationContact } from "./contact-guard.ts";
-import { optionalParameter } from "./fallback.ts";
+import { optionalParameter, withFallback } from "./fallback.ts";
 import {
   optionalFormId,
   optionalFormText,
@@ -30,8 +31,25 @@ export type CreateSupplierConversationInput = z.infer<typeof createSupplierConve
 
 export const replySupplierConversationSchema = z.object({ body: conversationBodySchema });
 
-export const supplierConversationsSearchSchema = ticketsSearchSchema;
+/** The ticket list search plus `assunto`, the topic the supplier narrows its queue to. */
+export const supplierConversationsSearchSchema = ticketsSearchSchema.extend({
+  assunto: optionalParameter(z.enum(SUPPLIER_CONVERSATION_TOPIC_IDS)),
+});
 export type SupplierConversationsSearch = z.infer<typeof supplierConversationsSearchSchema>;
+
+const DEFAULT_REPORT_DAYS: SupplierReportDays = 30;
+
+/** The supplier's answering report: the last 7, 30 or 90 days (`dias`), 30 by default. */
+export const supplierSupportReportSearchSchema = z.object({
+  dias: withFallback(
+    z.coerce
+      .number()
+      .pipe(z.union([z.literal(7), z.literal(30), z.literal(90)]))
+      .default(DEFAULT_REPORT_DAYS),
+    DEFAULT_REPORT_DAYS,
+  ),
+});
+export type SupplierSupportReportSearch = z.infer<typeof supplierSupportReportSearchSchema>;
 
 /** Prefills the new-conversation form from an order page (`pedido`) or a store (`loja`). */
 export const newSupplierConversationSearchSchema = z.object({

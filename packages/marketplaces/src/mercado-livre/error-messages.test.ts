@@ -70,6 +70,28 @@ describe("explainMercadoLivreError", () => {
     );
   });
 
+  it("says the package weight or a measure is missing and who fixes it", () => {
+    expect(explainMercadoLivreError(ERROR_FIXTURES.packageMissing, 400)).toBe(
+      "O Mercado Livre exige o peso e as três medidas da caixa (altura, largura e comprimento) neste anúncio, " +
+        "e falta pelo menos um deles no cadastro do produto. " +
+        "Fale com o suporte para corrigir o cadastro e publique de novo.",
+    );
+  });
+
+  it("names the format Mercado Livre takes for the package", () => {
+    expect(explainMercadoLivreError(ERROR_FIXTURES.packageWrongFormat, 400)).toBe(
+      "O peso ou as medidas da caixa não estão no formato que o Mercado Livre aceita: " +
+        "números inteiros, em gramas e centímetros. " +
+        "Fale com o suporte para corrigir o cadastro e publique de novo.",
+    );
+  });
+
+  it("explains package values Mercado Livre finds unrealistic", () => {
+    expect(explainMercadoLivreError(ERROR_FIXTURES.packageInvalidValues, 400)).toMatch(
+      /^O Mercado Livre não aceitou o peso ou as medidas da caixa/,
+    );
+  });
+
   it("asks for a plain-text description", () => {
     expect(explainMercadoLivreError(ERROR_FIXTURES.descriptionNotPlainText, 400)).toBe(
       "A descrição tem caracteres que o Mercado Livre não aceita (emojis, HTML ou símbolos especiais). " +

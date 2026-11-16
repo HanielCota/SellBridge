@@ -1,3 +1,4 @@
+import { INVOICE_STATUS_LABELS, type InvoiceStatus } from "@sellbridge/shared/supplier-invoice";
 import {
   SUPPLIER_LABEL_STATE_LABELS,
   type SupplierLabelState,
@@ -21,6 +22,7 @@ import { CONTROL_HINTS, SUPPLIER_NEXT_STEP_HINTS } from "@/components/icons/acti
 import { Hint } from "@/components/ui/hint";
 import { ChannelLine } from "./channel-line";
 import { SupplierPaymentBadgeView } from "@/components/supplier-payments/supplier-payment-badge";
+import { INVOICE_TONES } from "@/features/fulfillment/invoice-tones";
 
 /** "2× Camiseta (CAM-01) e mais 1 item": enough to pick the parcel without opening it. */
 export function itemsSummary(items: SupplierOrderRow["items"]): string {
@@ -102,6 +104,21 @@ export function LabelStatus({
   return (
     <div>
       <TonePill tone={LABEL_TONES[state]} label={`${SUPPLIER_LABEL_STATE_LABELS[state]}${when}`} />
+    </div>
+  );
+}
+
+/**
+ * The parcel's NF-e, when the supplier's ERP issues it: a stopped one is told in the problems
+ * below, with what to do, so it is not repeated here.
+ */
+export function InvoiceStatusLine({ status }: { status: InvoiceStatus | null }) {
+  if (status === null || status === "attention") {
+    return null;
+  }
+  return (
+    <div>
+      <TonePill tone={INVOICE_TONES[status]} label={INVOICE_STATUS_LABELS[status]} />
     </div>
   );
 }

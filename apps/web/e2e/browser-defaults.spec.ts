@@ -53,10 +53,17 @@ test("a form select opens its list as wide as the field, inside a phone screen",
   const field = page.getByLabel("Origem", { exact: true });
 
   await field.click();
-  const fieldBox = await field.boundingBox();
-  const list = await page.getByRole("listbox").boundingBox();
+  const listbox = page.getByRole("listbox");
 
-  expect(Math.abs((list?.width ?? 0) - (fieldBox?.width ?? 0))).toBeLessThanOrEqual(1);
+  // The list opens with a short zoom from 95%: measured mid-way (a slow CI runner) it read a few
+  // pixels off, so both widths are read again until the opening is over.
+  await expect
+    .poll(async () => {
+      const [fieldBox, listBox] = await Promise.all([field.boundingBox(), listbox.boundingBox()]);
+      return Math.abs((listBox?.width ?? 0) - (fieldBox?.width ?? 0));
+    })
+    .toBeLessThanOrEqual(1);
+  const list = await listbox.boundingBox();
   expect((list?.x ?? 0) + (list?.width ?? 0)).toBeLessThanOrEqual(375);
 });
 

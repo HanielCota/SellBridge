@@ -155,6 +155,7 @@ function AppLayout() {
     adminMode: session.adminMode,
     profileKind: session.profileKind,
     profiles: session.profiles,
+    teamOnly: session.teamOnly,
   });
   return (
     <div className="min-h-svh bg-background">
@@ -183,7 +184,7 @@ function AppLayout() {
             tabIndex={-1}
             className="mx-auto w-full max-w-[1440px] space-y-6 px-4 pt-4 pb-28 md:px-8 md:pt-8 md:pb-32"
           >
-            {session.profileKind === "seller" ? <SetupReminder /> : null}
+            {session.profileKind === "seller" && !session.teamOnly ? <SetupReminder /> : null}
             <Outlet />
           </main>
         </div>

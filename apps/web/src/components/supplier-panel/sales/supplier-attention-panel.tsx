@@ -22,7 +22,7 @@ function firstAcceptOf(home: SupplierHomeData | undefined) {
 
 /**
  * The reseller's "Precisa de você" with what only the supplier can fix (item 38): the accepts,
- * the stock, the rejected products and a support reply. It stands in for the old task list,
+ * the stopped notes, the stock, the rejected products and a support reply. It stands in for the old task list,
  * whose rows now live on Pedidos and Produtos.
  */
 export function SupplierAttentionPanel({
@@ -40,6 +40,7 @@ export function SupplierAttentionPanel({
     {
       ordersToAccept: home?.orderTotals.accept ?? 0,
       firstAccept: firstAcceptOf(home),
+      stoppedInvoices: home?.stoppedInvoices ?? 0,
       runningOut,
       catalog: home?.catalog ?? [],
       unreadSupportReplies: counts.data?.unreadSupportReplies ?? 0,

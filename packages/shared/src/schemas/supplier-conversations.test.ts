@@ -3,6 +3,8 @@ import { CONVERSATION_CONTACT_REFUSED } from "./contact-guard.ts";
 import {
   createSupplierConversationSchema,
   replySupplierConversationSchema,
+  supplierConversationsSearchSchema,
+  supplierSupportReportSearchSchema,
 } from "./supplier-conversations.ts";
 
 const STORE = "6f1d2c3b-4a5e-4f60-8a7b-9c0d1e2f3a4b";
@@ -50,4 +52,31 @@ describe("conversation messages", () => {
     });
     expect(parsed).toMatchObject({ situation: undefined, orderId: undefined });
   });
+});
+
+describe("supplier queue search", () => {
+  it("keeps the topic the supplier picked", () => {
+    const search = supplierConversationsSearchSchema.parse({ assunto: "cancellation" });
+
+    expect(search.assunto).toBe("cancellation");
+  });
+
+  it("drops a topic that does not exist instead of breaking the page", () => {
+    const search = supplierConversationsSearchSchema.parse({ assunto: "refund" });
+
+    expect(search.assunto).toBeUndefined();
+  });
+});
+
+describe("supplier report search", () => {
+  it("reads the period from the URL", () => {
+    expect(supplierSupportReportSearchSchema.parse({ dias: "7" }).dias).toBe(7);
+  });
+
+  it.each([[{}], [{ dias: "45" }], [{ dias: "trinta" }]])(
+    "falls back to 30 days for %o",
+    (search) => {
+      expect(supplierSupportReportSearchSchema.parse(search).dias).toBe(30);
+    },
+  );
 });
