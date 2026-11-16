@@ -10,8 +10,9 @@ import { createServerColumnHelper, DataTable } from "@/components/data/data-tabl
 import { PaginationBar } from "@/components/data/pagination-bar";
 import { SmartDate } from "@/components/data/smart-date";
 import { SupplierConversationActions } from "@/components/supplier-support/supplier-conversation-actions";
-import { UnreadDot } from "@/components/support/ticket-badges";
+import { UnreadSubject, unreadSubjectClass } from "@/components/support/ticket-badges";
 import { TicketStatusBadge } from "@/components/support/ticket-status-badge";
+import { cn } from "@/lib/utils";
 
 /** Who the conversation is with, in the reader's terms: the brand for a store, the store for a brand. */
 function counterpartLine(row: ConversationSummary, side: ConversationSide): string {
@@ -39,27 +40,29 @@ function aboutLine(row: ConversationSummary): ReactNode {
   );
 }
 
+const UNREAD_LABEL = "Mensagem nova";
+
+/** The unread message has its dot beside the subject, so the status always shows here. */
 function ConversationState({ row, side }: { row: ConversationSummary; side: ConversationSide }) {
-  if (row.hasUnread) {
-    return <UnreadDot label="Mensagem nova" />;
-  }
   return <TicketStatusBadge status={row.status} labels={CONVERSATION_STATUS_LABELS[side]} />;
 }
 
 function ConversationSubject({ row, side }: { row: ConversationSummary; side: ConversationSide }) {
   return (
-    <div className="space-y-0.5">
-      <Link
-        to="/suporte/conversas/$ticketId"
-        params={{ ticketId: row.id }}
-        className="font-medium underline-offset-4 hover:underline"
-      >
-        {row.subject}
-      </Link>
-      <p className="text-sm text-muted-foreground">
-        {counterpartLine(row, side)} · {aboutLine(row)}
-      </p>
-    </div>
+    <UnreadSubject unread={row.hasUnread} label={UNREAD_LABEL} hanging>
+      <div className="space-y-0.5">
+        <Link
+          to="/suporte/conversas/$ticketId"
+          params={{ ticketId: row.id }}
+          className={cn(unreadSubjectClass(row.hasUnread), "underline-offset-4 hover:underline")}
+        >
+          {row.subject}
+        </Link>
+        <p className="text-sm text-muted-foreground">
+          {counterpartLine(row, side)} · {aboutLine(row)}
+        </p>
+      </div>
+    </UnreadSubject>
   );
 }
 
@@ -74,18 +77,18 @@ function MobileConversationRow({
     return <MobileSupplierRow row={row} />;
   }
   return (
-    <Link
-      to="/suporte/conversas/$ticketId"
-      params={{ ticketId: row.id }}
-      className="block space-y-1.5"
-    >
-      <div className="flex items-start justify-between gap-3">
-        <p className="min-w-0 font-medium">{row.subject}</p>
-        <ConversationState row={row} side={side} />
-      </div>
-      <p className="text-xs text-muted-foreground">
-        {counterpartLine(row, side)} · {aboutLine(row)} · <SmartDate date={row.updatedAt} />
-      </p>
+    <Link to="/suporte/conversas/$ticketId" params={{ ticketId: row.id }} className="block">
+      <UnreadSubject unread={row.hasUnread} label={UNREAD_LABEL}>
+        <div className="space-y-1.5">
+          <div className="flex items-start justify-between gap-3">
+            <p className={cn("min-w-0", unreadSubjectClass(row.hasUnread))}>{row.subject}</p>
+            <ConversationState row={row} side={side} />
+          </div>
+          <p className="text-xs text-muted-foreground">
+            {counterpartLine(row, side)} · {aboutLine(row)} · <SmartDate date={row.updatedAt} />
+          </p>
+        </div>
+      </UnreadSubject>
     </Link>
   );
 }
@@ -93,24 +96,30 @@ function MobileConversationRow({
 /** The supplier acts from the card, so only the subject opens the conversation. */
 function MobileSupplierRow({ row }: { row: ConversationSummary }) {
   return (
-    <div className="space-y-3">
-      <div className="space-y-1.5">
-        <div className="flex items-start justify-between gap-3">
-          <Link
-            to="/suporte/conversas/$ticketId"
-            params={{ ticketId: row.id }}
-            className="min-w-0 font-medium underline-offset-4 hover:underline"
-          >
-            {row.subject}
-          </Link>
-          <ConversationState row={row} side="supplier" />
+    <UnreadSubject unread={row.hasUnread} label={UNREAD_LABEL}>
+      <div className="space-y-3">
+        <div className="space-y-1.5">
+          <div className="flex items-start justify-between gap-3">
+            <Link
+              to="/suporte/conversas/$ticketId"
+              params={{ ticketId: row.id }}
+              className={cn(
+                "min-w-0 underline-offset-4 hover:underline",
+                unreadSubjectClass(row.hasUnread),
+              )}
+            >
+              {row.subject}
+            </Link>
+            <ConversationState row={row} side="supplier" />
+          </div>
+          <p className="text-xs text-muted-foreground">
+            {counterpartLine(row, "supplier")} · {aboutLine(row)} ·{" "}
+            <SmartDate date={row.updatedAt} />
+          </p>
         </div>
-        <p className="text-xs text-muted-foreground">
-          {counterpartLine(row, "supplier")} · {aboutLine(row)} · <SmartDate date={row.updatedAt} />
-        </p>
+        <SupplierConversationActions conversation={row} size="touch" />
       </div>
-      <SupplierConversationActions conversation={row} size="touch" />
-    </div>
+    </UnreadSubject>
   );
 }
 
