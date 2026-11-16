@@ -16,6 +16,7 @@ vi.mock("@sellbridge/database/repositories", () => ({
 }));
 
 import { createDatabase } from "@sellbridge/database/client";
+import { logger } from "@sellbridge/shared/logger";
 import type { ShipmentPayment, SupplierPaymentAccount } from "@sellbridge/database/repositories";
 import type { MercadoPagoContext } from "./context.ts";
 import { reconcileShipmentPayment } from "./payment-reconcile.ts";
@@ -124,6 +125,7 @@ beforeEach(() => {
 afterEach(() => {
   vi.unstubAllGlobals();
   vi.resetAllMocks();
+  vi.restoreAllMocks();
 });
 
 describe("syncMercadoPagoPayment", () => {
@@ -200,6 +202,34 @@ describe("syncMercadoPagoPayment", () => {
     expect(mocks.apply).toHaveBeenCalledWith(
       context.database,
       expect.objectContaining({ status: "refunded" }),
+    );
+  });
+});
+
+describe("a second approval of a paid parcel", () => {
+  test("goes to the team's Problemas page on its own row, in Portuguese", async () => {
+    const errors = vi.spyOn(logger, "error");
+    mocks.findPayment.mockResolvedValue({
+      ...parcel,
+      status: "approved",
+      amountCents: 5990,
+      providerPaymentId: "111",
+    });
+    mocks.apply.mockResolvedValue({
+      kind: "duplicate",
+      payment: { ...parcel, status: "approved", amountCents: 5990, providerPaymentId: "111" },
+    });
+    mercadoPagoAnswers(remotePayment(), { "pref-first": [987654321] });
+
+    await syncMercadoPagoPayment(context, { account, providerPaymentId: "987654321" });
+
+    expect(errors).toHaveBeenCalledWith(
+      "mercado_pago.duplicate_payment",
+      expect.objectContaining({
+        problemKey: PAYMENT_ROW_ID,
+        reason: expect.stringContaining("Pagamento em dobro"),
+        duplicatePaymentId: "987654321",
+      }),
     );
   });
 });

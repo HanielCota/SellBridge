@@ -7,6 +7,7 @@ import {
   type SupplierPaymentAccount,
 } from "@sellbridge/database/repositories";
 import { logger } from "@sellbridge/shared/logger";
+import { formatCents } from "@sellbridge/shared/money";
 import { shipmentPaymentStatusFrom } from "@sellbridge/shared/shipment-payments";
 import { z } from "zod";
 import { supplierAccessToken, UNAUTHORIZED, withSupplierAccount } from "./account-access.ts";
@@ -210,8 +211,13 @@ function logSynced(outcome: { kind: string; payment: ShipmentPayment }, provider
   if (outcome.kind === "duplicate") {
     // Two approved payments for one parcel: the reseller paid twice and must be refunded by hand.
     logger.error("mercado_pago.duplicate_payment", {
+      reason: `Pagamento em dobro ao fornecedor (${formatCents(outcome.payment.amountCents)}): devolva um dos pagamentos ao revendedor à mão no Mercado Pago.`,
+      problemKey: outcome.payment.id,
       shipmentPaymentId: outcome.payment.id,
-      providerPaymentId,
+      shipmentId: outcome.payment.shipmentId,
+      supplierId: outcome.payment.supplierId,
+      recordedPaymentId: outcome.payment.providerPaymentId,
+      duplicatePaymentId: providerPaymentId,
     });
   }
   logger.info("mercado_pago.payment_synced", {
