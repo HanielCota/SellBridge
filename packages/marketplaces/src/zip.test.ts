@@ -41,6 +41,15 @@ describe("readZipEntries", () => {
     expect(() => readZipEntries(bytes, 1024)).toThrow(InvalidZipError);
   });
 
+  it("refuses an entry whose local header lies past the end of the archive", () => {
+    const archive = zipArchive([{ name: "a.txt", content: "^XA^XZ", deflate: false }]);
+    const data = new DataView(archive.buffer, archive.byteOffset, archive.byteLength);
+    const centralDirectory = data.getUint32(archive.length - 22 + 16, true);
+    data.setUint32(centralDirectory + 42, archive.length + 1000, true);
+
+    expect(() => readZipEntries(archive, 1024)).toThrow(InvalidZipError);
+  });
+
   it("refuses a ZIP cut short", () => {
     const archive = zipArchive([{ name: "a.txt", content: "^XA".repeat(50), deflate: false }]);
     const cut = archive.subarray(0, 40);

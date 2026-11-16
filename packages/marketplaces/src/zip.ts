@@ -45,7 +45,10 @@ function endOfDirectoryOffset(bytes: Uint8Array): number {
 
 function entryData(bytes: Uint8Array, header: CentralHeader, maxBytes: number): Uint8Array {
   const data = view(bytes);
-  if (data.getUint32(header.localOffset, true) !== LOCAL_HEADER_SIGNATURE) {
+  if (
+    header.localOffset + LOCAL_HEADER_SIZE > bytes.length ||
+    data.getUint32(header.localOffset, true) !== LOCAL_HEADER_SIGNATURE
+  ) {
     throw new InvalidZipError(`ZIP local header missing for entry ${header.name}`);
   }
   const nameLength = data.getUint16(header.localOffset + 26, true);
