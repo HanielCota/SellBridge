@@ -6,6 +6,12 @@ export * from "./http.ts";
 export * from "./registry.ts";
 export { createMercadoLivreConnector } from "./mercado-livre/mercado-livre-connector.ts";
 export { mapMercadoLivreOrder } from "./mercado-livre/orders.ts";
+export {
+  createMercadoLivreCatalog,
+  type FichaField,
+  type MercadoLivreCatalog,
+  type MercadoLivreCategory,
+} from "./mercado-livre/category-ficha.ts";
 export { readMercadoLivreBuyerBilling, type BuyerBilling } from "./mercado-livre/billing.ts";
 export {
   getMercadoLivreLabel,
