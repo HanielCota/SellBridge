@@ -82,7 +82,7 @@ export function SupportReportPage({
       <FilterTabs
         legend="Período do relatório"
         value={days}
-        tabs={SUPPLIER_REPORT_DAYS.map((value) => ({ value, label: `Últimos ${value} dias` }))}
+        tabs={SUPPLIER_REPORT_DAYS.map((value) => ({ value, label: `${value} dias` }))}
         onChange={onDaysChange}
       />
       <ReportBody days={days} />

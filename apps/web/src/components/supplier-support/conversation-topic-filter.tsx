@@ -31,7 +31,7 @@ export function ConversationTopicFilter({
         onChange(SUPPLIER_CONVERSATION_TOPIC_IDS.find((topic) => topic === next))
       }
     >
-      <SelectTrigger className={cn("h-11 sm:h-9 sm:w-56", className)} aria-label="Assunto">
+      <SelectTrigger className={cn("h-11 w-full sm:h-9 sm:w-56", className)} aria-label="Assunto">
         <SelectValue>
           {value === undefined ? "Todos os assuntos" : SUPPLIER_CONVERSATION_TOPIC_LABELS[value]}
         </SelectValue>

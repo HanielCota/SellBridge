@@ -22,15 +22,23 @@ function TopicLink({ row }: { row: SubjectRow }) {
   );
 }
 
+/** "3 recebidas · primeira resposta 2h · voltaram 1 de 2", leaving out what has no number. */
+function mobileSummary(row: SubjectRow): string {
+  const parts = [`${count.format(row.received)} ${row.received === 1 ? "recebida" : "recebidas"}`];
+  if (row.firstResponseMinutes !== null) {
+    parts.push(`primeira resposta ${subjectFirstResponseText(row.firstResponseMinutes)}`);
+  }
+  if (row.cameBack.of > 0) {
+    parts.push(`voltaram ${subjectCameBackText(row.cameBack)}`);
+  }
+  return parts.join(" · ");
+}
+
 function MobileSubjectRow({ row }: { row: SubjectRow }) {
   return (
     <div className="space-y-1">
       <TopicLink row={row} />
-      <p className="text-xs text-muted-foreground">
-        {count.format(row.received)} {row.received === 1 ? "recebida" : "recebidas"} · primeira
-        resposta {subjectFirstResponseText(row.firstResponseMinutes)} · voltaram{" "}
-        {subjectCameBackText(row.cameBack)}
-      </p>
+      <p className="text-xs text-muted-foreground">{mobileSummary(row)}</p>
     </div>
   );
 }
@@ -66,9 +74,12 @@ const COLUMNS = columnHelper.columns([
 export function SubjectsTable({ subjects }: { subjects: readonly SubjectRow[] }) {
   return (
     <section aria-labelledby="report-subjects-title" className="space-y-3">
-      <h2 id="report-subjects-title" className="text-subhead font-medium">
-        Por assunto
-      </h2>
+      <div className="space-y-1">
+        <h2 id="report-subjects-title" className="text-subhead font-medium">
+          Por assunto
+        </h2>
+        <p className="text-sm text-muted-foreground">Abra um assunto para ver as conversas dele.</p>
+      </div>
       <DataTable
         columns={COLUMNS}
         data={[...subjects]}

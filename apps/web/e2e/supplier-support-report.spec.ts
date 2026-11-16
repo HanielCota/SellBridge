@@ -136,7 +136,7 @@ test("the supplier narrows its queue by topic and reads how it answers the store
   await expect(figures.getByText("Recebidas")).toBeVisible();
   await expect(figures.getByText("1h", { exact: true })).toBeVisible();
 
-  await supplierPage.getByRole("button", { name: "Últimos 7 dias" }).click();
+  await supplierPage.getByRole("button", { name: "7 dias", exact: true }).click();
   await expect(supplierPage).toHaveURL(/dias=7/);
   await expect(
     supplierPage.getByRole("region", { name: "Números dos últimos 7 dias" }),
