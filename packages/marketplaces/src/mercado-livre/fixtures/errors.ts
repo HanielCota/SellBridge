@@ -162,6 +162,52 @@ export const ERROR_FIXTURES = {
     status: 400,
     cause: [],
   },
+  /**
+   * The package refusals of the official "Atributos" page, section "Atributos de Dimensões do
+   * Pacote" (read on 2026-11-16): cause ids, codes and messages are the page's.
+   */
+  packageMissing: {
+    ...envelope,
+    cause: [
+      {
+        department: "pymes",
+        cause_id: 5400,
+        type: "error",
+        code: "item.attribute.missing.seller.package.dimensions",
+        references: ["item.attributes"],
+        message:
+          "The attributes seller_package_height, seller_package_length, seller_package_width, seller_package_weight are all required",
+      },
+    ],
+  },
+  packageWrongFormat: {
+    ...envelope,
+    cause: [
+      {
+        department: "pymes",
+        cause_id: 5402,
+        type: "error",
+        code: "item.attribute.invalid.format.seller.package.dimensions",
+        references: ["item.attributes"],
+        message:
+          "One or more attributes for seller_package_height, seller_package_length, seller_package_width, seller_package_weight are in the wrong format - only integers are accepted for dimensions and weight, with 'cm' as the unit for dimensions and 'g' as the unit for weight. Examples: 10 g, 10 cm",
+      },
+    ],
+  },
+  packageInvalidValues: {
+    ...envelope,
+    cause: [
+      {
+        department: "pymes",
+        cause_id: 5401,
+        type: "error",
+        code: "item.attribute.invalid.seller.package.dimensions",
+        references: ["item.attributes"],
+        message:
+          "One or more attributes for seller_package_height, seller_package_length, seller_package_width, seller_package_weight have invalid values",
+      },
+    ],
+  },
   /** Older endpoints answer with no `cause` at all. */
   withoutCause: { message: "attribute BRAND is required", error: "bad_request", status: 400 },
 } as const;
