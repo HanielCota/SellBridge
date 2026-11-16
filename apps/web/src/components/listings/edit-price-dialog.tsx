@@ -215,7 +215,7 @@ function MarginShortcuts({
   return (
     <div className="space-y-2">
       <p className="text-sm text-muted-foreground">Margem</p>
-      <div className="grid grid-cols-4 gap-1.5">
+      <div className="grid grid-cols-4 gap-2">
         {MARGIN_SHORTCUTS.map((margin) => {
           const price = shelfPriceForMargin(product, margin, schedule, channels);
           const active = price !== null && price === priceCents;
@@ -358,7 +358,7 @@ function EditPriceForm({ listing, onDone }: { listing: PricedListing; onDone: ()
 export function EditPriceDialog({ open, onOpenChange, listing }: EditPriceDialogProps) {
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="gap-5 sm:max-w-md">
+      <DialogContent className="gap-5 sm:max-w-lg">
         <DialogHeader>
           <DialogTitle className="text-lg">Editar preço</DialogTitle>
           <DialogDescription className="wrap-anywhere">
