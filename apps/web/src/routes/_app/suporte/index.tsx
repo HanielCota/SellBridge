@@ -12,7 +12,11 @@ import { createServerColumnHelper, DataTable } from "@/components/data/data-tabl
 import { SmartDate } from "@/components/data/smart-date";
 import { PaginationBar } from "@/components/data/pagination-bar";
 import { SearchInput } from "@/components/data/search-input";
-import { TicketCategoryLabel, UnreadDot } from "@/components/support/ticket-badges";
+import {
+  TicketCategoryLabel,
+  UnreadSubject,
+  unreadSubjectClass,
+} from "@/components/support/ticket-badges";
 import { TicketStatusBadge } from "@/components/support/ticket-status-badge";
 import { CUSTOMER_TICKET_STATUS_LABELS } from "@/features/support/customer-ticket-state";
 import { EmptyState } from "@/components/feedback/empty-state";
@@ -30,6 +34,7 @@ import { useUrlSearchQuery } from "@/hooks/use-url-search-query";
 import { AUTO_CLOSE_AFTER_DAYS } from "@sellbridge/shared/ticket-rules";
 import { errorMessage } from "@/lib/errors";
 import { prefetchOnServer } from "@/lib/prefetch";
+import { cn } from "@/lib/utils";
 
 export const Route = createFileRoute("/_app/suporte/")({
   validateSearch: ticketsSearchSchema,
@@ -43,16 +48,18 @@ export const Route = createFileRoute("/_app/suporte/")({
 const columnHelper = createServerColumnHelper<TicketSummary>();
 function TicketSubject({ ticket }: { ticket: TicketSummary }) {
   return (
-    <div className="space-y-0.5">
-      <Link
-        to="/suporte/$ticketId"
-        params={{ ticketId: ticket.id }}
-        className="font-medium underline-offset-4 hover:underline"
-      >
-        {ticket.subject}
-      </Link>
-      <AccountTopicLabel category={ticket.category} className="block" />
-    </div>
+    <UnreadSubject unread={ticket.hasUnread} hanging>
+      <div className="space-y-0.5">
+        <Link
+          to="/suporte/$ticketId"
+          params={{ ticketId: ticket.id }}
+          className={cn(unreadSubjectClass(ticket.hasUnread), "underline-offset-4 hover:underline")}
+        >
+          {ticket.subject}
+        </Link>
+        <AccountTopicLabel category={ticket.category} className="block" />
+      </div>
+    </UnreadSubject>
   );
 }
 
@@ -70,11 +77,8 @@ function AccountTopicLabel({
   );
 }
 
-/** A reply you have not read outranks the status: it is what you came here for. */
+/** The unread reply has its dot beside the subject, so the status always shows here. */
 function TicketState({ ticket }: { ticket: TicketSummary }) {
-  if (ticket.hasUnread) {
-    return <UnreadDot />;
-  }
   return <TicketStatusBadge status={ticket.status} labels={CUSTOMER_TICKET_STATUS_LABELS} />;
 }
 
@@ -97,14 +101,18 @@ const columns = columnHelper.columns([
 
 function MobileTicketRow({ row }: { row: TicketSummary }) {
   return (
-    <Link to="/suporte/$ticketId" params={{ ticketId: row.id }} className="block space-y-1.5">
-      <div className="flex items-start justify-between gap-3">
-        <p className="min-w-0 font-medium">{row.subject}</p>
-        <TicketState ticket={row} />
-      </div>
-      <p className="text-xs text-muted-foreground">
-        <AccountTopicLabel category={row.category} /> · <SmartDate date={row.updatedAt} />
-      </p>
+    <Link to="/suporte/$ticketId" params={{ ticketId: row.id }} className="block">
+      <UnreadSubject unread={row.hasUnread}>
+        <div className="space-y-1.5">
+          <div className="flex items-start justify-between gap-3">
+            <p className={cn("min-w-0", unreadSubjectClass(row.hasUnread))}>{row.subject}</p>
+            <TicketState ticket={row} />
+          </div>
+          <p className="text-xs text-muted-foreground">
+            <AccountTopicLabel category={row.category} /> · <SmartDate date={row.updatedAt} />
+          </p>
+        </div>
+      </UnreadSubject>
     </Link>
   );
 }

@@ -155,3 +155,38 @@ test("o Início do fornecedor mostra vendas, mais vendidos e o que precisa dele"
   await expect(page).toHaveURL(/situation=lost/);
   await expect(page.getByText("Nenhuma venda no período.").first()).toBeVisible();
 });
+
+test("as advertências começam na mesma linha da célula No catálogo", async ({ page }) => {
+  const email = await accounts.signUp(page, "Ateliê Alinhamento E2E");
+  const supplierId = await giveTestBrand(database, email, "Ateliê Alinhamento E2E");
+  const [product] = await database
+    .insert(supplierProducts)
+    .values({
+      supplierId,
+      sku: `VES-${randomUUID().slice(0, 8)}`,
+      title: PRODUCT,
+      costCents: 4_000,
+      suggestedPriceCents: 9_900,
+      stock: 6,
+    })
+    .returning({ id: supplierProducts.id });
+  if (!product) throw new Error("Product missing");
+  await sellToday(supplierId, product.id);
+
+  for (const width of [1280, 1490]) {
+    await page.setViewportSize({ width, height: 900 });
+    await gotoHydrated(page, "/fornecedor/painel?period=7d");
+    const flags = page.getByRole("region", { name: "Sua conta" });
+    const catalogCell = page
+      .getByRole("navigation", { name: "Resumo da fila" })
+      .locator(":scope > *")
+      .nth(2);
+    await expect(flags).toBeVisible();
+    await expect(catalogCell).toContainText("No catálogo");
+
+    const flagsBox = await flags.boundingBox();
+    const catalogBox = await catalogCell.boundingBox();
+
+    expect(Math.abs((flagsBox?.x ?? 0) - (catalogBox?.x ?? Number.NaN))).toBeLessThanOrEqual(2);
+  }
+});

@@ -4,6 +4,7 @@ import {
   type HealthMetricDefinition,
 } from "@sellbridge/shared/supplier-panel-health";
 import type { OperationShare } from "@sellbridge/shared/supplier-panel-operation";
+import { formatDuration } from "@/components/supplier-panel/performance/performance-format";
 
 /**
  * The words of the home's "Sua operação" cards. Pure, so every sentence a supplier reads is
@@ -23,12 +24,14 @@ function plural(value: number, one: string, many: string): string {
   return `${count.format(value)} ${value === 1 ? one : many}`;
 }
 
-/** "7,5%", or a dash when there is nothing to count. */
+/** "7,5%"; "0%" when there is nothing to count, with the line under it saying so. */
 export function formatShareRate(share: OperationShare): string {
-  if (share.rate === null) {
-    return "—";
-  }
-  return percent.format(share.rate);
+  return percent.format(share.rate ?? 0);
+}
+
+/** "6 h 40 min"; "0 min" without any dispatch, with the line under it saying so. */
+export function formatAverageDispatchTime(averageMilliseconds: number | null): string {
+  return formatDuration(averageMilliseconds ?? 0);
 }
 
 /** "3 de 40 envios", or what is missing when nothing counted yet. */

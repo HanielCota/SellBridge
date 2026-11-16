@@ -19,8 +19,8 @@ import { HintedText } from "@/components/ui/hint";
 import { teamNoticesQueryOptions } from "@/features/supplier-panel/home/team-notices.queries";
 import { cn } from "@/lib/utils";
 import {
-  formatHealthValue,
   HEALTH_LEVEL_TONES,
+  homeMetricValue,
   LEVEL_TEXT_CLASSES,
   levelSentence,
   metricHint,
@@ -37,10 +37,8 @@ function SeeButton({ href, label }: { href: string; label: string }) {
   );
 }
 
-/** A metric off target shows its value in the level's color; a short sample shows a dash. */
+/** A metric off target shows its value in the level's color; one that does not count yet is gray. */
 function MetricTile({ metric }: { metric: HealthMetric }) {
-  const value =
-    metric.level === "insufficient" ? "—" : formatHealthValue(metric.definition, metric.value);
   return (
     <div className="space-y-0.5">
       <p
@@ -48,9 +46,10 @@ function MetricTile({ metric }: { metric: HealthMetric }) {
           "text-xl font-semibold tabular-nums",
           metric.level === "yellow" && "text-amber-700 dark:text-amber-300",
           metric.level === "red" && "text-destructive",
+          metric.level === "insufficient" && "text-muted-foreground",
         )}
       >
-        {value}
+        {homeMetricValue(metric)}
       </p>
       <HintedText
         label={metricHint(metric)}
@@ -64,7 +63,7 @@ function MetricTile({ metric }: { metric: HealthMetric }) {
 
 function PerformanceBlock({ health, href }: { health: SupplierHealth; href: string }) {
   return (
-    <div className="min-w-0 space-y-3.5 px-5 py-4.5 sm:flex-[2_1_0%]">
+    <div className="min-w-0 space-y-3.5 px-4 py-4.5 sm:col-span-2 sm:px-5">
       <div className="flex items-center gap-2.5">
         <span
           aria-hidden="true"
@@ -131,7 +130,7 @@ function FlagsBlock({
   return (
     <section
       aria-label="Sua conta"
-      className="min-w-0 space-y-3 border-t sm:flex-[1_1_0%] border-border px-5 py-4.5 sm:border-t-0 sm:border-l"
+      className="min-w-0 space-y-3 border-t border-border px-4 py-4.5 sm:border-t-0 sm:border-l sm:px-5"
     >
       <div className="flex items-center gap-2.5">
         {clear ? (
@@ -170,7 +169,10 @@ function FlagsBlock({
   );
 }
 
-/** The account's health as the first section of the home's list: performance, then flags. */
+/**
+ * The account's health as the first section of the home's list: performance, then flags. The
+ * same three columns as the summary under it, so the flags start on the "No catálogo" line.
+ */
 export function HomeHealthSection({
   supplierId,
   health,
@@ -185,7 +187,7 @@ export function HomeHealthSection({
   highlighted: boolean;
 }) {
   return (
-    <div className="flex flex-col border-b border-border sm:flex-row">
+    <div className="flex flex-col border-b border-border sm:grid sm:grid-cols-3">
       <PerformanceBlock health={health} href={performanceHref} />
       <FlagsBlock supplierId={supplierId} active={active} highlighted={highlighted} />
     </div>
