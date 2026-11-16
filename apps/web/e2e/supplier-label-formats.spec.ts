@@ -233,9 +233,15 @@ test("o fornecedor baixa a etiqueta em ZPL, de um pedido e em lote", async ({ pa
   await expect(
     panel.getByRole("button", { name: "Reimprimir etiqueta do marketplace" }),
   ).toBeVisible();
-  const overflowInPixels = await panel.evaluate(
-    (element) => element.scrollWidth - element.clientWidth,
-  );
+  const overflowInPixels = await panel.evaluate((element) => {
+    const style = getComputedStyle(element);
+    const borders =
+      Number.parseFloat(style.borderLeftWidth) + Number.parseFloat(style.borderRightWidth);
+    // A phone draws the scrollbar over the content; the CI's desktop browser takes its width,
+    // which read as a steady 7 px of overflow with the button wrapped.
+    const scrollbar = element.offsetWidth - element.clientWidth - borders;
+    return element.scrollWidth - element.clientWidth - scrollbar;
+  });
   // One pixel is sub-pixel rounding; the unwrapped button overflowed by about 30.
   expect(overflowInPixels).toBeLessThanOrEqual(1);
 });
