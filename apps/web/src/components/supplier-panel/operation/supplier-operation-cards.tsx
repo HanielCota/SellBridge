@@ -10,6 +10,7 @@ import { ErrorState } from "@/components/feedback/error-state";
 import { BreakdownSection } from "@/components/reports/breakdown-section";
 import {
   cancellationWarning,
+  formatAverageDispatchTime,
   formatMonth,
   formatOrders,
   formatShareDetail,
@@ -26,7 +27,6 @@ import {
 import { errorMessage } from "@/lib/errors";
 import { cn } from "@/lib/utils";
 import { Skeleton } from "@/components/ui/skeleton";
-import { formatDuration } from "../performance/performance-format";
 
 const count = new Intl.NumberFormat("pt-BR");
 
@@ -71,7 +71,6 @@ function OperationRatesCard({
   rates: SupplierOperationData["rates"];
   resellers: number;
 }) {
-  const average = rates.averageDispatchMilliseconds;
   return (
     <BreakdownSection
       title="Sua operação no período"
@@ -101,7 +100,7 @@ function OperationRatesCard({
         />
         <Figure
           label="Tempo até enviar"
-          value={average === null ? "—" : formatDuration(average)}
+          value={formatAverageDispatchTime(rates.averageDispatchMilliseconds)}
           detail={dispatchTimeDetail(rates.dispatchedParcels)}
         />
         <Figure
