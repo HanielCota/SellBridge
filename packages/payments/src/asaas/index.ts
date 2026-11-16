@@ -27,3 +27,41 @@ export {
   readAsaasWebhookEvent,
   type AsaasWebhookEvent,
 } from "./webhook.ts";
+export {
+  AsaasAccountUnavailableError,
+  supplierAccountClient,
+  withAsaasAccount,
+} from "./account-access.ts";
+export {
+  AsaasAccountKeyMissingError,
+  openAsaasAccount,
+  PROTECTION_MISSING,
+  protectAsaasAccount,
+  refreshAsaasReview,
+  type AsaasAccountReview,
+} from "./account-opening.ts";
+export {
+  CHARGE_DUE_IN_DAYS,
+  openAsaasCharge,
+  type AsaasPayer,
+  type ChargeOpening,
+} from "./charge-opening.ts";
+export {
+  applyAsaasCharge,
+  reconcileAsaasParcel,
+  syncAsaasCharge,
+  type AsaasSyncResult,
+} from "./charge-sync.ts";
+export type { AsaasContext } from "./context.ts";
+export {
+  RETRY_UNCONFIRMED_AFTER_IN_MS,
+  settleHeldPayment,
+  type HeldMoneyOutcome,
+} from "./held-money.ts";
+export {
+  asaasEnvironmentFields,
+  asaasSettingsFrom,
+  refuseAsaasStandInsInProduction,
+  type AsaasEnvironment,
+  type AsaasSettings,
+} from "./settings.ts";

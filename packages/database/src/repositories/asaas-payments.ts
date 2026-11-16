@@ -158,3 +158,19 @@ export async function saveShipmentPaymentEscrow(
     })
     .where(eq(shipmentPayments.id, input.paymentId));
 }
+
+/** Puts back in service an account whose protection was missing and is now on. */
+export async function markAsaasAccountProtected(
+  database: Database,
+  accountId: string,
+): Promise<void> {
+  await database
+    .update(supplierPaymentAccounts)
+    .set({ status: "connected", lastError: null })
+    .where(
+      and(
+        eq(supplierPaymentAccounts.id, accountId),
+        eq(supplierPaymentAccounts.lastError, "protection_missing"),
+      ),
+    );
+}
