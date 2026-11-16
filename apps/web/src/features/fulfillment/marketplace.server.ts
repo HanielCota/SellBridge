@@ -8,7 +8,9 @@ import {
 } from "@sellbridge/marketplaces";
 import type { LabelFormat } from "@sellbridge/shared/schemas";
 import { conflictError, notFoundError } from "@sellbridge/shared/errors";
-import { orders, orderShipments, storeConnections } from "@sellbridge/database/schema";
+import { findOrderLabelParcels } from "@sellbridge/database/repositories";
+import { orders, storeConnections } from "@sellbridge/database/schema";
+import { labelSharingRefusal } from "@/features/fulfillment/label-sharing";
 import { isShippingBlocked } from "@/features/fulfillment/shipping-block";
 import { database } from "@/lib/server/database";
 import { mercadoLivreApiConfig, tokenCipher } from "@/lib/server/marketplaces";
@@ -54,14 +56,8 @@ export async function loadMarketplaceShipping(tenantId: string, orderId: string)
 }
 /** The store access for one order's label, after the checks every label passes. */
 async function labelAccess(tenantId: string, orderId: string) {
-  const shipments = await database
-    .select({ id: orderShipments.id })
-    .from(orderShipments)
-    .where(and(eq(orderShipments.tenantId, tenantId), eq(orderShipments.orderId, orderId)));
-  if (shipments.length > 1)
-    throw conflictError(
-      "Este pedido foi dividido entre fornecedores. A etiqueta única do marketplace não pode ser usada em volumes separados; organize a coleta em um único volume ou contrate envios individuais.",
-    );
+  const refusal = labelSharingRefusal(await findOrderLabelParcels(database, tenantId, orderId));
+  if (refusal !== null) throw conflictError(refusal);
   const access = await shippingAccess(tenantId, orderId);
   if (isShippingBlocked(access.orderStatus)) throw conflictError("Pedido sem liberação para envio");
   return access;
