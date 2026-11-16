@@ -117,6 +117,11 @@ export const shipmentPayments = pgTable(
     /** The provider refused the refund for good: the team takes it from here. */
     refundFailedAt: timestamp({ withTimezone: true }),
     refundError: text(),
+    /**
+     * The reseller cancelled after the supplier accepted: no automatic refund, since the supplier
+     * may have posted already. The team was alerted at this time and settles it by hand.
+     */
+    refundHeldAt: timestamp({ withTimezone: true }),
     createdAt: timestamp({ withTimezone: true }).defaultNow().notNull(),
     updatedAt: timestamp({ withTimezone: true })
       .defaultNow()
@@ -145,7 +150,9 @@ export const shipmentPayments = pgTable(
     // The refund job reads paid parcels it has not given up on, the oldest payment first.
     index("shipment_payments_refund_idx")
       .on(table.paidAt)
-      .where(sql`${table.status} = 'approved' and ${table.refundFailedAt} is null`),
+      .where(
+        sql`${table.status} = 'approved' and ${table.refundFailedAt} is null and ${table.refundHeldAt} is null`,
+      ),
     check(
       "shipment_payments_fee_check",
       sql`${table.platformFeeCents} >= 0 and ${table.platformFeeCents} <= ${table.amountCents}`,

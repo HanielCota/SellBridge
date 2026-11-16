@@ -1,6 +1,7 @@
 import type { Database } from "@sellbridge/database";
 import {
   findSupplierPaymentAccount,
+  holdShipmentPaymentRefund,
   listShipmentPaymentRefundCandidates,
   listShipmentPaymentsToReconcile,
   markShipmentPaymentChecked,
@@ -17,6 +18,7 @@ import {
   type MercadoPagoSettings,
 } from "@sellbridge/payments/mercado-pago";
 import { logger } from "@sellbridge/shared/logger";
+import { formatCents } from "@sellbridge/shared/money";
 import { supplierPaymentRefundReason } from "@sellbridge/shared/shipment-payments";
 import type { TokenCipher } from "@sellbridge/shared/token-cipher";
 
@@ -39,6 +41,8 @@ export interface SupplierPaymentRound {
   checked: number;
   refundsRequested: number;
   refundsRefused: number;
+  /** Cancelled by the reseller after the supplier accepted: left to the team, not refunded. */
+  refundsHeld: number;
 }
 
 /** Each supplier's linked account, read once per round. */
@@ -109,18 +113,57 @@ function refundReasonOf(candidate: RefundCandidate, now: Date) {
 }
 
 /**
+ * The reseller cancelled after the supplier accepted, and no refund was asked for yet: the
+ * supplier may have posted the parcel, so the team checks before any money goes back.
+ */
+function leftToTheTeam(candidate: RefundCandidate): boolean {
+  return candidate.cancelledByResellerAfterAccept && candidate.payment.refundRequestedAt === null;
+}
+
+/** Holds the parcel's money and alerts the team on Problemas, the first time only. */
+async function holdForTheTeam(
+  database: Database,
+  input: { candidate: RefundCandidate; now: Date },
+): Promise<boolean> {
+  const { payment } = input.candidate;
+  const firstTime = await holdShipmentPaymentRefund(database, {
+    paymentId: payment.id,
+    now: input.now,
+  });
+  if (!firstTime) {
+    return false;
+  }
+  logger.error("mercado_pago.refund_held", {
+    reason: `Envio do pedido ${input.candidate.orderNumber} cancelado pelo revendedor depois que o fornecedor aceitou (${formatCents(payment.amountCents)} pagos ao fornecedor). Confira com o fornecedor se ele já postou; se não postou, devolva o valor ao revendedor à mão no Mercado Pago.`,
+    problemKey: payment.id,
+    shipmentPaymentId: payment.id,
+    shipmentId: payment.shipmentId,
+    supplierId: payment.supplierId,
+    tenantId: input.candidate.tenantId,
+    orderId: input.candidate.orderId,
+  });
+  return true;
+}
+
+/**
  * Gives the reseller's money back for paid parcels the supplier did not ship in time, or that
- * were cancelled or came back. A refused refund deactivates the supplier.
+ * were cancelled or came back. A refused refund deactivates the supplier. A parcel the reseller
+ * cancelled after the supplier accepted is left to the team instead.
  */
 async function refundDuePayments(
   context: MercadoPagoContext,
   input: { loadAccount: LoadAccount; now: Date; requestStockSync: () => Promise<void> },
-): Promise<Pick<SupplierPaymentRound, "refundsRequested" | "refundsRefused">> {
+): Promise<Omit<SupplierPaymentRound, "checked">> {
   const candidates = await listShipmentPaymentRefundCandidates(context.database, {
     limit: SUPPLIER_PAYMENT_BATCH,
   });
-  const round = { refundsRequested: 0, refundsRefused: 0 };
+  const round = { refundsRequested: 0, refundsRefused: 0, refundsHeld: 0 };
   for (const candidate of candidates) {
+    if (leftToTheTeam(candidate)) {
+      const held = await holdForTheTeam(context.database, { candidate, now: input.now });
+      round.refundsHeld += held ? 1 : 0;
+      continue;
+    }
     const reason = refundReasonOf(candidate, input.now);
     if (reason === null) {
       continue;
@@ -151,7 +194,7 @@ export function createSupplierPaymentProcessor(dependencies: SupplierPaymentDepe
   return async function processSupplierPayments(): Promise<SupplierPaymentRound> {
     const { settings } = dependencies;
     if (settings === null) {
-      return { checked: 0, refundsRequested: 0, refundsRefused: 0 };
+      return { checked: 0, refundsRequested: 0, refundsRefused: 0, refundsHeld: 0 };
     }
     const context = { database: dependencies.database, cipher: dependencies.cipher, settings };
     const now = dependencies.now?.() ?? new Date();
@@ -163,7 +206,8 @@ export function createSupplierPaymentProcessor(dependencies: SupplierPaymentDepe
       requestStockSync: dependencies.requestStockSync,
     });
     const round = { checked, ...refunds };
-    if (checked > 0 || refunds.refundsRequested > 0 || refunds.refundsRefused > 0) {
+    const anyRefund = refunds.refundsRequested + refunds.refundsRefused + refunds.refundsHeld > 0;
+    if (checked > 0 || anyRefund) {
       logger.info("mercado_pago.supplier_payments_round", round);
     }
     return round;

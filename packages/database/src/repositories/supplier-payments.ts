@@ -1,4 +1,4 @@
-import type { FulfillmentStatus } from "@sellbridge/shared/schemas";
+import { SHIPMENT_ACTORS, type FulfillmentStatus } from "@sellbridge/shared/schemas";
 import type { ShipmentTiming } from "@sellbridge/shared/shipment-delay";
 import type {
   ShipmentPaymentRefundReason,
@@ -27,6 +27,7 @@ import {
   orderShipments,
   paymentOAuthStates,
   platformSettings,
+  shipmentEvents,
   shipmentPaymentCheckouts,
   shipmentPayments,
   supplierPaymentAccounts,
@@ -726,8 +727,41 @@ export interface RefundCandidate {
   payment: ShipmentPayment;
   tenantId: string;
   orderId: string;
+  /** The marketplace's order number, so the team can find the sale. */
+  orderNumber: string;
   /** The parcel's timing, as `supplierPaymentRefundReason` reads it. */
   timing: ShipmentTiming;
+  /** The reseller cancelled it after the supplier accepted: the supplier may have posted it. */
+  cancelledByResellerAfterAccept: boolean;
+}
+
+/** Steps that mean the supplier took the parcel on. */
+const ACCEPTED_SHIPMENT_STATUSES: FulfillmentStatus[] = ["accepted", "picking", "ready"];
+
+/**
+ * Whether the parcel's latest cancellation came from the reseller while the supplier had it
+ * accepted, picking or ready: the step recorded just before that cancellation says so.
+ */
+function cancelledByResellerAfterAccept() {
+  const statusBeforeCancel = sql`(
+    select prior_event.status from ${shipmentEvents} as prior_event
+    where prior_event.shipment_id = cancel_event.shipment_id
+      and prior_event.status <> 'cancelled'
+      and prior_event.created_at <= cancel_event.created_at
+    order by prior_event.created_at desc
+    limit 1
+  )`;
+  return sql<boolean>`${orderShipments.status} = 'cancelled' and coalesce((
+    select cancel_event.actor = ${SHIPMENT_ACTORS.reseller}
+      and ${statusBeforeCancel} in (${sql.join(
+        ACCEPTED_SHIPMENT_STATUSES.map((status) => sql`${status}`),
+        sql`, `,
+      )})
+    from ${shipmentEvents} as cancel_event
+    where cancel_event.shipment_id = ${orderShipments.id} and cancel_event.status = 'cancelled'
+    order by cancel_event.created_at desc
+    limit 1
+  ), false)`;
 }
 
 /** Parcels still with the supplier, or cancelled or back with it: a refund may be due for these. */
@@ -742,7 +776,8 @@ const REFUNDABLE_SHIPMENT_STATUSES: FulfillmentStatus[] = [
 
 /**
  * Paid parcels the supplier has not shipped, or that were cancelled or came back, whose refund
- * has not failed for good. Cancelled and returned ones come first, then the oldest payments.
+ * has not failed for good nor been held for the team. Cancelled and returned ones come first,
+ * then the oldest payments.
  */
 export async function listShipmentPaymentRefundCandidates(
   database: Database,
@@ -753,6 +788,8 @@ export async function listShipmentPaymentRefundCandidates(
       payment: shipmentPayments,
       tenantId: orderShipments.tenantId,
       orderId: orderShipments.orderId,
+      orderNumber: orders.externalOrderId,
+      cancelledByResellerAfterAccept: cancelledByResellerAfterAccept(),
       status: orderShipments.status,
       dispatchDeadlineAt: orderShipments.dispatchDeadlineAt,
       estimatedDeliveryAt: orderShipments.estimatedDeliveryAt,
@@ -760,11 +797,13 @@ export async function listShipmentPaymentRefundCandidates(
     })
     .from(shipmentPayments)
     .innerJoin(orderShipments, eq(orderShipments.id, shipmentPayments.shipmentId))
+    .innerJoin(orders, eq(orders.id, orderShipments.orderId))
     .innerJoin(suppliers, eq(suppliers.id, orderShipments.supplierId))
     .where(
       and(
         eq(shipmentPayments.status, "approved"),
         isNull(shipmentPayments.refundFailedAt),
+        isNull(shipmentPayments.refundHeldAt),
         inArray(orderShipments.status, REFUNDABLE_SHIPMENT_STATUSES),
       ),
     )
@@ -778,6 +817,8 @@ export async function listShipmentPaymentRefundCandidates(
     payment: row.payment,
     tenantId: row.tenantId,
     orderId: row.orderId,
+    orderNumber: row.orderNumber,
+    cancelledByResellerAfterAccept: row.cancelledByResellerAfterAccept,
     timing: {
       status: row.status,
       dispatchDeadlineAt: row.dispatchDeadlineAt,
@@ -810,10 +851,36 @@ export async function requestShipmentPaymentRefund(
         eq(shipmentPayments.id, input.paymentId),
         eq(shipmentPayments.status, "approved"),
         isNull(shipmentPayments.refundFailedAt),
+        isNull(shipmentPayments.refundHeldAt),
       ),
     )
     .returning();
   return row ?? null;
+}
+
+/**
+ * Records that the parcel's money stays put until the team checks it (the reseller cancelled
+ * after the supplier accepted). True only the first time, so the team is alerted once; false
+ * when a refund was already asked for, or the parcel is no longer paid.
+ */
+export async function holdShipmentPaymentRefund(
+  database: Database,
+  input: { paymentId: string; now: Date },
+): Promise<boolean> {
+  const held = await database
+    .update(shipmentPayments)
+    .set({ refundHeldAt: input.now })
+    .where(
+      and(
+        eq(shipmentPayments.id, input.paymentId),
+        eq(shipmentPayments.status, "approved"),
+        isNull(shipmentPayments.refundHeldAt),
+        isNull(shipmentPayments.refundRequestedAt),
+        isNull(shipmentPayments.refundFailedAt),
+      ),
+    )
+    .returning({ id: shipmentPayments.id });
+  return held.length > 0;
 }
 
 /**

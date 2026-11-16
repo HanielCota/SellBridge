@@ -6,9 +6,12 @@ import {
   forwardOrder,
   savePaymentPreference,
   startShipmentPayment,
+  updateShipment,
   upsertSupplierPaymentAccount,
 } from "@sellbridge/database/repositories";
 import type { MercadoPagoSettings } from "@sellbridge/payments/mercado-pago";
+import { logger } from "@sellbridge/shared/logger";
+import { shipmentUpdateSchema, type FulfillmentStatus } from "@sellbridge/shared/schemas";
 import { eq } from "drizzle-orm";
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 import {
@@ -137,6 +140,7 @@ beforeEach(() => {
 
 afterEach(() => {
   vi.unstubAllGlobals();
+  vi.restoreAllMocks();
 });
 
 /** A fresh supplier with a linked Mercado Pago account and a forwarded, unpaid parcel. */
@@ -228,6 +232,22 @@ async function paidParcel(hoursAgo: number) {
   return { ...parcel, providerPaymentId };
 }
 
+/** Moves the parcel as the supplier or the reseller would, so its history says who did it. */
+async function moveParcel(
+  parcel: { shipment: { id: string }; supplierId: string },
+  status: FulfillmentStatus,
+  by: "supplier" | "reseller",
+): Promise<void> {
+  const access =
+    by === "supplier" ? { supplierId: parcel.supplierId } : { tenantId: tenants.first };
+  const note = status === "cancelled" ? "Comprador desistiu" : "";
+  await updateShipment(
+    database,
+    shipmentUpdateSchema.parse({ shipmentId: parcel.shipment.id, status, note }),
+    access,
+  );
+}
+
 function processor(requestStockSync = vi.fn<() => Promise<void>>(async () => {})) {
   return createSupplierPaymentProcessor({ database, cipher, settings, requestStockSync });
 }
@@ -261,7 +281,7 @@ describe("supplier payment reconciliation", () => {
 
     const round = await run();
 
-    expect(round).toEqual({ checked: 0, refundsRequested: 0, refundsRefused: 0 });
+    expect(round).toEqual({ checked: 0, refundsRequested: 0, refundsRefused: 0, refundsHeld: 0 });
     expect(fetch).not.toHaveBeenCalled();
   });
 });
@@ -368,5 +388,49 @@ describe("automatic refund", () => {
     expect(saved?.status).toBe("refunded");
     expect(supplier?.active).toBe(true);
     expect(fake.refundKeys).toEqual([`refund-${parcel.payment.id}`, `refund-${parcel.payment.id}`]);
+  });
+
+  it("leaves a parcel the reseller cancelled after the supplier accepted to the team", async () => {
+    const parcel = await paidParcel(1);
+    await moveParcel(parcel, "accepted", "supplier");
+    await moveParcel(parcel, "cancelled", "reseller");
+    const alerts = vi.spyOn(logger, "error");
+    const run = processor();
+
+    const first = await run();
+    const second = await run();
+
+    const saved = await findShipmentPaymentById(database, parcel.payment.id);
+    const held = alerts.mock.calls.filter(([event]) => event === "mercado_pago.refund_held");
+    expect(fake.refundKeys).toEqual([]);
+    expect(saved?.status).toBe("approved");
+    expect(saved?.refundHeldAt).not.toBeNull();
+    expect(first.refundsHeld).toBe(1);
+    expect(second.refundsHeld).toBe(0);
+    expect(held).toHaveLength(1);
+    expect(held[0]?.[1]).toMatchObject({ problemKey: parcel.payment.id });
+    expect(String(held[0]?.[1]?.reason)).toContain("R$ 20,00");
+  });
+
+  it("still refunds at once when the reseller cancels before the supplier accepts", async () => {
+    const parcel = await paidParcel(1);
+    await moveParcel(parcel, "cancelled", "reseller");
+
+    await processor()();
+
+    const saved = await findShipmentPaymentById(database, parcel.payment.id);
+    expect(saved?.status).toBe("refunded");
+    expect(saved?.refundHeldAt).toBeNull();
+  });
+
+  it("still refunds at once when the supplier cancels a parcel it had accepted", async () => {
+    const parcel = await paidParcel(1);
+    await moveParcel(parcel, "accepted", "supplier");
+    await moveParcel(parcel, "cancelled", "supplier");
+
+    await processor()();
+
+    const saved = await findShipmentPaymentById(database, parcel.payment.id);
+    expect(saved?.status).toBe("refunded");
   });
 });

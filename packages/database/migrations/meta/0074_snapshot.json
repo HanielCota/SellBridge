@@ -1,5 +1,5 @@
 {
-  "id": "c646f63e-b9b1-4010-81c9-07f4c8d3e12e",
+  "id": "7e1d037b-878d-423b-8124-542c1cfcb335",
   "prevId": "0fb12516-d774-4911-88ca-88446b0c0bef",
   "version": "7",
   "dialect": "postgresql",
@@ -7520,6 +7520,12 @@
           "primaryKey": false,
           "notNull": false
         },
+        "refund_held_at": {
+          "name": "refund_held_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": false
+        },
         "created_at": {
           "name": "created_at",
           "type": "timestamp with time zone",
@@ -7599,7 +7605,7 @@
             }
           ],
           "isUnique": false,
-          "where": "\"shipment_payments\".\"status\" = 'approved' and \"shipment_payments\".\"refund_failed_at\" is null",
+          "where": "\"shipment_payments\".\"status\" = 'approved' and \"shipment_payments\".\"refund_failed_at\" is null and \"shipment_payments\".\"refund_held_at\" is null",
           "concurrently": false,
           "method": "btree",
           "with": {}

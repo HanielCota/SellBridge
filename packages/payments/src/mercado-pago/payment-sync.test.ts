@@ -77,6 +77,7 @@ const parcel: ShipmentPayment = {
   refundRequestedAt: null,
   refundFailedAt: null,
   refundError: null,
+  refundHeldAt: null,
   createdAt: new Date(),
   updatedAt: new Date(),
 };
