@@ -65,6 +65,15 @@ describe("Mercado Livre order bounds", () => {
     expect(mapMercadoLivreOrder(orderSchema.parse(base)).refundedCents).toBe(0);
   });
 
+  it("keeps the cart the order was bought in, and none for an order bought alone", () => {
+    const inCart = orderSchema.parse({ ...base, pack_id: 2_000_008_123_456_789 });
+    const alone = orderSchema.parse({ ...base, pack_id: null });
+
+    expect(mapMercadoLivreOrder(inCart).packId).toBe("2000008123456789");
+    expect(mapMercadoLivreOrder(alone).packId).toBeNull();
+    expect(mapMercadoLivreOrder(orderSchema.parse(base)).packId).toBeNull();
+  });
+
   it("reads a blank buyer nickname as no buyer name", () => {
     const blank = orderSchema.parse({ ...base, buyer: { id: 1, nickname: " " } });
     expect(mapMercadoLivreOrder(blank).buyerName).toBeNull();

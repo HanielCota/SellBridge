@@ -137,6 +137,9 @@ export interface EditableProductFields {
   readonly categoryId: string | null;
   readonly imageUrls: readonly string[];
   readonly mercadoLivreAttributes: Readonly<Record<string, string>>;
+  /** Absent where the edit does not carry it (the admin form, the spreadsheet). */
+  readonly mercadoLivreCategoryId?: string | null | undefined;
+  readonly mercadoLivreCategoryName?: string | null | undefined;
   /** Absent where the edit does not carry fiscal data (it is then left as stored). */
   readonly fiscal?: Readonly<Record<string, unknown>>;
 }
@@ -189,6 +192,12 @@ export function changedProductFields(
   }
   if (!sameFiscal(before.fiscal, after.fiscal)) {
     changed.push("fiscal");
+  }
+  if (
+    after.mercadoLivreCategoryId !== undefined &&
+    (before.mercadoLivreCategoryId ?? null) !== after.mercadoLivreCategoryId
+  ) {
+    changed.push("mercadoLivreCategoryId");
   }
   return changed;
 }

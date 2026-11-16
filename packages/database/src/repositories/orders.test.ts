@@ -191,6 +191,16 @@ describe("marketplace orders and sync", () => {
     expect(row?.status).toBe("cancelled");
   });
 
+  it("keeps the cart an order was bought in when a later notification does not say it", async () => {
+    const incoming = { ...incomingOrder("paid", new Date("2026-02-01T10:00:00Z")), packId: "9001" };
+
+    const { orderId } = await upsertMarketplaceOrder(database, tenantA, storeA, incoming);
+    await upsertMarketplaceOrder(database, tenantA, storeA, { ...incoming, packId: undefined });
+
+    const stored = await database.query.orders.findFirst({ where: eq(orders.id, orderId) });
+    expect(stored?.marketplacePackId).toBe("9001");
+  });
+
   it("takes two simultaneous first notifications of an order as one order", async () => {
     const incoming = {
       externalOrderId: `ORD-${randomUUID()}`,

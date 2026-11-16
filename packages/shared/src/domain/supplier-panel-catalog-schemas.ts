@@ -18,6 +18,12 @@ import { supplierImageUrlsSchema } from "./supplier-panel-image-urls.ts";
 /** Every input carries the supplier explicitly; the access layer fills it from the session. */
 const supplierScopeSchema = z.object({ supplierId: z.uuid() });
 
+/** A Brazilian Mercado Livre category id, as `domain_discovery` gives it ("MLB7022"). */
+export const mercadoLivreCategoryIdSchema = z
+  .string()
+  .trim()
+  .regex(/^MLB\d{1,15}$/, "Escolha a categoria do Mercado Livre na lista");
+
 export const CATALOG_SORT_COLUMNS = ["title", "sku", "stock", "costCents", "updatedAt"] as const;
 export type CatalogSortColumn = (typeof CATALOG_SORT_COLUMNS)[number];
 export const CATALOG_STATUS_FILTERS = ["all", ...PRODUCT_REVIEW_STATUSES] as const;
@@ -46,6 +52,9 @@ export const catalogDraftValuesSchema = adminProductValuesSchema.extend({
   title: freeText().trim().max(300).superRefine(refuseSupplierTextContact),
   stock: editedShelfCountSchema,
   imageUrls: supplierImageUrlsSchema,
+  /** The Mercado Livre category the supplier confirmed; left out by older forms. */
+  mercadoLivreCategoryId: mercadoLivreCategoryIdSchema.nullable().optional(),
+  mercadoLivreCategoryName: freeText().trim().min(1).max(200).nullable().optional(),
 });
 export type CatalogDraftValues = z.infer<typeof catalogDraftValuesSchema>;
 

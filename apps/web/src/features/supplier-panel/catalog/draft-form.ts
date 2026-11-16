@@ -62,7 +62,32 @@ export interface PanelFormValues {
   categoryId: string;
   imageUrls: readonly string[];
   attributes: Readonly<Record<string, string>>;
+  /** The Mercado Livre category whose sheet the form asks; null until one is known. */
+  mercadoLivreCategory: MercadoLivreCategoryChoice | null;
   fiscal: ProductFiscalFormValues;
+}
+
+export interface MercadoLivreCategoryChoice {
+  readonly id: string;
+  readonly name: string;
+}
+
+function storedMercadoLivreCategory(
+  product: EditableProductFields | null | undefined,
+): MercadoLivreCategoryChoice | null {
+  const id = product?.mercadoLivreCategoryId ?? null;
+  if (id === null) {
+    return null;
+  }
+  return { id, name: product?.mercadoLivreCategoryName ?? id };
+}
+
+/** Sent only once a category is known, so a form without the sheet never clears one. */
+function mercadoLivreCategoryInput(category: MercadoLivreCategoryChoice | null) {
+  if (category === null) {
+    return {};
+  }
+  return { mercadoLivreCategoryId: category.id, mercadoLivreCategoryName: category.name };
 }
 
 /** The NF-e fields as typed; every one is text, "" while empty. */
@@ -234,6 +259,7 @@ export function panelFormValues(product?: EditableProductFields | null): PanelFo
     categoryId: product?.categoryId ?? "",
     imageUrls: product?.imageUrls ?? [],
     attributes: product?.mercadoLivreAttributes ?? {},
+    mercadoLivreCategory: storedMercadoLivreCategory(product),
     fiscal: productFiscalFormValues(product?.fiscal),
   };
 }
@@ -324,6 +350,7 @@ export function parseDraft(values: PanelFormValues, expectedStock?: number): Dra
     categoryId: values.categoryId === "" ? null : values.categoryId,
     imageUrls: [...values.imageUrls],
     mercadoLivreAttributes: filledAttributes(values.attributes),
+    ...mercadoLivreCategoryInput(values.mercadoLivreCategory),
     fiscal: fiscalCandidate(values.fiscal),
   });
   if (parsed.success && !keepsNegativeShelfOnly(parsed.data.stock, expectedStock)) {

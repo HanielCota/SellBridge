@@ -1,17 +1,25 @@
 import type { StoreStatus } from "@sellbridge/shared/schemas";
+import { useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 import { StorefrontIcon, WarningCircleIcon } from "@phosphor-icons/react";
 import {
-  AdminStoreSupplierDialog,
-  type AdminStoreSupplierTarget,
-} from "@/components/admin/admin-store-supplier-dialog";
+  StoreSupplierDialog,
+  type StoreSupplierActions,
+  type StoreSupplierOption,
+  type StoreSuppliersTarget,
+} from "@/components/stores/store-supplier-dialog";
 import { MarketplaceMark } from "@/components/stores/marketplace-mark";
 import { storeHealth } from "@sellbridge/shared/store-attention";
 import { StoreHealthLine } from "@/components/stores/store-health";
 import { StoreStatusChip } from "@/components/stores/store-status-badge";
 import { ConfirmDialog } from "@/components/feedback/confirm-dialog";
 import { Button } from "@/components/ui/button";
-import { adminDisconnectCustomerStore } from "@/features/admin/customers.functions";
+import {
+  adminAddStoreSupplier,
+  adminDisconnectCustomerStore,
+  adminPreviewStoreSupplierRemoval,
+  adminRemoveStoreSupplier,
+} from "@/features/admin/customers.functions";
 import { SectionCard } from "@/components/layout/section-card";
 import { useAdminAction } from "@/features/admin/use-admin-action";
 
@@ -24,12 +32,14 @@ interface CustomerStore {
   lastError: string | null;
   lastSyncedAt: Date | null;
   lastWebhookAt: Date | null;
-  /** The one supplier the shop sells; null while pending. */
-  supplier: { id: string; name: string } | null;
+  /** The suppliers the shop sells, oldest first; none while pending. */
+  suppliers: readonly StoreSupplierOption[];
 }
 
+const SUPPLIER_LIST_FORMAT = new Intl.ListFormat("pt-BR", { style: "long", type: "conjunction" });
+
 function StoreSupplierLine({ store }: { store: CustomerStore }) {
-  if (store.supplier === null) {
+  if (store.suppliers.length === 0) {
     return (
       <span className="flex items-center gap-1 font-medium text-amber-700 dark:text-amber-400">
         <WarningCircleIcon weight="fill" className="size-3.5" aria-hidden="true" />
@@ -39,7 +49,10 @@ function StoreSupplierLine({ store }: { store: CustomerStore }) {
   }
   return (
     <span>
-      Vende <span className="font-medium text-foreground">{store.supplier.name}</span>
+      Vende{" "}
+      <span className="font-medium text-foreground">
+        {SUPPLIER_LIST_FORMAT.format(store.suppliers.map((supplier) => supplier.name))}
+      </span>
     </span>
   );
 }
@@ -60,11 +73,11 @@ function NoStores() {
 
 function StoreRow({
   store,
-  onChangeSupplier,
+  onManageSuppliers,
   onDisconnect,
 }: {
   store: CustomerStore;
-  onChangeSupplier: () => void;
+  onManageSuppliers: () => void;
   onDisconnect: () => void;
 }) {
   return (
@@ -81,8 +94,11 @@ function StoreRow({
         </p>
       </div>
       <div className="flex shrink-0 flex-col items-end gap-1 sm:flex-row sm:items-center">
-        <Button size="sm" variant="outline" onClick={onChangeSupplier}>
-          {store.supplier === null ? "Escolher fornecedor" : "Trocar fornecedor"}
+        <Button size="sm" variant="outline" onClick={onManageSuppliers}>
+          {store.suppliers.length === 0 ? "Escolher fornecedor" : "Fornecedores"}
+          {store.suppliers.length === 0 ? null : (
+            <span className="sr-only"> de {store.shopName}</span>
+          )}
         </Button>
         <Button size="sm" variant="ghost" onClick={onDisconnect}>
           Desconectar
@@ -96,6 +112,31 @@ function StoreRow({
   );
 }
 
+/** The team managing the suppliers of a customer's shops; every change lands in the timeline. */
+function useCustomerSupplierActions(userId: string): StoreSupplierActions {
+  const queryClient = useQueryClient();
+  return {
+    add: (change) => adminAddStoreSupplier({ data: { userId, ...change } }),
+    remove: (change) => adminRemoveStoreSupplier({ data: { userId, ...change } }),
+    previewRemoval: (change) => adminPreviewStoreSupplierRemoval({ data: { userId, ...change } }),
+    refresh: () => queryClient.invalidateQueries({ queryKey: ["customers"] }),
+    previewKey: "customers",
+    reactivateNote: "se o fornecedor voltar à loja, o cliente pode reativar os anúncios.",
+  };
+}
+
+/** The shop whose suppliers the team manages, read live so the dialog follows each change. */
+function suppliersTargetOf(
+  stores: readonly CustomerStore[],
+  storeId: string | null,
+): StoreSuppliersTarget | null {
+  const store = stores.find((item) => item.id === storeId);
+  if (store === undefined) {
+    return null;
+  }
+  return { storeId: store.id, storeName: store.shopName, suppliers: store.suppliers };
+}
+
 export function CustomerStores({
   userId,
   stores,
@@ -104,7 +145,8 @@ export function CustomerStores({
   stores: readonly CustomerStore[];
 }) {
   const [target, setTarget] = useState<CustomerStore | null>(null);
-  const [supplierTarget, setSupplierTarget] = useState<AdminStoreSupplierTarget | null>(null);
+  const [suppliersStoreId, setSuppliersStoreId] = useState<string | null>(null);
+  const supplierActions = useCustomerSupplierActions(userId);
   const disconnect = useAdminAction(
     (storeConnectionId: string) =>
       adminDisconnectCustomerStore({ data: { userId, storeConnectionId } }),
@@ -114,7 +156,7 @@ export function CustomerStores({
   return (
     <SectionCard
       title="Lojas conectadas"
-      description="Por onde o cliente vende, o fornecedor de cada loja e como está cada conexão."
+      description="Por onde o cliente vende, os fornecedores de cada loja e como está cada conexão."
     >
       {stores.length === 0 ? (
         <NoStores />
@@ -124,14 +166,7 @@ export function CustomerStores({
             <StoreRow
               key={store.id}
               store={store}
-              onChangeSupplier={() =>
-                setSupplierTarget({
-                  userId,
-                  storeId: store.id,
-                  storeName: store.shopName,
-                  currentSupplierId: store.supplier?.id ?? null,
-                })
-              }
+              onManageSuppliers={() => setSuppliersStoreId(store.id)}
               onDisconnect={() => setTarget(store)}
             />
           ))}
@@ -148,7 +183,11 @@ export function CustomerStores({
         isPending={disconnect.isPending}
         onConfirm={() => (target ? disconnect.mutate(target.id) : undefined)}
       />
-      <AdminStoreSupplierDialog target={supplierTarget} onClose={() => setSupplierTarget(null)} />
+      <StoreSupplierDialog
+        target={suppliersTargetOf(stores, suppliersStoreId)}
+        actions={supplierActions}
+        onClose={() => setSuppliersStoreId(null)}
+      />
     </SectionCard>
   );
 }

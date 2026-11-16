@@ -136,7 +136,7 @@ test("um pedido dividido entre fornecedores não mostra etiqueta do Mercado Livr
     { supplierId: otherSupplierId, title: "Bolsa dividida" },
   ]);
 
-  // The supplier's part shows no pending Mercado Livre label.
+  // The supplier's part offers no Mercado Livre label and says to ship with their own freight.
   await gotoHydrated(page, `/fornecedor/painel/pedidos?query=${encodeURIComponent(BUYER)}`);
   await page
     .getByRole("button", { name: `Pedido ${order.externalOrderId}` })
@@ -145,6 +145,8 @@ test("um pedido dividido entre fornecedores não mostra etiqueta do Mercado Livr
   const parcel = page.getByRole("dialog");
   await expect(parcel.getByText("Vestido dividido")).toBeVisible();
   await expect(parcel.getByText("Etiqueta pendente")).toHaveCount(0);
+  await expect(parcel.getByText("Envie com o seu próprio frete")).toBeVisible();
+  await expect(parcel.getByRole("button", { name: /etiqueta do marketplace/ })).toHaveCount(0);
 
   // The reseller reads that each supplier ships its own part.
   const reseller = await (await browser.newContext({ locale: "pt-BR" })).newPage();

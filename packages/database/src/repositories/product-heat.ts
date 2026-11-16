@@ -1,10 +1,38 @@
 import { PRODUCT_HEAT_WINDOW_IN_DAYS } from "@sellbridge/shared/product-heat";
-import { and, eq, gte, inArray, sql } from "drizzle-orm";
+import { and, eq, gte, inArray, sql, type SQL } from "drizzle-orm";
 import type { Database } from "../client.ts";
 import { orderItems, orders } from "../schema/index.ts";
 import { isCountedOrder } from "./sql/counted-orders.ts";
 
 const DAY_IN_MS = 86_400_000;
+
+/** Where the heat window that ends at `now` starts. */
+export function heatWindowStart(now: Date): Date {
+  return new Date(now.getTime() - PRODUCT_HEAT_WINDOW_IN_DAYS * DAY_IN_MS);
+}
+
+/** Orders that count as sales of the heat window starting at `since`. */
+function countedSaleSince(since: Date): SQL | undefined {
+  return and(gte(orders.orderedAt, since), isCountedOrder(orders.status));
+}
+
+/**
+ * Units of each product sold since `since`, summed once over the window's sales, the count of
+ * `countRecentUnitsSold` as a subquery a catalog query can join and sort by. Products without
+ * sales have no row.
+ */
+export function recentUnitsSoldByProduct(database: Database, since: Date) {
+  return database
+    .select({
+      productId: orderItems.supplierProductId,
+      units: sql<number>`sum(${orderItems.quantity})`.as("recent_units"),
+    })
+    .from(orderItems)
+    .innerJoin(orders, eq(orders.id, orderItems.orderId))
+    .where(countedSaleSince(since))
+    .groupBy(orderItems.supplierProductId)
+    .as("recent_sales");
+}
 
 /**
  * Units of each product sold in the heat window, summed over every SellBridge store; products
@@ -21,7 +49,7 @@ export async function countRecentUnitsSold(
   if (productIds.length === 0) {
     return new Map();
   }
-  const since = new Date(now.getTime() - PRODUCT_HEAT_WINDOW_IN_DAYS * DAY_IN_MS);
+  const since = heatWindowStart(now);
   const rows = await database
     .select({
       productId: orderItems.supplierProductId,
@@ -29,13 +57,7 @@ export async function countRecentUnitsSold(
     })
     .from(orderItems)
     .innerJoin(orders, eq(orders.id, orderItems.orderId))
-    .where(
-      and(
-        inArray(orderItems.supplierProductId, [...productIds]),
-        gte(orders.orderedAt, since),
-        isCountedOrder(orders.status),
-      ),
-    )
+    .where(and(inArray(orderItems.supplierProductId, [...productIds]), countedSaleSince(since)))
     .groupBy(orderItems.supplierProductId);
   const unitsByProduct = new Map<string, number>();
   for (const row of rows) {
