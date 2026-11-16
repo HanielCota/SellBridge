@@ -20,6 +20,8 @@ export const ADMIN_ACTIONS = [
   "onboarding_reminder_sent",
   "region_updated",
   "store_supplier_changed",
+  "store_supplier_added",
+  "store_supplier_removed",
   "store_disconnected",
   "issue_assigned",
   "issue_released",
@@ -121,8 +123,13 @@ const ACTION_COPY: Record<AdminAction, (details: AdminEventDetails | null) => st
   onboarding_reminder_sent: () => "Enviou lembrete dos primeiros passos",
   // Kept for the history of accounts changed before the address stopped being asked for.
   region_updated: (details) => `Mudou a região${details?.state ? ` para ${details.state}` : ""}`,
+  // Kept for the history of shops changed while each one sold a single supplier.
   store_supplier_changed: (details) =>
     `Trocou o fornecedor de uma loja${details?.supplierName ? ` para ${details.supplierName}` : ""}`,
+  store_supplier_added: (details) =>
+    `Adicionou ${details?.supplierName ? details.supplierName : "um fornecedor"} a uma loja`,
+  store_supplier_removed: (details) =>
+    `Tirou ${details?.supplierName ? details.supplierName : "um fornecedor"} de uma loja`,
   store_disconnected: () => "Desconectou uma loja",
   issue_assigned: (details) => `Assumiu: ${issueLabel(details)}`,
   issue_released: (details) => `Devolveu à equipe: ${issueLabel(details)}`,

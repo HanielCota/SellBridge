@@ -24,6 +24,15 @@ describe("describeAdminEvent", () => {
     );
   });
 
+  it("names the supplier the team added to or removed from a shop", () => {
+    expect(describeAdminEvent("store_supplier_added", { supplierName: "Rio Pet Atacado" })).toBe(
+      "Adicionou Rio Pet Atacado a uma loja",
+    );
+    expect(describeAdminEvent("store_supplier_removed", { supplierName: "" })).toBe(
+      "Tirou um fornecedor de uma loja",
+    );
+  });
+
   it("falls back for actions it does not know", () => {
     expect(describeAdminEvent("something_new", null)).toBe("Ação do administrador");
   });
