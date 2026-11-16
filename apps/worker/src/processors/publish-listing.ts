@@ -23,6 +23,7 @@ import {
 import { hasErrorCode, userMessageOr } from "@sellbridge/shared/errors";
 import { logger } from "@sellbridge/shared/logger";
 import { readProductFiscal } from "@sellbridge/shared/product-fiscal";
+import { youtubeVideoId } from "@sellbridge/shared/product-sale-terms";
 import { publishListingJobSchema } from "@sellbridge/shared/queues";
 import { UnrecoverableError } from "bullmq";
 import {
@@ -95,6 +96,12 @@ function toPublishProductInput(
     imageUrls: row.product.imageUrls,
     mercadoLivreAttributes: row.product.mercadoLivreAttributes,
     mercadoLivreCategoryId: row.product.mercadoLivreCategoryId,
+    saleTerms: {
+      warrantyType: row.product.warrantyType,
+      warrantyDays: row.product.warrantyDays,
+      madeToOrderDays: row.product.madeToOrderDays,
+    },
+    videoId: row.product.videoUrl === null ? null : youtubeVideoId(row.product.videoUrl),
     packageWeightGrams: readProductFiscal(row.product.fiscal).netWeightGrams,
   };
 }
