@@ -345,20 +345,22 @@ function StaffTicketFilters({
           className={FILTER_SELECT_CLASSES}
         />
         <OptionFilter
-          label="Filtrar por prioridade"
-          allLabel="Todas as prioridades"
-          value={search.priority}
-          options={TICKET_PRIORITIES}
-          labels={TICKET_PRIORITY_LABELS}
-          onChange={(priority) => onChange({ priority })}
-        />
-        <OptionFilter
           label="Filtrar por tema"
           allLabel="Todos os temas"
           value={search.category}
           options={TICKET_CATEGORIES}
           labels={TICKET_CATEGORY_LABELS}
           onChange={(category) => onChange({ category })}
+        />
+        {/* The longest label last: on a phone the first two fit whole and this one peeks out at
+            the edge, showing the row goes on. */}
+        <OptionFilter
+          label="Filtrar por prioridade"
+          allLabel="Todas as prioridades"
+          value={search.priority}
+          options={TICKET_PRIORITIES}
+          labels={TICKET_PRIORITY_LABELS}
+          onChange={(priority) => onChange({ priority })}
         />
       </FilterRow>
     </PinnedToolbar>
