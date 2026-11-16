@@ -14,6 +14,7 @@ import {
 } from "./finance.ts";
 import { conflictError, validationError } from "../runtime/errors.ts";
 import { LISTING_MAX_PRICE_CENTS } from "../schemas/stores.ts";
+import type { ShippingPriceBand } from "./mercado-livre-shipping.ts";
 import { formatCents, type Cents } from "./money.ts";
 
 /**
@@ -57,15 +58,61 @@ export function onChannel(schedule: FeeSchedule, channel: FeeChannel): FeeSchedu
   return { ...schedule, channel };
 }
 
+/**
+ * Mercado Livre's own numbers for the product on the reseller's store, read with its account:
+ * they replace the configured commission and the published shipping table.
+ */
+export interface MercadoLivreStoreRates {
+  /** The commission for the product's category, in basis points. */
+  commissionBasisPoints: number;
+  /** The shipping the store pays for the product's package, per price band, in price order. */
+  shippingBands: readonly ShippingPriceBand[];
+}
+
 export interface SaleEstimateInput {
   priceCents: Cents;
   costCents: Cents;
   categoryId?: string | null;
   /** The product's weight in grams; null or absent uses the schedule's default. */
   weightGrams?: number | null;
+  /** Read from the store; null or absent uses the schedule and the published table. */
+  mercadoLivreRates?: MercadoLivreStoreRates | null;
 }
 
 type ProductFeeInput = Omit<SaleEstimateInput, "priceCents">;
+
+function costlierBands(
+  current: readonly ShippingPriceBand[],
+  other: readonly ShippingPriceBand[],
+): ShippingPriceBand[] {
+  return current.map((band, index) => {
+    const otherBand = other[index];
+    if (otherBand === undefined || otherBand.fromCents !== band.fromCents) {
+      throw new Error(`Shipping bands differ at band ${index}`);
+    }
+    return { ...band, shippingCents: Math.max(band.shippingCents, otherBand.shippingCents) };
+  });
+}
+
+/**
+ * One product sold on several Mercado Livre stores: the highest commission and, band by band,
+ * the highest shipping among them, so no store does worse than the preview shows. Null for none.
+ */
+export function costliestMercadoLivreRates(
+  rates: readonly MercadoLivreStoreRates[],
+): MercadoLivreStoreRates | null {
+  const [first, ...rest] = rates;
+  if (first === undefined) {
+    return null;
+  }
+  return rest.reduce<MercadoLivreStoreRates>(
+    (costliest, store) => ({
+      commissionBasisPoints: Math.max(costliest.commissionBasisPoints, store.commissionBasisPoints),
+      shippingBands: costlierBands(costliest.shippingBands, store.shippingBands),
+    }),
+    first,
+  );
+}
 
 function mercadoLivreCommissionFor(
   categoryId: string | null | undefined,
@@ -86,6 +133,14 @@ function weightOf(input: ProductFeeInput, schedule: FeeSchedule): number {
 }
 
 function feeContextOf(input: ProductFeeInput, schedule: FeeSchedule): ChannelFeeContext {
+  const rates = input.mercadoLivreRates;
+  if (rates !== null && rates !== undefined) {
+    return {
+      mercadoLivreCommissionBasisPoints: rates.commissionBasisPoints,
+      weightGrams: weightOf(input, schedule),
+      mercadoLivreShippingBands: rates.shippingBands,
+    };
+  }
   return {
     mercadoLivreCommissionBasisPoints: mercadoLivreCommissionFor(input.categoryId, schedule),
     weightGrams: weightOf(input, schedule),
@@ -279,6 +334,7 @@ export interface PricedProduct {
   costCents: Cents;
   categoryId?: string | null;
   weightGrams?: number | null;
+  mercadoLivreRates?: MercadoLivreStoreRates | null;
 }
 
 /** The first product of a batch under its floor on some channel, named; else null. */
