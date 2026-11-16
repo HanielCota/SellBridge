@@ -1,5 +1,5 @@
 import { z } from "zod";
-import type { MercadoPagoSettings } from "./mercado-pago-connection";
+import type { MercadoPagoSettings } from "./settings.ts";
 
 /**
  * The calls SellBridge makes to Mercado Pago, from its official docs:

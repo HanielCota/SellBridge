@@ -12,6 +12,7 @@
   "dependencies": {
     "@sellbridge/database": "workspace:*",
     "@sellbridge/marketplaces": "workspace:*",
+    "@sellbridge/payments": "workspace:*",
     "@sellbridge/shared": "workspace:*",
     "bullmq": "^6.3.14",
     "drizzle-orm": "^0.45.4",

@@ -61,40 +61,6 @@ export const MERCADO_PAGO_OUTCOME_MESSAGES: Readonly<
   },
 };
 
-export interface MercadoPagoSettings {
-  readonly clientId: string;
-  readonly clientSecret: string;
-  readonly webhookSecret: string;
-  readonly testMode: boolean;
-  readonly apiUrl: string;
-  readonly authUrl: string;
-}
-
-/** The application's settings, or null while any key is missing (the feature is off). */
-export function mercadoPagoSettingsFrom(environment: {
-  MERCADO_PAGO_CLIENT_ID?: string | undefined;
-  MERCADO_PAGO_CLIENT_SECRET?: string | undefined;
-  MERCADO_PAGO_WEBHOOK_SECRET?: string | undefined;
-  MERCADO_PAGO_TEST_MODE: boolean;
-  MERCADO_PAGO_API_URL: string;
-  MERCADO_PAGO_AUTH_URL: string;
-}): MercadoPagoSettings | null {
-  const clientId = environment.MERCADO_PAGO_CLIENT_ID;
-  const clientSecret = environment.MERCADO_PAGO_CLIENT_SECRET;
-  const webhookSecret = environment.MERCADO_PAGO_WEBHOOK_SECRET;
-  if (clientId == null || clientSecret == null || webhookSecret == null) {
-    return null;
-  }
-  return {
-    clientId,
-    clientSecret,
-    webhookSecret,
-    testMode: environment.MERCADO_PAGO_TEST_MODE,
-    apiUrl: environment.MERCADO_PAGO_API_URL.replace(/\/+$/, ""),
-    authUrl: environment.MERCADO_PAGO_AUTH_URL.replace(/\/+$/, ""),
-  };
-}
-
 export interface PaymentAccountRequester {
   /** The suppliers whose profile this user is a member of. */
   readonly supplierIds: readonly string[];

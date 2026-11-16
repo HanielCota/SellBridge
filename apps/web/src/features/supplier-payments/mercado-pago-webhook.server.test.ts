@@ -34,7 +34,8 @@ vi.mock("@/lib/server/environment", () => ({
   },
 }));
 
-import { mercadoPagoSettings, syncMercadoPagoPayment } from "./mercado-pago-accounts.server";
+import { syncMercadoPagoPayment } from "@sellbridge/payments/mercado-pago";
+import { mercadoPagoContext } from "./mercado-pago-accounts.server";
 import { handleMercadoPagoWebhook } from "./mercado-pago-webhook.server";
 
 const SUPPLIER_ID = "5f0c9a3e-6a1f-4d7e-9a43-8b2d1c3e4f50";
@@ -328,13 +329,12 @@ describe("handleMercadoPagoWebhook", () => {
 
   it("keeps the account linked when only a payment the buyer named cannot be read", async () => {
     fetchMock.mockResolvedValue(new Response("{}", { status: 401 }));
-    const settings = mercadoPagoSettings();
-    if (settings === null) {
+    const context = mercadoPagoContext();
+    if (context === null) {
       throw new Error("Mercado Pago settings missing in the test environment");
     }
 
-    const result = await syncMercadoPagoPayment({
-      settings,
+    const result = await syncMercadoPagoPayment(context, {
       account: {
         ...account,
         provider: "mercado_pago",

@@ -16,6 +16,7 @@
     "@phosphor-icons/react": "^2.1.10",
     "@sellbridge/database": "workspace:*",
     "@sellbridge/marketplaces": "workspace:*",
+    "@sellbridge/payments": "workspace:*",
     "@sellbridge/shared": "workspace:*",
     "@tanstack/react-form": "^1.33.5",
     "@tanstack/react-query": "^5.104.2",

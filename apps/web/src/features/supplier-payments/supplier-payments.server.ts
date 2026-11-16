@@ -27,23 +27,21 @@ import {
 import { database } from "@/lib/server/database";
 import { environment } from "@/lib/server/environment";
 import {
-  mercadoPagoNotificationUrl,
-  mercadoPagoSettings,
+  CHECKOUT_TTL_IN_MS,
+  createMercadoPagoCheckout,
   PaymentAccountUnavailableError,
   supplierAccessToken,
   syncMercadoPagoPayment,
   withSupplierAccount,
-} from "./mercado-pago-accounts.server";
-import {
-  CHECKOUT_TTL_IN_MS,
-  createMercadoPagoCheckout,
   type CheckoutRequest,
-} from "./mercado-pago-client.server";
+  type MercadoPagoContext,
+} from "@sellbridge/payments/mercado-pago";
 import {
-  paymentAccountOwnerRefusal,
-  type MercadoPagoSettings,
-  type PaymentAccountActor,
-} from "./mercado-pago-connection";
+  mercadoPagoContext,
+  mercadoPagoNotificationUrl,
+  mercadoPagoSettings,
+} from "./mercado-pago-accounts.server";
+import { paymentAccountOwnerRefusal, type PaymentAccountActor } from "./mercado-pago-connection";
 
 const PROVIDER = "mercado_pago";
 
@@ -213,14 +211,14 @@ async function refusedCheckout(shipmentId: string): Promise<{ checkoutUrl: strin
 
 /** The preference, created with the supplier's token; a failure frees the reserved parcel. */
 async function createCheckout(
-  settings: MercadoPagoSettings,
+  context: MercadoPagoContext,
   account: SupplierPaymentAccount,
   input: { paymentId: string; checkout: Omit<CheckoutRequest, "externalReference"> },
 ) {
   try {
-    const accessToken = await supplierAccessToken(settings, account);
-    return await withSupplierAccount(account, async () =>
-      createMercadoPagoCheckout(settings, {
+    const accessToken = await supplierAccessToken(context, account);
+    return await withSupplierAccount(context, account, async () =>
+      createMercadoPagoCheckout(context.settings, {
         accessToken,
         checkout: { ...input.checkout, externalReference: input.paymentId },
       }),
@@ -248,8 +246,8 @@ export async function startSupplierCheckout(input: {
   if (input.impersonatedBy !== null) {
     throw validationError("Durante a visita da equipe não dá para pagar o fornecedor.");
   }
-  const settings = mercadoPagoSettings();
-  if (settings === null) {
+  const context = mercadoPagoContext();
+  if (context === null) {
     throw validationError("O pagamento pelo Mercado Pago ainda não está disponível.");
   }
   const { payable, account } = await payableWithAccount(input);
@@ -276,7 +274,7 @@ export async function startSupplierCheckout(input: {
     return refusedCheckout(payable.shipmentId);
   }
   const expiresAt = new Date(Date.now() + CHECKOUT_TTL_IN_MS);
-  const checkout = await createCheckout(settings, account, {
+  const checkout = await createCheckout(context, account, {
     paymentId: payment.id,
     checkout: {
       title: `Pedido ${payable.externalOrderId} · ${payable.supplierName}`,
@@ -310,12 +308,12 @@ export async function confirmSupplierPaymentReturn(input: {
   shipmentId: string;
   providerPaymentId: string;
 }) {
-  const settings = mercadoPagoSettings();
+  const context = mercadoPagoContext();
   const payable = await findPayableShipment(database, input);
   if (payable === null) {
     throw notFoundError("Envio não encontrado.");
   }
-  if (settings === null || payable.payment === null) {
+  if (context === null || payable.payment === null) {
     return loadResellerSupplierPayment(input);
   }
   const account = await findSupplierPaymentAccount(database, {
@@ -323,8 +321,7 @@ export async function confirmSupplierPaymentReturn(input: {
     provider: PROVIDER,
   });
   if (account !== null && account.status === "connected") {
-    const result = await syncMercadoPagoPayment({
-      settings,
+    const result = await syncMercadoPagoPayment(context, {
       account,
       providerPaymentId: input.providerPaymentId,
       expectedPaymentId: payable.payment.id,
