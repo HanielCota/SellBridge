@@ -8,7 +8,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { decideHeldPaymentFn } from "@/features/supplier-payments/asaas.functions";
 import { heldPaymentDecisionQueryOptions } from "@/features/supplier-payments/asaas.queries";
 import { errorMessage } from "@/lib/errors";
-import { formatAbsoluteTime } from "@/lib/relative-time";
+import { formatAbsoluteTime, formatDeadline } from "@/lib/relative-time";
 
 type Decision = "release" | "refund";
 
@@ -72,7 +72,11 @@ function useDecide(shipmentPaymentId: string, onDone: () => void) {
   });
 }
 
-function DecisionButtons(props: { shipmentPaymentId: string; amount: string }) {
+function DecisionButtons(props: {
+  shipmentPaymentId: string;
+  amount: string;
+  releasesItselfAt: string | null;
+}) {
   const [asked, setAsked] = useState<Decision | null>(null);
   const decide = useDecide(props.shipmentPaymentId, () => setAsked(null));
   const copy = asked === null ? null : COPY[asked];
@@ -81,6 +85,11 @@ function DecisionButtons(props: { shipmentPaymentId: string; amount: string }) {
       <p className="text-sm text-muted-foreground">
         O dinheiro está guardado no Asaas. Escolha para onde ele vai.
       </p>
+      {props.releasesItselfAt === null ? null : (
+        <p className="text-sm font-medium">
+          {`Se ninguém decidir até ${formatDeadline(new Date(props.releasesItselfAt))}, o Asaas libera ao fornecedor sozinho.`}
+        </p>
+      )}
       <div className="flex flex-wrap gap-2">
         <Button variant="outline" size="lg" onClick={() => setAsked("refund")}>
           {COPY.refund.button}
@@ -125,7 +134,11 @@ export function HeldPaymentDecision({ shipmentPaymentId }: { shipmentPaymentId: 
     <section className="surface-card grid gap-3 rounded-3xl bg-card p-5">
       <h2 className="text-subhead font-medium">Pagamento protegido de {amount}</h2>
       {query.data.decidable ? (
-        <DecisionButtons shipmentPaymentId={shipmentPaymentId} amount={amount} />
+        <DecisionButtons
+          shipmentPaymentId={shipmentPaymentId}
+          amount={amount}
+          releasesItselfAt={query.data.releasesItselfAt}
+        />
       ) : (
         <CurrentState view={query.data} />
       )}

@@ -32,6 +32,7 @@ export async function loadHeldPaymentDecision(shipmentPaymentId: string) {
     decision: payment.teamDecision,
     decidedAt: payment.teamDecisionAt?.toISOString() ?? null,
     released: payment.releasedAt !== null,
+    releasesItselfAt: payment.escrowExpiresAt?.toISOString() ?? null,
     refunded: payment.status === "refunded" || payment.refundRequestedAt !== null,
   };
 }
