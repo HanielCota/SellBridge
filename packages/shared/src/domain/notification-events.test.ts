@@ -104,12 +104,12 @@ describe("invoice authorized notice", () => {
 });
 
 describe("invoice attention notice", () => {
-  it("sends the supplier by e-mail to the orders with a problem", () => {
+  it("tells the supplier in the bell and by e-mail, opening the orders with a problem", () => {
     const content = invoiceAttentionContent({ externalOrderId: "2000001" });
 
     expect(content.subject).toBe("Nota fiscal com problema: pedido #2000001");
     expect(content.actionPath).toBe("/fornecedor/painel/pedidos?tab=problem");
     expect(channelEnabled("invoice_attention", "email", undefined)).toBe(true);
-    expect(channelEnabled("invoice_attention", "in_app", undefined)).toBe(false);
+    expect(channelEnabled("invoice_attention", "in_app", undefined)).toBe(true);
   });
 });

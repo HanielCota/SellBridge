@@ -11,6 +11,7 @@ import {
 } from "../schema/index.ts";
 import { createTestDatabase, createTestUsers } from "../testing/fixtures.ts";
 import { createInvoiceScenario } from "../testing/shipment-invoice-fixtures.ts";
+import { invoiceStoppedEvents } from "./notification-invoice-events.ts";
 import {
   findErpConnection,
   recordErpRefreshFailure,
@@ -465,5 +466,28 @@ describe("stopped notes for the supplier", () => {
 
     expect(await attentionDeliveries(organizationId)).toHaveLength(0);
     expect(await invoiceOf(created.shipmentId)).toMatchObject({ status: "attention" });
+  });
+});
+
+describe("stopped notes in the supplier's bell", () => {
+  it("lists a stopped note until it goes back to the queue", async () => {
+    const created = await authorizedScenario();
+    const organizationId = await supplierWorkspace(created.supplierId);
+    await markShipmentInvoiceAttention(database, {
+      invoiceId: created.invoiceId,
+      problem: "Falta o NCM",
+    });
+
+    const stopped = await invoiceStoppedEvents(database, organizationId, 10);
+    await retrySupplierShipmentInvoice(database, {
+      supplierId: created.supplierId,
+      shipmentId: created.shipmentId,
+    });
+    const afterRetry = await invoiceStoppedEvents(database, organizationId, 10);
+
+    expect(stopped).toEqual([
+      expect.objectContaining({ kind: "invoice_stopped", entityId: created.shipmentId }),
+    ]);
+    expect(afterRetry).toEqual([]);
   });
 });

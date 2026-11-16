@@ -101,12 +101,12 @@ export const NOTIFICATION_EVENT_DEFINITIONS: Record<NotificationEventName, Event
     description: "O fornecedor emitiu a nota fiscal de um pacote. O XML e o DANFE vão no e-mail.",
     defaults: { email: true },
   },
-  // For the supplier. E-mail only: in the app the parcel already sits in "Com problema".
+  // For the supplier, in the bell and by e-mail.
   invoice_attention: {
     audience: "reseller",
     label: "Nota fiscal com problema",
     description: "A nota fiscal de um pacote parou e só sai depois que você corrigir.",
-    defaults: { email: true },
+    defaults: { in_app: true, email: true },
   },
   // The team already sees new tickets in the "Chamados" badge; e-mail is the outside nudge.
   ticket_created: {
