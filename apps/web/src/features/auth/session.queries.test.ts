@@ -28,6 +28,7 @@ function sessionFor(profileSlug: string | null): AppSession {
     impersonatedBy: null,
     impersonationEndsAt: null,
     adminMode: false,
+    teamOnly: false,
     termsAccepted: true,
   };
 }
