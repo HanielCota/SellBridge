@@ -12,6 +12,7 @@ import {
   setPaymentFeeSetting,
   startShipmentPayment,
   type PayableShipment,
+  type ShipmentPayment,
   type ShipmentPaymentSummary,
   type SupplierPaymentAccount,
 } from "@sellbridge/database/repositories";
@@ -285,18 +286,28 @@ export async function startSupplierCheckout(input: {
       expiresAt,
     },
   });
+  await saveOpenedCheckout(payment, { ...checkout, expiresAt });
+  return { checkoutUrl: checkout.checkoutUrl };
+}
+
+/** Keeps the checkout as the parcel's open one and in its history, with what it charges. */
+async function saveOpenedCheckout(
+  payment: ShipmentPayment,
+  checkout: { preferenceId: string; checkoutUrl: string; expiresAt: Date },
+): Promise<void> {
   await savePaymentPreference(database, {
     paymentId: payment.id,
     preferenceId: checkout.preferenceId,
     checkoutUrl: checkout.checkoutUrl,
-    checkoutExpiresAt: expiresAt,
+    checkoutExpiresAt: checkout.expiresAt,
+    amountCents: payment.amountCents,
+    platformFeeCents: payment.platformFeeCents,
   });
   logger.info("mercado_pago.checkout_started", {
     shipmentPaymentId: payment.id,
     amountCents: payment.amountCents,
     platformFeeCents: payment.platformFeeCents,
   });
-  return { checkoutUrl: checkout.checkoutUrl };
 }
 
 /**

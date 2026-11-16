@@ -11,7 +11,10 @@ import {
   uniqueIndex,
   uuid,
 } from "drizzle-orm/pg-core";
-import type { ShipmentPaymentStatus } from "@sellbridge/shared/shipment-payments";
+import type {
+  ShipmentPaymentRefundReason,
+  ShipmentPaymentStatus,
+} from "@sellbridge/shared/shipment-payments";
 import { user } from "./auth.ts";
 import { storeConnectionStatusEnum } from "./enums.ts";
 import { orderShipments } from "./fulfillment.ts";
@@ -103,6 +106,17 @@ export const shipmentPayments = pgTable(
     /** The provider's payment type (`pix`, `credit_card`...), once a payment exists. */
     paymentMethod: text(),
     paidAt: timestamp({ withTimezone: true }),
+    /** Last time the reconciliation job read this payment back from the provider. */
+    checkedAt: timestamp({ withTimezone: true }),
+    /**
+     * Why SellBridge gives the reseller's money back (the supplier did not ship in time, or the
+     * parcel was cancelled or came back), and when it first asked the provider to.
+     */
+    refundReason: text().$type<ShipmentPaymentRefundReason>(),
+    refundRequestedAt: timestamp({ withTimezone: true }),
+    /** The provider refused the refund for good: the team takes it from here. */
+    refundFailedAt: timestamp({ withTimezone: true }),
+    refundError: text(),
     createdAt: timestamp({ withTimezone: true }).defaultNow().notNull(),
     updatedAt: timestamp({ withTimezone: true })
       .defaultNow()
@@ -121,9 +135,44 @@ export const shipmentPayments = pgTable(
     ),
     check("shipment_payments_amount_check", sql`${table.amountCents} > 0`),
     check(
+      "shipment_payments_refund_reason_check",
+      sql`${table.refundReason} is null or ${table.refundReason} in ('not_dispatched','cancelled','returned')`,
+    ),
+    // The reconciliation job reads unpaid payments, the least recently checked first.
+    index("shipment_payments_reconcile_idx")
+      .on(table.checkedAt.asc().nullsFirst())
+      .where(sql`${table.status} in ('pending','in_process','rejected','cancelled')`),
+    // The refund job reads paid parcels it has not given up on, the oldest payment first.
+    index("shipment_payments_refund_idx")
+      .on(table.paidAt)
+      .where(sql`${table.status} = 'approved' and ${table.refundFailedAt} is null`),
+    check(
       "shipment_payments_fee_check",
       sql`${table.platformFeeCents} >= 0 and ${table.platformFeeCents} <= ${table.amountCents}`,
     ),
+  ],
+);
+
+/**
+ * Every checkout SellBridge opened for a parcel payment, with what it charged: a payment made
+ * through an older checkout (approved after the reseller opened a new one) is still recognized,
+ * as long as it matches that checkout's amount and fee.
+ */
+export const shipmentPaymentCheckouts = pgTable(
+  "shipment_payment_checkouts",
+  {
+    id: uuid().primaryKey().defaultRandom(),
+    shipmentPaymentId: uuid()
+      .notNull()
+      .references(() => shipmentPayments.id, { onDelete: "cascade" }),
+    preferenceId: text().notNull(),
+    amountCents: integer().notNull(),
+    platformFeeCents: integer().notNull(),
+    createdAt: timestamp({ withTimezone: true }).defaultNow().notNull(),
+  },
+  (table) => [
+    uniqueIndex("shipment_payment_checkouts_preference_idx").on(table.preferenceId),
+    index("shipment_payment_checkouts_payment_idx").on(table.shipmentPaymentId, table.createdAt),
   ],
 );
 

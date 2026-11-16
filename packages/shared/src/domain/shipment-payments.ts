@@ -1,3 +1,5 @@
+import { lateSinceFor, type ShipmentTiming } from "./shipment-delay.ts";
+
 /**
  * Paying the supplier for a parcel through the payment provider's marketplace split: the
  * reseller pays, SellBridge keeps its fee and the rest lands in the supplier's own account.
@@ -14,6 +16,13 @@ export const SHIPMENT_PAYMENT_STATUSES = [
   "charged_back",
 ] as const;
 export type ShipmentPaymentStatus = (typeof SHIPMENT_PAYMENT_STATUSES)[number];
+
+/**
+ * Why SellBridge gives the reseller's money back on its own: the supplier did not ship in time,
+ * or the parcel was cancelled or came back to the supplier.
+ */
+export const SHIPMENT_PAYMENT_REFUND_REASONS = ["not_dispatched", "cancelled", "returned"] as const;
+export type ShipmentPaymentRefundReason = (typeof SHIPMENT_PAYMENT_REFUND_REASONS)[number];
 
 /** The highest fee the admin may set: 30%, in basis points. */
 export const MAX_PAYMENT_FEE_BASIS_POINTS = 3000;
@@ -96,4 +105,58 @@ export function supplierPaymentBadge(input: {
     return { kind: "waiting" };
   }
   return { kind: "outside" };
+}
+
+const HOUR_IN_MS = 3_600_000;
+/** Tolerance after the dispatch deadline before SellBridge gives the money back. */
+export const REFUND_GRACE_AFTER_DEADLINE_IN_HOURS = 24;
+/** The supplier always has this long after being paid, even when the deadline came earlier. */
+export const REFUND_MINIMUM_AFTER_PAYMENT_IN_HOURS = 48;
+const DISPATCH_PENDING_STATUSES: ReadonlySet<ShipmentTiming["status"]> = new Set([
+  "forwarded",
+  "accepted",
+  "picking",
+  "ready",
+]);
+
+/**
+ * When a paid parcel still with the supplier must be refunded: 24 hours after its dispatch
+ * deadline (Mercado Livre's posting date, or the supplier's own dispatch time from the forward),
+ * and never earlier than 48 hours after the payment. Decided by Guilherme on 2026-11-15.
+ */
+export function supplierPaymentRefundDueAt(timing: ShipmentTiming, paidAt: Date): Date {
+  const minimum = paidAt.getTime() + REFUND_MINIMUM_AFTER_PAYMENT_IN_HOURS * HOUR_IN_MS;
+  const lateSince = lateSinceFor(timing, "dispatch_overdue");
+  if (lateSince === null) {
+    return new Date(minimum);
+  }
+  const afterGrace = lateSince.getTime() + REFUND_GRACE_AFTER_DEADLINE_IN_HOURS * HOUR_IN_MS;
+  return new Date(Math.max(afterGrace, minimum));
+}
+
+/**
+ * Why a paid parcel's money goes back to the reseller now, or null while it stays with the
+ * supplier: cancelled or back with the supplier at once, still unshipped once the refund is due.
+ * A parcel the carrier failed to deliver (`not_delivered`) is never refunded here: the supplier
+ * shipped it, so the team looks at it instead.
+ */
+export function supplierPaymentRefundReason(input: {
+  timing: ShipmentTiming;
+  paidAt: Date;
+  now: Date;
+}): ShipmentPaymentRefundReason | null {
+  const { status } = input.timing;
+  if (status === "cancelled") {
+    return "cancelled";
+  }
+  if (status === "returned") {
+    return "returned";
+  }
+  if (!DISPATCH_PENDING_STATUSES.has(status)) {
+    return null;
+  }
+  if (input.now < supplierPaymentRefundDueAt(input.timing, input.paidAt)) {
+    return null;
+  }
+  return "not_dispatched";
 }
