@@ -10,11 +10,15 @@ import {
 } from "@sellbridge/marketplaces";
 import { userMessageOr } from "@sellbridge/shared/errors";
 import { logger } from "@sellbridge/shared/logger";
-import type { StoreOrderCatchUpJob } from "@sellbridge/shared/queues";
+import { MAX_CATCH_UP_ROUNDS, type StoreOrderCatchUpJob } from "@sellbridge/shared/queues";
 import { decryptStoreCredentials } from "../lib/store-access.ts";
 import { type OrderIntakeDependencies, saveMarketplaceOrder } from "./order-intake.ts";
 
-export type CatchUpDependencies = OrderIntakeDependencies & { connectors: ConnectorRegistry };
+export type CatchUpDependencies = OrderIntakeDependencies & {
+  connectors: ConnectorRegistry;
+  /** Schedules the next round of a catch-up that stopped at a limit. */
+  requestCatchUp: (job: StoreOrderCatchUpJob) => Promise<void>;
+};
 
 type ConnectedStore = NonNullable<Awaited<ReturnType<typeof findConnectedStoreById>>>;
 
@@ -32,7 +36,8 @@ export function heldEventNote(storeConnectionId: string): string {
 /**
  * A reconnected store's sales since it lost its access, read from the marketplace with the new
  * token, then the notifications that arrived meanwhile, checked once more. Orders already stored
- * are only updated, and a paid one is forwarded once.
+ * are only updated, and a paid one is forwarded once. A read that stops at its limit (orders or
+ * held events) schedules another round from where it stopped, until nothing is left.
  */
 export async function catchUpStoreOrders(
   dependencies: CatchUpDependencies,
@@ -50,20 +55,72 @@ export async function catchUpStoreOrders(
     accessTokenEnc: store.accessTokenEnc,
   });
   const since = new Date(job.since);
-  const orders = await dependencies.connectors[store.marketplace].listOrders(credentials, since);
-  // Sequential on purpose: every order shares one store token and its marketplace rate limit.
-  for (const order of orders) {
-    await saveMarketplaceOrder(dependencies, store, order, { storeConnectionId: store.id });
-  }
+  const read =
+    job.ordersDone === true ? null : await readOrders(dependencies, store, credentials, job);
   const checked = await recheckHeldEvents(dependencies, { store, credentials, since });
   logger.info("store.orders_caught_up", {
     storeConnectionId: store.id,
     tenantId: store.tenantId,
     since: job.since,
-    count: orders.length,
+    round: job.round ?? 0,
+    count: read?.count ?? 0,
     heldEventsChecked: checked,
   });
+  const resumeFrom = read?.resumeFrom ?? null;
+  if (resumeFrom !== null || checked >= MAX_HELD_EVENTS_CHECKED) {
+    await scheduleNextRound(dependencies, job, resumeFrom);
+  }
   return "orders_caught_up";
+}
+
+/** Saves the orders since the job's start (or where the last round stopped), oldest first. */
+async function readOrders(
+  dependencies: CatchUpDependencies,
+  store: ConnectedStore,
+  credentials: StoreCredentials,
+  job: StoreOrderCatchUpJob,
+): Promise<{ count: number; resumeFrom: Date | null }> {
+  const from = new Date(job.resumeFrom ?? job.since);
+  const batch = await dependencies.connectors[store.marketplace].listOrders(credentials, from);
+  // Sequential on purpose: every order shares one store token and its marketplace rate limit.
+  for (const order of batch.orders) {
+    await saveMarketplaceOrder(dependencies, store, order, { storeConnectionId: store.id });
+  }
+  if (batch.resumeFrom === null) {
+    return { count: batch.orders.length, resumeFrom: null };
+  }
+  if (batch.resumeFrom.getTime() <= from.getTime()) {
+    // A whole read of orders from the same instant: starting there again would never move on.
+    logger.error("store.order_catch_up_stuck", {
+      storeConnectionId: store.id,
+      from: from.toISOString(),
+    });
+    return { count: batch.orders.length, resumeFrom: null };
+  }
+  return { count: batch.orders.length, resumeFrom: batch.resumeFrom };
+}
+
+/** The next round: orders from where they stopped, or only the held events left. */
+async function scheduleNextRound(
+  dependencies: CatchUpDependencies,
+  job: StoreOrderCatchUpJob,
+  resumeFrom: Date | null,
+): Promise<void> {
+  const round = (job.round ?? 0) + 1;
+  if (round > MAX_CATCH_UP_ROUNDS) {
+    logger.error("store.order_catch_up_stopped", {
+      storeConnectionId: job.storeConnectionId,
+      since: job.since,
+      rounds: MAX_CATCH_UP_ROUNDS,
+    });
+    return;
+  }
+  await dependencies.requestCatchUp({
+    storeConnectionId: job.storeConnectionId,
+    since: job.since,
+    ...(resumeFrom === null ? { ordersDone: true } : { resumeFrom: resumeFrom.toISOString() }),
+    round,
+  });
 }
 
 interface HeldEventCheck {

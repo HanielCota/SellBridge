@@ -75,13 +75,17 @@ export function descriptionHtml(plainText: string): string {
   return html;
 }
 
-function assertStock(stock: number): number {
-  if (!Number.isInteger(stock) || stock < 0 || stock > MAX_STOCK) {
-    throw marketplaceError("O estoque precisa ficar entre 0 e 999.999 unidades no TikTok Shop.", {
+/**
+ * The units TikTok receives: a whole count, at most what TikTok accepts. A larger shelf is sent
+ * as the maximum, so the listing keeps selling instead of failing on every sync.
+ */
+function stockForTikTok(stock: number): number {
+  if (!Number.isInteger(stock) || stock < 0) {
+    throw marketplaceError("O estoque precisa ser um número inteiro de 0 ou mais unidades.", {
       retryable: false,
     });
   }
-  return stock;
+  return Math.min(stock, MAX_STOCK);
 }
 
 function packageWeight(grams: number | null | undefined): { value: string; unit: "GRAM" } {
@@ -173,7 +177,7 @@ function productBody(input: PublishProductInput, draft: ProductDraft) {
       {
         seller_sku: input.sku,
         price: { amount: priceAmount(input.priceCents), currency: CURRENCY },
-        inventory: [{ warehouse_id: draft.warehouseId, quantity: assertStock(input.stock) }],
+        inventory: [{ warehouse_id: draft.warehouseId, quantity: stockForTikTok(input.stock) }],
       },
     ],
     idempotency_key: input.idempotencyKey.slice(0, MAX_IDEMPOTENCY_KEY_LENGTH),
@@ -220,7 +224,7 @@ export async function publishProduct(
 ): Promise<PublishedListing> {
   packageWeight(input.packageWeightGrams);
   descriptionHtml(input.description);
-  assertStock(input.stock);
+  stockForTikTok(input.stock);
   const shop = { accessToken: store.accessToken, cipher: await shopCipher(context, store) };
   const categoryId = await recommendCategory(context, shop, input.title);
   const warehouseId = await defaultWarehouse(context, shop);
@@ -280,6 +284,8 @@ export async function updateStockPrice(
   if (update.priceCents === undefined && update.stock === undefined) {
     return;
   }
+  // Checked before any call: a bad count must not leave a price sent and the stock refused.
+  const quantity = update.stock === undefined ? undefined : stockForTikTok(update.stock);
   const shop = { accessToken: store.accessToken, cipher: await shopCipher(context, store) };
   const productPath = `/product/202309/products/${encodeURIComponent(update.externalId)}`;
   await updateLiveProduct(async () => {
@@ -302,9 +308,9 @@ export async function updateStockPrice(
         },
       });
     }
-    if (update.stock !== undefined) {
+    if (quantity !== undefined) {
       const warehouseId = sku.inventory?.[0]?.warehouse_id;
-      const inventory = { quantity: assertStock(update.stock) };
+      const inventory = { quantity };
       await requestShop(context, {
         schema: z.unknown(),
         method: "POST",

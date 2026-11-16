@@ -98,6 +98,14 @@ describe("storeOrderCatchUpJobId", () => {
     expect(jobId).toBe(`order-catch-up-${storeConnectionId}-1792454400000`);
   });
 
+  it("names a later round apart, so it never collides with the round that scheduled it", () => {
+    const job = { storeConnectionId, since: "2026-10-20T00:00:00.000Z", round: 2 };
+
+    const jobId = storeOrderCatchUpJobId(job);
+
+    expect(jobId).toBe(`order-catch-up-${storeConnectionId}-1792454400000-round-2`);
+  });
+
   // Regression (review, 29/10/2026): an unreadable start date produced an id ending in "NaN".
   it("throws when the start date cannot be read", () => {
     const job = { storeConnectionId, since: "not-a-date" };

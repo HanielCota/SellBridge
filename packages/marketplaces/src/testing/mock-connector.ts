@@ -5,6 +5,7 @@ import { marketplaceError } from "../errors.ts";
 import type {
   AuthorizationRequest,
   MarketplaceOrder,
+  MarketplaceOrderBatch,
   CodeExchange,
   MarketplaceConnector,
   OAuthTokens,
@@ -143,10 +144,10 @@ async function updateStockPrice(
 async function listOrders(
   context: MockContext,
   credentials: StoreCredentials,
-): Promise<MarketplaceOrder[]> {
+): Promise<MarketplaceOrderBatch> {
   assertCredentials(credentials);
   await simulateLatency(context);
-  return [];
+  return { orders: [], resumeFrom: null };
 }
 
 async function fetchOrder(

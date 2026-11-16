@@ -1,9 +1,20 @@
 import { MAX_STORED_CENTS } from "@sellbridge/shared/money";
 import { logger } from "@sellbridge/shared/logger";
 import { marketplaceError } from "../errors.ts";
-import type { MarketplaceOrder, MarketplaceOrderItem, StoreCredentials } from "../types.ts";
+import { readableOrders } from "../readable-orders.ts";
+import type {
+  MarketplaceOrder,
+  MarketplaceOrderBatch,
+  MarketplaceOrderItem,
+  StoreCredentials,
+} from "../types.ts";
 import { requestShop, type TikTokShopContext } from "./client.ts";
-import { orderDetailSchema, orderSearchSchema, type TikTokShopOrder } from "./schemas.ts";
+import {
+  orderDetailSchema,
+  orderSchema,
+  orderSearchSchema,
+  type TikTokShopOrder,
+} from "./schemas.ts";
 import { shopCipher } from "./shops.ts";
 
 /** Get Order List takes 1 to 100 per page. */
@@ -63,19 +74,20 @@ export function amountToCents(amount: string, field: string): number {
 }
 
 /**
- * Each line item is one unit (Get Order Detail has no quantity), so the units of a SKU are
- * counted. The unit price is the item's `sale_price`.
+ * Each line item is one unit (Get Order Detail has no quantity), so the units of a SKU sold at
+ * the same price are counted. Units of one SKU at different prices ("leve 2") keep their own
+ * lines, so the order's revenue is not the first unit's price times the count.
  */
 function orderItems(raw: TikTokShopOrder): MarketplaceOrderItem[] {
   const items = new Map<string, MarketplaceOrderItem>();
   for (const unit of raw.line_items) {
-    const key = `${unit.product_id}:${unit.sku_id}`;
-    const counted = items.get(key);
+    const unitPriceCents = amountToCents(unit.sale_price, "preço do item");
+    const key = `${unit.product_id}:${unit.sku_id}:${unitPriceCents}`;
     items.set(key, {
       externalListingId: unit.product_id,
       title: unit.product_name,
-      quantity: (counted?.quantity ?? 0) + 1,
-      unitPriceCents: counted?.unitPriceCents ?? amountToCents(unit.sale_price, "preço do item"),
+      quantity: (items.get(key)?.quantity ?? 0) + 1,
+      unitPriceCents,
     });
   }
   return [...items.values()];
@@ -123,32 +135,40 @@ async function fetchOrdersPage(
     query: {
       page_size: String(ORDERS_PAGE_SIZE),
       sort_field: "create_time",
-      sort_order: "DESC",
+      // Oldest first: a read stopped at its limit continues from the last order it read.
+      sort_order: "ASC",
       ...(page.pageToken === null ? {} : { page_token: page.pageToken }),
     },
     json: { create_time_ge: Math.floor(page.since.getTime() / 1000) },
   });
 }
 
-/** Orders created since `since`, newest first, up to MAX_ORDERS_FETCHED. */
+/** Orders created since `since`, oldest first, up to MAX_ORDERS_FETCHED. */
 export async function listOrders(
   context: TikTokShopContext,
   store: StoreCredentials,
   since: Date,
-): Promise<MarketplaceOrder[]> {
+): Promise<MarketplaceOrderBatch> {
   const cipher = await shopCipher(context, store);
   const orders: MarketplaceOrder[] = [];
   let pageToken: string | null = null;
   while (orders.length < MAX_ORDERS_FETCHED) {
     const page = await fetchOrdersPage(context, { store, cipher, since, pageToken });
-    orders.push(...(page.orders ?? []).map(mapTikTokShopOrder));
+    orders.push(
+      ...readableOrders(page.orders ?? [], {
+        schema: orderSchema,
+        map: mapTikTokShopOrder,
+        event: "tiktok_shop.order_skipped",
+      }),
+    );
     const next = page.next_page_token ?? "";
     if (next === "" || (page.orders ?? []).length === 0) {
-      return orders;
+      return { orders, resumeFrom: null };
     }
     pageToken = next;
   }
-  return orders.slice(0, MAX_ORDERS_FETCHED);
+  const read = orders.slice(0, MAX_ORDERS_FETCHED);
+  return { orders: read, resumeFrom: read.at(-1)?.orderedAt ?? null };
 }
 
 async function readOrder(

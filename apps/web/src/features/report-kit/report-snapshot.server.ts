@@ -1,5 +1,6 @@
 import {
   findReportSnapshot,
+  replaceEarlyReportSnapshot,
   saveReportSnapshot,
   type ReportSnapshotScope,
 } from "@sellbridge/database/repositories";
@@ -29,10 +30,22 @@ export async function serveMonthlyReport(input: SnapshotInput): Promise<ServedRe
   const key = { scope: input.scope, ownerId: input.ownerId, month: input.period.month };
   const stored = await findReportSnapshot(database, key);
   const storedReport = stored === null ? null : parseStoredReport(stored.payload);
-  if (stored !== null && storedReport !== null) {
+  // Kept before the month ended (on its last day), it missed the rest of that day: rebuilt once.
+  const keptEarly = stored !== null && stored.capturedAt.getTime() < input.period.to.getTime();
+  const keptWhole = stored !== null && stored.capturedAt.getTime() >= input.period.to.getTime();
+  if (stored !== null && storedReport !== null && keptWhole) {
     return { report: storedReport, savedAt: stored.capturedAt.toISOString(), generatedAt };
   }
   const report = await input.compute();
+  if (keptEarly) {
+    logger.info("report.snapshot_rebuilt", { scope: key.scope, month: key.month });
+    const rebuilt = await replaceEarlyReportSnapshot(database, key, report, input.period.to);
+    return {
+      report: parseStoredReport(rebuilt.payload) ?? report,
+      savedAt: rebuilt.capturedAt.toISOString(),
+      generatedAt,
+    };
+  }
   if (stored !== null) {
     // An older shape: shown fresh, the stored month stays as it was kept.
     logger.warn("report.snapshot_outdated", { scope: key.scope, month: key.month });

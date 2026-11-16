@@ -3,6 +3,7 @@ import { schema } from "@sellbridge/database";
 import { markWebhookProcessed, recordWebhookEvent } from "@sellbridge/database/repositories";
 import {
   type MarketplaceOrder,
+  type MarketplaceOrderBatch,
   marketplaceAuthError,
   marketplaceError,
   type StoreCredentials,
@@ -17,13 +18,14 @@ import {
   createTestTenants,
   createWorkerTestEnvironment,
 } from "../testing/fixtures.ts";
+import type { StoreOrderCatchUpJob } from "@sellbridge/shared/queues";
 import { heldEventNote } from "./store-order-catch-up.ts";
 import { createWebhookEventProcessor } from "./webhook-event.ts";
 
 const environment = createWorkerTestEnvironment();
 const { database } = environment;
 const listOrders =
-  vi.fn<(credentials: StoreCredentials, since: Date) => Promise<MarketplaceOrder[]>>();
+  vi.fn<(credentials: StoreCredentials, since: Date) => Promise<MarketplaceOrderBatch>>();
 const mockConnector = environment.connectors.mock;
 const fetchFromMockMarketplace = async (credentials: StoreCredentials, resource: string) =>
   mockConnector.fetchOrder(credentials, resource);
@@ -31,6 +33,7 @@ const fetchOrder =
   vi.fn<(credentials: StoreCredentials, resource: string) => Promise<MarketplaceOrder>>();
 const requestStockSync = vi.fn<() => Promise<void>>();
 const requestAutoForward = vi.fn<(orderId: string) => Promise<void>>();
+const requestCatchUp = vi.fn<(job: StoreOrderCatchUpJob) => Promise<void>>();
 const processWebhook = createWebhookEventProcessor({
   ...environment,
   acquireRateLimit: async () => {},
@@ -40,6 +43,7 @@ const processWebhook = createWebhookEventProcessor({
   },
   requestStockSync,
   requestAutoForward,
+  requestCatchUp,
 });
 
 let tenants: Awaited<ReturnType<typeof createTestTenants>>;
@@ -89,6 +93,8 @@ beforeEach(() => {
   requestStockSync.mockResolvedValue(undefined);
   requestAutoForward.mockReset();
   requestAutoForward.mockResolvedValue(undefined);
+  requestCatchUp.mockReset();
+  requestCatchUp.mockResolvedValue(undefined);
 });
 
 afterEach(() => {
@@ -114,8 +120,8 @@ function sale(externalOrderId: string): MarketplaceOrder {
   };
 }
 
-function catchUpJob(since: string) {
-  return { data: { storeConnectionId: storeId, since }, attemptsMade: 0, maxAttempts: 5 };
+function catchUpJob(since: string, more: Partial<StoreOrderCatchUpJob> = {}) {
+  return { data: { storeConnectionId: storeId, since, ...more }, attemptsMade: 0, maxAttempts: 5 };
 }
 
 async function ordersOf(externalOrderIds: string[]) {
@@ -131,7 +137,7 @@ async function ordersOf(externalOrderIds: string[]) {
 describe("store order catch-up after a reconnection", () => {
   it("reads the sales since the given time and stores them for the store's organization", async () => {
     const ids = [`CU-${randomUUID()}`, `CU-${randomUUID()}`];
-    listOrders.mockResolvedValue(ids.map(sale));
+    listOrders.mockResolvedValue({ orders: ids.map(sale), resumeFrom: null });
     const since = "2026-10-20T00:00:00.000Z";
 
     expect(await processWebhook(catchUpJob(since))).toBe("orders_caught_up");
@@ -145,12 +151,48 @@ describe("store order catch-up after a reconnection", () => {
 
   it("only updates sales already stored when the catch-up runs again", async () => {
     const ids = [`CU-${randomUUID()}`];
-    listOrders.mockResolvedValue(ids.map(sale));
+    listOrders.mockResolvedValue({ orders: ids.map(sale), resumeFrom: null });
 
     await processWebhook(catchUpJob("2026-10-21T00:00:00.000Z"));
     await processWebhook(catchUpJob("2026-10-21T00:00:00.000Z"));
 
     expect(await ordersOf(ids)).toHaveLength(1);
+  });
+
+  it("schedules another round from the last order read when the marketplace stopped at its limit", async () => {
+    const ids = [`CU-${randomUUID()}`];
+    const resumeFrom = new Date("2026-10-23T08:00:00.000Z");
+    listOrders.mockResolvedValue({ orders: ids.map(sale), resumeFrom });
+    const since = "2026-10-20T00:00:00.000Z";
+
+    await processWebhook(catchUpJob(since));
+
+    expect(await ordersOf(ids)).toHaveLength(1);
+    expect(requestCatchUp).toHaveBeenCalledWith({
+      storeConnectionId: storeId,
+      since,
+      resumeFrom: resumeFrom.toISOString(),
+      round: 1,
+    });
+  });
+
+  it("reads a later round from where the last one stopped and ends when nothing is left", async () => {
+    listOrders.mockResolvedValue({ orders: [], resumeFrom: null });
+    const resumeFrom = "2026-10-23T08:00:00.000Z";
+
+    await processWebhook(catchUpJob("2026-10-20T00:00:00.000Z", { resumeFrom, round: 1 }));
+
+    expect(listOrders).toHaveBeenCalledWith(expect.anything(), new Date(resumeFrom));
+    expect(requestCatchUp).not.toHaveBeenCalled();
+  });
+
+  it("stops a read that cannot move on instead of scheduling it forever", async () => {
+    const since = "2026-10-20T00:00:00.000Z";
+    listOrders.mockResolvedValue({ orders: [], resumeFrom: new Date(since) });
+
+    await processWebhook(catchUpJob(since));
+
+    expect(requestCatchUp).not.toHaveBeenCalled();
   });
 
   it("reads nothing when the store lost its access again before the job ran", async () => {
@@ -172,7 +214,7 @@ describe("store order catch-up after a reconnection", () => {
   it("checks the sales notified while the store had no access, once", async () => {
     const externalOrderId = `CU-HELD-${randomUUID()}`;
     const held = await holdSaleEvent(externalOrderId);
-    listOrders.mockResolvedValue([]);
+    listOrders.mockResolvedValue({ orders: [], resumeFrom: null });
 
     await processWebhook(catchUpJob(minutesBefore(held.receivedAt, 1)));
 
@@ -191,7 +233,7 @@ describe("store order catch-up after a reconnection", () => {
     const savedOrderId = `CU-HELD-OK-${randomUUID()}`;
     const failing = await holdSaleEvent(failingOrderId);
     const saved = await holdSaleEvent(savedOrderId);
-    listOrders.mockResolvedValue([]);
+    listOrders.mockResolvedValue({ orders: [], resumeFrom: null });
     fetchOrder.mockImplementation(async (credentials, resource) => {
       if (resource === failing.resource) {
         throw marketplaceError("Pedido não encontrado no Mercado Livre", {
@@ -221,7 +263,7 @@ describe("store order catch-up after a reconnection", () => {
   ])("leaves a held sale held and fails the job on $failure", async ({ error }) => {
     const held = await holdSaleEvent(`CU-HELD-RETRY-${randomUUID()}`);
     const heldProcessedAt = await processedAtOf(held.id);
-    listOrders.mockResolvedValue([]);
+    listOrders.mockResolvedValue({ orders: [], resumeFrom: null });
     fetchOrder.mockRejectedValue(error);
     vi.setSystemTime(new Date(NOW.getTime() + ONE_MINUTE_IN_MS));
 

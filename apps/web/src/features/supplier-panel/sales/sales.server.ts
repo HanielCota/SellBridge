@@ -20,6 +20,7 @@ import {
   countParcelStages,
   isRunningOut,
   livedPeriodDays,
+  salesPaceDaysLeft,
   stockDaysLeft,
   SUPPLIER_SALES_SITUATION_STATUSES,
 } from "@sellbridge/shared/supplier-panel-sales";
@@ -61,15 +62,29 @@ async function loadRunningOut(supplierId: string, now: Date) {
   return { count: running.length, productId: running[0]?.productId ?? null };
 }
 
-function withDaysLeft(products: readonly SupplierProductSales[], periodDays: number) {
+function withDaysLeft(
+  products: readonly SupplierProductSales[],
+  sold: readonly SupplierProductSales[],
+  periodDays: number,
+) {
+  const soldUnits = new Map(sold.map((product) => [product.productId, product.units]));
   return products.map((product) => ({
     ...product,
-    daysLeft: stockDaysLeft({
-      availableStock: product.availableStock,
-      unitsSold: product.units,
-      periodDays,
-    }),
+    daysLeft: salesPaceDaysLeft(product, soldUnits, periodDays),
   }));
+}
+
+/** The sales the forecast reads: the list itself, or the sold units when it lists other orders. */
+async function soldProductsFor(
+  scope: SupplierSalesScope,
+  situation: SupplierSalesSearch["situation"],
+  listed: SupplierProductSales[],
+): Promise<SupplierProductSales[]> {
+  if (situation === "sold") {
+    return listed;
+  }
+  const soldScope = { ...scope, statuses: SUPPLIER_SALES_SITUATION_STATUSES.sold };
+  return listSupplierProductSales(database, soldScope, RUNNING_OUT_SCAN_LIMIT);
 }
 
 /** Everything the home draws for the period: totals, chart, best sellers and parcel steps. */
@@ -97,7 +112,7 @@ export async function loadSupplierSales(
       countSupplierParcelsByStatus(database, scope),
       listSupplierProductOptions(database, supplierId),
     ]);
-  const [productSeries, runningOut, setup] = await Promise.all([
+  const [productSeries, runningOut, setup, soldProducts] = await Promise.all([
     getSupplierProductTimeseries(
       database,
       { ...scope, range: chart.current },
@@ -105,6 +120,7 @@ export async function loadSupplierSales(
     ),
     loadRunningOut(supplierId, now),
     getSupplierSetupState(database, supplierId),
+    soldProductsFor(scope, search.situation, products),
   ]);
   // Counts only: what the home showed, for support to compare with a complaint.
   logger.info("supplier_panel.sales_loaded", {
@@ -125,7 +141,7 @@ export async function loadSupplierSales(
     previous,
     timeseries,
     previousTimeseries,
-    topProducts: withDaysLeft(products, livedPeriodDays(period, now)),
+    topProducts: withDaysLeft(products, soldProducts, livedPeriodDays(period, now)),
     productSeries,
     parcelStages: countParcelStages(parcels),
     productOptions: options,

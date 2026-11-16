@@ -8,7 +8,11 @@ import {
 } from "@sellbridge/database/repositories";
 import { userMessageOr } from "@sellbridge/shared/errors";
 import { logger } from "@sellbridge/shared/logger";
-import { storeOrderCatchUpJobSchema, webhookEventJobSchema } from "@sellbridge/shared/queues";
+import {
+  type StoreOrderCatchUpJob,
+  storeOrderCatchUpJobSchema,
+  webhookEventJobSchema,
+} from "@sellbridge/shared/queues";
 import {
   type ConnectorRegistry,
   isFinalMarketplaceAnswer,
@@ -24,6 +28,8 @@ export interface WebhookDependencies extends OrderIntakeDependencies {
   connectors: ConnectorRegistry;
   /** The per-store quota the other store jobs spend too (`storeRateKey`). */
   acquireRateLimit: (key: string) => Promise<void>;
+  /** Schedules the next round of a reconnection catch-up that stopped at a limit. */
+  requestCatchUp: (job: StoreOrderCatchUpJob) => Promise<void>;
 }
 
 export type WebhookOutcome =
