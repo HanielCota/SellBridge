@@ -133,7 +133,7 @@ test("o fornecedor importa do Bling dando o preço dos novos com uma regra e aju
   ).toBeVisible();
   await expect(preview).toContainText("1 já está no SellBridge");
   await expect(preview).toContainText("2 são novos e precisam do preço para o revendedor");
-  const importButton = preview.getByRole("button", { name: "Importar 3 produtos" });
+  const importButton = preview.getByRole("button", { name: "Importar 2 novos e atualizar 1" });
   await expect(importButton).toBeDisabled();
   await expect(preview.getByText("Faltam 2 preços para importar.")).toBeVisible();
   await expect(page.getByRole("heading", { name: "Ou envie uma planilha" })).toBeHidden();

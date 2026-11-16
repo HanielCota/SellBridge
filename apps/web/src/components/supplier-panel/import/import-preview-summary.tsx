@@ -13,6 +13,7 @@ import { Label } from "@/components/ui/label";
 import { downloadCsv, failedRowsFileName } from "@/features/supplier-panel/import/import-file";
 import {
   confirmDescription,
+  importActionLabel,
   onlyValidLabel,
   plural,
 } from "@/features/supplier-panel/import/import-wording";
@@ -165,9 +166,7 @@ export function ImportPreviewSummary(props: ImportPreviewSummaryProps) {
       <div className="flex flex-wrap items-center gap-2">
         <DisabledHint reason={partial && !onlyValid ? CONTROL_HINTS.importNeedsChoice : undefined}>
           <Button disabled={!canImport || props.importing} onClick={() => setConfirming(true)}>
-            {preview.confirmation === null
-              ? "Importar"
-              : `Importar ${plural(preview.validRows, "produto", "produtos")}`}
+            {preview.confirmation === null ? "Importar" : importActionLabel(preview)}
           </Button>
         </DisabledHint>
         {partial ? (
@@ -185,7 +184,7 @@ export function ImportPreviewSummary(props: ImportPreviewSummaryProps) {
       <ConfirmDialog
         open={confirming}
         onOpenChange={setConfirming}
-        title={`Importar ${plural(preview.validRows, "produto", "produtos")}?`}
+        title={`${importActionLabel(preview)}?`}
         description={confirmDescription(preview)}
         confirmLabel="Importar"
         pendingLabel="Importando…"
