@@ -1,6 +1,14 @@
+import type { ReactNode } from "react";
 import { TERM_HINTS } from "@/components/icons/action-icons";
-import type { MetricPoint } from "@/features/reports/dashboard-metrics";
-import { countTagParts, trendTagParts } from "@/features/reports/trend-tone";
+import type { MetricPoint, PointGrain } from "@/features/reports/dashboard-metrics";
+import { buildKpiStory, type KpiMeasure } from "@/features/reports/kpi-story";
+import { countTagParts, trendTagParts, type TrendTagParts } from "@/features/reports/trend-tone";
+import {
+  CompareSparkline,
+  countValue,
+  MONEY_VALUE,
+  type KpiValueFormat,
+} from "./compare-sparkline";
 import { MoneyFigure, TrendTag } from "./figures";
 import { StatTile, type StatTileProps } from "./stat-tile";
 
@@ -26,21 +34,60 @@ interface Totals {
   cancelledOrders: number;
 }
 
-interface KpiTilesProps {
+interface KpiSeries {
+  points: readonly MetricPoint[];
+  previousPoints: readonly MetricPoint[] | null;
+  bucket: Exclude<PointGrain, "month">;
+  /** How many days the previous period starts before this one: the period's length. */
+  offsetDays: number;
+}
+
+interface KpiTilesProps extends KpiSeries {
   summary: Totals;
   previous: Totals;
-  points: readonly MetricPoint[];
 }
 
 const VERSUS = "vs. anterior";
 const CANCELLED = { one: "cancelado", many: "cancelados" };
+const ORDERS_VALUE = countValue({ one: "pedido", many: "pedidos" });
+
+const REVENUE: KpiMeasure<MetricPoint> = { amount: (point) => point.revenueCents };
+const ORDERS: KpiMeasure<MetricPoint> = { amount: (point) => point.orders };
+const TICKET: KpiMeasure<MetricPoint> = {
+  amount: (point) => point.revenueCents,
+  per: (point) => point.orders,
+};
+
+function tileChart(
+  series: KpiSeries,
+  measure: KpiMeasure<MetricPoint>,
+  parts: TrendTagParts | null,
+  format: KpiValueFormat,
+): ReactNode {
+  const story = buildKpiStory(series.points, series.previousPoints, measure, series.offsetDays);
+  return (
+    <CompareSparkline
+      story={story}
+      bucket={series.bucket}
+      tone={parts?.tone ?? "neutral"}
+      format={format}
+    />
+  );
+}
+
+function TicketFigure({ cents }: { cents: number | null }) {
+  if (cents === null) {
+    return <span className="font-semibold">—</span>;
+  }
+  return <MoneyFigure cents={cents} />;
+}
 
 /**
  * Revenue, orders and average ticket, stacked beside the chart on wide screens. Each change is a
- * tag (green up, red down) and the sparkline wears the same color, so the column reads in a glance.
+ * tag (green up, red down), and under it the period's line wears the same color, with the previous
+ * period dashed behind it.
  */
-export function KpiTiles({ summary, previous, points }: KpiTilesProps) {
-  const sold = points.filter((point) => point.orders > 0);
+export function KpiTiles({ summary, previous, ...series }: KpiTilesProps) {
   const revenue = trendTagParts(summary.revenueCents, previous.revenueCents);
   const orders = trendTagParts(summary.orders, previous.orders);
   const ticket = trendTagParts(summary.averageTicketCents, previous.averageTicketCents);
@@ -51,8 +98,7 @@ export function KpiTiles({ summary, previous, points }: KpiTilesProps) {
         hint="Ver a receita em detalhes no Financeiro"
         figure={<MoneyFigure cents={summary.revenueCents} />}
         change={<TrendTag parts={revenue} suffix={VERSUS} />}
-        trend={points.map((point) => point.revenueCents)}
-        trendTone={revenue?.tone ?? "neutral"}
+        chart={tileChart(series, REVENUE, revenue, MONEY_VALUE)}
       />
       <KpiTile
         label="Pedidos"
@@ -66,23 +112,15 @@ export function KpiTiles({ summary, previous, points }: KpiTilesProps) {
             />
           </>
         }
-        trend={points.map((point) => point.orders)}
-        trendTone={orders?.tone ?? "neutral"}
+        chart={tileChart(series, ORDERS, orders, ORDERS_VALUE)}
       />
       <KpiTile
         label="Ticket médio"
         hint={`${TERM_HINTS.averageTicket}; veja mais no Financeiro`}
         isTerm
-        figure={
-          summary.averageTicketCents === null ? (
-            <span className="font-semibold">—</span>
-          ) : (
-            <MoneyFigure cents={summary.averageTicketCents} />
-          )
-        }
+        figure={<TicketFigure cents={summary.averageTicketCents} />}
         change={<TrendTag parts={ticket} suffix={VERSUS} />}
-        trend={sold.map((point) => point.revenueCents / point.orders)}
-        trendTone={ticket?.tone ?? "neutral"}
+        chart={tileChart(series, TICKET, ticket, MONEY_VALUE)}
       />
     </div>
   );

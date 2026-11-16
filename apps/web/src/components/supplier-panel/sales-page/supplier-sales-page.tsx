@@ -48,6 +48,9 @@ function SalesContent({ data }: { data: SupplierSalesPageData }) {
         summary={data.summary}
         previous={data.previous}
         points={data.series}
+        previousPoints={data.previousSeries}
+        bucket={data.bucket}
+        offsetDays={data.previousOffsetDays}
         situation="sold"
         className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4"
       />
