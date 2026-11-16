@@ -1,5 +1,5 @@
 {
-  "id": "e29fd21b-92ac-4d36-9dc0-6736d5cdba3a",
+  "id": "dd5d5a92-74f0-4854-8e59-22ed4d7bade5",
   "prevId": "0fb12516-d774-4911-88ca-88446b0c0bef",
   "version": "7",
   "dialect": "postgresql",
@@ -1063,6 +1063,18 @@
           "primaryKey": false,
           "notNull": true,
           "default": "'{}'::jsonb"
+        },
+        "mercado_livre_category_id": {
+          "name": "mercado_livre_category_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "mercado_livre_category_name": {
+          "name": "mercado_livre_category_name",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
         },
         "fiscal": {
           "name": "fiscal",
@@ -2771,12 +2783,6 @@
           "primaryKey": false,
           "notNull": true
         },
-        "marketplace_pack_id": {
-          "name": "marketplace_pack_id",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false
-        },
         "status": {
           "name": "status",
           "type": "order_status",
@@ -2895,27 +2901,6 @@
             }
           ],
           "isUnique": true,
-          "concurrently": false,
-          "method": "btree",
-          "with": {}
-        },
-        "orders_store_pack_idx": {
-          "name": "orders_store_pack_idx",
-          "columns": [
-            {
-              "expression": "store_connection_id",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            },
-            {
-              "expression": "marketplace_pack_id",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            }
-          ],
-          "isUnique": false,
           "concurrently": false,
           "method": "btree",
           "with": {}

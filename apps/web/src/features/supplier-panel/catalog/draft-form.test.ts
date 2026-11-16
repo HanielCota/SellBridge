@@ -24,6 +24,7 @@ const FILLED: PanelFormValues = {
   categoryId: "",
   imageUrls: ["https://imagens.test/1.jpg"],
   attributes: { BRAND: " Marca ", MODEL: " " },
+  mercadoLivreCategory: null,
   fiscal: EMPTY_PRODUCT_FISCAL_FORM_VALUES,
 };
 
@@ -76,6 +77,20 @@ describe("panelFormValues", () => {
 });
 
 describe("parseDraft", () => {
+  it("sends the Mercado Livre category only once one is known", () => {
+    const withCategory = parseDraft({
+      ...FILLED,
+      mercadoLivreCategory: { id: "MLB7022", name: "Bolsas" },
+    });
+    const without = parseDraft(FILLED);
+
+    expect(withCategory).toMatchObject({
+      ok: true,
+      values: { mercadoLivreCategoryId: "MLB7022", mercadoLivreCategoryName: "Bolsas" },
+    });
+    expect(without.ok && "mercadoLivreCategoryId" in without.values).toBe(false);
+  });
+
   it("converts money and units and drops emptied attributes", () => {
     expect(parseDraft(FILLED)).toEqual({
       ok: true,

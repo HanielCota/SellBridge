@@ -40,6 +40,8 @@ test("o fornecedor publica um produto completo e o revendedor já o vê", async 
       stock: 12,
       categoryId: category?.id ?? null,
       imageUrls: ["https://imagens.sellbridge.test/luminaria.jpg"],
+      // The test site's Mercado Livre category requires brand and model to publish.
+      mercadoLivreAttributes: { BRAND: "Marca Publica", MODEL: "Mesa 1" },
       reviewStatus: "draft",
     })
     .returning({ id: supplierProducts.id });

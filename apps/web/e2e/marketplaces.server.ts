@@ -3,7 +3,10 @@ import type {
   MarketplaceId,
   MercadoLivreConfig,
 } from "@sellbridge/marketplaces";
-import { createTestConnectorRegistry } from "@sellbridge/marketplaces/testing";
+import {
+  createTestConnectorRegistry,
+  createTestMercadoLivreCatalog,
+} from "@sellbridge/marketplaces/testing";
 import { createTokenCipher } from "@sellbridge/shared/token-cipher";
 import { environment } from "../src/lib/server/environment";
 import { requireEnvironmentVariable } from "./environment";
@@ -14,6 +17,7 @@ export const connectors = createTestConnectorRegistry({
   webhookSecret: requireEnvironmentVariable("E2E_MARKETPLACE_SECRET"),
   latencyMilliseconds: 0,
 });
+export const mercadoLivreCatalog = createTestMercadoLivreCatalog();
 export const tokenCipher = createTokenCipher(environment.TOKEN_ENCRYPTION_KEY);
 
 /** Shipments and labels answer from the local stand-in, never from the real Mercado Livre. */

@@ -4,6 +4,7 @@ import {
   type Paginated,
   type Pagination,
   type ProductSort,
+  type SellableProductSort,
 } from "@sellbridge/shared/schemas";
 import {
   and,
@@ -20,9 +21,11 @@ import {
   sql,
   type SQL,
 } from "drizzle-orm";
+import type { PgSelect } from "drizzle-orm/pg-core";
 import type { Database } from "../client.ts";
 import { containsPattern, matchesEveryWord } from "./sql/search-pattern.ts";
 import { categories, listings, supplierProducts, suppliers } from "../schema/index.ts";
+import { heatWindowStart, recentUnitsSoldByProduct } from "./product-heat.ts";
 import { availableStock } from "./sql/available-stock.ts";
 import {
   catalogVisibleTo,
@@ -402,7 +405,9 @@ export interface SellableCatalogFilters {
   supplierIds?: readonly string[] | undefined;
   inStockOnly?: boolean | undefined;
   unpublishedOnly?: boolean | undefined;
-  sort: ProductSort;
+  sort: SellableProductSort;
+  /** End of the "Mais vendidos" sales window; defaults to the current time. */
+  now?: Date | undefined;
 }
 
 export interface SellableCatalogProduct extends CatalogProduct {
@@ -482,6 +487,54 @@ function selectSellableCatalog(database: Database, tenantId: string) {
     .leftJoin(categories, eq(categories.id, supplierProducts.categoryId));
 }
 
+/**
+ * "Mais vendidos": most units sold in the heat window first, the badge's own count, summed once
+ * for the page instead of once per product. The heat level only grows with the units, so equal
+ * units are equally hot; the name breaks the tie, and products without sales follow, by name.
+ */
+function sortByBestSellers(
+  query: ReturnType<typeof selectSellableCatalogPage>,
+  database: Database,
+  now: Date,
+) {
+  const recentSales = recentUnitsSoldByProduct(database, heatWindowStart(now));
+  return query
+    .leftJoin(recentSales, eq(recentSales.productId, supplierProducts.id))
+    .orderBy(
+      sql`coalesce(${recentSales.units}, 0) desc`,
+      asc(supplierProducts.title),
+      asc(supplierProducts.id),
+    );
+}
+
+function selectSellableCatalogPage(database: Database, tenantId: string) {
+  return selectSellableCatalog(database, tenantId).$dynamic();
+}
+
+function onePage<TQuery extends PgSelect>(
+  query: TQuery,
+  where: SQL | undefined,
+  pagination: Pagination,
+) {
+  return query
+    .where(where)
+    .limit(pagination.pageSize)
+    .offset((pagination.page - 1) * pagination.pageSize);
+}
+
+function listSellablePage(
+  database: Database,
+  tenantId: string,
+  query: { where: SQL | undefined; sort: SellableProductSort; now: Date },
+  pagination: Pagination,
+) {
+  const page = selectSellableCatalogPage(database, tenantId);
+  if (query.sort === "best_sellers") {
+    return onePage(sortByBestSellers(page, database, query.now), query.where, pagination);
+  }
+  return onePage(page.orderBy(...PRODUCT_ORDER[query.sort]), query.where, pagination);
+}
+
 /** Every active product of every active supplier, in one list, marking what the tenant sells. */
 export async function listSellableCatalog(
   database: Database,
@@ -498,11 +551,12 @@ export async function listSellableCatalog(
       .innerJoin(suppliers, eq(suppliers.id, supplierProducts.supplierId))
       .leftJoin(categories, eq(categories.id, supplierProducts.categoryId))
       .where(where),
-    selectSellableCatalog(database, tenantId)
-      .where(where)
-      .orderBy(...PRODUCT_ORDER[filters.sort])
-      .limit(pagination.pageSize)
-      .offset((pagination.page - 1) * pagination.pageSize),
+    listSellablePage(
+      database,
+      tenantId,
+      { where, sort: filters.sort, now: filters.now ?? new Date() },
+      pagination,
+    ),
   ]);
   const items = rows.map((row) => ({ ...row, imageUrl: row.imageUrls.at(0) ?? null }));
   return toPaginated(items, totalRow?.total ?? 0, pagination);
