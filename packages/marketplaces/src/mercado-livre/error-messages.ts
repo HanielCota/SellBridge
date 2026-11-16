@@ -65,7 +65,21 @@ const LONG_ATTRIBUTE = `Um atributo do produto passou do tamanho que o Mercado L
 export const DESCRIPTION_NOT_PLAIN_TEXT =
   "A descrição tem caracteres que o Mercado Livre não aceita (emojis, HTML ou símbolos especiais). Fale com o suporte para deixar só texto simples na descrição.";
 
+/**
+ * Package refusals, from the "Atributos de Dimensões do Pacote" section of the official
+ * "Atributos" page (developers.mercadolivre.com.br/pt_br/atributos, read on 2026-11-16).
+ */
+const PACKAGE_EXPLANATIONS: Readonly<Record<string, () => string>> = {
+  "item.attribute.missing.seller.package.dimensions": () =>
+    `O Mercado Livre exige o peso e as três medidas da caixa (altura, largura e comprimento) neste anúncio, e falta pelo menos um deles no cadastro do produto. ${ASK_SUPPORT}`,
+  "item.attribute.invalid.format.seller.package.dimensions": () =>
+    `O peso ou as medidas da caixa não estão no formato que o Mercado Livre aceita: números inteiros, em gramas e centímetros. ${ASK_SUPPORT}`,
+  "item.attribute.invalid.seller.package.dimensions": () =>
+    `O Mercado Livre não aceitou o peso ou as medidas da caixa: os valores parecem fora do real para este produto. ${ASK_SUPPORT}`,
+};
+
 const EXPLANATIONS: Readonly<Record<string, (cause: MercadoLivreCause) => string>> = {
+  ...PACKAGE_EXPLANATIONS,
   "item.attributes.missing_required": missingAttributes,
   "item.attribute.missing_conditional_required": missingAttributes,
   "item.attribute.missing_catalog_required": () =>

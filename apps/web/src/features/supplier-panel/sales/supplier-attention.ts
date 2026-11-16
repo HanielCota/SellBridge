@@ -1,7 +1,12 @@
 import type { SupplierAttentionTarget } from "@sellbridge/shared/supplier-panel-attention";
 import type { CatalogFix } from "@sellbridge/shared/supplier-panel-home-queue";
 import { STOCK_RUNNING_OUT_DAYS } from "@sellbridge/shared/supplier-panel-sales";
-import { ClockCountdownIcon, PackageIcon, PencilSimpleIcon } from "@phosphor-icons/react";
+import {
+  ClockCountdownIcon,
+  FileTextIcon,
+  PackageIcon,
+  PencilSimpleIcon,
+} from "@phosphor-icons/react";
 import { ListingAlertIcon, SupportHeadsetIcon } from "@/components/reports/attention-icons";
 import type { AttentionRow } from "@/components/reports/attention-panel";
 
@@ -10,6 +15,8 @@ export interface SupplierAttentionInput {
   ordersToAccept: number;
   /** The first parcel's countdown ("Aceite em 3 h"), and whether it is already late. */
   firstAccept: { label: string; overdue: boolean } | null;
+  /** Parcels whose NF-e stopped and waits for the supplier. */
+  stoppedInvoices: number;
   runningOut: { count: number; productId: string | null };
   catalog: readonly CatalogFix[];
   unreadSupportReplies: number;
@@ -37,6 +44,26 @@ function acceptItems(input: SupplierAttentionInput, hrefFor: HrefFor): Attention
           ? "Aceite para o revendedor saber que você vai enviar."
           : `${input.firstAccept.label}: ${late ? "o revendedor está esperando." : "o primeiro vence antes."}`,
       href: hrefFor({ area: "orders", filter: late ? "accept_overdue" : "accept_soon" }),
+    },
+  ];
+}
+
+function invoiceItems(input: SupplierAttentionInput, hrefFor: HrefFor): AttentionRow[] {
+  if (input.stoppedInvoices === 0) {
+    return [];
+  }
+  return [
+    {
+      key: "invoice-stopped",
+      icon: FileTextIcon,
+      tone: "danger",
+      title: plural(
+        input.stoppedInvoices,
+        "nota fiscal com problema",
+        "notas fiscais com problema",
+      ),
+      description: "A nota não sai sozinha: abra o pedido para ver o que corrigir.",
+      href: hrefFor({ area: "orders", filter: "invoice_stopped" }),
     },
   ];
 }
@@ -102,8 +129,8 @@ function catalogItems(input: SupplierAttentionInput, hrefFor: HrefFor): Attentio
 }
 
 /**
- * The supplier's "Precisa de você", most urgent first: orders to accept, then stock (sold out,
- * then running out), then products to fix, then a support reply.
+ * The supplier's "Precisa de você", most urgent first: orders to accept, then stopped notes,
+ * then stock (sold out, then running out), then products to fix, then a support reply.
  */
 export function buildSupplierAttention(
   input: SupplierAttentionInput,
@@ -128,6 +155,7 @@ export function buildSupplierAttention(
       : [];
   return [
     ...acceptItems(input, hrefFor),
+    ...invoiceItems(input, hrefFor),
     ...stockItems(input, hrefFor),
     ...catalogItems(input, hrefFor),
     ...support,

@@ -55,7 +55,7 @@ function HowFlagsWork({ supplierId }: { supplierId: string }) {
  */
 export function GoldenRulesPage({ supplierId }: { supplierId: string }) {
   return (
-    <div className="mx-auto w-full max-w-3xl space-y-6">
+    <div className="space-y-6">
       <PageHeader
         back={<BackLink to="/fornecedor/painel" label="Início" />}
         title="Regras de ouro"

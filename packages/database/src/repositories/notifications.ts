@@ -36,8 +36,14 @@ import {
   supplierConversationEvents,
   type SupplierConversationEvent,
 } from "./notification-conversation-events.ts";
+import { invoiceStoppedEvents, type InvoiceStoppedEvent } from "./notification-invoice-events.ts";
 
-export type { OrderMessageEvent, SupportReplyEvent, SupplierConversationEvent };
+export type {
+  InvoiceStoppedEvent,
+  OrderMessageEvent,
+  SupportReplyEvent,
+  SupplierConversationEvent,
+};
 
 const WINDOW_DAYS = 14;
 const PER_KIND = 10;
@@ -47,6 +53,7 @@ export const STANDING_NOTIFICATION_KINDS: ReadonlySet<NotificationEvent["kind"]>
   "shipment_cancelled",
   "listing_unavailable",
   "shipment_late",
+  "invoice_stopped",
 ]);
 /** Sales are frequent; a handful is enough to show activity without burying problems. */
 const SALES_SHOWN = 5;
@@ -127,7 +134,8 @@ export type NotificationEvent =
   | StockShortageEvent
   | ShipmentCancelledEvent
   | ShipmentLateEvent
-  | ListingUnavailableEvent;
+  | ListingUnavailableEvent
+  | InvoiceStoppedEvent;
 
 export type { ShipmentLateEvent };
 
@@ -451,6 +459,7 @@ export async function listNotificationEvents(
     messages,
     conversations,
     reviews,
+    stoppedInvoices,
     read,
   ] = await Promise.all([
     saleEvents(database, input.tenantId),
@@ -464,6 +473,7 @@ export async function listNotificationEvents(
     orderMessageEvents(database, { tenantId: input.tenantId, since: since(), limit: PER_KIND }),
     supplierConversationEvents(database, input, PER_KIND),
     reviewPendingEvents(database, input.tenantId, input.reviewableSince),
+    invoiceStoppedEvents(database, input.tenantId, PER_KIND),
     readState(database, input),
   ]);
   const events = [
@@ -478,6 +488,7 @@ export async function listNotificationEvents(
     ...messages,
     ...conversations,
     ...reviews,
+    ...stoppedInvoices,
   ];
   const { clearedAt } = read;
   if (clearedAt === null) {

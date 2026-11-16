@@ -100,6 +100,20 @@ test("sem Bling conectado, o fornecedor vê um botão para conectar e a planilha
     "Envie a planilha",
   ]);
   await expect(steps.getByRole("button", { name: "Baixar modelo" })).toBeVisible();
+
+  const columns = page.getByRole("region", { name: "Colunas obrigatórias" });
+  await expect(columns.getByRole("term")).toHaveText(
+    ["Skucoluna sku", "Títulocoluna titulo", "Custocoluna custo", "Estoquecoluna estoque"],
+    { ignoreCase: true },
+  );
+  const fiscal = page.getByText("Dados fiscais", { exact: true });
+  const ncm = page.getByText("coluna ncm", { exact: true });
+  await expect(ncm).toBeHidden();
+  await fiscal.click();
+  await expect(ncm).toBeVisible();
+  await expect(
+    page.getByRole("button", { name: "Baixar guia com todas as colunas" }),
+  ).toBeVisible();
 });
 
 test("o fornecedor importa do Bling dando o preço dos novos com uma regra e ajustando um", async ({
@@ -133,7 +147,7 @@ test("o fornecedor importa do Bling dando o preço dos novos com uma regra e aju
   ).toBeVisible();
   await expect(preview).toContainText("1 já está no SellBridge");
   await expect(preview).toContainText("2 são novos e precisam do preço para o revendedor");
-  const importButton = preview.getByRole("button", { name: "Importar 3 produtos" });
+  const importButton = preview.getByRole("button", { name: "Importar 2 novos e atualizar 1" });
   await expect(importButton).toBeDisabled();
   await expect(preview.getByText("Faltam 2 preços para importar.")).toBeVisible();
   await expect(page.getByRole("heading", { name: "Ou envie uma planilha" })).toBeHidden();
@@ -149,6 +163,17 @@ test("o fornecedor importa do Bling dando o preço dos novos com uma regra e aju
   await prices.nth(1).fill("5000");
   await expect(prices.nth(1)).toHaveValue("50,00");
   await expect(importButton).toBeEnabled();
+
+  await prices.nth(0).fill("4500");
+  const warning = preview.getByText(
+    /^Acima do preço sugerido de R\$\s39,90: o revendedor teria prejuízo$/,
+  );
+  await expect(warning).toBeVisible();
+  await expect(prices.nth(0)).toHaveAccessibleDescription(/Acima do preço sugerido/);
+  await expect(preview.getByText("Confira o preço", { exact: true })).toBeVisible();
+  await expect(importButton).toBeEnabled();
+  await prices.nth(0).fill("2793");
+  await expect(warning).toBeHidden();
 
   const download = page.waitForEvent("download");
   await preview.getByRole("button", { name: "Baixar os novos em planilha" }).click();
