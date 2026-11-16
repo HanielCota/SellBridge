@@ -27,7 +27,14 @@ describe("buildPreferenceRows", () => {
     expect(buildPreferenceRows([], "supplier").map((row) => row.event)).toEqual([
       "support_reply",
       "supplier_conversation",
+      "invoice_attention",
     ]);
+  });
+
+  it("leaves the supplier's stopped-note notice out of the reseller's screen", () => {
+    expect(buildPreferenceRows([], "seller").map((row) => row.event)).not.toContain(
+      "invoice_attention",
+    );
   });
 
   it("shows the saved choice over the default", () => {

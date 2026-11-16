@@ -41,6 +41,14 @@ export interface SupplierImportFileInfo {
   readonly delimiterLabel: string | null;
 }
 
+/** A valid row whose cost is above its own suggested price: it imports, with a warning. */
+export interface ImportPriceWarning {
+  readonly line: number;
+  readonly sku: string;
+  readonly costCents: number;
+  readonly suggestedPriceCents: number;
+}
+
 export interface SupplierImportPreview {
   readonly file: SupplierImportFileInfo;
   readonly totalRows: number;
@@ -52,6 +60,7 @@ export interface SupplierImportPreview {
   /** Of the valid rows: descriptions that came with emojis and are stored without them. */
   readonly emojisRemoved: number;
   readonly issues: readonly ImportRowIssues[];
+  readonly priceWarnings: readonly ImportPriceWarning[];
   /** Only the failed rows plus an "erro" column; empty when nothing failed. */
   readonly failedRowsCsv: string;
   /** What confirming imports (only the valid rows), or null when there is none. */

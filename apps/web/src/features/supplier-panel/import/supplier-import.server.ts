@@ -4,6 +4,7 @@ import { findSourceLine, type CatalogImport } from "@sellbridge/shared/catalog-s
 import { conflictError, validationError } from "@sellbridge/shared/errors";
 import { logger } from "@sellbridge/shared/logger";
 import { parseProductCsv, type ProductCsvError } from "@sellbridge/shared/product-csv";
+import { resellerPriceAboveSuggestedWarning } from "@sellbridge/shared/reseller-price-warning";
 import { readSupplierCatalogFile } from "@sellbridge/shared/supplier-catalog-file";
 import {
   normalizeImportFile,
@@ -25,6 +26,7 @@ import {
   type ImportRowIssues,
 } from "@sellbridge/shared/supplier-panel-import-issues";
 import type {
+  ImportPriceWarning,
   SupplierImportConfirmInput,
   SupplierImportPreview,
   SupplierImportPreviewInput,
@@ -104,10 +106,39 @@ function onSpreadsheetRows(
   if (catalog === null) {
     return [...issues];
   }
-  return issues.map((row) => ({
-    ...row,
-    line: findSourceLine(catalog.lines, row.line)?.rowNumber ?? row.line,
-  }));
+  return issues.map((row) => ({ ...row, line: sourceLine(row.line, catalog) }));
+}
+
+function sourceLine(line: number, catalog: CatalogImport | null): number {
+  if (catalog === null) {
+    return line;
+  }
+  return findSourceLine(catalog.lines, line)?.rowNumber ?? line;
+}
+
+/** Valid rows whose cost is above the suggested price they bring; they still import. */
+function priceWarnings(
+  normalized: NormalizedImport,
+  failedLines: ReadonlySet<number>,
+  catalog: CatalogImport | null,
+): ImportPriceWarning[] {
+  const warnings: ImportPriceWarning[] = [];
+  // product-csv refuses a file with no rows: nothing to warn about when every row had broken quotes.
+  if (normalized.originalLines.size === 0) {
+    return warnings;
+  }
+  for (const row of parseProductCsv(normalized.canonicalCsv).rows) {
+    const line = normalized.originalLines.get(row.line) ?? row.line;
+    const { sku, costCents, suggestedPriceCents } = row.product;
+    if (failedLines.has(line) || suggestedPriceCents === undefined) {
+      continue;
+    }
+    if (resellerPriceAboveSuggestedWarning(costCents, suggestedPriceCents) === null) {
+      continue;
+    }
+    warnings.push({ line: sourceLine(line, catalog), sku, costCents, suggestedPriceCents });
+  }
+  return warnings;
 }
 
 function fileInfo(
@@ -156,6 +187,7 @@ export async function previewSupplierImport(
     updated: prepared?.preview.updated ?? 0,
     emojisRemoved: prepared?.preview.emojisRemoved ?? 0,
     issues: onSpreadsheetRows(issues, catalog),
+    priceWarnings: priceWarnings(normalized, failedLines, catalog),
     failedRowsCsv:
       issues.length === 0 ? "" : buildFailedRowsCsv(normalized, normalized.records, issues),
     confirmation: prepared?.confirmation ?? null,

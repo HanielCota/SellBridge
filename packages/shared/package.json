@@ -50,6 +50,7 @@
     "./support-hours": "./src/domain/support-hours.ts",
     "./support-topics": "./src/domain/support-topics.ts",
     "./support-performance": "./src/domain/support-performance/index.ts",
+    "./supplier-support-report": "./src/domain/supplier-support-report/index.ts",
     "./supplier-conversation-topics": "./src/domain/supplier-conversation-topics.ts",
     "./stock-reservation": "./src/domain/stock-reservation.ts",
     "./marketplace-units": "./src/domain/marketplace-units.ts",
@@ -114,7 +115,8 @@
     "./return-claims": "./src/domain/return-claims.ts",
     "./prohibited-products": "./src/domain/prohibited-products.ts",
     "./erp-catalog": "./src/domain/erp-catalog.ts",
-    "./erp-reseller-price": "./src/domain/erp-reseller-price.ts"
+    "./erp-reseller-price": "./src/domain/erp-reseller-price.ts",
+    "./reseller-price-warning": "./src/domain/reseller-price-warning.ts"
   },
   "scripts": {
     "typecheck": "tsc --noEmit",

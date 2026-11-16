@@ -69,6 +69,21 @@ describe("presentNotification", () => {
     expect(notification.href).toBe("/pedidos/order-9");
   });
 
+  it("sends the supplier from a stopped note to the orders with a problem", () => {
+    const notification = presentNotification({
+      kind: "invoice_stopped",
+      entityId: "shipment-4",
+      at,
+      externalOrderId: "ML-10",
+    });
+
+    expect(notification).toMatchObject({
+      id: "invoice-stopped:shipment-4",
+      title: "Nota fiscal com problema no pedido #ML-10",
+      href: "/fornecedor/painel/pedidos?tab=problem",
+    });
+  });
+
   it.each([
     [
       "accept_overdue",

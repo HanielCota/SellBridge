@@ -252,6 +252,10 @@ function searchCondition(database: Database, search: string | undefined): SQL | 
   );
 }
 
+function topicCondition(topic: SupplierConversationTopicId | undefined): SQL | undefined {
+  return topic === undefined ? undefined : eq(tickets.supplierTopic, topic);
+}
+
 /** The viewer's conversations, newest activity first, with an unread dot for the reader. */
 export async function listConversations(
   database: Database,
@@ -260,6 +264,7 @@ export async function listConversations(
     readerId: string;
     status?: TicketStatus | undefined;
     search?: string | undefined;
+    topic?: SupplierConversationTopicId | undefined;
   },
   pagination: Pagination,
 ): Promise<Paginated<ConversationSummary>> {
@@ -267,6 +272,7 @@ export async function listConversations(
     viewerCondition(input.viewer),
     input.status === undefined ? undefined : eq(tickets.status, input.status),
     searchCondition(database, input.search),
+    topicCondition(input.topic),
   );
   const [rows, totals] = await Promise.all([
     database
@@ -308,16 +314,29 @@ export async function listConversations(
   return toPaginated(items, totals.at(0)?.total ?? 0, pagination);
 }
 
-/** How many of the viewer's conversations sit in each state, under the same search as the list. */
+/**
+ * How many of the viewer's conversations sit in each state, under the same search and topic as
+ * the list.
+ */
 export async function countConversationsByStatus(
   database: Database,
-  input: { viewer: ConversationViewer; search?: string | undefined },
+  input: {
+    viewer: ConversationViewer;
+    search?: string | undefined;
+    topic?: SupplierConversationTopicId | undefined;
+  },
 ): Promise<Record<TicketStatus, number>> {
   const rows = await database
     .select({ status: tickets.status, total: count() })
     .from(tickets)
     .leftJoin(storeConnections, eq(storeConnections.id, tickets.storeConnectionId))
-    .where(and(viewerCondition(input.viewer), searchCondition(database, input.search)))
+    .where(
+      and(
+        viewerCondition(input.viewer),
+        searchCondition(database, input.search),
+        topicCondition(input.topic),
+      ),
+    )
     .groupBy(tickets.status);
   const totals: Record<TicketStatus, number> = { open: 0, answered: 0, closed: 0 };
   for (const row of rows) {

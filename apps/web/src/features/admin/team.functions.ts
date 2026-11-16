@@ -64,9 +64,10 @@ async function setTeamRole(userId: string, role: StaffRole): Promise<void> {
 }
 
 /**
- * Creates the account, gives the role and sends the link. Every new account is born a reseller
- * (auth.ts databaseHooks), so the role comes after; if that or the e-mail fails, the account
- * is removed, so a retry starts clean instead of finding a half-made account.
+ * Creates the account, gives the role and sends the link. An attendant or supervisor is born with
+ * no store (`sign-up-profile.ts`), and every account as a plain user (auth.ts databaseHooks), so
+ * the role comes after; if that or the e-mail fails, the account is removed, so a retry starts
+ * clean instead of finding a half-made account.
  */
 async function createInvitedAccount(adminId: string, data: InviteTeamMemberInput): Promise<void> {
   const created = await auth.api.createUser({
@@ -74,6 +75,8 @@ async function createInvitedAccount(adminId: string, data: InviteTeamMemberInput
       email: data.email,
       name: data.name,
       password: unusablePassword(),
+      // Read by sign-up-profile.ts: attendants and supervisors get no store.
+      role: data.role,
       // Only an owner invites, and the link itself goes to the mailbox.
       data: { emailVerified: true },
     },

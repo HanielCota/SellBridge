@@ -61,14 +61,21 @@ function cellOf(
 const SUPPLIER_EVENTS: ReadonlySet<NotificationEventName> = new Set([
   "support_reply",
   "supplier_conversation",
+  "invoice_attention",
 ]);
+
+/** The supplier's own notes: a reseller never issues one, so never gets the switch. */
+const SUPPLIER_ONLY_EVENTS: ReadonlySet<NotificationEventName> = new Set(["invoice_attention"]);
 
 function shownTo(kind: ProfileKind, event: NotificationEventName): boolean {
   // Team notices (a new ticket) are not the customer's to choose; the team keeps the default.
   if (NOTIFICATION_EVENT_DEFINITIONS[event].audience !== "reseller") {
     return false;
   }
-  return kind === "seller" || SUPPLIER_EVENTS.has(event);
+  if (kind === "seller") {
+    return !SUPPLIER_ONLY_EVENTS.has(event);
+  }
+  return SUPPLIER_EVENTS.has(event);
 }
 
 /** Every event this kind of profile receives, with what each channel will do for this person. */
@@ -95,6 +102,7 @@ const BELL_KIND_OF_EVENT: Partial<Record<NotificationEventName, NotificationKind
   listing_failed: "listing_error",
   support_reply: "support_reply",
   supplier_conversation: "supplier_conversation",
+  invoice_attention: "invoice_stopped",
 };
 
 /** Bell entries the person turned off ("No app" switched off). */

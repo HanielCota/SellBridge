@@ -21,6 +21,15 @@ describe("accountMenuEntries", () => {
     ]);
   });
 
+  // Regression: an invited attendant with no store saw the reseller's registration, which failed.
+  it("keeps only the profile, the theme and signing out for a team member with no profile", () => {
+    expect(accountMenuEntries({ profileKind: "seller", isStaff: true, teamOnly: true })).toEqual([
+      "profile",
+      "theme",
+      "signOut",
+    ]);
+  });
+
   it("leaves the reseller's registration out of a supplier's menu", () => {
     expect(accountMenuEntries({ profileKind: "supplier", isStaff: false })).toEqual([
       "profile",

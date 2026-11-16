@@ -5,6 +5,7 @@ import { buildSupplierAttention, type SupplierAttentionInput } from "./supplier-
 const quiet: SupplierAttentionInput = {
   ordersToAccept: 0,
   firstAccept: null,
+  stoppedInvoices: 0,
   runningOut: { count: 0, productId: null },
   catalog: [],
   unreadSupportReplies: 0,
@@ -32,6 +33,21 @@ describe("buildSupplierAttention", () => {
       description: "Aceite em 3 h: o primeiro vence antes.",
       tone: "review",
       href: "/fornecedor/painel/pedidos?tab=forwarded",
+    });
+  });
+
+  it("lists the stopped notes after the accepts, opening the problem tab", () => {
+    const items = build({
+      ordersToAccept: 1,
+      stoppedInvoices: 2,
+      runningOut: { count: 1, productId: "p1" },
+    });
+
+    expect(items.map((item) => item.key)).toEqual(["accept", "invoice-stopped", "running-out"]);
+    expect(items[1]).toMatchObject({
+      title: "2 notas fiscais com problema",
+      tone: "danger",
+      href: "/fornecedor/painel/pedidos?tab=problem",
     });
   });
 

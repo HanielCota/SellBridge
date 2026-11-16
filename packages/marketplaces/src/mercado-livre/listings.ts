@@ -13,6 +13,7 @@ import type {
 } from "../types.ts";
 import { type MercadoLivreContext, requestJson } from "./client.ts";
 import { DESCRIPTION_NOT_PLAIN_TEXT, LISTING_ENDED_MESSAGE } from "./error-messages.ts";
+import { isPackageAttribute, packageAttributeValue } from "./package-measures.ts";
 import { toMercadoLivrePlainText } from "./plain-text.ts";
 import {
   categoryAttributesSchema,
@@ -127,14 +128,37 @@ function itemBody(
     listing_type_id: "gold_special",
     pictures: input.imageUrls.slice(0, 6).map((source) => ({ source })),
     seller_custom_field: input.idempotencyKey,
-    attributes: [
-      ...Object.entries(input.mercadoLivreAttributes ?? {})
-        // "SEM GTIN" is for the NF-e; Mercado Livre refuses it as a barcode, so it is left out.
-        .filter(([id, value]) => id !== "SELLER_SKU" && !(id === "GTIN" && isNoGtin(value)))
-        .map(([id, value_name]) => ({ id, value_name })),
-      { id: "SELLER_SKU", value_name: input.sku },
-    ],
+    attributes: [...productAttributes(input), { id: "SELLER_SKU", value_name: input.sku }],
   };
+}
+
+/** One stored attribute as Mercado Livre takes it, or null when it must be left out. */
+function attributeToSend(id: string, value: string): { id: string; value_name: string } | null {
+  // "SEM GTIN" is for the NF-e; Mercado Livre refuses it as a barcode, so it is left out.
+  if (id === "SELLER_SKU" || (id === "GTIN" && isNoGtin(value))) {
+    return null;
+  }
+  if (isPackageAttribute(id)) {
+    return packageAttribute(id, value);
+  }
+  return { id, value_name: value };
+}
+
+function packageAttribute(id: string, value: string): { id: string; value_name: string } | null {
+  const packageValue = packageAttributeValue(id, value);
+  if (packageValue === null) {
+    // A malformed measure would refuse the whole item; without it only the shipping quote waits.
+    logger.warn("mercado_livre.package_attribute_skipped", { attributeId: id });
+    return null;
+  }
+  return { id, value_name: packageValue };
+}
+
+function productAttributes(input: PublishProductInput) {
+  return Object.entries(input.mercadoLivreAttributes ?? {}).flatMap(([id, value]) => {
+    const attribute = attributeToSend(id, value);
+    return attribute === null ? [] : [attribute];
+  });
 }
 
 /** Why a description did not go through, in the reseller's words (13.a); generic otherwise. */

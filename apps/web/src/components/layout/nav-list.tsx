@@ -24,6 +24,13 @@ export interface AppNavigation {
   /** Admin mode only: every profile the admin can open, each one a tab of the menu's switch. */
   profileSections: readonly ProfileSection[];
   teamItems: readonly NavItem[];
+  /** A team member with no profile: no support chat, plan or brand in the foot. */
+  teamOnly: boolean;
+}
+
+/** The foot's items: a team member with no profile has none, their profile is in the card. */
+function accountItemsOf(navigation: AppNavigation, kind: ProfileKind): readonly NavItem[] {
+  return navigation.teamOnly ? [] : ACCOUNT_NAV_ITEMS[kind];
 }
 
 /** What both lists show, worked out once per menu so they always light the same item. */
@@ -60,7 +67,7 @@ export function shownMenu(
   const items = section?.items ?? navigation.profileItems;
   const slug = section?.slug ?? null;
   // Items of a profile peeked at belong to another tab, so none of them is the page open here.
-  const profileItems = slug === null ? [...items, ...ACCOUNT_NAV_ITEMS[kind]] : [];
+  const profileItems = slug === null ? [...items, ...accountItemsOf(navigation, kind)] : [];
   const activeTo = activeNavItemTo([...profileItems, ...navigation.teamItems], pathname);
   return { kind, items, slug, activeTo };
 }
@@ -200,15 +207,16 @@ export function NavList({
  * support link where support opens as a card (the sidebar).
  */
 export function AccountNavList({
+  navigation,
   shown,
   counts,
   onNavigate,
   withHint = false,
   supportPanel = null,
-}: Omit<ListProps, "navigation"> & { supportPanel?: ReactNode }) {
+}: ListProps & { supportPanel?: ReactNode }) {
   return (
     <div className="grid grid-cols-1 gap-1">
-      {ACCOUNT_NAV_ITEMS[shown.kind].map((item) =>
+      {accountItemsOf(navigation, shown.kind).map((item) =>
         item.to === SUPPORT_NAV_ITEM.to && supportPanel !== null ? (
           <Fragment key={item.to}>{supportPanel}</Fragment>
         ) : (

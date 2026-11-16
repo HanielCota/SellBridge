@@ -191,6 +191,25 @@ describe("supplier queue rows", () => {
 
     expect(page.items.map((item) => item.id)).toEqual([cancellationId]);
   });
+
+  it("lists only the conversations about the topic picked", async () => {
+    const page = await listConversations(
+      database,
+      { viewer: supplierSide(), readerId: supplierUser, topic: "product" },
+      PAGE,
+    );
+
+    expect(page.items.map((item) => item.id)).toEqual([questionId]);
+  });
+
+  it("counts the tabs under the topic picked", async () => {
+    const counts = await countConversationsByStatus(database, {
+      viewer: supplierSide(),
+      topic: "cancellation",
+    });
+
+    expect(counts).toEqual({ open: 1, answered: 0, closed: 0 });
+  });
 });
 
 describe("finishing a conversation", () => {

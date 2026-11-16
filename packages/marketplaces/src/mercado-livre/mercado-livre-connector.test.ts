@@ -672,6 +672,47 @@ describe("Mercado Livre category requirements", () => {
     ]);
   });
 
+  it("sends the package weight in whole grams and its measures in whole centimeters", async () => {
+    const { ml, calls } = connector(publishRoutes);
+
+    await ml.publishProduct(store, {
+      ...product,
+      // The supplier form stores digits only; the spreadsheet stores "<number> <unit>".
+      mercadoLivreAttributes: {
+        SELLER_PACKAGE_WEIGHT: "500",
+        SELLER_PACKAGE_HEIGHT: "12",
+        SELLER_PACKAGE_WIDTH: "32.5 cm",
+        SELLER_PACKAGE_LENGTH: "30,2",
+      },
+    });
+
+    expect(
+      JSON.parse(calls.find((call) => call.url === `${API}/items`)?.body ?? "{}").attributes,
+    ).toEqual([
+      { id: "SELLER_PACKAGE_WEIGHT", value_name: "500 g" },
+      { id: "SELLER_PACKAGE_HEIGHT", value_name: "12 cm" },
+      { id: "SELLER_PACKAGE_WIDTH", value_name: "33 cm" },
+      { id: "SELLER_PACKAGE_LENGTH", value_name: "31 cm" },
+      { id: "SELLER_SKU", value_name: product.sku },
+    ]);
+  });
+
+  it("leaves out a package measure that is not a number instead of sending it", async () => {
+    const { ml, calls } = connector(publishRoutes);
+
+    await ml.publishProduct(store, {
+      ...product,
+      mercadoLivreAttributes: { BRAND: "Genérica", SELLER_PACKAGE_WEIGHT: "meio quilo" },
+    });
+
+    expect(
+      JSON.parse(calls.find((call) => call.url === `${API}/items`)?.body ?? "{}").attributes,
+    ).toEqual([
+      { id: "BRAND", value_name: "Genérica" },
+      { id: "SELLER_SKU", value_name: product.sku },
+    ]);
+  });
+
   it("reports missing required and new_required attributes before creating", async () => {
     const guard = publicationGuard();
     const { ml, calls } = connector({
