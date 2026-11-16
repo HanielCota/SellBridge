@@ -7,6 +7,7 @@ import { asaasReceivingQueryOptions } from "@/features/supplier-payments/asaas.q
 import { errorMessage } from "@/lib/errors";
 import { formatAbsoluteTime } from "@/lib/relative-time";
 import { AsaasAccountDialog } from "./asaas-account-dialog";
+import type { ButtonEmphasis } from "./receiving-emphasis";
 import { PaymentPill } from "./supplier-payment-badge";
 
 export type AsaasReceivingView = Awaited<
@@ -53,23 +54,29 @@ function HowItWorks({ fee }: { fee: string }) {
   );
 }
 
-function OpenCard({ supplierId, fee }: { supplierId: string; fee: string }) {
+function OpenCard(props: { supplierId: string; fee: string; emphasis: ButtonEmphasis }) {
   const [open, setOpen] = useState(false);
   return (
     <Shell badge={<PaymentPill tone="neutral">Não aberta</PaymentPill>}>
-      <HowItWorks fee={fee} />
+      <HowItWorks fee={props.fee} />
       <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
-        <Button size="lg" onClick={() => setOpen(true)}>
+        <Button size="lg" variant={props.emphasis} onClick={() => setOpen(true)}>
           Abrir minha conta no Asaas
         </Button>
         <span className="text-sm text-muted-foreground">Leva uns 3 minutos.</span>
       </div>
-      <AsaasAccountDialog supplierId={supplierId} open={open} onOpenChange={setOpen} />
+      <AsaasAccountDialog supplierId={props.supplierId} open={open} onOpenChange={setOpen} />
     </Shell>
   );
 }
 
-function RetryProtection({ supplierId }: { supplierId: string }) {
+function RetryProtection({
+  supplierId,
+  emphasis,
+}: {
+  supplierId: string;
+  emphasis: ButtonEmphasis;
+}) {
   const queryClient = useQueryClient();
   const retry = useMutation({
     mutationFn: () => retryAsaasProtectionFn({ data: { supplierId } }),
@@ -93,7 +100,12 @@ function RetryProtection({ supplierId }: { supplierId: string }) {
         aqui.
       </p>
       <div>
-        <Button size="lg" disabled={retry.isPending} onClick={() => retry.mutate()}>
+        <Button
+          size="lg"
+          variant={emphasis}
+          disabled={retry.isPending}
+          onClick={() => retry.mutate()}
+        >
           {retry.isPending ? "Ligando…" : "Ligar a proteção"}
         </Button>
       </div>
@@ -101,7 +113,15 @@ function RetryProtection({ supplierId }: { supplierId: string }) {
   );
 }
 
-function DocumentsLink({ url, label }: { url: string | null; label: string }) {
+function DocumentsLink({
+  url,
+  label,
+  emphasis,
+}: {
+  url: string | null;
+  label: string;
+  emphasis: ButtonEmphasis;
+}) {
   if (url === null) {
     return (
       <p className="text-sm text-muted-foreground">
@@ -111,7 +131,7 @@ function DocumentsLink({ url, label }: { url: string | null; label: string }) {
   }
   return (
     <div>
-      <Button asChild size="lg">
+      <Button asChild size="lg" variant={emphasis}>
         <a href={url} target="_blank" rel="noopener noreferrer">
           {label}
         </a>
@@ -120,14 +140,24 @@ function DocumentsLink({ url, label }: { url: string | null; label: string }) {
   );
 }
 
-function ReviewCard({ view }: { view: NonNullable<AsaasReceivingView["asaas"]> }) {
+function ReviewCard({
+  view,
+  emphasis,
+}: {
+  view: NonNullable<AsaasReceivingView["asaas"]>;
+  emphasis: ButtonEmphasis;
+}) {
   if (view.reviewStatus === "rejected") {
     return (
       <Shell badge={<PaymentPill tone="danger">Documentos recusados</PaymentPill>}>
         <p className="text-sm">
           O Asaas não aprovou os documentos. Veja no e-mail do Asaas o motivo e envie de novo.
         </p>
-        <DocumentsLink url={view.documentsUrl} label="Enviar os documentos de novo" />
+        <DocumentsLink
+          url={view.documentsUrl}
+          label="Enviar os documentos de novo"
+          emphasis={emphasis}
+        />
       </Shell>
     );
   }
@@ -146,7 +176,11 @@ function ReviewCard({ view }: { view: NonNullable<AsaasReceivingView["asaas"]> }
           : "Para receber, envie uma foto do seu documento e uma selfie no site do Asaas."}
       </p>
       {waiting ? null : (
-        <DocumentsLink url={view.documentsUrl} label="Enviar documentos no Asaas" />
+        <DocumentsLink
+          url={view.documentsUrl}
+          label="Enviar documentos no Asaas"
+          emphasis={emphasis}
+        />
       )}
     </Shell>
   );
@@ -177,6 +211,7 @@ export function AsaasReceivingCard(props: {
   supplierId: string;
   view: AsaasReceivingView;
   fee: string;
+  emphasis: ButtonEmphasis;
 }) {
   const { asaas } = props.view;
   if (!props.view.available) {
@@ -189,13 +224,13 @@ export function AsaasReceivingCard(props: {
     );
   }
   if (asaas === null) {
-    return <OpenCard supplierId={props.supplierId} fee={props.fee} />;
+    return <OpenCard supplierId={props.supplierId} fee={props.fee} emphasis={props.emphasis} />;
   }
   if (asaas.protectionMissing) {
-    return <RetryProtection supplierId={props.supplierId} />;
+    return <RetryProtection supplierId={props.supplierId} emphasis={props.emphasis} />;
   }
   if (asaas.reviewStatus !== "approved") {
-    return <ReviewCard view={asaas} />;
+    return <ReviewCard view={asaas} emphasis={props.emphasis} />;
   }
   return <ApprovedCard fee={props.fee} since={asaas.connectedAt} />;
 }
