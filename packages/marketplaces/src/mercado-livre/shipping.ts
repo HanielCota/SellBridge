@@ -1,9 +1,15 @@
 import { z } from "zod";
-import { deliveryAddressSchema, type MarketplaceTrackingStatus } from "@sellbridge/shared/schemas";
+import { logger } from "@sellbridge/shared/logger";
+import {
+  deliveryAddressSchema,
+  type LabelFormat,
+  type MarketplaceTrackingStatus,
+} from "@sellbridge/shared/schemas";
 import { type ShippingAddressReading, shippingAddressReading } from "../shipping-address.ts";
 import type { StoreCredentials } from "../types.ts";
 import { marketplaceError } from "../errors.ts";
 import { fetchWithRetry } from "../http.ts";
+import { InvalidZipError, isZip, readZipEntries } from "../zip.ts";
 import { requestJson, type MercadoLivreConfig, type MercadoLivreContext } from "./client.ts";
 import { externalIdSchema, presentTextSchema } from "./schemas.ts";
 
@@ -187,13 +193,59 @@ async function buyerReturnDelivered(
   return returns.some((parcel) => parcel.status === "delivered");
 }
 
+/** `GET /shipments/{id}/sla`: the date and time by which the seller must dispatch the parcel. */
+const shipmentSlaSchema = z.object({
+  expected_date: z.iso.datetime({ offset: true }).nullable().optional(),
+});
+
+/**
+ * Shipments the SLA is asked for: still before dispatch, and never Fulfillment or cancelled ones,
+ * which Mercado Livre says it has no SLA for (gerenciamento-de-envios, "Prazo máximo de despacho").
+ */
+const SLA_SHIPMENT_STATUSES = new Set(["pending", "handling", "ready_to_ship"]);
+
+function needsDispatchSla(shipping: { status: string; logisticType: string }): boolean {
+  return SLA_SHIPMENT_STATUSES.has(shipping.status) && shipping.logisticType !== "fulfillment";
+}
+
+/**
+ * The dispatch deadline from the SLA resource. Since 13 May 2025 Mercado Livre serves it there
+ * only (`lead_time.estimated_handling_limit` is deprecated). A failed or empty answer is null:
+ * the deadline is extra information and never fails the shipment reading.
+ */
+async function dispatchSlaDate(
+  context: MercadoLivreContext,
+  store: StoreCredentials,
+  shipmentId: string,
+): Promise<Date | null> {
+  try {
+    const sla = await requestJson(context, {
+      schema: shipmentSlaSchema,
+      path: `/shipments/${encodeURIComponent(shipmentId)}/sla`,
+      init: { accessToken: store.accessToken },
+    });
+    return sla.expected_date == null ? null : new Date(sla.expected_date);
+  } catch (error) {
+    logger.warn("mercado_livre.shipment_sla_failed", { shipmentId, error });
+    return null;
+  }
+}
+
 export async function getMercadoLivreShipping(
   config: MercadoLivreConfig,
   store: StoreCredentials,
   orderId: string,
 ) {
   const { context, refs, shipping } = await loadSaleShipment(config, store, orderId);
-  return { ...shipping, buyerReturnDelivered: await buyerReturnDelivered(context, store, refs) };
+  const returned = await buyerReturnDelivered(context, store, refs);
+  const slaDate = needsDispatchSla(shipping)
+    ? await dispatchSlaDate(context, store, shipping.shipmentId)
+    : null;
+  return {
+    ...shipping,
+    dispatchDeadlineAt: slaDate ?? shipping.dispatchDeadlineAt,
+    buyerReturnDelivered: returned,
+  };
 }
 /**
  * The buyer's address from the sale shipment, read by the same calls as `getMercadoLivreShipping`
@@ -235,18 +287,55 @@ function assertLabelPrintable(shipping: SaleShipping): void {
     });
 }
 
-/** One PDF with the labels of these sale shipments, all of the same store. */
-async function fetchLabelPdf(
+/** Mercado Livre's `response_type` per label format (Mercado Envios 2, "Imprimir etiquetas"). */
+const LABEL_RESPONSE_TYPES: Record<LabelFormat, string> = { pdf: "pdf", zpl: "zpl2" };
+
+const ZPL_LABEL_START = "^XA";
+
+function invalidLabel(format: LabelFormat, cause?: unknown) {
+  const name = format === "pdf" ? "PDF" : "ZPL";
+  return marketplaceError(`O marketplace não retornou uma etiqueta ${name} válida`, {
+    retryable: false,
+    cause,
+  });
+}
+
+/**
+ * The ZPL text of a `zpl2` answer. The docs do not say how it comes: integrations get a ZIP with
+ * one text file per document, so both a ZIP and plain ZPL are read, and anything else is refused.
+ * Files in the ZIP that are not ZPL are left out.
+ */
+function zplLabel(bytes: Uint8Array<ArrayBuffer>): Uint8Array<ArrayBuffer> {
+  if (!isZip(bytes)) {
+    const text = new TextDecoder().decode(bytes);
+    if (!text.trimStart().startsWith(ZPL_LABEL_START)) throw invalidLabel("zpl");
+    return bytes;
+  }
+  try {
+    const labels = readZipEntries(bytes, MAX_LABEL_BYTES)
+      .map((entry) => new TextDecoder().decode(entry.data))
+      .filter((text) => text.trimStart().startsWith(ZPL_LABEL_START));
+    if (labels.length === 0) throw invalidLabel("zpl");
+    return new TextEncoder().encode(labels.join("\n"));
+  } catch (error) {
+    if (error instanceof InvalidZipError) throw invalidLabel("zpl", error);
+    throw error;
+  }
+}
+
+/** One file with the labels of these sale shipments, all of the same store. */
+async function fetchLabelFile(
   config: MercadoLivreConfig,
   store: StoreCredentials,
   shipmentIds: readonly string[],
+  format: LabelFormat,
 ): Promise<Uint8Array<ArrayBuffer>> {
   const ids = shipmentIds.map((id) => encodeURIComponent(id)).join(",");
   const response = await fetchWithRetry(
     config.fetchImplementation ?? fetch,
-    `https://api.mercadolibre.com/shipment_labels?shipment_ids=${ids}&response_type=pdf`,
+    `https://api.mercadolibre.com/shipment_labels?shipment_ids=${ids}&response_type=${LABEL_RESPONSE_TYPES[format]}`,
     { headers: { authorization: `Bearer ${store.accessToken}` } },
-    // A label is a PDF of up to 10 MB. The 30s deadline is per attempt: a caller signal shared by
+    // A label is a file of up to 10 MB. The 30s deadline is per attempt: a caller signal shared by
     // every attempt fired in the middle of the second one and read as "cancelled".
     { ...config.retry, timeoutMilliseconds: 30_000, maxBodyBytes: MAX_LABEL_BYTES },
   );
@@ -256,22 +345,28 @@ async function fetchLabelPdf(
       retryable: response.status >= 500,
     });
   const bytes = new Uint8Array(await response.arrayBuffer());
-  if (bytes.length > MAX_LABEL_BYTES || new TextDecoder().decode(bytes.subarray(0, 5)) !== "%PDF-")
-    throw marketplaceError("O marketplace não retornou uma etiqueta PDF válida", {
-      retryable: false,
-    });
+  if (bytes.length > MAX_LABEL_BYTES) throw invalidLabel(format);
+  if (format === "zpl") return zplLabel(bytes);
+  if (new TextDecoder().decode(bytes.subarray(0, 5)) !== "%PDF-") throw invalidLabel(format);
   return bytes;
+}
+
+/** A label file as Mercado Livre printed it, in the format asked for. */
+export interface MercadoLivreLabelFile {
+  format: LabelFormat;
+  bytes: Uint8Array<ArrayBuffer>;
 }
 
 export async function getMercadoLivreLabel(
   config: MercadoLivreConfig,
   store: StoreCredentials,
   orderId: string,
-): Promise<{ pdf: Uint8Array<ArrayBuffer>; shipmentId: string }> {
+  format: LabelFormat,
+): Promise<{ file: MercadoLivreLabelFile; shipmentId: string }> {
   const { shipping } = await loadSaleShipment(config, store, orderId);
   assertLabelPrintable(shipping);
-  const pdf = await fetchLabelPdf(config, store, [shipping.shipmentId]);
-  return { pdf, shipmentId: shipping.shipmentId };
+  const bytes = await fetchLabelFile(config, store, [shipping.shipmentId], format);
+  return { file: { format, bytes }, shipmentId: shipping.shipmentId };
 }
 
 /** An order whose label came, with the marketplace's shipment id its barcode carries. */
@@ -280,9 +375,9 @@ export interface PrintedLabel {
   shipmentId: string;
 }
 
-/** What a batch of labels of one store gave: one PDF for the printable orders, and the rest. */
+/** What a batch of labels of one store gave: one file for the printable orders, and the rest. */
 export interface MercadoLivreLabelBatch {
-  pdf: Uint8Array<ArrayBuffer> | null;
+  file: MercadoLivreLabelFile | null;
   printed: PrintedLabel[];
   refused: { orderId: string; error: unknown }[];
 }
@@ -307,13 +402,14 @@ async function printableShipment(
 }
 
 /**
- * The labels of several orders of one store in a single PDF, as Mercado Livre prints them
+ * The labels of several orders of one store in a single file, as Mercado Livre prints them
  * together. An order whose label cannot print is reported, never fails the others.
  */
 export async function getMercadoLivreLabels(
   config: MercadoLivreConfig,
   store: StoreCredentials,
   orderIds: readonly string[],
+  format: LabelFormat,
 ): Promise<MercadoLivreLabelBatch> {
   if (orderIds.length > MAX_LABELS_PER_REQUEST)
     throw marketplaceError(`Imprima até ${MAX_LABELS_PER_REQUEST} etiquetas por vez`, {
@@ -331,15 +427,16 @@ export async function getMercadoLivreLabels(
     lookup.kind === "refused" ? [{ orderId: lookup.orderId, error: lookup.error }] : [],
   );
   if (printable.length === 0) {
-    return { pdf: null, printed: [], refused };
+    return { file: null, printed: [], refused };
   }
-  const pdf = await fetchLabelPdf(
+  const bytes = await fetchLabelFile(
     config,
     store,
     printable.map((lookup) => lookup.shipmentId),
+    format,
   );
   const printed = printable.map(({ orderId, shipmentId }) => ({ orderId, shipmentId }));
-  return { pdf, printed, refused };
+  return { file: { format, bytes }, printed, refused };
 }
 
 function parseDeliveryAddress(raw: z.infer<typeof shippingSchema>) {
