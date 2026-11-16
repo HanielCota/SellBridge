@@ -205,7 +205,11 @@ test("o fornecedor baixa a etiqueta em ZPL, de um pedido e em lote", async ({ pa
   const single = await formDownload;
   expect(single.suggestedFilename()).toBe(`etiqueta-zebra-pedido-${orderNumber}.txt`);
   expect(await readFile(await single.path(), "utf8")).toBe(standInZpl(orderNumber));
+  // An Escape while the format menu is still closing goes to the menu, and the panel stays open
+  // over the list (seen on CI): close the panel only once the menu is gone.
+  await expect(page.getByRole("menu")).toBeHidden();
   await page.keyboard.press("Escape");
+  await expect(dialog).toBeHidden();
 
   // Several orders, from the selection bar: one ZPL file per reseller store.
   await page
