@@ -129,20 +129,6 @@ export const storedOrderNotificationSchema = z.object({
 });
 
 export const sellerCapabilitiesSchema = z.object({ tags: z.array(z.string()) });
-export const categoryAttributesSchema = z.array(
-  z.object({
-    id: z.string(),
-    name: z.string(),
-    tags: z
-      .object({
-        required: z.boolean().optional(),
-        new_required: z.boolean().optional(),
-        conditional_required: z.boolean().optional(),
-        read_only: z.boolean().optional(),
-      })
-      .default({}),
-  }),
-);
 export const conditionalAttributesSchema = z.object({
   required_attributes: z.array(z.object({ id: z.string(), name: z.string() })),
 });

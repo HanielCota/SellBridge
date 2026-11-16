@@ -150,7 +150,14 @@ function StepContent({
       return <StepCategory {...stepProps} categories={categories} />;
     }
     case "details": {
-      return <StepDetails {...stepProps} required={form.required} taxDefaults={taxDefaults} />;
+      return (
+        <StepDetails
+          {...stepProps}
+          required={form.required}
+          taxDefaults={taxDefaults}
+          mercadoLivre={{ supplierId, ficha: form.ficha }}
+        />
+      );
     }
     case "images": {
       return <StepImages {...stepProps} supplierId={supplierId} />;

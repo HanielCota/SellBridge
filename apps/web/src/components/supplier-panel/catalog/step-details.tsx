@@ -17,6 +17,14 @@ import { Label } from "@/components/ui/label";
 import { cn } from "@/lib/utils";
 import { FieldReason, type ReasonsByField } from "./field-reason";
 import { FiscalFields } from "./fiscal-fields";
+import { MercadoLivreCategoryLine, MercadoLivreFichaFields } from "./mercado-livre-ficha-fields";
+import type { MercadoLivreFicha } from "@/features/supplier-panel/catalog/use-mercado-livre-ficha";
+
+/** The supplier's product form asks Mercado Livre's sheet; a seller's own product does not. */
+interface MercadoLivreSheet {
+  readonly supplierId: string;
+  readonly ficha: MercadoLivreFicha;
+}
 
 /** Codes are typed as they are: no capital first letter, autocorrect or spell check. */
 const CODE_INPUT = {
@@ -111,6 +119,58 @@ function NoGtinCheckbox({ values, onChange }: Pick<StepProps, "values" | "onChan
   );
 }
 
+/**
+ * The attributes asked as text fields: the common ones always, plus required and stored ones the
+ * Mercado Livre sheet does not ask with its own field (a list, yes/no or a measure).
+ */
+function textAttributes(
+  values: PanelFormValues,
+  required: readonly RequiredAttribute[],
+  sheet: MercadoLivreSheet | undefined,
+) {
+  const sheetIds = new Set((sheet?.ficha.fields ?? []).map((field) => field.id));
+  const commonIds = new Set(COMMON_ATTRIBUTES.map((attribute) => attribute.id));
+  return attributeList(values, required).filter(
+    (attribute) => commonIds.has(attribute.id) || !sheetIds.has(attribute.id),
+  );
+}
+
+function TextAttributeField({
+  attribute,
+  required,
+  values,
+  errors,
+  reasons,
+  onChange,
+  showFiscal,
+}: StepProps & {
+  attribute: { id: string; label: string };
+  required: boolean;
+  showFiscal: boolean;
+}) {
+  const field = `attributes.${attribute.id}`;
+  return (
+    <div className="grid gap-2">
+      <TextField
+        id={inputIdOf(field)}
+        label={required ? `${attribute.label} (obrigatório)` : attribute.label}
+        value={values.attributes[attribute.id] ?? ""}
+        errors={errorsOf(errors, field)}
+        onValueChange={(next) =>
+          onChange({ attributes: { ...values.attributes, [attribute.id]: next } })
+        }
+        {...(ATTRIBUTE_INPUTS[attribute.id] === undefined
+          ? {}
+          : { ...CODE_INPUT, ...ATTRIBUTE_INPUTS[attribute.id] })}
+      />
+      <FieldReason field={field} reasons={reasons} />
+      {showFiscal && attribute.id === "GTIN" ? (
+        <NoGtinCheckbox values={values} onChange={onChange} />
+      ) : null}
+    </div>
+  );
+}
+
 function AttributeFields({
   values,
   errors,
@@ -118,37 +178,93 @@ function AttributeFields({
   onChange,
   required,
   showFiscal,
-}: StepProps & { required: readonly RequiredAttribute[]; showFiscal: boolean }) {
+  sheet,
+}: StepProps & {
+  required: readonly RequiredAttribute[];
+  showFiscal: boolean;
+  sheet: MercadoLivreSheet | undefined;
+}) {
   const requiredIds = new Set(required.map((attribute) => attribute.id));
+  const asText = textAttributes(values, required, sheet);
   return (
     <fieldset className="grid gap-4 sm:grid-cols-2">
       <legend className="mb-3 text-subhead font-semibold">Ficha técnica</legend>
-      {attributeList(values, required).map((attribute) => {
-        const field = `attributes.${attribute.id}`;
-        return (
-          <div key={attribute.id} className="grid gap-2">
-            <TextField
-              id={inputIdOf(field)}
-              label={
-                requiredIds.has(attribute.id) ? `${attribute.label} (obrigatório)` : attribute.label
-              }
-              value={values.attributes[attribute.id] ?? ""}
-              errors={errorsOf(errors, field)}
-              onValueChange={(next) =>
-                onChange({ attributes: { ...values.attributes, [attribute.id]: next } })
-              }
-              {...(ATTRIBUTE_INPUTS[attribute.id] === undefined
-                ? {}
-                : { ...CODE_INPUT, ...ATTRIBUTE_INPUTS[attribute.id] })}
-            />
-            <FieldReason field={field} reasons={reasons} />
-            {showFiscal && attribute.id === "GTIN" ? (
-              <NoGtinCheckbox values={values} onChange={onChange} />
-            ) : null}
-          </div>
-        );
-      })}
+      {sheet === undefined ? null : (
+        <MercadoLivreCategoryLine
+          supplierId={sheet.supplierId}
+          ficha={sheet.ficha}
+          values={values}
+          onChange={onChange}
+        />
+      )}
+      {asText.map((attribute) => (
+        <TextAttributeField
+          key={attribute.id}
+          attribute={attribute}
+          required={requiredIds.has(attribute.id)}
+          values={values}
+          errors={errors}
+          reasons={reasons}
+          onChange={onChange}
+          showFiscal={showFiscal}
+        />
+      ))}
+      {sheet === undefined ? null : (
+        <MercadoLivreFichaFields
+          supplierId={sheet.supplierId}
+          ficha={sheet.ficha}
+          values={values}
+          errors={errors}
+          reasons={reasons}
+          onChange={onChange}
+          askedElsewhere={new Set(asText.map((attribute) => attribute.id))}
+        />
+      )}
     </fieldset>
+  );
+}
+
+function MainFields({ values, errors, reasons, onChange }: StepProps) {
+  return (
+    <div className="grid gap-4 sm:grid-cols-2">
+      {MAIN_FIELDS.map((entry) => (
+        <div
+          key={entry.field}
+          // Content at the top: the note under the price must not push the cost beside it down.
+          className={cn("grid content-start gap-2", entry.field === "title" && "sm:col-span-2")}
+        >
+          <TextField
+            id={inputIdOf(entry.field)}
+            label={entry.label}
+            value={values[entry.key]}
+            errors={errorsOf(errors, entry.field)}
+            onValueChange={(next) =>
+              onChange(withSuggestedPriceFollowingCost(values, { [entry.key]: next }))
+            }
+            inputMode={entry.inputMode}
+            maxLength={entry.field === "title" ? 300 : undefined}
+            {...(entry.code ? CODE_INPUT : {})}
+          />
+          {entry.key === "suggestedPrice" ? <SuggestedPriceNote values={values} /> : null}
+          <FieldReason field={entry.field} reasons={reasons} />
+        </div>
+      ))}
+      <div className="grid gap-2 sm:col-span-2">
+        <EmojiFreeTextareaField
+          id={inputIdOf("description")}
+          label="Descrição"
+          value={values.description}
+          maxLength={20_000}
+          rows={6}
+          errors={errorsOf(errors, "description")}
+          onValueChange={(description) => onChange({ description })}
+        />
+        <p className="text-footnote text-muted-foreground tabular-nums">
+          {descriptionLengthHint(values.description.trim().length)}
+        </p>
+        <FieldReason field="description" reasons={reasons} />
+      </div>
+    </div>
   );
 }
 
@@ -157,51 +273,18 @@ export function StepDetails(
     required: readonly RequiredAttribute[];
     /** Set for a supplier's product (NF-e data); left out for a seller's own one. */
     taxDefaults?: SupplierTaxSetup | null | undefined;
+    mercadoLivre?: MercadoLivreSheet | undefined;
   },
 ) {
   const { values, errors, reasons, onChange, taxDefaults } = props;
   return (
     <div className="grid gap-8">
-      <div className="grid gap-4 sm:grid-cols-2">
-        {MAIN_FIELDS.map((entry) => (
-          <div
-            key={entry.field}
-            // Content at the top: the note under the price must not push the cost beside it down.
-            className={cn("grid content-start gap-2", entry.field === "title" && "sm:col-span-2")}
-          >
-            <TextField
-              id={inputIdOf(entry.field)}
-              label={entry.label}
-              value={values[entry.key]}
-              errors={errorsOf(errors, entry.field)}
-              onValueChange={(next) =>
-                onChange(withSuggestedPriceFollowingCost(values, { [entry.key]: next }))
-              }
-              inputMode={entry.inputMode}
-              maxLength={entry.field === "title" ? 300 : undefined}
-              {...(entry.code ? CODE_INPUT : {})}
-            />
-            {entry.key === "suggestedPrice" ? <SuggestedPriceNote values={values} /> : null}
-            <FieldReason field={entry.field} reasons={reasons} />
-          </div>
-        ))}
-        <div className="grid gap-2 sm:col-span-2">
-          <EmojiFreeTextareaField
-            id={inputIdOf("description")}
-            label="Descrição"
-            value={values.description}
-            maxLength={20_000}
-            rows={6}
-            errors={errorsOf(errors, "description")}
-            onValueChange={(description) => onChange({ description })}
-          />
-          <p className="text-footnote text-muted-foreground tabular-nums">
-            {descriptionLengthHint(values.description.trim().length)}
-          </p>
-          <FieldReason field="description" reasons={reasons} />
-        </div>
-      </div>
-      <AttributeFields {...props} showFiscal={taxDefaults !== undefined} />
+      <MainFields values={values} errors={errors} reasons={reasons} onChange={onChange} />
+      <AttributeFields
+        {...props}
+        showFiscal={taxDefaults !== undefined}
+        sheet={props.mercadoLivre}
+      />
       {taxDefaults === undefined ? null : (
         <FiscalFields
           values={values}

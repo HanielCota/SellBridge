@@ -7,7 +7,7 @@ import {
 } from "@sellbridge/shared/supplier-panel-catalog-completeness";
 import type { ProductReviewStatus } from "@sellbridge/shared/supplier-panel-catalog-status";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { useMemo, useState } from "react";
+import { type Dispatch, type SetStateAction, useMemo, useState } from "react";
 import { toast } from "sonner";
 import { supplierPanelSubmitProduct } from "./catalog.functions";
 import { supplierPanelCatalogKey, supplierPanelProductFormQueryOptions } from "./catalog.queries";
@@ -20,6 +20,8 @@ import {
   type PanelFormValues,
 } from "./draft-form";
 import { useDraftAutosave, type SavedProduct } from "./use-draft-autosave";
+import { withMercadoLivreRequired } from "./mercado-livre-ficha";
+import { useMercadoLivreFicha } from "./use-mercado-livre-ficha";
 
 /** The completeness while the supplier types, NF-e data included (origin and unit from Marca). */
 function useLiveCompleteness(
@@ -40,6 +42,25 @@ function useLiveCompleteness(
       ),
     [values, required, fiscalRequired, fallback],
   );
+}
+
+/**
+ * The chosen category, its Mercado Livre sheet and the attributes required to publish: ours for
+ * the category plus those Mercado Livre requires.
+ */
+function useCategoryRules(
+  supplierId: string,
+  values: PanelFormValues,
+  setValues: Dispatch<SetStateAction<PanelFormValues>>,
+  categories: readonly CategoryOption[],
+) {
+  const category = categories.find((option) => option.id === values.categoryId);
+  const ficha = useMercadoLivreFicha(supplierId, values, setValues);
+  const required = useMemo(
+    () => withMercadoLivreRequired(requiredAttributesFor(category?.slug), ficha.fields),
+    [category?.slug, ficha.fields],
+  );
+  return { category, ficha, required };
 }
 
 export interface CategoryOption {
@@ -68,8 +89,7 @@ export function useProductForm(options: ProductFormOptions) {
   const [values, setValues] = useState<PanelFormValues>(openedWith);
   const edited = useMemo(() => editedFields(openedWith, values), [openedWith, values]);
   const [saved, setSaved] = useState<SavedProduct | null>(product);
-  const category = categories.find((option) => option.id === values.categoryId);
-  const required = useMemo(() => requiredAttributesFor(category?.slug), [category?.slug]);
+  const { category, ficha, required } = useCategoryRules(supplierId, values, setValues, categories);
   // A new product needs NCM, origin and unit to be published; one from before that rule does not.
   const report = useLiveCompleteness(values, required, {
     required: saved?.fiscalRequired ?? true,
@@ -115,6 +135,7 @@ export function useProductForm(options: ProductFormOptions) {
     status,
     category,
     required,
+    ficha,
     report,
     reasons: showsReasons ? (saved?.rejectionReasons ?? []) : [],
     edited,

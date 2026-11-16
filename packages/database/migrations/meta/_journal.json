@@ -519,6 +519,13 @@
       "when": 1794779450566,
       "tag": "0073_sale_paid_at",
       "breakpoints": true
+    },
+    {
+      "idx": 74,
+      "version": "7",
+      "when": 1794816652289,
+      "tag": "0074_supplier_product_ml_category",
+      "breakpoints": true
     }
   ]
 }

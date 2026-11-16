@@ -38,6 +38,8 @@ export interface PublishProductInput {
   imageUrls: readonly string[];
   /** Category attribute ids (BRAND, MODEL, GTIN...) and their actual values. */
   mercadoLivreAttributes?: Readonly<Record<string, string>>;
+  /** The Mercado Livre category the supplier chose (MLB…); predicted from the title when null. */
+  mercadoLivreCategoryId?: string | null;
   /** Packed weight in grams (the product's fiscal net weight); TikTok Shop requires it. */
   packageWeightGrams?: number | null;
 }

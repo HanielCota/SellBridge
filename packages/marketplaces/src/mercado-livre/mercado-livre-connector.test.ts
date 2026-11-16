@@ -2,6 +2,7 @@ import { describe, expect, it, vi } from "vitest";
 import { logger } from "@sellbridge/shared/logger";
 import { createMercadoLivreConnector } from "./mercado-livre-connector.ts";
 import { ERROR_FIXTURES } from "./fixtures/errors.ts";
+import { HANDBAG_ATTRIBUTES } from "./fixtures/category-handbags.ts";
 
 interface Recorded {
   method: string;
@@ -668,6 +669,54 @@ describe("Mercado Livre category requirements", () => {
     ).toEqual([
       { id: "BRAND", value_name: "Acme" },
       { id: "MODEL", value_name: "A1" },
+      { id: "SELLER_SKU", value_name: product.sku },
+    ]);
+  });
+
+  it("publishes in the category the supplier chose instead of predicting one", async () => {
+    const { ml, calls } = connector({
+      [`POST ${API}/items`]: () => json(201, { id: "MLB9" }),
+      [`POST ${API}/items/MLB9/description`]: () => json(201, {}),
+      [`GET ${API}/categories/MLB7022/attributes`]: () => json(200, HANDBAG_ATTRIBUTES),
+      [`POST ${API}/categories/MLB7022/attributes/conditional`]: () =>
+        json(200, { required_attributes: [] }),
+    });
+
+    await ml.publishProduct(store, {
+      ...product,
+      mercadoLivreCategoryId: "MLB7022",
+      mercadoLivreAttributes: { BRAND: "Genérica", MODEL: "BI-01" },
+    });
+
+    expect(calls.some((call) => call.url.includes("/domain_discovery/"))).toBe(false);
+    const created = JSON.parse(calls.find((call) => call.url === `${API}/items`)?.body ?? "{}");
+    expect(created.category_id).toBe("MLB7022");
+  });
+
+  it("sends a yes or no attribute with Mercado Livre's value id", async () => {
+    const { ml, calls } = connector({
+      ...publishRoutes,
+      [`GET ${API}/categories/MLB1/attributes`]: () => json(200, HANDBAG_ATTRIBUTES),
+      [`POST ${API}/categories/MLB1/attributes/conditional`]: () =>
+        json(200, { required_attributes: [] }),
+    });
+
+    await ml.publishProduct(store, {
+      ...product,
+      mercadoLivreAttributes: {
+        BRAND: "Genérica",
+        MODEL: "BI-01",
+        IS_VEGAN: "Sim",
+        GENDER: "Meninas",
+      },
+    });
+
+    const created = JSON.parse(calls.find((call) => call.url === `${API}/items`)?.body ?? "{}");
+    expect(created.attributes).toEqual([
+      { id: "BRAND", value_name: "Genérica" },
+      { id: "MODEL", value_name: "BI-01" },
+      { id: "IS_VEGAN", value_name: "Sim", value_id: "242085" },
+      { id: "GENDER", value_name: "Meninas" },
       { id: "SELLER_SKU", value_name: product.sku },
     ]);
   });

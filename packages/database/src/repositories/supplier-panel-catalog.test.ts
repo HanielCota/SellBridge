@@ -195,6 +195,41 @@ describe("saveSupplierPanelDraft", () => {
     expect(first.completeness.blocking.map((issue) => issue.field)).toEqual(["title"]);
   });
 
+  it("stores the Mercado Livre category and keeps it when an edit does not carry it", async () => {
+    const productId = randomUUID();
+    const created = await saveSupplierPanelDraft(database, {
+      supplierId,
+      productId,
+      values: readyValues("DRAFT-ML"),
+    });
+
+    const chosen = await saveSupplierPanelDraft(database, {
+      supplierId,
+      productId,
+      expectedUpdatedAt: created.updatedAt.toISOString(),
+      values: {
+        ...readyValues("DRAFT-ML"),
+        mercadoLivreCategoryId: "MLB7022",
+        mercadoLivreCategoryName: "Bolsas",
+      },
+    });
+    const edited = await saveSupplierPanelDraft(database, {
+      supplierId,
+      productId,
+      expectedUpdatedAt: chosen.updatedAt.toISOString(),
+      values: { ...readyValues("DRAFT-ML"), title: "Bolsinha infantil preta com alça" },
+    });
+
+    expect(chosen).toMatchObject({
+      mercadoLivreCategoryId: "MLB7022",
+      mercadoLivreCategoryName: "Bolsas",
+    });
+    expect(edited).toMatchObject({
+      title: "Bolsinha infantil preta com alça",
+      mercadoLivreCategoryId: "MLB7022",
+    });
+  });
+
   it("refuses an edit over a version the form never saw, but accepts a retried save", async () => {
     const productId = randomUUID();
     const created = await saveSupplierPanelDraft(database, {
