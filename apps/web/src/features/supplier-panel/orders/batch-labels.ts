@@ -1,16 +1,17 @@
 import { LABEL_MARKETPLACE, LABEL_STATUSES } from "@sellbridge/shared/supplier-order-labels";
-import type { FulfillmentStatus } from "@sellbridge/shared/schemas";
+import type { FulfillmentStatus, LabelFormat } from "@sellbridge/shared/schemas";
 import { isShippingBlocked } from "@/features/fulfillment/shipping-block";
 
 /** One parcel of a label batch: printed, or why not, so a partial batch is never silent. */
 export type LabelItemResult =
   { shipmentId: string; printed: true } | { shipmentId: string; printed: false; reason: string };
 
-/** One PDF of the batch: the labels of one reseller store, as Mercado Livre prints them. */
+/** One file of the batch: the labels of one reseller store, as Mercado Livre prints them. */
 export interface LabelFile {
   storeName: string;
   labelCount: number;
-  pdfBase64: string;
+  format: LabelFormat;
+  contentBase64: string;
 }
 
 export interface BatchLabelsReport {

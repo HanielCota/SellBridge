@@ -3,14 +3,15 @@ import {
   getMercadoLivreLabel,
   getMercadoLivreLabels,
   getMercadoLivreShipping,
+  type MercadoLivreLabelFile,
   type PrintedLabel,
 } from "@sellbridge/marketplaces";
+import type { LabelFormat } from "@sellbridge/shared/schemas";
 import { conflictError, notFoundError } from "@sellbridge/shared/errors";
 import { orders, orderShipments, storeConnections } from "@sellbridge/database/schema";
 import { isShippingBlocked } from "@/features/fulfillment/shipping-block";
 import { database } from "@/lib/server/database";
-import { environment } from "@/lib/server/environment";
-import { tokenCipher } from "@/lib/server/marketplaces";
+import { mercadoLivreApiConfig, tokenCipher } from "@/lib/server/marketplaces";
 
 async function shippingAccess(tenantId: string, orderId: string) {
   const [row] = await database
@@ -38,10 +39,7 @@ async function shippingAccess(tenantId: string, orderId: string) {
   if (row.store.expiresAt && row.store.expiresAt.getTime() <= Date.now())
     throw conflictError("Token da loja expirado. Aguarde a renovação ou reconecte a loja.");
   return {
-    config: {
-      clientId: environment.MERCADO_LIVRE_CLIENT_ID,
-      clientSecret: environment.MERCADO_LIVRE_CLIENT_SECRET,
-    },
+    config: mercadoLivreApiConfig,
     store: {
       externalShopId: row.store.externalShopId,
       accessToken: tokenCipher.decrypt(row.store.accessTokenEnc),
@@ -68,14 +66,21 @@ async function labelAccess(tenantId: string, orderId: string) {
   if (isShippingBlocked(access.orderStatus)) throw conflictError("Pedido sem liberação para envio");
   return access;
 }
-export async function loadMarketplaceLabel(tenantId: string, orderId: string) {
+/** One order's label in the format asked for, with the marketplace's order number. */
+export async function loadMarketplaceLabel(tenantId: string, orderId: string, format: LabelFormat) {
   const access = await labelAccess(tenantId, orderId);
-  return getMercadoLivreLabel(access.config, access.store, access.externalOrderId);
+  const label = await getMercadoLivreLabel(
+    access.config,
+    access.store,
+    access.externalOrderId,
+    format,
+  );
+  return { ...label, externalOrderId: access.externalOrderId };
 }
 
 /** What a batch of one store's labels gave, in this system's order ids. */
 export interface StoreLabelBatch {
-  pdf: Uint8Array<ArrayBuffer> | null;
+  file: MercadoLivreLabelFile | null;
   printed: PrintedLabel[];
   refused: { orderId: string; error: unknown }[];
 }
@@ -93,12 +98,13 @@ async function labelCheck(tenantId: string, orderId: string): Promise<LabelCheck
 }
 
 /**
- * The labels of several orders of one reseller store in a single PDF. An order that fails a
+ * The labels of several orders of one reseller store in a single file. An order that fails a
  * check, or whose label the marketplace refuses, is reported and never fails the others.
  */
 export async function loadMarketplaceLabels(
   tenantId: string,
   orderIds: readonly string[],
+  format: LabelFormat,
 ): Promise<StoreLabelBatch> {
   const checks = await Promise.all(
     orderIds.map(async (orderId) => await labelCheck(tenantId, orderId)),
@@ -109,7 +115,7 @@ export async function loadMarketplaceLabels(
   );
   const [first] = allowed;
   if (first === undefined) {
-    return { pdf: null, printed: [], refused };
+    return { file: null, printed: [], refused };
   }
   if (
     allowed.some((check) => check.access.store.externalShopId !== first.access.store.externalShopId)
@@ -122,6 +128,7 @@ export async function loadMarketplaceLabels(
     first.access.config,
     first.access.store,
     allowed.map((check) => check.access.externalOrderId),
+    format,
   );
   // Mercado Livre answers with the ids it was asked for: any other id is a bug, never skipped.
   const internal = (externalOrderId: string) => {
@@ -132,7 +139,7 @@ export async function loadMarketplaceLabels(
     return orderId;
   };
   return {
-    pdf: batch.pdf,
+    file: batch.file,
     printed: batch.printed.map((label) => ({ ...label, orderId: internal(label.orderId) })),
     refused: [
       ...refused,

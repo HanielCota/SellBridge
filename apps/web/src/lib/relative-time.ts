@@ -56,6 +56,11 @@ export function formatDeadline(date: Date, now: Date = new Date()): string {
   return `${day} às ${clock.format(date)}`;
 }
 
+/** A day without its time, in Brazil time: "hoje", "amanhã", "ontem", or "14 de nov.". */
+export function formatDeadlineDay(date: Date, now: Date = new Date()): string {
+  return NEAR_DAY_NAMES[calendarDaysBetween(now, date)] ?? dayMonth.format(date);
+}
+
 const RECENT_DAYS = 7;
 const dayMonth = new Intl.DateTimeFormat("pt-BR", {
   day: "numeric",

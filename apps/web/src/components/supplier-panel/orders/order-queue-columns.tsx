@@ -9,6 +9,7 @@ import {
   InvoiceStatusLine,
   LabelStatus,
   OrderSummary,
+  PostingDeadlineStatus,
   ProblemList,
   RowAction,
   RowCheckbox,
@@ -70,6 +71,7 @@ function StatusCell({ row }: { row: SupplierOrderRow }) {
         <StepStatus row={row} />
         <DeadlineCell row={row} now={context.now} />
       </div>
+      <PostingDeadlineStatus parcel={row} now={context.now} />
       <LabelStatus state={row.labelState} printedAt={row.labelPrintedAt} />
       <InvoiceStatusLine status={row.invoiceStatus} />
       {row.trackingCode === null ? null : (

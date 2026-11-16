@@ -141,6 +141,13 @@ export const deliveryAddressSchema = z.object({
     .regex(/^\d{5}-?\d{3}$/, "Informe os 8 números do CEP, como 01310-100"),
 });
 export type DeliveryAddress = z.infer<typeof deliveryAddressSchema>;
+/**
+ * The marketplace label's file: a PDF for a regular printer, or ZPL for a thermal (Zebra) one,
+ * as Mercado Livre's `shipment_labels` serves it (`response_type` pdf or zpl2).
+ */
+export const LABEL_FORMATS = ["pdf", "zpl"] as const;
+export type LabelFormat = (typeof LABEL_FORMATS)[number];
+export const labelFormatSchema = z.enum(LABEL_FORMATS, { error: "Escolha PDF ou Zebra (ZPL)" });
 export const forwardOrderSchema = z.object({
   orderId: z.uuid(),
   address: deliveryAddressSchema,

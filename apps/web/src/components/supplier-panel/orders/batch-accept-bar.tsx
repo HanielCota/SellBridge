@@ -1,5 +1,6 @@
 import { CheckCircleIcon, XCircleIcon } from "@phosphor-icons/react";
 import { useState } from "react";
+import type { LabelFormat } from "@sellbridge/shared/schemas";
 import { toast } from "sonner";
 import { SelectionBar } from "@/components/data/selection-bar";
 import { ConfirmDialog } from "@/components/feedback/confirm-dialog";
@@ -13,6 +14,7 @@ import {
   useBatchLabels,
 } from "@/features/supplier-panel/orders/use-order-actions";
 import { errorMessage } from "@/lib/errors";
+import { LabelFormatMenu } from "./label-format-menu";
 import { isBatchAcceptable, isLabelPrintable } from "./order-row-parts";
 
 type Selected = Pick<SupplierOrderRow, "id" | "externalOrderId">;
@@ -79,7 +81,10 @@ export function BatchAcceptResult({
   );
 }
 
-/** Prints the labels of the selected orders that have one: no confirmation, nothing is moved. */
+/**
+ * Prints the labels of the selected orders that have one, in the file the supplier's printer
+ * takes: no confirmation, nothing is moved.
+ */
 function PrintLabelsButton({
   supplierId,
   printable,
@@ -93,10 +98,10 @@ function PrintLabelsButton({
   if (printable.length === 0) {
     return null;
   }
-  const print = () => {
+  const print = (format: LabelFormat) => {
     const orderNumbers = orderNumbersOf(printable);
     labels.mutate(
-      printable.map((row) => row.id),
+      { shipmentIds: printable.map((row) => row.id), format },
       {
         onSuccess: (report) => onDone(report, orderNumbers),
         onError: (error) => toast.error(errorMessage(error)),
@@ -104,14 +109,12 @@ function PrintLabelsButton({
     );
   };
   return (
-    <Button
-      size="sm"
-      variant="outline"
+    <LabelFormatMenu
       className="rounded-full"
       disabled={labels.isPending}
       // The phone shows the short word; the name stays whole for screen readers.
-      aria-label={labels.isPending ? undefined : `Imprimir etiquetas (${printable.length})`}
-      onClick={print}
+      ariaLabel={labels.isPending ? undefined : `Imprimir etiquetas (${printable.length})`}
+      onChoose={print}
     >
       {labels.isPending ? (
         "Gerando…"
@@ -123,7 +126,7 @@ function PrintLabelsButton({
           </span>
         </>
       )}
-    </Button>
+    </LabelFormatMenu>
   );
 }
 
