@@ -84,10 +84,12 @@ async function waitForTheOtherStore(store: string): Promise<void> {
   if (store !== "A" && store !== "B") {
     return;
   }
-  await Promise.race([
-    storesOverlap,
-    new Promise((resolve) => setTimeout(resolve, OVERLAP_WAIT_MILLISECONDS)),
-  ]);
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  const giveUp = new Promise((resolve) => {
+    timer = setTimeout(resolve, OVERLAP_WAIT_MILLISECONDS);
+  });
+  await Promise.race([storesOverlap, giveUp]);
+  clearTimeout(timer);
 }
 
 /** Records this file's calls (other files' targets may share the queue) and refuses store C. */
