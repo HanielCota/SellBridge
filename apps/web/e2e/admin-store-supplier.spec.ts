@@ -10,7 +10,7 @@ import {
   waitForHydration,
 } from "./helpers";
 
-test("admin vê o fornecedor de cada loja do cliente e troca o de uma delas", async ({
+test("admin vê os fornecedores de cada loja do cliente, adiciona um e tira outro", async ({
   browser,
 }) => {
   test.setTimeout(120_000);
@@ -49,16 +49,30 @@ test("admin vê o fornecedor de cada loja do cliente e troca o de uma delas", as
   await expect(page.getByText(/\d{3}\.\d{3}\.\d{3}-\d{2}/)).toHaveCount(0);
   await expect(page.getByLabel("CEP")).toHaveCount(0);
 
-  await page.getByRole("button", { name: "Trocar fornecedor" }).click();
-  const dialog = page.getByRole("dialog", { name: "Trocar o fornecedor de Loja Cliente Admin" });
+  // The team adds a second supplier to the shop, as the customer would.
+  await page.getByRole("button", { name: "Fornecedores de Loja Cliente Admin" }).click();
+  const suppliers = page.getByRole("dialog");
+  await expect(
+    suppliers.getByRole("heading", { name: "Fornecedores de Loja Cliente Admin" }),
+  ).toBeVisible();
+  await suppliers.getByRole("button", { name: "Adicionar fornecedor" }).click();
   await pickSupplier(page, "Rio Pet Atacado");
-  await expect(dialog.getByText("Nenhuma publicação desta loja é afetada.")).toBeVisible();
-  await dialog.getByRole("button", { name: "Trocar fornecedor" }).click();
+  await suppliers.getByRole("button", { name: "Adicionar fornecedor" }).click();
   await expect(
-    page.getByText("Fornecedor de Loja Cliente Admin atualizado").filter({ visible: true }),
+    page.getByText("Rio Pet Atacado adicionado a Loja Cliente Admin").filter({ visible: true }),
   ).toBeVisible();
+
+  // Removing one shows what happens to the customer's listings before it goes.
+  await suppliers.getByRole("button", { name: "Tirar BH Beauty Distribuidora" }).click();
+  await expect(suppliers.getByText("Nenhum anúncio desta loja é afetado.")).toBeVisible();
+  await suppliers.getByRole("button", { name: "Tirar fornecedor" }).click();
+  await expect(
+    page
+      .getByText("BH Beauty Distribuidora não é mais fornecedor de Loja Cliente Admin")
+      .filter({ visible: true }),
+  ).toBeVisible();
+  await suppliers.getByRole("button", { name: "Pronto" }).click();
   await expect(page.getByText("Vende Rio Pet Atacado")).toBeVisible();
-  await expect(
-    page.getByText(/Trocou o fornecedor de uma loja para Rio Pet Atacado/),
-  ).toBeVisible();
+  await expect(page.getByText("Adicionou Rio Pet Atacado a uma loja")).toBeVisible();
+  await expect(page.getByText("Tirou BH Beauty Distribuidora de uma loja")).toBeVisible();
 });

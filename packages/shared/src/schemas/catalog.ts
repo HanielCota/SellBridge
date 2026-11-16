@@ -25,6 +25,22 @@ export const PRODUCT_SORT_LABELS: Record<ProductSort, string> = {
 };
 
 /**
+ * Sorts of the reseller's catalog. "Mais vendidos" ranks by SellBridge's own recent sales, which
+ * stay off the public API, so the API keeps `PRODUCT_SORTS`.
+ */
+export const SELLABLE_PRODUCT_SORTS = ["best_sellers", ...PRODUCT_SORTS] as const;
+export const sellableProductSortSchema = z.enum(SELLABLE_PRODUCT_SORTS);
+export type SellableProductSort = z.infer<typeof sellableProductSortSchema>;
+
+export const SELLABLE_PRODUCT_SORT_LABELS: Record<SellableProductSort, string> = {
+  best_sellers: "Mais vendidos",
+  ...PRODUCT_SORT_LABELS,
+};
+
+/** The reseller sees the products that sell the most first. */
+export const DEFAULT_SELLABLE_PRODUCT_SORT: SellableProductSort = "best_sellers";
+
+/**
  * A cost bound from the URL. `?maxCost=` (or `null`) is no bound: coerced, it read as zero and
  * showed an empty catalog without saying why.
  */
@@ -85,7 +101,10 @@ export const sellableCatalogSearchSchema = z.object({
   inStock: optionalParameter(z.coerce.boolean()),
   /** Leaves out products the tenant already listed, so only new ones remain to publish. */
   unpublished: optionalParameter(z.coerce.boolean()),
-  sort: withFallback(productSortSchema.default("title"), "title"),
+  sort: withFallback(
+    sellableProductSortSchema.default(DEFAULT_SELLABLE_PRODUCT_SORT),
+    DEFAULT_SELLABLE_PRODUCT_SORT,
+  ),
   page: withFallback(pageNumberSchema.default(1), 1),
   pageSize: withFallback(z.coerce.number().int().min(6).max(48).default(24), 24),
 });

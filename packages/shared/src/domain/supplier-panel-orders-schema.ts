@@ -1,7 +1,7 @@
 import { z } from "zod";
 import { MAX_PAGE, searchQuery } from "../schemas/common.ts";
 import { optionalParameter, withFallback } from "../schemas/fallback.ts";
-import { OPERATION_PERIODS } from "../schemas/fulfillment.ts";
+import { labelFormatSchema, OPERATION_PERIODS } from "../schemas/fulfillment.ts";
 import { isoDateSchema } from "../schemas/period.ts";
 import { marketplaceSchema } from "../schemas/stores.ts";
 import { SUPPLIER_LABEL_STATES } from "./supplier-order-labels.ts";
@@ -69,8 +69,8 @@ export const batchAcceptSchema = z.object({
 });
 export type BatchAcceptInput = z.infer<typeof batchAcceptSchema>;
 
-/** The parcels whose marketplace labels are printed together, one PDF per reseller store. */
-export const batchLabelsSchema = batchAcceptSchema;
+/** The parcels whose marketplace labels are printed together, one file per reseller store. */
+export const batchLabelsSchema = batchAcceptSchema.extend({ format: labelFormatSchema });
 export type BatchLabelsInput = z.infer<typeof batchLabelsSchema>;
 
 /** The Pedidos screen's address: tab, filters and page survive a reload or a shared link. */
