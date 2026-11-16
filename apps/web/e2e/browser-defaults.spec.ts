@@ -99,13 +99,19 @@ test("switching the theme swaps colors at once, with no reveal or fading", async
   await signIn(page, DEMO_USER);
   await gotoHydrated(page, "/publicacoes");
   await page.getByRole("button", { name: "Menu do usuário" }).click();
-  await page.getByRole("menuitem", { name: "Modo claro", exact: true }).click();
+  await page.getByRole("menuitemcheckbox", { name: "Tema escuro", exact: true }).click();
   const afterSwitch = await page.evaluate(() => ({
     isDark: document.documentElement.classList.contains("dark"),
     viewTransitions: Number(Reflect.get(window, "viewTransitionCount")),
     runningTransitions: document
       .getAnimations()
-      .filter((animation) => animation instanceof CSSTransition).length,
+      // The theme switch's knob slides on purpose; only color fades are ruled out here.
+      .filter(
+        (animation) =>
+          animation instanceof CSSTransition &&
+          animation.transitionProperty !== "translate" &&
+          animation.transitionProperty !== "transform",
+      ).length,
   }));
   expect(afterSwitch).toEqual({ isDark: false, viewTransitions: 0, runningTransitions: 0 });
 });
