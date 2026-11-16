@@ -3,6 +3,7 @@ import {
   ChatCircleTextIcon,
   type Icon,
   ClockIcon,
+  FileTextIcon,
   PackageIcon,
   PlugsIcon,
   ShoppingBagIcon,
@@ -85,6 +86,10 @@ const KIND_STYLES: Record<NotificationKind, { icon: Icon; className: string }> =
   review_pending: {
     icon: StarIcon,
     className: WARNING_TINT,
+  },
+  invoice_stopped: {
+    icon: FileTextIcon,
+    className: "bg-red-500/15 text-red-600 dark:text-red-400",
   },
 };
 

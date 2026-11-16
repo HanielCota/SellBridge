@@ -14,7 +14,8 @@ import {
   type InvoiceStatus,
 } from "@sellbridge/shared/supplier-invoice";
 import type { ReactNode } from "react";
-import { type StatusTone, TonePill } from "@/components/data/tone-status";
+import { TonePill } from "@/components/data/tone-status";
+import { INVOICE_TONES } from "@/features/fulfillment/invoice-tones";
 import { Button } from "@/components/ui/button";
 import { invoiceFileLink } from "@/features/fulfillment/invoice-file-link";
 import { SUPPLIER_PANEL_BASE_PATH } from "@/features/supplier-panel/home/attention-links";
@@ -34,14 +35,6 @@ export interface SupplierInvoice {
   authorizedAt: Date | null;
   updatedAt: Date;
 }
-
-const TONES: Record<InvoiceStatus, StatusTone> = {
-  queued: "muted",
-  sent: "warning",
-  authorized: "success",
-  attention: "danger",
-  cancelled: "muted",
-};
 
 const ICONS: Record<InvoiceStatus, ReactNode> = {
   queued: <ClockIcon aria-hidden="true" className="size-3.5" />,
@@ -200,7 +193,7 @@ export function SupplierInvoiceCard({
           Nota fiscal
         </h3>
         <TonePill
-          tone={TONES[invoice.status]}
+          tone={INVOICE_TONES[invoice.status]}
           label={statusLabel(invoice)}
           icon={ICONS[invoice.status]}
         />

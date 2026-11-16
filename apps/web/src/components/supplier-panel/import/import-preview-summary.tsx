@@ -1,5 +1,9 @@
 import { emojisRemovedNotice } from "@sellbridge/shared/emoji";
-import type { SupplierImportPreview } from "@sellbridge/shared/supplier-panel-import-schemas";
+import { resellerPriceAboveSuggestedWarning } from "@sellbridge/shared/reseller-price-warning";
+import type {
+  ImportPriceWarning,
+  SupplierImportPreview,
+} from "@sellbridge/shared/supplier-panel-import-schemas";
 import { useState, type ReactNode } from "react";
 import { ToneStatus } from "@/components/data/tone-status";
 import { ConfirmDialog } from "@/components/feedback/confirm-dialog";
@@ -9,6 +13,7 @@ import { Label } from "@/components/ui/label";
 import { downloadCsv, failedRowsFileName } from "@/features/supplier-panel/import/import-file";
 import {
   confirmDescription,
+  importActionLabel,
   onlyValidLabel,
   plural,
 } from "@/features/supplier-panel/import/import-wording";
@@ -17,6 +22,8 @@ import { DisabledHint, Hint, HintedText } from "@/components/ui/hint";
 
 const count = new Intl.NumberFormat("pt-BR");
 const DownloadIcon = ACTION_ICONS.downloadFile.icon;
+/** Price warnings listed at once; a file full of them shows the first ones and the count. */
+const SHOWN_PRICE_WARNINGS = 10;
 
 function Figure({ label, value, tone }: { label: ReactNode; value: number; tone?: "danger" }) {
   return (
@@ -48,6 +55,32 @@ function EmojiNotice({ products }: { products: number }) {
     return null;
   }
   return <p className="text-sm text-muted-foreground">{notice}</p>;
+}
+
+/** Rows whose cost is above their suggested price: they import, the supplier just sees why. */
+function PriceWarnings({ warnings }: { warnings: readonly ImportPriceWarning[] }) {
+  if (warnings.length === 0) {
+    return null;
+  }
+  const hidden = warnings.length - SHOWN_PRICE_WARNINGS;
+  return (
+    <div className="space-y-2 rounded-2xl border border-amber-700/40 p-4 text-sm">
+      <p className="font-medium text-amber-700 dark:text-amber-500">
+        {plural(warnings.length, "produto com custo", "produtos com custo")} acima do preço
+        sugerido. {warnings.length === 1 ? "Ele importa" : "Eles importam"} assim mesmo; confira
+        antes.
+      </p>
+      <ul className="space-y-1 text-muted-foreground">
+        {warnings.slice(0, SHOWN_PRICE_WARNINGS).map((warning) => (
+          <li key={warning.line}>
+            Linha {count.format(warning.line)} · {warning.sku}:{" "}
+            {resellerPriceAboveSuggestedWarning(warning.costCents, warning.suggestedPriceCents)}
+          </li>
+        ))}
+        {hidden > 0 ? <li>E mais {plural(hidden, "produto", "produtos")}.</li> : null}
+      </ul>
+    </div>
+  );
 }
 
 function SummaryHeader({ preview }: { preview: SupplierImportPreview }) {
@@ -82,6 +115,7 @@ function SummaryHeader({ preview }: { preview: SupplierImportPreview }) {
         />
       </dl>
       <EmojiNotice products={preview.emojisRemoved} />
+      <PriceWarnings warnings={preview.priceWarnings} />
     </>
   );
 }
@@ -132,9 +166,7 @@ export function ImportPreviewSummary(props: ImportPreviewSummaryProps) {
       <div className="flex flex-wrap items-center gap-2">
         <DisabledHint reason={partial && !onlyValid ? CONTROL_HINTS.importNeedsChoice : undefined}>
           <Button disabled={!canImport || props.importing} onClick={() => setConfirming(true)}>
-            {preview.confirmation === null
-              ? "Importar"
-              : `Importar ${plural(preview.validRows, "produto", "produtos")}`}
+            {preview.confirmation === null ? "Importar" : importActionLabel(preview)}
           </Button>
         </DisabledHint>
         {partial ? (
@@ -152,7 +184,7 @@ export function ImportPreviewSummary(props: ImportPreviewSummaryProps) {
       <ConfirmDialog
         open={confirming}
         onOpenChange={setConfirming}
-        title={`Importar ${plural(preview.validRows, "produto", "produtos")}?`}
+        title={`${importActionLabel(preview)}?`}
         description={confirmDescription(preview)}
         confirmLabel="Importar"
         pendingLabel="Importando…"

@@ -6,11 +6,12 @@ import { getRequest, getRequestHeaders, setResponseStatus } from "@tanstack/reac
 import { z } from "zod";
 import { requestedProfileOf } from "../profile-param.ts";
 import {
+  type AccountSession,
+  requireAccountSession,
   requireAdminSession,
   requireSellerSession,
   requireStaffSession,
   requireTenantSession,
-  type TenantSession,
 } from "./tenant-session.ts";
 import { assertSupplierPanelAccess } from "./supplier-panel-access.ts";
 import { resolveSupplierPanelViewer } from "./supplier-panel-viewer.ts";
@@ -58,7 +59,7 @@ export const publicMiddleware = createMiddleware({ type: "function" }).middlewar
  * is recorded under the admin's name once it went through.
  */
 async function runAsCustomer<Result>(
-  session: TenantSession,
+  session: AccountSession,
   call: { functionName: string; method: string },
   run: () => Promise<Result>,
 ): Promise<Result> {
@@ -99,8 +100,18 @@ function profileMiddleware(access: { sellerOnly: boolean }) {
     });
 }
 
-/** Any profile of the account, seller or supplier: terms, support and notifications. */
+/** Any profile of the account, seller or supplier: support and notifications. */
 export const accountMiddleware = profileMiddleware({ sellerOnly: false });
+
+/** A signed-in person, profile or not (the terms); visits follow the same rules as above. */
+export const signedInMiddleware = createMiddleware({ type: "function" })
+  .middleware([userFacingErrors])
+  .server(async ({ next, method, serverFnMeta }) => {
+    const context = await requireAccountSession(getRequestHeaders());
+    return runAsCustomer(context, { functionName: serverFnMeta.name, method }, async () =>
+      next({ context }),
+    );
+  });
 
 /** A seller profile (stores, listings, orders, reports); a supplier profile gets 403. */
 export const tenantMiddleware = profileMiddleware({ sellerOnly: true });

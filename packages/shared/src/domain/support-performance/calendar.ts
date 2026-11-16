@@ -38,12 +38,12 @@ export function brazilDay(date: Date): string {
 }
 
 /** Calendar arithmetic on a YYYY-MM-DD string, free of time zones. */
-function shiftDay(day: string, days: number): string {
+export function shiftDay(day: string, days: number): string {
   const shifted = new Date(Date.parse(`${day}T12:00:00Z`) + days * DAY_MILLISECONDS);
   return shifted.toISOString().slice(0, 10);
 }
 
-function weekdayOfDay(day: string): number {
+export function weekdayOfDay(day: string): number {
   // 12:00 UTC stays on the same calendar day; getUTCDay counts from Sunday.
   return (new Date(Date.parse(`${day}T12:00:00Z`)).getUTCDay() + 6) % 7;
 }

@@ -15,14 +15,46 @@ import {
 describe("supplierOrderProblems", () => {
   it("lists every problem, the blocked sale first", () => {
     expect(
-      supplierOrderProblems({ overdue: true, emailFailed: true, orderStatus: "cancelled" }),
+      supplierOrderProblems({
+        overdue: true,
+        emailFailed: true,
+        orderStatus: "cancelled",
+        invoiceStopped: false,
+      }),
     ).toEqual(["order_blocked", "overdue", "email_failed"]);
   });
 
   it("finds nothing on a paid order on time", () => {
     expect(
-      supplierOrderProblems({ overdue: false, emailFailed: false, orderStatus: "paid" }),
+      supplierOrderProblems({
+        overdue: false,
+        emailFailed: false,
+        orderStatus: "paid",
+        invoiceStopped: false,
+      }),
     ).toEqual([]);
+  });
+
+  it("flags a stopped note after the deadline and before the e-mail", () => {
+    expect(
+      supplierOrderProblems({
+        overdue: true,
+        emailFailed: true,
+        orderStatus: "paid",
+        invoiceStopped: true,
+      }),
+    ).toEqual(["overdue", "invoice_stopped", "email_failed"]);
+  });
+
+  it("leaves a stopped note out when the sale is not released", () => {
+    expect(
+      supplierOrderProblems({
+        overdue: false,
+        emailFailed: false,
+        orderStatus: "cancelled",
+        invoiceStopped: true,
+      }),
+    ).toEqual(["order_blocked"]);
   });
 });
 

@@ -23,7 +23,8 @@ export const ACCOUNT_EXPORT_FORMAT = "sellbridge-account-export/1";
 
 interface Account {
   userId: string;
-  tenantId: string;
+  /** The profile's organization; null for a team member with no profile of their own. */
+  tenantId: string | null;
 }
 
 /** Rows by key in one pass, so pairing children with their parents stays linear. */
@@ -259,29 +260,22 @@ async function exportNotificationPreferences(database: Database, userId: string)
     .where(eq(notificationPreferences.userId, userId));
 }
 
-/** Everything the account holds about itself, for the "Baixar meus dados" download (LGPD). */
-export async function collectAccountExport(database: Database, owner: Account) {
-  const [userRow, holder, stores, listingRows, orderRows, ticketRows] = await Promise.all([
-    exportUser(database, owner.userId),
-    exportHolder(database, owner.tenantId),
-    exportStores(database, owner.tenantId),
-    exportListings(database, owner.tenantId),
-    exportOrders(database, owner.tenantId),
-    exportTickets(database, owner.tenantId),
+/** What the profile holds: the registration, the stores and everything sold through them. */
+async function exportProfileData(database: Database, tenantId: string) {
+  const [holder, stores, listingRows, orderRows, ticketRows, reviews] = await Promise.all([
+    exportHolder(database, tenantId),
+    exportStores(database, tenantId),
+    exportListings(database, tenantId),
+    exportOrders(database, tenantId),
+    exportTickets(database, tenantId),
+    exportSupplierReviews(database, tenantId),
   ]);
-  const [keys, sessions, preferences, billing, logins, webhooks, reviews] = await Promise.all([
-    exportApiKeys(database, owner.tenantId),
-    exportSessions(database, owner.userId),
-    exportNotificationPreferences(database, owner.userId),
-    exportBilling(database, owner.tenantId),
-    exportLogins(database, owner.userId),
-    exportWebhookEndpoints(database, owner.tenantId),
-    exportSupplierReviews(database, owner.tenantId),
+  const [keys, billing, webhooks] = await Promise.all([
+    exportApiKeys(database, tenantId),
+    exportBilling(database, tenantId),
+    exportWebhookEndpoints(database, tenantId),
   ]);
   return {
-    format: ACCOUNT_EXPORT_FORMAT,
-    exportedAt: new Date().toISOString(),
-    user: userRow,
     holder,
     stores,
     listings: listingRows,
@@ -289,11 +283,52 @@ export async function collectAccountExport(database: Database, owner: Account) {
     tickets: ticketRows,
     supplierReviews: reviews,
     apiKeys: keys,
+    billing,
+    webhookEndpoints: webhooks,
+  };
+}
+
+type ProfileData = Awaited<ReturnType<typeof exportProfileData>>;
+
+/** A team member with no profile keeps only personal data: the profile parts come back empty. */
+const NO_PROFILE_DATA: ProfileData = {
+  holder: null,
+  stores: [],
+  listings: [],
+  orders: [],
+  tickets: [],
+  supplierReviews: [],
+  apiKeys: [],
+  billing: null,
+  webhookEndpoints: [],
+};
+
+/** Everything the account holds about itself, for the "Baixar meus dados" download (LGPD). */
+export async function collectAccountExport(database: Database, owner: Account) {
+  const [userRow, sessions, preferences, logins] = await Promise.all([
+    exportUser(database, owner.userId),
+    exportSessions(database, owner.userId),
+    exportNotificationPreferences(database, owner.userId),
+    exportLogins(database, owner.userId),
+  ]);
+  const profile =
+    owner.tenantId === null ? NO_PROFILE_DATA : await exportProfileData(database, owner.tenantId);
+  return {
+    format: ACCOUNT_EXPORT_FORMAT,
+    exportedAt: new Date().toISOString(),
+    user: userRow,
+    holder: profile.holder,
+    stores: profile.stores,
+    listings: profile.listings,
+    orders: profile.orders,
+    tickets: profile.tickets,
+    supplierReviews: profile.supplierReviews,
+    apiKeys: profile.apiKeys,
     sessions,
     notificationPreferences: preferences,
-    billing,
+    billing: profile.billing,
     logins,
-    webhookEndpoints: webhooks,
+    webhookEndpoints: profile.webhookEndpoints,
   };
 }
 

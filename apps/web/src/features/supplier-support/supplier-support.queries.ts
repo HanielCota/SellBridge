@@ -1,9 +1,11 @@
 import type { SupplierConversationsSearch } from "@sellbridge/shared/schemas";
+import type { SupplierReportDays } from "@sellbridge/shared/supplier-support-report";
 import { keepPreviousData, queryOptions } from "@tanstack/react-query";
 import {
   countMyUnreadConversations,
   getMyConversation,
   getMyConversationOrder,
+  getMySupportReport,
   listMyConversationOrders,
   listMyConversations,
   listMyConversationStores,
@@ -65,5 +67,12 @@ export const myConversationOrdersQueryOptions = (storeConnectionId: string, quer
       listMyConversationOrders({
         data: { storeConnectionId, query: query === "" ? undefined : query },
       }),
+    placeholderData: keepPreviousData,
+  });
+
+export const mySupportReportQueryOptions = (days: SupplierReportDays) =>
+  queryOptions({
+    queryKey: ["tickets", "conversations", "report", days],
+    queryFn: () => getMySupportReport({ data: { dias: days } }),
     placeholderData: keepPreviousData,
   });

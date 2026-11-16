@@ -8,6 +8,7 @@ import {
   type ErpCatalogItem,
 } from "./erp-catalog.ts";
 import { parseProductCsv } from "./product-csv.ts";
+import { normalizeImportFile } from "./supplier-panel-import.ts";
 
 const ITEM: ErpCatalogItem = {
   sku: "054-TRA-ECO-BRA",
@@ -39,6 +40,29 @@ describe("buildErpCatalogCsv", () => {
       stock: 100,
       imageUrls: ["https://cdn.exemplo.com/a.jpg", "https://cdn.exemplo.com/b.jpg"],
     });
+  });
+
+  it("starts with the UTF-8 BOM so Excel keeps the accents", () => {
+    const csv = buildErpCatalogCsv([{ ...ITEM, title: "Travesseiro algodão" }], new Map());
+
+    expect(csv.startsWith("\uFEFFsku;titulo;")).toBe(true);
+  });
+
+  it("is read by the import with or without the BOM", () => {
+    const csv = buildErpCatalogCsv(
+      [{ ...ITEM, title: "Travesseiro algodão" }],
+      new Map([[ITEM.sku, 2500]]),
+    );
+
+    const withBom = normalizeImportFile(new TextEncoder().encode(csv));
+    const withoutBom = normalizeImportFile(new TextEncoder().encode(csv.replace(/^\uFEFF/, "")));
+
+    for (const normalized of [withBom, withoutBom]) {
+      expect(normalized.header[0]).toBe("sku");
+      const parsed = parseProductCsv(normalized.canonicalCsv);
+      expect(parsed.errors).toEqual([]);
+      expect(parsed.rows[0]?.product.title).toBe("Travesseiro algodão");
+    }
   });
 
   it("leaves the cost blank without a reseller price, so the import refuses the row", () => {

@@ -1,3 +1,4 @@
+import { WarningIcon } from "@phosphor-icons/react";
 import { useQuery } from "@tanstack/react-query";
 import type { LabelFormat } from "@sellbridge/shared/schemas";
 import { type ReactNode, useRef } from "react";
@@ -20,6 +21,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { isShippingBlocked } from "@/features/fulfillment/shipping-block";
 import { displayBuyerName } from "@/features/orders/buyer-name";
 import { channelLabel, channelSource } from "@/features/supplier-panel/orders/channel-labels";
+import { dispatchInvoiceReminder } from "@/features/supplier-panel/orders/dispatch-invoice-reminder";
 import { orderSteps } from "@/features/supplier-panel/orders/order-steps";
 import { supplierPanelShipmentQueryOptions } from "@/features/supplier-panel/orders/orders.queries";
 import { useSupplierShipmentUpdate } from "@/features/supplier-panel/orders/use-order-actions";
@@ -64,6 +66,7 @@ function OrderStepsList({ shipment }: { shipment: PanelShipment }) {
     events: shipment.events,
     labelPrintedAt: shipment.labelPrintedAt,
     hasMarketplaceLabel: shipment.labelState !== null,
+    invoice: shipment.invoice,
   });
   return (
     <div className="space-y-2">
@@ -196,6 +199,21 @@ function MarketplaceLabelForm({
   );
 }
 
+/** Before "Despachar": a note still on its way or stopped, so the parcel leaves with its DANFE. */
+function DispatchInvoiceAlert({ shipment }: { shipment: PanelShipment }) {
+  const reminder = dispatchInvoiceReminder(shipment.status, shipment.invoice?.status ?? null);
+  if (reminder === null) {
+    return null;
+  }
+  return (
+    <Alert>
+      <WarningIcon aria-hidden="true" />
+      <AlertTitle>{reminder.title}</AlertTitle>
+      <AlertDescription>{reminder.description}</AlertDescription>
+    </Alert>
+  );
+}
+
 /** The opened parcel: the same shipment panel the supplier link shows, acting as the supplier. */
 function PanelBody({ supplierId, shipmentId }: { supplierId: string; shipmentId: string }) {
   const query = useQuery(supplierPanelShipmentQueryOptions(supplierId, shipmentId));
@@ -230,7 +248,9 @@ function PanelBody({ supplierId, shipmentId }: { supplierId: string; shipmentId:
           <AlertTitle>Venda não liberada</AlertTitle>
           <AlertDescription>Fale com o revendedor antes de separar ou despachar.</AlertDescription>
         </Alert>
-      ) : null}
+      ) : (
+        <DispatchInvoiceAlert shipment={query.data} />
+      )}
       {tracked ? <SupplierParcelTracking supplierId={supplierId} shipmentId={shipmentId} /> : null}
       <ShipmentPanel
         shipment={{ ...query.data, trackingFromChannel }}

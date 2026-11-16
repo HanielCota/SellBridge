@@ -7,7 +7,12 @@ import type { HealthMetricKey } from "./supplier-panel-health-metrics.ts";
 
 /** The order lists a link can open, by what waits on the parcel. */
 export type SupplierOrderFilter =
-  "accept_overdue" | "dispatch_overdue" | "accept_soon" | "dispatch_soon" | "delivery_failed";
+  | "accept_overdue"
+  | "dispatch_overdue"
+  | "accept_soon"
+  | "dispatch_soon"
+  | "delivery_failed"
+  | "invoice_stopped";
 
 export type SupplierAttentionTarget =
   | { area: "orders"; filter: SupplierOrderFilter; shipmentId?: string }

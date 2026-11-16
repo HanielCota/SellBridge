@@ -3,6 +3,7 @@ import { formatCents } from "./money.ts";
 import { notificationContentSchema } from "./notification-content.ts";
 import {
   channelEnabled,
+  invoiceAttentionContent,
   invoiceAuthorizedContent,
   listingFailedContent,
   newTicketContent,
@@ -73,6 +74,7 @@ describe("every event renders valid content", () => {
       supplierName: "Casa Norte",
       invoiceNumber: "1234",
     }),
+    invoiceAttentionContent({ externalOrderId: "2000001" }),
     newTicketContent({
       ticketId: "t-1",
       subject: "Repasse",
@@ -98,5 +100,16 @@ describe("invoice authorized notice", () => {
     expect(content.actionPath).toBe("/pedidos/o-1");
     expect(channelEnabled("invoice_authorized", "email", undefined)).toBe(true);
     expect(channelEnabled("invoice_authorized", "in_app", undefined)).toBe(false);
+  });
+});
+
+describe("invoice attention notice", () => {
+  it("tells the supplier in the bell and by e-mail, opening the orders with a problem", () => {
+    const content = invoiceAttentionContent({ externalOrderId: "2000001" });
+
+    expect(content.subject).toBe("Nota fiscal com problema: pedido #2000001");
+    expect(content.actionPath).toBe("/fornecedor/painel/pedidos?tab=problem");
+    expect(channelEnabled("invoice_attention", "email", undefined)).toBe(true);
+    expect(channelEnabled("invoice_attention", "in_app", undefined)).toBe(true);
   });
 });

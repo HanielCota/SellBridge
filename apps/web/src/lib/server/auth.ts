@@ -39,11 +39,7 @@ import { environment } from "./environment.ts";
 import { sendEmail } from "./mailer.ts";
 import { findFirstOrganizationId } from "./membership.ts";
 import { findVisitingStaff } from "./visiting-staff.ts";
-import {
-  createProfileForNewUser,
-  E_MAIL_SIGN_UP_PATH,
-  isSelfSignUpPath,
-} from "./sign-up-profile.ts";
+import { createProfileForNewUser, E_MAIL_SIGN_UP_PATH } from "./sign-up-profile.ts";
 import { logger } from "@sellbridge/shared/logger";
 import { AppError } from "@sellbridge/shared/errors";
 import { teamInviteEmail } from "../../features/admin/team-invite-email.ts";
@@ -574,11 +570,15 @@ export const auth = betterAuth({
           if (context !== null && context.path === E_MAIL_SIGN_UP_PATH) {
             await recordSignUpTerms(user.id, context.body);
           }
-          const request =
-            context === null || !isSelfSignUpPath(context.path)
+          const call =
+            context === null
               ? null
-              : { getCookie: (name: string) => context.getCookie(name) ?? undefined };
-          await createProfileForNewUser(user, request, {
+              : {
+                  path: context.path,
+                  body: context.body,
+                  getCookie: (name: string) => context.getCookie(name) ?? undefined,
+                };
+          await createProfileForNewUser(user, call, {
             createOrganization: createOrganizationForUser,
             setOrganizationKind: async (organizationId, kind) =>
               setOrganizationKind(database, organizationId, kind),

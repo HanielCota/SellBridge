@@ -1,5 +1,33 @@
 import { describe, expect, it } from "vitest";
-import { confirmDescription, importDoneSummary, onlyValidLabel } from "./import-wording";
+import {
+  confirmDescription,
+  importActionLabel,
+  importDoneSummary,
+  onlyValidLabel,
+} from "./import-wording";
+
+describe("importActionLabel", () => {
+  it("says how many products are new and how many only update", () => {
+    expect(importActionLabel({ created: 3, updated: 2 })).toBe("Importar 3 novos e atualizar 2");
+  });
+
+  it("uses the singular for one new product among updates", () => {
+    expect(importActionLabel({ created: 1, updated: 1 })).toBe("Importar 1 novo e atualizar 1");
+  });
+
+  it("names only the new products when none updates", () => {
+    expect(importActionLabel({ created: 1, updated: 0 })).toBe("Importar 1 produto novo");
+    expect(importActionLabel({ created: 1200, updated: 0 })).toBe("Importar 1.200 produtos novos");
+  });
+
+  it("says update when every product already exists", () => {
+    expect(importActionLabel({ created: 0, updated: 2 })).toBe("Atualizar 2 produtos");
+  });
+
+  it("falls back to a plain label with nothing to import", () => {
+    expect(importActionLabel({ created: 0, updated: 0 })).toBe("Importar");
+  });
+});
 
 describe("onlyValidLabel", () => {
   it("uses the singular for one row on either side", () => {

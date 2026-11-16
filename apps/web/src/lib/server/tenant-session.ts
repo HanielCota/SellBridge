@@ -80,12 +80,7 @@ export async function requireTenantSession(
   headers: Headers,
   requestedProfile: string | null = profileHeaderOf(headers),
 ): Promise<TenantSession> {
-  const session = await auth.api.getSession({ headers });
-  if (!session) {
-    throw unauthorizedError();
-  }
-  assertVisitNotOver(session.session);
-  await assertVisitorStillAllowed(session.session.impersonatedBy);
+  const session = await requireLiveSession(headers);
   const profile = resolveProfileId({
     requested: requestedProfile,
     sessionActive: session.session.activeOrganizationId,
@@ -101,6 +96,32 @@ export async function requireTenantSession(
     profileKind: profile.kind,
     impersonatedBy: session.session.impersonatedBy ?? null,
   };
+}
+
+/** The signed-in session, refused once an admin's visit is over or no longer allowed. */
+async function requireLiveSession(headers: Headers) {
+  const session = await auth.api.getSession({ headers });
+  if (!session) {
+    throw unauthorizedError();
+  }
+  assertVisitNotOver(session.session);
+  await assertVisitorStillAllowed(session.session.impersonatedBy);
+  return session;
+}
+
+export interface AccountSession {
+  userId: string;
+  /** The admin inside the account through "Entrar como cliente", or null for the person. */
+  impersonatedBy: string | null;
+}
+
+/**
+ * A signed-in person, with or without a profile: for what belongs to the person and not to a
+ * store, such as accepting the terms. Attendants and supervisors have no profile.
+ */
+export async function requireAccountSession(headers: Headers): Promise<AccountSession> {
+  const session = await requireLiveSession(headers);
+  return { userId: session.user.id, impersonatedBy: session.session.impersonatedBy ?? null };
 }
 
 /**

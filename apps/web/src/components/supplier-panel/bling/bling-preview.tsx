@@ -17,6 +17,7 @@ import {
   useBlingReadRows,
 } from "@/features/supplier-panel/bling/use-bling";
 import { downloadCsv } from "@/features/supplier-panel/import/import-file";
+import { importActionLabel } from "@/features/supplier-panel/import/import-wording";
 import { errorMessage } from "@/lib/errors";
 import { BlingDiscountRule } from "./bling-discount-rule";
 import { BlingPriceRow } from "./bling-price-row";
@@ -114,7 +115,8 @@ function usePreviewPrices(rows: readonly ErpImportRow[], savedTenths: number | n
 
 function PreviewFooter(props: {
   missing: number;
-  total: number;
+  created: number;
+  updated: number;
   importing: boolean;
   onImport: () => void;
   onCancel: () => void;
@@ -123,10 +125,10 @@ function PreviewFooter(props: {
     <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
       <Button
         size="lg"
-        disabled={props.total === 0 || props.missing > 0 || props.importing}
+        disabled={props.created + props.updated === 0 || props.missing > 0 || props.importing}
         onClick={props.onImport}
       >
-        {props.importing ? "Importando…" : `Importar ${count(props.total, "produto", "produtos")}`}
+        {props.importing ? "Importando…" : importActionLabel(props)}
       </Button>
       <Button variant="outline" size="lg" disabled={props.importing} onClick={props.onCancel}>
         Cancelar
@@ -194,7 +196,8 @@ function PreviewBody(props: PreviewBodyProps) {
       ) : null}
       <PreviewFooter
         missing={priced.missing}
-        total={props.rows.length}
+        created={newRows.length}
+        updated={props.rows.length - newRows.length}
         importing={importing.isPending}
         onImport={startImport}
         onCancel={() => discardRead.mutate()}

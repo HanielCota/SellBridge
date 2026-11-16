@@ -1,3 +1,4 @@
+import { INVOICE_STATUS_LABELS, type InvoiceStatus } from "@sellbridge/shared/supplier-invoice";
 import {
   SUPPLIER_LABEL_STATE_LABELS,
   type SupplierLabelState,
@@ -26,6 +27,7 @@ import {
   type PostingDeadlineState,
   postingDeadline,
 } from "@/features/supplier-panel/orders/posting-deadline";
+import { INVOICE_TONES } from "@/features/fulfillment/invoice-tones";
 
 /** "2× Camiseta (CAM-01) e mais 1 item": enough to pick the parcel without opening it. */
 export function itemsSummary(items: SupplierOrderRow["items"]): string {
@@ -132,6 +134,21 @@ export function PostingDeadlineStatus({
   return (
     <div>
       <TonePill tone={POSTING_TONES[deadline.state]} label={deadline.label} timeBased />
+    </div>
+  );
+}
+
+/**
+ * The parcel's NF-e, when the supplier's ERP issues it: a stopped one is told in the problems
+ * below, with what to do, so it is not repeated here.
+ */
+export function InvoiceStatusLine({ status }: { status: InvoiceStatus | null }) {
+  if (status === null || status === "attention") {
+    return null;
+  }
+  return (
+    <div>
+      <TonePill tone={INVOICE_TONES[status]} label={INVOICE_STATUS_LABELS[status]} />
     </div>
   );
 }

@@ -147,6 +147,17 @@ describe("collectAccountExport", () => {
     expect(text).not.toContain(`EXP-B-${tenantB}`);
   });
 
+  it("exports only the personal data of an account with no profile", async () => {
+    const exported = await collectAccountExport(database, { userId, tenantId: null });
+
+    expect(exported.user?.email).toBe(`test-${userId}@sellbridge.test`);
+    expect(exported.holder).toBeNull();
+    expect(exported.stores).toEqual([]);
+    expect(exported.orders).toEqual([]);
+    expect(exported.tickets).toEqual([]);
+    expect(exported.billing).toBeNull();
+  });
+
   it("keeps the author's own review comments and nobody else's", async () => {
     const exported = await collectAccountExport(database, { userId, tenantId: tenantA });
     expect(exported.supplierReviews).toEqual([
