@@ -236,7 +236,9 @@ test("a equipe devolve ao revendedor um pagamento protegido sem regra", async ({
   const admin = await (await browser.newContext({ locale: "pt-BR" })).newPage();
   await signIn(admin, ADMIN_USER);
   await gotoHydrated(admin, `/admin/problemas/${problemId}`);
-  await expect(admin.getByText("Pagamento protegido de R$ 80,00")).toBeVisible();
+  await expect(
+    admin.getByRole("heading", { name: "Pagamento protegido de R$ 80,00", exact: true }),
+  ).toBeVisible();
   await expect(admin.getByText(/o Asaas libera ao fornecedor sozinho./)).toBeVisible();
   await admin.getByRole("button", { name: "Devolver ao revendedor" }).click();
   const confirm = admin.getByRole("dialog", { name: "Devolver o pagamento ao revendedor?" });
