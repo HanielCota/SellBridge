@@ -5,6 +5,7 @@ import {
   InvoiceStatusLine,
   LabelStatus,
   OrderSummary,
+  PostingDeadlineStatus,
   ProblemList,
   RowAction,
   RowCheckbox,
@@ -34,6 +35,7 @@ function MobileQueueRow({ row }: { row: SupplierOrderRow }) {
           <StepStatus row={row} />
           <DeadlineCell row={row} now={context.now} />
         </div>
+        <PostingDeadlineStatus parcel={row} now={context.now} />
         <LabelStatus state={row.labelState} printedAt={row.labelPrintedAt} />
         <InvoiceStatusLine status={row.invoiceStatus} />
         <ProblemList row={row} />

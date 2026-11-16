@@ -1,5 +1,9 @@
 import type { SupplierPaymentBadge } from "@sellbridge/shared/shipment-payments";
-import { FULFILLMENT_LABELS, type FulfillmentStatus } from "@sellbridge/shared/schemas";
+import {
+  FULFILLMENT_LABELS,
+  type FulfillmentStatus,
+  type LabelFormat,
+} from "@sellbridge/shared/schemas";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { errorMessage } from "@/lib/errors";
@@ -82,12 +86,12 @@ export function useBatchAccept(supplierId: string) {
   });
 }
 
-/** Emits the marketplace labels of several parcels, one PDF per reseller store. */
+/** Emits the marketplace labels of several parcels, one file per reseller store. */
 export function useBatchLabels(supplierId: string) {
   const refresh = useRefreshOrders(supplierId);
   return useMutation({
-    mutationFn: async (shipmentIds: string[]) =>
-      await printSupplierLabelsFn({ data: { supplierId, shipmentIds } }),
+    mutationFn: async (input: { shipmentIds: string[]; format: LabelFormat }) =>
+      await printSupplierLabelsFn({ data: { supplierId, ...input } }),
     onSettled: async () => await refresh(),
   });
 }
