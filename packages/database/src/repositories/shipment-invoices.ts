@@ -559,37 +559,39 @@ export async function setErpInvoicing(
   return updated.length > 0;
 }
 
-/** An authorized note as the reseller's order page shows it. */
-export interface AuthorizedShipmentInvoice {
+/** A parcel's note as the reseller's order page shows it; the reason it stopped stays out. */
+export interface ResellerShipmentInvoice {
+  readonly status: InvoiceStatus;
   readonly number: string | null;
   readonly series: string | null;
   readonly accessKey: string | null;
   readonly authorizedAt: Date | null;
+  readonly updatedAt: Date;
 }
 
-/** The authorized notes of these parcels, by parcel; parcels without one are left out. */
-export async function authorizedShipmentInvoices(
+/**
+ * The notes of these parcels, by parcel, from the moment the supplier's ERP starts one: the
+ * reseller sees it coming, stopped or issued. Parcels without one are left out.
+ */
+export async function resellerShipmentInvoices(
   database: Database,
   shipmentIds: readonly string[],
-): Promise<Map<string, AuthorizedShipmentInvoice>> {
+): Promise<Map<string, ResellerShipmentInvoice>> {
   if (shipmentIds.length === 0) {
     return new Map();
   }
   const rows = await database
     .select({
       shipmentId: shipmentInvoices.shipmentId,
+      status: shipmentInvoices.status,
       number: shipmentInvoices.number,
       series: shipmentInvoices.series,
       accessKey: shipmentInvoices.accessKey,
       authorizedAt: shipmentInvoices.authorizedAt,
+      updatedAt: shipmentInvoices.updatedAt,
     })
     .from(shipmentInvoices)
-    .where(
-      and(
-        inArray(shipmentInvoices.shipmentId, [...shipmentIds]),
-        eq(shipmentInvoices.status, "authorized"),
-      ),
-    );
+    .where(inArray(shipmentInvoices.shipmentId, [...shipmentIds]));
   return new Map(rows.map(({ shipmentId, ...invoice }) => [shipmentId, invoice]));
 }
 

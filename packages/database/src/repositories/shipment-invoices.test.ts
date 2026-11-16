@@ -17,7 +17,6 @@ import {
   upsertErpConnection,
 } from "./erp-connections.ts";
 import {
-  authorizedShipmentInvoices,
   claimDueShipmentInvoices,
   findShipmentInvoiceFiles,
   findSupplierShipmentInvoice,
@@ -25,6 +24,7 @@ import {
   markShipmentInvoiceAttention,
   markShipmentInvoiceAuthorized,
   queueNewShipmentInvoices,
+  resellerShipmentInvoices,
   retrySupplierShipmentInvoice,
   setErpInvoicing,
   whileHoldingShipmentInvoice,
@@ -336,18 +336,36 @@ describe("authorized notes for the reseller", () => {
     });
   });
 
-  it("lists a parcel's note only once SEFAZ authorized it", async () => {
+  it("lists a parcel's note from its first step, and its number once SEFAZ authorized it", async () => {
     const created = await authorizedScenario();
 
-    const before = await authorizedShipmentInvoices(database, [created.shipmentId]);
+    const before = await resellerShipmentInvoices(database, [created.shipmentId]);
     await authorize(created.invoiceId);
-    const after = await authorizedShipmentInvoices(database, [created.shipmentId]);
+    const after = await resellerShipmentInvoices(database, [created.shipmentId]);
 
-    expect(before.size).toBe(0);
+    expect(before.get(created.shipmentId)).toMatchObject({
+      status: "queued",
+      number: null,
+      accessKey: null,
+    });
     expect(after.get(created.shipmentId)).toMatchObject({
+      status: "authorized",
       number: "1234",
       accessKey: AUTHORIZED_ACCESS_KEY,
     });
+  });
+
+  it("never gives the reseller the reason a note stopped", async () => {
+    const created = await authorizedScenario();
+    await markShipmentInvoiceAttention(database, {
+      invoiceId: created.invoiceId,
+      problem: "Falta o NCM",
+    });
+
+    const found = await resellerShipmentInvoices(database, [created.shipmentId]);
+
+    expect(found.get(created.shipmentId)).toMatchObject({ status: "attention" });
+    expect(found.get(created.shipmentId)).not.toHaveProperty("problem");
   });
 
   it("gives the note's files with who may download them, only when authorized", async () => {
