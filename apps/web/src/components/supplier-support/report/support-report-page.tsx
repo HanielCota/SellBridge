@@ -22,11 +22,11 @@ function isQuietPeriod(report: SupplierSupportReport): boolean {
 
 function ReportSkeleton() {
   return (
-    <div className="space-y-6" aria-label="Carregando o relatório">
+    <output className="block space-y-6" aria-label="Carregando o relatório">
       <Skeleton className="h-28 rounded-3xl" />
       <Skeleton className="h-36 rounded-3xl" />
       <Skeleton className="h-48 rounded-3xl" />
-    </div>
+    </output>
   );
 }
 
