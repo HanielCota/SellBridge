@@ -14,11 +14,12 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Skeleton } from "@/components/ui/skeleton";
+import type { StoreSupplierChangeImpact } from "@sellbridge/database/repositories";
 import {
   addStoreSupplierFn,
+  previewStoreSupplierRemovalFn,
   removeStoreSupplierFn,
 } from "@/features/stores/store-suppliers.functions";
-import { storeSupplierRemovalPreviewQueryOptions } from "@/features/stores/store-suppliers.queries";
 import { errorMessage } from "@/lib/errors";
 
 /** A supplier as the stores page shows it. */
@@ -40,6 +41,25 @@ export interface StoreSuppliersTarget {
   suppliers: readonly StoreSupplierOption[];
 }
 
+/** A shop and one supplier, the input of every change the dialog makes. */
+export interface StoreSupplierChange {
+  storeConnectionId: string;
+  supplierId: string;
+}
+
+/** How the dialog changes a shop's suppliers: the seller's own calls, or the team's for a customer. */
+export interface StoreSupplierActions {
+  add: (change: StoreSupplierChange) => Promise<unknown>;
+  remove: (change: StoreSupplierChange) => Promise<unknown>;
+  previewRemoval: (change: StoreSupplierChange) => Promise<StoreSupplierChangeImpact>;
+  /** Refreshes the screens that show the shop's suppliers. */
+  refresh: () => Promise<unknown>;
+  /** The query key root the removal preview lives under, so `refresh` drops it too. */
+  previewKey: string;
+  /** Who can reactivate the paused listings, after the removal note's "Nada é apagado:". */
+  reactivateNote: string;
+}
+
 type DialogView =
   { kind: "list" } | { kind: "add" } | { kind: "remove"; supplier: StoreSupplierOption };
 
@@ -57,6 +77,19 @@ export function useInvalidateStores() {
       queryClient.invalidateQueries({ queryKey: ["setup-progress"] }),
       queryClient.invalidateQueries({ queryKey: ["listings"] }),
     ]);
+}
+
+/** The seller managing the suppliers of their own shops. */
+export function useSellerSupplierActions(): StoreSupplierActions {
+  const invalidate = useInvalidateStores();
+  return {
+    add: (change) => addStoreSupplierFn({ data: change }),
+    remove: (change) => removeStoreSupplierFn({ data: change }),
+    previewRemoval: (change) => previewStoreSupplierRemovalFn({ data: change }),
+    refresh: invalidate,
+    previewKey: "stores",
+    reactivateNote: "se você adicionar o fornecedor de novo, pode reativar os anúncios.",
+  };
 }
 
 function MutationError({ error }: { error: Error | null }) {
@@ -147,13 +180,16 @@ function SupplierListView({
   );
 }
 
-function useAddSupplier(target: StoreSuppliersTarget, onDone: () => void) {
-  const invalidate = useInvalidateStores();
+function useAddSupplier(
+  target: StoreSuppliersTarget,
+  actions: StoreSupplierActions,
+  onDone: () => void,
+) {
   return useMutation({
     mutationFn: (supplier: PickableSupplier) =>
-      addStoreSupplierFn({ data: { storeConnectionId: target.storeId, supplierId: supplier.id } }),
+      actions.add({ storeConnectionId: target.storeId, supplierId: supplier.id }),
     onSuccess: async (_result, supplier) => {
-      await invalidate();
+      await actions.refresh();
       toast.success(`${supplier.name} adicionado a ${target.storeName}`);
       onDone();
     },
@@ -172,15 +208,17 @@ function addHint(picked: PickableSupplier | null, alreadySold: boolean): string 
 
 function AddSupplierView({
   target,
+  actions,
   onBack,
   onDone,
 }: {
   target: StoreSuppliersTarget;
+  actions: StoreSupplierActions;
   onBack: () => void;
   onDone: () => void;
 }) {
   const [picked, setPicked] = useState<PickableSupplier | null>(null);
-  const mutation = useAddSupplier(target, onDone);
+  const mutation = useAddSupplier(target, actions, onDone);
   const isFirst = target.suppliers.length === 0;
   const alreadySold =
     picked !== null && target.suppliers.some((supplier) => supplier.id === picked.id);
@@ -226,8 +264,18 @@ function AddSupplierView({
 }
 
 /** What removing the supplier does to the shop's publications, before the seller confirms. */
-function RemovalImpact({ storeId, supplierId }: { storeId: string; supplierId: string }) {
-  const query = useQuery(storeSupplierRemovalPreviewQueryOptions(storeId, supplierId));
+function RemovalImpact({
+  change,
+  actions,
+}: {
+  change: StoreSupplierChange;
+  actions: StoreSupplierActions;
+}) {
+  const query = useQuery({
+    queryKey: [actions.previewKey, "supplier-removal-preview", change],
+    queryFn: () => actions.previewRemoval(change),
+    staleTime: 0,
+  });
   if (query.isPending) {
     return <Skeleton className="h-12 rounded-2xl" />;
   }
@@ -261,8 +309,7 @@ function RemovalImpact({ storeId, supplierId }: { storeId: string; supplierId: s
     >
       <WarningIcon weight="fill" className="mt-0.5 size-4 shrink-0" aria-hidden="true" />
       <span>
-        {parts.join(" e ")}. Nada é apagado: se você adicionar o fornecedor de novo, pode reativar
-        os anúncios.
+        {parts.join(" e ")}. Nada é apagado: {actions.reactivateNote}
       </span>
     </p>
   );
@@ -271,16 +318,14 @@ function RemovalImpact({ storeId, supplierId }: { storeId: string; supplierId: s
 function useRemoveSupplier(
   target: StoreSuppliersTarget,
   supplier: StoreSupplierOption,
+  actions: StoreSupplierActions,
   onDone: () => void,
 ) {
-  const invalidate = useInvalidateStores();
   return useMutation({
     mutationFn: () =>
-      removeStoreSupplierFn({
-        data: { storeConnectionId: target.storeId, supplierId: supplier.id },
-      }),
+      actions.remove({ storeConnectionId: target.storeId, supplierId: supplier.id }),
     onSuccess: async () => {
-      await invalidate();
+      await actions.refresh();
       toast.success(`${supplier.name} não é mais fornecedor de ${target.storeName}`);
       onDone();
     },
@@ -290,13 +335,15 @@ function useRemoveSupplier(
 function RemoveSupplierView({
   target,
   supplier,
+  actions,
   onBack,
 }: {
   target: StoreSuppliersTarget;
   supplier: StoreSupplierOption;
+  actions: StoreSupplierActions;
   onBack: () => void;
 }) {
-  const mutation = useRemoveSupplier(target, supplier, onBack);
+  const mutation = useRemoveSupplier(target, supplier, actions, onBack);
   return (
     <>
       <DialogHeader>
@@ -308,7 +355,10 @@ function RemoveSupplierView({
           iguais.
         </DialogDescription>
       </DialogHeader>
-      <RemovalImpact storeId={target.storeId} supplierId={supplier.id} />
+      <RemovalImpact
+        change={{ storeConnectionId: target.storeId, supplierId: supplier.id }}
+        actions={actions}
+      />
       <MutationError error={mutation.error} />
       <DialogFooter className={FOOTER_CLASS}>
         <Button type="button" variant="ghost" onClick={onBack}>
@@ -329,20 +379,34 @@ function RemoveSupplierView({
 
 function SupplierDialogBody({
   target,
+  actions,
   onClose,
 }: {
   target: StoreSuppliersTarget;
+  actions: StoreSupplierActions;
   onClose: () => void;
 }) {
   const isPending = target.suppliers.length === 0;
   const [view, setView] = useState<DialogView>(isPending ? { kind: "add" } : { kind: "list" });
   const showList = () => setView({ kind: "list" });
   if (view.kind === "remove") {
-    return <RemoveSupplierView target={target} supplier={view.supplier} onBack={showList} />;
+    return (
+      <RemoveSupplierView
+        target={target}
+        supplier={view.supplier}
+        actions={actions}
+        onBack={showList}
+      />
+    );
   }
   if (view.kind === "add") {
     return (
-      <AddSupplierView target={target} onBack={isPending ? onClose : showList} onDone={showList} />
+      <AddSupplierView
+        target={target}
+        actions={actions}
+        onBack={isPending ? onClose : showList}
+        onDone={showList}
+      />
     );
   }
   return (
@@ -357,20 +421,27 @@ function SupplierDialogBody({
 
 /**
  * Lists, adds and removes the suppliers a shop sells; open while `target` is set. A shop with no
- * supplier yet opens straight on the picker.
+ * supplier yet opens straight on the picker. The seller and the team share it through `actions`.
  */
 export function StoreSupplierDialog({
   target,
+  actions,
   onClose,
 }: {
   target: StoreSuppliersTarget | null;
+  actions: StoreSupplierActions;
   onClose: () => void;
 }) {
   return (
     <Dialog open={target !== null} onOpenChange={(open) => (open ? undefined : onClose())}>
       <DialogContent className="max-h-[90svh] grid-cols-[minmax(0,1fr)] gap-5 overflow-y-auto rounded-[1.75rem] p-5 sm:max-w-2xl">
         {target === null ? null : (
-          <SupplierDialogBody key={target.storeId} target={target} onClose={onClose} />
+          <SupplierDialogBody
+            key={target.storeId}
+            target={target}
+            actions={actions}
+            onClose={onClose}
+          />
         )}
       </DialogContent>
     </Dialog>
