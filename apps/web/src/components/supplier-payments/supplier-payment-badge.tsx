@@ -32,6 +32,10 @@ const PAYMENT_METHOD_WORDS: Record<string, string> = {
   debit_card: "cartão de débito",
   prepaid_card: "cartão pré-pago",
   account_money: "saldo do Mercado Pago",
+  PIX: "Pix",
+  CREDIT_CARD: "cartão de crédito",
+  DEBIT_CARD: "cartão de débito",
+  BOLETO: "boleto",
 };
 
 /** "Pix", "cartão de crédito"…; null for a kind this screen does not know. */

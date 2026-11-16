@@ -51,6 +51,12 @@ export const adminListProblems = createServerFn({ method: "GET" })
     return { items: page.items, nextCursor: encodeProblemCursor(page.nextCursor) };
   });
 
+/** The protected payment a "needs a decision" problem is about, for its two buttons. */
+function heldPaymentIdOf(event: string, context: Record<string, unknown>): string | null {
+  const id = context.shipmentPaymentId;
+  return event === "asaas.held_payment_needs_decision" && typeof id === "string" ? id : null;
+}
+
 export const adminGetProblem = createServerFn({ method: "GET" })
   .middleware([staffMiddleware("audit.view")])
   .validator(problemIdSchema)
@@ -60,7 +66,11 @@ export const adminGetProblem = createServerFn({ method: "GET" })
       throw notFoundError(NOT_FOUND_MESSAGE);
     }
     const { context, ...summary } = problem;
-    return { ...summary, technicalDetails: technicalDetailsOf(problem, context) };
+    return {
+      ...summary,
+      technicalDetails: technicalDetailsOf(problem, context),
+      heldPaymentId: heldPaymentIdOf(problem.event, context),
+    };
   });
 
 export const adminSetProblemResolved = createServerFn({ method: "POST" })

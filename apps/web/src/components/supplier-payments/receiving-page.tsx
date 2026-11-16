@@ -19,6 +19,9 @@ import { paymentAccountQueryOptions } from "@/features/supplier-payments/supplie
 import { errorMessage } from "@/lib/errors";
 import { formatAbsoluteTime } from "@/lib/relative-time";
 import { cn } from "@/lib/utils";
+import { asaasReceivingQueryOptions } from "@/features/supplier-payments/asaas.queries";
+import { AsaasReceivingCard, type AsaasReceivingView } from "./asaas-receiving-card";
+import { ReceivingChoice } from "./receiving-choice";
 import { PaymentPill } from "./supplier-payment-badge";
 
 type AccountView = Awaited<ReturnType<typeof getPaymentAccountFn>>;
@@ -220,7 +223,37 @@ function UnavailableCard() {
   );
 }
 
-/** The supplier links the Mercado Pago account that receives the resellers' payments. */
+function ProtectionRequiredNotice({ view }: { view: AsaasReceivingView }) {
+  if (!view.protectionRequired) {
+    return null;
+  }
+  const word = view.deliveriesToGo === 1 ? "entrega" : "entregas";
+  return (
+    <output className="block max-w-3xl rounded-2xl bg-amber-500/14 px-4 py-3 text-sm font-medium">
+      Fornecedores novos recebem com proteção (Asaas) até completar as primeiras entregas. Faltam{" "}
+      {view.deliveriesToGo} {word}. Até lá, os revendedores pagam você pelo Asaas.
+    </output>
+  );
+}
+
+function AsaasSection({ supplierId, fee }: { supplierId: string; fee: string }) {
+  const query = useQuery(asaasReceivingQueryOptions(supplierId));
+  if (query.isPending) {
+    return <Skeleton className="h-44 max-w-3xl rounded-3xl" />;
+  }
+  if (query.isError) {
+    return <ErrorState message={errorMessage(query.error)} onRetry={() => void query.refetch()} />;
+  }
+  return (
+    <>
+      <ProtectionRequiredNotice view={query.data} />
+      <ReceivingChoice supplierId={supplierId} view={query.data} />
+      <AsaasReceivingCard supplierId={supplierId} view={query.data} fee={fee} />
+    </>
+  );
+}
+
+/** The supplier links the accounts that receive the resellers' payments and picks one. */
 export function ReceivingPage({
   supplierId,
   outcome,
@@ -233,7 +266,7 @@ export function ReceivingPage({
     <div className="space-y-6">
       <PageHeader
         title="Receber pagamentos"
-        description="Ligue sua conta Mercado Pago para receber dos revendedores pelo SellBridge."
+        description="Escolha como os revendedores pagam você pelo SellBridge: na hora, pelo Mercado Pago, ou com proteção até a entrega, pelo Asaas."
       />
       {outcome === undefined ? null : <OutcomeNotice outcome={outcome} />}
       {query.isPending ? <Skeleton className="h-44 max-w-3xl rounded-3xl" /> : null}
@@ -244,6 +277,9 @@ export function ReceivingPage({
         <AccountCard supplierId={supplierId} account={query.data} />
       ) : (
         <UnavailableCard />
+      )}
+      {query.data === undefined ? null : (
+        <AsaasSection supplierId={supplierId} fee={formatFeePercent(query.data.feeBasisPoints)} />
       )}
     </div>
   );
