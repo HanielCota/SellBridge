@@ -25,12 +25,15 @@ export async function makeAccountPredateConfirmation(email: string): Promise<voi
 
 /**
  * Whether React owns every control on the page. Runs in the browser, so it stays self-contained.
- * Links are left out: text rendered from HTML can hold some React never sees.
+ * Links are left out: text rendered from HTML can hold some React never sees. A page React does
+ * not render at all (the fake marketplace consent) has nothing to wait for.
  */
 export function controlsOwnedByReact(): boolean {
-  return [...document.querySelectorAll("button, input, select, textarea")].every((control) =>
-    Object.keys(control).some((key) => key.startsWith("__reactFiber$")),
+  const controls = document.querySelectorAll("button, input, select, textarea");
+  const [pageIsReact = false, ...controlsOwned] = [document.documentElement, ...controls].map(
+    (element) => Object.keys(element).some((key) => key.startsWith("__reactFiber$")),
   );
+  return pageIsReact ? controlsOwned.every(Boolean) : true;
 }
 
 /**
