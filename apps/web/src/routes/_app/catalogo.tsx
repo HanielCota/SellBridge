@@ -1,7 +1,8 @@
 import type { StoreCatalogProduct } from "@sellbridge/database/repositories";
 import {
-  PRODUCT_SORT_LABELS,
-  PRODUCT_SORTS,
+  DEFAULT_SELLABLE_PRODUCT_SORT,
+  SELLABLE_PRODUCT_SORT_LABELS,
+  SELLABLE_PRODUCT_SORTS,
   sellableCatalogSearchSchema,
   type SellableCatalogSearch,
   MAX_BULK_PUBLISH,
@@ -194,6 +195,15 @@ function SupplierFilter({ data }: { data: CatalogData }) {
   );
 }
 
+const SORT_OPTIONS = SELLABLE_PRODUCT_SORTS.map((sort) => ({
+  value: sort,
+  label: SELLABLE_PRODUCT_SORT_LABELS[sort],
+}));
+
+function toSellableSort(value: string | undefined) {
+  return SELLABLE_PRODUCT_SORTS.find((option) => option === value) ?? DEFAULT_SELLABLE_PRODUCT_SORT;
+}
+
 function CatalogFilters({ data }: { data: CatalogData }) {
   const search = Route.useSearch();
   const updateSearch = useUpdateSearch();
@@ -227,10 +237,8 @@ function CatalogFilters({ data }: { data: CatalogData }) {
       <FilterSelect
         label="Ordenar"
         value={search.sort}
-        options={PRODUCT_SORTS.map((sort) => ({ value: sort, label: PRODUCT_SORT_LABELS[sort] }))}
-        onChange={(sort) =>
-          updateSearch({ sort: PRODUCT_SORTS.find((option) => option === sort) ?? "title" })
-        }
+        options={SORT_OPTIONS}
+        onChange={(sort) => updateSearch({ sort: toSellableSort(sort) })}
       />
       <FilterCheckbox
         id="in-stock"
