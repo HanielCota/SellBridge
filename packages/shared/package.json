@@ -114,7 +114,8 @@
     "./return-claims": "./src/domain/return-claims.ts",
     "./prohibited-products": "./src/domain/prohibited-products.ts",
     "./erp-catalog": "./src/domain/erp-catalog.ts",
-    "./erp-reseller-price": "./src/domain/erp-reseller-price.ts"
+    "./erp-reseller-price": "./src/domain/erp-reseller-price.ts",
+    "./reseller-price-warning": "./src/domain/reseller-price-warning.ts"
   },
   "scripts": {
     "typecheck": "tsc --noEmit",
