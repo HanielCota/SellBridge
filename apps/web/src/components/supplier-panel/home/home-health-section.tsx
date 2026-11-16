@@ -37,7 +37,7 @@ function SeeButton({ href, label }: { href: string; label: string }) {
   );
 }
 
-/** A metric off target shows its value in the level's color; a short sample stays neutral. */
+/** A metric off target shows its value in the level's color; one that does not count yet is gray. */
 function MetricTile({ metric }: { metric: HealthMetric }) {
   return (
     <div className="space-y-0.5">
@@ -46,6 +46,7 @@ function MetricTile({ metric }: { metric: HealthMetric }) {
           "text-xl font-semibold tabular-nums",
           metric.level === "yellow" && "text-amber-700 dark:text-amber-300",
           metric.level === "red" && "text-destructive",
+          metric.level === "insufficient" && "text-muted-foreground",
         )}
       >
         {homeMetricValue(metric)}
