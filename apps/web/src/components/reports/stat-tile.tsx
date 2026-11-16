@@ -20,10 +20,12 @@ export interface StatTileProps {
   figure: ReactNode;
   /** How the figure moved against the previous period (or the team), plus any short note. */
   change: ReactNode;
-  /** The figure's shape over the period. */
-  trend: readonly number[];
+  /** The figure's shape over the period, as a sparkline beside the figure. */
+  trend?: readonly number[];
   /** Colors the sparkline like the change: good news green, bad news red. */
   trendTone?: TrendTone;
+  /** A fuller chart under the figure, in place of the sparkline. */
+  chart?: ReactNode;
   /** Tooltip on the whole tile: where it leads, and what the name means when it is jargon. */
   hint: string;
   /** Dotted underline on a name a reader may not know; the hint explains it. */
@@ -38,6 +40,7 @@ function TileBody({
   change,
   trend,
   trendTone,
+  chart,
   isTerm = false,
   link,
 }: StatTileProps) {
@@ -59,8 +62,11 @@ function TileBody({
           <div className="flex h-9 items-end text-[30px] leading-none">{figure}</div>
           <div className="flex min-h-4 flex-wrap items-center gap-x-1.5 text-xs">{change}</div>
         </div>
-        <Sparkline values={trend} tone={trendTone} className="mb-1" />
+        {trend === undefined ? null : (
+          <Sparkline values={trend} tone={trendTone} className="mb-1" />
+        )}
       </div>
+      {chart}
     </>
   );
 }
@@ -68,7 +74,7 @@ function TileBody({
 const TILE_CLASSES = "flex min-h-36 flex-col justify-between gap-3 rounded-3xl bg-card p-5";
 
 /**
- * One stat tile: name, the number, how it moved and a sparkline. Every tile has the same parts in
+ * One stat tile: name, the number, how it moved and its shape (a sparkline or a chart under it). Every tile has the same parts in
  * the same places, so a column of them reads in one pass. The period lives in the page header.
  */
 export function StatTile(props: StatTileProps) {

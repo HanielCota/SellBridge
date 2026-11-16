@@ -15,7 +15,9 @@ import {
 import { useQuery, type UseQueryResult } from "@tanstack/react-query";
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { TrayIcon } from "@phosphor-icons/react";
+import { type ReactNode, useRef } from "react";
 import { createServerColumnHelper, DataTable } from "@/components/data/data-table";
+import { scrollEdgeMask, useScrollEdges } from "@/components/data/use-scroll-edges";
 import { FilterTabs } from "@/components/data/filter-tabs";
 import { REQUESTER_KIND_LABELS } from "@/features/support/ticket-audience";
 import { PaginationBar } from "@/components/data/pagination-bar";
@@ -28,7 +30,8 @@ import {
   ResponseDeadlineBadge,
   TicketCategoryLabel,
   TicketPriorityBadge,
-  UnreadDot,
+  UnreadSubject,
+  unreadSubjectClass,
 } from "@/components/support/ticket-badges";
 import { StaffShortcutFilters } from "@/components/support/staff-shortcut-filters";
 import { SupportAreaTabs } from "@/components/support-performance/support-area-tabs";
@@ -64,6 +67,7 @@ export const Route = createFileRoute("/_app/admin/chamados/")({
 });
 
 const ALL = "__all__";
+const UNREAD_LABEL = "Mensagem nova";
 
 /**
  * A closed ticket asks nothing of the team: its last message is history, not a to-do. Nor does a
@@ -79,23 +83,25 @@ const columns = columnHelper.columns([
     header: "Assunto",
     cell: (info) => {
       const ticket = info.row.original;
+      const unread = showsUnread(ticket);
       return (
-        // Cells keep one line by default; a long subject (order numbers and all) wraps instead
-        // of pushing Situação and Atualizado out of the table beside the sidebar.
-        <div className="min-w-56 space-y-0.5 whitespace-normal">
-          <Link
-            to="/admin/chamados/$ticketId"
-            params={{ ticketId: ticket.id }}
-            className="font-medium underline-offset-4 hover:underline"
-          >
-            {ticket.subject}
-          </Link>
-          <p className="flex flex-wrap items-center gap-x-2 text-footnote text-muted-foreground">
-            <TicketCategoryLabel category={ticket.category} kind={ticket.tenantKind} />
-            {ticket.supplierName === null ? null : <span>Para {ticket.supplierName}</span>}
-            {showsUnread(ticket) ? <UnreadDot label="Mensagem nova" /> : null}
-          </p>
-        </div>
+        <UnreadSubject unread={unread} label={UNREAD_LABEL} hanging>
+          {/* Cells keep one line by default; a long subject (order numbers and all) wraps instead
+              of pushing Situação and Atualizado out of the table beside the sidebar. */}
+          <div className="min-w-56 space-y-0.5 whitespace-normal">
+            <Link
+              to="/admin/chamados/$ticketId"
+              params={{ ticketId: ticket.id }}
+              className={cn(unreadSubjectClass(unread), "underline-offset-4 hover:underline")}
+            >
+              {ticket.subject}
+            </Link>
+            <p className="flex flex-wrap items-center gap-x-2 text-footnote text-muted-foreground">
+              <TicketCategoryLabel category={ticket.category} kind={ticket.tenantKind} />
+              {ticket.supplierName === null ? null : <span>Para {ticket.supplierName}</span>}
+            </p>
+          </div>
+        </UnreadSubject>
       );
     },
   }),
@@ -155,14 +161,21 @@ const columns = columnHelper.columns([
 ]);
 
 function MobileTicketRow({ row }: { row: StaffTicketSummary }) {
+  const unread = showsUnread(row);
   return (
-    <Link
-      to="/admin/chamados/$ticketId"
-      params={{ ticketId: row.id }}
-      className="block space-y-1.5"
-    >
+    <Link to="/admin/chamados/$ticketId" params={{ ticketId: row.id }} className="block">
+      <UnreadSubject unread={unread} label={UNREAD_LABEL}>
+        <MobileTicketRowBody row={row} unread={unread} />
+      </UnreadSubject>
+    </Link>
+  );
+}
+
+function MobileTicketRowBody({ row, unread }: { row: StaffTicketSummary; unread: boolean }) {
+  return (
+    <div className="space-y-1.5">
       <div className="flex items-start justify-between gap-3">
-        <p className="min-w-0 font-medium">{row.subject}</p>
+        <p className={cn("min-w-0", unreadSubjectClass(unread))}>{row.subject}</p>
         <TicketPriorityBadge priority={row.priority} focusable={false} />
       </div>
       <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
@@ -179,13 +192,12 @@ function MobileTicketRow({ row }: { row: StaffTicketSummary }) {
             awaitingSince={row.awaitingSince}
           />
         )}
-        {showsUnread(row) ? <UnreadDot label="Mensagem nova" /> : null}
       </div>
       <p className="truncate text-xs text-muted-foreground">
         {row.tenantName} · {REQUESTER_KIND_LABELS[row.tenantKind]} ·{" "}
         {row.assigneeName ?? "Sem responsável"} · <SmartDate date={row.updatedAt} />
       </p>
-    </Link>
+    </div>
   );
 }
 
@@ -279,7 +291,7 @@ function OptionFilter<TValue extends string>({
       value={value ?? ALL}
       onValueChange={(next) => onChange(options.find((option) => option === next))}
     >
-      <SelectTrigger className="w-full lg:w-48" aria-label={label}>
+      <SelectTrigger className={FILTER_SELECT_CLASSES} aria-label={label}>
         <SelectValue>{value ? labels[value] : allLabel}</SelectValue>
       </SelectTrigger>
       <SelectContent>
@@ -318,35 +330,72 @@ function StaffTicketFilters({
     commitQuery: (nextQuery) => onChange({ query: nextQuery }),
   });
   return (
-    <div className="grid gap-3 sm:grid-cols-3 lg:flex">
+    <PinnedToolbar>
       <SearchInput
         label="Buscar chamados"
         placeholder="Assunto, revendedor ou e-mail"
-        className="sm:col-span-3 lg:flex-1"
+        className="lg:flex-1"
         value={term}
         onValueChange={setTerm}
       />
-      <TicketStatusFilter
-        value={search.status}
-        onChange={(status) => onChange({ status })}
-        className="w-full lg:w-48"
-      />
-      <OptionFilter
-        label="Filtrar por prioridade"
-        allLabel="Todas as prioridades"
-        value={search.priority}
-        options={TICKET_PRIORITIES}
-        labels={TICKET_PRIORITY_LABELS}
-        onChange={(priority) => onChange({ priority })}
-      />
-      <OptionFilter
-        label="Filtrar por tema"
-        allLabel="Todos os temas"
-        value={search.category}
-        options={TICKET_CATEGORIES}
-        labels={TICKET_CATEGORY_LABELS}
-        onChange={(category) => onChange({ category })}
-      />
+      <FilterRow>
+        <TicketStatusFilter
+          value={search.status}
+          onChange={(status) => onChange({ status })}
+          className={FILTER_SELECT_CLASSES}
+        />
+        <OptionFilter
+          label="Filtrar por tema"
+          allLabel="Todos os temas"
+          value={search.category}
+          options={TICKET_CATEGORIES}
+          labels={TICKET_CATEGORY_LABELS}
+          onChange={(category) => onChange({ category })}
+        />
+        {/* The longest label last: on a phone the first two fit whole and this one peeks out at
+            the edge, showing the row goes on. */}
+        <OptionFilter
+          label="Filtrar por prioridade"
+          allLabel="Todas as prioridades"
+          value={search.priority}
+          options={TICKET_PRIORITIES}
+          labels={TICKET_PRIORITY_LABELS}
+          onChange={(priority) => onChange({ priority })}
+        />
+      </FilterRow>
+    </PinnedToolbar>
+  );
+}
+
+/** On a phone each filter takes its text's width in one row; from `sm` they share the line. */
+const FILTER_SELECT_CLASSES = "w-auto shrink-0 sm:w-full lg:w-48";
+
+/**
+ * The search and its filters stay pinned under the header (and the team strip) while the list
+ * scrolls: scrolling past them used to leave them cut in half beneath the strip.
+ */
+function PinnedToolbar({ children }: { children: ReactNode }) {
+  return (
+    <div className="sticky top-[var(--app-header-height,0px)] z-20 -mx-4 -mt-3 mb-3 flex flex-col gap-3 bg-background/85 px-4 py-3 backdrop-blur-xl md:-mx-8 md:px-8 lg:flex-row">
+      {children}
+    </div>
+  );
+}
+
+/**
+ * Stacked, three filters under the search took most of a phone's screen once pinned: there they
+ * sit in one row that scrolls sideways, its faded edge showing there is more.
+ */
+function FilterRow({ children }: { children: ReactNode }) {
+  const rowRef = useRef<HTMLDivElement>(null);
+  const mask = scrollEdgeMask(useScrollEdges(rowRef));
+  return (
+    <div
+      ref={rowRef}
+      className="-mx-4 -my-1 flex gap-2 overflow-x-auto px-4 py-1 [scrollbar-width:none] sm:mx-0 sm:grid sm:grid-cols-3 sm:gap-3 sm:overflow-visible sm:px-0 lg:flex [&::-webkit-scrollbar]:hidden"
+      style={mask === undefined ? undefined : { maskImage: mask }}
+    >
+      {children}
     </div>
   );
 }

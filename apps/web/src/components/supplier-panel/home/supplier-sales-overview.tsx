@@ -94,6 +94,9 @@ function SalesOverview({ data, home, supplierId, search, onSearchChange, hrefFor
           summary={data.summary}
           previous={data.previous}
           points={data.timeseries}
+          previousPoints={data.previousTimeseries}
+          bucket={data.period.bucket}
+          offsetDays={data.period.days}
           situation={search.situation}
         />
         <SupplierSalesChart

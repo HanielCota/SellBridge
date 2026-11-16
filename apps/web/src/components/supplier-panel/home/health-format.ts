@@ -24,6 +24,24 @@ export function formatHealthValue(
   return definition.unit === "stars" ? stars.format(value) : percent.format(value);
 }
 
+/**
+ * The value on the home's strip. Too few orders to judge still shows what happened, in neutral
+ * color; with none at all, a zero that cannot read as a bad result: "0%" for what went wrong,
+ * a count for the on-time shares and the stars, never "0%" of orders on time.
+ */
+export function homeMetricValue(metric: HealthMetric): string {
+  if (metric.value !== null) {
+    return formatHealthValue(metric.definition, metric.value);
+  }
+  if (metric.definition.unit === "stars") {
+    return "0 avaliações";
+  }
+  if (metric.definition.direction === "lower_is_better") {
+    return percent.format(0);
+  }
+  return "0 pedidos";
+}
+
 /** What the metric measures and its goal, so the number reads without opening Desempenho. */
 export function metricHint(metric: HealthMetric): string {
   const { definition } = metric;

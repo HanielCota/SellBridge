@@ -30,6 +30,9 @@ function tiles(situation: "sold" | "lost"): string {
           summary={totals}
           previous={totals}
           points={points}
+          previousPoints={null}
+          bucket="day"
+          offsetDays={30}
           situation={situation}
         />
       </TooltipProvider>,
