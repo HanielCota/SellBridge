@@ -10,15 +10,21 @@ import {
   listConversations,
   listConversationStores,
   listFirstPinnedOrders,
+  listSupplierSupportRows,
   listTicketOrders,
   markTicketRead,
 } from "@sellbridge/database/repositories";
-import { notFoundError } from "@sellbridge/shared/errors";
+import { forbiddenError, notFoundError } from "@sellbridge/shared/errors";
 import { logger } from "@sellbridge/shared/logger";
 import {
   conversationOrdersSchema,
   supplierConversationsSearchSchema,
+  supplierSupportReportSearchSchema,
 } from "@sellbridge/shared/schemas";
+import {
+  buildSupplierSupportReport,
+  supplierReportBounds,
+} from "@sellbridge/shared/supplier-support-report";
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 import { database } from "@/lib/server/database";
@@ -69,12 +75,36 @@ export const listMyConversations = createServerFn({ method: "GET" })
     const [page, counts] = await Promise.all([
       listConversations(
         database,
-        { viewer, readerId: context.userId, status: data.status, search: data.query },
+        {
+          viewer,
+          readerId: context.userId,
+          status: data.status,
+          search: data.query,
+          topic: data.assunto,
+        },
         { page: data.page, pageSize: data.pageSize },
       ),
-      countConversationsByStatus(database, { viewer, search: data.query }),
+      countConversationsByStatus(database, { viewer, search: data.query, topic: data.assunto }),
     ]);
     return { ...page, side: viewer.side, counts };
+  });
+
+/** The supplier's answering report: how it answers the stores, over the last `dias` days. */
+export const getMySupportReport = createServerFn({ method: "GET" })
+  .middleware([accountMiddleware])
+  .validator(supplierSupportReportSearchSchema)
+  .handler(async ({ context, data }) => {
+    const viewer = await conversationViewerOf(context);
+    if (viewer.side !== "supplier") {
+      throw forbiddenError("O relatório de atendimento é do fornecedor.");
+    }
+    const now = new Date();
+    const bounds = supplierReportBounds(data.dias, now);
+    const rows = await listSupplierSupportRows(database, {
+      supplierId: viewer.supplierId,
+      ...bounds,
+    });
+    return buildSupplierSupportReport(rows, { days: data.dias, now });
   });
 
 /** Conversations with a message from the other side this person has not read yet. */
