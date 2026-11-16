@@ -6,6 +6,7 @@ import { toast } from "sonner";
 import { batchPriceProblem } from "@sellbridge/shared/fee-model";
 import { priceForRule } from "@sellbridge/shared/schemas";
 import { useFeeSchedule } from "@/features/reports/fee-schedule.queries";
+import { saleChannelsOf, type SaleChannels } from "@/features/listings/profit";
 import { ACTION_ICONS } from "@/components/icons/action-icons";
 import { Button } from "@/components/ui/button";
 import {
@@ -59,6 +60,7 @@ function useBatchFloorProblem(
   products: readonly SellableCatalogProduct[],
   draft: ReturnType<typeof usePriceRuleDraft>,
   overrides: ReturnType<typeof usePriceOverrides>,
+  channels: SaleChannels,
 ): string | null {
   const schedule = useFeeSchedule();
   const isMarkup = draft.kind === "markup";
@@ -66,12 +68,14 @@ function useBatchFloorProblem(
     products.map((product) => ({
       title: product.title,
       costCents: product.costCents,
+      weightGrams: product.weightGrams,
       priceCents: priceForRule(
         product,
         (isMarkup ? overrides.rules[product.id] : undefined) ?? draft.rule,
       ),
     })),
     schedule,
+    channels,
   );
 }
 
@@ -83,6 +87,35 @@ function FloorProblem({ problem }: { problem: string | null }) {
     <p role="alert" className="text-sm text-destructive">
       {problem}
     </p>
+  );
+}
+
+/** The floor problem, the publish button and how many listings the batch makes. */
+function PublishFooter({
+  floorProblem,
+  canSubmit,
+  isPending,
+  counts,
+}: {
+  floorProblem: string | null;
+  canSubmit: boolean;
+  isPending: boolean;
+  counts: { products: number; stores: number; adjusted: number };
+}) {
+  const listings = counts.products * counts.stores;
+  return (
+    <div className="space-y-2">
+      <FloorProblem problem={floorProblem} />
+      <Button type="submit" size="lg" className="w-full" disabled={!canSubmit}>
+        <PublishIcon aria-hidden="true" />
+        {isPending ? "Publicando…" : `Publicar em ${pluralize(counts.stores, "loja", "lojas")}`}
+      </Button>
+      <p className="text-center text-xs text-muted-foreground tabular-nums">
+        {pluralize(counts.products, "produto", "produtos")} ×{" "}
+        {pluralize(counts.stores, "loja", "lojas")} = {pluralize(listings, "anúncio", "anúncios")}
+        {counts.adjusted > 0 ? ` · ${counts.adjusted} com margem própria` : null}
+      </p>
+    </div>
   );
 }
 
@@ -103,14 +136,14 @@ function BulkPublishForm({
   const mutation = useBulkPublish(onPublished);
   const isMarkup = draft.kind === "markup";
   const adjusted = isMarkup ? overrides.count : 0;
-  const floorProblem = useBatchFloorProblem(products, draft, overrides);
+  const channels = saleChannelsOf(stores.filter((store) => storeIds.has(store.id)));
+  const floorProblem = useBatchFloorProblem(products, draft, overrides, channels);
   const canSubmit =
     storeIds.size > 0 &&
     draft.isValid &&
     (!isMarkup || overrides.isValid) &&
     floorProblem === null &&
     !mutation.isPending;
-  const listings = products.length * storeIds.size;
   return (
     <form
       noValidate
@@ -128,21 +161,18 @@ function BulkPublishForm({
       }}
     >
       <StorePicker stores={stores} selected={storeIds} onChange={setStoreIds} />
-      <PriceRulePicker products={products} draft={draft} overrides={overrides} />
-      <div className="space-y-2">
-        <FloorProblem problem={floorProblem} />
-        <Button type="submit" size="lg" className="w-full" disabled={!canSubmit}>
-          <PublishIcon aria-hidden="true" />
-          {mutation.isPending
-            ? "Publicando…"
-            : `Publicar em ${pluralize(storeIds.size, "loja", "lojas")}`}
-        </Button>
-        <p className="text-center text-xs text-muted-foreground tabular-nums">
-          {pluralize(products.length, "produto", "produtos")} ×{" "}
-          {pluralize(storeIds.size, "loja", "lojas")} = {pluralize(listings, "anúncio", "anúncios")}
-          {adjusted > 0 ? ` · ${adjusted} com margem própria` : null}
-        </p>
-      </div>
+      <PriceRulePicker
+        products={products}
+        draft={draft}
+        overrides={overrides}
+        channels={channels}
+      />
+      <PublishFooter
+        floorProblem={floorProblem}
+        canSubmit={canSubmit}
+        isPending={mutation.isPending}
+        counts={{ products: products.length, stores: storeIds.size, adjusted }}
+      />
     </form>
   );
 }

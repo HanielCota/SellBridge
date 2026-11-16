@@ -7,14 +7,14 @@ describe("feeScheduleFrom", () => {
       feeScheduleFrom({
         ESTIMATED_MARKETPLACE_FEE_BASIS_POINTS: 1250,
         PLATFORM_FEE_BASIS_POINTS: 400,
-        ESTIMATED_SHIPPING_CENTS: 1_990,
         MIN_MARGIN_PERCENT: 10,
       }),
     ).toEqual({
+      channel: "mercado_livre",
       marketplaceFeeBasisPoints: 1250,
       categoryFeeBasisPoints: {},
       platformFeeBasisPoints: 400,
-      estimatedShippingCents: 1_990,
+      defaultWeightGrams: 500,
       minimumMarginPercent: 10,
     });
   });

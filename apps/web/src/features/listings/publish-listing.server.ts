@@ -7,23 +7,33 @@ import {
   findConnectedStores,
   type NewListingInput,
 } from "@sellbridge/database/repositories";
+import { type FeeChannel, feeChannelOf } from "@sellbridge/shared/channel-fees";
 import { withDeadline } from "@sellbridge/shared/deadline";
 import { validationError } from "@sellbridge/shared/errors";
 import { logger } from "@sellbridge/shared/logger";
 import { database } from "@/lib/server/database";
 import { enqueuePublishJobs } from "@/lib/server/queues";
 
+export interface ConnectedStores {
+  storeIds: string[];
+  /** The fee channel of each store's marketplace, each once: the price must pay on all. */
+  channels: FeeChannel[];
+}
+
 /** Deduplicates the chosen stores and fails unless every one is connected to the tenant. */
 export async function assertConnectedStores(
   tenantId: string,
   storeConnectionIds: readonly string[],
-): Promise<string[]> {
+): Promise<ConnectedStores> {
   const uniqueStoreIds = [...new Set(storeConnectionIds)];
   const stores = await findConnectedStores(database, tenantId, uniqueStoreIds);
   if (stores.length !== uniqueStoreIds.length) {
     throw validationError("Uma ou mais lojas escolhidas não estão conectadas");
   }
-  return uniqueStoreIds;
+  return {
+    storeIds: uniqueStoreIds,
+    channels: [...new Set(stores.map((store) => feeChannelOf(store.marketplace)))],
+  };
 }
 
 /** Each store sells a single supplier: refuses a store that does not sell every one given. */

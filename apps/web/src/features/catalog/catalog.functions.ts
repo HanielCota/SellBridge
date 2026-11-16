@@ -61,6 +61,7 @@ export const getSellableCatalog = createServerFn({ method: "GET" })
       scopeStores: catalog.stores.map((store) => ({
         id: store.id,
         shopName: store.shopName,
+        marketplace: store.marketplace,
         marketplaceLabel: MARKETPLACE_LABELS[store.marketplace],
         hasSupplier: store.supplierIds.length > 0,
       })),
@@ -94,7 +95,10 @@ export const publishProductsInBulk = createServerFn({ method: "POST" })
   .middleware([tenantMiddleware])
   .validator(bulkPublishSchema)
   .handler(async ({ context, data }) => {
-    const storeIds = await assertConnectedStores(context.tenantId, data.storeConnectionIds);
+    const { storeIds, channels } = await assertConnectedStores(
+      context.tenantId,
+      data.storeConnectionIds,
+    );
     const products = await getSellableProducts(database, context.tenantId, [
       ...new Set(data.productIds),
     ]);
@@ -134,9 +138,12 @@ export const publishProductsInBulk = createServerFn({ method: "POST" })
     assertBatchKeepsMargin(
       drafts.flatMap((draft) => {
         const product = productsById.get(draft.supplierProductId);
-        return product === undefined ? [] : [{ ...draft, costCents: product.costCents }];
+        return product === undefined
+          ? []
+          : [{ ...draft, costCents: product.costCents, weightGrams: product.weightGrams }];
       }),
       feeScheduleFrom(environment),
+      channels,
     );
     const targetIds = await publishListings(context.tenantId, drafts, storeIds);
     return { published: drafts.length, skipped: plan.skipped, targetIds };
