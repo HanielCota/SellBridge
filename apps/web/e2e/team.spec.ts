@@ -1,5 +1,5 @@
 import { AxeBuilder } from "@axe-core/playwright";
-import { expect, test } from "@playwright/test";
+import { type Browser, expect, type Page, test } from "@playwright/test";
 import { member, user, verification } from "@sellbridge/database/schema";
 import { and, desc, eq, like } from "drizzle-orm";
 import { ADMIN_USER, enableAdminMode, gotoHydrated, signIn, signUp, uniqueEmail } from "./helpers";
@@ -67,10 +67,8 @@ async function latestInviteToken(userId: string): Promise<string> {
   return row.identifier.slice(prefix.length);
 }
 
-// Regression: the invite also created a reseller organization for the new team member.
-test("a atendente convidada cria a senha e entra na fila, sem empresa de revendedor", async ({
-  browser,
-}) => {
+/** The owner invites an attendant; the attendant creates the password and signs in. */
+async function inviteAndSignInAttendant(browser: Browser): Promise<{ page: Page; userId: string }> {
   const email = uniqueEmail("atendente");
   const name = `Ana ${email.slice(10, 23)}`;
   const password = "senha-da-atendente-123";
@@ -103,6 +101,14 @@ test("a atendente convidada cria a senha e entra na fila, sem empresa de revende
   await page.getByRole("button", { name: "Salvar nova senha" }).click();
   await expect(page).toHaveURL(/\/login/);
   await signIn(page, { email, password });
+  return { page, userId: invited.id };
+}
+
+// Regression: the invite also created a reseller organization for the new team member.
+test("a atendente convidada cria a senha e entra na fila, sem empresa de revendedor", async ({
+  browser,
+}) => {
+  const { page, userId } = await inviteAndSignInAttendant(browser);
 
   await expect(page).toHaveURL(/\/admin\/chamados/);
   await expect(page.getByRole("heading", { name: "Chamados" })).toBeVisible();
@@ -110,8 +116,33 @@ test("a atendente convidada cria a senha e entra na fila, sem empresa de revende
   const memberships = await database
     .select({ organizationId: member.organizationId })
     .from(member)
-    .where(eq(member.userId, invited.id));
+    .where(eq(member.userId, userId));
   expect(memberships).toEqual([]);
+  await page.close();
+});
+
+// Regression: with no store, the reseller's links stayed in the menu and their pages failed.
+test("a atendente sem empresa vê só as telas da equipe e o próprio perfil", async ({ browser }) => {
+  const { page } = await inviteAndSignInAttendant(browser);
+  await expect(page).toHaveURL(/\/admin\/chamados/);
+
+  const sideMenu = page.getByRole("complementary", { name: "Menu lateral" });
+  for (const resellerPage of ["Visão geral", "Pedidos", "Lojas", "Assinatura", "Suporte"]) {
+    await expect(sideMenu.getByRole("link", { name: resellerPage, exact: true })).toHaveCount(0);
+  }
+  await expect(page.getByRole("button", { name: /^Avisos/ })).toHaveCount(0);
+  await sideMenu.getByRole("button", { name: /^Menu do usuário/ }).click();
+  await expect(page.getByRole("menuitem", { name: "Meu perfil" })).toBeVisible();
+  await expect(page.getByRole("menuitem", { name: "Meu cadastro" })).toHaveCount(0);
+  await expect(page.getByRole("menuitemcheckbox")).toHaveCount(0);
+  await page.keyboard.press("Escape");
+
+  await gotoHydrated(page, "/perfil");
+  await expect(page.getByRole("heading", { name: "Senha" })).toBeVisible();
+  await expect(page.getByText("Não foi possível carregar suas preferências.")).toHaveCount(0);
+  await expect(page.getByRole("heading", { name: "Notificações" })).toHaveCount(0);
+  const download = await page.request.get("/api/conta/exportar");
+  expect(download.status()).toBe(200);
   await page.close();
 });
 

@@ -29,6 +29,14 @@ export function isTeamModeOn(role: string, preference: string | undefined): bool
 }
 
 /**
+ * A team member with no profile of their own (an invited attendant or supervisor): the team side
+ * is all they have, so the mode stays on and the reseller's pages are left out of the menus.
+ */
+export function isTeamOnlyAccount(role: string, profileCount: number): boolean {
+  return isStaffRole(role) && profileCount === 0;
+}
+
+/**
  * Where agents and supervisors in team mode start instead of the sales dashboard: they have no
  * store, so the dashboard only showed the reseller's setup. Null for everyone else.
  */

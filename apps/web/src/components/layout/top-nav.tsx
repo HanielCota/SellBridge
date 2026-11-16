@@ -39,7 +39,9 @@ interface TopNavProps {
  */
 export function TopNav({ user, adminMode, profileKind, state }: TopNavProps) {
   const isSupplier = profileKind === "supplier";
-  const staffRole = isStaffRole(user.role) ? user.role : null;
+  const { teamOnly } = state.navigation;
+  // A team member with no profile has nothing to switch to: the mode stays on.
+  const staffRole = isStaffRole(user.role) && !teamOnly ? user.role : null;
   return (
     <header className="sticky top-0 z-30 bg-background/85 pt-[env(safe-area-inset-top)] backdrop-blur-xl">
       <div className="mx-auto flex max-w-[1440px] items-center gap-3 px-4 py-4 md:px-8">
@@ -56,14 +58,15 @@ export function TopNav({ user, adminMode, profileKind, state }: TopNavProps) {
         <div className="ml-auto flex items-center gap-2">
           <NewVersionNotice />
           {/* The search looks through the seller's orders, listings and stores. */}
-          {isSupplier ? null : <CommandPalette />}
+          {isSupplier || teamOnly ? null : <CommandPalette />}
           {/* On phones the way in is the first row of the menu sheet: the header has no room. */}
           {staffRole === null ? null : (
             <div className="hidden sm:block">
               <TeamModeButton role={staffRole} active={adminMode} />
             </div>
           )}
-          <NotificationBell />
+          {/* The bell lists a store's events: a team member with no profile has none. */}
+          {teamOnly ? null : <NotificationBell />}
         </div>
       </div>
       {adminMode ? (

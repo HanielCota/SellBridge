@@ -83,7 +83,10 @@ function ProfilePage() {
         <ProfileNameForm key={user.name} name={user.name} email={user.email} />
       </SectionCard>
 
-      <NotificationsCard isSupplier={session.profileKind === "supplier"} />
+      {/* The choices are about a store's events: a team member with no profile has none. */}
+      {session.teamOnly ? null : (
+        <NotificationsCard isSupplier={session.profileKind === "supplier"} />
+      )}
 
       {isImpersonating ? (
         <p className="rounded-2xl bg-muted/60 p-4 text-sm text-muted-foreground">
