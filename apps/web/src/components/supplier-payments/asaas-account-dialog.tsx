@@ -39,6 +39,8 @@ interface StepProps {
   values: AsaasAccountValues;
   errors: Errors;
   change: (field: AsaasAccountField, value: string) => void;
+  /** Shows the field's warning as soon as the supplier leaves it, not only on Continuar. */
+  check: (field: AsaasAccountField) => void;
 }
 
 function Field(
@@ -62,6 +64,7 @@ function Field(
       value={props.values[field]}
       errors={props.errors[field] === undefined ? [] : [props.errors[field]]}
       onValueChange={(typed) => props.change(field, format === undefined ? typed : format(typed))}
+      onBlur={() => props.check(field)}
     />
   );
 }
@@ -228,22 +231,35 @@ function useOpenAccount(supplierId: string, onDone: () => void) {
   });
 }
 
+function useStepFields(step: number) {
+  const [values, setValues] = useState(EMPTY_ASAAS_ACCOUNT);
+  const [errors, setErrors] = useState<Errors>({});
+  const change = (field: AsaasAccountField, value: string) => {
+    setValues((current) => ({ ...current, [field]: value }));
+    setErrors((current) => ({ ...current, [field]: undefined }));
+  };
+  const check = (field: AsaasAccountField) => {
+    // An untouched empty field waits for Continuar instead of nagging while the supplier tabs past.
+    if (values[field].trim() === "") {
+      return;
+    }
+    const found = stepErrors(values, step, new Date());
+    setErrors((current) => ({ ...current, [field]: found[field] }));
+  };
+  return { values, errors, setErrors, change, check };
+}
+
 /** Opens the supplier's Asaas account in three short steps; nothing typed is lost between them. */
 export function AsaasAccountDialog(props: {
   supplierId: string;
   open: boolean;
   onOpenChange: (open: boolean) => void;
 }) {
-  const [values, setValues] = useState(EMPTY_ASAAS_ACCOUNT);
   const [step, setStep] = useState(0);
-  const [errors, setErrors] = useState<Errors>({});
+  const { values, errors, setErrors, change, check } = useStepFields(step);
   const open = useOpenAccount(props.supplierId, () => props.onOpenChange(false));
   const isLast = step === ASAAS_ACCOUNT_STEPS.length - 1;
   const StepView = STEP_VIEWS[step] ?? WhoStep;
-  const change = (field: AsaasAccountField, value: string) => {
-    setValues((current) => ({ ...current, [field]: value }));
-    setErrors((current) => ({ ...current, [field]: undefined }));
-  };
   const advance = () => {
     const found = stepErrors(values, step, new Date());
     setErrors(found);
@@ -265,7 +281,7 @@ export function AsaasAccountDialog(props: {
             Etapa {step + 1} de {ASAAS_ACCOUNT_STEPS.length}: {ASAAS_ACCOUNT_STEPS[step]?.title}
           </DialogDescription>
         </DialogHeader>
-        <StepView values={values} errors={errors} change={change} />
+        <StepView values={values} errors={errors} change={change} check={check} />
         {open.isError ? (
           <Alert variant="destructive">
             <AlertDescription>{errorMessage(open.error)}</AlertDescription>

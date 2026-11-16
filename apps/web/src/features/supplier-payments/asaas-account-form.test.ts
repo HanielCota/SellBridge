@@ -96,7 +96,19 @@ describe("asaasAccountFormSchema", () => {
       companyType: "",
     });
 
-    expect(found).toContain("Escolha o tipo de empresa");
+    expect(found).toContain("Escolha o tipo de empresa: ele está escrito no cartão do CNPJ");
+  });
+
+  test("asks a company for the legal name written on its CNPJ card", () => {
+    const found = messages({
+      ...common,
+      name: " ",
+      personType: "company",
+      document: "11.222.333/0001-81",
+      companyType: "MEI",
+    });
+
+    expect(found).toContain("Informe a razão social, como está no cartão do CNPJ");
   });
 
   test.each(["0,00", "abc", "-10,00"])("refuses a monthly income of %s", (monthlyIncome) => {

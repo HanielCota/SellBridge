@@ -50,8 +50,10 @@ const textField = (label: string, maximum: number) =>
       `${label[0]?.toUpperCase() ?? ""}${label.slice(1)} pode ter até ${maximum} caracteres`,
     );
 
+const nameField = (missing: string) =>
+  freeText().trim().min(1, missing).max(120, "Use até 120 caracteres");
+
 const commonFields = {
-  name: textField("o nome", 120),
   email: z.email("Informe um e-mail como nome@empresa.com.br").max(200),
   mobilePhone: phoneSchema,
   postalCode: z
@@ -84,6 +86,7 @@ export function asaasAccountFormSchema(today: Date) {
   const person = z.object({
     ...commonFields,
     personType: z.literal("person"),
+    name: nameField("Informe seu nome completo, como está no RG ou na CNH"),
     document: cpfSchema,
     birthDate: z.string().transform((value, context) => {
       const iso = isoDateFromBrazilian(value);
@@ -100,9 +103,10 @@ export function asaasAccountFormSchema(today: Date) {
   const company = z.object({
     ...commonFields,
     personType: z.literal("company"),
+    name: nameField("Informe a razão social, como está no cartão do CNPJ"),
     document: cnpjSchema,
     companyType: z.enum(ASAAS_COMPANY_TYPES, {
-      message: "Escolha o tipo de empresa",
+      message: "Escolha o tipo de empresa: ele está escrito no cartão do CNPJ",
     }),
   });
   return z.discriminatedUnion("personType", [person, company]);
