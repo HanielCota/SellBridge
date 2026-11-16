@@ -3,7 +3,8 @@ import type { StaffRow, SupportPerformanceRows } from "@sellbridge/shared/suppor
 import { and, eq, gte, lt, notInArray, or, isNull, sql } from "drizzle-orm";
 import type { Database } from "../client.ts";
 import { orders, organization, ticketMessages, tickets, user } from "../schema/index.ts";
-import { isCountedOrder } from "./sql/counted-orders.ts";
+import { isCountedOrder, saleDate } from "./sql/counted-orders.ts";
+import { timestampOf } from "./sql/raw-values.ts";
 import { platformTicketSql } from "./support-audience.ts";
 import { getSupportPerformanceRows } from "./support-performance.ts";
 
@@ -29,7 +30,7 @@ export interface FormerStaffMember {
 export interface PlatformAccountCounts {
   newSellers: number;
   newSuppliers: number;
-  /** Reseller profiles with at least one counted order in the window. */
+  /** Reseller profiles with at least one sale paid in the window. */
   sellersWithOrders: number;
 }
 
@@ -77,8 +78,8 @@ async function platformAccountCounts(
     .from(orders)
     .where(
       and(
-        gte(orders.orderedAt, window.from),
-        lt(orders.orderedAt, window.to),
+        sql`${saleDate(orders.paidAt, orders.orderedAt)} >= ${timestampOf(window.from)}`,
+        sql`${saleDate(orders.paidAt, orders.orderedAt)} < ${timestampOf(window.to)}`,
         isCountedOrder(orders.status),
       ),
     );

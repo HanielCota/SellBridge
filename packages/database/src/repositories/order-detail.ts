@@ -45,6 +45,8 @@ export interface OrderDetail {
   marketplaceFeeCents: number;
   buyerName: string | null;
   orderedAt: Date;
+  /** When the order first counted as a sale; null while it never did. */
+  paidAt: Date | null;
   deliveredAt: Date | null;
   items: OrderDetailItem[];
   adjustments: OrderDetailAdjustment[];
@@ -63,6 +65,7 @@ async function selectOrder(database: Database, tenantId: string, orderId: string
       marketplaceFeeCents: orders.marketplaceFeeCents,
       buyerName: orders.buyerName,
       orderedAt: orders.orderedAt,
+      paidAt: orders.paidAt,
       deliveredAt: orders.deliveredAt,
     })
     .from(orders)

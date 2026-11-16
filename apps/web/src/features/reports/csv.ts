@@ -6,7 +6,8 @@ export const SEPARATOR = ";";
 export const BOM = "﻿";
 
 const HEADERS = [
-  "Data",
+  "Data do pedido",
+  "Pago em",
   "Pedido",
   "Loja",
   "Comprador",
@@ -53,9 +54,18 @@ export function statusLabel(status: string): string {
   return parsed.success ? ORDER_STATUS_LABELS[parsed.data] : status;
 }
 
+/** Empty for an order never paid: awaiting payment, or cancelled before paying. */
+export function paidAtCell(paidAt: Date | null): string {
+  if (paidAt === null) {
+    return "";
+  }
+  return dateFormatter.format(paidAt);
+}
+
 function toCsvLine(row: OrderFinancialRow): string {
   const text = [
     dateFormatter.format(row.orderedAt),
+    paidAtCell(row.paidAt),
     row.externalOrderId,
     row.storeName,
     row.buyerName ?? "",

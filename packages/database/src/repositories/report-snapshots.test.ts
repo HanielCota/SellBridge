@@ -6,6 +6,7 @@ import { createTestDatabase } from "../testing/fixtures.ts";
 import {
   findReportSnapshot,
   replaceEarlyReportSnapshot,
+  replaceOutdatedReportSnapshot,
   saveReportSnapshot,
 } from "./report-snapshots.ts";
 
@@ -75,5 +76,27 @@ describe("report snapshots", () => {
     expect(rebuilt.payload).toEqual({ version: 1, orders: 12 });
     expect(rebuilt.capturedAt.getTime()).toBeGreaterThanOrEqual(monthEnd.getTime());
     expect(again.payload).toEqual({ version: 1, orders: 12 });
+  });
+
+  it("rebuilds a month kept by an older report version once and never rolls a newer one back", async () => {
+    const ownerId = randomUUID();
+    owners.push(ownerId);
+    const key = { scope: "seller", ownerId, month: "2026-10" } as const;
+    const newer = { scope: "supplier", ownerId, month: "2026-10" } as const;
+    await saveReportSnapshot(database, key, { version: 1, orders: 10 });
+    await saveReportSnapshot(database, newer, { version: 3, orders: 7 });
+
+    const upgraded = await replaceOutdatedReportSnapshot(
+      database,
+      key,
+      { version: 2, orders: 11 },
+      2,
+    );
+    const again = await replaceOutdatedReportSnapshot(database, key, { version: 2, orders: 99 }, 2);
+    const kept = await replaceOutdatedReportSnapshot(database, newer, { version: 2, orders: 1 }, 2);
+
+    expect(upgraded.payload).toEqual({ version: 2, orders: 11 });
+    expect(again.payload).toEqual({ version: 2, orders: 11 });
+    expect(kept.payload).toEqual({ version: 3, orders: 7 });
   });
 });

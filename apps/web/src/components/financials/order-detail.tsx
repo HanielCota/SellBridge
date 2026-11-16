@@ -2,9 +2,18 @@ import type { OrderFinancialRow } from "@sellbridge/database/repositories";
 import { OrderStatusBadge } from "@/components/reports/order-status-badge";
 import { PopoverContent } from "@/components/ui/popover";
 import { displayBuyerName } from "@/features/orders/buyer-name";
+import { placedOnAnotherDay } from "@/features/reports/financial-rows";
 import { formatAbsoluteTime } from "@/lib/relative-time";
 import { marginLabel, OrderBreakdown, OrderSplitBar } from "./order-parts";
 import { SupplierCreditLines, useSupplierCredits } from "./supplier-credit";
+
+/** When it was placed, and when it was paid if that was on another day. */
+function whenLabel(row: OrderFinancialRow): string {
+  if (row.paidAt === null || placedOnAnotherDay(row) === null) {
+    return formatAbsoluteTime(row.orderedAt);
+  }
+  return `Pedido em ${formatAbsoluteTime(row.orderedAt)} · pago em ${formatAbsoluteTime(row.paidAt)}`;
+}
 
 /** One order's arithmetic, opened from a statement row: what came in, went out and was left. */
 export function OrderDetail({ row }: { row: OrderFinancialRow }) {
@@ -26,7 +35,7 @@ export function OrderDetail({ row }: { row: OrderFinancialRow }) {
         </div>
         <p className="text-xs text-muted-foreground">{row.items}</p>
         <p className="text-xs text-muted-foreground">
-          {formatAbsoluteTime(row.orderedAt)}
+          {whenLabel(row)}
           {" · "}
           {displayBuyerName(row.buyerName)}
           {margin ? ` · margem ${margin}` : null}

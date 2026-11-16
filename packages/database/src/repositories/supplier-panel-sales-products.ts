@@ -108,7 +108,7 @@ export async function getSupplierProductTimeseries(
   const rows = await database.execute(sql`
     with ${supplierLinesCte(scope)}
     select
-      to_char(date_trunc(${unit}, ordered_at at time zone ${REPORT_TIME_ZONE}), ${label}) as bucket,
+      to_char(date_trunc(${unit}, sale_date at time zone ${REPORT_TIME_ZONE}), ${label}) as bucket,
       supplier_product_id as product_id,
       sum(quantity) as units,
       sum(receivable) as receivable

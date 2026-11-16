@@ -74,12 +74,13 @@ async function loadTrend(tenantId: string, period: ReportPeriod): Promise<Seller
 }
 
 async function loadCases(scope: ReportScope) {
-  const [costPending, cancelled, returned] = await Promise.all([
+  const [costPending, unpaid, cancelled, returned] = await Promise.all([
     listSellerReportCases(database, scope, { kind: "cost_pending", limit: CASES_PER_TAB }),
+    listSellerReportCases(database, scope, { kind: "unpaid", limit: CASES_PER_TAB }),
     listSellerReportCases(database, scope, { kind: "cancelled", limit: CASES_PER_TAB }),
     listSellerReportCases(database, scope, { kind: "returned", limit: CASES_PER_TAB }),
   ]);
-  return { cost_pending: costPending, cancelled, returned };
+  return { cost_pending: costPending, unpaid, cancelled, returned };
 }
 
 async function computeSellerReport(tenantId: string, period: ReportPeriod): Promise<MonthlyReport> {

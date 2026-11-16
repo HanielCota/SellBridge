@@ -388,6 +388,77 @@ describe("migrations", { timeout: MIGRATION_TEST_TIMEOUT }, () => {
     ]);
   });
 
+  it("sale_paid_at dates each past sale by the first time it was seen paid", async () => {
+    const migration = journal.entries.find((entry) => entry.tag.endsWith("_sale_paid_at"));
+    if (migration === undefined) throw new Error("sale_paid_at migration missing");
+    const url = await throwawayDatabase();
+    await applyMigrationsUpTo(url, migration.idx - 1);
+    const orderedAt = "2026-10-30T15:00:00.000Z";
+    const paidLater = "2026-11-02T13:00:00.000Z";
+    const orders: { id: string; status: string; history: [string, string][] }[] = [
+      { id: "1", status: "paid", history: [["paid", orderedAt]] },
+      {
+        id: "2",
+        status: "delivered",
+        history: [
+          ["pending", orderedAt],
+          ["paid", paidLater],
+          ["delivered", "2026-11-09T13:00:00Z"],
+        ],
+      },
+      { id: "3", status: "pending", history: [["pending", orderedAt]] },
+      { id: "4", status: "cancelled", history: [] },
+      { id: "5", status: "returned", history: [] },
+      {
+        id: "6",
+        status: "cancelled",
+        history: [
+          ["paid", paidLater],
+          ["cancelled", "2026-11-05T13:00:00Z"],
+        ],
+      },
+      { id: "7", status: "shipped", history: [["shipped", "2026-10-29T15:00:00Z"]] },
+    ];
+    await withClient(url, async (sql) => {
+      await sql`
+        insert into organization (id, name, slug, created_at)
+        values ('org-paid', 'Loja', 'loja-paid', now())`;
+      await sql`
+        insert into store_connections (id, tenant_id, marketplace, external_shop_id, shop_name, connected_at)
+        values ('00000000-0000-4000-8000-000000000073', 'org-paid', 'mercado_livre', 'shop-paid', 'Loja', now())`;
+      for (const order of orders) {
+        const orderId = `00000000-0000-4000-8000-00000000020${order.id}`;
+        await sql`
+          insert into orders (id, tenant_id, store_connection_id, external_order_id, status, total_cents, ordered_at)
+          values (${orderId}, 'org-paid', '00000000-0000-4000-8000-000000000073', ${`ML-${order.id}`},
+            ${order.status}, 10000, ${orderedAt})`;
+        for (const [status, changedAt] of order.history) {
+          await sql`
+            insert into order_status_changes (tenant_id, order_id, status, changed_at)
+            values ('org-paid', ${orderId}, ${status}, ${changedAt})`;
+        }
+      }
+    });
+
+    await runMigrator(url);
+
+    const rows = await withClient(
+      url,
+      (sql) => sql<{ external_order_id: string; paid_at: Date | null }[]>`
+        select external_order_id, paid_at from orders order by external_order_id`,
+    );
+    expect(rows.map((row) => [row.external_order_id, row.paid_at?.toISOString() ?? null])).toEqual([
+      ["ML-1", orderedAt],
+      ["ML-2", paidLater],
+      ["ML-3", null],
+      ["ML-4", null],
+      ["ML-5", orderedAt],
+      ["ML-6", paidLater],
+      // A step dated before the order itself never dates the payment earlier than the order.
+      ["ML-7", orderedAt],
+    ]);
+  });
+
   it("0069 takes emojis out of stored descriptions exactly as the app does", async () => {
     const url = await throwawayDatabase();
     await applyMigrationsUpTo(url, 68);

@@ -1,13 +1,14 @@
 import {
   findReportSnapshot,
   replaceEarlyReportSnapshot,
+  replaceOutdatedReportSnapshot,
   saveReportSnapshot,
   type ReportSnapshotScope,
 } from "@sellbridge/database/repositories";
 import { logger } from "@sellbridge/shared/logger";
 import type { ReportPeriod } from "@sellbridge/shared/report-period";
 import { database } from "@/lib/server/database";
-import type { MonthlyReport, ServedReport } from "./report-model";
+import { MONTHLY_REPORT_VERSION, type MonthlyReport, type ServedReport } from "./report-model";
 import { parseStoredReport } from "./report-schema";
 
 interface SnapshotInput {
@@ -47,9 +48,21 @@ export async function serveMonthlyReport(input: SnapshotInput): Promise<ServedRe
     };
   }
   if (stored !== null) {
-    // An older shape: shown fresh, the stored month stays as it was kept.
-    logger.warn("report.snapshot_outdated", { scope: key.scope, month: key.month });
-    return { report, savedAt: null, generatedAt };
+    // Kept by an older report version: rebuilt once under today's rules. A row that still does
+    // not read back (a newer version, mid-deploy) is shown fresh and left as it was kept.
+    const replaced = await replaceOutdatedReportSnapshot(
+      database,
+      key,
+      report,
+      MONTHLY_REPORT_VERSION,
+    );
+    const replacedReport = parseStoredReport(replaced.payload);
+    if (replacedReport === null) {
+      logger.warn("report.snapshot_outdated", { scope: key.scope, month: key.month });
+      return { report, savedAt: null, generatedAt };
+    }
+    logger.info("report.snapshot_upgraded", { scope: key.scope, month: key.month });
+    return { report: replacedReport, savedAt: replaced.capturedAt.toISOString(), generatedAt };
   }
   const saved = await saveReportSnapshot(database, key, report);
   return {

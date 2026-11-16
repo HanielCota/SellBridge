@@ -18,6 +18,12 @@ const orderBaseShape = {
   ),
   buyerName: z.string().nullable(),
   orderedAt: z.iso.datetime(),
+  paidAt: z.iso
+    .datetime()
+    .nullable()
+    .describe(
+      "Quando o SellBridge viu o pedido pago; nulo enquanto não foi pago. Os relatórios contam a venda nesta data.",
+    ),
   deliveredAt: z.iso
     .datetime()
     .nullable()
@@ -72,6 +78,7 @@ export function presentOrderSummary(row: OrderFinancialRow): OrderSummaryDto {
     status: orderStatusSchema.parse(row.status),
     buyerName: row.buyerName,
     orderedAt: row.orderedAt.toISOString(),
+    paidAt: row.paidAt?.toISOString() ?? null,
     deliveredAt: row.deliveredAt?.toISOString() ?? null,
     totals: presentFinancialTotals(row),
     itemsSummary: row.items,
@@ -91,6 +98,7 @@ export function presentOrderDetail(
     status: order.status,
     buyerName: order.buyerName,
     orderedAt: order.orderedAt.toISOString(),
+    paidAt: order.paidAt?.toISOString() ?? null,
     deliveredAt: order.deliveredAt?.toISOString() ?? null,
     totals: presentFinancialTotals(
       computeOrderFinance(orderFinanceInput(order), platformFeeBasisPoints),

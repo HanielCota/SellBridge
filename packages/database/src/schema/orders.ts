@@ -42,10 +42,21 @@ export const orders = pgTable(
      * An order already delivered when first synced takes its order date.
      */
     deliveredAt: timestamp({ withTimezone: true }),
+    /**
+     * When the order first counted as a sale (see `paidAtFor` in repositories/orders.ts); null
+     * while it never did. Monthly money reports date a sale by it, so an order paid after its
+     * month ended counts in the month the money came in.
+     */
+    paidAt: timestamp({ withTimezone: true }),
     createdAt: timestamp({ withTimezone: true }).defaultNow().notNull(),
   },
   (table) => [
     index("orders_tenant_ordered_idx").on(table.tenantId, table.orderedAt),
+    /** The reports' period filter: `saleDate` in repositories/sql/counted-orders.ts. */
+    index("orders_tenant_sale_date_idx").on(
+      table.tenantId,
+      sql`coalesce(${table.paidAt}, ${table.orderedAt})`,
+    ),
     uniqueIndex("orders_external_idx").on(table.storeConnectionId, table.externalOrderId),
   ],
 );
