@@ -151,6 +151,8 @@ test("revendedor abre chamado com anexo e o admin responde e encerra", async ({ 
   await expect(admin.getByLabel("Nota para a equipe")).toHaveValue(/Revendedor Suporte escreveu/);
 
   await reseller.reload({ waitUntil: "networkidle" });
+  // Before hydration the "Enviar" click submitted the server-rendered form and the reply was lost.
+  await waitForHydration(reseller);
   await expect(reseller.getByText("Verificamos com o fornecedor: o envio sai hoje.")).toBeVisible();
   await expect(reseller.getByText("Fornecedor confirmou atraso na coleta.")).toBeHidden();
   await expect(reseller.getByText("Encerrado.", { exact: true })).toBeVisible();
