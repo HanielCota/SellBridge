@@ -2,7 +2,8 @@ import { collectAccountExport } from "@sellbridge/database/repositories";
 import { isAppError } from "@sellbridge/shared/errors";
 import { logger } from "@sellbridge/shared/logger";
 import { database } from "@/lib/server/database";
-import { requireTenantSession } from "@/lib/server/tenant-session";
+import { listMemberships } from "@/lib/server/membership";
+import { requireAccountSession, requireTenantSession } from "@/lib/server/tenant-session";
 import { createUploadLimiter } from "@/lib/server/upload-rate-limit";
 
 /** A few downloads an hour: enough to retry, not enough to hammer the database. */
@@ -15,10 +16,27 @@ function textResponse(status: number, message: string): Response {
   });
 }
 
-/** The session, or the response for why there is none (signed out, no workspace, visit over). */
-async function findTenantSession(headers: Headers) {
+interface ExportOwner {
+  userId: string;
+  /** Null for a team member with no profile: only the personal data goes out. */
+  tenantId: string | null;
+  impersonatedBy: string | null;
+}
+
+/** The profile's session, or the person's alone when the account has no profile at all. */
+async function requireExportOwner(headers: Headers): Promise<ExportOwner> {
+  const account = await requireAccountSession(headers);
+  const memberships = await listMemberships(account.userId);
+  if (memberships.length === 0) {
+    return { ...account, tenantId: null };
+  }
+  return requireTenantSession(headers);
+}
+
+/** The owner, or the response for why there is none (signed out, other profile, visit over). */
+async function findExportOwner(headers: Headers): Promise<ExportOwner | Response> {
   try {
-    return await requireTenantSession(headers);
+    return await requireExportOwner(headers);
   } catch (error) {
     if (isAppError(error) && error.code === "UNAUTHORIZED") {
       return textResponse(401, "Entre na sua conta para baixar seus dados.");
@@ -32,7 +50,7 @@ async function findTenantSession(headers: Headers) {
 
 /** GET /api/conta/exportar: the signed-in account's own data as a JSON file (LGPD). */
 export async function handleAccountExport(request: Request): Promise<Response> {
-  const session = await findTenantSession(request.headers);
+  const session = await findExportOwner(request.headers);
   if (session instanceof Response) {
     return session;
   }
