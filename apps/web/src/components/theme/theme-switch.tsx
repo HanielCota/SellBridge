@@ -6,14 +6,14 @@ import { type Theme, useTheme } from "./theme-provider";
 
 /** Same track as the ui Switch when off: a choice between two looks, so no "on" brand color. */
 const TRACK =
-  "flex h-6 w-10 shrink-0 items-center rounded-full bg-foreground/45 p-0.5 dark:bg-input";
+  "flex h-5 w-8 shrink-0 items-center rounded-full bg-foreground/45 p-0.5 dark:bg-input";
 
 const KNOB =
-  "block size-5 rounded-full bg-white shadow-sm transition-transform duration-200 ease-out motion-reduce:transition-none";
+  "block size-4 rounded-full bg-white shadow-sm transition-transform duration-200 ease-out motion-reduce:transition-none";
 
 /** The knob rests beside the moon in the dark theme and beside the sun in the light one. */
 function knobPosition(theme: Theme): string {
-  return theme === "dark" ? "translate-x-0" : "translate-x-4";
+  return theme === "dark" ? "translate-x-0" : "translate-x-3";
 }
 
 function iconTone(active: boolean): string {
@@ -26,12 +26,12 @@ function iconTone(active: boolean): string {
  */
 export function ThemeSwitchTrack({ theme }: { theme: Theme }) {
   return (
-    <span aria-hidden="true" className="ml-auto flex shrink-0 items-center gap-2">
-      <MoonIcon className={cn("size-5", iconTone(theme === "dark"))} weight="fill" />
+    <span aria-hidden="true" className="ml-auto flex shrink-0 items-center gap-1.5">
+      <MoonIcon className={cn("size-4", iconTone(theme === "dark"))} weight="fill" />
       <span className={TRACK}>
         <span className={cn(KNOB, knobPosition(theme))} />
       </span>
-      <SunIcon className={cn("size-5", iconTone(theme === "light"))} weight="fill" />
+      <SunIcon className={cn("size-4", iconTone(theme === "light"))} weight="fill" />
     </span>
   );
 }
@@ -54,10 +54,10 @@ export function ThemeSwitch({ className }: { className?: string }) {
         checked={theme === "dark"}
         onCheckedChange={(checked) => setTheme(checked ? "dark" : "light")}
         // 44 px tall around the drawing, so a thumb hits it on a phone.
-        className="flex min-h-11 cursor-pointer items-center gap-2 rounded-full px-2 outline-none focus-visible:ring-3 focus-visible:ring-ring/50"
+        className="flex min-h-11 cursor-pointer items-center gap-1.5 rounded-full px-2 outline-none focus-visible:ring-3 focus-visible:ring-ring/50"
       >
         <MoonIcon
-          className={cn("size-5", iconTone(theme === "dark"))}
+          className={cn("size-4", iconTone(theme === "dark"))}
           weight="fill"
           aria-hidden="true"
         />
@@ -65,7 +65,7 @@ export function ThemeSwitch({ className }: { className?: string }) {
           <SwitchPrimitive.Thumb className={cn(KNOB, knobPosition(theme))} />
         </span>
         <SunIcon
-          className={cn("size-5", iconTone(theme === "light"))}
+          className={cn("size-4", iconTone(theme === "light"))}
           weight="fill"
           aria-hidden="true"
         />
