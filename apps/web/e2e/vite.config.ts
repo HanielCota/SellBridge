@@ -12,6 +12,13 @@ import {
   MERCADO_PAGO_FIXTURE_PREFIX,
   mercadoPagoFixture,
 } from "./mercado-pago.fixture.ts";
+import { ASAAS_FIXTURE_PREFIX, E2E_ASAAS_ENV, asaasFixture } from "./asaas.fixture.ts";
+
+/** Asaas points to the local stand-in: never the real service, never real money. */
+function useAsaasStandIn(): void {
+  Object.assign(process.env, E2E_ASAAS_ENV);
+  process.env.ASAAS_API_URL = new URL(`${ASAAS_FIXTURE_PREFIX}/v3`, process.env.APP_URL).href;
+}
 
 /** Mercado Pago points to the local stand-in: never the real service, never real money. */
 function useMercadoPagoStandIn(): void {
@@ -95,6 +102,7 @@ export default defineConfig(({ command }) => {
     throw new Error("The E2E Vite configuration cannot build or serve production.");
   }
   useMercadoPagoStandIn();
+  useAsaasStandIn();
   return mergeConfig(base, {
     resolve: {
       alias: {
@@ -106,6 +114,6 @@ export default defineConfig(({ command }) => {
         ),
       },
     },
-    plugins: [consentFixture(), mercadoPagoFixture()],
+    plugins: [consentFixture(), mercadoPagoFixture(), asaasFixture()],
   });
 });
