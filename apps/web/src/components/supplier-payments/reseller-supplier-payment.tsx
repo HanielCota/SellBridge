@@ -8,6 +8,7 @@ import {
   confirmSupplierPaymentReturnFn,
   startSupplierCheckoutFn,
 } from "@/features/supplier-payments/supplier-payments.functions";
+import { resellerRefundText } from "@/features/supplier-payments/refund-copy";
 import { resellerSupplierPaymentQueryOptions } from "@/features/supplier-payments/supplier-payments.queries";
 import { errorMessage } from "@/lib/errors";
 import { paymentMethodWord, SupplierPaymentBadgeView } from "./supplier-payment-badge";
@@ -115,6 +116,7 @@ export function ResellerSupplierPayment({ shipmentId }: { shipmentId: string }) 
   }
   const view = query.data;
   const method = view.badge.kind === "paid" ? paymentMethodWord(view.badge.method) : null;
+  const refundText = resellerRefundText(view);
   return (
     <div className="grid gap-2.5 rounded-2xl bg-muted/70 p-4">
       <div className="flex flex-wrap items-center justify-between gap-2">
@@ -141,10 +143,10 @@ export function ResellerSupplierPayment({ shipmentId }: { shipmentId: string }) 
           Pago.
         </p>
       ) : null}
-      {view.badge.kind === "refunded" ? (
-        <p className="text-sm">O pagamento voltou para você no Mercado Pago.</p>
-      ) : null}
-      {view.badge.kind === "outside" || (view.badge.kind === "waiting" && !view.canPay) ? (
+      {refundText === null ? null : <p className="text-sm">{refundText}</p>}
+      {view.badge.kind === "outside" ||
+      view.badge.kind === "reviewing" ||
+      (view.badge.kind === "waiting" && !view.canPay) ? (
         <p className="text-sm">
           {view.refusal ?? "Combine o pagamento com o fornecedor, como hoje."}
         </p>

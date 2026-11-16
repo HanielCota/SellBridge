@@ -93,6 +93,7 @@ function badgeFor(
             status: summary.status,
             paidAt: summary.paidAt?.toISOString() ?? null,
             method: summary.paymentMethod,
+            refundRequestedAt: summary.refundRequestedAt?.toISOString() ?? null,
           },
     supplierReceivesHere,
   });
@@ -143,6 +144,28 @@ function checkoutRefusal(payable: PayableShipment, linked: boolean): string | nu
   return null;
 }
 
+/** Why SellBridge gave (or is giving) the reseller's money back, and whether Mercado Pago refused. */
+function refundView(payment: ShipmentPayment | null) {
+  if (payment?.refundRequestedAt == null) {
+    return null;
+  }
+  return { reason: payment.refundReason, failed: payment.refundFailedAt !== null };
+}
+
+const SETTLED_BADGES: ReadonlySet<SupplierPaymentBadge["kind"]> = new Set([
+  "paid",
+  "refunding",
+  "refunded",
+]);
+
+/** What was paid once the payment settled (an older checkout may have charged another amount). */
+function shownAmountCents(payable: PayableShipment, badge: SupplierPaymentBadge): number {
+  if (payable.payment !== null && SETTLED_BADGES.has(badge.kind)) {
+    return payable.payment.amountCents;
+  }
+  return payable.amountCents;
+}
+
 /** What the reseller sees about paying the supplier of one parcel. */
 export async function loadResellerSupplierPayment(input: { tenantId: string; shipmentId: string }) {
   const payable = await findPayableShipment(database, input);
@@ -165,14 +188,16 @@ export async function loadResellerSupplierPayment(input: { tenantId: string; shi
           status: payable.payment.status,
           paidAt: payable.payment.paidAt,
           paymentMethod: payable.payment.paymentMethod,
+          refundRequestedAt: payable.payment.refundRequestedAt,
         };
   const badge = badgeFor(summary, linked);
   const refusal = checkoutRefusal(payable, linked);
   return {
-    amountCents: payable.amountCents,
+    amountCents: shownAmountCents(payable, badge),
     badge,
     canPay: badge.kind === "waiting" && refusal === null,
     refusal,
+    refund: refundView(payable.payment),
   };
 }
 

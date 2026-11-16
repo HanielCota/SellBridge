@@ -83,23 +83,45 @@ export function shipmentPaymentStatusFrom(providerStatus: string): ShipmentPayme
 export type SupplierPaymentBadge =
   | { kind: "paid"; paidAt: string; method: string | null }
   | { kind: "waiting" }
-  | { kind: "refunded" }
+  /** Mercado Pago is still analysing the payment: nobody should pay again meanwhile. */
+  | { kind: "reviewing" }
+  /** SellBridge asked Mercado Pago to give the money back and it has not confirmed yet. */
+  | { kind: "refunding" }
+  /** The money went back; `refundedAt` is known when SellBridge asked for the refund. */
+  | { kind: "refunded"; refundedAt: string | null }
   | { kind: "outside" };
 
+/** What decides the badge: the payment's status and dates, as ISO strings. */
+export interface SupplierPaymentBadgeInput {
+  status: ShipmentPaymentStatus;
+  paidAt: string | null;
+  method: string | null;
+  /** When SellBridge asked for the refund, or null when it did not. */
+  refundRequestedAt?: string | null;
+}
+
 /**
- * The badge for a parcel: paid once approved, refunded once the money went back, waiting while
+ * The badge for a parcel: under review while Mercado Pago analyses it, paid once approved, being
+ * refunded once SellBridge asked for the money back, refunded once it went back, waiting while
  * the supplier can receive here, and "outside" (paid off the system, as before) otherwise.
  */
 export function supplierPaymentBadge(input: {
-  payment: { status: ShipmentPaymentStatus; paidAt: string | null; method: string | null } | null;
+  payment: SupplierPaymentBadgeInput | null;
   supplierReceivesHere: boolean;
 }): SupplierPaymentBadge {
   const { payment } = input;
+  const refundRequestedAt = payment?.refundRequestedAt ?? null;
+  if (payment?.status === "approved" && refundRequestedAt !== null) {
+    return { kind: "refunding" };
+  }
   if (payment?.status === "approved" && payment.paidAt !== null) {
     return { kind: "paid", paidAt: payment.paidAt, method: payment.method };
   }
   if (payment?.status === "refunded" || payment?.status === "charged_back") {
-    return { kind: "refunded" };
+    return { kind: "refunded", refundedAt: refundRequestedAt };
+  }
+  if (payment?.status === "in_process") {
+    return { kind: "reviewing" };
   }
   if (input.supplierReceivesHere) {
     return { kind: "waiting" };

@@ -627,6 +627,7 @@ export interface ShipmentPaymentSummary {
   status: ShipmentPaymentStatus;
   paidAt: Date | null;
   paymentMethod: string | null;
+  refundRequestedAt: Date | null;
 }
 
 export async function listShipmentPaymentSummaries(
@@ -642,13 +643,19 @@ export async function listShipmentPaymentSummaries(
       status: shipmentPayments.status,
       paidAt: shipmentPayments.paidAt,
       paymentMethod: shipmentPayments.paymentMethod,
+      refundRequestedAt: shipmentPayments.refundRequestedAt,
     })
     .from(shipmentPayments)
     .where(inArray(shipmentPayments.shipmentId, [...shipmentIds]));
   return new Map(
     rows.map((row) => [
       row.shipmentId,
-      { status: row.status, paidAt: row.paidAt, paymentMethod: row.paymentMethod },
+      {
+        status: row.status,
+        paidAt: row.paidAt,
+        paymentMethod: row.paymentMethod,
+        refundRequestedAt: row.refundRequestedAt,
+      },
     ]),
   );
 }

@@ -120,7 +120,34 @@ describe("supplierPaymentBadge", () => {
       supplierReceivesHere: true,
     });
 
-    expect(badge).toEqual({ kind: "refunded" });
+    expect(badge).toEqual({ kind: "refunded", refundedAt: null });
+  });
+
+  test("dates a refund SellBridge asked for", () => {
+    const badge = supplierPaymentBadge({
+      payment: { status: "refunded", paidAt, method: "pix", refundRequestedAt: paidAt },
+      supplierReceivesHere: true,
+    });
+
+    expect(badge).toEqual({ kind: "refunded", refundedAt: paidAt });
+  });
+
+  test("shows a refund under way instead of paid once SellBridge asked for it", () => {
+    const badge = supplierPaymentBadge({
+      payment: { status: "approved", paidAt, method: "pix", refundRequestedAt: paidAt },
+      supplierReceivesHere: true,
+    });
+
+    expect(badge).toEqual({ kind: "refunding" });
+  });
+
+  test("shows a payment under review, so nobody pays again meanwhile", () => {
+    const badge = supplierPaymentBadge({
+      payment: { status: "in_process", paidAt: null, method: "credit_card" },
+      supplierReceivesHere: true,
+    });
+
+    expect(badge).toEqual({ kind: "reviewing" });
   });
 
   test("is paid outside when the supplier has no account here", () => {
