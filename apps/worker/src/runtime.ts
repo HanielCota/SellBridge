@@ -6,6 +6,7 @@ import {
   type ConnectorRegistry,
 } from "@sellbridge/marketplaces";
 import { createBlingRateLimiter, type BlingAppCredentials } from "@sellbridge/marketplaces/bling";
+import { asaasSettingsFrom } from "@sellbridge/payments/asaas";
 import { mercadoPagoSettingsFrom } from "@sellbridge/payments/mercado-pago";
 import { createTokenCipher } from "@sellbridge/shared/token-cipher";
 import { installErrorAlerts } from "@sellbridge/shared/error-alerts";
@@ -35,6 +36,7 @@ import { createPublishListingProcessor } from "./processors/publish-listing.ts";
 import { createPublishRecoveryProcessor, type RecoveryJob } from "./processors/publish-recovery.ts";
 import { createAutoForwardProcessor } from "./processors/order-auto-forward.ts";
 import { createStockPriceSyncProcessor } from "./processors/stock-price-sync.ts";
+import { createAsaasPaymentProcessor } from "./processors/asaas-payments.ts";
 import { createSupplierPaymentProcessor } from "./processors/supplier-payments.ts";
 import { createTicketAutoCloseProcessor } from "./processors/ticket-auto-close.ts";
 import { createTokenRefreshProcessor } from "./processors/token-refresh.ts";
@@ -300,8 +302,17 @@ function paymentWorkers(context: WorkerContext): Worker[] {
     settings: mercadoPagoSettingsFrom(environment),
     requestStockSync: async () => requestStockSync(context),
   });
+  const processAsaasPayments = createAsaasPaymentProcessor({
+    database,
+    cipher,
+    settings: asaasSettingsFrom(environment),
+  });
+  const processBoth = async () => {
+    await processPayments();
+    await processAsaasPayments();
+  };
   return [
-    new Worker(QUEUE_NAMES.supplierPayments, async () => processPayments(), {
+    new Worker(QUEUE_NAMES.supplierPayments, processBoth, {
       connection,
       concurrency: 1,
     }),
