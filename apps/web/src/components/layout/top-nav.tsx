@@ -1,6 +1,7 @@
 import type { ProfileKind } from "@sellbridge/shared/profile-kind";
 import { isStaffRole } from "@sellbridge/shared/staff-access";
 import { Link } from "@tanstack/react-router";
+import { type RefObject, useLayoutEffect, useRef } from "react";
 import { BrandIcon } from "@/components/brand/brand-logo";
 import { SELLER_HOME_PATH, SUPPLIER_PANEL_PATH } from "@/features/auth/profile-routes";
 import type { SessionUser } from "@/features/auth/session.functions";
@@ -25,6 +26,32 @@ function HomeLink({ isSupplier }: { isSupplier: boolean }) {
   );
 }
 
+/** Pages pin their own toolbars right under the header with `top: var(--app-header-height)`. */
+const HEADER_HEIGHT_VARIABLE = "--app-header-height";
+
+/**
+ * Keeps the header's height in a CSS variable as it changes (team strip on, window resized), on
+ * the header's parent: the page sits in it too, and the value leaves with the layout.
+ */
+function usePublishedHeaderHeight(headerRef: RefObject<HTMLElement | null>) {
+  useLayoutEffect(() => {
+    const header = headerRef.current;
+    const holder = header?.parentElement;
+    if (header === null || holder === null || holder === undefined) {
+      return undefined;
+    }
+    const publish = () => {
+      holder.style.setProperty(HEADER_HEIGHT_VARIABLE, `${header.offsetHeight}px`);
+    };
+    // Right away too: the observer reports only on the next frame, and until then a pinned
+    // toolbar would stick at the very top, under the header.
+    publish();
+    const observer = new ResizeObserver(publish);
+    observer.observe(header);
+    return () => observer.disconnect();
+  }, [headerRef]);
+}
+
 interface TopNavProps {
   readonly user: SessionUser;
   readonly adminMode: boolean;
@@ -42,8 +69,13 @@ export function TopNav({ user, adminMode, profileKind, state }: TopNavProps) {
   const { teamOnly } = state.navigation;
   // A team member with no profile has nothing to switch to: the mode stays on.
   const staffRole = isStaffRole(user.role) && !teamOnly ? user.role : null;
+  const headerRef = useRef<HTMLElement>(null);
+  usePublishedHeaderHeight(headerRef);
   return (
-    <header className="sticky top-0 z-30 bg-background/85 pt-[env(safe-area-inset-top)] backdrop-blur-xl">
+    <header
+      ref={headerRef}
+      className="sticky top-0 z-30 bg-background/85 pt-[env(safe-area-inset-top)] backdrop-blur-xl"
+    >
       <div className="mx-auto flex max-w-[1440px] items-center gap-3 px-4 py-4 md:px-8">
         <MobileNav
           navigation={state.navigation}

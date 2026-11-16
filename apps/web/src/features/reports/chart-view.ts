@@ -87,7 +87,7 @@ function addDays(bucketDate: string, days: number): string {
 }
 
 /** Index of the bucket holding `isoDate`: the last one starting on or before it, or the first. */
-function bucketIndexOf(buckets: readonly MetricPoint[], isoDate: string): number {
+function bucketIndexOf(buckets: readonly DatedBucket[], isoDate: string): number {
   return Math.max(
     0,
     buckets.findLastIndex((bucket) => bucket.date <= isoDate),
@@ -99,8 +99,12 @@ interface AlignedTotals {
   profitCents: number;
 }
 
+interface DatedBucket {
+  date: string;
+}
+
 /** Days one bucket spans (1 for days, 7 for weeks), read from the gap between the first two. */
-function bucketSpanDays(buckets: readonly MetricPoint[]): number {
+function bucketSpanDays(buckets: readonly DatedBucket[]): number {
   const [first, second] = buckets;
   if (!first || !second) {
     return 1;
@@ -110,11 +114,29 @@ function bucketSpanDays(buckets: readonly MetricPoint[]): number {
 }
 
 /**
- * The previous period laid over the current buckets. Each previous bucket moves forward by the
- * period's length and lands in the current bucket that holds its middle day, the one it overlaps
- * most. A weekly series thus stays in step even when the two periods start on different weekdays
- * (a partial first week, one week more or less) instead of being paired by position. Buckets
- * landing together add up; a current bucket nothing lands in has no value.
+ * Where each previous bucket lands among the current ones: it moves forward by the period's length
+ * and lands in the current bucket that holds its middle day, the one it overlaps most. A weekly
+ * series thus stays in step even when the two periods start on different weekdays (a partial
+ * first week, one week more or less) instead of being paired by position. Empty when there is no
+ * current bucket.
+ */
+export function previousBucketIndexes(
+  current: readonly DatedBucket[],
+  previous: readonly DatedBucket[],
+  offsetDays: number,
+): number[] {
+  if (current.length === 0) {
+    return [];
+  }
+  const middleDays = Math.floor((bucketSpanDays(current) - 1) / 2);
+  return previous.map((point) =>
+    bucketIndexOf(current, addDays(point.date, offsetDays + middleDays)),
+  );
+}
+
+/**
+ * The previous period laid over the current buckets (see `previousBucketIndexes`). Buckets landing
+ * together add up; a current bucket nothing lands in has no value.
  */
 function alignPrevious(
   current: readonly MetricPoint[],
@@ -122,12 +144,12 @@ function alignPrevious(
   offsetDays: number,
 ): (AlignedTotals | null)[] {
   const aligned: (AlignedTotals | null)[] = current.map(() => null);
-  if (current.length === 0) {
-    return aligned;
-  }
-  const middleDays = Math.floor((bucketSpanDays(current) - 1) / 2);
-  for (const point of previous) {
-    const index = bucketIndexOf(current, addDays(point.date, offsetDays + middleDays));
+  const indexes = previousBucketIndexes(current, previous, offsetDays);
+  for (const [position, point] of previous.entries()) {
+    const index = indexes[position];
+    if (index === undefined) {
+      continue;
+    }
     const slot = aligned[index] ?? { revenueCents: 0, profitCents: 0 };
     aligned[index] = {
       revenueCents: slot.revenueCents + point.revenueCents,

@@ -20,8 +20,11 @@ describe("createTokenCipher", () => {
   it("rejects tampered ciphertext", () => {
     const cipher = createTokenCipher(key);
     const parts = cipher.encrypt("token").split(".");
-    const data = parts[3] ?? "";
-    const tampered = [...parts.slice(0, 3), `${data.slice(0, -2)}AA`].join(".");
+    // Flip every bit of the first data byte: rewriting base64 characters could leave the bytes
+    // unchanged (about once in a thousand runs) and let the test pass on an untouched value.
+    const data = Buffer.from(parts[3] ?? "", "base64url");
+    data.writeUInt8((data.readUInt8(0) ^ 0xff) & 0xff, 0);
+    const tampered = [...parts.slice(0, 3), data.toString("base64url")].join(".");
     expect(() => cipher.decrypt(tampered)).toThrow("Conecte a loja de novo");
   });
 
