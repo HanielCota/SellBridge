@@ -32,6 +32,11 @@ export interface EscrowHoldState {
   /** The first delivery confirmed by the marketplace or the reseller; never by the supplier. */
   readonly deliveredAt: Date | null;
   readonly hasOpenReturnClaim: boolean;
+  /**
+   * The reseller cancelled after the supplier accepted: the supplier may have posted already, so
+   * the team decides instead of an automatic refund (Guilherme, 16/11/2026).
+   */
+  readonly cancelledByResellerAfterAccept: boolean;
   readonly hasChargeback: boolean;
   /** What the team chose on the Problemas page for a case no rule covers. */
   readonly teamDecision: "release" | "refund" | null;
@@ -48,7 +53,10 @@ export type EscrowAction =
       /** When to look again; null when it depends on an event, not on time. */
       readonly until: Date | null;
     }
-  | { readonly kind: "paused"; readonly reason: "return_claim" | "chargeback" }
+  | {
+      readonly kind: "paused";
+      readonly reason: "return_claim" | "chargeback" | "cancelled_after_accept";
+    }
   | { readonly kind: "finished" };
 
 function refundedStatus(status: FulfillmentStatus): RefundedShipmentStatus | null {
@@ -93,8 +101,9 @@ function deliveryAction(state: EscrowHoldState): EscrowAction {
  *
  * @remarks
  * Order matters: a guarantee the gateway already ended stays ended; a card dispute stops
- * everything; the team's choice wins over the rules; a cancelled, undelivered or returned parcel
- * is refunded; an open return claim pauses; otherwise the money is released once the delivery
+ * everything; the team's choice wins over the rules; a parcel the reseller cancelled after the
+ * supplier accepted pauses for the team; a cancelled, undelivered or returned parcel is refunded;
+ * an open return claim pauses; otherwise the money is released once the delivery
  * is confirmed and the release delay has passed.
  */
 export function escrowActionFor(state: EscrowHoldState): EscrowAction {
@@ -107,6 +116,9 @@ export function escrowActionFor(state: EscrowHoldState): EscrowAction {
   const chosen = teamAction(state);
   if (chosen !== null) {
     return chosen;
+  }
+  if (state.shipmentStatus === "cancelled" && state.cancelledByResellerAfterAccept) {
+    return { kind: "paused", reason: "cancelled_after_accept" };
   }
   const refunded = refundedStatus(state.shipmentStatus);
   if (refunded !== null) {

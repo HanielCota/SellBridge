@@ -38,6 +38,7 @@ function holdState(held: HeldPayment, now: Date): EscrowHoldState {
     shipmentStatus: held.shipmentStatus,
     deliveredAt: held.deliveredAt,
     hasOpenReturnClaim: held.hasOpenReturnClaim,
+    cancelledByResellerAfterAccept: held.cancelledByResellerAfterAccept,
     hasChargeback: payment.status === "charged_back",
     teamDecision: payment.teamDecision,
     escrow:
@@ -186,6 +187,12 @@ export async function settleHeldPayment(
   }
   if (action.kind === "paused" && action.reason === "return_claim") {
     reportNeedsDecision(input.held, "o revendedor abriu uma devolução.");
+  }
+  if (action.kind === "paused" && action.reason === "cancelled_after_accept") {
+    reportNeedsDecision(
+      input.held,
+      "o revendedor cancelou depois que o fornecedor aceitou. Confira com o fornecedor se ele já postou.",
+    );
   }
   if (action.kind !== "paused" && escrowNeedsAttention(state)) {
     reportNeedsDecision(

@@ -47,6 +47,7 @@ function heldPayment(id: string, status = "approved") {
     shipmentStatus: "delivered",
     deliveredAt: new Date("2026-12-01T12:00:00Z"),
     hasOpenReturnClaim: false,
+    cancelledByResellerAfterAccept: false,
   };
 }
 

@@ -117,6 +117,7 @@ function parcel(overrides: Partial<ShipmentPayment> = {}): ShipmentPayment {
     refundRequestedAt: null,
     refundFailedAt: null,
     refundError: null,
+    refundHeldAt: null,
     escrowId: "esc_1",
     escrowStatus: "active",
     escrowExpiresAt: new Date(NOW.getTime() + 10 * DAY_IN_MS),
@@ -139,6 +140,7 @@ function held(overrides: Partial<HeldPayment> = {}): HeldPayment {
     shipmentStatus: "delivered",
     deliveredAt: new Date(NOW.getTime() - 8 * DAY_IN_MS),
     hasOpenReturnClaim: false,
+    cancelledByResellerAfterAccept: false,
     ...overrides,
   };
 }
@@ -289,6 +291,24 @@ describe("settleHeldPayment", () => {
       "asaas.held_payment_needs_decision",
       expect.objectContaining({ shipmentPaymentId: PAYMENT_ID, problemKey: PAYMENT_ID }),
     );
+    expect(requests).toHaveLength(0);
+  });
+
+  test("asks the team instead of refunding when the reseller cancelled after acceptance", async () => {
+    const errors = vi.spyOn(logger, "error").mockImplementation(() => {});
+
+    const outcome = await settleHeldPayment(context, {
+      account,
+      held: held({ shipmentStatus: "cancelled", cancelledByResellerAfterAccept: true }),
+      now: NOW,
+    });
+
+    expect(outcome).toEqual({ kind: "kept", action: "paused" });
+    expect(errors).toHaveBeenCalledWith(
+      "asaas.held_payment_needs_decision",
+      expect.objectContaining({ shipmentPaymentId: PAYMENT_ID }),
+    );
+    expect(mocks.requestRefund).not.toHaveBeenCalled();
     expect(requests).toHaveLength(0);
   });
 

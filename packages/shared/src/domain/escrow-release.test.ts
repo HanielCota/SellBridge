@@ -15,6 +15,7 @@ function heldState(overrides: Partial<EscrowHoldState> = {}): EscrowHoldState {
     shipmentStatus: "delivered",
     deliveredAt: DELIVERED_AT,
     hasOpenReturnClaim: false,
+    cancelledByResellerAfterAccept: false,
     hasChargeback: false,
     teamDecision: null,
     escrow: { status: "active", expiresAt: EXPIRES_AT },
@@ -74,6 +75,14 @@ describe("escrowActionFor", () => {
       expect(action).toEqual({ kind: "refund", reason: shipmentStatus });
     },
   );
+
+  test("pauses for the team when the reseller cancelled after the supplier accepted", () => {
+    const action = escrowActionFor(
+      heldState({ shipmentStatus: "cancelled", cancelledByResellerAfterAccept: true }),
+    );
+
+    expect(action).toEqual({ kind: "paused", reason: "cancelled_after_accept" });
+  });
 
   test("pauses while a return claim is open", () => {
     const action = escrowActionFor(heldState({ hasOpenReturnClaim: true }));

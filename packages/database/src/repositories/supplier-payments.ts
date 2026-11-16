@@ -745,7 +745,7 @@ const ACCEPTED_SHIPMENT_STATUSES: FulfillmentStatus[] = ["accepted", "picking", 
  * Whether the parcel's latest cancellation came from the reseller while the supplier had it
  * accepted, picking or ready: the step recorded just before that cancellation says so.
  */
-function cancelledByResellerAfterAccept() {
+export function cancelledByResellerAfterAccept() {
   const statusBeforeCancel = sql`(
     select prior_event.status from ${shipmentEvents} as prior_event
     where prior_event.shipment_id = cancel_event.shipment_id

@@ -2,7 +2,7 @@ import type { FulfillmentStatus } from "@sellbridge/shared/schemas";
 import { and, asc, eq, inArray, isNotNull, isNull, lt, or, sql } from "drizzle-orm";
 import type { Database } from "../client.ts";
 import { orderShipments, returnClaims, shipmentEvents, shipmentPayments } from "../schema/index.ts";
-import type { ShipmentPayment } from "./supplier-payments.ts";
+import { cancelledByResellerAfterAccept, type ShipmentPayment } from "./supplier-payments.ts";
 
 /**
  * A paid parcel whose money sits in the supplier's protected Asaas account, with what decides
@@ -16,6 +16,8 @@ export interface HeldPayment {
   /** The first time the parcel was marked delivered; only the marketplace or the reseller can. */
   deliveredAt: Date | null;
   hasOpenReturnClaim: boolean;
+  /** The reseller cancelled it after the supplier accepted: the supplier may have posted it. */
+  cancelledByResellerAfterAccept: boolean;
 }
 
 const firstDeliveredAt = sql<Date | null>`(
@@ -44,6 +46,7 @@ export async function listHeldPayments(
       shipmentStatus: orderShipments.status,
       deliveredAt: firstDeliveredAt,
       hasOpenReturnClaim: openReturnClaim,
+      cancelledByResellerAfterAccept: cancelledByResellerAfterAccept(),
     })
     .from(shipmentPayments)
     .innerJoin(orderShipments, eq(orderShipments.id, shipmentPayments.shipmentId))
