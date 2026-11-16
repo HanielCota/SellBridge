@@ -1,9 +1,7 @@
 import { expect, type Page, test } from "@playwright/test";
-import { member, suppliers, user } from "@sellbridge/database/schema";
-import { eq } from "drizzle-orm";
 import { gotoHydrated } from "./helpers";
 import { e2eDatabase } from "./database";
-import { supplierAccounts } from "./supplier-accounts";
+import { giveTestBrand, supplierAccounts } from "./supplier-accounts";
 
 const database = e2eDatabase();
 const accounts = supplierAccounts(database);
@@ -13,21 +11,6 @@ test.afterAll(async () => {
   await accounts.removeAll();
   await database.$client.end({ timeout: 5 });
 });
-
-/** Stands in for the brand step: links a new supplier to the account's profile. */
-async function giveBrand(email: string, name: string): Promise<void> {
-  const [profile] = await database
-    .select({ organizationId: member.organizationId })
-    .from(user)
-    .innerJoin(member, eq(member.userId, user.id))
-    .where(eq(user.email, email));
-  if (profile === undefined) {
-    throw new Error(`Conta de teste sem perfil: ${email}`);
-  }
-  await database
-    .insert(suppliers)
-    .values({ name, niche: "Casa", state: "SP", city: "Campinas", ...profile });
-}
 
 async function titleLeftEdge(page: Page, title: string): Promise<number> {
   const box = await page.getByRole("heading", { name: title, level: 1 }).boundingBox();
@@ -48,7 +31,7 @@ async function mainContentRightEdge(page: Page): Promise<number> {
 test("regras de ouro usa a mesma largura das outras páginas do painel", async ({ page }) => {
   await page.setViewportSize({ width: 1280, height: 900 });
   const email = await accounts.signUp(page, "Ateliê Largura Regras");
-  await giveBrand(email, `Ateliê Largura Regras ${Date.now()}`);
+  await giveTestBrand(database, email, `Ateliê Largura Regras ${Date.now()}`);
 
   await gotoHydrated(page, "/fornecedor/painel/desempenho");
   const performanceLeft = await titleLeftEdge(page, "Desempenho");
