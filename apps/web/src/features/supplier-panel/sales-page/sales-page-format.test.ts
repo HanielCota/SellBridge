@@ -1,5 +1,10 @@
 import { describe, expect, it } from "vitest";
-import { chartBucketOf, marketplaceShares, periodDays } from "./sales-page-format";
+import {
+  chartBucketOf,
+  marketplaceShares,
+  periodDays,
+  previousOffsetDays,
+} from "./sales-page-format";
 
 describe("chartBucketOf", () => {
   it("draws one bar a day up to two months and one a week past that", () => {
@@ -23,5 +28,15 @@ describe("marketplaceShares", () => {
     expect(
       marketplaceShares([{ marketplace: "shopee", orders: 0, receivableCents: 0 }])[0]?.percent,
     ).toBe(0);
+  });
+});
+
+describe("previousOffsetDays", () => {
+  it("lays the month before under this one day by day, whatever its length", () => {
+    const october = { fromDate: "2026-10-01", previous: { fromDate: "2026-09-01" } };
+    const march = { fromDate: "2027-03-01", previous: { fromDate: "2027-02-01" } };
+
+    expect(previousOffsetDays(october)).toBe(30);
+    expect(previousOffsetDays(march)).toBe(28);
   });
 });

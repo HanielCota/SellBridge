@@ -18,6 +18,16 @@ export function periodDays(period: Pick<ReportPeriod, "fromDate" | "toDate">): n
   return Math.round((to - from) / DAY_MILLISECONDS) + 1;
 }
 
+/**
+ * How many days the compared window starts before the period: September 1 to October 1 is 30, so
+ * the previous month lies day by day under this one.
+ */
+export function previousOffsetDays(
+  period: Pick<ReportPeriod, "fromDate"> & { previous: Pick<ReportPeriod, "fromDate"> },
+): number {
+  return periodDays({ fromDate: period.previous.fromDate, toDate: period.fromDate }) - 1;
+}
+
 export function chartBucketOf(period: Pick<ReportPeriod, "fromDate" | "toDate">): SalesChartBucket {
   return periodDays(period) > DAILY_BARS_MAX_DAYS ? "week" : "day";
 }

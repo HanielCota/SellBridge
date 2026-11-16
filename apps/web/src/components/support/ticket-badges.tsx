@@ -7,6 +7,7 @@ import {
   type TicketStatus,
 } from "@sellbridge/shared/schemas";
 import { RESPONSE_TARGET_HOURS, responseTiming } from "@sellbridge/shared/ticket-rules";
+import type { ReactNode } from "react";
 import { type StatusTone, TonePill, ToneStatus } from "@/components/data/tone-status";
 import { useNow } from "@/hooks/use-now";
 import { formatDuration } from "@/features/support/response-time";
@@ -124,6 +125,42 @@ export function UnreadDot({ label = "Nova resposta" }: { label?: string }) {
       <span className="size-2 shrink-0 rounded-full bg-brand" aria-hidden="true" />
       {label}
     </span>
+  );
+}
+
+/** Bold for a thread with something new, regular once read: the inbox reads at a glance. */
+export function unreadSubjectClass(unread: boolean): string {
+  return unread ? "font-semibold" : "font-normal";
+}
+
+/**
+ * The subject block of a list row with its unread dot in a fixed slot on the left, as in an
+ * e-mail inbox. Every row keeps the slot, so dots and subjects line up whatever the gray line
+ * under the subject says; screen readers hear the label instead of a dot. `hanging` puts the
+ * slot in the cell's left padding, so the subject stays under the column heading.
+ */
+export function UnreadSubject({
+  unread,
+  label = "Nova resposta",
+  hanging = false,
+  children,
+}: {
+  unread: boolean;
+  label?: string;
+  hanging?: boolean;
+  children: ReactNode;
+}) {
+  return (
+    <div className={cn("flex items-start gap-1.5", hanging && "-ml-3.5")}>
+      {unread ? (
+        <span className="relative mt-1.5 size-2 shrink-0 rounded-full bg-brand">
+          <span className="sr-only">{label}</span>
+        </span>
+      ) : (
+        <span className="size-2 shrink-0" aria-hidden="true" />
+      )}
+      <div className="min-w-0 flex-1">{children}</div>
+    </div>
   );
 }
 
