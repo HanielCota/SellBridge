@@ -1,4 +1,5 @@
 import { DEFAULT_FEE_SCHEDULE } from "@sellbridge/shared/fee-model";
+import { shippingBandsFromQuotes } from "@sellbridge/shared/mercado-livre-shipping";
 import { describe, expect, it } from "vitest";
 import {
   DEFAULT_SALE_CHANNELS,
@@ -162,5 +163,38 @@ describe("wholeMarginPercent", () => {
     expect(isThinMargin(14.9)).toBe(true);
     expect(wholeMarginPercent(15)).toBe(15);
     expect(wholeMarginPercent(-3.4)).toBe(-4);
+  });
+});
+
+describe("with the store's own Mercado Livre rates", () => {
+  /** A store that pays R$ 10,00 of shipping between R$ 19 and R$ 48,99, not the table's R$ 6,85. */
+  const storeRates = {
+    commissionBasisPoints: 1_400,
+    shippingBands: shippingBandsFromQuotes([600, 1_000, 1_100, 1_500, 1_700, 1_900, 2_100, 2_400]),
+  };
+  const noPlatformFee = DEFAULT_FEE_SCHEDULE;
+
+  it("shows the profit the store really leaves", () => {
+    const estimate = estimateProfit(
+      3_390,
+      { ...clientProduct, mercadoLivreRates: storeRates },
+      noPlatformFee,
+      mercadoLivre,
+    );
+
+    expect(estimate?.feeCents).toBe(475 + 1_000);
+    expect(estimate?.profitCents).toBe(-185);
+  });
+
+  it("raises the lowest price with the store's shipping", () => {
+    const withStore = minimumPrice(
+      { ...clientProduct, mercadoLivreRates: storeRates },
+      noPlatformFee,
+      mercadoLivre,
+    );
+    const withTable = minimumPrice(clientProduct, noPlatformFee, mercadoLivre);
+
+    expect(withTable).toBe(3_238);
+    expect(withStore).toBe(3_605);
   });
 });
