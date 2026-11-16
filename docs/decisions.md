@@ -825,3 +825,25 @@ A auditoria da rodada 3 achou que o mês fechado, guardado logo depois que acaba
 - As telas da equipe usam `requireStaffSession`, que não depende de organização. As telas de revendedor continuam exigindo uma (`requireTenantSession`) e recusam quem não tem.
 - Atendente ou supervisor sem empresa vê só as telas da equipe e o próprio perfil (`isTeamOnlyAccount`): o menu esconde visão geral, pedidos, lojas, plano, suporte, avisos e a troca de modo; o perfil esconde as notificações, que são da loja; e "Seus dados" baixa só os dados pessoais (`requireAccountSession`).
 - Quem já recebeu uma empresa por convite antes disso fica como está; limpar esses casos é tarefa à parte. Quem já era cliente e é promovido à equipe mantém a própria empresa.
+
+## 2026-11-16: Lucro real por canal (etapa 1, a conta certa)
+
+O cliente testou em 15/11: o catálogo mostrava "margem 24%" num produto que deixa R$ 1,30 (3,8%). A prévia descontava só os 14% de comissão e contava o frete como R$ 0 (a decisão D5 nunca foi tomada). Guilherme, 16/11, sobre o plano em três etapas: "Pode seguir".
+
+- **A conta por canal** (`shared/domain/channel-fees.ts`): cada loja cobra do seu jeito, pelo marketplace dela.
+  - **Mercado Livre:** a comissão do Clássico (a estimada, 14%, até a leitura ao vivo da etapa 2) mais o frete que o vendedor paga em toda venda. O valor vem da tabela oficial por preço e peso (`mercado-livre-shipping.ts`, MercadoLíder, verde e sem reputação), e abaixo de R$ 19 o frete é no máximo metade do preço.
+  - **TikTok Shop:** abaixo de R$ 50, 10% + R$ 4,00; a partir de R$ 50, 6% + R$ 6,00. Soma-se o Programa de Frete, 6% do preço com teto de R$ 50.
+  - **Shopee:** 20% + R$ 4,50 até R$ 79,99 e as outras faixas da tabela oficial. Fica só para estimativa, porque ainda não há conector.
+  - As fontes e as datas de leitura estão no código.
+- **Peso:** a conta usa o peso líquido da NF-e do produto. Sem peso, usa até 0,5 kg.
+- **Piso do preço** (prejuízo bloqueia, como antes): passa a valer em cada canal das lojas escolhidas.
+  - **Onde:** ao criar, ao publicar em lote e ao editar o preço.
+  - **Mensagem:** nomeia o canal ("Com as taxas do Mercado Livre, o preço mínimo...").
+  - **Telas:** com várias lojas, mostram o canal que deixa menos lucro.
+- **`ESTIMATED_SHIPPING_CENTS` saiu:** o frete agora vem da tabela.
+- **Mudou na execução:**
+  - **Tabela do ML:** o plano dizia que o frete de reserva seria "o mais caro (de quem ainda não tem reputação)". A tabela oficial põe quem não tem reputação junto com o verde, e é essa a tabela usada. Amarela, laranja e vermelha pagam mais e entram com a leitura ao vivo por loja (etapa 2).
+  - **Limites na tela da equipe:** os limites de aviso e de bloqueio editáveis pela equipe foram da etapa 1 para a etapa 3, para esta não depender da fila de migrações. Por enquanto o bloqueio segue `MIN_MARGIN_PERCENT` (0) e o aviso, os 15% de antes.
+- **Etapas seguintes:**
+  - **Etapa 2:** comissão e frete ao vivo da API do ML (`/sites/MLB/listing_prices`, `/users/{id}/shipping_options/free`), com cache e reserva, e o frete real nos pedidos (`/shipments/{id}/costs`).
+  - **Etapa 3:** preço por canal, sugerido para 20%, avisos, anúncios no ar com prejuízo e a lista para a equipe.

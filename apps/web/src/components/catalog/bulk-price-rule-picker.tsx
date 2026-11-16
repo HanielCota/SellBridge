@@ -10,6 +10,7 @@ import {
   type usePriceOverrides,
   type usePriceRuleDraft,
 } from "@/features/catalog/use-price-rule-draft";
+import type { SaleChannels } from "@/features/listings/profit";
 import { cn } from "@/lib/utils";
 import { SettingsGroup } from "./bulk-publish-parts";
 import { PriceReceipt } from "./price-receipt";
@@ -218,10 +219,13 @@ export function PriceRulePicker({
   products,
   draft,
   overrides,
+  channels,
 }: {
   products: SellableCatalogProduct[];
   draft: ReturnType<typeof usePriceRuleDraft>;
   overrides: ReturnType<typeof usePriceOverrides>;
+  /** The channels of the chosen stores: the receipt shows the one that leaves the least. */
+  channels: SaleChannels;
 }) {
   const isMarkup = draft.kind === "markup";
   const ruleFor = (product: SellableCatalogProduct) =>
@@ -249,6 +253,7 @@ export function PriceRulePicker({
       ) : null}
       <PriceReceipt
         products={products}
+        channels={channels}
         ruleFor={ruleFor}
         adjust={isMarkup && products.length > 1 ? adjust : undefined}
       />

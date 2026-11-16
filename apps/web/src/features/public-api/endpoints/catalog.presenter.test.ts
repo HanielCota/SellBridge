@@ -8,6 +8,7 @@ const product: SellableCatalogProduct = {
   title: "Camiseta",
   description: "Algodão",
   costCents: 2000,
+  weightGrams: null,
   suggestedPriceCents: 4990,
   stock: 3,
   stockUpdatedAt: new Date("2026-10-01T12:00:00Z"),
