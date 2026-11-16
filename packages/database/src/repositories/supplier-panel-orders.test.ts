@@ -55,6 +55,7 @@ async function forwardedShipment(
     storeId?: string;
     buyerName?: string;
     orderedAt?: Date;
+    packId?: string;
   } = {},
 ) {
   const tenantId = options.tenantId ?? tenants.tenantA;
@@ -68,6 +69,7 @@ async function forwardedShipment(
       totalCents: 5000,
       buyerName: options.buyerName ?? null,
       orderedAt: options.orderedAt ?? new Date(),
+      marketplacePackId: options.packId ?? null,
     })
     .returning();
   if (order === undefined) throw new Error("No order");
@@ -678,6 +680,30 @@ describe("label records", () => {
     expect(row).toMatchObject({ labelState: null, splitOrder: true });
     expect(await labelRow({ shipmentId: mine.shipmentId, order }, "pending")).toBeUndefined();
     expect(detail).toMatchObject({ labelState: null, splitOrder: true });
+  });
+
+  it("gives no label to an order whose Mercado Livre cart has another supplier's products", async () => {
+    const packId = `PACK-${randomUUID().slice(0, 8)}`;
+    const mine = await forwardedShipment({ storeId: mercadoLivreStore, packId });
+    await forwardedShipment({
+      storeId: mercadoLivreStore,
+      packId,
+      productId: otherSupplier.productId,
+    });
+
+    const row = await labelRow(mine);
+
+    expect(row).toMatchObject({ labelState: null, splitOrder: true });
+  });
+
+  it("keeps the label of a cart whose orders all go to the same supplier", async () => {
+    const packId = `PACK-${randomUUID().slice(0, 8)}`;
+    const mine = await forwardedShipment({ storeId: mercadoLivreStore, packId });
+    await forwardedShipment({ storeId: mercadoLivreStore, packId });
+
+    const row = await labelRow(mine);
+
+    expect(row).toMatchObject({ labelState: "pending", splitOrder: false });
   });
 
   it("gives no label state to a channel without marketplace labels", async () => {
