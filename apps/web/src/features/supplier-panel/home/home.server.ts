@@ -1,5 +1,6 @@
 import {
   countSupplierShipmentsByTab,
+  countSupplierStoppedInvoices,
   getSupplierPanelProfile,
   getSupplierReputationStats,
   listSupplierOutOfStockListed,
@@ -50,6 +51,8 @@ export interface SupplierHome {
   orders: HomeOrderGroups<SupplierHomeOrderRow>;
   /** Every parcel of each group, for the "Ver todos" link. */
   orderTotals: { accept: number; progress: number };
+  /** Parcels whose NF-e stopped in the ERP and waits for the supplier. */
+  stoppedInvoices: number;
   catalog: CatalogFix[];
   health: SupplierHealth;
   /** The public "Fornecedor destaque" badge resellers see: the home's green note. */
@@ -81,14 +84,16 @@ async function loadHomeOrders(supplierId: string, now: Date) {
 /** The "Início" page: one list of what needs the supplier, and the health in one line. */
 export async function loadSupplierHome(supplierId: string): Promise<SupplierHome> {
   const now = new Date();
-  const [profile, healthInput, orders, stock, rejectedProducts, reputation] = await Promise.all([
-    getSupplierPanelProfile(database, supplierId),
-    loadSupplierHealthInput(database, { supplierId, now }),
-    loadHomeOrders(supplierId, now),
-    listSupplierOutOfStockListed(database, supplierId),
-    listSupplierRejectedProducts(database, supplierId),
-    loadPublicReputation(supplierId, now),
-  ]);
+  const [profile, healthInput, orders, stock, rejectedProducts, reputation, stoppedInvoices] =
+    await Promise.all([
+      getSupplierPanelProfile(database, supplierId),
+      loadSupplierHealthInput(database, { supplierId, now }),
+      loadHomeOrders(supplierId, now),
+      listSupplierOutOfStockListed(database, supplierId),
+      listSupplierRejectedProducts(database, supplierId),
+      loadPublicReputation(supplierId, now),
+      countSupplierStoppedInvoices(database, supplierId),
+    ]);
   const catalog = catalogFixes(stock, rejectedProducts);
   // Ids and counts only: what the list showed, for support to compare with a complaint.
   logger.info("supplier_panel.home_loaded", {
@@ -96,10 +101,12 @@ export async function loadSupplierHome(supplierId: string): Promise<SupplierHome
     acceptTotal: orders.orderTotals.accept,
     progressTotal: orders.orderTotals.progress,
     catalogFixes: catalog.length,
+    stoppedInvoices,
   });
   return {
     supplierName: profile.name,
     ...orders,
+    stoppedInvoices,
     catalog,
     health: computeSupplierHealth(healthInput),
     highlighted: reputation.highlighted,

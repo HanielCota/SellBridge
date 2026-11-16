@@ -8,7 +8,8 @@ export const SUPPLIER_PANEL_BASE_PATH = "/fornecedor/painel";
 
 /**
  * The Pedidos tab each filter opens (`SUPPLIER_ORDER_TABS` of the orders area): what waits for
- * the accept lands on "Aceitar", the rest on "A fazer", which lists every open parcel.
+ * the accept lands on "Aceitar", a stopped note on "Com problema", the rest on "A fazer", which
+ * lists every open parcel.
  */
 const ORDER_TABS: Record<SupplierOrderFilter, string> = {
   accept_overdue: "forwarded",
@@ -16,6 +17,7 @@ const ORDER_TABS: Record<SupplierOrderFilter, string> = {
   delivery_failed: "forwarded",
   dispatch_overdue: "todo",
   dispatch_soon: "todo",
+  invoice_stopped: "problem",
 };
 
 function withSearch(path: string, search: Record<string, string>): string {

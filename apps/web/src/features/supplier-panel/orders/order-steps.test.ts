@@ -28,6 +28,34 @@ describe("orderSteps", () => {
     ]);
   });
 
+  it("puts the note right after the parcel arrives, waiting until it is issued", () => {
+    const authorizedAt = new Date("2026-11-10T12:10:00Z");
+
+    const waiting = orderSteps({
+      events: [{ status: "forwarded", createdAt: forwardedAt }],
+      labelPrintedAt: null,
+      hasMarketplaceLabel: true,
+      invoice: { authorizedAt: null },
+    });
+    const issued = orderSteps({
+      events: [{ status: "forwarded", createdAt: forwardedAt }],
+      labelPrintedAt: null,
+      hasMarketplaceLabel: true,
+      invoice: { authorizedAt },
+    });
+
+    expect(waiting.map((step) => step.key)).toEqual([
+      "received",
+      "invoice",
+      "accepted",
+      "label",
+      "picked",
+      "shipped",
+    ]);
+    expect(waiting[1]).toEqual({ key: "invoice", label: "Nota emitida", at: null });
+    expect(issued[1]?.at).toEqual(authorizedAt);
+  });
+
   it("leaves the label step out on a channel without a marketplace label", () => {
     const steps = orderSteps({ events: [], labelPrintedAt: null, hasMarketplaceLabel: false });
 

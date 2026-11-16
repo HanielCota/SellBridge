@@ -62,6 +62,7 @@ function OrderStepsList({ shipment }: { shipment: PanelShipment }) {
     events: shipment.events,
     labelPrintedAt: shipment.labelPrintedAt,
     hasMarketplaceLabel: shipment.labelState !== null,
+    invoice: shipment.invoice,
   });
   return (
     <div className="space-y-2">
