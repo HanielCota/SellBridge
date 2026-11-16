@@ -36,6 +36,8 @@ async function draftWithoutNcm(supplierId: string, sku: string, fiscalRequired: 
       stock: 12,
       categoryId: await categoryId(),
       imageUrls: ["https://imagens.sellbridge.test/luminaria.jpg"],
+      // The test site's Mercado Livre category requires brand and model to publish.
+      mercadoLivreAttributes: { BRAND: "Marca Fiscal", MODEL: "Mesa 1" },
       reviewStatus: fiscalRequired ? "draft" : "approved",
       fiscalRequired,
     })
