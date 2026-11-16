@@ -6,6 +6,24 @@ export function plural(amount: number, one: string, many: string): string {
   return `${count.format(amount)} ${amount === 1 ? one : many}`;
 }
 
+/**
+ * The import button, saying what happens to each kind of product: "Importar 5 produtos" read as
+ * five new ones when three were new and two only updated.
+ */
+export function importActionLabel(counts: { created: number; updated: number }): string {
+  const { created, updated } = counts;
+  if (created > 0 && updated > 0) {
+    return `Importar ${plural(created, "novo", "novos")} e atualizar ${count.format(updated)}`;
+  }
+  if (created > 0) {
+    return `Importar ${plural(created, "produto novo", "produtos novos")}`;
+  }
+  if (updated > 0) {
+    return `Atualizar ${plural(updated, "produto", "produtos")}`;
+  }
+  return "Importar";
+}
+
 /** The explicit choice shown when some rows failed: what goes in and what stays out. */
 export function onlyValidLabel(validRows: number, failedRows: number): string {
   const kept = validRows === 1 ? "a linha válida" : `as ${count.format(validRows)} linhas válidas`;

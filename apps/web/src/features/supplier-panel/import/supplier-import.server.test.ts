@@ -72,6 +72,28 @@ describe("previewSupplierImport", () => {
     expect(preview.failedRowsCsv).toContain("A-2;Feijão;doze;1");
   });
 
+  it("warns about valid rows whose cost is above their suggested price, and still imports them", async () => {
+    const file = [
+      "sku;titulo;custo;estoque;preco_sugerido",
+      "A-1;Toalha;50,00;1;39,90",
+      "A-2;Lençol;20,00;1;39,90",
+      "A-3;Fronha;10,00;1;",
+      "A-4;Manta;doze;1;9,90",
+    ].join("\n");
+
+    const preview = await previewSupplierImport({
+      supplierId,
+      fileName: "produtos.csv",
+      fileBase64: fileBase64(file),
+    });
+
+    expect(preview.priceWarnings).toEqual([
+      { line: 2, sku: "A-1", costCents: 5000, suggestedPriceCents: 3990 },
+    ]);
+    expect(preview.validRows).toBe(3);
+    expect(preview.confirmation?.content).toContain("A-1;Toalha;50,00;1;39,90");
+  });
+
   it("offers nothing to confirm when every row failed", async () => {
     const preview = await previewSupplierImport({
       supplierId,
