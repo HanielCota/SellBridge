@@ -540,6 +540,13 @@
       "when": 1794869408087,
       "tag": "0076_payment_guards",
       "breakpoints": true
+    },
+    {
+      "idx": 77,
+      "version": "7",
+      "when": 1794901112953,
+      "tag": "0077_marketplace_fee_quotes",
+      "breakpoints": true
     }
   ]
 }

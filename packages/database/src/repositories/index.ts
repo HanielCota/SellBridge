@@ -102,3 +102,4 @@ export * from "./erp-connections.ts";
 export * from "./shipment-invoices.ts";
 export * from "./supplier-payments.ts";
 export * from "./problem-events.ts";
+export * from "./fee-quotes.ts";
