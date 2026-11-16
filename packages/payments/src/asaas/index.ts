@@ -42,6 +42,7 @@ export {
 } from "./account-opening.ts";
 export {
   CHARGE_DUE_IN_DAYS,
+  closeAsaasChargesBeforeSwitch,
   openAsaasCharge,
   type AsaasPayer,
   type ChargeOpening,

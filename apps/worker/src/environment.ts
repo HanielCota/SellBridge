@@ -13,6 +13,10 @@ import {
   mercadoPagoEnvironmentFields,
   refuseMercadoPagoStandInsInProduction,
 } from "@sellbridge/payments/mercado-pago";
+import {
+  asaasEnvironmentFields,
+  refuseAsaasStandInsInProduction,
+} from "@sellbridge/payments/asaas";
 import { z } from "zod";
 
 loadRootEnvironmentFile();
@@ -40,6 +44,7 @@ const workerEnvironmentSchema = z
      * worker reads supplier payments back and refunds them. Off until all three are set.
      */
     ...mercadoPagoEnvironmentFields,
+    ...asaasEnvironmentFields,
     WORKER_CONCURRENCY: z.coerce.number().int().min(1).max(50).default(5),
     /**
      * Sellable units kept off the marketplaces, per product, as a buffer against shelf counts
@@ -68,6 +73,7 @@ const workerEnvironmentSchema = z
     refusePrivateWebhookUrlsInProduction(value, context);
     if (value.NODE_ENV === "production") {
       refuseMercadoPagoStandInsInProduction(value, context);
+      refuseAsaasStandInsInProduction(value, context);
     }
   });
 

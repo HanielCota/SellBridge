@@ -11,6 +11,10 @@ import {
   mercadoPagoEnvironmentFields,
   refuseMercadoPagoStandInsInProduction,
 } from "@sellbridge/payments/mercado-pago";
+import {
+  asaasEnvironmentFields,
+  refuseAsaasStandInsInProduction,
+} from "@sellbridge/payments/asaas";
 import { SUPPORT_ASSISTANT_PROVIDERS } from "@sellbridge/shared/support-assistant";
 import { z } from "zod";
 import {
@@ -98,6 +102,7 @@ const serverEnvironmentShape = z.object({
    * and resellers pay them with the split.
    */
   ...mercadoPagoEnvironmentFields,
+  ...asaasEnvironmentFields,
   /**
    * Lets webhook endpoints point to localhost and private networks (local development only).
    * Off in production: otherwise a customer could make the server call internal services.
@@ -165,6 +170,7 @@ export const serverEnvironmentSchema = serverEnvironmentShape.superRefine((value
   checkPlaceholderSecret(value, context);
   checkProductionBilling(value, context);
   refuseMercadoPagoStandInsInProduction(value, context);
+  refuseAsaasStandInsInProduction(value, context);
   refusePrivateWebhookUrlsInProduction(value, context);
 });
 

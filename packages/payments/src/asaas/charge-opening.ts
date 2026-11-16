@@ -142,3 +142,28 @@ async function createCharge(
     throw error;
   }
 }
+
+/**
+ * Before a parcel that started on Asaas is charged elsewhere (the supplier switched): a paid
+ * charge is recorded and blocks the switch; unpaid ones are removed, so none can be paid later.
+ */
+export async function closeAsaasChargesBeforeSwitch(
+  context: AsaasContext,
+  input: { account: SupplierPaymentAccount; payment: ShipmentPayment },
+): Promise<"paid" | "closed"> {
+  const { account, payment } = input;
+  return withAsaasAccount(context, account, async (client) => {
+    const existing = await client.findCharges(payment.id);
+    const paid = chargesWithMoneyTaken(existing);
+    for (const charge of paid) {
+      await applyAsaasCharge(context, { account, charge });
+    }
+    if (paid.length > 0) {
+      return "paid";
+    }
+    for (const charge of unpaidCharges(existing)) {
+      await client.deleteCharge(charge.id);
+    }
+    return "closed";
+  });
+}

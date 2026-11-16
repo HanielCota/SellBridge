@@ -19,6 +19,9 @@ vi.mock("@sellbridge/database/repositories", () => ({
   findShipmentPayment: mocks.findPayment,
   savePaymentPreference: mocks.save,
   releaseShipmentPaymentReservation: mocks.release,
+  findSupplierPaymentChoice: async () => null,
+  getNewSupplierRule: async () => ({ enabled: false, deliveries: 5 }),
+  countConfirmedDeliveries: async () => 0,
   openCheckoutUrl: (payment: { checkoutUrl: string | null; checkoutExpiresAt: Date | null }) =>
     payment.checkoutExpiresAt !== null && payment.checkoutExpiresAt > new Date()
       ? payment.checkoutUrl
@@ -52,6 +55,8 @@ const SHIPMENT_ID = "6a1f4d7e-9a43-4b2d-8c3e-4f505f0c9a3e";
 /** The parcel's first checkout closed half an hour ago without a payment SellBridge heard of. */
 const earlierPayment = {
   id: "0b8f7a6e-1c2d-4e3f-8a9b-7c6d5e4f3a21",
+  provider: "mercado_pago",
+  preferenceId: "first",
   status: "pending",
   checkoutUrl: "https://www.mercadopago.com.br/checkout/v1/redirect?pref_id=first",
   checkoutExpiresAt: new Date(Date.now() - 60_000),
