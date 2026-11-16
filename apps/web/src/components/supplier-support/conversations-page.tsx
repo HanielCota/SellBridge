@@ -5,7 +5,7 @@ import {
   SUPPLIER_CONVERSATION_TOPIC_LABELS,
   type ConversationSide,
 } from "@sellbridge/shared/supplier-conversation-topics";
-import { ChatsCircleIcon, PlusIcon } from "@phosphor-icons/react";
+import { ChartBarIcon, ChatsCircleIcon, PlusIcon } from "@phosphor-icons/react";
 import { useQuery } from "@tanstack/react-query";
 import { Link } from "@tanstack/react-router";
 import { FilterTabs } from "@/components/data/filter-tabs";
@@ -39,6 +39,18 @@ function NewConversationButton() {
       <Link to="/suporte/fornecedores/novo">
         <PlusIcon aria-hidden="true" />
         Falar com um fornecedor
+      </Link>
+    </Button>
+  );
+}
+
+/** The supplier's way to its answering report; answering stays the page's main action. */
+function ReportButton() {
+  return (
+    <Button asChild variant="outline">
+      <Link to="/suporte/revendedores/relatorio">
+        <ChartBarIcon aria-hidden="true" />
+        Ver relatório
       </Link>
     </Button>
   );
@@ -287,7 +299,7 @@ export function ConversationsPage({
       <PageHeader
         title="Suporte"
         description={DESCRIPTIONS[kind]}
-        actions={kind === "seller" ? <NewConversationButton /> : null}
+        actions={kind === "seller" ? <NewConversationButton /> : <ReportButton />}
       />
       <SupportAreaTabs current="conversations" kind={kind} />
       <h2 className="sr-only">{conversationsLabel(kind)}</h2>

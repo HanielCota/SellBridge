@@ -4,6 +4,7 @@ import {
   createSupplierConversationSchema,
   replySupplierConversationSchema,
   supplierConversationsSearchSchema,
+  supplierSupportReportSearchSchema,
 } from "./supplier-conversations.ts";
 
 const STORE = "6f1d2c3b-4a5e-4f60-8a7b-9c0d1e2f3a4b";
@@ -65,4 +66,17 @@ describe("supplier queue search", () => {
 
     expect(search.assunto).toBeUndefined();
   });
+});
+
+describe("supplier report search", () => {
+  it("reads the period from the URL", () => {
+    expect(supplierSupportReportSearchSchema.parse({ dias: "7" }).dias).toBe(7);
+  });
+
+  it.each([[{}], [{ dias: "45" }], [{ dias: "trinta" }]])(
+    "falls back to 30 days for %o",
+    (search) => {
+      expect(supplierSupportReportSearchSchema.parse(search).dias).toBe(30);
+    },
+  );
 });
