@@ -26,6 +26,11 @@ export const orders = pgTable(
       .notNull()
       .references(() => storeConnections.id, { onDelete: "restrict" }),
     externalOrderId: text().notNull(),
+    /**
+     * The marketplace cart the order was bought in, when the marketplace groups orders that way
+     * (Mercado Livre's `pack_id`): every order of a cart ships in one package with one label.
+     */
+    marketplacePackId: text(),
     status: orderStatusEnum().notNull(),
     totalCents: integer().notNull(),
     marketplaceFeeCents: integer().notNull().default(0),
@@ -58,6 +63,8 @@ export const orders = pgTable(
       sql`coalesce(${table.paidAt}, ${table.orderedAt})`,
     ),
     uniqueIndex("orders_external_idx").on(table.storeConnectionId, table.externalOrderId),
+    /** The other orders of a cart, for the one-label check. */
+    index("orders_store_pack_idx").on(table.storeConnectionId, table.marketplacePackId),
   ],
 );
 

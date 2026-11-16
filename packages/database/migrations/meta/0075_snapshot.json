@@ -1,5 +1,5 @@
 {
-  "id": "78c6b7b4-cd1c-4eac-afde-558c4990c0b3",
+  "id": "2577ba52-2cef-4e54-b62f-d04a8ccff4be",
   "prevId": "dd5d5a92-74f0-4854-8e59-22ed4d7bade5",
   "version": "7",
   "dialect": "postgresql",
@@ -1076,37 +1076,6 @@
           "primaryKey": false,
           "notNull": false
         },
-        "warranty_type": {
-          "name": "warranty_type",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "warranty_days": {
-          "name": "warranty_days",
-          "type": "integer",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "video_url": {
-          "name": "video_url",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "made_to_order_days": {
-          "name": "made_to_order_days",
-          "type": "integer",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "carrier_only": {
-          "name": "carrier_only",
-          "type": "boolean",
-          "primaryKey": false,
-          "notNull": true,
-          "default": false
-        },
         "fiscal": {
           "name": "fiscal",
           "type": "jsonb",
@@ -1319,10 +1288,6 @@
         "supplier_products_reserved_stock_check": {
           "name": "supplier_products_reserved_stock_check",
           "value": "\"supplier_products\".\"reserved_stock\" >= 0"
-        },
-        "supplier_products_sale_terms_check": {
-          "name": "supplier_products_sale_terms_check",
-          "value": "(\"supplier_products\".\"warranty_type\" is null or \"supplier_products\".\"warranty_type\" in ('none', 'seller', 'factory')) and (\"supplier_products\".\"warranty_days\" is null or \"supplier_products\".\"warranty_days\" between 1 and 3650) and (\"supplier_products\".\"made_to_order_days\" is null or \"supplier_products\".\"made_to_order_days\" between 1 and 60)"
         }
       },
       "isRLSEnabled": false
@@ -2818,6 +2783,12 @@
           "primaryKey": false,
           "notNull": true
         },
+        "marketplace_pack_id": {
+          "name": "marketplace_pack_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
         "status": {
           "name": "status",
           "type": "order_status",
@@ -2936,6 +2907,27 @@
             }
           ],
           "isUnique": true,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "orders_store_pack_idx": {
+          "name": "orders_store_pack_idx",
+          "columns": [
+            {
+              "expression": "store_connection_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "marketplace_pack_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
           "concurrently": false,
           "method": "btree",
           "with": {}
