@@ -255,7 +255,6 @@ function AsaasSection(props: { supplierId: string; fee: string; emphasis: Button
   return (
     <>
       <ProtectionRequiredNotice view={query.data} />
-      <ReceivingChoice supplierId={supplierId} view={query.data} />
       <AsaasReceivingCard
         supplierId={supplierId}
         view={query.data}
@@ -287,6 +286,9 @@ export function ReceivingPage({
         description="Escolha como os revendedores pagam você pelo SellBridge: na hora, pelo Mercado Pago, ou com proteção até a entrega, pelo Asaas."
       />
       {outcome === undefined ? null : <OutcomeNotice outcome={outcome} />}
+      {asaasQuery.data === undefined ? null : (
+        <ReceivingChoice supplierId={supplierId} view={asaasQuery.data} />
+      )}
       {query.isPending ? <Skeleton className="h-44 max-w-3xl rounded-3xl" /> : null}
       {query.isError ? (
         <ErrorState message={errorMessage(query.error)} onRetry={() => void query.refetch()} />

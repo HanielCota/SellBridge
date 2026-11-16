@@ -184,6 +184,28 @@ test("o fornecedor abre a conta Asaas e o revendedor paga com o dinheiro protegi
   expect(payment).toMatchObject({ provider: "asaas", status: "approved", escrowStatus: "active" });
 });
 
+test("o fornecedor confirma a troca para o Asaas e pode desfazer", async ({ page }) => {
+  const email = await accounts.signUp(page, "Cestaria Troca E2E");
+  await giveTestBrand(database, email, "Cestaria Troca E2E");
+  await openApprovedAsaasAccount(page);
+  const mercadoPago = page.getByRole("region", { name: "Mercado Pago" });
+  await mercadoPago.getByRole("link", { name: "Ligar conta Mercado Pago" }).click();
+  await page.getByRole("button", { name: "Autorizar" }).click();
+  await expect(mercadoPago.getByText(/Ligada ·/)).toBeVisible();
+
+  const choice = page.getByRole("region", { name: "Para onde vão os próximos pagamentos" });
+  await expect(choice.getByText("Mercado Pago", { exact: true })).toBeVisible();
+  await choice.getByRole("button", { name: "Trocar para o Asaas" }).click();
+  const confirm = page.getByRole("dialog", { name: "Trocar para o Asaas?" });
+  await expect(confirm.getByText(/liberados para você 7 dias depois da entrega/)).toBeVisible();
+  await confirm.getByRole("button", { name: "Trocar para o Asaas" }).click();
+  await expect(choice.getByText("Asaas", { exact: true })).toBeVisible();
+
+  await page.getByRole("button", { name: "Desfazer" }).click();
+  await expect(choice.getByText("Mercado Pago", { exact: true })).toBeVisible();
+  await expect(choice.getByRole("button", { name: "Trocar para o Asaas" })).toBeVisible();
+});
+
 /** A paid Asaas parcel whose money is held, and the problem asking the team to decide. */
 async function heldPaymentProblem(supplierId: string): Promise<string> {
   const sale = await forwardedSale(supplierId);
