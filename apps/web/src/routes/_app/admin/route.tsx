@@ -1,6 +1,7 @@
 import { isStaffRole } from "@sellbridge/shared/staff-access";
 import { createFileRoute, Outlet, redirect } from "@tanstack/react-router";
 import { setAdminMode } from "@/features/auth/session.functions";
+import { forgetAppSession } from "@/features/auth/session.queries";
 
 export const Route = createFileRoute("/_app/admin")({
   beforeLoad: async ({ context, location, preload }) => {
@@ -12,6 +13,7 @@ export const Route = createFileRoute("/_app/admin")({
     // hover preload: only a real navigation switches it.
     if (isStaffRole(context.session.user.role) && !preload) {
       await setAdminMode({ data: { enabled: true } });
+      forgetAppSession(context.queryClient);
       throw redirect({ href: location.href });
     }
     throw redirect({ to: "/dashboard" });
