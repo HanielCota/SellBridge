@@ -15,7 +15,9 @@ import {
 import { useQuery, type UseQueryResult } from "@tanstack/react-query";
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { TrayIcon } from "@phosphor-icons/react";
+import { type ReactNode, useRef } from "react";
 import { createServerColumnHelper, DataTable } from "@/components/data/data-table";
+import { scrollEdgeMask, useScrollEdges } from "@/components/data/use-scroll-edges";
 import { FilterTabs } from "@/components/data/filter-tabs";
 import { REQUESTER_KIND_LABELS } from "@/features/support/ticket-audience";
 import { PaginationBar } from "@/components/data/pagination-bar";
@@ -289,7 +291,7 @@ function OptionFilter<TValue extends string>({
       value={value ?? ALL}
       onValueChange={(next) => onChange(options.find((option) => option === next))}
     >
-      <SelectTrigger className="w-full lg:w-48" aria-label={label}>
+      <SelectTrigger className={FILTER_SELECT_CLASSES} aria-label={label}>
         <SelectValue>{value ? labels[value] : allLabel}</SelectValue>
       </SelectTrigger>
       <SelectContent>
@@ -328,35 +330,70 @@ function StaffTicketFilters({
     commitQuery: (nextQuery) => onChange({ query: nextQuery }),
   });
   return (
-    <div className="grid gap-3 sm:grid-cols-3 lg:flex">
+    <PinnedToolbar>
       <SearchInput
         label="Buscar chamados"
         placeholder="Assunto, revendedor ou e-mail"
-        className="sm:col-span-3 lg:flex-1"
+        className="lg:flex-1"
         value={term}
         onValueChange={setTerm}
       />
-      <TicketStatusFilter
-        value={search.status}
-        onChange={(status) => onChange({ status })}
-        className="w-full lg:w-48"
-      />
-      <OptionFilter
-        label="Filtrar por prioridade"
-        allLabel="Todas as prioridades"
-        value={search.priority}
-        options={TICKET_PRIORITIES}
-        labels={TICKET_PRIORITY_LABELS}
-        onChange={(priority) => onChange({ priority })}
-      />
-      <OptionFilter
-        label="Filtrar por tema"
-        allLabel="Todos os temas"
-        value={search.category}
-        options={TICKET_CATEGORIES}
-        labels={TICKET_CATEGORY_LABELS}
-        onChange={(category) => onChange({ category })}
-      />
+      <FilterRow>
+        <TicketStatusFilter
+          value={search.status}
+          onChange={(status) => onChange({ status })}
+          className={FILTER_SELECT_CLASSES}
+        />
+        <OptionFilter
+          label="Filtrar por prioridade"
+          allLabel="Todas as prioridades"
+          value={search.priority}
+          options={TICKET_PRIORITIES}
+          labels={TICKET_PRIORITY_LABELS}
+          onChange={(priority) => onChange({ priority })}
+        />
+        <OptionFilter
+          label="Filtrar por tema"
+          allLabel="Todos os temas"
+          value={search.category}
+          options={TICKET_CATEGORIES}
+          labels={TICKET_CATEGORY_LABELS}
+          onChange={(category) => onChange({ category })}
+        />
+      </FilterRow>
+    </PinnedToolbar>
+  );
+}
+
+/** On a phone each filter takes its text's width in one row; from `sm` they share the line. */
+const FILTER_SELECT_CLASSES = "w-auto shrink-0 sm:w-full lg:w-48";
+
+/**
+ * The search and its filters stay pinned under the header (and the team strip) while the list
+ * scrolls: scrolling past them used to leave them cut in half beneath the strip.
+ */
+function PinnedToolbar({ children }: { children: ReactNode }) {
+  return (
+    <div className="sticky top-[var(--app-header-height,0px)] z-20 -mx-4 -mt-3 mb-3 flex flex-col gap-3 bg-background/85 px-4 py-3 backdrop-blur-xl md:-mx-8 md:px-8 lg:flex-row">
+      {children}
+    </div>
+  );
+}
+
+/**
+ * Stacked, three filters under the search took most of a phone's screen once pinned: there they
+ * sit in one row that scrolls sideways, its faded edge showing there is more.
+ */
+function FilterRow({ children }: { children: ReactNode }) {
+  const rowRef = useRef<HTMLDivElement>(null);
+  const mask = scrollEdgeMask(useScrollEdges(rowRef));
+  return (
+    <div
+      ref={rowRef}
+      className="-mx-4 -my-1 flex gap-2 overflow-x-auto px-4 py-1 [scrollbar-width:none] sm:mx-0 sm:grid sm:grid-cols-3 sm:gap-3 sm:overflow-visible sm:px-0 lg:flex [&::-webkit-scrollbar]:hidden"
+      style={mask === undefined ? undefined : { maskImage: mask }}
+    >
+      {children}
     </div>
   );
 }

@@ -51,6 +51,25 @@ async function seedUnreadTickets(marker: string): Promise<void> {
   }
 }
 
+/** Scroll positions (every 8 px) where the box is cut by the header's bottom edge. */
+function positionsPartlyUnderHeader(box: Element): number[] {
+  const header = document.querySelector("header");
+  if (header === null) {
+    throw new Error("app header missing");
+  }
+  const lastPosition = Math.min(800, document.documentElement.scrollHeight - window.innerHeight);
+  const covered: number[] = [];
+  for (let position = 0; position <= lastPosition; position += 8) {
+    window.scrollTo(0, position);
+    const headerBottom = header.getBoundingClientRect().bottom;
+    const rect = box.getBoundingClientRect();
+    if (rect.top < headerBottom - 1 && rect.bottom > headerBottom + 1) {
+      covered.push(position);
+    }
+  }
+  return covered;
+}
+
 async function openTeamQueue(page: Page, query: string): Promise<void> {
   await page.setViewportSize({ width: 1440, height: 900 });
   await signIn(page, ADMIN_USER);
@@ -73,3 +92,23 @@ test("lines up the unread markers of every row in one column", async ({ page }) 
 
   expect(Math.max(...lefts) - Math.min(...lefts)).toBeLessThanOrEqual(SAME_COLUMN_PIXELS);
 });
+
+for (const viewport of [
+  { name: "computer", width: 1440, height: 900 },
+  { name: "phone", width: 375, height: 812 },
+]) {
+  test(`never leaves the search box half hidden under the header on the ${viewport.name}`, async ({
+    page,
+  }) => {
+    await openTeamQueue(page, "");
+    await page.setViewportSize({ width: viewport.width, height: viewport.height });
+    const search = page.getByRole("searchbox", { name: "Buscar chamados" });
+    await expect(search).toBeVisible();
+
+    // Every scroll position in one pass, read straight after each jump. Polled: the header
+    // publishes its height for the toolbar a moment after the page reports itself hydrated.
+    await expect
+      .poll(() => search.evaluate(positionsPartlyUnderHeader), { timeout: 10_000 })
+      .toEqual([]);
+  });
+}
