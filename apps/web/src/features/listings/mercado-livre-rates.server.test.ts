@@ -65,6 +65,12 @@ import { mercadoLivreShippingBands } from "@sellbridge/shared/mercado-livre-ship
 import { readMercadoLivreRates } from "./mercado-livre-rates.server";
 
 const greenStore = { storeConnectionId: "store-green", externalShopId: "11", accessTokenEnc: "g" };
+const downStore = { storeConnectionId: "store-down", externalShopId: "33", accessTokenEnc: "d" };
+const refusingStore = {
+  storeConnectionId: "store-refusing",
+  externalShopId: "44",
+  accessTokenEnc: "r",
+};
 const yellowStore = {
   storeConnectionId: "store-yellow",
   externalShopId: "22",
@@ -130,7 +136,9 @@ describe("readMercadoLivreRates", () => {
   });
 
   it("prices on the estimate and the published table when Mercado Livre does not answer", async () => {
-    mocks.fetch.mockResolvedValue(Response.json({ message: "down" }, { status: 503 }));
+    // A store of its own: the refusals it leaves rest for ten minutes in this process.
+    mocks.access.mockResolvedValue([downStore]);
+    mocks.fetch.mockImplementation(async () => Response.json({ message: "down" }, { status: 503 }));
 
     const reading = await readMercadoLivreRates("tenant", request);
 
@@ -142,8 +150,20 @@ describe("readMercadoLivreRates", () => {
     });
     expect(mocks.warn).toHaveBeenCalledWith(
       "mercado_livre.fee_quote_failed",
-      expect.objectContaining({ storeConnectionId: "store-green", quote: "shipping" }),
+      expect.objectContaining({ storeConnectionId: "store-down", quote: "shipping" }),
     );
+  });
+
+  it("does not ask again what Mercado Livre just refused, and asks once per value", async () => {
+    mocks.access.mockResolvedValue([refusingStore]);
+    mocks.fetch.mockImplementation(async () => Response.json({ message: "down" }, { status: 503 }));
+    await readMercadoLivreRates("tenant", request);
+    expect(mocks.fetch).toHaveBeenCalledTimes(9);
+    mocks.fetch.mockClear();
+
+    await readMercadoLivreRates("tenant", request);
+
+    expect(mocks.fetch).not.toHaveBeenCalled();
   });
 
   it("uses the published table for shipping when the package has no measures", async () => {

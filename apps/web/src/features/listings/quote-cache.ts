@@ -21,12 +21,54 @@ export interface QuoteReading {
   missing: string[];
 }
 
+/** After a refusal the key is not asked again for this long: reopening a screen must not repeat it. */
+export const REFUSAL_REST_MILLISECONDS = 10 * 60 * 1000;
+
+/** Refusals kept at most; past it the oldest is forgotten first. */
+const MAX_REMEMBERED_REFUSALS = 2_000;
+
+/** The keys the marketplace refused lately, so a refusal is not asked again on every view. */
+export interface RefusalMemory {
+  isResting(quoteKey: string, now: Date): boolean;
+  remember(quoteKey: string, now: Date): void;
+}
+
+export function createRefusalMemory(): RefusalMemory {
+  const refusedAt = new Map<string, number>();
+  return {
+    isResting(quoteKey, now) {
+      const at = refusedAt.get(quoteKey);
+      if (at === undefined) {
+        return false;
+      }
+      if (now.getTime() - at < REFUSAL_REST_MILLISECONDS) {
+        return true;
+      }
+      refusedAt.delete(quoteKey);
+      return false;
+    },
+    remember(quoteKey, now) {
+      refusedAt.delete(quoteKey);
+      refusedAt.set(quoteKey, now.getTime());
+      if (refusedAt.size <= MAX_REMEMBERED_REFUSALS) {
+        return;
+      }
+      const [oldestKey] = refusedAt.keys();
+      if (oldestKey !== undefined) {
+        refusedAt.delete(oldestKey);
+      }
+    },
+  };
+}
+
 interface QuoteRequest {
   quoteKeys: readonly string[];
   saved: ReadonlyMap<string, Quote>;
   now: Date;
   /** Asks the marketplace; a rejection means "no answer now". */
   ask: (quoteKey: string) => Promise<number>;
+  /** True for a key refused lately: it is treated as unanswered without asking. */
+  isResting?: (quoteKey: string) => boolean;
 }
 
 function ageOf(quote: Quote, now: Date): number {
@@ -43,7 +85,13 @@ export async function readQuotes(request: QuoteRequest): Promise<QuoteReading> {
     const quote = saved.get(key);
     return quote === undefined || ageOf(quote, now) >= QUOTE_FRESH_MILLISECONDS;
   });
-  const answers = await Promise.allSettled(stale.map((key) => request.ask(key)));
+  const answers = await Promise.allSettled(
+    stale.map((key) =>
+      request.isResting?.(key) === true
+        ? Promise.reject(new Error(`Quote ${key} was refused lately`))
+        : request.ask(key),
+    ),
+  );
   const answerByKey = new Map(stale.map((key, index) => [key, answers[index]]));
   const reading: QuoteReading = { quotes: new Map(), asked: [], missing: [] };
   for (const key of request.quoteKeys) {

@@ -47,6 +47,8 @@ export async function createListingForTenant(
   }
   const draft = resolveListingDraft(product, command);
   const { storeIds, channels } = await assertConnectedStores(tenantId, command.storeConnectionIds);
+  await assertStoresSellSuppliers(tenantId, storeIds, [product.supplierId]);
+  // Only a sale the stores may make is worth asking Mercado Livre about.
   const live = await readMercadoLivreRates(tenantId, { productId: product.id, storeIds });
   assertPriceKeepsMargin(
     draft.priceCents,
@@ -54,7 +56,6 @@ export async function createListingForTenant(
     feeScheduleFrom(environment),
     channels,
   );
-  await assertStoresSellSuppliers(tenantId, storeIds, [product.supplierId]);
   return publishListing(tenantId, draft, storeIds);
 }
 

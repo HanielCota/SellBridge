@@ -27,13 +27,25 @@ import { feeScheduleFrom } from "@/features/reports/fee-schedule";
 import { database } from "@/lib/server/database";
 import { environment } from "@/lib/server/environment";
 import { mercadoLivreApiConfig, tokenCipher } from "@/lib/server/marketplaces";
-import { type Quote, readQuotes } from "./quote-cache";
+import { createRefusalMemory, type Quote, readQuotes } from "./quote-cache";
 
 /**
  * The commission is asked at R$ 100,00: above the free shipping threshold no fixed fee mixes in,
  * and a category's percentage seldom changes with the price.
  */
 const COMMISSION_QUOTE_PRICE_CENTS = 10_000;
+
+/**
+ * These reads only inform a preview: one try each, no retries. A store that does not answer
+ * prices on what was saved or on the estimate, and is not asked again for a while.
+ */
+const quoteConfig = {
+  ...mercadoLivreApiConfig,
+  retry: { ...mercadoLivreApiConfig.retry, retries: 0 },
+};
+
+/** Per server process: a refusal rests a while instead of being asked on every view. */
+const refusals = createRefusalMemory();
 
 /** A product's Mercado Livre costs on the reseller's stores, and where they came from. */
 export interface MercadoLivreRatesReading {
@@ -88,7 +100,7 @@ function askersFor(
   const { categoryId } = product.profile;
   if (categoryId !== null) {
     askers.set(`commission:${categoryId}`, () =>
-      readMercadoLivreCommission(mercadoLivreApiConfig, store, {
+      readMercadoLivreCommission(quoteConfig, store, {
         categoryId,
         priceCents: COMMISSION_QUOTE_PRICE_CENTS,
       }),
@@ -100,7 +112,7 @@ function askersFor(
   }
   for (const priceCents of shippingQuotePricesCents()) {
     askers.set(`shipping:${dimensionsKey(dimensions)}:${priceCents}`, () =>
-      readMercadoLivreShippingCost(mercadoLivreApiConfig, store, { dimensions, priceCents }),
+      readMercadoLivreShippingCost(quoteConfig, store, { dimensions, priceCents }),
     );
   }
   return askers;
@@ -118,6 +130,7 @@ function loggedAsk(
     try {
       return await ask();
     } catch (error) {
+      refusals.remember(`${storeConnectionId}:${quoteKey}`, new Date());
       logger.warn("mercado_livre.fee_quote_failed", {
         storeConnectionId,
         quote: quoteKey.split(":")[0],
@@ -165,6 +178,7 @@ async function readStore(
     saved,
     now,
     ask: loggedAsk(access.storeConnectionId, askers),
+    isResting: (quoteKey) => refusals.isResting(`${access.storeConnectionId}:${quoteKey}`, now),
   });
   await saveFeeQuotes(database, access.storeConnectionId, reading.asked);
   const commissionKey = quoteKeys.find((key) => key.startsWith("commission:")) ?? null;
@@ -219,9 +233,11 @@ export async function readMercadoLivreRates(
     schedule: feeScheduleFrom(environment),
     dimensions: packageDimensionsOf(profile.attributes),
   };
-  const readings = await Promise.all(
-    stores.map((store) => readStoreOrEstimate(store, product, now)),
-  );
+  // One store at a time: each asks up to nine values at once, never more.
+  const readings: StoreReading[] = [];
+  for (const store of stores) {
+    readings.push(await readStoreOrEstimate(store, product, now));
+  }
   const rates = costliestMercadoLivreRates(readings.map((reading) => reading.rates));
   if (rates === null) {
     return null;

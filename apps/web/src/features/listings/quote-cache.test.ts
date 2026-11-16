@@ -1,5 +1,11 @@
 import { describe, expect, it, vi } from "vitest";
-import { QUOTE_FALLBACK_MILLISECONDS, QUOTE_FRESH_MILLISECONDS, readQuotes } from "./quote-cache";
+import {
+  createRefusalMemory,
+  QUOTE_FALLBACK_MILLISECONDS,
+  QUOTE_FRESH_MILLISECONDS,
+  readQuotes,
+  REFUSAL_REST_MILLISECONDS,
+} from "./quote-cache";
 
 const now = new Date("2026-11-16T12:00:00Z");
 const hoursAgo = (hours: number) => new Date(now.getTime() - hours * 60 * 60 * 1000);
@@ -106,5 +112,46 @@ describe("readQuotes", () => {
   it("keeps the windows at one day and one week", () => {
     expect(QUOTE_FRESH_MILLISECONDS).toBe(86_400_000);
     expect(QUOTE_FALLBACK_MILLISECONDS).toBe(604_800_000);
+  });
+});
+
+describe("refusals", () => {
+  it("treats a resting key as unanswered without asking, keeping a saved answer", async () => {
+    const ask = vi.fn<(quoteKey: string) => Promise<number>>(async () => 1);
+    const saved = new Map([["shipping:a", { amount: 685, readAt: hoursAgo(30) }]]);
+
+    const reading = await readQuotes({
+      quoteKeys: ["shipping:a", "shipping:b"],
+      saved,
+      now,
+      ask,
+      isResting: () => true,
+    });
+
+    expect(ask).not.toHaveBeenCalled();
+    expect(reading.quotes.get("shipping:a")?.amount).toBe(685);
+    expect(reading.missing).toEqual(["shipping:b"]);
+  });
+
+  it("rests a refused key for ten minutes, then lets it be asked again", () => {
+    const memory = createRefusalMemory();
+    memory.remember("store:shipping:a", now);
+
+    const justBefore = new Date(now.getTime() + REFUSAL_REST_MILLISECONDS - 1);
+    const after = new Date(now.getTime() + REFUSAL_REST_MILLISECONDS);
+
+    expect(memory.isResting("store:shipping:a", justBefore)).toBe(true);
+    expect(memory.isResting("store:shipping:a", after)).toBe(false);
+    expect(memory.isResting("store:shipping:b", now)).toBe(false);
+  });
+
+  it("forgets the oldest refusal once it remembers too many", () => {
+    const memory = createRefusalMemory();
+    for (let index = 0; index <= 2_000; index += 1) {
+      memory.remember(`key-${index}`, now);
+    }
+
+    expect(memory.isResting("key-0", now)).toBe(false);
+    expect(memory.isResting("key-2000", now)).toBe(true);
   });
 });
