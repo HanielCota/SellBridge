@@ -68,6 +68,7 @@ async function planConversation(session: TenantSession, input: CreateSupplierCon
       tenantId: session.tenantId,
       storeConnectionId: input.storeConnectionId,
       orderId: input.orderId,
+      supplierId: input.supplierId,
     });
   }
   return { plan, store };

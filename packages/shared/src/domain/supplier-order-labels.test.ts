@@ -6,6 +6,7 @@ const record: LabelRecord = {
   status: "accepted",
   labelPrintCount: 0,
   labelWaitingSince: null,
+  splitOrder: false,
   overdue: false,
 };
 
@@ -40,5 +41,9 @@ describe("supplierLabelState", () => {
 
   it("has no label state once the parcel left", () => {
     expect(supplierLabelState({ ...record, status: "shipped" })).toBeNull();
+  });
+
+  it("has no marketplace label when the order is split between suppliers", () => {
+    expect(supplierLabelState({ ...record, splitOrder: true, overdue: true })).toBeNull();
   });
 });

@@ -1,7 +1,14 @@
 import { randomUUID } from "node:crypto";
 import { inArray } from "drizzle-orm";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
-import { storeConnections, storeSuppliers, suppliers } from "../schema/index.ts";
+import {
+  orderItems,
+  orders,
+  storeConnections,
+  storeSuppliers,
+  supplierProducts,
+  suppliers,
+} from "../schema/index.ts";
 import { createTestDatabase, createTestTenants, createTestUsers } from "../testing/fixtures.ts";
 import {
   addTicketMessage,
@@ -15,8 +22,10 @@ import { createTicket } from "./support-create.ts";
 import {
   countUnreadConversations,
   findConversationForViewer,
+  findConversationOrder,
   listConversations,
   listConversationStores,
+  requireConversationOrder,
   requireConversationStore,
   type ConversationViewer,
 } from "./supplier-conversations.ts";
@@ -161,6 +170,82 @@ describe("conversation stores", () => {
     });
 
     expect(store).toEqual({ supplierId, storeName: "Loja Centro" });
+  });
+});
+
+/** An order of the store with one product of the given supplier. */
+async function insertOrderOf(supplier: string): Promise<string> {
+  const stamp = randomUUID().slice(0, 8);
+  const [product] = await database
+    .insert(supplierProducts)
+    .values({
+      supplierId: supplier,
+      sku: `CONV-${stamp}`,
+      title: "Bota de couro",
+      costCents: 5000,
+      suggestedPriceCents: 9900,
+    })
+    .returning({ id: supplierProducts.id });
+  const [order] = await database
+    .insert(orders)
+    .values({
+      tenantId: resellerTenant,
+      storeConnectionId: storeWithSupplier,
+      externalOrderId: `CONV-${stamp}`,
+      status: "paid",
+      totalCents: 9900,
+      buyerName: "Maria Silva",
+      orderedAt: new Date(),
+    })
+    .returning({ id: orders.id });
+  if (product === undefined || order === undefined) {
+    throw new Error("pedido não criado");
+  }
+  await database.insert(orderItems).values({
+    tenantId: resellerTenant,
+    orderId: order.id,
+    supplierProductId: product.id,
+    title: "Bota de couro",
+    quantity: 1,
+    unitPriceCents: 9900,
+    unitCostCents: 5000,
+  });
+  return order.id;
+}
+
+describe("conversation order", () => {
+  it("prefills the suppliers whose products the order has", async () => {
+    const orderId = await insertOrderOf(supplierId);
+
+    const order = await findConversationOrder(database, { tenantId: resellerTenant, orderId });
+
+    expect(order?.supplierIds).toEqual([supplierId]);
+  });
+
+  it("accepts the order for the supplier of its products", async () => {
+    const orderId = await insertOrderOf(supplierId);
+
+    const order = await requireConversationOrder(database, {
+      tenantId: resellerTenant,
+      storeConnectionId: storeWithSupplier,
+      orderId,
+      supplierId,
+    });
+
+    expect(order.orderId).toBe(orderId);
+  });
+
+  it("refuses an order that has no product of the picked supplier", async () => {
+    const orderId = await insertOrderOf(otherSupplierId);
+
+    await expect(
+      requireConversationOrder(database, {
+        tenantId: resellerTenant,
+        storeConnectionId: storeWithSupplier,
+        orderId,
+        supplierId,
+      }),
+    ).rejects.toMatchObject({ code: "VALIDATION" });
   });
 });
 

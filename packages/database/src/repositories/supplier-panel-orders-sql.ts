@@ -135,11 +135,15 @@ export function searchFilter(query: string): SQL | undefined {
   );
 }
 
+/** The parcel's order has another supplier's parcel too: one marketplace label cannot serve both. */
+export const splitOrderSql = sql<boolean>`exists (select 1 from ${orderShipments} as other_parcel where other_parcel.order_id = ${orderShipments.orderId} and other_parcel.id <> ${orderShipments.id})`;
+
 /** SQL twin of `supplierLabelState` (shared/domain/supplier-order-labels.ts). */
 export function labelFilter(state: SupplierLabelState, now: Date): SQL | undefined {
   const hasLabel = and(
     eq(storeConnections.marketplace, LABEL_MARKETPLACE),
     inArray(orderShipments.status, [...LABEL_STATUSES]),
+    not(splitOrderSql),
   );
   if (state === "printed") {
     return and(hasLabel, gt(orderShipments.labelPrintCount, 0));

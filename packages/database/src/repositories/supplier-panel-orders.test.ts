@@ -636,6 +636,50 @@ describe("label records", () => {
     expect(printed).toMatchObject({ labelState: "printed", labelWaitingSince: null });
   });
 
+  it("gives no label to an order split between suppliers, and says it is split", async () => {
+    const [order] = await database
+      .insert(orders)
+      .values({
+        tenantId: tenants.tenantA,
+        storeConnectionId: mercadoLivreStore,
+        externalOrderId: `PED-${randomUUID().slice(0, 8)}`,
+        status: "paid",
+        totalCents: 10_000,
+        orderedAt: new Date(),
+      })
+      .returning();
+    if (order === undefined) throw new Error("No order");
+    await database.insert(orderItems).values(
+      [supplier.productId, otherSupplier.productId].map((supplierProductId) => ({
+        tenantId: tenants.tenantA,
+        orderId: order.id,
+        supplierProductId,
+        title: "Camiseta",
+        quantity: 1,
+        unitPriceCents: 5000,
+        unitCostCents: 1000,
+      })),
+    );
+    const links = await forwardOrder(database, tenants.tenantA, {
+      orderId: order.id,
+      address: testAddress,
+      notes: "",
+    });
+    const mine = links.find((link) => link.supplierId === supplier.supplierId);
+    if (mine === undefined) throw new Error("No shipment");
+
+    const row = await labelRow({ shipmentId: mine.shipmentId, order });
+    const detail = await getSupplierPanelShipment(database, {
+      supplierId: supplier.supplierId,
+      shipmentId: mine.shipmentId,
+    });
+
+    expect(links).toHaveLength(2);
+    expect(row).toMatchObject({ labelState: null, splitOrder: true });
+    expect(await labelRow({ shipmentId: mine.shipmentId, order }, "pending")).toBeUndefined();
+    expect(detail).toMatchObject({ labelState: null, splitOrder: true });
+  });
+
   it("gives no label state to a channel without marketplace labels", async () => {
     const { order } = await forwardedShipment();
 
