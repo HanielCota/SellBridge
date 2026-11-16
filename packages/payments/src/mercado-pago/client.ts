@@ -1,3 +1,4 @@
+import { parseJsonText } from "@sellbridge/shared/http-body";
 import { z } from "zod";
 import type { MercadoPagoSettings } from "./settings.ts";
 
@@ -9,6 +10,7 @@ import type { MercadoPagoSettings } from "./settings.ts";
  * Payments https://www.mercadopago.com.br/developers/en/reference/online-payments/checkout-api-payments/get-payment/get
  * Fee details https://www.mercadopago.com.ar/developers/es/reference/online-payments/checkout-api-payments/create-payment/post
  * Merchant orders https://www.mercadopago.com.br/developers/pt/reference/online-payments/checkout-pro/merchant_orders/search-merchant-order/get
+ * Refunds https://www.mercadopago.com.br/developers/en/reference/online-payments/checkout-api-payments/create-refund/post
  */
 
 const REQUEST_TIMEOUT_IN_MS = 10_000;
@@ -16,11 +18,14 @@ const MILLISECONDS_PER_SECOND = 1000;
 
 export class MercadoPagoError extends Error {
   readonly status: number | null;
+  /** Mercado Pago's own short reason (its `error` or `message`), when the answer named one. */
+  readonly reason: string | null;
 
-  constructor(message: string, status: number | null) {
+  constructor(message: string, status: number | null, reason: string | null = null) {
     super(message);
     this.name = "MercadoPagoError";
     this.status = status;
+    this.reason = reason;
   }
 
   /** Mercado Pago refused the credentials themselves (revoked, expired, wrong app). */
@@ -63,13 +68,41 @@ export function mercadoPagoAuthorizationUrl(input: {
   return url.toString();
 }
 
+const MAXIMUM_REASON_LENGTH = 100;
+const errorBodySchema = z.object({
+  error: z.string().optional(),
+  message: z.string().optional(),
+});
+
+/** Mercado Pago's reason for refusing a call, short and on one line, or null. */
+async function refusalReason(response: Response): Promise<string | null> {
+  const parsed = errorBodySchema.safeParse(parseJsonText(await response.text()));
+  if (!parsed.success) {
+    return null;
+  }
+  const reason = parsed.data.error ?? parsed.data.message;
+  if (reason === undefined || reason.trim() === "") {
+    return null;
+  }
+  return reason.replace(/\s+/g, " ").trim().slice(0, MAXIMUM_REASON_LENGTH);
+}
+
 async function callMercadoPago(
   settings: MercadoPagoSettings,
-  input: { path: string; method: "GET" | "POST"; accessToken?: string; body?: unknown },
+  input: {
+    path: string;
+    method: "GET" | "POST";
+    accessToken?: string;
+    body?: unknown;
+    idempotencyKey?: string;
+  },
 ): Promise<unknown> {
   const headers: Record<string, string> = { accept: "application/json" };
   if (input.accessToken !== undefined) {
     headers.authorization = `Bearer ${input.accessToken}`;
+  }
+  if (input.idempotencyKey !== undefined) {
+    headers["x-idempotency-key"] = input.idempotencyKey;
   }
   if (input.body !== undefined) {
     headers["content-type"] = "application/json";
@@ -89,6 +122,7 @@ async function callMercadoPago(
     throw new MercadoPagoError(
       `Mercado Pago answered ${response.status} on ${input.path}`,
       response.status,
+      await refusalReason(response),
     );
   }
   return response.json();
@@ -376,4 +410,36 @@ export async function listPreferencePaymentIds(
     }
   }
   return ids;
+}
+
+const refundResponseSchema = z.object({
+  id: z.union([z.number().int(), z.string().min(1)]),
+  status: z.string().nullable().optional(),
+});
+
+/**
+ * Gives the whole payment back to the payer, with the token of the account it was paid to. The
+ * idempotency key makes a retry of the same refund return the first one instead of a second.
+ * Mercado Pago takes the money back from the seller and the marketplace in proportion; it refuses
+ * when the seller's account lacks the balance.
+ *
+ * @throws {MercadoPagoError} When Mercado Pago refuses the refund or cannot be reached.
+ */
+export async function refundMercadoPagoPayment(
+  settings: MercadoPagoSettings,
+  input: { accessToken: string; paymentId: string; idempotencyKey: string },
+): Promise<{ refundId: string; status: string | null }> {
+  const path = `/v1/payments/${encodeURIComponent(input.paymentId)}/refunds`;
+  const payload = await callMercadoPago(settings, {
+    path,
+    method: "POST",
+    accessToken: input.accessToken,
+    body: {},
+    idempotencyKey: input.idempotencyKey,
+  });
+  const parsed = refundResponseSchema.safeParse(payload);
+  if (!parsed.success) {
+    throw new MercadoPagoError(`Unexpected refund response on ${path}`, null);
+  }
+  return { refundId: String(parsed.data.id), status: parsed.data.status ?? null };
 }

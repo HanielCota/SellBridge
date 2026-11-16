@@ -14,6 +14,7 @@ export {
 } from "./client.ts";
 export type { MercadoPagoContext } from "./context.ts";
 export { reconcileShipmentPayment } from "./payment-reconcile.ts";
+export { refundShipmentPayment, type RefundOutcome } from "./payment-refund.ts";
 export { syncMercadoPagoPayment, type PaymentSyncResult } from "./payment-sync.ts";
 export {
   mercadoPagoEnvironmentFields,

@@ -28,6 +28,8 @@ export const QUEUE_NAMES = {
   erpCatalogRead: "erp-catalog-read",
   /** Issues the NF-e of new parcels through the supplier's ERP and follows SEFAZ's answer. */
   erpInvoiceIssue: "erp-invoice-issue",
+  /** Reads supplier payments back from Mercado Pago and refunds the ones that are due. */
+  supplierPayments: "supplier-payments",
 } as const;
 
 export const publishListingJobSchema = z.object({
