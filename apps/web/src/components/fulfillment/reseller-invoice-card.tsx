@@ -1,28 +1,61 @@
-import { CheckIcon, CodeIcon, FilePdfIcon, FileTextIcon } from "@phosphor-icons/react";
-import { formatAccessKey, INVOICE_STATUS_LABELS } from "@sellbridge/shared/supplier-invoice";
+import {
+  CheckIcon,
+  ClockIcon,
+  CodeIcon,
+  FilePdfIcon,
+  FileTextIcon,
+  WarningIcon,
+} from "@phosphor-icons/react";
+import {
+  formatAccessKey,
+  INVOICE_STATUS_LABELS,
+  type InvoiceStatus,
+} from "@sellbridge/shared/supplier-invoice";
+import type { ReactNode } from "react";
 import { TonePill } from "@/components/data/tone-status";
 import { Button } from "@/components/ui/button";
 import { invoiceFileLink } from "@/features/fulfillment/invoice-file-link";
+import { INVOICE_TONES } from "@/features/fulfillment/invoice-tones";
 import { formatAbsoluteTime } from "@/lib/relative-time";
 import { useTabProfileLink } from "@/lib/tab-profile";
 
 export interface ResellerInvoice {
+  status: InvoiceStatus;
   number: string | null;
   series: string | null;
   accessKey: string | null;
   authorizedAt: Date | null;
+  updatedAt: Date;
 }
+
+const ICONS: Record<InvoiceStatus, ReactNode> = {
+  queued: <ClockIcon aria-hidden="true" className="size-3.5" />,
+  sent: <ClockIcon aria-hidden="true" className="size-3.5" />,
+  authorized: <CheckIcon aria-hidden="true" className="size-3.5" />,
+  attention: <WarningIcon aria-hidden="true" className="size-3.5" />,
+  cancelled: undefined,
+};
+
+/** What the reseller reads while the note is not out; the supplier's reason stays with them. */
+const PENDING_TEXT: Record<Exclude<InvoiceStatus, "authorized">, string> = {
+  queued:
+    "O fornecedor está emitindo a nota deste pacote, direto para o comprador. Quando ela sair, aparece aqui e chega no seu e-mail com o XML e o DANFE.",
+  sent: "O fornecedor está emitindo a nota deste pacote, direto para o comprador. Quando ela sair, aparece aqui e chega no seu e-mail com o XML e o DANFE.",
+  attention:
+    "A nota deste pacote parou no sistema do fornecedor. Ele já foi avisado e precisa corrigir para ela sair. Se demorar, fale com o fornecedor.",
+  cancelled: "O fornecedor cancelou esta nota no sistema dele.",
+};
 
 function numberLabel(invoice: ResellerInvoice): string {
   const number = invoice.number ?? "sem número";
   return invoice.series === null ? `Nota ${number}` : `Nota ${number} · série ${invoice.series}`;
 }
 
+/** "Nota emitida · 10/11/2026 10:42": the status with the moment it reached it. */
 function statusLabel(invoice: ResellerInvoice): string {
-  const label = INVOICE_STATUS_LABELS.authorized;
-  return invoice.authorizedAt === null
-    ? label
-    : `${label} · ${formatAbsoluteTime(invoice.authorizedAt)}`;
+  const moment = invoice.status === "authorized" ? invoice.authorizedAt : invoice.updatedAt;
+  const label = INVOICE_STATUS_LABELS[invoice.status];
+  return moment === null ? label : `${label} · ${formatAbsoluteTime(moment)}`;
 }
 
 function InvoiceFacts({ invoice }: { invoice: ResellerInvoice }) {
@@ -70,9 +103,32 @@ function InvoiceDownloads({ orderId, shipmentId }: { orderId: string; shipmentId
   );
 }
 
+function AuthorizedBody({
+  orderId,
+  shipmentId,
+  invoice,
+}: {
+  orderId: string;
+  shipmentId: string;
+  invoice: ResellerInvoice;
+}) {
+  return (
+    <>
+      <InvoiceFacts invoice={invoice} />
+      {invoice.accessKey === null ? null : (
+        <InvoiceDownloads orderId={orderId} shipmentId={shipmentId} />
+      )}
+      <p className="text-footnote text-muted-foreground">
+        O fornecedor emitiu esta nota direto para o comprador. O DANFE é a nota para imprimir; o XML
+        é o arquivo que o contador costuma pedir.
+      </p>
+    </>
+  );
+}
+
 /**
- * The NF-e the supplier issued for this parcel, straight to the buyer: its number, key and date,
- * and its two files. Shown once SEFAZ authorized it.
+ * The NF-e the supplier's ERP issues for this parcel, straight to the buyer: while it is on its
+ * way or stopped, what is happening; once SEFAZ authorized it, its number, key, date and files.
  */
 export function ResellerInvoiceCard({
   orderId,
@@ -91,19 +147,16 @@ export function ResellerInvoiceCard({
           Nota fiscal
         </h3>
         <TonePill
-          tone="success"
+          tone={INVOICE_TONES[invoice.status]}
           label={statusLabel(invoice)}
-          icon={<CheckIcon aria-hidden="true" className="size-3.5" />}
+          icon={ICONS[invoice.status]}
         />
       </div>
-      <InvoiceFacts invoice={invoice} />
-      {invoice.accessKey === null ? null : (
-        <InvoiceDownloads orderId={orderId} shipmentId={shipmentId} />
+      {invoice.status === "authorized" ? (
+        <AuthorizedBody orderId={orderId} shipmentId={shipmentId} invoice={invoice} />
+      ) : (
+        <p className="text-subhead text-muted-foreground">{PENDING_TEXT[invoice.status]}</p>
       )}
-      <p className="text-footnote text-muted-foreground">
-        O fornecedor emitiu esta nota direto para o comprador. O DANFE é a nota para imprimir; o XML
-        é o arquivo que o contador costuma pedir.
-      </p>
     </section>
   );
 }

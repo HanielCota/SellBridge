@@ -4,18 +4,20 @@ import { afterEach, describe, expect, it } from "vitest";
 import {
   member,
   notificationDeliveries,
+  organization,
   orderShipments,
   shipmentInvoices,
+  suppliers,
 } from "../schema/index.ts";
 import { createTestDatabase, createTestUsers } from "../testing/fixtures.ts";
 import { createInvoiceScenario } from "../testing/shipment-invoice-fixtures.ts";
+import { invoiceStoppedEvents } from "./notification-invoice-events.ts";
 import {
   findErpConnection,
   recordErpRefreshFailure,
   upsertErpConnection,
 } from "./erp-connections.ts";
 import {
-  authorizedShipmentInvoices,
   claimDueShipmentInvoices,
   findShipmentInvoiceFiles,
   findSupplierShipmentInvoice,
@@ -23,6 +25,7 @@ import {
   markShipmentInvoiceAttention,
   markShipmentInvoiceAuthorized,
   queueNewShipmentInvoices,
+  resellerShipmentInvoices,
   retrySupplierShipmentInvoice,
   setErpInvoicing,
   whileHoldingShipmentInvoice,
@@ -334,18 +337,36 @@ describe("authorized notes for the reseller", () => {
     });
   });
 
-  it("lists a parcel's note only once SEFAZ authorized it", async () => {
+  it("lists a parcel's note from its first step, and its number once SEFAZ authorized it", async () => {
     const created = await authorizedScenario();
 
-    const before = await authorizedShipmentInvoices(database, [created.shipmentId]);
+    const before = await resellerShipmentInvoices(database, [created.shipmentId]);
     await authorize(created.invoiceId);
-    const after = await authorizedShipmentInvoices(database, [created.shipmentId]);
+    const after = await resellerShipmentInvoices(database, [created.shipmentId]);
 
-    expect(before.size).toBe(0);
+    expect(before.get(created.shipmentId)).toMatchObject({
+      status: "queued",
+      number: null,
+      accessKey: null,
+    });
     expect(after.get(created.shipmentId)).toMatchObject({
+      status: "authorized",
       number: "1234",
       accessKey: AUTHORIZED_ACCESS_KEY,
     });
+  });
+
+  it("never gives the reseller the reason a note stopped", async () => {
+    const created = await authorizedScenario();
+    await markShipmentInvoiceAttention(database, {
+      invoiceId: created.invoiceId,
+      problem: "Falta o NCM",
+    });
+
+    const found = await resellerShipmentInvoices(database, [created.shipmentId]);
+
+    expect(found.get(created.shipmentId)).toMatchObject({ status: "attention" });
+    expect(found.get(created.shipmentId)).not.toHaveProperty("problem");
   });
 
   it("gives the note's files with who may download them, only when authorized", async () => {
@@ -364,5 +385,109 @@ describe("authorized notes for the reseller", () => {
       number: "1234",
       accessKey: AUTHORIZED_ACCESS_KEY,
     });
+  });
+});
+
+/** Gives the supplier its own workspace with one person in it, as a supplier account has. */
+async function supplierWorkspace(supplierId: string): Promise<string> {
+  const organizationId = randomUUID();
+  await database.insert(organization).values({
+    id: organizationId,
+    name: "Fornecedor",
+    slug: `nfe-supplier-${organizationId}`,
+    createdAt: new Date(),
+  });
+  cleanups.push(async () => {
+    await database.delete(organization).where(eq(organization.id, organizationId));
+  });
+  await database.update(suppliers).set({ organizationId }).where(eq(suppliers.id, supplierId));
+  await addMember(organizationId);
+  return organizationId;
+}
+
+async function attentionDeliveries(organizationId: string) {
+  return database
+    .select()
+    .from(notificationDeliveries)
+    .where(eq(notificationDeliveries.tenantId, organizationId));
+}
+
+describe("stopped notes for the supplier", () => {
+  it("e-mails the supplier's people once when a note stops", async () => {
+    const created = await authorizedScenario();
+    const organizationId = await supplierWorkspace(created.supplierId);
+
+    await markShipmentInvoiceAttention(database, {
+      invoiceId: created.invoiceId,
+      problem: "Falta o NCM",
+    });
+    await markShipmentInvoiceAttention(database, {
+      invoiceId: created.invoiceId,
+      problem: "Falta o NCM do produto",
+    });
+
+    const deliveries = await attentionDeliveries(organizationId);
+    expect(deliveries).toHaveLength(1);
+    expect(deliveries[0]).toMatchObject({
+      event: "invoice_attention",
+      channel: "email",
+      content: { actionPath: "/fornecedor/painel/pedidos?tab=problem" },
+    });
+  });
+
+  it("e-mails again when the note stops again after a retry", async () => {
+    const created = await authorizedScenario();
+    const organizationId = await supplierWorkspace(created.supplierId);
+    const stop = () =>
+      markShipmentInvoiceAttention(database, {
+        invoiceId: created.invoiceId,
+        problem: "Falta o NCM",
+      });
+
+    await stop();
+    await retrySupplierShipmentInvoice(database, {
+      supplierId: created.supplierId,
+      shipmentId: created.shipmentId,
+    });
+    await stop();
+
+    expect(await attentionDeliveries(organizationId)).toHaveLength(2);
+  });
+
+  it("tells no one when there is nothing for the supplier to fix", async () => {
+    const created = await authorizedScenario();
+    const organizationId = await supplierWorkspace(created.supplierId);
+
+    await markShipmentInvoiceAttention(database, {
+      invoiceId: created.invoiceId,
+      problem: "O pedido foi cancelado",
+      tellSupplier: false,
+    });
+
+    expect(await attentionDeliveries(organizationId)).toHaveLength(0);
+    expect(await invoiceOf(created.shipmentId)).toMatchObject({ status: "attention" });
+  });
+});
+
+describe("stopped notes in the supplier's bell", () => {
+  it("lists a stopped note until it goes back to the queue", async () => {
+    const created = await authorizedScenario();
+    const organizationId = await supplierWorkspace(created.supplierId);
+    await markShipmentInvoiceAttention(database, {
+      invoiceId: created.invoiceId,
+      problem: "Falta o NCM",
+    });
+
+    const stopped = await invoiceStoppedEvents(database, organizationId, 10);
+    await retrySupplierShipmentInvoice(database, {
+      supplierId: created.supplierId,
+      shipmentId: created.shipmentId,
+    });
+    const afterRetry = await invoiceStoppedEvents(database, organizationId, 10);
+
+    expect(stopped).toEqual([
+      expect.objectContaining({ kind: "invoice_stopped", entityId: created.shipmentId }),
+    ]);
+    expect(afterRetry).toEqual([]);
   });
 });

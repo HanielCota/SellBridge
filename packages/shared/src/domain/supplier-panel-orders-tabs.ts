@@ -59,15 +59,22 @@ export function isQueueTab(tab: SupplierOrderTab): boolean {
  * Why a parcel sits in "Com problema":
  * - `overdue`: past its accept or dispatch time (the marketplace may already penalize it);
  * - `email_failed`: the order e-mail never reached the supplier (`noteSupplierEmailFailed`);
- * - `order_blocked`: the sale is not released for shipping (pending, cancelled or returned).
+ * - `order_blocked`: the sale is not released for shipping (pending, cancelled or returned);
+ * - `invoice_stopped`: the NF-e stopped in the ERP and waits for the supplier.
  */
-export const SUPPLIER_ORDER_PROBLEMS = ["overdue", "email_failed", "order_blocked"] as const;
+export const SUPPLIER_ORDER_PROBLEMS = [
+  "overdue",
+  "email_failed",
+  "order_blocked",
+  "invoice_stopped",
+] as const;
 export type SupplierOrderProblem = (typeof SUPPLIER_ORDER_PROBLEMS)[number];
 
 export const SUPPLIER_ORDER_PROBLEM_LABELS: Record<SupplierOrderProblem, string> = {
   overdue: "Prazo vencido",
   email_failed: "E-mail do pedido não chegou",
   order_blocked: "Venda não liberada",
+  invoice_stopped: "Nota fiscal com problema",
 };
 
 /** What to do about each problem, said next to it instead of a bare red badge. */
@@ -75,12 +82,14 @@ export const SUPPLIER_ORDER_PROBLEM_HINTS: Record<SupplierOrderProblem, string> 
   overdue: "Avance a etapa ou registre uma ocorrência.",
   email_failed: "Siga as etapas pelo painel.",
   order_blocked: "Não separe nem despache. Fale com o revendedor.",
+  invoice_stopped: "Abra o pedido para ver o que corrigir na nota.",
 };
 
 export interface ProblemSignals {
   overdue: boolean;
   emailFailed: boolean;
   orderStatus: string;
+  invoiceStopped: boolean;
 }
 
 /** Every problem a queue parcel has, the most serious first. */
@@ -89,9 +98,11 @@ export function supplierOrderProblems(signals: ProblemSignals): SupplierOrderPro
   const found: Record<SupplierOrderProblem, boolean> = {
     order_blocked: blocked,
     overdue: signals.overdue,
+    // A sale not released needs no note: "Venda não liberada" already says what to do.
+    invoice_stopped: signals.invoiceStopped && !blocked,
     email_failed: signals.emailFailed,
   };
-  return (["order_blocked", "overdue", "email_failed"] as const).filter(
+  return (["order_blocked", "overdue", "invoice_stopped", "email_failed"] as const).filter(
     (problem) => found[problem],
   );
 }

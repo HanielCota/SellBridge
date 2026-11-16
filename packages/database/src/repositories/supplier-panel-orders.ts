@@ -20,11 +20,13 @@ import {
 import { supplierTimingColumns } from "./shipment-timing.ts";
 import {
   emailFailed,
+  invoiceStatus,
   labelFilter,
   overdueAt,
   problemFilter,
   queueDueAt,
   shipmentFilters,
+  stoppedInvoiceFilter,
   supplierScope,
   type SupplierShipmentFilters,
 } from "./supplier-panel-orders-sql.ts";
@@ -73,6 +75,7 @@ const rowColumns = {
   labelPrintCount: orderShipments.labelPrintCount,
   labelWaitingSince: orderShipments.labelWaitingSince,
   emailFailed,
+  invoiceStatus,
   ...supplierTimingColumns,
 };
 
@@ -105,6 +108,7 @@ function presentRow(row: ShipmentRow, now: Date) {
     overdue: entry.urgency === "overdue",
     emailFailed: row.emailFailed,
     orderStatus: row.orderStatus,
+    invoiceStopped: row.invoiceStatus === "attention",
   });
   const items = row.items.map(({ title, sku, quantity }) => ({ title, sku, quantity }));
   const labelState = supplierLabelState({ ...row, overdue: entry.urgency === "overdue" });
@@ -231,6 +235,20 @@ export async function countSupplierOperationNow(
     labelsToPrint: row?.labelsToPrint ?? 0,
     labelsLate: row?.labelsLate ?? 0,
   };
+}
+
+/** Parcels still in the queue whose NF-e stopped and waits for the supplier. */
+export async function countSupplierStoppedInvoices(
+  database: Database,
+  supplierId: string,
+): Promise<number> {
+  const [row] = await database
+    .select({ total: countColumn(stoppedInvoiceFilter) })
+    .from(orderShipments)
+    .innerJoin(suppliers, eq(suppliers.id, orderShipments.supplierId))
+    .innerJoin(orders, eq(orders.id, orderShipments.orderId))
+    .where(supplierScope(supplierId));
+  return row?.total ?? 0;
 }
 
 function tabCounts(row: Record<string, number> | undefined): Record<SupplierOrderTab, number> {

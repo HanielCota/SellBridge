@@ -1,7 +1,7 @@
 import type { FulfillmentStatus } from "@sellbridge/shared/schemas";
 
 export interface OrderStep {
-  key: "received" | "accepted" | "label" | "picked" | "shipped";
+  key: "received" | "invoice" | "accepted" | "label" | "picked" | "shipped";
   label: string;
   /** When the step happened; null while it has not. */
   at: Date | null;
@@ -26,28 +26,44 @@ function lastReached(
   return events.findLast((event) => event.status === status)?.createdAt ?? null;
 }
 
+/** Printed after the accept and before the parcel is picked, as the supplier works it. */
+function withLabelStep(steps: readonly OrderStep[], printedAt: Date | null): OrderStep[] {
+  const accepted = steps.findIndex((step) => step.key === "accepted");
+  return steps.toSpliced(accepted + 1, 0, {
+    key: "label",
+    label: "Etiqueta impressa",
+    at: printedAt,
+  });
+}
+
 /**
- * The supplier's steps for one parcel, in order, each with when it happened: received, accepted,
- * label printed (only on a channel whose label SellBridge prints), picked and shipped.
+ * The supplier's steps for one parcel, in order, each with when it happened: received, note
+ * issued (only when the supplier's ERP issues it), accepted, label printed (only on a channel
+ * whose label SellBridge prints), picked and shipped.
  */
 export function orderSteps(shipment: {
   events: readonly { status: FulfillmentStatus; createdAt: Date }[];
   labelPrintedAt: Date | null;
   hasMarketplaceLabel: boolean;
+  /** The parcel's NF-e; null when the supplier's ERP issues none for it. */
+  invoice?: { authorizedAt: Date | null } | null;
 }): OrderStep[] {
-  const steps: OrderStep[] = STATUS_STEPS.map((step) => ({
+  const statusSteps: OrderStep[] = STATUS_STEPS.map((step) => ({
     key: step.key,
     label: step.label,
     at: lastReached(shipment.events, step.status),
   }));
+  // The ERP issues the note as soon as the parcel arrives, before the supplier accepts it.
+  const steps =
+    shipment.invoice === undefined || shipment.invoice === null
+      ? statusSteps
+      : statusSteps.toSpliced(1, 0, {
+          key: "invoice",
+          label: "Nota emitida",
+          at: shipment.invoice.authorizedAt,
+        });
   if (shipment.hasMarketplaceLabel) {
-    const label: OrderStep = {
-      key: "label",
-      label: "Etiqueta impressa",
-      at: shipment.labelPrintedAt,
-    };
-    // Printed after the accept and before the parcel is picked, as the supplier works it.
-    return steps.toSpliced(2, 0, label);
+    return withLabelStep(steps, shipment.labelPrintedAt);
   }
   return steps;
 }
