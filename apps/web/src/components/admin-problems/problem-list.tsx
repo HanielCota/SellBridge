@@ -3,6 +3,7 @@ import { PROBLEM_AREA_LABELS } from "@sellbridge/shared/problem-areas";
 import { CheckCircleIcon, WarningCircleIcon } from "@phosphor-icons/react";
 import type { InfiniteData, UseInfiniteQueryResult } from "@tanstack/react-query";
 import { Link } from "@tanstack/react-router";
+import type { ReactNode } from "react";
 import { createServerColumnHelper, DataTable } from "@/components/data/data-table";
 import { TonePill } from "@/components/data/tone-status";
 import { EmptyState } from "@/components/feedback/empty-state";
@@ -193,21 +194,36 @@ function ProblemEmpty({
   );
 }
 
-function LoadMore({ query }: { query: ProblemListQuery }) {
-  if (!query.hasNextPage) {
-    return null;
-  }
+/** What the list footer needs from the query to offer older problems. */
+interface OlderProblems {
+  hasNextPage: boolean;
+  isFetchingNextPage: boolean;
+  fetchNextPage: () => Promise<unknown>;
+}
+
+function LoadMore({ older }: { older: OlderProblems }) {
   return (
-    <div className="flex justify-center border-t border-border p-4">
+    <div className="flex justify-center">
       <Button
         variant="outline"
-        disabled={query.isFetchingNextPage}
-        onClick={() => void query.fetchNextPage()}
+        disabled={older.isFetchingNextPage}
+        onClick={() => void older.fetchNextPage()}
       >
-        {query.isFetchingNextPage ? "Carregando..." : "Mostrar mais antigos"}
+        {older.isFetchingNextPage ? "Carregando..." : "Mostrar mais antigos"}
       </Button>
     </div>
   );
+}
+
+/**
+ * The table footer: "Mostrar mais antigos" while older problems remain, nothing otherwise. The
+ * table draws a footer strip for anything it is given, so "nothing" must be null, not an element.
+ */
+export function problemListFooter(older: OlderProblems): ReactNode {
+  if (older.hasNextPage) {
+    return <LoadMore older={older} />;
+  }
+  return null;
 }
 
 export function ProblemList({
@@ -241,7 +257,7 @@ export function ProblemList({
       getRowId={(row) => row.id}
       caption="Problemas registrados"
       renderMobileRow={(row) => <MobileProblemRow row={row} />}
-      footer={<LoadMore query={query} />}
+      footer={problemListFooter(query)}
     />
   );
 }
