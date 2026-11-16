@@ -1,5 +1,6 @@
 import { emailSchema, internalPathSchema, signInSchema } from "@sellbridge/shared/schemas";
 import { useForm, useStore } from "@tanstack/react-form";
+import { useQueryClient } from "@tanstack/react-query";
 import { createFileRoute, getRouteApi, Link, useNavigate } from "@tanstack/react-router";
 import { useState } from "react";
 import { z } from "zod";
@@ -15,6 +16,7 @@ import {
   NO_RESPONSE,
   signInErrorMessage,
 } from "@/features/auth/sign-in-error";
+import { forgetAppSession } from "@/features/auth/session.queries";
 import { authClient } from "@/lib/auth-client";
 import { shareMeta } from "@/lib/share-meta";
 
@@ -46,6 +48,7 @@ const authLayoutRoute = getRouteApi("/_auth");
 
 function useLoginForm() {
   const navigate = useNavigate();
+  const queryClient = useQueryClient();
   const search = Route.useSearch();
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [unconfirmedEmail, setUnconfirmedEmail] = useState<string | null>(null);
@@ -73,6 +76,7 @@ function useLoginForm() {
         setSubmitError(signInErrorMessage(result.error));
         return;
       }
+      forgetAppSession(queryClient);
       await navigate({ to: search.redirect ?? "/dashboard" });
     },
   });

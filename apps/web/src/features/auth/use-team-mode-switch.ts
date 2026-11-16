@@ -1,6 +1,8 @@
 import { useNavigate, useRouter, useRouterState } from "@tanstack/react-router";
 import { toast } from "sonner";
+import { useQueryClient } from "@tanstack/react-query";
 import { setAdminMode } from "@/features/auth/session.functions";
+import { forgetAppSession } from "@/features/auth/session.queries";
 import { teamModeName } from "@/features/auth/team-mode";
 
 /**
@@ -11,6 +13,7 @@ export function useTeamModeSwitch(role: string) {
   const name = teamModeName(role);
   const router = useRouter();
   const navigate = useNavigate();
+  const queryClient = useQueryClient();
   const isOnAdminPage = useRouterState({
     select: (state) => state.location.pathname.startsWith("/admin"),
   });
@@ -22,6 +25,8 @@ export function useTeamModeSwitch(role: string) {
       toast.error(`Não foi possível alterar o ${name.toLowerCase()}.`);
       return false;
     }
+    // Before the navigation below, which would still see the team mode as it was.
+    forgetAppSession(queryClient);
     toast.success(next ? `${name} ativado` : `${name} desativado`);
     if (!next && isOnAdminPage) {
       await navigate({ to: "/dashboard" });
