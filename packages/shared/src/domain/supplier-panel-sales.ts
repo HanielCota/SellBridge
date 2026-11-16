@@ -1,5 +1,6 @@
 import type { FulfillmentStatus } from "../schemas/fulfillment.ts";
 import type { OrderStatus } from "../schemas/orders.ts";
+import { DAY_MILLISECONDS } from "./time.ts";
 
 /**
  * The supplier home's sales (item 38): which orders count, how parcels group into the steps the
@@ -98,6 +99,31 @@ export function stockDaysLeft(input: {
   }
   const unitsPerDay = input.unitsSold / input.periodDays;
   return Math.max(1, Math.floor(input.availableStock / unitsPerDay));
+}
+
+/**
+ * Days a product's stock lasts at its sales pace in the period, whatever the list around it shows
+ * (cancellations, returns): `soldUnits` holds the units sold per product id.
+ */
+export function salesPaceDaysLeft(
+  product: { productId: string; availableStock: number },
+  soldUnits: ReadonlyMap<string, number>,
+  periodDays: number,
+): number | null {
+  return stockDaysLeft({
+    availableStock: product.availableStock,
+    unitsSold: soldUnits.get(product.productId) ?? 0,
+    periodDays,
+  });
+}
+
+/**
+ * Days of the period already lived, as a fraction: "Hoje" at 9 a.m. is 0.375 of a day, so ten
+ * units sold by then are a pace of about 27 a day, not 10.
+ */
+export function livedPeriodDays(period: { from: Date; to: Date }, now: Date): number {
+  const end = Math.min(now.getTime(), period.to.getTime());
+  return Math.max(0, end - period.from.getTime()) / DAY_MILLISECONDS;
 }
 
 /**

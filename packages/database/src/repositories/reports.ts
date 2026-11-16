@@ -4,7 +4,7 @@ import { REPORT_TIME_ZONE } from "@sellbridge/shared/period-range";
 import { sql, type SQL } from "drizzle-orm";
 import { z } from "zod";
 import type { Database } from "../client.ts";
-import { isCountedOrder, isUncountedOrder } from "./sql/counted-orders.ts";
+import { isCountedOrder, isUncountedOrder, ORDER_SALE_DATE } from "./sql/counted-orders.ts";
 import { sqlIntegerSchema, timestampOf } from "./sql/raw-values.ts";
 import { containsPattern } from "./sql/search-pattern.ts";
 import { BUCKET_SQL, type TimeseriesBucket } from "./sql/timeseries-buckets.ts";
@@ -15,6 +15,8 @@ export type { TimeseriesBucket };
  * Financial reports. Per-order numbers are computed in SQL with the same formula as
  * `computeOrderFinance` in @sellbridge/shared/finance (a test keeps both in sync):
  *   profit = revenue − cost − marketplace fee − refunds + commissions − platform fee
+ * Orders are filed by `saleDate` (counted-orders.ts): a sale in the period it was paid, an order
+ * never paid in the period it was placed.
  * Cancelled and returned orders contribute no revenue, cost or fee. A sale with an item of
  * unknown cost (no catalog product: a listing created outside SellBridge) keeps its revenue,
  * set apart as `pending_revenue`, and contributes nothing else.
@@ -70,8 +72,8 @@ const ORDER_ADJUSTMENTS_LATERAL = sql`
 function orderFinanceCte(scope: ReportScope, extraConditions: SQL[] = []): SQL {
   const conditions: SQL[] = [
     sql`o.tenant_id = ${scope.tenantId}`,
-    sql`o.ordered_at >= ${timestampOf(scope.range.from)}`,
-    sql`o.ordered_at < ${timestampOf(scope.range.to)}`,
+    sql`${ORDER_SALE_DATE} >= ${timestampOf(scope.range.from)}`,
+    sql`${ORDER_SALE_DATE} < ${timestampOf(scope.range.to)}`,
     ...extraConditions,
   ];
   if (scope.storeConnectionId) {
@@ -85,10 +87,13 @@ function orderFinanceCte(scope: ReportScope, extraConditions: SQL[] = []): SQL {
         o.external_order_id,
         o.status,
         o.ordered_at,
+        o.paid_at,
+        ${ORDER_SALE_DATE} as sale_date,
         o.delivered_at,
         o.buyer_name,
         o.store_connection_id,
         s.shop_name,
+        o.total_cents,
         (${isCountedOrder(ORDER_STATUS)}) as counted,
         ${COST_PENDING} as cost_pending,
         case when ${isUncountedOrder(ORDER_STATUS)} then 0 else o.total_cents end as revenue,
@@ -130,6 +135,8 @@ const summaryRowSchema = z.object({
   profit: cents,
   pending_orders: count,
   pending_revenue: cents,
+  unpaid_orders: count,
+  unpaid_total: cents,
 });
 
 export interface SalesSummary {
@@ -146,6 +153,9 @@ export interface SalesSummary {
   /** Sales with an item of unknown cost: in the revenue, out of the profit. */
   pendingCostOrders: number;
   pendingCostRevenueCents: number;
+  /** Orders of the period still awaiting payment, and their total: not sales (yet). */
+  unpaidOrders: number;
+  unpaidTotalCents: number;
   averageTicketCents: number | null;
 }
 
@@ -169,7 +179,9 @@ export async function getSalesSummary(
       coalesce(sum(platform_fee), 0) as platform_fees,
       coalesce(sum(profit), 0) as profit,
       count(*) filter (where cost_pending) as pending_orders,
-      coalesce(sum(pending_revenue), 0) as pending_revenue
+      coalesce(sum(pending_revenue), 0) as pending_revenue,
+      count(*) filter (where status = 'pending') as unpaid_orders,
+      coalesce(sum(total_cents) filter (where status = 'pending'), 0) as unpaid_total
     from order_profit
   `);
   const row = summaryRowSchema.parse(rows[0]);
@@ -186,6 +198,8 @@ export async function getSalesSummary(
     profitCents: row.profit,
     pendingCostOrders: row.pending_orders,
     pendingCostRevenueCents: row.pending_revenue,
+    unpaidOrders: row.unpaid_orders,
+    unpaidTotalCents: row.unpaid_total,
     averageTicketCents: row.orders > 0 ? Math.round(row.revenue / row.orders) : null,
   };
 }
@@ -228,7 +242,7 @@ export async function getSalesTimeseries(
     ),
     grouped as (
       select
-        date_trunc(${unit}, ordered_at at time zone ${REPORT_TIME_ZONE}) as bucket,
+        date_trunc(${unit}, sale_date at time zone ${REPORT_TIME_ZONE}) as bucket,
         count(*) filter (where counted) as orders,
         sum(revenue) as revenue,
         sum(profit) as profit,
@@ -332,9 +346,9 @@ export async function getTopProducts(
       i.title,
       sum(i.quantity) as units,
       sum(i.unit_price_cents::bigint * i.quantity) as revenue,
-      (array_agg(p.image_urls[1] order by f.ordered_at desc)
+      (array_agg(p.image_urls[1] order by f.sale_date desc)
         filter (where p.image_urls[1] is not null))[1] as image_url,
-      (array_agg(c.name order by f.ordered_at desc) filter (where c.name is not null))[1]
+      (array_agg(c.name order by f.sale_date desc) filter (where c.name is not null))[1]
         as category_name
     from order_profit f
     join order_items i on i.order_id = f.id and i.tenant_id = ${scope.tenantId}
@@ -369,7 +383,8 @@ const FINANCIAL_SORT_FIELDS = ["orderedAt", "revenue", "profit", "status"] as co
 export type FinancialSortField = (typeof FINANCIAL_SORT_FIELDS)[number];
 
 const FINANCIAL_SORT_SQL: Record<FinancialSortField, SQL> = {
-  orderedAt: sql.raw("ordered_at"),
+  // The URL keeps "orderedAt"; the list is in the order its totals count: by sale date.
+  orderedAt: sql.raw("sale_date"),
   revenue: sql.raw("revenue"),
   profit: sql.raw("profit"),
   status: sql.raw("status"),
@@ -389,6 +404,8 @@ export interface OrderFinancialRow {
   id: string;
   externalOrderId: string;
   orderedAt: Date;
+  /** When the order first counted as a sale; null while it never did. */
+  paidAt: Date | null;
   deliveredAt: Date | null;
   status: string;
   storeConnectionId: string;
@@ -414,6 +431,7 @@ const financialRowSchema = z.object({
   id: z.string(),
   external_order_id: z.string(),
   ordered_at: z.coerce.date(),
+  paid_at: z.coerce.date().nullable(),
   delivered_at: z.coerce.date().nullable(),
   status: z.string(),
   store_connection_id: z.string(),
@@ -440,6 +458,7 @@ function toFinancialRow(row: z.infer<typeof financialRowSchema>): OrderFinancial
     id: row.id,
     externalOrderId: row.external_order_id,
     orderedAt: row.ordered_at,
+    paidAt: row.paid_at,
     deliveredAt: row.delivered_at,
     status: row.status,
     storeConnectionId: row.store_connection_id,
@@ -489,7 +508,7 @@ function financialConditions(filters: FinancialFilters): SQL[] {
 
 function orderBy(sort: FinancialSort): SQL {
   const direction = sort.direction === "asc" ? sql.raw("asc") : sql.raw("desc");
-  return sql`order by ${FINANCIAL_SORT_SQL[sort.field]} ${direction}, ordered_at desc, id`;
+  return sql`order by ${FINANCIAL_SORT_SQL[sort.field]} ${direction}, sale_date desc, id`;
 }
 
 /**

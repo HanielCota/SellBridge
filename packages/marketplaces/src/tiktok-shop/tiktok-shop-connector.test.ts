@@ -389,16 +389,32 @@ describe("TikTok Shop stock, price and description", () => {
     expect(isMarketplaceListingEndedError(error)).toBe(true);
   });
 
-  it("refuses a stock above what TikTok accepts", async () => {
-    const { connector } = setup({
+  it("sends the most TikTok accepts when the stock is larger", async () => {
+    const { connector, calls } = setup({
       [`GET ${API}${productPath}`]: () => jsonResponse(PRODUCT_RESPONSE),
+      [`POST ${API}${productPath}/inventory/update`]: () => jsonResponse(EMPTY_SUCCESS),
+    });
+
+    await connector.updateStockPrice(STORE, { externalId: PRODUCT_ID, stock: 1_500_000 });
+
+    const stock = calls.find((call) => call.path.endsWith("/inventory/update"));
+    expect(stock?.json).toEqual({
+      skus: [{ id: SKU_ID, inventory: [{ warehouse_id: WAREHOUSE_ID, quantity: 999_999 }] }],
+    });
+  });
+
+  it("refuses an invalid stock before sending the price", async () => {
+    const { connector, calls } = setup({
+      [`GET ${API}${productPath}`]: () => jsonResponse(PRODUCT_RESPONSE),
+      [`POST ${API}${productPath}/prices/update`]: () => jsonResponse(EMPTY_SUCCESS),
     });
 
     const error = await caught(
-      connector.updateStockPrice(STORE, { externalId: PRODUCT_ID, stock: 1_000_000 }),
+      connector.updateStockPrice(STORE, { externalId: PRODUCT_ID, priceCents: 6490, stock: -1 }),
     );
 
-    expect(isAppError(error) && error.message).toMatch(/999\.999/);
+    expect(isAppError(error)).toBe(true);
+    expect(calls.some((call) => call.path.endsWith("/prices/update"))).toBe(false);
   });
 
   it("replaces the description through partial edit, as HTML", async () => {
@@ -493,7 +509,7 @@ describe("TikTok Shop orders", () => {
         ),
     });
 
-    const orders = await connector.listOrders(STORE, new Date("2026-11-01T00:00:00Z"));
+    const { orders } = await connector.listOrders(STORE, new Date("2026-11-01T00:00:00Z"));
 
     expect(orders.map((order) => order.status)).toEqual(["paid", "shipped"]);
     expect(orders[0]).toMatchObject({
@@ -505,6 +521,66 @@ describe("TikTok Shop orders", () => {
     const searches = calls.filter((call) => call.path === "/order/202309/orders/search");
     expect(searches[0]?.json).toEqual({ create_time_ge: 1793491200 });
     expect(searches[1]?.query.get("page_token")).toBe("next-1");
+  });
+
+  it("skips an order it cannot read and keeps the others of the page", async () => {
+    const readable = tiktokOrder({ id: "576461413038785753" });
+    const { connector } = setup({
+      [`POST ${API}/order/202309/orders/search`]: () =>
+        jsonResponse(
+          orderSearchResponse(
+            [tiktokOrder({ payment: { currency: "IDR", total_amount: "5000" } }), readable],
+            "",
+          ),
+        ),
+    });
+
+    const { orders } = await connector.listOrders(STORE, new Date("2026-11-01T00:00:00Z"));
+
+    expect(orders.map((order) => order.externalOrderId)).toEqual(["576461413038785753"]);
+  });
+
+  it("reads the oldest orders first and says where to continue when it stops at its limit", async () => {
+    let page = 0;
+    const { connector, calls } = setup({
+      [`POST ${API}/order/202309/orders/search`]: () => {
+        page += 1;
+        const orders = Array.from({ length: 50 }, (_, index) =>
+          tiktokOrder({
+            id: String(5_764_000_000 + page * 100 + index),
+            create_time: 1_793_491_200 + page * 100 + index,
+          }),
+        );
+        return jsonResponse(orderSearchResponse(orders, "next"));
+      },
+    });
+
+    const batch = await connector.listOrders(STORE, new Date("2026-11-01T00:00:00Z"));
+
+    const searches = calls.filter((call) => call.path === "/order/202309/orders/search");
+    expect(searches[0]?.query.get("sort_order")).toBe("ASC");
+    expect(batch.orders).toHaveLength(1000);
+    expect(batch.resumeFrom?.getTime()).toBe((1_793_491_200 + 20 * 100 + 49) * 1000);
+  });
+
+  it("keeps units of the same SKU sold at different prices on their own lines", async () => {
+    const line = tiktokOrder().line_items[0];
+    const lines = [
+      { ...line, id: "1", sale_price: "50.00" },
+      { ...line, id: "2", sale_price: "25.00" },
+      { ...line, id: "3", sale_price: "25.00" },
+    ];
+    const { connector } = setup({
+      [`GET ${API}/order/202507/orders`]: () =>
+        jsonResponse(orderDetailResponse([tiktokOrder({ line_items: lines })])),
+    });
+
+    const order = await connector.fetchOrder(STORE, ORDER_ID);
+
+    expect(order.items.map((item) => [item.quantity, item.unitPriceCents])).toEqual([
+      [1, 5000],
+      [2, 2500],
+    ]);
   });
 
   it("holds ON_HOLD orders as pending: the buyer may still cancel", async () => {

@@ -2,6 +2,8 @@ import { describe, expect, it } from "vitest";
 import {
   countParcelStages,
   isRunningOut,
+  livedPeriodDays,
+  salesPaceDaysLeft,
   stockDaysLeft,
   SUPPLIER_SALES_SITUATION_STATUSES,
 } from "./supplier-panel-sales.ts";
@@ -48,6 +50,46 @@ describe("stockDaysLeft", () => {
 
   it("keeps at least one day while a unit remains", () => {
     expect(stockDaysLeft({ availableStock: 1, unitsSold: 90, periodDays: 30 })).toBe(1);
+  });
+});
+
+describe("livedPeriodDays", () => {
+  it("counts only the hours already lived in a period that ends later today", () => {
+    const period = {
+      from: new Date("2026-11-15T03:00:00.000Z"),
+      to: new Date("2026-11-16T03:00:00.000Z"),
+    };
+
+    expect(livedPeriodDays(period, new Date("2026-11-15T12:00:00.000Z"))).toBe(0.375);
+  });
+
+  it("counts the whole period once it has ended", () => {
+    const period = {
+      from: new Date("2026-10-01T03:00:00.000Z"),
+      to: new Date("2026-10-31T03:00:00.000Z"),
+    };
+
+    expect(livedPeriodDays(period, new Date("2026-11-15T12:00:00.000Z"))).toBe(30);
+  });
+});
+
+describe("salesPaceDaysLeft", () => {
+  it("projects the stock from the product's sales, not from the cancellations the list shows", () => {
+    const soldUnits = new Map([["product-a", 2]]);
+
+    const daysLeft = salesPaceDaysLeft(
+      { productId: "product-a", availableStock: 10 },
+      soldUnits,
+      10,
+    );
+
+    expect(daysLeft).toBe(50);
+  });
+
+  it("has no forecast for a product that did not sell in the period", () => {
+    expect(
+      salesPaceDaysLeft({ productId: "product-b", availableStock: 10 }, new Map(), 10),
+    ).toBeNull();
   });
 });
 

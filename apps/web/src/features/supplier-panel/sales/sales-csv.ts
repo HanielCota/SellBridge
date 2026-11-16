@@ -3,6 +3,7 @@ import {
   BOM,
   centsToCsv,
   dateFormatter,
+  paidAtCell,
   SEPARATOR,
   statusLabel,
   textCell,
@@ -12,11 +13,21 @@ import {
  * The supplier's spreadsheet of the period: one line per sold item, with what the supplier
  * receives. No store, buyer or sale price: those belong to the reseller (item 38).
  */
-const HEADERS = ["Data", "Pedido", "Situação", "Produto", "Código", "Quantidade", "A receber"];
+const HEADERS = [
+  "Data do pedido",
+  "Pago em",
+  "Pedido",
+  "Situação",
+  "Produto",
+  "Código",
+  "Quantidade",
+  "A receber",
+];
 
 function toCsvLine(line: SupplierSaleLine): string {
   const text = [
     dateFormatter.format(line.orderedAt),
+    paidAtCell(line.paidAt),
     line.externalOrderId,
     statusLabel(line.status),
     line.title,

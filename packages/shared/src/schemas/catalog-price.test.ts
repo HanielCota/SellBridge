@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { priceForRule } from "./catalog.ts";
+import { defaultSuggestedPriceCents, priceForRule } from "./catalog.ts";
 
 const product = { costCents: 3000, suggestedPriceCents: 5490 };
 
@@ -55,5 +55,15 @@ describe("priceForRule", () => {
     expect(
       priceForRule({ costCents: 5000, suggestedPriceCents: 0 }, { kind: "markup", percent: 5 }),
     ).toBeGreaterThan(5000);
+  });
+});
+
+describe("defaultSuggestedPriceCents", () => {
+  it("adds 50% to the cost and ends the price in ,90", () => {
+    expect(defaultSuggestedPriceCents(3_000)).toBe(4_590);
+  });
+
+  it("never goes past what a listing may charge", () => {
+    expect(defaultSuggestedPriceCents(90_000_000)).toBe(100_000_000);
   });
 });

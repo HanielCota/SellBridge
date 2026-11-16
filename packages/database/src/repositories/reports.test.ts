@@ -41,6 +41,7 @@ const range = { from: new Date("2026-03-01T03:00:00Z"), to: new Date("2026-03-08
 interface SeedOrder extends OrderFinanceInput {
   externalOrderId: string;
   orderedAt: string;
+  paidAt?: string;
   buyerName: string;
   title: string;
   unitPriceCents: number;
@@ -133,6 +134,7 @@ async function insertOrder(tenantId: string, storeConnectionId: string, seed: Se
       marketplaceFeeCents: seed.marketplaceFeeCents,
       buyerName: seed.buyerName,
       orderedAt: new Date(seed.orderedAt),
+      paidAt: seed.paidAt === undefined ? null : new Date(seed.paidAt),
     })
     .returning();
   if (!order) {
@@ -544,6 +546,58 @@ describe("order financials list", () => {
       });
       const summary = await getSalesSummary(database, scope({ tenantId }));
       expect(summary).toMatchObject({ orders: 0, cancelledOrders: 0, revenueCents: 0 });
+    } finally {
+      await extra.cleanup();
+    }
+  });
+
+  it("counts a sale in the period it was paid, and an unpaid order where it was placed", async () => {
+    const extra = await createTestTenants(database, 1);
+    const [tenantId] = extra.ids;
+    if (!tenantId) {
+      throw new Error("tenant não criado");
+    }
+    try {
+      const store = await insertStore(tenantId, "Loja do mês");
+      // Placed on 27 Feb, paid on 2 Mar: a March sale.
+      await insertOrder(tenantId, store, {
+        ...ORDER_A2,
+        externalOrderId: "LATE-1",
+        orderedAt: "2026-02-27T15:00:00Z",
+        paidAt: "2026-03-02T15:00:00Z",
+      });
+      await insertOrder(tenantId, store, {
+        ...ORDER_A2,
+        externalOrderId: "UNPAID-1",
+        status: "pending",
+        orderedAt: "2026-03-03T15:00:00Z",
+        totalCents: 7000,
+      });
+      const february = { from: new Date("2026-02-01T03:00:00Z"), to: range.from };
+
+      const marchSummary = await getSalesSummary(database, scope({ tenantId }));
+      const februarySummary = await getSalesSummary(database, scope({ tenantId, range: february }));
+      const marchList = await listOrderFinancials(database, scope({ tenantId }), {
+        filters: {},
+        sort: { field: "orderedAt", direction: "desc" },
+        pagination: { page: 1, pageSize: 10 },
+      });
+      const marchDays = await getSalesTimeseries(database, scope({ tenantId }), "day");
+
+      expect(marchSummary).toMatchObject({
+        orders: 1,
+        revenueCents: 20_000,
+        unpaidOrders: 1,
+        unpaidTotalCents: 7000,
+      });
+      expect(februarySummary).toMatchObject({ orders: 0, revenueCents: 0, unpaidOrders: 0 });
+      expect(
+        marchList.items.map((row) => [row.externalOrderId, row.paidAt?.toISOString() ?? null]),
+      ).toEqual([
+        ["UNPAID-1", null],
+        ["LATE-1", "2026-03-02T15:00:00.000Z"],
+      ]);
+      expect(marchDays.find((point) => point.date === "2026-03-02")?.revenueCents).toBe(20_000);
     } finally {
       await extra.cleanup();
     }

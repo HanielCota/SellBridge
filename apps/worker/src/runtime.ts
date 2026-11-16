@@ -15,6 +15,7 @@ import { createMailer } from "@sellbridge/shared/mailer";
 import {
   AUTO_FORWARD_JOB_OPTIONS,
   autoForwardJobId,
+  enqueueStoreOrderCatchUpJob,
   enqueueWebhookEventJob,
   pingQueueConnection,
   PUBLISH_JOB_OPTIONS,
@@ -213,6 +214,7 @@ function orderWorkers(context: WorkerContext): Worker[] {
     acquireRateLimit: context.acquireRateLimit,
     requestStockSync: async () => requestStockSync(context),
     requestAutoForward: async (orderId) => requestAutoForward(context, orderId),
+    requestCatchUp: async (job) => enqueueStoreOrderCatchUpJob(context.queues.webhookEvents, job),
   });
   const processAutoForward = createAutoForwardProcessor({
     database,

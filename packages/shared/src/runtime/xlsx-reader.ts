@@ -10,6 +10,11 @@ export interface XlsxSheet {
   readonly name: string;
   /** Rows by spreadsheet position: index 0 is row 1. Missing cells are empty strings. */
   readonly rows: readonly (readonly string[])[];
+  /**
+   * Per row, the columns whose cell holds a number rather than text: a number cell "1.299" is
+   * one point two nine nine, while text "1.299" may carry a thousands dot. Absent when unknown.
+   */
+  readonly numberColumns?: readonly (readonly number[])[];
 }
 
 export const MAX_XLSX_BYTES = 20 * 1024 * 1024;
@@ -327,8 +332,17 @@ function cellValue(body: string): string {
 
 const tooManyColumns = () => validationError(`A planilha aceita no máximo ${MAX_COLUMNS} colunas`);
 
-function parseRow(xml: string, shared: readonly string[]): string[] {
+/** A cell without a type, or typed "n", stores a number; every other type stores text. */
+function isNumberCell(type: string | undefined): boolean {
+  return type === undefined || type === "n";
+}
+
+function parseRow(
+  xml: string,
+  shared: readonly string[],
+): { values: string[]; numberColumns: number[] } {
   const values: string[] = [];
+  const numberColumns: number[] = [];
   for (const cell of boundedElements(xml, "c", MAX_COLUMNS, tooManyColumns)) {
     const attributes = parseAttributes(cell.attributes);
     const column = columnIndex(attributes.get("r"), values.length);
@@ -336,13 +350,18 @@ function parseRow(xml: string, shared: readonly string[]): string[] {
       throw validationError(`A planilha aceita no máximo ${MAX_COLUMNS} colunas`);
     }
 
-    const read = CELL_READERS[attributes.get("t") ?? ""] ?? cellValue;
+    const type = attributes.get("t");
+    const read = CELL_READERS[type ?? ""] ?? cellValue;
     while (values.length < column) {
       values.push("");
     }
-    values[column] = read(cell.body, shared);
+    const value = read(cell.body, shared);
+    values[column] = value;
+    if (value !== "" && isNumberCell(type)) {
+      numberColumns.push(column);
+    }
   }
-  return values;
+  return { values, numberColumns };
 }
 
 const tooManyCells = () => validationError("A planilha .xlsx tem células demais para importar");
@@ -352,8 +371,9 @@ function parseSheet(
   xml: string,
   shared: readonly string[],
   cellsBefore: number,
-): { rows: string[][]; cells: number } {
+): { rows: string[][]; numberColumns: number[][]; cells: number } {
   const rows: string[][] = [];
+  const numberColumns: number[][] = [];
   let cells = cellsBefore;
   for (const row of scanElements(xml, "row")) {
     const rowNumber = Number.parseInt(parseAttributes(row.attributes).get("r") ?? "", 10);
@@ -369,15 +389,17 @@ function parseSheet(
     }
     while (rows.length < index) {
       rows.push([]);
+      numberColumns.push([]);
     }
-    const values = parseRow(row.body, shared);
-    rows[index] = values;
-    cells += values.length;
+    const parsed = parseRow(row.body, shared);
+    rows[index] = parsed.values;
+    numberColumns[index] = parsed.numberColumns;
+    cells += parsed.values.length;
     if (cells > MAX_WORKBOOK_CELLS) {
       throw tooManyCells();
     }
   }
-  return { rows, cells };
+  return { rows, numberColumns, cells };
 }
 
 function resolveTarget(target: string): string {
@@ -468,7 +490,11 @@ export async function readXlsxSheets(
     xmlCharacters += xml.length;
     const parsed = parseSheet(xml, shared, cells);
     cells = parsed.cells;
-    sheets.push({ name: attributes.get("name") ?? "", rows: parsed.rows });
+    sheets.push({
+      name: attributes.get("name") ?? "",
+      rows: parsed.rows,
+      numberColumns: parsed.numberColumns,
+    });
   }
   return sheets;
 }

@@ -804,3 +804,15 @@ O revendedor (StockShopp) quer publicar produtos de mais de um fornecedor na mes
 - **O pedido já se dividia** por fornecedor do produto (um envio por fornecedor, com pagamento, taxa, repasse e NF-e por envio). Nada disso muda.
 - **Etiqueta do Mercado Livre:** o ML dá uma etiqueta por pedido e por carrinho. Pedido ou carrinho com dois fornecedores se divide normalmente, mas a etiqueta do ML fica travada e o revendedor recebe o aviso do que fazer (decisão do Guilherme no mesmo ok de 13/11).
 - **Fica de fora:** devolução que abre pedido para todos os fornecedores, avaliação que espera o pedido inteiro, taxa, repasse, NF-e, cadastro inicial (continua um fornecedor) e cobrança.
+
+## 2026-11-15: A venda conta no mês em que foi paga
+
+A auditoria da rodada 3 achou que o mês fechado, guardado logo depois que acaba, deixava de fora o pedido pago depois: ele não aparecia como venda em nenhum relatório mensal. Guilherme, 15/11: "Vamos fazer assim ok" e, no plano, "Sim, A agora".
+
+- **Regra:** cada pedido ganha a data de pagamento (`orders.paid_at`), gravada na primeira vez que o SellBridge o vê pago. Pedido que já chega pago fica com a data do pedido, a não ser que o mês do pedido já tenha acabado: aí conta no mês em que foi visto, porque o mês fechado não muda. Os pedidos antigos pegaram a primeira data de pago do histórico (`order_status_changes`) ou, sem histórico, a data do pedido.
+- **Onde vale:** relatórios mensais (revendedor, fornecedor e equipe), painel, Financeiro (lista, totais e planilha), vendas do fornecedor e a API pública. Todos filtram pela data de venda: a de pagamento ou, para pedido nunca pago, a do pedido (`saleDate`, com índice próprio). A lista do Financeiro mostra as duas datas quando são de dias diferentes.
+- **Exemplo aprovado:** pedido de R$ 100 feito em 30/10 e pago em 02/11 aparece em outubro como "Valor aguardando pagamento: R$ 100" e em novembro como venda.
+- **Cancelamento e reembolso:** por enquanto ficam no mês em que a venda foi paga (opção A). Contar no mês em que aconteceram (opção B, "Cancelados de meses anteriores") é a próxima tarefa.
+- **Meses já guardados:** o relatório guardado passou para a versão 2. Um mês guardado na versão 1 (regra antiga) é recalculado uma vez na próxima leitura e trocado; depois disso fica guardado como sempre.
+- **Fica pela data do pedido:** os indicadores de movimento (mais vendidos, temperatura do produto, clientes e recompra, horário das vendas no relatório).
+- **Descartado:** cinco dias de carência antes de guardar o mês (só adia o problema) e a data de pagamento informada pelo marketplace (uma venda sincronizada atrasada cairia num mês já guardado).

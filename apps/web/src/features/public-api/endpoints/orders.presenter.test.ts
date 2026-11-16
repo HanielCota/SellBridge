@@ -18,6 +18,7 @@ const detail: OrderDetail = {
   marketplaceFeeCents: 1400,
   buyerName: "Mariana",
   orderedAt: new Date("2026-03-01T13:00:00Z"),
+  paidAt: new Date("2026-03-01T13:00:00Z"),
   deliveredAt: new Date("2026-03-04T15:00:00Z"),
   items: [
     {
@@ -103,6 +104,7 @@ describe("presentOrderSummary", () => {
     id: "order-1",
     externalOrderId: "ML-1",
     orderedAt: new Date("2026-03-01T13:00:00Z"),
+    paidAt: new Date("2026-03-02T09:00:00Z"),
     deliveredAt: null,
     status: "paid",
     storeConnectionId: "store-1",
@@ -126,6 +128,7 @@ describe("presentOrderSummary", () => {
     expect(presentOrderSummary(row)).toMatchObject({
       storeId: "store-1",
       status: "paid",
+      paidAt: "2026-03-02T09:00:00.000Z",
       deliveredAt: null,
       itemsSummary: "Vestido (x2)",
       totals: { marketplaceFeeCents: 1400, refundsCents: 100, profitCents: 4250 },

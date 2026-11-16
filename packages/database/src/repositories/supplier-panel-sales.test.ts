@@ -146,6 +146,8 @@ async function sale(input: {
   lines: [productId: string, quantity: number][];
   parcel?: FulfillmentStatus;
   parcelSupplierId?: string;
+  /** Exact dates, for a sale outside the March days. */
+  dates?: { orderedAt: Date; paidAt: Date | null };
 }): Promise<string> {
   const [order] = await database
     .insert(orders)
@@ -155,7 +157,9 @@ async function sale(input: {
       externalOrderId: `ORD-${randomUUID()}`,
       status: input.status,
       totalCents: 99_999,
-      orderedAt: new Date(`2024-03-0${input.day}T${input.hour ?? 15}:00:00Z`),
+      orderedAt:
+        input.dates?.orderedAt ?? new Date(`2024-03-0${input.day}T${input.hour ?? 15}:00:00Z`),
+      paidAt: input.dates?.paidAt ?? null,
     })
     .returning({ id: orders.id });
   const orderId = order?.id ?? "";
@@ -230,6 +234,33 @@ describe("getSupplierSalesSummary", () => {
       scope({ supplierId: otherSupplier.supplierId }),
     );
     expect(summary).toMatchObject({ orders: 1, units: 7, receivableCents: 7000, resellers: 1 });
+  });
+});
+
+describe("sales paid after the month they were placed in", () => {
+  it("count in the month the payment came in", async () => {
+    const april = { from: new Date("2024-04-01T03:00:00Z"), to: new Date("2024-05-01T03:00:00Z") };
+    const may = { from: new Date("2024-05-01T03:00:00Z"), to: new Date("2024-06-01T03:00:00Z") };
+    await sale({
+      tenantId: tenants.tenantA,
+      day: 1,
+      status: "paid",
+      lines: [[supplier.productId, 1]],
+      dates: {
+        orderedAt: new Date("2024-04-29T15:00:00Z"),
+        paidAt: new Date("2024-05-02T15:00:00Z"),
+      },
+    });
+
+    const inApril = await getSupplierSalesSummary(database, scope({ range: april }));
+    const inMay = await getSupplierSalesSummary(database, scope({ range: may }));
+    const mayLines = await exportSupplierSaleLines(database, scope({ range: may }));
+
+    expect(inApril.orders).toBe(0);
+    expect(inMay).toMatchObject({ orders: 1, units: 1, receivableCents: 4000 });
+    expect(mayLines.map((line) => line.paidAt?.toISOString())).toEqual([
+      "2024-05-02T15:00:00.000Z",
+    ]);
   });
 });
 

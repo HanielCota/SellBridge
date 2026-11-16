@@ -320,6 +320,9 @@ interface DemoOrder {
   readonly adjustment: (Adjustment & { readonly createdAt: Date }) | null;
 }
 
+/** Demo orders that were paid are paid when placed, as marketplace orders usually are. */
+const DEMO_PAID_STATUSES: readonly OrderStatus[] = ["paid", "shipped", "delivered", "returned"];
+
 /** Delivered demo orders arrive a few days after the order, never later than now. */
 function demoDeliveredAt(status: OrderStatus, orderedAt: Date, now: number): Date | null {
   if (status !== "delivered") {
@@ -400,6 +403,7 @@ async function insertDemoOrder(context: SeedSalesContext, demoOrder: DemoOrder):
       buyerName: demoOrder.buyerName,
       orderedAt: demoOrder.orderedAt,
       deliveredAt: demoOrder.deliveredAt,
+      paidAt: DEMO_PAID_STATUSES.includes(demoOrder.status) ? demoOrder.orderedAt : null,
     })
     .returning({ id: orders.id });
   if (!order) {

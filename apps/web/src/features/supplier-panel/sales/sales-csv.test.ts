@@ -3,6 +3,7 @@ import { buildSupplierSalesCsv } from "./sales-csv";
 
 const line = {
   orderedAt: new Date("2026-10-14T15:30:00Z"),
+  paidAt: new Date("2026-10-15T09:00:00Z"),
   externalOrderId: "2000009876",
   status: "delivered",
   title: "Vestido midi floral",
@@ -14,8 +15,12 @@ const line = {
 describe("buildSupplierSalesCsv", () => {
   it("writes one line per item with what the supplier receives", () => {
     const [header, row] = buildSupplierSalesCsv([line]).replace("﻿", "").split("\r\n");
-    expect(header).toBe("Data;Pedido;Situação;Produto;Código;Quantidade;A receber");
-    expect(row).toBe("14/10/2026, 12:30;2000009876;Entregue;Vestido midi floral;'=VES-01;2;80,90");
+    expect(header).toBe(
+      "Data do pedido;Pago em;Pedido;Situação;Produto;Código;Quantidade;A receber",
+    );
+    expect(row).toBe(
+      "14/10/2026, 12:30;15/10/2026, 06:00;2000009876;Entregue;Vestido midi floral;'=VES-01;2;80,90",
+    );
   });
 
   it("never carries the reseller's store, buyer or sale price", () => {

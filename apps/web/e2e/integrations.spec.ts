@@ -7,8 +7,10 @@ const DEMO_ORGANIZATION_NAME = "Ana Revendedora";
 test("cria uma chave de leitura, chama a API com ela e revoga", async ({ page, request }) => {
   await signIn(page, DEMO_USER);
   await waitForHydration(page);
-  await page.getByRole("button", { name: "Menu do usuário" }).click();
-  await page.getByRole("menuitem", { name: "Integrações" }).click();
+  await page
+    .getByRole("complementary", { name: "Menu lateral" })
+    .getByRole("link", { name: "Integrações", exact: true })
+    .click();
   await expect(page).toHaveURL(/\/integracoes\?perfil=[a-z0-9-]+$/);
   await expect(page).toHaveTitle("Integrações | SellBridge");
   await expect(page.getByRole("link", { name: /Documentação da API/ })).toHaveAttribute(

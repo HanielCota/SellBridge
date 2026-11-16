@@ -12,6 +12,8 @@ import {
   foldRows,
   formatDayHeading,
   groupOrdersByDay,
+  placedOnAnotherDay,
+  saleDateOf,
 } from "@/features/reports/financial-rows";
 import { cn } from "@/lib/utils";
 import { isVoidOrder, ProfitAmount, signedCents } from "./order-parts";
@@ -34,6 +36,26 @@ const clockTime = new Intl.DateTimeFormat("pt-BR", {
   minute: "2-digit",
   timeZone: REPORT_TIME_ZONE,
 });
+
+const dayAndMonth = new Intl.DateTimeFormat("pt-BR", {
+  day: "2-digit",
+  month: "2-digit",
+  timeZone: REPORT_TIME_ZONE,
+});
+
+/** A sale paid days after the order is listed on its payment day, saying when it was placed. */
+function PlacedOn({ row }: { row: OrderFinancialRow }) {
+  const placedAt = placedOnAnotherDay(row);
+  if (placedAt === null) {
+    return null;
+  }
+  return (
+    <>
+      <span aria-hidden="true">·</span>
+      <span className="shrink-0">pedido em {dayAndMonth.format(placedAt)}</span>
+    </>
+  );
+}
 
 /** "Moletom - Rosa (x1)" reads as "Moletom - Rosa": one unit is the norm, so only more is said. */
 function itemsLabel(items: string): string {
@@ -75,7 +97,8 @@ function RowSummary({
         {itemsLabel(row.items)}
       </span>
       <span className="flex min-w-0 items-center gap-1.5 text-xs text-muted-foreground">
-        <RowWhen date={row.orderedAt} byDay={byDay} />
+        <RowWhen date={saleDateOf(row)} byDay={byDay} />
+        <PlacedOn row={row} />
         {showStore ? (
           <>
             <span aria-hidden="true">·</span>
@@ -216,11 +239,12 @@ function GroupedOrder({ row }: { row: OrderFinancialRow }) {
           >
             <span className="flex min-w-0 items-center gap-1.5 text-muted-foreground">
               <time
-                dateTime={row.orderedAt.toISOString()}
+                dateTime={saleDateOf(row).toISOString()}
                 className="shrink-0 text-foreground tabular-nums"
               >
-                {clockTime.format(row.orderedAt)}
+                {clockTime.format(saleDateOf(row))}
               </time>
+              <PlacedOn row={row} />
               <span aria-hidden="true">·</span>
               <span className="truncate">{row.externalOrderId}</span>
             </span>
@@ -247,7 +271,7 @@ function GroupSummaryLine({
   first: OrderFinancialRow;
   showStore: boolean;
 }) {
-  const times = rows.map((row) => row.orderedAt.getTime());
+  const times = rows.map((row) => saleDateOf(row).getTime());
   return (
     <span className="flex min-w-0 items-center gap-1.5 overflow-hidden text-xs text-muted-foreground">
       <span className="shrink-0 tabular-nums">

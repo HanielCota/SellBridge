@@ -108,6 +108,17 @@ function orderRows(input: SellerReportInput): ReportIndicatorRow[] {
   ];
 }
 
+/** Unpaid orders stay in the month they were placed until paid, then count where paid. */
+function unpaidBaseOf(orders: number): string {
+  if (orders === 0) {
+    return "nenhum pedido sem pagamento";
+  }
+  if (orders === 1) {
+    return "1 pedido: vira venda no mês em que for pago";
+  }
+  return `${orders} pedidos: viram venda no mês em que forem pagos`;
+}
+
 function moneyRows(input: SellerReportInput): ReportIndicatorRow[] {
   const { summary } = input.current;
   const previous = input.previous.summary;
@@ -149,6 +160,14 @@ function moneyRows(input: SellerReportInput): ReportIndicatorRow[] {
       countFormat: "cents",
       previous: previous.averageTicketCents,
       sense: "higher_is_better",
+    }),
+    metric({
+      label: "Valor aguardando pagamento",
+      base: unpaidBaseOf(summary.unpaidOrders),
+      count: summary.unpaidTotalCents,
+      countFormat: "cents",
+      previous: previous.unpaidTotalCents,
+      sense: "neutral",
     }),
     metric({
       label: "Custo pendente",

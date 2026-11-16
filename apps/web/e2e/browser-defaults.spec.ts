@@ -92,7 +92,7 @@ test("switching the theme swaps colors at once, with no reveal or fading", async
   await signIn(page, DEMO_USER);
   await gotoHydrated(page, "/publicacoes");
   await page.getByRole("button", { name: "Menu do usuário" }).click();
-  await page.getByRole("menuitemradio", { name: "Claro" }).click();
+  await page.getByRole("menuitem", { name: "Modo claro", exact: true }).click();
   const afterSwitch = await page.evaluate(() => ({
     isDark: document.documentElement.classList.contains("dark"),
     viewTransitions: Number(Reflect.get(window, "viewTransitionCount")),

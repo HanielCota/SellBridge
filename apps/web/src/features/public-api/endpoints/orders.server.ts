@@ -66,7 +66,7 @@ export const listOrders = defineApiEndpoint({
   tag: "Pedidos",
   summary: "Listar pedidos",
   description:
-    "Pedidos feitos no período (padrão: últimos 30 dias), cada um com receita, custos, tarifas e lucro.",
+    "Pedidos do período (padrão: últimos 30 dias), cada um com receita, custos, tarifas e lucro. Uma venda entra no período em que foi paga; um pedido nunca pago, no período em que foi feito.",
   scope: "orders:read",
   params: noInput,
   query: ordersQuerySchema,

@@ -60,12 +60,12 @@ describe("supplier navigation", () => {
     );
   });
 
-  it("keeps the brand at the foot of the menu, with support and the profile", () => {
-    expect(ACCOUNT_NAV_ITEMS.supplier.map((item) => item.label)).toEqual([
-      "Marca",
-      "Suporte",
-      "Meu perfil",
-    ]);
+  it("keeps support and then the brand at the foot of the supplier menu", () => {
+    expect(ACCOUNT_NAV_ITEMS.supplier.map((item) => item.label)).toEqual(["Suporte", "Marca"]);
+  });
+
+  it("keeps support and then the plan at the foot of the reseller menu", () => {
+    expect(ACCOUNT_NAV_ITEMS.seller.map((item) => item.label)).toEqual(["Suporte", "Assinatura"]);
   });
 });
 

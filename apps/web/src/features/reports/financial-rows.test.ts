@@ -5,6 +5,8 @@ import {
   formatDayHeading,
   groupOrdersByDay,
   orderAdjustments,
+  placedOnAnotherDay,
+  saleDateOf,
   orderCostsCents,
   orderMargin,
   orderSplit,
@@ -144,14 +146,73 @@ describe("daySplit", () => {
 describe("groupOrdersByDay", () => {
   it("keeps the list order and starts a group when the day changes", () => {
     const rows = [
-      { id: "a", orderedAt: new Date("2026-10-10T15:00:00Z") },
-      { id: "b", orderedAt: new Date("2026-10-10T04:00:00Z") },
-      { id: "c", orderedAt: new Date("2026-10-10T01:00:00Z") },
+      { id: "a", orderedAt: new Date("2026-10-10T15:00:00Z"), paidAt: null },
+      { id: "b", orderedAt: new Date("2026-10-10T04:00:00Z"), paidAt: null },
+      { id: "c", orderedAt: new Date("2026-10-10T01:00:00Z"), paidAt: null },
     ];
     expect(groupOrdersByDay(rows).map((day) => [day.key, day.rows.map((row) => row.id)])).toEqual([
       ["2026-10-10", ["a", "b"]],
       ["2026-10-09", ["c"]],
     ]);
+  });
+
+  it("groups a sale paid days later under its payment day", () => {
+    const rows = [
+      {
+        id: "late",
+        orderedAt: new Date("2026-10-30T15:00:00Z"),
+        paidAt: new Date("2026-11-02T15:00:00Z"),
+      },
+      {
+        id: "same",
+        orderedAt: new Date("2026-11-02T12:00:00Z"),
+        paidAt: new Date("2026-11-02T12:00:00Z"),
+      },
+    ];
+
+    const days = groupOrdersByDay(rows);
+
+    expect(days.map((day) => [day.key, day.rows.map((row) => row.id)])).toEqual([
+      ["2026-11-02", ["late", "same"]],
+    ]);
+  });
+});
+
+describe("saleDateOf", () => {
+  it("files a paid order under its payment date", () => {
+    const paidAt = new Date("2026-11-02T13:00:00Z");
+
+    expect(saleDateOf({ orderedAt: new Date("2026-10-30T13:00:00Z"), paidAt })).toEqual(paidAt);
+  });
+
+  it("files an order never paid under its order date", () => {
+    const orderedAt = new Date("2026-10-30T13:00:00Z");
+
+    expect(saleDateOf({ orderedAt, paidAt: null })).toEqual(orderedAt);
+  });
+});
+
+describe("placedOnAnotherDay", () => {
+  it("gives the order date when the payment came on a later day", () => {
+    const orderedAt = new Date("2026-10-30T13:00:00Z");
+
+    const placed = placedOnAnotherDay({ orderedAt, paidAt: new Date("2026-11-02T13:00:00Z") });
+
+    expect(placed).toEqual(orderedAt);
+  });
+
+  it("stays quiet when the order was paid the same Brazil day", () => {
+    // 23:00 and 23:30 of 10 Oct in Brazil, though 11 Oct in UTC for the payment.
+    const placed = placedOnAnotherDay({
+      orderedAt: new Date("2026-10-11T02:00:00Z"),
+      paidAt: new Date("2026-10-11T02:30:00Z"),
+    });
+
+    expect(placed).toBeNull();
+  });
+
+  it("stays quiet for an order never paid", () => {
+    expect(placedOnAnotherDay({ orderedAt: new Date(), paidAt: null })).toBeNull();
   });
 });
 

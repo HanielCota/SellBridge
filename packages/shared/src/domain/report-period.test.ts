@@ -46,6 +46,21 @@ describe("resolveReportPeriod", () => {
     expect(period.previous).toMatchObject({ fromDate: "2026-08-01", toDate: "2026-08-31" });
   });
 
+  it("keeps the month partial on its last day, so the report is not stored before it ends", () => {
+    const lastDay = new Date("2026-10-31T13:00:00.000Z");
+
+    const period = resolveReportPeriod({ mes: "2026-10" }, lastDay);
+
+    expect(period).toMatchObject({ status: "partial", toDate: "2026-10-31", days: 31 });
+    expect(period.previous).toMatchObject({ fromDate: "2026-09-01", toDate: "2026-09-30" });
+  });
+
+  it("closes the month once it has ended", () => {
+    const period = resolveReportPeriod({ mes: "2026-10" }, new Date("2026-11-01T03:00:00.000Z"));
+
+    expect(period.status).toBe("closed");
+  });
+
   it("falls back to the current month for a month in the future", () => {
     expect(resolveReportPeriod({ mes: "2026-12" }, NOW).month).toBe("2026-10");
   });
@@ -64,6 +79,14 @@ describe("resolveReportPeriod", () => {
   it("stops a range at today and marks it partial", () => {
     const period = resolveReportPeriod({ de: "2026-10-20", ate: "2026-11-05" }, NOW);
     expect(period).toMatchObject({ kind: "range", status: "partial", toDate: "2026-10-27" });
+  });
+
+  it("cuts the range before at the current time of day when the range ends today", () => {
+    const period = resolveReportPeriod({ de: "2026-10-21", ate: "2026-10-27" }, NOW);
+
+    expect(period.previous.from.toISOString()).toBe("2026-10-14T03:00:00.000Z");
+    expect(period.previous.to.toISOString()).toBe("2026-10-20T13:00:00.000Z");
+    expect(period.previous).toMatchObject({ fromDate: "2026-10-14", toDate: "2026-10-20" });
   });
 
   it("falls back to the current month when the range is reversed", () => {

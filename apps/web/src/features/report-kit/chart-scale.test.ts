@@ -36,6 +36,13 @@ describe("lineAxis", () => {
     }
   });
 
+  it("draws a month with a loss below the zero line", () => {
+    const axis = lineAxis([-50_000, 20_000, 30_000], null);
+
+    expect(axis.min).toBeLessThanOrEqual(-50_000);
+    expect(positionOf(-50_000, axis)).toBeLessThan(positionOf(0, axis));
+  });
+
   it("stops a rate axis at 100% even when every month is at 0%", () => {
     expect(lineAxis([0, 0, 0], 0.9, 1)).toMatchObject({ min: 0, max: 1 });
   });

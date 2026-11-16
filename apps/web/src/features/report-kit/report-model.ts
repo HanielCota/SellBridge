@@ -175,7 +175,8 @@ export interface ServedReport {
   generatedAt: string;
 }
 
-export const MONTHLY_REPORT_VERSION = 1;
+/** 2: sales filed by their payment date; months kept under 1 are rebuilt once when read. */
+export const MONTHLY_REPORT_VERSION = 2;
 /** Below this many ratings a person's average says more about luck: "Poucas notas". */
 export const MIN_RATINGS_FOR_AVERAGE = 10;
 /** Cases listed on the page per tab; the rest are in the spreadsheet. */

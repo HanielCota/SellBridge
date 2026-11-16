@@ -1,4 +1,4 @@
-import { and, eq } from "drizzle-orm";
+import { and, eq, lt, sql } from "drizzle-orm";
 import type { Database } from "../client.ts";
 import { reportSnapshots } from "../schema/index.ts";
 
@@ -53,6 +53,69 @@ export async function saveReportSnapshot(
   const stored = await findReportSnapshot(database, key);
   if (stored === null) {
     throw new Error(`Report snapshot ${key.scope}/${key.month} was not saved`);
+  }
+  return stored;
+}
+
+/**
+ * Replaces a month kept before it ended: it missed the rest of its last day. Only a row captured
+ * before `monthEnd` is replaced, so readers racing to rebuild it write it once.
+ *
+ * @throws {Error} When no snapshot exists for the key.
+ */
+export async function replaceEarlyReportSnapshot(
+  database: Database,
+  key: ReportSnapshotKey,
+  payload: unknown,
+  monthEnd: Date,
+): Promise<StoredReportSnapshot> {
+  await database
+    .update(reportSnapshots)
+    .set({ payload, capturedAt: sql`now()` })
+    .where(
+      and(
+        eq(reportSnapshots.scope, key.scope),
+        eq(reportSnapshots.ownerId, key.ownerId),
+        eq(reportSnapshots.month, key.month),
+        lt(reportSnapshots.capturedAt, monthEnd),
+      ),
+    );
+  const stored = await findReportSnapshot(database, key);
+  if (stored === null) {
+    throw new Error(`Report snapshot ${key.scope}/${key.month} was not found`);
+  }
+  return stored;
+}
+
+/**
+ * Replaces a month kept by an older report version, such as one counted before sales were filed
+ * by their payment date. Only a row whose numeric `version` is below `currentVersion` is replaced,
+ * so readers racing to rebuild it write it once and a newer row is never rolled back.
+ *
+ * @throws {Error} When no snapshot exists for the key.
+ */
+export async function replaceOutdatedReportSnapshot(
+  database: Database,
+  key: ReportSnapshotKey,
+  payload: unknown,
+  currentVersion: number,
+): Promise<StoredReportSnapshot> {
+  const storedVersion = sql`case when jsonb_typeof(${reportSnapshots.payload} -> 'version') = 'number'
+    then (${reportSnapshots.payload} ->> 'version')::numeric else 0 end`;
+  await database
+    .update(reportSnapshots)
+    .set({ payload, capturedAt: sql`now()` })
+    .where(
+      and(
+        eq(reportSnapshots.scope, key.scope),
+        eq(reportSnapshots.ownerId, key.ownerId),
+        eq(reportSnapshots.month, key.month),
+        sql`${storedVersion} < ${currentVersion}`,
+      ),
+    );
+  const stored = await findReportSnapshot(database, key);
+  if (stored === null) {
+    throw new Error(`Report snapshot ${key.scope}/${key.month} was not found`);
   }
   return stored;
 }
