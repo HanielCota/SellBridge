@@ -2,7 +2,9 @@ import type { FulfillmentStatus } from "../schemas/fulfillment.ts";
 
 /**
  * Where a parcel's marketplace label stands for the supplier, from the label records kept on the
- * parcel. Only Mercado Livre hands out labels; other channels ship with the supplier's own.
+ * parcel. Only Mercado Livre hands out labels; other channels ship with the supplier's own. An
+ * order split between suppliers has none either: Mercado Livre gives one label per order, and
+ * one label cannot travel on two parcels.
  * - `waiting`: the marketplace said it has not released the label yet, within the dispatch time;
  * - `pending`: never emitted, still within the dispatch time;
  * - `late`: never emitted and the dispatch time is over, released or not: past the time the
@@ -37,12 +39,18 @@ export interface LabelRecord {
   labelWaitingSince: Date | null;
   /** Whether the parcel's next step is past its time. */
   overdue: boolean;
+  /** The order has another supplier's parcel too. */
+  splitOrder: boolean;
 }
 
 /** The label state of a parcel; null when there is no marketplace label to speak of. */
 export function supplierLabelState(record: LabelRecord): SupplierLabelState | null {
   const statuses: readonly FulfillmentStatus[] = LABEL_STATUSES;
-  if (record.marketplace !== LABEL_MARKETPLACE || !statuses.includes(record.status)) {
+  if (
+    record.marketplace !== LABEL_MARKETPLACE ||
+    !statuses.includes(record.status) ||
+    record.splitOrder
+  ) {
     return null;
   }
   if (record.labelPrintCount > 0) {

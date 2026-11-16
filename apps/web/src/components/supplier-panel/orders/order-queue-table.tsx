@@ -2,8 +2,10 @@ import { DataTable } from "@/components/data/data-table";
 import type { SupplierOrderRow } from "@/features/supplier-panel/orders/use-order-actions";
 import { DeadlineCell, queueColumnsFor } from "./order-queue-columns";
 import {
+  InvoiceStatusLine,
   LabelStatus,
   OrderSummary,
+  PostingDeadlineStatus,
   ProblemList,
   RowAction,
   RowCheckbox,
@@ -33,7 +35,9 @@ function MobileQueueRow({ row }: { row: SupplierOrderRow }) {
           <StepStatus row={row} />
           <DeadlineCell row={row} now={context.now} />
         </div>
+        <PostingDeadlineStatus parcel={row} now={context.now} />
         <LabelStatus state={row.labelState} printedAt={row.labelPrintedAt} />
+        <InvoiceStatusLine status={row.invoiceStatus} />
         <ProblemList row={row} />
         <RowAction
           row={row}

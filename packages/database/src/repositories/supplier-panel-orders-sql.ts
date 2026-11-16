@@ -7,6 +7,7 @@ import {
 import { SUPPLIER_QUEUE_STATUSES } from "@sellbridge/shared/supplier-panel-orders";
 import type { SupplierPaymentFilter } from "@sellbridge/shared/supplier-panel-orders-schema";
 import { BLOCKED_ORDER_STATUSES } from "@sellbridge/shared/supplier-panel-orders-tabs";
+import type { InvoiceStatus } from "@sellbridge/shared/supplier-invoice";
 import {
   and,
   eq,
@@ -26,6 +27,7 @@ import {
   orders,
   orderShipments,
   shipmentEvents,
+  shipmentInvoices,
   shipmentPayments,
   storeConnections,
   suppliers,
@@ -84,13 +86,36 @@ export const emailFailed = sql<boolean>`(${orderShipments.status} = 'forwarded' 
 
 export const orderBlocked = inArray(orders.status, [...BLOCKED_ORDER_STATUSES]);
 
-/** A queue parcel past its time, not released for shipping, or whose e-mail never arrived. */
+/** The parcel's NF-e status; null when the supplier's ERP issues no note for it. */
+export const invoiceStatus = sql<InvoiceStatus | null>`(
+  select ${shipmentInvoices.status} from ${shipmentInvoices}
+  where ${shipmentInvoices.shipmentId} = ${orderShipments.id}
+)`;
+
+/** The parcel's NF-e stopped in the ERP and waits for the supplier. */
+export const invoiceStopped = sql<boolean>`exists (
+  select 1 from ${shipmentInvoices}
+  where ${shipmentInvoices.shipmentId} = ${orderShipments.id}
+    and ${shipmentInvoices.status} = 'attention'
+)`;
+
+/**
+ * A queue parcel past its time, not released for shipping, whose e-mail never arrived or whose
+ * note stopped.
+ */
 export function problemFilter(now: Date): SQL | undefined {
   return and(
     inArray(orderShipments.status, [...SUPPLIER_QUEUE_STATUSES]),
-    or(overdueAt(now), orderBlocked, emailFailed),
+    or(overdueAt(now), orderBlocked, emailFailed, invoiceStopped),
   );
 }
+
+/** Queue parcels whose note stopped, out of a sale still released: the home's count. */
+export const stoppedInvoiceFilter = and(
+  inArray(orderShipments.status, [...SUPPLIER_QUEUE_STATUSES]),
+  not(orderBlocked),
+  invoiceStopped,
+);
 
 /**
  * Order number, tracking code, buyer, reseller store or any SKU of the parcel, anywhere in the
@@ -110,11 +135,15 @@ export function searchFilter(query: string): SQL | undefined {
   );
 }
 
+/** The parcel's order has another supplier's parcel too: one marketplace label cannot serve both. */
+export const splitOrderSql = sql<boolean>`exists (select 1 from ${orderShipments} as other_parcel where other_parcel.order_id = ${orderShipments.orderId} and other_parcel.id <> ${orderShipments.id})`;
+
 /** SQL twin of `supplierLabelState` (shared/domain/supplier-order-labels.ts). */
 export function labelFilter(state: SupplierLabelState, now: Date): SQL | undefined {
   const hasLabel = and(
     eq(storeConnections.marketplace, LABEL_MARKETPLACE),
     inArray(orderShipments.status, [...LABEL_STATUSES]),
+    not(splitOrderSql),
   );
   if (state === "printed") {
     return and(hasLabel, gt(orderShipments.labelPrintCount, 0));

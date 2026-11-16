@@ -4,6 +4,7 @@ export { openShippingAddress, sealShippingAddress } from "./shipping-address-sea
 export * from "./errors.ts";
 export * from "./http.ts";
 export * from "./registry.ts";
+export type { MercadoLivreConfig } from "./mercado-livre/client.ts";
 export { createMercadoLivreConnector } from "./mercado-livre/mercado-livre-connector.ts";
 export { mapMercadoLivreOrder } from "./mercado-livre/orders.ts";
 export { readMercadoLivreBuyerBilling, type BuyerBilling } from "./mercado-livre/billing.ts";
@@ -13,6 +14,7 @@ export {
   getMercadoLivreShipping,
   LABEL_NOT_READY_CAUSE,
   type MercadoLivreLabelBatch,
+  type MercadoLivreLabelFile,
   type PrintedLabel,
 } from "./mercado-livre/shipping.ts";
 export {

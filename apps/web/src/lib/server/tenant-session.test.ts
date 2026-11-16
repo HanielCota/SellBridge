@@ -29,7 +29,8 @@ vi.mock("./visiting-staff.ts", () => ({
   findVisitingStaff: mocks.findVisitingStaff,
 }));
 
-const { requireSellerSession, requireTenantSession } = await import("./tenant-session");
+const { requireAccountSession, requireSellerSession, requireTenantSession } =
+  await import("./tenant-session");
 
 const membership = (organizationId: string, kind: Membership["kind"] = "seller"): Membership => ({
   organizationId,
@@ -179,6 +180,42 @@ describe("requireTenantSession", () => {
     mocks.listMemberships.mockResolvedValue([membership("org-a"), membership("org-b")]);
     const headers = new Headers({ "x-sellbridge-profile": "loja-org-b" });
     await expect(requireTenantSession(headers)).resolves.toMatchObject({ tenantId: "org-b" });
+  });
+});
+
+describe("requireAccountSession", () => {
+  // Regression: an invited attendant has no profile and could never accept the terms.
+  it("serves a signed-in person who has no profile", async () => {
+    mocks.getSession.mockResolvedValue(session(null));
+    mocks.listMemberships.mockResolvedValue([]);
+
+    const result = await requireAccountSession(new Headers());
+
+    expect(result).toEqual({ userId: "user-1", impersonatedBy: null });
+  });
+
+  it("refuses a request without a session", async () => {
+    mocks.getSession.mockResolvedValue(null);
+
+    await expect(requireAccountSession(new Headers())).rejects.toMatchObject({
+      code: "UNAUTHORIZED",
+    });
+  });
+
+  it("ends an admin's visit after an hour, as the profile sessions do", async () => {
+    mocks.findVisitingStaff.mockResolvedValue({ role: "admin", banned: false });
+    mocks.getSession.mockResolvedValue({
+      ...session("org-a"),
+      session: {
+        activeOrganizationId: "org-a",
+        impersonatedBy: "admin-1",
+        createdAt: startedAt(61),
+      },
+    });
+
+    await expect(requireAccountSession(new Headers())).rejects.toMatchObject({
+      code: "UNAUTHORIZED",
+    });
   });
 });
 

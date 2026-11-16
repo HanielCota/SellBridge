@@ -2,6 +2,7 @@ import {
   createConnectorRegistry,
   type AuthorizationRequest,
   type MarketplaceId,
+  type MercadoLivreConfig,
 } from "@sellbridge/marketplaces";
 import { createTokenCipher } from "@sellbridge/shared/token-cipher";
 import { environment } from "./environment.ts";
@@ -17,6 +18,12 @@ export const connectors = createConnectorRegistry({
     serviceId: environment.TIKTOK_SHOP_SERVICE_ID,
   },
 });
+
+/** The app's credentials for the direct Mercado Livre calls: shipments and labels. */
+export const mercadoLivreApiConfig: MercadoLivreConfig = {
+  clientId: environment.MERCADO_LIVRE_CLIENT_ID,
+  clientSecret: environment.MERCADO_LIVRE_CLIENT_SECRET,
+};
 
 export const tokenCipher = createTokenCipher(environment.TOKEN_ENCRYPTION_KEY);
 

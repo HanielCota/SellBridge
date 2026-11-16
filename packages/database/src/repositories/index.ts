@@ -30,6 +30,7 @@ export type { StaffTicketFilters } from "./support-staff-filters.ts";
 export * from "./supplier-conversation-queue.ts";
 export * from "./supplier-conversations.ts";
 export * from "./supplier-conversation-notices.ts";
+export * from "./supplier-support-report.ts";
 export * from "./order-message-notices.ts";
 export * from "./order-message-delivery.ts";
 export * from "./impersonation-target.ts";

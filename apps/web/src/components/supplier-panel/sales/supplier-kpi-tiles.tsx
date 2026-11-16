@@ -1,9 +1,17 @@
 import type { SupplierSalesPoint, SupplierSalesSummary } from "@sellbridge/database/repositories";
+import type { ReactNode } from "react";
 import { TERM_HINTS } from "@/components/icons/action-icons";
+import {
+  CompareSparkline,
+  countValue,
+  MONEY_VALUE,
+  type KpiValueFormat,
+} from "@/components/reports/compare-sparkline";
 import { MoneyFigure, TrendTag } from "@/components/reports/figures";
 import type { SupplierSalesSituation } from "@sellbridge/shared/supplier-panel-sales";
 import { StatTile, type StatTileProps } from "@/components/reports/stat-tile";
-import { trendTagParts } from "@/features/reports/trend-tone";
+import { buildKpiStory, type KpiMeasure } from "@/features/reports/kpi-story";
+import { trendTagParts, type TrendTagParts } from "@/features/reports/trend-tone";
 import {
   supplierAmountLabels,
   supplierTrendPolarity,
@@ -13,10 +21,17 @@ const count = new Intl.NumberFormat("pt-BR");
 
 const VERSUS = "vs. anterior";
 
-interface SupplierKpiTilesProps {
+interface SupplierKpiSeries {
+  points: readonly SupplierSalesPoint[];
+  previousPoints: readonly SupplierSalesPoint[] | null;
+  bucket: "hour" | "day" | "week";
+  /** How many days the previous period starts before this one. */
+  offsetDays: number;
+}
+
+interface SupplierKpiTilesProps extends SupplierKpiSeries {
   summary: SupplierSalesSummary;
   previous: SupplierSalesSummary;
-  points: readonly SupplierSalesPoint[];
   situation: SupplierSalesSituation;
   /** The grid; the home stacks the tiles beside its chart, the Vendas page lays them in a row. */
   className?: string;
@@ -39,6 +54,41 @@ function Count({ value }: { value: number }) {
   return <span className="font-semibold">{count.format(value)}</span>;
 }
 
+const ORDERS_VALUE = countValue({ one: "pedido", many: "pedidos" });
+const UNITS_VALUE = countValue({ one: "peça", many: "peças" });
+
+const RECEIVABLE: KpiMeasure<SupplierSalesPoint> = { amount: (point) => point.receivableCents };
+const ORDERS: KpiMeasure<SupplierSalesPoint> = { amount: (point) => point.orders };
+const UNITS: KpiMeasure<SupplierSalesPoint> = { amount: (point) => point.units };
+const AVERAGE_ORDER: KpiMeasure<SupplierSalesPoint> = {
+  amount: (point) => point.receivableCents,
+  per: (point) => point.orders,
+};
+
+function tileChart(
+  series: SupplierKpiSeries,
+  measure: KpiMeasure<SupplierSalesPoint>,
+  parts: TrendTagParts | null,
+  format: KpiValueFormat,
+): ReactNode {
+  const story = buildKpiStory(series.points, series.previousPoints, measure, series.offsetDays);
+  return (
+    <CompareSparkline
+      story={story}
+      bucket={series.bucket}
+      tone={parts?.tone ?? "neutral"}
+      format={format}
+    />
+  );
+}
+
+function AverageFigure({ cents }: { cents: number | null }) {
+  if (cents === null) {
+    return <span className="font-semibold">—</span>;
+  }
+  return <MoneyFigure cents={cents} />;
+}
+
 /** The first tile's name and hint: the money to receive, or the money left out. */
 function amountTileName(situation: SupplierSalesSituation) {
   const label = supplierAmountLabels(situation).amount;
@@ -58,11 +108,10 @@ function amountTileName(situation: SupplierSalesSituation) {
 export function SupplierKpiTiles({
   summary,
   previous,
-  points,
   situation,
   className = "grid gap-4 sm:grid-cols-2 xl:grid-cols-1",
+  ...series
 }: SupplierKpiTilesProps) {
-  const sold = points.filter((point) => point.orders > 0);
   const labels = supplierAmountLabels(situation);
   const polarity = supplierTrendPolarity(situation);
   const amount = trendTagParts(summary.receivableCents, previous.receivableCents, polarity);
@@ -75,39 +124,29 @@ export function SupplierKpiTiles({
         {...amountTileName(situation)}
         figure={<MoneyFigure cents={summary.receivableCents} />}
         change={<TrendTag parts={amount} suffix={VERSUS} />}
-        trend={points.map((point) => point.receivableCents)}
-        trendTone={amount?.tone ?? "neutral"}
+        chart={tileChart(series, RECEIVABLE, amount, MONEY_VALUE)}
       />
       <KpiTile
         label="Pedidos"
         hint="Ver os pedidos dos revendedores"
         figure={<Count value={summary.orders} />}
         change={<TrendTag parts={orders} suffix={VERSUS} />}
-        trend={points.map((point) => point.orders)}
-        trendTone={orders?.tone ?? "neutral"}
+        chart={tileChart(series, ORDERS, orders, ORDERS_VALUE)}
       />
       <KpiTile
         label={labels.units}
         hint="Unidades dos seus produtos nos pedidos do período"
         figure={<Count value={summary.units} />}
         change={<TrendTag parts={units} suffix={VERSUS} />}
-        trend={points.map((point) => point.units)}
-        trendTone={units?.tone ?? "neutral"}
+        chart={tileChart(series, UNITS, units, UNITS_VALUE)}
       />
       <KpiTile
         label="Valor médio por pedido"
         hint={`${TERM_HINTS.supplierAverageOrder}; veja os pedidos`}
         isTerm
-        figure={
-          summary.averageOrderCents === null ? (
-            <span className="font-semibold">—</span>
-          ) : (
-            <MoneyFigure cents={summary.averageOrderCents} />
-          )
-        }
+        figure={<AverageFigure cents={summary.averageOrderCents} />}
         change={<TrendTag parts={average} suffix={VERSUS} />}
-        trend={sold.map((point) => point.receivableCents / point.orders)}
-        trendTone={average?.tone ?? "neutral"}
+        chart={tileChart(series, AVERAGE_ORDER, average, MONEY_VALUE)}
       />
     </div>
   );

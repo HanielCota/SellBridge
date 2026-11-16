@@ -61,10 +61,24 @@ function answeringOption(stores: readonly ConversationStore[], pick: StorePick) 
   );
 }
 
-/** The store's answering supplier when it has exactly one; with several, the reseller picks. */
-function onlyAnsweringOption(stores: readonly ConversationStore[], storeId: string | undefined) {
+/** Where the form was opened from: a store, and the suppliers of an order of it when known. */
+interface PageContext {
+  storeId: string | undefined;
+  /** The order's suppliers; empty when the page was a store, or the order's are unknown. */
+  supplierIds: readonly string[];
+}
+
+/**
+ * The page's answering supplier when there is exactly one: of the order's suppliers when the
+ * page was an order, else of the store's. With several, the reseller picks.
+ */
+function onlyAnsweringOption(stores: readonly ConversationStore[], page: PageContext) {
   const options = stores.filter(
-    (item) => item.storeConnectionId === storeId && item.supplierAnswers,
+    (item) =>
+      item.storeConnectionId === page.storeId &&
+      item.supplierAnswers &&
+      (page.supplierIds.length === 0 ||
+        (item.supplierId !== null && page.supplierIds.includes(item.supplierId))),
   );
   return options.length === 1 ? options[0] : undefined;
 }
@@ -79,7 +93,7 @@ function storePickOf(store: ConversationStore | null): StorePick | null {
 function pickedStore(
   options: readonly ConversationStore[],
   choice: StorePick | null | undefined,
-  fromPage: string | undefined,
+  fromPage: PageContext,
 ) {
   if (choice === undefined) {
     return onlyAnsweringOption(options, fromPage);
@@ -92,14 +106,17 @@ function pickedStore(
 
 /**
  * The store and supplier: picked on screen, else the store the page was opened from (an order's
- * store, or `loja`) when it sells a single supplier that answers. `null` means the reseller
- * pressed "Alterar" and must pick again.
+ * store, or `loja`) when a single supplier of it answers: of the order's suppliers for an order.
+ * `null` means the reseller pressed "Alterar" and must pick again.
  */
 function useStoreChoice(search: NewSupplierConversationSearch) {
   const stores = useQuery(myConversationStoresQueryOptions());
   const prefilledOrder = useQuery(myConversationOrderQueryOptions(search.pedido));
   const [choice, setChoice] = useState<StorePick | null | undefined>(undefined);
-  const fromPage = prefilledOrder.data?.storeConnectionId ?? search.loja;
+  const fromPage: PageContext = {
+    storeId: prefilledOrder.data?.storeConnectionId ?? search.loja,
+    supplierIds: prefilledOrder.data?.supplierIds ?? [],
+  };
   const store = pickedStore(stores.data ?? [], choice, fromPage);
   const order: ConversationOrder | null =
     prefilledOrder.data?.storeConnectionId === store?.storeConnectionId

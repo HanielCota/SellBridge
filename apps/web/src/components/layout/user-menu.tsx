@@ -9,7 +9,7 @@ import {
   UserCircleIcon,
 } from "@phosphor-icons/react";
 import { useQueryClient } from "@tanstack/react-query";
-import { Link, useNavigate } from "@tanstack/react-router";
+import { getRouteApi, Link, useNavigate } from "@tanstack/react-router";
 import { type ReactNode, useRef } from "react";
 import { toast } from "sonner";
 import { useTheme } from "@/components/theme/theme-provider";
@@ -27,6 +27,8 @@ import { authClient } from "@/lib/auth-client";
 import { forgetTabProfile } from "@/lib/tab-profile";
 import { cn } from "@/lib/utils";
 import { type AccountMenuEntry, accountMenuEntries } from "./account-pages";
+
+const appRoute = getRouteApi("/_app");
 
 function useSignOut() {
   const navigate = useNavigate();
@@ -188,7 +190,8 @@ export function UserMenu({
   // Opened with the mouse, closing should not hand focus back to the card and light its ring;
   // from the keyboard it still does, so you know where you are.
   const openedWithPointer = useRef(false);
-  const entries = accountMenuEntries({ profileKind, isStaff: isStaffRole(user.role) });
+  const teamOnly = appRoute.useRouteContext({ select: (context) => context.session.teamOnly });
+  const entries = accountMenuEntries({ profileKind, isStaff: isStaffRole(user.role), teamOnly });
   return (
     <DropdownMenu>
       <DropdownMenuTrigger

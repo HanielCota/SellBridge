@@ -97,6 +97,7 @@ import { Route as AppFornecedorPainelVendasRouteImport } from './routes/_app/for
 import { Route as AppSuporteConversasTicketIdRouteImport } from './routes/_app/suporte/conversas/$ticketId'
 import { Route as AppSuporteFornecedoresIndexRouteImport } from './routes/_app/suporte/fornecedores/index'
 import { Route as AppSuporteFornecedoresNovoRouteImport } from './routes/_app/suporte/fornecedores/novo'
+import { Route as AppSuporteRevendedoresRelatorioRouteImport } from './routes/_app/suporte/revendedores_.relatorio'
 import { Route as ApiAdminExportarAuditoriaRouteImport } from './routes/api/admin/exportar/auditoria'
 import { Route as ApiAdminExportarChamadosRouteImport } from './routes/api/admin/exportar/chamados'
 import { Route as ApiAdminExportarClientesRouteImport } from './routes/api/admin/exportar/clientes'
@@ -595,6 +596,12 @@ const AppSuporteFornecedoresNovoRoute =
     path: '/suporte/fornecedores/novo',
     getParentRoute: () => AppRouteRoute,
   } as any)
+const AppSuporteRevendedoresRelatorioRoute =
+  AppSuporteRevendedoresRelatorioRouteImport.update({
+    id: '/suporte/revendedores_/relatorio',
+    path: '/suporte/revendedores/relatorio',
+    getParentRoute: () => AppRouteRoute,
+  } as any)
 const ApiAdminExportarAuditoriaRoute =
   ApiAdminExportarAuditoriaRouteImport.update({
     id: '/api/admin/exportar/auditoria',
@@ -898,6 +905,7 @@ export interface FileRoutesByFullPath {
   '/fornecedor/painel/vendas': typeof AppFornecedorPainelVendasRoute
   '/suporte/conversas/$ticketId': typeof AppSuporteConversasTicketIdRoute
   '/suporte/fornecedores/novo': typeof AppSuporteFornecedoresNovoRoute
+  '/suporte/revendedores/relatorio': typeof AppSuporteRevendedoresRelatorioRoute
   '/api/admin/exportar/auditoria': typeof ApiAdminExportarAuditoriaRoute
   '/api/admin/exportar/chamados': typeof ApiAdminExportarChamadosRoute
   '/api/admin/exportar/clientes': typeof ApiAdminExportarClientesRoute
@@ -1020,6 +1028,7 @@ export interface FileRoutesByTo {
   '/fornecedor/painel/vendas': typeof AppFornecedorPainelVendasRoute
   '/suporte/conversas/$ticketId': typeof AppSuporteConversasTicketIdRoute
   '/suporte/fornecedores/novo': typeof AppSuporteFornecedoresNovoRoute
+  '/suporte/revendedores/relatorio': typeof AppSuporteRevendedoresRelatorioRoute
   '/api/admin/exportar/auditoria': typeof ApiAdminExportarAuditoriaRoute
   '/api/admin/exportar/chamados': typeof ApiAdminExportarChamadosRoute
   '/api/admin/exportar/clientes': typeof ApiAdminExportarClientesRoute
@@ -1149,6 +1158,7 @@ export interface FileRoutesById {
   '/_app/fornecedor/painel/vendas': typeof AppFornecedorPainelVendasRoute
   '/_app/suporte/conversas/$ticketId': typeof AppSuporteConversasTicketIdRoute
   '/_app/suporte/fornecedores/novo': typeof AppSuporteFornecedoresNovoRoute
+  '/_app/suporte/revendedores_/relatorio': typeof AppSuporteRevendedoresRelatorioRoute
   '/api/admin/exportar/auditoria': typeof ApiAdminExportarAuditoriaRoute
   '/api/admin/exportar/chamados': typeof ApiAdminExportarChamadosRoute
   '/api/admin/exportar/clientes': typeof ApiAdminExportarClientesRoute
@@ -1277,6 +1287,7 @@ export interface FileRouteTypes {
     | '/fornecedor/painel/vendas'
     | '/suporte/conversas/$ticketId'
     | '/suporte/fornecedores/novo'
+    | '/suporte/revendedores/relatorio'
     | '/api/admin/exportar/auditoria'
     | '/api/admin/exportar/chamados'
     | '/api/admin/exportar/clientes'
@@ -1399,6 +1410,7 @@ export interface FileRouteTypes {
     | '/fornecedor/painel/vendas'
     | '/suporte/conversas/$ticketId'
     | '/suporte/fornecedores/novo'
+    | '/suporte/revendedores/relatorio'
     | '/api/admin/exportar/auditoria'
     | '/api/admin/exportar/chamados'
     | '/api/admin/exportar/clientes'
@@ -1527,6 +1539,7 @@ export interface FileRouteTypes {
     | '/_app/fornecedor/painel/vendas'
     | '/_app/suporte/conversas/$ticketId'
     | '/_app/suporte/fornecedores/novo'
+    | '/_app/suporte/revendedores_/relatorio'
     | '/api/admin/exportar/auditoria'
     | '/api/admin/exportar/chamados'
     | '/api/admin/exportar/clientes'
@@ -2254,6 +2267,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppSuporteFornecedoresNovoRouteImport
       parentRoute: typeof AppRouteRoute
     }
+    '/_app/suporte/revendedores_/relatorio': {
+      id: '/_app/suporte/revendedores_/relatorio'
+      path: '/suporte/revendedores/relatorio'
+      fullPath: '/suporte/revendedores/relatorio'
+      preLoaderRoute: typeof AppSuporteRevendedoresRelatorioRouteImport
+      parentRoute: typeof AppRouteRoute
+    }
     '/api/admin/exportar/auditoria': {
       id: '/api/admin/exportar/auditoria'
       path: '/api/admin/exportar/auditoria'
@@ -2672,6 +2692,7 @@ interface AppRouteRouteChildren {
   AppSuporteIndexRoute: typeof AppSuporteIndexRoute
   AppSuporteConversasTicketIdRoute: typeof AppSuporteConversasTicketIdRoute
   AppSuporteFornecedoresNovoRoute: typeof AppSuporteFornecedoresNovoRoute
+  AppSuporteRevendedoresRelatorioRoute: typeof AppSuporteRevendedoresRelatorioRoute
   AppSuporteFornecedoresIndexRoute: typeof AppSuporteFornecedoresIndexRoute
 }
 
@@ -2700,6 +2721,7 @@ const AppRouteRouteChildren: AppRouteRouteChildren = {
   AppSuporteIndexRoute: AppSuporteIndexRoute,
   AppSuporteConversasTicketIdRoute: AppSuporteConversasTicketIdRoute,
   AppSuporteFornecedoresNovoRoute: AppSuporteFornecedoresNovoRoute,
+  AppSuporteRevendedoresRelatorioRoute: AppSuporteRevendedoresRelatorioRoute,
   AppSuporteFornecedoresIndexRoute: AppSuporteFornecedoresIndexRoute,
 }
 

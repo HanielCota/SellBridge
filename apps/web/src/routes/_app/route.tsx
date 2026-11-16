@@ -15,7 +15,8 @@ import { SupportLauncher } from "@/components/support/support-launcher";
 import { SetupStrip } from "@/components/onboarding/setup-guide";
 import { planProfileNavigation } from "@/features/auth/profile-navigation";
 import { profileRedirectFor } from "@/features/auth/profile-routes";
-import { getAppSession } from "@/features/auth/session.functions";
+import { type AppSession, getAppSession } from "@/features/auth/session.functions";
+import { reuseAppSession } from "@/features/auth/session.queries";
 import { parseRequestedProfile } from "@/lib/profile-param";
 import {
   addProfileToHref,
@@ -48,7 +49,7 @@ export const Route = createFileRoute("/_app")({
     if (!preload && search.perfil !== undefined) {
       rememberTabProfile(search.perfil);
     }
-    const session = await getAppSession();
+    const session = await readAppSession(context.queryClient);
     if (!session) {
       throw redirect({ to: "/login", search: { redirect: location.href } });
     }
@@ -89,6 +90,14 @@ export const Route = createFileRoute("/_app")({
     prefetchSetupProgress(context.queryClient, context.session.profileKind, location.pathname),
   component: AppLayout,
 });
+
+/** Only a browser tab reuses the session: the server render resolves the profile from its URL. */
+function readAppSession(queryClient: QueryClient): Promise<AppSession | null> {
+  if (typeof window === "undefined") {
+    return getAppSession();
+  }
+  return reuseAppSession(queryClient, tabProfile(), () => getAppSession());
+}
 
 /**
  * The setup strip sits above every page: drawn after the paint, it pushed the page down under a
@@ -146,6 +155,7 @@ function AppLayout() {
     adminMode: session.adminMode,
     profileKind: session.profileKind,
     profiles: session.profiles,
+    teamOnly: session.teamOnly,
   });
   return (
     <div className="min-h-svh bg-background">
@@ -174,7 +184,7 @@ function AppLayout() {
             tabIndex={-1}
             className="mx-auto w-full max-w-[1440px] space-y-6 px-4 pt-4 pb-28 md:px-8 md:pt-8 md:pb-32"
           >
-            {session.profileKind === "seller" ? <SetupReminder /> : null}
+            {session.profileKind === "seller" && !session.teamOnly ? <SetupReminder /> : null}
             <Outlet />
           </main>
         </div>

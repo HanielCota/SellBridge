@@ -1,5 +1,7 @@
+import { WarningIcon } from "@phosphor-icons/react";
 import { useQuery } from "@tanstack/react-query";
-import type { ReactNode } from "react";
+import type { LabelFormat } from "@sellbridge/shared/schemas";
+import { type ReactNode, useRef } from "react";
 import { formatCents } from "@sellbridge/shared/money";
 import { DISPATCHED_FULFILLMENT_STATUSES } from "@sellbridge/shared/schemas";
 import { ShipmentPanel } from "@/components/fulfillment/shipment-panel";
@@ -8,7 +10,6 @@ import { SupplierPaymentBadgeView } from "@/components/supplier-payments/supplie
 import { shippingMethod } from "@/features/supplier-panel/orders/shipping-methods";
 import { ErrorState } from "@/components/feedback/error-state";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
-import { Button } from "@/components/ui/button";
 import {
   Dialog,
   DialogContent,
@@ -20,6 +21,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { isShippingBlocked } from "@/features/fulfillment/shipping-block";
 import { displayBuyerName } from "@/features/orders/buyer-name";
 import { channelLabel, channelSource } from "@/features/supplier-panel/orders/channel-labels";
+import { dispatchInvoiceReminder } from "@/features/supplier-panel/orders/dispatch-invoice-reminder";
 import { orderSteps } from "@/features/supplier-panel/orders/order-steps";
 import { supplierPanelShipmentQueryOptions } from "@/features/supplier-panel/orders/orders.queries";
 import { useSupplierShipmentUpdate } from "@/features/supplier-panel/orders/use-order-actions";
@@ -27,7 +29,9 @@ import { errorMessage } from "@/lib/errors";
 import { useTabProfileLink } from "@/lib/tab-profile";
 import { formatAbsoluteTime } from "@/lib/relative-time";
 import { cn } from "@/lib/utils";
-import { LabelStatus } from "./order-row-parts";
+import { useNow } from "@/hooks/use-now";
+import { LabelFormatMenu } from "./label-format-menu";
+import { LabelStatus, PostingDeadlineStatus } from "./order-row-parts";
 import { SupplierInvoiceCard } from "./supplier-invoice-card";
 import { SupplierParcelTracking } from "./supplier-parcel-tracking";
 
@@ -62,6 +66,7 @@ function OrderStepsList({ shipment }: { shipment: PanelShipment }) {
     events: shipment.events,
     labelPrintedAt: shipment.labelPrintedAt,
     hasMarketplaceLabel: shipment.labelState !== null,
+    invoice: shipment.invoice,
   });
   return (
     <div className="space-y-2">
@@ -101,6 +106,7 @@ function OrderStepsList({ shipment }: { shipment: PanelShipment }) {
 
 /** Who sold, who bought, through which channel, what the supplier receives, and the label. */
 function OrderFacts({ shipment }: { shipment: PanelShipment }) {
+  const now = useNow();
   const history = labelHistory(shipment);
   const facts: { term: string; detail: ReactNode }[] = [
     { term: "Canal", detail: <ChannelWithLogo marketplace={shipment.marketplace} /> },
@@ -130,6 +136,7 @@ function OrderFacts({ shipment }: { shipment: PanelShipment }) {
           </div>
         ))}
       </dl>
+      <PostingDeadlineStatus parcel={shipment} now={now} />
       {shipment.labelState === null ? null : (
         <div className="space-y-1">
           <LabelStatus state={shipment.labelState} printedAt={null} />
@@ -145,7 +152,8 @@ function OrderFacts({ shipment }: { shipment: PanelShipment }) {
 
 /**
  * Opens the marketplace label in a new tab, like the supplier link's page does, but from the
- * signed-in panel: the ids go in the form body and the server checks the panel session.
+ * signed-in panel: the ids go in the form body and the server checks the panel session. The PDF
+ * opens there, the browser downloads the ZPL, and an error shows in the tab.
  */
 function MarketplaceLabelForm({
   supplierId,
@@ -159,8 +167,18 @@ function MarketplaceLabelForm({
   printed: boolean;
 }) {
   const withProfile = useTabProfileLink();
+  const formRef = useRef<HTMLFormElement>(null);
+  const formatRef = useRef<HTMLInputElement>(null);
+  const print = (format: LabelFormat) => {
+    if (formRef.current === null || formatRef.current === null) {
+      return;
+    }
+    formatRef.current.value = format;
+    formRef.current.requestSubmit();
+  };
   return (
     <form
+      ref={formRef}
       method="post"
       action={withProfile(`/api/pedidos/${orderId}/etiqueta`)}
       target="_blank"
@@ -168,10 +186,31 @@ function MarketplaceLabelForm({
     >
       <input type="hidden" name="supplierId" value={supplierId} />
       <input type="hidden" name="shipmentId" value={shipmentId} />
-      <Button type="submit" variant="outline">
+      <input ref={formatRef} type="hidden" name="formato" defaultValue="pdf" />
+      {/* Wraps like the panel's other buttons, which the panel styles only as its own children. */}
+      <LabelFormatMenu
+        size="default"
+        className="h-auto min-h-9 max-w-full py-1.5 whitespace-normal"
+        onChoose={print}
+      >
         {printed ? "Reimprimir etiqueta do marketplace" : "Imprimir etiqueta do marketplace"}
-      </Button>
+      </LabelFormatMenu>
     </form>
+  );
+}
+
+/** Before "Despachar": a note still on its way or stopped, so the parcel leaves with its DANFE. */
+function DispatchInvoiceAlert({ shipment }: { shipment: PanelShipment }) {
+  const reminder = dispatchInvoiceReminder(shipment.status, shipment.invoice?.status ?? null);
+  if (reminder === null) {
+    return null;
+  }
+  return (
+    <Alert>
+      <WarningIcon aria-hidden="true" />
+      <AlertTitle>{reminder.title}</AlertTitle>
+      <AlertDescription>{reminder.description}</AlertDescription>
+    </Alert>
   );
 }
 
@@ -209,7 +248,9 @@ function PanelBody({ supplierId, shipmentId }: { supplierId: string; shipmentId:
           <AlertTitle>Venda não liberada</AlertTitle>
           <AlertDescription>Fale com o revendedor antes de separar ou despachar.</AlertDescription>
         </Alert>
-      ) : null}
+      ) : (
+        <DispatchInvoiceAlert shipment={query.data} />
+      )}
       {tracked ? <SupplierParcelTracking supplierId={supplierId} shipmentId={shipmentId} /> : null}
       <ShipmentPanel
         shipment={{ ...query.data, trackingFromChannel }}

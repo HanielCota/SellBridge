@@ -817,6 +817,15 @@ A auditoria da rodada 3 achou que o mês fechado, guardado logo depois que acaba
 - **Fica pela data do pedido:** os indicadores de movimento (mais vendidos, temperatura do produto, clientes e recompra, horário das vendas no relatório).
 - **Descartado:** cinco dias de carência antes de guardar o mês (só adia o problema) e a data de pagamento informada pelo marketplace (uma venda sincronizada atrasada cairia num mês já guardado).
 
+## 2026-11-15: Convite da equipe sem empresa de revendedor (item 28.a)
+
+- Atendente e supervisor convidados pela tela Equipe nascem sem organização: não têm loja, cadastro de revendedor nem plano, e entram direto na fila de chamados. O cadastro pelo site e o seed continuam criando a organização como antes.
+- Admin convidado continua ganhando a organização, porque o admin também cuida de uma loja e entra pelo painel de vendas (`isTeamModeOn`, a mesma regra que manda atendente e supervisor para a fila).
+- A regra mora em `createProfileForNewUser` (`apps/web/src/lib/server/sign-up-profile.ts`), que lê o cargo enviado por `/admin/create-user`. Essa rota é fechada ao navegador (item 10.b), só o convite a chama pelo servidor, e o cargo já passou pela conferência do plugin e pela trava do dono (item 10.a).
+- As telas da equipe usam `requireStaffSession`, que não depende de organização. As telas de revendedor continuam exigindo uma (`requireTenantSession`) e recusam quem não tem.
+- Atendente ou supervisor sem empresa vê só as telas da equipe e o próprio perfil (`isTeamOnlyAccount`): o menu esconde visão geral, pedidos, lojas, plano, suporte, avisos e a troca de modo; o perfil esconde as notificações, que são da loja; e "Seus dados" baixa só os dados pessoais (`requireAccountSession`).
+- Quem já recebeu uma empresa por convite antes disso fica como está; limpar esses casos é tarefa à parte. Quem já era cliente e é promovido à equipe mantém a própria empresa.
+
 ## 2026-11-15: Repasse Mercado Pago sem pagamento em dobro e com devolução automática
 
 A auditoria da rodada 3 (achado M9) mostrou um caminho para o revendedor pagar duas vezes o mesmo envio: um cartão em análise cujo aviso se perdeu, um segundo checkout aberto depois de 30 minutos e a aprovação tardia do primeiro recusada. O Guilherme aprovou os cinco pontos em 15/11 ("Pode abrir os dois") e as três escolhas do plano ("Sim, aprova os dois"). Esta decisão completa a de 2026-11-10.

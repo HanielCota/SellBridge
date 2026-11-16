@@ -1,12 +1,14 @@
 import { notFoundError, validationError } from "@sellbridge/shared/errors";
 import { toPaginated, type Paginated, type Pagination } from "@sellbridge/shared/schemas";
 import type { SupplierConversationTopicId } from "@sellbridge/shared/supplier-conversation-topics";
-import { and, count, desc, eq, exists, ilike, ne, or, type SQL } from "drizzle-orm";
+import { and, count, desc, eq, exists, ilike, isNotNull, ne, or, type SQL } from "drizzle-orm";
 import type { Database } from "../client.ts";
 import {
+  orderItems,
   organization,
   orders,
   storeConnections,
+  supplierProducts,
   storeSuppliers,
   suppliers,
   ticketAttachments,
@@ -149,10 +151,23 @@ export async function listConversationOrders(
     .limit(input.limit);
 }
 
-/** An order the form linked: it must be of the reseller and of the store picked. */
+/** The suppliers whose products the order has, oldest item first; empty when none is known. */
+async function listOrderSupplierIds(database: Database, orderId: string): Promise<string[]> {
+  const rows = await database
+    .selectDistinct({ supplierId: supplierProducts.supplierId })
+    .from(orderItems)
+    .innerJoin(supplierProducts, eq(supplierProducts.id, orderItems.supplierProductId))
+    .where(and(eq(orderItems.orderId, orderId), isNotNull(orderItems.supplierProductId)));
+  return rows.map((row) => row.supplierId);
+}
+
+/**
+ * An order the form linked: it must be of the reseller and of the store picked, and have
+ * products of the supplier the conversation goes to (a mixed order has several).
+ */
 export async function requireConversationOrder(
   database: Database,
-  input: { tenantId: string; storeConnectionId: string; orderId: string },
+  input: { tenantId: string; storeConnectionId: string; orderId: string; supplierId: string },
 ): Promise<ConversationOrder> {
   const [order] = await database
     .select(orderColumns)
@@ -168,20 +183,35 @@ export async function requireConversationOrder(
   if (order === undefined) {
     throw validationError("Este pedido não é da loja escolhida; escolha um pedido da lista");
   }
+  const supplierIds = await listOrderSupplierIds(database, input.orderId);
+  if (supplierIds.length > 0 && !supplierIds.includes(input.supplierId)) {
+    throw validationError(
+      "Este pedido não tem produtos deste fornecedor. Escolha o fornecedor dos produtos do pedido.",
+    );
+  }
   return order;
+}
+
+/** An order the form opened from: its store, and the suppliers whose products it has. */
+export interface PrefilledConversationOrder extends ConversationOrder {
+  storeConnectionId: string;
+  supplierIds: string[];
 }
 
 /** An order of the reseller with its store: an order page prefills both in the form. */
 export async function findConversationOrder(
   database: Database,
   input: { tenantId: string; orderId: string },
-): Promise<(ConversationOrder & { storeConnectionId: string }) | null> {
+): Promise<PrefilledConversationOrder | null> {
   const [order] = await database
     .select({ ...orderColumns, storeConnectionId: orders.storeConnectionId })
     .from(orders)
     .where(and(eq(orders.id, input.orderId), eq(orders.tenantId, input.tenantId)))
     .limit(1);
-  return order ?? null;
+  if (order === undefined) {
+    return null;
+  }
+  return { ...order, supplierIds: await listOrderSupplierIds(database, order.orderId) };
 }
 
 export interface ConversationSummary {
@@ -222,6 +252,10 @@ function searchCondition(database: Database, search: string | undefined): SQL | 
   );
 }
 
+function topicCondition(topic: SupplierConversationTopicId | undefined): SQL | undefined {
+  return topic === undefined ? undefined : eq(tickets.supplierTopic, topic);
+}
+
 /** The viewer's conversations, newest activity first, with an unread dot for the reader. */
 export async function listConversations(
   database: Database,
@@ -230,6 +264,7 @@ export async function listConversations(
     readerId: string;
     status?: TicketStatus | undefined;
     search?: string | undefined;
+    topic?: SupplierConversationTopicId | undefined;
   },
   pagination: Pagination,
 ): Promise<Paginated<ConversationSummary>> {
@@ -237,6 +272,7 @@ export async function listConversations(
     viewerCondition(input.viewer),
     input.status === undefined ? undefined : eq(tickets.status, input.status),
     searchCondition(database, input.search),
+    topicCondition(input.topic),
   );
   const [rows, totals] = await Promise.all([
     database
@@ -278,16 +314,29 @@ export async function listConversations(
   return toPaginated(items, totals.at(0)?.total ?? 0, pagination);
 }
 
-/** How many of the viewer's conversations sit in each state, under the same search as the list. */
+/**
+ * How many of the viewer's conversations sit in each state, under the same search and topic as
+ * the list.
+ */
 export async function countConversationsByStatus(
   database: Database,
-  input: { viewer: ConversationViewer; search?: string | undefined },
+  input: {
+    viewer: ConversationViewer;
+    search?: string | undefined;
+    topic?: SupplierConversationTopicId | undefined;
+  },
 ): Promise<Record<TicketStatus, number>> {
   const rows = await database
     .select({ status: tickets.status, total: count() })
     .from(tickets)
     .leftJoin(storeConnections, eq(storeConnections.id, tickets.storeConnectionId))
-    .where(and(viewerCondition(input.viewer), searchCondition(database, input.search)))
+    .where(
+      and(
+        viewerCondition(input.viewer),
+        searchCondition(database, input.search),
+        topicCondition(input.topic),
+      ),
+    )
     .groupBy(tickets.status);
   const totals: Record<TicketStatus, number> = { open: 0, answered: 0, closed: 0 };
   for (const row of rows) {

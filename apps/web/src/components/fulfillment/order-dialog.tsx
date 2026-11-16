@@ -30,6 +30,7 @@ import { ResellerSupplierPayment } from "@/components/supplier-payments/reseller
 import { TrackParcelLink } from "@/components/tracking/track-parcel-link";
 import { useTabProfileLink } from "@/lib/tab-profile";
 import { ShipmentActionHint, ShipmentActionIcon } from "./shipment-hints";
+import { SplitOrderNotice } from "./split-order-notice";
 
 type Detail = Awaited<
   ReturnType<typeof import("@/features/fulfillment/fulfillment.functions").getFulfillmentFn>
@@ -162,6 +163,10 @@ export function OrderOperations({ orderId }: { orderId: string }) {
   return (
     <div className="space-y-5">
       <MarketplaceTools detail={detail} onRefresh={refresh} />
+      <SplitOrderNotice
+        parcelCount={detail.shipments.length}
+        marketplace={detail.order.marketplace}
+      />
       {blocked ? (
         <p className="text-sm text-destructive">
           Pedido sem liberação para envio: pagamento pendente, cancelamento ou devolução.

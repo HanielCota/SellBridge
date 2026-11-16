@@ -7,6 +7,7 @@ import {
   orders,
   orderShipments,
   shipmentEvents,
+  shipmentInvoices,
   shipmentPayments,
   storeConnections,
   suppliers,
@@ -30,6 +31,7 @@ import { findSupplierShipmentsByCode } from "./supplier-panel-scan.ts";
 import {
   countSupplierOperationNow,
   countSupplierShipmentsByTab,
+  countSupplierStoppedInvoices,
   listSupplierHomeShipments,
   listSupplierResellers,
   listSupplierResellerStores,
@@ -42,6 +44,7 @@ let tenants: Awaited<ReturnType<typeof createTestTenantPair>>;
 let supplier: Awaited<ReturnType<typeof createTestSupplierProduct>>;
 let otherSupplier: Awaited<ReturnType<typeof createTestSupplierProduct>>;
 let operationSupplier: Awaited<ReturnType<typeof createTestSupplierProduct>>;
+let invoicingSupplier: Awaited<ReturnType<typeof createTestSupplierProduct>>;
 const storeIds: Record<string, string> = {};
 
 async function forwardedShipment(
@@ -116,6 +119,12 @@ beforeAll(async () => {
     costCents: 2000,
     suggestedPriceCents: 6000,
   });
+  invoicingSupplier = await createTestSupplierProduct(database, {
+    sku: `NFE-${randomUUID().slice(0, 6)}`,
+    title: "Chinelo",
+    costCents: 2000,
+    suggestedPriceCents: 5000,
+  });
   for (const tenantId of [tenants.tenantA, tenants.tenantB]) {
     storeIds[tenantId] = (
       await upsertStoreConnection(database, testStoreInput(tenantId, randomUUID()))
@@ -128,6 +137,7 @@ afterAll(async () => {
   await supplier.cleanup();
   await otherSupplier.cleanup();
   await operationSupplier.cleanup();
+  await invoicingSupplier.cleanup();
   await database.$client.end();
 });
 
@@ -377,6 +387,52 @@ describe("a sale not released for shipping", () => {
   });
 });
 
+async function invoicedShipment(status: "queued" | "attention") {
+  const created = await forwardedShipment({ productId: invoicingSupplier.productId });
+  await database.insert(shipmentInvoices).values({
+    shipmentId: created.shipmentId,
+    supplierId: invoicingSupplier.supplierId,
+    provider: "bling",
+    status,
+  });
+  return created;
+}
+
+describe("a parcel whose note stopped", () => {
+  it("lists it under the problems with the note's status", async () => {
+    const { shipmentId, order } = await invoicedShipment("attention");
+
+    const result = await listSupplierShipments(database, {
+      supplierId: invoicingSupplier.supplierId,
+      tab: "problem",
+      query: order.externalOrderId,
+      page: 1,
+    });
+
+    expect(result.items).toHaveLength(1);
+    expect(result.items[0]).toMatchObject({
+      id: shipmentId,
+      invoiceStatus: "attention",
+      problems: ["invoice_stopped"],
+    });
+  });
+
+  it("counts only stopped notes of sales still released for the home", async () => {
+    const before = await countSupplierStoppedInvoices(database, invoicingSupplier.supplierId);
+    await invoicedShipment("attention");
+    await invoicedShipment("queued");
+    const cancelled = await invoicedShipment("attention");
+    await database
+      .update(orders)
+      .set({ status: "cancelled" })
+      .where(eq(orders.id, cancelled.order.id));
+
+    const after = await countSupplierStoppedInvoices(database, invoicingSupplier.supplierId);
+
+    expect(after - before).toBe(1);
+  });
+});
+
 describe("listSupplierHomeShipments", () => {
   it("shows both groups even when more than one page waits for acceptance", async () => {
     for (let index = 0; index < 26; index += 1) {
@@ -578,6 +634,50 @@ describe("label records", () => {
 
     expect(waiting?.labelState).toBe("waiting");
     expect(printed).toMatchObject({ labelState: "printed", labelWaitingSince: null });
+  });
+
+  it("gives no label to an order split between suppliers, and says it is split", async () => {
+    const [order] = await database
+      .insert(orders)
+      .values({
+        tenantId: tenants.tenantA,
+        storeConnectionId: mercadoLivreStore,
+        externalOrderId: `PED-${randomUUID().slice(0, 8)}`,
+        status: "paid",
+        totalCents: 10_000,
+        orderedAt: new Date(),
+      })
+      .returning();
+    if (order === undefined) throw new Error("No order");
+    await database.insert(orderItems).values(
+      [supplier.productId, otherSupplier.productId].map((supplierProductId) => ({
+        tenantId: tenants.tenantA,
+        orderId: order.id,
+        supplierProductId,
+        title: "Camiseta",
+        quantity: 1,
+        unitPriceCents: 5000,
+        unitCostCents: 1000,
+      })),
+    );
+    const links = await forwardOrder(database, tenants.tenantA, {
+      orderId: order.id,
+      address: testAddress,
+      notes: "",
+    });
+    const mine = links.find((link) => link.supplierId === supplier.supplierId);
+    if (mine === undefined) throw new Error("No shipment");
+
+    const row = await labelRow({ shipmentId: mine.shipmentId, order });
+    const detail = await getSupplierPanelShipment(database, {
+      supplierId: supplier.supplierId,
+      shipmentId: mine.shipmentId,
+    });
+
+    expect(links).toHaveLength(2);
+    expect(row).toMatchObject({ labelState: null, splitOrder: true });
+    expect(await labelRow({ shipmentId: mine.shipmentId, order }, "pending")).toBeUndefined();
+    expect(detail).toMatchObject({ labelState: null, splitOrder: true });
   });
 
   it("gives no label state to a channel without marketplace labels", async () => {

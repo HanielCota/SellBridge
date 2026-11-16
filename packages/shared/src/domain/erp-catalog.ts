@@ -61,6 +61,8 @@ const CSV_HEADER = [
 ] as const;
 
 const GTIN_PATTERN = /^\d{8}$|^\d{12,14}$/;
+/** Excel on Windows reads a CSV without it as Windows-1252 and breaks every accent. */
+const UTF8_BOM = "\uFEFF";
 
 function quoteCsv(value: string): string {
   return `"${value.replace(/\r\n?/g, "\n").replaceAll('"', '""')}"`;
@@ -172,7 +174,8 @@ function fiscalCells(fiscal: ErpFiscalData): string[] {
  * comes from `resellerCosts` (by SKU); the ERP price is only the suggested price. An item with no
  * cost there gets a blank cost, which the import refuses: it is never saved with a wrong price.
  * Products SellBridge already has keep their category, and their photos and description when the
- * ERP has none (`keptFields`, by SKU).
+ * ERP has none (`keptFields`, by SKU). It starts with the UTF-8 BOM, like the other files the
+ * supplier downloads, so Excel keeps the accents; the import reads it with or without one.
  */
 export function buildErpCatalogCsv(
   items: readonly ErpCatalogItem[],
@@ -187,7 +190,7 @@ export function buildErpCatalogCsv(
         .join(";"),
     ),
   ];
-  return `${lines.join("\r\n")}\r\n`;
+  return `${UTF8_BOM}${lines.join("\r\n")}\r\n`;
 }
 
 /** One ERP product as the import screen lists it, with what still needs the supplier. */
