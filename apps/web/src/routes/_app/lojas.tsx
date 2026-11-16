@@ -24,6 +24,7 @@ import {
   NewStoreSupplierDialog,
   StoreSupplierDialog,
   type StoreSuppliersTarget,
+  useSellerSupplierActions,
 } from "@/components/stores/store-supplier-dialog";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -361,6 +362,7 @@ function StoresContent() {
   const suppliers = useQuery(storeSuppliersQueryOptions());
   const [pendingDisconnect, setPendingDisconnect] = useState<StoreToDisconnect | null>(null);
   const [suppliersStoreId, setSuppliersStoreId] = useState<string | null>(null);
+  const supplierActions = useSellerSupplierActions();
   const newStore = useNewStoreChoice((query.data?.stores.length ?? 0) > 0);
   const labels = new Map(
     (query.data?.marketplaces ?? []).map((option) => [option.id, option.label]),
@@ -406,6 +408,7 @@ function StoresContent() {
       <DisconnectStoreDialog store={pendingDisconnect} onClose={() => setPendingDisconnect(null)} />
       <StoreSupplierDialog
         target={suppliersTargetOf(stores, suppliersStoreId, suppliers.data?.suppliers)}
+        actions={supplierActions}
         onClose={() => setSuppliersStoreId(null)}
       />
       {newStore.dialog}
