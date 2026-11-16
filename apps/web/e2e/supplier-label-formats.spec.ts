@@ -233,15 +233,19 @@ test("o fornecedor baixa a etiqueta em ZPL, de um pedido e em lote", async ({ pa
   await expect(
     panel.getByRole("button", { name: "Reimprimir etiqueta do marketplace" }),
   ).toBeVisible();
-  const overflowInPixels = await panel.evaluate((element: HTMLElement) => {
-    const style = getComputedStyle(element);
-    const borders =
-      Number.parseFloat(style.borderLeftWidth) + Number.parseFloat(style.borderRightWidth);
-    // A phone draws the scrollbar over the content; the CI's desktop browser takes its width,
-    // which read as a steady 7 px of overflow with the button wrapped.
-    const scrollbar = element.offsetWidth - element.clientWidth - borders;
-    return element.scrollWidth - element.clientWidth - scrollbar;
+  const { overflowInPixels, pastTheEdge } = await panel.evaluate((element: HTMLElement) => {
+    const edge = element.getBoundingClientRect().left + element.clientWidth;
+    return {
+      overflowInPixels: element.scrollWidth - element.clientWidth,
+      // Named in the failure, so a wide element shows without a trace.
+      pastTheEdge: [...element.querySelectorAll("*")]
+        .filter((child) => child.getBoundingClientRect().right > edge + 1)
+        .slice(0, 5)
+        .map((child) => `${child.tagName} "${child.textContent.trim().slice(0, 40)}"`),
+    };
   });
   // One pixel is sub-pixel rounding; the unwrapped button overflowed by about 30.
-  expect(overflowInPixels).toBeLessThanOrEqual(1);
+  expect(overflowInPixels, `past the panel's edge: ${pastTheEdge.join("; ")}`).toBeLessThanOrEqual(
+    1,
+  );
 });
