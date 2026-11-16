@@ -112,10 +112,15 @@ function RuleForm({ enabled, deliveries }: { enabled: boolean; deliveries: numbe
 export function NewSupplierRuleCard() {
   const query = useQuery(newSupplierRuleQueryOptions());
   return (
-    <section className="surface-card grid max-w-3xl gap-4 rounded-3xl bg-card p-5 sm:p-6">
+    <section
+      aria-labelledby="new-supplier-rule-title"
+      className="surface-card grid max-w-3xl gap-4 rounded-3xl bg-card p-5 sm:p-6"
+    >
       <div className="grid gap-1.5">
         <div className="flex flex-wrap items-center gap-2">
-          <h2 className="text-subhead font-medium">Proteção para fornecedores novos</h2>
+          <h2 id="new-supplier-rule-title" className="text-subhead font-medium">
+            Proteção para fornecedores novos
+          </h2>
           {query.data === undefined ? null : (
             <PaymentPill tone={query.data.enabled ? "success" : "neutral"}>
               {query.data.enabled ? `Ligada · ${query.data.deliveries} entregas` : "Desligada"}
