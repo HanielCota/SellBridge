@@ -132,6 +132,11 @@ test("a nota parada aparece para o fornecedor em Com problema e para o revendedo
   const sale = await packedSaleWithStoppedNote(supplierId, product.id);
 
   await gotoHydrated(page, "/fornecedor/painel");
+  await page.getByRole("button", { name: /^Avisos/ }).click();
+  await expect(
+    page.getByText(`Nota fiscal com problema no pedido #${sale.externalOrderId}`),
+  ).toBeVisible();
+  await page.keyboard.press("Escape");
   await page.getByRole("link", { name: /1 nota fiscal com problema/ }).click();
   await expect(page).toHaveURL(/tab=problem/);
   await expect(page.getByText("Nota fiscal com problema").filter({ visible: true })).toBeVisible();
