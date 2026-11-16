@@ -194,3 +194,32 @@ test("o Início do fornecedor mostra os números da operação e muda com o per�
     "Quando seus produtos venderem, o valor de cada mês aparece aqui.",
   );
 });
+
+test("o Início mostra zero, e não traço, quando nenhum pedido foi enviado no período", async ({
+  page,
+}) => {
+  const email = await accounts.signUp(page, "Ateliê Zero E2E");
+  const supplierId = await giveTestBrand(database, email, "Ateliê Zero E2E");
+  const [product] = await database
+    .insert(supplierProducts)
+    .values({
+      supplierId,
+      sku: `BOL-${randomUUID().slice(0, 8)}`,
+      title: PRODUCT,
+      costCents: 4_000,
+      suggestedPriceCents: 9_900,
+      stock: 6,
+    })
+    .returning({ id: supplierProducts.id });
+  if (!product) throw new Error("Product missing");
+  // One sale still waiting for the accept: nothing dispatched, late or cancelled yet.
+  await sale({ supplierId, productId: product.id, forwardedHoursAgo: 1 });
+
+  await gotoHydrated(page, "/fornecedor/painel?period=7d");
+
+  const rates = card(page, "Sua operação no período");
+  await expect(rates).toContainText("Envios atrasados0%Nenhum prazo de envio venceu");
+  await expect(rates).toContainText("Cancelamentos por você0%Nenhum pedido enviado ou cancelado");
+  await expect(rates).toContainText("Tempo até enviar0 minNenhum envio no período");
+  await expect(rates).not.toContainText("—");
+});

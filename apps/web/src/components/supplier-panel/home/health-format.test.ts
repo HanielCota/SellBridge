@@ -3,7 +3,13 @@ import {
   type HealthMetric,
 } from "@sellbridge/shared/supplier-panel-health";
 import { describe, expect, it } from "vitest";
-import { formatHealthTarget, formatHealthValue, healthDelta, sampleNote } from "./health-format";
+import {
+  formatHealthTarget,
+  formatHealthValue,
+  healthDelta,
+  homeMetricValue,
+  sampleNote,
+} from "./health-format";
 
 function metric(overrides: Partial<HealthMetric> & Pick<HealthMetric, "key">): HealthMetric {
   return {
@@ -57,5 +63,45 @@ describe("health formatting", () => {
     expect(sampleNote(metric({ key: "average_rating", sample: 2 }))).toBe(
       "2 de 10 avaliações para medir",
     );
+  });
+});
+
+describe("homeMetricValue", () => {
+  it("keeps a measured value as it is", () => {
+    const text = homeMetricValue(metric({ key: "dispatch_on_time", value: 0.925 }));
+
+    expect(text).toBe("92,5%");
+  });
+
+  it("shows what happened when there are too few orders to judge", () => {
+    const text = homeMetricValue(
+      metric({ key: "accept_on_time", value: 1, sample: 3, level: "insufficient" }),
+    );
+
+    expect(text).toBe("100%");
+  });
+
+  it("shows zero percent cancelled when there is no order", () => {
+    const text = homeMetricValue(
+      metric({ key: "supplier_cancellations", value: null, sample: 0, level: "insufficient" }),
+    );
+
+    expect(text).toBe("0%");
+  });
+
+  it("counts zero orders instead of zero percent on time when there is no order", () => {
+    const text = homeMetricValue(
+      metric({ key: "accept_on_time", value: null, sample: 0, level: "insufficient" }),
+    );
+
+    expect(text).toBe("0 pedidos");
+  });
+
+  it("counts zero reviews when there is no review", () => {
+    const text = homeMetricValue(
+      metric({ key: "average_rating", value: null, sample: 0, level: "insufficient" }),
+    );
+
+    expect(text).toBe("0 avaliações");
   });
 });
