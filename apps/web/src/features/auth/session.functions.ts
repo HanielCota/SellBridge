@@ -4,7 +4,7 @@ import { getCookie, getRequest, getRequestHeaders, setCookie } from "@tanstack/r
 import { z } from "zod";
 import { hasAcceptedTerms } from "@sellbridge/database/repositories";
 import type { ProfileKind } from "@sellbridge/shared/profile-kind";
-import { isTeamModeOn } from "@/features/auth/team-mode";
+import { isTeamModeOn, isTeamOnlyAccount } from "@/features/auth/team-mode";
 import { TERMS_VERSION } from "@sellbridge/shared/terms";
 import { auth, isGoogleSignInEnabled } from "@/lib/server/auth";
 import { database } from "@/lib/server/database";
@@ -59,6 +59,8 @@ export interface AppSession {
   impersonationEndsAt: string | null;
   /** True only for team members (agent, supervisor, admin) with the mode on (`isTeamModeOn`). */
   adminMode: boolean;
+  /** A team member with no profile (`isTeamOnlyAccount`): team pages only, mode always on. */
+  teamOnly: boolean;
   /** Whether this person accepted the terms in force (item 26.a): the app asks first. */
   termsAccepted: boolean;
 }
@@ -75,6 +77,7 @@ export const getAppSession = createServerFn({ method: "GET" }).handler(
       resolvePageProfile(session.user.id, session.session.activeOrganizationId),
       hasAcceptedTerms(database, session.user.id, TERMS_VERSION),
     ]);
+    const teamOnly = isTeamOnlyAccount(role, profile.profiles.length);
     return {
       user: {
         id: session.user.id,
@@ -84,7 +87,8 @@ export const getAppSession = createServerFn({ method: "GET" }).handler(
         image: session.user.image ?? null,
         createdAt: new Date(session.user.createdAt).toISOString(),
       },
-      adminMode: isTeamModeOn(role, getCookie(ADMIN_MODE_COOKIE)),
+      adminMode: teamOnly || isTeamModeOn(role, getCookie(ADMIN_MODE_COOKIE)),
+      teamOnly,
       ...profile,
       impersonatedBy: session.session.impersonatedBy ?? null,
       impersonationEndsAt: session.session.impersonatedBy
