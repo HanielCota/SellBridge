@@ -19,8 +19,8 @@ import { HintedText } from "@/components/ui/hint";
 import { teamNoticesQueryOptions } from "@/features/supplier-panel/home/team-notices.queries";
 import { cn } from "@/lib/utils";
 import {
-  formatHealthValue,
   HEALTH_LEVEL_TONES,
+  homeMetricValue,
   LEVEL_TEXT_CLASSES,
   levelSentence,
   metricHint,
@@ -37,10 +37,8 @@ function SeeButton({ href, label }: { href: string; label: string }) {
   );
 }
 
-/** A metric off target shows its value in the level's color; a short sample shows a dash. */
+/** A metric off target shows its value in the level's color; a short sample stays neutral. */
 function MetricTile({ metric }: { metric: HealthMetric }) {
-  const value =
-    metric.level === "insufficient" ? "—" : formatHealthValue(metric.definition, metric.value);
   return (
     <div className="space-y-0.5">
       <p
@@ -50,7 +48,7 @@ function MetricTile({ metric }: { metric: HealthMetric }) {
           metric.level === "red" && "text-destructive",
         )}
       >
-        {value}
+        {homeMetricValue(metric)}
       </p>
       <HintedText
         label={metricHint(metric)}
