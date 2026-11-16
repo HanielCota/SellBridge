@@ -69,10 +69,16 @@ export const listMyConversations = createServerFn({ method: "GET" })
     const [page, counts] = await Promise.all([
       listConversations(
         database,
-        { viewer, readerId: context.userId, status: data.status, search: data.query },
+        {
+          viewer,
+          readerId: context.userId,
+          status: data.status,
+          search: data.query,
+          topic: data.assunto,
+        },
         { page: data.page, pageSize: data.pageSize },
       ),
-      countConversationsByStatus(database, { viewer, search: data.query }),
+      countConversationsByStatus(database, { viewer, search: data.query, topic: data.assunto }),
     ]);
     return { ...page, side: viewer.side, counts };
   });

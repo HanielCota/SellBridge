@@ -3,6 +3,7 @@ import { CONVERSATION_CONTACT_REFUSED } from "./contact-guard.ts";
 import {
   createSupplierConversationSchema,
   replySupplierConversationSchema,
+  supplierConversationsSearchSchema,
 } from "./supplier-conversations.ts";
 
 const STORE = "6f1d2c3b-4a5e-4f60-8a7b-9c0d1e2f3a4b";
@@ -49,5 +50,19 @@ describe("conversation messages", () => {
       orderId: "",
     });
     expect(parsed).toMatchObject({ situation: undefined, orderId: undefined });
+  });
+});
+
+describe("supplier queue search", () => {
+  it("keeps the topic the supplier picked", () => {
+    const search = supplierConversationsSearchSchema.parse({ assunto: "cancellation" });
+
+    expect(search.assunto).toBe("cancellation");
+  });
+
+  it("drops a topic that does not exist instead of breaking the page", () => {
+    const search = supplierConversationsSearchSchema.parse({ assunto: "refund" });
+
+    expect(search.assunto).toBeUndefined();
   });
 });

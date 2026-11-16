@@ -2,6 +2,7 @@ import type { ProfileKind } from "@sellbridge/shared/profile-kind";
 import type { SupplierConversationsSearch, TicketStatus } from "@sellbridge/shared/schemas";
 import {
   CONVERSATION_STATUS_LABELS,
+  SUPPLIER_CONVERSATION_TOPIC_LABELS,
   type ConversationSide,
 } from "@sellbridge/shared/supplier-conversation-topics";
 import { ChatsCircleIcon, PlusIcon } from "@phosphor-icons/react";
@@ -13,6 +14,7 @@ import { EmptyState } from "@/components/feedback/empty-state";
 import { ErrorState } from "@/components/feedback/error-state";
 import { PageHeader } from "@/components/layout/page-header";
 import { ConversationTable } from "@/components/supplier-support/conversation-list";
+import { ConversationTopicFilter } from "@/components/supplier-support/conversation-topic-filter";
 import {
   conversationsLabel,
   SupportAreaTabs,
@@ -48,7 +50,9 @@ function NoConversations({ kind, isFiltered }: { kind: ProfileKind; isFiltered: 
       <EmptyState
         icon={ChatsCircleIcon}
         title="Nenhuma conversa encontrada"
-        description="Ajuste a busca ou a situação."
+        description={
+          kind === "supplier" ? "Ajuste a busca ou o assunto." : "Ajuste a busca ou a situação."
+        }
       />
     );
   }
@@ -137,7 +141,10 @@ function ResellerFilters({
   );
 }
 
-/** A Fazer, Em andamento and Finalizado, each with how many conversations it holds. */
+/**
+ * A Fazer, Em andamento and Finalizado, each with how many conversations it holds under the
+ * topic and search picked below them.
+ */
 function SupplierQueueFilters({
   search,
   counts,
@@ -159,11 +166,17 @@ function SupplierQueueFilters({
         }))}
         onChange={(status) => onChange({ status })}
       />
-      <SearchField
-        search={search}
-        placeholder="Buscar assunto, loja ou pedido"
-        onChange={onChange}
-      />
+      <div className="flex flex-col gap-3 sm:flex-row">
+        <ConversationTopicFilter
+          value={search.assunto}
+          onChange={(assunto) => onChange({ assunto })}
+        />
+        <SearchField
+          search={search}
+          placeholder="Buscar assunto, loja ou pedido"
+          onChange={onChange}
+        />
+      </div>
     </div>
   );
 }
@@ -198,6 +211,16 @@ function EmptyResults({
   side: ConversationSide;
   search: SupplierConversationsSearch;
 }) {
+  if (side === "supplier" && search.query === undefined && search.assunto !== undefined) {
+    const tab = CONVERSATION_STATUS_LABELS.supplier[search.status ?? "open"];
+    return (
+      <EmptyState
+        icon={ChatsCircleIcon}
+        title={`Nenhuma conversa de ${SUPPLIER_CONVERSATION_TOPIC_LABELS[search.assunto]} em ${tab}`}
+        description="Escolha Todos os assuntos para ver as outras conversas."
+      />
+    );
+  }
   if (side === "supplier" && search.query === undefined) {
     const empty = EMPTY_TABS[search.status ?? "open"];
     return (
@@ -224,7 +247,7 @@ function ConversationResults({
     return <ErrorState message={errorMessage(query.error)} onRetry={() => void query.refetch()} />;
   }
   const { side, counts } = query.data;
-  const hasNoSearch = search.query === undefined;
+  const hasNoSearch = search.query === undefined && search.assunto === undefined;
   // A supplier's tab may be empty while others are not: only an empty inbox gets the welcome.
   const hasNone =
     side === "supplier"

@@ -30,7 +30,10 @@ export type CreateSupplierConversationInput = z.infer<typeof createSupplierConve
 
 export const replySupplierConversationSchema = z.object({ body: conversationBodySchema });
 
-export const supplierConversationsSearchSchema = ticketsSearchSchema;
+/** The ticket list search plus `assunto`, the topic the supplier narrows its queue to. */
+export const supplierConversationsSearchSchema = ticketsSearchSchema.extend({
+  assunto: optionalParameter(z.enum(SUPPLIER_CONVERSATION_TOPIC_IDS)),
+});
 export type SupplierConversationsSearch = z.infer<typeof supplierConversationsSearchSchema>;
 
 /** Prefills the new-conversation form from an order page (`pedido`) or a store (`loja`). */
