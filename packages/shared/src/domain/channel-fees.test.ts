@@ -38,6 +38,28 @@ describe("channelSaleFees on Mercado Livre", () => {
   it("charges nothing on a zero price", () => {
     expect(totalChannelFeeCents(channelSaleFees("mercado_livre", 0, lightItem))).toBe(0);
   });
+
+  it("charges a heavy item the full table shipping from R$ 19, not half its price", () => {
+    const heavy = { ...lightItem, weightGrams: 12_000 };
+
+    expect(channelSaleFees("mercado_livre", 7_900, heavy).shippingCents).toBe(4_255);
+    expect(channelSaleFees("mercado_livre", 1_900, heavy).shippingCents).toBe(1_005);
+  });
+
+  it("keeps the price search's ranges in step with the fees for a heavy item", () => {
+    const heavy = { ...lightItem, weightGrams: 12_000 };
+    const segments = channelFeeSegments("mercado_livre", heavy);
+
+    const gaps = [1_000, 1_899, 1_900, 7_900, 8_500].map((price) => {
+      const segment = segments.find((part) => price >= part.fromCents && price <= part.toCents);
+      const fromSegment =
+        percentOfCents(price, segment?.basisPoints ?? 0) + (segment?.fixedCents ?? 0);
+      const fees = totalChannelFeeCents(channelSaleFees("mercado_livre", price, heavy));
+      return Math.abs(fromSegment - fees);
+    });
+
+    expect(Math.max(...gaps)).toBeLessThanOrEqual(1);
+  });
 });
 
 describe("channelSaleFees on TikTok Shop", () => {

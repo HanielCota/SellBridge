@@ -62,6 +62,9 @@ const OPEN_END_CENTS = Number.MAX_SAFE_INTEGER;
 
 const HALF_BASIS_POINTS = 5_000;
 
+/** Mercado Livre caps the shipping at half the price only under R$ 19 (the table's footnote). */
+const MERCADO_LIVRE_HALF_PRICE_SHIPPING_UNDER_CENTS = 1_900;
+
 /**
  * Mercado Livre, Clássico listing with Mercado Envios: the category commission (already
  * holding the fixed fee, which Mercado Envios items under the threshold no longer pay) plus the
@@ -74,18 +77,26 @@ function mercadoLivreFees(priceCents: Cents, context: ChannelFeeContext): Channe
     (candidate) => priceCents >= candidate.fromCents && priceCents <= candidate.toCents,
   );
   const tableShippingCents = band?.shippingCents ?? 0;
+  const shippingCents =
+    priceCents < MERCADO_LIVRE_HALF_PRICE_SHIPPING_UNDER_CENTS
+      ? Math.min(tableShippingCents, percentOfCents(priceCents, HALF_BASIS_POINTS))
+      : tableShippingCents;
   return {
     commissionCents: percentOfCents(priceCents, context.mercadoLivreCommissionBasisPoints),
     fixedFeeCents: 0,
-    shippingCents: Math.min(tableShippingCents, percentOfCents(priceCents, HALF_BASIS_POINTS)),
+    shippingCents,
   };
 }
 
 function mercadoLivreSegments(context: ChannelFeeContext): FeeSegment[] {
   const commission = context.mercadoLivreCommissionBasisPoints;
   return mercadoLivreShippingBands(context.weightGrams).flatMap((band) => {
-    // Under twice the table cost, half the price is the smaller shipping.
-    const halfPriceEnd = Math.min(band.toCents, band.shippingCents * 2 - 1);
+    // Under R$ 19 and under twice the table cost, half the price is the smaller shipping.
+    const halfPriceEnd = Math.min(
+      band.toCents,
+      band.shippingCents * 2 - 1,
+      MERCADO_LIVRE_HALF_PRICE_SHIPPING_UNDER_CENTS - 1,
+    );
     const halfPrice: FeeSegment[] =
       halfPriceEnd >= band.fromCents
         ? [
