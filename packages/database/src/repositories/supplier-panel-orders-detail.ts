@@ -14,6 +14,7 @@ import {
 } from "../schema/index.ts";
 import { findSupplierShipmentInvoice } from "./shipment-invoices.ts";
 import { supplierDeadlines, supplierTimingColumns } from "./shipment-timing.ts";
+import { splitOrderSql } from "./supplier-panel-orders-sql.ts";
 
 /** What the supplier receives for the parcel: each item's cost times its quantity, in cents. */
 async function receivableCents(
@@ -57,6 +58,7 @@ async function panelShipmentRow(
       shopName: storeConnections.shopName,
       buyerName: orders.buyerName,
       supplierName: suppliers.name,
+      splitOrder: splitOrderSql,
       ...supplierTimingColumns,
     })
     .from(orderShipments)
@@ -118,7 +120,10 @@ export async function getSupplierPanelShipment(
       ...shipment,
       marketplace: row.marketplace,
       overdue: entry.urgency === "overdue",
+      splitOrder: row.splitOrder,
     }),
+    /** The order has another supplier's parcel: Mercado Livre's single label cannot serve it. */
+    splitOrder: row.splitOrder,
     supplierName: row.supplierName,
     ...supplierDeadlines(shipment, row),
     events,

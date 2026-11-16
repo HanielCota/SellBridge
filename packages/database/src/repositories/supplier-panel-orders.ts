@@ -25,6 +25,7 @@ import {
   problemFilter,
   queueDueAt,
   shipmentFilters,
+  splitOrderSql,
   supplierScope,
   type SupplierShipmentFilters,
 } from "./supplier-panel-orders-sql.ts";
@@ -72,6 +73,7 @@ const rowColumns = {
   labelPrintedAt: orderShipments.labelPrintedAt,
   labelPrintCount: orderShipments.labelPrintCount,
   labelWaitingSince: orderShipments.labelWaitingSince,
+  splitOrder: splitOrderSql,
   emailFailed,
   ...supplierTimingColumns,
 };
