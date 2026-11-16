@@ -526,6 +526,13 @@
       "when": 1794850766293,
       "tag": "0074_payment_guards",
       "breakpoints": true
+    },
+    {
+      "idx": 75,
+      "version": "7",
+      "when": 1794851475298,
+      "tag": "0075_asaas_escrow_payments",
+      "breakpoints": true
     }
   ]
 }

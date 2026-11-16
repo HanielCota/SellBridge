@@ -608,6 +608,7 @@ describe("listShipmentPaymentsToReconcile", () => {
 
   async function reconcileIds(): Promise<string[]> {
     const rows = await listShipmentPaymentsToReconcile(database, {
+      provider: "mercado_pago",
       now: new Date(),
       recheckForInMs: RECHECK_FOR_IN_MS,
       limit: 1000,
@@ -668,7 +669,10 @@ describe("listShipmentPaymentsToReconcile", () => {
 });
 
 async function candidateIds(): Promise<string[]> {
-  const rows = await listShipmentPaymentRefundCandidates(database, { limit: 1000 });
+  const rows = await listShipmentPaymentRefundCandidates(database, {
+    provider: "mercado_pago",
+    limit: 1000,
+  });
   return rows.map((row) => row.payment.id);
 }
 
@@ -678,7 +682,10 @@ describe("refund of a paid parcel", () => {
     const payment = await startPayment(shipmentId);
     await approveWith(payment.id);
 
-    const rows = await listShipmentPaymentRefundCandidates(database, { limit: 1000 });
+    const rows = await listShipmentPaymentRefundCandidates(database, {
+      provider: "mercado_pago",
+      limit: 1000,
+    });
     const candidate = rows.find((row) => row.payment.id === payment.id);
 
     expect(candidate?.timing.status).toBe("forwarded");

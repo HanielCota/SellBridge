@@ -348,6 +348,8 @@ describe("handleMercadoPagoWebhook", () => {
         connectedAt: new Date(),
         connectedByUserId: null,
         lastError: null,
+        walletId: null,
+        reviewStatus: null,
         updatedAt: new Date(),
       },
       providerPaymentId: "555",

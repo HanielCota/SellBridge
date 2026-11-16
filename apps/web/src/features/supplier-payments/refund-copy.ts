@@ -8,6 +8,8 @@ const REASON_SENTENCES: Record<ShipmentPaymentRefundReason, string> = {
   not_dispatched: "O fornecedor não postou o envio no prazo.",
   cancelled: "O envio foi cancelado.",
   returned: "O envio voltou para o fornecedor.",
+  not_delivered: "O envio não foi entregue.",
+  team: "Nossa equipe analisou o caso e decidiu devolver o pagamento.",
 };
 
 export interface RefundView {

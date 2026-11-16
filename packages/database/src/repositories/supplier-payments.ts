@@ -692,19 +692,22 @@ const RECHECKED_UNPAID_STATUSES: ShipmentPaymentStatus[] = ["pending", "rejected
  */
 export async function listShipmentPaymentsToReconcile(
   database: Database,
-  input: { now: Date; recheckForInMs: number; limit: number },
+  input: { provider: PaymentProvider; now: Date; recheckForInMs: number; limit: number },
 ): Promise<ShipmentPayment[]> {
   const windowStart = new Date(input.now.getTime() - input.recheckForInMs);
   return database
     .select()
     .from(shipmentPayments)
     .where(
-      or(
-        eq(shipmentPayments.status, "in_process"),
-        and(
-          inArray(shipmentPayments.status, RECHECKED_UNPAID_STATUSES),
-          isNotNull(shipmentPayments.preferenceId),
-          gt(shipmentPayments.checkoutExpiresAt, windowStart),
+      and(
+        eq(shipmentPayments.provider, input.provider),
+        or(
+          eq(shipmentPayments.status, "in_process"),
+          and(
+            inArray(shipmentPayments.status, RECHECKED_UNPAID_STATUSES),
+            isNotNull(shipmentPayments.preferenceId),
+            gt(shipmentPayments.checkoutExpiresAt, windowStart),
+          ),
         ),
       ),
     )
@@ -781,7 +784,7 @@ const REFUNDABLE_SHIPMENT_STATUSES: FulfillmentStatus[] = [
  */
 export async function listShipmentPaymentRefundCandidates(
   database: Database,
-  input: { limit: number },
+  input: { provider: PaymentProvider; limit: number },
 ): Promise<RefundCandidate[]> {
   const rows = await database
     .select({
@@ -801,6 +804,7 @@ export async function listShipmentPaymentRefundCandidates(
     .innerJoin(suppliers, eq(suppliers.id, orderShipments.supplierId))
     .where(
       and(
+        eq(shipmentPayments.provider, input.provider),
         eq(shipmentPayments.status, "approved"),
         isNull(shipmentPayments.refundFailedAt),
         isNull(shipmentPayments.refundHeldAt),
