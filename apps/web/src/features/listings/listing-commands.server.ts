@@ -1,5 +1,6 @@
 import {
   type CreatedListing,
+  findListingPricingScope,
   getSellableCatalogProduct,
   setListingsPaused,
   updateListingPrice,
@@ -13,6 +14,7 @@ import { database } from "@/lib/server/database";
 import { environment } from "@/lib/server/environment";
 import { requestStockSync } from "@/lib/server/stock-sync";
 import { type DraftOverrides, resolveListingDraft } from "./listing-draft";
+import { readMercadoLivreRates } from "./mercado-livre-rates.server";
 import {
   assertConnectedStores,
   assertStoresSellSuppliers,
@@ -45,7 +47,13 @@ export async function createListingForTenant(
   }
   const draft = resolveListingDraft(product, command);
   const { storeIds, channels } = await assertConnectedStores(tenantId, command.storeConnectionIds);
-  assertPriceKeepsMargin(draft.priceCents, product, feeScheduleFrom(environment), channels);
+  const live = await readMercadoLivreRates(tenantId, { productId: product.id, storeIds });
+  assertPriceKeepsMargin(
+    draft.priceCents,
+    { ...product, mercadoLivreRates: live?.rates ?? null },
+    feeScheduleFrom(environment),
+    channels,
+  );
   await assertStoresSellSuppliers(tenantId, storeIds, [product.supplierId]);
   return publishListing(tenantId, draft, storeIds);
 }
@@ -56,10 +64,13 @@ export async function updateListingPriceForTenant(
   listingId: string,
   priceCents: number,
 ): Promise<void> {
+  const scope = await findListingPricingScope(database, tenantId, listingId);
+  const live = scope === null ? null : await readMercadoLivreRates(tenantId, scope);
   await updateListingPrice(database, tenantId, {
     listingId,
     priceCents,
     feeSchedule: feeScheduleFrom(environment),
+    mercadoLivreRates: live?.rates ?? null,
   });
   logger.info("listing.price_updated", { tenantId, listingId });
   // The marketplaces get the new price now, as the screen promises, not at the next scheduled run.
