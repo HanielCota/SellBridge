@@ -52,6 +52,135 @@ export const HANDBAG_ATTRIBUTES = [
     ],
   },
   {
+    id: "HANDBAG_TYPE",
+    name: "Tipo de bolsa",
+    tags: {},
+    value_type: "string",
+    values: [
+      {
+        id: "3141066",
+        name: "Transversal",
+      },
+      {
+        id: "3828690",
+        name: "Tote",
+      },
+      {
+        id: "433693",
+        name: "Clutch",
+      },
+    ],
+  },
+  {
+    id: "COLOR",
+    name: "Cor",
+    tags: {
+      allow_variations: true,
+      defines_picture: true,
+    },
+    value_type: "string",
+    values: [
+      {
+        id: "283148",
+        name: "Coral-claro",
+      },
+      {
+        id: "283149",
+        name: "Coral",
+      },
+      {
+        id: "283150",
+        name: "Laranja-claro",
+      },
+    ],
+  },
+  {
+    id: "EXTERNAL_MATERIAL",
+    name: "Material externo",
+    tags: {},
+    value_type: "string",
+    values: [
+      {
+        id: "5609743",
+        name: "Couro",
+      },
+      {
+        id: "10975237",
+        name: "Plástico",
+      },
+    ],
+  },
+  {
+    id: "MAIN_COLOR",
+    name: "Cor principal",
+    tags: {
+      variation_attribute: true,
+    },
+    value_type: "list",
+    values: [
+      {
+        id: "2450295",
+        name: "Preto",
+      },
+      {
+        id: "2450293",
+        name: "Azul",
+      },
+      {
+        id: "2450307",
+        name: "Vermelho",
+      },
+    ],
+  },
+  {
+    id: "WITH_CLOSING",
+    name: "Com fecho",
+    tags: {},
+    value_type: "boolean",
+    values: [
+      {
+        id: "242084",
+        name: "Não",
+      },
+      {
+        id: "242085",
+        name: "Sim",
+      },
+    ],
+  },
+  {
+    id: "WITH_INTERNAL_LINING",
+    name: "Com forro interno",
+    tags: {},
+    value_type: "boolean",
+    values: [
+      {
+        id: "242084",
+        name: "Não",
+      },
+      {
+        id: "242085",
+        name: "Sim",
+      },
+    ],
+  },
+  {
+    id: "IS_REVERSIBLE",
+    name: "É reversível",
+    tags: {},
+    value_type: "boolean",
+    values: [
+      {
+        id: "242084",
+        name: "Não",
+      },
+      {
+        id: "242085",
+        name: "Sim",
+      },
+    ],
+  },
+  {
     id: "GTIN",
     name: "Código universal de produto",
     tags: { conditional_required: true, multivalued: true },

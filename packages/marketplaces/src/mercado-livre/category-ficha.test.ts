@@ -20,6 +20,13 @@ describe("fichaFields", () => {
       ["MODEL", true],
       ["GENDER", false],
       ["IS_VEGAN", false],
+      ["HANDBAG_TYPE", false],
+      ["COLOR", false],
+      ["EXTERNAL_MATERIAL", false],
+      ["MAIN_COLOR", false],
+      ["WITH_CLOSING", false],
+      ["WITH_INTERNAL_LINING", false],
+      ["IS_REVERSIBLE", false],
     ]);
   });
 
