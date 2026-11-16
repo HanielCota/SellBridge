@@ -39,7 +39,10 @@ test("fornecedor com marca abre o próprio painel com os dados carregados", asyn
     page.getByRole("heading", { name: "Falta pouco para sua primeira venda" }),
   ).toBeVisible();
   await expect(page.getByRole("heading", { name: "Precisa de você" })).toBeVisible();
-  await expect(page.getByText("Fornecedor", { exact: true }).first()).toBeVisible();
+  // The supplier's own menu: "Marca" sits in the sidebar foot only for a supplier.
+  await expect(
+    page.getByRole("complementary", { name: "Menu lateral" }).getByRole("link", { name: "Marca" }),
+  ).toBeVisible();
 
   const profile = new URL(page.url()).searchParams.get("perfil");
   for (const name of ["Cadastrar o primeiro produto", "Editar minha marca"]) {

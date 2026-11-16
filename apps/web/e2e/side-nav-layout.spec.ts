@@ -267,8 +267,8 @@ test("the seller page fits with a long account name", async ({ page }) => {
 test("the supplier sidebar has the spreadsheet import as an item of its own", async ({ page }) => {
   await accounts.signUp(page, "Supplier with a deliberately long brand display name");
   await expect(page.getByRole("link", { name: "SellBridge, painel do fornecedor" })).toBeVisible();
-  // A long brand name once pushed the account out of the sidebar; the account now sits in the
-  // header, and expectPageFits keeps it inside the window at every width.
+  // A long brand name once pushed the account out of the sidebar; the profile card cuts it short,
+  // and expectPageFits keeps the card inside the window at every width.
   await expectPageFits(page);
   const nav = sidebar(page);
   await nav.getByRole("link", { name: "Importar planilha" }).click();
@@ -301,7 +301,21 @@ test("the sidebar stays open with no button to shrink it", async ({ page }) => {
   await expect(aside.getByRole("button", { name: /Recolher|Abrir o menu lateral/ })).toHaveCount(0);
 });
 
-test("support sits at the foot of the menu, the header keeps search, bell and account", async ({
+function profileCard(page: Page) {
+  return page
+    .getByRole("complementary", { name: "Menu lateral" })
+    .getByRole("button", { name: /Menu do usuário/ });
+}
+
+/** The open account menu's rows, in order, by their visible names. */
+async function accountMenuRows(page: Page): Promise<string[]> {
+  return await page
+    .getByRole("menu")
+    .locator("[role=menuitem], [role=menuitemcheckbox]")
+    .evaluateAll((elements) => elements.map((element) => element.textContent.trim()));
+}
+
+test("support and the plan sit at the foot, the profile card under them, the header keeps search and bell", async ({
   page,
 }) => {
   await signIn(page, DEMO_USER);
@@ -312,23 +326,166 @@ test("support sits at the foot of the menu, the header keeps search, bell and ac
   await expect(header.getByRole("button", { name: /^Buscar/ })).toBeVisible();
   // The demo account may have unread notices, which turn the name into "Avisos: N novos".
   await expect(header.getByRole("button", { name: /^Avisos/ })).toBeVisible();
-  await expect(aside.getByRole("button", { name: /Menu do usuário/ })).toHaveCount(0);
+  // The account left the header: the sidebar's card holds it.
+  await expect(header.getByRole("button", { name: /Menu do usuário/ })).toHaveCount(0);
   await expect(header.getByRole("button", { name: /^Suporte/ })).toHaveCount(0);
+  await expect(sidebar(page).getByRole("link", { name: "Meu perfil" })).toHaveCount(0);
+
+  const support = await aside.getByRole("button", { name: /^Suporte/ }).boundingBox();
+  const plan = await aside.getByRole("link", { name: "Assinatura", exact: true }).boundingBox();
+  const card = await profileCard(page).boundingBox();
+  expect(support?.y ?? 0, "support above the plan").toBeLessThan(plan?.y ?? 0);
+  expect(plan?.y ?? 0, "the plan above the profile card").toBeLessThan(card?.y ?? 0);
+  await expect(profileCard(page)).toContainText("demo@sellbridge.local");
 
   await aside.getByRole("button", { name: /^Suporte/ }).click();
   await expect(page.getByRole("dialog").getByRole("link", { name: "Abrir chamado" })).toBeVisible();
-  await page.keyboard.press("Escape");
-  await header.getByRole("button", { name: /Menu do usuário/ }).click();
-  await expect(page.getByRole("menuitem", { name: "Sair" })).toBeVisible();
-  await page.keyboard.press("Escape");
+});
 
-  await page.setViewportSize({ width: 375, height: 812 });
-  await page.getByRole("button", { name: "Abrir menu", exact: true }).click();
+test("the sidebar names its groups in soft labels over their items", async ({ page }) => {
+  await signIn(page, DEMO_USER);
+  await page.setViewportSize({ width: 1366, height: 900 });
+  await gotoHydrated(page, "/dashboard");
+  const nav = sidebar(page);
+
+  for (const [group, item] of [
+    ["Vender", "Catálogo"],
+    ["Dinheiro", "Financeiro"],
+    ["Lojas", "Integrações"],
+  ] as const) {
+    const named = nav.getByRole("group", { name: group, exact: true });
+    // The group's first child is its written name; the items follow it.
+    await expect(named.locator(":scope > span").first()).toHaveText(group);
+    await expect(named.locator(":scope > span").first()).toBeVisible();
+    await expect(named.getByRole("link", { name: item })).toBeVisible();
+  }
+});
+
+test("the profile card opens the account menu above it, with no team switch for a reseller", async ({
+  page,
+}) => {
+  await signIn(page, DEMO_USER);
+  await page.setViewportSize({ width: 1366, height: 900 });
+  await gotoHydrated(page, "/dashboard");
+  const theme = (await page.evaluate(() => document.documentElement.classList.contains("dark")))
+    ? "Modo claro"
+    : "Modo escuro";
+  // Measured before opening: the open menu hides the rest of the page from the accessibility tree.
+  const card = await profileCard(page).boundingBox();
+
+  await profileCard(page).click();
+
+  await expect(page.getByRole("menu")).toBeVisible();
+  expect(await accountMenuRows(page)).toEqual([
+    "Meu perfil",
+    "Meu cadastro",
+    theme,
+    "Sair da conta",
+  ]);
+  const menu = await page.getByRole("menu").boundingBox();
+  expect((menu?.y ?? 0) + (menu?.height ?? 0), "menu above the card").toBeLessThanOrEqual(
+    card?.y ?? 0,
+  );
+  await page.getByRole("menuitem", { name: "Meu cadastro" }).click();
+  await expect(page).toHaveURL(/\/onboarding/);
+});
+
+test("a team account's menu has the team switch between the registration and the theme", async ({
+  page,
+}) => {
+  await signIn(page, ADMIN_USER);
+  await page.setViewportSize({ width: 1366, height: 900 });
+  await gotoHydrated(page, "/dashboard");
+
+  await profileCard(page).click();
+
+  const rows = await accountMenuRows(page);
+  expect(rows).toHaveLength(5);
+  expect(rows.slice(0, 3)).toEqual(["Meu perfil", "Meu cadastro", "Modo administrador"]);
+  expect(rows[3]).toMatch(/^Modo (claro|escuro)$/);
+  expect(rows[4]).toBe("Sair da conta");
+});
+
+test("the theme row switches the theme and the choice survives a reload", async ({ page }) => {
+  await signIn(page, DEMO_USER);
+  await page.setViewportSize({ width: 1366, height: 900 });
+  await gotoHydrated(page, "/dashboard");
+  const isDark = async () =>
+    await page.evaluate(() => document.documentElement.classList.contains("dark"));
+  const startedDark = await isDark();
+
+  await profileCard(page).click();
   await page
-    .getByRole("dialog", { name: "Navegação" })
-    .getByRole("button", { name: /Menu do usuário/ })
+    .getByRole("menuitem", { name: startedDark ? "Modo claro" : "Modo escuro", exact: true })
     .click();
-  await expect(page.getByRole("menuitem", { name: "Sair" })).toBeVisible();
+
+  expect(await isDark()).toBe(!startedDark);
+  // The menu stays open and its row now offers the way back.
+  await expect(
+    page.getByRole("menuitem", { name: startedDark ? "Modo escuro" : "Modo claro", exact: true }),
+  ).toBeVisible();
+  await gotoHydrated(page, "/dashboard");
+  expect(await isDark()).toBe(!startedDark);
+  await profileCard(page).click();
+  await expect(
+    page.getByRole("menuitem", { name: startedDark ? "Modo escuro" : "Modo claro", exact: true }),
+  ).toBeVisible();
+});
+
+test("signing out from the profile card goes to the login and ends the session", async ({
+  page,
+}) => {
+  await signUp(page, "Revendedor Sai Da Conta");
+  await gotoHydrated(page, "/dashboard");
+
+  await profileCard(page).click();
+  await page.getByRole("menuitem", { name: "Sair da conta", exact: true }).click();
+
+  await expect(page).toHaveURL(/\/login/);
+  await page.goto("/dashboard");
+  await expect(page).toHaveURL(/\/login/);
+});
+
+/*
+ * Regression: the page keeps focused elements 5rem clear of its bottom edge, so focusing the
+ * card, always in sight at the sidebar's foot, scrolled the page down by hundreds of pixels.
+ */
+test("focusing the profile card from the keyboard does not scroll the page", async ({ page }) => {
+  await signIn(page, DEMO_USER);
+  await page.setViewportSize({ width: 1280, height: 900 });
+  await gotoHydrated(page, "/dashboard");
+  await sidebar(page).getByRole("link", { name: "Assinatura", exact: true }).focus();
+  await page.evaluate(() => window.scrollTo(0, 0));
+
+  await page.keyboard.press("Tab");
+
+  await expect(profileCard(page)).toBeFocused();
+  expect(await page.evaluate(() => window.scrollY)).toBe(0);
+});
+
+test("on a phone the sheet keeps the same foot: support, the plan, then the profile card", async ({
+  page,
+}) => {
+  await signIn(page, DEMO_USER);
+  await page.setViewportSize({ width: 375, height: 812 });
+  await gotoHydrated(page, "/dashboard");
+  const header = page.locator("header").first();
+  await expect(header.getByRole("button", { name: /Menu do usuário/ })).toHaveCount(0);
+
+  await page.getByRole("button", { name: "Abrir menu", exact: true }).click();
+  const sheet = page.getByRole("dialog", { name: "Navegação" });
+  await expect(sheet.getByRole("link", { name: "SellBridge, visão geral" })).toBeVisible();
+  const plan = await sheet.getByRole("link", { name: "Assinatura", exact: true }).boundingBox();
+  const card = sheet.getByRole("button", { name: /Menu do usuário/ });
+  const cardBox = await card.boundingBox();
+  expect(plan?.y ?? 0, "the plan above the profile card").toBeLessThan(cardBox?.y ?? 0);
+  expect((cardBox?.y ?? 0) + (cardBox?.height ?? 0), "card at the foot").toBeGreaterThan(700);
+  await card.click();
+  expect(await accountMenuRows(page)).toHaveLength(4);
+  await page.getByRole("menuitem", { name: "Meu perfil", exact: true }).click();
+
+  await expect(page).toHaveURL(/\/perfil/);
+  await expect(sheet).toHaveCount(0);
 });
 
 // Regression: beside the sidebar, long ticket subjects kept to one line and pushed Situação and

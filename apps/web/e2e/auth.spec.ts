@@ -39,7 +39,7 @@ test("cadastra, confirma o e-mail, entra, sai e entra novamente", async ({ page 
   await expect(page.getByText("Revendedora Teste")).toBeVisible();
 
   await page.getByRole("button", { name: "Menu do usuário" }).click();
-  await page.getByRole("menuitem", { name: "Sair" }).click();
+  await page.getByRole("menuitem", { name: "Sair da conta", exact: true }).click();
   await expect(page).toHaveURL(/\/login/);
 
   await page.getByLabel("E-mail").fill(email);

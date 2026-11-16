@@ -5,8 +5,11 @@ test("shows plans and keeps checkout unavailable until billing is configured", a
   test.skip(Boolean(process.env.STRIPE_SECRET_KEY), "Requires billing disabled");
   await signUp(page, "Assinatura E2E");
   await waitForHydration(page);
-  await page.getByRole("button", { name: "Menu do usuário" }).click();
-  await page.getByRole("menuitem", { name: "Planos e assinatura" }).click();
+  // The plan sits at the foot of the sidebar, under support.
+  await page
+    .getByRole("complementary", { name: "Menu lateral" })
+    .getByRole("link", { name: "Assinatura", exact: true })
+    .click();
   await expect(page).toHaveURL(/\/assinatura\?perfil=[a-z0-9-]+$/);
   await expect(page.getByRole("heading", { name: "Planos e assinatura" })).toBeVisible();
   await expect(page.getByText("Seu plano: Gratuito")).toBeVisible();

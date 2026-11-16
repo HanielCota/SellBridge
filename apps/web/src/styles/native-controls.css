@@ -8,8 +8,15 @@
     text-size-adjust: 100%;
     /* Native checkboxes, radios, ranges and progress bars take the brand green. */
     accent-color: var(--brand-strong);
-    /* Tab focus and anchor jumps stop clear of the sticky header and the floating bulk bar. */
-    scroll-padding-block: 6rem 5rem;
+    /* Tab focus and anchor jumps stop clear of the sticky header. */
+    scroll-padding-top: 6rem;
+  }
+  /*
+   * And clear of the floating bulk bar, only while it shows: kept on every page, a mouse press on
+   * a button in the screen's last 5rem focused it, scrolled the page and lost the click.
+   */
+  html:has([data-bulk-actions]) {
+    scroll-padding-bottom: 5rem;
   }
   body {
     /* Landscape iPhones: content stays out of the notch; the page color still fills it. */
