@@ -96,6 +96,7 @@ export function mapMercadoLivreOrder(raw: MercadoLivreOrder): MarketplaceOrder {
     marketplaceFeeCents: feeCents(raw),
     refundedCents: refundedCents(raw),
     buyerName: raw.buyer?.nickname ?? null,
+    packId: raw.pack_id === null || raw.pack_id === undefined ? null : String(raw.pack_id),
     orderedAt: new Date(raw.date_created),
     items: raw.order_items.map((line) => ({
       externalListingId: line.item.id,
