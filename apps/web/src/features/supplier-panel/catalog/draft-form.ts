@@ -1,3 +1,4 @@
+import { saleTermsFormValues, saleTermsInput, type SaleTermsFormValues } from "./sale-terms-form";
 import { formatCentsForInput } from "@sellbridge/shared/money";
 import { parseCsvMoney } from "@sellbridge/shared/product-csv";
 import {
@@ -64,6 +65,7 @@ export interface PanelFormValues {
   attributes: Readonly<Record<string, string>>;
   /** The Mercado Livre category whose sheet the form asks; null until one is known. */
   mercadoLivreCategory: MercadoLivreCategoryChoice | null;
+  saleTerms: SaleTermsFormValues;
   fiscal: ProductFiscalFormValues;
 }
 
@@ -260,6 +262,7 @@ export function panelFormValues(product?: EditableProductFields | null): PanelFo
     imageUrls: product?.imageUrls ?? [],
     attributes: product?.mercadoLivreAttributes ?? {},
     mercadoLivreCategory: storedMercadoLivreCategory(product),
+    saleTerms: saleTermsFormValues(product),
     fiscal: productFiscalFormValues(product?.fiscal),
   };
 }
@@ -351,6 +354,7 @@ export function parseDraft(values: PanelFormValues, expectedStock?: number): Dra
     imageUrls: [...values.imageUrls],
     mercadoLivreAttributes: filledAttributes(values.attributes),
     ...mercadoLivreCategoryInput(values.mercadoLivreCategory),
+    ...saleTermsInput(values.saleTerms),
     fiscal: fiscalCandidate(values.fiscal),
   });
   if (parsed.success && !keepsNegativeShelfOnly(parsed.data.stock, expectedStock)) {

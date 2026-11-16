@@ -18,6 +18,7 @@ import { cn } from "@/lib/utils";
 import { FieldReason, type ReasonsByField } from "./field-reason";
 import { FiscalFields } from "./fiscal-fields";
 import { MercadoLivreCategoryLine, MercadoLivreFichaFields } from "./mercado-livre-ficha-fields";
+import { SaleTermsFields } from "./sale-terms-fields";
 import type { MercadoLivreFicha } from "@/features/supplier-panel/catalog/use-mercado-livre-ficha";
 
 /** The supplier's product form asks Mercado Livre's sheet; a seller's own product does not. */
@@ -285,6 +286,9 @@ export function StepDetails(
         showFiscal={taxDefaults !== undefined}
         sheet={props.mercadoLivre}
       />
+      {props.mercadoLivre === undefined ? null : (
+        <SaleTermsFields values={values} errors={errors} onChange={onChange} />
+      )}
       {taxDefaults === undefined ? null : (
         <FiscalFields
           values={values}
