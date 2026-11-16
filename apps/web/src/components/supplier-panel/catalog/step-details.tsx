@@ -7,11 +7,14 @@ import {
   descriptionLengthHint,
   inputIdOf,
   type PanelFormValues,
+  suggestedPriceFor,
+  withSuggestedPriceFollowingCost,
 } from "@/features/supplier-panel/catalog/draft-form";
 import { NO_GTIN } from "@sellbridge/shared/product-fiscal";
 import type { SupplierTaxSetup } from "@sellbridge/shared/supplier-fiscal";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
+import { cn } from "@/lib/utils";
 import { FieldReason, type ReasonsByField } from "./field-reason";
 import { FiscalFields } from "./fiscal-fields";
 
@@ -52,6 +55,21 @@ const MAIN_FIELDS = [
   },
   { field: "stock", key: "stock", label: "Estoque (un.)", inputMode: "numeric", code: false },
 ] as const;
+
+/** Where the suggested price came from, while it is still the one the cost gives. */
+function SuggestedPriceNote({ values }: { values: PanelFormValues }) {
+  const automatic = suggestedPriceFor(values.cost);
+  if (values.suggestedPrice.trim() !== "" && values.suggestedPrice !== automatic) {
+    return null;
+  }
+  return (
+    <p className="text-footnote text-muted-foreground">
+      {automatic === ""
+        ? "Preencha o custo e o preço sugerido vem calculado: custo + 50%."
+        : "Calculado pelo custo + 50%. Você pode mudar."}
+    </p>
+  );
+}
 
 function errorsOf(errors: Readonly<Record<string, string>>, field: string): string[] {
   const message = errors[field];
@@ -148,18 +166,22 @@ export function StepDetails(
         {MAIN_FIELDS.map((entry) => (
           <div
             key={entry.field}
-            className={entry.field === "title" ? "grid gap-2 sm:col-span-2" : "grid gap-2"}
+            // Content at the top: the note under the price must not push the cost beside it down.
+            className={cn("grid content-start gap-2", entry.field === "title" && "sm:col-span-2")}
           >
             <TextField
               id={inputIdOf(entry.field)}
               label={entry.label}
               value={values[entry.key]}
               errors={errorsOf(errors, entry.field)}
-              onValueChange={(next) => onChange({ [entry.key]: next })}
+              onValueChange={(next) =>
+                onChange(withSuggestedPriceFollowingCost(values, { [entry.key]: next }))
+              }
               inputMode={entry.inputMode}
               maxLength={entry.field === "title" ? 300 : undefined}
               {...(entry.code ? CODE_INPUT : {})}
             />
+            {entry.key === "suggestedPrice" ? <SuggestedPriceNote values={values} /> : null}
             <FieldReason field={entry.field} reasons={reasons} />
           </div>
         ))}

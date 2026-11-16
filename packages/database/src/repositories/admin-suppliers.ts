@@ -1,7 +1,6 @@
 import { conflictError, notFoundError, validationError } from "@sellbridge/shared/errors";
 import {
-  LISTING_MAX_PRICE_CENTS,
-  priceForRule,
+  defaultSuggestedPriceCents,
   toPaginated,
   type AdminProductValues,
   type AdminSupplierValues,
@@ -473,10 +472,7 @@ function planImportRows(input: {
       suggestedPriceCents:
         suggestedPriceCents ??
         previous?.suggestedPriceCents ??
-        Math.min(
-          LISTING_MAX_PRICE_CENTS,
-          priceForRule({ ...product, suggestedPriceCents: 0 }, { kind: "markup", percent: 50 }),
-        ),
+        defaultSuggestedPriceCents(product.costCents),
     });
   }
   plan.revision = importRevision(input, plan.products);
