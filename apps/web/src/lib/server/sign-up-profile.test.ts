@@ -1,9 +1,9 @@
 import { SIGN_UP_PROFILE_COOKIE } from "@sellbridge/shared/sign-up-profile";
 import { describe, expect, it } from "vitest";
 import {
+  type AccountCreationCall,
   createProfileForNewUser,
   isSelfSignUpPath,
-  type SignUpRequest,
 } from "./sign-up-profile.ts";
 
 const NEW_USER = { id: "user-1", name: "Ateliê Barro" };
@@ -25,8 +25,14 @@ function fakeSteps(options: { markSucceeds?: boolean } = {}) {
   };
 }
 
-function requestWith(cookie?: string): SignUpRequest {
+function callWith(
+  cookie?: string,
+  path = "/sign-up/email",
+  body: unknown = {},
+): AccountCreationCall {
   return {
+    path,
+    body,
     getCookie: (name) => (name === SIGN_UP_PROFILE_COOKIE ? cookie : undefined),
   };
 }
@@ -35,7 +41,7 @@ describe("createProfileForNewUser", () => {
   it("creates a seller profile without marking it when no kind is chosen", async () => {
     const { calls, steps } = fakeSteps();
 
-    await createProfileForNewUser(NEW_USER, requestWith(), steps);
+    await createProfileForNewUser(NEW_USER, callWith(), steps);
 
     expect(calls.created).toEqual(["user-1"]);
     expect(calls.marked).toEqual([]);
@@ -44,7 +50,7 @@ describe("createProfileForNewUser", () => {
   it("marks the new profile as a supplier when the sign-up page chose it", async () => {
     const { calls, steps } = fakeSteps();
 
-    await createProfileForNewUser(NEW_USER, requestWith("supplier"), steps);
+    await createProfileForNewUser(NEW_USER, callWith("supplier"), steps);
 
     expect(calls.marked).toEqual(["org-1:supplier"]);
   });
@@ -58,10 +64,40 @@ describe("createProfileForNewUser", () => {
     expect(calls.marked).toEqual([]);
   });
 
+  // Regression: an invited attendant got a reseller organization and its onboarding.
+  it.each(["agent", "supervisor"])("creates no profile for an invited %s", async (role) => {
+    const { calls, steps } = fakeSteps();
+    const invite = callWith("supplier", "/admin/create-user", { role });
+
+    await createProfileForNewUser(NEW_USER, invite, steps);
+
+    expect(calls.created).toEqual([]);
+    expect(calls.marked).toEqual([]);
+  });
+
+  it("keeps a seller profile for an invited admin, who also runs a store", async () => {
+    const { calls, steps } = fakeSteps();
+    const invite = callWith("supplier", "/admin/create-user", { role: "admin" });
+
+    await createProfileForNewUser(NEW_USER, invite, steps);
+
+    expect(calls.created).toEqual(["user-1"]);
+    expect(calls.marked).toEqual([]);
+  });
+
+  it("ignores a profile choice left in the cookie outside the sign-up", async () => {
+    const { calls, steps } = fakeSteps();
+
+    await createProfileForNewUser(NEW_USER, callWith("supplier", "/admin/update-user"), steps);
+
+    expect(calls.created).toEqual(["user-1"]);
+    expect(calls.marked).toEqual([]);
+  });
+
   it("fails loudly when the supplier profile could not be marked", async () => {
     const { steps } = fakeSteps({ markSucceeds: false });
 
-    await expect(createProfileForNewUser(NEW_USER, requestWith("supplier"), steps)).rejects.toThrow(
+    await expect(createProfileForNewUser(NEW_USER, callWith("supplier"), steps)).rejects.toThrow(
       'Perfil de fornecedor não gravado: organização "org-1" não encontrada.',
     );
   });

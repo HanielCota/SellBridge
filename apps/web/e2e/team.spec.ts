@@ -1,7 +1,7 @@
 import { AxeBuilder } from "@axe-core/playwright";
 import { expect, test } from "@playwright/test";
-import { user } from "@sellbridge/database/schema";
-import { eq } from "drizzle-orm";
+import { member, user, verification } from "@sellbridge/database/schema";
+import { and, desc, eq, like } from "drizzle-orm";
 import { ADMIN_USER, enableAdminMode, gotoHydrated, signIn, signUp, uniqueEmail } from "./helpers";
 import { e2eDatabase } from "./database";
 
@@ -50,6 +50,69 @@ test("o dono convida uma pessoa para a equipe já com o cargo", async ({ page })
     .from(user)
     .where(eq(user.email, email));
   expect(invited).toEqual({ role: "supervisor", emailVerified: true });
+});
+
+/** The token of the newest set-password link Better Auth stored for this account. */
+async function latestInviteToken(userId: string): Promise<string> {
+  const prefix = "reset-password:";
+  const [row] = await database
+    .select({ identifier: verification.identifier })
+    .from(verification)
+    .where(and(eq(verification.value, userId), like(verification.identifier, `${prefix}%`)))
+    .orderBy(desc(verification.createdAt))
+    .limit(1);
+  if (row === undefined) {
+    throw new Error(`No invite link stored for user ${userId}`);
+  }
+  return row.identifier.slice(prefix.length);
+}
+
+// Regression: the invite also created a reseller organization for the new team member.
+test("a atendente convidada cria a senha e entra na fila, sem empresa de revendedor", async ({
+  browser,
+}) => {
+  const email = uniqueEmail("atendente");
+  const name = `Ana ${email.slice(10, 23)}`;
+  const password = "senha-da-atendente-123";
+  const owner = await browser.newPage();
+  await signIn(owner, ADMIN_USER);
+  await enableAdminMode(owner);
+  await gotoHydrated(owner, "/admin/equipe");
+  await owner.getByRole("button", { name: "Convidar pessoa" }).first().click();
+  const dialog = owner.getByRole("dialog", { name: "Convidar para a equipe" });
+  await dialog.getByLabel("Nome").fill(name);
+  await dialog.getByLabel("E-mail").fill(email);
+  await dialog.getByRole("button", { name: "Atendente" }).click();
+  await dialog.getByRole("button", { name: "Enviar convite" }).click();
+  await expect(
+    owner.getByText("Convite enviado. A pessoa cria a senha pelo e-mail."),
+  ).toBeVisible();
+  await owner.close();
+
+  const [invited] = await database
+    .select({ id: user.id, role: user.role })
+    .from(user)
+    .where(eq(user.email, email));
+  if (invited === undefined) {
+    throw new Error(`Invited account ${email} was not created`);
+  }
+  expect(invited.role).toBe("agent");
+  const page = await browser.newPage();
+  await gotoHydrated(page, `/redefinir-senha?token=${await latestInviteToken(invited.id)}`);
+  await page.getByLabel("Nova senha").fill(password);
+  await page.getByRole("button", { name: "Salvar nova senha" }).click();
+  await expect(page).toHaveURL(/\/login/);
+  await signIn(page, { email, password });
+
+  await expect(page).toHaveURL(/\/admin\/chamados/);
+  await expect(page.getByRole("heading", { name: "Chamados" })).toBeVisible();
+  await expect(page.getByText("Falta pouco para sua primeira venda")).toHaveCount(0);
+  const memberships = await database
+    .select({ organizationId: member.organizationId })
+    .from(member)
+    .where(eq(member.userId, invited.id));
+  expect(memberships).toEqual([]);
+  await page.close();
 });
 
 test("um admin que não é dono vê a equipe, mas não convida", async ({ browser }) => {

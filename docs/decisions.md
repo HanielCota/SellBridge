@@ -816,3 +816,11 @@ A auditoria da rodada 3 achou que o mês fechado, guardado logo depois que acaba
 - **Meses já guardados:** o relatório guardado passou para a versão 2. Um mês guardado na versão 1 (regra antiga) é recalculado uma vez na próxima leitura e trocado; depois disso fica guardado como sempre.
 - **Fica pela data do pedido:** os indicadores de movimento (mais vendidos, temperatura do produto, clientes e recompra, horário das vendas no relatório).
 - **Descartado:** cinco dias de carência antes de guardar o mês (só adia o problema) e a data de pagamento informada pelo marketplace (uma venda sincronizada atrasada cairia num mês já guardado).
+
+## 2026-11-15: Convite da equipe sem empresa de revendedor (item 28.a)
+
+- Atendente e supervisor convidados pela tela Equipe nascem sem organização: não têm loja, cadastro de revendedor nem plano, e entram direto na fila de chamados. O cadastro pelo site e o seed continuam criando a organização como antes.
+- Admin convidado continua ganhando a organização, porque o admin também cuida de uma loja e entra pelo painel de vendas (`isTeamModeOn`, a mesma regra que manda atendente e supervisor para a fila).
+- A regra mora em `createProfileForNewUser` (`apps/web/src/lib/server/sign-up-profile.ts`), que lê o cargo enviado por `/admin/create-user`. Essa rota é fechada ao navegador (item 10.b), só o convite a chama pelo servidor, e o cargo já passou pela conferência do plugin e pela trava do dono (item 10.a).
+- As telas da equipe usam `requireStaffSession`, que não depende de organização. As telas de revendedor continuam exigindo uma (`requireTenantSession`) e recusam quem não tem.
+- Quem já recebeu uma empresa por convite antes disso fica como está; limpar esses casos é tarefa à parte. Quem já era cliente e é promovido à equipe mantém a própria empresa.
