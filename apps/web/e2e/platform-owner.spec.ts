@@ -138,5 +138,6 @@ test("admin comum não desconecta a loja de alguém da equipe", async ({ browser
     page.getByText("Só um dono da plataforma altera contas da equipe").filter({ visible: true }),
   ).toBeVisible();
   await gotoHydrated(page, `/admin/clientes/${member.id}`);
-  await expect(page.getByText("Loja da Atendente")).toBeVisible();
+  // Exact: the "Fornecedores" button also names the shop, for screen readers.
+  await expect(page.getByText("Loja da Atendente", { exact: true })).toBeVisible();
 });

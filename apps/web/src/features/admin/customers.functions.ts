@@ -1,7 +1,7 @@
 import {
   assignIssue,
   disableTenantWebhookEndpoints,
-  changeStoreSupplier,
+  addStoreSupplier,
   disconnectStore,
   findOnboardingProfile,
   findStoreSuppliers,
@@ -16,8 +16,9 @@ import {
   listStoreConnections,
   listTenantTickets,
   MAX_CUSTOMERS_RANKED,
-  previewStoreSupplierChange,
+  previewStoreSupplierRemoval,
   recordAdminEvent,
+  removeStoreSupplier,
   revokeTenantApiKeys,
   snoozeIssue,
   type OnboardingProfile,
@@ -406,34 +407,57 @@ export const adminSendOnboardingReminder = createServerFn({ method: "POST" })
     return { ok: true };
   });
 
-/** What moving a customer's shop to another supplier would pause or stop, without saving. */
-export const adminPreviewStoreSupplier = createServerFn({ method: "GET" })
+/** The name the timeline keeps for a supplier the team added to or removed from a shop. */
+async function supplierNameOf(supplierId: string): Promise<string> {
+  const [supplier] = await findStoreSuppliers(database, [supplierId]);
+  return supplier?.name ?? "";
+}
+
+/** Adds a supplier to a customer's shop, as the customer would on the stores page. */
+export const adminAddStoreSupplier = createServerFn({ method: "POST" })
+  .middleware([adminMiddleware])
+  .validator(adminStoreSupplierSchema)
+  .handler(async ({ context, data }) => {
+    const tenantId = customerTenant(await requireManageableCustomer(context.actor, data.userId));
+    await addStoreSupplier(database, {
+      tenantId,
+      storeConnectionId: data.storeConnectionId,
+      supplierId: data.supplierId,
+    });
+    await recordAdminAction(context.userId, data.userId, "store_supplier_added", {
+      storeConnectionId: data.storeConnectionId,
+      supplierName: await supplierNameOf(data.supplierId),
+    });
+    return { ok: true };
+  });
+
+/** What removing a supplier from a customer's shop would pause or stop, without saving. */
+export const adminPreviewStoreSupplierRemoval = createServerFn({ method: "GET" })
   .middleware([adminMiddleware])
   .validator(adminStoreSupplierSchema)
   .handler(async ({ data }) => {
     const tenantId = await requireCustomerTenant(data.userId);
-    return previewStoreSupplierChange(database, {
+    return previewStoreSupplierRemoval(database, {
       tenantId,
       storeConnectionId: data.storeConnectionId,
       supplierId: data.supplierId,
     });
   });
 
-/** Moves a customer's shop to another supplier, as the customer would on the stores page. */
-export const adminChangeStoreSupplier = createServerFn({ method: "POST" })
+/** Removes a supplier from a customer's shop; its live listings there pause, nothing is deleted. */
+export const adminRemoveStoreSupplier = createServerFn({ method: "POST" })
   .middleware([adminMiddleware])
   .validator(adminStoreSupplierSchema)
   .handler(async ({ context, data }) => {
     const tenantId = customerTenant(await requireManageableCustomer(context.actor, data.userId));
-    const impact = await changeStoreSupplier(database, {
+    const impact = await removeStoreSupplier(database, {
       tenantId,
       storeConnectionId: data.storeConnectionId,
       supplierId: data.supplierId,
     });
-    const [supplier] = await findStoreSuppliers(database, [data.supplierId]);
-    await recordAdminAction(context.userId, data.userId, "store_supplier_changed", {
+    await recordAdminAction(context.userId, data.userId, "store_supplier_removed", {
       storeConnectionId: data.storeConnectionId,
-      supplierName: supplier?.name ?? "",
+      supplierName: await supplierNameOf(data.supplierId),
       livePaused: impact.livePaused,
     });
     if (impact.livePaused > 0) {

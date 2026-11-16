@@ -120,15 +120,18 @@ async function listScopeProducts(
   query: { supplierIds: readonly string[]; filters: StoreCatalogRequest["filters"] },
   pagination: Pagination,
 ): Promise<Paginated<StoreCatalogProduct>> {
+  // One clock for the sort and the badges, so "Mais vendidos" ranks by the numbers shown.
+  const now = new Date();
   const products = await listSellableCatalog(
     database,
     tenantId,
-    { ...query.filters, supplierIds: query.supplierIds },
+    { ...query.filters, supplierIds: query.supplierIds, now },
     pagination,
   );
   const unitsByProduct = await countRecentUnitsSold(
     database,
     products.items.map((product) => product.id),
+    now,
   );
   const items = products.items.map((product) => ({
     ...product,

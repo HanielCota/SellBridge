@@ -13,10 +13,14 @@ import type {
 } from "../types.ts";
 import { type MercadoLivreContext, requestJson } from "./client.ts";
 import { DESCRIPTION_NOT_PLAIN_TEXT, LISTING_ENDED_MESSAGE } from "./error-messages.ts";
+import {
+  type FichaAttribute,
+  fichaAttributeSchema,
+  isRequiredAttribute,
+} from "./category-ficha.ts";
 import { isPackageAttribute, packageAttributeValue } from "./package-measures.ts";
 import { toMercadoLivrePlainText } from "./plain-text.ts";
 import {
-  categoryAttributesSchema,
   conditionalAttributesSchema,
   createdItemSchema,
   domainDiscoverySchema,
@@ -115,7 +119,12 @@ async function predictCategory(
 
 function itemBody(
   input: PublishProductInput,
-  listing: { title: string; categoryId: string; userProducts: boolean },
+  listing: {
+    title: string;
+    categoryId: string;
+    userProducts: boolean;
+    definitions: readonly FichaAttribute[];
+  },
 ) {
   return {
     ...(listing.userProducts ? { family_name: listing.title } : { title: listing.title }),
@@ -128,7 +137,10 @@ function itemBody(
     listing_type_id: "gold_special",
     pictures: input.imageUrls.slice(0, 6).map((source) => ({ source })),
     seller_custom_field: input.idempotencyKey,
-    attributes: [...productAttributes(input), { id: "SELLER_SKU", value_name: input.sku }],
+    attributes: [
+      ...productAttributes(input).map((attribute) => withValueId(attribute, listing.definitions)),
+      { id: "SELLER_SKU", value_name: input.sku },
+    ],
   };
 }
 
@@ -154,7 +166,29 @@ function packageAttribute(id: string, value: string): { id: string; value_name: 
   return { id, value_name: packageValue };
 }
 
-function productAttributes(input: PublishProductInput) {
+interface SentAttribute {
+  id: string;
+  value_name: string;
+  value_id?: string;
+}
+
+/**
+ * A yes/no attribute is only read by its value id ("Atributos" page, boolean type): the stored
+ * "Sim"/"Não" gets the category's id for it. Other types are sent by name.
+ */
+function withValueId(
+  attribute: SentAttribute,
+  definitions: readonly FichaAttribute[],
+): SentAttribute {
+  const definition = definitions.find(({ id }) => id === attribute.id);
+  if (definition?.value_type !== "boolean") {
+    return attribute;
+  }
+  const value = definition.values.find(({ name }) => name === attribute.value_name);
+  return value === undefined ? attribute : { ...attribute, value_id: value.id };
+}
+
+function productAttributes(input: PublishProductInput): SentAttribute[] {
   return Object.entries(input.mercadoLivreAttributes ?? {}).flatMap(([id, value]) => {
     const attribute = attributeToSend(id, value);
     return attribute === null ? [] : [attribute];
@@ -319,22 +353,29 @@ function assertRequiredAttributes(
   }
 }
 
+async function readDefinitions(
+  context: MercadoLivreContext,
+  store: StoreCredentials,
+  categoryId: string,
+): Promise<FichaAttribute[]> {
+  return await requestJson(context, {
+    schema: z.array(fichaAttributeSchema),
+    path: `/categories/${encodeURIComponent(categoryId)}/attributes`,
+    init: { accessToken: store.accessToken },
+  });
+}
+
 async function validateAttributes(
   context: MercadoLivreContext,
   store: StoreCredentials,
-  body: ReturnType<typeof itemBody>,
+  item: { body: ReturnType<typeof itemBody>; definitions: readonly FichaAttribute[] },
 ): Promise<void> {
-  const definitions = await requestJson(context, {
-    schema: categoryAttributesSchema,
-    path: `/categories/${encodeURIComponent(body.category_id)}/attributes`,
-    init: { accessToken: store.accessToken },
-  });
+  const { body, definitions } = item;
   const provided = new Set(
     body.attributes.filter(({ value_name }) => value_name.trim()).map(({ id }) => id),
   );
-  const required = definitions.filter(({ tags }) => tags.required || tags.new_required);
-  assertRequiredAttributes(body.category_id, required, provided);
-  if (definitions.some(({ tags }) => tags.conditional_required)) {
+  assertRequiredAttributes(body.category_id, definitions.filter(isRequiredAttribute), provided);
+  if (definitions.some(({ tags }) => tags.conditional_required === true)) {
     const conditional = await requestJson(context, {
       schema: conditionalAttributesSchema,
       path: `/categories/${encodeURIComponent(body.category_id)}/attributes/conditional`,
@@ -347,7 +388,9 @@ async function validateAttributes(
     });
     assertRequiredAttributes(body.category_id, conditional.required_attributes, provided);
   }
-  const readOnly = definitions.filter(({ id, tags }) => tags.read_only && provided.has(id));
+  const readOnly = definitions.filter(
+    ({ id, tags }) => tags.read_only === true && provided.has(id),
+  );
   if (readOnly.length) {
     throw marketplaceError(
       `Remova os atributos somente de leitura: ${readOnly.map(({ id }) => id).join(", ")}.`,
@@ -392,6 +435,32 @@ function creationWasRefused(error: unknown): boolean {
   );
 }
 
+/** The item to create, in its category, after the category's required attributes are checked. */
+async function checkedItemBody(
+  context: MercadoLivreContext,
+  store: StoreCredentials,
+  input: PublishProductInput,
+) {
+  const title = input.title.slice(0, MAX_TITLE_LENGTH);
+  const categoryId =
+    input.mercadoLivreCategoryId ??
+    (await predictCategory(context, { title, accessToken: store.accessToken }));
+  const definitions = await readDefinitions(context, store, categoryId);
+  const seller = await requestJson(context, {
+    schema: sellerCapabilitiesSchema,
+    path: `/users/${encodeURIComponent(store.externalShopId)}`,
+    init: { accessToken: store.accessToken },
+  });
+  const body = itemBody(input, {
+    title,
+    categoryId,
+    userProducts: seller.tags.includes("user_product_seller"),
+    definitions,
+  });
+  await validateAttributes(context, store, { body, definitions });
+  return body;
+}
+
 export async function publishProduct(
   context: MercadoLivreContext,
   store: StoreCredentials,
@@ -413,19 +482,7 @@ export async function publishProduct(
     return { ...existing, descriptionError };
   }
   await confirmEarlierCreationAbsent(context, options);
-  const title = input.title.slice(0, MAX_TITLE_LENGTH);
-  const categoryId = await predictCategory(context, { title, accessToken: store.accessToken });
-  const seller = await requestJson(context, {
-    schema: sellerCapabilitiesSchema,
-    path: `/users/${encodeURIComponent(store.externalShopId)}`,
-    init: { accessToken: store.accessToken },
-  });
-  const body = itemBody(input, {
-    title,
-    categoryId,
-    userProducts: seller.tags.includes("user_product_seller"),
-  });
-  await validateAttributes(context, store, body);
+  const body = await checkedItemBody(context, store, input);
   await options?.beforeCreate();
   let item;
   try {

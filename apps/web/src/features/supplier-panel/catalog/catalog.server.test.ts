@@ -64,6 +64,8 @@ function stored(reviewStatus: Stored["reviewStatus"]): Stored {
     id: productId,
     supplierId,
     mercadoLivreAttributes: {},
+    mercadoLivreCategoryId: null,
+    mercadoLivreCategoryName: null,
     reservedStock: 0,
     active: true,
     reviewStatus,

@@ -1,5 +1,10 @@
 import { describe, expect, it } from "vitest";
-import { catalogSearchSchema } from "./catalog.ts";
+import {
+  catalogSearchSchema,
+  SELLABLE_PRODUCT_SORT_LABELS,
+  SELLABLE_PRODUCT_SORTS,
+  sellableCatalogSearchSchema,
+} from "./catalog.ts";
 
 describe("catalogSearchSchema", () => {
   it("ignores a blank cost bound in the URL", () => {
@@ -23,5 +28,29 @@ describe("catalogSearchSchema", () => {
     expect(catalogSearchSchema.parse({ inStock: "false" }).inStock).toBe(false);
     expect(catalogSearchSchema.parse({ inStock: "true" }).inStock).toBe(true);
     expect(catalogSearchSchema.parse({ inStock: true }).inStock).toBe(true);
+  });
+});
+
+describe("sellableCatalogSearchSchema sort", () => {
+  it("shows the best sellers first when the URL has no sort", () => {
+    expect(sellableCatalogSearchSchema.parse({}).sort).toBe("best_sellers");
+  });
+
+  it("falls back to the best sellers on an unknown sort", () => {
+    expect(sellableCatalogSearchSchema.parse({ sort: "random" }).sort).toBe("best_sellers");
+  });
+
+  it("keeps the other sorts the reseller picks", () => {
+    expect(sellableCatalogSearchSchema.parse({ sort: "title" }).sort).toBe("title");
+    expect(sellableCatalogSearchSchema.parse({ sort: "margin_desc" }).sort).toBe("margin_desc");
+  });
+
+  it('offers "Mais vendidos" first in the sort menu', () => {
+    expect(SELLABLE_PRODUCT_SORTS[0]).toBe("best_sellers");
+    expect(SELLABLE_PRODUCT_SORT_LABELS.best_sellers).toBe("Mais vendidos");
+  });
+
+  it("keeps the best sellers sort off the supplier page, which has no sales ranking", () => {
+    expect(catalogSearchSchema.parse({ sort: "best_sellers" }).sort).toBe("title");
   });
 });

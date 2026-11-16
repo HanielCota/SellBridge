@@ -38,6 +38,8 @@ export interface PublishProductInput {
   imageUrls: readonly string[];
   /** Category attribute ids (BRAND, MODEL, GTIN...) and their actual values. */
   mercadoLivreAttributes?: Readonly<Record<string, string>>;
+  /** The Mercado Livre category the supplier chose (MLB…); predicted from the title when null. */
+  mercadoLivreCategoryId?: string | null;
   /** Packed weight in grams (the product's fiscal net weight); TikTok Shop requires it. */
   packageWeightGrams?: number | null;
 }
@@ -91,6 +93,11 @@ export interface MarketplaceOrder {
    */
   refundedCents?: Cents | undefined;
   buyerName: string | null;
+  /**
+   * The marketplace cart the order was bought in: every order of a cart ships in one package
+   * with one label. Null when bought alone; undefined when the marketplace has no carts.
+   */
+  packId?: string | null | undefined;
   /**
    * Where the parcel goes, when the marketplace sends it with the order (validated with
    * `marketplaceShippingAddressSchema`); undefined when it does not. Stored encrypted.

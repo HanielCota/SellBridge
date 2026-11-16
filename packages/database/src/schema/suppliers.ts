@@ -111,6 +111,10 @@ export const supplierProducts = pgTable(
       .notNull()
       .default(sql`'{}'::text[]`),
     mercadoLivreAttributes: jsonb().$type<Record<string, string>>().notNull().default({}),
+    /** Mercado Livre category the supplier confirmed (MLB…); null: predicted from the title. */
+    mercadoLivreCategoryId: text(),
+    /** Its name as Mercado Livre gave it, so the form shows it without asking again. */
+    mercadoLivreCategoryName: text(),
     /** NCM, origin, unit, CEST, net weight and tax-code overrides; read with `readProductFiscal`. */
     fiscal: jsonb().$type<ProductFiscalPatch>().notNull().default({}),
     /**

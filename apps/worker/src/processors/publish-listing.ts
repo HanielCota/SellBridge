@@ -94,6 +94,7 @@ function toPublishProductInput(
     sku: row.product.sku,
     imageUrls: row.product.imageUrls,
     mercadoLivreAttributes: row.product.mercadoLivreAttributes,
+    mercadoLivreCategoryId: row.product.mercadoLivreCategoryId,
     packageWeightGrams: readProductFiscal(row.product.fiscal).netWeightGrams,
   };
 }

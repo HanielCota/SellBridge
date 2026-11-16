@@ -1,5 +1,6 @@
 import {
   createConnectorRegistry,
+  createMercadoLivreCatalog,
   type AuthorizationRequest,
   type MarketplaceId,
   type MercadoLivreConfig,
@@ -18,6 +19,9 @@ export const connectors = createConnectorRegistry({
     serviceId: environment.TIKTOK_SHOP_SERVICE_ID,
   },
 });
+
+/** Categories and technical sheets; they need no seller account. */
+export const mercadoLivreCatalog = createMercadoLivreCatalog();
 
 /** The app's credentials for the direct Mercado Livre calls: shipments and labels. */
 export const mercadoLivreApiConfig: MercadoLivreConfig = {
