@@ -24,11 +24,24 @@ export async function makeAccountPredateConfirmation(email: string): Promise<voi
 }
 
 /**
+ * Whether React owns every control on the page. Runs in the browser, so it stays self-contained.
+ * Links are left out: text rendered from HTML can hold some React never sees.
+ */
+export function controlsOwnedByReact(): boolean {
+  return [...document.querySelectorAll("button, input, select, textarea")].every((control) =>
+    Object.keys(control).some((key) => key.startsWith("__reactFiber$")),
+  );
+}
+
+/**
  * Waits until React has hydrated the current document. Needed after any full page load:
  * before hydration a click submits the form natively and the page just reloads.
  */
 export async function waitForHydration(page: Page): Promise<void> {
   await page.locator("html[data-hydrated]").waitFor({ state: "attached" });
+  // The root's flag goes up when the root commits, but React may hydrate the page under it in a
+  // later pass; on a slow machine a click in between is dropped. Wait for the page too.
+  await page.waitForFunction(controlsOwnedByReact);
 }
 
 /** Opens a page and waits until React has hydrated it, so typed values are not reset. */
