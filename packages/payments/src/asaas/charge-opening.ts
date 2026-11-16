@@ -6,7 +6,7 @@ import {
 } from "@sellbridge/database/repositories";
 import { logger } from "@sellbridge/shared/logger";
 import { withAsaasAccount } from "./account-access.ts";
-import { chargesWithMoneyTaken } from "./charge-state.ts";
+import { chargeMatchesParcel, chargesWithMoneyTaken } from "./charge-state.ts";
 import { applyAsaasCharge } from "./charge-sync.ts";
 import type { AsaasAccountClient } from "./client.ts";
 import type { AsaasContext } from "./context.ts";
@@ -94,16 +94,23 @@ export async function openAsaasCharge(
       return { kind: "already_paid" };
     }
     const unpaid = unpaidCharges(existing);
-    const reusable = unpaid.find((charge) => charge.status === "PENDING");
+    const reusable = unpaid.find(
+      (charge) =>
+        charge.status === "PENDING" &&
+        chargeMatchesParcel(charge, payment, context.settings.walletId),
+    );
+    // Any other open charge (overdue, or not asking what the parcel asks) could still be paid:
+    // it goes before the reseller pays, never beside the one that counts.
+    for (const stale of unpaid) {
+      if (stale.id !== reusable?.id) {
+        await client.deleteCharge(stale.id);
+      }
+    }
     if (reusable !== undefined) {
       return {
         kind: "opened",
         checkoutUrl: await saveCharge(context, payment, reusable, input.now),
       };
-    }
-    // An overdue charge may still be paid: it goes before a new one opens, never beside it.
-    for (const overdue of unpaid) {
-      await client.deleteCharge(overdue.id);
     }
     const charge = await createCharge(context, client, input);
     logger.info("asaas.charge_opened", {

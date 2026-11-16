@@ -5,6 +5,15 @@ import { z } from "zod";
  * uses: Asaas adds fields over time and an unknown one must never fail a read.
  */
 
+const WEB_PROTOCOLS = new Set(["http:", "https:"]);
+
+/** A link Asaas sends to open in the browser; any other scheme (javascript:, data:) is dropped. */
+const webLink = z
+  .string()
+  .transform((link) =>
+    URL.canParse(link) && WEB_PROTOCOLS.has(new URL(link).protocol) ? link : null,
+  );
+
 export const asaasErrorResponseSchema = z.object({
   errors: z.array(z.object({ code: z.string().optional(), description: z.string().optional() })),
 });
@@ -52,7 +61,7 @@ export const asaasPaymentSchema = z.object({
   netValue: z.number().nullish(),
   billingType: z.string().nullish(),
   externalReference: z.string().nullish(),
-  invoiceUrl: z.string().nullish(),
+  invoiceUrl: webLink.nullish(),
   dueDate: z.string().nullish(),
   paymentDate: z.string().nullish(),
   confirmedDate: z.string().nullish(),
@@ -81,7 +90,7 @@ export const asaasPendingDocumentListSchema = z.object({
       status: z.string(),
       type: z.string().nullish(),
       /** The page where the account owner sends this document, when Asaas offers one. */
-      onboardingUrl: z.string().nullish(),
+      onboardingUrl: webLink.nullish(),
     }),
   ),
 });

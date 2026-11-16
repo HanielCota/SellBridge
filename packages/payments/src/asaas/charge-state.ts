@@ -110,6 +110,24 @@ export function asaasChargeState(payment: AsaasPayment): AsaasChargeState {
   };
 }
 
+/** SellBridge's share in the charge's split, in cents (zero when it has none). */
+export function platformShareCents(charge: AsaasPayment, walletId: string): number {
+  const share = (charge.split ?? []).find((entry) => entry.walletId === walletId);
+  return share?.fixedValue == null ? 0 : centsFromAsaasValue(share.fixedValue);
+}
+
+/** The charge asks for exactly the parcel's amount, with SellBridge's fee in its split. */
+export function chargeMatchesParcel(
+  charge: AsaasPayment,
+  parcel: { amountCents: number; platformFeeCents: number },
+  walletId: string,
+): boolean {
+  return (
+    centsFromAsaasValue(charge.value) === parcel.amountCents &&
+    platformShareCents(charge, walletId) === parcel.platformFeeCents
+  );
+}
+
 /**
  * The charges, among those carrying one parcel's reference, whose money was taken: more than one
  * means the reseller paid twice and the extra one has to be given back.

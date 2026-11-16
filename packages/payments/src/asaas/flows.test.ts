@@ -358,6 +358,51 @@ describe("applyAsaasCharge", () => {
     expect(result).toEqual({ kind: "ignored", reason: "unknown_payment" });
   });
 
+  test("hands the team a paid charge that does not ask what SellBridge opened", async () => {
+    mocks.findPayment.mockResolvedValue(parcel());
+    const errors = vi.spyOn(logger, "error").mockImplementation(() => {});
+
+    const result = await applyAsaasCharge(context, { account, charge: charge({ value: 150 }) });
+
+    expect(result).toEqual({ kind: "ignored", reason: "amount_mismatch" });
+    expect(errors).toHaveBeenCalledWith(
+      "asaas.paid_charge_refused",
+      expect.objectContaining({ problemKey: "pay_1", shipmentPaymentId: PAYMENT_ID }),
+    );
+  });
+
+  test("warns the team when the guarantee ends early without SellBridge", async () => {
+    vi.useFakeTimers({ now: NOW });
+    mocks.findPayment.mockResolvedValue(parcel());
+    mocks.apply.mockResolvedValue({ kind: "applied", payment: parcel() });
+    const errors = vi.spyOn(logger, "error").mockImplementation(() => {});
+    const ended = charge({ escrow: { id: "esc_1", status: "DONE", expirationDate: "2026-12-20" } });
+
+    await applyAsaasCharge(context, { account, charge: ended });
+
+    expect(errors).toHaveBeenCalledWith(
+      "asaas.escrow_ended_unexpectedly",
+      expect.objectContaining({ problemKey: "esc_1", shipmentPaymentId: PAYMENT_ID }),
+    );
+    expect(mocks.markReleased).toHaveBeenCalled();
+    vi.useRealTimers();
+  });
+
+  test("records without alarm a guarantee SellBridge asked to end", async () => {
+    vi.useFakeTimers({ now: NOW });
+    const asked = parcel({ releaseRequestedAt: new Date(NOW.getTime() - 60_000) });
+    mocks.findPayment.mockResolvedValue(asked);
+    mocks.apply.mockResolvedValue({ kind: "applied", payment: asked });
+    const errors = vi.spyOn(logger, "error").mockImplementation(() => {});
+    const ended = charge({ escrow: { id: "esc_1", status: "DONE", expirationDate: "2026-12-20" } });
+
+    await applyAsaasCharge(context, { account, charge: ended });
+
+    expect(errors).not.toHaveBeenCalled();
+    expect(mocks.markReleased).toHaveBeenCalled();
+    vi.useRealTimers();
+  });
+
   test("reports a second paid charge as a duplicate on Problemas", async () => {
     mocks.findPayment.mockResolvedValue(parcel());
     mocks.listCheckouts.mockResolvedValue([
@@ -400,6 +445,27 @@ describe("openAsaasCharge", () => {
 
     expect(result).toEqual({ kind: "opened", checkoutUrl: "https://asaas.test/i/1" });
     expect(requests.map((request) => request.method)).toEqual(["GET"]);
+  });
+
+  test("replaces an open charge that no longer asks what the parcel asks", async () => {
+    replies = [
+      {
+        status: 200,
+        body: { hasMore: false, data: [charge({ status: "PENDING", escrow: null, value: 150 })] },
+      },
+      { status: 200, body: { deleted: true, id: "pay_1" } },
+      { status: 200, body: { data: [{ id: "cus_1" }] } },
+      { status: 200, body: charge({ id: "pay_new", status: "PENDING", escrow: null }) },
+    ];
+
+    await openAsaasCharge(context, opening);
+
+    expect(requests.map((request) => `${request.method} ${request.path}`)).toEqual([
+      "GET /v3/payments",
+      "DELETE /v3/payments/pay_1",
+      "GET /v3/customers",
+      "POST /v3/payments",
+    ]);
   });
 
   test("records a paid charge it finds instead of opening another", async () => {

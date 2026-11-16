@@ -3,7 +3,7 @@ import { AsaasError, isAsaasError } from "./http.ts";
 import { asaasChargeState, chargesWithMoneyTaken } from "./charge-state.ts";
 import { createAsaasAccountClient, createAsaasPlatformClient } from "./client.ts";
 import { asaasDueDate, asaasValueFromCents, centsFromAsaasValue } from "./money.ts";
-import type { AsaasPayment } from "./schemas.ts";
+import { asaasPaymentSchema, type AsaasPayment } from "./schemas.ts";
 import { isValidAsaasWebhookToken, readAsaasWebhookEvent } from "./webhook.ts";
 
 const BASE_URL = "https://asaas.test/v3";
@@ -78,6 +78,30 @@ const webhookTarget = {
   email: "operacao@sellbridge.test",
   authToken: WEBHOOK_TOKEN,
 };
+
+describe("asaasPaymentSchema", () => {
+  test("drops a payment link that is not a web address", () => {
+    const parsed = asaasPaymentSchema.parse({
+      id: "pay_1",
+      status: "PENDING",
+      value: 10,
+      invoiceUrl: "javascript:alert(1)",
+    });
+
+    expect(parsed.invoiceUrl).toBeNull();
+  });
+
+  test("keeps a payment link on https", () => {
+    const parsed = asaasPaymentSchema.parse({
+      id: "pay_1",
+      status: "PENDING",
+      value: 10,
+      invoiceUrl: "https://www.asaas.com/i/1",
+    });
+
+    expect(parsed.invoiceUrl).toBe("https://www.asaas.com/i/1");
+  });
+});
 
 describe("asaas money", () => {
   test("sends cents as reais", () => {

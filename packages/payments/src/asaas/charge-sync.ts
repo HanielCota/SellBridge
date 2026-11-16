@@ -11,7 +11,12 @@ import { logger } from "@sellbridge/shared/logger";
 import { formatCents } from "@sellbridge/shared/money";
 import { z } from "zod";
 import { withAsaasAccount } from "./account-access.ts";
-import { asaasChargeState, type AsaasChargeState } from "./charge-state.ts";
+import {
+  asaasChargeState,
+  chargesWithMoneyTaken,
+  platformShareCents,
+  type AsaasChargeState,
+} from "./charge-state.ts";
 import type { AsaasContext } from "./context.ts";
 import { centsFromAsaasValue } from "./money.ts";
 import type { AsaasPayment } from "./schemas.ts";
@@ -21,12 +26,6 @@ export type AsaasSyncResult =
   | { kind: "ignored"; reason: string };
 
 const externalReferenceSchema = z.uuid();
-
-/** SellBridge's share in the charge's split, in cents (zero when it has none). */
-function platformShareCents(charge: AsaasPayment, walletId: string): number {
-  const share = (charge.split ?? []).find((entry) => entry.walletId === walletId);
-  return share?.fixedValue == null ? 0 : centsFromAsaasValue(share.fixedValue);
-}
 
 /**
  * Why the charge does not settle the parcel, or null when it does: it must be one SellBridge
@@ -67,6 +66,29 @@ async function parcelOf(
   return { local };
 }
 
+/**
+ * The guarantee ended while SellBridge neither released nor refunded the money and before its
+ * deadline: nothing SellBridge decided freed it, so the team has to look.
+ */
+function endedWithoutSellBridge(payment: ShipmentPayment, expiresAt: Date, now: Date): boolean {
+  return (
+    payment.releasedAt === null &&
+    payment.releaseRequestedAt === null &&
+    payment.refundRequestedAt === null &&
+    now.getTime() < expiresAt.getTime()
+  );
+}
+
+function logEndedWithoutSellBridge(payment: ShipmentPayment, escrowId: string): void {
+  logger.error("asaas.escrow_ended_unexpectedly", {
+    reason: `O dinheiro protegido de ${formatCents(payment.amountCents)} saiu da proteção no Asaas antes do prazo, sem o SellBridge liberar nem devolver. Confira a cobrança no Asaas.`,
+    problemKey: escrowId,
+    shipmentPaymentId: payment.id,
+    shipmentId: payment.shipmentId,
+    supplierId: payment.supplierId,
+  });
+}
+
 /** Keeps the guarantee as Asaas reports it; one ended without SellBridge counts as released. */
 async function saveEscrow(
   context: AsaasContext,
@@ -82,9 +104,31 @@ async function saveEscrow(
     escrowStatus: state.escrow.status,
     escrowExpiresAt: state.escrow.expiresAt,
   });
-  if (state.escrow.status === "done" && state.status === "approved") {
-    await markEscrowReleased(context.database, { paymentId: payment.id, now: new Date() });
+  if (state.escrow.status !== "done" || state.status !== "approved") {
+    return;
   }
+  const now = new Date();
+  if (endedWithoutSellBridge(payment, state.escrow.expiresAt, now)) {
+    logEndedWithoutSellBridge(payment, state.escrowId);
+  }
+  await markEscrowReleased(context.database, { paymentId: payment.id, now });
+}
+
+/** A refused charge that took the reseller's money goes to the team; an unpaid one only to the log. */
+function logRefusal(payment: ShipmentPayment, charge: AsaasPayment, refusal: string): void {
+  if (chargesWithMoneyTaken([charge]).length === 0) {
+    logger.warn("asaas.payment_refused", { shipmentPaymentId: payment.id, reason: refusal });
+    return;
+  }
+  logger.error("asaas.paid_charge_refused", {
+    reason: `Um pagamento de ${formatCents(centsFromAsaasValue(charge.value))} entrou no Asaas do fornecedor fora da cobrança aberta pelo SellBridge. Confira no Asaas e devolva ao revendedor ou acerte com o fornecedor.`,
+    problemKey: charge.id,
+    refusal,
+    shipmentPaymentId: payment.id,
+    shipmentId: payment.shipmentId,
+    supplierId: payment.supplierId,
+    chargeId: charge.id,
+  });
 }
 
 function logDuplicate(payment: ShipmentPayment, duplicateChargeId: string): void {
@@ -115,7 +159,7 @@ export async function applyAsaasCharge(
   }
   const refusal = await chargeRefusal(context, parcel.local, input.charge);
   if (refusal !== null) {
-    logger.warn("asaas.payment_refused", { shipmentPaymentId: parcel.local.id, reason: refusal });
+    logRefusal(parcel.local, input.charge, refusal);
     return { kind: "ignored", reason: refusal };
   }
   const state = asaasChargeState(input.charge);
