@@ -212,13 +212,17 @@ describe("publish-listing processor", () => {
     // Before the target: each target lists its own copy of the fixture product.
     await database
       .update(schema.supplierProducts)
-      .set({ mercadoLivreAttributes: { BRAND: "Acme", MODEL: "A1" } })
+      .set({
+        mercadoLivreAttributes: { BRAND: "Acme", MODEL: "A1" },
+        mercadoLivreCategoryId: "MLB7022",
+      })
       .where(eq(schema.supplierProducts.id, catalog.productId));
     const { tenantId, targetId } = await createTarget("Criação remota com resposta perdida");
     const job = { data: { tenantId, listingTargetId: targetId }, attemptsMade: 0, maxAttempts: 5 };
     publishProduct.mockImplementationOnce(async (_credentials, input, options) => {
       expect(options?.creationStartedAt).toBeNull();
       expect(input.mercadoLivreAttributes).toEqual({ BRAND: "Acme", MODEL: "A1" });
+      expect(input.mercadoLivreCategoryId).toBe("MLB7022");
       await options?.beforeCreate();
       expect((await targetRow(targetId)).creationStartedAt).toBeInstanceOf(Date);
       throw marketplaceError("remote response lost", { retryable: false });

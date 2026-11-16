@@ -55,6 +55,8 @@ const product = {
   categoryId: null,
   imageUrls: [],
   mercadoLivreAttributes: {},
+  mercadoLivreCategoryId: null,
+  mercadoLivreCategoryName: null,
   active: true,
 };
 /** Review columns of a stored product (supplier panel, migration 0039). */

@@ -120,6 +120,26 @@ describe("changedProductFields", () => {
     expect(changedProductFields(BASE, { ...BASE, imageUrls: [...BASE.imageUrls] })).toEqual([]);
   });
 
+  it("names a new Mercado Livre category, which does not send the product to review", () => {
+    const changed = changedProductFields(BASE, { ...BASE, mercadoLivreCategoryId: "MLB7022" });
+
+    expect(changed).toEqual(["mercadoLivreCategoryId"]);
+    expect(
+      statusAfterEdit({
+        current: "approved",
+        changedFields: changed,
+        blockingIssueCount: 0,
+        prohibited: false,
+      }),
+    ).toBe("approved");
+  });
+
+  it("ignores the Mercado Livre category when the edit does not carry it", () => {
+    const stored = { ...BASE, mercadoLivreCategoryId: "MLB7022" };
+
+    expect(changedProductFields(stored, BASE)).toEqual([]);
+  });
+
   it("names each changed scalar, the image list and the attributes", () => {
     const after: EditableProductFields = {
       ...BASE,
