@@ -233,19 +233,15 @@ test("o fornecedor baixa a etiqueta em ZPL, de um pedido e em lote", async ({ pa
   await expect(
     panel.getByRole("button", { name: "Reimprimir etiqueta do marketplace" }),
   ).toBeVisible();
-  const { overflowInPixels, pastTheEdge } = await panel.evaluate((element: HTMLElement) => {
+  // Unwrapped, the button widened the panel's whole column, about 30 px past its edge. Boxes are
+  // measured, not the scroll width: on CI that read a steady 7 px with no box past the edge (text
+  // spilling inside one), which this button does not cause. One pixel is sub-pixel rounding.
+  const pastTheEdge = await panel.evaluate((element: HTMLElement) => {
     const edge = element.getBoundingClientRect().left + element.clientWidth;
-    return {
-      overflowInPixels: element.scrollWidth - element.clientWidth,
-      // Named in the failure, so a wide element shows without a trace.
-      pastTheEdge: [...element.querySelectorAll("*")]
-        .filter((child) => child.getBoundingClientRect().right > edge + 1)
-        .slice(0, 5)
-        .map((child) => `${child.tagName} "${child.textContent.trim().slice(0, 40)}"`),
-    };
+    return [...element.querySelectorAll("*")]
+      .filter((child) => child.getBoundingClientRect().right > edge + 1)
+      .slice(0, 5)
+      .map((child) => `${child.tagName} "${child.textContent.trim().slice(0, 40)}"`);
   });
-  // One pixel is sub-pixel rounding; the unwrapped button overflowed by about 30.
-  expect(overflowInPixels, `past the panel's edge: ${pastTheEdge.join("; ")}`).toBeLessThanOrEqual(
-    1,
-  );
+  expect(pastTheEdge).toEqual([]);
 });
