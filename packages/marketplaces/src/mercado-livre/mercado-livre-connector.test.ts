@@ -1167,3 +1167,73 @@ describe("order amounts out of range", () => {
     expect((await ml.fetchOrder(store, "/orders/1")).totalCents).toBe(2_147_483_647);
   });
 });
+
+describe("the shipping the seller pays on a sale", () => {
+  const shippedOrder = { ...rawOrder, shipping: { id: 43000000001 } };
+  const orderRoute = `GET ${API}/orders/2000003508897196`;
+  const costsRoute = `GET ${API}/shipments/43000000001/costs`;
+  /** The official page's example: the seller pays R$ 8,19 after a 60% mandatory discount. */
+  const costs = {
+    gross_amount: 24.55,
+    receiver: { user_id: 74425755, cost: 0, compensation: 0, save: 0, discounts: [] },
+    senders: [
+      { user_id: 123, cost: 3, compensation: 0, save: 0, discounts: [] },
+      {
+        user_id: 999,
+        cost: 8.19,
+        compensation: 0,
+        save: 0,
+        discounts: [{ rate: 0.6, type: "mandatory", promoted_amount: 12.29 }],
+      },
+    ],
+  };
+
+  it("reads the store's own cost from the shipment's costs", async () => {
+    const { ml } = connector({
+      [orderRoute]: () => json(200, shippedOrder),
+      [costsRoute]: () => json(200, costs),
+    });
+
+    const order = await ml.fetchOrder(store, "/orders/2000003508897196");
+
+    expect(order.sellerShippingCents).toBe(819);
+  });
+
+  it("leaves the cost unknown while the sale has no shipment", async () => {
+    const { ml, calls } = connector({ [orderRoute]: () => json(200, rawOrder) });
+
+    const order = await ml.fetchOrder(store, "/orders/2000003508897196");
+
+    expect(order.sellerShippingCents).toBeUndefined();
+    expect(calls.some((call) => call.url.includes("/costs"))).toBe(false);
+  });
+
+  it("leaves the cost unknown when the shipment names no cost for the store", async () => {
+    const { ml } = connector({
+      [orderRoute]: () => json(200, shippedOrder),
+      [costsRoute]: () => json(200, { ...costs, senders: [{ user_id: 123, cost: 3 }] }),
+    });
+
+    const order = await ml.fetchOrder(store, "/orders/2000003508897196");
+
+    expect(order.sellerShippingCents).toBeUndefined();
+  });
+
+  it("still brings the sale in when the cost cannot be read", async () => {
+    const warn = vi.spyOn(logger, "warn").mockImplementation(() => undefined);
+    const { ml } = connector({
+      [orderRoute]: () => json(200, shippedOrder),
+      [costsRoute]: () => json(403, { message: "forbidden" }),
+    });
+
+    const order = await ml.fetchOrder(store, "/orders/2000003508897196");
+
+    expect(order.externalOrderId).toBe("2000003508897196");
+    expect(order.sellerShippingCents).toBeUndefined();
+    expect(warn).toHaveBeenCalledWith(
+      "mercado_livre.shipping_cost_unread",
+      expect.objectContaining({ shipmentId: "43000000001" }),
+    );
+    warn.mockRestore();
+  });
+});
