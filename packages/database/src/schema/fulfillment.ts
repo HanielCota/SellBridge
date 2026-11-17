@@ -13,7 +13,7 @@ import {
 import type { DeliveryAddress, FulfillmentStatus } from "@sellbridge/shared/schemas";
 import { organization } from "./auth.ts";
 import { orders } from "./orders.ts";
-import { suppliers } from "./suppliers.ts";
+import { supplierProducts, suppliers } from "./suppliers.ts";
 
 export interface ShipmentItem {
   orderItemId: string;
@@ -99,4 +99,49 @@ export const shipmentEvents = pgTable(
     createdAt: timestamp({ withTimezone: true }).notNull().defaultNow(),
   },
   (table) => [index("shipment_events_shipment_idx").on(table.shipmentId, table.createdAt)],
+);
+
+/** The steps of a supplier's test order, in the order the supplier walks them. */
+export const SUPPLIER_TEST_ORDER_STEPS = [
+  "received",
+  "accepted",
+  "label_printed",
+  "picked",
+  "shipped",
+  "delivered",
+] as const;
+export type SupplierTestOrderStep = (typeof SUPPLIER_TEST_ORDER_STEPS)[number];
+
+/**
+ * A simulated order the supplier creates from the panel to watch the flow (accept, label, pick,
+ * ship). It lives apart from `orders` and `order_shipments` on purpose: nothing that syncs with a
+ * marketplace, charges, pays out or reports reads this table, and it belongs to one supplier.
+ */
+export const supplierTestOrders = pgTable(
+  "supplier_test_orders",
+  {
+    id: uuid().primaryKey().defaultRandom(),
+    supplierId: uuid()
+      .notNull()
+      .references(() => suppliers.id, { onDelete: "cascade" }),
+    supplierProductId: uuid().references(() => supplierProducts.id, { onDelete: "set null" }),
+    productTitle: text().notNull(),
+    productSku: text().notNull(),
+    step: text().$type<SupplierTestOrderStep>().notNull().default("received"),
+    dispatchDeadlineAt: timestamp({ withTimezone: true }).notNull(),
+    acceptedAt: timestamp({ withTimezone: true }),
+    labelPrintedAt: timestamp({ withTimezone: true }),
+    pickedAt: timestamp({ withTimezone: true }),
+    shippedAt: timestamp({ withTimezone: true }),
+    deliveredAt: timestamp({ withTimezone: true }),
+    createdAt: timestamp({ withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [
+    // One test order at a time per supplier.
+    uniqueIndex("supplier_test_orders_supplier_idx").on(table.supplierId),
+    check(
+      "supplier_test_orders_step_check",
+      sql`${table.step} in ('received','accepted','label_printed','picked','shipped','delivered')`,
+    ),
+  ],
 );
