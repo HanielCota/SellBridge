@@ -16,8 +16,8 @@ const STEPS = [
     Abra o e-mail <strong className="font-medium">“Confirme seu e-mail no SellBridge”</strong>.
   </>,
   <>
-    Toque em <strong className="font-medium">Confirmar e-mail</strong>. Você entra direto no
-    SellBridge.
+    Toque em <strong className="font-medium">Confirmar e-mail</strong>. Depois, é só entrar com seu
+    e-mail e senha.
   </>,
 ];
 
