@@ -1,5 +1,5 @@
 {
-  "id": "118c169b-2c6a-4a11-bbb8-c6faf03f81b9",
+  "id": "96a48a75-d515-4056-983c-de67797e611e",
   "prevId": "59c69b3c-3837-433c-84c5-6c88c32e57f3",
   "version": "7",
   "dialect": "postgresql",
@@ -1644,6 +1644,12 @@
           "primaryKey": false,
           "notNull": true
         },
+        "supplier_id": {
+          "name": "supplier_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": false
+        },
         "access_token_enc": {
           "name": "access_token_enc",
           "type": "text",
@@ -1720,6 +1726,21 @@
           "method": "btree",
           "with": {}
         },
+        "store_connections_supplier_idx": {
+          "name": "store_connections_supplier_idx",
+          "columns": [
+            {
+              "expression": "supplier_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
         "store_connections_shop_idx": {
           "name": "store_connections_shop_idx",
           "columns": [
@@ -1782,6 +1803,19 @@
             "id"
           ],
           "onDelete": "cascade",
+          "onUpdate": "no action"
+        },
+        "store_connections_supplier_id_suppliers_id_fk": {
+          "name": "store_connections_supplier_id_suppliers_id_fk",
+          "tableFrom": "store_connections",
+          "tableTo": "suppliers",
+          "columnsFrom": [
+            "supplier_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "set null",
           "onUpdate": "no action"
         }
       },
@@ -8215,6 +8249,65 @@
         }
       },
       "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "public.marketplace_fee_quotes": {
+      "name": "marketplace_fee_quotes",
+      "schema": "",
+      "columns": {
+        "store_connection_id": {
+          "name": "store_connection_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "quote_key": {
+          "name": "quote_key",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "amount": {
+          "name": "amount",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "read_at": {
+          "name": "read_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {
+        "marketplace_fee_quotes_store_connection_id_store_connections_id_fk": {
+          "name": "marketplace_fee_quotes_store_connection_id_store_connections_id_fk",
+          "tableFrom": "marketplace_fee_quotes",
+          "tableTo": "store_connections",
+          "columnsFrom": [
+            "store_connection_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {
+        "marketplace_fee_quotes_store_connection_id_quote_key_pk": {
+          "name": "marketplace_fee_quotes_store_connection_id_quote_key_pk",
+          "columns": [
+            "store_connection_id",
+            "quote_key"
+          ]
+        }
+      },
       "uniqueConstraints": {},
       "policies": {},
       "checkConstraints": {},

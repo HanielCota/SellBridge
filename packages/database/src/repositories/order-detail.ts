@@ -13,6 +13,7 @@ import type { Marketplace } from "./stores.ts";
 
 type OrderStatus = (typeof orders.$inferSelect)["status"];
 type OrderAdjustmentType = (typeof orderAdjustments.$inferSelect)["type"];
+type ListingTargetStatus = (typeof listingTargets.$inferSelect)["status"];
 
 export interface OrderDetailItem {
   id: string;
@@ -22,6 +23,9 @@ export interface OrderDetailItem {
   unitCostCents: number;
   /** Our listing that sold it; null when the item was not linked to one. */
   listingId: string | null;
+  /** That listing's status in the order's store, and the ad's marketplace link, for "Ver anúncio". */
+  listingStatus: ListingTargetStatus | null;
+  listingUrl: string | null;
   productId: string | null;
 }
 
@@ -84,6 +88,8 @@ async function selectItems(database: Database, tenantId: string, orderId: string
       unitPriceCents: orderItems.unitPriceCents,
       unitCostCents: orderItems.unitCostCents,
       listingId: listingTargets.listingId,
+      listingStatus: listingTargets.status,
+      listingUrl: listingTargets.externalUrl,
       productId: orderItems.supplierProductId,
     })
     .from(orderItems)

@@ -887,3 +887,23 @@ O pedido original do cliente era "liberação só com o pedido entregue, para ev
 - **Variáveis** (site e worker): `ASAAS_API_URL`, `ASAAS_API_KEY`, `ASAAS_WALLET_ID`, `ASAAS_WEBHOOK_TOKEN`. Sem as três últimas, o Asaas fica desligado. Em produção, só `https://api.asaas.com/v3`. O e-mail que o Asaas avisa quando os avisos falham é o primeiro de `ADMIN_EMAILS`.
 - **A conferir no sandbox:** se a subconta pode mandar a taxa para a carteira do SellBridge no split (senão, a cobrança passa a ser criada pela conta do SellBridge com o split para o fornecedor); devolução com o dinheiro guardado; quando a guarda começa no cartão (o Asaas só considera o cartão "recebido" uns 30 dias depois); o formato da lista de documentos; e se a chave da subconta vem na criação (depois do período de avaliação, depende do modelo BaaS pedido ao gerente do Asaas).
 - **Descartado:** o SellBridge guardar o dinheiro e repassar depois (custódia de terceiros); a cobrança emitida pela conta do SellBridge (o SellBridge viraria o recebedor e pagaria a tarifa do Asaas).
+
+## 2026-11-16: Lucro real por canal (etapa 2a, comissão e frete lidos da loja)
+
+Guilherme aprovou as três etapas do lucro real; a Central mandou começar a etapa 2 no mesmo dia. A etapa 2 foi dividida: esta parte (2a) lê as taxas da loja. O frete real de cada pedido (2b) vem num PR seguinte, que mexe nos arquivos de pedido.
+
+- **De onde vem:**
+  - **Comissão:** a do Clássico na categoria do produto no Mercado Livre, lida com a conta da loja em `/sites/MLB/listing_prices`. A pergunta vai com o preço de R$ 100,00: acima do limite do frete grátis não entra taxa fixa, e a porcentagem da categoria quase não muda com o preço.
+  - **Frete:** o que a loja paga pelo pacote, lido em `/users/{id}/shipping_options/free`, uma vez por faixa de preço da tabela (8 perguntas). A resposta já traz o desconto da reputação da loja.
+  - **Medidas:** o frete só é lido quando o fornecedor informou as quatro medidas da embalagem nos campos do Mercado Livre. Sem elas, o frete continua o da tabela oficial pelo peso, e a tela diz o motivo.
+  - **Fontes:** as páginas oficiais estão citadas no código, lidas em 16/11/2026.
+- **Memória:** as respostas ficam guardadas por loja na tabela `marketplace_fee_quotes`.
+  - Até 24 horas, a resposta guardada é usada sem perguntar de novo.
+  - Depois disso, o sistema pergunta de novo. Se o Mercado Livre não responder, usa a última resposta de até 7 dias e, passado isso, volta à estimativa.
+  - Ficou no banco, e não na memória do servidor, para os 7 dias valerem mesmo com o servidor reiniciado a cada atualização.
+- **Várias lojas:** vale a mais cara. Para a comissão e para cada faixa de frete, usa-se o maior valor entre as lojas, para nenhuma loja lucrar menos do que a tela mostra.
+- **Onde vale:**
+  - **Telas:** a nova publicação (lucro, atalhos de preço e aviso) e o diálogo de editar preço, com uma frase dizendo de onde veio o número ("Comissão e frete da sua loja no Mercado Livre, consultados há 3 horas").
+  - **Servidor:** o piso do servidor ao criar o anúncio e ao trocar o preço.
+- **Fora, de propósito:** o catálogo e a publicação em lote continuam na estimativa da etapa 1. Ler 9 valores por produto e por loja numa grade de 24 produtos seria pergunta demais ao Mercado Livre por página aberta.
+- **Testes:** nenhuma chamada real ao Mercado Livre. Os testes de unidade usam respostas no formato da documentação, e o teste de navegador usa o substituto do Mercado Livre (`e2e/mercado-livre.fixture.ts`).

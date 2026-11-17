@@ -115,9 +115,16 @@ describe("order detail", () => {
         quantity: 2,
         unitCostCents: 1500,
         listingId,
+        listingStatus: "pending",
+        listingUrl: null,
         productId: catalog.productId,
       }),
-      expect.objectContaining({ title: "Brinde sem vínculo", listingId: null, productId: null }),
+      expect.objectContaining({
+        title: "Brinde sem vínculo",
+        listingId: null,
+        listingStatus: null,
+        productId: null,
+      }),
     ]);
     expect(detail.adjustments.map((adjustment) => adjustment.type).toSorted()).toEqual([
       "commission",

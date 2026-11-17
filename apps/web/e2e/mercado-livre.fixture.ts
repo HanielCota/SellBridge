@@ -53,6 +53,30 @@ function shipment(id: string): Response {
   });
 }
 
+/** The stand-in store's commission, in percent (`GET /sites/MLB/listing_prices`). */
+export const STAND_IN_COMMISSION_PERCENT = 14;
+/**
+ * What the stand-in store pays to ship any package at any price, in reais
+ * (`GET /users/{id}/shipping_options/free`): far above the published green table, so a price
+ * read with the store's account visibly differs from the estimate.
+ */
+export const STAND_IN_SHIPPING_REAIS = 15;
+
+function saleCost(url: URL): Response | null {
+  if (url.pathname === "/sites/MLB/listing_prices") {
+    return Response.json([
+      {
+        listing_type_id: "gold_special",
+        sale_fee_details: { fixed_fee: 0, percentage_fee: STAND_IN_COMMISSION_PERCENT },
+      },
+    ]);
+  }
+  if (/^\/users\/\d+\/shipping_options\/free$/.test(url.pathname)) {
+    return Response.json({ coverage: { all_country: { list_cost: STAND_IN_SHIPPING_REAIS } } });
+  }
+  return null;
+}
+
 export const mercadoLivreStandIn: FetchLike = async (input) => {
   const url = new URL(input);
   if (url.host !== "api.mercadolibre.com") {
@@ -60,6 +84,10 @@ export const mercadoLivreStandIn: FetchLike = async (input) => {
   }
   if (url.pathname === "/shipment_labels") {
     return label(url);
+  }
+  const cost = saleCost(url);
+  if (cost !== null) {
+    return cost;
   }
   const [, resource, id, detail] = url.pathname.split("/");
   if (!knownOrder(id)) {
