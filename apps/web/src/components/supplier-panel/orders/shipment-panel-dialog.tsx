@@ -4,7 +4,12 @@ import type { LabelFormat } from "@sellbridge/shared/schemas";
 import { type ReactNode, useRef } from "react";
 import { formatCents } from "@sellbridge/shared/money";
 import { DISPATCHED_FULFILLMENT_STATUSES } from "@sellbridge/shared/schemas";
+import {
+  BATCH_LABEL_MARKETPLACE,
+  isLabelMarketplace,
+} from "@sellbridge/shared/supplier-order-labels";
 import { ShipmentPanel } from "@/components/fulfillment/shipment-panel";
+import { Button } from "@/components/ui/button";
 import { MarketplaceMark } from "@/components/stores/marketplace-mark";
 import { SupplierPaymentBadgeView } from "@/components/supplier-payments/supplier-payment-badge";
 import { shippingMethod } from "@/features/supplier-panel/orders/shipping-methods";
@@ -151,23 +156,31 @@ function OrderFacts({ shipment }: { shipment: PanelShipment }) {
   );
 }
 
+const LABEL_BUTTON_CLASS = "h-auto min-h-9 max-w-full py-1.5 whitespace-normal";
+
 /**
  * Opens the marketplace label in a new tab, like the supplier link's page does, but from the
  * signed-in panel: the ids go in the form body and the server checks the panel session. The PDF
- * opens there, the browser downloads the ZPL, and an error shows in the tab.
+ * opens there, the browser downloads the ZPL, and an error shows in the tab. A channel with only
+ * a PDF label (TikTok Shop) gets a plain button instead of the printer menu.
  */
 function MarketplaceLabelForm({
   supplierId,
   shipmentId,
   orderId,
   printed,
+  pdfOnly,
 }: {
   supplierId: string;
   shipmentId: string;
   orderId: string;
   printed: boolean;
+  pdfOnly: boolean;
 }) {
   const withProfile = useTabProfileLink();
+  const buttonText = printed
+    ? "Reimprimir etiqueta do marketplace"
+    : "Imprimir etiqueta do marketplace";
   const formRef = useRef<HTMLFormElement>(null);
   const formatRef = useRef<HTMLInputElement>(null);
   const print = (format: LabelFormat) => {
@@ -189,13 +202,15 @@ function MarketplaceLabelForm({
       <input type="hidden" name="shipmentId" value={shipmentId} />
       <input ref={formatRef} type="hidden" name="formato" defaultValue="pdf" />
       {/* Wraps like the panel's other buttons, which the panel styles only as its own children. */}
-      <LabelFormatMenu
-        size="default"
-        className="h-auto min-h-9 max-w-full py-1.5 whitespace-normal"
-        onChoose={print}
-      >
-        {printed ? "Reimprimir etiqueta do marketplace" : "Imprimir etiqueta do marketplace"}
-      </LabelFormatMenu>
+      {pdfOnly ? (
+        <Button type="submit" variant="outline" className={LABEL_BUTTON_CLASS}>
+          {buttonText}
+        </Button>
+      ) : (
+        <LabelFormatMenu size="default" className={LABEL_BUTTON_CLASS} onChoose={print}>
+          {buttonText}
+        </LabelFormatMenu>
+      )}
     </form>
   );
 }
@@ -262,12 +277,13 @@ function PanelBody({ supplierId, shipmentId }: { supplierId: string; shipmentId:
         showHistory={!tracked}
         onUpdate={onUpdate}
       >
-        {query.data.marketplace !== "mercado_livre" || query.data.splitOrder ? null : (
+        {!isLabelMarketplace(query.data.marketplace) || query.data.splitOrder ? null : (
           <MarketplaceLabelForm
             supplierId={supplierId}
             shipmentId={shipmentId}
             orderId={query.data.orderId}
             printed={query.data.labelPrintCount > 0}
+            pdfOnly={query.data.marketplace !== BATCH_LABEL_MARKETPLACE}
           />
         )}
       </ShipmentPanel>

@@ -1,5 +1,6 @@
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { createFileRoute } from "@tanstack/react-router";
+import { isLabelMarketplace } from "@sellbridge/shared/supplier-order-labels";
 import type { ReactNode } from "react";
 import { BrandLogo } from "@/components/brand/brand-logo";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
@@ -136,7 +137,7 @@ function SupplierOrderPage() {
           await client.invalidateQueries({ queryKey: shipmentQuery.queryKey });
         }}
       >
-        {query.data.marketplace === "mercado_livre" ? (
+        {isLabelMarketplace(query.data.marketplace) ? (
           // A form post keeps the token out of the URL, the history and the access logs.
           <form
             method="post"
