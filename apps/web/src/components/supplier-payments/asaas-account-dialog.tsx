@@ -94,9 +94,14 @@ function ChoiceButton(props: {
   );
 }
 
+const COMPANY_TYPE_ERROR_ID = "asaas-company-type-error";
+
 function CompanyTypeField(props: StepProps) {
   return (
-    <fieldset className="grid gap-2">
+    <fieldset
+      className="grid gap-2"
+      aria-describedby={props.errors.companyType === undefined ? undefined : COMPANY_TYPE_ERROR_ID}
+    >
       <legend className="mb-1 text-sm font-medium">Tipo de empresa</legend>
       <div className="grid grid-cols-2 gap-2">
         {ASAAS_COMPANY_TYPES.map((type) => (
@@ -111,7 +116,9 @@ function CompanyTypeField(props: StepProps) {
         ))}
       </div>
       {props.errors.companyType === undefined ? null : (
-        <p className="text-footnote text-destructive">{props.errors.companyType}</p>
+        <p id={COMPANY_TYPE_ERROR_ID} role="alert" className="text-footnote text-destructive">
+          {props.errors.companyType}
+        </p>
       )}
     </fieldset>
   );
