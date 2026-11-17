@@ -21,6 +21,7 @@
     "./brazilian-states": "./src/domain/brazilian-states.ts",
     "./billing-address": "./src/domain/billing-address.ts",
     "./product-fiscal": "./src/domain/product-fiscal.ts",
+    "./product-sale-terms": "./src/domain/product-sale-terms.ts",
     "./supplier-fiscal": "./src/domain/supplier-fiscal.ts",
     "./supplier-invoice": "./src/domain/supplier-invoice.ts",
     "./cpf": "./src/domain/cpf.ts",

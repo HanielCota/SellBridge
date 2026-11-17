@@ -1,5 +1,5 @@
 {
-  "id": "1402bbc7-08e0-4ba8-bdf9-ca34504a7019",
+  "id": "c70c525a-ede5-44dc-8422-32664893d41a",
   "prevId": "c3e425e0-94e9-49c1-8f85-ff32544b4645",
   "version": "7",
   "dialect": "postgresql",
@@ -1076,6 +1076,37 @@
           "primaryKey": false,
           "notNull": false
         },
+        "warranty_type": {
+          "name": "warranty_type",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "warranty_days": {
+          "name": "warranty_days",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "video_url": {
+          "name": "video_url",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "made_to_order_days": {
+          "name": "made_to_order_days",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "carrier_only": {
+          "name": "carrier_only",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": true,
+          "default": false
+        },
         "fiscal": {
           "name": "fiscal",
           "type": "jsonb",
@@ -1288,6 +1319,10 @@
         "supplier_products_reserved_stock_check": {
           "name": "supplier_products_reserved_stock_check",
           "value": "\"supplier_products\".\"reserved_stock\" >= 0"
+        },
+        "supplier_products_sale_terms_check": {
+          "name": "supplier_products_sale_terms_check",
+          "value": "(\"supplier_products\".\"warranty_type\" is null or \"supplier_products\".\"warranty_type\" in ('none', 'seller', 'factory')) and (\"supplier_products\".\"warranty_days\" is null or \"supplier_products\".\"warranty_days\" between 1 and 3650) and (\"supplier_products\".\"made_to_order_days\" is null or \"supplier_products\".\"made_to_order_days\" between 1 and 60)"
         }
       },
       "isRLSEnabled": false
@@ -7291,20 +7326,6 @@
           "primaryKey": false,
           "notNull": false
         },
-        "new_supplier_protection": {
-          "name": "new_supplier_protection",
-          "type": "boolean",
-          "primaryKey": false,
-          "notNull": true,
-          "default": false
-        },
-        "new_supplier_deliveries": {
-          "name": "new_supplier_deliveries",
-          "type": "integer",
-          "primaryKey": false,
-          "notNull": true,
-          "default": 5
-        },
         "updated_by_user_id": {
           "name": "updated_by_user_id",
           "type": "text",
@@ -7342,10 +7363,6 @@
         "platform_settings_single_row_check": {
           "name": "platform_settings_single_row_check",
           "value": "\"platform_settings\".\"id\" = 1"
-        },
-        "platform_settings_new_supplier_deliveries_check": {
-          "name": "platform_settings_new_supplier_deliveries_check",
-          "value": "\"platform_settings\".\"new_supplier_deliveries\" between 1 and 1000"
         },
         "platform_settings_payment_fee_check": {
           "name": "platform_settings_payment_fee_check",
@@ -7583,54 +7600,6 @@
           "primaryKey": false,
           "notNull": false
         },
-        "escrow_id": {
-          "name": "escrow_id",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "escrow_status": {
-          "name": "escrow_status",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "escrow_expires_at": {
-          "name": "escrow_expires_at",
-          "type": "timestamp with time zone",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "release_requested_at": {
-          "name": "release_requested_at",
-          "type": "timestamp with time zone",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "released_at": {
-          "name": "released_at",
-          "type": "timestamp with time zone",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "team_decision": {
-          "name": "team_decision",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "team_decision_at": {
-          "name": "team_decision_at",
-          "type": "timestamp with time zone",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "team_decision_by_user_id": {
-          "name": "team_decision_by_user_id",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false
-        },
         "created_at": {
           "name": "created_at",
           "type": "timestamp with time zone",
@@ -7714,22 +7683,6 @@
           "concurrently": false,
           "method": "btree",
           "with": {}
-        },
-        "shipment_payments_held_idx": {
-          "name": "shipment_payments_held_idx",
-          "columns": [
-            {
-              "expression": "paid_at",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            }
-          ],
-          "isUnique": false,
-          "where": "\"shipment_payments\".\"escrow_status\" = 'active' and \"shipment_payments\".\"released_at\" is null",
-          "concurrently": false,
-          "method": "btree",
-          "with": {}
         }
       },
       "foreignKeys": {
@@ -7758,19 +7711,6 @@
           ],
           "onDelete": "cascade",
           "onUpdate": "no action"
-        },
-        "shipment_payments_team_decision_by_user_id_user_id_fk": {
-          "name": "shipment_payments_team_decision_by_user_id_user_id_fk",
-          "tableFrom": "shipment_payments",
-          "tableTo": "user",
-          "columnsFrom": [
-            "team_decision_by_user_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
-          "onDelete": "set null",
-          "onUpdate": "no action"
         }
       },
       "compositePrimaryKeys": {},
@@ -7787,15 +7727,7 @@
         },
         "shipment_payments_refund_reason_check": {
           "name": "shipment_payments_refund_reason_check",
-          "value": "\"shipment_payments\".\"refund_reason\" is null or \"shipment_payments\".\"refund_reason\" in ('not_dispatched','cancelled','returned','not_delivered','team')"
-        },
-        "shipment_payments_escrow_status_check": {
-          "name": "shipment_payments_escrow_status_check",
-          "value": "\"shipment_payments\".\"escrow_status\" is null or \"shipment_payments\".\"escrow_status\" in ('active','done')"
-        },
-        "shipment_payments_team_decision_check": {
-          "name": "shipment_payments_team_decision_check",
-          "value": "\"shipment_payments\".\"team_decision\" is null or \"shipment_payments\".\"team_decision\" in ('release','refund')"
+          "value": "\"shipment_payments\".\"refund_reason\" is null or \"shipment_payments\".\"refund_reason\" in ('not_dispatched','cancelled','returned')"
         },
         "shipment_payments_fee_check": {
           "name": "shipment_payments_fee_check",
@@ -7856,18 +7788,6 @@
         },
         "last_error": {
           "name": "last_error",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "wallet_id": {
-          "name": "wallet_id",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "review_status": {
-          "name": "review_status",
           "type": "text",
           "primaryKey": false,
           "notNull": false
@@ -7963,77 +7883,6 @@
           "tableTo": "user",
           "columnsFrom": [
             "connected_by_user_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
-          "onDelete": "set null",
-          "onUpdate": "no action"
-        }
-      },
-      "compositePrimaryKeys": {},
-      "uniqueConstraints": {},
-      "policies": {},
-      "checkConstraints": {
-        "supplier_payment_accounts_review_status_check": {
-          "name": "supplier_payment_accounts_review_status_check",
-          "value": "\"supplier_payment_accounts\".\"review_status\" is null or \"supplier_payment_accounts\".\"review_status\" in ('pending','awaiting_approval','approved','rejected')"
-        }
-      },
-      "isRLSEnabled": false
-    },
-    "public.supplier_payment_choices": {
-      "name": "supplier_payment_choices",
-      "schema": "",
-      "columns": {
-        "supplier_id": {
-          "name": "supplier_id",
-          "type": "uuid",
-          "primaryKey": true,
-          "notNull": true
-        },
-        "provider": {
-          "name": "provider",
-          "type": "payment_provider",
-          "typeSchema": "public",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "chosen_by_user_id": {
-          "name": "chosen_by_user_id",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "chosen_at": {
-          "name": "chosen_at",
-          "type": "timestamp with time zone",
-          "primaryKey": false,
-          "notNull": true,
-          "default": "now()"
-        }
-      },
-      "indexes": {},
-      "foreignKeys": {
-        "supplier_payment_choices_supplier_id_suppliers_id_fk": {
-          "name": "supplier_payment_choices_supplier_id_suppliers_id_fk",
-          "tableFrom": "supplier_payment_choices",
-          "tableTo": "suppliers",
-          "columnsFrom": [
-            "supplier_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
-          "onDelete": "cascade",
-          "onUpdate": "no action"
-        },
-        "supplier_payment_choices_chosen_by_user_id_user_id_fk": {
-          "name": "supplier_payment_choices_chosen_by_user_id_user_id_fk",
-          "tableFrom": "supplier_payment_choices",
-          "tableTo": "user",
-          "columnsFrom": [
-            "chosen_by_user_id"
           ],
           "columnsTo": [
             "id"
@@ -8434,8 +8283,7 @@
       "name": "payment_provider",
       "schema": "public",
       "values": [
-        "mercado_pago",
-        "asaas"
+        "mercado_pago"
       ]
     }
   },

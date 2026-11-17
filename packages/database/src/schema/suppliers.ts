@@ -1,3 +1,4 @@
+import type { WarrantyType } from "@sellbridge/shared/product-sale-terms";
 import { sql } from "drizzle-orm";
 import {
   boolean,
@@ -115,6 +116,15 @@ export const supplierProducts = pgTable(
     mercadoLivreCategoryId: text(),
     /** Its name as Mercado Livre gave it, so the form shows it without asking again. */
     mercadoLivreCategoryName: text(),
+    /** "none", "seller" or "factory" (shared/domain/product-sale-terms.ts); null: not said. */
+    warrantyType: text().$type<WarrantyType>(),
+    warrantyDays: integer(),
+    /** A YouTube link; Mercado Livre receives its video id. */
+    videoUrl: text(),
+    /** Days to make the product after a sale; null when it ships from stock. */
+    madeToOrderDays: integer(),
+    /** Too big or heavy for the post office: only a carrier takes it. */
+    carrierOnly: boolean().notNull().default(false),
     /** NCM, origin, unit, CEST, net weight and tax-code overrides; read with `readProductFiscal`. */
     fiscal: jsonb().$type<ProductFiscalPatch>().notNull().default({}),
     /**
@@ -162,5 +172,9 @@ export const supplierProducts = pgTable(
       sql`sellbridge_fold(${table.sku}) gin_trgm_ops`,
     ),
     check("supplier_products_reserved_stock_check", sql`${table.reservedStock} >= 0`),
+    check(
+      "supplier_products_sale_terms_check",
+      sql`(${table.warrantyType} is null or ${table.warrantyType} in ('none', 'seller', 'factory')) and (${table.warrantyDays} is null or ${table.warrantyDays} between 1 and 3650) and (${table.madeToOrderDays} is null or ${table.madeToOrderDays} between 1 and 60)`,
+    ),
   ],
 );

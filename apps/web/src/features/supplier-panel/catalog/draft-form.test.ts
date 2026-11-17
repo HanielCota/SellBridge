@@ -13,6 +13,7 @@ import {
   withSuggestedPriceFollowingCost,
   type PanelFormValues,
 } from "./draft-form";
+import { saleTermsFormValues } from "./sale-terms-form";
 
 const FILLED: PanelFormValues = {
   sku: "CAM-1",
@@ -25,6 +26,7 @@ const FILLED: PanelFormValues = {
   imageUrls: ["https://imagens.test/1.jpg"],
   attributes: { BRAND: " Marca ", MODEL: " " },
   mercadoLivreCategory: null,
+  saleTerms: saleTermsFormValues(),
   fiscal: EMPTY_PRODUCT_FISCAL_FORM_VALUES,
 };
 

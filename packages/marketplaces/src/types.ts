@@ -1,3 +1,4 @@
+import type { ListingSaleTerms } from "@sellbridge/shared/product-sale-terms";
 import type { Cents } from "@sellbridge/shared/money";
 import type { MarketplaceShippingAddress, ShippingAddressReading } from "./shipping-address.ts";
 
@@ -40,6 +41,10 @@ export interface PublishProductInput {
   mercadoLivreAttributes?: Readonly<Record<string, string>>;
   /** The Mercado Livre category the supplier chose (MLB…); predicted from the title when null. */
   mercadoLivreCategoryId?: string | null;
+  /** Warranty and made-to-order time; Mercado Livre sends them as `sale_terms`. */
+  saleTerms?: ListingSaleTerms;
+  /** A YouTube video id (not the link). */
+  videoId?: string | null;
   /** Packed weight in grams (the product's fiscal net weight); TikTok Shop requires it. */
   packageWeightGrams?: number | null;
 }
