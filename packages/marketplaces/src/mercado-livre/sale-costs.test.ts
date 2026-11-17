@@ -98,6 +98,16 @@ describe("readMercadoLivreCommission", () => {
     ).rejects.toThrow("comissão do anúncio Clássico");
   });
 
+  it("refuses a commission above the whole price", async () => {
+    const { config } = configAnswering([
+      { ...listingPrices[0], sale_fee_details: { percentage_fee: 140 } },
+    ]);
+
+    await expect(
+      readMercadoLivreCommission(config, store, { categoryId: "MLB1234", priceCents: 3390 }),
+    ).rejects.toThrow("Resposta inesperada do Mercado Livre");
+  });
+
   it("refuses a price that is not a positive whole number of cents", async () => {
     const { request, config } = configAnswering(listingPrices);
 
@@ -146,6 +156,14 @@ describe("readMercadoLivreShippingCost", () => {
 
   it("refuses an answer without the country-wide cost", async () => {
     const { config } = configAnswering({ coverage: {} });
+
+    await expect(
+      readMercadoLivreShippingCost(config, store, { dimensions, priceCents: 3390 }),
+    ).rejects.toThrow("Resposta inesperada do Mercado Livre");
+  });
+
+  it("refuses a shipping cost no package could have", async () => {
+    const { config } = configAnswering({ coverage: { all_country: { list_cost: 123_456 } } });
 
     await expect(
       readMercadoLivreShippingCost(config, store, { dimensions, priceCents: 3390 }),

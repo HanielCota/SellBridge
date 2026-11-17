@@ -27,10 +27,17 @@ function priceInReais(priceCents: number): string {
   return (priceCents / REAIS_TO_CENTS).toFixed(2);
 }
 
+/** A commission is a share of the price: anything above the whole price is a broken answer. */
+const MAX_COMMISSION_PERCENT = 100;
+/** Far above any Mercado Envios cost; a larger answer is refused instead of pricing on it. */
+const MAX_SHIPPING_LIST_COST_REAIS = 5_000;
+
 const listingPricesSchema = z.array(
   z.object({
     listing_type_id: z.string(),
-    sale_fee_details: z.object({ percentage_fee: z.number().nonnegative() }),
+    sale_fee_details: z.object({
+      percentage_fee: z.number().nonnegative().max(MAX_COMMISSION_PERCENT),
+    }),
   }),
 );
 
@@ -113,7 +120,9 @@ export function packageDimensionsOf(
 
 const freeShippingOptionsSchema = z.object({
   coverage: z.object({
-    all_country: z.object({ list_cost: z.number().nonnegative() }),
+    all_country: z.object({
+      list_cost: z.number().nonnegative().max(MAX_SHIPPING_LIST_COST_REAIS),
+    }),
   }),
 });
 
