@@ -533,6 +533,20 @@
       "when": 1794861969902,
       "tag": "0075_order_marketplace_pack",
       "breakpoints": true
+    },
+    {
+      "idx": 76,
+      "version": "7",
+      "when": 1794869408087,
+      "tag": "0076_payment_guards",
+      "breakpoints": true
+    },
+    {
+      "idx": 77,
+      "version": "7",
+      "when": 1794898400276,
+      "tag": "0077_supplier_product_sale_terms",
+      "breakpoints": true
     }
   ]
 }

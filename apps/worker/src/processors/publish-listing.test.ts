@@ -215,6 +215,9 @@ describe("publish-listing processor", () => {
       .set({
         mercadoLivreAttributes: { BRAND: "Acme", MODEL: "A1" },
         mercadoLivreCategoryId: "MLB7022",
+        warrantyType: "seller",
+        warrantyDays: 90,
+        videoUrl: "https://youtu.be/abc123DEF45",
       })
       .where(eq(schema.supplierProducts.id, catalog.productId));
     const { tenantId, targetId } = await createTarget("Criação remota com resposta perdida");
@@ -223,6 +226,12 @@ describe("publish-listing processor", () => {
       expect(options?.creationStartedAt).toBeNull();
       expect(input.mercadoLivreAttributes).toEqual({ BRAND: "Acme", MODEL: "A1" });
       expect(input.mercadoLivreCategoryId).toBe("MLB7022");
+      expect(input.saleTerms).toEqual({
+        warrantyType: "seller",
+        warrantyDays: 90,
+        madeToOrderDays: null,
+      });
+      expect(input.videoId).toBe("abc123DEF45");
       await options?.beforeCreate();
       expect((await targetRow(targetId)).creationStartedAt).toBeInstanceOf(Date);
       throw marketplaceError("remote response lost", { retryable: false });

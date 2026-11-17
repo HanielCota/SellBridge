@@ -230,6 +230,31 @@ describe("saveSupplierPanelDraft", () => {
     });
   });
 
+  it("stores warranty, video, made-to-order time and carrier-only", async () => {
+    const productId = randomUUID();
+
+    const saved = await saveSupplierPanelDraft(database, {
+      supplierId,
+      productId,
+      values: {
+        ...readyValues("DRAFT-TERMS"),
+        warrantyType: "factory",
+        warrantyDays: 365,
+        videoUrl: "https://youtu.be/abc123DEF45",
+        madeToOrderDays: 5,
+        carrierOnly: true,
+      },
+    });
+
+    expect(saved).toMatchObject({
+      warrantyType: "factory",
+      warrantyDays: 365,
+      videoUrl: "https://youtu.be/abc123DEF45",
+      madeToOrderDays: 5,
+      carrierOnly: true,
+    });
+  });
+
   it("refuses an edit over a version the form never saw, but accepts a retried save", async () => {
     const productId = randomUUID();
     const created = await saveSupplierPanelDraft(database, {

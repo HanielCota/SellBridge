@@ -8,6 +8,7 @@ import {
   confirmSupplierPaymentReturnFn,
   startSupplierCheckoutFn,
 } from "@/features/supplier-payments/supplier-payments.functions";
+import { resellerRefundText } from "@/features/supplier-payments/refund-copy";
 import { resellerSupplierPaymentQueryOptions } from "@/features/supplier-payments/supplier-payments.queries";
 import { errorMessage } from "@/lib/errors";
 import { paymentMethodWord, SupplierPaymentBadgeView } from "./supplier-payment-badge";
@@ -77,12 +78,19 @@ function useCheckoutReturn(shipmentId: string) {
 }
 
 function PayButton({ shipmentId }: { shipmentId: string }) {
+  const queryClient = useQueryClient();
   const start = useMutation({
     mutationFn: () => startSupplierCheckoutFn({ data: { shipmentId } }),
     onSuccess: ({ checkoutUrl }) => {
       window.location.assign(checkoutUrl);
     },
-    onError: (error) => toast.error(errorMessage(error)),
+    onError: async (error) => {
+      toast.error(errorMessage(error));
+      // The click may have found an earlier payment under review or approved: show it.
+      await queryClient.invalidateQueries({
+        queryKey: resellerSupplierPaymentQueryOptions(shipmentId).queryKey,
+      });
+    },
   });
   // Stays "Abrindo…" until the browser leaves for the checkout: a second click would not help.
   const busy = start.isPending || start.isSuccess;
@@ -108,6 +116,7 @@ export function ResellerSupplierPayment({ shipmentId }: { shipmentId: string }) 
   }
   const view = query.data;
   const method = view.badge.kind === "paid" ? paymentMethodWord(view.badge.method) : null;
+  const refundText = resellerRefundText(view);
   return (
     <div className="grid gap-2.5 rounded-2xl bg-muted/70 p-4">
       <div className="flex flex-wrap items-center justify-between gap-2">
@@ -134,10 +143,10 @@ export function ResellerSupplierPayment({ shipmentId }: { shipmentId: string }) 
           Pago.
         </p>
       ) : null}
-      {view.badge.kind === "refunded" ? (
-        <p className="text-sm">O pagamento voltou para você no Mercado Pago.</p>
-      ) : null}
-      {view.badge.kind === "outside" || (view.badge.kind === "waiting" && !view.canPay) ? (
+      {refundText === null ? null : <p className="text-sm">{refundText}</p>}
+      {view.badge.kind === "outside" ||
+      view.badge.kind === "reviewing" ||
+      (view.badge.kind === "waiting" && !view.canPay) ? (
         <p className="text-sm">
           {view.refusal ?? "Combine o pagamento com o fornecedor, como hoje."}
         </p>

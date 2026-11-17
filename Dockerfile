@@ -11,6 +11,7 @@ COPY apps/worker/package.json apps/worker/package.json
 COPY packages/config/package.json packages/config/package.json
 COPY packages/database/package.json packages/database/package.json
 COPY packages/marketplaces/package.json packages/marketplaces/package.json
+COPY packages/payments/package.json packages/payments/package.json
 COPY packages/shared/package.json packages/shared/package.json
 # The build context has no Git checkout for the prepare hook; esbuild uses its platform package.
 RUN --mount=type=cache,id=sellbridge-pnpm-store,target=/root/.local/share/pnpm/store,sharing=locked \

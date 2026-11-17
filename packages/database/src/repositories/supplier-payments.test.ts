@@ -21,9 +21,16 @@ import {
   findPayableShipment,
   findPaymentAccountsByProviderAccount,
   getPaymentFeeSetting,
+  listShipmentPaymentCheckouts,
+  listShipmentPaymentRefundCandidates,
+  listShipmentPaymentsToReconcile,
   listSuppliersReceivingPayments,
+  markShipmentPaymentChecked,
+  markShipmentPaymentRefundFailed,
   markSupplierPaymentAccountError,
   releaseShipmentPaymentReservation,
+  requestShipmentPaymentRefund,
+  savePaymentPreference,
   setPaymentFeeSetting,
   startShipmentPayment,
   upsertSupplierPaymentAccount,
@@ -539,5 +546,211 @@ describe("payment fee setting", () => {
     await expect(
       setPaymentFeeSetting(database, { basisPoints: 3001, userId: admin }),
     ).rejects.toThrow("Failed query");
+  });
+});
+
+async function approveWith(
+  paymentId: string,
+  charged?: { amountCents: number; platformFeeCents: number },
+) {
+  return applyProviderPayment(database, {
+    paymentId,
+    providerPaymentId: `p-${randomUUID()}`,
+    status: "approved",
+    paymentMethod: "credit_card",
+    approvedAt: new Date(),
+    ...(charged === undefined ? {} : { charged }),
+  });
+}
+
+async function saveCheckout(
+  paymentId: string,
+  charges: { amountCents: number; platformFeeCents: number },
+) {
+  const preferenceId = `pref-${randomUUID()}`;
+  await savePaymentPreference(database, {
+    paymentId,
+    preferenceId,
+    checkoutUrl: "https://www.mercadopago.com.br/checkout/v1/redirect",
+    checkoutExpiresAt: new Date(Date.now() + 30 * 60 * 1000),
+    ...charges,
+  });
+  return preferenceId;
+}
+
+describe("checkout history", () => {
+  it("keeps every checkout of the parcel with what each one charged, the newest first", async () => {
+    const payment = await startPayment(await forwardedShipmentId());
+    const first = await saveCheckout(payment.id, { amountCents: 5990, platformFeeCents: 300 });
+    const second = await saveCheckout(payment.id, { amountCents: 6100, platformFeeCents: 61 });
+
+    const checkouts = await listShipmentPaymentCheckouts(database, payment.id);
+
+    expect(checkouts.map((checkout) => checkout.preferenceId)).toEqual([second, first]);
+    expect(checkouts[1]).toMatchObject({ amountCents: 5990, platformFeeCents: 300 });
+  });
+
+  it("records what an older checkout charged when its payment settles the parcel", async () => {
+    const payment = await startPayment(await forwardedShipmentId());
+
+    const outcome = await approveWith(payment.id, { amountCents: 5000, platformFeeCents: 50 });
+
+    expect(outcome?.payment).toMatchObject({
+      status: "approved",
+      amountCents: 5000,
+      platformFeeCents: 50,
+    });
+  });
+});
+
+describe("listShipmentPaymentsToReconcile", () => {
+  const RECHECK_FOR_IN_MS = 3 * 24 * 60 * 60 * 1000;
+
+  async function reconcileIds(): Promise<string[]> {
+    const rows = await listShipmentPaymentsToReconcile(database, {
+      now: new Date(),
+      recheckForInMs: RECHECK_FOR_IN_MS,
+      limit: 1000,
+    });
+    return rows.map((row) => row.id);
+  }
+
+  it("checks a payment under review and a recent unpaid checkout", async () => {
+    const review = await startPayment(await forwardedShipmentId());
+    await saveCheckout(review.id, { amountCents: 5990, platformFeeCents: 300 });
+    await applyProviderPayment(database, {
+      paymentId: review.id,
+      providerPaymentId: `p-${randomUUID()}`,
+      status: "in_process",
+      paymentMethod: "credit_card",
+      approvedAt: null,
+    });
+    const unpaid = await startPayment(await forwardedShipmentId());
+    await saveCheckout(unpaid.id, { amountCents: 5990, platformFeeCents: 300 });
+
+    const ids = await reconcileIds();
+
+    expect(ids).toContain(review.id);
+    expect(ids).toContain(unpaid.id);
+  });
+
+  it("leaves out paid parcels and checkouts closed long ago", async () => {
+    const paid = await startPayment(await forwardedShipmentId());
+    await saveCheckout(paid.id, { amountCents: 5990, platformFeeCents: 300 });
+    await approveWith(paid.id);
+    const old = await startPayment(await forwardedShipmentId());
+    await savePaymentPreference(database, {
+      paymentId: old.id,
+      preferenceId: `pref-${randomUUID()}`,
+      checkoutUrl: "https://www.mercadopago.com.br/checkout/v1/redirect",
+      checkoutExpiresAt: new Date(Date.now() - RECHECK_FOR_IN_MS - 60_000),
+      amountCents: 5990,
+      platformFeeCents: 300,
+    });
+
+    const ids = await reconcileIds();
+
+    expect(ids).not.toContain(paid.id);
+    expect(ids).not.toContain(old.id);
+  });
+
+  it("reads the least recently checked first", async () => {
+    const payment = await startPayment(await forwardedShipmentId());
+    await saveCheckout(payment.id, { amountCents: 5990, platformFeeCents: 300 });
+    await markShipmentPaymentChecked(database, { paymentId: payment.id, now: new Date() });
+    const fresh = await startPayment(await forwardedShipmentId());
+    await saveCheckout(fresh.id, { amountCents: 5990, platformFeeCents: 300 });
+
+    const ids = await reconcileIds();
+
+    expect(ids.indexOf(fresh.id)).toBeLessThan(ids.indexOf(payment.id));
+  });
+});
+
+async function candidateIds(): Promise<string[]> {
+  const rows = await listShipmentPaymentRefundCandidates(database, { limit: 1000 });
+  return rows.map((row) => row.payment.id);
+}
+
+describe("refund of a paid parcel", () => {
+  it("offers a paid parcel still with the supplier, with its timing", async () => {
+    const shipmentId = await forwardedShipmentId();
+    const payment = await startPayment(shipmentId);
+    await approveWith(payment.id);
+
+    const rows = await listShipmentPaymentRefundCandidates(database, { limit: 1000 });
+    const candidate = rows.find((row) => row.payment.id === payment.id);
+
+    expect(candidate?.timing.status).toBe("forwarded");
+    expect(candidate?.timing.forwardedAt).toBeInstanceOf(Date);
+    expect(candidate?.timing.dispatchWithinHours).toBe(48);
+  });
+
+  it("does not offer an unpaid parcel or a shipped one", async () => {
+    const unpaid = await startPayment(await forwardedShipmentId());
+    const shippedId = await forwardedShipmentId();
+    const shipped = await startPayment(shippedId);
+    await approveWith(shipped.id);
+    await database
+      .update(orderShipments)
+      .set({ status: "shipped" })
+      .where(eq(orderShipments.id, shippedId));
+
+    const ids = await candidateIds();
+
+    expect(ids).not.toContain(unpaid.id);
+    expect(ids).not.toContain(shipped.id);
+  });
+
+  it("keeps the first reason and date when the refund is asked again", async () => {
+    const payment = await startPayment(await forwardedShipmentId());
+    await approveWith(payment.id);
+    const firstAt = new Date("2026-11-15T10:00:00.000Z");
+
+    await requestShipmentPaymentRefund(database, {
+      paymentId: payment.id,
+      reason: "cancelled",
+      now: firstAt,
+    });
+    const again = await requestShipmentPaymentRefund(database, {
+      paymentId: payment.id,
+      reason: "not_dispatched",
+      now: new Date("2026-11-15T10:05:00.000Z"),
+    });
+
+    expect(again?.refundReason).toBe("cancelled");
+    expect(again?.refundRequestedAt?.toISOString()).toBe(firstAt.toISOString());
+  });
+
+  it("does not ask to refund a parcel that is not paid", async () => {
+    const payment = await startPayment(await forwardedShipmentId());
+
+    const refund = await requestShipmentPaymentRefund(database, {
+      paymentId: payment.id,
+      reason: "cancelled",
+      now: new Date(),
+    });
+
+    expect(refund).toBeNull();
+  });
+
+  it("reports a refused refund once and stops offering the parcel", async () => {
+    const payment = await startPayment(await forwardedShipmentId());
+    await approveWith(payment.id);
+
+    const first = await markShipmentPaymentRefundFailed(database, {
+      paymentId: payment.id,
+      error: "refused",
+      now: new Date(),
+    });
+    const second = await markShipmentPaymentRefundFailed(database, {
+      paymentId: payment.id,
+      error: "refused",
+      now: new Date(),
+    });
+
+    expect(first).toBe(true);
+    expect(second).toBe(false);
+    expect(await candidateIds()).not.toContain(payment.id);
   });
 });

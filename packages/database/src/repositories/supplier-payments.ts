@@ -1,6 +1,25 @@
-import type { FulfillmentStatus } from "@sellbridge/shared/schemas";
-import type { ShipmentPaymentStatus } from "@sellbridge/shared/shipment-payments";
-import { and, eq, inArray, isNull, lt, lte, ne, notInArray, or } from "drizzle-orm";
+import { SHIPMENT_ACTORS, type FulfillmentStatus } from "@sellbridge/shared/schemas";
+import type { ShipmentTiming } from "@sellbridge/shared/shipment-delay";
+import type {
+  ShipmentPaymentRefundReason,
+  ShipmentPaymentStatus,
+} from "@sellbridge/shared/shipment-payments";
+import {
+  and,
+  asc,
+  desc,
+  eq,
+  gt,
+  inArray,
+  isNotNull,
+  isNull,
+  lt,
+  lte,
+  ne,
+  notInArray,
+  or,
+  sql,
+} from "drizzle-orm";
 import type { Database } from "../client.ts";
 import {
   orderItems,
@@ -8,15 +27,19 @@ import {
   orderShipments,
   paymentOAuthStates,
   platformSettings,
+  shipmentEvents,
+  shipmentPaymentCheckouts,
   shipmentPayments,
   supplierPaymentAccounts,
   suppliers,
 } from "../schema/index.ts";
+import { supplierTimingColumns } from "./shipment-timing.ts";
 
 type PaymentAccountRow = typeof supplierPaymentAccounts.$inferSelect;
 export type PaymentProvider = PaymentAccountRow["provider"];
 export type SupplierPaymentAccount = PaymentAccountRow;
 export type ShipmentPayment = typeof shipmentPayments.$inferSelect;
+export type ShipmentPaymentCheckout = typeof shipmentPaymentCheckouts.$inferSelect;
 
 export interface PaymentAccountTokens {
   accessTokenEnc: string;
@@ -425,18 +448,52 @@ const LOCKED_STATUSES: ShipmentPaymentStatus[] = [
   "charged_back",
 ];
 
+/**
+ * Saves the checkout just created as the parcel's open one, and keeps it in the parcel's
+ * checkout history with what it charges, so a late payment through it is still recognized.
+ */
 export async function savePaymentPreference(
   database: Database,
-  input: { paymentId: string; preferenceId: string; checkoutUrl: string; checkoutExpiresAt: Date },
+  input: {
+    paymentId: string;
+    preferenceId: string;
+    checkoutUrl: string;
+    checkoutExpiresAt: Date;
+    amountCents: number;
+    platformFeeCents: number;
+  },
 ): Promise<void> {
-  await database
-    .update(shipmentPayments)
-    .set({
-      preferenceId: input.preferenceId,
-      checkoutUrl: input.checkoutUrl,
-      checkoutExpiresAt: input.checkoutExpiresAt,
-    })
-    .where(eq(shipmentPayments.id, input.paymentId));
+  await database.transaction(async (transaction) => {
+    await transaction
+      .update(shipmentPayments)
+      .set({
+        preferenceId: input.preferenceId,
+        checkoutUrl: input.checkoutUrl,
+        checkoutExpiresAt: input.checkoutExpiresAt,
+      })
+      .where(eq(shipmentPayments.id, input.paymentId));
+    await transaction
+      .insert(shipmentPaymentCheckouts)
+      .values({
+        shipmentPaymentId: input.paymentId,
+        preferenceId: input.preferenceId,
+        amountCents: input.amountCents,
+        platformFeeCents: input.platformFeeCents,
+      })
+      .onConflictDoNothing({ target: shipmentPaymentCheckouts.preferenceId });
+  });
+}
+
+/** Every checkout opened for the parcel payment, the newest first. */
+export async function listShipmentPaymentCheckouts(
+  database: Database,
+  paymentId: string,
+): Promise<ShipmentPaymentCheckout[]> {
+  return database
+    .select()
+    .from(shipmentPaymentCheckouts)
+    .where(eq(shipmentPaymentCheckouts.shipmentPaymentId, paymentId))
+    .orderBy(desc(shipmentPaymentCheckouts.createdAt), desc(shipmentPaymentCheckouts.id));
 }
 
 /** Frees a parcel whose checkout could not be created, so the reseller can try again at once. */
@@ -488,6 +545,11 @@ export async function applyProviderPayment(
     status: ShipmentPaymentStatus;
     paymentMethod: string | null;
     approvedAt: Date | null;
+    /**
+     * What the checkout the payment came through charged, when it is not the parcel's latest:
+     * the parcel then records that amount and fee, which is what the reseller paid.
+     */
+    charged?: { amountCents: number; platformFeeCents: number };
   },
 ): Promise<ProviderPaymentOutcome | null> {
   const current = await findShipmentPaymentById(database, input.paymentId);
@@ -515,6 +577,7 @@ export async function applyProviderPayment(
       providerPaymentId: input.providerPaymentId,
       paymentMethod: input.paymentMethod ?? current.paymentMethod,
       paidAt,
+      ...input.charged,
     })
     .where(
       and(eq(shipmentPayments.id, input.paymentId), eq(shipmentPayments.status, current.status)),
@@ -565,6 +628,7 @@ export interface ShipmentPaymentSummary {
   status: ShipmentPaymentStatus;
   paidAt: Date | null;
   paymentMethod: string | null;
+  refundRequestedAt: Date | null;
 }
 
 export async function listShipmentPaymentSummaries(
@@ -580,13 +644,19 @@ export async function listShipmentPaymentSummaries(
       status: shipmentPayments.status,
       paidAt: shipmentPayments.paidAt,
       paymentMethod: shipmentPayments.paymentMethod,
+      refundRequestedAt: shipmentPayments.refundRequestedAt,
     })
     .from(shipmentPayments)
     .where(inArray(shipmentPayments.shipmentId, [...shipmentIds]));
   return new Map(
     rows.map((row) => [
       row.shipmentId,
-      { status: row.status, paidAt: row.paidAt, paymentMethod: row.paymentMethod },
+      {
+        status: row.status,
+        paidAt: row.paidAt,
+        paymentMethod: row.paymentMethod,
+        refundRequestedAt: row.refundRequestedAt,
+      },
     ]),
   );
 }
@@ -610,4 +680,221 @@ export async function listSuppliersReceivingPayments(
       ),
     );
   return new Set(rows.map((row) => row.supplierId));
+}
+
+/** Unpaid statuses whose checkout may still bring a payment the notices missed. */
+const RECHECKED_UNPAID_STATUSES: ShipmentPaymentStatus[] = ["pending", "rejected", "cancelled"];
+
+/**
+ * Parcel payments whose provider status may have moved without a notice reaching SellBridge:
+ * every payment under review, and the unpaid ones whose latest checkout closed less than
+ * `recheckForInMs` ago. The least recently checked come first.
+ */
+export async function listShipmentPaymentsToReconcile(
+  database: Database,
+  input: { now: Date; recheckForInMs: number; limit: number },
+): Promise<ShipmentPayment[]> {
+  const windowStart = new Date(input.now.getTime() - input.recheckForInMs);
+  return database
+    .select()
+    .from(shipmentPayments)
+    .where(
+      or(
+        eq(shipmentPayments.status, "in_process"),
+        and(
+          inArray(shipmentPayments.status, RECHECKED_UNPAID_STATUSES),
+          isNotNull(shipmentPayments.preferenceId),
+          gt(shipmentPayments.checkoutExpiresAt, windowStart),
+        ),
+      ),
+    )
+    .orderBy(sql`${shipmentPayments.checkedAt} asc nulls first`, asc(shipmentPayments.id))
+    .limit(input.limit);
+}
+
+export async function markShipmentPaymentChecked(
+  database: Database,
+  input: { paymentId: string; now: Date },
+): Promise<void> {
+  await database
+    .update(shipmentPayments)
+    .set({ checkedAt: input.now })
+    .where(eq(shipmentPayments.id, input.paymentId));
+}
+
+/** A paid parcel that may be owed back to the reseller, with what decides it. */
+export interface RefundCandidate {
+  payment: ShipmentPayment;
+  tenantId: string;
+  orderId: string;
+  /** The marketplace's order number, so the team can find the sale. */
+  orderNumber: string;
+  /** The parcel's timing, as `supplierPaymentRefundReason` reads it. */
+  timing: ShipmentTiming;
+  /** The reseller cancelled it after the supplier accepted: the supplier may have posted it. */
+  cancelledByResellerAfterAccept: boolean;
+}
+
+/** Steps that mean the supplier took the parcel on. */
+const ACCEPTED_SHIPMENT_STATUSES: FulfillmentStatus[] = ["accepted", "picking", "ready"];
+
+/**
+ * Whether the parcel's latest cancellation came from the reseller while the supplier had it
+ * accepted, picking or ready: the step recorded just before that cancellation says so.
+ */
+function cancelledByResellerAfterAccept() {
+  const statusBeforeCancel = sql`(
+    select prior_event.status from ${shipmentEvents} as prior_event
+    where prior_event.shipment_id = cancel_event.shipment_id
+      and prior_event.status <> 'cancelled'
+      and prior_event.created_at <= cancel_event.created_at
+    order by prior_event.created_at desc
+    limit 1
+  )`;
+  return sql<boolean>`${orderShipments.status} = 'cancelled' and coalesce((
+    select cancel_event.actor = ${SHIPMENT_ACTORS.reseller}
+      and ${statusBeforeCancel} in (${sql.join(
+        ACCEPTED_SHIPMENT_STATUSES.map((status) => sql`${status}`),
+        sql`, `,
+      )})
+    from ${shipmentEvents} as cancel_event
+    where cancel_event.shipment_id = ${orderShipments.id} and cancel_event.status = 'cancelled'
+    order by cancel_event.created_at desc
+    limit 1
+  ), false)`;
+}
+
+/** Parcels still with the supplier, or cancelled or back with it: a refund may be due for these. */
+const REFUNDABLE_SHIPMENT_STATUSES: FulfillmentStatus[] = [
+  "forwarded",
+  "accepted",
+  "picking",
+  "ready",
+  "cancelled",
+  "returned",
+];
+
+/**
+ * Paid parcels the supplier has not shipped, or that were cancelled or came back, whose refund
+ * has not failed for good nor been held for the team. Cancelled and returned ones come first,
+ * then the oldest payments.
+ */
+export async function listShipmentPaymentRefundCandidates(
+  database: Database,
+  input: { limit: number },
+): Promise<RefundCandidate[]> {
+  const rows = await database
+    .select({
+      payment: shipmentPayments,
+      tenantId: orderShipments.tenantId,
+      orderId: orderShipments.orderId,
+      orderNumber: orders.externalOrderId,
+      cancelledByResellerAfterAccept: cancelledByResellerAfterAccept(),
+      status: orderShipments.status,
+      dispatchDeadlineAt: orderShipments.dispatchDeadlineAt,
+      estimatedDeliveryAt: orderShipments.estimatedDeliveryAt,
+      ...supplierTimingColumns,
+    })
+    .from(shipmentPayments)
+    .innerJoin(orderShipments, eq(orderShipments.id, shipmentPayments.shipmentId))
+    .innerJoin(orders, eq(orders.id, orderShipments.orderId))
+    .innerJoin(suppliers, eq(suppliers.id, orderShipments.supplierId))
+    .where(
+      and(
+        eq(shipmentPayments.status, "approved"),
+        isNull(shipmentPayments.refundFailedAt),
+        isNull(shipmentPayments.refundHeldAt),
+        inArray(orderShipments.status, REFUNDABLE_SHIPMENT_STATUSES),
+      ),
+    )
+    .orderBy(
+      sql`${orderShipments.status} in ('cancelled','returned') desc`,
+      sql`${shipmentPayments.paidAt} asc nulls first`,
+      asc(shipmentPayments.id),
+    )
+    .limit(input.limit);
+  return rows.map((row) => ({
+    payment: row.payment,
+    tenantId: row.tenantId,
+    orderId: row.orderId,
+    orderNumber: row.orderNumber,
+    cancelledByResellerAfterAccept: row.cancelledByResellerAfterAccept,
+    timing: {
+      status: row.status,
+      dispatchDeadlineAt: row.dispatchDeadlineAt,
+      estimatedDeliveryAt: row.estimatedDeliveryAt,
+      shippedAt: null,
+      forwardedAt: row.forwardedAt,
+      acceptWithinHours: row.acceptWithinHours,
+      dispatchWithinHours: row.dispatchWithinHours,
+    },
+  }));
+}
+
+/**
+ * Records that SellBridge gives the parcel's money back, keeping the first reason and date when
+ * asked again (a retry after the provider was unreachable). Null when the parcel is no longer
+ * paid, or its refund already failed for good.
+ */
+export async function requestShipmentPaymentRefund(
+  database: Database,
+  input: { paymentId: string; reason: ShipmentPaymentRefundReason; now: Date },
+): Promise<ShipmentPayment | null> {
+  const [row] = await database
+    .update(shipmentPayments)
+    .set({
+      refundReason: sql`coalesce(${shipmentPayments.refundReason}, ${input.reason})`,
+      refundRequestedAt: sql`coalesce(${shipmentPayments.refundRequestedAt}, ${input.now.toISOString()}::timestamptz)`,
+    })
+    .where(
+      and(
+        eq(shipmentPayments.id, input.paymentId),
+        eq(shipmentPayments.status, "approved"),
+        isNull(shipmentPayments.refundFailedAt),
+        isNull(shipmentPayments.refundHeldAt),
+      ),
+    )
+    .returning();
+  return row ?? null;
+}
+
+/**
+ * Records that the parcel's money stays put until the team checks it (the reseller cancelled
+ * after the supplier accepted). True only the first time, so the team is alerted once; false
+ * when a refund was already asked for, or the parcel is no longer paid.
+ */
+export async function holdShipmentPaymentRefund(
+  database: Database,
+  input: { paymentId: string; now: Date },
+): Promise<boolean> {
+  const held = await database
+    .update(shipmentPayments)
+    .set({ refundHeldAt: input.now })
+    .where(
+      and(
+        eq(shipmentPayments.id, input.paymentId),
+        eq(shipmentPayments.status, "approved"),
+        isNull(shipmentPayments.refundHeldAt),
+        isNull(shipmentPayments.refundRequestedAt),
+        isNull(shipmentPayments.refundFailedAt),
+      ),
+    )
+    .returning({ id: shipmentPayments.id });
+  return held.length > 0;
+}
+
+/**
+ * Records that the provider refused the refund for good. True only the first time, so the
+ * supplier is blocked and the team alerted once.
+ */
+export async function markShipmentPaymentRefundFailed(
+  database: Database,
+  input: { paymentId: string; error: string; now: Date },
+): Promise<boolean> {
+  const updated = await database
+    .update(shipmentPayments)
+    .set({ refundFailedAt: input.now, refundError: input.error })
+    .where(and(eq(shipmentPayments.id, input.paymentId), isNull(shipmentPayments.refundFailedAt)))
+    .returning({ id: shipmentPayments.id });
+  return updated.length > 0;
 }

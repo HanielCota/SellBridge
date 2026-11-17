@@ -14,6 +14,12 @@ import {
   rejectionReasonsSchema,
 } from "./supplier-panel-catalog-status.ts";
 import { supplierImageUrlsSchema } from "./supplier-panel-image-urls.ts";
+import {
+  madeToOrderDaysSchema,
+  productVideoUrlSchema,
+  warrantyDaysSchema,
+  warrantyTypeSchema,
+} from "./product-sale-terms.ts";
 
 /** Every input carries the supplier explicitly; the access layer fills it from the session. */
 const supplierScopeSchema = z.object({ supplierId: z.uuid() });
@@ -55,6 +61,11 @@ export const catalogDraftValuesSchema = adminProductValuesSchema.extend({
   /** The Mercado Livre category the supplier confirmed; left out by older forms. */
   mercadoLivreCategoryId: mercadoLivreCategoryIdSchema.nullable().optional(),
   mercadoLivreCategoryName: freeText().trim().min(1).max(200).nullable().optional(),
+  warrantyType: warrantyTypeSchema.nullable().optional(),
+  warrantyDays: warrantyDaysSchema.nullable().optional(),
+  videoUrl: productVideoUrlSchema.nullable().optional(),
+  madeToOrderDays: madeToOrderDaysSchema.nullable().optional(),
+  carrierOnly: z.boolean().optional(),
 });
 export type CatalogDraftValues = z.infer<typeof catalogDraftValuesSchema>;
 

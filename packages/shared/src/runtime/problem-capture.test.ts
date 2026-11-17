@@ -120,6 +120,28 @@ describe("scrubText", () => {
   });
 });
 
+function duplicatePayment(problemKey: string) {
+  return captureProblem(
+    entry("error", "mercado_pago.duplicate_payment", {
+      reason: "Pagamento em dobro ao fornecedor",
+      problemKey,
+    }),
+    "web",
+    OCCURRED_AT,
+  );
+}
+
+describe("problems settled one by one", () => {
+  it("keeps each parcel's duplicate payment on its own row", () => {
+    const first = duplicatePayment("0b8f7a6e-1c2d-4e3f-8a9b-7c6d5e4f3a21");
+    const second = duplicatePayment("6a1f4d7e-9a43-4b2d-8c3e-4f505f0c9a3e");
+    const repeated = duplicatePayment("0b8f7a6e-1c2d-4e3f-8a9b-7c6d5e4f3a21");
+
+    expect(first?.fingerprint).not.toBe(second?.fingerprint);
+    expect(repeated?.fingerprint).toBe(first?.fingerprint);
+  });
+});
+
 describe("problemFingerprint", () => {
   it("groups the same error about different ids and numbers", () => {
     const first = problemFingerprint(
