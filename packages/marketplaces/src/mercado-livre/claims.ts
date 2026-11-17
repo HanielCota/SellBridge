@@ -233,14 +233,28 @@ export async function readMercadoLivreClaim(
   };
 }
 
+/** Which of the seller's claims to list: the ones still open, or the ones updated lately. */
+export type ClaimSearchFilter = { status: "opened" } | { updatedAfter: Date };
+
+function filterParameters(filter: ClaimSearchFilter): Record<string, string> {
+  if ("status" in filter) {
+    return { status: filter.status, sort: "date_created:asc" };
+  }
+  return {
+    // The search wants milliseconds in the date ("Buscar reclamações").
+    range: `last_updated:after:${filter.updatedAfter.toISOString().replace("Z", "+00:00")}`,
+    sort: "last_updated:asc",
+  };
+}
+
 /**
- * Ids of the store's claims updated after `updatedAfter`, as the seller (respondent), the
- * filters the docs recommend. Stops at the search's own offset ceiling.
+ * Ids of the store's claims as the seller (respondent), the filters the docs recommend, either
+ * still open or updated after a date. Stops at the search's own offset ceiling.
  */
 export async function searchMercadoLivreClaims(
   config: MercadoLivreConfig,
   store: StoreCredentials,
-  updatedAfter: Date,
+  filter: ClaimSearchFilter,
 ): Promise<string[]> {
   assertNumericId(store.externalShopId, "Número da loja");
   const context = claimContext(config);
@@ -249,9 +263,7 @@ export async function searchMercadoLivreClaims(
     const query = new URLSearchParams({
       "players.user_id": store.externalShopId,
       "players.role": "respondent",
-      // The search wants milliseconds in the date ("Buscar reclamações").
-      range: `last_updated:after:${updatedAfter.toISOString().replace("Z", "+00:00")}`,
-      sort: "last_updated:asc",
+      ...filterParameters(filter),
       offset: String(offset),
       limit: String(SEARCH_PAGE_SIZE),
     });

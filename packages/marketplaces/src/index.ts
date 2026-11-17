@@ -40,6 +40,7 @@ export {
   readMercadoLivreShipmentOrders,
   searchMercadoLivreClaims,
   type ClaimMoneyStatus,
+  type ClaimSearchFilter,
   type MarketplaceClaim,
   type MarketplaceClaimReturn,
 } from "./mercado-livre/claims.ts";

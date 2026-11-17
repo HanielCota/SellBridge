@@ -121,7 +121,9 @@ describe("searchMercadoLivreClaims", () => {
       data: [{ id: 5187110991 }, { id: 5173473377 }],
     });
 
-    const ids = await searchMercadoLivreClaims(config, store, new Date("2026-11-16T12:00:00.000Z"));
+    const ids = await searchMercadoLivreClaims(config, store, {
+      updatedAfter: new Date("2026-11-16T12:00:00.000Z"),
+    });
 
     expect(ids).toEqual(["5187110991", "5173473377"]);
     const url = new URL(calledUrl(request, 0));
@@ -138,10 +140,21 @@ describe("searchMercadoLivreClaims", () => {
       { paging: { total: 101 }, data: [{ id: 101 }] },
     );
 
-    const ids = await searchMercadoLivreClaims(config, store, new Date());
+    const ids = await searchMercadoLivreClaims(config, store, { status: "opened" });
 
     expect(ids).toHaveLength(101);
     expect(new URL(calledUrl(request, 1)).searchParams.get("offset")).toBe("100");
+  });
+
+  it("asks for the seller's open claims of any age", async () => {
+    const { request, config } = setup({ paging: { total: 0 }, data: [] });
+
+    await searchMercadoLivreClaims(config, store, { status: "opened" });
+
+    const url = new URL(calledUrl(request, 0));
+    expect(url.searchParams.get("status")).toBe("opened");
+    expect(url.searchParams.get("players.role")).toBe("respondent");
+    expect(url.searchParams.has("range")).toBe(false);
   });
 });
 
