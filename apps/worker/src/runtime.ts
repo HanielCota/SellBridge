@@ -37,6 +37,7 @@ import { createPublishRecoveryProcessor, type RecoveryJob } from "./processors/p
 import { createAutoForwardProcessor } from "./processors/order-auto-forward.ts";
 import { createStockPriceSyncProcessor } from "./processors/stock-price-sync.ts";
 import { createAsaasPaymentProcessor } from "./processors/asaas-payments.ts";
+import { runPaymentRounds } from "./processors/payment-rounds.ts";
 import { createSupplierPaymentProcessor } from "./processors/supplier-payments.ts";
 import { createTicketAutoCloseProcessor } from "./processors/ticket-auto-close.ts";
 import { createTokenRefreshProcessor } from "./processors/token-refresh.ts";
@@ -307,10 +308,7 @@ function paymentWorkers(context: WorkerContext): Worker[] {
     cipher,
     settings: asaasSettingsFrom(environment),
   });
-  const processBoth = async () => {
-    await processPayments();
-    await processAsaasPayments();
-  };
+  const processBoth = async () => runPaymentRounds([processPayments, processAsaasPayments]);
   return [
     new Worker(QUEUE_NAMES.supplierPayments, processBoth, {
       connection,
