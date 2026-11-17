@@ -1,5 +1,5 @@
 {
-  "id": "06e8312e-0f04-4ee2-98e8-8f1225ab1ad7",
+  "id": "59c69b3c-3837-433c-84c5-6c88c32e57f3",
   "prevId": "c70c525a-ede5-44dc-8422-32664893d41a",
   "version": "7",
   "dialect": "postgresql",
@@ -7754,14 +7754,20 @@
           "name": "shipment_payments_held_idx",
           "columns": [
             {
-              "expression": "paid_at",
+              "expression": "checked_at",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "first"
+            },
+            {
+              "expression": "id",
               "isExpression": false,
               "asc": true,
               "nulls": "last"
             }
           ],
           "isUnique": false,
-          "where": "\"shipment_payments\".\"escrow_status\" = 'active' and \"shipment_payments\".\"released_at\" is null",
+          "where": "\"shipment_payments\".\"status\" in ('approved','charged_back') and \"shipment_payments\".\"released_at\" is null and \"shipment_payments\".\"refund_failed_at\" is null",
           "concurrently": false,
           "method": "btree",
           "with": {}

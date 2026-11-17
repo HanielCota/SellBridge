@@ -200,10 +200,14 @@ export const shipmentPayments = pgTable(
       "shipment_payments_team_decision_check",
       sql`${table.teamDecision} is null or ${table.teamDecision} in ('release','refund')`,
     ),
-    // The escrow job reads payments still held in a protected account, the oldest payment first.
+    // The escrow job (`listHeldPayments`) reads paid parcels not yet released nor given up on,
+    // the least recently checked first. Not filtered on provider: 'asaas' joins the enum in the
+    // same migration, and Postgres refuses a new enum value inside that transaction.
     index("shipment_payments_held_idx")
-      .on(table.paidAt)
-      .where(sql`${table.escrowStatus} = 'active' and ${table.releasedAt} is null`),
+      .on(table.checkedAt.asc().nullsFirst(), table.id)
+      .where(
+        sql`${table.status} in ('approved','charged_back') and ${table.releasedAt} is null and ${table.refundFailedAt} is null`,
+      ),
     check(
       "shipment_payments_fee_check",
       sql`${table.platformFeeCents} >= 0 and ${table.platformFeeCents} <= ${table.amountCents}`,
