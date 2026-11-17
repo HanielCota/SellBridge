@@ -47,6 +47,8 @@ export interface OrderDetail {
   status: OrderStatus;
   totalCents: number;
   marketplaceFeeCents: number;
+  /** What the seller paid to ship the sale; null while the marketplace has not reported it. */
+  sellerShippingCents: number | null;
   buyerName: string | null;
   orderedAt: Date;
   /** When the order first counted as a sale; null while it never did. */
@@ -67,6 +69,7 @@ async function selectOrder(database: Database, tenantId: string, orderId: string
       status: orders.status,
       totalCents: orders.totalCents,
       marketplaceFeeCents: orders.marketplaceFeeCents,
+      sellerShippingCents: orders.sellerShippingCents,
       buyerName: orders.buyerName,
       orderedAt: orders.orderedAt,
       paidAt: orders.paidAt,

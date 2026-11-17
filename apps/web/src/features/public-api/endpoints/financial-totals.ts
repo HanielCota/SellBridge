@@ -7,7 +7,12 @@ export const financialTotalsSchema = z.object({
     .int()
     .describe("Receita (valor pago pelo comprador). Zero em pedidos cancelados ou devolvidos."),
   costCents: z.number().int().describe("Custo dos produtos no fornecedor."),
-  marketplaceFeeCents: z.number().int().describe("Tarifa cobrada pelo marketplace."),
+  marketplaceFeeCents: z
+    .number()
+    .int()
+    .describe(
+      "Tarifa cobrada pelo marketplace, com o frete que o vendedor pagou na venda quando o marketplace informa (Mercado Livre).",
+    ),
   refundsCents: z.number().int().describe("Reembolsos ao comprador."),
   returnsCents: z
     .number()

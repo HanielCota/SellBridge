@@ -99,7 +99,8 @@ function orderFinanceCte(scope: ReportScope, extraConditions: SQL[] = []): SQL {
         case when ${isUncountedOrder(ORDER_STATUS)} then 0 else o.total_cents end as revenue,
         case when ${COST_PENDING} then o.total_cents else 0 end as pending_revenue,
         case when ${OUT_OF_PROFIT} then 0 else coalesce(items.cost, 0) end as cost,
-        case when ${OUT_OF_PROFIT} then 0 else o.marketplace_fee_cents end as fee,
+        case when ${OUT_OF_PROFIT} then 0
+          else o.marketplace_fee_cents + coalesce(o.seller_shipping_cents, 0) end as fee,
         case when ${COST_PENDING} then 0 else coalesce(adj.refunds, 0) end as refunds,
         case when ${COST_PENDING} then 0 else coalesce(adj.returns, 0) end as returns,
         case when ${COST_PENDING} then 0 else coalesce(adj.commissions, 0) end as commissions,
