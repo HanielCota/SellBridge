@@ -1,9 +1,11 @@
+import { ShieldCheckIcon } from "@phosphor-icons/react";
 import { formatCents } from "@sellbridge/shared/money";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useRef } from "react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
+import { confirmAsaasPaymentReturnFn } from "@/features/supplier-payments/asaas.functions";
 import {
   confirmSupplierPaymentReturnFn,
   startSupplierCheckoutFn,
@@ -23,9 +25,16 @@ function returnedPaymentId(shipmentId: string): string | null {
   return paymentId;
 }
 
+/** Asaas's page sends the reseller back with `pagamento=asaas`; `envio` names the parcel. */
+function returnedFromAsaas(shipmentId: string): boolean {
+  const search = new URLSearchParams(window.location.search);
+  return search.get("envio") === shipmentId && search.get("pagamento") === "asaas";
+}
+
 /** What Mercado Pago appends to the return address, plus the parcel the page was told about. */
 const RETURN_PARAMS = [
   "envio",
+  "pagamento",
   "payment_id",
   "collection_id",
   "collection_status",
@@ -52,12 +61,18 @@ function useCheckoutReturn(shipmentId: string) {
   const queryClient = useQueryClient();
   const handled = useRef(false);
   const confirm = useMutation({
-    mutationFn: (providerPaymentId: string) =>
-      confirmSupplierPaymentReturnFn({ data: { shipmentId, providerPaymentId } }),
+    mutationFn: async (providerPaymentId: string | null) =>
+      providerPaymentId === null
+        ? confirmAsaasPaymentReturnFn({ data: { shipmentId } })
+        : confirmSupplierPaymentReturnFn({ data: { shipmentId, providerPaymentId } }),
     onSuccess: (view) => {
       queryClient.setQueryData(resellerSupplierPaymentQueryOptions(shipmentId).queryKey, view);
       if (view.badge.kind === "paid") {
-        toast.success("Pagamento confirmado. O valor já está na conta do fornecedor.");
+        toast.success(
+          view.protectedPayment
+            ? "Pagamento confirmado. O valor fica protegido até a entrega."
+            : "Pagamento confirmado. O valor já está na conta do fornecedor.",
+        );
       }
     },
     onError: (error) => toast.error(errorMessage(error)),
@@ -67,6 +82,11 @@ function useCheckoutReturn(shipmentId: string) {
       return;
     }
     handled.current = true;
+    if (returnedFromAsaas(shipmentId)) {
+      forgetReturnParams();
+      confirm.mutate(null);
+      return;
+    }
     const paymentId = returnedPaymentId(shipmentId);
     if (paymentId === null) {
       return;
@@ -77,7 +97,7 @@ function useCheckoutReturn(shipmentId: string) {
   return confirm.isPending;
 }
 
-function PayButton({ shipmentId }: { shipmentId: string }) {
+function PayButton({ shipmentId, gateway }: { shipmentId: string; gateway: string }) {
   const queryClient = useQueryClient();
   const start = useMutation({
     mutationFn: () => startSupplierCheckoutFn({ data: { shipmentId } }),
@@ -96,8 +116,18 @@ function PayButton({ shipmentId }: { shipmentId: string }) {
   const busy = start.isPending || start.isSuccess;
   return (
     <Button size="lg" disabled={busy} onClick={() => start.mutate()}>
-      {busy ? "Abrindo o Mercado Pago…" : "Pagar com Pix ou cartão"}
+      {busy ? `Abrindo o ${gateway}…` : "Pagar com Pix ou cartão"}
     </Button>
+  );
+}
+
+/** The seal on a protected payment, with Guilherme's words (15/11/2026). */
+function ProtectedSeal() {
+  return (
+    <p className="flex items-start gap-2 rounded-xl bg-emerald-700 px-3 py-2 text-sm font-medium text-white">
+      <ShieldCheckIcon aria-hidden="true" className="mt-0.5 size-4 flex-none" weight="fill" />
+      Pagamento protegido: liberado ao fornecedor só depois da entrega
+    </p>
   );
 }
 
@@ -117,12 +147,14 @@ export function ResellerSupplierPayment({ shipmentId }: { shipmentId: string }) 
   const view = query.data;
   const method = view.badge.kind === "paid" ? paymentMethodWord(view.badge.method) : null;
   const refundText = resellerRefundText(view);
+  const gateway = view.protectedPayment ? "Asaas" : "Mercado Pago";
   return (
     <div className="grid gap-2.5 rounded-2xl bg-muted/70 p-4">
       <div className="flex flex-wrap items-center justify-between gap-2">
         <span className="text-sm text-muted-foreground">Pagamento ao fornecedor</span>
         <SupplierPaymentBadgeView badge={view.badge} paidWord="Fornecedor pago" />
       </div>
+      {view.protectedPayment && view.badge.kind !== "refunded" ? <ProtectedSeal /> : null}
       {view.canPay ? (
         <>
           <p className="flex items-baseline gap-1.5">
@@ -130,17 +162,19 @@ export function ResellerSupplierPayment({ shipmentId }: { shipmentId: string }) 
             <strong className="text-2xl font-semibold">{formatCents(view.amountCents)}</strong>
           </p>
           <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
-            <PayButton shipmentId={shipmentId} />
+            <PayButton shipmentId={shipmentId} gateway={gateway} />
             <span className="text-sm text-muted-foreground">
-              Você paga pelo Mercado Pago e o valor cai direto na conta do fornecedor.
+              {view.protectedPayment
+                ? "Você paga pelo Asaas. O valor fica guardado e só vai para o fornecedor depois da entrega."
+                : "Você paga pelo Mercado Pago e o valor cai direto na conta do fornecedor."}
             </span>
           </div>
         </>
       ) : null}
       {view.badge.kind === "paid" ? (
         <p className="text-sm">
-          {formatCents(view.amountCents)} pagos{method === null ? "" : ` por ${method}`} no Mercado
-          Pago.
+          {formatCents(view.amountCents)} pagos{method === null ? "" : ` por ${method}`} no{" "}
+          {gateway}.
         </p>
       ) : null}
       {refundText === null ? null : <p className="text-sm">{refundText}</p>}

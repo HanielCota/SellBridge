@@ -51,6 +51,8 @@ const account: SupplierPaymentAccount = {
   refreshTokenEnc: "refresh",
   expiresAt: new Date(Date.now() + 90 * 24 * 60 * 60 * 1000),
   lastError: null,
+  walletId: null,
+  reviewStatus: null,
   connectedByUserId: null,
   connectedAt: new Date(),
   updatedAt: new Date(),
@@ -78,6 +80,14 @@ const parcel: ShipmentPayment = {
   refundFailedAt: null,
   refundError: null,
   refundHeldAt: null,
+  escrowId: null,
+  escrowStatus: null,
+  escrowExpiresAt: null,
+  releaseRequestedAt: null,
+  releasedAt: null,
+  teamDecision: null,
+  teamDecisionAt: null,
+  teamDecisionByUserId: null,
   createdAt: new Date(),
   updatedAt: new Date(),
 };
@@ -203,6 +213,26 @@ describe("syncMercadoPagoPayment", () => {
     expect(mocks.apply).toHaveBeenCalledWith(
       context.database,
       expect.objectContaining({ status: "refunded" }),
+    );
+  });
+});
+
+describe("a payment on a parcel the supplier moved to Asaas", () => {
+  test("is not recorded and goes to the team's Problemas page", async () => {
+    const errors = vi.spyOn(logger, "error");
+    mocks.findPayment.mockResolvedValue({ ...parcel, provider: "asaas" });
+    mercadoPagoAnswers(remotePayment(), { "pref-first": [987654321] });
+
+    const result = await syncMercadoPagoPayment(context, {
+      account,
+      providerPaymentId: "987654321",
+    });
+
+    expect(result).toEqual({ kind: "ignored", reason: "other_provider" });
+    expect(mocks.apply).not.toHaveBeenCalled();
+    expect(errors).toHaveBeenCalledWith(
+      "mercado_pago.payment_on_other_provider",
+      expect.objectContaining({ problemKey: "987654321", shipmentPaymentId: PAYMENT_ROW_ID }),
     );
   });
 });

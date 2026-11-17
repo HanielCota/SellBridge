@@ -21,6 +21,7 @@ import {
 import { errorMessage } from "@/lib/errors";
 import { formatAbsoluteTime } from "@/lib/relative-time";
 import { prefetchOnServer } from "@/lib/prefetch";
+import { HeldPaymentDecision } from "@/components/admin-problems/held-payment-decision";
 
 type ProblemDetail = Awaited<ReturnType<typeof adminGetProblem>>;
 
@@ -184,6 +185,9 @@ function ProblemBody({ problem }: { problem: ProblemDetail }) {
           <ResolveButton problem={problem} />
         </div>
       </div>
+      {problem.heldPaymentId === null ? null : (
+        <HeldPaymentDecision shipmentPaymentId={problem.heldPaymentId} />
+      )}
       <ProblemFacts problem={problem} />
       <TechnicalDetails problem={problem} />
     </>

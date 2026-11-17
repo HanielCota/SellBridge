@@ -1,5 +1,6 @@
 import { sql } from "drizzle-orm";
 import {
+  boolean,
   check,
   index,
   integer,
@@ -15,12 +16,13 @@ import type {
   ShipmentPaymentRefundReason,
   ShipmentPaymentStatus,
 } from "@sellbridge/shared/shipment-payments";
+import type { PaymentAccountReviewStatus } from "@sellbridge/shared/payment-accounts";
 import { user } from "./auth.ts";
 import { storeConnectionStatusEnum } from "./enums.ts";
 import { orderShipments } from "./fulfillment.ts";
 import { suppliers } from "./suppliers.ts";
 
-export const paymentProviderEnum = pgEnum("payment_provider", ["mercado_pago"]);
+export const paymentProviderEnum = pgEnum("payment_provider", ["mercado_pago", "asaas"]);
 
 /**
  * The account a supplier receives payments in (Mercado Pago first), linked by OAuth through
@@ -41,6 +43,10 @@ export const supplierPaymentAccounts = pgTable(
     expiresAt: timestamp({ withTimezone: true }),
     status: storeConnectionStatusEnum().notNull().default("connected"),
     lastError: text(),
+    /** Asaas only: the wallet the supplier receives its share in. */
+    walletId: text(),
+    /** Asaas only: where Asaas's review of the account documents stands. */
+    reviewStatus: text().$type<PaymentAccountReviewStatus>(),
     /** The provider's id of the account (Mercado Pago `user_id`): payment notices name it. */
     providerAccountId: text(),
     /** The supplier member who authorized it, kept for the audit trail. */
@@ -60,8 +66,26 @@ export const supplierPaymentAccounts = pgTable(
       table.provider,
       table.providerAccountId,
     ),
+    check(
+      "supplier_payment_accounts_review_status_check",
+      sql`${table.reviewStatus} is null or ${table.reviewStatus} in ('pending','awaiting_approval','approved','rejected')`,
+    ),
   ],
 );
+
+/**
+ * Which linked account a supplier chose to receive new payments in. A payment already open or
+ * paid stays with the provider it started on. No row: the only usable account, Mercado Pago
+ * first when both are usable.
+ */
+export const supplierPaymentChoices = pgTable("supplier_payment_choices", {
+  supplierId: uuid()
+    .primaryKey()
+    .references(() => suppliers.id, { onDelete: "cascade" }),
+  provider: paymentProviderEnum().notNull(),
+  chosenByUserId: text().references(() => user.id, { onDelete: "set null" }),
+  chosenAt: timestamp({ withTimezone: true }).defaultNow().notNull(),
+});
 
 /** Short-lived OAuth state for a payment account link, against CSRF and replay. */
 export const paymentOAuthStates = pgTable("payment_oauth_states", {
@@ -122,6 +146,21 @@ export const shipmentPayments = pgTable(
      * may have posted already. The team was alerted at this time and settles it by hand.
      */
     refundHeldAt: timestamp({ withTimezone: true }),
+    /**
+     * Asaas only: the guarantee holding the money in the supplier's protected account, as last read
+     * from Asaas, and when it ends on its own.
+     */
+    escrowId: text(),
+    escrowStatus: text().$type<"active" | "done">(),
+    escrowExpiresAt: timestamp({ withTimezone: true }),
+    /** When SellBridge asked Asaas to free the money; never asked twice. */
+    releaseRequestedAt: timestamp({ withTimezone: true }),
+    /** When Asaas confirmed the money went to the supplier. */
+    releasedAt: timestamp({ withTimezone: true }),
+    /** The team's choice on the Problemas page for a held payment no rule decides. */
+    teamDecision: text().$type<"release" | "refund">(),
+    teamDecisionAt: timestamp({ withTimezone: true }),
+    teamDecisionByUserId: text().references(() => user.id, { onDelete: "set null" }),
     createdAt: timestamp({ withTimezone: true }).defaultNow().notNull(),
     updatedAt: timestamp({ withTimezone: true })
       .defaultNow()
@@ -141,7 +180,7 @@ export const shipmentPayments = pgTable(
     check("shipment_payments_amount_check", sql`${table.amountCents} > 0`),
     check(
       "shipment_payments_refund_reason_check",
-      sql`${table.refundReason} is null or ${table.refundReason} in ('not_dispatched','cancelled','returned')`,
+      sql`${table.refundReason} is null or ${table.refundReason} in ('not_dispatched','cancelled','returned','not_delivered','team')`,
     ),
     // The reconciliation job reads unpaid payments, the least recently checked first.
     index("shipment_payments_reconcile_idx")
@@ -152,6 +191,22 @@ export const shipmentPayments = pgTable(
       .on(table.paidAt)
       .where(
         sql`${table.status} = 'approved' and ${table.refundFailedAt} is null and ${table.refundHeldAt} is null`,
+      ),
+    check(
+      "shipment_payments_escrow_status_check",
+      sql`${table.escrowStatus} is null or ${table.escrowStatus} in ('active','done')`,
+    ),
+    check(
+      "shipment_payments_team_decision_check",
+      sql`${table.teamDecision} is null or ${table.teamDecision} in ('release','refund')`,
+    ),
+    // The escrow job (`listHeldPayments`) reads paid parcels not yet released nor given up on,
+    // the least recently checked first. Not filtered on provider: 'asaas' joins the enum in the
+    // same migration, and Postgres refuses a new enum value inside that transaction.
+    index("shipment_payments_held_idx")
+      .on(table.checkedAt.asc().nullsFirst(), table.id)
+      .where(
+        sql`${table.status} in ('approved','charged_back') and ${table.releasedAt} is null and ${table.refundFailedAt} is null`,
       ),
     check(
       "shipment_payments_fee_check",
@@ -193,11 +248,21 @@ export const platformSettings = pgTable(
     id: smallint().primaryKey().default(1),
     /** SellBridge's share of each supplier payment, in basis points (500 = 5%). */
     paymentFeeBasisPoints: integer(),
+    /**
+     * While on, a supplier with fewer than `newSupplierDeliveries` confirmed deliveries receives
+     * only through Asaas, with the money held until delivery. Off by default (Guilherme, 15/11/2026).
+     */
+    newSupplierProtection: boolean().notNull().default(false),
+    newSupplierDeliveries: integer().notNull().default(5),
     updatedByUserId: text().references(() => user.id, { onDelete: "set null" }),
     updatedAt: timestamp({ withTimezone: true }).defaultNow().notNull(),
   },
   (table) => [
     check("platform_settings_single_row_check", sql`${table.id} = 1`),
+    check(
+      "platform_settings_new_supplier_deliveries_check",
+      sql`${table.newSupplierDeliveries} between 1 and 1000`,
+    ),
     check(
       "platform_settings_payment_fee_check",
       sql`${table.paymentFeeBasisPoints} is null or (${table.paymentFeeBasisPoints} >= 0 and ${table.paymentFeeBasisPoints} <= 3000)`,
