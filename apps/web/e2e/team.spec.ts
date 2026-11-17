@@ -134,7 +134,9 @@ test("a atendente sem empresa vê só as telas da equipe e o próprio perfil", a
   await sideMenu.getByRole("button", { name: /^Menu do usuário/ }).click();
   await expect(page.getByRole("menuitem", { name: "Meu perfil" })).toBeVisible();
   await expect(page.getByRole("menuitem", { name: "Meu cadastro" })).toHaveCount(0);
-  await expect(page.getByRole("menuitemcheckbox")).toHaveCount(0);
+  await expect(
+    page.getByRole("menuitemcheckbox", { name: /^Modo (administrador|equipe)$/ }),
+  ).toHaveCount(0);
   await page.keyboard.press("Escape");
 
   await gotoHydrated(page, "/perfil");

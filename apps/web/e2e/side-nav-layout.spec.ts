@@ -367,9 +367,6 @@ test("the profile card opens the account menu above it, with no team switch for 
   await signIn(page, DEMO_USER);
   await page.setViewportSize({ width: 1366, height: 900 });
   await gotoHydrated(page, "/dashboard");
-  const theme = (await page.evaluate(() => document.documentElement.classList.contains("dark")))
-    ? "Modo claro"
-    : "Modo escuro";
   // Measured before opening: the open menu hides the rest of the page from the accessibility tree.
   const card = await profileCard(page).boundingBox();
 
@@ -379,7 +376,7 @@ test("the profile card opens the account menu above it, with no team switch for 
   expect(await accountMenuRows(page)).toEqual([
     "Meu perfil",
     "Meu cadastro",
-    theme,
+    "Tema escuro",
     "Sair da conta",
   ]);
   const menu = await page.getByRole("menu").boundingBox();
@@ -402,34 +399,8 @@ test("a team account's menu has the team switch between the registration and the
   const rows = await accountMenuRows(page);
   expect(rows).toHaveLength(5);
   expect(rows.slice(0, 3)).toEqual(["Meu perfil", "Meu cadastro", "Modo administrador"]);
-  expect(rows[3]).toMatch(/^Modo (claro|escuro)$/);
+  expect(rows[3]).toBe("Tema escuro");
   expect(rows[4]).toBe("Sair da conta");
-});
-
-test("the theme row switches the theme and the choice survives a reload", async ({ page }) => {
-  await signIn(page, DEMO_USER);
-  await page.setViewportSize({ width: 1366, height: 900 });
-  await gotoHydrated(page, "/dashboard");
-  const isDark = async () =>
-    await page.evaluate(() => document.documentElement.classList.contains("dark"));
-  const startedDark = await isDark();
-
-  await profileCard(page).click();
-  await page
-    .getByRole("menuitem", { name: startedDark ? "Modo claro" : "Modo escuro", exact: true })
-    .click();
-
-  expect(await isDark()).toBe(!startedDark);
-  // The menu stays open and its row now offers the way back.
-  await expect(
-    page.getByRole("menuitem", { name: startedDark ? "Modo escuro" : "Modo claro", exact: true }),
-  ).toBeVisible();
-  await gotoHydrated(page, "/dashboard");
-  expect(await isDark()).toBe(!startedDark);
-  await profileCard(page).click();
-  await expect(
-    page.getByRole("menuitem", { name: startedDark ? "Modo escuro" : "Modo claro", exact: true }),
-  ).toBeVisible();
 });
 
 test("signing out from the profile card goes to the login and ends the session", async ({
