@@ -1,7 +1,7 @@
 import { useRouterState } from "@tanstack/react-router";
 import type { ReactNode } from "react";
 import { BrandLogo } from "@/components/brand/brand-logo";
-import { ThemeToggle } from "@/components/theme/theme-toggle";
+import { ThemeSwitch } from "@/components/theme/theme-switch";
 
 const COPYRIGHT_YEAR = new Date().getFullYear();
 
@@ -14,12 +14,12 @@ function AuthBrandLogo() {
   return <BrandLogo className="mb-7 text-2xl" iconClassName="size-10" />;
 }
 
-/** The centered frame of the sign-in pages: logo, theme toggle and footer. */
+/** The centered frame of the sign-in pages: logo, theme switch and footer. */
 export function AuthShell({ children }: { children: ReactNode }) {
   return (
     <div className="flex min-h-svh flex-col bg-surface-grouped">
       <header className="flex justify-end px-4 pt-[max(1rem,env(safe-area-inset-top))] pb-4 sm:px-6">
-        <ThemeToggle />
+        <ThemeSwitch />
       </header>
       <main
         id="main-content"

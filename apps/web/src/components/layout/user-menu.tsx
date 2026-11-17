@@ -1,11 +1,10 @@
 import type { ProfileKind } from "@sellbridge/shared/profile-kind";
 import { isStaffRole } from "@sellbridge/shared/staff-access";
 import {
+  CircleHalfIcon,
   IdentificationCardIcon,
-  MoonIcon,
   ShieldCheckIcon,
   SignOutIcon,
-  SunIcon,
   UserCircleIcon,
 } from "@phosphor-icons/react";
 import { useQueryClient } from "@tanstack/react-query";
@@ -13,6 +12,7 @@ import { getRouteApi, Link, useNavigate } from "@tanstack/react-router";
 import { type ReactNode, useRef } from "react";
 import { toast } from "sonner";
 import { useTheme } from "@/components/theme/theme-provider";
+import { ThemeSwitchTrack } from "@/components/theme/theme-switch";
 import {
   DropdownMenu,
   DropdownMenuCheckboxItem,
@@ -51,24 +51,30 @@ const MENU_ROW =
   "gap-3 px-2.5 py-2.5 text-base text-foreground [&_svg:not([class*='size-'])]:size-5 [&_svg]:text-muted-foreground data-highlighted:[&_svg]:text-foreground";
 
 /**
- * The label names the theme a click turns on. The menu stays open: the page changes color under
- * it and the row flips to the way back, and closing it would animate the card's caret during the
- * swap the theme keeps free of fades.
+ * The theme as an on/off switch: moon on the left, sun on the right, the knob beside the theme in
+ * use. It reads as "Tema escuro", checked in the dark theme. The menu stays open: the page changes
+ * color under it and the knob is seen moving, and closing it would animate the card's caret during
+ * the swap the theme keeps free of fades.
  */
 function ThemeItem() {
-  const { theme, toggleTheme } = useTheme();
-  const ThemeIcon = theme === "dark" ? SunIcon : MoonIcon;
+  const { theme, setTheme } = useTheme();
   return (
-    <DropdownMenuItem
-      onSelect={(event) => {
-        event.preventDefault();
-        toggleTheme();
-      }}
-      className={MENU_ROW}
+    <DropdownMenuCheckboxItem
+      checked={theme === "dark"}
+      onCheckedChange={(checked) => setTheme(checked ? "dark" : "light")}
+      onSelect={(event) => event.preventDefault()}
+      // min-h-11: a 44 px target for a thumb on a phone.
+      className={cn(
+        MENU_ROW,
+        "min-h-11 pr-2.5 *:data-[slot=dropdown-menu-checkbox-item-indicator]:hidden",
+      )}
     >
-      <ThemeIcon aria-hidden="true" />
-      {theme === "dark" ? "Modo claro" : "Modo escuro"}
-    </DropdownMenuItem>
+      <CircleHalfIcon aria-hidden="true" />
+      <span>
+        Tema<span className="sr-only"> escuro</span>
+      </span>
+      <ThemeSwitchTrack theme={theme} />
+    </DropdownMenuCheckboxItem>
   );
 }
 
