@@ -87,6 +87,7 @@ function refusal(path: string, status: number, body: unknown): AsaasError {
 async function send(
   options: AsaasHttpOptions,
   request: AsaasRequest<unknown> & { readonly apiKey: string },
+  path: string,
 ): Promise<Response> {
   try {
     return await options.fetchImplementation(`${options.baseUrl}${request.path}`, {
@@ -101,7 +102,7 @@ async function send(
       signal: AbortSignal.timeout(REQUEST_TIMEOUT_IN_MS),
     });
   } catch (error) {
-    throw new AsaasError(`Asaas unreachable on ${request.path}: ${String(error)}`, {
+    throw new AsaasError(`Asaas unreachable on ${path}: ${String(error)}`, {
       status: null,
     });
   }
@@ -116,7 +117,8 @@ export async function asaasRequest<Result>(
   request: AsaasRequest<Result> & { readonly apiKey: string },
 ): Promise<Result> {
   const path = new URL(`${options.baseUrl}${request.path}`).pathname;
-  const response = await send(options, request);
+  // The query string carries reseller and parcel ids, which stay out of errors and logs.
+  const response = await send(options, request, path);
   const bytes = await readBodyWithin(response, MAX_BODY_BYTES);
   if (bytes === null) {
     throw new AsaasError(`Asaas answer on ${path} is larger than ${MAX_BODY_BYTES} bytes`, {

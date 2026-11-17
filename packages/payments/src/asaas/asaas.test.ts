@@ -273,6 +273,18 @@ describe("createAsaasAccountClient", () => {
     await expect(creation).rejects.toMatchObject({ status: null, outcomeUnknown: true });
   });
 
+  test("keeps the parcel id in the query out of an unreachable error", async () => {
+    const http = {
+      baseUrl: BASE_URL,
+      fetchImplementation: async () => Promise.reject(new TypeError("fetch failed")),
+    };
+
+    const search = createAsaasAccountClient(http, "supplier-key").findCharges("parcel-123");
+
+    await expect(search).rejects.toThrow("Asaas unreachable on /v3/payments:");
+    await expect(search).rejects.not.toThrow("parcel-123");
+  });
+
   test("reports a refused key as an access problem", async () => {
     const { http } = recordingFetch(json(401, {}));
 
