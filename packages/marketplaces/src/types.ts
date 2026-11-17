@@ -94,6 +94,11 @@ export interface MarketplaceOrder {
   refundedCents?: Cents | undefined;
   buyerName: string | null;
   /**
+   * The marketplace cart the order was bought in: every order of a cart ships in one package
+   * with one label. Null when bought alone; undefined when the marketplace has no carts.
+   */
+  packId?: string | null | undefined;
+  /**
    * Where the parcel goes, when the marketplace sends it with the order (validated with
    * `marketplaceShippingAddressSchema`); undefined when it does not. Stored encrypted.
    */

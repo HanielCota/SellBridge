@@ -7,7 +7,7 @@ import {
   listingTitleSchema,
   optionalParameter,
 } from "@sellbridge/shared/schemas";
-import { useForm } from "@tanstack/react-form";
+import { useForm, useStore } from "@tanstack/react-form";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { createFileRoute, Link, redirect, useNavigate } from "@tanstack/react-router";
 import { ArrowCounterClockwiseIcon, ArrowLeftIcon, StorefrontIcon } from "@phosphor-icons/react";
@@ -32,12 +32,15 @@ import { Label } from "@/components/ui/label";
 import { Skeleton } from "@/components/ui/skeleton";
 import { createListing, getNewListingData } from "@/features/listings/listings.functions";
 import { newListingQueryOptions } from "@/features/listings/listings.queries";
-import { type FeeSchedule, priceFloorProblem } from "@sellbridge/shared/fee-model";
+import { type FeeSchedule, priceFloorProblemOnChannels } from "@sellbridge/shared/fee-model";
 import {
   estimateProfit,
   isThinMargin,
   priceForMargin,
+  type ProductCost,
   type ProfitEstimate,
+  saleChannelsOf,
+  type SaleChannels,
   wholeMarginPercent,
 } from "@/features/listings/profit";
 import { feeScheduleQueryOptions, useFeeSchedule } from "@/features/reports/fee-schedule.queries";
@@ -220,8 +223,14 @@ function useListingForm({ product, stores }: Pick<NewListingData, "product" | "s
       setSubmitError("Informe um preço válido");
       return;
     }
-    // The server's own floor and words, said before the request.
-    const floorProblem = priceFloorProblem(priceCents, { costCents: product.costCents }, schedule);
+    // The server's own floor and words, on every chosen store's channel, said before the request.
+    const chosen = stores.filter((store) => value.storeConnectionIds.includes(store.id));
+    const floorProblem = priceFloorProblemOnChannels(
+      priceCents,
+      product,
+      schedule,
+      saleChannelsOf(chosen),
+    );
     if (floorProblem !== null) {
       setSubmitError(floorProblem);
       return;
@@ -262,6 +271,8 @@ type ListingFormApi = ReturnType<typeof useListingForm>["form"];
 
 function ListingForm({ product, stores }: Pick<NewListingData, "product" | "stores">) {
   const { form, submitError } = useListingForm({ product, stores });
+  const selectedIds = useStore(form.store, (state) => state.values.storeConnectionIds);
+  const channels = saleChannelsOf(stores.filter((store) => selectedIds.includes(store.id)));
   return (
     <form
       noValidate
@@ -275,7 +286,11 @@ function ListingForm({ product, stores }: Pick<NewListingData, "product" | "stor
         <h1 className="text-2xl font-semibold tracking-tight">Nova publicação</h1>
         <form.Subscribe selector={(state) => state.values.price}>
           {(price) => (
-            <ProfitSentence priceCents={parseBrlToCents(price)} costCents={product.costCents} />
+            <ProfitSentence
+              priceCents={parseBrlToCents(price)}
+              product={product}
+              channels={channels}
+            />
           )}
         </form.Subscribe>
         <ProductHeatTag unitsSold={product.recentUnitsSold} detailed className="pt-1" />
@@ -285,9 +300,10 @@ function ListingForm({ product, stores }: Pick<NewListingData, "product" | "stor
           form={form}
           product={product}
           stores={stores}
+          channels={channels}
           submitError={submitError}
         />
-        <ListingSidebar form={form} product={product} />
+        <ListingSidebar form={form} product={product} channels={channels} />
       </div>
       <PublishBar form={form} stores={stores} />
     </form>
@@ -301,12 +317,14 @@ function Strong({ className, children }: { className?: string; children: ReactNo
 /** The dashboard's headline voice for one sale: "Você lucra R$ 45,83 por venda, com 38% de margem." */
 function ProfitSentence({
   priceCents,
-  costCents,
+  product,
+  channels,
 }: {
   priceCents: number | null;
-  costCents: number;
+  product: ProductCost;
+  channels: SaleChannels;
 }) {
-  const estimate = estimateProfit(priceCents, costCents, useFeeSchedule());
+  const estimate = estimateProfit(priceCents, product, useFeeSchedule(), channels);
   if (!estimate) {
     return (
       <p className="text-sm text-muted-foreground">Informe o preço de venda para ver o lucro.</p>
@@ -336,11 +354,13 @@ function ListingFieldsCard({
   form,
   product,
   stores,
+  channels,
   submitError,
 }: {
   readonly form: ListingFormApi;
   readonly product: ListingProduct;
   readonly stores: readonly ListingStore[];
+  readonly channels: SaleChannels;
   readonly submitError: string | null;
 }) {
   return (
@@ -359,6 +379,7 @@ function ListingFieldsCard({
           {(field) => (
             <PriceField
               product={product}
+              channels={channels}
               value={field.state.value}
               errors={field.state.meta.errors}
               onBlur={field.handleBlur}
@@ -471,17 +492,21 @@ interface PricePreset {
 
 /** The supplier's suggestion first, then the margin presets that land above the cost. */
 /** A preset the server would refuse is left out: it would only lead to an error. */
-function keepsFloor(product: ListingProduct, schedule: FeeSchedule) {
+function keepsFloor(product: ListingProduct, schedule: FeeSchedule, channels: SaleChannels) {
   return (preset: PricePreset) =>
-    priceFloorProblem(preset.priceCents, { costCents: product.costCents }, schedule) === null;
+    priceFloorProblemOnChannels(preset.priceCents, product, schedule, channels) === null;
 }
 
-function pricePresets(product: ListingProduct, schedule: FeeSchedule): PricePreset[] {
+function pricePresets(
+  product: ListingProduct,
+  schedule: FeeSchedule,
+  channels: SaleChannels,
+): PricePreset[] {
   const presets: PricePreset[] = [
     { key: "suggested", label: "Sugerido", priceCents: product.suggestedPriceCents },
   ];
   for (const margin of MARGIN_PRESETS) {
-    const priceCents = priceForMargin(product.costCents, margin, schedule);
+    const priceCents = priceForMargin(product, margin, schedule, channels);
     if (priceCents !== null) {
       presets.push({ key: `margin-${margin}`, label: `Margem ${margin}%`, priceCents });
     }
@@ -528,10 +553,12 @@ function MarginBadge({ estimate }: { estimate: ProfitEstimate | null }) {
 
 function PricePresets({
   product,
+  channels,
   priceCents,
   onPick,
 }: {
   readonly product: ListingProduct;
+  readonly channels: SaleChannels;
   readonly priceCents: number | null;
   readonly onPick: (value: string) => void;
 }) {
@@ -539,8 +566,8 @@ function PricePresets({
   return (
     <fieldset className="grid grid-cols-2 gap-2 sm:flex sm:flex-wrap">
       <legend className="sr-only">Preços prontos</legend>
-      {pricePresets(product, schedule)
-        .filter(keepsFloor(product, schedule))
+      {pricePresets(product, schedule, channels)
+        .filter(keepsFloor(product, schedule, channels))
         .map((preset) => (
           <Hint key={preset.key} label={presetHint(preset)} openOnTap={false}>
             <button
@@ -560,25 +587,50 @@ function PricePresets({
   );
 }
 
+/** Under the price: what is wrong with it, or how to fill it in. */
+function PriceFieldNote({
+  message,
+  costCents,
+}: {
+  readonly message: string | null;
+  readonly costCents: number;
+}) {
+  if (message) {
+    return (
+      <p id="price-error" className="text-sm text-destructive">
+        {message}
+      </p>
+    );
+  }
+  return (
+    <p id="price-hint" className="text-xs text-muted-foreground">
+      Informe seu preço de venda ou escolha uma sugestão. Custo por unidade:{" "}
+      {formatCents(costCents)}.
+    </p>
+  );
+}
+
 /**
  * The price is typed freely; the presets fill it in one tap and the badge inside the field
  * follows whatever is typed, so the margin is always the one of the price on screen.
  */
 function PriceField({
   product,
+  channels,
   value,
   errors,
   onBlur,
   onChange,
 }: {
   readonly product: ListingProduct;
+  readonly channels: SaleChannels;
   readonly value: string;
   readonly errors: readonly unknown[];
   readonly onBlur: () => void;
   readonly onChange: (value: string) => void;
 }) {
   const priceCents = parseBrlToCents(value);
-  const estimate = estimateProfit(priceCents, product.costCents, useFeeSchedule());
+  const estimate = estimateProfit(priceCents, product, useFeeSchedule(), channels);
   const message = firstErrorMessage(errors);
   return (
     <div className="grid gap-2">
@@ -611,17 +663,13 @@ function PriceField({
         />
         <MarginBadge estimate={estimate} />
       </div>
-      <PricePresets product={product} priceCents={priceCents} onPick={onChange} />
-      {message ? (
-        <p id="price-error" className="text-sm text-destructive">
-          {message}
-        </p>
-      ) : (
-        <p id="price-hint" className="text-xs text-muted-foreground">
-          Informe seu preço de venda ou escolha uma sugestão. Custo por unidade:{" "}
-          {formatCents(product.costCents)}.
-        </p>
-      )}
+      <PricePresets
+        product={product}
+        channels={channels}
+        priceCents={priceCents}
+        onPick={onChange}
+      />
+      <PriceFieldNote message={message} costCents={product.costCents} />
     </div>
   );
 }
@@ -719,9 +767,11 @@ function StoreSelection({
 function ListingSidebar({
   form,
   product,
+  channels,
 }: {
   readonly form: ListingFormApi;
   readonly product: ListingProduct;
+  readonly channels: SaleChannels;
 }) {
   return (
     <div className="space-y-4 lg:sticky lg:top-24 lg:self-start">
@@ -731,7 +781,7 @@ function ListingSidebar({
         {({ title, price }) => (
           <>
             <ListingPreview product={product} title={title} priceCents={parseBrlToCents(price)} />
-            <ProfitCard priceCents={parseBrlToCents(price)} product={product} />
+            <ProfitCard priceCents={parseBrlToCents(price)} product={product} channels={channels} />
           </>
         )}
       </form.Subscribe>

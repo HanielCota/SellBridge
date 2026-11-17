@@ -9,7 +9,7 @@ import {
   profitTone,
   totalFeeCents,
 } from "@/components/listings/profit-split";
-import { estimateProfit, type ProfitEstimate } from "@/features/listings/profit";
+import { estimateProfit, type ProfitEstimate, type SaleChannels } from "@/features/listings/profit";
 import { useFeeSchedule } from "@/features/reports/fee-schedule.queries";
 import { formatCents } from "@sellbridge/shared/money";
 import { cn } from "@/lib/utils";
@@ -99,15 +99,24 @@ function ProfitFigure({ estimate }: { estimate: ProfitEstimate | null }) {
   );
 }
 
+function costLabel(product: ListingProduct): string {
+  return product.catalogKind === "seller"
+    ? "Seu custo por unidade"
+    : "Custo por unidade do fornecedor";
+}
+
 export function ProfitCard({
   priceCents,
   product,
+  channels,
 }: {
   priceCents: number | null;
   product: ListingProduct;
+  /** The chosen stores' channels: the card shows the one that leaves the least. */
+  channels: SaleChannels;
 }) {
   const schedule = useFeeSchedule();
-  const estimate = estimateProfit(priceCents, product.costCents, schedule);
+  const estimate = estimateProfit(priceCents, product, schedule, channels);
   const isLoss = estimate !== null && estimate.profitCents < 0;
   return (
     <Card className="animate-in duration-500 ease-out fade-in slide-in-from-bottom-2 motion-reduce:animate-none">
@@ -128,11 +137,7 @@ export function ProfitCard({
         <dl className="space-y-1.5 text-sm">
           <ProfitSplitLine
             swatch={PROFIT_SPLIT_COLORS.cost}
-            label={
-              product.catalogKind === "seller"
-                ? "Seu custo por unidade"
-                : "Custo por unidade do fornecedor"
-            }
+            label={costLabel(product)}
             value={formatCents(product.costCents)}
           />
           <FeeLines estimate={estimate} schedule={schedule} />
@@ -152,7 +157,8 @@ export function ProfitCard({
           </div>
         </dl>
         <p className="text-xs text-muted-foreground">
-          A taxa real depende do marketplace e da categoria do anúncio.
+          Estimativa: a comissão depende da categoria do anúncio, e o frete, do peso do produto e da
+          reputação da loja.
         </p>
       </CardContent>
     </Card>

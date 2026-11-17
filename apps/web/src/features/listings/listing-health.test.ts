@@ -33,6 +33,7 @@ function listing(
     title: "Bermuda - Azul",
     priceCents: 9290,
     costCents: 5000,
+    weightGrams: null,
     sku: "S-1",
     stock,
     imageUrl: null,

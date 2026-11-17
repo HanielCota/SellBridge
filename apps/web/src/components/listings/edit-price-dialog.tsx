@@ -16,11 +16,13 @@ import type { ListingRunState } from "@/features/listings/listing-health";
 import { totalFeeCents } from "@/components/listings/profit-split";
 import {
   estimateProfit,
-  feePercentLabel,
   isThinMargin,
   minimumPrice,
-  priceForMargin,
+  type ProductCost,
   type ProfitEstimate,
+  saleChannelsOf,
+  type SaleChannels,
+  shelfPriceForMargin,
   wholeMarginPercent,
 } from "@/features/listings/profit";
 import { useFeeSchedule } from "@/features/reports/fee-schedule.queries";
@@ -33,7 +35,7 @@ import { HintedText } from "@/components/ui/hint";
 
 type PricedListing = Pick<
   ListingOverviewRow,
-  "listingId" | "title" | "priceCents" | "costCents" | "stores"
+  "listingId" | "title" | "priceCents" | "costCents" | "weightGrams" | "stores"
 >;
 
 interface EditPriceDialogProps {
@@ -63,10 +65,11 @@ const TILE_ACTIVE: Record<MarginTone, string> = {
 /** The server's floor, said before saving: the lowest price that pays after every fee. */
 function belowFloorProblem(
   priceCents: number,
-  costCents: number,
+  product: ProductCost,
   schedule: FeeSchedule,
+  channels: SaleChannels,
 ): string | null {
-  const floorCents = minimumPrice(costCents, schedule);
+  const floorCents = minimumPrice(product, schedule, channels);
   if (floorCents === null) {
     return "As taxas configuradas não deixam lucro para este produto";
   }
@@ -81,8 +84,9 @@ function belowFloorProblem(
 
 function priceProblem(
   priceCents: number | null,
-  costCents: number,
+  product: ProductCost,
   schedule: FeeSchedule,
+  channels: SaleChannels,
 ): string | null {
   if (priceCents === null || priceCents <= 0) {
     return "Informe um preço válido";
@@ -90,10 +94,10 @@ function priceProblem(
   if (priceCents > LISTING_MAX_PRICE_CENTS) {
     return `O preço de venda pode ser de até ${formatCents(LISTING_MAX_PRICE_CENTS)}`;
   }
-  if (priceCents <= costCents) {
-    return `O preço precisa ser maior que o custo (${formatCents(costCents)})`;
+  if (priceCents <= product.costCents) {
+    return `O preço precisa ser maior que o custo (${formatCents(product.costCents)})`;
   }
-  return belowFloorProblem(priceCents, costCents, schedule);
+  return belowFloorProblem(priceCents, product, schedule, channels);
 }
 
 function toneOfMargin(marginPercent: number): MarginTone {
@@ -111,11 +115,6 @@ function toneOf(estimate: ProfitEstimate | null, problem: string | null): Margin
     return "off";
   }
   return toneOfMargin(estimate.marginPercent);
-}
-
-/** Shortcut prices end in ,90 like shelf prices, rounding up so the margin is never below. */
-function shelfPrice(cents: number): number {
-  return Math.ceil((cents - 90) / 100) * 100 + 90;
 }
 
 function MarginChip({ tone, estimate }: { tone: MarginTone; estimate: ProfitEstimate | null }) {
@@ -200,12 +199,14 @@ function PriceField({
 
 /** Each shortcut carries a line in the color of the band its margin falls in. */
 function MarginShortcuts({
-  costCents,
+  product,
+  channels,
   priceCents,
   tone,
   onPick,
 }: {
-  costCents: number;
+  product: ProductCost;
+  channels: SaleChannels;
   priceCents: number | null;
   tone: MarginTone;
   onPick: (priceCents: number) => void;
@@ -214,10 +215,9 @@ function MarginShortcuts({
   return (
     <div className="space-y-2">
       <p className="text-sm text-muted-foreground">Margem</p>
-      <div className="grid grid-cols-4 gap-1.5">
+      <div className="grid grid-cols-4 gap-2">
         {MARGIN_SHORTCUTS.map((margin) => {
-          const exact = priceForMargin(costCents, margin, schedule);
-          const price = exact === null ? null : shelfPrice(exact);
+          const price = shelfPriceForMargin(product, margin, schedule, channels);
           const active = price !== null && price === priceCents;
           return (
             <button
@@ -257,14 +257,6 @@ function MarginShortcuts({
   );
 }
 
-/** "Taxa 14%", or just "Taxas" when SellBridge's fee joins the marketplace's. */
-function feesLabel(schedule: FeeSchedule): string {
-  if (schedule.platformFeeBasisPoints > 0 || schedule.estimatedShippingCents > 0) {
-    return "Taxas";
-  }
-  return `Taxa ${feePercentLabel(schedule.marketplaceFeeBasisPoints)}`;
-}
-
 /** Where the price goes: supplier cost, every fee and the profit, in the margin's color. */
 function PriceBreakdown({
   costCents,
@@ -275,11 +267,10 @@ function PriceBreakdown({
   estimate: ProfitEstimate | null;
   tone: MarginTone;
 }) {
-  const schedule = useFeeSchedule();
   const parts = [
     { label: "Custo", value: formatCents(costCents), className: "", hint: undefined },
     {
-      label: feesLabel(schedule),
+      label: "Taxas e frete",
       value: estimate ? formatCents(totalFeeCents(estimate)) : "—",
       className: "",
       hint: TERM_HINTS.marketplaceFee,
@@ -320,8 +311,9 @@ function EditPriceForm({ listing, onDone }: { listing: PricedListing; onDone: ()
   const mutation = useUpdatePrice(onDone);
   const schedule = useFeeSchedule();
   const priceCents = parseBrlToCents(value);
-  const problem = priceProblem(priceCents, listing.costCents, schedule);
-  const estimate = estimateProfit(priceCents, listing.costCents, schedule);
+  const channels = saleChannelsOf(listing.stores);
+  const problem = priceProblem(priceCents, listing, schedule, channels);
+  const estimate = estimateProfit(priceCents, listing, schedule, channels);
   const tone = toneOf(estimate, problem);
   return (
     <form
@@ -343,7 +335,8 @@ function EditPriceForm({ listing, onDone }: { listing: PricedListing; onDone: ()
         onChange={setValue}
       />
       <MarginShortcuts
-        costCents={listing.costCents}
+        product={listing}
+        channels={channels}
         priceCents={priceCents}
         tone={tone}
         onPick={(cents) => setValue(formatCentsForField(cents))}
@@ -365,7 +358,7 @@ function EditPriceForm({ listing, onDone }: { listing: PricedListing; onDone: ()
 export function EditPriceDialog({ open, onOpenChange, listing }: EditPriceDialogProps) {
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="gap-5 sm:max-w-md">
+      <DialogContent className="gap-5 sm:max-w-lg">
         <DialogHeader>
           <DialogTitle className="text-lg">Editar preço</DialogTitle>
           <DialogDescription className="wrap-anywhere">

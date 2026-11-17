@@ -54,6 +54,7 @@ export * from "./admin-suppliers.ts";
 export * from "./admin-supplier-options.ts";
 export * from "./billing.ts";
 export * from "./fulfillment.ts";
+export * from "./order-label-parcels.ts";
 export * from "./shipment-labels.ts";
 export * from "./shipment-tracking.ts";
 export * from "./shipment-history.ts";

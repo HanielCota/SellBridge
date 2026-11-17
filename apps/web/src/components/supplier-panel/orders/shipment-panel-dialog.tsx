@@ -30,6 +30,7 @@ import { useTabProfileLink } from "@/lib/tab-profile";
 import { formatAbsoluteTime } from "@/lib/relative-time";
 import { cn } from "@/lib/utils";
 import { useNow } from "@/hooks/use-now";
+import { SplitLabelNotice } from "@/components/fulfillment/split-order-notice";
 import { LabelFormatMenu } from "./label-format-menu";
 import { LabelStatus, PostingDeadlineStatus } from "./order-row-parts";
 import { SupplierInvoiceCard } from "./supplier-invoice-card";
@@ -251,6 +252,7 @@ function PanelBody({ supplierId, shipmentId }: { supplierId: string; shipmentId:
       ) : (
         <DispatchInvoiceAlert shipment={query.data} />
       )}
+      {query.data.splitOrder ? <SplitLabelNotice /> : null}
       {tracked ? <SupplierParcelTracking supplierId={supplierId} shipmentId={shipmentId} /> : null}
       <ShipmentPanel
         shipment={{ ...query.data, trackingFromChannel }}
@@ -260,14 +262,14 @@ function PanelBody({ supplierId, shipmentId }: { supplierId: string; shipmentId:
         showHistory={!tracked}
         onUpdate={onUpdate}
       >
-        {query.data.marketplace === "mercado_livre" ? (
+        {query.data.marketplace !== "mercado_livre" || query.data.splitOrder ? null : (
           <MarketplaceLabelForm
             supplierId={supplierId}
             shipmentId={shipmentId}
             orderId={query.data.orderId}
             printed={query.data.labelPrintCount > 0}
           />
-        ) : null}
+        )}
       </ShipmentPanel>
     </div>
   );

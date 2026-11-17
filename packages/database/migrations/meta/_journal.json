@@ -526,6 +526,13 @@
       "when": 1794816652289,
       "tag": "0074_supplier_product_ml_category",
       "breakpoints": true
+    },
+    {
+      "idx": 75,
+      "version": "7",
+      "when": 1794861969902,
+      "tag": "0075_order_marketplace_pack",
+      "breakpoints": true
     }
   ]
 }

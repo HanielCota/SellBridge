@@ -36,3 +36,21 @@ export function SplitOrderNotice({
     </Alert>
   );
 }
+
+/**
+ * On the supplier's parcel: its Mercado Livre label would also have to serve another supplier's
+ * parcel, from the same order or the same cart, so the supplier ships with their own freight.
+ */
+export function SplitLabelNotice() {
+  return (
+    <Alert className={NOTICE_CLASS}>
+      <PackageIcon weight="fill" aria-hidden="true" />
+      <AlertTitle>Envie com o seu próprio frete</AlertTitle>
+      <AlertDescription className="text-current">
+        O comprador levou produtos de outro fornecedor no mesmo pedido ou no mesmo carrinho do
+        Mercado Livre. A etiqueta do Mercado Livre vale para um pacote só, então envie a sua parte
+        com o seu frete e informe o rastreio.
+      </AlertDescription>
+    </Alert>
+  );
+}

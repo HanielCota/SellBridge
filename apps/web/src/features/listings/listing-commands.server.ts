@@ -31,7 +31,7 @@ export interface CreateListingCommand extends DraftOverrides {
 
 /**
  * Sells a catalog product on the tenant's connected stores: checks the stock, the price against
- * the cost and every fee (the floor of fee-model.ts),
+ * the cost and every fee of each store's marketplace (the floor of fee-model.ts),
  * creates the listing and queues one publication per store.
  */
 export async function createListingForTenant(
@@ -44,12 +44,8 @@ export async function createListingForTenant(
     throw conflictError("Este produto está sem estoque. Adicione unidades antes de publicar.");
   }
   const draft = resolveListingDraft(product, command);
-  assertPriceKeepsMargin(
-    draft.priceCents,
-    { costCents: product.costCents },
-    feeScheduleFrom(environment),
-  );
-  const storeIds = await assertConnectedStores(tenantId, command.storeConnectionIds);
+  const { storeIds, channels } = await assertConnectedStores(tenantId, command.storeConnectionIds);
+  assertPriceKeepsMargin(draft.priceCents, product, feeScheduleFrom(environment), channels);
   await assertStoresSellSuppliers(tenantId, storeIds, [product.supplierId]);
   return publishListing(tenantId, draft, storeIds);
 }
