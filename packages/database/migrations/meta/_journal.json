@@ -547,6 +547,13 @@
       "when": 1794898400276,
       "tag": "0077_supplier_product_sale_terms",
       "breakpoints": true
+    },
+    {
+      "idx": 78,
+      "version": "7",
+      "when": 1794906020625,
+      "tag": "0078_asaas_escrow_payments",
+      "breakpoints": true
     }
   ]
 }
