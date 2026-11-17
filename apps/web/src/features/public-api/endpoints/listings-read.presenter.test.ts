@@ -32,6 +32,7 @@ function listing(stores: ListingStoreStatus[]): ListingOverviewRow {
     title: "Bermuda",
     priceCents: 9290,
     costCents: 5000,
+    weightGrams: null,
     sku: "S-1",
     stock: 4,
     imageUrl: null,

@@ -41,6 +41,7 @@ import {
 } from "@/components/ui/select";
 import { Skeleton } from "@/components/ui/skeleton";
 import { sellableCatalogQueryOptions } from "@/features/catalog/catalog.queries";
+import { saleChannelsOf, type SaleChannels } from "@/features/listings/profit";
 import { useSelection, type Selection } from "@/hooks/use-selection";
 import { useUrlSearchQuery } from "@/hooks/use-url-search-query";
 import { errorMessage } from "@/lib/errors";
@@ -264,6 +265,12 @@ function productId(product: StoreCatalogProduct): string {
 
 const SELECTION_LIMIT_MESSAGE = `Dá para publicar até ${MAX_BULK_PUBLISH} produtos por vez`;
 
+/** The channel of the store the catalog is for; Mercado Livre before a store is picked. */
+function catalogChannels(data: CatalogData): SaleChannels {
+  const store = data.scopeStores.find((option) => option.id === data.scope.storeId);
+  return saleChannelsOf(store === undefined ? [] : [store]);
+}
+
 function ProductGrid({
   data,
   selection,
@@ -271,6 +278,7 @@ function ProductGrid({
   data: CatalogData;
   selection: Selection<StoreCatalogProduct>;
 }) {
+  const channels = catalogChannels(data);
   const search = Route.useSearch();
   const navigate = useNavigate({ from: Route.fullPath });
   function select(product: StoreCatalogProduct, isSelected: boolean) {
@@ -287,6 +295,7 @@ function ProductGrid({
           <li key={product.id} className="row-span-2 grid grid-cols-1 grid-rows-subgrid gap-y-0">
             <CatalogProductCard
               product={product}
+              channels={channels}
               selected={selection.isSelected(product.id)}
               onSelectedChange={(isSelected) => select(product, isSelected)}
             />

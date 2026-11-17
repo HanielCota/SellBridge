@@ -9,7 +9,12 @@ import { SoldOutBadge, SoldOutFooter } from "@/components/catalog/sold-out";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { listingHealth, listingRunState } from "@/features/listings/listing-health";
-import { estimateProfit, isThinMargin, wholeMarginPercent } from "@/features/listings/profit";
+import {
+  estimateProfit,
+  isThinMargin,
+  saleChannelsOf,
+  wholeMarginPercent,
+} from "@/features/listings/profit";
 import { useFeeSchedule } from "@/features/reports/fee-schedule.queries";
 import {
   useBulkListingActions,
@@ -34,7 +39,12 @@ function storesSummary(row: ListingOverviewRow): string {
 /** Same lines as the catalog card: the price as the headline, cost and margin beneath. */
 function PriceLines({ row, offSale }: { row: ListingOverviewRow; offSale: boolean }) {
   const schedule = useFeeSchedule();
-  const margin = estimateProfit(row.priceCents, row.costCents, schedule)?.marginPercent;
+  const margin = estimateProfit(
+    row.priceCents,
+    row,
+    schedule,
+    saleChannelsOf(row.stores),
+  )?.marginPercent;
   return (
     <div className="min-w-0 space-y-0.5 tabular-nums">
       <p
@@ -50,7 +60,7 @@ function PriceLines({ row, offSale }: { row: ListingOverviewRow; offSale: boolea
         {margin === undefined ? null : (
           <>
             {" · "}
-            <Hint label="Estimativa com o custo do fornecedor e a taxa média do marketplace">
+            <Hint label="Estimativa com o custo do fornecedor, as taxas e o frete do marketplace">
               <span className={cn(isThinMargin(margin) && "text-amber-700 dark:text-amber-500")}>
                 margem {wholeMarginPercent(margin)}%
               </span>

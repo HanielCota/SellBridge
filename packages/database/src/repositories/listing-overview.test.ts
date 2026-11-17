@@ -283,4 +283,28 @@ describe("pause, resume and price", () => {
       }),
     ).rejects.toMatchObject({ message: expect.stringContaining("para 10% de margem") });
   });
+
+  it("prices the shipping on the weight of the product's NF-e data", async () => {
+    const [before] = (await listListingOverview(database, tenantA, {}, page)).items;
+    const costCents = before?.costCents ?? 0;
+    const productId = before?.productId ?? "";
+    await database
+      .update(supplierProducts)
+      .set({ fiscal: { netWeightGrams: 5_000 } })
+      .where(eq(supplierProducts.id, productId));
+    const heavyMinimum = minimumPriceCents({ costCents, weightGrams: 5_000 }, feeSchedule) ?? 0;
+
+    const refused = updateListingPrice(database, tenantA, change(heavyMinimum - 1));
+    await expect(refused).rejects.toMatchObject({ code: "CONFLICT" });
+    await updateListingPrice(database, tenantA, change(heavyMinimum));
+    const [after] = (await listListingOverview(database, tenantA, {}, page)).items;
+    await database
+      .update(supplierProducts)
+      .set({ fiscal: {} })
+      .where(eq(supplierProducts.id, productId));
+
+    expect(heavyMinimum).toBeGreaterThan(minimumPriceCents({ costCents }, feeSchedule) ?? 0);
+    expect(after?.weightGrams).toBe(5_000);
+    expect(after?.priceCents).toBe(heavyMinimum);
+  });
 });

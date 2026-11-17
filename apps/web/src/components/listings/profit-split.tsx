@@ -1,3 +1,4 @@
+import { FEE_CHANNEL_OWNERS } from "@sellbridge/shared/channel-fees";
 import type { FeeSchedule } from "@sellbridge/shared/fee-model";
 import { formatCents } from "@sellbridge/shared/money";
 import { feePercentLabel, isThinMargin, type ProfitEstimate } from "@/features/listings/profit";
@@ -98,12 +99,15 @@ export function ProfitSplitLine({
   );
 }
 
-/** The marketplace line names the shipping too when the reseller pays it (decision D5). */
-function marketplaceFeeLabel(schedule: FeeSchedule): string {
-  const percent = feePercentLabel(schedule.marketplaceFeeBasisPoints);
-  return schedule.estimatedShippingCents > 0
-    ? `Taxa do marketplace (~${percent}) e frete`
-    : `Taxa do marketplace (~${percent})`;
+/**
+ * The marketplace line: its commission and fixed fee together with the shipping the seller pays,
+ * named after the channel the estimate is for.
+ */
+function marketplaceFeeLabel(estimate: ProfitEstimate | null): string {
+  if (estimate === null) {
+    return "Taxas e frete do marketplace";
+  }
+  return `Taxas e frete ${FEE_CHANNEL_OWNERS[estimate.channel]}`;
 }
 
 /**
@@ -121,7 +125,7 @@ export function FeeLines({
     <>
       <ProfitSplitLine
         swatch={PROFIT_SPLIT_COLORS.fee}
-        label={marketplaceFeeLabel(schedule)}
+        label={marketplaceFeeLabel(estimate)}
         hint={TERM_HINTS.marketplaceFee}
         value={estimate ? formatCents(estimate.feeCents) : "—"}
       />

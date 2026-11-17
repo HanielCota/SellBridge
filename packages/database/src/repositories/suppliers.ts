@@ -27,6 +27,7 @@ import { containsPattern, matchesEveryWord } from "./sql/search-pattern.ts";
 import { categories, listings, supplierProducts, suppliers } from "../schema/index.ts";
 import { heatWindowStart, recentUnitsSoldByProduct } from "./product-heat.ts";
 import { availableStock } from "./sql/available-stock.ts";
+import { productWeightGrams } from "./sql/product-weight.ts";
 import {
   catalogVisibleTo,
   productListable,
@@ -360,6 +361,8 @@ export async function getSellableCatalogProduct(
     supplierName: string;
     imageUrls: string[];
     catalogKind: "supplier" | "seller";
+    /** Net weight from the NF-e data, in grams; null when the supplier gave none. */
+    weightGrams: number | null;
   }
 > {
   const [row] = await database
@@ -378,6 +381,7 @@ export async function getSellableCatalogProduct(
       supplierId: suppliers.id,
       supplierName: suppliers.name,
       catalogKind: suppliers.catalogKind,
+      weightGrams: productWeightGrams,
     })
     .from(supplierProducts)
     .innerJoin(suppliers, eq(suppliers.id, supplierProducts.supplierId))
@@ -419,6 +423,8 @@ export interface SellableCatalogProduct extends CatalogProduct {
   imageUrls: string[];
   /** The tenant already has a listing for this product. */
   published: boolean;
+  /** Net weight from the NF-e data, in grams; null when the supplier gave none. */
+  weightGrams: number | null;
 }
 
 function isPublishedBy(tenantId: string): SQL {
@@ -480,6 +486,7 @@ function selectSellableCatalog(database: Database, tenantId: string) {
       supplierId: suppliers.id,
       supplierName: suppliers.name,
       catalogKind: suppliers.catalogKind,
+      weightGrams: productWeightGrams,
       published: sql<boolean>`${isPublishedBy(tenantId)}`,
     })
     .from(supplierProducts)
