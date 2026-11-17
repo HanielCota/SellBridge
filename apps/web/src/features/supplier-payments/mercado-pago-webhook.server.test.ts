@@ -55,6 +55,7 @@ const PREFERENCE_ID = "112233-preference-1";
 const localPayment = {
   id: PAYMENT_ROW_ID,
   supplierId: SUPPLIER_ID,
+  provider: "mercado_pago",
   amountCents: 5990,
   platformFeeCents: 300,
   preferenceId: PREFERENCE_ID,
@@ -348,6 +349,8 @@ describe("handleMercadoPagoWebhook", () => {
         connectedAt: new Date(),
         connectedByUserId: null,
         lastError: null,
+        walletId: null,
+        reviewStatus: null,
         updatedAt: new Date(),
       },
       providerPaymentId: "555",

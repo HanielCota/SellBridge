@@ -8,7 +8,11 @@ const REASON_SENTENCES: Record<ShipmentPaymentRefundReason, string> = {
   not_dispatched: "O fornecedor não postou o envio no prazo.",
   cancelled: "O envio foi cancelado.",
   returned: "O envio voltou para o fornecedor.",
+  not_delivered: "O envio não foi entregue.",
+  team: "Nossa equipe analisou o caso e decidiu devolver o pagamento.",
 };
+
+const GATEWAY_NAMES = { mercado_pago: "Mercado Pago", asaas: "Asaas" } as const;
 
 export interface RefundView {
   reason: ShipmentPaymentRefundReason | null;
@@ -31,14 +35,17 @@ export function resellerRefundText(input: {
   badge: SupplierPaymentBadge;
   refund: RefundView | null;
   amountCents: number;
+  /** The gateway the payment went through; Mercado Pago when not said. */
+  provider?: keyof typeof GATEWAY_NAMES | null;
 }): string | null {
   const { badge, refund } = input;
   const amount = formatCents(input.amountCents);
+  const gateway = GATEWAY_NAMES[input.provider ?? "mercado_pago"];
   if (badge.kind === "refunded") {
     if (refund === null) {
-      return "O pagamento voltou para você no Mercado Pago.";
+      return `O pagamento voltou para você no ${gateway}.`;
     }
-    return withReason(refund.reason, `Devolvemos ${amount} para você pelo Mercado Pago.`);
+    return withReason(refund.reason, `Devolvemos ${amount} para você pelo ${gateway}.`);
   }
   if (badge.kind !== "refunding" || refund === null) {
     return null;
@@ -46,8 +53,8 @@ export function resellerRefundText(input: {
   if (refund.failed) {
     return withReason(
       refund.reason,
-      `O Mercado Pago não aceitou devolver ${amount}. Nossa equipe já foi avisada e vai falar com você.`,
+      `O ${gateway} não aceitou devolver ${amount}. Nossa equipe já foi avisada e vai falar com você.`,
     );
   }
-  return withReason(refund.reason, `Estamos devolvendo ${amount} para você pelo Mercado Pago.`);
+  return withReason(refund.reason, `Estamos devolvendo ${amount} para você pelo ${gateway}.`);
 }

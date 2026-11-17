@@ -565,7 +565,7 @@ export async function applyProviderPayment(
       return { kind: "unchanged", payment: current };
     }
   }
-  if (!isAllowedTransition(current.status, input.status)) {
+  if (!isAllowedTransition(current, input.status)) {
     return { kind: "unchanged", payment: current };
   }
   const paidAt =
@@ -610,12 +610,21 @@ function replacesUnpaidAttempt(
   return false;
 }
 
-function isAllowedTransition(from: ShipmentPaymentStatus, to: ShipmentPaymentStatus): boolean {
+function isAllowedTransition(
+  current: Pick<ShipmentPayment, "status" | "provider">,
+  to: ShipmentPaymentStatus,
+): boolean {
+  const from = current.status;
   if (from === to) {
     return false;
   }
   if (from === "approved") {
     return to === "refunded" || to === "charged_back";
+  }
+  // Asaas moves a charge out of its dispute: back to received when the supplier wins it, or
+  // refunded; the held money then follows the release rules again.
+  if (from === "charged_back" && current.provider === "asaas") {
+    return to === "approved" || to === "refunded";
   }
   if (from === "refunded" || from === "charged_back") {
     return false;
@@ -692,19 +701,22 @@ const RECHECKED_UNPAID_STATUSES: ShipmentPaymentStatus[] = ["pending", "rejected
  */
 export async function listShipmentPaymentsToReconcile(
   database: Database,
-  input: { now: Date; recheckForInMs: number; limit: number },
+  input: { provider: PaymentProvider; now: Date; recheckForInMs: number; limit: number },
 ): Promise<ShipmentPayment[]> {
   const windowStart = new Date(input.now.getTime() - input.recheckForInMs);
   return database
     .select()
     .from(shipmentPayments)
     .where(
-      or(
-        eq(shipmentPayments.status, "in_process"),
-        and(
-          inArray(shipmentPayments.status, RECHECKED_UNPAID_STATUSES),
-          isNotNull(shipmentPayments.preferenceId),
-          gt(shipmentPayments.checkoutExpiresAt, windowStart),
+      and(
+        eq(shipmentPayments.provider, input.provider),
+        or(
+          eq(shipmentPayments.status, "in_process"),
+          and(
+            inArray(shipmentPayments.status, RECHECKED_UNPAID_STATUSES),
+            isNotNull(shipmentPayments.preferenceId),
+            gt(shipmentPayments.checkoutExpiresAt, windowStart),
+          ),
         ),
       ),
     )
@@ -742,7 +754,7 @@ const ACCEPTED_SHIPMENT_STATUSES: FulfillmentStatus[] = ["accepted", "picking", 
  * Whether the parcel's latest cancellation came from the reseller while the supplier had it
  * accepted, picking or ready: the step recorded just before that cancellation says so.
  */
-function cancelledByResellerAfterAccept() {
+export function cancelledByResellerAfterAccept() {
   const statusBeforeCancel = sql`(
     select prior_event.status from ${shipmentEvents} as prior_event
     where prior_event.shipment_id = cancel_event.shipment_id
@@ -781,7 +793,7 @@ const REFUNDABLE_SHIPMENT_STATUSES: FulfillmentStatus[] = [
  */
 export async function listShipmentPaymentRefundCandidates(
   database: Database,
-  input: { limit: number },
+  input: { provider: PaymentProvider; limit: number },
 ): Promise<RefundCandidate[]> {
   const rows = await database
     .select({
@@ -801,6 +813,7 @@ export async function listShipmentPaymentRefundCandidates(
     .innerJoin(suppliers, eq(suppliers.id, orderShipments.supplierId))
     .where(
       and(
+        eq(shipmentPayments.provider, input.provider),
         eq(shipmentPayments.status, "approved"),
         isNull(shipmentPayments.refundFailedAt),
         isNull(shipmentPayments.refundHeldAt),
