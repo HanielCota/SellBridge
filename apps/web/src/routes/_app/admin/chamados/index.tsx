@@ -494,7 +494,7 @@ function StaffTicketsTable({
         columns={columns}
         data={query.data.items}
         getRowId={(row) => row.id}
-        caption="Chamados dos revendedores"
+        caption="Chamados de revendedores e fornecedores"
         renderMobileRow={(row) => <MobileTicketRow row={row} />}
         footer={
           <PaginationBar
