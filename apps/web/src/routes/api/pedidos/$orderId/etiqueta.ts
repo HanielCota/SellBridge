@@ -18,6 +18,7 @@ import { eq } from "drizzle-orm";
 import { database } from "@/lib/server/database";
 import { requireSellerRequest } from "@/lib/server/tenant-session";
 import { labelErrorPage } from "@/features/fulfillment/label-error-page";
+import { labelFileName } from "@/features/fulfillment/label-file-name";
 import { loadMarketplaceLabel } from "@/features/fulfillment/marketplace.server";
 import { keepLabelRecord } from "@/features/fulfillment/label-records.server";
 import { panelLabelIds, panelLabelShipmentId } from "@/lib/server/panel-label-access";
@@ -104,17 +105,17 @@ async function recordedLabel(tenantId: string, orderId: string, format: LabelFor
  * The PDF opens in the browser, ready to print; the ZPL downloads as the text file the Zebra
  * printer's program sends, named like Mercado Livre's own (a .txt).
  */
-function labelHeaders(label: Awaited<ReturnType<typeof recordedLabel>>, orderId: string) {
+function labelHeaders(label: Awaited<ReturnType<typeof recordedLabel>>) {
+  const fileName = labelFileName(label.file.format, label.externalOrderId);
   if (label.file.format === "zpl") {
-    const orderNumber = label.externalOrderId.replace(/[^0-9A-Za-z-]/g, "");
     return {
       "content-type": "text/plain; charset=utf-8",
-      "content-disposition": `attachment; filename="etiqueta-zebra-pedido-${orderNumber}.txt"`,
+      "content-disposition": `attachment; filename="${fileName}"`,
     };
   }
   return {
     "content-type": "application/pdf",
-    "content-disposition": `inline; filename="etiqueta-${orderId}.pdf"`,
+    "content-disposition": `inline; filename="${fileName}"`,
   };
 }
 
@@ -125,7 +126,7 @@ async function handleLabel(request: Request, orderId: string) {
     const label = await recordedLabel(tenantId, validOrderId, format);
     return new Response(label.file.bytes, {
       headers: {
-        ...labelHeaders(label, validOrderId),
+        ...labelHeaders(label),
         "cache-control": "no-store",
         "referrer-policy": "no-referrer",
       },
