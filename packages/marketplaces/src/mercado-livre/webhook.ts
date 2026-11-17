@@ -10,12 +10,27 @@ import { notificationSchema, storedOrderNotificationSchema } from "./schemas.ts"
  */
 const ORDER_TOPICS: ReadonlySet<string> = new Set(["orders_v2", "orders"]);
 
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
+/**
+ * Topics with sub-topics (post_purchase, messages) name the notification `id` instead of `_id`
+ * (docs "Notificações", 03/11/2026). Both name the same thing: the event's unique id.
+ */
+function withEventId(payload: unknown): unknown {
+  if (!isRecord(payload) || payload["_id"] !== undefined) {
+    return payload;
+  }
+  return { ...payload, _id: payload["id"] };
+}
+
 export function verifyWebhook(
   config: MercadoLivreConfig,
   request: WebhookRequest,
 ): WebhookVerification {
   const payload = parseMercadoLivreJson(request.rawBody);
-  const parsed = notificationSchema.safeParse(payload);
+  const parsed = notificationSchema.safeParse(withEventId(payload));
   if (!parsed.success) {
     return { valid: false, reason: "Notificação fora do formato documentado", payload };
   }
