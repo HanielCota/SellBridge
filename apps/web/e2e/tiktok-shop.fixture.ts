@@ -16,8 +16,8 @@ export const E2E_TIKTOK_SHOP_UNARRANGED_PREFIX = "57709";
 const API_HOST = "open-api.tiktokglobalshop.com";
 const LABEL_HOST = "magelng.bytedance.net";
 
-/** What every label of the stand-in prints, so a test can recognize the file. */
-export function standInTikTokLabel(orderId: string): string {
+/** What every label of the stand-in prints. */
+function standInTikTokLabel(orderId: string): string {
   return `%PDF-1.4\n% Etiqueta TikTok Shop ${orderId}\n%%EOF`;
 }
 

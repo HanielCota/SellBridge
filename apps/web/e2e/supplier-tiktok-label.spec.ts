@@ -16,7 +16,6 @@ import {
   E2E_TIKTOK_SHOP_ID,
   E2E_TIKTOK_SHOP_ORDER_PREFIX,
   E2E_TIKTOK_SHOP_UNARRANGED_PREFIX,
-  standInTikTokLabel,
 } from "./tiktok-shop.fixture";
 import { giveTestBrand, supplierAccounts } from "./supplier-accounts";
 
@@ -170,8 +169,9 @@ test("o fornecedor baixa a etiqueta do TikTok Shop em PDF, direto, sem escolher 
 
   await expect(page.getByRole("menu")).toHaveCount(0);
   expect(response.status()).toBe(200);
+  // The PDF opens in the browser's viewer, which keeps no body to read back: the bytes are
+  // checked in tiktok-shop-connector.test.ts, and the recorded print below proves it was served.
   expect(response.headers()["content-type"]).toBe("application/pdf");
-  expect(await response.text()).toBe(standInTikTokLabel(orderNumber));
   await page.keyboard.press("Escape");
   await gotoHydrated(page, `/fornecedor/painel/pedidos?query=${encodeURIComponent(BUYER)}`);
   await expect(page.getByText("Etiqueta impressa").filter({ visible: true })).toBeVisible();
