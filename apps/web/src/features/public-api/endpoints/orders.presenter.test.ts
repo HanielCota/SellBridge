@@ -28,6 +28,8 @@ const detail: OrderDetail = {
       unitPriceCents: 5000,
       unitCostCents: 2000,
       listingId: "listing-1",
+      listingStatus: "published",
+      listingUrl: "https://produto.mercadolivre.com.br/MLB-1",
       productId: "product-1",
     },
   ],
@@ -66,6 +68,8 @@ describe("presentOrderDetail", () => {
       title: "Anúncio de fora",
       unitCostCents: 0,
       listingId: null,
+      listingStatus: null,
+      listingUrl: null,
       productId: null,
     };
     const dto = presentOrderDetail({ ...detail, items: [...detail.items, outside] }, 250);
@@ -90,7 +94,16 @@ describe("presentOrderDetail", () => {
       deliveredAt: "2026-03-04T15:00:00.000Z",
     });
     expect(dto.adjustments[0]?.createdAt).toBe("2026-03-05T10:00:00.000Z");
-    expect(dto.items[0]).toEqual(detail.items[0]);
+    // The ad's status and link stay inside the app: the public order item keeps its shape.
+    expect(dto.items[0]).toEqual({
+      id: "item-1",
+      title: "Vestido",
+      quantity: 2,
+      unitPriceCents: 5000,
+      unitCostCents: 2000,
+      listingId: "listing-1",
+      productId: "product-1",
+    });
   });
 
   it("counts no revenue for a cancelled order", () => {

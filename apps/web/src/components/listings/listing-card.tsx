@@ -24,6 +24,7 @@ import { ToneStatus } from "@/components/data/tone-status";
 import { cn } from "@/lib/utils";
 import { EditPriceDialog } from "./edit-price-dialog";
 import { ListingMenu } from "./listing-actions";
+import { ListingLinkButton } from "./listing-link-button";
 import { RUN_STATE_DOT } from "./run-state-style";
 import { SalesSparkline } from "./sales-sparkline";
 import { CONTROL_HINTS, TERM_HINTS } from "@/components/icons/action-icons";
@@ -247,6 +248,7 @@ function ListingCardBody({
         <SalesTrend row={row} />
       </div>
       {showsStatus ? <StatusFooter row={row} /> : null}
+      <ListingLinkButton row={row} />
     </div>
   );
 }
