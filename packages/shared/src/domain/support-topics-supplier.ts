@@ -57,10 +57,20 @@ export const SUPPLIER_SUPPORT_TOPICS: readonly SupportTopic[] = [
   {
     category: "payment",
     label: "Pagamento ou cobrança",
-    legend: "Uma cobrança estranha ou nota fiscal",
+    legend: "Pagamento de pedido, cobrança ou nota fiscal",
     question: "O que aconteceu com o pagamento?",
     example: "Exemplo: cobrança de R$ 49,90 no dia 10/10.",
     situations: [
+      {
+        id: "order-payment-missing",
+        label: "Não recebi o pagamento de um pedido",
+        legend: "O revendedor pagou e o dinheiro não apareceu",
+        priority: "high",
+        question: "Qual pedido e quando ele foi pago?",
+        example: "Exemplo: pedido 770042411183, pago por Pix em 17/11.",
+        attachmentTip: "O print do seu extrato no Mercado Pago.",
+        notice: null,
+      },
       {
         id: "unknown-charge",
         label: "Uma cobrança que não reconheço",

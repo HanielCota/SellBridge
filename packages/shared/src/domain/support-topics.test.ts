@@ -47,6 +47,17 @@ describe("support topics", () => {
     expect(findSupportTopic("seller", "store")).toBeDefined();
   });
 
+  // Regression: a supplier's payment options were a reseller's (a strange charge, an invoice),
+  // with nothing for the money of an order that did not arrive.
+  it("lets a supplier report an order payment that did not arrive", () => {
+    const payment = findSupportTopic("supplier", "payment");
+
+    const situation = payment?.situations.find((item) => item.id === "order-payment-missing");
+
+    expect(situation?.label).toBe("Não recebi o pagamento de um pedido");
+    expect(situation?.priority).toBe("high");
+  });
+
   it.each(PROFILE_KINDS)("ends every %s topic with situations with Outro problema", (kind) => {
     for (const topic of SUPPORT_TOPICS[kind].filter((item) => item.situations.length > 0)) {
       const last = topic.situations.at(-1);
