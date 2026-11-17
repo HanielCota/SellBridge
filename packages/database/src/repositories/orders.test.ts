@@ -201,6 +201,28 @@ describe("marketplace orders and sync", () => {
     expect(stored?.marketplacePackId).toBe("9001");
   });
 
+  it("keeps the seller's shipping cost until a later notification reports a new one", async () => {
+    const incoming = {
+      ...incomingOrder("paid", new Date("2026-02-02T10:00:00Z")),
+      sellerShippingCents: 819,
+    };
+
+    const { orderId } = await upsertMarketplaceOrder(database, tenantA, storeA, incoming);
+    await upsertMarketplaceOrder(database, tenantA, storeA, {
+      ...incoming,
+      sellerShippingCents: undefined,
+    });
+    const kept = await database.query.orders.findFirst({ where: eq(orders.id, orderId) });
+    await upsertMarketplaceOrder(database, tenantA, storeA, {
+      ...incoming,
+      sellerShippingCents: 900,
+    });
+    const replaced = await database.query.orders.findFirst({ where: eq(orders.id, orderId) });
+
+    expect(kept?.sellerShippingCents).toBe(819);
+    expect(replaced?.sellerShippingCents).toBe(900);
+  });
+
   it("takes two simultaneous first notifications of an order as one order", async () => {
     const incoming = {
       externalOrderId: `ORD-${randomUUID()}`,

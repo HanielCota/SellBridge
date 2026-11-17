@@ -17,6 +17,8 @@ export interface IncomingOrder {
   marketplaceFeeCents: number;
   /** Money given back to the buyer so far; omitted when the source does not report it. */
   refundedCents?: number | undefined;
+  /** What the seller pays to ship the sale; omitted when unknown, which keeps the one stored. */
+  sellerShippingCents?: number | undefined;
   buyerName: string | null;
   /** The marketplace cart the order was bought in; omitted or null keeps the one stored. */
   packId?: string | null | undefined;
@@ -123,6 +125,7 @@ async function updateExistingOrder(
       status: write.order.status,
       totalCents: write.order.totalCents,
       marketplaceFeeCents: write.order.marketplaceFeeCents,
+      sellerShippingCents: write.order.sellerShippingCents ?? existing.sellerShippingCents,
       deliveredAt: deliveredAtOnUpdate(existing, write.order.status),
       paidAt: paidAtOfKnownOrder({
         paidAt: existing.paidAt,
@@ -187,6 +190,7 @@ async function createOrder(write: OrderWrite): Promise<OrderWriteResult | null> 
       status: order.status,
       totalCents: order.totalCents,
       marketplaceFeeCents: order.marketplaceFeeCents,
+      sellerShippingCents: order.sellerShippingCents ?? null,
       buyerName: order.buyerName,
       marketplacePackId: order.packId ?? null,
       shippingAddressEnc: order.shippingAddressEnc ?? null,
