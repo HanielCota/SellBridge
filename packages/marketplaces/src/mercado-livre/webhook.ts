@@ -66,3 +66,44 @@ export function parseStoredOrderEvent(topic: string, rawPayload: unknown): Store
     resource: parsed.data.resource,
   };
 }
+
+/** A shipment or claim notification: only a prompt to read the resource again. */
+export type MercadoLivreNotice =
+  | { kind: "shipment"; externalShopId: string; shipmentId: string }
+  | { kind: "claim"; externalShopId: string; claimId: string };
+
+/** `/shipments/{id}`, with or without the leading slash or a trailing sub-resource. */
+const SHIPMENT_RESOURCE = /^\/?shipments\/(\d{1,20})(?:\/.*)?$/;
+/**
+ * `/post-purchase/v1/claims/{id}`. The docs warn the `/post-purchase` prefix is new and show the
+ * resource without the leading slash, so the older `/claims/{id}` is read too.
+ */
+const CLAIM_RESOURCE = /^\/?(?:post-purchase\/v1\/)?claims\/(\d{1,20})(?:\/.*)?$/;
+
+function resourceId(pattern: RegExp, resource: string): string | null {
+  return pattern.exec(resource)?.[1] ?? null;
+}
+
+/**
+ * Reads a stored `shipments` or `post_purchase` notification. Null for any other topic and for a
+ * resource that does not name a shipment or claim.
+ */
+export function parseMercadoLivreNotice(
+  topic: string,
+  rawPayload: unknown,
+): MercadoLivreNotice | null {
+  if (topic !== "shipments" && topic !== "post_purchase") {
+    return null;
+  }
+  const parsed = storedOrderNotificationSchema.safeParse(rawPayload);
+  if (!parsed.success) {
+    return null;
+  }
+  const externalShopId = String(parsed.data.user_id);
+  if (topic === "shipments") {
+    const shipmentId = resourceId(SHIPMENT_RESOURCE, parsed.data.resource);
+    return shipmentId === null ? null : { kind: "shipment", externalShopId, shipmentId };
+  }
+  const claimId = resourceId(CLAIM_RESOURCE, parsed.data.resource);
+  return claimId === null ? null : { kind: "claim", externalShopId, claimId };
+}

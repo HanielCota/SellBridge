@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { verifyWebhook } from "./webhook.ts";
+import { parseMercadoLivreNotice, verifyWebhook } from "./webhook.ts";
 
 const config = { clientId: "89745685555", clientSecret: "secret" };
 
@@ -47,5 +47,35 @@ describe("verifyWebhook", () => {
     const { id: _ignored, ...withoutId } = claimNotification;
 
     expect(verify(withoutId).valid).toBe(false);
+  });
+});
+
+describe("parseMercadoLivreNotice", () => {
+  const stored = { user_id: 123456789, resource: "/shipments/43810672299" };
+
+  it("reads the shipment of a shipments notification", () => {
+    expect(parseMercadoLivreNotice("shipments", stored)).toEqual({
+      kind: "shipment",
+      externalShopId: "123456789",
+      shipmentId: "43810672299",
+    });
+  });
+
+  it.each([
+    ["the documented resource", "post-purchase/v1/claims/5108684499"],
+    ["a leading slash", "/post-purchase/v1/claims/5108684499"],
+    ["the resource before the prefix", "/claims/5108684499"],
+  ])("reads the claim of a post_purchase notification with %s", (_case, resource) => {
+    expect(parseMercadoLivreNotice("post_purchase", { ...stored, resource })).toEqual({
+      kind: "claim",
+      externalShopId: "123456789",
+      claimId: "5108684499",
+    });
+  });
+
+  it("ignores other topics and resources that name nothing it reads", () => {
+    expect(parseMercadoLivreNotice("orders_v2", stored)).toBeNull();
+    expect(parseMercadoLivreNotice("shipments", { ...stored, resource: "/orders/1" })).toBeNull();
+    expect(parseMercadoLivreNotice("post_purchase", { user_id: 1 })).toBeNull();
   });
 });
