@@ -12,7 +12,7 @@ import {
   parcelHistory,
   parcelProgress,
 } from "@/features/tracking/parcel-history";
-import type { TrackedParcelView } from "@/features/tracking/tracking-views";
+import type { TrackedParcelView, TrackingSearchResult } from "@/features/tracking/tracking-views";
 import {
   PARCEL_HOLDER_LABELS,
   type TrackingExplanation,
@@ -83,6 +83,42 @@ export function CarrierHistory({ result }: { result: CarrierTrackingResult }) {
         </DotTimeline>
       )}
     </div>
+  );
+}
+
+const NOT_IN_ANY_ORDER = "Este código não está em nenhum pedido seu.";
+const MANUAL_NOT_CONNECTED =
+  "A consulta direto na transportadora ainda não está ligada. Para acompanhar este código, use o site dos Correios.";
+
+/** A code in none of the reseller's orders; it only says the carrier was read when it was. */
+export function ManualTracking({
+  result,
+}: {
+  result: Extract<TrackingSearchResult, { kind: "manual" }>;
+}) {
+  const carrierWasRead = result.carrierTracking.state !== "not_connected";
+  return (
+    <section
+      className="surface-card space-y-4 rounded-3xl bg-card p-5"
+      aria-label={`Rastreio do código ${result.code}`}
+    >
+      <div>
+        <h3 className="font-medium break-all">Código {result.code}</h3>
+        <p className="text-footnote text-muted-foreground">
+          {carrierWasRead
+            ? `${NOT_IN_ANY_ORDER} Consultamos direto na transportadora.`
+            : NOT_IN_ANY_ORDER}
+        </p>
+      </div>
+      {result.explanation === null ? null : (
+        <TrackingExplanationBlock explanation={result.explanation} />
+      )}
+      {carrierWasRead ? (
+        <CarrierHistory result={result.carrierTracking} />
+      ) : (
+        <p className="text-sm text-muted-foreground">{MANUAL_NOT_CONNECTED}</p>
+      )}
+    </section>
   );
 }
 
