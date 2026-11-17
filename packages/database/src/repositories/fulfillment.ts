@@ -598,5 +598,7 @@ export async function updateShipment(
 export {
   applyMarketplaceShipment,
   listShipmentsToTrack,
+  listTrackableStoreOrders,
+  recordStoreShipmentNotice,
   touchShipmentTracking,
 } from "./marketplace-shipment-tracking.ts";

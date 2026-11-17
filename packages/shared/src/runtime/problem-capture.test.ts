@@ -178,6 +178,8 @@ describe("problemAreaOf", () => {
     ["auth.admin_verification_email_failed", null, "email"],
     ["store.order_catch_up_not_queued", null, "orders"],
     ["supplier_panel.batch_label_failed", null, "orders"],
+    ["claim.opened", null, "claims"],
+    ["worker.error", "marketplace-claim-sweep", "claims"],
     ["worker.error", "publish-listing", "publishing"],
     ["worker.error", "webhook-events", "orders"],
     ["worker.error", null, "other"],
