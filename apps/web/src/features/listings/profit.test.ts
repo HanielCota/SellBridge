@@ -1,46 +1,137 @@
 import { DEFAULT_FEE_SCHEDULE } from "@sellbridge/shared/fee-model";
 import { describe, expect, it } from "vitest";
 import {
+  DEFAULT_SALE_CHANNELS,
   estimateProfit,
   feePercentLabel,
   isLowStock,
   isThinMargin,
+  minimumPrice,
+  saleChannelsOf,
+  shelfPriceForMargin,
   wholeMarginPercent,
   priceForMargin,
 } from "./profit";
 
 /** Today's 14% plus a SellBridge fee of 4%. */
 const schedule = { ...DEFAULT_FEE_SCHEDULE, platformFeeBasisPoints: 400 };
+const mercadoLivre = DEFAULT_SALE_CHANNELS;
+
+/** The client's product of the 15/11/2026 report: R$ 21,00 of cost, up to 0,3 kg. */
+const clientProduct = { costCents: 2_100, weightGrams: 300 };
 
 describe("estimateProfit", () => {
   it("returns null when there is no price", () => {
-    expect(estimateProfit(null, 1000, schedule)).toBeNull();
-    expect(estimateProfit(0, 1000, schedule)).toBeNull();
+    expect(estimateProfit(null, { costCents: 1000 }, schedule, mercadoLivre)).toBeNull();
+    expect(estimateProfit(0, { costCents: 1000 }, schedule, mercadoLivre)).toBeNull();
   });
 
-  it("subtracts cost, the marketplace fee and the SellBridge fee", () => {
-    expect(estimateProfit(10_000, 5000, schedule)).toEqual({
-      feeCents: 1400,
-      platformFeeCents: 400,
-      profitCents: 3200,
-      marginPercent: 32,
+  // Regression: the catalog showed a 24% margin on this sale, counting no shipping.
+  it("shows the client's R$ 33,90 Mercado Livre sale at R$ 1,30, a 3% margin", () => {
+    const estimate = estimateProfit(3_390, clientProduct, DEFAULT_FEE_SCHEDULE, mercadoLivre);
+
+    expect(estimate).toEqual({
+      channel: "mercado_livre",
+      feeCents: 475 + 685,
+      platformFeeCents: 0,
+      profitCents: 130,
+      marginPercent: 3.8,
     });
+    expect(wholeMarginPercent(estimate?.marginPercent ?? 0)).toBe(3);
+  });
+
+  it("subtracts cost, the commission, the shipping and the SellBridge fee", () => {
+    // 100,00 − 50,00 − 14,00 commission − 16,15 shipping (0,5 kg) − 4,00 SellBridge.
+    expect(estimateProfit(10_000, { costCents: 5000 }, schedule, mercadoLivre)?.profitCents).toBe(
+      1_585,
+    );
   });
 
   it("reports negative profit when the price does not cover costs", () => {
-    expect(estimateProfit(5000, 5000, schedule)?.profitCents).toBe(-900);
+    // 50,00 − 50,00 − 7,00 commission − 8,25 shipping (0,5 kg) − 2,00 SellBridge.
+    expect(estimateProfit(5000, { costCents: 5000 }, schedule, mercadoLivre)?.profitCents).toBe(
+      -1_725,
+    );
+  });
+
+  it("shows the channel that leaves the least when the price sells on several", () => {
+    const estimate = estimateProfit(3_390, clientProduct, DEFAULT_FEE_SCHEDULE, [
+      "tiktok_shop",
+      "mercado_livre",
+    ]);
+
+    expect(estimate?.channel).toBe("mercado_livre");
+    expect(estimate?.profitCents).toBe(130);
   });
 });
 
 describe("priceForMargin", () => {
   it("prices so the profit is the asked share of the sale, every fee counted", () => {
-    const price = priceForMargin(5814, 30, schedule);
-    expect(price).toBe(11_180);
-    expect(estimateProfit(price, 5814, schedule)?.marginPercent).toBe(30);
+    const price = priceForMargin({ costCents: 5814 }, 30, schedule, mercadoLivre) ?? 0;
+    const profitAt = (priceCents: number) =>
+      estimateProfit(priceCents, { costCents: 5814 }, schedule, mercadoLivre)?.profitCents ?? 0;
+
+    expect(profitAt(price) * 100).toBeGreaterThanOrEqual(price * 30);
+    expect(profitAt(price - 1) * 100).toBeLessThan((price - 1) * 30);
+  });
+
+  it("asks the highest price when the product sells on several channels", () => {
+    const both = priceForMargin(clientProduct, 20, schedule, ["tiktok_shop", "mercado_livre"]);
+
+    expect(both).toBe(priceForMargin(clientProduct, 20, schedule, mercadoLivre));
   });
 
   it("returns null when the fees leave no room for the margin", () => {
-    expect(priceForMargin(5000, 82, schedule)).toBeNull();
+    expect(priceForMargin({ costCents: 5000 }, 82, schedule, mercadoLivre)).toBeNull();
+  });
+});
+
+describe("shelfPriceForMargin", () => {
+  // Regression: rounding R$ 18,96 up to R$ 19,90 crossed into the next shipping band, and the
+  // "25%" shortcut of the price dialog set a price that kept only 21%.
+  it("skips a ,90 price that crosses into a band with more shipping", () => {
+    const product = { costCents: 591, weightGrams: 300 };
+    const profitAt = (priceCents: number) =>
+      estimateProfit(priceCents, product, DEFAULT_FEE_SCHEDULE, mercadoLivre)?.profitCents ?? 0;
+
+    const price = shelfPriceForMargin(product, 25, DEFAULT_FEE_SCHEDULE, mercadoLivre);
+
+    expect(profitAt(1_990) * 100).toBeLessThan(1_990 * 25);
+    expect(price).toBe(2_190);
+    expect(profitAt(2_190) * 100).toBeGreaterThanOrEqual(2_190 * 25);
+  });
+
+  it("keeps a price that already ends in ,90", () => {
+    const exact = priceForMargin(clientProduct, 20, DEFAULT_FEE_SCHEDULE, mercadoLivre);
+
+    expect(exact).toBe(4_220);
+    expect(shelfPriceForMargin(clientProduct, 20, DEFAULT_FEE_SCHEDULE, mercadoLivre)).toBe(4_290);
+  });
+
+  it("is null when no price keeps the margin", () => {
+    expect(shelfPriceForMargin({ costCents: 5000 }, 82, schedule, mercadoLivre)).toBeNull();
+  });
+});
+
+describe("minimumPrice", () => {
+  it("is the client's break-even R$ 32,38 on Mercado Livre", () => {
+    expect(minimumPrice(clientProduct, DEFAULT_FEE_SCHEDULE, mercadoLivre)).toBe(3_238);
+  });
+});
+
+describe("saleChannelsOf", () => {
+  it("lists each store's channel once, the mock store charging like Mercado Livre", () => {
+    expect(
+      saleChannelsOf([
+        { marketplace: "mock" },
+        { marketplace: "mercado_livre" },
+        { marketplace: "tiktok_shop" },
+      ]),
+    ).toEqual(["mercado_livre", "tiktok_shop"]);
+  });
+
+  it("falls back to Mercado Livre with no store", () => {
+    expect(saleChannelsOf([])).toEqual(["mercado_livre"]);
   });
 });
 

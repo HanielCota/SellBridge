@@ -1,3 +1,4 @@
+import { feeChannelOf } from "@sellbridge/shared/channel-fees";
 import { assertPriceKeepsMargin, type FeeSchedule } from "@sellbridge/shared/fee-model";
 import {
   unavailableListingMessage,
@@ -7,9 +8,16 @@ import { conflictError, notFoundError } from "@sellbridge/shared/errors";
 import { pauseTransition, RETRYABLE_TARGET_STATUS } from "@sellbridge/shared/listing-rules";
 import { and, count, eq, inArray } from "drizzle-orm";
 import type { Database, DatabaseExecutor } from "../client.ts";
-import { listings, listingTargets, supplierProducts, suppliers } from "../schema/index.ts";
+import {
+  listings,
+  listingTargets,
+  storeConnections,
+  supplierProducts,
+  suppliers,
+} from "../schema/index.ts";
 import { assertBillingCapacity } from "./billing.ts";
 import { availabilityColumns } from "./listing-overview.ts";
+import { productWeightGrams } from "./sql/product-weight.ts";
 import { targetMatchesStoreSupplier } from "./sql/store-supplier-match.ts";
 import { shareLockListingSources } from "./lock-product-source.ts";
 
@@ -97,22 +105,48 @@ export interface ListingPriceChange {
   feeSchedule: FeeSchedule;
 }
 
-/** Changes the sale price; the sync job sends it to every store where the listing is live. */
+/** The marketplaces the listing sells on, by its stores. */
+async function listingMarketplaces(
+  database: Database,
+  tenantId: string,
+  listingId: string,
+): Promise<string[]> {
+  const rows = await database
+    .selectDistinct({ marketplace: storeConnections.marketplace })
+    .from(listingTargets)
+    .innerJoin(storeConnections, eq(storeConnections.id, listingTargets.storeConnectionId))
+    .where(and(eq(listingTargets.tenantId, tenantId), eq(listingTargets.listingId, listingId)));
+  return rows.map((row) => row.marketplace);
+}
+
+/**
+ * Changes the sale price; the sync job sends it to every store where the listing is live. The
+ * price must pay the fees of every marketplace the listing sells on.
+ */
 export async function updateListingPrice(
   database: Database,
   tenantId: string,
   change: ListingPriceChange,
 ): Promise<void> {
   const { listingId, priceCents } = change;
-  const [row] = await database
-    .select({ costCents: supplierProducts.costCents })
-    .from(listings)
-    .innerJoin(supplierProducts, eq(supplierProducts.id, listings.supplierProductId))
-    .where(and(eq(listings.tenantId, tenantId), eq(listings.id, listingId)));
-  if (!row) {
+  const [[row], marketplaces] = await Promise.all([
+    database
+      .select({ costCents: supplierProducts.costCents, weightGrams: productWeightGrams })
+      .from(listings)
+      .innerJoin(supplierProducts, eq(supplierProducts.id, listings.supplierProductId))
+      .where(and(eq(listings.tenantId, tenantId), eq(listings.id, listingId))),
+    listingMarketplaces(database, tenantId, listingId),
+  ]);
+  if (row === undefined) {
     throw notFoundError("Publicação não encontrada");
   }
-  assertPriceKeepsMargin(priceCents, { costCents: row.costCents }, change.feeSchedule);
+  const channels = marketplaces.map(feeChannelOf);
+  assertPriceKeepsMargin(
+    priceCents,
+    row,
+    change.feeSchedule,
+    channels.length === 0 ? [change.feeSchedule.channel] : channels,
+  );
   await database
     .update(listings)
     .set({ priceCents })

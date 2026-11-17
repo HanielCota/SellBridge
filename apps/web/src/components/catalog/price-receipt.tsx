@@ -13,7 +13,7 @@ import {
   profitTone,
   totalFeeCents,
 } from "@/components/listings/profit-split";
-import { estimateProfit, wholeMarginPercent } from "@/features/listings/profit";
+import { estimateProfit, type SaleChannels, wholeMarginPercent } from "@/features/listings/profit";
 import { useFeeSchedule } from "@/features/reports/fee-schedule.queries";
 import { cn } from "@/lib/utils";
 
@@ -71,10 +71,12 @@ function ProductStepper({
  */
 export function PriceReceipt({
   products,
+  channels,
   ruleFor,
   adjust,
 }: {
   products: SellableCatalogProduct[];
+  channels: SaleChannels;
   ruleFor: (product: SellableCatalogProduct) => PriceRule;
   adjust?: ((product: SellableCatalogProduct) => React.ReactNode) | undefined;
 }) {
@@ -85,7 +87,7 @@ export function PriceReceipt({
     return null;
   }
   const price = priceForRule(product, ruleFor(product));
-  const estimate = estimateProfit(price, product.costCents, schedule);
+  const estimate = estimateProfit(price, product, schedule, channels);
   if (!estimate) {
     return null;
   }

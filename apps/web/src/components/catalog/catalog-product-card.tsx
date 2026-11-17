@@ -7,20 +7,34 @@ import { ACTION_ICONS, CONTROL_HINTS, TERM_HINTS } from "@/components/icons/acti
 import { Button } from "@/components/ui/button";
 import { Hint } from "@/components/ui/hint";
 import { Checkbox } from "@/components/ui/checkbox";
-import { estimateProfit, isThinMargin, wholeMarginPercent } from "@/features/listings/profit";
+import {
+  estimateProfit,
+  isThinMargin,
+  type SaleChannels,
+  wholeMarginPercent,
+} from "@/features/listings/profit";
 import { useFeeSchedule } from "@/features/reports/fee-schedule.queries";
 import { ProductHeatTag } from "./product-heat-tag";
 import { ProductStockLine } from "./product-stock-line";
 import { ProductVisual } from "./product-visual";
 import { SoldOutFooter, SoldOutRibbon } from "./sold-out";
 
-/** Suggested price as the headline; cost and the margin it leaves underneath. */
-function PriceLines({ product, soldOut }: { product: StoreCatalogProduct; soldOut: boolean }) {
+/** Suggested price as the headline; cost and the margin it leaves on the store's channel. */
+function PriceLines({
+  product,
+  soldOut,
+  channels,
+}: {
+  product: StoreCatalogProduct;
+  soldOut: boolean;
+  channels: SaleChannels;
+}) {
   const schedule = useFeeSchedule();
   const margin = estimateProfit(
     product.suggestedPriceCents,
-    product.costCents,
+    product,
     schedule,
+    channels,
   )?.marginPercent;
   return (
     <div className="mt-auto space-y-0.5 tabular-nums">
@@ -48,7 +62,7 @@ function PriceLines({ product, soldOut }: { product: StoreCatalogProduct; soldOu
   );
 }
 
-function CardBody({ product }: { product: StoreCatalogProduct }) {
+function CardBody({ product, channels }: { product: StoreCatalogProduct; channels: SaleChannels }) {
   const soldOut = product.stock <= 0;
   return (
     <div className="flex flex-1 flex-col gap-3 px-4 pt-4 pb-3">
@@ -61,7 +75,7 @@ function CardBody({ product }: { product: StoreCatalogProduct }) {
         </h2>
       </div>
       <ProductHeatTag unitsSold={product.recentUnitsSold} />
-      <PriceLines product={product} soldOut={soldOut} />
+      <PriceLines product={product} soldOut={soldOut} channels={channels} />
     </div>
   );
 }
@@ -108,10 +122,13 @@ function PublishedBadge() {
 /** One product of the region catalog; selectable for bulk publishing. */
 export function CatalogProductCard({
   product,
+  channels,
   selected,
   onSelectedChange,
 }: {
   product: StoreCatalogProduct;
+  /** The channels of the store the catalog is for: the margin is the one they leave. */
+  channels: SaleChannels;
   selected: boolean;
   onSelectedChange: (selected: boolean) => void;
 }) {
@@ -150,7 +167,7 @@ export function CatalogProductCard({
           soldOut={soldOut}
           className="aspect-[16/10]"
         />
-        <CardBody product={product} />
+        <CardBody product={product} channels={channels} />
       </div>
       {soldOut ? <SoldOutRibbon /> : null}
       {canSelect ? (
