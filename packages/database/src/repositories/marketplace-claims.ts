@@ -1,6 +1,6 @@
 import { claimNoticeContent, type ClaimNoticeMoment } from "@sellbridge/shared/notification-events";
 import type { FulfillmentStatus, Marketplace } from "@sellbridge/shared/schemas";
-import { and, asc, eq, gt, inArray, isNotNull, isNull, or } from "drizzle-orm";
+import { and, asc, desc, eq, gt, inArray, isNotNull, isNull, or } from "drizzle-orm";
 import type { Database, Transaction } from "../client.ts";
 import {
   marketplaceClaims,
@@ -117,7 +117,7 @@ function claimValues(claim: ClaimReading) {
 }
 
 /** The supplier's orders tab that holds a parcel in this status. */
-function supplierTabFor(status: FulfillmentStatus): string {
+export function supplierTabFor(status: FulfillmentStatus): string {
   if (status === "shipped") {
     return "shipped";
   }
@@ -261,4 +261,62 @@ export async function listClaimSweepStores(database: Database) {
       ),
     )
     .orderBy(asc(storeConnections.id));
+}
+
+const claimViewColumns = {
+  externalClaimId: marketplaceClaims.externalClaimId,
+  status: marketplaceClaims.status,
+  type: marketplaceClaims.type,
+  stage: marketplaceClaims.stage,
+  reasonId: marketplaceClaims.reasonId,
+  problem: marketplaceClaims.problem,
+  actionResponsible: marketplaceClaims.actionResponsible,
+  actionDueAt: marketplaceClaims.actionDueAt,
+  resolutionReason: marketplaceClaims.resolutionReason,
+  closedAt: marketplaceClaims.closedAt,
+  returnStatus: marketplaceClaims.returnStatus,
+  returnTrackingCode: marketplaceClaims.returnTrackingCode,
+  returnDestination: marketplaceClaims.returnDestination,
+  moneyStatus: marketplaceClaims.moneyStatus,
+  openedAt: marketplaceClaims.openedAt,
+};
+
+export type MarketplaceClaimView = Awaited<ReturnType<typeof listOrderClaims>>[number];
+
+/** The claims of one order of the tenant, the most recent first; none for another tenant's order. */
+export async function listOrderClaims(
+  database: Database,
+  input: { tenantId: string; orderId: string },
+) {
+  return database
+    .select(claimViewColumns)
+    .from(marketplaceClaims)
+    .where(
+      and(
+        eq(marketplaceClaims.tenantId, input.tenantId),
+        eq(marketplaceClaims.orderId, input.orderId),
+      ),
+    )
+    .orderBy(desc(marketplaceClaims.openedAt));
+}
+
+/** The claims on the order of one of the supplier's parcels; none for another supplier's parcel. */
+export async function listSupplierParcelClaims(
+  database: Database,
+  input: { supplierId: string; shipmentId: string },
+) {
+  return database
+    .select(claimViewColumns)
+    .from(marketplaceClaims)
+    .innerJoin(
+      orderShipments,
+      and(
+        eq(orderShipments.orderId, marketplaceClaims.orderId),
+        eq(orderShipments.tenantId, marketplaceClaims.tenantId),
+      ),
+    )
+    .where(
+      and(eq(orderShipments.id, input.shipmentId), eq(orderShipments.supplierId, input.supplierId)),
+    )
+    .orderBy(desc(marketplaceClaims.openedAt));
 }
