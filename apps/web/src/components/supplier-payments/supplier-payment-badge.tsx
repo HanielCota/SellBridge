@@ -49,8 +49,16 @@ function badgeText(badge: SupplierPaymentBadge, paidWord: string): string {
   if (badge.kind === "waiting") {
     return "Aguardando pagamento";
   }
+  if (badge.kind === "reviewing") {
+    return "Pagamento em análise";
+  }
+  if (badge.kind === "refunding") {
+    return "Devolução em andamento";
+  }
   if (badge.kind === "refunded") {
-    return "Pagamento devolvido";
+    return badge.refundedAt === null
+      ? "Pagamento devolvido"
+      : `Pagamento devolvido · ${formatAbsoluteTime(new Date(badge.refundedAt))}`;
   }
   return "Pagamento por fora";
 }
@@ -58,6 +66,8 @@ function badgeText(badge: SupplierPaymentBadge, paidWord: string): string {
 const BADGE_KIND_TONES: Record<SupplierPaymentBadge["kind"], PaymentBadgeTone> = {
   paid: "success",
   waiting: "warning",
+  reviewing: "warning",
+  refunding: "warning",
   refunded: "danger",
   outside: "neutral",
 };

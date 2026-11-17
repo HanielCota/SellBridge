@@ -847,3 +847,27 @@ O cliente testou em 15/11: o catálogo mostrava "margem 24%" num produto que dei
 - **Etapas seguintes:**
   - **Etapa 2:** comissão e frete ao vivo da API do ML (`/sites/MLB/listing_prices`, `/users/{id}/shipping_options/free`), com cache e reserva, e o frete real nos pedidos (`/shipments/{id}/costs`).
   - **Etapa 3:** preço por canal, sugerido para 20%, avisos, anúncios no ar com prejuízo e a lista para a equipe.
+
+## 2026-11-15: Repasse Mercado Pago sem pagamento em dobro e com devolução automática
+
+A auditoria da rodada 3 (achado M9) mostrou um caminho para o revendedor pagar duas vezes o mesmo envio: um cartão em análise cujo aviso se perdeu, um segundo checkout aberto depois de 30 minutos e a aprovação tardia do primeiro recusada. O Guilherme aprovou os cinco pontos em 15/11 ("Pode abrir os dois") e as três escolhas do plano ("Sim, aprova os dois"). Esta decisão completa a de 2026-11-10.
+
+- **Cada checkout fica guardado** (`shipment_payment_checkouts`, com o valor e a taxa que cobrou). Um pagamento é reconhecido pela referência do envio vindo de qualquer checkout que o SellBridge abriu para ele, com o valor e a taxa daquele checkout. Continuam as regras de 10/11: conta ligada, reais, lido de volta com o token do fornecedor.
+- **Antes de um checkout novo**, o SellBridge lê no Mercado Pago os pagamentos dos anteriores: em análise trava ("Pagamento em análise"), aprovado marca o envio pago, recusado libera. Sem resposta do Mercado Pago, não abre checkout novo.
+- **Conferência a cada 5 minutos** no worker (`supplier-payments`): todo pagamento em análise e os não pagos com checkout fechado há menos de 3 dias, 100 por rodada, o conferido há mais tempo primeiro.
+- **Devolução automática** pelo Mercado Pago, com o token do fornecedor e uma chave de idempotência por envio (pedir de novo nunca devolve duas vezes):
+  - o envio ainda com o fornecedor 24 horas depois do prazo de postagem (o do Mercado Livre; sem ele, o prazo de despacho do fornecedor, contado do encaminhamento), e nunca antes de 48 horas depois do pagamento;
+  - o envio cancelado ou que voltou para o fornecedor, na hora (com a exceção de 2026-11-16, abaixo);
+  - o envio "não entregue" (extravio) não é devolvido: o fornecedor postou, e a equipe olha o caso.
+- **Devolução recusada** (falta de saldo na conta do fornecedor, conta desligada ou qualquer recusa que não seja instabilidade do Mercado Pago): o fornecedor é desativado pela chave que já existe (os anúncios pausam) e o caso vai para a tela Problemas, uma vez só. A documentação do Mercado Pago não traz o código da recusa por falta de saldo, por isso a regra vale para toda recusa definitiva.
+- **Pagamento em dobro que ainda passar** aparece em Problemas, uma linha por envio, com o valor; a devolução dele continua manual.
+- O worker passa a precisar das mesmas variáveis `MERCADO_PAGO_*` do site. O código do Mercado Pago fica em `packages/payments`, usado pelos dois.
+
+## 2026-11-16: Cancelamento pelo revendedor depois do aceite não devolve sozinho
+
+Na revisão de segurança da devolução automática apareceu um caso em que o fornecedor perderia o produto e o dinheiro: o revendedor cancela no SellBridge um envio que o fornecedor já aceitou (aceito, separando ou pronto), e o fornecedor pode ter postado antes de o rastreio mudar. Decisão do Guilherme em 16/11/2026, no chat com a Central: "Só avisar a equipe".
+
+- **Cancelado pelo revendedor depois que o fornecedor aceitou:** o dinheiro fica com o fornecedor e a equipe é avisada na tela Problemas, uma vez só, com o pedido, o valor e o que conferir (se o fornecedor já postou; se não postou, a equipe devolve à mão no Mercado Pago). O pagamento guarda a hora do aviso (`shipment_payments.refund_held_at`), e a devolução automática deixa de olhar para ele.
+- **Continua devolvendo na hora:** cancelamento pelo revendedor antes de o fornecedor aceitar, cancelamento pelo próprio fornecedor, cancelamento pelo marketplace e envio que voltou.
+- **Como se sabe quem cancelou:** pelo histórico do envio (`shipment_events`): o último cancelamento, quem fez, e a etapa registrada logo antes dele.
+- **Descartado:** devolver sempre na hora (o fornecedor que já postou fica sem produto e sem dinheiro) e esperar o rastreio por um prazo fixo antes de devolver (o envio cancelado no SellBridge não volta a ser rastreado).

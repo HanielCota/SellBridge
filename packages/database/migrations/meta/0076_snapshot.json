@@ -1,5 +1,5 @@
 {
-  "id": "df0e4891-21ab-4a5e-8fcc-f776464f7cfc",
+  "id": "c3e425e0-94e9-49c1-8f85-ff32544b4645",
   "prevId": "2577ba52-2cef-4e54-b62f-d04a8ccff4be",
   "version": "7",
   "dialect": "postgresql",
@@ -1076,37 +1076,6 @@
           "primaryKey": false,
           "notNull": false
         },
-        "warranty_type": {
-          "name": "warranty_type",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "warranty_days": {
-          "name": "warranty_days",
-          "type": "integer",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "video_url": {
-          "name": "video_url",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "made_to_order_days": {
-          "name": "made_to_order_days",
-          "type": "integer",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "carrier_only": {
-          "name": "carrier_only",
-          "type": "boolean",
-          "primaryKey": false,
-          "notNull": true,
-          "default": false
-        },
         "fiscal": {
           "name": "fiscal",
           "type": "jsonb",
@@ -1319,10 +1288,6 @@
         "supplier_products_reserved_stock_check": {
           "name": "supplier_products_reserved_stock_check",
           "value": "\"supplier_products\".\"reserved_stock\" >= 0"
-        },
-        "supplier_products_sale_terms_check": {
-          "name": "supplier_products_sale_terms_check",
-          "value": "(\"supplier_products\".\"warranty_type\" is null or \"supplier_products\".\"warranty_type\" in ('none', 'seller', 'factory')) and (\"supplier_products\".\"warranty_days\" is null or \"supplier_products\".\"warranty_days\" between 1 and 3650) and (\"supplier_products\".\"made_to_order_days\" is null or \"supplier_products\".\"made_to_order_days\" between 1 and 60)"
         }
       },
       "isRLSEnabled": false
@@ -7371,6 +7336,108 @@
       },
       "isRLSEnabled": false
     },
+    "public.shipment_payment_checkouts": {
+      "name": "shipment_payment_checkouts",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "shipment_payment_id": {
+          "name": "shipment_payment_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "preference_id": {
+          "name": "preference_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "amount_cents": {
+          "name": "amount_cents",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "platform_fee_cents": {
+          "name": "platform_fee_cents",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {
+        "shipment_payment_checkouts_preference_idx": {
+          "name": "shipment_payment_checkouts_preference_idx",
+          "columns": [
+            {
+              "expression": "preference_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": true,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "shipment_payment_checkouts_payment_idx": {
+          "name": "shipment_payment_checkouts_payment_idx",
+          "columns": [
+            {
+              "expression": "shipment_payment_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "created_at",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {
+        "shipment_payment_checkouts_shipment_payment_id_shipment_payments_id_fk": {
+          "name": "shipment_payment_checkouts_shipment_payment_id_shipment_payments_id_fk",
+          "tableFrom": "shipment_payment_checkouts",
+          "tableTo": "shipment_payments",
+          "columnsFrom": [
+            "shipment_payment_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
     "public.shipment_payments": {
       "name": "shipment_payments",
       "schema": "",
@@ -7462,6 +7529,42 @@
           "primaryKey": false,
           "notNull": false
         },
+        "checked_at": {
+          "name": "checked_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "refund_reason": {
+          "name": "refund_reason",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "refund_requested_at": {
+          "name": "refund_requested_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "refund_failed_at": {
+          "name": "refund_failed_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "refund_error": {
+          "name": "refund_error",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "refund_held_at": {
+          "name": "refund_held_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": false
+        },
         "created_at": {
           "name": "created_at",
           "type": "timestamp with time zone",
@@ -7513,6 +7616,38 @@
           "concurrently": false,
           "method": "btree",
           "with": {}
+        },
+        "shipment_payments_reconcile_idx": {
+          "name": "shipment_payments_reconcile_idx",
+          "columns": [
+            {
+              "expression": "checked_at",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "first"
+            }
+          ],
+          "isUnique": false,
+          "where": "\"shipment_payments\".\"status\" in ('pending','in_process','rejected','cancelled')",
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "shipment_payments_refund_idx": {
+          "name": "shipment_payments_refund_idx",
+          "columns": [
+            {
+              "expression": "paid_at",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "where": "\"shipment_payments\".\"status\" = 'approved' and \"shipment_payments\".\"refund_failed_at\" is null and \"shipment_payments\".\"refund_held_at\" is null",
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
         }
       },
       "foreignKeys": {
@@ -7554,6 +7689,10 @@
         "shipment_payments_amount_check": {
           "name": "shipment_payments_amount_check",
           "value": "\"shipment_payments\".\"amount_cents\" > 0"
+        },
+        "shipment_payments_refund_reason_check": {
+          "name": "shipment_payments_refund_reason_check",
+          "value": "\"shipment_payments\".\"refund_reason\" is null or \"shipment_payments\".\"refund_reason\" in ('not_dispatched','cancelled','returned')"
         },
         "shipment_payments_fee_check": {
           "name": "shipment_payments_fee_check",

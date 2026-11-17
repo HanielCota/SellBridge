@@ -184,9 +184,19 @@ function normalizedForFingerprint(text: string): string {
     .slice(0, FINGERPRINT_TEXT_LENGTH);
 }
 
-/** Groups repeats of the same problem: ids, counts and amounts in the message do not split it. */
-export function problemFingerprint(service: ProblemService, event: string, text: string): string {
-  const key = `${service}|${event}|${normalizedForFingerprint(text)}`;
+/**
+ * Groups repeats of the same problem: ids, counts and amounts in the message do not split it.
+ * A `problemKey` the log names (one parcel's payment, say) keeps each such case on its own row,
+ * for problems the team settles one by one.
+ */
+export function problemFingerprint(
+  service: ProblemService,
+  event: string,
+  text: string,
+  problemKey: string | null = null,
+): string {
+  const base = `${service}|${event}|${normalizedForFingerprint(text)}`;
+  const key = problemKey === null ? base : `${base}|${problemKey}`;
   return createHash("sha256").update(key).digest("hex").slice(0, 32);
 }
 
@@ -237,7 +247,12 @@ export function captureProblem(
     event: entry.event,
     area: problemAreaOf(entry.event, stringField(context, "queue")),
     message,
-    fingerprint: problemFingerprint(service, entry.event, rawError ?? message),
+    fingerprint: problemFingerprint(
+      service,
+      entry.event,
+      rawError ?? message,
+      stringField(context, "problemKey"),
+    ),
     tenantId: stringField(context, "tenantId"),
     storeConnectionId: stringField(context, "storeConnectionId", "storeId"),
     listingTargetId: stringField(context, "listingTargetId", "targetId"),

@@ -9,6 +9,10 @@ import {
   tokenEncryptionKeyEnvironmentSchema,
 } from "@sellbridge/shared/environment";
 import { loadRootEnvironmentFile } from "@sellbridge/shared/environment-file";
+import {
+  mercadoPagoEnvironmentFields,
+  refuseMercadoPagoStandInsInProduction,
+} from "@sellbridge/payments/mercado-pago";
 import { z } from "zod";
 
 loadRootEnvironmentFile();
@@ -31,6 +35,11 @@ const workerEnvironmentSchema = z
     /** Bling ERP app: token refresh and catalog sending stay off until both are set. */
     BLING_CLIENT_ID: z.string().min(1).optional(),
     BLING_CLIENT_SECRET: z.string().min(1).optional(),
+    /**
+     * SellBridge's Mercado Pago marketplace application, the same keys as the web app: the
+     * worker reads supplier payments back and refunds them. Off until all three are set.
+     */
+    ...mercadoPagoEnvironmentFields,
     WORKER_CONCURRENCY: z.coerce.number().int().min(1).max(50).default(5),
     /**
      * Sellable units kept off the marketplaces, per product, as a buffer against shelf counts
@@ -55,7 +64,12 @@ const workerEnvironmentSchema = z
     RESEND_API_KEY: z.string().min(1).optional(),
     EMAIL_FROM: z.string().min(3).default("SellBridge <no-reply@sellbridge.local>"),
   })
-  .superRefine(refusePrivateWebhookUrlsInProduction);
+  .superRefine((value, context) => {
+    refusePrivateWebhookUrlsInProduction(value, context);
+    if (value.NODE_ENV === "production") {
+      refuseMercadoPagoStandInsInProduction(value, context);
+    }
+  });
 
 export type WorkerEnvironment = z.infer<typeof workerEnvironmentSchema>;
 

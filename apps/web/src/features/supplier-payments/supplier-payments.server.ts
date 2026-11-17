@@ -12,6 +12,7 @@ import {
   setPaymentFeeSetting,
   startShipmentPayment,
   type PayableShipment,
+  type ShipmentPayment,
   type ShipmentPaymentSummary,
   type SupplierPaymentAccount,
 } from "@sellbridge/database/repositories";
@@ -27,23 +28,23 @@ import {
 import { database } from "@/lib/server/database";
 import { environment } from "@/lib/server/environment";
 import {
-  mercadoPagoNotificationUrl,
-  mercadoPagoSettings,
+  CHECKOUT_TTL_IN_MS,
+  createMercadoPagoCheckout,
+  isMercadoPagoError,
   PaymentAccountUnavailableError,
+  reconcileShipmentPayment,
   supplierAccessToken,
   syncMercadoPagoPayment,
   withSupplierAccount,
-} from "./mercado-pago-accounts.server";
-import {
-  CHECKOUT_TTL_IN_MS,
-  createMercadoPagoCheckout,
   type CheckoutRequest,
-} from "./mercado-pago-client.server";
+  type MercadoPagoContext,
+} from "@sellbridge/payments/mercado-pago";
 import {
-  paymentAccountOwnerRefusal,
-  type MercadoPagoSettings,
-  type PaymentAccountActor,
-} from "./mercado-pago-connection";
+  mercadoPagoContext,
+  mercadoPagoNotificationUrl,
+  mercadoPagoSettings,
+} from "./mercado-pago-accounts.server";
+import { paymentAccountOwnerRefusal, type PaymentAccountActor } from "./mercado-pago-connection";
 
 const PROVIDER = "mercado_pago";
 
@@ -92,6 +93,7 @@ function badgeFor(
             status: summary.status,
             paidAt: summary.paidAt?.toISOString() ?? null,
             method: summary.paymentMethod,
+            refundRequestedAt: summary.refundRequestedAt?.toISOString() ?? null,
           },
     supplierReceivesHere,
   });
@@ -116,6 +118,12 @@ export async function supplierPaymentBadges(input: {
   return new Map(input.shipmentIds.map((id) => [id, badgeFor(summaries.get(id), linked)]));
 }
 
+const IN_REVIEW_MESSAGE =
+  "O pagamento está em análise no Mercado Pago. Assim que ele confirmar, aparece aqui.";
+const ALREADY_PAID_MESSAGE = "Este envio já foi pago. O valor está na conta do fornecedor.";
+const UNCHECKED_MESSAGE =
+  "Não conseguimos conferir com o Mercado Pago agora. Tente de novo em alguns minutos.";
+
 /** Why the reseller cannot pay this parcel here, or null when it can. */
 function checkoutRefusal(payable: PayableShipment, linked: boolean): string | null {
   if (payable.catalogKind === "seller") {
@@ -125,7 +133,7 @@ function checkoutRefusal(payable: PayableShipment, linked: boolean): string | nu
     return "Este envio já foi encerrado: não dá mais para pagar por aqui.";
   }
   if (payable.payment?.status === "in_process") {
-    return "O pagamento está em análise no Mercado Pago. Assim que ele confirmar, aparece aqui.";
+    return IN_REVIEW_MESSAGE;
   }
   if (payable.amountCents <= 0) {
     return "Este pedido não tem o valor do fornecedor. Combine o pagamento com ele por fora.";
@@ -134,6 +142,28 @@ function checkoutRefusal(payable: PayableShipment, linked: boolean): string | nu
     return "Este fornecedor ainda não ligou a conta Mercado Pago. Combine o pagamento com ele por fora.";
   }
   return null;
+}
+
+/** Why SellBridge gave (or is giving) the reseller's money back, and whether Mercado Pago refused. */
+function refundView(payment: ShipmentPayment | null) {
+  if (payment?.refundRequestedAt == null) {
+    return null;
+  }
+  return { reason: payment.refundReason, failed: payment.refundFailedAt !== null };
+}
+
+const SETTLED_BADGES: ReadonlySet<SupplierPaymentBadge["kind"]> = new Set([
+  "paid",
+  "refunding",
+  "refunded",
+]);
+
+/** What was paid once the payment settled (an older checkout may have charged another amount). */
+function shownAmountCents(payable: PayableShipment, badge: SupplierPaymentBadge): number {
+  if (payable.payment !== null && SETTLED_BADGES.has(badge.kind)) {
+    return payable.payment.amountCents;
+  }
+  return payable.amountCents;
 }
 
 /** What the reseller sees about paying the supplier of one parcel. */
@@ -158,14 +188,16 @@ export async function loadResellerSupplierPayment(input: { tenantId: string; shi
           status: payable.payment.status,
           paidAt: payable.payment.paidAt,
           paymentMethod: payable.payment.paymentMethod,
+          refundRequestedAt: payable.payment.refundRequestedAt,
         };
   const badge = badgeFor(summary, linked);
   const refusal = checkoutRefusal(payable, linked);
   return {
-    amountCents: payable.amountCents,
+    amountCents: shownAmountCents(payable, badge),
     badge,
     canPay: badge.kind === "waiting" && refusal === null,
     refusal,
+    refund: refundView(payable.payment),
   };
 }
 
@@ -208,19 +240,63 @@ async function refusedCheckout(shipmentId: string): Promise<{ checkoutUrl: strin
   if (current?.status === "pending") {
     throw validationError("O pagamento já está sendo aberto. Tente de novo em alguns segundos.");
   }
-  throw validationError("Este fornecedor já foi pago por este pedido.");
+  if (current?.status === "in_process") {
+    throw validationError(IN_REVIEW_MESSAGE);
+  }
+  throw validationError(ALREADY_PAID_MESSAGE);
+}
+
+/**
+ * Before a new checkout, asks Mercado Pago about every payment of the parcel's earlier ones and
+ * records them: one under review or approved blocks the new checkout, a rejected one frees it.
+ * When Mercado Pago cannot answer, no new checkout opens, so a payment is never made twice.
+ */
+async function settleEarlierCheckouts(
+  context: MercadoPagoContext,
+  account: SupplierPaymentAccount,
+  payment: ShipmentPayment,
+): Promise<void> {
+  const settled = await reconcileBeforeCheckout(context, account, payment);
+  if (settled?.status === "in_process") {
+    throw validationError(IN_REVIEW_MESSAGE);
+  }
+  if (settled?.status === "approved") {
+    throw validationError(ALREADY_PAID_MESSAGE);
+  }
+}
+
+async function reconcileBeforeCheckout(
+  context: MercadoPagoContext,
+  account: SupplierPaymentAccount,
+  payment: ShipmentPayment,
+): Promise<ShipmentPayment | null> {
+  try {
+    return await reconcileShipmentPayment(context, { account, payment });
+  } catch (error) {
+    if (error instanceof PaymentAccountUnavailableError) {
+      throw validationError(RELINK_MESSAGE);
+    }
+    if (isMercadoPagoError(error)) {
+      logger.warn("mercado_pago.earlier_checkouts_unchecked", {
+        shipmentPaymentId: payment.id,
+        error,
+      });
+      throw validationError(UNCHECKED_MESSAGE);
+    }
+    throw error;
+  }
 }
 
 /** The preference, created with the supplier's token; a failure frees the reserved parcel. */
 async function createCheckout(
-  settings: MercadoPagoSettings,
+  context: MercadoPagoContext,
   account: SupplierPaymentAccount,
   input: { paymentId: string; checkout: Omit<CheckoutRequest, "externalReference"> },
 ) {
   try {
-    const accessToken = await supplierAccessToken(settings, account);
-    return await withSupplierAccount(account, async () =>
-      createMercadoPagoCheckout(settings, {
+    const accessToken = await supplierAccessToken(context, account);
+    return await withSupplierAccount(context, account, async () =>
+      createMercadoPagoCheckout(context.settings, {
         accessToken,
         checkout: { ...input.checkout, externalReference: input.paymentId },
       }),
@@ -248,8 +324,8 @@ export async function startSupplierCheckout(input: {
   if (input.impersonatedBy !== null) {
     throw validationError("Durante a visita da equipe não dá para pagar o fornecedor.");
   }
-  const settings = mercadoPagoSettings();
-  if (settings === null) {
+  const context = mercadoPagoContext();
+  if (context === null) {
     throw validationError("O pagamento pelo Mercado Pago ainda não está disponível.");
   }
   const { payable, account } = await payableWithAccount(input);
@@ -257,6 +333,18 @@ export async function startSupplierCheckout(input: {
   if (open !== null) {
     return { checkoutUrl: open };
   }
+  if (payable.payment !== null) {
+    await settleEarlierCheckouts(context, account, payable.payment);
+  }
+  return openNewCheckout(context, { payable, account });
+}
+
+/** Reserves the parcel, creates its checkout with the supplier's token and keeps it. */
+async function openNewCheckout(
+  context: MercadoPagoContext,
+  input: { payable: PayableShipment; account: SupplierPaymentAccount },
+): Promise<{ checkoutUrl: string }> {
+  const { payable, account } = input;
   const feeBasisPoints = effectivePaymentFeeBasisPoints(
     (await getPaymentFeeSetting(database)).basisPoints,
   );
@@ -276,7 +364,7 @@ export async function startSupplierCheckout(input: {
     return refusedCheckout(payable.shipmentId);
   }
   const expiresAt = new Date(Date.now() + CHECKOUT_TTL_IN_MS);
-  const checkout = await createCheckout(settings, account, {
+  const checkout = await createCheckout(context, account, {
     paymentId: payment.id,
     checkout: {
       title: `Pedido ${payable.externalOrderId} · ${payable.supplierName}`,
@@ -287,18 +375,28 @@ export async function startSupplierCheckout(input: {
       expiresAt,
     },
   });
+  await saveOpenedCheckout(payment, { ...checkout, expiresAt });
+  return { checkoutUrl: checkout.checkoutUrl };
+}
+
+/** Keeps the checkout as the parcel's open one and in its history, with what it charges. */
+async function saveOpenedCheckout(
+  payment: ShipmentPayment,
+  checkout: { preferenceId: string; checkoutUrl: string; expiresAt: Date },
+): Promise<void> {
   await savePaymentPreference(database, {
     paymentId: payment.id,
     preferenceId: checkout.preferenceId,
     checkoutUrl: checkout.checkoutUrl,
-    checkoutExpiresAt: expiresAt,
+    checkoutExpiresAt: checkout.expiresAt,
+    amountCents: payment.amountCents,
+    platformFeeCents: payment.platformFeeCents,
   });
   logger.info("mercado_pago.checkout_started", {
     shipmentPaymentId: payment.id,
     amountCents: payment.amountCents,
     platformFeeCents: payment.platformFeeCents,
   });
-  return { checkoutUrl: checkout.checkoutUrl };
 }
 
 /**
@@ -310,12 +408,12 @@ export async function confirmSupplierPaymentReturn(input: {
   shipmentId: string;
   providerPaymentId: string;
 }) {
-  const settings = mercadoPagoSettings();
+  const context = mercadoPagoContext();
   const payable = await findPayableShipment(database, input);
   if (payable === null) {
     throw notFoundError("Envio não encontrado.");
   }
-  if (settings === null || payable.payment === null) {
+  if (context === null || payable.payment === null) {
     return loadResellerSupplierPayment(input);
   }
   const account = await findSupplierPaymentAccount(database, {
@@ -323,8 +421,7 @@ export async function confirmSupplierPaymentReturn(input: {
     provider: PROVIDER,
   });
   if (account !== null && account.status === "connected") {
-    const result = await syncMercadoPagoPayment({
-      settings,
+    const result = await syncMercadoPagoPayment(context, {
       account,
       providerPaymentId: input.providerPaymentId,
       expectedPaymentId: payable.payment.id,

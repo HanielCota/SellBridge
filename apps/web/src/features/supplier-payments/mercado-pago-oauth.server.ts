@@ -1,5 +1,10 @@
 import { randomBytes } from "node:crypto";
 import {
+  exchangeMercadoPagoCode,
+  isMercadoPagoError,
+  mercadoPagoAuthorizationUrl,
+} from "@sellbridge/payments/mercado-pago";
+import {
   consumePaymentOAuthState,
   createPaymentOAuthState,
   findSupplierOfProfile,
@@ -12,11 +17,6 @@ import { database } from "@/lib/server/database";
 import { tokenCipher } from "@/lib/server/marketplaces";
 import { listMemberships, type Membership } from "@/lib/server/membership";
 import { mercadoPagoRedirectUri, mercadoPagoSettings } from "./mercado-pago-accounts.server";
-import {
-  exchangeMercadoPagoCode,
-  isMercadoPagoError,
-  mercadoPagoAuthorizationUrl,
-} from "./mercado-pago-client.server";
 import {
   mercadoPagoCallbackQuerySchema,
   mercadoPagoStartQuerySchema,
