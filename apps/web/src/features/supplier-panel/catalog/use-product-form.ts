@@ -16,6 +16,7 @@ import {
   completenessInput,
   editedFields,
   fiscalForCompleteness,
+  categoryIdOfNiche,
   initialFormValues,
   type PanelFormValues,
 } from "./draft-form";
@@ -75,6 +76,18 @@ interface ProductFormOptions {
   product: SavedProduct | null;
   categories: readonly CategoryOption[];
   taxDefaults: SupplierTaxSetup | null;
+  brandNiche: string | null;
+}
+
+/**
+ * What the form opens with. The brand's defaults are not an edit: they reach the product with
+ * the supplier's first change.
+ */
+function openingValues(options: ProductFormOptions): PanelFormValues {
+  return initialFormValues(options.product, {
+    fiscal: options.taxDefaults?.defaults ?? null,
+    categoryId: categoryIdOfNiche(options.categories, options.brandNiche),
+  });
 }
 
 /**
@@ -82,10 +95,9 @@ interface ProductFormOptions {
  * autosave and the submission for review.
  */
 export function useProductForm(options: ProductFormOptions) {
-  const { supplierId, productId, product, categories, taxDefaults } = options;
+  const { supplierId, productId, product, categories, taxDefaults, brandNiche } = options;
   const queryClient = useQueryClient();
-  // The defaults are not an edit: they reach the product with the supplier's first change.
-  const [openedWith] = useState(() => initialFormValues(product, taxDefaults?.defaults ?? null));
+  const [openedWith] = useState(() => openingValues(options));
   const [values, setValues] = useState<PanelFormValues>(openedWith);
   const edited = useMemo(() => editedFields(openedWith, values), [openedWith, values]);
   const [saved, setSaved] = useState<SavedProduct | null>(product);
@@ -104,11 +116,7 @@ export function useProductForm(options: ProductFormOptions) {
       setSaved(stored);
       queryClient.setQueryData(
         supplierPanelProductFormQueryOptions(supplierId, stored.id).queryKey,
-        {
-          product: stored,
-          categories: [...categories],
-          taxDefaults,
-        },
+        { product: stored, categories: [...categories], taxDefaults, brandNiche },
       );
       // A sale moved the shelf while the supplier left stock alone: show the real count.
       setValues((current) =>
