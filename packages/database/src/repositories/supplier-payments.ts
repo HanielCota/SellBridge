@@ -565,7 +565,7 @@ export async function applyProviderPayment(
       return { kind: "unchanged", payment: current };
     }
   }
-  if (!isAllowedTransition(current.status, input.status)) {
+  if (!isAllowedTransition(current, input.status)) {
     return { kind: "unchanged", payment: current };
   }
   const paidAt =
@@ -610,12 +610,21 @@ function replacesUnpaidAttempt(
   return false;
 }
 
-function isAllowedTransition(from: ShipmentPaymentStatus, to: ShipmentPaymentStatus): boolean {
+function isAllowedTransition(
+  current: Pick<ShipmentPayment, "status" | "provider">,
+  to: ShipmentPaymentStatus,
+): boolean {
+  const from = current.status;
   if (from === to) {
     return false;
   }
   if (from === "approved") {
     return to === "refunded" || to === "charged_back";
+  }
+  // Asaas moves a charge out of its dispute: back to received when the supplier wins it, or
+  // refunded; the held money then follows the release rules again.
+  if (from === "charged_back" && current.provider === "asaas") {
+    return to === "approved" || to === "refunded";
   }
   if (from === "refunded" || from === "charged_back") {
     return false;

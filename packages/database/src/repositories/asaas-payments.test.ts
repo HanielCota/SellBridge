@@ -128,7 +128,7 @@ async function paidParcel(provider: "asaas" | "mercado_pago", escrow = true) {
       escrowExpiresAt: new Date(Date.now() + 30 * 24 * HOUR_IN_MS),
     });
   }
-  return { shipmentId, paymentId: payment.id };
+  return { shipmentId, paymentId: payment.id, chargeId };
 }
 
 async function heldIds(): Promise<string[]> {
@@ -430,5 +430,36 @@ describe("Mercado Pago jobs and Asaas payments", () => {
 
     expect(reconcile.map((row) => row.id)).not.toContain(paymentId);
     expect(refunds.map((row) => row.payment.id)).not.toContain(paymentId);
+  });
+});
+
+describe("an Asaas card dispute", () => {
+  it("returns the parcel to paid when the supplier wins the dispute", async () => {
+    const { paymentId, chargeId } = await paidParcel("asaas");
+    const dispute = { paymentId, providerPaymentId: chargeId, paymentMethod: "CREDIT_CARD" };
+    await applyProviderPayment(database, { ...dispute, status: "charged_back", approvedAt: null });
+
+    const outcome = await applyProviderPayment(database, {
+      ...dispute,
+      status: "approved",
+      approvedAt: new Date(),
+    });
+
+    expect(outcome?.payment.status).toBe("approved");
+    expect(await heldIds()).toContain(paymentId);
+  });
+
+  it("keeps a Mercado Pago chargeback final", async () => {
+    const { paymentId, chargeId } = await paidParcel("mercado_pago", false);
+    const dispute = { paymentId, providerPaymentId: chargeId, paymentMethod: "credit_card" };
+    await applyProviderPayment(database, { ...dispute, status: "charged_back", approvedAt: null });
+
+    const outcome = await applyProviderPayment(database, {
+      ...dispute,
+      status: "approved",
+      approvedAt: new Date(),
+    });
+
+    expect(outcome?.payment.status).toBe("charged_back");
   });
 });
