@@ -486,6 +486,24 @@ describe("applyAsaasCharge", () => {
     vi.useRealTimers();
   });
 
+  test("does not count a guarantee ended by a refund as money released", async () => {
+    mocks.findPayment.mockResolvedValue(parcel());
+    mocks.apply.mockResolvedValue({ kind: "applied", payment: parcel() });
+    const refunding = charge({
+      status: "REFUND_IN_PROGRESS",
+      escrow: {
+        id: "esc_1",
+        status: "DONE",
+        expirationDate: "2026-12-20",
+        finishReason: "PAYMENT_REFUNDED",
+      },
+    });
+
+    await applyAsaasCharge(context, { account, charge: refunding });
+
+    expect(mocks.markReleased).not.toHaveBeenCalled();
+  });
+
   test("reports a second paid charge as a duplicate on Problemas", async () => {
     mocks.findPayment.mockResolvedValue(parcel());
     mocks.listCheckouts.mockResolvedValue([

@@ -398,6 +398,30 @@ describe("asaasChargeState", () => {
     expect(done.refundDone).toBe(true);
     expect(none.refundDone).toBe(false);
   });
+
+  test("sees a refund Asaas is still making, by status or by an unfinished refund", () => {
+    const byStatus = asaasChargeState(payment({ status: "REFUND_IN_PROGRESS" }));
+    const byRefund = asaasChargeState(payment({ refunds: [{ status: "PENDING" }] }));
+    const finished = asaasChargeState(payment({ refunds: [{ status: "DONE" }] }));
+
+    expect(byStatus.refundInProgress).toBe(true);
+    expect(byRefund.refundInProgress).toBe(true);
+    expect(finished.refundInProgress).toBe(false);
+  });
+
+  test("tells a guarantee ended by a refund from one released to the supplier", () => {
+    const escrow = { id: "esc_1", status: "DONE", expirationDate: "2026-12-20" };
+
+    const refunded = asaasChargeState(
+      payment({ escrow: { ...escrow, finishReason: "PAYMENT_REFUNDED" } }),
+    );
+    const released = asaasChargeState(
+      payment({ escrow: { ...escrow, finishReason: "REQUESTED_BY_CUSTOMER" } }),
+    );
+
+    expect(refunded.escrowEndedWithoutRelease).toBe(true);
+    expect(released.escrowEndedWithoutRelease).toBe(false);
+  });
 });
 
 describe("chargesWithMoneyTaken", () => {

@@ -94,7 +94,11 @@ describe("createAsaasPaymentProcessor", () => {
   it("settles each held payment with its charge read back first", async () => {
     const held = heldPayment("payment-1");
     mocks.listHeld.mockResolvedValue([held]);
-    mocks.sync.mockResolvedValue({ kind: "applied", payment: held.payment });
+    mocks.sync.mockResolvedValue({
+      kind: "applied",
+      payment: held.payment,
+      charge: { refundInProgress: false },
+    });
     mocks.settle.mockResolvedValue({ kind: "released" });
 
     const round = await processor()();
@@ -113,6 +117,21 @@ describe("createAsaasPaymentProcessor", () => {
     mocks.sync.mockResolvedValue({
       kind: "applied",
       payment: { ...held.payment, status: "refunded" },
+      charge: { refundInProgress: false },
+    });
+
+    await processor()();
+
+    expect(mocks.settle).not.toHaveBeenCalled();
+  });
+
+  it("does not ask for a refund again while Asaas is still making the first one", async () => {
+    const held = heldPayment("payment-1");
+    mocks.listHeld.mockResolvedValue([held]);
+    mocks.sync.mockResolvedValue({
+      kind: "applied",
+      payment: held.payment,
+      charge: { refundInProgress: true },
     });
 
     await processor()();

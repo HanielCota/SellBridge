@@ -81,17 +81,26 @@ async function reconcileOne(
   }
 }
 
-/** The held payment as Asaas reports it now: status, guarantee and refunds read back first. */
+/**
+ * The held payment as Asaas reports it now: status, guarantee and refunds read back first, and
+ * whether Asaas is already giving the money back.
+ */
 async function freshHeld(
   context: AsaasContext,
   input: { held: HeldPayment; account: SupplierPaymentAccount },
-): Promise<HeldPayment> {
+): Promise<{ held: HeldPayment; refundInProgress: boolean }> {
   const chargeId = input.held.payment.providerPaymentId;
   if (chargeId === null) {
-    return input.held;
+    return { held: input.held, refundInProgress: false };
   }
   const result = await syncAsaasCharge(context, { account: input.account, chargeId });
-  return result.kind === "applied" ? { ...input.held, payment: result.payment } : input.held;
+  if (result.kind !== "applied") {
+    return { held: input.held, refundInProgress: false };
+  }
+  return {
+    held: { ...input.held, payment: result.payment },
+    refundInProgress: result.charge.refundInProgress,
+  };
 }
 
 async function settleOne(
@@ -106,8 +115,12 @@ async function settleOne(
     return null;
   }
   try {
-    const held = await freshHeld(context, { held: input.held, account });
+    const { held, refundInProgress } = await freshHeld(context, { held: input.held, account });
     if (held.payment.status !== "approved" && held.payment.status !== "charged_back") {
+      return null;
+    }
+    // A second refund request while Asaas is still refunding would be refused and read as failed.
+    if (refundInProgress) {
       return null;
     }
     const outcome = await settleHeldPayment(context, { account, held, now: input.now });

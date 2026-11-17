@@ -16,6 +16,11 @@ const MONEY_TAKEN_STATUSES = new Set([
   "DUNNING_RECEIVED",
 ]);
 
+const REFUNDING_STATUSES = new Set(["REFUND_REQUESTED", "REFUND_IN_PROGRESS"]);
+
+/** Why a guarantee ended that does not mean the supplier got the money. */
+const ESCROW_ENDINGS_WITHOUT_RELEASE = new Set(["PAYMENT_REFUNDED", "CHARGEBACK"]);
+
 const CHARGEBACK_STATUSES = new Set([
   "CHARGEBACK_REQUESTED",
   "CHARGEBACK_DISPUTE",
@@ -83,6 +88,10 @@ export interface AsaasChargeState {
   readonly escrow: EscrowGuarantee | null;
   /** Every refund Asaas lists is done (and there is at least one). */
   readonly refundDone: boolean;
+  /** Asaas is already giving the money back: asking again would be refused. */
+  readonly refundInProgress: boolean;
+  /** The guarantee ended because the money went back to the buyer, not to the supplier. */
+  readonly escrowEndedWithoutRelease: boolean;
   readonly paymentMethod: string | null;
 }
 
@@ -106,6 +115,12 @@ export function asaasChargeState(payment: AsaasPayment): AsaasChargeState {
         ? null
         : escrowGuarantee(payment.escrow),
     refundDone: refunds.length > 0 && refunds.every((refund) => refund.status === "DONE"),
+    refundInProgress:
+      REFUNDING_STATUSES.has(payment.status) ||
+      refunds.some((refund) => refund.status !== "DONE" && refund.status !== "CANCELLED"),
+    escrowEndedWithoutRelease: ESCROW_ENDINGS_WITHOUT_RELEASE.has(
+      payment.escrow?.finishReason ?? "",
+    ),
     paymentMethod: payment.billingType ?? null,
   };
 }

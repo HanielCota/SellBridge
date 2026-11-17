@@ -119,7 +119,12 @@ async function saveEscrow(
     escrowStatus: state.escrow.status,
     escrowExpiresAt: state.escrow.expiresAt,
   });
-  if (state.escrow.status !== "done" || state.status !== "approved") {
+  if (
+    state.escrow.status !== "done" ||
+    state.status !== "approved" ||
+    state.escrowEndedWithoutRelease ||
+    state.refundInProgress
+  ) {
     return;
   }
   const now = new Date();
