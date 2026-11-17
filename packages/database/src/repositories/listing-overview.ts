@@ -22,6 +22,7 @@ import {
 import { hasActiveTargets } from "./active-targets.ts";
 import { availableStock } from "./sql/available-stock.ts";
 import { isCountedOrder } from "./sql/counted-orders.ts";
+import { productWeightGrams } from "./sql/product-weight.ts";
 import { timestampOf } from "./sql/raw-values.ts";
 import { containsPattern } from "./sql/search-pattern.ts";
 import {
@@ -58,6 +59,8 @@ export interface ListingOverviewRow {
   title: string;
   priceCents: number;
   costCents: number;
+  /** Net weight from the NF-e data, in grams; null when the supplier gave none. */
+  weightGrams: number | null;
   sku: string;
   stock: number;
   imageUrl: string | null;
@@ -194,6 +197,7 @@ async function selectListingDetails(database: Database, ids: string[]) {
       title: listings.title,
       priceCents: listings.priceCents,
       costCents: supplierProducts.costCents,
+      weightGrams: productWeightGrams,
       sku: supplierProducts.sku,
       stock: availableStock,
       imageUrl: sql<string | null>`${supplierProducts.imageUrls}[1]`,

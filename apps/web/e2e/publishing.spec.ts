@@ -66,6 +66,8 @@ async function openPublishFormForFirstProduct(page: Page) {
   await page.getByRole("link", { name: "Publicar" }).first().click();
   await expect(page.getByRole("heading", { name: "Nova publicação" })).toBeVisible();
   await page.waitForLoadState("networkidle");
+  // The supplier's suggested price may not pay Mercado Livre's shipping: take one that profits.
+  await page.getByRole("button", { name: /^Margem 30%/ }).click();
 }
 
 test("conecta loja simulada, publica produto e acompanha o status", async ({ page }) => {
@@ -236,7 +238,9 @@ test("valida o formulário de publicação e bloqueia preço abaixo do custo", a
   await page.getByRole("button", { name: "Publicar" }).click();
   await expect(
     page
-      .getByText(/Com as taxas, o preço mínimo para não ter prejuízo é R\$\s[\d.,]+/)
+      .getByText(
+        /Com as taxas do Mercado Livre, o preço mínimo para não ter prejuízo é R\$\s[\d.,]+/,
+      )
       .filter({ visible: true }),
   ).toBeVisible();
 });
@@ -399,9 +403,9 @@ test("publica vários produtos do catálogo de uma vez com regra de preço", asy
   // 5% over the cost does not pay the 14% marketplace fee: the dialog says so and holds the batch.
   await dialog.getByLabel("Acréscimo sobre o custo").fill("5");
   await expect(
-    dialog
-      .getByRole("alert")
-      .filter({ hasText: /Com as taxas, o preço mínimo para não ter prejuízo é R\$\s[\d.,]+/ }),
+    dialog.getByRole("alert").filter({
+      hasText: /Com as taxas do Mercado Livre, o preço mínimo para não ter prejuízo é R\$\s[\d.,]+/,
+    }),
   ).toBeVisible();
   await expect(dialog.getByRole("button", { name: "Publicar em 1 loja" })).toBeDisabled();
   await dialog.getByLabel("Acréscimo sobre o custo").fill("80");

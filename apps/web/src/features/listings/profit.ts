@@ -1,10 +1,13 @@
+import { type FeeChannel, feeChannelOf } from "@sellbridge/shared/channel-fees";
 import {
   estimateSale,
   type FeeSchedule,
   minimumPriceCents,
+  onChannel,
   priceForMargin as priceKeepingMargin,
 } from "@sellbridge/shared/fee-model";
 import type { Cents } from "@sellbridge/shared/money";
+import { LISTING_MAX_PRICE_CENTS } from "@sellbridge/shared/schemas";
 
 /** Below this margin a price barely pays for itself and is flagged to the reseller. */
 const THIN_MARGIN_PERCENT = 15;
@@ -35,8 +38,28 @@ export function isLowStock(stock: number): boolean {
   return stock > 0 && stock <= LOW_STOCK_UNITS;
 }
 
+/** The marketplaces a price sells on; never empty. */
+export type SaleChannels = readonly [FeeChannel, ...FeeChannel[]];
+
+/** With no store chosen yet, prices are shown as Mercado Livre charges them. */
+export const DEFAULT_SALE_CHANNELS: SaleChannels = ["mercado_livre"];
+
+/** The channels of the stores a price sells on, each once; Mercado Livre when there is none. */
+export function saleChannelsOf(stores: readonly { marketplace: string }[]): SaleChannels {
+  const [first, ...rest] = [...new Set(stores.map((store) => feeChannelOf(store.marketplace)))];
+  return first === undefined ? DEFAULT_SALE_CHANNELS : [first, ...rest];
+}
+
+/** What a price is checked against: the supplier's cost and the weight shipping is priced on. */
+export interface ProductCost {
+  costCents: Cents;
+  weightGrams?: number | null;
+}
+
 export interface ProfitEstimate {
-  /** What the marketplace keeps: its commission plus the shipping the reseller pays. */
+  /** The channel the estimate is for: of several, the one that leaves the least. */
+  channel: FeeChannel;
+  /** What the marketplace keeps: its commission, fixed fee and the shipping the seller pays. */
   feeCents: Cents;
   /** SellBridge's own fee, the one the financial page charges too. */
   platformFeeCents: Cents;
@@ -44,20 +67,18 @@ export interface ProfitEstimate {
   marginPercent: number;
 }
 
-/**
- * One sale at the price, by the financial page's own formula (fee-model.ts): the profit a
- * preview promises is the profit the financial page shows for that sale.
- */
-export function estimateProfit(
-  priceCents: Cents | null,
-  costCents: Cents,
+function estimateOn(
+  priceCents: Cents,
+  product: ProductCost,
   schedule: FeeSchedule,
-): ProfitEstimate | null {
-  if (priceCents === null || priceCents <= 0) {
-    return null;
-  }
-  const sale = estimateSale({ priceCents, costCents }, schedule);
+  channel: FeeChannel,
+): ProfitEstimate {
+  const sale = estimateSale(
+    { priceCents, costCents: product.costCents, weightGrams: product.weightGrams ?? null },
+    onChannel(schedule, channel),
+  );
   return {
+    channel,
     feeCents: sale.feeCents,
     platformFeeCents: sale.platformFeeCents,
     profitCents: sale.profitCents,
@@ -66,18 +87,112 @@ export function estimateProfit(
 }
 
 /**
- * Smallest price whose profit is at least `marginPercent` of it after every fee. Null when the
- * fees alone already eat that margin.
+ * One sale at the price, by the financial page's own formula (fee-model.ts): the profit a
+ * preview promises is the profit the financial page shows for that sale. Sold on several
+ * channels, the estimate is the one that leaves the least, so no store does worse than shown.
  */
-export function priceForMargin(
-  costCents: Cents,
-  marginPercent: number,
+export function estimateProfit(
+  priceCents: Cents | null,
+  product: ProductCost,
   schedule: FeeSchedule,
-): Cents | null {
-  return priceKeepingMargin({ costCents }, marginPercent, schedule);
+  channels: SaleChannels,
+): ProfitEstimate | null {
+  if (priceCents === null || priceCents <= 0) {
+    return null;
+  }
+  const [first, ...rest] = channels;
+  return rest.reduce(
+    (lowest, channel) => {
+      const estimate = estimateOn(priceCents, product, schedule, channel);
+      return estimate.profitCents < lowest.profitCents ? estimate : lowest;
+    },
+    estimateOn(priceCents, product, schedule, first),
+  );
 }
 
-/** Lowest price the server accepts for the cost: break-even, or the configured minimum margin. */
-export function minimumPrice(costCents: Cents, schedule: FeeSchedule): Cents | null {
-  return minimumPriceCents({ costCents }, schedule);
+/** The highest of each channel's price, or null when some channel has none. */
+function highestOnEveryChannel(
+  channels: SaleChannels,
+  priceOn: (channel: FeeChannel) => Cents | null,
+): Cents | null {
+  const prices: Cents[] = [];
+  for (const channel of channels) {
+    const price = priceOn(channel);
+    if (price === null) {
+      return null;
+    }
+    prices.push(price);
+  }
+  return Math.max(...prices);
+}
+
+/**
+ * Smallest price whose profit is at least `marginPercent` of it after every fee, on every
+ * channel. Null when the fees alone already eat that margin on one of them.
+ */
+export function priceForMargin(
+  product: ProductCost,
+  marginPercent: number,
+  schedule: FeeSchedule,
+  channels: SaleChannels,
+): Cents | null {
+  return highestOnEveryChannel(channels, (channel) =>
+    priceKeepingMargin(product, marginPercent, onChannel(schedule, channel)),
+  );
+}
+
+const SHELF_ENDING_CENTS = 90;
+const CENTS_PER_REAL = 100;
+
+/** The price itself if it already ends in ,90, else the next one that does. */
+function nextShelfPrice(cents: Cents): Cents {
+  return (
+    Math.ceil((cents - SHELF_ENDING_CENTS) / CENTS_PER_REAL) * CENTS_PER_REAL + SHELF_ENDING_CENTS
+  );
+}
+
+/**
+ * Smallest price ending in ,90 (R$ 21,90) that still keeps the margin on every channel. Rounding
+ * up alone is not enough: it can cross into a band that pays more shipping (R$ 18,95 becomes
+ * R$ 19,90 on Mercado Livre), so the next ,90 prices are tried until one keeps it. Null when no
+ * price keeps it.
+ */
+export function shelfPriceForMargin(
+  product: ProductCost,
+  marginPercent: number,
+  schedule: FeeSchedule,
+  channels: SaleChannels,
+): Cents | null {
+  const exact = priceForMargin(product, marginPercent, schedule, channels);
+  if (exact === null) {
+    return null;
+  }
+  const keepsMargin = (priceCents: Cents) => {
+    const estimate = estimateProfit(priceCents, product, schedule, channels);
+    return estimate !== null && estimate.profitCents * 100 >= priceCents * marginPercent;
+  };
+  for (
+    let priceCents = nextShelfPrice(exact);
+    priceCents <= LISTING_MAX_PRICE_CENTS;
+    priceCents += CENTS_PER_REAL
+  ) {
+    if (keepsMargin(priceCents)) {
+      return priceCents;
+    }
+  }
+  return null;
+}
+
+/**
+ * Lowest price the server accepts for the product on every channel: break-even, or the
+ * configured minimum margin.
+ */
+export function minimumPrice(
+  product: ProductCost,
+  schedule: FeeSchedule,
+  channels: SaleChannels,
+): Cents | null {
+  return highestOnEveryChannel(channels, (channel) =>
+    minimumPriceCents(product, onChannel(schedule, channel)),
+  );
 }
