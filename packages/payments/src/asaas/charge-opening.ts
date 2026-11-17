@@ -10,7 +10,7 @@ import { chargeMatchesParcel, chargesWithMoneyTaken } from "./charge-state.ts";
 import { applyAsaasCharge } from "./charge-sync.ts";
 import type { AsaasAccountClient } from "./client.ts";
 import type { AsaasContext } from "./context.ts";
-import { isAsaasError } from "./http.ts";
+import { AsaasError, isAsaasError } from "./http.ts";
 import { asaasDueDate } from "./money.ts";
 import type { AsaasPayment } from "./schemas.ts";
 
@@ -49,13 +49,23 @@ function unpaidCharges(charges: readonly AsaasPayment[]): AsaasPayment[] {
   return charges.filter((charge) => charge.deleted !== true && UNPAID_STATUSES.has(charge.status));
 }
 
+/** The reseller pays on this page; a charge without one cannot be handed to them. */
+function hasPaymentPage(charge: AsaasPayment): boolean {
+  return charge.invoiceUrl !== null && charge.invoiceUrl !== undefined;
+}
+
 async function saveCharge(
   context: AsaasContext,
   payment: ShipmentPayment,
   charge: AsaasPayment,
   now: Date,
 ): Promise<string> {
-  const checkoutUrl = charge.invoiceUrl ?? "";
+  const checkoutUrl = charge.invoiceUrl;
+  if (checkoutUrl === null || checkoutUrl === undefined) {
+    throw new AsaasError(`Asaas charge ${charge.id} came without a payment page`, {
+      status: null,
+    });
+  }
   await savePaymentPreference(context.database, {
     paymentId: payment.id,
     preferenceId: charge.id,
@@ -97,6 +107,7 @@ export async function openAsaasCharge(
     const reusable = unpaid.find(
       (charge) =>
         charge.status === "PENDING" &&
+        hasPaymentPage(charge) &&
         chargeMatchesParcel(charge, payment, context.settings.walletId),
     );
     // Any other open charge (overdue, or not asking what the parcel asks) could still be paid:

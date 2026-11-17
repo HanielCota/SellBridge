@@ -39,7 +39,11 @@ import type {
   SupplierPaymentAccount,
 } from "@sellbridge/database/repositories";
 import { logger } from "@sellbridge/shared/logger";
-import { AsaasAccountKeyMissingError, openAsaasAccount } from "./account-opening.ts";
+import {
+  AsaasAccountKeyMissingError,
+  openAsaasAccount,
+  protectAsaasAccount,
+} from "./account-opening.ts";
 import { openAsaasCharge } from "./charge-opening.ts";
 import { applyAsaasCharge } from "./charge-sync.ts";
 import type { AsaasContext } from "./context.ts";
@@ -512,6 +516,45 @@ describe("openAsaasCharge", () => {
     ]);
   });
 
+  test("replaces an open charge that came without a payment page", async () => {
+    replies = [
+      {
+        status: 200,
+        body: {
+          hasMore: false,
+          data: [charge({ status: "PENDING", escrow: null, invoiceUrl: null })],
+        },
+      },
+      { status: 200, body: { deleted: true, id: "pay_1" } },
+      { status: 200, body: { data: [{ id: "cus_1" }] } },
+      { status: 200, body: charge({ id: "pay_new", status: "PENDING", escrow: null }) },
+    ];
+
+    const result = await openAsaasCharge(context, opening);
+
+    expect(result).toEqual({ kind: "opened", checkoutUrl: "https://asaas.test/i/1" });
+    expect(requests.map((request) => `${request.method} ${request.path}`)).toEqual([
+      "GET /v3/payments",
+      "DELETE /v3/payments/pay_1",
+      "GET /v3/customers",
+      "POST /v3/payments",
+    ]);
+  });
+
+  test("never saves an empty payment page for a new charge", async () => {
+    replies = [
+      { status: 200, body: { hasMore: false, data: [] } },
+      { status: 200, body: { data: [{ id: "cus_1" }] } },
+      {
+        status: 200,
+        body: charge({ id: "pay_new", status: "PENDING", escrow: null, invoiceUrl: null }),
+      },
+    ];
+
+    await expect(openAsaasCharge(context, opening)).rejects.toThrow("without a payment page");
+    expect(mocks.savePreference).not.toHaveBeenCalled();
+  });
+
   test("records a paid charge it finds instead of opening another", async () => {
     replies = [{ status: 200, body: { hasMore: false, data: [charge()] } }];
     mocks.findPayment.mockResolvedValue(opening.payment);
@@ -625,6 +668,20 @@ describe("openAsaasAccount", () => {
     const result = await openAsaasAccount(context, opening);
 
     expect(result.protectedNow).toBe(false);
+    expect(mocks.markError).toHaveBeenCalledWith(context.database, {
+      accountId: account.id,
+      lastError: "protection_missing",
+      refreshTokenEnc: null,
+    });
+  });
+
+  test("keeps an account without its Asaas id out of service, without calling Asaas", async () => {
+    vi.spyOn(logger, "error").mockImplementation(() => {});
+
+    const result = await protectAsaasAccount(context, { ...account, providerAccountId: null });
+
+    expect(result).toBe(false);
+    expect(requests).toHaveLength(0);
     expect(mocks.markError).toHaveBeenCalledWith(context.database, {
       accountId: account.id,
       lastError: "protection_missing",

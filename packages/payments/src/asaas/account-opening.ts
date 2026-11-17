@@ -26,6 +26,33 @@ export class AsaasAccountKeyMissingError extends Error {
 /** The account is open but its protection is not on yet: payments would not be held. */
 export const PROTECTION_MISSING = "protection_missing";
 
+async function turnProtectionOn(
+  context: AsaasContext,
+  account: SupplierPaymentAccount,
+): Promise<boolean> {
+  const providerAccountId = account.providerAccountId;
+  if (providerAccountId === null) {
+    logger.error("asaas.protection_failed", {
+      supplierId: account.supplierId,
+      reason: "account_id_missing",
+    });
+    return false;
+  }
+  try {
+    const settings = await platformClient(context).protectAccount(
+      providerAccountId,
+      ESCROW_SAFETY_DEADLINE_IN_DAYS,
+    );
+    if (settings.enabled) {
+      await markAsaasAccountProtected(context.database, account.id);
+      return true;
+    }
+  } catch (error) {
+    logger.error("asaas.protection_failed", { supplierId: account.supplierId, error });
+  }
+  return false;
+}
+
 /**
  * Turns the account's protection on: every payment it receives from now on is held for up to
  * the safety deadline, with the supplier paying Asaas's fee. A failure leaves the account in
@@ -35,17 +62,8 @@ export async function protectAsaasAccount(
   context: AsaasContext,
   account: SupplierPaymentAccount,
 ): Promise<boolean> {
-  try {
-    const settings = await platformClient(context).protectAccount(
-      account.providerAccountId ?? "",
-      ESCROW_SAFETY_DEADLINE_IN_DAYS,
-    );
-    if (settings.enabled) {
-      await markAsaasAccountProtected(context.database, account.id);
-      return true;
-    }
-  } catch (error) {
-    logger.error("asaas.protection_failed", { supplierId: account.supplierId, error });
+  if (await turnProtectionOn(context, account)) {
+    return true;
   }
   await markSupplierPaymentAccountError(context.database, {
     accountId: account.id,
