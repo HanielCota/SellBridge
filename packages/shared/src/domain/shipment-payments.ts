@@ -18,10 +18,16 @@ export const SHIPMENT_PAYMENT_STATUSES = [
 export type ShipmentPaymentStatus = (typeof SHIPMENT_PAYMENT_STATUSES)[number];
 
 /**
- * Why SellBridge gives the reseller's money back on its own: the supplier did not ship in time,
- * or the parcel was cancelled or came back to the supplier.
+ * Why SellBridge gives the reseller's money back: the supplier did not ship in time, the parcel
+ * was cancelled, came back or was never delivered, or the team decided so for money still held.
  */
-export const SHIPMENT_PAYMENT_REFUND_REASONS = ["not_dispatched", "cancelled", "returned"] as const;
+export const SHIPMENT_PAYMENT_REFUND_REASONS = [
+  "not_dispatched",
+  "cancelled",
+  "returned",
+  "not_delivered",
+  "team",
+] as const;
 export type ShipmentPaymentRefundReason = (typeof SHIPMENT_PAYMENT_REFUND_REASONS)[number];
 
 /** The highest fee the admin may set: 30%, in basis points. */

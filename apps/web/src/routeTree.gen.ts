@@ -71,6 +71,7 @@ import { Route as ApiV1MeRouteImport } from './routes/api/v1/me'
 import { Route as ApiV1OpenapiDotjsonRouteImport } from './routes/api/v1/openapi[.]json'
 import { Route as ApiV1StoresRouteImport } from './routes/api/v1/stores'
 import { Route as ApiWebhooksMarketplaceRouteImport } from './routes/api/webhooks/$marketplace'
+import { Route as ApiWebhooksAsaasRouteImport } from './routes/api/webhooks/asaas'
 import { Route as ApiWebhooksMercadoPagoRouteImport } from './routes/api/webhooks/mercado-pago'
 import { Route as ApiWebhooksStripeRouteImport } from './routes/api/webhooks/stripe'
 import { Route as FornecedorPedidoTokenRouteImport } from './routes/fornecedor/pedido/$token'
@@ -445,6 +446,11 @@ const ApiV1StoresRoute = ApiV1StoresRouteImport.update({
 const ApiWebhooksMarketplaceRoute = ApiWebhooksMarketplaceRouteImport.update({
   id: '/api/webhooks/$marketplace',
   path: '/api/webhooks/$marketplace',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiWebhooksAsaasRoute = ApiWebhooksAsaasRouteImport.update({
+  id: '/api/webhooks/asaas',
+  path: '/api/webhooks/asaas',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ApiWebhooksMercadoPagoRoute = ApiWebhooksMercadoPagoRouteImport.update({
@@ -881,6 +887,7 @@ export interface FileRoutesByFullPath {
   '/api/v1/openapi.json': typeof ApiV1OpenapiDotjsonRoute
   '/api/v1/stores': typeof ApiV1StoresRoute
   '/api/webhooks/$marketplace': typeof ApiWebhooksMarketplaceRoute
+  '/api/webhooks/asaas': typeof ApiWebhooksAsaasRoute
   '/api/webhooks/mercado-pago': typeof ApiWebhooksMercadoPagoRoute
   '/api/webhooks/stripe': typeof ApiWebhooksStripeRoute
   '/fornecedor/pedido/$token': typeof FornecedorPedidoTokenRoute
@@ -1004,6 +1011,7 @@ export interface FileRoutesByTo {
   '/api/v1/openapi.json': typeof ApiV1OpenapiDotjsonRoute
   '/api/v1/stores': typeof ApiV1StoresRoute
   '/api/webhooks/$marketplace': typeof ApiWebhooksMarketplaceRoute
+  '/api/webhooks/asaas': typeof ApiWebhooksAsaasRoute
   '/api/webhooks/mercado-pago': typeof ApiWebhooksMercadoPagoRoute
   '/api/webhooks/stripe': typeof ApiWebhooksStripeRoute
   '/fornecedor/pedido/$token': typeof FornecedorPedidoTokenRoute
@@ -1134,6 +1142,7 @@ export interface FileRoutesById {
   '/api/v1/openapi.json': typeof ApiV1OpenapiDotjsonRoute
   '/api/v1/stores': typeof ApiV1StoresRoute
   '/api/webhooks/$marketplace': typeof ApiWebhooksMarketplaceRoute
+  '/api/webhooks/asaas': typeof ApiWebhooksAsaasRoute
   '/api/webhooks/mercado-pago': typeof ApiWebhooksMercadoPagoRoute
   '/api/webhooks/stripe': typeof ApiWebhooksStripeRoute
   '/fornecedor/pedido/$token': typeof FornecedorPedidoTokenRoute
@@ -1263,6 +1272,7 @@ export interface FileRouteTypes {
     | '/api/v1/openapi.json'
     | '/api/v1/stores'
     | '/api/webhooks/$marketplace'
+    | '/api/webhooks/asaas'
     | '/api/webhooks/mercado-pago'
     | '/api/webhooks/stripe'
     | '/fornecedor/pedido/$token'
@@ -1386,6 +1396,7 @@ export interface FileRouteTypes {
     | '/api/v1/openapi.json'
     | '/api/v1/stores'
     | '/api/webhooks/$marketplace'
+    | '/api/webhooks/asaas'
     | '/api/webhooks/mercado-pago'
     | '/api/webhooks/stripe'
     | '/fornecedor/pedido/$token'
@@ -1515,6 +1526,7 @@ export interface FileRouteTypes {
     | '/api/v1/openapi.json'
     | '/api/v1/stores'
     | '/api/webhooks/$marketplace'
+    | '/api/webhooks/asaas'
     | '/api/webhooks/mercado-pago'
     | '/api/webhooks/stripe'
     | '/fornecedor/pedido/$token'
@@ -1610,6 +1622,7 @@ export interface RootRouteChildren {
   ApiV1OpenapiDotjsonRoute: typeof ApiV1OpenapiDotjsonRoute
   ApiV1StoresRoute: typeof ApiV1StoresRoute
   ApiWebhooksMarketplaceRoute: typeof ApiWebhooksMarketplaceRoute
+  ApiWebhooksAsaasRoute: typeof ApiWebhooksAsaasRoute
   ApiWebhooksMercadoPagoRoute: typeof ApiWebhooksMercadoPagoRoute
   ApiWebhooksStripeRoute: typeof ApiWebhooksStripeRoute
   FornecedorPedidoTokenRoute: typeof FornecedorPedidoTokenRoute
@@ -2083,6 +2096,13 @@ declare module '@tanstack/react-router' {
       path: '/api/webhooks/$marketplace'
       fullPath: '/api/webhooks/$marketplace'
       preLoaderRoute: typeof ApiWebhooksMarketplaceRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/webhooks/asaas': {
+      id: '/api/webhooks/asaas'
+      path: '/api/webhooks/asaas'
+      fullPath: '/api/webhooks/asaas'
+      preLoaderRoute: typeof ApiWebhooksAsaasRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/api/webhooks/mercado-pago': {
@@ -2787,6 +2807,7 @@ const rootRouteChildren: RootRouteChildren = {
   ApiV1OpenapiDotjsonRoute: ApiV1OpenapiDotjsonRoute,
   ApiV1StoresRoute: ApiV1StoresRoute,
   ApiWebhooksMarketplaceRoute: ApiWebhooksMarketplaceRoute,
+  ApiWebhooksAsaasRoute: ApiWebhooksAsaasRoute,
   ApiWebhooksMercadoPagoRoute: ApiWebhooksMercadoPagoRoute,
   ApiWebhooksStripeRoute: ApiWebhooksStripeRoute,
   FornecedorPedidoTokenRoute: FornecedorPedidoTokenRoute,
