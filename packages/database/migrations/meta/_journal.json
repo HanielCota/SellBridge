@@ -561,6 +561,13 @@
       "when": 1794911876235,
       "tag": "0079_marketplace_fee_quotes",
       "breakpoints": true
+    },
+    {
+      "idx": 80,
+      "version": "7",
+      "when": 1794916361458,
+      "tag": "0080_drop_store_connection_supplier",
+      "breakpoints": true
     }
   ]
 }
