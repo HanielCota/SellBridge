@@ -11,6 +11,7 @@ import {
 import { eq } from "drizzle-orm";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { orderAdjustments, orderItems, orders, storeConnections } from "../schema/index.ts";
+import { getOrderDetail } from "./order-detail.ts";
 import {
   createTestDatabase,
   createTestSupplierProduct,
@@ -45,6 +46,8 @@ interface SeedOrder extends OrderFinanceInput {
   buyerName: string;
   title: string;
   unitPriceCents: number;
+  /** The Mercado Livre cart the order was bought in. */
+  marketplacePackId?: string;
 }
 
 const ORDERS_A1: SeedOrder[] = [
@@ -136,6 +139,7 @@ async function insertOrder(tenantId: string, storeConnectionId: string, seed: Se
       totalCents: seed.totalCents,
       marketplaceFeeCents: seed.marketplaceFeeCents,
       sellerShippingCents: seed.sellerShippingCents ?? null,
+      marketplacePackId: seed.marketplacePackId ?? null,
       buyerName: seed.buyerName,
       orderedAt: new Date(seed.orderedAt),
       paidAt: seed.paidAt === undefined ? null : new Date(seed.paidAt),
@@ -637,5 +641,53 @@ describe("order financials list", () => {
     await expect(
       exportOrderFinancials(database, scope(), { filters: {}, sort, maxRows: 3 }),
     ).rejects.toMatchObject({ code: "VALIDATION", message: expect.stringContaining("mais de 3") });
+  });
+});
+
+// Regression: each order of a Mercado Livre cart reports the cart's one shipment, so its cost was
+// counted once per order (security review of 17/11/2026).
+describe("a Mercado Livre cart shipped as one parcel", () => {
+  const FIRST: SeedOrder = {
+    ...ORDER_A2,
+    externalOrderId: "CART-1",
+    marketplacePackId: "PACK-1",
+    sellerShippingCents: 2000,
+  };
+  const SECOND: SeedOrder = { ...FIRST, externalOrderId: "CART-2" };
+  let extra: Awaited<ReturnType<typeof createTestTenants>>;
+  let tenantId = "";
+
+  beforeAll(async () => {
+    extra = await createTestTenants(database, 1);
+    tenantId = extra.ids[0] ?? "";
+    const store = await insertStore(tenantId, "Loja do carrinho");
+    await insertOrder(tenantId, store, FIRST);
+    await insertOrder(tenantId, store, SECOND);
+  });
+
+  afterAll(async () => {
+    await extra.cleanup();
+  });
+
+  async function detailOf(externalOrderId: string) {
+    const [row] = await database
+      .select({ id: orders.id })
+      .from(orders)
+      .where(eq(orders.externalOrderId, externalOrderId));
+    return getOrderDetail(database, tenantId, row?.id ?? "");
+  }
+
+  it("counts the cart's shipping once in the report", async () => {
+    const summary = await getSalesSummary(database, scope({ tenantId }));
+
+    expect(summary.feeCents).toBe(2 * FIRST.marketplaceFeeCents + 2000);
+  });
+
+  it("shows the cart's shipping on its first order only", async () => {
+    const first = await detailOf("CART-1");
+    const second = await detailOf("CART-2");
+
+    expect(first.sellerShippingCents).toBe(2000);
+    expect(second.sellerShippingCents).toBe(0);
   });
 });

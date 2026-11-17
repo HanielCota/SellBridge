@@ -9,6 +9,7 @@ import {
   orders,
   storeConnections,
 } from "../schema/index.ts";
+import { sellerShippingOnce } from "./sql/seller-shipping.ts";
 import type { Marketplace } from "./stores.ts";
 
 type OrderStatus = (typeof orders.$inferSelect)["status"];
@@ -47,8 +48,11 @@ export interface OrderDetail {
   status: OrderStatus;
   totalCents: number;
   marketplaceFeeCents: number;
-  /** What the seller paid to ship the sale; null while the marketplace has not reported it. */
-  sellerShippingCents: number | null;
+  /**
+   * What the seller paid to ship the sale, zero while the marketplace has not reported it; a
+   * cart's shipping counts on its first sale only ().
+   */
+  sellerShippingCents: number;
   buyerName: string | null;
   orderedAt: Date;
   /** When the order first counted as a sale; null while it never did. */
@@ -69,7 +73,7 @@ async function selectOrder(database: Database, tenantId: string, orderId: string
       status: orders.status,
       totalCents: orders.totalCents,
       marketplaceFeeCents: orders.marketplaceFeeCents,
-      sellerShippingCents: orders.sellerShippingCents,
+      sellerShippingCents: sellerShippingOnce("orders").mapWith(Number),
       buyerName: orders.buyerName,
       orderedAt: orders.orderedAt,
       paidAt: orders.paidAt,
