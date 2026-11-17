@@ -1,5 +1,5 @@
 {
-  "id": "4dba06fa-b1dd-4e35-a77e-ac032a6eb326",
+  "id": "92170ca3-c6b7-4c4c-a369-9c551f2e9d3f",
   "prevId": "96a48a75-d515-4056-983c-de67797e611e",
   "version": "7",
   "dialect": "postgresql",
@@ -1644,12 +1644,6 @@
           "primaryKey": false,
           "notNull": true
         },
-        "supplier_id": {
-          "name": "supplier_id",
-          "type": "uuid",
-          "primaryKey": false,
-          "notNull": false
-        },
         "access_token_enc": {
           "name": "access_token_enc",
           "type": "text",
@@ -1726,21 +1720,6 @@
           "method": "btree",
           "with": {}
         },
-        "store_connections_supplier_idx": {
-          "name": "store_connections_supplier_idx",
-          "columns": [
-            {
-              "expression": "supplier_id",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            }
-          ],
-          "isUnique": false,
-          "concurrently": false,
-          "method": "btree",
-          "with": {}
-        },
         "store_connections_shop_idx": {
           "name": "store_connections_shop_idx",
           "columns": [
@@ -1803,19 +1782,6 @@
             "id"
           ],
           "onDelete": "cascade",
-          "onUpdate": "no action"
-        },
-        "store_connections_supplier_id_suppliers_id_fk": {
-          "name": "store_connections_supplier_id_suppliers_id_fk",
-          "tableFrom": "store_connections",
-          "tableTo": "suppliers",
-          "columnsFrom": [
-            "supplier_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
-          "onDelete": "set null",
           "onUpdate": "no action"
         }
       },
@@ -6150,148 +6116,6 @@
       "uniqueConstraints": {},
       "policies": {},
       "checkConstraints": {},
-      "isRLSEnabled": false
-    },
-    "public.supplier_test_orders": {
-      "name": "supplier_test_orders",
-      "schema": "",
-      "columns": {
-        "id": {
-          "name": "id",
-          "type": "uuid",
-          "primaryKey": true,
-          "notNull": true,
-          "default": "gen_random_uuid()"
-        },
-        "supplier_id": {
-          "name": "supplier_id",
-          "type": "uuid",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "supplier_product_id": {
-          "name": "supplier_product_id",
-          "type": "uuid",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "product_title": {
-          "name": "product_title",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "product_sku": {
-          "name": "product_sku",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "step": {
-          "name": "step",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "default": "'received'"
-        },
-        "dispatch_deadline_at": {
-          "name": "dispatch_deadline_at",
-          "type": "timestamp with time zone",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "accepted_at": {
-          "name": "accepted_at",
-          "type": "timestamp with time zone",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "label_printed_at": {
-          "name": "label_printed_at",
-          "type": "timestamp with time zone",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "picked_at": {
-          "name": "picked_at",
-          "type": "timestamp with time zone",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "shipped_at": {
-          "name": "shipped_at",
-          "type": "timestamp with time zone",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "delivered_at": {
-          "name": "delivered_at",
-          "type": "timestamp with time zone",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "created_at": {
-          "name": "created_at",
-          "type": "timestamp with time zone",
-          "primaryKey": false,
-          "notNull": true,
-          "default": "now()"
-        }
-      },
-      "indexes": {
-        "supplier_test_orders_supplier_idx": {
-          "name": "supplier_test_orders_supplier_idx",
-          "columns": [
-            {
-              "expression": "supplier_id",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            }
-          ],
-          "isUnique": true,
-          "concurrently": false,
-          "method": "btree",
-          "with": {}
-        }
-      },
-      "foreignKeys": {
-        "supplier_test_orders_supplier_id_suppliers_id_fk": {
-          "name": "supplier_test_orders_supplier_id_suppliers_id_fk",
-          "tableFrom": "supplier_test_orders",
-          "tableTo": "suppliers",
-          "columnsFrom": [
-            "supplier_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
-          "onDelete": "cascade",
-          "onUpdate": "no action"
-        },
-        "supplier_test_orders_supplier_product_id_supplier_products_id_fk": {
-          "name": "supplier_test_orders_supplier_product_id_supplier_products_id_fk",
-          "tableFrom": "supplier_test_orders",
-          "tableTo": "supplier_products",
-          "columnsFrom": [
-            "supplier_product_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
-          "onDelete": "set null",
-          "onUpdate": "no action"
-        }
-      },
-      "compositePrimaryKeys": {},
-      "uniqueConstraints": {},
-      "policies": {},
-      "checkConstraints": {
-        "supplier_test_orders_step_check": {
-          "name": "supplier_test_orders_step_check",
-          "value": "\"supplier_test_orders\".\"step\" in ('received','accepted','label_printed','picked','shipped','delivered')"
-        }
-      },
       "isRLSEnabled": false
     },
     "public.billing_accounts": {
