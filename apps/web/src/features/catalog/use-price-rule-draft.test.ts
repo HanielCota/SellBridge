@@ -1,19 +1,19 @@
 import { describe, expect, it } from "vitest";
-import { parseMarkupPercent } from "./use-price-rule-draft";
+import { parseMarginPercent } from "./use-price-rule-draft";
 
-describe("parseMarkupPercent", () => {
+describe("parseMarginPercent", () => {
   it.each([
     ["5", 5],
-    ["300", 300],
-    [" 60 ", 60],
+    ["80", 80],
+    [" 30 ", 30],
   ])("accepts %j", (typed, percent) => {
-    expect(parseMarkupPercent(typed)).toEqual({ kind: "markup", percent });
+    expect(parseMarginPercent(typed)).toEqual({ kind: "margin", percent });
   });
 
-  it.each(["4", "301", "12.5", "12,5", "30abc", "", "-10", "1e2", "99999"])(
+  it.each(["4", "81", "12.5", "12,5", "30abc", "", "-10", "1e2", "99999"])(
     "refuses %j instead of reading part of it",
     (typed) => {
-      expect(parseMarkupPercent(typed)).toBeNull();
+      expect(parseMarginPercent(typed)).toBeNull();
     },
   );
 });

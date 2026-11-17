@@ -4,7 +4,6 @@ import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 import { toast } from "sonner";
 import { batchPriceProblem } from "@sellbridge/shared/fee-model";
-import { priceForRule } from "@sellbridge/shared/schemas";
 import { useFeeSchedule } from "@/features/reports/fee-schedule.queries";
 import { saleChannelsOf, type SaleChannels } from "@/features/listings/profit";
 import { ACTION_ICONS } from "@/components/icons/action-icons";
@@ -16,6 +15,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import { bulkPriceCents, unreachableMarginMessage } from "@/features/catalog/bulk-price";
 import { publishProductsInBulk } from "@/features/catalog/catalog.functions";
 import { usePriceOverrides, usePriceRuleDraft } from "@/features/catalog/use-price-rule-draft";
 import { errorMessage } from "@/lib/errors";
@@ -63,17 +63,28 @@ function useBatchFloorProblem(
   channels: SaleChannels,
 ): string | null {
   const schedule = useFeeSchedule();
-  const isMarkup = draft.kind === "markup";
+  const isMargin = draft.kind === "margin";
+  const priced = products.map((product) => {
+    const rule = (isMargin ? overrides.rules[product.id] : undefined) ?? draft.rule;
+    return { product, rule, priceCents: bulkPriceCents(product, rule, schedule, channels) };
+  });
+  const unreachable = priced.find((entry) => entry.priceCents === null);
+  if (unreachable !== undefined && unreachable.rule.kind === "margin") {
+    return unreachableMarginMessage(unreachable.product.title, unreachable.rule.percent);
+  }
   return batchPriceProblem(
-    products.map((product) => ({
-      title: product.title,
-      costCents: product.costCents,
-      weightGrams: product.weightGrams,
-      priceCents: priceForRule(
-        product,
-        (isMarkup ? overrides.rules[product.id] : undefined) ?? draft.rule,
-      ),
-    })),
+    priced.flatMap(({ product, priceCents }) =>
+      priceCents === null
+        ? []
+        : [
+            {
+              title: product.title,
+              costCents: product.costCents,
+              weightGrams: product.weightGrams,
+              priceCents,
+            },
+          ],
+    ),
     schedule,
     channels,
   );
@@ -134,14 +145,14 @@ function BulkPublishForm({
   const draft = usePriceRuleDraft();
   const overrides = usePriceOverrides();
   const mutation = useBulkPublish(onPublished);
-  const isMarkup = draft.kind === "markup";
-  const adjusted = isMarkup ? overrides.count : 0;
+  const isMargin = draft.kind === "margin";
+  const adjusted = isMargin ? overrides.count : 0;
   const channels = saleChannelsOf(stores.filter((store) => storeIds.has(store.id)));
   const floorProblem = useBatchFloorProblem(products, draft, overrides, channels);
   const canSubmit =
     storeIds.size > 0 &&
     draft.isValid &&
-    (!isMarkup || overrides.isValid) &&
+    (!isMargin || overrides.isValid) &&
     floorProblem === null &&
     !mutation.isPending;
   return (
@@ -155,7 +166,7 @@ function BulkPublishForm({
             productIds: products.map((product) => product.id),
             storeConnectionIds: [...storeIds],
             priceRule: draft.rule,
-            priceOverrides: isMarkup ? overrides.rules : {},
+            priceOverrides: isMargin ? overrides.rules : {},
           });
         }
       }}

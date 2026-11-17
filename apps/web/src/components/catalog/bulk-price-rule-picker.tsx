@@ -1,12 +1,12 @@
 import type { SellableCatalogProduct } from "@sellbridge/database/repositories";
-import { MAX_MARKUP_PERCENT, MIN_MARKUP_PERCENT, type PriceRule } from "@sellbridge/shared/schemas";
+import { MAX_PROFIT_MARGIN_PERCENT, MIN_PROFIT_MARGIN_PERCENT } from "@sellbridge/shared/schemas";
 import { SlidersHorizontalIcon } from "@phosphor-icons/react";
 import { ACTION_ICONS } from "@/components/icons/action-icons";
 import { Button } from "@/components/ui/button";
 import { Hint } from "@/components/ui/hint";
 import {
-  MARKUP_RANGE_MESSAGE,
-  parseMarkupPercent,
+  MARGIN_RANGE_MESSAGE,
+  parseMarginPercent,
   type usePriceOverrides,
   type usePriceRuleDraft,
 } from "@/features/catalog/use-price-rule-draft";
@@ -17,10 +17,12 @@ import { PriceReceipt } from "./price-receipt";
 
 const DecreaseIcon = ACTION_ICONS.decrease.icon;
 const IncreaseIcon = ACTION_ICONS.increase.icon;
-const MARKUP_STEP = 5;
+const MARGIN_STEP = 5;
 
-const RULE_OPTIONS: { kind: PriceRule["kind"]; label: string }[] = [
-  { kind: "markup", label: "Custo + margem" },
+type RuleKind = ReturnType<typeof usePriceRuleDraft>["kind"];
+
+const RULE_OPTIONS: { kind: RuleKind; label: string }[] = [
+  { kind: "margin", label: "Margem de lucro" },
   { kind: "suggested", label: "Sugerido pelo fornecedor" },
 ];
 
@@ -29,8 +31,8 @@ function RuleSegments({
   kind,
   onKindChange,
 }: {
-  kind: PriceRule["kind"];
-  onKindChange: (kind: PriceRule["kind"]) => void;
+  kind: RuleKind;
+  onKindChange: (kind: RuleKind) => void;
 }) {
   return (
     <div className="p-2">
@@ -59,8 +61,8 @@ function RuleSegments({
   );
 }
 
-function clampMarkup(percent: number): number {
-  return Math.min(MAX_MARKUP_PERCENT, Math.max(MIN_MARKUP_PERCENT, percent));
+function clampMargin(percent: number): number {
+  return Math.min(MAX_PROFIT_MARGIN_PERCENT, Math.max(MIN_PROFIT_MARGIN_PERCENT, percent));
 }
 
 /**
@@ -79,7 +81,7 @@ function PercentStepper({
   onPercentChange: (percent: string) => void;
 }) {
   const current = Number.parseInt(percent, 10) || 0;
-  const step = (delta: number) => onPercentChange(String(clampMarkup(current + delta)));
+  const step = (delta: number) => onPercentChange(String(clampMargin(current + delta)));
   return (
     <div className="flex shrink-0 items-center rounded-full bg-muted p-0.5">
       <Hint label={ACTION_ICONS.decrease.hint} openOnTap={false}>
@@ -88,8 +90,8 @@ function PercentStepper({
           size="icon-sm"
           variant="ghost"
           aria-label={`Diminuir ${stepNoun}`}
-          disabled={current <= MIN_MARKUP_PERCENT}
-          onClick={() => step(-MARKUP_STEP)}
+          disabled={current <= MIN_PROFIT_MARGIN_PERCENT}
+          onClick={() => step(-MARGIN_STEP)}
         >
           <DecreaseIcon aria-hidden="true" />
         </Button>
@@ -111,8 +113,8 @@ function PercentStepper({
           size="icon-sm"
           variant="ghost"
           aria-label={`Aumentar ${stepNoun}`}
-          disabled={current >= MAX_MARKUP_PERCENT}
-          onClick={() => step(MARKUP_STEP)}
+          disabled={current >= MAX_PROFIT_MARGIN_PERCENT}
+          onClick={() => step(MARGIN_STEP)}
         >
           <IncreaseIcon aria-hidden="true" />
         </Button>
@@ -121,7 +123,7 @@ function PercentStepper({
   );
 }
 
-function MarkupStepper({
+function MarginStepper({
   percent,
   onPercentChange,
   percentValid,
@@ -136,26 +138,26 @@ function MarkupStepper({
     <div className="space-y-1 px-3.5 py-2.5">
       <div className="flex items-center gap-3">
         <div className="min-w-0 flex-1">
-          <p className="text-sm">Acréscimo sobre o custo</p>
+          <p className="text-sm">Margem de lucro</p>
           <p className="text-xs text-muted-foreground">{hint}</p>
         </div>
         <PercentStepper
-          label="Acréscimo sobre o custo"
-          stepNoun="acréscimo"
+          label="Margem de lucro"
+          stepNoun="margem"
           percent={percent}
           onPercentChange={onPercentChange}
         />
       </div>
-      {percentValid ? null : <p className="text-xs text-destructive">{MARKUP_RANGE_MESSAGE}</p>}
+      {percentValid ? null : <p className="text-xs text-destructive">{MARGIN_RANGE_MESSAGE}</p>}
     </div>
   );
 }
 
 /**
- * Lets the product on screen leave the shared markup. Collapsed it is one quiet link; once
+ * Lets the product on screen leave the shared margin. Collapsed it is one quiet link; once
  * used it shows its own stepper and the shared value it replaced.
  */
-function ProductMarkupAdjust({
+function ProductMarginAdjust({
   sharedPercent,
   percent,
   onPercentChange,
@@ -178,7 +180,7 @@ function ProductMarkupAdjust({
       </button>
     );
   }
-  const valid = parseMarkupPercent(percent) !== null;
+  const valid = parseMarginPercent(percent) !== null;
   return (
     <div className="space-y-1 rounded-xl bg-background/60 px-3 py-2 ring-1 ring-border">
       <div className="flex items-center gap-3">
@@ -196,23 +198,23 @@ function ProductMarkupAdjust({
           </p>
         </div>
         <PercentStepper
-          label="Acréscimo deste produto"
+          label="Margem deste produto"
           stepNoun="margem do produto"
           percent={percent}
           onPercentChange={onPercentChange}
         />
       </div>
-      {valid ? null : <p className="text-xs text-destructive">{MARKUP_RANGE_MESSAGE}</p>}
+      {valid ? null : <p className="text-xs text-destructive">{MARGIN_RANGE_MESSAGE}</p>}
     </div>
   );
 }
 
-/** "Arredondado para ,90", or how many products still follow the shared markup. */
-function markupHint(total: number, adjusted: number): string {
+/** What the margin means, or how many products still follow the shared one. */
+function marginHint(total: number, adjusted: number): string {
   if (adjusted === 0) {
-    return "Arredondado para ,90";
+    return "O que sobra depois das taxas · preço termina em ,90";
   }
-  return `Vale para ${total - adjusted} de ${total} · arredondado para ,90`;
+  return `Vale para ${total - adjusted} de ${total} · preço termina em ,90`;
 }
 
 export function PriceRulePicker({
@@ -227,13 +229,13 @@ export function PriceRulePicker({
   /** The channels of the chosen stores: the receipt shows the one that leaves the least. */
   channels: SaleChannels;
 }) {
-  const isMarkup = draft.kind === "markup";
+  const isMargin = draft.kind === "margin";
   const ruleFor = (product: SellableCatalogProduct) =>
-    (isMarkup ? overrides.rules[product.id] : undefined) ?? draft.rule;
-  // The markup the preview really applies: a half-typed shared value falls back to the default.
-  const sharedPercent = draft.rule.kind === "markup" ? String(draft.rule.percent) : draft.percent;
+    (isMargin ? overrides.rules[product.id] : undefined) ?? draft.rule;
+  // The margin the preview really applies: a half-typed shared value falls back to the default.
+  const sharedPercent = draft.rule.kind === "margin" ? String(draft.rule.percent) : draft.percent;
   const adjust = (product: SellableCatalogProduct) => (
-    <ProductMarkupAdjust
+    <ProductMarginAdjust
       sharedPercent={sharedPercent}
       percent={overrides.percentFor(product.id)}
       onPercentChange={(percent) => overrides.setPercent(product.id, percent)}
@@ -243,19 +245,19 @@ export function PriceRulePicker({
   return (
     <SettingsGroup title="Preço de venda">
       <RuleSegments kind={draft.kind} onKindChange={draft.setKind} />
-      {isMarkup ? (
-        <MarkupStepper
+      {isMargin ? (
+        <MarginStepper
           percent={draft.percent}
           onPercentChange={draft.setPercent}
           percentValid={draft.percentValid}
-          hint={markupHint(products.length, overrides.count)}
+          hint={marginHint(products.length, overrides.count)}
         />
       ) : null}
       <PriceReceipt
         products={products}
         channels={channels}
         ruleFor={ruleFor}
-        adjust={isMarkup && products.length > 1 ? adjust : undefined}
+        adjust={isMargin && products.length > 1 ? adjust : undefined}
       />
     </SettingsGroup>
   );
