@@ -1,3 +1,4 @@
+import { ESCROW_RELEASE_DELAY_IN_DAYS } from "@sellbridge/shared/escrow-release";
 import { MAX_NEW_SUPPLIER_DELIVERIES } from "@sellbridge/shared/payment-accounts";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useId, useState } from "react";
@@ -129,7 +130,8 @@ export function NewSupplierRuleCard() {
         </div>
         <p className="text-sm text-muted-foreground">
           Ligada, quem ainda não completou as primeiras entregas só recebe pelo Asaas: o dinheiro
-          fica guardado até 7 dias depois da entrega. Depois disso, o fornecedor escolhe.
+          fica guardado até {ESCROW_RELEASE_DELAY_IN_DAYS} dias depois da entrega. Depois disso, o
+          fornecedor escolhe.
         </p>
       </div>
       {query.isPending ? <Skeleton className="h-32 rounded-2xl" /> : null}

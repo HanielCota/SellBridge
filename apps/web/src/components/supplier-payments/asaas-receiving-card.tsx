@@ -1,3 +1,4 @@
+import { ESCROW_RELEASE_DELAY_IN_DAYS } from "@sellbridge/shared/escrow-release";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useState, type ReactNode } from "react";
 import { toast } from "sonner";
@@ -45,7 +46,10 @@ function HowItWorks({ fee }: { fee: string }) {
   return (
     <ol className="grid list-decimal gap-1 pl-5 text-sm text-muted-foreground">
       <li>O revendedor paga e o dinheiro fica guardado no Asaas.</li>
-      <li>7 dias depois da entrega confirmada, o dinheiro é liberado para você.</li>
+      <li>
+        {ESCROW_RELEASE_DELAY_IN_DAYS} dias depois da entrega confirmada, o dinheiro é liberado para
+        você.
+      </li>
       <li>
         As tarifas do Asaas saem da sua parte e o SellBridge fica com {fee}. Se o pedido for
         cancelado ou devolvido antes, o revendedor recebe o dinheiro de volta.

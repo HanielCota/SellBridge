@@ -1,6 +1,7 @@
-import type {
-  PaymentAccountReviewStatus,
-  PaymentProviderName,
+import {
+  DEFAULT_NEW_SUPPLIER_DELIVERIES,
+  type PaymentAccountReviewStatus,
+  type PaymentProviderName,
 } from "@sellbridge/shared/payment-accounts";
 import { and, count, eq } from "drizzle-orm";
 import type { Database } from "../client.ts";
@@ -104,7 +105,10 @@ export interface NewSupplierRuleSetting {
   deliveries: number;
 }
 
-const DEFAULT_NEW_SUPPLIER_RULE: NewSupplierRuleSetting = { enabled: false, deliveries: 5 };
+const DEFAULT_NEW_SUPPLIER_RULE: NewSupplierRuleSetting = {
+  enabled: false,
+  deliveries: DEFAULT_NEW_SUPPLIER_DELIVERIES,
+};
 
 export async function getNewSupplierRule(database: Database): Promise<NewSupplierRuleSetting> {
   const [row] = await database

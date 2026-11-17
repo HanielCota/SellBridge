@@ -1,3 +1,4 @@
+import { ESCROW_RELEASE_DELAY_IN_DAYS } from "@sellbridge/shared/escrow-release";
 import type { PaymentProviderName } from "@sellbridge/shared/payment-accounts";
 
 /** What the supplier sees about each account on the "next payments" card. */
@@ -17,9 +18,8 @@ export const RECEIVING_PROVIDER_COPY: Readonly<
   asaas: {
     name: "Asaas",
     mark: "AS",
-    detail: "O dinheiro fica guardado e é liberado 7 dias depois da entrega.",
-    switchConsequence:
-      "Os próximos pagamentos ficam guardados no Asaas e são liberados para você 7 dias depois da entrega. O que já foi pago pelo Mercado Pago continua lá.",
+    detail: `O dinheiro fica guardado e é liberado ${ESCROW_RELEASE_DELAY_IN_DAYS} dias depois da entrega.`,
+    switchConsequence: `Os próximos pagamentos ficam guardados no Asaas e são liberados para você ${ESCROW_RELEASE_DELAY_IN_DAYS} dias depois da entrega. O que já foi pago pelo Mercado Pago continua lá.`,
   },
 };
 
