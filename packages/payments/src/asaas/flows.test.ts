@@ -350,6 +350,30 @@ describe("applyAsaasCharge", () => {
     });
   });
 
+  test("records the day Asaas confirmed the money, at noon in São Paulo", async () => {
+    mocks.findPayment.mockResolvedValue(parcel({ status: "pending", providerPaymentId: null }));
+    mocks.apply.mockResolvedValue({ kind: "applied", payment: parcel() });
+
+    await applyAsaasCharge(context, { account, charge: charge({ confirmedDate: "2026-12-08" }) });
+
+    expect(mocks.apply).toHaveBeenCalledWith(
+      context.database,
+      expect.objectContaining({ approvedAt: new Date("2026-12-08T15:00:00Z") }),
+    );
+  });
+
+  test("refuses a charge whose payment date cannot be read, without recording it", async () => {
+    mocks.findPayment.mockResolvedValue(parcel({ status: "pending", providerPaymentId: null }));
+
+    const result = applyAsaasCharge(context, {
+      account,
+      charge: charge({ confirmedDate: "08/12/2026" }),
+    });
+
+    await expect(result).rejects.toThrow('invalid payment date "08/12/2026"');
+    expect(mocks.apply).not.toHaveBeenCalled();
+  });
+
   test("ignores a charge SellBridge did not open for the parcel", async () => {
     mocks.findPayment.mockResolvedValue(parcel());
 

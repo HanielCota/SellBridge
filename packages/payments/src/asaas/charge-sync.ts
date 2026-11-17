@@ -18,6 +18,7 @@ import {
   type AsaasChargeState,
 } from "./charge-state.ts";
 import type { AsaasContext } from "./context.ts";
+import { AsaasError } from "./http.ts";
 import { centsFromAsaasValue } from "./money.ts";
 import type { AsaasPayment } from "./schemas.ts";
 
@@ -26,6 +27,20 @@ export type AsaasSyncResult =
   | { kind: "ignored"; reason: string };
 
 const externalReferenceSchema = z.uuid();
+
+/** Asaas sends the day the money came in (YYYY-MM-DD, São Paulo); noon keeps it on that day. */
+function approvedAtOf(paidOn: string | null, chargeId: string): Date {
+  if (paidOn === null) {
+    return new Date();
+  }
+  const approvedAt = new Date(`${paidOn.slice(0, 10)}T12:00:00-03:00`);
+  if (Number.isNaN(approvedAt.getTime())) {
+    throw new AsaasError(`Asaas sent an invalid payment date "${paidOn}" on charge ${chargeId}`, {
+      status: null,
+    });
+  }
+  return approvedAt;
+}
 
 /**
  * Why the charge does not settle the parcel, or null when it does: it must be one SellBridge
@@ -169,7 +184,7 @@ export async function applyAsaasCharge(
     providerPaymentId: input.charge.id,
     status: state.status,
     paymentMethod: state.paymentMethod,
-    approvedAt: paidOn === null ? new Date() : new Date(`${paidOn.slice(0, 10)}T12:00:00-03:00`),
+    approvedAt: approvedAtOf(paidOn, input.charge.id),
   });
   if (outcome === null) {
     return { kind: "ignored", reason: "unknown_payment" };
