@@ -907,3 +907,11 @@ Guilherme aprovou as três etapas do lucro real; a Central mandou começar a eta
   - **Servidor:** o piso do servidor ao criar o anúncio e ao trocar o preço.
 - **Fora, de propósito:** o catálogo e a publicação em lote continuam na estimativa da etapa 1. Ler 9 valores por produto e por loja numa grade de 24 produtos seria pergunta demais ao Mercado Livre por página aberta.
 - **Testes:** nenhuma chamada real ao Mercado Livre. Os testes de unidade usam respostas no formato da documentação, e o teste de navegador usa o substituto do Mercado Livre (`e2e/mercado-livre.fixture.ts`).
+
+## 2026-11-17: Avisos do Mercado Livre de envio e de reclamações
+
+- **Envio na hora:** o tópico `shipments` passa a disparar a mesma leitura da tarefa de 30 minutos para os pedidos do envio. Descartado: ler o envio direto pelo id do aviso, que duplicaria a regra de status de `getMercadoLivreShipping`. A tarefa periódica fica como rede de segurança: relê a cada 6 horas os pacotes de lojas que recebem avisos (marcado em `store_connections.last_shipment_notice_at`), sem configuração; loja sem avisos segue nos 30 minutos.
+- **Reclamações só mostradas:** `post_purchase` (filtros `claims` e `claims_actions`) grava a reclamação em `marketplace_claims` e avisa revendedor e fornecedor; responder, reembolsar e revisar devolução ficam no Mercado Livre (fora do escopo pedido). Tabela própria, separada de `return_claims` (crédito do fornecedor ao revendedor).
+- **Ordem e repetição:** o aviso é só um gatilho; o recurso é sempre relido com o token da loja. A reclamação guarda o `last_updated` do Mercado Livre e uma leitura mais antiga não sobrescreve; os avisos ao cliente usam chave por reclamação e momento, então um aviso repetido não chega duas vezes.
+- **Correção:** os avisos com subtópico trazem `id` em vez de `_id` e eram recusados com 401; o Mercado Livre repetiria por 1 hora e poderia desligar o tópico.
+- **Busca diária:** abertas de qualquer idade mais as atualizadas em 26 horas, por loja, até 200 por rodada. Cobre aviso perdido e as reclamações de pedidos vendidos antes de os tópicos serem ligados.
