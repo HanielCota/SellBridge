@@ -42,7 +42,8 @@ test("walks a test order from received to delivered and deletes it", async ({ pa
   await card.getByRole("button", { name: "Imprimir etiqueta de teste" }).click();
   const label = page.getByRole("dialog", { name: "Etiqueta de teste" });
   await expect(label.getByText("NÃO VALE PARA ENVIO")).toBeVisible();
-  await label.getByRole("button", { name: "Fechar" }).click();
+  await page.keyboard.press("Escape");
+  await expect(label).toBeHidden();
   await card.getByRole("button", { name: "Marcar como separado" }).click();
   await card.getByRole("button", { name: "Marcar como enviado" }).click();
   await expect(card.getByText(/Postar até/)).toBeHidden();
