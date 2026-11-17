@@ -14,6 +14,7 @@ const HOUR_IN_MILLISECONDS = 3_600_000;
 const SAMPLE_PRODUCT = { title: "Produto de exemplo", sku: "EXEMPLO" } as const;
 
 export type SupplierTestOrder = typeof supplierTestOrders.$inferSelect;
+export type { SupplierTestOrderStep };
 
 /** The timestamp column each step fills when the supplier reaches it. */
 const STEP_COLUMNS = {
@@ -25,7 +26,7 @@ const STEP_COLUMNS = {
 } as const satisfies Record<Exclude<SupplierTestOrderStep, "received">, keyof SupplierTestOrder>;
 
 /** The step after `step`, or null once the test order was delivered. */
-export function nextSupplierTestOrderStep(
+function nextSupplierTestOrderStep(
   step: SupplierTestOrderStep,
 ): Exclude<SupplierTestOrderStep, "received"> | null {
   const next = SUPPLIER_TEST_ORDER_STEPS[SUPPLIER_TEST_ORDER_STEPS.indexOf(step) + 1];
