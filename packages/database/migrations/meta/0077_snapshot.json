@@ -1,5 +1,5 @@
 {
-  "id": "744fed9b-5d22-4c59-ba5d-a3936de6ac58",
+  "id": "c70c525a-ede5-44dc-8422-32664893d41a",
   "prevId": "c3e425e0-94e9-49c1-8f85-ff32544b4645",
   "version": "7",
   "dialect": "postgresql",
@@ -1076,6 +1076,37 @@
           "primaryKey": false,
           "notNull": false
         },
+        "warranty_type": {
+          "name": "warranty_type",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "warranty_days": {
+          "name": "warranty_days",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "video_url": {
+          "name": "video_url",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "made_to_order_days": {
+          "name": "made_to_order_days",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "carrier_only": {
+          "name": "carrier_only",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": true,
+          "default": false
+        },
         "fiscal": {
           "name": "fiscal",
           "type": "jsonb",
@@ -1288,6 +1319,10 @@
         "supplier_products_reserved_stock_check": {
           "name": "supplier_products_reserved_stock_check",
           "value": "\"supplier_products\".\"reserved_stock\" >= 0"
+        },
+        "supplier_products_sale_terms_check": {
+          "name": "supplier_products_sale_terms_check",
+          "value": "(\"supplier_products\".\"warranty_type\" is null or \"supplier_products\".\"warranty_type\" in ('none', 'seller', 'factory')) and (\"supplier_products\".\"warranty_days\" is null or \"supplier_products\".\"warranty_days\" between 1 and 3650) and (\"supplier_products\".\"made_to_order_days\" is null or \"supplier_products\".\"made_to_order_days\" between 1 and 60)"
         }
       },
       "isRLSEnabled": false
@@ -8022,65 +8057,6 @@
         }
       },
       "compositePrimaryKeys": {},
-      "uniqueConstraints": {},
-      "policies": {},
-      "checkConstraints": {},
-      "isRLSEnabled": false
-    },
-    "public.marketplace_fee_quotes": {
-      "name": "marketplace_fee_quotes",
-      "schema": "",
-      "columns": {
-        "store_connection_id": {
-          "name": "store_connection_id",
-          "type": "uuid",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "quote_key": {
-          "name": "quote_key",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "amount": {
-          "name": "amount",
-          "type": "integer",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "read_at": {
-          "name": "read_at",
-          "type": "timestamp with time zone",
-          "primaryKey": false,
-          "notNull": true
-        }
-      },
-      "indexes": {},
-      "foreignKeys": {
-        "marketplace_fee_quotes_store_connection_id_store_connections_id_fk": {
-          "name": "marketplace_fee_quotes_store_connection_id_store_connections_id_fk",
-          "tableFrom": "marketplace_fee_quotes",
-          "tableTo": "store_connections",
-          "columnsFrom": [
-            "store_connection_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
-          "onDelete": "cascade",
-          "onUpdate": "no action"
-        }
-      },
-      "compositePrimaryKeys": {
-        "marketplace_fee_quotes_store_connection_id_quote_key_pk": {
-          "name": "marketplace_fee_quotes_store_connection_id_quote_key_pk",
-          "columns": [
-            "store_connection_id",
-            "quote_key"
-          ]
-        }
-      },
       "uniqueConstraints": {},
       "policies": {},
       "checkConstraints": {},

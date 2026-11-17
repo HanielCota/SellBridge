@@ -47,6 +47,60 @@ test.afterAll(async () => {
   await database.$client.end();
 });
 
+async function storedTerms(sku: string) {
+  const [row] = await database
+    .select({
+      warrantyType: supplierProducts.warrantyType,
+      warrantyDays: supplierProducts.warrantyDays,
+      videoUrl: supplierProducts.videoUrl,
+      madeToOrderDays: supplierProducts.madeToOrderDays,
+      carrierOnly: supplierProducts.carrierOnly,
+    })
+    .from(supplierProducts)
+    .where(eq(supplierProducts.sku, sku));
+  return row ?? null;
+}
+
+test("the product form saves warranty, video, made-to-order time and carrier-only", async ({
+  page,
+}) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  const email = await signUpAsSupplier(page, "Ateliê Garantia");
+  emails.push(email);
+  await page.getByLabel("Nome da marca").fill("Ateliê Garantia");
+  await pickBrandNiche(page, "Casa e decoração");
+  await page.getByLabel("Cidade de onde você envia").fill("Cunha");
+  await page.getByRole("button", { name: /^(Cadastrar marca|Salvar)$/ }).click();
+  await expect(page).toHaveURL(/\/fornecedor\/painel\/produtos/);
+  const sku = `GARANTIA-${Date.now()}`;
+  await openNewProduct(page, sku);
+
+  await page.getByRole("combobox", { name: "Garantia" }).click();
+  await page.getByRole("option", { name: "Garantia do vendedor" }).click();
+  await expect(page.getByText("Informe quantos dias de garantia, como 90.")).toBeVisible();
+  await page.getByLabel("Tempo de garantia (dias)").fill("90");
+  await page.getByLabel("Vídeo do produto no YouTube (opcional)").fill("https://vimeo.com/123");
+  await expect(page.locator("#panel-product-videoUrl-error")).toContainText(
+    "Cole o link de um vídeo do YouTube",
+  );
+  await page
+    .getByLabel("Vídeo do produto no YouTube (opcional)")
+    .fill("https://youtu.be/abc123DEF45");
+  await page.getByRole("switch", { name: "Produto sob encomenda" }).click();
+  await page.getByLabel(/Dias para ficar pronto/).fill("5");
+  await page.getByRole("switch", { name: "Somente transportadora" }).click();
+
+  await expect
+    .poll(async () => await storedTerms(sku), { timeout: SAVE_TIMEOUT })
+    .toEqual({
+      warrantyType: "seller",
+      warrantyDays: 90,
+      videoUrl: "https://youtu.be/abc123DEF45",
+      madeToOrderDays: 5,
+      carrierOnly: true,
+    });
+});
+
 test("the product form asks the Mercado Livre category and its own fields", async ({ page }) => {
   await page.setViewportSize({ width: 390, height: 844 });
   const email = await signUpAsSupplier(page, "Ateliê Bolsas");
