@@ -6,6 +6,7 @@ import {
   type ConnectorRegistry,
 } from "@sellbridge/marketplaces";
 import { createBlingRateLimiter, type BlingAppCredentials } from "@sellbridge/marketplaces/bling";
+import { mercadoPagoSettingsFrom } from "@sellbridge/payments/mercado-pago";
 import { createTokenCipher } from "@sellbridge/shared/token-cipher";
 import { installErrorAlerts } from "@sellbridge/shared/error-alerts";
 import { installProblemRecorder } from "@sellbridge/database/problem-recorder";
@@ -34,6 +35,7 @@ import { createPublishListingProcessor } from "./processors/publish-listing.ts";
 import { createPublishRecoveryProcessor, type RecoveryJob } from "./processors/publish-recovery.ts";
 import { createAutoForwardProcessor } from "./processors/order-auto-forward.ts";
 import { createStockPriceSyncProcessor } from "./processors/stock-price-sync.ts";
+import { createSupplierPaymentProcessor } from "./processors/supplier-payments.ts";
 import { createTicketAutoCloseProcessor } from "./processors/ticket-auto-close.ts";
 import { createTokenRefreshProcessor } from "./processors/token-refresh.ts";
 import {
@@ -69,6 +71,7 @@ function createQueues(connection: { url: string; maxRetriesPerRequest: null }) {
     shipmentTracking: new Queue(QUEUE_NAMES.shipmentTracking, { connection }),
     notifications: new Queue(QUEUE_NAMES.notificationDelivery, { connection }),
     erpInvoices: new Queue(QUEUE_NAMES.erpInvoiceIssue, { connection }),
+    supplierPayments: new Queue(QUEUE_NAMES.supplierPayments, { connection }),
   };
 }
 
@@ -289,6 +292,22 @@ function recoveryWorkers(context: WorkerContext): Worker[] {
   ];
 }
 
+function paymentWorkers(context: WorkerContext): Worker[] {
+  const { database, cipher, connection } = context;
+  const processPayments = createSupplierPaymentProcessor({
+    database,
+    cipher,
+    settings: mercadoPagoSettingsFrom(environment),
+    requestStockSync: async () => requestStockSync(context),
+  });
+  return [
+    new Worker(QUEUE_NAMES.supplierPayments, async () => processPayments(), {
+      connection,
+      concurrency: 1,
+    }),
+  ];
+}
+
 function deliveryWorkers(context: WorkerContext): Worker[] {
   const { database, cipher, sendEmail, connection } = context;
   const processTickets = createTicketAutoCloseProcessor({ database });
@@ -357,6 +376,7 @@ async function scheduleQueues(queues: WorkerContext["queues"]): Promise<void> {
   await scheduleRecurring(queues.tokenRefresh, "refresh-expiring-tokens", 10 * 60 * 1000);
   await scheduleRecurring(queues.shipmentTracking, "track-shipments", 30 * 60 * 1000);
   await scheduleRecurring(queues.erpInvoices, "issue-erp-invoices", 2 * 60 * 1000);
+  await scheduleRecurring(queues.supplierPayments, "reconcile-supplier-payments", 5 * 60 * 1000);
 }
 
 function observeWorkers(workers: readonly Worker[]): void {
@@ -426,6 +446,7 @@ export async function startWorker(connectors: ConnectorRegistry): Promise<void> 
     ...recoveryWorkers(context),
     ...deliveryWorkers(context),
     ...erpWorkers(context),
+    ...paymentWorkers(context),
   ];
   observeWorkers(workers);
   // Expose health before scheduling: a Redis outage must not leave probes waiting for startup.

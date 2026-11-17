@@ -1,14 +1,14 @@
 import { findPaymentAccountsByProviderAccount } from "@sellbridge/database/repositories";
+import {
+  isMercadoPagoError,
+  PaymentAccountUnavailableError,
+  syncMercadoPagoPayment,
+} from "@sellbridge/payments/mercado-pago";
 import { parseJsonText, readTextWithin } from "@sellbridge/shared/http-body";
 import { logger } from "@sellbridge/shared/logger";
 import { z } from "zod";
 import { database } from "@/lib/server/database";
-import {
-  mercadoPagoSettings,
-  PaymentAccountUnavailableError,
-  syncMercadoPagoPayment,
-} from "./mercado-pago-accounts.server";
-import { isMercadoPagoError } from "./mercado-pago-client.server";
+import { mercadoPagoContext, mercadoPagoSettings } from "./mercado-pago-accounts.server";
 import { isValidMercadoPagoSignature } from "./mercado-pago-signature";
 
 const MAX_BODY_BYTES = 64 * 1024;
@@ -77,8 +77,8 @@ async function processPaymentNotice(input: {
   accountId: string;
   providerPaymentId: string;
 }): Promise<Response> {
-  const settings = mercadoPagoSettings();
-  if (settings === null) {
+  const context = mercadoPagoContext();
+  if (context === null) {
     return reply(404, { error: "pagamento pelo Mercado Pago desligado" });
   }
   const accounts = await findPaymentAccountsByProviderAccount(database, {
@@ -98,8 +98,7 @@ async function processPaymentNotice(input: {
   }
   try {
     for (const account of linked) {
-      const result = await syncMercadoPagoPayment({
-        settings,
+      const result = await syncMercadoPagoPayment(context, {
         account,
         providerPaymentId: input.providerPaymentId,
       });

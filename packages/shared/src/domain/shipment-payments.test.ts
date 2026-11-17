@@ -6,7 +6,10 @@ import {
   platformFeeCents,
   shipmentPaymentStatusFrom,
   supplierPaymentBadge,
+  supplierPaymentRefundDueAt,
+  supplierPaymentRefundReason,
 } from "./shipment-payments.ts";
+import type { ShipmentTiming } from "./shipment-delay.ts";
 
 describe("effectivePaymentFeeBasisPoints", () => {
   test("uses 1% while the admin has saved no fee", () => {
@@ -117,12 +120,149 @@ describe("supplierPaymentBadge", () => {
       supplierReceivesHere: true,
     });
 
-    expect(badge).toEqual({ kind: "refunded" });
+    expect(badge).toEqual({ kind: "refunded", refundedAt: null });
+  });
+
+  test("dates a refund SellBridge asked for", () => {
+    const badge = supplierPaymentBadge({
+      payment: { status: "refunded", paidAt, method: "pix", refundRequestedAt: paidAt },
+      supplierReceivesHere: true,
+    });
+
+    expect(badge).toEqual({ kind: "refunded", refundedAt: paidAt });
+  });
+
+  test("shows a refund under way instead of paid once SellBridge asked for it", () => {
+    const badge = supplierPaymentBadge({
+      payment: { status: "approved", paidAt, method: "pix", refundRequestedAt: paidAt },
+      supplierReceivesHere: true,
+    });
+
+    expect(badge).toEqual({ kind: "refunding" });
+  });
+
+  test("shows a payment under review, so nobody pays again meanwhile", () => {
+    const badge = supplierPaymentBadge({
+      payment: { status: "in_process", paidAt: null, method: "credit_card" },
+      supplierReceivesHere: true,
+    });
+
+    expect(badge).toEqual({ kind: "reviewing" });
   });
 
   test("is paid outside when the supplier has no account here", () => {
     const badge = supplierPaymentBadge({ payment: null, supplierReceivesHere: false });
 
     expect(badge).toEqual({ kind: "outside" });
+  });
+});
+
+function timing(overrides: Partial<ShipmentTiming> = {}): ShipmentTiming {
+  return {
+    status: "accepted",
+    dispatchDeadlineAt: null,
+    estimatedDeliveryAt: null,
+    shippedAt: null,
+    forwardedAt: new Date("2026-11-10T12:00:00.000Z"),
+    acceptWithinHours: 24,
+    dispatchWithinHours: 48,
+    ...overrides,
+  };
+}
+
+describe("supplierPaymentRefundDueAt", () => {
+  test("gives a day after the end of Mercado Livre's posting date", () => {
+    // Mercado Livre dates the deadline at midnight in Brazil: the whole 13th is still on time.
+    const parcel = timing({ dispatchDeadlineAt: new Date("2026-11-13T03:00:00.000Z") });
+
+    const due = supplierPaymentRefundDueAt(parcel, new Date("2026-11-10T12:00:00.000Z"));
+
+    expect(due.toISOString()).toBe("2026-11-15T03:00:00.000Z");
+  });
+
+  test("gives a day after the supplier's own dispatch time when the marketplace set none", () => {
+    const due = supplierPaymentRefundDueAt(timing(), new Date("2026-11-10T12:00:00.000Z"));
+
+    expect(due.toISOString()).toBe("2026-11-13T12:00:00.000Z");
+  });
+
+  test("keeps 48 hours after a payment made after the deadline", () => {
+    const parcel = timing({ dispatchDeadlineAt: new Date("2026-11-10T03:00:00.000Z") });
+
+    const due = supplierPaymentRefundDueAt(parcel, new Date("2026-11-12T09:00:00.000Z"));
+
+    expect(due.toISOString()).toBe("2026-11-14T09:00:00.000Z");
+  });
+
+  test("keeps 48 hours after the payment when the parcel has no deadline at all", () => {
+    const parcel = timing({ forwardedAt: null });
+
+    const due = supplierPaymentRefundDueAt(parcel, new Date("2026-11-10T12:00:00.000Z"));
+
+    expect(due.toISOString()).toBe("2026-11-12T12:00:00.000Z");
+  });
+});
+
+describe("supplierPaymentRefundReason", () => {
+  const paidAt = new Date("2026-11-10T12:00:00.000Z");
+
+  test("refunds an unshipped parcel once the refund is due", () => {
+    const reason = supplierPaymentRefundReason({
+      timing: timing({ status: "ready" }),
+      paidAt,
+      now: new Date("2026-11-13T12:00:00.000Z"),
+    });
+
+    expect(reason).toBe("not_dispatched");
+  });
+
+  test("waits while the refund is not due yet", () => {
+    const reason = supplierPaymentRefundReason({
+      timing: timing({ status: "ready" }),
+      paidAt,
+      now: new Date("2026-11-13T11:59:59.000Z"),
+    });
+
+    expect(reason).toBeNull();
+  });
+
+  test("refunds a cancelled parcel at once", () => {
+    const reason = supplierPaymentRefundReason({
+      timing: timing({ status: "cancelled" }),
+      paidAt,
+      now: paidAt,
+    });
+
+    expect(reason).toBe("cancelled");
+  });
+
+  test("refunds a parcel that came back to the supplier", () => {
+    const reason = supplierPaymentRefundReason({
+      timing: timing({ status: "returned" }),
+      paidAt,
+      now: paidAt,
+    });
+
+    expect(reason).toBe("returned");
+  });
+
+  test("never refunds a parcel the carrier failed to deliver", () => {
+    const reason = supplierPaymentRefundReason({
+      timing: timing({ status: "not_delivered" }),
+      paidAt,
+      now: new Date("2027-01-01T00:00:00.000Z"),
+    });
+
+    expect(reason).toBeNull();
+  });
+
+  test("never refunds a shipped parcel, however late", () => {
+    const reason = supplierPaymentRefundReason({
+      timing: timing({ status: "shipped" }),
+      paidAt,
+      now: new Date("2027-01-01T00:00:00.000Z"),
+    });
+
+    expect(reason).toBeNull();
   });
 });

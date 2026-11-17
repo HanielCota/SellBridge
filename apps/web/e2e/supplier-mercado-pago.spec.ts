@@ -1,11 +1,12 @@
 import { randomUUID } from "node:crypto";
-import { expect, test } from "@playwright/test";
+import { expect, test, type Browser, type Page } from "@playwright/test";
 import {
   orderItems,
   orders,
   orderShipments,
   organization,
   platformSettings,
+  shipmentPayments,
   storeConnections,
   supplierProducts,
 } from "@sellbridge/database/schema";
@@ -173,5 +174,132 @@ test("o admin define a taxa do SellBridge e ela vale no próximo pagamento", asy
   await expect(reseller.getByText("Taxa do marketplace: R$ 4,00")).toBeVisible();
   await reseller.getByRole("button", { name: "Pagar com Pix" }).click();
   await expect(reseller.getByText(/Fornecedor pago ·/)).toBeVisible();
+  await reseller.context().close();
+});
+
+/** The supplier linked and a forwarded sale, with the reseller on its order page. */
+async function resellerOnLinkedSale(
+  page: Page,
+  browser: Browser,
+  brand: string,
+): Promise<{ reseller: Page; orderId: string }> {
+  const email = await accounts.signUp(page, brand);
+  const supplierId = await giveTestBrand(database, email, brand);
+  const sale = await forwardedSale(supplierId);
+  await gotoHydrated(page, "/fornecedor/painel/recebimentos");
+  await page.getByRole("link", { name: "Ligar conta Mercado Pago" }).click();
+  await page.getByRole("button", { name: "Autorizar" }).click();
+  await expect(page.getByRole("status")).toContainText("Conta Mercado Pago ligada");
+  const reseller = await (await browser.newContext({ locale: "pt-BR" })).newPage();
+  await signIn(reseller, DEMO_USER);
+  await gotoHydrated(reseller, `/pedidos/${sale.orderId}`);
+  return { reseller, orderId: sale.orderId };
+}
+
+/** The parcel payment of the order, as SellBridge holds it. */
+async function parcelPayment(orderId: string) {
+  const [row] = await database
+    .select({ payment: shipmentPayments })
+    .from(shipmentPayments)
+    .innerJoin(orderShipments, eq(orderShipments.id, shipmentPayments.shipmentId))
+    .where(eq(orderShipments.orderId, orderId));
+  if (row === undefined) throw new Error("Parcel payment missing");
+  return row.payment;
+}
+
+/** The checkout closes, as it does 30 minutes after it opened. */
+async function closeCheckout(orderId: string): Promise<void> {
+  const payment = await parcelPayment(orderId);
+  await database
+    .update(shipmentPayments)
+    .set({ checkoutExpiresAt: new Date(Date.now() - 60_000) })
+    .where(eq(shipmentPayments.id, payment.id));
+}
+
+test("um cartão em análise cujo aviso se perdeu impede um segundo pagamento", async ({
+  page,
+  browser,
+}) => {
+  const { reseller, orderId } = await resellerOnLinkedSale(page, browser, "Ateliê Análise E2E");
+  await reseller.getByRole("button", { name: "Pagar com Pix ou cartão" }).click();
+  await reseller.getByRole("button", { name: "Cartão em análise" }).click();
+  const paymentId = await reseller.getByTestId("pagamento").textContent();
+  await closeCheckout(orderId);
+
+  await gotoHydrated(reseller, `/pedidos/${orderId}`);
+  await expect(reseller.getByText("Aguardando pagamento")).toBeVisible();
+  await reseller.getByRole("button", { name: "Pagar com Pix ou cartão" }).click();
+
+  await expect(reseller.getByText("Pagamento em análise")).toBeVisible();
+  await expect(reseller.getByRole("button", { name: "Pagar com Pix ou cartão" })).toHaveCount(0);
+  expect((await parcelPayment(orderId)).status).toBe("in_process");
+
+  const approval = await reseller.request.post(
+    `/__e2e/mercado-pago/test/aprovar?pagamento=${paymentId ?? ""}`,
+  );
+  expect(approval.ok()).toBe(true);
+  await gotoHydrated(reseller, `/pedidos/${orderId}`);
+  await expect(reseller.getByText(/Fornecedor pago ·/)).toBeVisible();
+  await reseller.context().close();
+});
+
+test("um pagamento aprovado tarde por um checkout anterior marca o envio pago", async ({
+  page,
+  browser,
+}) => {
+  const { reseller, orderId } = await resellerOnLinkedSale(page, browser, "Ateliê Atrasado E2E");
+  await reseller.getByRole("button", { name: "Pagar com Pix ou cartão" }).click();
+  await expect(reseller.getByText("Total: R$ 80,00")).toBeVisible();
+  const firstCheckout = new URL(reseller.url()).searchParams.get("pref") ?? "";
+  await closeCheckout(orderId);
+  await gotoHydrated(reseller, `/pedidos/${orderId}`);
+  await reseller.getByRole("button", { name: "Pagar com Pix ou cartão" }).click();
+  await expect(reseller.getByText("Total: R$ 80,00")).toBeVisible();
+  expect(new URL(reseller.url()).searchParams.get("pref")).not.toBe(firstCheckout);
+
+  const late = await reseller.request.post(
+    `/__e2e/mercado-pago/test/pagar-atrasado?pref=${firstCheckout}`,
+  );
+  expect(late.ok()).toBe(true);
+
+  await gotoHydrated(reseller, `/pedidos/${orderId}`);
+  await expect(reseller.getByText(/Fornecedor pago ·/)).toBeVisible();
+  await expect(reseller.getByRole("button", { name: "Pagar com Pix ou cartão" })).toHaveCount(0);
+  await reseller.context().close();
+});
+
+test("o revendedor vê por que o pagamento ao fornecedor está voltando", async ({
+  page,
+  browser,
+}) => {
+  const { reseller, orderId } = await resellerOnLinkedSale(page, browser, "Ateliê Devolução E2E");
+  await reseller.getByRole("button", { name: "Pagar com Pix ou cartão" }).click();
+  await reseller.getByRole("button", { name: "Pagar com Pix" }).click();
+  await expect(reseller.getByText(/Fornecedor pago ·/)).toBeVisible();
+  const payment = await parcelPayment(orderId);
+
+  await database
+    .update(shipmentPayments)
+    .set({ refundReason: "not_dispatched", refundRequestedAt: new Date() })
+    .where(eq(shipmentPayments.id, payment.id));
+  await gotoHydrated(reseller, `/pedidos/${orderId}`);
+  await expect(reseller.getByText("Devolução em andamento")).toBeVisible();
+  await expect(
+    reseller.getByText(
+      "O fornecedor não postou o envio no prazo. Estamos devolvendo R$ 80,00 para você pelo Mercado Pago.",
+    ),
+  ).toBeVisible();
+
+  await database
+    .update(shipmentPayments)
+    .set({ status: "refunded" })
+    .where(eq(shipmentPayments.id, payment.id));
+  await gotoHydrated(reseller, `/pedidos/${orderId}`);
+  await expect(reseller.getByText(/Pagamento devolvido ·/)).toBeVisible();
+  await expect(
+    reseller.getByText(
+      "O fornecedor não postou o envio no prazo. Devolvemos R$ 80,00 para você pelo Mercado Pago.",
+    ),
+  ).toBeVisible();
   await reseller.context().close();
 });

@@ -1,6 +1,6 @@
 import { describe, expect, test } from "vitest";
-import { isMercadoPagoCheckoutUrl } from "./mercado-pago-client.server";
-import type { MercadoPagoSettings } from "./mercado-pago-connection";
+import { isMercadoPagoCheckoutUrl } from "./client.ts";
+import type { MercadoPagoSettings } from "./settings.ts";
 
 const settings: MercadoPagoSettings = {
   clientId: "client",

@@ -181,25 +181,18 @@ function checkoutPage(url: URL, response: ServerResponse): void {
     finishCheckout(preference, outcome, response);
     return;
   }
+  if (outcome === "analise") {
+    leaveUnderReview(preference, response);
+    return;
+  }
   html(
     response,
-    `<h1>Checkout de teste do Mercado Pago</h1><p>${escape(preference.title)}</p><p>Total: ${money.format(preference.amount)}</p><p>Taxa do marketplace: ${money.format(preference.fee)}</p><form method="get"><input type="hidden" name="pref" value="${escape(preference.id)}"><button name="pagar" value="pix">Pagar com Pix</button><button name="pagar" value="recusar">Recusar cartão</button></form>`,
+    `<h1>Checkout de teste do Mercado Pago</h1><p>${escape(preference.title)}</p><p>Total: ${money.format(preference.amount)}</p><p>Taxa do marketplace: ${money.format(preference.fee)}</p><form method="get"><input type="hidden" name="pref" value="${escape(preference.id)}"><button name="pagar" value="pix">Pagar com Pix</button><button name="pagar" value="recusar">Recusar cartão</button><button name="pagar" value="analise">Cartão em análise</button></form>`,
   );
 }
 
 function finishCheckout(preference: Preference, outcome: string, response: ServerResponse): void {
-  const approved = outcome === "pix";
-  const payment: Payment = {
-    id: String(randomInt(1_000_000_000, 9_999_999_999)),
-    accountId: preference.accountId,
-    preferenceId: preference.id,
-    fee: preference.fee,
-    status: approved ? "approved" : "rejected",
-    externalReference: preference.externalReference,
-    amount: preference.amount,
-    approvedAt: approved ? new Date().toISOString() : null,
-  };
-  payments.set(payment.id, payment);
+  const payment = newPayment(preference, outcome === "pix" ? "approved" : "rejected");
   void sendNotice(payment);
   const back = new URL(preference.returnUrl);
   back.searchParams.set("payment_id", payment.id);
@@ -208,6 +201,58 @@ function finishCheckout(preference: Preference, outcome: string, response: Serve
   back.searchParams.set("preference_id", preference.id);
   response.writeHead(302, { location: back.href });
   response.end();
+}
+
+function newPayment(preference: Preference, status: string): Payment {
+  const payment: Payment = {
+    id: String(randomInt(1_000_000_000, 9_999_999_999)),
+    accountId: preference.accountId,
+    preferenceId: preference.id,
+    fee: preference.fee,
+    status,
+    externalReference: preference.externalReference,
+    amount: preference.amount,
+    approvedAt: status === "approved" ? new Date().toISOString() : null,
+  };
+  payments.set(payment.id, payment);
+  return payment;
+}
+
+/**
+ * A card payment Mercado Pago leaves under review, whose notice never arrives and whose buyer
+ * never comes back to SellBridge: only reading it back can find it.
+ */
+function leaveUnderReview(preference: Preference, response: ServerResponse): void {
+  const payment = newPayment(preference, "in_process");
+  html(
+    response,
+    `<h1>Pagamento em análise</h1><p>Pagamento <span data-testid="pagamento">${escape(payment.id)}</span> em análise. Você pode fechar esta página.</p>`,
+  );
+}
+
+/** Test hook: Mercado Pago approves a payment under review, and its notice arrives. */
+async function approveLater(url: URL, response: ServerResponse): Promise<void> {
+  const payment = payments.get(url.searchParams.get("pagamento") ?? "");
+  if (payment === undefined) {
+    json(response, 404, { message: "payment not found" });
+    return;
+  }
+  payment.status = "approved";
+  payment.approvedAt = new Date().toISOString();
+  await sendNotice(payment);
+  json(response, 200, { id: payment.id });
+}
+
+/** Test hook: a payment approved through a checkout the reseller had already left behind. */
+async function payLate(url: URL, response: ServerResponse): Promise<void> {
+  const preference = preferences.get(url.searchParams.get("pref") ?? "");
+  if (preference === undefined) {
+    json(response, 404, { message: "preference not found" });
+    return;
+  }
+  const payment = newPayment(preference, "approved");
+  await sendNotice(payment);
+  json(response, 200, { id: payment.id });
 }
 
 /** Posts the signed notice the way Mercado Pago does, a moment after the payment. */
@@ -309,6 +354,14 @@ async function handle(request: IncomingMessage, response: ServerResponse): Promi
   }
   if (path.startsWith("/api/v1/payments/")) {
     paymentEndpoint(request, url, response);
+    return true;
+  }
+  if (path === "/test/aprovar" && request.method === "POST") {
+    await approveLater(url, response);
+    return true;
+  }
+  if (path === "/test/pagar-atrasado" && request.method === "POST") {
+    await payLate(url, response);
     return true;
   }
   return false;
