@@ -1,8 +1,14 @@
 import { claimNoticeContent, type ClaimNoticeMoment } from "@sellbridge/shared/notification-events";
 import type { FulfillmentStatus, Marketplace } from "@sellbridge/shared/schemas";
-import { and, asc, eq, inArray, or } from "drizzle-orm";
+import { and, asc, eq, gt, inArray, isNotNull, isNull, or } from "drizzle-orm";
 import type { Database, Transaction } from "../client.ts";
-import { marketplaceClaims, orders, orderShipments, suppliers } from "../schema/index.ts";
+import {
+  marketplaceClaims,
+  orders,
+  orderShipments,
+  storeConnections,
+  suppliers,
+} from "../schema/index.ts";
 import { notifyWorkspace } from "./notification-producers.ts";
 
 /** A claim as the marketplace reports it now (`MarketplaceClaim` without what names the order). */
@@ -234,4 +240,25 @@ export async function saveMarketplaceClaim(
     }
     return { saved: previous === undefined ? "created" : "updated", moment };
   });
+}
+
+/** Connected Mercado Livre stores with a live token: the daily claim search reads each one. */
+export async function listClaimSweepStores(database: Database) {
+  return database
+    .select({
+      id: storeConnections.id,
+      tenantId: storeConnections.tenantId,
+      externalShopId: storeConnections.externalShopId,
+      accessTokenEnc: storeConnections.accessTokenEnc,
+    })
+    .from(storeConnections)
+    .where(
+      and(
+        eq(storeConnections.marketplace, "mercado_livre"),
+        eq(storeConnections.status, "connected"),
+        isNotNull(storeConnections.accessTokenEnc),
+        or(isNull(storeConnections.expiresAt), gt(storeConnections.expiresAt, new Date())),
+      ),
+    )
+    .orderBy(asc(storeConnections.id));
 }
