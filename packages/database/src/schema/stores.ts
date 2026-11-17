@@ -23,11 +23,6 @@ export const storeConnections = pgTable(
     marketplace: marketplaceEnum().notNull(),
     externalShopId: text().notNull(),
     shopName: text().notNull(),
-    /**
-     * @deprecated Read and write `store_suppliers` instead. Migration 0072 copied it there; the
-     * column stays only until every server runs the new code, then a later migration drops it.
-     */
-    supplierId: uuid().references(() => suppliers.id, { onDelete: "set null" }),
     /** AES-256-GCM ciphertext (see packages/shared/src/runtime/token-cipher.ts). */
     accessTokenEnc: text(),
     refreshTokenEnc: text(),
@@ -49,8 +44,6 @@ export const storeConnections = pgTable(
   },
   (table) => [
     index("store_connections_tenant_idx").on(table.tenantId),
-    /** The foreign key, and the supplier's "linked shops" count. */
-    index("store_connections_supplier_idx").on(table.supplierId),
     uniqueIndex("store_connections_shop_idx").on(
       table.tenantId,
       table.marketplace,
