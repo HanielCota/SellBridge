@@ -150,19 +150,28 @@ async function claimOrderIds(run: StoreRun, claim: MarketplaceClaim): Promise<st
   return run.dependencies.readers.readShipmentOrders(run.credentials, claim.resourceId);
 }
 
-function logClaimMoment(run: StoreRun, orderId: string, claim: MarketplaceClaim, moment: string) {
+/** Admin "Problemas" shows the reason as the problem's text; one row per claim (`problemKey`). */
+function logClaimMoment(
+  run: StoreRun,
+  order: { orderId: string; externalOrderId: string },
+  claim: MarketplaceClaim,
+  moment: string,
+) {
   const fields = {
     tenantId: run.store.tenantId,
     storeConnectionId: run.store.id,
-    orderId,
+    orderId: order.orderId,
     externalClaimId: claim.externalClaimId,
     reasonId: claim.reasonId,
+    problemKey: `claim:${claim.externalClaimId}`,
   };
   if (moment === "opened") {
-    logger.warn("claim.opened", fields);
+    const reason = `Reclamação aberta pelo comprador no pedido ${order.externalOrderId}`;
+    logger.warn("claim.opened", { ...fields, reason });
   }
   if (moment === "mediation") {
-    logger.warn("claim.mediation", fields);
+    const reason = `Reclamação do pedido ${order.externalOrderId} em mediação do Mercado Livre`;
+    logger.warn("claim.mediation", { ...fields, reason });
   }
 }
 
@@ -189,7 +198,7 @@ export async function syncStoreClaim(run: StoreRun, claimId: string): Promise<Cl
   const store = { ...run.store, marketplace: run.marketplace };
   const result = await saveMarketplaceClaim(dependencies.database, { store, order, claim });
   if (result.saved !== "stale" && result.moment !== null) {
-    logClaimMoment(run, order.orderId, claim, result.moment);
+    logClaimMoment(run, order, claim, result.moment);
   }
   return "saved";
 }
