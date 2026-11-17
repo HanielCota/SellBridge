@@ -22,7 +22,7 @@ const MARGIN_STEP = 5;
 type RuleKind = ReturnType<typeof usePriceRuleDraft>["kind"];
 
 const RULE_OPTIONS: { kind: RuleKind; label: string }[] = [
-  { kind: "margin", label: "Margem de lucro" },
+  { kind: "margin", label: "Margem" },
   { kind: "suggested", label: "Sugerido pelo fornecedor" },
 ];
 
