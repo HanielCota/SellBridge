@@ -24,7 +24,6 @@ export {
   getMercadoLivreLabel,
   getMercadoLivreLabels,
   getMercadoLivreShipping,
-  LABEL_NOT_READY_CAUSE,
   type MercadoLivreLabelBatch,
   type MercadoLivreLabelFile,
   type PrintedLabel,
