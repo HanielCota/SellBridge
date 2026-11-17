@@ -721,6 +721,34 @@ describe("Mercado Livre category requirements", () => {
     ]);
   });
 
+  it("sends the factory warranty, the made-to-order time and the video id", async () => {
+    const { ml, calls } = connector(publishRoutes);
+
+    await ml.publishProduct(store, {
+      ...product,
+      saleTerms: { warrantyType: "factory", warrantyDays: 365, madeToOrderDays: 5 },
+      videoId: "abc123DEF45",
+    });
+
+    const created = JSON.parse(calls.find((call) => call.url === `${API}/items`)?.body ?? "{}");
+    expect(created.sale_terms).toEqual([
+      { id: "WARRANTY_TYPE", value_name: "Garantia de fábrica" },
+      { id: "WARRANTY_TIME", value_name: "365 dias" },
+      { id: "MANUFACTURING_TIME", value_name: "5 dias" },
+    ]);
+    expect(created.video_id).toBe("abc123DEF45");
+  });
+
+  it("leaves sale terms and video out when the supplier gave none", async () => {
+    const { ml, calls } = connector(publishRoutes);
+
+    await ml.publishProduct(store, product);
+
+    const created = JSON.parse(calls.find((call) => call.url === `${API}/items`)?.body ?? "{}");
+    expect(created).not.toHaveProperty("sale_terms");
+    expect(created).not.toHaveProperty("video_id");
+  });
+
   it("sends the package weight in whole grams and its measures in whole centimeters", async () => {
     const { ml, calls } = connector(publishRoutes);
 
