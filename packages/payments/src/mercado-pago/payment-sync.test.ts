@@ -217,6 +217,26 @@ describe("syncMercadoPagoPayment", () => {
   });
 });
 
+describe("a payment on a parcel the supplier moved to Asaas", () => {
+  test("is not recorded and goes to the team's Problemas page", async () => {
+    const errors = vi.spyOn(logger, "error");
+    mocks.findPayment.mockResolvedValue({ ...parcel, provider: "asaas" });
+    mercadoPagoAnswers(remotePayment(), { "pref-first": [987654321] });
+
+    const result = await syncMercadoPagoPayment(context, {
+      account,
+      providerPaymentId: "987654321",
+    });
+
+    expect(result).toEqual({ kind: "ignored", reason: "other_provider" });
+    expect(mocks.apply).not.toHaveBeenCalled();
+    expect(errors).toHaveBeenCalledWith(
+      "mercado_pago.payment_on_other_provider",
+      expect.objectContaining({ problemKey: "987654321", shipmentPaymentId: PAYMENT_ROW_ID }),
+    );
+  });
+});
+
 describe("a second approval of a paid parcel", () => {
   test("goes to the team's Problemas page on its own row, in Portuguese", async () => {
     const errors = vi.spyOn(logger, "error");
