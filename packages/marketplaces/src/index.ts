@@ -32,5 +32,5 @@ export {
   createTikTokShopConnector,
   getTikTokShopShippingLabel,
   type TikTokShopConfig,
-  type TikTokShopLabel,
+  type TikTokShopLabelFile,
 } from "./tiktok-shop/tiktok-shop-connector.ts";
