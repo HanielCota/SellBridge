@@ -47,7 +47,7 @@ import {
 import { openAsaasCharge } from "./charge-opening.ts";
 import { applyAsaasCharge } from "./charge-sync.ts";
 import type { AsaasContext } from "./context.ts";
-import { settleHeldPayment } from "./held-money.ts";
+import { reportHeldWithoutAccount, settleHeldPayment } from "./held-money.ts";
 import type { AsaasPayment } from "./schemas.ts";
 
 const PAYMENT_ID = "0b8f7a6e-1c2d-4e3f-8a9b-7c6d5e4f3a21";
@@ -327,6 +327,41 @@ describe("settleHeldPayment", () => {
     });
 
     expect(errors).toHaveBeenCalledWith("asaas.held_payment_needs_decision", expect.anything());
+  });
+});
+
+describe("held money the team must see", () => {
+  test("asks the team to follow a card dispute", async () => {
+    const errors = vi.spyOn(logger, "error").mockImplementation(() => {});
+    const disputed = held({ payment: parcel({ status: "charged_back" }) });
+
+    const outcome = await settleHeldPayment(context, { account, held: disputed, now: NOW });
+
+    expect(outcome).toEqual({ kind: "kept", action: "paused" });
+    expect(errors).toHaveBeenCalledWith(
+      "asaas.held_payment_needs_decision",
+      expect.objectContaining({ problemKey: PAYMENT_ID }),
+    );
+  });
+
+  test("reports a cancelled parcel whose supplier account cannot be used", () => {
+    const errors = vi.spyOn(logger, "error").mockImplementation(() => {});
+
+    reportHeldWithoutAccount(held({ shipmentStatus: "cancelled", deliveredAt: null }), NOW);
+
+    expect(errors).toHaveBeenCalledWith(
+      "asaas.held_payment_needs_decision",
+      expect.objectContaining({ problemKey: PAYMENT_ID }),
+    );
+  });
+
+  test("stays quiet about a parcel only waiting for its release", () => {
+    const errors = vi.spyOn(logger, "error").mockImplementation(() => {});
+    const recent = held({ deliveredAt: new Date(NOW.getTime() - DAY_IN_MS) });
+
+    reportHeldWithoutAccount(recent, NOW);
+
+    expect(errors).not.toHaveBeenCalled();
   });
 });
 

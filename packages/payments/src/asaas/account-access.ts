@@ -7,6 +7,7 @@ import {
   createAsaasPlatformClient,
   type AsaasAccountClient,
 } from "./client.ts";
+import { logger } from "@sellbridge/shared/logger";
 import type { AsaasContext } from "./context.ts";
 import { isAsaasError, type AsaasHttpOptions } from "./http.ts";
 
@@ -66,6 +67,13 @@ export async function withAsaasAccount<Result>(
     return await call(client);
   } catch (error) {
     if (isAsaasError(error) && error.refusedCredentials) {
+      // Held money of this supplier can no longer be released or refunded from here.
+      logger.error("asaas.account_key_refused", {
+        reason:
+          "O Asaas recusou a chave da conta de um fornecedor. Os pagamentos protegidos dele ficam parados até a conta ser ligada de novo.",
+        problemKey: account.id,
+        supplierId: account.supplierId,
+      });
       await markSupplierPaymentAccountError(context.database, {
         accountId: account.id,
         lastError: "key_refused",

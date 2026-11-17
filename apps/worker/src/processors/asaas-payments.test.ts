@@ -8,6 +8,7 @@ const mocks = vi.hoisted(() => ({
   reconcile: vi.fn<(...input: unknown[]) => Promise<void>>(),
   settle: vi.fn<(...input: unknown[]) => Promise<unknown>>(),
   sync: vi.fn<(...input: unknown[]) => Promise<unknown>>(),
+  reportWithoutAccount: vi.fn<(...input: unknown[]) => void>(),
 }));
 vi.mock("@sellbridge/database/repositories", () => ({
   findSupplierPaymentAccount: mocks.findAccount,
@@ -21,6 +22,7 @@ vi.mock("@sellbridge/payments/asaas", async (importOriginal) => ({
   reconcileAsaasParcel: mocks.reconcile,
   settleHeldPayment: mocks.settle,
   syncAsaasCharge: mocks.sync,
+  reportHeldWithoutAccount: mocks.reportWithoutAccount,
 }));
 
 import { createDatabase } from "@sellbridge/database/client";
@@ -131,13 +133,15 @@ describe("createAsaasPaymentProcessor", () => {
     expect(round).toMatchObject({ held: 2, refundsRequested: 1 });
   });
 
-  it("skips a supplier whose Asaas account is out of service", async () => {
+  it("hands the team the held money of a supplier whose Asaas account is out of service", async () => {
     mocks.findAccount.mockResolvedValue({ ...account, status: "error" });
-    mocks.listHeld.mockResolvedValue([heldPayment("payment-1")]);
+    const held = heldPayment("payment-1");
+    mocks.listHeld.mockResolvedValue([held]);
 
     await processor()();
 
     expect(mocks.sync).not.toHaveBeenCalled();
     expect(mocks.markChecked).toHaveBeenCalledOnce();
+    expect(mocks.reportWithoutAccount).toHaveBeenCalledWith(held, NOW);
   });
 });

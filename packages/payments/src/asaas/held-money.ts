@@ -163,6 +163,25 @@ async function refundRefused(context: AsaasContext, held: HeldPayment, why: stri
 }
 
 /**
+ * For a held payment whose supplier account SellBridge cannot use (key refused, protection
+ * missing): nothing can be released or refunded through it, so a parcel that needs a refund, a
+ * decision or is close to Asaas's deadline goes to the team instead of waiting in silence.
+ */
+export function reportHeldWithoutAccount(held: HeldPayment, now: Date): void {
+  const state = holdState(held, now);
+  const action = escrowActionFor(state);
+  const needsSomeone =
+    action.kind === "refund" || action.kind === "paused" || escrowNeedsAttention(state);
+  if (!needsSomeone) {
+    return;
+  }
+  reportNeedsDecision(
+    held,
+    "a conta Asaas do fornecedor está fora do ar no SellBridge, então nada pode ser devolvido nem liberado por aqui. Peça ao fornecedor para ligar a conta de novo ou resolva direto no Asaas.",
+  );
+}
+
+/**
  * Applies the release rule to one held payment: frees the money to the supplier seven days after
  * the confirmed delivery, gives it back to the reseller when the parcel was cancelled, returned or
  * never delivered, and reports to the team what no rule decides or what is close to Asaas's
@@ -184,6 +203,12 @@ export async function settleHeldPayment(
   if (action.kind === "refund") {
     const reason = action.reason === "team" ? "team" : action.reason;
     return refund(context, { ...input, reason });
+  }
+  if (action.kind === "paused" && action.reason === "chargeback") {
+    reportNeedsDecision(
+      input.held,
+      "o comprador contestou o pagamento no cartão. Acompanhe a disputa no Asaas.",
+    );
   }
   if (action.kind === "paused" && action.reason === "return_claim") {
     reportNeedsDecision(input.held, "o revendedor abriu uma devolução.");

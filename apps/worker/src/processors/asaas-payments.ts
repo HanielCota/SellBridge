@@ -12,6 +12,7 @@ import {
   AsaasAccountUnavailableError,
   isAsaasError,
   reconcileAsaasParcel,
+  reportHeldWithoutAccount,
   settleHeldPayment,
   syncAsaasCharge,
   type AsaasContext,
@@ -101,6 +102,7 @@ async function settleOne(
   await markShipmentPaymentChecked(context.database, { paymentId: payment.id, now: input.now });
   const account = await input.loadAccount(payment.supplierId);
   if (account?.status !== "connected") {
+    reportHeldWithoutAccount(input.held, input.now);
     return null;
   }
   try {
