@@ -21,10 +21,10 @@ export function ratesNote(source: RatesSource | null, now: Date = new Date()): s
     return `Comissão e frete da sua loja no Mercado Livre, consultados ${when}.`;
   }
   if (source.liveCommission) {
-    return `Comissão da sua loja no Mercado Livre, consultada ${when}. O frete é estimado pelo peso do produto, porque o fornecedor não informou as medidas da embalagem.`;
+    return `Comissão da sua loja no Mercado Livre, consultada ${when}. O frete é estimado pelo peso do produto: faltam as medidas da embalagem ou o Mercado Livre não respondeu.`;
   }
   if (source.liveShipping) {
-    return `Frete da sua loja no Mercado Livre, consultado ${when}. A comissão é estimada, porque o produto ainda não tem categoria no Mercado Livre.`;
+    return `Frete da sua loja no Mercado Livre, consultado ${when}. A comissão é estimada: falta a categoria do produto no Mercado Livre ou ele não respondeu.`;
   }
   return ESTIMATE_NOTE;
 }

@@ -21,23 +21,23 @@ describe("ratesNote", () => {
     expect(note).toBe("Comissão e frete da sua loja no Mercado Livre, consultados há 3 horas.");
   });
 
-  it("says why the shipping is still an estimate", () => {
+  it("says the shipping is an estimate without blaming only the supplier", () => {
     const note = ratesNote(
       { liveCommission: true, liveShipping: false, readAt: threeHoursAgo },
       now,
     );
 
     expect(note).toContain("Comissão da sua loja no Mercado Livre, consultada há 3 horas.");
-    expect(note).toContain("não informou as medidas da embalagem");
+    expect(note).toContain("faltam as medidas da embalagem ou o Mercado Livre não respondeu");
   });
 
-  it("says why the commission is still an estimate", () => {
+  it("says the commission is an estimate without blaming only the product", () => {
     const note = ratesNote(
       { liveCommission: false, liveShipping: true, readAt: threeHoursAgo },
       now,
     );
 
     expect(note).toContain("Frete da sua loja no Mercado Livre, consultado há 3 horas.");
-    expect(note).toContain("ainda não tem categoria");
+    expect(note).toContain("falta a categoria do produto no Mercado Livre ou ele não respondeu");
   });
 });
