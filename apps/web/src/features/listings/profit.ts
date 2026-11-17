@@ -2,6 +2,7 @@ import { type FeeChannel, feeChannelOf } from "@sellbridge/shared/channel-fees";
 import {
   estimateSale,
   type FeeSchedule,
+  type MercadoLivreStoreRates,
   minimumPriceCents,
   onChannel,
   priceForMargin as priceKeepingMargin,
@@ -54,6 +55,8 @@ export function saleChannelsOf(stores: readonly { marketplace: string }[]): Sale
 export interface ProductCost {
   costCents: Cents;
   weightGrams?: number | null;
+  /** Mercado Livre's own numbers on the chosen stores; absent prices on the estimate. */
+  mercadoLivreRates?: MercadoLivreStoreRates | null;
 }
 
 export interface ProfitEstimate {
@@ -74,7 +77,12 @@ function estimateOn(
   channel: FeeChannel,
 ): ProfitEstimate {
   const sale = estimateSale(
-    { priceCents, costCents: product.costCents, weightGrams: product.weightGrams ?? null },
+    {
+      priceCents,
+      costCents: product.costCents,
+      weightGrams: product.weightGrams ?? null,
+      mercadoLivreRates: product.mercadoLivreRates ?? null,
+    },
     onChannel(schedule, channel),
   );
   return {

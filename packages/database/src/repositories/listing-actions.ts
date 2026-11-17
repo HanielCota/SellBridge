@@ -1,5 +1,9 @@
 import { feeChannelOf } from "@sellbridge/shared/channel-fees";
-import { assertPriceKeepsMargin, type FeeSchedule } from "@sellbridge/shared/fee-model";
+import {
+  assertPriceKeepsMargin,
+  type FeeSchedule,
+  type MercadoLivreStoreRates,
+} from "@sellbridge/shared/fee-model";
 import {
   unavailableListingMessage,
   unavailableReason,
@@ -103,6 +107,33 @@ export interface ListingPriceChange {
   priceCents: number;
   /** The fees the price must cover, with the minimum margin (fee-model.ts). */
   feeSchedule: FeeSchedule;
+  /** Mercado Livre's own numbers on the listing's stores, when they could be read. */
+  mercadoLivreRates?: MercadoLivreStoreRates | null;
+}
+
+/** The product a listing sells and the stores it sells on; null when it is not the tenant's. */
+export async function findListingPricingScope(
+  database: Database,
+  tenantId: string,
+  listingId: string,
+): Promise<{ productId: string; storeIds: string[] } | null> {
+  const rows = await database
+    .select({
+      productId: listings.supplierProductId,
+      storeId: listingTargets.storeConnectionId,
+    })
+    .from(listings)
+    .leftJoin(
+      listingTargets,
+      and(eq(listingTargets.listingId, listings.id), eq(listingTargets.tenantId, tenantId)),
+    )
+    .where(and(eq(listings.tenantId, tenantId), eq(listings.id, listingId)));
+  const [first] = rows;
+  if (first === undefined) {
+    return null;
+  }
+  const storeIds = rows.flatMap((row) => (row.storeId === null ? [] : [row.storeId]));
+  return { productId: first.productId, storeIds: [...new Set(storeIds)] };
 }
 
 /** The marketplaces the listing sells on, by its stores. */
@@ -143,7 +174,7 @@ export async function updateListingPrice(
   const channels = marketplaces.map(feeChannelOf);
   assertPriceKeepsMargin(
     priceCents,
-    row,
+    { ...row, mercadoLivreRates: change.mercadoLivreRates ?? null },
     change.feeSchedule,
     channels.length === 0 ? [change.feeSchedule.channel] : channels,
   );

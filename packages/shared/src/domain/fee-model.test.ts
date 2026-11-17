@@ -9,12 +9,15 @@ import {
   type FeeSchedule,
   assertBatchKeepsMargin,
   batchPriceProblem,
+  costliestMercadoLivreRates,
+  type MercadoLivreStoreRates,
   minimumPriceCents,
   onChannel,
   priceFloorProblemOnChannels,
   priceForMargin,
 } from "./fee-model.ts";
 import { computeOrderFinance } from "./finance.ts";
+import { shippingBandsFromQuotes } from "./mercado-livre-shipping.ts";
 
 const schedule: FeeSchedule = {
   ...DEFAULT_FEE_SCHEDULE,
@@ -331,5 +334,101 @@ describe("batchPriceProblem", () => {
     expect(() => assertBatchKeepsMargin(batch, schedule)).toThrow(
       expect.objectContaining({ code: "CONFLICT" }),
     );
+  });
+});
+
+describe("with the store's own Mercado Livre rates", () => {
+  /** A store whose reputation pays R$ 10,00 between R$ 19 and R$ 48,99, not the green R$ 6,85. */
+  const yellowStore: MercadoLivreStoreRates = {
+    commissionBasisPoints: 1_200,
+    shippingBands: shippingBandsFromQuotes([600, 1_000, 1_100, 1_500, 1_700, 1_900, 2_100, 2_400]),
+  };
+
+  it("charges the store's commission and shipping instead of the estimate", () => {
+    const fees = estimateSaleFees(
+      { ...clientProduct, priceCents: 3_390, mercadoLivreRates: yellowStore },
+      clientSchedule,
+    );
+
+    expect(fees).toEqual({ commissionCents: 407, fixedFeeCents: 0, shippingCents: 1_000 });
+  });
+
+  it("turns the client's R$ 33,90 into a loss when the store pays more shipping", () => {
+    const sale = estimateSale(
+      { ...clientProduct, priceCents: 3_390, mercadoLivreRates: yellowStore },
+      clientSchedule,
+    );
+
+    expect(sale.profitCents).toBe(-117);
+  });
+
+  it("moves the break-even price with the store's numbers", () => {
+    const minimum = minimumPriceCents(
+      { ...clientProduct, mercadoLivreRates: yellowStore },
+      clientSchedule,
+    );
+
+    expect(minimum).toBe(3_523);
+  });
+
+  it("keeps the half-price cap on the cheapest items", () => {
+    const fees = estimateSaleFees(
+      { ...clientProduct, priceCents: 1_000, mercadoLivreRates: yellowStore },
+      clientSchedule,
+    );
+
+    expect(fees.shippingCents).toBe(500);
+  });
+
+  it("leaves TikTok Shop on its own published rates", () => {
+    const withRates = estimateSale(
+      { ...clientProduct, priceCents: 3_390, mercadoLivreRates: yellowStore },
+      onChannel(clientSchedule, "tiktok_shop"),
+    );
+    const without = estimateSale(
+      { ...clientProduct, priceCents: 3_390 },
+      onChannel(clientSchedule, "tiktok_shop"),
+    );
+
+    expect(withRates.profitCents).toBe(without.profitCents);
+  });
+});
+
+describe("costliestMercadoLivreRates", () => {
+  const green: MercadoLivreStoreRates = {
+    commissionBasisPoints: 1_400,
+    shippingBands: shippingBandsFromQuotes([565, 685, 815, 1_295, 1_495, 1_695, 1_905, 2_165]),
+  };
+  const yellow: MercadoLivreStoreRates = {
+    commissionBasisPoints: 1_200,
+    shippingBands: shippingBandsFromQuotes([600, 1_000, 700, 1_500, 1_700, 1_900, 2_100, 2_400]),
+  };
+
+  it("takes the highest commission and, band by band, the highest shipping", () => {
+    const costliest = costliestMercadoLivreRates([green, yellow]);
+
+    expect(costliest?.commissionBasisPoints).toBe(1_400);
+    expect(costliest?.shippingBands.map((band) => band.shippingCents)).toEqual([
+      600, 1_000, 815, 1_500, 1_700, 1_900, 2_100, 2_400,
+    ]);
+  });
+
+  it("is the store's own rates for a single store", () => {
+    expect(costliestMercadoLivreRates([yellow])).toEqual(yellow);
+  });
+
+  it("is null without stores", () => {
+    expect(costliestMercadoLivreRates([])).toBeNull();
+  });
+
+  it("refuses bands that do not line up", () => {
+    const shifted = {
+      ...yellow,
+      shippingBands: yellow.shippingBands.map((band, index) =>
+        index === 2 ? { ...band, fromCents: band.fromCents + 1 } : band,
+      ),
+    };
+
+    expect(() => costliestMercadoLivreRates([green, shifted])).toThrow("Shipping bands differ");
   });
 });

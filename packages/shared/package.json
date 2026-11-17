@@ -38,6 +38,7 @@
     "./problem-areas": "./src/domain/problem-areas.ts",
     "./queues": "./src/runtime/queues.ts",
     "./channel-fees": "./src/domain/channel-fees.ts",
+    "./mercado-livre-shipping": "./src/domain/mercado-livre-shipping.ts",
     "./fee-model": "./src/domain/fee-model.ts",
     "./finance": "./src/domain/finance.ts",
     "./period-range": "./src/domain/period-range.ts",

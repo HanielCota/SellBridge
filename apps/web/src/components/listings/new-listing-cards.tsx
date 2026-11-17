@@ -9,17 +9,25 @@ import {
   profitTone,
   totalFeeCents,
 } from "@/components/listings/profit-split";
-import { estimateProfit, type ProfitEstimate, type SaleChannels } from "@/features/listings/profit";
+import {
+  estimateProfit,
+  type ProductCost,
+  type ProfitEstimate,
+  type SaleChannels,
+} from "@/features/listings/profit";
 import { useFeeSchedule } from "@/features/reports/fee-schedule.queries";
 import { formatCents } from "@sellbridge/shared/money";
 import { cn } from "@/lib/utils";
 import { ACTION_ICONS } from "@/components/icons/action-icons";
 import { HintedText } from "@/components/ui/hint";
+import { type RatesSource, ratesNote } from "@/features/listings/mercado-livre-rates-note";
 
 /** The new-listing page's side column cards, apart so the route file stays a page of its own. */
 const SupplierShipsIcon = ACTION_ICONS.supplierShips.icon;
 
-type ListingProduct = Awaited<ReturnType<typeof getNewListingData>>["product"];
+/** The product as the screen prices it: with the stores' own Mercado Livre numbers once read. */
+type ListingProduct = Awaited<ReturnType<typeof getNewListingData>>["product"] &
+  Pick<ProductCost, "mercadoLivreRates">;
 
 /** Roughly how the ad reads on a marketplace grid: photo, title and price, live as they change. */
 export function ListingPreview({
@@ -109,11 +117,14 @@ export function ProfitCard({
   priceCents,
   product,
   channels,
+  ratesSource = null,
 }: {
   priceCents: number | null;
   product: ListingProduct;
   /** The chosen stores' channels: the card shows the one that leaves the least. */
   channels: SaleChannels;
+  /** Where the Mercado Livre numbers came from; null when they are the estimate. */
+  ratesSource?: RatesSource | null;
 }) {
   const schedule = useFeeSchedule();
   const estimate = estimateProfit(priceCents, product, schedule, channels);
@@ -156,10 +167,7 @@ export function ProfitCard({
             <dd className="tabular-nums">{priceCents === null ? "—" : formatCents(priceCents)}</dd>
           </div>
         </dl>
-        <p className="text-xs text-muted-foreground">
-          Estimativa: a comissão depende da categoria do anúncio, e o frete, do peso do produto e da
-          reputação da loja.
-        </p>
+        <p className="text-xs text-muted-foreground">{ratesNote(ratesSource)}</p>
       </CardContent>
     </Card>
   );

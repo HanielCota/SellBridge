@@ -32,11 +32,14 @@ import { cn } from "@/lib/utils";
 import { RUN_STATE_DOT, RUN_STATE_TEXT, RUN_STATE_TINT } from "./run-state-style";
 import { TERM_HINTS } from "@/components/icons/action-icons";
 import { HintedText } from "@/components/ui/hint";
+import { useListingMercadoLivreRates } from "@/features/listings/mercado-livre-rates.queries";
+import { ratesNote } from "@/features/listings/mercado-livre-rates-note";
 
 type PricedListing = Pick<
   ListingOverviewRow,
   "listingId" | "title" | "priceCents" | "costCents" | "weightGrams" | "stores"
->;
+> &
+  Pick<ProductCost, "mercadoLivreRates">;
 
 interface EditPriceDialogProps {
   open: boolean;
@@ -306,7 +309,9 @@ function storesLabel(count: number): string {
   return count === 1 ? "Vale para 1 loja" : `Vale para as ${count} lojas`;
 }
 
-function EditPriceForm({ listing, onDone }: { listing: PricedListing; onDone: () => void }) {
+function EditPriceForm({ listing: row, onDone }: { listing: PricedListing; onDone: () => void }) {
+  const live = useListingMercadoLivreRates(row.listingId, true);
+  const listing = { ...row, mercadoLivreRates: live?.rates ?? null };
   const [value, setValue] = useState(formatCentsForField(listing.priceCents));
   const mutation = useUpdatePrice(onDone);
   const schedule = useFeeSchedule();
@@ -341,7 +346,10 @@ function EditPriceForm({ listing, onDone }: { listing: PricedListing; onDone: ()
         tone={tone}
         onPick={(cents) => setValue(formatCentsForField(cents))}
       />
-      <PriceBreakdown costCents={listing.costCents} estimate={estimate} tone={tone} />
+      <div className="space-y-2">
+        <PriceBreakdown costCents={listing.costCents} estimate={estimate} tone={tone} />
+        <p className="text-xs text-muted-foreground">{ratesNote(live)}</p>
+      </div>
       <DialogFooter>
         <Button type="button" variant="outline" onClick={onDone}>
           Cancelar

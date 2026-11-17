@@ -68,19 +68,48 @@ function weightBandOf(weightGrams: number): WeightBand {
   return band;
 }
 
+function bandEndCents(index: number): Cents {
+  const nextStart = PRICE_BAND_STARTS_CENTS[index + 1];
+  return nextStart === undefined ? Number.MAX_SAFE_INTEGER : nextStart - 1;
+}
+
+/** One cost per price band, in band order, as bands; throws when a band has no cost. */
+function bandsWithCosts(costsCents: readonly Cents[], source: string): ShippingPriceBand[] {
+  if (costsCents.length !== PRICE_BAND_STARTS_CENTS.length) {
+    throw new Error(
+      `${source} has ${costsCents.length} shipping costs for ${PRICE_BAND_STARTS_CENTS.length} price bands`,
+    );
+  }
+  return PRICE_BAND_STARTS_CENTS.map((fromCents, index) => {
+    const shippingCents = costsCents[index];
+    if (shippingCents === undefined || !Number.isSafeInteger(shippingCents) || shippingCents < 0) {
+      throw new Error(`${source} misses the shipping of price band ${index}`);
+    }
+    return { fromCents, toCents: bandEndCents(index), shippingCents };
+  });
+}
+
 /**
  * The table's row for the weight, as price bands with the shipping each one pays. Products under
  * R$ 19 pay at most half their price; that cap is applied by the fee calculation.
  */
 export function mercadoLivreShippingBands(weightGrams: number): ShippingPriceBand[] {
-  const { costsCents } = weightBandOf(weightGrams);
+  return bandsWithCosts(weightBandOf(weightGrams).costsCents, `Shipping row for ${weightGrams} g`);
+}
+
+/**
+ * One price inside each band, in band order, to ask Mercado Livre what the store pays there:
+ * the band's last price, or its first for the open last band. Every reputation's table shares
+ * these bands (mercadolivre.com.br/ajuda/40538, 40545 and 40547).
+ */
+export function shippingQuotePricesCents(): Cents[] {
   return PRICE_BAND_STARTS_CENTS.map((fromCents, index) => {
-    const shippingCents = costsCents[index];
-    if (shippingCents === undefined) {
-      throw new Error(`Mercado Livre shipping row for ${weightGrams} g misses price band ${index}`);
-    }
-    const nextStart = PRICE_BAND_STARTS_CENTS[index + 1];
-    const toCents = nextStart === undefined ? Number.MAX_SAFE_INTEGER : nextStart - 1;
-    return { fromCents, toCents, shippingCents };
+    const toCents = bandEndCents(index);
+    return toCents === Number.MAX_SAFE_INTEGER ? fromCents : toCents;
   });
+}
+
+/** The costs Mercado Livre quoted at `shippingQuotePricesCents`, as price bands. */
+export function shippingBandsFromQuotes(costsCents: readonly Cents[]): ShippingPriceBand[] {
+  return bandsWithCosts(costsCents, "Mercado Livre quote");
 }
