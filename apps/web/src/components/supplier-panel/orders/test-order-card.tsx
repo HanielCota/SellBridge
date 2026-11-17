@@ -103,11 +103,7 @@ function TestLabelDialog({
           </p>
           <p>Quantidade: 1</p>
         </div>
-        <DialogFooter>
-          <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
-            Fechar
-          </Button>
-        </DialogFooter>
+        <DialogFooter showCloseButton />
       </DialogContent>
     </Dialog>
   );
