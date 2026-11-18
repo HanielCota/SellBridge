@@ -171,7 +171,7 @@ function PreparationExplanation({ ownsItems }: { ownsItems: boolean }) {
     <p className="text-xs text-muted-foreground">
       {ownsItems
         ? "Você prepara e envia seus produtos; cada fornecedor recebe apenas os itens dele."
-        : "Cada fornecedor recebe só os itens dele. Depois de enviar, aparece o link do pedido para você mandar ao fornecedor."}
+        : "Cada fornecedor recebe só os itens dele e vê o pedido no painel. Se ainda não tiver painel, aparece aqui o link para você mandar a ele."}
     </p>
   );
 }
