@@ -1,6 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
 import { createFileRoute } from "@tanstack/react-router";
-import { useState, type ReactNode } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 import { ErrorState } from "@/components/feedback/error-state";
 import { SupplierPageFrame } from "@/components/fulfillment/supplier-page-frame";
 import { InlineFormError } from "@/components/form/inline-form-error";
@@ -8,6 +8,11 @@ import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { SUPPLIER_PANEL_PATH } from "@/features/auth/profile-routes";
 import type { InviteState } from "@/features/supplier-invite/invite-state";
+import {
+  forgetPendingInvite,
+  INVITE_RETURN_PATH,
+  rememberPendingInvite,
+} from "@/features/supplier-invite/pending-invite";
 import {
   acceptSupplierInviteFn,
   getSupplierInviteFn,
@@ -72,15 +77,19 @@ function InviteSkeleton() {
 }
 
 function SignedOutInvite({
-  invitePath,
+  token,
   supplierName,
   maskedEmail,
 }: {
-  invitePath: string;
+  token: string;
   supplierName: string;
   maskedEmail: string;
 }) {
-  const redirect = encodeURIComponent(invitePath);
+  // The sign-in or sign-up comes back to the plain invite address, which finds the token here.
+  useEffect(() => {
+    rememberPendingInvite(token);
+  }, [token]);
+  const redirect = encodeURIComponent(INVITE_RETURN_PATH);
   return (
     <InviteCard
       title={`Ative o painel da ${supplierName}`}
@@ -117,6 +126,7 @@ function ReadyInvite({ token, supplierName }: { token: string; supplierName: str
     try {
       const { profileSlug } = await acceptSupplierInviteFn({ data: { token } });
       // A full load, so the panel opens on the profile that now runs the supplier.
+      forgetPendingInvite();
       window.location.assign(addProfileToHref(PANEL_ORDERS_PATH, profileSlug));
     } catch (error) {
       setFailure(errorMessage(error));
@@ -142,20 +152,15 @@ function ReadyInvite({ token, supplierName }: { token: string; supplierName: str
   );
 }
 
-function WrongEmailInvite({
-  invitePath,
-  maskedEmail,
-}: {
-  invitePath: string;
-  maskedEmail: string;
-}) {
+function WrongEmailInvite({ token, maskedEmail }: { token: string; maskedEmail: string }) {
   const [isLeaving, setIsLeaving] = useState(false);
 
   async function switchAccount() {
     setIsLeaving(true);
     await authClient.signOut();
     forgetTabProfile();
-    window.location.assign(`/login?redirect=${encodeURIComponent(invitePath)}`);
+    rememberPendingInvite(token);
+    window.location.assign(`/login?redirect=${encodeURIComponent(INVITE_RETURN_PATH)}`);
   }
 
   return (
@@ -234,11 +239,10 @@ const SETTLED_COPY: Record<
 };
 
 function InviteContent({ token, state }: { token: string; state: InviteState }) {
-  const invitePath = `/fornecedor/convite/${token}`;
   if (state.status === "signed_out") {
     return (
       <SignedOutInvite
-        invitePath={invitePath}
+        token={token}
         supplierName={state.supplierName}
         maskedEmail={state.maskedEmail}
       />
@@ -248,7 +252,7 @@ function InviteContent({ token, state }: { token: string; state: InviteState }) 
     return <ReadyInvite token={token} supplierName={state.supplierName} />;
   }
   if (state.status === "wrong_email") {
-    return <WrongEmailInvite invitePath={invitePath} maskedEmail={state.maskedEmail} />;
+    return <WrongEmailInvite token={token} maskedEmail={state.maskedEmail} />;
   }
   return <SettledInviteCard state={state} />;
 }

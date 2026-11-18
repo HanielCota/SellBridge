@@ -1,16 +1,11 @@
 import { createHmac, timingSafeEqual } from "node:crypto";
 import { z } from "zod";
+import { supplierInviteTokenSchema } from "./invite-token-schema";
 
 /** How long an invite to the supplier panel opens. */
 export const SUPPLIER_INVITE_DAYS = 14;
 const DAY_IN_MILLISECONDS = 24 * 60 * 60 * 1000;
 const SIGNATURE_PURPOSE = "supplier-invite";
-
-/** `<supplier id>.<expiry in Unix seconds>.<HMAC-SHA256 hex>`: what the invite link carries. */
-export const supplierInviteTokenSchema = z
-  .string()
-  .max(120, "Convite inválido")
-  .regex(/^[0-9a-f-]{36}\.\d{1,12}\.[0-9a-f]{64}$/, "Convite inválido");
 
 export type SupplierInviteReading =
   { status: "valid"; supplierId: string } | { status: "expired" } | { status: "invalid" };
