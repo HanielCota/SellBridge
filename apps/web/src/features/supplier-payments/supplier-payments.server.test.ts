@@ -32,11 +32,18 @@ vi.mock("@sellbridge/database/repositories", () => ({
       ? payment.checkoutUrl
       : null,
 }));
-vi.mock("@sellbridge/payments/mercado-pago", async (importOriginal) => ({
-  ...(await importOriginal<typeof import("@sellbridge/payments/mercado-pago")>()),
-  reconcileShipmentPayment: mocks.reconcile,
-  createMercadoPagoCheckout: mocks.createCheckout,
-}));
+vi.mock("@sellbridge/payments/mercado-pago", async (importOriginal) => {
+  const original = await importOriginal<typeof import("@sellbridge/payments/mercado-pago")>();
+  return {
+    ...original,
+    // The hidden Mercado Pago code is tested switched on; the app keeps it off.
+    mercadoPagoSettingsFrom: (
+      environment: Parameters<typeof original.mercadoPagoSettingsFrom>[0],
+    ) => original.mercadoPagoSettingsFrom(environment, true),
+    reconcileShipmentPayment: mocks.reconcile,
+    createMercadoPagoCheckout: mocks.createCheckout,
+  };
+});
 vi.mock("./asaas-checkout.server", () => ({
   leaveAsaasCharges: mocks.leaveAsaasCharges,
   openAsaasCheckout: mocks.openAsaasCheckout,
