@@ -246,7 +246,7 @@ describe("createAsaasAccountClient", () => {
   test("never repeats a release that failed on Asaas's side", async () => {
     const { calls, http } = recordingFetch(json(502, {}), json(200, payment()));
 
-    const release = createAsaasAccountClient(http, "supplier-key").releaseEscrow("esc_1");
+    const release = createAsaasPlatformClient(http, "platform-key").releaseEscrow("esc_1");
 
     await expect(release).rejects.toSatisfy(isAsaasError);
     expect(calls).toHaveLength(1);
@@ -267,7 +267,7 @@ describe("createAsaasAccountClient", () => {
   test("marks a write that failed on Asaas's side as possibly done", async () => {
     const { http } = recordingFetch(json(503, {}));
 
-    const release = createAsaasAccountClient(http, "supplier-key").releaseEscrow("esc_1");
+    const release = createAsaasPlatformClient(http, "platform-key").releaseEscrow("esc_1");
 
     await expect(release).rejects.toMatchObject({ status: 503, outcomeUnknown: true });
   });
