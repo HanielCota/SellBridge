@@ -158,7 +158,7 @@ export const ACTION_ICONS = {
   supplierSales: { icon: ChartLineUpIcon, hint: "O que vendeu no mês, por dia e por marketplace" },
   supplierReceiving: {
     icon: HandCoinsIcon,
-    hint: "Ligue sua conta Mercado Pago para receber dos revendedores",
+    hint: "Abra sua conta Asaas para receber dos revendedores",
   },
   supplierProducts: { icon: PackageIcon, hint: "Seus produtos, estoque e o que está à venda" },
   importProducts: { icon: FileArrowUpIcon, hint: "Cadastrar ou atualizar produtos por planilha" },
