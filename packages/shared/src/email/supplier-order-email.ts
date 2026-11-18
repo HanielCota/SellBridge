@@ -9,13 +9,23 @@ export interface SupplierOrderItem {
   quantity: number;
 }
 
-/** What the supplier reads: the order, its items, both deadlines and the link to act on it. */
+/** What the supplier reads: the order, its items, both deadlines and where to act on it. */
 export interface SupplierOrderEmailInput {
   externalOrderId: string;
   items: readonly SupplierOrderItem[];
   acceptWithinHours: number;
   dispatchWithinHours: number;
+  /** The order in the supplier panel, or the order link for a supplier without a panel. */
   link: string;
+  /** Whether the supplier works from its panel (then `link` is the panel address). */
+  hasPanel: boolean;
+}
+
+/** The order on the supplier panel's Pedidos screen, searched by its number. */
+export function supplierPanelOrderUrl(externalOrderId: string, appUrl: string): string {
+  const url = new URL("/fornecedor/painel/pedidos", appUrl);
+  url.searchParams.set("query", externalOrderId);
+  return url.toString();
 }
 
 function inDays(hours: number): string {
@@ -43,12 +53,32 @@ function itemLine(item: SupplierOrderItem): string {
   return `${item.quantity} × ${item.title}${sku}`;
 }
 
+const PANEL_COPY = {
+  where:
+    "O endereço de entrega e o pedido completo estão no seu painel. Lá você aceita, separa e informa o envio.",
+  actionLabel: "Abrir no painel",
+  footnote:
+    "Este endereço foi cadastrado para receber os pedidos dos seus produtos no SellBridge. Entre com a conta do seu painel para ver o pedido.",
+};
+
+const LINK_COPY = {
+  where:
+    "O endereço de entrega está no link, junto com o pedido completo. Por ele você aceita, separa e informa o envio.",
+  invite:
+    'Os pedidos vão passar a ficar só no painel do fornecedor. Abra o pedido e toque em "Criar meu acesso ao painel" para ver todos num lugar só.',
+  actionLabel: "Abrir o pedido",
+  footnote:
+    "Este endereço foi cadastrado para receber os pedidos dos seus produtos no SellBridge. O link vale por 30 dias.",
+};
+
 /**
  * The e-mail that hands an order to its supplier. It carries no buyer data: name and address
- * stay behind the link, which expires, instead of sitting in a mailbox for good. Titles come
- * from the marketplace and are escaped by the layout.
+ * stay behind the panel sign-in or the link, which expires, instead of sitting in a mailbox for
+ * good. Titles come from the marketplace and are escaped by the layout.
  */
 export function supplierOrderEmail(order: SupplierOrderEmailInput, appUrl: string): RenderedEmail {
+  const where = order.hasPanel ? [PANEL_COPY.where] : [LINK_COPY.where, LINK_COPY.invite];
+  const copy = order.hasPanel ? PANEL_COPY : LINK_COPY;
   return renderActionEmail(
     {
       subject: `Novo pedido #${order.externalOrderId} para separar`,
@@ -58,12 +88,11 @@ export function supplierOrderEmail(order: SupplierOrderEmailInput, appUrl: strin
         "Uma loja que vende seus produtos pelo SellBridge recebeu este pedido:",
         ...order.items.map(itemLine),
         deadlineSentence(order.acceptWithinHours, order.dispatchWithinHours),
-        "O endereço de entrega está no link, junto com o pedido completo. Por ele você aceita, separa e informa o envio.",
+        ...where,
       ],
-      actionLabel: "Abrir o pedido",
+      actionLabel: copy.actionLabel,
       actionUrl: order.link,
-      footnote:
-        "Este endereço foi cadastrado para receber os pedidos dos seus produtos no SellBridge. O link vale por 30 dias.",
+      footnote: copy.footnote,
     },
     appUrl,
   );
@@ -85,19 +114,34 @@ export interface EmailSupplierLinksInput {
   onFailure: (shipmentId: string, error: unknown) => Promise<void>;
 }
 
+/** The panel for a supplier with one, else the parcel's link; null when there is neither. */
+function supplierLinkOf(
+  recipient: SupplierRecipient,
+  token: string | undefined,
+  appUrl: string,
+): string | null {
+  if (recipient.hasPanel) {
+    return supplierPanelOrderUrl(recipient.externalOrderId, appUrl);
+  }
+  if (token === undefined) {
+    return null;
+  }
+  return new URL(`/fornecedor/pedido/${token}`, appUrl).toString();
+}
+
 /**
- * E-mails each supplier that has an order e-mail its link, one parcel at a time, so one failing
- * address never keeps the others from going out. Returns the parcels whose e-mail was sent.
+ * E-mails each supplier that has an order e-mail where to act on its parcel (its panel, or the
+ * parcel's link when it has no panel), one parcel at a time, so one failing address never keeps
+ * the others from going out. Returns the parcels whose e-mail was sent.
  */
 export async function emailSupplierLinks(input: EmailSupplierLinksInput): Promise<Set<string>> {
   const tokens = new Map(input.links.map((link) => [link.shipmentId, link.token]));
   const emailed = new Set<string>();
   for (const recipient of input.recipients) {
-    const token = tokens.get(recipient.shipmentId);
-    if (recipient.contactEmail === null || token === undefined) {
+    const link = supplierLinkOf(recipient, tokens.get(recipient.shipmentId), input.appUrl);
+    if (recipient.contactEmail === null || link === null) {
       continue;
     }
-    const link = new URL(`/fornecedor/pedido/${token}`, input.appUrl).toString();
     try {
       await input.send({
         to: recipient.contactEmail,
