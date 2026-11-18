@@ -112,6 +112,7 @@ function ShipmentList({
       detail.order.status === "paid" ? (
         <ReforwardButton
           shipmentId={shipment.id}
+          supplierHasPanel={shipment.supplierHasPanel}
           onLink={async (url) => {
             setLinks((previous) => ({ ...previous, [shipment.id]: { url, emailed: false } }));
             await refresh();
@@ -120,10 +121,9 @@ function ShipmentList({
       ) : null}
       {shipment.trackingCode === null ? null : <TrackParcelLink orderId={detail.order.id} />}
       {shipment.catalogKind === "seller" ? null : (
-        <SupplierLink
-          shipmentId={shipment.id}
+        <SupplierAccess
+          shipment={shipment}
           link={links[shipment.id]}
-          closed={SETTLED_FULFILLMENT_STATUSES.includes(shipment.status)}
           onLink={(url) =>
             setLinks((previous) => ({ ...previous, [shipment.id]: { url, emailed: false } }))
           }
@@ -292,12 +292,41 @@ function SupplierLink({
     </div>
   );
 }
-/** The one way forward for a parcel the supplier cancelled: send it again, with a new link. */
+/** A supplier with its own panel sees the parcel there: nothing to share with it. */
+function PanelSupplierNote({ emailed }: { emailed: boolean }) {
+  return (
+    <p className="w-full text-xs text-muted-foreground">
+      {emailed ? "Avisamos o fornecedor por e-mail. " : ""}O fornecedor vê este pedido no painel
+      dele, sem link.
+    </p>
+  );
+}
+
+/** How the supplier reaches the parcel: its panel, or a link the reseller shares. */
+function SupplierAccess({
+  shipment,
+  link,
+  onLink,
+}: {
+  shipment: Detail["shipments"][number];
+  link: SupplierLinkView | undefined;
+  onLink: (url: string) => void;
+}) {
+  const closed = SETTLED_FULFILLMENT_STATUSES.includes(shipment.status);
+  if (shipment.supplierHasPanel) {
+    return closed ? null : <PanelSupplierNote emailed={link?.emailed === true} />;
+  }
+  return <SupplierLink shipmentId={shipment.id} link={link} closed={closed} onLink={onLink} />;
+}
+
+/** The one way forward for a parcel the supplier cancelled: send it again. */
 function ReforwardButton({
   shipmentId,
+  supplierHasPanel,
   onLink,
 }: {
   shipmentId: string;
+  supplierHasPanel: boolean;
   onLink: (url: string) => Promise<void>;
 }) {
   const mutation = useMutation({
@@ -307,7 +336,11 @@ function ReforwardButton({
     },
     onError: (error) => toast.error(errorMessage(error)),
     onSuccess: () =>
-      toast.success("Envio reencaminhado. Compartilhe o novo link com o fornecedor."),
+      toast.success(
+        supplierHasPanel
+          ? "Envio reencaminhado. O fornecedor vê o pedido no painel."
+          : "Envio reencaminhado. Compartilhe o novo link com o fornecedor.",
+      ),
   });
   return (
     <Button disabled={mutation.isPending} onClick={() => mutation.mutate()}>
