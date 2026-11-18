@@ -964,3 +964,18 @@ A segunda parte da etapa 2: o Financeiro passa a descontar o frete que o Mercado
 - **Ordem e repetição:** o aviso é só um gatilho; o recurso é sempre relido com o token da loja. A reclamação guarda o `last_updated` do Mercado Livre e uma leitura mais antiga não sobrescreve; os avisos ao cliente usam chave por reclamação e momento, então um aviso repetido não chega duas vezes.
 - **Correção:** os avisos com subtópico trazem `id` em vez de `_id` e eram recusados com 401; o Mercado Livre repetiria por 1 hora e poderia desligar o tópico.
 - **Busca diária:** abertas de qualquer idade mais as atualizadas em 26 horas, por loja, até 200 por rodada. Cobre aviso perdido e as reclamações de pedidos vendidos antes de os tópicos serem ligados.
+
+## 2026-11-18: Endereço de compra do revendedor nunca no fornecedor (parte 1: conferência e trava)
+
+Pedido da StockShopp em 17/11/2026: revendedores põem o endereço do fornecedor na conta do Mercado Livre (para envio e devolução), fazem compras pessoais com a mesma conta e as encomendas chegam no fornecedor. Guilherme aprovou o plano e as quatro recomendações em 18/11/2026 ("Aprovo todas").
+
+- **Quando confere:** ao conectar a loja (no máximo 5 segundos de espera; a loja conecta de qualquer jeito), no botão "Já arrumei, conferir de novo" em Lojas e uma vez por dia no worker (a tarefa roda de hora em hora e pega até 200 lojas conferidas há mais de 24 horas).
+- **Regra:** compara o endereço de compra da conta com o endereço da nota fiscal de cada fornecedor da loja, por CEP, número e rua (sem acento e sem "Rua", "Av." e afins). O complemento fica de fora: "sala 2" e "casa" no mesmo número são a mesma porta para o entregador. "s/n" só bate com "s/n".
+  - **Igual ao de um fornecedor:** a loja continua vendendo, mas não publica produto novo até o revendedor arrumar. Aviso no sino e por e-mail uma vez, quando muda de certo para errado; item vermelho em "Precisa de você"; cartão vermelho em Lojas.
+  - **Igual ao endereço de envio da conta, sem bater com fornecedor:** só aviso em Lojas (decisão 2 do Guilherme). Cobre o fornecedor que não tem endereço de nota fiscal cadastrado.
+  - **Conta sem endereço de compra marcado:** aviso em Lojas, sem trava.
+  - **Mercado Livre fora do ar:** mantém o último veredito (uma queda nunca trava nem libera); loja nunca conferida fica "não conferido", sem trava.
+- **Descartado:** travar a conexão até corrigir (os endereços só podem ser lidos depois da autorização, e travar as vendas de uma loja que já vende seria pior).
+- **Privacidade:** nenhum endereço é guardado nem vai para o log; a tabela `store_buyer_address_checks` tem só o veredito, o fornecedor, quando conferiu e desde quando está errado.
+- **Ainda não:** alarme falso (revendedor no mesmo prédio do fornecedor) é liberado pela equipe na parte 3; até lá, o cartão manda falar com o suporte. Passo a passo com prints do Mercado Livre (parte 2) e regras de ouro do revendedor com advertência (parte 3) vêm em PRs seguintes. Shopee fica fora (sem conector).
+- **Testes:** nenhuma chamada real ao Mercado Livre. Respostas no formato da documentação nos testes de unidade, o substituto do Mercado Livre (`e2e/mercado-livre.fixture.ts`) no teste de navegador, e o worker dos testes de navegador recebe "não encontrado" em vez de chamar o Mercado Livre.
