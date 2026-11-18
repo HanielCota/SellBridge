@@ -589,6 +589,13 @@
       "when": 1795048237582,
       "tag": "0083_marketplace_claims",
       "breakpoints": true
+    },
+    {
+      "idx": 84,
+      "version": "7",
+      "when": 1795064823482,
+      "tag": "0084_store_buyer_address_checks",
+      "breakpoints": true
     }
   ]
 }
