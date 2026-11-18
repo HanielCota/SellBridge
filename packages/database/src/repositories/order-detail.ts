@@ -50,7 +50,7 @@ export interface OrderDetail {
   marketplaceFeeCents: number;
   /**
    * What the seller paid to ship the sale, zero while the marketplace has not reported it; a
-   * cart's shipping counts on its first sale only ().
+   * cart's shipping counts on its first sale only.
    */
   sellerShippingCents: number;
   buyerName: string | null;
