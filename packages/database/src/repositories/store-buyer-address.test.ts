@@ -18,6 +18,7 @@ import {
 } from "../testing/fixtures.ts";
 import {
   checkStoreBuyerAddress,
+  findHeldStoresForBell,
   findStoresDueForBuyerAddressCheck,
   findStoresHeldByBuyerAddress,
   findStoreSupplierPlaces,
@@ -258,5 +259,21 @@ describe("findStoresDueForBuyerAddressCheck", () => {
     expect(ids.has(checkedToday)).toBe(false);
     expect(ids.has(disconnected)).toBe(false);
     expect(ids.has(otherMarketplace)).toBe(false);
+  });
+});
+
+describe("findHeldStoresForBell", () => {
+  it("lists a held store from the moment it turned wrong, and drops it once fixed", async () => {
+    const storeId = await createStore({ linkSupplier: true });
+    await check(storeId, async () => [atWarehouse]);
+
+    const whileHeld = await findHeldStoresForBell(database, tenants.tenantA, 100);
+    await check(storeId, async () => [atHome]);
+    const afterFix = await findHeldStoresForBell(database, tenants.tenantA, 100);
+
+    expect(
+      whileHeld.find((store) => store.storeConnectionId === storeId)?.heldSince,
+    ).toBeInstanceOf(Date);
+    expect(afterFix.some((store) => store.storeConnectionId === storeId)).toBe(false);
   });
 });

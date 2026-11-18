@@ -325,3 +325,31 @@ export async function findStoresHeldByBuyerAddress(
       ),
     );
 }
+
+/** The tenant's stores held by their purchase address, with when that started, for the bell. */
+export async function findHeldStoresForBell(
+  database: Database,
+  tenantId: string,
+  limit: number,
+): Promise<{ storeConnectionId: string; shopName: string; heldSince: Date }[]> {
+  const rows = await database
+    .select({
+      storeConnectionId: storeConnections.id,
+      shopName: storeConnections.shopName,
+      heldSince: storeBuyerAddressChecks.wrongSince,
+    })
+    .from(storeBuyerAddressChecks)
+    .innerJoin(storeConnections, eq(storeConnections.id, storeBuyerAddressChecks.storeConnectionId))
+    .where(
+      and(
+        eq(storeConnections.tenantId, tenantId),
+        eq(storeConnections.status, "connected"),
+        eq(storeBuyerAddressChecks.result, "supplier_address"),
+        isNotNull(storeBuyerAddressChecks.wrongSince),
+      ),
+    )
+    .limit(limit);
+  return rows.flatMap((row) =>
+    row.heldSince === null ? [] : [{ ...row, heldSince: row.heldSince }],
+  );
+}

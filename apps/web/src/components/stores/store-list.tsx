@@ -11,6 +11,7 @@ import { cn } from "@/lib/utils";
 import { GroupedList, MarkSlot } from "./grouped-list";
 import { MarketplaceMark } from "./marketplace-mark";
 import { ReconnectAction } from "./store-reconnect-action";
+import { StoreBuyerAddressNotice } from "./store-buyer-address";
 import { TERM_HINTS } from "@/components/icons/action-icons";
 import { HintedText } from "@/components/ui/hint";
 
@@ -321,6 +322,7 @@ function StoreRow({
           actions={actions}
         />
       </div>
+      <StoreBuyerAddressNotice store={store} storeName={name} />
     </li>
   );
 }
