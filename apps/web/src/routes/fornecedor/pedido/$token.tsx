@@ -1,11 +1,10 @@
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { createFileRoute } from "@tanstack/react-router";
-import type { ReactNode } from "react";
-import { BrandLogo } from "@/components/brand/brand-logo";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { ShipmentPanel } from "@/components/fulfillment/shipment-panel";
+import { SupplierPageFrame } from "@/components/fulfillment/supplier-page-frame";
 import { ErrorState } from "@/components/feedback/error-state";
 import { updateSupplierShipmentFn } from "@/features/fulfillment/fulfillment.functions";
 import { supplierShipmentQueryOptions } from "@/features/fulfillment/fulfillment.queries";
@@ -30,21 +29,6 @@ export const Route = createFileRoute("/fornecedor/pedido/$token")({
 });
 
 const INSTRUCTIONS = "Confirme o recebimento, separe os itens e registre o despacho e o rastreio.";
-
-/** Public page, like the legal ones: the brand on the grouped background, no app navigation. */
-function SupplierPageFrame({ children }: { children: ReactNode }) {
-  return (
-    <div className="min-h-svh bg-surface-grouped">
-      <header className="mx-auto flex max-w-3xl items-center justify-between gap-3 px-4 py-6">
-        <BrandLogo className="text-xl" iconClassName="size-8" />
-        <span className="text-subhead text-muted-foreground">Portal do fornecedor</span>
-      </header>
-      <main id="main-content" tabIndex={-1} className="mx-auto max-w-3xl space-y-5 px-4 pb-16">
-        {children}
-      </main>
-    </div>
-  );
-}
 
 function OrderHeading({ externalOrderId }: { externalOrderId: string | null }) {
   return (
