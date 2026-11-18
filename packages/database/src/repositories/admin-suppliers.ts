@@ -16,7 +16,7 @@ import {
   type ProductFiscalPatch,
   type TaxRegime,
 } from "@sellbridge/shared/product-fiscal";
-import { and, asc, count, eq, inArray, or, sql } from "drizzle-orm";
+import { and, asc, count, eq, inArray, isNull, or, sql } from "drizzle-orm";
 import type { Database, DatabaseExecutor } from "../client.ts";
 import {
   categories,
@@ -43,11 +43,14 @@ export async function listAdminSuppliers(
   database: Database,
   search: string | undefined,
   pagination: Pagination,
+  filter: { withoutPanel: boolean } = { withoutPanel: false },
 ) {
   const searchCondition = search
     ? matchesEveryWord(search, [suppliers.name, suppliers.niche, suppliers.city])
     : undefined;
-  const condition = and(publicSupplier(), searchCondition);
+  // The suppliers the team still runs for them: no panel login, orders only by link.
+  const panelCondition = filter.withoutPanel ? isNull(suppliers.organizationId) : undefined;
+  const condition = and(publicSupplier(), searchCondition, panelCondition);
   const [total] = await database.select({ value: count() }).from(suppliers).where(condition);
   const items = await database
     .select()

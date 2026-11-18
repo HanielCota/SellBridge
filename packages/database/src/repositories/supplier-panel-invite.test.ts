@@ -9,6 +9,7 @@ import {
   findClaimingProfile,
   getSupplierInviteTarget,
 } from "./supplier-panel-invite.ts";
+import { listAdminSuppliers } from "./admin-suppliers.ts";
 
 const database = createTestDatabase();
 let tenants: Awaited<ReturnType<typeof createTestTenants>>;
@@ -211,5 +212,22 @@ describe("findClaimingProfile", () => {
 
     expect(found).toEqual({ status: "has_brand" });
     await owned.cleanup();
+  });
+});
+
+describe("listAdminSuppliers without a panel", () => {
+  it("keeps only the suppliers no profile runs yet", async () => {
+    const name = `Filtro painel ${randomUUID()}`;
+    const managed = await insertSupplier({ name });
+    await insertSupplier({ name, organizationId: tenantAt(3) });
+
+    const page = await listAdminSuppliers(
+      database,
+      name,
+      { page: 1, pageSize: 20 },
+      { withoutPanel: true },
+    );
+
+    expect(page.items.map((supplier) => supplier.id)).toEqual([managed]);
   });
 });
