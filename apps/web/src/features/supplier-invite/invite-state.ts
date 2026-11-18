@@ -5,6 +5,8 @@ export interface InviteTarget {
   name: string;
   contactEmail: string | null;
   hasPanel: boolean;
+  /** A supplier the team switched off takes no panel owner. */
+  active: boolean;
 }
 
 /** The signed-in person opening the invite, or null when no one is signed in. */
@@ -18,6 +20,7 @@ export type InviteState =
   | { status: "invalid" }
   | { status: "expired" }
   | { status: "claimed" }
+  | { status: "inactive" }
   | { status: "no_email" }
   | { status: "signed_out"; supplierName: string; maskedEmail: string }
   | { status: "wrong_email"; maskedEmail: string }
@@ -49,6 +52,9 @@ export function inviteStateOf(input: {
   }
   if (target.hasPanel) {
     return { status: "claimed" };
+  }
+  if (!target.active) {
+    return { status: "inactive" };
   }
   if (target.contactEmail === null || target.contactEmail.trim() === "") {
     return { status: "no_email" };

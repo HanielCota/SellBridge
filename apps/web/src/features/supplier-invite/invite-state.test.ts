@@ -6,6 +6,7 @@ const TARGET: InviteTarget = {
   name: "Cerâmica Teste",
   contactEmail: "Pedidos@Ceramica.com.br",
   hasPanel: false,
+  active: true,
 };
 
 describe("inviteStateOf", () => {
@@ -57,6 +58,16 @@ describe("inviteStateOf", () => {
     });
 
     expect(state).toEqual({ status: "claimed" });
+  });
+
+  it("stops at a supplier the team switched off", () => {
+    const state = inviteStateOf({
+      reading: VALID,
+      target: { ...TARGET, active: false },
+      viewer: { email: "pedidos@ceramica.com.br", emailVerified: true },
+    });
+
+    expect(state).toEqual({ status: "inactive" });
   });
 
   it.each([null, "  "])("stops at a supplier with no order e-mail (%j)", (contactEmail) => {

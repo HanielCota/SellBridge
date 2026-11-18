@@ -58,6 +58,7 @@ const REFUSALS: Record<Exclude<InviteState["status"], "ready">, string> = {
   invalid: "Convite inválido. Peça um novo à equipe SellBridge.",
   expired: "Este convite venceu. Peça um novo à equipe SellBridge.",
   claimed: "Este fornecedor já tem acesso ao painel. Entre com a conta dele.",
+  inactive: "Este fornecedor está desativado. Fale com a equipe SellBridge.",
   no_email: "Falta o e-mail de pedidos deste fornecedor. Fale com a equipe SellBridge.",
   signed_out: "Entre com o e-mail de pedidos do fornecedor para ativar o painel.",
   wrong_email: "Este convite é para outro e-mail. Entre com o e-mail de pedidos do fornecedor.",
@@ -124,6 +125,9 @@ export async function sendSupplierInvite(supplierId: string): Promise<{ inviteUr
   }
   if (target.hasPanel) {
     throw conflictError("Este fornecedor já tem acesso ao painel.");
+  }
+  if (!target.active) {
+    throw conflictError("Ative o fornecedor antes de convidar.");
   }
   if (target.contactEmail === null || target.contactEmail.trim() === "") {
     throw conflictError("Cadastre o e-mail de pedidos do fornecedor antes de convidar.");

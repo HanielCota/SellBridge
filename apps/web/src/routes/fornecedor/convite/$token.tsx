@@ -211,7 +211,14 @@ function SettledInviteCard({ state }: { state: SettledInvite }) {
   );
 }
 
-const SETTLED_COPY: Record<"no_email" | "expired" | "invalid", { title: string; text: string }> = {
+const SETTLED_COPY: Record<
+  "inactive" | "no_email" | "expired" | "invalid",
+  { title: string; text: string }
+> = {
+  inactive: {
+    title: "Este fornecedor está desativado",
+    text: "O painel só pode ser ativado para um fornecedor ativo. Fale com a equipe SellBridge pelo contato que você já usa.",
+  },
   no_email: {
     title: "Falta o e-mail de pedidos",
     text: "Para ativar o painel, a equipe SellBridge precisa cadastrar o e-mail de pedidos deste fornecedor. Fale com a equipe pelo contato que você já usa.",

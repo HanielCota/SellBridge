@@ -41,12 +41,12 @@ export async function getSupplierInviteTarget(
 }
 
 /**
- * Hands a team-managed supplier, with its products and orders, to a supplier profile. Only a
- * supplier still without an owner moves, so two claims never both win.
+ * Hands a team-managed supplier, with its products and orders, to a supplier profile. Only an
+ * active supplier still without an owner moves, so two claims never both win.
  *
  * @throws {AppError} `NOT_FOUND` when the profile is not a supplier profile.
- * @throws {AppError} `CONFLICT` when the supplier already has an owner, or the profile already
- * runs a brand of its own.
+ * @throws {AppError} `CONFLICT` when the supplier already has an owner or was switched off, or
+ * the profile already runs a brand of its own.
  */
 export async function claimSupplierForProfile(
   database: Database,
@@ -67,12 +67,15 @@ export async function claimSupplierForProfile(
         and(
           eq(suppliers.id, input.supplierId),
           eq(suppliers.catalogKind, "supplier"),
+          eq(suppliers.active, true),
           isNull(suppliers.organizationId),
         ),
       )
       .returning({ id: suppliers.id });
     if (claimed === undefined) {
-      throw conflictError("Este fornecedor já tem acesso ao painel. Entre com a conta dele.");
+      throw conflictError(
+        "Este fornecedor já tem acesso ao painel ou foi desativado. Fale com a equipe SellBridge.",
+      );
     }
   } catch (error) {
     if (isUniqueViolation(error, PROFILE_SUPPLIER_INDEX)) {

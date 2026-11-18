@@ -33,6 +33,17 @@ function CopyInvite({ url }: { url: string }) {
   );
 }
 
+/** What the card says, and why the invite cannot go out yet when it cannot. */
+function inviteHint(supplier: AdminSupplier, hasEmail: boolean): string {
+  if (!supplier.active) {
+    return "Este fornecedor está desativado. Ative o fornecedor antes de convidar para o painel.";
+  }
+  if (!hasEmail) {
+    return "Este fornecedor ainda recebe os pedidos só por link. Cadastre o e-mail de pedidos no formulário abaixo para poder convidar.";
+  }
+  return `Este fornecedor ainda recebe os pedidos só por link. Envie o convite para ${supplier.contactEmail ?? ""}: ele cria a conta com esse e-mail e encontra os produtos e pedidos no painel.`;
+}
+
 /**
  * "Acesso ao painel" for a supplier the team still runs: it orders only by link until it creates
  * its access through the invite, with its order e-mail.
@@ -46,6 +57,7 @@ export function SupplierPanelInvite({ supplier }: { supplier: AdminSupplier }) {
     return null;
   }
   const hasEmail = supplier.contactEmail !== null && supplier.contactEmail.trim() !== "";
+  const canInvite = hasEmail && supplier.active;
   return (
     <section
       className="surface-card space-y-4 rounded-2xl bg-card p-5"
@@ -57,14 +69,10 @@ export function SupplierPanelInvite({ supplier }: { supplier: AdminSupplier }) {
         </h2>
         <ToneStatus tone="warning" label="Sem painel" />
       </div>
-      <p className="text-sm text-muted-foreground">
-        {hasEmail
-          ? `Este fornecedor ainda recebe os pedidos só por link. Envie o convite para ${supplier.contactEmail ?? ""}: ele cria a conta com esse e-mail e encontra os produtos e pedidos no painel.`
-          : "Este fornecedor ainda recebe os pedidos só por link. Cadastre o e-mail de pedidos no formulário abaixo para poder convidar."}
-      </p>
+      <p className="text-sm text-muted-foreground">{inviteHint(supplier, hasEmail)}</p>
       <Button
         variant="outline"
-        disabled={!hasEmail || invite.isPending}
+        disabled={!canInvite || invite.isPending}
         onClick={() => invite.mutate()}
       >
         {invite.isPending ? "Enviando..." : "Enviar convite por e-mail"}

@@ -123,6 +123,15 @@ describe("claimSupplierForProfile", () => {
     expect(await ownerOf(supplierId)).toBeNull();
   });
 
+  it("refuses a supplier the team switched off", async () => {
+    const supplierId = await insertSupplier({ active: false });
+
+    const claim = claimSupplierForProfile(database, { supplierId, organizationId: tenantAt(3) });
+
+    await expect(claim).rejects.toMatchObject({ code: "CONFLICT" });
+    expect(await ownerOf(supplierId)).toBeNull();
+  });
+
   it("refuses a seller profile", async () => {
     const supplierId = await insertSupplier();
 
