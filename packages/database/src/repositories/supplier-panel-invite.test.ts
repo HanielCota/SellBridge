@@ -1,10 +1,12 @@
+import { randomUUID } from "node:crypto";
 import { eq, inArray } from "drizzle-orm";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
-import { organization, suppliers } from "../schema/index.ts";
-import { createTestDatabase, createTestTenants } from "../testing/fixtures.ts";
+import { member, organization, suppliers } from "../schema/index.ts";
+import { createTestDatabase, createTestTenants, createTestUsers } from "../testing/fixtures.ts";
 import {
   claimSupplierForProfile,
   countSuppliersWithoutPanel,
+  findClaimingProfile,
   getSupplierInviteTarget,
 } from "./supplier-panel-invite.ts";
 
@@ -140,5 +142,74 @@ describe("countSuppliersWithoutPanel", () => {
     const after = await countSuppliersWithoutPanel(database);
 
     expect(after - before).toBe(1);
+  });
+});
+
+async function ownedProfiles(kinds: readonly ("seller" | "supplier")[]) {
+  const owners = await createTestUsers(database, 1);
+  const profiles = await createTestTenants(database, kinds.length);
+  const userId = owners.ids[0];
+  if (userId === undefined) {
+    throw new Error("usuário de teste não criado");
+  }
+  for (const [index, kind] of kinds.entries()) {
+    const organizationId = profiles.ids[index];
+    if (organizationId === undefined) {
+      throw new Error("perfil de teste não criado");
+    }
+    await database.update(organization).set({ kind }).where(eq(organization.id, organizationId));
+    await database.insert(member).values({
+      id: randomUUID(),
+      organizationId,
+      userId,
+      role: "owner",
+      createdAt: new Date(Date.UTC(2026, 0, index + 1)),
+    });
+  }
+  return {
+    userId,
+    profileIds: profiles.ids,
+    cleanup: async () => {
+      await database.delete(suppliers).where(inArray(suppliers.organizationId, profiles.ids));
+      await profiles.cleanup();
+      await owners.cleanup();
+    },
+  };
+}
+
+describe("findClaimingProfile", () => {
+  it("picks the supplier profile that has no brand yet", async () => {
+    const owned = await ownedProfiles(["seller", "supplier"]);
+    const supplierProfile = owned.profileIds[1];
+
+    const found = await findClaimingProfile(database, owned.userId);
+
+    expect(found).toMatchObject({ status: "found", organizationId: supplierProfile });
+    await owned.cleanup();
+  });
+
+  it("says when the account has only seller profiles", async () => {
+    const owned = await ownedProfiles(["seller"]);
+
+    const found = await findClaimingProfile(database, owned.userId);
+
+    expect(found).toEqual({ status: "no_supplier_profile" });
+    await owned.cleanup();
+  });
+
+  it("says when every supplier profile already runs a brand", async () => {
+    const owned = await ownedProfiles(["supplier"]);
+    await database.insert(suppliers).values({
+      name: "Marca própria",
+      niche: "Casa",
+      state: "SP",
+      city: "Campinas",
+      organizationId: owned.profileIds[0],
+    });
+
+    const found = await findClaimingProfile(database, owned.userId);
+
+    expect(found).toEqual({ status: "has_brand" });
+    await owned.cleanup();
   });
 });

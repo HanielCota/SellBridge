@@ -1,8 +1,8 @@
 import { conflictError, notFoundError } from "@sellbridge/shared/errors";
-import { and, count, eq, isNull } from "drizzle-orm";
+import { and, asc, count, eq, isNull } from "drizzle-orm";
 import type { Database } from "../client.ts";
 import { isUniqueViolation } from "../postgres-errors.ts";
-import { organization, suppliers } from "../schema/index.ts";
+import { member, organization, suppliers } from "../schema/index.ts";
 
 /** One supplier per supplier profile (migration 0041). */
 const PROFILE_SUPPLIER_INDEX = "suppliers_organization_id_unique";
@@ -82,6 +82,36 @@ export async function claimSupplierForProfile(
     }
     throw error;
   }
+}
+
+/** Where an accepted invite lands: the person's own supplier profile that has no brand yet. */
+export type ClaimingProfile =
+  | { status: "found"; organizationId: string; slug: string }
+  | { status: "no_supplier_profile" }
+  | { status: "has_brand" };
+
+/** The oldest supplier profile the user owns without a brand, or why there is none. */
+export async function findClaimingProfile(
+  database: Database,
+  userId: string,
+): Promise<ClaimingProfile> {
+  const owned = await database
+    .select({ id: organization.id, slug: organization.slug, brandId: suppliers.id })
+    .from(member)
+    .innerJoin(organization, eq(organization.id, member.organizationId))
+    .leftJoin(suppliers, eq(suppliers.organizationId, organization.id))
+    .where(
+      and(eq(member.userId, userId), eq(member.role, "owner"), eq(organization.kind, "supplier")),
+    )
+    .orderBy(asc(member.createdAt), asc(organization.id));
+  if (owned.length === 0) {
+    return { status: "no_supplier_profile" };
+  }
+  const free = owned.find((profile) => profile.brandId === null);
+  if (free === undefined) {
+    return { status: "has_brand" };
+  }
+  return { status: "found", organizationId: free.id, slug: free.slug };
 }
 
 /** Active directory suppliers the team still runs for them: no one has a panel login yet. */
