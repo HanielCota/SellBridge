@@ -289,6 +289,76 @@ describe("assertPriceKeepsMargin", () => {
   });
 });
 
+describe("assertPriceKeepsMargin above the minimum price", () => {
+  /** R$ 40,00 of cost and 30 kg: Mercado Livre's shipping jumps from R$ 12,45 to R$ 66,45 at R$ 79,00. */
+  const heavyProduct = { costCents: 4_000, weightGrams: 30_000 };
+  const heavyProfitAt = (priceCents: number) =>
+    estimateSale({ ...heavyProduct, priceCents }, DEFAULT_FEE_SCHEDULE).profitCents;
+
+  it("refuses a price whose shipping band loses money and names the nearest prices that pay", () => {
+    expect(minimumPriceCents(heavyProduct, DEFAULT_FEE_SCHEDULE)).toBe(6_099);
+
+    expect(() => assertPriceKeepsMargin(9_000, heavyProduct, DEFAULT_FEE_SCHEDULE)).toThrow(
+      /^Com as taxas do Mercado Livre, R\$\s90,00 dá prejuízo, porque o frete muda conforme a faixa de preço\. O preço mais perto sem prejuízo é R\$\s78,99 \(abaixo\) ou R\$\s146,80 \(acima\)$/,
+    );
+  });
+
+  it("accepts the top of the band below the shipping jump", () => {
+    expect(() => assertPriceKeepsMargin(7_899, heavyProduct, DEFAULT_FEE_SCHEDULE)).not.toThrow();
+  });
+
+  it("names prices that pay on both sides, with every price between them losing money", () => {
+    expect(() => assertPriceKeepsMargin(15_500, heavyProduct, DEFAULT_FEE_SCHEDULE)).toThrow(
+      /R\$\s149,99 \(abaixo\) ou R\$\s159,48 \(acima\)$/,
+    );
+    expect(heavyProfitAt(14_999)).toBeGreaterThanOrEqual(0);
+    expect(heavyProfitAt(15_948)).toBeGreaterThanOrEqual(0);
+    for (let priceCents = 15_000; priceCents < 15_948; priceCents += 1) {
+      expect(heavyProfitAt(priceCents)).toBeLessThan(0);
+    }
+  });
+
+  it("refuses a price above the minimum that does not keep the configured margin", () => {
+    const strict = { ...DEFAULT_FEE_SCHEDULE, minimumMarginPercent: 10 };
+    const minimum = minimumPriceCents(heavyProduct, strict) ?? 0;
+
+    expect(minimum).toBeLessThan(7_900);
+    expect(() => assertPriceKeepsMargin(9_000, heavyProduct, strict)).toThrow(
+      /^Com as taxas do Mercado Livre, R\$\s90,00 não mantém 10% de margem, porque o frete muda conforme a faixa de preço\. O preço mais perto para manter 10% de margem é R\$\s78,99 \(abaixo\) ou R\$\s[\d.,]+ \(acima\)$/,
+    );
+  });
+
+  it("names only the price below when no price above pays", () => {
+    // The store's last band (R$ 200,00 and up) costs more shipping than any listing may charge.
+    const store: MercadoLivreStoreRates = {
+      commissionBasisPoints: 1_400,
+      shippingBands: shippingBandsFromQuotes([565, 685, 815, 1_295, 1_495, 1_695, 1_905, 2e8]),
+    };
+    const product = { costCents: 4_000, weightGrams: 300, mercadoLivreRates: store };
+
+    expect(() => assertPriceKeepsMargin(25_000, product, DEFAULT_FEE_SCHEDULE)).toThrow(
+      /^Com as taxas do Mercado Livre, R\$\s250,00 dá prejuízo, porque o frete muda conforme a faixa de preço\. O preço mais perto sem prejuízo é R\$\s199,99$/,
+    );
+  });
+
+  it("says the fee, not the shipping, changes by price band on Shopee", () => {
+    // Shopee's fixed fee jumps from R$ 4,50 to R$ 16,00 at R$ 80,00.
+    const shopee = onChannel(DEFAULT_FEE_SCHEDULE, "shopee");
+
+    expect(() => assertPriceKeepsMargin(8_000, { costCents: 5_600 }, shopee)).toThrow(
+      /^Com as taxas da Shopee, R\$\s80,00 dá prejuízo, porque a taxa muda conforme a faixa de preço\. O preço mais perto sem prejuízo é R\$\s79,99 \(abaixo\) ou R\$\s[\d.,]+ \(acima\)$/,
+    );
+  });
+
+  it("refuses the same loss band in a bulk publication", () => {
+    const batch = [{ title: "Halteres", priceCents: 9_000, ...heavyProduct }];
+
+    expect(batchPriceProblem(batch, DEFAULT_FEE_SCHEDULE)).toMatch(
+      /^"Halteres": Com as taxas do Mercado Livre, R\$\s90,00 dá prejuízo/,
+    );
+  });
+});
+
 describe("batchPriceProblem", () => {
   // Regression: a 300% markup on a R$ 300.000 cost (R$ 1.200.000) passed the screen's check and
   // was only refused by the server.
