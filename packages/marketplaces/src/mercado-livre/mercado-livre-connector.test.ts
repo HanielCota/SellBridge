@@ -984,6 +984,46 @@ describe("publication recovery", () => {
     );
   });
 
+  it("publishes a new item when the only match is a closed item made outside SellBridge", async () => {
+    const { ml, calls } = connector({
+      ...recoveryRoutes,
+      [`GET ${API}/items/MLB1`]: () =>
+        json(200, { ...remoteItem, seller_custom_field: null, status: "closed" }),
+      [`GET ${API}/sites/MLB/domain_discovery/search`]: () => json(200, [{ category_id: "MLB1" }]),
+      [`POST ${API}/items`]: () => json(201, { id: "MLB2", permalink: null }),
+      [`POST ${API}/items/MLB2/description`]: () => json(201, {}),
+    });
+
+    const result = await ml.publishProduct(store, product);
+
+    expect(result).toMatchObject({ externalId: "MLB2", descriptionError: null });
+    expect(calls.some((call) => call.method === "PUT" && call.url.includes("/items/MLB1"))).toBe(
+      false,
+    );
+  });
+
+  it.each([
+    ["active", "ativo"],
+    ["paused", "pausado"],
+  ])(
+    "names the %s item made outside SellBridge and how to clear it",
+    async (status, statusWord) => {
+      const { ml, calls } = connector({
+        ...recoveryRoutes,
+        [`GET ${API}/items/MLB1`]: () =>
+          json(200, { ...remoteItem, seller_custom_field: null, status }),
+      });
+
+      const publishing = ml.publishProduct(store, product);
+
+      await expect(publishing).rejects.toMatchObject({
+        message: `Sua conta do Mercado Livre já tem um anúncio ${statusWord} com este SKU, feito fora do SellBridge (código MLB1). Encerre esse anúncio no Mercado Livre e clique em Reprocessar.`,
+        details: { retryable: false },
+      });
+      expect(calls.some((call) => call.url === `${API}/items`)).toBe(false);
+    },
+  );
+
   it("refuses multiple exact matches", async () => {
     const { ml } = connector({
       ...recoveryRoutes,

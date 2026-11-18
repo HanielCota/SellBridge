@@ -295,6 +295,21 @@ export async function updateDescription(
   });
 }
 
+const ITEM_STATUS_WORDS: Readonly<Record<string, string>> = { active: "ativo", paused: "pausado" };
+
+/**
+ * A live item with the product's SKU that SellBridge did not create: adopting it could fight
+ * another tool over its stock, so the seller closes it and reprocesses (decided on 2026-11-18).
+ */
+function unmarkedItemError(item: { id: string; status: string }): AppError {
+  const statusWord = ITEM_STATUS_WORDS[item.status];
+  const listing = statusWord === undefined ? "um anúncio" : `um anúncio ${statusWord}`;
+  return marketplaceError(
+    `Sua conta do Mercado Livre já tem ${listing} com este SKU, feito fora do SellBridge (código ${item.id}). Encerre esse anúncio no Mercado Livre e clique em Reprocessar.`,
+    { retryable: false },
+  );
+}
+
 /** Search failures and ambiguous matches must never be interpreted as "not found". */
 async function findExistingItem(
   context: MercadoLivreContext,
@@ -329,14 +344,15 @@ async function findExistingItem(
         retryable: false,
       });
     }
-    if (!item.seller_custom_field) {
-      throw marketplaceError(
-        "Já existe um anúncio com este SKU sem identificação do SellBridge. Confira-o no Mercado Livre antes de publicar.",
-        { retryable: false },
-      );
+    // A closed (or deleted) item never sells again, whoever made it: it neither blocks nor is
+    // adopted, and the publication gets a new item.
+    if (item.status === ENDED_ITEM_STATUS) {
+      continue;
     }
-    // A closed item never sells again: the publication it belonged to ended and gets a new item.
-    if (item.seller_custom_field === input.idempotencyKey && item.status !== ENDED_ITEM_STATUS) {
+    if (item.seller_custom_field === null || item.seller_custom_field.trim() === "") {
+      throw unmarkedItemError(item);
+    }
+    if (item.seller_custom_field === input.idempotencyKey) {
       matches.push(item);
     }
   }
