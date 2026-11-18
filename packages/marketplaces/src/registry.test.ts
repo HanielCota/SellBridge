@@ -28,6 +28,18 @@ describe("createConnectorRegistry", () => {
     expect(complete.isConfigured()).toBe(true);
   });
 
+  it("enables Shopee only with partner id and key", () => {
+    const keyOnly = { partnerId: undefined, partnerKey: "key", sandbox: false };
+
+    expect(createConnectorRegistry({}).shopee.isConfigured()).toBe(false);
+    expect(createConnectorRegistry({ shopee: keyOnly }).shopee.isConfigured()).toBe(false);
+    expect(
+      createConnectorRegistry({
+        shopee: { ...keyOnly, partnerId: "2001887" },
+      }).shopee.isConfigured(),
+    ).toBe(true);
+  });
+
   it("enables Mercado Livre only with real credentials", () => {
     expect(createConnectorRegistry({}).mercado_livre.isConfigured()).toBe(false);
     expect(

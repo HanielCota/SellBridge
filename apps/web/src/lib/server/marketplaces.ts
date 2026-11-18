@@ -13,6 +13,11 @@ export const connectors = createConnectorRegistry({
     clientId: environment.MERCADO_LIVRE_CLIENT_ID,
     clientSecret: environment.MERCADO_LIVRE_CLIENT_SECRET,
   },
+  shopee: {
+    partnerId: environment.SHOPEE_PARTNER_ID,
+    partnerKey: environment.SHOPEE_PARTNER_KEY,
+    sandbox: environment.SHOPEE_SANDBOX,
+  },
   tiktokShop: {
     appKey: environment.TIKTOK_SHOP_APP_KEY,
     appSecret: environment.TIKTOK_SHOP_APP_SECRET,
