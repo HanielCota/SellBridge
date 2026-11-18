@@ -241,6 +241,37 @@ export async function findStoresDueForBuyerAddressCheck(
   );
 }
 
+/**
+ * The tenant's store, with what checking its account needs; null when it is not the tenant's, not
+ * a connected Mercado Livre store or has no token.
+ */
+export async function findBuyerAddressCheckTarget(
+  database: Database,
+  tenantId: string,
+  storeConnectionId: string,
+): Promise<BuyerAddressCheckTarget | null> {
+  const [row] = await database
+    .select({
+      id: storeConnections.id,
+      externalShopId: storeConnections.externalShopId,
+      accessTokenEnc: storeConnections.accessTokenEnc,
+    })
+    .from(storeConnections)
+    .where(
+      and(
+        eq(storeConnections.id, storeConnectionId),
+        eq(storeConnections.tenantId, tenantId),
+        eq(storeConnections.marketplace, "mercado_livre"),
+        eq(storeConnections.status, "connected"),
+        eq(storeConnections.manual, false),
+      ),
+    );
+  if (row === undefined || row.accessTokenEnc === null) {
+    return null;
+  }
+  return { ...row, marketplace: "mercado_livre", accessTokenEnc: row.accessTokenEnc };
+}
+
 /** One store's last check, as the stores page and the dashboard show it. */
 export interface BuyerAddressCheckView {
   result: BuyerAddressResult;
