@@ -64,6 +64,7 @@
     "./catalog-scope": "./src/domain/catalog-scope.ts",
     "./store-supplier": "./src/domain/store-supplier.ts",
     "./store-attention": "./src/domain/store-attention.ts",
+    "./buyer-address": "./src/domain/buyer-address.ts",
     "./staff-access": "./src/domain/staff-access.ts",
     "./supplier-flags": "./src/domain/supplier-flags.ts",
     "./supplier-golden-rules": "./src/domain/supplier-golden-rules.ts",
