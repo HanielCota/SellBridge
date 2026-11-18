@@ -16,6 +16,12 @@ import { mercadoLivreApiConfig, tokenCipher } from "@/lib/server/marketplaces";
  */
 const CONNECT_CHECK_DEADLINE_MILLISECONDS = 5000;
 
+/**
+ * A store read this recently answers with the verdict it has: clicking again and again must not
+ * spend the app's Mercado Livre quota, shared by every store.
+ */
+const RECHECK_INTERVAL_MILLISECONDS = 15_000;
+
 async function checkWithCredentials(
   storeConnectionId: string,
   credentials: StoreCredentials,
@@ -61,6 +67,10 @@ export async function recheckBuyerAddressForTenant(
   const store = await findBuyerAddressCheckTarget(database, tenantId, storeConnectionId);
   if (store === null) {
     throw notFoundError("Loja do Mercado Livre não encontrada ou desconectada");
+  }
+  const last = store.lastCheck;
+  if (last !== null && Date.now() - last.checkedAt.getTime() < RECHECK_INTERVAL_MILLISECONDS) {
+    return last.result;
   }
   return checkWithCredentials(store.id, {
     externalShopId: store.externalShopId,

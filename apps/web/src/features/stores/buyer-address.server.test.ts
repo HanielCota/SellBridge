@@ -8,14 +8,18 @@ const mocks = vi.hoisted(() => ({
         check: { storeConnectionId: string; readAddresses: () => Promise<unknown> },
       ) => Promise<string>
     >(),
-  findBuyerAddressCheckTarget:
-    vi.fn<
-      (
-        database: unknown,
-        tenantId: string,
-        storeConnectionId: string,
-      ) => Promise<{ id: string; externalShopId: string; accessTokenEnc: string } | null>
-    >(),
+  findBuyerAddressCheckTarget: vi.fn<
+    (
+      database: unknown,
+      tenantId: string,
+      storeConnectionId: string,
+    ) => Promise<{
+      id: string;
+      externalShopId: string;
+      accessTokenEnc: string;
+      lastCheck: { result: string; checkedAt: Date } | null;
+    } | null>
+  >(),
   readMercadoLivreAccountAddresses: vi.fn<(config: unknown, store: unknown) => Promise<unknown>>(),
 }));
 
@@ -101,6 +105,7 @@ describe("recheckBuyerAddressForTenant", () => {
       id: "store-1",
       externalShopId: "770001234",
       accessTokenEnc: "enc:saved",
+      lastCheck: { result: "ok", checkedAt: new Date(Date.now() - 60_000) },
     });
     mocks.checkStoreBuyerAddress.mockImplementation(async (_database, check) => {
       await check.readAddresses();
@@ -115,6 +120,20 @@ describe("recheckBuyerAddressForTenant", () => {
       { clientId: "client" },
       { externalShopId: "770001234", accessToken: "saved" },
     );
+  });
+
+  it("answers a click right after the last reading without asking Mercado Livre again", async () => {
+    mocks.findBuyerAddressCheckTarget.mockResolvedValue({
+      id: "store-1",
+      externalShopId: "770001234",
+      accessTokenEnc: "enc:saved",
+      lastCheck: { result: "supplier_address", checkedAt: new Date(Date.now() - 2000) },
+    });
+
+    const result = await recheckBuyerAddressForTenant("tenant-1", "store-1");
+
+    expect(result).toBe("supplier_address");
+    expect(mocks.readMercadoLivreAccountAddresses).not.toHaveBeenCalled();
   });
 
   it("refuses a store that is not the tenant's connected Mercado Livre store", async () => {

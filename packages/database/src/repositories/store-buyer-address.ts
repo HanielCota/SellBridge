@@ -241,6 +241,11 @@ export async function findStoresDueForBuyerAddressCheck(
   );
 }
 
+/** A store the reseller asked to check again, with its last verdict. */
+export interface RecheckTarget extends BuyerAddressCheckTarget {
+  lastCheck: { result: BuyerAddressResult; checkedAt: Date } | null;
+}
+
 /**
  * The tenant's store, with what checking its account needs; null when it is not the tenant's, not
  * a connected Mercado Livre store or has no token.
@@ -249,14 +254,20 @@ export async function findBuyerAddressCheckTarget(
   database: Database,
   tenantId: string,
   storeConnectionId: string,
-): Promise<BuyerAddressCheckTarget | null> {
+): Promise<RecheckTarget | null> {
   const [row] = await database
     .select({
       id: storeConnections.id,
       externalShopId: storeConnections.externalShopId,
       accessTokenEnc: storeConnections.accessTokenEnc,
+      lastResult: storeBuyerAddressChecks.result,
+      lastCheckedAt: storeBuyerAddressChecks.checkedAt,
     })
     .from(storeConnections)
+    .leftJoin(
+      storeBuyerAddressChecks,
+      eq(storeBuyerAddressChecks.storeConnectionId, storeConnections.id),
+    )
     .where(
       and(
         eq(storeConnections.id, storeConnectionId),
@@ -269,7 +280,17 @@ export async function findBuyerAddressCheckTarget(
   if (row === undefined || row.accessTokenEnc === null) {
     return null;
   }
-  return { ...row, marketplace: "mercado_livre", accessTokenEnc: row.accessTokenEnc };
+  const lastCheck =
+    row.lastResult === null || row.lastCheckedAt === null
+      ? null
+      : { result: row.lastResult, checkedAt: row.lastCheckedAt };
+  return {
+    id: row.id,
+    externalShopId: row.externalShopId,
+    marketplace: "mercado_livre",
+    accessTokenEnc: row.accessTokenEnc,
+    lastCheck,
+  };
 }
 
 /** One store's last check, as the stores page and the dashboard show it. */
