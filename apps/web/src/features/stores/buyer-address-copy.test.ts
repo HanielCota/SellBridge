@@ -23,10 +23,13 @@ describe("buyerAddressNoticeCopy", () => {
     expect(copy?.paragraphs.join(" ")).not.toContain("não publica");
   });
 
-  it("says nothing for a fine or unread address", () => {
+  it("says nothing for a fine address or a store never checked", () => {
     expect(buyerAddressNoticeCopy("ok", null)).toBeNull();
-    expect(buyerAddressNoticeCopy("not_checked", null)).toBeNull();
     expect(buyerAddressNoticeCopy(null, null)).toBeNull();
+  });
+
+  it("offers to check again quietly when the account could not be read", () => {
+    expect(buyerAddressNoticeCopy("not_checked", null)?.tone).toBe("muted");
   });
 });
 

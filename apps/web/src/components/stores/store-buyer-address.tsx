@@ -11,6 +11,7 @@ import { cn } from "@/lib/utils";
 const NOTICE_TONES = {
   danger: "bg-destructive/[0.06] ring-destructive/25",
   warning: "bg-amber-500/[0.07] ring-amber-500/30",
+  muted: "bg-foreground/[0.03] ring-border",
 } as const;
 
 /**
@@ -61,7 +62,7 @@ export function StoreBuyerAddressNotice({
           onClick={() => recheck.mutate(store.id)}
         >
           <ArrowClockwiseIcon weight="bold" aria-hidden="true" />
-          {recheck.isPending ? "Conferindo..." : "Já arrumei, conferir de novo"}
+          {recheck.isPending ? "Conferindo..." : copy.actionLabel}
         </Button>
         <Link
           to="/suporte"
