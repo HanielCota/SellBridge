@@ -57,9 +57,13 @@ describe("mock connector OAuth", () => {
 
   it("refreshes tokens and reports revoked refresh tokens", async () => {
     const { tokens } = await connect();
-    const refreshed = await connector.refreshTokens(tokens.refreshToken ?? "");
+    const refreshed = await connector.refreshTokens(tokens.refreshToken ?? "", {
+      externalShopId: "mock-shop",
+    });
     expect(refreshed.accessToken).not.toBe(tokens.accessToken);
-    await expect(connector.refreshTokens(MOCK_REVOKED_REFRESH_TOKEN)).rejects.toMatchObject({
+    await expect(
+      connector.refreshTokens(MOCK_REVOKED_REFRESH_TOKEN, { externalShopId: "mock-shop" }),
+    ).rejects.toMatchObject({
       code: "EXTERNAL_PROVIDER_AUTH",
     });
   });

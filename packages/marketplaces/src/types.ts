@@ -27,6 +27,8 @@ export interface CodeExchange {
   code: string;
   redirectUri: string;
   codeVerifier?: string | undefined;
+  /** The shop the marketplace sent back with the code (Shopee's `shop_id`), when it does. */
+  externalShopId?: string | undefined;
 }
 
 export interface PublishProductInput {
@@ -161,7 +163,8 @@ export interface MarketplaceConnector {
   isConfigured(): boolean;
   getAuthorizationUrl(request: AuthorizationRequest): string;
   exchangeCode(exchange: CodeExchange): Promise<{ tokens: OAuthTokens; shop: ConnectedShop }>;
-  refreshTokens(refreshToken: string): Promise<OAuthTokens>;
+  /** `store` names the shop the token belongs to; Shopee refreshes per shop. */
+  refreshTokens(refreshToken: string, store: { externalShopId: string }): Promise<OAuthTokens>;
   publishProduct(
     credentials: StoreCredentials,
     input: PublishProductInput,
