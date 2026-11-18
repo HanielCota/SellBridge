@@ -907,3 +907,9 @@ Guilherme aprovou as três etapas do lucro real; a Central mandou começar a eta
   - **Servidor:** o piso do servidor ao criar o anúncio e ao trocar o preço.
 - **Fora, de propósito:** o catálogo e a publicação em lote continuam na estimativa da etapa 1. Ler 9 valores por produto e por loja numa grade de 24 produtos seria pergunta demais ao Mercado Livre por página aberta.
 - **Testes:** nenhuma chamada real ao Mercado Livre. Os testes de unidade usam respostas no formato da documentação, e o teste de navegador usa o substituto do Mercado Livre (`e2e/mercado-livre.fixture.ts`).
+
+## 2026-11-18: Regras de negócio decididas pelo dono do produto
+
+- **Decisão (Guilherme, "4 sim", chat da Central):** as decisões de negócio deixam de esperar o cliente. Quem decide é o dono do produto, com a Central; o que o cliente pede entra como informação, não como trava.
+- **O que muda:** o princípio 2 e a seção 8 de `docs/prompts/execucao-tela-a-tela.md` (a tabela D1–D11 passa a mostrar a situação de cada decisão), a nota de `docs/prompts/coordenacao.md` e o aviso no topo de `docs/prompts/fase-cliente-1.md`. As entradas antigas marcadas `PENDENTE CLIENTE` continuam como histórico.
+- **Descartado:** continuar com flags desligadas e adapters de faz de conta para cada decisão em aberto, que travava itens já decididos na prática.
