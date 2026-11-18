@@ -90,13 +90,14 @@ const NOT_IN_ANY_ORDER = "Este código não está em nenhum pedido seu.";
 const MANUAL_NOT_CONNECTED =
   "A consulta direto na transportadora ainda não está ligada. Para acompanhar este código, use o site dos Correios.";
 
-/** A code in none of the reseller's orders; it only says the carrier was read when it was. */
+/** A code in none of the reseller's orders; it only says the carrier was read when it answered. */
 export function ManualTracking({
   result,
 }: {
   result: Extract<TrackingSearchResult, { kind: "manual" }>;
 }) {
-  const carrierWasRead = result.carrierTracking.state !== "not_connected";
+  const carrierState = result.carrierTracking.state;
+  const carrierAnswered = carrierState === "found" || carrierState === "not_found";
   return (
     <section
       className="surface-card space-y-4 rounded-3xl bg-card p-5"
@@ -105,7 +106,7 @@ export function ManualTracking({
       <div>
         <h3 className="font-medium break-all">Código {result.code}</h3>
         <p className="text-footnote text-muted-foreground">
-          {carrierWasRead
+          {carrierAnswered
             ? `${NOT_IN_ANY_ORDER} Consultamos direto na transportadora.`
             : NOT_IN_ANY_ORDER}
         </p>
@@ -113,10 +114,10 @@ export function ManualTracking({
       {result.explanation === null ? null : (
         <TrackingExplanationBlock explanation={result.explanation} />
       )}
-      {carrierWasRead ? (
-        <CarrierHistory result={result.carrierTracking} />
-      ) : (
+      {carrierState === "not_connected" ? (
         <p className="text-sm text-muted-foreground">{MANUAL_NOT_CONNECTED}</p>
+      ) : (
+        <CarrierHistory result={result.carrierTracking} />
       )}
     </section>
   );

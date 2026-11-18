@@ -43,4 +43,20 @@ describe("ManualTracking", () => {
     expect(markup).toContain("Consultamos direto na transportadora.");
     expect(markup).toContain("A transportadora ainda não conhece este código.");
   });
+
+  it("does not claim a carrier lookup when the carrier could not be reached", () => {
+    const markup = renderToStaticMarkup(
+      <ManualTracking
+        result={{
+          kind: "manual",
+          code: CODE,
+          carrierTracking: { state: "unavailable" },
+          explanation: null,
+        }}
+      />,
+    );
+
+    expect(markup).not.toContain("Consultamos direto na transportadora");
+    expect(markup).toContain("Não conseguimos consultar a transportadora agora.");
+  });
 });
