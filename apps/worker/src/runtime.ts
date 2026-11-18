@@ -3,11 +3,13 @@ import { deliverOrderMessageNotice, orderMessageMoments } from "@sellbridge/data
 import {
   getMercadoLivreShipping,
   parseMercadoLivreNotice,
+  readMercadoLivreAccountAddresses,
   readMercadoLivreBuyerBilling,
   readMercadoLivreClaim,
   readMercadoLivreShipmentOrders,
   searchMercadoLivreClaims,
   type ConnectorRegistry,
+  type FetchLike,
   type MercadoLivreConfig,
 } from "@sellbridge/marketplaces";
 import { createBlingRateLimiter, type BlingAppCredentials } from "@sellbridge/marketplaces/bling";
@@ -45,6 +47,7 @@ import { createAsaasPaymentProcessor } from "./processors/asaas-payments.ts";
 import { runPaymentRounds } from "./processors/payment-rounds.ts";
 import { createSupplierPaymentProcessor } from "./processors/supplier-payments.ts";
 import { createTicketAutoCloseProcessor } from "./processors/ticket-auto-close.ts";
+import { createBuyerAddressCheckProcessor } from "./processors/buyer-address-check.ts";
 import { createTokenRefreshProcessor } from "./processors/token-refresh.ts";
 import {
   createErpTokenRefreshProcessor,
@@ -83,6 +86,7 @@ function createQueues(connection: { url: string; maxRetriesPerRequest: null }) {
     notifications: new Queue(QUEUE_NAMES.notificationDelivery, { connection }),
     erpInvoices: new Queue(QUEUE_NAMES.erpInvoiceIssue, { connection }),
     supplierPayments: new Queue(QUEUE_NAMES.supplierPayments, { connection }),
+    buyerAddressCheck: new Queue(QUEUE_NAMES.buyerAddressCheck, { connection }),
   };
 }
 
@@ -96,7 +100,13 @@ function blingCredentials(): BlingAppCredentials | null {
   return { clientId, clientSecret };
 }
 
-function createContext(connectors: ConnectorRegistry) {
+/** Test entry points only. */
+export interface WorkerOptions {
+  /** Where the purchase address checks read Mercado Livre instead of the real API. */
+  accountAddressFetch?: FetchLike;
+}
+
+function createContext(connectors: ConnectorRegistry, options: WorkerOptions) {
   const connection = { url: environment.REDIS_URL, maxRetriesPerRequest: null };
   return {
     connection,
@@ -115,6 +125,7 @@ function createContext(connectors: ConnectorRegistry) {
       clientId: environment.MERCADO_LIVRE_CLIENT_ID ?? "",
       clientSecret: environment.MERCADO_LIVRE_CLIENT_SECRET ?? "",
     },
+    accountAddressFetch: options.accountAddressFetch,
   };
 }
 
@@ -351,6 +362,31 @@ function paymentWorkers(context: WorkerContext): Worker[] {
   ];
 }
 
+function accountAddressConfig(context: WorkerContext): MercadoLivreConfig {
+  const fetchImplementation = context.accountAddressFetch;
+  if (fetchImplementation === undefined) {
+    return context.mercadoLivreConfig;
+  }
+  return { ...context.mercadoLivreConfig, fetchImplementation, retry: { retries: 0 } };
+}
+
+/** The daily check that a Mercado Livre store does not buy at its supplier's address. */
+function storeAccountWorkers(context: WorkerContext): Worker[] {
+  const processChecks = createBuyerAddressCheckProcessor({
+    database: context.database,
+    cipher: context.cipher,
+    acquireRateLimit: context.acquireRateLimit,
+    readAddresses: async (store) =>
+      readMercadoLivreAccountAddresses(accountAddressConfig(context), store),
+  });
+  return [
+    new Worker(QUEUE_NAMES.buyerAddressCheck, async () => processChecks(), {
+      connection: context.connection,
+      concurrency: 1,
+    }),
+  ];
+}
+
 function deliveryWorkers(context: WorkerContext): Worker[] {
   const { database, cipher, sendEmail, connection } = context;
   const processTickets = createTicketAutoCloseProcessor({ database });
@@ -421,6 +457,8 @@ async function scheduleQueues(queues: WorkerContext["queues"]): Promise<void> {
   await scheduleRecurring(queues.claimSweep, "sweep-marketplace-claims", 24 * 60 * 60 * 1000);
   await scheduleRecurring(queues.erpInvoices, "issue-erp-invoices", 2 * 60 * 1000);
   await scheduleRecurring(queues.supplierPayments, "reconcile-supplier-payments", 5 * 60 * 1000);
+  // Hourly, so a day's checks are spread out; each store is due once a day.
+  await scheduleRecurring(queues.buyerAddressCheck, "check-buyer-addresses", 60 * 60 * 1000);
 }
 
 function observeWorkers(workers: readonly Worker[]): void {
@@ -479,10 +517,13 @@ function registerShutdown(
 }
 
 /** Start with explicit adapters; the normal entry point always supplies the real registry. */
-export async function startWorker(connectors: ConnectorRegistry): Promise<void> {
+export async function startWorker(
+  connectors: ConnectorRegistry,
+  options: WorkerOptions = {},
+): Promise<void> {
   installErrorAlerts({ webhookUrl: environment.ALERT_WEBHOOK_URL, service: "worker" });
   installPortugueseZodMessages();
-  const context = createContext(connectors);
+  const context = createContext(connectors, options);
   installProblemRecorder(context.database, { service: "worker" });
   const workers = [
     ...marketplaceWorkers(context),
@@ -491,6 +532,7 @@ export async function startWorker(connectors: ConnectorRegistry): Promise<void> 
     ...deliveryWorkers(context),
     ...erpWorkers(context),
     ...paymentWorkers(context),
+    ...storeAccountWorkers(context),
   ];
   observeWorkers(workers);
   // Expose health before scheduling: a Redis outage must not leave probes waiting for startup.
