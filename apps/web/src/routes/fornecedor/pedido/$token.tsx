@@ -1,5 +1,7 @@
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { createFileRoute } from "@tanstack/react-router";
+import { useState } from "react";
+import { InlineFormError } from "@/components/form/inline-form-error";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -9,6 +11,8 @@ import { ErrorState } from "@/components/feedback/error-state";
 import { updateSupplierShipmentFn } from "@/features/fulfillment/fulfillment.functions";
 import { supplierShipmentQueryOptions } from "@/features/fulfillment/fulfillment.queries";
 import { isShippingBlocked } from "@/features/fulfillment/shipping-block";
+import { SUPPLIER_PANEL_PATH } from "@/features/auth/profile-routes";
+import { inviteFromOrderLinkFn } from "@/features/supplier-invite/supplier-invite.functions";
 import { errorMessage } from "@/lib/errors";
 import { SHARE_IMAGES, shareMeta } from "@/lib/share-meta";
 
@@ -84,6 +88,76 @@ function ShippingBlockedAlert() {
   );
 }
 
+/** A supplier with its own panel: the link only says where the order is now. */
+function OrderInPanel({ externalOrderId }: { externalOrderId: string }) {
+  const panelOrder = `${SUPPLIER_PANEL_PATH}/pedidos?query=${encodeURIComponent(externalOrderId)}`;
+  return (
+    <section className="surface-card space-y-4 rounded-2xl bg-card p-5" aria-labelledby="moved">
+      <h1 id="moved" className="text-2xl font-semibold tracking-tight">
+        O pedido <span className="break-all">{externalOrderId}</span> está no seu painel
+      </h1>
+      <p className="text-sm text-muted-foreground">
+        Os pedidos agora ficam só no painel do fornecedor. Entre com a sua conta para aceitar,
+        separar e informar o envio.
+      </p>
+      <Button asChild size="lg">
+        <a href={panelOrder}>Abrir no painel</a>
+      </Button>
+    </section>
+  );
+}
+
+/** Suppliers who only ever used links: the way to their panel, without leaving the order. */
+function PanelInviteNotice({ token }: { token: string }) {
+  const [isOpening, setIsOpening] = useState(false);
+  const [failure, setFailure] = useState<string | null>(null);
+
+  async function openInvite() {
+    setIsOpening(true);
+    setFailure(null);
+    try {
+      const { invitePath } = await inviteFromOrderLinkFn({ data: { token } });
+      window.location.assign(invitePath);
+    } catch (error) {
+      setFailure(errorMessage(error));
+      setIsOpening(false);
+    }
+  }
+
+  return (
+    <Alert>
+      <AlertTitle>Os pedidos vão ficar só no painel do fornecedor</AlertTitle>
+      <AlertDescription className="space-y-3">
+        <p>
+          Crie seu acesso com o seu e-mail de pedidos para ver todos os pedidos num lugar só. Este
+          pedido continua aqui até lá.
+        </p>
+        <Button variant="outline" disabled={isOpening} onClick={() => void openInvite()}>
+          {isOpening ? "Abrindo..." : "Criar meu acesso ao painel"}
+        </Button>
+        <InlineFormError message={failure} />
+      </AlertDescription>
+    </Alert>
+  );
+}
+
+function MarketplaceLabelForm({ token, orderId }: { token: string; orderId: string }) {
+  return (
+    // A form post keeps the token out of the URL, the history and the access logs.
+    <form
+      method="post"
+      action={`/api/pedidos/${orderId}/etiqueta`}
+      target="_blank"
+      rel="noopener noreferrer"
+    >
+      <input type="hidden" name="token" value={token} />
+      <Button type="submit" variant="outline">
+        Etiqueta de postagem do marketplace
+      </Button>
+    </form>
+  );
+}
+
 function SupplierOrderPage() {
   const { token } = Route.useParams();
   const client = useQueryClient();
@@ -105,14 +179,23 @@ function SupplierOrderPage() {
       </SupplierPageFrame>
     );
   }
-  const blocked = isShippingBlocked(query.data.orderStatus);
+  if (query.data.access === "panel") {
+    return (
+      <SupplierPageFrame>
+        <OrderInPanel externalOrderId={query.data.externalOrderId} />
+      </SupplierPageFrame>
+    );
+  }
+  const shipment = query.data.shipment;
+  const blocked = isShippingBlocked(shipment.orderStatus);
   return (
     <SupplierPageFrame>
-      <OrderHeading externalOrderId={query.data.externalOrderId} />
+      <OrderHeading externalOrderId={shipment.externalOrderId} />
+      <PanelInviteNotice token={token} />
       {blocked ? <ShippingBlockedAlert /> : null}
       <ShipmentPanel
-        shipment={query.data}
-        externalOrderId={query.data.externalOrderId}
+        shipment={shipment}
+        externalOrderId={shipment.externalOrderId}
         actsAs="supplier"
         blocked={blocked}
         onUpdate={async (update) => {
@@ -120,19 +203,8 @@ function SupplierOrderPage() {
           await client.invalidateQueries({ queryKey: shipmentQuery.queryKey });
         }}
       >
-        {query.data.marketplace === "mercado_livre" ? (
-          // A form post keeps the token out of the URL, the history and the access logs.
-          <form
-            method="post"
-            action={`/api/pedidos/${query.data.orderId}/etiqueta`}
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <input type="hidden" name="token" value={token} />
-            <Button type="submit" variant="outline">
-              Etiqueta de postagem do marketplace
-            </Button>
-          </form>
+        {shipment.marketplace === "mercado_livre" ? (
+          <MarketplaceLabelForm token={token} orderId={shipment.orderId} />
         ) : null}
       </ShipmentPanel>
     </SupplierPageFrame>
