@@ -36,6 +36,10 @@ const CODE_INPUT = {
   spellCheck: false,
 } as const;
 
+/** A product without its own brand goes as the marketplace's generic brand (`isNoBrand`). */
+const NO_BRAND_HINT =
+  "Produto sem marca? Deixe em branco ou escreva Sem marca: no Mercado Livre ele sai com a marca genérica.";
+
 /** Barcodes and package measures are typed as digits; the rest of the sheet is free text. */
 const ATTRIBUTE_INPUTS: Readonly<Record<string, { inputMode: "numeric" }>> = {
   GTIN: { inputMode: "numeric" },
@@ -180,6 +184,9 @@ function TextAttributeField({
           : { ...CODE_INPUT, ...ATTRIBUTE_INPUTS[attribute.id] })}
       />
       <FieldReason field={field} reasons={reasons} />
+      {attribute.id === "BRAND" ? (
+        <p className="text-footnote leading-normal text-muted-foreground">{NO_BRAND_HINT}</p>
+      ) : null}
       {showFiscal && attribute.id === "GTIN" ? (
         <NoGtinCheckbox values={values} onChange={onChange} />
       ) : null}
