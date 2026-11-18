@@ -693,6 +693,23 @@ describe("Mercado Livre category requirements", () => {
     ]);
   });
 
+  it("sends the category's generic brand when the supplier left the brand empty", async () => {
+    const { ml, calls } = connector({
+      ...publishRoutes,
+      [`GET ${API}/categories/MLB1/attributes`]: () => json(200, HANDBAG_ATTRIBUTES),
+      [`POST ${API}/categories/MLB1/attributes/conditional`]: () =>
+        json(200, { required_attributes: [] }),
+    });
+
+    await ml.publishProduct(store, {
+      ...product,
+      mercadoLivreAttributes: { BRAND: "", MODEL: "BI-01" },
+    });
+
+    const created = JSON.parse(calls.find((call) => call.url === `${API}/items`)?.body ?? "{}");
+    expect(created.attributes).toContainEqual({ id: "BRAND", value_name: "Generic" });
+  });
+
   it("publishes in the category the supplier chose instead of predicting one", async () => {
     const { ml, calls } = connector({
       [`POST ${API}/items`]: () => json(201, { id: "MLB9" }),
@@ -724,7 +741,7 @@ describe("Mercado Livre category requirements", () => {
     await ml.publishProduct(store, {
       ...product,
       mercadoLivreAttributes: {
-        BRAND: "Genérica",
+        BRAND: "Lua Bolsas",
         MODEL: "BI-01",
         IS_VEGAN: "Sim",
         GENDER: "Meninas",
@@ -733,7 +750,7 @@ describe("Mercado Livre category requirements", () => {
 
     const created = JSON.parse(calls.find((call) => call.url === `${API}/items`)?.body ?? "{}");
     expect(created.attributes).toEqual([
-      { id: "BRAND", value_name: "Genérica" },
+      { id: "BRAND", value_name: "Lua Bolsas" },
       { id: "MODEL", value_name: "BI-01" },
       { id: "IS_VEGAN", value_name: "Sim", value_id: "242085" },
       { id: "GENDER", value_name: "Meninas" },
@@ -816,13 +833,13 @@ describe("Mercado Livre category requirements", () => {
       ...publishRoutes,
       [`GET ${API}/categories/MLB1/attributes`]: () =>
         json(200, [
-          { id: "BRAND", name: "Marca", tags: { required: true } },
+          { id: "COLOR", name: "Cor", tags: { required: true } },
           { id: "MODEL", name: "Modelo", tags: { new_required: true } },
         ]),
     });
     await expect(ml.publishProduct(store, product, guard)).rejects.toMatchObject({
       details: { retryable: false },
-      message: expect.stringContaining("Marca (BRAND), Modelo (MODEL)"),
+      message: expect.stringContaining("Cor (COLOR), Modelo (MODEL)"),
     });
     expect(calls.some((call) => call.method === "POST" && call.url === `${API}/items`)).toBe(false);
     expect(guard.beforeCreate).not.toHaveBeenCalled();

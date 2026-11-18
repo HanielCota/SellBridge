@@ -18,6 +18,7 @@ import {
   fichaAttributeSchema,
   isRequiredAttribute,
 } from "./category-ficha.ts";
+import { brandToSend } from "./generic-brand.ts";
 import { isPackageAttribute, packageAttributeValue } from "./package-measures.ts";
 import { saleTermsFor } from "./sale-terms.ts";
 import { toMercadoLivrePlainText } from "./plain-text.ts";
@@ -140,7 +141,9 @@ function itemBody(
     seller_custom_field: input.idempotencyKey,
     ...optionalItemFields(input),
     attributes: [
-      ...productAttributes(input).map((attribute) => withValueId(attribute, listing.definitions)),
+      ...attributesWithBrand(input, listing.definitions).map((attribute) =>
+        withValueId(attribute, listing.definitions),
+      ),
       { id: "SELLER_SKU", value_name: input.sku },
     ],
   };
@@ -204,6 +207,16 @@ function productAttributes(input: PublishProductInput): SentAttribute[] {
     const attribute = attributeToSend(id, value);
     return attribute === null ? [] : [attribute];
   });
+}
+
+/** The stored attributes with BRAND first, as the category takes it (see `brandToSend`). */
+function attributesWithBrand(
+  input: PublishProductInput,
+  definitions: readonly FichaAttribute[],
+): SentAttribute[] {
+  const attributes = productAttributes(input).filter(({ id }) => id !== "BRAND");
+  const brand = brandToSend(input.mercadoLivreAttributes?.BRAND, definitions);
+  return brand === null ? attributes : [brand, ...attributes];
 }
 
 /** Why a description did not go through, in the reseller's words (13.a); generic otherwise. */
