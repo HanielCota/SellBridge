@@ -568,6 +568,13 @@
       "when": 1794916361458,
       "tag": "0080_drop_store_connection_supplier",
       "breakpoints": true
+    },
+    {
+      "idx": 81,
+      "version": "7",
+      "when": 1794931490241,
+      "tag": "0081_supplier_test_orders",
+      "breakpoints": true
     }
   ]
 }
