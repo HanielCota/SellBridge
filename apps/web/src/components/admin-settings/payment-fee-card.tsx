@@ -120,7 +120,7 @@ function FeeForm({ saved }: { saved: number }) {
         <p className="text-sm">
           Num pedido de {formatCents(EXAMPLE_ORDER_CENTS)}, o SellBridge fica com{" "}
           <strong>{formatCents(platformFeeCents(EXAMPLE_ORDER_CENTS, reading.basisPoints))}</strong>
-          . O fornecedor recebe o resto, menos a tarifa do Mercado Pago ou do Asaas.
+          . O fornecedor recebe o resto, menos a tarifa do serviço de pagamento.
         </p>
       ) : null}
       <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
@@ -136,8 +136,8 @@ function FeeForm({ saved }: { saved: number }) {
 }
 
 /**
- * SellBridge's only fee, set by an admin: its share of every supplier payment (Mercado Pago or
- * Asaas), taken from the supplier's part. The reseller's profit carries none of it.
+ * SellBridge's only fee, set by an admin: its share of every supplier payment, taken from the
+ * supplier's part. The reseller's profit carries none of it.
  */
 export function PaymentFeeCard() {
   const query = useQuery(paymentFeeQueryOptions());
@@ -159,9 +159,9 @@ export function PaymentFeeCard() {
         )}
       </div>
       <p className="text-sm text-muted-foreground">
-        Quando o revendedor paga um pedido ao fornecedor, pelo Mercado Pago ou pelo Asaas, o
-        SellBridge fica com esta porcentagem. Ela sai da parte do fornecedor: o revendedor paga o
-        valor do pedido e essa taxa não aparece no lucro dele.
+        Quando o revendedor paga um pedido ao fornecedor pelo SellBridge, o SellBridge fica com esta
+        porcentagem. Ela sai da parte do fornecedor: o revendedor paga o valor do pedido e essa taxa
+        não aparece no lucro dele.
       </p>
       {query.isPending ? <Skeleton className="h-32 rounded-2xl" /> : null}
       {query.isError ? (
