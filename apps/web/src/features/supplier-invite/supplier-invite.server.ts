@@ -4,12 +4,14 @@ import {
   getSupplierInviteTarget,
   getSupplierShipment,
 } from "@sellbridge/database/repositories";
-import { conflictError } from "@sellbridge/shared/errors";
+import { conflictError, notFoundError } from "@sellbridge/shared/errors";
 import { logger } from "@sellbridge/shared/logger";
 import { getRequestHeaders } from "@tanstack/react-start/server";
 import { auth } from "@/lib/server/auth";
 import { database } from "@/lib/server/database";
 import { environment } from "@/lib/server/environment";
+import { sendEmail } from "@/lib/server/mailer";
+import { supplierInviteEmail } from "./invite-email";
 import { inviteStateOf, type InviteState } from "./invite-state";
 import { readSupplierInvite, signSupplierInvite } from "./invite-token";
 
@@ -106,4 +108,34 @@ export async function acceptSupplierInvite(token: string): Promise<{ profileSlug
 export async function inviteFromOrderLink(token: string): Promise<{ invitePath: string }> {
   const shipment = await getSupplierShipment(database, token);
   return { invitePath: supplierInvitePath(shipment.supplierId) };
+}
+
+/**
+ * The team's "Enviar convite": e-mails the invite to the supplier's order e-mail and returns its
+ * address, so the team can also send it by WhatsApp.
+ *
+ * @throws {AppError} `NOT_FOUND` for an unknown supplier, `CONFLICT` when it already has a panel
+ * or has no order e-mail to invite.
+ */
+export async function sendSupplierInvite(supplierId: string): Promise<{ inviteUrl: string }> {
+  const target = await getSupplierInviteTarget(database, supplierId);
+  if (target === null) {
+    throw notFoundError(`Fornecedor não encontrado (fornecedor: ${supplierId})`);
+  }
+  if (target.hasPanel) {
+    throw conflictError("Este fornecedor já tem acesso ao painel.");
+  }
+  if (target.contactEmail === null || target.contactEmail.trim() === "") {
+    throw conflictError("Cadastre o e-mail de pedidos do fornecedor antes de convidar.");
+  }
+  const inviteUrl = new URL(supplierInvitePath(supplierId), environment.APP_URL).toString();
+  await sendEmail({
+    to: target.contactEmail,
+    ...supplierInviteEmail(
+      { supplierName: target.name, contactEmail: target.contactEmail, inviteUrl },
+      environment.APP_URL,
+    ),
+  });
+  logger.info("supplier_invite.sent", { supplierId });
+  return { inviteUrl };
 }
