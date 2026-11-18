@@ -160,6 +160,16 @@ describe("createAsaasPlatformClient", () => {
     expect(sentBody(calls[0])).not.toHaveProperty("birthDate");
   });
 
+  test("registers SellBridge as the account's site, so its charges can return there", async () => {
+    const { calls, http } = recordingFetch(
+      json(200, { id: "acc_1", walletId: "wallet_1", apiKey: "supplier-key" }),
+    );
+
+    await createAsaasPlatformClient(http, "platform-key").createAccount(newAccount, webhookTarget);
+
+    expect(sentBody(calls[0])).toMatchObject({ site: new URL(webhookTarget.url).origin });
+  });
+
   test("reports a missing account key as null", async () => {
     const { http } = recordingFetch(json(200, { id: "acc_1", walletId: "wallet_1" }));
 

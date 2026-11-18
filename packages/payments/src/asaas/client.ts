@@ -105,6 +105,9 @@ function newAccountBody(account: AsaasNewAccount, webhook: AsaasWebhookTarget) {
     province: account.province,
     postalCode: account.postalCode,
     incomeValue: asaasValueFromCents(account.incomeValueCents),
+    // Asaas returns the payer only to the site registered on the account that issues the charge
+    // (sandbox, 18/11/2026: "Não há nenhum domínio configurado em sua conta"): SellBridge's.
+    site: new URL(webhook.url).origin,
     webhooks: [
       {
         name: "SellBridge",
