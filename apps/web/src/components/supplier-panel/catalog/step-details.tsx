@@ -1,4 +1,7 @@
-import type { RequiredAttribute } from "@sellbridge/shared/supplier-panel-catalog-completeness";
+import {
+  blocksPublishing,
+  type RequiredAttribute,
+} from "@sellbridge/shared/supplier-panel-catalog-completeness";
 import { attributeFieldLabel } from "@sellbridge/shared/supplier-product-attributes";
 import { TextField } from "@/components/form/form-field";
 import { EmojiFreeTextareaField } from "@/components/form/emoji-free-textarea-field";
@@ -209,7 +212,7 @@ function AttributeFields({
   sheet: MercadoLivreSheet | undefined;
   variant: DetailsVariant;
 }) {
-  const requiredIds = new Set(required.map((attribute) => attribute.id));
+  const requiredIds = new Set(required.filter(blocksPublishing).map((attribute) => attribute.id));
   const asText = textAttributes(values, required, { sheet, variant });
   return (
     <fieldset className="grid gap-4 sm:grid-cols-2">

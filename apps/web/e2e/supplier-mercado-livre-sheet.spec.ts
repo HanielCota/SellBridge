@@ -118,7 +118,9 @@ test("the product form asks the Mercado Livre category and its own fields", asyn
     timeout: SAVE_TIMEOUT,
   });
   await expect(page.getByText("Bolsas", { exact: true })).toBeVisible();
-  await expect(page.getByLabel("Marca (obrigatório)")).toBeVisible();
+  await expect(page.getByLabel("Modelo (obrigatório)")).toBeVisible();
+  // A missing brand goes as the generic one, so the brand is asked but never required.
+  await expect(page.getByRole("textbox", { name: "Marca", exact: true })).toBeVisible();
   await page.getByRole("combobox", { name: "Gênero" }).click();
   await page.getByRole("option", { name: "Meninas" }).click();
   await page.getByRole("combobox", { name: "É vegano" }).click();
