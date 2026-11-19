@@ -11,6 +11,7 @@ export * from "./relations.ts";
 export * from "./notifications.ts";
 export * from "./reviews.ts";
 export * from "./supplier-flags.ts";
+export * from "./supplier-approvals.ts";
 export * from "./public-api.ts";
 export * from "./admin.ts";
 export * from "./fulfillment.ts";
