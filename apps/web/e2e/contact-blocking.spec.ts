@@ -45,6 +45,9 @@ const evidenceDirectory = process.env.EVIDENCE_DIR;
 const SAFE_NOTE = `Embalar com cuidado ${stamp}`;
 let supplierEmail = "";
 let supplierId = "";
+let supplierOrganizationId = "";
+/** What the reseller's order shows for a supplier that works from its panel, instead of a link. */
+const PANEL_NOTE = "O fornecedor vê este pedido no painel dele, sem link.";
 let orderId = "";
 let demoUserId = "";
 const startedAt = new Date();
@@ -68,6 +71,7 @@ async function supplierOfPanelAccount(page: Page): Promise<string> {
     .innerJoin(member, eq(member.userId, user.id))
     .where(eq(user.email, supplierEmail));
   if (account === undefined) throw new Error("fornecedor sem perfil");
+  supplierOrganizationId = account.organizationId;
   const [supplier] = await database
     .insert(suppliers)
     .values({
@@ -225,7 +229,7 @@ test("a phone in the instructions is refused on the form and on the server, then
   await expect(dialog.getByText(CONTACT_DETAILS_REFUSED)).toBeVisible();
   await shot(page, "revendedor-operar-pedido-instrucoes");
   await send.click();
-  await expect(dialog.getByLabel("Link do fornecedor")).toHaveCount(0);
+  await expect(dialog.getByText(PANEL_NOTE)).toHaveCount(0);
   expect(await shipmentCount()).toBe(0);
 
   // The form is happy; the request is changed on its way out.
@@ -248,7 +252,8 @@ test("a phone in the instructions is refused on the form and on the server, then
   expect(audited).toBeGreaterThan(0);
 
   await send.click();
-  await expect(dialog.getByLabel("Link do fornecedor")).toBeVisible();
+  // A supplier with a panel gets no link: the parcel waits for it there.
+  await expect(dialog.getByText(PANEL_NOTE)).toBeVisible();
   expect(await shipmentCount()).toBe(1);
 });
 
@@ -256,6 +261,12 @@ test("the supplier cannot send a contact back, by the link or by the panel", asy
   browser,
   page,
 }) => {
+  // Only a supplier the team runs, with no panel, still gets an order link: the link half of
+  // this test runs while the supplier has none, and the panel half after giving it back.
+  await database
+    .update(suppliers)
+    .set({ organizationId: null })
+    .where(eq(suppliers.id, supplierId));
   await signIn(page, DEMO_USER);
   await gotoHydrated(page, "/pedidos");
   await page.getByLabel("Buscar por pedido ou comprador").fill(externalOrderId);
@@ -283,6 +294,10 @@ test("the supplier cannot send a contact back, by the link or by the panel", asy
   await expect(linkMessages.getByText(CONTACT_DETAILS_REFUSED)).toBeVisible();
   expect(await savedNotesWith("fornecedor.oficial")).toBe(0);
   await linkContext.close();
+  await database
+    .update(suppliers)
+    .set({ organizationId: supplierOrganizationId })
+    .where(eq(suppliers.id, supplierId));
 
   const panelContext = await browser.newContext({ viewport: { width: 390, height: 844 } });
   const panel = await panelContext.newPage();
