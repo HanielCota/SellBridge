@@ -4,7 +4,7 @@ import {
   type CatalogScope,
 } from "@sellbridge/shared/catalog-scope";
 import { toPaginated, type Paginated, type Pagination } from "@sellbridge/shared/schemas";
-import { and, asc, eq, inArray } from "drizzle-orm";
+import { and, asc, eq, inArray, sql } from "drizzle-orm";
 import type { Database } from "../client.ts";
 import { categories, supplierProducts, suppliers, tenantProfile } from "../schema/index.ts";
 import { countRecentUnitsSold } from "./product-heat.ts";
@@ -12,6 +12,7 @@ import {
   productOfferedInCatalog,
   publicSupplier,
   supplierOpenToResellers,
+  supplierReceivingRuleMet,
 } from "./sql/sellable.ts";
 import { listStoreConnections, type StoreConnectionSummary } from "./stores.ts";
 import {
@@ -64,6 +65,7 @@ async function findStarterSupplierId(database: Database, tenantId: string): Prom
         eq(suppliers.id, tenantProfile.starterSupplierId),
         publicSupplier(),
         supplierOpenToResellers(),
+        supplierReceivingRuleMet(),
       ),
     )
     .where(eq(tenantProfile.tenantId, tenantId))
@@ -80,7 +82,14 @@ async function findScopeSuppliers(
     return [];
   }
   const rows = await database
-    .select({ id: suppliers.id, name: suppliers.name, active: suppliers.active })
+    .select({
+      id: suppliers.id,
+      name: suppliers.name,
+      // A supplier the receiving rule hides reads as paused, like one the platform turned off.
+      active: sql<boolean>`(${suppliers.active} and ${supplierReceivingRuleMet()})`.mapWith(
+        Boolean,
+      ),
+    })
     .from(suppliers)
     .where(and(inArray(suppliers.id, [...supplierIds]), publicSupplier()));
   const byId = new Map(rows.map((row) => [row.id, row]));
@@ -105,6 +114,7 @@ async function listSupplierCategories(
         inArray(suppliers.id, [...supplierIds]),
         productOfferedInCatalog(),
         supplierOpenToResellers(),
+        supplierReceivingRuleMet(),
       ),
     )
     .orderBy(asc(categories.name));

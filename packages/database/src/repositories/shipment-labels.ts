@@ -1,6 +1,7 @@
 import { and, eq, inArray, sql } from "drizzle-orm";
 import type { Database } from "../client.ts";
-import { orders, orderShipments, storeConnections } from "../schema/index.ts";
+import { orders, orderShipments, storeConnections, suppliers } from "../schema/index.ts";
+import { preparationHold } from "./shipment-timing.ts";
 
 /** An order whose marketplace label was emitted, with the shipment id its barcode carries. */
 export interface PrintedLabelRecord {
@@ -78,10 +79,12 @@ export async function supplierLabelShipments(
       storeId: storeConnections.id,
       shopName: storeConnections.shopName,
       marketplace: storeConnections.marketplace,
+      preparationHold,
     })
     .from(orderShipments)
     .innerJoin(orders, eq(orders.id, orderShipments.orderId))
     .innerJoin(storeConnections, eq(storeConnections.id, orders.storeConnectionId))
+    .innerJoin(suppliers, eq(suppliers.id, orderShipments.supplierId))
     .where(
       and(eq(orderShipments.supplierId, supplierId), inArray(orderShipments.id, [...shipmentIds])),
     );

@@ -10,6 +10,8 @@ import {
   listingFailedContent,
   newTicketContent,
   orderDeliveredContent,
+  receivingAccountNeededContent,
+  receivingAccountWaitingContent,
   salePaidContent,
   storeExpiredContent,
   supportReplyContent,
@@ -27,10 +29,13 @@ import {
   organization,
   orderItems,
   orders,
+  orderShipments,
   storeConnections,
+  suppliers,
   tickets,
   user,
 } from "../schema/index.ts";
+import { preparationHold } from "./shipment-timing.ts";
 import { findTicketEmailRecipients } from "./ticket-links.ts";
 import {
   enqueueNotificationDeliveries,
@@ -309,4 +314,83 @@ export async function queueNewTicketNotices(database: Database, ticketId: string
     }),
     recipients,
   });
+}
+
+/** A parcel that waits for its supplier's receiving account, as the notices name it. */
+interface ReceivingAccountWait {
+  shipmentId: string;
+  supplierId: string;
+  supplierName: string;
+  supplierOrganizationId: string | null;
+  externalOrderId: string;
+}
+
+async function receivingAccountWaits(
+  database: Database,
+  shipmentIds: readonly string[],
+): Promise<ReceivingAccountWait[]> {
+  if (shipmentIds.length === 0) {
+    return [];
+  }
+  return database
+    .select({
+      shipmentId: orderShipments.id,
+      supplierId: suppliers.id,
+      supplierName: suppliers.name,
+      supplierOrganizationId: suppliers.organizationId,
+      externalOrderId: orders.externalOrderId,
+    })
+    .from(orderShipments)
+    .innerJoin(suppliers, eq(suppliers.id, orderShipments.supplierId))
+    .innerJoin(orders, eq(orders.id, orderShipments.orderId))
+    .where(
+      and(
+        inArray(orderShipments.id, [...shipmentIds]),
+        sql`${preparationHold} = 'receiving_account'`,
+      ),
+    );
+}
+
+/**
+ * Parcels just forwarded that wait for their supplier's receiving account: tells the supplier
+ * (bell and e-mail) once per parcel, the team (e-mail) once a day per supplier, and Problemas.
+ * Returns how many waited.
+ */
+export async function queueReceivingAccountNotices(
+  database: Database,
+  shipmentIds: readonly string[],
+): Promise<number> {
+  const waits = await receivingAccountWaits(database, shipmentIds);
+  const staff = waits.length === 0 ? [] : await activeStaffIds(database);
+  for (const wait of waits) {
+    const notice = {
+      externalOrderId: clipText(wait.externalOrderId, TITLE_LENGTH),
+      supplierName: clipText(wait.supplierName, TITLE_LENGTH),
+    };
+    const dedupeKey = `shipment:${wait.shipmentId}:receiving_account`;
+    if (wait.supplierOrganizationId !== null) {
+      await notifyWorkspace(database, {
+        tenantId: wait.supplierOrganizationId,
+        event: "receiving_account_needed",
+        dedupeKey,
+        content: receivingAccountNeededContent(notice),
+      });
+    }
+    // The team hears once a day per supplier, however many parcels wait.
+    const day = new Date().toISOString().slice(0, 10);
+    await enqueueNotificationDeliveries(database, {
+      tenantId: null,
+      event: "receiving_account_waiting",
+      dedupeKey: `supplier:${wait.supplierId}:receiving_account:${day}`,
+      content: receivingAccountWaitingContent(notice),
+      recipients: await resolveNotificationRecipients(database, staff, "receiving_account_waiting"),
+    });
+    logger.warn("supplier_payments.receiving_account_missing", {
+      reason: `Pedido ${notice.externalOrderId} parado: ${notice.supplierName} ainda não tem a conta de recebimento aprovada no Asaas. O fornecedor foi avisado.`,
+      problemKey: `receiving_account:${wait.supplierId}`,
+      supplierId: wait.supplierId,
+      shipmentId: wait.shipmentId,
+    });
+  }
+  return waits.length;
 }

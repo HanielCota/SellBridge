@@ -213,3 +213,15 @@ export async function reserveShortItems(
     return reserved;
   });
 }
+
+/** The order's items whose units have left the supplier's shelf and not come back yet. */
+export async function consumedItemIds(
+  executor: DatabaseExecutor,
+  orderId: string,
+): Promise<string[]> {
+  const rows = await executor
+    .select({ id: orderItems.id })
+    .from(orderItems)
+    .where(and(eq(orderItems.orderId, orderId), eq(orderItems.stockState, "consumed")));
+  return rows.map((row) => row.id);
+}

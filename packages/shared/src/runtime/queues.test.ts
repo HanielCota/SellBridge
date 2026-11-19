@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   enqueueStoreOrderCatchUpJob,
   enqueueWebhookEventJob,
+  erpStockRefreshJobId,
   pingQueueConnection,
   type StoreOrderCatchUpQueue,
   storeOrderCatchUpJobId,
@@ -181,5 +182,21 @@ describe("enqueueStoreOrderCatchUpJob", () => {
 
     await expect(enqueue).rejects.toThrow(/since/);
     expect(calls).toEqual({ removed: [], added: [] });
+  });
+});
+
+describe("erpStockRefreshJobId", () => {
+  const job = { supplierId: "00000000-0000-4000-8000-000000000001" };
+
+  it("gives notices inside the same 5-second window one read", () => {
+    expect(erpStockRefreshJobId(job, 10_000)).toBe(erpStockRefreshJobId(job, 14_999));
+  });
+
+  it("gives a notice in the next window a read of its own", () => {
+    expect(erpStockRefreshJobId(job, 15_000)).not.toBe(erpStockRefreshJobId(job, 14_999));
+  });
+
+  it("refuses a time that is not a number instead of an id ending in NaN", () => {
+    expect(() => erpStockRefreshJobId(job, Number.NaN)).toThrow(RangeError);
   });
 });

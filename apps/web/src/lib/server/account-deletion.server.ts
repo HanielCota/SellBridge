@@ -15,8 +15,10 @@ import { z } from "zod";
 import { billingConfigured, stripeClient } from "@/features/billing/stripe.server";
 import { avatarStorageKey } from "@/features/profile/avatar-key";
 import { disconnectStoreForTenant } from "@/features/stores/disconnect-store.server";
+import { assertNothingLeftToResolve } from "@/lib/server/account-deletion-blockers.server";
 import { database } from "@/lib/server/database";
 import { environment } from "@/lib/server/environment";
+import { requestStockSync } from "@/lib/server/stock-sync";
 import { fileStorage } from "@/lib/server/storage";
 
 /**
@@ -115,6 +117,7 @@ export async function prepareAccountDeletion(account: DeletingAccount): Promise<
     throw forbiddenError(TEAM_ACCOUNT_MESSAGE);
   }
   const tenantIds = await findSoleOwnedTenants(database, account.id);
+  await assertNothingLeftToResolve({ userId: account.id, tenantIds });
   const attachmentKeys = await accountFileKeys(database, { userId: account.id, tenantIds });
   const avatarKey = avatarStorageKey(account.image, account.id);
   for (const tenantId of tenantIds) {
@@ -124,6 +127,10 @@ export async function prepareAccountDeletion(account: DeletingAccount): Promise<
   for (const tenantId of tenantIds) {
     await closeStores(tenantId, deadline);
     await deleteTenantData(database, tenantId);
+  }
+  if (tenantIds.length > 0) {
+    // A deleted supplier's store is closed now: its resellers' listings get zero stock right away.
+    await requestStockSync("account.deletion_stock_sync_deferred");
   }
   await deleteFiles(avatarKey === null ? attachmentKeys : [...attachmentKeys, avatarKey]);
   logger.info("account.deletion_prepared", { userId: account.id, workspaces: tenantIds.length });
@@ -142,6 +149,9 @@ export async function beforeAccountDeletion(user: unknown): Promise<void> {
   } catch (error) {
     if (isAppError(error) && error.code === "FORBIDDEN") {
       throw new APIError("FORBIDDEN", { message: error.userMessage });
+    }
+    if (isAppError(error) && error.code === "CONFLICT") {
+      throw new APIError("CONFLICT", { message: error.userMessage });
     }
     if (isAppError(error)) {
       logger.error("account.delete_failed", { userId: account.id, error });

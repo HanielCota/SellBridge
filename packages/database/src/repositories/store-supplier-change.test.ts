@@ -35,7 +35,11 @@ async function product(label: string) {
 
 async function statusOf(targetId: string) {
   const [row] = await database
-    .select({ status: listingTargets.status, errorReason: listingTargets.errorReason })
+    .select({
+      status: listingTargets.status,
+      errorReason: listingTargets.errorReason,
+      pauseReason: listingTargets.pauseReason,
+    })
     .from(listingTargets)
     .where(eq(listingTargets.id, targetId));
   return row;
@@ -99,10 +103,14 @@ describe("changing the supplier of a shop", () => {
       queuedStopped: 1,
     });
     expect(await changeStoreSupplier(database, input)).toEqual({ livePaused: 1, queuedStopped: 1 });
-    expect(await statusOf(liveTarget)).toMatchObject({ status: "paused" });
+    expect(await statusOf(liveTarget)).toMatchObject({
+      status: "paused",
+      pauseReason: "store_supplier_changed",
+    });
     expect(await statusOf(queuedTarget)).toEqual({
       status: "error",
       errorReason: STORE_SUPPLIER_CHANGED_MESSAGE,
+      pauseReason: null,
     });
   });
 

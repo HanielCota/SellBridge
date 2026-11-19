@@ -15,6 +15,7 @@ import { environment } from "@/lib/server/environment";
 import { requestStockSync } from "@/lib/server/stock-sync";
 import { type DraftOverrides, resolveListingDraft } from "./listing-draft";
 import { readMercadoLivreRates } from "./mercado-livre-rates.server";
+import { type ResumeOutcome, resumeListingsForTenant } from "./listing-resume.server";
 import {
   assertConnectedStores,
   assertStoresSellSuppliers,
@@ -78,17 +79,27 @@ export async function updateListingPriceForTenant(
   await requestStockSync("listing.sync_deferred");
 }
 
-/** Pauses (zero stock on the marketplace) or resumes listings; returns the stores changed. */
+/**
+ * Pauses (zero stock on the marketplace) or resumes listings; returns the stores changed and the
+ * listings a resume kept paused because their price would lose money.
+ */
 export async function setListingsPausedForTenant(
   tenantId: string,
   listingIds: readonly string[],
   paused: boolean,
-): Promise<number> {
-  const changed = await setListingsPaused(database, tenantId, listingIds, paused);
-  logger.info(paused ? "listing.paused" : "listing.resumed", { tenantId, targets: changed });
+): Promise<ResumeOutcome> {
+  const outcome = paused
+    ? { changed: await setListingsPaused(database, tenantId, listingIds, true), held: 0 }
+    : await resumeListingsForTenant(tenantId, listingIds);
+  const changed = outcome.changed;
+  logger.info(paused ? "listing.paused" : "listing.resumed", {
+    tenantId,
+    targets: changed,
+    held: outcome.held,
+  });
   // A paused listing must show zero stock right away, or sales keep coming in for up to 15 min.
   if (changed > 0) {
     await requestStockSync("listing.sync_deferred");
   }
-  return changed;
+  return outcome;
 }

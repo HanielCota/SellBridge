@@ -1,4 +1,5 @@
 import { FULFILLMENT_NEXT, type FulfillmentStatus } from "../schemas/fulfillment.ts";
+import type { PreparationHold } from "./receiving-rules.ts";
 import { lateSinceFor, type ShipmentTiming } from "./shipment-delay.ts";
 
 const MINUTE_MILLISECONDS = 60_000;
@@ -121,6 +122,10 @@ export function isOrderBlocked(orderStatus: string): boolean {
   return BLOCKED_ORDER_STATUSES.some((status) => status === orderStatus);
 }
 
+function isHeld(hold: PreparationHold | null | undefined): boolean {
+  return hold !== null && hold !== undefined;
+}
+
 const NOTHING_DUE: QueueEntry = {
   action: null,
   deadline: null,
@@ -128,16 +133,24 @@ const NOTHING_DUE: QueueEntry = {
   urgency: "normal",
 };
 
+/** What holds a sale back, beyond the parcel's own timing. */
+export interface QueueSale {
+  orderStatus: string;
+  /** Waiting for the supplier's receiving account or the reseller's payment. */
+  preparationHold?: PreparationHold | null;
+}
+
 /**
- * A sale not released for shipping (unpaid, cancelled or returned) has nothing to do and nothing
- * due: no countdown pushing the supplier to ship a parcel it must hold back.
+ * A sale not released for shipping (unpaid, cancelled or returned), or a parcel waiting for the
+ * receiving account or the payment, has nothing to do and nothing due: no countdown pushing the
+ * supplier to ship a parcel it must hold back.
  */
 export function describeQueueEntry(
   timing: QueueTiming,
   now: Date,
-  sale: { orderStatus: string } = { orderStatus: "paid" },
+  sale: QueueSale = { orderStatus: "paid" },
 ): QueueEntry {
-  if (isOrderBlocked(sale.orderStatus)) {
+  if (isOrderBlocked(sale.orderStatus) || isHeld(sale.preparationHold)) {
     return NOTHING_DUE;
   }
   const deadline = queueDeadline(timing);
