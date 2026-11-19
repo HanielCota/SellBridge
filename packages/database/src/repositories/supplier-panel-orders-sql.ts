@@ -1,6 +1,6 @@
 import { SHIPMENT_ACTORS, type Marketplace } from "@sellbridge/shared/schemas";
 import {
-  LABEL_MARKETPLACE,
+  LABEL_MARKETPLACES,
   LABEL_STATUSES,
   type SupplierLabelState,
 } from "@sellbridge/shared/supplier-order-labels";
@@ -157,7 +157,7 @@ export const splitOrderSql = sql<boolean>`exists (
 /** SQL twin of `supplierLabelState` (shared/domain/supplier-order-labels.ts). */
 export function labelFilter(state: SupplierLabelState, now: Date): SQL | undefined {
   const hasLabel = and(
-    eq(storeConnections.marketplace, LABEL_MARKETPLACE),
+    inArray(storeConnections.marketplace, [...LABEL_MARKETPLACES]),
     inArray(orderShipments.status, [...LABEL_STATUSES]),
     not(splitOrderSql),
   );

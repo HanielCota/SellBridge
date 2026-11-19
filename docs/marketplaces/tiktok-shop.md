@@ -54,7 +54,9 @@ Consultado em 2026-11-13 na documentação oficial do TikTok Shop Partner Center
 ## Etiqueta ([Get Package Shipping Document](https://partner.tiktokshop.com/docv2/page/650aa5fac16ffe02b8f112ca))
 
 - `GET /fulfillment/202309/packages/{package_id}/shipping_documents?document_type=SHIPPING_LABEL&document_format=PDF` → `data.doc_url` (vale 24 h), `data.tracking_number`. O `package_id` vem de `packages[].id` no detalhe do pedido.
-- Só funciona depois de o envio ser organizado no TikTok (`Ship Package`); antes disso o conector avisa em português. O SellBridge não organiza o envio sozinho. **[teste real]** o passo de organizar o envio no fluxo do fornecedor.
+- Só funciona depois de o envio ser organizado no TikTok (`Ship Package`); antes disso o conector avisa em português e marca a etiqueta como "Aguardando o canal", como a do Mercado Livre. O SellBridge não organiza o envio sozinho. **[teste real]** o passo de organizar o envio no fluxo do fornecedor.
+- O `doc_url` é um link temporário: o SellBridge baixa o PDF no servidor (`tiktok-shop/label-file.ts`) e entrega pelo mesmo caminho da etiqueta do Mercado Livre (`/api/pedidos/{id}/etiqueta`). O download só aceita `https`, domínios do TikTok (lista em `LABEL_HOST_DOMAINS`), endereços públicos, sem redirecionamento e até 5 MB, e confere que o arquivo é um PDF. **[teste real]** o domínio do link em produção: o exemplo da documentação está em `bytedance.net`; se o link real vier de outro domínio, o servidor registra `tiktok_shop.label_host_refused` e o domínio entra na lista.
+- Só PDF: o ZPL (impressora térmica) e a impressão em lote continuam só no Mercado Livre.
 
 ## Ativação (no dia em que as chaves chegarem)
 

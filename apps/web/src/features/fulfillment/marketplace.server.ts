@@ -3,19 +3,28 @@ import {
   getMercadoLivreLabel,
   getMercadoLivreLabels,
   getMercadoLivreShipping,
+  getTikTokShopShippingLabel,
   type MercadoLivreLabelFile,
   type PrintedLabel,
+  type StoreCredentials,
 } from "@sellbridge/marketplaces";
 import type { LabelFormat } from "@sellbridge/shared/schemas";
 import { conflictError, notFoundError } from "@sellbridge/shared/errors";
+import {
+  BATCH_LABEL_MARKETPLACE,
+  isLabelMarketplace,
+} from "@sellbridge/shared/supplier-order-labels";
 import { findOrderLabelParcels } from "@sellbridge/database/repositories";
 import { orders, storeConnections } from "@sellbridge/database/schema";
 import { labelSharingRefusal } from "@/features/fulfillment/label-sharing";
 import { isShippingBlocked } from "@/features/fulfillment/shipping-block";
 import { database } from "@/lib/server/database";
-import { mercadoLivreApiConfig, tokenCipher } from "@/lib/server/marketplaces";
+import { mercadoLivreApiConfig, tiktokShopApiConfig, tokenCipher } from "@/lib/server/marketplaces";
 
-async function shippingAccess(tenantId: string, orderId: string) {
+const TIKTOK_SHOP_BATCH_REFUSAL =
+  "A etiqueta do TikTok Shop sai uma por vez: abra o pedido e imprima por lá.";
+
+async function orderStore(tenantId: string, orderId: string) {
   const [row] = await database
     .select({
       externalOrderId: orders.externalOrderId,
@@ -32,41 +41,86 @@ async function shippingAccess(tenantId: string, orderId: string) {
       ),
     );
   if (!row) throw notFoundError("Pedido não encontrado");
-  if (row.store.marketplace !== "mercado_livre")
-    throw conflictError(
-      "Consulta automática e etiqueta de postagem disponíveis para Mercado Livre. Nos demais envios, registre a transportadora e o rastreio manualmente.",
-    );
-  if (row.store.status !== "connected" || !row.store.accessTokenEnc)
+  return row;
+}
+
+function storeCredentials(store: typeof storeConnections.$inferSelect): StoreCredentials {
+  if (store.status !== "connected" || !store.accessTokenEnc)
     throw conflictError("Reconecte a loja para consultar o envio");
-  if (row.store.expiresAt && row.store.expiresAt.getTime() <= Date.now())
+  if (store.expiresAt && store.expiresAt.getTime() <= Date.now())
     throw conflictError("Token da loja expirado. Aguarde a renovação ou reconecte a loja.");
   return {
-    config: mercadoLivreApiConfig,
-    store: {
-      externalShopId: row.store.externalShopId,
-      accessToken: tokenCipher.decrypt(row.store.accessTokenEnc),
-    },
-    externalOrderId: row.externalOrderId,
-    orderStatus: row.orderStatus,
+    externalShopId: store.externalShopId,
+    accessToken: tokenCipher.decrypt(store.accessTokenEnc),
   };
+}
+
+async function shippingAccess(tenantId: string, orderId: string) {
+  const row = await orderStore(tenantId, orderId);
+  if (row.store.marketplace !== "mercado_livre")
+    throw conflictError(
+      "Consulta automática do envio disponível para Mercado Livre. Nos demais envios, registre a transportadora e o rastreio manualmente.",
+    );
+  return { store: storeCredentials(row.store), externalOrderId: row.externalOrderId };
 }
 export async function loadMarketplaceShipping(tenantId: string, orderId: string) {
   const access = await shippingAccess(tenantId, orderId);
-  return getMercadoLivreShipping(access.config, access.store, access.externalOrderId);
+  return getMercadoLivreShipping(mercadoLivreApiConfig, access.store, access.externalOrderId);
 }
 /** The store access for one order's label, after the checks every label passes. */
 async function labelAccess(tenantId: string, orderId: string) {
   const refusal = labelSharingRefusal(await findOrderLabelParcels(database, tenantId, orderId));
   if (refusal !== null) throw conflictError(refusal);
-  const access = await shippingAccess(tenantId, orderId);
-  if (isShippingBlocked(access.orderStatus)) throw conflictError("Pedido sem liberação para envio");
-  return access;
+  const row = await orderStore(tenantId, orderId);
+  if (!isLabelMarketplace(row.store.marketplace))
+    throw conflictError(
+      "Etiqueta de postagem disponível para Mercado Livre e TikTok Shop. Nos demais envios, registre a transportadora e o rastreio manualmente.",
+    );
+  if (isShippingBlocked(row.orderStatus)) throw conflictError("Pedido sem liberação para envio");
+  return {
+    marketplace: row.store.marketplace,
+    store: storeCredentials(row.store),
+    externalOrderId: row.externalOrderId,
+  };
 }
+
+/** One order's label file, with the marketplace's shipment (or package) and order numbers. */
+export interface OrderLabel {
+  file: { format: LabelFormat; bytes: Uint8Array<ArrayBuffer> };
+  shipmentId: string;
+  externalOrderId: string;
+}
+
+type LabelAccess = Awaited<ReturnType<typeof labelAccess>>;
+
+/** TikTok Shop hands out only a PDF link, which the connector downloads. */
+async function tiktokShopLabel(access: LabelAccess, format: LabelFormat): Promise<OrderLabel> {
+  if (format !== "pdf")
+    throw conflictError("A etiqueta do TikTok Shop sai só em PDF. Escolha a impressora comum.");
+  const label = await getTikTokShopShippingLabel(
+    tiktokShopApiConfig,
+    access.store,
+    access.externalOrderId,
+  );
+  return {
+    file: { format: "pdf", bytes: label.bytes },
+    shipmentId: label.packageId,
+    externalOrderId: access.externalOrderId,
+  };
+}
+
 /** One order's label in the format asked for, with the marketplace's order number. */
-export async function loadMarketplaceLabel(tenantId: string, orderId: string, format: LabelFormat) {
+export async function loadMarketplaceLabel(
+  tenantId: string,
+  orderId: string,
+  format: LabelFormat,
+): Promise<OrderLabel> {
   const access = await labelAccess(tenantId, orderId);
+  if (access.marketplace === "tiktok_shop") {
+    return tiktokShopLabel(access, format);
+  }
   const label = await getMercadoLivreLabel(
-    access.config,
+    mercadoLivreApiConfig,
     access.store,
     access.externalOrderId,
     format,
@@ -82,12 +136,17 @@ export interface StoreLabelBatch {
 }
 
 type LabelCheck =
-  | { kind: "allowed"; orderId: string; access: Awaited<ReturnType<typeof labelAccess>> }
+  | { kind: "allowed"; orderId: string; access: LabelAccess }
   | { kind: "refused"; orderId: string; error: unknown };
 
+/** Batches are Mercado Livre's: one `shipment_labels` call prints a whole store at once. */
 async function labelCheck(tenantId: string, orderId: string): Promise<LabelCheck> {
   try {
-    return { kind: "allowed", orderId, access: await labelAccess(tenantId, orderId) };
+    const access = await labelAccess(tenantId, orderId);
+    if (access.marketplace !== BATCH_LABEL_MARKETPLACE) {
+      return { kind: "refused", orderId, error: conflictError(TIKTOK_SHOP_BATCH_REFUSAL) };
+    }
+    return { kind: "allowed", orderId, access };
   } catch (error) {
     return { kind: "refused", orderId, error };
   }
@@ -121,7 +180,7 @@ export async function loadMarketplaceLabels(
     allowed.map((check) => [check.access.externalOrderId, check.orderId]),
   );
   const batch = await getMercadoLivreLabels(
-    first.access.config,
+    mercadoLivreApiConfig,
     first.access.store,
     allowed.map((check) => check.access.externalOrderId),
     format,

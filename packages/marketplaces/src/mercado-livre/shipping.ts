@@ -7,7 +7,7 @@ import {
 } from "@sellbridge/shared/schemas";
 import { type ShippingAddressReading, shippingAddressReading } from "../shipping-address.ts";
 import type { StoreCredentials } from "../types.ts";
-import { marketplaceError } from "../errors.ts";
+import { LABEL_NOT_READY_CAUSE, marketplaceError } from "../errors.ts";
 import { fetchWithRetry } from "../http.ts";
 import { InvalidZipError, isZip, readZipEntries } from "../zip.ts";
 import { requestJson, type MercadoLivreConfig, type MercadoLivreContext } from "./client.ts";
@@ -259,9 +259,6 @@ export async function readMercadoLivreShippingAddress(
   const { shipping } = await loadSaleShipment(config, store, orderId);
   return shippingAddressReading(shipping.address);
 }
-/** Why Mercado Livre refused a label that may print later: it has not released it yet. */
-export const LABEL_NOT_READY_CAUSE = "label_not_ready";
-
 /** Labels per `/shipment_labels` call, Mercado Livre's limit for `shipment_ids`. */
 const MAX_LABELS_PER_REQUEST = 50;
 
