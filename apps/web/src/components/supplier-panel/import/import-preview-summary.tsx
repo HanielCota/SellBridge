@@ -115,9 +115,45 @@ function SummaryHeader({ preview }: { preview: SupplierImportPreview }) {
           tone="danger"
         />
       </dl>
+      <GridNotices grids={preview.grids} notices={preview.notices} />
       <EmojiNotice products={preview.emojisRemoved} />
       <PriceWarnings warnings={preview.priceWarnings} />
     </>
+  );
+}
+
+/**
+ * Products with colours and sizes the file creates, and the rows that went in as separate
+ * products instead, each with its row number and why.
+ */
+function GridNotices({
+  grids,
+  notices,
+}: {
+  grids: number;
+  notices: SupplierImportPreview["notices"];
+}) {
+  if (grids === 0 && notices.length === 0) {
+    return null;
+  }
+  return (
+    <div className="space-y-2 text-sm">
+      {grids > 0 ? (
+        <p className="text-muted-foreground">
+          {plural(grids, "produto com cores e tamanhos", "produtos com cores e tamanhos")}: as
+          linhas com o mesmo código do modelo viram um produto só, uma variação por linha.
+        </p>
+      ) : null}
+      {notices.length > 0 ? (
+        <ul className="space-y-1 rounded-2xl border border-amber-700/40 p-4 text-muted-foreground">
+          {notices.map((notice) => (
+            <li key={notice.line}>
+              Linha {count.format(notice.line)}: {notice.message}
+            </li>
+          ))}
+        </ul>
+      ) : null}
+    </div>
   );
 }
 

@@ -66,6 +66,11 @@ function nameKey(name: string | null): string {
   return name === null ? "" : stripAccents(name).trim().replaceAll(/\s+/g, " ").toLowerCase();
 }
 
+/** One colour and size pair as people read it, to tell whether a grid already sells it. */
+export function gridPairKey(color: string | null, size: string | null): string {
+  return pairKey(color, size);
+}
+
 function pairKey(color: string | null, size: string | null): string {
   return `${nameKey(color)}\u0000${nameKey(size)}`;
 }
@@ -345,7 +350,7 @@ export function planGridImport(input: {
       );
       notices.push({
         line: rows[0]?.line ?? single.line,
-        reason: `Código do modelo: as linhas do modelo ${code} entraram como produtos separados, porque o SKU ${single.product.sku} já existe como produto separado. Juntar produtos que já existem numa grade vai ter uma tela própria`,
+        reason: `As linhas do modelo ${code} entraram como produtos separados, porque o SKU ${single.product.sku} já existe como produto separado. Juntar produtos que já existem numa grade vai ter uma tela própria`,
       });
       continue;
     }

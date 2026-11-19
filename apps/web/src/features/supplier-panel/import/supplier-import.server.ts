@@ -39,6 +39,7 @@ import {
   previewAdminProductCsv,
 } from "@/features/admin-suppliers/suppliers.server";
 import { database } from "@/lib/server/database";
+import { productGridEnabled } from "@/lib/server/product-grid-switch";
 
 /**
  * The supplier's own catalog import. The rules, the preview token and the write are the admin
@@ -68,7 +69,9 @@ async function productRuleErrors(supplierId: string, normalized: NormalizedImpor
     return [];
   }
   const preview = await previewAdminProductCsv({ supplierId, content: normalized.canonicalCsv });
-  const imageErrors = insecureImageErrors(parseProductCsv(normalized.canonicalCsv).rows);
+  const imageErrors = insecureImageErrors(
+    parseProductCsv(normalized.canonicalCsv, { gridColumns: productGridEnabled() }).rows,
+  );
   return [...preview.errors, ...imageErrors];
 }
 
@@ -94,7 +97,10 @@ async function readSupplierFile(input: SupplierImportPreviewInput) {
   const bytes = Buffer.from(input.fileBase64, "base64");
   const catalog = await readSupplierCatalogFile(bytes, input.fileName, loadProductCategories);
   if (catalog === null) {
-    return { normalized: normalizeImportFile(bytes), catalog };
+    return {
+      normalized: normalizeImportFile(bytes, { gridColumns: productGridEnabled() }),
+      catalog,
+    };
   }
   return { normalized: normalizeImportFile(new TextEncoder().encode(catalog.csv)), catalog };
 }
@@ -127,7 +133,8 @@ function priceWarnings(
   if (normalized.originalLines.size === 0) {
     return warnings;
   }
-  for (const row of parseProductCsv(normalized.canonicalCsv).rows) {
+  for (const row of parseProductCsv(normalized.canonicalCsv, { gridColumns: productGridEnabled() })
+    .rows) {
     const line = normalized.originalLines.get(row.line) ?? row.line;
     const { sku, costCents, suggestedPriceCents } = row.product;
     if (failedLines.has(line) || suggestedPriceCents === undefined) {
@@ -188,6 +195,11 @@ export async function previewSupplierImport(
     emojisRemoved: prepared?.preview.emojisRemoved ?? 0,
     issues: onSpreadsheetRows(issues, catalog),
     priceWarnings: priceWarnings(normalized, failedLines, catalog),
+    grids: prepared?.preview.grids ?? 0,
+    notices: (prepared?.preview.notices ?? []).map((notice) => ({
+      line: sourceLine(normalized.originalLines.get(notice.line) ?? notice.line, catalog),
+      message: notice.reason,
+    })),
     failedRowsCsv:
       issues.length === 0 ? "" : buildFailedRowsCsv(normalized, normalized.records, issues),
     confirmation: prepared?.confirmation ?? null,
@@ -199,7 +211,9 @@ export async function confirmSupplierImport(
   input: SupplierImportConfirmInput,
 ): Promise<SupplierImportResult> {
   // The preview left http photos out; a confirmation must not bring them back.
-  const insecureUrl = firstInsecureImageUrl(parseProductCsv(input.content).rows);
+  const insecureUrl = firstInsecureImageUrl(
+    parseProductCsv(input.content, { gridColumns: productGridEnabled() }).rows,
+  );
   if (insecureUrl !== null) {
     throw validationError(
       `Link de imagem inválido (recebido: "${shortValue(insecureUrl)}"); esperado: um link que comece com https://`,
@@ -223,8 +237,8 @@ export async function loadSupplierImportFiles(supplierId: string) {
   ]);
   const options = categories.map((category) => ({ name: category.name, slug: category.slug }));
   return {
-    templateCsv: buildImportTemplateCsv(options[0]?.slug ?? null),
-    guideCsv: buildImportGuideCsv(options),
+    templateCsv: buildImportTemplateCsv(options[0]?.slug ?? null, productGridEnabled()),
+    guideCsv: buildImportGuideCsv(options, productGridEnabled()),
     categories: options,
   };
 }
