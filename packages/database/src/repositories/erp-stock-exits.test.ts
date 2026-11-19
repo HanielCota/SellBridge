@@ -34,7 +34,7 @@ async function shippedSale(options: { linked?: boolean; consumed?: boolean } = {
   cleanups.push(scenario.cleanup);
   await database
     .update(supplierErpConnections)
-    .set({ stockExitsSince: new Date(Date.now() - 60_000) })
+    .set({ stockExitsSince: new Date(Date.now() - 60_000), stockCheckedAt: new Date() })
     .where(eq(supplierErpConnections.supplierId, scenario.supplierId));
   if (options.linked ?? true) {
     await database
@@ -95,6 +95,16 @@ describe("listErpStockExitsDue", () => {
     await database
       .update(supplierErpConnections)
       .set({ stockExitsSince: new Date(Date.now() + 60_000) })
+      .where(eq(supplierErpConnections.supplierId, sale.supplierId));
+
+    expect(await dueFor(sale.orderItemId)).toBeUndefined();
+  });
+
+  it("waits after a reconnection until a full check relinked the products", async () => {
+    const sale = await shippedSale();
+    await database
+      .update(supplierErpConnections)
+      .set({ connectedAt: new Date(Date.now() + 1_000) })
       .where(eq(supplierErpConnections.supplierId, sale.supplierId));
 
     expect(await dueFor(sale.orderItemId)).toBeUndefined();

@@ -49,6 +49,9 @@ export async function listErpStockExitsDue(
       on connection.supplier_id = product.supplier_id
       and connection.provider = 'bling'
       and connection.status = 'connected'
+      -- Links are only trusted once a full check ran on this connection: a reconnection may
+      -- be another Bling company, whose ids mean other products until the check relinks them.
+      and connection.stock_checked_at >= connection.connected_at
     join orders as sale on sale.id = item.order_id
     where item.stock_state = 'consumed'
       and product.erp_product_id is not null

@@ -92,6 +92,7 @@ async function shippedSale() {
       accessTokenEnc: cipher.encrypt("access"),
       refreshTokenEnc: cipher.encrypt("refresh"),
       stockExitsSince: new Date(Date.now() - 60_000),
+      stockCheckedAt: new Date(),
     })
     .where(eq(schema.supplierErpConnections.supplierId, scenario.supplierId));
   await database
