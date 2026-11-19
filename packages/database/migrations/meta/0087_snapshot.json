@@ -1,5 +1,5 @@
 {
-  "id": "627dbd03-d099-4092-bcc3-5705f44c98f4",
+  "id": "623c8d9a-ed16-4785-93f5-14389041f582",
   "prevId": "897618bc-edbc-4e83-b694-c1887767d41e",
   "version": "7",
   "dialect": "postgresql",
@@ -6668,6 +6668,12 @@
         "prepaid_until": {
           "name": "prepaid_until",
           "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "first_paid_on": {
+          "name": "first_paid_on",
+          "type": "date",
           "primaryKey": false,
           "notNull": false
         }

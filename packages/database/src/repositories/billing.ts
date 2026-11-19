@@ -218,6 +218,7 @@ export type BillingAccountPatch = Partial<
     | "pendingPlan"
     | "pendingReference"
     | "prepaidUntil"
+    | "firstPaidOn"
   >
 >;
 

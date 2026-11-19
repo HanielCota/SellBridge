@@ -1,5 +1,5 @@
 import { sql } from "drizzle-orm";
-import { bigint, boolean, check, pgTable, text, timestamp } from "drizzle-orm/pg-core";
+import { bigint, boolean, check, date, pgTable, text, timestamp } from "drizzle-orm/pg-core";
 import { organization } from "./auth.ts";
 
 export const billingAccounts = pgTable(
@@ -35,6 +35,11 @@ export const billingAccounts = pgTable(
      * during a canceled, still paid month): the current one starts charging when it ends.
      */
     prepaidUntil: timestamp("prepaid_until", { withTimezone: true }),
+    /**
+     * The day (Brasília) the account paid its first monthly fee ever: only that fee is given back
+     * when the plan is cancelled within 7 days, never a later subscription's first fee.
+     */
+    firstPaidOn: date("first_paid_on", { mode: "string" }),
   },
   (table) => [
     check(
