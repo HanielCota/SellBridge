@@ -27,12 +27,15 @@ export async function loadPanelProducts(input: CatalogListSearch & { supplierId:
   return await listSupplierPanelProducts(database, input);
 }
 
-/** The product being edited (or none for a new one) and the categories to choose from. */
+/**
+ * The product being edited (or none for a new one), the categories to choose from and the
+ * brand's niche, the category a new product most likely belongs to.
+ */
 export async function loadPanelProductForm(input: {
   supplierId: string;
   productId?: string | undefined;
 }) {
-  const [product, categories, taxDefaults] = await Promise.all([
+  const [product, categories, taxDefaults, brand] = await Promise.all([
     input.productId === undefined
       ? Promise.resolve(null)
       : getSupplierPanelProduct(database, {
@@ -41,8 +44,12 @@ export async function loadPanelProductForm(input: {
         }),
     loadProductCategories(),
     getSupplierTaxDefaults(database, input.supplierId),
+    database.query.suppliers.findFirst({
+      where: (supplier, { eq }) => eq(supplier.id, input.supplierId),
+      columns: { niche: true },
+    }),
   ]);
-  return { product, categories, taxDefaults };
+  return { product, categories, taxDefaults, brandNiche: brand?.niche ?? null };
 }
 
 /** Database failures become one clear message; typed errors pass through unchanged. */

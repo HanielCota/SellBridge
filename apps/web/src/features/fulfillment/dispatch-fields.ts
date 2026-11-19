@@ -25,3 +25,26 @@ export function dispatchFieldsFor(
   }
   return NO_DISPATCH_FIELDS;
 }
+
+/** What is missing in each dispatch field, said next to it with how to fill it; null when fine. */
+export interface DispatchFieldErrors {
+  carrier: string | null;
+  trackingCode: string | null;
+}
+
+/**
+ * The fields the dispatch still needs, checked before sending so the warning shows next to the
+ * field instead of in a passing toast.
+ */
+export function dispatchFieldErrors(typed: DispatchFields): DispatchFieldErrors {
+  return {
+    carrier:
+      typed.carrier.trim() === ""
+        ? "Escreva a transportadora. Exemplo: Correios ou Mercado Envios."
+        : null,
+    trackingCode:
+      typed.trackingCode.trim() === ""
+        ? "Escreva o código de rastreio que está na etiqueta. Exemplo: AA123456789BR."
+        : null,
+  };
+}
