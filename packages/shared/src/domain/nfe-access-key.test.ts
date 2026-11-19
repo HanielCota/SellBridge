@@ -1,5 +1,9 @@
 import { describe, expect, it } from "vitest";
-import { parseAccessKey, resellerAccessKeyProblem } from "./nfe-access-key.ts";
+import {
+  accessKeyFormatProblem,
+  parseAccessKey,
+  resellerAccessKeyProblem,
+} from "./nfe-access-key.ts";
 
 /** An NF-e of CNPJ 11.222.333/0001-81, series 1, number 4821, November 2026 (SP). */
 const RESELLER_KEY = "35261111222333000181550010000048211123456789";
@@ -36,6 +40,18 @@ describe("parseAccessKey", () => {
     expect(parseAccessKey(`${RESELLER_KEY}1`)).toBeNull();
     expect(parseAccessKey("")).toBeNull();
     expect(parseAccessKey(`A${RESELLER_KEY.slice(1)}`)).toBeNull();
+  });
+});
+
+describe("accessKeyFormatProblem", () => {
+  it("accepts any well-formed key, whoever issued it", () => {
+    expect(accessKeyFormatProblem(OTHER_COMPANY_KEY)).toBeNull();
+  });
+
+  it("asks for digits only when letters were pasted", () => {
+    expect(accessKeyFormatProblem("NFe3526")).toBe(
+      "A chave de acesso tem só números. Copie de novo da nota.",
+    );
   });
 });
 

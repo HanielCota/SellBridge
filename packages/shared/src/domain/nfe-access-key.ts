@@ -65,19 +65,34 @@ export function parseAccessKey(input: string): AccessKeyParts | null {
 }
 
 /**
+ * Why the typed text is not an access key (length, letters, a swapped digit), or null when it is
+ * one; what can be told before knowing who issued it.
+ */
+export function accessKeyFormatProblem(input: string): string | null {
+  const digits = accessKeyDigits(input);
+  if (!/^\d*$/.test(digits)) {
+    return "A chave de acesso tem só números. Copie de novo da nota.";
+  }
+  if (digits.length !== ACCESS_KEY_LENGTH) {
+    return `A chave de acesso tem 44 números, e esta tem ${digits.length}. Copie de novo da nota.`;
+  }
+  if (parseAccessKey(digits) === null) {
+    return "Esta chave não confere: algum número está trocado. Copie de novo da nota.";
+  }
+  return null;
+}
+
+/**
  * Why a key cannot stand for the reseller's sale note (venda à ordem), in the reseller's words, or
  * null when it can: a valid NF-e key issued by the reseller's own CNPJ.
  *
  * @param resellerCnpj - The reseller company's CNPJ, digits only.
  */
 export function resellerAccessKeyProblem(input: string, resellerCnpj: string): string | null {
-  const digits = accessKeyDigits(input);
-  if (!/^\d+$/.test(digits) || digits.length !== ACCESS_KEY_LENGTH) {
-    return `A chave de acesso tem 44 números, e esta tem ${digits.length}. Copie de novo da nota.`;
-  }
-  const parts = parseAccessKey(digits);
-  if (parts === null) {
-    return "Esta chave não confere: algum número está trocado. Copie de novo da nota.";
+  const formatProblem = accessKeyFormatProblem(input);
+  const parts = parseAccessKey(input);
+  if (formatProblem !== null || parts === null) {
+    return formatProblem;
   }
   if (parts.model !== NFE_MODEL) {
     return "Esta chave não é de uma NF-e (modelo 55). Use a chave da nota de venda ao cliente.";
