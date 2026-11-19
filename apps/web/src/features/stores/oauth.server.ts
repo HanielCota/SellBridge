@@ -182,10 +182,18 @@ export async function handleOAuthStart(request: Request, marketplaceParam: strin
   return Response.redirect(url, 302);
 }
 
-// The refusal is read first: TikTok Shop sends `code=null&error=auth_denied` together.
+// The refusal is read first: TikTok Shop sends `code=null&error=auth_denied` together. Shopee
+// sends the authorized shop with the code (`shop_id`), and its token call needs it.
 const callbackQuerySchema = z.union([
   z.object({ error: z.string().min(1), state: z.string().optional() }),
-  z.object({ code: z.string().min(1), state: z.string().min(1) }),
+  z.object({
+    code: z.string().min(1),
+    state: z.string().min(1),
+    shop_id: z
+      .string()
+      .regex(/^\d{1,19}$/)
+      .optional(),
+  }),
 ]);
 
 interface ConnectStoreInput {
@@ -193,6 +201,8 @@ interface ConnectStoreInput {
   userId: string;
   marketplace: MarketplaceId;
   code: string;
+  /** The shop the marketplace named with the code, when it does (Shopee). */
+  externalShopId: string | null;
   codeVerifier: string | null;
   supplierId: string | null;
   /** Must match the redirect URI the consent was issued for. */
@@ -220,6 +230,7 @@ async function connectStore(input: ConnectStoreInput) {
     code: input.code,
     redirectUri: input.redirectUri,
     codeVerifier: input.codeVerifier ?? undefined,
+    externalShopId: input.externalShopId ?? undefined,
   });
   if (!(await mayConnectShop(input, shop.externalShopId))) {
     return null;
@@ -317,6 +328,7 @@ export async function handleOAuthCallback(
 
   return completeOAuthConnection(request, marketplace, session, {
     code: query.data.code,
+    externalShopId: query.data.shop_id ?? null,
     ...stateRecord,
   });
 }
@@ -325,7 +337,12 @@ async function completeOAuthConnection(
   request: Request,
   marketplace: MarketplaceId,
   session: TenantSession,
-  stateRecord: { code: string; codeVerifier: string | null; supplierId: string | null },
+  stateRecord: {
+    code: string;
+    externalShopId: string | null;
+    codeVerifier: string | null;
+    supplierId: string | null;
+  },
 ) {
   try {
     const store = await connectStore({
@@ -333,6 +350,7 @@ async function completeOAuthConnection(
       userId: session.userId,
       marketplace,
       code: stateRecord.code,
+      externalShopId: stateRecord.externalShopId,
       codeVerifier: stateRecord.codeVerifier,
       supplierId: stateRecord.supplierId,
       redirectUri: oauthCallbackUrl(marketplace),

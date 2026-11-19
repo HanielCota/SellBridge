@@ -35,7 +35,10 @@ vi.mock("@/lib/server/environment", () => ({
   },
 }));
 vi.mock("@/lib/server/marketplaces", () => ({
-  connectors: { mercado_livre: { exchangeCode: mocks.exchangeCode } },
+  connectors: {
+    mercado_livre: { exchangeCode: mocks.exchangeCode },
+    shopee: { exchangeCode: mocks.exchangeCode },
+  },
   oauthCallbackUrl: (marketplace: string) =>
     `https://sellbridge.test/api/oauth/${marketplace}/callback`,
   oauthAuthorizationUrl: (_marketplace: string, request: { state: string }) =>
@@ -106,6 +109,20 @@ describe("OAuth callback", () => {
     expect(mocks.checkBuyerAddressAfterConnect).toHaveBeenCalledWith(
       { id: "store-1", marketplace: "mercado_livre" },
       { externalShopId: "ml-123", accessToken: "access" },
+    );
+  });
+
+  it("hands Shopee's shop_id to the code exchange, which needs it", async () => {
+    mocks.upsertStoreConnection.mockResolvedValue({ id: "store-1" });
+    const request = new Request(
+      "https://sellbridge.test/api/oauth/shopee/callback?state=state-1&code=abc&shop_id=727720655",
+    );
+
+    const response = await handleOAuthCallback(request, "shopee");
+
+    expect(response.status).toBe(302);
+    expect(mocks.exchangeCode).toHaveBeenCalledWith(
+      expect.objectContaining({ code: "abc", externalShopId: "727720655" }),
     );
   });
 

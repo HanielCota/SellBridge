@@ -35,7 +35,7 @@ const useSupplierChartKind = createChartKindStore<SupplierChartKind>({
 });
 
 const KIND_HINTS: KindHints = {
-  area: "Valor a receber ou peças ao longo do tempo",
+  area: "Valor vendido ou peças ao longo do tempo",
   cumulative: "Total somado desde o início do período",
   products: "Os 5 mais vendidos, cada um na sua linha",
 };
@@ -55,7 +55,7 @@ function SeriesPills({
   onChange,
 }: {
   value: SupplierSeries;
-  /** "A receber", or "Ficou de fora" for cancelled and returned orders. */
+  /** "Valor vendido", or "Ficou de fora" for cancelled and returned orders. */
   amountLabel: string;
   onChange: (series: SupplierSeries) => void;
 }) {
