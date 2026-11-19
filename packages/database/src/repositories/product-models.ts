@@ -28,24 +28,30 @@ import { getSupplierFiscalFallback } from "./supplier-brand.ts";
 export interface ProductModelDetail {
   readonly id: string;
   readonly supplierId: string;
+  readonly updatedAt: Date;
   readonly values: ProductModelShared;
   readonly colors: readonly { name: string; imageUrls: string[] }[];
   readonly sizes: readonly string[];
-  readonly combinations: readonly {
-    id: string;
-    color: string | null;
-    size: string | null;
-    sku: string;
-    stock: number;
-    reservedStock: number;
-    costCents: number;
-    suggestedPriceCents: number;
-    active: boolean;
-  }[];
+  readonly combinations: readonly ProductModelCombination[];
+}
+
+export interface ProductModelCombination {
+  readonly id: string;
+  readonly color: string | null;
+  readonly size: string | null;
+  readonly sku: string;
+  readonly gtin: string | null;
+  readonly netWeightGrams: number | null;
+  readonly stock: number;
+  readonly reservedStock: number;
+  readonly costCents: number;
+  readonly suggestedPriceCents: number;
+  readonly active: boolean;
+  readonly reviewStatus: string;
 }
 
 /** Same lock as the team's product writes, so a grid save never races an import or an edit. */
-async function lockSupplier(database: DatabaseExecutor, supplierId: string): Promise<void> {
+export async function lockSupplier(database: DatabaseExecutor, supplierId: string): Promise<void> {
   const [supplier] = await database
     .select({ id: suppliers.id })
     .from(suppliers)
@@ -94,7 +100,7 @@ function colorPhotos(grid: ProductGrid): ReadonlyMap<string, string[]> {
   return new Map(grid.colors.map((color) => [color.name, color.imageUrls]));
 }
 
-function combinationRow(
+export function combinationRow(
   model: {
     supplierId: string;
     modelId: string;
@@ -220,7 +226,7 @@ export async function updateProductModel(
   });
 }
 
-async function rewriteCombinations(
+export async function rewriteCombinations(
   transaction: DatabaseExecutor,
   modelId: string,
   values: ProductModelShared,
@@ -286,11 +292,14 @@ export async function getProductModel(
         color: supplierProducts.color,
         size: supplierProducts.size,
         sku: supplierProducts.sku,
+        variantAttributes: supplierProducts.variantAttributes,
+        variantFiscal: supplierProducts.variantFiscal,
         stock: supplierProducts.stock,
         reservedStock: supplierProducts.reservedStock,
         costCents: supplierProducts.costCents,
         suggestedPriceCents: supplierProducts.suggestedPriceCents,
         active: supplierProducts.active,
+        reviewStatus: supplierProducts.reviewStatus,
       })
       .from(supplierProducts)
       .where(eq(supplierProducts.modelId, model.id)),
@@ -299,14 +308,37 @@ export async function getProductModel(
   return {
     id: model.id,
     supplierId: model.supplierId,
+    updatedAt: model.updatedAt,
     values: sharedValues(model),
     colors,
     sizes: sizeNames,
     combinations: inGridOrder(
-      combinations,
+      combinations.map(withOwnValues),
       colors.map((color) => color.name),
       sizeNames,
     ),
+  };
+}
+
+function withOwnValues(row: {
+  id: string;
+  color: string | null;
+  size: string | null;
+  sku: string;
+  variantAttributes: Readonly<Record<string, string>>;
+  variantFiscal: { netWeightGrams?: number | null | undefined };
+  stock: number;
+  reservedStock: number;
+  costCents: number;
+  suggestedPriceCents: number;
+  active: boolean;
+  reviewStatus: string;
+}): ProductModelCombination {
+  const { variantAttributes, variantFiscal, ...rest } = row;
+  return {
+    ...rest,
+    gtin: variantAttributes.GTIN ?? null,
+    netWeightGrams: variantFiscal.netWeightGrams ?? null,
   };
 }
 

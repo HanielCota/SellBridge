@@ -8,7 +8,19 @@ export * from "./store-names.ts";
 export * from "./store-suppliers.ts";
 export * from "./store-catalog.ts";
 export * from "./product-heat.ts";
-export * from "./product-models.ts";
+export {
+  deleteUnsoldProductModel,
+  MODEL_IN_USE_MESSAGE,
+  publishProductModel,
+  saveProductModelDraft,
+} from "./product-model-drafts.ts";
+export {
+  createProductModel,
+  getProductModel,
+  updateProductModel,
+  type ProductModelCombination,
+  type ProductModelDetail,
+} from "./product-models.ts";
 export * from "./store-activity.ts";
 export * from "./store-disconnect.ts";
 export * from "./account-export.ts";
