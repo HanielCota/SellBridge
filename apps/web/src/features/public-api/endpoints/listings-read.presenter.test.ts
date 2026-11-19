@@ -15,6 +15,7 @@ function store(
     storeConnectionId: `store-${status}`,
     status,
     errorReason: null,
+    pauseReason: null,
     descriptionError: null,
     attempts: 1,
     externalUrl: null,

@@ -10,6 +10,8 @@ export interface StoreActivity {
   liveListings: number;
   /** Listings on the store held at zero stock until the reseller reactivates them. */
   pausedListings: number;
+  /** Paused when the store was disconnected: what reconnecting it offers to resume. */
+  pausedByDisconnection: number;
   failedListings: number;
   /** Listings queued or on their way to the marketplace: chosen, just not live yet. */
   publishingListings: number;
@@ -23,6 +25,7 @@ export interface StoreActivity {
 export const EMPTY_STORE_ACTIVITY: StoreActivity = {
   liveListings: 0,
   pausedListings: 0,
+  pausedByDisconnection: 0,
   failedListings: 0,
   publishingListings: 0,
   orders: 0,
@@ -40,6 +43,10 @@ async function listingCounts(database: Database, tenantId: string, storeIds: str
       paused: sql<number>`count(*) filter (where ${listingTargets.status} = 'paused')`.mapWith(
         Number,
       ),
+      pausedByDisconnection:
+        sql<number>`count(*) filter (where ${listingTargets.status} = 'paused' and ${listingTargets.pauseReason} = 'store_disconnected')`.mapWith(
+          Number,
+        ),
       failed: sql<number>`count(*) filter (where ${listingTargets.status} = 'error')`.mapWith(
         Number,
       ),
@@ -106,6 +113,8 @@ export async function getStoreActivity(
         {
           liveListings: listingCount?.live ?? EMPTY_STORE_ACTIVITY.liveListings,
           pausedListings: listingCount?.paused ?? EMPTY_STORE_ACTIVITY.pausedListings,
+          pausedByDisconnection:
+            listingCount?.pausedByDisconnection ?? EMPTY_STORE_ACTIVITY.pausedByDisconnection,
           failedListings: listingCount?.failed ?? EMPTY_STORE_ACTIVITY.failedListings,
           publishingListings: listingCount?.publishing ?? EMPTY_STORE_ACTIVITY.publishingListings,
           orders: sales?.orders ?? EMPTY_STORE_ACTIVITY.orders,

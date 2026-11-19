@@ -1,7 +1,7 @@
 import { SmartDate } from "@/components/data/smart-date";
 import { createServerColumnHelper } from "@/components/data/data-table";
 import { Checkbox } from "@/components/ui/checkbox";
-import { isShippingBlocked } from "@/features/fulfillment/shipping-block";
+import { isPreparationStopped } from "@/features/fulfillment/shipping-block";
 import type { SupplierOrderRow } from "@/features/supplier-panel/orders/use-order-actions";
 import { CountdownBadge } from "./countdown-badge";
 import {
@@ -20,8 +20,8 @@ import { trackingLine } from "@/features/fulfillment/tracking-line";
 
 /** "Prazo" in the queue; "Atualizado" in the history tabs, where nothing is due. */
 export function DeadlineCell({ row, now }: { row: SupplierOrderRow; now: Date }) {
-  // A sale not released for shipping has nothing due: its reason stands alone.
-  if (isShippingBlocked(row.orderStatus)) {
+  // A sale not released for shipping, or a held parcel, has nothing due: its reason stands alone.
+  if (isPreparationStopped(row)) {
     return null;
   }
   if (row.deadline === null) {

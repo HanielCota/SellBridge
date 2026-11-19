@@ -1,7 +1,9 @@
-import { findImpersonationTarget } from "@sellbridge/database/repositories";
-import { getSessionFromCtx } from "better-auth/api";
+import { findImpersonationTarget, recordAdminEvent } from "@sellbridge/database/repositories";
+import { logger } from "@sellbridge/shared/logger";
+import { APIError, getSessionFromCtx } from "better-auth/api";
 import { database } from "./database.ts";
 import { assertMayImpersonate, visitDetails } from "./impersonation-guard.ts";
+import { AUDIT_RECORD_FAILED_EVENT, VISIT_NOT_RECORDED_MESSAGE } from "./impersonation.ts";
 
 /*
  * The database side of a visit to a customer's account, for the auth hooks in `auth.ts`: who may
@@ -37,7 +39,7 @@ export async function guardImpersonation(context: HookContext): Promise<void> {
 }
 
 /** The details of the "Entrou como…" line of a visit that just started. */
-export async function startedVisitDetails(impersonatorId: string, userId: string) {
+async function startedVisitDetails(impersonatorId: string, userId: string) {
   const [target, impersonator] = await Promise.all([
     findImpersonationTarget(database, userId),
     database.query.user.findFirst({
@@ -47,4 +49,35 @@ export async function startedVisitDetails(impersonatorId: string, userId: string
   ]);
   const impersonatorRole = impersonator === undefined ? null : roleOf(impersonator);
   return visitDetails({ impersonatorRole, target });
+}
+
+/**
+ * "Entrar como cliente" goes to the trail before the visit's session exists (`session.create`
+ * before hook): when it cannot be written, the session is never opened, so no visit goes
+ * unrecorded. `impersonatedBy` is null for a person's own sign-in, which records nothing here.
+ *
+ * @throws {APIError} FORBIDDEN with {@link VISIT_NOT_RECORDED_MESSAGE} when the trail fails.
+ */
+export async function recordVisitStart(
+  session: { userId: string },
+  impersonatedBy: string | null,
+): Promise<void> {
+  if (impersonatedBy === null) {
+    return;
+  }
+  try {
+    await recordAdminEvent(database, {
+      adminId: impersonatedBy,
+      userId: session.userId,
+      action: "impersonated",
+      details: await startedVisitDetails(impersonatedBy, session.userId),
+    });
+  } catch (error) {
+    logger.error(AUDIT_RECORD_FAILED_EVENT, {
+      reason: "A equipe não entrou na conta do cliente porque o registro da entrada falhou.",
+      userId: session.userId,
+      error,
+    });
+    throw new APIError("FORBIDDEN", { message: VISIT_NOT_RECORDED_MESSAGE });
+  }
 }

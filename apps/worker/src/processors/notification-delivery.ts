@@ -9,6 +9,7 @@ import {
 } from "@sellbridge/database/repositories";
 import { isAppError } from "@sellbridge/shared/errors";
 import { logger } from "@sellbridge/shared/logger";
+import { QUEUE_NAMES } from "@sellbridge/shared/queues";
 import type { SendEmail } from "@sellbridge/shared/mailer";
 import { nextNotificationAttemptAt } from "@sellbridge/shared/notification-content";
 import {
@@ -91,11 +92,23 @@ async function recordResult(
     error: result.error,
     nextAttemptAt,
   });
-  logger.warn("notification.delivery_failed", {
+  if (nextAttemptAt !== null) {
+    logger.warn("notification.delivery_failed", {
+      deliveryId: delivery.id,
+      event: delivery.event,
+      attempt: delivery.attempts + 1,
+    });
+    return;
+  }
+  // Every attempt failed: the person never got it, so the team hears of it on Problemas.
+  logger.error("notification.delivery_gave_up", {
+    reason: "Um e-mail ou aviso para um cliente falhou em todas as tentativas e não foi entregue.",
     deliveryId: delivery.id,
+    queue: QUEUE_NAMES.notificationDelivery,
     event: delivery.event,
+    channel: delivery.channel,
     attempt: delivery.attempts + 1,
-    final: nextAttemptAt === null,
+    diagnostic: result.error,
   });
 }
 

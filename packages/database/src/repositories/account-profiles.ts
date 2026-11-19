@@ -1,7 +1,8 @@
 import type { ProfileKind } from "@sellbridge/shared/profile-kind";
-import { asc, eq } from "drizzle-orm";
+import { asc, eq, sql } from "drizzle-orm";
 import type { Database } from "../client.ts";
 import { member, organization, suppliers } from "../schema/index.ts";
+import { supplierReceivingRuleMet } from "./sql/sellable.ts";
 
 /** One profile (organization) of an account, as the profile switcher and the admin page read it. */
 export interface AccountProfileRow {
@@ -39,6 +40,8 @@ export interface ProfileSupplier {
   active: boolean;
   /** When the supplier closed the store for sales; null while it is open. */
   salesClosedAt: Date | null;
+  /** False while the admin requires an approved receiving account and it has none. */
+  receivingRuleMet: boolean;
 }
 
 /** The supplier a supplier profile runs, or null while the profile has not set up its brand. */
@@ -52,6 +55,7 @@ export async function findSupplierOfProfile(
       name: suppliers.name,
       active: suppliers.active,
       salesClosedAt: suppliers.salesClosedAt,
+      receivingRuleMet: sql<boolean>`${supplierReceivingRuleMet()}`.mapWith(Boolean),
     })
     .from(suppliers)
     .where(eq(suppliers.organizationId, organizationId));

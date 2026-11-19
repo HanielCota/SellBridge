@@ -2,6 +2,7 @@ import { createFulfillmentParcels } from "./create-fulfillment-parcels.ts";
 import { syncOrderFromShipments } from "./fulfillment-status.ts";
 import { linkFieldsFor } from "./shipment-link-fields.ts";
 import { resellerShipmentInvoices } from "./shipment-invoices.ts";
+import { resellerSaleInvoicesOf } from "./shipment-reseller-invoices.ts";
 import * as timing from "./shipment-timing.ts";
 import {
   and,
@@ -22,6 +23,7 @@ import {
   type SQL,
 } from "drizzle-orm";
 import { conflictError, notFoundError, validationError } from "@sellbridge/shared/errors";
+import { HOLD_REFUSALS } from "@sellbridge/shared/receiving-rules";
 import {
   DISPATCHED_FULFILLMENT_STATUSES,
   DELIVERY_CONFIRMED_BY,
@@ -197,6 +199,7 @@ function fulfillmentItems(database: Database, tenantId: string, orderId: string)
       supplierId: suppliers.id,
       supplierName: suppliers.name,
       catalogKind: suppliers.catalogKind,
+      supplierActive: suppliers.active,
       sku: supplierProducts.sku,
     })
     .from(orderItems)
@@ -223,6 +226,7 @@ function detailShipments(database: Database, tenantId: string, orderId: string) 
       trackingUrl: orderShipments.trackingUrl,
       trackedAt: orderShipments.trackedAt,
       ...timing.shipmentTimingColumns,
+      preparationHold: timing.preparationHold,
       updatedAt: orderShipments.updatedAt,
       supplierTokenExpiresAt: orderShipments.supplierTokenExpiresAt,
     })
@@ -254,9 +258,10 @@ export async function getFulfillmentDetail(database: Database, tenantId: string,
   const [store] = stores;
   if (!store) throw notFoundError("Loja do pedido não encontrada");
   const shipmentIds = shipments.map((row) => row.id);
-  const [events, invoices] = await Promise.all([
+  const [events, invoices, resellerNotes] = await Promise.all([
     eventsForShipments(database, shipmentIds),
     resellerShipmentInvoices(database, shipmentIds),
+    resellerSaleInvoicesOf(database, tenantId, shipmentIds),
   ]);
   return {
     order: {
@@ -274,6 +279,8 @@ export async function getFulfillmentDetail(database: Database, tenantId: string,
       events: events.filter((event) => event.shipmentId === shipment.id),
       /** The NF-e the supplier's ERP issues for this parcel, from its first step. */
       invoice: invoices.get(shipment.id) ?? null,
+      /** In venda à ordem, the reseller's own sale note to the buyer; null in the other model. */
+      resellerNote: resellerNotes.get(shipment.id) ?? null,
     })),
   };
 }
@@ -444,6 +451,7 @@ export async function getSupplierShipment(database: Database, token: string) {
       marketplace: storeConnections.marketplace,
       supplierName: suppliers.name,
       catalogKind: suppliers.catalogKind,
+      preparationHold: timing.preparationHold,
       ...timing.supplierTimingColumns,
     })
     .from(orderShipments)
@@ -480,6 +488,7 @@ export async function getSupplierShipment(database: Database, token: string) {
     address: over ? null : shipment.address,
     externalOrderId: row.externalOrderId,
     orderStatus: row.orderStatus,
+    preparationHold: row.preparationHold,
     marketplace: row.marketplace,
     supplierName: row.supplierName,
     ...timing.supplierDeadlines(shipment, row),
@@ -598,6 +607,32 @@ function shipmentAccessFilter(access: ShipmentAccess) {
   );
 }
 
+/** Steps that prepare or ship a parcel: the ones a parcel waiting for the account or the payment may not take. */
+const PREPARING_STATUSES: ReadonlySet<string> = new Set([
+  "accepted",
+  "picking",
+  "ready",
+  "shipped",
+]);
+
+/**
+ * Refuses moving a parcel forward while it waits for the supplier's receiving account or the
+ * reseller's payment. A note on the same step and a cancellation still go through.
+ */
+async function assertPreparationReleased(
+  transaction: Transaction,
+  shipment: { id: string; status: string },
+  nextStatus: string,
+): Promise<void> {
+  if (nextStatus === shipment.status || !PREPARING_STATUSES.has(nextStatus)) {
+    return;
+  }
+  const hold = await timing.findPreparationHold(transaction, shipment.id);
+  if (hold !== null) {
+    throw conflictError(HOLD_REFUSALS[hold]);
+  }
+}
+
 /** All writes lock the parent order first, so separate supplier parcels cannot race. */
 export async function updateShipment(
   database: Database,
@@ -625,6 +660,7 @@ export async function updateShipment(
       .where(and(eq(orderShipments.id, candidate.id), accessFilter))
       .for("update");
     if (!shipment) throw notFoundError("Link revogado ou expirado");
+    await assertPreparationReleased(transaction, shipment, input.status);
     await writeShipmentStatus(
       transaction,
       shipment,

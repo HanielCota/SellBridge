@@ -26,6 +26,7 @@ import { Route as AppIntegracoesRouteImport } from './routes/_app/integracoes'
 import { Route as AppLojasRouteImport } from './routes/_app/lojas'
 import { Route as AppOnboardingRouteImport } from './routes/_app/onboarding'
 import { Route as AppPerfilRouteImport } from './routes/_app/perfil'
+import { Route as AppPoliticaDeDevolucaoRouteImport } from './routes/_app/politica-de-devolucao'
 import { Route as AppProductsRouteImport } from './routes/_app/products'
 import { Route as AuthCadastroRouteImport } from './routes/_auth/cadastro'
 import { Route as AuthConfirmeSeuEmailRouteImport } from './routes/_auth/confirme-seu-email'
@@ -72,6 +73,7 @@ import { Route as ApiV1OpenapiDotjsonRouteImport } from './routes/api/v1/openapi
 import { Route as ApiV1StoresRouteImport } from './routes/api/v1/stores'
 import { Route as ApiWebhooksMarketplaceRouteImport } from './routes/api/webhooks/$marketplace'
 import { Route as ApiWebhooksAsaasRouteImport } from './routes/api/webhooks/asaas'
+import { Route as ApiWebhooksBlingRouteImport } from './routes/api/webhooks/bling'
 import { Route as ApiWebhooksMercadoPagoRouteImport } from './routes/api/webhooks/mercado-pago'
 import { Route as ApiWebhooksStripeRouteImport } from './routes/api/webhooks/stripe'
 import { Route as FornecedorConviteIndexRouteImport } from './routes/fornecedor/convite/index'
@@ -105,6 +107,9 @@ import { Route as ApiAdminExportarAuditoriaRouteImport } from './routes/api/admi
 import { Route as ApiAdminExportarChamadosRouteImport } from './routes/api/admin/exportar/chamados'
 import { Route as ApiAdminExportarClientesRouteImport } from './routes/api/admin/exportar/clientes'
 import { Route as ApiAdminExportarEquipeRouteImport } from './routes/api/admin/exportar/equipe'
+import { Route as ApiDevolucoesClaimIdMotivoRouteImport } from './routes/api/devolucoes/$claimId/motivo'
+import { Route as ApiDevolucoesClaimIdRespostaRouteImport } from './routes/api/devolucoes/$claimId/resposta'
+import { Route as ApiDevolucoesFotosPhotoIdRouteImport } from './routes/api/devolucoes/fotos/$photoId'
 import { Route as ApiFornecedorExportarCatalogoRouteImport } from './routes/api/fornecedor/exportar/catalogo'
 import { Route as ApiFornecedorExportarPedidosRouteImport } from './routes/api/fornecedor/exportar/pedidos'
 import { Route as ApiFornecedorExportarProdutosRouteImport } from './routes/api/fornecedor/exportar/produtos'
@@ -222,6 +227,11 @@ const AppOnboardingRoute = AppOnboardingRouteImport.update({
 const AppPerfilRoute = AppPerfilRouteImport.update({
   id: '/perfil',
   path: '/perfil',
+  getParentRoute: () => AppRouteRoute,
+} as any)
+const AppPoliticaDeDevolucaoRoute = AppPoliticaDeDevolucaoRouteImport.update({
+  id: '/politica-de-devolucao',
+  path: '/politica-de-devolucao',
   getParentRoute: () => AppRouteRoute,
 } as any)
 const AppProductsRoute = AppProductsRouteImport.update({
@@ -456,6 +466,11 @@ const ApiWebhooksAsaasRoute = ApiWebhooksAsaasRouteImport.update({
   path: '/api/webhooks/asaas',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiWebhooksBlingRoute = ApiWebhooksBlingRouteImport.update({
+  id: '/api/webhooks/bling',
+  path: '/api/webhooks/bling',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ApiWebhooksMercadoPagoRoute = ApiWebhooksMercadoPagoRouteImport.update({
   id: '/api/webhooks/mercado-pago',
   path: '/api/webhooks/mercado-pago',
@@ -644,6 +659,24 @@ const ApiAdminExportarEquipeRoute = ApiAdminExportarEquipeRouteImport.update({
   path: '/api/admin/exportar/equipe',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiDevolucoesClaimIdMotivoRoute =
+  ApiDevolucoesClaimIdMotivoRouteImport.update({
+    id: '/api/devolucoes/$claimId/motivo',
+    path: '/api/devolucoes/$claimId/motivo',
+    getParentRoute: () => rootRouteImport,
+  } as any)
+const ApiDevolucoesClaimIdRespostaRoute =
+  ApiDevolucoesClaimIdRespostaRouteImport.update({
+    id: '/api/devolucoes/$claimId/resposta',
+    path: '/api/devolucoes/$claimId/resposta',
+    getParentRoute: () => rootRouteImport,
+  } as any)
+const ApiDevolucoesFotosPhotoIdRoute =
+  ApiDevolucoesFotosPhotoIdRouteImport.update({
+    id: '/api/devolucoes/fotos/$photoId',
+    path: '/api/devolucoes/fotos/$photoId',
+    getParentRoute: () => rootRouteImport,
+  } as any)
 const ApiFornecedorExportarCatalogoRoute =
   ApiFornecedorExportarCatalogoRouteImport.update({
     id: '/api/fornecedor/exportar/catalogo',
@@ -865,6 +898,7 @@ export interface FileRoutesByFullPath {
   '/lojas': typeof AppLojasRoute
   '/onboarding': typeof AppOnboardingRoute
   '/perfil': typeof AppPerfilRoute
+  '/politica-de-devolucao': typeof AppPoliticaDeDevolucaoRoute
   '/products': typeof AppProductsRoute
   '/cadastro': typeof AuthCadastroRoute
   '/confirme-seu-email': typeof AuthConfirmeSeuEmailRoute
@@ -907,6 +941,7 @@ export interface FileRoutesByFullPath {
   '/api/v1/stores': typeof ApiV1StoresRoute
   '/api/webhooks/$marketplace': typeof ApiWebhooksMarketplaceRoute
   '/api/webhooks/asaas': typeof ApiWebhooksAsaasRoute
+  '/api/webhooks/bling': typeof ApiWebhooksBlingRoute
   '/api/webhooks/mercado-pago': typeof ApiWebhooksMercadoPagoRoute
   '/api/webhooks/stripe': typeof ApiWebhooksStripeRoute
   '/fornecedor/convite/$token': typeof FornecedorConviteTokenRoute
@@ -938,6 +973,9 @@ export interface FileRoutesByFullPath {
   '/api/admin/exportar/chamados': typeof ApiAdminExportarChamadosRoute
   '/api/admin/exportar/clientes': typeof ApiAdminExportarClientesRoute
   '/api/admin/exportar/equipe': typeof ApiAdminExportarEquipeRoute
+  '/api/devolucoes/$claimId/motivo': typeof ApiDevolucoesClaimIdMotivoRoute
+  '/api/devolucoes/$claimId/resposta': typeof ApiDevolucoesClaimIdRespostaRoute
+  '/api/devolucoes/fotos/$photoId': typeof ApiDevolucoesFotosPhotoIdRoute
   '/api/fornecedor/exportar/catalogo': typeof ApiFornecedorExportarCatalogoRoute
   '/api/fornecedor/exportar/pedidos': typeof ApiFornecedorExportarPedidosRoute
   '/api/fornecedor/exportar/produtos': typeof ApiFornecedorExportarProdutosRoute
@@ -995,6 +1033,7 @@ export interface FileRoutesByTo {
   '/lojas': typeof AppLojasRoute
   '/onboarding': typeof AppOnboardingRoute
   '/perfil': typeof AppPerfilRoute
+  '/politica-de-devolucao': typeof AppPoliticaDeDevolucaoRoute
   '/products': typeof AppProductsRoute
   '/cadastro': typeof AuthCadastroRoute
   '/confirme-seu-email': typeof AuthConfirmeSeuEmailRoute
@@ -1034,6 +1073,7 @@ export interface FileRoutesByTo {
   '/api/v1/stores': typeof ApiV1StoresRoute
   '/api/webhooks/$marketplace': typeof ApiWebhooksMarketplaceRoute
   '/api/webhooks/asaas': typeof ApiWebhooksAsaasRoute
+  '/api/webhooks/bling': typeof ApiWebhooksBlingRoute
   '/api/webhooks/mercado-pago': typeof ApiWebhooksMercadoPagoRoute
   '/api/webhooks/stripe': typeof ApiWebhooksStripeRoute
   '/fornecedor/convite/$token': typeof FornecedorConviteTokenRoute
@@ -1065,6 +1105,9 @@ export interface FileRoutesByTo {
   '/api/admin/exportar/chamados': typeof ApiAdminExportarChamadosRoute
   '/api/admin/exportar/clientes': typeof ApiAdminExportarClientesRoute
   '/api/admin/exportar/equipe': typeof ApiAdminExportarEquipeRoute
+  '/api/devolucoes/$claimId/motivo': typeof ApiDevolucoesClaimIdMotivoRoute
+  '/api/devolucoes/$claimId/resposta': typeof ApiDevolucoesClaimIdRespostaRoute
+  '/api/devolucoes/fotos/$photoId': typeof ApiDevolucoesFotosPhotoIdRoute
   '/api/fornecedor/exportar/catalogo': typeof ApiFornecedorExportarCatalogoRoute
   '/api/fornecedor/exportar/pedidos': typeof ApiFornecedorExportarPedidosRoute
   '/api/fornecedor/exportar/produtos': typeof ApiFornecedorExportarProdutosRoute
@@ -1126,6 +1169,7 @@ export interface FileRoutesById {
   '/_app/lojas': typeof AppLojasRoute
   '/_app/onboarding': typeof AppOnboardingRoute
   '/_app/perfil': typeof AppPerfilRoute
+  '/_app/politica-de-devolucao': typeof AppPoliticaDeDevolucaoRoute
   '/_app/products': typeof AppProductsRoute
   '/_auth/cadastro': typeof AuthCadastroRoute
   '/_auth/confirme-seu-email': typeof AuthConfirmeSeuEmailRoute
@@ -1168,6 +1212,7 @@ export interface FileRoutesById {
   '/api/v1/stores': typeof ApiV1StoresRoute
   '/api/webhooks/$marketplace': typeof ApiWebhooksMarketplaceRoute
   '/api/webhooks/asaas': typeof ApiWebhooksAsaasRoute
+  '/api/webhooks/bling': typeof ApiWebhooksBlingRoute
   '/api/webhooks/mercado-pago': typeof ApiWebhooksMercadoPagoRoute
   '/api/webhooks/stripe': typeof ApiWebhooksStripeRoute
   '/fornecedor/convite/$token': typeof FornecedorConviteTokenRoute
@@ -1199,6 +1244,9 @@ export interface FileRoutesById {
   '/api/admin/exportar/chamados': typeof ApiAdminExportarChamadosRoute
   '/api/admin/exportar/clientes': typeof ApiAdminExportarClientesRoute
   '/api/admin/exportar/equipe': typeof ApiAdminExportarEquipeRoute
+  '/api/devolucoes/$claimId/motivo': typeof ApiDevolucoesClaimIdMotivoRoute
+  '/api/devolucoes/$claimId/resposta': typeof ApiDevolucoesClaimIdRespostaRoute
+  '/api/devolucoes/fotos/$photoId': typeof ApiDevolucoesFotosPhotoIdRoute
   '/api/fornecedor/exportar/catalogo': typeof ApiFornecedorExportarCatalogoRoute
   '/api/fornecedor/exportar/pedidos': typeof ApiFornecedorExportarPedidosRoute
   '/api/fornecedor/exportar/produtos': typeof ApiFornecedorExportarProdutosRoute
@@ -1259,6 +1307,7 @@ export interface FileRouteTypes {
     | '/lojas'
     | '/onboarding'
     | '/perfil'
+    | '/politica-de-devolucao'
     | '/products'
     | '/cadastro'
     | '/confirme-seu-email'
@@ -1301,6 +1350,7 @@ export interface FileRouteTypes {
     | '/api/v1/stores'
     | '/api/webhooks/$marketplace'
     | '/api/webhooks/asaas'
+    | '/api/webhooks/bling'
     | '/api/webhooks/mercado-pago'
     | '/api/webhooks/stripe'
     | '/fornecedor/convite/$token'
@@ -1332,6 +1382,9 @@ export interface FileRouteTypes {
     | '/api/admin/exportar/chamados'
     | '/api/admin/exportar/clientes'
     | '/api/admin/exportar/equipe'
+    | '/api/devolucoes/$claimId/motivo'
+    | '/api/devolucoes/$claimId/resposta'
+    | '/api/devolucoes/fotos/$photoId'
     | '/api/fornecedor/exportar/catalogo'
     | '/api/fornecedor/exportar/pedidos'
     | '/api/fornecedor/exportar/produtos'
@@ -1389,6 +1442,7 @@ export interface FileRouteTypes {
     | '/lojas'
     | '/onboarding'
     | '/perfil'
+    | '/politica-de-devolucao'
     | '/products'
     | '/cadastro'
     | '/confirme-seu-email'
@@ -1428,6 +1482,7 @@ export interface FileRouteTypes {
     | '/api/v1/stores'
     | '/api/webhooks/$marketplace'
     | '/api/webhooks/asaas'
+    | '/api/webhooks/bling'
     | '/api/webhooks/mercado-pago'
     | '/api/webhooks/stripe'
     | '/fornecedor/convite/$token'
@@ -1459,6 +1514,9 @@ export interface FileRouteTypes {
     | '/api/admin/exportar/chamados'
     | '/api/admin/exportar/clientes'
     | '/api/admin/exportar/equipe'
+    | '/api/devolucoes/$claimId/motivo'
+    | '/api/devolucoes/$claimId/resposta'
+    | '/api/devolucoes/fotos/$photoId'
     | '/api/fornecedor/exportar/catalogo'
     | '/api/fornecedor/exportar/pedidos'
     | '/api/fornecedor/exportar/produtos'
@@ -1519,6 +1577,7 @@ export interface FileRouteTypes {
     | '/_app/lojas'
     | '/_app/onboarding'
     | '/_app/perfil'
+    | '/_app/politica-de-devolucao'
     | '/_app/products'
     | '/_auth/cadastro'
     | '/_auth/confirme-seu-email'
@@ -1561,6 +1620,7 @@ export interface FileRouteTypes {
     | '/api/v1/stores'
     | '/api/webhooks/$marketplace'
     | '/api/webhooks/asaas'
+    | '/api/webhooks/bling'
     | '/api/webhooks/mercado-pago'
     | '/api/webhooks/stripe'
     | '/fornecedor/convite/$token'
@@ -1592,6 +1652,9 @@ export interface FileRouteTypes {
     | '/api/admin/exportar/chamados'
     | '/api/admin/exportar/clientes'
     | '/api/admin/exportar/equipe'
+    | '/api/devolucoes/$claimId/motivo'
+    | '/api/devolucoes/$claimId/resposta'
+    | '/api/devolucoes/fotos/$photoId'
     | '/api/fornecedor/exportar/catalogo'
     | '/api/fornecedor/exportar/pedidos'
     | '/api/fornecedor/exportar/produtos'
@@ -1660,6 +1723,7 @@ export interface RootRouteChildren {
   ApiV1StoresRoute: typeof ApiV1StoresRoute
   ApiWebhooksMarketplaceRoute: typeof ApiWebhooksMarketplaceRoute
   ApiWebhooksAsaasRoute: typeof ApiWebhooksAsaasRoute
+  ApiWebhooksBlingRoute: typeof ApiWebhooksBlingRoute
   ApiWebhooksMercadoPagoRoute: typeof ApiWebhooksMercadoPagoRoute
   ApiWebhooksStripeRoute: typeof ApiWebhooksStripeRoute
   FornecedorConviteTokenRoute: typeof FornecedorConviteTokenRoute
@@ -1669,6 +1733,9 @@ export interface RootRouteChildren {
   ApiAdminExportarChamadosRoute: typeof ApiAdminExportarChamadosRoute
   ApiAdminExportarClientesRoute: typeof ApiAdminExportarClientesRoute
   ApiAdminExportarEquipeRoute: typeof ApiAdminExportarEquipeRoute
+  ApiDevolucoesClaimIdMotivoRoute: typeof ApiDevolucoesClaimIdMotivoRoute
+  ApiDevolucoesClaimIdRespostaRoute: typeof ApiDevolucoesClaimIdRespostaRoute
+  ApiDevolucoesFotosPhotoIdRoute: typeof ApiDevolucoesFotosPhotoIdRoute
   ApiFornecedorExportarCatalogoRoute: typeof ApiFornecedorExportarCatalogoRoute
   ApiFornecedorExportarPedidosRoute: typeof ApiFornecedorExportarPedidosRoute
   ApiFornecedorExportarProdutosRoute: typeof ApiFornecedorExportarProdutosRoute
@@ -1820,6 +1887,13 @@ declare module '@tanstack/react-router' {
       path: '/perfil'
       fullPath: '/perfil'
       preLoaderRoute: typeof AppPerfilRouteImport
+      parentRoute: typeof AppRouteRoute
+    }
+    '/_app/politica-de-devolucao': {
+      id: '/_app/politica-de-devolucao'
+      path: '/politica-de-devolucao'
+      fullPath: '/politica-de-devolucao'
+      preLoaderRoute: typeof AppPoliticaDeDevolucaoRouteImport
       parentRoute: typeof AppRouteRoute
     }
     '/_app/products': {
@@ -2144,6 +2218,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiWebhooksAsaasRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/webhooks/bling': {
+      id: '/api/webhooks/bling'
+      path: '/api/webhooks/bling'
+      fullPath: '/api/webhooks/bling'
+      preLoaderRoute: typeof ApiWebhooksBlingRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/webhooks/mercado-pago': {
       id: '/api/webhooks/mercado-pago'
       path: '/api/webhooks/mercado-pago'
@@ -2373,6 +2454,27 @@ declare module '@tanstack/react-router' {
       path: '/api/admin/exportar/equipe'
       fullPath: '/api/admin/exportar/equipe'
       preLoaderRoute: typeof ApiAdminExportarEquipeRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/devolucoes/$claimId/motivo': {
+      id: '/api/devolucoes/$claimId/motivo'
+      path: '/api/devolucoes/$claimId/motivo'
+      fullPath: '/api/devolucoes/$claimId/motivo'
+      preLoaderRoute: typeof ApiDevolucoesClaimIdMotivoRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/devolucoes/$claimId/resposta': {
+      id: '/api/devolucoes/$claimId/resposta'
+      path: '/api/devolucoes/$claimId/resposta'
+      fullPath: '/api/devolucoes/$claimId/resposta'
+      preLoaderRoute: typeof ApiDevolucoesClaimIdRespostaRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/devolucoes/fotos/$photoId': {
+      id: '/api/devolucoes/fotos/$photoId'
+      path: '/api/devolucoes/fotos/$photoId'
+      fullPath: '/api/devolucoes/fotos/$photoId'
+      preLoaderRoute: typeof ApiDevolucoesFotosPhotoIdRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/api/fornecedor/exportar/catalogo': {
@@ -2761,6 +2863,7 @@ interface AppRouteRouteChildren {
   AppLojasRoute: typeof AppLojasRoute
   AppOnboardingRoute: typeof AppOnboardingRoute
   AppPerfilRoute: typeof AppPerfilRoute
+  AppPoliticaDeDevolucaoRoute: typeof AppPoliticaDeDevolucaoRoute
   AppProductsRoute: typeof AppProductsRoute
   AppFornecedorPainelRouteRoute: typeof AppFornecedorPainelRouteRouteWithChildren
   AppFinanceiroRelatorioRoute: typeof AppFinanceiroRelatorioRoute
@@ -2790,6 +2893,7 @@ const AppRouteRouteChildren: AppRouteRouteChildren = {
   AppLojasRoute: AppLojasRoute,
   AppOnboardingRoute: AppOnboardingRoute,
   AppPerfilRoute: AppPerfilRoute,
+  AppPoliticaDeDevolucaoRoute: AppPoliticaDeDevolucaoRoute,
   AppProductsRoute: AppProductsRoute,
   AppFornecedorPainelRouteRoute: AppFornecedorPainelRouteRouteWithChildren,
   AppFinanceiroRelatorioRoute: AppFinanceiroRelatorioRoute,
@@ -2871,6 +2975,7 @@ const rootRouteChildren: RootRouteChildren = {
   ApiV1StoresRoute: ApiV1StoresRoute,
   ApiWebhooksMarketplaceRoute: ApiWebhooksMarketplaceRoute,
   ApiWebhooksAsaasRoute: ApiWebhooksAsaasRoute,
+  ApiWebhooksBlingRoute: ApiWebhooksBlingRoute,
   ApiWebhooksMercadoPagoRoute: ApiWebhooksMercadoPagoRoute,
   ApiWebhooksStripeRoute: ApiWebhooksStripeRoute,
   FornecedorConviteTokenRoute: FornecedorConviteTokenRoute,
@@ -2880,6 +2985,9 @@ const rootRouteChildren: RootRouteChildren = {
   ApiAdminExportarChamadosRoute: ApiAdminExportarChamadosRoute,
   ApiAdminExportarClientesRoute: ApiAdminExportarClientesRoute,
   ApiAdminExportarEquipeRoute: ApiAdminExportarEquipeRoute,
+  ApiDevolucoesClaimIdMotivoRoute: ApiDevolucoesClaimIdMotivoRoute,
+  ApiDevolucoesClaimIdRespostaRoute: ApiDevolucoesClaimIdRespostaRoute,
+  ApiDevolucoesFotosPhotoIdRoute: ApiDevolucoesFotosPhotoIdRoute,
   ApiFornecedorExportarCatalogoRoute: ApiFornecedorExportarCatalogoRoute,
   ApiFornecedorExportarPedidosRoute: ApiFornecedorExportarPedidosRoute,
   ApiFornecedorExportarProdutosRoute: ApiFornecedorExportarProdutosRoute,

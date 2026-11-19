@@ -1,3 +1,4 @@
+import type { PreparationHold } from "@sellbridge/shared/receiving-rules";
 import type { FulfillmentStatus } from "@sellbridge/shared/schemas";
 import { supplierLabelState } from "@sellbridge/shared/supplier-order-labels";
 import { describeQueueEntry } from "@sellbridge/shared/supplier-panel-orders";
@@ -17,7 +18,7 @@ import {
   storeConnections,
   suppliers,
 } from "../schema/index.ts";
-import { supplierTimingColumns } from "./shipment-timing.ts";
+import { preparationHold, supplierTimingColumns } from "./shipment-timing.ts";
 import {
   emailFailed,
   invoiceStatus,
@@ -78,6 +79,7 @@ const rowColumns = {
   splitOrder: splitOrderSql,
   emailFailed,
   invoiceStatus,
+  preparationHold,
   ...supplierTimingColumns,
 };
 
@@ -105,12 +107,13 @@ type ShipmentRow = Awaited<ReturnType<ReturnType<typeof shipmentsFrom>["where"]>
 
 /** The row with its deadline-first reading and its problems, both from the shared domain. */
 function presentRow(row: ShipmentRow, now: Date) {
-  const entry = describeQueueEntry(row, now, { orderStatus: row.orderStatus });
+  const entry = describeQueueEntry(row, now, row);
   const problems = supplierOrderProblems({
     overdue: entry.urgency === "overdue",
     emailFailed: row.emailFailed,
     orderStatus: row.orderStatus,
     invoiceStopped: row.invoiceStatus === "attention",
+    preparationHold: row.preparationHold,
   });
   const items = row.items.map(({ title, sku, quantity }) => ({ title, sku, quantity }));
   const labelState = supplierLabelState({ ...row, overdue: entry.urgency === "overdue" });
@@ -267,19 +270,32 @@ function tabCounts(row: Record<string, number> | undefined): Record<SupplierOrde
   };
 }
 
-/** Ids among `shipmentIds` that belong to the supplier, with their status and order. */
+/** Ids among `shipmentIds` that belong to the supplier, with their status, order and hold. */
 export async function supplierOwnedShipments(
   database: Database,
   supplierId: string,
   shipmentIds: readonly string[],
-): Promise<{ id: string; status: FulfillmentStatus; orderStatus: string }[]> {
+): Promise<
+  {
+    id: string;
+    status: FulfillmentStatus;
+    orderStatus: string;
+    preparationHold: PreparationHold | null;
+  }[]
+> {
   if (shipmentIds.length === 0) {
     return [];
   }
   return database
-    .select({ id: orderShipments.id, status: orderShipments.status, orderStatus: orders.status })
+    .select({
+      id: orderShipments.id,
+      status: orderShipments.status,
+      orderStatus: orders.status,
+      preparationHold,
+    })
     .from(orderShipments)
     .innerJoin(orders, eq(orders.id, orderShipments.orderId))
+    .innerJoin(suppliers, eq(suppliers.id, orderShipments.supplierId))
     .where(
       and(eq(orderShipments.supplierId, supplierId), inArray(orderShipments.id, [...shipmentIds])),
     );
