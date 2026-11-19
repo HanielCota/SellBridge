@@ -7,6 +7,7 @@ import {
   nodeEnvironmentSchema,
   parseEnvironment,
   refusePrivateWebhookUrlsInProduction,
+  retiredVariablesIn,
   shopeeShowcaseUnitsEnvironmentSchema,
 } from "./environment.ts";
 
@@ -50,6 +51,20 @@ describe("parseEnvironment renamed variables", () => {
   it("accepts the environment when only the new name is set", () => {
     const source = { DATABASE_URL: "postgres://localhost/db" };
     expect(parseEnvironment(schema, source, { renamedVariables }).PORT).toBe(3000);
+  });
+});
+
+describe("retiredVariablesIn", () => {
+  const retired = ["OLD_FEE", "OLDER_FEE"];
+
+  it("names the retired variables that are still set", () => {
+    const source = { OLD_FEE: "400", DATABASE_URL: "postgres://localhost/db" };
+
+    expect(retiredVariablesIn(source, retired)).toEqual(["OLD_FEE"]);
+  });
+
+  it("ignores a retired variable left blank", () => {
+    expect(retiredVariablesIn({ OLD_FEE: "  ", OLDER_FEE: "" }, retired)).toEqual([]);
   });
 });
 

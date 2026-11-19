@@ -19,7 +19,6 @@ import type { SellerPeriodNumbers, SellerReportInput } from "./seller-report";
 /** Bars of the store chart before the rest fold into "Outras lojas". */
 export const STORE_BARS = 5;
 const PRODUCT_BARS = 5;
-const BASIS_POINTS_PER_UNIT = 10_000;
 
 const WEEKDAYS = ["Seg", "Ter", "Qua", "Qui", "Sex", "Sáb", "Dom"] as const;
 // Short labels: at 390px the fourth column of "18h–24h" was cut.
@@ -29,10 +28,6 @@ const shortDate = new Intl.DateTimeFormat("pt-BR", {
   day: "2-digit",
   month: "2-digit",
   timeZone: "America/Sao_Paulo",
-});
-const percentFormatter = new Intl.NumberFormat("pt-BR", {
-  style: "percent",
-  maximumFractionDigits: 2,
 });
 
 /** Revenue per store, this period against the previous one; a store sold in either shows. */
@@ -175,8 +170,7 @@ export function sellerReportCases(cases: SellerReportInput["cases"]): ReportCase
   }));
 }
 
-export function sellerReportRules(platformFeeBasisPoints: number): ReportRule[] {
-  const platformFee = percentFormatter.format(platformFeeBasisPoints / BASIS_POINTS_PER_UNIT);
+export function sellerReportRules(): ReportRule[] {
   return [
     {
       title: "Período e horário",
@@ -188,7 +182,7 @@ export function sellerReportRules(platformFeeBasisPoints: number): ReportRule[] 
     },
     {
       title: "Lucro",
-      text: `Receita menos o custo do fornecedor, a taxa do marketplace, os reembolsos e a tarifa da SellBridge (${platformFee} da receita), mais as comissões recebidas.`,
+      text: "Receita menos o custo do fornecedor, a taxa do marketplace e os reembolsos, mais as comissões recebidas. A taxa do SellBridge não entra: ela sai da parte do fornecedor quando você paga o pedido a ele.",
     },
     {
       title: "Taxas",
