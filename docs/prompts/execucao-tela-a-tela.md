@@ -444,7 +444,7 @@ Desde 18/11/2026 quem decide é o dono do produto (Guilherme), com a Central, e 
 
 | ID  | Pergunta                                          | Situação em 18/11/2026                                                      |
 | --- | ------------------------------------------------- | --------------------------------------------------------------------------- |
-| D1  | Taxa de 4% sobre o valor do pedido?               | Decidida: taxa do SellBridge no admin, paga pelo fornecedor, padrão 1%      |
+| D1  | Taxa de 4% sobre o valor do pedido?               | Decidida: taxa do SellBridge no admin, paga pelo fornecedor, padrão 4%      |
 | D2  | 4% além da mensalidade?                           | Aberta: hoje a mensalidade está desligada (uso sem limite)                  |
 | D3  | Gateway do split e da custódia                    | Decidida: só Asaas (Mercado Pago escondido)                                 |
 | D4  | Quando libera o dinheiro ao fornecedor            | Decidida: 7 dias depois da entrega, guardado no Asaas                       |

@@ -10,6 +10,7 @@ import {
   parseMercadoLivreNotice,
   readMercadoLivreAccountAddresses,
   readMercadoLivreBuyerBilling,
+  readMercadoLivreSaleInvoice,
   readMercadoLivreClaim,
   readMercadoLivreShipmentOrders,
   searchMercadoLivreClaims,
@@ -64,6 +65,7 @@ import {
 import { createErpCatalogExportProcessor } from "./processors/erp-catalog-export.ts";
 import { createErpCatalogReadProcessor } from "./processors/erp-catalog-read.ts";
 import { createErpInvoiceProcessor } from "./processors/erp-invoice-issue.ts";
+import { createResellerInvoiceReadProcessor } from "./processors/reseller-invoice-read.ts";
 import { resolveStoreCredentials } from "./lib/store-access.ts";
 import { createNotificationDeliveryProcessor } from "./processors/notification-delivery.ts";
 import { blingInvoiceFileReader, createInvoiceAttachments } from "./lib/invoice-attachments.ts";
@@ -198,6 +200,25 @@ function marketplaceWorkers(context: WorkerContext): Worker[] {
   ];
 }
 
+function createResellerInvoiceReader(context: WorkerContext) {
+  const { database, cipher, mercadoLivreConfig } = context;
+  return createResellerInvoiceReadProcessor({
+    database,
+    readSaleInvoice: async (due) => {
+      if (due.store.marketplace !== "mercado_livre") {
+        return null;
+      }
+
+      const store = resolveStoreCredentials(cipher, due.store);
+      if (store === null) {
+        return null;
+      }
+
+      return readMercadoLivreSaleInvoice(mercadoLivreConfig, store, due.externalOrderId);
+    },
+  });
+}
+
 /** The supplier's catalog sent to its ERP; one at a time, the ERP quota is per account. */
 function erpWorkers(context: WorkerContext): Worker[] {
   // One limiter for both jobs: an account's 3 requests per second are shared.
@@ -223,6 +244,7 @@ function erpWorkers(context: WorkerContext): Worker[] {
       return readMercadoLivreBuyerBilling(context.mercadoLivreConfig, store, work.externalOrderId);
     },
   });
+  const readResellerInvoices = createResellerInvoiceReader(context);
   return [
     new Worker(
       QUEUE_NAMES.erpCatalogExport,
@@ -236,10 +258,18 @@ function erpWorkers(context: WorkerContext): Worker[] {
       connection: context.connection,
       concurrency: 2,
     }),
-    new Worker(QUEUE_NAMES.erpInvoiceIssue, async () => processInvoices(), {
-      connection: context.connection,
-      concurrency: 1,
-    }),
+    // The reseller's note comes first: in venda à ordem the supplier's notes reference it.
+    new Worker(
+      QUEUE_NAMES.erpInvoiceIssue,
+      async () => ({
+        resellerNotes: await readResellerInvoices(),
+        ...(await processInvoices()),
+      }),
+      {
+        connection: context.connection,
+        concurrency: 1,
+      },
+    ),
   ];
 }
 
