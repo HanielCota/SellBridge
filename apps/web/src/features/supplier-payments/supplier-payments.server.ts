@@ -141,7 +141,7 @@ function checkoutRefusal(payable: PayableShipment, linked: boolean): string | nu
     return "Este pedido não tem o valor do fornecedor. Combine o pagamento com ele por fora.";
   }
   if (!linked) {
-    return "Este fornecedor ainda não ligou a conta Mercado Pago. Combine o pagamento com ele por fora.";
+    return "Este fornecedor ainda não abriu a conta de recebimento no Asaas. Combine o pagamento com ele por fora.";
   }
   return null;
 }
@@ -243,13 +243,15 @@ async function payableWithAccount(input: { tenantId: string; shipmentId: string 
   const account = provider === "asaas" ? accounts.asaas : accounts.mercadoPago;
   const refusal = checkoutRefusal(payable, provider !== null && account?.status === "connected");
   if (refusal !== null || account === null || provider === null) {
-    throw validationError(refusal ?? "Este fornecedor ainda não ligou a conta Mercado Pago.");
+    throw validationError(
+      refusal ?? "Este fornecedor ainda não abriu a conta de recebimento no Asaas.",
+    );
   }
   return { payable, account, provider, accounts };
 }
 
 const RELINK_MESSAGE =
-  "A conta Mercado Pago deste fornecedor precisa ser ligada de novo. Combine o pagamento com ele por fora.";
+  "A conta de recebimento deste fornecedor precisa ser ligada de novo. Combine o pagamento com ele por fora.";
 
 /** Long enough to create the preference; a failed attempt frees the parcel right away. */
 const CHECKOUT_RESERVATION_IN_MS = 60_000;
