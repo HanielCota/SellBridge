@@ -100,7 +100,11 @@ o Asaas. Ao excluir a conta, a assinatura e o cliente no Asaas são removidos an
    (`PAYMENT_CREATED`, `PAYMENT_CONFIRMED`, `PAYMENT_RECEIVED`, `PAYMENT_OVERDUE`,
    `PAYMENT_DELETED`, `PAYMENT_RESTORED`, `PAYMENT_REFUNDED`), de assinatura (`SUBSCRIPTION_*`) e
    de checkout (`CHECKOUT_PAID`).
-5. No serviço web (Coolify), defina `ASAAS_API_KEY`, `ASAAS_WALLET_ID`, `ASAAS_WEBHOOK_TOKEN`
+5. Devoluções (primeira mensalidade em até 7 dias): o Asaas trata o estorno pela API como ação
+   crítica e o deixa esperando autorização (sandbox, 19/11/2026). Configure a autorização das ações
+   críticas da integração (Integrações > Segurança) ou aprove cada devolução no painel. Enquanto
+   espera, o SellBridge já considera a mensalidade devolvida e o plano encerrado.
+6. No serviço web (Coolify), defina `ASAAS_API_KEY`, `ASAAS_WALLET_ID`, `ASAAS_WEBHOOK_TOKEN`
    (`ASAAS_API_URL` fica no padrão de produção), `BILLING_LAUNCHED_AT` e
    `BILLING_TRANSITION_ENDS_AT` (ISO 8601 em UTC, por exemplo `2026-12-01T03:00:00Z` para a
    meia-noite de Brasília), e retire `BILLING_UNLIMITED`.
