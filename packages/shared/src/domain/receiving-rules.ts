@@ -106,3 +106,9 @@ export const HOLD_REFUSALS: Record<PreparationHold, string> = {
 /** Why a product of a supplier without an approved receiving account cannot be published. */
 export const SUPPLIER_WITHOUT_RECEIVING_MESSAGE =
   "Este fornecedor ainda não tem a conta de recebimento aprovada no SellBridge. Os produtos dele voltam a poder ser publicados quando a conta for aprovada.";
+
+/** The parcel's situation as the supplier reads it, on its badge. */
+export const SUPPLIER_HOLD_LABELS: Record<PreparationHold, string> = {
+  receiving_account: "Aguardando sua conta de recebimento",
+  payment: "Aguardando pagamento do revendedor",
+};

@@ -1,6 +1,7 @@
 import {
   disconnectSupplierPaymentAccount,
   findPayableShipment,
+  findPreparationHold,
   findShipmentPayment,
   findSupplierPaymentAccount,
   getPaymentFeeSetting,
@@ -45,7 +46,7 @@ import {
 } from "./mercado-pago-accounts.server";
 import { paymentAccountOwnerRefusal, type PaymentAccountActor } from "./mercado-pago-connection";
 import type { PaymentProviderName } from "@sellbridge/shared/payment-accounts";
-import { receivingAccountsOf, type ReceivingAccounts } from "./asaas.server";
+import { asaasContext, receivingAccountsOf, type ReceivingAccounts } from "./asaas.server";
 import { leaveAsaasCharges, openAsaasCheckout, refreshAsaasParcel } from "./asaas-checkout.server";
 
 const PROVIDER = "mercado_pago";
@@ -87,6 +88,7 @@ function badgeFor(
   summary: ShipmentPaymentSummary | undefined,
   supplierReceivesHere: boolean,
 ): SupplierPaymentBadge {
+  const paymentsOffered = asaasContext() !== null;
   return supplierPaymentBadge({
     payment:
       summary === undefined
@@ -98,6 +100,7 @@ function badgeFor(
             refundRequestedAt: summary.refundRequestedAt?.toISOString() ?? null,
           },
     supplierReceivesHere,
+    paymentsOffered,
   });
 }
 
@@ -126,6 +129,9 @@ const ALREADY_PAID_MESSAGE = "Este envio já foi pago. O valor está na conta do
 const UNCHECKED_MESSAGE =
   "Não conseguimos conferir com o Mercado Pago agora. Tente de novo em alguns minutos.";
 
+const NO_ACCOUNT_MESSAGE =
+  "Este fornecedor ainda não ligou a conta de recebimento no Asaas. Assim que ligar, o pagamento aparece aqui.";
+
 /** Why the reseller cannot pay this parcel here, or null when it can. */
 function checkoutRefusal(payable: PayableShipment, linked: boolean): string | null {
   if (payable.catalogKind === "seller") {
@@ -138,10 +144,10 @@ function checkoutRefusal(payable: PayableShipment, linked: boolean): string | nu
     return inReviewMessage(payable.payment.provider);
   }
   if (payable.amountCents <= 0) {
-    return "Este pedido não tem o valor do fornecedor. Combine o pagamento com ele por fora.";
+    return "Este pedido não tem o valor do fornecedor. Fale com o suporte para acertar o valor.";
   }
   if (!linked) {
-    return "Este fornecedor ainda não abriu a conta de recebimento no Asaas. Combine o pagamento com ele por fora.";
+    return NO_ACCOUNT_MESSAGE;
   }
   return null;
 }
@@ -188,7 +194,10 @@ export async function loadResellerSupplierPayment(input: { tenantId: string; shi
         };
   const badge = badgeFor(summary, linked);
   const refusal = checkoutRefusal(payable, linked);
+  const preparationHold = await findPreparationHold(database, input.shipmentId);
   return {
+    /** Why the supplier may not prepare the parcel yet; null when it may. */
+    preparationHold,
     amountCents: shownAmountCents(payable, badge),
     badge,
     canPay: badge.kind === "waiting" && refusal === null,
@@ -243,15 +252,13 @@ async function payableWithAccount(input: { tenantId: string; shipmentId: string 
   const account = provider === "asaas" ? accounts.asaas : accounts.mercadoPago;
   const refusal = checkoutRefusal(payable, provider !== null && account?.status === "connected");
   if (refusal !== null || account === null || provider === null) {
-    throw validationError(
-      refusal ?? "Este fornecedor ainda não abriu a conta de recebimento no Asaas.",
-    );
+    throw validationError(refusal ?? NO_ACCOUNT_MESSAGE);
   }
   return { payable, account, provider, accounts };
 }
 
 const RELINK_MESSAGE =
-  "A conta de recebimento deste fornecedor precisa ser ligada de novo. Combine o pagamento com ele por fora.";
+  "A conta de recebimento deste fornecedor precisa ser ligada de novo. Assim que ele ligar, o pagamento aparece aqui.";
 
 /** Long enough to create the preference; a failed attempt frees the parcel right away. */
 const CHECKOUT_RESERVATION_IN_MS = 60_000;

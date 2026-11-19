@@ -21,7 +21,7 @@ import { asaasContext } from "./asaas.server";
 const UNCHECKED_MESSAGE =
   "Não conseguimos conferir com o Asaas agora. Tente de novo em alguns minutos.";
 const ACCOUNT_MESSAGE =
-  "A conta de recebimento deste fornecedor está com problema. Combine o pagamento com ele por fora.";
+  "A conta de recebimento deste fornecedor está com problema no Asaas. Assim que ele resolver, o pagamento aparece aqui.";
 const ALREADY_PAID_MESSAGE = "Este envio já foi pago. O valor está protegido no Asaas.";
 
 /** Who pays, as Asaas registers it: the reseller's company when it has one, else the person. */

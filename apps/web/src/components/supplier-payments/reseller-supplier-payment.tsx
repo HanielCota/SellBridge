@@ -1,5 +1,6 @@
 import { ShieldCheckIcon } from "@phosphor-icons/react";
 import { formatCents } from "@sellbridge/shared/money";
+import { RESELLER_HOLD_MESSAGES } from "@sellbridge/shared/receiving-rules";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useRef } from "react";
 import { toast } from "sonner";
@@ -8,6 +9,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { confirmAsaasPaymentReturnFn } from "@/features/supplier-payments/asaas.functions";
 import {
   confirmSupplierPaymentReturnFn,
+  type getResellerSupplierPaymentFn,
   startSupplierCheckoutFn,
 } from "@/features/supplier-payments/supplier-payments.functions";
 import { resellerRefundText } from "@/features/supplier-payments/refund-copy";
@@ -121,6 +123,28 @@ function PayButton({ shipmentId, gateway }: { shipmentId: string; gateway: strin
   );
 }
 
+type PaymentView = Awaited<ReturnType<typeof getResellerSupplierPaymentFn>>;
+
+const NOT_OFFERED_MESSAGE = "O pagamento ao fornecedor pelo SellBridge ainda não foi ligado.";
+
+/**
+ * Why the reseller cannot pay here now: the reason the server gave, or that paying suppliers
+ * through SellBridge is not switched on. A parcel waiting for the account already says so above.
+ */
+function WhyNotPaid({ view }: { view: PaymentView }) {
+  if (view.badge.kind === "not_offered") {
+    return <p className="text-sm">{NOT_OFFERED_MESSAGE}</p>;
+  }
+  const blocked =
+    view.badge.kind === "no_account" ||
+    view.badge.kind === "reviewing" ||
+    (view.badge.kind === "waiting" && !view.canPay);
+  if (!blocked || view.refusal === null || view.preparationHold === "receiving_account") {
+    return null;
+  }
+  return <p className="text-sm">{view.refusal}</p>;
+}
+
 /** The seal on a protected payment, with Guilherme's words (15/11/2026). */
 function ProtectedSeal() {
   return (
@@ -133,7 +157,7 @@ function ProtectedSeal() {
 
 /**
  * The reseller pays the parcel's supplier through Asaas, or sees that it was paid (and when), or
- * that this supplier is paid off the system. Mercado Pago is hidden since 18/11/2026; it is named
+ * why it cannot pay here yet. Mercado Pago is hidden since 18/11/2026; it is named
  * only for a payment that already went through it.
  */
 export function ResellerSupplierPayment({ shipmentId }: { shipmentId: string }) {
@@ -178,13 +202,10 @@ export function ResellerSupplierPayment({ shipmentId }: { shipmentId: string }) 
         </p>
       ) : null}
       {refundText === null ? null : <p className="text-sm">{refundText}</p>}
-      {view.badge.kind === "outside" ||
-      view.badge.kind === "reviewing" ||
-      (view.badge.kind === "waiting" && !view.canPay) ? (
-        <p className="text-sm">
-          {view.refusal ?? "Combine o pagamento com o fornecedor, como hoje."}
-        </p>
-      ) : null}
+      {view.preparationHold === null ? null : (
+        <p className="text-sm font-medium">{RESELLER_HOLD_MESSAGES[view.preparationHold]}</p>
+      )}
+      <WhyNotPaid view={view} />
     </div>
   );
 }

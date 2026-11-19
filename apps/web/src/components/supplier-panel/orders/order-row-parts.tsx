@@ -1,3 +1,4 @@
+import { SUPPLIER_HOLD_LABELS } from "@sellbridge/shared/receiving-rules";
 import { INVOICE_STATUS_LABELS, type InvoiceStatus } from "@sellbridge/shared/supplier-invoice";
 import {
   BATCH_LABEL_MARKETPLACE,
@@ -11,7 +12,7 @@ import {
 import { type StatusTone, ToneStatus, TonePill } from "@/components/data/tone-status";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
-import { isShippingBlocked } from "@/features/fulfillment/shipping-block";
+import { isPreparationStopped } from "@/features/fulfillment/shipping-block";
 import {
   FULFILLMENT_TONES,
   supplierShipmentStatusLabel,
@@ -79,6 +80,9 @@ export function OrderSummary({
 }
 
 export function StepStatus({ row }: { row: SupplierOrderRow }) {
+  if (row.preparationHold !== null) {
+    return <TonePill tone="warning" label={SUPPLIER_HOLD_LABELS[row.preparationHold]} />;
+  }
   return (
     <TonePill
       tone={FULFILLMENT_TONES[row.status]}
@@ -178,8 +182,9 @@ export function ProblemList({ row }: { row: SupplierOrderRow }) {
 
 /**
  * The row's one primary action. Accept, picking and ready are one click; shipping asks for the
- * tracking, so it opens the panel. A sale not released for shipping offers none: its reason says
- * to hold it, and the order number still opens the panel.
+ * tracking, so it opens the panel. A sale not released for shipping, or a parcel waiting for the
+ * receiving account or the payment, offers none: its reason says why, and the order number still
+ * opens the panel.
  */
 export function RowAction({
   row,
@@ -193,7 +198,7 @@ export function RowAction({
   onOpen: (row: SupplierOrderRow) => void;
 }) {
   const action = row.action;
-  if (isShippingBlocked(row.orderStatus)) {
+  if (isPreparationStopped(row)) {
     return null;
   }
   if (action === null) {
@@ -225,7 +230,7 @@ export function RowAction({
 
 /** Only parcels waiting for the accept can join a batch accept. */
 export function isBatchAcceptable(row: SupplierOrderRow): boolean {
-  return row.status === "forwarded" && !isShippingBlocked(row.orderStatus);
+  return row.status === "forwarded" && !isPreparationStopped(row);
 }
 
 /**
@@ -236,7 +241,7 @@ export function isLabelPrintable(row: SupplierOrderRow): boolean {
   return (
     row.labelState !== null &&
     row.marketplace === BATCH_LABEL_MARKETPLACE &&
-    !isShippingBlocked(row.orderStatus)
+    !isPreparationStopped(row)
   );
 }
 

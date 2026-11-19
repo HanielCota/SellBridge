@@ -121,7 +121,7 @@ test("Recebimentos mostra só a conta Asaas, mesmo para quem ligou o Mercado Pag
 
   await gotoHydrated(page, "/fornecedor/painel/recebimentos");
 
-  await expect(page.getByText(/Os revendedores pagam você pelo Asaas/)).toBeVisible();
+  await expect(page.getByText(/os revendedores pagam você: pelo Asaas/)).toBeVisible();
   const card = page.getByRole("region", { name: /Receber com proteção/ });
   await expect(card.getByRole("button", { name: "Abrir minha conta no Asaas" })).toBeVisible();
   await expect(page.getByRole("main").getByText(/Mercado Pago/)).toHaveCount(0);
@@ -142,7 +142,7 @@ test("o revendedor não paga pelo Mercado Pago um fornecedor que só tem essa co
   await gotoHydrated(reseller, `/pedidos/${orderId}`);
 
   await expect(
-    reseller.getByText(/Este fornecedor ainda não abriu a conta de recebimento no Asaas/),
+    reseller.getByText(/Este fornecedor ainda não ligou a conta de recebimento no Asaas/),
   ).toBeVisible();
   await expect(reseller.getByRole("button", { name: /Pagar com/ })).toHaveCount(0);
   await expect(reseller.getByRole("main").getByText(/Mercado Pago/)).toHaveCount(0);

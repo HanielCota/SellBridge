@@ -51,12 +51,12 @@ export async function loadSupplierShipments(search: SupplierShipmentsSearch) {
     ...page,
     items: page.items.map((item) => ({
       ...item,
-      supplierPayment: badges.get(item.id) ?? OUTSIDE_PAYMENT,
+      supplierPayment: badges.get(item.id) ?? NO_ACCOUNT_PAYMENT,
     })),
   };
 }
 
-const OUTSIDE_PAYMENT: SupplierPaymentBadge = { kind: "outside" };
+const NO_ACCOUNT_PAYMENT: SupplierPaymentBadge = { kind: "no_account" };
 
 export async function loadSupplierShipmentCounts(input: SupplierShipmentCountsSearch) {
   return await countSupplierShipmentsByTab(database, withSaleDates(input));
@@ -75,7 +75,7 @@ export async function loadSupplierShipment(input: { supplierId: string; shipment
     getSupplierPanelShipment(database, input),
     supplierPaymentBadges({ supplierId: input.supplierId, shipmentIds: [input.shipmentId] }),
   ]);
-  return { ...shipment, supplierPayment: badges.get(input.shipmentId) ?? OUTSIDE_PAYMENT };
+  return { ...shipment, supplierPayment: badges.get(input.shipmentId) ?? NO_ACCOUNT_PAYMENT };
 }
 
 /**
