@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { cnpjSchema } from "./account-documents.ts";
+import { cnpjSchema, stateRegistrationSchema } from "./account-documents.ts";
 import { billingAddressSchema, ibgeCityCodeSchema } from "./billing-address.ts";
 import { isCityOfState } from "./brazilian-states.ts";
 import {
@@ -10,7 +10,7 @@ import {
   pisCofinsCstSchema,
   productOriginSchema,
   productUnitSchema,
-  TAX_REGIMES,
+  taxRegimeSchema,
   type TaxRegime,
 } from "./product-fiscal.ts";
 import { freeText } from "../schemas/common.ts";
@@ -22,23 +22,6 @@ import { invoiceModelSchema } from "./supplier-invoice.ts";
  */
 
 const LEGAL_NAME_MAX_LENGTH = 120;
-const STATE_REGISTRATION_EXEMPT = "ISENTO";
-
-/** Digits (2 to 14) or "ISENTO" for a company without a state registration. */
-export const stateRegistrationSchema = z
-  .string()
-  .trim()
-  .toUpperCase()
-  .transform((value) =>
-    value === STATE_REGISTRATION_EXEMPT ? value : value.replace(/[.\-/\s]/g, ""),
-  )
-  .refine(
-    (value) => value === STATE_REGISTRATION_EXEMPT || /^\d{2,14}$/.test(value),
-    "Informe a inscrição estadual só com números, ou escreva ISENTO",
-  );
-
-export const taxRegimeSchema = z.enum(TAX_REGIMES, "Escolha o regime tributário");
-
 /** Out-of-state sale to a final consumer who pays no ICMS (a person, or a company without IE). */
 export const DEFAULT_CFOP_OUT_OF_STATE_CONSUMER = "6108";
 

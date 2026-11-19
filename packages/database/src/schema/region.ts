@@ -1,5 +1,6 @@
 import { sql } from "drizzle-orm";
 import { PRODUCT_SOURCE_MODES } from "@sellbridge/shared/product-sources";
+import { TAX_REGIMES } from "@sellbridge/shared/product-fiscal";
 import type { BillingAddress } from "@sellbridge/shared/billing-address";
 import {
   check,
@@ -30,6 +31,12 @@ export const tenantProfile = pgTable(
     cnpj: text(),
     companyName: text(),
     /**
+     * The company's state registration (digits, or "ISENTO") and tax regime, for its NF-e. Null
+     * for who sells as a person, and for companies saved before they were asked.
+     */
+    stateRegistration: text(),
+    taxRegime: text({ enum: TAX_REGIMES }),
+    /**
      * Where invoices and charges go (CEP digits, street, number, district, city, state); not the
      * supplier's shipping. Null for tenants saved before it was asked: the form asks for it again.
      */
@@ -47,6 +54,10 @@ export const tenantProfile = pgTable(
       .notNull(),
   },
   (table) => [
+    check(
+      "tenant_profile_tax_regime_check",
+      sql`${table.taxRegime} is null or ${table.taxRegime} in ('simples', 'presumido', 'real')`,
+    ),
     check(
       "tenant_profile_product_source_mode_check",
       sql`${table.productSourceMode} is null or ${table.productSourceMode} in ('own', 'suppliers', 'both')`,

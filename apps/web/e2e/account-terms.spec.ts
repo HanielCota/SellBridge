@@ -6,7 +6,7 @@ import { e2eDatabase } from "./database";
 import {
   confirmEmail,
   enterNewAccount,
-  fillBillingAddress,
+  fillBillingAddressFromCep,
   gotoHydrated,
   pickSupplier,
   signUp,
@@ -84,10 +84,11 @@ test("os dados da conta guardam telefone e, para empresa, CNPJ e razão social",
   await page.getByLabel("CPF").fill(testCpf());
   await page.getByLabel("Telefone com DDD").fill("11987654321");
   await expect(page.getByLabel("Telefone com DDD")).toHaveValue("(11) 98765-4321");
-  await fillBillingAddress(page);
+  await fillBillingAddressFromCep(page);
   await page.getByLabel("Vendo como empresa (CNPJ)").check();
   await page.getByLabel("CNPJ", { exact: true }).fill("11222333000182");
   await page.getByLabel("Razão social").fill("Revendedora Empresa Ltda");
+  await page.getByLabel("Minha empresa não tem inscrição estadual (isenta)").check();
   await page.getByRole("button", { name: "Continuar" }).click();
   await expect(page.getByText("Confira o CNPJ: os dígitos não batem")).toBeVisible();
   await page.getByLabel("CNPJ", { exact: true }).fill("11222333000181");
