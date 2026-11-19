@@ -159,6 +159,8 @@ export async function listOrders(
         schema: orderSchema,
         map: mapTikTokShopOrder,
         event: "tiktok_shop.order_skipped",
+        channelOwner: "do TikTok Shop",
+        externalShopId: store.externalShopId,
       }),
     );
     const next = page.next_page_token ?? "";

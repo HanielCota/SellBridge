@@ -1,8 +1,9 @@
 CREATE TABLE "erp_stock_refresh_requests" (
 	"supplier_id" uuid NOT NULL,
+	"erp_company_id" text NOT NULL,
 	"erp_product_id" bigint NOT NULL,
 	"requested_at" timestamp with time zone DEFAULT now() NOT NULL,
-	CONSTRAINT "erp_stock_refresh_requests_supplier_id_erp_product_id_pk" PRIMARY KEY("supplier_id","erp_product_id")
+	CONSTRAINT "erp_stock_refresh_requests_pk" PRIMARY KEY("supplier_id","erp_company_id","erp_product_id")
 );
 --> statement-breakpoint
 ALTER TABLE "supplier_products" ADD COLUMN "erp_product_id" bigint;--> statement-breakpoint

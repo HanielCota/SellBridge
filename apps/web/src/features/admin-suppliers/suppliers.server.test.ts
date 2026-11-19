@@ -62,6 +62,11 @@ const product = {
   videoUrl: null,
   madeToOrderDays: null,
   carrierOnly: false,
+  modelId: null,
+  color: null,
+  size: null,
+  variantAttributes: {},
+  variantFiscal: {},
   active: true,
 };
 /** Review columns of a stored product (supplier panel, migration 0039). */

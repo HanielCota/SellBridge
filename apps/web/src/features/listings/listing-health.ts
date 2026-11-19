@@ -3,6 +3,7 @@ import {
   unavailableListingLabel,
   unavailableListingMessage,
 } from "@sellbridge/shared/catalog-availability";
+import { LISTING_PAUSE_REASON_LABELS } from "@sellbridge/shared/listing-pause-reasons";
 
 export type ListingHealthTone = "live" | "error" | "attention" | "busy" | "paused";
 
@@ -32,6 +33,15 @@ function whereLabel(stores: readonly ListingStoreStatus[]): string {
   return `em ${stores.length} lojas`;
 }
 
+/** Why the stores are paused; a price that no longer pays comes first, since it needs action. */
+function pauseReasonLabel(paused: readonly ListingStoreStatus[]): string | null {
+  const store =
+    paused.find(({ pauseReason }) => pauseReason === "price_below_floor") ??
+    paused.find(({ pauseReason }) => pauseReason !== null);
+  const reason = store?.pauseReason ?? null;
+  return reason === null ? null : LISTING_PAUSE_REASON_LABELS[reason];
+}
+
 /**
  * Problems first: a product the supplier no longer offers (whatever the stores say, it is the
  * cause), a failed store, a supplier out of stock, then work in progress and pauses. Only when
@@ -59,7 +69,11 @@ export function listingHealth(row: ListingOverviewRow): ListingHealth {
   }
   const paused = storesWith(row.stores, ["paused"]);
   if (paused.length > 0) {
-    return { tone: "paused", label: `Pausado ${whereLabel(paused)}`, reason: null };
+    return {
+      tone: "paused",
+      label: `Pausado ${whereLabel(paused)}`,
+      reason: pauseReasonLabel(paused),
+    };
   }
   return { tone: "live", label: `No ar ${whereLabel(row.stores)}`, reason: null };
 }

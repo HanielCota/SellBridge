@@ -198,3 +198,28 @@ export async function enqueueErpCatalogRead(input: ErpCatalogReadJob): Promise<v
     removeOnFail: 100,
   });
 }
+
+/** One connection per queue a "Tentar de novo" reached; only the few retryable queues get here. */
+const retryQueues = new Map<string, Queue>();
+
+export type FailedJobRetry = "retried" | "missing" | "not_failed";
+
+/**
+ * Runs a job that failed for good again, as BullMQ keeps it: "missing" when BullMQ no longer
+ * keeps it, "not_failed" when it is already waiting or ran again since.
+ */
+export async function retryFailedJob(queueName: string, jobId: string): Promise<FailedJobRetry> {
+  const queue =
+    retryQueues.get(queueName) ??
+    new Queue(queueName, { connection: { url: environment.REDIS_URL } });
+  retryQueues.set(queueName, queue);
+  const job = await queue.getJob(jobId);
+  if (job === undefined) {
+    return "missing";
+  }
+  if ((await job.getState()) !== "failed") {
+    return "not_failed";
+  }
+  await job.retry("failed");
+  return "retried";
+}

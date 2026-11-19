@@ -13,7 +13,7 @@ import {
   suppliers,
 } from "../schema/index.ts";
 import { findSupplierShipmentInvoice } from "./shipment-invoices.ts";
-import { supplierDeadlines, supplierTimingColumns } from "./shipment-timing.ts";
+import { preparationHold, supplierDeadlines, supplierTimingColumns } from "./shipment-timing.ts";
 import { splitOrderSql } from "./supplier-panel-orders-sql.ts";
 
 /** What the supplier receives for the parcel: each item's cost times its quantity, in cents. */
@@ -59,6 +59,7 @@ async function panelShipmentRow(
       buyerName: orders.buyerName,
       supplierName: suppliers.name,
       splitOrder: splitOrderSql,
+      preparationHold,
       ...supplierTimingColumns,
     })
     .from(orderShipments)
@@ -103,7 +104,7 @@ export async function getSupplierPanelShipment(
     receivableCents(database, shipment.orderId, shipment.items),
     findSupplierShipmentInvoice(database, input),
   ]);
-  const entry = describeQueueEntry({ ...shipment, ...row }, now, { orderStatus: row.orderStatus });
+  const entry = describeQueueEntry({ ...shipment, ...row }, now, row);
   const over =
     SETTLED_FULFILLMENT_STATUSES.includes(shipment.status) ||
     ["cancelled", "returned"].includes(row.orderStatus);
@@ -112,6 +113,7 @@ export async function getSupplierPanelShipment(
     address: over ? null : shipment.address,
     externalOrderId: row.externalOrderId,
     orderStatus: row.orderStatus,
+    preparationHold: row.preparationHold,
     marketplace: row.marketplace,
     shopName: row.shopName,
     buyerName: row.buyerName,

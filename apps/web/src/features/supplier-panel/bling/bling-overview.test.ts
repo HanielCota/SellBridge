@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   blingOverviewFrom,
   blingStockLine,
+  isBlingExportRunning,
   isBlingReadRunning,
   skippedProductsNote,
   type BlingConnectionView,
@@ -15,6 +16,9 @@ const connection = {
   resellerDiscountTenths: 300,
   invoiceEnabledAt: null,
   stockCheckedAt: null,
+  catalogExportRequestedAt: null,
+  catalogExportFinishedAt: null,
+  catalogExportResult: null,
 };
 
 const read = {
@@ -163,6 +167,7 @@ describe("blingStockLine", () => {
     invoiceEnabledAt: "2026-11-12T12:00:00.000Z",
     fiscalReady: true,
     stockCheckedAt: "2026-11-19T17:30:00.000Z",
+    catalogExport: null,
   };
 
   it("says the stock follows Bling and when it was last checked", () => {
@@ -181,5 +186,99 @@ describe("blingStockLine", () => {
     expect(blingStockLine({ ...view, invoiceEnabledAt: null })).toBe(
       "O estoque passa a acompanhar o Bling sozinho quando a nota fiscal pelo Bling estiver ligada.",
     );
+  });
+});
+
+describe("send to Bling", () => {
+  interface ExportColumns {
+    catalogExportRequestedAt?: Date | null;
+    catalogExportFinishedAt?: Date | null;
+    catalogExportResult?: unknown;
+  }
+
+  function exportOf(overrides: ExportColumns, now = NOW) {
+    const overview = blingOverviewFrom({
+      available: true,
+      connection: { ...connection, ...overrides },
+      read: null,
+      fiscalReady: true,
+      now,
+    });
+    return { overview, view: overview.connection?.catalogExport ?? null };
+  }
+
+  it("shows nothing before the first send", () => {
+    expect(exportOf({}).view).toBeNull();
+  });
+
+  it("follows a send asked for after the last one ended", () => {
+    const { overview, view } = exportOf({
+      catalogExportRequestedAt: new Date("2026-11-10T12:08:00Z"),
+      catalogExportFinishedAt: new Date("2026-11-09T12:00:00Z"),
+    });
+
+    expect(view).toEqual({ status: "sending", requestedAt: "2026-11-10T12:08:00.000Z" });
+    expect(isBlingExportRunning(overview)).toBe(true);
+  });
+
+  it("shows what was created and each refused product with the reason", () => {
+    const refused = [{ sku: "CHN-1", title: "Chinelo", reason: "O GTIN informado é inválido" }];
+
+    const { overview, view } = exportOf({
+      catalogExportRequestedAt: new Date("2026-11-10T12:00:00Z"),
+      catalogExportFinishedAt: new Date("2026-11-10T12:04:00Z"),
+      catalogExportResult: {
+        kind: "done",
+        created: 40,
+        alreadyInErp: 12,
+        refusedTotal: 1,
+        refused,
+      },
+    });
+
+    expect(view).toEqual({
+      status: "done",
+      finishedAt: "2026-11-10T12:04:00.000Z",
+      created: 40,
+      alreadyInErp: 12,
+      refusedTotal: 1,
+      refused,
+    });
+    expect(isBlingExportRunning(overview)).toBe(false);
+  });
+
+  it("tells why the send failed", () => {
+    const { view } = exportOf({
+      catalogExportRequestedAt: new Date("2026-11-10T12:00:00Z"),
+      catalogExportFinishedAt: new Date("2026-11-10T12:04:00Z"),
+      catalogExportResult: { kind: "failed", reason: "Conecte o Bling de novo." },
+    });
+
+    expect(view).toMatchObject({ status: "failed", reason: "Conecte o Bling de novo." });
+  });
+
+  it("calls a send still running after two hours stopped, so the supplier can send again", () => {
+    const { view } = exportOf(
+      { catalogExportRequestedAt: new Date("2026-11-10T09:00:00Z") },
+      new Date("2026-11-10T11:30:00Z"),
+    );
+
+    expect(view).toMatchObject({
+      status: "failed",
+      reason: expect.stringContaining("parou no meio"),
+    });
+  });
+
+  it("asks to send again when the stored result cannot be read", () => {
+    const { view } = exportOf({
+      catalogExportRequestedAt: new Date("2026-11-10T12:00:00Z"),
+      catalogExportFinishedAt: new Date("2026-11-10T12:04:00Z"),
+      catalogExportResult: { kind: "unknown" },
+    });
+
+    expect(view).toMatchObject({
+      status: "failed",
+      reason: expect.stringContaining("enviar de novo"),
+    });
   });
 });

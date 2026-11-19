@@ -2,6 +2,7 @@ import { schema } from "@sellbridge/database";
 import { enqueueNotificationDeliveries } from "@sellbridge/database/repositories";
 import type { OutgoingEmail } from "@sellbridge/shared/mailer";
 import { NOTIFICATION_MAX_ATTEMPTS } from "@sellbridge/shared/notification-content";
+import { problemsLoggedBy } from "@sellbridge/shared/problem-capture-testing";
 import { eq } from "drizzle-orm";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { createTestTenants, createWorkerTestEnvironment } from "../testing/fixtures.ts";
@@ -110,13 +111,21 @@ describe("notification-delivery processor", () => {
     const afterFirst = await rowOf("processor:retry");
     expect(afterFirst).toMatchObject({ status: "pending", attempts: 1 });
     expect(afterFirst?.nextAttemptAt.getTime()).toBeGreaterThan(now.getTime());
-    for (let attempt = 2; attempt <= NOTIFICATION_MAX_ATTEMPTS; attempt += 1) {
-      now = new Date(now.getTime() + 24 * 60 * 60 * 1000);
-      await process();
-    }
+    const problems = await problemsLoggedBy(async () => {
+      for (let attempt = 2; attempt <= NOTIFICATION_MAX_ATTEMPTS; attempt += 1) {
+        now = new Date(now.getTime() + 24 * 60 * 60 * 1000);
+        await process();
+      }
+    });
     expect(await rowOf("processor:retry")).toMatchObject({
       status: "failed",
       attempts: NOTIFICATION_MAX_ATTEMPTS,
+    });
+    const gaveUp = problems.filter((problem) => problem.event === "notification.delivery_gave_up");
+    expect(gaveUp).toHaveLength(1);
+    expect(gaveUp[0]).toMatchObject({
+      area: "email",
+      message: expect.stringContaining("não foi entregue"),
     });
   });
 
