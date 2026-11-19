@@ -2,6 +2,7 @@ import { randomUUID } from "node:crypto";
 import { schema } from "@sellbridge/database";
 import { recordWebhookEvent } from "@sellbridge/database/repositories";
 import { encodeMockOrderResource } from "@sellbridge/marketplaces/testing";
+import { problemsLoggedBy } from "@sellbridge/shared/problem-capture-testing";
 import { eq, inArray } from "drizzle-orm";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import {
@@ -123,5 +124,43 @@ describe("webhook event sweeper", () => {
     });
     await sweep();
     expect(enqueued).not.toContain(webhookEventId);
+  });
+
+  it("hands an event still failing after a day to the team, once", async () => {
+    const webhookEventId = await recordOrderEvent();
+    const receivedAt = new Date(Date.now() - 25 * 60 * 60 * 1000);
+    await database
+      .update(schema.webhookEvents)
+      .set({ receivedAt, error: "API de pedidos indisponível" })
+      .where(eq(schema.webhookEvents.id, webhookEventId));
+    const enqueued: string[] = [];
+    const sweep = createWebhookEventSweepProcessor({
+      database,
+      enqueue: async (id) => {
+        enqueued.push(id);
+      },
+    });
+
+    const firstRun = await problemsLoggedBy(sweep);
+    const secondRun = await problemsLoggedBy(sweep);
+
+    expect(enqueued).not.toContain(webhookEventId);
+    const handedOver = firstRun.filter(
+      (problem) => problem.context.webhookEventId === webhookEventId,
+    );
+    expect(handedOver).toHaveLength(1);
+    expect(handedOver[0]).toMatchObject({
+      event: "webhook.event_abandoned",
+      area: "orders",
+      message: expect.stringContaining("a venda pode não ter entrado"),
+      context: { lastError: "API de pedidos indisponível" },
+    });
+    expect(secondRun.some((problem) => problem.context.webhookEventId === webhookEventId)).toBe(
+      false,
+    );
+    const event = await database.query.webhookEvents.findFirst({
+      where: eq(schema.webhookEvents.id, webhookEventId),
+    });
+    expect(event?.abandonedAt).not.toBeNull();
   });
 });
