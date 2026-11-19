@@ -33,6 +33,10 @@ import {
   autoForwardJobId,
   enqueueStoreOrderCatchUpJob,
   enqueueWebhookEventJob,
+  ERP_STOCK_JOB_NAMES,
+  ERP_STOCK_JOB_OPTIONS,
+  erpStockCheckJobId,
+  erpStockSupplierJobSchema,
   pingQueueConnection,
   PUBLISH_JOB_OPTIONS,
   QUEUE_NAMES,
@@ -64,6 +68,12 @@ import {
 import { createErpCatalogExportProcessor } from "./processors/erp-catalog-export.ts";
 import { createErpCatalogReadProcessor } from "./processors/erp-catalog-read.ts";
 import { createErpInvoiceProcessor } from "./processors/erp-invoice-issue.ts";
+import {
+  checkAllErpStock,
+  checkSupplierErpStock,
+  refreshSupplierErpStock,
+  type ErpStockSyncDependencies,
+} from "./processors/erp-stock-sync.ts";
 import { resolveStoreCredentials } from "./lib/store-access.ts";
 import { createNotificationDeliveryProcessor } from "./processors/notification-delivery.ts";
 import { blingInvoiceFileReader, createInvoiceAttachments } from "./lib/invoice-attachments.ts";
@@ -93,6 +103,7 @@ function createQueues(connection: { url: string; maxRetriesPerRequest: null }) {
     claimSweep: new Queue(QUEUE_NAMES.marketplaceClaimSweep, { connection }),
     notifications: new Queue(QUEUE_NAMES.notificationDelivery, { connection }),
     erpInvoices: new Queue(QUEUE_NAMES.erpInvoiceIssue, { connection }),
+    erpStock: new Queue(QUEUE_NAMES.erpStockSync, { connection }),
     supplierPayments: new Queue(QUEUE_NAMES.supplierPayments, { connection }),
     supplierApproval: new Queue(QUEUE_NAMES.supplierApproval, { connection }),
     buyerAddressCheck: new Queue(QUEUE_NAMES.buyerAddressCheck, { connection }),
@@ -203,6 +214,46 @@ function marketplaceWorkers(context: WorkerContext): Worker[] {
   ];
 }
 
+/** Runs one ERP stock job by name: the periodic round, a full check or a notice's read. */
+async function runErpStockJob(
+  dependencies: ErpStockSyncDependencies,
+  job: { name: string; data: unknown },
+): Promise<unknown> {
+  if (job.name === ERP_STOCK_JOB_NAMES.checkAll) {
+    return checkAllErpStock(dependencies);
+  }
+  const { supplierId } = erpStockSupplierJobSchema.parse(job.data);
+  if (job.name === ERP_STOCK_JOB_NAMES.checkSupplier) {
+    return checkSupplierErpStock(dependencies, supplierId);
+  }
+  if (job.name === ERP_STOCK_JOB_NAMES.refreshSupplier) {
+    return refreshSupplierErpStock(dependencies, supplierId);
+  }
+  throw new Error(`Unknown ERP stock job: ${job.name}`);
+}
+
+/** Stock of Bling-linked products: several suppliers at once, each within its own Bling quota. */
+function erpStockWorker(
+  context: WorkerContext,
+  erpDependencies: Omit<ErpStockSyncDependencies, "requestListingSync" | "enqueueSupplierCheck">,
+): Worker {
+  const dependencies: ErpStockSyncDependencies = {
+    ...erpDependencies,
+    requestListingSync: async () => requestStockSync(context),
+    enqueueSupplierCheck: async (supplierId) => {
+      await context.queues.erpStock.add(
+        ERP_STOCK_JOB_NAMES.checkSupplier,
+        { supplierId },
+        { ...ERP_STOCK_JOB_OPTIONS, jobId: erpStockCheckJobId({ supplierId }) },
+      );
+    },
+  };
+  return new Worker(QUEUE_NAMES.erpStockSync, async (job) => runErpStockJob(dependencies, job), {
+    connection: context.connection,
+    concurrency: 3,
+  });
+}
+
 /** The supplier's catalog sent to its ERP; one at a time, the ERP quota is per account. */
 function erpWorkers(context: WorkerContext): Worker[] {
   const dependencies = {
@@ -228,6 +279,7 @@ function erpWorkers(context: WorkerContext): Worker[] {
     },
   });
   return [
+    erpStockWorker(context, dependencies),
     new Worker(QUEUE_NAMES.erpCatalogExport, async (job) => processExport(job.data), {
       connection: context.connection,
       concurrency: 1,
@@ -479,6 +531,8 @@ async function scheduleQueues(queues: WorkerContext["queues"]): Promise<void> {
   await scheduleRecurring(queues.shipmentTracking, "track-shipments", 30 * 60 * 1000);
   await scheduleRecurring(queues.claimSweep, "sweep-marketplace-claims", 24 * 60 * 60 * 1000);
   await scheduleRecurring(queues.erpInvoices, "issue-erp-invoices", 2 * 60 * 1000);
+  // Lost Bling notices are caught within 15 minutes; see docs/decisions for the quota math.
+  await scheduleRecurring(queues.erpStock, ERP_STOCK_JOB_NAMES.checkAll, 15 * 60 * 1000);
   await scheduleRecurring(queues.supplierPayments, "reconcile-supplier-payments", 5 * 60 * 1000);
   // Hourly, so a day's checks are spread out; each store is due once a day.
   await scheduleRecurring(queues.buyerAddressCheck, "check-buyer-addresses", 60 * 60 * 1000);

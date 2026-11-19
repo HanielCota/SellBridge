@@ -22,6 +22,7 @@ export interface ErpStockAccount {
   readonly connectionId: string;
   readonly erpCompanyId: string | null;
   readonly stockCheckFailures: number;
+  readonly stockCheckedAt: Date | null;
   readonly lastStockNoticeAt: Date | null;
 }
 
@@ -30,6 +31,7 @@ const accountColumns = {
   connectionId: supplierErpConnections.id,
   erpCompanyId: supplierErpConnections.erpCompanyId,
   stockCheckFailures: supplierErpConnections.stockCheckFailures,
+  stockCheckedAt: supplierErpConnections.stockCheckedAt,
   lastStockNoticeAt: supplierErpConnections.lastStockNoticeAt,
 };
 
@@ -232,6 +234,19 @@ export async function unlinkErpProducts(
         eq(supplierProducts.supplierId, input.supplierId),
         inArray(supplierProducts.erpProductId, [...input.erpProductIds]),
       ),
+    );
+}
+
+/**
+ * Forgets every Bling id of the supplier: the account now connected is another Bling company,
+ * whose ids mean other products. The next check links them again by SKU.
+ */
+export async function unlinkAllErpProducts(database: Database, supplierId: string): Promise<void> {
+  await database
+    .update(supplierProducts)
+    .set({ erpProductId: null, erpStockReadAt: null })
+    .where(
+      and(eq(supplierProducts.supplierId, supplierId), isNotNull(supplierProducts.erpProductId)),
     );
 }
 
