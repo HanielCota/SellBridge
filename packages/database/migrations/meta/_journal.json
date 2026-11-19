@@ -645,6 +645,13 @@
       "when": 1795126360473,
       "tag": "0091_return_policy",
       "breakpoints": true
+    },
+    {
+      "idx": 92,
+      "version": "7",
+      "when": 1795126455157,
+      "tag": "0092_receiving_rules",
+      "breakpoints": true
     }
   ]
 }

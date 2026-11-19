@@ -64,7 +64,10 @@ function badgeText(badge: SupplierPaymentBadge, paidWord: string): string {
       ? "Pagamento devolvido"
       : `Pagamento devolvido · ${formatAbsoluteTime(new Date(badge.refundedAt))}`;
   }
-  return "Pagamento por fora";
+  if (badge.kind === "no_account") {
+    return "Sem conta de recebimento";
+  }
+  return "Pagamento pelo SellBridge não ligado";
 }
 
 const BADGE_KIND_TONES: Record<SupplierPaymentBadge["kind"], PaymentBadgeTone> = {
@@ -73,7 +76,8 @@ const BADGE_KIND_TONES: Record<SupplierPaymentBadge["kind"], PaymentBadgeTone> =
   reviewing: "warning",
   refunding: "warning",
   refunded: "danger",
-  outside: "neutral",
+  no_account: "neutral",
+  not_offered: "neutral",
 };
 
 /**

@@ -102,7 +102,10 @@ export type SupplierPaymentBadge =
   | { kind: "refunding" }
   /** The money went back; `refundedAt` is known when SellBridge asked for the refund. */
   | { kind: "refunded"; refundedAt: string | null }
-  | { kind: "outside" };
+  /** The supplier has no account that receives through SellBridge yet. */
+  | { kind: "no_account" }
+  /** Paying suppliers through SellBridge is not switched on (Asaas not configured). */
+  | { kind: "not_offered" };
 
 /** What decides the badge: the payment's status and dates, as ISO strings. */
 export interface SupplierPaymentBadgeInput {
@@ -116,11 +119,14 @@ export interface SupplierPaymentBadgeInput {
 /**
  * The badge for a parcel: under review while Mercado Pago analyses it, paid once approved, being
  * refunded once SellBridge asked for the money back, refunded once it went back, waiting while
- * the supplier can receive here, and "outside" (paid off the system, as before) otherwise.
+ * the supplier can receive here; otherwise, that it has no account, or that paying suppliers
+ * through SellBridge is not switched on at all.
  */
 export function supplierPaymentBadge(input: {
   payment: SupplierPaymentBadgeInput | null;
   supplierReceivesHere: boolean;
+  /** False while SellBridge does not take supplier payments at all; true when omitted. */
+  paymentsOffered?: boolean;
 }): SupplierPaymentBadge {
   const { payment } = input;
   const refundRequestedAt = payment?.refundRequestedAt ?? null;
@@ -139,7 +145,10 @@ export function supplierPaymentBadge(input: {
   if (input.supplierReceivesHere) {
     return { kind: "waiting" };
   }
-  return { kind: "outside" };
+  if (input.paymentsOffered === false) {
+    return { kind: "not_offered" };
+  }
+  return { kind: "no_account" };
 }
 
 const HOUR_IN_MS = 3_600_000;

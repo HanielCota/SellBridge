@@ -8,7 +8,7 @@ import type { Database, DatabaseExecutor, Transaction } from "../client.ts";
 import { hasActiveTargets } from "./active-targets.ts";
 import { recordApiEvent } from "./api-events.ts";
 import { containsPattern } from "./sql/search-pattern.ts";
-import { supplierOpenColumn } from "./sql/sellable.ts";
+import { supplierOpenColumn, supplierReceivingRuleMet } from "./sql/sellable.ts";
 import { storeSupplierIds } from "./sql/store-supplier-match.ts";
 import {
   listings,
@@ -223,6 +223,8 @@ export interface TargetForPublishing {
   storeSupplierIds: string[];
   availability: CatalogAvailability;
   source: Pick<typeof suppliers.$inferSelect, "catalogKind" | "ownerTenantId">;
+  /** The supplier may sell under the admin's receiving-account rule. */
+  supplierReceivingRuleMet: boolean;
 }
 
 export async function getTargetForPublishing(
@@ -240,6 +242,7 @@ export async function getTargetForPublishing(
       supplierActive: suppliers.active,
       supplierOpen: supplierOpenColumn(),
       source: { catalogKind: suppliers.catalogKind, ownerTenantId: suppliers.ownerTenantId },
+      supplierReceivingRuleMet: sql<boolean>`${supplierReceivingRuleMet()}`.mapWith(Boolean),
     })
     .from(listingTargets)
     .innerJoin(listings, eq(listings.id, listingTargets.listingId))

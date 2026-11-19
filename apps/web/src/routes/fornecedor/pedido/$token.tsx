@@ -10,7 +10,8 @@ import { ShipmentPanel } from "@/components/fulfillment/shipment-panel";
 import { ErrorState } from "@/components/feedback/error-state";
 import { updateSupplierShipmentFn } from "@/features/fulfillment/fulfillment.functions";
 import { supplierShipmentQueryOptions } from "@/features/fulfillment/fulfillment.queries";
-import { isShippingBlocked } from "@/features/fulfillment/shipping-block";
+import { isPreparationStopped, isShippingBlocked } from "@/features/fulfillment/shipping-block";
+import { PreparationHoldAlert } from "@/components/supplier-panel/orders/preparation-hold-alert";
 import { errorMessage } from "@/lib/errors";
 import { SHARE_IMAGES, shareMeta } from "@/lib/share-meta";
 
@@ -122,11 +123,13 @@ function SupplierOrderPage() {
       </SupplierPageFrame>
     );
   }
-  const blocked = isShippingBlocked(query.data.orderStatus);
+  const blocked = isPreparationStopped(query.data);
+  const hold = query.data.preparationHold;
   return (
     <SupplierPageFrame>
       <OrderHeading externalOrderId={query.data.externalOrderId} />
-      {blocked ? <ShippingBlockedAlert /> : null}
+      {isShippingBlocked(query.data.orderStatus) ? <ShippingBlockedAlert /> : null}
+      {hold === null ? null : <PreparationHoldAlert hold={hold} showAccountLink={false} />}
       <ShipmentPanel
         shipment={query.data}
         externalOrderId={query.data.externalOrderId}
@@ -137,7 +140,7 @@ function SupplierOrderPage() {
           await client.invalidateQueries({ queryKey: shipmentQuery.queryKey });
         }}
       >
-        {isLabelMarketplace(query.data.marketplace) ? (
+        {isLabelMarketplace(query.data.marketplace) && !blocked ? (
           // A form post keeps the token out of the URL, the history and the access logs.
           <form
             method="post"
