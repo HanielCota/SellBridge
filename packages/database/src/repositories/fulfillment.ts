@@ -222,6 +222,7 @@ function detailShipments(database: Database, tenantId: string, orderId: string) 
       trackingUrl: orderShipments.trackingUrl,
       trackedAt: orderShipments.trackedAt,
       ...timing.shipmentTimingColumns,
+      preparationHold: timing.preparationHold,
       updatedAt: orderShipments.updatedAt,
       supplierTokenExpiresAt: orderShipments.supplierTokenExpiresAt,
     })

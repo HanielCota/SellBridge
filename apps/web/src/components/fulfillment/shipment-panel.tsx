@@ -1,4 +1,9 @@
 import {
+  PREPARATION_HOLD_LABELS,
+  SUPPLIER_HOLD_LABELS,
+  type PreparationHold,
+} from "@sellbridge/shared/receiving-rules";
+import {
   DELIVERY_CONFIRMED_BY,
   DISPATCHED_FULFILLMENT_STATUSES,
   FULFILLMENT_NEXT,
@@ -61,6 +66,8 @@ export interface ShipmentView {
   acceptBy?: Date | null;
   dispatchBy?: Date | null;
   delay?: ShipmentDelay | null;
+  /** Waiting for the supplier's receiving account or the reseller's payment. */
+  preparationHold?: PreparationHold | null;
   events: { id: string; status: FulfillmentStatus; actor: string; note: string; createdAt: Date }[];
 }
 
@@ -444,6 +451,25 @@ function useShipmentUpdate(
   };
 }
 
+/** Where the parcel stands; a parcel waiting for the account or the payment says so instead. */
+function StatusPill({ shipment, viewer }: { shipment: ShipmentView; viewer: ShipmentOperator }) {
+  const hold = shipment.preparationHold ?? null;
+  if (hold !== null) {
+    const labels = viewer === "supplier" ? SUPPLIER_HOLD_LABELS : PREPARATION_HOLD_LABELS;
+    return <TonePill tone="warning" label={labels[hold]} />;
+  }
+  return (
+    <TonePill
+      tone={FULFILLMENT_TONES[shipment.status]}
+      label={
+        viewer === "supplier"
+          ? supplierShipmentStatusLabel(shipment.status)
+          : shipmentStatusLabel(shipment.status, shipment.catalogKind)
+      }
+    />
+  );
+}
+
 /** Who handles the parcel and where it stands. */
 function ShipmentHeading({
   shipment,
@@ -458,14 +484,7 @@ function ShipmentHeading({
         {shipment.catalogKind === "seller" ? "Seu envio" : shipment.supplierName}
       </h3>
       <div className="flex flex-col items-start gap-1 sm:items-end">
-        <TonePill
-          tone={FULFILLMENT_TONES[shipment.status]}
-          label={
-            viewer === "supplier"
-              ? supplierShipmentStatusLabel(shipment.status)
-              : shipmentStatusLabel(shipment.status, shipment.catalogKind)
-          }
-        />
+        <StatusPill shipment={shipment} viewer={viewer} />
         {shipment.delay ? (
           <TonePill tone="warning" label={SHIPMENT_DELAY_LABELS[shipment.delay]} />
         ) : null}
