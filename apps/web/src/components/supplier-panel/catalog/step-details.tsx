@@ -263,7 +263,11 @@ function MainFields({
             maxLength={entry.field === "title" ? 300 : undefined}
             {...(entry.code ? CODE_INPUT : {})}
             {...(entry.key === "stock" && stockFromBling
-              ? { readOnly: true, "aria-describedby": STOCK_FROM_BLING_NOTE_ID }
+              ? {
+                  readOnly: true,
+                  "aria-describedby": STOCK_FROM_BLING_NOTE_ID,
+                  className: "cursor-default bg-muted text-muted-foreground",
+                }
               : {})}
           />
           {entry.key === "suggestedPrice" ? <SuggestedPriceNote values={values} /> : null}
