@@ -50,6 +50,7 @@ async function loadOnboardingState(
   ]);
   return {
     hasHolder: profile.holder !== null,
+    sellsAsPerson: profile.holder !== null && profile.holder.company === null,
     hasSupplier: isProductSourceSetupComplete(
       profile.productSourceMode,
       profile.starterSupplier?.active === true,
