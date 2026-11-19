@@ -125,7 +125,8 @@ const serverEnvironmentShape = z.object({
    */
   WEBHOOK_ALLOW_PRIVATE_URLS: booleanFlagEnvironmentSchema,
   /**
-   * Header holding the client IP used by the login rate limit. Behind the Cloudflare proxy use
+   * Header holding the client IP used by the login rate limit (rule and proxy assumption in
+   * lib/server/client-address.ts). Behind the Cloudflare proxy use
    * "cf-connecting-ip": x-forwarded-for would then carry Cloudflare's address for every user.
    */
   CLIENT_IP_HEADER: z.string().trim().toLowerCase().default("x-forwarded-for"),
