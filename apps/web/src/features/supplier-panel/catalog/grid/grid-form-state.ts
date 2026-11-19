@@ -99,9 +99,16 @@ export function gridFormStateOf(stored: StoredGrid): GridFormState {
   };
 }
 
-/** Compares names as people read them: "Preto" and "preto " are the same colour. */
+function nameKey(name: string): string {
+  return stripAccents(name).trim().replaceAll(/\s+/g, " ").toLowerCase();
+}
+
+/**
+ * Compares names as people read them, as the server does: "Preto", "preto " and "Azul  Marinho"
+ * against "Azul Marinho" are the same colour.
+ */
 export function sameOptionName(first: string, second: string): boolean {
-  return stripAccents(first).trim().toLowerCase() === stripAccents(second).trim().toLowerCase();
+  return nameKey(first) === nameKey(second);
 }
 
 function blankCombination(colorKey: string | null, sizeKey: string | null): GridFormCombination {

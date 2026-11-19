@@ -53,6 +53,12 @@ describe("grid form state", () => {
     expect(withSize.combinations).toMatchObject([{ colorKey: "c1", sizeKey: "s1", stock: "7" }]);
   });
 
+  it("ignores a colour that differs only in the spaces between words", () => {
+    const navy = withColorAdded(EMPTY_GRID_FORM_STATE, "Azul Marinho", "c1");
+
+    expect(withColorAdded(navy, "Azul  Marinho", "c2")).toBe(navy);
+  });
+
   it("ignores a colour already in the grid, whatever its case or accents", () => {
     const state = withColorAdded(twoByTwo, " preto", "c3");
 
