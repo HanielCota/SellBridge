@@ -189,9 +189,10 @@ describe("openReturnClaims", () => {
   });
 });
 
+// The team decides alone only for suppliers it runs; a supplier with its own profile answers first.
 describe("decideReturnClaim", () => {
   it("credits the reseller up to the supplier cost, once", async () => {
-    const { order, claim } = await returnedOrderClaim(panelSupplier.productId);
+    const { order, claim } = await returnedOrderClaim(managedSupplier.productId);
     const credit = (amountCents: number) =>
       decideReturnClaim(database, {
         decision: { claimId: claim.id, decision: "credit", amountCents },
@@ -215,11 +216,11 @@ describe("decideReturnClaim", () => {
     ]);
     const view = await findReturnClaimByTicket(database, claim.ticketId ?? "");
     expect(view?.decidedByName).toBe("Usuário 2");
-    expect(view?.items).toEqual([{ title: "Tênis - Preto 40", sku: "RET-PANEL", quantity: 2 }]);
+    expect(view?.items).toEqual([{ title: "Tênis - Preto 40", sku: "RET-MANAGED", quantity: 2 }]);
   });
 
   it("keeps a single decision when two people decide at the same time", async () => {
-    const { order, claim } = await returnedOrderClaim(panelSupplier.productId);
+    const { order, claim } = await returnedOrderClaim(managedSupplier.productId);
 
     const outcomes = await Promise.allSettled([
       decideReturnClaim(database, {
@@ -243,7 +244,7 @@ describe("decideReturnClaim", () => {
   });
 
   it("records a refusal with its reason, and only for the reseller who sold it", async () => {
-    const { order, claim } = await returnedOrderClaim(panelSupplier.productId);
+    const { order, claim } = await returnedOrderClaim(managedSupplier.productId);
     await decideReturnClaim(database, {
       decision: { claimId: claim.id, decision: "refuse", reason: "Produto voltou usado" },
       actorId: staffId,
