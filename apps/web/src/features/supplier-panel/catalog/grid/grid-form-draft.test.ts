@@ -125,3 +125,21 @@ describe("gridCompleteness", () => {
     );
   });
 });
+
+describe("barcode on a grid", () => {
+  it("asks the barcode of each combination, on the colours and sizes step", () => {
+    const withoutBarcode = { ...values, attributes: { BRAND: "Pegada" } };
+
+    const report = gridCompleteness(withoutBarcode, grid(), { required: [], fallback: null });
+
+    const barcode = [...report.blocking, ...report.improvements].filter((issue) =>
+      issue.message.includes("código de barras"),
+    );
+    expect(barcode).toEqual([
+      expect.objectContaining({
+        field: "grid",
+        message: "Informe o código de barras (GTIN) de cada combinação",
+      }),
+    ]);
+  });
+});

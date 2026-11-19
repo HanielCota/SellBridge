@@ -247,8 +247,17 @@ const GRID_RULE_MESSAGES: Readonly<Record<string, string>> = {
   stock_required: "Informe o estoque de pelo menos uma combinação",
 };
 
+const BARCODE_FIELD = "attributes.GTIN";
+
 /** A rule the single product form asks per product, asked here per combination. */
 function asGridIssue(issue: CompletenessIssue): CompletenessIssue {
+  if (issue.field === BARCODE_FIELD) {
+    return {
+      ...issue,
+      field: "grid",
+      message: "Informe o código de barras (GTIN) de cada combinação",
+    };
+  }
   const message = GRID_RULE_MESSAGES[issue.rule];
   return message === undefined ? issue : { ...issue, field: "grid", message };
 }
@@ -325,5 +334,10 @@ export function gridCompleteness(
     message,
   }));
   const blocking = [...report.blocking.map(asGridIssue), ...gridIssues];
-  return { ...report, blocking, canSubmit: blocking.length === 0 };
+  return {
+    ...report,
+    blocking,
+    improvements: report.improvements.map(asGridIssue),
+    canSubmit: blocking.length === 0,
+  };
 }

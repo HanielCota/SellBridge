@@ -1,5 +1,5 @@
 import type { FiscalFallback } from "@sellbridge/shared/product-fiscal";
-import type { ProductModelShared } from "@sellbridge/shared/product-grid";
+import { GRID_AXIS_ATTRIBUTES, type ProductModelShared } from "@sellbridge/shared/product-grid";
 import type { SupplierTaxSetup } from "@sellbridge/shared/supplier-fiscal";
 import { requiredAttributesFor } from "@sellbridge/shared/supplier-panel-catalog-completeness";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
@@ -145,10 +145,16 @@ function useGridRules(
   setValues: (update: SetStateAction<PanelFormValues>) => void,
 ) {
   const category = options.categories.find((option) => option.id === snapshot.values.categoryId);
-  const ficha = useMercadoLivreFicha(options.supplierId, snapshot.values, setValues);
+  const sheet = useMercadoLivreFicha(options.supplierId, snapshot.values, setValues);
+  // Colour and size come from each combination, so the model's sheet leaves them out.
+  const fields = useMemo(
+    () => sheet.fields?.filter((field) => !GRID_AXIS_ATTRIBUTES.has(field.id)) ?? null,
+    [sheet.fields],
+  );
+  const ficha = { ...sheet, fields };
   const required = useMemo(
-    () => withMercadoLivreRequired(requiredAttributesFor(category?.slug), ficha.fields),
-    [category?.slug, ficha.fields],
+    () => withMercadoLivreRequired(requiredAttributesFor(category?.slug), fields),
+    [category?.slug, fields],
   );
   const fallback: FiscalFallback | null = options.taxDefaults?.defaults ?? null;
   const report = useMemo(

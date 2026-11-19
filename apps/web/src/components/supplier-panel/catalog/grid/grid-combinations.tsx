@@ -71,7 +71,8 @@ function CombinationRow({
         ) : null}
       </div>
       {combination === undefined ? null : (
-        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
+        // The SKU gets the widest column: "TEN-CASUAL-PRETO-38" must read whole.
+        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-[minmax(0,2fr)_repeat(4,minmax(0,1fr))]">
           {COMBINATION_FIELDS.map((field) => {
             const error = errors[combinationField(pair, field.key)];
             return (

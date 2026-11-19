@@ -24,6 +24,12 @@ export const MAX_MODEL_TITLE_LENGTH =
 export const COMBINATION_EDITED_OUTSIDE_GRID_MESSAGE =
   "Este produto faz parte de uma grade de cores e tamanhos: altere o nome, as fotos e a ficha pela grade, no cadastro do produto.";
 
+/**
+ * What the grid itself answers in Mercado Livre's sheet: each combination's colour and size,
+ * so the model's sheet never asks them.
+ */
+export const GRID_AXIS_ATTRIBUTES: ReadonlySet<string> = new Set(["COLOR", "MAIN_COLOR", "SIZE"]);
+
 /** Identifies one unit of a model: a barcode never belongs to the whole grid. */
 const COMBINATION_ONLY_ATTRIBUTES: ReadonlySet<string> = new Set(["GTIN"]);
 
