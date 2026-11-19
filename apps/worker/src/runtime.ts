@@ -2,8 +2,13 @@ import { createDatabase } from "@sellbridge/database/client";
 import { deliverOrderMessageNotice, orderMessageMoments } from "@sellbridge/database/repositories";
 import {
   getMercadoLivreShipping,
+  parseMercadoLivreNotice,
   readMercadoLivreBuyerBilling,
+  readMercadoLivreClaim,
+  readMercadoLivreShipmentOrders,
+  searchMercadoLivreClaims,
   type ConnectorRegistry,
+  type MercadoLivreConfig,
 } from "@sellbridge/marketplaces";
 import { createBlingRateLimiter, type BlingAppCredentials } from "@sellbridge/marketplaces/bling";
 import { asaasSettingsFrom } from "@sellbridge/payments/asaas";
@@ -54,6 +59,8 @@ import { blingInvoiceFileReader, createInvoiceAttachments } from "./lib/invoice-
 import { createOrderMessageFollowUpProcessor } from "./processors/order-message-follow-up.ts";
 import { createWebhookDeliveryProcessor } from "./processors/webhook-delivery.ts";
 import { createShipmentTrackingProcessor } from "./processors/shipment-tracking.ts";
+import { createClaimSweepProcessor } from "./processors/marketplace-claim-sweep.ts";
+import type { NoticeReaders } from "./processors/marketplace-notice.ts";
 import { createWebhookEventProcessor } from "./processors/webhook-event.ts";
 import {
   createWebhookEventPruneProcessor,
@@ -72,6 +79,7 @@ function createQueues(connection: { url: string; maxRetriesPerRequest: null }) {
     webhookSweep: new Queue(QUEUE_NAMES.webhookEventSweep, { connection }),
     ticketClose: new Queue(QUEUE_NAMES.ticketAutoClose, { connection }),
     shipmentTracking: new Queue(QUEUE_NAMES.shipmentTracking, { connection }),
+    claimSweep: new Queue(QUEUE_NAMES.marketplaceClaimSweep, { connection }),
     notifications: new Queue(QUEUE_NAMES.notificationDelivery, { connection }),
     erpInvoices: new Queue(QUEUE_NAMES.erpInvoiceIssue, { connection }),
     supplierPayments: new Queue(QUEUE_NAMES.supplierPayments, { connection }),
@@ -211,6 +219,19 @@ function erpWorkers(context: WorkerContext): Worker[] {
   ];
 }
 
+/** Shipment and claim notifications, read with Mercado Livre's API; other marketplaces send none. */
+function mercadoLivreNoticeReaders(config: MercadoLivreConfig): NoticeReaders {
+  return {
+    parseNotice: (marketplace, topic, rawPayload) =>
+      marketplace === "mercado_livre" ? parseMercadoLivreNotice(topic, rawPayload) : null,
+    readShipmentOrders: async (store, shipmentId) =>
+      readMercadoLivreShipmentOrders(config, store, shipmentId),
+    readShipping: async (store, externalOrderId) =>
+      getMercadoLivreShipping(config, store, externalOrderId),
+    readClaim: async (store, claimId) => readMercadoLivreClaim(config, store, claimId),
+  };
+}
+
 function orderWorkers(context: WorkerContext): Worker[] {
   const { database, connectors, cipher, connection, mercadoLivreConfig, sendEmail } = context;
   const processWebhook = createWebhookEventProcessor({
@@ -221,6 +242,15 @@ function orderWorkers(context: WorkerContext): Worker[] {
     requestStockSync: async () => requestStockSync(context),
     requestAutoForward: async (orderId) => requestAutoForward(context, orderId),
     requestCatchUp: async (job) => enqueueStoreOrderCatchUpJob(context.queues.webhookEvents, job),
+    notices: mercadoLivreNoticeReaders(mercadoLivreConfig),
+  });
+  const processClaimSweep = createClaimSweepProcessor({
+    database,
+    cipher,
+    acquireRateLimit: context.acquireRateLimit,
+    readers: mercadoLivreNoticeReaders(mercadoLivreConfig),
+    searchClaims: async (store, filter) =>
+      searchMercadoLivreClaims(mercadoLivreConfig, store, filter),
   });
   const processAutoForward = createAutoForwardProcessor({
     database,
@@ -248,6 +278,10 @@ function orderWorkers(context: WorkerContext): Worker[] {
       concurrency: environment.WORKER_CONCURRENCY,
     }),
     new Worker(QUEUE_NAMES.shipmentTracking, async () => processTracking(), {
+      connection,
+      concurrency: 1,
+    }),
+    new Worker(QUEUE_NAMES.marketplaceClaimSweep, async () => processClaimSweep(), {
       connection,
       concurrency: 1,
     }),
@@ -384,6 +418,7 @@ async function scheduleQueues(queues: WorkerContext["queues"]): Promise<void> {
   await scheduleRecurring(queues.ticketClose, "close-idle-tickets", 60 * 60 * 1000);
   await scheduleRecurring(queues.tokenRefresh, "refresh-expiring-tokens", 10 * 60 * 1000);
   await scheduleRecurring(queues.shipmentTracking, "track-shipments", 30 * 60 * 1000);
+  await scheduleRecurring(queues.claimSweep, "sweep-marketplace-claims", 24 * 60 * 60 * 1000);
   await scheduleRecurring(queues.erpInvoices, "issue-erp-invoices", 2 * 60 * 1000);
   await scheduleRecurring(queues.supplierPayments, "reconcile-supplier-payments", 5 * 60 * 1000);
 }

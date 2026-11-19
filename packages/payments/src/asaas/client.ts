@@ -105,6 +105,9 @@ function newAccountBody(account: AsaasNewAccount, webhook: AsaasWebhookTarget) {
     province: account.province,
     postalCode: account.postalCode,
     incomeValue: asaasValueFromCents(account.incomeValueCents),
+    // Asaas returns the payer only to the site registered on the account that issues the charge
+    // (sandbox, 18/11/2026: "Não há nenhum domínio configurado em sua conta"): SellBridge's.
+    site: new URL(webhook.url).origin,
     webhooks: [
       {
         name: "SellBridge",
@@ -144,7 +147,7 @@ function newChargeBody(charge: AsaasNewCharge) {
   };
 }
 
-/** Calls made with SellBridge's own key: opening supplier accounts and protecting them. */
+/** Calls made with SellBridge's own key: opening supplier accounts, protecting them and releasing. */
 export function createAsaasPlatformClient(http: AsaasHttpOptions, apiKey: string) {
   return {
     async createAccount(
@@ -159,6 +162,19 @@ export function createAsaasPlatformClient(http: AsaasHttpOptions, apiKey: string
         schema: asaasCreatedAccountSchema,
       });
       return { accountId: created.id, walletId: created.walletId, apiKey: created.apiKey ?? null };
+    },
+
+    /**
+     * Ends a supplier account's guarantee and frees the money to it. Final: never sent twice.
+     * Only SellBridge's key may end it; the supplier's own key gets 404 (sandbox, 18/11/2026).
+     */
+    async releaseEscrow(escrowId: string): Promise<AsaasPayment> {
+      return asaasRequest(http, {
+        apiKey,
+        path: `/escrow/${encodeURIComponent(escrowId)}/finish`,
+        method: "POST",
+        schema: asaasPaymentSchema,
+      });
     },
 
     /** Holds every payment the account receives from now on, with the account paying the fee. */
@@ -243,15 +259,6 @@ function heldMoneyCalls(call: AccountCall) {
   return {
     async getChargeEscrow(paymentId: string) {
       return call({ path: paymentPath(paymentId, "/escrow"), schema: asaasEscrowSchema });
-    },
-
-    /** Ends the guarantee and frees the money to the supplier. Final: never sent twice. */
-    async releaseEscrow(escrowId: string): Promise<AsaasPayment> {
-      return call({
-        path: `/escrow/${encodeURIComponent(escrowId)}/finish`,
-        method: "POST",
-        schema: asaasPaymentSchema,
-      });
     },
 
     /** Gives the whole payment back to the payer; the split shares are refunded with it. */

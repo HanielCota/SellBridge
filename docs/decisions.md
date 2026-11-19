@@ -890,6 +890,42 @@ O pedido original do cliente era "liberação só com o pedido entregue, para ev
 - **A conferir no sandbox:** se a subconta pode mandar a taxa para a carteira do SellBridge no split (senão, a cobrança passa a ser criada pela conta do SellBridge com o split para o fornecedor); devolução com o dinheiro guardado; quando a guarda começa no cartão (o Asaas só considera o cartão "recebido" uns 30 dias depois); o formato da lista de documentos; e se a chave da subconta vem na criação (depois do período de avaliação, depende do modelo BaaS pedido ao gerente do Asaas).
 - **Descartado:** o SellBridge guardar o dinheiro e repassar depois (custódia de terceiros); a cobrança emitida pela conta do SellBridge (o SellBridge viraria o recebedor e pagaria a tarifa do Asaas).
 
+## 2026-11-18: Pagamento ao fornecedor só pelo Asaas (Mercado Pago escondido)
+
+Guilherme, 18/11/2026: "vai ser somente asaas para pagar temos que arrumar isso" e, sobre apagar ou esconder o código do Mercado Pago, "Só esconde". Plano aprovado com "Aprovo, pode começar" e "Aprovo todas". Esta decisão substitui o "Os dois convivem" de 2026-11-15 e a escolha entre as duas contas em Recebimentos.
+
+- **Uma chave só:** `MERCADO_PAGO_SUPPLIER_PAYMENTS_ON = false` (`packages/payments/src/mercado-pago/settings.ts`). Com ela desligada, `mercadoPagoSettingsFrom` devolve null mesmo com as variáveis `MERCADO_PAGO_*`. O site e o robô nunca abrem, conferem nem devolvem um pagamento pelo Mercado Pago. A ligação de conta volta para Recebimentos sem ligar nada, e o aviso do Mercado Pago responde 404.
+- **Telas:**
+  - Recebimentos mostra só a conta Asaas.
+  - O pedido do revendedor paga só pelo Asaas.
+  - A regra de fornecedor novo sai das configurações do admin. O valor salvo fica guardado, mas não muda mais nada, porque todo pagamento já é protegido.
+- **O código fica:**
+  - Os cartões do Mercado Pago vão para `mercado-pago-account-card.tsx`, fora das telas.
+  - Os testes do código escondido rodam com a chave ligada só dentro do teste.
+  - Nada sai do banco (o valor `mercado_pago` continua). Não havia pagamento nem conta ligada em produção.
+- **Para religar:** virar a chave e voltar com as telas, que ficaram fora da página, e com a regra do admin.
+
+### O que o sandbox do Asaas confirmou (18/11/2026)
+
+Teste de ponta a ponta com a conta de sandbox do SellBridge, por um script local (`serve-asaas-sandbox.sh`, fora do repositório) e um endereço público temporário pelo Tailscale Funnel ("Pode usar", Guilherme, 18/11/2026; desligado no fim). Os itens 2 a 6 são os pontos que 2026-11-15 deixou "a conferir"; os outros são achados novos.
+
+1. **Aviso:** o Asaas recusa abrir a subconta com um endereço de aviso que não é público ("A url informada é inválida" para localhost). Pelo endereço público, o aviso de pagamento chegou e marcou o envio pago em segundos.
+2. **Split da subconta para a carteira do SellBridge:** funciona, depois de a conta principal ligar "Habilitar Split" (Integrações > Segurança, confirmado por código do SMS ou do aplicativo). Sem isso, toda cobrança é recusada ("A criação de Split de pagamento está desabilitada"). **A conta de produção precisa ligar o mesmo antes do primeiro pagamento.**
+   - Uma cobrança de R$ 80,00 com 1% mandou R$ 0,80 para a carteira do SellBridge.
+   - A parte do SellBridge fica `DONE` quando o pagamento é recebido e `AWAITING_CREDIT` no cartão, até ele compensar.
+3. **Devolução com o dinheiro guardado:**
+   - **Cartão:** funciona com a chave da subconta. A cobrança vira `REFUNDED` e a parte do SellBridge é cancelada junto.
+   - **Boleto:** o Asaas não devolve ("Somente é possível estornar cobranças cuja a forma de pagamento seja cartão de crédito ou Pix"). O caso vai para Problemas, como previsto.
+   - **Pix:** não deu para simular, porque pagar um QR Code exige permissão de saque na chave.
+   - **Em aberto:** decidir se o boleto continua como forma de pagamento.
+4. **Quando a guarda começa no cartão:** na confirmação do cartão, não 30 dias depois. A guarda vence 30 dias depois da confirmação.
+5. **Lista de documentos:** não apareceu. O sandbox aprova a subconta na hora, sem pedir documentos.
+6. **Chave da subconta:** vem na criação no sandbox. Depois do período de avaliação em produção, segue dependendo do modelo BaaS pedido ao Asaas.
+7. **Achados corrigidos:**
+   - **Site da subconta:** a cobrança exige que o endereço de volta (`successUrl`) seja do site cadastrado na subconta. A subconta agora abre com o endereço do SellBridge como site.
+   - **Liberação:** só a chave da conta principal encerra a guarda (`POST /v3/escrow/{id}/finish`); a da subconta recebe 404. A liberação agora usa a chave do SellBridge, e o worker liberou 7 dias depois da entrega.
+   - **Motivo da recusa:** o registro de cobrança recusada passou a guardar o motivo que o Asaas devolve.
+
 ## 2026-11-16: Lucro real por canal (etapa 2a, comissão e frete lidos da loja)
 
 Guilherme aprovou as três etapas do lucro real; a Central mandou começar a etapa 2 no mesmo dia. A etapa 2 foi dividida: esta parte (2a) lê as taxas da loja. O frete real de cada pedido (2b) vem num PR seguinte, que mexe nos arquivos de pedido.
@@ -920,3 +956,11 @@ A segunda parte da etapa 2: o Financeiro passa a descontar o frete que o Mercado
 - **Na conta:** o frete entra junto com a tarifa do marketplace, como as prévias de preço já fazem (`fee-model.ts`). Vale para o relatório, a página do pedido e a API pública (o campo `marketplaceFeeCents` passa a incluir o frete, e a descrição dele diz isso). Pedido cancelado ou devolvido continua sem tarifa.
 - **Carrinho:** o Mercado Livre manda um carrinho (vários pedidos, um `pack_id`) num envio só, e cada pedido do carrinho informa o custo do envio inteiro. O frete conta uma vez, no primeiro pedido do carrinho que conta como venda (`sellerShippingOnce`); os outros ficam com zero. Achado da revisão de segurança de 17/11/2026.
 - **Fora:** os pedidos antigos não são relidos. O frete aparece nos pedidos que receberem um aviso novo do Mercado Livre depois da atualização.
+
+## 2026-11-17: Avisos do Mercado Livre de envio e de reclamações
+
+- **Envio na hora:** o tópico `shipments` passa a disparar a mesma leitura da tarefa de 30 minutos para os pedidos do envio. Descartado: ler o envio direto pelo id do aviso, que duplicaria a regra de status de `getMercadoLivreShipping`. A tarefa periódica fica como rede de segurança: relê a cada 6 horas os pacotes de lojas que recebem avisos (marcado em `store_connections.last_shipment_notice_at`), sem configuração; loja sem avisos segue nos 30 minutos.
+- **Reclamações só mostradas:** `post_purchase` (filtros `claims` e `claims_actions`) grava a reclamação em `marketplace_claims` e avisa revendedor e fornecedor; responder, reembolsar e revisar devolução ficam no Mercado Livre (fora do escopo pedido). Tabela própria, separada de `return_claims` (crédito do fornecedor ao revendedor).
+- **Ordem e repetição:** o aviso é só um gatilho; o recurso é sempre relido com o token da loja. A reclamação guarda o `last_updated` do Mercado Livre e uma leitura mais antiga não sobrescreve; os avisos ao cliente usam chave por reclamação e momento, então um aviso repetido não chega duas vezes.
+- **Correção:** os avisos com subtópico trazem `id` em vez de `_id` e eram recusados com 401; o Mercado Livre repetiria por 1 hora e poderia desligar o tópico.
+- **Busca diária:** abertas de qualquer idade mais as atualizadas em 26 horas, por loja, até 200 por rodada. Cobre aviso perdido e as reclamações de pedidos vendidos antes de os tópicos serem ligados.

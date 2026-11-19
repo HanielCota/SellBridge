@@ -58,11 +58,14 @@ const NOW = new Date("2026-12-10T12:00:00Z");
 
 type Reply = { status: number; body: unknown };
 const requests: { method: string; path: string; body: unknown }[] = [];
+/** The key each request was sent with, in order. */
+const requestKeys: (string | null)[] = [];
 let replies: Reply[] = [];
 
 async function fakeAsaas(url: string, init: RequestInit = {}): Promise<Response> {
   const body = typeof init.body === "string" ? JSON.parse(init.body) : null;
   requests.push({ method: init.method ?? "GET", path: new URL(url).pathname, body });
+  requestKeys.push(new Headers(init.headers).get("access_token"));
   const reply = replies.shift() ?? { status: 500, body: {} };
   return new Response(JSON.stringify(reply.body), {
     status: reply.status,
@@ -165,6 +168,7 @@ function charge(overrides: Partial<AsaasPayment> = {}): AsaasPayment {
 
 beforeEach(() => {
   requests.length = 0;
+  requestKeys.length = 0;
   replies = [];
   for (const mock of Object.values(mocks)) {
     mock.mockReset();
@@ -187,6 +191,7 @@ describe("settleHeldPayment", () => {
 
     expect(outcome).toEqual({ kind: "released" });
     expect(requests).toEqual([{ method: "POST", path: "/v3/escrow/esc_1/finish", body: null }]);
+    expect(requestKeys).toEqual(["platform-key"]);
     expect(mocks.markReleased).toHaveBeenCalledWith(context.database, {
       paymentId: PAYMENT_ID,
       now: NOW,

@@ -12,6 +12,18 @@ function entry(
   return { level, event, line: JSON.stringify({ level, event, time: "t", ...fields }) };
 }
 
+function claimOpened(claimId: string) {
+  return captureProblem(
+    entry("warn", "claim.opened", {
+      tenantId: "org-1",
+      reason: "Reclamação aberta pelo comprador no pedido 2000014428837134",
+      problemKey: `claim:${claimId}`,
+    }),
+    "worker",
+    OCCURRED_AT,
+  );
+}
+
 describe("captureProblem", () => {
   it("keeps the ids of the tenant, store and listing and the error's message", () => {
     const captured = captureProblem(
@@ -53,6 +65,17 @@ describe("captureProblem", () => {
 
     expect(final?.message).toBe("O Mercado Livre recusou o título");
     expect(retried).toBeNull();
+  });
+
+  it("records each buyer's claim as its own problem, in the claims area", () => {
+    const first = claimOpened("5256749420");
+    const second = claimOpened("5256749421");
+
+    expect(first).toMatchObject({
+      area: "claims",
+      message: "Reclamação aberta pelo comprador no pedido 2000014428837134",
+    });
+    expect(first?.fingerprint).not.toBe(second?.fingerprint);
   });
 
   it("ignores other warnings", () => {
@@ -178,6 +201,8 @@ describe("problemAreaOf", () => {
     ["auth.admin_verification_email_failed", null, "email"],
     ["store.order_catch_up_not_queued", null, "orders"],
     ["supplier_panel.batch_label_failed", null, "orders"],
+    ["claim.opened", null, "claims"],
+    ["worker.error", "marketplace-claim-sweep", "claims"],
     ["worker.error", "publish-listing", "publishing"],
     ["worker.error", "webhook-events", "orders"],
     ["worker.error", null, "other"],

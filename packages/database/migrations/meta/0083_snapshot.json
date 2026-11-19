@@ -1,5 +1,5 @@
 {
-  "id": "c314ef9f-0d97-4a0b-852c-e95a2a813c77",
+  "id": "00a925d3-14bc-406d-8b98-d80138e2eb19",
   "prevId": "8a10a541-b65b-408c-bc78-30108bbc8ae4",
   "version": "7",
   "dialect": "postgresql",
@@ -844,18 +844,6 @@
           "primaryKey": false,
           "notNull": false
         },
-        "state_registration": {
-          "name": "state_registration",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "tax_regime": {
-          "name": "tax_regime",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false
-        },
         "billing_address": {
           "name": "billing_address",
           "type": "jsonb",
@@ -947,10 +935,6 @@
       "uniqueConstraints": {},
       "policies": {},
       "checkConstraints": {
-        "tenant_profile_tax_regime_check": {
-          "name": "tenant_profile_tax_regime_check",
-          "value": "\"tenant_profile\".\"tax_regime\" is null or \"tenant_profile\".\"tax_regime\" in ('simples', 'presumido', 'real')"
-        },
         "tenant_profile_product_source_mode_check": {
           "name": "tenant_profile_product_source_mode_check",
           "value": "\"tenant_profile\".\"product_source_mode\" is null or \"tenant_profile\".\"product_source_mode\" in ('own', 'suppliers', 'both')"
@@ -1694,6 +1678,12 @@
         },
         "last_webhook_at": {
           "name": "last_webhook_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "last_shipment_notice_at": {
+          "name": "last_shipment_notice_at",
           "type": "timestamp with time zone",
           "primaryKey": false,
           "notNull": false
@@ -8442,6 +8432,271 @@
       "policies": {},
       "checkConstraints": {},
       "isRLSEnabled": false
+    },
+    "public.marketplace_claims": {
+      "name": "marketplace_claims",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "tenant_id": {
+          "name": "tenant_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "order_id": {
+          "name": "order_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "store_connection_id": {
+          "name": "store_connection_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "marketplace": {
+          "name": "marketplace",
+          "type": "marketplace",
+          "typeSchema": "public",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "external_claim_id": {
+          "name": "external_claim_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "status": {
+          "name": "status",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "type": {
+          "name": "type",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "stage": {
+          "name": "stage",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "reason_id": {
+          "name": "reason_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "problem": {
+          "name": "problem",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "action_responsible": {
+          "name": "action_responsible",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "action_due_at": {
+          "name": "action_due_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "resolution_reason": {
+          "name": "resolution_reason",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "closed_at": {
+          "name": "closed_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "return_status": {
+          "name": "return_status",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "return_tracking_code": {
+          "name": "return_tracking_code",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "return_destination": {
+          "name": "return_destination",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "money_status": {
+          "name": "money_status",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "opened_at": {
+          "name": "opened_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "marketplace_updated_at": {
+          "name": "marketplace_updated_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "updated_at": {
+          "name": "updated_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {
+        "marketplace_claims_external_idx": {
+          "name": "marketplace_claims_external_idx",
+          "columns": [
+            {
+              "expression": "marketplace",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "external_claim_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": true,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "marketplace_claims_tenant_order_idx": {
+          "name": "marketplace_claims_tenant_order_idx",
+          "columns": [
+            {
+              "expression": "tenant_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "order_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "marketplace_claims_open_idx": {
+          "name": "marketplace_claims_open_idx",
+          "columns": [
+            {
+              "expression": "tenant_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "order_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "where": "\"marketplace_claims\".\"status\" = 'opened'",
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {
+        "marketplace_claims_tenant_id_organization_id_fk": {
+          "name": "marketplace_claims_tenant_id_organization_id_fk",
+          "tableFrom": "marketplace_claims",
+          "tableTo": "organization",
+          "columnsFrom": [
+            "tenant_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        },
+        "marketplace_claims_order_id_orders_id_fk": {
+          "name": "marketplace_claims_order_id_orders_id_fk",
+          "tableFrom": "marketplace_claims",
+          "tableTo": "orders",
+          "columnsFrom": [
+            "order_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        },
+        "marketplace_claims_store_connection_id_store_connections_id_fk": {
+          "name": "marketplace_claims_store_connection_id_store_connections_id_fk",
+          "tableFrom": "marketplace_claims",
+          "tableTo": "store_connections",
+          "columnsFrom": [
+            "store_connection_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {
+        "marketplace_claims_status_check": {
+          "name": "marketplace_claims_status_check",
+          "value": "\"marketplace_claims\".\"status\" in ('opened','closed')"
+        }
+      },
+      "isRLSEnabled": false
     }
   },
   "enums": {
@@ -8555,6 +8810,7 @@
         "payments",
         "invoices",
         "email",
+        "claims",
         "other"
       ]
     },

@@ -132,8 +132,9 @@ function ProtectedSeal() {
 }
 
 /**
- * The reseller pays the parcel's supplier through Mercado Pago, or sees that it was paid (and
- * when), or that this supplier is paid off the system.
+ * The reseller pays the parcel's supplier through Asaas, or sees that it was paid (and when), or
+ * that this supplier is paid off the system. Mercado Pago is hidden since 18/11/2026; it is named
+ * only for a payment that already went through it.
  */
 export function ResellerSupplierPayment({ shipmentId }: { shipmentId: string }) {
   const query = useQuery(resellerSupplierPaymentQueryOptions(shipmentId));
@@ -147,7 +148,7 @@ export function ResellerSupplierPayment({ shipmentId }: { shipmentId: string }) 
   const view = query.data;
   const method = view.badge.kind === "paid" ? paymentMethodWord(view.badge.method) : null;
   const refundText = resellerRefundText(view);
-  const gateway = view.protectedPayment ? "Asaas" : "Mercado Pago";
+  const gateway = view.provider === "mercado_pago" ? "Mercado Pago" : "Asaas";
   return (
     <div className="grid gap-2.5 rounded-2xl bg-muted/70 p-4">
       <div className="flex flex-wrap items-center justify-between gap-2">
@@ -164,9 +165,8 @@ export function ResellerSupplierPayment({ shipmentId }: { shipmentId: string }) 
           <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
             <PayButton shipmentId={shipmentId} gateway={gateway} />
             <span className="text-sm text-muted-foreground">
-              {view.protectedPayment
-                ? "Você paga pelo Asaas. O valor fica guardado e só vai para o fornecedor depois da entrega."
-                : "Você paga pelo Mercado Pago e o valor cai direto na conta do fornecedor."}
+              Você paga pelo Asaas. O valor fica guardado e só vai para o fornecedor depois da
+              entrega.
             </span>
           </div>
         </>

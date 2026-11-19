@@ -37,9 +37,11 @@ import {
   type SupplierConversationEvent,
 } from "./notification-conversation-events.ts";
 import { invoiceStoppedEvents, type InvoiceStoppedEvent } from "./notification-invoice-events.ts";
+import { marketplaceClaimEvents, type MarketplaceClaimEvent } from "./notification-claim-events.ts";
 
 export type {
   InvoiceStoppedEvent,
+  MarketplaceClaimEvent,
   OrderMessageEvent,
   SupportReplyEvent,
   SupplierConversationEvent,
@@ -54,6 +56,7 @@ export const STANDING_NOTIFICATION_KINDS: ReadonlySet<NotificationEvent["kind"]>
   "listing_unavailable",
   "shipment_late",
   "invoice_stopped",
+  "marketplace_claim",
 ]);
 /** Sales are frequent; a handful is enough to show activity without burying problems. */
 const SALES_SHOWN = 5;
@@ -135,7 +138,8 @@ export type NotificationEvent =
   | ShipmentCancelledEvent
   | ShipmentLateEvent
   | ListingUnavailableEvent
-  | InvoiceStoppedEvent;
+  | InvoiceStoppedEvent
+  | MarketplaceClaimEvent;
 
 export type { ShipmentLateEvent };
 
@@ -460,6 +464,7 @@ export async function listNotificationEvents(
     conversations,
     reviews,
     stoppedInvoices,
+    claims,
     read,
   ] = await Promise.all([
     saleEvents(database, input.tenantId),
@@ -474,6 +479,7 @@ export async function listNotificationEvents(
     supplierConversationEvents(database, input, PER_KIND),
     reviewPendingEvents(database, input.tenantId, input.reviewableSince),
     invoiceStoppedEvents(database, input.tenantId, PER_KIND),
+    marketplaceClaimEvents(database, input.tenantId, PER_KIND),
     readState(database, input),
   ]);
   const events = [
@@ -489,6 +495,7 @@ export async function listNotificationEvents(
     ...conversations,
     ...reviews,
     ...stoppedInvoices,
+    ...claims,
   ];
   const { clearedAt } = read;
   if (clearedAt === null) {

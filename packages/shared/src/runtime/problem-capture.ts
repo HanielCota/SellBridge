@@ -36,6 +36,9 @@ const RECORDED_WARNINGS: Readonly<Record<string, (fields: Record<string, unknown
   "listing.publish_failed": (fields) => fields.isFinal === true,
   "listing.sync_failed": () => true,
   "listing.description_resend_failed": () => true,
+  // A buyer's claim on a SellBridge sale: the team sees it open and when the marketplace mediates.
+  "claim.opened": () => true,
+  "claim.mediation": () => true,
 };
 
 interface AreaRule {
@@ -46,6 +49,7 @@ interface AreaRule {
 
 /** First match wins: "listing.sync_failed" is a sync problem before it is a listing one. */
 const AREA_RULES: readonly AreaRule[] = [
+  { area: "claims", events: /^claim\./, queues: /^marketplace-claim-sweep$/ },
   { area: "sync", events: /^listing\.sync|stock|price_sync/, queues: /stock-price-sync/ },
   { area: "publishing", events: /^listing\.|publish|description/, queues: /^publish-/ },
   { area: "invoices", events: /^erp\.|^bling\.|invoice|nfe|fiscal/, queues: /^erp-/ },

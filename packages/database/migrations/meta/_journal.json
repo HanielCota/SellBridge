@@ -586,8 +586,15 @@
     {
       "idx": 83,
       "version": "7",
-      "when": 1795048883570,
-      "tag": "0083_reseller_fiscal_data",
+      "when": 1795048237582,
+      "tag": "0083_marketplace_claims",
+      "breakpoints": true
+    },
+    {
+      "idx": 84,
+      "version": "7",
+      "when": 1795062722008,
+      "tag": "0084_reseller_fiscal_data",
       "breakpoints": true
     }
   ]

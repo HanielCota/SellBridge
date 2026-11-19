@@ -20,6 +20,8 @@ export interface TrackedShipping {
   logisticType: string | null;
   estimatedDeliveryAt: Date | null;
   dispatchDeadlineAt: Date | null;
+  /** The marketplace's shipment id, kept so a shipment notification finds the order. */
+  shipmentId?: string | null;
 }
 
 export interface ShipmentTrackingDependencies {
@@ -34,10 +36,13 @@ export interface ShipmentTrackingDependencies {
 const TRACKING_BATCH_SIZE = 100;
 
 type TrackedRow = Awaited<ReturnType<typeof listShipmentsToTrack>>[number];
-type TrackOutcome = "changed" | "unchanged" | "failed";
+export type TrackOutcome = "changed" | "unchanged" | "failed";
 
 /** Sends the order to the back of the line; a failure here is logged, never fatal to the run. */
-async function moveToBackOfLine(dependencies: ShipmentTrackingDependencies, row: TrackedRow) {
+async function moveToBackOfLine(
+  dependencies: Pick<ShipmentTrackingDependencies, "database">,
+  row: TrackedRow,
+) {
   try {
     await touchShipmentTracking(dependencies.database, row.tenantId, row.orderId);
   } catch (error) {
@@ -45,8 +50,12 @@ async function moveToBackOfLine(dependencies: ShipmentTrackingDependencies, row:
   }
 }
 
-async function trackOne(
-  dependencies: ShipmentTrackingDependencies,
+/**
+ * Reads one order's parcel and stores what changed. A failure is logged and sends the order to the
+ * back of the line (a refused token expires the store); it never throws.
+ */
+export async function trackOrderShipment(
+  dependencies: Pick<ShipmentTrackingDependencies, "database" | "cipher" | "readShipping">,
   row: TrackedRow,
 ): Promise<TrackOutcome> {
   try {
@@ -85,7 +94,7 @@ export function createShipmentTrackingProcessor(dependencies: ShipmentTrackingDe
     const outcomes: TrackOutcome[] = [];
     // One at a time: each order costs the store a few marketplace calls.
     for (const row of rows) {
-      outcomes.push(await trackOne(dependencies, row));
+      outcomes.push(await trackOrderShipment(dependencies, row));
     }
     const summary = {
       changed: outcomes.filter((outcome) => outcome === "changed").length,

@@ -357,11 +357,11 @@ function refundCharge(charge: Charge, response: ServerResponse): void {
   notify(refunded, "PAYMENT_REFUNDED");
 }
 
+/** Like the real sandbox (18/11/2026): only SellBridge's key ends a guarantee; others get 404. */
 function finishEscrow(request: IncomingMessage, escrowId: string, response: ServerResponse): void {
-  const account = accountOf(request);
-  const charge = [...charges.values()].find(
-    (candidate) => candidate.escrow?.id === escrowId && candidate.accountId === account?.id,
-  );
+  const charge = isPlatform(request)
+    ? [...charges.values()].find((candidate) => candidate.escrow?.id === escrowId)
+    : undefined;
   const escrow = charge?.escrow ?? null;
   if (charge === undefined || escrow === null) {
     json(response, 404, {});
