@@ -195,6 +195,27 @@ describe("listProblemEvents", () => {
 });
 
 describe("setProblemResolved", () => {
+  it("keeps a new failure open when it arrives before a retry resolves the old failure", async () => {
+    const stored = problem();
+    await recordProblems(database, [{ problem: stored, count: 1 }]);
+    const [row] = await rowsOf(stored.fingerprint);
+    const id = row?.id ?? "";
+    await recordProblems(database, [{ problem: stored, count: 1 }]);
+
+    const updated = await setProblemResolved(database, {
+      id,
+      resolvedById: ownerId,
+      now: NOW,
+      expectedOccurrences: 1,
+    });
+
+    expect(updated).toBe(false);
+    expect(await getProblemEvent(database, id)).toMatchObject({
+      occurrences: 2,
+      resolvedAt: null,
+    });
+  });
+
   it("undoes a resolution", async () => {
     const stored = problem();
     await recordProblems(database, [{ problem: stored, count: 1 }]);

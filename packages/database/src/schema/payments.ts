@@ -133,6 +133,11 @@ export const shipmentPayments = pgTable(
     /** Last time the reconciliation job read this payment back from the provider. */
     checkedAt: timestamp({ withTimezone: true }),
     /**
+     * Since when every round's call to the provider about this payment failed (provider down or
+     * the account's key refused); null after a round that reached it.
+     */
+    providerDeferredSince: timestamp({ withTimezone: true }),
+    /**
      * Why SellBridge gives the reseller's money back (the supplier did not ship in time, or the
      * parcel was cancelled or came back), and when it first asked the provider to.
      */

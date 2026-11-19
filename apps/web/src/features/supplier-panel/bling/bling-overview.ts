@@ -1,3 +1,7 @@
+import {
+  parseErpCatalogExportResult,
+  type RefusedErpProduct,
+} from "@sellbridge/shared/erp-catalog-export";
 import type { SupplierImportResult } from "@sellbridge/shared/supplier-panel-import-schemas";
 
 /** What the import page shows about the supplier's Bling account and its latest catalog read. */
@@ -22,7 +26,22 @@ export interface BlingConnectionView {
   readonly invoiceEnabledAt: string | null;
   /** Whether the supplier's fiscal data on Marca is complete enough to issue notes. */
   readonly fiscalReady: boolean;
+  /** The latest "Enviar ao Bling o que falta lá"; null when it was never asked for. */
+  readonly catalogExport: BlingExportView | null;
 }
+
+/** The latest send of missing products to Bling, as the card shows it. Times in ISO 8601, UTC. */
+export type BlingExportView =
+  | { readonly status: "sending"; readonly requestedAt: string }
+  | {
+      readonly status: "done";
+      readonly finishedAt: string;
+      readonly created: number;
+      readonly alreadyInErp: number;
+      readonly refusedTotal: number;
+      readonly refused: readonly RefusedErpProduct[];
+    }
+  | { readonly status: "failed"; readonly finishedAt: string; readonly reason: string };
 
 export type BlingReadStatus = "reading" | "ready" | "failed";
 
@@ -41,6 +60,9 @@ interface ConnectionRow {
   readonly lastImportAt: Date | null;
   readonly resellerDiscountTenths: number | null;
   readonly invoiceEnabledAt: Date | null;
+  readonly catalogExportRequestedAt: Date | null;
+  readonly catalogExportFinishedAt: Date | null;
+  readonly catalogExportResult: unknown;
 }
 
 interface ReadRow {
@@ -74,6 +96,55 @@ function readView(read: ReadRow, now: Date): BlingReadView {
   return stalled ? { ...view, status: "failed", error: STALLED_READ_MESSAGE } : view;
 }
 
+/**
+ * A send takes minutes even for a large catalog (3 attempts, a minute apart at most); one still
+ * running long after that lost its worker.
+ */
+const STALLED_EXPORT_AFTER_IN_MS = 2 * 60 * 60 * 1000;
+const STALLED_EXPORT_MESSAGE =
+  "O envio ao Bling parou no meio. Clique em Enviar ao Bling o que falta lá para tentar de novo.";
+const UNREADABLE_EXPORT_MESSAGE =
+  "Não deu para ler o resultado do último envio. Clique em Enviar ao Bling o que falta lá para enviar de novo.";
+
+function isSending(connection: ConnectionRow): boolean {
+  const requested = connection.catalogExportRequestedAt;
+  const finished = connection.catalogExportFinishedAt;
+  return requested !== null && (finished === null || requested > finished);
+}
+
+function exportView(connection: ConnectionRow, now: Date): BlingExportView | null {
+  const requested = connection.catalogExportRequestedAt;
+  if (requested !== null && isSending(connection)) {
+    const stalled = now.getTime() - requested.getTime() > STALLED_EXPORT_AFTER_IN_MS;
+    return stalled
+      ? { status: "failed", finishedAt: requested.toISOString(), reason: STALLED_EXPORT_MESSAGE }
+      : { status: "sending", requestedAt: requested.toISOString() };
+  }
+  const finished = connection.catalogExportFinishedAt;
+  if (finished === null) {
+    return null;
+  }
+  const result = parseErpCatalogExportResult(connection.catalogExportResult);
+  if (result === null) {
+    return {
+      status: "failed",
+      finishedAt: finished.toISOString(),
+      reason: UNREADABLE_EXPORT_MESSAGE,
+    };
+  }
+  if (result.kind === "failed") {
+    return { status: "failed", finishedAt: finished.toISOString(), reason: result.reason };
+  }
+  return {
+    status: "done",
+    finishedAt: finished.toISOString(),
+    created: result.created,
+    alreadyInErp: result.alreadyInErp,
+    refusedTotal: result.refusedTotal,
+    refused: result.refused,
+  };
+}
+
 /** The page's view; nothing about the account leaks while the feature is off. */
 export function blingOverviewFrom(input: {
   available: boolean;
@@ -99,6 +170,7 @@ export function blingOverviewFrom(input: {
             resellerDiscountTenths: connection.resellerDiscountTenths,
             invoiceEnabledAt: connection.invoiceEnabledAt?.toISOString() ?? null,
             fiscalReady: input.fiscalReady,
+            catalogExport: exportView(connection, input.now),
           },
     read: connection === null || read === null ? null : readView(read, input.now),
   };
@@ -113,6 +185,11 @@ export interface BlingImportOutcome extends SupplierImportResult {
 }
 
 const integer = new Intl.NumberFormat("pt-BR");
+
+/** A send still running: the card follows it until it ends. */
+export function isBlingExportRunning(overview: BlingOverview | undefined): boolean {
+  return overview?.connection?.catalogExport?.status === "sending";
+}
 
 /** A read still moving: a new one would only replace it and spend the account's quota twice. */
 export function isBlingReadRunning(overview: BlingOverview): boolean {

@@ -12,7 +12,7 @@ import {
   uniqueIndex,
   uuid,
 } from "drizzle-orm/pg-core";
-import { user } from "./auth.ts";
+import { organization, user } from "./auth.ts";
 import { erpCatalogReadStatusEnum, erpProviderEnum, storeConnectionStatusEnum } from "./enums.ts";
 import { orderShipments } from "./fulfillment.ts";
 import { suppliers } from "./suppliers.ts";
@@ -43,6 +43,14 @@ export const supplierErpConnections = pgTable(
      */
     resellerDiscountTenths: integer(),
     lastImportAt: timestamp({ withTimezone: true }),
+    /**
+     * The latest "send what is missing to the ERP": when it was asked for and when it ended.
+     * Asked after the last end means it is still running.
+     */
+    catalogExportRequestedAt: timestamp({ withTimezone: true }),
+    catalogExportFinishedAt: timestamp({ withTimezone: true }),
+    /** What that send did (counts, refused products, or why it failed), validated with Zod when read. */
+    catalogExportResult: jsonb(),
     /**
      * Since when the ERP issues the NF-e of this supplier's new parcels; null while it is off.
      * Parcels created before it are never invoiced here.
@@ -155,6 +163,60 @@ export const shipmentInvoices = pgTable(
     check(
       "shipment_invoices_status_check",
       sql`${table.status} in ('queued','sent','authorized','attention','cancelled')`,
+    ),
+  ],
+);
+
+/**
+ * The reseller's own sale NF-e of one parcel in venda à ordem (model B): issued by the reseller
+ * outside SellBridge (UpSeller, its own ERP) and read from the marketplace's order, or typed by
+ * the reseller. The supplier's notes reference it. Only its key and the parts the key carries are
+ * kept: the note itself stays with the reseller and the marketplace.
+ */
+export const shipmentResellerInvoices = pgTable(
+  "shipment_reseller_invoices",
+  {
+    id: uuid().primaryKey().defaultRandom(),
+    shipmentId: uuid()
+      .notNull()
+      .references(() => orderShipments.id, { onDelete: "cascade" }),
+    tenantId: text()
+      .notNull()
+      .references(() => organization.id, { onDelete: "cascade" }),
+    /** The 44 digits; null while the note is not found. */
+    accessKey: text(),
+    number: text(),
+    series: text(),
+    /** When the marketplace says the note was issued; null for a typed key. */
+    issuedAt: timestamp({ withTimezone: true }),
+    /** Where the key came from: the marketplace's order or the reseller typing it. */
+    source: text({ enum: ["marketplace", "typed"] }),
+    foundAt: timestamp({ withTimezone: true }),
+    /** Why the note on the marketplace's order does not serve, in the reseller's words. */
+    problem: text(),
+    /** Reads of the marketplace so far; spaces the next one. */
+    checks: integer().notNull().default(0),
+    nextCheckAt: timestamp({ withTimezone: true }).defaultNow().notNull(),
+    createdAt: timestamp({ withTimezone: true }).defaultNow().notNull(),
+    updatedAt: timestamp({ withTimezone: true })
+      .defaultNow()
+      .$onUpdate(() => new Date())
+      .notNull(),
+  },
+  (table) => [
+    uniqueIndex("shipment_reseller_invoices_shipment_idx").on(table.shipmentId),
+    /** The job reads the notes still missing, the one due first. */
+    index("shipment_reseller_invoices_due_idx")
+      .on(table.nextCheckAt)
+      .where(sql`${table.accessKey} is null`),
+    index("shipment_reseller_invoices_tenant_idx").on(table.tenantId),
+    check(
+      "shipment_reseller_invoices_source_check",
+      sql`${table.source} is null or ${table.source} in ('marketplace', 'typed')`,
+    ),
+    check(
+      "shipment_reseller_invoices_found_check",
+      sql`(${table.accessKey} is null) = (${table.source} is null)`,
     ),
   ],
 );

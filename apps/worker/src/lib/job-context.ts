@@ -15,3 +15,9 @@ interface BullJob {
 export function toJobContext(job: BullJob): JobContext {
   return { data: job.data, attemptsMade: job.attemptsMade, maxAttempts: job.opts.attempts ?? 1 };
 }
+
+/** Whether this run is the job's last: a failure now is final. */
+export function isLastAttempt(job: BullJob): boolean {
+  const { attemptsMade, maxAttempts } = toJobContext(job);
+  return attemptsMade + 1 >= maxAttempts;
+}

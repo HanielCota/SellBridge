@@ -11,6 +11,7 @@ import {
 } from "@sellbridge/database/repositories";
 import type { MercadoPagoSettings } from "@sellbridge/payments/mercado-pago";
 import { logger } from "@sellbridge/shared/logger";
+import { problemsLoggedBy } from "@sellbridge/shared/problem-capture-testing";
 import { shipmentUpdateSchema, type FulfillmentStatus } from "@sellbridge/shared/schemas";
 import { eq } from "drizzle-orm";
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
@@ -88,6 +89,8 @@ const fake = {
   checkouts: new Map<string, string[]>(),
   refundAnswer: { status: 201, body: { id: 9001, status: "approved" } as unknown },
   refundKeys: [] as string[],
+  /** Every call answers 503, as during a Mercado Pago outage. */
+  down: false,
 };
 
 function json(body: unknown, status = 200): Response {
@@ -96,6 +99,9 @@ function json(body: unknown, status = 200): Response {
 
 async function answerMercadoPago(url: unknown, init?: RequestInit): Promise<Response> {
   const requested = new URL(String(url));
+  if (fake.down) {
+    return json({ message: "unavailable" }, 503);
+  }
   if (requested.pathname.endsWith("/merchant_orders/search")) {
     const preferenceId = requested.searchParams.get("preference_id") ?? "";
     const ids = fake.checkouts.get(preferenceId) ?? [];
@@ -135,6 +141,7 @@ beforeEach(() => {
   fake.checkouts.clear();
   fake.refundAnswer = { status: 201, body: { id: 9001, status: "approved" } };
   fake.refundKeys = [];
+  fake.down = false;
   vi.stubGlobal("fetch", vi.fn(answerMercadoPago));
 });
 
@@ -283,6 +290,32 @@ describe("supplier payment reconciliation", () => {
 
     expect(round).toEqual({ checked: 0, refundsRequested: 0, refundsRefused: 0, refundsHeld: 0 });
     expect(fetch).not.toHaveBeenCalled();
+  });
+});
+
+describe("provider outage", () => {
+  it("tells the team once payments waited more than two hours on Mercado Pago", async () => {
+    const { payment } = await parcelWithCheckout();
+    fake.down = true;
+
+    const firstRound = await problemsLoggedBy(processor());
+    await database
+      .update(schema.shipmentPayments)
+      .set({ providerDeferredSince: new Date(Date.now() - 3 * HOUR_IN_MS) })
+      .where(eq(schema.shipmentPayments.id, payment.id));
+    const laterRound = await problemsLoggedBy(processor());
+    fake.down = false;
+    await processor()();
+
+    expect(firstRound.some((problem) => problem.event === "payments.provider_stuck")).toBe(false);
+    const stuck = laterRound.filter((problem) => problem.event === "payments.provider_stuck");
+    expect(stuck).toHaveLength(1);
+    expect(stuck[0]).toMatchObject({
+      area: "payments",
+      message: expect.stringContaining("Mercado Pago sem responder há mais de 2 horas"),
+    });
+    const recovered = await findShipmentPaymentById(database, payment.id);
+    expect(recovered?.providerDeferredSince).toBeNull();
   });
 });
 

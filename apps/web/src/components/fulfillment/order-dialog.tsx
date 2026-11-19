@@ -25,6 +25,7 @@ import { refreshMarketplaceTrackingFn } from "@/features/fulfillment/marketplace
 import { errorMessage } from "@/lib/errors";
 import { ForwardForm } from "./forward-form";
 import { ResellerInvoiceCard } from "./reseller-invoice-card";
+import { ResellerSaleNoteCard } from "./reseller-sale-note-card";
 import { ShipmentPanel } from "./shipment-panel";
 import { ResellerSupplierPayment } from "@/components/supplier-payments/reseller-supplier-payment";
 import { TrackParcelLink } from "@/components/tracking/track-parcel-link";
@@ -66,12 +67,32 @@ function paymentLine(shipment: Detail["shipments"][number]) {
     <ResellerSupplierPayment shipmentId={shipment.id} />
   );
 }
-function invoiceCard(orderId: string, shipment: Detail["shipments"][number]) {
-  if (shipment.invoice === null) {
+/** In venda à ordem the reseller's own note comes first: the supplier's notes wait for it. */
+function invoiceCards(
+  orderId: string,
+  shipment: Detail["shipments"][number],
+  refresh: () => Promise<void>,
+) {
+  if (shipment.invoice === null && shipment.resellerNote === null) {
     return null;
   }
   return (
-    <ResellerInvoiceCard orderId={orderId} shipmentId={shipment.id} invoice={shipment.invoice} />
+    <>
+      {shipment.resellerNote === null ? null : (
+        <ResellerSaleNoteCard
+          shipmentId={shipment.id}
+          note={shipment.resellerNote}
+          onSaved={refresh}
+        />
+      )}
+      {shipment.invoice === null ? null : (
+        <ResellerInvoiceCard
+          orderId={orderId}
+          shipmentId={shipment.id}
+          invoice={shipment.invoice}
+        />
+      )}
+    </>
   );
 }
 /** Each supplier's parcel, with the reseller's own controls: the link, and re-forwarding. */
@@ -95,7 +116,7 @@ function ShipmentList({
       externalOrderId={detail.order.externalOrderId}
       blocked={blocked}
       payment={paymentLine(shipment)}
-      invoice={invoiceCard(detail.order.id, shipment)}
+      invoice={invoiceCards(detail.order.id, shipment, refresh)}
       onUpdate={async (input) => {
         await updateShipmentFn({ data: input });
         await refresh();

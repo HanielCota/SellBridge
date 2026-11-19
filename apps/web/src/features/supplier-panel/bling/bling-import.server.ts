@@ -4,6 +4,8 @@ import {
   findErpCatalogRead,
   findErpCatalogReadProgress,
   findErpConnection,
+  markErpCatalogExportRequested,
+  saveErpCatalogExportResult,
   findSupplierProductCostsBySku,
   findSupplierProductFieldsKeptOnErpImport,
   getSupplierTaxDefaults,
@@ -287,6 +289,9 @@ export async function importBlingRead(input: {
   return outcome;
 }
 
+const EXPORT_NOT_STARTED_MESSAGE =
+  "Não deu para começar o envio ao Bling. Clique em Enviar ao Bling o que falta lá para tentar de novo.";
+
 /** Queues the sending of the products Bling does not have yet (worker `erp-catalog-export`). */
 export async function requestBlingCatalogExport(input: {
   supplierId: string;
@@ -298,7 +303,23 @@ export async function requestBlingCatalogExport(input: {
   if (refusal !== null) {
     throw conflictError(refusal);
   }
-  await enqueueErpCatalogExport({ supplierId: input.supplierId });
+  // Marked before the job exists: a send that ends at once never looks older than its request.
+  await markErpCatalogExportRequested(database, {
+    supplierId: input.supplierId,
+    ...BLING,
+    now: new Date(),
+  });
+  try {
+    await enqueueErpCatalogExport({ supplierId: input.supplierId });
+  } catch (error) {
+    await saveErpCatalogExportResult(database, {
+      supplierId: input.supplierId,
+      ...BLING,
+      finishedAt: new Date(),
+      result: { kind: "failed", reason: EXPORT_NOT_STARTED_MESSAGE },
+    });
+    throw error;
+  }
 }
 
 /**
