@@ -6,9 +6,10 @@ import {
   type ReceivingRules,
   type ReceivingRulesChoice,
 } from "@sellbridge/shared/receiving-rules";
-import { eq } from "drizzle-orm";
+import { and, count, eq, not } from "drizzle-orm";
 import type { Database, DatabaseExecutor } from "../client.ts";
-import { platformSettings } from "../schema/index.ts";
+import { platformSettings, suppliers } from "../schema/index.ts";
+import { publicSupplier, receivingAccountApproved } from "./sql/sellable.ts";
 
 const rulesColumns = {
   receivingAccountSince: platformSettings.requireReceivingAccountSince,
@@ -54,4 +55,15 @@ export async function setReceivingRules(
       .onConflictDoUpdate({ target: platformSettings.id, set: values });
     return next;
   });
+}
+
+/** Active public suppliers without an approved receiving account: who the account rule hides. */
+export async function countSuppliersWithoutReceivingAccount(
+  database: DatabaseExecutor,
+): Promise<number> {
+  const [row] = await database
+    .select({ total: count() })
+    .from(suppliers)
+    .where(and(publicSupplier(), eq(suppliers.active, true), not(receivingAccountApproved())));
+  return row?.total ?? 0;
 }
