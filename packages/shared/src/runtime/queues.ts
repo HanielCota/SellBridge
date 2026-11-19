@@ -28,6 +28,8 @@ export const QUEUE_NAMES = {
   erpCatalogExport: "erp-catalog-export",
   /** Reads the supplier's ERP catalog for an import, reporting progress (minutes for 400+). */
   erpCatalogRead: "erp-catalog-read",
+  /** Keeps the stock of ERP-linked products equal to the ERP's (notifications and a 15-min check). */
+  erpStockSync: "erp-stock-sync",
   /** Issues the NF-e of new parcels through the supplier's ERP and follows SEFAZ's answer. */
   erpInvoiceIssue: "erp-invoice-issue",
   /** Reads supplier payments back from Mercado Pago and refunds the ones that are due. */
@@ -58,6 +60,40 @@ export type ErpCatalogReadJob = z.infer<typeof erpCatalogReadJobSchema>;
 
 export function erpCatalogReadJobId(job: ErpCatalogReadJob): string {
   return `erp-catalog-read-${job.readId}`;
+}
+
+/** The ERP stock jobs: the periodic round, one supplier's full check, and reads asked by notices. */
+export const ERP_STOCK_JOB_NAMES = {
+  checkAll: "check-all-erp-stock",
+  checkSupplier: "check-erp-stock",
+  refreshSupplier: "refresh-erp-stock",
+} as const;
+
+export const erpStockSupplierJobSchema = z.object({ supplierId: z.uuid() });
+export type ErpStockSupplierJob = z.infer<typeof erpStockSupplierJobSchema>;
+
+/** Notices of one supplier arriving within this window are read together, in one request. */
+export const ERP_STOCK_REFRESH_WINDOW_IN_MS = 5_000;
+
+export const ERP_STOCK_JOB_OPTIONS = { removeOnComplete: 100, removeOnFail: 500 } as const;
+
+/** A supplier's full check waiting in the queue is not added twice by the next round. */
+export function erpStockCheckJobId(job: ErpStockSupplierJob): string {
+  return `erp-stock-check-${job.supplierId}`;
+}
+
+/**
+ * One read per supplier and notice window: repeats inside the window add nothing, and a notice
+ * arriving while that read runs gets the next window's read, so none waits for the 15-min check.
+ *
+ * @throws {RangeError} When `nowInMs` is not a finite number.
+ */
+export function erpStockRefreshJobId(job: ErpStockSupplierJob, nowInMs: number): string {
+  if (!Number.isFinite(nowInMs)) {
+    throw new RangeError(`nowInMs must be finite, got ${nowInMs}`);
+  }
+  const window = Math.floor(nowInMs / ERP_STOCK_REFRESH_WINDOW_IN_MS);
+  return `erp-stock-refresh-${job.supplierId}-${window}`;
 }
 
 export const webhookEventJobSchema = z.object({

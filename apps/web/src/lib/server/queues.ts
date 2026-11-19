@@ -4,6 +4,10 @@ import {
   erpCatalogExportJobSchema,
   erpCatalogReadJobId,
   erpCatalogReadJobSchema,
+  ERP_STOCK_JOB_NAMES,
+  ERP_STOCK_JOB_OPTIONS,
+  ERP_STOCK_REFRESH_WINDOW_IN_MS,
+  erpStockRefreshJobId,
   type ErpCatalogExportJob,
   type ErpCatalogReadJob,
   releaseFinishedJob,
@@ -19,6 +23,7 @@ import {
   type PublishListingJob,
   type StoreOrderCatchUpJob,
 } from "@sellbridge/shared/queues";
+import { createRedisSlotStore } from "@sellbridge/shared/redis-slots";
 import { Queue } from "bullmq";
 import { environment } from "./environment.ts";
 
@@ -46,6 +51,14 @@ export async function enqueuePublishJobs(jobs: readonly PublishListingJob[]): Pr
 /** Health probe (item 32.d): Redis answers through the queue connection the app already has. */
 export async function pingRedis(): Promise<boolean> {
   return pingQueueConnection(getPublishQueue());
+}
+
+/** Rate slots shared with the worker through Redis (an ERP quota is per account, not per process). */
+export function sharedRateSlots(namespace: string) {
+  return {
+    reserve: async (key: string, spacingInMs: number) =>
+      createRedisSlotStore(getPublishQueue(), namespace).reserve(key, spacingInMs),
+  };
 }
 
 let webhookQueue: Queue | null = null;
@@ -78,6 +91,56 @@ export async function enqueueStockPriceSync(): Promise<void> {
     connection: { url: environment.REDIS_URL },
   });
   await stockPriceSyncQueue.add(STOCK_SYNC_JOB_NAME, {}, STOCK_SYNC_JOB_OPTIONS);
+}
+
+let erpStockQueue: Queue | null = null;
+
+/**
+ * Reads the products a Bling stock notice named, a few seconds later so the notices arriving
+ * together are read in one request.
+ */
+export async function enqueueErpStockRefresh(supplierId: string): Promise<void> {
+  erpStockQueue ??= new Queue(QUEUE_NAMES.erpStockSync, {
+    connection: { url: environment.REDIS_URL },
+  });
+  await erpStockQueue.add(
+    ERP_STOCK_JOB_NAMES.refreshSupplier,
+    { supplierId },
+    {
+      ...ERP_STOCK_JOB_OPTIONS,
+      delay: ERP_STOCK_REFRESH_WINDOW_IN_MS,
+      jobId: erpStockRefreshJobId({ supplierId }, Date.now()),
+    },
+  );
+}
+
+/** Bling retries a notice for up to 3 days; a repeat inside that window is the same event. */
+const ERP_NOTICE_SEEN_TTL_IN_SECONDS = 3 * 24 * 60 * 60;
+
+function erpNoticeKey(eventId: string): string {
+  return `sellbridge:erp-notice-seen:${eventId}`;
+}
+
+/**
+ * Marks a Bling notice as received; false when its event id was already received (a repeat from
+ * Bling or a replayed copy), so it is not stored and read again.
+ */
+export async function markErpNoticeSeen(eventId: string): Promise<boolean> {
+  const client = await getPublishQueue().getBackend().client;
+  const answer = await client.runCommand("set", [
+    erpNoticeKey(eventId),
+    "1",
+    "EX",
+    String(ERP_NOTICE_SEEN_TTL_IN_SECONDS),
+    "NX",
+  ]);
+  return answer === "OK";
+}
+
+/** Forgets a notice whose storing failed, so Bling's retry of it is accepted. */
+export async function forgetErpNotice(eventId: string): Promise<void> {
+  const client = await getPublishQueue().getBackend().client;
+  await client.runCommand("del", [erpNoticeKey(eventId)]);
 }
 
 let orderMessageFollowUpQueue: Queue | null = null;

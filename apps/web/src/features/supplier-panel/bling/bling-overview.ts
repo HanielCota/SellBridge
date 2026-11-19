@@ -3,6 +3,7 @@ import {
   type RefusedErpProduct,
 } from "@sellbridge/shared/erp-catalog-export";
 import type { SupplierImportResult } from "@sellbridge/shared/supplier-panel-import-schemas";
+import { formatAbsoluteTime } from "@/lib/relative-time";
 
 /** What the import page shows about the supplier's Bling account and its latest catalog read. */
 export interface BlingOverview {
@@ -26,6 +27,8 @@ export interface BlingConnectionView {
   readonly invoiceEnabledAt: string | null;
   /** Whether the supplier's fiscal data on Marca is complete enough to issue notes. */
   readonly fiscalReady: boolean;
+  /** When the stock last matched Bling in a full check (ISO 8601, UTC); null before the first. */
+  readonly stockCheckedAt: string | null;
   /** The latest "Enviar ao Bling o que falta lá"; null when it was never asked for. */
   readonly catalogExport: BlingExportView | null;
 }
@@ -60,6 +63,7 @@ interface ConnectionRow {
   readonly lastImportAt: Date | null;
   readonly resellerDiscountTenths: number | null;
   readonly invoiceEnabledAt: Date | null;
+  readonly stockCheckedAt: Date | null;
   readonly catalogExportRequestedAt: Date | null;
   readonly catalogExportFinishedAt: Date | null;
   readonly catalogExportResult: unknown;
@@ -170,10 +174,25 @@ export function blingOverviewFrom(input: {
             resellerDiscountTenths: connection.resellerDiscountTenths,
             invoiceEnabledAt: connection.invoiceEnabledAt?.toISOString() ?? null,
             fiscalReady: input.fiscalReady,
+            stockCheckedAt: connection.stockCheckedAt?.toISOString() ?? null,
             catalogExport: exportView(connection, input.now),
           },
     read: connection === null || read === null ? null : readView(read, input.now),
   };
+}
+
+/**
+ * What the card says about stock. It follows Bling on its own only while the NF-e goes through
+ * SellBridge: those sales already lower Bling's stock (the other sales reach Bling in a later step).
+ */
+export function blingStockLine(connection: BlingConnectionView): string {
+  if (connection.invoiceEnabledAt === null) {
+    return "O estoque passa a acompanhar o Bling sozinho quando a nota fiscal pelo Bling estiver ligada.";
+  }
+  if (connection.stockCheckedAt === null) {
+    return "Estoque atualizado sozinho pelo Bling · a primeira conferência sai em até 15 minutos.";
+  }
+  return `Estoque atualizado sozinho pelo Bling · última conferência: ${formatAbsoluteTime(new Date(connection.stockCheckedAt))}.`;
 }
 
 export interface BlingImportOutcome extends SupplierImportResult {

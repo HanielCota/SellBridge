@@ -43,6 +43,7 @@
     "./problem-areas": "./src/domain/problem-areas.ts",
     "./erp-catalog-export": "./src/domain/erp-catalog-export.ts",
     "./queues": "./src/runtime/queues.ts",
+    "./redis-slots": "./src/runtime/redis-slots.ts",
     "./channel-fees": "./src/domain/channel-fees.ts",
     "./mercado-livre-shipping": "./src/domain/mercado-livre-shipping.ts",
     "./fee-model": "./src/domain/fee-model.ts",

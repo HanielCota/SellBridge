@@ -49,6 +49,7 @@ const FAILURE_REASONS: Readonly<Record<QueueName, string>> = {
   [QUEUE_NAMES.erpCatalogExport]:
     "O envio do catálogo do fornecedor ao Bling falhou em todas as tentativas.",
   [QUEUE_NAMES.erpCatalogRead]: "A leitura do catálogo do fornecedor no Bling falhou.",
+  [QUEUE_NAMES.erpStockSync]: "A conferência do estoque do fornecedor no Bling falhou.",
   [QUEUE_NAMES.erpInvoiceIssue]: "A emissão das notas fiscais pelo Bling falhou.",
   [QUEUE_NAMES.supplierPayments]: "A rodada de pagamentos dos fornecedores falhou.",
   [QUEUE_NAMES.marketplaceClaimSweep]:

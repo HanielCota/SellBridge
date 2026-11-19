@@ -1,9 +1,11 @@
 import { describe, expect, it } from "vitest";
 import {
   blingOverviewFrom,
+  blingStockLine,
   isBlingExportRunning,
   isBlingReadRunning,
   skippedProductsNote,
+  type BlingConnectionView,
 } from "./bling-overview";
 
 const connection = {
@@ -13,6 +15,7 @@ const connection = {
   lastImportAt: null,
   resellerDiscountTenths: 300,
   invoiceEnabledAt: null,
+  stockCheckedAt: null,
   catalogExportRequestedAt: null,
   catalogExportFinishedAt: null,
   catalogExportResult: null,
@@ -151,6 +154,38 @@ describe("skippedProductsNote", () => {
 
   it("uses the singular for one product", () => {
     expect(skippedProductsNote(1)).toContain("1 produto ficou de fora");
+  });
+});
+
+describe("blingStockLine", () => {
+  const view: BlingConnectionView = {
+    status: "connected",
+    accountName: null,
+    connectedAt: "2026-11-10T12:00:00.000Z",
+    lastImportAt: null,
+    resellerDiscountTenths: null,
+    invoiceEnabledAt: "2026-11-12T12:00:00.000Z",
+    fiscalReady: true,
+    stockCheckedAt: "2026-11-19T17:30:00.000Z",
+    catalogExport: null,
+  };
+
+  it("says the stock follows Bling and when it was last checked", () => {
+    expect(blingStockLine(view)).toMatch(
+      /^Estoque atualizado sozinho pelo Bling · última conferência: .*14:30/,
+    );
+  });
+
+  it("says the first check is on its way before it ran", () => {
+    expect(blingStockLine({ ...view, stockCheckedAt: null })).toBe(
+      "Estoque atualizado sozinho pelo Bling · a primeira conferência sai em até 15 minutos.",
+    );
+  });
+
+  it("says what turns it on while the NF-e through Bling is off", () => {
+    expect(blingStockLine({ ...view, invoiceEnabledAt: null })).toBe(
+      "O estoque passa a acompanhar o Bling sozinho quando a nota fiscal pelo Bling estiver ligada.",
+    );
   });
 });
 
