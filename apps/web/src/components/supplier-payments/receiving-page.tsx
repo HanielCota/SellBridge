@@ -1,308 +1,40 @@
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { useState, type ReactNode } from "react";
-import { toast } from "sonner";
-import { ConfirmDialog } from "@/components/feedback/confirm-dialog";
+import { ESCROW_RELEASE_DELAY_IN_DAYS } from "@sellbridge/shared/escrow-release";
+import { useQuery } from "@tanstack/react-query";
 import { ErrorState } from "@/components/feedback/error-state";
 import { PageHeader } from "@/components/layout/page-header";
-import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
+import { asaasReceivingQueryOptions } from "@/features/supplier-payments/asaas.queries";
 import { formatFeePercent } from "@/features/supplier-payments/fee-percent";
-import {
-  MERCADO_PAGO_OUTCOME_MESSAGES,
-  type MercadoPagoConnectOutcome,
-} from "@/features/supplier-payments/mercado-pago-connection";
-import {
-  getPaymentAccountFn,
-  unlinkPaymentAccountFn,
-} from "@/features/supplier-payments/supplier-payments.functions";
 import { paymentAccountQueryOptions } from "@/features/supplier-payments/supplier-payments.queries";
 import { errorMessage } from "@/lib/errors";
-import { formatAbsoluteTime } from "@/lib/relative-time";
-import { cn } from "@/lib/utils";
-import { asaasReceivingQueryOptions } from "@/features/supplier-payments/asaas.queries";
-import { AsaasReceivingCard, type AsaasReceivingView } from "./asaas-receiving-card";
-import { ReceivingChoice } from "./receiving-choice";
-import { receivingEmphasis, type ButtonEmphasis } from "./receiving-emphasis";
-import { PaymentPill } from "./supplier-payment-badge";
+import { AsaasReceivingCard } from "./asaas-receiving-card";
 
-type AccountView = Awaited<ReturnType<typeof getPaymentAccountFn>>;
-
-function connectHref(supplierId: string): string {
-  return `/api/integracoes/mercado-pago/conectar?fornecedor=${encodeURIComponent(supplierId)}`;
-}
-
-function OutcomeNotice({ outcome }: { outcome: MercadoPagoConnectOutcome }) {
-  const message = MERCADO_PAGO_OUTCOME_MESSAGES[outcome];
-  return (
-    <p
-      role={message.ok ? "status" : "alert"}
-      className={cn(
-        "rounded-2xl px-4 py-3 text-sm font-medium",
-        message.ok
-          ? "bg-emerald-500/14 text-emerald-800 dark:text-emerald-300"
-          : "bg-destructive/10 text-destructive",
-      )}
-    >
-      {message.text}
-    </p>
-  );
-}
-
-function CardShell({ children }: { children: ReactNode }) {
-  return (
-    <section
-      aria-labelledby="mercado-pago-card-title"
-      className="surface-card grid max-w-3xl gap-4 rounded-3xl bg-card p-5 sm:p-6"
-    >
-      {children}
-    </section>
-  );
-}
-
-function CardHeading({ badge, children }: { badge: ReactNode; children: ReactNode }) {
-  return (
-    <div className="flex items-start gap-3.5">
-      <span
-        aria-hidden="true"
-        className="grid size-11 flex-none place-items-center rounded-2xl bg-sky-100 text-sm font-bold text-sky-700 dark:bg-sky-950 dark:text-sky-300"
-      >
-        MP
-      </span>
-      <div className="grid min-w-0 gap-1.5">
-        <div className="flex flex-wrap items-center gap-2">
-          <h2 id="mercado-pago-card-title" className="text-subhead font-medium">
-            Mercado Pago
-          </h2>
-          {badge}
-        </div>
-        <div className="text-sm text-muted-foreground">{children}</div>
-      </div>
-    </div>
-  );
-}
-
-function LinkCard(props: { supplierId: string; fee: string; emphasis: ButtonEmphasis }) {
-  return (
-    <CardShell>
-      <CardHeading badge={<PaymentPill tone="neutral">Não ligada</PaymentPill>}>
-        Quando o revendedor paga um pedido, o Mercado Pago desconta a tarifa dele, o SellBridge fica
-        com {props.fee} e o resto cai na sua conta Mercado Pago. Você saca quando quiser.
-      </CardHeading>
-      <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
-        <Button asChild size="lg" variant={props.emphasis}>
-          <a href={connectHref(props.supplierId)}>Ligar conta Mercado Pago</a>
-        </Button>
-        <span className="text-sm text-muted-foreground">
-          Leva 1 minuto. Você entra no Mercado Pago e autoriza.
-        </span>
-      </div>
-      <p className="text-sm text-muted-foreground">
-        Sem a conta ligada, os pedidos continuam chegando e o revendedor paga você por fora, como
-        hoje.
-      </p>
-    </CardShell>
-  );
-}
-
-function ErrorCard(props: { supplierId: string; since: string | null; emphasis: ButtonEmphasis }) {
-  const { supplierId, since } = props;
-  return (
-    <CardShell>
-      <CardHeading
-        badge={
-          <PaymentPill tone="danger">
-            {since === null ? "Com erro" : `Com erro · ${formatAbsoluteTime(new Date(since))}`}
-          </PaymentPill>
-        }
-      >
-        <span className="text-foreground">
-          O Mercado Pago não deixou o SellBridge receber em seu nome (a autorização foi cancelada ou
-          venceu). Até ligar de novo, os revendedores pagam você por fora.
-        </span>
-      </CardHeading>
-      <div>
-        <Button asChild size="lg" variant={props.emphasis}>
-          <a href={connectHref(supplierId)}>Ligar de novo</a>
-        </Button>
-      </div>
-    </CardShell>
-  );
-}
-
-function UnlinkButton({ supplierId }: { supplierId: string }) {
-  const [open, setOpen] = useState(false);
-  const queryClient = useQueryClient();
-  const unlink = useMutation({
-    mutationFn: () => unlinkPaymentAccountFn({ data: { supplierId } }),
-    onSuccess: async () => {
-      setOpen(false);
-      toast.success("Conta Mercado Pago desligada. Os próximos pedidos você recebe por fora.");
-      await queryClient.invalidateQueries({
-        queryKey: paymentAccountQueryOptions(supplierId).queryKey,
-      });
-    },
-    onError: (error) => toast.error(errorMessage(error)),
-  });
-  return (
-    <>
-      <Button
-        variant="link"
-        className="h-11 px-0 text-muted-foreground"
-        onClick={() => setOpen(true)}
-      >
-        Desligar a conta
-      </Button>
-      <ConfirmDialog
-        open={open}
-        onOpenChange={setOpen}
-        title="Desligar a conta Mercado Pago?"
-        description="Os revendedores deixam de pagar você pelo SellBridge: os próximos pedidos você recebe por fora. O que já foi pago continua na sua conta Mercado Pago, e você pode ligar de novo quando quiser."
-        confirmLabel="Desligar a conta"
-        pendingLabel="Desligando…"
-        isPending={unlink.isPending}
-        destructive
-        onConfirm={() => unlink.mutate()}
-      />
-    </>
-  );
-}
-
-function LinkedCard({
-  supplierId,
-  fee,
-  since,
-}: {
-  supplierId: string;
-  fee: string;
-  since: string | null;
-}) {
-  return (
-    <CardShell>
-      <CardHeading
-        badge={
-          <PaymentPill tone="success">
-            {since === null ? "✓ Ligada" : `✓ Ligada · ${formatAbsoluteTime(new Date(since))}`}
-          </PaymentPill>
-        }
-      >
-        Os revendedores já podem pagar seus pedidos com Pix ou cartão. A cada pagamento, o
-        SellBridge fica com {fee} e o resto cai na sua conta Mercado Pago.
-      </CardHeading>
-      <div className="flex flex-wrap items-center gap-x-5 gap-y-1">
-        <a
-          href="https://www.mercadopago.com.br/activities"
-          target="_blank"
-          rel="noopener noreferrer"
-          className="inline-flex h-11 items-center text-sm text-foreground underline underline-offset-4"
-        >
-          Ver meu saldo no Mercado Pago
-        </a>
-        <UnlinkButton supplierId={supplierId} />
-      </div>
-    </CardShell>
-  );
-}
-
-function AccountCard(props: {
-  supplierId: string;
-  account: AccountView;
-  emphasis: ButtonEmphasis;
-}) {
-  const { supplierId, account, emphasis } = props;
-  const fee = formatFeePercent(account.feeBasisPoints);
-  if (account.status === "connected") {
-    return <LinkedCard supplierId={supplierId} fee={fee} since={account.connectedAt} />;
-  }
-  if (account.status === "error" || account.status === "expired") {
-    return <ErrorCard supplierId={supplierId} since={account.updatedAt} emphasis={emphasis} />;
-  }
-  return <LinkCard supplierId={supplierId} fee={fee} emphasis={emphasis} />;
-}
-
-function UnavailableCard() {
-  return (
-    <CardShell>
-      <CardHeading badge={<PaymentPill tone="neutral">Em breve</PaymentPill>}>
-        O pagamento pelo Mercado Pago ainda não foi ligado no SellBridge. Enquanto isso, os
-        revendedores pagam você por fora, como hoje.
-      </CardHeading>
-    </CardShell>
-  );
-}
-
-function ProtectionRequiredNotice({ view }: { view: AsaasReceivingView }) {
-  if (!view.protectionRequired) {
-    return null;
-  }
-  const word = view.deliveriesToGo === 1 ? "entrega" : "entregas";
-  return (
-    <output className="block max-w-3xl rounded-2xl bg-amber-500/14 px-4 py-3 text-sm font-medium">
-      Fornecedores novos recebem com proteção (Asaas) até completar as primeiras entregas. Faltam{" "}
-      {view.deliveriesToGo} {word}. Até lá, os revendedores pagam você pelo Asaas.
-    </output>
-  );
-}
-
-function AsaasSection(props: { supplierId: string; fee: string; emphasis: ButtonEmphasis }) {
-  const { supplierId, fee } = props;
-  const query = useQuery(asaasReceivingQueryOptions(supplierId));
-  if (query.isPending) {
-    return <Skeleton className="h-44 max-w-3xl rounded-3xl" />;
-  }
-  if (query.isError) {
-    return <ErrorState message={errorMessage(query.error)} onRetry={() => void query.refetch()} />;
-  }
-  return (
-    <>
-      <ProtectionRequiredNotice view={query.data} />
-      <AsaasReceivingCard
-        supplierId={supplierId}
-        view={query.data}
-        fee={fee}
-        emphasis={props.emphasis}
-      />
-    </>
-  );
-}
-
-/** The supplier links the accounts that receive the resellers' payments and picks one. */
-export function ReceivingPage({
-  supplierId,
-  outcome,
-}: {
-  supplierId: string;
-  outcome: MercadoPagoConnectOutcome | undefined;
-}) {
-  const query = useQuery(paymentAccountQueryOptions(supplierId));
+/**
+ * The supplier opens the Asaas account that receives the resellers' payments. Mercado Pago is
+ * hidden since 18/11/2026 (see `mercado-pago-account-card.tsx`).
+ */
+export function ReceivingPage({ supplierId }: { supplierId: string }) {
+  const feeQuery = useQuery(paymentAccountQueryOptions(supplierId));
   const asaasQuery = useQuery(asaasReceivingQueryOptions(supplierId));
-  const emphasis = receivingEmphasis({
-    mercadoPagoAsksToLink: query.data?.available === true && query.data.status !== "connected",
-    protectionRequired: asaasQuery.data?.protectionRequired === true,
-  });
+  const failed = [feeQuery, asaasQuery].find((query) => query.isError) ?? null;
   return (
     <div className="space-y-6">
       <PageHeader
         title="Receber pagamentos"
-        description="Escolha como os revendedores pagam você pelo SellBridge: na hora, pelo Mercado Pago, ou com proteção até a entrega, pelo Asaas."
+        description={`Os revendedores pagam você pelo Asaas. O valor fica guardado e é liberado ${ESCROW_RELEASE_DELAY_IN_DAYS} dias depois da entrega.`}
       />
-      {outcome === undefined ? null : <OutcomeNotice outcome={outcome} />}
-      {asaasQuery.data === undefined ? null : (
-        <ReceivingChoice supplierId={supplierId} view={asaasQuery.data} />
+      {failed === null ? null : (
+        <ErrorState message={errorMessage(failed.error)} onRetry={() => void failed.refetch()} />
       )}
-      {query.isPending ? <Skeleton className="h-44 max-w-3xl rounded-3xl" /> : null}
-      {query.isError ? (
-        <ErrorState message={errorMessage(query.error)} onRetry={() => void query.refetch()} />
+      {failed === null && (feeQuery.data === undefined || asaasQuery.data === undefined) ? (
+        <Skeleton className="h-44 max-w-3xl rounded-3xl" />
       ) : null}
-      {query.data === undefined ? null : query.data.available ? (
-        <AccountCard supplierId={supplierId} account={query.data} emphasis={emphasis.mercadoPago} />
-      ) : (
-        <UnavailableCard />
-      )}
-      {query.data === undefined ? null : (
-        <AsaasSection
+      {feeQuery.data === undefined || asaasQuery.data === undefined ? null : (
+        <AsaasReceivingCard
           supplierId={supplierId}
-          fee={formatFeePercent(query.data.feeBasisPoints)}
-          emphasis={emphasis.asaas}
+          view={asaasQuery.data}
+          fee={formatFeePercent(feeQuery.data.feeBasisPoints)}
+          emphasis="default"
         />
       )}
     </div>

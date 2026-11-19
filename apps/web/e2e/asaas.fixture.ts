@@ -357,11 +357,11 @@ function refundCharge(charge: Charge, response: ServerResponse): void {
   notify(refunded, "PAYMENT_REFUNDED");
 }
 
+/** Like the real sandbox (18/11/2026): only SellBridge's key ends a guarantee; others get 404. */
 function finishEscrow(request: IncomingMessage, escrowId: string, response: ServerResponse): void {
-  const account = accountOf(request);
-  const charge = [...charges.values()].find(
-    (candidate) => candidate.escrow?.id === escrowId && candidate.accountId === account?.id,
-  );
+  const charge = isPlatform(request)
+    ? [...charges.values()].find((candidate) => candidate.escrow?.id === escrowId)
+    : undefined;
   const escrow = charge?.escrow ?? null;
   if (charge === undefined || escrow === null) {
     json(response, 404, {});
@@ -419,8 +419,19 @@ function invoicePage(url: URL, response: ServerResponse): void {
   }
   html(
     response,
-    `<h1>Fatura de teste do Asaas</h1><p>${escape(charge.description)}</p><p>Total: ${money.format(charge.value)}</p><p>Situação: ${escape(charge.status)}</p><form method="get"><input type="hidden" name="id" value="${escape(charge.id)}"><button name="pagar" value="pix">Pagar com Pix</button><button name="pagar" value="cartao">Pagar com cartão</button></form>`,
+    `<h1>Fatura de teste do Asaas</h1><p>${escape(charge.description)}</p><p>Total: ${money.format(charge.value)}</p><p>Situação: ${escape(charge.status)}</p><form method="get"><input type="hidden" name="id" value="${escape(charge.id)}">${invoiceButtons(charge.billingType)}</form>`,
   );
+}
+
+/** Like the real page (sandbox, 18/11/2026): a charge offers only its billing type; UNDEFINED offers boleto too. */
+function invoiceButtons(billingType: string): string {
+  const pix = '<button name="pagar" value="pix">Pagar com Pix</button>';
+  const card = '<button name="pagar" value="cartao">Pagar com cartão</button>';
+  const boleto = '<button name="pagar" value="boleto">Pagar com boleto</button>';
+  if (billingType === "PIX") return pix;
+  if (billingType === "CREDIT_CARD") return card;
+  if (billingType === "BOLETO") return boleto;
+  return pix + card + boleto;
 }
 
 function documentsEndpoint(request: IncomingMessage, response: ServerResponse): void {

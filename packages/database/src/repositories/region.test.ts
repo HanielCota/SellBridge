@@ -61,8 +61,13 @@ describe("billing holder", () => {
       fullName: "Alice Prado Lima",
       cpf: testCpf(),
       phone: "11987654321",
-      company: { cnpj: "11222333000181", companyName: "Alice Modas Ltda" },
-    };
+      company: {
+        cnpj: "11222333000181",
+        companyName: "Alice Modas Ltda",
+        stateRegistration: "110042490114",
+        regime: "simples",
+      },
+    } as const;
     await saveBillingHolder(database, tenantA, holder);
     expect(await findBillingHolder(database, tenantA)).toEqual({ ...holder, address: null });
     await saveBillingHolder(database, tenantA, { ...holder, company: null });

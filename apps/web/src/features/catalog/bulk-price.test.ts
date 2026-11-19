@@ -32,7 +32,7 @@ describe("bulkPriceCents", () => {
   });
 
   it("returns null when the fees alone already take the margin asked", () => {
-    const costly = { ...DEFAULT_FEE_SCHEDULE, platformFeeBasisPoints: 2_500 };
+    const costly = { ...DEFAULT_FEE_SCHEDULE, marketplaceFeeBasisPoints: 3_900 };
 
     const priceCents = bulkPriceCents(
       faceCream,

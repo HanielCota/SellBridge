@@ -22,6 +22,11 @@ import { UnrecoverableError } from "bullmq";
 import type { JobContext } from "../lib/job-context.ts";
 import { decryptStoreCredentials, storeRateKey } from "../lib/store-access.ts";
 import { type OrderIntakeDependencies, saveMarketplaceOrder } from "./order-intake.ts";
+import {
+  type NoticeOutcome,
+  type NoticeReaders,
+  processMarketplaceNotice,
+} from "./marketplace-notice.ts";
 import { catchUpStoreOrders, heldEventNote } from "./store-order-catch-up.ts";
 
 export interface WebhookDependencies extends OrderIntakeDependencies {
@@ -30,6 +35,8 @@ export interface WebhookDependencies extends OrderIntakeDependencies {
   acquireRateLimit: (key: string) => Promise<void>;
   /** Schedules the next round of a reconnection catch-up that stopped at a limit. */
   requestCatchUp: (job: StoreOrderCatchUpJob) => Promise<void>;
+  /** Reads shipment and claim notifications; without it those topics are skipped. */
+  notices?: NoticeReaders;
 }
 
 export type WebhookOutcome =
@@ -39,7 +46,8 @@ export type WebhookOutcome =
   | "ignored_topic"
   | "unknown_store"
   | "awaiting_reconnection"
-  | "orders_caught_up";
+  | "orders_caught_up"
+  | NoticeOutcome;
 
 type WebhookEvent = NonNullable<Awaited<ReturnType<typeof getWebhookEvent>>>;
 type ConnectedStore = NonNullable<Awaited<ReturnType<typeof findConnectedStoreByShop>>>;
@@ -53,9 +61,16 @@ interface OrderSync {
   readonly resource: string;
 }
 
-type SyncPreparation =
-  | { readonly kind: "ready"; readonly sync: OrderSync }
-  | { readonly kind: "skipped"; readonly outcome: WebhookOutcome };
+interface SkippedEvent {
+  readonly kind: "skipped";
+  readonly outcome: WebhookOutcome;
+}
+
+type SyncPreparation = { readonly kind: "ready"; readonly sync: OrderSync } | SkippedEvent;
+
+type StoreResolution =
+  | { readonly kind: "ready"; readonly store: ConnectedStore; readonly accessTokenEnc: string }
+  | SkippedEvent;
 
 function parseWebhookJob(job: JobContext): string {
   const parsed = webhookEventJobSchema.safeParse(job.data);
@@ -79,7 +94,7 @@ async function loadWebhookEvent(
 async function skipEvent(
   dependencies: WebhookDependencies,
   skipped: { eventId: string; note: string; outcome: WebhookOutcome },
-): Promise<SyncPreparation> {
+): Promise<SkippedEvent> {
   await markWebhookProcessed(dependencies.database, skipped.eventId, skipped.note);
   return { kind: "skipped", outcome: skipped.outcome };
 }
@@ -111,7 +126,7 @@ async function holdOrSkip(
   dependencies: WebhookDependencies,
   event: WebhookEvent,
   shopId: string,
-): Promise<SyncPreparation> {
+): Promise<SkippedEvent> {
   const eventId = event.id;
   const awaiting = await findStoreAwaitingReconnection(
     dependencies.database,
@@ -126,6 +141,64 @@ async function holdOrSkip(
   }
   const note = "Nenhuma loja conectada corresponde ao evento";
   return skipEvent(dependencies, { eventId, note, outcome: "unknown_store" });
+}
+
+/** The connected store an event names, with its token; unusable events are marked as processed. */
+async function resolveEventStore(
+  dependencies: WebhookDependencies,
+  event: WebhookEvent,
+  externalShopId: string,
+): Promise<StoreResolution> {
+  const store = await findConnectedStoreByShop(
+    dependencies.database,
+    event.marketplace,
+    externalShopId,
+  );
+  if (!store) {
+    return holdOrSkip(dependencies, event, externalShopId);
+  }
+  await stampStoreWebhook(dependencies, store.id, event.receivedAt);
+  if (!store.accessTokenEnc) {
+    const note = "Loja sem token de acesso: reconecte a loja";
+    return skipEvent(dependencies, { eventId: event.id, note, outcome: "unknown_store" });
+  }
+  return { kind: "ready", store, accessTokenEnc: store.accessTokenEnc };
+}
+
+/** A shipment or claim notification, read again with the store's token. */
+async function processNotice(
+  dependencies: WebhookDependencies & { notices: NoticeReaders },
+  job: JobContext,
+  event: WebhookEvent,
+): Promise<WebhookOutcome | null> {
+  const notice = dependencies.notices.parseNotice(event.marketplace, event.topic, event.rawPayload);
+  if (notice === null) {
+    return null;
+  }
+  const resolution = await resolveEventStore(dependencies, event, notice.externalShopId);
+  if (resolution.kind === "skipped") {
+    return resolution.outcome;
+  }
+  return processMarketplaceNotice(
+    {
+      database: dependencies.database,
+      cipher: dependencies.cipher,
+      acquireRateLimit: dependencies.acquireRateLimit,
+      requestStockSync: dependencies.requestStockSync,
+      readers: dependencies.notices,
+    },
+    {
+      job,
+      notice,
+      event: {
+        webhookEventId: event.id,
+        receivedAt: event.receivedAt,
+        marketplace: event.marketplace,
+        store: resolution.store,
+        accessTokenEnc: resolution.accessTokenEnc,
+      },
+    },
+  );
 }
 
 /** Resolves the store and resource of an order event, marking unusable events as processed. */
@@ -148,18 +221,9 @@ async function prepareOrderSync(
     const note = "Evento sem loja ou recurso";
     return skipEvent(dependencies, { eventId, note, outcome: "unknown_store" });
   }
-  const store = await findConnectedStoreByShop(
-    dependencies.database,
-    marketplace,
-    reference.externalShopId,
-  );
-  if (!store) {
-    return holdOrSkip(dependencies, event, reference.externalShopId);
-  }
-  await stampStoreWebhook(dependencies, store.id, event.receivedAt);
-  if (!store.accessTokenEnc) {
-    const note = "Loja sem token de acesso: reconecte a loja";
-    return skipEvent(dependencies, { eventId, note, outcome: "unknown_store" });
+  const resolution = await resolveEventStore(dependencies, event, reference.externalShopId);
+  if (resolution.kind === "skipped") {
+    return resolution;
   }
   return {
     kind: "ready",
@@ -167,8 +231,8 @@ async function prepareOrderSync(
       dependencies,
       webhookEventId,
       marketplace,
-      store,
-      accessTokenEnc: store.accessTokenEnc,
+      store: resolution.store,
+      accessTokenEnc: resolution.accessTokenEnc,
       resource: reference.resource,
     },
   };
@@ -229,6 +293,13 @@ export function createWebhookEventProcessor(dependencies: WebhookDependencies) {
     const event = await loadWebhookEvent(dependencies, webhookEventId);
     if (event.processedAt) {
       return "already_processed";
+    }
+    const { notices } = dependencies;
+    if (notices !== undefined) {
+      const noticeOutcome = await processNotice({ ...dependencies, notices }, job, event);
+      if (noticeOutcome !== null) {
+        return noticeOutcome;
+      }
     }
     const preparation = await prepareOrderSync(dependencies, webhookEventId, event);
     if (preparation.kind === "skipped") {

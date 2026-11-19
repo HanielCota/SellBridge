@@ -15,7 +15,7 @@ export type { TimeseriesBucket };
 /**
  * Financial reports. Per-order numbers are computed in SQL with the same formula as
  * `computeOrderFinance` in @sellbridge/shared/finance (a test keeps both in sync):
- *   profit = revenue − cost − marketplace fee − refunds + commissions − platform fee
+ *   profit = revenue − cost − marketplace fee − refunds + commissions
  * Orders are filed by `saleDate` (counted-orders.ts): a sale in the period it was paid, an order
  * never paid in the period it was placed.
  * Cancelled and returned orders contribute no revenue, cost or fee. A sale with an item of
@@ -41,7 +41,6 @@ export interface ReportScope {
   tenantId: string;
   range: ReportRange;
   storeConnectionId?: string | undefined;
-  platformFeeBasisPoints: number;
 }
 
 const cents = sqlIntegerSchema;
@@ -115,11 +114,7 @@ function orderFinanceCte(scope: ReportScope, extraConditions: SQL[] = []): SQL {
     order_profit as (
       select
         f.*,
-        round((f.revenue - f.pending_revenue) * ${scope.platformFeeBasisPoints}::numeric / 10000)::bigint
-          as platform_fee,
-        f.revenue - f.pending_revenue - f.cost - f.fee - f.refunds + f.commissions
-          - round((f.revenue - f.pending_revenue) * ${scope.platformFeeBasisPoints}::numeric / 10000)::bigint
-          as profit
+        f.revenue - f.pending_revenue - f.cost - f.fee - f.refunds + f.commissions as profit
       from order_finance f
     )`;
 }
@@ -133,7 +128,6 @@ const summaryRowSchema = z.object({
   refunds: cents,
   returns: cents,
   commissions: cents,
-  platform_fees: cents,
   profit: cents,
   pending_orders: count,
   pending_revenue: cents,
@@ -150,7 +144,6 @@ export interface SalesSummary {
   refundCents: number;
   returnCents: number;
   commissionCents: number;
-  platformFeeCents: number;
   profitCents: number;
   /** Sales with an item of unknown cost: in the revenue, out of the profit. */
   pendingCostOrders: number;
@@ -178,7 +171,6 @@ export async function getSalesSummary(
       coalesce(sum(refunds), 0) as refunds,
       coalesce(sum(returns), 0) as returns,
       coalesce(sum(commissions), 0) as commissions,
-      coalesce(sum(platform_fee), 0) as platform_fees,
       coalesce(sum(profit), 0) as profit,
       count(*) filter (where cost_pending) as pending_orders,
       coalesce(sum(pending_revenue), 0) as pending_revenue,
@@ -196,7 +188,6 @@ export async function getSalesSummary(
     refundCents: row.refunds,
     returnCents: row.returns,
     commissionCents: row.commissions,
-    platformFeeCents: row.platform_fees,
     profitCents: row.profit,
     pendingCostOrders: row.pending_orders,
     pendingCostRevenueCents: row.pending_revenue,
@@ -420,7 +411,6 @@ export interface OrderFinancialRow {
   refundCents: number;
   returnCents: number;
   commissionCents: number;
-  platformFeeCents: number;
   profitCents: number;
   /** A sale with an item of unknown cost: every amount but the revenue is zero. */
   costPending: boolean;
@@ -446,7 +436,6 @@ const financialRowSchema = z.object({
   refunds: cents,
   returns: cents,
   commissions: cents,
-  platform_fee: cents,
   profit: cents,
   cost_pending: z.boolean(),
   pending_revenue: cents,
@@ -473,7 +462,6 @@ function toFinancialRow(row: z.infer<typeof financialRowSchema>): OrderFinancial
     refundCents: row.refunds,
     returnCents: row.returns,
     commissionCents: row.commissions,
-    platformFeeCents: row.platform_fee,
     profitCents: row.profit,
     costPending: row.cost_pending,
     pendingCostRevenueCents: row.pending_revenue,

@@ -15,7 +15,7 @@ Follow [Getting started](README.md#getting-started) in the README. You need Node
 
 ## Code conventions
 
-Architecture and code conventions are documented in [docs/architecture.md](docs/architecture.md), and past decisions in [docs/decisions.md](docs/decisions.md). A few rules are enforced automatically:
+Architecture and code conventions are documented in [docs/architecture.md](docs/architecture.md), and past decisions in [docs/decisions.md](docs/decisions.md) (until 2026-11-18) and [docs/decisions/](docs/decisions/README.md) (one file per decision since 2026-11-19). A few rules are enforced automatically:
 
 - No `else` in `apps/*/src` or `packages/*/src` (`pnpm check:no-else`); prefer early returns.
 - TypeScript strict mode, type-aware Oxlint rules, and Prettier formatting.

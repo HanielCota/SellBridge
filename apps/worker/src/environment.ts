@@ -17,6 +17,7 @@ import {
   asaasEnvironmentFields,
   refuseAsaasStandInsInProduction,
 } from "@sellbridge/payments/asaas";
+import { cnpjLookupUrlEnvironmentSchema } from "@sellbridge/shared/cnpj-lookup";
 import { z } from "zod";
 
 loadRootEnvironmentFile();
@@ -32,6 +33,16 @@ const workerEnvironmentSchema = z
     ALERT_WEBHOOK_URL: alertWebhookUrlEnvironmentSchema,
     MERCADO_LIVRE_CLIENT_ID: z.string().optional(),
     MERCADO_LIVRE_CLIENT_SECRET: z.string().optional(),
+    /**
+     * Shopee Open Platform app: the connector stays off until the partner id and key are set.
+     * SHOPEE_SANDBOX points it at the Sandbox V2 hosts, whose keys differ from the live ones.
+     */
+    SHOPEE_PARTNER_ID: z
+      .string()
+      .regex(/^\d{0,10}$/, "deve ser o número do parceiro")
+      .optional(),
+    SHOPEE_PARTNER_KEY: z.string().optional(),
+    SHOPEE_SANDBOX: booleanFlagEnvironmentSchema,
     /** TikTok Shop app (Partner Center); the connector stays off until all three are set. */
     TIKTOK_SHOP_APP_KEY: z.string().optional(),
     TIKTOK_SHOP_APP_SECRET: z.string().optional(),
@@ -54,6 +65,8 @@ const workerEnvironmentSchema = z
     /** Units Shopee listings show on top of the real ones while there are real units to sell. */
     SHOPEE_SHOWCASE_UNITS: shopeeShowcaseUnitsEnvironmentSchema,
     /** When set, exposes GET /health on this port (container probes, E2E readiness). */
+    /** The public CNPJ query behind the approval of suppliers who sign up alone. */
+    CNPJ_LOOKUP_URL: cnpjLookupUrlEnvironmentSchema,
     WORKER_HEALTH_PORT: z.coerce.number().int().min(1).max(65_535).optional(),
     /**
      * Lets webhook endpoints point to localhost and private networks (local development only).

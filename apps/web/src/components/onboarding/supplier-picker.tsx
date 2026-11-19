@@ -14,6 +14,7 @@ import { suppliersQueryOptions } from "@/features/suppliers/suppliers.queries";
 import { useDebouncedValue } from "@/hooks/use-debounced-value";
 import { errorMessage } from "@/lib/errors";
 import { cn } from "@/lib/utils";
+import { countLabel } from "@/lib/count-label";
 
 export type PickableSupplier = Awaited<ReturnType<typeof listSuppliers>>["suppliers"][number];
 
@@ -170,7 +171,7 @@ function SupplierOption({
         <ReputationSummary reputation={supplier.reputation} />
         <span className="flex items-center gap-1 text-xs text-muted-foreground">
           <PackageIcon className="size-3.5" aria-hidden="true" />
-          {supplier.productCount} produtos
+          {countLabel(supplier.productCount, "produto", "produtos")}
         </span>
       </span>
     </label>

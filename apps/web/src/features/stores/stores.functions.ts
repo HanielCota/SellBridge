@@ -1,6 +1,7 @@
 import {
   EMPTY_STORE_ACTIVITY,
   getStoreActivity,
+  listBuyerAddressChecks,
   listStoreConnections,
 } from "@sellbridge/database/repositories";
 import { MARKETPLACE_LABELS, type MarketplaceId } from "@sellbridge/marketplaces";
@@ -10,6 +11,7 @@ import { findNewStoreBlock } from "@/features/billing/billing.server";
 import { database } from "@/lib/server/database";
 import { connectors } from "@/lib/server/marketplaces";
 import { tenantMiddleware } from "@/lib/server/middleware";
+import { recheckBuyerAddressForTenant } from "./buyer-address.server";
 import { disconnectStoreForTenant } from "./disconnect-store.server";
 
 export interface MarketplaceOption {
@@ -23,8 +25,9 @@ const MARKETPLACE_ORDER: MarketplaceId[] = ["mercado_livre", "shopee", "tiktok_s
 export const listStores = createServerFn({ method: "GET" })
   .middleware([tenantMiddleware])
   .handler(async ({ context }) => {
-    const [connections, newStoreBlock] = await Promise.all([
+    const [connections, buyerAddresses, newStoreBlock] = await Promise.all([
       listStoreConnections(database, context.tenantId),
+      listBuyerAddressChecks(database, context.tenantId),
       findNewStoreBlock(context.tenantId),
     ]);
     const activity = await getStoreActivity(
@@ -35,6 +38,7 @@ export const listStores = createServerFn({ method: "GET" })
     const stores = connections.map((store) => ({
       ...store,
       activity: activity.get(store.id) ?? EMPTY_STORE_ACTIVITY,
+      buyerAddress: buyerAddresses.get(store.id) ?? null,
     }));
     const marketplaces: MarketplaceOption[] = MARKETPLACE_ORDER.map((id) => ({
       id,
@@ -43,6 +47,14 @@ export const listStores = createServerFn({ method: "GET" })
     }));
     return { stores, marketplaces, newStoreBlock };
   });
+
+/** "Já arrumei, conferir de novo": reads the store account's purchase address again now. */
+export const recheckBuyerAddressFn = createServerFn({ method: "POST" })
+  .middleware([tenantMiddleware])
+  .validator(z.object({ storeConnectionId: z.uuid() }))
+  .handler(async ({ context, data }) => ({
+    result: await recheckBuyerAddressForTenant(context.tenantId, data.storeConnectionId),
+  }));
 
 export const disconnectStoreFn = createServerFn({ method: "POST" })
   .middleware([tenantMiddleware])

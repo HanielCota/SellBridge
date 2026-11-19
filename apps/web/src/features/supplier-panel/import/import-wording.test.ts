@@ -3,6 +3,7 @@ import {
   confirmDescription,
   importActionLabel,
   importDoneSummary,
+  importNeedsConfirmation,
   onlyValidLabel,
 } from "./import-wording";
 
@@ -69,5 +70,18 @@ describe("importDoneSummary", () => {
     ).toBe(
       "1 atualizado. O estoque vai aos marketplaces na próxima sincronização. 2 anúncios pausados sem estoque. 4 linhas com erro ficaram de fora; corrija e envie de novo.",
     );
+  });
+});
+
+describe("importNeedsConfirmation", () => {
+  // Regression: two new products asked "Importar 2 produtos novos?" with nothing more to say,
+  // an extra click for an import that changes nothing already there.
+  it("imports only new products without asking", () => {
+    expect(importNeedsConfirmation({ updated: 0, failedRows: 0 })).toBe(false);
+  });
+
+  it("asks first when the import changes existing products or leaves rows out", () => {
+    expect(importNeedsConfirmation({ updated: 1, failedRows: 0 })).toBe(true);
+    expect(importNeedsConfirmation({ updated: 0, failedRows: 2 })).toBe(true);
   });
 });

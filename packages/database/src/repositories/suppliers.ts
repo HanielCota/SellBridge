@@ -33,6 +33,7 @@ import {
   productListable,
   publicSupplier,
   supplierFindable,
+  supplierOpenToResellers,
 } from "./sql/sellable.ts";
 
 export interface SupplierSummary {
@@ -203,7 +204,7 @@ export async function getDirectorySupplier(
       productCount: sql<number>`0`.mapWith(Number),
     })
     .from(suppliers)
-    .where(and(eq(suppliers.id, supplierId), eq(suppliers.active, true), publicSupplier()))
+    .where(and(eq(suppliers.id, supplierId), supplierOpenToResellers(), publicSupplier()))
     .limit(1);
   if (!supplier) {
     throw notFoundError("Fornecedor não encontrado");
@@ -260,7 +261,7 @@ function catalogConditions(supplierId: string, filters: CatalogFilters): SQL[] {
   const conditions: SQL[] = [eq(supplierProducts.supplierId, supplierId), productListable()];
   conditions.push(
     exists(
-      sql`(select 1 from ${suppliers} where ${and(eq(suppliers.id, supplierProducts.supplierId), eq(suppliers.active, true), publicSupplier())})`,
+      sql`(select 1 from ${suppliers} where ${and(eq(suppliers.id, supplierProducts.supplierId), supplierOpenToResellers(), publicSupplier())})`,
     ),
   );
   if (filters.search) {
@@ -343,7 +344,7 @@ export async function listSupplierCategories(
       and(
         eq(supplierProducts.supplierId, supplierId),
         productListable(),
-        eq(suppliers.active, true),
+        supplierOpenToResellers(),
         publicSupplier(),
       ),
     )
@@ -390,7 +391,7 @@ export async function getSellableCatalogProduct(
       and(
         eq(supplierProducts.id, productId),
         productListable(),
-        eq(suppliers.active, true),
+        supplierOpenToResellers(),
         catalogVisibleTo(tenantId),
       ),
     )
@@ -434,7 +435,7 @@ function isPublishedBy(tenantId: string): SQL {
 function sellableCatalogConditions(tenantId: string, filters: SellableCatalogFilters): SQL[] {
   const conditions: SQL[] = [
     productListable(),
-    eq(suppliers.active, true),
+    supplierOpenToResellers(),
     catalogVisibleTo(tenantId),
   ];
   if (filters.search) {
@@ -579,7 +580,7 @@ export async function listSellableCategories(
     .from(categories)
     .innerJoin(supplierProducts, eq(supplierProducts.categoryId, categories.id))
     .innerJoin(suppliers, eq(suppliers.id, supplierProducts.supplierId))
-    .where(and(productListable(), eq(suppliers.active, true), catalogVisibleTo(tenantId)))
+    .where(and(productListable(), supplierOpenToResellers(), catalogVisibleTo(tenantId)))
     .orderBy(asc(categories.name));
 }
 

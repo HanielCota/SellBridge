@@ -21,7 +21,6 @@ function summary(overrides: Partial<SalesSummary> = {}): SalesSummary {
     refundCents: 0,
     returnCents: 0,
     commissionCents: 0,
-    platformFeeCents: 0,
     profitCents: 0,
     pendingCostOrders: 0,
     pendingCostRevenueCents: 0,

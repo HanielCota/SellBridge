@@ -13,6 +13,16 @@ Consultado em 2026-10-12 na documentação oficial. As referências abaixo docum
 
 - `GET /users/me` → `id`, `nickname`.
 
+## Endereços da conta (`enderecos-do-usuario`)
+
+Consultado em 2026-11-17. Serve para conferir se a conta da loja compra no endereço do fornecedor (ver `docs/decisions.md`, 2026-11-18).
+
+- `GET /users/{id}/addresses` com o token da loja; a permissão "Usuários" (padrão de todo app) basta. Sem permissão: `403 PA_UNAUTHORIZED_RESULT_FROM_POLICIES`.
+- Campos lidos: `zip_code`, `street_name`, `street_number`, `types` e `status`. O esquema descarta o resto na leitura (`contact`, `phone`, `latitude`, `longitude`, `address_line`, `floor`, `apartment`, `comment`). Nada é logado nem guardado: só o veredito.
+- `types`: `default_buying_address` (compra), `default_selling_address` (venda) e envio e cobrança, que a página em português escreve "envio" e "cobrança" e o exemplo escreve `shipping`; as duas grafias são aceitas. Um endereço pode ter nenhum, um ou vários tipos. `status: "inactive"` é ignorado.
+- A página só mostra leitura: o endereço é sempre corrigido pelo revendedor, dentro do Mercado Livre.
+- **[teste real]** Confirmar com uma conta de verdade: se a resposta é uma lista (o exemplo mostra um objeto só; os dois são aceitos), as grafias de envio e cobrança, o que vem quando a conta não marcou endereço de compra e o `status` de um endereço apagado.
+
 ## Publicação (`publicacao-de-produtos`, `categorizacao-de-produtos`, `descricao-de-produtos`)
 
 - `POST /items` com `title`, `category_id`, `price`, `currency_id`, `available_quantity`, `buying_mode: "buy_it_now"`, `condition`, `listing_type_id`, `pictures: [{ source }]`, `attributes`.
@@ -67,7 +77,7 @@ Consultado em 2026-10-12 na documentação oficial. As referências abaixo docum
 - A homologar com a conta de teste: se `GET /shipments/{id}` traz o endereço completo do destinatário (a visão antiga pedia `x-api-version: 2` para os dados pessoais). Sem endereço, a tela avisa ("O marketplace não informou o endereço completo") e o endereço é digitado à mão.
 - O envio é lido quando alguém pede (botão na Operação) e, desde o item 22.a, por uma tarefa do worker a cada 30 minutos (`shipment-tracking`): até 100 pedidos por vez, de lojas do Mercado Livre conectadas, com envio ainda a caminho, o lido há mais tempo primeiro. Uma leitura que falha vai para o fim da fila (`tracked_at`), e token recusado expira a loja.
 - Previsão e prazo: `lead_time.estimated_delivery_time.date` (entrega prevista) e `lead_time.estimated_handling_limit.date` (prazo de despacho), lidos de `GET /shipments/{id}` com `x-format-new: true` e guardados em `order_shipments`. Sem esses campos, ou com data ilegível, fica vazio; uma leitura sem eles não apaga a data já conhecida. Formato tirado da documentação oficial ("Mercado Envios", "Gerenciamento de envios"); a homologar com a conta de teste.
-- Os tópicos `shipments` e `post_purchase` (reclamações e devoluções) ainda não são assinados; a tarefa de 30 minutos cobre o rastreio enquanto isso.
+- Aviso de envio (tópico `shipments`, `resource: "/shipments/{id}"`): o envio é achado pelo `marketplace_shipment_id` já guardado no pacote ou, sem ele, por `GET /shipments/{id}/orders` (cabeçalho `X-New-Domain: true`, "Vendas associadas a um envio"); cada pedido do SellBridge ainda a caminho é lido na hora, com a mesma leitura da tarefa periódica. Loja que recebeu aviso de envio nas últimas 24 horas tem os pacotes relidos pela tarefa só a cada 6 horas; sem avisos, segue a cada 30 minutos.
 
 ## Notificações (`produto-receba-notificacoes`)
 
@@ -75,13 +85,23 @@ Consultado em 2026-10-12 na documentação oficial. As referências abaixo docum
 - Responder HTTP 200 em até 500 ms e processar depois em fila. Novas tentativas durante 1 h (8 tentativas); perdidas ficam em `GET /missed_feeds?app_id=…` por 2 dias.
 - Não há assinatura. Validação adotada: `application_id` igual ao nosso `client_id` + `user_id` de uma loja conectada; os dados do pedido são sempre buscados na API com o token da loja (o payload nunca é confiável). A documentação lista os IPs de origem para quem quiser filtrar na borda.
 
+## Reclamações e devoluções (`gerenciar-reclamacoes`, `gerenciar-devolucoes`)
+
+- Aviso: tópico `post_purchase` com os filtros `claims` e `claims_actions`. Diferente dos outros, ele traz o id do evento em `id` (não `_id`) e `resource` como "post-purchase/v1/claims/{id}" (o prefixo `/post-purchase` é novo; lemos com e sem a barra e o formato antigo `/claims/{id}`).
+- Leitura: `GET /post-purchase/v1/claims/{id}` (só vale se a loja for a `respondent` da reclamação), `/detail` (quem age e até quando) e, quando `related_entities` tem `return`, `GET /post-purchase/v2/claims/{id}/returns` (situação, rastreio e destino da devolução, e `status_money`).
+- Pedido: `resource: "order"` é o id do pedido; `"shipment"` passa por `/shipments/{id}/orders`; `"purchase"` é comparado com o `pack_id`. Reclamação de venda que não passou pelo SellBridge é ignorada.
+- Guardada em `marketplace_claims`; uma leitura com `last_updated` mais antigo que a guardada não muda nada. Avisos (sino e e-mail, para revendedor e fornecedor) quando abre, quando vai para a mediação (`stage: dispute`) e quando encerra. Aberta e mediação também entram na área "Reclamações" da página Problemas do admin.
+- Rede de segurança: uma vez por dia (`marketplace-claim-sweep`), cada loja conectada busca as reclamações abertas (qualquer idade) e as atualizadas nas últimas 26 horas (`/post-purchase/v1/claims/search` com `players.user_id` + `players.role=respondent`). A primeira rodada traz também as reclamações abertas de pedidos antigos.
+- Só mostramos: responder, reembolsar e revisar devolução ficam no Mercado Livre.
+- A homologar com venda real: o formato exato do `resource` dos avisos de envio e de reclamação, reclamações com `resource` `payment` ou `purchase`, o idioma dos textos do `/detail` no MLB, o endereço da reclamação no painel do vendedor e quantos avisos de envio chegam por pacote.
+
 ## Ativação (passo a passo)
 
 O conector fica desligado enquanto `MERCADO_LIVRE_CLIENT_ID` e `MERCADO_LIVRE_CLIENT_SECRET` estiverem vazios; a tela de Lojas mostra o Mercado Livre como "Em breve".
 
 1. Criar o aplicativo no DevCenter do Mercado Livre (developers.mercadolivre.com.br), com a conta que será dona da integração.
 2. URL de redirecionamento: `{APP_URL}/api/oauth/mercado_livre/callback`. O portal exige um endereço público com HTTPS; para testar localmente, exponha o app com um túnel (Cloudflare Tunnel ou ngrok) e use esse endereço como `APP_URL` no `.env`.
-3. Notificações: URL `{APP_URL}/api/webhooks/mercado_livre`, tópicos `orders_v2` (vendas) e `items` (anúncios).
+3. Notificações: URL `{APP_URL}/api/webhooks/mercado_livre`, tópicos `orders_v2` (vendas), `items` (anúncios), `shipments` (envios) e, em Post Purchase, os filtros `claims` e `claims_actions` (reclamações e devoluções).
 4. Permissões: leitura, escrita e acesso offline (sem o acesso offline não vem o `refresh_token`).
 5. No `.env`, preencher `MERCADO_LIVRE_CLIENT_ID` e `MERCADO_LIVRE_CLIENT_SECRET` e reiniciar app e worker.
 6. Testar com usuário de teste: o Mercado Livre permite criar usuários de teste (`POST /users/test_user`) para publicar e comprar sem dinheiro real. Conectar a loja de teste pela tela de Lojas e publicar um produto.
