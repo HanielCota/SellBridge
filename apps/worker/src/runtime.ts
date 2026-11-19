@@ -68,6 +68,7 @@ import {
 import { createErpCatalogExportProcessor } from "./processors/erp-catalog-export.ts";
 import { createErpCatalogReadProcessor } from "./processors/erp-catalog-read.ts";
 import { createErpInvoiceProcessor } from "./processors/erp-invoice-issue.ts";
+import { postDueErpStockExits } from "./processors/erp-stock-exit.ts";
 import {
   checkAllErpStock,
   checkSupplierErpStock,
@@ -224,6 +225,9 @@ async function runErpStockJob(
 ): Promise<unknown> {
   if (job.name === ERP_STOCK_JOB_NAMES.checkAll) {
     return checkAllErpStock(dependencies);
+  }
+  if (job.name === ERP_STOCK_JOB_NAMES.postExits) {
+    return postDueErpStockExits(dependencies);
   }
   const { supplierId } = erpStockSupplierJobSchema.parse(job.data);
   if (job.name === ERP_STOCK_JOB_NAMES.checkSupplier) {
@@ -537,6 +541,8 @@ async function scheduleQueues(queues: WorkerContext["queues"]): Promise<void> {
   await scheduleRecurring(queues.erpInvoices, "issue-erp-invoices", 2 * 60 * 1000);
   // Lost Bling notices are caught within 15 minutes; see docs/decisions for the quota math.
   await scheduleRecurring(queues.erpStock, ERP_STOCK_JOB_NAMES.checkAll, 15 * 60 * 1000);
+  // A sale's exit reaches Bling within a minute, before a check could read the old balance.
+  await scheduleRecurring(queues.erpStock, ERP_STOCK_JOB_NAMES.postExits, 60 * 1000);
   await scheduleRecurring(queues.supplierPayments, "reconcile-supplier-payments", 5 * 60 * 1000);
   // Hourly, so a day's checks are spread out; each store is due once a day.
   await scheduleRecurring(queues.buyerAddressCheck, "check-buyer-addresses", 60 * 60 * 1000);
