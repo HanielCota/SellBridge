@@ -38,6 +38,7 @@ import {
 } from "./notification-conversation-events.ts";
 import { invoiceStoppedEvents, type InvoiceStoppedEvent } from "./notification-invoice-events.ts";
 import { marketplaceClaimEvents, type MarketplaceClaimEvent } from "./notification-claim-events.ts";
+import { findHeldStoresForBell } from "./store-buyer-address.ts";
 
 export type {
   InvoiceStoppedEvent,
@@ -92,6 +93,8 @@ export interface ListingErrorEvent extends EventBase {
 export interface StoreProblemEvent extends EventBase {
   kind: "store_problem";
   storeName: string;
+  /** Lost access (expired or failing), or an account that buys at its supplier's address. */
+  problem: "access" | "buyer_address";
 }
 
 /** Delivered orders whose supplier the reseller has not reviewed yet, as a single entry. */
@@ -402,7 +405,17 @@ async function storeProblemEvents(
       ),
     )
     .limit(PER_KIND);
-  return rows.map((row) => ({ ...row, kind: "store_problem" as const }));
+  const held = await findHeldStoresForBell(database, tenantId, PER_KIND);
+  return [
+    ...rows.map((row) => ({ ...row, kind: "store_problem" as const, problem: "access" as const })),
+    ...held.map((store) => ({
+      kind: "store_problem" as const,
+      problem: "buyer_address" as const,
+      entityId: store.storeConnectionId,
+      storeName: store.shopName,
+      at: store.heldSince,
+    })),
+  ];
 }
 
 /** Tickets with a support reply this user has not opened yet: opening the thread clears it. */

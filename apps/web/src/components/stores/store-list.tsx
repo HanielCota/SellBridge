@@ -11,6 +11,7 @@ import { cn } from "@/lib/utils";
 import { GroupedList, MarkSlot } from "./grouped-list";
 import { MarketplaceMark } from "./marketplace-mark";
 import { ReconnectAction } from "./store-reconnect-action";
+import { StoreBuyerAddressNotice } from "./store-buyer-address";
 import { TERM_HINTS } from "@/components/icons/action-icons";
 import { HintedText } from "@/components/ui/hint";
 
@@ -234,9 +235,12 @@ function StoreSupplierLine({
   );
 }
 
-/** An idle store gets one small step beside its name; stores already selling get none. */
+/**
+ * An idle store gets one small step beside its name; stores already selling get none, and a store
+ * held by its purchase address gets the notice that unlocks it instead.
+ */
 function PublishAction({ store, storeName }: { store: StoreWithActivity; storeName: string }) {
-  if (!isIdle(store)) {
+  if (!isIdle(store) || store.buyerAddress?.result === "supplier_address") {
     return null;
   }
   return (
@@ -321,6 +325,7 @@ function StoreRow({
           actions={actions}
         />
       </div>
+      <StoreBuyerAddressNotice store={store} storeName={name} />
     </li>
   );
 }
