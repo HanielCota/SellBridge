@@ -102,7 +102,7 @@ async function refuseRefund(
   }
   await setAdminSupplierActive(context.database, payment.supplierId, false);
   logger.error("mercado_pago.refund_refused", {
-    reason: `Devolução de ${formatCents(payment.amountCents)} recusada pelo Mercado Pago: o fornecedor foi desativado. Devolva o valor ao revendedor por fora.`,
+    reason: `Devolução de ${formatCents(payment.amountCents)} recusada pelo Mercado Pago: o fornecedor foi desativado. Devolva o valor ao revendedor à mão, por Pix ou transferência.`,
     problemKey: payment.id,
     shipmentPaymentId: payment.id,
     supplierId: payment.supplierId,

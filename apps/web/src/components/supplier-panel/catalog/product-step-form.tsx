@@ -12,6 +12,7 @@ import {
   stepOfField,
   type FormStepId,
 } from "@/features/supplier-panel/catalog/draft-form";
+import { isStockFromBling } from "@/features/supplier-panel/catalog/stock-from-bling";
 import { useProductForm } from "@/features/supplier-panel/catalog/use-product-form";
 import { errorMessage } from "@/lib/errors";
 import { prefersReducedMotion } from "@/lib/rewind";
@@ -132,13 +133,16 @@ function StepContent({
   categories,
   taxDefaults,
   supplierId,
+  product,
 }: {
   step: FormStepId;
   form: ProductForm;
   categories: FormData["categories"];
   taxDefaults: FormData["taxDefaults"];
   supplierId: string;
+  product: FormData["product"];
 }) {
+  const [stockFromBling] = useState(() => isStockFromBling(product, new Date()));
   const stepProps = {
     values: form.values,
     errors: form.autosave.state.kind === "invalid" ? form.autosave.state.errors : {},
@@ -156,6 +160,7 @@ function StepContent({
           required={form.required}
           taxDefaults={taxDefaults}
           mercadoLivre={{ supplierId, ficha: form.ficha }}
+          stockFromBling={stockFromBling}
         />
       );
     }
@@ -183,6 +188,31 @@ const NEW_PRODUCT_HINT =
   "Informe o código do produto (SKU) para começar a salvar sozinho. Depois, você pode sair e continuar o cadastro quando quiser.";
 const SAVED_PRODUCT_HINT = "Tudo o que você muda é salvo sozinho.";
 
+function ProductFormHeader({
+  form,
+  onBack,
+}: {
+  form: ReturnType<typeof useProductForm>;
+  onBack: () => void;
+}) {
+  return (
+    <PageHeader
+      back={
+        <BackButton
+          onBack={() => {
+            if (form.canDiscard()) {
+              onBack();
+            }
+          }}
+        />
+      }
+      title={form.values.title.trim() === "" ? "Novo produto" : form.values.title}
+      description={form.saved === null ? NEW_PRODUCT_HINT : SAVED_PRODUCT_HINT}
+      actions={form.saved === null ? undefined : <ReviewStatus status={form.status} />}
+    />
+  );
+}
+
 function LoadedForm({
   supplierId,
   productId,
@@ -207,18 +237,7 @@ function LoadedForm({
   useDraftAddress(form, onCreated);
   return (
     <div className="space-y-6">
-      <PageHeader
-        back={
-          <BackButton
-            onBack={() => {
-              if (form.canDiscard()) onBack();
-            }}
-          />
-        }
-        title={form.values.title.trim() === "" ? "Novo produto" : form.values.title}
-        description={form.saved === null ? NEW_PRODUCT_HINT : SAVED_PRODUCT_HINT}
-        actions={form.saved === null ? undefined : <ReviewStatus status={form.status} />}
-      />
+      <ProductFormHeader form={form} onBack={onBack} />
       <div className="grid items-start gap-6 lg:grid-cols-[minmax(0,1fr)_20rem]">
         <section className="surface-card min-w-0 space-y-6 rounded-3xl bg-card p-5 sm:p-6">
           <FormStepper current={step} blocking={form.report.blocking} onSelect={setStep} />
@@ -228,6 +247,7 @@ function LoadedForm({
             categories={data.categories}
             taxDefaults={data.taxDefaults}
             supplierId={supplierId}
+            product={data.product}
           />
           <AutosaveIndicator
             state={form.autosave.state}

@@ -1,6 +1,7 @@
 import type { WarrantyType } from "@sellbridge/shared/product-sale-terms";
 import { sql } from "drizzle-orm";
 import {
+  bigint,
   boolean,
   check,
   foreignKey,
@@ -210,6 +211,13 @@ export const supplierProducts = pgTable(
     stock: integer().notNull().default(0),
     /** Units held by paid orders that have not shipped; sellable = stock − reservedStock. */
     reservedStock: integer().notNull().default(0),
+    /**
+     * The product (or variation) id in the supplier's ERP, matched by SKU; null while it is not
+     * found there. A linked product's stock follows the ERP (Bling stock sync).
+     */
+    erpProductId: bigint({ mode: "number" }),
+    /** When the ERP stock now in `stock` was read; an older read never overwrites a newer one. */
+    erpStockReadAt: timestamp({ withTimezone: true }),
     imageUrls: text()
       .array()
       .notNull()
@@ -261,6 +269,10 @@ export const supplierProducts = pgTable(
     ),
     uniqueIndex("supplier_products_sku_idx").on(table.supplierId, table.sku),
     index("supplier_products_supplier_idx").on(table.supplierId),
+    /** The stock sync finds a supplier's product by its ERP id. */
+    index("supplier_products_erp_product_idx")
+      .on(table.supplierId, table.erpProductId)
+      .where(sql`${table.erpProductId} is not null`),
     index("supplier_products_category_idx").on(table.categoryId),
     /**
      * The catalog search ("calca verde" finds "Calça jeans - Verde") matches `sellbridge_fold`

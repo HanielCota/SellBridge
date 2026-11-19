@@ -1,0 +1,3 @@
+ALTER TABLE "platform_settings" ADD COLUMN "require_receiving_account_since" timestamp with time zone;--> statement-breakpoint
+ALTER TABLE "platform_settings" ADD COLUMN "payment_before_preparing_since" timestamp with time zone;--> statement-breakpoint
+ALTER TABLE "platform_settings" ADD CONSTRAINT "platform_settings_payment_before_preparing_check" CHECK ("platform_settings"."payment_before_preparing_since" is null or "platform_settings"."require_receiving_account_since" is not null);

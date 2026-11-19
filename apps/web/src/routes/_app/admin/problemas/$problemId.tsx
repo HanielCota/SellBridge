@@ -1,5 +1,5 @@
 import { PROBLEM_AREA_LABELS, PROBLEM_SERVICE_LABELS } from "@sellbridge/shared/problem-areas";
-import { CheckIcon, CopyIcon } from "@phosphor-icons/react";
+import { ArrowClockwiseIcon, CheckIcon, CopyIcon } from "@phosphor-icons/react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { createFileRoute, Link } from "@tanstack/react-router";
 import type { ReactNode } from "react";
@@ -12,6 +12,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { occurrencesLabel, problemWhenLabel } from "@/features/admin-problems/problem-copy";
 import {
   type adminGetProblem,
+  adminRetryProblem,
   adminSetProblemResolved,
 } from "@/features/admin-problems/problems.functions";
 import {
@@ -62,7 +63,49 @@ function StatusPill({ problem }: { problem: ProblemDetail }) {
   return <TonePill tone="success" label={`Resolvido em ${when}${who}`} />;
 }
 
-function ResolveButton({ problem }: { problem: ProblemDetail }) {
+/** Runs again what the problem is about; the problem closes, and a new failure opens it again. */
+function useRetryProblem(problemId: string) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: () => adminRetryProblem({ data: { problemId } }),
+    onSuccess: async (result) => {
+      toast.success(result.message);
+      await queryClient.invalidateQueries({ queryKey: PROBLEMS_QUERY_KEY });
+    },
+    onError: (error) => toast.error(errorMessage(error)),
+  });
+}
+
+function RetryButton({ problem }: { problem: ProblemDetail }) {
+  const mutation = useRetryProblem(problem.id);
+  return (
+    <Button disabled={mutation.isPending} onClick={() => mutation.mutate()}>
+      <ArrowClockwiseIcon aria-hidden="true" />
+      {mutation.isPending ? "Tentando de novo..." : "Tentar de novo"}
+    </Button>
+  );
+}
+
+/** With a retry, it is the one main action and resolving by hand steps back. */
+function ProblemActions({ problem }: { problem: ProblemDetail }) {
+  if (problem.resolvedAt !== null || !problem.canRetry) {
+    return <ResolveButton problem={problem} />;
+  }
+  return (
+    <div className="flex flex-wrap gap-2">
+      <RetryButton problem={problem} />
+      <ResolveButton problem={problem} secondary />
+    </div>
+  );
+}
+
+function ResolveButton({
+  problem,
+  secondary = false,
+}: {
+  problem: ProblemDetail;
+  secondary?: boolean;
+}) {
   const mutation = useResolveProblem(problem.id);
   if (problem.resolvedAt !== null) {
     return (
@@ -76,7 +119,11 @@ function ResolveButton({ problem }: { problem: ProblemDetail }) {
     );
   }
   return (
-    <Button disabled={mutation.isPending} onClick={() => mutation.mutate(true)}>
+    <Button
+      variant={secondary ? "outline" : "default"}
+      disabled={mutation.isPending}
+      onClick={() => mutation.mutate(true)}
+    >
       <CheckIcon aria-hidden="true" />
       {mutation.isPending ? "Salvando..." : "Marcar como resolvido"}
     </Button>
@@ -182,7 +229,7 @@ function ProblemBody({ problem }: { problem: ProblemDetail }) {
           <h1 className="text-2xl leading-tight font-semibold tracking-tight break-words">
             {problem.message}
           </h1>
-          <ResolveButton problem={problem} />
+          <ProblemActions problem={problem} />
         </div>
       </div>
       {problem.heldPaymentId === null ? null : (

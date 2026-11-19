@@ -1,6 +1,7 @@
 import { schema } from "@sellbridge/database";
 import { findErpConnection, upsertErpConnection } from "@sellbridge/database/repositories";
 import { createBlingRateLimiter } from "@sellbridge/marketplaces/bling";
+import { parseErpCatalogExportResult } from "@sellbridge/shared/erp-catalog-export";
 import { logger } from "@sellbridge/shared/logger";
 import { eq } from "drizzle-orm";
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
@@ -145,6 +146,82 @@ describe("erp catalog export", () => {
         init?.method === "POST" && requestUrl(input).pathname.endsWith("/produtos"),
     );
     expect(creations).toHaveLength(1);
+  });
+});
+
+async function savedResult() {
+  const connection = await findErpConnection(database, {
+    supplierId: supplier.supplierId,
+    provider: "bling",
+  });
+  return {
+    result: parseErpCatalogExportResult(connection?.catalogExportResult),
+    finishedAt: connection?.catalogExportFinishedAt ?? null,
+  };
+}
+
+describe("erp catalog export result", () => {
+  it("keeps for the supplier what was sent and each refused product with Bling's reason", async () => {
+    await connect(new Date(Date.now() + 6 * 3600_000));
+    const fetchImplementation = vi.fn<typeof fetch>(async (input, init) => {
+      if (init?.method === "POST") {
+        return json(400, {
+          error: {
+            type: "VALIDATION_ERROR",
+            message: "Não foi possível salvar o produto",
+            fields: [{ msg: "O GTIN informado é inválido" }],
+          },
+        });
+      }
+      const asked = requestUrl(input).searchParams.getAll("codigos[]");
+      const found = asked.includes(existingSku)
+        ? [{ id: 1, nome: "Travesseiro", codigo: existingSku, formato: "S", situacao: "A" }]
+        : [];
+      return json(200, { data: found });
+    });
+    const process = createErpCatalogExportProcessor({
+      database,
+      cipher,
+      blingCredentials: credentials,
+      limiter,
+      fetchImplementation,
+    });
+
+    await process({ supplierId: supplier.supplierId });
+
+    const { result, finishedAt } = await savedResult();
+    expect(finishedAt).toBeInstanceOf(Date);
+    expect(result).toMatchObject({ kind: "done", created: 0, alreadyInErp: 1, refusedTotal: 1 });
+    expect(result?.kind === "done" ? result.refused : []).toEqual([
+      { sku: newSku, title: "Chinelo", reason: "O GTIN informado é inválido" },
+    ]);
+  });
+
+  it("tells the supplier why the send failed once the last attempt fails", async () => {
+    await connect(new Date(Date.now() + 6 * 3600_000));
+    const fetchImplementation = vi.fn<typeof fetch>(async (input) => {
+      if (requestUrl(input).pathname.endsWith("/oauth/token")) {
+        return json(400, { error: { type: "invalid_grant" } });
+      }
+      return json(401, { error: { type: "invalid_token" } });
+    });
+    const process = createErpCatalogExportProcessor({
+      database,
+      cipher,
+      blingCredentials: credentials,
+      limiter,
+      fetchImplementation,
+    });
+
+    await expect(process({ supplierId: supplier.supplierId }, { isLast: true })).rejects.toThrow(
+      "Conecte o Bling de novo",
+    );
+
+    const { result } = await savedResult();
+    expect(result).toEqual({
+      kind: "failed",
+      reason: expect.stringContaining("Conecte o Bling de novo"),
+    });
   });
 });
 

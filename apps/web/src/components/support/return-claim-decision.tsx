@@ -16,6 +16,7 @@ import { staffDecideReturnClaim } from "@/features/support/return-claims.functio
 import { formatCentsForField, maskCurrencyInput, readPastedCurrency } from "@/lib/currency-mask";
 import { errorMessage } from "@/lib/errors";
 import { cn } from "@/lib/utils";
+import { TeamReturnDetails } from "@/components/returns/team-return-details";
 import { ClaimItems, ClaimStatusLine, claimOutcomeText } from "./return-claim-parts";
 
 function useDecideClaim() {
@@ -193,7 +194,9 @@ function PendingDecision({ claim, canDecide }: { claim: ReturnClaimView; canDeci
 }
 
 function DecidedBy({ claim }: { claim: ReturnClaimView }) {
-  if (claim.decidedAt === null) {
+  // A return closed by the supplier's answer or its deadline was not decided by anyone here.
+  const closedByPolicy = claim.policy !== null && claim.policy.closeReason !== "team_decided";
+  if (claim.decidedAt === null || closedByPolicy) {
     return null;
   }
   return (
@@ -202,6 +205,22 @@ function DecidedBy({ claim }: { claim: ReturnClaimView }) {
       <SmartDate date={claim.decidedAt} />. Crédito registrado no saldo, sem pagamento automático.
     </p>
   );
+}
+
+/** Under the policy the team decides only when the two sides disagree. */
+function DecisionArea({ claim, canDecide }: { claim: ReturnClaimView; canDecide: boolean }) {
+  if (claim.status !== "in_review") {
+    return <DecidedBy claim={claim} />;
+  }
+  if (claim.policy !== null && claim.policy.step !== "disputed") {
+    return (
+      <p className="text-xs text-muted-foreground">
+        Fornecedor e revendedor ainda estão resolvendo. A equipe só decide se os dois não
+        concordarem.
+      </p>
+    );
+  }
+  return <PendingDecision claim={claim} canDecide={canDecide} />;
 }
 
 /**
@@ -233,12 +252,12 @@ export function ReturnClaimDecision({
         <span className="tabular-nums">{formatCents(claim.supplierCostCents)}</span>.
       </p>
       <ClaimItems items={claim.items} />
-      <ClaimStatusLine status={claim.status}>{claimOutcomeText(claim)}</ClaimStatusLine>
-      {claim.status === "in_review" ? (
-        <PendingDecision claim={claim} canDecide={canDecide} />
+      {claim.policy === null ? (
+        <ClaimStatusLine status={claim.status}>{claimOutcomeText(claim)}</ClaimStatusLine>
       ) : (
-        <DecidedBy claim={claim} />
+        <TeamReturnDetails claim={claim} policy={claim.policy} />
       )}
+      <DecisionArea claim={claim} canDecide={canDecide} />
     </section>
   );
 }

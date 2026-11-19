@@ -1,3 +1,4 @@
+import type { ListingPauseReason } from "@sellbridge/shared/listing-pause-reasons";
 import { conflictError, notFoundError } from "@sellbridge/shared/errors";
 import {
   storeSupplierRefusal,
@@ -7,7 +8,8 @@ import {
   catalogSourceRefusal,
   STORE_SUPPLIER_CHANGED_MESSAGE,
 } from "@sellbridge/shared/store-supplier";
-import { and, count, eq, inArray, ne, type SQL } from "drizzle-orm";
+import { SUPPLIER_WITHOUT_RECEIVING_MESSAGE } from "@sellbridge/shared/receiving-rules";
+import { and, count, eq, inArray, ne, sql, type SQL } from "drizzle-orm";
 import type { Database, DatabaseExecutor } from "../client.ts";
 import {
   listings,
@@ -17,7 +19,12 @@ import {
   supplierProducts,
   suppliers,
 } from "../schema/index.ts";
-import { catalogVisibleTo, publicSupplier, supplierOpenToResellers } from "./sql/sellable.ts";
+import {
+  catalogVisibleTo,
+  publicSupplier,
+  supplierOpenToResellers,
+  supplierReceivingRuleMet,
+} from "./sql/sellable.ts";
 import { storeSupplierIds } from "./sql/store-supplier-match.ts";
 
 type ListingTargetStatus = (typeof listingTargets.$inferSelect)["status"];
@@ -211,7 +218,7 @@ async function stopTargets(
 ): Promise<StoreSupplierChangeImpact> {
   await executor
     .update(listingTargets)
-    .set({ status: "paused" })
+    .set({ status: "paused", pauseReason: "store_supplier_changed" satisfies ListingPauseReason })
     .where(
       and(
         inArray(listingTargets.id, supplierTargets(executor, input, match)),
@@ -290,6 +297,15 @@ export async function removeStoreSupplier(
   });
 }
 
+/** The supplier may sell under the admin's receiving-account rule (`supplierReceivingRuleMet`). */
+async function receivingRuleMet(executor: DatabaseExecutor, supplierId: string): Promise<boolean> {
+  const [row] = await executor
+    .select({ met: sql<boolean>`${supplierReceivingRuleMet()}`.mapWith(Boolean) })
+    .from(suppliers)
+    .where(eq(suppliers.id, supplierId));
+  return row?.met === true;
+}
+
 /**
  * Refuses publishing a product of `supplierId` in any of the given shops unless each one sells
  * that supplier. Shops of other tenants are ignored here: the caller already narrowed
@@ -310,6 +326,9 @@ export async function assertStoresSellSupplier(
   const sourceRefusal = source === undefined ? null : catalogSourceRefusal(source.catalogKind);
   if (sourceRefusal !== null) {
     throw conflictError(sourceRefusal);
+  }
+  if (source !== undefined && !(await receivingRuleMet(executor, supplierId))) {
+    throw conflictError(SUPPLIER_WITHOUT_RECEIVING_MESSAGE);
   }
   if (storeConnectionIds.length === 0) {
     return;

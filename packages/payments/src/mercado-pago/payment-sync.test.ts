@@ -88,6 +88,7 @@ const parcel: ShipmentPayment = {
   teamDecision: null,
   teamDecisionAt: null,
   teamDecisionByUserId: null,
+  providerDeferredSince: null,
   createdAt: new Date(),
   updatedAt: new Date(),
 };
