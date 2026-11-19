@@ -1,9 +1,10 @@
 import { randomUUID } from "node:crypto";
-import { inArray } from "drizzle-orm";
+import { eq, inArray } from "drizzle-orm";
 import { afterAll, describe, expect, it } from "vitest";
 import type { FulfillmentStatus } from "@sellbridge/shared/schemas";
 import {
   orderShipments,
+  orderStatusChanges,
   organization,
   orders,
   returnClaims,
@@ -167,6 +168,27 @@ describe("what keeps a seller account from being deleted", () => {
     await addOrder(sale, { status: "paid", paidAt: daysAgo(61) });
 
     expect((await blockersOf(sale.sellerTenantId)).ordersToShip).toBe(0);
+  });
+
+  it("counts an old order that shipped recently as on the way", async () => {
+    const sale = await createSale();
+    const orderId = await addOrder(sale, { status: "shipped", paidAt: daysAgo(90) });
+    await database.insert(orderStatusChanges).values({
+      tenantId: sale.sellerTenantId,
+      orderId,
+      status: "shipped",
+      changedAt: daysAgo(1),
+    });
+
+    expect((await blockersOf(sale.sellerTenantId)).ordersOnTheWay).toBe(1);
+  });
+
+  it("counts an old paid order with a parcel the supplier is preparing", async () => {
+    const sale = await createSale();
+    const { orderId } = await addShipment(sale, { status: "picking", updatedAt: daysAgo(1) });
+    await database.update(orders).set({ status: "paid" }).where(eq(orders.id, orderId));
+
+    expect((await blockersOf(sale.sellerTenantId)).ordersToShip).toBe(1);
   });
 
   it("counts money paid to the supplier and still held by Asaas, with its release date", async () => {

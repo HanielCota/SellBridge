@@ -2,6 +2,7 @@ import {
   and,
   count,
   eq,
+  exists,
   gt,
   gte,
   inArray,
@@ -14,6 +15,7 @@ import {
 import type { Database } from "../client.ts";
 import {
   orderShipments,
+  orderStatusChanges,
   orders,
   returnClaims,
   shipmentPayments,
@@ -78,6 +80,22 @@ async function countOrders(
   tenantIds: readonly string[],
   movedSince: Date,
 ): Promise<{ toShip: number; onTheWay: number }> {
+  const recentStatusChange = database
+    .select({ id: orderStatusChanges.id })
+    .from(orderStatusChanges)
+    .where(
+      and(eq(orderStatusChanges.orderId, orders.id), gte(orderStatusChanges.changedAt, movedSince)),
+    );
+  const recentShipmentActivity = database
+    .select({ id: orderShipments.id })
+    .from(orderShipments)
+    .where(
+      and(
+        eq(orderShipments.orderId, orders.id),
+        inArray(orderShipments.status, [...PARCEL_TO_SHIP_STATUSES, "shipped"]),
+        gte(orderShipments.updatedAt, movedSince),
+      ),
+    );
   const rows = await database
     .select({ status: orders.status, total: count() })
     .from(orders)
@@ -88,6 +106,8 @@ async function countOrders(
         or(
           gte(orders.paidAt, movedSince),
           and(isNull(orders.paidAt), gte(orders.orderedAt, movedSince)),
+          exists(recentStatusChange),
+          exists(recentShipmentActivity),
         ),
       ),
     )
