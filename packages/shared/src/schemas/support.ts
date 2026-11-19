@@ -37,7 +37,7 @@ export const TICKET_CATEGORY_LABELS: Record<TicketCategory, string> = {
   store: "Conexão de loja",
   listing: "Publicação ou anúncio",
   account: "Minha conta",
-  other: "Outro tema",
+  other: "Outro assunto",
 };
 
 export const TICKET_PRIORITY_LABELS: Record<TicketPriority, string> = {

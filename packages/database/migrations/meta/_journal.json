@@ -614,8 +614,15 @@
     {
       "idx": 87,
       "version": "7",
-      "when": 1795115037255,
-      "tag": "0087_billing_asaas",
+      "when": 1795106374962,
+      "tag": "0087_reseller_sale_invoices",
+      "breakpoints": true
+    },
+    {
+      "idx": 88,
+      "version": "7",
+      "when": 1795129603053,
+      "tag": "0088_billing_asaas",
       "breakpoints": true
     }
   ]
