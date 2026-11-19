@@ -8,7 +8,11 @@ import { and, asc, eq, inArray } from "drizzle-orm";
 import type { Database } from "../client.ts";
 import { categories, supplierProducts, suppliers, tenantProfile } from "../schema/index.ts";
 import { countRecentUnitsSold } from "./product-heat.ts";
-import { productListable, publicSupplier, supplierOpenToResellers } from "./sql/sellable.ts";
+import {
+  productOfferedInCatalog,
+  publicSupplier,
+  supplierOpenToResellers,
+} from "./sql/sellable.ts";
 import { listStoreConnections, type StoreConnectionSummary } from "./stores.ts";
 import {
   listSellableCatalog,
@@ -97,7 +101,11 @@ async function listSupplierCategories(
     .innerJoin(supplierProducts, eq(supplierProducts.categoryId, categories.id))
     .innerJoin(suppliers, eq(suppliers.id, supplierProducts.supplierId))
     .where(
-      and(inArray(suppliers.id, [...supplierIds]), productListable(), supplierOpenToResellers()),
+      and(
+        inArray(suppliers.id, [...supplierIds]),
+        productOfferedInCatalog(),
+        supplierOpenToResellers(),
+      ),
     )
     .orderBy(asc(categories.name));
 }

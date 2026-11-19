@@ -12,6 +12,7 @@ import { createTestDatabase, createTestTenants } from "../testing/fixtures.ts";
 import { recordManualOrder } from "./orders.ts";
 import { createProductModel, getProductModel, updateProductModel } from "./product-models.ts";
 import { ensureManualStore } from "./stores.ts";
+import { getSellableCatalogProduct, listSellableCatalog } from "./suppliers.ts";
 
 const database = createTestDatabase();
 let supplierId = "";
@@ -275,5 +276,43 @@ describe("stock of a combination", () => {
 
     expect((await combinationRow(`${prefix}-P-38`)).reservedStock).toBe(2);
     expect((await combinationRow(`${prefix}-P-39`)).reservedStock).toBe(0);
+  });
+});
+
+describe("reseller catalog", () => {
+  it("offers a model's combinations only through the model, never one by one", async () => {
+    const prefix = randomUUID().slice(0, 8);
+    const marker = `Grade oculta ${prefix}`;
+    await createProductModel(database, {
+      supplierId,
+      values: { ...values, title: marker },
+      grid: shoeGrid(prefix),
+      reviewStatus: "approved",
+    });
+    const [single] = await database
+      .insert(supplierProducts)
+      .values({
+        supplierId,
+        sku: `${prefix}-AVULSO`,
+        title: `${marker} avulso`,
+        costCents: 5000,
+        suggestedPriceCents: 9990,
+        stock: 3,
+      })
+      .returning({ id: supplierProducts.id });
+    const black38 = await combinationRow(`${prefix}-P-38`);
+    const tenantId = tenants.ids[0] ?? "";
+
+    const catalog = await listSellableCatalog(
+      database,
+      tenantId,
+      { search: marker, sort: "title" },
+      { page: 1, pageSize: 50 },
+    );
+
+    expect(catalog.items.map((product) => product.id)).toEqual([single?.id]);
+    await expect(getSellableCatalogProduct(database, black38.id)).rejects.toMatchObject({
+      code: "NOT_FOUND",
+    });
   });
 });
