@@ -8,6 +8,7 @@ import {
   type AttentionItem,
   type StoreState,
 } from "@/components/reports/attention-items";
+import { MeiTip } from "@/components/onboarding/mei-tip";
 import { billingNoticeQueryOptions } from "@/features/billing/billing.queries";
 import { attentionCountsQueryOptions } from "@/features/navigation/navigation.queries";
 
@@ -122,7 +123,14 @@ export function AttentionList({
 }
 
 /** The short list of things only the reseller can fix, ranked by urgency. */
-export function AttentionPanel({ stores }: { stores: readonly StoreState[] }) {
+export function AttentionPanel({
+  stores,
+  showMeiTip = false,
+}: {
+  stores: readonly StoreState[];
+  /** For who sells with a CPF: a suggestion under the rows, never an alarm. */
+  showMeiTip?: boolean;
+}) {
   const counts = useQuery(attentionCountsQueryOptions());
   const notice = useQuery(billingNoticeQueryOptions());
   const items = buildAttentionItems(
@@ -138,6 +146,7 @@ export function AttentionPanel({ stores }: { stores: readonly StoreState[] }) {
     <AttentionList
       items={items}
       allClearDescription="Nenhuma loja desconectada, publicação com erro, resposta ou avaliação pendente."
+      footer={showMeiTip ? <MeiTip showProfileLink className="mt-4" /> : null}
     />
   );
 }

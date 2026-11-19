@@ -10,6 +10,7 @@ import {
   orderDeliveredContent,
   salePaidContent,
   shipmentLateContent,
+  shipmentProblemContent,
   storeExpiredContent,
   supportReplyContent,
 } from "./notification-events.ts";
@@ -111,5 +112,23 @@ describe("invoice attention notice", () => {
     expect(content.actionPath).toBe("/fornecedor/painel/pedidos?tab=problem");
     expect(channelEnabled("invoice_attention", "email", undefined)).toBe(true);
     expect(channelEnabled("invoice_attention", "in_app", undefined)).toBe(true);
+  });
+});
+
+describe("shipmentProblemContent for a returned parcel", () => {
+  const returned = { orderId: "order-1", externalOrderId: "ML-1", problem: "returned" } as const;
+
+  it("asks the reseller to tell the supplier why the buyer sent it back", () => {
+    const content = shipmentProblemContent({ ...returned, recipient: "reseller" });
+
+    expect(content.paragraphs).toContain(
+      "Abra o pedido e conte ao fornecedor por que o comprador devolveu.",
+    );
+  });
+
+  it("asks the supplier to check the product before its deadline", () => {
+    const content = shipmentProblemContent({ ...returned, recipient: "supplier" });
+
+    expect(content.paragraphs.join(" ")).toContain("dentro do prazo");
   });
 });

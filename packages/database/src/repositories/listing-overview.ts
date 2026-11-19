@@ -1,3 +1,7 @@
+import {
+  type ListingPauseReason,
+  readListingPauseReason,
+} from "@sellbridge/shared/listing-pause-reasons";
 import { unavailableReason, type UnavailableReason } from "@sellbridge/shared/catalog-availability";
 import { notFoundError } from "@sellbridge/shared/errors";
 import { daysBefore } from "@sellbridge/shared/time";
@@ -41,6 +45,8 @@ export interface ListingStoreStatus {
   storeConnectionId: string;
   status: ListingTargetStatus;
   errorReason: string | null;
+  /** Why this store is paused; null while it sells or for a reason this version does not know. */
+  pauseReason: ListingPauseReason | null;
   /** Why the marketplace did not take the description of this live listing; null when it did. */
   descriptionError: string | null;
   attempts: number;
@@ -223,6 +229,7 @@ async function selectStoreStatuses(database: Database, ids: string[]) {
       storeConnectionId: listingTargets.storeConnectionId,
       status: listingTargets.status,
       errorReason: listingTargets.errorReason,
+      pauseReason: listingTargets.pauseReason,
       descriptionError: listingTargets.descriptionError,
       attempts: listingTargets.attempts,
       externalUrl: listingTargets.externalUrl,
@@ -317,7 +324,9 @@ async function loadOverviewRows(
       supplierOpen,
       priceCoversCost,
     });
-    const stores = statuses.filter((row) => row.listingId === id);
+    const stores = statuses
+      .filter((row) => row.listingId === id)
+      .map((row) => ({ ...row, pauseReason: readListingPauseReason(row.pauseReason) }));
     const updatedAt = new Date(Math.max(...stores.map((row) => row.updatedAt.getTime())));
     const dailySales = dailySeries(sales.filter((row) => row.listingId === id));
     return [

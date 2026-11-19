@@ -9,12 +9,16 @@ const mocks = vi.hoisted(() => ({
   settle: vi.fn<(...input: unknown[]) => Promise<unknown>>(),
   sync: vi.fn<(...input: unknown[]) => Promise<unknown>>(),
   reportWithoutAccount: vi.fn<(...input: unknown[]) => void>(),
+  markDeferred: vi.fn<(...input: unknown[]) => Promise<Date>>(),
+  clearDeferral: vi.fn<(...input: unknown[]) => Promise<void>>(),
 }));
 vi.mock("@sellbridge/database/repositories", () => ({
   findSupplierPaymentAccount: mocks.findAccount,
   listHeldPayments: mocks.listHeld,
   listShipmentPaymentsToReconcile: mocks.listOpen,
   markShipmentPaymentChecked: mocks.markChecked,
+  markShipmentPaymentDeferred: mocks.markDeferred,
+  clearShipmentPaymentDeferral: mocks.clearDeferral,
   listShipmentPaymentRefundCandidates: vi.fn<(...input: unknown[]) => Promise<unknown[]>>(),
 }));
 vi.mock("@sellbridge/payments/asaas", async (importOriginal) => ({
@@ -27,6 +31,7 @@ vi.mock("@sellbridge/payments/asaas", async (importOriginal) => ({
 
 import { createDatabase } from "@sellbridge/database/client";
 import { AsaasError } from "@sellbridge/payments/asaas";
+import { problemsLoggedBy } from "@sellbridge/shared/problem-capture-testing";
 import { createAsaasPaymentProcessor } from "./asaas-payments.ts";
 
 // Never connected: every database call in these tests is a mock.
@@ -69,6 +74,7 @@ beforeEach(() => {
   mocks.findAccount.mockResolvedValue(account);
   mocks.listOpen.mockResolvedValue([]);
   mocks.listHeld.mockResolvedValue([]);
+  mocks.markDeferred.mockResolvedValue(NOW);
 });
 
 describe("createAsaasPaymentProcessor", () => {
@@ -162,5 +168,52 @@ describe("createAsaasPaymentProcessor", () => {
     expect(mocks.sync).not.toHaveBeenCalled();
     expect(mocks.markChecked).toHaveBeenCalledOnce();
     expect(mocks.reportWithoutAccount).toHaveBeenCalledWith(held, NOW);
+  });
+
+  it("tells the team once Asaas has kept payments waiting for more than two hours", async () => {
+    mocks.listOpen.mockResolvedValue([{ id: "payment-1", supplierId: "supplier-1" }]);
+    mocks.reconcile.mockRejectedValue(new AsaasError("Asaas answered 503", { status: 503 }));
+    mocks.markDeferred.mockResolvedValue(new Date(NOW.getTime() - 3 * 60 * 60 * 1000));
+
+    const problems = await problemsLoggedBy(processor());
+
+    expect(problems).toHaveLength(1);
+    expect(problems[0]).toMatchObject({
+      event: "payments.provider_stuck",
+      area: "payments",
+      message: expect.stringContaining("Asaas sem responder há mais de 2 horas: 1 pagamento"),
+    });
+  });
+
+  // Regression: the charge read cleared the wait before the release ran, so a release or refund
+  // that Asaas kept refusing restarted the clock every round and never reached Problemas.
+  it("keeps counting the wait while Asaas reads the charge but refuses the release", async () => {
+    const held = heldPayment("payment-1");
+    mocks.listHeld.mockResolvedValue([held]);
+    mocks.sync.mockResolvedValue({
+      kind: "applied",
+      payment: held.payment,
+      charge: { refundInProgress: false },
+    });
+    mocks.settle.mockRejectedValue(new AsaasError("Asaas answered 503", { status: 503 }));
+    mocks.markDeferred.mockResolvedValue(new Date(NOW.getTime() - 3 * 60 * 60 * 1000));
+
+    const problems = await problemsLoggedBy(processor());
+
+    expect(mocks.clearDeferral).not.toHaveBeenCalled();
+    expect(problems).toHaveLength(1);
+    expect(problems[0]).toMatchObject({ event: "payments.provider_stuck" });
+  });
+
+  it("keeps a short Asaas outage off Problemas and forgets it once Asaas answers", async () => {
+    mocks.listOpen.mockResolvedValue([{ id: "payment-1", supplierId: "supplier-1" }]);
+    mocks.reconcile.mockRejectedValueOnce(new AsaasError("Asaas answered 503", { status: 503 }));
+    mocks.markDeferred.mockResolvedValue(new Date(NOW.getTime() - 10 * 60 * 1000));
+
+    const outage = await problemsLoggedBy(processor());
+    await processor()();
+
+    expect(outage).toEqual([]);
+    expect(mocks.clearDeferral).toHaveBeenCalledWith(database, "payment-1");
   });
 });

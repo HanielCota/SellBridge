@@ -1,7 +1,8 @@
 import { randomUUID } from "node:crypto";
 import { schema } from "@sellbridge/database";
-import { recordWebhookEvent } from "@sellbridge/database/repositories";
+import { recordWebhookEvent, reopenAbandonedWebhookEvent } from "@sellbridge/database/repositories";
 import { encodeMockOrderResource } from "@sellbridge/marketplaces/testing";
+import { problemsLoggedBy } from "@sellbridge/shared/problem-capture-testing";
 import { eq, inArray } from "drizzle-orm";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import {
@@ -123,5 +124,69 @@ describe("webhook event sweeper", () => {
     });
     await sweep();
     expect(enqueued).not.toContain(webhookEventId);
+  });
+
+  it("hands an event still failing after a day to the team, once", async () => {
+    const webhookEventId = await recordOrderEvent();
+    const receivedAt = new Date(Date.now() - 25 * 60 * 60 * 1000);
+    await database
+      .update(schema.webhookEvents)
+      .set({ receivedAt, error: "API de pedidos indisponível" })
+      .where(eq(schema.webhookEvents.id, webhookEventId));
+    const enqueued: string[] = [];
+    const sweep = createWebhookEventSweepProcessor({
+      database,
+      enqueue: async (id) => {
+        enqueued.push(id);
+      },
+    });
+
+    const firstRun = await problemsLoggedBy(sweep);
+    const secondRun = await problemsLoggedBy(sweep);
+
+    expect(enqueued).not.toContain(webhookEventId);
+    const handedOver = firstRun.filter(
+      (problem) => problem.context.webhookEventId === webhookEventId,
+    );
+    expect(handedOver).toHaveLength(1);
+    expect(handedOver[0]).toMatchObject({
+      event: "webhook.event_abandoned",
+      area: "orders",
+      message: expect.stringContaining("a venda pode não ter entrado"),
+      context: { lastError: "API de pedidos indisponível" },
+    });
+    expect(secondRun.some((problem) => problem.context.webhookEventId === webhookEventId)).toBe(
+      false,
+    );
+    const event = await database.query.webhookEvents.findFirst({
+      where: eq(schema.webhookEvents.id, webhookEventId),
+    });
+    expect(event?.abandonedAt).not.toBeNull();
+  });
+
+  // Regression: "Tentar de novo" cleared the mark, and the next sweep (five minutes later) handed
+  // the event over again while its retry still had most of its attempts to run.
+  it("gives an event the team retried time for its attempts before handing it over again", async () => {
+    const webhookEventId = await recordOrderEvent();
+    const now = Date.now();
+    await database
+      .update(schema.webhookEvents)
+      .set({ receivedAt: new Date(now - 25 * 60 * 60 * 1000), abandonedAt: new Date(now) })
+      .where(eq(schema.webhookEvents.id, webhookEventId));
+    await reopenAbandonedWebhookEvent(database, { id: webhookEventId, now: new Date(now) });
+    const sweepAt = (offsetInMs: number) =>
+      createWebhookEventSweepProcessor({
+        database,
+        enqueue: async () => {},
+        now: () => new Date(now + offsetInMs),
+      });
+
+    const duringRetry = await problemsLoggedBy(sweepAt(5 * 60 * 1000));
+    const afterRetry = await problemsLoggedBy(sweepAt(3 * 60 * 60 * 1000));
+
+    const about = (problems: typeof duringRetry) =>
+      problems.filter((problem) => problem.context.webhookEventId === webhookEventId);
+    expect(about(duringRetry)).toEqual([]);
+    expect(about(afterRetry)).toHaveLength(1);
   });
 });

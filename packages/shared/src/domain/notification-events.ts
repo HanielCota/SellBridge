@@ -18,6 +18,8 @@ export const NOTIFICATION_EVENTS = [
   "invoice_attention",
   "marketplace_claim",
   "store_buyer_address",
+  "receiving_account_needed",
+  "receiving_account_waiting",
 ] as const;
 export type NotificationEventName = (typeof NOTIFICATION_EVENTS)[number];
 
@@ -122,6 +124,20 @@ export const NOTIFICATION_EVENT_DEFINITIONS: Record<NotificationEventName, Event
     label: "Endereço de compra no fornecedor",
     description: "As compras pessoais da sua conta do marketplace estão indo para o fornecedor.",
     defaults: { in_app: true, email: true, push: true },
+  },
+  // For the supplier: a new parcel waits until its receiving account is approved.
+  receiving_account_needed: {
+    audience: "reseller",
+    label: "Pedido esperando sua conta de recebimento",
+    description: "Chegou um pedido que só segue depois que você ligar a conta de recebimento.",
+    defaults: { in_app: true, email: true, push: true },
+  },
+  // The team also sees it in Problemas; e-mail is the outside nudge.
+  receiving_account_waiting: {
+    audience: "staff",
+    label: "Pedido parado sem conta de recebimento",
+    description: "Um pedido espera o fornecedor ligar a conta de recebimento.",
+    defaults: { email: true },
   },
   // The team already sees new tickets in the "Chamados" badge; e-mail is the outside nudge.
   ticket_created: {
@@ -237,6 +253,19 @@ const SHIPMENT_PROBLEM_HEADINGS: Record<ShipmentProblemNotice["problem"], string
   returned: "Pacote devolvido",
 };
 
+/** What each side does now. A return follows the return policy: reason first, then the check. */
+function shipmentProblemNextStep(notice: ShipmentProblemNotice): string {
+  const forSupplier = notice.recipient === "supplier";
+  if (notice.problem === "returned") {
+    return forSupplier
+      ? "Confira o produto e responda a devolução no Suporte dentro do prazo. Sem resposta, vale o que o revendedor contar."
+      : "Abra o pedido e conte ao fornecedor por que o comprador devolveu.";
+  }
+  return forSupplier
+    ? "Confira o rastreio e combine com o revendedor o que fazer com o pacote."
+    : "Fale com o comprador pelo chat da venda e acompanhe o rastreio.";
+}
+
 export function shipmentProblemContent(notice: ShipmentProblemNotice): NotificationContent {
   const heading = SHIPMENT_PROBLEM_HEADINGS[notice.problem];
   const forSupplier = notice.recipient === "supplier";
@@ -250,9 +279,7 @@ export function shipmentProblemContent(notice: ShipmentProblemNotice): Notificat
       notice.problem === "not_delivered"
         ? `A transportadora não conseguiu entregar o pedido ${notice.externalOrderId}.`
         : `O pedido ${notice.externalOrderId} voltou para o remetente.`,
-      forSupplier
-        ? "Confira o rastreio e combine com o revendedor o que fazer com o pacote."
-        : "Fale com o comprador pelo chat da venda e acompanhe o rastreio.",
+      shipmentProblemNextStep(notice),
     ],
     actionLabel: forSupplier ? "Ver no painel" : "Ver pedido",
     actionPath: forSupplier ? "/fornecedor/painel/pedidos" : `/pedidos/${notice.orderId}`,
@@ -529,6 +556,47 @@ export function claimNoticeContent(notice: ClaimNotice): NotificationContent {
     actionPath: forSupplier
       ? `/fornecedor/painel/pedidos?${new URLSearchParams({ tab: notice.supplierTab ?? "todo", query: notice.externalOrderId }).toString()}`
       : `/pedidos/${notice.orderId}`,
+    footnote: FOOTNOTE,
+  };
+}
+
+export interface ReceivingAccountWaitNotice {
+  externalOrderId: string;
+  supplierName: string;
+}
+
+/** For the supplier: a new parcel waits for its receiving account. */
+export function receivingAccountNeededContent(
+  notice: ReceivingAccountWaitNotice,
+): NotificationContent {
+  return {
+    subject: `Pedido ${notice.externalOrderId} esperando sua conta de recebimento`,
+    preview: "Ligue a conta no Asaas para aceitar o pedido.",
+    heading: "Ligue sua conta de recebimento",
+    paragraphs: [
+      `O pedido ${notice.externalOrderId} chegou, mas só segue depois que sua conta de recebimento no Asaas for aprovada.`,
+      "Abra Recebimentos no seu painel, abra a conta e envie os documentos. O revendedor paga você por ela.",
+    ],
+    actionLabel: "Ligar minha conta",
+    actionPath: "/fornecedor/painel/recebimentos",
+    footnote: FOOTNOTE,
+  };
+}
+
+/** For the team: a parcel waits for its supplier's receiving account. */
+export function receivingAccountWaitingContent(
+  notice: ReceivingAccountWaitNotice,
+): NotificationContent {
+  return {
+    subject: `Pedido ${notice.externalOrderId} parado: ${notice.supplierName} sem conta de recebimento`,
+    preview: "O pedido só segue depois que o fornecedor ligar a conta.",
+    heading: "Pedido parado sem conta de recebimento",
+    paragraphs: [
+      `O pedido ${notice.externalOrderId} espera ${notice.supplierName} ligar a conta de recebimento no Asaas. O fornecedor já foi avisado.`,
+      "Se ele não ligar logo, fale com ele: o prazo de postagem do canal continua correndo.",
+    ],
+    actionLabel: "Ver em Problemas",
+    actionPath: "/admin/problemas",
     footnote: FOOTNOTE,
   };
 }

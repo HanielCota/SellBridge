@@ -71,7 +71,11 @@ describe("handleBlingWebhook", () => {
     expect(mocks.findSuppliers).toHaveBeenCalledWith({}, stockNotice.companyId);
     expect(mocks.recordNotice).toHaveBeenCalledWith(
       {},
-      expect.objectContaining({ supplierIds: ["supplier-1"], erpProductIds: [12345678] }),
+      expect.objectContaining({
+        supplierIds: ["supplier-1"],
+        erpCompanyId: stockNotice.companyId,
+        erpProductIds: [12345678],
+      }),
     );
     expect(mocks.enqueue).toHaveBeenCalledWith("supplier-1");
   });

@@ -10,6 +10,7 @@ import {
   parseMercadoLivreNotice,
   readMercadoLivreAccountAddresses,
   readMercadoLivreBuyerBilling,
+  readMercadoLivreSaleInvoice,
   readMercadoLivreClaim,
   readMercadoLivreShipmentOrders,
   searchMercadoLivreClaims,
@@ -47,7 +48,8 @@ import {
 import { withDeadline } from "@sellbridge/shared/deadline";
 import { Queue, Worker } from "bullmq";
 import { startHealthServer } from "./health.ts";
-import { toJobContext } from "./lib/job-context.ts";
+import { isLastAttempt, toJobContext } from "./lib/job-context.ts";
+import { reportJobFailure } from "./lib/job-failure-report.ts";
 import { createRateLimiter } from "./lib/rate-limiter.ts";
 import { environment } from "./environment.ts";
 import { createPublishListingProcessor } from "./processors/publish-listing.ts";
@@ -57,6 +59,7 @@ import { createStockPriceSyncProcessor } from "./processors/stock-price-sync.ts"
 import { createAsaasPaymentProcessor } from "./processors/asaas-payments.ts";
 import { runPaymentRounds } from "./processors/payment-rounds.ts";
 import { createSupplierPaymentProcessor } from "./processors/supplier-payments.ts";
+import { createReturnDeadlinesProcessor } from "./processors/return-deadlines.ts";
 import { createTicketAutoCloseProcessor } from "./processors/ticket-auto-close.ts";
 import { createSupplierApprovalProcessor } from "./processors/supplier-approval.ts";
 import { createBuyerAddressCheckProcessor } from "./processors/buyer-address-check.ts";
@@ -75,6 +78,7 @@ import {
   refreshSupplierErpStock,
   type ErpStockSyncDependencies,
 } from "./processors/erp-stock-sync.ts";
+import { createResellerInvoiceReadProcessor } from "./processors/reseller-invoice-read.ts";
 import { resolveStoreCredentials } from "./lib/store-access.ts";
 import { createNotificationDeliveryProcessor } from "./processors/notification-delivery.ts";
 import { blingInvoiceFileReader, createInvoiceAttachments } from "./lib/invoice-attachments.ts";
@@ -262,6 +266,25 @@ function erpStockWorker(
   });
 }
 
+function createResellerInvoiceReader(context: WorkerContext) {
+  const { database, cipher, mercadoLivreConfig } = context;
+  return createResellerInvoiceReadProcessor({
+    database,
+    readSaleInvoice: async (due) => {
+      if (due.store.marketplace !== "mercado_livre") {
+        return null;
+      }
+
+      const store = resolveStoreCredentials(cipher, due.store);
+      if (store === null) {
+        return null;
+      }
+
+      return readMercadoLivreSaleInvoice(mercadoLivreConfig, store, due.externalOrderId);
+    },
+  });
+}
+
 /** The supplier's catalog sent to its ERP; one at a time, the ERP quota is per account. */
 function erpWorkers(context: WorkerContext): Worker[] {
   const dependencies = {
@@ -286,20 +309,33 @@ function erpWorkers(context: WorkerContext): Worker[] {
       return readMercadoLivreBuyerBilling(context.mercadoLivreConfig, store, work.externalOrderId);
     },
   });
+  const readResellerInvoices = createResellerInvoiceReader(context);
   return [
     erpStockWorker(context, dependencies),
-    new Worker(QUEUE_NAMES.erpCatalogExport, async (job) => processExport(job.data), {
-      connection: context.connection,
-      concurrency: 1,
-    }),
+    new Worker(
+      QUEUE_NAMES.erpCatalogExport,
+      async (job) => processExport(job.data, { isLast: isLastAttempt(job) }),
+      {
+        connection: context.connection,
+        concurrency: 1,
+      },
+    ),
     new Worker(QUEUE_NAMES.erpCatalogRead, async (job) => processRead(job.data), {
       connection: context.connection,
       concurrency: 2,
     }),
-    new Worker(QUEUE_NAMES.erpInvoiceIssue, async () => processInvoices(), {
-      connection: context.connection,
-      concurrency: 1,
-    }),
+    // The reseller's note comes first: in venda à ordem the supplier's notes reference it.
+    new Worker(
+      QUEUE_NAMES.erpInvoiceIssue,
+      async () => ({
+        resellerNotes: await readResellerInvoices(),
+        ...(await processInvoices()),
+      }),
+      {
+        connection: context.connection,
+        concurrency: 1,
+      },
+    ),
   ];
 }
 
@@ -435,6 +471,9 @@ function paymentWorkers(context: WorkerContext): Worker[] {
   ];
 }
 
+/** Shares the ticket queue: both are slow sweeps of support deadlines. */
+const RETURN_DEADLINES_JOB = "close-overdue-returns";
+
 function accountAddressConfig(context: WorkerContext): MercadoLivreConfig {
   const fetchImplementation = context.accountAddressFetch;
   if (fetchImplementation === undefined) {
@@ -463,6 +502,7 @@ function storeAccountWorkers(context: WorkerContext): Worker[] {
 function deliveryWorkers(context: WorkerContext): Worker[] {
   const { database, cipher, sendEmail, connection } = context;
   const processTickets = createTicketAutoCloseProcessor({ database });
+  const processReturns = createReturnDeadlinesProcessor({ database });
   const lookUpCnpj = createCnpjLookup({ baseUrl: environment.CNPJ_LOOKUP_URL });
   const processApprovals = createSupplierApprovalProcessor({
     listPending: async (limit) => listPendingSupplierIds(database, limit),
@@ -494,10 +534,11 @@ function deliveryWorkers(context: WorkerContext): Worker[] {
       deliverOrderMessageNotice({ database, sendEmail, appUrl: environment.APP_URL }, notice),
   });
   return [
-    new Worker(QUEUE_NAMES.ticketAutoClose, async () => processTickets(), {
-      connection,
-      concurrency: 1,
-    }),
+    new Worker(
+      QUEUE_NAMES.ticketAutoClose,
+      async (job) => (job.name === RETURN_DEADLINES_JOB ? processReturns() : processTickets()),
+      { connection, concurrency: 1 },
+    ),
     new Worker(QUEUE_NAMES.supplierApproval, async () => processApprovals(), {
       connection,
       concurrency: 1,
@@ -534,6 +575,7 @@ async function scheduleQueues(queues: WorkerContext["queues"]): Promise<void> {
   await scheduleRecurring(queues.webhookSweep, "sweep-unprocessed-webhook-events", 5 * 60 * 1000);
   await scheduleRecurring(queues.webhookSweep, WEBHOOK_EVENT_PRUNE_JOB, 60 * 60 * 1000);
   await scheduleRecurring(queues.ticketClose, "close-idle-tickets", 60 * 60 * 1000);
+  await scheduleRecurring(queues.ticketClose, RETURN_DEADLINES_JOB, 15 * 60 * 1000);
   await scheduleRecurring(queues.supplierApproval, "check-pending-suppliers", 15 * 60 * 1000);
   await scheduleRecurring(queues.tokenRefresh, "refresh-expiring-tokens", 10 * 60 * 1000);
   await scheduleRecurring(queues.shipmentTracking, "track-shipments", 30 * 60 * 1000);
@@ -550,14 +592,7 @@ async function scheduleQueues(queues: WorkerContext["queues"]): Promise<void> {
 
 function observeWorkers(workers: readonly Worker[]): void {
   for (const worker of workers) {
-    worker.on("failed", (job, error) =>
-      logger.warn("job.failed", {
-        queue: worker.name,
-        jobId: job?.id,
-        attemptsMade: job?.attemptsMade,
-        error,
-      }),
-    );
+    worker.on("failed", (job, error) => reportJobFailure(worker.name, job, error));
     worker.on("error", (error) => logger.error("worker.error", { queue: worker.name, error }));
   }
 }

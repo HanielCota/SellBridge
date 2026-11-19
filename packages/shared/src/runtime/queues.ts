@@ -180,6 +180,11 @@ export const STOCK_SYNC_JOB_OPTIONS = {
   deduplication: { id: "stock-price-sync-request", keepLastIfActive: true },
 } as const;
 
+/** The job of one stored marketplace event, in the webhook events queue. */
+export const WEBHOOK_EVENT_JOB_NAME = "webhook";
+/** A reconnected store's catch-up of missed sales, in the same queue but with no stored event. */
+export const STORE_ORDER_CATCH_UP_JOB_NAME = "order-catch-up";
+
 /**
  * Webhook processing: marketplaces expect a quick 200, the real work is retried here.
  * 8 attempts with exponential backoff from 30 s cover about an hour of marketplace outage;
@@ -243,7 +248,11 @@ export async function enqueueWebhookEventJob(
   if (!released) {
     return;
   }
-  await queue.add("webhook", { webhookEventId }, { ...WEBHOOK_JOB_OPTIONS, jobId: webhookEventId });
+  await queue.add(
+    WEBHOOK_EVENT_JOB_NAME,
+    { webhookEventId },
+    { ...WEBHOOK_JOB_OPTIONS, jobId: webhookEventId },
+  );
 }
 
 /** The subset of a BullMQ queue used to enqueue a reconnected store's catch-up. */
@@ -271,7 +280,7 @@ export async function enqueueStoreOrderCatchUpJob(
   const jobId = storeOrderCatchUpJobId(catchUp);
   const released = await releaseFinishedJob(queue, jobId);
   if (released) {
-    await queue.add("order-catch-up", catchUp, { ...WEBHOOK_JOB_OPTIONS, jobId });
+    await queue.add(STORE_ORDER_CATCH_UP_JOB_NAME, catchUp, { ...WEBHOOK_JOB_OPTIONS, jobId });
   }
 }
 

@@ -1,6 +1,6 @@
 {
-  "id": "0b837923-d184-40e2-b801-b6bd5e0af067",
-  "prevId": "30f257f6-a68e-4f52-a89e-5c78d6a2460e",
+  "id": "5cb3b0b4-4dd3-47d9-995a-5d76d8445f15",
+  "prevId": "d1ba1a9b-5894-458c-adc9-c57a27b51578",
   "version": "7",
   "dialect": "postgresql",
   "tables": {
@@ -998,6 +998,311 @@
       "checkConstraints": {},
       "isRLSEnabled": false
     },
+    "public.product_model_colors": {
+      "name": "product_model_colors",
+      "schema": "",
+      "columns": {
+        "model_id": {
+          "name": "model_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "name": {
+          "name": "name",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "position": {
+          "name": "position",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "image_urls": {
+          "name": "image_urls",
+          "type": "text[]",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'{}'::text[]"
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {
+        "product_model_colors_model_id_product_models_id_fk": {
+          "name": "product_model_colors_model_id_product_models_id_fk",
+          "tableFrom": "product_model_colors",
+          "tableTo": "product_models",
+          "columnsFrom": [
+            "model_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {
+        "product_model_colors_model_id_name_pk": {
+          "name": "product_model_colors_model_id_name_pk",
+          "columns": [
+            "model_id",
+            "name"
+          ]
+        }
+      },
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "public.product_model_sizes": {
+      "name": "product_model_sizes",
+      "schema": "",
+      "columns": {
+        "model_id": {
+          "name": "model_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "name": {
+          "name": "name",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "position": {
+          "name": "position",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {
+        "product_model_sizes_model_id_product_models_id_fk": {
+          "name": "product_model_sizes_model_id_product_models_id_fk",
+          "tableFrom": "product_model_sizes",
+          "tableTo": "product_models",
+          "columnsFrom": [
+            "model_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {
+        "product_model_sizes_model_id_name_pk": {
+          "name": "product_model_sizes_model_id_name_pk",
+          "columns": [
+            "model_id",
+            "name"
+          ]
+        }
+      },
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "public.product_models": {
+      "name": "product_models",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "supplier_id": {
+          "name": "supplier_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "category_id": {
+          "name": "category_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "title": {
+          "name": "title",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "description": {
+          "name": "description",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "''"
+        },
+        "image_urls": {
+          "name": "image_urls",
+          "type": "text[]",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'{}'::text[]"
+        },
+        "mercado_livre_attributes": {
+          "name": "mercado_livre_attributes",
+          "type": "jsonb",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'{}'::jsonb"
+        },
+        "mercado_livre_category_id": {
+          "name": "mercado_livre_category_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "mercado_livre_category_name": {
+          "name": "mercado_livre_category_name",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "warranty_type": {
+          "name": "warranty_type",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "warranty_days": {
+          "name": "warranty_days",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "video_url": {
+          "name": "video_url",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "made_to_order_days": {
+          "name": "made_to_order_days",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "carrier_only": {
+          "name": "carrier_only",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": true,
+          "default": false
+        },
+        "fiscal": {
+          "name": "fiscal",
+          "type": "jsonb",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'{}'::jsonb"
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "updated_at": {
+          "name": "updated_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {
+        "product_models_supplier_idx": {
+          "name": "product_models_supplier_idx",
+          "columns": [
+            {
+              "expression": "supplier_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "product_models_id_supplier_idx": {
+          "name": "product_models_id_supplier_idx",
+          "columns": [
+            {
+              "expression": "id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "supplier_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": true,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {
+        "product_models_supplier_id_suppliers_id_fk": {
+          "name": "product_models_supplier_id_suppliers_id_fk",
+          "tableFrom": "product_models",
+          "tableTo": "suppliers",
+          "columnsFrom": [
+            "supplier_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        },
+        "product_models_category_id_categories_id_fk": {
+          "name": "product_models_category_id_categories_id_fk",
+          "tableFrom": "product_models",
+          "tableTo": "categories",
+          "columnsFrom": [
+            "category_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "set null",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {
+        "product_models_sale_terms_check": {
+          "name": "product_models_sale_terms_check",
+          "value": "(\"product_models\".\"warranty_type\" is null or \"product_models\".\"warranty_type\" in ('none', 'seller', 'factory')) and (\"product_models\".\"warranty_days\" is null or \"product_models\".\"warranty_days\" between 1 and 3650) and (\"product_models\".\"made_to_order_days\" is null or \"product_models\".\"made_to_order_days\" between 1 and 60)"
+        }
+      },
+      "isRLSEnabled": false
+    },
     "public.supplier_products": {
       "name": "supplier_products",
       "schema": "",
@@ -1014,6 +1319,38 @@
           "type": "uuid",
           "primaryKey": false,
           "notNull": true
+        },
+        "model_id": {
+          "name": "model_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "color": {
+          "name": "color",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "size": {
+          "name": "size",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "variant_attributes": {
+          "name": "variant_attributes",
+          "type": "jsonb",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'{}'::jsonb"
+        },
+        "variant_fiscal": {
+          "name": "variant_fiscal",
+          "type": "jsonb",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'{}'::jsonb"
         },
         "category_id": {
           "name": "category_id",
@@ -1065,18 +1402,6 @@
           "primaryKey": false,
           "notNull": true,
           "default": 0
-        },
-        "erp_product_id": {
-          "name": "erp_product_id",
-          "type": "bigint",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "erp_stock_read_at": {
-          "name": "erp_stock_read_at",
-          "type": "timestamp with time zone",
-          "primaryKey": false,
-          "notNull": false
         },
         "image_urls": {
           "name": "image_urls",
@@ -1262,28 +1587,6 @@
           "method": "btree",
           "with": {}
         },
-        "supplier_products_erp_product_idx": {
-          "name": "supplier_products_erp_product_idx",
-          "columns": [
-            {
-              "expression": "supplier_id",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            },
-            {
-              "expression": "erp_product_id",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            }
-          ],
-          "isUnique": false,
-          "where": "\"supplier_products\".\"erp_product_id\" is not null",
-          "concurrently": false,
-          "method": "btree",
-          "with": {}
-        },
         "supplier_products_category_idx": {
           "name": "supplier_products_category_idx",
           "columns": [
@@ -1328,6 +1631,34 @@
           "concurrently": false,
           "method": "gin",
           "with": {}
+        },
+        "supplier_products_model_combination_idx": {
+          "name": "supplier_products_model_combination_idx",
+          "columns": [
+            {
+              "expression": "model_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "coalesce(\"color\", '')",
+              "asc": true,
+              "isExpression": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "coalesce(\"size\", '')",
+              "asc": true,
+              "isExpression": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": true,
+          "where": "\"supplier_products\".\"model_id\" is not null",
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
         }
       },
       "foreignKeys": {
@@ -1356,6 +1687,51 @@
           ],
           "onDelete": "set null",
           "onUpdate": "no action"
+        },
+        "supplier_products_model_fk": {
+          "name": "supplier_products_model_fk",
+          "tableFrom": "supplier_products",
+          "tableTo": "product_models",
+          "columnsFrom": [
+            "model_id",
+            "supplier_id"
+          ],
+          "columnsTo": [
+            "id",
+            "supplier_id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        },
+        "supplier_products_model_color_fk": {
+          "name": "supplier_products_model_color_fk",
+          "tableFrom": "supplier_products",
+          "tableTo": "product_model_colors",
+          "columnsFrom": [
+            "model_id",
+            "color"
+          ],
+          "columnsTo": [
+            "model_id",
+            "name"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "cascade"
+        },
+        "supplier_products_model_size_fk": {
+          "name": "supplier_products_model_size_fk",
+          "tableFrom": "supplier_products",
+          "tableTo": "product_model_sizes",
+          "columnsFrom": [
+            "model_id",
+            "size"
+          ],
+          "columnsTo": [
+            "model_id",
+            "name"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "cascade"
         }
       },
       "compositePrimaryKeys": {},
@@ -1369,6 +1745,10 @@
         "supplier_products_reserved_stock_check": {
           "name": "supplier_products_reserved_stock_check",
           "value": "\"supplier_products\".\"reserved_stock\" >= 0"
+        },
+        "supplier_products_model_combination_check": {
+          "name": "supplier_products_model_combination_check",
+          "value": "(\"supplier_products\".\"model_id\" is null and \"supplier_products\".\"color\" is null and \"supplier_products\".\"size\" is null and \"supplier_products\".\"variant_attributes\" = '{}'::jsonb and \"supplier_products\".\"variant_fiscal\" = '{}'::jsonb) or (\"supplier_products\".\"model_id\" is not null and (\"supplier_products\".\"color\" is not null or \"supplier_products\".\"size\" is not null))"
         },
         "supplier_products_sale_terms_check": {
           "name": "supplier_products_sale_terms_check",
@@ -2874,27 +3254,6 @@
           "columns": [
             {
               "expression": "order_id",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            },
-            {
-              "expression": "changed_at",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            }
-          ],
-          "isUnique": false,
-          "concurrently": false,
-          "method": "btree",
-          "with": {}
-        },
-        "order_status_changes_status_idx": {
-          "name": "order_status_changes_status_idx",
-          "columns": [
-            {
-              "expression": "status",
               "isExpression": false,
               "asc": true,
               "nulls": "last"
@@ -7334,231 +7693,6 @@
       "checkConstraints": {},
       "isRLSEnabled": false
     },
-    "public.erp_stock_exits": {
-      "name": "erp_stock_exits",
-      "schema": "",
-      "columns": {
-        "id": {
-          "name": "id",
-          "type": "uuid",
-          "primaryKey": true,
-          "notNull": true,
-          "default": "gen_random_uuid()"
-        },
-        "order_item_id": {
-          "name": "order_item_id",
-          "type": "uuid",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "supplier_id": {
-          "name": "supplier_id",
-          "type": "uuid",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "supplier_product_id": {
-          "name": "supplier_product_id",
-          "type": "uuid",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "erp_product_id": {
-          "name": "erp_product_id",
-          "type": "bigint",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "quantity": {
-          "name": "quantity",
-          "type": "integer",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "sku": {
-          "name": "sku",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "external_order_id": {
-          "name": "external_order_id",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "status": {
-          "name": "status",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "erp_stock_id": {
-          "name": "erp_stock_id",
-          "type": "bigint",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "problem": {
-          "name": "problem",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "created_at": {
-          "name": "created_at",
-          "type": "timestamp with time zone",
-          "primaryKey": false,
-          "notNull": true,
-          "default": "now()"
-        },
-        "updated_at": {
-          "name": "updated_at",
-          "type": "timestamp with time zone",
-          "primaryKey": false,
-          "notNull": true,
-          "default": "now()"
-        }
-      },
-      "indexes": {
-        "erp_stock_exits_order_item_idx": {
-          "name": "erp_stock_exits_order_item_idx",
-          "columns": [
-            {
-              "expression": "order_item_id",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            }
-          ],
-          "isUnique": true,
-          "concurrently": false,
-          "method": "btree",
-          "with": {}
-        },
-        "erp_stock_exits_posting_idx": {
-          "name": "erp_stock_exits_posting_idx",
-          "columns": [
-            {
-              "expression": "created_at",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            }
-          ],
-          "isUnique": false,
-          "where": "\"erp_stock_exits\".\"status\" = 'posting'",
-          "concurrently": false,
-          "method": "btree",
-          "with": {}
-        }
-      },
-      "foreignKeys": {
-        "erp_stock_exits_order_item_id_order_items_id_fk": {
-          "name": "erp_stock_exits_order_item_id_order_items_id_fk",
-          "tableFrom": "erp_stock_exits",
-          "tableTo": "order_items",
-          "columnsFrom": [
-            "order_item_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
-          "onDelete": "cascade",
-          "onUpdate": "no action"
-        },
-        "erp_stock_exits_supplier_id_suppliers_id_fk": {
-          "name": "erp_stock_exits_supplier_id_suppliers_id_fk",
-          "tableFrom": "erp_stock_exits",
-          "tableTo": "suppliers",
-          "columnsFrom": [
-            "supplier_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
-          "onDelete": "cascade",
-          "onUpdate": "no action"
-        },
-        "erp_stock_exits_supplier_product_id_supplier_products_id_fk": {
-          "name": "erp_stock_exits_supplier_product_id_supplier_products_id_fk",
-          "tableFrom": "erp_stock_exits",
-          "tableTo": "supplier_products",
-          "columnsFrom": [
-            "supplier_product_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
-          "onDelete": "set null",
-          "onUpdate": "no action"
-        }
-      },
-      "compositePrimaryKeys": {},
-      "uniqueConstraints": {},
-      "policies": {},
-      "checkConstraints": {
-        "erp_stock_exits_quantity_check": {
-          "name": "erp_stock_exits_quantity_check",
-          "value": "\"erp_stock_exits\".\"quantity\" > 0"
-        }
-      },
-      "isRLSEnabled": false
-    },
-    "public.erp_stock_refresh_requests": {
-      "name": "erp_stock_refresh_requests",
-      "schema": "",
-      "columns": {
-        "supplier_id": {
-          "name": "supplier_id",
-          "type": "uuid",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "erp_product_id": {
-          "name": "erp_product_id",
-          "type": "bigint",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "requested_at": {
-          "name": "requested_at",
-          "type": "timestamp with time zone",
-          "primaryKey": false,
-          "notNull": true,
-          "default": "now()"
-        }
-      },
-      "indexes": {},
-      "foreignKeys": {
-        "erp_stock_refresh_requests_supplier_id_suppliers_id_fk": {
-          "name": "erp_stock_refresh_requests_supplier_id_suppliers_id_fk",
-          "tableFrom": "erp_stock_refresh_requests",
-          "tableTo": "suppliers",
-          "columnsFrom": [
-            "supplier_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
-          "onDelete": "cascade",
-          "onUpdate": "no action"
-        }
-      },
-      "compositePrimaryKeys": {
-        "erp_stock_refresh_requests_supplier_id_erp_product_id_pk": {
-          "name": "erp_stock_refresh_requests_supplier_id_erp_product_id_pk",
-          "columns": [
-            "supplier_id",
-            "erp_product_id"
-          ]
-        }
-      },
-      "uniqueConstraints": {},
-      "policies": {},
-      "checkConstraints": {},
-      "isRLSEnabled": false
-    },
     "public.shipment_invoices": {
       "name": "shipment_invoices",
       "schema": "",
@@ -7766,6 +7900,191 @@
       },
       "isRLSEnabled": false
     },
+    "public.shipment_reseller_invoices": {
+      "name": "shipment_reseller_invoices",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "shipment_id": {
+          "name": "shipment_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "tenant_id": {
+          "name": "tenant_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "access_key": {
+          "name": "access_key",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "number": {
+          "name": "number",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "series": {
+          "name": "series",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "issued_at": {
+          "name": "issued_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "source": {
+          "name": "source",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "found_at": {
+          "name": "found_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "problem": {
+          "name": "problem",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "checks": {
+          "name": "checks",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "default": 0
+        },
+        "next_check_at": {
+          "name": "next_check_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "updated_at": {
+          "name": "updated_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {
+        "shipment_reseller_invoices_shipment_idx": {
+          "name": "shipment_reseller_invoices_shipment_idx",
+          "columns": [
+            {
+              "expression": "shipment_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": true,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "shipment_reseller_invoices_due_idx": {
+          "name": "shipment_reseller_invoices_due_idx",
+          "columns": [
+            {
+              "expression": "next_check_at",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "where": "\"shipment_reseller_invoices\".\"access_key\" is null",
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "shipment_reseller_invoices_tenant_idx": {
+          "name": "shipment_reseller_invoices_tenant_idx",
+          "columns": [
+            {
+              "expression": "tenant_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {
+        "shipment_reseller_invoices_shipment_id_order_shipments_id_fk": {
+          "name": "shipment_reseller_invoices_shipment_id_order_shipments_id_fk",
+          "tableFrom": "shipment_reseller_invoices",
+          "tableTo": "order_shipments",
+          "columnsFrom": [
+            "shipment_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        },
+        "shipment_reseller_invoices_tenant_id_organization_id_fk": {
+          "name": "shipment_reseller_invoices_tenant_id_organization_id_fk",
+          "tableFrom": "shipment_reseller_invoices",
+          "tableTo": "organization",
+          "columnsFrom": [
+            "tenant_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {
+        "shipment_reseller_invoices_source_check": {
+          "name": "shipment_reseller_invoices_source_check",
+          "value": "\"shipment_reseller_invoices\".\"source\" is null or \"shipment_reseller_invoices\".\"source\" in ('marketplace', 'typed')"
+        },
+        "shipment_reseller_invoices_found_check": {
+          "name": "shipment_reseller_invoices_found_check",
+          "value": "(\"shipment_reseller_invoices\".\"access_key\" is null) = (\"shipment_reseller_invoices\".\"source\" is null)"
+        }
+      },
+      "isRLSEnabled": false
+    },
     "public.supplier_erp_connections": {
       "name": "supplier_erp_connections",
       "schema": "",
@@ -7846,38 +8165,6 @@
           "primaryKey": false,
           "notNull": false
         },
-        "erp_company_id": {
-          "name": "erp_company_id",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "stock_checked_at": {
-          "name": "stock_checked_at",
-          "type": "timestamp with time zone",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "stock_check_failures": {
-          "name": "stock_check_failures",
-          "type": "integer",
-          "primaryKey": false,
-          "notNull": true,
-          "default": 0
-        },
-        "last_stock_notice_at": {
-          "name": "last_stock_notice_at",
-          "type": "timestamp with time zone",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "stock_exits_since": {
-          "name": "stock_exits_since",
-          "type": "timestamp with time zone",
-          "primaryKey": false,
-          "notNull": true,
-          "default": "now()"
-        },
         "connected_by_user_id": {
           "name": "connected_by_user_id",
           "type": "text",
@@ -7932,27 +8219,6 @@
             },
             {
               "expression": "expires_at",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            }
-          ],
-          "isUnique": false,
-          "concurrently": false,
-          "method": "btree",
-          "with": {}
-        },
-        "supplier_erp_connections_company_idx": {
-          "name": "supplier_erp_connections_company_idx",
-          "columns": [
-            {
-              "expression": "provider",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            },
-            {
-              "expression": "erp_company_id",
               "isExpression": false,
               "asc": true,
               "nulls": "last"
