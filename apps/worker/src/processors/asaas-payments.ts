@@ -124,16 +124,17 @@ async function settleOne(
   }
   try {
     const { held, refundInProgress } = await freshHeld(context, { held: input.held, account });
-    await input.deferrals.reached(payment.id);
-    if (held.payment.status !== "approved" && held.payment.status !== "charged_back") {
-      return null;
-    }
     // A second refund request while Asaas is still refunding would be refused and read as failed.
-    if (refundInProgress) {
-      return null;
-    }
-    const outcome = await settleHeldPayment(context, { account, held, now: input.now });
-    return outcome.kind;
+    const settles =
+      (held.payment.status === "approved" || held.payment.status === "charged_back") &&
+      !refundInProgress;
+    const outcome = settles
+      ? await settleHeldPayment(context, { account, held, now: input.now })
+      : null;
+    // Only once the release or refund went through too: a read that answers while the release
+    // keeps failing must not reset how long the payment has been waiting.
+    await input.deferrals.reached(payment.id);
+    return outcome?.kind ?? null;
   } catch (error) {
     if (!isDeferrable(error)) {
       throw error;

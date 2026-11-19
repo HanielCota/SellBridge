@@ -185,6 +185,26 @@ describe("createAsaasPaymentProcessor", () => {
     });
   });
 
+  // Regression: the charge read cleared the wait before the release ran, so a release or refund
+  // that Asaas kept refusing restarted the clock every round and never reached Problemas.
+  it("keeps counting the wait while Asaas reads the charge but refuses the release", async () => {
+    const held = heldPayment("payment-1");
+    mocks.listHeld.mockResolvedValue([held]);
+    mocks.sync.mockResolvedValue({
+      kind: "applied",
+      payment: held.payment,
+      charge: { refundInProgress: false },
+    });
+    mocks.settle.mockRejectedValue(new AsaasError("Asaas answered 503", { status: 503 }));
+    mocks.markDeferred.mockResolvedValue(new Date(NOW.getTime() - 3 * 60 * 60 * 1000));
+
+    const problems = await problemsLoggedBy(processor());
+
+    expect(mocks.clearDeferral).not.toHaveBeenCalled();
+    expect(problems).toHaveLength(1);
+    expect(problems[0]).toMatchObject({ event: "payments.provider_stuck" });
+  });
+
   it("keeps a short Asaas outage off Problemas and forgets it once Asaas answers", async () => {
     mocks.listOpen.mockResolvedValue([{ id: "payment-1", supplierId: "supplier-1" }]);
     mocks.reconcile.mockRejectedValueOnce(new AsaasError("Asaas answered 503", { status: 503 }));
