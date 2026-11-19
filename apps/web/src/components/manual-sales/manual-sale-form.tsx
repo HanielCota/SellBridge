@@ -1,3 +1,4 @@
+import { FEE_CHANNEL_OWNERS } from "@sellbridge/shared/channel-fees";
 import { formatCents } from "@sellbridge/shared/money";
 import {
   MANUAL_SALE_CHANNEL_LABELS,
@@ -14,10 +15,13 @@ import { SelectField } from "@/components/form/select-field";
 import { Button } from "@/components/ui/button";
 import {
   addDraftItem,
+  draftEstimatedFeeCents,
+  draftFeeField,
   draftTotalCents,
   type DraftErrors,
   EMPTY_MANUAL_SALE,
   type ManualSaleDraft,
+  maskFeeInput,
   readManualSale,
   removeDraftItem,
   updateDraftItem,
@@ -156,6 +160,60 @@ function SaleProducts({
   );
 }
 
+const FEE_ERROR_KEY = "marketplaceFeeCents";
+const FEE_FIELD_ID = `manual-sale-${FEE_ERROR_KEY}`;
+const FEE_NOTE_ID = "manual-sale-fee-note";
+
+/** Where the fee field's value came from: the channel's table, or what the reseller typed. */
+function feeNote(draft: ManualSaleDraft, estimate: number | null): string {
+  const owner = FEE_CHANNEL_OWNERS[draft.channel];
+  if (draft.fee === null) {
+    return `Calculada pela tabela ${owner} para estes preços. Confira no pedido ${owner} e corrija se for diferente.`;
+  }
+  if (estimate === null) {
+    return `Valor que você informou, do pedido ${owner}.`;
+  }
+  return `Valor que você informou. Pela tabela ${owner}, daria ${formatCents(estimate)}.`;
+}
+
+/**
+ * What the channel keeps of the sale, already estimated from its table; the reseller corrects it
+ * with the value on the channel's order, and the profit counts it.
+ */
+function SaleFee({
+  draft,
+  error,
+  onFeeChange,
+}: {
+  draft: ManualSaleDraft;
+  error: string | undefined;
+  onFeeChange: (fee: string | null) => void;
+}) {
+  const estimate = draftEstimatedFeeCents(draft);
+  const describedBy = error === undefined ? FEE_NOTE_ID : `${FEE_FIELD_ID}-error ${FEE_NOTE_ID}`;
+  return (
+    <section aria-label="Taxa do canal" className="space-y-2">
+      <TextField
+        id={FEE_FIELD_ID}
+        label={`Taxa ${FEE_CHANNEL_OWNERS[draft.channel]} (R$)`}
+        inputMode="numeric"
+        value={draftFeeField(draft)}
+        errors={errorList(error)}
+        aria-describedby={describedBy}
+        onValueChange={(typed) => onFeeChange(maskFeeInput(typed))}
+      />
+      <p id={FEE_NOTE_ID} className="text-footnote text-muted-foreground">
+        {feeNote(draft, estimate)}
+      </p>
+      {draft.fee === null || estimate === null ? null : (
+        <Button type="button" variant="outline" size="sm" onClick={() => onFeeChange(null)}>
+          Usar o cálculo da tabela
+        </Button>
+      )}
+    </section>
+  );
+}
+
 function SaleFooter({ total, pending }: { total: number | null; pending: boolean }) {
   return (
     <div className="grid gap-3 border-t pt-4 sm:flex sm:items-center sm:justify-between">
@@ -204,13 +262,22 @@ export function ManualSaleForm() {
       <SaleDetails
         draft={draft}
         errors={errors}
-        onChange={(patch) => changeDraft({ ...draft, ...patch }, Object.keys(patch))}
+        onChange={(patch) =>
+          changeDraft({ ...draft, ...patch }, [...Object.keys(patch), FEE_ERROR_KEY])
+        }
       />
       <SaleProducts
         draft={draft}
         errors={errors}
-        onDraftChange={(next) => changeDraft(next, ["items"])}
+        onDraftChange={(next) => changeDraft(next, ["items", FEE_ERROR_KEY])}
       />
+      {draft.items.length === 0 ? null : (
+        <SaleFee
+          draft={draft}
+          error={errors[FEE_ERROR_KEY]}
+          onFeeChange={(fee) => changeDraft({ ...draft, fee }, [FEE_ERROR_KEY])}
+        />
+      )}
       <SaleFooter total={draftTotalCents(draft)} pending={mutation.isPending} />
     </form>
   );
