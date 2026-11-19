@@ -1,5 +1,6 @@
 import { getSupplierPanelShipment } from "@sellbridge/database/repositories";
 import { conflictError, forbiddenError } from "@sellbridge/shared/errors";
+import { HOLD_REFUSALS } from "@sellbridge/shared/receiving-rules";
 import { z } from "zod";
 import { requestedProfileOf } from "../profile-param.ts";
 import { database } from "./database.ts";
@@ -8,6 +9,23 @@ import { resolveSupplierPanelViewer } from "./supplier-panel-viewer.ts";
 import { requireTenantSession } from "./tenant-session.ts";
 
 const panelLabelFormSchema = z.object({ supplierId: z.uuid(), shipmentId: z.uuid() });
+
+type LabelShipment = Pick<
+  Awaited<ReturnType<typeof getSupplierPanelShipment>>,
+  "address" | "preparationHold"
+>;
+
+/** A supplier may print while the parcel is open and preparation has been released. */
+export function assertSupplierLabelAvailable(shipment: LabelShipment): void {
+  const { address, preparationHold } = shipment;
+  if (address === null) {
+    throw conflictError("Este envio já foi encerrado");
+  }
+
+  if (preparationHold !== null) {
+    throw conflictError(HOLD_REFUSALS[preparationHold]);
+  }
+}
 
 /** Whether the label form came from the supplier panel (ids) rather than the link (token). */
 export function panelLabelIds(form: URLSearchParams | null) {
@@ -38,8 +56,6 @@ export async function panelLabelShipmentId(
   if (shipment.orderId !== orderId) {
     throw forbiddenError("Este envio não é deste pedido");
   }
-  if (shipment.address === null) {
-    throw conflictError("Este envio já foi encerrado");
-  }
+  assertSupplierLabelAvailable(shipment);
   return shipment.id;
 }

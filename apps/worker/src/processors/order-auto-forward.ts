@@ -5,6 +5,7 @@ import {
   forwardOrder,
   forwardRecipients,
   noteSupplierEmailFailed,
+  queueReceivingAccountNotices,
 } from "@sellbridge/database/repositories";
 import type { StoreCredentials } from "@sellbridge/marketplaces";
 import { isAppError } from "@sellbridge/shared/errors";
@@ -119,6 +120,19 @@ async function notifySuppliers(
   });
 }
 
+/** A failed notice never undoes the forward: it is logged for Problemas. */
+async function noticeReceivingAccountWaits(
+  dependencies: AutoForwardDependencies,
+  links: readonly { shipmentId: string }[],
+): Promise<void> {
+  const shipmentIds = links.map((link) => link.shipmentId);
+  try {
+    await queueReceivingAccountNotices(dependencies.database, shipmentIds);
+  } catch (error) {
+    logger.error("order.receiving_account_notice_failed", { shipmentIds, error });
+  }
+}
+
 /**
  * Forwards a paid order to its suppliers on its own, to the address the marketplace has for the
  * sale, and e-mails each supplier its link (item 21.b). Anything that is not clear-cut (an item
@@ -153,6 +167,7 @@ export function createAutoForwardProcessor(dependencies: AutoForwardDependencies
       return "not_eligible";
     }
     await notifySuppliers(dependencies, candidate, links);
+    await noticeReceivingAccountWaits(dependencies, links);
     logger.info("order.auto_forwarded", {
       orderId,
       tenantId: candidate.tenantId,

@@ -4,6 +4,7 @@ import { decideReturnClaimSchema } from "@sellbridge/shared/return-claims";
 import { createServerFn } from "@tanstack/react-start";
 import { database } from "@/lib/server/database";
 import { staffMiddleware } from "@/lib/server/middleware";
+import { propagateRestock } from "@/features/returns/returns.server";
 
 /**
  * Credit the reseller for a returned order, or not. Money, so supervisors and admins only.
@@ -20,5 +21,6 @@ export const staffDecideReturnClaim = createServerFn({ method: "POST" })
       status: result.status,
       staffId: context.userId,
     });
+    await propagateRestock(result.restockedProductIds);
     return { status: result.status };
   });

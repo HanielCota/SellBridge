@@ -5,7 +5,7 @@ import { recordApiEvent } from "./api-events.ts";
 import { syncMarketplaceRefund } from "./marketplace-refunds.ts";
 import { recordOrderStatusChange } from "./order-status-changes.ts";
 import { openReturnClaims } from "./return-claims-open.ts";
-import { applyStockMoves } from "./stock-reservations.ts";
+import { applyStockMoves, consumedItemIds } from "./stock-reservations.ts";
 
 type OrderStatus = (typeof orders.$inferSelect)["status"];
 /** Marketplace payment updates must not erase confirmed physical shipment progress. */
@@ -55,6 +55,8 @@ export async function syncOrderFromShipments(
       deliveredAt: status === "delivered" ? (order.deliveredAt ?? new Date()) : order.deliveredAt,
     })
     .where(and(eq(orders.id, order.id), eq(orders.tenantId, order.tenantId)));
+  // Read before the moves below close them: these units really left the shelf.
+  const leftShelfItemIds = status === "returned" ? await consumedItemIds(database, order.id) : [];
   // Shipped by the supplier: the held units leave the shelf now, not at the next marketplace sync.
   await applyStockMoves(database, order.id, status);
   // A returned order has no revenue: money already given back now shows as a return.
@@ -66,7 +68,7 @@ export async function syncOrderFromShipments(
   });
   await recordOrderStatusChange(database, { tenantId: order.tenantId, orderId: order.id, status });
   // The reseller paid each supplier for goods that came back: each one gets a claim to answer.
-  if (status === "returned") await openReturnClaims(database, order);
+  if (status === "returned") await openReturnClaims(database, order, new Date(), leftShelfItemIds);
   await recordApiEvent(database, {
     tenantId: order.tenantId,
     type: "order.status_changed",

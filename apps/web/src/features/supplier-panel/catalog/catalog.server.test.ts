@@ -78,6 +78,8 @@ function stored(reviewStatus: Stored["reviewStatus"]): Stored {
     variantAttributes: {},
     variantFiscal: {},
     reservedStock: 0,
+    erpProductId: null,
+    erpStockReadAt: null,
     active: true,
     reviewStatus,
     rejectionReasons: [],

@@ -1,7 +1,7 @@
 import { type QueueDeadline, shortCountdownLabel } from "@sellbridge/shared/supplier-panel-orders";
 import { Button } from "@/components/ui/button";
 import { MarketplaceMark } from "@/components/stores/marketplace-mark";
-import { isShippingBlocked } from "@/features/fulfillment/shipping-block";
+import { isPreparationStopped } from "@/features/fulfillment/shipping-block";
 import type { SupplierHomeOrderRow } from "@/features/supplier-panel/home/home-types";
 import { cn } from "@/lib/utils";
 import { DeadlineIcon, liveUrgency } from "../orders/countdown-badge";
@@ -80,7 +80,7 @@ export function HomeOrderRow({
   const title = orderTitle(row.items);
   const units = unitsOf(row.items);
   // `RowAction` already offers "Ver pedido" when the parcel has no step left.
-  const offersDetails = isShippingBlocked(row.orderStatus) || row.action !== null;
+  const offersDetails = isPreparationStopped(row) || row.action !== null;
   return (
     <HomeListRow
       id={row.id}

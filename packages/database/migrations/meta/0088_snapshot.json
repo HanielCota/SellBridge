@@ -1,6 +1,6 @@
 {
-  "id": "bee8387f-77ab-4741-a19b-8ed5a126786f",
-  "prevId": "7e3cf18f-aa05-4098-8f23-dbd9a4672e86",
+  "id": "5cb3b0b4-4dd3-47d9-995a-5d76d8445f15",
+  "prevId": "d1ba1a9b-5894-458c-adc9-c57a27b51578",
   "version": "7",
   "dialect": "postgresql",
   "tables": {
@@ -1134,12 +1134,6 @@
           "primaryKey": false,
           "notNull": false
         },
-        "code": {
-          "name": "code",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true
-        },
         "title": {
           "name": "title",
           "type": "text",
@@ -1259,27 +1253,6 @@
             },
             {
               "expression": "supplier_id",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            }
-          ],
-          "isUnique": true,
-          "concurrently": false,
-          "method": "btree",
-          "with": {}
-        },
-        "product_models_supplier_code_idx": {
-          "name": "product_models_supplier_code_idx",
-          "columns": [
-            {
-              "expression": "supplier_id",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            },
-            {
-              "expression": "code",
               "isExpression": false,
               "asc": true,
               "nulls": "last"
@@ -7923,6 +7896,191 @@
         "shipment_invoices_status_check": {
           "name": "shipment_invoices_status_check",
           "value": "\"shipment_invoices\".\"status\" in ('queued','sent','authorized','attention','cancelled')"
+        }
+      },
+      "isRLSEnabled": false
+    },
+    "public.shipment_reseller_invoices": {
+      "name": "shipment_reseller_invoices",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "shipment_id": {
+          "name": "shipment_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "tenant_id": {
+          "name": "tenant_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "access_key": {
+          "name": "access_key",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "number": {
+          "name": "number",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "series": {
+          "name": "series",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "issued_at": {
+          "name": "issued_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "source": {
+          "name": "source",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "found_at": {
+          "name": "found_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "problem": {
+          "name": "problem",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "checks": {
+          "name": "checks",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "default": 0
+        },
+        "next_check_at": {
+          "name": "next_check_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "updated_at": {
+          "name": "updated_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {
+        "shipment_reseller_invoices_shipment_idx": {
+          "name": "shipment_reseller_invoices_shipment_idx",
+          "columns": [
+            {
+              "expression": "shipment_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": true,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "shipment_reseller_invoices_due_idx": {
+          "name": "shipment_reseller_invoices_due_idx",
+          "columns": [
+            {
+              "expression": "next_check_at",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "where": "\"shipment_reseller_invoices\".\"access_key\" is null",
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "shipment_reseller_invoices_tenant_idx": {
+          "name": "shipment_reseller_invoices_tenant_idx",
+          "columns": [
+            {
+              "expression": "tenant_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {
+        "shipment_reseller_invoices_shipment_id_order_shipments_id_fk": {
+          "name": "shipment_reseller_invoices_shipment_id_order_shipments_id_fk",
+          "tableFrom": "shipment_reseller_invoices",
+          "tableTo": "order_shipments",
+          "columnsFrom": [
+            "shipment_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        },
+        "shipment_reseller_invoices_tenant_id_organization_id_fk": {
+          "name": "shipment_reseller_invoices_tenant_id_organization_id_fk",
+          "tableFrom": "shipment_reseller_invoices",
+          "tableTo": "organization",
+          "columnsFrom": [
+            "tenant_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {
+        "shipment_reseller_invoices_source_check": {
+          "name": "shipment_reseller_invoices_source_check",
+          "value": "\"shipment_reseller_invoices\".\"source\" is null or \"shipment_reseller_invoices\".\"source\" in ('marketplace', 'typed')"
+        },
+        "shipment_reseller_invoices_found_check": {
+          "name": "shipment_reseller_invoices_found_check",
+          "value": "(\"shipment_reseller_invoices\".\"access_key\" is null) = (\"shipment_reseller_invoices\".\"source\" is null)"
         }
       },
       "isRLSEnabled": false

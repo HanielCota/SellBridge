@@ -1,4 +1,4 @@
-import { saveSupplierPaymentChoice } from "@sellbridge/database/repositories";
+import { getReceivingRules, saveSupplierPaymentChoice } from "@sellbridge/database/repositories";
 import {
   AsaasAccountKeyMissingError,
   isAsaasError,
@@ -66,11 +66,16 @@ async function currentReview(context: AsaasContext | null, accounts: ReceivingAc
 /** What the supplier's Recebimentos page shows about Asaas and about which account receives. */
 export async function loadAsaasReceiving(supplierId: string) {
   const context = asaasContext();
-  const accounts = await receivingAccountsOf(supplierId);
+  const [accounts, rules] = await Promise.all([
+    receivingAccountsOf(supplierId),
+    getReceivingRules(database),
+  ]);
   const review = await currentReview(context, accounts);
   const { asaas, rule, confirmedDeliveries, receiving, choice } = accounts;
   return {
     available: context !== null,
+    /** The admin requires an approved account to sell: without it, the products are hidden. */
+    accountRequired: rules.receivingAccountSince !== null,
     asaas:
       asaas === null
         ? null

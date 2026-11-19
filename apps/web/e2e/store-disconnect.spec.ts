@@ -38,8 +38,15 @@ async function connectMockStore(page: Page, shopName: string) {
   await expect(page.getByText(shopName, { exact: true }).filter({ visible: true })).toBeVisible();
 }
 
-/** A listing live on the new store, as if the publish job had already run. */
-async function publishedListingOn(email: string, shopName: string): Promise<string> {
+/**
+ * A listing live on the new store, as if the publish job had already run. `price` picks one that
+ * pays the cost and every fee, or one a real above the cost, which the fees turn into a loss.
+ */
+async function publishedListingOn(
+  email: string,
+  shopName: string,
+  price: "paying" | "losing" = "paying",
+): Promise<string> {
   const [store] = await database
     .select({ tenantId: storeConnections.tenantId, storeId: storeConnections.id })
     .from(storeConnections)
@@ -47,7 +54,7 @@ async function publishedListingOn(email: string, shopName: string): Promise<stri
     .innerJoin(user, eq(user.id, member.userId))
     .where(and(eq(user.email, email), eq(storeConnections.shopName, shopName)));
   const [product] = await database
-    .select({ id: supplierProducts.id })
+    .select({ id: supplierProducts.id, costCents: supplierProducts.costCents })
     .from(supplierProducts)
     .innerJoin(suppliers, eq(suppliers.id, supplierProducts.supplierId))
     .where(eq(suppliers.name, SUPPLIER))
@@ -62,7 +69,7 @@ async function publishedListingOn(email: string, shopName: string): Promise<stri
       supplierProductId: product.id,
       title: "Anúncio desconexão",
       description: "",
-      priceCents: 4990,
+      priceCents: price === "paying" ? product.costCents * 4 : product.costCents + 100,
     },
     [store.storeId],
   );
@@ -126,16 +133,8 @@ test("the store menu shows Desconectar on a short laptop screen and explains how
   await dialog.getByRole("button", { name: "Cancelar" }).click();
 });
 
-// Regression: a reconnected store kept the listings its disconnection paused at zero stock, and
-// nothing told the reseller, who reconnected again and again while they sold nothing.
-test("reconnecting tells the reseller the paused listings wait to be reactivated", async ({
-  page,
-}) => {
-  const email = await signUp(page, "Revendedora Reconexão");
-  await completeOnboarding(page, SUPPLIER);
-  const shopName = `Loja reconexão ${Date.now()}`;
-  await connectMockStore(page, shopName);
-  const targetId = await publishedListingOn(email, shopName);
+/** Disconnects the store pausing its listings, then brings it back as the OAuth callback does. */
+async function disconnectAndReconnect(page: Page, shopName: string) {
   await gotoHydrated(page, "/lojas");
   await page.getByRole("button", { name: `Opções de ${shopName}` }).click();
   await page.getByRole("menuitem", { name: "Desconectar" }).click();
@@ -150,25 +149,96 @@ test("reconnecting tells the reseller the paused listings wait to be reactivated
     .set({ status: "connected", accessTokenEnc: "reconnected", refreshTokenEnc: null })
     .where(eq(storeConnections.shopName, shopName))
     .returning({ id: storeConnections.id });
-
   await gotoHydrated(page, `/lojas?conectada=${store?.id ?? ""}`);
+}
+
+async function targetState(targetId: string) {
+  const [target] = await database
+    .select({ status: listingTargets.status, pauseReason: listingTargets.pauseReason })
+    .from(listingTargets)
+    .where(eq(listingTargets.id, targetId));
+  return target;
+}
+
+const RESUME_OPTION = "Reativar o anúncio que foi pausado quando a loja foi desconectada";
+
+test("reconnecting asks to reactivate what the disconnection paused, checked by default", async ({
+  page,
+}) => {
+  const email = await signUp(page, "Revendedora Reconexão");
+  await completeOnboarding(page, SUPPLIER);
+  const shopName = `Loja reconexão ${Date.now()}`;
+  await connectMockStore(page, shopName);
+  const targetId = await publishedListingOn(email, shopName);
+
+  await disconnectAndReconnect(page, shopName);
+  const dialog = page.getByRole("dialog");
+  await expect(dialog.getByRole("heading", { name: `Loja "${shopName}" conectada` })).toBeVisible();
+  await expect(dialog.getByRole("checkbox", { name: RESUME_OPTION })).toBeChecked();
+  await dialog.getByRole("button", { name: "Reativar o anúncio" }).click();
 
   await expect(
-    page
-      .getByText(
-        "1 anúncio desta loja continua pausado, com estoque zero no marketplace. Para voltar a vender, reative em Publicações.",
-      )
-      .filter({ visible: true }),
+    page.getByText("1 anúncio voltou a vender.").filter({ visible: true }),
   ).toBeVisible();
+  expect(await targetState(targetId)).toEqual({ status: "published", pauseReason: null });
+});
+
+// Regression: a reconnected store kept the listings its disconnection paused at zero stock, and
+// nothing told the reseller, who reconnected again and again while they sold nothing.
+test("reconnecting without reactivating keeps the listings paused and says where to resume", async ({
+  page,
+}) => {
+  const email = await signUp(page, "Revendedora Reconexão Pausa");
+  await completeOnboarding(page, SUPPLIER);
+  const shopName = `Loja reconexão pausa ${Date.now()}`;
+  await connectMockStore(page, shopName);
+  const targetId = await publishedListingOn(email, shopName);
+
+  await disconnectAndReconnect(page, shopName);
+  const dialog = page.getByRole("dialog");
+  await dialog.getByRole("checkbox", { name: RESUME_OPTION }).uncheck();
+  await dialog.getByRole("button", { name: "Manter pausado" }).click();
+
+  await expect(
+    page.getByText("Reative quando quiser em Publicações.").filter({ visible: true }),
+  ).toBeVisible();
+  expect(await labelContentMismatches(page)).toEqual([]);
   await expect(
     page.getByRole("link", { name: `${shopName}: 1 anúncio pausado · reative em Publicações` }),
   ).toBeVisible();
-  expect(await labelContentMismatches(page)).toEqual([]);
-  await page.getByRole("button", { name: "Ver anúncios pausados" }).click();
-  await expect(page).toHaveURL(/\/publicacoes\?status=paused/);
-  const [target] = await database
-    .select({ status: listingTargets.status })
-    .from(listingTargets)
-    .where(eq(listingTargets.id, targetId));
-  expect(target?.status).toBe("paused");
+  expect(await targetState(targetId)).toEqual({
+    status: "paused",
+    pauseReason: "store_disconnected",
+  });
+});
+
+test("reconnecting keeps paused, with the reason, a listing that would lose money", async ({
+  page,
+}) => {
+  const email = await signUp(page, "Revendedora Reconexão Prejuízo");
+  await completeOnboarding(page, SUPPLIER);
+  const shopName = `Loja reconexão prejuízo ${Date.now()}`;
+  await connectMockStore(page, shopName);
+  const targetId = await publishedListingOn(email, shopName, "losing");
+
+  await disconnectAndReconnect(page, shopName);
+  await page.getByRole("dialog").getByRole("button", { name: "Reativar o anúncio" }).click();
+
+  await expect(
+    page
+      .getByText("1 anúncio continua pausado: o preço não cobre o custo e as taxas.", {
+        exact: false,
+      })
+      .filter({ visible: true }),
+  ).toBeVisible();
+  expect(await targetState(targetId)).toEqual({
+    status: "paused",
+    pauseReason: "price_below_floor",
+  });
+  await gotoHydrated(page, "/publicacoes?status=paused");
+  await expect(
+    page
+      .getByText("Pausado porque o preço não cobre o custo e as taxas.", { exact: false })
+      .filter({ visible: true }),
+  ).toBeVisible();
 });

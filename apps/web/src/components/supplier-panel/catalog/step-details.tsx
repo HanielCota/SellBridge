@@ -249,13 +249,25 @@ function titleLimit(field: string, variant: DetailsVariant): number | undefined 
   return variant === "model" ? MAX_MODEL_TITLE_LENGTH : 300;
 }
 
+const STOCK_FROM_BLING_NOTE_ID = "panel-product-stock-from-bling";
+
+/** The stock comes from Bling: it is shown, not typed, so an edit here is never undone later. */
+function StockFromBlingNote() {
+  return (
+    <p id={STOCK_FROM_BLING_NOTE_ID} className="text-footnote text-muted-foreground">
+      Vem do seu Bling e se atualiza sozinho. Para mudar, mude no Bling.
+    </p>
+  );
+}
+
 function MainFields({
   values,
   errors,
   reasons,
   onChange,
   variant,
-}: StepProps & { variant: DetailsVariant }) {
+  stockFromBling,
+}: StepProps & { variant: DetailsVariant; stockFromBling: boolean }) {
   const fields =
     variant === "product"
       ? MAIN_FIELDS
@@ -279,29 +291,43 @@ function MainFields({
             inputMode={entry.inputMode}
             maxLength={titleLimit(entry.field, variant)}
             {...(entry.code ? CODE_INPUT : {})}
+            {...(entry.key === "stock" && stockFromBling
+              ? {
+                  readOnly: true,
+                  "aria-describedby": STOCK_FROM_BLING_NOTE_ID,
+                  className: "cursor-default bg-muted text-muted-foreground",
+                }
+              : {})}
           />
           {entry.key === "suggestedPrice" ? <SuggestedPriceNote values={values} /> : null}
           {variant === "model" && entry.field === "title" ? (
             <p className="text-footnote text-muted-foreground">{MODEL_TITLE_HINT}</p>
           ) : null}
+          {entry.key === "stock" && stockFromBling ? <StockFromBlingNote /> : null}
           <FieldReason field={entry.field} reasons={reasons} />
         </div>
       ))}
-      <div className="grid gap-2 sm:col-span-2">
-        <EmojiFreeTextareaField
-          id={inputIdOf("description")}
-          label="Descrição"
-          value={values.description}
-          maxLength={20_000}
-          rows={6}
-          errors={errorsOf(errors, "description")}
-          onValueChange={(description) => onChange({ description })}
-        />
-        <p className="text-footnote text-muted-foreground tabular-nums">
-          {descriptionLengthHint(values.description.trim().length)}
-        </p>
-        <FieldReason field="description" reasons={reasons} />
-      </div>
+      <DescriptionField values={values} errors={errors} reasons={reasons} onChange={onChange} />
+    </div>
+  );
+}
+
+function DescriptionField({ values, errors, reasons, onChange }: StepProps) {
+  return (
+    <div className="grid gap-2 sm:col-span-2">
+      <EmojiFreeTextareaField
+        id={inputIdOf("description")}
+        label="Descrição"
+        value={values.description}
+        maxLength={20_000}
+        rows={6}
+        errors={errorsOf(errors, "description")}
+        onValueChange={(description) => onChange({ description })}
+      />
+      <p className="text-footnote text-muted-foreground tabular-nums">
+        {descriptionLengthHint(values.description.trim().length)}
+      </p>
+      <FieldReason field="description" reasons={reasons} />
     </div>
   );
 }
@@ -313,6 +339,8 @@ export function StepDetails(
     taxDefaults?: SupplierTaxSetup | null | undefined;
     mercadoLivre?: MercadoLivreSheet | undefined;
     variant?: DetailsVariant | undefined;
+    /** The stock follows the supplier's Bling right now: shown read-only. */
+    stockFromBling?: boolean | undefined;
   },
 ) {
   const { values, errors, reasons, onChange, taxDefaults } = props;
@@ -325,6 +353,7 @@ export function StepDetails(
         reasons={reasons}
         onChange={onChange}
         variant={variant}
+        stockFromBling={props.stockFromBling === true}
       />
       <AttributeFields
         {...props}

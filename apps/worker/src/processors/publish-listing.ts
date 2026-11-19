@@ -25,6 +25,7 @@ import { logger } from "@sellbridge/shared/logger";
 import { readProductFiscal } from "@sellbridge/shared/product-fiscal";
 import { youtubeVideoId } from "@sellbridge/shared/product-sale-terms";
 import { publishListingJobSchema } from "@sellbridge/shared/queues";
+import { SUPPLIER_WITHOUT_RECEIVING_MESSAGE } from "@sellbridge/shared/receiving-rules";
 import { UnrecoverableError } from "bullmq";
 import {
   expireStoreOnAuthError,
@@ -211,7 +212,7 @@ function outcomeWithoutPublishing(row: TargetForPublishing): PublishOutcome | nu
 
 /**
  * A product deactivated after the job was queued is not sent, nor one whose shop stopped selling
- * its supplier meanwhile.
+ * its supplier meanwhile, nor one whose supplier the receiving-account rule now hides.
  */
 async function requireSellable(
   dependencies: PublishDependencies,
@@ -233,6 +234,9 @@ async function requireSellable(
     storeSupplierRefusal(row.storeSupplierIds, row.product.supplierId) === "other_supplier"
   ) {
     await failPermanently(dependencies, row.target.id, STORE_SUPPLIER_CHANGED_MESSAGE);
+  }
+  if (!row.supplierReceivingRuleMet) {
+    await failPermanently(dependencies, row.target.id, SUPPLIER_WITHOUT_RECEIVING_MESSAGE);
   }
 }
 
