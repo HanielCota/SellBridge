@@ -7,11 +7,12 @@ import {
   user,
 } from "@sellbridge/database/schema";
 import { eq } from "drizzle-orm";
+import { buildXlsx } from "../../../packages/shared/src/domain/supplier-panel-import.fixtures";
 import { e2eDatabase } from "./database";
 import { gotoHydrated } from "./helpers";
 import { giveTestBrand, supplierAccounts } from "./supplier-accounts";
 
-// Colour and size grid (slice 2b): the test site runs with PRODUCT_GRID_ENABLED=true.
+// Colour and size grid (slices 2b, 3a and 3b): the test site runs with PRODUCT_GRID_ENABLED=true.
 const database = e2eDatabase();
 const accounts = supplierAccounts(database);
 const stamp = Date.now();
@@ -125,4 +126,40 @@ test("o fornecedor importa uma planilha com cores e tamanhos e vê o produto num
   await expect
     .poll(async () => (await gridRows(await supplierOf(email))).length, { timeout: 15_000 })
     .toBe(3);
+});
+
+test("o fornecedor importa o catálogo do EnvioVelox e cada tênis em vários tamanhos vira uma grade", async ({
+  page,
+}) => {
+  const email = await accounts.signUp(page, `Fornecedor envio ${stamp}`);
+  await giveTestBrand(database, email, `Calçados envio ${stamp}`);
+  const name = `Tênis Envio ${stamp}`;
+  const file = buildXlsx([
+    ["SKU", "Nome produto", "Preço de venda", "Estoque", "Cor", "Tamanho"],
+    [`ENV${stamp}-P-38`, name, 59.9, 4, "Preto", "38"],
+    [`ENV${stamp}-P-39`, name, 59.9, 2, "Preto", "39"],
+    [`ENV${stamp}-B-38`, name, 59.9, 1, "Branco", "38"],
+    [`ENV${stamp}-BOLSA`, `Bolsa Envio ${stamp}`, 39.9, 5, "Bege", "Único"],
+  ]);
+
+  await gotoHydrated(page, "/fornecedor/painel/importar");
+  await page.locator('input[type="file"]').setInputFiles({
+    name: "catalogo-envio.xlsx",
+    mimeType: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+    buffer: Buffer.from(file),
+  });
+
+  await expect(page.getByText("1 produto com cores e tamanhos", { exact: false })).toBeVisible();
+  await page.getByRole("button", { name: /^Importar/ }).click();
+  const supplierId = await supplierOf(email);
+  await expect
+    .poll(async () => (await gridRows(supplierId)).map((row) => row.sku).toSorted(), {
+      timeout: 15_000,
+    })
+    .toEqual([`ENV${stamp}-B-38`, `ENV${stamp}-P-38`, `ENV${stamp}-P-39`]);
+  const [bag] = await database
+    .select({ title: supplierProducts.title, modelId: supplierProducts.modelId })
+    .from(supplierProducts)
+    .where(eq(supplierProducts.sku, `ENV${stamp}-BOLSA`));
+  expect(bag).toEqual({ title: `Bolsa Envio ${stamp} - Bege`, modelId: null });
 });
