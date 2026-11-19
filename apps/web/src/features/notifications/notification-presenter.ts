@@ -184,7 +184,6 @@ function marketplaceClaim(event: Extract<NotificationEvent, { kind: "marketplace
   };
 }
 
-/** Wording and destination of each kind of event, in the reseller's language. */
 /** Lost access stops the store; a supplier's purchase address only holds new products. */
 function storeProblem(event: StoreProblemEvent) {
   if (event.problem === "buyer_address") {
@@ -203,6 +202,7 @@ function storeProblem(event: StoreProblemEvent) {
   };
 }
 
+/** Wording and destination of each kind of event, in the reseller's language. */
 export function presentNotification(event: NotificationEvent): AppNotification {
   const base = { kind: event.kind, at: event.at };
   // The switch narrows each kind; what is left after it is a support reply.
