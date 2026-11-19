@@ -33,8 +33,6 @@ export interface FeeSchedule {
    * from the marketplace: no rate here is made up.
    */
   categoryFeeBasisPoints: Readonly<Record<string, number>>;
-  /** SellBridge's fee on revenue (`PLATFORM_FEE_BASIS_POINTS`), the same the report charges. */
-  platformFeeBasisPoints: number;
   /** Weight the shipping is priced on when the product has none, in grams. */
   defaultWeightGrams: number;
   /** Margin a price must keep after every fee, in percent; 0 forbids selling at a loss. */
@@ -48,7 +46,6 @@ export const DEFAULT_FEE_SCHEDULE: FeeSchedule = {
   channel: "mercado_livre",
   marketplaceFeeBasisPoints: ESTIMATED_MARKETPLACE_FEE_BPS,
   categoryFeeBasisPoints: {},
-  platformFeeBasisPoints: 0,
   defaultWeightGrams: DEFAULT_PRODUCT_WEIGHT_GRAMS,
   minimumMarginPercent: 0,
 };
@@ -165,16 +162,13 @@ export function estimatedMarketplaceFeeCents(
 
 /** One unit sold at the price, paid and with nothing refunded, by the financial report's rule. */
 export function estimateSale(input: SaleEstimateInput, schedule: FeeSchedule): OrderFinance {
-  return computeOrderFinance(
-    {
-      status: "paid",
-      totalCents: input.priceCents,
-      marketplaceFeeCents: estimatedMarketplaceFeeCents(input, schedule),
-      items: [{ quantity: 1, knownUnitCostCents: input.costCents }],
-      adjustments: [],
-    },
-    schedule.platformFeeBasisPoints,
-  );
+  return computeOrderFinance({
+    status: "paid",
+    totalCents: input.priceCents,
+    marketplaceFeeCents: estimatedMarketplaceFeeCents(input, schedule),
+    items: [{ quantity: 1, knownUnitCostCents: input.costCents }],
+    adjustments: [],
+  });
 }
 
 function keepsMargin(
@@ -195,7 +189,7 @@ function marginBasisPointsOf(marginPercent: number): number {
 
 /**
  * Cents the rounded fees may sit under their exact formula: the commission, a percentage
- * shipping or a half-price cap, and SellBridge's fee each round to the nearest cent.
+ * shipping or a half-price cap each round to the nearest cent.
  */
 const ROUNDING_SLACK_CENTS = 2;
 
@@ -229,8 +223,7 @@ function firstPriceKeepingMargin(
     if (segment.fromCents > LISTING_MAX_PRICE_CENTS) {
       return null;
     }
-    const keptBasisPoints =
-      10_000 - segment.basisPoints - schedule.platformFeeBasisPoints - marginBasisPoints;
+    const keptBasisPoints = 10_000 - segment.basisPoints - marginBasisPoints;
     if (keptBasisPoints <= 0 || segment.toCents < startCents) {
       continue;
     }

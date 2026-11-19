@@ -9,9 +9,13 @@ export interface SupplierAmountLabels {
   unitsInPeriod: string;
 }
 
-const RECEIVED: SupplierAmountLabels = {
-  amount: "A receber",
-  amountInPeriod: "A receber no período",
+/**
+ * What the sold orders are worth to the supplier. Not "a receber": an order paid by Mercado Pago
+ * is already in the supplier's account, and the label must not say the money is still to come.
+ */
+const SOLD: SupplierAmountLabels = {
+  amount: "Valor vendido",
+  amountInPeriod: "Valor vendido no período",
   units: "Peças vendidas",
   unitsInPeriod: "Peças vendidas no período",
 };
@@ -25,7 +29,7 @@ const LEFT_OUT: SupplierAmountLabels = {
 };
 
 export function supplierAmountLabels(situation: SupplierSalesSituation): SupplierAmountLabels {
-  return situation === "lost" ? LEFT_OUT : RECEIVED;
+  return situation === "lost" ? LEFT_OUT : SOLD;
 }
 
 /**

@@ -2,6 +2,7 @@ import type { BillingHolder } from "@sellbridge/database/repositories";
 import { formatCnpj, formatPhone } from "@sellbridge/shared/account-documents";
 import { formatCep, type BillingAddressInput } from "@sellbridge/shared/billing-address";
 import { formatCpf } from "@sellbridge/shared/cpf";
+import type { TaxRegime } from "@sellbridge/shared/product-fiscal";
 import type { BillingHolderInput } from "@sellbridge/shared/schemas";
 
 /** The address fields as typed: every field is text, the state "" until one is picked. */
@@ -14,8 +15,15 @@ export interface HolderFormValues {
   isCompany: boolean;
   cnpj: string;
   companyName: string;
+  /** Digits as typed, or "ISENTO" while "não tenho inscrição estadual" is ticked. */
+  stateRegistration: string;
+  regime: TaxRegime;
   address: AddressFormValues;
 }
+
+export const STATE_REGISTRATION_EXEMPT = "ISENTO";
+/** Most small sellers, MEI included, are in the Simples Nacional. */
+const MOST_LIKELY_REGIME: TaxRegime = "simples";
 
 const EMPTY_ADDRESS: AddressFormValues = {
   cep: "",
@@ -50,6 +58,8 @@ export function holderDefaults(
     isCompany: holder !== null && holder.company !== null,
     cnpj: holder === null || holder.company === null ? "" : formatCnpj(holder.company.cnpj),
     companyName: holder?.company?.companyName ?? "",
+    stateRegistration: holder?.company?.stateRegistration ?? "",
+    regime: holder?.company?.regime ?? MOST_LIKELY_REGIME,
     address: addressDefaults(holder),
   };
 }
@@ -62,7 +72,14 @@ export function switchHolderType(values: HolderFormValues, isCompany: boolean): 
   if (values.isCompany === isCompany) {
     return { ...values };
   }
-  return { ...values, isCompany, cnpj: "", companyName: "" };
+  return {
+    ...values,
+    isCompany,
+    cnpj: "",
+    companyName: "",
+    stateRegistration: "",
+    regime: MOST_LIKELY_REGIME,
+  };
 }
 
 /** Field errors wait for the first save attempt, so nothing is flagged while the user types. */
@@ -75,7 +92,14 @@ export function visibleErrors(
 
 /** The form's fields as the server takes them: the company only when the box is ticked. */
 export function holderInput(values: HolderFormValues): BillingHolderInput {
-  const company = values.isCompany ? { cnpj: values.cnpj, companyName: values.companyName } : null;
+  const company = values.isCompany
+    ? {
+        cnpj: values.cnpj,
+        companyName: values.companyName,
+        stateRegistration: values.stateRegistration,
+        regime: values.regime,
+      }
+    : null;
   return {
     fullName: values.fullName,
     cpf: values.cpf,

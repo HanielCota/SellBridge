@@ -40,7 +40,9 @@ interface RefreshAttempt {
 async function rotateTokens(attempt: RefreshAttempt): Promise<keyof TokenRefreshSummary> {
   const { dependencies, connection } = attempt;
   const refreshToken = dependencies.cipher.decrypt(attempt.refreshTokenEnc);
-  const tokens = await dependencies.connectors[connection.marketplace].refreshTokens(refreshToken);
+  const tokens = await dependencies.connectors[connection.marketplace].refreshTokens(refreshToken, {
+    externalShopId: connection.externalShopId,
+  });
   const swapped = await updateStoreTokens(dependencies.database, {
     storeConnectionId: connection.id,
     previousRefreshTokenEnc: attempt.refreshTokenEnc,

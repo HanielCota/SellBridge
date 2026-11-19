@@ -53,8 +53,8 @@ export function cityChangeHandler(
   };
 }
 
-/** The typed city's IBGE code: an exact match, accents and case aside. */
-function ibgeCodeOf(cities: readonly IbgeCity[], typed: string): string {
+/** The typed city's IBGE code: an exact match, accents and case aside; "" when none matches. */
+export function ibgeCodeOf(cities: readonly IbgeCity[], typed: string): string {
   const folded = foldCityName(typed);
   return cities.find((city) => foldCityName(city.name) === folded)?.ibgeCode ?? "";
 }

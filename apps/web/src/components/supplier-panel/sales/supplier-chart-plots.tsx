@@ -67,7 +67,7 @@ interface TooltipInput {
   grain: PointGrain;
   layers: ChartLayers;
   cumulative: boolean;
-  /** The main row's name: "Peças", "A receber" or, for cancelled orders, "Ficou de fora". */
+  /** The main row's name: "Peças", "Valor vendido" or, for cancelled orders, "Ficou de fora". */
   valueLabel: string;
 }
 

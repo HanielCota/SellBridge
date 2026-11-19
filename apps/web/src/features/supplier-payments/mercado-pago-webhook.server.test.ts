@@ -17,6 +17,16 @@ vi.mock("@sellbridge/database/repositories", () => ({
   markSupplierPaymentAccountError: mocks.markError,
   rotatePaymentAccountTokens: mocks.rotate,
 }));
+vi.mock("@sellbridge/payments/mercado-pago", async (importOriginal) => {
+  const original = await importOriginal<typeof import("@sellbridge/payments/mercado-pago")>();
+  return {
+    ...original,
+    // The hidden Mercado Pago code is tested switched on; the app keeps it off.
+    mercadoPagoSettingsFrom: (
+      environment: Parameters<typeof original.mercadoPagoSettingsFrom>[0],
+    ) => original.mercadoPagoSettingsFrom(environment, true),
+  };
+});
 vi.mock("@/lib/server/database", () => ({ database: {} }));
 vi.mock("@/lib/server/marketplaces", () => ({
   tokenCipher: {

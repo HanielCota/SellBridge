@@ -96,3 +96,36 @@ describe("token-refresh on a marketplace outage", () => {
     expect(row).toMatchObject({ status: "connected", lastError: "Mercado Livre indisponível" });
   });
 });
+
+describe("token-refresh per shop", () => {
+  it("names the store's shop to the connector, which Shopee needs to refresh", async () => {
+    const [tenantId] = tenantIds;
+    if (!tenantId) {
+      throw new Error("tenant ausente");
+    }
+    const store = await createTestStore(environment, tenantId, "connected");
+    await database
+      .update(schema.storeConnections)
+      .set({ expiresAt: new Date(Date.now() - 60_000) })
+      .where(eq(schema.storeConnections.id, store.id));
+    const shopIds: string[] = [];
+    const recording = {
+      ...connectors,
+      mock: {
+        ...connectors.mock,
+        refreshTokens: async (_refreshToken: string, shop: { externalShopId: string }) => {
+          shopIds.push(shop.externalShopId);
+          return {
+            accessToken: "novo-acesso",
+            refreshToken: "nova-renovacao",
+            expiresAt: new Date(Date.now() + 4 * 60 * 60_000),
+          };
+        },
+      },
+    };
+
+    await createTokenRefreshProcessor({ database, connectors: recording, cipher })();
+
+    expect(shopIds).toContain(store.externalShopId);
+  });
+});

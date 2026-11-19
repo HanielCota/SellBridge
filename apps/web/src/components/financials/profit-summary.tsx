@@ -102,7 +102,7 @@ function isOnlyPendingCost(summary: SalesSummary): boolean {
  */
 function MoneySentence({ summary, scope }: { summary: SalesSummary; scope: string }) {
   const revenue = summary.revenueCents;
-  const fees = summary.feeCents + summary.platformFeeCents;
+  const fees = summary.feeCents;
   const profit = summary.profitCents;
   if (revenue === 0 && summary.refundCents === 0 && summary.commissionCents === 0) {
     return <p className="mt-3 text-sm text-muted-foreground">Nenhuma venda {scope}.</p>;

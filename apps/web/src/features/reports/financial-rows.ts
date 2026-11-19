@@ -2,12 +2,12 @@ import type { OrderFinancialRow } from "@sellbridge/database/repositories";
 import type { Cents } from "@sellbridge/shared/money";
 import { brazilDayKey, nearDayName } from "@/lib/relative-time";
 
-type OrderCosts = Pick<OrderFinancialRow, "costCents" | "feeCents" | "platformFeeCents">;
+type OrderCosts = Pick<OrderFinancialRow, "costCents" | "feeCents">;
 type OrderMoneyFlows = Pick<OrderFinancialRow, "commissionCents" | "refundCents" | "returnCents">;
 
 /** What an order cost the reseller (products plus every fee), as a negative amount. */
 export function orderCostsCents(row: OrderCosts): Cents {
-  const total = row.costCents + row.feeCents + row.platformFeeCents;
+  const total = row.costCents + row.feeCents;
   return total === 0 ? 0 : -total;
 }
 
@@ -55,7 +55,7 @@ export function orderSplit(row: OrderSplitInput): readonly OrderSplitPart[] {
   }
   const parts: OrderSplitPart[] = [
     { kind: "cost", cents: row.costCents },
-    { kind: "fee", cents: row.feeCents + row.platformFeeCents },
+    { kind: "fee", cents: row.feeCents },
     { kind: "refund", cents: row.refundCents },
     { kind: "profit", cents: Math.max(row.profitCents, 0) },
   ];

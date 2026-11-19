@@ -29,6 +29,7 @@ import {
   markShipmentPaymentRefundFailed,
   markSupplierPaymentAccountError,
   releaseShipmentPaymentReservation,
+  reopenShipmentCheckout,
   requestShipmentPaymentRefund,
   savePaymentPreference,
   setPaymentFeeSetting,
@@ -345,6 +346,52 @@ describe("shipment payment", () => {
   it("does not open a second checkout while another request is creating one", async () => {
     const shipmentId = await forwardedShipmentId();
     await startPayment(shipmentId);
+
+    const second = await startShipmentPayment(database, {
+      shipmentId,
+      supplierId: supplier.supplierId,
+      provider: "mercado_pago",
+      amountCents: 5990,
+      platformFeeCents: 300,
+      platformFeeBasisPoints: 500,
+      now: new Date(),
+      reservedUntil: new Date(Date.now() + RESERVATION_IN_MS),
+    });
+
+    expect(second).toBeNull();
+  });
+
+  it("lets the reseller start over on an open checkout to pay another way", async () => {
+    const shipmentId = await forwardedShipmentId();
+    const payment = await startPayment(shipmentId);
+    await savePaymentPreference(database, {
+      paymentId: payment.id,
+      preferenceId: "pay_open",
+      checkoutUrl: "https://asaas.test/i/open",
+      checkoutExpiresAt: new Date(Date.now() + 60 * 60_000),
+      amountCents: 5990,
+      platformFeeCents: 300,
+    });
+    await reopenShipmentCheckout(database, { paymentId: payment.id, preferenceId: "pay_open" });
+
+    const again = await startPayment(shipmentId);
+
+    expect(again.id).toBe(payment.id);
+    expect(again.checkoutUrl).toBeNull();
+  });
+
+  it("keeps a checkout another request opened since when freeing an older one", async () => {
+    const shipmentId = await forwardedShipmentId();
+    const payment = await startPayment(shipmentId);
+    await savePaymentPreference(database, {
+      paymentId: payment.id,
+      preferenceId: "pay_newer",
+      checkoutUrl: "https://asaas.test/i/newer",
+      checkoutExpiresAt: new Date(Date.now() + 60 * 60_000),
+      amountCents: 5990,
+      platformFeeCents: 300,
+    });
+    await reopenShipmentCheckout(database, { paymentId: payment.id, preferenceId: "pay_older" });
 
     const second = await startShipmentPayment(database, {
       shipmentId,

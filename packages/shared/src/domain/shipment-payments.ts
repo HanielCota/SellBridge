@@ -30,6 +30,13 @@ export const SHIPMENT_PAYMENT_REFUND_REASONS = [
 ] as const;
 export type ShipmentPaymentRefundReason = (typeof SHIPMENT_PAYMENT_REFUND_REASONS)[number];
 
+/**
+ * How a reseller pays a supplier: Pix or credit card paid in full, as the client asked (12/11/2026).
+ * Never boleto, which Asaas cannot refund (decided 18/11/2026).
+ */
+export const SUPPLIER_PAY_METHODS = ["PIX", "CREDIT_CARD"] as const;
+export type SupplierPayMethod = (typeof SUPPLIER_PAY_METHODS)[number];
+
 /** The highest fee the admin may set: 30%, in basis points. */
 export const MAX_PAYMENT_FEE_BASIS_POINTS = 3000;
 /** The fee payments use until an admin saves one: 1%, in basis points. */

@@ -11,7 +11,6 @@ import {
   ProfitSplitBar,
   ProfitSplitLine,
   profitTone,
-  totalFeeCents,
 } from "@/components/listings/profit-split";
 import { bulkPriceCents, unreachableMarginMessage } from "@/features/catalog/bulk-price";
 import {
@@ -135,14 +134,13 @@ function ReceiptLines({
   estimate: ProfitEstimate;
   priceCents: number;
 }) {
-  const schedule = useFeeSchedule();
   const { profitCents, marginPercent } = estimate;
   const isLoss = profitCents < 0;
   return (
     <>
       <ProfitSplitBar
         costCents={product.costCents}
-        feeCents={totalFeeCents(estimate)}
+        feeCents={estimate.feeCents}
         profitCents={profitCents}
       />
 
@@ -152,7 +150,7 @@ function ReceiptLines({
           label="Custo do fornecedor"
           value={formatCents(product.costCents)}
         />
-        <FeeLines estimate={estimate} schedule={schedule} />
+        <FeeLines estimate={estimate} />
         <ProfitSplitLine
           swatch={isLoss ? PROFIT_SPLIT_COLORS.loss : PROFIT_SPLIT_COLORS.profit}
           label={isLoss ? "Seu prejuízo" : "Seu lucro"}

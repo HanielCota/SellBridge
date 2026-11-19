@@ -33,6 +33,9 @@ const HOLDER = {
   },
 };
 
+/** A company's note needs the city's IBGE code: São Paulo here. */
+const COMPANY_HOLDER = { ...HOLDER, address: { ...HOLDER.address, ibgeCode: "3550308" } };
+
 describe("billingHolderSchema", () => {
   it("stores the CPF and phone as digits and the name tidied", () => {
     expect(billingHolderSchema.parse(HOLDER)).toEqual({
@@ -61,42 +64,111 @@ describe("billingHolderSchema", () => {
   });
 
   it("takes a company only with a valid CNPJ and its name", () => {
-    const company = { cnpj: "11.222.333/0001-81", companyName: " Ana Modas Ltda " };
-    expect(billingHolderSchema.parse({ ...HOLDER, company }).company).toEqual({
+    const company = {
+      cnpj: "11.222.333/0001-81",
+      companyName: " Ana Modas Ltda ",
+      stateRegistration: "110.042.490.114",
+      regime: "simples",
+    };
+    expect(billingHolderSchema.parse({ ...COMPANY_HOLDER, company }).company).toEqual({
       cnpj: "11222333000181",
       companyName: "Ana Modas Ltda",
+      stateRegistration: "110042490114",
+      regime: "simples",
     });
     expect(
-      billingHolderSchema.safeParse({ ...HOLDER, company: { ...company, cnpj: "11222333000182" } })
-        .success,
+      billingHolderSchema.safeParse({
+        ...COMPANY_HOLDER,
+        company: { ...company, cnpj: "11222333000182" },
+      }).success,
     ).toBe(false);
     expect(
-      billingHolderSchema.safeParse({ ...HOLDER, company: { ...company, companyName: "" } })
+      billingHolderSchema.safeParse({ ...COMPANY_HOLDER, company: { ...company, companyName: "" } })
         .success,
     ).toBe(false);
   });
 
+  // NF-e model B: the reseller's company issues the note the buyer gets.
+  describe("company fiscal data", () => {
+    const company = {
+      cnpj: "11.222.333/0001-81",
+      companyName: "Ana Modas Ltda",
+      stateRegistration: "isento",
+      regime: "simples",
+    };
+
+    it("keeps ISENTO for a company without a state registration", () => {
+      const parsed = billingHolderSchema.parse({ ...COMPANY_HOLDER, company });
+
+      expect(parsed.company?.stateRegistration).toBe("ISENTO");
+    });
+
+    it("asks a company for its state registration and tax regime", () => {
+      const { stateRegistration: _registration, ...withoutRegistration } = company;
+      const { regime: _regime, ...withoutRegime } = company;
+
+      for (const candidate of [withoutRegistration, withoutRegime, { ...company, regime: "mei" }]) {
+        expect(
+          billingHolderSchema.safeParse({ ...COMPANY_HOLDER, company: candidate }).success,
+        ).toBe(false);
+      }
+    });
+
+    it("asks a company to pick its city from the list", () => {
+      const result = billingHolderSchema.safeParse({ ...HOLDER, company });
+
+      expect(result.error?.issues).toEqual([
+        expect.objectContaining({
+          path: ["address", "city"],
+          message: "Escolha a cidade na lista: a nota fiscal precisa do código dela",
+        }),
+      ]);
+    });
+
+    it("refuses a city code from another state than the address", () => {
+      const address = { ...COMPANY_HOLDER.address, ibgeCode: "3304557" };
+
+      const result = billingHolderSchema.safeParse({ ...HOLDER, address, company });
+
+      expect(result.error?.issues[0]?.message).toBe(
+        "A cidade não é de SP. Busque o endereço pelo CEP de novo.",
+      );
+    });
+
+    it("lets who sells with a CPF keep a city typed outside the list", () => {
+      expect(billingHolderSchema.safeParse(HOLDER).success).toBe(true);
+    });
+  });
+
   // L2-2: what reaches the server never mixes selling as a person and as a company.
   describe("holder type", () => {
-    const company = { cnpj: "11.222.333/0001-81", companyName: "Ana Modas Ltda" };
+    const company = {
+      cnpj: "11.222.333/0001-81",
+      companyName: "Ana Modas Ltda",
+      stateRegistration: "ISENTO",
+      regime: "simples",
+    };
 
     it("refuses a CNPJ without the legal name", () => {
       const { companyName: _companyName, ...cnpjOnly } = company;
       for (const candidate of [cnpjOnly, { ...company, companyName: "   " }]) {
-        expect(billingHolderSchema.safeParse({ ...HOLDER, company: candidate }).success).toBe(
-          false,
-        );
+        expect(
+          billingHolderSchema.safeParse({ ...COMPANY_HOLDER, company: candidate }).success,
+        ).toBe(false);
       }
       expect(
-        billingHolderSchema.safeParse({ ...HOLDER, company: { ...company, companyName: null } })
-          .success,
+        billingHolderSchema.safeParse({
+          ...COMPANY_HOLDER,
+          company: { ...company, companyName: null },
+        }).success,
       ).toBe(false);
     });
 
     it("refuses a legal name without the CNPJ", () => {
       for (const cnpj of ["", "   ", null]) {
         expect(
-          billingHolderSchema.safeParse({ ...HOLDER, company: { ...company, cnpj } }).success,
+          billingHolderSchema.safeParse({ ...COMPANY_HOLDER, company: { ...company, cnpj } })
+            .success,
         ).toBe(false);
       }
     });
@@ -120,7 +192,9 @@ describe("billingHolderSchema", () => {
 
     it("refuses extra fields inside the company", () => {
       const mixed = { ...company, cpf: HOLDER.cpf };
-      expect(billingHolderSchema.safeParse({ ...HOLDER, company: mixed }).success).toBe(false);
+      expect(billingHolderSchema.safeParse({ ...COMPANY_HOLDER, company: mixed }).success).toBe(
+        false,
+      );
     });
 
     it("saves company null for who sells with a CPF", () => {

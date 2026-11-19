@@ -67,7 +67,7 @@ async function openPublishFormForFirstProduct(page: Page) {
   await expect(page.getByRole("heading", { name: "Nova publicação" })).toBeVisible();
   await page.waitForLoadState("networkidle");
   // The supplier's suggested price may not pay Mercado Livre's shipping: take one that profits.
-  await page.getByRole("button", { name: /^Margem 30%/ }).click();
+  await page.getByRole("button", { name: /^Margem 25%/ }).click();
 }
 
 test("conecta loja simulada, publica produto e acompanha o status", async ({ page }) => {

@@ -38,6 +38,7 @@ import {
 import type { z } from "zod";
 import type { Database, Transaction } from "../client.ts";
 import {
+  marketplaceClaims,
   orderItems,
   orders,
   orderShipments,
@@ -134,6 +135,8 @@ async function operationalOrderRows(database: Database, filter: SQL | undefined,
       storeName: storeConnections.shopName,
       /** An item is short of supplier stock (the reseller has to sort it out). */
       stockShort: sql<boolean>`exists (select 1 from ${orderItems} where ${orderItems.orderId} = ${orders.id} and ${orderItems.stockState} = 'short')`,
+      // Matches the partial index `marketplace_claims_open_idx`.
+      openClaim: sql<boolean>`exists (select 1 from ${marketplaceClaims} where ${marketplaceClaims.tenantId} = ${orders.tenantId} and ${marketplaceClaims.orderId} = ${orders.id} and ${marketplaceClaims.status} = 'opened')`,
     })
     .from(orders)
     .innerJoin(storeConnections, eq(storeConnections.id, orders.storeConnectionId))
@@ -598,5 +601,7 @@ export async function updateShipment(
 export {
   applyMarketplaceShipment,
   listShipmentsToTrack,
+  listTrackableStoreOrders,
+  recordStoreShipmentNotice,
   touchShipmentTracking,
 } from "./marketplace-shipment-tracking.ts";

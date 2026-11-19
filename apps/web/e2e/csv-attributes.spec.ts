@@ -108,7 +108,7 @@ test("produto importado por CSV com marca, modelo e GTIN vai ao ar sem erro de a
   await reseller.waitForLoadState("networkidle");
   await expect(reseller.getByLabel("Título")).toHaveValue(TITLE);
   // Cost + 50% (R$ 29,90) does not pay Mercado Livre's shipping: take a price that profits.
-  await reseller.getByRole("button", { name: /^Margem 30%/ }).click();
+  await reseller.getByRole("button", { name: /^Margem 25%/ }).click();
   await reseller.getByRole("button", { name: "Publicar" }).click();
 
   await expect(reseller).toHaveURL(/\/publicacoes(?:\?|$)/);

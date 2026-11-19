@@ -83,14 +83,14 @@ function AmountSentence({ current, previous }: Omit<SupplierPeriodSummaryProps, 
   if (previous.orders === 0) {
     return (
       <>
-        Suas primeiras vendas chegaram: <Strong>{sentenceReais(current.receivableCents)}</Strong> a
-        receber.{" "}
+        Suas primeiras vendas chegaram: <Strong>{sentenceReais(current.receivableCents)}</Strong> em
+        pedidos.{" "}
       </>
     );
   }
   return (
     <>
-      Você vai receber <Strong>{sentenceReais(current.receivableCents)}</Strong> no período
+      Você vendeu <Strong>{sentenceReais(current.receivableCents)}</Strong> no período
       <Change current={current} previous={previous} />{" "}
     </>
   );

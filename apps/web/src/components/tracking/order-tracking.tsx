@@ -22,7 +22,7 @@ import {
 import type { TrackingSearchResult } from "@/features/tracking/tracking-views";
 import { errorMessage } from "@/lib/errors";
 import { BuyerLinkButton } from "./buyer-link-button";
-import { CarrierHistory, TrackingExplanationBlock, TrackingParcel } from "./tracking-parcel";
+import { ManualTracking, TrackingParcel } from "./tracking-parcel";
 
 const INVALID_CODE_MESSAGE = `Confira o que foi digitado. O código dos Correios tem 2 letras, 9 números e 2 letras, como ${CORREIOS_CODE_EXAMPLE}. O número do pedido tem só números.`;
 
@@ -179,27 +179,6 @@ function TrackingResult({ result, query }: { result: TrackingSearchResult; query
         />
       ))}
     </div>
-  );
-}
-
-/** A code that is not in SellBridge, read straight from the carrier. */
-function ManualTracking({ result }: { result: Extract<TrackingSearchResult, { kind: "manual" }> }) {
-  return (
-    <section
-      className="surface-card space-y-4 rounded-3xl bg-card p-5"
-      aria-label={`Rastreio do código ${result.code}`}
-    >
-      <div>
-        <h3 className="font-medium break-all">Código {result.code}</h3>
-        <p className="text-footnote text-muted-foreground">
-          Este código não está em nenhum pedido seu. Consultamos direto na transportadora.
-        </p>
-      </div>
-      {result.explanation === null ? null : (
-        <TrackingExplanationBlock explanation={result.explanation} />
-      )}
-      <CarrierHistory result={result.carrierTracking} />
-    </section>
   );
 }
 

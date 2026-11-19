@@ -1,4 +1,5 @@
 import { billingAddressSchema, formatCep } from "@sellbridge/shared/billing-address";
+import { COMPANY_CITY_FROM_LIST } from "@sellbridge/shared/schemas";
 import type { BillingAddress } from "@sellbridge/shared/billing-address";
 import { useStore } from "@tanstack/react-form";
 import { useCallback, useEffect, useState } from "react";
@@ -22,6 +23,8 @@ interface AddressSectionProps {
   savedAddress: BillingAddress | null;
   /** True when the rest of the holder is saved but the address is missing. */
   isMissing: boolean;
+  /** True for a company whose saved city has no IBGE code yet: its NF-e needs one. */
+  needsCityCode: boolean;
 }
 
 /**
@@ -33,6 +36,7 @@ export function BillingAddressSection({
   showErrors,
   savedAddress,
   isMissing,
+  needsCityCode,
 }: AddressSectionProps) {
   const [isEditing, setIsEditing] = useState(savedAddress === null);
   const [wasOpenedByUser, setWasOpenedByUser] = useState(false);
@@ -56,8 +60,13 @@ export function BillingAddressSection({
             Falta o endereço. Preencha para manter seu cadastro em dia.
           </span>
         ) : null}
+        {needsCityCode && !isMissing ? (
+          <span className="block text-footnote text-amber-700 dark:text-amber-400">
+            Confirme a cidade escolhendo na lista: a nota fiscal da empresa precisa do código dela.
+          </span>
+        ) : null}
       </legend>
-      {isEditing || savedAddress === null ? (
+      {isEditing || savedAddress === null || needsCityCode ? (
         <AddressInputs form={form} showErrors={showErrors} />
       ) : (
         <SavedAddress address={savedAddress} onChange={openAddressInputs} />
@@ -189,8 +198,19 @@ function NumberInputs({ form, showErrors }: { form: HolderFormApi; showErrors: b
   );
 }
 
+/** The city typed, and for a company one from the list: its NF-e needs the city's IBGE code. */
+function cityError(city: string, ibgeCode: string, isCompany: boolean): string | undefined {
+  const parsed = fields.city.safeParse(city);
+  if (!parsed.success) {
+    return parsed.error.issues[0]?.message;
+  }
+  if (isCompany && ibgeCode === "") {
+    return COMPANY_CITY_FROM_LIST;
+  }
+  return undefined;
+}
+
 function PlaceInputs({ form, showErrors }: { form: HolderFormApi; showErrors: boolean }) {
-  const chosenState = useStore(form.store, (state) => state.values.address.state);
   return (
     <>
       <form.Field name="address.neighborhood" validators={{ onChange: fields.neighborhood }}>
@@ -227,22 +247,40 @@ function PlaceInputs({ form, showErrors }: { form: HolderFormApi; showErrors: bo
           </div>
         )}
       </form.Field>
-      <form.Field name="address.city" validators={{ onChange: fields.city }}>
-        {(field) => (
-          <div className="col-span-1 sm:col-span-2">
-            <FloatingCityField
-              id="holder-city"
-              label="Cidade"
-              state={chosenState}
-              value={field.state.value}
-              errors={visibleErrors(field.state.meta.errors, showErrors)}
-              onBlur={field.handleBlur}
-              onValueChange={field.handleChange}
-              onIbgeCodeChange={(ibgeCode) => form.setFieldValue("address.ibgeCode", ibgeCode)}
-            />
-          </div>
-        )}
-      </form.Field>
+      <CityInput form={form} showErrors={showErrors} />
     </>
+  );
+}
+
+function CityInput({ form, showErrors }: { form: HolderFormApi; showErrors: boolean }) {
+  const chosenState = useStore(form.store, (state) => state.values.address.state);
+  return (
+    <form.Field
+      name="address.city"
+      validators={{
+        onChangeListenTo: ["address.ibgeCode", "isCompany"],
+        onChange: ({ value, fieldApi }) =>
+          cityError(
+            value,
+            fieldApi.form.getFieldValue("address.ibgeCode") ?? "",
+            fieldApi.form.getFieldValue("isCompany"),
+          ),
+      }}
+    >
+      {(field) => (
+        <div className="col-span-1 sm:col-span-2">
+          <FloatingCityField
+            id="holder-city"
+            label="Cidade"
+            state={chosenState}
+            value={field.state.value}
+            errors={visibleErrors(field.state.meta.errors, showErrors)}
+            onBlur={field.handleBlur}
+            onValueChange={field.handleChange}
+            onIbgeCodeChange={(ibgeCode) => form.setFieldValue("address.ibgeCode", ibgeCode)}
+          />
+        </div>
+      )}
+    </form.Field>
   );
 }

@@ -513,6 +513,27 @@ export async function releaseShipmentPaymentReservation(
     );
 }
 
+/**
+ * Frees a parcel whose checkout is still open, so a new click can reserve it again and look the
+ * checkout up anew (the reseller may want to pay another way). Only that checkout's reservation
+ * is freed: one another request opened since stays.
+ */
+export async function reopenShipmentCheckout(
+  database: Database,
+  input: { paymentId: string; preferenceId: string },
+): Promise<void> {
+  await database
+    .update(shipmentPayments)
+    .set({ checkoutExpiresAt: null })
+    .where(
+      and(
+        eq(shipmentPayments.id, input.paymentId),
+        eq(shipmentPayments.status, "pending"),
+        eq(shipmentPayments.preferenceId, input.preferenceId),
+      ),
+    );
+}
+
 /** The parcel's checkout still taking payments, to send a second click to the same one. */
 export function openCheckoutUrl(payment: ShipmentPayment | null, now: Date): string | null {
   if (payment?.status !== "pending" || payment.checkoutUrl === null) {

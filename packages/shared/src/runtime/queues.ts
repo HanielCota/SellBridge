@@ -16,6 +16,8 @@ export const QUEUE_NAMES = {
   ticketAutoClose: "ticket-auto-close",
   /** Reads the marketplace's tracking of parcels still on their way. */
   shipmentTracking: "shipment-tracking",
+  /** Reads each Mercado Livre store's open and recent claims again (safety net for notifications). */
+  marketplaceClaimSweep: "marketplace-claim-sweep",
   /** Forwards a paid order to its suppliers on its own and e-mails them (item 21.b, flagged). */
   orderAutoForward: "order-auto-forward",
   /** Sends queued e-mail and push notifications to people (item 25). */
