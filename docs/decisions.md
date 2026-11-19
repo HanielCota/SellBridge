@@ -926,6 +926,18 @@ Teste de ponta a ponta com a conta de sandbox do SellBridge, por um script local
    - **Liberação:** só a chave da conta principal encerra a guarda (`POST /v3/escrow/{id}/finish`); a da subconta recebe 404. A liberação agora usa a chave do SellBridge, e o worker liberou 7 dias depois da entrega.
    - **Motivo da recusa:** o registro de cobrança recusada passou a guardar o motivo que o Asaas devolve.
 
+## 2026-11-19: Fornecedor recebe só pelo SellBridge (duas chaves no admin)
+
+O "pagamento por fora" entrou como provisório no PR #179 (10/11/2026) e o cliente nunca pediu. Guilherme, 17/11/2026: "Que quebra galho é esse po vai entrar a asaas"; plano aprovado com "Aprovo todas" (18/11) e a decisão 5 com "Vamos de C" (18/11).
+
+- **Duas chaves em Configurações (admin), desligadas por padrão** (`platform_settings.require_receiving_account_since` e `payment_before_preparing_since`, migração 0084). Cada uma guarda quando foi ligada; desligar apaga. A segunda só liga com a primeira ligada (o banco também recusa), e as duas só ligam com o Asaas configurado no servidor.
+- **"Exigir conta de recebimento":** fornecedor sem conta Asaas aprovada (`status = connected` e `review_status = approved`) sai do catálogo, da lista de fornecedores, de publicar um, de publicar vários, da API e do robô de publicação. Os anúncios que já estão no ar continuam vendendo. O pedido novo desse fornecedor fica "Aguardando o fornecedor ligar a conta de recebimento": ele não aceita até a conta ser aprovada; o fornecedor recebe aviso (sino e e-mail), a equipe recebe e-mail uma vez por dia por fornecedor, e o caso entra em Problemas.
+- **"Pagamento antes de preparar" (decisão 5 = C):** o fornecedor vê "Aguardando pagamento do revendedor" e não aceita, separa, marca pronto, despacha nem imprime etiqueta em lote até o pagamento aprovado no Asaas. Os prazos de aceite e despacho dele contam a partir do pagamento; o prazo de postagem do Mercado Livre não muda, porque é do canal.
+- **Só pedidos novos:** as duas regras valem para envios criados depois de ligar a chave. Os que já estavam em andamento seguem como estavam. Cancelar e registrar ocorrência continuam livres.
+- **Textos:** sai todo "por fora". O selo "Pagamento por fora" vira "Sem conta de recebimento" ou "Pagamento pelo SellBridge não ligado" (Asaas não configurado), e cada mensagem diz o que fazer dentro do sistema.
+- **Fica para depois:** a saúde do fornecedor (aceite no prazo) ainda conta o aceite a partir do encaminhamento, mesmo com a segunda chave ligada.
+- **Descartado:** uma chave só para as duas regras (a conta pode ser exigida antes, para os fornecedores se cadastrarem, e o pagamento antes de preparar ligado depois); valer também para pedidos já em andamento (pararia pedidos pagos por fora antes da mudança).
+
 ## 2026-11-16: Lucro real por canal (etapa 2a, comissão e frete lidos da loja)
 
 Guilherme aprovou as três etapas do lucro real; a Central mandou começar a etapa 2 no mesmo dia. A etapa 2 foi dividida: esta parte (2a) lê as taxas da loja. O frete real de cada pedido (2b) vem num PR seguinte, que mexe nos arquivos de pedido.
