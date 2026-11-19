@@ -53,6 +53,10 @@ const FAILURE_REASONS: Readonly<Record<QueueName, string>> = {
   [QUEUE_NAMES.supplierPayments]: "A rodada de pagamentos dos fornecedores falhou.",
   [QUEUE_NAMES.marketplaceClaimSweep]:
     "A conferência das reclamações do Mercado Livre falhou: reclamações novas podem não ter aparecido.",
+  [QUEUE_NAMES.supplierApproval]:
+    "A aprovação automática dos fornecedores novos falhou: os cadastros pendentes esperam a próxima rodada.",
+  [QUEUE_NAMES.buyerAddressCheck]:
+    "A conferência dos endereços das contas do Mercado Livre dos revendedores falhou.",
 };
 
 const UNKNOWN_QUEUE_REASON = "Uma tarefa do robô falhou em todas as tentativas.";
