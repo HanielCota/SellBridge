@@ -23,6 +23,14 @@ export interface ReconnectedStore {
 
 const RESUME_OPTION_ID = "reconnect-resume-listings";
 
+/** The button names what it does: resume or keep paused, following the checkbox. */
+function finishLabel(resume: boolean, count: number): string {
+  if (resume) {
+    return count === 1 ? "Reativar o anúncio" : "Reativar os anúncios";
+  }
+  return count === 1 ? "Manter pausado" : "Manter pausados";
+}
+
 function resumeLabel(count: number): string {
   return count === 1
     ? "Reativar o anúncio que foi pausado quando a loja foi desconectada"
@@ -85,7 +93,7 @@ export function ReconnectResumeDialog({
         </div>
         <DialogFooter>
           <Button disabled={mutation.isPending} onClick={finish}>
-            {mutation.isPending ? "Reativando…" : "Concluir"}
+            {mutation.isPending ? "Reativando…" : finishLabel(resume, store?.pausedListings ?? 0)}
           </Button>
         </DialogFooter>
       </DialogContent>
