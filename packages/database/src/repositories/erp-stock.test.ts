@@ -89,19 +89,21 @@ async function productRow(productId: string) {
 }
 
 describe("ERP stock accounts", () => {
-  it("follows Bling only for connected suppliers that issue their NF-e through SellBridge", async () => {
+  it("follows Bling for every connected supplier, with or without the NF-e through SellBridge", async () => {
     const companyId = `company-${randomUUID()}`;
-    const following = await createSupplier({ invoiceEnabled: true, companyId });
+    const invoicing = await createSupplier({ invoiceEnabled: true, companyId });
     const notInvoicing = await createSupplier({ invoiceEnabled: false, companyId });
 
     const accounts = await listErpStockAccounts(database);
     const byCompany = await findErpStockSuppliersByCompany(database, companyId);
 
     const listed = accounts.map((account) => account.supplierId);
-    expect(listed).toContain(following.supplierId);
-    expect(listed).not.toContain(notInvoicing.supplierId);
-    expect(byCompany).toEqual([following.supplierId]);
-    expect(await findErpStockAccount(database, notInvoicing.supplierId)).toBeNull();
+    expect(listed).toContain(invoicing.supplierId);
+    expect(listed).toContain(notInvoicing.supplierId);
+    expect(byCompany.toSorted()).toEqual(
+      [invoicing.supplierId, notInvoicing.supplierId].toSorted(),
+    );
+    expect(await findErpStockAccount(database, notInvoicing.supplierId)).not.toBeNull();
   });
 
   it("stops following an account once it is no longer connected", async () => {

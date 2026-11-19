@@ -149,6 +149,13 @@ async function createSupplier(options: {
   return supplier.id;
 }
 
+async function disconnect(supplierId: string): Promise<void> {
+  await database
+    .update(schema.supplierErpConnections)
+    .set({ status: "expired" })
+    .where(eq(schema.supplierErpConnections.supplierId, supplierId));
+}
+
 async function createProduct(
   supplierId: string,
   input: { sku: string; stock: number; erpProductId?: number; reservedStock?: number },
@@ -239,8 +246,24 @@ describe("checkSupplierErpStock", () => {
     expect(requestListingSync).not.toHaveBeenCalled();
   });
 
-  it("leaves suppliers that do not issue their NF-e through SellBridge alone", async () => {
+  it("follows Bling for a supplier whose NF-e does not go through SellBridge", async () => {
     const supplierId = await createSupplier({ invoiceEnabled: false });
+    const productId = await createProduct(supplierId, { sku: "A", stock: 6 });
+    const bling = fakeBling({
+      companyId: "company-a",
+      products: [{ id: 7, codigo: "A", balance: 1 }],
+    });
+    const { dependencies } = dependenciesFor(bling.fetchImplementation);
+
+    const outcome = await checkSupplierErpStock(dependencies, supplierId);
+
+    expect(outcome).toBe("synced");
+    expect((await productOf(productId))?.stock).toBe(1);
+  });
+
+  it("leaves a supplier whose Bling is no longer connected alone", async () => {
+    const supplierId = await createSupplier({});
+    await disconnect(supplierId);
     const productId = await createProduct(supplierId, { sku: "A", stock: 6 });
     const bling = fakeBling({
       companyId: "company-a",
@@ -399,8 +422,9 @@ describe("refreshSupplierErpStock", () => {
 
 describe("checkAllErpStock", () => {
   it("queues one full check per supplier whose stock follows Bling", async () => {
-    const following = await createSupplier({});
-    const notFollowing = await createSupplier({ invoiceEnabled: false });
+    const following = await createSupplier({ invoiceEnabled: false });
+    const notFollowing = await createSupplier({});
+    await disconnect(notFollowing);
     const bling = fakeBling({ companyId: "company-a", products: [] });
     const { dependencies, enqueueSupplierCheck } = dependenciesFor(bling.fetchImplementation);
 

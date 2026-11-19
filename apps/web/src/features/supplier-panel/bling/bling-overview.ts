@@ -109,14 +109,8 @@ export function blingOverviewFrom(input: {
   };
 }
 
-/**
- * What the card says about stock. It follows Bling on its own only while the NF-e goes through
- * SellBridge: those sales already lower Bling's stock (the other sales reach Bling in a later step).
- */
+/** What the card says about stock, which follows Bling on its own for every connected account. */
 export function blingStockLine(connection: BlingConnectionView): string {
-  if (connection.invoiceEnabledAt === null) {
-    return "O estoque passa a acompanhar o Bling sozinho quando a nota fiscal pelo Bling estiver ligada.";
-  }
   if (connection.stockCheckedAt === null) {
     return "Estoque atualizado sozinho pelo Bling · a primeira conferência sai em até 15 minutos.";
   }

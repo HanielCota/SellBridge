@@ -7,14 +7,13 @@ import {
 } from "../schema/index.ts";
 
 /**
- * A supplier whose stock follows its Bling account: connected, and (until SellBridge's own sales
- * are posted to Bling) issuing its NF-e through SellBridge, so those sales already lower Bling's
- * stock through the sale order.
+ * A supplier whose stock follows its Bling account: any connected one. SellBridge's own sales
+ * lower Bling's stock through the NF-e sale order or, without it, through the stock exit the
+ * worker posts.
  */
 const followsErpStock = and(
   eq(supplierErpConnections.provider, "bling"),
   eq(supplierErpConnections.status, "connected"),
-  isNotNull(supplierErpConnections.invoiceEnabledAt),
 );
 
 export interface ErpStockAccount {
