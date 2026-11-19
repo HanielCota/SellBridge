@@ -99,6 +99,11 @@ export interface MarketplaceOrder {
    * when the source did not report payments this time.
    */
   refundedCents?: Cents | undefined;
+  /**
+   * What the seller pays the marketplace to ship this sale (Mercado Envios); undefined when the
+   * marketplace did not report it this time, so the last known value stays.
+   */
+  sellerShippingCents?: Cents | undefined;
   buyerName: string | null;
   /**
    * The marketplace cart the order was bought in: every order of a cart ships in one package

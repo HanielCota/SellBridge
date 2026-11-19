@@ -24,7 +24,6 @@ export {
   getMercadoLivreLabel,
   getMercadoLivreLabels,
   getMercadoLivreShipping,
-  LABEL_NOT_READY_CAUSE,
   type MercadoLivreLabelBatch,
   type MercadoLivreLabelFile,
   type PrintedLabel,
@@ -34,5 +33,5 @@ export {
   createTikTokShopConnector,
   getTikTokShopShippingLabel,
   type TikTokShopConfig,
-  type TikTokShopLabel,
+  type TikTokShopLabelFile,
 } from "./tiktok-shop/tiktok-shop-connector.ts";

@@ -58,6 +58,8 @@ Atualização (2026-10-11): o papel só vem com a posse do e-mail comprovada. No
 
 No MVP vem de `PLATFORM_FEE_BASIS_POINTS` (basis points, padrão 0) em vez de uma tabela `platform_settings`. Vira tabela quando houver tela de configuração.
 
+**Substituída em 2026-11-17 (Guilherme: "Vamos de A então"):** a taxa do SellBridge é uma só, a do admin (`platform_settings.payment_fee_basis_points`, tela Configurações), e quem paga é o fornecedor: ela sai da parte dele em cada pagamento pelo Mercado Pago ou pelo Asaas, como já valia para o Asaas ("As taxas quem paga é o fornecedor", 15/11). O revendedor paga o valor do pedido, então prévias, Financeiro, relatórios, página do pedido e API pública não tiram taxa do SellBridge do lucro dele (`RESELLER_PLATFORM_FEE_BASIS_POINTS = 0` em `features/reports/fee-schedule.ts`). `PLATFORM_FEE_BASIS_POINTS` saiu; o site avisa no log se ela, ou o nome antigo `PLATFORM_FEE_BPS`, ainda estiver definida. Pagamentos já feitos guardam a taxa com que foram cobrados, e o relatório de um mês fechado continua como foi guardado. Descartado: o revendedor pagar a taxa por cima do valor do fornecedor (mudaria o valor das cobranças no Mercado Pago e no Asaas e exigiria guardar a taxa em cada pedido). Pendente: tirar o parâmetro da taxa das contas compartilhadas (`finance.ts`, `fee-model.ts`, `reports.ts`) quando as branches que mexem nesses arquivos entrarem.
+
 ## 2026-10-08: shadcn/ui
 
 Preset `radix-nova` (Radix + Lucide). Componentes gerados em `src/components/ui/` são código vendorizado: ficam fora do Oxlint e do `check:no-else`, mas passam pelo typecheck estrito. Ajustes feitos para `exactOptionalPropertyTypes`: `dropdown-menu.tsx` (prop `checked`) e `sonner.tsx` (troca de `next-themes` pelo nosso `useTheme`).
@@ -779,7 +781,7 @@ Decisão do Guilherme em 10/11/2026: "Vamos de modelo A, mas lembrese da decisã
 
 O revendedor paga o fornecedor pelo Checkout Pro do Mercado Pago com a divisão do marketplace. Cada fornecedor liga a conta Mercado Pago dele uma vez (OAuth pelo aplicativo de marketplace do SellBridge, tokens cifrados como os das lojas). A preferência é criada com o token do fornecedor, então o dinheiro cai na conta dele, e o SellBridge recebe a sua parte como `marketplace_fee`. O SellBridge não guarda saldo de ninguém. Decisões do Guilherme: "Esquece asaas por hora" (06/11) e "o 3 eu aprovo vai ser assim mesmo" (09/11).
 
-- A taxa dessa divisão é a primeira configuração em tabela (`platform_settings`, uma linha), editável pelo admin ("Tem como fazer editavel no painel de admin?", 10/11). Enquanto não for definida, vale 0. A taxa da plataforma nos relatórios continua em `PLATFORM_FEE_BASIS_POINTS`.
+- A taxa dessa divisão é a primeira configuração em tabela (`platform_settings`, uma linha), editável pelo admin ("Tem como fazer editavel no painel de admin?", 10/11). Enquanto não for definida, vale 0. Desde 2026-11-17 é a única taxa do SellBridge (ver "2026-10-08: Taxa da plataforma").
 - Um pagamento é registrado só depois de lido de volta no Mercado Pago, com o token do fornecedor, e só se ele cita a parcela, foi pago para a conta ligada, em reais e com o mesmo valor. O aviso assinado e a volta do checkout usam o mesmo caminho, porque o aviso não chega a um servidor sem HTTPS.
 - Uma parcela tem um pagamento só: um segundo clique reaproveita o checkout aberto (30 minutos, Pix incluído), e um pagamento em análise impede outro. Uma segunda aprovação fica registrada no log como pagamento duplicado, para ser devolvida à mão.
 - Pix e cartão, cartão à vista. Ficam fora desta primeira versão: Asaas, Pagar.me, devolução e contestação depois do pagamento, e extrato dentro do SellBridge.
@@ -907,3 +909,14 @@ Guilherme aprovou as três etapas do lucro real; a Central mandou começar a eta
   - **Servidor:** o piso do servidor ao criar o anúncio e ao trocar o preço.
 - **Fora, de propósito:** o catálogo e a publicação em lote continuam na estimativa da etapa 1. Ler 9 valores por produto e por loja numa grade de 24 produtos seria pergunta demais ao Mercado Livre por página aberta.
 - **Testes:** nenhuma chamada real ao Mercado Livre. Os testes de unidade usam respostas no formato da documentação, e o teste de navegador usa o substituto do Mercado Livre (`e2e/mercado-livre.fixture.ts`).
+
+## 2026-11-17: Lucro real por canal (etapa 2b, o frete real de cada venda no Financeiro)
+
+A segunda parte da etapa 2: o Financeiro passa a descontar o frete que o Mercado Livre cobrou do vendedor em cada venda, e não só a comissão.
+
+- **De onde vem:** `GET /shipments/{id}/costs` (cabeçalho `x-format-new: true`), página oficial "Gerenciamento de envios", lida em 17/11/2026. O valor é o `senders[].cost` da loja, o custo final do envio que o vendedor paga, já com desconto. Um envio pode ter itens de vários vendedores, então vale só a linha da loja.
+- **Quando:** a cada aviso de pedido do Mercado Livre (o mesmo caminho que traz o pedido). Se o envio ainda não existe, ou a leitura falha, o pedido entra mesmo assim: o frete fica sem valor e o próximo aviso tenta de novo. Um aviso sem o frete nunca apaga o que já foi lido.
+- **Onde guarda:** a coluna `orders.seller_shipping_cents`, nula enquanto o Mercado Livre não informou.
+- **Na conta:** o frete entra junto com a tarifa do marketplace, como as prévias de preço já fazem (`fee-model.ts`). Vale para o relatório, a página do pedido e a API pública (o campo `marketplaceFeeCents` passa a incluir o frete, e a descrição dele diz isso). Pedido cancelado ou devolvido continua sem tarifa.
+- **Carrinho:** o Mercado Livre manda um carrinho (vários pedidos, um `pack_id`) num envio só, e cada pedido do carrinho informa o custo do envio inteiro. O frete conta uma vez, no primeiro pedido do carrinho que conta como venda (`sellerShippingOnce`); os outros ficam com zero. Achado da revisão de segurança de 17/11/2026.
+- **Fora:** os pedidos antigos não são relidos. O frete aparece nos pedidos que receberem um aviso novo do Mercado Livre depois da atualização.

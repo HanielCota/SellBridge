@@ -90,6 +90,20 @@ function renamedVariableIssues(
 }
 
 /**
+ * The variables of `retiredVariables` the source still sets: startup warns that they no longer
+ * do anything, instead of ignoring them in silence. A blank value counts as not set.
+ */
+export function retiredVariablesIn(
+  source: Record<string, string | undefined>,
+  retiredVariables: readonly string[],
+): string[] {
+  return retiredVariables.filter((name) => {
+    const value = source[name];
+    return value !== undefined && value.trim() !== "";
+  });
+}
+
+/**
  * `NAME=` with nothing after it means "not set", as in any .env file: optional variables left
  * blank (the .env.example ships several) fall back to their default instead of failing a
  * minimum-length rule.

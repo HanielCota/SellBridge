@@ -130,7 +130,6 @@ function input(overrides: Partial<SellerReportInput> = {}): SellerReportInput {
         ],
       },
     },
-    platformFeeBasisPoints: 250,
     ...overrides,
   };
 }
@@ -301,5 +300,14 @@ describe("seller report", () => {
   it("fits the stored report shape, so a closed month can be kept", () => {
     const report = buildSellerReport(input());
     expect(parseStoredReport(JSON.parse(JSON.stringify(report)))).toEqual(report);
+  });
+
+  it("explains that SellBridge's fee stays out of the profit, since the supplier pays it", () => {
+    const report = buildSellerReport(input());
+
+    const profitRule = report.rules.find((rule) => rule.title === "Lucro");
+
+    expect(profitRule?.text).toContain("A taxa do SellBridge não entra");
+    expect(profitRule?.text).not.toContain("% da receita");
   });
 });

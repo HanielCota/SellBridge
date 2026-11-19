@@ -45,6 +45,9 @@ test("a conta nova só entra depois de abrir o link de confirmação", async ({ 
 
   await expect(page).toHaveURL(/\/confirme-seu-email$/);
   await expect(page.getByRole("heading", { name: "Confira seu e-mail" })).toBeVisible();
+  // The link opens no session (auth.ts): the page must not promise the person goes straight in.
+  await expect(page.getByText("Depois, é só entrar com seu e-mail e senha.")).toBeVisible();
+  await expect(page.getByText("Você entra direto")).toHaveCount(0);
   await expect(page.getByText(email)).toBeVisible();
   await page.getByRole("button", { name: "Reenviar e-mail" }).click();
   await expect(

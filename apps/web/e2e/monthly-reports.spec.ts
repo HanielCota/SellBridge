@@ -19,6 +19,8 @@ async function expectReport(page: Page, path: string, title: string) {
 
 async function downloadCsv(page: Page, label: string) {
   await page.getByRole("button", { name: "Baixar", exact: true }).click();
+  // The menu lists only what downloads now, never a feature still to come.
+  await expect(page.getByRole("menu")).not.toContainText("em breve");
   const href = await page
     .getByRole("menuitem", { name: new RegExp(`^${label}`) })
     .getAttribute("href");

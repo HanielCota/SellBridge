@@ -2,7 +2,6 @@ import {
   CaretDownIcon,
   ChartBarIcon,
   DownloadSimpleIcon,
-  EnvelopeSimpleIcon,
   FilePdfIcon,
   TableIcon,
 } from "@phosphor-icons/react";
@@ -75,8 +74,7 @@ function OptionItem({ option }: { option: DownloadOption }) {
 
 /**
  * "Baixar": the period on top, then the files of this page (the traditional spreadsheet keeps
- * its place next to the report with charts). A feature still on the way shows as "em breve",
- * never as a button that does nothing.
+ * its place next to the report with charts). Only what downloads now is listed.
  */
 export function DownloadMenu({ periodLabel, options, teamNames, size = "lg" }: DownloadMenuProps) {
   return (
@@ -109,12 +107,6 @@ export function DownloadMenu({ periodLabel, options, teamNames, size = "lg" }: D
             </DropdownMenuCheckboxItem>
           </>
         ) : null}
-        <DropdownMenuSeparator />
-        <p className="flex min-h-11 items-center gap-1.5 px-2.5 text-sm text-muted-foreground">
-          <EnvelopeSimpleIcon className="size-4" aria-hidden="true" />
-          Envio automático por e-mail
-          <span className="ml-auto rounded-full bg-muted px-2 py-0.5 text-xs">em breve</span>
-        </p>
       </DropdownMenuContent>
     </DropdownMenu>
   );

@@ -17,6 +17,11 @@ export interface OrderFinanceInput {
   totalCents: Cents;
   marketplaceFeeCents: Cents;
   /**
+   * What the seller paid the marketplace to ship the sale, when it reported it; it counts with
+   * the fee, as the previews count it (fee-model.ts).
+   */
+  sellerShippingCents?: Cents | null;
+  /**
    * Null when the item's listing is not ours, so its supplier cost is unknown. Named apart from
    * the stored `unitCostCents` (zero for those items) so a stored row cannot be passed by mistake.
    */
@@ -31,6 +36,7 @@ export interface OrderFinance {
   /** The revenue of a cost-pending sale (zero otherwise): part of the revenue, left out of the profit. */
   pendingCostRevenueCents: Cents;
   costCents: Cents;
+  /** The marketplace's fee plus the shipping the seller paid on the sale. */
   feeCents: Cents;
   refundCents: Cents;
   returnCents: Cents;
@@ -63,7 +69,8 @@ function pendingCostFinance(revenueCents: Cents): OrderFinance {
 
 /**
  * Profit of one order (all values in cents):
- *   revenue − supplier cost − marketplace fee − refunds + supplier commissions − platform fee
+ *   revenue − supplier cost − marketplace fee and seller shipping − refunds + supplier commissions
+ *   − platform fee
  * Cancelled and returned orders contribute no revenue, cost or fee (the product goes back
  * to the supplier); the returned amount is reported separately for visibility.
  * A sale with an item of unknown cost ("custo pendente") keeps its revenue but stays out of the
@@ -82,7 +89,7 @@ export function computeOrderFinance(
   const costCents = counted
     ? input.items.reduce((total, item) => total + (item.knownUnitCostCents ?? 0) * item.quantity, 0)
     : 0;
-  const feeCents = counted ? input.marketplaceFeeCents : 0;
+  const feeCents = counted ? input.marketplaceFeeCents + (input.sellerShippingCents ?? 0) : 0;
   const refundCents = sumAdjustments(input, "refund");
   const returnCents = sumAdjustments(input, "return");
   const commissionCents = sumAdjustments(input, "commission");

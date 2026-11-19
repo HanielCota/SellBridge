@@ -39,4 +39,9 @@ describe("shareMeta", () => {
   it("points every image to an absolute https URL", () => {
     Object.values(SHARE_IMAGES).forEach((image) => expect(image.url).toMatch(/^https:\/\//));
   });
+
+  it("describes suppliers from all over Brazil, since no region locks a reseller", () => {
+    expect(SHARE_IMAGES.brand.alt).toContain("Fornecedores de todo o Brasil");
+    expect(SHARE_IMAGES.brand.alt).not.toContain("perto de você");
+  });
 });

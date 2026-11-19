@@ -4,15 +4,18 @@ import { isNonPublicAddress } from "@sellbridge/shared/network-address";
 import { marketplaceError } from "../errors.ts";
 import type { ResolveHost } from "./client.ts";
 
-/** A product photo as the supplier's host answered it. */
-export interface DownloadedImage {
+/** A file as its host answered it. */
+export interface DownloadedFile {
   readonly status: number;
   readonly contentType: string;
   readonly bytes: Uint8Array<ArrayBuffer>;
 }
 
-/** Fetches one photo; injected in tests, which have no network. */
-export type DownloadImage = (url: URL) => Promise<DownloadedImage>;
+/** Fetches one file; injected in tests, which have no network. */
+export type DownloadFile = (url: URL) => Promise<DownloadedFile>;
+
+/** Fetches one product photo; injected in tests, which have no network. */
+export type DownloadImage = DownloadFile;
 
 /** Upload Product Image refuses files above 10 MB. */
 export const MAX_IMAGE_BYTES = 10 * 1024 * 1024;
@@ -73,11 +76,16 @@ function tooLargeError(): Error {
 /**
  * GET over node:https so the connection goes through `publicOnlyLookup`. Redirects are not
  * followed (the caller treats a 3xx as a failure) and a pooled socket is never reused, since it
- * would skip the lookup and with it the address check.
+ * would skip the lookup and with it the address check. A body past `maxBytes` fails with
+ * `tooLarge()`.
  */
-export function downloadPublicImage(resolveHost: ResolveHost): DownloadImage {
+export function downloadPublicFile(
+  resolveHost: ResolveHost,
+  maxBytes: number,
+  tooLarge: () => Error,
+): DownloadFile {
   return async (url) =>
-    new Promise<DownloadedImage>((resolve, reject) => {
+    new Promise<DownloadedFile>((resolve, reject) => {
       const request = httpsGet(
         url,
         {
@@ -90,8 +98,8 @@ export function downloadPublicImage(resolveHost: ResolveHost): DownloadImage {
           let received = 0;
           response.on("data", (chunk: Buffer) => {
             received += chunk.length;
-            if (received > MAX_IMAGE_BYTES) {
-              response.destroy(tooLargeError());
+            if (received > maxBytes) {
+              response.destroy(tooLarge());
               return;
             }
             chunks.push(chunk);
@@ -108,4 +116,8 @@ export function downloadPublicImage(resolveHost: ResolveHost): DownloadImage {
       );
       request.on("error", reject);
     });
+}
+
+export function downloadPublicImage(resolveHost: ResolveHost): DownloadImage {
+  return downloadPublicFile(resolveHost, MAX_IMAGE_BYTES, tooLargeError);
 }

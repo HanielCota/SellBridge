@@ -59,7 +59,6 @@ const serverEnvironmentShape = z.object({
     .pipe(z.array(z.url().transform((origin) => new URL(origin).origin))),
   BETTER_AUTH_SECRET: z.string().min(32, "deve ter ao menos 32 caracteres"),
   TOKEN_ENCRYPTION_KEY: tokenEncryptionKeyEnvironmentSchema,
-  PLATFORM_FEE_BASIS_POINTS: z.coerce.number().int().min(0).max(10_000).default(0),
   /**
    * Mercado Livre commission the previews estimate before an order reports the real one. Its
    * shipping comes from the official table (shared/domain/mercado-livre-shipping.ts).
