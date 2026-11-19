@@ -19,7 +19,6 @@ const HEADERS = [
   "Reembolsos",
   "Devoluções",
   "Comissões",
-  "Taxa da plataforma",
   "Lucro",
   "Custo pendente",
 ];
@@ -79,7 +78,6 @@ function toCsvLine(row: OrderFinancialRow): string {
     row.refundCents,
     row.returnCents,
     row.commissionCents,
-    row.platformFeeCents,
   ].map(centsToCsv);
   // A sale of unknown cost has no profit to write: a zero would read as a real result.
   const profit = row.costPending ? "" : centsToCsv(row.profitCents);

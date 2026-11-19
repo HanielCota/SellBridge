@@ -35,7 +35,6 @@ let tenantB = "";
 let storeA1 = "";
 let storeA2 = "";
 
-const PLATFORM_FEE_BASIS_POINTS = 250;
 // Brazil midnight of 2026-03-01 = 03:00 UTC.
 const range = { from: new Date("2026-03-01T03:00:00Z"), to: new Date("2026-03-08T03:00:00Z") };
 
@@ -173,14 +172,11 @@ function scope(overrides: Partial<ReportScope> = {}): ReportScope {
   return {
     tenantId: tenantA,
     range,
-    platformFeeBasisPoints: PLATFORM_FEE_BASIS_POINTS,
     ...overrides,
   };
 }
 
-const expectedFinances = [...ORDERS_A1, ORDER_A2].map((order) =>
-  computeOrderFinance(order, PLATFORM_FEE_BASIS_POINTS),
-);
+const expectedFinances = [...ORDERS_A1, ORDER_A2].map((order) => computeOrderFinance(order));
 function expectedSum(key: Exclude<keyof OrderFinance, "costPending">): number {
   return expectedFinances.reduce((total, finance) => total + finance[key], 0);
 }
@@ -232,7 +228,6 @@ describe("sales summary", () => {
       refundCents: expectedSum("refundCents"),
       returnCents: expectedSum("returnCents"),
       commissionCents: expectedSum("commissionCents"),
-      platformFeeCents: expectedSum("platformFeeCents"),
       profitCents: expectedSum("profitCents"),
       pendingCostOrders: 0,
       pendingCostRevenueCents: 0,
@@ -262,8 +257,8 @@ describe("sales summary", () => {
 describe("listing preview and financial report", () => {
   it("give the same profit for the same sale", async () => {
     // A sale whose marketplace charged what the fee model estimates: the preview promised the
-    // profit the financial page then shows, the SellBridge fee included.
-    const feeSchedule = { ...DEFAULT_FEE_SCHEDULE, platformFeeBasisPoints: 400 };
+    // profit the financial page then shows.
+    const feeSchedule = DEFAULT_FEE_SCHEDULE;
     // 14% of R$ 25,25 is 353,5 cents: the half cent the two sides must round alike.
     const sales = [
       { priceCents: 15_990, costCents: 7_450 },
@@ -286,11 +281,10 @@ describe("listing preview and financial report", () => {
           items: [{ quantity: 1, knownUnitCostCents: sale.costCents }],
         });
       }
-      const rows = await exportOrderFinancials(
-        database,
-        scope({ tenantId, platformFeeBasisPoints: feeSchedule.platformFeeBasisPoints }),
-        { filters: {}, sort: { field: "orderedAt", direction: "asc" } },
-      );
+      const rows = await exportOrderFinancials(database, scope({ tenantId }), {
+        filters: {},
+        sort: { field: "orderedAt", direction: "asc" },
+      });
       const reported = new Map(rows.map((row) => [row.externalOrderId, row.profitCents]));
       for (const [index, sale] of sales.entries()) {
         expect(reported.get(`PREVIEW-${index}`)).toBe(estimateSale(sale, feeSchedule).profitCents);
@@ -343,7 +337,7 @@ describe("unknown item cost", () => {
     await extra.cleanup();
   });
 
-  const known = computeOrderFinance(KNOWN_COST, PLATFORM_FEE_BASIS_POINTS);
+  const known = computeOrderFinance(KNOWN_COST);
 
   it("keeps the revenue whole and the order out of the profit", async () => {
     const summary = await getSalesSummary(database, scope({ tenantId }));
@@ -357,7 +351,6 @@ describe("unknown item cost", () => {
       refundCents: 400,
       returnCents: 0,
       commissionCents: 0,
-      platformFeeCents: known.platformFeeCents,
       profitCents: known.profitCents - 400,
     });
   });
@@ -369,7 +362,7 @@ describe("unknown item cost", () => {
         filters: { search: seed.externalOrderId },
         sort: { field: "orderedAt", direction: "asc" },
       });
-      const expected = computeOrderFinance(seed, PLATFORM_FEE_BASIS_POINTS);
+      const expected = computeOrderFinance(seed);
       expect(expected.costPending).toBe(seed.status !== "cancelled");
       expect(row).toMatchObject(expected);
     },

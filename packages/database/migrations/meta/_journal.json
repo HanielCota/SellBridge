@@ -593,8 +593,15 @@
     {
       "idx": 84,
       "version": "7",
-      "when": 1795064516094,
-      "tag": "0084_receiving_rules",
+      "when": 1795062722008,
+      "tag": "0084_reseller_fiscal_data",
+      "breakpoints": true
+    },
+    {
+      "idx": 85,
+      "version": "7",
+      "when": 1795072698968,
+      "tag": "0085_receiving_rules",
       "breakpoints": true
     }
   ]

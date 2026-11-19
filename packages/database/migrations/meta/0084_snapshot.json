@@ -1,5 +1,5 @@
 {
-  "id": "592a92cc-9ce7-4e2b-94db-c6d000b2f5c5",
+  "id": "76effc80-b8c2-4b1f-a127-a5ca323e5471",
   "prevId": "00a925d3-14bc-406d-8b98-d80138e2eb19",
   "version": "7",
   "dialect": "postgresql",
@@ -844,6 +844,18 @@
           "primaryKey": false,
           "notNull": false
         },
+        "state_registration": {
+          "name": "state_registration",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "tax_regime": {
+          "name": "tax_regime",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
         "billing_address": {
           "name": "billing_address",
           "type": "jsonb",
@@ -935,6 +947,10 @@
       "uniqueConstraints": {},
       "policies": {},
       "checkConstraints": {
+        "tenant_profile_tax_regime_check": {
+          "name": "tenant_profile_tax_regime_check",
+          "value": "\"tenant_profile\".\"tax_regime\" is null or \"tenant_profile\".\"tax_regime\" in ('simples', 'presumido', 'real')"
+        },
         "tenant_profile_product_source_mode_check": {
           "name": "tenant_profile_product_source_mode_check",
           "value": "\"tenant_profile\".\"product_source_mode\" is null or \"tenant_profile\".\"product_source_mode\" in ('own', 'suppliers', 'both')"
@@ -7460,18 +7476,6 @@
           "notNull": true,
           "default": 5
         },
-        "require_receiving_account_since": {
-          "name": "require_receiving_account_since",
-          "type": "timestamp with time zone",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "payment_before_preparing_since": {
-          "name": "payment_before_preparing_since",
-          "type": "timestamp with time zone",
-          "primaryKey": false,
-          "notNull": false
-        },
         "updated_by_user_id": {
           "name": "updated_by_user_id",
           "type": "text",
@@ -7513,10 +7517,6 @@
         "platform_settings_new_supplier_deliveries_check": {
           "name": "platform_settings_new_supplier_deliveries_check",
           "value": "\"platform_settings\".\"new_supplier_deliveries\" between 1 and 1000"
-        },
-        "platform_settings_payment_before_preparing_check": {
-          "name": "platform_settings_payment_before_preparing_check",
-          "value": "\"platform_settings\".\"payment_before_preparing_since\" is null or \"platform_settings\".\"require_receiving_account_since\" is not null"
         },
         "platform_settings_payment_fee_check": {
           "name": "platform_settings_payment_fee_check",

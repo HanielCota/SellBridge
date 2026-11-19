@@ -104,7 +104,7 @@ async function insertOrder(tenantId: string, storeConnectionId: string, seed: Se
 }
 
 function scope(tenantId = tenantA): ReportScope {
-  return { tenantId, range, platformFeeBasisPoints: 0 };
+  return { tenantId, range };
 }
 
 beforeAll(async () => {
