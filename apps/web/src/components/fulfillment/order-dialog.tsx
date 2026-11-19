@@ -93,7 +93,8 @@ function ShipmentList({
       key={shipment.id}
       shipment={shipment}
       externalOrderId={detail.order.externalOrderId}
-      blocked={blocked}
+      // A parcel waiting for the supplier's account or the payment cannot be moved for it either.
+      blocked={blocked || shipment.preparationHold !== null}
       payment={paymentLine(shipment)}
       invoice={invoiceCard(detail.order.id, shipment)}
       onUpdate={async (input) => {
