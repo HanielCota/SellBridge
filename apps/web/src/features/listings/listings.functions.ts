@@ -25,6 +25,7 @@ import {
   setListingsPausedForTenant,
   updateListingPriceForTenant,
 } from "./listing-commands.server";
+import { resumeReconnectedStoreForTenant } from "./listing-resume.server";
 import { chooseNewListingStores } from "./new-listing-stores";
 import { enqueueTargets } from "./publish-listing.server";
 
@@ -117,9 +118,24 @@ export const resendDescriptions = createServerFn({ method: "POST" })
 export const setListingsPausedFn = createServerFn({ method: "POST" })
   .middleware([tenantMiddleware])
   .validator(listingIdsSchema.extend({ paused: z.boolean() }))
-  .handler(async ({ context, data }) => ({
-    changed: await setListingsPausedForTenant(context.tenantId, data.listingIds, data.paused),
-  }));
+  .handler(async ({ context, data }) =>
+    setListingsPausedForTenant(context.tenantId, data.listingIds, data.paused),
+  );
+
+/**
+ * After reconnecting a store: resumes what its disconnection paused, when the price still pays.
+ * The marketplaces get the stock back now, not at the next scheduled sync.
+ */
+export const resumeReconnectedStoreFn = createServerFn({ method: "POST" })
+  .middleware([tenantMiddleware])
+  .validator(z.object({ storeConnectionId: z.uuid() }))
+  .handler(async ({ context, data }) => {
+    const outcome = await resumeReconnectedStoreForTenant(context.tenantId, data.storeConnectionId);
+    if (outcome.changed > 0) {
+      await requestStockSync("listing.sync_deferred");
+    }
+    return outcome;
+  });
 
 /** The repository rejects a price at or below cost, the same rule `createListing` applies. */
 export const updateListingPriceFn = createServerFn({ method: "POST" })

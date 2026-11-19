@@ -12,6 +12,7 @@ import {
   stepOfField,
   type FormStepId,
 } from "@/features/supplier-panel/catalog/draft-form";
+import { isStockFromBling } from "@/features/supplier-panel/catalog/stock-from-bling";
 import { useProductForm } from "@/features/supplier-panel/catalog/use-product-form";
 import { errorMessage } from "@/lib/errors";
 import { prefersReducedMotion } from "@/lib/rewind";
@@ -182,6 +183,7 @@ function StepContent({
   taxDefaults,
   supplierId,
   onChooseGrid,
+  product,
 }: {
   step: FormStepId;
   form: ProductForm;
@@ -189,7 +191,9 @@ function StepContent({
   taxDefaults: FormData["taxDefaults"];
   supplierId: string;
   onChooseGrid: (() => void) | undefined;
+  product: FormData["product"];
 }) {
+  const [stockFromBling] = useState(() => isStockFromBling(product, new Date()));
   const stepProps = {
     values: form.values,
     errors: form.autosave.state.kind === "invalid" ? form.autosave.state.errors : {},
@@ -214,6 +218,7 @@ function StepContent({
           required={form.required}
           taxDefaults={taxDefaults}
           mercadoLivre={{ supplierId, ficha: form.ficha }}
+          stockFromBling={stockFromBling}
         />
       );
     }
@@ -236,7 +241,9 @@ function ProductFormHeader({ form, onBack }: { form: ProductForm; onBack: () => 
       back={
         <BackButton
           onBack={() => {
-            if (form.canDiscard()) onBack();
+            if (form.canDiscard()) {
+              onBack();
+            }
           }}
         />
       }
@@ -289,6 +296,7 @@ function LoadedForm({
             taxDefaults={data.taxDefaults}
             supplierId={supplierId}
             onChooseGrid={data.productGridEnabled ? onChooseGrid : undefined}
+            product={data.product}
           />
           <AutosaveIndicator
             state={form.autosave.state}

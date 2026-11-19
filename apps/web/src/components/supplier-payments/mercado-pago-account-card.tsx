@@ -96,8 +96,7 @@ function LinkCard(props: { supplierId: string; fee: string; emphasis: ButtonEmph
         </span>
       </div>
       <p className="text-sm text-muted-foreground">
-        Sem a conta ligada, os pedidos continuam chegando e o revendedor paga você por fora, como
-        hoje.
+        Sem a conta ligada, o revendedor não consegue pagar você pelo SellBridge.
       </p>
     </CardShell>
   );
@@ -116,7 +115,7 @@ function ErrorCard(props: { supplierId: string; since: string | null; emphasis: 
       >
         <span className="text-foreground">
           O Mercado Pago não deixou o SellBridge receber em seu nome (a autorização foi cancelada ou
-          venceu). Até ligar de novo, os revendedores pagam você por fora.
+          venceu). Até ligar de novo, os revendedores não conseguem pagar você por aqui.
         </span>
       </CardHeading>
       <div>
@@ -135,7 +134,7 @@ function UnlinkButton({ supplierId }: { supplierId: string }) {
     mutationFn: () => unlinkPaymentAccountFn({ data: { supplierId } }),
     onSuccess: async () => {
       setOpen(false);
-      toast.success("Conta Mercado Pago desligada. Os próximos pedidos você recebe por fora.");
+      toast.success("Conta Mercado Pago desligada.");
       await queryClient.invalidateQueries({
         queryKey: paymentAccountQueryOptions(supplierId).queryKey,
       });
@@ -155,7 +154,7 @@ function UnlinkButton({ supplierId }: { supplierId: string }) {
         open={open}
         onOpenChange={setOpen}
         title="Desligar a conta Mercado Pago?"
-        description="Os revendedores deixam de pagar você pelo SellBridge: os próximos pedidos você recebe por fora. O que já foi pago continua na sua conta Mercado Pago, e você pode ligar de novo quando quiser."
+        description="Os revendedores deixam de pagar você pelo Mercado Pago. O que já foi pago continua na sua conta Mercado Pago, e você pode ligar de novo quando quiser."
         confirmLabel="Desligar a conta"
         pendingLabel="Desligando…"
         isPending={unlink.isPending}
@@ -222,8 +221,7 @@ export function MercadoPagoUnavailableCard() {
   return (
     <CardShell>
       <CardHeading badge={<PaymentPill tone="neutral">Em breve</PaymentPill>}>
-        O pagamento pelo Mercado Pago ainda não foi ligado no SellBridge. Enquanto isso, os
-        revendedores pagam você por fora, como hoje.
+        O pagamento pelo Mercado Pago ainda não foi ligado no SellBridge.
       </CardHeading>
     </CardShell>
   );

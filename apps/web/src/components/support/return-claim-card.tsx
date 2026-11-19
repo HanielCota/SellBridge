@@ -1,6 +1,8 @@
 import { formatCents } from "@sellbridge/shared/money";
 import type { ProfileKind } from "@sellbridge/shared/profile-kind";
 import { RETURN_EVIDENCE_PROMPT, supplierCreditText } from "@sellbridge/shared/return-claims";
+import { ReturnStepPill } from "@/components/returns/return-parts";
+import { SupplierReturnPanel } from "@/components/returns/supplier-return-panel";
 import {
   ClaimItems,
   ClaimStatusLine,
@@ -54,6 +56,39 @@ function SellerClaimBody({ claim }: { claim: ReturnClaimSummary }) {
   );
 }
 
+/** Under the return policy: the deadline, the reseller's reason and the supplier's answer. */
+function SupplierPolicyBody({
+  claim,
+  policy,
+}: {
+  claim: ReturnClaimSummary;
+  policy: NonNullable<ReturnClaimSummary["policy"]>;
+}) {
+  return (
+    <>
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <p className="text-sm text-muted-foreground">
+          O comprador devolveu o pedido{" "}
+          <span className="font-medium text-foreground">{claim.externalOrderId}</span>.
+        </p>
+        <ReturnStepPill policy={policy} />
+      </div>
+      <ClaimItems items={claim.items} />
+      <p className="text-sm text-muted-foreground tabular-nums">
+        Custo pago pelo revendedor: {formatCents(claim.supplierCostCents)}
+      </p>
+      <SupplierReturnPanel claim={{ ...claim, policy }} />
+    </>
+  );
+}
+
+function supplierBody(claim: ReturnClaimSummary) {
+  if (claim.policy === null) {
+    return <SupplierClaimBody claim={claim} />;
+  }
+  return <SupplierPolicyBody claim={claim} policy={claim.policy} />;
+}
+
 /**
  * On a return's ticket, above the conversation: which order came back, what it was, and where
  * the credit stands. The supplier is asked for photos; nothing here names the reseller.
@@ -73,11 +108,7 @@ export function ReturnClaimCard({
       <h2 id="return-claim-title" className="text-xs text-muted-foreground">
         Devolução
       </h2>
-      {viewer === "supplier" ? (
-        <SupplierClaimBody claim={claim} />
-      ) : (
-        <SellerClaimBody claim={claim} />
-      )}
+      {viewer === "supplier" ? supplierBody(claim) : <SellerClaimBody claim={claim} />}
     </section>
   );
 }

@@ -133,6 +133,11 @@ export const shipmentPayments = pgTable(
     /** Last time the reconciliation job read this payment back from the provider. */
     checkedAt: timestamp({ withTimezone: true }),
     /**
+     * Since when every round's call to the provider about this payment failed (provider down or
+     * the account's key refused); null after a round that reached it.
+     */
+    providerDeferredSince: timestamp({ withTimezone: true }),
+    /**
      * Why SellBridge gives the reseller's money back (the supplier did not ship in time, or the
      * parcel was cancelled or came back), and when it first asked the provider to.
      */
@@ -259,6 +264,18 @@ export const platformSettings = pgTable(
      * account. Off until Asaas runs in production (Guilherme, 18/11/2026).
      */
     requireReceivingAccountForApproval: boolean().notNull().default(false),
+    /**
+     * Since when a supplier needs an approved Asaas account to sell; null while the rule is off
+     * (Guilherme, 18/11/2026). Parcels forwarded before it keep moving as they were.
+     */
+    requireReceivingAccountSince: timestamp({ withTimezone: true }),
+    /**
+     * Since when the supplier prepares a parcel only after the reseller paid it through Asaas;
+     * null while off. Needs the receiving-account rule on (Guilherme, 18/11/2026, "Vamos de C").
+     */
+    paymentBeforePreparingSince: timestamp({ withTimezone: true }),
+    /** Business days a supplier has to check a returned product when the marketplace gives no date. */
+    returnAnswerBusinessDays: integer().notNull().default(3),
     updatedByUserId: text().references(() => user.id, { onDelete: "set null" }),
     updatedAt: timestamp({ withTimezone: true }).defaultNow().notNull(),
   },
@@ -269,8 +286,16 @@ export const platformSettings = pgTable(
       sql`${table.newSupplierDeliveries} between 1 and 1000`,
     ),
     check(
+      "platform_settings_payment_before_preparing_check",
+      sql`${table.paymentBeforePreparingSince} is null or ${table.requireReceivingAccountSince} is not null`,
+    ),
+    check(
       "platform_settings_payment_fee_check",
       sql`${table.paymentFeeBasisPoints} is null or (${table.paymentFeeBasisPoints} >= 0 and ${table.paymentFeeBasisPoints} <= 3000)`,
+    ),
+    check(
+      "platform_settings_return_answer_days_check",
+      sql`${table.returnAnswerBusinessDays} between 1 and 5`,
     ),
   ],
 );

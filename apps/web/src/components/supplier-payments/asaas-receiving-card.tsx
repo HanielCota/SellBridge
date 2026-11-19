@@ -222,7 +222,8 @@ export function AsaasReceivingCard(props: {
     return (
       <Shell badge={<PaymentPill tone="neutral">Em breve</PaymentPill>}>
         <p className="text-sm text-muted-foreground">
-          O recebimento com proteção ainda não foi ligado no SellBridge.
+          O recebimento pelo SellBridge ainda não foi ligado. Assim que for, você abre sua conta
+          aqui.
         </p>
       </Shell>
     );

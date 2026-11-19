@@ -41,7 +41,10 @@ export interface ShipmentTiming {
   estimatedDeliveryAt: Date | null;
   /** When the parcel was first marked shipped; null while it has not been. */
   shippedAt: Date | null;
-  /** The latest forward to the supplier: a re-forward starts the supplier's times over. */
+  /**
+   * When the supplier's times start: the latest forward (a re-forward starts them over), or the
+   * payment while the admin requires payment before preparing (null while unpaid).
+   */
   forwardedAt: Date | null;
   /** The supplier's own times, in hours from the forward (admin supplier form). */
   acceptWithinHours: number | null;

@@ -1,3 +1,4 @@
+import { ReturnPolicyText } from "@/components/returns/return-policy-text";
 import {
   SUPPLIER_FLAG_LIMIT_WARNING,
   supplierFlagCountLabel,
@@ -68,6 +69,16 @@ export function GoldenRulesPage({ supplierId }: { supplierId: string }) {
         <GoldenRulesList />
       </section>
       <HowFlagsWork supplierId={supplierId} />
+      <section
+        id="devolucoes"
+        aria-labelledby="returns-policy-title"
+        className="surface-card grid gap-3 rounded-3xl bg-card p-5 sm:p-6"
+      >
+        <h2 id="returns-policy-title" className="text-subhead font-medium">
+          Devoluções
+        </h2>
+        <ReturnPolicyText />
+      </section>
     </div>
   );
 }

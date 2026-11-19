@@ -1,10 +1,16 @@
 const UNIQUE_VIOLATION = "23505";
+const SERIALIZATION_FAILURE = "40001";
 
 function fieldOf(value: unknown, field: string): unknown {
   if (typeof value !== "object" || value === null || !(field in value)) {
     return undefined;
   }
   return Reflect.get(value, field);
+}
+
+export function isSerializationFailure(error: unknown): boolean {
+  const cause = fieldOf(error, "cause");
+  return fieldOf(cause ?? error, "code") === SERIALIZATION_FAILURE;
 }
 
 /**

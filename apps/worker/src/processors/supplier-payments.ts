@@ -21,6 +21,7 @@ import { logger } from "@sellbridge/shared/logger";
 import { formatCents } from "@sellbridge/shared/money";
 import { supplierPaymentRefundReason } from "@sellbridge/shared/shipment-payments";
 import type { TokenCipher } from "@sellbridge/shared/token-cipher";
+import { type PaymentDeferrals, trackPaymentDeferrals } from "./payment-deferrals.ts";
 
 /** Unpaid checkouts are read back for three days after they close; under review, until settled. */
 export const RECHECK_UNPAID_FOR_IN_MS = 3 * 24 * 60 * 60 * 1000;
@@ -63,7 +64,12 @@ type LoadAccount = ReturnType<typeof accountLoader>;
 
 async function reconcileOne(
   context: MercadoPagoContext,
-  input: { payment: ShipmentPayment; loadAccount: LoadAccount; now: Date },
+  input: {
+    payment: ShipmentPayment;
+    loadAccount: LoadAccount;
+    now: Date;
+    deferrals: PaymentDeferrals;
+  },
 ): Promise<void> {
   const { payment } = input;
   // Marked first: a payment that keeps failing still gives way to the others next round.
@@ -76,11 +82,12 @@ async function reconcileOne(
     await reconcileShipmentPayment(context, { account, payment });
   } catch (error) {
     if (isMercadoPagoError(error) || error instanceof PaymentAccountUnavailableError) {
-      logger.warn("mercado_pago.reconcile_deferred", { shipmentPaymentId: payment.id, error });
+      await input.deferrals.deferred("mercado_pago.reconcile_deferred", payment.id, error);
       return;
     }
     throw error;
   }
+  await input.deferrals.reached(payment.id);
 }
 
 /**
@@ -89,7 +96,7 @@ async function reconcileOne(
  */
 async function reconcileOpenPayments(
   context: MercadoPagoContext,
-  input: { loadAccount: LoadAccount; now: Date },
+  input: { loadAccount: LoadAccount; now: Date; deferrals: PaymentDeferrals },
 ): Promise<number> {
   const payments = await listShipmentPaymentsToReconcile(context.database, {
     provider: "mercado_pago",
@@ -201,7 +208,9 @@ export function createSupplierPaymentProcessor(dependencies: SupplierPaymentDepe
     const context = { database: dependencies.database, cipher: dependencies.cipher, settings };
     const now = dependencies.now?.() ?? new Date();
     const loadAccount = accountLoader(dependencies.database);
-    const checked = await reconcileOpenPayments(context, { loadAccount, now });
+    const deferrals = trackPaymentDeferrals(context.database, { provider: "mercado_pago", now });
+    const checked = await reconcileOpenPayments(context, { loadAccount, now, deferrals });
+    deferrals.report();
     const refunds = await refundDuePayments(context, {
       loadAccount,
       now,

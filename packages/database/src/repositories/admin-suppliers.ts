@@ -1,3 +1,4 @@
+import type { ListingPauseReason } from "@sellbridge/shared/listing-pause-reasons";
 import { conflictError, notFoundError, validationError } from "@sellbridge/shared/errors";
 import { COMBINATION_EDITED_OUTSIDE_GRID_MESSAGE } from "@sellbridge/shared/product-grid";
 import {
@@ -192,7 +193,7 @@ async function pauseUnsellableListings(
     );
   const paused = await transaction
     .update(listingTargets)
-    .set({ status: "paused" })
+    .set({ status: "paused", pauseReason: "supplier_unavailable" satisfies ListingPauseReason })
     .where(
       and(eq(listingTargets.status, "published"), inArray(listingTargets.listingId, unsellable)),
     )

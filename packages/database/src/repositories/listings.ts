@@ -8,7 +8,7 @@ import type { Database, DatabaseExecutor, Transaction } from "../client.ts";
 import { hasActiveTargets } from "./active-targets.ts";
 import { recordApiEvent } from "./api-events.ts";
 import { containsPattern } from "./sql/search-pattern.ts";
-import { supplierOpenColumn } from "./sql/sellable.ts";
+import { supplierOpenColumn, supplierReceivingRuleMet } from "./sql/sellable.ts";
 import { storeSupplierIds } from "./sql/store-supplier-match.ts";
 import {
   listings,
@@ -19,7 +19,7 @@ import {
 } from "../schema/index.ts";
 import { notifyListingFailed } from "./notification-producers.ts";
 import { assertPrivateProductPublication } from "./private-product-publication.ts";
-import { publicationMayGoLive } from "./publication-completion.ts";
+import { publicationBlockedReason } from "./publication-completion.ts";
 
 type ListingTargetStatus = (typeof listingTargets.$inferSelect)["status"];
 
@@ -223,6 +223,8 @@ export interface TargetForPublishing {
   storeSupplierIds: string[];
   availability: CatalogAvailability;
   source: Pick<typeof suppliers.$inferSelect, "catalogKind" | "ownerTenantId">;
+  /** The supplier may sell under the admin's receiving-account rule. */
+  supplierReceivingRuleMet: boolean;
 }
 
 export async function getTargetForPublishing(
@@ -240,6 +242,7 @@ export async function getTargetForPublishing(
       supplierActive: suppliers.active,
       supplierOpen: supplierOpenColumn(),
       source: { catalogKind: suppliers.catalogKind, ownerTenantId: suppliers.ownerTenantId },
+      supplierReceivingRuleMet: sql<boolean>`${supplierReceivingRuleMet()}`.mapWith(Boolean),
     })
     .from(listingTargets)
     .innerJoin(listings, eq(listings.id, listingTargets.listingId))
@@ -383,7 +386,8 @@ export async function markTargetPublished(
   result: { externalId: string; externalUrl: string | null; descriptionError?: string | null },
 ): Promise<void> {
   await database.transaction(async (transaction) => {
-    const mayPublish = await publicationMayGoLive(transaction, listingTargetId);
+    const blockedReason = await publicationBlockedReason(transaction, listingTargetId);
+    const mayPublish = blockedReason === null;
     const [updated] = await transaction
       .update(listingTargets)
       .set({
@@ -391,6 +395,8 @@ export async function markTargetPublished(
         externalUrl: result.externalUrl,
         status: sql`case when ${listingTargets.pauseRequested} or ${!mayPublish} then 'paused'::listing_target_status else 'published'::listing_target_status end`,
         pauseRequested: sql`${listingTargets.pauseRequested} or ${!mayPublish}`,
+        // A pause asked meanwhile keeps its reason; one the rules impose names the rule.
+        pauseReason: sql`case when ${listingTargets.pauseRequested} then coalesce(${listingTargets.pauseReason}, 'seller') else ${blockedReason}::text end`,
         errorReason: null,
         publishedAt: new Date(),
         // A refused description keeps the listing live, with the warning on its card (13.b).
