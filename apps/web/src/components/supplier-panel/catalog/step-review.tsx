@@ -10,6 +10,11 @@ import type { PanelFormValues } from "@/features/supplier-panel/catalog/draft-fo
 import { ReviewStatus } from "./review-status";
 import { CONTROL_HINTS, TERM_HINTS } from "@/components/icons/action-icons";
 import { DisabledHint, HintedText } from "@/components/ui/hint";
+import { usePanelSupplierApproved } from "@/features/supplier-panel/use-panel-supplier";
+
+/** While the brand itself is under review, publishing does not reach resellers yet. */
+const DRAFT_NOTE_UNDER_REVIEW =
+  "Publique quando estiver pronto: o produto aparece para os revendedores assim que sua marca for aprovada.";
 
 const STATUS_NOTES: Readonly<Record<ProductReviewStatus, string>> = {
   draft: "Publique quando estiver pronto: o produto aparece para os revendedores na hora.",
@@ -91,6 +96,7 @@ export function StepReview({
   status: ProductReviewStatus;
   report: CompletenessReport;
 }) {
+  const supplierApproved = usePanelSupplierApproved();
   const cost = parseCsvMoney(values.cost);
   return (
     <div className="grid gap-6">
@@ -114,7 +120,9 @@ export function StepReview({
       </dl>
       <div className="space-y-2 rounded-2xl bg-muted/60 p-4">
         <ReviewStatus status={status} />
-        <p className="text-sm text-muted-foreground">{STATUS_NOTES[status]}</p>
+        <p className="text-sm text-muted-foreground">
+          {status === "draft" && !supplierApproved ? DRAFT_NOTE_UNDER_REVIEW : STATUS_NOTES[status]}
+        </p>
       </div>
       {status === "draft" ? (
         <SubmitForReview {...submit} blockingCount={report.blocking.length} />

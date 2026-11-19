@@ -18,6 +18,8 @@ import { ProductCsvImport } from "./product-csv-import";
 import { ProductList } from "./product-list";
 import { SupplierForm } from "./supplier-form";
 import { SupplierFlagsSection } from "./supplier-flags-section";
+import { SupplierApprovalCard } from "@/components/supplier-approval/supplier-approval-card";
+import { supplierSituation } from "@/components/supplier-approval/supplier-situation";
 import { SupplierReviewsSection } from "./supplier-reviews-section";
 import { sellersSummary, SupplierSellers } from "./supplier-sellers";
 import { CONTROL_HINTS } from "@/components/icons/action-icons";
@@ -56,10 +58,7 @@ function SupplierActiveToggle({
   );
   return (
     <>
-      <ToneStatus
-        tone={supplier.active ? "success" : "muted"}
-        label={supplier.active ? "Ativo" : "Desativado"}
-      />
+      <ToneStatus {...supplierSituation(supplier)} />
       <Hint
         label={supplier.active ? CONTROL_HINTS.deactivateSupplier : undefined}
         openOnTap={false}
@@ -140,6 +139,7 @@ export function SupplierDetail({
   return (
     <div className="space-y-6">
       <SupplierHeader supplier={query.data.supplier} sellers={query.data.sellers} />
+      <SupplierApprovalCard supplierId={supplierId} supplierName={query.data.supplier.name} />
       <SupplierFlagsSection supplierId={supplierId} />
       <SupplierForm key={supplierId} detail={query.data} />
       <SupplierSellers stores={query.data.sellers} />
