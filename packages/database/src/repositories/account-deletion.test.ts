@@ -111,7 +111,7 @@ describe("account deletion", () => {
       tenantId,
       storeConnectionId: store.id,
       externalOrderId: `DEL-${tenantId}`,
-      status: "paid",
+      status: "delivered",
       totalCents: 1000,
       marketplaceFeeCents: 100,
       orderedAt: new Date(),
@@ -123,6 +123,26 @@ describe("account deletion", () => {
     expect(
       await database.select().from(storeConnections).where(eq(storeConnections.tenantId, tenantId)),
     ).toEqual([]);
+  });
+
+  it("keeps a workspace when an open order appears before data deletion", async () => {
+    const tenantId = await createOrganization();
+    const store = await upsertStoreConnection(
+      database,
+      testStoreInput(tenantId, `late-${tenantId}`),
+    );
+    await database.insert(orders).values({
+      tenantId,
+      storeConnectionId: store.id,
+      externalOrderId: `LATE-${tenantId}`,
+      status: "paid",
+      totalCents: 1000,
+      orderedAt: new Date(),
+    });
+
+    await expect(deleteTenantData(database, tenantId)).rejects.toMatchObject({ code: "CONFLICT" });
+    const openOrders = await database.select().from(orders).where(eq(orders.tenantId, tenantId));
+    expect(openOrders).toHaveLength(1);
   });
 
   it("forgets the Bling account of the supplier the deleted workspace ran", async () => {
@@ -185,6 +205,32 @@ describe("account deletion", () => {
         .where(eq(supplierPaymentAccounts.supplierId, supplier.id)),
     ).toEqual([]);
     await database.delete(suppliers).where(eq(suppliers.id, supplier.id));
+  });
+
+  it("closes the store of the workspace's supplier, so its resellers stop selling it", async () => {
+    const tenantId = await createOrganization();
+    const [supplier] = await database
+      .insert(suppliers)
+      .values({
+        name: "Fornecedor que sai",
+        niche: "Teste",
+        state: "ZZ",
+        city: "X",
+        organizationId: tenantId,
+      })
+      .returning({ id: suppliers.id });
+    if (supplier === undefined) {
+      throw new Error("fornecedor não criado");
+    }
+
+    await deleteTenantData(database, tenantId);
+    const [left] = await database
+      .select({ salesClosedAt: suppliers.salesClosedAt })
+      .from(suppliers)
+      .where(eq(suppliers.id, supplier.id));
+    await database.delete(suppliers).where(eq(suppliers.id, supplier.id));
+
+    expect(left?.salesClosedAt).toBeInstanceOf(Date);
   });
 
   it("also lists attachments of messages the user wrote in another workspace's ticket", async () => {

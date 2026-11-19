@@ -9,6 +9,7 @@ import {
   setListingsPausedFn,
   updateListingPriceFn,
 } from "./listings.functions";
+import { heldBelowPriceFloor } from "./resume-messages";
 
 function plural(count: number, one: string, many: string): string {
   return `${count} ${count === 1 ? one : many}`;
@@ -80,9 +81,12 @@ export function useBulkListingActions(onDone?: () => void) {
       restoreQueries(queryClient, snapshot);
       showError(error);
     },
-    onSuccess: async ({ changed }, { paused }) => {
+    onSuccess: async ({ changed, held }, { paused }) => {
       const stores = plural(changed, "loja", "lojas");
       toast.success(paused ? `Pausado em ${stores}` : `Reativado em ${stores}`);
+      if (held > 0) {
+        toast.warning(heldBelowPriceFloor(held));
+      }
       await refresh();
       onDone?.();
     },

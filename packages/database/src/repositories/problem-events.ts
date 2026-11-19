@@ -55,7 +55,7 @@ async function addToOpenProblem(
       storeConnectionId: sql`coalesce(${problem.storeConnectionId}, ${problemEvents.storeConnectionId})`,
       listingTargetId: sql`coalesce(${problem.listingTargetId}, ${problemEvents.listingTargetId})`,
     })
-    .where(eq(problemEvents.id, sql`(${open})`))
+    .where(and(eq(problemEvents.id, sql`(${open})`), isNull(problemEvents.resolvedAt)))
     .returning({ id: problemEvents.id });
   return updated.length > 0;
 }
@@ -266,20 +266,25 @@ export async function getProblemEvent(
 
 /**
  * Marks a problem resolved by `resolvedById`, or open again with null (the undo). Returns false
- * when the problem no longer exists.
+ * when the problem no longer exists or its occurrence count changed during a retry.
  */
 export async function setProblemResolved(
   database: Database,
-  input: { id: string; resolvedById: string | null; now: Date },
+  input: { id: string; resolvedById: string | null; now: Date; expectedOccurrences?: number },
 ): Promise<boolean> {
-  const resolving = input.resolvedById !== null;
+  const { id, resolvedById, now, expectedOccurrences } = input;
+  const resolving = resolvedById !== null;
+  const sameOccurrence =
+    expectedOccurrences === undefined
+      ? undefined
+      : eq(problemEvents.occurrences, expectedOccurrences);
   const updated = await database
     .update(problemEvents)
     .set({
-      resolvedAt: resolving ? input.now : null,
-      resolvedById: input.resolvedById,
+      resolvedAt: resolving ? now : null,
+      resolvedById,
     })
-    .where(eq(problemEvents.id, input.id))
+    .where(and(eq(problemEvents.id, id), sameOccurrence))
     .returning({ id: problemEvents.id });
   return updated.length > 0;
 }

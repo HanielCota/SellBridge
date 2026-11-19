@@ -157,10 +157,20 @@ describe("supplierPaymentBadge", () => {
     expect(badge).toEqual({ kind: "reviewing" });
   });
 
-  test("is paid outside when the supplier has no account here", () => {
+  test("says the supplier has no account when it cannot receive here", () => {
     const badge = supplierPaymentBadge({ payment: null, supplierReceivesHere: false });
 
-    expect(badge).toEqual({ kind: "outside" });
+    expect(badge).toEqual({ kind: "no_account" });
+  });
+
+  test("says paying suppliers is not switched on while SellBridge takes no payments", () => {
+    const badge = supplierPaymentBadge({
+      payment: null,
+      supplierReceivesHere: false,
+      paymentsOffered: false,
+    });
+
+    expect(badge).toEqual({ kind: "not_offered" });
   });
 });
 

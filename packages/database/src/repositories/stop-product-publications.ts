@@ -1,6 +1,9 @@
+import type { ListingPauseReason } from "@sellbridge/shared/listing-pause-reasons";
 import { and, eq, inArray } from "drizzle-orm";
 import type { DatabaseExecutor } from "../client.ts";
 import { listings, listingTargets } from "../schema/index.ts";
+
+const ARCHIVED: ListingPauseReason = "product_archived";
 
 /** Durable stop requests outlive product restoration and any remote call already in flight. */
 export async function stopProductPublications(
@@ -16,7 +19,11 @@ export async function stopProductPublications(
     eq(listingTargets.tenantId, tenantId),
     inArray(listingTargets.listingId, productListings),
   );
-  await executor.update(listingTargets).set({ pauseRequested: true }).where(scope);
+  // In-flight publications land paused with the reason too (markTargetPublished keeps it).
+  await executor
+    .update(listingTargets)
+    .set({ pauseRequested: true, pauseReason: ARCHIVED })
+    .where(scope);
   await executor
     .update(listingTargets)
     .set({
@@ -27,7 +34,7 @@ export async function stopProductPublications(
     .where(and(scope, eq(listingTargets.status, "pending")));
   const paused = await executor
     .update(listingTargets)
-    .set({ status: "paused" })
+    .set({ status: "paused", pauseReason: ARCHIVED })
     .where(and(scope, eq(listingTargets.status, "published")))
     .returning({ id: listingTargets.id });
   return paused.length;

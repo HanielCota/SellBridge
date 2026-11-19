@@ -78,6 +78,23 @@ export const blingProductListResponseSchema = z.object({
   data: z.array(blingProductSummarySchema),
 });
 
+/** `GET /estoques/saldos` (OpenAPI `EstoquesSaldosBaseDTO`): one row per product asked. */
+export const blingStockBalanceResponseSchema = z.object({
+  data: z.array(
+    z.object({
+      produto: z.object({ id: z.number().int(), codigo: z.string().nullish() }),
+      saldoFisicoTotal: z.number().nullish(),
+      saldoVirtualTotal: z.number().nullish(),
+    }),
+  ),
+});
+export type BlingStockBalance = z.infer<typeof blingStockBalanceResponseSchema>["data"][number];
+
+/** `GET /empresas/me/dados-basicos` (OpenAPI `EmpresasDadosBasicosDTO`): the company id only. */
+export const blingCompanyResponseSchema = z.object({
+  data: z.object({ id: z.string().trim().min(1) }),
+});
+
 export const blingCreatedProductResponseSchema = z.object({
   data: z.object({ id: z.number() }),
 });

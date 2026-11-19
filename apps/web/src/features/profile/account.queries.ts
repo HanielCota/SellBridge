@@ -1,4 +1,5 @@
 import { queryOptions } from "@tanstack/react-query";
+import { getDeletionBlockersFn } from "@/features/profile/deletion-blockers.functions";
 import { authClient } from "@/lib/auth-client";
 
 export interface ActiveSession {
@@ -45,6 +46,13 @@ export const activeSessionsQueryOptions = () =>
             right.updatedAt.getTime() - left.updatedAt.getTime(),
         );
     },
+  });
+
+/** What is left to resolve before the account can be deleted; empty when nothing is. */
+export const deletionBlockersQueryOptions = () =>
+  queryOptions({
+    queryKey: ["profile", "deletion-blockers"],
+    queryFn: async () => await getDeletionBlockersFn(),
   });
 
 /** Whether the account can sign in with a password (Google-only accounts cannot). */

@@ -13,10 +13,11 @@ import {
 import { database } from "@/lib/server/database";
 import { environment } from "@/lib/server/environment";
 import { tokenCipher } from "@/lib/server/marketplaces";
+import { sharedRateSlots } from "@/lib/server/queues";
 import { blingCredentialsFrom } from "./bling-connection";
 
-/** One limiter for the whole web process: every request of an account shares its 3 per second. */
-const limiter = createBlingRateLimiter();
+/** The account's 3 requests per second are shared with the worker through Redis. */
+const limiter = createBlingRateLimiter({ sharedSlots: sharedRateSlots("bling") });
 
 export function blingCredentials(): BlingAppCredentials | null {
   return blingCredentialsFrom(environment);
