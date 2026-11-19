@@ -11,6 +11,7 @@ import {
   withSuggestedPriceFollowingCost,
 } from "@/features/supplier-panel/catalog/draft-form";
 import { NO_GTIN } from "@sellbridge/shared/product-fiscal";
+import { MAX_MODEL_TITLE_LENGTH } from "@sellbridge/shared/product-grid";
 import type { SupplierTaxSetup } from "@sellbridge/shared/supplier-fiscal";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
@@ -50,6 +51,18 @@ export interface StepProps {
   reasons: ReasonsByField;
   onChange: (change: Partial<PanelFormValues>) => void;
 }
+
+/**
+ * "product": one product, with its code, prices and stock. "model": what every combination of a
+ * colour and size grid shares; code, prices, stock and barcode are asked per combination.
+ */
+export type DetailsVariant = "product" | "model";
+
+/** Asked once per combination in a grid, so the model's sheet leaves them out. */
+const COMBINATION_ATTRIBUTES: ReadonlySet<string> = new Set(["GTIN"]);
+const MODEL_FIELDS: ReadonlySet<string> = new Set(["title"]);
+const MODEL_TITLE_HINT =
+  "Sem a cor e o tamanho: eles entram sozinhos no nome de cada combinação. Exemplo: Tênis Casual Couro";
 
 const MAIN_FIELDS = [
   { field: "sku", key: "sku", label: "Código", inputMode: "text", code: true },
@@ -127,13 +140,15 @@ function NoGtinCheckbox({ values, onChange }: Pick<StepProps, "values" | "onChan
 function textAttributes(
   values: PanelFormValues,
   required: readonly RequiredAttribute[],
-  sheet: MercadoLivreSheet | undefined,
+  options: { sheet: MercadoLivreSheet | undefined; variant: DetailsVariant },
 ) {
-  const sheetIds = new Set((sheet?.ficha.fields ?? []).map((field) => field.id));
+  const sheetIds = new Set((options.sheet?.ficha.fields ?? []).map((field) => field.id));
   const commonIds = new Set(COMMON_ATTRIBUTES.map((attribute) => attribute.id));
-  return attributeList(values, required).filter(
-    (attribute) => commonIds.has(attribute.id) || !sheetIds.has(attribute.id),
-  );
+  return attributeList(values, required)
+    .filter((attribute) => commonIds.has(attribute.id) || !sheetIds.has(attribute.id))
+    .filter(
+      (attribute) => options.variant === "product" || !COMBINATION_ATTRIBUTES.has(attribute.id),
+    );
 }
 
 function TextAttributeField({
@@ -180,13 +195,15 @@ function AttributeFields({
   required,
   showFiscal,
   sheet,
+  variant,
 }: StepProps & {
   required: readonly RequiredAttribute[];
   showFiscal: boolean;
   sheet: MercadoLivreSheet | undefined;
+  variant: DetailsVariant;
 }) {
   const requiredIds = new Set(required.map((attribute) => attribute.id));
-  const asText = textAttributes(values, required, sheet);
+  const asText = textAttributes(values, required, { sheet, variant });
   return (
     <fieldset className="grid gap-4 sm:grid-cols-2">
       <legend className="mb-3 text-subhead font-semibold">Ficha técnica</legend>
@@ -225,10 +242,27 @@ function AttributeFields({
   );
 }
 
-function MainFields({ values, errors, reasons, onChange }: StepProps) {
+function titleLimit(field: string, variant: DetailsVariant): number | undefined {
+  if (field !== "title") {
+    return undefined;
+  }
+  return variant === "model" ? MAX_MODEL_TITLE_LENGTH : 300;
+}
+
+function MainFields({
+  values,
+  errors,
+  reasons,
+  onChange,
+  variant,
+}: StepProps & { variant: DetailsVariant }) {
+  const fields =
+    variant === "product"
+      ? MAIN_FIELDS
+      : MAIN_FIELDS.filter((entry) => MODEL_FIELDS.has(entry.field));
   return (
     <div className="grid gap-4 sm:grid-cols-2">
-      {MAIN_FIELDS.map((entry) => (
+      {fields.map((entry) => (
         <div
           key={entry.field}
           // Content at the top: the note under the price must not push the cost beside it down.
@@ -243,10 +277,13 @@ function MainFields({ values, errors, reasons, onChange }: StepProps) {
               onChange(withSuggestedPriceFollowingCost(values, { [entry.key]: next }))
             }
             inputMode={entry.inputMode}
-            maxLength={entry.field === "title" ? 300 : undefined}
+            maxLength={titleLimit(entry.field, variant)}
             {...(entry.code ? CODE_INPUT : {})}
           />
           {entry.key === "suggestedPrice" ? <SuggestedPriceNote values={values} /> : null}
+          {variant === "model" && entry.field === "title" ? (
+            <p className="text-footnote text-muted-foreground">{MODEL_TITLE_HINT}</p>
+          ) : null}
           <FieldReason field={entry.field} reasons={reasons} />
         </div>
       ))}
@@ -275,16 +312,25 @@ export function StepDetails(
     /** Set for a supplier's product (NF-e data); left out for a seller's own one. */
     taxDefaults?: SupplierTaxSetup | null | undefined;
     mercadoLivre?: MercadoLivreSheet | undefined;
+    variant?: DetailsVariant | undefined;
   },
 ) {
   const { values, errors, reasons, onChange, taxDefaults } = props;
+  const variant = props.variant ?? "product";
   return (
     <div className="grid gap-8">
-      <MainFields values={values} errors={errors} reasons={reasons} onChange={onChange} />
+      <MainFields
+        values={values}
+        errors={errors}
+        reasons={reasons}
+        onChange={onChange}
+        variant={variant}
+      />
       <AttributeFields
         {...props}
         showFiscal={taxDefaults !== undefined}
         sheet={props.mercadoLivre}
+        variant={variant}
       />
       {props.mercadoLivre === undefined ? null : (
         <SaleTermsFields values={values} errors={errors} onChange={onChange} />

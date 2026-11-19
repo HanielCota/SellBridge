@@ -32,14 +32,23 @@ export const FORM_STEPS = [
 
 export type FormStepId = (typeof FORM_STEPS)[number]["id"];
 
+/** A step of a form with steps: the product form's or the grid form's. */
+export interface FormStep<TStep extends string = string> {
+  readonly id: TStep;
+  readonly label: string;
+}
+
 /** "Etapa 2 de 4 · Dados obrigatórios": on a phone the tabs show only their numbers. */
-export function phoneStepLine(current: FormStepId): string {
-  const index = FORM_STEPS.findIndex((step) => step.id === current);
-  const step = FORM_STEPS[index];
+export function phoneStepLine<TStep extends string>(
+  current: TStep,
+  steps: readonly FormStep<TStep>[],
+): string {
+  const index = steps.findIndex((step) => step.id === current);
+  const step = steps[index];
   if (step === undefined) {
-    throw new Error(`Unknown product form step: ${current}`);
+    throw new Error(`Unknown form step: ${current}`);
   }
-  return `Etapa ${index + 1} de ${FORM_STEPS.length} · ${step.label}`;
+  return `Etapa ${index + 1} de ${steps.length} · ${step.label}`;
 }
 
 /** The attributes the "Dados obrigatórios" step always offers, besides the category's own. */
