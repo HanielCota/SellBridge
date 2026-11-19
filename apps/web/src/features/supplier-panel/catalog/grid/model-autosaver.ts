@@ -37,6 +37,21 @@ interface ModelAutosaverOptions<TModel extends StoredModelVersion> {
 }
 
 /**
+ * What the supplier typed, without what the form learned from the server (the name a colour or
+ * size is saved under, the stored stock): taking in a save's answer is not a new edit to send.
+ */
+function typedContent(snapshot: ModelFormSnapshot): string {
+  return JSON.stringify({
+    values: snapshot.values,
+    colors: snapshot.grid.colors.map(({ savedName: _saved, ...color }) => color),
+    sizes: snapshot.grid.sizes.map(({ savedName: _saved, ...size }) => size),
+    combinations: snapshot.grid.combinations.map(
+      ({ savedStock: _saved, ...combination }) => combination,
+    ),
+  });
+}
+
+/**
  * Saves the grid form shortly after each change, one request at a time, like the single product
  * form: every save carries the version it was made over, so another tab's edit stops the
  * autosave with a message instead of being overwritten. Edits typed during a request follow it.
@@ -53,7 +68,7 @@ export class ModelAutosaver<TModel extends StoredModelVersion> {
   constructor(options: ModelAutosaverOptions<TModel>) {
     this.#options = options;
     this.#latest = options.initial;
-    this.#lastSent = JSON.stringify(options.initial);
+    this.#lastSent = typedContent(options.initial);
     this.#version = options.initialVersion?.toISOString();
   }
 
@@ -66,12 +81,12 @@ export class ModelAutosaver<TModel extends StoredModelVersion> {
   }
 
   hasUnsavedChanges(snapshot: ModelFormSnapshot = this.#latest): boolean {
-    return JSON.stringify(snapshot) !== this.#lastSent;
+    return typedContent(snapshot) !== this.#lastSent;
   }
 
   async flush(): Promise<void> {
     const snapshot = this.#latest;
-    const serialized = JSON.stringify(snapshot);
+    const serialized = typedContent(snapshot);
     if (this.#inFlight || this.#stopped || serialized === this.#lastSent) {
       return;
     }
@@ -89,7 +104,7 @@ export class ModelAutosaver<TModel extends StoredModelVersion> {
     } finally {
       this.#inFlight = false;
     }
-    if (saved && JSON.stringify(this.#latest) !== this.#lastSent) {
+    if (saved && typedContent(this.#latest) !== this.#lastSent) {
       await this.flush();
     }
   }
