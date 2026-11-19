@@ -42,6 +42,7 @@ export * from "./global-search.ts";
 export * from "./review-moderation.ts";
 export * from "./supplier-reviews.ts";
 export * from "./supplier-flags.ts";
+export * from "./supplier-approval.ts";
 export * from "./api-keys.ts";
 export * from "./api-idempotency.ts";
 export * from "./api-events.ts";

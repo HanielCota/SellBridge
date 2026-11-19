@@ -603,6 +603,13 @@
       "when": 1795074771498,
       "tag": "0085_store_buyer_address_checks",
       "breakpoints": true
+    },
+    {
+      "idx": 86,
+      "version": "7",
+      "when": 1795089927066,
+      "tag": "0086_supplier_approval",
+      "breakpoints": true
     }
   ]
 }
