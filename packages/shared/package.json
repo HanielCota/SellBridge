@@ -81,6 +81,7 @@
     "./shipment-payments": "./src/domain/shipment-payments.ts",
     "./escrow-release": "./src/domain/escrow-release.ts",
     "./payment-accounts": "./src/domain/payment-accounts.ts",
+    "./receiving-rules": "./src/domain/receiving-rules.ts",
     "./sleep": "./src/runtime/sleep.ts",
     "./deadline": "./src/runtime/deadline.ts",
     "./health": "./src/runtime/health.ts",

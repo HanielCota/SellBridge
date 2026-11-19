@@ -4,11 +4,11 @@ import {
   type CatalogScope,
 } from "@sellbridge/shared/catalog-scope";
 import { toPaginated, type Paginated, type Pagination } from "@sellbridge/shared/schemas";
-import { and, asc, eq, inArray } from "drizzle-orm";
+import { and, asc, eq, inArray, sql } from "drizzle-orm";
 import type { Database } from "../client.ts";
 import { categories, supplierProducts, suppliers, tenantProfile } from "../schema/index.ts";
 import { countRecentUnitsSold } from "./product-heat.ts";
-import { productListable, publicSupplier } from "./sql/sellable.ts";
+import { productListable, publicSupplier, supplierReceivingRuleMet } from "./sql/sellable.ts";
 import { listStoreConnections, type StoreConnectionSummary } from "./stores.ts";
 import {
   listSellableCatalog,
@@ -60,6 +60,7 @@ async function findStarterSupplierId(database: Database, tenantId: string): Prom
         eq(suppliers.id, tenantProfile.starterSupplierId),
         publicSupplier(),
         eq(suppliers.active, true),
+        supplierReceivingRuleMet(),
       ),
     )
     .where(eq(tenantProfile.tenantId, tenantId))
@@ -76,7 +77,14 @@ async function findScopeSuppliers(
     return [];
   }
   const rows = await database
-    .select({ id: suppliers.id, name: suppliers.name, active: suppliers.active })
+    .select({
+      id: suppliers.id,
+      name: suppliers.name,
+      // A supplier the receiving rule hides reads as paused, like one the platform turned off.
+      active: sql<boolean>`(${suppliers.active} and ${supplierReceivingRuleMet()})`.mapWith(
+        Boolean,
+      ),
+    })
     .from(suppliers)
     .where(and(inArray(suppliers.id, [...supplierIds]), publicSupplier()));
   const byId = new Map(rows.map((row) => [row.id, row]));
@@ -97,7 +105,12 @@ async function listSupplierCategories(
     .innerJoin(supplierProducts, eq(supplierProducts.categoryId, categories.id))
     .innerJoin(suppliers, eq(suppliers.id, supplierProducts.supplierId))
     .where(
-      and(inArray(suppliers.id, [...supplierIds]), productListable(), eq(suppliers.active, true)),
+      and(
+        inArray(suppliers.id, [...supplierIds]),
+        productListable(),
+        eq(suppliers.active, true),
+        supplierReceivingRuleMet(),
+      ),
     )
     .orderBy(asc(categories.name));
 }

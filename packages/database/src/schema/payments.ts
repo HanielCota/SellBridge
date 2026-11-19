@@ -254,6 +254,16 @@ export const platformSettings = pgTable(
      */
     newSupplierProtection: boolean().notNull().default(false),
     newSupplierDeliveries: integer().notNull().default(5),
+    /**
+     * Since when a supplier needs an approved Asaas account to sell; null while the rule is off
+     * (Guilherme, 18/11/2026). Parcels forwarded before it keep moving as they were.
+     */
+    requireReceivingAccountSince: timestamp({ withTimezone: true }),
+    /**
+     * Since when the supplier prepares a parcel only after the reseller paid it through Asaas;
+     * null while off. Needs the receiving-account rule on (Guilherme, 18/11/2026, "Vamos de C").
+     */
+    paymentBeforePreparingSince: timestamp({ withTimezone: true }),
     updatedByUserId: text().references(() => user.id, { onDelete: "set null" }),
     updatedAt: timestamp({ withTimezone: true }).defaultNow().notNull(),
   },
@@ -262,6 +272,10 @@ export const platformSettings = pgTable(
     check(
       "platform_settings_new_supplier_deliveries_check",
       sql`${table.newSupplierDeliveries} between 1 and 1000`,
+    ),
+    check(
+      "platform_settings_payment_before_preparing_check",
+      sql`${table.paymentBeforePreparingSince} is null or ${table.requireReceivingAccountSince} is not null`,
     ),
     check(
       "platform_settings_payment_fee_check",
