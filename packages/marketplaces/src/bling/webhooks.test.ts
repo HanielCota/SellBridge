@@ -4,8 +4,12 @@ import { isValidBlingSignature, parseBlingNotice } from "./webhooks.ts";
 
 const SECRET = "client-secret";
 
-function signed(rawBody: string, secret = SECRET): string {
-  return `sha256=${createHmac("sha256", secret).update(rawBody, "utf8").digest("hex")}`;
+function signed(rawBody: Uint8Array, secret = SECRET): string {
+  return `sha256=${createHmac("sha256", secret).update(rawBody).digest("hex")}`;
+}
+
+function bytes(text: string): Uint8Array {
+  return new TextEncoder().encode(text);
 }
 
 const stockNotice = {
@@ -26,7 +30,7 @@ const stockNotice = {
 
 describe("isValidBlingSignature", () => {
   it("accepts the HMAC-SHA256 of the raw body keyed with the client secret", () => {
-    const rawBody = JSON.stringify(stockNotice);
+    const rawBody = bytes(JSON.stringify(stockNotice));
 
     expect(
       isValidBlingSignature({ rawBody, signature: signed(rawBody), clientSecret: SECRET }),
@@ -34,11 +38,11 @@ describe("isValidBlingSignature", () => {
   });
 
   it("refuses a body changed after signing", () => {
-    const rawBody = JSON.stringify(stockNotice);
+    const rawBody = bytes(JSON.stringify(stockNotice));
 
     expect(
       isValidBlingSignature({
-        rawBody: rawBody.replace("12345678", "87654321"),
+        rawBody: bytes(JSON.stringify(stockNotice).replace("12345678", "87654321")),
         signature: signed(rawBody),
         clientSecret: SECRET,
       }),
@@ -46,15 +50,31 @@ describe("isValidBlingSignature", () => {
   });
 
   it("refuses a signature made with another secret", () => {
-    const rawBody = JSON.stringify(stockNotice);
+    const rawBody = bytes(JSON.stringify(stockNotice));
 
     expect(
       isValidBlingSignature({ rawBody, signature: signed(rawBody, "other"), clientSecret: SECRET }),
     ).toBe(false);
   });
 
+  it("checks the bytes as received, so a body starting with a BOM keeps its signature", () => {
+    const rawBody = new Uint8Array([0xef, 0xbb, 0xbf, ...bytes(JSON.stringify(stockNotice))]);
+
+    expect(
+      isValidBlingSignature({ rawBody, signature: signed(rawBody), clientSecret: SECRET }),
+    ).toBe(true);
+  });
+
+  it("refuses everything while the client secret is empty, even a body signed with it", () => {
+    const rawBody = bytes(JSON.stringify(stockNotice));
+
+    expect(
+      isValidBlingSignature({ rawBody, signature: signed(rawBody, ""), clientSecret: "" }),
+    ).toBe(false);
+  });
+
   it("refuses a missing, unprefixed or truncated signature", () => {
-    const rawBody = JSON.stringify(stockNotice);
+    const rawBody = bytes(JSON.stringify(stockNotice));
     const valid = signed(rawBody);
 
     expect(isValidBlingSignature({ rawBody, signature: null, clientSecret: SECRET })).toBe(false);

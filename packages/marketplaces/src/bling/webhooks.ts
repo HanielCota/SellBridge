@@ -15,14 +15,18 @@ const STOCK_EVENTS: ReadonlySet<string> = new Set([
 ]);
 
 /**
- * True when `signature` is `sha256=` + the hex HMAC-SHA256 of the raw body, keyed with the app's
- * client secret, as Bling documents it. Compared in constant time.
+ * True when `signature` is `sha256=` + the hex HMAC-SHA256 of the raw body bytes, keyed with the
+ * app's client secret, as Bling documents it. Compared in constant time. The bytes are hashed as
+ * received: decoding first would drop a BOM or rewrite invalid UTF-8 and change what was signed.
  */
 export function isValidBlingSignature(input: {
-  rawBody: string;
+  rawBody: Uint8Array;
   signature: string | null;
   clientSecret: string;
 }): boolean {
+  if (input.clientSecret === "") {
+    return false;
+  }
   if (input.signature === null || !input.signature.startsWith(SIGNATURE_PREFIX)) {
     return false;
   }
@@ -31,7 +35,7 @@ export function isValidBlingSignature(input: {
     "utf8",
   );
   const expected = Buffer.from(
-    createHmac("sha256", input.clientSecret).update(input.rawBody, "utf8").digest("hex"),
+    createHmac("sha256", input.clientSecret).update(input.rawBody).digest("hex"),
     "utf8",
   );
   if (received.length !== expected.length) {

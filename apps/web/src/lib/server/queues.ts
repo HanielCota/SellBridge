@@ -114,6 +114,35 @@ export async function enqueueErpStockRefresh(supplierId: string): Promise<void> 
   );
 }
 
+/** Bling retries a notice for up to 3 days; a repeat inside that window is the same event. */
+const ERP_NOTICE_SEEN_TTL_IN_SECONDS = 3 * 24 * 60 * 60;
+
+function erpNoticeKey(eventId: string): string {
+  return `sellbridge:erp-notice-seen:${eventId}`;
+}
+
+/**
+ * Marks a Bling notice as received; false when its event id was already received (a repeat from
+ * Bling or a replayed copy), so it is not stored and read again.
+ */
+export async function markErpNoticeSeen(eventId: string): Promise<boolean> {
+  const client = await getPublishQueue().getBackend().client;
+  const answer = await client.runCommand("set", [
+    erpNoticeKey(eventId),
+    "1",
+    "EX",
+    String(ERP_NOTICE_SEEN_TTL_IN_SECONDS),
+    "NX",
+  ]);
+  return answer === "OK";
+}
+
+/** Forgets a notice whose storing failed, so Bling's retry of it is accepted. */
+export async function forgetErpNotice(eventId: string): Promise<void> {
+  const client = await getPublishQueue().getBackend().client;
+  await client.runCommand("del", [erpNoticeKey(eventId)]);
+}
+
 let orderMessageFollowUpQueue: Queue | null = null;
 
 /**
