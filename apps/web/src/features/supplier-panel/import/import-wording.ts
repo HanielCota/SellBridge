@@ -31,6 +31,14 @@ export function onlyValidLabel(validRows: number, failedRows: number): string {
   return `Importar só ${kept}, sem ${left}`;
 }
 
+/**
+ * Whether importing asks first. Only new products change nothing that exists, so they go in on
+ * one click; updating products or leaving rows with errors out shows what happens before.
+ */
+export function importNeedsConfirmation(counts: { updated: number; failedRows: number }): boolean {
+  return counts.updated > 0 || counts.failedRows > 0;
+}
+
 /** What confirming does, leaving out the parts that are zero. */
 export function confirmDescription(counts: {
   created: number;

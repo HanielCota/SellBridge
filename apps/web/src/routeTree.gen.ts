@@ -71,6 +71,7 @@ import { Route as ApiV1MeRouteImport } from './routes/api/v1/me'
 import { Route as ApiV1OpenapiDotjsonRouteImport } from './routes/api/v1/openapi[.]json'
 import { Route as ApiV1StoresRouteImport } from './routes/api/v1/stores'
 import { Route as ApiWebhooksMarketplaceRouteImport } from './routes/api/webhooks/$marketplace'
+import { Route as ApiWebhooksAsaasRouteImport } from './routes/api/webhooks/asaas'
 import { Route as ApiWebhooksMercadoPagoRouteImport } from './routes/api/webhooks/mercado-pago'
 import { Route as ApiWebhooksStripeRouteImport } from './routes/api/webhooks/stripe'
 import { Route as FornecedorPedidoTokenRouteImport } from './routes/fornecedor/pedido/$token'
@@ -127,6 +128,7 @@ import { Route as ApiV1WebhookEndpointsIndexRouteImport } from './routes/api/v1/
 import { Route as AppAdminFornecedoresSupplierIdFlagsRouteImport } from './routes/_app/admin/fornecedores/$supplierId_.flags'
 import { Route as AppAdminFornecedoresAnaliseIndexRouteImport } from './routes/_app/admin/fornecedores/analise/index'
 import { Route as AppAdminFornecedoresAnaliseProductIdRouteImport } from './routes/_app/admin/fornecedores/analise/$productId'
+import { Route as AppAdminFornecedoresAprovacaoIndexRouteImport } from './routes/_app/admin/fornecedores/aprovacao/index'
 import { Route as ApiAdminChamadosTicketIdMensagensRouteImport } from './routes/api/admin/chamados/$ticketId/mensagens'
 import { Route as ApiPerfilFotoUserIdFileNameRouteImport } from './routes/api/perfil/foto/$userId/$fileName'
 import { Route as ApiProdutosImagensSupplierIdFileNameRouteImport } from './routes/api/produtos/imagens/$supplierId/$fileName'
@@ -445,6 +447,11 @@ const ApiV1StoresRoute = ApiV1StoresRouteImport.update({
 const ApiWebhooksMarketplaceRoute = ApiWebhooksMarketplaceRouteImport.update({
   id: '/api/webhooks/$marketplace',
   path: '/api/webhooks/$marketplace',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiWebhooksAsaasRoute = ApiWebhooksAsaasRouteImport.update({
+  id: '/api/webhooks/asaas',
+  path: '/api/webhooks/asaas',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ApiWebhooksMercadoPagoRoute = ApiWebhooksMercadoPagoRouteImport.update({
@@ -769,6 +776,12 @@ const AppAdminFornecedoresAnaliseProductIdRoute =
     path: '/fornecedores/analise/$productId',
     getParentRoute: () => AppAdminRouteRoute,
   } as any)
+const AppAdminFornecedoresAprovacaoIndexRoute =
+  AppAdminFornecedoresAprovacaoIndexRouteImport.update({
+    id: '/fornecedores/aprovacao/',
+    path: '/fornecedores/aprovacao/',
+    getParentRoute: () => AppAdminRouteRoute,
+  } as any)
 const ApiAdminChamadosTicketIdMensagensRoute =
   ApiAdminChamadosTicketIdMensagensRouteImport.update({
     id: '/api/admin/chamados/$ticketId/mensagens',
@@ -881,6 +894,7 @@ export interface FileRoutesByFullPath {
   '/api/v1/openapi.json': typeof ApiV1OpenapiDotjsonRoute
   '/api/v1/stores': typeof ApiV1StoresRoute
   '/api/webhooks/$marketplace': typeof ApiWebhooksMarketplaceRoute
+  '/api/webhooks/asaas': typeof ApiWebhooksAsaasRoute
   '/api/webhooks/mercado-pago': typeof ApiWebhooksMercadoPagoRoute
   '/api/webhooks/stripe': typeof ApiWebhooksStripeRoute
   '/fornecedor/pedido/$token': typeof FornecedorPedidoTokenRoute
@@ -948,6 +962,7 @@ export interface FileRoutesByFullPath {
   '/api/v1/catalog/products/$productId': typeof ApiV1CatalogProductsProductIdRoute
   '/api/v1/webhook-endpoints/$endpointId/deliveries': typeof ApiV1WebhookEndpointsEndpointIdDeliveriesRoute
   '/admin/fornecedores/analise/': typeof AppAdminFornecedoresAnaliseIndexRoute
+  '/admin/fornecedores/aprovacao/': typeof AppAdminFornecedoresAprovacaoIndexRoute
   '/api/v1/catalog/products/': typeof ApiV1CatalogProductsIndexRoute
   '/api/v1/webhook-endpoints/$endpointId/': typeof ApiV1WebhookEndpointsEndpointIdIndexRoute
 }
@@ -1004,6 +1019,7 @@ export interface FileRoutesByTo {
   '/api/v1/openapi.json': typeof ApiV1OpenapiDotjsonRoute
   '/api/v1/stores': typeof ApiV1StoresRoute
   '/api/webhooks/$marketplace': typeof ApiWebhooksMarketplaceRoute
+  '/api/webhooks/asaas': typeof ApiWebhooksAsaasRoute
   '/api/webhooks/mercado-pago': typeof ApiWebhooksMercadoPagoRoute
   '/api/webhooks/stripe': typeof ApiWebhooksStripeRoute
   '/fornecedor/pedido/$token': typeof FornecedorPedidoTokenRoute
@@ -1071,6 +1087,7 @@ export interface FileRoutesByTo {
   '/api/v1/catalog/products/$productId': typeof ApiV1CatalogProductsProductIdRoute
   '/api/v1/webhook-endpoints/$endpointId/deliveries': typeof ApiV1WebhookEndpointsEndpointIdDeliveriesRoute
   '/admin/fornecedores/analise': typeof AppAdminFornecedoresAnaliseIndexRoute
+  '/admin/fornecedores/aprovacao': typeof AppAdminFornecedoresAprovacaoIndexRoute
   '/api/v1/catalog/products': typeof ApiV1CatalogProductsIndexRoute
   '/api/v1/webhook-endpoints/$endpointId': typeof ApiV1WebhookEndpointsEndpointIdIndexRoute
 }
@@ -1134,6 +1151,7 @@ export interface FileRoutesById {
   '/api/v1/openapi.json': typeof ApiV1OpenapiDotjsonRoute
   '/api/v1/stores': typeof ApiV1StoresRoute
   '/api/webhooks/$marketplace': typeof ApiWebhooksMarketplaceRoute
+  '/api/webhooks/asaas': typeof ApiWebhooksAsaasRoute
   '/api/webhooks/mercado-pago': typeof ApiWebhooksMercadoPagoRoute
   '/api/webhooks/stripe': typeof ApiWebhooksStripeRoute
   '/fornecedor/pedido/$token': typeof FornecedorPedidoTokenRoute
@@ -1201,6 +1219,7 @@ export interface FileRoutesById {
   '/api/v1/catalog/products/$productId': typeof ApiV1CatalogProductsProductIdRoute
   '/api/v1/webhook-endpoints/$endpointId/deliveries': typeof ApiV1WebhookEndpointsEndpointIdDeliveriesRoute
   '/_app/admin/fornecedores/analise/': typeof AppAdminFornecedoresAnaliseIndexRoute
+  '/_app/admin/fornecedores/aprovacao/': typeof AppAdminFornecedoresAprovacaoIndexRoute
   '/api/v1/catalog/products/': typeof ApiV1CatalogProductsIndexRoute
   '/api/v1/webhook-endpoints/$endpointId/': typeof ApiV1WebhookEndpointsEndpointIdIndexRoute
 }
@@ -1263,6 +1282,7 @@ export interface FileRouteTypes {
     | '/api/v1/openapi.json'
     | '/api/v1/stores'
     | '/api/webhooks/$marketplace'
+    | '/api/webhooks/asaas'
     | '/api/webhooks/mercado-pago'
     | '/api/webhooks/stripe'
     | '/fornecedor/pedido/$token'
@@ -1330,6 +1350,7 @@ export interface FileRouteTypes {
     | '/api/v1/catalog/products/$productId'
     | '/api/v1/webhook-endpoints/$endpointId/deliveries'
     | '/admin/fornecedores/analise/'
+    | '/admin/fornecedores/aprovacao/'
     | '/api/v1/catalog/products/'
     | '/api/v1/webhook-endpoints/$endpointId/'
   fileRoutesByTo: FileRoutesByTo
@@ -1386,6 +1407,7 @@ export interface FileRouteTypes {
     | '/api/v1/openapi.json'
     | '/api/v1/stores'
     | '/api/webhooks/$marketplace'
+    | '/api/webhooks/asaas'
     | '/api/webhooks/mercado-pago'
     | '/api/webhooks/stripe'
     | '/fornecedor/pedido/$token'
@@ -1453,6 +1475,7 @@ export interface FileRouteTypes {
     | '/api/v1/catalog/products/$productId'
     | '/api/v1/webhook-endpoints/$endpointId/deliveries'
     | '/admin/fornecedores/analise'
+    | '/admin/fornecedores/aprovacao'
     | '/api/v1/catalog/products'
     | '/api/v1/webhook-endpoints/$endpointId'
   id:
@@ -1515,6 +1538,7 @@ export interface FileRouteTypes {
     | '/api/v1/openapi.json'
     | '/api/v1/stores'
     | '/api/webhooks/$marketplace'
+    | '/api/webhooks/asaas'
     | '/api/webhooks/mercado-pago'
     | '/api/webhooks/stripe'
     | '/fornecedor/pedido/$token'
@@ -1582,6 +1606,7 @@ export interface FileRouteTypes {
     | '/api/v1/catalog/products/$productId'
     | '/api/v1/webhook-endpoints/$endpointId/deliveries'
     | '/_app/admin/fornecedores/analise/'
+    | '/_app/admin/fornecedores/aprovacao/'
     | '/api/v1/catalog/products/'
     | '/api/v1/webhook-endpoints/$endpointId/'
   fileRoutesById: FileRoutesById
@@ -1610,6 +1635,7 @@ export interface RootRouteChildren {
   ApiV1OpenapiDotjsonRoute: typeof ApiV1OpenapiDotjsonRoute
   ApiV1StoresRoute: typeof ApiV1StoresRoute
   ApiWebhooksMarketplaceRoute: typeof ApiWebhooksMarketplaceRoute
+  ApiWebhooksAsaasRoute: typeof ApiWebhooksAsaasRoute
   ApiWebhooksMercadoPagoRoute: typeof ApiWebhooksMercadoPagoRoute
   ApiWebhooksStripeRoute: typeof ApiWebhooksStripeRoute
   FornecedorPedidoTokenRoute: typeof FornecedorPedidoTokenRoute
@@ -2085,6 +2111,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiWebhooksMarketplaceRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/webhooks/asaas': {
+      id: '/api/webhooks/asaas'
+      path: '/api/webhooks/asaas'
+      fullPath: '/api/webhooks/asaas'
+      preLoaderRoute: typeof ApiWebhooksAsaasRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/webhooks/mercado-pago': {
       id: '/api/webhooks/mercado-pago'
       path: '/api/webhooks/mercado-pago'
@@ -2477,6 +2510,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppAdminFornecedoresAnaliseProductIdRouteImport
       parentRoute: typeof AppAdminRouteRoute
     }
+    '/_app/admin/fornecedores/aprovacao/': {
+      id: '/_app/admin/fornecedores/aprovacao/'
+      path: '/fornecedores/aprovacao'
+      fullPath: '/admin/fornecedores/aprovacao/'
+      preLoaderRoute: typeof AppAdminFornecedoresAprovacaoIndexRouteImport
+      parentRoute: typeof AppAdminRouteRoute
+    }
     '/api/admin/chamados/$ticketId/mensagens': {
       id: '/api/admin/chamados/$ticketId/mensagens'
       path: '/api/admin/chamados/$ticketId/mensagens'
@@ -2592,6 +2632,7 @@ interface AppAdminRouteRouteChildren {
   AppAdminFornecedoresSupplierIdFlagsRoute: typeof AppAdminFornecedoresSupplierIdFlagsRoute
   AppAdminFornecedoresAnaliseProductIdRoute: typeof AppAdminFornecedoresAnaliseProductIdRoute
   AppAdminFornecedoresAnaliseIndexRoute: typeof AppAdminFornecedoresAnaliseIndexRoute
+  AppAdminFornecedoresAprovacaoIndexRoute: typeof AppAdminFornecedoresAprovacaoIndexRoute
 }
 
 const AppAdminRouteRouteChildren: AppAdminRouteRouteChildren = {
@@ -2614,6 +2655,8 @@ const AppAdminRouteRouteChildren: AppAdminRouteRouteChildren = {
   AppAdminFornecedoresAnaliseProductIdRoute:
     AppAdminFornecedoresAnaliseProductIdRoute,
   AppAdminFornecedoresAnaliseIndexRoute: AppAdminFornecedoresAnaliseIndexRoute,
+  AppAdminFornecedoresAprovacaoIndexRoute:
+    AppAdminFornecedoresAprovacaoIndexRoute,
 }
 
 const AppAdminRouteRouteWithChildren = AppAdminRouteRoute._addFileChildren(
@@ -2787,6 +2830,7 @@ const rootRouteChildren: RootRouteChildren = {
   ApiV1OpenapiDotjsonRoute: ApiV1OpenapiDotjsonRoute,
   ApiV1StoresRoute: ApiV1StoresRoute,
   ApiWebhooksMarketplaceRoute: ApiWebhooksMarketplaceRoute,
+  ApiWebhooksAsaasRoute: ApiWebhooksAsaasRoute,
   ApiWebhooksMercadoPagoRoute: ApiWebhooksMercadoPagoRoute,
   ApiWebhooksStripeRoute: ApiWebhooksStripeRoute,
   FornecedorPedidoTokenRoute: FornecedorPedidoTokenRoute,

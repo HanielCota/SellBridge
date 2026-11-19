@@ -92,6 +92,7 @@ async function reconcileOpenPayments(
   input: { loadAccount: LoadAccount; now: Date },
 ): Promise<number> {
   const payments = await listShipmentPaymentsToReconcile(context.database, {
+    provider: "mercado_pago",
     now: input.now,
     recheckForInMs: RECHECK_UNPAID_FOR_IN_MS,
     limit: SUPPLIER_PAYMENT_BATCH,
@@ -155,6 +156,7 @@ async function refundDuePayments(
   input: { loadAccount: LoadAccount; now: Date; requestStockSync: () => Promise<void> },
 ): Promise<Omit<SupplierPaymentRound, "checked">> {
   const candidates = await listShipmentPaymentRefundCandidates(context.database, {
+    provider: "mercado_pago",
     limit: SUPPLIER_PAYMENT_BATCH,
   });
   const round = { refundsRequested: 0, refundsRefused: 0, refundsHeld: 0 };

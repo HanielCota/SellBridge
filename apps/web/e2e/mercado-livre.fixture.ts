@@ -53,6 +53,78 @@ function shipment(id: string): Response {
   });
 }
 
+/** The stand-in store's commission, in percent (`GET /sites/MLB/listing_prices`). */
+export const STAND_IN_COMMISSION_PERCENT = 14;
+/**
+ * What the stand-in store pays to ship any package at any price, in reais
+ * (`GET /users/{id}/shipping_options/free`): far above the published green table, so a price
+ * read with the store's account visibly differs from the estimate.
+ */
+export const STAND_IN_SHIPPING_REAIS = 15;
+
+function saleCost(url: URL): Response | null {
+  if (url.pathname === "/sites/MLB/listing_prices") {
+    return Response.json([
+      {
+        listing_type_id: "gold_special",
+        sale_fee_details: { fixed_fee: 0, percentage_fee: STAND_IN_COMMISSION_PERCENT },
+      },
+    ]);
+  }
+  if (/^\/users\/\d+\/shipping_options\/free$/.test(url.pathname)) {
+    return Response.json({ coverage: { all_country: { list_cost: STAND_IN_SHIPPING_REAIS } } });
+  }
+  return null;
+}
+
+/** Where the stand-in's supplier ships from; a test gives its supplier this NF-e address. */
+export const STAND_IN_WAREHOUSE = {
+  cep: "30130110",
+  street: "Avenida Afonso Pena",
+  number: "1500",
+} as const;
+
+/** Accounts whose id starts with this buy at the warehouse; any other number buys at home. */
+export const STAND_IN_BUYS_AT_WAREHOUSE_PREFIX = "7790";
+
+function standInAddress(
+  id: number,
+  fields: { cep: string; street: string; number: string },
+  types: string[],
+) {
+  return {
+    id,
+    zip_code: fields.cep,
+    street_name: fields.street,
+    street_number: fields.number,
+    types,
+    status: "active",
+  };
+}
+
+/** `GET /users/{id}/addresses`, in the shape of the "Endereços do usuário" page. */
+function accountAddresses(url: URL): Response | null {
+  const match = /^\/users\/(\d+)\/addresses$/.exec(url.pathname);
+  const accountId = match?.[1];
+  if (accountId === undefined) {
+    return null;
+  }
+  const home = { cep: "01310100", street: "Rua Augusta", number: "200" };
+  if (accountId.startsWith(STAND_IN_BUYS_AT_WAREHOUSE_PREFIX)) {
+    return Response.json([
+      standInAddress(1, STAND_IN_WAREHOUSE, [
+        "default_buying_address",
+        "default_selling_address",
+        "shipping",
+      ]),
+    ]);
+  }
+  return Response.json([
+    standInAddress(1, STAND_IN_WAREHOUSE, ["default_selling_address", "shipping"]),
+    standInAddress(2, home, ["default_buying_address"]),
+  ]);
+}
+
 export const mercadoLivreStandIn: FetchLike = async (input) => {
   const url = new URL(input);
   if (url.host !== "api.mercadolibre.com") {
@@ -60,6 +132,14 @@ export const mercadoLivreStandIn: FetchLike = async (input) => {
   }
   if (url.pathname === "/shipment_labels") {
     return label(url);
+  }
+  const cost = saleCost(url);
+  if (cost !== null) {
+    return cost;
+  }
+  const addresses = accountAddresses(url);
+  if (addresses !== null) {
+    return addresses;
   }
   const [, resource, id, detail] = url.pathname.split("/");
   if (!knownOrder(id)) {

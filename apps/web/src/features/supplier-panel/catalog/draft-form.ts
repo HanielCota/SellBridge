@@ -1,3 +1,4 @@
+import { saleTermsFormValues, saleTermsInput, type SaleTermsFormValues } from "./sale-terms-form";
 import { formatCentsForInput } from "@sellbridge/shared/money";
 import { parseCsvMoney } from "@sellbridge/shared/product-csv";
 import {
@@ -64,6 +65,7 @@ export interface PanelFormValues {
   attributes: Readonly<Record<string, string>>;
   /** The Mercado Livre category whose sheet the form asks; null until one is known. */
   mercadoLivreCategory: MercadoLivreCategoryChoice | null;
+  saleTerms: SaleTermsFormValues;
   fiscal: ProductFiscalFormValues;
 }
 
@@ -260,26 +262,44 @@ export function panelFormValues(product?: EditableProductFields | null): PanelFo
     imageUrls: product?.imageUrls ?? [],
     attributes: product?.mercadoLivreAttributes ?? {},
     mercadoLivreCategory: storedMercadoLivreCategory(product),
+    saleTerms: saleTermsFormValues(product),
     fiscal: productFiscalFormValues(product?.fiscal),
   };
 }
 
-/**
- * The values a product opens with: a new one starts with the origin and unit the supplier set as
- * defaults in Marca, so the NF-e rule does not ask for them again on every product.
- */
+/** What a new product starts with, from the brand the supplier already filled in. */
+export interface NewProductDefaults {
+  /** Origin and unit set in Marca, so the NF-e rule does not ask for them on every product. */
+  readonly fiscal: { readonly origin: number; readonly unit: string } | null;
+  /** The category named like the brand's niche ("O que você vende"), when one is. */
+  readonly categoryId: string | null;
+}
+
+/** The values a product opens with: a new one starts from the brand's defaults. */
 export function initialFormValues(
   product: EditableProductFields | null,
-  defaults: { readonly origin: number; readonly unit: string } | null,
+  defaults: NewProductDefaults,
 ): PanelFormValues {
   const values = panelFormValues(product);
-  if (product !== null || defaults === null) {
+  if (product !== null) {
     return values;
   }
-  return {
-    ...values,
-    fiscal: { ...values.fiscal, origin: String(defaults.origin), unit: defaults.unit },
-  };
+  const fiscal =
+    defaults.fiscal === null
+      ? values.fiscal
+      : { ...values.fiscal, origin: String(defaults.fiscal.origin), unit: defaults.fiscal.unit };
+  return { ...values, categoryId: defaults.categoryId ?? values.categoryId, fiscal };
+}
+
+/** The id of the category named like the brand's niche, or null when none is. */
+export function categoryIdOfNiche(
+  categories: readonly { id: string; name: string }[],
+  niche: string | null,
+): string | null {
+  if (niche === null) {
+    return null;
+  }
+  return categories.find((category) => category.name === niche.trim())?.id ?? null;
 }
 
 /** Whole units only: "1.000" is a thousand, while "1." or "1.0" wait instead of saving 1. */
@@ -351,6 +371,7 @@ export function parseDraft(values: PanelFormValues, expectedStock?: number): Dra
     imageUrls: [...values.imageUrls],
     mercadoLivreAttributes: filledAttributes(values.attributes),
     ...mercadoLivreCategoryInput(values.mercadoLivreCategory),
+    ...saleTermsInput(values.saleTerms),
     fiscal: fiscalCandidate(values.fiscal),
   });
   if (parsed.success && !keepsNegativeShelfOnly(parsed.data.stock, expectedStock)) {

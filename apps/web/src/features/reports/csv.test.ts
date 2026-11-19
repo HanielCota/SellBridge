@@ -19,7 +19,6 @@ const row: OrderFinancialRow = {
   refundCents: 0,
   returnCents: 0,
   commissionCents: 300,
-  platformFeeCents: 250,
   profitCents: -5,
   costPending: false,
   pendingCostRevenueCents: 0,

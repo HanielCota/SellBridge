@@ -6,10 +6,10 @@ import {
   getPaymentFeeSetting,
   listShipmentPaymentSummaries,
   openCheckoutUrl,
-  listSuppliersReceivingPayments,
   releaseShipmentPaymentReservation,
   savePaymentPreference,
   setPaymentFeeSetting,
+  reopenShipmentCheckout,
   startShipmentPayment,
   type PayableShipment,
   type ShipmentPayment,
@@ -24,6 +24,7 @@ import {
   platformFeeCents,
   supplierPaymentBadge,
   type SupplierPaymentBadge,
+  type SupplierPayMethod,
 } from "@sellbridge/shared/shipment-payments";
 import { database } from "@/lib/server/database";
 import { environment } from "@/lib/server/environment";
@@ -45,6 +46,9 @@ import {
   mercadoPagoSettings,
 } from "./mercado-pago-accounts.server";
 import { paymentAccountOwnerRefusal, type PaymentAccountActor } from "./mercado-pago-connection";
+import type { PaymentProviderName } from "@sellbridge/shared/payment-accounts";
+import { receivingAccountsOf, type ReceivingAccounts } from "./asaas.server";
+import { leaveAsaasCharges, openAsaasCheckout, refreshAsaasParcel } from "./asaas-checkout.server";
 
 const PROVIDER = "mercado_pago";
 
@@ -104,22 +108,22 @@ export async function supplierPaymentBadges(input: {
   supplierId: string;
   shipmentIds: readonly string[];
 }): Promise<Map<string, SupplierPaymentBadge>> {
-  const receivesHere = mercadoPagoSettings() !== null;
-  const [summaries, receiving] = await Promise.all([
+  const [summaries, accounts] = await Promise.all([
     listShipmentPaymentSummaries(database, input.shipmentIds),
-    receivesHere
-      ? listSuppliersReceivingPayments(database, {
-          supplierIds: [input.supplierId],
-          provider: PROVIDER,
-        })
-      : Promise.resolve(new Set<string>()),
+    receivingAccountsOf(input.supplierId),
   ]);
-  const linked = receiving.has(input.supplierId);
+  const linked = accounts.receiving.provider !== null;
   return new Map(input.shipmentIds.map((id) => [id, badgeFor(summaries.get(id), linked)]));
 }
 
 const IN_REVIEW_MESSAGE =
   "O pagamento está em análise no Mercado Pago. Assim que ele confirmar, aparece aqui.";
+const ASAAS_IN_REVIEW_MESSAGE =
+  "O pagamento está em análise no Asaas. Assim que ele confirmar, aparece aqui.";
+
+function inReviewMessage(provider: PaymentProviderName | undefined): string {
+  return provider === "asaas" ? ASAAS_IN_REVIEW_MESSAGE : IN_REVIEW_MESSAGE;
+}
 const ALREADY_PAID_MESSAGE = "Este envio já foi pago. O valor está na conta do fornecedor.";
 const UNCHECKED_MESSAGE =
   "Não conseguimos conferir com o Mercado Pago agora. Tente de novo em alguns minutos.";
@@ -133,13 +137,13 @@ function checkoutRefusal(payable: PayableShipment, linked: boolean): string | nu
     return "Este envio já foi encerrado: não dá mais para pagar por aqui.";
   }
   if (payable.payment?.status === "in_process") {
-    return IN_REVIEW_MESSAGE;
+    return inReviewMessage(payable.payment.provider);
   }
   if (payable.amountCents <= 0) {
     return "Este pedido não tem o valor do fornecedor. Combine o pagamento com ele por fora.";
   }
   if (!linked) {
-    return "Este fornecedor ainda não ligou a conta Mercado Pago. Combine o pagamento com ele por fora.";
+    return "Este fornecedor ainda não abriu a conta de recebimento no Asaas. Combine o pagamento com ele por fora.";
   }
   return null;
 }
@@ -172,15 +176,9 @@ export async function loadResellerSupplierPayment(input: { tenantId: string; shi
   if (payable === null) {
     throw notFoundError("Envio não encontrado.");
   }
-  const settings = mercadoPagoSettings();
-  const receiving =
-    settings === null
-      ? new Set<string>()
-      : await listSuppliersReceivingPayments(database, {
-          supplierIds: [payable.supplierId],
-          provider: PROVIDER,
-        });
-  const linked = receiving.has(payable.supplierId);
+  const accounts = await receivingAccountsOf(payable.supplierId);
+  const provider = providerOfParcel(payable, accounts);
+  const linked = provider !== null;
   const summary =
     payable.payment === null
       ? undefined
@@ -198,7 +196,36 @@ export async function loadResellerSupplierPayment(input: { tenantId: string; shi
     canPay: badge.kind === "waiting" && refusal === null,
     refusal,
     refund: refundView(payable.payment),
+    /** Held until delivery (Asaas): the reseller sees the protection seal. */
+    protectedPayment: provider === "asaas",
+    provider,
   };
+}
+
+/** Payments that already moved (or are moving) stay on the provider they started on. */
+const STARTED_STATUSES: readonly ShipmentPayment["status"][] = [
+  "in_process",
+  "approved",
+  "refunded",
+  "charged_back",
+];
+
+/**
+ * The provider of the parcel's payment when it started or its checkout is still open, else the
+ * one the supplier receives through now (its choice, or the admin rule for new suppliers).
+ */
+function providerOfParcel(
+  payable: PayableShipment,
+  accounts: ReceivingAccounts,
+): PaymentProviderName | null {
+  const { payment } = payable;
+  if (payment !== null && STARTED_STATUSES.includes(payment.status)) {
+    return payment.provider;
+  }
+  if (payment !== null && openCheckoutUrl(payment, new Date()) !== null) {
+    return payment.provider;
+  }
+  return accounts.receiving.provider;
 }
 
 function orderPageUrl(orderId: string, shipmentId: string): string {
@@ -207,25 +234,26 @@ function orderPageUrl(orderId: string, shipmentId: string): string {
   return url.toString();
 }
 
-/** The parcel and its supplier's linked account, or the reason it cannot be paid here. */
+/** The parcel, the provider it is paid through and that provider's account, or why not here. */
 async function payableWithAccount(input: { tenantId: string; shipmentId: string }) {
   const payable = await findPayableShipment(database, input);
   if (payable === null) {
     throw notFoundError("Envio não encontrado.");
   }
-  const account = await findSupplierPaymentAccount(database, {
-    supplierId: payable.supplierId,
-    provider: PROVIDER,
-  });
-  const refusal = checkoutRefusal(payable, account?.status === "connected");
-  if (refusal !== null || account === null) {
-    throw validationError(refusal ?? "Este fornecedor ainda não ligou a conta Mercado Pago.");
+  const accounts = await receivingAccountsOf(payable.supplierId);
+  const provider = providerOfParcel(payable, accounts);
+  const account = provider === "asaas" ? accounts.asaas : accounts.mercadoPago;
+  const refusal = checkoutRefusal(payable, provider !== null && account?.status === "connected");
+  if (refusal !== null || account === null || provider === null) {
+    throw validationError(
+      refusal ?? "Este fornecedor ainda não abriu a conta de recebimento no Asaas.",
+    );
   }
-  return { payable, account };
+  return { payable, account, provider, accounts };
 }
 
 const RELINK_MESSAGE =
-  "A conta Mercado Pago deste fornecedor precisa ser ligada de novo. Combine o pagamento com ele por fora.";
+  "A conta de recebimento deste fornecedor precisa ser ligada de novo. Combine o pagamento com ele por fora.";
 
 /** Long enough to create the preference; a failed attempt frees the parcel right away. */
 const CHECKOUT_RESERVATION_IN_MS = 60_000;
@@ -241,7 +269,7 @@ async function refusedCheckout(shipmentId: string): Promise<{ checkoutUrl: strin
     throw validationError("O pagamento já está sendo aberto. Tente de novo em alguns segundos.");
   }
   if (current?.status === "in_process") {
-    throw validationError(IN_REVIEW_MESSAGE);
+    throw validationError(inReviewMessage(current.provider));
   }
   throw validationError(ALREADY_PAID_MESSAGE);
 }
@@ -258,7 +286,7 @@ async function settleEarlierCheckouts(
 ): Promise<void> {
   const settled = await reconcileBeforeCheckout(context, account, payment);
   if (settled?.status === "in_process") {
-    throw validationError(IN_REVIEW_MESSAGE);
+    throw validationError(inReviewMessage(payment.provider));
   }
   if (settled?.status === "approved") {
     throw validationError(ALREADY_PAID_MESSAGE);
@@ -311,32 +339,132 @@ async function createCheckout(
 }
 
 /**
- * Starts the Mercado Pago checkout for a parcel: the preference is created with the supplier's
- * token, so the money lands in the supplier's account, with SellBridge's fee kept by Mercado Pago.
+ * Starts the checkout for a parcel, in the supplier's account, with SellBridge's fee. On Asaas the
+ * charge asks only the method the reseller picked; the hidden Mercado Pago path ignores it.
  *
  * @throws When the parcel cannot be paid here (see `checkoutRefusal`) or is already paid.
  */
 export async function startSupplierCheckout(input: {
   tenantId: string;
   shipmentId: string;
+  payMethod: SupplierPayMethod;
   impersonatedBy: string | null;
 }): Promise<{ checkoutUrl: string }> {
   if (input.impersonatedBy !== null) {
     throw validationError("Durante a visita da equipe não dá para pagar o fornecedor.");
   }
+  const { payable, account, provider, accounts } = await payableWithAccount(input);
+  const payment = payable.payment;
+  const open = openCheckoutUrl(payment, new Date());
+  const reopensAsaasCharge = provider === "asaas" && payment?.provider === "asaas";
+  if (open !== null && !reopensAsaasCharge) {
+    return { checkoutUrl: open };
+  }
+  if (open !== null && payment !== null && payment.preferenceId !== null) {
+    // The open charge may ask for the other method: its charges are listed again and the one
+    // asking for the picked method is reused, or opened.
+    await reopenShipmentCheckout(database, {
+      paymentId: payment.id,
+      preferenceId: payment.preferenceId,
+    });
+  }
+  await settleEarlierAttempts(payment, accounts);
+  if (provider === "asaas") {
+    return openNewAsaasCheckout({
+      tenantId: input.tenantId,
+      payable,
+      account,
+      payMethod: input.payMethod,
+    });
+  }
   const context = mercadoPagoContext();
   if (context === null) {
     throw validationError("O pagamento pelo Mercado Pago ainda não está disponível.");
   }
-  const { payable, account } = await payableWithAccount(input);
-  const open = openCheckoutUrl(payable.payment, new Date());
-  if (open !== null) {
-    return { checkoutUrl: open };
-  }
-  if (payable.payment !== null) {
-    await settleEarlierCheckouts(context, account, payable.payment);
-  }
   return openNewCheckout(context, { payable, account });
+}
+
+/**
+ * Before any new checkout, the parcel's earlier attempts are read back on the provider they were
+ * made on (the supplier may have switched since): a paid or reviewed one blocks the new checkout.
+ */
+async function settleEarlierAttempts(
+  payment: ShipmentPayment | null,
+  accounts: ReceivingAccounts,
+): Promise<void> {
+  if (payment === null) {
+    return;
+  }
+  if (payment.provider === "asaas") {
+    // Asaas charges are listed again when the next one opens; leaving Asaas closes them here.
+    if (accounts.receiving.provider !== "asaas") {
+      await leaveAsaasCharges({ account: accounts.asaas, payment });
+    }
+    return;
+  }
+  if (payment.preferenceId === null) {
+    return;
+  }
+  const context = mercadoPagoContext();
+  if (context === null || accounts.mercadoPago === null) {
+    throw validationError(UNCHECKED_MESSAGE);
+  }
+  await settleEarlierCheckouts(context, accounts.mercadoPago, payment);
+}
+
+/** Reserves the parcel for Asaas and opens (or reuses) its charge in the supplier's account. */
+async function openNewAsaasCheckout(input: {
+  tenantId: string;
+  payable: PayableShipment;
+  account: SupplierPaymentAccount;
+  payMethod: SupplierPayMethod;
+}): Promise<{ checkoutUrl: string }> {
+  const payment = await reserveParcel(input.payable, "asaas");
+  if (payment === null) {
+    return refusedCheckout(input.payable.shipmentId);
+  }
+  const successUrl = new URL(orderPageUrl(input.payable.orderId, input.payable.shipmentId));
+  successUrl.searchParams.set("pagamento", "asaas");
+  return openAsaasCheckout({
+    tenantId: input.tenantId,
+    payable: input.payable,
+    account: input.account,
+    payment,
+    payMethod: input.payMethod,
+    successUrl: successUrl.toString(),
+  });
+}
+
+/** Reserving the parcel makes a second click or tab wait instead of opening another checkout. */
+async function reserveParcel(
+  payable: PayableShipment,
+  provider: PaymentProviderName,
+): Promise<ShipmentPayment | null> {
+  const feeBasisPoints = effectivePaymentFeeBasisPoints(
+    (await getPaymentFeeSetting(database)).basisPoints,
+  );
+  const now = new Date();
+  return startShipmentPayment(database, {
+    shipmentId: payable.shipmentId,
+    supplierId: payable.supplierId,
+    provider,
+    amountCents: payable.amountCents,
+    platformFeeCents: platformFeeCents(payable.amountCents, feeBasisPoints),
+    platformFeeBasisPoints: feeBasisPoints,
+    now,
+    reservedUntil: new Date(now.getTime() + CHECKOUT_RESERVATION_IN_MS),
+  });
+}
+
+/** The reseller is back from Asaas's page: its charges are read back before showing the badge. */
+export async function confirmAsaasPaymentReturn(input: { tenantId: string; shipmentId: string }) {
+  const payable = await findPayableShipment(database, input);
+  if (payable === null) {
+    throw notFoundError("Envio não encontrado.");
+  }
+  const accounts = await receivingAccountsOf(payable.supplierId);
+  await refreshAsaasParcel({ ...input, account: accounts.asaas });
+  return loadResellerSupplierPayment(input);
 }
 
 /** Reserves the parcel, creates its checkout with the supplier's token and keeps it. */
@@ -345,21 +473,7 @@ async function openNewCheckout(
   input: { payable: PayableShipment; account: SupplierPaymentAccount },
 ): Promise<{ checkoutUrl: string }> {
   const { payable, account } = input;
-  const feeBasisPoints = effectivePaymentFeeBasisPoints(
-    (await getPaymentFeeSetting(database)).basisPoints,
-  );
-  const now = new Date();
-  // Reserving the parcel makes a second click or tab wait instead of opening another checkout.
-  const payment = await startShipmentPayment(database, {
-    shipmentId: payable.shipmentId,
-    supplierId: payable.supplierId,
-    provider: PROVIDER,
-    amountCents: payable.amountCents,
-    platformFeeCents: platformFeeCents(payable.amountCents, feeBasisPoints),
-    platformFeeBasisPoints: feeBasisPoints,
-    now,
-    reservedUntil: new Date(now.getTime() + CHECKOUT_RESERVATION_IN_MS),
-  });
+  const payment = await reserveParcel(payable, PROVIDER);
   if (payment === null) {
     return refusedCheckout(payable.shipmentId);
   }

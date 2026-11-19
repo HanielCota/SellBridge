@@ -11,7 +11,12 @@ import {
   mercadoPagoEnvironmentFields,
   refuseMercadoPagoStandInsInProduction,
 } from "@sellbridge/payments/mercado-pago";
+import {
+  asaasEnvironmentFields,
+  refuseAsaasStandInsInProduction,
+} from "@sellbridge/payments/asaas";
 import { SUPPORT_ASSISTANT_PROVIDERS } from "@sellbridge/shared/support-assistant";
+import { cnpjLookupUrlEnvironmentSchema } from "@sellbridge/shared/cnpj-lookup";
 import { z } from "zod";
 import {
   CARRIER_TRACKING_PROVIDERS,
@@ -55,7 +60,6 @@ const serverEnvironmentShape = z.object({
     .pipe(z.array(z.url().transform((origin) => new URL(origin).origin))),
   BETTER_AUTH_SECRET: z.string().min(32, "deve ter ao menos 32 caracteres"),
   TOKEN_ENCRYPTION_KEY: tokenEncryptionKeyEnvironmentSchema,
-  PLATFORM_FEE_BASIS_POINTS: z.coerce.number().int().min(0).max(10_000).default(0),
   /**
    * Mercado Livre commission the previews estimate before an order reports the real one. Its
    * shipping comes from the official table (shared/domain/mercado-livre-shipping.ts).
@@ -87,6 +91,16 @@ const serverEnvironmentShape = z.object({
   GOOGLE_CLIENT_SECRET: z.string().min(1).optional(),
   MERCADO_LIVRE_CLIENT_ID: z.string().optional(),
   MERCADO_LIVRE_CLIENT_SECRET: z.string().optional(),
+  /**
+   * Shopee Open Platform app: the connector stays off until the partner id and key are set.
+   * SHOPEE_SANDBOX points it at the Sandbox V2 hosts, whose keys differ from the live ones.
+   */
+  SHOPEE_PARTNER_ID: z
+    .string()
+    .regex(/^\d{0,10}$/, "deve ser o número do parceiro")
+    .optional(),
+  SHOPEE_PARTNER_KEY: z.string().optional(),
+  SHOPEE_SANDBOX: booleanFlagEnvironmentSchema,
   /** TikTok Shop app (Partner Center); the connector stays off until all three are set. */
   TIKTOK_SHOP_APP_KEY: z.string().optional(),
   TIKTOK_SHOP_APP_SECRET: z.string().optional(),
@@ -99,6 +113,9 @@ const serverEnvironmentShape = z.object({
    * and resellers pay them with the split.
    */
   ...mercadoPagoEnvironmentFields,
+  ...asaasEnvironmentFields,
+  /** The public CNPJ query behind the approval of suppliers who sign up alone. */
+  CNPJ_LOOKUP_URL: cnpjLookupUrlEnvironmentSchema,
   /**
    * Lets webhook endpoints point to localhost and private networks (local development only).
    * Off in production: otherwise a customer could make the server call internal services.
@@ -166,6 +183,7 @@ export const serverEnvironmentSchema = serverEnvironmentShape.superRefine((value
   checkPlaceholderSecret(value, context);
   checkProductionBilling(value, context);
   refuseMercadoPagoStandInsInProduction(value, context);
+  refuseAsaasStandInsInProduction(value, context);
   refusePrivateWebhookUrlsInProduction(value, context);
 });
 

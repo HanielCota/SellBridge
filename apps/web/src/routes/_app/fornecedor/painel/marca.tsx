@@ -10,7 +10,7 @@ export const Route = createFileRoute("/_app/fornecedor/painel/marca")({
 });
 
 function SupplierBrandPage() {
-  const { brand, loginEmail, categoryNames } = Route.useLoaderData();
+  const { brand, account, categoryNames } = Route.useLoaderData();
   const router = useRouter();
   const navigate = useNavigate();
   return (
@@ -22,7 +22,7 @@ function SupplierBrandPage() {
       <BrandForm
         key={brand?.id ?? "new"}
         brand={brand}
-        loginEmail={loginEmail}
+        account={account}
         categoryNames={categoryNames}
         onSaved={async () => {
           await router.invalidate();

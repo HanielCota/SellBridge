@@ -1,4 +1,4 @@
-import { mercadoLivreShippingBands } from "./mercado-livre-shipping.ts";
+import { mercadoLivreShippingBands, type ShippingPriceBand } from "./mercado-livre-shipping.ts";
 import { percentOfCents, type Cents } from "./money.ts";
 
 /** Where a sale happens; each one charges its own way. */
@@ -43,6 +43,15 @@ export interface ChannelFeeContext {
   mercadoLivreCommissionBasisPoints: number;
   /** Weight the shipping is priced on, in grams. */
   weightGrams: number;
+  /**
+   * The shipping the store pays per price band, read from Mercado Livre; absent uses the
+   * published table for the weight.
+   */
+  mercadoLivreShippingBands?: readonly ShippingPriceBand[];
+}
+
+function shippingBandsOf(context: ChannelFeeContext): readonly ShippingPriceBand[] {
+  return context.mercadoLivreShippingBands ?? mercadoLivreShippingBands(context.weightGrams);
 }
 
 /**
@@ -73,7 +82,7 @@ const MERCADO_LIVRE_HALF_PRICE_SHIPPING_UNDER_CENTS = 1_900;
  * /pt_br/custos-de-envio (read 16/11/2026).
  */
 function mercadoLivreFees(priceCents: Cents, context: ChannelFeeContext): ChannelSaleFees {
-  const band = mercadoLivreShippingBands(context.weightGrams).find(
+  const band = shippingBandsOf(context).find(
     (candidate) => priceCents >= candidate.fromCents && priceCents <= candidate.toCents,
   );
   const tableShippingCents = band?.shippingCents ?? 0;
@@ -90,7 +99,7 @@ function mercadoLivreFees(priceCents: Cents, context: ChannelFeeContext): Channe
 
 function mercadoLivreSegments(context: ChannelFeeContext): FeeSegment[] {
   const commission = context.mercadoLivreCommissionBasisPoints;
-  return mercadoLivreShippingBands(context.weightGrams).flatMap((band) => {
+  return shippingBandsOf(context).flatMap((band) => {
     // Under R$ 19 and under twice the table cost, half the price is the smaller shipping.
     const halfPriceEnd = Math.min(
       band.toCents,

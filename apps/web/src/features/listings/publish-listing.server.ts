@@ -5,11 +5,12 @@ import {
   createListingWithTargets,
   type CreatedListing,
   findConnectedStores,
+  findStoresHeldByBuyerAddress,
   type NewListingInput,
 } from "@sellbridge/database/repositories";
 import { type FeeChannel, feeChannelOf } from "@sellbridge/shared/channel-fees";
 import { withDeadline } from "@sellbridge/shared/deadline";
-import { validationError } from "@sellbridge/shared/errors";
+import { conflictError, validationError } from "@sellbridge/shared/errors";
 import { logger } from "@sellbridge/shared/logger";
 import { database } from "@/lib/server/database";
 import { enqueuePublishJobs } from "@/lib/server/queues";
@@ -30,10 +31,25 @@ export async function assertConnectedStores(
   if (stores.length !== uniqueStoreIds.length) {
     throw validationError("Uma ou mais lojas escolhidas não estão conectadas");
   }
+  await assertStoresBuyElsewhere(tenantId, uniqueStoreIds);
   return {
     storeIds: uniqueStoreIds,
     channels: [...new Set(stores.map((store) => feeChannelOf(store.marketplace)))],
   };
+}
+
+/**
+ * New products wait while a store's account buys at its supplier's address: personal purchases
+ * would keep reaching the supplier. Sales and existing listings go on.
+ */
+async function assertStoresBuyElsewhere(tenantId: string, storeIds: readonly string[]) {
+  const [held] = await findStoresHeldByBuyerAddress(database, tenantId, storeIds);
+  if (held === undefined) {
+    return;
+  }
+  throw conflictError(
+    `A loja ${held.shopName} compra no endereço do fornecedor. Troque o endereço de compra no Mercado Livre e clique em "Já arrumei, conferir de novo" em Lojas para voltar a publicar.`,
+  );
 }
 
 /** Each store sells a single supplier: refuses a store that does not sell every one given. */

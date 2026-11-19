@@ -16,6 +16,8 @@ export const NOTIFICATION_EVENTS = [
   "shipment_problem",
   "invoice_authorized",
   "invoice_attention",
+  "marketplace_claim",
+  "store_buyer_address",
 ] as const;
 export type NotificationEventName = (typeof NOTIFICATION_EVENTS)[number];
 
@@ -107,6 +109,19 @@ export const NOTIFICATION_EVENT_DEFINITIONS: Record<NotificationEventName, Event
     label: "Nota fiscal com problema",
     description: "A nota fiscal de um pacote parou e só sai depois que você corrigir.",
     defaults: { in_app: true, email: true },
+  },
+  // Both sides: the reseller answers the buyer on the marketplace, the supplier may get it back.
+  marketplace_claim: {
+    audience: "reseller",
+    label: "Reclamação no marketplace",
+    description: "Um comprador abriu uma reclamação ou devolução, ou ela mudou de etapa.",
+    defaults: { in_app: true, email: true, push: true },
+  },
+  store_buyer_address: {
+    audience: "reseller",
+    label: "Endereço de compra no fornecedor",
+    description: "As compras pessoais da sua conta do marketplace estão indo para o fornecedor.",
+    defaults: { in_app: true, email: true, push: true },
   },
   // The team already sees new tickets in the "Chamados" badge; e-mail is the outside nudge.
   ticket_created: {
@@ -259,6 +274,27 @@ export function storeExpiredContent(store: StoreExpiredNotice): NotificationCont
       "Enquanto ela não for reconectada, pedidos novos e estoque não são sincronizados.",
     ],
     actionLabel: "Reconectar loja",
+    actionPath: "/lojas",
+    footnote: FOOTNOTE,
+  };
+}
+
+export interface StoreBuyerAddressNotice {
+  storeName: string;
+  supplierName: string;
+}
+
+export function storeBuyerAddressContent(notice: StoreBuyerAddressNotice): NotificationContent {
+  return {
+    subject: `${notice.storeName}: suas compras estão indo para o fornecedor`,
+    preview: "Troque o endereço de compra no Mercado Livre para voltar a publicar.",
+    heading: "Arrume o endereço de compra da loja",
+    paragraphs: [
+      `O endereço de compra da conta da loja ${notice.storeName} no Mercado Livre é o de ${notice.supplierName}. As suas compras pessoais vão chegar no fornecedor.`,
+      "No Mercado Livre, deixe a sua casa como endereço de compra. O endereço do fornecedor fica só para envio e devolução.",
+      "Até lá, a loja continua vendendo, mas não publica produtos novos.",
+    ],
+    actionLabel: "Ver como arrumar",
     actionPath: "/lojas",
     footnote: FOOTNOTE,
   };
@@ -436,6 +472,63 @@ export function invoiceAttentionContent(notice: InvoiceAttentionNotice): Notific
     ],
     actionLabel: "Ver no painel",
     actionPath: "/fornecedor/painel/pedidos?tab=problem",
+    footnote: FOOTNOTE,
+  };
+}
+
+/** When a buyer's claim is worth a notice: it opened, the marketplace took it over, or it ended. */
+export type ClaimNoticeMoment = "opened" | "mediation" | "closed";
+
+export interface ClaimNotice {
+  orderId: string;
+  externalOrderId: string;
+  moment: ClaimNoticeMoment;
+  /** The reseller answers the buyer; the supplier only follows (and may get the parcel back). */
+  recipient: "reseller" | "supplier";
+  /** The supplier's orders tab that holds the parcel, so the link lands on it. */
+  supplierTab?: string;
+}
+
+const CLAIM_HEADINGS: Record<ClaimNoticeMoment, string> = {
+  opened: "Reclamação aberta no Mercado Livre",
+  mediation: "O Mercado Livre está mediando a reclamação",
+  closed: "Reclamação encerrada",
+};
+
+function claimFacts(notice: ClaimNotice): string {
+  const order = notice.externalOrderId;
+  if (notice.moment === "opened") {
+    return `O comprador do pedido ${order} abriu uma reclamação no Mercado Livre.`;
+  }
+  if (notice.moment === "mediation") {
+    return `A reclamação do pedido ${order} passou para a mediação do Mercado Livre.`;
+  }
+  return `A reclamação do pedido ${order} foi encerrada no Mercado Livre.`;
+}
+
+function claimNextStep(notice: ClaimNotice): string {
+  if (notice.recipient === "supplier") {
+    return notice.moment === "closed"
+      ? "Veja no pedido como ela terminou."
+      : "O revendedor responde ao comprador. Veja no pedido o motivo e se há devolução.";
+  }
+  return notice.moment === "closed"
+    ? "Veja no pedido como ela terminou e se houve devolução."
+    : "Responda pelo Mercado Livre dentro do prazo para não perder a venda nem reputação.";
+}
+
+export function claimNoticeContent(notice: ClaimNotice): NotificationContent {
+  const heading = CLAIM_HEADINGS[notice.moment];
+  const forSupplier = notice.recipient === "supplier";
+  return {
+    subject: `${heading}: pedido ${notice.externalOrderId}`,
+    preview: claimNextStep(notice),
+    heading,
+    paragraphs: [claimFacts(notice), claimNextStep(notice)],
+    actionLabel: forSupplier ? "Ver no painel" : "Ver pedido",
+    actionPath: forSupplier
+      ? `/fornecedor/painel/pedidos?${new URLSearchParams({ tab: notice.supplierTab ?? "todo", query: notice.externalOrderId }).toString()}`
+      : `/pedidos/${notice.orderId}`,
     footnote: FOOTNOTE,
   };
 }

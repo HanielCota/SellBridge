@@ -1,8 +1,10 @@
 import type { FulfillmentStatus } from "@sellbridge/shared/schemas";
 import { overdueSince } from "@sellbridge/shared/shipment-delay";
 import { isOrderBlocked, isSupplierQueueStatus } from "@sellbridge/shared/supplier-panel-orders";
-import { LABEL_MARKETPLACE } from "@sellbridge/shared/supplier-order-labels";
 import { brazilDayKey, formatDeadlineDay } from "@/lib/relative-time";
+
+/** The posting date comes from Mercado Livre's shipment SLA; other channels give none yet. */
+const POSTING_DEADLINE_MARKETPLACE = "mercado_livre";
 
 export type PostingDeadlineState = "on_time" | "today" | "late";
 
@@ -28,7 +30,7 @@ export function postingDeadline(parcel: PostingDeadlineParcel, now: Date): Posti
   const date = parcel.dispatchDeadlineAt;
   if (
     date === null ||
-    parcel.marketplace !== LABEL_MARKETPLACE ||
+    parcel.marketplace !== POSTING_DEADLINE_MARKETPLACE ||
     !isSupplierQueueStatus(parcel.status) ||
     isOrderBlocked(parcel.orderStatus)
   ) {

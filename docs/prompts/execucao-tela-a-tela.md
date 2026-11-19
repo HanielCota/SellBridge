@@ -66,12 +66,10 @@ O objetivo de cada item é **fechar as lacunas listadas nele com qualidade de pr
 ## 2. Princípios (valem para todos os itens)
 
 1. **Confirme no código antes de mudar.** O relatório e este prompt citam arquivos e linhas que podem ter mudado. Para cada lacuna, ache a evidência atual (arquivo:linha). Se já estiver resolvida, registre ✅ com a evidência e não reimplemente.
-2. **Não invente regra de negócio.** Um item com ❓Dn depende de uma decisão do cliente (lista na seção 8). Nesse caso:
-   - implemente com valor configurável e adapter mock, atrás de uma flag de ambiente validada com Zod e **desligada por padrão**;
-   - registre `PENDENTE CLIENTE (Dn)` em `docs/decisions.md`;
-   - marque `// TODO(client:Dn): <o que falta decidir>` no código.
-
-   Se nem isso for possível sem a resposta, **pare e pergunte**.
+2. **Não invente regra de negócio.** Regra de negócio é decidida pelo dono do produto (Guilherme), com a Central; o que o cliente pede entra como informação, não como trava. Quando um item depende de uma regra ainda não decidida:
+   - leve as opções com uma recomendação para a Central, que pergunta ao dono;
+   - registre a decisão num arquivo novo em `docs/decisions/` (um por decisão, veja o `README.md` da pasta), com a frase dele e a data;
+   - enquanto a resposta não vem, não invente: siga com o resto do item ou pare e pergunte.
 
 3. **Teste antes de corrigir.** Todo bug ganha um teste que falha antes da correção; mostre que falhava. Regras de domínio novas vão para `packages/shared/src/domain/`, com testes unitários.
 4. **Isolamento entre tenants é inegociável.** Toda tabela de tenant tem `tenant_id` indexado e é acessada por repositório que exige `tenantId`. Toda server function usa `tenantMiddleware`, `adminMiddleware` ou `staffMiddleware(permissão)`. Toda funcionalidade nova com dados de tenant ganha um teste de isolamento.
@@ -89,7 +87,7 @@ O objetivo de cada item é **fechar as lacunas listadas nele com qualidade de pr
   - `packages/marketplaces`: Mercado Livre real, mock, Shopee e TikTok como stubs.
 - **Leitura de contexto na primeira vez de cada sessão:**
   - a seção "Contexto do projeto" de `docs/prompts/revisao-completa.md`;
-  - `docs/architecture.md`, `docs/decisions.md`, `docs/billing.md`, `docs/marketplaces/mercado-livre.md`.
+  - `docs/architecture.md`, `docs/decisions.md` (até 2026-11-18) e a pasta `docs/decisions/` (de 2026-11-19 em diante), `docs/billing.md`, `docs/marketplaces/mercado-livre.md`.
 - **Cargos da equipe:** `agent` (atendente), `supervisor`, `admin`, em `packages/shared/src/domain/staff-access.ts`. Só `admin` tem os poderes do Better Auth (banir, entrar como cliente) e acesso a Clientes e Fornecedores. Revendedor é `user`.
 - **Regras da casa** (o lint e o `check:no-else` cobram parte delas):
   - sem `else`, com early return;
@@ -345,7 +343,7 @@ Há 3 pontos de parada. Neles você **para, envia o pacote indicado e espera** `
 8. **Documentar.**
    - Atualize `docs/reviews/execucao-progresso.md`: tabela, linha de base (se a contagem de testes mudou) e uma entrada no Histórico.
    - Atualize a tabela da seção "⟳ Atualização" do relatório de lacunas com os IDs tratados (situação e evidência).
-   - Registre escolhas de projeto em `docs/decisions.md`.
+   - Registre escolhas de projeto num arquivo novo em `docs/decisions/` (um por decisão).
    - **Sai quando:** os três arquivos refletem o que foi feito.
    - **⏸3:** envie o pacote e espere.
 9. **Commitar** (só depois do OK do ⏸3 e com todos os portões verdes).
@@ -440,27 +438,27 @@ Depois do relatório, envie de 2 a 4 capturas: desktop escuro, desktop claro e c
 
 O título usa o ID da parte quando houver (`## Item 01.a · …`).
 
-## 8. Decisões pendentes do cliente
+## 8. Decisões de negócio (D1–D11)
 
-Não decida nenhuma delas: implemente configurável e mock, conforme o princípio 2.
+Desde 18/11/2026 quem decide é o dono do produto (Guilherme), com a Central, e não mais o cliente ("4 sim", chat da Central). As decisões ficam em `docs/decisions.md` (até 2026-11-18) e em `docs/decisions/` (depois); esta tabela só resume onde cada uma está.
 
-| ID  | Pergunta                                          | O código já assumiu                                   |
-| --- | ------------------------------------------------- | ----------------------------------------------------- |
-| D1  | Taxa de 4% sobre o valor do pedido?               | Nada                                                  |
-| D2  | 4% além da mensalidade?                           | Só mensalidade (Stripe)                               |
-| D3  | Gateway do split e da custódia                    | Stripe só na mensalidade                              |
-| D4  | Quando libera o dinheiro ao fornecedor            | "Entregue" libera só a avaliação                      |
-| D5  | Quem paga o frete; o envio sai do fornecedor?     | Dropshipping com etiqueta ME2 do revendedor           |
-| D6  | Fornecedor tem login?                             | Não: link com token de 30 dias                        |
-| D7  | O que é o menu "Clientes" do mockup               | Nada                                                  |
-| D8  | Layout do mockup obrigatório (menu lateral)?      | Menu no topo mantido                                  |
-| D9  | Canal de aviso: WhatsApp oficial, push ou os dois | Nenhum                                                |
-| D10 | Matriz de planos                                  | 3 planos (Gratuito, Pro, Business) contra os 5 do PDF |
-| D11 | Equipes e cargos internos                         | agent/supervisor/admin (a validar)                    |
+| ID  | Pergunta                                          | Situação em 18/11/2026                                                      |
+| --- | ------------------------------------------------- | --------------------------------------------------------------------------- |
+| D1  | Taxa de 4% sobre o valor do pedido?               | Decidida: taxa do SellBridge no admin, paga pelo fornecedor, padrão 4%      |
+| D2  | 4% além da mensalidade?                           | Aberta: hoje a mensalidade está desligada (uso sem limite)                  |
+| D3  | Gateway do split e da custódia                    | Decidida: só Asaas (Mercado Pago escondido)                                 |
+| D4  | Quando libera o dinheiro ao fornecedor            | Decidida: 7 dias depois da entrega, guardado no Asaas                       |
+| D5  | Quem paga o frete; o envio sai do fornecedor?     | Decidida: o fornecedor despacha com a etiqueta do marketplace do revendedor |
+| D6  | Fornecedor tem login?                             | Decidida: sim, painel do fornecedor; o link do pedido está sendo aposentado |
+| D7  | O que é o menu "Clientes" do mockup               | Aberta                                                                      |
+| D8  | Layout do mockup obrigatório (menu lateral)?      | Decidida e feita: menu lateral                                              |
+| D9  | Canal de aviso: WhatsApp oficial, push ou os dois | Aberta: hoje sino e e-mail                                                  |
+| D10 | Matriz de planos                                  | Aberta                                                                      |
+| D11 | Equipes e cargos internos                         | Assumida: atendente, supervisor e admin                                     |
 
 ## 9. Itens
 
-**Legenda:** ⬜ a fazer · ❓Dn depende do cliente · ⛔ não iniciar sem pedido explícito. Os itens P0 vêm primeiro e podem ser feitos em qualquer ordem entre si, exceto onde houver "Depende de". A situação atual de cada item está **no arquivo de andamento**, não aqui.
+**Legenda:** ⬜ a fazer · ❓Dn depende de uma decisão de negócio (seção 8) · ⛔ não iniciar sem pedido explícito. Os itens P0 vêm primeiro e podem ser feitos em qualquer ordem entre si, exceto onde houver "Depende de". A situação atual de cada item está **no arquivo de andamento**, não aqui.
 
 Todo item tem, além do "Pronto quando" próprio, a definição de pronto comum: portões da seção 4 aplicáveis passando, documentação atualizada (etapa 8) e commit feito (etapa 9).
 
@@ -852,14 +850,14 @@ Itens sem linha nesta tabela são executados inteiros, como uma parte só.
 - **IDs:** F8.
 - Só com credenciais de parceiro da Shopee. Sem elas, não comece.
 
-### P2/P3 — Só com decisão do cliente (⛔ não iniciar sem pedido explícito)
+### P2/P3 — Só com decisão do dono do produto (⛔ não iniciar sem pedido explícito)
 
-| Item | Assunto                                      | IDs         | Depende de                                       | Base possível quando autorizado                                                   |
-| ---- | -------------------------------------------- | ----------- | ------------------------------------------------ | --------------------------------------------------------------------------------- |
-| 34   | Pagamento ao fornecedor com split e custódia | C1–C11      | D1–D4 e item 07                                  | Interface `PaymentGateway` com mock, split em basis points, estados do repasse    |
-| 35   | Conquistas digitais e Club                   | P1–P6       | Decisão do cliente; item 31 para o tempo de casa | Selos (1ª venda, 100 pedidos, R$ 50 mil, R$ 100 mil) por job; brindes só no admin |
-| 36   | IA assistente                                | O1–O4       | Decisão do cliente                               | Começar por "melhorar título e descrição" e "explicar o Financeiro"               |
-| 37   | Fiscal e contabilidade                       | FIS-1–FIS-6 | Decisão contábil                                 | —                                                                                 |
+| Item | Assunto                                      | IDs         | Depende de                                    | Base possível quando autorizado                                                   |
+| ---- | -------------------------------------------- | ----------- | --------------------------------------------- | --------------------------------------------------------------------------------- |
+| 34   | Pagamento ao fornecedor com split e custódia | C1–C11      | D1–D4 e item 07                               | Interface `PaymentGateway` com mock, split em basis points, estados do repasse    |
+| 35   | Conquistas digitais e Club                   | P1–P6       | Decisão do dono; item 31 para o tempo de casa | Selos (1ª venda, 100 pedidos, R$ 50 mil, R$ 100 mil) por job; brindes só no admin |
+| 36   | IA assistente                                | O1–O4       | Decisão do dono                               | Começar por "melhorar título e descrição" e "explicar o Financeiro"               |
+| 37   | Fiscal e contabilidade                       | FIS-1–FIS-6 | Decisão contábil                              | —                                                                                 |
 
 ### Fora do escopo (nunca implementar)
 

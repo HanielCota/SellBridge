@@ -10,10 +10,12 @@ import { TONE_DOT_CLASSES } from "@/components/data/tone-status";
 import { OrderBreakdown } from "@/components/financials/order-parts";
 import { SupplierCreditLines } from "@/components/financials/supplier-credit";
 import { OrderOperations } from "@/components/fulfillment/order-dialog";
+import { OrderClaims } from "@/components/marketplace-claims/order-claims";
 import { ReviewAction } from "@/components/orders/review-action";
 import { ReviewDialog, type ReviewTarget } from "@/components/orders/review-dialog";
 import { ORDER_TONES, OrderStatusBadge } from "@/components/reports/order-status-badge";
 import { Button } from "@/components/ui/button";
+import { LISTING_LINK_WAITING_MESSAGE, listingLink } from "@/features/listings/listing-link";
 import { displayBuyerName } from "@/features/orders/buyer-name";
 import type { getOrderPageFn } from "@/features/orders/orders.functions";
 import { TalkToSupportButton } from "@/components/support/talk-to-support-button";
@@ -21,6 +23,7 @@ import { TalkToSupplierButton } from "@/components/supplier-support/talk-to-supp
 import { supportTicketSearch } from "@/features/support/talk-to-support";
 
 type OrderPageData = Awaited<ReturnType<typeof getOrderPageFn>>;
+type OrderItem = OrderPageData["order"]["items"][number];
 
 /** A titled block of the page; the title names it for screen readers too. */
 function PageSection({
@@ -86,18 +89,54 @@ function OrderHeader({ page }: { page: OrderPageData }) {
 
 /** What was sold: each line with its price and what the supplier charges for it. */
 /** What the supplier charges for one unit, or that it is not known (a listing not ours). */
-function unitCostText(item: OrderPageData["order"]["items"][number], costPending: boolean): string {
+function unitCostText(item: OrderItem, costPending: boolean): string {
   if (item.productId !== null) {
     return `custo ${formatCents(item.unitCostCents)} cada`;
   }
   return costPending ? "custo pendente" : "sem custo do catálogo";
 }
 
+/** The ad the item sold from, on Mercado Livre; a line saying why when its link has not come. */
+function ItemListingLink({
+  item,
+  marketplace,
+}: {
+  item: OrderItem;
+  marketplace: OrderPageData["order"]["marketplace"];
+}) {
+  const link = listingLink({
+    marketplace,
+    status: item.listingStatus,
+    externalUrl: item.listingUrl,
+  });
+  if (link.kind === "none") {
+    return null;
+  }
+  if (link.kind === "waiting") {
+    return <p className="mt-1 text-xs text-muted-foreground">{LISTING_LINK_WAITING_MESSAGE}.</p>;
+  }
+  return (
+    <Button asChild variant="outline" size="sm" className="mt-2">
+      <a
+        href={link.url}
+        target="_blank"
+        rel="noopener noreferrer"
+        aria-label={`Ver anúncio de ${item.title} no Mercado Livre (abre em outra aba)`}
+      >
+        Ver anúncio
+        <ArrowSquareOutIcon data-icon="inline-end" aria-hidden="true" />
+      </a>
+    </Button>
+  );
+}
+
 function OrderItems({
   items,
+  marketplace,
   costPending,
 }: {
   items: OrderPageData["order"]["items"];
+  marketplace: OrderPageData["order"]["marketplace"];
   costPending: boolean;
 }) {
   return (
@@ -114,6 +153,7 @@ function OrderItems({
                 {item.quantity} × {formatCents(item.unitPriceCents)} ·{" "}
                 {unitCostText(item, costPending)}
               </p>
+              <ItemListingLink item={item} marketplace={marketplace} />
             </div>
             <p className="font-medium tabular-nums">
               {formatCents(item.quantity * item.unitPriceCents)}
@@ -246,11 +286,16 @@ export function OrderPageView({ page }: { page: OrderPageData }) {
     <div className="mx-auto w-full max-w-6xl space-y-6">
       <BackToOrders />
       <OrderHeader page={page} />
+      <OrderClaims orderId={page.order.id} marketplaceUrl={page.marketplaceUrl} />
       {/* The summary comes first in the page, so a phone shows it right under the heading. */}
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-[minmax(0,1fr)_20rem] lg:items-start">
         <OrderAside page={page} />
         <div className="min-w-0 space-y-6 lg:col-start-1 lg:row-start-1">
-          <OrderItems items={page.order.items} costPending={page.finance.costPending} />
+          <OrderItems
+            items={page.order.items}
+            marketplace={page.order.marketplace}
+            costPending={page.finance.costPending}
+          />
           <PageSection id="order-shipping" title="Envio">
             <OrderOperations orderId={page.order.id} />
           </PageSection>

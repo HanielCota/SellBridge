@@ -57,6 +57,11 @@ const product = {
   mercadoLivreAttributes: {},
   mercadoLivreCategoryId: null,
   mercadoLivreCategoryName: null,
+  warrantyType: null,
+  warrantyDays: null,
+  videoUrl: null,
+  madeToOrderDays: null,
+  carrierOnly: false,
   active: true,
 };
 /** Review columns of a stored product (supplier panel, migration 0039). */
@@ -81,6 +86,7 @@ const savedSupplier = {
   acceptWithinHours: 24,
   dispatchWithinHours: 48,
   active: true,
+  approvalStatus: "approved" as const,
   salesClosedAt: null,
   organizationId: null,
   catalogKind: "supplier" as const,

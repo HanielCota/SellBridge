@@ -1,4 +1,9 @@
-import { DEFAULT_FEE_SCHEDULE, minimumPriceCents } from "@sellbridge/shared/fee-model";
+import {
+  DEFAULT_FEE_SCHEDULE,
+  type MercadoLivreStoreRates,
+  minimumPriceCents,
+} from "@sellbridge/shared/fee-model";
+import { shippingBandsFromQuotes } from "@sellbridge/shared/mercado-livre-shipping";
 import { eq, sql } from "drizzle-orm";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import {
@@ -10,6 +15,7 @@ import {
 } from "../schema/index.ts";
 import { createTestDatabase, createTestTenants } from "../testing/fixtures.ts";
 import {
+  findListingPricingScope,
   resetListingErrorsForRetry,
   setListingsPaused,
   updateListingPrice,
@@ -20,8 +26,8 @@ import { createListingWithTargets, markTargetFailed } from "./listings.ts";
 import { upsertStoreConnection } from "./stores.ts";
 
 const database = createTestDatabase();
-/** 14% marketplace and 4% SellBridge, no minimum margin: a price must at least break even. */
-const feeSchedule = { ...DEFAULT_FEE_SCHEDULE, platformFeeBasisPoints: 400 };
+/** 14% marketplace, no minimum margin: a price must at least break even. */
+const feeSchedule = DEFAULT_FEE_SCHEDULE;
 const page = { page: 1, pageSize: 20 };
 let tenants: Awaited<ReturnType<typeof createTestTenants>>;
 let tenantA = "";
@@ -306,5 +312,46 @@ describe("pause, resume and price", () => {
     expect(heavyMinimum).toBeGreaterThan(minimumPriceCents({ costCents }, feeSchedule) ?? 0);
     expect(after?.weightGrams).toBe(5_000);
     expect(after?.priceCents).toBe(heavyMinimum);
+  });
+});
+
+describe("pricing with the store's own Mercado Livre rates", () => {
+  /** A store that pays R$ 20,00 of shipping in every band: far above the published table. */
+  const costlyStore: MercadoLivreStoreRates = {
+    commissionBasisPoints: 1_400,
+    shippingBands: shippingBandsFromQuotes([
+      2_000, 2_000, 2_000, 2_000, 2_000, 2_000, 2_000, 2_000,
+    ]),
+  };
+
+  it("finds the listing's product and its stores, only for its tenant", async () => {
+    const scope = await findListingPricingScope(database, tenantA, listingId);
+    const [row] = (await listListingOverview(database, tenantA, {}, page)).items;
+
+    expect(scope?.productId).toBe(row?.productId);
+    expect(scope?.storeIds.toSorted()).toEqual(storeIds.toSorted());
+    expect(await findListingPricingScope(database, tenantB, listingId)).toBeNull();
+  });
+
+  it("refuses a price the table accepts when the store pays more", async () => {
+    const [before] = (await listListingOverview(database, tenantA, {}, page)).items;
+    const costCents = before?.costCents ?? 0;
+    const tableMinimum = minimumPriceCents({ costCents }, feeSchedule) ?? 0;
+    const storeMinimum =
+      minimumPriceCents({ costCents, mercadoLivreRates: costlyStore }, feeSchedule) ?? 0;
+
+    const refused = updateListingPrice(database, tenantA, {
+      ...change(tableMinimum),
+      mercadoLivreRates: costlyStore,
+    });
+    await expect(refused).rejects.toMatchObject({ code: "CONFLICT" });
+    await updateListingPrice(database, tenantA, {
+      ...change(storeMinimum),
+      mercadoLivreRates: costlyStore,
+    });
+    const [after] = (await listListingOverview(database, tenantA, {}, page)).items;
+
+    expect(storeMinimum).toBeGreaterThan(tableMinimum);
+    expect(after?.priceCents).toBe(storeMinimum);
   });
 });

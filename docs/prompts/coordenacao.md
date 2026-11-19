@@ -84,7 +84,7 @@ Vale por cima da divisão por número de item dos prompts `chat-paralelo-*.md`. 
 | **D**                             | `SellBridge-d` · `feat/client-phase-1-d` · `sellbridge_desk_d` | Conta, planos e painel: `components/billing/*`, `features/billing/*`, `routes/_app/assinatura*`, `repositories/billing*`, `webhook.server` do Stripe, `components/onboarding/*`, `routes/_app/onboarding*`, `routes/_auth/*` (telas de cadastro e login; a configuração do Better Auth é do B), `routes/_app/dashboard*`, `reports/dashboard-hero*`, `kpi-tiles*`, `attention-panel*` | 16, 31, 26, 29                                                                            |
 | **E**                             | `SellBridge-e` · `feat/client-phase-1-e` · `sellbridge_desk_e` | Admin da plataforma, suporte e avisos: `routes/_app/admin/*` (menos fornecedores), `components/admin/*`, `components/support/*`, `features/support/*`, `routes/_app/suporte/*`, `components/layout/notification-bell*`, `features/notifications/*`, `repositories/notifications*`, `support*`, `customer*`, infraestrutura do worker (`apps/worker/src/index.ts`, health, storage)    | 28 (inclui a auditoria do catálogo pendente do 08.b), 27, 25, 32                          |
 
-Itens 33–37 continuam bloqueados (decisão do cliente). Ordem sugerida dentro de cada chat: a da coluna "Itens que faltam".
+Itens 33–37 continuam bloqueados até o dono do produto (Guilherme) pedir; desde 18/11/2026 as regras de negócio são decididas por ele com a Central, não pelo cliente. Ordem sugerida dentro de cada chat: a da coluna "Itens que faltam".
 
 ### Correções de design e UX da auditoria
 
@@ -101,7 +101,7 @@ Lista completa em [2026-10-13-auditoria-ia-design-ux.md](../reviews/2026-10-13-a
 
 1. **Arquivo de outra área:** se um item precisar mudar um arquivo de outro dono, faça a menor mudança possível e anote em "Achados fora do escopo", ou peça ao dono (por mensagem entre sessões, `SendMessage`).
 2. **Juntar cedo.** Ao fechar cada item (depois do commit), cada chat faz `git merge feat/client-phase-1` na própria branch e resolve os conflitos na hora, ficando com a versão do dono da área. O principal junta as outras branches sempre que receber aviso de um item fechado.
-3. **Arquivos compartilhados só recebem acréscimo:** `docs/decisions.md`, o relatório de lacunas, `styles.css`, `package.json`, `schema/index.ts`. Acrescente no fim ou mude só a linha do seu ID; não reescreva seções nem realinhe tabelas inteiras.
+3. **Arquivos compartilhados só recebem acréscimo:** o relatório de lacunas, `styles.css`, `package.json`, `schema/index.ts`. Acrescente no fim ou mude só a linha do seu ID; não reescreva seções nem realinhe tabelas inteiras. Decisões não entram mais em arquivo compartilhado: cada uma ganha um arquivo próprio em `docs/decisions/` (desde 2026-11-19).
 4. **Andamento próprio:** cada chat registra no seu arquivo (`execucao-progresso.md`, `-b.md`, `-c.md`, `-d.md`, `-e.md`) e não edita o dos outros.
 5. **Recursos isolados** (seção 4). Nunca rode testes contra o banco de outro chat, e nunca contra `sellbridge`.
 6. **Commits na própria branch**; push só do principal, da `feat/client-phase-1` para o PR aberto. Nunca na `main` (seção 0).

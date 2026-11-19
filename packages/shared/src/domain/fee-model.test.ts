@@ -9,18 +9,20 @@ import {
   type FeeSchedule,
   assertBatchKeepsMargin,
   batchPriceProblem,
+  costliestMercadoLivreRates,
+  type MercadoLivreStoreRates,
   minimumPriceCents,
   onChannel,
   priceFloorProblemOnChannels,
   priceForMargin,
 } from "./fee-model.ts";
 import { computeOrderFinance } from "./finance.ts";
+import { shippingBandsFromQuotes } from "./mercado-livre-shipping.ts";
 
 const schedule: FeeSchedule = {
   ...DEFAULT_FEE_SCHEDULE,
   marketplaceFeeBasisPoints: 1200,
   categoryFeeBasisPoints: { calcados: 1600 },
-  platformFeeBasisPoints: 400,
 };
 
 /** The client's product: R$ 21,00 of cost, light enough for the first weight band. */
@@ -69,25 +71,22 @@ describe("estimateSaleFees", () => {
 });
 
 describe("estimateSale", () => {
-  it("is the financial report's own formula, platform fee included", () => {
+  it("is the financial report's own formula, with no SellBridge fee", () => {
     const input = { priceCents: 10_000, costCents: 5_000 };
     const marketplaceFeeCents = estimatedMarketplaceFeeCents(input, schedule);
 
     const estimate = estimateSale(input, schedule);
-    const report = computeOrderFinance(
-      {
-        status: "paid",
-        totalCents: 10_000,
-        marketplaceFeeCents,
-        items: [{ quantity: 1, knownUnitCostCents: 5_000 }],
-        adjustments: [],
-      },
-      400,
-    );
+    const report = computeOrderFinance({
+      status: "paid",
+      totalCents: 10_000,
+      marketplaceFeeCents,
+      items: [{ quantity: 1, knownUnitCostCents: 5_000 }],
+      adjustments: [],
+    });
 
     expect(estimate).toEqual(report);
-    // 100,00 − 50,00 cost − 12,00 commission − 16,15 shipping (0,5 kg) − 4,00 SellBridge.
-    expect(estimate.profitCents).toBe(10_000 - 5_000 - 1_200 - 1_615 - 400);
+    // 100,00 − 50,00 cost − 12,00 commission − 16,15 shipping (0,5 kg).
+    expect(estimate.profitCents).toBe(10_000 - 5_000 - 1_200 - 1_615);
   });
 });
 
@@ -173,7 +172,7 @@ describe("priceForMargin", () => {
 
   it("stays the smallest price when the fees leave almost nothing", () => {
     // 6% kept: one cent of rounded fee moves the answer by many cents of price.
-    const heavy = { ...schedule, marketplaceFeeBasisPoints: 9_000, platformFeeBasisPoints: 0 };
+    const heavy = { ...schedule, marketplaceFeeBasisPoints: 9_000 };
     for (const costCents of [7, 333, 4_990]) {
       expect(priceForMargin({ costCents }, 4, heavy)).toBe(
         smallestKeepingPrice({ costCents, marginPercent: 4, feeSchedule: heavy }),
@@ -182,8 +181,8 @@ describe("priceForMargin", () => {
   });
 
   it("is null exactly when the fees and the margin take the whole price", () => {
-    expect(priceForMargin({ costCents: 1_000 }, 84, schedule)).toBeNull();
-    expect(priceForMargin({ costCents: 1_000 }, 83.99, schedule)).not.toBeNull();
+    expect(priceForMargin({ costCents: 1_000 }, 88, schedule)).toBeNull();
+    expect(priceForMargin({ costCents: 1_000 }, 87.99, schedule)).not.toBeNull();
   });
 
   it("is null when the price would pass what a price can be", () => {
@@ -224,14 +223,14 @@ describe("minimumPriceCents", () => {
   });
 
   it("still covers the shipping when no commission is charged", () => {
-    const free = { ...schedule, marketplaceFeeBasisPoints: 0, platformFeeBasisPoints: 0 };
+    const free = { ...schedule, marketplaceFeeBasisPoints: 0 };
 
     // R$ 50,00 of cost plus R$ 8,25 of shipping (0,5 kg, R$ 49 to R$ 78,99).
     expect(minimumPriceCents({ costCents: 5_000 }, free)).toBe(5_825);
   });
 
   it("is null when the fees take the whole price", () => {
-    const greedy = { ...schedule, marketplaceFeeBasisPoints: 9_600 };
+    const greedy = { ...schedule, marketplaceFeeBasisPoints: 10_000 };
     expect(minimumPriceCents({ costCents: 5_000 }, greedy)).toBeNull();
   });
 });
@@ -272,16 +271,86 @@ describe("assertPriceKeepsMargin", () => {
   });
 
   it("says when the minimum margin, not the fees alone, leaves no possible price", () => {
-    const strict = { ...schedule, minimumMarginPercent: 84 };
+    const strict = { ...schedule, minimumMarginPercent: 88 };
     expect(() => assertPriceKeepsMargin(999_999, { costCents: 5_000 }, strict)).toThrow(
-      "As taxas do Mercado Livre e a margem mínima de 84% não deixam um preço possível para este produto",
+      "As taxas do Mercado Livre e a margem mínima de 88% não deixam um preço possível para este produto",
     );
   });
 
   it("refuses every price when the fees leave nothing", () => {
-    const greedy = { ...schedule, marketplaceFeeBasisPoints: 9_600 };
+    const greedy = { ...schedule, marketplaceFeeBasisPoints: 10_000 };
     expect(() => assertPriceKeepsMargin(999_999, { costCents: 5_000 }, greedy)).toThrow(
       "As taxas do Mercado Livre não deixam lucro para este produto",
+    );
+  });
+});
+
+describe("assertPriceKeepsMargin above the minimum price", () => {
+  /** R$ 40,00 of cost and 30 kg: Mercado Livre's shipping jumps from R$ 12,45 to R$ 66,45 at R$ 79,00. */
+  const heavyProduct = { costCents: 4_000, weightGrams: 30_000 };
+  const heavyProfitAt = (priceCents: number) =>
+    estimateSale({ ...heavyProduct, priceCents }, DEFAULT_FEE_SCHEDULE).profitCents;
+
+  it("refuses a price whose shipping band loses money and names the nearest prices that pay", () => {
+    expect(minimumPriceCents(heavyProduct, DEFAULT_FEE_SCHEDULE)).toBe(6_099);
+
+    expect(() => assertPriceKeepsMargin(9_000, heavyProduct, DEFAULT_FEE_SCHEDULE)).toThrow(
+      /^Com as taxas do Mercado Livre, R\$\s90,00 dá prejuízo, porque o frete muda conforme a faixa de preço\. O preço mais perto sem prejuízo é R\$\s78,99 \(abaixo\) ou R\$\s146,80 \(acima\)$/,
+    );
+  });
+
+  it("accepts the top of the band below the shipping jump", () => {
+    expect(() => assertPriceKeepsMargin(7_899, heavyProduct, DEFAULT_FEE_SCHEDULE)).not.toThrow();
+  });
+
+  it("names prices that pay on both sides, with every price between them losing money", () => {
+    expect(() => assertPriceKeepsMargin(15_500, heavyProduct, DEFAULT_FEE_SCHEDULE)).toThrow(
+      /R\$\s149,99 \(abaixo\) ou R\$\s159,48 \(acima\)$/,
+    );
+    expect(heavyProfitAt(14_999)).toBeGreaterThanOrEqual(0);
+    expect(heavyProfitAt(15_948)).toBeGreaterThanOrEqual(0);
+    for (let priceCents = 15_000; priceCents < 15_948; priceCents += 1) {
+      expect(heavyProfitAt(priceCents)).toBeLessThan(0);
+    }
+  });
+
+  it("refuses a price above the minimum that does not keep the configured margin", () => {
+    const strict = { ...DEFAULT_FEE_SCHEDULE, minimumMarginPercent: 10 };
+    const minimum = minimumPriceCents(heavyProduct, strict) ?? 0;
+
+    expect(minimum).toBeLessThan(7_900);
+    expect(() => assertPriceKeepsMargin(9_000, heavyProduct, strict)).toThrow(
+      /^Com as taxas do Mercado Livre, R\$\s90,00 não mantém 10% de margem, porque o frete muda conforme a faixa de preço\. O preço mais perto para manter 10% de margem é R\$\s78,99 \(abaixo\) ou R\$\s[\d.,]+ \(acima\)$/,
+    );
+  });
+
+  it("names only the price below when no price above pays", () => {
+    // The store's last band (R$ 200,00 and up) costs more shipping than any listing may charge.
+    const store: MercadoLivreStoreRates = {
+      commissionBasisPoints: 1_400,
+      shippingBands: shippingBandsFromQuotes([565, 685, 815, 1_295, 1_495, 1_695, 1_905, 2e8]),
+    };
+    const product = { costCents: 4_000, weightGrams: 300, mercadoLivreRates: store };
+
+    expect(() => assertPriceKeepsMargin(25_000, product, DEFAULT_FEE_SCHEDULE)).toThrow(
+      /^Com as taxas do Mercado Livre, R\$\s250,00 dá prejuízo, porque o frete muda conforme a faixa de preço\. O preço mais perto sem prejuízo é R\$\s199,99$/,
+    );
+  });
+
+  it("says the fee, not the shipping, changes by price band on Shopee", () => {
+    // Shopee's fixed fee jumps from R$ 4,50 to R$ 16,00 at R$ 80,00.
+    const shopee = onChannel(DEFAULT_FEE_SCHEDULE, "shopee");
+
+    expect(() => assertPriceKeepsMargin(8_000, { costCents: 5_600 }, shopee)).toThrow(
+      /^Com as taxas da Shopee, R\$\s80,00 dá prejuízo, porque a taxa muda conforme a faixa de preço\. O preço mais perto sem prejuízo é R\$\s79,99 \(abaixo\) ou R\$\s[\d.,]+ \(acima\)$/,
+    );
+  });
+
+  it("refuses the same loss band in a bulk publication", () => {
+    const batch = [{ title: "Halteres", priceCents: 9_000, ...heavyProduct }];
+
+    expect(batchPriceProblem(batch, DEFAULT_FEE_SCHEDULE)).toMatch(
+      /^"Halteres": Com as taxas do Mercado Livre, R\$\s90,00 dá prejuízo/,
     );
   });
 });
@@ -331,5 +400,101 @@ describe("batchPriceProblem", () => {
     expect(() => assertBatchKeepsMargin(batch, schedule)).toThrow(
       expect.objectContaining({ code: "CONFLICT" }),
     );
+  });
+});
+
+describe("with the store's own Mercado Livre rates", () => {
+  /** A store whose reputation pays R$ 10,00 between R$ 19 and R$ 48,99, not the green R$ 6,85. */
+  const yellowStore: MercadoLivreStoreRates = {
+    commissionBasisPoints: 1_200,
+    shippingBands: shippingBandsFromQuotes([600, 1_000, 1_100, 1_500, 1_700, 1_900, 2_100, 2_400]),
+  };
+
+  it("charges the store's commission and shipping instead of the estimate", () => {
+    const fees = estimateSaleFees(
+      { ...clientProduct, priceCents: 3_390, mercadoLivreRates: yellowStore },
+      clientSchedule,
+    );
+
+    expect(fees).toEqual({ commissionCents: 407, fixedFeeCents: 0, shippingCents: 1_000 });
+  });
+
+  it("turns the client's R$ 33,90 into a loss when the store pays more shipping", () => {
+    const sale = estimateSale(
+      { ...clientProduct, priceCents: 3_390, mercadoLivreRates: yellowStore },
+      clientSchedule,
+    );
+
+    expect(sale.profitCents).toBe(-117);
+  });
+
+  it("moves the break-even price with the store's numbers", () => {
+    const minimum = minimumPriceCents(
+      { ...clientProduct, mercadoLivreRates: yellowStore },
+      clientSchedule,
+    );
+
+    expect(minimum).toBe(3_523);
+  });
+
+  it("keeps the half-price cap on the cheapest items", () => {
+    const fees = estimateSaleFees(
+      { ...clientProduct, priceCents: 1_000, mercadoLivreRates: yellowStore },
+      clientSchedule,
+    );
+
+    expect(fees.shippingCents).toBe(500);
+  });
+
+  it("leaves TikTok Shop on its own published rates", () => {
+    const withRates = estimateSale(
+      { ...clientProduct, priceCents: 3_390, mercadoLivreRates: yellowStore },
+      onChannel(clientSchedule, "tiktok_shop"),
+    );
+    const without = estimateSale(
+      { ...clientProduct, priceCents: 3_390 },
+      onChannel(clientSchedule, "tiktok_shop"),
+    );
+
+    expect(withRates.profitCents).toBe(without.profitCents);
+  });
+});
+
+describe("costliestMercadoLivreRates", () => {
+  const green: MercadoLivreStoreRates = {
+    commissionBasisPoints: 1_400,
+    shippingBands: shippingBandsFromQuotes([565, 685, 815, 1_295, 1_495, 1_695, 1_905, 2_165]),
+  };
+  const yellow: MercadoLivreStoreRates = {
+    commissionBasisPoints: 1_200,
+    shippingBands: shippingBandsFromQuotes([600, 1_000, 700, 1_500, 1_700, 1_900, 2_100, 2_400]),
+  };
+
+  it("takes the highest commission and, band by band, the highest shipping", () => {
+    const costliest = costliestMercadoLivreRates([green, yellow]);
+
+    expect(costliest?.commissionBasisPoints).toBe(1_400);
+    expect(costliest?.shippingBands.map((band) => band.shippingCents)).toEqual([
+      600, 1_000, 815, 1_500, 1_700, 1_900, 2_100, 2_400,
+    ]);
+  });
+
+  it("is the store's own rates for a single store", () => {
+    expect(costliestMercadoLivreRates([yellow])).toEqual(yellow);
+  });
+
+  it("is null without stores", () => {
+    expect(costliestMercadoLivreRates([])).toBeNull();
+  });
+
+  it("refuses bands that do not line up", () => {
+    const shifted = {
+      ...yellow,
+      shippingBands: yellow.shippingBands.map((band, index) =>
+        index === 2 ? { ...band, fromCents: band.fromCents + 1 } : band,
+      ),
+    };
+
+    expect(() => costliestMercadoLivreRates([green, shifted])).toThrow("Shipping bands differ");
   });
 });

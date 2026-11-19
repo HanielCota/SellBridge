@@ -4,11 +4,11 @@ import { isTikTokShopConfigured, type TikTokShopConfig, type TikTokShopContext }
 import { publishProduct, updateDescription, updateStockPrice } from "./listings.ts";
 import { authorizationUrl, exchangeCode, refreshTokens } from "./oauth.ts";
 import { fetchOrder, listOrders } from "./orders.ts";
-import { getTikTokShopLabel, type TikTokShopLabel } from "./shipping.ts";
+import { getTikTokShopLabelFile, type TikTokShopLabelFile } from "./label-file.ts";
 import { parseStoredOrderEvent, verifyWebhook } from "./webhook.ts";
 
 export type { TikTokShopConfig } from "./client.ts";
-export type { TikTokShopLabel } from "./shipping.ts";
+export type { TikTokShopLabelFile } from "./label-file.ts";
 
 function createContext(config: TikTokShopConfig): TikTokShopContext {
   return {
@@ -45,11 +45,17 @@ export function createTikTokShopConnector(config: TikTokShopConfig): Marketplace
   };
 }
 
-/** The shipping label of a TikTok Shop order, for the fulfillment screens. */
+/**
+ * The shipping label PDF of a TikTok Shop order, for the fulfillment screens.
+ *
+ * @param orderId - TikTok's order id (the order's external id).
+ * @throws {AppError} `EXTERNAL_PROVIDER` when TikTok refuses or the file cannot be downloaded; a
+ *   label not released yet carries `LABEL_NOT_READY_CAUSE`.
+ */
 export async function getTikTokShopShippingLabel(
   config: TikTokShopConfig,
   store: StoreCredentials,
   orderId: string,
-): Promise<TikTokShopLabel> {
-  return getTikTokShopLabel(createContext(config), store, orderId);
+): Promise<TikTokShopLabelFile> {
+  return getTikTokShopLabelFile(createContext(config), store, orderId);
 }

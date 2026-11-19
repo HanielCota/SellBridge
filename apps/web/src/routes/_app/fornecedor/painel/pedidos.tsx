@@ -2,6 +2,7 @@ import { supplierOrdersUrlSearchSchema } from "@sellbridge/shared/supplier-panel
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { PageHeader } from "@/components/layout/page-header";
 import { SupplierOrdersInbox } from "@/components/supplier-panel/orders/supplier-orders-inbox";
+import { TestOrderCard } from "@/components/supplier-panel/orders/test-order-card";
 import { SupplierDownloadMenu } from "@/components/supplier-panel/report/supplier-download-menu";
 import { Button } from "@/components/ui/button";
 import { SUPPLIER_PANEL_BASE_PATH } from "@/features/supplier-panel/home/attention-links";
@@ -33,6 +34,7 @@ function SupplierOrdersPage() {
           </>
         }
       />
+      <TestOrderCard supplierId={supplierId} />
       <SupplierOrdersInbox
         supplierId={supplierId}
         search={search}

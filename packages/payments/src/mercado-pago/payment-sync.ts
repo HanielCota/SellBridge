@@ -204,7 +204,32 @@ async function parcelPaymentOf(
   if (local === null || local.supplierId !== input.account.supplierId) {
     return { reason: "unknown_payment" };
   }
+  if (local.provider !== "mercado_pago") {
+    reportPaymentOnSwitchedParcel(local, remote);
+    return { reason: "other_provider" };
+  }
   return { local };
+}
+
+/**
+ * A payment through an old Mercado Pago checkout of a parcel now charged on Asaas: recording it
+ * would mix the two, and no job would ever give it back, so a paid one goes to the team.
+ */
+function reportPaymentOnSwitchedParcel(local: ShipmentPayment, remote: MercadoPagoPayment): void {
+  if (shipmentPaymentStatusFrom(remote.status) !== "approved") {
+    logger.warn("mercado_pago.payment_on_other_provider", {
+      shipmentPaymentId: local.id,
+      provider: local.provider,
+    });
+    return;
+  }
+  logger.error("mercado_pago.payment_on_other_provider", {
+    reason: `Um pagamento de ${formatCents(remote.amountCents)} entrou pelo Mercado Pago numa parcela que agora é cobrada pelo Asaas. Devolva ao revendedor no Mercado Pago ou acerte com o fornecedor.`,
+    problemKey: remote.id,
+    shipmentPaymentId: local.id,
+    shipmentId: local.shipmentId,
+    supplierId: local.supplierId,
+  });
 }
 
 function logSynced(outcome: { kind: string; payment: ShipmentPayment }, providerPaymentId: string) {

@@ -2,14 +2,18 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 const mocks = vi.hoisted(() => ({
   findPayable: vi.fn<(...input: unknown[]) => Promise<unknown>>(),
-  findAccount: vi.fn<(...input: unknown[]) => Promise<unknown>>(),
+  findAccount: vi.fn<(database: unknown, query: { provider: string }) => Promise<unknown>>(),
   getFee: vi.fn<(...input: unknown[]) => Promise<unknown>>(),
   start: vi.fn<(...input: unknown[]) => Promise<unknown>>(),
   findPayment: vi.fn<(...input: unknown[]) => Promise<unknown>>(),
   save: vi.fn<(...input: unknown[]) => Promise<void>>(),
   release: vi.fn<(...input: unknown[]) => Promise<void>>(),
+  reopen: vi.fn<(...input: unknown[]) => Promise<void>>(),
   reconcile: vi.fn<(...input: unknown[]) => Promise<unknown>>(),
   createCheckout: vi.fn<(...input: unknown[]) => Promise<unknown>>(),
+  findChoice: vi.fn<(...input: unknown[]) => Promise<unknown>>(),
+  leaveAsaasCharges: vi.fn<(...input: unknown[]) => Promise<void>>(),
+  openAsaasCheckout: vi.fn<(...input: unknown[]) => Promise<unknown>>(),
 }));
 vi.mock("@sellbridge/database/repositories", () => ({
   findPayableShipment: mocks.findPayable,
@@ -19,15 +23,33 @@ vi.mock("@sellbridge/database/repositories", () => ({
   findShipmentPayment: mocks.findPayment,
   savePaymentPreference: mocks.save,
   releaseShipmentPaymentReservation: mocks.release,
-  openCheckoutUrl: (payment: { checkoutUrl: string | null; checkoutExpiresAt: Date | null }) =>
-    payment.checkoutExpiresAt !== null && payment.checkoutExpiresAt > new Date()
+  reopenShipmentCheckout: mocks.reopen,
+  findSupplierPaymentChoice: mocks.findChoice,
+  getNewSupplierRule: async () => ({ enabled: false, deliveries: 5 }),
+  countConfirmedDeliveries: async () => 0,
+  openCheckoutUrl: (
+    payment: { checkoutUrl: string | null; checkoutExpiresAt: Date | null } | null,
+  ) =>
+    payment !== null && payment.checkoutExpiresAt !== null && payment.checkoutExpiresAt > new Date()
       ? payment.checkoutUrl
       : null,
 }));
-vi.mock("@sellbridge/payments/mercado-pago", async (importOriginal) => ({
-  ...(await importOriginal<typeof import("@sellbridge/payments/mercado-pago")>()),
-  reconcileShipmentPayment: mocks.reconcile,
-  createMercadoPagoCheckout: mocks.createCheckout,
+vi.mock("@sellbridge/payments/mercado-pago", async (importOriginal) => {
+  const original = await importOriginal<typeof import("@sellbridge/payments/mercado-pago")>();
+  return {
+    ...original,
+    // The hidden Mercado Pago code is tested switched on; the app keeps it off.
+    mercadoPagoSettingsFrom: (
+      environment: Parameters<typeof original.mercadoPagoSettingsFrom>[0],
+    ) => original.mercadoPagoSettingsFrom(environment, true),
+    reconcileShipmentPayment: mocks.reconcile,
+    createMercadoPagoCheckout: mocks.createCheckout,
+  };
+});
+vi.mock("./asaas-checkout.server", () => ({
+  leaveAsaasCharges: mocks.leaveAsaasCharges,
+  openAsaasCheckout: mocks.openAsaasCheckout,
+  refreshAsaasParcel: vi.fn<(...input: unknown[]) => Promise<void>>(),
 }));
 vi.mock("@/lib/server/database", () => ({ database: {} }));
 vi.mock("@/lib/server/marketplaces", () => ({
@@ -42,6 +64,10 @@ vi.mock("@/lib/server/environment", () => ({
     MERCADO_PAGO_TEST_MODE: false,
     MERCADO_PAGO_API_URL: "https://api.mercadopago.test",
     MERCADO_PAGO_AUTH_URL: "https://auth.mercadopago.test",
+    ASAAS_API_URL: "https://asaas.test/v3",
+    ASAAS_API_KEY: "platform-key",
+    ASAAS_WALLET_ID: "wallet_sellbridge",
+    ASAAS_WEBHOOK_TOKEN: "t".repeat(40),
   },
 }));
 
@@ -52,6 +78,8 @@ const SHIPMENT_ID = "6a1f4d7e-9a43-4b2d-8c3e-4f505f0c9a3e";
 /** The parcel's first checkout closed half an hour ago without a payment SellBridge heard of. */
 const earlierPayment = {
   id: "0b8f7a6e-1c2d-4e3f-8a9b-7c6d5e4f3a21",
+  provider: "mercado_pago",
+  preferenceId: "first",
   status: "pending",
   checkoutUrl: "https://www.mercadopago.com.br/checkout/v1/redirect?pref_id=first",
   checkoutExpiresAt: new Date(Date.now() - 60_000),
@@ -77,11 +105,30 @@ const account = {
   refreshTokenEnc: "refresh",
   expiresAt: new Date(Date.now() + 90 * 24 * 60 * 60 * 1000),
 };
-const request = { tenantId: "tenant-1", shipmentId: SHIPMENT_ID, impersonatedBy: null };
+const asaasAccount = {
+  ...account,
+  id: "account-asaas",
+  provider: "asaas",
+  accessTokenEnc: "asaas-key",
+  walletId: "wallet_supplier",
+  reviewStatus: "approved",
+  lastError: null,
+};
+const request = {
+  tenantId: "tenant-1",
+  shipmentId: SHIPMENT_ID,
+  payMethod: "PIX" as const,
+  impersonatedBy: null,
+};
+const ASAAS_CHECKOUT = "https://asaas.test/i/1";
 
 beforeEach(() => {
   mocks.findPayable.mockResolvedValue(payable);
-  mocks.findAccount.mockResolvedValue(account);
+  mocks.findAccount.mockImplementation(async (_database, query) =>
+    query.provider === "asaas" ? asaasAccount : account,
+  );
+  mocks.findChoice.mockResolvedValue(null);
+  mocks.openAsaasCheckout.mockResolvedValue({ checkoutUrl: ASAAS_CHECKOUT });
   mocks.getFee.mockResolvedValue({ basisPoints: 100 });
   mocks.start.mockResolvedValue({ ...earlierPayment, checkoutExpiresAt: null });
   mocks.createCheckout.mockResolvedValue({
@@ -128,5 +175,87 @@ describe("startSupplierCheckout", () => {
       {},
       expect.objectContaining({ preferenceId: "pref-second" }),
     );
+  });
+});
+
+describe("startSupplierCheckout across providers", () => {
+  it("keeps an open Mercado Pago checkout after the supplier chose Asaas", async () => {
+    mocks.findChoice.mockResolvedValue("asaas");
+    const openCheckout = { ...earlierPayment, checkoutExpiresAt: new Date(Date.now() + 60_000) };
+    mocks.findPayable.mockResolvedValue({ ...payable, payment: openCheckout });
+
+    const result = await startSupplierCheckout(request);
+
+    expect(result.checkoutUrl).toBe(earlierPayment.checkoutUrl);
+    expect(mocks.openAsaasCheckout).not.toHaveBeenCalled();
+  });
+
+  it("charges a parcel never paid through Asaas once the supplier chose it", async () => {
+    mocks.findChoice.mockResolvedValue("asaas");
+    mocks.findPayable.mockResolvedValue({ ...payable, payment: null });
+
+    const result = await startSupplierCheckout(request);
+
+    expect(result.checkoutUrl).toBe(ASAAS_CHECKOUT);
+    expect(mocks.start).toHaveBeenCalledWith({}, expect.objectContaining({ provider: "asaas" }));
+    expect(mocks.createCheckout).not.toHaveBeenCalled();
+  });
+
+  it("closes the parcel's Asaas charges before charging it on Mercado Pago", async () => {
+    const asaasAttempt = { ...earlierPayment, provider: "asaas", preferenceId: "pay_1" };
+    mocks.findPayable.mockResolvedValue({ ...payable, payment: asaasAttempt });
+
+    const result = await startSupplierCheckout(request);
+
+    expect(mocks.leaveAsaasCharges).toHaveBeenCalledWith({
+      account: asaasAccount,
+      payment: asaasAttempt,
+    });
+    expect(result.checkoutUrl).toContain("pref_id=second");
+  });
+
+  it("asks Asaas only for the method the reseller picked", async () => {
+    mocks.findChoice.mockResolvedValue("asaas");
+    mocks.findPayable.mockResolvedValue({ ...payable, payment: null });
+
+    await startSupplierCheckout({ ...request, payMethod: "CREDIT_CARD" });
+
+    expect(mocks.openAsaasCheckout).toHaveBeenCalledWith(
+      expect.objectContaining({ payMethod: "CREDIT_CARD" }),
+    );
+  });
+
+  it("looks an open Asaas charge up again so the reseller can pay another way", async () => {
+    mocks.findChoice.mockResolvedValue("asaas");
+    const openCharge = {
+      ...earlierPayment,
+      provider: "asaas",
+      preferenceId: "pay_pix",
+      checkoutUrl: "https://asaas.test/i/pix",
+      checkoutExpiresAt: new Date(Date.now() + 60 * 60_000),
+    };
+    mocks.findPayable.mockResolvedValue({ ...payable, payment: openCharge });
+
+    const result = await startSupplierCheckout({ ...request, payMethod: "CREDIT_CARD" });
+
+    expect(mocks.reopen).toHaveBeenCalledWith(
+      {},
+      { paymentId: earlierPayment.id, preferenceId: "pay_pix" },
+    );
+    expect(mocks.openAsaasCheckout).toHaveBeenCalledWith(
+      expect.objectContaining({ payMethod: "CREDIT_CARD" }),
+    );
+    expect(result.checkoutUrl).toBe(ASAAS_CHECKOUT);
+  });
+
+  it("leaves the Asaas charges alone while the parcel is still paid through Asaas", async () => {
+    mocks.findChoice.mockResolvedValue("asaas");
+    const asaasAttempt = { ...earlierPayment, provider: "asaas", preferenceId: "pay_1" };
+    mocks.findPayable.mockResolvedValue({ ...payable, payment: asaasAttempt });
+
+    const result = await startSupplierCheckout(request);
+
+    expect(mocks.leaveAsaasCharges).not.toHaveBeenCalled();
+    expect(result.checkoutUrl).toBe(ASAAS_CHECKOUT);
   });
 });

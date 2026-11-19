@@ -134,6 +134,23 @@ describe("changedProductFields", () => {
     ).toBe("approved");
   });
 
+  it("names a changed warranty without sending the product to review", () => {
+    const changed = changedProductFields(
+      { ...BASE, warrantyType: null },
+      { ...BASE, warrantyType: "seller", warrantyDays: 90 },
+    );
+
+    expect(changed).toEqual(["warrantyType", "warrantyDays"]);
+    expect(
+      statusAfterEdit({
+        current: "approved",
+        changedFields: changed,
+        blockingIssueCount: 0,
+        prohibited: false,
+      }),
+    ).toBe("approved");
+  });
+
   it("ignores the Mercado Livre category when the edit does not carry it", () => {
     const stored = { ...BASE, mercadoLivreCategoryId: "MLB7022" };
 

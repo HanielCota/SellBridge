@@ -1,3 +1,4 @@
+import type { WarrantyType } from "@sellbridge/shared/product-sale-terms";
 import { sql } from "drizzle-orm";
 import {
   boolean,
@@ -18,6 +19,7 @@ import {
 } from "@sellbridge/shared/supplier-panel-catalog-status";
 import type { ProductFiscalPatch } from "@sellbridge/shared/product-fiscal";
 import type { SupplierFiscalProfileInput } from "@sellbridge/shared/supplier-fiscal";
+import { SUPPLIER_APPROVAL_STATUSES } from "@sellbridge/shared/supplier-approval";
 import { organization } from "./auth.ts";
 
 export const suppliers = pgTable(
@@ -37,6 +39,12 @@ export const suppliers = pgTable(
     /** Hours the supplier has to dispatch it, counted from the forward. */
     dispatchWithinHours: integer().notNull().default(48),
     active: boolean().notNull().default(true),
+    /**
+     * Whether resellers may see the supplier at all. A supplier who signs up alone starts
+     * `pending` until the automatic check or the team decides (supplier_approvals); team-created
+     * suppliers start `approved`. Independent of `active`, which the team switches off later.
+     */
+    approvalStatus: text({ enum: SUPPLIER_APPROVAL_STATUSES }).notNull().default("approved"),
     /**
      * When the supplier closed the store for sales (holidays, no stock); null while open. Unlike
      * `active`, which the team owns, the supplier switches it: listings sync zero stock while it
@@ -70,6 +78,14 @@ export const suppliers = pgTable(
       "suppliers_catalog_owner_check",
       sql`(${table.catalogKind} = 'supplier' and ${table.ownerTenantId} is null) or (${table.catalogKind} = 'seller' and ${table.ownerTenantId} is not null and ${table.organizationId} is null)`,
     ),
+    check(
+      "suppliers_approval_status_check",
+      sql`${table.approvalStatus} in ('pending','approved','refused')`,
+    ),
+    // The approval round reads the few suppliers not yet approved.
+    index("suppliers_pending_approval_idx")
+      .on(table.createdAt)
+      .where(sql`${table.approvalStatus} = 'pending'`),
     check(
       "suppliers_deadlines_check",
       sql`${table.acceptWithinHours} between 1 and 720 and ${table.dispatchWithinHours} between ${table.acceptWithinHours} and 720`,
@@ -115,6 +131,15 @@ export const supplierProducts = pgTable(
     mercadoLivreCategoryId: text(),
     /** Its name as Mercado Livre gave it, so the form shows it without asking again. */
     mercadoLivreCategoryName: text(),
+    /** "none", "seller" or "factory" (shared/domain/product-sale-terms.ts); null: not said. */
+    warrantyType: text().$type<WarrantyType>(),
+    warrantyDays: integer(),
+    /** A YouTube link; Mercado Livre receives its video id. */
+    videoUrl: text(),
+    /** Days to make the product after a sale; null when it ships from stock. */
+    madeToOrderDays: integer(),
+    /** Too big or heavy for the post office: only a carrier takes it. */
+    carrierOnly: boolean().notNull().default(false),
     /** NCM, origin, unit, CEST, net weight and tax-code overrides; read with `readProductFiscal`. */
     fiscal: jsonb().$type<ProductFiscalPatch>().notNull().default({}),
     /**
@@ -162,5 +187,9 @@ export const supplierProducts = pgTable(
       sql`sellbridge_fold(${table.sku}) gin_trgm_ops`,
     ),
     check("supplier_products_reserved_stock_check", sql`${table.reservedStock} >= 0`),
+    check(
+      "supplier_products_sale_terms_check",
+      sql`(${table.warrantyType} is null or ${table.warrantyType} in ('none', 'seller', 'factory')) and (${table.warrantyDays} is null or ${table.warrantyDays} between 1 and 3650) and (${table.madeToOrderDays} is null or ${table.madeToOrderDays} between 1 and 60)`,
+    ),
   ],
 );

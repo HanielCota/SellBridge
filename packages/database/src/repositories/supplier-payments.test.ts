@@ -29,6 +29,7 @@ import {
   markShipmentPaymentRefundFailed,
   markSupplierPaymentAccountError,
   releaseShipmentPaymentReservation,
+  reopenShipmentCheckout,
   requestShipmentPaymentRefund,
   savePaymentPreference,
   setPaymentFeeSetting,
@@ -360,6 +361,52 @@ describe("shipment payment", () => {
     expect(second).toBeNull();
   });
 
+  it("lets the reseller start over on an open checkout to pay another way", async () => {
+    const shipmentId = await forwardedShipmentId();
+    const payment = await startPayment(shipmentId);
+    await savePaymentPreference(database, {
+      paymentId: payment.id,
+      preferenceId: "pay_open",
+      checkoutUrl: "https://asaas.test/i/open",
+      checkoutExpiresAt: new Date(Date.now() + 60 * 60_000),
+      amountCents: 5990,
+      platformFeeCents: 300,
+    });
+    await reopenShipmentCheckout(database, { paymentId: payment.id, preferenceId: "pay_open" });
+
+    const again = await startPayment(shipmentId);
+
+    expect(again.id).toBe(payment.id);
+    expect(again.checkoutUrl).toBeNull();
+  });
+
+  it("keeps a checkout another request opened since when freeing an older one", async () => {
+    const shipmentId = await forwardedShipmentId();
+    const payment = await startPayment(shipmentId);
+    await savePaymentPreference(database, {
+      paymentId: payment.id,
+      preferenceId: "pay_newer",
+      checkoutUrl: "https://asaas.test/i/newer",
+      checkoutExpiresAt: new Date(Date.now() + 60 * 60_000),
+      amountCents: 5990,
+      platformFeeCents: 300,
+    });
+    await reopenShipmentCheckout(database, { paymentId: payment.id, preferenceId: "pay_older" });
+
+    const second = await startShipmentPayment(database, {
+      shipmentId,
+      supplierId: supplier.supplierId,
+      provider: "mercado_pago",
+      amountCents: 5990,
+      platformFeeCents: 300,
+      platformFeeBasisPoints: 500,
+      now: new Date(),
+      reservedUntil: new Date(Date.now() + RESERVATION_IN_MS),
+    });
+
+    expect(second).toBeNull();
+  });
+
   it("lets the reseller try again once a failed checkout is released", async () => {
     const shipmentId = await forwardedShipmentId();
     const payment = await startPayment(shipmentId);
@@ -608,6 +655,7 @@ describe("listShipmentPaymentsToReconcile", () => {
 
   async function reconcileIds(): Promise<string[]> {
     const rows = await listShipmentPaymentsToReconcile(database, {
+      provider: "mercado_pago",
       now: new Date(),
       recheckForInMs: RECHECK_FOR_IN_MS,
       limit: 1000,
@@ -668,7 +716,10 @@ describe("listShipmentPaymentsToReconcile", () => {
 });
 
 async function candidateIds(): Promise<string[]> {
-  const rows = await listShipmentPaymentRefundCandidates(database, { limit: 1000 });
+  const rows = await listShipmentPaymentRefundCandidates(database, {
+    provider: "mercado_pago",
+    limit: 1000,
+  });
   return rows.map((row) => row.payment.id);
 }
 
@@ -678,7 +729,10 @@ describe("refund of a paid parcel", () => {
     const payment = await startPayment(shipmentId);
     await approveWith(payment.id);
 
-    const rows = await listShipmentPaymentRefundCandidates(database, { limit: 1000 });
+    const rows = await listShipmentPaymentRefundCandidates(database, {
+      provider: "mercado_pago",
+      limit: 1000,
+    });
     const candidate = rows.find((row) => row.payment.id === payment.id);
 
     expect(candidate?.timing.status).toBe("forwarded");

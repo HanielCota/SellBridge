@@ -1,11 +1,12 @@
 import { parseBrlToCents } from "@sellbridge/shared/money";
 import {
+  estimatedManualSaleFeeCents,
   MANUAL_SALE_MAX_ITEMS,
   manualSaleSchema,
   type ManualSale,
   type ManualSaleChannel,
 } from "@sellbridge/shared/schemas";
-import { formatCentsForField } from "@/lib/currency-mask";
+import { formatCentsForField, maskCurrencyInput } from "@/lib/currency-mask";
 
 /** A product picked from the search, as the form keeps it while the reseller types. */
 export interface DraftItem {
@@ -23,6 +24,8 @@ export interface ManualSaleDraft {
   readonly externalOrderId: string;
   readonly buyerName: string;
   readonly items: readonly DraftItem[];
+  /** The channel fee the reseller typed ("28,96"); null follows the estimate for the prices. */
+  readonly fee: string | null;
 }
 
 export const EMPTY_MANUAL_SALE: ManualSaleDraft = {
@@ -30,6 +33,7 @@ export const EMPTY_MANUAL_SALE: ManualSaleDraft = {
   externalOrderId: "",
   buyerName: "",
   items: [],
+  fee: null,
 };
 
 /** Field errors by name: "externalOrderId", "items", "items.0.quantity"... */
@@ -86,6 +90,43 @@ function priceOf(item: DraftItem): number {
   return parseBrlToCents(item.price) ?? Number.NaN;
 }
 
+/** The channel's estimated fee for the products, or null while a quantity or price is not a number yet. */
+export function draftEstimatedFeeCents(draft: ManualSaleDraft): number | null {
+  const lines = draft.items.map((item) => ({
+    quantity: quantityOf(item),
+    unitPriceCents: priceOf(item),
+  }));
+  if (lines.some((line) => !Number.isFinite(line.quantity * line.unitPriceCents))) {
+    return null;
+  }
+  return estimatedManualSaleFeeCents(draft.channel, lines);
+}
+
+/** What the fee field shows: what the reseller typed or, until then, the estimate. */
+export function draftFeeField(draft: ManualSaleDraft): string {
+  if (draft.fee !== null) {
+    return draft.fee;
+  }
+  const estimate = draftEstimatedFeeCents(draft);
+  return estimate === null ? "" : formatCentsForField(estimate);
+}
+
+/** Money typed in the fee field; unlike a price, a fee of zero is a real answer ("0,00"). */
+export function maskFeeInput(typed: string): string {
+  const masked = maskCurrencyInput(typed);
+  if (masked === "" && /\d/.test(typed)) {
+    return formatCentsForField(0);
+  }
+  return masked;
+}
+
+function feeCentsOf(draft: ManualSaleDraft): number {
+  if (draft.fee === null) {
+    return draftEstimatedFeeCents(draft) ?? Number.NaN;
+  }
+  return parseBrlToCents(draft.fee) ?? Number.NaN;
+}
+
 /** The sale total in cents, or null while a quantity or price is not a number yet. */
 export function draftTotalCents(draft: ManualSaleDraft): number | null {
   let total = 0;
@@ -112,6 +153,7 @@ export function readManualSale(
       quantity: quantityOf(item),
       unitPriceCents: priceOf(item),
     })),
+    marketplaceFeeCents: feeCentsOf(draft),
   });
   if (parsed.success) {
     return { sale: parsed.data, errors: null };

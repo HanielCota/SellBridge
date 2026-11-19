@@ -140,6 +140,11 @@ export interface EditableProductFields {
   /** Absent where the edit does not carry it (the admin form, the spreadsheet). */
   readonly mercadoLivreCategoryId?: string | null | undefined;
   readonly mercadoLivreCategoryName?: string | null | undefined;
+  readonly warrantyType?: string | null | undefined;
+  readonly warrantyDays?: number | null | undefined;
+  readonly videoUrl?: string | null | undefined;
+  readonly madeToOrderDays?: number | null | undefined;
+  readonly carrierOnly?: boolean | undefined;
   /** Absent where the edit does not carry fiscal data (it is then left as stored). */
   readonly fiscal?: Readonly<Record<string, unknown>>;
 }
@@ -165,6 +170,16 @@ function sameAttributes(
   }
   return leftKeys.every((key) => left[key] === right[key]);
 }
+
+/** Fields only some edits carry (the panel form): compared only when the edit has them. */
+const CARRIED_WHEN_SENT = [
+  "mercadoLivreCategoryId",
+  "warrantyType",
+  "warrantyDays",
+  "videoUrl",
+  "madeToOrderDays",
+  "carrierOnly",
+] as const satisfies readonly (keyof EditableProductFields)[];
 
 /** Field keys whose value differs between the stored product and the incoming edit. */
 export function changedProductFields(
@@ -193,11 +208,10 @@ export function changedProductFields(
   if (!sameFiscal(before.fiscal, after.fiscal)) {
     changed.push("fiscal");
   }
-  if (
-    after.mercadoLivreCategoryId !== undefined &&
-    (before.mercadoLivreCategoryId ?? null) !== after.mercadoLivreCategoryId
-  ) {
-    changed.push("mercadoLivreCategoryId");
+  for (const key of CARRIED_WHEN_SENT) {
+    if (after[key] !== undefined && (before[key] ?? null) !== after[key]) {
+      changed.push(key);
+    }
   }
   return changed;
 }

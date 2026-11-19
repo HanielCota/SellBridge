@@ -204,7 +204,6 @@ function MarketplaceActions({
     },
     onError: (error) => toast.error(errorMessage(error)),
   });
-  const withProfile = useTabProfileLink();
   return (
     // The labels wrap inside the buttons: unwrapped, they are wider than a 375 px dialog and
     // pushed every field past its right edge.
@@ -217,16 +216,24 @@ function MarketplaceActions({
       >
         {refresh.isPending ? "Consultando…" : "Atualizar rastreio"}
       </Button>
-      <Button variant="outline" className={WRAPPING_BUTTON} asChild>
-        <a
-          href={withProfile(`/api/pedidos/${orderId}/etiqueta`)}
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          Abrir etiqueta de postagem
-        </a>
-      </Button>
+      <LabelLink orderId={orderId} />
     </div>
+  );
+}
+
+/** The order's marketplace label, opened in a new tab (a PDF, or an error page there). */
+function LabelLink({ orderId }: { orderId: string }) {
+  const withProfile = useTabProfileLink();
+  return (
+    <Button variant="outline" className={WRAPPING_BUTTON} asChild>
+      <a
+        href={withProfile(`/api/pedidos/${orderId}/etiqueta`)}
+        target="_blank"
+        rel="noopener noreferrer"
+      >
+        Abrir etiqueta de postagem
+      </a>
+    </Button>
   );
 }
 /** A supplier link shown after it was issued, and whether the supplier already got it by e-mail. */
@@ -388,6 +395,14 @@ function MarketplaceTools({
 }) {
   if (detail.order.marketplace === "mercado_livre") {
     return <MarketplaceActions orderId={detail.order.id} onRefresh={onRefresh} />;
+  }
+  // TikTok Shop's tracking is not read yet; its label is.
+  if (detail.order.marketplace === "tiktok_shop") {
+    return (
+      <div className="flex flex-wrap gap-2">
+        <LabelLink orderId={detail.order.id} />
+      </div>
+    );
   }
   return (
     <p className="text-xs text-muted-foreground">

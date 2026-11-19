@@ -18,16 +18,29 @@ export const SHIPMENT_PAYMENT_STATUSES = [
 export type ShipmentPaymentStatus = (typeof SHIPMENT_PAYMENT_STATUSES)[number];
 
 /**
- * Why SellBridge gives the reseller's money back on its own: the supplier did not ship in time,
- * or the parcel was cancelled or came back to the supplier.
+ * Why SellBridge gives the reseller's money back: the supplier did not ship in time, the parcel
+ * was cancelled, came back or was never delivered, or the team decided so for money still held.
  */
-export const SHIPMENT_PAYMENT_REFUND_REASONS = ["not_dispatched", "cancelled", "returned"] as const;
+export const SHIPMENT_PAYMENT_REFUND_REASONS = [
+  "not_dispatched",
+  "cancelled",
+  "returned",
+  "not_delivered",
+  "team",
+] as const;
 export type ShipmentPaymentRefundReason = (typeof SHIPMENT_PAYMENT_REFUND_REASONS)[number];
+
+/**
+ * How a reseller pays a supplier: Pix or credit card paid in full, as the client asked (12/11/2026).
+ * Never boleto, which Asaas cannot refund (decided 18/11/2026).
+ */
+export const SUPPLIER_PAY_METHODS = ["PIX", "CREDIT_CARD"] as const;
+export type SupplierPayMethod = (typeof SUPPLIER_PAY_METHODS)[number];
 
 /** The highest fee the admin may set: 30%, in basis points. */
 export const MAX_PAYMENT_FEE_BASIS_POINTS = 3000;
-/** The fee payments use until an admin saves one: 1%, in basis points. */
-export const DEFAULT_PAYMENT_FEE_BASIS_POINTS = 100;
+/** The fee payments use until an admin saves one: 4%, in basis points (decided 18/11/2026). */
+export const DEFAULT_PAYMENT_FEE_BASIS_POINTS = 400;
 const BASIS_POINTS_PER_WHOLE = 10_000;
 
 /** The fee rate a payment uses: the one the admin saved, or the default while none is saved. */

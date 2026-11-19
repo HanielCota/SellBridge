@@ -2,10 +2,10 @@ import type { FulfillmentStatus } from "../schemas/fulfillment.ts";
 
 /**
  * Where a parcel's marketplace label stands for the supplier, from the label records kept on the
- * parcel. Only Mercado Livre hands out labels; other channels ship with the supplier's own. An
- * order split between suppliers has none either, nor one bought in a Mercado Livre cart with
- * another supplier's products: Mercado Livre gives one label per order or cart, and one label
- * cannot travel on two parcels.
+ * parcel. Only Mercado Livre and TikTok Shop hand out labels; other channels ship with the
+ * supplier's own. An order split between suppliers has none either, nor one bought in a Mercado
+ * Livre cart with another supplier's products: the marketplace gives one label per order or cart,
+ * and one label cannot travel on two parcels.
  * - `waiting`: the marketplace said it has not released the label yet, within the dispatch time;
  * - `pending`: never emitted, still within the dispatch time;
  * - `late`: never emitted and the dispatch time is over, released or not: past the time the
@@ -22,8 +22,16 @@ export const SUPPLIER_LABEL_STATE_LABELS: Record<SupplierLabelState, string> = {
   printed: "Etiqueta impressa",
 };
 
-/** The one channel whose label the system emits. */
-export const LABEL_MARKETPLACE = "mercado_livre";
+/** The channels whose label the system emits. */
+export const LABEL_MARKETPLACES = ["mercado_livre", "tiktok_shop"] as const;
+
+/** The one channel whose labels also print in batches and as ZPL. */
+export const BATCH_LABEL_MARKETPLACE = "mercado_livre";
+
+export function isLabelMarketplace(marketplace: string): boolean {
+  const marketplaces: readonly string[] = LABEL_MARKETPLACES;
+  return marketplaces.includes(marketplace);
+}
 
 /** Steps where the label still matters: once the parcel leaves, it was already used. */
 export const LABEL_STATUSES = [
@@ -48,7 +56,7 @@ export interface LabelRecord {
 export function supplierLabelState(record: LabelRecord): SupplierLabelState | null {
   const statuses: readonly FulfillmentStatus[] = LABEL_STATUSES;
   if (
-    record.marketplace !== LABEL_MARKETPLACE ||
+    !isLabelMarketplace(record.marketplace) ||
     !statuses.includes(record.status) ||
     record.splitOrder
   ) {

@@ -151,7 +151,7 @@ describe("OAuth", () => {
     const { ml } = connector({
       [`POST ${API}/oauth/token`]: () => json(400, { error: "invalid_grant", message: "expired" }),
     });
-    await expect(ml.refreshTokens("TG-old")).rejects.toMatchObject({
+    await expect(ml.refreshTokens("TG-old", { externalShopId: "123" })).rejects.toMatchObject({
       code: "EXTERNAL_PROVIDER_AUTH",
     });
   });
@@ -166,7 +166,9 @@ describe("OAuth", () => {
           refresh_token: "TG-new",
         }),
     });
-    expect((await ml.refreshTokens("TG-old")).refreshToken).toBe("TG-new");
+    expect((await ml.refreshTokens("TG-old", { externalShopId: "123" })).refreshToken).toBe(
+      "TG-new",
+    );
   });
 });
 
@@ -721,6 +723,34 @@ describe("Mercado Livre category requirements", () => {
     ]);
   });
 
+  it("sends the factory warranty, the made-to-order time and the video id", async () => {
+    const { ml, calls } = connector(publishRoutes);
+
+    await ml.publishProduct(store, {
+      ...product,
+      saleTerms: { warrantyType: "factory", warrantyDays: 365, madeToOrderDays: 5 },
+      videoId: "abc123DEF45",
+    });
+
+    const created = JSON.parse(calls.find((call) => call.url === `${API}/items`)?.body ?? "{}");
+    expect(created.sale_terms).toEqual([
+      { id: "WARRANTY_TYPE", value_name: "Garantia de fábrica" },
+      { id: "WARRANTY_TIME", value_name: "365 dias" },
+      { id: "MANUFACTURING_TIME", value_name: "5 dias" },
+    ]);
+    expect(created.video_id).toBe("abc123DEF45");
+  });
+
+  it("leaves sale terms and video out when the supplier gave none", async () => {
+    const { ml, calls } = connector(publishRoutes);
+
+    await ml.publishProduct(store, product);
+
+    const created = JSON.parse(calls.find((call) => call.url === `${API}/items`)?.body ?? "{}");
+    expect(created).not.toHaveProperty("sale_terms");
+    expect(created).not.toHaveProperty("video_id");
+  });
+
   it("sends the package weight in whole grams and its measures in whole centimeters", async () => {
     const { ml, calls } = connector(publishRoutes);
 
@@ -1137,5 +1167,75 @@ describe("order amounts out of range", () => {
       [`GET ${API}/orders/1`]: () => json(200, { ...rawOrder, total_amount: 21_474_836.47 }),
     });
     expect((await ml.fetchOrder(store, "/orders/1")).totalCents).toBe(2_147_483_647);
+  });
+});
+
+describe("the shipping the seller pays on a sale", () => {
+  const shippedOrder = { ...rawOrder, shipping: { id: 43000000001 } };
+  const orderRoute = `GET ${API}/orders/2000003508897196`;
+  const costsRoute = `GET ${API}/shipments/43000000001/costs`;
+  /** The official page's example: the seller pays R$ 8,19 after a 60% mandatory discount. */
+  const costs = {
+    gross_amount: 24.55,
+    receiver: { user_id: 74425755, cost: 0, compensation: 0, save: 0, discounts: [] },
+    senders: [
+      { user_id: 123, cost: 3, compensation: 0, save: 0, discounts: [] },
+      {
+        user_id: 999,
+        cost: 8.19,
+        compensation: 0,
+        save: 0,
+        discounts: [{ rate: 0.6, type: "mandatory", promoted_amount: 12.29 }],
+      },
+    ],
+  };
+
+  it("reads the store's own cost from the shipment's costs", async () => {
+    const { ml } = connector({
+      [orderRoute]: () => json(200, shippedOrder),
+      [costsRoute]: () => json(200, costs),
+    });
+
+    const order = await ml.fetchOrder(store, "/orders/2000003508897196");
+
+    expect(order.sellerShippingCents).toBe(819);
+  });
+
+  it("leaves the cost unknown while the sale has no shipment", async () => {
+    const { ml, calls } = connector({ [orderRoute]: () => json(200, rawOrder) });
+
+    const order = await ml.fetchOrder(store, "/orders/2000003508897196");
+
+    expect(order.sellerShippingCents).toBeUndefined();
+    expect(calls.some((call) => call.url.includes("/costs"))).toBe(false);
+  });
+
+  it("leaves the cost unknown when the shipment names no cost for the store", async () => {
+    const { ml } = connector({
+      [orderRoute]: () => json(200, shippedOrder),
+      [costsRoute]: () => json(200, { ...costs, senders: [{ user_id: 123, cost: 3 }] }),
+    });
+
+    const order = await ml.fetchOrder(store, "/orders/2000003508897196");
+
+    expect(order.sellerShippingCents).toBeUndefined();
+  });
+
+  it("still brings the sale in when the cost cannot be read", async () => {
+    const warn = vi.spyOn(logger, "warn").mockImplementation(() => undefined);
+    const { ml } = connector({
+      [orderRoute]: () => json(200, shippedOrder),
+      [costsRoute]: () => json(403, { message: "forbidden" }),
+    });
+
+    const order = await ml.fetchOrder(store, "/orders/2000003508897196");
+
+    expect(order.externalOrderId).toBe("2000003508897196");
+    expect(order.sellerShippingCents).toBeUndefined();
+    expect(warn).toHaveBeenCalledWith(
+      "mercado_livre.shipping_cost_unread",
+      expect.objectContaining({ shipmentId: "43000000001" }),
+    );
+    warn.mockRestore();
   });
 });

@@ -21,7 +21,11 @@ import { TONE_DOT_CLASSES, TonePill } from "@/components/data/tone-status";
 import { Button } from "@/components/ui/button";
 import { errorMessage } from "@/lib/errors";
 import { contactWarning } from "@/features/fulfillment/contact-warning";
-import { dispatchFieldsFor } from "@/features/fulfillment/dispatch-fields";
+import {
+  dispatchFieldErrors,
+  dispatchFieldsFor,
+  type DispatchFieldErrors,
+} from "@/features/fulfillment/dispatch-fields";
 import { printShipment } from "@/features/fulfillment/print-shipment";
 import { resellerStepNote } from "@/features/fulfillment/reseller-step-note";
 import {
@@ -54,6 +58,8 @@ export interface ShipmentView {
   trackingUrl: string | null;
   /** Where carrier and tracking came from before dispatch, e.g. "do Mercado Livre". */
   trackingFromChannel?: string | null;
+  /** Where the tracking code comes from while it has not arrived, shown under its field. */
+  trackingHint?: string | null;
   /** The marketplace's dates and what is late; absent on the supplier link. */
   estimatedDeliveryAt?: Date | null;
   dispatchDeadlineAt?: Date | null;
@@ -179,16 +185,42 @@ function ShipmentToolbar({
 
 export type ShipmentUpdate = ReturnType<typeof useShipmentUpdate>;
 
-/** What dispatch needs: carrier and tracking. */
-function DispatchFields({ update }: { update: ShipmentUpdate }) {
+const NO_DISPATCH_FIELD_ERRORS: DispatchFieldErrors = { carrier: null, trackingCode: null };
+
+/** What dispatch needs: carrier and tracking, each with what is missing right under it. */
+function DispatchFields({
+  update,
+  errors,
+  onEdit,
+  trackingHint,
+}: {
+  update: ShipmentUpdate;
+  errors: DispatchFieldErrors;
+  /** Clears the warning of the field being fixed. */
+  onEdit: (field: keyof DispatchFieldErrors) => void;
+  trackingHint: string | null;
+}) {
   return (
-    <div className="grid gap-3 sm:grid-cols-2">
-      <Field label="Transportadora" value={update.carrier} onChange={update.setCarrier} />
+    <div className="grid items-start gap-3 sm:grid-cols-2">
+      <Field
+        label="Transportadora"
+        value={update.carrier}
+        error={errors.carrier}
+        onChange={(value) => {
+          update.setCarrier(value);
+          onEdit("carrier");
+        }}
+      />
       {/* Codes and links are typed exactly: no capital first letter or "correction" on phones. */}
       <Field
         label="Código de rastreio"
         value={update.trackingCode}
-        onChange={update.setTrackingCode}
+        error={errors.trackingCode}
+        hint={trackingHint}
+        onChange={(value) => {
+          update.setTrackingCode(value);
+          onEdit("trackingCode");
+        }}
         autoCapitalize="characters"
         autoCorrect="off"
         spellCheck={false}
@@ -228,6 +260,63 @@ function useStepNote(update: ShipmentUpdate) {
   return { noteError, setNoteError, contactInNote, sendWithNote };
 }
 
+/**
+ * Checks carrier and tracking before shipping, so what is missing shows next to its field
+ * instead of in a passing toast; the other steps go straight out.
+ */
+function useDispatchCheck(
+  update: ShipmentUpdate,
+  sendWithNote: (status: FulfillmentStatus) => void,
+) {
+  const [errors, setErrors] = useState(NO_DISPATCH_FIELD_ERRORS);
+  const advance = (step: FulfillmentStatus) => {
+    if (step === "shipped") {
+      const missing = dispatchFieldErrors(update);
+      setErrors(missing);
+      if (missing.carrier !== null || missing.trackingCode !== null) {
+        return;
+      }
+    }
+    sendWithNote(step);
+  };
+  const clear = (field: keyof DispatchFieldErrors) =>
+    setErrors((current) => ({ ...current, [field]: null }));
+  return { errors, clear, advance };
+}
+
+/** The dispatch fields, and the channel's word when the code came from it. */
+function DispatchStep({
+  update,
+  shipment,
+  check,
+}: {
+  update: ShipmentUpdate;
+  shipment: ShipmentView;
+  check: ReturnType<typeof useDispatchCheck>;
+}) {
+  // Only while the fields still hold what the channel sent: an edited code is the supplier's.
+  const untouchedFromChannel =
+    shipment.trackingFromChannel != null &&
+    update.carrier === (shipment.carrier ?? "") &&
+    update.trackingCode === shipment.trackingCode;
+  return (
+    <>
+      <DispatchFields
+        update={update}
+        errors={check.errors}
+        onEdit={check.clear}
+        trackingHint={shipment.trackingHint ?? null}
+      />
+      {untouchedFromChannel ? (
+        <p className="text-footnote text-muted-foreground">
+          Veio {shipment.trackingFromChannel}: confira e marque como enviado. Não precisa digitar
+          nada.
+        </p>
+      ) : null}
+    </>
+  );
+}
+
 function ShipmentActions({
   update,
   shipment,
@@ -242,6 +331,7 @@ function ShipmentActions({
   quietStep: boolean;
 }) {
   const { noteError, setNoteError, contactInNote, sendWithNote } = useStepNote(update);
+  const check = useDispatchCheck(update, sendWithNote);
   const pending = update.mutation.isPending;
   return (
     <div className="space-y-3">
@@ -249,16 +339,8 @@ function ShipmentActions({
       {actsAs === "supplier" && shipment.status === "shipped" ? (
         <p className="text-sm text-muted-foreground">{DELIVERY_CONFIRMED_BY}</p>
       ) : null}
-      {next === "shipped" ? <DispatchFields update={update} /> : null}
-      {/* Only while the fields still hold what the channel sent: an edited code is the supplier's. */}
-      {next === "shipped" &&
-      shipment.trackingFromChannel != null &&
-      update.carrier === (shipment.carrier ?? "") &&
-      update.trackingCode === shipment.trackingCode ? (
-        <p className="text-footnote text-muted-foreground">
-          Veio {shipment.trackingFromChannel}: confira e marque como enviado. Não precisa digitar
-          nada.
-        </p>
+      {next === "shipped" ? (
+        <DispatchStep update={update} shipment={shipment} check={check} />
       ) : null}
       <Field
         label="Observação da etapa (opcional)"
@@ -277,7 +359,7 @@ function ShipmentActions({
             next={next}
             operator={actsAs}
             disabled={pending}
-            onAdvance={() => sendWithNote(next)}
+            onAdvance={() => check.advance(next)}
             quiet={quietStep}
           />
         ) : null}

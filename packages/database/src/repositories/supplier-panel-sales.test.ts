@@ -7,6 +7,7 @@ import {
   orders,
   orderShipments,
   orderStatusChanges,
+  supplierPaymentAccounts,
   supplierProducts,
 } from "../schema/index.ts";
 import {
@@ -357,7 +358,13 @@ describe("exportSupplierSaleLines", () => {
 describe("getSupplierSetupState", () => {
   it("counts the catalog's steps and finds the first sale", async () => {
     const state = await getSupplierSetupState(database, supplier.supplierId);
-    expect(state).toEqual({ products: 2, submitted: 2, approved: 2, hasSales: true });
+    expect(state).toEqual({
+      products: 2,
+      submitted: 2,
+      approved: 2,
+      hasSales: true,
+      paymentAccountReady: false,
+    });
   });
 
   it("sees a draft as the first step only", async () => {
@@ -380,7 +387,13 @@ describe("getSupplierSetupState", () => {
         lines: [[fresh.productId, 1]],
       });
       const state = await getSupplierSetupState(database, fresh.supplierId);
-      expect(state).toEqual({ products: 1, submitted: 0, approved: 0, hasSales: false });
+      expect(state).toEqual({
+        products: 1,
+        submitted: 0,
+        approved: 0,
+        hasSales: false,
+        paymentAccountReady: false,
+      });
     } finally {
       await fresh.cleanup();
     }
@@ -411,6 +424,41 @@ describe("getSupplierSetupState", () => {
         .insert(orderStatusChanges)
         .values({ tenantId: tenants.tenantA, orderId, status: "paid" });
       expect((await getSupplierSetupState(database, fresh.supplierId)).hasSales).toBe(true);
+    } finally {
+      await fresh.cleanup();
+    }
+  });
+
+  // Regression: the supplier home listed three steps to a first sale and never the account the
+  // reseller pays through, so a supplier could finish them all and be paid outside SellBridge.
+  it("sees the receiving account linked only once resellers can pay through it", async () => {
+    const fresh = await createTestSupplierProduct(database, {
+      sku: `SALES-ACCOUNT-${randomUUID()}`,
+      title: "Sérum",
+      costCents: 3500,
+      suggestedPriceCents: 5290,
+    });
+    try {
+      expect((await getSupplierSetupState(database, fresh.supplierId)).paymentAccountReady).toBe(
+        false,
+      );
+
+      // An Asaas account still under Asaas's review cannot take a payment yet.
+      await database.insert(supplierPaymentAccounts).values({
+        supplierId: fresh.supplierId,
+        provider: "asaas",
+        reviewStatus: "pending",
+      });
+      expect((await getSupplierSetupState(database, fresh.supplierId)).paymentAccountReady).toBe(
+        false,
+      );
+
+      await database
+        .insert(supplierPaymentAccounts)
+        .values({ supplierId: fresh.supplierId, provider: "mercado_pago" });
+      expect((await getSupplierSetupState(database, fresh.supplierId)).paymentAccountReady).toBe(
+        true,
+      );
     } finally {
       await fresh.cleanup();
     }

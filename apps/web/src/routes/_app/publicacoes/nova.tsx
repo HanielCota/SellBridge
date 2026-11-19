@@ -32,11 +32,16 @@ import { Label } from "@/components/ui/label";
 import { Skeleton } from "@/components/ui/skeleton";
 import { createListing, getNewListingData } from "@/features/listings/listings.functions";
 import { newListingQueryOptions } from "@/features/listings/listings.queries";
+import {
+  productMercadoLivreRatesQueryOptions,
+  useProductMercadoLivreRates,
+} from "@/features/listings/mercado-livre-rates.queries";
+import type { RatesSource } from "@/features/listings/mercado-livre-rates-note";
 import { type FeeSchedule, priceFloorProblemOnChannels } from "@sellbridge/shared/fee-model";
 import {
   estimateProfit,
   isThinMargin,
-  priceForMargin,
+  marginShortcutPrices,
   type ProductCost,
   type ProfitEstimate,
   saleChannelsOf,
@@ -70,9 +75,6 @@ export const Route = createFileRoute("/_app/publicacoes/nova")({
 });
 
 const PublishIcon = ACTION_ICONS.publish.icon;
-
-/** One-tap prices besides the supplier's suggestion, named by the margin they leave. */
-const MARGIN_PRESETS = [30, 40, 50] as const;
 
 function ProductBackLink({
   product,
@@ -190,7 +192,8 @@ const listingFormSchema = z.object({
   storeConnectionIds: z.array(z.string()).min(1, "Escolha ao menos uma loja de destino"),
 });
 
-type ListingProduct = NewListingData["product"];
+/** The product as the form prices it: with the stores' own Mercado Livre numbers once read. */
+type ListingProduct = NewListingData["product"] & Pick<ProductCost, "mercadoLivreRates">;
 type ListingStore = NewListingData["stores"][number];
 type ListingFormValues = z.infer<typeof listingFormSchema>;
 
@@ -225,9 +228,12 @@ function useListingForm({ product, stores }: Pick<NewListingData, "product" | "s
     }
     // The server's own floor and words, on every chosen store's channel, said before the request.
     const chosen = stores.filter((store) => value.storeConnectionIds.includes(store.id));
+    const live = queryClient.getQueryData(
+      productMercadoLivreRatesQueryOptions(product.id, value.storeConnectionIds).queryKey,
+    );
     const floorProblem = priceFloorProblemOnChannels(
       priceCents,
-      product,
+      { ...product, mercadoLivreRates: live?.rates ?? null },
       schedule,
       saleChannelsOf(chosen),
     );
@@ -273,6 +279,8 @@ function ListingForm({ product, stores }: Pick<NewListingData, "product" | "stor
   const { form, submitError } = useListingForm({ product, stores });
   const selectedIds = useStore(form.store, (state) => state.values.storeConnectionIds);
   const channels = saleChannelsOf(stores.filter((store) => selectedIds.includes(store.id)));
+  const live = useProductMercadoLivreRates(product.id, selectedIds);
+  const priced = { ...product, mercadoLivreRates: live?.rates ?? null };
   return (
     <form
       noValidate
@@ -288,7 +296,7 @@ function ListingForm({ product, stores }: Pick<NewListingData, "product" | "stor
           {(price) => (
             <ProfitSentence
               priceCents={parseBrlToCents(price)}
-              product={product}
+              product={priced}
               channels={channels}
             />
           )}
@@ -298,12 +306,12 @@ function ListingForm({ product, stores }: Pick<NewListingData, "product" | "stor
       <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_340px]">
         <ListingFieldsCard
           form={form}
-          product={product}
+          product={priced}
           stores={stores}
           channels={channels}
           submitError={submitError}
         />
-        <ListingSidebar form={form} product={product} channels={channels} />
+        <ListingSidebar form={form} product={priced} channels={channels} ratesSource={live} />
       </div>
       <PublishBar form={form} stores={stores} />
     </form>
@@ -505,10 +513,13 @@ function pricePresets(
   const presets: PricePreset[] = [
     { key: "suggested", label: "Sugerido", priceCents: product.suggestedPriceCents },
   ];
-  for (const margin of MARGIN_PRESETS) {
-    const priceCents = priceForMargin(product, margin, schedule, channels);
+  for (const { marginPercent, priceCents } of marginShortcutPrices(product, schedule, channels)) {
     if (priceCents !== null) {
-      presets.push({ key: `margin-${margin}`, label: `Margem ${margin}%`, priceCents });
+      presets.push({
+        key: `margin-${marginPercent}`,
+        label: `Margem ${marginPercent}%`,
+        priceCents,
+      });
     }
   }
   return presets;
@@ -768,10 +779,12 @@ function ListingSidebar({
   form,
   product,
   channels,
+  ratesSource,
 }: {
   readonly form: ListingFormApi;
   readonly product: ListingProduct;
   readonly channels: SaleChannels;
+  readonly ratesSource: RatesSource | null;
 }) {
   return (
     <div className="space-y-4 lg:sticky lg:top-24 lg:self-start">
@@ -781,7 +794,12 @@ function ListingSidebar({
         {({ title, price }) => (
           <>
             <ListingPreview product={product} title={title} priceCents={parseBrlToCents(price)} />
-            <ProfitCard priceCents={parseBrlToCents(price)} product={product} channels={channels} />
+            <ProfitCard
+              priceCents={parseBrlToCents(price)}
+              product={product}
+              channels={channels}
+              ratesSource={ratesSource}
+            />
           </>
         )}
       </form.Subscribe>

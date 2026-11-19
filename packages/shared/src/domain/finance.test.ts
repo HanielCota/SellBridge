@@ -11,7 +11,7 @@ const base: OrderFinanceInput = {
 
 describe("computeOrderFinance", () => {
   it("subtracts supplier cost and marketplace fee from revenue", () => {
-    expect(computeOrderFinance(base, 0)).toMatchObject({
+    expect(computeOrderFinance(base)).toMatchObject({
       revenueCents: 10_000,
       costCents: 5000,
       feeCents: 1400,
@@ -19,41 +19,33 @@ describe("computeOrderFinance", () => {
     });
   });
 
-  it("applies refunds, commissions and the platform fee", () => {
-    const result = computeOrderFinance(
-      {
-        ...base,
-        adjustments: [
-          { type: "refund", amountCents: 1000 },
-          { type: "commission", amountCents: 300 },
-        ],
-      },
-      500,
-    );
+  it("applies refunds and commissions without taking a SellBridge fee from the profit", () => {
+    const result = computeOrderFinance({
+      ...base,
+      adjustments: [
+        { type: "refund", amountCents: 1000 },
+        { type: "commission", amountCents: 300 },
+      ],
+    });
     expect(result).toMatchObject({
       refundCents: 1000,
       commissionCents: 300,
-      platformFeeCents: 500,
     });
-    expect(result.profitCents).toBe(10_000 - 5000 - 1400 - 1000 + 300 - 500);
+    expect(result.profitCents).toBe(10_000 - 5000 - 1400 - 1000 + 300);
   });
 
   it.each(["cancelled", "returned"] as const)(
     "ignores revenue and costs of %s orders",
     (status) => {
-      const result = computeOrderFinance(
-        {
-          ...base,
-          status,
-          adjustments: status === "returned" ? [{ type: "return", amountCents: 10_000 }] : [],
-        },
-        500,
-      );
+      const result = computeOrderFinance({
+        ...base,
+        status,
+        adjustments: status === "returned" ? [{ type: "return", amountCents: 10_000 }] : [],
+      });
       expect(result).toMatchObject({
         revenueCents: 0,
         costCents: 0,
         feeCents: 0,
-        platformFeeCents: 0,
         profitCents: 0,
       });
       expect(result.returnCents).toBe(status === "returned" ? 10_000 : 0);
@@ -61,24 +53,21 @@ describe("computeOrderFinance", () => {
   );
 
   it("handles orders without items", () => {
-    expect(computeOrderFinance({ ...base, items: [] }, 0).costCents).toBe(0);
+    expect(computeOrderFinance({ ...base, items: [] }).costCents).toBe(0);
   });
 
   it("counts a sale with an item of unknown cost as revenue but keeps it out of the profit", () => {
-    const result = computeOrderFinance(
-      {
-        ...base,
-        items: [
-          { quantity: 2, knownUnitCostCents: 2500 },
-          { quantity: 1, knownUnitCostCents: null },
-        ],
-        adjustments: [
-          { type: "refund", amountCents: 1000 },
-          { type: "commission", amountCents: 300 },
-        ],
-      },
-      500,
-    );
+    const result = computeOrderFinance({
+      ...base,
+      items: [
+        { quantity: 2, knownUnitCostCents: 2500 },
+        { quantity: 1, knownUnitCostCents: null },
+      ],
+      adjustments: [
+        { type: "refund", amountCents: 1000 },
+        { type: "commission", amountCents: 300 },
+      ],
+    });
     expect(result).toEqual({
       costPending: true,
       revenueCents: 10_000,
@@ -88,16 +77,16 @@ describe("computeOrderFinance", () => {
       refundCents: 0,
       returnCents: 0,
       commissionCents: 0,
-      platformFeeCents: 0,
       profitCents: 0,
     });
   });
 
   it("does not mark the cost pending on orders that are not sales", () => {
-    const result = computeOrderFinance(
-      { ...base, status: "pending", items: [{ quantity: 1, knownUnitCostCents: null }] },
-      500,
-    );
+    const result = computeOrderFinance({
+      ...base,
+      status: "pending",
+      items: [{ quantity: 1, knownUnitCostCents: null }],
+    });
     expect(result).toMatchObject({
       costPending: false,
       revenueCents: 0,
@@ -107,9 +96,40 @@ describe("computeOrderFinance", () => {
   });
 
   it("reports known costs as not pending", () => {
-    expect(computeOrderFinance(base, 0)).toMatchObject({
+    expect(computeOrderFinance(base)).toMatchObject({
       costPending: false,
       pendingCostRevenueCents: 0,
     });
+  });
+});
+
+describe("computeOrderFinance with the shipping the seller paid", () => {
+  const sale: OrderFinanceInput = {
+    status: "delivered",
+    totalCents: 3390,
+    marketplaceFeeCents: 475,
+    sellerShippingCents: 685,
+    items: [{ quantity: 1, knownUnitCostCents: 2100 }],
+    adjustments: [],
+  };
+
+  it("counts it with the fee, leaving the client's R$ 33,90 sale at R$ 1,30", () => {
+    const finance = computeOrderFinance(sale);
+
+    expect(finance.feeCents).toBe(1160);
+    expect(finance.profitCents).toBe(130);
+  });
+
+  it("counts nothing for it while the marketplace has not reported it", () => {
+    const finance = computeOrderFinance({ ...sale, sellerShippingCents: null });
+
+    expect(finance.feeCents).toBe(475);
+    expect(finance.profitCents).toBe(815);
+  });
+
+  it("charges nothing on a cancelled sale", () => {
+    const finance = computeOrderFinance({ ...sale, status: "cancelled" });
+
+    expect(finance.feeCents).toBe(0);
   });
 });

@@ -9,10 +9,12 @@ import {
   orders,
   storeConnections,
 } from "../schema/index.ts";
+import { sellerShippingOnce } from "./sql/seller-shipping.ts";
 import type { Marketplace } from "./stores.ts";
 
 type OrderStatus = (typeof orders.$inferSelect)["status"];
 type OrderAdjustmentType = (typeof orderAdjustments.$inferSelect)["type"];
+type ListingTargetStatus = (typeof listingTargets.$inferSelect)["status"];
 
 export interface OrderDetailItem {
   id: string;
@@ -22,6 +24,9 @@ export interface OrderDetailItem {
   unitCostCents: number;
   /** Our listing that sold it; null when the item was not linked to one. */
   listingId: string | null;
+  /** That listing's status in the order's store, and the ad's marketplace link, for "Ver anúncio". */
+  listingStatus: ListingTargetStatus | null;
+  listingUrl: string | null;
   productId: string | null;
 }
 
@@ -43,6 +48,11 @@ export interface OrderDetail {
   status: OrderStatus;
   totalCents: number;
   marketplaceFeeCents: number;
+  /**
+   * What the seller paid to ship the sale, zero while the marketplace has not reported it; a
+   * cart's shipping counts on its first sale only.
+   */
+  sellerShippingCents: number;
   buyerName: string | null;
   orderedAt: Date;
   /** When the order first counted as a sale; null while it never did. */
@@ -63,6 +73,7 @@ async function selectOrder(database: Database, tenantId: string, orderId: string
       status: orders.status,
       totalCents: orders.totalCents,
       marketplaceFeeCents: orders.marketplaceFeeCents,
+      sellerShippingCents: sellerShippingOnce("orders").mapWith(Number),
       buyerName: orders.buyerName,
       orderedAt: orders.orderedAt,
       paidAt: orders.paidAt,
@@ -84,6 +95,8 @@ async function selectItems(database: Database, tenantId: string, orderId: string
       unitPriceCents: orderItems.unitPriceCents,
       unitCostCents: orderItems.unitCostCents,
       listingId: listingTargets.listingId,
+      listingStatus: listingTargets.status,
+      listingUrl: listingTargets.externalUrl,
       productId: orderItems.supplierProductId,
     })
     .from(orderItems)

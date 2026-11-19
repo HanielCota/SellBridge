@@ -2,6 +2,7 @@ import type {
   AuthorizationRequest,
   MarketplaceId,
   MercadoLivreConfig,
+  TikTokShopConfig,
 } from "@sellbridge/marketplaces";
 import {
   createTestConnectorRegistry,
@@ -11,6 +12,7 @@ import { createTokenCipher } from "@sellbridge/shared/token-cipher";
 import { environment } from "../src/lib/server/environment";
 import { requireEnvironmentVariable } from "./environment";
 import { mercadoLivreStandIn } from "./mercado-livre.fixture";
+import { tiktokShopStandInConfig } from "./tiktok-shop.fixture";
 
 export const connectors = createTestConnectorRegistry({
   appUrl: environment.APP_URL,
@@ -27,6 +29,9 @@ export const mercadoLivreApiConfig: MercadoLivreConfig = {
   fetchImplementation: mercadoLivreStandIn,
   retry: { retries: 0 },
 };
+
+/** Labels answer from the local stand-in, never from the real TikTok Shop. */
+export const tiktokShopApiConfig: TikTokShopConfig = tiktokShopStandInConfig;
 
 export function oauthCallbackUrl(marketplace: string): string {
   return new URL(`/api/oauth/${marketplace}/callback`, environment.APP_URL).toString();

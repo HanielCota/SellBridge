@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  categoryIdOfNiche,
   completenessInput,
   descriptionLengthHint,
   editedFields,
@@ -13,6 +14,7 @@ import {
   withSuggestedPriceFollowingCost,
   type PanelFormValues,
 } from "./draft-form";
+import { saleTermsFormValues } from "./sale-terms-form";
 
 const FILLED: PanelFormValues = {
   sku: "CAM-1",
@@ -25,6 +27,7 @@ const FILLED: PanelFormValues = {
   imageUrls: ["https://imagens.test/1.jpg"],
   attributes: { BRAND: " Marca ", MODEL: " " },
   mercadoLivreCategory: null,
+  saleTerms: saleTermsFormValues(),
   fiscal: EMPTY_PRODUCT_FISCAL_FORM_VALUES,
 };
 
@@ -42,15 +45,44 @@ const STORED = {
 
 describe("initialFormValues", () => {
   it("starts a new product with the supplier's default origin and unit", () => {
-    const values = initialFormValues(null, { origin: 0, unit: "UN" });
+    const values = initialFormValues(null, {
+      fiscal: { origin: 0, unit: "UN" },
+      categoryId: null,
+    });
 
     expect(values.fiscal).toMatchObject({ origin: "0", unit: "UN", ncm: "" });
   });
 
   it("keeps a stored product's own origin and unit", () => {
-    const values = initialFormValues(STORED, { origin: 0, unit: "UN" });
+    const values = initialFormValues(STORED, {
+      fiscal: { origin: 0, unit: "UN" },
+      categoryId: "beauty",
+    });
 
     expect(values.fiscal).toMatchObject({ origin: "", unit: "" });
+    expect(values.categoryId).toBe("");
+  });
+
+  // Regression: a brand that sells "Beleza e cuidados" opened every new product with no category.
+  it("starts a new product in the category of the brand's niche", () => {
+    const categoryId = categoryIdOfNiche(
+      [
+        { id: "shoes", name: "Calçados" },
+        { id: "beauty", name: "Beleza e cuidados" },
+      ],
+      "Beleza e cuidados",
+    );
+
+    const values = initialFormValues(null, { fiscal: null, categoryId });
+
+    expect(values.categoryId).toBe("beauty");
+  });
+
+  it("leaves the category to choose when no category has the niche's name", () => {
+    expect(
+      categoryIdOfNiche([{ id: "beauty", name: "Beleza e cuidados" }], "Cosméticos"),
+    ).toBeNull();
+    expect(categoryIdOfNiche([{ id: "beauty", name: "Beleza e cuidados" }], null)).toBeNull();
   });
 });
 

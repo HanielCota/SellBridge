@@ -308,6 +308,8 @@ test("fornecedor abre chamado sem seletor de pedido e o suporte sabe que é forn
   await signUpAsSupplier(supplier, "Fornecedor Suporte");
   await gotoHydrated(supplier, "/suporte/novo");
   await supplier.getByRole("button", { name: /^Pedido encaminhado/ }).click();
+  // "Tema" read as the light and dark switch: the step is named by what was asked, the subject.
+  await expect(supplier.getByRole("button", { name: "Alterar o assunto" })).toBeVisible();
   await supplier.getByRole("button", { name: /^Endereço incompleto/ }).click();
   const body = `O pedido veio sem número da casa ${Date.now()}, não consigo despachar.`;
   await supplier.getByRole("textbox").first().fill(body);
@@ -327,6 +329,10 @@ test("fornecedor abre chamado sem seletor de pedido e o suporte sabe que é forn
   await gotoHydrated(admin, "/admin/chamados");
   await admin.getByLabel("Buscar chamados").fill(body);
   await expect(admin).toHaveURL(/query=/);
+  // The queue holds suppliers' tickets too, so its name must not say resellers only.
+  await expect(
+    admin.getByRole("table", { name: "Chamados de revendedores e fornecedores" }),
+  ).toBeVisible();
   const row = admin.getByRole("row").filter({ hasText: "Fornecedor Suporte" });
   // Earlier runs left tickets of the same name: wait for the search to narrow to this one.
   await expect(row).toHaveCount(1);

@@ -19,6 +19,7 @@ import {
   isRequiredAttribute,
 } from "./category-ficha.ts";
 import { isPackageAttribute, packageAttributeValue } from "./package-measures.ts";
+import { saleTermsFor } from "./sale-terms.ts";
 import { toMercadoLivrePlainText } from "./plain-text.ts";
 import {
   conditionalAttributesSchema,
@@ -137,10 +138,20 @@ function itemBody(
     listing_type_id: "gold_special",
     pictures: input.imageUrls.slice(0, 6).map((source) => ({ source })),
     seller_custom_field: input.idempotencyKey,
+    ...optionalItemFields(input),
     attributes: [
       ...productAttributes(input).map((attribute) => withValueId(attribute, listing.definitions)),
       { id: "SELLER_SKU", value_name: input.sku },
     ],
+  };
+}
+
+/** Sale terms and video only when the supplier gave them: an empty list is not "none". */
+function optionalItemFields(input: PublishProductInput) {
+  const saleTerms = saleTermsFor(input.saleTerms);
+  return {
+    ...(saleTerms.length === 0 ? {} : { sale_terms: saleTerms }),
+    ...(input.videoId === undefined || input.videoId === null ? {} : { video_id: input.videoId }),
   };
 }
 

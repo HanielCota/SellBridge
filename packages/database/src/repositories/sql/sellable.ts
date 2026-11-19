@@ -26,6 +26,15 @@ export function productListableColumn(): SQL<boolean> {
   return sql<boolean>`${productListable()}`.mapWith(Boolean);
 }
 
+/**
+ * A supplier resellers may see and sell: switched on by the team and approved. A supplier who
+ * signed up alone stays hidden while its approval is pending or refused (supplier_approvals).
+ * Needs `suppliers` in the FROM clause.
+ */
+export function supplierOpenToResellers(): SQL {
+  return sql`(${suppliers.active} and ${suppliers.approvalStatus} = 'approved')`;
+}
+
 /** The supplier keeps the store open for sales. Needs `suppliers` in the FROM clause. */
 function supplierOpen(): SQL {
   return sql`(${suppliers.salesClosedAt} is null)`;
@@ -52,7 +61,7 @@ export function sellableOnMarketplace(): SQL {
  * `suppliers` in the FROM clause.
  */
 export function sellableBySupplier(): SQL {
-  return sql`(${productListable()} and ${suppliers.active})`;
+  return sql`(${productListable()} and ${supplierOpenToResellers()})`;
 }
 
 /**
@@ -83,7 +92,7 @@ export function listingSellable(): SQL {
  * `suppliers` in the FROM clause.
  */
 export function supplierFindable(): SQL {
-  return sql`(${publicSupplier()} and ${suppliers.active} and exists (select 1 from ${supplierProducts} where ${supplierProducts.supplierId} = ${suppliers.id} and ${productListable()}))`;
+  return sql`(${publicSupplier()} and ${supplierOpenToResellers()} and exists (select 1 from ${supplierProducts} where ${supplierProducts.supplierId} = ${suppliers.id} and ${productListable()}))`;
 }
 
 /**

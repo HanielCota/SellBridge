@@ -1,3 +1,4 @@
+import type { ListingSaleTerms } from "@sellbridge/shared/product-sale-terms";
 import type { Cents } from "@sellbridge/shared/money";
 import type { MarketplaceShippingAddress, ShippingAddressReading } from "./shipping-address.ts";
 
@@ -26,6 +27,8 @@ export interface CodeExchange {
   code: string;
   redirectUri: string;
   codeVerifier?: string | undefined;
+  /** The shop the marketplace sent back with the code (Shopee's `shop_id`), when it does. */
+  externalShopId?: string | undefined;
 }
 
 export interface PublishProductInput {
@@ -40,6 +43,10 @@ export interface PublishProductInput {
   mercadoLivreAttributes?: Readonly<Record<string, string>>;
   /** The Mercado Livre category the supplier chose (MLB…); predicted from the title when null. */
   mercadoLivreCategoryId?: string | null;
+  /** Warranty and made-to-order time; Mercado Livre sends them as `sale_terms`. */
+  saleTerms?: ListingSaleTerms;
+  /** A YouTube video id (not the link). */
+  videoId?: string | null;
   /** Packed weight in grams (the product's fiscal net weight); TikTok Shop requires it. */
   packageWeightGrams?: number | null;
 }
@@ -92,6 +99,11 @@ export interface MarketplaceOrder {
    * when the source did not report payments this time.
    */
   refundedCents?: Cents | undefined;
+  /**
+   * What the seller pays the marketplace to ship this sale (Mercado Envios); undefined when the
+   * marketplace did not report it this time, so the last known value stays.
+   */
+  sellerShippingCents?: Cents | undefined;
   buyerName: string | null;
   /**
    * The marketplace cart the order was bought in: every order of a cart ships in one package
@@ -156,7 +168,8 @@ export interface MarketplaceConnector {
   isConfigured(): boolean;
   getAuthorizationUrl(request: AuthorizationRequest): string;
   exchangeCode(exchange: CodeExchange): Promise<{ tokens: OAuthTokens; shop: ConnectedShop }>;
-  refreshTokens(refreshToken: string): Promise<OAuthTokens>;
+  /** `store` names the shop the token belongs to; Shopee refreshes per shop. */
+  refreshTokens(refreshToken: string, store: { externalShopId: string }): Promise<OAuthTokens>;
   publishProduct(
     credentials: StoreCredentials,
     input: PublishProductInput,

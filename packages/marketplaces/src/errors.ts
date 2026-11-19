@@ -29,6 +29,9 @@ export function marketplaceError(
   });
 }
 
+/** Why a marketplace refused a label that may print later: it has not released it yet. */
+export const LABEL_NOT_READY_CAUSE = "label_not_ready";
+
 /**
  * The item was closed or deleted on the marketplace: updating it can never succeed again, so the
  * publication ends and a new item has to be published.

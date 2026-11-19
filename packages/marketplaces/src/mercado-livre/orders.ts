@@ -3,6 +3,7 @@ import { marketplaceError } from "../errors.ts";
 import { readableOrders } from "../readable-orders.ts";
 import type { MarketplaceOrder, MarketplaceOrderBatch, StoreCredentials } from "../types.ts";
 import { type MercadoLivreContext, requestJson } from "./client.ts";
+import { readSellerShippingCents } from "./shipment-costs.ts";
 import {
   type MercadoLivreOrder,
   orderSchema,
@@ -171,5 +172,34 @@ export async function fetchOrder(
   if (String(raw.seller.id) !== store.externalShopId) {
     throw marketplaceError("Pedido não pertence à loja conectada", { retryable: false });
   }
-  return mapMercadoLivreOrder(raw);
+  const order = mapMercadoLivreOrder(raw);
+  const shipmentId = raw.shipping?.id;
+  if (shipmentId === null || shipmentId === undefined) {
+    return order;
+  }
+  return {
+    ...order,
+    sellerShippingCents: await shippingCentsOrUnknown(context, store, shipmentId),
+  };
+}
+
+/**
+ * The shipping cost is read with every notification of the order, so a failed read only waits
+ * for the next one: the sale itself is never held back by it.
+ */
+async function shippingCentsOrUnknown(
+  context: MercadoLivreContext,
+  store: StoreCredentials,
+  shipmentId: string | number,
+): Promise<number | undefined> {
+  try {
+    const cents = await readSellerShippingCents(context, store, String(shipmentId));
+    return cents === null ? undefined : storedCents(cents, "shipping");
+  } catch (error) {
+    logger.warn("mercado_livre.shipping_cost_unread", {
+      shipmentId: String(shipmentId),
+      reason: error instanceof Error ? error.message : "unknown",
+    });
+    return undefined;
+  }
 }

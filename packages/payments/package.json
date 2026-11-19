@@ -4,7 +4,8 @@
   "private": true,
   "type": "module",
   "exports": {
-    "./mercado-pago": "./src/mercado-pago/index.ts"
+    "./mercado-pago": "./src/mercado-pago/index.ts",
+    "./asaas": "./src/asaas/index.ts"
   },
   "scripts": {
     "typecheck": "tsc --noEmit",

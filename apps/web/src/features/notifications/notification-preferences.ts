@@ -103,6 +103,8 @@ const BELL_KIND_OF_EVENT: Partial<Record<NotificationEventName, NotificationKind
   support_reply: "support_reply",
   supplier_conversation: "supplier_conversation",
   invoice_attention: "invoice_stopped",
+  marketplace_claim: "marketplace_claim",
+  store_buyer_address: "store_problem",
 };
 
 /** Bell entries the person turned off ("No app" switched off). */
