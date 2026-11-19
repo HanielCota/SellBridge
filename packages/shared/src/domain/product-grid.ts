@@ -20,6 +20,10 @@ const PRODUCT_TITLE_MAX_LENGTH = 300;
 export const MAX_MODEL_TITLE_LENGTH =
   PRODUCT_TITLE_MAX_LENGTH - " - ".length - " ".length - 2 * MAX_GRID_OPTION_LENGTH;
 
+/** Refuses an edit of one combination's shared data outside its grid. */
+export const COMBINATION_EDITED_OUTSIDE_GRID_MESSAGE =
+  "Este produto faz parte de uma grade de cores e tamanhos: altere o nome, as fotos e a ficha pela grade, no cadastro do produto.";
+
 /** Identifies one unit of a model: a barcode never belongs to the whole grid. */
 const COMBINATION_ONLY_ATTRIBUTES: ReadonlySet<string> = new Set(["GTIN"]);
 
