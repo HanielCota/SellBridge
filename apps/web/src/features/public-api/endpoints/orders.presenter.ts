@@ -86,10 +86,7 @@ export function presentOrderSummary(row: OrderFinancialRow): OrderSummaryDto {
 }
 
 /** Totals use the same formula as the reports, so a detail always matches its list row. */
-export function presentOrderDetail(
-  order: OrderDetail,
-  platformFeeBasisPoints: number,
-): OrderDetailDto {
+export function presentOrderDetail(order: OrderDetail): OrderDetailDto {
   return {
     id: order.id,
     externalOrderId: order.externalOrderId,
@@ -100,9 +97,7 @@ export function presentOrderDetail(
     orderedAt: order.orderedAt.toISOString(),
     paidAt: order.paidAt?.toISOString() ?? null,
     deliveredAt: order.deliveredAt?.toISOString() ?? null,
-    totals: presentFinancialTotals(
-      computeOrderFinance(orderFinanceInput(order), platformFeeBasisPoints),
-    ),
+    totals: presentFinancialTotals(computeOrderFinance(orderFinanceInput(order))),
     items: order.items.map((item) => ({
       id: item.id,
       title: item.title,

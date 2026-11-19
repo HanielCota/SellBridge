@@ -13,15 +13,14 @@ const summary = {
   orders: 10,
   revenueCents: 100_000,
   costCents: 50_000,
-  feeCents: 12_000,
+  feeCents: 14_000,
   refundCents: 3_000,
   commissionCents: 1_000,
-  platformFeeCents: 2_000,
   profitCents: 34_000,
 };
 
 describe("buildMoneyFlow", () => {
-  it("splits revenue into cost, fees (marketplace + platform), refunds and profit", () => {
+  it("splits revenue into cost, marketplace fees, refunds and profit", () => {
     const flow = buildMoneyFlow(summary);
     expect(flow?.parts.map((part) => [part.key, part.cents])).toEqual([
       ["cost", 50_000],
@@ -38,8 +37,7 @@ describe("buildMoneyFlow", () => {
     const flow = buildMoneyFlow({
       ...summary,
       costCents: 48_600,
-      feeCents: 12_600,
-      platformFeeCents: 2_000,
+      feeCents: 14_600,
       refundCents: 900,
       profitCents: 35_900,
     });

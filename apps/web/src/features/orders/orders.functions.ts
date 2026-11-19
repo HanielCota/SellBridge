@@ -11,7 +11,6 @@ import { canReviewOrder, REVIEW_WINDOW_DAYS } from "@sellbridge/shared/supplier-
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 import { database } from "@/lib/server/database";
-import { RESELLER_PLATFORM_FEE_BASIS_POINTS } from "@/features/reports/fee-schedule";
 import { tenantMiddleware } from "@/lib/server/middleware";
 import { marketplaceOrderUrl } from "./marketplace-order-url";
 import { reviewableSince } from "./review-window";
@@ -55,7 +54,6 @@ export const getOrderPageFn = createServerFn({ method: "GET" })
   .validator(z.object({ orderId: z.uuid() }))
   .handler(async ({ context, data }) => {
     const page = await getOrderPage(database, context.tenantId, data.orderId, {
-      platformFeeBasisPoints: RESELLER_PLATFORM_FEE_BASIS_POINTS,
       now: new Date(),
     });
     const supplierCredits =
