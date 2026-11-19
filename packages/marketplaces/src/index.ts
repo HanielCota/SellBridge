@@ -34,3 +34,13 @@ export {
   type TikTokShopConfig,
   type TikTokShopLabelFile,
 } from "./tiktok-shop/tiktok-shop-connector.ts";
+export {
+  readMercadoLivreClaim,
+  readMercadoLivreShipmentOrders,
+  searchMercadoLivreClaims,
+  type ClaimMoneyStatus,
+  type ClaimSearchFilter,
+  type MarketplaceClaim,
+  type MarketplaceClaimReturn,
+} from "./mercado-livre/claims.ts";
+export { parseMercadoLivreNotice, type MercadoLivreNotice } from "./mercado-livre/webhook.ts";

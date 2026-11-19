@@ -11,6 +11,5 @@ export const Route = createFileRoute("/_app/fornecedor/painel/recebimentos")({
 
 function SupplierReceivingRoute() {
   const supplierId = usePanelSupplierId();
-  const { mercadopago } = Route.useSearch();
-  return <ReceivingPage supplierId={supplierId} outcome={mercadopago} />;
+  return <ReceivingPage supplierId={supplierId} />;
 }
