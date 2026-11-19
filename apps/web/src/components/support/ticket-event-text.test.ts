@@ -41,4 +41,13 @@ describe("describeCustomerEvent", () => {
       "Marina Souza adicionou João ao chamado",
     );
   });
+
+  // Regression: "Tema" read as the light and dark switch, so the ticket's subject is "assunto".
+  it("calls a category change a change of subject", () => {
+    expect(
+      describeCustomerEvent(
+        event({ type: "category_changed", fromValue: "order", toValue: "other" }),
+      ),
+    ).toBe("Assunto alterado para Outro assunto");
+  });
 });
