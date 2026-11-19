@@ -1,5 +1,6 @@
 import { z } from "zod";
-import { freeText } from "../schemas/common.ts";
+import { freeText, pageNumberSchema } from "../schemas/common.ts";
+import { withFallback } from "../schemas/fallback.ts";
 import { stripAccents } from "./text.ts";
 
 /**
@@ -232,3 +233,9 @@ export const supplierApprovalDecisionSchema = z.discriminatedUnion("decision", [
   }),
 ]);
 export type SupplierApprovalDecision = z.infer<typeof supplierApprovalDecisionSchema>;
+
+/** The team queue's address: just the page, falling back to the first. */
+export const supplierApprovalQueueSearchSchema = z.object({
+  page: withFallback(pageNumberSchema.default(1), 1),
+});
+export type SupplierApprovalQueueSearch = z.infer<typeof supplierApprovalQueueSearchSchema>;
