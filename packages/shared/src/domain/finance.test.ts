@@ -113,3 +113,34 @@ describe("computeOrderFinance", () => {
     });
   });
 });
+
+describe("computeOrderFinance with the shipping the seller paid", () => {
+  const sale: OrderFinanceInput = {
+    status: "delivered",
+    totalCents: 3390,
+    marketplaceFeeCents: 475,
+    sellerShippingCents: 685,
+    items: [{ quantity: 1, knownUnitCostCents: 2100 }],
+    adjustments: [],
+  };
+
+  it("counts it with the fee, leaving the client's R$ 33,90 sale at R$ 1,30", () => {
+    const finance = computeOrderFinance(sale, 0);
+
+    expect(finance.feeCents).toBe(1160);
+    expect(finance.profitCents).toBe(130);
+  });
+
+  it("counts nothing for it while the marketplace has not reported it", () => {
+    const finance = computeOrderFinance({ ...sale, sellerShippingCents: null }, 0);
+
+    expect(finance.feeCents).toBe(475);
+    expect(finance.profitCents).toBe(815);
+  });
+
+  it("charges nothing on a cancelled sale", () => {
+    const finance = computeOrderFinance({ ...sale, status: "cancelled" }, 0);
+
+    expect(finance.feeCents).toBe(0);
+  });
+});

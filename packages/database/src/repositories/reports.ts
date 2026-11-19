@@ -6,6 +6,7 @@ import { z } from "zod";
 import type { Database } from "../client.ts";
 import { isCountedOrder, isUncountedOrder, ORDER_SALE_DATE } from "./sql/counted-orders.ts";
 import { sqlIntegerSchema, timestampOf } from "./sql/raw-values.ts";
+import { sellerShippingOnce } from "./sql/seller-shipping.ts";
 import { containsPattern } from "./sql/search-pattern.ts";
 import { BUCKET_SQL, type TimeseriesBucket } from "./sql/timeseries-buckets.ts";
 
@@ -99,7 +100,8 @@ function orderFinanceCte(scope: ReportScope, extraConditions: SQL[] = []): SQL {
         case when ${isUncountedOrder(ORDER_STATUS)} then 0 else o.total_cents end as revenue,
         case when ${COST_PENDING} then o.total_cents else 0 end as pending_revenue,
         case when ${OUT_OF_PROFIT} then 0 else coalesce(items.cost, 0) end as cost,
-        case when ${OUT_OF_PROFIT} then 0 else o.marketplace_fee_cents end as fee,
+        case when ${OUT_OF_PROFIT} then 0
+          else o.marketplace_fee_cents::bigint + ${sellerShippingOnce("o")} end as fee,
         case when ${COST_PENDING} then 0 else coalesce(adj.refunds, 0) end as refunds,
         case when ${COST_PENDING} then 0 else coalesce(adj.returns, 0) end as returns,
         case when ${COST_PENDING} then 0 else coalesce(adj.commissions, 0) end as commissions,
