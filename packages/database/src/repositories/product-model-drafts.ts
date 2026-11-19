@@ -317,13 +317,16 @@ async function assertSkusFreeOutsideModel(
 
 /** An untouched count is not written back (a sale may have moved it); a typed one needs the shelf. */
 function stockToWrite(stored: StoredCombination, sent: GridDraftCombination): number {
-  if (sent.expectedStock === undefined || sent.stock === sent.expectedStock) {
-    return sent.expectedStock === undefined ? sent.stock : stored.stock;
+  const { expectedStock, stock } = sent;
+  if (stock === expectedStock || stock === stored.stock) {
+    return stored.stock;
   }
-  if (stored.stock !== sent.expectedStock) {
+
+  if (stored.stock !== expectedStock) {
     throw conflictError(STOCK_MOVED_MESSAGE);
   }
-  return sent.stock;
+
+  return stock;
 }
 
 async function writeCombinations(

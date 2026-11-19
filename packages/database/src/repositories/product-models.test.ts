@@ -153,6 +153,26 @@ describe("createProductModel", () => {
     expect((await combinationRow(`${prefix}-P-38`)).reviewStatus).toBe("draft");
   });
 
+  it("keeps a combination without cost as a draft even when the team approves", async () => {
+    const prefix = randomUUID().slice(0, 8);
+    const grid = shoeGrid(prefix);
+
+    await createProductModel(database, {
+      supplierId,
+      values,
+      grid: {
+        ...grid,
+        combinations: grid.combinations.map((entry) =>
+          entry.sku === `${prefix}-P-38` ? { ...entry, costCents: 0 } : entry,
+        ),
+      },
+      reviewStatus: "approved",
+    });
+
+    expect((await combinationRow(`${prefix}-P-38`)).reviewStatus).toBe("draft");
+    expect((await combinationRow(`${prefix}-P-39`)).reviewStatus).toBe("approved");
+  });
+
   it("refuses a SKU the supplier already has and saves nothing", async () => {
     const prefix = randomUUID().slice(0, 8);
     await createProductModel(database, {
@@ -235,6 +255,20 @@ describe("updateProductModel", () => {
       stock: 9,
     });
     expect((await combinationRow(`${prefix}-B-38`)).title).toBe("Tênis Urbano - Branco 38");
+  });
+
+  it("takes combinations off sale when the model loses its NF-e data", async () => {
+    const prefix = randomUUID().slice(0, 8);
+    const { modelId } = await createProductModel(database, {
+      supplierId,
+      values,
+      grid: shoeGrid(prefix),
+      reviewStatus: "approved",
+    });
+
+    await updateProductModel(database, { supplierId, modelId, values: { ...values, fiscal: {} } });
+
+    expect((await combinationRow(`${prefix}-P-38`)).reviewStatus).toBe("draft");
   });
 
   it("refuses a model of another supplier", async () => {
