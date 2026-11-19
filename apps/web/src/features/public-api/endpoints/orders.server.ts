@@ -11,7 +11,6 @@ import { freeText } from "@sellbridge/shared/schemas";
 import { z } from "zod";
 import { buildReportScope } from "@/features/reports/report-scope.server";
 import { database } from "@/lib/server/database";
-import { RESELLER_PLATFORM_FEE_BASIS_POINTS } from "@/features/reports/fee-schedule";
 import {
   dataEnvelope,
   defineApiEndpoint,
@@ -102,6 +101,6 @@ export const getOrder = defineApiEndpoint({
   response: dataEnvelope(orderDetailSchema),
   handle: async ({ context, params }) => {
     const order = await getOrderDetail(database, context.tenantId, params.orderId);
-    return { data: presentOrderDetail(order, RESELLER_PLATFORM_FEE_BASIS_POINTS) };
+    return { data: presentOrderDetail(order) };
   },
 });

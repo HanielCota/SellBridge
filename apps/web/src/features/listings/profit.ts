@@ -16,13 +16,6 @@ const THIN_MARGIN_PERCENT = 15;
 /** At or below this many units (but not zero) a product is about to run out. */
 const LOW_STOCK_UNITS = 5;
 
-const feePercent = new Intl.NumberFormat("pt-BR", { maximumFractionDigits: 2 });
-
-/** A fee in basis points as people read it: 1400 → "14%", 1250 → "12,5%". */
-export function feePercentLabel(basisPoints: number): string {
-  return `${feePercent.format(basisPoints / 100)}%`;
-}
-
 export function isThinMargin(marginPercent: number): boolean {
   return marginPercent < THIN_MARGIN_PERCENT;
 }
@@ -64,8 +57,6 @@ export interface ProfitEstimate {
   channel: FeeChannel;
   /** What the marketplace keeps: its commission, fixed fee and the shipping the seller pays. */
   feeCents: Cents;
-  /** SellBridge's own fee, the one the financial page charges too. */
-  platformFeeCents: Cents;
   profitCents: Cents;
   marginPercent: number;
 }
@@ -88,7 +79,6 @@ function estimateOn(
   return {
     channel,
     feeCents: sale.feeCents,
-    platformFeeCents: sale.platformFeeCents,
     profitCents: sale.profitCents,
     marginPercent: Math.round((sale.profitCents / priceCents) * 1000) / 10,
   };

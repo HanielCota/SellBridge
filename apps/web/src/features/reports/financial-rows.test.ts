@@ -14,13 +14,11 @@ import {
 
 describe("orderCostsCents", () => {
   it("adds product cost and fees as a negative amount", () => {
-    expect(orderCostsCents({ costCents: 4000, feeCents: 1400, platformFeeCents: 100 })).toBe(-5500);
+    expect(orderCostsCents({ costCents: 4000, feeCents: 1400 })).toBe(-5400);
   });
 
   it("returns a plain zero when the order had no costs", () => {
-    expect(Object.is(orderCostsCents({ costCents: 0, feeCents: 0, platformFeeCents: 0 }), 0)).toBe(
-      true,
-    );
+    expect(Object.is(orderCostsCents({ costCents: 0, feeCents: 0 }), 0)).toBe(true);
   });
 });
 
@@ -57,7 +55,6 @@ describe("orderSplit with an unknown cost", () => {
         revenueCents: 9000,
         costCents: 0,
         feeCents: 0,
-        platformFeeCents: 0,
         refundCents: 0,
         profitCents: 0,
       }),
@@ -78,13 +75,12 @@ describe("orderSplit", () => {
         revenueCents: 0,
         costCents: 6000,
         feeCents: 1500,
-        platformFeeCents: 100,
         refundCents: 0,
         profitCents: 4900,
       }),
     ).toEqual([
       { kind: "cost", cents: 6000 },
-      { kind: "fee", cents: 1600 },
+      { kind: "fee", cents: 1500 },
       { kind: "profit", cents: 4900 },
     ]);
   });
@@ -95,7 +91,6 @@ describe("orderSplit", () => {
       revenueCents: 0,
       costCents: 5000,
       feeCents: 0,
-      platformFeeCents: 0,
       refundCents: 2000,
       profitCents: -1000,
     });

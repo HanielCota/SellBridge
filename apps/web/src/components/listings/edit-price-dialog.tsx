@@ -13,7 +13,6 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import type { ListingRunState } from "@/features/listings/listing-health";
-import { totalFeeCents } from "@/components/listings/profit-split";
 import {
   estimateProfit,
   isThinMargin,
@@ -274,7 +273,7 @@ function PriceBreakdown({
     { label: "Custo", value: formatCents(costCents), className: "", hint: undefined },
     {
       label: "Taxas e frete",
-      value: estimate ? formatCents(totalFeeCents(estimate)) : "—",
+      value: estimate ? formatCents(estimate.feeCents) : "—",
       className: "",
       hint: TERM_HINTS.marketplaceFee,
     },
