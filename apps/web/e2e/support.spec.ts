@@ -308,6 +308,8 @@ test("fornecedor abre chamado sem seletor de pedido e o suporte sabe que é forn
   await signUpAsSupplier(supplier, "Fornecedor Suporte");
   await gotoHydrated(supplier, "/suporte/novo");
   await supplier.getByRole("button", { name: /^Pedido encaminhado/ }).click();
+  // "Tema" read as the light and dark switch: the step is named by what was asked, the subject.
+  await expect(supplier.getByRole("button", { name: "Alterar o assunto" })).toBeVisible();
   await supplier.getByRole("button", { name: /^Endereço incompleto/ }).click();
   const body = `O pedido veio sem número da casa ${Date.now()}, não consigo despachar.`;
   await supplier.getByRole("textbox").first().fill(body);

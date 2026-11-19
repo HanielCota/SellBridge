@@ -35,7 +35,7 @@ function ChoiceSteps({ flow, kind }: { flow: ReturnType<typeof useNewTicket>; ki
         <AnsweredStep
           number={1}
           answer={topic.label}
-          changeLabel="Alterar o tema"
+          changeLabel="Alterar o assunto"
           onChange={flow.changeTopic}
         />
       )}

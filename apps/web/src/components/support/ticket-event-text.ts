@@ -38,7 +38,7 @@ export function describeCustomerEvent(event: TicketEventView): string | null {
     return event.toValue === null ? null : `${event.toValue} está cuidando do seu chamado`;
   }
   if (event.type === "category_changed") {
-    return `Tema alterado para ${categoryLabel(event.toValue)}`;
+    return `Assunto alterado para ${categoryLabel(event.toValue)}`;
   }
   if (event.type === "rated") {
     return `Atendimento avaliado com ${event.toValue ?? "?"} de ${MAX_RATING}`;
