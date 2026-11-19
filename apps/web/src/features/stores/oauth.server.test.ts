@@ -47,7 +47,7 @@ vi.mock("@/lib/server/marketplaces", () => ({
     `https://auth.mercadolivre.com.br/authorization?state=${request.state}`,
   tokenCipher: { encrypt: (value: string) => `enc:${value}` },
 }));
-vi.mock("@/features/billing/stripe.server", () => ({ billingRules: () => null }));
+vi.mock("@/features/billing/billing-config.server", () => ({ billingRules: () => null }));
 vi.mock("@/features/billing/billing.server", () => ({
   findNewStoreBlock: mocks.findNewStoreBlock,
 }));

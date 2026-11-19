@@ -72,37 +72,33 @@ describe("serverEnvironmentSchema", () => {
   });
 
   describe("billing in production (item 16, N8)", () => {
-    const stripe = {
-      STRIPE_SECRET_KEY: "sk_live_x",
-      STRIPE_WEBHOOK_SECRET: "whsec_x",
-      STRIPE_START_PRICE_ID: "price_start",
-      STRIPE_PRO_PRICE_ID: "price_pro",
-      STRIPE_BUSINESS_PRICE_ID: "price_business",
-      STRIPE_BLACK_PRICE_ID: "price_black",
-      STRIPE_ELITE_PRICE_ID: "price_elite",
+    const asaas = {
+      ASAAS_API_KEY: "$aact_prod_x",
+      ASAAS_WALLET_ID: "wallet_x",
+      ASAAS_WEBHOOK_TOKEN: "t".repeat(40),
       BILLING_LAUNCHED_AT: "2026-12-01T03:00:00Z",
       BILLING_TRANSITION_ENDS_AT: "2026-12-31T03:00:00Z",
     };
     const production = { ...validEnvironment, NODE_ENV: "production" };
 
-    // Regression: without the Stripe variables production silently ran with no plan limits.
-    it("refuses to start without Stripe", () => {
+    // Regression: without the billing variables production silently ran with no plan limits.
+    it("refuses to start without the Asaas account that charges the plans", () => {
       const parsed = serverEnvironmentSchema.safeParse(production);
       expect(parsed.success).toBe(false);
-      expect(parsed.error?.issues[0]?.path).toEqual(["STRIPE_SECRET_KEY"]);
+      expect(parsed.error?.issues[0]?.path).toEqual(["ASAAS_API_KEY"]);
     });
 
-    it("refuses a partial Stripe configuration", () => {
+    it("refuses a partial Asaas configuration", () => {
       const parsed = serverEnvironmentSchema.safeParse({
         ...production,
-        ...stripe,
-        STRIPE_WEBHOOK_SECRET: undefined,
+        ...asaas,
+        ASAAS_WEBHOOK_TOKEN: undefined,
       });
-      expect(parsed.error?.issues[0]?.path).toEqual(["STRIPE_WEBHOOK_SECRET"]);
+      expect(parsed.error?.issues[0]?.path).toEqual(["ASAAS_WEBHOOK_TOKEN"]);
     });
 
-    it("starts with Stripe complete or with the explicit unlimited mode", () => {
-      expect(serverEnvironmentSchema.safeParse({ ...production, ...stripe }).success).toBe(true);
+    it("starts with the Asaas account complete or with the explicit unlimited mode", () => {
+      expect(serverEnvironmentSchema.safeParse({ ...production, ...asaas }).success).toBe(true);
       const unlimited = serverEnvironmentSchema.safeParse({
         ...production,
         BILLING_UNLIMITED: "true",
@@ -110,20 +106,20 @@ describe("serverEnvironmentSchema", () => {
       expect(unlimited.success).toBe(true);
     });
 
-    it("refuses billing without the price of each of the five plans", () => {
+    it("refuses billing on the Asaas sandbox in production", () => {
       const parsed = serverEnvironmentSchema.safeParse({
         ...production,
-        ...stripe,
-        STRIPE_ELITE_PRICE_ID: undefined,
+        ...asaas,
+        ASAAS_API_URL: "https://api-sandbox.asaas.com/v3",
       });
-      expect(parsed.error?.issues[0]?.path).toEqual(["STRIPE_ELITE_PRICE_ID"]);
+      expect(parsed.error?.issues[0]?.path).toEqual(["ASAAS_API_URL"]);
     });
 
     // Without the dates every account created before the launch would lose its access at once.
     it("refuses billing without the transition dates", () => {
       const parsed = serverEnvironmentSchema.safeParse({
         ...production,
-        ...stripe,
+        ...asaas,
         BILLING_LAUNCHED_AT: undefined,
         BILLING_TRANSITION_ENDS_AT: undefined,
       });
@@ -150,7 +146,7 @@ describe("serverEnvironmentSchema", () => {
       expect(parsed.error?.issues[0]?.path).toEqual(["BILLING_TRANSITION_ENDS_AT"]);
     });
 
-    it("keeps development free of Stripe and defaults the grace to 7 days", () => {
+    it("keeps development free of plan billing and defaults the grace to 7 days", () => {
       expect(serverEnvironmentSchema.parse(validEnvironment)).toMatchObject({
         BILLING_UNLIMITED: false,
         BILLING_PAST_DUE_GRACE_DAYS: 7,

@@ -12,7 +12,8 @@ import { isPlatformOwner } from "@sellbridge/shared/platform-owner";
 import { isStaffRole } from "@sellbridge/shared/staff-access";
 import { APIError } from "better-auth/api";
 import { z } from "zod";
-import { billingConfigured, stripeClient } from "@/features/billing/stripe.server";
+import { isAsaasError } from "@sellbridge/payments/asaas";
+import { billingClientForCleanup } from "@/features/billing/billing-config.server";
 import { avatarStorageKey } from "@/features/profile/avatar-key";
 import { disconnectStoreForTenant } from "@/features/stores/disconnect-store.server";
 import { database } from "@/lib/server/database";
@@ -35,35 +36,40 @@ export type DeletingAccount = z.infer<typeof deletingAccountSchema>;
 const TEAM_ACCOUNT_MESSAGE =
   "Contas da equipe não são excluídas por aqui. Fale com o dono da plataforma.";
 
-/** Stripe's answer for a customer that is already gone: the goal of the call, reached before. */
-const alreadyDeletedSchema = z.object({ code: z.literal("resource_missing") });
+const UNREACHABLE_MESSAGE =
+  "Não foi possível cancelar a assinatura agora. Tente excluir a conta de novo em alguns minutos.";
 
 /**
- * The customer's Stripe record goes too, which also cancels any live subscription: no charge
- * may outlive the account. Failing here stops the deletion before any data is touched. The
- * customer is then forgotten, so a deletion retried after a later failure does not ask again.
+ * The subscription and the customer at Asaas go too: no charge may outlive the account. Failing
+ * here stops the deletion before any data is touched. The customer is then forgotten, so a
+ * deletion retried after a later failure does not ask again.
  */
 async function closeBilling(tenantId: string): Promise<void> {
   const account = await getBillingAccount(database, tenantId);
-  if (account === null || account.customerId === null || !billingConfigured()) {
+  const client = billingClientForCleanup();
+  if (account === null || client === null) {
     return;
   }
-  await deleteStripeCustomer(account.customerId);
+  const { customerId, subscriptionId } = account;
+  if (customerId === null) {
+    return;
+  }
+  if (subscriptionId !== null) {
+    await removeAtAsaas(async () => client.deleteSubscription(subscriptionId));
+  }
+  await removeAtAsaas(async () => client.deleteSubscriber(customerId));
   await forgetBillingCustomer(database, tenantId);
 }
 
-async function deleteStripeCustomer(customerId: string): Promise<void> {
+/** Something Asaas no longer has is already the goal of the call. */
+async function removeAtAsaas(remove: () => Promise<unknown>): Promise<void> {
   try {
-    await stripeClient().customers.del(customerId);
+    await remove();
   } catch (error) {
-    if (alreadyDeletedSchema.safeParse(error).success) {
+    if (isAsaasError(error) && error.status === 404) {
       return;
     }
-    throw new AppError(
-      "EXTERNAL_PROVIDER",
-      "Não foi possível cancelar a assinatura agora. Tente excluir a conta de novo em alguns minutos.",
-      { cause: error },
-    );
+    throw new AppError("EXTERNAL_PROVIDER", UNREACHABLE_MESSAGE, { cause: error });
   }
 }
 

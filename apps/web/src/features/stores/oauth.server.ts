@@ -1,4 +1,4 @@
-import { billingRules } from "@/features/billing/stripe.server";
+import { billingRules } from "@/features/billing/billing-config.server";
 import { findNewStoreBlock } from "@/features/billing/billing.server";
 import { randomBytes } from "node:crypto";
 import {

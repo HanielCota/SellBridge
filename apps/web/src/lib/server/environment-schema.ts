@@ -42,8 +42,8 @@ const serverEnvironmentShape = z.object({
   BILLING_LAUNCHED_AT: z.iso.datetime({ offset: true }).optional(),
   BILLING_TRANSITION_ENDS_AT: z.iso.datetime({ offset: true }).optional(),
   /**
-   * Production without Stripe refuses to start unless this says so: no Stripe means no plan
-   * limits at all (item 16, N8).
+   * Production without the plans' billing (SellBridge's Asaas account and the launch dates)
+   * refuses to start unless this says so: it means no plan limits at all (item 16, N8).
    */
   BILLING_UNLIMITED: booleanFlagEnvironmentSchema,
   /** Days a failed renewal (past_due) keeps the plan before the account is left without one. */
@@ -149,14 +149,11 @@ const serverEnvironmentShape = z.object({
   SUPPORT_ASSISTANT_PROVIDER: z.enum(SUPPORT_ASSISTANT_PROVIDERS).default("faq"),
 });
 
-const STRIPE_REQUIRED_KEYS = [
-  "STRIPE_SECRET_KEY",
-  "STRIPE_WEBHOOK_SECRET",
-  "STRIPE_START_PRICE_ID",
-  "STRIPE_PRO_PRICE_ID",
-  "STRIPE_BUSINESS_PRICE_ID",
-  "STRIPE_BLACK_PRICE_ID",
-  "STRIPE_ELITE_PRICE_ID",
+/** SellBridge's Asaas account: the plans' monthly fee is charged there. */
+const BILLING_ASAAS_REQUIRED_KEYS = [
+  "ASAAS_API_KEY",
+  "ASAAS_WALLET_ID",
+  "ASAAS_WEBHOOK_TOKEN",
 ] as const;
 
 /** Without both dates in production, every account would lose its access the day billing starts. */
@@ -179,14 +176,15 @@ function checkProductionBilling(value: ServerEnvironmentShape, context: z.Refine
   if (value.BILLING_UNLIMITED) {
     return;
   }
-  for (const key of [...STRIPE_REQUIRED_KEYS, ...TRANSITION_REQUIRED_KEYS]) {
+  for (const key of [...BILLING_ASAAS_REQUIRED_KEYS, ...TRANSITION_REQUIRED_KEYS]) {
     if (value[key] !== undefined) {
       continue;
     }
     context.addIssue({
       code: "custom",
       path: [key],
-      message: "obrigatória em produção; sem o Stripe defina BILLING_UNLIMITED=true (sem limites)",
+      message:
+        "obrigatória em produção; sem a cobrança dos planos defina BILLING_UNLIMITED=true (sem limites)",
     });
   }
 }

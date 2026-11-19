@@ -1,76 +1,50 @@
-import { BILLING_PLANS, type BillingPlan, type BillingPlanId } from "@sellbridge/shared/billing";
-import { formatCents } from "@sellbridge/shared/money";
-import { REPORT_TIME_ZONE } from "@sellbridge/shared/period-range";
-import { CheckIcon, HeadsetIcon, WarningIcon } from "@phosphor-icons/react";
-import { useMutation, useSuspenseQuery } from "@tanstack/react-query";
-import { toast } from "sonner";
+import { WarningIcon } from "@phosphor-icons/react";
+import { useState } from "react";
+import { ConfirmDialog } from "@/components/feedback/confirm-dialog";
 import { PageHeader } from "@/components/layout/page-header";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { DisabledHint } from "@/components/ui/hint";
 import { billingNoticeCopy } from "@/features/billing/billing-notice";
-import { billingQueryOptions } from "@/features/billing/billing.queries";
-import { checkoutBilling, manageBilling } from "@/features/billing/billing.functions";
 import {
-  overLimitWarning,
-  planAllowance,
-  priceParts,
-  recommendedPlan,
-  type BillingUsage,
-} from "@/features/billing/plan-choice";
+  cancelBilling,
+  changeBillingPaymentMethod,
+  openBillingPayment,
+} from "@/features/billing/billing.functions";
+import type { BillingUsage } from "@/features/billing/plan-choice";
 import { formatFeePercent } from "@/features/supplier-payments/fee-percent";
-import { errorMessage } from "@/lib/errors";
+import {
+  currentPlanOf,
+  dateLabel,
+  hasLiveSubscription,
+  lastDayLabel,
+  OWNER_ONLY_REASON,
+  paymentToFix,
+  planById,
+  useBillingAction,
+  useBillingData,
+  type BillingData,
+} from "./billing-data";
+import { PaymentMethodDialog, type PaymentMethod } from "./billing-dialogs";
+import { PlanChoices } from "./plan-cards";
 
-type BillingData = ReturnType<typeof useBillingData>;
-
-const OWNER_ONLY_REASON = "Só o dono da conta pode assinar ou mudar o plano";
-
-function useBillingData() {
-  return useSuspenseQuery(billingQueryOptions()).data;
-}
-
-function dateLabel(isoDate: string | Date): string {
-  return new Date(isoDate).toLocaleDateString("pt-BR", { timeZone: REPORT_TIME_ZONE });
-}
-
-/** The access ends at a moment; the reseller keeps the whole day before it. */
-function lastDayLabel(isoDate: string): string {
-  return dateLabel(new Date(new Date(isoDate).getTime() - 1));
-}
-
-function useBillingAction() {
-  return useMutation({
-    mutationFn: async (target: BillingPlanId | "portal") => {
-      const result =
-        target === "portal"
-          ? await manageBilling()
-          : await checkoutBilling({ data: { plan: target } });
-      window.location.assign(result.url);
-    },
-    onError: (error) => toast.error(errorMessage(error)),
-  });
-}
-
-function currentPlanOf(data: BillingData): BillingPlan | null {
-  if (data.access.kind !== "plan") return null;
-  const { planId } = data.access;
-  return BILLING_PLANS.find((plan) => plan.id === planId) ?? null;
-}
+type Subscription = NonNullable<BillingData["subscription"]>;
 
 function SubscriptionBadge({ data }: { data: BillingData }) {
-  const { account } = data;
-  if (account === null || data.access.kind !== "plan") return null;
-  if (account.status === "past_due") {
+  const { subscription } = data;
+  if (subscription === null || data.access.kind !== "plan") return null;
+  if (subscription.status === "past_due") {
     return <Badge variant="destructive">Pagamento pendente</Badge>;
   }
-  if (account.cancelAtPeriodEnd && account.periodEnd !== null) {
-    return <Badge variant="secondary">Termina em {dateLabel(account.periodEnd)}</Badge>;
+  if (subscription.cancelAtPeriodEnd && subscription.periodEnd !== null) {
+    return <Badge variant="secondary">Termina em {lastDayLabel(subscription.periodEnd)}</Badge>;
   }
   return <Badge>Ativo</Badge>;
 }
 
-function currentTitle(data: BillingData, plan: BillingPlan | null): string {
+function currentTitle(data: BillingData): string {
+  const plan = currentPlanOf(data);
   if (plan !== null) return `Seu plano: ${plan.name}`;
   if (data.access.kind === "transition") {
     return `Tudo liberado até ${lastDayLabel(data.access.until)}`;
@@ -98,48 +72,28 @@ function UsageLine({ usage, limits }: { usage: BillingUsage; limits: BillingUsag
   );
 }
 
-function renewalLine(account: NonNullable<BillingData["account"]>): string | null {
-  if (account.periodEnd === null || account.status === "past_due") return null;
-  if (account.cancelAtPeriodEnd) return null;
-  return `Próxima cobrança em ${dateLabel(account.periodEnd)}`;
+function methodLabel(method: string | null): string {
+  return method === "credit_card" ? "no cartão" : "por Pix";
 }
 
-function paymentToFix(data: BillingData): boolean {
-  return data.notice?.kind === "past_due" || data.notice?.kind === "payment_failed";
-}
-
-function CurrentPlan({ data }: { data: BillingData }) {
-  const action = useBillingAction();
-  const plan = currentPlanOf(data);
-  const renewal = plan !== null && data.account !== null ? renewalLine(data.account) : null;
-  // Without a plan the limits are zero: "0 de 0 lojas" says nothing, so show the usage alone.
-  const limits = data.access.kind === "none" ? null : data.access.limits;
-  return (
-    <Card>
-      <CardHeader>
-        <div className="flex flex-wrap items-center gap-2">
-          <CardTitle className="text-lg">
-            <h2>{currentTitle(data, plan)}</h2>
-          </CardTitle>
-          <SubscriptionBadge data={data} />
-        </div>
-      </CardHeader>
-      <CardContent className="space-y-3">
-        <UsageLine usage={data.usage} limits={limits} />
-        {renewal === null ? null : <p className="text-muted-foreground">{renewal}</p>}
-        {data.notice === null ? null : <NoticeText notice={data.notice} />}
-        {data.account?.customerId === null || data.account === null ? null : (
-          <PortalButton
-            fixPayment={paymentToFix(data)}
-            disabled={!data.canManage || !data.enabled || action.isPending}
-            pending={action.isPending && action.variables === "portal"}
-            onClick={() => action.mutate("portal")}
-            reason={data.canManage ? null : OWNER_ONLY_REASON}
-          />
-        )}
-      </CardContent>
-    </Card>
-  );
+/** What happens next with the subscription, in one or two plain sentences. */
+function subscriptionLines(subscription: Subscription, live: boolean): string[] {
+  const lines: string[] = [];
+  const waitingPlan = planById(subscription.plan);
+  if (subscription.status === "incomplete" && waitingPlan !== null) {
+    lines.push(`O pagamento do plano ${waitingPlan.name} está esperando você.`);
+  }
+  const upgrade = planById(subscription.upgradePlan);
+  if (upgrade !== null) lines.push(`Mudança para o ${upgrade.name}: falta pagar a diferença.`);
+  if (live && subscription.status === "active" && subscription.periodEnd !== null) {
+    const method = methodLabel(subscription.paymentMethod);
+    lines.push(`Próxima mensalidade em ${lastDayLabel(subscription.periodEnd)}, ${method}.`);
+  }
+  const scheduled = planById(subscription.scheduledPlan);
+  if (scheduled !== null && subscription.scheduledPlanAt !== null) {
+    lines.push(`O ${scheduled.name} começa em ${dateLabel(subscription.scheduledPlanAt)}.`);
+  }
+  return lines;
 }
 
 function NoticeText({ notice }: { notice: NonNullable<BillingData["notice"]> }) {
@@ -157,205 +111,146 @@ function NoticeText({ notice }: { notice: NonNullable<BillingData["notice"]> }) 
   );
 }
 
-function portalLabel(fixPayment: boolean, pending: boolean): string {
-  if (pending) return "Abrindo...";
-  return fixPayment ? "Atualizar cartão" : "Cartão, faturas e cancelamento";
+function needsPayment(data: BillingData): boolean {
+  const { subscription } = data;
+  if (subscription === null) return false;
+  const waiting = subscription.status === "incomplete" && subscription.hasSubscription;
+  return paymentToFix(data) || waiting || subscription.upgradePlan !== null;
 }
 
-function PortalButton({
-  fixPayment,
-  disabled,
-  pending,
-  onClick,
-  reason,
-}: {
-  fixPayment: boolean;
-  disabled: boolean;
-  pending: boolean;
-  onClick: () => void;
-  reason: string | null;
-}) {
-  const button = (
-    <Button
-      variant={fixPayment ? "default" : "outline"}
-      disabled={disabled}
-      onClick={onClick}
-      className="h-11 w-full sm:w-auto"
-    >
-      {portalLabel(fixPayment, pending)}
-    </Button>
-  );
-  if (reason === null) return button;
-  return <DisabledHint reason={reason}>{button}</DisabledHint>;
+function OwnerButton({ data, children }: { data: BillingData; children: React.ReactElement }) {
+  if (data.canManage) return children;
+  return <DisabledHint reason={OWNER_ONLY_REASON}>{children}</DisabledHint>;
 }
 
-function PlanPrice({ priceCents }: { priceCents: number | undefined }) {
-  if (priceCents === undefined) {
-    return (
-      <p className="flex h-10 items-end text-lg font-medium text-muted-foreground">Em breve</p>
-    );
-  }
-  const { reais, cents } = priceParts(priceCents);
+function cancelDescription(periodEnd: string | null): string {
+  const until = periodEnd === null ? "o fim do mês pago" : lastDayLabel(periodEnd);
+  return `Seu plano vale até ${until} e não renova. Depois disso, pedidos e anúncios no ar continuam, mas você não conecta lojas novas nem publica anúncios novos.`;
+}
+
+function PayNowButton({ data }: { data: BillingData }) {
+  const pay = useBillingAction(async () => openBillingPayment(), "Pagamento aberto.");
   return (
-    <p className="h-10">
-      <span className="sr-only">{formatCents(priceCents)} por mês</span>
-      <span aria-hidden="true" className="flex items-baseline gap-0.5 whitespace-nowrap">
-        <span className="self-start pt-1 text-sm font-medium text-muted-foreground">R$</span>
-        <span className="text-4xl font-semibold tracking-tight">{reais}</span>
-        {cents === null ? null : <span className="text-lg font-semibold">{cents}</span>}
-        <span className="ml-1 text-sm text-muted-foreground">/mês</span>
-      </span>
-    </p>
+    <OwnerButton data={data}>
+      <Button
+        className="h-11 w-full sm:w-auto"
+        disabled={!data.canManage || pay.isPending}
+        onClick={() => pay.mutate(undefined)}
+      >
+        {pay.isPending ? "Abrindo..." : "Pagar agora"}
+      </Button>
+    </OwnerButton>
   );
 }
 
-function PlanFeatures({ plan }: { plan: BillingPlan }) {
-  const allowance = planAllowance(plan);
+function PaymentMethodChange({ data }: { data: BillingData }) {
+  const [open, setOpen] = useState(false);
+  const method = useBillingAction(
+    async (chosen: PaymentMethod) => changeBillingPaymentMethod({ data: { method: chosen } }),
+    "Forma de pagamento atualizada.",
+  );
+  const periodEnd = data.subscription?.periodEnd ?? null;
+  const from =
+    periodEnd === null
+      ? "Vale a partir da próxima mensalidade."
+      : `Vale a partir da próxima mensalidade, em ${lastDayLabel(periodEnd)}.`;
   return (
-    <ul className="space-y-2.5 border-t border-border pt-4 text-muted-foreground">
-      {[allowance.stores, allowance.listings].map((item) => (
-        <li key={item.label} className="flex gap-2">
-          <CheckIcon
-            weight="bold"
-            className="mt-0.5 size-4 shrink-0 text-brand-text"
-            aria-hidden="true"
-          />
-          <span>
-            <span className="font-semibold text-foreground">{item.amount}</span> {item.label}
-          </span>
-        </li>
-      ))}
-      {plan.prioritySupport ? (
-        <li className="flex gap-2 text-foreground">
-          <HeadsetIcon
-            weight="bold"
-            className="mt-0.5 size-4 shrink-0 text-brand-text"
-            aria-hidden="true"
-          />
-          <span>
-            <span className="font-semibold">Atendimento prioritário:</span> resposta em até 8 horas
-          </span>
-        </li>
-      ) : null}
-    </ul>
+    <>
+      <OwnerButton data={data}>
+        <Button
+          variant="outline"
+          className="h-11 w-full sm:w-auto"
+          disabled={!data.canManage}
+          onClick={() => setOpen(true)}
+        >
+          Trocar forma de pagamento
+        </Button>
+      </OwnerButton>
+      <PaymentMethodDialog
+        open={open}
+        onOpenChange={setOpen}
+        title="Como você quer pagar daqui em diante?"
+        description={from}
+        pending={method.isPending}
+        onChoose={(chosen) => method.mutate(chosen, { onSuccess: () => setOpen(false) })}
+      />
+    </>
   );
 }
 
-function planButtonLabel(plan: BillingPlan, hasPlan: boolean, pending: boolean): string {
-  if (pending) return "Abrindo pagamento...";
-  return hasPlan ? `Mudar para ${plan.name}` : `Assinar o ${plan.name}`;
-}
-
-function planCardRing(recommended: boolean, isCurrent: boolean): string | undefined {
-  if (recommended) return "ring-2 ring-brand";
-  if (isCurrent) return "ring-2 ring-brand-text/40";
-  return undefined;
-}
-
-function PlanCard({
-  plan,
-  data,
-  recommended,
-  action,
-}: {
-  plan: BillingPlan;
-  data: BillingData;
-  recommended: boolean;
-  action: ReturnType<typeof useBillingAction>;
-}) {
-  const current = currentPlanOf(data);
-  const isCurrent = current?.id === plan.id;
-  const price = data.prices.find((candidate) => candidate.id === plan.id)?.priceCents;
-  const warning = current === null || isCurrent ? null : overLimitWarning(plan, data.usage);
+function SubscriptionCancel({ data }: { data: BillingData }) {
+  const [open, setOpen] = useState(false);
+  const cancel = useBillingAction(async () => {
+    await cancelBilling();
+    return { url: null };
+  }, "Assinatura cancelada. Seu plano vale até o fim do mês pago.");
   return (
-    <Card className={planCardRing(recommended, isCurrent)}>
-      <CardHeader className="gap-2">
-        {/* Side by side, every card keeps the badge row so the prices line up; stacked, it can go. */}
-        <div className="flex flex-wrap items-center gap-2 empty:hidden sm:min-h-6 sm:empty:flex">
-          {isCurrent ? <Badge>Seu plano</Badge> : null}
-          {recommended ? <Badge>Indicado para você</Badge> : null}
+    <>
+      <OwnerButton data={data}>
+        <Button
+          variant="ghost"
+          className="h-11 w-full text-destructive sm:w-auto"
+          disabled={!data.canManage}
+          onClick={() => setOpen(true)}
+        >
+          Cancelar assinatura
+        </Button>
+      </OwnerButton>
+      <ConfirmDialog
+        open={open}
+        onOpenChange={setOpen}
+        title="Cancelar a assinatura"
+        description={cancelDescription(data.subscription?.periodEnd ?? null)}
+        confirmLabel="Cancelar assinatura"
+        pendingLabel="Cancelando..."
+        cancelLabel="Manter assinatura"
+        destructive
+        isPending={cancel.isPending}
+        onConfirm={() => cancel.mutate(undefined, { onSuccess: () => setOpen(false) })}
+      />
+    </>
+  );
+}
+
+function SubscriptionActions({ data }: { data: BillingData }) {
+  const live = hasLiveSubscription(data);
+  const showPay = needsPayment(data);
+  if (!showPay && !live) return null;
+  return (
+    <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap">
+      {showPay ? <PayNowButton data={data} /> : null}
+      {live && !paymentToFix(data) ? <PaymentMethodChange data={data} /> : null}
+      {live ? <SubscriptionCancel data={data} /> : null}
+    </div>
+  );
+}
+
+function CurrentPlan({ data }: { data: BillingData }) {
+  // Without a plan the limits are zero: "0 de 0 lojas" says nothing, so show the usage alone.
+  const limits = data.access.kind === "none" ? null : data.access.limits;
+  const live = hasLiveSubscription(data);
+  const lines = data.subscription === null ? [] : subscriptionLines(data.subscription, live);
+  return (
+    <Card>
+      <CardHeader>
+        <div className="flex flex-wrap items-center gap-2">
+          <CardTitle className="text-lg">
+            <h2>{currentTitle(data)}</h2>
+          </CardTitle>
+          <SubscriptionBadge data={data} />
         </div>
-        <h3 className="text-xl font-semibold tracking-tight">{plan.name}</h3>
       </CardHeader>
-      <CardContent className="flex flex-1 flex-col gap-5">
-        <PlanPrice priceCents={data.enabled ? price : undefined} />
-        <PlanFeatures plan={plan} />
-        {warning === null ? null : <p className="text-sm text-muted-foreground">{warning}</p>}
-        <div className="mt-auto">
-          <PlanAction
-            plan={plan}
-            data={data}
-            isCurrent={isCurrent}
-            recommended={recommended}
-            action={action}
-          />
-        </div>
+      <CardContent className="space-y-3">
+        <UsageLine usage={data.usage} limits={limits} />
+        {lines.map((line) => (
+          <p key={line} className="text-muted-foreground">
+            {line}
+          </p>
+        ))}
+        {data.notice === null ? null : <NoticeText notice={data.notice} />}
+        {data.enabled ? <SubscriptionActions data={data} /> : null}
       </CardContent>
     </Card>
-  );
-}
-
-function PlanAction({
-  plan,
-  data,
-  isCurrent,
-  recommended,
-  action,
-}: {
-  plan: BillingPlan;
-  data: BillingData;
-  isCurrent: boolean;
-  recommended: boolean;
-  action: ReturnType<typeof useBillingAction>;
-}) {
-  if (!data.enabled) {
-    return <p className="text-sm text-muted-foreground">Disponível quando a cobrança começar</p>;
-  }
-  if (isCurrent) {
-    return (
-      <p className="flex h-11 items-center justify-center gap-2 rounded-xl bg-muted text-sm font-medium">
-        <CheckIcon weight="bold" className="size-4 text-brand-text" aria-hidden="true" />
-        Plano em uso
-      </p>
-    );
-  }
-  const pending = action.isPending && action.variables === plan.id;
-  const button = (
-    <Button
-      className="h-11 w-full"
-      variant={recommended ? "default" : "outline"}
-      disabled={!data.canManage || action.isPending}
-      onClick={() => action.mutate(plan.id)}
-    >
-      {planButtonLabel(plan, currentPlanOf(data) !== null, pending)}
-    </Button>
-  );
-  if (data.canManage) return button;
-  return <DisabledHint reason={OWNER_ONLY_REASON}>{button}</DisabledHint>;
-}
-
-function PlanChoices({ data }: { data: BillingData }) {
-  const action = useBillingAction();
-  // Only an account still choosing gets a plan pointed out; one with a plan already chose.
-  const recommended =
-    data.enabled && currentPlanOf(data) === null ? recommendedPlan(data.usage).id : null;
-  return (
-    <section aria-labelledby="plan-choices-title" className="space-y-3">
-      <h2 id="plan-choices-title" className="text-lg font-semibold">
-        Planos
-      </h2>
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
-        {BILLING_PLANS.map((plan) => (
-          <PlanCard
-            key={plan.id}
-            plan={plan}
-            data={data}
-            recommended={recommended === plan.id}
-            action={action}
-          />
-        ))}
-      </div>
-    </section>
   );
 }
 
@@ -369,8 +264,9 @@ function PlanTerms({ feeBasisPoints }: { feeBasisPoints: number | null }) {
           : ` Além da mensalidade, a plataforma cobra ${formatFeePercent(feeBasisPoints)} de cada venda.`}
       </p>
       <p>
-        A mensalidade é cobrada todo mês no cartão. Subir de plano vale na hora; descer vale na
-        próxima mensalidade. Seus pedidos e anúncios nunca saem do ar por causa do plano.
+        A mensalidade é cobrada todo mês, no cartão ou por Pix. Subir de plano vale na hora: você
+        paga só a diferença até a próxima mensalidade. Descer vale na próxima mensalidade. Seus
+        pedidos e anúncios nunca saem do ar por causa do plano.
       </p>
     </div>
   );
@@ -378,7 +274,7 @@ function PlanTerms({ feeBasisPoints }: { feeBasisPoints: number | null }) {
 
 const RETURN_MESSAGES = {
   sucesso: "Pagamento enviado. Seu plano aparece aqui em alguns segundos.",
-  troca: "Troca de plano enviada. O novo plano aparece aqui em alguns segundos.",
+  troca: "Pagamento da diferença enviado. O novo plano aparece aqui em alguns segundos.",
   cancelado: "Você saiu do pagamento. Nada mudou no seu plano.",
 } as const;
 

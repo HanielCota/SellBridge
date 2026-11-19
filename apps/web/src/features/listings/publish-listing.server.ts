@@ -1,4 +1,4 @@
-import { billingRules } from "@/features/billing/stripe.server";
+import { billingRules } from "@/features/billing/billing-config.server";
 import {
   assertBillingCapacity,
   assertStoresSellSupplier,

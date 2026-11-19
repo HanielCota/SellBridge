@@ -26,7 +26,7 @@ export function billingNoticeCopy(notice: BillingNoticeView): BillingNoticeCopy 
     return {
       title: "Pagamento da assinatura não realizado",
       description:
-        "Seus pedidos e anúncios continuam. Para conectar lojas e publicar, atualize o pagamento.",
+        "Seus pedidos e anúncios continuam. Para conectar lojas e publicar, pague a mensalidade em aberto.",
       tone: "danger",
     };
   }
@@ -50,7 +50,7 @@ export function billingNoticeCopy(notice: BillingNoticeView): BillingNoticeCopy 
   });
   return {
     title: "Pagamento da assinatura pendente",
-    description: `Atualize o pagamento até ${lastDay} para manter o seu plano.`,
+    description: `Pague a mensalidade até ${lastDay} para manter o seu plano.`,
     tone: "danger",
   };
 }

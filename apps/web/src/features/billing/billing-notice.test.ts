@@ -7,7 +7,7 @@ describe("billingNoticeCopy", () => {
     const copy = billingNoticeCopy({ kind: "past_due", accessUntil: "2026-10-24T02:00:00.000Z" });
     expect(copy).toEqual({
       title: "Pagamento da assinatura pendente",
-      description: "Atualize o pagamento até 23/10/2026 para manter o seu plano.",
+      description: "Pague a mensalidade até 23/10/2026 para manter o seu plano.",
       tone: "danger",
     });
   });
@@ -16,7 +16,7 @@ describe("billingNoticeCopy", () => {
     expect(billingNoticeCopy({ kind: "payment_failed" })).toEqual({
       title: "Pagamento da assinatura não realizado",
       description:
-        "Seus pedidos e anúncios continuam. Para conectar lojas e publicar, atualize o pagamento.",
+        "Seus pedidos e anúncios continuam. Para conectar lojas e publicar, pague a mensalidade em aberto.",
       tone: "danger",
     });
   });

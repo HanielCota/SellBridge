@@ -7,11 +7,17 @@ const mocks = vi.hoisted(() => ({
   deleteTenantData: vi.fn<(database: unknown, tenantId: string) => Promise<void>>(),
   forgetBillingCustomer: vi.fn<(database: unknown, tenantId: string) => Promise<void>>(),
   getBillingAccount:
-    vi.fn<(database: unknown, tenantId: string) => Promise<{ customerId: string | null } | null>>(),
+    vi.fn<
+      (
+        database: unknown,
+        tenantId: string,
+      ) => Promise<{ customerId: string | null; subscriptionId: string | null } | null>
+    >(),
   listStoreConnections:
     vi.fn<(database: unknown, tenantId: string) => Promise<{ id: string; status: string }[]>>(),
   disconnectStoreForTenant: vi.fn<(request: unknown) => Promise<unknown>>(),
   deleteCustomer: vi.fn<(customerId: string) => Promise<unknown>>(),
+  deleteSubscription: vi.fn<(subscriptionId: string) => Promise<unknown>>(),
   deleteFile: vi.fn<(key: string) => Promise<void>>(),
 }));
 
@@ -20,9 +26,11 @@ vi.mock("@/lib/server/environment", () => ({
   environment: { ADMIN_EMAILS: ["dono@sellbridge.test"] },
 }));
 vi.mock("@/lib/server/storage", () => ({ fileStorage: { delete: mocks.deleteFile } }));
-vi.mock("@/features/billing/stripe.server", () => ({
-  billingConfigured: () => true,
-  stripeClient: () => ({ customers: { del: mocks.deleteCustomer } }),
+vi.mock("@/features/billing/billing-config.server", () => ({
+  billingClientForCleanup: () => ({
+    deleteSubscriber: mocks.deleteCustomer,
+    deleteSubscription: mocks.deleteSubscription,
+  }),
 }));
 vi.mock("@/features/stores/disconnect-store.server", () => ({
   disconnectStoreForTenant: mocks.disconnectStoreForTenant,
@@ -36,6 +44,7 @@ vi.mock("@sellbridge/database/repositories", () => ({
   listStoreConnections: mocks.listStoreConnections,
 }));
 
+const { AsaasError } = await import("@sellbridge/payments/asaas");
 const { assertDeletionRequest, beforeAccountDeletion, prepareAccountDeletion } =
   await import("./account-deletion.server");
 
@@ -51,13 +60,14 @@ beforeEach(() => {
   vi.clearAllMocks();
   mocks.findSoleOwnedTenants.mockResolvedValue(["tenant-a"]);
   mocks.accountFileKeys.mockResolvedValue(["tickets/t1/nota.pdf"]);
-  mocks.getBillingAccount.mockResolvedValue({ customerId: "cus_123" });
+  mocks.getBillingAccount.mockResolvedValue({ customerId: "cus_123", subscriptionId: "sub_123" });
   mocks.listStoreConnections.mockResolvedValue([
     { id: "store-1", status: "connected" },
     { id: "store-2", status: "expired" },
   ]);
   mocks.disconnectStoreForTenant.mockResolvedValue({ paused: 1, leftLive: 0 });
-  mocks.deleteCustomer.mockResolvedValue({ deleted: true });
+  mocks.deleteCustomer.mockResolvedValue(true);
+  mocks.deleteSubscription.mockResolvedValue(true);
   mocks.deleteFile.mockResolvedValue(undefined);
   mocks.deleteTenantData.mockResolvedValue(undefined);
   mocks.forgetBillingCustomer.mockResolvedValue(undefined);
@@ -75,6 +85,7 @@ async function rejection(promise: Promise<unknown>) {
 describe("prepareAccountDeletion", () => {
   it("closes the workspace the seller owns alone: billing, stores, data and files", async () => {
     await prepareAccountDeletion(SELLER);
+    expect(mocks.deleteSubscription).toHaveBeenCalledWith("sub_123");
     expect(mocks.deleteCustomer).toHaveBeenCalledWith("cus_123");
     expect(mocks.disconnectStoreForTenant).toHaveBeenCalledTimes(1);
     expect(mocks.disconnectStoreForTenant).toHaveBeenCalledWith({
@@ -93,7 +104,7 @@ describe("prepareAccountDeletion", () => {
   });
 
   it("stops before touching any data when the subscription cannot be cancelled", async () => {
-    mocks.deleteCustomer.mockRejectedValue(new Error("Stripe fora do ar"));
+    mocks.deleteCustomer.mockRejectedValue(new Error("Asaas fora do ar"));
     const error = await rejection(prepareAccountDeletion(SELLER));
     expect(isAppError(error)).toBe(true);
     expect(mocks.deleteTenantData).not.toHaveBeenCalled();
@@ -122,16 +133,15 @@ describe("prepareAccountDeletion", () => {
 });
 
 describe("retries and workspaces", () => {
-  it("goes on when Stripe already deleted the customer (a retried deletion)", async () => {
-    mocks.deleteCustomer.mockRejectedValue(
-      Object.assign(new Error("No such customer"), { code: "resource_missing" }),
-    );
+  it("goes on when Asaas already deleted the subscription and the customer (a retried deletion)", async () => {
+    mocks.deleteSubscription.mockRejectedValue(new AsaasError("gone", { status: 404 }));
+    mocks.deleteCustomer.mockRejectedValue(new AsaasError("gone", { status: 404 }));
     await prepareAccountDeletion(SELLER);
     expect(mocks.forgetBillingCustomer).toHaveBeenCalledWith({}, "tenant-a");
     expect(mocks.deleteTenantData).toHaveBeenCalledWith({}, "tenant-a");
   });
 
-  it("forgets the Stripe customer right after deleting it", async () => {
+  it("forgets the Asaas customer right after deleting it", async () => {
     await prepareAccountDeletion(SELLER);
     const deleted = mocks.deleteCustomer.mock.invocationCallOrder[0] ?? 0;
     const forgotten = mocks.forgetBillingCustomer.mock.invocationCallOrder[0] ?? 0;
@@ -152,12 +162,12 @@ describe("retries and workspaces", () => {
 });
 
 describe("beforeAccountDeletion", () => {
-  it("answers Better Auth with 403 for team accounts and 503 when Stripe fails", async () => {
+  it("answers Better Auth with 403 for team accounts and 503 when Asaas fails", async () => {
     const team = await rejection(beforeAccountDeletion({ ...SELLER, role: "agent" }));
     expect(team).toMatchObject({ statusCode: 403 });
-    mocks.deleteCustomer.mockRejectedValue(new Error("Stripe fora do ar"));
-    const stripe = await rejection(beforeAccountDeletion(SELLER));
-    expect(stripe).toMatchObject({ statusCode: 503 });
+    mocks.deleteCustomer.mockRejectedValue(new Error("Asaas fora do ar"));
+    const asaas = await rejection(beforeAccountDeletion(SELLER));
+    expect(asaas).toMatchObject({ statusCode: 503 });
   });
 });
 

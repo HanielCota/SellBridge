@@ -17,8 +17,11 @@ export const BLOCKED_WHILE_IMPERSONATING: Readonly<Record<string, string>> = {
   deleteWebhookEndpointFn: "excluir webhooks",
   setWebhookEndpointEnabledFn: "ligar ou desligar webhooks",
   disconnectStoreFn: "desconectar lojas",
-  checkoutBilling: "assinar um plano",
-  manageBilling: "mudar a assinatura",
+  subscribeBilling: "assinar um plano",
+  changeBillingPlan: "mudar de plano",
+  openBillingPayment: "pagar a mensalidade",
+  changeBillingPaymentMethod: "mudar a forma de pagamento",
+  cancelBilling: "cancelar a assinatura",
   saveOnboardingHolder: "mudar os dados do titular",
   // The supplier's company data and orders e-mail travel together in the brand form. A first
   // brand may be registered during a visit, see `assertVisitKeepsOrdersEmail`.
