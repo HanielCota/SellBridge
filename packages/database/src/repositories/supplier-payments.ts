@@ -734,6 +734,37 @@ export async function markShipmentPaymentChecked(
     .where(eq(shipmentPayments.id, input.paymentId));
 }
 
+/**
+ * A round could not reach the provider about this payment: keeps when that started (the first
+ * such round) and returns it, so the round can tell a passing outage from one to escalate.
+ */
+export async function markShipmentPaymentDeferred(
+  database: Database,
+  input: { paymentId: string; now: Date },
+): Promise<Date> {
+  const [row] = await database
+    .update(shipmentPayments)
+    .set({
+      providerDeferredSince: sql`coalesce(${shipmentPayments.providerDeferredSince}, ${input.now.toISOString()}::timestamptz)`,
+    })
+    .where(eq(shipmentPayments.id, input.paymentId))
+    .returning({ since: shipmentPayments.providerDeferredSince });
+  return row?.since ?? input.now;
+}
+
+/** A round reached the provider about this payment again. */
+export async function clearShipmentPaymentDeferral(
+  database: Database,
+  paymentId: string,
+): Promise<void> {
+  await database
+    .update(shipmentPayments)
+    .set({ providerDeferredSince: null })
+    .where(
+      and(eq(shipmentPayments.id, paymentId), isNotNull(shipmentPayments.providerDeferredSince)),
+    );
+}
+
 /** A paid parcel that may be owed back to the reseller, with what decides it. */
 export interface RefundCandidate {
   payment: ShipmentPayment;

@@ -21,6 +21,7 @@ import {
 } from "@sellbridge/payments/asaas";
 import { logger } from "@sellbridge/shared/logger";
 import type { TokenCipher } from "@sellbridge/shared/token-cipher";
+import { type PaymentDeferrals, trackPaymentDeferrals } from "./payment-deferrals.ts";
 import { RECHECK_UNPAID_FOR_IN_MS, SUPPLIER_PAYMENT_BATCH } from "./supplier-payments.ts";
 
 export interface AsaasPaymentDependencies {
@@ -60,7 +61,12 @@ function isDeferrable(error: unknown): boolean {
 
 async function reconcileOne(
   context: AsaasContext,
-  input: { payment: ShipmentPayment; loadAccount: LoadAccount; now: Date },
+  input: {
+    payment: ShipmentPayment;
+    loadAccount: LoadAccount;
+    now: Date;
+    deferrals: PaymentDeferrals;
+  },
 ): Promise<void> {
   // Marked first: a payment that keeps failing still gives way to the others next round.
   await markShipmentPaymentChecked(context.database, {
@@ -77,8 +83,10 @@ async function reconcileOne(
     if (!isDeferrable(error)) {
       throw error;
     }
-    logger.warn("asaas.reconcile_deferred", { shipmentPaymentId: input.payment.id, error });
+    await input.deferrals.deferred("asaas.reconcile_deferred", input.payment.id, error);
+    return;
   }
+  await input.deferrals.reached(input.payment.id);
 }
 
 /**
@@ -105,7 +113,7 @@ async function freshHeld(
 
 async function settleOne(
   context: AsaasContext,
-  input: { held: HeldPayment; loadAccount: LoadAccount; now: Date },
+  input: { held: HeldPayment; loadAccount: LoadAccount; now: Date; deferrals: PaymentDeferrals },
 ): Promise<HeldMoneyOutcome["kind"] | null> {
   const { payment } = input.held;
   await markShipmentPaymentChecked(context.database, { paymentId: payment.id, now: input.now });
@@ -116,6 +124,7 @@ async function settleOne(
   }
   try {
     const { held, refundInProgress } = await freshHeld(context, { held: input.held, account });
+    await input.deferrals.reached(payment.id);
     if (held.payment.status !== "approved" && held.payment.status !== "charged_back") {
       return null;
     }
@@ -129,7 +138,7 @@ async function settleOne(
     if (!isDeferrable(error)) {
       throw error;
     }
-    logger.warn("asaas.settle_deferred", { shipmentPaymentId: payment.id, error });
+    await input.deferrals.deferred("asaas.settle_deferred", payment.id, error);
     return null;
   }
 }
@@ -148,6 +157,7 @@ export function createAsaasPaymentProcessor(dependencies: AsaasPaymentDependenci
     const context = { database: dependencies.database, cipher: dependencies.cipher, settings };
     const now = dependencies.now?.() ?? new Date();
     const loadAccount = accountLoader(dependencies.database);
+    const deferrals = trackPaymentDeferrals(context.database, { provider: "asaas", now });
     const open = await listShipmentPaymentsToReconcile(context.database, {
       provider: "asaas",
       now,
@@ -156,13 +166,14 @@ export function createAsaasPaymentProcessor(dependencies: AsaasPaymentDependenci
     });
     // One at a time: each supplier account has its own limits at Asaas.
     for (const payment of open) {
-      await reconcileOne(context, { payment, loadAccount, now });
+      await reconcileOne(context, { payment, loadAccount, now, deferrals });
     }
     const held = await listHeldPayments(context.database, { limit: SUPPLIER_PAYMENT_BATCH });
     const outcomes: (HeldMoneyOutcome["kind"] | null)[] = [];
     for (const item of held) {
-      outcomes.push(await settleOne(context, { held: item, loadAccount, now }));
+      outcomes.push(await settleOne(context, { held: item, loadAccount, now, deferrals }));
     }
+    deferrals.report();
     const round: AsaasPaymentRound = {
       checked: open.length,
       held: held.length,
