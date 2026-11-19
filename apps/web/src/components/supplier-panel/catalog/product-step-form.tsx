@@ -12,6 +12,7 @@ import {
   stepOfField,
   type FormStepId,
 } from "@/features/supplier-panel/catalog/draft-form";
+import { isStockFromBling } from "@/features/supplier-panel/catalog/stock-from-bling";
 import { useProductForm } from "@/features/supplier-panel/catalog/use-product-form";
 import { errorMessage } from "@/lib/errors";
 import { prefersReducedMotion } from "@/lib/rewind";
@@ -132,13 +133,16 @@ function StepContent({
   categories,
   taxDefaults,
   supplierId,
+  product,
 }: {
   step: FormStepId;
   form: ProductForm;
   categories: FormData["categories"];
   taxDefaults: FormData["taxDefaults"];
   supplierId: string;
+  product: FormData["product"];
 }) {
+  const [stockFromBling] = useState(() => isStockFromBling(product, new Date()));
   const stepProps = {
     values: form.values,
     errors: form.autosave.state.kind === "invalid" ? form.autosave.state.errors : {},
@@ -156,6 +160,7 @@ function StepContent({
           required={form.required}
           taxDefaults={taxDefaults}
           mercadoLivre={{ supplierId, ficha: form.ficha }}
+          stockFromBling={stockFromBling}
         />
       );
     }
@@ -227,6 +232,7 @@ function LoadedForm({
             categories={data.categories}
             taxDefaults={data.taxDefaults}
             supplierId={supplierId}
+            product={data.product}
           />
           <AutosaveIndicator
             state={form.autosave.state}

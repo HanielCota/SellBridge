@@ -1,3 +1,4 @@
+import type { ListingPauseReason } from "@sellbridge/shared/listing-pause-reasons";
 import { and, eq, inArray, isNotNull } from "drizzle-orm";
 import type { Database } from "../client.ts";
 import { listings, listingTargets, storeConnections } from "../schema/index.ts";
@@ -84,7 +85,12 @@ export async function markStoreTargetsPaused(
   }
   const changed = await database
     .update(listingTargets)
-    .set({ status: "paused", syncedStock: 0, syncedAt: new Date() })
+    .set({
+      status: "paused",
+      pauseReason: "store_disconnected" satisfies ListingPauseReason,
+      syncedStock: 0,
+      syncedAt: new Date(),
+    })
     .where(
       and(
         eq(listingTargets.tenantId, tenantId),

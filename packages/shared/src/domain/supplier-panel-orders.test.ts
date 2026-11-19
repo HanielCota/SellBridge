@@ -223,6 +223,17 @@ describe("describeQueueEntry for a sale not released for shipping", () => {
     }
   });
 
+  it("shows no deadline and no action while the parcel waits for the account or the payment", () => {
+    for (const preparationHold of ["receiving_account", "payment"] as const) {
+      const entry = describeQueueEntry(timing("forwarded"), forwardedAt, {
+        orderStatus: "paid",
+        preparationHold,
+      });
+      expect(entry.action).toBeNull();
+      expect(entry.deadline).toBeNull();
+    }
+  });
+
   it("keeps the deadline of a paid sale", () => {
     const entry = describeQueueEntry(timing("forwarded"), forwardedAt, { orderStatus: "paid" });
     expect(entry.deadline?.kind).toBe("accept");

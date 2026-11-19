@@ -24,7 +24,13 @@ import { REPORT_TIME_ZONE } from "@sellbridge/shared/period-range";
 import { database } from "@/lib/server/database";
 import { environment } from "@/lib/server/environment";
 import { billingClient } from "./billing-config.server";
-import { retireUnpaid, UNREACHABLE_MESSAGE, withBillingLock } from "./billing-lock.server";
+import {
+  assertNoPendingBillingCreation,
+  reserveBillingCreation,
+  retireUnpaid,
+  UNREACHABLE_MESSAGE,
+  withBillingLock,
+} from "./billing-lock.server";
 import { planDescription, readSubscriptionState } from "./billing-sync.server";
 import { CHARGE_REFERENCE, CHECKOUT_REFERENCE } from "./pending-reference";
 import { planChangeOf, type PlanChange } from "./plan-change";
@@ -60,6 +66,7 @@ function paidMonthLeft(account: BillingAccount | null): Date | null {
 
 async function liveAccount(tenantId: string): Promise<BillingAccount> {
   const account = await getBillingAccount(database, tenantId);
+  assertNoPendingBillingCreation(account?.pendingReference);
   if (account === null || !isLive(account) || account.subscriptionId === null) {
     throw conflictError("Você ainda não tem uma assinatura ativa.");
   }
@@ -135,13 +142,18 @@ async function openPixSubscription(
       ? asaasDueDate(new Date(), 0)
       : asaasDueDate(new Date(prepaidUntil.getTime() - DAY_IN_MS), 0);
   const customerId = await ensureSubscriber(client, input.tenantId, input.account);
-  const subscription = await client.createPixSubscription({
-    customerId,
-    valueCents: input.plan.priceCents,
-    firstDueDate,
-    description: planDescription(input.plan.id),
-    externalReference: input.tenantId,
-  });
+  const subscription = await reserveBillingCreation(
+    input.tenantId,
+    input.account?.pendingReference ?? null,
+    async (reference) =>
+      client.createPixSubscription({
+        customerId,
+        valueCents: input.plan.priceCents,
+        firstDueDate,
+        description: planDescription(input.plan.id),
+        externalReference: `${input.tenantId}:${reference}`,
+      }),
+  );
   await saveBillingAccount(database, input.tenantId, {
     subscriptionId: subscription.id,
     plan: input.plan.id,
@@ -166,7 +178,13 @@ async function openPixSubscription(
 
 async function openCardCheckout(
   client: AsaasBillingClient,
-  input: { tenantId: string; charged: BillingPlan; planAfter: BillingPlanId; firstDueDate: string },
+  input: {
+    tenantId: string;
+    charged: BillingPlan;
+    planAfter: BillingPlanId;
+    firstDueDate: string;
+    previousReference: string | null;
+  },
 ) {
   const { holder, email } = await payerOf(input.tenantId);
   const checkout = {
@@ -174,11 +192,20 @@ async function openCardCheckout(
     description: `Plano ${input.charged.name}, todo mês no cartão`,
     valueCents: input.charged.priceCents,
     firstDueDate: input.firstDueDate,
-    externalReference: input.tenantId,
     successUrl: returnUrl("sucesso"),
     cancelUrl: returnUrl("cancelado"),
   };
-  const created = await createCheckout(client, checkout, checkoutPayer(holder, email));
+  const payer = checkoutPayer(holder, email);
+  const created = await reserveBillingCreation(
+    input.tenantId,
+    input.previousReference,
+    async (reference) =>
+      createCheckout(
+        client,
+        { ...checkout, externalReference: `${input.tenantId}:${reference}` },
+        payer,
+      ),
+  );
   await saveBillingAccount(database, input.tenantId, {
     pendingPlan: input.planAfter,
     pendingReference: `${CHECKOUT_REFERENCE}${created.checkoutId}`,
@@ -215,6 +242,7 @@ export async function startSubscription(input: {
   const plan = billingPlan(input.plan);
   return withBillingLock(input.tenantId, async () => {
     const account = await getBillingAccount(database, input.tenantId);
+    assertNoPendingBillingCreation(account?.pendingReference);
     if (account !== null && isLive(account)) {
       throw conflictError("Você já tem um plano. Para trocar, use o botão do plano que você quer.");
     }
@@ -232,6 +260,7 @@ export async function startSubscription(input: {
       charged: plan,
       planAfter: plan.id,
       firstDueDate,
+      previousReference: account?.pendingReference ?? null,
     });
   });
 }
@@ -346,15 +375,21 @@ async function openUpgradeCharge(
   const { tenantId, account, plan, change } = input;
   if (account.customerId === null) throw conflictError("Você ainda não tem uma assinatura ativa.");
   await retireUnpaid(client, { ...account, subscriptionId: null });
-  const charge = await createDifferenceCharge(client, {
-    customerId: account.customerId,
-    billingType: account.paymentMethod === "credit_card" ? "CREDIT_CARD" : "PIX",
-    valueCents: change.differenceCents,
-    dueDate: asaasDueDate(new Date(), 0),
-    description: `Diferença para o plano ${plan.name} até ${dayLabel(change.until)}`,
-    externalReference: `upgrade:${tenantId}`,
-    successUrl: returnUrl("troca"),
-  });
+  const customerId = account.customerId;
+  const charge = await reserveBillingCreation(
+    tenantId,
+    account.pendingReference,
+    async (reference) =>
+      createDifferenceCharge(client, {
+        customerId,
+        billingType: account.paymentMethod === "credit_card" ? "CREDIT_CARD" : "PIX",
+        valueCents: change.differenceCents,
+        dueDate: asaasDueDate(new Date(), 0),
+        description: `Diferença para o plano ${plan.name} até ${dayLabel(change.until)}`,
+        externalReference: `upgrade:${tenantId}:${reference}`,
+        successUrl: returnUrl("troca"),
+      }),
+  );
   await saveBillingAccount(database, tenantId, {
     pendingPlan: plan.id,
     pendingReference: `${CHARGE_REFERENCE}${charge.id}`,
@@ -385,6 +420,7 @@ export async function openPendingPayment(input: { tenantId: string; userId: stri
   return withBillingLock(input.tenantId, async () => {
     const account = await getBillingAccount(database, input.tenantId);
     const reference = account?.pendingReference ?? null;
+    assertNoPendingBillingCreation(reference);
     if (reference?.startsWith(CHARGE_REFERENCE) === true) {
       const charge = await client.getCharge(reference.slice(CHARGE_REFERENCE.length));
       if (charge.invoiceUrl != null && charge.status !== "RECEIVED")
@@ -441,6 +477,7 @@ export async function changePaymentMethod(input: {
       charged,
       planAfter: account.plan,
       firstDueDate: asaasDueDate(nextDue, 0),
+      previousReference: account.pendingReference,
     });
   });
 }

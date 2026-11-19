@@ -111,8 +111,11 @@ async function retireSubscription(client: AsaasBillingClient, subscriptionId: st
   try {
     await client.deleteSubscription(subscriptionId);
   } catch (error) {
-    if (isAsaasError(error) && error.status === 404) return;
-    logger.error("billing.retire_subscription_failed", { error });
+    if (isAsaasError(error) && error.status === 404) {
+      return;
+    }
+
+    throw error;
   }
 }
 
@@ -146,17 +149,19 @@ export async function syncBillingSubscription(input: {
     ...statePatch(prepaidUntil, state),
     ...scheduledPatch(account, state),
   };
-  const applied = await database.transaction(async (transaction) =>
-    applyBillingState(transaction, {
+  await database.transaction(async (transaction) => {
+    const applied = await applyBillingState(transaction, {
       tenantId: account.tenantId,
       eventId: input.eventId,
       observedAt,
       patch,
-    }),
-  );
-  if (applied && adopting && account.subscriptionId !== null) {
-    await retireSubscription(client, account.subscriptionId);
-  }
+    });
+
+    if (applied && adopting && account.subscriptionId !== null) {
+      // Roll back the event and keep the old link if Asaas refuses cancellation.
+      await retireSubscription(client, account.subscriptionId);
+    }
+  });
 }
 
 /**

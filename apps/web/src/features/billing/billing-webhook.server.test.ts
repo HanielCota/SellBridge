@@ -89,7 +89,7 @@ describe("plans billing webhook", () => {
     expect(mocks.subscription).not.toHaveBeenCalled();
   });
 
-  it("answers 200 even when Asaas cannot be read back, so the webhook is never paused", async () => {
+  it("requests redelivery when the subscription cannot be read back", async () => {
     mocks.subscription.mockRejectedValue(new Error("Asaas fora do ar"));
 
     const response = await handleBillingWebhook(
@@ -100,6 +100,6 @@ describe("plans billing webhook", () => {
       }),
     );
 
-    expect(response.status).toBe(200);
+    expect(response.status).toBe(503);
   });
 });

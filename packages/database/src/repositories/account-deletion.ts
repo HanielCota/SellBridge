@@ -1,5 +1,7 @@
-import { and, eq, inArray, ne, or } from "drizzle-orm";
+import { conflictError } from "@sellbridge/shared/errors";
+import { and, eq, inArray, ne, or, sql } from "drizzle-orm";
 import type { Database } from "../client.ts";
+import { isSerializationFailure } from "../postgres-errors.ts";
 import {
   billingAccounts,
   erpCatalogReads,
@@ -14,6 +16,7 @@ import {
   ticketMessages,
   tickets,
 } from "../schema/index.ts";
+import { assertWorkspaceCanBeDeleted } from "./account-deletion-blockers.ts";
 
 /** Workspaces where the user is the only owner: they go with the account. */
 export async function findSoleOwnedTenants(database: Database, userId: string): Promise<string[]> {
@@ -70,29 +73,70 @@ export async function accountFileKeys(
  * Deletes a workspace and everything in it: stores, sales, listings, tickets and the holder's
  * CPF all cascade from the organization. A supplier's catalog outlives the workspace (it is only
  * detached), so its ERP and payment account tokens, its ERP catalog read and pending states are
- * deleted with it here.
+ * deleted with it here, and its store is closed for sales until the team takes it over.
  */
 export async function deleteTenantData(database: Database, tenantId: string): Promise<void> {
-  await database.transaction(async (transaction) => {
-    const ranSupplier = transaction
-      .select({ id: suppliers.id })
-      .from(suppliers)
-      .where(eq(suppliers.organizationId, tenantId));
-    await transaction
-      .delete(supplierErpConnections)
-      .where(inArray(supplierErpConnections.supplierId, ranSupplier));
-    await transaction
-      .delete(erpCatalogReads)
-      .where(inArray(erpCatalogReads.supplierId, ranSupplier));
-    await transaction.delete(erpOAuthStates).where(inArray(erpOAuthStates.supplierId, ranSupplier));
-    await transaction
-      .delete(supplierPaymentAccounts)
-      .where(inArray(supplierPaymentAccounts.supplierId, ranSupplier));
-    await transaction
-      .delete(paymentOAuthStates)
-      .where(inArray(paymentOAuthStates.supplierId, ranSupplier));
-    await transaction.delete(organization).where(eq(organization.id, tenantId));
-  });
+  try {
+    await deleteWorkspace(database, tenantId);
+  } catch (error) {
+    if (isSerializationFailure(error)) {
+      throw conflictError(
+        "O perfil mudou durante a exclusão. Confira as pendências e tente de novo.",
+      );
+    }
+
+    throw error;
+  }
+}
+
+async function deleteWorkspace(database: Database, tenantId: string): Promise<void> {
+  await database.transaction(
+    async (transaction) => {
+      const [workspace] = await transaction
+        .select({ id: organization.id })
+        .from(organization)
+        .where(eq(organization.id, tenantId))
+        .for("update");
+      if (workspace === undefined) {
+        return;
+      }
+
+      // Keep new orders and parcels from taking a reference while the final check runs.
+      await transaction
+        .select({ id: suppliers.id })
+        .from(suppliers)
+        .where(eq(suppliers.organizationId, tenantId))
+        .for("update");
+      await assertWorkspaceCanBeDeleted(transaction, tenantId);
+
+      const ranSupplier = transaction
+        .select({ id: suppliers.id })
+        .from(suppliers)
+        .where(eq(suppliers.organizationId, tenantId));
+      await transaction
+        .delete(supplierErpConnections)
+        .where(inArray(supplierErpConnections.supplierId, ranSupplier));
+      await transaction
+        .delete(erpCatalogReads)
+        .where(inArray(erpCatalogReads.supplierId, ranSupplier));
+      await transaction
+        .delete(erpOAuthStates)
+        .where(inArray(erpOAuthStates.supplierId, ranSupplier));
+      await transaction
+        .delete(supplierPaymentAccounts)
+        .where(inArray(supplierPaymentAccounts.supplierId, ranSupplier));
+      await transaction
+        .delete(paymentOAuthStates)
+        .where(inArray(paymentOAuthStates.supplierId, ranSupplier));
+      // No one ships or receives for the catalog anymore: its resellers' listings go to zero stock.
+      await transaction
+        .update(suppliers)
+        .set({ salesClosedAt: sql`coalesce(${suppliers.salesClosedAt}, now())` })
+        .where(eq(suppliers.organizationId, tenantId));
+      await transaction.delete(organization).where(eq(organization.id, tenantId));
+    },
+    { isolationLevel: "serializable" },
+  );
 }
 
 /**

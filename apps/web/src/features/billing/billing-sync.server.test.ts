@@ -121,6 +121,22 @@ describe("subscription read back from Asaas", () => {
     expect(mocks.client.deleteSubscription).not.toHaveBeenCalled();
   });
 
+  it("fails processing if the former subscription cannot be ended", async () => {
+    mocks.client.getSubscription.mockResolvedValue({
+      id: "sub_card",
+      customer: "cus_card",
+      status: "ACTIVE",
+      value: 197,
+      checkoutSession: "chk_1",
+    });
+    mocks.byReference.mockResolvedValue(account({ pendingReference: "checkout:chk_1" }));
+    mocks.client.deleteSubscription.mockRejectedValueOnce(new Error("Asaas unavailable"));
+
+    await expect(
+      syncBillingSubscription({ subscriptionId: "sub_card", eventId: "evt_retry" }),
+    ).rejects.toThrow("Asaas unavailable");
+  });
+
   it("turns a scheduled smaller plan into the plan once its first month is paid", async () => {
     mocks.client.getSubscription.mockResolvedValue({
       id: "sub_old",

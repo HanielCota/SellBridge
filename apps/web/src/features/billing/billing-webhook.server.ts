@@ -47,8 +47,8 @@ async function handleNotice(notice: BillingNotice): Promise<void> {
 /**
  * POST /api/webhooks/asaas-assinatura: a payment or subscription notice from SellBridge's own
  * Asaas account (the plans' monthly fee). The token is checked first; the subscription is then
- * read back from Asaas. Every accepted notice answers 200: Asaas pauses a webhook after 15
- * failures in a row, and the subscription page reads Asaas again whenever a payment is due.
+ * read back from Asaas. A transient processing failure requests redelivery; acknowledging it
+ * would lose renewals or checkout events that the account cannot reconcile on its own.
  */
 export async function handleBillingWebhook(request: Request): Promise<Response> {
   const settings = asaasSettingsFrom(environment);
@@ -70,6 +70,7 @@ export async function handleBillingWebhook(request: Request): Promise<Response> 
     await handleNotice(parsed.data);
   } catch (error) {
     logger.error("billing.notice_deferred", { eventId: parsed.data.id, error });
+    return reply(503, { error: "tente novamente" });
   }
   return reply(200, { status: "recebido" });
 }

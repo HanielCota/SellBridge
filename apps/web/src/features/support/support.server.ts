@@ -143,6 +143,12 @@ export function handleCreateTicket(request: Request) {
       functionName: "support.createTicket",
       method: "POST",
     });
+    await recordImpersonatedCall({
+      impersonatedBy: session.impersonatedBy,
+      customerId: session.userId,
+      functionName: "support.createTicket",
+      method: "POST",
+    });
     const formData = await readUploadForm(request, session.userId);
     const input = parseCreateTicketForm(formData);
     const plan = planSupportTicket({
@@ -184,12 +190,6 @@ export function handleCreateTicket(request: Request) {
     });
     // Not awaited: the ticket is saved, and the team's e-mail must not hold the reseller.
     void notifyTeamOfNewTicket(ticketId);
-    await recordImpersonatedCall({
-      impersonatedBy: session.impersonatedBy,
-      customerId: session.userId,
-      functionName: "support.createTicket",
-      method: "POST",
-    });
     return jsonResponse(201, { ticketId });
   });
 }
@@ -261,6 +261,12 @@ export function handleTenantReply(request: Request, ticketIdParam: string | unde
       ticketStatus: ticket.status,
     });
     const reply = await readReply(request, session.userId);
+    await recordImpersonatedCall({
+      impersonatedBy: session.impersonatedBy,
+      customerId: session.userId,
+      functionName: "support.reply",
+      method: "POST",
+    });
     const attachments = await storeAttachments(fileStorage, session.tenantId, reply.files);
     await saveWithAttachments(fileStorage, attachments, () =>
       addTicketMessage(database, {
@@ -272,12 +278,6 @@ export function handleTenantReply(request: Request, ticketIdParam: string | unde
         attachments,
       }),
     );
-    await recordImpersonatedCall({
-      impersonatedBy: session.impersonatedBy,
-      customerId: session.userId,
-      functionName: "support.reply",
-      method: "POST",
-    });
     return jsonResponse(201, { ok: true });
   });
 }

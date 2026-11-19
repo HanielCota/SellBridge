@@ -28,6 +28,8 @@ export const QUEUE_NAMES = {
   erpCatalogExport: "erp-catalog-export",
   /** Reads the supplier's ERP catalog for an import, reporting progress (minutes for 400+). */
   erpCatalogRead: "erp-catalog-read",
+  /** Keeps the stock of ERP-linked products equal to the ERP's (notifications and a 15-min check). */
+  erpStockSync: "erp-stock-sync",
   /** Issues the NF-e of new parcels through the supplier's ERP and follows SEFAZ's answer. */
   erpInvoiceIssue: "erp-invoice-issue",
   /** Reads supplier payments back from Mercado Pago and refunds the ones that are due. */
@@ -58,6 +60,40 @@ export type ErpCatalogReadJob = z.infer<typeof erpCatalogReadJobSchema>;
 
 export function erpCatalogReadJobId(job: ErpCatalogReadJob): string {
   return `erp-catalog-read-${job.readId}`;
+}
+
+/** The ERP stock jobs: the periodic round, one supplier's full check, and reads asked by notices. */
+export const ERP_STOCK_JOB_NAMES = {
+  checkAll: "check-all-erp-stock",
+  checkSupplier: "check-erp-stock",
+  refreshSupplier: "refresh-erp-stock",
+} as const;
+
+export const erpStockSupplierJobSchema = z.object({ supplierId: z.uuid() });
+export type ErpStockSupplierJob = z.infer<typeof erpStockSupplierJobSchema>;
+
+/** Notices of one supplier arriving within this window are read together, in one request. */
+export const ERP_STOCK_REFRESH_WINDOW_IN_MS = 5_000;
+
+export const ERP_STOCK_JOB_OPTIONS = { removeOnComplete: 100, removeOnFail: 500 } as const;
+
+/** A supplier's full check waiting in the queue is not added twice by the next round. */
+export function erpStockCheckJobId(job: ErpStockSupplierJob): string {
+  return `erp-stock-check-${job.supplierId}`;
+}
+
+/**
+ * One read per supplier and notice window: repeats inside the window add nothing, and a notice
+ * arriving while that read runs gets the next window's read, so none waits for the 15-min check.
+ *
+ * @throws {RangeError} When `nowInMs` is not a finite number.
+ */
+export function erpStockRefreshJobId(job: ErpStockSupplierJob, nowInMs: number): string {
+  if (!Number.isFinite(nowInMs)) {
+    throw new RangeError(`nowInMs must be finite, got ${nowInMs}`);
+  }
+  const window = Math.floor(nowInMs / ERP_STOCK_REFRESH_WINDOW_IN_MS);
+  return `erp-stock-refresh-${job.supplierId}-${window}`;
 }
 
 export const webhookEventJobSchema = z.object({
@@ -142,6 +178,11 @@ export const STOCK_SYNC_JOB_OPTIONS = {
   deduplication: { id: "stock-price-sync-request", keepLastIfActive: true },
 } as const;
 
+/** The job of one stored marketplace event, in the webhook events queue. */
+export const WEBHOOK_EVENT_JOB_NAME = "webhook";
+/** A reconnected store's catch-up of missed sales, in the same queue but with no stored event. */
+export const STORE_ORDER_CATCH_UP_JOB_NAME = "order-catch-up";
+
 /**
  * Webhook processing: marketplaces expect a quick 200, the real work is retried here.
  * 8 attempts with exponential backoff from 30 s cover about an hour of marketplace outage;
@@ -205,7 +246,11 @@ export async function enqueueWebhookEventJob(
   if (!released) {
     return;
   }
-  await queue.add("webhook", { webhookEventId }, { ...WEBHOOK_JOB_OPTIONS, jobId: webhookEventId });
+  await queue.add(
+    WEBHOOK_EVENT_JOB_NAME,
+    { webhookEventId },
+    { ...WEBHOOK_JOB_OPTIONS, jobId: webhookEventId },
+  );
 }
 
 /** The subset of a BullMQ queue used to enqueue a reconnected store's catch-up. */
@@ -233,7 +278,7 @@ export async function enqueueStoreOrderCatchUpJob(
   const jobId = storeOrderCatchUpJobId(catchUp);
   const released = await releaseFinishedJob(queue, jobId);
   if (released) {
-    await queue.add("order-catch-up", catchUp, { ...WEBHOOK_JOB_OPTIONS, jobId });
+    await queue.add(STORE_ORDER_CATCH_UP_JOB_NAME, catchUp, { ...WEBHOOK_JOB_OPTIONS, jobId });
   }
 }
 

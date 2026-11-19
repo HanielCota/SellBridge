@@ -78,13 +78,19 @@ O SellBridge nunca libera um plano pelo retorno do pagamento: o webhook
 `POST /api/webhooks/asaas-assinatura` (conferido pelo `asaas-access-token`) só diz qual assinatura
 ou cobrança mudou, e o estado é relido no Asaas (assinatura e cobranças). Avisos repetidos são
 aplicados uma vez (`billing_events`) e uma leitura mais antiga nunca sobrescreve uma mais nova
-(`last_event_created`). Todo aviso aceito responde 200: o Asaas pausa o webhook depois de 15 falhas
+(`last_event_created`). O webhook responde 200 após processar o aviso e 503 se não conseguir consultar ou aplicar o estado. O Asaas tenta entregar o aviso novamente e pausa a fila depois de 15 falhas
 seguidas. Para um aviso perdido não custar um plano pago, a página `/assinatura` relê o Asaas
 sempre que há pagamento esperando ou a mensalidade está a menos de 2 dias.
 
 Mudanças da assinatura são serializadas por organização com uma trava consultiva
 (`pg_try_advisory_xact_lock`), que não segura linha: a publicação e a conexão de loja nunca esperam
 o Asaas. Ao excluir a conta, a assinatura e o cliente no Asaas são removidos antes de qualquer dado.
+
+A criação de cobrança, assinatura Pix ou checkout grava primeiro uma reserva em
+\`billing_accounts.pending_reference\` (\`creating:<id>\`). A referência externa na operação do
+Asaas inclui o mesmo ID. Se a confirmação se perder, o suporte deve reconciliar a operação no
+Asaas e registrar o recurso identificado ou confirmar que a criação falhou antes de liberar
+nova tentativa.
 
 ## Lançamento
 

@@ -5,7 +5,7 @@ import {
   recordLabelsWaiting,
 } from "@sellbridge/database/repositories";
 import { hasMarketplaceCause, LABEL_NOT_READY_CAUSE } from "@sellbridge/marketplaces";
-import { conflictError, isAppError, validationError } from "@sellbridge/shared/errors";
+import { isAppError, validationError } from "@sellbridge/shared/errors";
 import { logger } from "@sellbridge/shared/logger";
 import {
   type LabelFormat,
@@ -21,7 +21,11 @@ import { labelErrorPage } from "@/features/fulfillment/label-error-page";
 import { labelFileName } from "@/features/fulfillment/label-file-name";
 import { loadMarketplaceLabel } from "@/features/fulfillment/marketplace.server";
 import { keepLabelRecord } from "@/features/fulfillment/label-records.server";
-import { panelLabelIds, panelLabelShipmentId } from "@/lib/server/panel-label-access";
+import {
+  assertSupplierLabelAvailable,
+  panelLabelIds,
+  panelLabelShipmentId,
+} from "@/lib/server/panel-label-access";
 import { hasTokenInUrl, readLabelForm, tokenOf } from "@/lib/server/supplier-link-token";
 
 async function shipmentTenantId(shipmentId: string): Promise<string> {
@@ -35,9 +39,11 @@ async function shipmentTenantId(shipmentId: string): Promise<string> {
 
 async function tokenLabelShipmentId(token: string, orderId: string): Promise<string> {
   const shipment = await getSupplierShipment(database, supplierTokenSchema.parse(token));
-  if (shipment.orderId !== orderId) throw new Error("Acesso inválido");
-  // The label carries the buyer's address: only while this parcel is still on its way out.
-  if (shipment.address === null) throw conflictError("Este envio já foi encerrado");
+  if (shipment.orderId !== orderId) {
+    throw new Error("Acesso inválido");
+  }
+
+  assertSupplierLabelAvailable(shipment);
   return shipment.id;
 }
 

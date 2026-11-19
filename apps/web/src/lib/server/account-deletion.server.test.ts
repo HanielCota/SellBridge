@@ -1,4 +1,4 @@
-import { isAppError } from "@sellbridge/shared/errors";
+import { conflictError, isAppError } from "@sellbridge/shared/errors";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const mocks = vi.hoisted(() => ({
@@ -20,19 +20,27 @@ const mocks = vi.hoisted(() => ({
     vi.fn<(database: unknown, tenantId: string) => Promise<{ id: string; status: string }[]>>(),
   disconnectStoreForTenant: vi.fn<(request: unknown) => Promise<unknown>>(),
   deleteCustomer: vi.fn<(customerId: string) => Promise<unknown>>(),
+  cancelCheckout: vi.fn<(checkoutId: string) => Promise<void>>(),
   deleteSubscription: vi.fn<(subscriptionId: string) => Promise<unknown>>(),
   deleteCharge: vi.fn<(chargeId: string) => Promise<unknown>>(),
   deleteFile: vi.fn<(key: string) => Promise<void>>(),
+  assertNothingLeftToResolve: vi.fn<(input: unknown) => Promise<void>>(),
+  requestStockSync: vi.fn<(failureEvent: string) => Promise<boolean>>(),
 }));
 
 vi.mock("@/lib/server/database", () => ({ database: {} }));
 vi.mock("@/lib/server/environment", () => ({
   environment: { ADMIN_EMAILS: ["dono@sellbridge.test"] },
 }));
+vi.mock("@/lib/server/account-deletion-blockers.server", () => ({
+  assertNothingLeftToResolve: mocks.assertNothingLeftToResolve,
+}));
+vi.mock("@/lib/server/stock-sync", () => ({ requestStockSync: mocks.requestStockSync }));
 vi.mock("@/lib/server/storage", () => ({ fileStorage: { delete: mocks.deleteFile } }));
 vi.mock("@/features/billing/billing-config.server", () => ({
   billingClientForCleanup: () => ({
     deleteSubscriber: mocks.deleteCustomer,
+    cancelCheckout: mocks.cancelCheckout,
     deleteSubscription: mocks.deleteSubscription,
     deleteCharge: mocks.deleteCharge,
   }),
@@ -76,7 +84,11 @@ beforeEach(() => {
   mocks.deleteFile.mockResolvedValue(undefined);
   mocks.deleteTenantData.mockResolvedValue(undefined);
   mocks.forgetBillingCustomer.mockResolvedValue(undefined);
+  mocks.assertNothingLeftToResolve.mockResolvedValue(undefined);
+  mocks.requestStockSync.mockResolvedValue(true);
 });
+
+const LEFT_TO_RESOLVE = conflictError("Antes de excluir a conta, resolva: 2 pedidos para enviar.");
 
 async function rejection(promise: Promise<unknown>) {
   try {
@@ -131,11 +143,52 @@ describe("prepareAccountDeletion", () => {
     expect(charge).toBeLessThan(data);
   });
 
+  it("closes an open card checkout before deleting an account without a customer", async () => {
+    mocks.getBillingAccount.mockResolvedValue({
+      customerId: null,
+      subscriptionId: null,
+      pendingReference: "checkout:chk_123",
+    });
+
+    await prepareAccountDeletion(SELLER);
+
+    expect(mocks.cancelCheckout).toHaveBeenCalledWith("chk_123");
+    expect(mocks.deleteCustomer).not.toHaveBeenCalled();
+    const checkout = mocks.cancelCheckout.mock.invocationCallOrder[0] ?? 0;
+    const deletion = mocks.deleteTenantData.mock.invocationCallOrder[0] ?? 0;
+    expect(checkout).toBeLessThan(deletion);
+  });
+
+  it("stops before the subscription or any data while something is left to resolve", async () => {
+    mocks.assertNothingLeftToResolve.mockRejectedValue(LEFT_TO_RESOLVE);
+
+    const error = await rejection(prepareAccountDeletion(SELLER));
+
+    expect(error).toBe(LEFT_TO_RESOLVE);
+    expect(mocks.assertNothingLeftToResolve).toHaveBeenCalledWith({
+      userId: "user-1",
+      tenantIds: ["tenant-a"],
+    });
+    expect(mocks.deleteCustomer).not.toHaveBeenCalled();
+    expect(mocks.disconnectStoreForTenant).not.toHaveBeenCalled();
+    expect(mocks.deleteTenantData).not.toHaveBeenCalled();
+    expect(mocks.deleteFile).not.toHaveBeenCalled();
+  });
+
+  it("asks for a stock sync once the workspaces are gone, so a closed supplier stops selling", async () => {
+    await prepareAccountDeletion(SELLER);
+
+    const data = mocks.deleteTenantData.mock.invocationCallOrder[0] ?? 0;
+    const sync = mocks.requestStockSync.mock.invocationCallOrder[0] ?? 0;
+    expect(data).toBeLessThan(sync);
+  });
+
   it("keeps a workspace that another owner still runs", async () => {
     mocks.findSoleOwnedTenants.mockResolvedValue([]);
     await prepareAccountDeletion(SELLER);
     expect(mocks.deleteTenantData).not.toHaveBeenCalled();
     expect(mocks.deleteCustomer).not.toHaveBeenCalled();
+    expect(mocks.requestStockSync).not.toHaveBeenCalled();
   });
 
   it("refuses team accounts and the platform owner", async () => {
@@ -188,6 +241,19 @@ describe("beforeAccountDeletion", () => {
     mocks.deleteCustomer.mockRejectedValue(new Error("Asaas fora do ar"));
     const asaas = await rejection(beforeAccountDeletion(SELLER));
     expect(asaas).toMatchObject({ statusCode: 503 });
+  });
+});
+
+describe("beforeAccountDeletion with something left to resolve", () => {
+  it("answers Better Auth with 409 and the list, in the words the screen shows", async () => {
+    mocks.assertNothingLeftToResolve.mockRejectedValue(LEFT_TO_RESOLVE);
+
+    const error = await rejection(beforeAccountDeletion(SELLER));
+
+    expect(error).toMatchObject({
+      statusCode: 409,
+      body: { message: "Antes de excluir a conta, resolva: 2 pedidos para enviar." },
+    });
   });
 });
 

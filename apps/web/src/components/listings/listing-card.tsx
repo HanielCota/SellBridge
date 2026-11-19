@@ -165,6 +165,9 @@ function MissingDescription({ row }: { row: ListingOverviewRow }) {
 function StatusFooter({ row }: { row: ListingOverviewRow }) {
   const health = listingHealth(row);
   const state = listingRunState(row);
+  // A pause only alarms when it needs the reseller: a price that no longer pays.
+  const losesMoney = row.stores.some(({ pauseReason }) => pauseReason === "price_below_floor");
+  const calmReason = health.tone === "paused" && !losesMoney;
   return (
     <div className="space-y-2 border-t border-border pt-3">
       <div className="flex flex-wrap items-center justify-between gap-x-2 gap-y-1">
@@ -185,7 +188,11 @@ function StatusFooter({ row }: { row: ListingOverviewRow }) {
         {/* Out of stock is already the status line; the badge would only repeat it. */}
         {health.tone !== "error" && row.stock > 0 ? <ProductStockLine stock={row.stock} /> : null}
       </div>
-      {health.reason ? <p className="text-xs text-destructive">{health.reason}</p> : null}
+      {health.reason ? (
+        <p className={cn("text-xs", calmReason ? "text-muted-foreground" : "text-destructive")}>
+          {health.reason}
+        </p>
+      ) : null}
       <MissingDescription row={row} />
     </div>
   );

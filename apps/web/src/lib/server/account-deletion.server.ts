@@ -14,11 +14,14 @@ import { APIError } from "better-auth/api";
 import { z } from "zod";
 import { isAsaasError } from "@sellbridge/payments/asaas";
 import { billingClientForCleanup } from "@/features/billing/billing-config.server";
+import { assertNoPendingBillingCreation } from "@/features/billing/billing-lock.server";
 import { CHARGE_REFERENCE, CHECKOUT_REFERENCE } from "@/features/billing/pending-reference";
 import { avatarStorageKey } from "@/features/profile/avatar-key";
 import { disconnectStoreForTenant } from "@/features/stores/disconnect-store.server";
+import { assertNothingLeftToResolve } from "@/lib/server/account-deletion-blockers.server";
 import { database } from "@/lib/server/database";
 import { environment } from "@/lib/server/environment";
+import { requestStockSync } from "@/lib/server/stock-sync";
 import { fileStorage } from "@/lib/server/storage";
 
 /**
@@ -49,15 +52,22 @@ const UNREACHABLE_MESSAGE =
  */
 async function closeBilling(tenantId: string): Promise<void> {
   const account = await getBillingAccount(database, tenantId);
+  if (account === null) {
+    return;
+  }
+
+  const { customerId, subscriptionId, pendingReference } = account;
+  assertNoPendingBillingCreation(pendingReference);
+  if (customerId === null && subscriptionId === null && pendingReference === null) {
+    return;
+  }
+
   const client = billingClientForCleanup();
-  if (account === null || client === null) {
-    return;
+  if (client === null) {
+    throw new AppError("EXTERNAL_PROVIDER", UNREACHABLE_MESSAGE);
   }
-  const { customerId, subscriptionId } = account;
-  if (customerId === null) {
-    return;
-  }
-  const reference = account.pendingReference ?? "";
+
+  const reference = pendingReference ?? "";
   if (reference.startsWith(CHARGE_REFERENCE)) {
     await removeAtAsaas(async () => client.deleteCharge(reference.slice(CHARGE_REFERENCE.length)));
   }
@@ -69,7 +79,10 @@ async function closeBilling(tenantId: string): Promise<void> {
   if (subscriptionId !== null) {
     await removeAtAsaas(async () => client.deleteSubscription(subscriptionId));
   }
-  await removeAtAsaas(async () => client.deleteSubscriber(customerId));
+  if (customerId !== null) {
+    await removeAtAsaas(async () => client.deleteSubscriber(customerId));
+  }
+
   await forgetBillingCustomer(database, tenantId);
 }
 
@@ -133,6 +146,7 @@ export async function prepareAccountDeletion(account: DeletingAccount): Promise<
     throw forbiddenError(TEAM_ACCOUNT_MESSAGE);
   }
   const tenantIds = await findSoleOwnedTenants(database, account.id);
+  await assertNothingLeftToResolve({ userId: account.id, tenantIds });
   const attachmentKeys = await accountFileKeys(database, { userId: account.id, tenantIds });
   const avatarKey = avatarStorageKey(account.image, account.id);
   for (const tenantId of tenantIds) {
@@ -142,6 +156,10 @@ export async function prepareAccountDeletion(account: DeletingAccount): Promise<
   for (const tenantId of tenantIds) {
     await closeStores(tenantId, deadline);
     await deleteTenantData(database, tenantId);
+  }
+  if (tenantIds.length > 0) {
+    // A deleted supplier's store is closed now: its resellers' listings get zero stock right away.
+    await requestStockSync("account.deletion_stock_sync_deferred");
   }
   await deleteFiles(avatarKey === null ? attachmentKeys : [...attachmentKeys, avatarKey]);
   logger.info("account.deletion_prepared", { userId: account.id, workspaces: tenantIds.length });
@@ -160,6 +178,9 @@ export async function beforeAccountDeletion(user: unknown): Promise<void> {
   } catch (error) {
     if (isAppError(error) && error.code === "FORBIDDEN") {
       throw new APIError("FORBIDDEN", { message: error.userMessage });
+    }
+    if (isAppError(error) && error.code === "CONFLICT") {
+      throw new APIError("CONFLICT", { message: error.userMessage });
     }
     if (isAppError(error)) {
       logger.error("account.delete_failed", { userId: account.id, error });

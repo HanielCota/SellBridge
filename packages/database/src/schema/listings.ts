@@ -59,6 +59,11 @@ export const listingTargets = pgTable(
     status: listingTargetStatusEnum().notNull().default("pending"),
     /** Durable seller intent, including a marketplace creation already in flight. */
     pauseRequested: boolean().notNull().default(false),
+    /**
+     * Why the publication is paused (`@sellbridge/shared/listing-pause-reasons`); null while it
+     * sells. Text, not an enum, so a new reason needs no migration.
+     */
+    pauseReason: text(),
     externalId: text(),
     externalUrl: text(),
     errorReason: text(),

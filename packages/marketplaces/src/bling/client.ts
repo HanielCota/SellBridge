@@ -5,15 +5,18 @@ import {
   blingRequest,
   type BlingHttpOptions,
 } from "./http.ts";
-import { blingInvoiceCalls } from "./invoices.ts";
+import { blingInvoiceCalls, type BlingCall } from "./invoices.ts";
 import type { BlingTokens } from "./oauth.ts";
 import type { BlingRateLimiter } from "./rate-limit.ts";
 import {
+  blingCompanyResponseSchema,
+  blingStockBalanceResponseSchema,
   blingCreatedProductResponseSchema,
   blingProductDetailResponseSchema,
   blingProductListResponseSchema,
   type BlingProductDetail,
   type BlingProductSummary,
+  type BlingStockBalance,
 } from "./schemas.ts";
 import type { z } from "zod";
 
@@ -38,6 +41,12 @@ const EXPIRY_MARGIN_IN_MS = 60_000;
 
 /** Bling's largest page for `GET /produtos`. */
 export const BLING_PAGE_LIMIT = 100;
+
+/** Products per `GET /estoques/saldos` (the documented maximum with multi-company stock on). */
+export const BLING_STOCK_BATCH_LIMIT = 100;
+
+/** `filtroSaldoEstoque`: 0 zero, 1 positive (the default), 2 negative. */
+export type BlingStockFilter = 0 | 1 | 2;
 
 /** `criterio` of `GET /produtos`: 2 lists active products, 5 lists every status. */
 const ACTIVE_PRODUCTS = 2;
@@ -118,11 +127,53 @@ function createBlingCaller(options: BlingClientOptions) {
   };
 }
 
+/** The stock sync's reads: the account's company id and product balances. */
+function blingStockCalls(call: BlingCall) {
+  return {
+    /** The id Bling's notifications carry as `companyId` for this account. */
+    async getCompanyId(): Promise<string> {
+      const response = await call({
+        path: "/empresas/me/dados-basicos",
+        schema: blingCompanyResponseSchema,
+      });
+      return response.data.id;
+    },
+
+    /**
+     * The stock balance of these products (at most `BLING_STOCK_BATCH_LIMIT`), among those whose
+     * balance matches `filter`: Bling leaves the others out of the answer.
+     */
+    async readStockBalances(
+      productIds: readonly number[],
+      filter: BlingStockFilter,
+    ): Promise<BlingStockBalance[]> {
+      if (productIds.length === 0) {
+        return [];
+      }
+      if (productIds.length > BLING_STOCK_BATCH_LIMIT) {
+        throw new RangeError(
+          `At most ${BLING_STOCK_BATCH_LIMIT} products per stock read, got ${productIds.length}`,
+        );
+      }
+      const query = new URLSearchParams({ filtroSaldoEstoque: String(filter) });
+      for (const id of productIds) {
+        query.append("idsProdutos[]", String(id));
+      }
+      const response = await call({
+        path: `/estoques/saldos?${query.toString()}`,
+        schema: blingStockBalanceResponseSchema,
+      });
+      return response.data;
+    },
+  };
+}
+
 export function createBlingClient(options: BlingClientOptions) {
   const call = createBlingCaller(options);
 
   return {
     ...blingInvoiceCalls(call),
+    ...blingStockCalls(call),
     /** One page of the summary list (active products by default). */
     async listProducts(input: { page: number; criterio?: 1 | 2 | 3 | 4 | 5 }) {
       const query = new URLSearchParams({

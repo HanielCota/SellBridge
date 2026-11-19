@@ -26,6 +26,7 @@ import { Route as AppIntegracoesRouteImport } from "./routes/_app/integracoes";
 import { Route as AppLojasRouteImport } from "./routes/_app/lojas";
 import { Route as AppOnboardingRouteImport } from "./routes/_app/onboarding";
 import { Route as AppPerfilRouteImport } from "./routes/_app/perfil";
+import { Route as AppPoliticaDeDevolucaoRouteImport } from "./routes/_app/politica-de-devolucao";
 import { Route as AppProductsRouteImport } from "./routes/_app/products";
 import { Route as AuthCadastroRouteImport } from "./routes/_auth/cadastro";
 import { Route as AuthConfirmeSeuEmailRouteImport } from "./routes/_auth/confirme-seu-email";
@@ -73,6 +74,7 @@ import { Route as ApiV1StoresRouteImport } from "./routes/api/v1/stores";
 import { Route as ApiWebhooksMarketplaceRouteImport } from "./routes/api/webhooks/$marketplace";
 import { Route as ApiWebhooksAsaasRouteImport } from "./routes/api/webhooks/asaas";
 import { Route as ApiWebhooksAsaasAssinaturaRouteImport } from "./routes/api/webhooks/asaas-assinatura";
+import { Route as ApiWebhooksBlingRouteImport } from "./routes/api/webhooks/bling";
 import { Route as ApiWebhooksMercadoPagoRouteImport } from "./routes/api/webhooks/mercado-pago";
 import { Route as ApiWebhooksStripeRouteImport } from "./routes/api/webhooks/stripe";
 import { Route as FornecedorPedidoTokenRouteImport } from "./routes/fornecedor/pedido/$token";
@@ -104,6 +106,9 @@ import { Route as ApiAdminExportarAuditoriaRouteImport } from "./routes/api/admi
 import { Route as ApiAdminExportarChamadosRouteImport } from "./routes/api/admin/exportar/chamados";
 import { Route as ApiAdminExportarClientesRouteImport } from "./routes/api/admin/exportar/clientes";
 import { Route as ApiAdminExportarEquipeRouteImport } from "./routes/api/admin/exportar/equipe";
+import { Route as ApiDevolucoesClaimIdMotivoRouteImport } from "./routes/api/devolucoes/$claimId/motivo";
+import { Route as ApiDevolucoesClaimIdRespostaRouteImport } from "./routes/api/devolucoes/$claimId/resposta";
+import { Route as ApiDevolucoesFotosPhotoIdRouteImport } from "./routes/api/devolucoes/fotos/$photoId";
 import { Route as ApiFornecedorExportarCatalogoRouteImport } from "./routes/api/fornecedor/exportar/catalogo";
 import { Route as ApiFornecedorExportarPedidosRouteImport } from "./routes/api/fornecedor/exportar/pedidos";
 import { Route as ApiFornecedorExportarProdutosRouteImport } from "./routes/api/fornecedor/exportar/produtos";
@@ -223,6 +228,11 @@ const AppPerfilRoute = AppPerfilRouteImport.update({
   path: "/perfil",
   getParentRoute: () => AppRouteRoute,
 } as any);
+const AppPoliticaDeDevolucaoRoute = AppPoliticaDeDevolucaoRouteImport.update({
+  id: "/politica-de-devolucao",
+  path: "/politica-de-devolucao",
+  getParentRoute: () => AppRouteRoute,
+} as any);
 const AppProductsRoute = AppProductsRouteImport.update({
   id: "/products",
   path: "/products",
@@ -318,21 +328,23 @@ const AppFinanceiroRelatorioRoute = AppFinanceiroRelatorioRouteImport.update({
   path: "/financeiro/relatorio",
   getParentRoute: () => AppRouteRoute,
 } as any);
-const AppFornecedorPainelRouteRoute = AppFornecedorPainelRouteRouteImport.update({
-  id: "/fornecedor/painel",
-  path: "/fornecedor/painel",
-  getParentRoute: () => AppRouteRoute,
-} as any);
+const AppFornecedorPainelRouteRoute =
+  AppFornecedorPainelRouteRouteImport.update({
+    id: "/fornecedor/painel",
+    path: "/fornecedor/painel",
+    getParentRoute: () => AppRouteRoute,
+  } as any);
 const AppFornecedoresIndexRoute = AppFornecedoresIndexRouteImport.update({
   id: "/",
   path: "/",
   getParentRoute: () => AppFornecedoresRouteRoute,
 } as any);
-const AppFornecedoresSupplierIdRoute = AppFornecedoresSupplierIdRouteImport.update({
-  id: "/$supplierId",
-  path: "/$supplierId",
-  getParentRoute: () => AppFornecedoresRouteRoute,
-} as any);
+const AppFornecedoresSupplierIdRoute =
+  AppFornecedoresSupplierIdRouteImport.update({
+    id: "/$supplierId",
+    path: "/$supplierId",
+    getParentRoute: () => AppFornecedoresRouteRoute,
+  } as any);
 const AppPedidosIndexRoute = AppPedidosIndexRouteImport.update({
   id: "/pedidos/",
   path: "/pedidos/",
@@ -453,9 +465,15 @@ const ApiWebhooksAsaasRoute = ApiWebhooksAsaasRouteImport.update({
   path: "/api/webhooks/asaas",
   getParentRoute: () => rootRouteImport,
 } as any);
-const ApiWebhooksAsaasAssinaturaRoute = ApiWebhooksAsaasAssinaturaRouteImport.update({
-  id: "/api/webhooks/asaas-assinatura",
-  path: "/api/webhooks/asaas-assinatura",
+const ApiWebhooksAsaasAssinaturaRoute =
+  ApiWebhooksAsaasAssinaturaRouteImport.update({
+    id: "/api/webhooks/asaas-assinatura",
+    path: "/api/webhooks/asaas-assinatura",
+    getParentRoute: () => rootRouteImport,
+  } as any);
+const ApiWebhooksBlingRoute = ApiWebhooksBlingRouteImport.update({
+  id: "/api/webhooks/bling",
+  path: "/api/webhooks/bling",
   getParentRoute: () => rootRouteImport,
 } as any);
 const ApiWebhooksMercadoPagoRoute = ApiWebhooksMercadoPagoRouteImport.update({
@@ -478,16 +496,18 @@ const AppAdminChamadosIndexRoute = AppAdminChamadosIndexRouteImport.update({
   path: "/chamados/",
   getParentRoute: () => AppAdminRouteRoute,
 } as any);
-const AppAdminChamadosTicketIdRoute = AppAdminChamadosTicketIdRouteImport.update({
-  id: "/chamados/$ticketId",
-  path: "/chamados/$ticketId",
-  getParentRoute: () => AppAdminRouteRoute,
-} as any);
-const AppAdminChamadosMetricasRoute = AppAdminChamadosMetricasRouteImport.update({
-  id: "/chamados/metricas",
-  path: "/chamados/metricas",
-  getParentRoute: () => AppAdminRouteRoute,
-} as any);
+const AppAdminChamadosTicketIdRoute =
+  AppAdminChamadosTicketIdRouteImport.update({
+    id: "/chamados/$ticketId",
+    path: "/chamados/$ticketId",
+    getParentRoute: () => AppAdminRouteRoute,
+  } as any);
+const AppAdminChamadosMetricasRoute =
+  AppAdminChamadosMetricasRouteImport.update({
+    id: "/chamados/metricas",
+    path: "/chamados/metricas",
+    getParentRoute: () => AppAdminRouteRoute,
+  } as any);
 const AppAdminClientesIndexRoute = AppAdminClientesIndexRouteImport.update({
   id: "/",
   path: "/",
@@ -498,201 +518,255 @@ const AppAdminClientesUserIdRoute = AppAdminClientesUserIdRouteImport.update({
   path: "/$userId",
   getParentRoute: () => AppAdminClientesRouteRoute,
 } as any);
-const AppAdminFornecedoresIndexRoute = AppAdminFornecedoresIndexRouteImport.update({
-  id: "/fornecedores/",
-  path: "/fornecedores/",
-  getParentRoute: () => AppAdminRouteRoute,
-} as any);
-const AppAdminFornecedoresSupplierIdRoute = AppAdminFornecedoresSupplierIdRouteImport.update({
-  id: "/fornecedores/$supplierId",
-  path: "/fornecedores/$supplierId",
-  getParentRoute: () => AppAdminRouteRoute,
-} as any);
+const AppAdminFornecedoresIndexRoute =
+  AppAdminFornecedoresIndexRouteImport.update({
+    id: "/fornecedores/",
+    path: "/fornecedores/",
+    getParentRoute: () => AppAdminRouteRoute,
+  } as any);
+const AppAdminFornecedoresSupplierIdRoute =
+  AppAdminFornecedoresSupplierIdRouteImport.update({
+    id: "/fornecedores/$supplierId",
+    path: "/fornecedores/$supplierId",
+    getParentRoute: () => AppAdminRouteRoute,
+  } as any);
 const AppAdminProblemasIndexRoute = AppAdminProblemasIndexRouteImport.update({
   id: "/",
   path: "/",
   getParentRoute: () => AppAdminProblemasRouteRoute,
 } as any);
-const AppAdminProblemasProblemIdRoute = AppAdminProblemasProblemIdRouteImport.update({
-  id: "/$problemId",
-  path: "/$problemId",
-  getParentRoute: () => AppAdminProblemasRouteRoute,
-} as any);
-const AppFornecedorPainelIndexRoute = AppFornecedorPainelIndexRouteImport.update({
-  id: "/",
-  path: "/",
-  getParentRoute: () => AppFornecedorPainelRouteRoute,
-} as any);
-const AppFornecedorPainelConferirRoute = AppFornecedorPainelConferirRouteImport.update({
-  id: "/conferir",
-  path: "/conferir",
-  getParentRoute: () => AppFornecedorPainelRouteRoute,
-} as any);
-const AppFornecedorPainelDesempenhoRoute = AppFornecedorPainelDesempenhoRouteImport.update({
-  id: "/desempenho",
-  path: "/desempenho",
-  getParentRoute: () => AppFornecedorPainelRouteRoute,
-} as any);
-const AppFornecedorPainelImportarRoute = AppFornecedorPainelImportarRouteImport.update({
-  id: "/importar",
-  path: "/importar",
-  getParentRoute: () => AppFornecedorPainelRouteRoute,
-} as any);
-const AppFornecedorPainelMarcaRoute = AppFornecedorPainelMarcaRouteImport.update({
-  id: "/marca",
-  path: "/marca",
-  getParentRoute: () => AppFornecedorPainelRouteRoute,
-} as any);
-const AppFornecedorPainelPedidosRoute = AppFornecedorPainelPedidosRouteImport.update({
-  id: "/pedidos",
-  path: "/pedidos",
-  getParentRoute: () => AppFornecedorPainelRouteRoute,
-} as any);
-const AppFornecedorPainelProdutosRoute = AppFornecedorPainelProdutosRouteImport.update({
-  id: "/produtos",
-  path: "/produtos",
-  getParentRoute: () => AppFornecedorPainelRouteRoute,
-} as any);
-const AppFornecedorPainelRecebimentosRoute = AppFornecedorPainelRecebimentosRouteImport.update({
-  id: "/recebimentos",
-  path: "/recebimentos",
-  getParentRoute: () => AppFornecedorPainelRouteRoute,
-} as any);
-const AppFornecedorPainelRegrasRoute = AppFornecedorPainelRegrasRouteImport.update({
-  id: "/regras",
-  path: "/regras",
-  getParentRoute: () => AppFornecedorPainelRouteRoute,
-} as any);
-const AppFornecedorPainelRelatorioRoute = AppFornecedorPainelRelatorioRouteImport.update({
-  id: "/relatorio",
-  path: "/relatorio",
-  getParentRoute: () => AppFornecedorPainelRouteRoute,
-} as any);
-const AppFornecedorPainelVendasRoute = AppFornecedorPainelVendasRouteImport.update({
-  id: "/vendas",
-  path: "/vendas",
-  getParentRoute: () => AppFornecedorPainelRouteRoute,
-} as any);
-const AppSuporteConversasTicketIdRoute = AppSuporteConversasTicketIdRouteImport.update({
-  id: "/suporte/conversas/$ticketId",
-  path: "/suporte/conversas/$ticketId",
-  getParentRoute: () => AppRouteRoute,
-} as any);
-const AppSuporteFornecedoresIndexRoute = AppSuporteFornecedoresIndexRouteImport.update({
-  id: "/suporte/fornecedores/",
-  path: "/suporte/fornecedores/",
-  getParentRoute: () => AppRouteRoute,
-} as any);
-const AppSuporteFornecedoresNovoRoute = AppSuporteFornecedoresNovoRouteImport.update({
-  id: "/suporte/fornecedores/novo",
-  path: "/suporte/fornecedores/novo",
-  getParentRoute: () => AppRouteRoute,
-} as any);
-const AppSuporteRevendedoresRelatorioRoute = AppSuporteRevendedoresRelatorioRouteImport.update({
-  id: "/suporte/revendedores_/relatorio",
-  path: "/suporte/revendedores/relatorio",
-  getParentRoute: () => AppRouteRoute,
-} as any);
-const ApiAdminExportarAuditoriaRoute = ApiAdminExportarAuditoriaRouteImport.update({
-  id: "/api/admin/exportar/auditoria",
-  path: "/api/admin/exportar/auditoria",
-  getParentRoute: () => rootRouteImport,
-} as any);
-const ApiAdminExportarChamadosRoute = ApiAdminExportarChamadosRouteImport.update({
-  id: "/api/admin/exportar/chamados",
-  path: "/api/admin/exportar/chamados",
-  getParentRoute: () => rootRouteImport,
-} as any);
-const ApiAdminExportarClientesRoute = ApiAdminExportarClientesRouteImport.update({
-  id: "/api/admin/exportar/clientes",
-  path: "/api/admin/exportar/clientes",
-  getParentRoute: () => rootRouteImport,
-} as any);
+const AppAdminProblemasProblemIdRoute =
+  AppAdminProblemasProblemIdRouteImport.update({
+    id: "/$problemId",
+    path: "/$problemId",
+    getParentRoute: () => AppAdminProblemasRouteRoute,
+  } as any);
+const AppFornecedorPainelIndexRoute =
+  AppFornecedorPainelIndexRouteImport.update({
+    id: "/",
+    path: "/",
+    getParentRoute: () => AppFornecedorPainelRouteRoute,
+  } as any);
+const AppFornecedorPainelConferirRoute =
+  AppFornecedorPainelConferirRouteImport.update({
+    id: "/conferir",
+    path: "/conferir",
+    getParentRoute: () => AppFornecedorPainelRouteRoute,
+  } as any);
+const AppFornecedorPainelDesempenhoRoute =
+  AppFornecedorPainelDesempenhoRouteImport.update({
+    id: "/desempenho",
+    path: "/desempenho",
+    getParentRoute: () => AppFornecedorPainelRouteRoute,
+  } as any);
+const AppFornecedorPainelImportarRoute =
+  AppFornecedorPainelImportarRouteImport.update({
+    id: "/importar",
+    path: "/importar",
+    getParentRoute: () => AppFornecedorPainelRouteRoute,
+  } as any);
+const AppFornecedorPainelMarcaRoute =
+  AppFornecedorPainelMarcaRouteImport.update({
+    id: "/marca",
+    path: "/marca",
+    getParentRoute: () => AppFornecedorPainelRouteRoute,
+  } as any);
+const AppFornecedorPainelPedidosRoute =
+  AppFornecedorPainelPedidosRouteImport.update({
+    id: "/pedidos",
+    path: "/pedidos",
+    getParentRoute: () => AppFornecedorPainelRouteRoute,
+  } as any);
+const AppFornecedorPainelProdutosRoute =
+  AppFornecedorPainelProdutosRouteImport.update({
+    id: "/produtos",
+    path: "/produtos",
+    getParentRoute: () => AppFornecedorPainelRouteRoute,
+  } as any);
+const AppFornecedorPainelRecebimentosRoute =
+  AppFornecedorPainelRecebimentosRouteImport.update({
+    id: "/recebimentos",
+    path: "/recebimentos",
+    getParentRoute: () => AppFornecedorPainelRouteRoute,
+  } as any);
+const AppFornecedorPainelRegrasRoute =
+  AppFornecedorPainelRegrasRouteImport.update({
+    id: "/regras",
+    path: "/regras",
+    getParentRoute: () => AppFornecedorPainelRouteRoute,
+  } as any);
+const AppFornecedorPainelRelatorioRoute =
+  AppFornecedorPainelRelatorioRouteImport.update({
+    id: "/relatorio",
+    path: "/relatorio",
+    getParentRoute: () => AppFornecedorPainelRouteRoute,
+  } as any);
+const AppFornecedorPainelVendasRoute =
+  AppFornecedorPainelVendasRouteImport.update({
+    id: "/vendas",
+    path: "/vendas",
+    getParentRoute: () => AppFornecedorPainelRouteRoute,
+  } as any);
+const AppSuporteConversasTicketIdRoute =
+  AppSuporteConversasTicketIdRouteImport.update({
+    id: "/suporte/conversas/$ticketId",
+    path: "/suporte/conversas/$ticketId",
+    getParentRoute: () => AppRouteRoute,
+  } as any);
+const AppSuporteFornecedoresIndexRoute =
+  AppSuporteFornecedoresIndexRouteImport.update({
+    id: "/suporte/fornecedores/",
+    path: "/suporte/fornecedores/",
+    getParentRoute: () => AppRouteRoute,
+  } as any);
+const AppSuporteFornecedoresNovoRoute =
+  AppSuporteFornecedoresNovoRouteImport.update({
+    id: "/suporte/fornecedores/novo",
+    path: "/suporte/fornecedores/novo",
+    getParentRoute: () => AppRouteRoute,
+  } as any);
+const AppSuporteRevendedoresRelatorioRoute =
+  AppSuporteRevendedoresRelatorioRouteImport.update({
+    id: "/suporte/revendedores_/relatorio",
+    path: "/suporte/revendedores/relatorio",
+    getParentRoute: () => AppRouteRoute,
+  } as any);
+const ApiAdminExportarAuditoriaRoute =
+  ApiAdminExportarAuditoriaRouteImport.update({
+    id: "/api/admin/exportar/auditoria",
+    path: "/api/admin/exportar/auditoria",
+    getParentRoute: () => rootRouteImport,
+  } as any);
+const ApiAdminExportarChamadosRoute =
+  ApiAdminExportarChamadosRouteImport.update({
+    id: "/api/admin/exportar/chamados",
+    path: "/api/admin/exportar/chamados",
+    getParentRoute: () => rootRouteImport,
+  } as any);
+const ApiAdminExportarClientesRoute =
+  ApiAdminExportarClientesRouteImport.update({
+    id: "/api/admin/exportar/clientes",
+    path: "/api/admin/exportar/clientes",
+    getParentRoute: () => rootRouteImport,
+  } as any);
 const ApiAdminExportarEquipeRoute = ApiAdminExportarEquipeRouteImport.update({
   id: "/api/admin/exportar/equipe",
   path: "/api/admin/exportar/equipe",
   getParentRoute: () => rootRouteImport,
 } as any);
-const ApiFornecedorExportarCatalogoRoute = ApiFornecedorExportarCatalogoRouteImport.update({
-  id: "/api/fornecedor/exportar/catalogo",
-  path: "/api/fornecedor/exportar/catalogo",
-  getParentRoute: () => rootRouteImport,
-} as any);
-const ApiFornecedorExportarPedidosRoute = ApiFornecedorExportarPedidosRouteImport.update({
-  id: "/api/fornecedor/exportar/pedidos",
-  path: "/api/fornecedor/exportar/pedidos",
-  getParentRoute: () => rootRouteImport,
-} as any);
-const ApiFornecedorExportarProdutosRoute = ApiFornecedorExportarProdutosRouteImport.update({
-  id: "/api/fornecedor/exportar/produtos",
-  path: "/api/fornecedor/exportar/produtos",
-  getParentRoute: () => rootRouteImport,
-} as any);
-const ApiFornecedorProdutosImagensRoute = ApiFornecedorProdutosImagensRouteImport.update({
-  id: "/api/fornecedor/produtos/imagens",
-  path: "/api/fornecedor/produtos/imagens",
-  getParentRoute: () => rootRouteImport,
-} as any);
-const ApiFornecedorVendasExportarRoute = ApiFornecedorVendasExportarRouteImport.update({
-  id: "/api/fornecedor/vendas/exportar",
-  path: "/api/fornecedor/vendas/exportar",
-  getParentRoute: () => rootRouteImport,
-} as any);
-const ApiIntegracoesBlingConectarRoute = ApiIntegracoesBlingConectarRouteImport.update({
-  id: "/api/integracoes/bling/conectar",
-  path: "/api/integracoes/bling/conectar",
-  getParentRoute: () => rootRouteImport,
-} as any);
-const ApiIntegracoesBlingRetornoRoute = ApiIntegracoesBlingRetornoRouteImport.update({
-  id: "/api/integracoes/bling/retorno",
-  path: "/api/integracoes/bling/retorno",
-  getParentRoute: () => rootRouteImport,
-} as any);
-const ApiIntegracoesMercadoPagoConectarRoute = ApiIntegracoesMercadoPagoConectarRouteImport.update({
-  id: "/api/integracoes/mercado-pago/conectar",
-  path: "/api/integracoes/mercado-pago/conectar",
-  getParentRoute: () => rootRouteImport,
-} as any);
-const ApiIntegracoesMercadoPagoRetornoRoute = ApiIntegracoesMercadoPagoRetornoRouteImport.update({
-  id: "/api/integracoes/mercado-pago/retorno",
-  path: "/api/integracoes/mercado-pago/retorno",
-  getParentRoute: () => rootRouteImport,
-} as any);
-const ApiOauthMarketplaceCallbackRoute = ApiOauthMarketplaceCallbackRouteImport.update({
-  id: "/api/oauth/$marketplace/callback",
-  path: "/api/oauth/$marketplace/callback",
-  getParentRoute: () => rootRouteImport,
-} as any);
-const ApiOauthMarketplaceStartRoute = ApiOauthMarketplaceStartRouteImport.update({
-  id: "/api/oauth/$marketplace/start",
-  path: "/api/oauth/$marketplace/start",
-  getParentRoute: () => rootRouteImport,
-} as any);
-const ApiPedidosOrderIdEtiquetaRoute = ApiPedidosOrderIdEtiquetaRouteImport.update({
-  id: "/api/pedidos/$orderId/etiqueta",
-  path: "/api/pedidos/$orderId/etiqueta",
-  getParentRoute: () => rootRouteImport,
-} as any);
-const ApiPedidosOrderIdNotaFiscalRoute = ApiPedidosOrderIdNotaFiscalRouteImport.update({
-  id: "/api/pedidos/$orderId/nota-fiscal",
-  path: "/api/pedidos/$orderId/nota-fiscal",
-  getParentRoute: () => rootRouteImport,
-} as any);
-const ApiSuporteAnexosAttachmentIdRoute = ApiSuporteAnexosAttachmentIdRouteImport.update({
-  id: "/api/suporte/anexos/$attachmentId",
-  path: "/api/suporte/anexos/$attachmentId",
-  getParentRoute: () => rootRouteImport,
-} as any);
+const ApiDevolucoesClaimIdMotivoRoute =
+  ApiDevolucoesClaimIdMotivoRouteImport.update({
+    id: "/api/devolucoes/$claimId/motivo",
+    path: "/api/devolucoes/$claimId/motivo",
+    getParentRoute: () => rootRouteImport,
+  } as any);
+const ApiDevolucoesClaimIdRespostaRoute =
+  ApiDevolucoesClaimIdRespostaRouteImport.update({
+    id: "/api/devolucoes/$claimId/resposta",
+    path: "/api/devolucoes/$claimId/resposta",
+    getParentRoute: () => rootRouteImport,
+  } as any);
+const ApiDevolucoesFotosPhotoIdRoute =
+  ApiDevolucoesFotosPhotoIdRouteImport.update({
+    id: "/api/devolucoes/fotos/$photoId",
+    path: "/api/devolucoes/fotos/$photoId",
+    getParentRoute: () => rootRouteImport,
+  } as any);
+const ApiFornecedorExportarCatalogoRoute =
+  ApiFornecedorExportarCatalogoRouteImport.update({
+    id: "/api/fornecedor/exportar/catalogo",
+    path: "/api/fornecedor/exportar/catalogo",
+    getParentRoute: () => rootRouteImport,
+  } as any);
+const ApiFornecedorExportarPedidosRoute =
+  ApiFornecedorExportarPedidosRouteImport.update({
+    id: "/api/fornecedor/exportar/pedidos",
+    path: "/api/fornecedor/exportar/pedidos",
+    getParentRoute: () => rootRouteImport,
+  } as any);
+const ApiFornecedorExportarProdutosRoute =
+  ApiFornecedorExportarProdutosRouteImport.update({
+    id: "/api/fornecedor/exportar/produtos",
+    path: "/api/fornecedor/exportar/produtos",
+    getParentRoute: () => rootRouteImport,
+  } as any);
+const ApiFornecedorProdutosImagensRoute =
+  ApiFornecedorProdutosImagensRouteImport.update({
+    id: "/api/fornecedor/produtos/imagens",
+    path: "/api/fornecedor/produtos/imagens",
+    getParentRoute: () => rootRouteImport,
+  } as any);
+const ApiFornecedorVendasExportarRoute =
+  ApiFornecedorVendasExportarRouteImport.update({
+    id: "/api/fornecedor/vendas/exportar",
+    path: "/api/fornecedor/vendas/exportar",
+    getParentRoute: () => rootRouteImport,
+  } as any);
+const ApiIntegracoesBlingConectarRoute =
+  ApiIntegracoesBlingConectarRouteImport.update({
+    id: "/api/integracoes/bling/conectar",
+    path: "/api/integracoes/bling/conectar",
+    getParentRoute: () => rootRouteImport,
+  } as any);
+const ApiIntegracoesBlingRetornoRoute =
+  ApiIntegracoesBlingRetornoRouteImport.update({
+    id: "/api/integracoes/bling/retorno",
+    path: "/api/integracoes/bling/retorno",
+    getParentRoute: () => rootRouteImport,
+  } as any);
+const ApiIntegracoesMercadoPagoConectarRoute =
+  ApiIntegracoesMercadoPagoConectarRouteImport.update({
+    id: "/api/integracoes/mercado-pago/conectar",
+    path: "/api/integracoes/mercado-pago/conectar",
+    getParentRoute: () => rootRouteImport,
+  } as any);
+const ApiIntegracoesMercadoPagoRetornoRoute =
+  ApiIntegracoesMercadoPagoRetornoRouteImport.update({
+    id: "/api/integracoes/mercado-pago/retorno",
+    path: "/api/integracoes/mercado-pago/retorno",
+    getParentRoute: () => rootRouteImport,
+  } as any);
+const ApiOauthMarketplaceCallbackRoute =
+  ApiOauthMarketplaceCallbackRouteImport.update({
+    id: "/api/oauth/$marketplace/callback",
+    path: "/api/oauth/$marketplace/callback",
+    getParentRoute: () => rootRouteImport,
+  } as any);
+const ApiOauthMarketplaceStartRoute =
+  ApiOauthMarketplaceStartRouteImport.update({
+    id: "/api/oauth/$marketplace/start",
+    path: "/api/oauth/$marketplace/start",
+    getParentRoute: () => rootRouteImport,
+  } as any);
+const ApiPedidosOrderIdEtiquetaRoute =
+  ApiPedidosOrderIdEtiquetaRouteImport.update({
+    id: "/api/pedidos/$orderId/etiqueta",
+    path: "/api/pedidos/$orderId/etiqueta",
+    getParentRoute: () => rootRouteImport,
+  } as any);
+const ApiPedidosOrderIdNotaFiscalRoute =
+  ApiPedidosOrderIdNotaFiscalRouteImport.update({
+    id: "/api/pedidos/$orderId/nota-fiscal",
+    path: "/api/pedidos/$orderId/nota-fiscal",
+    getParentRoute: () => rootRouteImport,
+  } as any);
+const ApiSuporteAnexosAttachmentIdRoute =
+  ApiSuporteAnexosAttachmentIdRouteImport.update({
+    id: "/api/suporte/anexos/$attachmentId",
+    path: "/api/suporte/anexos/$attachmentId",
+    getParentRoute: () => rootRouteImport,
+  } as any);
 const ApiSuporteChamadosIndexRoute = ApiSuporteChamadosIndexRouteImport.update({
   id: "/api/suporte/chamados/",
   path: "/api/suporte/chamados/",
   getParentRoute: () => rootRouteImport,
 } as any);
-const ApiSuporteConversasIndexRoute = ApiSuporteConversasIndexRouteImport.update({
-  id: "/api/suporte/conversas/",
-  path: "/api/suporte/conversas/",
-  getParentRoute: () => rootRouteImport,
-} as any);
+const ApiSuporteConversasIndexRoute =
+  ApiSuporteConversasIndexRouteImport.update({
+    id: "/api/suporte/conversas/",
+    path: "/api/suporte/conversas/",
+    getParentRoute: () => rootRouteImport,
+  } as any);
 const ApiV1FinancialsSummaryRoute = ApiV1FinancialsSummaryRouteImport.update({
   id: "/api/v1/financials/summary",
   path: "/api/v1/financials/summary",
@@ -718,22 +792,24 @@ const ApiV1OrdersOrderIdRoute = ApiV1OrdersOrderIdRouteImport.update({
   path: "/api/v1/orders/$orderId",
   getParentRoute: () => rootRouteImport,
 } as any);
-const ApiV1WebhookEndpointsIndexRoute = ApiV1WebhookEndpointsIndexRouteImport.update({
-  id: "/api/v1/webhook-endpoints/",
-  path: "/api/v1/webhook-endpoints/",
-  getParentRoute: () => rootRouteImport,
-} as any);
+const ApiV1WebhookEndpointsIndexRoute =
+  ApiV1WebhookEndpointsIndexRouteImport.update({
+    id: "/api/v1/webhook-endpoints/",
+    path: "/api/v1/webhook-endpoints/",
+    getParentRoute: () => rootRouteImport,
+  } as any);
 const AppAdminFornecedoresSupplierIdFlagsRoute =
   AppAdminFornecedoresSupplierIdFlagsRouteImport.update({
     id: "/fornecedores/$supplierId_/flags",
     path: "/fornecedores/$supplierId/flags",
     getParentRoute: () => AppAdminRouteRoute,
   } as any);
-const AppAdminFornecedoresAnaliseIndexRoute = AppAdminFornecedoresAnaliseIndexRouteImport.update({
-  id: "/fornecedores/analise/",
-  path: "/fornecedores/analise/",
-  getParentRoute: () => AppAdminRouteRoute,
-} as any);
+const AppAdminFornecedoresAnaliseIndexRoute =
+  AppAdminFornecedoresAnaliseIndexRouteImport.update({
+    id: "/fornecedores/analise/",
+    path: "/fornecedores/analise/",
+    getParentRoute: () => AppAdminRouteRoute,
+  } as any);
 const AppAdminFornecedoresAnaliseProductIdRoute =
   AppAdminFornecedoresAnaliseProductIdRouteImport.update({
     id: "/fornecedores/analise/$productId",
@@ -746,16 +822,18 @@ const AppAdminFornecedoresAprovacaoIndexRoute =
     path: "/fornecedores/aprovacao/",
     getParentRoute: () => AppAdminRouteRoute,
   } as any);
-const ApiAdminChamadosTicketIdMensagensRoute = ApiAdminChamadosTicketIdMensagensRouteImport.update({
-  id: "/api/admin/chamados/$ticketId/mensagens",
-  path: "/api/admin/chamados/$ticketId/mensagens",
-  getParentRoute: () => rootRouteImport,
-} as any);
-const ApiPerfilFotoUserIdFileNameRoute = ApiPerfilFotoUserIdFileNameRouteImport.update({
-  id: "/$userId/$fileName",
-  path: "/$userId/$fileName",
-  getParentRoute: () => ApiPerfilFotoRoute,
-} as any);
+const ApiAdminChamadosTicketIdMensagensRoute =
+  ApiAdminChamadosTicketIdMensagensRouteImport.update({
+    id: "/api/admin/chamados/$ticketId/mensagens",
+    path: "/api/admin/chamados/$ticketId/mensagens",
+    getParentRoute: () => rootRouteImport,
+  } as any);
+const ApiPerfilFotoUserIdFileNameRoute =
+  ApiPerfilFotoUserIdFileNameRouteImport.update({
+    id: "/$userId/$fileName",
+    path: "/$userId/$fileName",
+    getParentRoute: () => ApiPerfilFotoRoute,
+  } as any);
 const ApiProdutosImagensSupplierIdFileNameRoute =
   ApiProdutosImagensSupplierIdFileNameRouteImport.update({
     id: "/api/produtos/imagens/$supplierId/$fileName",
@@ -774,16 +852,18 @@ const ApiSuporteConversasTicketIdMensagensRoute =
     path: "/api/suporte/conversas/$ticketId/mensagens",
     getParentRoute: () => rootRouteImport,
   } as any);
-const ApiV1CatalogProductsIndexRoute = ApiV1CatalogProductsIndexRouteImport.update({
-  id: "/api/v1/catalog/products/",
-  path: "/api/v1/catalog/products/",
-  getParentRoute: () => rootRouteImport,
-} as any);
-const ApiV1CatalogProductsProductIdRoute = ApiV1CatalogProductsProductIdRouteImport.update({
-  id: "/api/v1/catalog/products/$productId",
-  path: "/api/v1/catalog/products/$productId",
-  getParentRoute: () => rootRouteImport,
-} as any);
+const ApiV1CatalogProductsIndexRoute =
+  ApiV1CatalogProductsIndexRouteImport.update({
+    id: "/api/v1/catalog/products/",
+    path: "/api/v1/catalog/products/",
+    getParentRoute: () => rootRouteImport,
+  } as any);
+const ApiV1CatalogProductsProductIdRoute =
+  ApiV1CatalogProductsProductIdRouteImport.update({
+    id: "/api/v1/catalog/products/$productId",
+    path: "/api/v1/catalog/products/$productId",
+    getParentRoute: () => rootRouteImport,
+  } as any);
 const ApiV1WebhookEndpointsEndpointIdIndexRoute =
   ApiV1WebhookEndpointsEndpointIdIndexRouteImport.update({
     id: "/api/v1/webhook-endpoints/$endpointId/",
@@ -813,6 +893,7 @@ export interface FileRoutesByFullPath {
   "/lojas": typeof AppLojasRoute;
   "/onboarding": typeof AppOnboardingRoute;
   "/perfil": typeof AppPerfilRoute;
+  "/politica-de-devolucao": typeof AppPoliticaDeDevolucaoRoute;
   "/products": typeof AppProductsRoute;
   "/cadastro": typeof AuthCadastroRoute;
   "/confirme-seu-email": typeof AuthConfirmeSeuEmailRoute;
@@ -856,6 +937,7 @@ export interface FileRoutesByFullPath {
   "/api/webhooks/$marketplace": typeof ApiWebhooksMarketplaceRoute;
   "/api/webhooks/asaas": typeof ApiWebhooksAsaasRoute;
   "/api/webhooks/asaas-assinatura": typeof ApiWebhooksAsaasAssinaturaRoute;
+  "/api/webhooks/bling": typeof ApiWebhooksBlingRoute;
   "/api/webhooks/mercado-pago": typeof ApiWebhooksMercadoPagoRoute;
   "/api/webhooks/stripe": typeof ApiWebhooksStripeRoute;
   "/fornecedor/pedido/$token": typeof FornecedorPedidoTokenRoute;
@@ -885,6 +967,9 @@ export interface FileRoutesByFullPath {
   "/api/admin/exportar/chamados": typeof ApiAdminExportarChamadosRoute;
   "/api/admin/exportar/clientes": typeof ApiAdminExportarClientesRoute;
   "/api/admin/exportar/equipe": typeof ApiAdminExportarEquipeRoute;
+  "/api/devolucoes/$claimId/motivo": typeof ApiDevolucoesClaimIdMotivoRoute;
+  "/api/devolucoes/$claimId/resposta": typeof ApiDevolucoesClaimIdRespostaRoute;
+  "/api/devolucoes/fotos/$photoId": typeof ApiDevolucoesFotosPhotoIdRoute;
   "/api/fornecedor/exportar/catalogo": typeof ApiFornecedorExportarCatalogoRoute;
   "/api/fornecedor/exportar/pedidos": typeof ApiFornecedorExportarPedidosRoute;
   "/api/fornecedor/exportar/produtos": typeof ApiFornecedorExportarProdutosRoute;
@@ -942,6 +1027,7 @@ export interface FileRoutesByTo {
   "/lojas": typeof AppLojasRoute;
   "/onboarding": typeof AppOnboardingRoute;
   "/perfil": typeof AppPerfilRoute;
+  "/politica-de-devolucao": typeof AppPoliticaDeDevolucaoRoute;
   "/products": typeof AppProductsRoute;
   "/cadastro": typeof AuthCadastroRoute;
   "/confirme-seu-email": typeof AuthConfirmeSeuEmailRoute;
@@ -982,6 +1068,7 @@ export interface FileRoutesByTo {
   "/api/webhooks/$marketplace": typeof ApiWebhooksMarketplaceRoute;
   "/api/webhooks/asaas": typeof ApiWebhooksAsaasRoute;
   "/api/webhooks/asaas-assinatura": typeof ApiWebhooksAsaasAssinaturaRoute;
+  "/api/webhooks/bling": typeof ApiWebhooksBlingRoute;
   "/api/webhooks/mercado-pago": typeof ApiWebhooksMercadoPagoRoute;
   "/api/webhooks/stripe": typeof ApiWebhooksStripeRoute;
   "/fornecedor/pedido/$token": typeof FornecedorPedidoTokenRoute;
@@ -1011,6 +1098,9 @@ export interface FileRoutesByTo {
   "/api/admin/exportar/chamados": typeof ApiAdminExportarChamadosRoute;
   "/api/admin/exportar/clientes": typeof ApiAdminExportarClientesRoute;
   "/api/admin/exportar/equipe": typeof ApiAdminExportarEquipeRoute;
+  "/api/devolucoes/$claimId/motivo": typeof ApiDevolucoesClaimIdMotivoRoute;
+  "/api/devolucoes/$claimId/resposta": typeof ApiDevolucoesClaimIdRespostaRoute;
+  "/api/devolucoes/fotos/$photoId": typeof ApiDevolucoesFotosPhotoIdRoute;
   "/api/fornecedor/exportar/catalogo": typeof ApiFornecedorExportarCatalogoRoute;
   "/api/fornecedor/exportar/pedidos": typeof ApiFornecedorExportarPedidosRoute;
   "/api/fornecedor/exportar/produtos": typeof ApiFornecedorExportarProdutosRoute;
@@ -1072,6 +1162,7 @@ export interface FileRoutesById {
   "/_app/lojas": typeof AppLojasRoute;
   "/_app/onboarding": typeof AppOnboardingRoute;
   "/_app/perfil": typeof AppPerfilRoute;
+  "/_app/politica-de-devolucao": typeof AppPoliticaDeDevolucaoRoute;
   "/_app/products": typeof AppProductsRoute;
   "/_auth/cadastro": typeof AuthCadastroRoute;
   "/_auth/confirme-seu-email": typeof AuthConfirmeSeuEmailRoute;
@@ -1115,6 +1206,7 @@ export interface FileRoutesById {
   "/api/webhooks/$marketplace": typeof ApiWebhooksMarketplaceRoute;
   "/api/webhooks/asaas": typeof ApiWebhooksAsaasRoute;
   "/api/webhooks/asaas-assinatura": typeof ApiWebhooksAsaasAssinaturaRoute;
+  "/api/webhooks/bling": typeof ApiWebhooksBlingRoute;
   "/api/webhooks/mercado-pago": typeof ApiWebhooksMercadoPagoRoute;
   "/api/webhooks/stripe": typeof ApiWebhooksStripeRoute;
   "/fornecedor/pedido/$token": typeof FornecedorPedidoTokenRoute;
@@ -1144,6 +1236,9 @@ export interface FileRoutesById {
   "/api/admin/exportar/chamados": typeof ApiAdminExportarChamadosRoute;
   "/api/admin/exportar/clientes": typeof ApiAdminExportarClientesRoute;
   "/api/admin/exportar/equipe": typeof ApiAdminExportarEquipeRoute;
+  "/api/devolucoes/$claimId/motivo": typeof ApiDevolucoesClaimIdMotivoRoute;
+  "/api/devolucoes/$claimId/resposta": typeof ApiDevolucoesClaimIdRespostaRoute;
+  "/api/devolucoes/fotos/$photoId": typeof ApiDevolucoesFotosPhotoIdRoute;
   "/api/fornecedor/exportar/catalogo": typeof ApiFornecedorExportarCatalogoRoute;
   "/api/fornecedor/exportar/pedidos": typeof ApiFornecedorExportarPedidosRoute;
   "/api/fornecedor/exportar/produtos": typeof ApiFornecedorExportarProdutosRoute;
@@ -1204,6 +1299,7 @@ export interface FileRouteTypes {
     | "/lojas"
     | "/onboarding"
     | "/perfil"
+    | "/politica-de-devolucao"
     | "/products"
     | "/cadastro"
     | "/confirme-seu-email"
@@ -1247,6 +1343,7 @@ export interface FileRouteTypes {
     | "/api/webhooks/$marketplace"
     | "/api/webhooks/asaas"
     | "/api/webhooks/asaas-assinatura"
+    | "/api/webhooks/bling"
     | "/api/webhooks/mercado-pago"
     | "/api/webhooks/stripe"
     | "/fornecedor/pedido/$token"
@@ -1276,6 +1373,9 @@ export interface FileRouteTypes {
     | "/api/admin/exportar/chamados"
     | "/api/admin/exportar/clientes"
     | "/api/admin/exportar/equipe"
+    | "/api/devolucoes/$claimId/motivo"
+    | "/api/devolucoes/$claimId/resposta"
+    | "/api/devolucoes/fotos/$photoId"
     | "/api/fornecedor/exportar/catalogo"
     | "/api/fornecedor/exportar/pedidos"
     | "/api/fornecedor/exportar/produtos"
@@ -1333,6 +1433,7 @@ export interface FileRouteTypes {
     | "/lojas"
     | "/onboarding"
     | "/perfil"
+    | "/politica-de-devolucao"
     | "/products"
     | "/cadastro"
     | "/confirme-seu-email"
@@ -1373,6 +1474,7 @@ export interface FileRouteTypes {
     | "/api/webhooks/$marketplace"
     | "/api/webhooks/asaas"
     | "/api/webhooks/asaas-assinatura"
+    | "/api/webhooks/bling"
     | "/api/webhooks/mercado-pago"
     | "/api/webhooks/stripe"
     | "/fornecedor/pedido/$token"
@@ -1402,6 +1504,9 @@ export interface FileRouteTypes {
     | "/api/admin/exportar/chamados"
     | "/api/admin/exportar/clientes"
     | "/api/admin/exportar/equipe"
+    | "/api/devolucoes/$claimId/motivo"
+    | "/api/devolucoes/$claimId/resposta"
+    | "/api/devolucoes/fotos/$photoId"
     | "/api/fornecedor/exportar/catalogo"
     | "/api/fornecedor/exportar/pedidos"
     | "/api/fornecedor/exportar/produtos"
@@ -1462,6 +1567,7 @@ export interface FileRouteTypes {
     | "/_app/lojas"
     | "/_app/onboarding"
     | "/_app/perfil"
+    | "/_app/politica-de-devolucao"
     | "/_app/products"
     | "/_auth/cadastro"
     | "/_auth/confirme-seu-email"
@@ -1505,6 +1611,7 @@ export interface FileRouteTypes {
     | "/api/webhooks/$marketplace"
     | "/api/webhooks/asaas"
     | "/api/webhooks/asaas-assinatura"
+    | "/api/webhooks/bling"
     | "/api/webhooks/mercado-pago"
     | "/api/webhooks/stripe"
     | "/fornecedor/pedido/$token"
@@ -1534,6 +1641,9 @@ export interface FileRouteTypes {
     | "/api/admin/exportar/chamados"
     | "/api/admin/exportar/clientes"
     | "/api/admin/exportar/equipe"
+    | "/api/devolucoes/$claimId/motivo"
+    | "/api/devolucoes/$claimId/resposta"
+    | "/api/devolucoes/fotos/$photoId"
     | "/api/fornecedor/exportar/catalogo"
     | "/api/fornecedor/exportar/pedidos"
     | "/api/fornecedor/exportar/produtos"
@@ -1603,6 +1713,7 @@ export interface RootRouteChildren {
   ApiWebhooksMarketplaceRoute: typeof ApiWebhooksMarketplaceRoute;
   ApiWebhooksAsaasRoute: typeof ApiWebhooksAsaasRoute;
   ApiWebhooksAsaasAssinaturaRoute: typeof ApiWebhooksAsaasAssinaturaRoute;
+  ApiWebhooksBlingRoute: typeof ApiWebhooksBlingRoute;
   ApiWebhooksMercadoPagoRoute: typeof ApiWebhooksMercadoPagoRoute;
   ApiWebhooksStripeRoute: typeof ApiWebhooksStripeRoute;
   FornecedorPedidoTokenRoute: typeof FornecedorPedidoTokenRoute;
@@ -1610,6 +1721,9 @@ export interface RootRouteChildren {
   ApiAdminExportarChamadosRoute: typeof ApiAdminExportarChamadosRoute;
   ApiAdminExportarClientesRoute: typeof ApiAdminExportarClientesRoute;
   ApiAdminExportarEquipeRoute: typeof ApiAdminExportarEquipeRoute;
+  ApiDevolucoesClaimIdMotivoRoute: typeof ApiDevolucoesClaimIdMotivoRoute;
+  ApiDevolucoesClaimIdRespostaRoute: typeof ApiDevolucoesClaimIdRespostaRoute;
+  ApiDevolucoesFotosPhotoIdRoute: typeof ApiDevolucoesFotosPhotoIdRoute;
   ApiFornecedorExportarCatalogoRoute: typeof ApiFornecedorExportarCatalogoRoute;
   ApiFornecedorExportarPedidosRoute: typeof ApiFornecedorExportarPedidosRoute;
   ApiFornecedorExportarProdutosRoute: typeof ApiFornecedorExportarProdutosRoute;
@@ -1761,6 +1875,13 @@ declare module "@tanstack/react-router" {
       path: "/perfil";
       fullPath: "/perfil";
       preLoaderRoute: typeof AppPerfilRouteImport;
+      parentRoute: typeof AppRouteRoute;
+    };
+    "/_app/politica-de-devolucao": {
+      id: "/_app/politica-de-devolucao";
+      path: "/politica-de-devolucao";
+      fullPath: "/politica-de-devolucao";
+      preLoaderRoute: typeof AppPoliticaDeDevolucaoRouteImport;
       parentRoute: typeof AppRouteRoute;
     };
     "/_app/products": {
@@ -2092,6 +2213,13 @@ declare module "@tanstack/react-router" {
       preLoaderRoute: typeof ApiWebhooksAsaasAssinaturaRouteImport;
       parentRoute: typeof rootRouteImport;
     };
+    "/api/webhooks/bling": {
+      id: "/api/webhooks/bling";
+      path: "/api/webhooks/bling";
+      fullPath: "/api/webhooks/bling";
+      preLoaderRoute: typeof ApiWebhooksBlingRouteImport;
+      parentRoute: typeof rootRouteImport;
+    };
     "/api/webhooks/mercado-pago": {
       id: "/api/webhooks/mercado-pago";
       path: "/api/webhooks/mercado-pago";
@@ -2307,6 +2435,27 @@ declare module "@tanstack/react-router" {
       path: "/api/admin/exportar/equipe";
       fullPath: "/api/admin/exportar/equipe";
       preLoaderRoute: typeof ApiAdminExportarEquipeRouteImport;
+      parentRoute: typeof rootRouteImport;
+    };
+    "/api/devolucoes/$claimId/motivo": {
+      id: "/api/devolucoes/$claimId/motivo";
+      path: "/api/devolucoes/$claimId/motivo";
+      fullPath: "/api/devolucoes/$claimId/motivo";
+      preLoaderRoute: typeof ApiDevolucoesClaimIdMotivoRouteImport;
+      parentRoute: typeof rootRouteImport;
+    };
+    "/api/devolucoes/$claimId/resposta": {
+      id: "/api/devolucoes/$claimId/resposta";
+      path: "/api/devolucoes/$claimId/resposta";
+      fullPath: "/api/devolucoes/$claimId/resposta";
+      preLoaderRoute: typeof ApiDevolucoesClaimIdRespostaRouteImport;
+      parentRoute: typeof rootRouteImport;
+    };
+    "/api/devolucoes/fotos/$photoId": {
+      id: "/api/devolucoes/fotos/$photoId";
+      path: "/api/devolucoes/fotos/$photoId";
+      fullPath: "/api/devolucoes/fotos/$photoId";
+      preLoaderRoute: typeof ApiDevolucoesFotosPhotoIdRouteImport;
       parentRoute: typeof rootRouteImport;
     };
     "/api/fornecedor/exportar/catalogo": {
@@ -2567,23 +2716,26 @@ const AppAdminClientesRouteRouteChildren: AppAdminClientesRouteRouteChildren = {
   AppAdminClientesIndexRoute: AppAdminClientesIndexRoute,
 };
 
-const AppAdminClientesRouteRouteWithChildren = AppAdminClientesRouteRoute._addFileChildren(
-  AppAdminClientesRouteRouteChildren,
-);
+const AppAdminClientesRouteRouteWithChildren =
+  AppAdminClientesRouteRoute._addFileChildren(
+    AppAdminClientesRouteRouteChildren,
+  );
 
 interface AppAdminProblemasRouteRouteChildren {
   AppAdminProblemasProblemIdRoute: typeof AppAdminProblemasProblemIdRoute;
   AppAdminProblemasIndexRoute: typeof AppAdminProblemasIndexRoute;
 }
 
-const AppAdminProblemasRouteRouteChildren: AppAdminProblemasRouteRouteChildren = {
-  AppAdminProblemasProblemIdRoute: AppAdminProblemasProblemIdRoute,
-  AppAdminProblemasIndexRoute: AppAdminProblemasIndexRoute,
-};
+const AppAdminProblemasRouteRouteChildren: AppAdminProblemasRouteRouteChildren =
+  {
+    AppAdminProblemasProblemIdRoute: AppAdminProblemasProblemIdRoute,
+    AppAdminProblemasIndexRoute: AppAdminProblemasIndexRoute,
+  };
 
-const AppAdminProblemasRouteRouteWithChildren = AppAdminProblemasRouteRoute._addFileChildren(
-  AppAdminProblemasRouteRouteChildren,
-);
+const AppAdminProblemasRouteRouteWithChildren =
+  AppAdminProblemasRouteRoute._addFileChildren(
+    AppAdminProblemasRouteRouteChildren,
+  );
 
 interface AppAdminRouteRouteChildren {
   AppAdminClientesRouteRoute: typeof AppAdminClientesRouteRouteWithChildren;
@@ -2621,10 +2773,13 @@ const AppAdminRouteRouteChildren: AppAdminRouteRouteChildren = {
   AppAdminFornecedoresSupplierIdRoute: AppAdminFornecedoresSupplierIdRoute,
   AppAdminChamadosIndexRoute: AppAdminChamadosIndexRoute,
   AppAdminFornecedoresIndexRoute: AppAdminFornecedoresIndexRoute,
-  AppAdminFornecedoresSupplierIdFlagsRoute: AppAdminFornecedoresSupplierIdFlagsRoute,
-  AppAdminFornecedoresAnaliseProductIdRoute: AppAdminFornecedoresAnaliseProductIdRoute,
+  AppAdminFornecedoresSupplierIdFlagsRoute:
+    AppAdminFornecedoresSupplierIdFlagsRoute,
+  AppAdminFornecedoresAnaliseProductIdRoute:
+    AppAdminFornecedoresAnaliseProductIdRoute,
   AppAdminFornecedoresAnaliseIndexRoute: AppAdminFornecedoresAnaliseIndexRoute,
-  AppAdminFornecedoresAprovacaoIndexRoute: AppAdminFornecedoresAprovacaoIndexRoute,
+  AppAdminFornecedoresAprovacaoIndexRoute:
+    AppAdminFornecedoresAprovacaoIndexRoute,
 };
 
 const AppAdminRouteRouteWithChildren = AppAdminRouteRoute._addFileChildren(
@@ -2641,9 +2796,8 @@ const AppFornecedoresRouteRouteChildren: AppFornecedoresRouteRouteChildren = {
   AppFornecedoresIndexRoute: AppFornecedoresIndexRoute,
 };
 
-const AppFornecedoresRouteRouteWithChildren = AppFornecedoresRouteRoute._addFileChildren(
-  AppFornecedoresRouteRouteChildren,
-);
+const AppFornecedoresRouteRouteWithChildren =
+  AppFornecedoresRouteRoute._addFileChildren(AppFornecedoresRouteRouteChildren);
 
 interface AppFornecedorPainelRouteRouteChildren {
   AppFornecedorPainelConferirRoute: typeof AppFornecedorPainelConferirRoute;
@@ -2659,23 +2813,25 @@ interface AppFornecedorPainelRouteRouteChildren {
   AppFornecedorPainelIndexRoute: typeof AppFornecedorPainelIndexRoute;
 }
 
-const AppFornecedorPainelRouteRouteChildren: AppFornecedorPainelRouteRouteChildren = {
-  AppFornecedorPainelConferirRoute: AppFornecedorPainelConferirRoute,
-  AppFornecedorPainelDesempenhoRoute: AppFornecedorPainelDesempenhoRoute,
-  AppFornecedorPainelImportarRoute: AppFornecedorPainelImportarRoute,
-  AppFornecedorPainelMarcaRoute: AppFornecedorPainelMarcaRoute,
-  AppFornecedorPainelPedidosRoute: AppFornecedorPainelPedidosRoute,
-  AppFornecedorPainelProdutosRoute: AppFornecedorPainelProdutosRoute,
-  AppFornecedorPainelRecebimentosRoute: AppFornecedorPainelRecebimentosRoute,
-  AppFornecedorPainelRegrasRoute: AppFornecedorPainelRegrasRoute,
-  AppFornecedorPainelRelatorioRoute: AppFornecedorPainelRelatorioRoute,
-  AppFornecedorPainelVendasRoute: AppFornecedorPainelVendasRoute,
-  AppFornecedorPainelIndexRoute: AppFornecedorPainelIndexRoute,
-};
+const AppFornecedorPainelRouteRouteChildren: AppFornecedorPainelRouteRouteChildren =
+  {
+    AppFornecedorPainelConferirRoute: AppFornecedorPainelConferirRoute,
+    AppFornecedorPainelDesempenhoRoute: AppFornecedorPainelDesempenhoRoute,
+    AppFornecedorPainelImportarRoute: AppFornecedorPainelImportarRoute,
+    AppFornecedorPainelMarcaRoute: AppFornecedorPainelMarcaRoute,
+    AppFornecedorPainelPedidosRoute: AppFornecedorPainelPedidosRoute,
+    AppFornecedorPainelProdutosRoute: AppFornecedorPainelProdutosRoute,
+    AppFornecedorPainelRecebimentosRoute: AppFornecedorPainelRecebimentosRoute,
+    AppFornecedorPainelRegrasRoute: AppFornecedorPainelRegrasRoute,
+    AppFornecedorPainelRelatorioRoute: AppFornecedorPainelRelatorioRoute,
+    AppFornecedorPainelVendasRoute: AppFornecedorPainelVendasRoute,
+    AppFornecedorPainelIndexRoute: AppFornecedorPainelIndexRoute,
+  };
 
-const AppFornecedorPainelRouteRouteWithChildren = AppFornecedorPainelRouteRoute._addFileChildren(
-  AppFornecedorPainelRouteRouteChildren,
-);
+const AppFornecedorPainelRouteRouteWithChildren =
+  AppFornecedorPainelRouteRoute._addFileChildren(
+    AppFornecedorPainelRouteRouteChildren,
+  );
 
 interface AppRouteRouteChildren {
   AppAdminRouteRoute: typeof AppAdminRouteRouteWithChildren;
@@ -2688,6 +2844,7 @@ interface AppRouteRouteChildren {
   AppLojasRoute: typeof AppLojasRoute;
   AppOnboardingRoute: typeof AppOnboardingRoute;
   AppPerfilRoute: typeof AppPerfilRoute;
+  AppPoliticaDeDevolucaoRoute: typeof AppPoliticaDeDevolucaoRoute;
   AppProductsRoute: typeof AppProductsRoute;
   AppFornecedorPainelRouteRoute: typeof AppFornecedorPainelRouteRouteWithChildren;
   AppFinanceiroRelatorioRoute: typeof AppFinanceiroRelatorioRoute;
@@ -2717,6 +2874,7 @@ const AppRouteRouteChildren: AppRouteRouteChildren = {
   AppLojasRoute: AppLojasRoute,
   AppOnboardingRoute: AppOnboardingRoute,
   AppPerfilRoute: AppPerfilRoute,
+  AppPoliticaDeDevolucaoRoute: AppPoliticaDeDevolucaoRoute,
   AppProductsRoute: AppProductsRoute,
   AppFornecedorPainelRouteRoute: AppFornecedorPainelRouteRouteWithChildren,
   AppFinanceiroRelatorioRoute: AppFinanceiroRelatorioRoute,
@@ -2735,7 +2893,9 @@ const AppRouteRouteChildren: AppRouteRouteChildren = {
   AppSuporteFornecedoresIndexRoute: AppSuporteFornecedoresIndexRoute,
 };
 
-const AppRouteRouteWithChildren = AppRouteRoute._addFileChildren(AppRouteRouteChildren);
+const AppRouteRouteWithChildren = AppRouteRoute._addFileChildren(
+  AppRouteRouteChildren,
+);
 
 interface AuthRouteRouteChildren {
   AuthCadastroRoute: typeof AuthCadastroRoute;
@@ -2755,7 +2915,9 @@ const AuthRouteRouteChildren: AuthRouteRouteChildren = {
   AuthCadastroFornecedorRoute: AuthCadastroFornecedorRoute,
 };
 
-const AuthRouteRouteWithChildren = AuthRouteRoute._addFileChildren(AuthRouteRouteChildren);
+const AuthRouteRouteWithChildren = AuthRouteRoute._addFileChildren(
+  AuthRouteRouteChildren,
+);
 
 interface ApiPerfilFotoRouteChildren {
   ApiPerfilFotoUserIdFileNameRoute: typeof ApiPerfilFotoUserIdFileNameRoute;
@@ -2795,6 +2957,7 @@ const rootRouteChildren: RootRouteChildren = {
   ApiWebhooksMarketplaceRoute: ApiWebhooksMarketplaceRoute,
   ApiWebhooksAsaasRoute: ApiWebhooksAsaasRoute,
   ApiWebhooksAsaasAssinaturaRoute: ApiWebhooksAsaasAssinaturaRoute,
+  ApiWebhooksBlingRoute: ApiWebhooksBlingRoute,
   ApiWebhooksMercadoPagoRoute: ApiWebhooksMercadoPagoRoute,
   ApiWebhooksStripeRoute: ApiWebhooksStripeRoute,
   FornecedorPedidoTokenRoute: FornecedorPedidoTokenRoute,
@@ -2802,6 +2965,9 @@ const rootRouteChildren: RootRouteChildren = {
   ApiAdminExportarChamadosRoute: ApiAdminExportarChamadosRoute,
   ApiAdminExportarClientesRoute: ApiAdminExportarClientesRoute,
   ApiAdminExportarEquipeRoute: ApiAdminExportarEquipeRoute,
+  ApiDevolucoesClaimIdMotivoRoute: ApiDevolucoesClaimIdMotivoRoute,
+  ApiDevolucoesClaimIdRespostaRoute: ApiDevolucoesClaimIdRespostaRoute,
+  ApiDevolucoesFotosPhotoIdRoute: ApiDevolucoesFotosPhotoIdRoute,
   ApiFornecedorExportarCatalogoRoute: ApiFornecedorExportarCatalogoRoute,
   ApiFornecedorExportarPedidosRoute: ApiFornecedorExportarPedidosRoute,
   ApiFornecedorExportarProdutosRoute: ApiFornecedorExportarProdutosRoute,
@@ -2809,7 +2975,8 @@ const rootRouteChildren: RootRouteChildren = {
   ApiFornecedorVendasExportarRoute: ApiFornecedorVendasExportarRoute,
   ApiIntegracoesBlingConectarRoute: ApiIntegracoesBlingConectarRoute,
   ApiIntegracoesBlingRetornoRoute: ApiIntegracoesBlingRetornoRoute,
-  ApiIntegracoesMercadoPagoConectarRoute: ApiIntegracoesMercadoPagoConectarRoute,
+  ApiIntegracoesMercadoPagoConectarRoute:
+    ApiIntegracoesMercadoPagoConectarRoute,
   ApiIntegracoesMercadoPagoRetornoRoute: ApiIntegracoesMercadoPagoRetornoRoute,
   ApiOauthMarketplaceCallbackRoute: ApiOauthMarketplaceCallbackRoute,
   ApiOauthMarketplaceStartRoute: ApiOauthMarketplaceStartRoute,
@@ -2824,14 +2991,20 @@ const rootRouteChildren: RootRouteChildren = {
   ApiV1ListingsIndexRoute: ApiV1ListingsIndexRoute,
   ApiV1OrdersIndexRoute: ApiV1OrdersIndexRoute,
   ApiV1WebhookEndpointsIndexRoute: ApiV1WebhookEndpointsIndexRoute,
-  ApiAdminChamadosTicketIdMensagensRoute: ApiAdminChamadosTicketIdMensagensRoute,
-  ApiProdutosImagensSupplierIdFileNameRoute: ApiProdutosImagensSupplierIdFileNameRoute,
-  ApiSuporteChamadosTicketIdMensagensRoute: ApiSuporteChamadosTicketIdMensagensRoute,
-  ApiSuporteConversasTicketIdMensagensRoute: ApiSuporteConversasTicketIdMensagensRoute,
+  ApiAdminChamadosTicketIdMensagensRoute:
+    ApiAdminChamadosTicketIdMensagensRoute,
+  ApiProdutosImagensSupplierIdFileNameRoute:
+    ApiProdutosImagensSupplierIdFileNameRoute,
+  ApiSuporteChamadosTicketIdMensagensRoute:
+    ApiSuporteChamadosTicketIdMensagensRoute,
+  ApiSuporteConversasTicketIdMensagensRoute:
+    ApiSuporteConversasTicketIdMensagensRoute,
   ApiV1CatalogProductsProductIdRoute: ApiV1CatalogProductsProductIdRoute,
-  ApiV1WebhookEndpointsEndpointIdDeliveriesRoute: ApiV1WebhookEndpointsEndpointIdDeliveriesRoute,
+  ApiV1WebhookEndpointsEndpointIdDeliveriesRoute:
+    ApiV1WebhookEndpointsEndpointIdDeliveriesRoute,
   ApiV1CatalogProductsIndexRoute: ApiV1CatalogProductsIndexRoute,
-  ApiV1WebhookEndpointsEndpointIdIndexRoute: ApiV1WebhookEndpointsEndpointIdIndexRoute,
+  ApiV1WebhookEndpointsEndpointIdIndexRoute:
+    ApiV1WebhookEndpointsEndpointIdIndexRoute,
 };
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

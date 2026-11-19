@@ -100,6 +100,45 @@ beforeEach(() => {
 });
 
 describe("first subscription", () => {
+  it("stops a replacement when an old checkout could still charge the customer", async () => {
+    mocks.account.mockResolvedValue(
+      liveAccount({
+        status: "incomplete",
+        subscriptionId: null,
+        pendingReference: "checkout:chk_old",
+      }),
+    );
+    mocks.client.cancelCheckout.mockRejectedValueOnce(new Error("Asaas unavailable"));
+
+    await expect(startSubscription({ ...input, method: "pix" })).rejects.toThrow(
+      "Asaas unavailable",
+    );
+
+    expect(mocks.client.cancelCheckout).toHaveBeenCalledWith("chk_old");
+    expect(mocks.client.createPixSubscription).not.toHaveBeenCalled();
+  });
+
+  it("keeps an uncertain creation reserved and refuses to create a second subscription", async () => {
+    mocks.client.createPixSubscription.mockRejectedValueOnce(new Error("Asaas timed out"));
+
+    await expect(startSubscription({ ...input, method: "pix" })).rejects.toThrow("Asaas timed out");
+
+    const reservation = mocks.save.mock.calls.find(([, , patch]) => {
+      const reference: unknown = Reflect.get(Object(patch), "pendingReference");
+      return typeof reference === "string" && reference.startsWith("creating:");
+    });
+    expect(reservation).toBeDefined();
+    const pendingReference: unknown = Reflect.get(Object(reservation?.[2]), "pendingReference");
+    mocks.account.mockResolvedValue(
+      liveAccount({ status: "incomplete", subscriptionId: null, pendingReference }),
+    );
+
+    await expect(startSubscription({ ...input, method: "pix" })).rejects.toThrow(
+      "ainda não confirmou",
+    );
+    expect(mocks.client.createPixSubscription).toHaveBeenCalledTimes(1);
+  });
+
   it("denies non-owners before contacting the payment provider", async () => {
     mocks.owner.mockRejectedValue(forbiddenError());
 
@@ -120,7 +159,7 @@ describe("first subscription", () => {
       expect.objectContaining({
         customerId: "cus_a",
         valueCents: 19_700,
-        externalReference: "tenant-a",
+        externalReference: expect.stringMatching(/^tenant-a:[a-f0-9-]+$/),
       }),
     );
     expect(mocks.save).toHaveBeenCalledWith(
@@ -262,7 +301,7 @@ describe("plan change", () => {
       expect.objectContaining({
         customerId: "cus_a",
         billingType: "PIX",
-        externalReference: "upgrade:tenant-a",
+        externalReference: expect.stringMatching(/^upgrade:tenant-a:[a-f0-9-]+$/),
       }),
     );
     expect(mocks.save).toHaveBeenCalledWith(expect.anything(), "tenant-a", {

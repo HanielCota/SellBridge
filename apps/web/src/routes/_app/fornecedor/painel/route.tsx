@@ -2,8 +2,11 @@ import { createFileRoute, Outlet, redirect, useRouterState } from "@tanstack/rea
 import { SUPPLIER_BRAND_PATH } from "@/features/auth/profile-routes";
 import { SupplierOffBanner } from "@/components/supplier-panel/supplier-off-banner";
 import { StoreClosedBanner } from "@/components/supplier-panel/store/store-closed-banner";
+import { ReceivingAccountBanner } from "@/components/supplier-panel/receiving-account-banner";
 import { getOwnSupplierFn } from "@/features/supplier-panel/panel.functions";
 import { SupplierApprovalBanner } from "@/components/supplier-approval/supplier-approval-banner";
+
+const RECEIVING_PATH = "/fornecedor/painel/recebimentos";
 
 export const Route = createFileRoute("/_app/fornecedor/painel")({
   // Before the brand exists, every panel page leads to "Cadastre sua marca".
@@ -51,6 +54,15 @@ function SupplierPanelLayout() {
     return (
       <div className="space-y-6">
         <StoreClosedBanner supplierId={supplier.id} />
+        <Outlet />
+      </div>
+    );
+  }
+  // Recebimentos is where the account is fixed: the banner would only repeat it there.
+  if (supplier !== null && !supplier.receivingRuleMet && pathname !== RECEIVING_PATH) {
+    return (
+      <div className="space-y-6">
+        <ReceivingAccountBanner />
         <Outlet />
       </div>
     );
