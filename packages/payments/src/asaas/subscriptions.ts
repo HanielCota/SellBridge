@@ -115,7 +115,11 @@ export interface AsaasOneOffCharge {
   readonly dueDate: string;
   readonly description: string;
   readonly externalReference: string;
-  readonly successUrl: string;
+  /**
+   * Where Asaas sends the payer back; null sends no return. Asaas refuses one until the account
+   * has its site registered (Minha Conta > Informações).
+   */
+  readonly successUrl: string | null;
 }
 
 /** The checkout link stays open this long; a later click opens a new one. */
@@ -316,7 +320,9 @@ function chargeCalls(call: PlatformCall) {
           dueDate: charge.dueDate,
           description: charge.description,
           externalReference: charge.externalReference,
-          callback: { successUrl: charge.successUrl, autoRedirect: true },
+          ...(charge.successUrl === null
+            ? {}
+            : { callback: { successUrl: charge.successUrl, autoRedirect: true } }),
         },
         schema: asaasSubscriptionChargeSchema,
       });

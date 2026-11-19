@@ -121,6 +121,27 @@ describe("Asaas billing client", () => {
     expect(checkout.url).toBeNull();
   });
 
+  test("leaves the return out of a charge that has none", async () => {
+    const { client, sent } = clientAnswering({
+      id: "pay_1",
+      status: "PENDING",
+      value: 10,
+      dueDate: "2026-11-19",
+    });
+
+    await client.createOneOffCharge({
+      customerId: "cus_1",
+      billingType: "PIX",
+      valueCents: 1_000,
+      dueDate: "2026-11-19",
+      description: "Diferença",
+      externalReference: "upgrade:tenant-a",
+      successUrl: null,
+    });
+
+    expect(sent[0]?.body).not.toHaveProperty("callback");
+  });
+
   test("keeps Asaas's e-mails on for a subscriber", async () => {
     const { client, sent } = clientAnswering({ id: "cus_1" });
 

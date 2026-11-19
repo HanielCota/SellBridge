@@ -84,14 +84,17 @@ o Asaas. Ao excluir a conta, a assinatura e o cliente no Asaas são removidos an
 
 1. Na conta do SellBridge no Asaas (produção), confirme que ela emite cobranças com Pix e cartão e
    que o Checkout está liberado.
-2. Em Minha conta > Configurações de cobrança, mude a geração das cobranças de assinatura de 40
+2. Em Minha Conta > Informações, cadastre o site `https://app.sellbridge.com.br`: sem ele o Asaas
+   recusa o endereço de volta da cobrança da diferença (ela sai sem a volta automática) e do
+   Checkout com cartão (que exige um endereço https).
+3. Em Minha conta > Configurações de cobrança, mude a geração das cobranças de assinatura de 40
    para **7 dias** antes do vencimento: o Pix do mês chega perto da data.
-3. Em Integrações > Webhooks, cadastre `https://SEU_DOMINIO/api/webhooks/asaas-assinatura`, com o
+4. Em Integrações > Webhooks, cadastre `https://SEU_DOMINIO/api/webhooks/asaas-assinatura`, com o
    mesmo token de `ASAAS_WEBHOOK_TOKEN`, envio sequencial, e os eventos de cobrança
    (`PAYMENT_CREATED`, `PAYMENT_CONFIRMED`, `PAYMENT_RECEIVED`, `PAYMENT_OVERDUE`,
    `PAYMENT_DELETED`, `PAYMENT_RESTORED`, `PAYMENT_REFUNDED`), de assinatura (`SUBSCRIPTION_*`) e
    de checkout (`CHECKOUT_PAID`).
-4. No serviço web (Coolify), defina `ASAAS_API_KEY`, `ASAAS_WALLET_ID`, `ASAAS_WEBHOOK_TOKEN`
+5. No serviço web (Coolify), defina `ASAAS_API_KEY`, `ASAAS_WALLET_ID`, `ASAAS_WEBHOOK_TOKEN`
    (`ASAAS_API_URL` fica no padrão de produção), `BILLING_LAUNCHED_AT` e
    `BILLING_TRANSITION_ENDS_AT` (ISO 8601 em UTC, por exemplo `2026-12-01T03:00:00Z` para a
    meia-noite de Brasília), e retire `BILLING_UNLIMITED`.

@@ -360,6 +360,23 @@ async function applyPlanChange(
   return { url: null };
 }
 
+/**
+ * The charge returns the payer to the subscription page when Asaas accepts the address; an
+ * account without its site registered refuses it, and the charge goes without the return.
+ */
+async function createDifferenceCharge(
+  client: AsaasBillingClient,
+  charge: Parameters<AsaasBillingClient["createOneOffCharge"]>[0],
+) {
+  try {
+    return await client.createOneOffCharge(charge);
+  } catch (error) {
+    if (!isAsaasError(error) || error.status !== 400) throw error;
+    logger.warn("billing.charge_return_refused", { codes: error.codes });
+    return client.createOneOffCharge({ ...charge, successUrl: null });
+  }
+}
+
 async function openUpgradeCharge(
   client: AsaasBillingClient,
   input: {
@@ -372,7 +389,7 @@ async function openUpgradeCharge(
   const { tenantId, account, plan, change } = input;
   if (account.customerId === null) throw conflictError("Você ainda não tem uma assinatura ativa.");
   await retireUnpaid(client, { ...account, subscriptionId: null });
-  const charge = await client.createOneOffCharge({
+  const charge = await createDifferenceCharge(client, {
     customerId: account.customerId,
     billingType: account.paymentMethod === "credit_card" ? "CREDIT_CARD" : "PIX",
     valueCents: change.differenceCents,

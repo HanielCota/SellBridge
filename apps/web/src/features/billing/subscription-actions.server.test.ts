@@ -273,6 +273,25 @@ describe("plan change", () => {
     expect(result).toEqual({ url: "https://asaas.test/i/diff" });
   });
 
+  it("sends the difference without the return when Asaas refuses the return address", async () => {
+    mocks.client.createOneOffCharge
+      .mockRejectedValueOnce(new AsaasError("no site", { status: 400 }))
+      .mockResolvedValueOnce({
+        id: "pay_diff",
+        status: "PENDING",
+        value: 800,
+        dueDate: paidThisMonth.dueDate,
+        invoiceUrl: "https://asaas.test/i/diff",
+      });
+
+    const result = await changePlan({ ...input, plan: "elite" });
+
+    expect(mocks.client.createOneOffCharge).toHaveBeenLastCalledWith(
+      expect.objectContaining({ successUrl: null }),
+    );
+    expect(result).toEqual({ url: "https://asaas.test/i/diff" });
+  });
+
   it("schedules a smaller plan and charges its price from the next month", async () => {
     mocks.account.mockResolvedValue(liveAccount({ plan: "elite" }));
 
