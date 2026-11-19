@@ -101,7 +101,7 @@ Lista completa em [2026-10-13-auditoria-ia-design-ux.md](../reviews/2026-10-13-a
 
 1. **Arquivo de outra área:** se um item precisar mudar um arquivo de outro dono, faça a menor mudança possível e anote em "Achados fora do escopo", ou peça ao dono (por mensagem entre sessões, `SendMessage`).
 2. **Juntar cedo.** Ao fechar cada item (depois do commit), cada chat faz `git merge feat/client-phase-1` na própria branch e resolve os conflitos na hora, ficando com a versão do dono da área. O principal junta as outras branches sempre que receber aviso de um item fechado.
-3. **Arquivos compartilhados só recebem acréscimo:** `docs/decisions.md`, o relatório de lacunas, `styles.css`, `package.json`, `schema/index.ts`. Acrescente no fim ou mude só a linha do seu ID; não reescreva seções nem realinhe tabelas inteiras.
+3. **Arquivos compartilhados só recebem acréscimo:** o relatório de lacunas, `styles.css`, `package.json`, `schema/index.ts`. Acrescente no fim ou mude só a linha do seu ID; não reescreva seções nem realinhe tabelas inteiras. Decisões não entram mais em arquivo compartilhado: cada uma ganha um arquivo próprio em `docs/decisions/` (desde 2026-11-19).
 4. **Andamento próprio:** cada chat registra no seu arquivo (`execucao-progresso.md`, `-b.md`, `-c.md`, `-d.md`, `-e.md`) e não edita o dos outros.
 5. **Recursos isolados** (seção 4). Nunca rode testes contra o banco de outro chat, e nunca contra `sellbridge`.
 6. **Commits na própria branch**; push só do principal, da `feat/client-phase-1` para o PR aberto. Nunca na `main` (seção 0).

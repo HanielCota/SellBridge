@@ -1,6 +1,6 @@
 # Arquitetura e padrões de código
 
-Decisões pontuais, com data e motivo, ficam em [decisions.md](decisions.md).
+Decisões pontuais, com data e motivo, ficam em [decisions.md](decisions.md) (até 2026-11-18) e, depois, uma por arquivo em [decisions/](decisions/README.md).
 
 ## Organização de pastas
 
