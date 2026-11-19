@@ -63,7 +63,7 @@ function FeeInput({
           id={fieldId}
           inputMode="decimal"
           autoComplete="off"
-          placeholder="Ex.: 1"
+          placeholder="Ex.: 4"
           value={typed}
           aria-invalid={error === null ? undefined : true}
           aria-describedby={`${fieldId}-hint`}
