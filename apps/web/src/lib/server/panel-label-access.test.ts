@@ -1,11 +1,18 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import type { PreparationHold } from "@sellbridge/shared/receiving-rules";
 import type { SupplierPanelViewer } from "./supplier-panel-access.ts";
 
 const mocks = vi.hoisted(() => ({
   requireTenantSession: vi.fn<() => Promise<{ tenantId: string }>>(),
   resolveSupplierPanelViewer: vi.fn<() => Promise<SupplierPanelViewer>>(),
-  getSupplierPanelShipment:
-    vi.fn<() => Promise<{ id: string; orderId: string; address: { street: string } | null }>>(),
+  getSupplierPanelShipment: vi.fn<
+    () => Promise<{
+      id: string;
+      orderId: string;
+      address: { street: string } | null;
+      preparationHold: PreparationHold | null;
+    }>
+  >(),
 }));
 vi.mock("./database.ts", () => ({ database: {} }));
 vi.mock("./tenant-session.ts", () => ({ requireTenantSession: mocks.requireTenantSession }));
@@ -33,6 +40,7 @@ beforeEach(() => {
     id: SHIPMENT,
     orderId: ORDER,
     address: { street: "Rua A" },
+    preparationHold: null,
   });
 });
 
@@ -73,6 +81,7 @@ describe("panelLabelShipmentId", () => {
       id: SHIPMENT,
       orderId: "55555555-5555-4555-8555-555555555555",
       address: { street: "Rua A" },
+      preparationHold: null,
     });
     await expect(
       panelLabelShipmentId(request, ORDER, { supplierId: SUPPLIER, shipmentId: SHIPMENT }),
@@ -84,9 +93,26 @@ describe("panelLabelShipmentId", () => {
       id: SHIPMENT,
       orderId: ORDER,
       address: null,
+      preparationHold: null,
     });
     await expect(
       panelLabelShipmentId(request, ORDER, { supplierId: SUPPLIER, shipmentId: SHIPMENT }),
     ).rejects.toMatchObject({ code: "CONFLICT" });
   });
+
+  it.each(["payment", "receiving_account"] satisfies PreparationHold[])(
+    "refuses to issue a supplier label while preparation is held for %s",
+    async (preparationHold) => {
+      mocks.getSupplierPanelShipment.mockResolvedValue({
+        id: SHIPMENT,
+        orderId: ORDER,
+        address: { street: "Rua A" },
+        preparationHold,
+      });
+
+      await expect(
+        panelLabelShipmentId(request, ORDER, { supplierId: SUPPLIER, shipmentId: SHIPMENT }),
+      ).rejects.toMatchObject({ code: "CONFLICT" });
+    },
+  );
 });

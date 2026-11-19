@@ -4,7 +4,8 @@ import {
   listProblemEvents,
   setProblemResolved,
 } from "@sellbridge/database/repositories";
-import { notFoundError } from "@sellbridge/shared/errors";
+import { conflictError, notFoundError } from "@sellbridge/shared/errors";
+import { logger } from "@sellbridge/shared/logger";
 import {
   PROBLEM_PERIOD_HOURS,
   problemIdSchema,
@@ -15,6 +16,8 @@ import { createServerFn } from "@tanstack/react-start";
 import { database } from "@/lib/server/database";
 import { staffMiddleware } from "@/lib/server/middleware";
 import { decodeProblemCursor, encodeProblemCursor } from "./problem-cursor";
+import { problemRetryOf } from "./problem-retry";
+import { runProblemRetry } from "./problem-retry.server";
 
 const PAGE_SIZE = 25;
 const HOUR_MILLISECONDS = 60 * 60 * 1000;
@@ -70,6 +73,7 @@ export const adminGetProblem = createServerFn({ method: "GET" })
       ...summary,
       technicalDetails: technicalDetailsOf(problem, context),
       heldPaymentId: heldPaymentIdOf(problem.event, context),
+      canRetry: problemRetryOf(problem.event, context) !== null,
     };
   });
 
@@ -86,4 +90,31 @@ export const adminSetProblemResolved = createServerFn({ method: "POST" })
       throw notFoundError(NOT_FOUND_MESSAGE);
     }
     return { resolved: data.resolved };
+  });
+
+/**
+ * "Tentar de novo": runs again the marketplace event or the worker job the problem is about and
+ * marks the problem resolved; a new failure opens it again on the list.
+ */
+export const adminRetryProblem = createServerFn({ method: "POST" })
+  .middleware([staffMiddleware("audit.view")])
+  .validator(problemIdSchema)
+  .handler(async ({ data, context }) => {
+    const problem = await getProblemEvent(database, data.problemId);
+    if (problem === null) {
+      throw notFoundError(NOT_FOUND_MESSAGE);
+    }
+    const retry = problemRetryOf(problem.event, problem.context);
+    if (retry === null) {
+      throw conflictError("Este problema não tem como tentar de novo daqui.");
+    }
+    const outcome = await runProblemRetry(retry);
+    await setProblemResolved(database, {
+      id: problem.id,
+      resolvedById: context.userId,
+      now: new Date(),
+      expectedOccurrences: problem.occurrences,
+    });
+    logger.info("problem.retried", { problemId: problem.id, kind: retry.kind });
+    return { message: outcome.message };
   });

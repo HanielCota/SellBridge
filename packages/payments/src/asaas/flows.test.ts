@@ -133,6 +133,7 @@ function parcel(overrides: Partial<ShipmentPayment> = {}): ShipmentPayment {
     teamDecision: null,
     teamDecisionAt: null,
     teamDecisionByUserId: null,
+    providerDeferredSince: null,
     createdAt: new Date(),
     updatedAt: new Date(),
     ...overrides,

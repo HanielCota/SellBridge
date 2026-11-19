@@ -82,6 +82,14 @@ async function publishedProduct(supplierId: string, sku = `DES-${randomUUID().sl
   return { productId: product.id, sku, targets };
 }
 
+async function reasonsOf(targets: Map<string, string>) {
+  const rows = await database
+    .select({ reason: listingTargets.pauseReason })
+    .from(listingTargets)
+    .where(inArray(listingTargets.id, [...targets.values()]));
+  return rows.map((row) => row.reason);
+}
+
 async function statusesOf(targets: Map<string, string>) {
   const rows = await database
     .select({ id: listingTargets.id, status: listingTargets.status })
@@ -154,6 +162,10 @@ describe("deactivating a catalog product", () => {
 
     expect(result.pausedTargets).toBe(2);
     expect(await statusesOf(product.targets)).toEqual(["paused", "paused"]);
+    expect(await reasonsOf(product.targets)).toEqual([
+      "supplier_unavailable",
+      "supplier_unavailable",
+    ]);
     expect(await statusesOf(untouched.targets)).toEqual(["published", "published"]);
   });
 

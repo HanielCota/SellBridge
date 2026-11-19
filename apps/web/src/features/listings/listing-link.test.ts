@@ -10,6 +10,7 @@ function store(storeName: string, overrides: Partial<ListingStoreStatus> = {}): 
     storeConnectionId: `store-${storeName}`,
     status: "published",
     errorReason: null,
+    pauseReason: null,
     descriptionError: null,
     attempts: 1,
     externalUrl: PERMALINK,

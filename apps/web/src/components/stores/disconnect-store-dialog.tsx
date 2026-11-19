@@ -37,7 +37,7 @@ function PauseListingsOption({
         </Label>
         <p className="text-footnote text-muted-foreground">
           O SellBridge zera o estoque de cada anúncio antes de desconectar, para não vender sem
-          estoque. Depois de reconectar, reative os anúncios em Publicações.
+          estoque. Ao reconectar a loja, o SellBridge pergunta se reativa os anúncios.
         </p>
       </div>
     </div>

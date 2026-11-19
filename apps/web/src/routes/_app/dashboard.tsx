@@ -139,7 +139,7 @@ function DashboardContent({ data }: { data: DashboardData }) {
       <div className="grid gap-4 lg:grid-cols-3">
         <StoreBreakdown stores={data.byStore} />
         <TopProducts products={data.topProducts} />
-        <AttentionPanel stores={data.stores} />
+        <AttentionPanel stores={data.stores} showMeiTip={onboarding.sellsAsPerson === true} />
       </div>
     </>
   );

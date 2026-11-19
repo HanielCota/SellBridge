@@ -59,6 +59,7 @@ describe("store activity", () => {
     expect(activity.get(storeB)).toEqual({
       liveListings: 0,
       pausedListings: 0,
+      pausedByDisconnection: 0,
       failedListings: 0,
       publishingListings: 0,
       orders: 0,

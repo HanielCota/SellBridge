@@ -1,5 +1,6 @@
 import { logger } from "@sellbridge/shared/logger";
 import { returnClaimSubject } from "@sellbridge/shared/return-claims";
+import { supplierAnswerDeadline } from "@sellbridge/shared/return-policy";
 import { and, asc, desc, eq, inArray, ne, sql } from "drizzle-orm";
 import type { DatabaseExecutor } from "../client.ts";
 import {
@@ -12,6 +13,7 @@ import {
   tickets,
   type ShipmentItem,
 } from "../schema/index.ts";
+import { getReturnAnswerBusinessDays } from "./return-policy.ts";
 
 /** The order a claim is opened for: the fields the claim and its ticket need. */
 export interface ReturnedOrder {
@@ -132,12 +134,41 @@ async function openClaimTicket(
   return ticket.id;
 }
 
+/**
+ * A supplier with its own profile follows the return policy: the parcel is taken to have come
+ * back to its address (the usual store setup) and its deadline starts now. The reseller says so
+ * when it came back to its own address instead. A supplier the team runs has nobody to answer:
+ * the team decides, as before the policy.
+ */
+async function policyColumns(
+  executor: DatabaseExecutor,
+  parcel: ReturnedParcel,
+  input: { now: Date; leftShelfItemIds: ReadonlySet<string> },
+) {
+  if (parcel.supplierOrganizationId === null) {
+    return {};
+  }
+  const { now } = input;
+  const businessDays = await getReturnAnswerBusinessDays(executor);
+  return {
+    policyStep: "awaiting_supplier" as const,
+    destination: "supplier" as const,
+    arrivedAt: now,
+    // TODO: pass the marketplace claim's review date once marketplace claims are stored.
+    supplierDueAt: supplierAnswerDeadline({ arrivedAt: now, marketplaceDueAt: null, businessDays }),
+    restockItemIds: parcel.items
+      .map((item) => item.orderItemId)
+      .filter((itemId) => input.leftShelfItemIds.has(itemId)),
+  };
+}
+
 async function openParcelClaim(
   executor: DatabaseExecutor,
   order: ReturnedOrder,
   parcel: ReturnedParcel,
-  now: Date,
+  input: { now: Date; leftShelfItemIds: ReadonlySet<string> },
 ): Promise<void> {
+  const { now } = input;
   const supplierCostCents = await parcelSupplierCost(executor, order, parcel.items);
   const [claim] = await executor
     .insert(returnClaims)
@@ -148,6 +179,7 @@ async function openParcelClaim(
       supplierId: parcel.supplierId,
       supplierCostCents,
       createdAt: now,
+      ...(await policyColumns(executor, parcel, input)),
     })
     .onConflictDoNothing({ target: returnClaims.shipmentId })
     .returning({ id: returnClaims.id });
@@ -176,9 +208,11 @@ export async function openReturnClaims(
   executor: DatabaseExecutor,
   order: ReturnedOrder,
   now: Date = new Date(),
+  leftShelfItemIds: readonly string[] = [],
 ): Promise<void> {
   const parcels = await findReturnedParcels(executor, order);
+  const input = { now, leftShelfItemIds: new Set(leftShelfItemIds) };
   for (const parcel of parcels) {
-    await openParcelClaim(executor, order, parcel, now);
+    await openParcelClaim(executor, order, parcel, input);
   }
 }

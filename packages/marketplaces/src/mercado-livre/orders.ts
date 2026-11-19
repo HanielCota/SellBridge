@@ -140,6 +140,8 @@ export async function listOrders(
         schema: orderSchema,
         map: mapMercadoLivreOrder,
         event: "mercado_livre.order_skipped",
+        channelOwner: "do Mercado Livre",
+        externalShopId: store.externalShopId,
       }),
     );
     const total = page.paging?.total ?? 0;

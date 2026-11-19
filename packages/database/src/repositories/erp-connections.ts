@@ -1,3 +1,4 @@
+import type { ErpCatalogExportResult } from "@sellbridge/shared/erp-catalog-export";
 import { and, asc, eq, gt, inArray, isNotNull, lt, sql } from "drizzle-orm";
 import type { Database, DatabaseExecutor } from "../client.ts";
 import {
@@ -491,4 +492,31 @@ export async function deleteErpConnection(
       .returning({ id: supplierErpConnections.id });
     return deleted.length > 0;
   });
+}
+
+/** "Enviar ao Bling o que falta lá" was asked for: the supplier's card shows it running. */
+export async function markErpCatalogExportRequested(
+  database: Database,
+  input: { supplierId: string; provider: ErpProvider; now: Date },
+): Promise<void> {
+  await database
+    .update(supplierErpConnections)
+    .set({ catalogExportRequestedAt: input.now })
+    .where(connectionOf(input));
+}
+
+/** The end of a send to the ERP, done or failed, for the supplier's card. */
+export async function saveErpCatalogExportResult(
+  database: Database,
+  input: {
+    supplierId: string;
+    provider: ErpProvider;
+    finishedAt: Date;
+    result: ErpCatalogExportResult;
+  },
+): Promise<void> {
+  await database
+    .update(supplierErpConnections)
+    .set({ catalogExportFinishedAt: input.finishedAt, catalogExportResult: input.result })
+    .where(connectionOf(input));
 }
