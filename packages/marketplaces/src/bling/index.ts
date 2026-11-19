@@ -6,6 +6,11 @@ export {
   type BlingNewProduct,
 } from "./client.ts";
 export {
+  type BlingDirectInvoiceItem,
+  type BlingNewDirectInvoice,
+  type BlingReferencedInvoice,
+} from "./direct-invoices.ts";
+export {
   type BlingAddress,
   type BlingInvoice,
   type BlingInvoiceDocumentFormat,
