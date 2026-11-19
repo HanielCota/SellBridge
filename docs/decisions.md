@@ -908,6 +908,17 @@ Guilherme aprovou as três etapas do lucro real; a Central mandou começar a eta
 - **Fora, de propósito:** o catálogo e a publicação em lote continuam na estimativa da etapa 1. Ler 9 valores por produto e por loja numa grade de 24 produtos seria pergunta demais ao Mercado Livre por página aberta.
 - **Testes:** nenhuma chamada real ao Mercado Livre. Os testes de unidade usam respostas no formato da documentação, e o teste de navegador usa o substituto do Mercado Livre (`e2e/mercado-livre.fixture.ts`).
 
+## 2026-11-17: Lucro real por canal (etapa 2b, o frete real de cada venda no Financeiro)
+
+A segunda parte da etapa 2: o Financeiro passa a descontar o frete que o Mercado Livre cobrou do vendedor em cada venda, e não só a comissão.
+
+- **De onde vem:** `GET /shipments/{id}/costs` (cabeçalho `x-format-new: true`), página oficial "Gerenciamento de envios", lida em 17/11/2026. O valor é o `senders[].cost` da loja, o custo final do envio que o vendedor paga, já com desconto. Um envio pode ter itens de vários vendedores, então vale só a linha da loja.
+- **Quando:** a cada aviso de pedido do Mercado Livre (o mesmo caminho que traz o pedido). Se o envio ainda não existe, ou a leitura falha, o pedido entra mesmo assim: o frete fica sem valor e o próximo aviso tenta de novo. Um aviso sem o frete nunca apaga o que já foi lido.
+- **Onde guarda:** a coluna `orders.seller_shipping_cents`, nula enquanto o Mercado Livre não informou.
+- **Na conta:** o frete entra junto com a tarifa do marketplace, como as prévias de preço já fazem (`fee-model.ts`). Vale para o relatório, a página do pedido e a API pública (o campo `marketplaceFeeCents` passa a incluir o frete, e a descrição dele diz isso). Pedido cancelado ou devolvido continua sem tarifa.
+- **Carrinho:** o Mercado Livre manda um carrinho (vários pedidos, um `pack_id`) num envio só, e cada pedido do carrinho informa o custo do envio inteiro. O frete conta uma vez, no primeiro pedido do carrinho que conta como venda (`sellerShippingOnce`); os outros ficam com zero. Achado da revisão de segurança de 17/11/2026.
+- **Fora:** os pedidos antigos não são relidos. O frete aparece nos pedidos que receberem um aviso novo do Mercado Livre depois da atualização.
+
 ## 2026-11-17: Avisos do Mercado Livre de envio e de reclamações
 
 - **Envio na hora:** o tópico `shipments` passa a disparar a mesma leitura da tarefa de 30 minutos para os pedidos do envio. Descartado: ler o envio direto pelo id do aviso, que duplicaria a regra de status de `getMercadoLivreShipping`. A tarefa periódica fica como rede de segurança: relê a cada 6 horas os pacotes de lojas que recebem avisos (marcado em `store_connections.last_shipment_notice_at`), sem configuração; loja sem avisos segue nos 30 minutos.
