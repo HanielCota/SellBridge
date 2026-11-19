@@ -191,7 +191,7 @@ function answer(
     },
     tenantId: tenants.tenantB,
     photos: options.photos ?? [],
-    now: options.now,
+    ...(options.now === undefined ? {} : { now: options.now }),
   });
 }
 
