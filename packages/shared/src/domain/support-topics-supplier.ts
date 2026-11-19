@@ -68,7 +68,7 @@ export const SUPPLIER_SUPPORT_TOPICS: readonly SupportTopic[] = [
         priority: "high",
         question: "Qual pedido e quando ele foi pago?",
         example: "Exemplo: pedido 770042411183, pago por Pix em 17/11.",
-        attachmentTip: "O print do seu extrato no Mercado Pago.",
+        attachmentTip: "O print do seu extrato no Asaas.",
         notice: null,
       },
       {

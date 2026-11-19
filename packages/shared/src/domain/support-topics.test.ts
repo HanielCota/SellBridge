@@ -56,6 +56,8 @@ describe("support topics", () => {
 
     expect(situation?.label).toBe("Não recebi o pagamento de um pedido");
     expect(situation?.priority).toBe("high");
+    // Suppliers receive only through Asaas since 18/11/2026.
+    expect(situation?.attachmentTip).toBe("O print do seu extrato no Asaas.");
   });
 
   it.each(PROFILE_KINDS)("ends every %s topic with situations with Outro problema", (kind) => {
