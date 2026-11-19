@@ -1,36 +1,63 @@
 # Planos e cobrança do SaaS
 
-A página `/assinatura`, acessível pelo menu da conta, apresenta os planos Gratuito
-(2 lojas / 25 anúncios), Pro (10 / 500) e Business (50 / 5.000). Os preços pagos são
-obtidos dos preços cadastrados no Stripe, sem valores comerciais presumidos no código.
+A página `/assinatura`, acessível pelo menu da conta, apresenta os cinco planos pagos do plano
+mestre do cliente (decisão de 18/11/2026): não há plano gratuito nem período de teste.
+
+| Plano    | Preço de referência | Lojas | Anúncios | Extra                                     |
+| -------- | ------------------- | ----- | -------- | ----------------------------------------- |
+| Start    | R$ 97/mês           | 3     | 300      |                                           |
+| Pro      | R$ 197/mês          | 5     | 1.000    |                                           |
+| Business | R$ 397/mês          | 10    | 3.000    |                                           |
+| Black    | R$ 697/mês          | 20    | 8.000    |                                           |
+| Elite    | R$ 997/mês          | 40    | 20.000   | Atendimento prioritário (resposta em 8 h) |
+
+Os limites ficam em `packages/shared/src/domain/billing.ts`; os preços exibidos e cobrados são os
+cadastrados no Stripe. O resto do sistema é igual em todos os planos. A taxa da plataforma por venda
+(configurada no admin) vale junto com a mensalidade e é citada na página.
 A assinatura pertence à organização; somente seu proprietário pode contratar ou acessar
-as faturas, atualizar o cartão, trocar de plano e cancelar pelo Stripe Customer Portal.
+as faturas, atualizar o cartão, trocar de plano e cancelar.
+
+## Sem plano e transição
+
+- **Sem plano** (conta nova, assinatura cancelada ou pagamento não feito depois da carência): não
+  conecta loja nova nem publica anúncio novo. Pedidos, anúncios já no ar, estoque, preço e
+  reconexão de loja continuam. A tela de lojas e o início da conexão mandam para `/assinatura`
+  antes da página de consentimento do marketplace.
+- **Transição:** contas criadas antes de `BILLING_LAUNCHED_AT` continuam sem limites até
+  `BILLING_TRANSITION_ENDS_AT` (30 dias recomendados). O painel ("Precisa de você") e a página
+  avisam com o último dia; nos 7 dias finais o aviso fica vermelho.
+- **Atendimento prioritário:** o chamado de uma conta Elite abre como prioridade alta (urgente
+  continua urgente).
 
 ## Ativação
 
-1. Crie produtos Pro e Business no Stripe com preços fixos em BRL, recorrência mensal
-   e quantidade unitária. Configure os limites comerciais conforme necessário em
-   `packages/shared/src/domain/billing.ts` antes de divulgar os planos.
-2. Defina `STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET`, `STRIPE_PRO_PRICE_ID` e
-   `STRIPE_BUSINESS_PRICE_ID` no ambiente do serviço web. Use chaves de teste inicialmente.
-3. Ative o Customer Portal: atualização do cartão, download de faturas, cancelamento
-   ao fim do período e mudança entre os dois preços cadastrados. Configure as opções
-   de rateio e recuperação de pagamentos de acordo com sua operação comercial.
-4. Cadastre `https://SEU_DOMINIO/api/webhooks/stripe` com os eventos
-   `customer.subscription.created`, `updated`, `deleted`, `paused` e `resumed`.
-   O segredo é específico desse endpoint. No desenvolvimento use
-   `stripe listen --forward-to localhost:3000/api/webhooks/stripe`.
-5. Execute `pnpm database:migrate` e reinicie o serviço web com as variáveis.
+1. No Stripe (primeiro no modo de teste), crie os produtos Start, Pro, Business, Black e Elite,
+   cada um com um preço fixo em BRL, recorrência mensal e quantidade unitária.
+2. Customer Portal: atualização do cartão, faturas, cancelamento ao fim do período e troca entre
+   os cinco preços. Em "Downgrades", agende a mudança para o fim do período (subir de plano vale na
+   hora, com rateio). Ligue as novas tentativas e os e-mails de cobrança falha.
+3. Cadastre `https://SEU_DOMINIO/api/webhooks/stripe` com os eventos
+   `customer.subscription.created`, `updated`, `deleted`, `paused` e `resumed`, `invoice.paid`,
+   `invoice.payment_failed`, `checkout.session.completed` e
+   `checkout.session.async_payment_succeeded`. No desenvolvimento use `pnpm billing:listen`.
+4. Defina no serviço web `STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET`, `STRIPE_START_PRICE_ID`,
+   `STRIPE_PRO_PRICE_ID`, `STRIPE_BUSINESS_PRICE_ID`, `STRIPE_BLACK_PRICE_ID`,
+   `STRIPE_ELITE_PRICE_ID`, `BILLING_LAUNCHED_AT` e `BILLING_TRANSITION_ENDS_AT` (ISO 8601 em UTC,
+   por exemplo `2026-12-01T03:00:00Z` para a meia-noite de Brasília), e retire `BILLING_UNLIMITED`.
+   Opcional: `STRIPE_PORTAL_CONFIGURATION_ID`.
 
 Sem a configuração completa, os planos aparecem como “Em breve”; não há checkout
-nem imposição de novos limites sobre a operação existente. Em produção isso só é aceito
-de propósito: com `NODE_ENV=production`, o serviço web não inicia se faltar alguma das
-quatro variáveis, a menos que `BILLING_UNLIMITED=true` diga que a operação roda sem limites. Não há cartão de crédito
+nem limite sobre a operação. Em produção isso só é aceito de propósito: com
+`NODE_ENV=production`, o serviço web não inicia se faltar alguma das variáveis acima, a menos que
+`BILLING_UNLIMITED=true` diga que a operação roda sem limites. Não há cartão de crédito
 armazenado pelo SellBridge. A coleta do cartão e a cobrança mensal ficam no Stripe.
 
 ## Fluxo e regras
 
 O Checkout cria uma assinatura recorrente para um customer exclusivo da organização.
+Quem já tem assinatura ativa e escolhe outro plano vai à confirmação do portal
+(`subscription_update_confirm`), que mostra o novo valor antes de aceitar; o mesmo plano, ou uma
+assinatura com pagamento pendente, abre o portal normal.
 A criação do customer é idempotente; requisições de checkout são serializadas por
 organização, sessões abertas anteriores são expiradas e uma assinatura existente abre
 o portal em vez de criar outra. O retorno de sucesso nunca libera um plano: somente
@@ -46,8 +73,8 @@ Apenas `active`, `trialing` ou `past_due`, com período vigente e preço conheci
 os limites pagos. Na inadimplência (`past_due`), o período vigente termina
 `BILLING_PAST_DUE_GRACE_DAYS` dias (padrão 7) depois da renovação que falhou: o webhook grava
 essa data em `period_end`, e o cliente vê o aviso "Pagamento da assinatura pendente" no painel
-e em `/assinatura`, com o último dia. Depois disso, ou com `unpaid`, pausa ou término, valem os
-limites gratuitos ("Pagamento da assinatura não realizado").
+e em `/assinatura`, com o último dia. Depois disso, ou com `unpaid`, pausa ou término, a conta fica sem plano ("Pagamento da
+assinatura não realizado").
 Cancelamento ao final do período preserva o plano até seu encerramento. Dados,
 conexões e anúncios existentes não são removidos. Os limites impedem novas
 conexões e novos anúncios; atualização de preço, reconexão de uma loja já ativa e
