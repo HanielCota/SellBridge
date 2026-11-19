@@ -106,8 +106,10 @@ test("o Início do fornecedor mostra vendas, mais vendidos e o que precisa dele"
 
   await gotoHydrated(page, "/fornecedor/painel?period=7d");
   await expect(page.getByRole("heading", { name: "Painel do fornecedor", level: 1 })).toBeVisible();
-  await expect(page.getByText(/Suas primeiras vendas chegaram: R\$\s80 a receber/)).toBeVisible();
-  await expect(page.getByRole("link", { name: "Ver a receber nos pedidos" })).toContainText("80");
+  await expect(page.getByText(/Suas primeiras vendas chegaram: R\$\s80 em pedidos/)).toBeVisible();
+  await expect(page.getByRole("link", { name: "Ver valor vendido nos pedidos" })).toContainText(
+    "80",
+  );
 
   const queue = page.getByRole("region", { name: "Aceitar", exact: true });
   const sales = page.getByRole("region", { name: "Vendas do fornecedor" });
