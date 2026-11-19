@@ -246,8 +246,8 @@ function PlanCard({
     <Card className={recommended ? "ring-2 ring-brand" : undefined}>
       <CardHeader className="gap-2">
         <h3 className="text-lg font-semibold tracking-tight">{plan.name}</h3>
-        {/* Every card keeps the badge row, so the prices line up across the cards. */}
-        <div className="flex min-h-6 flex-wrap items-center gap-2">
+        {/* Side by side, every card keeps the badge row so the prices line up; stacked, it can go. */}
+        <div className="flex flex-wrap items-center gap-2 empty:hidden sm:min-h-6 sm:empty:flex">
           {isCurrent ? <Badge>Seu plano</Badge> : null}
           {recommended ? <Badge>Indicado para você</Badge> : null}
         </div>
