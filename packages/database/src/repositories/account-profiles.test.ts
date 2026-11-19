@@ -100,6 +100,7 @@ describe("account profiles", () => {
       name: "Ateliê Perfil",
       active: true,
       salesClosedAt: null,
+      receivingRuleMet: true,
     });
   });
 

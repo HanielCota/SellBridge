@@ -1,5 +1,6 @@
 import { BATCH_LABEL_MARKETPLACE, LABEL_STATUSES } from "@sellbridge/shared/supplier-order-labels";
 import type { FulfillmentStatus, LabelFormat } from "@sellbridge/shared/schemas";
+import { PREPARATION_HOLD_LABELS, type PreparationHold } from "@sellbridge/shared/receiving-rules";
 import { isShippingBlocked } from "@/features/fulfillment/shipping-block";
 
 /** One parcel of a label batch: printed, or why not, so a partial batch is never silent. */
@@ -31,6 +32,7 @@ export interface LabelCandidate {
   storeId: string;
   shopName: string;
   marketplace: string;
+  preparationHold: PreparationHold | null;
 }
 
 /**
@@ -49,6 +51,9 @@ export function labelRefusal(candidate: LabelCandidate | undefined): string | nu
   }
   if (isShippingBlocked(candidate.orderStatus)) {
     return "Venda sem liberação para envio.";
+  }
+  if (candidate.preparationHold !== null) {
+    return `${PREPARATION_HOLD_LABELS[candidate.preparationHold]}.`;
   }
   const statuses: readonly FulfillmentStatus[] = LABEL_STATUSES;
   if (!statuses.includes(candidate.status)) {

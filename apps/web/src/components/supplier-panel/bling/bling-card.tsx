@@ -1,16 +1,18 @@
-import { PlugsConnectedIcon } from "@phosphor-icons/react";
+import { ArrowsClockwiseIcon, PlugsConnectedIcon } from "@phosphor-icons/react";
 import { useState, type ReactNode } from "react";
 import { toast } from "sonner";
 import { ConfirmDialog } from "@/components/feedback/confirm-dialog";
 import { Button } from "@/components/ui/button";
-import type {
-  BlingConnectionView,
-  BlingReadView,
+import {
+  blingStockLine,
+  type BlingConnectionView,
+  type BlingReadView,
 } from "@/features/supplier-panel/bling/bling-overview";
 import { useBlingActions } from "@/features/supplier-panel/bling/use-bling";
 import { errorMessage } from "@/lib/errors";
 import { formatAbsoluteTime } from "@/lib/relative-time";
 import { BlingBadge } from "./bling-badge";
+import { BlingExportOutcome } from "./bling-export-outcome";
 import { BlingInvoiceSwitch } from "./bling-invoice-switch";
 
 function connectHref(supplierId: string): string {
@@ -173,7 +175,14 @@ function DisconnectLink({ supplierId }: { supplierId: string }) {
   );
 }
 
-function ConnectedActions({ supplierId }: { supplierId: string }) {
+function sendCatalogLabel(isPending: boolean, sending: boolean): string {
+  if (isPending) {
+    return "Enviando…";
+  }
+  return sending ? "Enviando ao Bling…" : "Enviar ao Bling o que falta lá";
+}
+
+function ConnectedActions({ supplierId, sending }: { supplierId: string; sending: boolean }) {
   const { startRead, sendCatalog } = useBlingActions(supplierId);
   return (
     <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
@@ -189,7 +198,7 @@ function ConnectedActions({ supplierId }: { supplierId: string }) {
       <Button
         variant="outline"
         size="lg"
-        disabled={sendCatalog.isPending}
+        disabled={sendCatalog.isPending || sending}
         onClick={() =>
           sendCatalog.mutate(undefined, {
             onSuccess: () =>
@@ -200,7 +209,7 @@ function ConnectedActions({ supplierId }: { supplierId: string }) {
           })
         }
       >
-        {sendCatalog.isPending ? "Enviando…" : "Enviar ao Bling o que falta lá"}
+        {sendCatalogLabel(sendCatalog.isPending, sending)}
       </Button>
       <DisconnectLink supplierId={supplierId} />
     </div>
@@ -214,21 +223,33 @@ export function BlingConnectedCard(props: {
   read: BlingReadView | null;
 }) {
   const { read } = props;
+  const catalogExport = props.connection.catalogExport;
   return (
     <CardShell>
       <CardHeading title="Bling" badge={<BlingBadge tone="success">Conectado</BlingBadge>}>
         {connectionLine(props.connection)}
       </CardHeading>
+      <p className="flex items-start gap-2 text-sm">
+        <ArrowsClockwiseIcon
+          aria-hidden="true"
+          className="mt-0.5 size-4 flex-none text-brand-text"
+        />
+        <span>{blingStockLine(props.connection)}</span>
+      </p>
       {read?.status === "reading" ? (
         <ReadProgress read={read} />
       ) : (
-        <ConnectedActions supplierId={props.supplierId} />
+        <ConnectedActions
+          supplierId={props.supplierId}
+          sending={catalogExport?.status === "sending"}
+        />
       )}
       {read?.status === "failed" ? (
         <p role="alert" className="text-sm font-medium text-destructive">
           {read.error ?? "Não foi possível ler o seu Bling. Tente de novo."}
         </p>
       ) : null}
+      {catalogExport === null ? null : <BlingExportOutcome view={catalogExport} />}
       <p className="text-sm text-muted-foreground">
         &ldquo;Enviar ao Bling&rdquo; só cria lá os produtos que ainda não existem. Nada do que já
         está no seu Bling é alterado.

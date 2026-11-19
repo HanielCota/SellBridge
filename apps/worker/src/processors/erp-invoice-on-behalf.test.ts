@@ -50,19 +50,20 @@ interface FakeNote {
   readonly cfop: string;
   readonly number: string;
   readonly accessKey: string;
-  notes: string;
+  draftReference: string;
 }
 
 interface FakeBlingOptions {
   sku: string;
   /** The first POST /nfe makes the note, but its answer is lost (Bling times out). */
   loseFirstRemessaAnswer?: boolean;
+  hideRemessaAfterTimeout?: boolean;
 }
 
 function noteAnswer(note: FakeNote, sku: string) {
-  const itens = [{ codigo: sku, cfop: note.cfop }];
+  const itens = [{ codigo: sku, cfop: note.cfop, informacoesAdicionais: note.draftReference }];
   if (!note.sent) {
-    return { situacao: 1, itens, observacoes: note.notes };
+    return { situacao: 1, itens };
   }
   return { situacao: 5, numero: note.number, serie: 1, chaveAcesso: note.accessKey, itens };
 }
@@ -74,14 +75,14 @@ function fakeBling(options: FakeBlingOptions) {
     cfop: "6923",
     number: "1234",
     accessKey: REMESSA_KEY,
-    notes: "",
+    draftReference: "",
   };
   const sale: FakeNote = {
     sent: false,
     cfop: "5119",
     number: "1235",
     accessKey: SALE_KEY,
-    notes: "",
+    draftReference: "",
   };
   let remessaMade = false;
   let saleMade = false;
@@ -93,20 +94,25 @@ function fakeBling(options: FakeBlingOptions) {
     },
     "GET /Api/v3/nfe": () =>
       json(200, {
-        data: remessaMade
-          ? [
-              {
-                id: 901,
-                contato: { id: BUYER_CONTACT },
-                naturezaOperacao: { id: SHIPMENT_OPERATION },
-              },
-            ]
-          : [],
+        data:
+          remessaMade && options.hideRemessaAfterTimeout !== true
+            ? [
+                {
+                  id: 901,
+                  contato: { id: BUYER_CONTACT },
+                  naturezaOperacao: { id: SHIPMENT_OPERATION },
+                },
+              ]
+            : [],
       }),
     "POST /Api/v3/nfe": (_url, body) => {
       const answerLost = options.loseFirstRemessaAnswer === true && !remessaMade;
       remessaMade = true;
-      remessa.notes = String(Reflect.get(Object(body), "observacoes"));
+      const items: unknown = Reflect.get(Object(body), "itens");
+      if (Array.isArray(items) && items.length > 0) {
+        remessa.draftReference = String(Reflect.get(Object(items[0]), "informacoesAdicionais"));
+      }
+
       return answerLost
         ? json(504, { error: { type: "SERVER_ERROR", message: "timeout" } })
         : json(201, { data: { id: 901 } });
@@ -321,6 +327,20 @@ describe("venda à ordem notes", () => {
     expect(await noteOf(shipmentId, "on_behalf_shipment")).toMatchObject({
       status: "sent",
       erpInvoiceId: 901,
+    });
+    expect(callsTo(bling, "POST /Api/v3/nfe")).toHaveLength(1);
+  });
+
+  it("does not post a second remessa when a lost draft cannot be found", async () => {
+    const { shipmentId, sku } = await scenario();
+    const bling = fakeBling({ sku, loseFirstRemessaAnswer: true, hideRemessaAfterTimeout: true });
+
+    await processor(bling)();
+    await processor(bling, { now: minutesFromNow(3) })();
+
+    expect(await noteOf(shipmentId, "on_behalf_shipment")).toMatchObject({
+      status: "attention",
+      problem: expect.stringContaining("não confirmou a criação da remessa"),
     });
     expect(callsTo(bling, "POST /Api/v3/nfe")).toHaveLength(1);
   });

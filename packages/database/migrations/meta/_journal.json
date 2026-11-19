@@ -621,8 +621,50 @@
     {
       "idx": 88,
       "version": "7",
-      "when": 1795123557883,
-      "tag": "0088_supplier_on_behalf_notes",
+      "when": 1795125023456,
+      "tag": "0088_product_models",
+      "breakpoints": true
+    },
+    {
+      "idx": 89,
+      "version": "7",
+      "when": 1795125804231,
+      "tag": "0089_failure_follow_up",
+      "breakpoints": true
+    },
+    {
+      "idx": 90,
+      "version": "7",
+      "when": 1795126233289,
+      "tag": "0090_listing_pause_reason",
+      "breakpoints": true
+    },
+    {
+      "idx": 91,
+      "version": "7",
+      "when": 1795126360473,
+      "tag": "0091_return_policy",
+      "breakpoints": true
+    },
+    {
+      "idx": 92,
+      "version": "7",
+      "when": 1795126455157,
+      "tag": "0092_receiving_rules",
+      "breakpoints": true
+    },
+    {
+      "idx": 93,
+      "version": "7",
+      "when": 1795126647968,
+      "tag": "0093_erp_stock_sync",
+      "breakpoints": true
+    },
+    {
+      "idx": 94,
+      "version": "7",
+      "when": 1795132115936,
+      "tag": "0094_supplier_on_behalf_notes",
       "breakpoints": true
     }
   ]

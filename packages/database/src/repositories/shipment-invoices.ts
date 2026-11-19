@@ -172,6 +172,7 @@ export interface ShipmentInvoiceWork {
   readonly erpContactId: number | null;
   readonly erpOrderId: number | null;
   readonly erpInvoiceId: number | null;
+  readonly erpDraftRequestedAt: Date | null;
   readonly supplierId: string;
   readonly supplierFiscal: SupplierFiscalProfile | null;
   readonly shipmentId: string;
@@ -317,6 +318,7 @@ export async function loadShipmentInvoiceWork(
     erpContactId: invoice.erpContactId,
     erpOrderId: invoice.erpOrderId,
     erpInvoiceId: invoice.erpInvoiceId,
+    erpDraftRequestedAt: invoice.erpDraftRequestedAt,
     supplierId: invoice.supplierId,
     supplierFiscal: readSupplierFiscalProfile(header.fiscalProfile),
     shipmentId: invoice.shipmentId,
@@ -340,7 +342,12 @@ export async function loadShipmentInvoiceWork(
 export async function recordShipmentInvoiceProgress(
   database: Database,
   invoiceId: string,
-  progress: { erpContactId?: number; erpOrderId?: number; erpInvoiceId?: number },
+  progress: {
+    erpContactId?: number;
+    erpOrderId?: number;
+    erpInvoiceId?: number;
+    erpDraftRequestedAt?: Date | null;
+  },
 ): Promise<void> {
   await database.update(shipmentInvoices).set(progress).where(eq(shipmentInvoices.id, invoiceId));
 }

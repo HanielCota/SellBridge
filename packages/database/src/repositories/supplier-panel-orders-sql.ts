@@ -32,7 +32,7 @@ import {
   storeConnections,
   suppliers,
 } from "../schema/index.ts";
-import { latestForwardedAt } from "./shipment-timing.ts";
+import { preparationHold, supplierClockStartedAt } from "./shipment-timing.ts";
 import { containsPattern } from "./sql/search-pattern.ts";
 
 /**
@@ -48,19 +48,21 @@ function endOfBrazilDay(column: SQL | typeof orderShipments.dispatchDeadlineAt):
   return sql<Date | null>`((date_trunc('day', (${column} at time zone 'UTC') - ${BRAZIL_OFFSET}) + interval '1 day' + ${BRAZIL_OFFSET}) at time zone 'UTC')`;
 }
 
-const acceptAt = sql`(${latestForwardedAt} + ${suppliers.acceptWithinHours} * interval '1 hour')`;
-const dispatchAt = sql`coalesce(${endOfBrazilDay(orderShipments.dispatchDeadlineAt)}, ${latestForwardedAt} + ${suppliers.dispatchWithinHours} * interval '1 hour')`;
+const acceptAt = sql`(${supplierClockStartedAt} + ${suppliers.acceptWithinHours} * interval '1 hour')`;
+const dispatchAt = sql`coalesce(${endOfBrazilDay(orderShipments.dispatchDeadlineAt)}, ${supplierClockStartedAt} + ${suppliers.dispatchWithinHours} * interval '1 hour')`;
 
 const QUEUE_LIST = sql.raw(SUPPLIER_QUEUE_STATUSES.map((status) => `'${status}'`).join(","));
 
 const BLOCKED_LIST = sql.raw(BLOCKED_ORDER_STATUSES.map((status) => `'${status}'`).join(","));
 
 /**
- * When the parcel's next step turns late; null outside the queue and for a sale not released
- * for shipping, as `describeQueueEntry` says. `least` skips nulls.
+ * When the parcel's next step turns late; null outside the queue, for a sale not released for
+ * shipping and for a parcel waiting for the receiving account or the payment, as
+ * `describeQueueEntry` says. `least` skips nulls.
  */
 export const queueDueAt = sql<Date | null>`(case
   when ${orders.status} in (${BLOCKED_LIST}) then null
+  when ${preparationHold} is not null then null
   when ${orderShipments.status} = 'forwarded' then least(${acceptAt}, ${dispatchAt})
   when ${orderShipments.status} in (${QUEUE_LIST}) then ${dispatchAt}
 end)`;
@@ -86,6 +88,9 @@ export const emailFailed = sql<boolean>`(${orderShipments.status} = 'forwarded' 
 
 export const orderBlocked = inArray(orders.status, [...BLOCKED_ORDER_STATUSES]);
 
+/** The supplier must connect its receiving account before this parcel can move. */
+const waitsForReceivingAccount = sql<boolean>`coalesce(${preparationHold} = 'receiving_account', false)`;
+
 /** The status of the parcel's NF-e in the box; null when the supplier's ERP issues no note for it. */
 export const invoiceStatus = sql<InvoiceStatus | null>`(
   select ${shipmentInvoices.status} from ${shipmentInvoices}
@@ -101,13 +106,13 @@ export const invoiceStopped = sql<boolean>`exists (
 )`;
 
 /**
- * A queue parcel past its time, not released for shipping, whose e-mail never arrived or whose
- * note stopped.
+ * A queue parcel past its time, not released for shipping, waiting for the supplier's receiving
+ * account, whose e-mail never arrived or whose note stopped.
  */
 export function problemFilter(now: Date): SQL | undefined {
   return and(
     inArray(orderShipments.status, [...SUPPLIER_QUEUE_STATUSES]),
-    or(overdueAt(now), orderBlocked, emailFailed, invoiceStopped),
+    or(overdueAt(now), orderBlocked, emailFailed, invoiceStopped, waitsForReceivingAccount),
   );
 }
 

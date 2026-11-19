@@ -1,9 +1,36 @@
 import { sql, type SQL } from "drizzle-orm";
-import { listings, supplierProducts, suppliers } from "../../schema/index.ts";
+import {
+  listings,
+  platformSettings,
+  supplierPaymentAccounts,
+  supplierProducts,
+  suppliers,
+} from "../../schema/index.ts";
 
 /** Public supplier reads must never expose a seller's private inventory source. */
 export function publicSupplier(): SQL {
   return sql`${suppliers.catalogKind} = 'supplier'`;
+}
+
+/**
+ * The supplier can be paid through SellBridge: its Asaas account is approved and protected
+ * (`isAsaasUsable` in the web app reads the same row). Needs `suppliers` in the FROM clause.
+ */
+export function receivingAccountApproved(): SQL {
+  return sql`exists (select 1 from ${supplierPaymentAccounts} where ${supplierPaymentAccounts.supplierId} = ${suppliers.id} and ${supplierPaymentAccounts.provider} = 'asaas' and ${supplierPaymentAccounts.status} = 'connected' and ${supplierPaymentAccounts.reviewStatus} = 'approved')`;
+}
+
+/** The admin turned on "Exigir conta de recebimento para vender". */
+export function receivingAccountRequired(): SQL {
+  return sql`exists (select 1 from ${platformSettings} where ${platformSettings.id} = 1 and ${platformSettings.requireReceivingAccountSince} is not null)`;
+}
+
+/**
+ * A public supplier sells only with an approved receiving account while the admin requires one;
+ * a seller's own catalog never needs it. Needs `suppliers` in the FROM clause.
+ */
+export function supplierReceivingRuleMet(): SQL {
+  return sql`(${suppliers.catalogKind} <> 'supplier' or not ${receivingAccountRequired()} or ${receivingAccountApproved()})`;
 }
 
 /** An authenticated tenant may also read its own private catalog, never another seller's. */
@@ -87,12 +114,13 @@ export function listingSellable(): SQL {
 }
 
 /**
- * A supplier resellers may find: active, with at least one listable product. Suppliers who sign
+ * A supplier resellers may find: active, paid through SellBridge when the admin requires it,
+ * with at least one listable product. Suppliers who sign
  * up on their own start empty, and an empty catalog is noise in every reseller picker. Needs
  * `suppliers` in the FROM clause.
  */
 export function supplierFindable(): SQL {
-  return sql`(${publicSupplier()} and ${supplierOpenToResellers()} and exists (select 1 from ${supplierProducts} where ${supplierProducts.supplierId} = ${suppliers.id} and ${productListable()}))`;
+  return sql`(${publicSupplier()} and ${supplierOpenToResellers()} and ${supplierReceivingRuleMet()} and exists (select 1 from ${supplierProducts} where ${supplierProducts.supplierId} = ${suppliers.id} and ${productListable()}))`;
 }
 
 /**

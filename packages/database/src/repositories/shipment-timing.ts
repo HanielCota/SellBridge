@@ -6,10 +6,18 @@ import {
   type ShipmentDelay,
   type ShipmentTiming,
 } from "@sellbridge/shared/shipment-delay";
+import { preparationHoldFrom, type PreparationHold } from "@sellbridge/shared/receiving-rules";
 import type { FulfillmentStatus } from "@sellbridge/shared/schemas";
-import { and, asc, eq, inArray, sql } from "drizzle-orm";
-import type { Database } from "../client.ts";
-import { orders, orderShipments, suppliers } from "../schema/index.ts";
+import { and, asc, eq, inArray, sql, type SQL } from "drizzle-orm";
+import type { Database, DatabaseExecutor } from "../client.ts";
+import {
+  orders,
+  orderShipments,
+  platformSettings,
+  shipmentPayments,
+  suppliers,
+} from "../schema/index.ts";
+import { receivingAccountApproved } from "./sql/sellable.ts";
 
 /** When the parcel was first marked shipped (the history keeps every step). */
 export const firstShippedAt = sql<Date | null>`(
@@ -35,9 +43,70 @@ export const latestForwardedAt = sql<Date | null>`(
     ), '') <> 'forwarded'
 )`.mapWith((value: string | null) => (value === null ? null : new Date(value)));
 
-/** The supplier's side of the timing: the latest forward and its own hours. */
+/**
+ * An admin rule switched on before this public supplier's parcel was created; parcels forwarded
+ * earlier keep moving as they did. Needs `order_shipments` and `suppliers` in the FROM clause.
+ */
+function ruleCoversParcel(
+  since:
+    | typeof platformSettings.requireReceivingAccountSince
+    | typeof platformSettings.paymentBeforePreparingSince,
+): SQL<boolean> {
+  return sql<boolean>`coalesce(${suppliers.catalogKind} = 'supplier' and (
+    select ${since} from ${platformSettings} where ${platformSettings.id} = 1
+  ) <= ${orderShipments.createdAt}, false)`;
+}
+
+/** When the reseller's payment of the parcel was approved; null while unpaid or being refunded. */
+const parcelPaidAt = sql`(
+  select ${shipmentPayments.paidAt} from ${shipmentPayments}
+  where ${shipmentPayments.shipmentId} = ${orderShipments.id}
+    and ${shipmentPayments.status} = 'approved'
+    and ${shipmentPayments.refundRequestedAt} is null
+)`;
+
+const STILL_WITH_SUPPLIER = sql.raw("'forwarded', 'accepted', 'picking', 'ready'");
+
+/**
+ * Why the supplier may not prepare the parcel yet (`shared/domain/receiving-rules.ts`): no approved
+ * receiving account while the admin requires one, or not paid while the admin requires payment
+ * first. Null once the parcel left the supplier. Needs `order_shipments` and `suppliers`.
+ */
+export const preparationHold = sql<PreparationHold | null>`(case
+  when ${orderShipments.status} not in (${STILL_WITH_SUPPLIER}) then null
+  when ${ruleCoversParcel(platformSettings.requireReceivingAccountSince)}
+    and not ${receivingAccountApproved()} then 'receiving_account'
+  when ${ruleCoversParcel(platformSettings.paymentBeforePreparingSince)}
+    and ${parcelPaidAt} is null then 'payment'
+end)`.mapWith((value: string | null) => preparationHoldFrom(value));
+
+/**
+ * When the supplier's accept and dispatch times start: the latest forward, or the payment when
+ * the admin requires payment first (null while unpaid, so nothing is due or late meanwhile).
+ */
+export const supplierClockStartedAt = sql<Date | null>`(case
+  when ${ruleCoversParcel(platformSettings.paymentBeforePreparingSince)} then (
+    case when ${parcelPaidAt} is null then null else greatest(${parcelPaidAt}, ${latestForwardedAt}) end
+  )
+  else ${latestForwardedAt}
+end)`.mapWith((value: string | null) => (value === null ? null : new Date(value)));
+
+/** Why one parcel waits before the supplier may prepare it, read inside the caller's transaction. */
+export async function findPreparationHold(
+  executor: DatabaseExecutor,
+  shipmentId: string,
+): Promise<PreparationHold | null> {
+  const [row] = await executor
+    .select({ hold: preparationHold })
+    .from(orderShipments)
+    .innerJoin(suppliers, eq(suppliers.id, orderShipments.supplierId))
+    .where(eq(orderShipments.id, shipmentId));
+  return row?.hold ?? null;
+}
+
+/** The supplier's side of the timing: when its times start and its own hours. */
 export const supplierTimingColumns = {
-  forwardedAt: latestForwardedAt,
+  forwardedAt: supplierClockStartedAt,
   acceptWithinHours: sql<
     number | null
   >`case when ${suppliers.catalogKind} = 'supplier' then ${suppliers.acceptWithinHours} else null end`.mapWith(

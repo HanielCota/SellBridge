@@ -5,7 +5,12 @@ import {
   type OnBehalfReseller,
   type ShipmentInvoiceWork,
 } from "@sellbridge/database/repositories";
-import type { BlingAddress, BlingDirectInvoiceItem } from "@sellbridge/marketplaces/bling";
+import { isMarketplaceError } from "@sellbridge/marketplaces";
+import type {
+  BlingAddress,
+  BlingDirectInvoiceItem,
+  BlingNewDirectInvoice,
+} from "@sellbridge/marketplaces/bling";
 import { parseAccessKey } from "@sellbridge/shared/nfe-access-key";
 import type { SupplierFiscalProfile } from "@sellbridge/shared/supplier-fiscal";
 import { onBehalfCfop, resolveInvoiceItemTax } from "@sellbridge/shared/supplier-invoice";
@@ -40,6 +45,10 @@ const NO_CITED_NOTE =
   "A nota que esta precisa citar não foi encontrada. Fale com o suporte do SellBridge.";
 
 /** Bling takes the operation's date and time in Brazil, "YYYY-MM-DD HH:mm:ss". */
+const DRAFT_NOT_CONFIRMED =
+  "O Bling não confirmou a criação da remessa. Confira se a nota existe no Bling antes de enviar outra.";
+const DEFINITIVE_DRAFT_REFUSALS = new Set([400, 401, 403, 404, 422, 429]);
+
 const BRAZIL_TIME = new Intl.DateTimeFormat("en-GB", {
   timeZone: "America/Sao_Paulo",
   hour: "2-digit",
@@ -90,7 +99,7 @@ function citedNumber(cited: CitedInvoice): string {
   return `NF-e ${cited.number ?? "sem número"}${series}, chave ${cited.accessKey}`;
 }
 
-/** What makes the note this order's: the remessa is found again by it after a lost answer. */
+/** Human-readable order reference to print on the note. */
 function orderMarker(work: ShipmentInvoiceWork): string {
   return `Pedido ${work.externalOrderId}, enviado pelo SellBridge.`;
 }
@@ -168,27 +177,56 @@ async function ensureRemessa(
     throw new InvoiceStopError(NO_CITED_NOTE);
   }
   const contactId = await ensureContact(dependencies, work, await buyerBilling(dependencies, work));
-  const { client } = dependencies;
-  const marker = orderMarker(work);
-  // An earlier attempt may have made the note and lost Bling's answer before saving its id.
-  const found = await client.findPendingDirectInvoice({
-    contactId,
+  const invoiceId = await createOrRecoverRemessa(dependencies, work, {
     operationId,
-    since: `${brazilDay(work.orderedAt)} 00:00:00`,
-    marker,
+    contactId,
+    operationDate: brazilDateTime(now(dependencies)),
+    items: remessaItems(lines),
+    referencedInvoice: { ...cited, yearMonth: parts.yearMonth },
+    notes: remessaNotes(work, cited, reseller),
+    draftReference: `SellBridge remessa ${work.id}`,
   });
-  const invoiceId =
-    found ??
-    (await client.createDirectInvoice({
-      operationId,
-      contactId,
-      operationDate: brazilDateTime(now(dependencies)),
-      items: remessaItems(lines),
-      referencedInvoice: { ...cited, yearMonth: parts.yearMonth },
-      notes: remessaNotes(work, cited, reseller),
-    }));
   await recordShipmentInvoiceProgress(dependencies.database, work.id, { erpInvoiceId: invoiceId });
   return invoiceId;
+}
+
+async function createOrRecoverRemessa(
+  dependencies: InvoiceStepDependencies,
+  work: ShipmentInvoiceWork,
+  draft: BlingNewDirectInvoice,
+): Promise<number> {
+  const { client, database } = dependencies;
+  const requestedAt = work.erpDraftRequestedAt;
+
+  if (requestedAt !== null) {
+    const recovered = await client.findPendingDirectInvoice({
+      contactId: draft.contactId,
+      operationId: draft.operationId,
+      draftReference: draft.draftReference,
+      since: `${brazilDay(requestedAt)} 00:00:00`,
+    });
+
+    if (recovered === null) {
+      throw new InvoiceStopError(DRAFT_NOT_CONFIRMED);
+    }
+
+    return recovered;
+  }
+
+  await recordShipmentInvoiceProgress(database, work.id, {
+    erpDraftRequestedAt: now(dependencies),
+  });
+
+  try {
+    return await client.createDirectInvoice(draft);
+  } catch (error) {
+    const status = isMarketplaceError(error) ? error.details.status : null;
+    if (typeof status === "number" && DEFINITIVE_DRAFT_REFUSALS.has(status)) {
+      await recordShipmentInvoiceProgress(database, work.id, { erpDraftRequestedAt: null });
+    }
+
+    throw error;
+  }
 }
 
 function companyAddress(reseller: OnBehalfReseller): BlingAddress {

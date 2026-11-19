@@ -35,6 +35,7 @@ export interface BlingNewDirectInvoice {
   readonly operationDate: string;
   readonly items: readonly BlingDirectInvoiceItem[];
   readonly referencedInvoice: BlingReferencedInvoice;
+  readonly draftReference: string;
   /** Printed on the note; must name what makes it this order's (the marketplace order number). */
   readonly notes: string;
 }
@@ -44,8 +45,8 @@ const OUTGOING = 1;
 const NORMAL = 1;
 const PENDING = 1;
 const NFE_MODEL = "55";
-/** Pending notes of one recipient since the sale are few; one page is enough. */
 const PENDING_PAGE_LIMIT = 100;
+const MAX_RECOVERY_PAGES = 10;
 
 const idResponseSchema = z.object({ data: z.object({ id: z.number().int() }) });
 const pendingListSchema = z.object({
@@ -57,8 +58,10 @@ const pendingListSchema = z.object({
     }),
   ),
 });
-const invoiceNotesSchema = z.object({
-  data: z.object({ observacoes: z.string().nullish() }),
+const invoiceItemsSchema = z.object({
+  data: z.object({
+    itens: z.array(z.object({ informacoesAdicionais: z.string().nullish() })).nullish(),
+  }),
 });
 
 function priceInReais(cents: number): number {
@@ -99,6 +102,7 @@ function directInvoiceBody(invoice: BlingNewDirectInvoice) {
       classificacaoFiscal: dottedNcm(item.ncm),
       origem: item.origin,
       cfop: item.cfop,
+      informacoesAdicionais: invoice.draftReference,
     })),
     observacoes: invoice.notes,
   };
@@ -116,6 +120,21 @@ function isCandidate(
   return operationId === null || operationId === undefined || operationId === input.operationId;
 }
 
+async function findMatchingDraft(
+  call: BlingCall,
+  notes: z.infer<typeof pendingListSchema>["data"],
+  input: { contactId: number; operationId: number; draftReference: string },
+): Promise<number | null> {
+  for (const note of notes.filter((candidate) => isCandidate(candidate, input))) {
+    const { data } = await call({ path: `/nfe/${note.id}`, schema: invoiceItemsSchema });
+    if (data.itens?.some((item) => item.informacoesAdicionais === input.draftReference)) {
+      return note.id;
+    }
+  }
+
+  return null;
+}
+
 export function blingDirectInvoiceCalls(call: BlingCall) {
   return {
     /** Creates the NF-e (not sent yet) and returns its id. */
@@ -130,16 +149,15 @@ export function blingDirectInvoiceCalls(call: BlingCall) {
 
     /**
      * The note an earlier attempt made and did not get to save (its answer was lost): an outgoing
-     * note still pending, to this contact, with this operation, issued since `since`, whose notes
-     * carry `marker`. Null when there is none. A note made without a sale order has no store
-     * number to find it by, so the marker in its notes tells it apart from the buyer's others.
+     * note still pending, to this contact, with this operation, issued since the creation attempt.
+     * Bling returns item information on a detail read. The invoice observations are write-only.
      */
     async findPendingDirectInvoice(input: {
       contactId: number;
       operationId: number;
       /** "YYYY-MM-DD HH:mm:ss", in Brazil. */
       since: string;
-      marker: string;
+      draftReference: string;
     }): Promise<number | null> {
       const query = new URLSearchParams({
         tipo: String(OUTGOING),
@@ -147,13 +165,19 @@ export function blingDirectInvoiceCalls(call: BlingCall) {
         dataEmissaoInicial: input.since,
         limite: String(PENDING_PAGE_LIMIT),
       });
-      const response = await call({ path: `/nfe?${query.toString()}`, schema: pendingListSchema });
-      for (const listed of response.data.filter((note) => isCandidate(note, input))) {
-        const detail = await call({ path: `/nfe/${listed.id}`, schema: invoiceNotesSchema });
-        if ((detail.data.observacoes ?? "").includes(input.marker)) {
-          return listed.id;
+      for (let page = 1; page <= MAX_RECOVERY_PAGES; page += 1) {
+        query.set("pagina", String(page));
+        const response = await call({
+          path: `/nfe?${query.toString()}`,
+          schema: pendingListSchema,
+        });
+        const id = await findMatchingDraft(call, response.data, input);
+
+        if (id !== null || response.data.length < PENDING_PAGE_LIMIT) {
+          return id;
         }
       }
+
       return null;
     },
   };

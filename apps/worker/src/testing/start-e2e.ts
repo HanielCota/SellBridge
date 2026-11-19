@@ -21,11 +21,22 @@ async function refuseAccountAddressRead(): Promise<Response> {
   return Response.json({ message: "not_found", status: 404 }, { status: 404 });
 }
 
+/**
+ * The Bling stock sync never reaches the real Bling from the browser tests: the test app keys are
+ * fake, and a check would otherwise call Bling (and its token endpoint) every 15 minutes.
+ */
+async function refuseBlingCall(): Promise<Response> {
+  return Response.json(
+    { error: { type: "E2E", message: "Bling is not reachable from the browser tests" } },
+    { status: 503 },
+  );
+}
+
 await startWorker(
   createTestConnectorRegistry({
     appUrl: environment.APP_URL,
     webhookSecret,
     latencyMilliseconds: 150,
   }),
-  { accountAddressFetch: refuseAccountAddressRead },
+  { accountAddressFetch: refuseAccountAddressRead, erpStockFetch: refuseBlingCall },
 );

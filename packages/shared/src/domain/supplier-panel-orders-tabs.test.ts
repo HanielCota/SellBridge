@@ -46,6 +46,30 @@ describe("supplierOrderProblems", () => {
     ).toEqual(["overdue", "invoice_stopped", "email_failed"]);
   });
 
+  it("asks for the receiving account right after a blocked sale", () => {
+    expect(
+      supplierOrderProblems({
+        overdue: true,
+        emailFailed: false,
+        orderStatus: "paid",
+        invoiceStopped: false,
+        preparationHold: "receiving_account",
+      }),
+    ).toEqual(["receiving_account", "overdue"]);
+  });
+
+  it("does not call a parcel waiting for the reseller's payment a supplier problem", () => {
+    expect(
+      supplierOrderProblems({
+        overdue: false,
+        emailFailed: false,
+        orderStatus: "paid",
+        invoiceStopped: false,
+        preparationHold: "payment",
+      }),
+    ).toEqual([]);
+  });
+
   it("leaves a stopped note out when the sale is not released", () => {
     expect(
       supplierOrderProblems({
