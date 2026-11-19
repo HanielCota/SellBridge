@@ -81,7 +81,8 @@ describe("attention panel", () => {
       expect.objectContaining({
         key: "buyer-address-s1",
         tone: "danger",
-        title: "Arrume o endereço de compra de Loja Centro",
+        title: "Endereço de compra no fornecedor",
+        description: expect.stringContaining("Loja Centro"),
         to: "/lojas",
       }),
     ]);

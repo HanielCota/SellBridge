@@ -85,9 +85,8 @@ function buyerAddressItems(stores: readonly StoreState[]): AttentionItem[] {
       key: `buyer-address-${store.id}`,
       icon: StorePausedIcon,
       tone: "danger",
-      title: `Arrume o endereço de compra de ${store.name}`,
-      description:
-        "Suas compras pessoais estão indo para o fornecedor, e a loja não publica produtos novos.",
+      title: "Endereço de compra no fornecedor",
+      description: `${store.name}: troque o endereço de compra no Mercado Livre para voltar a publicar.`,
       to: "/lojas",
     }));
 }

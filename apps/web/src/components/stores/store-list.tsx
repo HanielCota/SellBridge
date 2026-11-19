@@ -235,9 +235,12 @@ function StoreSupplierLine({
   );
 }
 
-/** An idle store gets one small step beside its name; stores already selling get none. */
+/**
+ * An idle store gets one small step beside its name; stores already selling get none, and a store
+ * held by its purchase address gets the notice that unlocks it instead.
+ */
 function PublishAction({ store, storeName }: { store: StoreWithActivity; storeName: string }) {
-  if (!isIdle(store)) {
+  if (!isIdle(store) || store.buyerAddress?.result === "supplier_address") {
     return null;
   }
   return (

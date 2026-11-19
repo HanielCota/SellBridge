@@ -121,9 +121,10 @@ test("a store that buys at its supplier's address is held until the reseller fix
   await expect(card.getByText("Compras indo para o fornecedor")).toBeVisible();
   await expect(card.getByText(`vão chegar em ${supplier.name}`)).toBeVisible();
   await expect(card.getByText("não publica produtos novos")).toBeVisible();
+  await expect(card.getByRole("link", { name: `Publicar produtos em ${shopName}` })).toHaveCount(0);
 
   await gotoHydrated(page, "/dashboard");
-  await expect(page.getByText(`Arrume o endereço de compra de ${shopName}`)).toBeVisible();
+  await expect(page.getByText("Endereço de compra no fornecedor")).toBeVisible();
 
   await gotoHydrated(page, "/lojas");
   await setAccount(store.id, false);
