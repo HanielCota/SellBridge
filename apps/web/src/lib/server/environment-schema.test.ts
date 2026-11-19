@@ -8,6 +8,7 @@ const validEnvironment = {
   BETTER_AUTH_URL: "https://app.sellbridge.com.br",
   BETTER_AUTH_SECRET: "a-real-secret-with-more-than-32-characters",
   TOKEN_ENCRYPTION_KEY: Buffer.alloc(32, 1).toString("base64"),
+  RESEND_API_KEY: "re_test_key",
 };
 
 const placeholderSecret = "troque-por-um-segredo-com-32-caracteres-ou-mais";
@@ -29,6 +30,23 @@ describe("serverEnvironmentSchema", () => {
       BETTER_AUTH_SECRET: placeholderSecret,
     });
     expect(parsed.success).toBe(true);
+  });
+
+  // Regression (S5): production started without the e-mail key and password recovery failed silently.
+  it("refuses to start production without the e-mail key", () => {
+    const { RESEND_API_KEY: _omitted, ...withoutEmailKey } = validEnvironment;
+    const parsed = serverEnvironmentSchema.safeParse({
+      ...withoutEmailKey,
+      NODE_ENV: "production",
+      BILLING_UNLIMITED: "true",
+    });
+    expect(parsed.success).toBe(false);
+    expect(parsed.error?.issues.map((issue) => issue.path)).toEqual([["RESEND_API_KEY"]]);
+  });
+
+  it("keeps development free of the e-mail key", () => {
+    const { RESEND_API_KEY: _omitted, ...withoutEmailKey } = validEnvironment;
+    expect(serverEnvironmentSchema.safeParse(withoutEmailKey).success).toBe(true);
   });
 
   it("normalizes the client IP header and defaults to x-forwarded-for", () => {
