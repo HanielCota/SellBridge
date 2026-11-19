@@ -124,6 +124,8 @@ function blingCredentials(): BlingAppCredentials | null {
 export interface WorkerOptions {
   /** Where the purchase address checks read Mercado Livre instead of the real API. */
   accountAddressFetch?: FetchLike;
+  /** Where the Bling stock sync calls Bling instead of the real API (the browser tests). */
+  erpStockFetch?: FetchLike;
 }
 
 function createContext(connectors: ConnectorRegistry, options: WorkerOptions) {
@@ -151,6 +153,7 @@ function createContext(connectors: ConnectorRegistry, options: WorkerOptions) {
       clientSecret: environment.MERCADO_LIVRE_CLIENT_SECRET ?? "",
     },
     accountAddressFetch: options.accountAddressFetch,
+    erpStockFetch: options.erpStockFetch,
   };
 }
 
@@ -239,6 +242,7 @@ function erpStockWorker(
 ): Worker {
   const dependencies: ErpStockSyncDependencies = {
     ...erpDependencies,
+    fetchImplementation: context.erpStockFetch ?? erpDependencies.fetchImplementation,
     requestListingSync: async () => requestStockSync(context),
     enqueueSupplierCheck: async (supplierId) => {
       await context.queues.erpStock.add(
