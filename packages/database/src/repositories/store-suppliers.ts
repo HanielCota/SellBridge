@@ -1,3 +1,4 @@
+import type { ListingPauseReason } from "@sellbridge/shared/listing-pause-reasons";
 import { conflictError, notFoundError } from "@sellbridge/shared/errors";
 import {
   storeSupplierRefusal,
@@ -211,7 +212,7 @@ async function stopTargets(
 ): Promise<StoreSupplierChangeImpact> {
   await executor
     .update(listingTargets)
-    .set({ status: "paused" })
+    .set({ status: "paused", pauseReason: "store_supplier_changed" satisfies ListingPauseReason })
     .where(
       and(
         inArray(listingTargets.id, supplierTargets(executor, input, match)),

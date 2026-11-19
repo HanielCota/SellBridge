@@ -78,10 +78,14 @@ describe("pausing a store's listings before disconnecting it", () => {
     expect(await markStoreTargetsPaused(database, tenantB, [targetId])).toBe(0);
     expect(await markStoreTargetsPaused(database, tenantA, [targetId])).toBe(1);
     const [row] = await database
-      .select({ status: listingTargets.status, syncedStock: listingTargets.syncedStock })
+      .select({
+        status: listingTargets.status,
+        syncedStock: listingTargets.syncedStock,
+        pauseReason: listingTargets.pauseReason,
+      })
       .from(listingTargets)
       .where(eq(listingTargets.id, targetId));
-    expect(row).toEqual({ status: "paused", syncedStock: 0 });
+    expect(row).toEqual({ status: "paused", syncedStock: 0, pauseReason: "store_disconnected" });
   });
 
   it("finds no access once the store is disconnected", async () => {
