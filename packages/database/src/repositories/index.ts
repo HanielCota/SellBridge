@@ -106,3 +106,4 @@ export * from "./asaas-payments.ts";
 export * from "./held-payments.ts";
 export * from "./problem-events.ts";
 export * from "./fee-quotes.ts";
+export * from "./marketplace-claims.ts";
