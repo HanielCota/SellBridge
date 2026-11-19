@@ -131,7 +131,8 @@ function OrderFacts({ shipment }: { shipment: PanelShipment }) {
     <div className="space-y-3 rounded-2xl bg-muted/50 p-4">
       <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
         <SupplierPaymentBadgeView badge={shipment.supplierPayment} />
-        {shipment.supplierPayment.kind === "no_account" ? (
+        {/* A parcel already waiting for the account says so in its own notice below. */}
+        {shipment.supplierPayment.kind === "no_account" && shipment.preparationHold === null ? (
           <Link
             to="/fornecedor/painel/recebimentos"
             className="text-footnote underline underline-offset-4"
