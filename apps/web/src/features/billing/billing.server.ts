@@ -11,17 +11,15 @@ import {
 import { database } from "@/lib/server/database";
 import { billingEnabled, billingRules } from "./billing-config.server";
 import type { BillingNoticeView } from "./billing-notice";
-import {
-  CHARGE_REFERENCE,
-  syncBillingSubscription,
-  syncUpgradeCharge,
-} from "./billing-sync.server";
+import { syncBillingSubscription, syncUpgradeCharge } from "./billing-sync.server";
+import { CHARGE_REFERENCE } from "./pending-reference";
 import type { NewStoreBlock } from "./new-store-block";
 
 type BillingAccount = NonNullable<Awaited<ReturnType<typeof getBillingAccount>>>;
 
 /** Within this of its end, a paid month is read again on the visit: the renewal may be in. */
-const REFRESH_BEFORE_END_IN_MS = 2 * 86_400_000;
+const DAY_IN_MS = 86_400_000;
+const REFRESH_BEFORE_END_IN_MS = 2 * DAY_IN_MS;
 
 /** The access as the page shows it: dates as ISO strings, limits null while unlimited. */
 async function accessView(tenantId: string) {
@@ -152,6 +150,24 @@ export async function findNewStoreBlock(tenantId: string): Promise<NewStoreBlock
   if (limits === null || usage.stores < limits.stores) return null;
   if (access.kind === "plan") return { kind: "plan_full", planName: access.plan.name };
   return { kind: "choose_plan" };
+}
+
+/**
+ * The whole days of a paid plan still ahead, counting today: deleting the account gives them
+ * up, with no refund. Null without a paid plan.
+ */
+export async function findPaidDaysLeft(
+  tenantId: string,
+): Promise<{ planName: string; days: number } | null> {
+  const rules = billingRules();
+  if (rules === null) return null;
+  const [access, account] = await Promise.all([
+    findBillingAccess(database, tenantId, rules),
+    getBillingAccount(database, tenantId),
+  ]);
+  if (access.kind !== "plan" || account?.periodEnd == null) return null;
+  const days = Math.ceil((account.periodEnd.getTime() - Date.now()) / DAY_IN_MS);
+  return days > 0 ? { planName: access.plan.name, days } : null;
 }
 
 /** Whether the tenant's plan answers its tickets first (Elite). */

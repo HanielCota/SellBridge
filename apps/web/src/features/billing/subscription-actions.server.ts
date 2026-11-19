@@ -4,7 +4,6 @@ import {
   getBillingAccount,
   requireBillingOwner,
   saveBillingAccount,
-  tryLockBillingCheckout,
   type BillingHolder,
 } from "@sellbridge/database/repositories";
 import {
@@ -25,36 +24,15 @@ import { REPORT_TIME_ZONE } from "@sellbridge/shared/period-range";
 import { database } from "@/lib/server/database";
 import { environment } from "@/lib/server/environment";
 import { billingClient } from "./billing-config.server";
-import {
-  CHARGE_REFERENCE,
-  CHECKOUT_REFERENCE,
-  planDescription,
-  readSubscriptionState,
-} from "./billing-sync.server";
+import { retireUnpaid, UNREACHABLE_MESSAGE, withBillingLock } from "./billing-lock.server";
+import { planDescription, readSubscriptionState } from "./billing-sync.server";
+import { CHARGE_REFERENCE, CHECKOUT_REFERENCE } from "./pending-reference";
 import { planChangeOf, type PlanChange } from "./plan-change";
 
 export type BillingPaymentMethod = "pix" | "credit_card";
 type BillingAccount = NonNullable<Awaited<ReturnType<typeof getBillingAccount>>>;
 
 const DAY_IN_MS = 86_400_000;
-const UNREACHABLE_MESSAGE =
-  "Não conseguimos falar com o Asaas agora. Tente de novo em alguns minutos.";
-
-/** One subscription change per tenant at a time; it holds no row, only an advisory lock. */
-async function withBillingLock<Result>(tenantId: string, run: () => Promise<Result>) {
-  try {
-    return await database.transaction(async (transaction) => {
-      if (!(await tryLockBillingCheckout(transaction, tenantId))) {
-        throw conflictError("Já estamos cuidando da sua assinatura. Aguarde alguns segundos.");
-      }
-      return run();
-    });
-  } catch (error) {
-    if (!isAsaasError(error)) throw error;
-    logger.warn("billing.asaas_failed", { error, status: error.status, codes: error.codes });
-    throw new AppError("EXTERNAL_PROVIDER", UNREACHABLE_MESSAGE, { cause: error });
-  }
-}
 
 function returnUrl(kind: "sucesso" | "troca" | "cancelado"): string {
   return new URL(`/assinatura?retorno=${kind}`, environment.APP_URL).toString();
@@ -145,27 +123,6 @@ async function ensureSubscriber(
     }));
   await saveBillingAccount(database, tenantId, { customerId });
   return customerId;
-}
-
-/** Closes what was opened and never paid, so an old link cannot start a second subscription. */
-async function retireUnpaid(client: AsaasBillingClient, account: BillingAccount): Promise<void> {
-  const reference = account.pendingReference;
-  const steps: Promise<unknown>[] = [];
-  if (reference?.startsWith(CHECKOUT_REFERENCE) === true) {
-    steps.push(client.cancelCheckout(reference.slice(CHECKOUT_REFERENCE.length)));
-  }
-  if (reference?.startsWith(CHARGE_REFERENCE) === true) {
-    steps.push(client.deleteCharge(reference.slice(CHARGE_REFERENCE.length)));
-  }
-  if (account.subscriptionId !== null && account.status === "incomplete") {
-    steps.push(client.deleteSubscription(account.subscriptionId));
-  }
-  const results = await Promise.allSettled(steps);
-  for (const result of results) {
-    if (result.status === "rejected") {
-      logger.warn("billing.retire_unpaid_failed", { error: result.reason });
-    }
-  }
 }
 
 async function openPixSubscription(
@@ -485,28 +442,5 @@ export async function changePaymentMethod(input: {
       planAfter: account.plan,
       firstDueDate: asaasDueDate(nextDue, 0),
     });
-  });
-}
-
-/** Ends the subscription: the paid month runs out and nothing renews. */
-export async function cancelSubscription(input: { tenantId: string; userId: string }) {
-  await requireBillingOwner(database, input.tenantId, input.userId);
-  const client = billingClient();
-  return withBillingLock(input.tenantId, async () => {
-    const account = await getBillingAccount(database, input.tenantId);
-    if (account?.subscriptionId == null || account.cancelAtPeriodEnd) {
-      throw conflictError("Você não tem uma assinatura ativa para cancelar.");
-    }
-    await retireUnpaid(client, { ...account, subscriptionId: null });
-    await client.deleteSubscription(account.subscriptionId);
-    await saveBillingAccount(database, input.tenantId, {
-      cancelAtPeriodEnd: true,
-      scheduledPlan: null,
-      scheduledPlanAt: null,
-      pendingPlan: null,
-      pendingReference: null,
-      ...(account.status === "incomplete" ? { status: "canceled" } : {}),
-    });
-    return { endsAt: account.periodEnd?.toISOString() ?? null };
   });
 }

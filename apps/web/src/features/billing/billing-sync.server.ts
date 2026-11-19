@@ -8,9 +8,11 @@ import {
 import {
   isAsaasError,
   isPaidCharge,
+  paidOn,
   subscriptionBillingState,
   type AsaasBillingClient,
   type AsaasSubscription,
+  type AsaasSubscriptionCharge,
   type SubscriptionBillingState,
 } from "@sellbridge/payments/asaas";
 import { billingPlan, isBillingPlanId } from "@sellbridge/shared/billing";
@@ -18,12 +20,9 @@ import { logger } from "@sellbridge/shared/logger";
 import { database } from "@/lib/server/database";
 import { environment } from "@/lib/server/environment";
 import { billingClient } from "./billing-config.server";
+import { CHARGE_REFERENCE, CHECKOUT_REFERENCE } from "./pending-reference";
 
 type BillingAccount = NonNullable<Awaited<ReturnType<typeof getBillingAccount>>>;
-
-/** What a pending plan waits on: the card checkout or the upgrade difference charge. */
-export const CHECKOUT_REFERENCE = "checkout:";
-export const CHARGE_REFERENCE = "charge:";
 
 export function planDescription(planId: string): string {
   return isBillingPlanId(planId) ? `SellBridge ${billingPlan(planId).name}` : "SellBridge";
@@ -33,7 +32,11 @@ export function planDescription(planId: string): string {
 export async function readSubscriptionState(
   client: AsaasBillingClient,
   input: { subscriptionId: string; prepaidUntil: Date | null },
-): Promise<{ subscription: AsaasSubscription; state: SubscriptionBillingState }> {
+): Promise<{
+  subscription: AsaasSubscription;
+  charges: AsaasSubscriptionCharge[];
+  state: SubscriptionBillingState;
+}> {
   const [subscription, charges] = await Promise.all([
     client.getSubscription(input.subscriptionId),
     client.listSubscriptionCharges(input.subscriptionId),
@@ -44,7 +47,15 @@ export async function readSubscriptionState(
     graceDays: environment.BILLING_PAST_DUE_GRACE_DAYS,
     prepaidUntil: input.prepaidUntil,
   });
-  return { subscription, state };
+  return { subscription, charges, state };
+}
+
+/** The account's first monthly fee ever is recorded once: only it may be given back. */
+function firstPaidPatch(account: BillingAccount, charges: readonly AsaasSubscriptionCharge[]) {
+  if (account.firstPaidOn !== null) return {};
+  const days = charges.filter(isPaidCharge).map(paidOn).toSorted();
+  const [first] = days;
+  return first === undefined ? {} : { firstPaidOn: first };
 }
 
 /** The account a subscription belongs to: its own, or the one whose card checkout created it. */
@@ -125,12 +136,13 @@ export async function syncBillingSubscription(input: {
   const adopting = account.subscriptionId !== subscription.id;
   const adoption = adopting ? adoptionPatch(account, subscription) : {};
   const prepaidUntil = adopting ? (adoption.prepaidUntil ?? null) : account.prepaidUntil;
-  const { state } = await readSubscriptionState(client, {
+  const { charges, state } = await readSubscriptionState(client, {
     subscriptionId: subscription.id,
     prepaidUntil,
   });
   const patch = {
     ...adoption,
+    ...firstPaidPatch(account, charges),
     ...statePatch(prepaidUntil, state),
     ...scheduledPatch(account, state),
   };

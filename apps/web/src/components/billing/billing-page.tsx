@@ -1,6 +1,5 @@
 import { WarningIcon } from "@phosphor-icons/react";
 import { useState } from "react";
-import { ConfirmDialog } from "@/components/feedback/confirm-dialog";
 import { PageHeader } from "@/components/layout/page-header";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -8,7 +7,6 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { DisabledHint } from "@/components/ui/hint";
 import { billingNoticeCopy } from "@/features/billing/billing-notice";
 import {
-  cancelBilling,
   changeBillingPaymentMethod,
   openBillingPayment,
 } from "@/features/billing/billing.functions";
@@ -28,6 +26,7 @@ import {
 } from "./billing-data";
 import { PaymentMethodDialog, type PaymentMethod } from "./billing-dialogs";
 import { PlanChoices } from "./plan-cards";
+import { SubscriptionCancel } from "./subscription-cancel";
 
 type Subscription = NonNullable<BillingData["subscription"]>;
 
@@ -123,11 +122,6 @@ function OwnerButton({ data, children }: { data: BillingData; children: React.Re
   return <DisabledHint reason={OWNER_ONLY_REASON}>{children}</DisabledHint>;
 }
 
-function cancelDescription(periodEnd: string | null): string {
-  const until = periodEnd === null ? "o fim do mês pago" : lastDayLabel(periodEnd);
-  return `Seu plano vale até ${until} e não renova. Depois disso, pedidos e anúncios no ar continuam, mas você não conecta lojas novas nem publica anúncios novos.`;
-}
-
 function PayNowButton({ data }: { data: BillingData }) {
   const pay = useBillingAction(async () => openBillingPayment(), "Pagamento aberto.");
   return (
@@ -178,41 +172,7 @@ function PaymentMethodChange({ data }: { data: BillingData }) {
   );
 }
 
-function SubscriptionCancel({ data }: { data: BillingData }) {
-  const [open, setOpen] = useState(false);
-  const cancel = useBillingAction(async () => {
-    await cancelBilling();
-    return { url: null };
-  }, "Assinatura cancelada. Seu plano vale até o fim do mês pago.");
-  return (
-    <>
-      <OwnerButton data={data}>
-        <Button
-          variant="ghost"
-          className="h-11 w-full text-destructive sm:w-auto"
-          disabled={!data.canManage}
-          onClick={() => setOpen(true)}
-        >
-          Cancelar assinatura
-        </Button>
-      </OwnerButton>
-      <ConfirmDialog
-        open={open}
-        onOpenChange={setOpen}
-        title="Cancelar a assinatura"
-        description={cancelDescription(data.subscription?.periodEnd ?? null)}
-        confirmLabel="Cancelar assinatura"
-        pendingLabel="Cancelando..."
-        cancelLabel="Manter assinatura"
-        destructive
-        isPending={cancel.isPending}
-        onConfirm={() => cancel.mutate(undefined, { onSuccess: () => setOpen(false) })}
-      />
-    </>
-  );
-}
-
-function SubscriptionActions({ data }: { data: BillingData }) {
+function SubscriptionActions({ data, askCancel }: { data: BillingData; askCancel: boolean }) {
   const live = hasLiveSubscription(data);
   const showPay = needsPayment(data);
   if (!showPay && !live) return null;
@@ -220,12 +180,12 @@ function SubscriptionActions({ data }: { data: BillingData }) {
     <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap">
       {showPay ? <PayNowButton data={data} /> : null}
       {live && !paymentToFix(data) ? <PaymentMethodChange data={data} /> : null}
-      {live ? <SubscriptionCancel data={data} /> : null}
+      {live ? <SubscriptionCancel data={data} askNow={askCancel} /> : null}
     </div>
   );
 }
 
-function CurrentPlan({ data }: { data: BillingData }) {
+function CurrentPlan({ data, askCancel }: { data: BillingData; askCancel: boolean }) {
   // Without a plan the limits are zero: "0 de 0 lojas" says nothing, so show the usage alone.
   const limits = data.access.kind === "none" ? null : data.access.limits;
   const live = hasLiveSubscription(data);
@@ -248,7 +208,7 @@ function CurrentPlan({ data }: { data: BillingData }) {
           </p>
         ))}
         {data.notice === null ? null : <NoticeText notice={data.notice} />}
-        {data.enabled ? <SubscriptionActions data={data} /> : null}
+        {data.enabled ? <SubscriptionActions data={data} askCancel={askCancel} /> : null}
       </CardContent>
     </Card>
   );
@@ -278,7 +238,14 @@ const RETURN_MESSAGES = {
   cancelado: "Você saiu do pagamento. Nada mudou no seu plano.",
 } as const;
 
-export function BillingPage({ returned }: { returned?: keyof typeof RETURN_MESSAGES | undefined }) {
+export function BillingPage({
+  returned,
+  askCancel = false,
+}: {
+  returned?: keyof typeof RETURN_MESSAGES | undefined;
+  /** Opens the cancellation on arrival ("Só cancelar o plano" in the account deletion). */
+  askCancel?: boolean;
+}) {
   const data = useBillingData();
   return (
     <div className="mx-auto w-full max-w-6xl space-y-6 p-4 sm:p-6">
@@ -294,7 +261,7 @@ export function BillingPage({ returned }: { returned?: keyof typeof RETURN_MESSA
           Os planos ainda não começaram. Enquanto isso, tudo continua liberado.
         </output>
       )}
-      <CurrentPlan data={data} />
+      <CurrentPlan data={data} askCancel={askCancel} />
       <PlanChoices data={data} />
       <PlanTerms feeBasisPoints={data.platformFeeBasisPoints} />
     </div>

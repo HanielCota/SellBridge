@@ -44,7 +44,7 @@ vi.mock("@/lib/server/database", () => ({
 vi.mock("./billing-config.server", () => ({ billingClient: () => mocks.client }));
 
 import { AsaasError } from "@sellbridge/payments/asaas";
-import { cancelSubscription, changePlan, startSubscription } from "./subscription-actions.server";
+import { changePlan, startSubscription } from "./subscription-actions.server";
 
 const input = { tenantId: "tenant-a", userId: "owner-a", plan: "pro" as const };
 const HOLDER = {
@@ -316,22 +316,5 @@ describe("plan change", () => {
       code: "CONFLICT",
     });
     expect(mocks.client.createOneOffCharge).not.toHaveBeenCalled();
-  });
-});
-
-describe("cancellation", () => {
-  it("ends the subscription at Asaas and keeps the month already paid", async () => {
-    const periodEnd = new Date(Date.now() + 10 * 86_400_000);
-    mocks.account.mockResolvedValue(liveAccount({ periodEnd }));
-
-    const result = await cancelSubscription(input);
-
-    expect(mocks.client.deleteSubscription).toHaveBeenCalledWith("sub_live");
-    expect(mocks.save).toHaveBeenCalledWith(
-      expect.anything(),
-      "tenant-a",
-      expect.not.objectContaining({ status: expect.anything() }),
-    );
-    expect(result).toEqual({ endsAt: periodEnd.toISOString() });
   });
 });

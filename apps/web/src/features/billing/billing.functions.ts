@@ -3,9 +3,9 @@ import { BILLING_PLAN_IDS } from "@sellbridge/shared/billing";
 import { z } from "zod";
 import { tenantMiddleware } from "@/lib/server/middleware";
 import { billingWriteMiddleware } from "./billing-middleware";
-import { billingSummary, findBillingNotice } from "./billing.server";
+import { billingSummary, findBillingNotice, findPaidDaysLeft } from "./billing.server";
+import { cancelSubscription, quoteCancellation } from "./subscription-cancel.server";
 import {
-  cancelSubscription,
   changePaymentMethod,
   changePlan,
   openPendingPayment,
@@ -45,6 +45,15 @@ export const changeBillingPaymentMethod = createServerFn({ method: "POST" })
   .middleware([tenantMiddleware, billingWriteMiddleware])
   .validator(z.object({ method: methodSchema }))
   .handler(async ({ context, data }) => changePaymentMethod({ ...context, method: data.method }));
+
+export const quoteBillingCancellation = createServerFn({ method: "POST" })
+  .middleware([tenantMiddleware])
+  .handler(async ({ context }) => quoteCancellation(context));
+
+/** The paid days the account would lose by deleting it now, for the deletion warning. */
+export const getBillingPaidDaysLeft = createServerFn({ method: "GET" })
+  .middleware([tenantMiddleware])
+  .handler(async ({ context }) => findPaidDaysLeft(context.tenantId));
 
 export const cancelBilling = createServerFn({ method: "POST" })
   .middleware([tenantMiddleware, billingWriteMiddleware])

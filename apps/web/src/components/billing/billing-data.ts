@@ -1,9 +1,10 @@
 import { BILLING_PLANS, type BillingPlan, type BillingPlanId } from "@sellbridge/shared/billing";
-import { REPORT_TIME_ZONE } from "@sellbridge/shared/period-range";
 import { useMutation, useQueryClient, useSuspenseQuery } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { billingQueryOptions } from "@/features/billing/billing.queries";
 import { errorMessage } from "@/lib/errors";
+
+export { dateLabel, lastDayLabel } from "./billing-copy";
 
 export function useBillingData() {
   return useSuspenseQuery(billingQueryOptions()).data;
@@ -12,15 +13,6 @@ export function useBillingData() {
 export type BillingData = ReturnType<typeof useBillingData>;
 
 export const OWNER_ONLY_REASON = "Só o dono da conta pode assinar ou mudar o plano";
-
-export function dateLabel(isoDate: string | Date): string {
-  return new Date(isoDate).toLocaleDateString("pt-BR", { timeZone: REPORT_TIME_ZONE });
-}
-
-/** The access ends at a moment; the reseller keeps the whole day before it. */
-export function lastDayLabel(isoDate: string): string {
-  return dateLabel(new Date(new Date(isoDate).getTime() - 1));
-}
 
 export function planById(id: string | null | undefined): BillingPlan | null {
   return BILLING_PLANS.find((plan) => plan.id === id) ?? null;
