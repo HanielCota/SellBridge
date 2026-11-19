@@ -15,6 +15,7 @@ import {
   saveProductModelDraft,
 } from "./product-model-drafts.ts";
 import { getProductModel } from "./product-models.ts";
+import { listSupplierPanelProducts } from "./supplier-panel-catalog.ts";
 
 const database = createTestDatabase();
 let supplierId = "";
@@ -272,5 +273,37 @@ describe("deleteUnsoldProductModel", () => {
 
     expect(await getProductModel(database, { supplierId, modelId })).toBeNull();
     expect(await rowOf(`${prefix}-P-38`)).toBeUndefined();
+  });
+});
+
+describe("supplier panel list", () => {
+  it("shows a grid once, with its options and the stock of every combination", async () => {
+    const prefix = randomUUID().slice(0, 8);
+    const input = draft(prefix);
+    await saveProductModelDraft(database, {
+      ...input,
+      values: { ...input.values, title: `Lista ${prefix}` },
+    });
+
+    const list = await listSupplierPanelProducts(database, {
+      supplierId,
+      status: "all",
+      query: `Lista ${prefix}`,
+      sort: "title",
+      direction: "asc",
+      page: 1,
+      pageSize: 25,
+      fiscal: "all",
+    });
+
+    expect(list.items).toHaveLength(1);
+    expect(list.items[0]?.grid).toMatchObject({
+      title: `Lista ${prefix}`,
+      colors: 1,
+      sizes: 2,
+      combinations: 2,
+      stock: 8,
+    });
+    expect(list.counts.all).toBe(1);
   });
 });
