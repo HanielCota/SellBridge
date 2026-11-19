@@ -113,6 +113,7 @@ export const adminRetryProblem = createServerFn({ method: "POST" })
       id: problem.id,
       resolvedById: context.userId,
       now: new Date(),
+      expectedOccurrences: problem.occurrences,
     });
     logger.info("problem.retried", { problemId: problem.id, kind: retry.kind });
     return { message: outcome.message };
