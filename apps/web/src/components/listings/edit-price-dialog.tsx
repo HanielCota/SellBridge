@@ -21,7 +21,7 @@ import {
   type ProfitEstimate,
   saleChannelsOf,
   type SaleChannels,
-  shelfPriceForMargin,
+  marginShortcutPrices,
   wholeMarginPercent,
 } from "@/features/listings/profit";
 import { useFeeSchedule } from "@/features/reports/fee-schedule.queries";
@@ -45,9 +45,6 @@ interface EditPriceDialogProps {
   onOpenChange: (open: boolean) => void;
   listing: PricedListing;
 }
-
-/** Margins offered as one-tap shortcuts; each shows the price it leads to. */
-const MARGIN_SHORTCUTS = [10, 25, 40, 55] as const;
 
 /** Same palette as the listing's state: green healthy, amber low, red at a loss. */
 type MarginTone = Extract<ListingRunState, "live" | "paused" | "off">;
@@ -217,9 +214,10 @@ function MarginShortcuts({
   return (
     <div className="space-y-2">
       <p className="text-sm text-muted-foreground">Margem</p>
-      <div className="grid grid-cols-4 gap-2">
-        {MARGIN_SHORTCUTS.map((margin) => {
-          const price = shelfPriceForMargin(product, margin, schedule, channels);
+      <div className="grid grid-cols-3 gap-2">
+        {marginShortcutPrices(product, schedule, channels).map((shortcut) => {
+          const margin = shortcut.marginPercent;
+          const price = shortcut.priceCents;
           const active = price !== null && price === priceCents;
           return (
             <button

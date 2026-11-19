@@ -6,6 +6,7 @@ import {
   estimateProfit,
   isLowStock,
   isThinMargin,
+  marginShortcutPrices,
   minimumPrice,
   saleChannelsOf,
   shelfPriceForMargin,
@@ -188,5 +189,24 @@ describe("with the store's own Mercado Livre rates", () => {
 
     expect(withTable).toBe(3_238);
     expect(withStore).toBe(3_605);
+  });
+});
+
+describe("marginShortcutPrices", () => {
+  // Regression: a new listing offered "Margem 40%" at R$ 108,59 while the price dialog offered
+  // 40% at R$ 108,90, and the two screens did not even offer the same margins.
+  it("offers 25%, 40% and 55% at prices ending in ,90 that keep each margin", () => {
+    const serum = { costCents: 3_500, weightGrams: 120 };
+
+    const shortcuts = marginShortcutPrices(serum, schedule, mercadoLivre);
+
+    expect(shortcuts.map((shortcut) => shortcut.marginPercent)).toEqual([25, 40, 55]);
+    for (const { marginPercent, priceCents } of shortcuts) {
+      expect(priceCents).toBe(shelfPriceForMargin(serum, marginPercent, schedule, mercadoLivre));
+      expect((priceCents ?? 0) % 100).toBe(90);
+      expect(
+        estimateProfit(priceCents, serum, schedule, mercadoLivre)?.marginPercent,
+      ).toBeGreaterThanOrEqual(marginPercent);
+    }
   });
 });

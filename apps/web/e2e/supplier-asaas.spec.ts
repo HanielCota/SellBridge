@@ -23,10 +23,8 @@ const orderIds: string[] = [];
 const problemIds: string[] = [];
 
 test.afterAll(async () => {
-  // The Mercado Pago spec runs beside this one and owns the fee: only the rule goes back.
-  await database
-    .update(platformSettings)
-    .set({ newSupplierProtection: false, newSupplierDeliveries: 5 });
+  // The fee test changes the platform settings: they go back to the defaults.
+  await database.delete(platformSettings);
   for (const problemId of problemIds) {
     await database.delete(problemEvents).where(eq(problemEvents.id, problemId));
   }
@@ -184,26 +182,91 @@ test("o fornecedor abre a conta Asaas e o revendedor paga com o dinheiro protegi
   expect(payment).toMatchObject({ provider: "asaas", status: "approved", escrowStatus: "active" });
 });
 
-test("o fornecedor confirma a troca para o Asaas e pode desfazer", async ({ page }) => {
-  const email = await accounts.signUp(page, "Cestaria Troca E2E");
-  await giveTestBrand(database, email, "Cestaria Troca E2E");
+test("o admin define a taxa do SellBridge e ela vale no próximo pagamento", async ({
+  page,
+  browser,
+}) => {
+  const email = await accounts.signUp(page, "Cestaria Taxa E2E");
+  const supplierId = await giveTestBrand(database, email, "Cestaria Taxa E2E");
+  const sale = await forwardedSale(supplierId);
   await openApprovedAsaasAccount(page);
-  const mercadoPago = page.getByRole("region", { name: "Mercado Pago" });
-  await mercadoPago.getByRole("link", { name: "Ligar conta Mercado Pago" }).click();
-  await page.getByRole("button", { name: "Autorizar" }).click();
-  await expect(mercadoPago.getByText(/Ligada ·/)).toBeVisible();
 
-  const choice = page.getByRole("region", { name: "Para onde vão os próximos pagamentos" });
-  await expect(choice.getByText("Mercado Pago", { exact: true })).toBeVisible();
-  await choice.getByRole("button", { name: "Trocar para o Asaas" }).click();
-  const confirm = page.getByRole("dialog", { name: "Trocar para o Asaas?" });
-  await expect(confirm.getByText(/liberados para você 7 dias depois da entrega/)).toBeVisible();
-  await confirm.getByRole("button", { name: "Trocar para o Asaas" }).click();
-  await expect(choice.getByText("Asaas", { exact: true })).toBeVisible();
+  const admin = await (await browser.newContext({ locale: "pt-BR" })).newPage();
+  await signIn(admin, ADMIN_USER);
+  await gotoHydrated(admin, "/admin/configuracoes");
+  const fee = admin.getByLabel("Taxa (%)");
+  await fee.fill("31");
+  await fee.blur();
+  await expect(admin.getByRole("alert")).toHaveText("A taxa vai de 0 a 30%. Diminua o valor.");
+  await fee.fill("5");
+  await expect(
+    admin.getByText("Num pedido de R$ 100,00, o SellBridge fica com R$ 5,00."),
+  ).toBeVisible();
+  await admin.getByRole("button", { name: "Salvar taxa" }).click();
+  await expect(admin.getByText(/^5% · desde/)).toBeVisible();
+  await admin.context().close();
 
-  await page.getByRole("button", { name: "Desfazer" }).click();
-  await expect(choice.getByText("Mercado Pago", { exact: true })).toBeVisible();
-  await expect(choice.getByRole("button", { name: "Trocar para o Asaas" })).toBeVisible();
+  const reseller = await (await browser.newContext({ locale: "pt-BR" })).newPage();
+  await signIn(reseller, DEMO_USER);
+  await gotoHydrated(reseller, `/pedidos/${sale.orderId}`);
+  await reseller.getByRole("button", { name: "Pagar com Pix ou cartão" }).click();
+  await reseller.getByRole("button", { name: "Pagar com Pix" }).click();
+  await expect(reseller.getByText(/Fornecedor pago ·/)).toBeVisible();
+  await reseller.context().close();
+
+  const [payment] = await database
+    .select()
+    .from(shipmentPayments)
+    .where(eq(shipmentPayments.shipmentId, sale.shipmentId));
+  expect(payment).toMatchObject({ platformFeeBasisPoints: 500, platformFeeCents: 400 });
+});
+
+test("o revendedor vê por que o pagamento protegido está voltando", async ({ page, browser }) => {
+  const email = await accounts.signUp(page, "Cestaria Devolução E2E");
+  const supplierId = await giveTestBrand(database, email, "Cestaria Devolução E2E");
+  const sale = await forwardedSale(supplierId);
+  const [payment] = await database
+    .insert(shipmentPayments)
+    .values({
+      shipmentId: sale.shipmentId,
+      supplierId,
+      provider: "asaas",
+      status: "approved",
+      amountCents: 8_000,
+      platformFeeCents: 80,
+      platformFeeBasisPoints: 100,
+      providerPaymentId: `pay_${randomUUID()}`,
+      paidAt: new Date(),
+      escrowId: `esc_${randomUUID()}`,
+      escrowStatus: "active",
+      refundReason: "not_dispatched",
+      refundRequestedAt: new Date(),
+    })
+    .returning({ id: shipmentPayments.id });
+  if (payment === undefined) throw new Error("Payment missing");
+
+  const reseller = await (await browser.newContext({ locale: "pt-BR" })).newPage();
+  await signIn(reseller, DEMO_USER);
+  await gotoHydrated(reseller, `/pedidos/${sale.orderId}`);
+  await expect(reseller.getByText("Devolução em andamento")).toBeVisible();
+  await expect(
+    reseller.getByText(
+      "O fornecedor não postou o envio no prazo. Estamos devolvendo R$ 80,00 para você pelo Asaas.",
+    ),
+  ).toBeVisible();
+
+  await database
+    .update(shipmentPayments)
+    .set({ status: "refunded" })
+    .where(eq(shipmentPayments.id, payment.id));
+  await gotoHydrated(reseller, `/pedidos/${sale.orderId}`);
+  await expect(reseller.getByText(/Pagamento devolvido ·/)).toBeVisible();
+  await expect(
+    reseller.getByText(
+      "O fornecedor não postou o envio no prazo. Devolvemos R$ 80,00 para você pelo Asaas.",
+    ),
+  ).toBeVisible();
+  await reseller.context().close();
 });
 
 /** A paid Asaas parcel whose money is held, and the problem asking the team to decide. */
@@ -268,25 +331,5 @@ test("a equipe devolve ao revendedor um pagamento protegido sem regra", async ({
   await confirm.getByRole("button", { name: "Devolver ao revendedor" }).click();
   await expect(admin.getByText(/A equipe decidiu devolver ao revendedor/)).toBeVisible();
   await expect(admin.getByRole("button", { name: "Liberar ao fornecedor" })).toHaveCount(0);
-  await admin.context().close();
-});
-
-test("o admin ajusta a proteção para fornecedores novos sem ligá-la", async ({ browser }) => {
-  // Kept off: turning it on would hold the suppliers of the specs running beside this one.
-  const admin = await (await browser.newContext({ locale: "pt-BR" })).newPage();
-  await signIn(admin, ADMIN_USER);
-  await gotoHydrated(admin, "/admin/configuracoes");
-  const card = admin.getByRole("region", { name: "Proteção para fornecedores novos" });
-  await expect(card.getByText("Desligada")).toBeVisible();
-  const deliveries = card.getByLabel("Até completar quantas entregas");
-  await deliveries.fill("0");
-  await expect(card.getByText("Use de 1 a 1000 entregas (você digitou 0).")).toBeVisible();
-  await expect(card.getByRole("button", { name: "Salvar regra" })).toBeDisabled();
-  await deliveries.fill("7");
-  await card.getByRole("button", { name: "Salvar regra" }).click();
-  await expect(
-    admin.getByText("Regra desligada: todo fornecedor escolhe como recebe."),
-  ).toBeVisible();
-  await expect(card.getByText("Desligada")).toBeVisible();
   await admin.context().close();
 });

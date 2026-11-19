@@ -22,3 +22,4 @@ export * from "./erp.ts";
 export * from "./payments.ts";
 export * from "./problems.ts";
 export * from "./fee-quotes.ts";
+export * from "./marketplace-claims.ts";

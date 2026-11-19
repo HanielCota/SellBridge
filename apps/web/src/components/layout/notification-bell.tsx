@@ -4,6 +4,7 @@ import {
   type Icon,
   ClockIcon,
   FileTextIcon,
+  MegaphoneIcon,
   PackageIcon,
   PlugsIcon,
   ShoppingBagIcon,
@@ -89,6 +90,10 @@ const KIND_STYLES: Record<NotificationKind, { icon: Icon; className: string }> =
   },
   invoice_stopped: {
     icon: FileTextIcon,
+    className: "bg-red-500/15 text-red-600 dark:text-red-400",
+  },
+  marketplace_claim: {
+    icon: MegaphoneIcon,
     className: "bg-red-500/15 text-red-600 dark:text-red-400",
   },
 };

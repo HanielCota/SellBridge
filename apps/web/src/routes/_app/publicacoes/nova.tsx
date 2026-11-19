@@ -41,7 +41,7 @@ import { type FeeSchedule, priceFloorProblemOnChannels } from "@sellbridge/share
 import {
   estimateProfit,
   isThinMargin,
-  priceForMargin,
+  marginShortcutPrices,
   type ProductCost,
   type ProfitEstimate,
   saleChannelsOf,
@@ -75,9 +75,6 @@ export const Route = createFileRoute("/_app/publicacoes/nova")({
 });
 
 const PublishIcon = ACTION_ICONS.publish.icon;
-
-/** One-tap prices besides the supplier's suggestion, named by the margin they leave. */
-const MARGIN_PRESETS = [30, 40, 50] as const;
 
 function ProductBackLink({
   product,
@@ -516,10 +513,13 @@ function pricePresets(
   const presets: PricePreset[] = [
     { key: "suggested", label: "Sugerido", priceCents: product.suggestedPriceCents },
   ];
-  for (const margin of MARGIN_PRESETS) {
-    const priceCents = priceForMargin(product, margin, schedule, channels);
+  for (const { marginPercent, priceCents } of marginShortcutPrices(product, schedule, channels)) {
     if (priceCents !== null) {
-      presets.push({ key: `margin-${margin}`, label: `Margem ${margin}%`, priceCents });
+      presets.push({
+        key: `margin-${marginPercent}`,
+        label: `Margem ${marginPercent}%`,
+        priceCents,
+      });
     }
   }
   return presets;
