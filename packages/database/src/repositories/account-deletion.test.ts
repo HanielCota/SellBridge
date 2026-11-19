@@ -187,6 +187,32 @@ describe("account deletion", () => {
     await database.delete(suppliers).where(eq(suppliers.id, supplier.id));
   });
 
+  it("closes the store of the workspace's supplier, so its resellers stop selling it", async () => {
+    const tenantId = await createOrganization();
+    const [supplier] = await database
+      .insert(suppliers)
+      .values({
+        name: "Fornecedor que sai",
+        niche: "Teste",
+        state: "ZZ",
+        city: "X",
+        organizationId: tenantId,
+      })
+      .returning({ id: suppliers.id });
+    if (supplier === undefined) {
+      throw new Error("fornecedor não criado");
+    }
+
+    await deleteTenantData(database, tenantId);
+    const [left] = await database
+      .select({ salesClosedAt: suppliers.salesClosedAt })
+      .from(suppliers)
+      .where(eq(suppliers.id, supplier.id));
+    await database.delete(suppliers).where(eq(suppliers.id, supplier.id));
+
+    expect(left?.salesClosedAt).toBeInstanceOf(Date);
+  });
+
   it("also lists attachments of messages the user wrote in another workspace's ticket", async () => {
     const tenantId = await createOrganization();
     const [ticket] = await database

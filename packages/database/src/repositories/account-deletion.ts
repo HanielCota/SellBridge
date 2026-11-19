@@ -1,4 +1,4 @@
-import { and, eq, inArray, ne, or } from "drizzle-orm";
+import { and, eq, inArray, ne, or, sql } from "drizzle-orm";
 import type { Database } from "../client.ts";
 import {
   billingAccounts,
@@ -70,7 +70,7 @@ export async function accountFileKeys(
  * Deletes a workspace and everything in it: stores, sales, listings, tickets and the holder's
  * CPF all cascade from the organization. A supplier's catalog outlives the workspace (it is only
  * detached), so its ERP and payment account tokens, its ERP catalog read and pending states are
- * deleted with it here.
+ * deleted with it here, and its store is closed for sales until the team takes it over.
  */
 export async function deleteTenantData(database: Database, tenantId: string): Promise<void> {
   await database.transaction(async (transaction) => {
@@ -91,6 +91,11 @@ export async function deleteTenantData(database: Database, tenantId: string): Pr
     await transaction
       .delete(paymentOAuthStates)
       .where(inArray(paymentOAuthStates.supplierId, ranSupplier));
+    // No one ships or receives for the catalog anymore: its resellers' listings go to zero stock.
+    await transaction
+      .update(suppliers)
+      .set({ salesClosedAt: sql`coalesce(${suppliers.salesClosedAt}, now())` })
+      .where(eq(suppliers.organizationId, tenantId));
     await transaction.delete(organization).where(eq(organization.id, tenantId));
   });
 }
