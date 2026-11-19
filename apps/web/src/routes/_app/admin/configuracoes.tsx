@@ -2,6 +2,7 @@ import { hasStaffPermission } from "@sellbridge/shared/staff-access";
 import { createFileRoute, redirect } from "@tanstack/react-router";
 import { NewSupplierRuleCard } from "@/components/admin-settings/new-supplier-rule-card";
 import { PaymentFeeCard } from "@/components/admin-settings/payment-fee-card";
+import { ReturnAnswerDaysCard } from "@/components/admin-settings/return-answer-days-card";
 import { PageHeader } from "@/components/layout/page-header";
 import { paymentFeeQueryOptions } from "@/features/supplier-payments/supplier-payments.queries";
 import { prefetchOnServer } from "@/lib/prefetch";
@@ -24,6 +25,7 @@ function SettingsPage() {
       <PageHeader title="Configurações" description="Valores que valem para toda a plataforma." />
       <PaymentFeeCard />
       <NewSupplierRuleCard />
+      <ReturnAnswerDaysCard />
     </div>
   );
 }

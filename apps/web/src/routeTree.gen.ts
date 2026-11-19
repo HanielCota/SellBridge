@@ -26,6 +26,7 @@ import { Route as AppIntegracoesRouteImport } from './routes/_app/integracoes'
 import { Route as AppLojasRouteImport } from './routes/_app/lojas'
 import { Route as AppOnboardingRouteImport } from './routes/_app/onboarding'
 import { Route as AppPerfilRouteImport } from './routes/_app/perfil'
+import { Route as AppPoliticaDeDevolucaoRouteImport } from './routes/_app/politica-de-devolucao'
 import { Route as AppProductsRouteImport } from './routes/_app/products'
 import { Route as AuthCadastroRouteImport } from './routes/_auth/cadastro'
 import { Route as AuthConfirmeSeuEmailRouteImport } from './routes/_auth/confirme-seu-email'
@@ -103,6 +104,9 @@ import { Route as ApiAdminExportarAuditoriaRouteImport } from './routes/api/admi
 import { Route as ApiAdminExportarChamadosRouteImport } from './routes/api/admin/exportar/chamados'
 import { Route as ApiAdminExportarClientesRouteImport } from './routes/api/admin/exportar/clientes'
 import { Route as ApiAdminExportarEquipeRouteImport } from './routes/api/admin/exportar/equipe'
+import { Route as ApiDevolucoesClaimIdMotivoRouteImport } from './routes/api/devolucoes/$claimId/motivo'
+import { Route as ApiDevolucoesClaimIdRespostaRouteImport } from './routes/api/devolucoes/$claimId/resposta'
+import { Route as ApiDevolucoesFotosPhotoIdRouteImport } from './routes/api/devolucoes/fotos/$photoId'
 import { Route as ApiFornecedorExportarCatalogoRouteImport } from './routes/api/fornecedor/exportar/catalogo'
 import { Route as ApiFornecedorExportarPedidosRouteImport } from './routes/api/fornecedor/exportar/pedidos'
 import { Route as ApiFornecedorExportarProdutosRouteImport } from './routes/api/fornecedor/exportar/produtos'
@@ -219,6 +223,11 @@ const AppOnboardingRoute = AppOnboardingRouteImport.update({
 const AppPerfilRoute = AppPerfilRouteImport.update({
   id: '/perfil',
   path: '/perfil',
+  getParentRoute: () => AppRouteRoute,
+} as any)
+const AppPoliticaDeDevolucaoRoute = AppPoliticaDeDevolucaoRouteImport.update({
+  id: '/politica-de-devolucao',
+  path: '/politica-de-devolucao',
   getParentRoute: () => AppRouteRoute,
 } as any)
 const AppProductsRoute = AppProductsRouteImport.update({
@@ -631,6 +640,24 @@ const ApiAdminExportarEquipeRoute = ApiAdminExportarEquipeRouteImport.update({
   path: '/api/admin/exportar/equipe',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiDevolucoesClaimIdMotivoRoute =
+  ApiDevolucoesClaimIdMotivoRouteImport.update({
+    id: '/api/devolucoes/$claimId/motivo',
+    path: '/api/devolucoes/$claimId/motivo',
+    getParentRoute: () => rootRouteImport,
+  } as any)
+const ApiDevolucoesClaimIdRespostaRoute =
+  ApiDevolucoesClaimIdRespostaRouteImport.update({
+    id: '/api/devolucoes/$claimId/resposta',
+    path: '/api/devolucoes/$claimId/resposta',
+    getParentRoute: () => rootRouteImport,
+  } as any)
+const ApiDevolucoesFotosPhotoIdRoute =
+  ApiDevolucoesFotosPhotoIdRouteImport.update({
+    id: '/api/devolucoes/fotos/$photoId',
+    path: '/api/devolucoes/fotos/$photoId',
+    getParentRoute: () => rootRouteImport,
+  } as any)
 const ApiFornecedorExportarCatalogoRoute =
   ApiFornecedorExportarCatalogoRouteImport.update({
     id: '/api/fornecedor/exportar/catalogo',
@@ -846,6 +873,7 @@ export interface FileRoutesByFullPath {
   '/lojas': typeof AppLojasRoute
   '/onboarding': typeof AppOnboardingRoute
   '/perfil': typeof AppPerfilRoute
+  '/politica-de-devolucao': typeof AppPoliticaDeDevolucaoRoute
   '/products': typeof AppProductsRoute
   '/cadastro': typeof AuthCadastroRoute
   '/confirme-seu-email': typeof AuthConfirmeSeuEmailRoute
@@ -917,6 +945,9 @@ export interface FileRoutesByFullPath {
   '/api/admin/exportar/chamados': typeof ApiAdminExportarChamadosRoute
   '/api/admin/exportar/clientes': typeof ApiAdminExportarClientesRoute
   '/api/admin/exportar/equipe': typeof ApiAdminExportarEquipeRoute
+  '/api/devolucoes/$claimId/motivo': typeof ApiDevolucoesClaimIdMotivoRoute
+  '/api/devolucoes/$claimId/resposta': typeof ApiDevolucoesClaimIdRespostaRoute
+  '/api/devolucoes/fotos/$photoId': typeof ApiDevolucoesFotosPhotoIdRoute
   '/api/fornecedor/exportar/catalogo': typeof ApiFornecedorExportarCatalogoRoute
   '/api/fornecedor/exportar/pedidos': typeof ApiFornecedorExportarPedidosRoute
   '/api/fornecedor/exportar/produtos': typeof ApiFornecedorExportarProdutosRoute
@@ -973,6 +1004,7 @@ export interface FileRoutesByTo {
   '/lojas': typeof AppLojasRoute
   '/onboarding': typeof AppOnboardingRoute
   '/perfil': typeof AppPerfilRoute
+  '/politica-de-devolucao': typeof AppPoliticaDeDevolucaoRoute
   '/products': typeof AppProductsRoute
   '/cadastro': typeof AuthCadastroRoute
   '/confirme-seu-email': typeof AuthConfirmeSeuEmailRoute
@@ -1041,6 +1073,9 @@ export interface FileRoutesByTo {
   '/api/admin/exportar/chamados': typeof ApiAdminExportarChamadosRoute
   '/api/admin/exportar/clientes': typeof ApiAdminExportarClientesRoute
   '/api/admin/exportar/equipe': typeof ApiAdminExportarEquipeRoute
+  '/api/devolucoes/$claimId/motivo': typeof ApiDevolucoesClaimIdMotivoRoute
+  '/api/devolucoes/$claimId/resposta': typeof ApiDevolucoesClaimIdRespostaRoute
+  '/api/devolucoes/fotos/$photoId': typeof ApiDevolucoesFotosPhotoIdRoute
   '/api/fornecedor/exportar/catalogo': typeof ApiFornecedorExportarCatalogoRoute
   '/api/fornecedor/exportar/pedidos': typeof ApiFornecedorExportarPedidosRoute
   '/api/fornecedor/exportar/produtos': typeof ApiFornecedorExportarProdutosRoute
@@ -1101,6 +1136,7 @@ export interface FileRoutesById {
   '/_app/lojas': typeof AppLojasRoute
   '/_app/onboarding': typeof AppOnboardingRoute
   '/_app/perfil': typeof AppPerfilRoute
+  '/_app/politica-de-devolucao': typeof AppPoliticaDeDevolucaoRoute
   '/_app/products': typeof AppProductsRoute
   '/_auth/cadastro': typeof AuthCadastroRoute
   '/_auth/confirme-seu-email': typeof AuthConfirmeSeuEmailRoute
@@ -1172,6 +1208,9 @@ export interface FileRoutesById {
   '/api/admin/exportar/chamados': typeof ApiAdminExportarChamadosRoute
   '/api/admin/exportar/clientes': typeof ApiAdminExportarClientesRoute
   '/api/admin/exportar/equipe': typeof ApiAdminExportarEquipeRoute
+  '/api/devolucoes/$claimId/motivo': typeof ApiDevolucoesClaimIdMotivoRoute
+  '/api/devolucoes/$claimId/resposta': typeof ApiDevolucoesClaimIdRespostaRoute
+  '/api/devolucoes/fotos/$photoId': typeof ApiDevolucoesFotosPhotoIdRoute
   '/api/fornecedor/exportar/catalogo': typeof ApiFornecedorExportarCatalogoRoute
   '/api/fornecedor/exportar/pedidos': typeof ApiFornecedorExportarPedidosRoute
   '/api/fornecedor/exportar/produtos': typeof ApiFornecedorExportarProdutosRoute
@@ -1231,6 +1270,7 @@ export interface FileRouteTypes {
     | '/lojas'
     | '/onboarding'
     | '/perfil'
+    | '/politica-de-devolucao'
     | '/products'
     | '/cadastro'
     | '/confirme-seu-email'
@@ -1302,6 +1342,9 @@ export interface FileRouteTypes {
     | '/api/admin/exportar/chamados'
     | '/api/admin/exportar/clientes'
     | '/api/admin/exportar/equipe'
+    | '/api/devolucoes/$claimId/motivo'
+    | '/api/devolucoes/$claimId/resposta'
+    | '/api/devolucoes/fotos/$photoId'
     | '/api/fornecedor/exportar/catalogo'
     | '/api/fornecedor/exportar/pedidos'
     | '/api/fornecedor/exportar/produtos'
@@ -1358,6 +1401,7 @@ export interface FileRouteTypes {
     | '/lojas'
     | '/onboarding'
     | '/perfil'
+    | '/politica-de-devolucao'
     | '/products'
     | '/cadastro'
     | '/confirme-seu-email'
@@ -1426,6 +1470,9 @@ export interface FileRouteTypes {
     | '/api/admin/exportar/chamados'
     | '/api/admin/exportar/clientes'
     | '/api/admin/exportar/equipe'
+    | '/api/devolucoes/$claimId/motivo'
+    | '/api/devolucoes/$claimId/resposta'
+    | '/api/devolucoes/fotos/$photoId'
     | '/api/fornecedor/exportar/catalogo'
     | '/api/fornecedor/exportar/pedidos'
     | '/api/fornecedor/exportar/produtos'
@@ -1485,6 +1532,7 @@ export interface FileRouteTypes {
     | '/_app/lojas'
     | '/_app/onboarding'
     | '/_app/perfil'
+    | '/_app/politica-de-devolucao'
     | '/_app/products'
     | '/_auth/cadastro'
     | '/_auth/confirme-seu-email'
@@ -1556,6 +1604,9 @@ export interface FileRouteTypes {
     | '/api/admin/exportar/chamados'
     | '/api/admin/exportar/clientes'
     | '/api/admin/exportar/equipe'
+    | '/api/devolucoes/$claimId/motivo'
+    | '/api/devolucoes/$claimId/resposta'
+    | '/api/devolucoes/fotos/$photoId'
     | '/api/fornecedor/exportar/catalogo'
     | '/api/fornecedor/exportar/pedidos'
     | '/api/fornecedor/exportar/produtos'
@@ -1630,6 +1681,9 @@ export interface RootRouteChildren {
   ApiAdminExportarChamadosRoute: typeof ApiAdminExportarChamadosRoute
   ApiAdminExportarClientesRoute: typeof ApiAdminExportarClientesRoute
   ApiAdminExportarEquipeRoute: typeof ApiAdminExportarEquipeRoute
+  ApiDevolucoesClaimIdMotivoRoute: typeof ApiDevolucoesClaimIdMotivoRoute
+  ApiDevolucoesClaimIdRespostaRoute: typeof ApiDevolucoesClaimIdRespostaRoute
+  ApiDevolucoesFotosPhotoIdRoute: typeof ApiDevolucoesFotosPhotoIdRoute
   ApiFornecedorExportarCatalogoRoute: typeof ApiFornecedorExportarCatalogoRoute
   ApiFornecedorExportarPedidosRoute: typeof ApiFornecedorExportarPedidosRoute
   ApiFornecedorExportarProdutosRoute: typeof ApiFornecedorExportarProdutosRoute
@@ -1781,6 +1835,13 @@ declare module '@tanstack/react-router' {
       path: '/perfil'
       fullPath: '/perfil'
       preLoaderRoute: typeof AppPerfilRouteImport
+      parentRoute: typeof AppRouteRoute
+    }
+    '/_app/politica-de-devolucao': {
+      id: '/_app/politica-de-devolucao'
+      path: '/politica-de-devolucao'
+      fullPath: '/politica-de-devolucao'
+      preLoaderRoute: typeof AppPoliticaDeDevolucaoRouteImport
       parentRoute: typeof AppRouteRoute
     }
     '/_app/products': {
@@ -2322,6 +2383,27 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiAdminExportarEquipeRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/devolucoes/$claimId/motivo': {
+      id: '/api/devolucoes/$claimId/motivo'
+      path: '/api/devolucoes/$claimId/motivo'
+      fullPath: '/api/devolucoes/$claimId/motivo'
+      preLoaderRoute: typeof ApiDevolucoesClaimIdMotivoRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/devolucoes/$claimId/resposta': {
+      id: '/api/devolucoes/$claimId/resposta'
+      path: '/api/devolucoes/$claimId/resposta'
+      fullPath: '/api/devolucoes/$claimId/resposta'
+      preLoaderRoute: typeof ApiDevolucoesClaimIdRespostaRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/devolucoes/fotos/$photoId': {
+      id: '/api/devolucoes/fotos/$photoId'
+      path: '/api/devolucoes/fotos/$photoId'
+      fullPath: '/api/devolucoes/fotos/$photoId'
+      preLoaderRoute: typeof ApiDevolucoesFotosPhotoIdRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/fornecedor/exportar/catalogo': {
       id: '/api/fornecedor/exportar/catalogo'
       path: '/api/fornecedor/exportar/catalogo'
@@ -2698,6 +2780,7 @@ interface AppRouteRouteChildren {
   AppLojasRoute: typeof AppLojasRoute
   AppOnboardingRoute: typeof AppOnboardingRoute
   AppPerfilRoute: typeof AppPerfilRoute
+  AppPoliticaDeDevolucaoRoute: typeof AppPoliticaDeDevolucaoRoute
   AppProductsRoute: typeof AppProductsRoute
   AppFornecedorPainelRouteRoute: typeof AppFornecedorPainelRouteRouteWithChildren
   AppFinanceiroRelatorioRoute: typeof AppFinanceiroRelatorioRoute
@@ -2727,6 +2810,7 @@ const AppRouteRouteChildren: AppRouteRouteChildren = {
   AppLojasRoute: AppLojasRoute,
   AppOnboardingRoute: AppOnboardingRoute,
   AppPerfilRoute: AppPerfilRoute,
+  AppPoliticaDeDevolucaoRoute: AppPoliticaDeDevolucaoRoute,
   AppProductsRoute: AppProductsRoute,
   AppFornecedorPainelRouteRoute: AppFornecedorPainelRouteRouteWithChildren,
   AppFinanceiroRelatorioRoute: AppFinanceiroRelatorioRoute,
@@ -2815,6 +2899,9 @@ const rootRouteChildren: RootRouteChildren = {
   ApiAdminExportarChamadosRoute: ApiAdminExportarChamadosRoute,
   ApiAdminExportarClientesRoute: ApiAdminExportarClientesRoute,
   ApiAdminExportarEquipeRoute: ApiAdminExportarEquipeRoute,
+  ApiDevolucoesClaimIdMotivoRoute: ApiDevolucoesClaimIdMotivoRoute,
+  ApiDevolucoesClaimIdRespostaRoute: ApiDevolucoesClaimIdRespostaRoute,
+  ApiDevolucoesFotosPhotoIdRoute: ApiDevolucoesFotosPhotoIdRoute,
   ApiFornecedorExportarCatalogoRoute: ApiFornecedorExportarCatalogoRoute,
   ApiFornecedorExportarPedidosRoute: ApiFornecedorExportarPedidosRoute,
   ApiFornecedorExportarProdutosRoute: ApiFornecedorExportarProdutosRoute,
