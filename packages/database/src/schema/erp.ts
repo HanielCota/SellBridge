@@ -44,6 +44,14 @@ export const supplierErpConnections = pgTable(
     resellerDiscountTenths: integer(),
     lastImportAt: timestamp({ withTimezone: true }),
     /**
+     * The latest "send what is missing to the ERP": when it was asked for and when it ended.
+     * Asked after the last end means it is still running.
+     */
+    catalogExportRequestedAt: timestamp({ withTimezone: true }),
+    catalogExportFinishedAt: timestamp({ withTimezone: true }),
+    /** What that send did (counts, refused products, or why it failed), validated with Zod when read. */
+    catalogExportResult: jsonb(),
+    /**
      * Since when the ERP issues the NF-e of this supplier's new parcels; null while it is off.
      * Parcels created before it are never invoiced here.
      */

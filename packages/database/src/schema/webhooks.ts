@@ -23,6 +23,11 @@ export const webhookEvents = pgTable(
     receivedAt: timestamp({ withTimezone: true }).defaultNow().notNull(),
     processedAt: timestamp({ withTimezone: true }),
     error: text(),
+    /**
+     * Still unprocessed when the sweep's retry window closed: the event was handed to the team
+     * on the admin Problemas page instead of being retried, until someone retries it there.
+     */
+    abandonedAt: timestamp({ withTimezone: true }),
   },
   (table) => [
     uniqueIndex("webhook_events_external_idx").on(table.marketplace, table.externalEventId),
