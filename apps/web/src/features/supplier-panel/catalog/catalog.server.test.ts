@@ -72,6 +72,8 @@ function stored(reviewStatus: Stored["reviewStatus"]): Stored {
     madeToOrderDays: null,
     carrierOnly: false,
     reservedStock: 0,
+    erpProductId: null,
+    erpStockReadAt: null,
     active: true,
     reviewStatus,
     rejectionReasons: [],
