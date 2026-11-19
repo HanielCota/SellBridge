@@ -1,5 +1,10 @@
 import { createDatabase } from "@sellbridge/database/client";
-import { deliverOrderMessageNotice, orderMessageMoments } from "@sellbridge/database/repositories";
+import {
+  deliverOrderMessageNotice,
+  listPendingSupplierIds,
+  orderMessageMoments,
+  runSupplierApprovalCheck,
+} from "@sellbridge/database/repositories";
 import {
   getMercadoLivreShipping,
   parseMercadoLivreNotice,
@@ -14,6 +19,7 @@ import { createBlingRateLimiter, type BlingAppCredentials } from "@sellbridge/ma
 import { asaasSettingsFrom } from "@sellbridge/payments/asaas";
 import { mercadoPagoSettingsFrom } from "@sellbridge/payments/mercado-pago";
 import { createTokenCipher } from "@sellbridge/shared/token-cipher";
+import { createCnpjLookup } from "@sellbridge/shared/cnpj-lookup";
 import { installErrorAlerts } from "@sellbridge/shared/error-alerts";
 import { installProblemRecorder } from "@sellbridge/database/problem-recorder";
 import { installPortugueseZodMessages } from "@sellbridge/shared/zod-messages";
@@ -45,6 +51,7 @@ import { createAsaasPaymentProcessor } from "./processors/asaas-payments.ts";
 import { runPaymentRounds } from "./processors/payment-rounds.ts";
 import { createSupplierPaymentProcessor } from "./processors/supplier-payments.ts";
 import { createTicketAutoCloseProcessor } from "./processors/ticket-auto-close.ts";
+import { createSupplierApprovalProcessor } from "./processors/supplier-approval.ts";
 import { createTokenRefreshProcessor } from "./processors/token-refresh.ts";
 import {
   createErpTokenRefreshProcessor,
@@ -83,6 +90,7 @@ function createQueues(connection: { url: string; maxRetriesPerRequest: null }) {
     notifications: new Queue(QUEUE_NAMES.notificationDelivery, { connection }),
     erpInvoices: new Queue(QUEUE_NAMES.erpInvoiceIssue, { connection }),
     supplierPayments: new Queue(QUEUE_NAMES.supplierPayments, { connection }),
+    supplierApproval: new Queue(QUEUE_NAMES.supplierApproval, { connection }),
   };
 }
 
@@ -354,6 +362,11 @@ function paymentWorkers(context: WorkerContext): Worker[] {
 function deliveryWorkers(context: WorkerContext): Worker[] {
   const { database, cipher, sendEmail, connection } = context;
   const processTickets = createTicketAutoCloseProcessor({ database });
+  const lookUpCnpj = createCnpjLookup({ baseUrl: environment.CNPJ_LOOKUP_URL });
+  const processApprovals = createSupplierApprovalProcessor({
+    listPending: async (limit) => listPendingSupplierIds(database, limit),
+    check: async (supplierId) => runSupplierApprovalCheck(database, supplierId, { lookUpCnpj }),
+  });
   const processWebhooks = createWebhookDeliveryProcessor({
     database,
     cipher,
@@ -381,6 +394,10 @@ function deliveryWorkers(context: WorkerContext): Worker[] {
   });
   return [
     new Worker(QUEUE_NAMES.ticketAutoClose, async () => processTickets(), {
+      connection,
+      concurrency: 1,
+    }),
+    new Worker(QUEUE_NAMES.supplierApproval, async () => processApprovals(), {
       connection,
       concurrency: 1,
     }),
@@ -416,6 +433,7 @@ async function scheduleQueues(queues: WorkerContext["queues"]): Promise<void> {
   await scheduleRecurring(queues.webhookSweep, "sweep-unprocessed-webhook-events", 5 * 60 * 1000);
   await scheduleRecurring(queues.webhookSweep, WEBHOOK_EVENT_PRUNE_JOB, 60 * 60 * 1000);
   await scheduleRecurring(queues.ticketClose, "close-idle-tickets", 60 * 60 * 1000);
+  await scheduleRecurring(queues.supplierApproval, "check-pending-suppliers", 15 * 60 * 1000);
   await scheduleRecurring(queues.tokenRefresh, "refresh-expiring-tokens", 10 * 60 * 1000);
   await scheduleRecurring(queues.shipmentTracking, "track-shipments", 30 * 60 * 1000);
   await scheduleRecurring(queues.claimSweep, "sweep-marketplace-claims", 24 * 60 * 60 * 1000);

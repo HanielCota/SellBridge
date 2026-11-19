@@ -11,6 +11,7 @@ import { loadProductCategories } from "@/lib/server/reference-data";
 import { accountMiddleware } from "@/lib/server/middleware";
 import { assertVisitKeepsOrdersEmail } from "@/lib/server/impersonation-rules";
 import { assertSupplierProfile } from "@/lib/server/supplier-panel-access";
+import { checkSupplierApprovalAfterSave } from "@/features/supplier-approval/approval-check.server";
 
 /**
  * The supplier's own brand ("Sua marca" before it exists, "Dados da marca" after). Same rules as
@@ -52,7 +53,12 @@ export const createOwnBrandFn = createServerFn({ method: "POST" })
         ordersEmail: data.contactEmail,
       });
     }
-    return createSupplierBrand(database, { organizationId: context.tenantId, values: data });
+    const brand = await createSupplierBrand(database, {
+      organizationId: context.tenantId,
+      values: data,
+    });
+    await checkSupplierApprovalAfterSave(brand.id);
+    return brand;
   });
 
 export const updateOwnBrandFn = createServerFn({ method: "POST" })
@@ -60,5 +66,10 @@ export const updateOwnBrandFn = createServerFn({ method: "POST" })
   .validator(adminSupplierValuesSchema)
   .handler(async ({ context, data }) => {
     assertSupplierProfile(context.profileKind);
-    return updateSupplierBrand(database, { organizationId: context.tenantId, values: data });
+    const brand = await updateSupplierBrand(database, {
+      organizationId: context.tenantId,
+      values: data,
+    });
+    await checkSupplierApprovalAfterSave(brand.id);
+    return brand;
   });

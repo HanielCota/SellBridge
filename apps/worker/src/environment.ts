@@ -17,6 +17,7 @@ import {
   asaasEnvironmentFields,
   refuseAsaasStandInsInProduction,
 } from "@sellbridge/payments/asaas";
+import { cnpjLookupUrlEnvironmentSchema } from "@sellbridge/shared/cnpj-lookup";
 import { z } from "zod";
 
 loadRootEnvironmentFile();
@@ -54,6 +55,8 @@ const workerEnvironmentSchema = z
     /** Units Shopee listings show on top of the real ones while there are real units to sell. */
     SHOPEE_SHOWCASE_UNITS: shopeeShowcaseUnitsEnvironmentSchema,
     /** When set, exposes GET /health on this port (container probes, E2E readiness). */
+    /** The public CNPJ query behind the approval of suppliers who sign up alone. */
+    CNPJ_LOOKUP_URL: cnpjLookupUrlEnvironmentSchema,
     WORKER_HEALTH_PORT: z.coerce.number().int().min(1).max(65_535).optional(),
     /**
      * Lets webhook endpoints point to localhost and private networks (local development only).

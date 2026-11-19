@@ -71,3 +71,8 @@ export function createCnpjLookup(options: CnpjLookupOptions): CnpjLookup {
     }
   };
 }
+
+/** `CNPJ_LOOKUP_URL`: BrasilAPI unless a test points it to a local stand-in. */
+export const cnpjLookupUrlEnvironmentSchema = z
+  .url({ protocol: /^https?$/ })
+  .default(DEFAULT_CNPJ_LOOKUP_URL);
