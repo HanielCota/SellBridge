@@ -86,6 +86,11 @@ export const returnClaims = pgTable(
     closedAt: timestamp({ withTimezone: true }),
     /** The return label the supplier owes on top of the cost; recorded only, not paid yet. */
     supplierOwesShippingCents: integer(),
+    /**
+     * The order items whose units had left the supplier's shelf when the parcel came back: only
+     * those go back on it. An item the system never saw ship was never taken off the count.
+     */
+    restockItemIds: uuid().array(),
     /** Set once: the units went back on the supplier's shelf. */
     stockReturnedAt: timestamp({ withTimezone: true }),
   },

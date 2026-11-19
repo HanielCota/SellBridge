@@ -140,10 +140,15 @@ async function openClaimTicket(
  * when it came back to its own address instead. A supplier the team runs has nobody to answer:
  * the team decides, as before the policy.
  */
-async function policyColumns(executor: DatabaseExecutor, parcel: ReturnedParcel, now: Date) {
+async function policyColumns(
+  executor: DatabaseExecutor,
+  parcel: ReturnedParcel,
+  input: { now: Date; leftShelfItemIds: ReadonlySet<string> },
+) {
   if (parcel.supplierOrganizationId === null) {
     return {};
   }
+  const { now } = input;
   const businessDays = await getReturnAnswerBusinessDays(executor);
   return {
     policyStep: "awaiting_supplier" as const,
@@ -151,6 +156,9 @@ async function policyColumns(executor: DatabaseExecutor, parcel: ReturnedParcel,
     arrivedAt: now,
     // TODO: pass the marketplace claim's review date once marketplace claims are stored.
     supplierDueAt: supplierAnswerDeadline({ arrivedAt: now, marketplaceDueAt: null, businessDays }),
+    restockItemIds: parcel.items
+      .map((item) => item.orderItemId)
+      .filter((itemId) => input.leftShelfItemIds.has(itemId)),
   };
 }
 
@@ -158,8 +166,9 @@ async function openParcelClaim(
   executor: DatabaseExecutor,
   order: ReturnedOrder,
   parcel: ReturnedParcel,
-  now: Date,
+  input: { now: Date; leftShelfItemIds: ReadonlySet<string> },
 ): Promise<void> {
+  const { now } = input;
   const supplierCostCents = await parcelSupplierCost(executor, order, parcel.items);
   const [claim] = await executor
     .insert(returnClaims)
@@ -170,7 +179,7 @@ async function openParcelClaim(
       supplierId: parcel.supplierId,
       supplierCostCents,
       createdAt: now,
-      ...(await policyColumns(executor, parcel, now)),
+      ...(await policyColumns(executor, parcel, input)),
     })
     .onConflictDoNothing({ target: returnClaims.shipmentId })
     .returning({ id: returnClaims.id });
@@ -199,9 +208,11 @@ export async function openReturnClaims(
   executor: DatabaseExecutor,
   order: ReturnedOrder,
   now: Date = new Date(),
+  leftShelfItemIds: readonly string[] = [],
 ): Promise<void> {
   const parcels = await findReturnedParcels(executor, order);
+  const input = { now, leftShelfItemIds: new Set(leftShelfItemIds) };
   for (const parcel of parcels) {
-    await openParcelClaim(executor, order, parcel, now);
+    await openParcelClaim(executor, order, parcel, input);
   }
 }

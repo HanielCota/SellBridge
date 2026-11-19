@@ -1,5 +1,5 @@
 {
-  "id": "6e72f559-e7f0-45a7-a6a5-811dfabea58f",
+  "id": "c83b9e49-7bf4-437b-827c-64cd4a421091",
   "prevId": "8a10a541-b65b-408c-bc78-30108bbc8ae4",
   "version": "7",
   "dialect": "postgresql",
@@ -6765,6 +6765,12 @@
         "supplier_owes_shipping_cents": {
           "name": "supplier_owes_shipping_cents",
           "type": "integer",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "restock_item_ids": {
+          "name": "restock_item_ids",
+          "type": "uuid[]",
           "primaryKey": false,
           "notNull": false
         },

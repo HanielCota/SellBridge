@@ -101,8 +101,21 @@ async function shelfUnits(): Promise<number> {
   return row?.stock ?? Number.NaN;
 }
 
-/** A sold, forwarded order whose parcel the marketplace reports as back with the sender. */
-async function openReturn(openedAt = new Date()) {
+function tracking(status: "shipped" | "returned") {
+  return {
+    status,
+    trackingStatus: status,
+    buyerReturnDelivered: false,
+    carrier: "Mercado Envios",
+    trackingCode: "ML-RET",
+  };
+}
+
+/**
+ * A sold, forwarded order whose parcel the marketplace reports as back with the sender. Shipped
+ * first unless `shipped` is false: the case where the system never saw the parcel leave.
+ */
+async function openReturn(openedAt = new Date(), shipped = true) {
   await setShelf(SHELF_UNITS);
   const [order] = await database
     .insert(orders)
@@ -130,13 +143,10 @@ async function openReturn(openedAt = new Date()) {
     address: testAddress,
     notes: "",
   });
-  await applyMarketplaceShipment(database, tenants.tenantA, order.id, {
-    status: "returned",
-    trackingStatus: "returned",
-    buyerReturnDelivered: false,
-    carrier: "Mercado Envios",
-    trackingCode: "ML-RET",
-  });
+  if (shipped) {
+    await applyMarketplaceShipment(database, tenants.tenantA, order.id, tracking("shipped"));
+  }
+  await applyMarketplaceShipment(database, tenants.tenantA, order.id, tracking("returned"));
   const [claim] = await database
     .select()
     .from(returnClaims)
@@ -233,7 +243,7 @@ describe("answerReturnAsSupplier", () => {
     expect(closed.status).toBe("credited");
     expect(closed.creditedCents).toBe(UNIT_COST_CENTS * QUANTITY);
     expect(closed.supplierOwesShippingCents).toBe(RETURN_LABEL_CENTS);
-    expect(await shelfUnits()).toBe(SHELF_UNITS);
+    expect(await shelfUnits()).toBe(SHELF_UNITS - QUANTITY);
   });
 
   it("puts a product the buyer gave up on back on the shelf, once", async () => {
@@ -244,8 +254,19 @@ describe("answerReturnAsSupplier", () => {
     await returnStockOnce(database, claim, new Date());
 
     expect(result.restockedProductIds).toEqual([panelSupplier.productId]);
-    expect(await shelfUnits()).toBe(SHELF_UNITS + QUANTITY);
+    // The units left the shelf when the parcel shipped and come back now: the count is whole again.
+    expect(await shelfUnits()).toBe(SHELF_UNITS);
     expect((await claimRow(claim.id)).supplierOwesShippingCents).toBe(0);
+  });
+
+  it("adds nothing to the shelf for units the system never saw leave it", async () => {
+    const { claim } = await openReturn(new Date(), false);
+    await stateReason(claim.id, "regret", []);
+
+    const result = await answer(claim.id, "as_described", { resellable: true });
+
+    expect(result.restockedProductIds).toEqual([]);
+    expect(await shelfUnits()).toBe(SHELF_UNITS);
   });
 
   it("sends a disagreement to the team and keeps the money held", async () => {
@@ -307,7 +328,7 @@ describe("decideReturnClaim under the policy", () => {
     expect(result.status).toBe("refused");
     expect(closed.closeReason).toBe("team_decided");
     expect(closed.supplierOwesShippingCents).toBe(0);
-    expect(await shelfUnits()).toBe(SHELF_UNITS + QUANTITY);
+    expect(await shelfUnits()).toBe(SHELF_UNITS);
   });
 
   it("lets the team look into a parcel the supplier never received", async () => {
@@ -351,7 +372,7 @@ describe("closeOverdueReturns", () => {
     expect(closed.status).toBe("credited");
     expect(closed.supplierOwesShippingCents).toBe(RETURN_LABEL_CENTS);
     // Nobody said the product can be sold again: the shelf stays as it was.
-    expect(await shelfUnits()).toBe(SHELF_UNITS);
+    expect(await shelfUnits()).toBe(SHELF_UNITS - QUANTITY);
   });
 
   it("owes the reseller nothing when it never sent the parcel on", async () => {

@@ -49,8 +49,8 @@ function refusedColumns(refusalReason: string) {
 }
 
 /**
- * Puts the returned units back on the supplier's shelf, once: the claim's `stock_returned_at`
- * is the guard, so a second close (or a retried job) adds nothing. Returns the products whose
+ * Puts the returned units that had left the shelf back on it, once: the claim's
+ * `stock_returned_at` is the guard, so a second close (or a retried job) adds nothing. Returns the products whose
  * count went up, so the caller can hand them to waiting orders and resend the listings.
  */
 export async function returnStockOnce(
@@ -67,11 +67,14 @@ export async function returnStockOnce(
     return [];
   }
   const [shipment] = await executor
-    .select({ items: orderShipments.items })
+    .select({ items: orderShipments.items, restockItemIds: returnClaims.restockItemIds })
     .from(orderShipments)
+    .innerJoin(returnClaims, eq(returnClaims.shipmentId, orderShipments.id))
     .where(eq(orderShipments.id, claim.shipmentId))
     .limit(1);
-  const items = shipment?.items ?? [];
+  // Only units that left the shelf come back: the others were never taken off the count.
+  const leftShelf = new Set(shipment?.restockItemIds ?? []);
+  const items = (shipment?.items ?? []).filter((item) => leftShelf.has(item.orderItemId));
   if (items.length === 0) {
     return [];
   }

@@ -31,6 +31,7 @@ ALTER TABLE "return_claims" ADD COLUMN "supplier_answered_at" timestamp with tim
 ALTER TABLE "return_claims" ADD COLUMN "close_reason" text;--> statement-breakpoint
 ALTER TABLE "return_claims" ADD COLUMN "closed_at" timestamp with time zone;--> statement-breakpoint
 ALTER TABLE "return_claims" ADD COLUMN "supplier_owes_shipping_cents" integer;--> statement-breakpoint
+ALTER TABLE "return_claims" ADD COLUMN "restock_item_ids" uuid[];--> statement-breakpoint
 ALTER TABLE "return_claims" ADD COLUMN "stock_returned_at" timestamp with time zone;--> statement-breakpoint
 ALTER TABLE "platform_settings" ADD COLUMN "return_answer_business_days" integer DEFAULT 3 NOT NULL;--> statement-breakpoint
 ALTER TABLE "return_claim_photos" ADD CONSTRAINT "return_claim_photos_claim_id_return_claims_id_fk" FOREIGN KEY ("claim_id") REFERENCES "public"."return_claims"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
