@@ -3,6 +3,7 @@ import {
   combinationOwnFields,
   materializeCombination,
   modelCodeFromTitle,
+  type GridColor,
   type GridCombination,
   type MaterializedCombination,
   type ProductGrid,
@@ -197,39 +198,135 @@ export async function createProductModel(
     reviewStatus: "approved" | "draft";
   },
 ): Promise<{ modelId: string; combinationIds: string[] }> {
-  const { supplierId, values, grid } = input;
   return await database.transaction(async (transaction) => {
-    await lockSupplier(transaction, supplierId);
-    const code = await modelCodeFor(transaction, {
-      supplierId,
-      code: input.code,
-      title: values.title,
-    });
-    await assertSkusAreFree(
-      transaction,
-      supplierId,
-      grid.combinations.map((combination) => combination.sku),
-    );
-    const [model] = await transaction
-      .insert(productModels)
-      .values({ supplierId, code, ...values, imageUrls: [...values.imageUrls] })
-      .returning({ id: productModels.id });
-    if (model === undefined) {
-      throw new Error("product_models insert returned no row");
-    }
-    await insertOptions(transaction, model.id, grid);
-    const fallback = await getSupplierFiscalFallback(transaction, supplierId);
-    const photos = colorPhotos(grid);
-    const rows = grid.combinations.map((combination) => {
-      const row = combinationRow({ supplierId, modelId: model.id, values, photos }, combination);
-      return { ...row, reviewStatus: reviewStatusFor(input.reviewStatus, row, fallback) };
-    });
-    const inserted = await transaction
-      .insert(supplierProducts)
-      .values(rows)
-      .returning({ id: supplierProducts.id });
-    return { modelId: model.id, combinationIds: inserted.map((row) => row.id) };
+    await lockSupplier(transaction, input.supplierId);
+    return await insertProductModel(transaction, input);
   });
+}
+
+/** `createProductModel` inside a transaction the caller holds, with the supplier locked. */
+export async function insertProductModel(
+  transaction: DatabaseExecutor,
+  input: Parameters<typeof createProductModel>[1],
+): Promise<{ modelId: string; combinationIds: string[] }> {
+  const { supplierId, values, grid } = input;
+  const code = await modelCodeFor(transaction, {
+    supplierId,
+    code: input.code,
+    title: values.title,
+  });
+  await assertSkusAreFree(
+    transaction,
+    supplierId,
+    grid.combinations.map((combination) => combination.sku),
+  );
+  const [model] = await transaction
+    .insert(productModels)
+    .values({ supplierId, code, ...values, imageUrls: [...values.imageUrls] })
+    .returning({ id: productModels.id });
+  if (model === undefined) {
+    throw new Error("product_models insert returned no row");
+  }
+  await insertOptions(transaction, model.id, grid);
+  const fallback = await getSupplierFiscalFallback(transaction, supplierId);
+  const photos = colorPhotos(grid);
+  const rows = grid.combinations.map((combination) => {
+    const row = combinationRow({ supplierId, modelId: model.id, values, photos }, combination);
+    return { ...row, reviewStatus: reviewStatusFor(input.reviewStatus, row, fallback) };
+  });
+  const inserted = await transaction
+    .insert(supplierProducts)
+    .values(rows)
+    .returning({ id: supplierProducts.id });
+  return { modelId: model.id, combinationIds: inserted.map((row) => row.id) };
+}
+
+/**
+ * Adds colours, sizes and combinations to a grid the supplier has, each combination built from
+ * the model's stored shared data. The caller holds the supplier lock.
+ *
+ * @throws AppError NOT_FOUND when the model is not the supplier's; CONFLICT when a SKU is taken.
+ */
+export async function addCombinationsToModel(
+  transaction: DatabaseExecutor,
+  input: {
+    supplierId: string;
+    modelId: string;
+    colors: readonly GridColor[];
+    sizes: readonly string[];
+    combinations: readonly GridCombination[];
+  },
+): Promise<string[]> {
+  const { supplierId, modelId } = input;
+  await assertSkusAreFree(
+    transaction,
+    supplierId,
+    input.combinations.map((combination) => combination.sku),
+  );
+  const [model] = await transaction
+    .select()
+    .from(productModels)
+    .where(and(eq(productModels.id, modelId), eq(productModels.supplierId, supplierId)));
+  if (model === undefined) {
+    throw notFoundError("Modelo não encontrado neste fornecedor");
+  }
+  const storedColors = await transaction
+    .select({ name: productModelColors.name, imageUrls: productModelColors.imageUrls })
+    .from(productModelColors)
+    .where(eq(productModelColors.modelId, modelId));
+  const storedSizes = await transaction
+    .select({ name: productModelSizes.name })
+    .from(productModelSizes)
+    .where(eq(productModelSizes.modelId, modelId));
+  await appendOptions(transaction, modelId, {
+    colors: input.colors.map((color, index) => ({
+      ...color,
+      position: storedColors.length + index,
+    })),
+    sizes: input.sizes.map((name, index) => ({ name, position: storedSizes.length + index })),
+  });
+  const photos = new Map(
+    [...storedColors, ...input.colors].map((color) => [color.name, [...color.imageUrls]]),
+  );
+  const values = sharedValues(model);
+  const fallback = await getSupplierFiscalFallback(transaction, supplierId);
+  if (input.combinations.length === 0) {
+    return [];
+  }
+  const rows = input.combinations.map((combination) => {
+    const row = combinationRow({ supplierId, modelId, values, photos }, combination);
+    return { ...row, reviewStatus: reviewStatusFor("approved", row, fallback) };
+  });
+  const inserted = await transaction
+    .insert(supplierProducts)
+    .values(rows)
+    .returning({ id: supplierProducts.id });
+  return inserted.map((row) => row.id);
+}
+
+async function appendOptions(
+  transaction: DatabaseExecutor,
+  modelId: string,
+  options: {
+    colors: readonly { name: string; imageUrls: readonly string[]; position: number }[];
+    sizes: readonly { name: string; position: number }[];
+  },
+): Promise<void> {
+  if (options.colors.length > 0) {
+    await transaction.insert(productModelColors).values(
+      options.colors.map((color) => ({
+        modelId,
+        name: color.name,
+        position: color.position,
+        imageUrls: [...color.imageUrls],
+      })),
+    );
+  }
+  if (options.sizes.length > 0) {
+    await transaction
+      .insert(productModelSizes)
+      .values(options.sizes.map((size) => ({ modelId, name: size.name, position: size.position })));
+  }
 }
 
 async function insertOptions(

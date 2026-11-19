@@ -8,6 +8,7 @@ import {
   type Pagination,
 } from "@sellbridge/shared/schemas";
 import type { ProductCsvError, ProductCsvRow } from "@sellbridge/shared/product-csv";
+import { planGridImport, type GridImportPlan } from "@sellbridge/shared/product-grid-import";
 import {
   hasRequiredFiscalData,
   icmsOverrideProblem,
@@ -35,6 +36,12 @@ import { matchesEveryWord } from "./sql/search-pattern.ts";
 import { reviewedImportValues } from "./supplier-panel-import-review.ts";
 import { getSupplierFiscalFallback } from "./supplier-brand.ts";
 import { keptOnCombination } from "./sql/grid-combination.ts";
+import {
+  loadGridImportContext,
+  resolveGrids,
+  writePlannedGrids,
+  type PlannedGrid,
+} from "./supplier-grid-import.ts";
 import { publicSupplier } from "./sql/sellable.ts";
 
 export type AdminSupplier = typeof suppliers.$inferSelect;
@@ -444,6 +451,10 @@ export interface SupplierProductImportPlan {
   /** SKUs the import creates: they need NF-e data to go on sale (fiscal rule of 10/11/2026). */
   newSkus: string[];
   revision: string;
+  /** Colour and size grids the import creates or grows (only while grids are on). */
+  grids: PlannedGrid[];
+  /** What the supplier should know but need not fix, by line. */
+  notices: ProductCsvError[];
 }
 
 function planImportRows(input: {
@@ -465,6 +476,8 @@ function planImportRows(input: {
     products: [],
     newSkus: [],
     revision: "",
+    grids: [],
+    notices: [],
   };
   for (const row of input.rows) {
     const { categorySlug, suggestedPriceCents, ...product } = row.product;
@@ -551,13 +564,41 @@ export async function previewSupplierProductImport(
           )
           .orderBy(asc(supplierProducts.sku));
   const availableCategories = await listAdminCategories(database);
-  return planImportRows({
-    supplierId,
+  const gridPlan = planGridImport({
     rows,
+    ...(await loadGridImportContext(database, supplierId, rows)),
+  });
+  const plan = planImportRows({
+    supplierId,
+    rows: gridPlan.plainRows,
     existing,
     availableCategories,
     regime: supplier.fiscalProfile?.regime ?? null,
   });
+  return withGrids(plan, gridPlan, availableCategories);
+}
+
+/** The plan with the file's grids: their combinations count as created products. */
+function withGrids(
+  plan: SupplierProductImportPlan,
+  gridPlan: GridImportPlan,
+  availableCategories: Awaited<ReturnType<typeof listAdminCategories>>,
+): SupplierProductImportPlan {
+  const categoryBySlug = new Map(
+    availableCategories.map((category) => [category.slug, category.id]),
+  );
+  const resolved = resolveGrids(gridPlan.grids, (slug) => categoryBySlug.get(slug));
+  const combinations = resolved.grids.reduce((sum, grid) => sum + grid.combinations.length, 0);
+  return {
+    ...plan,
+    created: plan.created + combinations,
+    errors: [...plan.errors, ...gridPlan.errors, ...resolved.errors].toSorted(
+      (first, second) => first.line - second.line,
+    ),
+    grids: resolved.grids,
+    notices: [...gridPlan.notices],
+    revision: JSON.stringify([plan.revision, resolved.grids]),
+  };
 }
 
 /**
@@ -612,6 +653,30 @@ function importedValuesSet() {
   };
 }
 
+/** The plan's products of their own and existing combinations, by SKU, as the import always wrote them. */
+async function writeImportedProducts(
+  transaction: DatabaseExecutor,
+  input: { supplierId: string; reviewAt?: Date },
+  plan: SupplierProductImportPlan,
+): Promise<string[]> {
+  if (plan.products.length === 0) {
+    return [];
+  }
+  const reviewed = await reviewedImportValues(transaction, input, plan.products);
+  const fiscalFallback = await getSupplierFiscalFallback(transaction, input.supplierId);
+  const written = await transaction
+    .insert(supplierProducts)
+    .values(
+      withNewProductFiscalRule(reviewed?.values ?? plan.products, plan.newSkus, fiscalFallback),
+    )
+    .onConflictDoUpdate({
+      target: [supplierProducts.supplierId, supplierProducts.sku],
+      set: { ...importedValuesSet(), ...reviewed?.conflictSet, updatedAt: new Date() },
+    })
+    .returning({ id: supplierProducts.id });
+  return written.map((product) => product.id);
+}
+
 /** All rows commit together; conflicts preserve product ids and therefore listing/order references. */
 export async function importSupplierProducts(
   database: Database,
@@ -636,27 +701,17 @@ export async function importSupplierProducts(
       .for("no key update");
     const plan = await previewSupplierProductImport(transaction, input.supplierId, input.rows);
     input.validatePreview(plan);
-    if (plan.errors.length > 0 || plan.products.length === 0) {
+    if (plan.errors.length > 0 || (plan.products.length === 0 && plan.grids.length === 0)) {
       throw validationError("Corrija os erros do CSV antes de importar");
     }
-    const reviewed = await reviewedImportValues(transaction, input, plan.products);
-    const fiscalFallback = await getSupplierFiscalFallback(transaction, input.supplierId);
-    const written = await transaction
-      .insert(supplierProducts)
-      .values(
-        withNewProductFiscalRule(reviewed?.values ?? plan.products, plan.newSkus, fiscalFallback),
-      )
-      .onConflictDoUpdate({
-        target: [supplierProducts.supplierId, supplierProducts.sku],
-        set: { ...importedValuesSet(), ...reviewed?.conflictSet, updatedAt: new Date() },
-      })
-      .returning({ id: supplierProducts.id });
+    const written = await writeImportedProducts(transaction, input, plan);
+    const gridIds = await writePlannedGrids(transaction, input.supplierId, plan.grids);
     const pausedTargets = await pauseUnsellableListings(transaction, input.supplierId);
     return {
       created: plan.created,
       updated: plan.updated,
       pausedTargets,
-      productIds: written.map((product) => product.id),
+      productIds: [...written, ...gridIds],
     };
   });
 }

@@ -419,7 +419,7 @@ function publishingProblems(
 }
 
 /** A combination on sale goes back to draft when an edit of the model leaves it unsellable. */
-async function demoteUnsellableCombinations(
+export async function demoteUnsellableCombinations(
   transaction: DatabaseExecutor,
   input: { supplierId: string; modelId: string; categoryId: string | null },
 ): Promise<void> {
