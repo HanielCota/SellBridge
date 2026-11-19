@@ -191,6 +191,24 @@ export function shelfPriceForMargin(
   return null;
 }
 
+/** The margins both price screens offer as one-tap shortcuts, in percent of the sale. */
+export const MARGIN_SHORTCUTS = [25, 40, 55] as const;
+
+/**
+ * Each shortcut margin with the price it leads to (`shelfPriceForMargin`), so a new listing and
+ * a price change offer the same margins at the same prices. Null when no price keeps it.
+ */
+export function marginShortcutPrices(
+  product: ProductCost,
+  schedule: FeeSchedule,
+  channels: SaleChannels,
+): { marginPercent: number; priceCents: Cents | null }[] {
+  return MARGIN_SHORTCUTS.map((marginPercent) => ({
+    marginPercent,
+    priceCents: shelfPriceForMargin(product, marginPercent, schedule, channels),
+  }));
+}
+
 /**
  * Lowest price the server accepts for the product on every channel: break-even, or the
  * configured minimum margin.
