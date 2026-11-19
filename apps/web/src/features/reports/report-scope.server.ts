@@ -7,7 +7,6 @@ import {
   type ResolvedPeriod,
 } from "@sellbridge/shared/period-range";
 import type { PeriodSearch } from "@sellbridge/shared/schemas";
-import { RESELLER_PLATFORM_FEE_BASIS_POINTS } from "./fee-schedule";
 
 /** Shared by the dashboard, the financial page and the CSV export (server only). */
 export function buildReportScope(tenantId: string, search: PeriodSearch, now = new Date()) {
@@ -16,7 +15,6 @@ export function buildReportScope(tenantId: string, search: PeriodSearch, now = n
     tenantId,
     range: { from: period.from, to: period.to },
     storeConnectionId: search.store,
-    platformFeeBasisPoints: RESELLER_PLATFORM_FEE_BASIS_POINTS,
   };
   return { period, scope };
 }

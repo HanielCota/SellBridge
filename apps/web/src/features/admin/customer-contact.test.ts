@@ -15,9 +15,14 @@ const HOLDER = {
   fullName: "Ana Souza Lima",
   cpf: "52998224725",
   phone: "11987654321",
-  company: { cnpj: "11222333000181", companyName: "Ana Modas Ltda" },
+  company: {
+    cnpj: "11222333000181",
+    companyName: "Ana Modas Ltda",
+    stateRegistration: "ISENTO",
+    regime: "simples",
+  },
   address: ADDRESS,
-};
+} as const;
 
 describe("customerContactForStaff", () => {
   it("gives the admin the phone and the address", () => {

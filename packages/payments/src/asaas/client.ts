@@ -1,4 +1,5 @@
 import { asaasRequest, type AsaasHttpOptions, type AsaasRequest } from "./http.ts";
+import type { SupplierPayMethod } from "@sellbridge/shared/shipment-payments";
 import { asaasValueFromCents } from "./money.ts";
 import {
   asaasAccountStatusSchema,
@@ -78,6 +79,11 @@ export interface AsaasCreatedAccount {
 
 export interface AsaasNewCharge {
   readonly customerId: string;
+  /**
+   * The only way Asaas's page offers to pay this charge. Never UNDEFINED: that lets the payer
+   * pick boleto there.
+   */
+  readonly payMethod: SupplierPayMethod;
   readonly amountCents: number;
   /** `YYYY-MM-DD`. */
   readonly dueDate: string;
@@ -136,8 +142,9 @@ function newChargeBody(charge: AsaasNewCharge) {
         ];
   return {
     customer: charge.customerId,
-    // The payer picks Pix, card (one installment) or boleto on Asaas's page.
-    billingType: "UNDEFINED",
+    // Asaas's page then offers only this method; a card charge without installmentCount is paid
+    // in full (sandbox, 18/11/2026).
+    billingType: charge.payMethod,
     value: asaasValueFromCents(charge.amountCents),
     dueDate: charge.dueDate,
     description: charge.description,

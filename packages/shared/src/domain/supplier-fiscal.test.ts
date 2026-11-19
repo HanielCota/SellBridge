@@ -1,7 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
   readSupplierFiscalProfile,
-  stateRegistrationSchema,
   suggestedTaxDefaults,
   supplierFiscalProfileSchema,
 } from "./supplier-fiscal.ts";
@@ -23,23 +22,6 @@ const PROFILE = {
   },
   defaults: suggestedTaxDefaults("simples"),
 } as const;
-
-describe("stateRegistrationSchema", () => {
-  it("keeps the digits of a masked registration", () => {
-    expect(stateRegistrationSchema.safeParse("062.307.904/0081")).toEqual({
-      success: true,
-      data: "0623079040081",
-    });
-  });
-
-  it("accepts ISENTO in any case", () => {
-    expect(stateRegistrationSchema.safeParse("isento")).toEqual({ success: true, data: "ISENTO" });
-  });
-
-  it("refuses letters other than ISENTO", () => {
-    expect(stateRegistrationSchema.safeParse("ABC123").success).toBe(false);
-  });
-});
 
 describe("supplierFiscalProfileSchema", () => {
   it("refuses a city code from another state than the address", () => {

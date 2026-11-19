@@ -82,7 +82,7 @@ export async function getOrderPage(
   database: Database,
   tenantId: string,
   orderId: string,
-  options: { platformFeeBasisPoints: number; now: Date },
+  options: { now: Date },
 ): Promise<OrderPage> {
   const order = await getOrderDetail(database, tenantId, orderId);
   const [history, reviews] = await Promise.all([
@@ -91,7 +91,7 @@ export async function getOrderPage(
   ]);
   return {
     order,
-    finance: computeOrderFinance(orderFinanceInput(order), options.platformFeeBasisPoints),
+    finance: computeOrderFinance(orderFinanceInput(order)),
     history,
     reviews,
   };

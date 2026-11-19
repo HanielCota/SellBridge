@@ -104,6 +104,7 @@ const checkout = {
   payable,
   account,
   payment,
+  payMethod: "PIX" as const,
   successUrl: "https://app.sellbridge.test/pedidos/1",
 };
 

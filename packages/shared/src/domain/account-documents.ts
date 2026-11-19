@@ -94,3 +94,18 @@ export function formatPhone(input: string): string {
   }
   return `${area}${local.slice(0, splitAt)}-${local.slice(splitAt)}`;
 }
+
+const STATE_REGISTRATION_EXEMPT = "ISENTO";
+
+/** Digits (2 to 14) or "ISENTO" for a company without a state registration. */
+export const stateRegistrationSchema = z
+  .string()
+  .trim()
+  .toUpperCase()
+  .transform((value) =>
+    value === STATE_REGISTRATION_EXEMPT ? value : value.replace(/[.\-/\s]/g, ""),
+  )
+  .refine(
+    (value) => value === STATE_REGISTRATION_EXEMPT || /^\d{2,14}$/.test(value),
+    "Informe a inscrição estadual só com números, ou escreva ISENTO",
+  );

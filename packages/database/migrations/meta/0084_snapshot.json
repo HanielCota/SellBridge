@@ -1,5 +1,5 @@
 {
-  "id": "68350799-bd7a-4c3d-a361-e05493a0201c",
+  "id": "76effc80-b8c2-4b1f-a127-a5ca323e5471",
   "prevId": "00a925d3-14bc-406d-8b98-d80138e2eb19",
   "version": "7",
   "dialect": "postgresql",
@@ -844,6 +844,18 @@
           "primaryKey": false,
           "notNull": false
         },
+        "state_registration": {
+          "name": "state_registration",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "tax_regime": {
+          "name": "tax_regime",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
         "billing_address": {
           "name": "billing_address",
           "type": "jsonb",
@@ -935,6 +947,10 @@
       "uniqueConstraints": {},
       "policies": {},
       "checkConstraints": {
+        "tenant_profile_tax_regime_check": {
+          "name": "tenant_profile_tax_regime_check",
+          "value": "\"tenant_profile\".\"tax_regime\" is null or \"tenant_profile\".\"tax_regime\" in ('simples', 'presumido', 'real')"
+        },
         "tenant_profile_product_source_mode_check": {
           "name": "tenant_profile_product_source_mode_check",
           "value": "\"tenant_profile\".\"product_source_mode\" is null or \"tenant_profile\".\"product_source_mode\" in ('own', 'suppliers', 'both')"
@@ -1875,93 +1891,6 @@
           ]
         }
       },
-      "uniqueConstraints": {},
-      "policies": {},
-      "checkConstraints": {},
-      "isRLSEnabled": false
-    },
-    "public.store_buyer_address_checks": {
-      "name": "store_buyer_address_checks",
-      "schema": "",
-      "columns": {
-        "store_connection_id": {
-          "name": "store_connection_id",
-          "type": "uuid",
-          "primaryKey": true,
-          "notNull": true
-        },
-        "result": {
-          "name": "result",
-          "type": "buyer_address_result",
-          "typeSchema": "public",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "supplier_id": {
-          "name": "supplier_id",
-          "type": "uuid",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "checked_at": {
-          "name": "checked_at",
-          "type": "timestamp with time zone",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "wrong_since": {
-          "name": "wrong_since",
-          "type": "timestamp with time zone",
-          "primaryKey": false,
-          "notNull": false
-        }
-      },
-      "indexes": {
-        "store_buyer_address_checks_checked_idx": {
-          "name": "store_buyer_address_checks_checked_idx",
-          "columns": [
-            {
-              "expression": "checked_at",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            }
-          ],
-          "isUnique": false,
-          "concurrently": false,
-          "method": "btree",
-          "with": {}
-        }
-      },
-      "foreignKeys": {
-        "store_buyer_address_checks_store_connection_id_store_connections_id_fk": {
-          "name": "store_buyer_address_checks_store_connection_id_store_connections_id_fk",
-          "tableFrom": "store_buyer_address_checks",
-          "tableTo": "store_connections",
-          "columnsFrom": [
-            "store_connection_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
-          "onDelete": "cascade",
-          "onUpdate": "no action"
-        },
-        "store_buyer_address_checks_supplier_id_suppliers_id_fk": {
-          "name": "store_buyer_address_checks_supplier_id_suppliers_id_fk",
-          "tableFrom": "store_buyer_address_checks",
-          "tableTo": "suppliers",
-          "columnsFrom": [
-            "supplier_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
-          "onDelete": "set null",
-          "onUpdate": "no action"
-        }
-      },
-      "compositePrimaryKeys": {},
       "uniqueConstraints": {},
       "policies": {},
       "checkConstraints": {},
@@ -8787,17 +8716,6 @@
     }
   },
   "enums": {
-    "public.buyer_address_result": {
-      "name": "buyer_address_result",
-      "schema": "public",
-      "values": [
-        "ok",
-        "supplier_address",
-        "shipping_address",
-        "no_buying_address",
-        "not_checked"
-      ]
-    },
     "public.customer_issue_kind": {
       "name": "customer_issue_kind",
       "schema": "public",

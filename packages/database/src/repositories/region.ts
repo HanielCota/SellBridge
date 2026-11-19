@@ -1,4 +1,5 @@
 import type { BillingAddress } from "@sellbridge/shared/billing-address";
+import type { TaxRegime } from "@sellbridge/shared/product-fiscal";
 import { conflictError, notFoundError } from "@sellbridge/shared/errors";
 import {
   productSourceChoiceSchema,
@@ -11,11 +12,20 @@ import { isUniqueViolation } from "../postgres-errors.ts";
 import { suppliers, tenantProfile } from "../schema/index.ts";
 import { publicSupplier } from "./sql/sellable.ts";
 
-/** Who sells as a company: CNPJ (digits) and legal name. */
+/** Who sells as a company: CNPJ (digits), legal name and the data its NF-e carries. */
 export interface HolderCompany {
   cnpj: string;
   companyName: string;
+  /** Digits or "ISENTO"; null for companies saved before it was asked. */
+  stateRegistration: string | null;
+  /** Null for companies saved before it was asked. */
+  regime: TaxRegime | null;
 }
+
+/** What a save takes: a company is saved with every field. */
+export type HolderCompanyValues = {
+  [Key in keyof HolderCompany]: NonNullable<HolderCompany[Key]>;
+};
 
 /** Who invoices and charges go to, and how to reach them. */
 export interface BillingHolder {
@@ -33,7 +43,7 @@ export interface BillingHolderValues {
   fullName: string;
   cpf: string;
   phone?: string;
-  company?: HolderCompany | null;
+  company?: HolderCompanyValues | null;
   address?: BillingAddress;
 }
 
@@ -82,6 +92,8 @@ export async function findBillingHolder(
       phone: true,
       cnpj: true,
       companyName: true,
+      stateRegistration: true,
+      taxRegime: true,
       billingAddress: true,
     },
     where: eq(tenantProfile.tenantId, tenantId),
@@ -92,11 +104,16 @@ export async function findBillingHolder(
   return holderOf(row);
 }
 
-function companyValuesOf(company: HolderCompany | null | undefined) {
+function companyValuesOf(company: HolderCompanyValues | null | undefined) {
   if (company === undefined) {
     return {};
   }
-  return { cnpj: company?.cnpj ?? null, companyName: company?.companyName ?? null };
+  return {
+    cnpj: company?.cnpj ?? null,
+    companyName: company?.companyName ?? null,
+    stateRegistration: company?.stateRegistration ?? null,
+    taxRegime: company?.regime ?? null,
+  };
 }
 
 function profileValuesOf(holder: BillingHolderValues) {
@@ -152,6 +169,8 @@ export async function findOnboardingProfile(
       phone: tenantProfile.phone,
       cnpj: tenantProfile.cnpj,
       companyName: tenantProfile.companyName,
+      stateRegistration: tenantProfile.stateRegistration,
+      taxRegime: tenantProfile.taxRegime,
       billingAddress: tenantProfile.billingAddress,
       supplierId: suppliers.id,
       supplierName: suppliers.name,
@@ -182,6 +201,8 @@ function holderOf(row: {
   phone: string | null;
   cnpj: string | null;
   companyName: string | null;
+  stateRegistration: string | null;
+  taxRegime: TaxRegime | null;
   billingAddress: BillingAddress | null;
 }): BillingHolder | null {
   if (row.fullName === null || row.cpf === null) {
@@ -190,7 +211,12 @@ function holderOf(row: {
   const company =
     row.cnpj === null || row.companyName === null
       ? null
-      : { cnpj: row.cnpj, companyName: row.companyName };
+      : {
+          cnpj: row.cnpj,
+          companyName: row.companyName,
+          stateRegistration: row.stateRegistration,
+          regime: row.taxRegime,
+        };
   return {
     fullName: row.fullName,
     cpf: row.cpf,
