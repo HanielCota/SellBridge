@@ -68,7 +68,7 @@ O objetivo de cada item é **fechar as lacunas listadas nele com qualidade de pr
 1. **Confirme no código antes de mudar.** O relatório e este prompt citam arquivos e linhas que podem ter mudado. Para cada lacuna, ache a evidência atual (arquivo:linha). Se já estiver resolvida, registre ✅ com a evidência e não reimplemente.
 2. **Não invente regra de negócio.** Regra de negócio é decidida pelo dono do produto (Guilherme), com a Central; o que o cliente pede entra como informação, não como trava. Quando um item depende de uma regra ainda não decidida:
    - leve as opções com uma recomendação para a Central, que pergunta ao dono;
-   - registre a decisão em `docs/decisions.md`, com a frase dele e a data;
+   - registre a decisão num arquivo novo em `docs/decisions/` (um por decisão, veja o `README.md` da pasta), com a frase dele e a data;
    - enquanto a resposta não vem, não invente: siga com o resto do item ou pare e pergunte.
 
 3. **Teste antes de corrigir.** Todo bug ganha um teste que falha antes da correção; mostre que falhava. Regras de domínio novas vão para `packages/shared/src/domain/`, com testes unitários.
@@ -87,7 +87,7 @@ O objetivo de cada item é **fechar as lacunas listadas nele com qualidade de pr
   - `packages/marketplaces`: Mercado Livre real, mock, Shopee e TikTok como stubs.
 - **Leitura de contexto na primeira vez de cada sessão:**
   - a seção "Contexto do projeto" de `docs/prompts/revisao-completa.md`;
-  - `docs/architecture.md`, `docs/decisions.md`, `docs/billing.md`, `docs/marketplaces/mercado-livre.md`.
+  - `docs/architecture.md`, `docs/decisions.md` (até 2026-11-18) e a pasta `docs/decisions/` (de 2026-11-19 em diante), `docs/billing.md`, `docs/marketplaces/mercado-livre.md`.
 - **Cargos da equipe:** `agent` (atendente), `supervisor`, `admin`, em `packages/shared/src/domain/staff-access.ts`. Só `admin` tem os poderes do Better Auth (banir, entrar como cliente) e acesso a Clientes e Fornecedores. Revendedor é `user`.
 - **Regras da casa** (o lint e o `check:no-else` cobram parte delas):
   - sem `else`, com early return;
@@ -343,7 +343,7 @@ Há 3 pontos de parada. Neles você **para, envia o pacote indicado e espera** `
 8. **Documentar.**
    - Atualize `docs/reviews/execucao-progresso.md`: tabela, linha de base (se a contagem de testes mudou) e uma entrada no Histórico.
    - Atualize a tabela da seção "⟳ Atualização" do relatório de lacunas com os IDs tratados (situação e evidência).
-   - Registre escolhas de projeto em `docs/decisions.md`.
+   - Registre escolhas de projeto num arquivo novo em `docs/decisions/` (um por decisão).
    - **Sai quando:** os três arquivos refletem o que foi feito.
    - **⏸3:** envie o pacote e espere.
 9. **Commitar** (só depois do OK do ⏸3 e com todos os portões verdes).
@@ -440,7 +440,7 @@ O título usa o ID da parte quando houver (`## Item 01.a · …`).
 
 ## 8. Decisões de negócio (D1–D11)
 
-Desde 18/11/2026 quem decide é o dono do produto (Guilherme), com a Central, e não mais o cliente ("4 sim", chat da Central). As decisões ficam em `docs/decisions.md`; esta tabela só resume onde cada uma está.
+Desde 18/11/2026 quem decide é o dono do produto (Guilherme), com a Central, e não mais o cliente ("4 sim", chat da Central). As decisões ficam em `docs/decisions.md` (até 2026-11-18) e em `docs/decisions/` (depois); esta tabela só resume onde cada uma está.
 
 | ID  | Pergunta                                          | Situação em 18/11/2026                                                      |
 | --- | ------------------------------------------------- | --------------------------------------------------------------------------- |
