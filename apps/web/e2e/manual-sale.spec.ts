@@ -1,6 +1,8 @@
 import { fileURLToPath } from "node:url";
 import { expect, test } from "@playwright/test";
 import { orders } from "@sellbridge/database/schema";
+import { formatCents } from "@sellbridge/shared/money";
+import { estimatedManualSaleFeeCents } from "@sellbridge/shared/schemas";
 import { eq } from "drizzle-orm";
 import { forwardableProduct } from "./catalog-fixtures";
 import { e2eDatabase } from "./database";
@@ -57,6 +59,16 @@ test("registers a Shopee sale by hand, reads its label and forwards it to the su
   expect(await labelContentMismatches(page)).toEqual([]);
   const item = page.getByRole("list", { name: "Produtos da venda" });
   await item.getByLabel("Quantidade").fill("2");
+  // The fee comes from Shopee's table for the price, and the reseller corrects it from the order.
+  const estimate = estimatedManualSaleFeeCents("shopee", [
+    { quantity: 2, unitPriceCents: product.suggestedPriceCents },
+  ]);
+  const fee = page.getByLabel("Taxa da Shopee (R$)");
+  await expect(fee).toHaveValue(formatCents(estimate).replace(/^R\$\s/, ""));
+  await fee.fill("");
+  await fee.pressSequentially("1234");
+  await expect(fee).toHaveValue("12,34");
+  await expect(page.getByRole("button", { name: "Usar o cálculo da tabela" })).toBeVisible();
   await page.getByRole("button", { name: "Registrar venda" }).click();
 
   await expect(page).toHaveURL(/\/pedidos\/[0-9a-f-]{36}/);
@@ -68,10 +80,18 @@ test("registers a Shopee sale by hand, reads its label and forwards it to the su
   await expect(page.getByLabel("Link do fornecedor").first()).toBeVisible();
 
   const [order] = await database
-    .select({ status: orders.status, totalCents: orders.totalCents })
+    .select({
+      status: orders.status,
+      totalCents: orders.totalCents,
+      marketplaceFeeCents: orders.marketplaceFeeCents,
+    })
     .from(orders)
     .where(eq(orders.externalOrderId, externalOrderId));
-  expect(order).toEqual({ status: "paid", totalCents: product.suggestedPriceCents * 2 });
+  expect(order).toEqual({
+    status: "paid",
+    totalCents: product.suggestedPriceCents * 2,
+    marketplaceFeeCents: 1_234,
+  });
 });
 
 test("fits a phone screen without sideways scrolling", async ({ page }) => {

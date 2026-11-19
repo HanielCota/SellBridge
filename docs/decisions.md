@@ -1000,3 +1000,13 @@ Pedido da StockShopp em 17/11/2026: revendedores põem o endereço do fornecedor
 - **Decisão (Guilherme, "4 sim", chat da Central):** as decisões de negócio deixam de esperar o cliente. Quem decide é o dono do produto, com a Central; o que o cliente pede entra como informação, não como trava.
 - **O que muda:** o princípio 2 e a seção 8 de `docs/prompts/execucao-tela-a-tela.md` (a tabela D1–D11 passa a mostrar a situação de cada decisão), a nota de `docs/prompts/coordenacao.md` e o aviso no topo de `docs/prompts/fase-cliente-1.md`. As entradas antigas marcadas `PENDENTE CLIENTE` continuam como histórico.
 - **Descartado:** continuar com flags desligadas e adapters de faz de conta para cada decisão em aberto, que travava itens já decididos na prática.
+
+## 2026-11-18: Taxa do canal na venda manual
+
+A venda manual (Shopee e TikTok Shop) era gravada com a taxa do marketplace em zero, então o lucro do Financeiro e dos relatórios não descontava o que o canal fica. Guilherme escolheu a opção A em 18/11/2026 ("Aprovo todas") e aprovou o plano no mesmo dia ("Pode seguir").
+
+- **Na tela:** um campo "Taxa da Shopee (R$)" ou "Taxa do TikTok Shop (R$)", que aparece com o primeiro produto e já vem preenchido com o cálculo pela tabela do canal, com uma frase dizendo isso e pedindo para conferir no pedido. Enquanto o lojista não mexe, o valor acompanha canal, quantidades e preços; se ele digita, vale o valor dele, e um botão volta ao cálculo.
+- **O cálculo:** cada produto pela tabela do canal (`channel-fees.ts`, a mesma das prévias de preço), vezes a quantidade, somado. Shopee: comissão e valor fixo por unidade. TikTok Shop: comissão, valor fixo e o Programa de Frete por unidade.
+- **Regras:** a taxa vai de R$ 0,00 até o total da venda, e o aviso aparece ao lado do campo. Zero é aceito (o lojista digita 0).
+- **Onde grava:** `orders.marketplace_fee_cents`, a mesma coluna das vendas sincronizadas. O Financeiro, os relatórios, a página do pedido e a API pública já leem esse campo. Sem migração.
+- **Vendas manuais antigas:** ficam com a taxa zero. O valor real não é conhecido, e recalcular mudaria o lucro de meses fechados com um número que o lojista nunca viu.
