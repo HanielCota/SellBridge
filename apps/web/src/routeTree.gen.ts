@@ -8,2754 +8,2754 @@
 // You should NOT make any changes in this file as it will be overwritten.
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
-import { Route as rootRouteImport } from "./routes/__root";
-import { Route as IndexRouteImport } from "./routes/index";
-import { Route as AppRouteRouteImport } from "./routes/_app/route";
-import { Route as AuthRouteRouteImport } from "./routes/_auth/route";
-import { Route as AceitarTermosRouteImport } from "./routes/aceitar-termos";
-import { Route as OutroPerfilRouteImport } from "./routes/outro-perfil";
-import { Route as PrivacidadeRouteImport } from "./routes/privacidade";
-import { Route as TermosRouteImport } from "./routes/termos";
-import { Route as AppAdminRouteRouteImport } from "./routes/_app/admin/route";
-import { Route as AppAssinaturaRouteImport } from "./routes/_app/assinatura";
-import { Route as AppCatalogoRouteImport } from "./routes/_app/catalogo";
-import { Route as AppDashboardRouteImport } from "./routes/_app/dashboard";
-import { Route as AppFinanceiroRouteImport } from "./routes/_app/financeiro";
-import { Route as AppFornecedoresRouteRouteImport } from "./routes/_app/fornecedores/route";
-import { Route as AppIntegracoesRouteImport } from "./routes/_app/integracoes";
-import { Route as AppLojasRouteImport } from "./routes/_app/lojas";
-import { Route as AppOnboardingRouteImport } from "./routes/_app/onboarding";
-import { Route as AppPerfilRouteImport } from "./routes/_app/perfil";
-import { Route as AppPoliticaDeDevolucaoRouteImport } from "./routes/_app/politica-de-devolucao";
-import { Route as AppProductsRouteImport } from "./routes/_app/products";
-import { Route as AuthCadastroRouteImport } from "./routes/_auth/cadastro";
-import { Route as AuthConfirmeSeuEmailRouteImport } from "./routes/_auth/confirme-seu-email";
-import { Route as AuthEsqueciSenhaRouteImport } from "./routes/_auth/esqueci-senha";
-import { Route as AuthLoginRouteImport } from "./routes/_auth/login";
-import { Route as AuthRedefinirSenhaRouteImport } from "./routes/_auth/redefinir-senha";
-import { Route as ApiHealthRouteImport } from "./routes/api/health";
-import { Route as ApiVersionRouteImport } from "./routes/api/version";
-import { Route as RastreioTokenRouteImport } from "./routes/rastreio/$token";
-import { Route as AppAdminAuditoriaRouteImport } from "./routes/_app/admin/auditoria";
-import { Route as AppAdminAvaliacoesRouteImport } from "./routes/_app/admin/avaliacoes";
-import { Route as AppAdminClientesRouteRouteImport } from "./routes/_app/admin/clientes/route";
-import { Route as AppAdminConfiguracoesRouteImport } from "./routes/_app/admin/configuracoes";
-import { Route as AppAdminEnviosRouteImport } from "./routes/_app/admin/envios";
-import { Route as AppAdminEquipeRouteImport } from "./routes/_app/admin/equipe";
-import { Route as AppAdminProblemasRouteRouteImport } from "./routes/_app/admin/problemas/route";
-import { Route as AppAdminProductsRouteImport } from "./routes/_app/admin/products";
-import { Route as AppAdminRelatorioRouteImport } from "./routes/_app/admin/relatorio";
-import { Route as AppFinanceiroRelatorioRouteImport } from "./routes/_app/financeiro_.relatorio";
-import { Route as AppFornecedorPainelRouteRouteImport } from "./routes/_app/fornecedor/painel/route";
-import { Route as AppFornecedoresIndexRouteImport } from "./routes/_app/fornecedores/index";
-import { Route as AppFornecedoresSupplierIdRouteImport } from "./routes/_app/fornecedores/$supplierId";
-import { Route as AppPedidosIndexRouteImport } from "./routes/_app/pedidos/index";
-import { Route as AppPedidosOrderIdRouteImport } from "./routes/_app/pedidos/$orderId";
-import { Route as AppPedidosVendaManualRouteImport } from "./routes/_app/pedidos/venda-manual";
-import { Route as AppPublicacoesIndexRouteImport } from "./routes/_app/publicacoes/index";
-import { Route as AppPublicacoesNovaRouteImport } from "./routes/_app/publicacoes/nova";
-import { Route as AppSuporteIndexRouteImport } from "./routes/_app/suporte/index";
-import { Route as AppSuporteTicketIdRouteImport } from "./routes/_app/suporte/$ticketId";
-import { Route as AppSuporteNovoRouteImport } from "./routes/_app/suporte/novo";
-import { Route as AppSuporteRevendedoresRouteImport } from "./routes/_app/suporte/revendedores";
-import { Route as AuthCadastroFornecedorRouteImport } from "./routes/_auth/cadastro_.fornecedor";
-import { Route as ApiAdminProductImagesRouteImport } from "./routes/api/admin/product-images";
-import { Route as ApiAuthSplatRouteImport } from "./routes/api/auth/$";
-import { Route as ApiContaExportarRouteImport } from "./routes/api/conta/exportar";
-import { Route as ApiDiagnosticsErrorsRouteImport } from "./routes/api/diagnostics/errors";
-import { Route as ApiFinanceiroExportarRouteImport } from "./routes/api/financeiro/exportar";
-import { Route as ApiPerfilFotoRouteImport } from "./routes/api/perfil/foto";
-import { Route as ApiProductsImagesRouteImport } from "./routes/api/products/images";
-import { Route as ApiV1DocsRouteImport } from "./routes/api/v1/docs";
-import { Route as ApiV1EventsRouteImport } from "./routes/api/v1/events";
-import { Route as ApiV1MeRouteImport } from "./routes/api/v1/me";
-import { Route as ApiV1OpenapiDotjsonRouteImport } from "./routes/api/v1/openapi[.]json";
-import { Route as ApiV1StoresRouteImport } from "./routes/api/v1/stores";
-import { Route as ApiWebhooksMarketplaceRouteImport } from "./routes/api/webhooks/$marketplace";
-import { Route as ApiWebhooksAsaasRouteImport } from "./routes/api/webhooks/asaas";
-import { Route as ApiWebhooksAsaasAssinaturaRouteImport } from "./routes/api/webhooks/asaas-assinatura";
-import { Route as ApiWebhooksBlingRouteImport } from "./routes/api/webhooks/bling";
-import { Route as ApiWebhooksMercadoPagoRouteImport } from "./routes/api/webhooks/mercado-pago";
-import { Route as ApiWebhooksStripeRouteImport } from "./routes/api/webhooks/stripe";
-import { Route as FornecedorPedidoTokenRouteImport } from "./routes/fornecedor/pedido/$token";
-import { Route as AppAdminChamadosIndexRouteImport } from "./routes/_app/admin/chamados/index";
-import { Route as AppAdminChamadosTicketIdRouteImport } from "./routes/_app/admin/chamados/$ticketId";
-import { Route as AppAdminChamadosMetricasRouteImport } from "./routes/_app/admin/chamados/metricas";
-import { Route as AppAdminClientesIndexRouteImport } from "./routes/_app/admin/clientes/index";
-import { Route as AppAdminClientesUserIdRouteImport } from "./routes/_app/admin/clientes/$userId";
-import { Route as AppAdminFornecedoresIndexRouteImport } from "./routes/_app/admin/fornecedores/index";
-import { Route as AppAdminFornecedoresSupplierIdRouteImport } from "./routes/_app/admin/fornecedores/$supplierId";
-import { Route as AppAdminProblemasIndexRouteImport } from "./routes/_app/admin/problemas/index";
-import { Route as AppAdminProblemasProblemIdRouteImport } from "./routes/_app/admin/problemas/$problemId";
-import { Route as AppFornecedorPainelIndexRouteImport } from "./routes/_app/fornecedor/painel/index";
-import { Route as AppFornecedorPainelConferirRouteImport } from "./routes/_app/fornecedor/painel/conferir";
-import { Route as AppFornecedorPainelDesempenhoRouteImport } from "./routes/_app/fornecedor/painel/desempenho";
-import { Route as AppFornecedorPainelImportarRouteImport } from "./routes/_app/fornecedor/painel/importar";
-import { Route as AppFornecedorPainelMarcaRouteImport } from "./routes/_app/fornecedor/painel/marca";
-import { Route as AppFornecedorPainelPedidosRouteImport } from "./routes/_app/fornecedor/painel/pedidos";
-import { Route as AppFornecedorPainelProdutosRouteImport } from "./routes/_app/fornecedor/painel/produtos";
-import { Route as AppFornecedorPainelRecebimentosRouteImport } from "./routes/_app/fornecedor/painel/recebimentos";
-import { Route as AppFornecedorPainelRegrasRouteImport } from "./routes/_app/fornecedor/painel/regras";
-import { Route as AppFornecedorPainelRelatorioRouteImport } from "./routes/_app/fornecedor/painel/relatorio";
-import { Route as AppFornecedorPainelVendasRouteImport } from "./routes/_app/fornecedor/painel/vendas";
-import { Route as AppSuporteConversasTicketIdRouteImport } from "./routes/_app/suporte/conversas/$ticketId";
-import { Route as AppSuporteFornecedoresIndexRouteImport } from "./routes/_app/suporte/fornecedores/index";
-import { Route as AppSuporteFornecedoresNovoRouteImport } from "./routes/_app/suporte/fornecedores/novo";
-import { Route as AppSuporteRevendedoresRelatorioRouteImport } from "./routes/_app/suporte/revendedores_.relatorio";
-import { Route as ApiAdminExportarAuditoriaRouteImport } from "./routes/api/admin/exportar/auditoria";
-import { Route as ApiAdminExportarChamadosRouteImport } from "./routes/api/admin/exportar/chamados";
-import { Route as ApiAdminExportarClientesRouteImport } from "./routes/api/admin/exportar/clientes";
-import { Route as ApiAdminExportarEquipeRouteImport } from "./routes/api/admin/exportar/equipe";
-import { Route as ApiDevolucoesClaimIdMotivoRouteImport } from "./routes/api/devolucoes/$claimId/motivo";
-import { Route as ApiDevolucoesClaimIdRespostaRouteImport } from "./routes/api/devolucoes/$claimId/resposta";
-import { Route as ApiDevolucoesFotosPhotoIdRouteImport } from "./routes/api/devolucoes/fotos/$photoId";
-import { Route as ApiFornecedorExportarCatalogoRouteImport } from "./routes/api/fornecedor/exportar/catalogo";
-import { Route as ApiFornecedorExportarPedidosRouteImport } from "./routes/api/fornecedor/exportar/pedidos";
-import { Route as ApiFornecedorExportarProdutosRouteImport } from "./routes/api/fornecedor/exportar/produtos";
-import { Route as ApiFornecedorProdutosImagensRouteImport } from "./routes/api/fornecedor/produtos/imagens";
-import { Route as ApiFornecedorVendasExportarRouteImport } from "./routes/api/fornecedor/vendas/exportar";
-import { Route as ApiIntegracoesBlingConectarRouteImport } from "./routes/api/integracoes/bling/conectar";
-import { Route as ApiIntegracoesBlingRetornoRouteImport } from "./routes/api/integracoes/bling/retorno";
-import { Route as ApiIntegracoesMercadoPagoConectarRouteImport } from "./routes/api/integracoes/mercado-pago/conectar";
-import { Route as ApiIntegracoesMercadoPagoRetornoRouteImport } from "./routes/api/integracoes/mercado-pago/retorno";
-import { Route as ApiOauthMarketplaceCallbackRouteImport } from "./routes/api/oauth/$marketplace/callback";
-import { Route as ApiOauthMarketplaceStartRouteImport } from "./routes/api/oauth/$marketplace/start";
-import { Route as ApiPedidosOrderIdEtiquetaRouteImport } from "./routes/api/pedidos/$orderId/etiqueta";
-import { Route as ApiPedidosOrderIdNotaFiscalRouteImport } from "./routes/api/pedidos/$orderId/nota-fiscal";
-import { Route as ApiSuporteAnexosAttachmentIdRouteImport } from "./routes/api/suporte/anexos/$attachmentId";
-import { Route as ApiSuporteChamadosIndexRouteImport } from "./routes/api/suporte/chamados/index";
-import { Route as ApiSuporteConversasIndexRouteImport } from "./routes/api/suporte/conversas/index";
-import { Route as ApiV1FinancialsSummaryRouteImport } from "./routes/api/v1/financials/summary";
-import { Route as ApiV1ListingsIndexRouteImport } from "./routes/api/v1/listings/index";
-import { Route as ApiV1ListingsListingIdRouteImport } from "./routes/api/v1/listings/$listingId";
-import { Route as ApiV1OrdersIndexRouteImport } from "./routes/api/v1/orders/index";
-import { Route as ApiV1OrdersOrderIdRouteImport } from "./routes/api/v1/orders/$orderId";
-import { Route as ApiV1WebhookEndpointsIndexRouteImport } from "./routes/api/v1/webhook-endpoints/index";
-import { Route as AppAdminFornecedoresSupplierIdFlagsRouteImport } from "./routes/_app/admin/fornecedores/$supplierId_.flags";
-import { Route as AppAdminFornecedoresAnaliseIndexRouteImport } from "./routes/_app/admin/fornecedores/analise/index";
-import { Route as AppAdminFornecedoresAnaliseProductIdRouteImport } from "./routes/_app/admin/fornecedores/analise/$productId";
-import { Route as AppAdminFornecedoresAprovacaoIndexRouteImport } from "./routes/_app/admin/fornecedores/aprovacao/index";
-import { Route as ApiAdminChamadosTicketIdMensagensRouteImport } from "./routes/api/admin/chamados/$ticketId/mensagens";
-import { Route as ApiPerfilFotoUserIdFileNameRouteImport } from "./routes/api/perfil/foto/$userId/$fileName";
-import { Route as ApiProdutosImagensSupplierIdFileNameRouteImport } from "./routes/api/produtos/imagens/$supplierId/$fileName";
-import { Route as ApiSuporteChamadosTicketIdMensagensRouteImport } from "./routes/api/suporte/chamados/$ticketId/mensagens";
-import { Route as ApiSuporteConversasTicketIdMensagensRouteImport } from "./routes/api/suporte/conversas/$ticketId/mensagens";
-import { Route as ApiV1CatalogProductsIndexRouteImport } from "./routes/api/v1/catalog/products/index";
-import { Route as ApiV1CatalogProductsProductIdRouteImport } from "./routes/api/v1/catalog/products/$productId";
-import { Route as ApiV1WebhookEndpointsEndpointIdIndexRouteImport } from "./routes/api/v1/webhook-endpoints/$endpointId/index";
-import { Route as ApiV1WebhookEndpointsEndpointIdDeliveriesRouteImport } from "./routes/api/v1/webhook-endpoints/$endpointId/deliveries";
+import { Route as rootRouteImport } from './routes/__root'
+import { Route as IndexRouteImport } from './routes/index'
+import { Route as AppRouteRouteImport } from './routes/_app/route'
+import { Route as AuthRouteRouteImport } from './routes/_auth/route'
+import { Route as AceitarTermosRouteImport } from './routes/aceitar-termos'
+import { Route as OutroPerfilRouteImport } from './routes/outro-perfil'
+import { Route as PrivacidadeRouteImport } from './routes/privacidade'
+import { Route as TermosRouteImport } from './routes/termos'
+import { Route as AppAdminRouteRouteImport } from './routes/_app/admin/route'
+import { Route as AppAssinaturaRouteImport } from './routes/_app/assinatura'
+import { Route as AppCatalogoRouteImport } from './routes/_app/catalogo'
+import { Route as AppDashboardRouteImport } from './routes/_app/dashboard'
+import { Route as AppFinanceiroRouteImport } from './routes/_app/financeiro'
+import { Route as AppFornecedoresRouteRouteImport } from './routes/_app/fornecedores/route'
+import { Route as AppIntegracoesRouteImport } from './routes/_app/integracoes'
+import { Route as AppLojasRouteImport } from './routes/_app/lojas'
+import { Route as AppOnboardingRouteImport } from './routes/_app/onboarding'
+import { Route as AppPerfilRouteImport } from './routes/_app/perfil'
+import { Route as AppPoliticaDeDevolucaoRouteImport } from './routes/_app/politica-de-devolucao'
+import { Route as AppProductsRouteImport } from './routes/_app/products'
+import { Route as AuthCadastroRouteImport } from './routes/_auth/cadastro'
+import { Route as AuthConfirmeSeuEmailRouteImport } from './routes/_auth/confirme-seu-email'
+import { Route as AuthEsqueciSenhaRouteImport } from './routes/_auth/esqueci-senha'
+import { Route as AuthLoginRouteImport } from './routes/_auth/login'
+import { Route as AuthRedefinirSenhaRouteImport } from './routes/_auth/redefinir-senha'
+import { Route as ApiHealthRouteImport } from './routes/api/health'
+import { Route as ApiVersionRouteImport } from './routes/api/version'
+import { Route as RastreioTokenRouteImport } from './routes/rastreio/$token'
+import { Route as AppAdminAuditoriaRouteImport } from './routes/_app/admin/auditoria'
+import { Route as AppAdminAvaliacoesRouteImport } from './routes/_app/admin/avaliacoes'
+import { Route as AppAdminClientesRouteRouteImport } from './routes/_app/admin/clientes/route'
+import { Route as AppAdminConfiguracoesRouteImport } from './routes/_app/admin/configuracoes'
+import { Route as AppAdminEnviosRouteImport } from './routes/_app/admin/envios'
+import { Route as AppAdminEquipeRouteImport } from './routes/_app/admin/equipe'
+import { Route as AppAdminProblemasRouteRouteImport } from './routes/_app/admin/problemas/route'
+import { Route as AppAdminProductsRouteImport } from './routes/_app/admin/products'
+import { Route as AppAdminRelatorioRouteImport } from './routes/_app/admin/relatorio'
+import { Route as AppFinanceiroRelatorioRouteImport } from './routes/_app/financeiro_.relatorio'
+import { Route as AppFornecedorPainelRouteRouteImport } from './routes/_app/fornecedor/painel/route'
+import { Route as AppFornecedoresIndexRouteImport } from './routes/_app/fornecedores/index'
+import { Route as AppFornecedoresSupplierIdRouteImport } from './routes/_app/fornecedores/$supplierId'
+import { Route as AppPedidosIndexRouteImport } from './routes/_app/pedidos/index'
+import { Route as AppPedidosOrderIdRouteImport } from './routes/_app/pedidos/$orderId'
+import { Route as AppPedidosVendaManualRouteImport } from './routes/_app/pedidos/venda-manual'
+import { Route as AppPublicacoesIndexRouteImport } from './routes/_app/publicacoes/index'
+import { Route as AppPublicacoesNovaRouteImport } from './routes/_app/publicacoes/nova'
+import { Route as AppSuporteIndexRouteImport } from './routes/_app/suporte/index'
+import { Route as AppSuporteTicketIdRouteImport } from './routes/_app/suporte/$ticketId'
+import { Route as AppSuporteNovoRouteImport } from './routes/_app/suporte/novo'
+import { Route as AppSuporteRevendedoresRouteImport } from './routes/_app/suporte/revendedores'
+import { Route as AuthCadastroFornecedorRouteImport } from './routes/_auth/cadastro_.fornecedor'
+import { Route as ApiAdminProductImagesRouteImport } from './routes/api/admin/product-images'
+import { Route as ApiAuthSplatRouteImport } from './routes/api/auth/$'
+import { Route as ApiContaExportarRouteImport } from './routes/api/conta/exportar'
+import { Route as ApiDiagnosticsErrorsRouteImport } from './routes/api/diagnostics/errors'
+import { Route as ApiFinanceiroExportarRouteImport } from './routes/api/financeiro/exportar'
+import { Route as ApiPerfilFotoRouteImport } from './routes/api/perfil/foto'
+import { Route as ApiProductsImagesRouteImport } from './routes/api/products/images'
+import { Route as ApiV1DocsRouteImport } from './routes/api/v1/docs'
+import { Route as ApiV1EventsRouteImport } from './routes/api/v1/events'
+import { Route as ApiV1MeRouteImport } from './routes/api/v1/me'
+import { Route as ApiV1OpenapiDotjsonRouteImport } from './routes/api/v1/openapi[.]json'
+import { Route as ApiV1StoresRouteImport } from './routes/api/v1/stores'
+import { Route as ApiWebhooksMarketplaceRouteImport } from './routes/api/webhooks/$marketplace'
+import { Route as ApiWebhooksAsaasRouteImport } from './routes/api/webhooks/asaas'
+import { Route as ApiWebhooksAsaasAssinaturaRouteImport } from './routes/api/webhooks/asaas-assinatura'
+import { Route as ApiWebhooksBlingRouteImport } from './routes/api/webhooks/bling'
+import { Route as ApiWebhooksMercadoPagoRouteImport } from './routes/api/webhooks/mercado-pago'
+import { Route as ApiWebhooksStripeRouteImport } from './routes/api/webhooks/stripe'
+import { Route as FornecedorPedidoTokenRouteImport } from './routes/fornecedor/pedido/$token'
+import { Route as AppAdminChamadosIndexRouteImport } from './routes/_app/admin/chamados/index'
+import { Route as AppAdminChamadosTicketIdRouteImport } from './routes/_app/admin/chamados/$ticketId'
+import { Route as AppAdminChamadosMetricasRouteImport } from './routes/_app/admin/chamados/metricas'
+import { Route as AppAdminClientesIndexRouteImport } from './routes/_app/admin/clientes/index'
+import { Route as AppAdminClientesUserIdRouteImport } from './routes/_app/admin/clientes/$userId'
+import { Route as AppAdminFornecedoresIndexRouteImport } from './routes/_app/admin/fornecedores/index'
+import { Route as AppAdminFornecedoresSupplierIdRouteImport } from './routes/_app/admin/fornecedores/$supplierId'
+import { Route as AppAdminProblemasIndexRouteImport } from './routes/_app/admin/problemas/index'
+import { Route as AppAdminProblemasProblemIdRouteImport } from './routes/_app/admin/problemas/$problemId'
+import { Route as AppFornecedorPainelIndexRouteImport } from './routes/_app/fornecedor/painel/index'
+import { Route as AppFornecedorPainelConferirRouteImport } from './routes/_app/fornecedor/painel/conferir'
+import { Route as AppFornecedorPainelDesempenhoRouteImport } from './routes/_app/fornecedor/painel/desempenho'
+import { Route as AppFornecedorPainelImportarRouteImport } from './routes/_app/fornecedor/painel/importar'
+import { Route as AppFornecedorPainelMarcaRouteImport } from './routes/_app/fornecedor/painel/marca'
+import { Route as AppFornecedorPainelPedidosRouteImport } from './routes/_app/fornecedor/painel/pedidos'
+import { Route as AppFornecedorPainelProdutosRouteImport } from './routes/_app/fornecedor/painel/produtos'
+import { Route as AppFornecedorPainelRecebimentosRouteImport } from './routes/_app/fornecedor/painel/recebimentos'
+import { Route as AppFornecedorPainelRegrasRouteImport } from './routes/_app/fornecedor/painel/regras'
+import { Route as AppFornecedorPainelRelatorioRouteImport } from './routes/_app/fornecedor/painel/relatorio'
+import { Route as AppFornecedorPainelVendasRouteImport } from './routes/_app/fornecedor/painel/vendas'
+import { Route as AppSuporteConversasTicketIdRouteImport } from './routes/_app/suporte/conversas/$ticketId'
+import { Route as AppSuporteFornecedoresIndexRouteImport } from './routes/_app/suporte/fornecedores/index'
+import { Route as AppSuporteFornecedoresNovoRouteImport } from './routes/_app/suporte/fornecedores/novo'
+import { Route as AppSuporteRevendedoresRelatorioRouteImport } from './routes/_app/suporte/revendedores_.relatorio'
+import { Route as ApiAdminExportarAuditoriaRouteImport } from './routes/api/admin/exportar/auditoria'
+import { Route as ApiAdminExportarChamadosRouteImport } from './routes/api/admin/exportar/chamados'
+import { Route as ApiAdminExportarClientesRouteImport } from './routes/api/admin/exportar/clientes'
+import { Route as ApiAdminExportarEquipeRouteImport } from './routes/api/admin/exportar/equipe'
+import { Route as ApiDevolucoesClaimIdMotivoRouteImport } from './routes/api/devolucoes/$claimId/motivo'
+import { Route as ApiDevolucoesClaimIdRespostaRouteImport } from './routes/api/devolucoes/$claimId/resposta'
+import { Route as ApiDevolucoesFotosPhotoIdRouteImport } from './routes/api/devolucoes/fotos/$photoId'
+import { Route as ApiFornecedorExportarCatalogoRouteImport } from './routes/api/fornecedor/exportar/catalogo'
+import { Route as ApiFornecedorExportarPedidosRouteImport } from './routes/api/fornecedor/exportar/pedidos'
+import { Route as ApiFornecedorExportarProdutosRouteImport } from './routes/api/fornecedor/exportar/produtos'
+import { Route as ApiFornecedorProdutosImagensRouteImport } from './routes/api/fornecedor/produtos/imagens'
+import { Route as ApiFornecedorVendasExportarRouteImport } from './routes/api/fornecedor/vendas/exportar'
+import { Route as ApiIntegracoesBlingConectarRouteImport } from './routes/api/integracoes/bling/conectar'
+import { Route as ApiIntegracoesBlingRetornoRouteImport } from './routes/api/integracoes/bling/retorno'
+import { Route as ApiIntegracoesMercadoPagoConectarRouteImport } from './routes/api/integracoes/mercado-pago/conectar'
+import { Route as ApiIntegracoesMercadoPagoRetornoRouteImport } from './routes/api/integracoes/mercado-pago/retorno'
+import { Route as ApiOauthMarketplaceCallbackRouteImport } from './routes/api/oauth/$marketplace/callback'
+import { Route as ApiOauthMarketplaceStartRouteImport } from './routes/api/oauth/$marketplace/start'
+import { Route as ApiPedidosOrderIdEtiquetaRouteImport } from './routes/api/pedidos/$orderId/etiqueta'
+import { Route as ApiPedidosOrderIdNotaFiscalRouteImport } from './routes/api/pedidos/$orderId/nota-fiscal'
+import { Route as ApiSuporteAnexosAttachmentIdRouteImport } from './routes/api/suporte/anexos/$attachmentId'
+import { Route as ApiSuporteChamadosIndexRouteImport } from './routes/api/suporte/chamados/index'
+import { Route as ApiSuporteConversasIndexRouteImport } from './routes/api/suporte/conversas/index'
+import { Route as ApiV1FinancialsSummaryRouteImport } from './routes/api/v1/financials/summary'
+import { Route as ApiV1ListingsIndexRouteImport } from './routes/api/v1/listings/index'
+import { Route as ApiV1ListingsListingIdRouteImport } from './routes/api/v1/listings/$listingId'
+import { Route as ApiV1OrdersIndexRouteImport } from './routes/api/v1/orders/index'
+import { Route as ApiV1OrdersOrderIdRouteImport } from './routes/api/v1/orders/$orderId'
+import { Route as ApiV1WebhookEndpointsIndexRouteImport } from './routes/api/v1/webhook-endpoints/index'
+import { Route as AppAdminFornecedoresSupplierIdFlagsRouteImport } from './routes/_app/admin/fornecedores/$supplierId_.flags'
+import { Route as AppAdminFornecedoresAnaliseIndexRouteImport } from './routes/_app/admin/fornecedores/analise/index'
+import { Route as AppAdminFornecedoresAnaliseProductIdRouteImport } from './routes/_app/admin/fornecedores/analise/$productId'
+import { Route as AppAdminFornecedoresAprovacaoIndexRouteImport } from './routes/_app/admin/fornecedores/aprovacao/index'
+import { Route as ApiAdminChamadosTicketIdMensagensRouteImport } from './routes/api/admin/chamados/$ticketId/mensagens'
+import { Route as ApiPerfilFotoUserIdFileNameRouteImport } from './routes/api/perfil/foto/$userId/$fileName'
+import { Route as ApiProdutosImagensSupplierIdFileNameRouteImport } from './routes/api/produtos/imagens/$supplierId/$fileName'
+import { Route as ApiSuporteChamadosTicketIdMensagensRouteImport } from './routes/api/suporte/chamados/$ticketId/mensagens'
+import { Route as ApiSuporteConversasTicketIdMensagensRouteImport } from './routes/api/suporte/conversas/$ticketId/mensagens'
+import { Route as ApiV1CatalogProductsIndexRouteImport } from './routes/api/v1/catalog/products/index'
+import { Route as ApiV1CatalogProductsProductIdRouteImport } from './routes/api/v1/catalog/products/$productId'
+import { Route as ApiV1WebhookEndpointsEndpointIdIndexRouteImport } from './routes/api/v1/webhook-endpoints/$endpointId/index'
+import { Route as ApiV1WebhookEndpointsEndpointIdDeliveriesRouteImport } from './routes/api/v1/webhook-endpoints/$endpointId/deliveries'
 
 const IndexRoute = IndexRouteImport.update({
-  id: "/",
-  path: "/",
+  id: '/',
+  path: '/',
   getParentRoute: () => rootRouteImport,
-} as any);
+} as any)
 const AppRouteRoute = AppRouteRouteImport.update({
-  id: "/_app",
+  id: '/_app',
   getParentRoute: () => rootRouteImport,
-} as any);
+} as any)
 const AuthRouteRoute = AuthRouteRouteImport.update({
-  id: "/_auth",
+  id: '/_auth',
   getParentRoute: () => rootRouteImport,
-} as any);
+} as any)
 const AceitarTermosRoute = AceitarTermosRouteImport.update({
-  id: "/aceitar-termos",
-  path: "/aceitar-termos",
+  id: '/aceitar-termos',
+  path: '/aceitar-termos',
   getParentRoute: () => rootRouteImport,
-} as any);
+} as any)
 const OutroPerfilRoute = OutroPerfilRouteImport.update({
-  id: "/outro-perfil",
-  path: "/outro-perfil",
+  id: '/outro-perfil',
+  path: '/outro-perfil',
   getParentRoute: () => rootRouteImport,
-} as any);
+} as any)
 const PrivacidadeRoute = PrivacidadeRouteImport.update({
-  id: "/privacidade",
-  path: "/privacidade",
+  id: '/privacidade',
+  path: '/privacidade',
   getParentRoute: () => rootRouteImport,
-} as any);
+} as any)
 const TermosRoute = TermosRouteImport.update({
-  id: "/termos",
-  path: "/termos",
+  id: '/termos',
+  path: '/termos',
   getParentRoute: () => rootRouteImport,
-} as any);
+} as any)
 const AppAdminRouteRoute = AppAdminRouteRouteImport.update({
-  id: "/admin",
-  path: "/admin",
+  id: '/admin',
+  path: '/admin',
   getParentRoute: () => AppRouteRoute,
-} as any);
+} as any)
 const AppAssinaturaRoute = AppAssinaturaRouteImport.update({
-  id: "/assinatura",
-  path: "/assinatura",
+  id: '/assinatura',
+  path: '/assinatura',
   getParentRoute: () => AppRouteRoute,
-} as any);
+} as any)
 const AppCatalogoRoute = AppCatalogoRouteImport.update({
-  id: "/catalogo",
-  path: "/catalogo",
+  id: '/catalogo',
+  path: '/catalogo',
   getParentRoute: () => AppRouteRoute,
-} as any);
+} as any)
 const AppDashboardRoute = AppDashboardRouteImport.update({
-  id: "/dashboard",
-  path: "/dashboard",
+  id: '/dashboard',
+  path: '/dashboard',
   getParentRoute: () => AppRouteRoute,
-} as any);
+} as any)
 const AppFinanceiroRoute = AppFinanceiroRouteImport.update({
-  id: "/financeiro",
-  path: "/financeiro",
+  id: '/financeiro',
+  path: '/financeiro',
   getParentRoute: () => AppRouteRoute,
-} as any);
+} as any)
 const AppFornecedoresRouteRoute = AppFornecedoresRouteRouteImport.update({
-  id: "/fornecedores",
-  path: "/fornecedores",
+  id: '/fornecedores',
+  path: '/fornecedores',
   getParentRoute: () => AppRouteRoute,
-} as any);
+} as any)
 const AppIntegracoesRoute = AppIntegracoesRouteImport.update({
-  id: "/integracoes",
-  path: "/integracoes",
+  id: '/integracoes',
+  path: '/integracoes',
   getParentRoute: () => AppRouteRoute,
-} as any);
+} as any)
 const AppLojasRoute = AppLojasRouteImport.update({
-  id: "/lojas",
-  path: "/lojas",
+  id: '/lojas',
+  path: '/lojas',
   getParentRoute: () => AppRouteRoute,
-} as any);
+} as any)
 const AppOnboardingRoute = AppOnboardingRouteImport.update({
-  id: "/onboarding",
-  path: "/onboarding",
+  id: '/onboarding',
+  path: '/onboarding',
   getParentRoute: () => AppRouteRoute,
-} as any);
+} as any)
 const AppPerfilRoute = AppPerfilRouteImport.update({
-  id: "/perfil",
-  path: "/perfil",
+  id: '/perfil',
+  path: '/perfil',
   getParentRoute: () => AppRouteRoute,
-} as any);
+} as any)
 const AppPoliticaDeDevolucaoRoute = AppPoliticaDeDevolucaoRouteImport.update({
-  id: "/politica-de-devolucao",
-  path: "/politica-de-devolucao",
+  id: '/politica-de-devolucao',
+  path: '/politica-de-devolucao',
   getParentRoute: () => AppRouteRoute,
-} as any);
+} as any)
 const AppProductsRoute = AppProductsRouteImport.update({
-  id: "/products",
-  path: "/products",
+  id: '/products',
+  path: '/products',
   getParentRoute: () => AppRouteRoute,
-} as any);
+} as any)
 const AuthCadastroRoute = AuthCadastroRouteImport.update({
-  id: "/cadastro",
-  path: "/cadastro",
+  id: '/cadastro',
+  path: '/cadastro',
   getParentRoute: () => AuthRouteRoute,
-} as any);
+} as any)
 const AuthConfirmeSeuEmailRoute = AuthConfirmeSeuEmailRouteImport.update({
-  id: "/confirme-seu-email",
-  path: "/confirme-seu-email",
+  id: '/confirme-seu-email',
+  path: '/confirme-seu-email',
   getParentRoute: () => AuthRouteRoute,
-} as any);
+} as any)
 const AuthEsqueciSenhaRoute = AuthEsqueciSenhaRouteImport.update({
-  id: "/esqueci-senha",
-  path: "/esqueci-senha",
+  id: '/esqueci-senha',
+  path: '/esqueci-senha',
   getParentRoute: () => AuthRouteRoute,
-} as any);
+} as any)
 const AuthLoginRoute = AuthLoginRouteImport.update({
-  id: "/login",
-  path: "/login",
+  id: '/login',
+  path: '/login',
   getParentRoute: () => AuthRouteRoute,
-} as any);
+} as any)
 const AuthRedefinirSenhaRoute = AuthRedefinirSenhaRouteImport.update({
-  id: "/redefinir-senha",
-  path: "/redefinir-senha",
+  id: '/redefinir-senha',
+  path: '/redefinir-senha',
   getParentRoute: () => AuthRouteRoute,
-} as any);
+} as any)
 const ApiHealthRoute = ApiHealthRouteImport.update({
-  id: "/api/health",
-  path: "/api/health",
+  id: '/api/health',
+  path: '/api/health',
   getParentRoute: () => rootRouteImport,
-} as any);
+} as any)
 const ApiVersionRoute = ApiVersionRouteImport.update({
-  id: "/api/version",
-  path: "/api/version",
+  id: '/api/version',
+  path: '/api/version',
   getParentRoute: () => rootRouteImport,
-} as any);
+} as any)
 const RastreioTokenRoute = RastreioTokenRouteImport.update({
-  id: "/rastreio/$token",
-  path: "/rastreio/$token",
+  id: '/rastreio/$token',
+  path: '/rastreio/$token',
   getParentRoute: () => rootRouteImport,
-} as any);
+} as any)
 const AppAdminAuditoriaRoute = AppAdminAuditoriaRouteImport.update({
-  id: "/auditoria",
-  path: "/auditoria",
+  id: '/auditoria',
+  path: '/auditoria',
   getParentRoute: () => AppAdminRouteRoute,
-} as any);
+} as any)
 const AppAdminAvaliacoesRoute = AppAdminAvaliacoesRouteImport.update({
-  id: "/avaliacoes",
-  path: "/avaliacoes",
+  id: '/avaliacoes',
+  path: '/avaliacoes',
   getParentRoute: () => AppAdminRouteRoute,
-} as any);
+} as any)
 const AppAdminClientesRouteRoute = AppAdminClientesRouteRouteImport.update({
-  id: "/clientes",
-  path: "/clientes",
+  id: '/clientes',
+  path: '/clientes',
   getParentRoute: () => AppAdminRouteRoute,
-} as any);
+} as any)
 const AppAdminConfiguracoesRoute = AppAdminConfiguracoesRouteImport.update({
-  id: "/configuracoes",
-  path: "/configuracoes",
+  id: '/configuracoes',
+  path: '/configuracoes',
   getParentRoute: () => AppAdminRouteRoute,
-} as any);
+} as any)
 const AppAdminEnviosRoute = AppAdminEnviosRouteImport.update({
-  id: "/envios",
-  path: "/envios",
+  id: '/envios',
+  path: '/envios',
   getParentRoute: () => AppAdminRouteRoute,
-} as any);
+} as any)
 const AppAdminEquipeRoute = AppAdminEquipeRouteImport.update({
-  id: "/equipe",
-  path: "/equipe",
+  id: '/equipe',
+  path: '/equipe',
   getParentRoute: () => AppAdminRouteRoute,
-} as any);
+} as any)
 const AppAdminProblemasRouteRoute = AppAdminProblemasRouteRouteImport.update({
-  id: "/problemas",
-  path: "/problemas",
+  id: '/problemas',
+  path: '/problemas',
   getParentRoute: () => AppAdminRouteRoute,
-} as any);
+} as any)
 const AppAdminProductsRoute = AppAdminProductsRouteImport.update({
-  id: "/products",
-  path: "/products",
+  id: '/products',
+  path: '/products',
   getParentRoute: () => AppAdminRouteRoute,
-} as any);
+} as any)
 const AppAdminRelatorioRoute = AppAdminRelatorioRouteImport.update({
-  id: "/relatorio",
-  path: "/relatorio",
+  id: '/relatorio',
+  path: '/relatorio',
   getParentRoute: () => AppAdminRouteRoute,
-} as any);
+} as any)
 const AppFinanceiroRelatorioRoute = AppFinanceiroRelatorioRouteImport.update({
-  id: "/financeiro_/relatorio",
-  path: "/financeiro/relatorio",
+  id: '/financeiro_/relatorio',
+  path: '/financeiro/relatorio',
   getParentRoute: () => AppRouteRoute,
-} as any);
+} as any)
 const AppFornecedorPainelRouteRoute =
   AppFornecedorPainelRouteRouteImport.update({
-    id: "/fornecedor/painel",
-    path: "/fornecedor/painel",
+    id: '/fornecedor/painel',
+    path: '/fornecedor/painel',
     getParentRoute: () => AppRouteRoute,
-  } as any);
+  } as any)
 const AppFornecedoresIndexRoute = AppFornecedoresIndexRouteImport.update({
-  id: "/",
-  path: "/",
+  id: '/',
+  path: '/',
   getParentRoute: () => AppFornecedoresRouteRoute,
-} as any);
+} as any)
 const AppFornecedoresSupplierIdRoute =
   AppFornecedoresSupplierIdRouteImport.update({
-    id: "/$supplierId",
-    path: "/$supplierId",
+    id: '/$supplierId',
+    path: '/$supplierId',
     getParentRoute: () => AppFornecedoresRouteRoute,
-  } as any);
+  } as any)
 const AppPedidosIndexRoute = AppPedidosIndexRouteImport.update({
-  id: "/pedidos/",
-  path: "/pedidos/",
+  id: '/pedidos/',
+  path: '/pedidos/',
   getParentRoute: () => AppRouteRoute,
-} as any);
+} as any)
 const AppPedidosOrderIdRoute = AppPedidosOrderIdRouteImport.update({
-  id: "/pedidos/$orderId",
-  path: "/pedidos/$orderId",
+  id: '/pedidos/$orderId',
+  path: '/pedidos/$orderId',
   getParentRoute: () => AppRouteRoute,
-} as any);
+} as any)
 const AppPedidosVendaManualRoute = AppPedidosVendaManualRouteImport.update({
-  id: "/pedidos/venda-manual",
-  path: "/pedidos/venda-manual",
+  id: '/pedidos/venda-manual',
+  path: '/pedidos/venda-manual',
   getParentRoute: () => AppRouteRoute,
-} as any);
+} as any)
 const AppPublicacoesIndexRoute = AppPublicacoesIndexRouteImport.update({
-  id: "/publicacoes/",
-  path: "/publicacoes/",
+  id: '/publicacoes/',
+  path: '/publicacoes/',
   getParentRoute: () => AppRouteRoute,
-} as any);
+} as any)
 const AppPublicacoesNovaRoute = AppPublicacoesNovaRouteImport.update({
-  id: "/publicacoes/nova",
-  path: "/publicacoes/nova",
+  id: '/publicacoes/nova',
+  path: '/publicacoes/nova',
   getParentRoute: () => AppRouteRoute,
-} as any);
+} as any)
 const AppSuporteIndexRoute = AppSuporteIndexRouteImport.update({
-  id: "/suporte/",
-  path: "/suporte/",
+  id: '/suporte/',
+  path: '/suporte/',
   getParentRoute: () => AppRouteRoute,
-} as any);
+} as any)
 const AppSuporteTicketIdRoute = AppSuporteTicketIdRouteImport.update({
-  id: "/suporte/$ticketId",
-  path: "/suporte/$ticketId",
+  id: '/suporte/$ticketId',
+  path: '/suporte/$ticketId',
   getParentRoute: () => AppRouteRoute,
-} as any);
+} as any)
 const AppSuporteNovoRoute = AppSuporteNovoRouteImport.update({
-  id: "/suporte/novo",
-  path: "/suporte/novo",
+  id: '/suporte/novo',
+  path: '/suporte/novo',
   getParentRoute: () => AppRouteRoute,
-} as any);
+} as any)
 const AppSuporteRevendedoresRoute = AppSuporteRevendedoresRouteImport.update({
-  id: "/suporte/revendedores",
-  path: "/suporte/revendedores",
+  id: '/suporte/revendedores',
+  path: '/suporte/revendedores',
   getParentRoute: () => AppRouteRoute,
-} as any);
+} as any)
 const AuthCadastroFornecedorRoute = AuthCadastroFornecedorRouteImport.update({
-  id: "/cadastro_/fornecedor",
-  path: "/cadastro/fornecedor",
+  id: '/cadastro_/fornecedor',
+  path: '/cadastro/fornecedor',
   getParentRoute: () => AuthRouteRoute,
-} as any);
+} as any)
 const ApiAdminProductImagesRoute = ApiAdminProductImagesRouteImport.update({
-  id: "/api/admin/product-images",
-  path: "/api/admin/product-images",
+  id: '/api/admin/product-images',
+  path: '/api/admin/product-images',
   getParentRoute: () => rootRouteImport,
-} as any);
+} as any)
 const ApiAuthSplatRoute = ApiAuthSplatRouteImport.update({
-  id: "/api/auth/$",
-  path: "/api/auth/$",
+  id: '/api/auth/$',
+  path: '/api/auth/$',
   getParentRoute: () => rootRouteImport,
-} as any);
+} as any)
 const ApiContaExportarRoute = ApiContaExportarRouteImport.update({
-  id: "/api/conta/exportar",
-  path: "/api/conta/exportar",
+  id: '/api/conta/exportar',
+  path: '/api/conta/exportar',
   getParentRoute: () => rootRouteImport,
-} as any);
+} as any)
 const ApiDiagnosticsErrorsRoute = ApiDiagnosticsErrorsRouteImport.update({
-  id: "/api/diagnostics/errors",
-  path: "/api/diagnostics/errors",
+  id: '/api/diagnostics/errors',
+  path: '/api/diagnostics/errors',
   getParentRoute: () => rootRouteImport,
-} as any);
+} as any)
 const ApiFinanceiroExportarRoute = ApiFinanceiroExportarRouteImport.update({
-  id: "/api/financeiro/exportar",
-  path: "/api/financeiro/exportar",
+  id: '/api/financeiro/exportar',
+  path: '/api/financeiro/exportar',
   getParentRoute: () => rootRouteImport,
-} as any);
+} as any)
 const ApiPerfilFotoRoute = ApiPerfilFotoRouteImport.update({
-  id: "/api/perfil/foto",
-  path: "/api/perfil/foto",
+  id: '/api/perfil/foto',
+  path: '/api/perfil/foto',
   getParentRoute: () => rootRouteImport,
-} as any);
+} as any)
 const ApiProductsImagesRoute = ApiProductsImagesRouteImport.update({
-  id: "/api/products/images",
-  path: "/api/products/images",
+  id: '/api/products/images',
+  path: '/api/products/images',
   getParentRoute: () => rootRouteImport,
-} as any);
+} as any)
 const ApiV1DocsRoute = ApiV1DocsRouteImport.update({
-  id: "/api/v1/docs",
-  path: "/api/v1/docs",
+  id: '/api/v1/docs',
+  path: '/api/v1/docs',
   getParentRoute: () => rootRouteImport,
-} as any);
+} as any)
 const ApiV1EventsRoute = ApiV1EventsRouteImport.update({
-  id: "/api/v1/events",
-  path: "/api/v1/events",
+  id: '/api/v1/events',
+  path: '/api/v1/events',
   getParentRoute: () => rootRouteImport,
-} as any);
+} as any)
 const ApiV1MeRoute = ApiV1MeRouteImport.update({
-  id: "/api/v1/me",
-  path: "/api/v1/me",
+  id: '/api/v1/me',
+  path: '/api/v1/me',
   getParentRoute: () => rootRouteImport,
-} as any);
+} as any)
 const ApiV1OpenapiDotjsonRoute = ApiV1OpenapiDotjsonRouteImport.update({
-  id: "/api/v1/openapi.json",
-  path: "/api/v1/openapi.json",
+  id: '/api/v1/openapi.json',
+  path: '/api/v1/openapi.json',
   getParentRoute: () => rootRouteImport,
-} as any);
+} as any)
 const ApiV1StoresRoute = ApiV1StoresRouteImport.update({
-  id: "/api/v1/stores",
-  path: "/api/v1/stores",
+  id: '/api/v1/stores',
+  path: '/api/v1/stores',
   getParentRoute: () => rootRouteImport,
-} as any);
+} as any)
 const ApiWebhooksMarketplaceRoute = ApiWebhooksMarketplaceRouteImport.update({
-  id: "/api/webhooks/$marketplace",
-  path: "/api/webhooks/$marketplace",
+  id: '/api/webhooks/$marketplace',
+  path: '/api/webhooks/$marketplace',
   getParentRoute: () => rootRouteImport,
-} as any);
+} as any)
 const ApiWebhooksAsaasRoute = ApiWebhooksAsaasRouteImport.update({
-  id: "/api/webhooks/asaas",
-  path: "/api/webhooks/asaas",
+  id: '/api/webhooks/asaas',
+  path: '/api/webhooks/asaas',
   getParentRoute: () => rootRouteImport,
-} as any);
+} as any)
 const ApiWebhooksAsaasAssinaturaRoute =
   ApiWebhooksAsaasAssinaturaRouteImport.update({
-    id: "/api/webhooks/asaas-assinatura",
-    path: "/api/webhooks/asaas-assinatura",
+    id: '/api/webhooks/asaas-assinatura',
+    path: '/api/webhooks/asaas-assinatura',
     getParentRoute: () => rootRouteImport,
-  } as any);
+  } as any)
 const ApiWebhooksBlingRoute = ApiWebhooksBlingRouteImport.update({
-  id: "/api/webhooks/bling",
-  path: "/api/webhooks/bling",
+  id: '/api/webhooks/bling',
+  path: '/api/webhooks/bling',
   getParentRoute: () => rootRouteImport,
-} as any);
+} as any)
 const ApiWebhooksMercadoPagoRoute = ApiWebhooksMercadoPagoRouteImport.update({
-  id: "/api/webhooks/mercado-pago",
-  path: "/api/webhooks/mercado-pago",
+  id: '/api/webhooks/mercado-pago',
+  path: '/api/webhooks/mercado-pago',
   getParentRoute: () => rootRouteImport,
-} as any);
+} as any)
 const ApiWebhooksStripeRoute = ApiWebhooksStripeRouteImport.update({
-  id: "/api/webhooks/stripe",
-  path: "/api/webhooks/stripe",
+  id: '/api/webhooks/stripe',
+  path: '/api/webhooks/stripe',
   getParentRoute: () => rootRouteImport,
-} as any);
+} as any)
 const FornecedorPedidoTokenRoute = FornecedorPedidoTokenRouteImport.update({
-  id: "/fornecedor/pedido/$token",
-  path: "/fornecedor/pedido/$token",
+  id: '/fornecedor/pedido/$token',
+  path: '/fornecedor/pedido/$token',
   getParentRoute: () => rootRouteImport,
-} as any);
+} as any)
 const AppAdminChamadosIndexRoute = AppAdminChamadosIndexRouteImport.update({
-  id: "/chamados/",
-  path: "/chamados/",
+  id: '/chamados/',
+  path: '/chamados/',
   getParentRoute: () => AppAdminRouteRoute,
-} as any);
+} as any)
 const AppAdminChamadosTicketIdRoute =
   AppAdminChamadosTicketIdRouteImport.update({
-    id: "/chamados/$ticketId",
-    path: "/chamados/$ticketId",
+    id: '/chamados/$ticketId',
+    path: '/chamados/$ticketId',
     getParentRoute: () => AppAdminRouteRoute,
-  } as any);
+  } as any)
 const AppAdminChamadosMetricasRoute =
   AppAdminChamadosMetricasRouteImport.update({
-    id: "/chamados/metricas",
-    path: "/chamados/metricas",
+    id: '/chamados/metricas',
+    path: '/chamados/metricas',
     getParentRoute: () => AppAdminRouteRoute,
-  } as any);
+  } as any)
 const AppAdminClientesIndexRoute = AppAdminClientesIndexRouteImport.update({
-  id: "/",
-  path: "/",
+  id: '/',
+  path: '/',
   getParentRoute: () => AppAdminClientesRouteRoute,
-} as any);
+} as any)
 const AppAdminClientesUserIdRoute = AppAdminClientesUserIdRouteImport.update({
-  id: "/$userId",
-  path: "/$userId",
+  id: '/$userId',
+  path: '/$userId',
   getParentRoute: () => AppAdminClientesRouteRoute,
-} as any);
+} as any)
 const AppAdminFornecedoresIndexRoute =
   AppAdminFornecedoresIndexRouteImport.update({
-    id: "/fornecedores/",
-    path: "/fornecedores/",
+    id: '/fornecedores/',
+    path: '/fornecedores/',
     getParentRoute: () => AppAdminRouteRoute,
-  } as any);
+  } as any)
 const AppAdminFornecedoresSupplierIdRoute =
   AppAdminFornecedoresSupplierIdRouteImport.update({
-    id: "/fornecedores/$supplierId",
-    path: "/fornecedores/$supplierId",
+    id: '/fornecedores/$supplierId',
+    path: '/fornecedores/$supplierId',
     getParentRoute: () => AppAdminRouteRoute,
-  } as any);
+  } as any)
 const AppAdminProblemasIndexRoute = AppAdminProblemasIndexRouteImport.update({
-  id: "/",
-  path: "/",
+  id: '/',
+  path: '/',
   getParentRoute: () => AppAdminProblemasRouteRoute,
-} as any);
+} as any)
 const AppAdminProblemasProblemIdRoute =
   AppAdminProblemasProblemIdRouteImport.update({
-    id: "/$problemId",
-    path: "/$problemId",
+    id: '/$problemId',
+    path: '/$problemId',
     getParentRoute: () => AppAdminProblemasRouteRoute,
-  } as any);
+  } as any)
 const AppFornecedorPainelIndexRoute =
   AppFornecedorPainelIndexRouteImport.update({
-    id: "/",
-    path: "/",
+    id: '/',
+    path: '/',
     getParentRoute: () => AppFornecedorPainelRouteRoute,
-  } as any);
+  } as any)
 const AppFornecedorPainelConferirRoute =
   AppFornecedorPainelConferirRouteImport.update({
-    id: "/conferir",
-    path: "/conferir",
+    id: '/conferir',
+    path: '/conferir',
     getParentRoute: () => AppFornecedorPainelRouteRoute,
-  } as any);
+  } as any)
 const AppFornecedorPainelDesempenhoRoute =
   AppFornecedorPainelDesempenhoRouteImport.update({
-    id: "/desempenho",
-    path: "/desempenho",
+    id: '/desempenho',
+    path: '/desempenho',
     getParentRoute: () => AppFornecedorPainelRouteRoute,
-  } as any);
+  } as any)
 const AppFornecedorPainelImportarRoute =
   AppFornecedorPainelImportarRouteImport.update({
-    id: "/importar",
-    path: "/importar",
+    id: '/importar',
+    path: '/importar',
     getParentRoute: () => AppFornecedorPainelRouteRoute,
-  } as any);
+  } as any)
 const AppFornecedorPainelMarcaRoute =
   AppFornecedorPainelMarcaRouteImport.update({
-    id: "/marca",
-    path: "/marca",
+    id: '/marca',
+    path: '/marca',
     getParentRoute: () => AppFornecedorPainelRouteRoute,
-  } as any);
+  } as any)
 const AppFornecedorPainelPedidosRoute =
   AppFornecedorPainelPedidosRouteImport.update({
-    id: "/pedidos",
-    path: "/pedidos",
+    id: '/pedidos',
+    path: '/pedidos',
     getParentRoute: () => AppFornecedorPainelRouteRoute,
-  } as any);
+  } as any)
 const AppFornecedorPainelProdutosRoute =
   AppFornecedorPainelProdutosRouteImport.update({
-    id: "/produtos",
-    path: "/produtos",
+    id: '/produtos',
+    path: '/produtos',
     getParentRoute: () => AppFornecedorPainelRouteRoute,
-  } as any);
+  } as any)
 const AppFornecedorPainelRecebimentosRoute =
   AppFornecedorPainelRecebimentosRouteImport.update({
-    id: "/recebimentos",
-    path: "/recebimentos",
+    id: '/recebimentos',
+    path: '/recebimentos',
     getParentRoute: () => AppFornecedorPainelRouteRoute,
-  } as any);
+  } as any)
 const AppFornecedorPainelRegrasRoute =
   AppFornecedorPainelRegrasRouteImport.update({
-    id: "/regras",
-    path: "/regras",
+    id: '/regras',
+    path: '/regras',
     getParentRoute: () => AppFornecedorPainelRouteRoute,
-  } as any);
+  } as any)
 const AppFornecedorPainelRelatorioRoute =
   AppFornecedorPainelRelatorioRouteImport.update({
-    id: "/relatorio",
-    path: "/relatorio",
+    id: '/relatorio',
+    path: '/relatorio',
     getParentRoute: () => AppFornecedorPainelRouteRoute,
-  } as any);
+  } as any)
 const AppFornecedorPainelVendasRoute =
   AppFornecedorPainelVendasRouteImport.update({
-    id: "/vendas",
-    path: "/vendas",
+    id: '/vendas',
+    path: '/vendas',
     getParentRoute: () => AppFornecedorPainelRouteRoute,
-  } as any);
+  } as any)
 const AppSuporteConversasTicketIdRoute =
   AppSuporteConversasTicketIdRouteImport.update({
-    id: "/suporte/conversas/$ticketId",
-    path: "/suporte/conversas/$ticketId",
+    id: '/suporte/conversas/$ticketId',
+    path: '/suporte/conversas/$ticketId',
     getParentRoute: () => AppRouteRoute,
-  } as any);
+  } as any)
 const AppSuporteFornecedoresIndexRoute =
   AppSuporteFornecedoresIndexRouteImport.update({
-    id: "/suporte/fornecedores/",
-    path: "/suporte/fornecedores/",
+    id: '/suporte/fornecedores/',
+    path: '/suporte/fornecedores/',
     getParentRoute: () => AppRouteRoute,
-  } as any);
+  } as any)
 const AppSuporteFornecedoresNovoRoute =
   AppSuporteFornecedoresNovoRouteImport.update({
-    id: "/suporte/fornecedores/novo",
-    path: "/suporte/fornecedores/novo",
+    id: '/suporte/fornecedores/novo',
+    path: '/suporte/fornecedores/novo',
     getParentRoute: () => AppRouteRoute,
-  } as any);
+  } as any)
 const AppSuporteRevendedoresRelatorioRoute =
   AppSuporteRevendedoresRelatorioRouteImport.update({
-    id: "/suporte/revendedores_/relatorio",
-    path: "/suporte/revendedores/relatorio",
+    id: '/suporte/revendedores_/relatorio',
+    path: '/suporte/revendedores/relatorio',
     getParentRoute: () => AppRouteRoute,
-  } as any);
+  } as any)
 const ApiAdminExportarAuditoriaRoute =
   ApiAdminExportarAuditoriaRouteImport.update({
-    id: "/api/admin/exportar/auditoria",
-    path: "/api/admin/exportar/auditoria",
+    id: '/api/admin/exportar/auditoria',
+    path: '/api/admin/exportar/auditoria',
     getParentRoute: () => rootRouteImport,
-  } as any);
+  } as any)
 const ApiAdminExportarChamadosRoute =
   ApiAdminExportarChamadosRouteImport.update({
-    id: "/api/admin/exportar/chamados",
-    path: "/api/admin/exportar/chamados",
+    id: '/api/admin/exportar/chamados',
+    path: '/api/admin/exportar/chamados',
     getParentRoute: () => rootRouteImport,
-  } as any);
+  } as any)
 const ApiAdminExportarClientesRoute =
   ApiAdminExportarClientesRouteImport.update({
-    id: "/api/admin/exportar/clientes",
-    path: "/api/admin/exportar/clientes",
+    id: '/api/admin/exportar/clientes',
+    path: '/api/admin/exportar/clientes',
     getParentRoute: () => rootRouteImport,
-  } as any);
+  } as any)
 const ApiAdminExportarEquipeRoute = ApiAdminExportarEquipeRouteImport.update({
-  id: "/api/admin/exportar/equipe",
-  path: "/api/admin/exportar/equipe",
+  id: '/api/admin/exportar/equipe',
+  path: '/api/admin/exportar/equipe',
   getParentRoute: () => rootRouteImport,
-} as any);
+} as any)
 const ApiDevolucoesClaimIdMotivoRoute =
   ApiDevolucoesClaimIdMotivoRouteImport.update({
-    id: "/api/devolucoes/$claimId/motivo",
-    path: "/api/devolucoes/$claimId/motivo",
+    id: '/api/devolucoes/$claimId/motivo',
+    path: '/api/devolucoes/$claimId/motivo',
     getParentRoute: () => rootRouteImport,
-  } as any);
+  } as any)
 const ApiDevolucoesClaimIdRespostaRoute =
   ApiDevolucoesClaimIdRespostaRouteImport.update({
-    id: "/api/devolucoes/$claimId/resposta",
-    path: "/api/devolucoes/$claimId/resposta",
+    id: '/api/devolucoes/$claimId/resposta',
+    path: '/api/devolucoes/$claimId/resposta',
     getParentRoute: () => rootRouteImport,
-  } as any);
+  } as any)
 const ApiDevolucoesFotosPhotoIdRoute =
   ApiDevolucoesFotosPhotoIdRouteImport.update({
-    id: "/api/devolucoes/fotos/$photoId",
-    path: "/api/devolucoes/fotos/$photoId",
+    id: '/api/devolucoes/fotos/$photoId',
+    path: '/api/devolucoes/fotos/$photoId',
     getParentRoute: () => rootRouteImport,
-  } as any);
+  } as any)
 const ApiFornecedorExportarCatalogoRoute =
   ApiFornecedorExportarCatalogoRouteImport.update({
-    id: "/api/fornecedor/exportar/catalogo",
-    path: "/api/fornecedor/exportar/catalogo",
+    id: '/api/fornecedor/exportar/catalogo',
+    path: '/api/fornecedor/exportar/catalogo',
     getParentRoute: () => rootRouteImport,
-  } as any);
+  } as any)
 const ApiFornecedorExportarPedidosRoute =
   ApiFornecedorExportarPedidosRouteImport.update({
-    id: "/api/fornecedor/exportar/pedidos",
-    path: "/api/fornecedor/exportar/pedidos",
+    id: '/api/fornecedor/exportar/pedidos',
+    path: '/api/fornecedor/exportar/pedidos',
     getParentRoute: () => rootRouteImport,
-  } as any);
+  } as any)
 const ApiFornecedorExportarProdutosRoute =
   ApiFornecedorExportarProdutosRouteImport.update({
-    id: "/api/fornecedor/exportar/produtos",
-    path: "/api/fornecedor/exportar/produtos",
+    id: '/api/fornecedor/exportar/produtos',
+    path: '/api/fornecedor/exportar/produtos',
     getParentRoute: () => rootRouteImport,
-  } as any);
+  } as any)
 const ApiFornecedorProdutosImagensRoute =
   ApiFornecedorProdutosImagensRouteImport.update({
-    id: "/api/fornecedor/produtos/imagens",
-    path: "/api/fornecedor/produtos/imagens",
+    id: '/api/fornecedor/produtos/imagens',
+    path: '/api/fornecedor/produtos/imagens',
     getParentRoute: () => rootRouteImport,
-  } as any);
+  } as any)
 const ApiFornecedorVendasExportarRoute =
   ApiFornecedorVendasExportarRouteImport.update({
-    id: "/api/fornecedor/vendas/exportar",
-    path: "/api/fornecedor/vendas/exportar",
+    id: '/api/fornecedor/vendas/exportar',
+    path: '/api/fornecedor/vendas/exportar',
     getParentRoute: () => rootRouteImport,
-  } as any);
+  } as any)
 const ApiIntegracoesBlingConectarRoute =
   ApiIntegracoesBlingConectarRouteImport.update({
-    id: "/api/integracoes/bling/conectar",
-    path: "/api/integracoes/bling/conectar",
+    id: '/api/integracoes/bling/conectar',
+    path: '/api/integracoes/bling/conectar',
     getParentRoute: () => rootRouteImport,
-  } as any);
+  } as any)
 const ApiIntegracoesBlingRetornoRoute =
   ApiIntegracoesBlingRetornoRouteImport.update({
-    id: "/api/integracoes/bling/retorno",
-    path: "/api/integracoes/bling/retorno",
+    id: '/api/integracoes/bling/retorno',
+    path: '/api/integracoes/bling/retorno',
     getParentRoute: () => rootRouteImport,
-  } as any);
+  } as any)
 const ApiIntegracoesMercadoPagoConectarRoute =
   ApiIntegracoesMercadoPagoConectarRouteImport.update({
-    id: "/api/integracoes/mercado-pago/conectar",
-    path: "/api/integracoes/mercado-pago/conectar",
+    id: '/api/integracoes/mercado-pago/conectar',
+    path: '/api/integracoes/mercado-pago/conectar',
     getParentRoute: () => rootRouteImport,
-  } as any);
+  } as any)
 const ApiIntegracoesMercadoPagoRetornoRoute =
   ApiIntegracoesMercadoPagoRetornoRouteImport.update({
-    id: "/api/integracoes/mercado-pago/retorno",
-    path: "/api/integracoes/mercado-pago/retorno",
+    id: '/api/integracoes/mercado-pago/retorno',
+    path: '/api/integracoes/mercado-pago/retorno',
     getParentRoute: () => rootRouteImport,
-  } as any);
+  } as any)
 const ApiOauthMarketplaceCallbackRoute =
   ApiOauthMarketplaceCallbackRouteImport.update({
-    id: "/api/oauth/$marketplace/callback",
-    path: "/api/oauth/$marketplace/callback",
+    id: '/api/oauth/$marketplace/callback',
+    path: '/api/oauth/$marketplace/callback',
     getParentRoute: () => rootRouteImport,
-  } as any);
+  } as any)
 const ApiOauthMarketplaceStartRoute =
   ApiOauthMarketplaceStartRouteImport.update({
-    id: "/api/oauth/$marketplace/start",
-    path: "/api/oauth/$marketplace/start",
+    id: '/api/oauth/$marketplace/start',
+    path: '/api/oauth/$marketplace/start',
     getParentRoute: () => rootRouteImport,
-  } as any);
+  } as any)
 const ApiPedidosOrderIdEtiquetaRoute =
   ApiPedidosOrderIdEtiquetaRouteImport.update({
-    id: "/api/pedidos/$orderId/etiqueta",
-    path: "/api/pedidos/$orderId/etiqueta",
+    id: '/api/pedidos/$orderId/etiqueta',
+    path: '/api/pedidos/$orderId/etiqueta',
     getParentRoute: () => rootRouteImport,
-  } as any);
+  } as any)
 const ApiPedidosOrderIdNotaFiscalRoute =
   ApiPedidosOrderIdNotaFiscalRouteImport.update({
-    id: "/api/pedidos/$orderId/nota-fiscal",
-    path: "/api/pedidos/$orderId/nota-fiscal",
+    id: '/api/pedidos/$orderId/nota-fiscal',
+    path: '/api/pedidos/$orderId/nota-fiscal',
     getParentRoute: () => rootRouteImport,
-  } as any);
+  } as any)
 const ApiSuporteAnexosAttachmentIdRoute =
   ApiSuporteAnexosAttachmentIdRouteImport.update({
-    id: "/api/suporte/anexos/$attachmentId",
-    path: "/api/suporte/anexos/$attachmentId",
+    id: '/api/suporte/anexos/$attachmentId',
+    path: '/api/suporte/anexos/$attachmentId',
     getParentRoute: () => rootRouteImport,
-  } as any);
+  } as any)
 const ApiSuporteChamadosIndexRoute = ApiSuporteChamadosIndexRouteImport.update({
-  id: "/api/suporte/chamados/",
-  path: "/api/suporte/chamados/",
+  id: '/api/suporte/chamados/',
+  path: '/api/suporte/chamados/',
   getParentRoute: () => rootRouteImport,
-} as any);
+} as any)
 const ApiSuporteConversasIndexRoute =
   ApiSuporteConversasIndexRouteImport.update({
-    id: "/api/suporte/conversas/",
-    path: "/api/suporte/conversas/",
+    id: '/api/suporte/conversas/',
+    path: '/api/suporte/conversas/',
     getParentRoute: () => rootRouteImport,
-  } as any);
+  } as any)
 const ApiV1FinancialsSummaryRoute = ApiV1FinancialsSummaryRouteImport.update({
-  id: "/api/v1/financials/summary",
-  path: "/api/v1/financials/summary",
+  id: '/api/v1/financials/summary',
+  path: '/api/v1/financials/summary',
   getParentRoute: () => rootRouteImport,
-} as any);
+} as any)
 const ApiV1ListingsIndexRoute = ApiV1ListingsIndexRouteImport.update({
-  id: "/api/v1/listings/",
-  path: "/api/v1/listings/",
+  id: '/api/v1/listings/',
+  path: '/api/v1/listings/',
   getParentRoute: () => rootRouteImport,
-} as any);
+} as any)
 const ApiV1ListingsListingIdRoute = ApiV1ListingsListingIdRouteImport.update({
-  id: "/api/v1/listings/$listingId",
-  path: "/api/v1/listings/$listingId",
+  id: '/api/v1/listings/$listingId',
+  path: '/api/v1/listings/$listingId',
   getParentRoute: () => rootRouteImport,
-} as any);
+} as any)
 const ApiV1OrdersIndexRoute = ApiV1OrdersIndexRouteImport.update({
-  id: "/api/v1/orders/",
-  path: "/api/v1/orders/",
+  id: '/api/v1/orders/',
+  path: '/api/v1/orders/',
   getParentRoute: () => rootRouteImport,
-} as any);
+} as any)
 const ApiV1OrdersOrderIdRoute = ApiV1OrdersOrderIdRouteImport.update({
-  id: "/api/v1/orders/$orderId",
-  path: "/api/v1/orders/$orderId",
+  id: '/api/v1/orders/$orderId',
+  path: '/api/v1/orders/$orderId',
   getParentRoute: () => rootRouteImport,
-} as any);
+} as any)
 const ApiV1WebhookEndpointsIndexRoute =
   ApiV1WebhookEndpointsIndexRouteImport.update({
-    id: "/api/v1/webhook-endpoints/",
-    path: "/api/v1/webhook-endpoints/",
+    id: '/api/v1/webhook-endpoints/',
+    path: '/api/v1/webhook-endpoints/',
     getParentRoute: () => rootRouteImport,
-  } as any);
+  } as any)
 const AppAdminFornecedoresSupplierIdFlagsRoute =
   AppAdminFornecedoresSupplierIdFlagsRouteImport.update({
-    id: "/fornecedores/$supplierId_/flags",
-    path: "/fornecedores/$supplierId/flags",
+    id: '/fornecedores/$supplierId_/flags',
+    path: '/fornecedores/$supplierId/flags',
     getParentRoute: () => AppAdminRouteRoute,
-  } as any);
+  } as any)
 const AppAdminFornecedoresAnaliseIndexRoute =
   AppAdminFornecedoresAnaliseIndexRouteImport.update({
-    id: "/fornecedores/analise/",
-    path: "/fornecedores/analise/",
+    id: '/fornecedores/analise/',
+    path: '/fornecedores/analise/',
     getParentRoute: () => AppAdminRouteRoute,
-  } as any);
+  } as any)
 const AppAdminFornecedoresAnaliseProductIdRoute =
   AppAdminFornecedoresAnaliseProductIdRouteImport.update({
-    id: "/fornecedores/analise/$productId",
-    path: "/fornecedores/analise/$productId",
+    id: '/fornecedores/analise/$productId',
+    path: '/fornecedores/analise/$productId',
     getParentRoute: () => AppAdminRouteRoute,
-  } as any);
+  } as any)
 const AppAdminFornecedoresAprovacaoIndexRoute =
   AppAdminFornecedoresAprovacaoIndexRouteImport.update({
-    id: "/fornecedores/aprovacao/",
-    path: "/fornecedores/aprovacao/",
+    id: '/fornecedores/aprovacao/',
+    path: '/fornecedores/aprovacao/',
     getParentRoute: () => AppAdminRouteRoute,
-  } as any);
+  } as any)
 const ApiAdminChamadosTicketIdMensagensRoute =
   ApiAdminChamadosTicketIdMensagensRouteImport.update({
-    id: "/api/admin/chamados/$ticketId/mensagens",
-    path: "/api/admin/chamados/$ticketId/mensagens",
+    id: '/api/admin/chamados/$ticketId/mensagens',
+    path: '/api/admin/chamados/$ticketId/mensagens',
     getParentRoute: () => rootRouteImport,
-  } as any);
+  } as any)
 const ApiPerfilFotoUserIdFileNameRoute =
   ApiPerfilFotoUserIdFileNameRouteImport.update({
-    id: "/$userId/$fileName",
-    path: "/$userId/$fileName",
+    id: '/$userId/$fileName',
+    path: '/$userId/$fileName',
     getParentRoute: () => ApiPerfilFotoRoute,
-  } as any);
+  } as any)
 const ApiProdutosImagensSupplierIdFileNameRoute =
   ApiProdutosImagensSupplierIdFileNameRouteImport.update({
-    id: "/api/produtos/imagens/$supplierId/$fileName",
-    path: "/api/produtos/imagens/$supplierId/$fileName",
+    id: '/api/produtos/imagens/$supplierId/$fileName',
+    path: '/api/produtos/imagens/$supplierId/$fileName',
     getParentRoute: () => rootRouteImport,
-  } as any);
+  } as any)
 const ApiSuporteChamadosTicketIdMensagensRoute =
   ApiSuporteChamadosTicketIdMensagensRouteImport.update({
-    id: "/api/suporte/chamados/$ticketId/mensagens",
-    path: "/api/suporte/chamados/$ticketId/mensagens",
+    id: '/api/suporte/chamados/$ticketId/mensagens',
+    path: '/api/suporte/chamados/$ticketId/mensagens',
     getParentRoute: () => rootRouteImport,
-  } as any);
+  } as any)
 const ApiSuporteConversasTicketIdMensagensRoute =
   ApiSuporteConversasTicketIdMensagensRouteImport.update({
-    id: "/api/suporte/conversas/$ticketId/mensagens",
-    path: "/api/suporte/conversas/$ticketId/mensagens",
+    id: '/api/suporte/conversas/$ticketId/mensagens',
+    path: '/api/suporte/conversas/$ticketId/mensagens',
     getParentRoute: () => rootRouteImport,
-  } as any);
+  } as any)
 const ApiV1CatalogProductsIndexRoute =
   ApiV1CatalogProductsIndexRouteImport.update({
-    id: "/api/v1/catalog/products/",
-    path: "/api/v1/catalog/products/",
+    id: '/api/v1/catalog/products/',
+    path: '/api/v1/catalog/products/',
     getParentRoute: () => rootRouteImport,
-  } as any);
+  } as any)
 const ApiV1CatalogProductsProductIdRoute =
   ApiV1CatalogProductsProductIdRouteImport.update({
-    id: "/api/v1/catalog/products/$productId",
-    path: "/api/v1/catalog/products/$productId",
+    id: '/api/v1/catalog/products/$productId',
+    path: '/api/v1/catalog/products/$productId',
     getParentRoute: () => rootRouteImport,
-  } as any);
+  } as any)
 const ApiV1WebhookEndpointsEndpointIdIndexRoute =
   ApiV1WebhookEndpointsEndpointIdIndexRouteImport.update({
-    id: "/api/v1/webhook-endpoints/$endpointId/",
-    path: "/api/v1/webhook-endpoints/$endpointId/",
+    id: '/api/v1/webhook-endpoints/$endpointId/',
+    path: '/api/v1/webhook-endpoints/$endpointId/',
     getParentRoute: () => rootRouteImport,
-  } as any);
+  } as any)
 const ApiV1WebhookEndpointsEndpointIdDeliveriesRoute =
   ApiV1WebhookEndpointsEndpointIdDeliveriesRouteImport.update({
-    id: "/api/v1/webhook-endpoints/$endpointId/deliveries",
-    path: "/api/v1/webhook-endpoints/$endpointId/deliveries",
+    id: '/api/v1/webhook-endpoints/$endpointId/deliveries',
+    path: '/api/v1/webhook-endpoints/$endpointId/deliveries',
     getParentRoute: () => rootRouteImport,
-  } as any);
+  } as any)
 
 export interface FileRoutesByFullPath {
-  "/": typeof IndexRoute;
-  "/aceitar-termos": typeof AceitarTermosRoute;
-  "/outro-perfil": typeof OutroPerfilRoute;
-  "/privacidade": typeof PrivacidadeRoute;
-  "/termos": typeof TermosRoute;
-  "/admin": typeof AppAdminRouteRouteWithChildren;
-  "/fornecedores": typeof AppFornecedoresRouteRouteWithChildren;
-  "/assinatura": typeof AppAssinaturaRoute;
-  "/catalogo": typeof AppCatalogoRoute;
-  "/dashboard": typeof AppDashboardRoute;
-  "/financeiro": typeof AppFinanceiroRoute;
-  "/integracoes": typeof AppIntegracoesRoute;
-  "/lojas": typeof AppLojasRoute;
-  "/onboarding": typeof AppOnboardingRoute;
-  "/perfil": typeof AppPerfilRoute;
-  "/politica-de-devolucao": typeof AppPoliticaDeDevolucaoRoute;
-  "/products": typeof AppProductsRoute;
-  "/cadastro": typeof AuthCadastroRoute;
-  "/confirme-seu-email": typeof AuthConfirmeSeuEmailRoute;
-  "/esqueci-senha": typeof AuthEsqueciSenhaRoute;
-  "/login": typeof AuthLoginRoute;
-  "/redefinir-senha": typeof AuthRedefinirSenhaRoute;
-  "/api/health": typeof ApiHealthRoute;
-  "/api/version": typeof ApiVersionRoute;
-  "/rastreio/$token": typeof RastreioTokenRoute;
-  "/admin/clientes": typeof AppAdminClientesRouteRouteWithChildren;
-  "/admin/problemas": typeof AppAdminProblemasRouteRouteWithChildren;
-  "/fornecedor/painel": typeof AppFornecedorPainelRouteRouteWithChildren;
-  "/admin/auditoria": typeof AppAdminAuditoriaRoute;
-  "/admin/avaliacoes": typeof AppAdminAvaliacoesRoute;
-  "/admin/configuracoes": typeof AppAdminConfiguracoesRoute;
-  "/admin/envios": typeof AppAdminEnviosRoute;
-  "/admin/equipe": typeof AppAdminEquipeRoute;
-  "/admin/products": typeof AppAdminProductsRoute;
-  "/admin/relatorio": typeof AppAdminRelatorioRoute;
-  "/financeiro/relatorio": typeof AppFinanceiroRelatorioRoute;
-  "/fornecedores/$supplierId": typeof AppFornecedoresSupplierIdRoute;
-  "/pedidos/$orderId": typeof AppPedidosOrderIdRoute;
-  "/pedidos/venda-manual": typeof AppPedidosVendaManualRoute;
-  "/publicacoes/nova": typeof AppPublicacoesNovaRoute;
-  "/suporte/$ticketId": typeof AppSuporteTicketIdRoute;
-  "/suporte/novo": typeof AppSuporteNovoRoute;
-  "/suporte/revendedores": typeof AppSuporteRevendedoresRoute;
-  "/cadastro/fornecedor": typeof AuthCadastroFornecedorRoute;
-  "/api/admin/product-images": typeof ApiAdminProductImagesRoute;
-  "/api/auth/$": typeof ApiAuthSplatRoute;
-  "/api/conta/exportar": typeof ApiContaExportarRoute;
-  "/api/diagnostics/errors": typeof ApiDiagnosticsErrorsRoute;
-  "/api/financeiro/exportar": typeof ApiFinanceiroExportarRoute;
-  "/api/perfil/foto": typeof ApiPerfilFotoRouteWithChildren;
-  "/api/products/images": typeof ApiProductsImagesRoute;
-  "/api/v1/docs": typeof ApiV1DocsRoute;
-  "/api/v1/events": typeof ApiV1EventsRoute;
-  "/api/v1/me": typeof ApiV1MeRoute;
-  "/api/v1/openapi.json": typeof ApiV1OpenapiDotjsonRoute;
-  "/api/v1/stores": typeof ApiV1StoresRoute;
-  "/api/webhooks/$marketplace": typeof ApiWebhooksMarketplaceRoute;
-  "/api/webhooks/asaas": typeof ApiWebhooksAsaasRoute;
-  "/api/webhooks/asaas-assinatura": typeof ApiWebhooksAsaasAssinaturaRoute;
-  "/api/webhooks/bling": typeof ApiWebhooksBlingRoute;
-  "/api/webhooks/mercado-pago": typeof ApiWebhooksMercadoPagoRoute;
-  "/api/webhooks/stripe": typeof ApiWebhooksStripeRoute;
-  "/fornecedor/pedido/$token": typeof FornecedorPedidoTokenRoute;
-  "/fornecedores/": typeof AppFornecedoresIndexRoute;
-  "/pedidos/": typeof AppPedidosIndexRoute;
-  "/publicacoes/": typeof AppPublicacoesIndexRoute;
-  "/suporte/": typeof AppSuporteIndexRoute;
-  "/admin/chamados/$ticketId": typeof AppAdminChamadosTicketIdRoute;
-  "/admin/chamados/metricas": typeof AppAdminChamadosMetricasRoute;
-  "/admin/clientes/$userId": typeof AppAdminClientesUserIdRoute;
-  "/admin/fornecedores/$supplierId": typeof AppAdminFornecedoresSupplierIdRoute;
-  "/admin/problemas/$problemId": typeof AppAdminProblemasProblemIdRoute;
-  "/fornecedor/painel/conferir": typeof AppFornecedorPainelConferirRoute;
-  "/fornecedor/painel/desempenho": typeof AppFornecedorPainelDesempenhoRoute;
-  "/fornecedor/painel/importar": typeof AppFornecedorPainelImportarRoute;
-  "/fornecedor/painel/marca": typeof AppFornecedorPainelMarcaRoute;
-  "/fornecedor/painel/pedidos": typeof AppFornecedorPainelPedidosRoute;
-  "/fornecedor/painel/produtos": typeof AppFornecedorPainelProdutosRoute;
-  "/fornecedor/painel/recebimentos": typeof AppFornecedorPainelRecebimentosRoute;
-  "/fornecedor/painel/regras": typeof AppFornecedorPainelRegrasRoute;
-  "/fornecedor/painel/relatorio": typeof AppFornecedorPainelRelatorioRoute;
-  "/fornecedor/painel/vendas": typeof AppFornecedorPainelVendasRoute;
-  "/suporte/conversas/$ticketId": typeof AppSuporteConversasTicketIdRoute;
-  "/suporte/fornecedores/novo": typeof AppSuporteFornecedoresNovoRoute;
-  "/suporte/revendedores/relatorio": typeof AppSuporteRevendedoresRelatorioRoute;
-  "/api/admin/exportar/auditoria": typeof ApiAdminExportarAuditoriaRoute;
-  "/api/admin/exportar/chamados": typeof ApiAdminExportarChamadosRoute;
-  "/api/admin/exportar/clientes": typeof ApiAdminExportarClientesRoute;
-  "/api/admin/exportar/equipe": typeof ApiAdminExportarEquipeRoute;
-  "/api/devolucoes/$claimId/motivo": typeof ApiDevolucoesClaimIdMotivoRoute;
-  "/api/devolucoes/$claimId/resposta": typeof ApiDevolucoesClaimIdRespostaRoute;
-  "/api/devolucoes/fotos/$photoId": typeof ApiDevolucoesFotosPhotoIdRoute;
-  "/api/fornecedor/exportar/catalogo": typeof ApiFornecedorExportarCatalogoRoute;
-  "/api/fornecedor/exportar/pedidos": typeof ApiFornecedorExportarPedidosRoute;
-  "/api/fornecedor/exportar/produtos": typeof ApiFornecedorExportarProdutosRoute;
-  "/api/fornecedor/produtos/imagens": typeof ApiFornecedorProdutosImagensRoute;
-  "/api/fornecedor/vendas/exportar": typeof ApiFornecedorVendasExportarRoute;
-  "/api/integracoes/bling/conectar": typeof ApiIntegracoesBlingConectarRoute;
-  "/api/integracoes/bling/retorno": typeof ApiIntegracoesBlingRetornoRoute;
-  "/api/integracoes/mercado-pago/conectar": typeof ApiIntegracoesMercadoPagoConectarRoute;
-  "/api/integracoes/mercado-pago/retorno": typeof ApiIntegracoesMercadoPagoRetornoRoute;
-  "/api/oauth/$marketplace/callback": typeof ApiOauthMarketplaceCallbackRoute;
-  "/api/oauth/$marketplace/start": typeof ApiOauthMarketplaceStartRoute;
-  "/api/pedidos/$orderId/etiqueta": typeof ApiPedidosOrderIdEtiquetaRoute;
-  "/api/pedidos/$orderId/nota-fiscal": typeof ApiPedidosOrderIdNotaFiscalRoute;
-  "/api/suporte/anexos/$attachmentId": typeof ApiSuporteAnexosAttachmentIdRoute;
-  "/api/v1/financials/summary": typeof ApiV1FinancialsSummaryRoute;
-  "/api/v1/listings/$listingId": typeof ApiV1ListingsListingIdRoute;
-  "/api/v1/orders/$orderId": typeof ApiV1OrdersOrderIdRoute;
-  "/admin/chamados/": typeof AppAdminChamadosIndexRoute;
-  "/admin/clientes/": typeof AppAdminClientesIndexRoute;
-  "/admin/fornecedores/": typeof AppAdminFornecedoresIndexRoute;
-  "/admin/problemas/": typeof AppAdminProblemasIndexRoute;
-  "/fornecedor/painel/": typeof AppFornecedorPainelIndexRoute;
-  "/suporte/fornecedores/": typeof AppSuporteFornecedoresIndexRoute;
-  "/api/suporte/chamados/": typeof ApiSuporteChamadosIndexRoute;
-  "/api/suporte/conversas/": typeof ApiSuporteConversasIndexRoute;
-  "/api/v1/listings/": typeof ApiV1ListingsIndexRoute;
-  "/api/v1/orders/": typeof ApiV1OrdersIndexRoute;
-  "/api/v1/webhook-endpoints/": typeof ApiV1WebhookEndpointsIndexRoute;
-  "/admin/fornecedores/$supplierId/flags": typeof AppAdminFornecedoresSupplierIdFlagsRoute;
-  "/admin/fornecedores/analise/$productId": typeof AppAdminFornecedoresAnaliseProductIdRoute;
-  "/api/admin/chamados/$ticketId/mensagens": typeof ApiAdminChamadosTicketIdMensagensRoute;
-  "/api/perfil/foto/$userId/$fileName": typeof ApiPerfilFotoUserIdFileNameRoute;
-  "/api/produtos/imagens/$supplierId/$fileName": typeof ApiProdutosImagensSupplierIdFileNameRoute;
-  "/api/suporte/chamados/$ticketId/mensagens": typeof ApiSuporteChamadosTicketIdMensagensRoute;
-  "/api/suporte/conversas/$ticketId/mensagens": typeof ApiSuporteConversasTicketIdMensagensRoute;
-  "/api/v1/catalog/products/$productId": typeof ApiV1CatalogProductsProductIdRoute;
-  "/api/v1/webhook-endpoints/$endpointId/deliveries": typeof ApiV1WebhookEndpointsEndpointIdDeliveriesRoute;
-  "/admin/fornecedores/analise/": typeof AppAdminFornecedoresAnaliseIndexRoute;
-  "/admin/fornecedores/aprovacao/": typeof AppAdminFornecedoresAprovacaoIndexRoute;
-  "/api/v1/catalog/products/": typeof ApiV1CatalogProductsIndexRoute;
-  "/api/v1/webhook-endpoints/$endpointId/": typeof ApiV1WebhookEndpointsEndpointIdIndexRoute;
+  '/': typeof IndexRoute
+  '/aceitar-termos': typeof AceitarTermosRoute
+  '/outro-perfil': typeof OutroPerfilRoute
+  '/privacidade': typeof PrivacidadeRoute
+  '/termos': typeof TermosRoute
+  '/admin': typeof AppAdminRouteRouteWithChildren
+  '/fornecedores': typeof AppFornecedoresRouteRouteWithChildren
+  '/assinatura': typeof AppAssinaturaRoute
+  '/catalogo': typeof AppCatalogoRoute
+  '/dashboard': typeof AppDashboardRoute
+  '/financeiro': typeof AppFinanceiroRoute
+  '/integracoes': typeof AppIntegracoesRoute
+  '/lojas': typeof AppLojasRoute
+  '/onboarding': typeof AppOnboardingRoute
+  '/perfil': typeof AppPerfilRoute
+  '/politica-de-devolucao': typeof AppPoliticaDeDevolucaoRoute
+  '/products': typeof AppProductsRoute
+  '/cadastro': typeof AuthCadastroRoute
+  '/confirme-seu-email': typeof AuthConfirmeSeuEmailRoute
+  '/esqueci-senha': typeof AuthEsqueciSenhaRoute
+  '/login': typeof AuthLoginRoute
+  '/redefinir-senha': typeof AuthRedefinirSenhaRoute
+  '/api/health': typeof ApiHealthRoute
+  '/api/version': typeof ApiVersionRoute
+  '/rastreio/$token': typeof RastreioTokenRoute
+  '/admin/clientes': typeof AppAdminClientesRouteRouteWithChildren
+  '/admin/problemas': typeof AppAdminProblemasRouteRouteWithChildren
+  '/fornecedor/painel': typeof AppFornecedorPainelRouteRouteWithChildren
+  '/admin/auditoria': typeof AppAdminAuditoriaRoute
+  '/admin/avaliacoes': typeof AppAdminAvaliacoesRoute
+  '/admin/configuracoes': typeof AppAdminConfiguracoesRoute
+  '/admin/envios': typeof AppAdminEnviosRoute
+  '/admin/equipe': typeof AppAdminEquipeRoute
+  '/admin/products': typeof AppAdminProductsRoute
+  '/admin/relatorio': typeof AppAdminRelatorioRoute
+  '/financeiro/relatorio': typeof AppFinanceiroRelatorioRoute
+  '/fornecedores/$supplierId': typeof AppFornecedoresSupplierIdRoute
+  '/pedidos/$orderId': typeof AppPedidosOrderIdRoute
+  '/pedidos/venda-manual': typeof AppPedidosVendaManualRoute
+  '/publicacoes/nova': typeof AppPublicacoesNovaRoute
+  '/suporte/$ticketId': typeof AppSuporteTicketIdRoute
+  '/suporte/novo': typeof AppSuporteNovoRoute
+  '/suporte/revendedores': typeof AppSuporteRevendedoresRoute
+  '/cadastro/fornecedor': typeof AuthCadastroFornecedorRoute
+  '/api/admin/product-images': typeof ApiAdminProductImagesRoute
+  '/api/auth/$': typeof ApiAuthSplatRoute
+  '/api/conta/exportar': typeof ApiContaExportarRoute
+  '/api/diagnostics/errors': typeof ApiDiagnosticsErrorsRoute
+  '/api/financeiro/exportar': typeof ApiFinanceiroExportarRoute
+  '/api/perfil/foto': typeof ApiPerfilFotoRouteWithChildren
+  '/api/products/images': typeof ApiProductsImagesRoute
+  '/api/v1/docs': typeof ApiV1DocsRoute
+  '/api/v1/events': typeof ApiV1EventsRoute
+  '/api/v1/me': typeof ApiV1MeRoute
+  '/api/v1/openapi.json': typeof ApiV1OpenapiDotjsonRoute
+  '/api/v1/stores': typeof ApiV1StoresRoute
+  '/api/webhooks/$marketplace': typeof ApiWebhooksMarketplaceRoute
+  '/api/webhooks/asaas': typeof ApiWebhooksAsaasRoute
+  '/api/webhooks/asaas-assinatura': typeof ApiWebhooksAsaasAssinaturaRoute
+  '/api/webhooks/bling': typeof ApiWebhooksBlingRoute
+  '/api/webhooks/mercado-pago': typeof ApiWebhooksMercadoPagoRoute
+  '/api/webhooks/stripe': typeof ApiWebhooksStripeRoute
+  '/fornecedor/pedido/$token': typeof FornecedorPedidoTokenRoute
+  '/fornecedores/': typeof AppFornecedoresIndexRoute
+  '/pedidos/': typeof AppPedidosIndexRoute
+  '/publicacoes/': typeof AppPublicacoesIndexRoute
+  '/suporte/': typeof AppSuporteIndexRoute
+  '/admin/chamados/$ticketId': typeof AppAdminChamadosTicketIdRoute
+  '/admin/chamados/metricas': typeof AppAdminChamadosMetricasRoute
+  '/admin/clientes/$userId': typeof AppAdminClientesUserIdRoute
+  '/admin/fornecedores/$supplierId': typeof AppAdminFornecedoresSupplierIdRoute
+  '/admin/problemas/$problemId': typeof AppAdminProblemasProblemIdRoute
+  '/fornecedor/painel/conferir': typeof AppFornecedorPainelConferirRoute
+  '/fornecedor/painel/desempenho': typeof AppFornecedorPainelDesempenhoRoute
+  '/fornecedor/painel/importar': typeof AppFornecedorPainelImportarRoute
+  '/fornecedor/painel/marca': typeof AppFornecedorPainelMarcaRoute
+  '/fornecedor/painel/pedidos': typeof AppFornecedorPainelPedidosRoute
+  '/fornecedor/painel/produtos': typeof AppFornecedorPainelProdutosRoute
+  '/fornecedor/painel/recebimentos': typeof AppFornecedorPainelRecebimentosRoute
+  '/fornecedor/painel/regras': typeof AppFornecedorPainelRegrasRoute
+  '/fornecedor/painel/relatorio': typeof AppFornecedorPainelRelatorioRoute
+  '/fornecedor/painel/vendas': typeof AppFornecedorPainelVendasRoute
+  '/suporte/conversas/$ticketId': typeof AppSuporteConversasTicketIdRoute
+  '/suporte/fornecedores/novo': typeof AppSuporteFornecedoresNovoRoute
+  '/suporte/revendedores/relatorio': typeof AppSuporteRevendedoresRelatorioRoute
+  '/api/admin/exportar/auditoria': typeof ApiAdminExportarAuditoriaRoute
+  '/api/admin/exportar/chamados': typeof ApiAdminExportarChamadosRoute
+  '/api/admin/exportar/clientes': typeof ApiAdminExportarClientesRoute
+  '/api/admin/exportar/equipe': typeof ApiAdminExportarEquipeRoute
+  '/api/devolucoes/$claimId/motivo': typeof ApiDevolucoesClaimIdMotivoRoute
+  '/api/devolucoes/$claimId/resposta': typeof ApiDevolucoesClaimIdRespostaRoute
+  '/api/devolucoes/fotos/$photoId': typeof ApiDevolucoesFotosPhotoIdRoute
+  '/api/fornecedor/exportar/catalogo': typeof ApiFornecedorExportarCatalogoRoute
+  '/api/fornecedor/exportar/pedidos': typeof ApiFornecedorExportarPedidosRoute
+  '/api/fornecedor/exportar/produtos': typeof ApiFornecedorExportarProdutosRoute
+  '/api/fornecedor/produtos/imagens': typeof ApiFornecedorProdutosImagensRoute
+  '/api/fornecedor/vendas/exportar': typeof ApiFornecedorVendasExportarRoute
+  '/api/integracoes/bling/conectar': typeof ApiIntegracoesBlingConectarRoute
+  '/api/integracoes/bling/retorno': typeof ApiIntegracoesBlingRetornoRoute
+  '/api/integracoes/mercado-pago/conectar': typeof ApiIntegracoesMercadoPagoConectarRoute
+  '/api/integracoes/mercado-pago/retorno': typeof ApiIntegracoesMercadoPagoRetornoRoute
+  '/api/oauth/$marketplace/callback': typeof ApiOauthMarketplaceCallbackRoute
+  '/api/oauth/$marketplace/start': typeof ApiOauthMarketplaceStartRoute
+  '/api/pedidos/$orderId/etiqueta': typeof ApiPedidosOrderIdEtiquetaRoute
+  '/api/pedidos/$orderId/nota-fiscal': typeof ApiPedidosOrderIdNotaFiscalRoute
+  '/api/suporte/anexos/$attachmentId': typeof ApiSuporteAnexosAttachmentIdRoute
+  '/api/v1/financials/summary': typeof ApiV1FinancialsSummaryRoute
+  '/api/v1/listings/$listingId': typeof ApiV1ListingsListingIdRoute
+  '/api/v1/orders/$orderId': typeof ApiV1OrdersOrderIdRoute
+  '/admin/chamados/': typeof AppAdminChamadosIndexRoute
+  '/admin/clientes/': typeof AppAdminClientesIndexRoute
+  '/admin/fornecedores/': typeof AppAdminFornecedoresIndexRoute
+  '/admin/problemas/': typeof AppAdminProblemasIndexRoute
+  '/fornecedor/painel/': typeof AppFornecedorPainelIndexRoute
+  '/suporte/fornecedores/': typeof AppSuporteFornecedoresIndexRoute
+  '/api/suporte/chamados/': typeof ApiSuporteChamadosIndexRoute
+  '/api/suporte/conversas/': typeof ApiSuporteConversasIndexRoute
+  '/api/v1/listings/': typeof ApiV1ListingsIndexRoute
+  '/api/v1/orders/': typeof ApiV1OrdersIndexRoute
+  '/api/v1/webhook-endpoints/': typeof ApiV1WebhookEndpointsIndexRoute
+  '/admin/fornecedores/$supplierId/flags': typeof AppAdminFornecedoresSupplierIdFlagsRoute
+  '/admin/fornecedores/analise/$productId': typeof AppAdminFornecedoresAnaliseProductIdRoute
+  '/api/admin/chamados/$ticketId/mensagens': typeof ApiAdminChamadosTicketIdMensagensRoute
+  '/api/perfil/foto/$userId/$fileName': typeof ApiPerfilFotoUserIdFileNameRoute
+  '/api/produtos/imagens/$supplierId/$fileName': typeof ApiProdutosImagensSupplierIdFileNameRoute
+  '/api/suporte/chamados/$ticketId/mensagens': typeof ApiSuporteChamadosTicketIdMensagensRoute
+  '/api/suporte/conversas/$ticketId/mensagens': typeof ApiSuporteConversasTicketIdMensagensRoute
+  '/api/v1/catalog/products/$productId': typeof ApiV1CatalogProductsProductIdRoute
+  '/api/v1/webhook-endpoints/$endpointId/deliveries': typeof ApiV1WebhookEndpointsEndpointIdDeliveriesRoute
+  '/admin/fornecedores/analise/': typeof AppAdminFornecedoresAnaliseIndexRoute
+  '/admin/fornecedores/aprovacao/': typeof AppAdminFornecedoresAprovacaoIndexRoute
+  '/api/v1/catalog/products/': typeof ApiV1CatalogProductsIndexRoute
+  '/api/v1/webhook-endpoints/$endpointId/': typeof ApiV1WebhookEndpointsEndpointIdIndexRoute
 }
 export interface FileRoutesByTo {
-  "/": typeof IndexRoute;
-  "/aceitar-termos": typeof AceitarTermosRoute;
-  "/outro-perfil": typeof OutroPerfilRoute;
-  "/privacidade": typeof PrivacidadeRoute;
-  "/termos": typeof TermosRoute;
-  "/admin": typeof AppAdminRouteRouteWithChildren;
-  "/assinatura": typeof AppAssinaturaRoute;
-  "/catalogo": typeof AppCatalogoRoute;
-  "/dashboard": typeof AppDashboardRoute;
-  "/financeiro": typeof AppFinanceiroRoute;
-  "/integracoes": typeof AppIntegracoesRoute;
-  "/lojas": typeof AppLojasRoute;
-  "/onboarding": typeof AppOnboardingRoute;
-  "/perfil": typeof AppPerfilRoute;
-  "/politica-de-devolucao": typeof AppPoliticaDeDevolucaoRoute;
-  "/products": typeof AppProductsRoute;
-  "/cadastro": typeof AuthCadastroRoute;
-  "/confirme-seu-email": typeof AuthConfirmeSeuEmailRoute;
-  "/esqueci-senha": typeof AuthEsqueciSenhaRoute;
-  "/login": typeof AuthLoginRoute;
-  "/redefinir-senha": typeof AuthRedefinirSenhaRoute;
-  "/api/health": typeof ApiHealthRoute;
-  "/api/version": typeof ApiVersionRoute;
-  "/rastreio/$token": typeof RastreioTokenRoute;
-  "/admin/auditoria": typeof AppAdminAuditoriaRoute;
-  "/admin/avaliacoes": typeof AppAdminAvaliacoesRoute;
-  "/admin/configuracoes": typeof AppAdminConfiguracoesRoute;
-  "/admin/envios": typeof AppAdminEnviosRoute;
-  "/admin/equipe": typeof AppAdminEquipeRoute;
-  "/admin/products": typeof AppAdminProductsRoute;
-  "/admin/relatorio": typeof AppAdminRelatorioRoute;
-  "/financeiro/relatorio": typeof AppFinanceiroRelatorioRoute;
-  "/fornecedores/$supplierId": typeof AppFornecedoresSupplierIdRoute;
-  "/pedidos/$orderId": typeof AppPedidosOrderIdRoute;
-  "/pedidos/venda-manual": typeof AppPedidosVendaManualRoute;
-  "/publicacoes/nova": typeof AppPublicacoesNovaRoute;
-  "/suporte/$ticketId": typeof AppSuporteTicketIdRoute;
-  "/suporte/novo": typeof AppSuporteNovoRoute;
-  "/suporte/revendedores": typeof AppSuporteRevendedoresRoute;
-  "/cadastro/fornecedor": typeof AuthCadastroFornecedorRoute;
-  "/api/admin/product-images": typeof ApiAdminProductImagesRoute;
-  "/api/auth/$": typeof ApiAuthSplatRoute;
-  "/api/conta/exportar": typeof ApiContaExportarRoute;
-  "/api/diagnostics/errors": typeof ApiDiagnosticsErrorsRoute;
-  "/api/financeiro/exportar": typeof ApiFinanceiroExportarRoute;
-  "/api/perfil/foto": typeof ApiPerfilFotoRouteWithChildren;
-  "/api/products/images": typeof ApiProductsImagesRoute;
-  "/api/v1/docs": typeof ApiV1DocsRoute;
-  "/api/v1/events": typeof ApiV1EventsRoute;
-  "/api/v1/me": typeof ApiV1MeRoute;
-  "/api/v1/openapi.json": typeof ApiV1OpenapiDotjsonRoute;
-  "/api/v1/stores": typeof ApiV1StoresRoute;
-  "/api/webhooks/$marketplace": typeof ApiWebhooksMarketplaceRoute;
-  "/api/webhooks/asaas": typeof ApiWebhooksAsaasRoute;
-  "/api/webhooks/asaas-assinatura": typeof ApiWebhooksAsaasAssinaturaRoute;
-  "/api/webhooks/bling": typeof ApiWebhooksBlingRoute;
-  "/api/webhooks/mercado-pago": typeof ApiWebhooksMercadoPagoRoute;
-  "/api/webhooks/stripe": typeof ApiWebhooksStripeRoute;
-  "/fornecedor/pedido/$token": typeof FornecedorPedidoTokenRoute;
-  "/fornecedores": typeof AppFornecedoresIndexRoute;
-  "/pedidos": typeof AppPedidosIndexRoute;
-  "/publicacoes": typeof AppPublicacoesIndexRoute;
-  "/suporte": typeof AppSuporteIndexRoute;
-  "/admin/chamados/$ticketId": typeof AppAdminChamadosTicketIdRoute;
-  "/admin/chamados/metricas": typeof AppAdminChamadosMetricasRoute;
-  "/admin/clientes/$userId": typeof AppAdminClientesUserIdRoute;
-  "/admin/fornecedores/$supplierId": typeof AppAdminFornecedoresSupplierIdRoute;
-  "/admin/problemas/$problemId": typeof AppAdminProblemasProblemIdRoute;
-  "/fornecedor/painel/conferir": typeof AppFornecedorPainelConferirRoute;
-  "/fornecedor/painel/desempenho": typeof AppFornecedorPainelDesempenhoRoute;
-  "/fornecedor/painel/importar": typeof AppFornecedorPainelImportarRoute;
-  "/fornecedor/painel/marca": typeof AppFornecedorPainelMarcaRoute;
-  "/fornecedor/painel/pedidos": typeof AppFornecedorPainelPedidosRoute;
-  "/fornecedor/painel/produtos": typeof AppFornecedorPainelProdutosRoute;
-  "/fornecedor/painel/recebimentos": typeof AppFornecedorPainelRecebimentosRoute;
-  "/fornecedor/painel/regras": typeof AppFornecedorPainelRegrasRoute;
-  "/fornecedor/painel/relatorio": typeof AppFornecedorPainelRelatorioRoute;
-  "/fornecedor/painel/vendas": typeof AppFornecedorPainelVendasRoute;
-  "/suporte/conversas/$ticketId": typeof AppSuporteConversasTicketIdRoute;
-  "/suporte/fornecedores/novo": typeof AppSuporteFornecedoresNovoRoute;
-  "/suporte/revendedores/relatorio": typeof AppSuporteRevendedoresRelatorioRoute;
-  "/api/admin/exportar/auditoria": typeof ApiAdminExportarAuditoriaRoute;
-  "/api/admin/exportar/chamados": typeof ApiAdminExportarChamadosRoute;
-  "/api/admin/exportar/clientes": typeof ApiAdminExportarClientesRoute;
-  "/api/admin/exportar/equipe": typeof ApiAdminExportarEquipeRoute;
-  "/api/devolucoes/$claimId/motivo": typeof ApiDevolucoesClaimIdMotivoRoute;
-  "/api/devolucoes/$claimId/resposta": typeof ApiDevolucoesClaimIdRespostaRoute;
-  "/api/devolucoes/fotos/$photoId": typeof ApiDevolucoesFotosPhotoIdRoute;
-  "/api/fornecedor/exportar/catalogo": typeof ApiFornecedorExportarCatalogoRoute;
-  "/api/fornecedor/exportar/pedidos": typeof ApiFornecedorExportarPedidosRoute;
-  "/api/fornecedor/exportar/produtos": typeof ApiFornecedorExportarProdutosRoute;
-  "/api/fornecedor/produtos/imagens": typeof ApiFornecedorProdutosImagensRoute;
-  "/api/fornecedor/vendas/exportar": typeof ApiFornecedorVendasExportarRoute;
-  "/api/integracoes/bling/conectar": typeof ApiIntegracoesBlingConectarRoute;
-  "/api/integracoes/bling/retorno": typeof ApiIntegracoesBlingRetornoRoute;
-  "/api/integracoes/mercado-pago/conectar": typeof ApiIntegracoesMercadoPagoConectarRoute;
-  "/api/integracoes/mercado-pago/retorno": typeof ApiIntegracoesMercadoPagoRetornoRoute;
-  "/api/oauth/$marketplace/callback": typeof ApiOauthMarketplaceCallbackRoute;
-  "/api/oauth/$marketplace/start": typeof ApiOauthMarketplaceStartRoute;
-  "/api/pedidos/$orderId/etiqueta": typeof ApiPedidosOrderIdEtiquetaRoute;
-  "/api/pedidos/$orderId/nota-fiscal": typeof ApiPedidosOrderIdNotaFiscalRoute;
-  "/api/suporte/anexos/$attachmentId": typeof ApiSuporteAnexosAttachmentIdRoute;
-  "/api/v1/financials/summary": typeof ApiV1FinancialsSummaryRoute;
-  "/api/v1/listings/$listingId": typeof ApiV1ListingsListingIdRoute;
-  "/api/v1/orders/$orderId": typeof ApiV1OrdersOrderIdRoute;
-  "/admin/chamados": typeof AppAdminChamadosIndexRoute;
-  "/admin/clientes": typeof AppAdminClientesIndexRoute;
-  "/admin/fornecedores": typeof AppAdminFornecedoresIndexRoute;
-  "/admin/problemas": typeof AppAdminProblemasIndexRoute;
-  "/fornecedor/painel": typeof AppFornecedorPainelIndexRoute;
-  "/suporte/fornecedores": typeof AppSuporteFornecedoresIndexRoute;
-  "/api/suporte/chamados": typeof ApiSuporteChamadosIndexRoute;
-  "/api/suporte/conversas": typeof ApiSuporteConversasIndexRoute;
-  "/api/v1/listings": typeof ApiV1ListingsIndexRoute;
-  "/api/v1/orders": typeof ApiV1OrdersIndexRoute;
-  "/api/v1/webhook-endpoints": typeof ApiV1WebhookEndpointsIndexRoute;
-  "/admin/fornecedores/$supplierId/flags": typeof AppAdminFornecedoresSupplierIdFlagsRoute;
-  "/admin/fornecedores/analise/$productId": typeof AppAdminFornecedoresAnaliseProductIdRoute;
-  "/api/admin/chamados/$ticketId/mensagens": typeof ApiAdminChamadosTicketIdMensagensRoute;
-  "/api/perfil/foto/$userId/$fileName": typeof ApiPerfilFotoUserIdFileNameRoute;
-  "/api/produtos/imagens/$supplierId/$fileName": typeof ApiProdutosImagensSupplierIdFileNameRoute;
-  "/api/suporte/chamados/$ticketId/mensagens": typeof ApiSuporteChamadosTicketIdMensagensRoute;
-  "/api/suporte/conversas/$ticketId/mensagens": typeof ApiSuporteConversasTicketIdMensagensRoute;
-  "/api/v1/catalog/products/$productId": typeof ApiV1CatalogProductsProductIdRoute;
-  "/api/v1/webhook-endpoints/$endpointId/deliveries": typeof ApiV1WebhookEndpointsEndpointIdDeliveriesRoute;
-  "/admin/fornecedores/analise": typeof AppAdminFornecedoresAnaliseIndexRoute;
-  "/admin/fornecedores/aprovacao": typeof AppAdminFornecedoresAprovacaoIndexRoute;
-  "/api/v1/catalog/products": typeof ApiV1CatalogProductsIndexRoute;
-  "/api/v1/webhook-endpoints/$endpointId": typeof ApiV1WebhookEndpointsEndpointIdIndexRoute;
+  '/': typeof IndexRoute
+  '/aceitar-termos': typeof AceitarTermosRoute
+  '/outro-perfil': typeof OutroPerfilRoute
+  '/privacidade': typeof PrivacidadeRoute
+  '/termos': typeof TermosRoute
+  '/admin': typeof AppAdminRouteRouteWithChildren
+  '/assinatura': typeof AppAssinaturaRoute
+  '/catalogo': typeof AppCatalogoRoute
+  '/dashboard': typeof AppDashboardRoute
+  '/financeiro': typeof AppFinanceiroRoute
+  '/integracoes': typeof AppIntegracoesRoute
+  '/lojas': typeof AppLojasRoute
+  '/onboarding': typeof AppOnboardingRoute
+  '/perfil': typeof AppPerfilRoute
+  '/politica-de-devolucao': typeof AppPoliticaDeDevolucaoRoute
+  '/products': typeof AppProductsRoute
+  '/cadastro': typeof AuthCadastroRoute
+  '/confirme-seu-email': typeof AuthConfirmeSeuEmailRoute
+  '/esqueci-senha': typeof AuthEsqueciSenhaRoute
+  '/login': typeof AuthLoginRoute
+  '/redefinir-senha': typeof AuthRedefinirSenhaRoute
+  '/api/health': typeof ApiHealthRoute
+  '/api/version': typeof ApiVersionRoute
+  '/rastreio/$token': typeof RastreioTokenRoute
+  '/admin/auditoria': typeof AppAdminAuditoriaRoute
+  '/admin/avaliacoes': typeof AppAdminAvaliacoesRoute
+  '/admin/configuracoes': typeof AppAdminConfiguracoesRoute
+  '/admin/envios': typeof AppAdminEnviosRoute
+  '/admin/equipe': typeof AppAdminEquipeRoute
+  '/admin/products': typeof AppAdminProductsRoute
+  '/admin/relatorio': typeof AppAdminRelatorioRoute
+  '/financeiro/relatorio': typeof AppFinanceiroRelatorioRoute
+  '/fornecedores/$supplierId': typeof AppFornecedoresSupplierIdRoute
+  '/pedidos/$orderId': typeof AppPedidosOrderIdRoute
+  '/pedidos/venda-manual': typeof AppPedidosVendaManualRoute
+  '/publicacoes/nova': typeof AppPublicacoesNovaRoute
+  '/suporte/$ticketId': typeof AppSuporteTicketIdRoute
+  '/suporte/novo': typeof AppSuporteNovoRoute
+  '/suporte/revendedores': typeof AppSuporteRevendedoresRoute
+  '/cadastro/fornecedor': typeof AuthCadastroFornecedorRoute
+  '/api/admin/product-images': typeof ApiAdminProductImagesRoute
+  '/api/auth/$': typeof ApiAuthSplatRoute
+  '/api/conta/exportar': typeof ApiContaExportarRoute
+  '/api/diagnostics/errors': typeof ApiDiagnosticsErrorsRoute
+  '/api/financeiro/exportar': typeof ApiFinanceiroExportarRoute
+  '/api/perfil/foto': typeof ApiPerfilFotoRouteWithChildren
+  '/api/products/images': typeof ApiProductsImagesRoute
+  '/api/v1/docs': typeof ApiV1DocsRoute
+  '/api/v1/events': typeof ApiV1EventsRoute
+  '/api/v1/me': typeof ApiV1MeRoute
+  '/api/v1/openapi.json': typeof ApiV1OpenapiDotjsonRoute
+  '/api/v1/stores': typeof ApiV1StoresRoute
+  '/api/webhooks/$marketplace': typeof ApiWebhooksMarketplaceRoute
+  '/api/webhooks/asaas': typeof ApiWebhooksAsaasRoute
+  '/api/webhooks/asaas-assinatura': typeof ApiWebhooksAsaasAssinaturaRoute
+  '/api/webhooks/bling': typeof ApiWebhooksBlingRoute
+  '/api/webhooks/mercado-pago': typeof ApiWebhooksMercadoPagoRoute
+  '/api/webhooks/stripe': typeof ApiWebhooksStripeRoute
+  '/fornecedor/pedido/$token': typeof FornecedorPedidoTokenRoute
+  '/fornecedores': typeof AppFornecedoresIndexRoute
+  '/pedidos': typeof AppPedidosIndexRoute
+  '/publicacoes': typeof AppPublicacoesIndexRoute
+  '/suporte': typeof AppSuporteIndexRoute
+  '/admin/chamados/$ticketId': typeof AppAdminChamadosTicketIdRoute
+  '/admin/chamados/metricas': typeof AppAdminChamadosMetricasRoute
+  '/admin/clientes/$userId': typeof AppAdminClientesUserIdRoute
+  '/admin/fornecedores/$supplierId': typeof AppAdminFornecedoresSupplierIdRoute
+  '/admin/problemas/$problemId': typeof AppAdminProblemasProblemIdRoute
+  '/fornecedor/painel/conferir': typeof AppFornecedorPainelConferirRoute
+  '/fornecedor/painel/desempenho': typeof AppFornecedorPainelDesempenhoRoute
+  '/fornecedor/painel/importar': typeof AppFornecedorPainelImportarRoute
+  '/fornecedor/painel/marca': typeof AppFornecedorPainelMarcaRoute
+  '/fornecedor/painel/pedidos': typeof AppFornecedorPainelPedidosRoute
+  '/fornecedor/painel/produtos': typeof AppFornecedorPainelProdutosRoute
+  '/fornecedor/painel/recebimentos': typeof AppFornecedorPainelRecebimentosRoute
+  '/fornecedor/painel/regras': typeof AppFornecedorPainelRegrasRoute
+  '/fornecedor/painel/relatorio': typeof AppFornecedorPainelRelatorioRoute
+  '/fornecedor/painel/vendas': typeof AppFornecedorPainelVendasRoute
+  '/suporte/conversas/$ticketId': typeof AppSuporteConversasTicketIdRoute
+  '/suporte/fornecedores/novo': typeof AppSuporteFornecedoresNovoRoute
+  '/suporte/revendedores/relatorio': typeof AppSuporteRevendedoresRelatorioRoute
+  '/api/admin/exportar/auditoria': typeof ApiAdminExportarAuditoriaRoute
+  '/api/admin/exportar/chamados': typeof ApiAdminExportarChamadosRoute
+  '/api/admin/exportar/clientes': typeof ApiAdminExportarClientesRoute
+  '/api/admin/exportar/equipe': typeof ApiAdminExportarEquipeRoute
+  '/api/devolucoes/$claimId/motivo': typeof ApiDevolucoesClaimIdMotivoRoute
+  '/api/devolucoes/$claimId/resposta': typeof ApiDevolucoesClaimIdRespostaRoute
+  '/api/devolucoes/fotos/$photoId': typeof ApiDevolucoesFotosPhotoIdRoute
+  '/api/fornecedor/exportar/catalogo': typeof ApiFornecedorExportarCatalogoRoute
+  '/api/fornecedor/exportar/pedidos': typeof ApiFornecedorExportarPedidosRoute
+  '/api/fornecedor/exportar/produtos': typeof ApiFornecedorExportarProdutosRoute
+  '/api/fornecedor/produtos/imagens': typeof ApiFornecedorProdutosImagensRoute
+  '/api/fornecedor/vendas/exportar': typeof ApiFornecedorVendasExportarRoute
+  '/api/integracoes/bling/conectar': typeof ApiIntegracoesBlingConectarRoute
+  '/api/integracoes/bling/retorno': typeof ApiIntegracoesBlingRetornoRoute
+  '/api/integracoes/mercado-pago/conectar': typeof ApiIntegracoesMercadoPagoConectarRoute
+  '/api/integracoes/mercado-pago/retorno': typeof ApiIntegracoesMercadoPagoRetornoRoute
+  '/api/oauth/$marketplace/callback': typeof ApiOauthMarketplaceCallbackRoute
+  '/api/oauth/$marketplace/start': typeof ApiOauthMarketplaceStartRoute
+  '/api/pedidos/$orderId/etiqueta': typeof ApiPedidosOrderIdEtiquetaRoute
+  '/api/pedidos/$orderId/nota-fiscal': typeof ApiPedidosOrderIdNotaFiscalRoute
+  '/api/suporte/anexos/$attachmentId': typeof ApiSuporteAnexosAttachmentIdRoute
+  '/api/v1/financials/summary': typeof ApiV1FinancialsSummaryRoute
+  '/api/v1/listings/$listingId': typeof ApiV1ListingsListingIdRoute
+  '/api/v1/orders/$orderId': typeof ApiV1OrdersOrderIdRoute
+  '/admin/chamados': typeof AppAdminChamadosIndexRoute
+  '/admin/clientes': typeof AppAdminClientesIndexRoute
+  '/admin/fornecedores': typeof AppAdminFornecedoresIndexRoute
+  '/admin/problemas': typeof AppAdminProblemasIndexRoute
+  '/fornecedor/painel': typeof AppFornecedorPainelIndexRoute
+  '/suporte/fornecedores': typeof AppSuporteFornecedoresIndexRoute
+  '/api/suporte/chamados': typeof ApiSuporteChamadosIndexRoute
+  '/api/suporte/conversas': typeof ApiSuporteConversasIndexRoute
+  '/api/v1/listings': typeof ApiV1ListingsIndexRoute
+  '/api/v1/orders': typeof ApiV1OrdersIndexRoute
+  '/api/v1/webhook-endpoints': typeof ApiV1WebhookEndpointsIndexRoute
+  '/admin/fornecedores/$supplierId/flags': typeof AppAdminFornecedoresSupplierIdFlagsRoute
+  '/admin/fornecedores/analise/$productId': typeof AppAdminFornecedoresAnaliseProductIdRoute
+  '/api/admin/chamados/$ticketId/mensagens': typeof ApiAdminChamadosTicketIdMensagensRoute
+  '/api/perfil/foto/$userId/$fileName': typeof ApiPerfilFotoUserIdFileNameRoute
+  '/api/produtos/imagens/$supplierId/$fileName': typeof ApiProdutosImagensSupplierIdFileNameRoute
+  '/api/suporte/chamados/$ticketId/mensagens': typeof ApiSuporteChamadosTicketIdMensagensRoute
+  '/api/suporte/conversas/$ticketId/mensagens': typeof ApiSuporteConversasTicketIdMensagensRoute
+  '/api/v1/catalog/products/$productId': typeof ApiV1CatalogProductsProductIdRoute
+  '/api/v1/webhook-endpoints/$endpointId/deliveries': typeof ApiV1WebhookEndpointsEndpointIdDeliveriesRoute
+  '/admin/fornecedores/analise': typeof AppAdminFornecedoresAnaliseIndexRoute
+  '/admin/fornecedores/aprovacao': typeof AppAdminFornecedoresAprovacaoIndexRoute
+  '/api/v1/catalog/products': typeof ApiV1CatalogProductsIndexRoute
+  '/api/v1/webhook-endpoints/$endpointId': typeof ApiV1WebhookEndpointsEndpointIdIndexRoute
 }
 export interface FileRoutesById {
-  __root__: typeof rootRouteImport;
-  "/": typeof IndexRoute;
-  "/_app": typeof AppRouteRouteWithChildren;
-  "/_auth": typeof AuthRouteRouteWithChildren;
-  "/aceitar-termos": typeof AceitarTermosRoute;
-  "/outro-perfil": typeof OutroPerfilRoute;
-  "/privacidade": typeof PrivacidadeRoute;
-  "/termos": typeof TermosRoute;
-  "/_app/admin": typeof AppAdminRouteRouteWithChildren;
-  "/_app/fornecedores": typeof AppFornecedoresRouteRouteWithChildren;
-  "/_app/assinatura": typeof AppAssinaturaRoute;
-  "/_app/catalogo": typeof AppCatalogoRoute;
-  "/_app/dashboard": typeof AppDashboardRoute;
-  "/_app/financeiro": typeof AppFinanceiroRoute;
-  "/_app/integracoes": typeof AppIntegracoesRoute;
-  "/_app/lojas": typeof AppLojasRoute;
-  "/_app/onboarding": typeof AppOnboardingRoute;
-  "/_app/perfil": typeof AppPerfilRoute;
-  "/_app/politica-de-devolucao": typeof AppPoliticaDeDevolucaoRoute;
-  "/_app/products": typeof AppProductsRoute;
-  "/_auth/cadastro": typeof AuthCadastroRoute;
-  "/_auth/confirme-seu-email": typeof AuthConfirmeSeuEmailRoute;
-  "/_auth/esqueci-senha": typeof AuthEsqueciSenhaRoute;
-  "/_auth/login": typeof AuthLoginRoute;
-  "/_auth/redefinir-senha": typeof AuthRedefinirSenhaRoute;
-  "/api/health": typeof ApiHealthRoute;
-  "/api/version": typeof ApiVersionRoute;
-  "/rastreio/$token": typeof RastreioTokenRoute;
-  "/_app/admin/clientes": typeof AppAdminClientesRouteRouteWithChildren;
-  "/_app/admin/problemas": typeof AppAdminProblemasRouteRouteWithChildren;
-  "/_app/fornecedor/painel": typeof AppFornecedorPainelRouteRouteWithChildren;
-  "/_app/admin/auditoria": typeof AppAdminAuditoriaRoute;
-  "/_app/admin/avaliacoes": typeof AppAdminAvaliacoesRoute;
-  "/_app/admin/configuracoes": typeof AppAdminConfiguracoesRoute;
-  "/_app/admin/envios": typeof AppAdminEnviosRoute;
-  "/_app/admin/equipe": typeof AppAdminEquipeRoute;
-  "/_app/admin/products": typeof AppAdminProductsRoute;
-  "/_app/admin/relatorio": typeof AppAdminRelatorioRoute;
-  "/_app/financeiro_/relatorio": typeof AppFinanceiroRelatorioRoute;
-  "/_app/fornecedores/$supplierId": typeof AppFornecedoresSupplierIdRoute;
-  "/_app/pedidos/$orderId": typeof AppPedidosOrderIdRoute;
-  "/_app/pedidos/venda-manual": typeof AppPedidosVendaManualRoute;
-  "/_app/publicacoes/nova": typeof AppPublicacoesNovaRoute;
-  "/_app/suporte/$ticketId": typeof AppSuporteTicketIdRoute;
-  "/_app/suporte/novo": typeof AppSuporteNovoRoute;
-  "/_app/suporte/revendedores": typeof AppSuporteRevendedoresRoute;
-  "/_auth/cadastro_/fornecedor": typeof AuthCadastroFornecedorRoute;
-  "/api/admin/product-images": typeof ApiAdminProductImagesRoute;
-  "/api/auth/$": typeof ApiAuthSplatRoute;
-  "/api/conta/exportar": typeof ApiContaExportarRoute;
-  "/api/diagnostics/errors": typeof ApiDiagnosticsErrorsRoute;
-  "/api/financeiro/exportar": typeof ApiFinanceiroExportarRoute;
-  "/api/perfil/foto": typeof ApiPerfilFotoRouteWithChildren;
-  "/api/products/images": typeof ApiProductsImagesRoute;
-  "/api/v1/docs": typeof ApiV1DocsRoute;
-  "/api/v1/events": typeof ApiV1EventsRoute;
-  "/api/v1/me": typeof ApiV1MeRoute;
-  "/api/v1/openapi.json": typeof ApiV1OpenapiDotjsonRoute;
-  "/api/v1/stores": typeof ApiV1StoresRoute;
-  "/api/webhooks/$marketplace": typeof ApiWebhooksMarketplaceRoute;
-  "/api/webhooks/asaas": typeof ApiWebhooksAsaasRoute;
-  "/api/webhooks/asaas-assinatura": typeof ApiWebhooksAsaasAssinaturaRoute;
-  "/api/webhooks/bling": typeof ApiWebhooksBlingRoute;
-  "/api/webhooks/mercado-pago": typeof ApiWebhooksMercadoPagoRoute;
-  "/api/webhooks/stripe": typeof ApiWebhooksStripeRoute;
-  "/fornecedor/pedido/$token": typeof FornecedorPedidoTokenRoute;
-  "/_app/fornecedores/": typeof AppFornecedoresIndexRoute;
-  "/_app/pedidos/": typeof AppPedidosIndexRoute;
-  "/_app/publicacoes/": typeof AppPublicacoesIndexRoute;
-  "/_app/suporte/": typeof AppSuporteIndexRoute;
-  "/_app/admin/chamados/$ticketId": typeof AppAdminChamadosTicketIdRoute;
-  "/_app/admin/chamados/metricas": typeof AppAdminChamadosMetricasRoute;
-  "/_app/admin/clientes/$userId": typeof AppAdminClientesUserIdRoute;
-  "/_app/admin/fornecedores/$supplierId": typeof AppAdminFornecedoresSupplierIdRoute;
-  "/_app/admin/problemas/$problemId": typeof AppAdminProblemasProblemIdRoute;
-  "/_app/fornecedor/painel/conferir": typeof AppFornecedorPainelConferirRoute;
-  "/_app/fornecedor/painel/desempenho": typeof AppFornecedorPainelDesempenhoRoute;
-  "/_app/fornecedor/painel/importar": typeof AppFornecedorPainelImportarRoute;
-  "/_app/fornecedor/painel/marca": typeof AppFornecedorPainelMarcaRoute;
-  "/_app/fornecedor/painel/pedidos": typeof AppFornecedorPainelPedidosRoute;
-  "/_app/fornecedor/painel/produtos": typeof AppFornecedorPainelProdutosRoute;
-  "/_app/fornecedor/painel/recebimentos": typeof AppFornecedorPainelRecebimentosRoute;
-  "/_app/fornecedor/painel/regras": typeof AppFornecedorPainelRegrasRoute;
-  "/_app/fornecedor/painel/relatorio": typeof AppFornecedorPainelRelatorioRoute;
-  "/_app/fornecedor/painel/vendas": typeof AppFornecedorPainelVendasRoute;
-  "/_app/suporte/conversas/$ticketId": typeof AppSuporteConversasTicketIdRoute;
-  "/_app/suporte/fornecedores/novo": typeof AppSuporteFornecedoresNovoRoute;
-  "/_app/suporte/revendedores_/relatorio": typeof AppSuporteRevendedoresRelatorioRoute;
-  "/api/admin/exportar/auditoria": typeof ApiAdminExportarAuditoriaRoute;
-  "/api/admin/exportar/chamados": typeof ApiAdminExportarChamadosRoute;
-  "/api/admin/exportar/clientes": typeof ApiAdminExportarClientesRoute;
-  "/api/admin/exportar/equipe": typeof ApiAdminExportarEquipeRoute;
-  "/api/devolucoes/$claimId/motivo": typeof ApiDevolucoesClaimIdMotivoRoute;
-  "/api/devolucoes/$claimId/resposta": typeof ApiDevolucoesClaimIdRespostaRoute;
-  "/api/devolucoes/fotos/$photoId": typeof ApiDevolucoesFotosPhotoIdRoute;
-  "/api/fornecedor/exportar/catalogo": typeof ApiFornecedorExportarCatalogoRoute;
-  "/api/fornecedor/exportar/pedidos": typeof ApiFornecedorExportarPedidosRoute;
-  "/api/fornecedor/exportar/produtos": typeof ApiFornecedorExportarProdutosRoute;
-  "/api/fornecedor/produtos/imagens": typeof ApiFornecedorProdutosImagensRoute;
-  "/api/fornecedor/vendas/exportar": typeof ApiFornecedorVendasExportarRoute;
-  "/api/integracoes/bling/conectar": typeof ApiIntegracoesBlingConectarRoute;
-  "/api/integracoes/bling/retorno": typeof ApiIntegracoesBlingRetornoRoute;
-  "/api/integracoes/mercado-pago/conectar": typeof ApiIntegracoesMercadoPagoConectarRoute;
-  "/api/integracoes/mercado-pago/retorno": typeof ApiIntegracoesMercadoPagoRetornoRoute;
-  "/api/oauth/$marketplace/callback": typeof ApiOauthMarketplaceCallbackRoute;
-  "/api/oauth/$marketplace/start": typeof ApiOauthMarketplaceStartRoute;
-  "/api/pedidos/$orderId/etiqueta": typeof ApiPedidosOrderIdEtiquetaRoute;
-  "/api/pedidos/$orderId/nota-fiscal": typeof ApiPedidosOrderIdNotaFiscalRoute;
-  "/api/suporte/anexos/$attachmentId": typeof ApiSuporteAnexosAttachmentIdRoute;
-  "/api/v1/financials/summary": typeof ApiV1FinancialsSummaryRoute;
-  "/api/v1/listings/$listingId": typeof ApiV1ListingsListingIdRoute;
-  "/api/v1/orders/$orderId": typeof ApiV1OrdersOrderIdRoute;
-  "/_app/admin/chamados/": typeof AppAdminChamadosIndexRoute;
-  "/_app/admin/clientes/": typeof AppAdminClientesIndexRoute;
-  "/_app/admin/fornecedores/": typeof AppAdminFornecedoresIndexRoute;
-  "/_app/admin/problemas/": typeof AppAdminProblemasIndexRoute;
-  "/_app/fornecedor/painel/": typeof AppFornecedorPainelIndexRoute;
-  "/_app/suporte/fornecedores/": typeof AppSuporteFornecedoresIndexRoute;
-  "/api/suporte/chamados/": typeof ApiSuporteChamadosIndexRoute;
-  "/api/suporte/conversas/": typeof ApiSuporteConversasIndexRoute;
-  "/api/v1/listings/": typeof ApiV1ListingsIndexRoute;
-  "/api/v1/orders/": typeof ApiV1OrdersIndexRoute;
-  "/api/v1/webhook-endpoints/": typeof ApiV1WebhookEndpointsIndexRoute;
-  "/_app/admin/fornecedores/$supplierId_/flags": typeof AppAdminFornecedoresSupplierIdFlagsRoute;
-  "/_app/admin/fornecedores/analise/$productId": typeof AppAdminFornecedoresAnaliseProductIdRoute;
-  "/api/admin/chamados/$ticketId/mensagens": typeof ApiAdminChamadosTicketIdMensagensRoute;
-  "/api/perfil/foto/$userId/$fileName": typeof ApiPerfilFotoUserIdFileNameRoute;
-  "/api/produtos/imagens/$supplierId/$fileName": typeof ApiProdutosImagensSupplierIdFileNameRoute;
-  "/api/suporte/chamados/$ticketId/mensagens": typeof ApiSuporteChamadosTicketIdMensagensRoute;
-  "/api/suporte/conversas/$ticketId/mensagens": typeof ApiSuporteConversasTicketIdMensagensRoute;
-  "/api/v1/catalog/products/$productId": typeof ApiV1CatalogProductsProductIdRoute;
-  "/api/v1/webhook-endpoints/$endpointId/deliveries": typeof ApiV1WebhookEndpointsEndpointIdDeliveriesRoute;
-  "/_app/admin/fornecedores/analise/": typeof AppAdminFornecedoresAnaliseIndexRoute;
-  "/_app/admin/fornecedores/aprovacao/": typeof AppAdminFornecedoresAprovacaoIndexRoute;
-  "/api/v1/catalog/products/": typeof ApiV1CatalogProductsIndexRoute;
-  "/api/v1/webhook-endpoints/$endpointId/": typeof ApiV1WebhookEndpointsEndpointIdIndexRoute;
+  __root__: typeof rootRouteImport
+  '/': typeof IndexRoute
+  '/_app': typeof AppRouteRouteWithChildren
+  '/_auth': typeof AuthRouteRouteWithChildren
+  '/aceitar-termos': typeof AceitarTermosRoute
+  '/outro-perfil': typeof OutroPerfilRoute
+  '/privacidade': typeof PrivacidadeRoute
+  '/termos': typeof TermosRoute
+  '/_app/admin': typeof AppAdminRouteRouteWithChildren
+  '/_app/fornecedores': typeof AppFornecedoresRouteRouteWithChildren
+  '/_app/assinatura': typeof AppAssinaturaRoute
+  '/_app/catalogo': typeof AppCatalogoRoute
+  '/_app/dashboard': typeof AppDashboardRoute
+  '/_app/financeiro': typeof AppFinanceiroRoute
+  '/_app/integracoes': typeof AppIntegracoesRoute
+  '/_app/lojas': typeof AppLojasRoute
+  '/_app/onboarding': typeof AppOnboardingRoute
+  '/_app/perfil': typeof AppPerfilRoute
+  '/_app/politica-de-devolucao': typeof AppPoliticaDeDevolucaoRoute
+  '/_app/products': typeof AppProductsRoute
+  '/_auth/cadastro': typeof AuthCadastroRoute
+  '/_auth/confirme-seu-email': typeof AuthConfirmeSeuEmailRoute
+  '/_auth/esqueci-senha': typeof AuthEsqueciSenhaRoute
+  '/_auth/login': typeof AuthLoginRoute
+  '/_auth/redefinir-senha': typeof AuthRedefinirSenhaRoute
+  '/api/health': typeof ApiHealthRoute
+  '/api/version': typeof ApiVersionRoute
+  '/rastreio/$token': typeof RastreioTokenRoute
+  '/_app/admin/clientes': typeof AppAdminClientesRouteRouteWithChildren
+  '/_app/admin/problemas': typeof AppAdminProblemasRouteRouteWithChildren
+  '/_app/fornecedor/painel': typeof AppFornecedorPainelRouteRouteWithChildren
+  '/_app/admin/auditoria': typeof AppAdminAuditoriaRoute
+  '/_app/admin/avaliacoes': typeof AppAdminAvaliacoesRoute
+  '/_app/admin/configuracoes': typeof AppAdminConfiguracoesRoute
+  '/_app/admin/envios': typeof AppAdminEnviosRoute
+  '/_app/admin/equipe': typeof AppAdminEquipeRoute
+  '/_app/admin/products': typeof AppAdminProductsRoute
+  '/_app/admin/relatorio': typeof AppAdminRelatorioRoute
+  '/_app/financeiro_/relatorio': typeof AppFinanceiroRelatorioRoute
+  '/_app/fornecedores/$supplierId': typeof AppFornecedoresSupplierIdRoute
+  '/_app/pedidos/$orderId': typeof AppPedidosOrderIdRoute
+  '/_app/pedidos/venda-manual': typeof AppPedidosVendaManualRoute
+  '/_app/publicacoes/nova': typeof AppPublicacoesNovaRoute
+  '/_app/suporte/$ticketId': typeof AppSuporteTicketIdRoute
+  '/_app/suporte/novo': typeof AppSuporteNovoRoute
+  '/_app/suporte/revendedores': typeof AppSuporteRevendedoresRoute
+  '/_auth/cadastro_/fornecedor': typeof AuthCadastroFornecedorRoute
+  '/api/admin/product-images': typeof ApiAdminProductImagesRoute
+  '/api/auth/$': typeof ApiAuthSplatRoute
+  '/api/conta/exportar': typeof ApiContaExportarRoute
+  '/api/diagnostics/errors': typeof ApiDiagnosticsErrorsRoute
+  '/api/financeiro/exportar': typeof ApiFinanceiroExportarRoute
+  '/api/perfil/foto': typeof ApiPerfilFotoRouteWithChildren
+  '/api/products/images': typeof ApiProductsImagesRoute
+  '/api/v1/docs': typeof ApiV1DocsRoute
+  '/api/v1/events': typeof ApiV1EventsRoute
+  '/api/v1/me': typeof ApiV1MeRoute
+  '/api/v1/openapi.json': typeof ApiV1OpenapiDotjsonRoute
+  '/api/v1/stores': typeof ApiV1StoresRoute
+  '/api/webhooks/$marketplace': typeof ApiWebhooksMarketplaceRoute
+  '/api/webhooks/asaas': typeof ApiWebhooksAsaasRoute
+  '/api/webhooks/asaas-assinatura': typeof ApiWebhooksAsaasAssinaturaRoute
+  '/api/webhooks/bling': typeof ApiWebhooksBlingRoute
+  '/api/webhooks/mercado-pago': typeof ApiWebhooksMercadoPagoRoute
+  '/api/webhooks/stripe': typeof ApiWebhooksStripeRoute
+  '/fornecedor/pedido/$token': typeof FornecedorPedidoTokenRoute
+  '/_app/fornecedores/': typeof AppFornecedoresIndexRoute
+  '/_app/pedidos/': typeof AppPedidosIndexRoute
+  '/_app/publicacoes/': typeof AppPublicacoesIndexRoute
+  '/_app/suporte/': typeof AppSuporteIndexRoute
+  '/_app/admin/chamados/$ticketId': typeof AppAdminChamadosTicketIdRoute
+  '/_app/admin/chamados/metricas': typeof AppAdminChamadosMetricasRoute
+  '/_app/admin/clientes/$userId': typeof AppAdminClientesUserIdRoute
+  '/_app/admin/fornecedores/$supplierId': typeof AppAdminFornecedoresSupplierIdRoute
+  '/_app/admin/problemas/$problemId': typeof AppAdminProblemasProblemIdRoute
+  '/_app/fornecedor/painel/conferir': typeof AppFornecedorPainelConferirRoute
+  '/_app/fornecedor/painel/desempenho': typeof AppFornecedorPainelDesempenhoRoute
+  '/_app/fornecedor/painel/importar': typeof AppFornecedorPainelImportarRoute
+  '/_app/fornecedor/painel/marca': typeof AppFornecedorPainelMarcaRoute
+  '/_app/fornecedor/painel/pedidos': typeof AppFornecedorPainelPedidosRoute
+  '/_app/fornecedor/painel/produtos': typeof AppFornecedorPainelProdutosRoute
+  '/_app/fornecedor/painel/recebimentos': typeof AppFornecedorPainelRecebimentosRoute
+  '/_app/fornecedor/painel/regras': typeof AppFornecedorPainelRegrasRoute
+  '/_app/fornecedor/painel/relatorio': typeof AppFornecedorPainelRelatorioRoute
+  '/_app/fornecedor/painel/vendas': typeof AppFornecedorPainelVendasRoute
+  '/_app/suporte/conversas/$ticketId': typeof AppSuporteConversasTicketIdRoute
+  '/_app/suporte/fornecedores/novo': typeof AppSuporteFornecedoresNovoRoute
+  '/_app/suporte/revendedores_/relatorio': typeof AppSuporteRevendedoresRelatorioRoute
+  '/api/admin/exportar/auditoria': typeof ApiAdminExportarAuditoriaRoute
+  '/api/admin/exportar/chamados': typeof ApiAdminExportarChamadosRoute
+  '/api/admin/exportar/clientes': typeof ApiAdminExportarClientesRoute
+  '/api/admin/exportar/equipe': typeof ApiAdminExportarEquipeRoute
+  '/api/devolucoes/$claimId/motivo': typeof ApiDevolucoesClaimIdMotivoRoute
+  '/api/devolucoes/$claimId/resposta': typeof ApiDevolucoesClaimIdRespostaRoute
+  '/api/devolucoes/fotos/$photoId': typeof ApiDevolucoesFotosPhotoIdRoute
+  '/api/fornecedor/exportar/catalogo': typeof ApiFornecedorExportarCatalogoRoute
+  '/api/fornecedor/exportar/pedidos': typeof ApiFornecedorExportarPedidosRoute
+  '/api/fornecedor/exportar/produtos': typeof ApiFornecedorExportarProdutosRoute
+  '/api/fornecedor/produtos/imagens': typeof ApiFornecedorProdutosImagensRoute
+  '/api/fornecedor/vendas/exportar': typeof ApiFornecedorVendasExportarRoute
+  '/api/integracoes/bling/conectar': typeof ApiIntegracoesBlingConectarRoute
+  '/api/integracoes/bling/retorno': typeof ApiIntegracoesBlingRetornoRoute
+  '/api/integracoes/mercado-pago/conectar': typeof ApiIntegracoesMercadoPagoConectarRoute
+  '/api/integracoes/mercado-pago/retorno': typeof ApiIntegracoesMercadoPagoRetornoRoute
+  '/api/oauth/$marketplace/callback': typeof ApiOauthMarketplaceCallbackRoute
+  '/api/oauth/$marketplace/start': typeof ApiOauthMarketplaceStartRoute
+  '/api/pedidos/$orderId/etiqueta': typeof ApiPedidosOrderIdEtiquetaRoute
+  '/api/pedidos/$orderId/nota-fiscal': typeof ApiPedidosOrderIdNotaFiscalRoute
+  '/api/suporte/anexos/$attachmentId': typeof ApiSuporteAnexosAttachmentIdRoute
+  '/api/v1/financials/summary': typeof ApiV1FinancialsSummaryRoute
+  '/api/v1/listings/$listingId': typeof ApiV1ListingsListingIdRoute
+  '/api/v1/orders/$orderId': typeof ApiV1OrdersOrderIdRoute
+  '/_app/admin/chamados/': typeof AppAdminChamadosIndexRoute
+  '/_app/admin/clientes/': typeof AppAdminClientesIndexRoute
+  '/_app/admin/fornecedores/': typeof AppAdminFornecedoresIndexRoute
+  '/_app/admin/problemas/': typeof AppAdminProblemasIndexRoute
+  '/_app/fornecedor/painel/': typeof AppFornecedorPainelIndexRoute
+  '/_app/suporte/fornecedores/': typeof AppSuporteFornecedoresIndexRoute
+  '/api/suporte/chamados/': typeof ApiSuporteChamadosIndexRoute
+  '/api/suporte/conversas/': typeof ApiSuporteConversasIndexRoute
+  '/api/v1/listings/': typeof ApiV1ListingsIndexRoute
+  '/api/v1/orders/': typeof ApiV1OrdersIndexRoute
+  '/api/v1/webhook-endpoints/': typeof ApiV1WebhookEndpointsIndexRoute
+  '/_app/admin/fornecedores/$supplierId_/flags': typeof AppAdminFornecedoresSupplierIdFlagsRoute
+  '/_app/admin/fornecedores/analise/$productId': typeof AppAdminFornecedoresAnaliseProductIdRoute
+  '/api/admin/chamados/$ticketId/mensagens': typeof ApiAdminChamadosTicketIdMensagensRoute
+  '/api/perfil/foto/$userId/$fileName': typeof ApiPerfilFotoUserIdFileNameRoute
+  '/api/produtos/imagens/$supplierId/$fileName': typeof ApiProdutosImagensSupplierIdFileNameRoute
+  '/api/suporte/chamados/$ticketId/mensagens': typeof ApiSuporteChamadosTicketIdMensagensRoute
+  '/api/suporte/conversas/$ticketId/mensagens': typeof ApiSuporteConversasTicketIdMensagensRoute
+  '/api/v1/catalog/products/$productId': typeof ApiV1CatalogProductsProductIdRoute
+  '/api/v1/webhook-endpoints/$endpointId/deliveries': typeof ApiV1WebhookEndpointsEndpointIdDeliveriesRoute
+  '/_app/admin/fornecedores/analise/': typeof AppAdminFornecedoresAnaliseIndexRoute
+  '/_app/admin/fornecedores/aprovacao/': typeof AppAdminFornecedoresAprovacaoIndexRoute
+  '/api/v1/catalog/products/': typeof ApiV1CatalogProductsIndexRoute
+  '/api/v1/webhook-endpoints/$endpointId/': typeof ApiV1WebhookEndpointsEndpointIdIndexRoute
 }
 export interface FileRouteTypes {
-  fileRoutesByFullPath: FileRoutesByFullPath;
+  fileRoutesByFullPath: FileRoutesByFullPath
   fullPaths:
-    | "/"
-    | "/aceitar-termos"
-    | "/outro-perfil"
-    | "/privacidade"
-    | "/termos"
-    | "/admin"
-    | "/fornecedores"
-    | "/assinatura"
-    | "/catalogo"
-    | "/dashboard"
-    | "/financeiro"
-    | "/integracoes"
-    | "/lojas"
-    | "/onboarding"
-    | "/perfil"
-    | "/politica-de-devolucao"
-    | "/products"
-    | "/cadastro"
-    | "/confirme-seu-email"
-    | "/esqueci-senha"
-    | "/login"
-    | "/redefinir-senha"
-    | "/api/health"
-    | "/api/version"
-    | "/rastreio/$token"
-    | "/admin/clientes"
-    | "/admin/problemas"
-    | "/fornecedor/painel"
-    | "/admin/auditoria"
-    | "/admin/avaliacoes"
-    | "/admin/configuracoes"
-    | "/admin/envios"
-    | "/admin/equipe"
-    | "/admin/products"
-    | "/admin/relatorio"
-    | "/financeiro/relatorio"
-    | "/fornecedores/$supplierId"
-    | "/pedidos/$orderId"
-    | "/pedidos/venda-manual"
-    | "/publicacoes/nova"
-    | "/suporte/$ticketId"
-    | "/suporte/novo"
-    | "/suporte/revendedores"
-    | "/cadastro/fornecedor"
-    | "/api/admin/product-images"
-    | "/api/auth/$"
-    | "/api/conta/exportar"
-    | "/api/diagnostics/errors"
-    | "/api/financeiro/exportar"
-    | "/api/perfil/foto"
-    | "/api/products/images"
-    | "/api/v1/docs"
-    | "/api/v1/events"
-    | "/api/v1/me"
-    | "/api/v1/openapi.json"
-    | "/api/v1/stores"
-    | "/api/webhooks/$marketplace"
-    | "/api/webhooks/asaas"
-    | "/api/webhooks/asaas-assinatura"
-    | "/api/webhooks/bling"
-    | "/api/webhooks/mercado-pago"
-    | "/api/webhooks/stripe"
-    | "/fornecedor/pedido/$token"
-    | "/fornecedores/"
-    | "/pedidos/"
-    | "/publicacoes/"
-    | "/suporte/"
-    | "/admin/chamados/$ticketId"
-    | "/admin/chamados/metricas"
-    | "/admin/clientes/$userId"
-    | "/admin/fornecedores/$supplierId"
-    | "/admin/problemas/$problemId"
-    | "/fornecedor/painel/conferir"
-    | "/fornecedor/painel/desempenho"
-    | "/fornecedor/painel/importar"
-    | "/fornecedor/painel/marca"
-    | "/fornecedor/painel/pedidos"
-    | "/fornecedor/painel/produtos"
-    | "/fornecedor/painel/recebimentos"
-    | "/fornecedor/painel/regras"
-    | "/fornecedor/painel/relatorio"
-    | "/fornecedor/painel/vendas"
-    | "/suporte/conversas/$ticketId"
-    | "/suporte/fornecedores/novo"
-    | "/suporte/revendedores/relatorio"
-    | "/api/admin/exportar/auditoria"
-    | "/api/admin/exportar/chamados"
-    | "/api/admin/exportar/clientes"
-    | "/api/admin/exportar/equipe"
-    | "/api/devolucoes/$claimId/motivo"
-    | "/api/devolucoes/$claimId/resposta"
-    | "/api/devolucoes/fotos/$photoId"
-    | "/api/fornecedor/exportar/catalogo"
-    | "/api/fornecedor/exportar/pedidos"
-    | "/api/fornecedor/exportar/produtos"
-    | "/api/fornecedor/produtos/imagens"
-    | "/api/fornecedor/vendas/exportar"
-    | "/api/integracoes/bling/conectar"
-    | "/api/integracoes/bling/retorno"
-    | "/api/integracoes/mercado-pago/conectar"
-    | "/api/integracoes/mercado-pago/retorno"
-    | "/api/oauth/$marketplace/callback"
-    | "/api/oauth/$marketplace/start"
-    | "/api/pedidos/$orderId/etiqueta"
-    | "/api/pedidos/$orderId/nota-fiscal"
-    | "/api/suporte/anexos/$attachmentId"
-    | "/api/v1/financials/summary"
-    | "/api/v1/listings/$listingId"
-    | "/api/v1/orders/$orderId"
-    | "/admin/chamados/"
-    | "/admin/clientes/"
-    | "/admin/fornecedores/"
-    | "/admin/problemas/"
-    | "/fornecedor/painel/"
-    | "/suporte/fornecedores/"
-    | "/api/suporte/chamados/"
-    | "/api/suporte/conversas/"
-    | "/api/v1/listings/"
-    | "/api/v1/orders/"
-    | "/api/v1/webhook-endpoints/"
-    | "/admin/fornecedores/$supplierId/flags"
-    | "/admin/fornecedores/analise/$productId"
-    | "/api/admin/chamados/$ticketId/mensagens"
-    | "/api/perfil/foto/$userId/$fileName"
-    | "/api/produtos/imagens/$supplierId/$fileName"
-    | "/api/suporte/chamados/$ticketId/mensagens"
-    | "/api/suporte/conversas/$ticketId/mensagens"
-    | "/api/v1/catalog/products/$productId"
-    | "/api/v1/webhook-endpoints/$endpointId/deliveries"
-    | "/admin/fornecedores/analise/"
-    | "/admin/fornecedores/aprovacao/"
-    | "/api/v1/catalog/products/"
-    | "/api/v1/webhook-endpoints/$endpointId/";
-  fileRoutesByTo: FileRoutesByTo;
+    | '/'
+    | '/aceitar-termos'
+    | '/outro-perfil'
+    | '/privacidade'
+    | '/termos'
+    | '/admin'
+    | '/fornecedores'
+    | '/assinatura'
+    | '/catalogo'
+    | '/dashboard'
+    | '/financeiro'
+    | '/integracoes'
+    | '/lojas'
+    | '/onboarding'
+    | '/perfil'
+    | '/politica-de-devolucao'
+    | '/products'
+    | '/cadastro'
+    | '/confirme-seu-email'
+    | '/esqueci-senha'
+    | '/login'
+    | '/redefinir-senha'
+    | '/api/health'
+    | '/api/version'
+    | '/rastreio/$token'
+    | '/admin/clientes'
+    | '/admin/problemas'
+    | '/fornecedor/painel'
+    | '/admin/auditoria'
+    | '/admin/avaliacoes'
+    | '/admin/configuracoes'
+    | '/admin/envios'
+    | '/admin/equipe'
+    | '/admin/products'
+    | '/admin/relatorio'
+    | '/financeiro/relatorio'
+    | '/fornecedores/$supplierId'
+    | '/pedidos/$orderId'
+    | '/pedidos/venda-manual'
+    | '/publicacoes/nova'
+    | '/suporte/$ticketId'
+    | '/suporte/novo'
+    | '/suporte/revendedores'
+    | '/cadastro/fornecedor'
+    | '/api/admin/product-images'
+    | '/api/auth/$'
+    | '/api/conta/exportar'
+    | '/api/diagnostics/errors'
+    | '/api/financeiro/exportar'
+    | '/api/perfil/foto'
+    | '/api/products/images'
+    | '/api/v1/docs'
+    | '/api/v1/events'
+    | '/api/v1/me'
+    | '/api/v1/openapi.json'
+    | '/api/v1/stores'
+    | '/api/webhooks/$marketplace'
+    | '/api/webhooks/asaas'
+    | '/api/webhooks/asaas-assinatura'
+    | '/api/webhooks/bling'
+    | '/api/webhooks/mercado-pago'
+    | '/api/webhooks/stripe'
+    | '/fornecedor/pedido/$token'
+    | '/fornecedores/'
+    | '/pedidos/'
+    | '/publicacoes/'
+    | '/suporte/'
+    | '/admin/chamados/$ticketId'
+    | '/admin/chamados/metricas'
+    | '/admin/clientes/$userId'
+    | '/admin/fornecedores/$supplierId'
+    | '/admin/problemas/$problemId'
+    | '/fornecedor/painel/conferir'
+    | '/fornecedor/painel/desempenho'
+    | '/fornecedor/painel/importar'
+    | '/fornecedor/painel/marca'
+    | '/fornecedor/painel/pedidos'
+    | '/fornecedor/painel/produtos'
+    | '/fornecedor/painel/recebimentos'
+    | '/fornecedor/painel/regras'
+    | '/fornecedor/painel/relatorio'
+    | '/fornecedor/painel/vendas'
+    | '/suporte/conversas/$ticketId'
+    | '/suporte/fornecedores/novo'
+    | '/suporte/revendedores/relatorio'
+    | '/api/admin/exportar/auditoria'
+    | '/api/admin/exportar/chamados'
+    | '/api/admin/exportar/clientes'
+    | '/api/admin/exportar/equipe'
+    | '/api/devolucoes/$claimId/motivo'
+    | '/api/devolucoes/$claimId/resposta'
+    | '/api/devolucoes/fotos/$photoId'
+    | '/api/fornecedor/exportar/catalogo'
+    | '/api/fornecedor/exportar/pedidos'
+    | '/api/fornecedor/exportar/produtos'
+    | '/api/fornecedor/produtos/imagens'
+    | '/api/fornecedor/vendas/exportar'
+    | '/api/integracoes/bling/conectar'
+    | '/api/integracoes/bling/retorno'
+    | '/api/integracoes/mercado-pago/conectar'
+    | '/api/integracoes/mercado-pago/retorno'
+    | '/api/oauth/$marketplace/callback'
+    | '/api/oauth/$marketplace/start'
+    | '/api/pedidos/$orderId/etiqueta'
+    | '/api/pedidos/$orderId/nota-fiscal'
+    | '/api/suporte/anexos/$attachmentId'
+    | '/api/v1/financials/summary'
+    | '/api/v1/listings/$listingId'
+    | '/api/v1/orders/$orderId'
+    | '/admin/chamados/'
+    | '/admin/clientes/'
+    | '/admin/fornecedores/'
+    | '/admin/problemas/'
+    | '/fornecedor/painel/'
+    | '/suporte/fornecedores/'
+    | '/api/suporte/chamados/'
+    | '/api/suporte/conversas/'
+    | '/api/v1/listings/'
+    | '/api/v1/orders/'
+    | '/api/v1/webhook-endpoints/'
+    | '/admin/fornecedores/$supplierId/flags'
+    | '/admin/fornecedores/analise/$productId'
+    | '/api/admin/chamados/$ticketId/mensagens'
+    | '/api/perfil/foto/$userId/$fileName'
+    | '/api/produtos/imagens/$supplierId/$fileName'
+    | '/api/suporte/chamados/$ticketId/mensagens'
+    | '/api/suporte/conversas/$ticketId/mensagens'
+    | '/api/v1/catalog/products/$productId'
+    | '/api/v1/webhook-endpoints/$endpointId/deliveries'
+    | '/admin/fornecedores/analise/'
+    | '/admin/fornecedores/aprovacao/'
+    | '/api/v1/catalog/products/'
+    | '/api/v1/webhook-endpoints/$endpointId/'
+  fileRoutesByTo: FileRoutesByTo
   to:
-    | "/"
-    | "/aceitar-termos"
-    | "/outro-perfil"
-    | "/privacidade"
-    | "/termos"
-    | "/admin"
-    | "/assinatura"
-    | "/catalogo"
-    | "/dashboard"
-    | "/financeiro"
-    | "/integracoes"
-    | "/lojas"
-    | "/onboarding"
-    | "/perfil"
-    | "/politica-de-devolucao"
-    | "/products"
-    | "/cadastro"
-    | "/confirme-seu-email"
-    | "/esqueci-senha"
-    | "/login"
-    | "/redefinir-senha"
-    | "/api/health"
-    | "/api/version"
-    | "/rastreio/$token"
-    | "/admin/auditoria"
-    | "/admin/avaliacoes"
-    | "/admin/configuracoes"
-    | "/admin/envios"
-    | "/admin/equipe"
-    | "/admin/products"
-    | "/admin/relatorio"
-    | "/financeiro/relatorio"
-    | "/fornecedores/$supplierId"
-    | "/pedidos/$orderId"
-    | "/pedidos/venda-manual"
-    | "/publicacoes/nova"
-    | "/suporte/$ticketId"
-    | "/suporte/novo"
-    | "/suporte/revendedores"
-    | "/cadastro/fornecedor"
-    | "/api/admin/product-images"
-    | "/api/auth/$"
-    | "/api/conta/exportar"
-    | "/api/diagnostics/errors"
-    | "/api/financeiro/exportar"
-    | "/api/perfil/foto"
-    | "/api/products/images"
-    | "/api/v1/docs"
-    | "/api/v1/events"
-    | "/api/v1/me"
-    | "/api/v1/openapi.json"
-    | "/api/v1/stores"
-    | "/api/webhooks/$marketplace"
-    | "/api/webhooks/asaas"
-    | "/api/webhooks/asaas-assinatura"
-    | "/api/webhooks/bling"
-    | "/api/webhooks/mercado-pago"
-    | "/api/webhooks/stripe"
-    | "/fornecedor/pedido/$token"
-    | "/fornecedores"
-    | "/pedidos"
-    | "/publicacoes"
-    | "/suporte"
-    | "/admin/chamados/$ticketId"
-    | "/admin/chamados/metricas"
-    | "/admin/clientes/$userId"
-    | "/admin/fornecedores/$supplierId"
-    | "/admin/problemas/$problemId"
-    | "/fornecedor/painel/conferir"
-    | "/fornecedor/painel/desempenho"
-    | "/fornecedor/painel/importar"
-    | "/fornecedor/painel/marca"
-    | "/fornecedor/painel/pedidos"
-    | "/fornecedor/painel/produtos"
-    | "/fornecedor/painel/recebimentos"
-    | "/fornecedor/painel/regras"
-    | "/fornecedor/painel/relatorio"
-    | "/fornecedor/painel/vendas"
-    | "/suporte/conversas/$ticketId"
-    | "/suporte/fornecedores/novo"
-    | "/suporte/revendedores/relatorio"
-    | "/api/admin/exportar/auditoria"
-    | "/api/admin/exportar/chamados"
-    | "/api/admin/exportar/clientes"
-    | "/api/admin/exportar/equipe"
-    | "/api/devolucoes/$claimId/motivo"
-    | "/api/devolucoes/$claimId/resposta"
-    | "/api/devolucoes/fotos/$photoId"
-    | "/api/fornecedor/exportar/catalogo"
-    | "/api/fornecedor/exportar/pedidos"
-    | "/api/fornecedor/exportar/produtos"
-    | "/api/fornecedor/produtos/imagens"
-    | "/api/fornecedor/vendas/exportar"
-    | "/api/integracoes/bling/conectar"
-    | "/api/integracoes/bling/retorno"
-    | "/api/integracoes/mercado-pago/conectar"
-    | "/api/integracoes/mercado-pago/retorno"
-    | "/api/oauth/$marketplace/callback"
-    | "/api/oauth/$marketplace/start"
-    | "/api/pedidos/$orderId/etiqueta"
-    | "/api/pedidos/$orderId/nota-fiscal"
-    | "/api/suporte/anexos/$attachmentId"
-    | "/api/v1/financials/summary"
-    | "/api/v1/listings/$listingId"
-    | "/api/v1/orders/$orderId"
-    | "/admin/chamados"
-    | "/admin/clientes"
-    | "/admin/fornecedores"
-    | "/admin/problemas"
-    | "/fornecedor/painel"
-    | "/suporte/fornecedores"
-    | "/api/suporte/chamados"
-    | "/api/suporte/conversas"
-    | "/api/v1/listings"
-    | "/api/v1/orders"
-    | "/api/v1/webhook-endpoints"
-    | "/admin/fornecedores/$supplierId/flags"
-    | "/admin/fornecedores/analise/$productId"
-    | "/api/admin/chamados/$ticketId/mensagens"
-    | "/api/perfil/foto/$userId/$fileName"
-    | "/api/produtos/imagens/$supplierId/$fileName"
-    | "/api/suporte/chamados/$ticketId/mensagens"
-    | "/api/suporte/conversas/$ticketId/mensagens"
-    | "/api/v1/catalog/products/$productId"
-    | "/api/v1/webhook-endpoints/$endpointId/deliveries"
-    | "/admin/fornecedores/analise"
-    | "/admin/fornecedores/aprovacao"
-    | "/api/v1/catalog/products"
-    | "/api/v1/webhook-endpoints/$endpointId";
+    | '/'
+    | '/aceitar-termos'
+    | '/outro-perfil'
+    | '/privacidade'
+    | '/termos'
+    | '/admin'
+    | '/assinatura'
+    | '/catalogo'
+    | '/dashboard'
+    | '/financeiro'
+    | '/integracoes'
+    | '/lojas'
+    | '/onboarding'
+    | '/perfil'
+    | '/politica-de-devolucao'
+    | '/products'
+    | '/cadastro'
+    | '/confirme-seu-email'
+    | '/esqueci-senha'
+    | '/login'
+    | '/redefinir-senha'
+    | '/api/health'
+    | '/api/version'
+    | '/rastreio/$token'
+    | '/admin/auditoria'
+    | '/admin/avaliacoes'
+    | '/admin/configuracoes'
+    | '/admin/envios'
+    | '/admin/equipe'
+    | '/admin/products'
+    | '/admin/relatorio'
+    | '/financeiro/relatorio'
+    | '/fornecedores/$supplierId'
+    | '/pedidos/$orderId'
+    | '/pedidos/venda-manual'
+    | '/publicacoes/nova'
+    | '/suporte/$ticketId'
+    | '/suporte/novo'
+    | '/suporte/revendedores'
+    | '/cadastro/fornecedor'
+    | '/api/admin/product-images'
+    | '/api/auth/$'
+    | '/api/conta/exportar'
+    | '/api/diagnostics/errors'
+    | '/api/financeiro/exportar'
+    | '/api/perfil/foto'
+    | '/api/products/images'
+    | '/api/v1/docs'
+    | '/api/v1/events'
+    | '/api/v1/me'
+    | '/api/v1/openapi.json'
+    | '/api/v1/stores'
+    | '/api/webhooks/$marketplace'
+    | '/api/webhooks/asaas'
+    | '/api/webhooks/asaas-assinatura'
+    | '/api/webhooks/bling'
+    | '/api/webhooks/mercado-pago'
+    | '/api/webhooks/stripe'
+    | '/fornecedor/pedido/$token'
+    | '/fornecedores'
+    | '/pedidos'
+    | '/publicacoes'
+    | '/suporte'
+    | '/admin/chamados/$ticketId'
+    | '/admin/chamados/metricas'
+    | '/admin/clientes/$userId'
+    | '/admin/fornecedores/$supplierId'
+    | '/admin/problemas/$problemId'
+    | '/fornecedor/painel/conferir'
+    | '/fornecedor/painel/desempenho'
+    | '/fornecedor/painel/importar'
+    | '/fornecedor/painel/marca'
+    | '/fornecedor/painel/pedidos'
+    | '/fornecedor/painel/produtos'
+    | '/fornecedor/painel/recebimentos'
+    | '/fornecedor/painel/regras'
+    | '/fornecedor/painel/relatorio'
+    | '/fornecedor/painel/vendas'
+    | '/suporte/conversas/$ticketId'
+    | '/suporte/fornecedores/novo'
+    | '/suporte/revendedores/relatorio'
+    | '/api/admin/exportar/auditoria'
+    | '/api/admin/exportar/chamados'
+    | '/api/admin/exportar/clientes'
+    | '/api/admin/exportar/equipe'
+    | '/api/devolucoes/$claimId/motivo'
+    | '/api/devolucoes/$claimId/resposta'
+    | '/api/devolucoes/fotos/$photoId'
+    | '/api/fornecedor/exportar/catalogo'
+    | '/api/fornecedor/exportar/pedidos'
+    | '/api/fornecedor/exportar/produtos'
+    | '/api/fornecedor/produtos/imagens'
+    | '/api/fornecedor/vendas/exportar'
+    | '/api/integracoes/bling/conectar'
+    | '/api/integracoes/bling/retorno'
+    | '/api/integracoes/mercado-pago/conectar'
+    | '/api/integracoes/mercado-pago/retorno'
+    | '/api/oauth/$marketplace/callback'
+    | '/api/oauth/$marketplace/start'
+    | '/api/pedidos/$orderId/etiqueta'
+    | '/api/pedidos/$orderId/nota-fiscal'
+    | '/api/suporte/anexos/$attachmentId'
+    | '/api/v1/financials/summary'
+    | '/api/v1/listings/$listingId'
+    | '/api/v1/orders/$orderId'
+    | '/admin/chamados'
+    | '/admin/clientes'
+    | '/admin/fornecedores'
+    | '/admin/problemas'
+    | '/fornecedor/painel'
+    | '/suporte/fornecedores'
+    | '/api/suporte/chamados'
+    | '/api/suporte/conversas'
+    | '/api/v1/listings'
+    | '/api/v1/orders'
+    | '/api/v1/webhook-endpoints'
+    | '/admin/fornecedores/$supplierId/flags'
+    | '/admin/fornecedores/analise/$productId'
+    | '/api/admin/chamados/$ticketId/mensagens'
+    | '/api/perfil/foto/$userId/$fileName'
+    | '/api/produtos/imagens/$supplierId/$fileName'
+    | '/api/suporte/chamados/$ticketId/mensagens'
+    | '/api/suporte/conversas/$ticketId/mensagens'
+    | '/api/v1/catalog/products/$productId'
+    | '/api/v1/webhook-endpoints/$endpointId/deliveries'
+    | '/admin/fornecedores/analise'
+    | '/admin/fornecedores/aprovacao'
+    | '/api/v1/catalog/products'
+    | '/api/v1/webhook-endpoints/$endpointId'
   id:
-    | "__root__"
-    | "/"
-    | "/_app"
-    | "/_auth"
-    | "/aceitar-termos"
-    | "/outro-perfil"
-    | "/privacidade"
-    | "/termos"
-    | "/_app/admin"
-    | "/_app/fornecedores"
-    | "/_app/assinatura"
-    | "/_app/catalogo"
-    | "/_app/dashboard"
-    | "/_app/financeiro"
-    | "/_app/integracoes"
-    | "/_app/lojas"
-    | "/_app/onboarding"
-    | "/_app/perfil"
-    | "/_app/politica-de-devolucao"
-    | "/_app/products"
-    | "/_auth/cadastro"
-    | "/_auth/confirme-seu-email"
-    | "/_auth/esqueci-senha"
-    | "/_auth/login"
-    | "/_auth/redefinir-senha"
-    | "/api/health"
-    | "/api/version"
-    | "/rastreio/$token"
-    | "/_app/admin/clientes"
-    | "/_app/admin/problemas"
-    | "/_app/fornecedor/painel"
-    | "/_app/admin/auditoria"
-    | "/_app/admin/avaliacoes"
-    | "/_app/admin/configuracoes"
-    | "/_app/admin/envios"
-    | "/_app/admin/equipe"
-    | "/_app/admin/products"
-    | "/_app/admin/relatorio"
-    | "/_app/financeiro_/relatorio"
-    | "/_app/fornecedores/$supplierId"
-    | "/_app/pedidos/$orderId"
-    | "/_app/pedidos/venda-manual"
-    | "/_app/publicacoes/nova"
-    | "/_app/suporte/$ticketId"
-    | "/_app/suporte/novo"
-    | "/_app/suporte/revendedores"
-    | "/_auth/cadastro_/fornecedor"
-    | "/api/admin/product-images"
-    | "/api/auth/$"
-    | "/api/conta/exportar"
-    | "/api/diagnostics/errors"
-    | "/api/financeiro/exportar"
-    | "/api/perfil/foto"
-    | "/api/products/images"
-    | "/api/v1/docs"
-    | "/api/v1/events"
-    | "/api/v1/me"
-    | "/api/v1/openapi.json"
-    | "/api/v1/stores"
-    | "/api/webhooks/$marketplace"
-    | "/api/webhooks/asaas"
-    | "/api/webhooks/asaas-assinatura"
-    | "/api/webhooks/bling"
-    | "/api/webhooks/mercado-pago"
-    | "/api/webhooks/stripe"
-    | "/fornecedor/pedido/$token"
-    | "/_app/fornecedores/"
-    | "/_app/pedidos/"
-    | "/_app/publicacoes/"
-    | "/_app/suporte/"
-    | "/_app/admin/chamados/$ticketId"
-    | "/_app/admin/chamados/metricas"
-    | "/_app/admin/clientes/$userId"
-    | "/_app/admin/fornecedores/$supplierId"
-    | "/_app/admin/problemas/$problemId"
-    | "/_app/fornecedor/painel/conferir"
-    | "/_app/fornecedor/painel/desempenho"
-    | "/_app/fornecedor/painel/importar"
-    | "/_app/fornecedor/painel/marca"
-    | "/_app/fornecedor/painel/pedidos"
-    | "/_app/fornecedor/painel/produtos"
-    | "/_app/fornecedor/painel/recebimentos"
-    | "/_app/fornecedor/painel/regras"
-    | "/_app/fornecedor/painel/relatorio"
-    | "/_app/fornecedor/painel/vendas"
-    | "/_app/suporte/conversas/$ticketId"
-    | "/_app/suporte/fornecedores/novo"
-    | "/_app/suporte/revendedores_/relatorio"
-    | "/api/admin/exportar/auditoria"
-    | "/api/admin/exportar/chamados"
-    | "/api/admin/exportar/clientes"
-    | "/api/admin/exportar/equipe"
-    | "/api/devolucoes/$claimId/motivo"
-    | "/api/devolucoes/$claimId/resposta"
-    | "/api/devolucoes/fotos/$photoId"
-    | "/api/fornecedor/exportar/catalogo"
-    | "/api/fornecedor/exportar/pedidos"
-    | "/api/fornecedor/exportar/produtos"
-    | "/api/fornecedor/produtos/imagens"
-    | "/api/fornecedor/vendas/exportar"
-    | "/api/integracoes/bling/conectar"
-    | "/api/integracoes/bling/retorno"
-    | "/api/integracoes/mercado-pago/conectar"
-    | "/api/integracoes/mercado-pago/retorno"
-    | "/api/oauth/$marketplace/callback"
-    | "/api/oauth/$marketplace/start"
-    | "/api/pedidos/$orderId/etiqueta"
-    | "/api/pedidos/$orderId/nota-fiscal"
-    | "/api/suporte/anexos/$attachmentId"
-    | "/api/v1/financials/summary"
-    | "/api/v1/listings/$listingId"
-    | "/api/v1/orders/$orderId"
-    | "/_app/admin/chamados/"
-    | "/_app/admin/clientes/"
-    | "/_app/admin/fornecedores/"
-    | "/_app/admin/problemas/"
-    | "/_app/fornecedor/painel/"
-    | "/_app/suporte/fornecedores/"
-    | "/api/suporte/chamados/"
-    | "/api/suporte/conversas/"
-    | "/api/v1/listings/"
-    | "/api/v1/orders/"
-    | "/api/v1/webhook-endpoints/"
-    | "/_app/admin/fornecedores/$supplierId_/flags"
-    | "/_app/admin/fornecedores/analise/$productId"
-    | "/api/admin/chamados/$ticketId/mensagens"
-    | "/api/perfil/foto/$userId/$fileName"
-    | "/api/produtos/imagens/$supplierId/$fileName"
-    | "/api/suporte/chamados/$ticketId/mensagens"
-    | "/api/suporte/conversas/$ticketId/mensagens"
-    | "/api/v1/catalog/products/$productId"
-    | "/api/v1/webhook-endpoints/$endpointId/deliveries"
-    | "/_app/admin/fornecedores/analise/"
-    | "/_app/admin/fornecedores/aprovacao/"
-    | "/api/v1/catalog/products/"
-    | "/api/v1/webhook-endpoints/$endpointId/";
-  fileRoutesById: FileRoutesById;
+    | '__root__'
+    | '/'
+    | '/_app'
+    | '/_auth'
+    | '/aceitar-termos'
+    | '/outro-perfil'
+    | '/privacidade'
+    | '/termos'
+    | '/_app/admin'
+    | '/_app/fornecedores'
+    | '/_app/assinatura'
+    | '/_app/catalogo'
+    | '/_app/dashboard'
+    | '/_app/financeiro'
+    | '/_app/integracoes'
+    | '/_app/lojas'
+    | '/_app/onboarding'
+    | '/_app/perfil'
+    | '/_app/politica-de-devolucao'
+    | '/_app/products'
+    | '/_auth/cadastro'
+    | '/_auth/confirme-seu-email'
+    | '/_auth/esqueci-senha'
+    | '/_auth/login'
+    | '/_auth/redefinir-senha'
+    | '/api/health'
+    | '/api/version'
+    | '/rastreio/$token'
+    | '/_app/admin/clientes'
+    | '/_app/admin/problemas'
+    | '/_app/fornecedor/painel'
+    | '/_app/admin/auditoria'
+    | '/_app/admin/avaliacoes'
+    | '/_app/admin/configuracoes'
+    | '/_app/admin/envios'
+    | '/_app/admin/equipe'
+    | '/_app/admin/products'
+    | '/_app/admin/relatorio'
+    | '/_app/financeiro_/relatorio'
+    | '/_app/fornecedores/$supplierId'
+    | '/_app/pedidos/$orderId'
+    | '/_app/pedidos/venda-manual'
+    | '/_app/publicacoes/nova'
+    | '/_app/suporte/$ticketId'
+    | '/_app/suporte/novo'
+    | '/_app/suporte/revendedores'
+    | '/_auth/cadastro_/fornecedor'
+    | '/api/admin/product-images'
+    | '/api/auth/$'
+    | '/api/conta/exportar'
+    | '/api/diagnostics/errors'
+    | '/api/financeiro/exportar'
+    | '/api/perfil/foto'
+    | '/api/products/images'
+    | '/api/v1/docs'
+    | '/api/v1/events'
+    | '/api/v1/me'
+    | '/api/v1/openapi.json'
+    | '/api/v1/stores'
+    | '/api/webhooks/$marketplace'
+    | '/api/webhooks/asaas'
+    | '/api/webhooks/asaas-assinatura'
+    | '/api/webhooks/bling'
+    | '/api/webhooks/mercado-pago'
+    | '/api/webhooks/stripe'
+    | '/fornecedor/pedido/$token'
+    | '/_app/fornecedores/'
+    | '/_app/pedidos/'
+    | '/_app/publicacoes/'
+    | '/_app/suporte/'
+    | '/_app/admin/chamados/$ticketId'
+    | '/_app/admin/chamados/metricas'
+    | '/_app/admin/clientes/$userId'
+    | '/_app/admin/fornecedores/$supplierId'
+    | '/_app/admin/problemas/$problemId'
+    | '/_app/fornecedor/painel/conferir'
+    | '/_app/fornecedor/painel/desempenho'
+    | '/_app/fornecedor/painel/importar'
+    | '/_app/fornecedor/painel/marca'
+    | '/_app/fornecedor/painel/pedidos'
+    | '/_app/fornecedor/painel/produtos'
+    | '/_app/fornecedor/painel/recebimentos'
+    | '/_app/fornecedor/painel/regras'
+    | '/_app/fornecedor/painel/relatorio'
+    | '/_app/fornecedor/painel/vendas'
+    | '/_app/suporte/conversas/$ticketId'
+    | '/_app/suporte/fornecedores/novo'
+    | '/_app/suporte/revendedores_/relatorio'
+    | '/api/admin/exportar/auditoria'
+    | '/api/admin/exportar/chamados'
+    | '/api/admin/exportar/clientes'
+    | '/api/admin/exportar/equipe'
+    | '/api/devolucoes/$claimId/motivo'
+    | '/api/devolucoes/$claimId/resposta'
+    | '/api/devolucoes/fotos/$photoId'
+    | '/api/fornecedor/exportar/catalogo'
+    | '/api/fornecedor/exportar/pedidos'
+    | '/api/fornecedor/exportar/produtos'
+    | '/api/fornecedor/produtos/imagens'
+    | '/api/fornecedor/vendas/exportar'
+    | '/api/integracoes/bling/conectar'
+    | '/api/integracoes/bling/retorno'
+    | '/api/integracoes/mercado-pago/conectar'
+    | '/api/integracoes/mercado-pago/retorno'
+    | '/api/oauth/$marketplace/callback'
+    | '/api/oauth/$marketplace/start'
+    | '/api/pedidos/$orderId/etiqueta'
+    | '/api/pedidos/$orderId/nota-fiscal'
+    | '/api/suporte/anexos/$attachmentId'
+    | '/api/v1/financials/summary'
+    | '/api/v1/listings/$listingId'
+    | '/api/v1/orders/$orderId'
+    | '/_app/admin/chamados/'
+    | '/_app/admin/clientes/'
+    | '/_app/admin/fornecedores/'
+    | '/_app/admin/problemas/'
+    | '/_app/fornecedor/painel/'
+    | '/_app/suporte/fornecedores/'
+    | '/api/suporte/chamados/'
+    | '/api/suporte/conversas/'
+    | '/api/v1/listings/'
+    | '/api/v1/orders/'
+    | '/api/v1/webhook-endpoints/'
+    | '/_app/admin/fornecedores/$supplierId_/flags'
+    | '/_app/admin/fornecedores/analise/$productId'
+    | '/api/admin/chamados/$ticketId/mensagens'
+    | '/api/perfil/foto/$userId/$fileName'
+    | '/api/produtos/imagens/$supplierId/$fileName'
+    | '/api/suporte/chamados/$ticketId/mensagens'
+    | '/api/suporte/conversas/$ticketId/mensagens'
+    | '/api/v1/catalog/products/$productId'
+    | '/api/v1/webhook-endpoints/$endpointId/deliveries'
+    | '/_app/admin/fornecedores/analise/'
+    | '/_app/admin/fornecedores/aprovacao/'
+    | '/api/v1/catalog/products/'
+    | '/api/v1/webhook-endpoints/$endpointId/'
+  fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
-  IndexRoute: typeof IndexRoute;
-  AppRouteRoute: typeof AppRouteRouteWithChildren;
-  AuthRouteRoute: typeof AuthRouteRouteWithChildren;
-  AceitarTermosRoute: typeof AceitarTermosRoute;
-  OutroPerfilRoute: typeof OutroPerfilRoute;
-  PrivacidadeRoute: typeof PrivacidadeRoute;
-  TermosRoute: typeof TermosRoute;
-  ApiHealthRoute: typeof ApiHealthRoute;
-  ApiVersionRoute: typeof ApiVersionRoute;
-  RastreioTokenRoute: typeof RastreioTokenRoute;
-  ApiAdminProductImagesRoute: typeof ApiAdminProductImagesRoute;
-  ApiAuthSplatRoute: typeof ApiAuthSplatRoute;
-  ApiContaExportarRoute: typeof ApiContaExportarRoute;
-  ApiDiagnosticsErrorsRoute: typeof ApiDiagnosticsErrorsRoute;
-  ApiFinanceiroExportarRoute: typeof ApiFinanceiroExportarRoute;
-  ApiPerfilFotoRoute: typeof ApiPerfilFotoRouteWithChildren;
-  ApiProductsImagesRoute: typeof ApiProductsImagesRoute;
-  ApiV1DocsRoute: typeof ApiV1DocsRoute;
-  ApiV1EventsRoute: typeof ApiV1EventsRoute;
-  ApiV1MeRoute: typeof ApiV1MeRoute;
-  ApiV1OpenapiDotjsonRoute: typeof ApiV1OpenapiDotjsonRoute;
-  ApiV1StoresRoute: typeof ApiV1StoresRoute;
-  ApiWebhooksMarketplaceRoute: typeof ApiWebhooksMarketplaceRoute;
-  ApiWebhooksAsaasRoute: typeof ApiWebhooksAsaasRoute;
-  ApiWebhooksAsaasAssinaturaRoute: typeof ApiWebhooksAsaasAssinaturaRoute;
-  ApiWebhooksBlingRoute: typeof ApiWebhooksBlingRoute;
-  ApiWebhooksMercadoPagoRoute: typeof ApiWebhooksMercadoPagoRoute;
-  ApiWebhooksStripeRoute: typeof ApiWebhooksStripeRoute;
-  FornecedorPedidoTokenRoute: typeof FornecedorPedidoTokenRoute;
-  ApiAdminExportarAuditoriaRoute: typeof ApiAdminExportarAuditoriaRoute;
-  ApiAdminExportarChamadosRoute: typeof ApiAdminExportarChamadosRoute;
-  ApiAdminExportarClientesRoute: typeof ApiAdminExportarClientesRoute;
-  ApiAdminExportarEquipeRoute: typeof ApiAdminExportarEquipeRoute;
-  ApiDevolucoesClaimIdMotivoRoute: typeof ApiDevolucoesClaimIdMotivoRoute;
-  ApiDevolucoesClaimIdRespostaRoute: typeof ApiDevolucoesClaimIdRespostaRoute;
-  ApiDevolucoesFotosPhotoIdRoute: typeof ApiDevolucoesFotosPhotoIdRoute;
-  ApiFornecedorExportarCatalogoRoute: typeof ApiFornecedorExportarCatalogoRoute;
-  ApiFornecedorExportarPedidosRoute: typeof ApiFornecedorExportarPedidosRoute;
-  ApiFornecedorExportarProdutosRoute: typeof ApiFornecedorExportarProdutosRoute;
-  ApiFornecedorProdutosImagensRoute: typeof ApiFornecedorProdutosImagensRoute;
-  ApiFornecedorVendasExportarRoute: typeof ApiFornecedorVendasExportarRoute;
-  ApiIntegracoesBlingConectarRoute: typeof ApiIntegracoesBlingConectarRoute;
-  ApiIntegracoesBlingRetornoRoute: typeof ApiIntegracoesBlingRetornoRoute;
-  ApiIntegracoesMercadoPagoConectarRoute: typeof ApiIntegracoesMercadoPagoConectarRoute;
-  ApiIntegracoesMercadoPagoRetornoRoute: typeof ApiIntegracoesMercadoPagoRetornoRoute;
-  ApiOauthMarketplaceCallbackRoute: typeof ApiOauthMarketplaceCallbackRoute;
-  ApiOauthMarketplaceStartRoute: typeof ApiOauthMarketplaceStartRoute;
-  ApiPedidosOrderIdEtiquetaRoute: typeof ApiPedidosOrderIdEtiquetaRoute;
-  ApiPedidosOrderIdNotaFiscalRoute: typeof ApiPedidosOrderIdNotaFiscalRoute;
-  ApiSuporteAnexosAttachmentIdRoute: typeof ApiSuporteAnexosAttachmentIdRoute;
-  ApiV1FinancialsSummaryRoute: typeof ApiV1FinancialsSummaryRoute;
-  ApiV1ListingsListingIdRoute: typeof ApiV1ListingsListingIdRoute;
-  ApiV1OrdersOrderIdRoute: typeof ApiV1OrdersOrderIdRoute;
-  ApiSuporteChamadosIndexRoute: typeof ApiSuporteChamadosIndexRoute;
-  ApiSuporteConversasIndexRoute: typeof ApiSuporteConversasIndexRoute;
-  ApiV1ListingsIndexRoute: typeof ApiV1ListingsIndexRoute;
-  ApiV1OrdersIndexRoute: typeof ApiV1OrdersIndexRoute;
-  ApiV1WebhookEndpointsIndexRoute: typeof ApiV1WebhookEndpointsIndexRoute;
-  ApiAdminChamadosTicketIdMensagensRoute: typeof ApiAdminChamadosTicketIdMensagensRoute;
-  ApiProdutosImagensSupplierIdFileNameRoute: typeof ApiProdutosImagensSupplierIdFileNameRoute;
-  ApiSuporteChamadosTicketIdMensagensRoute: typeof ApiSuporteChamadosTicketIdMensagensRoute;
-  ApiSuporteConversasTicketIdMensagensRoute: typeof ApiSuporteConversasTicketIdMensagensRoute;
-  ApiV1CatalogProductsProductIdRoute: typeof ApiV1CatalogProductsProductIdRoute;
-  ApiV1WebhookEndpointsEndpointIdDeliveriesRoute: typeof ApiV1WebhookEndpointsEndpointIdDeliveriesRoute;
-  ApiV1CatalogProductsIndexRoute: typeof ApiV1CatalogProductsIndexRoute;
-  ApiV1WebhookEndpointsEndpointIdIndexRoute: typeof ApiV1WebhookEndpointsEndpointIdIndexRoute;
+  IndexRoute: typeof IndexRoute
+  AppRouteRoute: typeof AppRouteRouteWithChildren
+  AuthRouteRoute: typeof AuthRouteRouteWithChildren
+  AceitarTermosRoute: typeof AceitarTermosRoute
+  OutroPerfilRoute: typeof OutroPerfilRoute
+  PrivacidadeRoute: typeof PrivacidadeRoute
+  TermosRoute: typeof TermosRoute
+  ApiHealthRoute: typeof ApiHealthRoute
+  ApiVersionRoute: typeof ApiVersionRoute
+  RastreioTokenRoute: typeof RastreioTokenRoute
+  ApiAdminProductImagesRoute: typeof ApiAdminProductImagesRoute
+  ApiAuthSplatRoute: typeof ApiAuthSplatRoute
+  ApiContaExportarRoute: typeof ApiContaExportarRoute
+  ApiDiagnosticsErrorsRoute: typeof ApiDiagnosticsErrorsRoute
+  ApiFinanceiroExportarRoute: typeof ApiFinanceiroExportarRoute
+  ApiPerfilFotoRoute: typeof ApiPerfilFotoRouteWithChildren
+  ApiProductsImagesRoute: typeof ApiProductsImagesRoute
+  ApiV1DocsRoute: typeof ApiV1DocsRoute
+  ApiV1EventsRoute: typeof ApiV1EventsRoute
+  ApiV1MeRoute: typeof ApiV1MeRoute
+  ApiV1OpenapiDotjsonRoute: typeof ApiV1OpenapiDotjsonRoute
+  ApiV1StoresRoute: typeof ApiV1StoresRoute
+  ApiWebhooksMarketplaceRoute: typeof ApiWebhooksMarketplaceRoute
+  ApiWebhooksAsaasRoute: typeof ApiWebhooksAsaasRoute
+  ApiWebhooksAsaasAssinaturaRoute: typeof ApiWebhooksAsaasAssinaturaRoute
+  ApiWebhooksBlingRoute: typeof ApiWebhooksBlingRoute
+  ApiWebhooksMercadoPagoRoute: typeof ApiWebhooksMercadoPagoRoute
+  ApiWebhooksStripeRoute: typeof ApiWebhooksStripeRoute
+  FornecedorPedidoTokenRoute: typeof FornecedorPedidoTokenRoute
+  ApiAdminExportarAuditoriaRoute: typeof ApiAdminExportarAuditoriaRoute
+  ApiAdminExportarChamadosRoute: typeof ApiAdminExportarChamadosRoute
+  ApiAdminExportarClientesRoute: typeof ApiAdminExportarClientesRoute
+  ApiAdminExportarEquipeRoute: typeof ApiAdminExportarEquipeRoute
+  ApiDevolucoesClaimIdMotivoRoute: typeof ApiDevolucoesClaimIdMotivoRoute
+  ApiDevolucoesClaimIdRespostaRoute: typeof ApiDevolucoesClaimIdRespostaRoute
+  ApiDevolucoesFotosPhotoIdRoute: typeof ApiDevolucoesFotosPhotoIdRoute
+  ApiFornecedorExportarCatalogoRoute: typeof ApiFornecedorExportarCatalogoRoute
+  ApiFornecedorExportarPedidosRoute: typeof ApiFornecedorExportarPedidosRoute
+  ApiFornecedorExportarProdutosRoute: typeof ApiFornecedorExportarProdutosRoute
+  ApiFornecedorProdutosImagensRoute: typeof ApiFornecedorProdutosImagensRoute
+  ApiFornecedorVendasExportarRoute: typeof ApiFornecedorVendasExportarRoute
+  ApiIntegracoesBlingConectarRoute: typeof ApiIntegracoesBlingConectarRoute
+  ApiIntegracoesBlingRetornoRoute: typeof ApiIntegracoesBlingRetornoRoute
+  ApiIntegracoesMercadoPagoConectarRoute: typeof ApiIntegracoesMercadoPagoConectarRoute
+  ApiIntegracoesMercadoPagoRetornoRoute: typeof ApiIntegracoesMercadoPagoRetornoRoute
+  ApiOauthMarketplaceCallbackRoute: typeof ApiOauthMarketplaceCallbackRoute
+  ApiOauthMarketplaceStartRoute: typeof ApiOauthMarketplaceStartRoute
+  ApiPedidosOrderIdEtiquetaRoute: typeof ApiPedidosOrderIdEtiquetaRoute
+  ApiPedidosOrderIdNotaFiscalRoute: typeof ApiPedidosOrderIdNotaFiscalRoute
+  ApiSuporteAnexosAttachmentIdRoute: typeof ApiSuporteAnexosAttachmentIdRoute
+  ApiV1FinancialsSummaryRoute: typeof ApiV1FinancialsSummaryRoute
+  ApiV1ListingsListingIdRoute: typeof ApiV1ListingsListingIdRoute
+  ApiV1OrdersOrderIdRoute: typeof ApiV1OrdersOrderIdRoute
+  ApiSuporteChamadosIndexRoute: typeof ApiSuporteChamadosIndexRoute
+  ApiSuporteConversasIndexRoute: typeof ApiSuporteConversasIndexRoute
+  ApiV1ListingsIndexRoute: typeof ApiV1ListingsIndexRoute
+  ApiV1OrdersIndexRoute: typeof ApiV1OrdersIndexRoute
+  ApiV1WebhookEndpointsIndexRoute: typeof ApiV1WebhookEndpointsIndexRoute
+  ApiAdminChamadosTicketIdMensagensRoute: typeof ApiAdminChamadosTicketIdMensagensRoute
+  ApiProdutosImagensSupplierIdFileNameRoute: typeof ApiProdutosImagensSupplierIdFileNameRoute
+  ApiSuporteChamadosTicketIdMensagensRoute: typeof ApiSuporteChamadosTicketIdMensagensRoute
+  ApiSuporteConversasTicketIdMensagensRoute: typeof ApiSuporteConversasTicketIdMensagensRoute
+  ApiV1CatalogProductsProductIdRoute: typeof ApiV1CatalogProductsProductIdRoute
+  ApiV1WebhookEndpointsEndpointIdDeliveriesRoute: typeof ApiV1WebhookEndpointsEndpointIdDeliveriesRoute
+  ApiV1CatalogProductsIndexRoute: typeof ApiV1CatalogProductsIndexRoute
+  ApiV1WebhookEndpointsEndpointIdIndexRoute: typeof ApiV1WebhookEndpointsEndpointIdIndexRoute
 }
 
-declare module "@tanstack/react-router" {
+declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
-    "/": {
-      id: "/";
-      path: "/";
-      fullPath: "/";
-      preLoaderRoute: typeof IndexRouteImport;
-      parentRoute: typeof rootRouteImport;
-    };
-    "/_app": {
-      id: "/_app";
-      path: "";
-      fullPath: "/";
-      preLoaderRoute: typeof AppRouteRouteImport;
-      parentRoute: typeof rootRouteImport;
-    };
-    "/_auth": {
-      id: "/_auth";
-      path: "";
-      fullPath: "/";
-      preLoaderRoute: typeof AuthRouteRouteImport;
-      parentRoute: typeof rootRouteImport;
-    };
-    "/aceitar-termos": {
-      id: "/aceitar-termos";
-      path: "/aceitar-termos";
-      fullPath: "/aceitar-termos";
-      preLoaderRoute: typeof AceitarTermosRouteImport;
-      parentRoute: typeof rootRouteImport;
-    };
-    "/outro-perfil": {
-      id: "/outro-perfil";
-      path: "/outro-perfil";
-      fullPath: "/outro-perfil";
-      preLoaderRoute: typeof OutroPerfilRouteImport;
-      parentRoute: typeof rootRouteImport;
-    };
-    "/privacidade": {
-      id: "/privacidade";
-      path: "/privacidade";
-      fullPath: "/privacidade";
-      preLoaderRoute: typeof PrivacidadeRouteImport;
-      parentRoute: typeof rootRouteImport;
-    };
-    "/termos": {
-      id: "/termos";
-      path: "/termos";
-      fullPath: "/termos";
-      preLoaderRoute: typeof TermosRouteImport;
-      parentRoute: typeof rootRouteImport;
-    };
-    "/_app/admin": {
-      id: "/_app/admin";
-      path: "/admin";
-      fullPath: "/admin";
-      preLoaderRoute: typeof AppAdminRouteRouteImport;
-      parentRoute: typeof AppRouteRoute;
-    };
-    "/_app/assinatura": {
-      id: "/_app/assinatura";
-      path: "/assinatura";
-      fullPath: "/assinatura";
-      preLoaderRoute: typeof AppAssinaturaRouteImport;
-      parentRoute: typeof AppRouteRoute;
-    };
-    "/_app/catalogo": {
-      id: "/_app/catalogo";
-      path: "/catalogo";
-      fullPath: "/catalogo";
-      preLoaderRoute: typeof AppCatalogoRouteImport;
-      parentRoute: typeof AppRouteRoute;
-    };
-    "/_app/dashboard": {
-      id: "/_app/dashboard";
-      path: "/dashboard";
-      fullPath: "/dashboard";
-      preLoaderRoute: typeof AppDashboardRouteImport;
-      parentRoute: typeof AppRouteRoute;
-    };
-    "/_app/financeiro": {
-      id: "/_app/financeiro";
-      path: "/financeiro";
-      fullPath: "/financeiro";
-      preLoaderRoute: typeof AppFinanceiroRouteImport;
-      parentRoute: typeof AppRouteRoute;
-    };
-    "/_app/fornecedores": {
-      id: "/_app/fornecedores";
-      path: "/fornecedores";
-      fullPath: "/fornecedores";
-      preLoaderRoute: typeof AppFornecedoresRouteRouteImport;
-      parentRoute: typeof AppRouteRoute;
-    };
-    "/_app/integracoes": {
-      id: "/_app/integracoes";
-      path: "/integracoes";
-      fullPath: "/integracoes";
-      preLoaderRoute: typeof AppIntegracoesRouteImport;
-      parentRoute: typeof AppRouteRoute;
-    };
-    "/_app/lojas": {
-      id: "/_app/lojas";
-      path: "/lojas";
-      fullPath: "/lojas";
-      preLoaderRoute: typeof AppLojasRouteImport;
-      parentRoute: typeof AppRouteRoute;
-    };
-    "/_app/onboarding": {
-      id: "/_app/onboarding";
-      path: "/onboarding";
-      fullPath: "/onboarding";
-      preLoaderRoute: typeof AppOnboardingRouteImport;
-      parentRoute: typeof AppRouteRoute;
-    };
-    "/_app/perfil": {
-      id: "/_app/perfil";
-      path: "/perfil";
-      fullPath: "/perfil";
-      preLoaderRoute: typeof AppPerfilRouteImport;
-      parentRoute: typeof AppRouteRoute;
-    };
-    "/_app/politica-de-devolucao": {
-      id: "/_app/politica-de-devolucao";
-      path: "/politica-de-devolucao";
-      fullPath: "/politica-de-devolucao";
-      preLoaderRoute: typeof AppPoliticaDeDevolucaoRouteImport;
-      parentRoute: typeof AppRouteRoute;
-    };
-    "/_app/products": {
-      id: "/_app/products";
-      path: "/products";
-      fullPath: "/products";
-      preLoaderRoute: typeof AppProductsRouteImport;
-      parentRoute: typeof AppRouteRoute;
-    };
-    "/_auth/cadastro": {
-      id: "/_auth/cadastro";
-      path: "/cadastro";
-      fullPath: "/cadastro";
-      preLoaderRoute: typeof AuthCadastroRouteImport;
-      parentRoute: typeof AuthRouteRoute;
-    };
-    "/_auth/confirme-seu-email": {
-      id: "/_auth/confirme-seu-email";
-      path: "/confirme-seu-email";
-      fullPath: "/confirme-seu-email";
-      preLoaderRoute: typeof AuthConfirmeSeuEmailRouteImport;
-      parentRoute: typeof AuthRouteRoute;
-    };
-    "/_auth/esqueci-senha": {
-      id: "/_auth/esqueci-senha";
-      path: "/esqueci-senha";
-      fullPath: "/esqueci-senha";
-      preLoaderRoute: typeof AuthEsqueciSenhaRouteImport;
-      parentRoute: typeof AuthRouteRoute;
-    };
-    "/_auth/login": {
-      id: "/_auth/login";
-      path: "/login";
-      fullPath: "/login";
-      preLoaderRoute: typeof AuthLoginRouteImport;
-      parentRoute: typeof AuthRouteRoute;
-    };
-    "/_auth/redefinir-senha": {
-      id: "/_auth/redefinir-senha";
-      path: "/redefinir-senha";
-      fullPath: "/redefinir-senha";
-      preLoaderRoute: typeof AuthRedefinirSenhaRouteImport;
-      parentRoute: typeof AuthRouteRoute;
-    };
-    "/api/health": {
-      id: "/api/health";
-      path: "/api/health";
-      fullPath: "/api/health";
-      preLoaderRoute: typeof ApiHealthRouteImport;
-      parentRoute: typeof rootRouteImport;
-    };
-    "/api/version": {
-      id: "/api/version";
-      path: "/api/version";
-      fullPath: "/api/version";
-      preLoaderRoute: typeof ApiVersionRouteImport;
-      parentRoute: typeof rootRouteImport;
-    };
-    "/rastreio/$token": {
-      id: "/rastreio/$token";
-      path: "/rastreio/$token";
-      fullPath: "/rastreio/$token";
-      preLoaderRoute: typeof RastreioTokenRouteImport;
-      parentRoute: typeof rootRouteImport;
-    };
-    "/_app/admin/auditoria": {
-      id: "/_app/admin/auditoria";
-      path: "/auditoria";
-      fullPath: "/admin/auditoria";
-      preLoaderRoute: typeof AppAdminAuditoriaRouteImport;
-      parentRoute: typeof AppAdminRouteRoute;
-    };
-    "/_app/admin/avaliacoes": {
-      id: "/_app/admin/avaliacoes";
-      path: "/avaliacoes";
-      fullPath: "/admin/avaliacoes";
-      preLoaderRoute: typeof AppAdminAvaliacoesRouteImport;
-      parentRoute: typeof AppAdminRouteRoute;
-    };
-    "/_app/admin/clientes": {
-      id: "/_app/admin/clientes";
-      path: "/clientes";
-      fullPath: "/admin/clientes";
-      preLoaderRoute: typeof AppAdminClientesRouteRouteImport;
-      parentRoute: typeof AppAdminRouteRoute;
-    };
-    "/_app/admin/configuracoes": {
-      id: "/_app/admin/configuracoes";
-      path: "/configuracoes";
-      fullPath: "/admin/configuracoes";
-      preLoaderRoute: typeof AppAdminConfiguracoesRouteImport;
-      parentRoute: typeof AppAdminRouteRoute;
-    };
-    "/_app/admin/envios": {
-      id: "/_app/admin/envios";
-      path: "/envios";
-      fullPath: "/admin/envios";
-      preLoaderRoute: typeof AppAdminEnviosRouteImport;
-      parentRoute: typeof AppAdminRouteRoute;
-    };
-    "/_app/admin/equipe": {
-      id: "/_app/admin/equipe";
-      path: "/equipe";
-      fullPath: "/admin/equipe";
-      preLoaderRoute: typeof AppAdminEquipeRouteImport;
-      parentRoute: typeof AppAdminRouteRoute;
-    };
-    "/_app/admin/problemas": {
-      id: "/_app/admin/problemas";
-      path: "/problemas";
-      fullPath: "/admin/problemas";
-      preLoaderRoute: typeof AppAdminProblemasRouteRouteImport;
-      parentRoute: typeof AppAdminRouteRoute;
-    };
-    "/_app/admin/products": {
-      id: "/_app/admin/products";
-      path: "/products";
-      fullPath: "/admin/products";
-      preLoaderRoute: typeof AppAdminProductsRouteImport;
-      parentRoute: typeof AppAdminRouteRoute;
-    };
-    "/_app/admin/relatorio": {
-      id: "/_app/admin/relatorio";
-      path: "/relatorio";
-      fullPath: "/admin/relatorio";
-      preLoaderRoute: typeof AppAdminRelatorioRouteImport;
-      parentRoute: typeof AppAdminRouteRoute;
-    };
-    "/_app/financeiro_/relatorio": {
-      id: "/_app/financeiro_/relatorio";
-      path: "/financeiro/relatorio";
-      fullPath: "/financeiro/relatorio";
-      preLoaderRoute: typeof AppFinanceiroRelatorioRouteImport;
-      parentRoute: typeof AppRouteRoute;
-    };
-    "/_app/fornecedor/painel": {
-      id: "/_app/fornecedor/painel";
-      path: "/fornecedor/painel";
-      fullPath: "/fornecedor/painel";
-      preLoaderRoute: typeof AppFornecedorPainelRouteRouteImport;
-      parentRoute: typeof AppRouteRoute;
-    };
-    "/_app/fornecedores/": {
-      id: "/_app/fornecedores/";
-      path: "/";
-      fullPath: "/fornecedores/";
-      preLoaderRoute: typeof AppFornecedoresIndexRouteImport;
-      parentRoute: typeof AppFornecedoresRouteRoute;
-    };
-    "/_app/fornecedores/$supplierId": {
-      id: "/_app/fornecedores/$supplierId";
-      path: "/$supplierId";
-      fullPath: "/fornecedores/$supplierId";
-      preLoaderRoute: typeof AppFornecedoresSupplierIdRouteImport;
-      parentRoute: typeof AppFornecedoresRouteRoute;
-    };
-    "/_app/pedidos/": {
-      id: "/_app/pedidos/";
-      path: "/pedidos";
-      fullPath: "/pedidos/";
-      preLoaderRoute: typeof AppPedidosIndexRouteImport;
-      parentRoute: typeof AppRouteRoute;
-    };
-    "/_app/pedidos/$orderId": {
-      id: "/_app/pedidos/$orderId";
-      path: "/pedidos/$orderId";
-      fullPath: "/pedidos/$orderId";
-      preLoaderRoute: typeof AppPedidosOrderIdRouteImport;
-      parentRoute: typeof AppRouteRoute;
-    };
-    "/_app/pedidos/venda-manual": {
-      id: "/_app/pedidos/venda-manual";
-      path: "/pedidos/venda-manual";
-      fullPath: "/pedidos/venda-manual";
-      preLoaderRoute: typeof AppPedidosVendaManualRouteImport;
-      parentRoute: typeof AppRouteRoute;
-    };
-    "/_app/publicacoes/": {
-      id: "/_app/publicacoes/";
-      path: "/publicacoes";
-      fullPath: "/publicacoes/";
-      preLoaderRoute: typeof AppPublicacoesIndexRouteImport;
-      parentRoute: typeof AppRouteRoute;
-    };
-    "/_app/publicacoes/nova": {
-      id: "/_app/publicacoes/nova";
-      path: "/publicacoes/nova";
-      fullPath: "/publicacoes/nova";
-      preLoaderRoute: typeof AppPublicacoesNovaRouteImport;
-      parentRoute: typeof AppRouteRoute;
-    };
-    "/_app/suporte/": {
-      id: "/_app/suporte/";
-      path: "/suporte";
-      fullPath: "/suporte/";
-      preLoaderRoute: typeof AppSuporteIndexRouteImport;
-      parentRoute: typeof AppRouteRoute;
-    };
-    "/_app/suporte/$ticketId": {
-      id: "/_app/suporte/$ticketId";
-      path: "/suporte/$ticketId";
-      fullPath: "/suporte/$ticketId";
-      preLoaderRoute: typeof AppSuporteTicketIdRouteImport;
-      parentRoute: typeof AppRouteRoute;
-    };
-    "/_app/suporte/novo": {
-      id: "/_app/suporte/novo";
-      path: "/suporte/novo";
-      fullPath: "/suporte/novo";
-      preLoaderRoute: typeof AppSuporteNovoRouteImport;
-      parentRoute: typeof AppRouteRoute;
-    };
-    "/_app/suporte/revendedores": {
-      id: "/_app/suporte/revendedores";
-      path: "/suporte/revendedores";
-      fullPath: "/suporte/revendedores";
-      preLoaderRoute: typeof AppSuporteRevendedoresRouteImport;
-      parentRoute: typeof AppRouteRoute;
-    };
-    "/_auth/cadastro_/fornecedor": {
-      id: "/_auth/cadastro_/fornecedor";
-      path: "/cadastro/fornecedor";
-      fullPath: "/cadastro/fornecedor";
-      preLoaderRoute: typeof AuthCadastroFornecedorRouteImport;
-      parentRoute: typeof AuthRouteRoute;
-    };
-    "/api/admin/product-images": {
-      id: "/api/admin/product-images";
-      path: "/api/admin/product-images";
-      fullPath: "/api/admin/product-images";
-      preLoaderRoute: typeof ApiAdminProductImagesRouteImport;
-      parentRoute: typeof rootRouteImport;
-    };
-    "/api/auth/$": {
-      id: "/api/auth/$";
-      path: "/api/auth/$";
-      fullPath: "/api/auth/$";
-      preLoaderRoute: typeof ApiAuthSplatRouteImport;
-      parentRoute: typeof rootRouteImport;
-    };
-    "/api/conta/exportar": {
-      id: "/api/conta/exportar";
-      path: "/api/conta/exportar";
-      fullPath: "/api/conta/exportar";
-      preLoaderRoute: typeof ApiContaExportarRouteImport;
-      parentRoute: typeof rootRouteImport;
-    };
-    "/api/diagnostics/errors": {
-      id: "/api/diagnostics/errors";
-      path: "/api/diagnostics/errors";
-      fullPath: "/api/diagnostics/errors";
-      preLoaderRoute: typeof ApiDiagnosticsErrorsRouteImport;
-      parentRoute: typeof rootRouteImport;
-    };
-    "/api/financeiro/exportar": {
-      id: "/api/financeiro/exportar";
-      path: "/api/financeiro/exportar";
-      fullPath: "/api/financeiro/exportar";
-      preLoaderRoute: typeof ApiFinanceiroExportarRouteImport;
-      parentRoute: typeof rootRouteImport;
-    };
-    "/api/perfil/foto": {
-      id: "/api/perfil/foto";
-      path: "/api/perfil/foto";
-      fullPath: "/api/perfil/foto";
-      preLoaderRoute: typeof ApiPerfilFotoRouteImport;
-      parentRoute: typeof rootRouteImport;
-    };
-    "/api/products/images": {
-      id: "/api/products/images";
-      path: "/api/products/images";
-      fullPath: "/api/products/images";
-      preLoaderRoute: typeof ApiProductsImagesRouteImport;
-      parentRoute: typeof rootRouteImport;
-    };
-    "/api/v1/docs": {
-      id: "/api/v1/docs";
-      path: "/api/v1/docs";
-      fullPath: "/api/v1/docs";
-      preLoaderRoute: typeof ApiV1DocsRouteImport;
-      parentRoute: typeof rootRouteImport;
-    };
-    "/api/v1/events": {
-      id: "/api/v1/events";
-      path: "/api/v1/events";
-      fullPath: "/api/v1/events";
-      preLoaderRoute: typeof ApiV1EventsRouteImport;
-      parentRoute: typeof rootRouteImport;
-    };
-    "/api/v1/me": {
-      id: "/api/v1/me";
-      path: "/api/v1/me";
-      fullPath: "/api/v1/me";
-      preLoaderRoute: typeof ApiV1MeRouteImport;
-      parentRoute: typeof rootRouteImport;
-    };
-    "/api/v1/openapi.json": {
-      id: "/api/v1/openapi.json";
-      path: "/api/v1/openapi.json";
-      fullPath: "/api/v1/openapi.json";
-      preLoaderRoute: typeof ApiV1OpenapiDotjsonRouteImport;
-      parentRoute: typeof rootRouteImport;
-    };
-    "/api/v1/stores": {
-      id: "/api/v1/stores";
-      path: "/api/v1/stores";
-      fullPath: "/api/v1/stores";
-      preLoaderRoute: typeof ApiV1StoresRouteImport;
-      parentRoute: typeof rootRouteImport;
-    };
-    "/api/webhooks/$marketplace": {
-      id: "/api/webhooks/$marketplace";
-      path: "/api/webhooks/$marketplace";
-      fullPath: "/api/webhooks/$marketplace";
-      preLoaderRoute: typeof ApiWebhooksMarketplaceRouteImport;
-      parentRoute: typeof rootRouteImport;
-    };
-    "/api/webhooks/asaas": {
-      id: "/api/webhooks/asaas";
-      path: "/api/webhooks/asaas";
-      fullPath: "/api/webhooks/asaas";
-      preLoaderRoute: typeof ApiWebhooksAsaasRouteImport;
-      parentRoute: typeof rootRouteImport;
-    };
-    "/api/webhooks/asaas-assinatura": {
-      id: "/api/webhooks/asaas-assinatura";
-      path: "/api/webhooks/asaas-assinatura";
-      fullPath: "/api/webhooks/asaas-assinatura";
-      preLoaderRoute: typeof ApiWebhooksAsaasAssinaturaRouteImport;
-      parentRoute: typeof rootRouteImport;
-    };
-    "/api/webhooks/bling": {
-      id: "/api/webhooks/bling";
-      path: "/api/webhooks/bling";
-      fullPath: "/api/webhooks/bling";
-      preLoaderRoute: typeof ApiWebhooksBlingRouteImport;
-      parentRoute: typeof rootRouteImport;
-    };
-    "/api/webhooks/mercado-pago": {
-      id: "/api/webhooks/mercado-pago";
-      path: "/api/webhooks/mercado-pago";
-      fullPath: "/api/webhooks/mercado-pago";
-      preLoaderRoute: typeof ApiWebhooksMercadoPagoRouteImport;
-      parentRoute: typeof rootRouteImport;
-    };
-    "/api/webhooks/stripe": {
-      id: "/api/webhooks/stripe";
-      path: "/api/webhooks/stripe";
-      fullPath: "/api/webhooks/stripe";
-      preLoaderRoute: typeof ApiWebhooksStripeRouteImport;
-      parentRoute: typeof rootRouteImport;
-    };
-    "/fornecedor/pedido/$token": {
-      id: "/fornecedor/pedido/$token";
-      path: "/fornecedor/pedido/$token";
-      fullPath: "/fornecedor/pedido/$token";
-      preLoaderRoute: typeof FornecedorPedidoTokenRouteImport;
-      parentRoute: typeof rootRouteImport;
-    };
-    "/_app/admin/chamados/": {
-      id: "/_app/admin/chamados/";
-      path: "/chamados";
-      fullPath: "/admin/chamados/";
-      preLoaderRoute: typeof AppAdminChamadosIndexRouteImport;
-      parentRoute: typeof AppAdminRouteRoute;
-    };
-    "/_app/admin/chamados/$ticketId": {
-      id: "/_app/admin/chamados/$ticketId";
-      path: "/chamados/$ticketId";
-      fullPath: "/admin/chamados/$ticketId";
-      preLoaderRoute: typeof AppAdminChamadosTicketIdRouteImport;
-      parentRoute: typeof AppAdminRouteRoute;
-    };
-    "/_app/admin/chamados/metricas": {
-      id: "/_app/admin/chamados/metricas";
-      path: "/chamados/metricas";
-      fullPath: "/admin/chamados/metricas";
-      preLoaderRoute: typeof AppAdminChamadosMetricasRouteImport;
-      parentRoute: typeof AppAdminRouteRoute;
-    };
-    "/_app/admin/clientes/": {
-      id: "/_app/admin/clientes/";
-      path: "/";
-      fullPath: "/admin/clientes/";
-      preLoaderRoute: typeof AppAdminClientesIndexRouteImport;
-      parentRoute: typeof AppAdminClientesRouteRoute;
-    };
-    "/_app/admin/clientes/$userId": {
-      id: "/_app/admin/clientes/$userId";
-      path: "/$userId";
-      fullPath: "/admin/clientes/$userId";
-      preLoaderRoute: typeof AppAdminClientesUserIdRouteImport;
-      parentRoute: typeof AppAdminClientesRouteRoute;
-    };
-    "/_app/admin/fornecedores/": {
-      id: "/_app/admin/fornecedores/";
-      path: "/fornecedores";
-      fullPath: "/admin/fornecedores/";
-      preLoaderRoute: typeof AppAdminFornecedoresIndexRouteImport;
-      parentRoute: typeof AppAdminRouteRoute;
-    };
-    "/_app/admin/fornecedores/$supplierId": {
-      id: "/_app/admin/fornecedores/$supplierId";
-      path: "/fornecedores/$supplierId";
-      fullPath: "/admin/fornecedores/$supplierId";
-      preLoaderRoute: typeof AppAdminFornecedoresSupplierIdRouteImport;
-      parentRoute: typeof AppAdminRouteRoute;
-    };
-    "/_app/admin/problemas/": {
-      id: "/_app/admin/problemas/";
-      path: "/";
-      fullPath: "/admin/problemas/";
-      preLoaderRoute: typeof AppAdminProblemasIndexRouteImport;
-      parentRoute: typeof AppAdminProblemasRouteRoute;
-    };
-    "/_app/admin/problemas/$problemId": {
-      id: "/_app/admin/problemas/$problemId";
-      path: "/$problemId";
-      fullPath: "/admin/problemas/$problemId";
-      preLoaderRoute: typeof AppAdminProblemasProblemIdRouteImport;
-      parentRoute: typeof AppAdminProblemasRouteRoute;
-    };
-    "/_app/fornecedor/painel/": {
-      id: "/_app/fornecedor/painel/";
-      path: "/";
-      fullPath: "/fornecedor/painel/";
-      preLoaderRoute: typeof AppFornecedorPainelIndexRouteImport;
-      parentRoute: typeof AppFornecedorPainelRouteRoute;
-    };
-    "/_app/fornecedor/painel/conferir": {
-      id: "/_app/fornecedor/painel/conferir";
-      path: "/conferir";
-      fullPath: "/fornecedor/painel/conferir";
-      preLoaderRoute: typeof AppFornecedorPainelConferirRouteImport;
-      parentRoute: typeof AppFornecedorPainelRouteRoute;
-    };
-    "/_app/fornecedor/painel/desempenho": {
-      id: "/_app/fornecedor/painel/desempenho";
-      path: "/desempenho";
-      fullPath: "/fornecedor/painel/desempenho";
-      preLoaderRoute: typeof AppFornecedorPainelDesempenhoRouteImport;
-      parentRoute: typeof AppFornecedorPainelRouteRoute;
-    };
-    "/_app/fornecedor/painel/importar": {
-      id: "/_app/fornecedor/painel/importar";
-      path: "/importar";
-      fullPath: "/fornecedor/painel/importar";
-      preLoaderRoute: typeof AppFornecedorPainelImportarRouteImport;
-      parentRoute: typeof AppFornecedorPainelRouteRoute;
-    };
-    "/_app/fornecedor/painel/marca": {
-      id: "/_app/fornecedor/painel/marca";
-      path: "/marca";
-      fullPath: "/fornecedor/painel/marca";
-      preLoaderRoute: typeof AppFornecedorPainelMarcaRouteImport;
-      parentRoute: typeof AppFornecedorPainelRouteRoute;
-    };
-    "/_app/fornecedor/painel/pedidos": {
-      id: "/_app/fornecedor/painel/pedidos";
-      path: "/pedidos";
-      fullPath: "/fornecedor/painel/pedidos";
-      preLoaderRoute: typeof AppFornecedorPainelPedidosRouteImport;
-      parentRoute: typeof AppFornecedorPainelRouteRoute;
-    };
-    "/_app/fornecedor/painel/produtos": {
-      id: "/_app/fornecedor/painel/produtos";
-      path: "/produtos";
-      fullPath: "/fornecedor/painel/produtos";
-      preLoaderRoute: typeof AppFornecedorPainelProdutosRouteImport;
-      parentRoute: typeof AppFornecedorPainelRouteRoute;
-    };
-    "/_app/fornecedor/painel/recebimentos": {
-      id: "/_app/fornecedor/painel/recebimentos";
-      path: "/recebimentos";
-      fullPath: "/fornecedor/painel/recebimentos";
-      preLoaderRoute: typeof AppFornecedorPainelRecebimentosRouteImport;
-      parentRoute: typeof AppFornecedorPainelRouteRoute;
-    };
-    "/_app/fornecedor/painel/regras": {
-      id: "/_app/fornecedor/painel/regras";
-      path: "/regras";
-      fullPath: "/fornecedor/painel/regras";
-      preLoaderRoute: typeof AppFornecedorPainelRegrasRouteImport;
-      parentRoute: typeof AppFornecedorPainelRouteRoute;
-    };
-    "/_app/fornecedor/painel/relatorio": {
-      id: "/_app/fornecedor/painel/relatorio";
-      path: "/relatorio";
-      fullPath: "/fornecedor/painel/relatorio";
-      preLoaderRoute: typeof AppFornecedorPainelRelatorioRouteImport;
-      parentRoute: typeof AppFornecedorPainelRouteRoute;
-    };
-    "/_app/fornecedor/painel/vendas": {
-      id: "/_app/fornecedor/painel/vendas";
-      path: "/vendas";
-      fullPath: "/fornecedor/painel/vendas";
-      preLoaderRoute: typeof AppFornecedorPainelVendasRouteImport;
-      parentRoute: typeof AppFornecedorPainelRouteRoute;
-    };
-    "/_app/suporte/conversas/$ticketId": {
-      id: "/_app/suporte/conversas/$ticketId";
-      path: "/suporte/conversas/$ticketId";
-      fullPath: "/suporte/conversas/$ticketId";
-      preLoaderRoute: typeof AppSuporteConversasTicketIdRouteImport;
-      parentRoute: typeof AppRouteRoute;
-    };
-    "/_app/suporte/fornecedores/": {
-      id: "/_app/suporte/fornecedores/";
-      path: "/suporte/fornecedores";
-      fullPath: "/suporte/fornecedores/";
-      preLoaderRoute: typeof AppSuporteFornecedoresIndexRouteImport;
-      parentRoute: typeof AppRouteRoute;
-    };
-    "/_app/suporte/fornecedores/novo": {
-      id: "/_app/suporte/fornecedores/novo";
-      path: "/suporte/fornecedores/novo";
-      fullPath: "/suporte/fornecedores/novo";
-      preLoaderRoute: typeof AppSuporteFornecedoresNovoRouteImport;
-      parentRoute: typeof AppRouteRoute;
-    };
-    "/_app/suporte/revendedores_/relatorio": {
-      id: "/_app/suporte/revendedores_/relatorio";
-      path: "/suporte/revendedores/relatorio";
-      fullPath: "/suporte/revendedores/relatorio";
-      preLoaderRoute: typeof AppSuporteRevendedoresRelatorioRouteImport;
-      parentRoute: typeof AppRouteRoute;
-    };
-    "/api/admin/exportar/auditoria": {
-      id: "/api/admin/exportar/auditoria";
-      path: "/api/admin/exportar/auditoria";
-      fullPath: "/api/admin/exportar/auditoria";
-      preLoaderRoute: typeof ApiAdminExportarAuditoriaRouteImport;
-      parentRoute: typeof rootRouteImport;
-    };
-    "/api/admin/exportar/chamados": {
-      id: "/api/admin/exportar/chamados";
-      path: "/api/admin/exportar/chamados";
-      fullPath: "/api/admin/exportar/chamados";
-      preLoaderRoute: typeof ApiAdminExportarChamadosRouteImport;
-      parentRoute: typeof rootRouteImport;
-    };
-    "/api/admin/exportar/clientes": {
-      id: "/api/admin/exportar/clientes";
-      path: "/api/admin/exportar/clientes";
-      fullPath: "/api/admin/exportar/clientes";
-      preLoaderRoute: typeof ApiAdminExportarClientesRouteImport;
-      parentRoute: typeof rootRouteImport;
-    };
-    "/api/admin/exportar/equipe": {
-      id: "/api/admin/exportar/equipe";
-      path: "/api/admin/exportar/equipe";
-      fullPath: "/api/admin/exportar/equipe";
-      preLoaderRoute: typeof ApiAdminExportarEquipeRouteImport;
-      parentRoute: typeof rootRouteImport;
-    };
-    "/api/devolucoes/$claimId/motivo": {
-      id: "/api/devolucoes/$claimId/motivo";
-      path: "/api/devolucoes/$claimId/motivo";
-      fullPath: "/api/devolucoes/$claimId/motivo";
-      preLoaderRoute: typeof ApiDevolucoesClaimIdMotivoRouteImport;
-      parentRoute: typeof rootRouteImport;
-    };
-    "/api/devolucoes/$claimId/resposta": {
-      id: "/api/devolucoes/$claimId/resposta";
-      path: "/api/devolucoes/$claimId/resposta";
-      fullPath: "/api/devolucoes/$claimId/resposta";
-      preLoaderRoute: typeof ApiDevolucoesClaimIdRespostaRouteImport;
-      parentRoute: typeof rootRouteImport;
-    };
-    "/api/devolucoes/fotos/$photoId": {
-      id: "/api/devolucoes/fotos/$photoId";
-      path: "/api/devolucoes/fotos/$photoId";
-      fullPath: "/api/devolucoes/fotos/$photoId";
-      preLoaderRoute: typeof ApiDevolucoesFotosPhotoIdRouteImport;
-      parentRoute: typeof rootRouteImport;
-    };
-    "/api/fornecedor/exportar/catalogo": {
-      id: "/api/fornecedor/exportar/catalogo";
-      path: "/api/fornecedor/exportar/catalogo";
-      fullPath: "/api/fornecedor/exportar/catalogo";
-      preLoaderRoute: typeof ApiFornecedorExportarCatalogoRouteImport;
-      parentRoute: typeof rootRouteImport;
-    };
-    "/api/fornecedor/exportar/pedidos": {
-      id: "/api/fornecedor/exportar/pedidos";
-      path: "/api/fornecedor/exportar/pedidos";
-      fullPath: "/api/fornecedor/exportar/pedidos";
-      preLoaderRoute: typeof ApiFornecedorExportarPedidosRouteImport;
-      parentRoute: typeof rootRouteImport;
-    };
-    "/api/fornecedor/exportar/produtos": {
-      id: "/api/fornecedor/exportar/produtos";
-      path: "/api/fornecedor/exportar/produtos";
-      fullPath: "/api/fornecedor/exportar/produtos";
-      preLoaderRoute: typeof ApiFornecedorExportarProdutosRouteImport;
-      parentRoute: typeof rootRouteImport;
-    };
-    "/api/fornecedor/produtos/imagens": {
-      id: "/api/fornecedor/produtos/imagens";
-      path: "/api/fornecedor/produtos/imagens";
-      fullPath: "/api/fornecedor/produtos/imagens";
-      preLoaderRoute: typeof ApiFornecedorProdutosImagensRouteImport;
-      parentRoute: typeof rootRouteImport;
-    };
-    "/api/fornecedor/vendas/exportar": {
-      id: "/api/fornecedor/vendas/exportar";
-      path: "/api/fornecedor/vendas/exportar";
-      fullPath: "/api/fornecedor/vendas/exportar";
-      preLoaderRoute: typeof ApiFornecedorVendasExportarRouteImport;
-      parentRoute: typeof rootRouteImport;
-    };
-    "/api/integracoes/bling/conectar": {
-      id: "/api/integracoes/bling/conectar";
-      path: "/api/integracoes/bling/conectar";
-      fullPath: "/api/integracoes/bling/conectar";
-      preLoaderRoute: typeof ApiIntegracoesBlingConectarRouteImport;
-      parentRoute: typeof rootRouteImport;
-    };
-    "/api/integracoes/bling/retorno": {
-      id: "/api/integracoes/bling/retorno";
-      path: "/api/integracoes/bling/retorno";
-      fullPath: "/api/integracoes/bling/retorno";
-      preLoaderRoute: typeof ApiIntegracoesBlingRetornoRouteImport;
-      parentRoute: typeof rootRouteImport;
-    };
-    "/api/integracoes/mercado-pago/conectar": {
-      id: "/api/integracoes/mercado-pago/conectar";
-      path: "/api/integracoes/mercado-pago/conectar";
-      fullPath: "/api/integracoes/mercado-pago/conectar";
-      preLoaderRoute: typeof ApiIntegracoesMercadoPagoConectarRouteImport;
-      parentRoute: typeof rootRouteImport;
-    };
-    "/api/integracoes/mercado-pago/retorno": {
-      id: "/api/integracoes/mercado-pago/retorno";
-      path: "/api/integracoes/mercado-pago/retorno";
-      fullPath: "/api/integracoes/mercado-pago/retorno";
-      preLoaderRoute: typeof ApiIntegracoesMercadoPagoRetornoRouteImport;
-      parentRoute: typeof rootRouteImport;
-    };
-    "/api/oauth/$marketplace/callback": {
-      id: "/api/oauth/$marketplace/callback";
-      path: "/api/oauth/$marketplace/callback";
-      fullPath: "/api/oauth/$marketplace/callback";
-      preLoaderRoute: typeof ApiOauthMarketplaceCallbackRouteImport;
-      parentRoute: typeof rootRouteImport;
-    };
-    "/api/oauth/$marketplace/start": {
-      id: "/api/oauth/$marketplace/start";
-      path: "/api/oauth/$marketplace/start";
-      fullPath: "/api/oauth/$marketplace/start";
-      preLoaderRoute: typeof ApiOauthMarketplaceStartRouteImport;
-      parentRoute: typeof rootRouteImport;
-    };
-    "/api/pedidos/$orderId/etiqueta": {
-      id: "/api/pedidos/$orderId/etiqueta";
-      path: "/api/pedidos/$orderId/etiqueta";
-      fullPath: "/api/pedidos/$orderId/etiqueta";
-      preLoaderRoute: typeof ApiPedidosOrderIdEtiquetaRouteImport;
-      parentRoute: typeof rootRouteImport;
-    };
-    "/api/pedidos/$orderId/nota-fiscal": {
-      id: "/api/pedidos/$orderId/nota-fiscal";
-      path: "/api/pedidos/$orderId/nota-fiscal";
-      fullPath: "/api/pedidos/$orderId/nota-fiscal";
-      preLoaderRoute: typeof ApiPedidosOrderIdNotaFiscalRouteImport;
-      parentRoute: typeof rootRouteImport;
-    };
-    "/api/suporte/anexos/$attachmentId": {
-      id: "/api/suporte/anexos/$attachmentId";
-      path: "/api/suporte/anexos/$attachmentId";
-      fullPath: "/api/suporte/anexos/$attachmentId";
-      preLoaderRoute: typeof ApiSuporteAnexosAttachmentIdRouteImport;
-      parentRoute: typeof rootRouteImport;
-    };
-    "/api/suporte/chamados/": {
-      id: "/api/suporte/chamados/";
-      path: "/api/suporte/chamados";
-      fullPath: "/api/suporte/chamados/";
-      preLoaderRoute: typeof ApiSuporteChamadosIndexRouteImport;
-      parentRoute: typeof rootRouteImport;
-    };
-    "/api/suporte/conversas/": {
-      id: "/api/suporte/conversas/";
-      path: "/api/suporte/conversas";
-      fullPath: "/api/suporte/conversas/";
-      preLoaderRoute: typeof ApiSuporteConversasIndexRouteImport;
-      parentRoute: typeof rootRouteImport;
-    };
-    "/api/v1/financials/summary": {
-      id: "/api/v1/financials/summary";
-      path: "/api/v1/financials/summary";
-      fullPath: "/api/v1/financials/summary";
-      preLoaderRoute: typeof ApiV1FinancialsSummaryRouteImport;
-      parentRoute: typeof rootRouteImport;
-    };
-    "/api/v1/listings/": {
-      id: "/api/v1/listings/";
-      path: "/api/v1/listings";
-      fullPath: "/api/v1/listings/";
-      preLoaderRoute: typeof ApiV1ListingsIndexRouteImport;
-      parentRoute: typeof rootRouteImport;
-    };
-    "/api/v1/listings/$listingId": {
-      id: "/api/v1/listings/$listingId";
-      path: "/api/v1/listings/$listingId";
-      fullPath: "/api/v1/listings/$listingId";
-      preLoaderRoute: typeof ApiV1ListingsListingIdRouteImport;
-      parentRoute: typeof rootRouteImport;
-    };
-    "/api/v1/orders/": {
-      id: "/api/v1/orders/";
-      path: "/api/v1/orders";
-      fullPath: "/api/v1/orders/";
-      preLoaderRoute: typeof ApiV1OrdersIndexRouteImport;
-      parentRoute: typeof rootRouteImport;
-    };
-    "/api/v1/orders/$orderId": {
-      id: "/api/v1/orders/$orderId";
-      path: "/api/v1/orders/$orderId";
-      fullPath: "/api/v1/orders/$orderId";
-      preLoaderRoute: typeof ApiV1OrdersOrderIdRouteImport;
-      parentRoute: typeof rootRouteImport;
-    };
-    "/api/v1/webhook-endpoints/": {
-      id: "/api/v1/webhook-endpoints/";
-      path: "/api/v1/webhook-endpoints";
-      fullPath: "/api/v1/webhook-endpoints/";
-      preLoaderRoute: typeof ApiV1WebhookEndpointsIndexRouteImport;
-      parentRoute: typeof rootRouteImport;
-    };
-    "/_app/admin/fornecedores/$supplierId_/flags": {
-      id: "/_app/admin/fornecedores/$supplierId_/flags";
-      path: "/fornecedores/$supplierId/flags";
-      fullPath: "/admin/fornecedores/$supplierId/flags";
-      preLoaderRoute: typeof AppAdminFornecedoresSupplierIdFlagsRouteImport;
-      parentRoute: typeof AppAdminRouteRoute;
-    };
-    "/_app/admin/fornecedores/analise/": {
-      id: "/_app/admin/fornecedores/analise/";
-      path: "/fornecedores/analise";
-      fullPath: "/admin/fornecedores/analise/";
-      preLoaderRoute: typeof AppAdminFornecedoresAnaliseIndexRouteImport;
-      parentRoute: typeof AppAdminRouteRoute;
-    };
-    "/_app/admin/fornecedores/analise/$productId": {
-      id: "/_app/admin/fornecedores/analise/$productId";
-      path: "/fornecedores/analise/$productId";
-      fullPath: "/admin/fornecedores/analise/$productId";
-      preLoaderRoute: typeof AppAdminFornecedoresAnaliseProductIdRouteImport;
-      parentRoute: typeof AppAdminRouteRoute;
-    };
-    "/_app/admin/fornecedores/aprovacao/": {
-      id: "/_app/admin/fornecedores/aprovacao/";
-      path: "/fornecedores/aprovacao";
-      fullPath: "/admin/fornecedores/aprovacao/";
-      preLoaderRoute: typeof AppAdminFornecedoresAprovacaoIndexRouteImport;
-      parentRoute: typeof AppAdminRouteRoute;
-    };
-    "/api/admin/chamados/$ticketId/mensagens": {
-      id: "/api/admin/chamados/$ticketId/mensagens";
-      path: "/api/admin/chamados/$ticketId/mensagens";
-      fullPath: "/api/admin/chamados/$ticketId/mensagens";
-      preLoaderRoute: typeof ApiAdminChamadosTicketIdMensagensRouteImport;
-      parentRoute: typeof rootRouteImport;
-    };
-    "/api/perfil/foto/$userId/$fileName": {
-      id: "/api/perfil/foto/$userId/$fileName";
-      path: "/$userId/$fileName";
-      fullPath: "/api/perfil/foto/$userId/$fileName";
-      preLoaderRoute: typeof ApiPerfilFotoUserIdFileNameRouteImport;
-      parentRoute: typeof ApiPerfilFotoRoute;
-    };
-    "/api/produtos/imagens/$supplierId/$fileName": {
-      id: "/api/produtos/imagens/$supplierId/$fileName";
-      path: "/api/produtos/imagens/$supplierId/$fileName";
-      fullPath: "/api/produtos/imagens/$supplierId/$fileName";
-      preLoaderRoute: typeof ApiProdutosImagensSupplierIdFileNameRouteImport;
-      parentRoute: typeof rootRouteImport;
-    };
-    "/api/suporte/chamados/$ticketId/mensagens": {
-      id: "/api/suporte/chamados/$ticketId/mensagens";
-      path: "/api/suporte/chamados/$ticketId/mensagens";
-      fullPath: "/api/suporte/chamados/$ticketId/mensagens";
-      preLoaderRoute: typeof ApiSuporteChamadosTicketIdMensagensRouteImport;
-      parentRoute: typeof rootRouteImport;
-    };
-    "/api/suporte/conversas/$ticketId/mensagens": {
-      id: "/api/suporte/conversas/$ticketId/mensagens";
-      path: "/api/suporte/conversas/$ticketId/mensagens";
-      fullPath: "/api/suporte/conversas/$ticketId/mensagens";
-      preLoaderRoute: typeof ApiSuporteConversasTicketIdMensagensRouteImport;
-      parentRoute: typeof rootRouteImport;
-    };
-    "/api/v1/catalog/products/": {
-      id: "/api/v1/catalog/products/";
-      path: "/api/v1/catalog/products";
-      fullPath: "/api/v1/catalog/products/";
-      preLoaderRoute: typeof ApiV1CatalogProductsIndexRouteImport;
-      parentRoute: typeof rootRouteImport;
-    };
-    "/api/v1/catalog/products/$productId": {
-      id: "/api/v1/catalog/products/$productId";
-      path: "/api/v1/catalog/products/$productId";
-      fullPath: "/api/v1/catalog/products/$productId";
-      preLoaderRoute: typeof ApiV1CatalogProductsProductIdRouteImport;
-      parentRoute: typeof rootRouteImport;
-    };
-    "/api/v1/webhook-endpoints/$endpointId/": {
-      id: "/api/v1/webhook-endpoints/$endpointId/";
-      path: "/api/v1/webhook-endpoints/$endpointId";
-      fullPath: "/api/v1/webhook-endpoints/$endpointId/";
-      preLoaderRoute: typeof ApiV1WebhookEndpointsEndpointIdIndexRouteImport;
-      parentRoute: typeof rootRouteImport;
-    };
-    "/api/v1/webhook-endpoints/$endpointId/deliveries": {
-      id: "/api/v1/webhook-endpoints/$endpointId/deliveries";
-      path: "/api/v1/webhook-endpoints/$endpointId/deliveries";
-      fullPath: "/api/v1/webhook-endpoints/$endpointId/deliveries";
-      preLoaderRoute: typeof ApiV1WebhookEndpointsEndpointIdDeliveriesRouteImport;
-      parentRoute: typeof rootRouteImport;
-    };
+    '/': {
+      id: '/'
+      path: '/'
+      fullPath: '/'
+      preLoaderRoute: typeof IndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/_app': {
+      id: '/_app'
+      path: ''
+      fullPath: '/'
+      preLoaderRoute: typeof AppRouteRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/_auth': {
+      id: '/_auth'
+      path: ''
+      fullPath: '/'
+      preLoaderRoute: typeof AuthRouteRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/aceitar-termos': {
+      id: '/aceitar-termos'
+      path: '/aceitar-termos'
+      fullPath: '/aceitar-termos'
+      preLoaderRoute: typeof AceitarTermosRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/outro-perfil': {
+      id: '/outro-perfil'
+      path: '/outro-perfil'
+      fullPath: '/outro-perfil'
+      preLoaderRoute: typeof OutroPerfilRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/privacidade': {
+      id: '/privacidade'
+      path: '/privacidade'
+      fullPath: '/privacidade'
+      preLoaderRoute: typeof PrivacidadeRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/termos': {
+      id: '/termos'
+      path: '/termos'
+      fullPath: '/termos'
+      preLoaderRoute: typeof TermosRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/_app/admin': {
+      id: '/_app/admin'
+      path: '/admin'
+      fullPath: '/admin'
+      preLoaderRoute: typeof AppAdminRouteRouteImport
+      parentRoute: typeof AppRouteRoute
+    }
+    '/_app/assinatura': {
+      id: '/_app/assinatura'
+      path: '/assinatura'
+      fullPath: '/assinatura'
+      preLoaderRoute: typeof AppAssinaturaRouteImport
+      parentRoute: typeof AppRouteRoute
+    }
+    '/_app/catalogo': {
+      id: '/_app/catalogo'
+      path: '/catalogo'
+      fullPath: '/catalogo'
+      preLoaderRoute: typeof AppCatalogoRouteImport
+      parentRoute: typeof AppRouteRoute
+    }
+    '/_app/dashboard': {
+      id: '/_app/dashboard'
+      path: '/dashboard'
+      fullPath: '/dashboard'
+      preLoaderRoute: typeof AppDashboardRouteImport
+      parentRoute: typeof AppRouteRoute
+    }
+    '/_app/financeiro': {
+      id: '/_app/financeiro'
+      path: '/financeiro'
+      fullPath: '/financeiro'
+      preLoaderRoute: typeof AppFinanceiroRouteImport
+      parentRoute: typeof AppRouteRoute
+    }
+    '/_app/fornecedores': {
+      id: '/_app/fornecedores'
+      path: '/fornecedores'
+      fullPath: '/fornecedores'
+      preLoaderRoute: typeof AppFornecedoresRouteRouteImport
+      parentRoute: typeof AppRouteRoute
+    }
+    '/_app/integracoes': {
+      id: '/_app/integracoes'
+      path: '/integracoes'
+      fullPath: '/integracoes'
+      preLoaderRoute: typeof AppIntegracoesRouteImport
+      parentRoute: typeof AppRouteRoute
+    }
+    '/_app/lojas': {
+      id: '/_app/lojas'
+      path: '/lojas'
+      fullPath: '/lojas'
+      preLoaderRoute: typeof AppLojasRouteImport
+      parentRoute: typeof AppRouteRoute
+    }
+    '/_app/onboarding': {
+      id: '/_app/onboarding'
+      path: '/onboarding'
+      fullPath: '/onboarding'
+      preLoaderRoute: typeof AppOnboardingRouteImport
+      parentRoute: typeof AppRouteRoute
+    }
+    '/_app/perfil': {
+      id: '/_app/perfil'
+      path: '/perfil'
+      fullPath: '/perfil'
+      preLoaderRoute: typeof AppPerfilRouteImport
+      parentRoute: typeof AppRouteRoute
+    }
+    '/_app/politica-de-devolucao': {
+      id: '/_app/politica-de-devolucao'
+      path: '/politica-de-devolucao'
+      fullPath: '/politica-de-devolucao'
+      preLoaderRoute: typeof AppPoliticaDeDevolucaoRouteImport
+      parentRoute: typeof AppRouteRoute
+    }
+    '/_app/products': {
+      id: '/_app/products'
+      path: '/products'
+      fullPath: '/products'
+      preLoaderRoute: typeof AppProductsRouteImport
+      parentRoute: typeof AppRouteRoute
+    }
+    '/_auth/cadastro': {
+      id: '/_auth/cadastro'
+      path: '/cadastro'
+      fullPath: '/cadastro'
+      preLoaderRoute: typeof AuthCadastroRouteImport
+      parentRoute: typeof AuthRouteRoute
+    }
+    '/_auth/confirme-seu-email': {
+      id: '/_auth/confirme-seu-email'
+      path: '/confirme-seu-email'
+      fullPath: '/confirme-seu-email'
+      preLoaderRoute: typeof AuthConfirmeSeuEmailRouteImport
+      parentRoute: typeof AuthRouteRoute
+    }
+    '/_auth/esqueci-senha': {
+      id: '/_auth/esqueci-senha'
+      path: '/esqueci-senha'
+      fullPath: '/esqueci-senha'
+      preLoaderRoute: typeof AuthEsqueciSenhaRouteImport
+      parentRoute: typeof AuthRouteRoute
+    }
+    '/_auth/login': {
+      id: '/_auth/login'
+      path: '/login'
+      fullPath: '/login'
+      preLoaderRoute: typeof AuthLoginRouteImport
+      parentRoute: typeof AuthRouteRoute
+    }
+    '/_auth/redefinir-senha': {
+      id: '/_auth/redefinir-senha'
+      path: '/redefinir-senha'
+      fullPath: '/redefinir-senha'
+      preLoaderRoute: typeof AuthRedefinirSenhaRouteImport
+      parentRoute: typeof AuthRouteRoute
+    }
+    '/api/health': {
+      id: '/api/health'
+      path: '/api/health'
+      fullPath: '/api/health'
+      preLoaderRoute: typeof ApiHealthRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/version': {
+      id: '/api/version'
+      path: '/api/version'
+      fullPath: '/api/version'
+      preLoaderRoute: typeof ApiVersionRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/rastreio/$token': {
+      id: '/rastreio/$token'
+      path: '/rastreio/$token'
+      fullPath: '/rastreio/$token'
+      preLoaderRoute: typeof RastreioTokenRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/_app/admin/auditoria': {
+      id: '/_app/admin/auditoria'
+      path: '/auditoria'
+      fullPath: '/admin/auditoria'
+      preLoaderRoute: typeof AppAdminAuditoriaRouteImport
+      parentRoute: typeof AppAdminRouteRoute
+    }
+    '/_app/admin/avaliacoes': {
+      id: '/_app/admin/avaliacoes'
+      path: '/avaliacoes'
+      fullPath: '/admin/avaliacoes'
+      preLoaderRoute: typeof AppAdminAvaliacoesRouteImport
+      parentRoute: typeof AppAdminRouteRoute
+    }
+    '/_app/admin/clientes': {
+      id: '/_app/admin/clientes'
+      path: '/clientes'
+      fullPath: '/admin/clientes'
+      preLoaderRoute: typeof AppAdminClientesRouteRouteImport
+      parentRoute: typeof AppAdminRouteRoute
+    }
+    '/_app/admin/configuracoes': {
+      id: '/_app/admin/configuracoes'
+      path: '/configuracoes'
+      fullPath: '/admin/configuracoes'
+      preLoaderRoute: typeof AppAdminConfiguracoesRouteImport
+      parentRoute: typeof AppAdminRouteRoute
+    }
+    '/_app/admin/envios': {
+      id: '/_app/admin/envios'
+      path: '/envios'
+      fullPath: '/admin/envios'
+      preLoaderRoute: typeof AppAdminEnviosRouteImport
+      parentRoute: typeof AppAdminRouteRoute
+    }
+    '/_app/admin/equipe': {
+      id: '/_app/admin/equipe'
+      path: '/equipe'
+      fullPath: '/admin/equipe'
+      preLoaderRoute: typeof AppAdminEquipeRouteImport
+      parentRoute: typeof AppAdminRouteRoute
+    }
+    '/_app/admin/problemas': {
+      id: '/_app/admin/problemas'
+      path: '/problemas'
+      fullPath: '/admin/problemas'
+      preLoaderRoute: typeof AppAdminProblemasRouteRouteImport
+      parentRoute: typeof AppAdminRouteRoute
+    }
+    '/_app/admin/products': {
+      id: '/_app/admin/products'
+      path: '/products'
+      fullPath: '/admin/products'
+      preLoaderRoute: typeof AppAdminProductsRouteImport
+      parentRoute: typeof AppAdminRouteRoute
+    }
+    '/_app/admin/relatorio': {
+      id: '/_app/admin/relatorio'
+      path: '/relatorio'
+      fullPath: '/admin/relatorio'
+      preLoaderRoute: typeof AppAdminRelatorioRouteImport
+      parentRoute: typeof AppAdminRouteRoute
+    }
+    '/_app/financeiro_/relatorio': {
+      id: '/_app/financeiro_/relatorio'
+      path: '/financeiro/relatorio'
+      fullPath: '/financeiro/relatorio'
+      preLoaderRoute: typeof AppFinanceiroRelatorioRouteImport
+      parentRoute: typeof AppRouteRoute
+    }
+    '/_app/fornecedor/painel': {
+      id: '/_app/fornecedor/painel'
+      path: '/fornecedor/painel'
+      fullPath: '/fornecedor/painel'
+      preLoaderRoute: typeof AppFornecedorPainelRouteRouteImport
+      parentRoute: typeof AppRouteRoute
+    }
+    '/_app/fornecedores/': {
+      id: '/_app/fornecedores/'
+      path: '/'
+      fullPath: '/fornecedores/'
+      preLoaderRoute: typeof AppFornecedoresIndexRouteImport
+      parentRoute: typeof AppFornecedoresRouteRoute
+    }
+    '/_app/fornecedores/$supplierId': {
+      id: '/_app/fornecedores/$supplierId'
+      path: '/$supplierId'
+      fullPath: '/fornecedores/$supplierId'
+      preLoaderRoute: typeof AppFornecedoresSupplierIdRouteImport
+      parentRoute: typeof AppFornecedoresRouteRoute
+    }
+    '/_app/pedidos/': {
+      id: '/_app/pedidos/'
+      path: '/pedidos'
+      fullPath: '/pedidos/'
+      preLoaderRoute: typeof AppPedidosIndexRouteImport
+      parentRoute: typeof AppRouteRoute
+    }
+    '/_app/pedidos/$orderId': {
+      id: '/_app/pedidos/$orderId'
+      path: '/pedidos/$orderId'
+      fullPath: '/pedidos/$orderId'
+      preLoaderRoute: typeof AppPedidosOrderIdRouteImport
+      parentRoute: typeof AppRouteRoute
+    }
+    '/_app/pedidos/venda-manual': {
+      id: '/_app/pedidos/venda-manual'
+      path: '/pedidos/venda-manual'
+      fullPath: '/pedidos/venda-manual'
+      preLoaderRoute: typeof AppPedidosVendaManualRouteImport
+      parentRoute: typeof AppRouteRoute
+    }
+    '/_app/publicacoes/': {
+      id: '/_app/publicacoes/'
+      path: '/publicacoes'
+      fullPath: '/publicacoes/'
+      preLoaderRoute: typeof AppPublicacoesIndexRouteImport
+      parentRoute: typeof AppRouteRoute
+    }
+    '/_app/publicacoes/nova': {
+      id: '/_app/publicacoes/nova'
+      path: '/publicacoes/nova'
+      fullPath: '/publicacoes/nova'
+      preLoaderRoute: typeof AppPublicacoesNovaRouteImport
+      parentRoute: typeof AppRouteRoute
+    }
+    '/_app/suporte/': {
+      id: '/_app/suporte/'
+      path: '/suporte'
+      fullPath: '/suporte/'
+      preLoaderRoute: typeof AppSuporteIndexRouteImport
+      parentRoute: typeof AppRouteRoute
+    }
+    '/_app/suporte/$ticketId': {
+      id: '/_app/suporte/$ticketId'
+      path: '/suporte/$ticketId'
+      fullPath: '/suporte/$ticketId'
+      preLoaderRoute: typeof AppSuporteTicketIdRouteImport
+      parentRoute: typeof AppRouteRoute
+    }
+    '/_app/suporte/novo': {
+      id: '/_app/suporte/novo'
+      path: '/suporte/novo'
+      fullPath: '/suporte/novo'
+      preLoaderRoute: typeof AppSuporteNovoRouteImport
+      parentRoute: typeof AppRouteRoute
+    }
+    '/_app/suporte/revendedores': {
+      id: '/_app/suporte/revendedores'
+      path: '/suporte/revendedores'
+      fullPath: '/suporte/revendedores'
+      preLoaderRoute: typeof AppSuporteRevendedoresRouteImport
+      parentRoute: typeof AppRouteRoute
+    }
+    '/_auth/cadastro_/fornecedor': {
+      id: '/_auth/cadastro_/fornecedor'
+      path: '/cadastro/fornecedor'
+      fullPath: '/cadastro/fornecedor'
+      preLoaderRoute: typeof AuthCadastroFornecedorRouteImport
+      parentRoute: typeof AuthRouteRoute
+    }
+    '/api/admin/product-images': {
+      id: '/api/admin/product-images'
+      path: '/api/admin/product-images'
+      fullPath: '/api/admin/product-images'
+      preLoaderRoute: typeof ApiAdminProductImagesRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/auth/$': {
+      id: '/api/auth/$'
+      path: '/api/auth/$'
+      fullPath: '/api/auth/$'
+      preLoaderRoute: typeof ApiAuthSplatRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/conta/exportar': {
+      id: '/api/conta/exportar'
+      path: '/api/conta/exportar'
+      fullPath: '/api/conta/exportar'
+      preLoaderRoute: typeof ApiContaExportarRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/diagnostics/errors': {
+      id: '/api/diagnostics/errors'
+      path: '/api/diagnostics/errors'
+      fullPath: '/api/diagnostics/errors'
+      preLoaderRoute: typeof ApiDiagnosticsErrorsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/financeiro/exportar': {
+      id: '/api/financeiro/exportar'
+      path: '/api/financeiro/exportar'
+      fullPath: '/api/financeiro/exportar'
+      preLoaderRoute: typeof ApiFinanceiroExportarRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/perfil/foto': {
+      id: '/api/perfil/foto'
+      path: '/api/perfil/foto'
+      fullPath: '/api/perfil/foto'
+      preLoaderRoute: typeof ApiPerfilFotoRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/products/images': {
+      id: '/api/products/images'
+      path: '/api/products/images'
+      fullPath: '/api/products/images'
+      preLoaderRoute: typeof ApiProductsImagesRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/v1/docs': {
+      id: '/api/v1/docs'
+      path: '/api/v1/docs'
+      fullPath: '/api/v1/docs'
+      preLoaderRoute: typeof ApiV1DocsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/v1/events': {
+      id: '/api/v1/events'
+      path: '/api/v1/events'
+      fullPath: '/api/v1/events'
+      preLoaderRoute: typeof ApiV1EventsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/v1/me': {
+      id: '/api/v1/me'
+      path: '/api/v1/me'
+      fullPath: '/api/v1/me'
+      preLoaderRoute: typeof ApiV1MeRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/v1/openapi.json': {
+      id: '/api/v1/openapi.json'
+      path: '/api/v1/openapi.json'
+      fullPath: '/api/v1/openapi.json'
+      preLoaderRoute: typeof ApiV1OpenapiDotjsonRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/v1/stores': {
+      id: '/api/v1/stores'
+      path: '/api/v1/stores'
+      fullPath: '/api/v1/stores'
+      preLoaderRoute: typeof ApiV1StoresRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/webhooks/$marketplace': {
+      id: '/api/webhooks/$marketplace'
+      path: '/api/webhooks/$marketplace'
+      fullPath: '/api/webhooks/$marketplace'
+      preLoaderRoute: typeof ApiWebhooksMarketplaceRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/webhooks/asaas': {
+      id: '/api/webhooks/asaas'
+      path: '/api/webhooks/asaas'
+      fullPath: '/api/webhooks/asaas'
+      preLoaderRoute: typeof ApiWebhooksAsaasRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/webhooks/asaas-assinatura': {
+      id: '/api/webhooks/asaas-assinatura'
+      path: '/api/webhooks/asaas-assinatura'
+      fullPath: '/api/webhooks/asaas-assinatura'
+      preLoaderRoute: typeof ApiWebhooksAsaasAssinaturaRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/webhooks/bling': {
+      id: '/api/webhooks/bling'
+      path: '/api/webhooks/bling'
+      fullPath: '/api/webhooks/bling'
+      preLoaderRoute: typeof ApiWebhooksBlingRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/webhooks/mercado-pago': {
+      id: '/api/webhooks/mercado-pago'
+      path: '/api/webhooks/mercado-pago'
+      fullPath: '/api/webhooks/mercado-pago'
+      preLoaderRoute: typeof ApiWebhooksMercadoPagoRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/webhooks/stripe': {
+      id: '/api/webhooks/stripe'
+      path: '/api/webhooks/stripe'
+      fullPath: '/api/webhooks/stripe'
+      preLoaderRoute: typeof ApiWebhooksStripeRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/fornecedor/pedido/$token': {
+      id: '/fornecedor/pedido/$token'
+      path: '/fornecedor/pedido/$token'
+      fullPath: '/fornecedor/pedido/$token'
+      preLoaderRoute: typeof FornecedorPedidoTokenRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/_app/admin/chamados/': {
+      id: '/_app/admin/chamados/'
+      path: '/chamados'
+      fullPath: '/admin/chamados/'
+      preLoaderRoute: typeof AppAdminChamadosIndexRouteImport
+      parentRoute: typeof AppAdminRouteRoute
+    }
+    '/_app/admin/chamados/$ticketId': {
+      id: '/_app/admin/chamados/$ticketId'
+      path: '/chamados/$ticketId'
+      fullPath: '/admin/chamados/$ticketId'
+      preLoaderRoute: typeof AppAdminChamadosTicketIdRouteImport
+      parentRoute: typeof AppAdminRouteRoute
+    }
+    '/_app/admin/chamados/metricas': {
+      id: '/_app/admin/chamados/metricas'
+      path: '/chamados/metricas'
+      fullPath: '/admin/chamados/metricas'
+      preLoaderRoute: typeof AppAdminChamadosMetricasRouteImport
+      parentRoute: typeof AppAdminRouteRoute
+    }
+    '/_app/admin/clientes/': {
+      id: '/_app/admin/clientes/'
+      path: '/'
+      fullPath: '/admin/clientes/'
+      preLoaderRoute: typeof AppAdminClientesIndexRouteImport
+      parentRoute: typeof AppAdminClientesRouteRoute
+    }
+    '/_app/admin/clientes/$userId': {
+      id: '/_app/admin/clientes/$userId'
+      path: '/$userId'
+      fullPath: '/admin/clientes/$userId'
+      preLoaderRoute: typeof AppAdminClientesUserIdRouteImport
+      parentRoute: typeof AppAdminClientesRouteRoute
+    }
+    '/_app/admin/fornecedores/': {
+      id: '/_app/admin/fornecedores/'
+      path: '/fornecedores'
+      fullPath: '/admin/fornecedores/'
+      preLoaderRoute: typeof AppAdminFornecedoresIndexRouteImport
+      parentRoute: typeof AppAdminRouteRoute
+    }
+    '/_app/admin/fornecedores/$supplierId': {
+      id: '/_app/admin/fornecedores/$supplierId'
+      path: '/fornecedores/$supplierId'
+      fullPath: '/admin/fornecedores/$supplierId'
+      preLoaderRoute: typeof AppAdminFornecedoresSupplierIdRouteImport
+      parentRoute: typeof AppAdminRouteRoute
+    }
+    '/_app/admin/problemas/': {
+      id: '/_app/admin/problemas/'
+      path: '/'
+      fullPath: '/admin/problemas/'
+      preLoaderRoute: typeof AppAdminProblemasIndexRouteImport
+      parentRoute: typeof AppAdminProblemasRouteRoute
+    }
+    '/_app/admin/problemas/$problemId': {
+      id: '/_app/admin/problemas/$problemId'
+      path: '/$problemId'
+      fullPath: '/admin/problemas/$problemId'
+      preLoaderRoute: typeof AppAdminProblemasProblemIdRouteImport
+      parentRoute: typeof AppAdminProblemasRouteRoute
+    }
+    '/_app/fornecedor/painel/': {
+      id: '/_app/fornecedor/painel/'
+      path: '/'
+      fullPath: '/fornecedor/painel/'
+      preLoaderRoute: typeof AppFornecedorPainelIndexRouteImport
+      parentRoute: typeof AppFornecedorPainelRouteRoute
+    }
+    '/_app/fornecedor/painel/conferir': {
+      id: '/_app/fornecedor/painel/conferir'
+      path: '/conferir'
+      fullPath: '/fornecedor/painel/conferir'
+      preLoaderRoute: typeof AppFornecedorPainelConferirRouteImport
+      parentRoute: typeof AppFornecedorPainelRouteRoute
+    }
+    '/_app/fornecedor/painel/desempenho': {
+      id: '/_app/fornecedor/painel/desempenho'
+      path: '/desempenho'
+      fullPath: '/fornecedor/painel/desempenho'
+      preLoaderRoute: typeof AppFornecedorPainelDesempenhoRouteImport
+      parentRoute: typeof AppFornecedorPainelRouteRoute
+    }
+    '/_app/fornecedor/painel/importar': {
+      id: '/_app/fornecedor/painel/importar'
+      path: '/importar'
+      fullPath: '/fornecedor/painel/importar'
+      preLoaderRoute: typeof AppFornecedorPainelImportarRouteImport
+      parentRoute: typeof AppFornecedorPainelRouteRoute
+    }
+    '/_app/fornecedor/painel/marca': {
+      id: '/_app/fornecedor/painel/marca'
+      path: '/marca'
+      fullPath: '/fornecedor/painel/marca'
+      preLoaderRoute: typeof AppFornecedorPainelMarcaRouteImport
+      parentRoute: typeof AppFornecedorPainelRouteRoute
+    }
+    '/_app/fornecedor/painel/pedidos': {
+      id: '/_app/fornecedor/painel/pedidos'
+      path: '/pedidos'
+      fullPath: '/fornecedor/painel/pedidos'
+      preLoaderRoute: typeof AppFornecedorPainelPedidosRouteImport
+      parentRoute: typeof AppFornecedorPainelRouteRoute
+    }
+    '/_app/fornecedor/painel/produtos': {
+      id: '/_app/fornecedor/painel/produtos'
+      path: '/produtos'
+      fullPath: '/fornecedor/painel/produtos'
+      preLoaderRoute: typeof AppFornecedorPainelProdutosRouteImport
+      parentRoute: typeof AppFornecedorPainelRouteRoute
+    }
+    '/_app/fornecedor/painel/recebimentos': {
+      id: '/_app/fornecedor/painel/recebimentos'
+      path: '/recebimentos'
+      fullPath: '/fornecedor/painel/recebimentos'
+      preLoaderRoute: typeof AppFornecedorPainelRecebimentosRouteImport
+      parentRoute: typeof AppFornecedorPainelRouteRoute
+    }
+    '/_app/fornecedor/painel/regras': {
+      id: '/_app/fornecedor/painel/regras'
+      path: '/regras'
+      fullPath: '/fornecedor/painel/regras'
+      preLoaderRoute: typeof AppFornecedorPainelRegrasRouteImport
+      parentRoute: typeof AppFornecedorPainelRouteRoute
+    }
+    '/_app/fornecedor/painel/relatorio': {
+      id: '/_app/fornecedor/painel/relatorio'
+      path: '/relatorio'
+      fullPath: '/fornecedor/painel/relatorio'
+      preLoaderRoute: typeof AppFornecedorPainelRelatorioRouteImport
+      parentRoute: typeof AppFornecedorPainelRouteRoute
+    }
+    '/_app/fornecedor/painel/vendas': {
+      id: '/_app/fornecedor/painel/vendas'
+      path: '/vendas'
+      fullPath: '/fornecedor/painel/vendas'
+      preLoaderRoute: typeof AppFornecedorPainelVendasRouteImport
+      parentRoute: typeof AppFornecedorPainelRouteRoute
+    }
+    '/_app/suporte/conversas/$ticketId': {
+      id: '/_app/suporte/conversas/$ticketId'
+      path: '/suporte/conversas/$ticketId'
+      fullPath: '/suporte/conversas/$ticketId'
+      preLoaderRoute: typeof AppSuporteConversasTicketIdRouteImport
+      parentRoute: typeof AppRouteRoute
+    }
+    '/_app/suporte/fornecedores/': {
+      id: '/_app/suporte/fornecedores/'
+      path: '/suporte/fornecedores'
+      fullPath: '/suporte/fornecedores/'
+      preLoaderRoute: typeof AppSuporteFornecedoresIndexRouteImport
+      parentRoute: typeof AppRouteRoute
+    }
+    '/_app/suporte/fornecedores/novo': {
+      id: '/_app/suporte/fornecedores/novo'
+      path: '/suporte/fornecedores/novo'
+      fullPath: '/suporte/fornecedores/novo'
+      preLoaderRoute: typeof AppSuporteFornecedoresNovoRouteImport
+      parentRoute: typeof AppRouteRoute
+    }
+    '/_app/suporte/revendedores_/relatorio': {
+      id: '/_app/suporte/revendedores_/relatorio'
+      path: '/suporte/revendedores/relatorio'
+      fullPath: '/suporte/revendedores/relatorio'
+      preLoaderRoute: typeof AppSuporteRevendedoresRelatorioRouteImport
+      parentRoute: typeof AppRouteRoute
+    }
+    '/api/admin/exportar/auditoria': {
+      id: '/api/admin/exportar/auditoria'
+      path: '/api/admin/exportar/auditoria'
+      fullPath: '/api/admin/exportar/auditoria'
+      preLoaderRoute: typeof ApiAdminExportarAuditoriaRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/admin/exportar/chamados': {
+      id: '/api/admin/exportar/chamados'
+      path: '/api/admin/exportar/chamados'
+      fullPath: '/api/admin/exportar/chamados'
+      preLoaderRoute: typeof ApiAdminExportarChamadosRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/admin/exportar/clientes': {
+      id: '/api/admin/exportar/clientes'
+      path: '/api/admin/exportar/clientes'
+      fullPath: '/api/admin/exportar/clientes'
+      preLoaderRoute: typeof ApiAdminExportarClientesRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/admin/exportar/equipe': {
+      id: '/api/admin/exportar/equipe'
+      path: '/api/admin/exportar/equipe'
+      fullPath: '/api/admin/exportar/equipe'
+      preLoaderRoute: typeof ApiAdminExportarEquipeRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/devolucoes/$claimId/motivo': {
+      id: '/api/devolucoes/$claimId/motivo'
+      path: '/api/devolucoes/$claimId/motivo'
+      fullPath: '/api/devolucoes/$claimId/motivo'
+      preLoaderRoute: typeof ApiDevolucoesClaimIdMotivoRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/devolucoes/$claimId/resposta': {
+      id: '/api/devolucoes/$claimId/resposta'
+      path: '/api/devolucoes/$claimId/resposta'
+      fullPath: '/api/devolucoes/$claimId/resposta'
+      preLoaderRoute: typeof ApiDevolucoesClaimIdRespostaRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/devolucoes/fotos/$photoId': {
+      id: '/api/devolucoes/fotos/$photoId'
+      path: '/api/devolucoes/fotos/$photoId'
+      fullPath: '/api/devolucoes/fotos/$photoId'
+      preLoaderRoute: typeof ApiDevolucoesFotosPhotoIdRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/fornecedor/exportar/catalogo': {
+      id: '/api/fornecedor/exportar/catalogo'
+      path: '/api/fornecedor/exportar/catalogo'
+      fullPath: '/api/fornecedor/exportar/catalogo'
+      preLoaderRoute: typeof ApiFornecedorExportarCatalogoRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/fornecedor/exportar/pedidos': {
+      id: '/api/fornecedor/exportar/pedidos'
+      path: '/api/fornecedor/exportar/pedidos'
+      fullPath: '/api/fornecedor/exportar/pedidos'
+      preLoaderRoute: typeof ApiFornecedorExportarPedidosRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/fornecedor/exportar/produtos': {
+      id: '/api/fornecedor/exportar/produtos'
+      path: '/api/fornecedor/exportar/produtos'
+      fullPath: '/api/fornecedor/exportar/produtos'
+      preLoaderRoute: typeof ApiFornecedorExportarProdutosRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/fornecedor/produtos/imagens': {
+      id: '/api/fornecedor/produtos/imagens'
+      path: '/api/fornecedor/produtos/imagens'
+      fullPath: '/api/fornecedor/produtos/imagens'
+      preLoaderRoute: typeof ApiFornecedorProdutosImagensRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/fornecedor/vendas/exportar': {
+      id: '/api/fornecedor/vendas/exportar'
+      path: '/api/fornecedor/vendas/exportar'
+      fullPath: '/api/fornecedor/vendas/exportar'
+      preLoaderRoute: typeof ApiFornecedorVendasExportarRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/integracoes/bling/conectar': {
+      id: '/api/integracoes/bling/conectar'
+      path: '/api/integracoes/bling/conectar'
+      fullPath: '/api/integracoes/bling/conectar'
+      preLoaderRoute: typeof ApiIntegracoesBlingConectarRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/integracoes/bling/retorno': {
+      id: '/api/integracoes/bling/retorno'
+      path: '/api/integracoes/bling/retorno'
+      fullPath: '/api/integracoes/bling/retorno'
+      preLoaderRoute: typeof ApiIntegracoesBlingRetornoRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/integracoes/mercado-pago/conectar': {
+      id: '/api/integracoes/mercado-pago/conectar'
+      path: '/api/integracoes/mercado-pago/conectar'
+      fullPath: '/api/integracoes/mercado-pago/conectar'
+      preLoaderRoute: typeof ApiIntegracoesMercadoPagoConectarRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/integracoes/mercado-pago/retorno': {
+      id: '/api/integracoes/mercado-pago/retorno'
+      path: '/api/integracoes/mercado-pago/retorno'
+      fullPath: '/api/integracoes/mercado-pago/retorno'
+      preLoaderRoute: typeof ApiIntegracoesMercadoPagoRetornoRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/oauth/$marketplace/callback': {
+      id: '/api/oauth/$marketplace/callback'
+      path: '/api/oauth/$marketplace/callback'
+      fullPath: '/api/oauth/$marketplace/callback'
+      preLoaderRoute: typeof ApiOauthMarketplaceCallbackRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/oauth/$marketplace/start': {
+      id: '/api/oauth/$marketplace/start'
+      path: '/api/oauth/$marketplace/start'
+      fullPath: '/api/oauth/$marketplace/start'
+      preLoaderRoute: typeof ApiOauthMarketplaceStartRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/pedidos/$orderId/etiqueta': {
+      id: '/api/pedidos/$orderId/etiqueta'
+      path: '/api/pedidos/$orderId/etiqueta'
+      fullPath: '/api/pedidos/$orderId/etiqueta'
+      preLoaderRoute: typeof ApiPedidosOrderIdEtiquetaRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/pedidos/$orderId/nota-fiscal': {
+      id: '/api/pedidos/$orderId/nota-fiscal'
+      path: '/api/pedidos/$orderId/nota-fiscal'
+      fullPath: '/api/pedidos/$orderId/nota-fiscal'
+      preLoaderRoute: typeof ApiPedidosOrderIdNotaFiscalRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/suporte/anexos/$attachmentId': {
+      id: '/api/suporte/anexos/$attachmentId'
+      path: '/api/suporte/anexos/$attachmentId'
+      fullPath: '/api/suporte/anexos/$attachmentId'
+      preLoaderRoute: typeof ApiSuporteAnexosAttachmentIdRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/suporte/chamados/': {
+      id: '/api/suporte/chamados/'
+      path: '/api/suporte/chamados'
+      fullPath: '/api/suporte/chamados/'
+      preLoaderRoute: typeof ApiSuporteChamadosIndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/suporte/conversas/': {
+      id: '/api/suporte/conversas/'
+      path: '/api/suporte/conversas'
+      fullPath: '/api/suporte/conversas/'
+      preLoaderRoute: typeof ApiSuporteConversasIndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/v1/financials/summary': {
+      id: '/api/v1/financials/summary'
+      path: '/api/v1/financials/summary'
+      fullPath: '/api/v1/financials/summary'
+      preLoaderRoute: typeof ApiV1FinancialsSummaryRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/v1/listings/': {
+      id: '/api/v1/listings/'
+      path: '/api/v1/listings'
+      fullPath: '/api/v1/listings/'
+      preLoaderRoute: typeof ApiV1ListingsIndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/v1/listings/$listingId': {
+      id: '/api/v1/listings/$listingId'
+      path: '/api/v1/listings/$listingId'
+      fullPath: '/api/v1/listings/$listingId'
+      preLoaderRoute: typeof ApiV1ListingsListingIdRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/v1/orders/': {
+      id: '/api/v1/orders/'
+      path: '/api/v1/orders'
+      fullPath: '/api/v1/orders/'
+      preLoaderRoute: typeof ApiV1OrdersIndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/v1/orders/$orderId': {
+      id: '/api/v1/orders/$orderId'
+      path: '/api/v1/orders/$orderId'
+      fullPath: '/api/v1/orders/$orderId'
+      preLoaderRoute: typeof ApiV1OrdersOrderIdRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/v1/webhook-endpoints/': {
+      id: '/api/v1/webhook-endpoints/'
+      path: '/api/v1/webhook-endpoints'
+      fullPath: '/api/v1/webhook-endpoints/'
+      preLoaderRoute: typeof ApiV1WebhookEndpointsIndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/_app/admin/fornecedores/$supplierId_/flags': {
+      id: '/_app/admin/fornecedores/$supplierId_/flags'
+      path: '/fornecedores/$supplierId/flags'
+      fullPath: '/admin/fornecedores/$supplierId/flags'
+      preLoaderRoute: typeof AppAdminFornecedoresSupplierIdFlagsRouteImport
+      parentRoute: typeof AppAdminRouteRoute
+    }
+    '/_app/admin/fornecedores/analise/': {
+      id: '/_app/admin/fornecedores/analise/'
+      path: '/fornecedores/analise'
+      fullPath: '/admin/fornecedores/analise/'
+      preLoaderRoute: typeof AppAdminFornecedoresAnaliseIndexRouteImport
+      parentRoute: typeof AppAdminRouteRoute
+    }
+    '/_app/admin/fornecedores/analise/$productId': {
+      id: '/_app/admin/fornecedores/analise/$productId'
+      path: '/fornecedores/analise/$productId'
+      fullPath: '/admin/fornecedores/analise/$productId'
+      preLoaderRoute: typeof AppAdminFornecedoresAnaliseProductIdRouteImport
+      parentRoute: typeof AppAdminRouteRoute
+    }
+    '/_app/admin/fornecedores/aprovacao/': {
+      id: '/_app/admin/fornecedores/aprovacao/'
+      path: '/fornecedores/aprovacao'
+      fullPath: '/admin/fornecedores/aprovacao/'
+      preLoaderRoute: typeof AppAdminFornecedoresAprovacaoIndexRouteImport
+      parentRoute: typeof AppAdminRouteRoute
+    }
+    '/api/admin/chamados/$ticketId/mensagens': {
+      id: '/api/admin/chamados/$ticketId/mensagens'
+      path: '/api/admin/chamados/$ticketId/mensagens'
+      fullPath: '/api/admin/chamados/$ticketId/mensagens'
+      preLoaderRoute: typeof ApiAdminChamadosTicketIdMensagensRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/perfil/foto/$userId/$fileName': {
+      id: '/api/perfil/foto/$userId/$fileName'
+      path: '/$userId/$fileName'
+      fullPath: '/api/perfil/foto/$userId/$fileName'
+      preLoaderRoute: typeof ApiPerfilFotoUserIdFileNameRouteImport
+      parentRoute: typeof ApiPerfilFotoRoute
+    }
+    '/api/produtos/imagens/$supplierId/$fileName': {
+      id: '/api/produtos/imagens/$supplierId/$fileName'
+      path: '/api/produtos/imagens/$supplierId/$fileName'
+      fullPath: '/api/produtos/imagens/$supplierId/$fileName'
+      preLoaderRoute: typeof ApiProdutosImagensSupplierIdFileNameRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/suporte/chamados/$ticketId/mensagens': {
+      id: '/api/suporte/chamados/$ticketId/mensagens'
+      path: '/api/suporte/chamados/$ticketId/mensagens'
+      fullPath: '/api/suporte/chamados/$ticketId/mensagens'
+      preLoaderRoute: typeof ApiSuporteChamadosTicketIdMensagensRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/suporte/conversas/$ticketId/mensagens': {
+      id: '/api/suporte/conversas/$ticketId/mensagens'
+      path: '/api/suporte/conversas/$ticketId/mensagens'
+      fullPath: '/api/suporte/conversas/$ticketId/mensagens'
+      preLoaderRoute: typeof ApiSuporteConversasTicketIdMensagensRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/v1/catalog/products/': {
+      id: '/api/v1/catalog/products/'
+      path: '/api/v1/catalog/products'
+      fullPath: '/api/v1/catalog/products/'
+      preLoaderRoute: typeof ApiV1CatalogProductsIndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/v1/catalog/products/$productId': {
+      id: '/api/v1/catalog/products/$productId'
+      path: '/api/v1/catalog/products/$productId'
+      fullPath: '/api/v1/catalog/products/$productId'
+      preLoaderRoute: typeof ApiV1CatalogProductsProductIdRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/v1/webhook-endpoints/$endpointId/': {
+      id: '/api/v1/webhook-endpoints/$endpointId/'
+      path: '/api/v1/webhook-endpoints/$endpointId'
+      fullPath: '/api/v1/webhook-endpoints/$endpointId/'
+      preLoaderRoute: typeof ApiV1WebhookEndpointsEndpointIdIndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/v1/webhook-endpoints/$endpointId/deliveries': {
+      id: '/api/v1/webhook-endpoints/$endpointId/deliveries'
+      path: '/api/v1/webhook-endpoints/$endpointId/deliveries'
+      fullPath: '/api/v1/webhook-endpoints/$endpointId/deliveries'
+      preLoaderRoute: typeof ApiV1WebhookEndpointsEndpointIdDeliveriesRouteImport
+      parentRoute: typeof rootRouteImport
+    }
   }
 }
 
 interface AppAdminClientesRouteRouteChildren {
-  AppAdminClientesUserIdRoute: typeof AppAdminClientesUserIdRoute;
-  AppAdminClientesIndexRoute: typeof AppAdminClientesIndexRoute;
+  AppAdminClientesUserIdRoute: typeof AppAdminClientesUserIdRoute
+  AppAdminClientesIndexRoute: typeof AppAdminClientesIndexRoute
 }
 
 const AppAdminClientesRouteRouteChildren: AppAdminClientesRouteRouteChildren = {
   AppAdminClientesUserIdRoute: AppAdminClientesUserIdRoute,
   AppAdminClientesIndexRoute: AppAdminClientesIndexRoute,
-};
+}
 
 const AppAdminClientesRouteRouteWithChildren =
   AppAdminClientesRouteRoute._addFileChildren(
     AppAdminClientesRouteRouteChildren,
-  );
+  )
 
 interface AppAdminProblemasRouteRouteChildren {
-  AppAdminProblemasProblemIdRoute: typeof AppAdminProblemasProblemIdRoute;
-  AppAdminProblemasIndexRoute: typeof AppAdminProblemasIndexRoute;
+  AppAdminProblemasProblemIdRoute: typeof AppAdminProblemasProblemIdRoute
+  AppAdminProblemasIndexRoute: typeof AppAdminProblemasIndexRoute
 }
 
 const AppAdminProblemasRouteRouteChildren: AppAdminProblemasRouteRouteChildren =
   {
     AppAdminProblemasProblemIdRoute: AppAdminProblemasProblemIdRoute,
     AppAdminProblemasIndexRoute: AppAdminProblemasIndexRoute,
-  };
+  }
 
 const AppAdminProblemasRouteRouteWithChildren =
   AppAdminProblemasRouteRoute._addFileChildren(
     AppAdminProblemasRouteRouteChildren,
-  );
+  )
 
 interface AppAdminRouteRouteChildren {
-  AppAdminClientesRouteRoute: typeof AppAdminClientesRouteRouteWithChildren;
-  AppAdminProblemasRouteRoute: typeof AppAdminProblemasRouteRouteWithChildren;
-  AppAdminAuditoriaRoute: typeof AppAdminAuditoriaRoute;
-  AppAdminAvaliacoesRoute: typeof AppAdminAvaliacoesRoute;
-  AppAdminConfiguracoesRoute: typeof AppAdminConfiguracoesRoute;
-  AppAdminEnviosRoute: typeof AppAdminEnviosRoute;
-  AppAdminEquipeRoute: typeof AppAdminEquipeRoute;
-  AppAdminProductsRoute: typeof AppAdminProductsRoute;
-  AppAdminRelatorioRoute: typeof AppAdminRelatorioRoute;
-  AppAdminChamadosTicketIdRoute: typeof AppAdminChamadosTicketIdRoute;
-  AppAdminChamadosMetricasRoute: typeof AppAdminChamadosMetricasRoute;
-  AppAdminFornecedoresSupplierIdRoute: typeof AppAdminFornecedoresSupplierIdRoute;
-  AppAdminChamadosIndexRoute: typeof AppAdminChamadosIndexRoute;
-  AppAdminFornecedoresIndexRoute: typeof AppAdminFornecedoresIndexRoute;
-  AppAdminFornecedoresSupplierIdFlagsRoute: typeof AppAdminFornecedoresSupplierIdFlagsRoute;
-  AppAdminFornecedoresAnaliseProductIdRoute: typeof AppAdminFornecedoresAnaliseProductIdRoute;
-  AppAdminFornecedoresAnaliseIndexRoute: typeof AppAdminFornecedoresAnaliseIndexRoute;
-  AppAdminFornecedoresAprovacaoIndexRoute: typeof AppAdminFornecedoresAprovacaoIndexRoute;
+  AppAdminClientesRouteRoute: typeof AppAdminClientesRouteRouteWithChildren
+  AppAdminProblemasRouteRoute: typeof AppAdminProblemasRouteRouteWithChildren
+  AppAdminAuditoriaRoute: typeof AppAdminAuditoriaRoute
+  AppAdminAvaliacoesRoute: typeof AppAdminAvaliacoesRoute
+  AppAdminConfiguracoesRoute: typeof AppAdminConfiguracoesRoute
+  AppAdminEnviosRoute: typeof AppAdminEnviosRoute
+  AppAdminEquipeRoute: typeof AppAdminEquipeRoute
+  AppAdminProductsRoute: typeof AppAdminProductsRoute
+  AppAdminRelatorioRoute: typeof AppAdminRelatorioRoute
+  AppAdminChamadosTicketIdRoute: typeof AppAdminChamadosTicketIdRoute
+  AppAdminChamadosMetricasRoute: typeof AppAdminChamadosMetricasRoute
+  AppAdminFornecedoresSupplierIdRoute: typeof AppAdminFornecedoresSupplierIdRoute
+  AppAdminChamadosIndexRoute: typeof AppAdminChamadosIndexRoute
+  AppAdminFornecedoresIndexRoute: typeof AppAdminFornecedoresIndexRoute
+  AppAdminFornecedoresSupplierIdFlagsRoute: typeof AppAdminFornecedoresSupplierIdFlagsRoute
+  AppAdminFornecedoresAnaliseProductIdRoute: typeof AppAdminFornecedoresAnaliseProductIdRoute
+  AppAdminFornecedoresAnaliseIndexRoute: typeof AppAdminFornecedoresAnaliseIndexRoute
+  AppAdminFornecedoresAprovacaoIndexRoute: typeof AppAdminFornecedoresAprovacaoIndexRoute
 }
 
 const AppAdminRouteRouteChildren: AppAdminRouteRouteChildren = {
@@ -2780,37 +2780,37 @@ const AppAdminRouteRouteChildren: AppAdminRouteRouteChildren = {
   AppAdminFornecedoresAnaliseIndexRoute: AppAdminFornecedoresAnaliseIndexRoute,
   AppAdminFornecedoresAprovacaoIndexRoute:
     AppAdminFornecedoresAprovacaoIndexRoute,
-};
+}
 
 const AppAdminRouteRouteWithChildren = AppAdminRouteRoute._addFileChildren(
   AppAdminRouteRouteChildren,
-);
+)
 
 interface AppFornecedoresRouteRouteChildren {
-  AppFornecedoresSupplierIdRoute: typeof AppFornecedoresSupplierIdRoute;
-  AppFornecedoresIndexRoute: typeof AppFornecedoresIndexRoute;
+  AppFornecedoresSupplierIdRoute: typeof AppFornecedoresSupplierIdRoute
+  AppFornecedoresIndexRoute: typeof AppFornecedoresIndexRoute
 }
 
 const AppFornecedoresRouteRouteChildren: AppFornecedoresRouteRouteChildren = {
   AppFornecedoresSupplierIdRoute: AppFornecedoresSupplierIdRoute,
   AppFornecedoresIndexRoute: AppFornecedoresIndexRoute,
-};
+}
 
 const AppFornecedoresRouteRouteWithChildren =
-  AppFornecedoresRouteRoute._addFileChildren(AppFornecedoresRouteRouteChildren);
+  AppFornecedoresRouteRoute._addFileChildren(AppFornecedoresRouteRouteChildren)
 
 interface AppFornecedorPainelRouteRouteChildren {
-  AppFornecedorPainelConferirRoute: typeof AppFornecedorPainelConferirRoute;
-  AppFornecedorPainelDesempenhoRoute: typeof AppFornecedorPainelDesempenhoRoute;
-  AppFornecedorPainelImportarRoute: typeof AppFornecedorPainelImportarRoute;
-  AppFornecedorPainelMarcaRoute: typeof AppFornecedorPainelMarcaRoute;
-  AppFornecedorPainelPedidosRoute: typeof AppFornecedorPainelPedidosRoute;
-  AppFornecedorPainelProdutosRoute: typeof AppFornecedorPainelProdutosRoute;
-  AppFornecedorPainelRecebimentosRoute: typeof AppFornecedorPainelRecebimentosRoute;
-  AppFornecedorPainelRegrasRoute: typeof AppFornecedorPainelRegrasRoute;
-  AppFornecedorPainelRelatorioRoute: typeof AppFornecedorPainelRelatorioRoute;
-  AppFornecedorPainelVendasRoute: typeof AppFornecedorPainelVendasRoute;
-  AppFornecedorPainelIndexRoute: typeof AppFornecedorPainelIndexRoute;
+  AppFornecedorPainelConferirRoute: typeof AppFornecedorPainelConferirRoute
+  AppFornecedorPainelDesempenhoRoute: typeof AppFornecedorPainelDesempenhoRoute
+  AppFornecedorPainelImportarRoute: typeof AppFornecedorPainelImportarRoute
+  AppFornecedorPainelMarcaRoute: typeof AppFornecedorPainelMarcaRoute
+  AppFornecedorPainelPedidosRoute: typeof AppFornecedorPainelPedidosRoute
+  AppFornecedorPainelProdutosRoute: typeof AppFornecedorPainelProdutosRoute
+  AppFornecedorPainelRecebimentosRoute: typeof AppFornecedorPainelRecebimentosRoute
+  AppFornecedorPainelRegrasRoute: typeof AppFornecedorPainelRegrasRoute
+  AppFornecedorPainelRelatorioRoute: typeof AppFornecedorPainelRelatorioRoute
+  AppFornecedorPainelVendasRoute: typeof AppFornecedorPainelVendasRoute
+  AppFornecedorPainelIndexRoute: typeof AppFornecedorPainelIndexRoute
 }
 
 const AppFornecedorPainelRouteRouteChildren: AppFornecedorPainelRouteRouteChildren =
@@ -2826,41 +2826,41 @@ const AppFornecedorPainelRouteRouteChildren: AppFornecedorPainelRouteRouteChildr
     AppFornecedorPainelRelatorioRoute: AppFornecedorPainelRelatorioRoute,
     AppFornecedorPainelVendasRoute: AppFornecedorPainelVendasRoute,
     AppFornecedorPainelIndexRoute: AppFornecedorPainelIndexRoute,
-  };
+  }
 
 const AppFornecedorPainelRouteRouteWithChildren =
   AppFornecedorPainelRouteRoute._addFileChildren(
     AppFornecedorPainelRouteRouteChildren,
-  );
+  )
 
 interface AppRouteRouteChildren {
-  AppAdminRouteRoute: typeof AppAdminRouteRouteWithChildren;
-  AppFornecedoresRouteRoute: typeof AppFornecedoresRouteRouteWithChildren;
-  AppAssinaturaRoute: typeof AppAssinaturaRoute;
-  AppCatalogoRoute: typeof AppCatalogoRoute;
-  AppDashboardRoute: typeof AppDashboardRoute;
-  AppFinanceiroRoute: typeof AppFinanceiroRoute;
-  AppIntegracoesRoute: typeof AppIntegracoesRoute;
-  AppLojasRoute: typeof AppLojasRoute;
-  AppOnboardingRoute: typeof AppOnboardingRoute;
-  AppPerfilRoute: typeof AppPerfilRoute;
-  AppPoliticaDeDevolucaoRoute: typeof AppPoliticaDeDevolucaoRoute;
-  AppProductsRoute: typeof AppProductsRoute;
-  AppFornecedorPainelRouteRoute: typeof AppFornecedorPainelRouteRouteWithChildren;
-  AppFinanceiroRelatorioRoute: typeof AppFinanceiroRelatorioRoute;
-  AppPedidosOrderIdRoute: typeof AppPedidosOrderIdRoute;
-  AppPedidosVendaManualRoute: typeof AppPedidosVendaManualRoute;
-  AppPublicacoesNovaRoute: typeof AppPublicacoesNovaRoute;
-  AppSuporteTicketIdRoute: typeof AppSuporteTicketIdRoute;
-  AppSuporteNovoRoute: typeof AppSuporteNovoRoute;
-  AppSuporteRevendedoresRoute: typeof AppSuporteRevendedoresRoute;
-  AppPedidosIndexRoute: typeof AppPedidosIndexRoute;
-  AppPublicacoesIndexRoute: typeof AppPublicacoesIndexRoute;
-  AppSuporteIndexRoute: typeof AppSuporteIndexRoute;
-  AppSuporteConversasTicketIdRoute: typeof AppSuporteConversasTicketIdRoute;
-  AppSuporteFornecedoresNovoRoute: typeof AppSuporteFornecedoresNovoRoute;
-  AppSuporteRevendedoresRelatorioRoute: typeof AppSuporteRevendedoresRelatorioRoute;
-  AppSuporteFornecedoresIndexRoute: typeof AppSuporteFornecedoresIndexRoute;
+  AppAdminRouteRoute: typeof AppAdminRouteRouteWithChildren
+  AppFornecedoresRouteRoute: typeof AppFornecedoresRouteRouteWithChildren
+  AppAssinaturaRoute: typeof AppAssinaturaRoute
+  AppCatalogoRoute: typeof AppCatalogoRoute
+  AppDashboardRoute: typeof AppDashboardRoute
+  AppFinanceiroRoute: typeof AppFinanceiroRoute
+  AppIntegracoesRoute: typeof AppIntegracoesRoute
+  AppLojasRoute: typeof AppLojasRoute
+  AppOnboardingRoute: typeof AppOnboardingRoute
+  AppPerfilRoute: typeof AppPerfilRoute
+  AppPoliticaDeDevolucaoRoute: typeof AppPoliticaDeDevolucaoRoute
+  AppProductsRoute: typeof AppProductsRoute
+  AppFornecedorPainelRouteRoute: typeof AppFornecedorPainelRouteRouteWithChildren
+  AppFinanceiroRelatorioRoute: typeof AppFinanceiroRelatorioRoute
+  AppPedidosOrderIdRoute: typeof AppPedidosOrderIdRoute
+  AppPedidosVendaManualRoute: typeof AppPedidosVendaManualRoute
+  AppPublicacoesNovaRoute: typeof AppPublicacoesNovaRoute
+  AppSuporteTicketIdRoute: typeof AppSuporteTicketIdRoute
+  AppSuporteNovoRoute: typeof AppSuporteNovoRoute
+  AppSuporteRevendedoresRoute: typeof AppSuporteRevendedoresRoute
+  AppPedidosIndexRoute: typeof AppPedidosIndexRoute
+  AppPublicacoesIndexRoute: typeof AppPublicacoesIndexRoute
+  AppSuporteIndexRoute: typeof AppSuporteIndexRoute
+  AppSuporteConversasTicketIdRoute: typeof AppSuporteConversasTicketIdRoute
+  AppSuporteFornecedoresNovoRoute: typeof AppSuporteFornecedoresNovoRoute
+  AppSuporteRevendedoresRelatorioRoute: typeof AppSuporteRevendedoresRelatorioRoute
+  AppSuporteFornecedoresIndexRoute: typeof AppSuporteFornecedoresIndexRoute
 }
 
 const AppRouteRouteChildren: AppRouteRouteChildren = {
@@ -2891,19 +2891,19 @@ const AppRouteRouteChildren: AppRouteRouteChildren = {
   AppSuporteFornecedoresNovoRoute: AppSuporteFornecedoresNovoRoute,
   AppSuporteRevendedoresRelatorioRoute: AppSuporteRevendedoresRelatorioRoute,
   AppSuporteFornecedoresIndexRoute: AppSuporteFornecedoresIndexRoute,
-};
+}
 
 const AppRouteRouteWithChildren = AppRouteRoute._addFileChildren(
   AppRouteRouteChildren,
-);
+)
 
 interface AuthRouteRouteChildren {
-  AuthCadastroRoute: typeof AuthCadastroRoute;
-  AuthConfirmeSeuEmailRoute: typeof AuthConfirmeSeuEmailRoute;
-  AuthEsqueciSenhaRoute: typeof AuthEsqueciSenhaRoute;
-  AuthLoginRoute: typeof AuthLoginRoute;
-  AuthRedefinirSenhaRoute: typeof AuthRedefinirSenhaRoute;
-  AuthCadastroFornecedorRoute: typeof AuthCadastroFornecedorRoute;
+  AuthCadastroRoute: typeof AuthCadastroRoute
+  AuthConfirmeSeuEmailRoute: typeof AuthConfirmeSeuEmailRoute
+  AuthEsqueciSenhaRoute: typeof AuthEsqueciSenhaRoute
+  AuthLoginRoute: typeof AuthLoginRoute
+  AuthRedefinirSenhaRoute: typeof AuthRedefinirSenhaRoute
+  AuthCadastroFornecedorRoute: typeof AuthCadastroFornecedorRoute
 }
 
 const AuthRouteRouteChildren: AuthRouteRouteChildren = {
@@ -2913,23 +2913,23 @@ const AuthRouteRouteChildren: AuthRouteRouteChildren = {
   AuthLoginRoute: AuthLoginRoute,
   AuthRedefinirSenhaRoute: AuthRedefinirSenhaRoute,
   AuthCadastroFornecedorRoute: AuthCadastroFornecedorRoute,
-};
+}
 
 const AuthRouteRouteWithChildren = AuthRouteRoute._addFileChildren(
   AuthRouteRouteChildren,
-);
+)
 
 interface ApiPerfilFotoRouteChildren {
-  ApiPerfilFotoUserIdFileNameRoute: typeof ApiPerfilFotoUserIdFileNameRoute;
+  ApiPerfilFotoUserIdFileNameRoute: typeof ApiPerfilFotoUserIdFileNameRoute
 }
 
 const ApiPerfilFotoRouteChildren: ApiPerfilFotoRouteChildren = {
   ApiPerfilFotoUserIdFileNameRoute: ApiPerfilFotoUserIdFileNameRoute,
-};
+}
 
 const ApiPerfilFotoRouteWithChildren = ApiPerfilFotoRoute._addFileChildren(
   ApiPerfilFotoRouteChildren,
-);
+)
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
@@ -3005,7 +3005,7 @@ const rootRouteChildren: RootRouteChildren = {
   ApiV1CatalogProductsIndexRoute: ApiV1CatalogProductsIndexRoute,
   ApiV1WebhookEndpointsEndpointIdIndexRoute:
     ApiV1WebhookEndpointsEndpointIdIndexRoute,
-};
+}
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
-  ._addFileTypes<FileRouteTypes>();
+  ._addFileTypes<FileRouteTypes>()
