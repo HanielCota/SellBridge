@@ -131,6 +131,40 @@ describe("the reason a publication is paused", () => {
 });
 
 describe("resuming after a reconnection", () => {
+  it("does not offer or resume a legacy pause with an unknown reason", async () => {
+    const legacy = await listing("published");
+    await database
+      .update(listingTargets)
+      .set({ status: "paused" })
+      .where(eq(listingTargets.id, legacy.targetId));
+
+    expect(await findListingsPausedByDisconnection(database, tenantId, storeId)).toEqual([]);
+    expect(
+      await resumeStoreListingsPausedByDisconnection(database, tenantId, storeId, [
+        legacy.listingId,
+      ]),
+    ).toBe(0);
+    expect(await stateOf(legacy.targetId)).toEqual({ status: "paused", pauseReason: null });
+    await removeListing(legacy.targetId);
+  });
+
+  it("keeps a different pause reason when reconnection checks an unprofitable listing", async () => {
+    const manuallyPaused = await listing("published");
+    await setListingsPaused(database, tenantId, [manuallyPaused.listingId], true);
+
+    const held = await holdListingsBelowPriceFloor(database, tenantId, {
+      listingIds: [manuallyPaused.listingId],
+      storeConnectionId: storeId,
+    });
+
+    expect(held).toBe(0);
+    expect(await stateOf(manuallyPaused.targetId)).toEqual({
+      status: "paused",
+      pauseReason: "seller",
+    });
+    await removeListing(manuallyPaused.targetId);
+  });
+
   it("offers and resumes only what the disconnection paused, never the reseller's own pause", async () => {
     const disconnected = await listing("published");
     const ownPause = await listing("published", storeId, secondCatalog.productId);

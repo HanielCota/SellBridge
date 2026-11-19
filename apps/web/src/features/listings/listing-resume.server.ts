@@ -96,7 +96,7 @@ export async function resumeReconnectedStoreForTenant(
 ): Promise<ResumeOutcome> {
   const candidates = await findListingsPausedByDisconnection(database, tenantId, storeConnectionId);
   const { paying, losing } = await splitByPriceFloor(tenantId, candidates);
-  await holdListingsBelowPriceFloor(database, tenantId, {
+  const held = await holdListingsBelowPriceFloor(database, tenantId, {
     listingIds: losing.map(({ listingId }) => listingId),
     storeConnectionId,
   });
@@ -110,7 +110,7 @@ export async function resumeReconnectedStoreForTenant(
     tenantId,
     storeConnectionId,
     resumed: changed,
-    held: losing.length,
+    held,
   });
-  return { changed, held: losing.length };
+  return { changed, held };
 }

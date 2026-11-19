@@ -94,20 +94,27 @@ export async function holdListingsBelowPriceFloor(
   tenantId: string,
   scope: { listingIds: readonly string[]; storeConnectionId?: string },
 ): Promise<number> {
-  if (scope.listingIds.length === 0) {
+  const { listingIds, storeConnectionId } = scope;
+  if (listingIds.length === 0) {
     return 0;
   }
+
+  const storePauseScope =
+    storeConnectionId === undefined
+      ? undefined
+      : and(
+          eq(listingTargets.storeConnectionId, storeConnectionId),
+          eq(listingTargets.pauseReason, DISCONNECTED),
+        );
   const held = await database
     .update(listingTargets)
     .set({ pauseReason: BELOW_PRICE_FLOOR })
     .where(
       and(
         eq(listingTargets.tenantId, tenantId),
-        inArray(listingTargets.listingId, [...scope.listingIds]),
+        inArray(listingTargets.listingId, [...listingIds]),
         eq(listingTargets.status, "paused"),
-        scope.storeConnectionId === undefined
-          ? undefined
-          : eq(listingTargets.storeConnectionId, scope.storeConnectionId),
+        storePauseScope,
       ),
     )
     .returning({ id: listingTargets.id });
