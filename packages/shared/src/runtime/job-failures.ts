@@ -39,6 +39,8 @@ const FAILURE_REASONS: Readonly<Record<QueueName, string>> = {
   [QUEUE_NAMES.erpCatalogRead]: "A leitura do catálogo do fornecedor no Bling falhou.",
   [QUEUE_NAMES.erpInvoiceIssue]: "A emissão das notas fiscais pelo Bling falhou.",
   [QUEUE_NAMES.supplierPayments]: "A rodada de pagamentos dos fornecedores falhou.",
+  [QUEUE_NAMES.marketplaceClaimSweep]:
+    "A conferência das reclamações do Mercado Livre falhou: reclamações novas podem não ter aparecido.",
 };
 
 const UNKNOWN_QUEUE_REASON = "Uma tarefa do robô falhou em todas as tentativas.";
