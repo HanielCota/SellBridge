@@ -19,6 +19,7 @@ import {
   type PublishListingJob,
   type StoreOrderCatchUpJob,
 } from "@sellbridge/shared/queues";
+import { createRedisSlotStore } from "@sellbridge/shared/redis-slots";
 import { Queue } from "bullmq";
 import { environment } from "./environment.ts";
 
@@ -46,6 +47,14 @@ export async function enqueuePublishJobs(jobs: readonly PublishListingJob[]): Pr
 /** Health probe (item 32.d): Redis answers through the queue connection the app already has. */
 export async function pingRedis(): Promise<boolean> {
   return pingQueueConnection(getPublishQueue());
+}
+
+/** Rate slots shared with the worker through Redis (an ERP quota is per account, not per process). */
+export function sharedRateSlots(namespace: string) {
+  return {
+    reserve: async (key: string, spacingInMs: number) =>
+      createRedisSlotStore(getPublishQueue(), namespace).reserve(key, spacingInMs),
+  };
 }
 
 let webhookQueue: Queue | null = null;

@@ -20,6 +20,7 @@ import {
 import { createBlingRateLimiter, type BlingAppCredentials } from "@sellbridge/marketplaces/bling";
 import { asaasSettingsFrom } from "@sellbridge/payments/asaas";
 import { mercadoPagoSettingsFrom } from "@sellbridge/payments/mercado-pago";
+import { createRedisSlotStore } from "@sellbridge/shared/redis-slots";
 import { createTokenCipher } from "@sellbridge/shared/token-cipher";
 import { createCnpjLookup } from "@sellbridge/shared/cnpj-lookup";
 import { installErrorAlerts } from "@sellbridge/shared/error-alerts";
@@ -116,10 +117,15 @@ export interface WorkerOptions {
 
 function createContext(connectors: ConnectorRegistry, options: WorkerOptions) {
   const connection = { url: environment.REDIS_URL, maxRetriesPerRequest: null };
+  const queues = createQueues(connection);
   return {
     connection,
     connectors,
-    queues: createQueues(connection),
+    queues,
+    /** The Bling quota is per account and shared with the web app: its slots live in Redis. */
+    blingLimiter: createBlingRateLimiter({
+      sharedSlots: createRedisSlotStore(queues.erpInvoices, "bling"),
+    }),
     database: createDatabase(environment.DATABASE_URL),
     cipher: createTokenCipher(environment.TOKEN_ENCRYPTION_KEY),
     acquireRateLimit: createRateLimiter({ tokensPerInterval: 5, intervalMilliseconds: 1000 })
@@ -199,12 +205,11 @@ function marketplaceWorkers(context: WorkerContext): Worker[] {
 
 /** The supplier's catalog sent to its ERP; one at a time, the ERP quota is per account. */
 function erpWorkers(context: WorkerContext): Worker[] {
-  // One limiter for both jobs: an account's 3 requests per second are shared.
   const dependencies = {
     database: context.database,
     cipher: context.cipher,
     blingCredentials: blingCredentials(),
-    limiter: createBlingRateLimiter(),
+    limiter: context.blingLimiter,
     fetchImplementation: fetch,
   };
   const processExport = createErpCatalogExportProcessor(dependencies);
@@ -418,7 +423,7 @@ function deliveryWorkers(context: WorkerContext): Worker[] {
         database,
         cipher,
         blingCredentials: blingCredentials(),
-        limiter: createBlingRateLimiter(),
+        limiter: context.blingLimiter,
         fetchImplementation: fetch,
       }),
     }),
