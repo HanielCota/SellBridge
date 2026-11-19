@@ -272,20 +272,31 @@ describe("linking products to Bling", () => {
 
 describe("stock notices", () => {
   it("keeps one pending read per product however many times Bling repeats it", async () => {
-    const { supplierId } = await createSupplier({ invoiceEnabled: true });
+    const erpCompanyId = "company-a";
+    const { supplierId } = await createSupplier({ invoiceEnabled: true, companyId: erpCompanyId });
 
     await recordErpStockNotice(database, {
       supplierIds: [supplierId],
+      erpCompanyId,
       erpProductIds: [111],
       receivedAt: new Date("2026-11-19T12:00:00Z"),
     });
     await recordErpStockNotice(database, {
       supplierIds: [supplierId],
+      erpCompanyId,
       erpProductIds: [111, 222],
       receivedAt: new Date("2026-11-19T12:00:01Z"),
     });
-    const claimed = await claimErpStockRefreshRequests(database, { supplierId, limit: 10 });
-    const claimedAgain = await claimErpStockRefreshRequests(database, { supplierId, limit: 10 });
+    const claimed = await claimErpStockRefreshRequests(database, {
+      supplierId,
+      erpCompanyId,
+      limit: 10,
+    });
+    const claimedAgain = await claimErpStockRefreshRequests(database, {
+      supplierId,
+      erpCompanyId,
+      limit: 10,
+    });
 
     expect(claimed.toSorted((first, second) => first - second)).toEqual([111, 222]);
     expect(claimedAgain).toEqual([]);
@@ -294,14 +305,17 @@ describe("stock notices", () => {
   });
 
   it("drops the pending reads a full check already covered, not newer ones", async () => {
-    const { supplierId } = await createSupplier({ invoiceEnabled: true });
+    const erpCompanyId = "company-a";
+    const { supplierId } = await createSupplier({ invoiceEnabled: true, companyId: erpCompanyId });
     await recordErpStockNotice(database, {
       supplierIds: [supplierId],
+      erpCompanyId,
       erpProductIds: [111],
       receivedAt: new Date("2026-11-19T12:00:00Z"),
     });
     await recordErpStockNotice(database, {
       supplierIds: [supplierId],
+      erpCompanyId,
       erpProductIds: [222],
       receivedAt: new Date("2026-11-19T12:10:00Z"),
     });
@@ -311,6 +325,30 @@ describe("stock notices", () => {
       before: new Date("2026-11-19T12:05:00Z"),
     });
 
-    expect(await claimErpStockRefreshRequests(database, { supplierId, limit: 10 })).toEqual([222]);
+    expect(
+      await claimErpStockRefreshRequests(database, { supplierId, erpCompanyId, limit: 10 }),
+    ).toEqual([222]);
+  });
+
+  it("keeps old company requests separate even when both companies use the same product id", async () => {
+    const { supplierId, connectionId } = await createSupplier({
+      invoiceEnabled: true,
+      companyId: "company-a",
+    });
+    const read = { supplierIds: [supplierId], erpProductIds: [111], receivedAt: new Date() };
+    await recordErpStockNotice(database, { ...read, erpCompanyId: "company-a" });
+    await database
+      .update(supplierErpConnections)
+      .set({ erpCompanyId: "company-b" })
+      .where(eq(supplierErpConnections.id, connectionId));
+    await recordErpStockNotice(database, { ...read, erpCompanyId: "company-b" });
+
+    const request = { supplierId, limit: 10 };
+    expect(
+      await claimErpStockRefreshRequests(database, { ...request, erpCompanyId: "company-b" }),
+    ).toEqual([111]);
+    expect(
+      await claimErpStockRefreshRequests(database, { ...request, erpCompanyId: "company-a" }),
+    ).toEqual([111]);
   });
 });

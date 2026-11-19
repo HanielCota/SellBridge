@@ -357,6 +357,7 @@ describe("refreshSupplierErpStock", () => {
     const quiet = await createProduct(supplierId, { sku: "B", stock: 5, erpProductId: 8 });
     await recordErpStockNotice(database, {
       supplierIds: [supplierId],
+      erpCompanyId: "company-a",
       erpProductIds: [7],
       receivedAt: new Date(),
     });
@@ -382,6 +383,7 @@ describe("refreshSupplierErpStock", () => {
     const productId = await createProduct(supplierId, { sku: "NOVO", stock: 0 });
     await recordErpStockNotice(database, {
       supplierIds: [supplierId],
+      erpCompanyId: "company-a",
       erpProductIds: [42],
       receivedAt: new Date(),
     });
@@ -394,6 +396,57 @@ describe("refreshSupplierErpStock", () => {
     await refreshSupplierErpStock(dependencies, supplierId);
 
     expect(await productOf(productId)).toMatchObject({ stock: 9, erpProductId: 42 });
+  });
+
+  it("leaves pending notices alone when the token belongs to another company", async () => {
+    const supplierId = await createSupplier({ companyId: "company-a" });
+    const productId = await createProduct(supplierId, { sku: "A", stock: 5, erpProductId: 7 });
+    await recordErpStockNotice(database, {
+      supplierIds: [supplierId],
+      erpCompanyId: "company-a",
+      erpProductIds: [7],
+      receivedAt: new Date(),
+    });
+    const bling = fakeBling({
+      companyId: "company-b",
+      products: [{ id: 7, codigo: "A", balance: 1 }],
+    });
+    const { dependencies, requestListingSync } = dependenciesFor(bling.fetchImplementation);
+
+    expect(await refreshSupplierErpStock(dependencies, supplierId)).toBe("skipped");
+    expect(await productOf(productId)).toMatchObject({ stock: 5, erpProductId: 7 });
+    expect(requestListingSync).not.toHaveBeenCalled();
+  });
+
+  it("discards a balance returned after the supplier reconnects", async () => {
+    const supplierId = await createSupplier({ companyId: "company-a" });
+    const productId = await createProduct(supplierId, { sku: "A", stock: 5, erpProductId: 7 });
+    await recordErpStockNotice(database, {
+      supplierIds: [supplierId],
+      erpCompanyId: "company-a",
+      erpProductIds: [7],
+      receivedAt: new Date(),
+    });
+    const bling = fakeBling({
+      companyId: "company-a",
+      products: [{ id: 7, codigo: "A", balance: 1 }],
+    });
+    const fetchAfterReconnect: typeof fetch = async (input, init) => {
+      const { pathname } = requestUrl(input);
+      if (pathname.endsWith("/estoques/saldos")) {
+        await database
+          .update(schema.supplierErpConnections)
+          .set({ connectedAt: new Date(Date.now() + 60_000) })
+          .where(eq(schema.supplierErpConnections.supplierId, supplierId));
+      }
+
+      return await bling.fetchImplementation(input, init);
+    };
+    const { dependencies, requestListingSync } = dependenciesFor(fetchAfterReconnect);
+
+    expect(await refreshSupplierErpStock(dependencies, supplierId)).toBe("skipped");
+    expect(await productOf(productId)).toMatchObject({ stock: 5, erpProductId: 7 });
+    expect(requestListingSync).not.toHaveBeenCalled();
   });
 });
 

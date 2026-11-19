@@ -1,5 +1,5 @@
 import { and, asc, eq, gt, inArray, isNotNull, isNull, lt, lte, or, sql } from "drizzle-orm";
-import type { Database } from "../client.ts";
+import type { Database, DatabaseExecutor, Transaction } from "../client.ts";
 import {
   erpStockRefreshRequests,
   supplierErpConnections,
@@ -20,6 +20,7 @@ const followsErpStock = and(
 export interface ErpStockAccount {
   readonly supplierId: string;
   readonly connectionId: string;
+  readonly connectedAt: Date;
   readonly erpCompanyId: string | null;
   readonly stockCheckFailures: number;
   readonly stockCheckedAt: Date | null;
@@ -29,6 +30,7 @@ export interface ErpStockAccount {
 const accountColumns = {
   supplierId: supplierErpConnections.supplierId,
   connectionId: supplierErpConnections.id,
+  connectedAt: supplierErpConnections.connectedAt,
   erpCompanyId: supplierErpConnections.erpCompanyId,
   stockCheckFailures: supplierErpConnections.stockCheckFailures,
   stockCheckedAt: supplierErpConnections.stockCheckedAt,
@@ -56,6 +58,32 @@ export async function findErpStockAccount(
   return row ?? null;
 }
 
+/** A reconnect replaces the connection's generation. Keep the lock only for database writes. */
+export async function withCurrentErpStockAccount<Result>(
+  database: Database,
+  account: ErpStockAccount,
+  write: (transaction: Transaction) => Promise<Result>,
+): Promise<Result | null> {
+  return await database.transaction(async (transaction) => {
+    const [current] = await transaction
+      .select({ id: supplierErpConnections.id })
+      .from(supplierErpConnections)
+      .where(
+        and(
+          followsErpStock,
+          eq(supplierErpConnections.id, account.connectionId),
+          sql`date_trunc('milliseconds', ${supplierErpConnections.connectedAt}) = ${account.connectedAt.toISOString()}::timestamptz`,
+        ),
+      )
+      .for("update");
+    if (current === undefined) {
+      return null;
+    }
+
+    return await write(transaction);
+  });
+}
+
 /** The suppliers whose stock follows this Bling company (a notification names only the company). */
 export async function findErpStockSuppliersByCompany(
   database: Database,
@@ -69,7 +97,7 @@ export async function findErpStockSuppliersByCompany(
 }
 
 export async function saveErpCompanyId(
-  database: Database,
+  database: DatabaseExecutor,
   input: { connectionId: string; erpCompanyId: string },
 ): Promise<void> {
   await database
@@ -84,51 +112,68 @@ export async function saveErpCompanyId(
  */
 export async function recordErpStockNotice(
   database: Database,
-  input: { supplierIds: readonly string[]; erpProductIds: readonly number[]; receivedAt: Date },
+  input: {
+    supplierIds: readonly string[];
+    erpCompanyId: string;
+    erpProductIds: readonly number[];
+    receivedAt: Date;
+  },
 ): Promise<void> {
-  if (input.supplierIds.length === 0) {
+  if (input.supplierIds.length === 0 || input.erpProductIds.length === 0) {
     return;
   }
-  const rows = input.supplierIds.flatMap((supplierId) =>
-    input.erpProductIds.map((erpProductId) => ({
-      supplierId,
-      erpProductId,
-      requestedAt: input.receivedAt,
-    })),
-  );
+
   await database.transaction(async (transaction) => {
-    if (rows.length > 0) {
-      await transaction
-        .insert(erpStockRefreshRequests)
-        .values(rows)
-        .onConflictDoUpdate({
-          target: [erpStockRefreshRequests.supplierId, erpStockRefreshRequests.erpProductId],
-          set: { requestedAt: input.receivedAt },
-        });
-    }
-    await transaction
+    const matched = await transaction
       .update(supplierErpConnections)
       .set({ lastStockNoticeAt: input.receivedAt })
       .where(
         and(
-          eq(supplierErpConnections.provider, "bling"),
+          followsErpStock,
+          eq(supplierErpConnections.erpCompanyId, input.erpCompanyId),
           inArray(supplierErpConnections.supplierId, [...input.supplierIds]),
         ),
-      );
+      )
+      .returning({ supplierId: supplierErpConnections.supplierId });
+    if (matched.length === 0) {
+      return;
+    }
+
+    const rows = matched.flatMap(({ supplierId }) =>
+      input.erpProductIds.map((erpProductId) => ({
+        supplierId,
+        erpCompanyId: input.erpCompanyId,
+        erpProductId,
+        requestedAt: input.receivedAt,
+      })),
+    );
+    await transaction
+      .insert(erpStockRefreshRequests)
+      .values(rows)
+      .onConflictDoUpdate({
+        target: [
+          erpStockRefreshRequests.supplierId,
+          erpStockRefreshRequests.erpCompanyId,
+          erpStockRefreshRequests.erpProductId,
+        ],
+        set: { requestedAt: input.receivedAt },
+      });
   });
 }
 
 /** Takes up to `limit` of the supplier's pending reads; the caller reads their balance now. */
 export async function claimErpStockRefreshRequests(
-  database: Database,
-  input: { supplierId: string; limit: number },
+  database: DatabaseExecutor,
+  input: { supplierId: string; erpCompanyId: string; limit: number },
 ): Promise<number[]> {
   const rows = await database.execute<{ erp_product_id: string | number }>(sql`
     delete from ${erpStockRefreshRequests}
     where ${erpStockRefreshRequests.supplierId} = ${input.supplierId}
+      and ${erpStockRefreshRequests.erpCompanyId} = ${input.erpCompanyId}
       and ${erpStockRefreshRequests.erpProductId} in (
         select ${erpStockRefreshRequests.erpProductId} from ${erpStockRefreshRequests}
         where ${erpStockRefreshRequests.supplierId} = ${input.supplierId}
+          and ${erpStockRefreshRequests.erpCompanyId} = ${input.erpCompanyId}
         order by ${erpStockRefreshRequests.requestedAt}
         limit ${input.limit}
       )
@@ -139,7 +184,7 @@ export async function claimErpStockRefreshRequests(
 
 /** The pending reads a full check already covered (asked before the check started). */
 export async function deleteErpStockRefreshRequestsBefore(
-  database: Database,
+  database: DatabaseExecutor,
   input: { supplierId: string; before: Date },
 ): Promise<void> {
   await database
@@ -196,7 +241,7 @@ export async function listLinkedErpProductIds(
 
 /** Links the supplier's products to the Bling ids found for their SKUs; linked ones stay as they are. */
 export async function linkErpProducts(
-  database: Database,
+  database: DatabaseExecutor,
   input: {
     supplierId: string;
     readAt: Date;
@@ -228,7 +273,7 @@ export async function linkErpProducts(
 
 /** Remembers when Bling stopped returning an id so an older read cannot restore the link. */
 export async function unlinkErpProducts(
-  database: Database,
+  database: DatabaseExecutor,
   input: { supplierId: string; readAt: Date; erpProductIds: readonly number[] },
 ): Promise<void> {
   if (input.erpProductIds.length === 0) {
@@ -253,7 +298,10 @@ export async function unlinkErpProducts(
  * Forgets every Bling id of the supplier: the account now connected is another Bling company,
  * whose ids mean other products. The next check links them again by SKU.
  */
-export async function unlinkAllErpProducts(database: Database, supplierId: string): Promise<void> {
+export async function unlinkAllErpProducts(
+  database: DatabaseExecutor,
+  supplierId: string,
+): Promise<void> {
   await database
     .update(supplierProducts)
     .set({ erpProductId: null, erpStockReadAt: null })
@@ -285,7 +333,7 @@ export interface ErpStockChange {
  * may finish out of order). Returns the products whose stock changed.
  */
 export async function applyErpStockReadings(
-  database: Database,
+  database: DatabaseExecutor,
   input: { supplierId: string; readAt: Date; readings: readonly ErpStockReading[] },
 ): Promise<ErpStockChange[]> {
   if (input.readings.length === 0) {
@@ -329,7 +377,7 @@ export async function applyErpStockReadings(
 
 /** A check that read every linked product: when, and the failure streak cleared. */
 export async function recordErpStockCheckSuccess(
-  database: Database,
+  database: DatabaseExecutor,
   input: { connectionId: string; checkedAt: Date },
 ): Promise<void> {
   await database
@@ -340,7 +388,7 @@ export async function recordErpStockCheckSuccess(
 
 /** Counts one more failed check in a row and returns the new streak. */
 export async function recordErpStockCheckFailure(
-  database: Database,
+  database: DatabaseExecutor,
   connectionId: string,
 ): Promise<number> {
   const [row] = await database

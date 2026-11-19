@@ -12,6 +12,7 @@ import {
   saveErpCompanyId,
   unlinkAllErpProducts,
   unlinkErpProducts,
+  withCurrentErpStockAccount,
   type ErpStockAccount,
   type ErpStockChange,
 } from "@sellbridge/database/repositories";
@@ -45,6 +46,7 @@ const NOTICE_SILENCE_IN_MS = 24 * 60 * 60 * 1000;
 const PAGE_SIZE = 500;
 
 export type ErpStockOutcome = "synced" | "skipped" | "connection_lost" | "failed";
+type ErpStockConnectionState = "current" | "outdated";
 
 function nowOf(dependencies: ErpStockSyncDependencies): Date {
   return dependencies.now?.() ?? new Date();
@@ -69,9 +71,11 @@ function clientFor(dependencies: ErpStockSyncDependencies, supplierId: string): 
 async function linkProductsBySku(
   dependencies: ErpStockSyncDependencies,
   client: BlingClient,
-  run: { supplierId: string; readAt: Date },
-): Promise<void> {
-  const { supplierId, readAt } = run;
+  run: { account: ErpStockAccount; readAt: Date },
+): Promise<ErpStockConnectionState> {
+  const { account, readAt } = run;
+  const { database } = dependencies;
+  const { supplierId } = account;
   let afterSku: string | null = null;
   for (;;) {
     const skus = await listUnlinkedErpSkus(dependencies.database, {
@@ -80,10 +84,16 @@ async function linkProductsBySku(
       limit: PAGE_SIZE,
     });
     if (skus.length === 0) {
-      return;
+      return "current";
     }
     const links = await findBlingIdsBySku(client, skus);
-    await linkErpProducts(dependencies.database, { supplierId, readAt, links });
+    const linked = await withCurrentErpStockAccount(database, account, async (transaction) =>
+      linkErpProducts(transaction, { supplierId, readAt, links }),
+    );
+    if (linked === null) {
+      return "outdated";
+    }
+
     afterSku = skus.at(-1) ?? null;
   }
 }
@@ -113,19 +123,36 @@ async function syncCompany(
   dependencies: ErpStockSyncDependencies,
   client: BlingClient,
   account: ErpStockAccount,
-): Promise<void> {
+): Promise<ErpStockConnectionState> {
   const companyId = await client.getCompanyId();
   if (companyId === account.erpCompanyId) {
-    return;
+    return "current";
   }
+
+  const changed = await withCurrentErpStockAccount(
+    dependencies.database,
+    account,
+    async (transaction) => {
+      if (account.erpCompanyId !== null) {
+        await unlinkAllErpProducts(transaction, account.supplierId);
+      }
+
+      await saveErpCompanyId(transaction, {
+        connectionId: account.connectionId,
+        erpCompanyId: companyId,
+      });
+      return true;
+    },
+  );
+  if (changed === null) {
+    return "outdated";
+  }
+
   if (account.erpCompanyId !== null) {
     logger.info("erp.stock_company_changed", { supplierId: account.supplierId });
-    await unlinkAllErpProducts(dependencies.database, account.supplierId);
   }
-  await saveErpCompanyId(dependencies.database, {
-    connectionId: account.connectionId,
-    erpCompanyId: companyId,
-  });
+
+  return "current";
 }
 
 function reportShortages(supplierId: string, changes: readonly ErpStockChange[]): void {
@@ -145,22 +172,25 @@ function reportShortages(supplierId: string, changes: readonly ErpStockChange[])
 /** Saves what Bling answered and pushes any change to the listings. */
 async function applyRead(
   dependencies: ErpStockSyncDependencies,
-  supplierId: string,
-  read: BlingStockRead,
-  readAt: Date,
-): Promise<ErpStockChange[]> {
+  account: ErpStockAccount,
+  result: { read: BlingStockRead; readAt: Date },
+): Promise<ErpStockChange[] | null> {
   const { database } = dependencies;
+  const { supplierId } = account;
+  const { read, readAt } = result;
   const links = read.readings.flatMap((reading) =>
     reading.sku === null ? [] : [{ sku: reading.sku, erpProductId: reading.erpProductId }],
   );
-  await linkErpProducts(database, { supplierId, readAt, links });
-  await unlinkErpProducts(database, { supplierId, readAt, erpProductIds: read.missing });
-  const changes = await applyErpStockReadings(database, {
-    supplierId,
-    readAt,
-    readings: read.readings,
+  const changes = await withCurrentErpStockAccount(database, account, async (transaction) => {
+    await linkErpProducts(transaction, { supplierId, readAt, links });
+    await unlinkErpProducts(transaction, { supplierId, readAt, erpProductIds: read.missing });
+    return await applyErpStockReadings(transaction, {
+      supplierId,
+      readAt,
+      readings: read.readings,
+    });
   });
-  if (changes.length > 0) {
+  if (changes !== null && changes.length > 0) {
     logger.info("erp.stock_updated", { supplierId, changed: changes.length });
     reportShortages(supplierId, changes);
     await dependencies.requestListingSync();
@@ -200,7 +230,15 @@ async function recordFailure(
     });
     return "connection_lost";
   }
-  const failures = await recordErpStockCheckFailure(dependencies.database, account.connectionId);
+  const failures = await withCurrentErpStockAccount(
+    dependencies.database,
+    account,
+    async (transaction) => recordErpStockCheckFailure(transaction, account.connectionId),
+  );
+  if (failures === null) {
+    return "skipped";
+  }
+
   if (failures < FAILURES_BEFORE_ALERT) {
     logger.warn("erp.stock_check_retry_later", { supplierId: account.supplierId, failures, error });
     return "failed";
@@ -219,20 +257,40 @@ async function runFullCheck(
   dependencies: ErpStockSyncDependencies,
   client: BlingClient,
   account: ErpStockAccount,
-): Promise<void> {
+): Promise<ErpStockConnectionState> {
   const { database } = dependencies;
   const { supplierId } = account;
   const startedAt = nowOf(dependencies);
-  await syncCompany(dependencies, client, account);
-  await linkProductsBySku(dependencies, client, { supplierId, readAt: startedAt });
+  if ((await syncCompany(dependencies, client, account)) === "outdated") {
+    return "outdated";
+  }
+
+  if (
+    (await linkProductsBySku(dependencies, client, { account, readAt: startedAt })) === "outdated"
+  ) {
+    return "outdated";
+  }
+
   const read = await readBlingStock(client, await allLinkedIds(dependencies, supplierId));
-  const changes = await applyRead(dependencies, supplierId, read, startedAt);
-  await deleteErpStockRefreshRequestsBefore(database, { supplierId, before: startedAt });
-  await recordErpStockCheckSuccess(database, {
-    connectionId: account.connectionId,
-    checkedAt: startedAt,
+  const changes = await applyRead(dependencies, account, { read, readAt: startedAt });
+  if (changes === null) {
+    return "outdated";
+  }
+
+  const recorded = await withCurrentErpStockAccount(database, account, async (transaction) => {
+    await deleteErpStockRefreshRequestsBefore(transaction, { supplierId, before: startedAt });
+    await recordErpStockCheckSuccess(transaction, {
+      connectionId: account.connectionId,
+      checkedAt: startedAt,
+    });
+    return true;
   });
-  reportMissingNotices(account, changes.length, startedAt);
+  if (recorded === true) {
+    reportMissingNotices(account, changes.length, startedAt);
+    return "current";
+  }
+
+  return "outdated";
 }
 
 /** Reads every linked product of one supplier (the safety net for lost notices). */
@@ -246,7 +304,10 @@ export async function checkSupplierErpStock(
     return "skipped";
   }
   try {
-    await runFullCheck(dependencies, client, account);
+    if ((await runFullCheck(dependencies, client, account)) === "outdated") {
+      return "skipped";
+    }
+
     return "synced";
   } catch (error) {
     return recordFailure(dependencies, account, error);
@@ -264,16 +325,34 @@ export async function refreshSupplierErpStock(
     return "skipped";
   }
   try {
+    const erpCompanyId = account.erpCompanyId;
+    if (erpCompanyId === null || erpCompanyId !== (await client.getCompanyId())) {
+      return "skipped";
+    }
+
     for (;;) {
-      const ids = await claimErpStockRefreshRequests(dependencies.database, {
-        supplierId,
-        limit: BLING_STOCK_BATCH_LIMIT,
-      });
+      const ids = await withCurrentErpStockAccount(
+        dependencies.database,
+        account,
+        async (transaction) =>
+          claimErpStockRefreshRequests(transaction, {
+            supplierId,
+            erpCompanyId,
+            limit: BLING_STOCK_BATCH_LIMIT,
+          }),
+      );
+      if (ids === null) {
+        return "skipped";
+      }
+
       if (ids.length === 0) {
         return "synced";
       }
       const readAt = nowOf(dependencies);
-      await applyRead(dependencies, supplierId, await readBlingStock(client, ids), readAt);
+      const read = await readBlingStock(client, ids);
+      if ((await applyRead(dependencies, account, { read, readAt })) === null) {
+        return "skipped";
+      }
     }
   } catch (error) {
     if (isReconnectError(error)) {

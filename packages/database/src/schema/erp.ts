@@ -90,10 +90,11 @@ export const erpStockRefreshRequests = pgTable(
     supplierId: uuid()
       .notNull()
       .references(() => suppliers.id, { onDelete: "cascade" }),
+    erpCompanyId: text().notNull(),
     erpProductId: bigint({ mode: "number" }).notNull(),
     requestedAt: timestamp({ withTimezone: true }).defaultNow().notNull(),
   },
-  (table) => [primaryKey({ columns: [table.supplierId, table.erpProductId] })],
+  (table) => [primaryKey({ columns: [table.supplierId, table.erpCompanyId, table.erpProductId] })],
 );
 
 /** Short-lived OAuth state for an ERP connection, against CSRF and replay. */

@@ -75,6 +75,7 @@ async function acceptStockNotice(companyId: string, erpProductId: number): Promi
   }
   await recordErpStockNotice(database, {
     supplierIds,
+    erpCompanyId: companyId,
     erpProductIds: [erpProductId],
     receivedAt: new Date(),
   });
