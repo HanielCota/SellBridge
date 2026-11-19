@@ -4,6 +4,10 @@ import {
   erpCatalogExportJobSchema,
   erpCatalogReadJobId,
   erpCatalogReadJobSchema,
+  ERP_STOCK_JOB_NAMES,
+  ERP_STOCK_JOB_OPTIONS,
+  ERP_STOCK_REFRESH_WINDOW_IN_MS,
+  erpStockRefreshJobId,
   type ErpCatalogExportJob,
   type ErpCatalogReadJob,
   releaseFinishedJob,
@@ -87,6 +91,27 @@ export async function enqueueStockPriceSync(): Promise<void> {
     connection: { url: environment.REDIS_URL },
   });
   await stockPriceSyncQueue.add(STOCK_SYNC_JOB_NAME, {}, STOCK_SYNC_JOB_OPTIONS);
+}
+
+let erpStockQueue: Queue | null = null;
+
+/**
+ * Reads the products a Bling stock notice named, a few seconds later so the notices arriving
+ * together are read in one request.
+ */
+export async function enqueueErpStockRefresh(supplierId: string): Promise<void> {
+  erpStockQueue ??= new Queue(QUEUE_NAMES.erpStockSync, {
+    connection: { url: environment.REDIS_URL },
+  });
+  await erpStockQueue.add(
+    ERP_STOCK_JOB_NAMES.refreshSupplier,
+    { supplierId },
+    {
+      ...ERP_STOCK_JOB_OPTIONS,
+      delay: ERP_STOCK_REFRESH_WINDOW_IN_MS,
+      jobId: erpStockRefreshJobId({ supplierId }, Date.now()),
+    },
+  );
 }
 
 let orderMessageFollowUpQueue: Queue | null = null;
