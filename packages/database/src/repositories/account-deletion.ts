@@ -1,5 +1,7 @@
+import { conflictError } from "@sellbridge/shared/errors";
 import { and, eq, inArray, ne, or, sql } from "drizzle-orm";
 import type { Database } from "../client.ts";
+import { isSerializationFailure } from "../postgres-errors.ts";
 import {
   billingAccounts,
   erpCatalogReads,
@@ -74,6 +76,20 @@ export async function accountFileKeys(
  * deleted with it here, and its store is closed for sales until the team takes it over.
  */
 export async function deleteTenantData(database: Database, tenantId: string): Promise<void> {
+  try {
+    await deleteWorkspace(database, tenantId);
+  } catch (error) {
+    if (isSerializationFailure(error)) {
+      throw conflictError(
+        "O perfil mudou durante a exclusão. Confira as pendências e tente de novo.",
+      );
+    }
+
+    throw error;
+  }
+}
+
+async function deleteWorkspace(database: Database, tenantId: string): Promise<void> {
   await database.transaction(
     async (transaction) => {
       const [workspace] = await transaction
