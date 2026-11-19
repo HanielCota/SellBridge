@@ -6,6 +6,7 @@ export const PROBLEM_AREAS = [
   "payments",
   "invoices",
   "email",
+  "claims",
   "other",
 ] as const;
 export type ProblemArea = (typeof PROBLEM_AREAS)[number];
@@ -17,6 +18,7 @@ export const PROBLEM_AREA_LABELS: Readonly<Record<ProblemArea, string>> = {
   payments: "Pagamento",
   invoices: "Nota fiscal",
   email: "E-mail",
+  claims: "Reclamações",
   other: "Outro",
 };
 

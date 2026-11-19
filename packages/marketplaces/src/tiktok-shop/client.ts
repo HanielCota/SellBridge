@@ -4,7 +4,7 @@ import type { z } from "zod";
 import { marketplaceAuthError, marketplaceError } from "../errors.ts";
 import { fetchWithRetry, type FetchLike, type RetryOptions } from "../http.ts";
 import { explainTikTokShopError } from "./error-messages.ts";
-import type { DownloadImage } from "./image-download.ts";
+import type { DownloadFile, DownloadImage } from "./image-download.ts";
 import { envelopeSchema, type TikTokShopEnvelope } from "./schemas.ts";
 import { signRequest } from "./signing.ts";
 
@@ -22,6 +22,8 @@ export interface TikTokShopConfig {
   resolveHost?: ResolveHost;
   /** Fetches a product photo; by default over a connection pinned to public addresses. */
   downloadImage?: DownloadImage;
+  /** Fetches a shipping label PDF; by default over a connection pinned to public addresses. */
+  downloadFile?: DownloadFile;
 }
 
 export interface TikTokShopCredentials {

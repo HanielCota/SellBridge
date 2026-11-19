@@ -39,6 +39,16 @@ const STEPS: readonly SupplierStep[] = [
     doneCta: "Ver produtos",
   },
   {
+    key: "payment",
+    title: "Ligue sua conta para receber",
+    description:
+      "Com a conta Mercado Pago ligada, o revendedor paga cada pedido pelo SellBridge e o dinheiro cai na sua conta.",
+    done: (setup) => setup.paymentAccountReady,
+    link: { to: "/fornecedor/painel/recebimentos" },
+    cta: "Ligar conta Mercado Pago",
+    doneCta: "Ver recebimentos",
+  },
+  {
     key: "sale",
     title: "Espere os revendedores publicarem",
     description:
@@ -54,7 +64,7 @@ const ACTION_CLASS_NAME = "h-auto min-h-9 w-fit max-w-full py-2 text-center whit
 
 /**
  * The supplier home before the first sale (item 38): the seller dashboard's first-steps guide,
- * with the three steps from the catalog to an order, the next one in focus.
+ * with the steps from the catalog to a paid order, the next one in focus.
  */
 export function SupplierFirstSteps({ setup }: { setup: Setup }) {
   const next = STEPS.find((step) => !step.done(setup));
@@ -73,7 +83,7 @@ export function SupplierFirstSteps({ setup }: { setup: Setup }) {
           primeiro pedido chegar.
         </p>
       </div>
-      <ol className="grid gap-3 md:grid-cols-3">
+      <ol className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
         {STEPS.map((step, index) => {
           const done = step.done(setup);
           return (

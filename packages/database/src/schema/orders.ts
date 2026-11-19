@@ -34,6 +34,11 @@ export const orders = pgTable(
     status: orderStatusEnum().notNull(),
     totalCents: integer().notNull(),
     marketplaceFeeCents: integer().notNull().default(0),
+    /**
+     * What the seller paid the marketplace to ship this sale (Mercado Envios on Mercado Livre),
+     * read from the shipment's costs; null while the marketplace has not reported it.
+     */
+    sellerShippingCents: integer(),
     buyerName: text(),
     /**
      * The buyer's shipping address the marketplace sent with the order, encrypted with the token

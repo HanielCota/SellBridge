@@ -114,16 +114,35 @@ export type SellableCatalogSearch = z.infer<typeof sellableCatalogSearchSchema>;
 export const MIN_MARKUP_PERCENT = 5;
 export const MAX_MARKUP_PERCENT = 300;
 
-/** How bulk publishing sets each product's price. */
-export const priceRuleSchema = z.discriminatedUnion("kind", [
+/** The profit margin a bulk publication may ask for, as a share of the sale price. */
+export const MIN_PROFIT_MARGIN_PERCENT = 5;
+export const MAX_PROFIT_MARGIN_PERCENT = 80;
+
+const fixedPriceRuleSchemas = [
   z.object({ kind: z.literal("suggested") }),
   z.object({
     kind: z.literal("markup"),
     percent: z.number().int().min(MIN_MARKUP_PERCENT).max(MAX_MARKUP_PERCENT),
   }),
+] as const;
+
+/**
+ * How bulk publishing sets each product's price. "margin" is the profit left after every fee,
+ * as a share of the price, the same "Margem 30%" one product at a time offers; the price for it
+ * depends on the fee schedule, so it is worked out where the schedule is known.
+ */
+export const priceRuleSchema = z.discriminatedUnion("kind", [
+  ...fixedPriceRuleSchemas,
+  z.object({
+    kind: z.literal("margin"),
+    percent: z.number().int().min(MIN_PROFIT_MARGIN_PERCENT).max(MAX_PROFIT_MARGIN_PERCENT),
+  }),
 ]);
 
 export type PriceRule = z.infer<typeof priceRuleSchema>;
+
+/** A rule whose price follows from the product alone, without the marketplace fees. */
+export type FixedPriceRule = Exclude<PriceRule, { kind: "margin" }>;
 
 export const MAX_BULK_PUBLISH = 50;
 
@@ -157,7 +176,7 @@ export const bulkPublishProgressSchema = z.object({
  */
 export function priceForRule(
   product: { costCents: number; suggestedPriceCents: number },
-  rule: PriceRule,
+  rule: FixedPriceRule,
 ): number {
   if (rule.kind === "suggested") {
     return Math.max(product.suggestedPriceCents, product.costCents + 100);

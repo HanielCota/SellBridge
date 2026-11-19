@@ -1,10 +1,11 @@
 import { expect, test, type Page, type Request } from "@playwright/test";
-import { fillBillingAddress, gotoHydrated, signUp, testCpf } from "./helpers";
+import { fillBillingAddressFromCep, gotoHydrated, signUp, testCpf } from "./helpers";
 
 // L2-2: switching between CPF and CNPJ clears the other mode's fields, and the save never mixes
 // the two.
 const CNPJ = { typed: "11222333000181", digits: "11222333000181", formatted: "11.222.333/0001-81" };
 const COMPANY_NAME = "Revenda Troca Ltda";
+const STATE_REGISTRATION = "110042490114";
 
 function companyBox(page: Page) {
   return page.getByLabel("Vendo como empresa (CNPJ)");
@@ -18,17 +19,22 @@ function companyNameField(page: Page) {
   return page.getByLabel("Razão social");
 }
 
+function stateRegistrationField(page: Page) {
+  return page.getByLabel("Inscrição estadual", { exact: true });
+}
+
 async function fillPerson(page: Page) {
   await page.getByLabel("Nome completo").fill("Revendedor Troca Silva");
   await page.getByLabel("CPF").fill(testCpf());
   await page.getByLabel("Telefone com DDD").fill("(11) 98765-4321");
-  await fillBillingAddress(page);
+  await fillBillingAddressFromCep(page);
 }
 
 async function fillCompany(page: Page) {
   await companyBox(page).check();
   await cnpjField(page).fill(CNPJ.typed);
   await companyNameField(page).fill(COMPANY_NAME);
+  await stateRegistrationField(page).fill(STATE_REGISTRATION);
   await expect(cnpjField(page)).toHaveValue(CNPJ.formatted);
 }
 
@@ -46,6 +52,7 @@ function expectNoCompanyIn(body: string) {
   expect(body).not.toContain(CNPJ.digits);
   expect(body).not.toContain(CNPJ.formatted);
   expect(body).not.toContain(COMPANY_NAME);
+  expect(body).not.toContain(STATE_REGISTRATION);
 }
 
 for (const width of [375, 1440]) {
@@ -63,6 +70,7 @@ for (const width of [375, 1440]) {
     await companyBox(page).check();
     await expect(cnpjField(page)).toHaveValue("");
     await expect(companyNameField(page)).toHaveValue("");
+    await expect(stateRegistrationField(page)).toHaveValue("");
     await expect(page.getByText("Confira o CNPJ")).toHaveCount(0);
     await expect(page.getByLabel("CPF")).not.toHaveValue("");
   });

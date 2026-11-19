@@ -158,6 +158,11 @@ export interface SupplierSetupState {
    * shows it was paid first: an order cancelled unpaid was never a sale.
    */
   hasSales: boolean;
+  /**
+   * A linked account resellers can pay through SellBridge: Mercado Pago connected, or an Asaas
+   * account Asaas already approved. Without one the reseller pays the supplier outside.
+   */
+  paymentAccountReady: boolean;
 }
 
 const setupRowSchema = z.object({
@@ -165,6 +170,7 @@ const setupRowSchema = z.object({
   submitted: count,
   approved: count,
   has_sales: z.boolean(),
+  payment_account_ready: z.boolean(),
 });
 
 export async function getSupplierSetupState(
@@ -189,7 +195,13 @@ export async function getSupplierSetupState(
                 and c.status in ('paid', 'shipped', 'delivered')
             ))
           )
-      ) as has_sales
+      ) as has_sales,
+      exists (
+        select 1 from supplier_payment_accounts a
+        where a.supplier_id = ${supplierId}
+          and a.status = 'connected'
+          and (a.provider = 'mercado_pago' or a.review_status = 'approved')
+      ) as payment_account_ready
     from supplier_products p
     where p.supplier_id = ${supplierId}
   `);
@@ -199,5 +211,6 @@ export async function getSupplierSetupState(
     submitted: row.submitted,
     approved: row.approved,
     hasSales: row.has_sales,
+    paymentAccountReady: row.payment_account_ready,
   };
 }

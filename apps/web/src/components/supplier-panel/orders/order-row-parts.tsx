@@ -1,5 +1,6 @@
 import { INVOICE_STATUS_LABELS, type InvoiceStatus } from "@sellbridge/shared/supplier-invoice";
 import {
+  BATCH_LABEL_MARKETPLACE,
   SUPPLIER_LABEL_STATE_LABELS,
   type SupplierLabelState,
 } from "@sellbridge/shared/supplier-order-labels";
@@ -227,9 +228,16 @@ export function isBatchAcceptable(row: SupplierOrderRow): boolean {
   return row.status === "forwarded" && !isShippingBlocked(row.orderStatus);
 }
 
-/** Parcels whose marketplace label can still be emitted can join a batch print. */
+/**
+ * Parcels whose marketplace label can still be emitted can join a batch print. Only Mercado
+ * Livre prints in batches; a TikTok Shop label prints from its order.
+ */
 export function isLabelPrintable(row: SupplierOrderRow): boolean {
-  return row.labelState !== null && !isShippingBlocked(row.orderStatus);
+  return (
+    row.labelState !== null &&
+    row.marketplace === BATCH_LABEL_MARKETPLACE &&
+    !isShippingBlocked(row.orderStatus)
+  );
 }
 
 /** A row with any batch action: accept, or print its label. */

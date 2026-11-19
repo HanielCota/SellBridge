@@ -158,7 +158,7 @@ export const ACTION_ICONS = {
   supplierSales: { icon: ChartLineUpIcon, hint: "O que vendeu no mês, por dia e por marketplace" },
   supplierReceiving: {
     icon: HandCoinsIcon,
-    hint: "Ligue sua conta Mercado Pago para receber dos revendedores",
+    hint: "Abra sua conta Asaas para receber dos revendedores",
   },
   supplierProducts: { icon: PackageIcon, hint: "Seus produtos, estoque e o que está à venda" },
   importProducts: { icon: FileArrowUpIcon, hint: "Cadastrar ou atualizar produtos por planilha" },
@@ -262,7 +262,7 @@ export const TERM_HINTS = {
   openDeadline: "Tempo que falta antes de o prazo vencer",
   rejectedProduct: "A equipe do SellBridge pediu ajustes; abra para ver o motivo",
   healthLevel: "Cor geral do seu desempenho; vermelho quando alguma métrica passou do limite",
-  fees: "Taxas do marketplace e do SellBridge sobre a venda",
+  fees: "Taxas do marketplace e do SellBridge sobre a venda, com o frete que você pagou ao Mercado Livre",
   completeness: "Quanto do cadastro está preenchido; produtos completos vendem mais",
   blockingPublish: "Faltam itens obrigatórios: o produto não pode ser publicado",
   canImprove: "Já pode ser publicado, mas fotos e detalhes extras ajudam a vender",

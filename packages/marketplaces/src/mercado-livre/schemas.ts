@@ -82,6 +82,8 @@ export const orderSchema = z.object({
   tags: z.array(z.string()).optional(),
   // The cart the order was bought in; null when it was bought alone.
   pack_id: externalIdSchema.nullable().optional(),
+  // The sale's shipment; null until Mercado Envios creates it.
+  shipping: z.object({ id: externalIdSchema.nullable().optional() }).nullable().optional(),
   payments: z
     .array(z.object({ transaction_amount_refunded: reaisSchema.nullable().optional() }))
     .nullable()

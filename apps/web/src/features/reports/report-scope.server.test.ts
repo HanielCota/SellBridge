@@ -1,9 +1,4 @@
-import { describe, expect, it, vi } from "vitest";
-
-vi.mock("@/lib/server/environment", () => ({
-  environment: { PLATFORM_FEE_BASIS_POINTS: 0 },
-}));
-
+import { describe, expect, it } from "vitest";
 import { buildReportScope, comparisonScope } from "./report-scope.server";
 
 /*

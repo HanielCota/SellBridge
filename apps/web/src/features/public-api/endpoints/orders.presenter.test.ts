@@ -16,6 +16,7 @@ const detail: OrderDetail = {
   status: "delivered",
   totalCents: 10_000,
   marketplaceFeeCents: 1400,
+  sellerShippingCents: 0,
   buyerName: "Mariana",
   orderedAt: new Date("2026-03-01T13:00:00Z"),
   paidAt: new Date("2026-03-01T13:00:00Z"),

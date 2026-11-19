@@ -43,7 +43,13 @@ function friendly(error: unknown): Error {
     return validationError(ACCOUNT_MESSAGE);
   }
   if (isAsaasError(error)) {
-    logger.warn("asaas.checkout_failed", { error });
+    // The error itself logs only its message: Asaas's reason lives in its own fields.
+    logger.warn("asaas.checkout_failed", {
+      error,
+      status: error.status,
+      codes: error.codes,
+      issues: error.issues,
+    });
     return validationError(UNCHECKED_MESSAGE);
   }
   if (error instanceof Error) {

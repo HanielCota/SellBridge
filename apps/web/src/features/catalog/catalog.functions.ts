@@ -2,16 +2,18 @@ import {
   getPublishBatchStatus,
   getSellableProducts,
   listStoreCatalog,
+  type SellableCatalogProduct,
 } from "@sellbridge/database/repositories";
+import type { FeeChannel } from "@sellbridge/shared/channel-fees";
 import { type BulkPublishSkip, planBulkPublish } from "@sellbridge/shared/bulk-publish-plan";
 import { validationError } from "@sellbridge/shared/errors";
-import { assertBatchKeepsMargin } from "@sellbridge/shared/fee-model";
+import { assertBatchKeepsMargin, type FeeSchedule } from "@sellbridge/shared/fee-model";
 import { estimatePublishProgress } from "@sellbridge/shared/publish-progress";
 import {
   bulkPublishProgressSchema,
   bulkPublishSchema,
   listingPriceCentsSchema,
-  priceForRule,
+  type PriceRule,
   sellableCatalogSearchSchema,
 } from "@sellbridge/shared/schemas";
 import { MARKETPLACE_LABELS } from "@sellbridge/marketplaces";
@@ -21,7 +23,9 @@ import {
   assertStoresSellSuppliers,
   publishListings,
 } from "@/features/listings/publish-listing.server";
+import { bulkPriceCents, unreachableMarginMessage } from "@/features/catalog/bulk-price";
 import { BULK_SKIP_REASONS } from "@/features/catalog/bulk-skip-reasons";
+import type { SaleChannels } from "@/features/listings/profit";
 import { feeScheduleFrom } from "@/features/reports/fee-schedule";
 import { database } from "@/lib/server/database";
 import { environment } from "@/lib/server/environment";
@@ -86,6 +90,39 @@ function nothingToPublish(skipped: readonly BulkPublishSkip[]): never {
   throw validationError(`Nenhum produto pode ser publicado: ${named}.`);
 }
 
+/** The channels of the batch's stores; the schema already asks for at least one store. */
+function saleChannelsOfBatch(channels: readonly FeeChannel[]): SaleChannels {
+  const [firstChannel, ...otherChannels] = channels;
+  if (firstChannel === undefined) {
+    throw validationError("Escolha pelo menos uma loja para publicar");
+  }
+  return [firstChannel, ...otherChannels];
+}
+
+/** Each draft with its price under the batch's rules; a margin out of reach stops the batch. */
+function priceDrafts<Draft extends { supplierProductId: string }>(
+  drafts: readonly Draft[],
+  products: ReadonlyMap<string, SellableCatalogProduct>,
+  rules: { shared: PriceRule; overrides: Readonly<Record<string, PriceRule>> | undefined },
+  pricing: { schedule: FeeSchedule; channels: SaleChannels },
+): (Draft & { priceCents: number })[] {
+  return drafts.flatMap((draft) => {
+    const product = products.get(draft.supplierProductId);
+    if (product === undefined) {
+      return [];
+    }
+    const rule = rules.overrides?.[product.id] ?? rules.shared;
+    const priceCents = bulkPriceCents(product, rule, pricing.schedule, pricing.channels);
+    if (priceCents !== null) {
+      return [{ ...draft, priceCents }];
+    }
+    if (rule.kind !== "margin") {
+      throw new Error(`No price for the "${rule.kind}" rule of product ${product.id}`);
+    }
+    throw validationError(unreachableMarginMessage(product.title, rule.percent));
+  });
+}
+
 /**
  * Publishes many catalog products at once with one price rule, by the rules of publishing one
  * at a time (title, description, stock). Products that cannot go out are skipped and named
@@ -116,14 +153,13 @@ export const publishProductsInBulk = createServerFn({ method: "POST" })
       nothingToPublish(plan.skipped);
     }
     const productsById = new Map(products.map((product) => [product.id, product]));
-    const drafts = plan.drafts.flatMap((draft) => {
-      const product = productsById.get(draft.supplierProductId);
-      if (product === undefined) {
-        return [];
-      }
-      const rule = data.priceOverrides?.[product.id] ?? data.priceRule;
-      return [{ ...draft, priceCents: priceForRule(product, rule) }];
-    });
+    const schedule = feeScheduleFrom(environment);
+    const drafts = priceDrafts(
+      plan.drafts,
+      productsById,
+      { shared: data.priceRule, overrides: data.priceOverrides },
+      { schedule, channels: saleChannelsOfBatch(channels) },
+    );
     // Checked before anything is written, so one product priced out of range cannot leave
     // the batch half published.
     const outOfRange = drafts.find(
@@ -142,7 +178,7 @@ export const publishProductsInBulk = createServerFn({ method: "POST" })
           ? []
           : [{ ...draft, costCents: product.costCents, weightGrams: product.weightGrams }];
       }),
-      feeScheduleFrom(environment),
+      schedule,
       channels,
     );
     const targetIds = await publishListings(context.tenantId, drafts, storeIds);

@@ -44,8 +44,6 @@ export interface SellerReportInput {
   trend: readonly SellerTrendMonth[];
   heatmap: readonly SalesHeatmapCell[];
   cases: Record<SellerReportCaseKind, { total: number; items: readonly SellerReportCase[] }>;
-  /** The SellBridge fee over each sale, in basis points (250 = 2,5%). */
-  platformFeeBasisPoints: number;
 }
 
 /** Every order placed in the period, sale or not (unpaid, cancelled, returned). */
@@ -217,6 +215,6 @@ export function buildSellerReport(input: SellerReportInput): MonthlyReport {
     attention: attentionOf(input),
     cases: sellerReportCases(input.cases),
     team: null,
-    rules: sellerReportRules(input.platformFeeBasisPoints),
+    rules: sellerReportRules(),
   };
 }

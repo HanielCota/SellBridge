@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { inputIdOf } from "@/features/supplier-panel/catalog/draft-form";
+import { imageSourceLabel } from "@/features/supplier-panel/catalog/image-source";
 import { PRODUCT_IMAGE_TYPES } from "@/features/supplier-panel/catalog/product-image-key";
 import { useProductImageUpload } from "@/features/supplier-panel/catalog/use-product-image-upload";
 import { FieldReason } from "./field-reason";
@@ -39,7 +40,7 @@ function ImageRow({
       />
       <div className="min-w-0 flex-1">
         <p className="text-footnote font-medium">{index === 0 ? "Capa" : `Imagem ${index + 1}`}</p>
-        <p className="truncate text-footnote text-muted-foreground">{url}</p>
+        <p className="truncate text-footnote text-muted-foreground">{imageSourceLabel(url)}</p>
       </div>
       {index > 0 ? (
         <Hint label={ACTION_ICONS.setCover.hint} openOnTap={false}>
