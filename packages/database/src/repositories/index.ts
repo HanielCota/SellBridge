@@ -22,6 +22,7 @@ export * from "./listing-descriptions.ts";
 export * from "./listing-batch-progress.ts";
 export * from "./webhooks.ts";
 export * from "./orders.ts";
+export * from "./order-check.ts";
 export * from "./support.ts";
 export * from "./support-create.ts";
 export * from "./support-performance.ts";

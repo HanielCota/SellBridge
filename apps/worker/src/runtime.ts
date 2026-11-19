@@ -32,6 +32,10 @@ import {
   autoForwardJobId,
   enqueueStoreOrderCatchUpJob,
   enqueueWebhookEventJob,
+  ORDER_CHECK_JOB_OPTIONS,
+  type OrderCheckJob,
+  orderCheckJobId,
+  orderCheckJobSchema,
   pingQueueConnection,
   PUBLISH_JOB_OPTIONS,
   QUEUE_NAMES,
@@ -40,7 +44,7 @@ import {
   STOCK_SYNC_JOB_OPTIONS,
 } from "@sellbridge/shared/queues";
 import { withDeadline } from "@sellbridge/shared/deadline";
-import { Queue, Worker } from "bullmq";
+import { Queue, UnrecoverableError, Worker } from "bullmq";
 import { startHealthServer } from "./health.ts";
 import { toJobContext } from "./lib/job-context.ts";
 import { createRateLimiter } from "./lib/rate-limiter.ts";
@@ -70,6 +74,12 @@ import { createOrderMessageFollowUpProcessor } from "./processors/order-message-
 import { createWebhookDeliveryProcessor } from "./processors/webhook-delivery.ts";
 import { createShipmentTrackingProcessor } from "./processors/shipment-tracking.ts";
 import { createClaimSweepProcessor } from "./processors/marketplace-claim-sweep.ts";
+import {
+  checkStoreOrders,
+  createOrderCheckDispatcher,
+  ORDER_CHECK_DISPATCH_JOB,
+  ORDER_CHECK_MARKETPLACES,
+} from "./processors/order-check.ts";
 import type { NoticeReaders } from "./processors/marketplace-notice.ts";
 import { createWebhookEventProcessor } from "./processors/webhook-event.ts";
 import {
@@ -95,6 +105,7 @@ function createQueues(connection: { url: string; maxRetriesPerRequest: null }) {
     supplierPayments: new Queue(QUEUE_NAMES.supplierPayments, { connection }),
     supplierApproval: new Queue(QUEUE_NAMES.supplierApproval, { connection }),
     buyerAddressCheck: new Queue(QUEUE_NAMES.buyerAddressCheck, { connection }),
+    orderCheck: new Queue(QUEUE_NAMES.orderCheck, { connection }),
   };
 }
 
@@ -307,6 +318,57 @@ function orderWorkers(context: WorkerContext): Worker[] {
   ];
 }
 
+/** A store whose last check still waits or runs is left to it: runs never stack up. */
+async function enqueueOrderCheck(
+  queue: Queue,
+  job: OrderCheckJob,
+  delayInMs: number,
+): Promise<void> {
+  const jobId = orderCheckJobId(job);
+  const released = await releaseFinishedJob(queue, jobId);
+  if (!released) {
+    return;
+  }
+  await queue.add("check-store", job, { ...ORDER_CHECK_JOB_OPTIONS, jobId, delay: delayInMs });
+}
+
+function parseOrderCheckJob(data: unknown): OrderCheckJob {
+  const parsed = orderCheckJobSchema.safeParse(data);
+  if (!parsed.success) {
+    throw new UnrecoverableError("Payload do job de conferência de pedidos inválido");
+  }
+  return parsed.data;
+}
+
+/** Every 15 minutes, each store's recent sales compared with SellBridge's (lost notifications). */
+function orderCheckWorkers(context: WorkerContext): Worker[] {
+  const { database, connectors, cipher, queues, connection } = context;
+  const dispatch = createOrderCheckDispatcher({
+    database,
+    connectors,
+    marketplaces: ORDER_CHECK_MARKETPLACES,
+    enqueue: async (job, delayInMs) => enqueueOrderCheck(queues.orderCheck, job, delayInMs),
+  });
+  const dependencies = {
+    database,
+    connectors,
+    cipher,
+    acquireRateLimit: context.acquireRateLimit,
+    requestStockSync: async () => requestStockSync(context),
+    requestAutoForward: async (orderId: string) => requestAutoForward(context, orderId),
+  };
+  return [
+    new Worker(
+      QUEUE_NAMES.orderCheck,
+      async (job) =>
+        job.name === ORDER_CHECK_DISPATCH_JOB
+          ? dispatch()
+          : checkStoreOrders(dependencies, parseOrderCheckJob(job.data)),
+      { connection, concurrency: 2 },
+    ),
+  ];
+}
+
 /** Release completed job IDs before recovery, so an earlier failed attempt cannot block a retry. */
 async function enqueueRecoveredPublications(
   queue: Queue,
@@ -472,6 +534,7 @@ async function scheduleQueues(queues: WorkerContext["queues"]): Promise<void> {
   await scheduleRecurring(queues.supplierApproval, "check-pending-suppliers", 15 * 60 * 1000);
   await scheduleRecurring(queues.tokenRefresh, "refresh-expiring-tokens", 10 * 60 * 1000);
   await scheduleRecurring(queues.shipmentTracking, "track-shipments", 30 * 60 * 1000);
+  await scheduleRecurring(queues.orderCheck, ORDER_CHECK_DISPATCH_JOB, 15 * 60 * 1000);
   await scheduleRecurring(queues.claimSweep, "sweep-marketplace-claims", 24 * 60 * 60 * 1000);
   await scheduleRecurring(queues.erpInvoices, "issue-erp-invoices", 2 * 60 * 1000);
   await scheduleRecurring(queues.supplierPayments, "reconcile-supplier-payments", 5 * 60 * 1000);
@@ -546,6 +609,7 @@ export async function startWorker(
   const workers = [
     ...marketplaceWorkers(context),
     ...orderWorkers(context),
+    ...orderCheckWorkers(context),
     ...recoveryWorkers(context),
     ...deliveryWorkers(context),
     ...erpWorkers(context),

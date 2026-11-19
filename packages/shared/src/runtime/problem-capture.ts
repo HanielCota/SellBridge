@@ -39,6 +39,8 @@ const RECORDED_WARNINGS: Readonly<Record<string, (fields: Record<string, unknown
   // A buyer's claim on a SellBridge sale: the team sees it open and when the marketplace mediates.
   "claim.opened": () => true,
   "claim.mediation": () => true,
+  // A sale the periodic order check brought in: its notice was lost, which the team must know.
+  "order.found_by_check": () => true,
 };
 
 interface AreaRule {
