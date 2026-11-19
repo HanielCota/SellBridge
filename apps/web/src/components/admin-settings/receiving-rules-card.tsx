@@ -127,7 +127,7 @@ function RulesForm({ view }: { view: ReceivingRulesView }) {
         </p>
       ) : null}
       <RuleSwitch
-        label="Exigir conta de recebimento"
+        label="Exigir conta de recebimento para vender"
         hint="Só vende quem tem a conta Asaas aprovada. Sem ela, os produtos do fornecedor não aparecem e os pedidos novos esperam."
         checked={choice.requireReceivingAccount}
         disabled={cannotTurnOn && !choice.requireReceivingAccount}
@@ -143,7 +143,7 @@ function RulesForm({ view }: { view: ReceivingRulesView }) {
         hint={
           choice.requireReceivingAccount
             ? "O fornecedor só aceita, separa e despacha depois que o revendedor paga pelo Asaas. Os prazos dele contam a partir do pagamento."
-            : "Ligue antes “Exigir conta de recebimento”: sem a conta, o revendedor não tem como pagar."
+            : "Ligue antes “Exigir conta de recebimento para vender”: sem a conta, o revendedor não tem como pagar."
         }
         checked={choice.paymentBeforePreparing}
         disabled={
@@ -201,6 +201,11 @@ export function ReceivingRulesCard() {
           O fornecedor recebe pelo Asaas, com o dinheiro guardado até a entrega. Ligue as regras
           quando o Asaas estiver funcionando; pedidos encaminhados antes de ligar seguem como
           estavam.
+        </p>
+        <p className="text-sm text-muted-foreground">
+          Não é a mesma chave de “Exigir conta de recebimento para aprovar”: aquela só segura a
+          aprovação de quem se cadastra sozinho. Estas valem para todos os fornecedores: tiram do
+          catálogo quem não tem a conta e seguram o preparo do pedido até o pagamento.
         </p>
       </div>
       {query.isPending ? <Skeleton className="h-40 rounded-2xl" /> : null}

@@ -20,7 +20,7 @@ export function receivingAccountApproved(): SQL {
   return sql`exists (select 1 from ${supplierPaymentAccounts} where ${supplierPaymentAccounts.supplierId} = ${suppliers.id} and ${supplierPaymentAccounts.provider} = 'asaas' and ${supplierPaymentAccounts.status} = 'connected' and ${supplierPaymentAccounts.reviewStatus} = 'approved')`;
 }
 
-/** The admin turned on "Exigir conta de recebimento". */
+/** The admin turned on "Exigir conta de recebimento para vender". */
 export function receivingAccountRequired(): SQL {
   return sql`exists (select 1 from ${platformSettings} where ${platformSettings.id} = 1 and ${platformSettings.requireReceivingAccountSince} is not null)`;
 }

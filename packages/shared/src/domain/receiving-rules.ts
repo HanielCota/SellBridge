@@ -22,7 +22,7 @@ export interface ReceivingRulesChoice {
 }
 
 export const PAYMENT_NEEDS_ACCOUNT_MESSAGE =
-  "Ligue antes “Exigir conta de recebimento”: sem a conta, o revendedor não tem como pagar o fornecedor.";
+  "Ligue antes “Exigir conta de recebimento para vender”: sem a conta, o revendedor não tem como pagar o fornecedor.";
 export const ASAAS_OFF_MESSAGE =
   "O Asaas ainda não está ligado no SellBridge. Sem ele, nenhum fornecedor recebe e as vendas parariam.";
 
