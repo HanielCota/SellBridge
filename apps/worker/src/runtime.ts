@@ -30,6 +30,7 @@ import { withDeadline } from "@sellbridge/shared/deadline";
 import { Queue, Worker } from "bullmq";
 import { startHealthServer } from "./health.ts";
 import { toJobContext } from "./lib/job-context.ts";
+import { reportJobFailure } from "./lib/job-failure-report.ts";
 import { createRateLimiter } from "./lib/rate-limiter.ts";
 import { environment } from "./environment.ts";
 import { createPublishListingProcessor } from "./processors/publish-listing.ts";
@@ -390,14 +391,7 @@ async function scheduleQueues(queues: WorkerContext["queues"]): Promise<void> {
 
 function observeWorkers(workers: readonly Worker[]): void {
   for (const worker of workers) {
-    worker.on("failed", (job, error) =>
-      logger.warn("job.failed", {
-        queue: worker.name,
-        jobId: job?.id,
-        attemptsMade: job?.attemptsMade,
-        error,
-      }),
-    );
+    worker.on("failed", (job, error) => reportJobFailure(worker.name, job, error));
     worker.on("error", (error) => logger.error("worker.error", { queue: worker.name, error }));
   }
 }
