@@ -122,6 +122,7 @@ export async function previewAdminProductCsv(input: z.infer<typeof adminProductC
     ),
     previewToken: previewToken(input.content, plan),
     grids: plan.grids.length,
+    gridCombinations: plan.grids.reduce((sum, grid) => sum + grid.combinations.length, 0),
     notices: plan.notices,
   };
 }

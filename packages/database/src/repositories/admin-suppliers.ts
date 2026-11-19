@@ -578,7 +578,10 @@ export async function previewSupplierProductImport(
   return withGrids(plan, gridPlan, availableCategories);
 }
 
-/** The plan with the file's grids: their combinations count as created products. */
+/**
+ * The plan with the file's grids. A new grid counts as one new product and a grown one as one
+ * updated product, as the supplier's product list shows them (one row per grid).
+ */
 function withGrids(
   plan: SupplierProductImportPlan,
   gridPlan: GridImportPlan,
@@ -588,10 +591,11 @@ function withGrids(
     availableCategories.map((category) => [category.slug, category.id]),
   );
   const resolved = resolveGrids(gridPlan.grids, (slug) => categoryBySlug.get(slug));
-  const combinations = resolved.grids.reduce((sum, grid) => sum + grid.combinations.length, 0);
+  const newGrids = resolved.grids.filter((grid) => grid.modelId === null).length;
   return {
     ...plan,
-    created: plan.created + combinations,
+    created: plan.created + newGrids,
+    updated: plan.updated + (resolved.grids.length - newGrids),
     errors: [...plan.errors, ...gridPlan.errors, ...resolved.errors].toSorted(
       (first, second) => first.line - second.line,
     ),

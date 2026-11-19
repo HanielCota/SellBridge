@@ -38,6 +38,7 @@ function fakePreview(input: { supplierId: string; content: string }) {
     errors: parsed.errors,
     previewToken: token,
     grids: 0,
+    gridCombinations: 0,
     notices: [],
   });
 }
@@ -143,6 +144,7 @@ describe("previewSupplierImport", () => {
       updated: 0,
       emojisRemoved: 0,
       grids: 0,
+      gridCombinations: 0,
       notices: [],
       errors: [{ line: 2, reason: "x" }],
       previewToken: token,

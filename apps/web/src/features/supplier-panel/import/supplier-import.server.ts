@@ -196,6 +196,7 @@ export async function previewSupplierImport(
     issues: onSpreadsheetRows(issues, catalog),
     priceWarnings: priceWarnings(normalized, failedLines, catalog),
     grids: prepared?.preview.grids ?? 0,
+    gridCombinations: prepared?.preview.gridCombinations ?? 0,
     notices: (prepared?.preview.notices ?? []).map((notice) => ({
       line: sourceLine(normalized.originalLines.get(notice.line) ?? notice.line, catalog),
       message: notice.reason,
@@ -240,5 +241,7 @@ export async function loadSupplierImportFiles(supplierId: string) {
     templateCsv: buildImportTemplateCsv(options[0]?.slug ?? null, productGridEnabled()),
     guideCsv: buildImportGuideCsv(options, productGridEnabled()),
     categories: options,
+    /** The panel lists the colour and size columns only while grids are on. */
+    gridColumns: productGridEnabled(),
   };
 }

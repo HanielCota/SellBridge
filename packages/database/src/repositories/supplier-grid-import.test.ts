@@ -56,7 +56,8 @@ describe("grids from the product spreadsheet", () => {
       `${code}-B-38;Tênis Planilha;59,90;2;https://cdn.example.com/b.jpg;;;;${code};Branco;38`,
     ]);
 
-    expect(result.created).toBe(3);
+    // One new product, as the list shows it: the grid, not its three combinations.
+    expect(result.created).toBe(1);
     const [model] = await database
       .select({ id: productModels.id })
       .from(productModels)

@@ -115,7 +115,11 @@ function SummaryHeader({ preview }: { preview: SupplierImportPreview }) {
           tone="danger"
         />
       </dl>
-      <GridNotices grids={preview.grids} notices={preview.notices} />
+      <GridNotices
+        grids={preview.grids}
+        combinations={preview.gridCombinations}
+        notices={preview.notices}
+      />
       <EmojiNotice products={preview.emojisRemoved} />
       <PriceWarnings warnings={preview.priceWarnings} />
     </>
@@ -128,9 +132,11 @@ function SummaryHeader({ preview }: { preview: SupplierImportPreview }) {
  */
 function GridNotices({
   grids,
+  combinations,
   notices,
 }: {
   grids: number;
+  combinations: number;
   notices: SupplierImportPreview["notices"];
 }) {
   if (grids === 0 && notices.length === 0) {
@@ -140,8 +146,9 @@ function GridNotices({
     <div className="space-y-2 text-sm">
       {grids > 0 ? (
         <p className="text-muted-foreground">
-          {plural(grids, "produto com cores e tamanhos", "produtos com cores e tamanhos")}: as
-          linhas com o mesmo código do modelo viram um produto só, uma variação por linha.
+          {plural(grids, "produto com cores e tamanhos", "produtos com cores e tamanhos")}, com{" "}
+          {plural(combinations, "variação", "variações")}: as linhas com o mesmo código do modelo
+          viram um produto só, uma variação por linha.
         </p>
       ) : null}
       {notices.length > 0 ? (
