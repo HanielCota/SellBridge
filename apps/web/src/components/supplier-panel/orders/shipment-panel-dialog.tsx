@@ -1,8 +1,8 @@
 import type { PreparationHold } from "@sellbridge/shared/receiving-rules";
 import { WarningIcon } from "@phosphor-icons/react";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import type { LabelFormat } from "@sellbridge/shared/schemas";
-import { type ReactNode, useRef } from "react";
+import { type ReactNode, useEffect, useRef } from "react";
 import { formatCents } from "@sellbridge/shared/money";
 import { DISPATCHED_FULFILLMENT_STATUSES } from "@sellbridge/shared/schemas";
 import {
@@ -31,7 +31,11 @@ import { channelDispatch } from "@/features/supplier-panel/orders/channel-dispat
 import { channelLabel } from "@/features/supplier-panel/orders/channel-labels";
 import { dispatchInvoiceReminder } from "@/features/supplier-panel/orders/dispatch-invoice-reminder";
 import { orderSteps } from "@/features/supplier-panel/orders/order-steps";
-import { supplierPanelShipmentQueryOptions } from "@/features/supplier-panel/orders/orders.queries";
+import { refreshAfterLabel } from "@/features/supplier-panel/orders/label-refresh";
+import {
+  supplierOrdersKey,
+  supplierPanelShipmentQueryOptions,
+} from "@/features/supplier-panel/orders/orders.queries";
 import { useSupplierShipmentUpdate } from "@/features/supplier-panel/orders/use-order-actions";
 import { errorMessage } from "@/lib/errors";
 import { useTabProfileLink } from "@/lib/tab-profile";
@@ -164,6 +168,17 @@ function OrderFacts({ shipment }: { shipment: PanelShipment }) {
   );
 }
 
+/** After a label request: the open order and the list leave "Etiqueta pendente" on their own. */
+function useRefreshAfterLabel(supplierId: string) {
+  const queryClient = useQueryClient();
+  const cancelRef = useRef<(() => void) | null>(null);
+  useEffect(() => () => cancelRef.current?.(), []);
+  return () => {
+    cancelRef.current?.();
+    cancelRef.current = refreshAfterLabel(queryClient, supplierOrdersKey(supplierId));
+  };
+}
+
 const LABEL_BUTTON_CLASS = "h-auto min-h-9 max-w-full py-1.5 whitespace-normal";
 
 /**
@@ -186,6 +201,7 @@ function MarketplaceLabelForm({
   pdfOnly: boolean;
 }) {
   const withProfile = useTabProfileLink();
+  const refreshAfterPrint = useRefreshAfterLabel(supplierId);
   const buttonText = printed
     ? "Reimprimir etiqueta do marketplace"
     : "Imprimir etiqueta do marketplace";
@@ -205,6 +221,7 @@ function MarketplaceLabelForm({
       action={withProfile(`/api/pedidos/${orderId}/etiqueta`)}
       target="_blank"
       rel="noopener noreferrer"
+      onSubmit={refreshAfterPrint}
     >
       <input type="hidden" name="supplierId" value={supplierId} />
       <input type="hidden" name="shipmentId" value={shipmentId} />

@@ -2,6 +2,7 @@ import { createFulfillmentParcels } from "./create-fulfillment-parcels.ts";
 import { syncOrderFromShipments } from "./fulfillment-status.ts";
 import { linkFieldsFor } from "./shipment-link-fields.ts";
 import { resellerShipmentInvoices } from "./shipment-invoices.ts";
+import { resellerSaleInvoicesOf } from "./shipment-reseller-invoices.ts";
 import * as timing from "./shipment-timing.ts";
 import {
   and,
@@ -254,9 +255,10 @@ export async function getFulfillmentDetail(database: Database, tenantId: string,
   const [store] = stores;
   if (!store) throw notFoundError("Loja do pedido não encontrada");
   const shipmentIds = shipments.map((row) => row.id);
-  const [events, invoices] = await Promise.all([
+  const [events, invoices, resellerNotes] = await Promise.all([
     eventsForShipments(database, shipmentIds),
     resellerShipmentInvoices(database, shipmentIds),
+    resellerSaleInvoicesOf(database, tenantId, shipmentIds),
   ]);
   return {
     order: {
@@ -274,6 +276,8 @@ export async function getFulfillmentDetail(database: Database, tenantId: string,
       events: events.filter((event) => event.shipmentId === shipment.id),
       /** The NF-e the supplier's ERP issues for this parcel, from its first step. */
       invoice: invoices.get(shipment.id) ?? null,
+      /** In venda à ordem, the reseller's own sale note to the buyer; null in the other model. */
+      resellerNote: resellerNotes.get(shipment.id) ?? null,
     })),
   };
 }

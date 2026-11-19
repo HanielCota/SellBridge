@@ -19,10 +19,10 @@ describe("SUPPLIER_PAY_METHODS", () => {
 });
 
 describe("effectivePaymentFeeBasisPoints", () => {
-  test("uses 1% while the admin has saved no fee", () => {
+  test("uses 4% while the admin has saved no fee", () => {
     const fee = effectivePaymentFeeBasisPoints(null);
 
-    expect(fee).toBe(100);
+    expect(fee).toBe(400);
     expect(fee).toBe(DEFAULT_PAYMENT_FEE_BASIS_POINTS);
   });
 

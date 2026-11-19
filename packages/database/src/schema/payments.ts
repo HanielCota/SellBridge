@@ -133,6 +133,11 @@ export const shipmentPayments = pgTable(
     /** Last time the reconciliation job read this payment back from the provider. */
     checkedAt: timestamp({ withTimezone: true }),
     /**
+     * Since when every round's call to the provider about this payment failed (provider down or
+     * the account's key refused); null after a round that reached it.
+     */
+    providerDeferredSince: timestamp({ withTimezone: true }),
+    /**
      * Why SellBridge gives the reseller's money back (the supplier did not ship in time, or the
      * parcel was cancelled or came back), and when it first asked the provider to.
      */
@@ -269,6 +274,8 @@ export const platformSettings = pgTable(
      * null while off. Needs the receiving-account rule on (Guilherme, 18/11/2026, "Vamos de C").
      */
     paymentBeforePreparingSince: timestamp({ withTimezone: true }),
+    /** Business days a supplier has to check a returned product when the marketplace gives no date. */
+    returnAnswerBusinessDays: integer().notNull().default(3),
     updatedByUserId: text().references(() => user.id, { onDelete: "set null" }),
     updatedAt: timestamp({ withTimezone: true }).defaultNow().notNull(),
   },
@@ -285,6 +292,10 @@ export const platformSettings = pgTable(
     check(
       "platform_settings_payment_fee_check",
       sql`${table.paymentFeeBasisPoints} is null or (${table.paymentFeeBasisPoints} >= 0 and ${table.paymentFeeBasisPoints} <= 3000)`,
+    ),
+    check(
+      "platform_settings_return_answer_days_check",
+      sql`${table.returnAnswerBusinessDays} between 1 and 5`,
     ),
   ],
 );

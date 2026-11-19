@@ -15,6 +15,7 @@ import { saveOnboardingHolder } from "@/features/onboarding/onboarding.functions
 import { errorMessage } from "@/lib/errors";
 import { useUnsavedChanges } from "@/hooks/use-unsaved-changes";
 import { BillingAddressSection } from "@/components/onboarding/holder-address-fields";
+import { MeiTip } from "@/components/onboarding/mei-tip";
 import {
   holderDefaults,
   holderInput,
@@ -195,7 +196,7 @@ function CompanyFields({ form, showErrors }: { form: HolderFormApi; showErrors: 
           </div>
         )}
       </form.Field>
-      {isCompany ? <CompanyInputs form={form} showErrors={showErrors} /> : null}
+      {isCompany ? <CompanyInputs form={form} showErrors={showErrors} /> : <MeiTip />}
     </div>
   );
 }

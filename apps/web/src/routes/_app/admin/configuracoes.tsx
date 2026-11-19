@@ -3,6 +3,7 @@ import { createFileRoute, redirect } from "@tanstack/react-router";
 import { PaymentFeeCard } from "@/components/admin-settings/payment-fee-card";
 import { RequireReceivingAccountCard } from "@/components/admin-settings/require-receiving-account-card";
 import { ReceivingRulesCard } from "@/components/admin-settings/receiving-rules-card";
+import { ReturnAnswerDaysCard } from "@/components/admin-settings/return-answer-days-card";
 import { PageHeader } from "@/components/layout/page-header";
 import { receivingRulesQueryOptions } from "@/features/supplier-payments/receiving-rules.queries";
 import { paymentFeeQueryOptions } from "@/features/supplier-payments/supplier-payments.queries";
@@ -31,6 +32,7 @@ function SettingsPage() {
       <PaymentFeeCard />
       <RequireReceivingAccountCard />
       <ReceivingRulesCard />
+      <ReturnAnswerDaysCard />
     </div>
   );
 }
