@@ -316,3 +316,63 @@ export function withCombinationsFilled(state: GridFormState, fill: GridFill): Gr
     })),
   };
 }
+
+/** The combinations as the server stored them, after a save. */
+interface StoredCombinationStock {
+  readonly color: string | null;
+  readonly size: string | null;
+  readonly stock: number;
+}
+
+function sentName(
+  options: readonly { key: string; name: string }[],
+  key: string | null,
+): string | null {
+  if (key === null) {
+    return null;
+  }
+  return options.find((option) => option.key === key)?.name.trim() ?? null;
+}
+
+/**
+ * Takes in a save's answer without touching what the supplier typed meanwhile: colours and sizes
+ * learn the name the server now holds, combinations learn they exist and their stored stock. A
+ * count left as it was sent shows the stored one, since a sale may have moved it.
+ */
+export function withSaveAnswer(
+  state: GridFormState,
+  sent: { grid: GridFormState; combinations: readonly GridFormCombination[] },
+  stored: readonly StoredCombinationStock[],
+): GridFormState {
+  const storedStock = (combination: GridFormCombination) =>
+    stored.find(
+      (entry) =>
+        entry.color === sentName(sent.grid.colors, combination.colorKey) &&
+        entry.size === sentName(sent.grid.sizes, combination.sizeKey),
+    );
+  return {
+    colors: state.colors.map((color) => {
+      const name = sentName(sent.grid.colors, color.key);
+      return name === null ? color : { ...color, savedName: name };
+    }),
+    sizes: state.sizes.map((size) => {
+      const name = sentName(sent.grid.sizes, size.key);
+      return name === null ? size : { ...size, savedName: name };
+    }),
+    combinations: state.combinations.map((combination) => {
+      const sentCombination = sent.combinations.find((entry) =>
+        isPair(entry, combination.colorKey, combination.sizeKey),
+      );
+      const saved = sentCombination === undefined ? undefined : storedStock(sentCombination);
+      if (sentCombination === undefined || saved === undefined) {
+        return combination;
+      }
+      const untouched = combination.stock === sentCombination.stock;
+      return {
+        ...combination,
+        savedStock: saved.stock,
+        stock: untouched ? String(saved.stock) : combination.stock,
+      };
+    }),
+  };
+}

@@ -8,6 +8,7 @@ import {
   withCombinationChanged,
   withCombinationsFilled,
   withCombinationToggled,
+  withSaveAnswer,
   withSizesAdded,
   type GridFormState,
 } from "./grid-form-state";
@@ -133,5 +134,30 @@ describe("grid form state", () => {
 describe("suggestedSku", () => {
   it("joins the code with colour and size without accents or spaces", () => {
     expect(suggestedSku("TEN-CASUAL", "Azul Marinho", "37/38")).toBe("TEN-CASUAL-AZULMARINHO-3738");
+  });
+});
+
+function isBlack38(entry: { colorKey: string | null; sizeKey: string | null }): boolean {
+  return entry.colorKey === "c1" && entry.sizeKey === "s1";
+}
+
+describe("withSaveAnswer", () => {
+  it("learns the stored names and stock without undoing what was typed meanwhile", () => {
+    const black38 = { colorKey: "c1", sizeKey: "s1" };
+    const sent = withCombinationChanged(twoByTwo, black38, { sku: "P-38", stock: "4" });
+    const typedMeanwhile = withCombinationChanged(sent, black38, { cost: "50" });
+
+    const answered = withSaveAnswer(
+      typedMeanwhile,
+      { grid: sent, combinations: sent.combinations.filter(isBlack38) },
+      [{ color: "Preto", size: "38", stock: 3 }],
+    );
+
+    expect(answered.colors.map((color) => color.savedName)).toEqual(["Preto", "Branco"]);
+    expect(answered.combinations.find(isBlack38)).toMatchObject({
+      cost: "50",
+      stock: "3",
+      savedStock: 3,
+    });
   });
 });
