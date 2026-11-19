@@ -22,6 +22,8 @@ const CATALOG_COPY: Readonly<Record<string, string>> = {
   "supplier.updated": "Editou o fornecedor",
   "supplier.activated": "Ativou o fornecedor",
   "supplier.deactivated": "Desativou o fornecedor",
+  "supplier.approved": "Aprovou o cadastro do fornecedor",
+  "supplier.refused": "Recusou o cadastro do fornecedor",
   "product.created": "Cadastrou o produto",
   "product.updated": "Editou o produto",
   "product.activated": "Ativou o produto",

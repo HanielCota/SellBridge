@@ -17,6 +17,7 @@ export const NOTIFICATION_EVENTS = [
   "invoice_authorized",
   "invoice_attention",
   "marketplace_claim",
+  "store_buyer_address",
 ] as const;
 export type NotificationEventName = (typeof NOTIFICATION_EVENTS)[number];
 
@@ -114,6 +115,12 @@ export const NOTIFICATION_EVENT_DEFINITIONS: Record<NotificationEventName, Event
     audience: "reseller",
     label: "Reclamação no marketplace",
     description: "Um comprador abriu uma reclamação ou devolução, ou ela mudou de etapa.",
+    defaults: { in_app: true, email: true, push: true },
+  },
+  store_buyer_address: {
+    audience: "reseller",
+    label: "Endereço de compra no fornecedor",
+    description: "As compras pessoais da sua conta do marketplace estão indo para o fornecedor.",
     defaults: { in_app: true, email: true, push: true },
   },
   // The team already sees new tickets in the "Chamados" badge; e-mail is the outside nudge.
@@ -267,6 +274,27 @@ export function storeExpiredContent(store: StoreExpiredNotice): NotificationCont
       "Enquanto ela não for reconectada, pedidos novos e estoque não são sincronizados.",
     ],
     actionLabel: "Reconectar loja",
+    actionPath: "/lojas",
+    footnote: FOOTNOTE,
+  };
+}
+
+export interface StoreBuyerAddressNotice {
+  storeName: string;
+  supplierName: string;
+}
+
+export function storeBuyerAddressContent(notice: StoreBuyerAddressNotice): NotificationContent {
+  return {
+    subject: `${notice.storeName}: suas compras estão indo para o fornecedor`,
+    preview: "Troque o endereço de compra no Mercado Livre para voltar a publicar.",
+    heading: "Arrume o endereço de compra da loja",
+    paragraphs: [
+      `O endereço de compra da conta da loja ${notice.storeName} no Mercado Livre é o de ${notice.supplierName}. As suas compras pessoais vão chegar no fornecedor.`,
+      "No Mercado Livre, deixe a sua casa como endereço de compra. O endereço do fornecedor fica só para envio e devolução.",
+      "Até lá, a loja continua vendendo, mas não publica produtos novos.",
+    ],
+    actionLabel: "Ver como arrumar",
     actionPath: "/lojas",
     footnote: FOOTNOTE,
   };

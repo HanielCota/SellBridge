@@ -327,6 +327,10 @@ test("fornecedor abre chamado sem seletor de pedido e o suporte sabe que é forn
   await gotoHydrated(admin, "/admin/chamados");
   await admin.getByLabel("Buscar chamados").fill(body);
   await expect(admin).toHaveURL(/query=/);
+  // The queue holds suppliers' tickets too, so its name must not say resellers only.
+  await expect(
+    admin.getByRole("table", { name: "Chamados de revendedores e fornecedores" }),
+  ).toBeVisible();
   const row = admin.getByRole("row").filter({ hasText: "Fornecedor Suporte" });
   // Earlier runs left tickets of the same name: wait for the search to narrow to this one.
   await expect(row).toHaveCount(1);

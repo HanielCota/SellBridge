@@ -73,7 +73,9 @@ async function insertSale(
   place: { tenantId: string; storeId: string; supplierId: string; productId: string },
   orderPrefix: string,
 ) {
-  const externalOrderId = `${orderPrefix}${randomInt(10_000_000, 99_999_999)}`;
+  // Below 90,000,000: a sale under the arranged prefix ("5770") never starts with the
+  // unarranged one ("57709"), which the stand-in answers with no package.
+  const externalOrderId = `${orderPrefix}${randomInt(10_000_000, 90_000_000)}`;
   const [order] = await database
     .insert(orders)
     .values({

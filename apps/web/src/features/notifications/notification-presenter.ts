@@ -2,6 +2,7 @@ import type {
   NotificationEvent,
   NotificationKind,
   SaleProduct,
+  StoreProblemEvent,
 } from "@sellbridge/database/repositories";
 import { unavailableBellLine } from "@sellbridge/shared/catalog-availability";
 import { formatCents } from "@sellbridge/shared/money";
@@ -183,6 +184,24 @@ function marketplaceClaim(event: Extract<NotificationEvent, { kind: "marketplace
   };
 }
 
+/** Lost access stops the store; a supplier's purchase address only holds new products. */
+function storeProblem(event: StoreProblemEvent) {
+  if (event.problem === "buyer_address") {
+    return {
+      id: `store-address:${event.entityId}:${event.at.getTime()}`,
+      title: `${event.storeName}: compras indo para o fornecedor`,
+      detail: "Troque o endereço de compra no Mercado Livre para voltar a publicar.",
+      href: "/lojas",
+    };
+  }
+  return {
+    id: `store:${event.entityId}:${event.at.getTime()}`,
+    title: `${event.storeName} precisa ser reconectada`,
+    detail: "Pedidos e estoque estão parados nesta loja.",
+    href: "/lojas",
+  };
+}
+
 /** Wording and destination of each kind of event, in the reseller's language. */
 export function presentNotification(event: NotificationEvent): AppNotification {
   const base = { kind: event.kind, at: event.at };
@@ -207,13 +226,7 @@ export function presentNotification(event: NotificationEvent): AppNotification {
         href: "/publicacoes?status=error",
       };
     case "store_problem":
-      return {
-        ...base,
-        id: `store:${event.entityId}:${event.at.getTime()}`,
-        title: `${event.storeName} precisa ser reconectada`,
-        detail: "Pedidos e estoque estão parados nesta loja.",
-        href: "/lojas",
-      };
+      return { ...base, ...storeProblem(event) };
     case "stock_shortage":
     case "shipment_cancelled":
       return { ...base, ...orderProblem(event) };

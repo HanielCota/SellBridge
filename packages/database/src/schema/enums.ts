@@ -1,4 +1,5 @@
 import { pgEnum } from "drizzle-orm/pg-core";
+import { BUYER_ADDRESS_RESULTS } from "@sellbridge/shared/buyer-address";
 import { PROBLEM_AREAS, PROBLEM_SERVICES } from "@sellbridge/shared/problem-areas";
 import { STOCK_STATES } from "@sellbridge/shared/stock-reservation";
 import { SUPPLIER_CONVERSATION_TOPIC_IDS } from "@sellbridge/shared/supplier-conversation-topics";
@@ -122,3 +123,6 @@ export const erpCatalogReadStatusEnum = pgEnum("erp_catalog_read_status", [
 export const problemAreaEnum = pgEnum("problem_area", PROBLEM_AREAS);
 
 export const problemServiceEnum = pgEnum("problem_service", PROBLEM_SERVICES);
+
+/** What the last check of a store account's purchase address found (never the address itself). */
+export const buyerAddressResultEnum = pgEnum("buyer_address_result", BUYER_ADDRESS_RESULTS);

@@ -28,6 +28,7 @@ import {
 } from "@/lib/server/marketplaces";
 import { enqueueStoreOrderCatchUp } from "@/lib/server/queues";
 import { requireSellerRequest, type TenantSession } from "@/lib/server/tenant-session";
+import { checkBuyerAddressAfterConnect } from "./buyer-address.server";
 import type { StoreConnectErrorCode } from "./store-connect-errors";
 
 const STATE_TTL_MILLISECONDS = 10 * 60 * 1000;
@@ -254,6 +255,10 @@ async function connectStore(input: ConnectStoreInput) {
   if (awaiting?.id === store.id) {
     await requestOrderCatchUp(store.id, awaiting.connectedAt);
   }
+  await checkBuyerAddressAfterConnect(store, {
+    externalShopId: shop.externalShopId,
+    accessToken: tokens.accessToken,
+  });
   return store;
 }
 
