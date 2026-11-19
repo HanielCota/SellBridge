@@ -17,6 +17,7 @@ export { countFailedListingTargets, getListingActivity } from "./active-targets.
 export * from "./listing-sync.ts";
 export * from "./listing-overview.ts";
 export * from "./listing-actions.ts";
+export * from "./listing-resume.ts";
 export * from "./reports.ts";
 export * from "./listing-descriptions.ts";
 export * from "./listing-batch-progress.ts";

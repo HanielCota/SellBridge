@@ -27,6 +27,7 @@ import { targetMatchesStoreSupplier } from "./sql/store-supplier-match.ts";
 import { shareLockListingSources } from "./lock-product-source.ts";
 
 const SELLER: ListingPauseReason = "seller";
+const DISCONNECTED: ListingPauseReason = "store_disconnected";
 
 /** What the reseller does to listings from the list: pause, resume, reprice, retry. */
 
@@ -102,6 +103,45 @@ export async function setListingsPaused(
       )
       .returning({ id: listingTargets.id });
     return changed.length;
+  });
+}
+
+/**
+ * Resumes, on the reconnected store only, the listings among `listingIds` its disconnection
+ * paused. Products the supplier keeps off and shops moved to another supplier stay paused, and
+ * so does anything the reseller paused. Returns the stores changed.
+ */
+export async function resumeStoreListingsPausedByDisconnection(
+  database: Database,
+  tenantId: string,
+  storeConnectionId: string,
+  listingIds: readonly string[],
+): Promise<number> {
+  if (listingIds.length === 0) {
+    return 0;
+  }
+  return await database.transaction(async (transaction) => {
+    const blocked = new Set(
+      (await unavailableAmong(transaction, listingIds)).map((row) => row.listingId),
+    );
+    const resumed = await transaction
+      .update(listingTargets)
+      .set({ status: "published", pauseRequested: false, pauseReason: null })
+      .where(
+        and(
+          eq(listingTargets.tenantId, tenantId),
+          eq(listingTargets.storeConnectionId, storeConnectionId),
+          inArray(
+            listingTargets.listingId,
+            listingIds.filter((id) => !blocked.has(id)),
+          ),
+          eq(listingTargets.status, "paused"),
+          eq(listingTargets.pauseReason, DISCONNECTED),
+          targetMatchesStoreSupplier(),
+        ),
+      )
+      .returning({ id: listingTargets.id });
+    return resumed.length;
   });
 }
 

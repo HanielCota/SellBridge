@@ -7,7 +7,14 @@ import {
   createTestTenantPair,
   testStoreInput,
 } from "../testing/fixtures.ts";
-import { setListingsPaused } from "./listing-actions.ts";
+import { resumeStoreListingsPausedByDisconnection, setListingsPaused } from "./listing-actions.ts";
+import {
+  findListingsPausedByDisconnection,
+  findPausedListings,
+  holdListingsBelowPriceFloor,
+} from "./listing-resume.ts";
+import { getStoreActivity } from "./store-activity.ts";
+import { markStoreTargetsPaused } from "./store-disconnect.ts";
 import { createListingWithTargets, markTargetPublished } from "./listings.ts";
 import { stopProductPublications } from "./stop-product-publications.ts";
 import { upsertStoreConnection } from "./stores.ts";
@@ -15,6 +22,7 @@ import { upsertStoreConnection } from "./stores.ts";
 const database = createTestDatabase();
 let tenants: Awaited<ReturnType<typeof createTestTenantPair>>;
 let catalog: Awaited<ReturnType<typeof createTestSupplierProduct>>;
+let secondCatalog: Awaited<ReturnType<typeof createTestSupplierProduct>>;
 let tenantId = "";
 let storeId = "";
 let otherStoreId = "";
@@ -34,20 +42,31 @@ beforeAll(async () => {
     costCents: 1000,
     suggestedPriceCents: 2500,
   });
+  secondCatalog = await createTestSupplierProduct(database, {
+    sku: "WHY-2",
+    title: "Produto motivo 2",
+    costCents: 1000,
+    suggestedPriceCents: 2500,
+  });
 });
 
 afterAll(async () => {
   await tenants.cleanup();
   await catalog.cleanup();
+  await secondCatalog.cleanup();
   await database.$client.end();
 });
 
-async function listing(status: "published" | "pending", store = storeId) {
+async function listing(
+  status: "published" | "pending",
+  store = storeId,
+  productId = catalog.productId,
+) {
   const created = await createListingWithTargets(
     database,
     tenantId,
     {
-      supplierProductId: catalog.productId,
+      supplierProductId: productId,
       title: "Motivo",
       description: "",
       priceCents: 2790,
@@ -108,5 +127,62 @@ describe("the reason a publication is paused", () => {
     });
     await removeListing(live.targetId);
     await removeListing(queued.targetId);
+  });
+});
+
+describe("resuming after a reconnection", () => {
+  it("offers and resumes only what the disconnection paused, never the reseller's own pause", async () => {
+    const disconnected = await listing("published");
+    const ownPause = await listing("published", storeId, secondCatalog.productId);
+    await setListingsPaused(database, tenantId, [ownPause.listingId], true);
+    await markStoreTargetsPaused(database, tenantId, [disconnected.targetId]);
+
+    const offered = await findListingsPausedByDisconnection(database, tenantId, storeId);
+    const activity = (await getStoreActivity(database, tenantId, [storeId])).get(storeId);
+    const resumed = await resumeStoreListingsPausedByDisconnection(database, tenantId, storeId, [
+      disconnected.listingId,
+      ownPause.listingId,
+    ]);
+
+    expect(offered).toEqual([
+      expect.objectContaining({
+        listingId: disconnected.listingId,
+        priceCents: 2790,
+        costCents: 1000,
+        storeIds: [storeId],
+        marketplaces: ["mock"],
+      }),
+    ]);
+    expect(activity?.pausedByDisconnection).toBe(1);
+    expect(resumed).toBe(1);
+    expect(await stateOf(disconnected.targetId)).toEqual({
+      status: "published",
+      pauseReason: null,
+    });
+    expect(await stateOf(ownPause.targetId)).toEqual({ status: "paused", pauseReason: "seller" });
+    await removeListing(disconnected.targetId);
+    await removeListing(ownPause.targetId);
+  });
+
+  it("keeps a listing that would lose money paused, with that reason", async () => {
+    const losing = await listing("published");
+    await markStoreTargetsPaused(database, tenantId, [losing.targetId]);
+
+    const held = await holdListingsBelowPriceFloor(database, tenantId, {
+      listingIds: [losing.listingId],
+      storeConnectionId: storeId,
+    });
+    const resumed = await resumeStoreListingsPausedByDisconnection(database, tenantId, storeId, [
+      losing.listingId,
+    ]);
+
+    expect(held).toBe(1);
+    expect(resumed).toBe(0);
+    expect(await stateOf(losing.targetId)).toEqual({
+      status: "paused",
+      pauseReason: "price_below_floor",
+    });
+    expect(await findPausedListings(database, tenantId, [losing.listingId])).toHaveLength(1);
+    await removeListing(losing.targetId);
   });
 });
