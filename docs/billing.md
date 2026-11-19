@@ -63,8 +63,14 @@ mensalidade, e a assinatura antiga é encerrada quando a nova aparece. O mês j�
   último dia e o botão "Pagar agora" (abre a fatura do Asaas). Depois disso a conta fica sem plano;
   a assinatura não é cancelada e, se o lojista pagar, o plano volta.
 - O Asaas manda por e-mail cada cobrança e os lembretes (notificações ligadas no cliente).
-- Cancelar encerra a assinatura no Asaas; o mês pago vale até o fim e nada renova. Assinar de novo
-  durante esse mês começa a cobrar quando ele acaba.
+- Cancelar encerra a assinatura no Asaas; o mês pago vale até o fim, sem devolução proporcional, e
+  nada renova. Assinar de novo durante esse mês começa a cobrar quando ele acaba.
+- A primeira mensalidade da conta cancelada em até 7 dias depois de paga é devolvida inteira pelo
+  estorno do Asaas, e o plano acaba na hora (dia 7 devolve, dia 8 não). Mensalidades seguintes,
+  diferenças de troca de plano e a primeira mensalidade de uma nova assinatura não são devolvidas.
+- Excluir a conta cancela no Asaas, sem devolução, a assinatura e o que estiver em aberto antes de
+  apagar qualquer dado; se o Asaas falhar, nada é apagado. A tela avisa os dias pagos que a conta
+  perde e oferece "Só cancelar o plano". Os pagamentos já feitos ficam no Asaas como registro.
 
 ## Como o estado é lido
 
