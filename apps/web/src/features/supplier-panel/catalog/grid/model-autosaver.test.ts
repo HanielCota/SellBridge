@@ -2,7 +2,7 @@ import type { CatalogSaveModelDraftInput } from "@sellbridge/shared/supplier-pan
 import { describe, expect, it, vi } from "vitest";
 import type { AutosaveState } from "../draft-autosaver";
 import { panelFormValues } from "../draft-form";
-import { EMPTY_GRID_FORM_STATE } from "./grid-form-state";
+import { EMPTY_GRID_FORM_STATE, withColorAdded } from "./grid-form-state";
 import { ModelAutosaver, type ModelFormSnapshot, type SaveModelResult } from "./model-autosaver";
 
 const base = {
@@ -77,6 +77,27 @@ describe("ModelAutosaver", () => {
       2,
       expect.objectContaining({ expectedUpdatedAt: storedAt.toISOString() }),
     );
+  });
+
+  it("does not save again when only the answer's bookkeeping changed", async () => {
+    const save = vi.fn<Save>(async () => ({ saved: true, model: { updatedAt: storedAt } }));
+    const { saver } = autosaver(save);
+    const typed = { ...titled, grid: withColorAdded(EMPTY_GRID_FORM_STATE, "Preto", "c1") };
+    saver.update(typed);
+    await saver.flush();
+    const answered = {
+      ...typed,
+      grid: {
+        ...typed.grid,
+        colors: typed.grid.colors.map((color) => ({ ...color, savedName: "Preto" })),
+      },
+    };
+
+    saver.update(answered);
+    await saver.flush();
+
+    expect(save).toHaveBeenCalledTimes(1);
+    expect(saver.hasUnsavedChanges(answered)).toBe(false);
   });
 
   it("stops saving after a conflict and says why", async () => {
