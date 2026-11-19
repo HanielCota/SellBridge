@@ -15,6 +15,13 @@ describe("attention panel", () => {
     });
   });
 
+  it("points to the plans with the tone of the subscription notice", () => {
+    const [choose] = buildAttentionItems(quiet, [], { kind: "no_plan" });
+    expect(choose).toMatchObject({ key: "billing", tone: "info", to: "/assinatura" });
+    const [failed] = buildAttentionItems(quiet, [], { kind: "payment_failed" });
+    expect(failed).toMatchObject({ key: "billing", tone: "danger" });
+  });
+
   it("keeps the other items free of any search", () => {
     const items = buildAttentionItems({ ...quiet, failedListings: 1 }, [], null);
     expect(items[0]).toMatchObject({ key: "listings", to: "/publicacoes" });

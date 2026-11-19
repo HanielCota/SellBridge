@@ -6,6 +6,7 @@ import {
 import { MARKETPLACE_LABELS, type MarketplaceId } from "@sellbridge/marketplaces";
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
+import { findNewStoreBlock } from "@/features/billing/billing.server";
 import { database } from "@/lib/server/database";
 import { connectors } from "@/lib/server/marketplaces";
 import { tenantMiddleware } from "@/lib/server/middleware";
@@ -22,7 +23,10 @@ const MARKETPLACE_ORDER: MarketplaceId[] = ["mercado_livre", "shopee", "tiktok_s
 export const listStores = createServerFn({ method: "GET" })
   .middleware([tenantMiddleware])
   .handler(async ({ context }) => {
-    const connections = await listStoreConnections(database, context.tenantId);
+    const [connections, newStoreBlock] = await Promise.all([
+      listStoreConnections(database, context.tenantId),
+      findNewStoreBlock(context.tenantId),
+    ]);
     const activity = await getStoreActivity(
       database,
       context.tenantId,
@@ -37,7 +41,7 @@ export const listStores = createServerFn({ method: "GET" })
       label: MARKETPLACE_LABELS[id],
       available: connectors[id].isConfigured(),
     }));
-    return { stores, marketplaces };
+    return { stores, marketplaces, newStoreBlock };
   });
 
 export const disconnectStoreFn = createServerFn({ method: "POST" })

@@ -9,7 +9,8 @@ export const STORE_CONNECT_ERROR_MESSAGES = {
   marketplace: "O marketplace recusou a conexão. Tente de novo em instantes.",
   shop_in_use:
     "Esta loja já está conectada em outra conta do SellBridge. Desconecte-a lá antes de conectar aqui.",
-  plan_limit: "Seu plano não permite mais lojas. Veja os planos em Assinatura.",
+  plan_limit: "Seu plano não permite mais lojas. Mude para um plano maior em Assinatura.",
+  plan_required: "Para conectar lojas, escolha um plano em Assinatura.",
   supplier_unavailable:
     "Este fornecedor não está mais disponível. Escolha outro fornecedor para a nova loja.",
   impersonating: "Não é possível conectar lojas durante o acesso como cliente.",
@@ -29,6 +30,7 @@ export const STORE_CONNECT_ERROR_CODES = [
   "marketplace",
   "shop_in_use",
   "plan_limit",
+  "plan_required",
   "supplier_unavailable",
   "impersonating",
   "email_not_verified",

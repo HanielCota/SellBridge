@@ -3,7 +3,13 @@ import { loadRootEnvironmentFile } from "@sellbridge/shared/environment-file";
 import { eq, inArray } from "drizzle-orm";
 import { createDatabase, type Database } from "../client.ts";
 import { createListingWithTargets, markTargetPublished } from "../repositories/listings.ts";
-import { organization, supplierProducts, suppliers, user } from "../schema/index.ts";
+import {
+  billingAccounts,
+  organization,
+  supplierProducts,
+  suppliers,
+  user,
+} from "../schema/index.ts";
 
 export function createTestDatabase(): Database {
   loadRootEnvironmentFile();
@@ -29,6 +35,21 @@ export async function createTestTenants(database: Database, amount: number) {
     await database.delete(organization).where(inArray(organization.id, ids));
   }
   return { ids, cleanup };
+}
+
+const TEST_PLAN_DAYS = 30;
+
+/** Gives the tenant an active paid plan for the next month, as a confirmed webhook would. */
+export async function grantTestPlan(database: Database, tenantId: string, plan: string) {
+  const values = {
+    plan,
+    status: "active",
+    periodEnd: new Date(Date.now() + TEST_PLAN_DAYS * 86_400_000),
+  };
+  await database
+    .insert(billingAccounts)
+    .values({ tenantId, ...values })
+    .onConflictDoUpdate({ target: billingAccounts.tenantId, set: values });
 }
 
 /** Creates two tenants (A and B) to check isolation between them. */

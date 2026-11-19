@@ -75,8 +75,13 @@ describe("serverEnvironmentSchema", () => {
     const stripe = {
       STRIPE_SECRET_KEY: "sk_live_x",
       STRIPE_WEBHOOK_SECRET: "whsec_x",
+      STRIPE_START_PRICE_ID: "price_start",
       STRIPE_PRO_PRICE_ID: "price_pro",
       STRIPE_BUSINESS_PRICE_ID: "price_business",
+      STRIPE_BLACK_PRICE_ID: "price_black",
+      STRIPE_ELITE_PRICE_ID: "price_elite",
+      BILLING_LAUNCHED_AT: "2026-12-01T03:00:00Z",
+      BILLING_TRANSITION_ENDS_AT: "2026-12-31T03:00:00Z",
     };
     const production = { ...validEnvironment, NODE_ENV: "production" };
 
@@ -103,6 +108,46 @@ describe("serverEnvironmentSchema", () => {
         BILLING_UNLIMITED: "true",
       });
       expect(unlimited.success).toBe(true);
+    });
+
+    it("refuses billing without the price of each of the five plans", () => {
+      const parsed = serverEnvironmentSchema.safeParse({
+        ...production,
+        ...stripe,
+        STRIPE_ELITE_PRICE_ID: undefined,
+      });
+      expect(parsed.error?.issues[0]?.path).toEqual(["STRIPE_ELITE_PRICE_ID"]);
+    });
+
+    // Without the dates every account created before the launch would lose its access at once.
+    it("refuses billing without the transition dates", () => {
+      const parsed = serverEnvironmentSchema.safeParse({
+        ...production,
+        ...stripe,
+        BILLING_LAUNCHED_AT: undefined,
+        BILLING_TRANSITION_ENDS_AT: undefined,
+      });
+      expect(parsed.error?.issues.map((issue) => issue.path)).toEqual([
+        ["BILLING_LAUNCHED_AT"],
+        ["BILLING_TRANSITION_ENDS_AT"],
+      ]);
+    });
+
+    it("refuses a transition that ends before the launch", () => {
+      const parsed = serverEnvironmentSchema.safeParse({
+        ...validEnvironment,
+        BILLING_LAUNCHED_AT: "2026-12-31T03:00:00Z",
+        BILLING_TRANSITION_ENDS_AT: "2026-12-01T03:00:00Z",
+      });
+      expect(parsed.error?.issues[0]?.path).toEqual(["BILLING_TRANSITION_ENDS_AT"]);
+    });
+
+    it("refuses one transition date without the other", () => {
+      const parsed = serverEnvironmentSchema.safeParse({
+        ...validEnvironment,
+        BILLING_LAUNCHED_AT: "2026-12-01T03:00:00Z",
+      });
+      expect(parsed.error?.issues[0]?.path).toEqual(["BILLING_TRANSITION_ENDS_AT"]);
     });
 
     it("keeps development free of Stripe and defaults the grace to 7 days", () => {

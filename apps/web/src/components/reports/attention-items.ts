@@ -70,7 +70,7 @@ function idleStoreItems(stores: readonly StoreState[]): AttentionItem[] {
   }));
 }
 
-/** A plan payment to fix (item 16, N9): right after the stores, it can cost the plan's limits. */
+/** The plan: a payment to fix (item 16, N9), the launch deadline or a plan to choose. */
 function billingItems(notice: BillingNoticeView | null | undefined): AttentionItem[] {
   if (notice === null || notice === undefined) {
     return [];
@@ -79,7 +79,6 @@ function billingItems(notice: BillingNoticeView | null | undefined): AttentionIt
     {
       key: "billing",
       icon: PaymentCardAlertIcon,
-      tone: "danger",
       ...billingNoticeCopy(notice),
       to: "/assinatura",
     },

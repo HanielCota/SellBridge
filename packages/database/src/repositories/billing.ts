@@ -1,4 +1,4 @@
-import { effectiveBillingPlan } from "@sellbridge/shared/billing";
+import { billingAccess, billingLimits, type BillingRules } from "@sellbridge/shared/billing";
 import { and, eq, count, ne, sql } from "drizzle-orm";
 import { forbiddenError } from "@sellbridge/shared/errors";
 import type { Database, DatabaseExecutor } from "../client.ts";
@@ -28,12 +28,38 @@ export async function requireBillingOwner(database: Database, tenantId: string, 
     throw forbiddenError("Somente o proprietário pode gerenciar a assinatura");
 }
 
+/** Locks the tenant for a capacity check and returns when it was created (for the transition). */
 export async function lockBillingTenant(database: DatabaseExecutor, tenantId: string) {
-  await database
-    .select({ id: organization.id })
+  const [tenant] = await database
+    .select({ createdAt: organization.createdAt })
     .from(organization)
     .where(eq(organization.id, tenantId))
     .for("update");
+  if (tenant === undefined) throw forbiddenError("Organização não encontrada");
+  return tenant.createdAt;
+}
+
+/** When the tenant was created: accounts from before the launch get the transition. */
+export async function findBillingTenantCreatedAt(database: DatabaseExecutor, tenantId: string) {
+  const [tenant] = await database
+    .select({ createdAt: organization.createdAt })
+    .from(organization)
+    .where(eq(organization.id, tenantId));
+  if (tenant === undefined) throw forbiddenError("Organização não encontrada");
+  return tenant.createdAt;
+}
+
+/** What the tenant may use now under the billing rules: a plan, the launch transition or nothing. */
+export async function findBillingAccess(
+  database: DatabaseExecutor,
+  tenantId: string,
+  rules: BillingRules,
+) {
+  const [tenantCreatedAt, account] = await Promise.all([
+    findBillingTenantCreatedAt(database, tenantId),
+    getBillingAccount(database, tenantId),
+  ]);
+  return billingAccess({ subscription: account, tenantCreatedAt, transition: rules.transition });
 }
 
 /**
@@ -129,27 +155,41 @@ export async function applyBillingEvent(
 /**
  * Refuses when `requested` more stores or listing slots would pass the plan. A listing asks one
  * slot per destination store; a batch asks for all of its slots at once, so it is refused whole
- * instead of stopping halfway at the limit.
+ * instead of stopping halfway at the limit. Without a plan (and outside the launch transition)
+ * nothing new fits: there is no free plan.
  */
 export async function assertBillingCapacity(
   database: DatabaseExecutor,
-  tenantId: string,
-  resource: "stores" | "listings",
-  requested = 1,
+  input: {
+    tenantId: string;
+    rules: BillingRules;
+    resource: "stores" | "listings";
+    requested?: number;
+  },
 ) {
+  const { tenantId, resource, requested = 1 } = input;
   // Asking for nothing never passes the plan, even for a tenant already over it after a downgrade.
   if (requested <= 0) {
     return;
   }
-  await lockBillingTenant(database, tenantId);
+  const tenantCreatedAt = await lockBillingTenant(database, tenantId);
   const account = await getBillingAccount(database, tenantId);
-  const plan = effectiveBillingPlan(account);
+  const access = billingAccess({
+    subscription: account,
+    tenantCreatedAt,
+    transition: input.rules.transition,
+  });
+  const limits = billingLimits(access);
+  if (limits === null) return;
   const usage = await billingUsage(database, tenantId);
-  if (usage[resource] + requested > plan[resource]) {
-    throw forbiddenError(
-      `Limite do plano ${plan.name} atingido. Gerencie sua assinatura para ampliar ${resource === "stores" ? "as lojas" : "os anúncios"}.`,
-    );
+  if (usage[resource] + requested <= limits[resource]) return;
+  const what = resource === "stores" ? "conectar lojas" : "publicar anúncios";
+  if (access.kind !== "plan") {
+    throw forbiddenError(`Para ${what}, escolha um plano em Assinatura.`);
   }
+  throw forbiddenError(
+    `Limite do plano ${access.plan.name} atingido. Para ${what}, mude para um plano maior em Assinatura.`,
+  );
 }
 
 /** The account bound to a Stripe customer, or null for customers outside this application. */

@@ -1,7 +1,10 @@
 import { optionalParameter } from "@sellbridge/shared/schemas";
 import { z } from "zod";
 
-/** Where Stripe Checkout sends the customer back; anything else in the URL is ignored. */
+/**
+ * Where Stripe sends the customer back: from the checkout (sucesso, cancelado) or from a plan
+ * change confirmed in the portal (troca). Anything else in the URL is ignored.
+ */
 export const subscriptionSearchSchema = z.object({
-  retorno: optionalParameter(z.enum(["sucesso", "cancelado"])),
+  retorno: optionalParameter(z.enum(["sucesso", "cancelado", "troca"])),
 });

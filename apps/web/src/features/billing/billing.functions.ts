@@ -1,5 +1,6 @@
 import { billingWriteMiddleware } from "./billing-middleware";
 import { createServerFn } from "@tanstack/react-start";
+import { BILLING_PLAN_IDS } from "@sellbridge/shared/billing";
 import { z } from "zod";
 import { tenantMiddleware } from "@/lib/server/middleware";
 import {
@@ -14,7 +15,7 @@ export const getBilling = createServerFn({ method: "GET" })
   .handler(async ({ context }) => billingSummary(context.tenantId, context.userId));
 export const checkoutBilling = createServerFn({ method: "POST" })
   .middleware([tenantMiddleware, billingWriteMiddleware])
-  .validator(z.object({ plan: z.enum(["pro", "business"]) }))
+  .validator(z.object({ plan: z.enum(BILLING_PLAN_IDS) }))
   .handler(async ({ context, data }) => startSubscription({ ...context, plan: data.plan }));
 export const manageBilling = createServerFn({ method: "POST" })
   .middleware([tenantMiddleware, billingWriteMiddleware])

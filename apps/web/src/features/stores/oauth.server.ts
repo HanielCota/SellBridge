@@ -1,4 +1,5 @@
-import { billingConfigured } from "@/features/billing/stripe.server";
+import { billingRules } from "@/features/billing/stripe.server";
+import { findNewStoreBlock } from "@/features/billing/billing.server";
 import { randomBytes } from "node:crypto";
 import {
   assertActiveSupplier,
@@ -109,7 +110,16 @@ async function tenantOrLogin(request: Request, marketplace?: MarketplaceId) {
   }
 }
 
-const startQuerySchema = z.object({ fornecedor: z.uuid().optional() });
+const startQuerySchema = z.object({
+  fornecedor: z.uuid().optional(),
+  /** Set by the "Reconectar" button: an existing shop never needs a free plan slot. */
+  reconectar: z.literal("1").optional(),
+});
+
+function isReconnection(request: Request): boolean {
+  const query = startQuerySchema.safeParse(Object.fromEntries(new URL(request.url).searchParams));
+  return query.success && query.data.reconectar === "1";
+}
 
 /**
  * The supplier the new shop sells: the one picked on the stores page (`?fornecedor=`), else the
@@ -156,6 +166,14 @@ export async function handleOAuthStart(request: Request, marketplaceParam: strin
   const connector = connectors[marketplace];
   if (!connector.isConfigured()) {
     return storesPageWithError(request, "unavailable");
+  }
+  // Checked again on the way back; here it spares a consent page that would end refused.
+  const block = isReconnection(request) ? null : await findNewStoreBlock(session.tenantId);
+  if (block !== null) {
+    return storesPageWithError(
+      request,
+      block.kind === "choose_plan" ? "plan_required" : "plan_limit",
+    );
   }
   const supplierId = await supplierForNewShop(request, session.tenantId);
   if (supplierId === undefined) {
@@ -230,7 +248,7 @@ async function connectStore(input: ConnectStoreInput) {
     shop.externalShopId,
   );
   const store = await upsertStoreConnection(database, {
-    billingEnabled: billingConfigured(),
+    billing: billingRules(),
     tenantId: input.tenantId,
     marketplace: input.marketplace,
     externalShopId: shop.externalShopId,

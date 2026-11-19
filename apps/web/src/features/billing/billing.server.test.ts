@@ -8,7 +8,7 @@ const mocks = vi.hoisted(() => ({
   tryLock: vi.fn<(...input: unknown[]) => Promise<boolean>>(),
   inTransaction: { value: false },
   customer: vi.fn<(...input: unknown[]) => Promise<{ id: string }>>(),
-  subscriptions: vi.fn<(...input: unknown[]) => Promise<{ data: { status: string }[] }>>(),
+  subscriptions: vi.fn<(...input: unknown[]) => Promise<{ data: unknown[] }>>(),
   sessions: vi.fn<(...input: unknown[]) => Promise<{ data: { id: string }[] }>>(),
   expire: vi.fn<(...input: unknown[]) => Promise<void>>(),
   checkout: vi.fn<(...input: unknown[]) => Promise<{ url: string }>>(),
@@ -21,6 +21,9 @@ vi.mock("@sellbridge/database/repositories", () => ({
   lockBillingTenant: mocks.lock,
   tryLockBillingCheckout: mocks.tryLock,
   billingUsage: vi.fn<() => Promise<unknown>>(),
+  findBillingAccess: vi.fn<() => Promise<unknown>>(),
+  findBillingTenantCreatedAt: vi.fn<() => Promise<unknown>>(),
+  getPaymentFeeSetting: vi.fn<() => Promise<unknown>>(),
 }));
 vi.mock("@/lib/server/environment", () => ({
   environment: { APP_URL: "https://sellbridge.test" },
@@ -38,9 +41,9 @@ vi.mock("@/lib/server/database", () => ({
   },
 }));
 vi.mock("./stripe.server", () => ({
-  billingConfigured: () => true,
+  billingRules: () => ({ transition: null }),
   availablePlans: vi.fn<() => Promise<unknown>>(),
-  priceId: () => "price_pro",
+  priceId: (plan: string) => `price_${plan}`,
   stripeClient: () => ({
     customers: { create: mocks.customer },
     subscriptions: { list: mocks.subscriptions },
@@ -61,6 +64,10 @@ beforeEach(() => {
   mocks.checkout.mockResolvedValue({ url: "https://checkout.stripe.com/test" });
   mocks.portal.mockResolvedValue({ url: "https://billing.stripe.com/test" });
 });
+function liveSubscription(status: string, price: string) {
+  return { id: "sub_live", status, items: { data: [{ id: "si_live", price: { id: price } }] } };
+}
+
 describe("owner subscription management", () => {
   it("denies non-owners before contacting the payment provider", async () => {
     mocks.owner.mockRejectedValue(forbiddenError());
@@ -129,7 +136,7 @@ describe("owner subscription management", () => {
     mocks.sessions.mockResolvedValue({ data: [{ id: "cs_old" }] });
     await startSubscription(input);
     expect(mocks.expire).toHaveBeenCalledWith("cs_old", {}, limits);
-    mocks.subscriptions.mockResolvedValue({ data: [{ status: "active" }] });
+    mocks.subscriptions.mockResolvedValue({ data: [{ status: "active", items: { data: [] } }] });
     await startSubscription(input);
     expect(mocks.portal).toHaveBeenCalledWith(expect.anything(), limits);
   });
@@ -144,7 +151,7 @@ describe("owner subscription management", () => {
     );
   });
   it("opens the portal in Brazilian Portuguese", async () => {
-    mocks.subscriptions.mockResolvedValue({ data: [{ status: "active" }] });
+    mocks.subscriptions.mockResolvedValue({ data: [{ status: "active", items: { data: [] } }] });
 
     await startSubscription(input);
 
@@ -152,6 +159,49 @@ describe("owner subscription management", () => {
       expect.objectContaining({ locale: "pt-BR" }),
       expect.anything(),
     );
+  });
+  describe("plan change", () => {
+    it("asks the portal to confirm the switch to another plan", async () => {
+      mocks.subscriptions.mockResolvedValue({ data: [liveSubscription("active", "price_pro")] });
+
+      await startSubscription({ ...input, plan: "elite" });
+
+      expect(mocks.portal).toHaveBeenCalledWith(
+        expect.objectContaining({
+          flow_data: expect.objectContaining({
+            type: "subscription_update_confirm",
+            subscription_update_confirm: {
+              subscription: "sub_live",
+              items: [{ id: "si_live", price: "price_elite", quantity: 1 }],
+            },
+          }),
+        }),
+        expect.anything(),
+      );
+      expect(mocks.checkout).not.toHaveBeenCalled();
+    });
+
+    it("opens the portal itself for the plan already in force", async () => {
+      mocks.subscriptions.mockResolvedValue({ data: [liveSubscription("active", "price_pro")] });
+
+      await startSubscription(input);
+
+      expect(mocks.portal).toHaveBeenCalledWith(
+        expect.not.objectContaining({ flow_data: expect.anything() }),
+        expect.anything(),
+      );
+    });
+
+    it("sends a subscription with a payment to fix to the portal, not to a plan change", async () => {
+      mocks.subscriptions.mockResolvedValue({ data: [liveSubscription("past_due", "price_pro")] });
+
+      await startSubscription({ ...input, plan: "black" });
+
+      expect(mocks.portal).toHaveBeenCalledWith(
+        expect.not.objectContaining({ flow_data: expect.anything() }),
+        expect.anything(),
+      );
+    });
   });
   it("refuses a second checkout while one is being opened", async () => {
     mocks.tryLock.mockResolvedValue(false);
