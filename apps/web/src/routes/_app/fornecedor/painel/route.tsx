@@ -3,6 +3,7 @@ import { SUPPLIER_BRAND_PATH } from "@/features/auth/profile-routes";
 import { SupplierOffBanner } from "@/components/supplier-panel/supplier-off-banner";
 import { StoreClosedBanner } from "@/components/supplier-panel/store/store-closed-banner";
 import { getOwnSupplierFn } from "@/features/supplier-panel/panel.functions";
+import { SupplierApprovalBanner } from "@/components/supplier-approval/supplier-approval-banner";
 
 export const Route = createFileRoute("/_app/fornecedor/painel")({
   // Before the brand exists, every panel page leads to "Cadastre sua marca".
@@ -23,10 +24,19 @@ export const Route = createFileRoute("/_app/fornecedor/painel")({
  * already redirecting, or the data is refreshing right after the brand was saved).
  */
 function SupplierPanelLayout() {
-  const { supplier } = Route.useLoaderData();
+  const { supplier, approval } = Route.useLoaderData();
   const pathname = useRouterState({ select: (state) => state.location.pathname });
   if (supplier === null && pathname !== SUPPLIER_BRAND_PATH) {
     return null;
+  }
+  // Not approved yet (or refused): resellers see nothing, so this outranks the other banners.
+  if (approval !== null && approval.status !== "approved") {
+    return (
+      <div className="space-y-6">
+        <SupplierApprovalBanner approval={approval} />
+        <Outlet />
+      </div>
+    );
   }
   if (supplier !== null && !supplier.active) {
     return (
