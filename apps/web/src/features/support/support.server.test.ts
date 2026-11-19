@@ -11,6 +11,7 @@ const mocks = vi.hoisted(() => ({
   requireStaffSession: vi.fn<() => Promise<unknown>>(),
   queueSupportReplyNotices: vi.fn<(database: unknown, input: unknown) => Promise<number>>(),
   queueNewTicketNotices: vi.fn<(database: unknown, ticketId: string) => Promise<number>>(),
+  hasPrioritySupport: vi.fn<(tenantId: string) => Promise<boolean>>(),
 }));
 
 vi.mock("@/lib/server/storage", () => ({
@@ -22,6 +23,9 @@ vi.mock("@/lib/server/storage", () => ({
   },
 }));
 vi.mock("@/lib/server/database", () => ({ database: {} }));
+vi.mock("@/features/billing/billing.server", () => ({
+  hasPrioritySupport: mocks.hasPrioritySupport,
+}));
 vi.mock("@/lib/server/environment", () => ({
   environment: { APP_URL: "https://sellbridge.test" },
 }));
@@ -82,6 +86,7 @@ const tenantReply = (form = messageForm({ body: "Segue a nota fiscal do pedido."
 
 beforeEach(() => {
   vi.clearAllMocks();
+  mocks.hasPrioritySupport.mockResolvedValue(false);
   nextUser += 1;
   mocks.requireTenantRequest.mockResolvedValue({
     tenantId: "tenant-a",
@@ -291,6 +296,39 @@ describe("new ticket notice", () => {
         priority: "high",
         subject: "O dinheiro de uma venda não caiu: O repasse da semana não caiu.",
       }),
+    );
+  });
+
+  it("opens the ticket of a plan with priority support as high priority", async () => {
+    mocks.createTicket.mockResolvedValue({ ticketId: TICKET_ID });
+    mocks.queueNewTicketNotices.mockResolvedValue(1);
+    mocks.hasPrioritySupport.mockResolvedValue(true);
+    const form = messageForm(
+      { category: "order", situation: "order-late", body: "Prometido para 15/10, não chegou." },
+      false,
+    );
+
+    expect((await handleCreateTicket(post("/api/suporte/chamados", form))).status).toBe(201);
+
+    expect(mocks.createTicket).toHaveBeenCalledWith(
+      {},
+      expect.objectContaining({ priority: "high" }),
+    );
+  });
+
+  it("keeps the topic priority without priority support", async () => {
+    mocks.createTicket.mockResolvedValue({ ticketId: TICKET_ID });
+    mocks.queueNewTicketNotices.mockResolvedValue(1);
+    const form = messageForm(
+      { category: "order", situation: "order-late", body: "Prometido para 15/10, não chegou." },
+      false,
+    );
+
+    expect((await handleCreateTicket(post("/api/suporte/chamados", form))).status).toBe(201);
+
+    expect(mocks.createTicket).toHaveBeenCalledWith(
+      {},
+      expect.objectContaining({ priority: "normal" }),
     );
   });
 
