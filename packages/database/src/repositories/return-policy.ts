@@ -261,6 +261,10 @@ export async function recordReturnForward(
   await database.transaction(async (transaction) => {
     const claim = await lockClaimFor(transaction, input, "seller");
     assertStep(claim.policyStep, "awaiting_forward", "registrar o reenvio");
+    if (isPastDeadline(claim.forwardDueAt, now)) {
+      throw conflictError("O prazo para reenviar este pacote terminou");
+    }
+
     await transaction
       .update(returnClaims)
       .set({
@@ -368,6 +372,7 @@ export async function reportReturnNotReceived(
   await database.transaction(async (transaction) => {
     const claim = await lockClaimFor(transaction, input, "supplier");
     assertStep(claim.policyStep, "awaiting_supplier", "avisar que não chegou");
+    assertSupplierOnTime(claim, now);
     await transaction
       .update(returnClaims)
       .set({ supplierVerdict: "not_received", supplierAnsweredAt: now, policyStep: "disputed" })

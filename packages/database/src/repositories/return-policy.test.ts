@@ -338,9 +338,41 @@ describe("decideReturnClaim under the policy", () => {
 
     expect((await claimRow(claim.id)).policyStep).toBe("disputed");
   });
+
+  it("does not open a supplier dispute after the response deadline", async () => {
+    const { claim } = await openReturn();
+    const deadline = claim.supplierDueAt;
+    if (deadline === null) {
+      throw new Error("Supplier response deadline was not set");
+    }
+
+    const attempt = reportReturnNotReceived(database, { ...supplier(claim.id), now: deadline });
+
+    await expect(attempt).rejects.toMatchObject({ code: "CONFLICT" });
+    expect((await claimRow(claim.id)).policyStep).toBe("awaiting_supplier");
+  });
 });
 
 describe("a parcel that came back to the reseller", () => {
+  it("does not accept forwarding once the seven-day window ends", async () => {
+    const { claim } = await openReturn();
+    await markReturnArrivedAtSeller(database, seller(claim.id));
+    const waiting = await claimRow(claim.id);
+    const deadline = waiting.forwardDueAt;
+    if (deadline === null) {
+      throw new Error("Forwarding deadline was not set");
+    }
+
+    const attempt = recordReturnForward(database, {
+      ...seller(claim.id),
+      trackingCode: "BR123456789",
+      now: deadline,
+    });
+
+    await expect(attempt).rejects.toMatchObject({ code: "CONFLICT" });
+    expect((await claimRow(claim.id)).policyStep).toBe("awaiting_forward");
+  });
+
   it("starts the supplier's business days only when the forwarded parcel arrives", async () => {
     const { claim } = await openReturn();
 
