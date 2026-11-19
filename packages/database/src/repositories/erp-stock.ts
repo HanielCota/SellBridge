@@ -1,4 +1,4 @@
-import { and, asc, eq, gt, inArray, isNotNull, isNull, lte, sql } from "drizzle-orm";
+import { and, asc, eq, gt, inArray, isNotNull, isNull, lt, lte, or, sql } from "drizzle-orm";
 import type { Database } from "../client.ts";
 import {
   erpStockRefreshRequests,
@@ -197,7 +197,11 @@ export async function listLinkedErpProductIds(
 /** Links the supplier's products to the Bling ids found for their SKUs; linked ones stay as they are. */
 export async function linkErpProducts(
   database: Database,
-  input: { supplierId: string; links: readonly { sku: string; erpProductId: number }[] },
+  input: {
+    supplierId: string;
+    readAt: Date;
+    links: readonly { sku: string; erpProductId: number }[];
+  },
 ): Promise<number> {
   if (input.links.length === 0) {
     return 0;
@@ -213,26 +217,34 @@ export async function linkErpProducts(
     where product.supplier_id = ${input.supplierId}
       and product.sku = link.sku
       and product.erp_product_id is null
+      and (
+        product.erp_stock_read_at is null
+        or product.erp_stock_read_at < ${input.readAt.toISOString()}::timestamptz
+      )
     returning product.id
   `);
   return rows.length;
 }
 
-/** Forgets Bling ids that Bling no longer has; the product's stock stops following Bling. */
+/** Remembers when Bling stopped returning an id so an older read cannot restore the link. */
 export async function unlinkErpProducts(
   database: Database,
-  input: { supplierId: string; erpProductIds: readonly number[] },
+  input: { supplierId: string; readAt: Date; erpProductIds: readonly number[] },
 ): Promise<void> {
   if (input.erpProductIds.length === 0) {
     return;
   }
   await database
     .update(supplierProducts)
-    .set({ erpProductId: null, erpStockReadAt: null })
+    .set({ erpProductId: null, erpStockReadAt: input.readAt })
     .where(
       and(
         eq(supplierProducts.supplierId, input.supplierId),
         inArray(supplierProducts.erpProductId, [...input.erpProductIds]),
+        or(
+          isNull(supplierProducts.erpStockReadAt),
+          lt(supplierProducts.erpStockReadAt, input.readAt),
+        ),
       ),
     );
 }
@@ -246,7 +258,10 @@ export async function unlinkAllErpProducts(database: Database, supplierId: strin
     .update(supplierProducts)
     .set({ erpProductId: null, erpStockReadAt: null })
     .where(
-      and(eq(supplierProducts.supplierId, supplierId), isNotNull(supplierProducts.erpProductId)),
+      and(
+        eq(supplierProducts.supplierId, supplierId),
+        or(isNotNull(supplierProducts.erpProductId), isNotNull(supplierProducts.erpStockReadAt)),
+      ),
     );
 }
 

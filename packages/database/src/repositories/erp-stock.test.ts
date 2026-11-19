@@ -208,6 +208,7 @@ describe("linking products to Bling", () => {
 
     const linked = await linkErpProducts(database, {
       supplierId,
+      readAt: new Date(),
       links: [
         { sku: "A", erpProductId: 999 },
         { sku: "B", erpProductId: 222 },
@@ -226,8 +227,45 @@ describe("linking products to Bling", () => {
     const { supplierId } = await createSupplier({ invoiceEnabled: true });
     const productId = await createProduct(supplierId, { sku: "A", stock: 1, erpProductId: 5 });
 
-    await unlinkErpProducts(database, { supplierId, erpProductIds: [5] });
+    await unlinkErpProducts(database, { supplierId, readAt: new Date(), erpProductIds: [5] });
 
+    expect((await productRow(productId))?.erpProductId).toBeNull();
+  });
+
+  it("keeps the link when an older read incorrectly reports a recently read id missing", async () => {
+    const { supplierId } = await createSupplier({ invoiceEnabled: true });
+    const productId = await createProduct(supplierId, { sku: "A", stock: 1, erpProductId: 5 });
+    await applyErpStockReadings(database, {
+      supplierId,
+      readAt: new Date("2026-11-19T12:00:05Z"),
+      readings: [{ erpProductId: 5, stock: 3 }],
+    });
+
+    await unlinkErpProducts(database, {
+      supplierId,
+      readAt: new Date("2026-11-19T12:00:00Z"),
+      erpProductIds: [5],
+    });
+
+    expect(await productRow(productId)).toMatchObject({ erpProductId: 5, stock: 3 });
+  });
+
+  it("does not restore a link after a newer read reports its id missing", async () => {
+    const { supplierId } = await createSupplier({ invoiceEnabled: true });
+    const productId = await createProduct(supplierId, { sku: "A", stock: 1, erpProductId: 5 });
+    await unlinkErpProducts(database, {
+      supplierId,
+      readAt: new Date("2026-11-19T12:00:05Z"),
+      erpProductIds: [5],
+    });
+
+    const linked = await linkErpProducts(database, {
+      supplierId,
+      readAt: new Date("2026-11-19T12:00:00Z"),
+      links: [{ sku: "A", erpProductId: 5 }],
+    });
+
+    expect(linked).toBe(0);
     expect((await productRow(productId))?.erpProductId).toBeNull();
   });
 });

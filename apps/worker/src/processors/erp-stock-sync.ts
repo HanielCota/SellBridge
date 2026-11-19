@@ -69,8 +69,9 @@ function clientFor(dependencies: ErpStockSyncDependencies, supplierId: string): 
 async function linkProductsBySku(
   dependencies: ErpStockSyncDependencies,
   client: BlingClient,
-  supplierId: string,
+  run: { supplierId: string; readAt: Date },
 ): Promise<void> {
+  const { supplierId, readAt } = run;
   let afterSku: string | null = null;
   for (;;) {
     const skus = await listUnlinkedErpSkus(dependencies.database, {
@@ -82,7 +83,7 @@ async function linkProductsBySku(
       return;
     }
     const links = await findBlingIdsBySku(client, skus);
-    await linkErpProducts(dependencies.database, { supplierId, links });
+    await linkErpProducts(dependencies.database, { supplierId, readAt, links });
     afterSku = skus.at(-1) ?? null;
   }
 }
@@ -152,8 +153,8 @@ async function applyRead(
   const links = read.readings.flatMap((reading) =>
     reading.sku === null ? [] : [{ sku: reading.sku, erpProductId: reading.erpProductId }],
   );
-  await linkErpProducts(database, { supplierId, links });
-  await unlinkErpProducts(database, { supplierId, erpProductIds: read.missing });
+  await linkErpProducts(database, { supplierId, readAt, links });
+  await unlinkErpProducts(database, { supplierId, readAt, erpProductIds: read.missing });
   const changes = await applyErpStockReadings(database, {
     supplierId,
     readAt,
@@ -223,7 +224,7 @@ async function runFullCheck(
   const { supplierId } = account;
   const startedAt = nowOf(dependencies);
   await syncCompany(dependencies, client, account);
-  await linkProductsBySku(dependencies, client, supplierId);
+  await linkProductsBySku(dependencies, client, { supplierId, readAt: startedAt });
   const read = await readBlingStock(client, await allLinkedIds(dependencies, supplierId));
   const changes = await applyRead(dependencies, supplierId, read, startedAt);
   await deleteErpStockRefreshRequestsBefore(database, { supplierId, before: startedAt });
