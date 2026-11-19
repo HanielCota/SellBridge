@@ -15,6 +15,7 @@ import {
 } from "@sellbridge/payments/asaas";
 import { validationError } from "@sellbridge/shared/errors";
 import { logger } from "@sellbridge/shared/logger";
+import type { SupplierPayMethod } from "@sellbridge/shared/shipment-payments";
 import { database } from "@/lib/server/database";
 import { asaasContext } from "./asaas.server";
 
@@ -59,8 +60,8 @@ function friendly(error: unknown): Error {
 }
 
 /**
- * Opens (or reuses) the Asaas charge of a parcel just reserved; the reseller pays on Asaas's page
- * and comes back to the order.
+ * Opens (or reuses) the Asaas charge of a parcel just reserved, asking only the method the reseller
+ * picked; the reseller pays on Asaas's page and comes back to the order.
  *
  * @throws When the reseller's billing data is missing, the supplier account is unusable, Asaas
  * cannot be reached, or a paid charge already exists.
@@ -70,6 +71,7 @@ export async function openAsaasCheckout(input: {
   payable: PayableShipment;
   account: SupplierPaymentAccount;
   payment: ShipmentPayment;
+  payMethod: SupplierPayMethod;
   successUrl: string;
 }): Promise<{ checkoutUrl: string }> {
   const context = asaasContext();
@@ -82,6 +84,7 @@ export async function openAsaasCheckout(input: {
       account: input.account,
       payment: input.payment,
       payer,
+      payMethod: input.payMethod,
       description: `Pedido ${input.payable.externalOrderId} · ${input.payable.supplierName}`,
       successUrl: input.successUrl,
       now: new Date(),

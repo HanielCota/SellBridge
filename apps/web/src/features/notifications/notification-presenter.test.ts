@@ -182,6 +182,7 @@ describe("presentNotification", () => {
   it("asks to reconnect a store with its marketplace name", () => {
     const notification = presentNotification({
       kind: "store_problem",
+      problem: "access",
       entityId: "store-1",
       at,
       storeName: "Ana Casa",
@@ -190,6 +191,22 @@ describe("presentNotification", () => {
       id: `store:store-1:${at.getTime()}`,
       title: "Ana Casa precisa ser reconectada",
       detail: "Pedidos e estoque estão parados nesta loja.",
+      href: "/lojas",
+    });
+  });
+
+  it("asks to fix the purchase address of a store that buys at its supplier", () => {
+    const notification = presentNotification({
+      kind: "store_problem",
+      problem: "buyer_address",
+      entityId: "store-1",
+      at,
+      storeName: "Ana Casa",
+    });
+
+    expect(notification).toMatchObject({
+      id: `store-address:store-1:${at.getTime()}`,
+      title: "Ana Casa: compras indo para o fornecedor",
       href: "/lojas",
     });
   });

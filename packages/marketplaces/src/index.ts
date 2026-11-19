@@ -14,6 +14,7 @@ export {
   type MercadoLivreCategory,
 } from "./mercado-livre/category-ficha.ts";
 export { readMercadoLivreBuyerBilling, type BuyerBilling } from "./mercado-livre/billing.ts";
+export { readMercadoLivreAccountAddresses } from "./mercado-livre/addresses.ts";
 export {
   packageDimensionsOf,
   readMercadoLivreCommission,
@@ -28,6 +29,7 @@ export {
   type MercadoLivreLabelFile,
   type PrintedLabel,
 } from "./mercado-livre/shipping.ts";
+export { createShopeeConnector, type ShopeeConfig } from "./shopee/shopee-connector.ts";
 export {
   createTikTokShopConnector,
   getTikTokShopShippingLabel,

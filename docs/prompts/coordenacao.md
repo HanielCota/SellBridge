@@ -84,7 +84,7 @@ Vale por cima da divisão por número de item dos prompts `chat-paralelo-*.md`. 
 | **D**                             | `SellBridge-d` · `feat/client-phase-1-d` · `sellbridge_desk_d` | Conta, planos e painel: `components/billing/*`, `features/billing/*`, `routes/_app/assinatura*`, `repositories/billing*`, `webhook.server` do Stripe, `components/onboarding/*`, `routes/_app/onboarding*`, `routes/_auth/*` (telas de cadastro e login; a configuração do Better Auth é do B), `routes/_app/dashboard*`, `reports/dashboard-hero*`, `kpi-tiles*`, `attention-panel*` | 16, 31, 26, 29                                                                            |
 | **E**                             | `SellBridge-e` · `feat/client-phase-1-e` · `sellbridge_desk_e` | Admin da plataforma, suporte e avisos: `routes/_app/admin/*` (menos fornecedores), `components/admin/*`, `components/support/*`, `features/support/*`, `routes/_app/suporte/*`, `components/layout/notification-bell*`, `features/notifications/*`, `repositories/notifications*`, `support*`, `customer*`, infraestrutura do worker (`apps/worker/src/index.ts`, health, storage)    | 28 (inclui a auditoria do catálogo pendente do 08.b), 27, 25, 32                          |
 
-Itens 33–37 continuam bloqueados (decisão do cliente). Ordem sugerida dentro de cada chat: a da coluna "Itens que faltam".
+Itens 33–37 continuam bloqueados até o dono do produto (Guilherme) pedir; desde 18/11/2026 as regras de negócio são decididas por ele com a Central, não pelo cliente. Ordem sugerida dentro de cada chat: a da coluna "Itens que faltam".
 
 ### Correções de design e UX da auditoria
 

@@ -880,7 +880,7 @@ O pedido original do cliente era "liberação só com o pedido entregue, para ev
 
 - **Os dois convivem.** O Mercado Pago continua igual. O fornecedor escolhe em Recebimentos para onde vão os próximos pagamentos (`supplier_payment_choices`); sem escolha, vale a única conta que recebe, e o Mercado Pago quando as duas recebem. Pagamento já aberto ou pago termina onde começou; antes de trocar de gateway, as tentativas anteriores são lidas de volta (paga trava, aberta no Asaas é removida).
 - **Conta do fornecedor:** o SellBridge abre a subconta com a chave dele (`POST /v3/accounts`), com o aviso automático já apontado para `/api/webhooks/asaas`, e liga a proteção (`POST /v3/accounts/{id}/escrow`, 30 dias, `isFeePayer: true`). A chave da subconta fica cifrada como os tokens das lojas. Sem a proteção ligada, a conta não recebe. Os documentos vão pelo link do Asaas (`onboardingUrl`) e a conta só recebe depois de aprovada (`general: APPROVED`).
-- **Cobrança:** criada com a chave do fornecedor (ele é o emissor, então a tarifa do Asaas sai da parte dele), `externalReference` = o pagamento do envio no SellBridge, e a taxa do SellBridge no split (`fixedValue` para a carteira `ASAAS_WALLET_ID`), a mesma taxa editável do admin. O revendedor escolhe Pix, cartão à vista ou boleto na página do Asaas.
+- **Cobrança:** criada com a chave do fornecedor (ele é o emissor, então a tarifa do Asaas sai da parte dele), `externalReference` = o pagamento do envio no SellBridge, e a taxa do SellBridge no split (`fixedValue` para a carteira `ASAAS_WALLET_ID`), a mesma taxa editável do admin. O revendedor escolhe Pix, cartão à vista ou boleto na página do Asaas (desde 18/11/2026, só Pix ou cartão, escolhidos no SellBridge; ver abaixo).
 - **Pagamento em dobro:** uma cobrança por envio; o Asaas não tem chave de idempotência, então antes de abrir uma cobrança o SellBridge lista as do envio pela referência (paga é registrada e trava; aberta é reaproveitada; vencida é removida antes da nova). Uma cobrança só conta se foi aberta para aquele envio, com aquele valor e aquela taxa. A conferência a cada 5 minutos lê de volta as cobranças, e uma segunda paga vai para Problemas (`asaas.duplicate_payment`).
 - **Liberação:** 7 dias depois da primeira entrega confirmada (marketplace ou revendedor; o fornecedor não consegue marcar a própria entrega), pelo worker, com `POST /v3/escrow/{id}/finish`. O pedido é reservado no banco antes da chamada e nunca repetido; sem confirmação, só é pedido de novo depois de 1 hora e se o Asaas ainda mostrar o dinheiro guardado.
 - **Devolução:** envio cancelado, não entregue ou devolvido antes da liberação devolve o valor inteiro do dinheiro guardado (`POST /v3/payments/{id}/refund`; a taxa do split volta junto). Devolução aberta pelo revendedor pausa e vai para Problemas; contestação no cartão pausa e fica com o Asaas. Faltando 5 dias para o prazo de 30 do Asaas sem entrega confirmada, o caso vai para Problemas. Em Problemas, o admin escolhe "Devolver ao revendedor" ou "Liberar ao fornecedor"; o worker executa.
@@ -917,7 +917,7 @@ Teste de ponta a ponta com a conta de sandbox do SellBridge, por um script local
    - **Cartão:** funciona com a chave da subconta. A cobrança vira `REFUNDED` e a parte do SellBridge é cancelada junto.
    - **Boleto:** o Asaas não devolve ("Somente é possível estornar cobranças cuja a forma de pagamento seja cartão de crédito ou Pix"). O caso vai para Problemas, como previsto.
    - **Pix:** não deu para simular, porque pagar um QR Code exige permissão de saque na chave.
-   - **Em aberto:** decidir se o boleto continua como forma de pagamento.
+   - O boleto saiu das formas de pagamento no mesmo dia (abaixo).
 4. **Quando a guarda começa no cartão:** na confirmação do cartão, não 30 dias depois. A guarda vence 30 dias depois da confirmação.
 5. **Lista de documentos:** não apareceu. O sandbox aprova a subconta na hora, sem pedir documentos.
 6. **Chave da subconta:** vem na criação no sandbox. Depois do período de avaliação em produção, segue dependendo do modelo BaaS pedido ao Asaas.
@@ -926,17 +926,20 @@ Teste de ponta a ponta com a conta de sandbox do SellBridge, por um script local
    - **Liberação:** só a chave da conta principal encerra a guarda (`POST /v3/escrow/{id}/finish`); a da subconta recebe 404. A liberação agora usa a chave do SellBridge, e o worker liberou 7 dias depois da entrega.
    - **Motivo da recusa:** o registro de cobrança recusada passou a guardar o motivo que o Asaas devolve.
 
-## 2026-11-19: Fornecedor recebe só pelo SellBridge (duas chaves no admin)
+### Só Pix e cartão à vista, sem boleto (18/11/2026)
 
-O "pagamento por fora" entrou como provisório no PR #179 (10/11/2026) e o cliente nunca pediu. Guilherme, 17/11/2026: "Que quebra galho é esse po vai entrar a asaas"; plano aprovado com "Aprovo todas" (18/11) e a decisão 5 com "Vamos de C" (18/11).
+Guilherme, 18/11/2026: "Então tira o boleto e deixa so oq ele pediu". O cliente pediu "Pix e cartão" (áudio 1) e "Pix com QR Code e copia e cola" mais "cartão de crédito" (relatório de 12/11), e o Asaas não devolve boleto.
 
-- **Duas chaves em Configurações (admin), desligadas por padrão** (`platform_settings.require_receiving_account_since` e `payment_before_preparing_since`, migração 0085). Cada uma guarda quando foi ligada; desligar apaga. A segunda só liga com a primeira ligada (o banco também recusa), e as duas só ligam com o Asaas configurado no servidor.
-- **"Exigir conta de recebimento para vender":** (par da chave "Exigir conta de recebimento para aprovar", da aprovação de fornecedor novo, que só segura a aprovação de quem se cadastra sozinho) fornecedor sem conta Asaas aprovada (`status = connected` e `review_status = approved`) sai do catálogo, da lista de fornecedores, de publicar um, de publicar vários, da API e do robô de publicação. Os anúncios que já estão no ar continuam vendendo. O pedido novo desse fornecedor fica "Aguardando o fornecedor ligar a conta de recebimento": ele não aceita até a conta ser aprovada; o fornecedor recebe aviso (sino e e-mail), a equipe recebe e-mail uma vez por dia por fornecedor, e o caso entra em Problemas.
-- **"Pagamento antes de preparar" (decisão 5 = C):** o fornecedor vê "Aguardando pagamento do revendedor" e não aceita, separa, marca pronto, despacha nem imprime etiqueta em lote até o pagamento aprovado no Asaas. Os prazos de aceite e despacho dele contam a partir do pagamento; o prazo de postagem do Mercado Livre não muda, porque é do canal.
-- **Só pedidos novos:** as duas regras valem para envios criados depois de ligar a chave. Os que já estavam em andamento seguem como estavam. Cancelar e registrar ocorrência continuam livres.
-- **Textos:** sai todo "por fora". O selo "Pagamento por fora" vira "Sem conta de recebimento" ou "Pagamento pelo SellBridge não ligado" (Asaas não configurado), e cada mensagem diz o que fazer dentro do sistema.
-- **Fica para depois:** a saúde do fornecedor (aceite no prazo) ainda conta o aceite a partir do encaminhamento, mesmo com a segunda chave ligada.
-- **Descartado:** uma chave só para as duas regras (a conta pode ser exigida antes, para os fornecedores se cadastrarem, e o pagamento antes de preparar ligado depois); valer também para pedidos já em andamento (pararia pedidos pagos por fora antes da mudança).
+- **Como o Asaas restringe:**
+  - Com `billingType: UNDEFINED`, o pagador escolhe entre as formas ligadas na conta, e a página do Asaas oferece o boleto (conferido no sandbox).
+  - Com `PIX`, a página mostra só o Pix.
+  - Com `CREDIT_CARD`, mostra só o cartão. O Asaas acrescenta sozinho o cartão de débito, que também é pago à vista, e não pede parcelas quando a cobrança vai sem `installmentCount`.
+  - Fontes: "Criar nova cobrança" na documentação do Asaas e o sandbox, ambos em 18/11/2026.
+- **O que mudou:**
+  - O pedido do revendedor tem dois botões, "Pagar com Pix" (o principal) e "Pagar com cartão".
+  - A cobrança é aberta só com a forma escolhida (`SUPPLIER_PAY_METHODS` em `@sellbridge/shared/shipment-payments`).
+  - Se o revendedor voltar e escolher a outra forma, a cobrança aberta é apagada no Asaas e outra é aberta. Nunca ficam duas pagáveis.
+- **Descartado:** o Checkout do Asaas (`POST /v3/checkouts`), que aceita `billingTypes: [PIX, CREDIT_CARD]` numa página só. Ele cria a cobrança só depois do pagamento e pede itens com imagem, o que obrigaria a refazer a guarda, o split e o aviso, já conferidos no sandbox.
 
 ## 2026-11-16: Lucro real por canal (etapa 2a, comissão e frete lidos da loja)
 
@@ -976,3 +979,46 @@ A segunda parte da etapa 2: o Financeiro passa a descontar o frete que o Mercado
 - **Ordem e repetição:** o aviso é só um gatilho; o recurso é sempre relido com o token da loja. A reclamação guarda o `last_updated` do Mercado Livre e uma leitura mais antiga não sobrescreve; os avisos ao cliente usam chave por reclamação e momento, então um aviso repetido não chega duas vezes.
 - **Correção:** os avisos com subtópico trazem `id` em vez de `_id` e eram recusados com 401; o Mercado Livre repetiria por 1 hora e poderia desligar o tópico.
 - **Busca diária:** abertas de qualquer idade mais as atualizadas em 26 horas, por loja, até 200 por rodada. Cobre aviso perdido e as reclamações de pedidos vendidos antes de os tópicos serem ligados.
+
+## 2026-11-18: Endereço de compra do revendedor nunca no fornecedor (parte 1: conferência e trava)
+
+Pedido da StockShopp em 17/11/2026: revendedores põem o endereço do fornecedor na conta do Mercado Livre (para envio e devolução), fazem compras pessoais com a mesma conta e as encomendas chegam no fornecedor. Guilherme aprovou o plano e as quatro recomendações em 18/11/2026 ("Aprovo todas").
+
+- **Quando confere:** ao conectar a loja (no máximo 5 segundos de espera; a loja conecta de qualquer jeito), no botão "Já arrumei, conferir de novo" em Lojas e uma vez por dia no worker (a tarefa roda de hora em hora e pega até 200 lojas conferidas há mais de 24 horas).
+- **Regra:** compara o endereço de compra da conta com o endereço da nota fiscal de cada fornecedor da loja, por CEP, número e rua (sem acento e sem "Rua", "Av." e afins). O complemento fica de fora: "sala 2" e "casa" no mesmo número são a mesma porta para o entregador. "s/n" só bate com "s/n".
+  - **Igual ao de um fornecedor:** a loja continua vendendo, mas não publica produto novo até o revendedor arrumar. Aviso no sino e por e-mail uma vez, quando muda de certo para errado; item vermelho em "Precisa de você"; cartão vermelho em Lojas.
+  - **Igual ao endereço de envio da conta, sem bater com fornecedor:** só aviso em Lojas (decisão 2 do Guilherme). Cobre o fornecedor que não tem endereço de nota fiscal cadastrado.
+  - **Conta sem endereço de compra marcado:** aviso em Lojas, sem trava.
+  - **Mercado Livre fora do ar:** mantém o último veredito (uma queda nunca trava nem libera); loja nunca conferida fica "não conferido", sem trava.
+- **Descartado:** travar a conexão até corrigir (os endereços só podem ser lidos depois da autorização, e travar as vendas de uma loja que já vende seria pior).
+- **Privacidade:** nenhum endereço é guardado nem vai para o log; a tabela `store_buyer_address_checks` tem só o veredito, o fornecedor, quando conferiu e desde quando está errado.
+- **Ainda não:** alarme falso (revendedor no mesmo prédio do fornecedor) é liberado pela equipe na parte 3; até lá, o cartão manda falar com o suporte. Passo a passo com prints do Mercado Livre (parte 2) e regras de ouro do revendedor com advertência (parte 3) vêm em PRs seguintes. Shopee fica fora (sem conector).
+- **Testes:** nenhuma chamada real ao Mercado Livre. Respostas no formato da documentação nos testes de unidade, o substituto do Mercado Livre (`e2e/mercado-livre.fixture.ts`) no teste de navegador, e o worker dos testes de navegador recebe "não encontrado" em vez de chamar o Mercado Livre.
+
+## 2026-11-18: Regras de negócio decididas pelo dono do produto
+
+- **Decisão (Guilherme, "4 sim", chat da Central):** as decisões de negócio deixam de esperar o cliente. Quem decide é o dono do produto, com a Central; o que o cliente pede entra como informação, não como trava.
+- **O que muda:** o princípio 2 e a seção 8 de `docs/prompts/execucao-tela-a-tela.md` (a tabela D1–D11 passa a mostrar a situação de cada decisão), a nota de `docs/prompts/coordenacao.md` e o aviso no topo de `docs/prompts/fase-cliente-1.md`. As entradas antigas marcadas `PENDENTE CLIENTE` continuam como histórico.
+- **Descartado:** continuar com flags desligadas e adapters de faz de conta para cada decisão em aberto, que travava itens já decididos na prática.
+
+## 2026-11-18: Taxa do canal na venda manual
+
+A venda manual (Shopee e TikTok Shop) era gravada com a taxa do marketplace em zero, então o lucro do Financeiro e dos relatórios não descontava o que o canal fica. Guilherme escolheu a opção A em 18/11/2026 ("Aprovo todas") e aprovou o plano no mesmo dia ("Pode seguir").
+
+- **Na tela:** um campo "Taxa da Shopee (R$)" ou "Taxa do TikTok Shop (R$)", que aparece com o primeiro produto e já vem preenchido com o cálculo pela tabela do canal, com uma frase dizendo isso e pedindo para conferir no pedido. Enquanto o lojista não mexe, o valor acompanha canal, quantidades e preços; se ele digita, vale o valor dele, e um botão volta ao cálculo.
+- **O cálculo:** cada produto pela tabela do canal (`channel-fees.ts`, a mesma das prévias de preço), vezes a quantidade, somado. Shopee: comissão e valor fixo por unidade. TikTok Shop: comissão, valor fixo e o Programa de Frete por unidade.
+- **Regras:** a taxa vai de R$ 0,00 até o total da venda, e o aviso aparece ao lado do campo. Zero é aceito (o lojista digita 0).
+- **Onde grava:** `orders.marketplace_fee_cents`, a mesma coluna das vendas sincronizadas. O Financeiro, os relatórios, a página do pedido e a API pública já leem esse campo. Sem migração.
+- **Vendas manuais antigas:** ficam com a taxa zero. O valor real não é conhecido, e recalcular mudaria o lucro de meses fechados com um número que o lojista nunca viu.
+
+## 2026-11-18: Aprovação automática do fornecedor que se cadastra sozinho
+
+Decisão do Guilherme em 18/11/2026: "Vamos de C." (o fornecedor novo passa por aprovação automática, e a equipe cuida só do que falhar); ele confirmou que o admin continua podendo desativar. Plano aprovado no mesmo dia ("Pode começar").
+
+- **Quem passa:** só o fornecedor que cria a marca pelo painel (`createSupplierBrand`) nasce "em análise" (`suppliers.approval_status = 'pending'`, migration nova). Os fornecedores que já existiam e os cadastrados pela equipe ficam aprovados (padrão da coluna). Desativar, reativar e advertir continuam iguais: `active` e `approval_status` são independentes.
+- **Em análise:** o fornecedor monta a marca e os produtos, mas nenhum revendedor o vê. Toda leitura do revendedor passa por `supplierOpenToResellers()` (`repositories/sql/sellable.ts`: ativo e aprovado), usada no catálogo, na página e na lista de fornecedores, na publicação, na sincronização e na API pública. Recusado: o painel continua, mas não cadastra produtos novos.
+- **Conferência:** CNPJ ativo e razão social igual à da Receita (ignorando acentos, maiúsculas, pontuação, o tipo da empresa e o CPF que o MEI carrega no nome), e, com a chave "Exigir conta de recebimento para aprovar" ligada, a conta do Asaas aprovada. A regra pura está em `shared/domain/supplier-approval.ts`. Roda ao salvar a marca e numa rodada do worker a cada 15 minutos (até 20 fornecedores, um de cada vez).
+- **Consulta pública:** BrasilAPI (`/api/cnpj/v1/{cnpj}`), gratuita e sem chave, mantida por voluntários, sem garantia de funcionamento, com os dados abertos da Receita (atualizados uma vez por mês, então até ~30 dias de atraso). Fora do ar, lenta (6 s) ou com resposta estranha conta como "fora do ar": o fornecedor fica "consultando" e, depois de 1 hora sem resposta, vai para a fila da equipe. `CNPJ_LOOKUP_URL` só muda para o substituto dos testes (`e2e/cnpj.fixture.ts`); nenhum teste chama a consulta real.
+- **Fila da equipe:** `/admin/fornecedores/aprovacao` ("Fornecedores em análise"), aberta pelo aviso na lista de fornecedores e pelo cartão da ficha. Mostra o motivo, o CNPJ, a razão social informada e a da Receita, com Aprovar e Recusar (motivo obrigatório, que o fornecedor lê no painel). Só administradores decidem; a decisão vai para a auditoria.
+- **Conta de recebimento:** a chave fica desligada até o Asaas funcionar em produção (sem ela, nenhum fornecedor novo passaria).
+- **Descartado:** a consulta oficial do Serpro (tempo real, mas paga e com contrato; fica para quando o volume justificar), ReceitaWS e CNPJá aberto (3 a 5 consultas por minuto) e o site da Receita (captcha). Também descartado reaproveitar `active = false` para "em análise": misturaria a análise com a desativação da equipe e bloquearia o cadastro dos produtos.

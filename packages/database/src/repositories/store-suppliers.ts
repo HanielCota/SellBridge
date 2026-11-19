@@ -18,7 +18,12 @@ import {
   supplierProducts,
   suppliers,
 } from "../schema/index.ts";
-import { catalogVisibleTo, publicSupplier, supplierReceivingRuleMet } from "./sql/sellable.ts";
+import {
+  catalogVisibleTo,
+  publicSupplier,
+  supplierOpenToResellers,
+  supplierReceivingRuleMet,
+} from "./sql/sellable.ts";
 import { storeSupplierIds } from "./sql/store-supplier-match.ts";
 
 type ListingTargetStatus = (typeof listingTargets.$inferSelect)["status"];
@@ -37,7 +42,7 @@ export async function assertActiveSupplier(
   const [supplier] = await executor
     .select({ id: suppliers.id })
     .from(suppliers)
-    .where(and(eq(suppliers.id, supplierId), eq(suppliers.active, true), publicSupplier()))
+    .where(and(eq(suppliers.id, supplierId), supplierOpenToResellers(), publicSupplier()))
     .limit(1);
   if (supplier === undefined) {
     throw notFoundError("Fornecedor não encontrado ou inativo");

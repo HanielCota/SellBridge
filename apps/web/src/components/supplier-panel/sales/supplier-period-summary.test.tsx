@@ -37,7 +37,7 @@ describe("SupplierPeriodSummary", () => {
       expect(text).toMatch(/Ficaram de fora R\$\s160 no período/);
       expect(text).toContain("3 pedidos cancelados ou devolvidos");
       expect(text).not.toContain("primeiras vendas");
-      expect(text).not.toContain("a receber");
+      expect(text).not.toContain("em pedidos");
       expect(text).not.toContain("melhor dia");
     }
   });

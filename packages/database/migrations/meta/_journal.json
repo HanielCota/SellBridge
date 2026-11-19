@@ -600,8 +600,22 @@
     {
       "idx": 85,
       "version": "7",
-      "when": 1795072698968,
-      "tag": "0085_receiving_rules",
+      "when": 1795074771498,
+      "tag": "0085_store_buyer_address_checks",
+      "breakpoints": true
+    },
+    {
+      "idx": 86,
+      "version": "7",
+      "when": 1795089927066,
+      "tag": "0086_supplier_approval",
+      "breakpoints": true
+    },
+    {
+      "idx": 87,
+      "version": "7",
+      "when": 1795106718713,
+      "tag": "0087_receiving_rules",
       "breakpoints": true
     }
   ]

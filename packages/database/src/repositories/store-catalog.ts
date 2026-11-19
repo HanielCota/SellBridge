@@ -8,7 +8,12 @@ import { and, asc, eq, inArray, sql } from "drizzle-orm";
 import type { Database } from "../client.ts";
 import { categories, supplierProducts, suppliers, tenantProfile } from "../schema/index.ts";
 import { countRecentUnitsSold } from "./product-heat.ts";
-import { productListable, publicSupplier, supplierReceivingRuleMet } from "./sql/sellable.ts";
+import {
+  productListable,
+  publicSupplier,
+  supplierOpenToResellers,
+  supplierReceivingRuleMet,
+} from "./sql/sellable.ts";
 import { listStoreConnections, type StoreConnectionSummary } from "./stores.ts";
 import {
   listSellableCatalog,
@@ -59,7 +64,7 @@ async function findStarterSupplierId(database: Database, tenantId: string): Prom
       and(
         eq(suppliers.id, tenantProfile.starterSupplierId),
         publicSupplier(),
-        eq(suppliers.active, true),
+        supplierOpenToResellers(),
         supplierReceivingRuleMet(),
       ),
     )
@@ -108,7 +113,7 @@ async function listSupplierCategories(
       and(
         inArray(suppliers.id, [...supplierIds]),
         productListable(),
-        eq(suppliers.active, true),
+        supplierOpenToResellers(),
         supplierReceivingRuleMet(),
       ),
     )

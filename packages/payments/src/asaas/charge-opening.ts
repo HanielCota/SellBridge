@@ -5,6 +5,7 @@ import {
   type SupplierPaymentAccount,
 } from "@sellbridge/database/repositories";
 import { logger } from "@sellbridge/shared/logger";
+import type { SupplierPayMethod } from "@sellbridge/shared/shipment-payments";
 import { withAsaasAccount } from "./account-access.ts";
 import { chargeMatchesParcel, chargesWithMoneyTaken } from "./charge-state.ts";
 import { applyAsaasCharge } from "./charge-sync.ts";
@@ -14,7 +15,7 @@ import { AsaasError, isAsaasError } from "./http.ts";
 import { asaasDueDate } from "./money.ts";
 import type { AsaasPayment } from "./schemas.ts";
 
-/** Days the reseller has to pay a charge; boleto needs at least one business day. */
+/** Days the reseller has to pay a charge. */
 export const CHARGE_DUE_IN_DAYS = 2;
 const DAY_IN_MS = 24 * 60 * 60 * 1000;
 
@@ -79,8 +80,9 @@ async function saveCharge(
 
 /**
  * Opens the Asaas charge for a parcel just reserved, in the supplier's account, with SellBridge's
- * fee in the split; the reseller pays on Asaas's page. Asaas has no idempotency key, so the
- * parcel's charges are listed first: a paid one is recorded, an open one is reused.
+ * fee in the split; the reseller pays on Asaas's page with the method picked on SellBridge. Asaas
+ * has no idempotency key, so the parcel's charges are listed first: a paid one is recorded, an
+ * open one asking the same is reused, and one for the other method is removed.
  */
 export async function openAsaasCharge(
   context: AsaasContext,
@@ -88,6 +90,7 @@ export async function openAsaasCharge(
     account: SupplierPaymentAccount;
     payment: ShipmentPayment;
     payer: AsaasPayer;
+    payMethod: SupplierPayMethod;
     description: string;
     successUrl: string;
     now: Date;
@@ -107,11 +110,12 @@ export async function openAsaasCharge(
     const reusable = unpaid.find(
       (charge) =>
         charge.status === "PENDING" &&
+        charge.billingType === input.payMethod &&
         hasPaymentPage(charge) &&
         chargeMatchesParcel(charge, payment, context.settings.walletId),
     );
-    // Any other open charge (overdue, or not asking what the parcel asks) could still be paid:
-    // it goes before the reseller pays, never beside the one that counts.
+    // Any other open charge (overdue, for the other method, or not asking what the parcel asks)
+    // could still be paid: it goes before the reseller pays, never beside the one that counts.
     for (const stale of unpaid) {
       if (stale.id !== reusable?.id) {
         await client.deleteCharge(stale.id);
@@ -126,6 +130,7 @@ export async function openAsaasCharge(
     const charge = await createCharge(context, client, input);
     logger.info("asaas.charge_opened", {
       shipmentPaymentId: payment.id,
+      payMethod: input.payMethod,
       amountCents: payment.amountCents,
       platformFeeCents: payment.platformFeeCents,
     });
@@ -145,6 +150,7 @@ async function createCharge(
   try {
     return await client.createCharge({
       customerId: await customerId(client, input.payer),
+      payMethod: input.payMethod,
       amountCents: input.payment.amountCents,
       dueDate: asaasDueDate(input.now, CHARGE_DUE_IN_DAYS),
       description: input.description,

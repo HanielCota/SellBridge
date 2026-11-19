@@ -21,7 +21,7 @@ const HEADERS = [
   "Produto",
   "Código",
   "Quantidade",
-  "A receber",
+  "Valor vendido",
 ];
 
 function toCsvLine(line: SupplierSaleLine): string {

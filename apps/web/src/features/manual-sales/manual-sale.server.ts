@@ -69,6 +69,7 @@ export async function recordManualSale(
     externalOrderId: sale.externalOrderId,
     buyerName: sale.buyerName,
     orderedAt: new Date(),
+    marketplaceFeeCents: sale.marketplaceFeeCents,
     items,
   });
   logger.info("manual_sale.recorded", { orderId: result.orderId, channel: sale.channel });

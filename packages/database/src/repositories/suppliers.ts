@@ -33,6 +33,7 @@ import {
   productListable,
   publicSupplier,
   supplierFindable,
+  supplierOpenToResellers,
   supplierReceivingRuleMet,
 } from "./sql/sellable.ts";
 
@@ -207,7 +208,7 @@ export async function getDirectorySupplier(
     .where(
       and(
         eq(suppliers.id, supplierId),
-        eq(suppliers.active, true),
+        supplierOpenToResellers(),
         supplierReceivingRuleMet(),
         publicSupplier(),
       ),
@@ -268,7 +269,7 @@ function catalogConditions(supplierId: string, filters: CatalogFilters): SQL[] {
   const conditions: SQL[] = [eq(supplierProducts.supplierId, supplierId), productListable()];
   conditions.push(
     exists(
-      sql`(select 1 from ${suppliers} where ${and(eq(suppliers.id, supplierProducts.supplierId), eq(suppliers.active, true), supplierReceivingRuleMet(), publicSupplier())})`,
+      sql`(select 1 from ${suppliers} where ${and(eq(suppliers.id, supplierProducts.supplierId), supplierOpenToResellers(), supplierReceivingRuleMet(), publicSupplier())})`,
     ),
   );
   if (filters.search) {
@@ -351,7 +352,7 @@ export async function listSupplierCategories(
       and(
         eq(supplierProducts.supplierId, supplierId),
         productListable(),
-        eq(suppliers.active, true),
+        supplierOpenToResellers(),
         supplierReceivingRuleMet(),
         publicSupplier(),
       ),
@@ -399,7 +400,7 @@ export async function getSellableCatalogProduct(
       and(
         eq(supplierProducts.id, productId),
         productListable(),
-        eq(suppliers.active, true),
+        supplierOpenToResellers(),
         supplierReceivingRuleMet(),
         catalogVisibleTo(tenantId),
       ),
@@ -444,7 +445,7 @@ function isPublishedBy(tenantId: string): SQL {
 function sellableCatalogConditions(tenantId: string, filters: SellableCatalogFilters): SQL[] {
   const conditions: SQL[] = [
     productListable(),
-    eq(suppliers.active, true),
+    supplierOpenToResellers(),
     supplierReceivingRuleMet(),
     catalogVisibleTo(tenantId),
   ];
@@ -593,7 +594,7 @@ export async function listSellableCategories(
     .where(
       and(
         productListable(),
-        eq(suppliers.active, true),
+        supplierOpenToResellers(),
         supplierReceivingRuleMet(),
         catalogVisibleTo(tenantId),
       ),

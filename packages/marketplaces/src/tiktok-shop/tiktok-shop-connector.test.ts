@@ -210,7 +210,7 @@ describe("TikTok Shop authorization", () => {
       [`GET ${AUTH}/api/v2/token/refresh`]: () => jsonResponse(TOKEN_RESPONSE),
     });
 
-    const tokens = await connector.refreshTokens("TTP_old_refresh");
+    const tokens = await connector.refreshTokens("TTP_old_refresh", STORE);
 
     expect(calls[0]?.query.get("grant_type")).toBe("refresh_token");
     expect(calls[0]?.query.get("refresh_token")).toBe("TTP_old_refresh");

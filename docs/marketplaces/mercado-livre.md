@@ -13,6 +13,16 @@ Consultado em 2026-10-12 na documentação oficial. As referências abaixo docum
 
 - `GET /users/me` → `id`, `nickname`.
 
+## Endereços da conta (`enderecos-do-usuario`)
+
+Consultado em 2026-11-17. Serve para conferir se a conta da loja compra no endereço do fornecedor (ver `docs/decisions.md`, 2026-11-18).
+
+- `GET /users/{id}/addresses` com o token da loja; a permissão "Usuários" (padrão de todo app) basta. Sem permissão: `403 PA_UNAUTHORIZED_RESULT_FROM_POLICIES`.
+- Campos lidos: `zip_code`, `street_name`, `street_number`, `types` e `status`. O esquema descarta o resto na leitura (`contact`, `phone`, `latitude`, `longitude`, `address_line`, `floor`, `apartment`, `comment`). Nada é logado nem guardado: só o veredito.
+- `types`: `default_buying_address` (compra), `default_selling_address` (venda) e envio e cobrança, que a página em português escreve "envio" e "cobrança" e o exemplo escreve `shipping`; as duas grafias são aceitas. Um endereço pode ter nenhum, um ou vários tipos. `status: "inactive"` é ignorado.
+- A página só mostra leitura: o endereço é sempre corrigido pelo revendedor, dentro do Mercado Livre.
+- **[teste real]** Confirmar com uma conta de verdade: se a resposta é uma lista (o exemplo mostra um objeto só; os dois são aceitos), as grafias de envio e cobrança, o que vem quando a conta não marcou endereço de compra e o `status` de um endereço apagado.
+
 ## Publicação (`publicacao-de-produtos`, `categorizacao-de-produtos`, `descricao-de-produtos`)
 
 - `POST /items` com `title`, `category_id`, `price`, `currency_id`, `available_quantity`, `buying_mode: "buy_it_now"`, `condition`, `listing_type_id`, `pictures: [{ source }]`, `attributes`.

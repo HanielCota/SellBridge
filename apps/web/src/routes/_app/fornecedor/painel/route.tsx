@@ -4,6 +4,7 @@ import { SupplierOffBanner } from "@/components/supplier-panel/supplier-off-bann
 import { StoreClosedBanner } from "@/components/supplier-panel/store/store-closed-banner";
 import { ReceivingAccountBanner } from "@/components/supplier-panel/receiving-account-banner";
 import { getOwnSupplierFn } from "@/features/supplier-panel/panel.functions";
+import { SupplierApprovalBanner } from "@/components/supplier-approval/supplier-approval-banner";
 
 const RECEIVING_PATH = "/fornecedor/painel/recebimentos";
 
@@ -26,10 +27,19 @@ export const Route = createFileRoute("/_app/fornecedor/painel")({
  * already redirecting, or the data is refreshing right after the brand was saved).
  */
 function SupplierPanelLayout() {
-  const { supplier } = Route.useLoaderData();
+  const { supplier, approval } = Route.useLoaderData();
   const pathname = useRouterState({ select: (state) => state.location.pathname });
   if (supplier === null && pathname !== SUPPLIER_BRAND_PATH) {
     return null;
+  }
+  // Not approved yet (or refused): resellers see nothing, so this outranks the other banners.
+  if (approval !== null && approval.status !== "approved") {
+    return (
+      <div className="space-y-6">
+        <SupplierApprovalBanner approval={approval} />
+        <Outlet />
+      </div>
+    );
   }
   if (supplier !== null && !supplier.active) {
     return (

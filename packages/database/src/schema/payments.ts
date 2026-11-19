@@ -255,6 +255,11 @@ export const platformSettings = pgTable(
     newSupplierProtection: boolean().notNull().default(false),
     newSupplierDeliveries: integer().notNull().default(5),
     /**
+     * While on, a supplier who signs up alone is approved only with an approved receiving
+     * account. Off until Asaas runs in production (Guilherme, 18/11/2026).
+     */
+    requireReceivingAccountForApproval: boolean().notNull().default(false),
+    /**
      * Since when a supplier needs an approved Asaas account to sell; null while the rule is off
      * (Guilherme, 18/11/2026). Parcels forwarded before it keep moving as they were.
      */
