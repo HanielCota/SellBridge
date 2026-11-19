@@ -3,11 +3,13 @@ import { sql } from "drizzle-orm";
 import {
   boolean,
   check,
+  foreignKey,
   index,
   integer,
   jsonb,
   pgEnum,
   pgTable,
+  primaryKey,
   text,
   timestamp,
   uniqueIndex,
@@ -105,6 +107,84 @@ export const supplierProductReviewStatusEnum = pgEnum(
   PRODUCT_REVIEW_STATUSES,
 );
 
+/**
+ * A product sold in a grid of colours and sizes (decision 2026-11-18). It owns what every
+ * combination shares; each combination is a `supplier_products` row (the unit that carries the
+ * SKU, stock, reservations, orders and invoices), whose shared columns are rewritten from here.
+ */
+export const productModels = pgTable(
+  "product_models",
+  {
+    id: uuid().primaryKey().defaultRandom(),
+    supplierId: uuid()
+      .notNull()
+      .references(() => suppliers.id, { onDelete: "cascade" }),
+    categoryId: uuid().references(() => categories.id, { onDelete: "set null" }),
+    title: text().notNull(),
+    description: text().notNull().default(""),
+    /** Photos for combinations whose colour has none of its own. */
+    imageUrls: text()
+      .array()
+      .notNull()
+      .default(sql`'{}'::text[]`),
+    /** Attributes every combination shares (brand, model, gender); never GTIN. */
+    mercadoLivreAttributes: jsonb().$type<Record<string, string>>().notNull().default({}),
+    mercadoLivreCategoryId: text(),
+    mercadoLivreCategoryName: text(),
+    warrantyType: text().$type<WarrantyType>(),
+    warrantyDays: integer(),
+    videoUrl: text(),
+    madeToOrderDays: integer(),
+    carrierOnly: boolean().notNull().default(false),
+    /** Fiscal fields every combination inherits unless it overrides them. */
+    fiscal: jsonb().$type<ProductFiscalPatch>().notNull().default({}),
+    createdAt: timestamp({ withTimezone: true }).defaultNow().notNull(),
+    updatedAt: timestamp({ withTimezone: true })
+      .defaultNow()
+      .$onUpdate(() => new Date())
+      .notNull(),
+  },
+  (table) => [
+    index("product_models_supplier_idx").on(table.supplierId),
+    /** Lets a combination's foreign key also prove it belongs to the model's supplier. */
+    uniqueIndex("product_models_id_supplier_idx").on(table.id, table.supplierId),
+    check(
+      "product_models_sale_terms_check",
+      sql`(${table.warrantyType} is null or ${table.warrantyType} in ('none', 'seller', 'factory')) and (${table.warrantyDays} is null or ${table.warrantyDays} between 1 and 3650) and (${table.madeToOrderDays} is null or ${table.madeToOrderDays} between 1 and 60)`,
+    ),
+  ],
+);
+
+/** A model's colours in the order the buyer sees them, each with its own photos. */
+export const productModelColors = pgTable(
+  "product_model_colors",
+  {
+    modelId: uuid()
+      .notNull()
+      .references(() => productModels.id, { onDelete: "cascade" }),
+    name: text().notNull(),
+    position: integer().notNull(),
+    imageUrls: text()
+      .array()
+      .notNull()
+      .default(sql`'{}'::text[]`),
+  },
+  (table) => [primaryKey({ columns: [table.modelId, table.name] })],
+);
+
+/** A model's sizes in the order the buyer sees them. */
+export const productModelSizes = pgTable(
+  "product_model_sizes",
+  {
+    modelId: uuid()
+      .notNull()
+      .references(() => productModels.id, { onDelete: "cascade" }),
+    name: text().notNull(),
+    position: integer().notNull(),
+  },
+  (table) => [primaryKey({ columns: [table.modelId, table.name] })],
+);
+
 export const supplierProducts = pgTable(
   "supplier_products",
   {
@@ -112,6 +192,14 @@ export const supplierProducts = pgTable(
     supplierId: uuid()
       .notNull()
       .references(() => suppliers.id, { onDelete: "cascade" }),
+    /** The grid this row is a combination of; null for a product without colours or sizes. */
+    modelId: uuid(),
+    color: text(),
+    size: text(),
+    /** This combination's own Mercado Livre attributes (GTIN), laid over the model's. */
+    variantAttributes: jsonb().$type<Record<string, string>>().notNull().default({}),
+    /** This combination's own fiscal fields (weight), laid over the model's. */
+    variantFiscal: jsonb().$type<ProductFiscalPatch>().notNull().default({}),
     categoryId: uuid().references(() => categories.id, { onDelete: "set null" }),
     sku: text().notNull(),
     title: text().notNull(),
@@ -187,6 +275,33 @@ export const supplierProducts = pgTable(
       sql`sellbridge_fold(${table.sku}) gin_trgm_ops`,
     ),
     check("supplier_products_reserved_stock_check", sql`${table.reservedStock} >= 0`),
+    foreignKey({
+      name: "supplier_products_model_fk",
+      columns: [table.modelId, table.supplierId],
+      foreignColumns: [productModels.id, productModels.supplierId],
+    }).onDelete("no action"),
+    foreignKey({
+      name: "supplier_products_model_color_fk",
+      columns: [table.modelId, table.color],
+      foreignColumns: [productModelColors.modelId, productModelColors.name],
+    })
+      .onUpdate("cascade")
+      .onDelete("no action"),
+    foreignKey({
+      name: "supplier_products_model_size_fk",
+      columns: [table.modelId, table.size],
+      foreignColumns: [productModelSizes.modelId, productModelSizes.name],
+    })
+      .onUpdate("cascade")
+      .onDelete("no action"),
+    /** One row per colour and size of a model (a grid may have only colours or only sizes). */
+    uniqueIndex("supplier_products_model_combination_idx")
+      .on(table.modelId, sql`coalesce(${table.color}, '')`, sql`coalesce(${table.size}, '')`)
+      .where(sql`${table.modelId} is not null`),
+    check(
+      "supplier_products_model_combination_check",
+      sql`(${table.modelId} is null and ${table.color} is null and ${table.size} is null and ${table.variantAttributes} = '{}'::jsonb and ${table.variantFiscal} = '{}'::jsonb) or (${table.modelId} is not null and (${table.color} is not null or ${table.size} is not null))`,
+    ),
     check(
       "supplier_products_sale_terms_check",
       sql`(${table.warrantyType} is null or ${table.warrantyType} in ('none', 'seller', 'factory')) and (${table.warrantyDays} is null or ${table.warrantyDays} between 1 and 3650) and (${table.madeToOrderDays} is null or ${table.madeToOrderDays} between 1 and 60)`,

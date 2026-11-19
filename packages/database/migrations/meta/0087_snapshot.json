@@ -1,5 +1,5 @@
 {
-  "id": "5fb0ab2e-c519-47d2-a67a-27d4975b61c8",
+  "id": "d1ba1a9b-5894-458c-adc9-c57a27b51578",
   "prevId": "897618bc-edbc-4e83-b694-c1887767d41e",
   "version": "7",
   "dialect": "postgresql",
@@ -6774,108 +6774,6 @@
       "checkConstraints": {},
       "isRLSEnabled": false
     },
-    "public.return_claim_photos": {
-      "name": "return_claim_photos",
-      "schema": "",
-      "columns": {
-        "id": {
-          "name": "id",
-          "type": "uuid",
-          "primaryKey": true,
-          "notNull": true,
-          "default": "gen_random_uuid()"
-        },
-        "claim_id": {
-          "name": "claim_id",
-          "type": "uuid",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "side": {
-          "name": "side",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "storage_key": {
-          "name": "storage_key",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "file_name": {
-          "name": "file_name",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "mime_type": {
-          "name": "mime_type",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "size_bytes": {
-          "name": "size_bytes",
-          "type": "integer",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "created_at": {
-          "name": "created_at",
-          "type": "timestamp with time zone",
-          "primaryKey": false,
-          "notNull": true,
-          "default": "now()"
-        }
-      },
-      "indexes": {
-        "return_claim_photos_claim_idx": {
-          "name": "return_claim_photos_claim_idx",
-          "columns": [
-            {
-              "expression": "claim_id",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            }
-          ],
-          "isUnique": false,
-          "concurrently": false,
-          "method": "btree",
-          "with": {}
-        }
-      },
-      "foreignKeys": {
-        "return_claim_photos_claim_id_return_claims_id_fk": {
-          "name": "return_claim_photos_claim_id_return_claims_id_fk",
-          "tableFrom": "return_claim_photos",
-          "tableTo": "return_claims",
-          "columnsFrom": [
-            "claim_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
-          "onDelete": "cascade",
-          "onUpdate": "no action"
-        }
-      },
-      "compositePrimaryKeys": {},
-      "uniqueConstraints": {},
-      "policies": {},
-      "checkConstraints": {
-        "return_claim_photos_side_check": {
-          "name": "return_claim_photos_side_check",
-          "value": "\"return_claim_photos\".\"side\" in ('seller','supplier')"
-        },
-        "return_claim_photos_size_check": {
-          "name": "return_claim_photos_size_check",
-          "value": "\"return_claim_photos\".\"size_bytes\" >= 0"
-        }
-      },
-      "isRLSEnabled": false
-    },
     "public.return_claims": {
       "name": "return_claims",
       "schema": "",
@@ -6960,138 +6858,6 @@
           "primaryKey": false,
           "notNull": true,
           "default": "now()"
-        },
-        "policy_step": {
-          "name": "policy_step",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "destination": {
-          "name": "destination",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "reason": {
-          "name": "reason",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "reason_note": {
-          "name": "reason_note",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "return_shipping_cents": {
-          "name": "return_shipping_cents",
-          "type": "integer",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "reason_stated_at": {
-          "name": "reason_stated_at",
-          "type": "timestamp with time zone",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "arrived_at": {
-          "name": "arrived_at",
-          "type": "timestamp with time zone",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "forward_due_at": {
-          "name": "forward_due_at",
-          "type": "timestamp with time zone",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "forwarded_at": {
-          "name": "forwarded_at",
-          "type": "timestamp with time zone",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "forward_tracking_code": {
-          "name": "forward_tracking_code",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "supplier_received_at": {
-          "name": "supplier_received_at",
-          "type": "timestamp with time zone",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "marketplace_due_at": {
-          "name": "marketplace_due_at",
-          "type": "timestamp with time zone",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "supplier_due_at": {
-          "name": "supplier_due_at",
-          "type": "timestamp with time zone",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "supplier_verdict": {
-          "name": "supplier_verdict",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "supplier_condition": {
-          "name": "supplier_condition",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "supplier_resellable": {
-          "name": "supplier_resellable",
-          "type": "boolean",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "supplier_answered_at": {
-          "name": "supplier_answered_at",
-          "type": "timestamp with time zone",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "close_reason": {
-          "name": "close_reason",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "closed_at": {
-          "name": "closed_at",
-          "type": "timestamp with time zone",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "supplier_owes_shipping_cents": {
-          "name": "supplier_owes_shipping_cents",
-          "type": "integer",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "restock_item_ids": {
-          "name": "restock_item_ids",
-          "type": "uuid[]",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "stock_returned_at": {
-          "name": "stock_returned_at",
-          "type": "timestamp with time zone",
-          "primaryKey": false,
-          "notNull": false
         }
       },
       "indexes": {
@@ -7106,21 +6872,6 @@
             }
           ],
           "isUnique": true,
-          "concurrently": false,
-          "method": "btree",
-          "with": {}
-        },
-        "return_claims_policy_step_idx": {
-          "name": "return_claims_policy_step_idx",
-          "columns": [
-            {
-              "expression": "policy_step",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            }
-          ],
-          "isUnique": false,
           "concurrently": false,
           "method": "btree",
           "with": {}
@@ -7253,30 +7004,6 @@
         "return_claims_credit_check": {
           "name": "return_claims_credit_check",
           "value": "\"return_claims\".\"supplier_cost_cents\" >= 0 and (\"return_claims\".\"credited_cents\" is null or \"return_claims\".\"credited_cents\" between 1 and \"return_claims\".\"supplier_cost_cents\")"
-        },
-        "return_claims_policy_step_check": {
-          "name": "return_claims_policy_step_check",
-          "value": "\"return_claims\".\"policy_step\" is null or \"return_claims\".\"policy_step\" in ('awaiting_supplier','awaiting_forward','forwarded','disputed','closed')"
-        },
-        "return_claims_destination_check": {
-          "name": "return_claims_destination_check",
-          "value": "\"return_claims\".\"destination\" is null or \"return_claims\".\"destination\" in ('supplier','seller')"
-        },
-        "return_claims_reason_check": {
-          "name": "return_claims_reason_check",
-          "value": "\"return_claims\".\"reason\" is null or \"return_claims\".\"reason\" in ('defect','damaged','wrong_item','regret','not_delivered')"
-        },
-        "return_claims_verdict_check": {
-          "name": "return_claims_verdict_check",
-          "value": "\"return_claims\".\"supplier_verdict\" is null or \"return_claims\".\"supplier_verdict\" in ('as_described','not_as_described','not_received')"
-        },
-        "return_claims_close_reason_check": {
-          "name": "return_claims_close_reason_check",
-          "value": "\"return_claims\".\"close_reason\" is null or \"return_claims\".\"close_reason\" in ('supplier_agreed','supplier_silent','team_decided','not_forwarded')"
-        },
-        "return_claims_shipping_check": {
-          "name": "return_claims_shipping_check",
-          "value": "(\"return_claims\".\"return_shipping_cents\" is null or \"return_claims\".\"return_shipping_cents\" >= 0) and (\"return_claims\".\"supplier_owes_shipping_cents\" is null or \"return_claims\".\"supplier_owes_shipping_cents\" >= 0)"
         }
       },
       "isRLSEnabled": false
@@ -7759,6 +7486,191 @@
       },
       "isRLSEnabled": false
     },
+    "public.shipment_reseller_invoices": {
+      "name": "shipment_reseller_invoices",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "shipment_id": {
+          "name": "shipment_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "tenant_id": {
+          "name": "tenant_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "access_key": {
+          "name": "access_key",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "number": {
+          "name": "number",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "series": {
+          "name": "series",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "issued_at": {
+          "name": "issued_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "source": {
+          "name": "source",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "found_at": {
+          "name": "found_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "problem": {
+          "name": "problem",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "checks": {
+          "name": "checks",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "default": 0
+        },
+        "next_check_at": {
+          "name": "next_check_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "updated_at": {
+          "name": "updated_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {
+        "shipment_reseller_invoices_shipment_idx": {
+          "name": "shipment_reseller_invoices_shipment_idx",
+          "columns": [
+            {
+              "expression": "shipment_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": true,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "shipment_reseller_invoices_due_idx": {
+          "name": "shipment_reseller_invoices_due_idx",
+          "columns": [
+            {
+              "expression": "next_check_at",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "where": "\"shipment_reseller_invoices\".\"access_key\" is null",
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "shipment_reseller_invoices_tenant_idx": {
+          "name": "shipment_reseller_invoices_tenant_idx",
+          "columns": [
+            {
+              "expression": "tenant_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {
+        "shipment_reseller_invoices_shipment_id_order_shipments_id_fk": {
+          "name": "shipment_reseller_invoices_shipment_id_order_shipments_id_fk",
+          "tableFrom": "shipment_reseller_invoices",
+          "tableTo": "order_shipments",
+          "columnsFrom": [
+            "shipment_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        },
+        "shipment_reseller_invoices_tenant_id_organization_id_fk": {
+          "name": "shipment_reseller_invoices_tenant_id_organization_id_fk",
+          "tableFrom": "shipment_reseller_invoices",
+          "tableTo": "organization",
+          "columnsFrom": [
+            "tenant_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {
+        "shipment_reseller_invoices_source_check": {
+          "name": "shipment_reseller_invoices_source_check",
+          "value": "\"shipment_reseller_invoices\".\"source\" is null or \"shipment_reseller_invoices\".\"source\" in ('marketplace', 'typed')"
+        },
+        "shipment_reseller_invoices_found_check": {
+          "name": "shipment_reseller_invoices_found_check",
+          "value": "(\"shipment_reseller_invoices\".\"access_key\" is null) = (\"shipment_reseller_invoices\".\"source\" is null)"
+        }
+      },
+      "isRLSEnabled": false
+    },
     "public.supplier_erp_connections": {
       "name": "supplier_erp_connections",
       "schema": "",
@@ -8047,13 +7959,6 @@
           "notNull": true,
           "default": false
         },
-        "return_answer_business_days": {
-          "name": "return_answer_business_days",
-          "type": "integer",
-          "primaryKey": false,
-          "notNull": true,
-          "default": 3
-        },
         "updated_by_user_id": {
           "name": "updated_by_user_id",
           "type": "text",
@@ -8099,10 +8004,6 @@
         "platform_settings_payment_fee_check": {
           "name": "platform_settings_payment_fee_check",
           "value": "\"platform_settings\".\"payment_fee_basis_points\" is null or (\"platform_settings\".\"payment_fee_basis_points\" >= 0 and \"platform_settings\".\"payment_fee_basis_points\" <= 3000)"
-        },
-        "platform_settings_return_answer_days_check": {
-          "name": "platform_settings_return_answer_days_check",
-          "value": "\"platform_settings\".\"return_answer_business_days\" between 1 and 5"
         }
       },
       "isRLSEnabled": false

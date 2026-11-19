@@ -12,7 +12,7 @@ const LauncherIcon = ACTION_ICONS.supportChat.icon;
 /**
  * The bubble in the corner of every page: it opens the guided new-ticket form, on the money
  * topic from the money pages. It used to hold a free-text chat that skipped the topic and
- * situation, so those tickets reached the team as "Outro tema" with no priority worked out. It
+ * situation, so those tickets reached the team as "Outro assunto" with no priority worked out. It
  * stays round (board 4, approved on 2026-10-25): its spelled-out label covered "Operar pedido"
  * and "Avaliar"; the name is in the hint and for screen readers, and every page ends with room
  * for it (the bottom padding of `main`).

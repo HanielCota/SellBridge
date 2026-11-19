@@ -1,7 +1,7 @@
 import { WarningIcon } from "@phosphor-icons/react";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import type { LabelFormat } from "@sellbridge/shared/schemas";
-import { type ReactNode, useRef } from "react";
+import { type ReactNode, useEffect, useRef } from "react";
 import { formatCents } from "@sellbridge/shared/money";
 import { DISPATCHED_FULFILLMENT_STATUSES } from "@sellbridge/shared/schemas";
 import {
@@ -25,10 +25,15 @@ import {
 import { Skeleton } from "@/components/ui/skeleton";
 import { isShippingBlocked } from "@/features/fulfillment/shipping-block";
 import { displayBuyerName } from "@/features/orders/buyer-name";
-import { channelLabel, channelSource } from "@/features/supplier-panel/orders/channel-labels";
+import { channelDispatch } from "@/features/supplier-panel/orders/channel-dispatch";
+import { channelLabel } from "@/features/supplier-panel/orders/channel-labels";
 import { dispatchInvoiceReminder } from "@/features/supplier-panel/orders/dispatch-invoice-reminder";
 import { orderSteps } from "@/features/supplier-panel/orders/order-steps";
-import { supplierPanelShipmentQueryOptions } from "@/features/supplier-panel/orders/orders.queries";
+import { refreshAfterLabel } from "@/features/supplier-panel/orders/label-refresh";
+import {
+  supplierOrdersKey,
+  supplierPanelShipmentQueryOptions,
+} from "@/features/supplier-panel/orders/orders.queries";
 import { useSupplierShipmentUpdate } from "@/features/supplier-panel/orders/use-order-actions";
 import { errorMessage } from "@/lib/errors";
 import { useTabProfileLink } from "@/lib/tab-profile";
@@ -156,6 +161,17 @@ function OrderFacts({ shipment }: { shipment: PanelShipment }) {
   );
 }
 
+/** After a label request: the open order and the list leave "Etiqueta pendente" on their own. */
+function useRefreshAfterLabel(supplierId: string) {
+  const queryClient = useQueryClient();
+  const cancelRef = useRef<(() => void) | null>(null);
+  useEffect(() => () => cancelRef.current?.(), []);
+  return () => {
+    cancelRef.current?.();
+    cancelRef.current = refreshAfterLabel(queryClient, supplierOrdersKey(supplierId));
+  };
+}
+
 const LABEL_BUTTON_CLASS = "h-auto min-h-9 max-w-full py-1.5 whitespace-normal";
 
 /**
@@ -178,6 +194,7 @@ function MarketplaceLabelForm({
   pdfOnly: boolean;
 }) {
   const withProfile = useTabProfileLink();
+  const refreshAfterPrint = useRefreshAfterLabel(supplierId);
   const buttonText = printed
     ? "Reimprimir etiqueta do marketplace"
     : "Imprimir etiqueta do marketplace";
@@ -197,6 +214,7 @@ function MarketplaceLabelForm({
       action={withProfile(`/api/pedidos/${orderId}/etiqueta`)}
       target="_blank"
       rel="noopener noreferrer"
+      onSubmit={refreshAfterPrint}
     >
       <input type="hidden" name="supplierId" value={supplierId} />
       <input type="hidden" name="shipmentId" value={shipmentId} />
@@ -230,6 +248,17 @@ function DispatchInvoiceAlert({ shipment }: { shipment: PanelShipment }) {
   );
 }
 
+/** Before dispatch only the marketplace writes the tracking: people type it when shipping. */
+function dispatchFromChannel(shipment: PanelShipment, dispatched: boolean) {
+  return channelDispatch({
+    marketplace: shipment.marketplace,
+    carrier: shipment.carrier,
+    trackingCode: shipment.trackingCode,
+    dispatched,
+    labelFromChannel: isLabelMarketplace(shipment.marketplace) && !shipment.splitOrder,
+  });
+}
+
 /** The opened parcel: the same shipment panel the supplier link shows, acting as the supplier. */
 function PanelBody({ supplierId, shipmentId }: { supplierId: string; shipmentId: string }) {
   const query = useQuery(supplierPanelShipmentQueryOptions(supplierId, shipmentId));
@@ -247,9 +276,7 @@ function PanelBody({ supplierId, shipmentId }: { supplierId: string; shipmentId:
   }
   const blocked = isShippingBlocked(query.data.orderStatus);
   const tracked = DISPATCHED_FULFILLMENT_STATUSES.includes(query.data.status);
-  // Before dispatch only the marketplace writes the tracking: people type it when shipping.
-  const trackingFromChannel =
-    tracked || query.data.trackingCode === null ? null : channelSource(query.data.marketplace);
+  const fromChannel = dispatchFromChannel(query.data, tracked);
   return (
     <div className="space-y-4">
       <OrderFacts shipment={query.data} />
@@ -270,7 +297,7 @@ function PanelBody({ supplierId, shipmentId }: { supplierId: string; shipmentId:
       {query.data.splitOrder ? <SplitLabelNotice /> : null}
       {tracked ? <SupplierParcelTracking supplierId={supplierId} shipmentId={shipmentId} /> : null}
       <ShipmentPanel
-        shipment={{ ...query.data, trackingFromChannel }}
+        shipment={{ ...query.data, ...fromChannel }}
         externalOrderId={query.data.externalOrderId}
         actsAs="supplier"
         blocked={blocked}
