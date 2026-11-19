@@ -197,6 +197,7 @@ function fulfillmentItems(database: Database, tenantId: string, orderId: string)
       supplierId: suppliers.id,
       supplierName: suppliers.name,
       catalogKind: suppliers.catalogKind,
+      supplierActive: suppliers.active,
       sku: supplierProducts.sku,
     })
     .from(orderItems)
