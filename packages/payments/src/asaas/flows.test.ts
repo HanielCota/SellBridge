@@ -58,11 +58,14 @@ const NOW = new Date("2026-12-10T12:00:00Z");
 
 type Reply = { status: number; body: unknown };
 const requests: { method: string; path: string; body: unknown }[] = [];
+/** The key each request was sent with, in order. */
+const requestKeys: (string | null)[] = [];
 let replies: Reply[] = [];
 
 async function fakeAsaas(url: string, init: RequestInit = {}): Promise<Response> {
   const body = typeof init.body === "string" ? JSON.parse(init.body) : null;
   requests.push({ method: init.method ?? "GET", path: new URL(url).pathname, body });
+  requestKeys.push(new Headers(init.headers).get("access_token"));
   const reply = replies.shift() ?? { status: 500, body: {} };
   return new Response(JSON.stringify(reply.body), {
     status: reply.status,
@@ -165,6 +168,7 @@ function charge(overrides: Partial<AsaasPayment> = {}): AsaasPayment {
 
 beforeEach(() => {
   requests.length = 0;
+  requestKeys.length = 0;
   replies = [];
   for (const mock of Object.values(mocks)) {
     mock.mockReset();
@@ -187,6 +191,7 @@ describe("settleHeldPayment", () => {
 
     expect(outcome).toEqual({ kind: "released" });
     expect(requests).toEqual([{ method: "POST", path: "/v3/escrow/esc_1/finish", body: null }]);
+    expect(requestKeys).toEqual(["platform-key"]);
     expect(mocks.markReleased).toHaveBeenCalledWith(context.database, {
       paymentId: PAYMENT_ID,
       now: NOW,
@@ -529,6 +534,7 @@ describe("openAsaasCharge", () => {
     account,
     payment: parcel({ status: "pending", providerPaymentId: null, preferenceId: null }),
     payer,
+    payMethod: "PIX" as const,
     description: "Pedido 1",
     successUrl: "https://sellbridge.test/pedidos/1",
     now: NOW,
@@ -546,6 +552,36 @@ describe("openAsaasCharge", () => {
 
     expect(result).toEqual({ kind: "opened", checkoutUrl: "https://asaas.test/i/1" });
     expect(requests.map((request) => request.method)).toEqual(["GET"]);
+  });
+
+  test("replaces the open Pix charge with a card one when the reseller switches to card", async () => {
+    replies = [
+      {
+        status: 200,
+        body: { hasMore: false, data: [charge({ status: "PENDING", escrow: null })] },
+      },
+      { status: 200, body: { deleted: true, id: "pay_1" } },
+      { status: 200, body: { data: [{ id: "cus_1" }] } },
+      {
+        status: 200,
+        body: charge({
+          id: "pay_new",
+          status: "PENDING",
+          escrow: null,
+          billingType: "CREDIT_CARD",
+        }),
+      },
+    ];
+
+    await openAsaasCharge(context, { ...opening, payMethod: "CREDIT_CARD" });
+
+    expect(requests.map((request) => `${request.method} ${request.path}`)).toEqual([
+      "GET /v3/payments",
+      "DELETE /v3/payments/pay_1",
+      "GET /v3/customers",
+      "POST /v3/payments",
+    ]);
+    expect(requests.at(-1)?.body).toMatchObject({ billingType: "CREDIT_CARD" });
   });
 
   test("replaces an open charge that no longer asks what the parcel asks", async () => {

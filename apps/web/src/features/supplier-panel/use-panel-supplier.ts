@@ -25,3 +25,12 @@ export function usePanelStoreClosed(): boolean {
   const { supplier } = panelRoute.useLoaderData();
   return supplier?.salesClosedAt != null;
 }
+
+/**
+ * Whether resellers see the panel's supplier: false while its sign-up is under review or after
+ * the team refused it, so no screen promises "já aparece para os revendedores" before it does.
+ */
+export function usePanelSupplierApproved(): boolean {
+  const { approval } = panelRoute.useLoaderData();
+  return approval === null || approval.status === "approved";
+}

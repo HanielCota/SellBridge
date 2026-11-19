@@ -2,9 +2,11 @@ import type {
   NotificationEvent,
   NotificationKind,
   SaleProduct,
+  StoreProblemEvent,
 } from "@sellbridge/database/repositories";
 import { unavailableBellLine } from "@sellbridge/shared/catalog-availability";
 import { formatCents } from "@sellbridge/shared/money";
+import { formatClaimDate } from "@/features/marketplace-claims/claim-view";
 import type { NotificationFeed } from "./notification-feed";
 
 export type { NotificationKind };
@@ -151,6 +153,55 @@ function invoiceStopped(event: Extract<NotificationEvent, { kind: "invoice_stopp
   };
 }
 
+/**
+ * A buyer's claim still open: the reseller is told what to do and until when; the supplier
+ * only follows it, from its own orders.
+ */
+function marketplaceClaim(event: Extract<NotificationEvent, { kind: "marketplace_claim" }>) {
+  const mediation = event.stage === "dispute";
+  const title = mediation
+    ? `Reclamação do pedido #${event.externalOrderId} em mediação do Mercado Livre`
+    : `Reclamação aberta no pedido #${event.externalOrderId}`;
+  if (event.reader === "supplier") {
+    const search = new URLSearchParams({ tab: event.supplierTab, query: event.externalOrderId });
+    return {
+      id: `claim:${event.claimId}:${event.stage}`,
+      title,
+      detail: "O revendedor responde ao comprador. Veja o motivo no pedido.",
+      href: `/fornecedor/painel/pedidos?${search.toString()}`,
+    };
+  }
+  const deadline = event.actionDueAt === null ? "" : ` até ${formatClaimDate(event.actionDueAt)}`;
+  const detail =
+    event.actionResponsible === "seller"
+      ? `Responda no Mercado Livre${deadline}.`
+      : "Acompanhe no pedido o que falta e quem precisa agir.";
+  return {
+    id: `claim:${event.claimId}:${event.stage}`,
+    title,
+    detail,
+    href: `/pedidos/${event.entityId}`,
+  };
+}
+
+/** Lost access stops the store; a supplier's purchase address only holds new products. */
+function storeProblem(event: StoreProblemEvent) {
+  if (event.problem === "buyer_address") {
+    return {
+      id: `store-address:${event.entityId}:${event.at.getTime()}`,
+      title: `${event.storeName}: compras indo para o fornecedor`,
+      detail: "Troque o endereço de compra no Mercado Livre para voltar a publicar.",
+      href: "/lojas",
+    };
+  }
+  return {
+    id: `store:${event.entityId}:${event.at.getTime()}`,
+    title: `${event.storeName} precisa ser reconectada`,
+    detail: "Pedidos e estoque estão parados nesta loja.",
+    href: "/lojas",
+  };
+}
+
 /** Wording and destination of each kind of event, in the reseller's language. */
 export function presentNotification(event: NotificationEvent): AppNotification {
   const base = { kind: event.kind, at: event.at };
@@ -175,13 +226,7 @@ export function presentNotification(event: NotificationEvent): AppNotification {
         href: "/publicacoes?status=error",
       };
     case "store_problem":
-      return {
-        ...base,
-        id: `store:${event.entityId}:${event.at.getTime()}`,
-        title: `${event.storeName} precisa ser reconectada`,
-        detail: "Pedidos e estoque estão parados nesta loja.",
-        href: "/lojas",
-      };
+      return { ...base, ...storeProblem(event) };
     case "stock_shortage":
     case "shipment_cancelled":
       return { ...base, ...orderProblem(event) };
@@ -197,6 +242,8 @@ export function presentNotification(event: NotificationEvent): AppNotification {
       return { ...base, ...invoiceStopped(event) };
     case "review_pending":
       return { ...base, ...reviewPending(event) };
+    case "marketplace_claim":
+      return { ...base, ...marketplaceClaim(event) };
   }
   return {
     ...base,

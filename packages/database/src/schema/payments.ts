@@ -254,6 +254,11 @@ export const platformSettings = pgTable(
      */
     newSupplierProtection: boolean().notNull().default(false),
     newSupplierDeliveries: integer().notNull().default(5),
+    /**
+     * While on, a supplier who signs up alone is approved only with an approved receiving
+     * account. Off until Asaas runs in production (Guilherme, 18/11/2026).
+     */
+    requireReceivingAccountForApproval: boolean().notNull().default(false),
     /** Business days a supplier has to check a returned product when the marketplace gives no date. */
     returnAnswerBusinessDays: integer().notNull().default(3),
     updatedByUserId: text().references(() => user.id, { onDelete: "set null" }),

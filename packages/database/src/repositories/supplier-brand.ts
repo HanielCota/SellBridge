@@ -10,6 +10,7 @@ import { eq } from "drizzle-orm";
 import type { Database, DatabaseExecutor } from "../client.ts";
 import { isUniqueViolation } from "../postgres-errors.ts";
 import { suppliers } from "../schema/index.ts";
+import { startSupplierApproval } from "./supplier-approval.ts";
 
 /** One supplier per supplier profile (migration 0041). */
 const PROFILE_SUPPLIER_INDEX = "suppliers_organization_id_unique";
@@ -73,19 +74,30 @@ export async function getSupplierBrand(
   return { ...found, fiscalProfile: readSupplierFiscalProfile(found.fiscalProfile) };
 }
 
-/** The brand step: creates the profile's supplier; a second one is refused. */
+/**
+ * The brand step: creates the profile's supplier; a second one is refused. A supplier who signs
+ * up alone starts pending: resellers only see it once the approval check or the team approves.
+ */
 export async function createSupplierBrand(
   database: Database,
   input: BrandWrite,
 ): Promise<SupplierBrand> {
   try {
-    const [created] = await database
-      .insert(suppliers)
-      .values({ ...editableValues(input.values), organizationId: input.organizationId })
-      .returning(brandColumns);
-    if (created === undefined) {
-      throw new Error("Marca não criada");
-    }
+    const created = await database.transaction(async (transaction) => {
+      const [row] = await transaction
+        .insert(suppliers)
+        .values({
+          ...editableValues(input.values),
+          organizationId: input.organizationId,
+          approvalStatus: "pending",
+        })
+        .returning(brandColumns);
+      if (row === undefined) {
+        throw new Error("Marca não criada");
+      }
+      await startSupplierApproval(transaction, row.id);
+      return row;
+    });
     return { ...created, fiscalProfile: readSupplierFiscalProfile(created.fiscalProfile) };
   } catch (error) {
     if (isUniqueViolation(error, PROFILE_SUPPLIER_INDEX)) {

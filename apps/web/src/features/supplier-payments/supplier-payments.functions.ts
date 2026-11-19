@@ -1,4 +1,7 @@
-import { MAX_PAYMENT_FEE_BASIS_POINTS } from "@sellbridge/shared/shipment-payments";
+import {
+  MAX_PAYMENT_FEE_BASIS_POINTS,
+  SUPPLIER_PAY_METHODS,
+} from "@sellbridge/shared/shipment-payments";
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 import {
@@ -48,12 +51,13 @@ export const getResellerSupplierPaymentFn = createServerFn({ method: "GET" })
 
 export const startSupplierCheckoutFn = createServerFn({ method: "POST" })
   .middleware([tenantMiddleware])
-  .validator(shipmentInput)
+  .validator(shipmentInput.extend({ payMethod: z.enum(SUPPLIER_PAY_METHODS) }))
   .handler(
     async ({ data, context }) =>
       await startSupplierCheckout({
         tenantId: context.tenantId,
         shipmentId: data.shipmentId,
+        payMethod: data.payMethod,
         impersonatedBy: context.impersonatedBy,
       }),
   );

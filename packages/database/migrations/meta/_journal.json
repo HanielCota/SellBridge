@@ -586,8 +586,36 @@
     {
       "idx": 83,
       "version": "7",
-      "when": 1795056425803,
-      "tag": "0083_return_policy",
+      "when": 1795048237582,
+      "tag": "0083_marketplace_claims",
+      "breakpoints": true
+    },
+    {
+      "idx": 84,
+      "version": "7",
+      "when": 1795062722008,
+      "tag": "0084_reseller_fiscal_data",
+      "breakpoints": true
+    },
+    {
+      "idx": 85,
+      "version": "7",
+      "when": 1795074771498,
+      "tag": "0085_store_buyer_address_checks",
+      "breakpoints": true
+    },
+    {
+      "idx": 86,
+      "version": "7",
+      "when": 1795089927066,
+      "tag": "0086_supplier_approval",
+      "breakpoints": true
+    },
+    {
+      "idx": 87,
+      "version": "7",
+      "when": 1795107154814,
+      "tag": "0087_return_policy",
       "breakpoints": true
     }
   ]

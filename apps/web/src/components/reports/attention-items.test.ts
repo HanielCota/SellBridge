@@ -63,4 +63,42 @@ describe("attention panel", () => {
     };
     expect(buildAttentionItems(quiet, [publishing], null)).toEqual([]);
   });
+
+  it("asks to fix the purchase address of a store that buys at its supplier, instead of choosing products", () => {
+    const held = {
+      id: "s1",
+      name: "Loja Centro",
+      status: "connected",
+      liveListings: 0,
+      failedListings: 0,
+      publishingListings: 0,
+      buyerAddressResult: "supplier_address" as const,
+    };
+
+    const items = buildAttentionItems(quiet, [held], null);
+
+    expect(items).toEqual([
+      expect.objectContaining({
+        key: "buyer-address-s1",
+        tone: "danger",
+        title: "Endereço de compra no fornecedor",
+        description: expect.stringContaining("Loja Centro"),
+        to: "/lojas",
+      }),
+    ]);
+  });
+
+  it("only warns on the stores page when the purchase address is the shipping one", () => {
+    const warned = {
+      id: "s1",
+      name: "Loja Centro",
+      status: "connected",
+      liveListings: 3,
+      failedListings: 0,
+      publishingListings: 0,
+      buyerAddressResult: "shipping_address" as const,
+    };
+
+    expect(buildAttentionItems(quiet, [warned], null)).toEqual([]);
+  });
 });

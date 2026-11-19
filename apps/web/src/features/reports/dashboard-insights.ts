@@ -7,7 +7,6 @@ export interface SummaryFigures {
   feeCents: number;
   refundCents: number;
   commissionCents: number;
-  platformFeeCents: number;
   profitCents: number;
 }
 
@@ -35,7 +34,7 @@ export function buildMoneyFlow(summary: SummaryFigures): MoneyFlow | null {
   }
   const slices: { key: FlowPart; cents: number }[] = [
     { key: "cost", cents: summary.costCents },
-    { key: "fees", cents: summary.feeCents + summary.platformFeeCents },
+    { key: "fees", cents: summary.feeCents },
     { key: "refunds", cents: summary.refundCents },
     { key: "profit", cents: summary.profitCents },
   ];

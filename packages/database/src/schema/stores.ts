@@ -32,6 +32,11 @@ export const storeConnections = pgTable(
     /** When the marketplace last sent an event about this shop (store health on /lojas). */
     lastWebhookAt: timestamp({ withTimezone: true }),
     /**
+     * When the marketplace last sent a shipment notification about this shop: while they arrive,
+     * the periodic tracking job reads the shop's parcels much less often.
+     */
+    lastShipmentNoticeAt: timestamp({ withTimezone: true }),
+    /**
      * A channel with no integration (Shopee, TikTok Shop) where the reseller registers sales by
      * hand: no tokens, never synced, not counted as a store on the plan and not listed on /lojas.
      */

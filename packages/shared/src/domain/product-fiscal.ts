@@ -46,6 +46,7 @@ export const TAX_REGIME_LABELS: Readonly<Record<TaxRegime, string>> = {
   presumido: "Lucro Presumido",
   real: "Lucro Real",
 };
+export const taxRegimeSchema = z.enum(TAX_REGIMES, "Escolha o regime tributário");
 
 /** CSOSN codes (Simples Nacional) and CST ICMS codes (other regimes) a sale NF-e may carry. */
 const CSOSN_CODES = new Set(["101", "102", "103", "201", "202", "203", "300", "400", "500", "900"]);

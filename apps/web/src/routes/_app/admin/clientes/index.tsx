@@ -51,6 +51,7 @@ import { errorMessage } from "@/lib/errors";
 import { prefetchOnServer } from "@/lib/prefetch";
 import { cn } from "@/lib/utils";
 import { attentionSummary } from "@/features/admin/customer-summary";
+import { countLabel } from "@/lib/count-label";
 
 export const Route = createFileRoute("/_app/admin/clientes/")({
   validateSearch: customersSearchSchema,
@@ -167,7 +168,9 @@ const columns = columnHelper.columns([
     cell: (info) => (
       <div className="tabular-nums">
         <p className="font-medium">{formatCents(info.getValue())}</p>
-        <p className="text-xs text-muted-foreground">{info.row.original.recentOrders} pedidos</p>
+        <p className="text-xs text-muted-foreground">
+          {countLabel(info.row.original.recentOrders, "pedido", "pedidos")}
+        </p>
       </div>
     ),
   }),

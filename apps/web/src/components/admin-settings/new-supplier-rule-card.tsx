@@ -109,7 +109,10 @@ function RuleForm({ enabled, deliveries }: { enabled: boolean; deliveries: numbe
   );
 }
 
-/** Admin: holds new suppliers to protected payments until they prove themselves. Off by default. */
+/**
+ * Admin: holds new suppliers to protected payments until they prove themselves. Off by default.
+ * Hidden since 18/11/2026: with Mercado Pago switched off, every payment is already protected.
+ */
 export function NewSupplierRuleCard() {
   const query = useQuery(newSupplierRuleQueryOptions());
   return (

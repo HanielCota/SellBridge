@@ -14,6 +14,8 @@ const PERSON: HolderFormValues = {
   isCompany: false,
   cnpj: "",
   companyName: "",
+  stateRegistration: "",
+  regime: "simples",
   address: {
     cep: "01310-100",
     street: "Avenida Paulista",
@@ -44,7 +46,14 @@ const COMPANY: HolderFormValues = {
   isCompany: true,
   cnpj: "11.222.333/0001-81",
   companyName: "Ana Modas Ltda",
+  stateRegistration: "ISENTO",
+  regime: "presumido",
 };
+
+/** A company's note needs the city's IBGE code, which the CEP or the city list fills. */
+function withCityCode(values: HolderFormValues): HolderFormValues {
+  return { ...values, address: { ...values.address, ibgeCode: "3550308" } };
+}
 
 describe("switchHolderType", () => {
   it("brings the company fields back empty after unticking and ticking again", () => {
@@ -105,11 +114,24 @@ describe("holderInput", () => {
 
   it("is accepted by the server schema in both modes", () => {
     expect(billingHolderSchema.safeParse(holderInput(PERSON)).success).toBe(true);
-    expect(billingHolderSchema.safeParse(holderInput(COMPANY)).success).toBe(true);
+    expect(billingHolderSchema.safeParse(holderInput(withCityCode(COMPANY))).success).toBe(true);
+  });
+
+  it("sends the state registration and tax regime with the company", () => {
+    expect(holderInput(COMPANY).company).toEqual({
+      cnpj: "11.222.333/0001-81",
+      companyName: "Ana Modas Ltda",
+      stateRegistration: "ISENTO",
+      regime: "presumido",
+    });
+  });
+
+  it("is refused by the server schema for a company whose city is not from the list", () => {
+    expect(billingHolderSchema.safeParse(holderInput(COMPANY)).success).toBe(false);
   });
 
   it("is refused by the server schema for a CNPJ without the legal name", () => {
-    const input = holderInput({ ...COMPANY, companyName: "" });
+    const input = holderInput(withCityCode({ ...COMPANY, companyName: "" }));
     expect(billingHolderSchema.safeParse(input).success).toBe(false);
   });
 });
@@ -148,7 +170,12 @@ describe("holderDefaults", () => {
   });
 
   it("starts ticked with the saved company", () => {
-    const company = { cnpj: "11222333000181", companyName: "Ana Modas Ltda" };
+    const company = {
+      cnpj: "11222333000181",
+      companyName: "Ana Modas Ltda",
+      stateRegistration: "ISENTO",
+      regime: "presumido",
+    } as const;
     const holder = {
       fullName: "Ana Souza Lima",
       cpf: "52998224725",
@@ -157,6 +184,28 @@ describe("holderDefaults", () => {
       address: SAVED_ADDRESS,
     };
     expect(holderDefaults(holder, "Ana")).toEqual(COMPANY);
+  });
+});
+
+describe("holderDefaults for a company saved before the fiscal data", () => {
+  it("asks the state registration and starts on Simples Nacional", () => {
+    const holder = {
+      fullName: "Ana Souza Lima",
+      cpf: "52998224725",
+      phone: "11987654321",
+      company: {
+        cnpj: "11222333000181",
+        companyName: "Ana Modas Ltda",
+        stateRegistration: null,
+        regime: null,
+      },
+      address: SAVED_ADDRESS,
+    };
+
+    const values = holderDefaults(holder, "Ana");
+
+    expect(values.stateRegistration).toBe("");
+    expect(values.regime).toBe("simples");
   });
 });
 

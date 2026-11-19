@@ -1,7 +1,6 @@
 import { FEE_CHANNEL_OWNERS } from "@sellbridge/shared/channel-fees";
-import type { FeeSchedule } from "@sellbridge/shared/fee-model";
 import { formatCents } from "@sellbridge/shared/money";
-import { feePercentLabel, isThinMargin, type ProfitEstimate } from "@/features/listings/profit";
+import { isThinMargin, type ProfitEstimate } from "@/features/listings/profit";
 import { cn } from "@/lib/utils";
 import { TERM_HINTS } from "@/components/icons/action-icons";
 import { HintedText } from "@/components/ui/hint";
@@ -111,36 +110,16 @@ function marketplaceFeeLabel(estimate: ProfitEstimate | null): string {
 }
 
 /**
- * Every fee of the sale, line by line, the same ones the financial page charges: the
- * marketplace's, and SellBridge's only when it charges one.
+ * The fees of the sale, the same the financial page charges: the marketplace's. SellBridge's fee
+ * comes out of the supplier's share, so the reseller's sale carries none.
  */
-export function FeeLines({
-  estimate,
-  schedule,
-}: {
-  estimate: ProfitEstimate | null;
-  schedule: FeeSchedule;
-}) {
+export function FeeLines({ estimate }: { estimate: ProfitEstimate | null }) {
   return (
-    <>
-      <ProfitSplitLine
-        swatch={PROFIT_SPLIT_COLORS.fee}
-        label={marketplaceFeeLabel(estimate)}
-        hint={TERM_HINTS.marketplaceFee}
-        value={estimate ? formatCents(estimate.feeCents) : "—"}
-      />
-      {schedule.platformFeeBasisPoints > 0 ? (
-        <ProfitSplitLine
-          swatch={PROFIT_SPLIT_COLORS.fee}
-          label={`Taxa da SellBridge (${feePercentLabel(schedule.platformFeeBasisPoints)})`}
-          value={estimate ? formatCents(estimate.platformFeeCents) : "—"}
-        />
-      ) : null}
-    </>
+    <ProfitSplitLine
+      swatch={PROFIT_SPLIT_COLORS.fee}
+      label={marketplaceFeeLabel(estimate)}
+      hint={TERM_HINTS.marketplaceFee}
+      value={estimate ? formatCents(estimate.feeCents) : "—"}
+    />
   );
-}
-
-/** Both fees together, for the bar: the marketplace's and SellBridge's. */
-export function totalFeeCents(estimate: ProfitEstimate): number {
-  return estimate.feeCents + estimate.platformFeeCents;
 }

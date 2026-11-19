@@ -10,6 +10,7 @@ import { TONE_DOT_CLASSES } from "@/components/data/tone-status";
 import { OrderBreakdown } from "@/components/financials/order-parts";
 import { SupplierCreditLines } from "@/components/financials/supplier-credit";
 import { OrderOperations } from "@/components/fulfillment/order-dialog";
+import { OrderClaims } from "@/components/marketplace-claims/order-claims";
 import { ReviewAction } from "@/components/orders/review-action";
 import { ReviewDialog, type ReviewTarget } from "@/components/orders/review-dialog";
 import { OrderReturns } from "@/components/returns/order-returns";
@@ -286,6 +287,7 @@ export function OrderPageView({ page }: { page: OrderPageData }) {
     <div className="mx-auto w-full max-w-6xl space-y-6">
       <BackToOrders />
       <OrderHeader page={page} />
+      <OrderClaims orderId={page.order.id} marketplaceUrl={page.marketplaceUrl} />
       {/* The summary comes first in the page, so a phone shows it right under the heading. */}
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-[minmax(0,1fr)_20rem] lg:items-start">
         <OrderAside page={page} />

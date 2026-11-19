@@ -3,6 +3,7 @@ import {
   cnpjSchema,
   formatCnpj,
   formatPhone,
+  stateRegistrationSchema,
   isValidCnpj,
   phoneSchema,
 } from "./account-documents.ts";
@@ -64,5 +65,22 @@ describe("phone", () => {
 describe("terms version", () => {
   it("is the date of the terms in force", () => {
     expect(TERMS_VERSION).toMatch(/^\d{4}-\d{2}-\d{2}$/);
+  });
+});
+
+describe("stateRegistrationSchema", () => {
+  it("keeps the digits of a masked registration", () => {
+    expect(stateRegistrationSchema.safeParse("062.307.904/0081")).toEqual({
+      success: true,
+      data: "0623079040081",
+    });
+  });
+
+  it("accepts ISENTO in any case", () => {
+    expect(stateRegistrationSchema.safeParse("isento")).toEqual({ success: true, data: "ISENTO" });
+  });
+
+  it("refuses letters other than ISENTO", () => {
+    expect(stateRegistrationSchema.safeParse("ABC123").success).toBe(false);
   });
 });

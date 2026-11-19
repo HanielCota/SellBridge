@@ -14,6 +14,7 @@ export {
   type MercadoLivreCategory,
 } from "./mercado-livre/category-ficha.ts";
 export { readMercadoLivreBuyerBilling, type BuyerBilling } from "./mercado-livre/billing.ts";
+export { readMercadoLivreAccountAddresses } from "./mercado-livre/addresses.ts";
 export {
   packageDimensionsOf,
   readMercadoLivreCommission,
@@ -28,9 +29,20 @@ export {
   type MercadoLivreLabelFile,
   type PrintedLabel,
 } from "./mercado-livre/shipping.ts";
+export { createShopeeConnector, type ShopeeConfig } from "./shopee/shopee-connector.ts";
 export {
   createTikTokShopConnector,
   getTikTokShopShippingLabel,
   type TikTokShopConfig,
   type TikTokShopLabelFile,
 } from "./tiktok-shop/tiktok-shop-connector.ts";
+export {
+  readMercadoLivreClaim,
+  readMercadoLivreShipmentOrders,
+  searchMercadoLivreClaims,
+  type ClaimMoneyStatus,
+  type ClaimSearchFilter,
+  type MarketplaceClaim,
+  type MarketplaceClaimReturn,
+} from "./mercado-livre/claims.ts";
+export { parseMercadoLivreNotice, type MercadoLivreNotice } from "./mercado-livre/webhook.ts";

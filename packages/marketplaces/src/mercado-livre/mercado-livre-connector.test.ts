@@ -151,7 +151,7 @@ describe("OAuth", () => {
     const { ml } = connector({
       [`POST ${API}/oauth/token`]: () => json(400, { error: "invalid_grant", message: "expired" }),
     });
-    await expect(ml.refreshTokens("TG-old")).rejects.toMatchObject({
+    await expect(ml.refreshTokens("TG-old", { externalShopId: "123" })).rejects.toMatchObject({
       code: "EXTERNAL_PROVIDER_AUTH",
     });
   });
@@ -166,7 +166,9 @@ describe("OAuth", () => {
           refresh_token: "TG-new",
         }),
     });
-    expect((await ml.refreshTokens("TG-old")).refreshToken).toBe("TG-new");
+    expect((await ml.refreshTokens("TG-old", { externalShopId: "123" })).refreshToken).toBe(
+      "TG-new",
+    );
   });
 });
 

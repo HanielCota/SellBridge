@@ -1,4 +1,4 @@
-import { percentOfCents, type Cents } from "./money.ts";
+import type { Cents } from "./money.ts";
 
 /** Typical marketplace commission, used for estimates before a real order reports its fee. */
 export const ESTIMATED_MARKETPLACE_FEE_BPS = 1400;
@@ -41,7 +41,6 @@ export interface OrderFinance {
   refundCents: Cents;
   returnCents: Cents;
   commissionCents: Cents;
-  platformFeeCents: Cents;
   profitCents: Cents;
 }
 
@@ -62,7 +61,6 @@ function pendingCostFinance(revenueCents: Cents): OrderFinance {
     refundCents: 0,
     returnCents: 0,
     commissionCents: 0,
-    platformFeeCents: 0,
     profitCents: 0,
   };
 }
@@ -70,17 +68,15 @@ function pendingCostFinance(revenueCents: Cents): OrderFinance {
 /**
  * Profit of one order (all values in cents):
  *   revenue − supplier cost − marketplace fee and seller shipping − refunds + supplier commissions
- *   − platform fee
+ * SellBridge's fee is not in it: it comes out of the supplier's share when the reseller pays the
+ * order (docs/decisions.md, 2026-11-17).
  * Cancelled and returned orders contribute no revenue, cost or fee (the product goes back
  * to the supplier); the returned amount is reported separately for visibility.
  * A sale with an item of unknown cost ("custo pendente") keeps its revenue but stays out of the
  * profit entirely: counting that item at zero cost would inflate the profit.
  * The SQL in packages/database/src/repositories/reports.ts mirrors this function.
  */
-export function computeOrderFinance(
-  input: OrderFinanceInput,
-  platformFeeBasisPoints: number,
-): OrderFinance {
+export function computeOrderFinance(input: OrderFinanceInput): OrderFinance {
   const counted = !NON_REVENUE_STATUSES.includes(input.status);
   if (counted && input.items.some((item) => item.knownUnitCostCents === null)) {
     return pendingCostFinance(input.totalCents);
@@ -93,9 +89,7 @@ export function computeOrderFinance(
   const refundCents = sumAdjustments(input, "refund");
   const returnCents = sumAdjustments(input, "return");
   const commissionCents = sumAdjustments(input, "commission");
-  const platformFeeCents = percentOfCents(revenueCents, platformFeeBasisPoints);
-  const profitCents =
-    revenueCents - costCents - feeCents - refundCents + commissionCents - platformFeeCents;
+  const profitCents = revenueCents - costCents - feeCents - refundCents + commissionCents;
   return {
     costPending: false,
     revenueCents,
@@ -105,7 +99,6 @@ export function computeOrderFinance(
     refundCents,
     returnCents,
     commissionCents,
-    platformFeeCents,
     profitCents,
   };
 }

@@ -8,6 +8,7 @@ import {
   StorePausedIcon,
   SupportHeadsetIcon,
 } from "@/components/reports/attention-icons";
+import type { BuyerAddressResult } from "@sellbridge/shared/buyer-address";
 import { billingNoticeCopy, type BillingNoticeView } from "@/features/billing/billing-notice";
 
 /** What the "Precisa de você" panel lists; kept free of server code so it can be tested alone. */
@@ -34,6 +35,8 @@ export interface StoreState {
   failedListings: number;
   /** Listings queued or on their way to the marketplace. */
   publishingListings: number;
+  /** What the last check of the account's purchase address found; absent before any check. */
+  buyerAddressResult?: BuyerAddressResult | null;
 }
 
 function plural(count: number, one: string, many: string): string {
@@ -54,7 +57,9 @@ export interface AttentionCounts {
 function isWaitingForProducts(store: StoreState): boolean {
   const { liveListings, failedListings, publishingListings } = store;
   const hasListings = liveListings + failedListings + publishingListings > 0;
-  return store.status === "connected" && !hasListings;
+  // A held store cannot publish yet: its own item says what to fix first.
+  const held = store.buyerAddressResult === "supplier_address";
+  return store.status === "connected" && !hasListings && !held;
 }
 
 /** The catalog shortcut, only for a store with nothing to sell: the hero no longer carries it. */
@@ -68,6 +73,22 @@ function idleStoreItems(stores: readonly StoreState[]): AttentionItem[] {
     to: "/catalogo",
     search: { store: store.id },
   }));
+}
+
+/** A store whose account buys at its supplier's address: new products wait until it is fixed. */
+function buyerAddressItems(stores: readonly StoreState[]): AttentionItem[] {
+  return stores
+    .filter(
+      (store) => store.status === "connected" && store.buyerAddressResult === "supplier_address",
+    )
+    .map((store) => ({
+      key: `buyer-address-${store.id}`,
+      icon: StorePausedIcon,
+      tone: "danger",
+      title: "Endereço de compra no fornecedor",
+      description: `${store.name}: troque o endereço de compra no Mercado Livre para voltar a publicar.`,
+      to: "/lojas",
+    }));
 }
 
 /** A plan payment to fix (item 16, N9): right after the stores, it can cost the plan's limits. */
@@ -102,7 +123,7 @@ export function buildAttentionItems(
       description: "O acesso expirou: pedidos e estoque estão parados nesta loja.",
       to: "/lojas",
     }));
-  const items = [...storeItems, ...billingItems(notice)];
+  const items = [...storeItems, ...buyerAddressItems(stores), ...billingItems(notice)];
   if (failedListings > 0) {
     items.push({
       key: "listings",

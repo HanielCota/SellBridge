@@ -184,6 +184,28 @@ export async function fillBillingAddress(page: Page) {
   await page.getByLabel("Cidade").fill("São Paulo");
 }
 
+/**
+ * The billing address from its CEP, the way a company fills it: the CEP lookup (answered here,
+ * never by ViaCEP) brings the city with the IBGE code its NF-e needs.
+ */
+export async function fillBillingAddressFromCep(page: Page) {
+  await page.route("https://viacep.com.br/ws/01310100/json/", async (route) => {
+    await route.fulfill({
+      json: {
+        cep: "01310-100",
+        logradouro: "Avenida Paulista",
+        bairro: "Bela Vista",
+        localidade: "São Paulo",
+        uf: "SP",
+        ibge: "3550308",
+      },
+    });
+  });
+  await page.getByLabel("CEP").fill("01310100");
+  await expect(page.getByLabel("Rua")).toHaveValue("Avenida Paulista");
+  await page.getByLabel("Número").fill("1578");
+}
+
 /** First onboarding step: full name, a fresh CPF, the phone and the billing address. */
 /** "O que você vende" on the brand page: a catalog category from the list. */
 export async function pickBrandNiche(page: Page, category: string): Promise<void> {

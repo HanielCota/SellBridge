@@ -37,9 +37,12 @@ import {
   type SupplierConversationEvent,
 } from "./notification-conversation-events.ts";
 import { invoiceStoppedEvents, type InvoiceStoppedEvent } from "./notification-invoice-events.ts";
+import { marketplaceClaimEvents, type MarketplaceClaimEvent } from "./notification-claim-events.ts";
+import { findHeldStoresForBell } from "./store-buyer-address.ts";
 
 export type {
   InvoiceStoppedEvent,
+  MarketplaceClaimEvent,
   OrderMessageEvent,
   SupportReplyEvent,
   SupplierConversationEvent,
@@ -54,6 +57,7 @@ export const STANDING_NOTIFICATION_KINDS: ReadonlySet<NotificationEvent["kind"]>
   "listing_unavailable",
   "shipment_late",
   "invoice_stopped",
+  "marketplace_claim",
 ]);
 /** Sales are frequent; a handful is enough to show activity without burying problems. */
 const SALES_SHOWN = 5;
@@ -89,6 +93,8 @@ export interface ListingErrorEvent extends EventBase {
 export interface StoreProblemEvent extends EventBase {
   kind: "store_problem";
   storeName: string;
+  /** Lost access (expired or failing), or an account that buys at its supplier's address. */
+  problem: "access" | "buyer_address";
 }
 
 /** Delivered orders whose supplier the reseller has not reviewed yet, as a single entry. */
@@ -135,7 +141,8 @@ export type NotificationEvent =
   | ShipmentCancelledEvent
   | ShipmentLateEvent
   | ListingUnavailableEvent
-  | InvoiceStoppedEvent;
+  | InvoiceStoppedEvent
+  | MarketplaceClaimEvent;
 
 export type { ShipmentLateEvent };
 
@@ -398,7 +405,17 @@ async function storeProblemEvents(
       ),
     )
     .limit(PER_KIND);
-  return rows.map((row) => ({ ...row, kind: "store_problem" as const }));
+  const held = await findHeldStoresForBell(database, tenantId, PER_KIND);
+  return [
+    ...rows.map((row) => ({ ...row, kind: "store_problem" as const, problem: "access" as const })),
+    ...held.map((store) => ({
+      kind: "store_problem" as const,
+      problem: "buyer_address" as const,
+      entityId: store.storeConnectionId,
+      storeName: store.shopName,
+      at: store.heldSince,
+    })),
+  ];
 }
 
 /** Tickets with a support reply this user has not opened yet: opening the thread clears it. */
@@ -460,6 +477,7 @@ export async function listNotificationEvents(
     conversations,
     reviews,
     stoppedInvoices,
+    claims,
     read,
   ] = await Promise.all([
     saleEvents(database, input.tenantId),
@@ -474,6 +492,7 @@ export async function listNotificationEvents(
     supplierConversationEvents(database, input, PER_KIND),
     reviewPendingEvents(database, input.tenantId, input.reviewableSince),
     invoiceStoppedEvents(database, input.tenantId, PER_KIND),
+    marketplaceClaimEvents(database, input.tenantId, PER_KIND),
     readState(database, input),
   ]);
   const events = [
@@ -489,6 +508,7 @@ export async function listNotificationEvents(
     ...conversations,
     ...reviews,
     ...stoppedInvoices,
+    ...claims,
   ];
   const { clearedAt } = read;
   if (clearedAt === null) {

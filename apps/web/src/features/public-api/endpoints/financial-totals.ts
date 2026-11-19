@@ -19,12 +19,17 @@ export const financialTotalsSchema = z.object({
     .int()
     .describe("Valor devolvido em devoluções; informativo, já fora da receita."),
   commissionsCents: z.number().int().describe("Comissões recebidas do fornecedor."),
-  platformFeeCents: z.number().int().describe("Taxa do SellBridge."),
+  platformFeeCents: z
+    .number()
+    .int()
+    .describe(
+      "Sempre 0: a taxa do SellBridge sai da parte do fornecedor quando o revendedor paga o pedido, não do lucro do revendedor. Mantido para não quebrar integrações.",
+    ),
   profitCents: z
     .number()
     .int()
     .describe(
-      "Lucro: receita − receita com custo pendente − custo − tarifa do marketplace − reembolsos + comissões − taxa do SellBridge.",
+      "Lucro: receita − receita com custo pendente − custo − tarifa do marketplace − reembolsos + comissões.",
     ),
   pendingCostRevenueCents: z
     .number()
@@ -44,7 +49,6 @@ export interface FinanceFigures {
   refundCents: number;
   returnCents: number;
   commissionCents: number;
-  platformFeeCents: number;
   profitCents: number;
   pendingCostRevenueCents: number;
 }
@@ -57,7 +61,7 @@ export function presentFinancialTotals(figures: FinanceFigures): FinancialTotals
     refundsCents: figures.refundCents,
     returnsCents: figures.returnCents,
     commissionsCents: figures.commissionCents,
-    platformFeeCents: figures.platformFeeCents,
+    platformFeeCents: 0,
     profitCents: figures.profitCents,
     pendingCostRevenueCents: figures.pendingCostRevenueCents,
   };
