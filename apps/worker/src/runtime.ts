@@ -39,6 +39,7 @@ import { createStockPriceSyncProcessor } from "./processors/stock-price-sync.ts"
 import { createAsaasPaymentProcessor } from "./processors/asaas-payments.ts";
 import { runPaymentRounds } from "./processors/payment-rounds.ts";
 import { createSupplierPaymentProcessor } from "./processors/supplier-payments.ts";
+import { createReturnDeadlinesProcessor } from "./processors/return-deadlines.ts";
 import { createTicketAutoCloseProcessor } from "./processors/ticket-auto-close.ts";
 import { createTokenRefreshProcessor } from "./processors/token-refresh.ts";
 import {
@@ -317,9 +318,13 @@ function paymentWorkers(context: WorkerContext): Worker[] {
   ];
 }
 
+/** Shares the ticket queue: both are slow sweeps of support deadlines. */
+const RETURN_DEADLINES_JOB = "close-overdue-returns";
+
 function deliveryWorkers(context: WorkerContext): Worker[] {
   const { database, cipher, sendEmail, connection } = context;
   const processTickets = createTicketAutoCloseProcessor({ database });
+  const processReturns = createReturnDeadlinesProcessor({ database });
   const processWebhooks = createWebhookDeliveryProcessor({
     database,
     cipher,
@@ -346,10 +351,11 @@ function deliveryWorkers(context: WorkerContext): Worker[] {
       deliverOrderMessageNotice({ database, sendEmail, appUrl: environment.APP_URL }, notice),
   });
   return [
-    new Worker(QUEUE_NAMES.ticketAutoClose, async () => processTickets(), {
-      connection,
-      concurrency: 1,
-    }),
+    new Worker(
+      QUEUE_NAMES.ticketAutoClose,
+      async (job) => (job.name === RETURN_DEADLINES_JOB ? processReturns() : processTickets()),
+      { connection, concurrency: 1 },
+    ),
     new Worker(QUEUE_NAMES.webhookDelivery, async () => processWebhooks(), {
       connection,
       concurrency: 1,
@@ -382,6 +388,7 @@ async function scheduleQueues(queues: WorkerContext["queues"]): Promise<void> {
   await scheduleRecurring(queues.webhookSweep, "sweep-unprocessed-webhook-events", 5 * 60 * 1000);
   await scheduleRecurring(queues.webhookSweep, WEBHOOK_EVENT_PRUNE_JOB, 60 * 60 * 1000);
   await scheduleRecurring(queues.ticketClose, "close-idle-tickets", 60 * 60 * 1000);
+  await scheduleRecurring(queues.ticketClose, RETURN_DEADLINES_JOB, 15 * 60 * 1000);
   await scheduleRecurring(queues.tokenRefresh, "refresh-expiring-tokens", 10 * 60 * 1000);
   await scheduleRecurring(queues.shipmentTracking, "track-shipments", 30 * 60 * 1000);
   await scheduleRecurring(queues.erpInvoices, "issue-erp-invoices", 2 * 60 * 1000);
