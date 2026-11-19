@@ -6,7 +6,7 @@ import { reportJobFailure } from "./job-failure-report.ts";
 const ORDER_ID = "6f1c2d3e-4b5a-4c6d-8e7f-901234567890";
 
 function failedRound(id: string) {
-  return { id, attemptsMade: 1, finishedOn: Date.now(), data: {} };
+  return { id, name: "round", attemptsMade: 1, finishedOn: Date.now(), data: {} };
 }
 
 beforeEach(() => {
@@ -22,6 +22,7 @@ describe("worker job failures", () => {
   it("puts the last failed attempt of an auto-forward on Problemas, ready to retry", async () => {
     const job = {
       id: `auto-forward-${ORDER_ID}`,
+      name: "auto-forward",
       attemptsMade: 5,
       finishedOn: Date.now(),
       data: { orderId: ORDER_ID },
@@ -45,7 +46,7 @@ describe("worker job failures", () => {
   });
 
   it("keeps an attempt BullMQ will retry off Problemas", async () => {
-    const job = { id: "j-1", attemptsMade: 1, finishedOn: undefined, data: {} };
+    const job = { id: "j-1", name: "export", attemptsMade: 1, finishedOn: undefined, data: {} };
 
     const problems = await problemsLoggedBy(() =>
       reportJobFailure(QUEUE_NAMES.erpCatalogExport, job, new Error("timeout")),
@@ -67,12 +68,45 @@ describe("worker job failures", () => {
   });
 
   it("leaves publications to their own report", async () => {
-    const job = { id: "p-1", attemptsMade: 5, finishedOn: Date.now(), data: {} };
+    const job = { id: "p-1", name: "publish", attemptsMade: 5, finishedOn: Date.now(), data: {} };
 
     const problems = await problemsLoggedBy(() =>
       reportJobFailure(QUEUE_NAMES.publishListing, job, new Error("refused")),
     );
 
     expect(problems).toEqual([]);
+  });
+
+  it("leaves a marketplace event to the sweep, which hands it over after its retry window", async () => {
+    const job = { id: "e-1", name: "webhook", attemptsMade: 8, finishedOn: Date.now(), data: {} };
+
+    const problems = await problemsLoggedBy(() =>
+      reportJobFailure(QUEUE_NAMES.webhookEvents, job, new Error("refused")),
+    );
+
+    expect(problems).toEqual([]);
+  });
+
+  // Regression: a reconnected store's catch-up shares the events queue but has no stored event
+  // for the sweep to find, so leaving the whole queue out hid its final failure.
+  it("puts a reconnected store's failed catch-up on Problemas", async () => {
+    const job = {
+      id: "order-catch-up-1",
+      name: "order-catch-up",
+      attemptsMade: 8,
+      finishedOn: Date.now(),
+      data: { storeConnectionId: ORDER_ID },
+    };
+
+    const problems = await problemsLoggedBy(() =>
+      reportJobFailure(QUEUE_NAMES.webhookEvents, job, new Error("listOrders failed")),
+    );
+
+    expect(problems).toHaveLength(1);
+    expect(problems[0]).toMatchObject({
+      event: "job.failed_final",
+      message: expect.stringContaining("enquanto a loja estava desconectada"),
+      context: { retryable: false, storeConnectionId: ORDER_ID },
+    });
   });
 });

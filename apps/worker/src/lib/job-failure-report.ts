@@ -10,13 +10,14 @@ import { logger } from "@sellbridge/shared/logger";
 /** The part of a BullMQ job a failure report reads. */
 export interface ReportedJob {
   readonly id?: string | undefined;
+  readonly name: string;
   readonly attemptsMade: number;
   readonly finishedOn?: number | undefined;
   readonly data: unknown;
 }
 
 function isReportedAsProblem(failed: FailedJob): boolean {
-  return isFinalJobFailure(failed) && !hasOwnFailureReport(failed.queue);
+  return isFinalJobFailure(failed) && !hasOwnFailureReport(failed);
 }
 
 /**
@@ -31,6 +32,7 @@ export function reportJobFailure(queue: string, job: ReportedJob | undefined, er
   }
   const failed: FailedJob = {
     queue,
+    name: job.name,
     jobId: job.id,
     attemptsMade: job.attemptsMade,
     finishedOn: job.finishedOn,

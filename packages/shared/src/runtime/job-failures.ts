@@ -1,4 +1,10 @@
-import { autoForwardJobId, erpCatalogExportJobId, QUEUE_NAMES } from "./queues.ts";
+import {
+  autoForwardJobId,
+  erpCatalogExportJobId,
+  QUEUE_NAMES,
+  STORE_ORDER_CATCH_UP_JOB_NAME,
+  WEBHOOK_EVENT_JOB_NAME,
+} from "./queues.ts";
 
 type QueueName = (typeof QUEUE_NAMES)[keyof typeof QUEUE_NAMES];
 
@@ -9,14 +15,20 @@ export const JOB_FAILED_FINAL_EVENT = "job.failed_final";
 export const WEBHOOK_EVENT_ABANDONED_EVENT = "webhook.event_abandoned";
 
 /**
- * Queues whose failures already reach the team their own way: a publication that failed for good
+ * Jobs whose failures already reach the team their own way: a publication that failed for good
  * is recorded by `listing.publish_failed`, and a marketplace event is retried by the sweep and
- * handed to the team once its retry window closes (`webhook.event_abandoned`).
+ * handed to the team once its retry window closes (`webhook.event_abandoned`). A store's
+ * catch-up shares the events queue but has no stored event the sweep could see, so it is not one.
  */
-const QUEUES_WITH_THEIR_OWN_REPORT: ReadonlySet<string> = new Set([
-  QUEUE_NAMES.publishListing,
-  QUEUE_NAMES.webhookEvents,
-]);
+export function hasOwnFailureReport(job: { queue: string; name: string }): boolean {
+  if (job.queue === QUEUE_NAMES.publishListing) {
+    return true;
+  }
+  return job.queue === QUEUE_NAMES.webhookEvents && job.name === WEBHOOK_EVENT_JOB_NAME;
+}
+
+const STORE_ORDER_CATCH_UP_REASON =
+  "A busca das vendas feitas enquanto a loja estava desconectada falhou em todas as tentativas: confira as vendas no marketplace e lance à mão as que faltarem.";
 
 /** What stopped, in the team's words, for the title of the problem. */
 const FAILURE_REASONS: Readonly<Record<QueueName, string>> = {
@@ -87,6 +99,8 @@ const SUBJECT_KEYS = [
 
 export interface FailedJob {
   readonly queue: string;
+  /** The BullMQ job name: one queue can hold jobs of different kinds. */
+  readonly name: string;
   readonly jobId: string | undefined;
   readonly attemptsMade: number;
   /** Set by BullMQ only when the job failed for good (no attempt left, or an unrecoverable error). */
@@ -97,10 +111,6 @@ export interface FailedJob {
 /** True once BullMQ will not run the job again on its own. */
 export function isFinalJobFailure(job: FailedJob): boolean {
   return job.finishedOn !== undefined;
-}
-
-export function hasOwnFailureReport(queue: string): boolean {
-  return QUEUES_WITH_THEIR_OWN_REPORT.has(queue);
 }
 
 export function jobFailureReason(queue: string): string {
@@ -133,7 +143,10 @@ export function finalJobFailureFields(job: FailedJob): Record<string, unknown> {
   const subject = subjectOf(job.data);
   const retryable = retryableJobIdOf(job.queue, subject) !== null;
   return {
-    reason: jobFailureReason(job.queue),
+    reason:
+      job.name === STORE_ORDER_CATCH_UP_JOB_NAME
+        ? STORE_ORDER_CATCH_UP_REASON
+        : jobFailureReason(job.queue),
     queue: job.queue,
     jobId: job.jobId,
     attemptsMade: job.attemptsMade,
