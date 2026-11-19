@@ -25,6 +25,8 @@
     "./product-sale-terms": "./src/domain/product-sale-terms.ts",
     "./supplier-fiscal": "./src/domain/supplier-fiscal.ts",
     "./supplier-invoice": "./src/domain/supplier-invoice.ts",
+    "./nfe-access-key": "./src/domain/nfe-access-key.ts",
+    "./reseller-invoice": "./src/domain/reseller-invoice.ts",
     "./cpf": "./src/domain/cpf.ts",
     "./account-documents": "./src/domain/account-documents.ts",
     "./terms": "./src/domain/terms.ts",
