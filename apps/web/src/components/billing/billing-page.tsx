@@ -103,10 +103,16 @@ function renewalLine(account: NonNullable<BillingData["account"]>): string | nul
   return `Próxima cobrança em ${dateLabel(account.periodEnd)}`;
 }
 
+function paymentToFix(data: BillingData): boolean {
+  return data.notice?.kind === "past_due" || data.notice?.kind === "payment_failed";
+}
+
 function CurrentPlan({ data }: { data: BillingData }) {
   const action = useBillingAction();
   const plan = currentPlanOf(data);
   const renewal = plan !== null && data.account !== null ? renewalLine(data.account) : null;
+  // Without a plan the limits are zero: "0 de 0 lojas" says nothing, so show the usage alone.
+  const limits = data.access.kind === "none" ? null : data.access.limits;
   return (
     <Card>
       <CardHeader>
@@ -118,11 +124,12 @@ function CurrentPlan({ data }: { data: BillingData }) {
         </div>
       </CardHeader>
       <CardContent className="space-y-3">
-        <UsageLine usage={data.usage} limits={data.access.limits} />
+        <UsageLine usage={data.usage} limits={limits} />
         {renewal === null ? null : <p className="text-muted-foreground">{renewal}</p>}
         {data.notice === null ? null : <NoticeText notice={data.notice} />}
         {data.account?.customerId === null || data.account === null ? null : (
           <PortalButton
+            fixPayment={paymentToFix(data)}
             disabled={!data.canManage || !data.enabled || action.isPending}
             pending={action.isPending && action.variables === "portal"}
             onClick={() => action.mutate("portal")}
@@ -149,20 +156,32 @@ function NoticeText({ notice }: { notice: NonNullable<BillingData["notice"]> }) 
   );
 }
 
+function portalLabel(fixPayment: boolean, pending: boolean): string {
+  if (pending) return "Abrindo...";
+  return fixPayment ? "Atualizar cartão" : "Cartão, faturas e cancelamento";
+}
+
 function PortalButton({
+  fixPayment,
   disabled,
   pending,
   onClick,
   reason,
 }: {
+  fixPayment: boolean;
   disabled: boolean;
   pending: boolean;
   onClick: () => void;
   reason: string | null;
 }) {
   const button = (
-    <Button variant="outline" disabled={disabled} onClick={onClick} className="w-full sm:w-auto">
-      {pending ? "Abrindo..." : "Cartão, faturas e cancelamento"}
+    <Button
+      variant={fixPayment ? "default" : "outline"}
+      disabled={disabled}
+      onClick={onClick}
+      className="h-11 w-full sm:w-auto"
+    >
+      {portalLabel(fixPayment, pending)}
     </Button>
   );
   if (reason === null) return button;
@@ -174,9 +193,11 @@ function PlanPrice({ priceCents }: { priceCents: number | undefined }) {
     return <p className="text-2xl font-semibold text-muted-foreground">Em breve</p>;
   }
   return (
-    <p>
-      <span className="text-3xl font-semibold tracking-tight">{formatCents(priceCents)}</span>
-      <span className="text-muted-foreground">/mês</span>
+    <p className="flex flex-wrap items-baseline gap-x-1">
+      <span className="text-3xl font-semibold tracking-tight whitespace-nowrap xl:text-2xl">
+        {formatCents(priceCents)}
+      </span>
+      <span className="whitespace-nowrap text-muted-foreground">/mês</span>
     </p>
   );
 }
@@ -223,9 +244,10 @@ function PlanCard({
   const warning = current === null || isCurrent ? null : overLimitWarning(plan, data.usage);
   return (
     <Card className={recommended ? "ring-2 ring-brand" : undefined}>
-      <CardHeader>
-        <div className="flex flex-wrap items-center gap-2">
-          <h3 className="text-lg font-semibold tracking-tight">{plan.name}</h3>
+      <CardHeader className="gap-2">
+        <h3 className="text-lg font-semibold tracking-tight">{plan.name}</h3>
+        {/* Every card keeps the badge row, so the prices line up across the cards. */}
+        <div className="flex min-h-6 flex-wrap items-center gap-2">
           {isCurrent ? <Badge>Seu plano</Badge> : null}
           {recommended ? <Badge>Indicado para você</Badge> : null}
         </div>
