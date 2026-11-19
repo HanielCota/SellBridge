@@ -7,6 +7,7 @@ import {
   billingEvents,
   member,
   organization,
+  user,
   listingTargets,
   storeConnections,
 } from "../schema/index.ts";
@@ -63,9 +64,9 @@ export async function findBillingAccess(
 }
 
 /**
- * Serializes opening a checkout per tenant with a transaction-scoped advisory lock. It holds no
- * row, so publishing and connecting stores never wait on Stripe (item 16.a, N5). False when
- * another checkout of the same tenant is still being opened.
+ * Serializes subscription changes per tenant with a transaction-scoped advisory lock. It holds no
+ * row, so publishing and connecting stores never wait on the payment provider (item 16.a, N5).
+ * False when another change of the same tenant is still running.
  */
 export async function tryLockBillingCheckout(
   database: DatabaseExecutor,
@@ -199,4 +200,109 @@ export async function findBillingCustomer(database: DatabaseExecutor, customerId
     .from(billingAccounts)
     .where(eq(billingAccounts.customerId, customerId));
   return account ?? null;
+}
+
+/** The columns a subscription change writes; the rest of the row stays as it is. */
+export type BillingAccountPatch = Partial<
+  Pick<
+    typeof billingAccounts.$inferInsert,
+    | "customerId"
+    | "subscriptionId"
+    | "plan"
+    | "status"
+    | "periodEnd"
+    | "cancelAtPeriodEnd"
+    | "paymentMethod"
+    | "scheduledPlan"
+    | "scheduledPlanAt"
+    | "pendingPlan"
+    | "pendingReference"
+    | "prepaidUntil"
+  >
+>;
+
+/** Writes part of the tenant's billing account, creating the row on the first write. */
+export async function saveBillingAccount(
+  database: DatabaseExecutor,
+  tenantId: string,
+  patch: BillingAccountPatch,
+) {
+  await database
+    .insert(billingAccounts)
+    .values({ tenantId, ...patch })
+    .onConflictDoUpdate({ target: billingAccounts.tenantId, set: patch });
+}
+
+/**
+ * Applies a state read from the provider. A notice delivered twice is applied once, and a read
+ * that started before the one already stored never overwrites it.
+ */
+export async function applyBillingState(
+  database: DatabaseExecutor,
+  input: {
+    tenantId: string;
+    /** The provider's notice id; null when the state was read on the reseller's visit. */
+    eventId: string | null;
+    /** When the state was read from the provider, in Unix milliseconds. */
+    observedAt: number;
+    patch: BillingAccountPatch;
+  },
+): Promise<boolean> {
+  const [account] = await database
+    .select({ lastEventCreated: billingAccounts.lastEventCreated })
+    .from(billingAccounts)
+    .where(eq(billingAccounts.tenantId, input.tenantId))
+    .for("update");
+  if (account === undefined || account.lastEventCreated > input.observedAt) return false;
+  if (input.eventId !== null) {
+    const [event] = await database
+      .insert(billingEvents)
+      .values({ id: input.eventId })
+      .onConflictDoNothing()
+      .returning();
+    if (event === undefined) return false;
+  }
+  await database
+    .update(billingAccounts)
+    .set({ ...input.patch, lastEventCreated: input.observedAt })
+    .where(eq(billingAccounts.tenantId, input.tenantId));
+  return true;
+}
+
+/** The account bound to a subscription, or null for subscriptions outside this application. */
+export async function findBillingAccountBySubscription(
+  database: DatabaseExecutor,
+  subscriptionId: string,
+) {
+  const [account] = await database
+    .select()
+    .from(billingAccounts)
+    .where(eq(billingAccounts.subscriptionId, subscriptionId));
+  return account ?? null;
+}
+
+/** The account waiting on a card checkout or an upgrade charge. */
+export async function findBillingAccountByPendingReference(
+  database: DatabaseExecutor,
+  reference: string,
+) {
+  const [account] = await database
+    .select()
+    .from(billingAccounts)
+    .where(eq(billingAccounts.pendingReference, reference));
+  return account ?? null;
+}
+
+/** The owner's e-mail: the payment provider sends the monthly charges there. */
+export async function findBillingOwnerEmail(
+  database: DatabaseExecutor,
+  tenantId: string,
+): Promise<string | null> {
+  const [owner] = await database
+    .select({ email: user.email })
+    .from(member)
+    .innerJoin(user, eq(user.id, member.userId))
+    .where(and(eq(member.organizationId, tenantId), eq(member.role, "owner")))
+    .limit(1);
+  return owner?.email ?? null;
 }

@@ -19,9 +19,13 @@ import {
 } from "../testing/fixtures.ts";
 import {
   applyBillingEvent,
+  applyBillingState,
   assertBillingCapacity,
   billingUsage,
+  findBillingAccountByPendingReference,
+  findBillingAccountBySubscription,
   getBillingAccount,
+  saveBillingAccount,
   saveBillingCustomer,
   tryLockBillingCheckout,
 } from "./billing.ts";
@@ -333,5 +337,66 @@ describe("tenant billing persistence", () => {
     );
     expect((await getBillingAccount(database, tenants.tenantA))?.lastEventCreated).toBe(observedAt);
     await database.delete(billingEvents).where(eq(billingEvents.id, lateEventId));
+  });
+});
+
+describe("subscription state from the provider", () => {
+  it("applies a notice once and never lets an older read win", async () => {
+    const { tenantId, cleanup } = await accountCreatedAt(new Date());
+    const notice = `evt_${randomUUID()}`;
+    await saveBillingAccount(database, tenantId, { subscriptionId: `sub_${randomUUID()}` });
+
+    const applied = await applyBillingState(database, {
+      tenantId,
+      eventId: notice,
+      observedAt: 20,
+      patch: { status: "active", plan: "pro" },
+    });
+    const repeated = await applyBillingState(database, {
+      tenantId,
+      eventId: notice,
+      observedAt: 30,
+      patch: { status: "past_due" },
+    });
+    const older = await applyBillingState(database, {
+      tenantId,
+      eventId: null,
+      observedAt: 10,
+      patch: { status: "canceled" },
+    });
+
+    expect([applied, repeated, older]).toEqual([true, false, false]);
+    expect((await getBillingAccount(database, tenantId))?.status).toBe("active");
+    await database.delete(billingEvents).where(eq(billingEvents.id, notice));
+    await cleanup();
+  });
+
+  it("finds the account by its subscription and by what it waits on", async () => {
+    const { tenantId, cleanup } = await accountCreatedAt(new Date());
+    const subscriptionId = `sub_${randomUUID()}`;
+    const checkoutId = randomUUID();
+
+    await saveBillingAccount(database, tenantId, {
+      subscriptionId,
+      pendingPlan: "elite",
+      pendingReference: checkoutId,
+    });
+
+    expect((await findBillingAccountBySubscription(database, subscriptionId))?.tenantId).toBe(
+      tenantId,
+    );
+    expect((await findBillingAccountByPendingReference(database, checkoutId))?.pendingPlan).toBe(
+      "elite",
+    );
+    await cleanup();
+  });
+
+  it("refuses a scheduled plan without the day it starts", async () => {
+    const { tenantId, cleanup } = await accountCreatedAt(new Date());
+
+    await expect(
+      saveBillingAccount(database, tenantId, { scheduledPlan: "pro", scheduledPlanAt: null }),
+    ).rejects.toThrow(/billing_accounts_scheduled_plan_check/);
+    await cleanup();
   });
 });
