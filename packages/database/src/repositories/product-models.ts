@@ -1,0 +1,346 @@
+import { conflictError, notFoundError } from "@sellbridge/shared/errors";
+import {
+  combinationOwnFields,
+  materializeCombination,
+  type GridCombination,
+  type MaterializedCombination,
+  type ProductGrid,
+  type ProductModelShared,
+} from "@sellbridge/shared/product-grid";
+import {
+  hasRequiredFiscalData,
+  readProductFiscal,
+  withFiscalFallback,
+  type FiscalFallback,
+} from "@sellbridge/shared/product-fiscal";
+import { and, asc, eq, inArray } from "drizzle-orm";
+import type { Database, DatabaseExecutor } from "../client.ts";
+import {
+  productModelColors,
+  productModels,
+  productModelSizes,
+  supplierProducts,
+  suppliers,
+} from "../schema/index.ts";
+import { getSupplierFiscalFallback } from "./supplier-brand.ts";
+
+/** A model as the grid form edits it: shared data, colours and sizes in order, combinations. */
+export interface ProductModelDetail {
+  readonly id: string;
+  readonly supplierId: string;
+  readonly values: ProductModelShared;
+  readonly colors: readonly { name: string; imageUrls: string[] }[];
+  readonly sizes: readonly string[];
+  readonly combinations: readonly {
+    id: string;
+    color: string | null;
+    size: string | null;
+    sku: string;
+    stock: number;
+    reservedStock: number;
+    costCents: number;
+    suggestedPriceCents: number;
+    active: boolean;
+  }[];
+}
+
+/** Same lock as the team's product writes, so a grid save never races an import or an edit. */
+async function lockSupplier(database: DatabaseExecutor, supplierId: string): Promise<void> {
+  const [supplier] = await database
+    .select({ id: suppliers.id })
+    .from(suppliers)
+    .where(eq(suppliers.id, supplierId))
+    .for("update");
+  if (supplier === undefined) {
+    throw notFoundError("Fornecedor não encontrado");
+  }
+}
+
+async function assertSkusAreFree(
+  database: DatabaseExecutor,
+  supplierId: string,
+  skus: readonly string[],
+): Promise<void> {
+  const taken = await database
+    .select({ sku: supplierProducts.sku })
+    .from(supplierProducts)
+    .where(
+      and(eq(supplierProducts.supplierId, supplierId), inArray(supplierProducts.sku, [...skus])),
+    )
+    .orderBy(asc(supplierProducts.sku));
+  if (taken.length > 0) {
+    throw conflictError(
+      `Já existe produto com ${taken.length === 1 ? "o SKU" : "os SKUs"} ${taken.map((row) => row.sku).join(", ")} neste fornecedor`,
+    );
+  }
+}
+
+/** A combination goes on sale only with its NF-e data, as a single product does. */
+function reviewStatusFor(
+  requested: "approved" | "draft",
+  product: MaterializedCombination,
+  fallback: FiscalFallback | null,
+): "approved" | "draft" {
+  if (requested === "draft") {
+    return "draft";
+  }
+  const complete = hasRequiredFiscalData(
+    withFiscalFallback(readProductFiscal(product.fiscal), fallback),
+  );
+  return complete ? "approved" : "draft";
+}
+
+function colorPhotos(grid: ProductGrid): ReadonlyMap<string, string[]> {
+  return new Map(grid.colors.map((color) => [color.name, color.imageUrls]));
+}
+
+function combinationRow(
+  model: {
+    supplierId: string;
+    modelId: string;
+    values: ProductModelShared;
+    photos: ReadonlyMap<string, string[]>;
+  },
+  combination: GridCombination,
+) {
+  const { supplierId, modelId, values, photos } = model;
+  const own = combinationOwnFields(combination);
+  const product = materializeCombination(values, {
+    color: combination.color,
+    size: combination.size,
+    colorImageUrls: combination.color === null ? [] : (photos.get(combination.color) ?? []),
+    ...own,
+  });
+  return {
+    supplierId,
+    modelId,
+    color: combination.color,
+    size: combination.size,
+    ...own,
+    ...product,
+    sku: combination.sku,
+    costCents: combination.costCents,
+    suggestedPriceCents: combination.suggestedPriceCents,
+    stock: combination.stock,
+    fiscalRequired: true,
+  };
+}
+
+/**
+ * Creates a model and one product per combination, all in one transaction.
+ *
+ * @param input.grid - Already validated with `productGridSchema`.
+ * @param input.reviewStatus - "approved" from the team, "draft" from the supplier panel; a
+ *   combination without NCM, origin and unit is saved as a draft either way.
+ * @throws AppError CONFLICT when a combination's SKU already exists for the supplier.
+ */
+export async function createProductModel(
+  database: Database,
+  input: {
+    supplierId: string;
+    values: ProductModelShared;
+    grid: ProductGrid;
+    reviewStatus: "approved" | "draft";
+  },
+): Promise<{ modelId: string; combinationIds: string[] }> {
+  const { supplierId, values, grid } = input;
+  return await database.transaction(async (transaction) => {
+    await lockSupplier(transaction, supplierId);
+    await assertSkusAreFree(
+      transaction,
+      supplierId,
+      grid.combinations.map((combination) => combination.sku),
+    );
+    const [model] = await transaction
+      .insert(productModels)
+      .values({ supplierId, ...values, imageUrls: [...values.imageUrls] })
+      .returning({ id: productModels.id });
+    if (model === undefined) {
+      throw new Error("product_models insert returned no row");
+    }
+    await insertOptions(transaction, model.id, grid);
+    const fallback = await getSupplierFiscalFallback(transaction, supplierId);
+    const photos = colorPhotos(grid);
+    const rows = grid.combinations.map((combination) => {
+      const row = combinationRow({ supplierId, modelId: model.id, values, photos }, combination);
+      return { ...row, reviewStatus: reviewStatusFor(input.reviewStatus, row, fallback) };
+    });
+    const inserted = await transaction
+      .insert(supplierProducts)
+      .values(rows)
+      .returning({ id: supplierProducts.id });
+    return { modelId: model.id, combinationIds: inserted.map((row) => row.id) };
+  });
+}
+
+async function insertOptions(
+  transaction: DatabaseExecutor,
+  modelId: string,
+  grid: ProductGrid,
+): Promise<void> {
+  if (grid.colors.length > 0) {
+    await transaction.insert(productModelColors).values(
+      grid.colors.map((color, position) => ({
+        modelId,
+        name: color.name,
+        position,
+        imageUrls: color.imageUrls,
+      })),
+    );
+  }
+  if (grid.sizes.length > 0) {
+    await transaction
+      .insert(productModelSizes)
+      .values(grid.sizes.map((name, position) => ({ modelId, name, position })));
+  }
+}
+
+/**
+ * Saves the model's shared data and rewrites every combination from it, so no combination keeps
+ * an old title, photo or attribute. Stock, prices, SKUs and review status are left as they are.
+ *
+ * @throws AppError NOT_FOUND when the model does not belong to the supplier.
+ */
+export async function updateProductModel(
+  database: Database,
+  input: { supplierId: string; modelId: string; values: ProductModelShared },
+): Promise<void> {
+  const { supplierId, modelId, values } = input;
+  await database.transaction(async (transaction) => {
+    await lockSupplier(transaction, supplierId);
+    const [model] = await transaction
+      .update(productModels)
+      .set({ ...values, imageUrls: [...values.imageUrls] })
+      .where(and(eq(productModels.id, modelId), eq(productModels.supplierId, supplierId)))
+      .returning({ id: productModels.id });
+    if (model === undefined) {
+      throw notFoundError("Modelo não encontrado neste fornecedor");
+    }
+    await rewriteCombinations(transaction, modelId, values);
+  });
+}
+
+async function rewriteCombinations(
+  transaction: DatabaseExecutor,
+  modelId: string,
+  values: ProductModelShared,
+): Promise<void> {
+  const colors = await transaction
+    .select({ name: productModelColors.name, imageUrls: productModelColors.imageUrls })
+    .from(productModelColors)
+    .where(eq(productModelColors.modelId, modelId));
+  const photos = new Map(colors.map((color) => [color.name, color.imageUrls]));
+  // Same row order as sales and imports take their locks in, so none of them deadlock.
+  const combinations = await transaction
+    .select({
+      id: supplierProducts.id,
+      color: supplierProducts.color,
+      size: supplierProducts.size,
+      variantAttributes: supplierProducts.variantAttributes,
+      variantFiscal: supplierProducts.variantFiscal,
+    })
+    .from(supplierProducts)
+    .where(eq(supplierProducts.modelId, modelId))
+    .orderBy(asc(supplierProducts.id))
+    .for("no key update");
+  for (const combination of combinations) {
+    const product = materializeCombination(values, {
+      ...combination,
+      colorImageUrls: combination.color === null ? [] : (photos.get(combination.color) ?? []),
+    });
+    await transaction
+      .update(supplierProducts)
+      .set(product)
+      .where(eq(supplierProducts.id, combination.id));
+  }
+}
+
+/** The model with its options in order and its combinations; null when not the supplier's. */
+export async function getProductModel(
+  database: DatabaseExecutor,
+  input: { supplierId: string; modelId: string },
+): Promise<ProductModelDetail | null> {
+  const [model] = await database
+    .select()
+    .from(productModels)
+    .where(
+      and(eq(productModels.id, input.modelId), eq(productModels.supplierId, input.supplierId)),
+    );
+  if (model === undefined) {
+    return null;
+  }
+  const [colors, sizes, combinations] = await Promise.all([
+    database
+      .select({ name: productModelColors.name, imageUrls: productModelColors.imageUrls })
+      .from(productModelColors)
+      .where(eq(productModelColors.modelId, model.id))
+      .orderBy(asc(productModelColors.position)),
+    database
+      .select({ name: productModelSizes.name })
+      .from(productModelSizes)
+      .where(eq(productModelSizes.modelId, model.id))
+      .orderBy(asc(productModelSizes.position)),
+    database
+      .select({
+        id: supplierProducts.id,
+        color: supplierProducts.color,
+        size: supplierProducts.size,
+        sku: supplierProducts.sku,
+        stock: supplierProducts.stock,
+        reservedStock: supplierProducts.reservedStock,
+        costCents: supplierProducts.costCents,
+        suggestedPriceCents: supplierProducts.suggestedPriceCents,
+        active: supplierProducts.active,
+      })
+      .from(supplierProducts)
+      .where(eq(supplierProducts.modelId, model.id)),
+  ]);
+  const sizeNames = sizes.map((size) => size.name);
+  return {
+    id: model.id,
+    supplierId: model.supplierId,
+    values: sharedValues(model),
+    colors,
+    sizes: sizeNames,
+    combinations: inGridOrder(
+      combinations,
+      colors.map((color) => color.name),
+      sizeNames,
+    ),
+  };
+}
+
+function sharedValues(model: typeof productModels.$inferSelect): ProductModelShared {
+  return {
+    title: model.title,
+    description: model.description,
+    categoryId: model.categoryId,
+    imageUrls: model.imageUrls,
+    mercadoLivreAttributes: model.mercadoLivreAttributes,
+    mercadoLivreCategoryId: model.mercadoLivreCategoryId,
+    mercadoLivreCategoryName: model.mercadoLivreCategoryName,
+    warrantyType: model.warrantyType,
+    warrantyDays: model.warrantyDays,
+    videoUrl: model.videoUrl,
+    madeToOrderDays: model.madeToOrderDays,
+    carrierOnly: model.carrierOnly,
+    fiscal: model.fiscal,
+  };
+}
+
+function gridPosition(order: readonly string[], name: string | null): number {
+  return name === null ? 0 : order.indexOf(name);
+}
+
+/** Colour by colour, each in size order: the order the grid form and the buyer see. */
+function inGridOrder<Row extends { color: string | null; size: string | null }>(
+  rows: readonly Row[],
+  colorOrder: readonly string[],
+  sizeOrder: readonly string[],
+): Row[] {
+  return rows.toSorted(
+    (first, second) =>
+      gridPosition(colorOrder, first.color) - gridPosition(colorOrder, second.color) ||
+      gridPosition(sizeOrder, first.size) - gridPosition(sizeOrder, second.size),
+  );
+}
