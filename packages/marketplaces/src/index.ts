@@ -15,6 +15,7 @@ export {
 } from "./mercado-livre/category-ficha.ts";
 export { readMercadoLivreBuyerBilling, type BuyerBilling } from "./mercado-livre/billing.ts";
 export { readMercadoLivreAccountAddresses } from "./mercado-livre/addresses.ts";
+export { readMercadoLivreSaleInvoice } from "./mercado-livre/sale-invoice.ts";
 export {
   packageDimensionsOf,
   readMercadoLivreCommission,

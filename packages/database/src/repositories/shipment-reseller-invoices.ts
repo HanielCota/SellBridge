@@ -1,0 +1,257 @@
+import { conflictError, notFoundError } from "@sellbridge/shared/errors";
+import type { AccessKeyParts } from "@sellbridge/shared/nfe-access-key";
+import { and, asc, eq, gte, inArray, isNotNull, isNull, lte, notInArray, sql } from "drizzle-orm";
+import type { Database } from "../client.ts";
+import {
+  orders,
+  orderShipments,
+  shipmentResellerInvoices,
+  storeConnections,
+  supplierErpConnections,
+  suppliers,
+  tenantProfile,
+} from "../schema/index.ts";
+import { UNINVOICED_ORDER_STATUSES, UNINVOICED_SHIPMENT_STATUSES } from "./sql/uninvoiced.ts";
+
+/**
+ * Opens the reseller's sale note of each new parcel sold in venda à ordem: the supplier issues
+ * through its ERP with "Venda à ordem" chosen, and the reseller sells as a company (a CPF reseller
+ * stays on the supplier's direct note, decision of 18/11/2026). Returns how many were opened.
+ */
+export async function queueResellerSaleInvoices(database: Database): Promise<number> {
+  const candidates = await database
+    .select({ shipmentId: orderShipments.id, tenantId: orderShipments.tenantId })
+    .from(orderShipments)
+    .innerJoin(
+      suppliers,
+      and(
+        eq(suppliers.id, orderShipments.supplierId),
+        sql`${suppliers.fiscalProfile}->>'invoiceModel' = 'on_behalf'`,
+      ),
+    )
+    .innerJoin(
+      supplierErpConnections,
+      and(
+        eq(supplierErpConnections.supplierId, orderShipments.supplierId),
+        eq(supplierErpConnections.status, "connected"),
+        isNotNull(supplierErpConnections.invoiceEnabledAt),
+        gte(orderShipments.createdAt, supplierErpConnections.invoiceEnabledAt),
+      ),
+    )
+    .innerJoin(
+      tenantProfile,
+      and(eq(tenantProfile.tenantId, orderShipments.tenantId), isNotNull(tenantProfile.cnpj)),
+    )
+    .innerJoin(orders, eq(orders.id, orderShipments.orderId))
+    .leftJoin(shipmentResellerInvoices, eq(shipmentResellerInvoices.shipmentId, orderShipments.id))
+    .where(
+      and(
+        isNull(shipmentResellerInvoices.id),
+        notInArray(orderShipments.status, [...UNINVOICED_SHIPMENT_STATUSES]),
+        notInArray(orders.status, [...UNINVOICED_ORDER_STATUSES]),
+      ),
+    );
+  if (candidates.length === 0) {
+    return 0;
+  }
+  const inserted = await database
+    .insert(shipmentResellerInvoices)
+    .values(candidates)
+    .onConflictDoNothing({ target: shipmentResellerInvoices.shipmentId })
+    .returning({ id: shipmentResellerInvoices.id });
+  return inserted.length;
+}
+
+/** A reseller note still missing, with what reading the marketplace needs. */
+export interface DueResellerSaleInvoice {
+  readonly id: string;
+  readonly checks: number;
+  readonly externalOrderId: string;
+  /** Digits; the note must be issued by this CNPJ. Null when the reseller stopped being a company. */
+  readonly resellerCnpj: string | null;
+  readonly store: {
+    readonly id: string;
+    readonly marketplace: string;
+    readonly externalShopId: string;
+    readonly accessTokenEnc: string | null;
+  };
+}
+
+/**
+ * Takes up to `limit` missing notes due for a read of the marketplace, for sales still going
+ * ahead, and leases them: the next read moves `leaseMilliseconds` ahead, so a crashed run is picked
+ * up again, and `SKIP LOCKED` keeps two workers apart.
+ */
+export async function claimDueResellerSaleInvoices(
+  database: Database,
+  claim: { now: Date; limit: number; leaseMilliseconds: number },
+): Promise<DueResellerSaleInvoice[]> {
+  return database.transaction(async (transaction) => {
+    const due = await transaction
+      .select({
+        id: shipmentResellerInvoices.id,
+        checks: shipmentResellerInvoices.checks,
+        externalOrderId: orders.externalOrderId,
+        resellerCnpj: tenantProfile.cnpj,
+        store: {
+          id: storeConnections.id,
+          marketplace: storeConnections.marketplace,
+          externalShopId: storeConnections.externalShopId,
+          accessTokenEnc: storeConnections.accessTokenEnc,
+        },
+      })
+      .from(shipmentResellerInvoices)
+      .innerJoin(orderShipments, eq(orderShipments.id, shipmentResellerInvoices.shipmentId))
+      .innerJoin(orders, eq(orders.id, orderShipments.orderId))
+      .innerJoin(storeConnections, eq(storeConnections.id, orders.storeConnectionId))
+      .leftJoin(tenantProfile, eq(tenantProfile.tenantId, shipmentResellerInvoices.tenantId))
+      .where(
+        and(
+          isNull(shipmentResellerInvoices.accessKey),
+          lte(
+            shipmentResellerInvoices.nextCheckAt,
+            sql`greatest(${claim.now.toISOString()}::timestamptz, now())`,
+          ),
+          notInArray(orderShipments.status, [...UNINVOICED_SHIPMENT_STATUSES]),
+          notInArray(orders.status, [...UNINVOICED_ORDER_STATUSES]),
+        ),
+      )
+      .orderBy(asc(shipmentResellerInvoices.nextCheckAt))
+      .limit(claim.limit)
+      .for("update", { of: shipmentResellerInvoices, skipLocked: true });
+    if (due.length === 0) {
+      return [];
+    }
+    await transaction
+      .update(shipmentResellerInvoices)
+      .set({ nextCheckAt: new Date(claim.now.getTime() + claim.leaseMilliseconds) })
+      .where(
+        inArray(
+          shipmentResellerInvoices.id,
+          due.map((row) => row.id),
+        ),
+      );
+    return due;
+  });
+}
+
+/** What a found note keeps: its key and the parts the key carries. */
+function foundValues(parts: AccessKeyParts, foundAt: Date) {
+  return {
+    accessKey: parts.accessKey,
+    number: parts.number,
+    series: parts.series,
+    foundAt,
+    problem: null,
+  };
+}
+
+/** Saves the note read on the marketplace's order; one already found is left as it was. */
+export async function recordMarketplaceResellerSaleInvoice(
+  database: Database,
+  found: { invoiceId: string; parts: AccessKeyParts; issuedAt: Date | null; now: Date },
+): Promise<void> {
+  await database
+    .update(shipmentResellerInvoices)
+    .set({
+      ...foundValues(found.parts, found.now),
+      issuedAt: found.issuedAt,
+      source: "marketplace",
+    })
+    .where(
+      and(
+        eq(shipmentResellerInvoices.id, found.invoiceId),
+        isNull(shipmentResellerInvoices.accessKey),
+      ),
+    );
+}
+
+/**
+ * The marketplace had no usable note this time: read again at `nextCheckAt`. `problem` says why
+ * the note there does not serve (another CNPJ, for one), or is null when there was none.
+ */
+export async function scheduleResellerSaleInvoiceCheck(
+  database: Database,
+  next: { invoiceId: string; checks: number; nextCheckAt: Date; problem: string | null },
+): Promise<void> {
+  await database
+    .update(shipmentResellerInvoices)
+    .set({ checks: next.checks, nextCheckAt: next.nextCheckAt, problem: next.problem })
+    .where(
+      and(
+        eq(shipmentResellerInvoices.id, next.invoiceId),
+        isNull(shipmentResellerInvoices.accessKey),
+      ),
+    );
+}
+
+/**
+ * Saves the key the reseller typed for its own parcel.
+ *
+ * @throws {AppError} NOT_FOUND when the parcel is not the reseller's or waits for no note;
+ * CONFLICT when its note is already saved.
+ */
+export async function saveTypedResellerSaleInvoice(
+  database: Database,
+  typed: { tenantId: string; shipmentId: string; parts: AccessKeyParts; now: Date },
+): Promise<void> {
+  const ofTenantParcel = and(
+    eq(shipmentResellerInvoices.shipmentId, typed.shipmentId),
+    eq(shipmentResellerInvoices.tenantId, typed.tenantId),
+  );
+  const saved = await database
+    .update(shipmentResellerInvoices)
+    .set({ ...foundValues(typed.parts, typed.now), issuedAt: null, source: "typed" })
+    .where(and(ofTenantParcel, isNull(shipmentResellerInvoices.accessKey)))
+    .returning({ id: shipmentResellerInvoices.id });
+  if (saved.length > 0) {
+    return;
+  }
+  const [existing] = await database
+    .select({ id: shipmentResellerInvoices.id })
+    .from(shipmentResellerInvoices)
+    .where(ofTenantParcel);
+  if (existing === undefined) {
+    throw notFoundError("Este pedido não espera a sua nota de venda");
+  }
+  throw conflictError("A nota de venda deste pedido já foi registrada");
+}
+
+/** The reseller's sale note of a parcel, as the order screens show it. */
+export interface ResellerSaleInvoice {
+  readonly accessKey: string | null;
+  readonly number: string | null;
+  readonly series: string | null;
+  readonly source: "marketplace" | "typed" | null;
+  readonly foundAt: Date | null;
+  readonly problem: string | null;
+}
+
+/** The reseller notes of the tenant's parcels, by parcel id; parcels without one are absent. */
+export async function resellerSaleInvoicesOf(
+  database: Database,
+  tenantId: string,
+  shipmentIds: readonly string[],
+): Promise<Map<string, ResellerSaleInvoice>> {
+  if (shipmentIds.length === 0) {
+    return new Map();
+  }
+  const rows = await database
+    .select({
+      shipmentId: shipmentResellerInvoices.shipmentId,
+      accessKey: shipmentResellerInvoices.accessKey,
+      number: shipmentResellerInvoices.number,
+      series: shipmentResellerInvoices.series,
+      source: shipmentResellerInvoices.source,
+      foundAt: shipmentResellerInvoices.foundAt,
+      problem: shipmentResellerInvoices.problem,
+    })
+    .from(shipmentResellerInvoices)
+    .where(
+      and(
+        eq(shipmentResellerInvoices.tenantId, tenantId),
+        inArray(shipmentResellerInvoices.shipmentId, [...shipmentIds]),
+      ),
+    );
+  return new Map(rows.map(({ shipmentId, ...invoice }) => [shipmentId, invoice]));
+}
