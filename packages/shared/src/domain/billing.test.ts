@@ -7,6 +7,7 @@ import {
   billingNotice,
   paidBillingPlan,
   pastDueAccessEnd,
+  upgradeDifferenceCents,
 } from "./billing.ts";
 
 const now = new Date("2026-12-10T12:00:00Z");
@@ -214,5 +215,91 @@ describe("billing notice", () => {
       sevenDaysBefore,
     );
     expect(notice).toEqual({ kind: "transition", until: transition.endsAt, endingSoon: true });
+  });
+});
+
+describe("scheduled smaller plan", () => {
+  const scheduled = {
+    ...subscription,
+    plan: "elite",
+    scheduledPlan: "pro",
+    scheduledPlanAt: new Date("2026-12-19T03:00:00Z"),
+  };
+
+  it("keeps the current plan until the scheduled day", () => {
+    expect(paidBillingPlan(scheduled, now)?.id).toBe("elite");
+  });
+
+  it("switches to the smaller plan from the scheduled day on", () => {
+    expect(paidBillingPlan(scheduled, new Date("2026-12-19T03:00:00Z"))?.id).toBe("pro");
+  });
+});
+
+describe("upgrade difference", () => {
+  const period = {
+    periodStart: new Date("2026-11-19T03:00:00Z"),
+    periodEnd: new Date("2026-12-19T03:00:00Z"),
+  };
+
+  it("charges the price difference for the share of the month still ahead", () => {
+    const difference = upgradeDifferenceCents({
+      ...period,
+      fromPriceCents: 19_700,
+      toPriceCents: 99_700,
+      now: new Date("2026-12-04T03:00:00Z"),
+    });
+
+    expect(difference).toBe(40_000);
+  });
+
+  it("charges the whole difference on the first day of the period", () => {
+    const difference = upgradeDifferenceCents({
+      ...period,
+      fromPriceCents: 9_700,
+      toPriceCents: 19_700,
+      now: period.periodStart,
+    });
+
+    expect(difference).toBe(10_000);
+  });
+
+  it("charges nothing once the period is over", () => {
+    const difference = upgradeDifferenceCents({
+      ...period,
+      fromPriceCents: 9_700,
+      toPriceCents: 19_700,
+      now: new Date("2026-12-20T03:00:00Z"),
+    });
+
+    expect(difference).toBe(0);
+  });
+
+  it("charges nothing for a cheaper plan", () => {
+    const difference = upgradeDifferenceCents({
+      ...period,
+      fromPriceCents: 99_700,
+      toPriceCents: 19_700,
+      now: new Date("2026-12-04T03:00:00Z"),
+    });
+
+    expect(difference).toBe(0);
+  });
+
+  it("throws RangeError for a period that does not move forward", () => {
+    expect(() =>
+      upgradeDifferenceCents({
+        periodStart: period.periodEnd,
+        periodEnd: period.periodStart,
+        fromPriceCents: 9_700,
+        toPriceCents: 19_700,
+        now,
+      }),
+    ).toThrow(RangeError);
+  });
+
+  it("throws RangeError for a price that is not whole cents", () => {
+    expect(() =>
+      upgradeDifferenceCents({ ...period, fromPriceCents: 97.5, toPriceCents: 19_700, now }),
+    ).toThrow(RangeError);
   });
 });

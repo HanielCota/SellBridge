@@ -1,11 +1,12 @@
 /**
  * The client's master plan (18/11/2026): five paid plans, no free plan and no trial. Names and
  * prices come from the client; the store and listing limits were approved with the plan table.
- * Prices live in Stripe.
+ * Asaas charges `priceCents` every month (decision of 19/11/2026).
  */
 export const BILLING_PLANS = [
   {
     id: "start",
+    priceCents: 9_700,
     name: "Start",
     stores: 3,
     listings: 300,
@@ -13,6 +14,7 @@ export const BILLING_PLANS = [
   },
   {
     id: "pro",
+    priceCents: 19_700,
     name: "Pro",
     stores: 5,
     listings: 1_000,
@@ -20,6 +22,7 @@ export const BILLING_PLANS = [
   },
   {
     id: "business",
+    priceCents: 39_700,
     name: "Business",
     stores: 10,
     listings: 3_000,
@@ -27,6 +30,7 @@ export const BILLING_PLANS = [
   },
   {
     id: "black",
+    priceCents: 69_700,
     name: "Black",
     stores: 20,
     listings: 8_000,
@@ -34,6 +38,7 @@ export const BILLING_PLANS = [
   },
   {
     id: "elite",
+    priceCents: 99_700,
     name: "Elite",
     stores: 40,
     listings: 20_000,
@@ -83,6 +88,18 @@ export interface BillingSubscriptionState {
   plan: string;
   status: string;
   periodEnd: Date | null;
+  /** A smaller plan the reseller chose: it replaces `plan` from `scheduledPlanAt` on. */
+  scheduledPlan?: string | null;
+  scheduledPlanAt?: Date | null;
+}
+
+/** The plan the subscription pays for at `now`: a scheduled smaller plan once its day comes. */
+function planInForce(subscription: BillingSubscriptionState, now: Date): string {
+  const { scheduledPlan, scheduledPlanAt } = subscription;
+  if (scheduledPlan == null || scheduledPlanAt == null || scheduledPlanAt > now) {
+    return subscription.plan;
+  }
+  return scheduledPlan;
 }
 
 /** The paid plan in force, or null without a paid, current subscription to a known plan. */
@@ -94,8 +111,37 @@ export function paidBillingPlan(
   if (!PAID_STATUSES.includes(subscription.status)) return null;
   // past_due keeps the plan while the grace the webhook wrote into periodEnd lasts (item 16, N9).
   if (subscription.periodEnd === null || subscription.periodEnd <= now) return null;
-  if (!isBillingPlanId(subscription.plan)) return null;
-  return billingPlan(subscription.plan);
+  const plan = planInForce(subscription, now);
+  if (!isBillingPlanId(plan)) return null;
+  return billingPlan(plan);
+}
+
+/**
+ * What moving up costs for the rest of the paid month: the price difference times the share of
+ * the period still ahead, rounded to the cent. Zero when the new plan is not dearer or the
+ * period is over.
+ *
+ * @throws {RangeError} When the period does not end after it starts or a price is not whole cents.
+ */
+export function upgradeDifferenceCents(input: {
+  fromPriceCents: number;
+  toPriceCents: number;
+  periodStart: Date;
+  periodEnd: Date;
+  now: Date;
+}): number {
+  const { fromPriceCents, toPriceCents, periodStart, periodEnd, now } = input;
+  if (!Number.isSafeInteger(fromPriceCents) || !Number.isSafeInteger(toPriceCents)) {
+    throw new RangeError(`Plan prices must be whole cents: ${fromPriceCents}, ${toPriceCents}`);
+  }
+  const periodLength = periodEnd.getTime() - periodStart.getTime();
+  if (!Number.isFinite(periodLength) || periodLength <= 0) {
+    throw new RangeError(`Paid period must end after it starts: ${periodLength} ms`);
+  }
+  const difference = toPriceCents - fromPriceCents;
+  const remaining = Math.min(Math.max(periodEnd.getTime() - now.getTime(), 0), periodLength);
+  if (difference <= 0 || remaining === 0) return 0;
+  return Math.round((difference * remaining) / periodLength);
 }
 
 /** What an account may use now. */
