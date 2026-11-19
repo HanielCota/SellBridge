@@ -3,6 +3,7 @@ export * from "./enums.ts";
 export * from "./region.ts";
 export * from "./suppliers.ts";
 export * from "./stores.ts";
+export * from "./store-buyer-address.ts";
 export * from "./listings.ts";
 export * from "./orders.ts";
 export * from "./webhooks.ts";

@@ -18,6 +18,7 @@ const mocks = vi.hoisted(() => ({
   findStoreAwaitingReconnection:
     vi.fn<(...args: unknown[]) => Promise<{ id: string; connectedAt: Date } | null>>(),
   enqueueStoreOrderCatchUp: vi.fn<(job: unknown) => Promise<void>>(),
+  checkBuyerAddressAfterConnect: vi.fn<(store: unknown, credentials: unknown) => Promise<void>>(),
 }));
 
 vi.mock("@/lib/server/tenant-session", () => ({
@@ -34,7 +35,10 @@ vi.mock("@/lib/server/environment", () => ({
   },
 }));
 vi.mock("@/lib/server/marketplaces", () => ({
-  connectors: { mercado_livre: { exchangeCode: mocks.exchangeCode } },
+  connectors: {
+    mercado_livre: { exchangeCode: mocks.exchangeCode },
+    shopee: { exchangeCode: mocks.exchangeCode },
+  },
   oauthCallbackUrl: (marketplace: string) =>
     `https://sellbridge.test/api/oauth/${marketplace}/callback`,
   oauthAuthorizationUrl: (_marketplace: string, request: { state: string }) =>
@@ -52,6 +56,9 @@ vi.mock("@sellbridge/database/repositories", () => ({
   isUserEmailVerified: mocks.isUserEmailVerified,
   hasLiveStoreConnection: mocks.hasLiveStoreConnection,
   findStoreAwaitingReconnection: mocks.findStoreAwaitingReconnection,
+}));
+vi.mock("./buyer-address.server", () => ({
+  checkBuyerAddressAfterConnect: mocks.checkBuyerAddressAfterConnect,
 }));
 vi.mock("@/lib/server/queues", () => ({
   enqueueStoreOrderCatchUp: mocks.enqueueStoreOrderCatchUp,
@@ -93,6 +100,32 @@ beforeEach(() => {
 });
 
 describe("OAuth callback", () => {
+  it("checks the new store's purchase address with the token it just received", async () => {
+    mocks.upsertStoreConnection.mockResolvedValue({ id: "store-1", marketplace: "mercado_livre" });
+
+    const location = await redirectedTo();
+
+    expect(location.searchParams.get("conectada")).toBe("store-1");
+    expect(mocks.checkBuyerAddressAfterConnect).toHaveBeenCalledWith(
+      { id: "store-1", marketplace: "mercado_livre" },
+      { externalShopId: "ml-123", accessToken: "access" },
+    );
+  });
+
+  it("hands Shopee's shop_id to the code exchange, which needs it", async () => {
+    mocks.upsertStoreConnection.mockResolvedValue({ id: "store-1" });
+    const request = new Request(
+      "https://sellbridge.test/api/oauth/shopee/callback?state=state-1&code=abc&shop_id=727720655",
+    );
+
+    const response = await handleOAuthCallback(request, "shopee");
+
+    expect(response.status).toBe(302);
+    expect(mocks.exchangeCode).toHaveBeenCalledWith(
+      expect.objectContaining({ code: "abc", externalShopId: "727720655" }),
+    );
+  });
+
   it("recovers the transaction profile and returns to it after a callback without a profile parameter", async () => {
     mocks.findOAuthStateProfile.mockResolvedValue("second-profile");
     mocks.upsertStoreConnection.mockResolvedValue({ id: "store-1" });

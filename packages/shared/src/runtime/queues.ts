@@ -34,6 +34,8 @@ export const QUEUE_NAMES = {
   supplierPayments: "supplier-payments",
   /** Checks again the suppliers who signed up alone and still wait for approval. */
   supplierApproval: "supplier-approval",
+  /** Checks once a day that each Mercado Livre store does not buy at its supplier's address. */
+  buyerAddressCheck: "buyer-address-check",
 } as const;
 
 export const publishListingJobSchema = z.object({

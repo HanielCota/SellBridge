@@ -1,5 +1,5 @@
 {
-  "id": "22149f38-087d-45b6-9c45-f39cd41351eb",
+  "id": "f04d8dc6-e0f9-46aa-8809-eb168eb463ef",
   "prevId": "76effc80-b8c2-4b1f-a127-a5ca323e5471",
   "version": "7",
   "dialect": "postgresql",
@@ -1418,13 +1418,6 @@
           "notNull": true,
           "default": true
         },
-        "approval_status": {
-          "name": "approval_status",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "default": "'approved'"
-        },
         "sales_closed_at": {
           "name": "sales_closed_at",
           "type": "timestamp with time zone",
@@ -1509,22 +1502,6 @@
           "concurrently": false,
           "method": "btree",
           "with": {}
-        },
-        "suppliers_pending_approval_idx": {
-          "name": "suppliers_pending_approval_idx",
-          "columns": [
-            {
-              "expression": "created_at",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            }
-          ],
-          "isUnique": false,
-          "where": "\"suppliers\".\"approval_status\" = 'pending'",
-          "concurrently": false,
-          "method": "btree",
-          "with": {}
         }
       },
       "foreignKeys": {
@@ -1562,10 +1539,6 @@
         "suppliers_catalog_owner_check": {
           "name": "suppliers_catalog_owner_check",
           "value": "(\"suppliers\".\"catalog_kind\" = 'supplier' and \"suppliers\".\"owner_tenant_id\" is null) or (\"suppliers\".\"catalog_kind\" = 'seller' and \"suppliers\".\"owner_tenant_id\" is not null and \"suppliers\".\"organization_id\" is null)"
-        },
-        "suppliers_approval_status_check": {
-          "name": "suppliers_approval_status_check",
-          "value": "\"suppliers\".\"approval_status\" in ('pending','approved','refused')"
         },
         "suppliers_deadlines_check": {
           "name": "suppliers_deadlines_check",
@@ -1918,6 +1891,93 @@
           ]
         }
       },
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "public.store_buyer_address_checks": {
+      "name": "store_buyer_address_checks",
+      "schema": "",
+      "columns": {
+        "store_connection_id": {
+          "name": "store_connection_id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true
+        },
+        "result": {
+          "name": "result",
+          "type": "buyer_address_result",
+          "typeSchema": "public",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "supplier_id": {
+          "name": "supplier_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "checked_at": {
+          "name": "checked_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "wrong_since": {
+          "name": "wrong_since",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": false
+        }
+      },
+      "indexes": {
+        "store_buyer_address_checks_checked_idx": {
+          "name": "store_buyer_address_checks_checked_idx",
+          "columns": [
+            {
+              "expression": "checked_at",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {
+        "store_buyer_address_checks_store_connection_id_store_connections_id_fk": {
+          "name": "store_buyer_address_checks_store_connection_id_store_connections_id_fk",
+          "tableFrom": "store_buyer_address_checks",
+          "tableTo": "store_connections",
+          "columnsFrom": [
+            "store_connection_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        },
+        "store_buyer_address_checks_supplier_id_suppliers_id_fk": {
+          "name": "store_buyer_address_checks_supplier_id_suppliers_id_fk",
+          "tableFrom": "store_buyer_address_checks",
+          "tableTo": "suppliers",
+          "columnsFrom": [
+            "supplier_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "set null",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
       "uniqueConstraints": {},
       "policies": {},
       "checkConstraints": {},
@@ -4801,183 +4861,6 @@
       },
       "isRLSEnabled": false
     },
-    "public.supplier_approvals": {
-      "name": "supplier_approvals",
-      "schema": "",
-      "columns": {
-        "supplier_id": {
-          "name": "supplier_id",
-          "type": "uuid",
-          "primaryKey": true,
-          "notNull": true
-        },
-        "stage": {
-          "name": "stage",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "missing": {
-          "name": "missing",
-          "type": "jsonb",
-          "primaryKey": false,
-          "notNull": true,
-          "default": "'[]'::jsonb"
-        },
-        "team_reason": {
-          "name": "team_reason",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "cnpj": {
-          "name": "cnpj",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "cnpj_outcome": {
-          "name": "cnpj_outcome",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "receita_legal_name": {
-          "name": "receita_legal_name",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "registration_status": {
-          "name": "registration_status",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "checked_at": {
-          "name": "checked_at",
-          "type": "timestamp with time zone",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "unavailable_since": {
-          "name": "unavailable_since",
-          "type": "timestamp with time zone",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "decided_by": {
-          "name": "decided_by",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "decided_by_user_id": {
-          "name": "decided_by_user_id",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "decided_at": {
-          "name": "decided_at",
-          "type": "timestamp with time zone",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "refusal_reason": {
-          "name": "refusal_reason",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "created_at": {
-          "name": "created_at",
-          "type": "timestamp with time zone",
-          "primaryKey": false,
-          "notNull": true,
-          "default": "now()"
-        },
-        "updated_at": {
-          "name": "updated_at",
-          "type": "timestamp with time zone",
-          "primaryKey": false,
-          "notNull": true,
-          "default": "now()"
-        }
-      },
-      "indexes": {
-        "supplier_approvals_needs_team_idx": {
-          "name": "supplier_approvals_needs_team_idx",
-          "columns": [
-            {
-              "expression": "updated_at",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            }
-          ],
-          "isUnique": false,
-          "where": "\"supplier_approvals\".\"stage\" = 'needs_team'",
-          "concurrently": false,
-          "method": "btree",
-          "with": {}
-        }
-      },
-      "foreignKeys": {
-        "supplier_approvals_supplier_id_suppliers_id_fk": {
-          "name": "supplier_approvals_supplier_id_suppliers_id_fk",
-          "tableFrom": "supplier_approvals",
-          "tableTo": "suppliers",
-          "columnsFrom": [
-            "supplier_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
-          "onDelete": "cascade",
-          "onUpdate": "no action"
-        },
-        "supplier_approvals_decided_by_user_id_user_id_fk": {
-          "name": "supplier_approvals_decided_by_user_id_user_id_fk",
-          "tableFrom": "supplier_approvals",
-          "tableTo": "user",
-          "columnsFrom": [
-            "decided_by_user_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
-          "onDelete": "set null",
-          "onUpdate": "no action"
-        }
-      },
-      "compositePrimaryKeys": {},
-      "uniqueConstraints": {},
-      "policies": {},
-      "checkConstraints": {
-        "supplier_approvals_stage_check": {
-          "name": "supplier_approvals_stage_check",
-          "value": "\"supplier_approvals\".\"stage\" is null or \"supplier_approvals\".\"stage\" in ('waiting_supplier', 'checking', 'needs_team')"
-        },
-        "supplier_approvals_team_reason_check": {
-          "name": "supplier_approvals_team_reason_check",
-          "value": "\"supplier_approvals\".\"team_reason\" is null or \"supplier_approvals\".\"team_reason\" in ('cnpj_inactive', 'cnpj_not_found', 'cnpj_unsupported', 'legal_name_mismatch', 'lookup_unavailable')"
-        },
-        "supplier_approvals_cnpj_outcome_check": {
-          "name": "supplier_approvals_cnpj_outcome_check",
-          "value": "\"supplier_approvals\".\"cnpj_outcome\" is null or \"supplier_approvals\".\"cnpj_outcome\" in ('active', 'inactive', 'not_found', 'unsupported', 'unavailable')"
-        },
-        "supplier_approvals_decided_by_check": {
-          "name": "supplier_approvals_decided_by_check",
-          "value": "\"supplier_approvals\".\"decided_by\" is null or \"supplier_approvals\".\"decided_by\" in ('automatic','team')"
-        },
-        "supplier_approvals_refusal_reason_check": {
-          "name": "supplier_approvals_refusal_reason_check",
-          "value": "\"supplier_approvals\".\"refusal_reason\" is null or char_length(\"supplier_approvals\".\"refusal_reason\") <= 500"
-        }
-      },
-      "isRLSEnabled": false
-    },
     "public.api_events": {
       "name": "api_events",
       "schema": "",
@@ -7680,13 +7563,6 @@
           "notNull": true,
           "default": 5
         },
-        "require_receiving_account_for_approval": {
-          "name": "require_receiving_account_for_approval",
-          "type": "boolean",
-          "primaryKey": false,
-          "notNull": true,
-          "default": false
-        },
         "updated_by_user_id": {
           "name": "updated_by_user_id",
           "type": "text",
@@ -8927,6 +8803,17 @@
     }
   },
   "enums": {
+    "public.buyer_address_result": {
+      "name": "buyer_address_result",
+      "schema": "public",
+      "values": [
+        "ok",
+        "supplier_address",
+        "shipping_address",
+        "no_buying_address",
+        "not_checked"
+      ]
+    },
     "public.customer_issue_kind": {
       "name": "customer_issue_kind",
       "schema": "public",

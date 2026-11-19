@@ -33,6 +33,16 @@ const workerEnvironmentSchema = z
     ALERT_WEBHOOK_URL: alertWebhookUrlEnvironmentSchema,
     MERCADO_LIVRE_CLIENT_ID: z.string().optional(),
     MERCADO_LIVRE_CLIENT_SECRET: z.string().optional(),
+    /**
+     * Shopee Open Platform app: the connector stays off until the partner id and key are set.
+     * SHOPEE_SANDBOX points it at the Sandbox V2 hosts, whose keys differ from the live ones.
+     */
+    SHOPEE_PARTNER_ID: z
+      .string()
+      .regex(/^\d{0,10}$/, "deve ser o número do parceiro")
+      .optional(),
+    SHOPEE_PARTNER_KEY: z.string().optional(),
+    SHOPEE_SANDBOX: booleanFlagEnvironmentSchema,
     /** TikTok Shop app (Partner Center); the connector stays off until all three are set. */
     TIKTOK_SHOP_APP_KEY: z.string().optional(),
     TIKTOK_SHOP_APP_SECRET: z.string().optional(),
