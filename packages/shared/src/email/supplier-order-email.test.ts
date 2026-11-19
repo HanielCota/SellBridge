@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   emailSupplierLinks,
   supplierOrderEmail,
+  supplierPanelOrderUrl,
   type SupplierRecipient,
 } from "./supplier-order-email.ts";
 
@@ -100,7 +101,7 @@ describe("emailSupplierLinks", () => {
     });
 
     expect(emailed).toEqual(new Set(["parcel-panel"]));
-    expect(sent[0]?.text).toContain("/fornecedor/painel/pedidos?query=2000012345");
+    expect(sent[0]?.text).toContain(supplierPanelOrderUrl("2000012345", APP_URL));
     expect(sent[0]?.text).not.toContain("token-secreto");
   });
 
@@ -118,5 +119,16 @@ describe("emailSupplierLinks", () => {
     });
 
     expect(sent[0]).toContain("/fornecedor/pedido/token-secreto");
+  });
+});
+
+describe("supplierPanelOrderUrl", () => {
+  it("keeps a numeric order number a string the panel search reads back", () => {
+    const url = new URL(supplierPanelOrderUrl("20006434908", "https://app.sellbridge.com.br"));
+
+    const query = url.searchParams.get("query");
+
+    expect(url.pathname).toBe("/fornecedor/painel/pedidos");
+    expect(JSON.parse(query ?? "null")).toBe("20006434908");
   });
 });

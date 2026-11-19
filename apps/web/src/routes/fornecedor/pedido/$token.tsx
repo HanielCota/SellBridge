@@ -1,4 +1,5 @@
 import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { supplierPanelOrderPath } from "@sellbridge/shared/supplier-order-email";
 import { createFileRoute } from "@tanstack/react-router";
 import { useState } from "react";
 import { InlineFormError } from "@/components/form/inline-form-error";
@@ -11,7 +12,6 @@ import { ErrorState } from "@/components/feedback/error-state";
 import { updateSupplierShipmentFn } from "@/features/fulfillment/fulfillment.functions";
 import { supplierShipmentQueryOptions } from "@/features/fulfillment/fulfillment.queries";
 import { isShippingBlocked } from "@/features/fulfillment/shipping-block";
-import { SUPPLIER_PANEL_PATH } from "@/features/auth/profile-routes";
 import { inviteFromOrderLinkFn } from "@/features/supplier-invite/supplier-invite.functions";
 import { errorMessage } from "@/lib/errors";
 import { SHARE_IMAGES, shareMeta } from "@/lib/share-meta";
@@ -90,7 +90,7 @@ function ShippingBlockedAlert() {
 
 /** A supplier with its own panel: the link only says where the order is now. */
 function OrderInPanel({ externalOrderId }: { externalOrderId: string }) {
-  const panelOrder = `${SUPPLIER_PANEL_PATH}/pedidos?query=${encodeURIComponent(externalOrderId)}`;
+  const panelOrder = supplierPanelOrderPath(externalOrderId);
   return (
     <section className="surface-card space-y-4 rounded-2xl bg-card p-5" aria-labelledby="moved">
       <h1 id="moved" className="text-2xl font-semibold tracking-tight">

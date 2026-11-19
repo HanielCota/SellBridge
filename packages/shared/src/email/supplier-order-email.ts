@@ -21,11 +21,18 @@ export interface SupplierOrderEmailInput {
   hasPanel: boolean;
 }
 
-/** The order on the supplier panel's Pedidos screen, searched by its number. */
+/**
+ * The order on the supplier panel's Pedidos screen, searched by its number. The router reads each
+ * search value as JSON: a bare "20001234" would arrive as a number and the search would be dropped,
+ * so the number goes as a JSON string, as the router writes it itself.
+ */
+export function supplierPanelOrderPath(externalOrderId: string): string {
+  return `/fornecedor/painel/pedidos?query=${encodeURIComponent(JSON.stringify(externalOrderId))}`;
+}
+
+/** {@link supplierPanelOrderPath} as a full address, for e-mails. */
 export function supplierPanelOrderUrl(externalOrderId: string, appUrl: string): string {
-  const url = new URL("/fornecedor/painel/pedidos", appUrl);
-  url.searchParams.set("query", externalOrderId);
-  return url.toString();
+  return new URL(supplierPanelOrderPath(externalOrderId), appUrl).toString();
 }
 
 function inDays(hours: number): string {
