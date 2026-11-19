@@ -617,6 +617,13 @@
       "when": 1795117531086,
       "tag": "0087_erp_stock_sync",
       "breakpoints": true
+    },
+    {
+      "idx": 88,
+      "version": "7",
+      "when": 1795125412017,
+      "tag": "0088_erp_stock_exits",
+      "breakpoints": true
     }
   ]
 }
