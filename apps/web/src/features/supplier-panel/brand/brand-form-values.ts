@@ -3,15 +3,22 @@ import { SUPPLIER_SLA_DEFAULTS } from "@sellbridge/shared/schemas";
 import { supplierFiscalFormValues } from "@/features/admin-suppliers/fiscal-form-values";
 
 /** Same shape as the team's supplier form (`supplierFormValues`), so its pieces fit here. */
-export function brandFormValues(brand: SupplierBrand | null, loginEmail: string) {
+/**
+ * The form's values. A new brand starts from the account: its name (what the supplier typed on
+ * sign-up, usually the business) and the login e-mail for orders.
+ */
+export function brandFormValues(
+  brand: SupplierBrand | null,
+  account: { email: string; name: string },
+) {
   return {
-    name: brand?.name ?? "",
+    name: brand?.name ?? account.name.trim(),
     niche: brand?.niche ?? "",
     state: brand?.state ?? "SP",
     city: brand?.city ?? "",
     description: brand?.description ?? "",
     logoUrl: "",
-    contactEmail: brand === null ? loginEmail : (brand.contactEmail ?? ""),
+    contactEmail: brand === null ? account.email : (brand.contactEmail ?? ""),
     acceptWithinHours: String(brand?.acceptWithinHours ?? SUPPLIER_SLA_DEFAULTS.acceptWithinHours),
     dispatchWithinHours: String(
       brand?.dispatchWithinHours ?? SUPPLIER_SLA_DEFAULTS.dispatchWithinHours,

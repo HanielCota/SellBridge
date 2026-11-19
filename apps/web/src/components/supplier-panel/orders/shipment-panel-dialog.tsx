@@ -27,7 +27,8 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { isPreparationStopped, isShippingBlocked } from "@/features/fulfillment/shipping-block";
 import { PreparationHoldAlert } from "./preparation-hold-alert";
 import { displayBuyerName } from "@/features/orders/buyer-name";
-import { channelLabel, channelSource } from "@/features/supplier-panel/orders/channel-labels";
+import { channelDispatch } from "@/features/supplier-panel/orders/channel-dispatch";
+import { channelLabel } from "@/features/supplier-panel/orders/channel-labels";
 import { dispatchInvoiceReminder } from "@/features/supplier-panel/orders/dispatch-invoice-reminder";
 import { orderSteps } from "@/features/supplier-panel/orders/order-steps";
 import { supplierPanelShipmentQueryOptions } from "@/features/supplier-panel/orders/orders.queries";
@@ -237,6 +238,17 @@ function DispatchInvoiceAlert({ shipment }: { shipment: PanelShipment }) {
   );
 }
 
+/** Before dispatch only the marketplace writes the tracking: people type it when shipping. */
+function dispatchFromChannel(shipment: PanelShipment, dispatched: boolean) {
+  return channelDispatch({
+    marketplace: shipment.marketplace,
+    carrier: shipment.carrier,
+    trackingCode: shipment.trackingCode,
+    dispatched,
+    labelFromChannel: isLabelMarketplace(shipment.marketplace) && !shipment.splitOrder,
+  });
+}
+
 /** The opened parcel: the same shipment panel the supplier link shows, acting as the supplier. */
 /** Why the parcel cannot move, or the NF-e reminder before dispatch when it can. */
 function StopAlert({
@@ -280,9 +292,7 @@ function PanelBody({ supplierId, shipmentId }: { supplierId: string; shipmentId:
   const hold = query.data.preparationHold;
   const blocked = isPreparationStopped(query.data);
   const tracked = DISPATCHED_FULFILLMENT_STATUSES.includes(query.data.status);
-  // Before dispatch only the marketplace writes the tracking: people type it when shipping.
-  const trackingFromChannel =
-    tracked || query.data.trackingCode === null ? null : channelSource(query.data.marketplace);
+  const fromChannel = dispatchFromChannel(query.data, tracked);
   return (
     <div className="space-y-4">
       <OrderFacts shipment={query.data} />
@@ -296,7 +306,7 @@ function PanelBody({ supplierId, shipmentId }: { supplierId: string; shipmentId:
       {query.data.splitOrder ? <SplitLabelNotice /> : null}
       {tracked ? <SupplierParcelTracking supplierId={supplierId} shipmentId={shipmentId} /> : null}
       <ShipmentPanel
-        shipment={{ ...query.data, trackingFromChannel }}
+        shipment={{ ...query.data, ...fromChannel }}
         externalOrderId={query.data.externalOrderId}
         actsAs="supplier"
         blocked={blocked}

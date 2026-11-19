@@ -46,7 +46,7 @@ SellBridge is a dropshipping/reselling SaaS: resellers connect their stores on m
 | Quality     | Oxlint · Prettier · Vitest · Playwright · lefthook               |
 | Local infra | Docker Compose                                                   |
 
-Decisions live in [docs/decisions.md](docs/decisions.md); architecture and code conventions in [docs/architecture.md](docs/architecture.md); the roadmap in [docs/plan.md](docs/plan.md). These documents are written in Portuguese.
+Decisions live in [docs/decisions.md](docs/decisions.md) (until 2026-11-18) and [docs/decisions/](docs/decisions/README.md) (one file per decision since 2026-11-19); architecture and code conventions in [docs/architecture.md](docs/architecture.md); the roadmap in [docs/plan.md](docs/plan.md). These documents are written in Portuguese.
 
 ## Getting started
 

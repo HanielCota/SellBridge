@@ -15,30 +15,30 @@ import { checkSupplierApprovalAfterSave } from "@/features/supplier-approval/app
 
 /**
  * The supplier's own brand ("Sua marca" before it exists, "Dados da marca" after). Same rules as
- * the team's supplier form; the logo and the active switch stay with the team. `loginEmail`
- * fills the orders e-mail of a new brand, so the first order reaches the supplier.
+ * the team's supplier form; the logo and the active switch stay with the team. `account`
+ * fills a new brand's name and orders e-mail, so the first order reaches the supplier.
  * `categoryNames` feeds "O que você vende", so niches match the catalog filter.
  */
 export const getOwnBrandFn = createServerFn({ method: "GET" })
   .middleware([accountMiddleware])
   .handler(async ({ context }) => {
     assertSupplierProfile(context.profileKind);
-    const [brand, loginEmail, categories] = await Promise.all([
+    const [brand, account, categories] = await Promise.all([
       getSupplierBrand(database, context.tenantId),
-      loginEmailOf(context.userId),
+      accountOf(context.userId),
       loadProductCategories(),
     ]);
     // Unique names: the list keys its options by name, and test runs can leave twins behind.
     const categoryNames = [...new Set(categories.map((category) => category.name))];
-    return { brand, loginEmail, categoryNames };
+    return { brand, account, categoryNames };
   });
 
-async function loginEmailOf(userId: string): Promise<string> {
+async function accountOf(userId: string): Promise<{ email: string; name: string }> {
   const account = await database.query.user.findFirst({
     where: (user, { eq }) => eq(user.id, userId),
-    columns: { email: true },
+    columns: { email: true, name: true },
   });
-  return account?.email ?? "";
+  return { email: account?.email ?? "", name: account?.name ?? "" };
 }
 
 export const createOwnBrandFn = createServerFn({ method: "POST" })
@@ -49,7 +49,7 @@ export const createOwnBrandFn = createServerFn({ method: "POST" })
     if (context.impersonatedBy !== null) {
       assertVisitKeepsOrdersEmail({
         impersonatedBy: context.impersonatedBy,
-        loginEmail: await loginEmailOf(context.userId),
+        loginEmail: (await accountOf(context.userId)).email,
         ordersEmail: data.contactEmail,
       });
     }
