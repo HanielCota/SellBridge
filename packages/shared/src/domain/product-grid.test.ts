@@ -109,6 +109,22 @@ describe("gridProblems", () => {
     expect(gridProblems(grid)).toContain('A cor "preto " aparece mais de uma vez');
   });
 
+  it("treats colour names that differ only in the spaces between words as the same colour", () => {
+    const grid = {
+      ...shoeGrid,
+      colors: [
+        { name: "Azul Marinho", imageUrls: [] },
+        { name: "Azul  Marinho", imageUrls: [] },
+      ],
+      combinations: [
+        combination("Azul Marinho", "38", "A-38"),
+        combination("Azul  Marinho", "39", "A-39"),
+      ],
+    };
+
+    expect(gridProblems(grid)).toContain('A cor "Azul  Marinho" aparece mais de uma vez');
+  });
+
   it("names the SKU whose colour is missing from the grid", () => {
     const grid = {
       ...shoeGrid,
