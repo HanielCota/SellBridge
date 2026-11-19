@@ -15,6 +15,11 @@ import { QUEUE_NAMES } from "@sellbridge/shared/queues";
 const UNPROCESSED_WEBHOOK_GRACE_MILLISECONDS = 10 * 60 * 1000;
 /** Older events are handed to the team on Problemas instead of being retried forever. */
 const UNPROCESSED_WEBHOOK_WINDOW_MILLISECONDS = 24 * 60 * 60 * 1000;
+/**
+ * An event the team ran again gets this long before it is handed over once more: its 8 attempts
+ * (WEBHOOK_JOB_OPTIONS) take about an hour.
+ */
+const RETRIED_EVENT_WINDOW_MILLISECONDS = 2 * 60 * 60 * 1000;
 /** How far back an event can still be handed over: the first run never reports a distant past. */
 const ABANDON_LOOKBACK_MILLISECONDS = 7 * 24 * 60 * 60 * 1000;
 /** Events handed over per run; the next run takes the rest. */
@@ -49,6 +54,7 @@ async function abandonStale(database: Database, now: number): Promise<number> {
   const abandoned = await abandonStaleWebhookEvents(database, {
     receivedAfter: new Date(now - ABANDON_LOOKBACK_MILLISECONDS),
     receivedBefore: new Date(now - UNPROCESSED_WEBHOOK_WINDOW_MILLISECONDS),
+    retriedBefore: new Date(now - RETRIED_EVENT_WINDOW_MILLISECONDS),
     limit: ABANDON_BATCH_SIZE,
     now: new Date(now),
   });

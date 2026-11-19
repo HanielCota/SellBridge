@@ -13,7 +13,10 @@ export interface ProblemRetryOutcome {
 }
 
 async function retryWebhookEvent(webhookEventId: string): Promise<ProblemRetryOutcome> {
-  const reopened = await reopenAbandonedWebhookEvent(database, webhookEventId);
+  const reopened = await reopenAbandonedWebhookEvent(database, {
+    id: webhookEventId,
+    now: new Date(),
+  });
   if (reopened === null) {
     throw notFoundError("Esse aviso de venda não existe mais: avisos somem depois de 30 dias.");
   }

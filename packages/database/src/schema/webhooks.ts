@@ -28,6 +28,8 @@ export const webhookEvents = pgTable(
      * on the admin Problemas page instead of being retried, until someone retries it there.
      */
     abandonedAt: timestamp({ withTimezone: true }),
+    /** When the team last ran a handed-over event again: its retries get their own window. */
+    retriedAt: timestamp({ withTimezone: true }),
   },
   (table) => [
     uniqueIndex("webhook_events_external_idx").on(table.marketplace, table.externalEventId),

@@ -258,11 +258,18 @@ export interface AbandonedWebhookEvent {
 /**
  * Marks valid events still unprocessed past the sweep's retry window as abandoned and returns
  * them, oldest first: each is reported once, until someone retries it from the Problemas page.
- * Only events received after `receivedAfter`, so a first run never reports a distant past.
+ * Only events received after `receivedAfter`, so a first run never reports a distant past. An
+ * event the team retried is handed over again only once that retry had `retriedBefore` to run.
  */
 export async function abandonStaleWebhookEvents(
   database: Database,
-  input: { receivedAfter: Date; receivedBefore: Date; limit: number; now: Date },
+  input: {
+    receivedAfter: Date;
+    receivedBefore: Date;
+    retriedBefore: Date;
+    limit: number;
+    now: Date;
+  },
 ): Promise<AbandonedWebhookEvent[]> {
   const stale = database
     .select({ id: webhookEvents.id })
@@ -272,8 +279,14 @@ export async function abandonStaleWebhookEvents(
         isNull(webhookEvents.processedAt),
         isNull(webhookEvents.abandonedAt),
         eq(webhookEvents.signatureValid, true),
-        gt(webhookEvents.receivedAt, input.receivedAfter),
-        lt(webhookEvents.receivedAt, input.receivedBefore),
+        or(
+          and(
+            isNull(webhookEvents.retriedAt),
+            gt(webhookEvents.receivedAt, input.receivedAfter),
+            lt(webhookEvents.receivedAt, input.receivedBefore),
+          ),
+          lt(webhookEvents.retriedAt, input.retriedBefore),
+        ),
       ),
     )
     .orderBy(asc(webhookEvents.receivedAt), asc(webhookEvents.id))
@@ -293,18 +306,18 @@ export async function abandonStaleWebhookEvents(
 }
 
 /**
- * "Tentar de novo" on an abandoned event: clears the mark so the sweep reports it again if this
- * try fails too. `pending` is false when the event was processed meanwhile (nothing to retry);
- * null when it no longer exists.
+ * "Tentar de novo" on an abandoned event: clears the mark and notes when, so the sweep reports
+ * it again if this try fails too, once its retries had time to run. `pending` is false when the
+ * event was processed meanwhile (nothing to retry); null when it no longer exists.
  */
 export async function reopenAbandonedWebhookEvent(
   database: Database,
-  id: string,
+  input: { id: string; now: Date },
 ): Promise<{ pending: boolean } | null> {
   const [row] = await database
     .update(webhookEvents)
-    .set({ abandonedAt: null })
-    .where(eq(webhookEvents.id, id))
+    .set({ abandonedAt: null, retriedAt: input.now })
+    .where(eq(webhookEvents.id, input.id))
     .returning({ processedAt: webhookEvents.processedAt });
   if (row === undefined) {
     return null;

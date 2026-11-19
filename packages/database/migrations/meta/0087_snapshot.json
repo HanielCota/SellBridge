@@ -1,5 +1,5 @@
 {
-  "id": "f084cc59-baaa-4dc6-bb9a-41be3dd47de6",
+  "id": "773360ae-aa36-4a5d-baaa-679676ebfe96",
   "prevId": "897618bc-edbc-4e83-b694-c1887767d41e",
   "version": "7",
   "dialect": "postgresql",
@@ -3173,6 +3173,12 @@
         },
         "abandoned_at": {
           "name": "abandoned_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "retried_at": {
+          "name": "retried_at",
           "type": "timestamp with time zone",
           "primaryKey": false,
           "notNull": false
