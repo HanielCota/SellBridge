@@ -352,7 +352,9 @@ export interface MaterializedCombination {
 
 function sharedAttributes(attributes: Readonly<Record<string, string>>): Record<string, string> {
   return Object.fromEntries(
-    Object.entries(attributes).filter(([key]) => !COMBINATION_ONLY_ATTRIBUTES.has(key)),
+    Object.entries(attributes).filter(
+      ([key]) => !COMBINATION_ONLY_ATTRIBUTES.has(key) && !GRID_AXIS_ATTRIBUTES.has(key),
+    ),
   );
 }
 
@@ -367,6 +369,14 @@ function filledFiscal(fiscal: ProductFiscalPatch): ProductFiscalPatch {
  * only place shared data is edited; every save rewrites its combinations with this, so catalog,
  * publishing, orders and invoices keep reading one complete product row as they always did.
  */
+/** The combination's colour and size, as the sheet names them ("Tênis - Preto 38" is size 38). */
+function axisAttributes(own: Pick<CombinationOwnValues, "color" | "size">): Record<string, string> {
+  return {
+    ...(own.color === null ? {} : { COLOR: own.color }),
+    ...(own.size === null ? {} : { SIZE: own.size }),
+  };
+}
+
 export function materializeCombination(
   model: ProductModelShared,
   own: CombinationOwnValues,
@@ -378,6 +388,7 @@ export function materializeCombination(
     imageUrls: [...(own.colorImageUrls.length > 0 ? own.colorImageUrls : model.imageUrls)],
     mercadoLivreAttributes: {
       ...sharedAttributes(model.mercadoLivreAttributes),
+      ...axisAttributes(own),
       ...own.variantAttributes,
     },
     mercadoLivreCategoryId: model.mercadoLivreCategoryId,

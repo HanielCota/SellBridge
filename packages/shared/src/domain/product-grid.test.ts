@@ -262,8 +262,28 @@ describe("materializeCombination", () => {
       variantFiscal: {},
     });
 
-    expect(withoutOwn.mercadoLivreAttributes).toEqual({ BRAND: "Pegada", MODEL: "Casual" });
+    expect(withoutOwn.mercadoLivreAttributes).toEqual({
+      BRAND: "Pegada",
+      MODEL: "Casual",
+      COLOR: "Preto",
+      SIZE: "38",
+    });
     expect(withOwn.mercadoLivreAttributes.GTIN).toBe("7891234567895");
+  });
+
+  it("names its own colour and size in the sheet, never the model's", () => {
+    const product = materializeCombination(
+      { ...model, mercadoLivreAttributes: { BRAND: "Pegada", COLOR: "Azul", SIZE: "44" } },
+      {
+        color: "Preto",
+        size: null,
+        colorImageUrls: [],
+        variantAttributes: {},
+        variantFiscal: {},
+      },
+    );
+
+    expect(product.mercadoLivreAttributes).toEqual({ BRAND: "Pegada", COLOR: "Preto" });
   });
 
   it("inherits the model's fiscal fields and lets the combination override its weight", () => {
