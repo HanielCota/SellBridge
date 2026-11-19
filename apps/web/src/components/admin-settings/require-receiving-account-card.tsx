@@ -1,7 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useId } from "react";
 import { toast } from "sonner";
-import { ToneStatus } from "@/components/data/tone-status";
+import { PaymentPill } from "@/components/supplier-payments/supplier-payment-badge";
 import { ErrorState } from "@/components/feedback/error-state";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Switch } from "@/components/ui/switch";
@@ -47,10 +47,9 @@ export function RequireReceivingAccountCard() {
             Aprovação de fornecedor novo
           </h2>
           {query.data === undefined ? null : (
-            <ToneStatus
-              tone={query.data ? "success" : "muted"}
-              label={query.data ? "Exige conta de recebimento" : "Só o CNPJ"}
-            />
+            <PaymentPill tone={query.data ? "success" : "neutral"}>
+              {query.data ? "Exige conta de recebimento" : "Só o CNPJ"}
+            </PaymentPill>
           )}
         </div>
         <p className="text-sm text-muted-foreground">
