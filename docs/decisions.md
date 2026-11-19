@@ -1,5 +1,7 @@
 # Registro de decisões
 
+> **Histórico até 2026-11-18.** As decisões novas ficam em [`docs/decisions/`](decisions/README.md), uma por arquivo. Não acrescente entradas aqui.
+
 ## 2026-10-08: Prettier no lugar do Oxfmt
 
 Oxfmt está em 0.72 (beta, pré-1.0). Pela regra do projeto, usamos Prettier até o Oxfmt estabilizar.
@@ -980,6 +982,21 @@ A segunda parte da etapa 2: o Financeiro passa a descontar o frete que o Mercado
 - **Correção:** os avisos com subtópico trazem `id` em vez de `_id` e eram recusados com 401; o Mercado Livre repetiria por 1 hora e poderia desligar o tópico.
 - **Busca diária:** abertas de qualquer idade mais as atualizadas em 26 horas, por loja, até 200 por rodada. Cobre aviso perdido e as reclamações de pedidos vendidos antes de os tópicos serem ligados.
 
+## 2026-11-18: Endereço de compra do revendedor nunca no fornecedor (parte 1: conferência e trava)
+
+Pedido da StockShopp em 17/11/2026: revendedores põem o endereço do fornecedor na conta do Mercado Livre (para envio e devolução), fazem compras pessoais com a mesma conta e as encomendas chegam no fornecedor. Guilherme aprovou o plano e as quatro recomendações em 18/11/2026 ("Aprovo todas").
+
+- **Quando confere:** ao conectar a loja (no máximo 5 segundos de espera; a loja conecta de qualquer jeito), no botão "Já arrumei, conferir de novo" em Lojas e uma vez por dia no worker (a tarefa roda de hora em hora e pega até 200 lojas conferidas há mais de 24 horas).
+- **Regra:** compara o endereço de compra da conta com o endereço da nota fiscal de cada fornecedor da loja, por CEP, número e rua (sem acento e sem "Rua", "Av." e afins). O complemento fica de fora: "sala 2" e "casa" no mesmo número são a mesma porta para o entregador. "s/n" só bate com "s/n".
+  - **Igual ao de um fornecedor:** a loja continua vendendo, mas não publica produto novo até o revendedor arrumar. Aviso no sino e por e-mail uma vez, quando muda de certo para errado; item vermelho em "Precisa de você"; cartão vermelho em Lojas.
+  - **Igual ao endereço de envio da conta, sem bater com fornecedor:** só aviso em Lojas (decisão 2 do Guilherme). Cobre o fornecedor que não tem endereço de nota fiscal cadastrado.
+  - **Conta sem endereço de compra marcado:** aviso em Lojas, sem trava.
+  - **Mercado Livre fora do ar:** mantém o último veredito (uma queda nunca trava nem libera); loja nunca conferida fica "não conferido", sem trava.
+- **Descartado:** travar a conexão até corrigir (os endereços só podem ser lidos depois da autorização, e travar as vendas de uma loja que já vende seria pior).
+- **Privacidade:** nenhum endereço é guardado nem vai para o log; a tabela `store_buyer_address_checks` tem só o veredito, o fornecedor, quando conferiu e desde quando está errado.
+- **Ainda não:** alarme falso (revendedor no mesmo prédio do fornecedor) é liberado pela equipe na parte 3; até lá, o cartão manda falar com o suporte. Passo a passo com prints do Mercado Livre (parte 2) e regras de ouro do revendedor com advertência (parte 3) vêm em PRs seguintes. Shopee fica fora (sem conector).
+- **Testes:** nenhuma chamada real ao Mercado Livre. Respostas no formato da documentação nos testes de unidade, o substituto do Mercado Livre (`e2e/mercado-livre.fixture.ts`) no teste de navegador, e o worker dos testes de navegador recebe "não encontrado" em vez de chamar o Mercado Livre.
+
 ## 2026-11-18: Regras de negócio decididas pelo dono do produto
 
 - **Decisão (Guilherme, "4 sim", chat da Central):** as decisões de negócio deixam de esperar o cliente. Quem decide é o dono do produto, com a Central; o que o cliente pede entra como informação, não como trava.
@@ -995,3 +1012,15 @@ A venda manual (Shopee e TikTok Shop) era gravada com a taxa do marketplace em z
 - **Regras:** a taxa vai de R$ 0,00 até o total da venda, e o aviso aparece ao lado do campo. Zero é aceito (o lojista digita 0).
 - **Onde grava:** `orders.marketplace_fee_cents`, a mesma coluna das vendas sincronizadas. O Financeiro, os relatórios, a página do pedido e a API pública já leem esse campo. Sem migração.
 - **Vendas manuais antigas:** ficam com a taxa zero. O valor real não é conhecido, e recalcular mudaria o lucro de meses fechados com um número que o lojista nunca viu.
+
+## 2026-11-18: Aprovação automática do fornecedor que se cadastra sozinho
+
+Decisão do Guilherme em 18/11/2026: "Vamos de C." (o fornecedor novo passa por aprovação automática, e a equipe cuida só do que falhar); ele confirmou que o admin continua podendo desativar. Plano aprovado no mesmo dia ("Pode começar").
+
+- **Quem passa:** só o fornecedor que cria a marca pelo painel (`createSupplierBrand`) nasce "em análise" (`suppliers.approval_status = 'pending'`, migration nova). Os fornecedores que já existiam e os cadastrados pela equipe ficam aprovados (padrão da coluna). Desativar, reativar e advertir continuam iguais: `active` e `approval_status` são independentes.
+- **Em análise:** o fornecedor monta a marca e os produtos, mas nenhum revendedor o vê. Toda leitura do revendedor passa por `supplierOpenToResellers()` (`repositories/sql/sellable.ts`: ativo e aprovado), usada no catálogo, na página e na lista de fornecedores, na publicação, na sincronização e na API pública. Recusado: o painel continua, mas não cadastra produtos novos.
+- **Conferência:** CNPJ ativo e razão social igual à da Receita (ignorando acentos, maiúsculas, pontuação, o tipo da empresa e o CPF que o MEI carrega no nome), e, com a chave "Exigir conta de recebimento para aprovar" ligada, a conta do Asaas aprovada. A regra pura está em `shared/domain/supplier-approval.ts`. Roda ao salvar a marca e numa rodada do worker a cada 15 minutos (até 20 fornecedores, um de cada vez).
+- **Consulta pública:** BrasilAPI (`/api/cnpj/v1/{cnpj}`), gratuita e sem chave, mantida por voluntários, sem garantia de funcionamento, com os dados abertos da Receita (atualizados uma vez por mês, então até ~30 dias de atraso). Fora do ar, lenta (6 s) ou com resposta estranha conta como "fora do ar": o fornecedor fica "consultando" e, depois de 1 hora sem resposta, vai para a fila da equipe. `CNPJ_LOOKUP_URL` só muda para o substituto dos testes (`e2e/cnpj.fixture.ts`); nenhum teste chama a consulta real.
+- **Fila da equipe:** `/admin/fornecedores/aprovacao` ("Fornecedores em análise"), aberta pelo aviso na lista de fornecedores e pelo cartão da ficha. Mostra o motivo, o CNPJ, a razão social informada e a da Receita, com Aprovar e Recusar (motivo obrigatório, que o fornecedor lê no painel). Só administradores decidem; a decisão vai para a auditoria.
+- **Conta de recebimento:** a chave fica desligada até o Asaas funcionar em produção (sem ela, nenhum fornecedor novo passaria).
+- **Descartado:** a consulta oficial do Serpro (tempo real, mas paga e com contrato; fica para quando o volume justificar), ReceitaWS e CNPJá aberto (3 a 5 consultas por minuto) e o site da Receita (captcha). Também descartado reaproveitar `active = false` para "em análise": misturaria a análise com a desativação da equipe e bloquearia o cadastro dos produtos.

@@ -10,7 +10,7 @@ import { useBrandForm, type BrandFormState } from "@/features/supplier-panel/bra
 
 interface BrandFormProps {
   readonly brand: SupplierBrand | null;
-  readonly loginEmail: string;
+  readonly account: { email: string; name: string };
   readonly categoryNames: readonly string[];
   readonly onSaved: (brand: SupplierBrand) => void;
 }
@@ -54,8 +54,8 @@ function NewBrandForm({
  * "Cadastre sua marca" (no brand yet) or, once it exists, the public card with its catalog
  * preview plus the private "Pedidos" card, saved from a bar that shows only with changes.
  */
-export function BrandForm({ brand, loginEmail, categoryNames, onSaved }: BrandFormProps) {
-  const form = useBrandForm({ brand, loginEmail, onSaved });
+export function BrandForm({ brand, account, categoryNames, onSaved }: BrandFormProps) {
+  const form = useBrandForm({ brand, account, onSaved });
   if (brand === null) {
     return <NewBrandForm form={form} categoryNames={categoryNames} />;
   }

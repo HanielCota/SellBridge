@@ -77,6 +77,54 @@ function saleCost(url: URL): Response | null {
   return null;
 }
 
+/** Where the stand-in's supplier ships from; a test gives its supplier this NF-e address. */
+export const STAND_IN_WAREHOUSE = {
+  cep: "30130110",
+  street: "Avenida Afonso Pena",
+  number: "1500",
+} as const;
+
+/** Accounts whose id starts with this buy at the warehouse; any other number buys at home. */
+export const STAND_IN_BUYS_AT_WAREHOUSE_PREFIX = "7790";
+
+function standInAddress(
+  id: number,
+  fields: { cep: string; street: string; number: string },
+  types: string[],
+) {
+  return {
+    id,
+    zip_code: fields.cep,
+    street_name: fields.street,
+    street_number: fields.number,
+    types,
+    status: "active",
+  };
+}
+
+/** `GET /users/{id}/addresses`, in the shape of the "Endereços do usuário" page. */
+function accountAddresses(url: URL): Response | null {
+  const match = /^\/users\/(\d+)\/addresses$/.exec(url.pathname);
+  const accountId = match?.[1];
+  if (accountId === undefined) {
+    return null;
+  }
+  const home = { cep: "01310100", street: "Rua Augusta", number: "200" };
+  if (accountId.startsWith(STAND_IN_BUYS_AT_WAREHOUSE_PREFIX)) {
+    return Response.json([
+      standInAddress(1, STAND_IN_WAREHOUSE, [
+        "default_buying_address",
+        "default_selling_address",
+        "shipping",
+      ]),
+    ]);
+  }
+  return Response.json([
+    standInAddress(1, STAND_IN_WAREHOUSE, ["default_selling_address", "shipping"]),
+    standInAddress(2, home, ["default_buying_address"]),
+  ]);
+}
+
 export const mercadoLivreStandIn: FetchLike = async (input) => {
   const url = new URL(input);
   if (url.host !== "api.mercadolibre.com") {
@@ -88,6 +136,10 @@ export const mercadoLivreStandIn: FetchLike = async (input) => {
   const cost = saleCost(url);
   if (cost !== null) {
     return cost;
+  }
+  const addresses = accountAddresses(url);
+  if (addresses !== null) {
+    return addresses;
   }
   const [, resource, id, detail] = url.pathname.split("/");
   if (!knownOrder(id)) {

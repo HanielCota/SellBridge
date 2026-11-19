@@ -197,6 +197,7 @@ function LoadedForm({
     product: data.product,
     categories: data.categories,
     taxDefaults: data.taxDefaults,
+    brandNiche: data.brandNiche,
   });
   const [step, setStep] = useState<FormStepId>(() =>
     focusField === undefined ? "category" : stepOfField(focusField),

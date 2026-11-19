@@ -10,7 +10,7 @@ import { and, eq } from "drizzle-orm";
 import type { Database, DatabaseExecutor } from "../client.ts";
 import { isUniqueViolation } from "../postgres-errors.ts";
 import { suppliers, tenantProfile } from "../schema/index.ts";
-import { publicSupplier } from "./sql/sellable.ts";
+import { publicSupplier, supplierOpenToResellers } from "./sql/sellable.ts";
 
 /** Who sells as a company: CNPJ (digits), legal name and the data its NF-e carries. */
 export interface HolderCompany {
@@ -281,7 +281,7 @@ export async function saveProductSourceChoice(
       const [supplier] = await transaction
         .select({ id: suppliers.id })
         .from(suppliers)
-        .where(and(eq(suppliers.id, supplierId), eq(suppliers.active, true), publicSupplier()))
+        .where(and(eq(suppliers.id, supplierId), supplierOpenToResellers(), publicSupplier()))
         .for("share");
       if (supplier === undefined) throw notFoundError("Fornecedor não encontrado ou inativo.");
     }

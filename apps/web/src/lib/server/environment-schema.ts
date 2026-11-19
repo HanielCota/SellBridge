@@ -16,6 +16,7 @@ import {
   refuseAsaasStandInsInProduction,
 } from "@sellbridge/payments/asaas";
 import { SUPPORT_ASSISTANT_PROVIDERS } from "@sellbridge/shared/support-assistant";
+import { cnpjLookupUrlEnvironmentSchema } from "@sellbridge/shared/cnpj-lookup";
 import { z } from "zod";
 import {
   CARRIER_TRACKING_PROVIDERS,
@@ -113,6 +114,8 @@ const serverEnvironmentShape = z.object({
    */
   ...mercadoPagoEnvironmentFields,
   ...asaasEnvironmentFields,
+  /** The public CNPJ query behind the approval of suppliers who sign up alone. */
+  CNPJ_LOOKUP_URL: cnpjLookupUrlEnvironmentSchema,
   /**
    * Lets webhook endpoints point to localhost and private networks (local development only).
    * Off in production: otherwise a customer could make the server call internal services.
