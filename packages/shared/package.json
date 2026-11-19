@@ -38,6 +38,7 @@
     "./job-failures": "./src/runtime/job-failures.ts",
     "./problem-capture-testing": "./src/runtime/problem-capture-testing.ts",
     "./problem-areas": "./src/domain/problem-areas.ts",
+    "./erp-catalog-export": "./src/domain/erp-catalog-export.ts",
     "./queues": "./src/runtime/queues.ts",
     "./channel-fees": "./src/domain/channel-fees.ts",
     "./mercado-livre-shipping": "./src/domain/mercado-livre-shipping.ts",

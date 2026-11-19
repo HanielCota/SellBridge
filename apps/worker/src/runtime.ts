@@ -29,7 +29,7 @@ import {
 import { withDeadline } from "@sellbridge/shared/deadline";
 import { Queue, Worker } from "bullmq";
 import { startHealthServer } from "./health.ts";
-import { toJobContext } from "./lib/job-context.ts";
+import { isLastAttempt, toJobContext } from "./lib/job-context.ts";
 import { reportJobFailure } from "./lib/job-failure-report.ts";
 import { createRateLimiter } from "./lib/rate-limiter.ts";
 import { environment } from "./environment.ts";
@@ -197,10 +197,14 @@ function erpWorkers(context: WorkerContext): Worker[] {
     },
   });
   return [
-    new Worker(QUEUE_NAMES.erpCatalogExport, async (job) => processExport(job.data), {
-      connection: context.connection,
-      concurrency: 1,
-    }),
+    new Worker(
+      QUEUE_NAMES.erpCatalogExport,
+      async (job) => processExport(job.data, { isLast: isLastAttempt(job) }),
+      {
+        connection: context.connection,
+        concurrency: 1,
+      },
+    ),
     new Worker(QUEUE_NAMES.erpCatalogRead, async (job) => processRead(job.data), {
       connection: context.connection,
       concurrency: 2,
