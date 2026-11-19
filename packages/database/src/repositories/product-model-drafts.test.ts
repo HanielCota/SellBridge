@@ -15,7 +15,10 @@ import {
   saveProductModelDraft,
 } from "./product-model-drafts.ts";
 import { getProductModel } from "./product-models.ts";
-import { listSupplierPanelProducts } from "./supplier-panel-catalog.ts";
+import {
+  listSupplierPanelProducts,
+  supplierCatalogExportBatches,
+} from "./supplier-panel-catalog.ts";
 
 const database = createTestDatabase();
 let supplierId = "";
@@ -339,5 +342,28 @@ describe("supplier panel list", () => {
       stock: 8,
     });
     expect(list.counts.all).toBe(1);
+  });
+});
+
+describe("spreadsheet export", () => {
+  it("exports each combination with its model's code and title, its colour and size", async () => {
+    const prefix = randomUUID().slice(0, 8);
+    const saved = await saveProductModelDraft(database, draft(prefix));
+    const rows = [];
+
+    for await (const batch of supplierCatalogExportBatches(
+      database,
+      { supplierId, status: "all", query: prefix, fiscal: "all" },
+      100,
+    )) {
+      rows.push(...batch);
+    }
+
+    expect(rows.find((entry) => entry.sku === `${prefix}-P-38`)?.grid).toEqual({
+      modelCode: saved.code,
+      modelTitle: "Tênis Casual Couro",
+      color: "Preto",
+      size: "38",
+    });
   });
 });
