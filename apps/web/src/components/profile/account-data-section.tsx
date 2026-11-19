@@ -1,5 +1,6 @@
 import { DownloadSimpleIcon, TrashIcon } from "@phosphor-icons/react";
 import { useQuery } from "@tanstack/react-query";
+import { Link } from "@tanstack/react-router";
 import { type FormEvent, type ReactNode, useState } from "react";
 import { toast } from "sonner";
 import { TextField } from "@/components/form/form-field";
@@ -12,6 +13,8 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import { paidDaysSentence } from "@/components/billing/billing-copy";
+import { getBillingPaidDaysLeft } from "@/features/billing/billing.functions";
 import { hasPasswordQueryOptions } from "@/features/profile/account.queries";
 import { authClient } from "@/lib/auth-client";
 import { authErrorMessage } from "@/lib/auth-error-message";
@@ -20,7 +23,7 @@ const EXPORT_URL = "/api/conta/exportar";
 
 /** What deleting the account takes with it, said plainly before the password is asked. */
 const DELETION_CONSEQUENCES = [
-  "Sua assinatura é cancelada na hora.",
+  "Sua assinatura é cancelada na hora, sem devolução.",
   "As lojas são desconectadas e os anúncios pausados no marketplace.",
   "Pedidos, anúncios, chamados e dados de cadastro são apagados.",
 ];
@@ -53,6 +56,26 @@ function useDeleteAccount() {
   return { password, setPassword, error, isDeleting, submit };
 }
 
+/** The paid days the deletion gives up, with the way out of only cancelling the plan. */
+function PaidDaysWarning() {
+  const paid = useQuery({
+    queryKey: ["billing", "paid-days-left"],
+    queryFn: async () => getBillingPaidDaysLeft(),
+    staleTime: 0,
+  });
+  if (paid.data == null) return null;
+  return (
+    <div role="alert" className="space-y-3 rounded-xl bg-muted p-4 text-sm">
+      <p className="font-medium">{paidDaysSentence(paid.data.days, paid.data.planName)}</p>
+      <Button asChild variant="outline" className="h-11 w-full sm:w-auto">
+        <Link to="/assinatura" search={{ cancelar: "1" }}>
+          Só cancelar o plano
+        </Link>
+      </Button>
+    </div>
+  );
+}
+
 function DeleteAccountDialog({
   open,
   onOpenChange,
@@ -76,6 +99,7 @@ function DeleteAccountDialog({
               <li key={line}>{line}</li>
             ))}
           </ul>
+          <PaidDaysWarning />
           <TextField
             id="delete-account-password"
             label="Sua senha"

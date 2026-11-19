@@ -14,6 +14,7 @@ import { APIError } from "better-auth/api";
 import { z } from "zod";
 import { isAsaasError } from "@sellbridge/payments/asaas";
 import { billingClientForCleanup } from "@/features/billing/billing-config.server";
+import { CHARGE_REFERENCE, CHECKOUT_REFERENCE } from "@/features/billing/pending-reference";
 import { avatarStorageKey } from "@/features/profile/avatar-key";
 import { disconnectStoreForTenant } from "@/features/stores/disconnect-store.server";
 import { database } from "@/lib/server/database";
@@ -40,9 +41,11 @@ const UNREACHABLE_MESSAGE =
   "Não foi possível cancelar a assinatura agora. Tente excluir a conta de novo em alguns minutos.";
 
 /**
- * The subscription and the customer at Asaas go too: no charge may outlive the account. Failing
- * here stops the deletion before any data is touched. The customer is then forgotten, so a
- * deletion retried after a later failure does not ask again.
+ * What is open at Asaas closes too, with no refund: an unpaid upgrade difference or card
+ * checkout, the subscription with its unpaid charges, and the customer. No charge may outlive
+ * the account. Failing here stops the deletion before any data is touched. Payments already
+ * made stay at Asaas as SellBridge's record; the customer is then forgotten here, so nothing
+ * links them to the person and a retried deletion does not ask again.
  */
 async function closeBilling(tenantId: string): Promise<void> {
   const account = await getBillingAccount(database, tenantId);
@@ -53,6 +56,15 @@ async function closeBilling(tenantId: string): Promise<void> {
   const { customerId, subscriptionId } = account;
   if (customerId === null) {
     return;
+  }
+  const reference = account.pendingReference ?? "";
+  if (reference.startsWith(CHARGE_REFERENCE)) {
+    await removeAtAsaas(async () => client.deleteCharge(reference.slice(CHARGE_REFERENCE.length)));
+  }
+  if (reference.startsWith(CHECKOUT_REFERENCE)) {
+    await removeAtAsaas(async () =>
+      client.cancelCheckout(reference.slice(CHECKOUT_REFERENCE.length)),
+    );
   }
   if (subscriptionId !== null) {
     await removeAtAsaas(async () => client.deleteSubscription(subscriptionId));

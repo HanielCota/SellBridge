@@ -38,7 +38,9 @@ test("deletes the account and its workspace after the password", async ({ page }
   await gotoHydrated(page, "/perfil");
   await page.getByRole("button", { name: "Excluir conta" }).click();
   const dialog = page.getByRole("dialog", { name: "Excluir sua conta?" });
-  await expect(dialog.getByText("Sua assinatura é cancelada na hora.")).toBeVisible();
+  await expect(
+    dialog.getByText("Sua assinatura é cancelada na hora, sem devolução."),
+  ).toBeVisible();
   await dialog.screenshot({ path: test.info().outputPath("delete-account-dialog.png") });
   await dialog.getByLabel("Sua senha").fill("senha-errada-000");
   await dialog.getByRole("button", { name: "Excluir conta" }).click();

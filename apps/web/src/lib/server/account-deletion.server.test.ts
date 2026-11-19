@@ -6,18 +6,22 @@ const mocks = vi.hoisted(() => ({
   accountFileKeys: vi.fn<(database: unknown, account: unknown) => Promise<string[]>>(),
   deleteTenantData: vi.fn<(database: unknown, tenantId: string) => Promise<void>>(),
   forgetBillingCustomer: vi.fn<(database: unknown, tenantId: string) => Promise<void>>(),
-  getBillingAccount:
-    vi.fn<
-      (
-        database: unknown,
-        tenantId: string,
-      ) => Promise<{ customerId: string | null; subscriptionId: string | null } | null>
-    >(),
+  getBillingAccount: vi.fn<
+    (
+      database: unknown,
+      tenantId: string,
+    ) => Promise<{
+      customerId: string | null;
+      subscriptionId: string | null;
+      pendingReference?: string | null;
+    } | null>
+  >(),
   listStoreConnections:
     vi.fn<(database: unknown, tenantId: string) => Promise<{ id: string; status: string }[]>>(),
   disconnectStoreForTenant: vi.fn<(request: unknown) => Promise<unknown>>(),
   deleteCustomer: vi.fn<(customerId: string) => Promise<unknown>>(),
   deleteSubscription: vi.fn<(subscriptionId: string) => Promise<unknown>>(),
+  deleteCharge: vi.fn<(chargeId: string) => Promise<unknown>>(),
   deleteFile: vi.fn<(key: string) => Promise<void>>(),
 }));
 
@@ -30,6 +34,7 @@ vi.mock("@/features/billing/billing-config.server", () => ({
   billingClientForCleanup: () => ({
     deleteSubscriber: mocks.deleteCustomer,
     deleteSubscription: mocks.deleteSubscription,
+    deleteCharge: mocks.deleteCharge,
   }),
 }));
 vi.mock("@/features/stores/disconnect-store.server", () => ({
@@ -109,6 +114,21 @@ describe("prepareAccountDeletion", () => {
     expect(isAppError(error)).toBe(true);
     expect(mocks.deleteTenantData).not.toHaveBeenCalled();
     expect(mocks.disconnectStoreForTenant).not.toHaveBeenCalled();
+  });
+
+  it("closes an unpaid upgrade difference at Asaas before touching any data", async () => {
+    mocks.getBillingAccount.mockResolvedValue({
+      customerId: "cus_123",
+      subscriptionId: "sub_123",
+      pendingReference: "charge:pay_diff",
+    });
+
+    await prepareAccountDeletion(SELLER);
+
+    expect(mocks.deleteCharge).toHaveBeenCalledWith("pay_diff");
+    const charge = mocks.deleteCharge.mock.invocationCallOrder[0] ?? 0;
+    const data = mocks.deleteTenantData.mock.invocationCallOrder[0] ?? 0;
+    expect(charge).toBeLessThan(data);
   });
 
   it("keeps a workspace that another owner still runs", async () => {
