@@ -396,7 +396,9 @@ describe("subscription state from the provider", () => {
 
     await expect(
       saveBillingAccount(database, tenantId, { scheduledPlan: "pro", scheduledPlanAt: null }),
-    ).rejects.toThrow(/billing_accounts_scheduled_plan_check/);
+    ).rejects.toMatchObject({
+      cause: expect.objectContaining({ constraint_name: "billing_accounts_scheduled_plan_check" }),
+    });
     await cleanup();
   });
 });
