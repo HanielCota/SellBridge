@@ -55,13 +55,18 @@ async function elementsPastTheEdge(page: Page): Promise<string> {
 async function placeholderOverflow(page: Page, placeholder: string): Promise<number> {
   return page.getByPlaceholder(placeholder).evaluate((input: HTMLInputElement) => {
     const style = getComputedStyle(input);
+    const placeholderStyle = getComputedStyle(input, "::placeholder");
     const context = document.createElement("canvas").getContext("2d");
     if (context === null) {
       throw new Error("No 2D canvas to measure the placeholder");
     }
-    context.font = `${style.fontWeight} ${style.fontSize} ${style.fontFamily}`;
+
+    context.font = `${placeholderStyle.fontWeight} ${placeholderStyle.fontSize} ${placeholderStyle.fontFamily}`;
+    // Native search controls can report clientWidth without their padding in Chromium.
     const room =
-      input.clientWidth -
+      input.getBoundingClientRect().width -
+      Number.parseFloat(style.borderLeftWidth) -
+      Number.parseFloat(style.borderRightWidth) -
       Number.parseFloat(style.paddingLeft) -
       Number.parseFloat(style.paddingRight);
     return context.measureText(input.placeholder).width - room;
