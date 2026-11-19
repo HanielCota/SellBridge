@@ -610,6 +610,13 @@
       "when": 1795089927066,
       "tag": "0086_supplier_approval",
       "breakpoints": true
+    },
+    {
+      "idx": 87,
+      "version": "7",
+      "when": 1795106699665,
+      "tag": "0087_listing_pause_reason",
+      "breakpoints": true
     }
   ]
 }

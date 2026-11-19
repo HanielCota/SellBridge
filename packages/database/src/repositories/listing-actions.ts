@@ -9,6 +9,7 @@ import {
   unavailableReason,
 } from "@sellbridge/shared/catalog-availability";
 import { conflictError, notFoundError } from "@sellbridge/shared/errors";
+import type { ListingPauseReason } from "@sellbridge/shared/listing-pause-reasons";
 import { pauseTransition, RETRYABLE_TARGET_STATUS } from "@sellbridge/shared/listing-rules";
 import { and, count, eq, inArray } from "drizzle-orm";
 import type { Database, DatabaseExecutor } from "../client.ts";
@@ -24,6 +25,8 @@ import { availabilityColumns } from "./listing-overview.ts";
 import { productWeightGrams } from "./sql/product-weight.ts";
 import { targetMatchesStoreSupplier } from "./sql/store-supplier-match.ts";
 import { shareLockListingSources } from "./lock-product-source.ts";
+
+const SELLER: ListingPauseReason = "seller";
 
 /** What the reseller does to listings from the list: pause, resume, reprice, retry. */
 
@@ -84,7 +87,7 @@ export async function setListingsPaused(
     const transition = pauseTransition(paused);
     const changed = await transaction
       .update(listingTargets)
-      .set({ status: transition.to, pauseRequested: paused })
+      .set({ status: transition.to, pauseRequested: paused, pauseReason: paused ? SELLER : null })
       .where(
         and(
           eq(listingTargets.tenantId, tenantId),
