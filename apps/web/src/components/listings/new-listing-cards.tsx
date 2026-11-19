@@ -7,7 +7,6 @@ import {
   ProfitSplitBar,
   ProfitSplitLine,
   profitTone,
-  totalFeeCents,
 } from "@/components/listings/profit-split";
 import {
   estimateProfit,
@@ -141,7 +140,7 @@ export function ProfitCard({
         {estimate ? (
           <ProfitSplitBar
             costCents={product.costCents}
-            feeCents={totalFeeCents(estimate)}
+            feeCents={estimate.feeCents}
             profitCents={estimate.profitCents}
           />
         ) : null}
@@ -151,7 +150,7 @@ export function ProfitCard({
             label={costLabel(product)}
             value={formatCents(product.costCents)}
           />
-          <FeeLines estimate={estimate} schedule={schedule} />
+          <FeeLines estimate={estimate} />
           <ProfitSplitLine
             swatch={isLoss ? PROFIT_SPLIT_COLORS.loss : PROFIT_SPLIT_COLORS.profit}
             label={isLoss ? "Seu prejuízo" : "Seu lucro"}

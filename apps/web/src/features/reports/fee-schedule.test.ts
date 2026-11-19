@@ -12,7 +12,6 @@ describe("feeScheduleFrom", () => {
       channel: "mercado_livre",
       marketplaceFeeBasisPoints: 1250,
       categoryFeeBasisPoints: {},
-      platformFeeBasisPoints: 0,
       defaultWeightGrams: 500,
       minimumMarginPercent: 10,
     });

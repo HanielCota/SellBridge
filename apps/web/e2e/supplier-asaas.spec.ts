@@ -36,6 +36,18 @@ test.afterAll(async () => {
   await database.$client.end();
 });
 
+/** Every charge the fake Asaas holds for a parcel, the removed ones too. */
+async function asaasChargesOf(
+  page: Page,
+  reference: string,
+): Promise<{ billingType: string; deleted: boolean }[]> {
+  const response = await page.request.get(
+    `/__e2e/asaas/test/cobrancas?externalReference=${encodeURIComponent(reference)}`,
+  );
+  const body: { data: { billingType: string; deleted: boolean }[] } = await response.json();
+  return body.data;
+}
+
 async function demoStore() {
   const [tenant] = await database
     .select()
@@ -168,8 +180,10 @@ test("o fornecedor abre a conta Asaas e o revendedor paga com o dinheiro protegi
   await expect(
     reseller.getByText("Pagamento protegido: liberado ao fornecedor só depois da entrega"),
   ).toBeVisible();
-  await reseller.getByRole("button", { name: "Pagar com Pix ou cartão" }).click();
+  await expect(reseller.getByText(/boleto/i)).toHaveCount(0);
+  await reseller.getByRole("button", { name: "Pagar com Pix" }).click();
   await expect(reseller.getByText("Total: R$ 80,00")).toBeVisible();
+  await expect(reseller.getByRole("button", { name: "Pagar com boleto" })).toHaveCount(0);
   await reseller.getByRole("button", { name: "Pagar com Pix" }).click();
   await expect(reseller.getByText(/Fornecedor pago ·/)).toBeVisible();
   await expect(reseller.getByText("R$ 80,00 pagos por Pix no Asaas.")).toBeVisible();
@@ -180,6 +194,40 @@ test("o fornecedor abre a conta Asaas e o revendedor paga com o dinheiro protegi
     .from(shipmentPayments)
     .where(eq(shipmentPayments.shipmentId, sale.shipmentId));
   expect(payment).toMatchObject({ provider: "asaas", status: "approved", escrowStatus: "active" });
+});
+
+test("o revendedor troca o Pix pelo cartão e o Asaas nunca oferece boleto", async ({
+  page,
+  browser,
+}) => {
+  const email = await accounts.signUp(page, "Cestaria Cartão E2E");
+  const supplierId = await giveTestBrand(database, email, "Cestaria Cartão E2E");
+  const sale = await forwardedSale(supplierId);
+  await openApprovedAsaasAccount(page);
+
+  const reseller = await (await browser.newContext({ locale: "pt-BR" })).newPage();
+  await signIn(reseller, DEMO_USER);
+  await gotoHydrated(reseller, `/pedidos/${sale.orderId}`);
+  await reseller.getByRole("button", { name: "Pagar com Pix" }).click();
+  await expect(reseller.getByText("Total: R$ 80,00")).toBeVisible();
+  await gotoHydrated(reseller, `/pedidos/${sale.orderId}`);
+  await reseller.getByRole("button", { name: "Pagar com cartão" }).click();
+  await expect(reseller.getByText("Total: R$ 80,00")).toBeVisible();
+  await expect(reseller.getByRole("button", { name: "Pagar com Pix" })).toHaveCount(0);
+  await expect(reseller.getByRole("button", { name: "Pagar com boleto" })).toHaveCount(0);
+  await reseller.getByRole("button", { name: "Pagar com cartão" }).click();
+  await expect(reseller.getByText("R$ 80,00 pagos por cartão de crédito no Asaas.")).toBeVisible();
+  await reseller.context().close();
+
+  const [payment] = await database
+    .select()
+    .from(shipmentPayments)
+    .where(eq(shipmentPayments.shipmentId, sale.shipmentId));
+  const charges = await asaasChargesOf(page, payment?.id ?? "");
+  expect(charges.map((charge) => [charge.billingType, charge.deleted])).toEqual([
+    ["PIX", true],
+    ["CREDIT_CARD", false],
+  ]);
 });
 
 test("o admin define a taxa do SellBridge e ela vale no próximo pagamento", async ({
@@ -209,7 +257,8 @@ test("o admin define a taxa do SellBridge e ela vale no próximo pagamento", asy
   const reseller = await (await browser.newContext({ locale: "pt-BR" })).newPage();
   await signIn(reseller, DEMO_USER);
   await gotoHydrated(reseller, `/pedidos/${sale.orderId}`);
-  await reseller.getByRole("button", { name: "Pagar com Pix ou cartão" }).click();
+  await reseller.getByRole("button", { name: "Pagar com Pix" }).click();
+  await expect(reseller.getByText("Total: R$ 80,00")).toBeVisible();
   await reseller.getByRole("button", { name: "Pagar com Pix" }).click();
   await expect(reseller.getByText(/Fornecedor pago ·/)).toBeVisible();
   await reseller.context().close();

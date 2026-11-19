@@ -8,6 +8,7 @@ const mocks = vi.hoisted(() => ({
   findPayment: vi.fn<(...input: unknown[]) => Promise<unknown>>(),
   save: vi.fn<(...input: unknown[]) => Promise<void>>(),
   release: vi.fn<(...input: unknown[]) => Promise<void>>(),
+  reopen: vi.fn<(...input: unknown[]) => Promise<void>>(),
   reconcile: vi.fn<(...input: unknown[]) => Promise<unknown>>(),
   createCheckout: vi.fn<(...input: unknown[]) => Promise<unknown>>(),
   findChoice: vi.fn<(...input: unknown[]) => Promise<unknown>>(),
@@ -22,6 +23,7 @@ vi.mock("@sellbridge/database/repositories", () => ({
   findShipmentPayment: mocks.findPayment,
   savePaymentPreference: mocks.save,
   releaseShipmentPaymentReservation: mocks.release,
+  reopenShipmentCheckout: mocks.reopen,
   findSupplierPaymentChoice: mocks.findChoice,
   getNewSupplierRule: async () => ({ enabled: false, deliveries: 5 }),
   countConfirmedDeliveries: async () => 0,
@@ -112,7 +114,12 @@ const asaasAccount = {
   reviewStatus: "approved",
   lastError: null,
 };
-const request = { tenantId: "tenant-1", shipmentId: SHIPMENT_ID, impersonatedBy: null };
+const request = {
+  tenantId: "tenant-1",
+  shipmentId: SHIPMENT_ID,
+  payMethod: "PIX" as const,
+  impersonatedBy: null,
+};
 const ASAAS_CHECKOUT = "https://asaas.test/i/1";
 
 beforeEach(() => {
@@ -205,6 +212,40 @@ describe("startSupplierCheckout across providers", () => {
       payment: asaasAttempt,
     });
     expect(result.checkoutUrl).toContain("pref_id=second");
+  });
+
+  it("asks Asaas only for the method the reseller picked", async () => {
+    mocks.findChoice.mockResolvedValue("asaas");
+    mocks.findPayable.mockResolvedValue({ ...payable, payment: null });
+
+    await startSupplierCheckout({ ...request, payMethod: "CREDIT_CARD" });
+
+    expect(mocks.openAsaasCheckout).toHaveBeenCalledWith(
+      expect.objectContaining({ payMethod: "CREDIT_CARD" }),
+    );
+  });
+
+  it("looks an open Asaas charge up again so the reseller can pay another way", async () => {
+    mocks.findChoice.mockResolvedValue("asaas");
+    const openCharge = {
+      ...earlierPayment,
+      provider: "asaas",
+      preferenceId: "pay_pix",
+      checkoutUrl: "https://asaas.test/i/pix",
+      checkoutExpiresAt: new Date(Date.now() + 60 * 60_000),
+    };
+    mocks.findPayable.mockResolvedValue({ ...payable, payment: openCharge });
+
+    const result = await startSupplierCheckout({ ...request, payMethod: "CREDIT_CARD" });
+
+    expect(mocks.reopen).toHaveBeenCalledWith(
+      {},
+      { paymentId: earlierPayment.id, preferenceId: "pay_pix" },
+    );
+    expect(mocks.openAsaasCheckout).toHaveBeenCalledWith(
+      expect.objectContaining({ payMethod: "CREDIT_CARD" }),
+    );
+    expect(result.checkoutUrl).toBe(ASAAS_CHECKOUT);
   });
 
   it("leaves the Asaas charges alone while the parcel is still paid through Asaas", async () => {

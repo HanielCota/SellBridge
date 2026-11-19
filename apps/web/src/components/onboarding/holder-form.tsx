@@ -1,6 +1,7 @@
 import type { BillingHolder } from "@sellbridge/database/repositories";
 import { formatCnpj, formatPhone, phoneSchema } from "@sellbridge/shared/account-documents";
 import { cpfSchema, formatCpf } from "@sellbridge/shared/cpf";
+import { TAX_REGIME_LABELS, TAX_REGIMES, type TaxRegime } from "@sellbridge/shared/product-fiscal";
 import { companySchema, fullNameSchema } from "@sellbridge/shared/schemas";
 import { useForm, useStore } from "@tanstack/react-form";
 import { getRouteApi } from "@tanstack/react-router";
@@ -17,9 +18,11 @@ import { BillingAddressSection } from "@/components/onboarding/holder-address-fi
 import {
   holderDefaults,
   holderInput,
+  STATE_REGISTRATION_EXEMPT,
   switchHolderType,
   visibleErrors,
 } from "@/components/onboarding/holder-values";
+import { cn } from "@/lib/utils";
 
 const appRoute = getRouteApi("/_app");
 
@@ -45,6 +48,14 @@ function useHolderForm(
     },
   });
   return { form, submitError, lastSaved };
+}
+
+/** A saved address whose city has no IBGE code: a company must pick it from the list again. */
+function savedCityLacksCode(saved: BillingHolder | null): boolean {
+  if (saved === null || saved.address === null) {
+    return false;
+  }
+  return saved.address.ibgeCode === undefined;
 }
 
 export type HolderFormApi = ReturnType<typeof useHolderForm>["form"];
@@ -74,6 +85,7 @@ export function HolderForm({
   const { form, submitError, lastSaved } = useHolderForm(holder, onSaved);
   const hasSubmitted = useStore(form.store, (state) => state.submissionAttempts > 0);
   const isDirty = useStore(form.store, (state) => !state.isDefaultValue);
+  const isCompany = useStore(form.store, (state) => state.values.isCompany);
   // A successful save resets the baseline before React renders the next navigation.
   useUnsavedChanges(isDirty, () => !form.state.isDefaultValue);
   return (
@@ -94,6 +106,7 @@ export function HolderForm({
         showErrors={hasSubmitted}
         savedAddress={lastSaved?.address ?? null}
         isMissing={lastSaved !== null && lastSaved.address === null}
+        needsCityCode={isCompany && savedCityLacksCode(lastSaved)}
       />
       {submitError ? (
         <Alert variant="destructive">
@@ -194,7 +207,8 @@ function CompanyFields({ form, showErrors }: { form: HolderFormApi; showErrors: 
 function switchCompanyMode(form: HolderFormApi, isCompany: boolean) {
   const next = switchHolderType(form.state.values, isCompany);
   form.setFieldValue("isCompany", next.isCompany);
-  for (const name of ["cnpj", "companyName"] as const) {
+  form.setFieldValue("regime", next.regime);
+  for (const name of ["cnpj", "companyName", "stateRegistration"] as const) {
     form.setFieldValue(name, next[name], { dontValidate: true });
     form.setFieldMeta(name, (meta) => ({ ...meta, errorMap: {}, isTouched: false }));
   }
@@ -205,7 +219,7 @@ function switchCompanyMode(form: HolderFormApi, isCompany: boolean) {
  * must not block saving.
  */
 function companyFieldError(
-  key: keyof typeof companySchema.shape,
+  key: "cnpj" | "companyName" | "stateRegistration",
   value: string,
   isCompany: boolean,
 ): string | undefined {
@@ -213,7 +227,11 @@ function companyFieldError(
     return undefined;
   }
   const parsed = companySchema.shape[key].safeParse(value);
-  return parsed.success ? undefined : parsed.error.issues[0]?.message;
+  if (parsed.success) {
+    return undefined;
+  }
+  // The form offers a box for "ISENTO" instead of asking to type the word.
+  return key === "stateRegistration" ? STATE_REGISTRATION_HINT : parsed.error.issues[0]?.message;
 }
 
 function CompanyInputs({ form, showErrors }: { form: HolderFormApi; showErrors: boolean }) {
@@ -258,6 +276,117 @@ function CompanyInputs({ form, showErrors }: { form: HolderFormApi; showErrors: 
           />
         )}
       </form.Field>
+      <StateRegistrationInput form={form} showErrors={showErrors} />
+      <RegimeChoice form={form} />
+      <p className="text-footnote text-muted-foreground sm:col-span-2">
+        A inscrição estadual e o regime saem nas notas fiscais das suas vendas. Na dúvida, confira
+        com o seu contador.
+      </p>
     </div>
+  );
+}
+
+/**
+ * The state registration, or "ISENTO" while the box is ticked: a company without one ticks it
+ * instead of typing the word.
+ */
+function StateRegistrationInput({
+  form,
+  showErrors,
+}: {
+  form: HolderFormApi;
+  showErrors: boolean;
+}) {
+  return (
+    <form.Field
+      name="stateRegistration"
+      validators={{
+        onChange: ({ value, fieldApi }) =>
+          companyFieldError("stateRegistration", value, fieldApi.form.getFieldValue("isCompany")),
+      }}
+    >
+      {(field) => {
+        const isExempt = field.state.value === STATE_REGISTRATION_EXEMPT;
+        return (
+          <div className="grid gap-2 sm:col-span-2">
+            {isExempt ? null : (
+              <FloatingTextField
+                id="holder-state-registration"
+                label="Inscrição estadual"
+                inputMode="numeric"
+                autoComplete="off"
+                value={field.state.value}
+                errors={visibleErrors(field.state.meta.errors, showErrors)}
+                onBlur={field.handleBlur}
+                onValueChange={field.handleChange}
+              />
+            )}
+            <div className="flex min-h-11 items-center gap-3">
+              <Checkbox
+                id="holder-state-registration-exempt"
+                checked={isExempt}
+                onCheckedChange={(state) =>
+                  field.handleChange(state === true ? STATE_REGISTRATION_EXEMPT : "")
+                }
+              />
+              <label htmlFor="holder-state-registration-exempt" className="text-sm">
+                Minha empresa não tem inscrição estadual (isenta)
+              </label>
+            </div>
+          </div>
+        );
+      }}
+    </form.Field>
+  );
+}
+
+const STATE_REGISTRATION_HINT =
+  "Informe a inscrição estadual só com números. Se a empresa não tem, marque a opção abaixo.";
+
+const REGIME_HINTS: Readonly<Record<TaxRegime, string | null>> = {
+  simples: "Inclui MEI",
+  presumido: null,
+  real: null,
+};
+
+/** Three choices in sight, the most likely one already picked (L2, NF-e data). */
+function RegimeChoice({ form }: { form: HolderFormApi }) {
+  return (
+    <form.Field name="regime">
+      {(field) => (
+        <fieldset className="grid gap-2 sm:col-span-2">
+          <legend className="mb-2 text-sm font-medium">Regime tributário</legend>
+          <div className="grid gap-2 sm:grid-cols-3">
+            {TAX_REGIMES.map((regime) => (
+              <label
+                key={regime}
+                className={cn(
+                  "flex min-h-11 cursor-pointer items-center gap-3 rounded-xl border border-field-border bg-field px-4 py-2 text-sm transition-[border-color,box-shadow] duration-150",
+                  "has-checked:border-foreground/70 has-checked:bg-muted/60",
+                  "has-focus-visible:ring-4 has-focus-visible:ring-brand/20",
+                )}
+              >
+                <input
+                  type="radio"
+                  name="holder-regime"
+                  value={regime}
+                  checked={field.state.value === regime}
+                  onChange={() => field.handleChange(regime)}
+                  className="size-4 accent-brand-strong"
+                />
+                <span className="grid">
+                  <span className="font-medium">{TAX_REGIME_LABELS[regime]}</span>
+                  {REGIME_HINTS[regime] === null ? null : (
+                    <span className="text-footnote text-muted-foreground">
+                      {REGIME_HINTS[regime]}
+                    </span>
+                  )}
+                </span>
+              </label>
+            ))}
+          </div>
+        </fieldset>
+      )}
+    </form.Field>
   );
 }

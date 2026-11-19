@@ -1,5 +1,6 @@
 import { ShieldCheckIcon } from "@phosphor-icons/react";
 import { formatCents } from "@sellbridge/shared/money";
+import type { SupplierPayMethod } from "@sellbridge/shared/shipment-payments";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useRef } from "react";
 import { toast } from "sonner";
@@ -97,10 +98,17 @@ function useCheckoutReturn(shipmentId: string) {
   return confirm.isPending;
 }
 
-function PayButton({ shipmentId, gateway }: { shipmentId: string; gateway: string }) {
+/** Pix first: most resellers pay that way. Never boleto, which Asaas cannot refund. */
+const PAY_CHOICES: readonly { method: SupplierPayMethod; label: string; primary: boolean }[] = [
+  { method: "PIX", label: "Pagar com Pix", primary: true },
+  { method: "CREDIT_CARD", label: "Pagar com cartão", primary: false },
+];
+
+function PayButtons({ shipmentId, gateway }: { shipmentId: string; gateway: string }) {
   const queryClient = useQueryClient();
   const start = useMutation({
-    mutationFn: () => startSupplierCheckoutFn({ data: { shipmentId } }),
+    mutationFn: (payMethod: SupplierPayMethod) =>
+      startSupplierCheckoutFn({ data: { shipmentId, payMethod } }),
     onSuccess: ({ checkoutUrl }) => {
       window.location.assign(checkoutUrl);
     },
@@ -115,9 +123,19 @@ function PayButton({ shipmentId, gateway }: { shipmentId: string; gateway: strin
   // Stays "Abrindo…" until the browser leaves for the checkout: a second click would not help.
   const busy = start.isPending || start.isSuccess;
   return (
-    <Button size="lg" disabled={busy} onClick={() => start.mutate()}>
-      {busy ? `Abrindo o ${gateway}…` : "Pagar com Pix ou cartão"}
-    </Button>
+    <div className="flex flex-wrap gap-2">
+      {PAY_CHOICES.map((choice) => (
+        <Button
+          key={choice.method}
+          size="lg"
+          variant={choice.primary ? "default" : "outline"}
+          disabled={busy}
+          onClick={() => start.mutate(choice.method)}
+        >
+          {busy && start.variables === choice.method ? `Abrindo o ${gateway}…` : choice.label}
+        </Button>
+      ))}
+    </div>
   );
 }
 
@@ -163,10 +181,10 @@ export function ResellerSupplierPayment({ shipmentId }: { shipmentId: string }) 
             <strong className="text-2xl font-semibold">{formatCents(view.amountCents)}</strong>
           </p>
           <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
-            <PayButton shipmentId={shipmentId} gateway={gateway} />
+            <PayButtons shipmentId={shipmentId} gateway={gateway} />
             <span className="text-sm text-muted-foreground">
-              Você paga pelo Asaas. O valor fica guardado e só vai para o fornecedor depois da
-              entrega.
+              Pix ou cartão de crédito à vista, pelo Asaas. O valor fica guardado e só vai para o
+              fornecedor depois da entrega.
             </span>
           </div>
         </>

@@ -299,8 +299,7 @@ describe("buildWaterfall", () => {
   const summary = {
     revenueCents: 100_000,
     costCents: 50_000,
-    feeCents: 12_000,
-    platformFeeCents: 2_000,
+    feeCents: 14_000,
     refundCents: 0,
     commissionCents: 1_000,
     profitCents: 37_000,

@@ -84,7 +84,7 @@ interface BreakdownEntry {
 function breakdownEntries(row: OrderFinance): BreakdownEntry[] {
   const entries: BreakdownEntry[] = [
     { label: "Produtos", cents: -row.costCents, color: SPLIT_COLORS.cost },
-    { label: "Taxas", cents: -(row.feeCents + row.platformFeeCents), color: SPLIT_COLORS.fee },
+    { label: "Taxas", cents: -row.feeCents, color: SPLIT_COLORS.fee },
     { label: "Reembolso", cents: -row.refundCents, color: SPLIT_COLORS.refund },
     { label: "Comissão", cents: row.commissionCents, color: SPLIT_COLORS.profit },
   ];

@@ -23,7 +23,6 @@ const schedule: FeeSchedule = {
   ...DEFAULT_FEE_SCHEDULE,
   marketplaceFeeBasisPoints: 1200,
   categoryFeeBasisPoints: { calcados: 1600 },
-  platformFeeBasisPoints: 400,
 };
 
 /** The client's product: R$ 21,00 of cost, light enough for the first weight band. */
@@ -72,25 +71,22 @@ describe("estimateSaleFees", () => {
 });
 
 describe("estimateSale", () => {
-  it("is the financial report's own formula, platform fee included", () => {
+  it("is the financial report's own formula, with no SellBridge fee", () => {
     const input = { priceCents: 10_000, costCents: 5_000 };
     const marketplaceFeeCents = estimatedMarketplaceFeeCents(input, schedule);
 
     const estimate = estimateSale(input, schedule);
-    const report = computeOrderFinance(
-      {
-        status: "paid",
-        totalCents: 10_000,
-        marketplaceFeeCents,
-        items: [{ quantity: 1, knownUnitCostCents: 5_000 }],
-        adjustments: [],
-      },
-      400,
-    );
+    const report = computeOrderFinance({
+      status: "paid",
+      totalCents: 10_000,
+      marketplaceFeeCents,
+      items: [{ quantity: 1, knownUnitCostCents: 5_000 }],
+      adjustments: [],
+    });
 
     expect(estimate).toEqual(report);
-    // 100,00 − 50,00 cost − 12,00 commission − 16,15 shipping (0,5 kg) − 4,00 SellBridge.
-    expect(estimate.profitCents).toBe(10_000 - 5_000 - 1_200 - 1_615 - 400);
+    // 100,00 − 50,00 cost − 12,00 commission − 16,15 shipping (0,5 kg).
+    expect(estimate.profitCents).toBe(10_000 - 5_000 - 1_200 - 1_615);
   });
 });
 
@@ -176,7 +172,7 @@ describe("priceForMargin", () => {
 
   it("stays the smallest price when the fees leave almost nothing", () => {
     // 6% kept: one cent of rounded fee moves the answer by many cents of price.
-    const heavy = { ...schedule, marketplaceFeeBasisPoints: 9_000, platformFeeBasisPoints: 0 };
+    const heavy = { ...schedule, marketplaceFeeBasisPoints: 9_000 };
     for (const costCents of [7, 333, 4_990]) {
       expect(priceForMargin({ costCents }, 4, heavy)).toBe(
         smallestKeepingPrice({ costCents, marginPercent: 4, feeSchedule: heavy }),
@@ -185,8 +181,8 @@ describe("priceForMargin", () => {
   });
 
   it("is null exactly when the fees and the margin take the whole price", () => {
-    expect(priceForMargin({ costCents: 1_000 }, 84, schedule)).toBeNull();
-    expect(priceForMargin({ costCents: 1_000 }, 83.99, schedule)).not.toBeNull();
+    expect(priceForMargin({ costCents: 1_000 }, 88, schedule)).toBeNull();
+    expect(priceForMargin({ costCents: 1_000 }, 87.99, schedule)).not.toBeNull();
   });
 
   it("is null when the price would pass what a price can be", () => {
@@ -227,14 +223,14 @@ describe("minimumPriceCents", () => {
   });
 
   it("still covers the shipping when no commission is charged", () => {
-    const free = { ...schedule, marketplaceFeeBasisPoints: 0, platformFeeBasisPoints: 0 };
+    const free = { ...schedule, marketplaceFeeBasisPoints: 0 };
 
     // R$ 50,00 of cost plus R$ 8,25 of shipping (0,5 kg, R$ 49 to R$ 78,99).
     expect(minimumPriceCents({ costCents: 5_000 }, free)).toBe(5_825);
   });
 
   it("is null when the fees take the whole price", () => {
-    const greedy = { ...schedule, marketplaceFeeBasisPoints: 9_600 };
+    const greedy = { ...schedule, marketplaceFeeBasisPoints: 10_000 };
     expect(minimumPriceCents({ costCents: 5_000 }, greedy)).toBeNull();
   });
 });
@@ -275,14 +271,14 @@ describe("assertPriceKeepsMargin", () => {
   });
 
   it("says when the minimum margin, not the fees alone, leaves no possible price", () => {
-    const strict = { ...schedule, minimumMarginPercent: 84 };
+    const strict = { ...schedule, minimumMarginPercent: 88 };
     expect(() => assertPriceKeepsMargin(999_999, { costCents: 5_000 }, strict)).toThrow(
-      "As taxas do Mercado Livre e a margem mínima de 84% não deixam um preço possível para este produto",
+      "As taxas do Mercado Livre e a margem mínima de 88% não deixam um preço possível para este produto",
     );
   });
 
   it("refuses every price when the fees leave nothing", () => {
-    const greedy = { ...schedule, marketplaceFeeBasisPoints: 9_600 };
+    const greedy = { ...schedule, marketplaceFeeBasisPoints: 10_000 };
     expect(() => assertPriceKeepsMargin(999_999, { costCents: 5_000 }, greedy)).toThrow(
       "As taxas do Mercado Livre não deixam lucro para este produto",
     );
