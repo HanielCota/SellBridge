@@ -534,6 +534,7 @@ describe("openAsaasCharge", () => {
     account,
     payment: parcel({ status: "pending", providerPaymentId: null, preferenceId: null }),
     payer,
+    payMethod: "PIX" as const,
     description: "Pedido 1",
     successUrl: "https://sellbridge.test/pedidos/1",
     now: NOW,
@@ -551,6 +552,36 @@ describe("openAsaasCharge", () => {
 
     expect(result).toEqual({ kind: "opened", checkoutUrl: "https://asaas.test/i/1" });
     expect(requests.map((request) => request.method)).toEqual(["GET"]);
+  });
+
+  test("replaces the open Pix charge with a card one when the reseller switches to card", async () => {
+    replies = [
+      {
+        status: 200,
+        body: { hasMore: false, data: [charge({ status: "PENDING", escrow: null })] },
+      },
+      { status: 200, body: { deleted: true, id: "pay_1" } },
+      { status: 200, body: { data: [{ id: "cus_1" }] } },
+      {
+        status: 200,
+        body: charge({
+          id: "pay_new",
+          status: "PENDING",
+          escrow: null,
+          billingType: "CREDIT_CARD",
+        }),
+      },
+    ];
+
+    await openAsaasCharge(context, { ...opening, payMethod: "CREDIT_CARD" });
+
+    expect(requests.map((request) => `${request.method} ${request.path}`)).toEqual([
+      "GET /v3/payments",
+      "DELETE /v3/payments/pay_1",
+      "GET /v3/customers",
+      "POST /v3/payments",
+    ]);
+    expect(requests.at(-1)?.body).toMatchObject({ billingType: "CREDIT_CARD" });
   });
 
   test("replaces an open charge that no longer asks what the parcel asks", async () => {

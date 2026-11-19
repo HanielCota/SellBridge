@@ -880,7 +880,7 @@ O pedido original do cliente era "liberação só com o pedido entregue, para ev
 
 - **Os dois convivem.** O Mercado Pago continua igual. O fornecedor escolhe em Recebimentos para onde vão os próximos pagamentos (`supplier_payment_choices`); sem escolha, vale a única conta que recebe, e o Mercado Pago quando as duas recebem. Pagamento já aberto ou pago termina onde começou; antes de trocar de gateway, as tentativas anteriores são lidas de volta (paga trava, aberta no Asaas é removida).
 - **Conta do fornecedor:** o SellBridge abre a subconta com a chave dele (`POST /v3/accounts`), com o aviso automático já apontado para `/api/webhooks/asaas`, e liga a proteção (`POST /v3/accounts/{id}/escrow`, 30 dias, `isFeePayer: true`). A chave da subconta fica cifrada como os tokens das lojas. Sem a proteção ligada, a conta não recebe. Os documentos vão pelo link do Asaas (`onboardingUrl`) e a conta só recebe depois de aprovada (`general: APPROVED`).
-- **Cobrança:** criada com a chave do fornecedor (ele é o emissor, então a tarifa do Asaas sai da parte dele), `externalReference` = o pagamento do envio no SellBridge, e a taxa do SellBridge no split (`fixedValue` para a carteira `ASAAS_WALLET_ID`), a mesma taxa editável do admin. O revendedor escolhe Pix, cartão à vista ou boleto na página do Asaas.
+- **Cobrança:** criada com a chave do fornecedor (ele é o emissor, então a tarifa do Asaas sai da parte dele), `externalReference` = o pagamento do envio no SellBridge, e a taxa do SellBridge no split (`fixedValue` para a carteira `ASAAS_WALLET_ID`), a mesma taxa editável do admin. O revendedor escolhe Pix, cartão à vista ou boleto na página do Asaas (desde 18/11/2026, só Pix ou cartão, escolhidos no SellBridge; ver abaixo).
 - **Pagamento em dobro:** uma cobrança por envio; o Asaas não tem chave de idempotência, então antes de abrir uma cobrança o SellBridge lista as do envio pela referência (paga é registrada e trava; aberta é reaproveitada; vencida é removida antes da nova). Uma cobrança só conta se foi aberta para aquele envio, com aquele valor e aquela taxa. A conferência a cada 5 minutos lê de volta as cobranças, e uma segunda paga vai para Problemas (`asaas.duplicate_payment`).
 - **Liberação:** 7 dias depois da primeira entrega confirmada (marketplace ou revendedor; o fornecedor não consegue marcar a própria entrega), pelo worker, com `POST /v3/escrow/{id}/finish`. O pedido é reservado no banco antes da chamada e nunca repetido; sem confirmação, só é pedido de novo depois de 1 hora e se o Asaas ainda mostrar o dinheiro guardado.
 - **Devolução:** envio cancelado, não entregue ou devolvido antes da liberação devolve o valor inteiro do dinheiro guardado (`POST /v3/payments/{id}/refund`; a taxa do split volta junto). Devolução aberta pelo revendedor pausa e vai para Problemas; contestação no cartão pausa e fica com o Asaas. Faltando 5 dias para o prazo de 30 do Asaas sem entrega confirmada, o caso vai para Problemas. Em Problemas, o admin escolhe "Devolver ao revendedor" ou "Liberar ao fornecedor"; o worker executa.
@@ -917,7 +917,7 @@ Teste de ponta a ponta com a conta de sandbox do SellBridge, por um script local
    - **Cartão:** funciona com a chave da subconta. A cobrança vira `REFUNDED` e a parte do SellBridge é cancelada junto.
    - **Boleto:** o Asaas não devolve ("Somente é possível estornar cobranças cuja a forma de pagamento seja cartão de crédito ou Pix"). O caso vai para Problemas, como previsto.
    - **Pix:** não deu para simular, porque pagar um QR Code exige permissão de saque na chave.
-   - **Em aberto:** decidir se o boleto continua como forma de pagamento.
+   - O boleto saiu das formas de pagamento no mesmo dia (abaixo).
 4. **Quando a guarda começa no cartão:** na confirmação do cartão, não 30 dias depois. A guarda vence 30 dias depois da confirmação.
 5. **Lista de documentos:** não apareceu. O sandbox aprova a subconta na hora, sem pedir documentos.
 6. **Chave da subconta:** vem na criação no sandbox. Depois do período de avaliação em produção, segue dependendo do modelo BaaS pedido ao Asaas.
@@ -925,6 +925,21 @@ Teste de ponta a ponta com a conta de sandbox do SellBridge, por um script local
    - **Site da subconta:** a cobrança exige que o endereço de volta (`successUrl`) seja do site cadastrado na subconta. A subconta agora abre com o endereço do SellBridge como site.
    - **Liberação:** só a chave da conta principal encerra a guarda (`POST /v3/escrow/{id}/finish`); a da subconta recebe 404. A liberação agora usa a chave do SellBridge, e o worker liberou 7 dias depois da entrega.
    - **Motivo da recusa:** o registro de cobrança recusada passou a guardar o motivo que o Asaas devolve.
+
+### Só Pix e cartão à vista, sem boleto (18/11/2026)
+
+Guilherme, 18/11/2026: "Então tira o boleto e deixa so oq ele pediu". O cliente pediu "Pix e cartão" (áudio 1) e "Pix com QR Code e copia e cola" mais "cartão de crédito" (relatório de 12/11), e o Asaas não devolve boleto.
+
+- **Como o Asaas restringe:**
+  - Com `billingType: UNDEFINED`, o pagador escolhe entre as formas ligadas na conta, e a página do Asaas oferece o boleto (conferido no sandbox).
+  - Com `PIX`, a página mostra só o Pix.
+  - Com `CREDIT_CARD`, mostra só o cartão. O Asaas acrescenta sozinho o cartão de débito, que também é pago à vista, e não pede parcelas quando a cobrança vai sem `installmentCount`.
+  - Fontes: "Criar nova cobrança" na documentação do Asaas e o sandbox, ambos em 18/11/2026.
+- **O que mudou:**
+  - O pedido do revendedor tem dois botões, "Pagar com Pix" (o principal) e "Pagar com cartão".
+  - A cobrança é aberta só com a forma escolhida (`SUPPLIER_PAY_METHODS` em `@sellbridge/shared/shipment-payments`).
+  - Se o revendedor voltar e escolher a outra forma, a cobrança aberta é apagada no Asaas e outra é aberta. Nunca ficam duas pagáveis.
+- **Descartado:** o Checkout do Asaas (`POST /v3/checkouts`), que aceita `billingTypes: [PIX, CREDIT_CARD]` numa página só. Ele cria a cobrança só depois do pagamento e pede itens com imagem, o que obrigaria a refazer a guarda, o split e o aviso, já conferidos no sandbox.
 
 ## 2026-11-16: Lucro real por canal (etapa 2a, comissão e frete lidos da loja)
 
