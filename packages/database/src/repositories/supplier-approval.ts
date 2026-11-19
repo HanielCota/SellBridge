@@ -13,7 +13,7 @@ import {
   type CnpjLookupResult,
   type SupplierApprovalStatus,
 } from "@sellbridge/shared/supplier-approval";
-import { and, asc, count, eq } from "drizzle-orm";
+import { and, asc, count, eq, isNull, ne, or, sql } from "drizzle-orm";
 import type { Database, DatabaseExecutor } from "../client.ts";
 import {
   platformSettings,
@@ -267,13 +267,23 @@ export async function runSupplierApprovalCheck(
   return verdict.kind === "approve" ? "approved" : "pending";
 }
 
-/** Pending suppliers the round checks again, the oldest first. */
+/**
+ * Pending suppliers the round checks again, the least recently checked first, so suppliers who
+ * never finish signing up cannot hold every slot. The team's queue is left out: nothing
+ * automatic moves it, and checking it again would reset how long it has waited.
+ */
 export async function listPendingSupplierIds(database: Database, limit: number): Promise<string[]> {
   const rows = await database
     .select({ id: suppliers.id })
     .from(suppliers)
-    .where(eq(suppliers.approvalStatus, "pending"))
-    .orderBy(asc(suppliers.createdAt))
+    .leftJoin(supplierApprovals, eq(supplierApprovals.supplierId, suppliers.id))
+    .where(
+      and(
+        eq(suppliers.approvalStatus, "pending"),
+        or(isNull(supplierApprovals.stage), ne(supplierApprovals.stage, "needs_team")),
+      ),
+    )
+    .orderBy(sql`${supplierApprovals.updatedAt} asc nulls first`, asc(suppliers.createdAt))
     .limit(limit);
   return rows.map((row) => row.id);
 }

@@ -5,7 +5,7 @@ import { logger } from "@sellbridge/shared/logger";
 export const SUPPLIERS_PER_ROUND = 20;
 
 export interface SupplierApprovalDependencies {
-  /** Pending suppliers, the oldest first, at most `limit`. */
+  /** Pending suppliers outside the team queue, least recently checked first, at most `limit`. */
   readonly listPending: (limit: number) => Promise<string[]>;
   /** Runs the automatic check of one supplier and returns its status afterwards. */
   readonly check: (supplierId: string) => Promise<SupplierApprovalStatus>;

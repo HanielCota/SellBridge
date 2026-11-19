@@ -10,6 +10,7 @@ import {
   decideSupplierApprovalByTeam,
   getRequireReceivingAccount,
   getSupplierApprovalState,
+  listPendingSupplierIds,
   listSuppliersAwaitingTeam,
   runSupplierApprovalCheck,
   setRequireReceivingAccount,
@@ -120,7 +121,7 @@ async function visibleToResellers(supplierId: string, productId: string) {
 }
 
 beforeAll(async () => {
-  tenants = await createTestTenants(database, 10);
+  tenants = await createTestTenants(database, 14);
   staff = await createTestUsers(database, 1);
   resellerId = organizationAt(0);
   requiredBefore = await getRequireReceivingAccount(database);
@@ -275,6 +276,28 @@ describe("a supplier who signs up alone", () => {
     } finally {
       await setRequireReceivingAccount(database, { required: false, userId: staffId() });
     }
+  });
+});
+
+describe("the worker's round of pending suppliers", () => {
+  it("leaves the team queue out and takes the least recently checked first", async () => {
+    const awaitingTeam = await signUpSupplier(true);
+    const checkedFirst = await signUpSupplier(true);
+    const checkedLast = await signUpSupplier(true);
+    const inactive = answering({ ...ACTIVE, outcome: "inactive", registrationStatus: "BAIXADA" });
+    const down = answering({ outcome: "unavailable" });
+    await runSupplierApprovalCheck(database, awaitingTeam.supplierId, inactive);
+    await runSupplierApprovalCheck(database, checkedFirst.supplierId, down);
+    await runSupplierApprovalCheck(database, checkedLast.supplierId, down);
+    await runSupplierApprovalCheck(database, checkedFirst.supplierId, down);
+
+    const round = await listPendingSupplierIds(database, 10_000);
+
+    expect(round).not.toContain(awaitingTeam.supplierId);
+    expect(round.indexOf(checkedLast.supplierId)).toBeGreaterThanOrEqual(0);
+    expect(round.indexOf(checkedLast.supplierId)).toBeLessThan(
+      round.indexOf(checkedFirst.supplierId),
+    );
   });
 });
 
