@@ -81,19 +81,24 @@ async function assertSkusAreFree(
   }
 }
 
-/** A combination goes on sale only with its NF-e data, as a single product does. */
+/** NF-e data as the rules read it: origin and unit from Marca fill the product's empty ones. */
+function hasFiscalData(fiscal: unknown, fallback: FiscalFallback | null): boolean {
+  return hasRequiredFiscalData(withFiscalFallback(readProductFiscal(fiscal), fallback));
+}
+
+/**
+ * A combination goes on sale only with its NF-e data and a known cost, as a single product does:
+ * a cost of zero means "not filled in", never a free product.
+ */
 function reviewStatusFor(
   requested: "approved" | "draft",
-  product: MaterializedCombination,
+  product: MaterializedCombination & { costCents: number },
   fallback: FiscalFallback | null,
 ): "approved" | "draft" {
-  if (requested === "draft") {
+  if (requested === "draft" || product.costCents <= 0) {
     return "draft";
   }
-  const complete = hasRequiredFiscalData(
-    withFiscalFallback(readProductFiscal(product.fiscal), fallback),
-  );
-  return complete ? "approved" : "draft";
+  return hasFiscalData(product.fiscal, fallback) ? "approved" : "draft";
 }
 
 function colorPhotos(grid: ProductGrid): ReadonlyMap<string, string[]> {
@@ -236,6 +241,7 @@ export async function rewriteCombinations(
     .from(productModelColors)
     .where(eq(productModelColors.modelId, modelId));
   const photos = new Map(colors.map((color) => [color.name, color.imageUrls]));
+  const fallback = await fiscalFallbackOfModel(transaction, modelId);
   // Same row order as sales and imports take their locks in, so none of them deadlock.
   const combinations = await transaction
     .select({
@@ -244,6 +250,8 @@ export async function rewriteCombinations(
       size: supplierProducts.size,
       variantAttributes: supplierProducts.variantAttributes,
       variantFiscal: supplierProducts.variantFiscal,
+      reviewStatus: supplierProducts.reviewStatus,
+      fiscalRequired: supplierProducts.fiscalRequired,
     })
     .from(supplierProducts)
     .where(eq(supplierProducts.modelId, modelId))
@@ -254,11 +262,31 @@ export async function rewriteCombinations(
       ...combination,
       colorImageUrls: combination.color === null ? [] : (photos.get(combination.color) ?? []),
     });
+    // Erasing the model's NCM, origin or unit takes its combinations off sale, as it does a
+    // single product created under the NF-e rule.
+    const losesFiscal =
+      combination.reviewStatus === "approved" &&
+      combination.fiscalRequired &&
+      !hasFiscalData(product.fiscal, fallback);
     await transaction
       .update(supplierProducts)
-      .set(product)
+      .set({ ...product, ...(losesFiscal ? { reviewStatus: "draft" as const } : {}) })
       .where(eq(supplierProducts.id, combination.id));
   }
+}
+
+async function fiscalFallbackOfModel(
+  transaction: DatabaseExecutor,
+  modelId: string,
+): Promise<FiscalFallback | null> {
+  const [model] = await transaction
+    .select({ supplierId: productModels.supplierId })
+    .from(productModels)
+    .where(eq(productModels.id, modelId));
+  if (model === undefined) {
+    throw new Error(`product model ${modelId} vanished while its combinations were rewritten`);
+  }
+  return await getSupplierFiscalFallback(transaction, model.supplierId);
 }
 
 /** The model with its options in order and its combinations; null when not the supplier's. */
