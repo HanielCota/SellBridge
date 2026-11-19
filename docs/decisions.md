@@ -979,3 +979,9 @@ A segunda parte da etapa 2: o Financeiro passa a descontar o frete que o Mercado
 - **Ordem e repetição:** o aviso é só um gatilho; o recurso é sempre relido com o token da loja. A reclamação guarda o `last_updated` do Mercado Livre e uma leitura mais antiga não sobrescreve; os avisos ao cliente usam chave por reclamação e momento, então um aviso repetido não chega duas vezes.
 - **Correção:** os avisos com subtópico trazem `id` em vez de `_id` e eram recusados com 401; o Mercado Livre repetiria por 1 hora e poderia desligar o tópico.
 - **Busca diária:** abertas de qualquer idade mais as atualizadas em 26 horas, por loja, até 200 por rodada. Cobre aviso perdido e as reclamações de pedidos vendidos antes de os tópicos serem ligados.
+
+## 2026-11-18: Regras de negócio decididas pelo dono do produto
+
+- **Decisão (Guilherme, "4 sim", chat da Central):** as decisões de negócio deixam de esperar o cliente. Quem decide é o dono do produto, com a Central; o que o cliente pede entra como informação, não como trava.
+- **O que muda:** o princípio 2 e a seção 8 de `docs/prompts/execucao-tela-a-tela.md` (a tabela D1–D11 passa a mostrar a situação de cada decisão), a nota de `docs/prompts/coordenacao.md` e o aviso no topo de `docs/prompts/fase-cliente-1.md`. As entradas antigas marcadas `PENDENTE CLIENTE` continuam como histórico.
+- **Descartado:** continuar com flags desligadas e adapters de faz de conta para cada decisão em aberto, que travava itens já decididos na prática.

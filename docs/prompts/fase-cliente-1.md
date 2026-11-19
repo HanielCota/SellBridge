@@ -3,6 +3,7 @@
 > Cole este prompt numa sessão nova do Claude Code, na raiz do repositório, e escolha a **onda** na primeira linha.
 > Fonte da verdade: [docs/reviews/2026-10-12-lacunas-cliente.md](../reviews/2026-10-12-lacunas-cliente.md). Os IDs B1…B20, A1…R6 e D1…D11 deste prompt se referem a esse relatório.
 > Ao terminar cada onda, salve o andamento em `docs/reviews/AAAA-MM-DD-fase-cliente-1.md` e atualize o status de cada ID no relatório de lacunas (✅/🟡/❌).
+> **Desde 18/11/2026:** as decisões D1–D11 deixaram de esperar o cliente; quem decide é o dono do produto (Guilherme), com a Central. Onde este prompt diz "decisão do cliente", leia "decisão do dono" e siga o princípio 2 de `docs/prompts/execucao-tela-a-tela.md`.
 
 ---
 
