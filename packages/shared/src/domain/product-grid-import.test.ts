@@ -80,7 +80,9 @@ describe("planGridImport", () => {
       "Tênis Casual - Preto 39",
     ]);
     expect(plan.plainRows.every((entry) => entry.product.grid === undefined)).toBe(true);
-    expect(plan.notices[0]?.reason).toContain("já existe como produto separado");
+    expect(plan.notices[0]?.reason).toBe(
+      'As cores e tamanhos de "Tênis Casual" entraram como produtos separados, porque o SKU TEN-P-38 já existe como produto separado. Juntar produtos que já existem numa grade vai ter uma tela própria',
+    );
   });
 
   it("updates an existing combination like any product and refuses a new colour for it", () => {

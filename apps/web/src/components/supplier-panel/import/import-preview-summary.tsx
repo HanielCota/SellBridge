@@ -147,8 +147,8 @@ function GridNotices({
       {grids > 0 ? (
         <p className="text-muted-foreground">
           {plural(grids, "produto com cores e tamanhos", "produtos com cores e tamanhos")}, com{" "}
-          {plural(combinations, "variação", "variações")}: as linhas com o mesmo código do modelo
-          viram um produto só, uma variação por linha.
+          {plural(combinations, "variação", "variações")}. Cada linha vira uma variação dele, e na
+          lista de produtos ele aparece uma vez só.
         </p>
       ) : null}
       {notices.length > 0 ? (

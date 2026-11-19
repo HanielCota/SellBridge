@@ -350,7 +350,7 @@ export function planGridImport(input: {
       );
       notices.push({
         line: rows[0]?.line ?? single.line,
-        reason: `As linhas do modelo ${code} entraram como produtos separados, porque o SKU ${single.product.sku} já existe como produto separado. Juntar produtos que já existem numa grade vai ter uma tela própria`,
+        reason: `As cores e tamanhos de "${single.product.title}" entraram como produtos separados, porque o SKU ${single.product.sku} já existe como produto separado. Juntar produtos que já existem numa grade vai ter uma tela própria`,
       });
       continue;
     }
