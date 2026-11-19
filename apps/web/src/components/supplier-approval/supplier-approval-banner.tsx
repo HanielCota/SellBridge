@@ -9,6 +9,8 @@ import { Link } from "@tanstack/react-router";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 
 const LINK_CLASS = "inline-flex min-h-11 items-center font-medium underline underline-offset-4";
+/** A link inside a sentence keeps the line's height, so the sentence does not break around it. */
+const INLINE_LINK_CLASS = "font-medium underline underline-offset-4";
 
 function MissingItem({ item }: { item: ApprovalMissingItem }) {
   if (item === "receiving_account") {
@@ -47,7 +49,7 @@ function PendingDetail({ approval }: { approval: SupplierApprovalState }) {
       <p>
         {APPROVAL_TEAM_REASON_SUPPLIER_TEXT[approval.teamReason]}. A equipe SellBridge vai conferir
         seu cadastro. Se o CNPJ ou a razão social estiverem errados, corrija em{" "}
-        <Link to="/fornecedor/painel/marca" hash="brand-fiscal-cnpj" className={LINK_CLASS}>
+        <Link to="/fornecedor/painel/marca" hash="brand-fiscal-cnpj" className={INLINE_LINK_CLASS}>
           Dados fiscais da empresa
         </Link>
         .
