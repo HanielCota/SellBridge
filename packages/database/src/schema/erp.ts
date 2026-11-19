@@ -1,5 +1,5 @@
 import { sql } from "drizzle-orm";
-import type { InvoiceStatus } from "@sellbridge/shared/supplier-invoice";
+import type { InvoiceKind, InvoiceStatus } from "@sellbridge/shared/supplier-invoice";
 import {
   bigint,
   check,
@@ -48,6 +48,12 @@ export const supplierErpConnections = pgTable(
      * Parcels created before it are never invoiced here.
      */
     invoiceEnabledAt: timestamp({ withTimezone: true }),
+    /**
+     * The ERP's ids of the two operations ("naturezas de operação") of venda à ordem: the remessa
+     * to the buyer and the sale to the reseller. They belong to this ERP account; null until chosen.
+     */
+    onBehalfShipmentOperationId: bigint({ mode: "number" }),
+    onBehalfSaleOperationId: bigint({ mode: "number" }),
     /** The supplier member who authorized it, kept for the audit trail. */
     connectedByUserId: text().references(() => user.id, { onDelete: "set null" }),
     connectedAt: timestamp({ withTimezone: true }).defaultNow().notNull(),
@@ -110,8 +116,9 @@ export const erpCatalogReads = pgTable(
 );
 
 /**
- * The NF-e of one parcel, issued through the supplier's ERP: the ERP's ids of each step (so a
- * retry goes on from where it stopped instead of creating twice), and what the supplier sees.
+ * An NF-e of one parcel, issued through the supplier's ERP: the ERP's ids of each step (so a
+ * retry goes on from where it stopped instead of creating twice), and what the supplier sees. A
+ * parcel has one note of each kind: the direct sale, or the two notes of venda à ordem.
  */
 export const shipmentInvoices = pgTable(
   "shipment_invoices",
@@ -124,6 +131,7 @@ export const shipmentInvoices = pgTable(
       .notNull()
       .references(() => suppliers.id, { onDelete: "cascade" }),
     provider: erpProviderEnum().notNull(),
+    kind: text().$type<InvoiceKind>().notNull().default("direct"),
     status: text().$type<InvoiceStatus>().notNull().default("queued"),
     /** The ERP's contact, sale order and note ids, set as each step succeeds. */
     erpContactId: bigint({ mode: "number" }),
@@ -146,7 +154,7 @@ export const shipmentInvoices = pgTable(
       .notNull(),
   },
   (table) => [
-    uniqueIndex("shipment_invoices_shipment_idx").on(table.shipmentId),
+    uniqueIndex("shipment_invoices_shipment_kind_idx").on(table.shipmentId, table.kind),
     /** The job reads the notes due, the oldest first. */
     index("shipment_invoices_due_idx")
       .on(table.nextAttemptAt)
@@ -155,6 +163,10 @@ export const shipmentInvoices = pgTable(
     check(
       "shipment_invoices_status_check",
       sql`${table.status} in ('queued','sent','authorized','attention','cancelled')`,
+    ),
+    check(
+      "shipment_invoices_kind_check",
+      sql`${table.kind} in ('direct','on_behalf_shipment','on_behalf_sale')`,
     ),
   ],
 );

@@ -8,7 +8,11 @@ import {
   invoiceAttentionContent,
   invoiceAuthorizedContent,
 } from "@sellbridge/shared/notification-events";
-import type { InvoiceStatus } from "@sellbridge/shared/supplier-invoice";
+import {
+  BOX_INVOICE_KINDS,
+  type InvoiceKind,
+  type InvoiceStatus,
+} from "@sellbridge/shared/supplier-invoice";
 import { conflictError, notFoundError } from "@sellbridge/shared/errors";
 import { and, asc, eq, gte, inArray, isNotNull, isNull, lte, notInArray, sql } from "drizzle-orm";
 import type { Database, DatabaseExecutor } from "../client.ts";
@@ -23,11 +27,17 @@ import {
   suppliers,
 } from "../schema/index.ts";
 import { notifyWorkspace } from "./notification-producers.ts";
+import {
+  loadOnBehalfInvoiceContext,
+  type OnBehalfInvoiceContext,
+} from "./shipment-on-behalf-invoices.ts";
+import { soldOnBehalf } from "./sql/on-behalf.ts";
 import { UNINVOICED_ORDER_STATUSES, UNINVOICED_SHIPMENT_STATUSES } from "./sql/uninvoiced.ts";
 
 /**
- * Opens an invoice for each new parcel of a supplier whose ERP issues its notes: parcels created
- * since the supplier turned it on, still going ahead, without one yet. Returns how many.
+ * Opens the direct note of each new parcel of a supplier whose ERP issues its notes: parcels
+ * created since the supplier turned it on, still going ahead, without a note yet and not sold in
+ * venda à ordem (those get their own notes). Returns how many.
  */
 export async function queueNewShipmentInvoices(database: Database): Promise<number> {
   const candidates = await database
@@ -53,6 +63,7 @@ export async function queueNewShipmentInvoices(database: Database): Promise<numb
         isNull(shipmentInvoices.id),
         notInArray(orderShipments.status, [...UNINVOICED_SHIPMENT_STATUSES]),
         notInArray(orders.status, [...UNINVOICED_ORDER_STATUSES]),
+        sql`not ${soldOnBehalf}`,
       ),
     );
   if (candidates.length === 0) {
@@ -60,8 +71,8 @@ export async function queueNewShipmentInvoices(database: Database): Promise<numb
   }
   const inserted = await database
     .insert(shipmentInvoices)
-    .values(candidates)
-    .onConflictDoNothing({ target: shipmentInvoices.shipmentId })
+    .values(candidates.map((candidate) => ({ ...candidate, kind: "direct" as const })))
+    .onConflictDoNothing({ target: [shipmentInvoices.shipmentId, shipmentInvoices.kind] })
     .returning({ id: shipmentInvoices.id });
   return inserted.length;
 }
@@ -155,6 +166,7 @@ export interface ShipmentInvoiceLine {
 /** Everything the job needs to take an invoice one step further. */
 export interface ShipmentInvoiceWork {
   readonly id: string;
+  readonly kind: InvoiceKind;
   readonly status: InvoiceStatus;
   readonly attempts: number;
   readonly erpContactId: number | null;
@@ -182,12 +194,15 @@ export interface ShipmentInvoiceWork {
   readonly emissionOn: boolean;
   /** Parcel items with no matching order line. */
   readonly missingLines: number;
+  /** What a venda à ordem note builds on; null for a direct note. */
+  readonly onBehalf: OnBehalfInvoiceContext | null;
 }
 
 async function invoiceHeader(database: Database, invoiceId: string) {
   const [row] = await database
     .select({
       invoice: shipmentInvoices,
+      tenantId: orderShipments.tenantId,
       fiscalProfile: suppliers.fiscalProfile,
       address: orderShipments.address,
       items: orderShipments.items,
@@ -286,8 +301,17 @@ export async function loadShipmentInvoiceWork(
   }
   const { invoice } = header;
   const lines = await invoiceLines(database, header.orderId, header.items);
+  const onBehalf =
+    invoice.kind === "direct"
+      ? null
+      : await loadOnBehalfInvoiceContext(database, {
+          shipmentId: invoice.shipmentId,
+          tenantId: header.tenantId,
+          supplierId: invoice.supplierId,
+        });
   return {
     id: invoice.id,
+    kind: invoice.kind,
     status: invoice.status,
     attempts: invoice.attempts,
     erpContactId: invoice.erpContactId,
@@ -308,6 +332,7 @@ export async function loadShipmentInvoiceWork(
     erpConnected: header.erpStatus === "connected",
     emissionOn: header.invoiceEnabledAt !== null,
     missingLines: header.items.length - lines.length,
+    onBehalf,
   };
 }
 
@@ -331,7 +356,10 @@ export async function markShipmentInvoiceSent(
     .where(eq(shipmentInvoices.id, input.invoiceId));
 }
 
-/** Tells the reseller's workspace the note is out; the e-mail carries its XML and DANFE. */
+/**
+ * Tells the reseller's workspace the parcel's note is out; the e-mail carries its XML and DANFE.
+ * Only the note in the box: the screens show the sale to the reseller on its own.
+ */
 async function queueInvoiceAuthorizedNotice(
   transaction: DatabaseExecutor,
   input: { invoiceId: string; number: string },
@@ -348,7 +376,12 @@ async function queueInvoiceAuthorizedNotice(
     .innerJoin(orderShipments, eq(orderShipments.id, shipmentInvoices.shipmentId))
     .innerJoin(orders, eq(orders.id, orderShipments.orderId))
     .innerJoin(suppliers, eq(suppliers.id, shipmentInvoices.supplierId))
-    .where(eq(shipmentInvoices.id, input.invoiceId));
+    .where(
+      and(
+        eq(shipmentInvoices.id, input.invoiceId),
+        inArray(shipmentInvoices.kind, [...BOX_INVOICE_KINDS]),
+      ),
+    );
   if (parcel === undefined) {
     return;
   }
@@ -472,7 +505,7 @@ export async function scheduleShipmentInvoiceRetry(
     .where(eq(shipmentInvoices.id, input.invoiceId));
 }
 
-/** The note of one of the supplier's parcels, as the order screen shows it; null when none. */
+/** The note in the box of one of the supplier's parcels, as the order screen shows it; null when none. */
 export async function findSupplierShipmentInvoice(
   database: Database,
   input: { supplierId: string; shipmentId: string },
@@ -493,6 +526,7 @@ export async function findSupplierShipmentInvoice(
       and(
         eq(shipmentInvoices.shipmentId, input.shipmentId),
         eq(shipmentInvoices.supplierId, input.supplierId),
+        inArray(shipmentInvoices.kind, [...BOX_INVOICE_KINDS]),
       ),
     );
   return row ?? null;
@@ -556,7 +590,7 @@ export async function setErpInvoicing(
   return updated.length > 0;
 }
 
-/** A parcel's note as the reseller's order page shows it; the reason it stopped stays out. */
+/** A parcel's note in the box, as the reseller's order page shows it; its problem stays out. */
 export interface ResellerShipmentInvoice {
   readonly status: InvoiceStatus;
   readonly number: string | null;
@@ -588,7 +622,12 @@ export async function resellerShipmentInvoices(
       updatedAt: shipmentInvoices.updatedAt,
     })
     .from(shipmentInvoices)
-    .where(inArray(shipmentInvoices.shipmentId, [...shipmentIds]));
+    .where(
+      and(
+        inArray(shipmentInvoices.shipmentId, [...shipmentIds]),
+        inArray(shipmentInvoices.kind, [...BOX_INVOICE_KINDS]),
+      ),
+    );
   return new Map(rows.map(({ shipmentId, ...invoice }) => [shipmentId, invoice]));
 }
 
@@ -603,7 +642,7 @@ export interface ShipmentInvoiceFiles {
   readonly accessKey: string;
 }
 
-/** The parcel's authorized note with its access key; null while it has none. */
+/** The parcel's authorized note in the box, with its access key; null while it has none. */
 export async function findShipmentInvoiceFiles(
   database: Database,
   shipmentId: string,
@@ -620,7 +659,11 @@ export async function findShipmentInvoiceFiles(
     .from(shipmentInvoices)
     .innerJoin(orderShipments, eq(orderShipments.id, shipmentInvoices.shipmentId))
     .where(
-      and(eq(shipmentInvoices.shipmentId, shipmentId), eq(shipmentInvoices.status, "authorized")),
+      and(
+        eq(shipmentInvoices.shipmentId, shipmentId),
+        eq(shipmentInvoices.status, "authorized"),
+        inArray(shipmentInvoices.kind, [...BOX_INVOICE_KINDS]),
+      ),
     );
   if (row === undefined || row.accessKey === null) {
     return null;
