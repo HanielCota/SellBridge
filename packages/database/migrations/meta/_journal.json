@@ -659,6 +659,20 @@
       "when": 1795126647968,
       "tag": "0093_erp_stock_sync",
       "breakpoints": true
+    },
+    {
+      "idx": 94,
+      "version": "7",
+      "when": 1795132115936,
+      "tag": "0094_supplier_on_behalf_notes",
+      "breakpoints": true
+    },
+    {
+      "idx": 95,
+      "version": "7",
+      "when": 1795132417308,
+      "tag": "0095_billing_asaas",
+      "breakpoints": true
     }
   ]
 }

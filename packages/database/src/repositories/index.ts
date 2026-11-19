@@ -108,6 +108,7 @@ export * from "./admin-exports.ts";
 export * from "./erp-connections.ts";
 export * from "./erp-stock.ts";
 export * from "./shipment-invoices.ts";
+export * from "./shipment-on-behalf-invoices.ts";
 export * from "./shipment-reseller-invoices.ts";
 export * from "./supplier-payments.ts";
 export * from "./asaas-payments.ts";
