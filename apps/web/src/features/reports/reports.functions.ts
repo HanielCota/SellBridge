@@ -10,6 +10,7 @@ import {
   getListingActivity,
   isUserEmailVerified,
   listOrderFinancials,
+  listBuyerAddressChecks,
   listStoreConnections,
   listSupplierCredits,
 } from "@sellbridge/database/repositories";
@@ -68,7 +69,10 @@ async function loadStoresWithListings(
   tenantId: string,
   connectionsPromise: ReturnType<typeof listStoreConnections>,
 ) {
-  const connections = await connectionsPromise;
+  const [connections, buyerAddresses] = await Promise.all([
+    connectionsPromise,
+    listBuyerAddressChecks(database, tenantId),
+  ]);
   const activity = await getStoreActivity(
     database,
     tenantId,
@@ -84,6 +88,7 @@ async function loadStoresWithListings(
       liveListings,
       failedListings,
       publishingListings,
+      buyerAddressResult: buyerAddresses.get(store.id)?.result ?? null,
     };
   });
 }

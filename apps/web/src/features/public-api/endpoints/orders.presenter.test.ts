@@ -16,6 +16,7 @@ const detail: OrderDetail = {
   status: "delivered",
   totalCents: 10_000,
   marketplaceFeeCents: 1400,
+  sellerShippingCents: 0,
   buyerName: "Mariana",
   orderedAt: new Date("2026-03-01T13:00:00Z"),
   paidAt: new Date("2026-03-01T13:00:00Z"),
@@ -45,17 +46,17 @@ const detail: OrderDetail = {
 };
 
 describe("presentOrderDetail", () => {
-  it("computes the totals with the reports' formula", () => {
-    // 10000 − 4000 − 1400 + 300 − 250 (2.5% platform fee) = 4650
-    expect(presentOrderDetail(detail, 250).totals).toEqual({
+  it("computes the totals with the reports' formula, with no SellBridge fee", () => {
+    // 10000 − 4000 − 1400 + 300 = 4900
+    expect(presentOrderDetail(detail).totals).toEqual({
       revenueCents: 10_000,
       costCents: 4000,
       marketplaceFeeCents: 1400,
       refundsCents: 0,
       returnsCents: 0,
       commissionsCents: 300,
-      platformFeeCents: 250,
-      profitCents: 4650,
+      platformFeeCents: 0,
+      profitCents: 4900,
       pendingCostRevenueCents: 0,
     });
   });
@@ -72,7 +73,7 @@ describe("presentOrderDetail", () => {
       listingUrl: null,
       productId: null,
     };
-    const dto = presentOrderDetail({ ...detail, items: [...detail.items, outside] }, 250);
+    const dto = presentOrderDetail({ ...detail, items: [...detail.items, outside] });
     expect(dto.totals).toEqual({
       revenueCents: 10_000,
       costCents: 0,
@@ -87,7 +88,7 @@ describe("presentOrderDetail", () => {
   });
 
   it("names the store and dates everything in ISO", () => {
-    const dto = presentOrderDetail(detail, 0);
+    const dto = presentOrderDetail(detail);
     expect(dto).toMatchObject({
       storeId: "store-1",
       orderedAt: "2026-03-01T13:00:00.000Z",
@@ -107,7 +108,7 @@ describe("presentOrderDetail", () => {
   });
 
   it("counts no revenue for a cancelled order", () => {
-    const cancelled = presentOrderDetail({ ...detail, status: "cancelled", adjustments: [] }, 250);
+    const cancelled = presentOrderDetail({ ...detail, status: "cancelled", adjustments: [] });
     expect(cancelled.totals).toMatchObject({ revenueCents: 0, costCents: 0, profitCents: 0 });
   });
 });
@@ -130,8 +131,7 @@ describe("presentOrderSummary", () => {
     refundCents: 100,
     returnCents: 0,
     commissionCents: 0,
-    platformFeeCents: 250,
-    profitCents: 4250,
+    profitCents: 4500,
     costPending: false,
     pendingCostRevenueCents: 0,
     product: null,
@@ -144,7 +144,12 @@ describe("presentOrderSummary", () => {
       paidAt: "2026-03-02T09:00:00.000Z",
       deliveredAt: null,
       itemsSummary: "Vestido (x2)",
-      totals: { marketplaceFeeCents: 1400, refundsCents: 100, profitCents: 4250 },
+      totals: {
+        marketplaceFeeCents: 1400,
+        refundsCents: 100,
+        platformFeeCents: 0,
+        profitCents: 4500,
+      },
     });
   });
 

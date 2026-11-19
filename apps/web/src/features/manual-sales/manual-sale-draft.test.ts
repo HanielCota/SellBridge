@@ -1,8 +1,11 @@
 import { describe, expect, it } from "vitest";
 import {
   addDraftItem,
+  draftEstimatedFeeCents,
+  draftFeeField,
   draftTotalCents,
   EMPTY_MANUAL_SALE,
+  maskFeeInput,
   readManualSale,
   removeDraftItem,
   updateDraftItem,
@@ -56,6 +59,7 @@ describe("manual sale draft", () => {
       externalOrderId: "2411SHOPEE77",
       buyerName: "Maria da Silva",
       items: [{ productId: PRODUCT.id, quantity: 1, unitPriceCents: 4990 }],
+      marketplaceFeeCents: 998 + 450,
     });
   });
 
@@ -88,5 +92,61 @@ describe("manual sale draft", () => {
     expect(withoutErrors(errors, ["externalOrderId", "items"])).toEqual({
       buyerName: "Informe o nome do comprador, como está na etiqueta",
     });
+  });
+});
+
+describe("manual sale draft channel fee", () => {
+  it("shows the Shopee estimate for the products until the reseller types a fee", () => {
+    const draft = updateDraftItem(draftWithProduct(), PRODUCT.id, { quantity: "2" });
+
+    expect(draftEstimatedFeeCents(draft)).toBe(2_896);
+    expect(draftFeeField(draft)).toBe("28,96");
+  });
+
+  it("follows the channel the reseller picks while the fee is the estimate", () => {
+    const draft = {
+      ...updateDraftItem(draftWithProduct(), PRODUCT.id, { quantity: "2" }),
+      channel: "tiktok_shop" as const,
+    };
+
+    expect(draftFeeField(draft)).toBe("23,96");
+    expect(readManualSale(draft).sale?.marketplaceFeeCents).toBe(2_396);
+  });
+
+  it("keeps the fee the reseller typed when the price changes", () => {
+    const typed = { ...draftWithProduct(), fee: "12,30" };
+
+    const draft = updateDraftItem(typed, PRODUCT.id, { price: "59,90" });
+
+    expect(draftFeeField(draft)).toBe("12,30");
+    expect(readManualSale(draft).sale?.marketplaceFeeCents).toBe(1_230);
+  });
+
+  it("has no estimate while a price is not a number, and asks for the fee on sending", () => {
+    const draft = updateDraftItem(draftWithProduct(), PRODUCT.id, { price: "" });
+
+    expect(draftEstimatedFeeCents(draft)).toBeNull();
+    expect(draftFeeField(draft)).toBe("");
+    expect(readManualSale(draft).errors).toMatchObject({
+      marketplaceFeeCents: "Informe a taxa. Se o canal não cobrou nada, digite 0",
+    });
+  });
+
+  it("asks for the fee when the reseller erased it", () => {
+    const result = readManualSale({ ...draftWithProduct(), fee: "" });
+
+    expect(result.errors).toEqual({
+      marketplaceFeeCents: "Informe a taxa. Se o canal não cobrou nada, digite 0",
+    });
+  });
+
+  it("accepts a typed zero fee", () => {
+    expect(maskFeeInput("0")).toBe("0,00");
+    expect(maskFeeInput("000")).toBe("0,00");
+    expect(maskFeeInput("")).toBe("");
+    expect(maskFeeInput("2896")).toBe("28,96");
+    expect(readManualSale({ ...draftWithProduct(), fee: "0,00" }).sale?.marketplaceFeeCents).toBe(
+      0,
+    );
   });
 });

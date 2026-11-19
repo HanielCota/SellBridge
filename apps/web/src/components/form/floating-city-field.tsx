@@ -1,9 +1,10 @@
 import { BRAZILIAN_STATE_CAPITALS, parseState } from "@sellbridge/shared/brazilian-states";
 import { useQuery } from "@tanstack/react-query";
-import { type KeyboardEvent, useState } from "react";
+import { type KeyboardEvent, useEffect, useRef, useState } from "react";
 import { FloatingTextField } from "@/components/form/floating-field";
 import { stateCitiesQueryOptions } from "@/features/cities/cities.queries";
-import { cityChangeHandler, suggestCities } from "@/features/cities/city-suggestions";
+import { cityChangeHandler, ibgeCodeOf, suggestCities } from "@/features/cities/city-suggestions";
+import type { IbgeCity } from "@/features/cities/ibge-cities.server";
 import { cn } from "@/lib/utils";
 
 interface FloatingCityFieldProps {
@@ -130,6 +131,40 @@ function useCityList(
 }
 
 /**
+ * A city already in the field (a saved address) gets its IBGE code once the state's list
+ * loads, so a company does not have to type it again for its NF-e. A code the CEP filled stays.
+ */
+function useCodeOfShownCity(
+  cities: readonly IbgeCity[] | undefined,
+  value: string,
+  onIbgeCodeChange: ((ibgeCode: string) => void) | undefined,
+) {
+  // Only once per list: later typing goes through the change handler.
+  const checkedList = useRef<readonly IbgeCity[] | undefined>(undefined);
+  useEffect(() => {
+    if (cities === undefined || onIbgeCodeChange === undefined || checkedList.current === cities) {
+      return;
+    }
+    checkedList.current = cities;
+    const code = ibgeCodeOf(cities, value);
+    if (code !== "") {
+      onIbgeCodeChange(code);
+    }
+  }, [cities, value, onIbgeCodeChange]);
+}
+
+/** The state's cities, [] while they load; the city already shown gets its code from them. */
+function useStateCities(
+  state: ReturnType<typeof parseState>,
+  value: string,
+  onIbgeCodeChange: ((ibgeCode: string) => void) | undefined,
+): readonly IbgeCity[] {
+  const loaded = useQuery(stateCitiesQueryOptions(state)).data;
+  useCodeOfShownCity(loaded, value, onIbgeCodeChange);
+  return loaded ?? [];
+}
+
+/**
  * The city, typed freely, with the chosen state's cities suggested under it (capital first,
  * accents optional). Without a state, or while IBGE is out, it is a plain text field.
  */
@@ -144,7 +179,7 @@ export function FloatingCityField({
   onIbgeCodeChange,
 }: FloatingCityFieldProps) {
   const chosen = parseState(state);
-  const cities = useQuery(stateCitiesQueryOptions(chosen)).data ?? [];
+  const cities = useStateCities(chosen, value, onIbgeCodeChange);
   const capital = chosen === null ? null : BRAZILIAN_STATE_CAPITALS[chosen];
   const changeCity = cityChangeHandler(cities, onValueChange, onIbgeCodeChange);
   const { suggestions, keys, open, close, pick } = useCityList(

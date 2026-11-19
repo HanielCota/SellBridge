@@ -16,7 +16,7 @@ describe("buildSupplierSalesCsv", () => {
   it("writes one line per item with what the supplier receives", () => {
     const [header, row] = buildSupplierSalesCsv([line]).replace("﻿", "").split("\r\n");
     expect(header).toBe(
-      "Data do pedido;Pago em;Pedido;Situação;Produto;Código;Quantidade;A receber",
+      "Data do pedido;Pago em;Pedido;Situação;Produto;Código;Quantidade;Valor vendido",
     );
     expect(row).toBe(
       "14/10/2026, 12:30;15/10/2026, 06:00;2000009876;Entregue;Vestido midi floral;'=VES-01;2;80,90",

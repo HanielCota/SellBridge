@@ -20,7 +20,6 @@ import { createServerFn } from "@tanstack/react-start";
 import { CASES_PER_TAB, type MonthlyReport } from "@/features/report-kit/report-model";
 import { serveMonthlyReport } from "@/features/report-kit/report-snapshot.server";
 import { database } from "@/lib/server/database";
-import { environment } from "@/lib/server/environment";
 import { tenantMiddleware } from "@/lib/server/middleware";
 import {
   buildSellerReport,
@@ -37,7 +36,6 @@ function scopeOf(tenantId: string, range: ReportRange): ReportScope {
   return {
     tenantId,
     range: { from: range.from, to: range.to },
-    platformFeeBasisPoints: environment.PLATFORM_FEE_BASIS_POINTS,
   };
 }
 
@@ -98,7 +96,6 @@ async function computeSellerReport(tenantId: string, period: ReportPeriod): Prom
     trend,
     heatmap,
     cases,
-    platformFeeBasisPoints: environment.PLATFORM_FEE_BASIS_POINTS,
   });
 }
 

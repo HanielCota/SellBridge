@@ -1,6 +1,7 @@
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supplierPanelOrderPath } from "@sellbridge/shared/supplier-order-email";
 import { createFileRoute } from "@tanstack/react-router";
+import { isLabelMarketplace } from "@sellbridge/shared/supplier-order-labels";
 import { useState } from "react";
 import { InlineFormError } from "@/components/form/inline-form-error";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
@@ -204,7 +205,7 @@ function SupplierOrderPage() {
           await client.invalidateQueries({ queryKey: shipmentQuery.queryKey });
         }}
       >
-        {shipment.marketplace === "mercado_livre" ? (
+        {isLabelMarketplace(shipment.marketplace) ? (
           <MarketplaceLabelForm token={token} orderId={shipment.orderId} />
         ) : null}
       </ShipmentPanel>

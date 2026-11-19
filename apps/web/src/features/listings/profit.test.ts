@@ -4,9 +4,9 @@ import { describe, expect, it } from "vitest";
 import {
   DEFAULT_SALE_CHANNELS,
   estimateProfit,
-  feePercentLabel,
   isLowStock,
   isThinMargin,
+  marginShortcutPrices,
   minimumPrice,
   saleChannelsOf,
   shelfPriceForMargin,
@@ -14,8 +14,8 @@ import {
   priceForMargin,
 } from "./profit";
 
-/** Today's 14% plus a SellBridge fee of 4%. */
-const schedule = { ...DEFAULT_FEE_SCHEDULE, platformFeeBasisPoints: 400 };
+/** Today's 14% commission. */
+const schedule = DEFAULT_FEE_SCHEDULE;
 const mercadoLivre = DEFAULT_SALE_CHANNELS;
 
 /** The client's product of the 15/11/2026 report: R$ 21,00 of cost, up to 0,3 kg. */
@@ -34,24 +34,23 @@ describe("estimateProfit", () => {
     expect(estimate).toEqual({
       channel: "mercado_livre",
       feeCents: 475 + 685,
-      platformFeeCents: 0,
       profitCents: 130,
       marginPercent: 3.8,
     });
     expect(wholeMarginPercent(estimate?.marginPercent ?? 0)).toBe(3);
   });
 
-  it("subtracts cost, the commission, the shipping and the SellBridge fee", () => {
-    // 100,00 − 50,00 − 14,00 commission − 16,15 shipping (0,5 kg) − 4,00 SellBridge.
+  it("subtracts cost, the commission and the shipping, and no SellBridge fee", () => {
+    // 100,00 − 50,00 − 14,00 commission − 16,15 shipping (0,5 kg).
     expect(estimateProfit(10_000, { costCents: 5000 }, schedule, mercadoLivre)?.profitCents).toBe(
-      1_585,
+      1_985,
     );
   });
 
   it("reports negative profit when the price does not cover costs", () => {
-    // 50,00 − 50,00 − 7,00 commission − 8,25 shipping (0,5 kg) − 2,00 SellBridge.
+    // 50,00 − 50,00 − 7,00 commission − 8,25 shipping (0,5 kg).
     expect(estimateProfit(5000, { costCents: 5000 }, schedule, mercadoLivre)?.profitCents).toBe(
-      -1_725,
+      -1_525,
     );
   });
 
@@ -83,7 +82,7 @@ describe("priceForMargin", () => {
   });
 
   it("returns null when the fees leave no room for the margin", () => {
-    expect(priceForMargin({ costCents: 5000 }, 82, schedule, mercadoLivre)).toBeNull();
+    expect(priceForMargin({ costCents: 5000 }, 86, schedule, mercadoLivre)).toBeNull();
   });
 });
 
@@ -110,7 +109,7 @@ describe("shelfPriceForMargin", () => {
   });
 
   it("is null when no price keeps the margin", () => {
-    expect(shelfPriceForMargin({ costCents: 5000 }, 82, schedule, mercadoLivre)).toBeNull();
+    expect(shelfPriceForMargin({ costCents: 5000 }, 86, schedule, mercadoLivre)).toBeNull();
   });
 });
 
@@ -149,11 +148,6 @@ describe("listing health rules", () => {
     expect(isLowStock(6)).toBe(false);
     expect(isLowStock(0)).toBe(false);
   });
-
-  it("labels a fee in basis points as a percentage", () => {
-    expect(feePercentLabel(1400)).toBe("14%");
-    expect(feePercentLabel(1250)).toBe("12,5%");
-  });
 });
 
 describe("wholeMarginPercent", () => {
@@ -172,13 +166,12 @@ describe("with the store's own Mercado Livre rates", () => {
     commissionBasisPoints: 1_400,
     shippingBands: shippingBandsFromQuotes([600, 1_000, 1_100, 1_500, 1_700, 1_900, 2_100, 2_400]),
   };
-  const noPlatformFee = DEFAULT_FEE_SCHEDULE;
 
   it("shows the profit the store really leaves", () => {
     const estimate = estimateProfit(
       3_390,
       { ...clientProduct, mercadoLivreRates: storeRates },
-      noPlatformFee,
+      DEFAULT_FEE_SCHEDULE,
       mercadoLivre,
     );
 
@@ -189,12 +182,31 @@ describe("with the store's own Mercado Livre rates", () => {
   it("raises the lowest price with the store's shipping", () => {
     const withStore = minimumPrice(
       { ...clientProduct, mercadoLivreRates: storeRates },
-      noPlatformFee,
+      DEFAULT_FEE_SCHEDULE,
       mercadoLivre,
     );
-    const withTable = minimumPrice(clientProduct, noPlatformFee, mercadoLivre);
+    const withTable = minimumPrice(clientProduct, DEFAULT_FEE_SCHEDULE, mercadoLivre);
 
     expect(withTable).toBe(3_238);
     expect(withStore).toBe(3_605);
+  });
+});
+
+describe("marginShortcutPrices", () => {
+  // Regression: a new listing offered "Margem 40%" at R$ 108,59 while the price dialog offered
+  // 40% at R$ 108,90, and the two screens did not even offer the same margins.
+  it("offers 25%, 40% and 55% at prices ending in ,90 that keep each margin", () => {
+    const serum = { costCents: 3_500, weightGrams: 120 };
+
+    const shortcuts = marginShortcutPrices(serum, schedule, mercadoLivre);
+
+    expect(shortcuts.map((shortcut) => shortcut.marginPercent)).toEqual([25, 40, 55]);
+    for (const { marginPercent, priceCents } of shortcuts) {
+      expect(priceCents).toBe(shelfPriceForMargin(serum, marginPercent, schedule, mercadoLivre));
+      expect((priceCents ?? 0) % 100).toBe(90);
+      expect(
+        estimateProfit(priceCents, serum, schedule, mercadoLivre)?.marginPercent,
+      ).toBeGreaterThanOrEqual(marginPercent);
+    }
   });
 });

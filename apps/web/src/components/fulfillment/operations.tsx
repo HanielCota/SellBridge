@@ -246,6 +246,7 @@ function OperationRow({
           <OrderStatusBadge status={row.status} />
         </HintedText>
         {row.stockShort ? <TonePill tone="warning" label="Falta estoque" /> : null}
+        {row.openClaim ? <TonePill tone="danger" label="Reclamação aberta" /> : null}
         <ShipmentDelayBadge shipments={row.shipments} />
       </div>
       <Hint label={ACTION_ICONS.openOrder.hint} openOnTap={false}>

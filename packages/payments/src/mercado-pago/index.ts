@@ -17,6 +17,7 @@ export { reconcileShipmentPayment } from "./payment-reconcile.ts";
 export { refundShipmentPayment, type RefundOutcome } from "./payment-refund.ts";
 export { syncMercadoPagoPayment, type PaymentSyncResult } from "./payment-sync.ts";
 export {
+  MERCADO_PAGO_SUPPLIER_PAYMENTS_ON,
   mercadoPagoEnvironmentFields,
   mercadoPagoSettingsFrom,
   refuseMercadoPagoStandInsInProduction,

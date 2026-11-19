@@ -4,6 +4,7 @@ import {
   type AuthorizationRequest,
   type MarketplaceId,
   type MercadoLivreConfig,
+  type TikTokShopConfig,
 } from "@sellbridge/marketplaces";
 import { createTokenCipher } from "@sellbridge/shared/token-cipher";
 import { environment } from "./environment.ts";
@@ -12,6 +13,11 @@ export const connectors = createConnectorRegistry({
   mercadoLivre: {
     clientId: environment.MERCADO_LIVRE_CLIENT_ID,
     clientSecret: environment.MERCADO_LIVRE_CLIENT_SECRET,
+  },
+  shopee: {
+    partnerId: environment.SHOPEE_PARTNER_ID,
+    partnerKey: environment.SHOPEE_PARTNER_KEY,
+    sandbox: environment.SHOPEE_SANDBOX,
   },
   tiktokShop: {
     appKey: environment.TIKTOK_SHOP_APP_KEY,
@@ -27,6 +33,13 @@ export const mercadoLivreCatalog = createMercadoLivreCatalog();
 export const mercadoLivreApiConfig: MercadoLivreConfig = {
   clientId: environment.MERCADO_LIVRE_CLIENT_ID,
   clientSecret: environment.MERCADO_LIVRE_CLIENT_SECRET,
+};
+
+/** The app's credentials for the direct TikTok Shop calls: labels. */
+export const tiktokShopApiConfig: TikTokShopConfig = {
+  appKey: environment.TIKTOK_SHOP_APP_KEY,
+  appSecret: environment.TIKTOK_SHOP_APP_SECRET,
+  serviceId: environment.TIKTOK_SHOP_SERVICE_ID,
 };
 
 export const tokenCipher = createTokenCipher(environment.TOKEN_ENCRYPTION_KEY);

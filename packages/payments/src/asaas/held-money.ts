@@ -16,7 +16,7 @@ import {
 import { logger } from "@sellbridge/shared/logger";
 import { formatCents } from "@sellbridge/shared/money";
 import type { ShipmentPaymentRefundReason } from "@sellbridge/shared/shipment-payments";
-import { withAsaasAccount } from "./account-access.ts";
+import { platformClient, withAsaasAccount } from "./account-access.ts";
 import type { AsaasContext } from "./context.ts";
 import { isAsaasError } from "./http.ts";
 
@@ -77,9 +77,7 @@ async function release(
   }
   const escrowId = payment.escrowId;
   try {
-    await withAsaasAccount(context, input.account, async (client) =>
-      client.releaseEscrow(escrowId),
-    );
+    await platformClient(context).releaseEscrow(escrowId);
   } catch (error) {
     // Unknown or refused: the next round reads the guarantee back before anything else.
     logger.warn("asaas.release_unconfirmed", { shipmentPaymentId: payment.id, error });

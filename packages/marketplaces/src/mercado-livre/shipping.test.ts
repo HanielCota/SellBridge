@@ -1,13 +1,12 @@
 import type { FetchLike } from "../http.ts";
 import { describe, expect, it, vi } from "vitest";
 import { SHIPMENT_LEAD_TIME, SHIPMENT_SLA, shipmentBase } from "./fixtures/shipments.ts";
-import { hasMarketplaceCause } from "../errors.ts";
+import { hasMarketplaceCause, LABEL_NOT_READY_CAUSE } from "../errors.ts";
 import { zipArchive } from "../testing/zip-archive.ts";
 import {
   getMercadoLivreLabel,
   getMercadoLivreLabels,
   getMercadoLivreShipping,
-  LABEL_NOT_READY_CAUSE,
   readMercadoLivreShippingAddress,
 } from "./shipping.ts";
 const store = { externalShopId: "99", accessToken: "test-token" };

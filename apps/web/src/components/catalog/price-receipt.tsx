@@ -1,6 +1,6 @@
 import type { SellableCatalogProduct } from "@sellbridge/database/repositories";
 import { formatCents } from "@sellbridge/shared/money";
-import { priceForRule, type PriceRule } from "@sellbridge/shared/schemas";
+import type { PriceRule } from "@sellbridge/shared/schemas";
 import { useState } from "react";
 import { ACTION_ICONS } from "@/components/icons/action-icons";
 import { Button } from "@/components/ui/button";
@@ -11,9 +11,14 @@ import {
   ProfitSplitBar,
   ProfitSplitLine,
   profitTone,
-  totalFeeCents,
 } from "@/components/listings/profit-split";
-import { estimateProfit, type SaleChannels, wholeMarginPercent } from "@/features/listings/profit";
+import { bulkPriceCents, unreachableMarginMessage } from "@/features/catalog/bulk-price";
+import {
+  estimateProfit,
+  type ProfitEstimate,
+  type SaleChannels,
+  wholeMarginPercent,
+} from "@/features/listings/profit";
 import { useFeeSchedule } from "@/features/reports/fee-schedule.queries";
 import { cn } from "@/lib/utils";
 
@@ -86,15 +91,11 @@ export function PriceReceipt({
   if (!product) {
     return null;
   }
-  const price = priceForRule(product, ruleFor(product));
-  const estimate = estimateProfit(price, product, schedule, channels);
-  if (!estimate) {
-    return null;
-  }
-  const { profitCents, marginPercent } = estimate;
-  const isLoss = profitCents < 0;
-  return (
-    <div className="space-y-3 px-3.5 py-3">
+  const rule = ruleFor(product);
+  const price = bulkPriceCents(product, rule, schedule, channels);
+  const estimate = price === null ? null : estimateProfit(price, product, schedule, channels);
+  const header = (
+    <>
       <ProductStepper
         title={product.title}
         index={index % products.length}
@@ -102,9 +103,44 @@ export function PriceReceipt({
         onIndexChange={setIndex}
       />
       {adjust ? adjust(product) : null}
+    </>
+  );
+  if (price === null || estimate === null) {
+    return (
+      <div className="space-y-3 px-3.5 py-3">
+        {header}
+        {rule.kind === "margin" ? (
+          <p className="text-sm text-destructive">
+            {unreachableMarginMessage(product.title, rule.percent)}
+          </p>
+        ) : null}
+      </div>
+    );
+  }
+  return (
+    <div className="space-y-3 px-3.5 py-3">
+      {header}
+      <ReceiptLines product={product} estimate={estimate} priceCents={price} />
+    </div>
+  );
+}
+
+function ReceiptLines({
+  product,
+  estimate,
+  priceCents,
+}: {
+  product: SellableCatalogProduct;
+  estimate: ProfitEstimate;
+  priceCents: number;
+}) {
+  const { profitCents, marginPercent } = estimate;
+  const isLoss = profitCents < 0;
+  return (
+    <>
       <ProfitSplitBar
         costCents={product.costCents}
-        feeCents={totalFeeCents(estimate)}
+        feeCents={estimate.feeCents}
         profitCents={profitCents}
       />
 
@@ -114,7 +150,7 @@ export function PriceReceipt({
           label="Custo do fornecedor"
           value={formatCents(product.costCents)}
         />
-        <FeeLines estimate={estimate} schedule={schedule} />
+        <FeeLines estimate={estimate} />
         <ProfitSplitLine
           swatch={isLoss ? PROFIT_SPLIT_COLORS.loss : PROFIT_SPLIT_COLORS.profit}
           label={isLoss ? "Seu prejuízo" : "Seu lucro"}
@@ -123,9 +159,9 @@ export function PriceReceipt({
         />
         <div className="flex items-center justify-between border-t border-border pt-2 font-medium">
           <dt>Preço de venda</dt>
-          <dd className="tabular-nums">{formatCents(price)}</dd>
+          <dd className="tabular-nums">{formatCents(priceCents)}</dd>
         </div>
       </dl>
-    </div>
+    </>
   );
 }

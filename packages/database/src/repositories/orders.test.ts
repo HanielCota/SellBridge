@@ -201,6 +201,28 @@ describe("marketplace orders and sync", () => {
     expect(stored?.marketplacePackId).toBe("9001");
   });
 
+  it("keeps the seller's shipping cost until a later notification reports a new one", async () => {
+    const incoming = {
+      ...incomingOrder("paid", new Date("2026-02-02T10:00:00Z")),
+      sellerShippingCents: 819,
+    };
+
+    const { orderId } = await upsertMarketplaceOrder(database, tenantA, storeA, incoming);
+    await upsertMarketplaceOrder(database, tenantA, storeA, {
+      ...incoming,
+      sellerShippingCents: undefined,
+    });
+    const kept = await database.query.orders.findFirst({ where: eq(orders.id, orderId) });
+    await upsertMarketplaceOrder(database, tenantA, storeA, {
+      ...incoming,
+      sellerShippingCents: 900,
+    });
+    const replaced = await database.query.orders.findFirst({ where: eq(orders.id, orderId) });
+
+    expect(kept?.sellerShippingCents).toBe(819);
+    expect(replaced?.sellerShippingCents).toBe(900);
+  });
+
   it("takes two simultaneous first notifications of an order as one order", async () => {
     const incoming = {
       externalOrderId: `ORD-${randomUUID()}`,
@@ -500,6 +522,7 @@ describe("recordManualOrder", () => {
       externalOrderId,
       buyerName: "Compradora Shopee",
       orderedAt: new Date("2026-11-11T21:00:00Z"),
+      marketplaceFeeCents: 0,
       items: [
         {
           supplierProductId: productId,
@@ -529,12 +552,61 @@ describe("recordManualOrder", () => {
     expect((after?.reserved ?? 0) - (before?.reserved ?? 0)).toBe(2);
   });
 
+  it("keeps the channel fee the reseller confirmed, so the profit counts it", async () => {
+    const storeId = await ensureManualStore(database, tenantB, "shopee");
+
+    const result = await recordManualOrder(database, tenantB, storeId, {
+      externalOrderId: `SHOPEE-${randomUUID()}`,
+      buyerName: "Compradora Shopee",
+      orderedAt: new Date("2026-11-18T21:00:00Z"),
+      marketplaceFeeCents: 2_496,
+      items: [
+        {
+          supplierProductId: productId,
+          title: "Produto F4",
+          quantity: 2,
+          unitPriceCents: 3990,
+          costCents: 1500,
+        },
+      ],
+    });
+
+    const [order] = await database
+      .select({ fee: orders.marketplaceFeeCents })
+      .from(orders)
+      .where(eq(orders.id, result.orderId));
+    expect(order?.fee).toBe(2_496);
+  });
+
+  it("refuses a channel fee above the sale total", async () => {
+    const storeId = await ensureManualStore(database, tenantB, "shopee");
+
+    const recording = recordManualOrder(database, tenantB, storeId, {
+      externalOrderId: `SHOPEE-${randomUUID()}`,
+      buyerName: "Compradora Shopee",
+      orderedAt: new Date("2026-11-18T21:00:00Z"),
+      marketplaceFeeCents: 3_991,
+      items: [
+        {
+          supplierProductId: productId,
+          title: "Produto F4",
+          quantity: 1,
+          unitPriceCents: 3990,
+          costCents: 1500,
+        },
+      ],
+    });
+
+    await expect(recording).rejects.toThrow(/from 0 to the total 3990, got 3991/);
+  });
+
   it("refuses a second sale with the same number on the same channel", async () => {
     const storeId = await ensureManualStore(database, tenantB, "tiktok_shop");
     const sale = {
       externalOrderId: `TIKTOK-${randomUUID()}`,
       buyerName: "Comprador TikTok",
       orderedAt: new Date("2026-11-11T21:00:00Z"),
+      marketplaceFeeCents: 0,
       items: [
         {
           supplierProductId: productId,

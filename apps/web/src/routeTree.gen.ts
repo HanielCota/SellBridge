@@ -130,6 +130,7 @@ import { Route as ApiV1WebhookEndpointsIndexRouteImport } from './routes/api/v1/
 import { Route as AppAdminFornecedoresSupplierIdFlagsRouteImport } from './routes/_app/admin/fornecedores/$supplierId_.flags'
 import { Route as AppAdminFornecedoresAnaliseIndexRouteImport } from './routes/_app/admin/fornecedores/analise/index'
 import { Route as AppAdminFornecedoresAnaliseProductIdRouteImport } from './routes/_app/admin/fornecedores/analise/$productId'
+import { Route as AppAdminFornecedoresAprovacaoIndexRouteImport } from './routes/_app/admin/fornecedores/aprovacao/index'
 import { Route as ApiAdminChamadosTicketIdMensagensRouteImport } from './routes/api/admin/chamados/$ticketId/mensagens'
 import { Route as ApiPerfilFotoUserIdFileNameRouteImport } from './routes/api/perfil/foto/$userId/$fileName'
 import { Route as ApiProdutosImagensSupplierIdFileNameRouteImport } from './routes/api/produtos/imagens/$supplierId/$fileName'
@@ -787,6 +788,12 @@ const AppAdminFornecedoresAnaliseProductIdRoute =
     path: '/fornecedores/analise/$productId',
     getParentRoute: () => AppAdminRouteRoute,
   } as any)
+const AppAdminFornecedoresAprovacaoIndexRoute =
+  AppAdminFornecedoresAprovacaoIndexRouteImport.update({
+    id: '/fornecedores/aprovacao/',
+    path: '/fornecedores/aprovacao/',
+    getParentRoute: () => AppAdminRouteRoute,
+  } as any)
 const ApiAdminChamadosTicketIdMensagensRoute =
   ApiAdminChamadosTicketIdMensagensRouteImport.update({
     id: '/api/admin/chamados/$ticketId/mensagens',
@@ -969,6 +976,7 @@ export interface FileRoutesByFullPath {
   '/api/v1/catalog/products/$productId': typeof ApiV1CatalogProductsProductIdRoute
   '/api/v1/webhook-endpoints/$endpointId/deliveries': typeof ApiV1WebhookEndpointsEndpointIdDeliveriesRoute
   '/admin/fornecedores/analise/': typeof AppAdminFornecedoresAnaliseIndexRoute
+  '/admin/fornecedores/aprovacao/': typeof AppAdminFornecedoresAprovacaoIndexRoute
   '/api/v1/catalog/products/': typeof ApiV1CatalogProductsIndexRoute
   '/api/v1/webhook-endpoints/$endpointId/': typeof ApiV1WebhookEndpointsEndpointIdIndexRoute
 }
@@ -1095,6 +1103,7 @@ export interface FileRoutesByTo {
   '/api/v1/catalog/products/$productId': typeof ApiV1CatalogProductsProductIdRoute
   '/api/v1/webhook-endpoints/$endpointId/deliveries': typeof ApiV1WebhookEndpointsEndpointIdDeliveriesRoute
   '/admin/fornecedores/analise': typeof AppAdminFornecedoresAnaliseIndexRoute
+  '/admin/fornecedores/aprovacao': typeof AppAdminFornecedoresAprovacaoIndexRoute
   '/api/v1/catalog/products': typeof ApiV1CatalogProductsIndexRoute
   '/api/v1/webhook-endpoints/$endpointId': typeof ApiV1WebhookEndpointsEndpointIdIndexRoute
 }
@@ -1228,6 +1237,7 @@ export interface FileRoutesById {
   '/api/v1/catalog/products/$productId': typeof ApiV1CatalogProductsProductIdRoute
   '/api/v1/webhook-endpoints/$endpointId/deliveries': typeof ApiV1WebhookEndpointsEndpointIdDeliveriesRoute
   '/_app/admin/fornecedores/analise/': typeof AppAdminFornecedoresAnaliseIndexRoute
+  '/_app/admin/fornecedores/aprovacao/': typeof AppAdminFornecedoresAprovacaoIndexRoute
   '/api/v1/catalog/products/': typeof ApiV1CatalogProductsIndexRoute
   '/api/v1/webhook-endpoints/$endpointId/': typeof ApiV1WebhookEndpointsEndpointIdIndexRoute
 }
@@ -1360,6 +1370,7 @@ export interface FileRouteTypes {
     | '/api/v1/catalog/products/$productId'
     | '/api/v1/webhook-endpoints/$endpointId/deliveries'
     | '/admin/fornecedores/analise/'
+    | '/admin/fornecedores/aprovacao/'
     | '/api/v1/catalog/products/'
     | '/api/v1/webhook-endpoints/$endpointId/'
   fileRoutesByTo: FileRoutesByTo
@@ -1486,6 +1497,7 @@ export interface FileRouteTypes {
     | '/api/v1/catalog/products/$productId'
     | '/api/v1/webhook-endpoints/$endpointId/deliveries'
     | '/admin/fornecedores/analise'
+    | '/admin/fornecedores/aprovacao'
     | '/api/v1/catalog/products'
     | '/api/v1/webhook-endpoints/$endpointId'
   id:
@@ -1618,6 +1630,7 @@ export interface FileRouteTypes {
     | '/api/v1/catalog/products/$productId'
     | '/api/v1/webhook-endpoints/$endpointId/deliveries'
     | '/_app/admin/fornecedores/analise/'
+    | '/_app/admin/fornecedores/aprovacao/'
     | '/api/v1/catalog/products/'
     | '/api/v1/webhook-endpoints/$endpointId/'
   fileRoutesById: FileRoutesById
@@ -2537,6 +2550,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppAdminFornecedoresAnaliseProductIdRouteImport
       parentRoute: typeof AppAdminRouteRoute
     }
+    '/_app/admin/fornecedores/aprovacao/': {
+      id: '/_app/admin/fornecedores/aprovacao/'
+      path: '/fornecedores/aprovacao'
+      fullPath: '/admin/fornecedores/aprovacao/'
+      preLoaderRoute: typeof AppAdminFornecedoresAprovacaoIndexRouteImport
+      parentRoute: typeof AppAdminRouteRoute
+    }
     '/api/admin/chamados/$ticketId/mensagens': {
       id: '/api/admin/chamados/$ticketId/mensagens'
       path: '/api/admin/chamados/$ticketId/mensagens'
@@ -2652,6 +2672,7 @@ interface AppAdminRouteRouteChildren {
   AppAdminFornecedoresSupplierIdFlagsRoute: typeof AppAdminFornecedoresSupplierIdFlagsRoute
   AppAdminFornecedoresAnaliseProductIdRoute: typeof AppAdminFornecedoresAnaliseProductIdRoute
   AppAdminFornecedoresAnaliseIndexRoute: typeof AppAdminFornecedoresAnaliseIndexRoute
+  AppAdminFornecedoresAprovacaoIndexRoute: typeof AppAdminFornecedoresAprovacaoIndexRoute
 }
 
 const AppAdminRouteRouteChildren: AppAdminRouteRouteChildren = {
@@ -2674,6 +2695,8 @@ const AppAdminRouteRouteChildren: AppAdminRouteRouteChildren = {
   AppAdminFornecedoresAnaliseProductIdRoute:
     AppAdminFornecedoresAnaliseProductIdRoute,
   AppAdminFornecedoresAnaliseIndexRoute: AppAdminFornecedoresAnaliseIndexRoute,
+  AppAdminFornecedoresAprovacaoIndexRoute:
+    AppAdminFornecedoresAprovacaoIndexRoute,
 }
 
 const AppAdminRouteRouteWithChildren = AppAdminRouteRoute._addFileChildren(

@@ -1,4 +1,4 @@
-import { percentOfCents, type Cents } from "./money.ts";
+import type { Cents } from "./money.ts";
 
 /** Typical marketplace commission, used for estimates before a real order reports its fee. */
 export const ESTIMATED_MARKETPLACE_FEE_BPS = 1400;
@@ -17,6 +17,11 @@ export interface OrderFinanceInput {
   totalCents: Cents;
   marketplaceFeeCents: Cents;
   /**
+   * What the seller paid the marketplace to ship the sale, when it reported it; it counts with
+   * the fee, as the previews count it (fee-model.ts).
+   */
+  sellerShippingCents?: Cents | null;
+  /**
    * Null when the item's listing is not ours, so its supplier cost is unknown. Named apart from
    * the stored `unitCostCents` (zero for those items) so a stored row cannot be passed by mistake.
    */
@@ -31,11 +36,11 @@ export interface OrderFinance {
   /** The revenue of a cost-pending sale (zero otherwise): part of the revenue, left out of the profit. */
   pendingCostRevenueCents: Cents;
   costCents: Cents;
+  /** The marketplace's fee plus the shipping the seller paid on the sale. */
   feeCents: Cents;
   refundCents: Cents;
   returnCents: Cents;
   commissionCents: Cents;
-  platformFeeCents: Cents;
   profitCents: Cents;
 }
 
@@ -56,24 +61,22 @@ function pendingCostFinance(revenueCents: Cents): OrderFinance {
     refundCents: 0,
     returnCents: 0,
     commissionCents: 0,
-    platformFeeCents: 0,
     profitCents: 0,
   };
 }
 
 /**
  * Profit of one order (all values in cents):
- *   revenue − supplier cost − marketplace fee − refunds + supplier commissions − platform fee
+ *   revenue − supplier cost − marketplace fee and seller shipping − refunds + supplier commissions
+ * SellBridge's fee is not in it: it comes out of the supplier's share when the reseller pays the
+ * order (docs/decisions.md, 2026-11-17).
  * Cancelled and returned orders contribute no revenue, cost or fee (the product goes back
  * to the supplier); the returned amount is reported separately for visibility.
  * A sale with an item of unknown cost ("custo pendente") keeps its revenue but stays out of the
  * profit entirely: counting that item at zero cost would inflate the profit.
  * The SQL in packages/database/src/repositories/reports.ts mirrors this function.
  */
-export function computeOrderFinance(
-  input: OrderFinanceInput,
-  platformFeeBasisPoints: number,
-): OrderFinance {
+export function computeOrderFinance(input: OrderFinanceInput): OrderFinance {
   const counted = !NON_REVENUE_STATUSES.includes(input.status);
   if (counted && input.items.some((item) => item.knownUnitCostCents === null)) {
     return pendingCostFinance(input.totalCents);
@@ -82,13 +85,11 @@ export function computeOrderFinance(
   const costCents = counted
     ? input.items.reduce((total, item) => total + (item.knownUnitCostCents ?? 0) * item.quantity, 0)
     : 0;
-  const feeCents = counted ? input.marketplaceFeeCents : 0;
+  const feeCents = counted ? input.marketplaceFeeCents + (input.sellerShippingCents ?? 0) : 0;
   const refundCents = sumAdjustments(input, "refund");
   const returnCents = sumAdjustments(input, "return");
   const commissionCents = sumAdjustments(input, "commission");
-  const platformFeeCents = percentOfCents(revenueCents, platformFeeBasisPoints);
-  const profitCents =
-    revenueCents - costCents - feeCents - refundCents + commissionCents - platformFeeCents;
+  const profitCents = revenueCents - costCents - feeCents - refundCents + commissionCents;
   return {
     costPending: false,
     revenueCents,
@@ -98,7 +99,6 @@ export function computeOrderFinance(
     refundCents,
     returnCents,
     commissionCents,
-    platformFeeCents,
     profitCents,
   };
 }

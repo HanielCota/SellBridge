@@ -67,7 +67,7 @@ async function openPublishFormForFirstProduct(page: Page) {
   await expect(page.getByRole("heading", { name: "Nova publicação" })).toBeVisible();
   await page.waitForLoadState("networkidle");
   // The supplier's suggested price may not pay Mercado Livre's shipping: take one that profits.
-  await page.getByRole("button", { name: /^Margem 30%/ }).click();
+  await page.getByRole("button", { name: /^Margem 25%/ }).click();
 }
 
 test("conecta loja simulada, publica produto e acompanha o status", async ({ page }) => {
@@ -396,19 +396,15 @@ test("publica vários produtos do catálogo de uma vez com regra de preço", asy
 
   const dialog = page.getByRole("dialog", { name: "Publicar 2 produtos" });
   await expect(dialog.getByText("Loja Lote").filter({ visible: true })).toBeVisible();
-  await dialog.getByLabel("Acréscimo sobre o custo").fill("2");
+  await dialog.getByLabel("Margem de lucro").fill("2");
   await expect(
-    dialog.getByText("Use um valor entre 5% e 300%").filter({ visible: true }),
-  ).toBeVisible();
-  // 5% over the cost does not pay the 14% marketplace fee: the dialog says so and holds the batch.
-  await dialog.getByLabel("Acréscimo sobre o custo").fill("5");
-  await expect(
-    dialog.getByRole("alert").filter({
-      hasText: /Com as taxas do Mercado Livre, o preço mínimo para não ter prejuízo é R\$\s[\d.,]+/,
-    }),
+    dialog.getByText("Use uma margem entre 5% e 80%").filter({ visible: true }),
   ).toBeVisible();
   await expect(dialog.getByRole("button", { name: "Publicar em 1 loja" })).toBeDisabled();
-  await dialog.getByLabel("Acréscimo sobre o custo").fill("80");
+  // The margin asked is what is left after the fees, like "Margem 40%" of one listing: the
+  // receipt shows a 40% profit (or a hair more, from the price ending in ,90).
+  await dialog.getByLabel("Margem de lucro").fill("40");
+  await expect(dialog.getByText(/\(4\d%\)$/).filter({ visible: true })).toBeVisible();
   await expect(dialog.getByText(/,90$/).filter({ visible: true }).first()).toBeVisible();
   await dialog.getByRole("button", { name: "Publicar em 1 loja" }).click();
 
@@ -450,24 +446,24 @@ test("publica em lote com margem própria para um dos produtos", async ({ page }
   const sharedPrice = await salePrice.textContent();
 
   await dialog.getByRole("button", { name: "Usar outra margem neste produto" }).click();
-  await dialog.getByLabel("Acréscimo deste produto").fill("150");
+  await dialog.getByLabel("Margem deste produto").fill("50");
   await expect(salePrice).not.toHaveText(sharedPrice ?? "");
   const adjustedPrice = (await salePrice.textContent()) ?? "";
   await expect(dialog.getByText("Vale para 1 de 2", { exact: false })).toBeVisible();
   await expect(dialog.getByText("1 com margem própria", { exact: false })).toBeVisible();
 
-  // The other product keeps the shared markup; coming back keeps the override.
+  // The other product keeps the shared margin; coming back keeps the override.
   await dialog.getByRole("button", { name: "Próximo produto" }).click();
   await expect(
     dialog.getByRole("button", { name: "Usar outra margem neste produto" }),
   ).toBeVisible();
   await dialog.getByRole("button", { name: "Produto anterior" }).click();
-  await expect(dialog.getByLabel("Acréscimo deste produto")).toHaveValue("150");
+  await expect(dialog.getByLabel("Margem deste produto")).toHaveValue("50");
 
-  await dialog.getByLabel("Acréscimo deste produto").fill("2");
-  await expect(dialog.getByText("Use um valor entre 5% e 300%")).toBeVisible();
+  await dialog.getByLabel("Margem deste produto").fill("2");
+  await expect(dialog.getByText("Use uma margem entre 5% e 80%")).toBeVisible();
   await expect(dialog.getByRole("button", { name: "Publicar em 1 loja" })).toBeDisabled();
-  await dialog.getByLabel("Acréscimo deste produto").fill("150");
+  await dialog.getByLabel("Margem deste produto").fill("50");
   await dialog.getByRole("button", { name: "Publicar em 1 loja" }).click();
 
   await expect(dialog.getByText("2 anúncios no ar")).toBeVisible({ timeout: STATUS_TIMEOUT });

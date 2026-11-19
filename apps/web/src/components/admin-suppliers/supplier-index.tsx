@@ -22,6 +22,8 @@ import { EnterSupplierButton } from "./enter-supplier-button";
 import { SupplierForm } from "./supplier-form";
 import { ACTION_ICONS, CONTROL_HINTS } from "@/components/icons/action-icons";
 import { Hint } from "@/components/ui/hint";
+import { ApprovalQueueNotice } from "@/components/supplier-approval/approval-queue-notice";
+import { supplierSituation } from "@/components/supplier-approval/supplier-situation";
 
 /** A supplier with a panel login opens as the supplier; one without it orders only by link. */
 function SupplierAccessCell({ supplier }: { supplier: AdminSupplier }) {
@@ -52,12 +54,7 @@ const supplierColumns = columnHelper.columns([
   }),
   columnHelper.accessor("active", {
     header: "Situação",
-    cell: (information) => (
-      <ToneStatus
-        tone={information.getValue() ? "success" : "muted"}
-        label={information.getValue() ? "Ativo" : "Desativado"}
-      />
-    ),
+    cell: (information) => <ToneStatus {...supplierSituation(information.row.original)} />,
   }),
   columnHelper.display({
     id: "account",
@@ -115,10 +112,7 @@ function SupplierTable({
             <p className="text-sm text-muted-foreground">
               {row.niche} · {row.city} - {row.state}
             </p>
-            <ToneStatus
-              tone={row.active ? "success" : "muted"}
-              label={row.active ? "Ativo" : "Desativado"}
-            />
+            <ToneStatus {...supplierSituation(row)} />
           </Link>
           <SupplierAccessCell supplier={row} />
         </div>
@@ -200,6 +194,7 @@ export function SupplierIndex({
           </div>
         }
       />
+      <ApprovalQueueNotice />
       {creating ? <SupplierForm onSaved={(supplier) => onCreated(supplier.id)} /> : null}
       <SearchInput
         label="Buscar fornecedores"

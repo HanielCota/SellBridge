@@ -14,6 +14,7 @@ import { downloadCsv, failedRowsFileName } from "@/features/supplier-panel/impor
 import {
   confirmDescription,
   importActionLabel,
+  importNeedsConfirmation,
   onlyValidLabel,
   plural,
 } from "@/features/supplier-panel/import/import-wording";
@@ -140,6 +141,13 @@ function OnlyValidChoice(props: {
   );
 }
 
+function importButtonLabel(preview: SupplierImportPreview, importing: boolean): string {
+  if (importing) {
+    return "Importando…";
+  }
+  return preview.confirmation === null ? "Importar" : importActionLabel(preview);
+}
+
 interface ImportPreviewSummaryProps {
   preview: SupplierImportPreview;
   fileName: string;
@@ -165,8 +173,17 @@ export function ImportPreviewSummary(props: ImportPreviewSummaryProps) {
       ) : null}
       <div className="flex flex-wrap items-center gap-2">
         <DisabledHint reason={partial && !onlyValid ? CONTROL_HINTS.importNeedsChoice : undefined}>
-          <Button disabled={!canImport || props.importing} onClick={() => setConfirming(true)}>
-            {preview.confirmation === null ? "Importar" : importActionLabel(preview)}
+          <Button
+            disabled={!canImport || props.importing}
+            onClick={() => {
+              if (importNeedsConfirmation(preview)) {
+                setConfirming(true);
+                return;
+              }
+              props.onConfirm();
+            }}
+          >
+            {importButtonLabel(preview, props.importing)}
           </Button>
         </DisabledHint>
         {partial ? (

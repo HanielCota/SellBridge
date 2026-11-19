@@ -19,7 +19,7 @@ const database = createTestDatabase();
 let tenants: Awaited<ReturnType<typeof createTestTenantPair>>;
 let catalog: Awaited<ReturnType<typeof createTestSupplierProduct>>;
 let storeId = "";
-const options = { platformFeeBasisPoints: 0, now: new Date() };
+const options = { now: new Date() };
 
 beforeAll(async () => {
   tenants = await createTestTenantPair(database);

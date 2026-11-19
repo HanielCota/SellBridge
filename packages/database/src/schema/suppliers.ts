@@ -19,6 +19,7 @@ import {
 } from "@sellbridge/shared/supplier-panel-catalog-status";
 import type { ProductFiscalPatch } from "@sellbridge/shared/product-fiscal";
 import type { SupplierFiscalProfileInput } from "@sellbridge/shared/supplier-fiscal";
+import { SUPPLIER_APPROVAL_STATUSES } from "@sellbridge/shared/supplier-approval";
 import { organization } from "./auth.ts";
 
 export const suppliers = pgTable(
@@ -38,6 +39,12 @@ export const suppliers = pgTable(
     /** Hours the supplier has to dispatch it, counted from the forward. */
     dispatchWithinHours: integer().notNull().default(48),
     active: boolean().notNull().default(true),
+    /**
+     * Whether resellers may see the supplier at all. A supplier who signs up alone starts
+     * `pending` until the automatic check or the team decides (supplier_approvals); team-created
+     * suppliers start `approved`. Independent of `active`, which the team switches off later.
+     */
+    approvalStatus: text({ enum: SUPPLIER_APPROVAL_STATUSES }).notNull().default("approved"),
     /**
      * When the supplier closed the store for sales (holidays, no stock); null while open. Unlike
      * `active`, which the team owns, the supplier switches it: listings sync zero stock while it
@@ -71,6 +78,14 @@ export const suppliers = pgTable(
       "suppliers_catalog_owner_check",
       sql`(${table.catalogKind} = 'supplier' and ${table.ownerTenantId} is null) or (${table.catalogKind} = 'seller' and ${table.ownerTenantId} is not null and ${table.organizationId} is null)`,
     ),
+    check(
+      "suppliers_approval_status_check",
+      sql`${table.approvalStatus} in ('pending','approved','refused')`,
+    ),
+    // The approval round reads the few suppliers not yet approved.
+    index("suppliers_pending_approval_idx")
+      .on(table.createdAt)
+      .where(sql`${table.approvalStatus} = 'pending'`),
     check(
       "suppliers_deadlines_check",
       sql`${table.acceptWithinHours} between 1 and 720 and ${table.dispatchWithinHours} between ${table.acceptWithinHours} and 720`,

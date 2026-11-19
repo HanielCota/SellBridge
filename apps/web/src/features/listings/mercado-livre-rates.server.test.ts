@@ -45,7 +45,6 @@ vi.mock("@/lib/server/database", () => ({ database: {} }));
 vi.mock("@/lib/server/environment", () => ({
   environment: {
     ESTIMATED_MARKETPLACE_FEE_BASIS_POINTS: 1_400,
-    PLATFORM_FEE_BASIS_POINTS: 0,
     MIN_MARGIN_PERCENT: 0,
   },
 }));

@@ -22,6 +22,7 @@ import {
 import { useDraftAutosave, type SavedProduct } from "./use-draft-autosave";
 import { withMercadoLivreRequired } from "./mercado-livre-ficha";
 import { useMercadoLivreFicha } from "./use-mercado-livre-ficha";
+import { usePanelSupplierApproved } from "@/features/supplier-panel/use-panel-supplier";
 
 /** The completeness while the supplier types, NF-e data included (origin and unit from Marca). */
 function useLiveCompleteness(
@@ -151,11 +152,16 @@ function useSubmitProduct(
   onSaved: (product: SavedProduct) => void,
 ) {
   const queryClient = useQueryClient();
+  const supplierApproved = usePanelSupplierApproved();
   return useMutation({
     mutationFn: async () => await supplierPanelSubmitProduct({ data: { supplierId, productId } }),
     onSuccess: async (submitted) => {
       onSaved(submitted);
-      toast.success("Produto publicado: já aparece para os revendedores");
+      toast.success(
+        supplierApproved
+          ? "Produto publicado: já aparece para os revendedores"
+          : "Produto publicado: aparece para os revendedores assim que sua marca for aprovada",
+      );
       await queryClient.invalidateQueries({ queryKey: supplierPanelCatalogKey(supplierId) });
     },
   });

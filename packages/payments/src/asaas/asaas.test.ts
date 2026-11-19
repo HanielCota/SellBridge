@@ -160,6 +160,16 @@ describe("createAsaasPlatformClient", () => {
     expect(sentBody(calls[0])).not.toHaveProperty("birthDate");
   });
 
+  test("registers SellBridge as the account's site, so its charges can return there", async () => {
+    const { calls, http } = recordingFetch(
+      json(200, { id: "acc_1", walletId: "wallet_1", apiKey: "supplier-key" }),
+    );
+
+    await createAsaasPlatformClient(http, "platform-key").createAccount(newAccount, webhookTarget);
+
+    expect(sentBody(calls[0])).toMatchObject({ site: new URL(webhookTarget.url).origin });
+  });
+
   test("reports a missing account key as null", async () => {
     const { http } = recordingFetch(json(200, { id: "acc_1", walletId: "wallet_1" }));
 
@@ -186,6 +196,7 @@ describe("createAsaasPlatformClient", () => {
 describe("createAsaasAccountClient", () => {
   const charge = {
     customerId: "cus_1",
+    payMethod: "PIX" as const,
     amountCents: 15_050,
     dueDate: "2026-11-17",
     description: "Pedido 123 · Fornecedor Teste",
@@ -203,7 +214,7 @@ describe("createAsaasAccountClient", () => {
     expect(sentHeader(calls[0], "access_token")).toBe("supplier-key");
     expect(sentBody(calls[0])).toEqual({
       customer: "cus_1",
-      billingType: "UNDEFINED",
+      billingType: "PIX",
       value: 150.5,
       dueDate: "2026-11-17",
       description: "Pedido 123 · Fornecedor Teste",
@@ -211,6 +222,18 @@ describe("createAsaasAccountClient", () => {
       split: [{ walletId: "wallet_platform", fixedValue: 7.52 }],
       callback: { successUrl: "https://sellbridge.test/pedidos/1", autoRedirect: true },
     });
+  });
+
+  test("asks only for the card when the reseller pays by card, never letting Asaas offer boleto", async () => {
+    const { calls, http } = recordingFetch(json(200, payment()));
+
+    await createAsaasAccountClient(http, "supplier-key").createCharge({
+      ...charge,
+      payMethod: "CREDIT_CARD",
+    });
+
+    expect(sentBody(calls[0])).toMatchObject({ billingType: "CREDIT_CARD" });
+    expect(sentBody(calls[0])).not.toHaveProperty("installmentCount");
   });
 
   test("sends no split when SellBridge's fee is zero", async () => {
@@ -236,7 +259,7 @@ describe("createAsaasAccountClient", () => {
   test("never repeats a release that failed on Asaas's side", async () => {
     const { calls, http } = recordingFetch(json(502, {}), json(200, payment()));
 
-    const release = createAsaasAccountClient(http, "supplier-key").releaseEscrow("esc_1");
+    const release = createAsaasPlatformClient(http, "platform-key").releaseEscrow("esc_1");
 
     await expect(release).rejects.toSatisfy(isAsaasError);
     expect(calls).toHaveLength(1);
@@ -257,7 +280,7 @@ describe("createAsaasAccountClient", () => {
   test("marks a write that failed on Asaas's side as possibly done", async () => {
     const { http } = recordingFetch(json(503, {}));
 
-    const release = createAsaasAccountClient(http, "supplier-key").releaseEscrow("esc_1");
+    const release = createAsaasPlatformClient(http, "platform-key").releaseEscrow("esc_1");
 
     await expect(release).rejects.toMatchObject({ status: 503, outcomeUnknown: true });
   });

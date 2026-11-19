@@ -33,8 +33,6 @@ export interface FeeSchedule {
    * from the marketplace: no rate here is made up.
    */
   categoryFeeBasisPoints: Readonly<Record<string, number>>;
-  /** SellBridge's fee on revenue (`PLATFORM_FEE_BASIS_POINTS`), the same the report charges. */
-  platformFeeBasisPoints: number;
   /** Weight the shipping is priced on when the product has none, in grams. */
   defaultWeightGrams: number;
   /** Margin a price must keep after every fee, in percent; 0 forbids selling at a loss. */
@@ -48,7 +46,6 @@ export const DEFAULT_FEE_SCHEDULE: FeeSchedule = {
   channel: "mercado_livre",
   marketplaceFeeBasisPoints: ESTIMATED_MARKETPLACE_FEE_BPS,
   categoryFeeBasisPoints: {},
-  platformFeeBasisPoints: 0,
   defaultWeightGrams: DEFAULT_PRODUCT_WEIGHT_GRAMS,
   minimumMarginPercent: 0,
 };
@@ -165,16 +162,13 @@ export function estimatedMarketplaceFeeCents(
 
 /** One unit sold at the price, paid and with nothing refunded, by the financial report's rule. */
 export function estimateSale(input: SaleEstimateInput, schedule: FeeSchedule): OrderFinance {
-  return computeOrderFinance(
-    {
-      status: "paid",
-      totalCents: input.priceCents,
-      marketplaceFeeCents: estimatedMarketplaceFeeCents(input, schedule),
-      items: [{ quantity: 1, knownUnitCostCents: input.costCents }],
-      adjustments: [],
-    },
-    schedule.platformFeeBasisPoints,
-  );
+  return computeOrderFinance({
+    status: "paid",
+    totalCents: input.priceCents,
+    marketplaceFeeCents: estimatedMarketplaceFeeCents(input, schedule),
+    items: [{ quantity: 1, knownUnitCostCents: input.costCents }],
+    adjustments: [],
+  });
 }
 
 function keepsMargin(
@@ -195,7 +189,7 @@ function marginBasisPointsOf(marginPercent: number): number {
 
 /**
  * Cents the rounded fees may sit under their exact formula: the commission, a percentage
- * shipping or a half-price cap, and SellBridge's fee each round to the nearest cent.
+ * shipping or a half-price cap each round to the nearest cent.
  */
 const ROUNDING_SLACK_CENTS = 2;
 
@@ -214,22 +208,30 @@ export function priceForMargin(
   marginPercent: number,
   schedule: FeeSchedule,
 ): Cents | null {
-  const marginBasisPoints = marginBasisPointsOf(marginPercent);
+  return firstPriceKeepingMargin(input, marginBasisPointsOf(marginPercent), schedule, 1);
+}
+
+/** `priceForMargin` from `startCents` up: the cheapest price at or above it that keeps the margin. */
+function firstPriceKeepingMargin(
+  input: ProductFeeInput,
+  marginBasisPoints: number,
+  schedule: FeeSchedule,
+  startCents: Cents,
+): Cents | null {
   const segments = channelFeeSegments(schedule.channel, feeContextOf(input, schedule));
   for (const segment of segments) {
     if (segment.fromCents > LISTING_MAX_PRICE_CENTS) {
       return null;
     }
-    const keptBasisPoints =
-      10_000 - segment.basisPoints - schedule.platformFeeBasisPoints - marginBasisPoints;
-    if (keptBasisPoints <= 0) {
+    const keptBasisPoints = 10_000 - segment.basisPoints - marginBasisPoints;
+    if (keptBasisPoints <= 0 || segment.toCents < startCents) {
       continue;
     }
     const fixedCents = input.costCents + segment.fixedCents - ROUNDING_SLACK_CENTS;
     const formulaCents = Math.floor((fixedCents * 10_000) / keptBasisPoints);
     const lastCents = Math.min(segment.toCents, LISTING_MAX_PRICE_CENTS);
     for (
-      let priceCents = Math.max(1, segment.fromCents, formulaCents);
+      let priceCents = Math.max(startCents, segment.fromCents, formulaCents);
       priceCents <= lastCents;
       priceCents += 1
     ) {
@@ -252,6 +254,81 @@ export function minimumPriceCents(input: ProductFeeInput, schedule: FeeSchedule)
     return null;
   }
   return Math.max(keepingMargin, input.costCents + 1);
+}
+
+/**
+ * Dearest price under `belowCents` that keeps the margin, never under the minimum. Inside one fee
+ * range the profit only grows with the price, so each range's top is its best price: the ranges
+ * are tried from `belowCents` down until a top keeps the margin, and the minimum always does.
+ */
+function lastPriceKeepingMarginBelow(
+  input: ProductFeeInput,
+  marginBasisPoints: number,
+  schedule: FeeSchedule,
+  limits: { belowCents: Cents; minimumCents: Cents },
+): Cents {
+  const segments = channelFeeSegments(schedule.channel, feeContextOf(input, schedule));
+  for (const segment of segments.toReversed()) {
+    const topCents = Math.min(segment.toCents, limits.belowCents - 1);
+    if (topCents < limits.minimumCents) {
+      return limits.minimumCents;
+    }
+    if (
+      segment.fromCents <= topCents &&
+      keepsMargin({ ...input, priceCents: topCents }, marginBasisPoints, schedule)
+    ) {
+      return topCents;
+    }
+  }
+  return limits.minimumCents;
+}
+
+/** Why a dearer price can pay less on the channel: the range it falls in charges more. */
+const BAND_CHANGE_REASONS: Readonly<Record<FeeChannel, string>> = {
+  mercado_livre: "o frete muda conforme a faixa de preço",
+  tiktok_shop: "a taxa muda conforme a faixa de preço",
+  shopee: "a taxa muda conforme a faixa de preço",
+};
+
+/**
+ * What the reseller reads when a price above the floor still loses money, or the minimum margin,
+ * because its range charges more: the nearest prices that pay, below and, when one exists, above.
+ */
+function lossBandMessage(
+  priceCents: Cents,
+  nearest: { belowCents: Cents; aboveCents: Cents | null },
+  schedule: FeeSchedule,
+): string {
+  const owner = FEE_CHANNEL_OWNERS[schedule.channel];
+  const reason = BAND_CHANGE_REASONS[schedule.channel];
+  const margin = schedule.minimumMarginPercent;
+  const outcome = margin === 0 ? "dá prejuízo" : `não mantém ${margin}% de margem`;
+  const goal = margin === 0 ? "sem prejuízo" : `para manter ${margin}% de margem`;
+  const below = formatCents(nearest.belowCents);
+  const choices =
+    nearest.aboveCents === null
+      ? below
+      : `${below} (abaixo) ou ${formatCents(nearest.aboveCents)} (acima)`;
+  return `Com as taxas ${owner}, ${formatCents(priceCents)} ${outcome}, porque ${reason}. O preço mais perto ${goal} é ${choices}`;
+}
+
+/** The loss-band problem of a price at or above the minimum; null when it keeps the margin. */
+function aboveMinimumProblem(
+  priceCents: Cents,
+  minimumCents: Cents,
+  input: ProductFeeInput,
+  schedule: FeeSchedule,
+): string | null {
+  const marginBasisPoints = marginBasisPointsOf(schedule.minimumMarginPercent);
+  if (keepsMargin({ ...input, priceCents }, marginBasisPoints, schedule)) {
+    return null;
+  }
+  const belowCents = lastPriceKeepingMarginBelow(input, marginBasisPoints, schedule, {
+    belowCents: priceCents,
+    minimumCents,
+  });
+  const aboveCents = firstPriceKeepingMargin(input, marginBasisPoints, schedule, priceCents + 1);
+  return lossBandMessage(priceCents, { belowCents, aboveCents }, schedule);
 }
 
 /** What the reseller reads when a price is under the floor: the lowest price that pays. */
@@ -296,7 +373,10 @@ export function priceFloorProblem(
   if (minimumCents === null) {
     return noPriceMessage(schedule);
   }
-  return priceCents < minimumCents ? belowMinimumMessage(minimumCents, schedule) : null;
+  if (priceCents < minimumCents) {
+    return belowMinimumMessage(minimumCents, schedule);
+  }
+  return aboveMinimumProblem(priceCents, minimumCents, input, schedule);
 }
 
 /** The floor on every channel the price will sell on: the first channel it does not pay on. */

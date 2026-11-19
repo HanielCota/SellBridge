@@ -333,7 +333,6 @@ export interface FlowSummary {
   revenueCents: number;
   costCents: number;
   feeCents: number;
-  platformFeeCents: number;
   refundCents: number;
   commissionCents: number;
   profitCents: number;
@@ -363,7 +362,7 @@ export function buildWaterfall(summary: FlowSummary): WaterfallStep[] {
     {
       key: "fee",
       label: "Taxas do marketplace",
-      cents: -(summary.feeCents + summary.platformFeeCents),
+      cents: -summary.feeCents,
     },
     { key: "refund", label: "Reembolsos", cents: -summary.refundCents },
     { key: "gain", label: "Comissões recebidas", cents: summary.commissionCents },

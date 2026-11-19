@@ -26,8 +26,8 @@ import { createListingWithTargets, markTargetFailed } from "./listings.ts";
 import { upsertStoreConnection } from "./stores.ts";
 
 const database = createTestDatabase();
-/** 14% marketplace and 4% SellBridge, no minimum margin: a price must at least break even. */
-const feeSchedule = { ...DEFAULT_FEE_SCHEDULE, platformFeeBasisPoints: 400 };
+/** 14% marketplace, no minimum margin: a price must at least break even. */
+const feeSchedule = DEFAULT_FEE_SCHEDULE;
 const page = { page: 1, pageSize: 20 };
 let tenants: Awaited<ReturnType<typeof createTestTenants>>;
 let tenantA = "";

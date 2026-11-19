@@ -58,6 +58,8 @@ Atualização (2026-10-11): o papel só vem com a posse do e-mail comprovada. No
 
 No MVP vem de `PLATFORM_FEE_BASIS_POINTS` (basis points, padrão 0) em vez de uma tabela `platform_settings`. Vira tabela quando houver tela de configuração.
 
+**Substituída em 2026-11-17 (Guilherme: "Vamos de A então"):** a taxa do SellBridge é uma só, a do admin (`platform_settings.payment_fee_basis_points`, tela Configurações), e quem paga é o fornecedor: ela sai da parte dele em cada pagamento pelo Mercado Pago ou pelo Asaas, como já valia para o Asaas ("As taxas quem paga é o fornecedor", 15/11). O revendedor paga o valor do pedido, então prévias, Financeiro, relatórios, página do pedido e API pública não tiram taxa do SellBridge do lucro dele. `PLATFORM_FEE_BASIS_POINTS` saiu; o site avisa no log se ela, ou o nome antigo `PLATFORM_FEE_BPS`, ainda estiver definida. Pagamentos já feitos guardam a taxa com que foram cobrados, e o relatório de um mês fechado continua como foi guardado. Descartado: o revendedor pagar a taxa por cima do valor do fornecedor (mudaria o valor das cobranças no Mercado Pago e no Asaas e exigiria guardar a taxa em cada pedido). Em 2026-11-19 a taxa saiu também das contas compartilhadas (`computeOrderFinance`, `FeeSchedule`, o SQL dos relatórios): nenhuma delas recebe ou devolve taxa do SellBridge, a planilha do Financeiro perdeu a coluna "Taxa da plataforma" e a API pública mantém `platformFeeCents`, sempre 0. O valor da taxa no lançamento é 4%, definido no admin (Guilherme, 18/11).
+
 ## 2026-10-08: shadcn/ui
 
 Preset `radix-nova` (Radix + Lucide). Componentes gerados em `src/components/ui/` são código vendorizado: ficam fora do Oxlint e do `check:no-else`, mas passam pelo typecheck estrito. Ajustes feitos para `exactOptionalPropertyTypes`: `dropdown-menu.tsx` (prop `checked`) e `sonner.tsx` (troca de `next-themes` pelo nosso `useTheme`).
@@ -105,7 +107,7 @@ Commits locais na `main`. Push para o GitHub só após confirmação do usuário
 
 ## 2026-10-08: Fase 3 (dashboard e financeiro)
 
-- Fórmula de lucro por pedido (centavos): `receita − custo do fornecedor − taxa do marketplace − reembolsos + comissões − taxa da plataforma`. Pedidos cancelados e devolvidos não geram receita, custo nem taxa (o produto volta ao fornecedor); o valor devolvido aparece em "Devoluções" só para visibilidade. A regra vive em `computeOrderFinance` (`packages/shared/src/domain/finance.ts`) e é repetida em SQL nos relatórios; um teste de integração compara as duas.
+- Fórmula de lucro por pedido (centavos): `receita − custo do fornecedor − taxa do marketplace − reembolsos + comissões` (a taxa da plataforma saiu em 2026-11-17: ver "2026-10-08: Taxa da plataforma"). Pedidos cancelados e devolvidos não geram receita, custo nem taxa (o produto volta ao fornecedor); o valor devolvido aparece em "Devoluções" só para visibilidade. A regra vive em `computeOrderFinance` (`packages/shared/src/domain/finance.ts`) e é repetida em SQL nos relatórios; um teste de integração compara as duas.
 - "Comissões" são os ajustes do tipo `commission`: bônus pagos pelo fornecedor ao revendedor (somam ao lucro).
 - Fuso horário: períodos e agrupamentos usam dias de Brasília (`America/Sao_Paulo`, UTC−3 fixo desde 2019). Um pedido às 23h30 conta no mesmo dia, não no seguinte em UTC.
 - Comparação: os KPIs comparam com o período anterior de mesmo tamanho. Períodos maiores que 45 dias agrupam o gráfico por semana. Intervalo personalizado de até 366 dias; um intervalo inválido na URL cai para os últimos 30 dias, sem erro.
@@ -316,7 +318,7 @@ Pelo link, o fornecedor avança até "Enviado" e registra ocorrências, mas não
 
 ## 2026-10-13: Dados da página do pedido (item 20.a)
 
-`getOrderPage` (`repositories/order-page.ts`) junta, para um pedido da conta, o que a página `/pedidos/$orderId` mostra: o pedido com itens e ajustes (`getOrderDetail`), o dinheiro pela mesma regra do Financeiro (`computeOrderFinance`, com a taxa da plataforma do ambiente), a linha do tempo de status e a avaliação de cada fornecedor do pedido. Os envios ficam com a própria consulta do painel (`getFulfillmentDetail`), que a página já usa. Pedido de outra conta responde "não encontrado".
+`getOrderPage` (`repositories/order-page.ts`) junta, para um pedido da conta, o que a página `/pedidos/$orderId` mostra: o pedido com itens e ajustes (`getOrderDetail`), o dinheiro pela mesma regra do Financeiro (`computeOrderFinance`), a linha do tempo de status e a avaliação de cada fornecedor do pedido. Os envios ficam com a própria consulta do painel (`getFulfillmentDetail`), que a página já usa. Pedido de outra conta responde "não encontrado".
 
 - **Linha do tempo** vem de `order_status_changes` (migration 0022): uma linha por status, gravada na mesma transação da venda (na data da venda) e de cada mudança, pela sincronização ou pelos envios. Não usa `api_events`, que o worker apaga depois de 30 dias: o histórico de um pedido antigo sumiria ou começaria no meio. A migration copiou o que ainda havia nos eventos; pedido sem nenhuma linha aparece como um passo só, no status atual e na data do pedido.
 - **Avaliação** usa `canReviewOrder`, a regra da aba de avaliações, para as duas telas dizerem o mesmo do mesmo pedido.
@@ -779,7 +781,7 @@ Decisão do Guilherme em 10/11/2026: "Vamos de modelo A, mas lembrese da decisã
 
 O revendedor paga o fornecedor pelo Checkout Pro do Mercado Pago com a divisão do marketplace. Cada fornecedor liga a conta Mercado Pago dele uma vez (OAuth pelo aplicativo de marketplace do SellBridge, tokens cifrados como os das lojas). A preferência é criada com o token do fornecedor, então o dinheiro cai na conta dele, e o SellBridge recebe a sua parte como `marketplace_fee`. O SellBridge não guarda saldo de ninguém. Decisões do Guilherme: "Esquece asaas por hora" (06/11) e "o 3 eu aprovo vai ser assim mesmo" (09/11).
 
-- A taxa dessa divisão é a primeira configuração em tabela (`platform_settings`, uma linha), editável pelo admin ("Tem como fazer editavel no painel de admin?", 10/11). Enquanto não for definida, vale 0. A taxa da plataforma nos relatórios continua em `PLATFORM_FEE_BASIS_POINTS`.
+- A taxa dessa divisão é a primeira configuração em tabela (`platform_settings`, uma linha), editável pelo admin ("Tem como fazer editavel no painel de admin?", 10/11). Enquanto não for definida, vale 0. Desde 2026-11-17 é a única taxa do SellBridge (ver "2026-10-08: Taxa da plataforma").
 - Um pagamento é registrado só depois de lido de volta no Mercado Pago, com o token do fornecedor, e só se ele cita a parcela, foi pago para a conta ligada, em reais e com o mesmo valor. O aviso assinado e a volta do checkout usam o mesmo caminho, porque o aviso não chega a um servidor sem HTTPS.
 - Uma parcela tem um pagamento só: um segundo clique reaproveita o checkout aberto (30 minutos, Pix incluído), e um pagamento em análise impede outro. Uma segunda aprovação fica registrada no log como pagamento duplicado, para ser devolvida à mão.
 - Pix e cartão, cartão à vista. Ficam fora desta primeira versão: Asaas, Pagar.me, devolução e contestação depois do pagamento, e extrato dentro do SellBridge.
@@ -878,7 +880,7 @@ O pedido original do cliente era "liberação só com o pedido entregue, para ev
 
 - **Os dois convivem.** O Mercado Pago continua igual. O fornecedor escolhe em Recebimentos para onde vão os próximos pagamentos (`supplier_payment_choices`); sem escolha, vale a única conta que recebe, e o Mercado Pago quando as duas recebem. Pagamento já aberto ou pago termina onde começou; antes de trocar de gateway, as tentativas anteriores são lidas de volta (paga trava, aberta no Asaas é removida).
 - **Conta do fornecedor:** o SellBridge abre a subconta com a chave dele (`POST /v3/accounts`), com o aviso automático já apontado para `/api/webhooks/asaas`, e liga a proteção (`POST /v3/accounts/{id}/escrow`, 30 dias, `isFeePayer: true`). A chave da subconta fica cifrada como os tokens das lojas. Sem a proteção ligada, a conta não recebe. Os documentos vão pelo link do Asaas (`onboardingUrl`) e a conta só recebe depois de aprovada (`general: APPROVED`).
-- **Cobrança:** criada com a chave do fornecedor (ele é o emissor, então a tarifa do Asaas sai da parte dele), `externalReference` = o pagamento do envio no SellBridge, e a taxa do SellBridge no split (`fixedValue` para a carteira `ASAAS_WALLET_ID`), a mesma taxa editável do admin. O revendedor escolhe Pix, cartão à vista ou boleto na página do Asaas.
+- **Cobrança:** criada com a chave do fornecedor (ele é o emissor, então a tarifa do Asaas sai da parte dele), `externalReference` = o pagamento do envio no SellBridge, e a taxa do SellBridge no split (`fixedValue` para a carteira `ASAAS_WALLET_ID`), a mesma taxa editável do admin. O revendedor escolhe Pix, cartão à vista ou boleto na página do Asaas (desde 18/11/2026, só Pix ou cartão, escolhidos no SellBridge; ver abaixo).
 - **Pagamento em dobro:** uma cobrança por envio; o Asaas não tem chave de idempotência, então antes de abrir uma cobrança o SellBridge lista as do envio pela referência (paga é registrada e trava; aberta é reaproveitada; vencida é removida antes da nova). Uma cobrança só conta se foi aberta para aquele envio, com aquele valor e aquela taxa. A conferência a cada 5 minutos lê de volta as cobranças, e uma segunda paga vai para Problemas (`asaas.duplicate_payment`).
 - **Liberação:** 7 dias depois da primeira entrega confirmada (marketplace ou revendedor; o fornecedor não consegue marcar a própria entrega), pelo worker, com `POST /v3/escrow/{id}/finish`. O pedido é reservado no banco antes da chamada e nunca repetido; sem confirmação, só é pedido de novo depois de 1 hora e se o Asaas ainda mostrar o dinheiro guardado.
 - **Devolução:** envio cancelado, não entregue ou devolvido antes da liberação devolve o valor inteiro do dinheiro guardado (`POST /v3/payments/{id}/refund`; a taxa do split volta junto). Devolução aberta pelo revendedor pausa e vai para Problemas; contestação no cartão pausa e fica com o Asaas. Faltando 5 dias para o prazo de 30 do Asaas sem entrega confirmada, o caso vai para Problemas. Em Problemas, o admin escolhe "Devolver ao revendedor" ou "Liberar ao fornecedor"; o worker executa.
@@ -887,6 +889,57 @@ O pedido original do cliente era "liberação só com o pedido entregue, para ev
 - **Variáveis** (site e worker): `ASAAS_API_URL`, `ASAAS_API_KEY`, `ASAAS_WALLET_ID`, `ASAAS_WEBHOOK_TOKEN`. Sem as três últimas, o Asaas fica desligado. Em produção, só `https://api.asaas.com/v3`. O e-mail que o Asaas avisa quando os avisos falham é o primeiro de `ADMIN_EMAILS`.
 - **A conferir no sandbox:** se a subconta pode mandar a taxa para a carteira do SellBridge no split (senão, a cobrança passa a ser criada pela conta do SellBridge com o split para o fornecedor); devolução com o dinheiro guardado; quando a guarda começa no cartão (o Asaas só considera o cartão "recebido" uns 30 dias depois); o formato da lista de documentos; e se a chave da subconta vem na criação (depois do período de avaliação, depende do modelo BaaS pedido ao gerente do Asaas).
 - **Descartado:** o SellBridge guardar o dinheiro e repassar depois (custódia de terceiros); a cobrança emitida pela conta do SellBridge (o SellBridge viraria o recebedor e pagaria a tarifa do Asaas).
+
+## 2026-11-18: Pagamento ao fornecedor só pelo Asaas (Mercado Pago escondido)
+
+Guilherme, 18/11/2026: "vai ser somente asaas para pagar temos que arrumar isso" e, sobre apagar ou esconder o código do Mercado Pago, "Só esconde". Plano aprovado com "Aprovo, pode começar" e "Aprovo todas". Esta decisão substitui o "Os dois convivem" de 2026-11-15 e a escolha entre as duas contas em Recebimentos.
+
+- **Uma chave só:** `MERCADO_PAGO_SUPPLIER_PAYMENTS_ON = false` (`packages/payments/src/mercado-pago/settings.ts`). Com ela desligada, `mercadoPagoSettingsFrom` devolve null mesmo com as variáveis `MERCADO_PAGO_*`. O site e o robô nunca abrem, conferem nem devolvem um pagamento pelo Mercado Pago. A ligação de conta volta para Recebimentos sem ligar nada, e o aviso do Mercado Pago responde 404.
+- **Telas:**
+  - Recebimentos mostra só a conta Asaas.
+  - O pedido do revendedor paga só pelo Asaas.
+  - A regra de fornecedor novo sai das configurações do admin. O valor salvo fica guardado, mas não muda mais nada, porque todo pagamento já é protegido.
+- **O código fica:**
+  - Os cartões do Mercado Pago vão para `mercado-pago-account-card.tsx`, fora das telas.
+  - Os testes do código escondido rodam com a chave ligada só dentro do teste.
+  - Nada sai do banco (o valor `mercado_pago` continua). Não havia pagamento nem conta ligada em produção.
+- **Para religar:** virar a chave e voltar com as telas, que ficaram fora da página, e com a regra do admin.
+
+### O que o sandbox do Asaas confirmou (18/11/2026)
+
+Teste de ponta a ponta com a conta de sandbox do SellBridge, por um script local (`serve-asaas-sandbox.sh`, fora do repositório) e um endereço público temporário pelo Tailscale Funnel ("Pode usar", Guilherme, 18/11/2026; desligado no fim). Os itens 2 a 6 são os pontos que 2026-11-15 deixou "a conferir"; os outros são achados novos.
+
+1. **Aviso:** o Asaas recusa abrir a subconta com um endereço de aviso que não é público ("A url informada é inválida" para localhost). Pelo endereço público, o aviso de pagamento chegou e marcou o envio pago em segundos.
+2. **Split da subconta para a carteira do SellBridge:** funciona, depois de a conta principal ligar "Habilitar Split" (Integrações > Segurança, confirmado por código do SMS ou do aplicativo). Sem isso, toda cobrança é recusada ("A criação de Split de pagamento está desabilitada"). **A conta de produção precisa ligar o mesmo antes do primeiro pagamento.**
+   - Uma cobrança de R$ 80,00 com 1% mandou R$ 0,80 para a carteira do SellBridge.
+   - A parte do SellBridge fica `DONE` quando o pagamento é recebido e `AWAITING_CREDIT` no cartão, até ele compensar.
+3. **Devolução com o dinheiro guardado:**
+   - **Cartão:** funciona com a chave da subconta. A cobrança vira `REFUNDED` e a parte do SellBridge é cancelada junto.
+   - **Boleto:** o Asaas não devolve ("Somente é possível estornar cobranças cuja a forma de pagamento seja cartão de crédito ou Pix"). O caso vai para Problemas, como previsto.
+   - **Pix:** não deu para simular, porque pagar um QR Code exige permissão de saque na chave.
+   - O boleto saiu das formas de pagamento no mesmo dia (abaixo).
+4. **Quando a guarda começa no cartão:** na confirmação do cartão, não 30 dias depois. A guarda vence 30 dias depois da confirmação.
+5. **Lista de documentos:** não apareceu. O sandbox aprova a subconta na hora, sem pedir documentos.
+6. **Chave da subconta:** vem na criação no sandbox. Depois do período de avaliação em produção, segue dependendo do modelo BaaS pedido ao Asaas.
+7. **Achados corrigidos:**
+   - **Site da subconta:** a cobrança exige que o endereço de volta (`successUrl`) seja do site cadastrado na subconta. A subconta agora abre com o endereço do SellBridge como site.
+   - **Liberação:** só a chave da conta principal encerra a guarda (`POST /v3/escrow/{id}/finish`); a da subconta recebe 404. A liberação agora usa a chave do SellBridge, e o worker liberou 7 dias depois da entrega.
+   - **Motivo da recusa:** o registro de cobrança recusada passou a guardar o motivo que o Asaas devolve.
+
+### Só Pix e cartão à vista, sem boleto (18/11/2026)
+
+Guilherme, 18/11/2026: "Então tira o boleto e deixa so oq ele pediu". O cliente pediu "Pix e cartão" (áudio 1) e "Pix com QR Code e copia e cola" mais "cartão de crédito" (relatório de 12/11), e o Asaas não devolve boleto.
+
+- **Como o Asaas restringe:**
+  - Com `billingType: UNDEFINED`, o pagador escolhe entre as formas ligadas na conta, e a página do Asaas oferece o boleto (conferido no sandbox).
+  - Com `PIX`, a página mostra só o Pix.
+  - Com `CREDIT_CARD`, mostra só o cartão. O Asaas acrescenta sozinho o cartão de débito, que também é pago à vista, e não pede parcelas quando a cobrança vai sem `installmentCount`.
+  - Fontes: "Criar nova cobrança" na documentação do Asaas e o sandbox, ambos em 18/11/2026.
+- **O que mudou:**
+  - O pedido do revendedor tem dois botões, "Pagar com Pix" (o principal) e "Pagar com cartão".
+  - A cobrança é aberta só com a forma escolhida (`SUPPLIER_PAY_METHODS` em `@sellbridge/shared/shipment-payments`).
+  - Se o revendedor voltar e escolher a outra forma, a cobrança aberta é apagada no Asaas e outra é aberta. Nunca ficam duas pagáveis.
+- **Descartado:** o Checkout do Asaas (`POST /v3/checkouts`), que aceita `billingTypes: [PIX, CREDIT_CARD]` numa página só. Ele cria a cobrança só depois do pagamento e pede itens com imagem, o que obrigaria a refazer a guarda, o split e o aviso, já conferidos no sandbox.
 
 ## 2026-11-16: Lucro real por canal (etapa 2a, comissão e frete lidos da loja)
 
@@ -908,20 +961,64 @@ Guilherme aprovou as três etapas do lucro real; a Central mandou começar a eta
 - **Fora, de propósito:** o catálogo e a publicação em lote continuam na estimativa da etapa 1. Ler 9 valores por produto e por loja numa grade de 24 produtos seria pergunta demais ao Mercado Livre por página aberta.
 - **Testes:** nenhuma chamada real ao Mercado Livre. Os testes de unidade usam respostas no formato da documentação, e o teste de navegador usa o substituto do Mercado Livre (`e2e/mercado-livre.fixture.ts`).
 
-## 2026-11-18: O fornecedor trata os pedidos pelo painel (aposentar o link, etapa 1)
+## 2026-11-17: Lucro real por canal (etapa 2b, o frete real de cada venda no Financeiro)
 
-Guilherme aprovou em 18/11/2026 ("Aprovo todas", "Pode começar") a proposta de tirar o caminho duplicado do fornecedor: em vez do link do pedido (`/fornecedor/pedido/<token>`), o painel. Esta é a etapa 1; a etapa 2 (apagar a página do link, a geração de link no pedido do revendedor e as colunas do token) vem num PR separado, na data que ele escolher.
+A segunda parte da etapa 2: o Financeiro passa a descontar o frete que o Mercado Livre cobrou do vendedor em cada venda, e não só a comissão.
 
-- **Fornecedor com painel** (`suppliers.organization_id` preenchido):
-  - O e-mail do pedido leva para `/fornecedor/painel/pedidos?query=<número>`, sem link.
-  - Um link antigo não abre mais o envio, nem para ler nem para mudar (`linkShipmentSource`, também na etiqueta): a página só diz o número do pedido e abre o painel, onde o login vem primeiro. Link vencido ou revogado continua "Link inválido".
-  - O revendedor não gera, copia nem revoga link: o pedido diz que o fornecedor vê o envio no painel. O envio ainda nasce com um token, que não abre nada; ele sai na etapa 2.
-- **Fornecedor cuidado pela equipe** (sem conta): o link continua igual, e a página e o e-mail do pedido oferecem "Criar meu acesso ao painel".
-- **Convite** (`/fornecedor/convite/<token>`):
-  - Assinado com `BETTER_AUTH_SECRET` (HMAC, `supplier-invite:` na frente), vale 14 dias e não fica guardado no banco. Sai da ficha do fornecedor no admin (por e-mail ao e-mail de pedidos, e para copiar) e da página do link.
-  - Só liga o fornecedor a uma conta com o **e-mail confirmado igual ao e-mail de pedidos**, e só enquanto ele está ativo e não tem dono. Assim, um convite vazado sozinho não dá acesso a nada. A ligação usa o perfil de fornecedor da pessoa que ainda não tem marca; quem já criou outra marca é mandado ao suporte (juntar cadastros fica fora).
-  - O cadastro de fornecedor e o login voltam ao convite depois da confirmação do e-mail (`redirect=/fornecedor/convite`), para a pessoa não cair em "Cadastre sua marca" e criar um fornecedor vazio. O convite fica guardado no navegador (`pending-invite.ts`), e não no endereço de volta, como manda a decisão do token fora das URLs. Em outro navegador, a página pede para abrir o convite de novo.
-  - Bloqueado durante o "entrar como cliente".
-- **Contagem:** a lista de fornecedores do admin mostra quantos ativos ainda não têm painel e filtra só esses (`?panel=none`).
-- **Descartado:** convite guardado no banco, que daria para cancelar antes dos 14 dias (pediria migration); o fornecedor "assumir" a marca no passo "Cadastre sua marca" pelo e-mail, sem convite (mexeria na tela da marca e não teria a intenção da equipe).
-- **Revisar se:** o segredo do Better Auth for trocado (os convites em aberto deixam de valer) ou se o fornecedor precisar de funcionários com acesso ao painel (hoje só o dono da conta).
+- **De onde vem:** `GET /shipments/{id}/costs` (cabeçalho `x-format-new: true`), página oficial "Gerenciamento de envios", lida em 17/11/2026. O valor é o `senders[].cost` da loja, o custo final do envio que o vendedor paga, já com desconto. Um envio pode ter itens de vários vendedores, então vale só a linha da loja.
+- **Quando:** a cada aviso de pedido do Mercado Livre (o mesmo caminho que traz o pedido). Se o envio ainda não existe, ou a leitura falha, o pedido entra mesmo assim: o frete fica sem valor e o próximo aviso tenta de novo. Um aviso sem o frete nunca apaga o que já foi lido.
+- **Onde guarda:** a coluna `orders.seller_shipping_cents`, nula enquanto o Mercado Livre não informou.
+- **Na conta:** o frete entra junto com a tarifa do marketplace, como as prévias de preço já fazem (`fee-model.ts`). Vale para o relatório, a página do pedido e a API pública (o campo `marketplaceFeeCents` passa a incluir o frete, e a descrição dele diz isso). Pedido cancelado ou devolvido continua sem tarifa.
+- **Carrinho:** o Mercado Livre manda um carrinho (vários pedidos, um `pack_id`) num envio só, e cada pedido do carrinho informa o custo do envio inteiro. O frete conta uma vez, no primeiro pedido do carrinho que conta como venda (`sellerShippingOnce`); os outros ficam com zero. Achado da revisão de segurança de 17/11/2026.
+- **Fora:** os pedidos antigos não são relidos. O frete aparece nos pedidos que receberem um aviso novo do Mercado Livre depois da atualização.
+
+## 2026-11-17: Avisos do Mercado Livre de envio e de reclamações
+
+- **Envio na hora:** o tópico `shipments` passa a disparar a mesma leitura da tarefa de 30 minutos para os pedidos do envio. Descartado: ler o envio direto pelo id do aviso, que duplicaria a regra de status de `getMercadoLivreShipping`. A tarefa periódica fica como rede de segurança: relê a cada 6 horas os pacotes de lojas que recebem avisos (marcado em `store_connections.last_shipment_notice_at`), sem configuração; loja sem avisos segue nos 30 minutos.
+- **Reclamações só mostradas:** `post_purchase` (filtros `claims` e `claims_actions`) grava a reclamação em `marketplace_claims` e avisa revendedor e fornecedor; responder, reembolsar e revisar devolução ficam no Mercado Livre (fora do escopo pedido). Tabela própria, separada de `return_claims` (crédito do fornecedor ao revendedor).
+- **Ordem e repetição:** o aviso é só um gatilho; o recurso é sempre relido com o token da loja. A reclamação guarda o `last_updated` do Mercado Livre e uma leitura mais antiga não sobrescreve; os avisos ao cliente usam chave por reclamação e momento, então um aviso repetido não chega duas vezes.
+- **Correção:** os avisos com subtópico trazem `id` em vez de `_id` e eram recusados com 401; o Mercado Livre repetiria por 1 hora e poderia desligar o tópico.
+- **Busca diária:** abertas de qualquer idade mais as atualizadas em 26 horas, por loja, até 200 por rodada. Cobre aviso perdido e as reclamações de pedidos vendidos antes de os tópicos serem ligados.
+
+## 2026-11-18: Endereço de compra do revendedor nunca no fornecedor (parte 1: conferência e trava)
+
+Pedido da StockShopp em 17/11/2026: revendedores põem o endereço do fornecedor na conta do Mercado Livre (para envio e devolução), fazem compras pessoais com a mesma conta e as encomendas chegam no fornecedor. Guilherme aprovou o plano e as quatro recomendações em 18/11/2026 ("Aprovo todas").
+
+- **Quando confere:** ao conectar a loja (no máximo 5 segundos de espera; a loja conecta de qualquer jeito), no botão "Já arrumei, conferir de novo" em Lojas e uma vez por dia no worker (a tarefa roda de hora em hora e pega até 200 lojas conferidas há mais de 24 horas).
+- **Regra:** compara o endereço de compra da conta com o endereço da nota fiscal de cada fornecedor da loja, por CEP, número e rua (sem acento e sem "Rua", "Av." e afins). O complemento fica de fora: "sala 2" e "casa" no mesmo número são a mesma porta para o entregador. "s/n" só bate com "s/n".
+  - **Igual ao de um fornecedor:** a loja continua vendendo, mas não publica produto novo até o revendedor arrumar. Aviso no sino e por e-mail uma vez, quando muda de certo para errado; item vermelho em "Precisa de você"; cartão vermelho em Lojas.
+  - **Igual ao endereço de envio da conta, sem bater com fornecedor:** só aviso em Lojas (decisão 2 do Guilherme). Cobre o fornecedor que não tem endereço de nota fiscal cadastrado.
+  - **Conta sem endereço de compra marcado:** aviso em Lojas, sem trava.
+  - **Mercado Livre fora do ar:** mantém o último veredito (uma queda nunca trava nem libera); loja nunca conferida fica "não conferido", sem trava.
+- **Descartado:** travar a conexão até corrigir (os endereços só podem ser lidos depois da autorização, e travar as vendas de uma loja que já vende seria pior).
+- **Privacidade:** nenhum endereço é guardado nem vai para o log; a tabela `store_buyer_address_checks` tem só o veredito, o fornecedor, quando conferiu e desde quando está errado.
+- **Ainda não:** alarme falso (revendedor no mesmo prédio do fornecedor) é liberado pela equipe na parte 3; até lá, o cartão manda falar com o suporte. Passo a passo com prints do Mercado Livre (parte 2) e regras de ouro do revendedor com advertência (parte 3) vêm em PRs seguintes. Shopee fica fora (sem conector).
+- **Testes:** nenhuma chamada real ao Mercado Livre. Respostas no formato da documentação nos testes de unidade, o substituto do Mercado Livre (`e2e/mercado-livre.fixture.ts`) no teste de navegador, e o worker dos testes de navegador recebe "não encontrado" em vez de chamar o Mercado Livre.
+
+## 2026-11-18: Regras de negócio decididas pelo dono do produto
+
+- **Decisão (Guilherme, "4 sim", chat da Central):** as decisões de negócio deixam de esperar o cliente. Quem decide é o dono do produto, com a Central; o que o cliente pede entra como informação, não como trava.
+- **O que muda:** o princípio 2 e a seção 8 de `docs/prompts/execucao-tela-a-tela.md` (a tabela D1–D11 passa a mostrar a situação de cada decisão), a nota de `docs/prompts/coordenacao.md` e o aviso no topo de `docs/prompts/fase-cliente-1.md`. As entradas antigas marcadas `PENDENTE CLIENTE` continuam como histórico.
+- **Descartado:** continuar com flags desligadas e adapters de faz de conta para cada decisão em aberto, que travava itens já decididos na prática.
+
+## 2026-11-18: Taxa do canal na venda manual
+
+A venda manual (Shopee e TikTok Shop) era gravada com a taxa do marketplace em zero, então o lucro do Financeiro e dos relatórios não descontava o que o canal fica. Guilherme escolheu a opção A em 18/11/2026 ("Aprovo todas") e aprovou o plano no mesmo dia ("Pode seguir").
+
+- **Na tela:** um campo "Taxa da Shopee (R$)" ou "Taxa do TikTok Shop (R$)", que aparece com o primeiro produto e já vem preenchido com o cálculo pela tabela do canal, com uma frase dizendo isso e pedindo para conferir no pedido. Enquanto o lojista não mexe, o valor acompanha canal, quantidades e preços; se ele digita, vale o valor dele, e um botão volta ao cálculo.
+- **O cálculo:** cada produto pela tabela do canal (`channel-fees.ts`, a mesma das prévias de preço), vezes a quantidade, somado. Shopee: comissão e valor fixo por unidade. TikTok Shop: comissão, valor fixo e o Programa de Frete por unidade.
+- **Regras:** a taxa vai de R$ 0,00 até o total da venda, e o aviso aparece ao lado do campo. Zero é aceito (o lojista digita 0).
+- **Onde grava:** `orders.marketplace_fee_cents`, a mesma coluna das vendas sincronizadas. O Financeiro, os relatórios, a página do pedido e a API pública já leem esse campo. Sem migração.
+- **Vendas manuais antigas:** ficam com a taxa zero. O valor real não é conhecido, e recalcular mudaria o lucro de meses fechados com um número que o lojista nunca viu.
+
+## 2026-11-18: Aprovação automática do fornecedor que se cadastra sozinho
+
+Decisão do Guilherme em 18/11/2026: "Vamos de C." (o fornecedor novo passa por aprovação automática, e a equipe cuida só do que falhar); ele confirmou que o admin continua podendo desativar. Plano aprovado no mesmo dia ("Pode começar").
+
+- **Quem passa:** só o fornecedor que cria a marca pelo painel (`createSupplierBrand`) nasce "em análise" (`suppliers.approval_status = 'pending'`, migration nova). Os fornecedores que já existiam e os cadastrados pela equipe ficam aprovados (padrão da coluna). Desativar, reativar e advertir continuam iguais: `active` e `approval_status` são independentes.
+- **Em análise:** o fornecedor monta a marca e os produtos, mas nenhum revendedor o vê. Toda leitura do revendedor passa por `supplierOpenToResellers()` (`repositories/sql/sellable.ts`: ativo e aprovado), usada no catálogo, na página e na lista de fornecedores, na publicação, na sincronização e na API pública. Recusado: o painel continua, mas não cadastra produtos novos.
+- **Conferência:** CNPJ ativo e razão social igual à da Receita (ignorando acentos, maiúsculas, pontuação, o tipo da empresa e o CPF que o MEI carrega no nome), e, com a chave "Exigir conta de recebimento para aprovar" ligada, a conta do Asaas aprovada. A regra pura está em `shared/domain/supplier-approval.ts`. Roda ao salvar a marca e numa rodada do worker a cada 15 minutos (até 20 fornecedores, um de cada vez).
+- **Consulta pública:** BrasilAPI (`/api/cnpj/v1/{cnpj}`), gratuita e sem chave, mantida por voluntários, sem garantia de funcionamento, com os dados abertos da Receita (atualizados uma vez por mês, então até ~30 dias de atraso). Fora do ar, lenta (6 s) ou com resposta estranha conta como "fora do ar": o fornecedor fica "consultando" e, depois de 1 hora sem resposta, vai para a fila da equipe. `CNPJ_LOOKUP_URL` só muda para o substituto dos testes (`e2e/cnpj.fixture.ts`); nenhum teste chama a consulta real.
+- **Fila da equipe:** `/admin/fornecedores/aprovacao` ("Fornecedores em análise"), aberta pelo aviso na lista de fornecedores e pelo cartão da ficha. Mostra o motivo, o CNPJ, a razão social informada e a da Receita, com Aprovar e Recusar (motivo obrigatório, que o fornecedor lê no painel). Só administradores decidem; a decisão vai para a auditoria.
+- **Conta de recebimento:** a chave fica desligada até o Asaas funcionar em produção (sem ela, nenhum fornecedor novo passaria).
+- **Descartado:** a consulta oficial do Serpro (tempo real, mas paga e com contrato; fica para quando o volume justificar), ReceitaWS e CNPJá aberto (3 a 5 consultas por minuto) e o site da Receita (captcha). Também descartado reaproveitar `active = false` para "em análise": misturaria a análise com a desativação da equipe e bloquearia o cadastro dos produtos.

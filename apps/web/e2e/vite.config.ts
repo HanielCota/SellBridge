@@ -13,6 +13,12 @@ import {
   mercadoPagoFixture,
 } from "./mercado-pago.fixture.ts";
 import { ASAAS_FIXTURE_PREFIX, E2E_ASAAS_ENV, asaasFixture } from "./asaas.fixture.ts";
+import { CNPJ_FIXTURE_PREFIX, cnpjFixture } from "./cnpj.fixture.ts";
+
+/** The CNPJ query points to the local stand-in: tests never ask BrasilAPI. */
+function useCnpjStandIn(): void {
+  process.env.CNPJ_LOOKUP_URL = new URL(`${CNPJ_FIXTURE_PREFIX}/v1`, process.env.APP_URL).href;
+}
 
 /** Asaas points to the local stand-in: never the real service, never real money. */
 function useAsaasStandIn(): void {
@@ -103,6 +109,7 @@ export default defineConfig(({ command }) => {
   }
   useMercadoPagoStandIn();
   useAsaasStandIn();
+  useCnpjStandIn();
   return mergeConfig(base, {
     resolve: {
       alias: {
@@ -114,6 +121,6 @@ export default defineConfig(({ command }) => {
         ),
       },
     },
-    plugins: [consentFixture(), mercadoPagoFixture(), asaasFixture()],
+    plugins: [consentFixture(), mercadoPagoFixture(), asaasFixture(), cnpjFixture()],
   });
 });

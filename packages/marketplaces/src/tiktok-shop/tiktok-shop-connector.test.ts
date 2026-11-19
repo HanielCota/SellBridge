@@ -1,9 +1,11 @@
 import { describe, expect, it, vi } from "vitest";
 import { isAppError } from "@sellbridge/shared/errors";
 import {
+  hasMarketplaceCause,
   isMarketplaceAuthError,
   isMarketplaceListingEndedError,
   isRetryableError,
+  LABEL_NOT_READY_CAUSE,
 } from "../errors.ts";
 import type { PublishOptions, PublishProductInput, StoreCredentials } from "../types.ts";
 import {
@@ -36,6 +38,7 @@ import {
   type Responder,
 } from "./testing/fake-tiktok-shop.ts";
 import type { ResolveHost } from "./client.ts";
+import type { DownloadFile } from "./image-download.ts";
 import { createTikTokShopConnector, getTikTokShopShippingLabel } from "./tiktok-shop-connector.ts";
 
 const API = "open-api.tiktokglobalshop.com";
@@ -207,7 +210,7 @@ describe("TikTok Shop authorization", () => {
       [`GET ${AUTH}/api/v2/token/refresh`]: () => jsonResponse(TOKEN_RESPONSE),
     });
 
-    const tokens = await connector.refreshTokens("TTP_old_refresh");
+    const tokens = await connector.refreshTokens("TTP_old_refresh", STORE);
 
     expect(calls[0]?.query.get("grant_type")).toBe("refresh_token");
     expect(calls[0]?.query.get("refresh_token")).toBe("TTP_old_refresh");
@@ -620,14 +623,33 @@ describe("TikTok Shop orders", () => {
   });
 });
 
+function documentAt(url: string): Responder {
+  return () =>
+    jsonResponse({
+      ...SHIPPING_DOCUMENT_RESPONSE,
+      data: { ...SHIPPING_DOCUMENT_RESPONSE.data, doc_url: url },
+    });
+}
+
 describe("TikTok Shop shipping label", () => {
-  it("returns the label link of the order's package", async () => {
+  const PDF_BYTES = new TextEncoder().encode("%PDF-1.4 etiqueta");
+
+  function labelSetup(
+    documentResponder: Responder,
+    order = tiktokOrder(),
+    file: { status: number; bytes: Uint8Array<ArrayBuffer> } = { status: 200, bytes: PDF_BYTES },
+  ) {
     const api = fakeTikTokShop({
       [`GET ${API}/authorization/202309/shops`]: () => jsonResponse(SHOPS_RESPONSE),
-      [`GET ${API}/order/202507/orders`]: () => jsonResponse(orderDetailResponse([tiktokOrder()])),
-      [`GET ${API}/fulfillment/202309/packages/${PACKAGE_ID}/shipping_documents`]: () =>
-        jsonResponse(SHIPPING_DOCUMENT_RESPONSE),
+      [`GET ${API}/order/202507/orders`]: () => jsonResponse(orderDetailResponse([order])),
+      [`GET ${API}/fulfillment/202309/packages/${PACKAGE_ID}/shipping_documents`]:
+        documentResponder,
     });
+    const downloadFile = vi.fn<DownloadFile>(async () => ({
+      status: file.status,
+      contentType: "application/pdf",
+      bytes: file.bytes,
+    }));
     const config = {
       appKey: APP_KEY,
       appSecret: APP_SECRET,
@@ -635,41 +657,115 @@ describe("TikTok Shop shipping label", () => {
       fetchImplementation: api.fetchImplementation,
       retry: { retries: 0 },
       now: () => NOW,
+      downloadFile,
     };
+    return { api, config, downloadFile };
+  }
+
+  it("downloads the PDF label of the order's package", async () => {
+    const { api, config, downloadFile } = labelSetup(() =>
+      jsonResponse(SHIPPING_DOCUMENT_RESPONSE),
+    );
 
     const label = await getTikTokShopShippingLabel(config, STORE, ORDER_ID);
 
-    expect(label).toEqual({
-      url: SHIPPING_DOCUMENT_RESPONSE.data.doc_url,
-      trackingNumber: "752455325694",
-    });
+    expect(label).toEqual({ bytes: PDF_BYTES, packageId: PACKAGE_ID });
+    expect(downloadFile.mock.calls[0]?.[0].href).toBe(SHIPPING_DOCUMENT_RESPONSE.data.doc_url);
     const document = api.calls.at(-1);
     expect(document?.query.get("document_type")).toBe("SHIPPING_LABEL");
     expect(document?.query.get("document_format")).toBe("PDF");
   });
 
-  it("asks to arrange the shipment first when TikTok has no label yet", async () => {
-    const api = fakeTikTokShop({
-      [`GET ${API}/authorization/202309/shops`]: () => jsonResponse(SHOPS_RESPONSE),
-      [`GET ${API}/order/202507/orders`]: () => jsonResponse(orderDetailResponse([tiktokOrder()])),
-      [`GET ${API}/fulfillment/202309/packages/${PACKAGE_ID}/shipping_documents`]: () =>
-        jsonResponse(
-          refusal(21023035, "Please arrange shipment before retrieving the shipping document."),
-        ),
-    });
-    const config = {
-      appKey: APP_KEY,
-      appSecret: APP_SECRET,
-      serviceId: "1",
-      fetchImplementation: api.fetchImplementation,
-      retry: { retries: 0 },
-      now: () => NOW,
-    };
+  it("marks a label TikTok has not made yet as not released", async () => {
+    const { config } = labelSetup(() =>
+      jsonResponse(
+        refusal(21023035, "Please arrange shipment before retrieving the shipping document."),
+      ),
+    );
 
     const error = await caught(getTikTokShopShippingLabel(config, STORE, ORDER_ID));
 
     expect(isAppError(error) && error.message).toBe(
       "Organize o envio do pedido no TikTok Shop antes de baixar a etiqueta.",
     );
+    expect(hasMarketplaceCause(error, LABEL_NOT_READY_CAUSE)).toBe(true);
+  });
+
+  it("marks an order without a package yet as not released", async () => {
+    const { config } = labelSetup(
+      () => jsonResponse(SHIPPING_DOCUMENT_RESPONSE),
+      tiktokOrder({ packages: [] }),
+    );
+
+    const error = await caught(getTikTokShopShippingLabel(config, STORE, ORDER_ID));
+
+    expect(hasMarketplaceCause(error, LABEL_NOT_READY_CAUSE)).toBe(true);
+  });
+
+  it("keeps any other refusal as it is, without the not-released mark", async () => {
+    const { config } = labelSetup(() =>
+      jsonResponse(refusal(21042102, "Package has been picked up.")),
+    );
+
+    const error = await caught(getTikTokShopShippingLabel(config, STORE, ORDER_ID));
+
+    expect(isAppError(error) && error.message).toBe(
+      "A etiqueta não pode mais ser impressa: o pacote já foi coletado.",
+    );
+    expect(hasMarketplaceCause(error, LABEL_NOT_READY_CAUSE)).toBe(false);
+  });
+
+  it.each([
+    ["a host outside TikTok's domains", "https://etiquetas.exemplo.com/label.pdf"],
+    ["a look-alike host", "https://bytedance.net.exemplo.com/label.pdf"],
+    ["plain http", "http://magelng.bytedance.net/label.pdf"],
+  ])("never downloads a label link on %s", async (_case, url) => {
+    const { config, downloadFile } = labelSetup(documentAt(url));
+
+    const error = await caught(getTikTokShopShippingLabel(config, STORE, ORDER_ID));
+
+    expect(isAppError(error)).toBe(true);
+    expect(downloadFile).not.toHaveBeenCalled();
+  });
+
+  it("accepts a label link on a subdomain of TikTok's domains", async () => {
+    const { config } = labelSetup(documentAt("https://sf16-sg.tiktokcdn.com/obj/label.pdf"));
+
+    const label = await getTikTokShopShippingLabel(config, STORE, ORDER_ID);
+
+    expect(label.bytes).toEqual(PDF_BYTES);
+  });
+
+  it("refuses a download that is not a PDF", async () => {
+    const { config } = labelSetup(() => jsonResponse(SHIPPING_DOCUMENT_RESPONSE), tiktokOrder(), {
+      status: 200,
+      bytes: new TextEncoder().encode("<html>expirado</html>"),
+    });
+
+    const error = await caught(getTikTokShopShippingLabel(config, STORE, ORDER_ID));
+
+    expect(isRetryableError(error)).toBe(true);
+  });
+
+  it("refuses a download TikTok's host did not answer with 200", async () => {
+    const { config } = labelSetup(() => jsonResponse(SHIPPING_DOCUMENT_RESPONSE), tiktokOrder(), {
+      status: 403,
+      bytes: PDF_BYTES,
+    });
+
+    const error = await caught(getTikTokShopShippingLabel(config, STORE, ORDER_ID));
+
+    expect(isAppError(error) && error.message).toBe(
+      "Não foi possível baixar a etiqueta do TikTok Shop. Tente de novo em alguns minutos.",
+    );
+  });
+
+  it("turns a failed connection into a retryable label error", async () => {
+    const { config, downloadFile } = labelSetup(() => jsonResponse(SHIPPING_DOCUMENT_RESPONSE));
+    downloadFile.mockRejectedValueOnce(new Error("socket hang up"));
+
+    const error = await caught(getTikTokShopShippingLabel(config, STORE, ORDER_ID));
+
+    expect(isRetryableError(error)).toBe(true);
   });
 });

@@ -21,6 +21,12 @@ describe("labelRefusal", () => {
     expect(labelRefusal({ ...candidate, marketplace: "shopee" })).toMatch(/própria/);
   });
 
+  it("sends a TikTok Shop parcel to its own order, since its label prints one at a time", () => {
+    expect(labelRefusal({ ...candidate, marketplace: "tiktok_shop" })).toBe(
+      "A etiqueta do TikTok Shop sai uma por vez: abra o pedido e imprima por lá.",
+    );
+  });
+
   it("refuses a parcel that already left", () => {
     expect(labelRefusal({ ...candidate, status: "shipped" })).toMatch(/já saiu/);
   });

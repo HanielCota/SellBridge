@@ -1,4 +1,17 @@
-import { and, eq, gt, inArray, isNotNull, isNull, ne, notExists, or, sql } from "drizzle-orm";
+import {
+  and,
+  eq,
+  gt,
+  inArray,
+  isNotNull,
+  isNull,
+  lt,
+  ne,
+  notExists,
+  or,
+  type SQL,
+  sql,
+} from "drizzle-orm";
 import { alias } from "drizzle-orm/pg-core";
 import { conflictError, notFoundError } from "@sellbridge/shared/errors";
 import {
@@ -34,6 +47,7 @@ function trackedValues(
     logisticType?: string | null;
     estimatedDeliveryAt?: Date | null;
     dispatchDeadlineAt?: Date | null;
+    shipmentId?: string | null;
   },
   shipment: typeof orderShipments.$inferSelect,
 ) {
@@ -44,6 +58,8 @@ function trackedValues(
     marketplaceLogisticType: shipping.logisticType ?? shipment.marketplaceLogisticType,
     estimatedDeliveryAt: shipping.estimatedDeliveryAt ?? shipment.estimatedDeliveryAt,
     dispatchDeadlineAt: shipping.dispatchDeadlineAt ?? shipment.dispatchDeadlineAt,
+    // Kept once known, so a shipment notification finds the order without asking the marketplace.
+    marketplaceShipmentId: shipment.marketplaceShipmentId ?? shipping.shipmentId ?? null,
     trackedAt: now,
     updatedAt: now,
   };
@@ -57,13 +73,17 @@ const ON_THE_WAY = sql.raw("('forwarded','accepted','picking','ready','shipped')
 const otherShipments = alias(orderShipments, "other_shipments");
 
 /**
- * Orders of connected Mercado Livre stores with their single parcel still on its way, the least
- * recently read first, across tenants: the worker's tracking job reads each one with its store's
- * token. Orders split between suppliers are left out: the marketplace has one parcel for them,
- * and they are tracked by hand per supplier. Stores whose token already expired wait for the
- * token refresh job.
+ * While a store's shipment notifications keep arriving, the periodic job re-reads its parcels
+ * only this rarely: the notification already brings each change within seconds.
  */
-export async function listShipmentsToTrack(database: Database, options: { limit: number }) {
+export const NOTIFIED_TRACKING_INTERVAL_MILLISECONDS = 6 * 60 * 60 * 1000;
+/** A store counts as notified while its last shipment notification is at most this old. */
+export const SHIPMENT_NOTICE_FRESHNESS_MILLISECONDS = 24 * 60 * 60 * 1000;
+/** Most orders one shipment notification may name: a cart holds a handful. */
+const MAX_SHIPMENT_ORDER_IDS = 50;
+
+/** An order's single parcel still on its way, in a connected Mercado Livre store with a token. */
+function trackableOrders(database: Database, extra: SQL | undefined) {
   return database
     .select({
       tenantId: orderShipments.tenantId,
@@ -101,10 +121,71 @@ export async function listShipmentsToTrack(database: Database, options: { limit:
               ),
             ),
         ),
+        extra,
       ),
-    )
+    );
+}
+
+/**
+ * Orders of connected Mercado Livre stores with their single parcel still on its way, the least
+ * recently read first, across tenants: the worker's tracking job reads each one with its store's
+ * token. Orders split between suppliers are left out: the marketplace has one parcel for them,
+ * and they are tracked by hand per supplier. Stores whose token already expired wait for the
+ * token refresh job. A store whose shipment notifications arrive has its parcels read again
+ * only after `NOTIFIED_TRACKING_INTERVAL_MILLISECONDS`.
+ */
+export async function listShipmentsToTrack(
+  database: Database,
+  options: { limit: number; now?: Date },
+) {
+  const now = options.now ?? new Date();
+  const noticeFreshSince = new Date(now.getTime() - SHIPMENT_NOTICE_FRESHNESS_MILLISECONDS);
+  const readDueBefore = new Date(now.getTime() - NOTIFIED_TRACKING_INTERVAL_MILLISECONDS);
+  const due = or(
+    isNull(storeConnections.lastShipmentNoticeAt),
+    lt(storeConnections.lastShipmentNoticeAt, noticeFreshSince),
+    isNull(orderShipments.trackedAt),
+    lt(orderShipments.trackedAt, readDueBefore),
+  );
+  return trackableOrders(database, due)
     .orderBy(sql`${orderShipments.trackedAt} asc nulls first`)
     .limit(options.limit);
+}
+
+/**
+ * The store's orders still on their way named by a shipment notification: by the shipment id
+ * already stored on the parcel, or by the marketplace order ids the shipment holds.
+ */
+export async function listTrackableStoreOrders(
+  database: Database,
+  input: {
+    storeConnectionId: string;
+    match: { marketplaceShipmentId: string } | { externalOrderIds: readonly string[] };
+  },
+) {
+  const { match } = input;
+  if ("externalOrderIds" in match && match.externalOrderIds.length === 0) {
+    return [];
+  }
+  const named =
+    "marketplaceShipmentId" in match
+      ? eq(orderShipments.marketplaceShipmentId, match.marketplaceShipmentId)
+      : inArray(orders.externalOrderId, match.externalOrderIds.slice(0, MAX_SHIPMENT_ORDER_IDS));
+  return trackableOrders(database, and(eq(storeConnections.id, input.storeConnectionId), named));
+}
+
+/** The marketplace just sent a shipment notification about the store; a late one never rewinds. */
+export async function recordStoreShipmentNotice(
+  database: Database,
+  input: { storeConnectionId: string; receivedAt: Date },
+): Promise<void> {
+  const receivedAt = input.receivedAt.toISOString();
+  await database
+    .update(storeConnections)
+    .set({
+      lastShipmentNoticeAt: sql`greatest(coalesce(${storeConnections.lastShipmentNoticeAt}, ${receivedAt}::timestamptz), ${receivedAt}::timestamptz)`,
+    })
+    .where(eq(storeConnections.id, input.storeConnectionId));
 }
 
 /** Marks an order's parcels as just read, so a failing read goes to the back of the line. */
@@ -152,6 +233,8 @@ export async function applyMarketplaceShipment(
     /** The marketplace's dates; a reading without them keeps the ones already known. */
     estimatedDeliveryAt?: Date | null;
     dispatchDeadlineAt?: Date | null;
+    /** The marketplace's own shipment id, stored once known. */
+    shipmentId?: string | null;
   },
 ) {
   return database.transaction(async (transaction) => {

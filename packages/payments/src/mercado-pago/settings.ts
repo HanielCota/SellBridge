@@ -65,10 +65,24 @@ export function refuseMercadoPagoStandInsInProduction(
   }
 }
 
-/** The application's settings, or null while any key is missing (the feature is off). */
+/**
+ * Suppliers receive only through Asaas (Guilherme, 18/11/2026: "vai ser somente asaas para pagar",
+ * "Só esconde"). The Mercado Pago code stays, switched off here: with this off, the web app and the
+ * worker never create, read back or refund a Mercado Pago payment, even with the keys set.
+ */
+export const MERCADO_PAGO_SUPPLIER_PAYMENTS_ON = false;
+
+/**
+ * The application's settings, or null while the feature is off: switched off above, or any key
+ * missing. `switchedOn` exists so the hidden code can still be tested.
+ */
 export function mercadoPagoSettingsFrom(
   environment: MercadoPagoEnvironment,
+  switchedOn: boolean = MERCADO_PAGO_SUPPLIER_PAYMENTS_ON,
 ): MercadoPagoSettings | null {
+  if (!switchedOn) {
+    return null;
+  }
   const clientId = environment.MERCADO_PAGO_CLIENT_ID;
   const clientSecret = environment.MERCADO_PAGO_CLIENT_SECRET;
   const webhookSecret = environment.MERCADO_PAGO_WEBHOOK_SECRET;

@@ -17,6 +17,8 @@ export interface IncomingOrder {
   marketplaceFeeCents: number;
   /** Money given back to the buyer so far; omitted when the source does not report it. */
   refundedCents?: number | undefined;
+  /** What the seller pays to ship the sale; omitted when unknown, which keeps the one stored. */
+  sellerShippingCents?: number | undefined;
   buyerName: string | null;
   /** The marketplace cart the order was bought in; omitted or null keeps the one stored. */
   packId?: string | null | undefined;
@@ -123,6 +125,7 @@ async function updateExistingOrder(
       status: write.order.status,
       totalCents: write.order.totalCents,
       marketplaceFeeCents: write.order.marketplaceFeeCents,
+      sellerShippingCents: write.order.sellerShippingCents ?? existing.sellerShippingCents,
       deliveredAt: deliveredAtOnUpdate(existing, write.order.status),
       paidAt: paidAtOfKnownOrder({
         paidAt: existing.paidAt,
@@ -187,6 +190,7 @@ async function createOrder(write: OrderWrite): Promise<OrderWriteResult | null> 
       status: order.status,
       totalCents: order.totalCents,
       marketplaceFeeCents: order.marketplaceFeeCents,
+      sellerShippingCents: order.sellerShippingCents ?? null,
       buyerName: order.buyerName,
       marketplacePackId: order.packId ?? null,
       shippingAddressEnc: order.shippingAddressEnc ?? null,
@@ -371,11 +375,31 @@ export interface ManualOrder {
   readonly externalOrderId: string;
   readonly buyerName: string;
   readonly orderedAt: Date;
+  /** What the channel keeps of the sale, in cents, from 0 up to the sale total. */
+  readonly marketplaceFeeCents: number;
   readonly items: readonly ManualOrderItem[];
 }
 
 function manualListingId(supplierProductId: string): string {
   return `manual-${supplierProductId}`;
+}
+
+/** The order total in cents; the fee the reseller confirmed must fit inside it. */
+function checkedManualTotalCents(order: ManualOrder): number {
+  if (order.items.length === 0) {
+    throw new Error("A manual order needs at least one item");
+  }
+  const totalCents = order.items.reduce(
+    (total, item) => total + item.quantity * item.unitPriceCents,
+    0,
+  );
+  const fee = order.marketplaceFeeCents;
+  if (!Number.isSafeInteger(fee) || fee < 0 || fee > totalCents) {
+    throw new Error(
+      `A manual order fee must be whole cents from 0 to the total ${totalCents}, got ${fee}`,
+    );
+  }
+  return totalCents;
 }
 
 /**
@@ -390,9 +414,7 @@ export async function recordManualOrder(
   storeConnectionId: string,
   order: ManualOrder,
 ): Promise<UpsertOrderResult> {
-  if (order.items.length === 0) {
-    throw new Error("A manual order needs at least one item");
-  }
+  const totalCents = checkedManualTotalCents(order);
   const listingsByExternalId = new Map(
     order.items.map((item): [string, ResolvedListing] => [
       manualListingId(item.supplierProductId),
@@ -406,8 +428,8 @@ export async function recordManualOrder(
   const incoming: IncomingOrder = {
     externalOrderId: order.externalOrderId,
     status: "paid",
-    totalCents: order.items.reduce((total, item) => total + item.quantity * item.unitPriceCents, 0),
-    marketplaceFeeCents: 0,
+    totalCents,
+    marketplaceFeeCents: order.marketplaceFeeCents,
     buyerName: order.buyerName,
     orderedAt: order.orderedAt,
     items: order.items.map((item) => ({
