@@ -120,6 +120,11 @@ export const productModels = pgTable(
       .notNull()
       .references(() => suppliers.id, { onDelete: "cascade" }),
     categoryId: uuid().references(() => categories.id, { onDelete: "set null" }),
+    /**
+     * The supplier's own code for the model (the spreadsheet's "codigo_modelo"); one per supplier.
+     * A grid typed in the form gets one from its title.
+     */
+    code: text().notNull(),
     title: text().notNull(),
     description: text().notNull().default(""),
     /** Photos for combinations whose colour has none of its own. */
@@ -148,6 +153,7 @@ export const productModels = pgTable(
     index("product_models_supplier_idx").on(table.supplierId),
     /** Lets a combination's foreign key also prove it belongs to the model's supplier. */
     uniqueIndex("product_models_id_supplier_idx").on(table.id, table.supplierId),
+    uniqueIndex("product_models_supplier_code_idx").on(table.supplierId, table.code),
     check(
       "product_models_sale_terms_check",
       sql`(${table.warrantyType} is null or ${table.warrantyType} in ('none', 'seller', 'factory')) and (${table.warrantyDays} is null or ${table.warrantyDays} between 1 and 3650) and (${table.madeToOrderDays} is null or ${table.madeToOrderDays} between 1 and 60)`,

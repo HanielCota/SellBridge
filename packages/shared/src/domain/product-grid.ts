@@ -20,6 +20,25 @@ const PRODUCT_TITLE_MAX_LENGTH = 300;
 export const MAX_MODEL_TITLE_LENGTH =
   PRODUCT_TITLE_MAX_LENGTH - " - ".length - " ".length - 2 * MAX_GRID_OPTION_LENGTH;
 
+export const MAX_MODEL_CODE_LENGTH = 60;
+
+/** The supplier's code for a model, as the spreadsheet's "codigo_modelo" carries it. */
+export const modelCodeSchema = freeText()
+  .trim()
+  .min(1, "Informe o código do modelo. Exemplo: TENIS-CASUAL")
+  .max(MAX_MODEL_CODE_LENGTH, `Use até ${MAX_MODEL_CODE_LENGTH} caracteres no código do modelo`);
+
+/** "Tênis Casual Couro" → "TENIS-CASUAL-COURO": the code a grid typed in the form starts with. */
+export function modelCodeFromTitle(title: string): string {
+  const code = stripAccents(title)
+    .toUpperCase()
+    .replaceAll(/[^A-Z0-9]+/g, "-")
+    .replaceAll(/^-+|-+$/g, "")
+    .slice(0, MAX_MODEL_CODE_LENGTH - 4)
+    .replaceAll(/-+$/g, "");
+  return code === "" ? "MODELO" : code;
+}
+
 /** Refuses an edit of one combination's shared data outside its grid. */
 export const COMBINATION_EDITED_OUTSIDE_GRID_MESSAGE =
   "Este produto faz parte de uma grade de cores e tamanhos: altere o nome, as fotos e a ficha pela grade, no cadastro do produto.";

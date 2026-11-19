@@ -2,6 +2,7 @@ import { conflictError, notFoundError } from "@sellbridge/shared/errors";
 import {
   combinationOwnFields,
   materializeCombination,
+  modelCodeFromTitle,
   type GridCombination,
   type MaterializedCombination,
   type ProductGrid,
@@ -13,7 +14,7 @@ import {
   withFiscalFallback,
   type FiscalFallback,
 } from "@sellbridge/shared/product-fiscal";
-import { and, asc, eq, inArray } from "drizzle-orm";
+import { and, asc, eq, inArray, like, or } from "drizzle-orm";
 import type { Database, DatabaseExecutor } from "../client.ts";
 import {
   productModelColors,
@@ -28,6 +29,8 @@ import { getSupplierFiscalFallback } from "./supplier-brand.ts";
 export interface ProductModelDetail {
   readonly id: string;
   readonly supplierId: string;
+  /** The supplier's code for the model, as the spreadsheet carries it. */
+  readonly code: string;
   readonly updatedAt: Date;
   readonly values: ProductModelShared;
   readonly colors: readonly { name: string; imageUrls: string[] }[];
@@ -78,6 +81,44 @@ async function assertSkusAreFree(
     throw conflictError(
       `Já existe produto com ${taken.length === 1 ? "o SKU" : "os SKUs"} ${taken.map((row) => row.sku).join(", ")} neste fornecedor`,
     );
+  }
+}
+
+/**
+ * The code a new model takes: the one given, when free (a spreadsheet's code is the supplier's
+ * own, never renamed), or the title's with "-2", "-3"… until it is free.
+ *
+ * @throws AppError CONFLICT when a given code already belongs to another model of the supplier.
+ */
+export async function modelCodeFor(
+  transaction: DatabaseExecutor,
+  input: { supplierId: string; code?: string | undefined; title: string },
+): Promise<string> {
+  const base = input.code ?? modelCodeFromTitle(input.title);
+  const taken = new Set(
+    (
+      await transaction
+        .select({ code: productModels.code })
+        .from(productModels)
+        .where(
+          and(
+            eq(productModels.supplierId, input.supplierId),
+            or(eq(productModels.code, base), like(productModels.code, `${base}-%`)),
+          ),
+        )
+    ).map((row) => row.code),
+  );
+  if (input.code !== undefined && taken.has(base)) {
+    throw conflictError(`Já existe um modelo com o código "${base}" neste fornecedor`);
+  }
+  if (!taken.has(base)) {
+    return base;
+  }
+  for (let suffix = 2; ; suffix += 1) {
+    const candidate = `${base}-${suffix}`;
+    if (!taken.has(candidate)) {
+      return candidate;
+    }
   }
 }
 
@@ -149,6 +190,8 @@ export async function createProductModel(
   database: Database,
   input: {
     supplierId: string;
+    /** The spreadsheet's "codigo_modelo"; left out, the code comes from the title. */
+    code?: string | undefined;
     values: ProductModelShared;
     grid: ProductGrid;
     reviewStatus: "approved" | "draft";
@@ -157,6 +200,11 @@ export async function createProductModel(
   const { supplierId, values, grid } = input;
   return await database.transaction(async (transaction) => {
     await lockSupplier(transaction, supplierId);
+    const code = await modelCodeFor(transaction, {
+      supplierId,
+      code: input.code,
+      title: values.title,
+    });
     await assertSkusAreFree(
       transaction,
       supplierId,
@@ -164,7 +212,7 @@ export async function createProductModel(
     );
     const [model] = await transaction
       .insert(productModels)
-      .values({ supplierId, ...values, imageUrls: [...values.imageUrls] })
+      .values({ supplierId, code, ...values, imageUrls: [...values.imageUrls] })
       .returning({ id: productModels.id });
     if (model === undefined) {
       throw new Error("product_models insert returned no row");
@@ -336,6 +384,7 @@ export async function getProductModel(
   return {
     id: model.id,
     supplierId: model.supplierId,
+    code: model.code,
     updatedAt: model.updatedAt,
     values: sharedValues(model),
     colors,

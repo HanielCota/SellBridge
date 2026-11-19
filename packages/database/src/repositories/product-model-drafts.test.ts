@@ -113,6 +113,24 @@ describe("saveProductModelDraft", () => {
     expect((await rowOf(`${prefix}-P-38`))?.title).toBe("Tênis Casual Couro - Preto 38");
   });
 
+  it("names a new grid after its title, never repeating another grid's code", async () => {
+    const prefix = randomUUID().slice(0, 8);
+    const title = `Tênis Código ${prefix}`;
+    const input = draft(prefix);
+
+    const first = await saveProductModelDraft(database, {
+      ...input,
+      values: { ...input.values, title },
+    });
+    const second = await saveProductModelDraft(database, {
+      ...draft(`${prefix}b`),
+      values: { ...input.values, title },
+    });
+
+    expect(first.code).toBe(`TENIS-CODIGO-${prefix.toUpperCase()}`);
+    expect(second.code).toBe(`TENIS-CODIGO-${prefix.toUpperCase()}-2`);
+  });
+
   it("saves a grid still being typed, with a colour that has no combination yet", async () => {
     const prefix = randomUUID().slice(0, 8);
     const input = draft(prefix);
