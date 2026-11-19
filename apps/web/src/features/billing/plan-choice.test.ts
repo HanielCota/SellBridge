@@ -1,6 +1,6 @@
 import { billingPlan } from "@sellbridge/shared/billing";
 import { describe, expect, it } from "vitest";
-import { overLimitWarning, planAllowance, recommendedPlan } from "./plan-choice";
+import { overLimitWarning, planAllowance, priceParts, recommendedPlan } from "./plan-choice";
 
 describe("recommended plan", () => {
   it("indicates Start for an account that uses nothing yet", () => {
@@ -42,8 +42,31 @@ describe("over-limit warning", () => {
 describe("plan allowance", () => {
   it("writes the limits with thousands separators", () => {
     expect(planAllowance(billingPlan("elite"))).toEqual({
-      stores: "40 lojas conectadas",
-      listings: "20.000 anúncios",
+      stores: { amount: "40", label: "lojas conectadas" },
+      listings: { amount: "20.000", label: "anúncios" },
     });
+  });
+});
+
+describe("price parts", () => {
+  it("shows whole reais without cents", () => {
+    expect(priceParts(9_700)).toEqual({ reais: "97", cents: null });
+  });
+
+  it("groups thousands in the reais", () => {
+    expect(priceParts(199_700)).toEqual({ reais: "1.997", cents: null });
+  });
+
+  it("keeps the cents when there are any", () => {
+    expect(priceParts(9_705)).toEqual({ reais: "97", cents: ",05" });
+  });
+
+  it("shows zero as a free price", () => {
+    expect(priceParts(0)).toEqual({ reais: "0", cents: null });
+  });
+
+  it("throws RangeError for a negative or fractional price", () => {
+    expect(() => priceParts(-1)).toThrow(RangeError);
+    expect(() => priceParts(97.5)).toThrow(RangeError);
   });
 });

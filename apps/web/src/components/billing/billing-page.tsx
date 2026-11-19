@@ -15,6 +15,7 @@ import { checkoutBilling, manageBilling } from "@/features/billing/billing.funct
 import {
   overLimitWarning,
   planAllowance,
+  priceParts,
   recommendedPlan,
   type BillingUsage,
 } from "@/features/billing/plan-choice";
@@ -190,14 +191,20 @@ function PortalButton({
 
 function PlanPrice({ priceCents }: { priceCents: number | undefined }) {
   if (priceCents === undefined) {
-    return <p className="text-2xl font-semibold text-muted-foreground">Em breve</p>;
+    return (
+      <p className="flex h-10 items-end text-lg font-medium text-muted-foreground">Em breve</p>
+    );
   }
+  const { reais, cents } = priceParts(priceCents);
   return (
-    <p className="flex flex-wrap items-baseline gap-x-1">
-      <span className="text-3xl font-semibold tracking-tight whitespace-nowrap xl:text-2xl">
-        {formatCents(priceCents)}
+    <p className="h-10">
+      <span className="sr-only">{formatCents(priceCents)} por mês</span>
+      <span aria-hidden="true" className="flex items-baseline gap-0.5 whitespace-nowrap">
+        <span className="self-start pt-1 text-sm font-medium text-muted-foreground">R$</span>
+        <span className="text-4xl font-semibold tracking-tight">{reais}</span>
+        {cents === null ? null : <span className="text-lg font-semibold">{cents}</span>}
+        <span className="ml-1 text-sm text-muted-foreground">/mês</span>
       </span>
-      <span className="whitespace-nowrap text-muted-foreground">/mês</span>
     </p>
   );
 }
@@ -205,17 +212,29 @@ function PlanPrice({ priceCents }: { priceCents: number | undefined }) {
 function PlanFeatures({ plan }: { plan: BillingPlan }) {
   const allowance = planAllowance(plan);
   return (
-    <ul className="space-y-2">
+    <ul className="space-y-2.5 border-t border-border pt-4 text-muted-foreground">
       {[allowance.stores, allowance.listings].map((item) => (
-        <li key={item} className="flex gap-2">
-          <CheckIcon className="mt-0.5 size-4 shrink-0 text-brand-text" aria-hidden="true" />
-          {item}
+        <li key={item.label} className="flex gap-2">
+          <CheckIcon
+            weight="bold"
+            className="mt-0.5 size-4 shrink-0 text-brand-text"
+            aria-hidden="true"
+          />
+          <span>
+            <span className="font-semibold text-foreground">{item.amount}</span> {item.label}
+          </span>
         </li>
       ))}
       {plan.prioritySupport ? (
-        <li className="flex gap-2">
-          <HeadsetIcon className="mt-0.5 size-4 shrink-0 text-brand-text" aria-hidden="true" />
-          Atendimento prioritário: resposta em até 8 horas
+        <li className="flex gap-2 text-foreground">
+          <HeadsetIcon
+            weight="bold"
+            className="mt-0.5 size-4 shrink-0 text-brand-text"
+            aria-hidden="true"
+          />
+          <span>
+            <span className="font-semibold">Atendimento prioritário:</span> resposta em até 8 horas
+          </span>
         </li>
       ) : null}
     </ul>
@@ -225,6 +244,12 @@ function PlanFeatures({ plan }: { plan: BillingPlan }) {
 function planButtonLabel(plan: BillingPlan, hasPlan: boolean, pending: boolean): string {
   if (pending) return "Abrindo pagamento...";
   return hasPlan ? `Mudar para ${plan.name}` : `Assinar o ${plan.name}`;
+}
+
+function planCardRing(recommended: boolean, isCurrent: boolean): string | undefined {
+  if (recommended) return "ring-2 ring-brand";
+  if (isCurrent) return "ring-2 ring-brand-text/40";
+  return undefined;
 }
 
 function PlanCard({
@@ -243,16 +268,16 @@ function PlanCard({
   const price = data.prices.find((candidate) => candidate.id === plan.id)?.priceCents;
   const warning = current === null || isCurrent ? null : overLimitWarning(plan, data.usage);
   return (
-    <Card className={recommended ? "ring-2 ring-brand" : undefined}>
+    <Card className={planCardRing(recommended, isCurrent)}>
       <CardHeader className="gap-2">
-        <h3 className="text-lg font-semibold tracking-tight">{plan.name}</h3>
         {/* Side by side, every card keeps the badge row so the prices line up; stacked, it can go. */}
         <div className="flex flex-wrap items-center gap-2 empty:hidden sm:min-h-6 sm:empty:flex">
           {isCurrent ? <Badge>Seu plano</Badge> : null}
           {recommended ? <Badge>Indicado para você</Badge> : null}
         </div>
+        <h3 className="text-xl font-semibold tracking-tight">{plan.name}</h3>
       </CardHeader>
-      <CardContent className="flex flex-1 flex-col gap-4">
+      <CardContent className="flex flex-1 flex-col gap-5">
         <PlanPrice priceCents={data.enabled ? price : undefined} />
         <PlanFeatures plan={plan} />
         {warning === null ? null : <p className="text-sm text-muted-foreground">{warning}</p>}
@@ -286,7 +311,14 @@ function PlanAction({
   if (!data.enabled) {
     return <p className="text-sm text-muted-foreground">Disponível quando a cobrança começar</p>;
   }
-  if (isCurrent) return null;
+  if (isCurrent) {
+    return (
+      <p className="flex h-11 items-center justify-center gap-2 rounded-xl bg-muted text-sm font-medium">
+        <CheckIcon weight="bold" className="size-4 text-brand-text" aria-hidden="true" />
+        Plano em uso
+      </p>
+    );
+  }
   const pending = action.isPending && action.variables === plan.id;
   const button = (
     <Button

@@ -33,10 +33,45 @@ export function overLimitWarning(plan: BillingPlan, usage: BillingUsage): string
   return null;
 }
 
-/** "3 lojas", "1.000 anúncios": what a plan holds, in the reseller's words. */
-export function planAllowance(plan: BillingPlan): { stores: string; listings: string } {
+interface AllowanceItem {
+  amount: string;
+  label: string;
+}
+
+/**
+ * "3" + "lojas conectadas", "20.000" + "anúncios": the number stands out on the plan card. Every
+ * plan holds more than one of each, so the labels are always plural.
+ */
+export function planAllowance(plan: BillingPlan): {
+  stores: AllowanceItem;
+  listings: AllowanceItem;
+} {
   return {
-    stores: countLabel(plan.stores, "loja conectada", "lojas conectadas"),
-    listings: countLabel(plan.listings, "anúncio", "anúncios"),
+    stores: {
+      amount: integer.format(plan.stores),
+      label: "lojas conectadas",
+    },
+    listings: {
+      amount: integer.format(plan.listings),
+      label: "anúncios",
+    },
+  };
+}
+
+const CENTS_PER_REAL = 100;
+
+/**
+ * A monthly price split for display: whole reais big, cents small and only when there are any.
+ *
+ * @param priceCents - Price in cents. Must be a non-negative integer.
+ */
+export function priceParts(priceCents: number): { reais: string; cents: string | null } {
+  if (!Number.isSafeInteger(priceCents) || priceCents < 0) {
+    throw new RangeError(`Invalid plan price in cents: ${priceCents}`);
+  }
+  const cents = priceCents % CENTS_PER_REAL;
+  return {
+    reais: integer.format(Math.floor(priceCents / CENTS_PER_REAL)),
+    cents: cents === 0 ? null : `,${String(cents).padStart(2, "0")}`,
   };
 }
