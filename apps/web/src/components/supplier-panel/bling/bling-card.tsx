@@ -1,11 +1,12 @@
-import { PlugsConnectedIcon } from "@phosphor-icons/react";
+import { ArrowsClockwiseIcon, PlugsConnectedIcon } from "@phosphor-icons/react";
 import { useState, type ReactNode } from "react";
 import { toast } from "sonner";
 import { ConfirmDialog } from "@/components/feedback/confirm-dialog";
 import { Button } from "@/components/ui/button";
-import type {
-  BlingConnectionView,
-  BlingReadView,
+import {
+  blingStockLine,
+  type BlingConnectionView,
+  type BlingReadView,
 } from "@/features/supplier-panel/bling/bling-overview";
 import { useBlingActions } from "@/features/supplier-panel/bling/use-bling";
 import { errorMessage } from "@/lib/errors";
@@ -219,6 +220,13 @@ export function BlingConnectedCard(props: {
       <CardHeading title="Bling" badge={<BlingBadge tone="success">Conectado</BlingBadge>}>
         {connectionLine(props.connection)}
       </CardHeading>
+      <p className="flex items-start gap-2 text-sm">
+        <ArrowsClockwiseIcon
+          aria-hidden="true"
+          className="mt-0.5 size-4 flex-none text-brand-text"
+        />
+        <span>{blingStockLine(props.connection)}</span>
+      </p>
       {read?.status === "reading" ? (
         <ReadProgress read={read} />
       ) : (

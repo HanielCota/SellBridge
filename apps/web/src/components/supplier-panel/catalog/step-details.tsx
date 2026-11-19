@@ -225,7 +225,24 @@ function AttributeFields({
   );
 }
 
-function MainFields({ values, errors, reasons, onChange }: StepProps) {
+const STOCK_FROM_BLING_NOTE_ID = "panel-product-stock-from-bling";
+
+/** The stock comes from Bling: it is shown, not typed, so an edit here is never undone later. */
+function StockFromBlingNote() {
+  return (
+    <p id={STOCK_FROM_BLING_NOTE_ID} className="text-footnote text-muted-foreground">
+      Vem do seu Bling e se atualiza sozinho. Para mudar, mude no Bling.
+    </p>
+  );
+}
+
+function MainFields({
+  values,
+  errors,
+  reasons,
+  onChange,
+  stockFromBling,
+}: StepProps & { stockFromBling: boolean }) {
   return (
     <div className="grid gap-4 sm:grid-cols-2">
       {MAIN_FIELDS.map((entry) => (
@@ -245,8 +262,12 @@ function MainFields({ values, errors, reasons, onChange }: StepProps) {
             inputMode={entry.inputMode}
             maxLength={entry.field === "title" ? 300 : undefined}
             {...(entry.code ? CODE_INPUT : {})}
+            {...(entry.key === "stock" && stockFromBling
+              ? { readOnly: true, "aria-describedby": STOCK_FROM_BLING_NOTE_ID }
+              : {})}
           />
           {entry.key === "suggestedPrice" ? <SuggestedPriceNote values={values} /> : null}
+          {entry.key === "stock" && stockFromBling ? <StockFromBlingNote /> : null}
           <FieldReason field={entry.field} reasons={reasons} />
         </div>
       ))}
@@ -275,12 +296,20 @@ export function StepDetails(
     /** Set for a supplier's product (NF-e data); left out for a seller's own one. */
     taxDefaults?: SupplierTaxSetup | null | undefined;
     mercadoLivre?: MercadoLivreSheet | undefined;
+    /** The stock follows the supplier's Bling right now: shown read-only. */
+    stockFromBling?: boolean | undefined;
   },
 ) {
   const { values, errors, reasons, onChange, taxDefaults } = props;
   return (
     <div className="grid gap-8">
-      <MainFields values={values} errors={errors} reasons={reasons} onChange={onChange} />
+      <MainFields
+        values={values}
+        errors={errors}
+        reasons={reasons}
+        onChange={onChange}
+        stockFromBling={props.stockFromBling === true}
+      />
       <AttributeFields
         {...props}
         showFiscal={taxDefaults !== undefined}
