@@ -23,10 +23,7 @@ import {
   suppliers,
 } from "../schema/index.ts";
 import { notifyWorkspace } from "./notification-producers.ts";
-
-/** Parcels in these states are not invoiced: the sale did not go ahead. */
-const UNINVOICED_SHIPMENT_STATUSES = ["cancelled", "returned", "not_delivered"] as const;
-const UNINVOICED_ORDER_STATUSES = ["pending", "cancelled", "returned"] as const;
+import { UNINVOICED_ORDER_STATUSES, UNINVOICED_SHIPMENT_STATUSES } from "./sql/uninvoiced.ts";
 
 /**
  * Opens an invoice for each new parcel of a supplier whose ERP issues its notes: parcels created

@@ -4,6 +4,8 @@ import type { ProductSourceMode } from "@sellbridge/shared/product-sources";
 export interface SetupProgress {
   /** Full name and CPF of who invoices and charges go to. */
   hasHolder: boolean;
+  /** The saved holder sells with a CPF: the dashboard suggests opening an MEI. */
+  sellsAsPerson?: boolean;
   /** A supplier is chosen (the MVP sells only supplier products). */
   hasSupplier: boolean;
   productSourceMode?: ProductSourceMode | null;
