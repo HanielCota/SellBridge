@@ -1,5 +1,7 @@
 # Registro de decisões
 
+> **Histórico até 2026-11-18.** As decisões novas ficam em [`docs/decisions/`](decisions/README.md), uma por arquivo. Não acrescente entradas aqui.
+
 ## 2026-10-08: Prettier no lugar do Oxfmt
 
 Oxfmt está em 0.72 (beta, pré-1.0). Pela regra do projeto, usamos Prettier até o Oxfmt estabilizar.

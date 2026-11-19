@@ -121,7 +121,11 @@ test("reseller forwards an order and an unauthenticated supplier completes prepa
     fullPage: true,
   });
   await supplier.getByRole("button", { name: "Marcar como enviado", exact: true }).click();
-  await expect(supplier.getByText("Informe transportadora e código de rastreio")).toBeVisible();
+  // What is missing shows next to each field, with how to fill it.
+  await expect(supplier.getByText("Escreva a transportadora. Exemplo: Correios")).toBeVisible();
+  await expect(
+    supplier.getByText("Escreva o código de rastreio que está na etiqueta."),
+  ).toBeVisible();
   await supplier.getByLabel("Transportadora", { exact: true }).fill("Correios");
   await supplier.getByLabel("Código de rastreio", { exact: true }).fill("AB123456789BR");
   await supplier

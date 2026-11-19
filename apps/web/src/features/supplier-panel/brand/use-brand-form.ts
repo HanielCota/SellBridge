@@ -18,7 +18,7 @@ import { errorMessage } from "@/lib/errors";
 
 interface BrandFormOptions {
   brand: SupplierBrand | null;
-  loginEmail: string;
+  account: { email: string; name: string };
   onSaved: (brand: SupplierBrand) => void;
 }
 
@@ -26,9 +26,9 @@ interface BrandFormOptions {
  * State of the brand form: values against the last saved ones (for the save bar and the leave
  * warning), validation with the team's supplier schema, and the create or update call.
  */
-export function useBrandForm({ brand, loginEmail, onSaved }: BrandFormOptions) {
+export function useBrandForm({ brand, account, onSaved }: BrandFormOptions) {
   const isNew = brand === null;
-  const [saved, setSaved] = useState(() => brandFormValues(brand, loginEmail));
+  const [saved, setSaved] = useState(() => brandFormValues(brand, account));
   const [values, setValues] = useState(saved);
   const [errors, setErrors] = useState<BrandErrors>({});
   // Remounts the fields on discard so local state (the "Outra" niche text) resets too.
