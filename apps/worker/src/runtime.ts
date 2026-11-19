@@ -81,6 +81,7 @@ import { createResellerInvoiceReadProcessor } from "./processors/reseller-invoic
 import { resolveStoreCredentials } from "./lib/store-access.ts";
 import { createNotificationDeliveryProcessor } from "./processors/notification-delivery.ts";
 import { blingInvoiceFileReader, createInvoiceAttachments } from "./lib/invoice-attachments.ts";
+import { createDeletedStorePauseProcessor } from "./processors/deleted-store-pause.ts";
 import { createOrderMessageFollowUpProcessor } from "./processors/order-message-follow-up.ts";
 import { createWebhookDeliveryProcessor } from "./processors/webhook-delivery.ts";
 import { createShipmentTrackingProcessor } from "./processors/shipment-tracking.ts";
@@ -197,6 +198,7 @@ function marketplaceWorkers(context: WorkerContext): Worker[] {
   const processPublish = createPublishListingProcessor(options);
   const processStock = createStockPriceSyncProcessor(options);
   const processRefresh = createTokenRefreshProcessor({ database, connectors, cipher });
+  const processDeletedStorePause = createDeletedStorePauseProcessor({ connectors, cipher });
   const processErpRefresh = createErpTokenRefreshProcessor({
     database,
     cipher,
@@ -213,6 +215,11 @@ function marketplaceWorkers(context: WorkerContext): Worker[] {
       connection,
       concurrency: 1,
     }),
+    new Worker(
+      QUEUE_NAMES.deletedStorePause,
+      async (job) => processDeletedStorePause(toJobContext(job)),
+      { connection, concurrency: 1 },
+    ),
     new Worker(
       QUEUE_NAMES.tokenRefresh,
       async () => runTokenRefreshes({ stores: processRefresh, erp: processErpRefresh }),
