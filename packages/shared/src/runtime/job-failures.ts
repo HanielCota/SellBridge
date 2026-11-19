@@ -5,6 +5,9 @@ type QueueName = (typeof QUEUE_NAMES)[keyof typeof QUEUE_NAMES];
 /** The log event of a worker job that failed its last attempt; the admin Problemas page keeps it. */
 export const JOB_FAILED_FINAL_EVENT = "job.failed_final";
 
+/** The log event of a marketplace event the sweep stopped retrying and handed to the team. */
+export const WEBHOOK_EVENT_ABANDONED_EVENT = "webhook.event_abandoned";
+
 /**
  * Queues whose failures already reach the team their own way: a publication that failed for good
  * is recorded by `listing.publish_failed`, and a marketplace event is retried by the sweep and

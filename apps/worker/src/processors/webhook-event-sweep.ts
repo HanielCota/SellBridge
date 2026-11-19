@@ -7,6 +7,7 @@ import {
   type UnprocessedEventCursor,
 } from "@sellbridge/database/repositories";
 import { FEE_CHANNEL_OWNERS, feeChannelOf } from "@sellbridge/shared/channel-fees";
+import { WEBHOOK_EVENT_ABANDONED_EVENT } from "@sellbridge/shared/job-failures";
 import { logger } from "@sellbridge/shared/logger";
 import { QUEUE_NAMES } from "@sellbridge/shared/queues";
 
@@ -18,7 +19,6 @@ const UNPROCESSED_WEBHOOK_WINDOW_MILLISECONDS = 24 * 60 * 60 * 1000;
 const ABANDON_LOOKBACK_MILLISECONDS = 7 * 24 * 60 * 60 * 1000;
 /** Events handed over per run; the next run takes the rest. */
 const ABANDON_BATCH_SIZE = 100;
-export const WEBHOOK_EVENT_ABANDONED_EVENT = "webhook.event_abandoned";
 const SWEEP_BATCH_SIZE = 500;
 /** Pages per run: 10 000 events, far above a normal backlog, so one run still ends quickly. */
 const SWEEP_MAX_PAGES = 20;
