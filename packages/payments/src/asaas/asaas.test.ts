@@ -196,6 +196,7 @@ describe("createAsaasPlatformClient", () => {
 describe("createAsaasAccountClient", () => {
   const charge = {
     customerId: "cus_1",
+    payMethod: "PIX" as const,
     amountCents: 15_050,
     dueDate: "2026-11-17",
     description: "Pedido 123 · Fornecedor Teste",
@@ -213,7 +214,7 @@ describe("createAsaasAccountClient", () => {
     expect(sentHeader(calls[0], "access_token")).toBe("supplier-key");
     expect(sentBody(calls[0])).toEqual({
       customer: "cus_1",
-      billingType: "UNDEFINED",
+      billingType: "PIX",
       value: 150.5,
       dueDate: "2026-11-17",
       description: "Pedido 123 · Fornecedor Teste",
@@ -221,6 +222,18 @@ describe("createAsaasAccountClient", () => {
       split: [{ walletId: "wallet_platform", fixedValue: 7.52 }],
       callback: { successUrl: "https://sellbridge.test/pedidos/1", autoRedirect: true },
     });
+  });
+
+  test("asks only for the card when the reseller pays by card, never letting Asaas offer boleto", async () => {
+    const { calls, http } = recordingFetch(json(200, payment()));
+
+    await createAsaasAccountClient(http, "supplier-key").createCharge({
+      ...charge,
+      payMethod: "CREDIT_CARD",
+    });
+
+    expect(sentBody(calls[0])).toMatchObject({ billingType: "CREDIT_CARD" });
+    expect(sentBody(calls[0])).not.toHaveProperty("installmentCount");
   });
 
   test("sends no split when SellBridge's fee is zero", async () => {

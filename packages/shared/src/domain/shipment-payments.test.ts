@@ -5,11 +5,18 @@ import {
   InvalidPaymentFeeError,
   platformFeeCents,
   shipmentPaymentStatusFrom,
+  SUPPLIER_PAY_METHODS,
   supplierPaymentBadge,
   supplierPaymentRefundDueAt,
   supplierPaymentRefundReason,
 } from "./shipment-payments.ts";
 import type { ShipmentTiming } from "./shipment-delay.ts";
+
+describe("SUPPLIER_PAY_METHODS", () => {
+  test("lets resellers pay suppliers only by Pix or credit card, never boleto", () => {
+    expect(SUPPLIER_PAY_METHODS).toEqual(["PIX", "CREDIT_CARD"]);
+  });
+});
 
 describe("effectivePaymentFeeBasisPoints", () => {
   test("uses 1% while the admin has saved no fee", () => {
