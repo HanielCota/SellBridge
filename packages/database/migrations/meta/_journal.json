@@ -610,6 +610,13 @@
       "when": 1795089927066,
       "tag": "0086_supplier_approval",
       "breakpoints": true
+    },
+    {
+      "idx": 87,
+      "version": "7",
+      "when": 1795117531086,
+      "tag": "0087_erp_stock_sync",
+      "breakpoints": true
     }
   ]
 }

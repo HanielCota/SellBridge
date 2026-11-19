@@ -7,6 +7,7 @@ import {
   integer,
   jsonb,
   pgTable,
+  primaryKey,
   text,
   timestamp,
   uniqueIndex,
@@ -48,6 +49,17 @@ export const supplierErpConnections = pgTable(
      * Parcels created before it are never invoiced here.
      */
     invoiceEnabledAt: timestamp({ withTimezone: true }),
+    /**
+     * The ERP's own company id (Bling: `GET /empresas/me/dados-basicos` → `id`), which its
+     * notifications carry as `companyId`; null until read, and cleared on reconnection.
+     */
+    erpCompanyId: text(),
+    /** The latest stock check that read every linked product; null before the first one. */
+    stockCheckedAt: timestamp({ withTimezone: true }),
+    /** Stock checks that failed in a row; the team is told from the third on. */
+    stockCheckFailures: integer().notNull().default(0),
+    /** When the ERP last sent a stock notification for this account. */
+    lastStockNoticeAt: timestamp({ withTimezone: true }),
     /** The supplier member who authorized it, kept for the audit trail. */
     connectedByUserId: text().references(() => user.id, { onDelete: "set null" }),
     connectedAt: timestamp({ withTimezone: true }).defaultNow().notNull(),
@@ -63,7 +75,25 @@ export const supplierErpConnections = pgTable(
     ),
     /** The refresh job reads connected rows by expiry. */
     index("supplier_erp_connections_expiry_idx").on(table.status, table.expiresAt),
+    /** An ERP notification names the company, not the supplier. */
+    index("supplier_erp_connections_company_idx").on(table.provider, table.erpCompanyId),
   ],
+);
+
+/**
+ * Products whose ERP stock changed, as the ERP's notifications said, waiting for the worker to
+ * read their balance. One row per product: a repeated notification only moves `requestedAt`.
+ */
+export const erpStockRefreshRequests = pgTable(
+  "erp_stock_refresh_requests",
+  {
+    supplierId: uuid()
+      .notNull()
+      .references(() => suppliers.id, { onDelete: "cascade" }),
+    erpProductId: bigint({ mode: "number" }).notNull(),
+    requestedAt: timestamp({ withTimezone: true }).defaultNow().notNull(),
+  },
+  (table) => [primaryKey({ columns: [table.supplierId, table.erpProductId] })],
 );
 
 /** Short-lived OAuth state for an ERP connection, against CSRF and replay. */
