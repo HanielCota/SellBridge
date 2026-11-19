@@ -16,6 +16,7 @@ import {
 } from "../testing/fixtures.ts";
 import { saveAsaasAccount, setPaymentAccountReview } from "./asaas-payments.ts";
 import { forwardOrder, updateShipment } from "./fulfillment.ts";
+import { queueReceivingAccountNotices } from "./notification-producers.ts";
 import { getReceivingRules, setReceivingRules } from "./receiving-rules.ts";
 import { upsertStoreConnection } from "./stores.ts";
 import {
@@ -332,6 +333,19 @@ describe("parcels waiting before the supplier prepares them", () => {
     expect(parcel.preparationHold).toBeNull();
     expect(parcel.acceptBy).toEqual(new Date(paidAt.getTime() + 24 * 3_600_000));
     await accept(shipmentId, supplier.supplierId);
+  });
+
+  it("notices only the parcels that wait for the receiving account", async () => {
+    const waiting = await supplierWithProduct("notice-wait");
+    const paid = await supplierWithProduct("notice-paid");
+    await approveAsaas(paid.supplierId);
+    await turnRules({ requireReceivingAccount: true, paymentBeforePreparing: false });
+    const held = await forwardedParcel(waiting);
+    const free = await forwardedParcel(paid);
+
+    const noticed = await queueReceivingAccountNotices(database, [held, free]);
+
+    expect(noticed).toBe(1);
   });
 
   it("still lets a held parcel be cancelled", async () => {

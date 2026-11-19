@@ -2,6 +2,7 @@ import {
   forwardOrder,
   forwardRecipients,
   noteSupplierEmailFailed,
+  queueReceivingAccountNotices,
 } from "@sellbridge/database/repositories";
 import { logger } from "@sellbridge/shared/logger";
 import type { forwardOrderSchema } from "@sellbridge/shared/schemas";
@@ -19,6 +20,15 @@ export interface ForwardedLink {
   emailed: boolean;
 }
 
+/** A failed notice never undoes the forward: it is logged for Problemas. */
+async function noticeReceivingAccountWaits(shipmentIds: readonly string[]): Promise<void> {
+  try {
+    await queueReceivingAccountNotices(database, shipmentIds);
+  } catch (error) {
+    logger.error("fulfillment.receiving_account_notice_failed", { shipmentIds, error });
+  }
+}
+
 /**
  * The reseller's forward, plus an e-mail with the link to every supplier that has an order
  * e-mail (item 21.b). The e-mail never undoes the forward: a failed one is noted in the parcel's
@@ -29,6 +39,7 @@ export async function forwardAndNotify(
   input: z.infer<typeof forwardOrderSchema>,
 ): Promise<ForwardedLink[]> {
   const links = await forwardOrder(database, tenantId, input);
+  await noticeReceivingAccountWaits(links.map((link) => link.shipmentId));
   const recipients = await forwardRecipients(
     database,
     tenantId,
