@@ -94,7 +94,8 @@ function OrderInPanel({ externalOrderId }: { externalOrderId: string }) {
   return (
     <section className="surface-card space-y-4 rounded-2xl bg-card p-5" aria-labelledby="moved">
       <h1 id="moved" className="text-2xl font-semibold tracking-tight">
-        O pedido <span className="break-all">{externalOrderId}</span> está no seu painel
+        O pedido <span className="inline-block max-w-full break-all">{externalOrderId}</span> está
+        no seu painel
       </h1>
       <p className="text-sm text-muted-foreground">
         Os pedidos agora ficam só no painel do fornecedor. Entre com a sua conta para aceitar,
