@@ -186,15 +186,24 @@ async function bringInSale(
       run.credentials,
       run.orderResource(sale.externalOrderId),
     );
+    if (sale.kind === "payment" && order.status === "pending") {
+      return "unchanged_by_check";
+    }
+
     const saved = await saveMarketplaceOrder(run.dependencies, run.store, order, {
       storeConnectionId: run.store.id,
     });
-    if (sale.kind === "missing" && saved === "updated") {
-      // The notification arrived while the check was reading: nothing was lost.
-      return "unchanged_by_check";
+    if (saved.status === "created") {
+      reportFoundSale(run, { externalOrderId: sale.externalOrderId, kind: "missing" });
+      return "found";
     }
-    reportFoundSale(run, sale);
-    return sale.kind === "missing" ? "found" : "paid_found";
+
+    if (saved.previousStatus === "pending" && saved.orderStatus === "paid") {
+      reportFoundSale(run, { externalOrderId: sale.externalOrderId, kind: "payment" });
+      return "paid_found";
+    }
+
+    return "unchanged_by_check";
   } catch (error) {
     if (!isFinalMarketplaceAnswer(error)) {
       throw error;

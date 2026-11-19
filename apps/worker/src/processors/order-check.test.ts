@@ -158,7 +158,10 @@ async function storedOrders(externalOrderId: string) {
 
 /** What the notification path saves for the sale (`webhook-event.ts` calls the same function). */
 async function noticeSaves(order: MarketplaceOrder): Promise<"created" | "updated"> {
-  return saveMarketplaceOrder(dependencies, store, order, { webhookEventId: randomUUID() });
+  const { status } = await saveMarketplaceOrder(dependencies, store, order, {
+    webhookEventId: randomUUID(),
+  });
+  return status;
 }
 
 /** The fields of each log line the spy saw for `event`: what the Problemas page records. */
@@ -245,6 +248,41 @@ describe("periodic order check of one store", () => {
     expect(problemsReported(warn, "order.found_by_check")).toEqual([
       expect.objectContaining({ externalOrderId: waiting.externalOrderId }),
     ]);
+  });
+
+  it("does not undo or report a payment when the detail is older than the notification", async () => {
+    const warn = vi.spyOn(logger, "warn");
+    const pending = sale({ status: "pending" });
+    await noticeSaves(pending);
+    const paid = { ...pending, status: "paid" as const };
+    marketplaceHas(paid);
+    fetchOrder.mockImplementationOnce(async () => {
+      await noticeSaves(paid);
+      return pending;
+    });
+
+    await checkStoreOrders(dependencies, job());
+
+    expect(await storedOrders(pending.externalOrderId)).toEqual([
+      { id: expect.any(String), status: "paid" },
+    ]);
+    expect(problemsReported(warn, "order.found_by_check")).toEqual([]);
+  });
+
+  it("does not report a payment that a concurrent notification already recorded", async () => {
+    const warn = vi.spyOn(logger, "warn");
+    const pending = sale({ status: "pending" });
+    await noticeSaves(pending);
+    const paid = { ...pending, status: "paid" as const };
+    marketplaceHas(paid);
+    fetchOrder.mockImplementationOnce(async () => {
+      await noticeSaves(paid);
+      return paid;
+    });
+
+    await checkStoreOrders(dependencies, job());
+
+    expect(problemsReported(warn, "order.found_by_check")).toEqual([]);
   });
 
   it("leaves a sale made a moment ago to its notice and the next run", async () => {
