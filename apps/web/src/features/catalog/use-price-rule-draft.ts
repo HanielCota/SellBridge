@@ -1,41 +1,42 @@
 import {
-  MAX_MARKUP_PERCENT,
-  MIN_MARKUP_PERCENT,
+  MAX_PROFIT_MARGIN_PERCENT,
+  MIN_PROFIT_MARGIN_PERCENT,
   priceRuleSchema,
   type PriceRule,
 } from "@sellbridge/shared/schemas";
 import { useState } from "react";
 
-const DEFAULT_MARKUP_PERCENT = 60;
+/** The margin the bulk form starts with: the first "Margem" shortcut of one listing. */
+const DEFAULT_MARGIN_PERCENT = 30;
 
-/** Shown under the markup field when the typed percentage is outside what the server accepts. */
-export const MARKUP_RANGE_MESSAGE = `Use um valor entre ${MIN_MARKUP_PERCENT}% e ${MAX_MARKUP_PERCENT}%`;
+/** Shown under the margin field when the typed percentage is outside what the server accepts. */
+export const MARGIN_RANGE_MESSAGE = `Use uma margem entre ${MIN_PROFIT_MARGIN_PERCENT}% e ${MAX_PROFIT_MARGIN_PERCENT}%`;
 
 /**
- * The markup rule for a typed percentage, or null when the server would reject it. Only whole
+ * The margin rule for a typed percentage, or null when the server would reject it. Only whole
  * digits count: "12.5" or "30abc" are invalid, never silently read as 12% or 30%.
  */
-export function parseMarkupPercent(percent: string): PriceRule | null {
+export function parseMarginPercent(percent: string): PriceRule | null {
   const typed = percent.trim();
   const parsed = priceRuleSchema.safeParse({
-    kind: "markup",
+    kind: "margin",
     percent: /^\d{1,4}$/.test(typed) ? Number(typed) : Number.NaN,
   });
   return parsed.success ? parsed.data : null;
 }
 
 /**
- * The price rule being edited in the bulk publish form. The markup percentage is kept as
- * typed text and validated with the same schema the server applies; while it is invalid
- * the preview falls back to the default markup and the rule cannot be submitted.
+ * The price rule being edited in the bulk publish form. The margin is kept as typed text and
+ * validated with the same schema the server applies; while it is invalid the preview falls back
+ * to the default margin and the rule cannot be submitted.
  */
 export function usePriceRuleDraft() {
-  const [kind, setKind] = useState<PriceRule["kind"]>("markup");
-  const [percent, setPercent] = useState(String(DEFAULT_MARKUP_PERCENT));
-  const markup = parseMarkupPercent(percent);
-  const percentValid = markup !== null;
-  const fallbackMarkup: PriceRule = { kind: "markup", percent: DEFAULT_MARKUP_PERCENT };
-  const rule: PriceRule = kind === "suggested" ? { kind } : (markup ?? fallbackMarkup);
+  const [kind, setKind] = useState<"margin" | "suggested">("margin");
+  const [percent, setPercent] = useState(String(DEFAULT_MARGIN_PERCENT));
+  const margin = parseMarginPercent(percent);
+  const percentValid = margin !== null;
+  const fallbackMargin: PriceRule = { kind: "margin", percent: DEFAULT_MARGIN_PERCENT };
+  const rule: PriceRule = kind === "suggested" ? { kind } : (margin ?? fallbackMargin);
   return {
     kind,
     setKind,
@@ -48,7 +49,7 @@ export function usePriceRuleDraft() {
 }
 
 /**
- * Markups typed for single products in the bulk publish form, keyed by product id. Each one
+ * Margins typed for single products in the bulk publish form, keyed by product id. Each one
  * replaces the shared rule for its product; while any is invalid the form cannot be submitted.
  */
 export function usePriceOverrides() {
@@ -63,11 +64,11 @@ export function usePriceOverrides() {
     });
   const parsed = [...percents].map(([productId, percent]) => ({
     productId,
-    markup: parseMarkupPercent(percent),
+    margin: parseMarginPercent(percent),
   }));
-  const isValid = parsed.every(({ markup }) => markup !== null);
+  const isValid = parsed.every(({ margin }) => margin !== null);
   const rules: Readonly<Record<string, PriceRule>> = Object.fromEntries(
-    parsed.flatMap(({ productId, markup }) => (markup ? [[productId, markup]] : [])),
+    parsed.flatMap(({ productId, margin }) => (margin ? [[productId, margin]] : [])),
   );
   return {
     percentFor: (productId: string) => percents.get(productId),
