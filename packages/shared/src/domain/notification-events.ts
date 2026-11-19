@@ -237,6 +237,19 @@ const SHIPMENT_PROBLEM_HEADINGS: Record<ShipmentProblemNotice["problem"], string
   returned: "Pacote devolvido",
 };
 
+/** What each side does now. A return follows the return policy: reason first, then the check. */
+function shipmentProblemNextStep(notice: ShipmentProblemNotice): string {
+  const forSupplier = notice.recipient === "supplier";
+  if (notice.problem === "returned") {
+    return forSupplier
+      ? "Confira o produto e responda a devolução no Suporte dentro do prazo. Sem resposta, vale o que o revendedor contar."
+      : "Abra o pedido e conte ao fornecedor por que o comprador devolveu.";
+  }
+  return forSupplier
+    ? "Confira o rastreio e combine com o revendedor o que fazer com o pacote."
+    : "Fale com o comprador pelo chat da venda e acompanhe o rastreio.";
+}
+
 export function shipmentProblemContent(notice: ShipmentProblemNotice): NotificationContent {
   const heading = SHIPMENT_PROBLEM_HEADINGS[notice.problem];
   const forSupplier = notice.recipient === "supplier";
@@ -250,9 +263,7 @@ export function shipmentProblemContent(notice: ShipmentProblemNotice): Notificat
       notice.problem === "not_delivered"
         ? `A transportadora não conseguiu entregar o pedido ${notice.externalOrderId}.`
         : `O pedido ${notice.externalOrderId} voltou para o remetente.`,
-      forSupplier
-        ? "Confira o rastreio e combine com o revendedor o que fazer com o pacote."
-        : "Fale com o comprador pelo chat da venda e acompanhe o rastreio.",
+      shipmentProblemNextStep(notice),
     ],
     actionLabel: forSupplier ? "Ver no painel" : "Ver pedido",
     actionPath: forSupplier ? "/fornecedor/painel/pedidos" : `/pedidos/${notice.orderId}`,

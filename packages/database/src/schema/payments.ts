@@ -264,6 +264,8 @@ export const platformSettings = pgTable(
      * account. Off until Asaas runs in production (Guilherme, 18/11/2026).
      */
     requireReceivingAccountForApproval: boolean().notNull().default(false),
+    /** Business days a supplier has to check a returned product when the marketplace gives no date. */
+    returnAnswerBusinessDays: integer().notNull().default(3),
     updatedByUserId: text().references(() => user.id, { onDelete: "set null" }),
     updatedAt: timestamp({ withTimezone: true }).defaultNow().notNull(),
   },
@@ -276,6 +278,10 @@ export const platformSettings = pgTable(
     check(
       "platform_settings_payment_fee_check",
       sql`${table.paymentFeeBasisPoints} is null or (${table.paymentFeeBasisPoints} >= 0 and ${table.paymentFeeBasisPoints} <= 3000)`,
+    ),
+    check(
+      "platform_settings_return_answer_days_check",
+      sql`${table.returnAnswerBusinessDays} between 1 and 5`,
     ),
   ],
 );
