@@ -452,7 +452,7 @@ const EMPTY_QUEUE_TEXT: Record<TicketQueue, { title: string; description: string
   },
   all: {
     title: "Nenhum chamado",
-    description: "Os chamados abertos pelos revendedores aparecem aqui.",
+    description: "Os chamados abertos por revendedores e fornecedores aparecem aqui.",
   },
   suppliers: {
     title: "Nenhuma conversa entre revendedor e fornecedor",
