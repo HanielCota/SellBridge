@@ -195,6 +195,22 @@ describe("saveProductModelDraft", () => {
     expect((await rowOf(`${prefix}-P-38`))?.stock).toBe(2);
   });
 
+  it("does not restore units already sold when the form omits its stock baseline", async () => {
+    const prefix = randomUUID().slice(0, 8);
+    const input = draft(prefix);
+    const first = await saveProductModelDraft(database, input);
+    const sku = `${prefix}-P-38`;
+    await database.update(supplierProducts).set({ stock: 2 }).where(eq(supplierProducts.sku, sku));
+
+    const attempt = saveProductModelDraft(database, {
+      ...input,
+      expectedUpdatedAt: first.updatedAt.toISOString(),
+    });
+
+    await expect(attempt).rejects.toSatisfy((error) => hasErrorCode(error, "CONFLICT"));
+    expect((await rowOf(sku))?.stock).toBe(2);
+  });
+
   it("refuses a SKU another product of the supplier already has", async () => {
     const prefix = randomUUID().slice(0, 8);
     await saveProductModelDraft(database, draft(prefix));
