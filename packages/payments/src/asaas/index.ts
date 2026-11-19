@@ -73,9 +73,14 @@ export {
   type AsaasBillingClient,
   type AsaasCheckoutPayer,
   type AsaasSubscription,
+  type AsaasSubscriptionCharge,
 } from "./subscriptions.ts";
 export {
+  FIRST_FEE_REFUND_DAYS,
   isPaidCharge,
+  paidOn,
+  refundableFirstFee,
+  startOfDueDate,
   subscriptionBillingState,
   type SubscriptionBillingState,
 } from "./subscription-state.ts";

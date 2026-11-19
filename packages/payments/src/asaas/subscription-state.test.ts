@@ -2,6 +2,7 @@ import { describe, expect, test } from "vitest";
 import {
   nextMonthlyDueDate,
   previousMonthlyDueDate,
+  refundableFirstFee,
   startOfDueDate,
   subscriptionBillingState,
 } from "./subscription-state.ts";
@@ -193,5 +194,53 @@ describe("subscription billing state", () => {
 
     expect(state.status).toBe("past_due");
     expect(state.periodEnd?.toISOString()).toBe("2026-12-26T03:00:00.000Z");
+  });
+});
+
+describe("first monthly fee refund", () => {
+  const first = { ...charge("2026-11-19", "RECEIVED", "pay_first"), paymentDate: "2026-11-19" };
+
+  test("gives the first fee back on the seventh day after it was paid", () => {
+    const refundable = refundableFirstFee({
+      charges: [first],
+      firstPaidOn: "2026-11-19",
+      today: "2026-11-26",
+    });
+
+    expect(refundable?.id).toBe("pay_first");
+  });
+
+  test("keeps the first fee from the eighth day on", () => {
+    const refundable = refundableFirstFee({
+      charges: [first],
+      firstPaidOn: "2026-11-19",
+      today: "2026-11-27",
+    });
+
+    expect(refundable).toBeNull();
+  });
+
+  test("never gives back a fee after the first", () => {
+    const second = { ...charge("2026-12-19", "RECEIVED", "pay_second"), paymentDate: "2026-12-19" };
+
+    const refundable = refundableFirstFee({
+      charges: [second, first],
+      firstPaidOn: "2026-11-19",
+      today: "2026-12-20",
+    });
+
+    expect(refundable).toBeNull();
+  });
+
+  test("never counts a new subscription's fee as the account's first", () => {
+    const again = { ...charge("2027-03-02", "RECEIVED", "pay_again"), paymentDate: "2027-03-02" };
+
+    const refundable = refundableFirstFee({
+      charges: [again],
+      firstPaidOn: "2026-11-19",
+      today: "2027-03-03",
+    });
+
+    expect(refundable).toBeNull();
   });
 });

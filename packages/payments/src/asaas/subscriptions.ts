@@ -45,6 +45,9 @@ export const asaasSubscriptionChargeSchema = z.object({
   billingType: z.string().nullish(),
   /** `YYYY-MM-DD`. */
   dueDate: z.string(),
+  /** `YYYY-MM-DD` the money came in (Pix) or the card was charged. */
+  paymentDate: z.string().nullish(),
+  confirmedDate: z.string().nullish(),
   externalReference: z.string().nullish(),
   invoiceUrl: webLink.nullish(),
   deleted: z.boolean().nullish(),
@@ -347,6 +350,20 @@ function chargeCalls(call: PlatformCall) {
   };
 }
 
+function refundCalls(call: PlatformCall) {
+  return {
+    /** Gives the whole charge back to the payer (the first monthly fee within 7 days). */
+    async refundCharge(chargeId: string, description: string): Promise<AsaasSubscriptionCharge> {
+      return call({
+        path: `/payments/${encodeURIComponent(chargeId)}/refund`,
+        method: "POST",
+        body: { description },
+        schema: asaasSubscriptionChargeSchema,
+      });
+    },
+  };
+}
+
 /** Calls for the plans' monthly fee, made with SellBridge's own key. */
 export function createAsaasBillingClient(http: AsaasHttpOptions, apiKey: string) {
   const call: PlatformCall = async (request) => asaasRequest(http, { ...request, apiKey });
@@ -355,6 +372,7 @@ export function createAsaasBillingClient(http: AsaasHttpOptions, apiKey: string)
     ...subscriptionCalls(call),
     ...subscriptionChangeCalls(call),
     ...chargeCalls(call),
+    ...refundCalls(call),
   };
 }
 

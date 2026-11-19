@@ -138,3 +138,31 @@ export function subscriptionBillingState(input: {
   const periodEnd = new Date(Math.max(graceEnd.getTime(), paidUntil.getTime()));
   return { status: "past_due", periodEnd, paidPeriod, cancelAtPeriodEnd: false, openCharge };
 }
+
+/** Days the first monthly fee can still be given back in full after it was paid. */
+export const FIRST_FEE_REFUND_DAYS = 7;
+
+/** The day a paid charge was paid, as Asaas records it; the due date when it says nothing. */
+export function paidOn(charge: AsaasSubscriptionCharge): string {
+  return charge.paymentDate ?? charge.confirmedDate ?? charge.dueDate;
+}
+
+/**
+ * The account's first monthly fee, when the subscription is cancelled up to
+ * `FIRST_FEE_REFUND_DAYS` days after it was paid (day 7 is in, day 8 is out): it is given back in
+ * full. Later fees and upgrade differences never are. `firstPaidOn` is the day the account paid
+ * its first fee ever (`YYYY-MM-DD`), so a new subscription never counts as a first one again.
+ */
+export function refundableFirstFee(input: {
+  charges: readonly AsaasSubscriptionCharge[];
+  firstPaidOn: string | null;
+  today: string;
+}): AsaasSubscriptionCharge | null {
+  const paid = input.charges.filter(isPaidCharge);
+  const [only] = paid;
+  if (paid.length !== 1 || only === undefined || input.firstPaidOn === null) return null;
+  if (paidOn(only) !== input.firstPaidOn) return null;
+  const days =
+    (startOfDueDate(input.today).getTime() - startOfDueDate(paidOn(only)).getTime()) / DAY_IN_MS;
+  return days <= FIRST_FEE_REFUND_DAYS ? only : null;
+}
