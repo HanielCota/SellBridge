@@ -12,7 +12,8 @@ import {
   sql,
   type SQL,
 } from "drizzle-orm";
-import type { Database } from "../client.ts";
+import { conflictError } from "@sellbridge/shared/errors";
+import type { DatabaseExecutor } from "../client.ts";
 import {
   orderShipments,
   orderStatusChanges,
@@ -68,7 +69,7 @@ const NO_MONEY: HeldMoney = {
 };
 
 /** Suppliers whose catalog one of the workspaces runs from the supplier panel. */
-function suppliersRunBy(database: Database, tenantIds: readonly string[]) {
+function suppliersRunBy(database: DatabaseExecutor, tenantIds: readonly string[]) {
   return database
     .select({ id: suppliers.id })
     .from(suppliers)
@@ -76,7 +77,7 @@ function suppliersRunBy(database: Database, tenantIds: readonly string[]) {
 }
 
 async function countOrders(
-  database: Database,
+  database: DatabaseExecutor,
   tenantIds: readonly string[],
   movedSince: Date,
 ): Promise<{ toShip: number; onTheWay: number }> {
@@ -119,7 +120,7 @@ async function countOrders(
 }
 
 async function countSupplierParcels(
-  database: Database,
+  database: DatabaseExecutor,
   tenantIds: readonly string[],
   movedSince: Date,
 ): Promise<{ toShip: number; onTheWay: number }> {
@@ -161,7 +162,7 @@ function moneyStillHeld(): SQL | undefined {
 }
 
 async function sumHeldMoney(
-  database: Database,
+  database: DatabaseExecutor,
   side: SQL | undefined,
   amount: SQL<number>,
 ): Promise<HeldMoney> {
@@ -187,7 +188,7 @@ async function sumHeldMoney(
 }
 
 async function countPaymentsInProgress(
-  database: Database,
+  database: DatabaseExecutor,
   tenantIds: readonly string[],
   now: Date,
 ): Promise<number> {
@@ -212,7 +213,7 @@ async function countPaymentsInProgress(
 }
 
 async function countReturnsInReview(
-  database: Database,
+  database: DatabaseExecutor,
   tenantIds: readonly string[],
 ): Promise<number> {
   const [row] = await database
@@ -237,7 +238,7 @@ async function countReturnsInReview(
  * @param now - The reference time: what has not moved in `STALE_AFTER_DAYS` before it is left out.
  */
 export async function findDeletionBlockers(
-  database: Database,
+  database: DatabaseExecutor,
   input: { tenantIds: readonly string[]; now: Date },
 ): Promise<DeletionBlockers> {
   const { tenantIds, now } = input;
@@ -285,4 +286,24 @@ function emptyDeletionBlockers(): DeletionBlockers {
     supplierMoneyToReceive: NO_MONEY,
     returnsInReview: 0,
   };
+}
+
+/** The preflight happens before provider calls. Recheck just before deleting workspace data. */
+export async function assertWorkspaceCanBeDeleted(
+  database: DatabaseExecutor,
+  tenantId: string,
+): Promise<void> {
+  const blockers = await findDeletionBlockers(database, { tenantIds: [tenantId], now: new Date() });
+  if (
+    blockers.ordersToShip > 0 ||
+    blockers.ordersOnTheWay > 0 ||
+    blockers.parcelsToShip > 0 ||
+    blockers.parcelsOnTheWay > 0 ||
+    blockers.paymentsInProgress > 0 ||
+    blockers.sellerMoneyHeld.count > 0 ||
+    blockers.supplierMoneyToReceive.count > 0 ||
+    blockers.returnsInReview > 0
+  ) {
+    throw conflictError("Ainda há pendências neste perfil. Confira o que falta em Seus dados.");
+  }
 }
