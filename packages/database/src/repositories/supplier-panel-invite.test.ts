@@ -1,7 +1,7 @@
 import { randomUUID } from "node:crypto";
 import { eq, inArray } from "drizzle-orm";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
-import { member, organization, suppliers } from "../schema/index.ts";
+import { member, organization, suppliers, user } from "../schema/index.ts";
 import { createTestDatabase, createTestTenants, createTestUsers } from "../testing/fixtures.ts";
 import {
   claimSupplierForProfile,
@@ -13,6 +13,9 @@ import { listAdminSuppliers } from "./admin-suppliers.ts";
 
 const database = createTestDatabase();
 let tenants: Awaited<ReturnType<typeof createTestTenants>>;
+let owner: Awaited<ReturnType<typeof createTestUsers>>;
+let ownerId: string;
+let ownerEmail: string;
 const createdSupplierIds: string[] = [];
 
 function tenantAt(index: number): string {
@@ -52,6 +55,25 @@ async function ownerOf(supplierId: string) {
 
 beforeAll(async () => {
   tenants = await createTestTenants(database, 7);
+  owner = await createTestUsers(database, 1);
+  const [createdOwner] = owner.ids;
+  if (createdOwner === undefined) {
+    throw new Error("Test owner was not created");
+  }
+
+  ownerId = createdOwner;
+  ownerEmail = `test-${ownerId}@sellbridge.test`;
+  await database.update(user).set({ emailVerified: true }).where(eq(user.id, ownerId));
+  await database.insert(member).values(
+    tenants.ids.map((organizationId) => ({
+      id: randomUUID(),
+      organizationId,
+      userId: ownerId,
+      role: "owner",
+      createdAt: new Date(),
+    })),
+  );
+
   // Profiles 0 to 4 are supplier profiles; profiles 5 and 6 stay sellers.
   await database
     .update(organization)
@@ -62,6 +84,7 @@ beforeAll(async () => {
 afterAll(async () => {
   await database.delete(suppliers).where(inArray(suppliers.id, createdSupplierIds));
   await tenants.cleanup();
+  await owner.cleanup();
   await database.$client.end();
 });
 
@@ -93,18 +116,30 @@ describe("getSupplierInviteTarget", () => {
 
 describe("claimSupplierForProfile", () => {
   it("hands a team-managed supplier to the supplier profile", async () => {
-    const supplierId = await insertSupplier();
+    const supplierId = await insertSupplier({ contactEmail: ` ${ownerEmail.toUpperCase()} ` });
 
-    await claimSupplierForProfile(database, { supplierId, organizationId: tenantAt(1) });
+    await claimSupplierForProfile(database, {
+      supplierId,
+      organizationId: tenantAt(1),
+      userId: ownerId,
+    });
 
     expect(await ownerOf(supplierId)).toBe(tenantAt(1));
   });
 
   it("refuses a supplier that already has an owner and keeps that owner", async () => {
-    const supplierId = await insertSupplier();
-    await claimSupplierForProfile(database, { supplierId, organizationId: tenantAt(2) });
+    const supplierId = await insertSupplier({ contactEmail: ownerEmail });
+    await claimSupplierForProfile(database, {
+      supplierId,
+      organizationId: tenantAt(2),
+      userId: ownerId,
+    });
 
-    const claim = claimSupplierForProfile(database, { supplierId, organizationId: tenantAt(3) });
+    const claim = claimSupplierForProfile(database, {
+      supplierId,
+      organizationId: tenantAt(3),
+      userId: ownerId,
+    });
 
     await expect(claim).rejects.toMatchObject({ code: "CONFLICT" });
     expect(await ownerOf(supplierId)).toBe(tenantAt(2));
@@ -112,9 +147,13 @@ describe("claimSupplierForProfile", () => {
 
   it("refuses a profile that already runs a brand of its own", async () => {
     await insertSupplier({ organizationId: tenantAt(4) });
-    const supplierId = await insertSupplier();
+    const supplierId = await insertSupplier({ contactEmail: ownerEmail });
 
-    const claim = claimSupplierForProfile(database, { supplierId, organizationId: tenantAt(4) });
+    const claim = claimSupplierForProfile(database, {
+      supplierId,
+      organizationId: tenantAt(4),
+      userId: ownerId,
+    });
 
     await expect(claim).rejects.toMatchObject({
       code: "CONFLICT",
@@ -124,20 +163,63 @@ describe("claimSupplierForProfile", () => {
   });
 
   it("refuses a supplier the team switched off", async () => {
-    const supplierId = await insertSupplier({ active: false });
+    const supplierId = await insertSupplier({ active: false, contactEmail: ownerEmail });
 
-    const claim = claimSupplierForProfile(database, { supplierId, organizationId: tenantAt(3) });
+    const claim = claimSupplierForProfile(database, {
+      supplierId,
+      organizationId: tenantAt(3),
+      userId: ownerId,
+    });
 
     await expect(claim).rejects.toMatchObject({ code: "CONFLICT" });
     expect(await ownerOf(supplierId)).toBeNull();
   });
 
   it("refuses a seller profile", async () => {
-    const supplierId = await insertSupplier();
+    const supplierId = await insertSupplier({ contactEmail: ownerEmail });
 
-    const claim = claimSupplierForProfile(database, { supplierId, organizationId: tenantAt(5) });
+    const claim = claimSupplierForProfile(database, {
+      supplierId,
+      organizationId: tenantAt(5),
+      userId: ownerId,
+    });
 
-    await expect(claim).rejects.toMatchObject({ code: "NOT_FOUND" });
+    await expect(claim).rejects.toMatchObject({ code: "CONFLICT" });
+    expect(await ownerOf(supplierId)).toBeNull();
+  });
+});
+
+describe("supplier invite authorization at write time", () => {
+  it("refuses a supplier whose order email changed after the invite was read", async () => {
+    const supplierId = await insertSupplier({ contactEmail: ownerEmail });
+    await database
+      .update(suppliers)
+      .set({ contactEmail: "new@example.com" })
+      .where(eq(suppliers.id, supplierId));
+
+    const claim = claimSupplierForProfile(database, {
+      supplierId,
+      organizationId: tenantAt(3),
+      userId: ownerId,
+    });
+    await expect(claim).rejects.toMatchObject({ code: "CONFLICT" });
+    expect(await ownerOf(supplierId)).toBeNull();
+  });
+
+  it("refuses a claimant who no longer owns the profile", async () => {
+    const organizationId = tenantAt(3);
+    const supplierId = await insertSupplier({ contactEmail: ownerEmail });
+    await database
+      .update(member)
+      .set({ role: "member" })
+      .where(eq(member.organizationId, organizationId));
+
+    const claim = claimSupplierForProfile(database, {
+      supplierId,
+      organizationId,
+      userId: ownerId,
+    });
+    await expect(claim).rejects.toMatchObject({ code: "CONFLICT" });
     expect(await ownerOf(supplierId)).toBeNull();
   });
 });

@@ -92,6 +92,7 @@ export async function acceptSupplierInvite(token: string): Promise<{ profileSlug
   await claimSupplierForProfile(database, {
     supplierId: reading.supplierId,
     organizationId: profile.organizationId,
+    userId: viewer.userId,
   });
   logger.info("supplier_invite.claimed", {
     supplierId: reading.supplierId,

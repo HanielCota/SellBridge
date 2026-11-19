@@ -1,8 +1,8 @@
-import { conflictError, notFoundError } from "@sellbridge/shared/errors";
-import { and, asc, count, eq, isNull } from "drizzle-orm";
+import { conflictError } from "@sellbridge/shared/errors";
+import { and, asc, count, eq, exists, isNull, sql } from "drizzle-orm";
 import type { Database } from "../client.ts";
 import { isUniqueViolation } from "../postgres-errors.ts";
-import { member, organization, suppliers } from "../schema/index.ts";
+import { member, organization, suppliers, user } from "../schema/index.ts";
 
 /** One supplier per supplier profile (migration 0041). */
 const PROFILE_SUPPLIER_INDEX = "suppliers_organization_id_unique";
@@ -42,23 +42,31 @@ export async function getSupplierInviteTarget(
 
 /**
  * Hands a team-managed supplier, with its products and orders, to a supplier profile. Only an
- * active supplier still without an owner moves, so two claims never both win.
+ * active supplier still without an owner moves. The verified contact and ownership must match
+ * at the write, since either can change after opening the invite.
  *
- * @throws {AppError} `NOT_FOUND` when the profile is not a supplier profile.
- * @throws {AppError} `CONFLICT` when the supplier already has an owner or was switched off, or
- * the profile already runs a brand of its own.
+ * @throws {AppError} `CONFLICT` when the supplier or claimant is no longer eligible.
  */
 export async function claimSupplierForProfile(
   database: Database,
-  input: { supplierId: string; organizationId: string },
+  input: { supplierId: string; organizationId: string; userId: string },
 ): Promise<void> {
-  const [profile] = await database
-    .select({ kind: organization.kind })
-    .from(organization)
-    .where(eq(organization.id, input.organizationId));
-  if (profile?.kind !== "supplier") {
-    throw notFoundError(`Perfil de fornecedor não encontrado (perfil: ${input.organizationId})`);
-  }
+  const verifiedOwner = database
+    .select({ id: member.id })
+    .from(member)
+    .innerJoin(organization, eq(organization.id, member.organizationId))
+    .innerJoin(user, eq(user.id, member.userId))
+    .where(
+      and(
+        eq(member.organizationId, input.organizationId),
+        eq(member.userId, input.userId),
+        eq(member.role, "owner"),
+        eq(organization.kind, "supplier"),
+        eq(user.emailVerified, true),
+        sql`lower(btrim(${user.email})) = lower(btrim(${suppliers.contactEmail}))`,
+      ),
+    );
+
   try {
     const [claimed] = await database
       .update(suppliers)
@@ -69,12 +77,13 @@ export async function claimSupplierForProfile(
           eq(suppliers.catalogKind, "supplier"),
           eq(suppliers.active, true),
           isNull(suppliers.organizationId),
+          exists(verifiedOwner),
         ),
       )
       .returning({ id: suppliers.id });
     if (claimed === undefined) {
       throw conflictError(
-        "Este fornecedor já tem acesso ao painel ou foi desativado. Fale com a equipe SellBridge.",
+        "Não foi possível vincular o fornecedor. Confira o e-mail de pedidos e o acesso ao perfil de fornecedor.",
       );
     }
   } catch (error) {
