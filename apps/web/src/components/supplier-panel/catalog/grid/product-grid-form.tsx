@@ -23,7 +23,7 @@ import { StepDetails } from "../step-details";
 import { GridOptionsStep } from "./grid-options-step";
 import { GridPhotosStep } from "./grid-photos-step";
 import { GridReviewStep } from "./grid-review-step";
-import { GridTypeQuestion } from "./grid-type-question";
+import { CategoryQuestion, GridTypeQuestion } from "./grid-type-question";
 
 type GridForm = ReturnType<typeof useGridForm>;
 type FormData = Awaited<
@@ -72,12 +72,15 @@ function GridCategoryStep({
           }}
         />
       ) : null}
-      <StepCategory
-        values={form.values}
-        reasons={NO_REASONS}
-        onChange={form.changeValues}
-        categories={categories}
-      />
+      <div className="grid gap-3">
+        {form.saved === null ? <CategoryQuestion /> : null}
+        <StepCategory
+          values={form.values}
+          reasons={NO_REASONS}
+          onChange={form.changeValues}
+          categories={categories}
+        />
+      </div>
     </div>
   );
 }

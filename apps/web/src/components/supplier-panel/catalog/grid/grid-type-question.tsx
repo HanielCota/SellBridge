@@ -69,3 +69,15 @@ export function GridTypeQuestion({
     </fieldset>
   );
 }
+
+/**
+ * Below "Este produto tem cores ou tamanhos?", the categories need a question of their own, or
+ * they read as more answers to the first one. Screen readers already hear the group's legend.
+ */
+export function CategoryQuestion() {
+  return (
+    <p aria-hidden="true" className="text-subhead font-semibold">
+      Em qual categoria ele entra?
+    </p>
+  );
+}

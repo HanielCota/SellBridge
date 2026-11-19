@@ -24,7 +24,7 @@ import { StepCategory } from "./step-category";
 import { StepDetails } from "./step-details";
 import { StepImages } from "./step-images";
 import { StepReview } from "./step-review";
-import { GridTypeQuestion } from "./grid/grid-type-question";
+import { CategoryQuestion, GridTypeQuestion } from "./grid/grid-type-question";
 
 type FormData = Awaited<
   ReturnType<NonNullable<ReturnType<typeof supplierPanelProductFormQueryOptions>["queryFn"]>>
@@ -141,17 +141,21 @@ function CategoryStep({
   isNew: boolean;
   onChooseGrid: (() => void) | undefined;
 }) {
+  if (onChooseGrid === undefined || !isNew) {
+    return <StepCategory {...stepProps} categories={categories} />;
+  }
   return (
     <div className="grid gap-8">
-      {onChooseGrid === undefined || !isNew ? null : (
-        <GridTypeQuestion
-          hasGrid={false}
-          onChange={(hasGrid) => {
-            if (hasGrid) onChooseGrid();
-          }}
-        />
-      )}
-      <StepCategory {...stepProps} categories={categories} />
+      <GridTypeQuestion
+        hasGrid={false}
+        onChange={(hasGrid) => {
+          if (hasGrid) onChooseGrid();
+        }}
+      />
+      <div className="grid gap-3">
+        <CategoryQuestion />
+        <StepCategory {...stepProps} categories={categories} />
+      </div>
     </div>
   );
 }
