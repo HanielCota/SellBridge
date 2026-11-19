@@ -43,7 +43,8 @@ import {
 import { withDeadline } from "@sellbridge/shared/deadline";
 import { Queue, Worker } from "bullmq";
 import { startHealthServer } from "./health.ts";
-import { toJobContext } from "./lib/job-context.ts";
+import { isLastAttempt, toJobContext } from "./lib/job-context.ts";
+import { reportJobFailure } from "./lib/job-failure-report.ts";
 import { createRateLimiter } from "./lib/rate-limiter.ts";
 import { environment } from "./environment.ts";
 import { createPublishListingProcessor } from "./processors/publish-listing.ts";
@@ -199,6 +200,25 @@ function marketplaceWorkers(context: WorkerContext): Worker[] {
   ];
 }
 
+function createResellerInvoiceReader(context: WorkerContext) {
+  const { database, cipher, mercadoLivreConfig } = context;
+  return createResellerInvoiceReadProcessor({
+    database,
+    readSaleInvoice: async (due) => {
+      if (due.store.marketplace !== "mercado_livre") {
+        return null;
+      }
+
+      const store = resolveStoreCredentials(cipher, due.store);
+      if (store === null) {
+        return null;
+      }
+
+      return readMercadoLivreSaleInvoice(mercadoLivreConfig, store, due.externalOrderId);
+    },
+  });
+}
+
 /** The supplier's catalog sent to its ERP; one at a time, the ERP quota is per account. */
 function erpWorkers(context: WorkerContext): Worker[] {
   // One limiter for both jobs: an account's 3 requests per second are shared.
@@ -224,24 +244,16 @@ function erpWorkers(context: WorkerContext): Worker[] {
       return readMercadoLivreBuyerBilling(context.mercadoLivreConfig, store, work.externalOrderId);
     },
   });
-  const readResellerInvoices = createResellerInvoiceReadProcessor({
-    database: context.database,
-    readSaleInvoice: async (due) => {
-      if (due.store.marketplace !== "mercado_livre") {
-        return null;
-      }
-      const store = resolveStoreCredentials(context.cipher, due.store);
-      if (store === null) {
-        return null;
-      }
-      return readMercadoLivreSaleInvoice(context.mercadoLivreConfig, store, due.externalOrderId);
-    },
-  });
+  const readResellerInvoices = createResellerInvoiceReader(context);
   return [
-    new Worker(QUEUE_NAMES.erpCatalogExport, async (job) => processExport(job.data), {
-      connection: context.connection,
-      concurrency: 1,
-    }),
+    new Worker(
+      QUEUE_NAMES.erpCatalogExport,
+      async (job) => processExport(job.data, { isLast: isLastAttempt(job) }),
+      {
+        connection: context.connection,
+        concurrency: 1,
+      },
+    ),
     new Worker(QUEUE_NAMES.erpCatalogRead, async (job) => processRead(job.data), {
       connection: context.connection,
       concurrency: 2,
@@ -504,14 +516,7 @@ async function scheduleQueues(queues: WorkerContext["queues"]): Promise<void> {
 
 function observeWorkers(workers: readonly Worker[]): void {
   for (const worker of workers) {
-    worker.on("failed", (job, error) =>
-      logger.warn("job.failed", {
-        queue: worker.name,
-        jobId: job?.id,
-        attemptsMade: job?.attemptsMade,
-        error,
-      }),
-    );
+    worker.on("failed", (job, error) => reportJobFailure(worker.name, job, error));
     worker.on("error", (error) => logger.error("worker.error", { queue: worker.name, error }));
   }
 }
