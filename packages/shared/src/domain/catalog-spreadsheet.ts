@@ -2,6 +2,12 @@ import { validationError } from "../runtime/errors.ts";
 import { parseBrlToCents } from "./money.ts";
 import type { XlsxSheet } from "../runtime/xlsx-reader.ts";
 import { MAX_PRODUCT_CSV_BYTES, MAX_PRODUCT_CSV_ROWS } from "../schemas/admin-suppliers.ts";
+import {
+  type CatalogGridRecord,
+  type CatalogRecord,
+  groupCatalogGrids,
+} from "./catalog-spreadsheet-grid.ts";
+import { PRODUCT_CSV_GRID_COLUMNS } from "./product-csv.ts";
 
 /**
  * Turns supplier spreadsheets into the product CSV accepted by the admin import.
@@ -65,7 +71,16 @@ const REQUIRED_HEADERS: Record<SpreadsheetKind, readonly string[]> = {
   "shopee-listings": ["nome do produto", "sku da variacao", "preco"],
 };
 
-const CSV_HEADER = ["sku", "titulo", "descricao", "custo", "estoque", "categoria", "imagens"];
+const CSV_HEADER = [
+  "sku",
+  "titulo",
+  "descricao",
+  "custo",
+  "estoque",
+  "categoria",
+  "imagens",
+  "preco_sugerido",
+];
 
 export function normalizeHeader(header: string): string {
   return header
@@ -264,9 +279,17 @@ function imagesFrom(values: ReadonlyMap<string, string>, headers: readonly strin
     .filter((url) => /^https?:\/\//i.test(url));
 }
 
+function variantCell(values: ReadonlyMap<string, string>, header: string): string | null {
+  const cell = (values.get(header) ?? "").trim();
+  if (cell === "" || SINGLE_SIZE.has(normalizeHeader(cell))) {
+    return null;
+  }
+  return cell;
+}
+
 function supplierTitle(values: ReadonlyMap<string, string>): string {
-  const variant = [values.get("cor") ?? "", values.get("tamanho") ?? ""].filter(
-    (part) => !isBlank(part) && !SINGLE_SIZE.has(normalizeHeader(part)),
+  const variant = [variantCell(values, "cor"), variantCell(values, "tamanho")].filter(
+    (part) => part !== null,
   );
   const name = values.get("nome produto") ?? "";
   if (variant.length === 0) {
@@ -357,7 +380,7 @@ function buildRecord(
     listing: Listing | undefined;
     categories: readonly CatalogCategory[];
   },
-): string[] {
+): CatalogRecord {
   const { values } = row;
   const { listing } = context;
   const listingDescription = listing?.values.get("descricao do produto [basico]") ?? "";
@@ -367,21 +390,88 @@ function buildRecord(
   const title = listing == null ? supplierTitle(values) : listingTitle(listing.values);
   const images = [...imagesFrom(values, context.imageHeaders), ...(listing?.images ?? [])];
   const price = toCents(listing?.values.get("preco") ?? "");
-  return [
-    values.get("sku") ?? "",
-    title.slice(0, MAX_TITLE_LENGTH),
-    description.slice(0, MAX_DESCRIPTION_LENGTH),
-    supplierCost(values),
-    stockField(values.get("estoque") ?? ""),
-    resolveCategory(values, context.categories),
-    [...new Set(images)].slice(0, MAX_IMAGES).join("|"),
-    price == null || price === 0 ? "" : formatMoney(price),
-  ];
+  return {
+    sku: values.get("sku") ?? "",
+    title: title.slice(0, MAX_TITLE_LENGTH),
+    modelTitle: (listing?.values.get("nome do produto") ?? values.get("nome produto") ?? "").trim(),
+    supplierName: (values.get("nome produto") ?? "").trim(),
+    description: description.slice(0, MAX_DESCRIPTION_LENGTH),
+    cost: supplierCost(values),
+    stock: stockField(values.get("estoque") ?? ""),
+    categorySlug: resolveCategory(values, context.categories),
+    imageUrls: [...new Set(images)].slice(0, MAX_IMAGES),
+    suggestedPrice: price == null || price === 0 ? "" : formatMoney(price),
+    color: variantCell(values, "cor"),
+    size: variantCell(values, "tamanho"),
+    enriched: listing != null,
+  };
 }
 
+function recordFields(record: CatalogGridRecord, gridColumns: boolean): string[] {
+  const fields = [
+    record.sku,
+    record.grid === null ? record.title : record.modelTitle,
+    record.description,
+    record.cost,
+    record.stock,
+    record.categorySlug,
+    record.imageUrls.join("|"),
+    record.suggestedPrice,
+  ];
+  if (gridColumns) {
+    const { grid } = record;
+    return [...fields, grid?.modelCode ?? "", grid?.color ?? "", grid?.size ?? ""];
+  }
+  return fields;
+}
+
+interface SourcedRecord extends CatalogRecord {
+  readonly source: string;
+  readonly rowNumber: number;
+}
+
+function readCatalogRecords(
+  catalogs: readonly DetectedSpreadsheet[],
+  listings: ReadonlyMap<string, Listing>,
+  categories: readonly CatalogCategory[],
+): SourcedRecord[] {
+  const sourced: SourcedRecord[] = [];
+  for (const catalog of catalogs) {
+    const imageHeaders = numberedHeaders(catalog.headers, /^url imagem (\d+)$/);
+    for (const row of catalog.rows) {
+      const listing = listings.get(row.values.get("sku") ?? "");
+      const record = buildRecord(row, { imageHeaders, listing, categories });
+      sourced.push({ ...record, source: catalog.source, rowNumber: row.rowNumber });
+    }
+  }
+  return sourced;
+}
+
+function writeCsv(sourced: readonly SourcedRecord[], gridColumns: boolean) {
+  const header = gridColumns ? [...CSV_HEADER, ...PRODUCT_CSV_GRID_COLUMNS] : CSV_HEADER;
+  const records = gridColumns
+    ? groupCatalogGrids(sourced)
+    : sourced.map((record) => ({ ...record, grid: null }));
+  const csvRecords: string[] = [header.join(";")];
+  const lines: CatalogSourceLine[] = [];
+  let csvLine = 2;
+  for (const record of records) {
+    const csvRecord = recordFields(record, gridColumns).map(quoteCsv).join(";");
+    csvRecords.push(csvRecord);
+    lines.push({ csvLine, source: record.source, rowNumber: record.rowNumber, sku: record.sku });
+    csvLine += 1 + (csvRecord.match(/\n/g)?.length ?? 0);
+  }
+  return { csv: `${csvRecords.join("\r\n")}\r\n`, lines };
+}
+
+/**
+ * The supplier's catalog as the product CSV. With `gridColumns`, a product sold in two or more
+ * colours or sizes is written as one grid (see {@link groupCatalogGrids}).
+ */
 export function buildCatalogImport(input: {
   sheets: readonly DetectedSpreadsheet[];
   categories: readonly CatalogCategory[];
+  gridColumns?: boolean;
 }): CatalogImport {
   const catalogs = input.sheets.filter((sheet) => sheet.kind === "supplier-catalog");
   if (catalogs.length === 0) {
@@ -391,45 +481,27 @@ export function buildCatalogImport(input: {
   }
 
   const listings = indexListings(input.sheets.filter((sheet) => sheet.kind === "shopee-listings"));
-  const records: string[] = [[...CSV_HEADER, "preco_sugerido"].join(";")];
-  const lines: CatalogSourceLine[] = [];
-  const importedSkus = new Set<string>();
-  let csvLine = 2;
-  let enrichedCount = 0;
-  for (const catalog of catalogs) {
-    const imageHeaders = numberedHeaders(catalog.headers, /^url imagem (\d+)$/);
-    for (const row of catalog.rows) {
-      const sku = row.values.get("sku") ?? "";
-      const listing = listings.get(sku);
-      const fields = buildRecord(row, { imageHeaders, listing, categories: input.categories });
-      const record = fields.map(quoteCsv).join(";");
-      records.push(record);
-      lines.push({ csvLine, source: catalog.source, rowNumber: row.rowNumber, sku });
-      csvLine += 1 + (record.match(/\n/g)?.length ?? 0);
-      importedSkus.add(sku);
-      enrichedCount += listing == null ? 0 : 1;
-    }
-  }
-
-  if (lines.length === 0) {
+  const sourced = readCatalogRecords(catalogs, listings, input.categories);
+  if (sourced.length === 0) {
     throw validationError("A planilha do fornecedor não contém produtos");
   }
 
-  if (lines.length > MAX_PRODUCT_CSV_ROWS) {
+  if (sourced.length > MAX_PRODUCT_CSV_ROWS) {
     throw tooManyProductsError();
   }
 
-  const csv = `${records.join("\r\n")}\r\n`;
+  const { csv, lines } = writeCsv(sourced, input.gridColumns === true);
   if (new TextEncoder().encode(csv).byteLength > MAX_PRODUCT_CSV_BYTES) {
     throw validationError(
       "Os produtos convertidos passam de 2 MiB. Divida a planilha do fornecedor em partes menores",
     );
   }
 
+  const importedSkus = new Set(sourced.map((entry) => entry.sku));
   return {
     csv,
-    productCount: lines.length,
-    enrichedCount,
+    productCount: sourced.length,
+    enrichedCount: sourced.filter((entry) => entry.enriched).length,
     unmatchedListingSkus: [...listings.keys()].filter((sku) => !importedSkus.has(sku)).toSorted(),
     lines,
   };
