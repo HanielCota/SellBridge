@@ -303,7 +303,7 @@ export function categoryIdOfNiche(
 }
 
 /** Whole units only: "1.000" is a thousand, while "1." or "1.0" wait instead of saving 1. */
-function parseStockCount(text: string): number {
+export function parseStockCount(text: string): number {
   if (/^-?\d+$/.test(text)) {
     return Number(text);
   }
@@ -319,7 +319,9 @@ function wholeUnits(text: string): number {
 }
 
 /** Filled attributes only: an emptied field removes the attribute instead of storing "". */
-function filledAttributes(attributes: Readonly<Record<string, string>>): Record<string, string> {
+export function filledAttributes(
+  attributes: Readonly<Record<string, string>>,
+): Record<string, string> {
   return Object.fromEntries(
     Object.entries(attributes)
       .map(([id, value]) => [id, value.trim()] as const)
@@ -380,8 +382,15 @@ export function parseDraft(values: PanelFormValues, expectedStock?: number): Dra
   if (parsed.success) {
     return { ok: true, values: parsed.data };
   }
+  return { ok: false, errors: fieldErrorsOf(parsed.error.issues) };
+}
+
+/** Schema issues as the form shows them: one message per field, under its input. */
+export function fieldErrorsOf(
+  issues: readonly { path: readonly PropertyKey[]; code: string; message: string }[],
+): Record<string, string> {
   const errors: Record<string, string> = {};
-  for (const issue of parsed.error.issues) {
+  for (const issue of issues) {
     const [root, key] = issue.path.map(String);
     const field = errorFieldOf(root, key);
     // A half-typed amount ("12,") reaches the schema as NaN: the hint fits better than a message
@@ -391,7 +400,7 @@ export function parseDraft(values: PanelFormValues, expectedStock?: number): Dra
         ? "Valor inválido, revise o campo."
         : issue.message;
   }
-  return { ok: false, errors };
+  return errors;
 }
 
 function errorFieldOf(root: string | undefined, key: string | undefined): string {
