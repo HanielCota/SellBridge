@@ -104,6 +104,7 @@ function SupplierProductsPage() {
         void navigate({ search: (previous) => ({ ...previous, ...change }) })
       }
       onOpenProduct={(productId, focusField) => openProduct(productId, focusField)}
+      onOpenGrid={(modelId) => openGrid(modelId)}
       onCreateProduct={() => openProduct(NEW_PRODUCT)}
       headerActions={<SupplierDownloadMenu />}
     />
