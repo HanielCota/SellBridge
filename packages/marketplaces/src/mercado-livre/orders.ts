@@ -150,6 +150,18 @@ export async function listOrders(
   return { orders, resumeFrom: orders.at(-1)?.orderedAt ?? null };
 }
 
+/**
+ * The notification resource of an order known only by its number (the periodic order check).
+ *
+ * @throws {AppError} When the number is not Mercado Livre's all-digit order id.
+ */
+export function orderResource(externalOrderId: string): string {
+  if (!/^\d{1,40}$/.test(externalOrderId)) {
+    throw marketplaceError("Número de pedido do Mercado Livre inválido", { retryable: false });
+  }
+  return `/orders/${externalOrderId}`;
+}
+
 export async function fetchOrder(
   context: MercadoLivreContext,
   store: StoreCredentials,
