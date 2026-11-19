@@ -158,6 +158,34 @@ describe("subscription billing state", () => {
     expect(state.status).toBe("incomplete");
   });
 
+  // Regression: a refund waiting for authorization left the charge "received" and kept the plan.
+  test("does not count a received charge with a refund under way as paid", () => {
+    const state = subscriptionBillingState({
+      subscription: subscription({ status: "INACTIVE", deleted: true }),
+      charges: [
+        {
+          ...charge("2026-11-19", "RECEIVED"),
+          refunds: [{ status: "AWAITING_CRITICAL_ACTION_AUTHORIZATION" }],
+        },
+      ],
+      graceDays: GRACE_DAYS,
+      prepaidUntil: null,
+    });
+
+    expect(state).toMatchObject({ status: "canceled", periodEnd: null });
+  });
+
+  test("counts a charge as paid again once its refund is cancelled", () => {
+    const state = subscriptionBillingState({
+      subscription: subscription(),
+      charges: [{ ...charge("2026-11-19", "RECEIVED"), refunds: [{ status: "CANCELLED" }] }],
+      graceDays: GRACE_DAYS,
+      prepaidUntil: null,
+    });
+
+    expect(state.status).toBe("active");
+  });
+
   test("ignores a late charge older than the last payment", () => {
     const state = subscriptionBillingState({
       subscription: subscription(),

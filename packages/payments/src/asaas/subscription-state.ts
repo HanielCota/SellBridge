@@ -54,9 +54,14 @@ function newestFirst(charges: readonly AsaasSubscriptionCharge[]): AsaasSubscrip
   return charges.toSorted((first, second) => second.dueDate.localeCompare(first.dueDate));
 }
 
-/** Asaas holds the money: confirmed by card or received by Pix. */
+/**
+ * Asaas holds the money: confirmed by card or received by Pix, and not being given back. A
+ * refund keeps the charge "received" until it is authorized and done, so any refund that was
+ * not cancelled already takes the payment away.
+ */
 export function isPaidCharge(charge: AsaasSubscriptionCharge): boolean {
-  return PAID_STATUSES.has(charge.status);
+  const givenBack = charge.refunds?.some((refund) => refund.status !== "CANCELLED") === true;
+  return PAID_STATUSES.has(charge.status) && !givenBack;
 }
 
 function isOpen(charge: AsaasSubscriptionCharge): boolean {

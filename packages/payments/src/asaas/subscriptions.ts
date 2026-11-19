@@ -51,6 +51,8 @@ export const asaasSubscriptionChargeSchema = z.object({
   externalReference: z.string().nullish(),
   invoiceUrl: webLink.nullish(),
   deleted: z.boolean().nullish(),
+  /** Refunds asked for this charge; one may wait for authorization at Asaas for a while. */
+  refunds: z.array(z.object({ status: z.string() })).nullish(),
 });
 export type AsaasSubscriptionCharge = z.infer<typeof asaasSubscriptionChargeSchema>;
 
