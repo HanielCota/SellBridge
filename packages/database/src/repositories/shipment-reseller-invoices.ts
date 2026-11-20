@@ -11,12 +11,14 @@ import {
   suppliers,
   tenantProfile,
 } from "../schema/index.ts";
+import { hasDirectInvoice } from "./sql/on-behalf.ts";
 import { UNINVOICED_ORDER_STATUSES, UNINVOICED_SHIPMENT_STATUSES } from "./sql/uninvoiced.ts";
 
 /**
  * Opens the reseller's sale note of each new parcel sold in venda à ordem: the supplier issues
  * through its ERP with "Venda à ordem" chosen, and the reseller sells as a company (a CPF reseller
- * stays on the supplier's direct note, decision of 18/11/2026). Returns how many were opened.
+ * stays on the supplier's direct note, decision of 18/11/2026). A parcel that already has a direct
+ * note keeps it. Returns how many were opened.
  */
 export async function queueResellerSaleInvoices(database: Database): Promise<number> {
   const candidates = await database
@@ -49,6 +51,7 @@ export async function queueResellerSaleInvoices(database: Database): Promise<num
         isNull(shipmentResellerInvoices.id),
         notInArray(orderShipments.status, [...UNINVOICED_SHIPMENT_STATUSES]),
         notInArray(orders.status, [...UNINVOICED_ORDER_STATUSES]),
+        sql`not ${hasDirectInvoice}`,
       ),
     );
   if (candidates.length === 0) {

@@ -76,4 +76,15 @@ describe("readSupplierFiscalProfile", () => {
     expect(profile?.defaults.cfopOutOfStateConsumer).toBe("6108");
     expect(profile?.invoiceModel).toBe("direct");
   });
+
+  it("gives a profile saved before venda à ordem the usual remessa and sale CFOPs", () => {
+    const profile = readSupplierFiscalProfile(PROFILE);
+
+    expect(profile?.onBehalfCfops).toEqual({
+      shipmentInState: "5923",
+      shipmentOutOfState: "6923",
+      saleInState: "5119",
+      saleOutOfState: "6119",
+    });
+  });
 });

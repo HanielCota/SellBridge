@@ -16,7 +16,6 @@ import type {
 } from "@sellbridge/marketplaces/bling";
 import type { SupplierFiscalProfile } from "@sellbridge/shared/supplier-fiscal";
 import {
-  AVAILABLE_INVOICE_MODELS,
   blingInvoiceOutcome,
   INVOICE_STATUS_CHECK_IN_MS,
   invoiceCfopProblem,
@@ -57,8 +56,6 @@ interface InvoicePlan {
 
 const NO_FISCAL_PROFILE =
   "Preencha os dados fiscais da empresa em Marca (CNPJ, endereço e padrões da nota) e peça para tentar de novo.";
-const MODEL_NOT_AVAILABLE =
-  'A venda à ordem ainda não está disponível. Em Marca, em "Como sai a nota", escolha "Direto para o cliente" e peça para tentar de novo.';
 const NO_BUYER_DOCUMENT =
   "O canal de venda não informou o CPF ou CNPJ do comprador. Emita esta nota direto no Bling.";
 const STUCK_IN_BLING =
@@ -66,23 +63,24 @@ const STUCK_IN_BLING =
 const NO_ANSWER_FROM_SEFAZ =
   "A SEFAZ não respondeu sobre esta nota depois de algumas horas. Veja a situação da nota no Bling e peça para tentar de novo.";
 
-function now(dependencies: InvoiceStepDependencies): Date {
+export function now(dependencies: InvoiceStepDependencies): Date {
   return dependencies.now?.() ?? new Date();
 }
 
-function fiscalProfile(work: ShipmentInvoiceWork): SupplierFiscalProfile {
+/**
+ * The supplier's fiscal profile. A direct note goes out whatever model the supplier chose: a
+ * reseller who sells with a CPF stays on it in venda à ordem too (decision of 18/11/2026).
+ */
+export function fiscalProfile(work: ShipmentInvoiceWork): SupplierFiscalProfile {
   const profile = work.supplierFiscal;
   if (profile === null) {
     throw new InvoiceStopError(NO_FISCAL_PROFILE);
-  }
-  if (!AVAILABLE_INVOICE_MODELS.includes(profile.invoiceModel)) {
-    throw new InvoiceStopError(MODEL_NOT_AVAILABLE);
   }
   return profile;
 }
 
 /** A passing failure of the channel is retried; any other is a stop with its reason. */
-async function buyerBilling(
+export async function buyerBilling(
   dependencies: InvoiceStepDependencies,
   work: ShipmentInvoiceWork,
 ): Promise<BuyerBilling> {
@@ -142,7 +140,7 @@ function recipientName(work: ShipmentInvoiceWork, billing: BuyerBilling): string
   return billing.name ?? work.address.recipient;
 }
 
-async function ensureContact(
+export async function ensureContact(
   dependencies: InvoiceStepDependencies,
   work: ShipmentInvoiceWork,
   billing: BuyerBilling,
@@ -168,18 +166,27 @@ async function ensureContact(
   return contactId;
 }
 
+/** A line of a sale order: what the note sells, at which price per unit, in cents. */
+export interface OrderLine {
+  readonly sku: string;
+  readonly title: string;
+  readonly quantity: number;
+  readonly unit: string;
+  readonly unitPriceCents: number;
+}
+
 /** Bling's product of each line, matched by SKU (Bling's `codigo`). */
-async function orderItems(
+export async function orderItems(
   client: BlingClient,
-  lines: readonly PlannedLine[],
+  lines: readonly OrderLine[],
 ): Promise<BlingSaleOrderItem[]> {
-  const found = await client.findProductsByCodes(lines.map(({ line }) => line.sku));
+  const found = await client.findProductsByCodes(lines.map((line) => line.sku));
   const idBySku = new Map(
     found.flatMap((product) =>
       product.codigo == null ? [] : [[product.codigo, product.id] as const],
     ),
   );
-  return lines.map(({ line, tax }) => {
+  return lines.map((line) => {
     const productId = idBySku.get(line.sku);
     if (productId === undefined) {
       throw new InvoiceStopError(
@@ -190,7 +197,7 @@ async function orderItems(
       sku: line.sku,
       productId,
       description: line.title,
-      unit: tax.unit,
+      unit: line.unit,
       quantity: line.quantity,
       unitPriceCents: line.unitPriceCents,
     };
@@ -205,7 +212,7 @@ const BRAZIL_DAY = new Intl.DateTimeFormat("en-CA", {
   day: "2-digit",
 });
 
-function brazilDay(date: Date): string {
+export function brazilDay(date: Date): string {
   return BRAZIL_DAY.format(date);
 }
 
@@ -228,7 +235,10 @@ async function ensureSaleOrder(
       date: brazilDay(work.orderedAt),
       shippingDate: brazilDay(now(dependencies)),
       contact: { id: contactId, name: recipientName(work, plan.billing) },
-      items: await orderItems(client, plan.lines),
+      items: await orderItems(
+        client,
+        plan.lines.map(({ line, tax }) => ({ ...line, unit: tax.unit })),
+      ),
       notes: `Venda ${work.externalOrderId}, enviada pelo SellBridge.`,
     }));
   await recordShipmentInvoiceProgress(dependencies.database, work.id, { erpOrderId: orderId });
@@ -273,7 +283,7 @@ async function keepWaiting(
 }
 
 /** Saves what Bling says of a note already handed over (or decided) by SEFAZ. */
-async function recordAnswer(
+export async function recordAnswer(
   dependencies: InvoiceStepDependencies,
   work: ShipmentInvoiceWork,
   invoice: BlingInvoice,
@@ -311,11 +321,17 @@ async function recordAnswer(
   });
 }
 
+/** The CFOP the settings ask for on the line of this SKU. */
+export interface ExpectedCfop {
+  readonly sku: string;
+  readonly cfop: string;
+}
+
 /** Sends a note still being edited, once every line carries the CFOP the settings ask for. */
-async function sendWhenRight(
+export async function sendWhenRight(
   dependencies: InvoiceStepDependencies,
   work: ShipmentInvoiceWork,
-  plan: InvoicePlan,
+  expected: readonly ExpectedCfop[],
   invoiceId: number,
 ): Promise<void> {
   const invoice = await dependencies.client.getInvoice(invoiceId);
@@ -325,9 +341,9 @@ async function sendWhenRight(
   }
   const cfopBySku = new Map(invoice.lines.map((line) => [line.sku, line.cfop]));
   const problem = invoiceCfopProblem(
-    plan.lines.map(({ line, tax }) => ({
+    expected.map((line) => ({
       sku: line.sku,
-      expectedCfop: tax.cfop,
+      expectedCfop: line.cfop,
       actualCfop: cfopBySku.get(line.sku) ?? null,
     })),
   );
@@ -359,5 +375,6 @@ export async function advanceInvoice(
   }
   const plan = await planInvoice(dependencies, work);
   const invoiceId = await ensureInvoice(dependencies, work, plan);
-  await sendWhenRight(dependencies, work, plan, invoiceId);
+  const expected = plan.lines.map(({ line, tax }) => ({ sku: line.sku, cfop: tax.cfop }));
+  await sendWhenRight(dependencies, work, expected, invoiceId);
 }

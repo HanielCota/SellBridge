@@ -91,13 +91,14 @@ export const orderBlocked = inArray(orders.status, [...BLOCKED_ORDER_STATUSES]);
 /** The supplier must connect its receiving account before this parcel can move. */
 const waitsForReceivingAccount = sql<boolean>`coalesce(${preparationHold} = 'receiving_account', false)`;
 
-/** The parcel's NF-e status; null when the supplier's ERP issues no note for it. */
+/** The status of the parcel's NF-e in the box; null when the supplier's ERP issues no note for it. */
 export const invoiceStatus = sql<InvoiceStatus | null>`(
   select ${shipmentInvoices.status} from ${shipmentInvoices}
   where ${shipmentInvoices.shipmentId} = ${orderShipments.id}
+    and ${shipmentInvoices.kind} in ('direct', 'on_behalf_shipment')
 )`;
 
-/** The parcel's NF-e stopped in the ERP and waits for the supplier. */
+/** One of the parcel's NF-e stopped in the ERP and waits for the supplier. */
 export const invoiceStopped = sql<boolean>`exists (
   select 1 from ${shipmentInvoices}
   where ${shipmentInvoices.shipmentId} = ${orderShipments.id}
