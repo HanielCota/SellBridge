@@ -5,6 +5,7 @@ export {
   type BlingAccountAccess,
   type BlingClient,
   type BlingNewProduct,
+  type BlingStockExit,
 } from "./client.ts";
 export {
   type BlingDirectInvoiceItem,
@@ -47,6 +48,7 @@ export {
 } from "./stored-access.ts";
 export {
   blingStockUnits,
+  defaultBlingDepositId,
   findBlingIdsBySku,
   readBlingStock,
   type BlingStockRead,

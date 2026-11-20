@@ -128,7 +128,11 @@ export const orderStatusChanges = pgTable(
     status: orderStatusEnum().notNull(),
     changedAt: timestamp({ withTimezone: true }).defaultNow().notNull(),
   },
-  (table) => [index("order_status_changes_order_idx").on(table.orderId, table.changedAt)],
+  (table) => [
+    index("order_status_changes_order_idx").on(table.orderId, table.changedAt),
+    /** The ERP stock exit sweep reads the orders shipped in the last days. */
+    index("order_status_changes_status_idx").on(table.status, table.changedAt),
+  ],
 );
 
 export const orderAdjustments = pgTable(
