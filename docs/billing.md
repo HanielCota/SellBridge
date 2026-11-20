@@ -93,10 +93,6 @@ Asaas inclui o mesmo ID. Se a confirmação se perder, o suporte deve reconcilia
 Asaas e registrar o recurso identificado ou confirmar que a criação falhou antes de liberar
 nova tentativa.
 
-O Stripe não é mais usado. A migração `0096_drop_stripe_billing` deixa sem plano as contas que
-ainda tinham vínculo com ele (só contas de teste: a produção nunca cobrou pelo Stripe) e apaga a
-coluna que marcava o provedor.
-
 ## Lançamento
 
 1. Na conta do SellBridge no Asaas (produção), confirme que ela emite cobranças com Pix e cartão e
