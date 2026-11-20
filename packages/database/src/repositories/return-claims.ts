@@ -170,7 +170,7 @@ function policyCloseColumns(claim: DecidingClaim, credited: boolean, now: Date) 
 /**
  * The team's decision: credit the reseller up to the supplier cost, or not, with a reason.
  * The row is locked so two people deciding at once cannot both write. The credit is a recorded
- * balance only: moving the money (Stripe, payouts) is not part of the product yet. Returns the
+ * balance only: moving the money (charges, payouts) is not part of the product yet. Returns the
  * products put back on the shelf when the supplier said the item can be sold again.
  */
 export async function decideReturnClaim(

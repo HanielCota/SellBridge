@@ -698,8 +698,15 @@
     {
       "idx": 99,
       "version": "7",
-      "when": 1795194759074,
-      "tag": "0099_reseller_note_uploaded",
+      "when": 1795190640442,
+      "tag": "0099_drop_stripe_billing",
+      "breakpoints": true
+    },
+    {
+      "idx": 100,
+      "version": "7",
+      "when": 1795197963883,
+      "tag": "0100_reseller_note_uploaded",
       "breakpoints": true
     }
   ]
