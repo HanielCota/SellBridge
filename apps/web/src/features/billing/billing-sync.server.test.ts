@@ -96,6 +96,8 @@ beforeEach(() => {
   mocks.settle.mockResolvedValue(true);
   mocks.bySubscription.mockResolvedValue(null);
   mocks.byReference.mockResolvedValue(null);
+  // A value queued for one case must not leak into the next.
+  mocks.client.listSubscriptionCharges.mockReset();
   mocks.client.listSubscriptionCharges.mockResolvedValue([]);
 });
 
@@ -204,6 +206,38 @@ describe("subscription read back from Asaas", () => {
         reference: "subscription:sub_waiting",
       });
       expect(mocks.apply).not.toHaveBeenCalled();
+    });
+
+    const overduePix = { id: "pay_elite", status: "OVERDUE", value: 997, dueDate: "2026-11-20" };
+    const paidPix = { ...overduePix, status: "RECEIVED", paymentDate: "2026-11-21" };
+
+    it("does not end it when Asaas has it paid right before ending it", async () => {
+      mocks.client.listSubscriptionCharges
+        .mockResolvedValueOnce([overduePix])
+        .mockResolvedValueOnce([paidPix]);
+
+      await syncBillingSubscription({ subscriptionId: "sub_waiting", eventId: "evt_overdue" });
+
+      expect(mocks.client.deleteSubscription).not.toHaveBeenCalled();
+      expect(mocks.settle).not.toHaveBeenCalled();
+    });
+
+    it("keeps the link and tells the team when it is paid while being ended", async () => {
+      mocks.client.listSubscriptionCharges
+        .mockResolvedValueOnce([overduePix])
+        .mockResolvedValueOnce([overduePix])
+        .mockResolvedValueOnce([paidPix]);
+      const reported = vi.spyOn(logger, "error").mockImplementation(() => undefined);
+
+      await syncBillingSubscription({ subscriptionId: "sub_waiting", eventId: "evt_overdue" });
+
+      expect(mocks.client.deleteSubscription).toHaveBeenCalledWith("sub_waiting");
+      expect(mocks.settle).not.toHaveBeenCalled();
+      expect(reported).toHaveBeenCalledWith(
+        "billing.abandoned_pix_paid_while_ending",
+        expect.objectContaining({ problemKey: "abandoned-pix:sub_waiting" }),
+      );
+      reported.mockRestore();
     });
 
     it("takes over with its first payment and ends the old subscription", async () => {

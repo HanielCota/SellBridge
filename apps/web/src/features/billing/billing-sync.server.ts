@@ -138,9 +138,16 @@ async function retireSubscription(client: AsaasBillingClient, subscriptionId: st
   }
 }
 
+async function paidAtAsaas(client: AsaasBillingClient, subscriptionId: string): Promise<boolean> {
+  const charges = await client.listSubscriptionCharges(subscriptionId);
+  return charges.some(isPaidCharge);
+}
+
 /**
  * A waiting Pix subscription whose first charge went overdue unpaid, or whose paid month ran out,
- * was given up: it ends, or Asaas would keep charging the plan and reminding the reseller.
+ * was given up: it ends, or Asaas would keep charging the plan and reminding the reseller. A
+ * payment can land while it ends: Asaas is read again right before and right after, and a paid
+ * one keeps its link to the account, so its notice still hands over the month paid for.
  */
 async function endAbandonedPix(
   client: AsaasBillingClient,
@@ -150,7 +157,16 @@ async function endAbandonedPix(
   const overdue = charges.some((charge) => charge.status === "OVERDUE");
   const monthOver = account.periodEnd === null || account.periodEnd <= new Date();
   if (!overdue && !monthOver) return;
+  if (await paidAtAsaas(client, subscriptionId)) return;
   await retireSubscription(client, subscriptionId);
+  if (await paidAtAsaas(client, subscriptionId)) {
+    logger.error("billing.abandoned_pix_paid_while_ending", {
+      problemKey: `abandoned-pix:${subscriptionId}`,
+      subscriptionId,
+      reason: "Paid while being ended: the paid month is handed over, but it will not renew.",
+    });
+    return;
+  }
   const reference = `${SUBSCRIPTION_REFERENCE}${subscriptionId}`;
   await settlePendingReference(database, { tenantId: account.tenantId, reference });
   logger.info("billing.abandoned_pix_ended", {});

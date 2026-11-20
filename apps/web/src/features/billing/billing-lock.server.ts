@@ -102,12 +102,41 @@ async function removeUnlessGone(remove: () => Promise<unknown>): Promise<void> {
   await readUnlessGone(remove);
 }
 
+/** Cancelling the monthly fee is never held up by a difference Asaas has not decided on. */
+type RetireOptions = { cancelling?: boolean };
+
+const IN_DISPUTE =
+  "A diferença de plano está em contestação no Asaas. Fale com o suporte para trocar de plano.";
+const DISPUTE_STATUS = /^(CHARGEBACK_|AWAITING_CHARGEBACK_|DUNNING_)/;
+
+/**
+ * Neither paid, open nor given back: a card in risk analysis, or a chargeback or collection under
+ * way. A dispute reaches the team as a problem of its own. Changing plans waits for Asaas to
+ * decide; cancelling never does, and leaves the difference where it is.
+ */
+function undecidedDifference(charge: { id: string; status: string }, options: RetireOptions): void {
+  const disputed = DISPUTE_STATUS.test(charge.status);
+  if (disputed) {
+    logger.error("billing.difference_in_dispute", {
+      problemKey: `difference-dispute:${charge.id}`,
+      chargeId: charge.id,
+      status: charge.status,
+    });
+  }
+  if (options.cancelling === true) return;
+  throw conflictError(disputed ? IN_DISPUTE : STILL_IN_REVIEW);
+}
+
 /**
  * An upgrade difference still open is deleted. One already paid is synced: in time, it moved
  * the plan up and the action stops so the reseller sees it; too late, it was given back and the
  * action goes on. One given back before is left alone.
  */
-async function retireDifference(client: AsaasBillingClient, chargeId: string): Promise<void> {
+async function retireDifference(
+  client: AsaasBillingClient,
+  chargeId: string,
+  options: RetireOptions,
+): Promise<void> {
   const charge = await readUnlessGone(async () => client.getCharge(chargeId));
   if (charge === null) return;
   if (isPaidCharge(charge)) {
@@ -119,7 +148,7 @@ async function retireDifference(client: AsaasBillingClient, chargeId: string): P
     await removeUnlessGone(async () => client.deleteCharge(chargeId));
     return;
   }
-  if (!isGivenBackCharge(charge)) throw conflictError(STILL_IN_REVIEW);
+  if (!isGivenBackCharge(charge)) undecidedDifference(charge, options);
 }
 
 /**
@@ -166,11 +195,12 @@ async function retireIncompleteSubscription(
 export async function retireUnpaid(
   client: AsaasBillingClient,
   account: BillingAccount,
+  options: RetireOptions = {},
 ): Promise<void> {
   const reference = account.pendingReference;
   assertNoPendingBillingCreation(reference);
   if (reference?.startsWith(CHARGE_REFERENCE) === true) {
-    await retireDifference(client, reference.slice(CHARGE_REFERENCE.length));
+    await retireDifference(client, reference.slice(CHARGE_REFERENCE.length), options);
   }
   if (reference?.startsWith(CHECKOUT_REFERENCE) === true) {
     await retireCheckout(client, account, reference.slice(CHECKOUT_REFERENCE.length));
