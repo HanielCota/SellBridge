@@ -10,6 +10,12 @@ import { zipArchive } from "@sellbridge/marketplaces/testing";
  */
 export const E2E_MERCADO_LIVRE_SELLER_ID = "770001234";
 export const E2E_MERCADO_LIVRE_ORDER_PREFIX = "7700";
+/**
+ * A second seller of the stand-in, for specs that connect a store of their own while others run
+ * (a shop may be live only once): its orders start with this other prefix.
+ */
+export const E2E_MERCADO_LIVRE_NOTE_SELLER_ID = "770005678";
+export const E2E_MERCADO_LIVRE_NOTE_ORDER_PREFIX = "7701";
 
 /** What every ZPL label of the stand-in prints, so a test can find its download. */
 export function standInZpl(shipmentId: string): string {
@@ -19,7 +25,11 @@ export function standInZpl(shipmentId: string): string {
 const notFound = () => Response.json({ message: "not_found", status: 404 }, { status: 404 });
 
 function knownOrder(id: string | undefined): id is string {
-  return id !== undefined && id.startsWith(E2E_MERCADO_LIVRE_ORDER_PREFIX);
+  return (
+    id !== undefined &&
+    (id.startsWith(E2E_MERCADO_LIVRE_ORDER_PREFIX) ||
+      id.startsWith(E2E_MERCADO_LIVRE_NOTE_ORDER_PREFIX))
+  );
 }
 
 /** The shipment ids of a `shipment_labels` call, all of them known to the stand-in. */
@@ -125,7 +135,27 @@ function accountAddresses(url: URL): Response | null {
   ]);
 }
 
-export const mercadoLivreStandIn: FetchLike = async (input) => {
+/**
+ * The NF-e keys sent to each shipment (`POST /shipments/{id}/invoice_data`), read back by its GET:
+ * the stand-in keeps them while the test server runs, as Mercado Livre keeps an imported note.
+ */
+const importedInvoices = new Map<string, string>();
+
+function invoiceData(id: string, init: RequestInit | undefined): Response {
+  if (init?.method !== "POST") {
+    const key = importedInvoices.get(id);
+    return key === undefined ? notFound() : Response.json({ fiscal_key: key });
+  }
+  const xml = typeof init.body === "string" ? init.body : "";
+  const key = /<chNFe>(\d{44})<\/chNFe>/.exec(xml)?.[1];
+  if (key === undefined) {
+    return Response.json({ error: "invalid_nfe_cstat", message: "Invalid NFe" }, { status: 400 });
+  }
+  importedInvoices.set(id, key);
+  return Response.json({ id: Number(id), fiscal_key: key }, { status: 201 });
+}
+
+export const mercadoLivreStandIn: FetchLike = async (input, init) => {
   const url = new URL(input);
   if (url.host !== "api.mercadolibre.com") {
     return notFound();
@@ -146,7 +176,13 @@ export const mercadoLivreStandIn: FetchLike = async (input) => {
     return notFound();
   }
   if (resource === "orders" && detail === undefined) {
-    return Response.json({ seller: { id: Number(E2E_MERCADO_LIVRE_SELLER_ID) } });
+    const seller = id.startsWith(E2E_MERCADO_LIVRE_NOTE_ORDER_PREFIX)
+      ? E2E_MERCADO_LIVRE_NOTE_SELLER_ID
+      : E2E_MERCADO_LIVRE_SELLER_ID;
+    return Response.json({ seller: { id: Number(seller) }, shipping: { id: Number(id) } });
+  }
+  if (resource === "shipments" && detail === "invoice_data") {
+    return invoiceData(id, init);
   }
   if (resource === "orders" && detail === "shipments") {
     return Response.json([{ id: Number(id), type: "forward" }]);

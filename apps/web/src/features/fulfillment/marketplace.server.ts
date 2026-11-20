@@ -4,6 +4,7 @@ import {
   getMercadoLivreLabels,
   getMercadoLivreShipping,
   getTikTokShopShippingLabel,
+  sendMercadoLivreSaleInvoice,
   type MercadoLivreLabelFile,
   type PrintedLabel,
   type StoreCredentials,
@@ -14,9 +15,11 @@ import {
   BATCH_LABEL_MARKETPLACE,
   isLabelMarketplace,
 } from "@sellbridge/shared/supplier-order-labels";
-import { findOrderLabelParcels } from "@sellbridge/database/repositories";
-import { orders, storeConnections } from "@sellbridge/database/schema";
+import { findOnBehalfLabelParcels, findOrderLabelParcels } from "@sellbridge/database/repositories";
+import { orders, orderShipments, storeConnections } from "@sellbridge/database/schema";
+import { onBehalfLabelRefusal } from "@sellbridge/shared/reseller-invoice";
 import { labelSharingRefusal } from "@/features/fulfillment/label-sharing";
+import { saleNoteXmlRefusal } from "@/features/fulfillment/sale-note-xml";
 import { isShippingBlocked } from "@/features/fulfillment/shipping-block";
 import { database } from "@/lib/server/database";
 import { mercadoLivreApiConfig, tiktokShopApiConfig, tokenCipher } from "@/lib/server/marketplaces";
@@ -77,6 +80,11 @@ async function labelAccess(tenantId: string, orderId: string) {
       "Etiqueta de postagem disponível para Mercado Livre e TikTok Shop. Nos demais envios, registre a transportadora e o rastreio manualmente.",
     );
   if (isShippingBlocked(row.orderStatus)) throw conflictError("Pedido sem liberação para envio");
+  const notesRefusal = onBehalfLabelRefusal(
+    await findOnBehalfLabelParcels(database, { tenantId, orderId }),
+    row.store.marketplace,
+  );
+  if (notesRefusal !== null) throw conflictError(notesRefusal);
   return {
     marketplace: row.store.marketplace,
     store: storeCredentials(row.store),
@@ -201,4 +209,33 @@ export async function loadMarketplaceLabels(
       ...batch.refused.map((item) => ({ orderId: internal(item.orderId), error: item.error })),
     ],
   };
+}
+
+/**
+ * Sends the reseller's own sale note (its XML) to the Mercado Livre shipment of the parcel's
+ * order, where the label needs it. Other marketplaces take the typed key instead.
+ *
+ * @throws {AppError} NOT_FOUND when the parcel is not the reseller's; CONFLICT when the order is not
+ * on Mercado Livre or the store must be reconnected; EXTERNAL_PROVIDER when Mercado Livre refuses
+ * the note, with the reason.
+ */
+export async function sendResellerSaleNoteToMarketplace(
+  tenantId: string,
+  input: { shipmentId: string; accessKey: string; xml: string },
+): Promise<void> {
+  const [parcel] = await database
+    .select({ orderId: orderShipments.orderId })
+    .from(orderShipments)
+    .where(and(eq(orderShipments.id, input.shipmentId), eq(orderShipments.tenantId, tenantId)));
+  if (parcel === undefined) throw notFoundError("Pedido não encontrado");
+  const row = await orderStore(tenantId, parcel.orderId);
+  const refusal = saleNoteXmlRefusal(row.store.marketplace);
+  if (refusal !== null) {
+    throw conflictError(refusal);
+  }
+  await sendMercadoLivreSaleInvoice(mercadoLivreApiConfig, storeCredentials(row.store), {
+    orderId: row.externalOrderId,
+    accessKey: input.accessKey,
+    xml: input.xml,
+  });
 }
