@@ -6,10 +6,10 @@ import {
   findErpConnection,
   markErpCatalogExportRequested,
   saveErpCatalogExportResult,
+  findSingleProductSkus,
   findSupplierProductCostsBySku,
   findSupplierProductFieldsKeptOnErpImport,
   getSupplierTaxDefaults,
-  linkErpProducts,
   recordErpImport,
   setErpInvoicing,
   startErpCatalogRead,
@@ -19,16 +19,20 @@ import {
   buildErpCatalogCsv,
   erpCatalogReadResultSchema,
   mergeResellerCosts,
-  planErpCatalogImport,
   type ErpCatalogItem,
   type ErpCatalogReadResult,
-  type ErpImportRow,
   type ErpKeptFields,
   type ErpResellerCost,
 } from "@sellbridge/shared/erp-catalog";
 import { conflictError, forbiddenError, validationError } from "@sellbridge/shared/errors";
 import { logger } from "@sellbridge/shared/logger";
 import { database } from "@/lib/server/database";
+import {
+  blingReadRows,
+  gridReadyItems,
+  type BlingGridChoice,
+  type BlingReadRows,
+} from "./bling-read-rows";
 import { productGridEnabled } from "@/lib/server/product-grid-switch";
 import { enqueueErpCatalogExport, enqueueErpCatalogRead } from "@/lib/server/queues";
 import {
@@ -139,7 +143,8 @@ export async function startBlingRead(supplierId: string): Promise<BlingOverview>
   return loadBlingOverview(supplierId);
 }
 
-async function readyRead(supplierId: string, readId: string) {
+/** The finished read with this id, its stored result validated again. */
+async function readyResult(supplierId: string, readId: string): Promise<ErpCatalogReadResult> {
   const read: ErpCatalogRead | null = await findErpCatalogRead(database, { supplierId, ...BLING });
   if (read?.id !== readId || read.status !== "ready") {
     throw conflictError("Esta leitura do Bling não está mais disponível. Importe de novo.");
@@ -149,20 +154,22 @@ async function readyRead(supplierId: string, readId: string) {
     logger.error("bling.read_result_invalid", { supplierId, readId });
     throw conflictError("Não foi possível abrir esta leitura do Bling. Importe de novo.");
   }
-  return { result: parsed.data, readAt: read.finishedAt ?? read.startedAt };
+  return parsed.data;
 }
 
-/** The finished read with this id, its stored result validated again. */
-async function readyResult(supplierId: string, readId: string): Promise<ErpCatalogReadResult> {
-  return (await readyRead(supplierId, readId)).result;
-}
-
-export interface BlingReadRows {
-  readonly rows: ErpImportRow[];
-  readonly skipped: ErpCatalogReadResult["skipped"];
-  /** Products with variations that come in one product per variation; none while grids are off. */
-  readonly separated: number;
-  readonly truncated: boolean;
+/** Whether grids are on and, if so, which of the read's SKUs are already sold separately. */
+async function gridChoiceOf(
+  supplierId: string,
+  items: readonly ErpCatalogItem[],
+): Promise<BlingGridChoice> {
+  if (productGridEnabled()) {
+    const skus = items.map((item) => item.sku);
+    return {
+      gridColumns: true,
+      singleSkus: await findSingleProductSkus(database, { supplierId, skus }),
+    };
+  }
+  return { gridColumns: false, singleSkus: new Set() };
 }
 
 /** The products of a finished read as the preview lists them, with what each one needs. */
@@ -171,17 +178,14 @@ export async function loadBlingReadRows(
   readId: string,
 ): Promise<BlingReadRows> {
   const result = await readyResult(supplierId, readId);
-  const existingCosts = await findSupplierProductCostsBySku(database, {
-    supplierId,
-    skus: result.items.map((item) => item.sku),
-  });
-  const gridColumns = productGridEnabled();
-  return {
-    rows: planErpCatalogImport(result.items, existingCosts, { gridColumns }),
-    skipped: result.skipped,
-    separated: gridColumns ? result.separated.length : 0,
-    truncated: result.truncated,
-  };
+  const [existingCosts, choice] = await Promise.all([
+    findSupplierProductCostsBySku(database, {
+      supplierId,
+      skus: result.items.map((item) => item.sku),
+    }),
+    gridChoiceOf(supplierId, result.items),
+  ]);
+  return blingReadRows(result, existingCosts, choice);
 }
 
 /** The new products of a read as an import spreadsheet with the reseller price left blank. */
@@ -194,10 +198,11 @@ export async function buildBlingNewProductsCsv(
     supplierId,
     skus: result.items.map((item) => item.sku),
   });
-  const newItems = result.items.filter((item) => !existingCosts.has(item.sku));
-  return buildErpCatalogCsv(newItems, new Map(), new Map(), {
-    gridColumns: productGridEnabled(),
-  });
+  const choice = await gridChoiceOf(supplierId, result.items);
+  const newItems = gridReadyItems(result.items, choice).filter(
+    (item) => !existingCosts.has(item.sku),
+  );
+  return buildErpCatalogCsv(newItems, new Map(), new Map(), { gridColumns: choice.gridColumns });
 }
 
 function chunksOf<Item>(items: readonly Item[], size: number): Item[][] {
@@ -215,34 +220,6 @@ function appendCsvRows(collected: string, next: string): string {
   }
   const lineBreak = next.indexOf("\n");
   return lineBreak === -1 ? collected : collected + next.slice(lineBreak + 1);
-}
-
-/**
- * Each item's Bling id, so its stock (a grid's, per variation) follows Bling from the import
- * on; a product already linked keeps its link, as with the stock sync's own matching by SKU.
- */
-function erpLinksOf(items: readonly ErpCatalogItem[]) {
-  return items.flatMap((item) =>
-    item.erpProductId === undefined || item.erpProductId === null
-      ? []
-      : [{ sku: item.sku, erpProductId: item.erpProductId }],
-  );
-}
-
-/**
- * Links what was just imported. The products are saved by then, so a failure only delays the
- * link: the stock sync matches the same SKUs on its next check.
- */
-async function linkImportedProducts(
-  supplierId: string,
-  readAt: Date,
-  items: readonly ErpCatalogItem[],
-): Promise<void> {
-  try {
-    await linkErpProducts(database, { supplierId, readAt, links: erpLinksOf(items) });
-  } catch (error) {
-    logger.warn("bling.import_link_failed", { supplierId, items: items.length, error });
-  }
 }
 
 /** Previews and confirms one import file of priced products. */
@@ -294,7 +271,7 @@ export async function importBlingRead(input: {
   resellerDiscountTenths: number | null;
 }): Promise<BlingImportOutcome> {
   const { supplierId } = input;
-  const { result, readAt } = await readyRead(supplierId, input.readId);
+  const result = await readyResult(supplierId, input.readId);
   const skus = result.items.map((item) => item.sku);
   const [existingCosts, keptFields] = await Promise.all([
     findSupplierProductCostsBySku(database, { supplierId, skus }),
@@ -310,11 +287,9 @@ export async function importBlingRead(input: {
     failedRowsCsv: "",
     emojisRemoved: 0,
   };
-  for (const chunk of chunksOf(result.items, IMPORT_CHUNK_ROWS)) {
+  const items = gridReadyItems(result.items, await gridChoiceOf(supplierId, result.items));
+  for (const chunk of chunksOf(items, IMPORT_CHUNK_ROWS)) {
     const { preview, imported } = await importChunk(supplierId, chunk, costs, keptFields);
-    if (imported !== null) {
-      await linkImportedProducts(supplierId, readAt, chunk);
-    }
     outcome.created += imported?.created ?? 0;
     outcome.updated += imported?.updated ?? 0;
     outcome.pausedTargets += imported?.pausedTargets ?? 0;

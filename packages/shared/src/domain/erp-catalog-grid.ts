@@ -1,4 +1,5 @@
 import type { ErpCatalogItem, ErpFiscalData } from "./erp-catalog.ts";
+import { modelCodeKey, optionKey } from "./product-grid.ts";
 
 const MAX_IMAGES = 20;
 
@@ -6,7 +7,11 @@ function firstOf<Value>(values: readonly (Value | null)[]): Value | null {
   return values.find((value) => value !== null) ?? null;
 }
 
-const colorKey = (item: ErpCatalogItem): string => item.grid?.color?.trim().toLowerCase() ?? "";
+// Colours compared as the grid import compares them: "Café" and "Cafe" are one colour.
+const colorKey = (item: ErpCatalogItem): string => {
+  const color = item.grid?.color;
+  return color === undefined || color === null ? "" : optionKey(color);
+};
 
 function sharedFiscal(items: readonly ErpCatalogItem[]): ErpFiscalData {
   return {
@@ -36,9 +41,10 @@ function groupsByModel(items: readonly ErpCatalogItem[]): Map<string, ErpCatalog
     if (code === undefined) {
       continue;
     }
-    const group = groups.get(code);
+    const key = modelCodeKey(code);
+    const group = groups.get(key);
     if (group === undefined) {
-      groups.set(code, [item]);
+      groups.set(key, [item]);
       continue;
     }
     group.push(item);
@@ -80,4 +86,28 @@ export function unifyErpGrids(items: readonly ErpCatalogItem[]): ErpCatalogItem[
     });
   }
   return items.map((item) => byItem.get(item) ?? item);
+}
+
+/**
+ * The ERP items with no grid for a product the supplier already sells separately: if any SKU of
+ * a grid is in `singleSkus`, all its variations are written as separate products, exactly as
+ * before grids, and counted that way in the preview. Grouping existing products is a screen of
+ * its own, with confirmation.
+ */
+export function withoutGridsOfSeparateProducts(
+  items: readonly ErpCatalogItem[],
+  singleSkus: ReadonlySet<string>,
+): ErpCatalogItem[] {
+  const separateModels = new Set(
+    items.filter((item) => singleSkus.has(item.sku)).flatMap((item) => gridKeyOf(item) ?? []),
+  );
+  return items.map((item) => {
+    const key = gridKeyOf(item);
+    return key !== null && separateModels.has(key) ? { ...item, grid: null } : item;
+  });
+}
+
+function gridKeyOf(item: ErpCatalogItem): string | null {
+  const { grid } = item;
+  return grid === undefined || grid === null ? null : modelCodeKey(grid.modelCode);
 }

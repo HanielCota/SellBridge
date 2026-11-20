@@ -104,7 +104,7 @@ export const productGridSchema = z
 export type ProductGrid = z.infer<typeof productGridSchema>;
 
 /** Compares option names as people read them: "Preto" and "preto " are the same colour. */
-function optionKey(name: string): string {
+export function optionKey(name: string): string {
   return stripAccents(name).trim().replaceAll(/\s+/g, " ").toLowerCase();
 }
 

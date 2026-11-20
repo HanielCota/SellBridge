@@ -6,6 +6,7 @@ import {
   type CatalogGridRecord,
   type CatalogRecord,
   groupCatalogGrids,
+  MAX_CATALOG_IMAGES,
 } from "./catalog-spreadsheet-grid.ts";
 import { PRODUCT_CSV_GRID_COLUMNS } from "./product-csv.ts";
 
@@ -61,7 +62,6 @@ export const SPREADSHEET_KIND_LABEL: Record<SpreadsheetKind, string> = {
 const HEADER_SEARCH_ROWS = 10;
 const MAX_TITLE_LENGTH = 300;
 const MAX_DESCRIPTION_LENGTH = 20_000;
-const MAX_IMAGES = 20;
 const MAX_CENTS = 2_147_483_647;
 const SINGLE_SIZE = new Set(["unico", "u", "un", "tamanho unico"]);
 
@@ -287,6 +287,11 @@ function variantCell(values: ReadonlyMap<string, string>, header: string): strin
   return cell;
 }
 
+// A Shopee listing's name when it has one, the supplier's otherwise: a blank cell is no name.
+function firstFilled(...candidates: readonly (string | undefined)[]): string {
+  return candidates.map((text) => text?.trim() ?? "").find((text) => text !== "") ?? "";
+}
+
 function supplierTitle(values: ReadonlyMap<string, string>): string {
   const variant = [variantCell(values, "cor"), variantCell(values, "tamanho")].filter(
     (part) => part !== null,
@@ -393,13 +398,13 @@ function buildRecord(
   return {
     sku: values.get("sku") ?? "",
     title: title.slice(0, MAX_TITLE_LENGTH),
-    modelTitle: (listing?.values.get("nome do produto") ?? values.get("nome produto") ?? "").trim(),
+    modelTitle: firstFilled(listing?.values.get("nome do produto"), values.get("nome produto")),
     supplierName: (values.get("nome produto") ?? "").trim(),
     description: description.slice(0, MAX_DESCRIPTION_LENGTH),
     cost: supplierCost(values),
     stock: stockField(values.get("estoque") ?? ""),
     categorySlug: resolveCategory(values, context.categories),
-    imageUrls: [...new Set(images)].slice(0, MAX_IMAGES),
+    imageUrls: [...new Set(images)].slice(0, MAX_CATALOG_IMAGES),
     suggestedPrice: price == null || price === 0 ? "" : formatMoney(price),
     color: variantCell(values, "cor"),
     size: variantCell(values, "tamanho"),
@@ -447,10 +452,14 @@ function readCatalogRecords(
   return sourced;
 }
 
-function writeCsv(sourced: readonly SourcedRecord[], gridColumns: boolean) {
+function writeCsv(
+  sourced: readonly SourcedRecord[],
+  grids: { readonly gridColumns: boolean; readonly singleSkus: ReadonlySet<string> },
+) {
+  const { gridColumns } = grids;
   const header = gridColumns ? [...CSV_HEADER, ...PRODUCT_CSV_GRID_COLUMNS] : CSV_HEADER;
   const records = gridColumns
-    ? groupCatalogGrids(sourced)
+    ? groupCatalogGrids(sourced, grids.singleSkus)
     : sourced.map((record) => ({ ...record, grid: null }));
   const csvRecords: string[] = [header.join(";")];
   const lines: CatalogSourceLine[] = [];
@@ -472,6 +481,8 @@ export function buildCatalogImport(input: {
   sheets: readonly DetectedSpreadsheet[];
   categories: readonly CatalogCategory[];
   gridColumns?: boolean;
+  /** SKUs the supplier sells as products of their own: their rows never become a grid. */
+  singleSkus?: ReadonlySet<string>;
 }): CatalogImport {
   const catalogs = input.sheets.filter((sheet) => sheet.kind === "supplier-catalog");
   if (catalogs.length === 0) {
@@ -490,7 +501,10 @@ export function buildCatalogImport(input: {
     throw tooManyProductsError();
   }
 
-  const { csv, lines } = writeCsv(sourced, input.gridColumns === true);
+  const { csv, lines } = writeCsv(sourced, {
+    gridColumns: input.gridColumns === true,
+    singleSkus: input.singleSkus ?? new Set(),
+  });
   if (new TextEncoder().encode(csv).byteLength > MAX_PRODUCT_CSV_BYTES) {
     throw validationError(
       "Os produtos convertidos passam de 2 MiB. Divida a planilha do fornecedor em partes menores",

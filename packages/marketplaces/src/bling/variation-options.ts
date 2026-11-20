@@ -1,4 +1,9 @@
-import { MAX_GRID_OPTION_LENGTH, MAX_MODEL_CODE_LENGTH } from "@sellbridge/shared/product-grid";
+import {
+  MAX_GRID_COMBINATIONS,
+  MAX_GRID_OPTION_LENGTH,
+  MAX_MODEL_CODE_LENGTH,
+  optionKey,
+} from "@sellbridge/shared/product-grid";
 import { stripAccents } from "@sellbridge/shared/text";
 
 export interface VariationOptions {
@@ -51,4 +56,27 @@ export function blingModelCode(parent: { id: number; codigo?: string | null | un
     return `BLING-${parent.id}`;
   }
   return code;
+}
+
+function partly(count: number, total: number): boolean {
+  return count > 0 && count < total;
+}
+
+/**
+ * Whether variations read one by one still fail as a grid: some with a size and some without
+ * (or a colour), the same colour and size twice, or more combinations than a grid takes. Such a
+ * product comes in one product per variation, as before grids, instead of failing whole.
+ */
+export function failsAsGrid(options: readonly VariationOptions[]): boolean {
+  const colored = options.filter((option) => option.color !== null).length;
+  const sized = options.filter((option) => option.size !== null).length;
+  const pairs = new Set(
+    options.map((option) => `${optionKey(option.color ?? "")}|${optionKey(option.size ?? "")}`),
+  );
+  return (
+    partly(colored, options.length) ||
+    partly(sized, options.length) ||
+    pairs.size < options.length ||
+    options.length > MAX_GRID_COMBINATIONS
+  );
 }
