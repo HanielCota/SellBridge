@@ -48,7 +48,27 @@ describe("readSupplierCatalogFile", () => {
 
     const normalized = normalizeImportFile(utf8(converted?.csv ?? ""), { gridColumns: true });
     expect(normalized.canonicalCsv.split("\n")[0]).toContain("codigo_modelo;cor;tamanho");
-    expect(converted?.csv).toContain('"TENIS-CASUAL";"Preto";"38"');
+    expect(converted?.csv).toMatch(/"TENIS-CASUAL-[0-9A-Z]{6}";"Preto";"38"/);
+  });
+
+  it("keeps as separate products the sizes of a product the supplier already sells separately", async () => {
+    const file = buildXlsx([
+      [...envioVeloxHeader, "Cor", "Tamanho"],
+      ["TEN-37", "Tênis casual", "", 0, 39.9, 12, "", "Calçados", "Preto", "37"],
+      ["TEN-38", "Tênis casual", "", 0, 39.9, 4, "", "Calçados", "Preto", "38"],
+    ]);
+    const loadSingleSkus = vi.fn<(skus: readonly string[]) => Promise<ReadonlySet<string>>>(
+      async () => new Set(["TEN-37"]),
+    );
+
+    const converted = await readSupplierCatalogFile(file, "envio.xlsx", categories, {
+      gridColumns: true,
+      loadSingleSkus,
+    });
+
+    expect(loadSingleSkus).toHaveBeenCalledWith(["TEN-37", "TEN-38"]);
+    expect(converted?.csv).toContain('"Tênis casual - Preto 38"');
+    expect(converted?.csv).not.toMatch(/"TENIS-CASUAL-[0-9A-Z]{6}"/);
   });
 
   // Regression (security audit, 31/10/2026): every row got a map as wide as the header, and the
