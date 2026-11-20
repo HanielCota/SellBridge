@@ -516,13 +516,15 @@ describe("migrations", { timeout: MIGRATION_TEST_TIMEOUT }, () => {
           ('org-stripe', 'Stripe', 'stripe-billing', now()),
           ('org-asaas', 'Asaas', 'asaas-billing', now()),
           ('org-customer-only', 'Cliente', 'customer-only-billing', now()),
-          ('org-unlinked', 'Sem vínculo', 'unlinked-billing', now())`;
+          ('org-unlinked', 'Sem vínculo', 'unlinked-billing', now()),
+          ('org-subscription-only', 'Assinatura', 'subscription-only-billing', now())`;
       await sql`
         insert into billing_accounts (tenant_id, provider, customer_id, subscription_id, plan, status, period_end) values
           ('org-stripe', 'stripe', 'cus_stripe', 'sub_stripe', 'pro', 'active', '2026-12-20T00:00:00Z'),
           ('org-asaas', 'asaas', 'cus_asaas', 'sub_asaas', 'elite', 'active', '2026-12-20T00:00:00Z'),
           ('org-customer-only', 'stripe', 'cus_only', null, 'pro', 'incomplete', null),
-          ('org-unlinked', 'stripe', null, null, 'start', 'active', null)`;
+          ('org-unlinked', 'stripe', null, null, 'start', 'active', null),
+          ('org-subscription-only', 'stripe', null, 'sub_only', 'black', 'past_due', '2026-12-20T00:00:00Z')`;
     });
 
     await runMigrator(url);
@@ -558,6 +560,13 @@ describe("migrations", { timeout: MIGRATION_TEST_TIMEOUT }, () => {
       },
       {
         tenant_id: "org-stripe",
+        customer_id: null,
+        subscription_id: null,
+        plan: "free",
+        status: "canceled",
+      },
+      {
+        tenant_id: "org-subscription-only",
         customer_id: null,
         subscription_id: null,
         plan: "free",
