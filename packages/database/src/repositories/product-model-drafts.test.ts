@@ -343,6 +343,30 @@ describe("supplier panel list", () => {
     });
     expect(list.counts.all).toBe(1);
   });
+
+  it("counts a grid without NF-e data once among the products missing it", async () => {
+    const prefix = randomUUID().slice(0, 8);
+    const input = draft(prefix);
+    const search = {
+      supplierId,
+      status: "all",
+      query: undefined,
+      sort: "title",
+      direction: "asc",
+      page: 1,
+      pageSize: 25,
+      fiscal: "all",
+    } as const;
+    const before = await listSupplierPanelProducts(database, search);
+
+    await saveProductModelDraft(database, {
+      ...input,
+      values: { ...input.values, fiscal: { ...input.values.fiscal, ncm: null } },
+    });
+
+    const after = await listSupplierPanelProducts(database, search);
+    expect(after.missingFiscalCount - before.missingFiscalCount).toBe(1);
+  });
 });
 
 describe("spreadsheet export", () => {
