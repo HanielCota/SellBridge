@@ -4,6 +4,7 @@ import {
   getBillingAccount,
   requireBillingOwner,
   saveBillingAccount,
+  type BillingAccountPatch,
   type BillingHolder,
 } from "@sellbridge/database/repositories";
 import {
@@ -37,7 +38,7 @@ import {
   readSubscriptionState,
   retireLapsedDifference,
 } from "./billing-sync.server";
-import { CHARGE_REFERENCE, CHECKOUT_REFERENCE } from "./pending-reference";
+import { CHARGE_REFERENCE, CHECKOUT_REFERENCE, SUBSCRIPTION_REFERENCE } from "./pending-reference";
 import { paidMonthCarriedTo } from "./paid-month";
 import { planChangeOf, type PlanChange } from "./plan-change";
 import { upgradeReference } from "./upgrade-reference";
@@ -132,6 +133,40 @@ async function ensureSubscriber(
   return customerId;
 }
 
+/** A month the account already paid for and still uses, whatever plan comes next. */
+function stillInPaidMonth(account: BillingAccount | null, now: Date): boolean {
+  if (account?.periodEnd == null || account.periodEnd <= now) return false;
+  return account.status === "active" || account.status === "past_due";
+}
+
+/**
+ * A new Pix subscription takes over at once, except while a month already paid runs that it
+ * cannot carry (a dearer plan): then it waits for its first payment and the paid month stays,
+ * so an abandoned Pix code costs the reseller nothing.
+ */
+function pixSubscriptionPatch(
+  account: BillingAccount | null,
+  plan: BillingPlan,
+  subscriptionId: string,
+  prepaidUntil: Date | null,
+): BillingAccountPatch {
+  if (prepaidUntil === null && stillInPaidMonth(account, new Date())) {
+    return { pendingPlan: plan.id, pendingReference: `${SUBSCRIPTION_REFERENCE}${subscriptionId}` };
+  }
+  return {
+    subscriptionId,
+    plan: plan.id,
+    paymentMethod: "pix",
+    prepaidUntil,
+    cancelAtPeriodEnd: false,
+    pendingPlan: null,
+    pendingReference: null,
+    scheduledPlan: null,
+    scheduledPlanAt: null,
+    ...(prepaidUntil === null ? { status: "incomplete", periodEnd: null } : {}),
+  };
+}
+
 async function openPixSubscription(
   client: AsaasBillingClient,
   input: { tenantId: string; account: BillingAccount | null; plan: BillingPlan },
@@ -154,18 +189,11 @@ async function openPixSubscription(
         externalReference: `${input.tenantId}:${reference}`,
       }),
   );
-  await saveBillingAccount(database, input.tenantId, {
-    subscriptionId: subscription.id,
-    plan: input.plan.id,
-    paymentMethod: "pix",
-    prepaidUntil,
-    cancelAtPeriodEnd: false,
-    pendingPlan: null,
-    pendingReference: null,
-    scheduledPlan: null,
-    scheduledPlanAt: null,
-    ...(prepaidUntil === null ? { status: "incomplete", periodEnd: null } : {}),
-  });
+  await saveBillingAccount(
+    database,
+    input.tenantId,
+    pixSubscriptionPatch(input.account, input.plan, subscription.id, prepaidUntil),
+  );
   const charges = await client.listSubscriptionCharges(subscription.id);
   const first = charges.find((charge) => charge.status === "PENDING" && charge.invoiceUrl != null);
   if (first?.invoiceUrl == null) {
@@ -418,6 +446,22 @@ export async function changePlan(input: { tenantId: string; userId: string; plan
   });
 }
 
+/** The first Pix of a subscription that waits for it to take over, still open. */
+async function waitingPixLink(
+  client: AsaasBillingClient,
+  reference: string | null,
+): Promise<string | null> {
+  if (reference?.startsWith(SUBSCRIPTION_REFERENCE) !== true) return null;
+  const charges = await client.listSubscriptionCharges(
+    reference.slice(SUBSCRIPTION_REFERENCE.length),
+  );
+  const open = charges.find(
+    (charge) =>
+      (charge.status === "PENDING" || charge.status === "OVERDUE") && charge.invoiceUrl != null,
+  );
+  return open?.invoiceUrl ?? null;
+}
+
 /** The Asaas page of what is waiting for payment: an upgrade difference or the monthly fee. */
 export async function openPendingPayment(input: { tenantId: string; userId: string }) {
   await requireBillingOwner(database, input.tenantId, input.userId);
@@ -427,18 +471,14 @@ export async function openPendingPayment(input: { tenantId: string; userId: stri
     const reference = account?.pendingReference ?? null;
     assertNoPendingBillingCreation(reference);
     // A difference whose month is over no longer moves the plan up: it is closed, not offered.
-    const lapsed = await retireLapsedDifference(client, reference, new Date());
-    if (lapsed) {
-      await saveBillingAccount(database, input.tenantId, {
-        pendingPlan: null,
-        pendingReference: null,
-      });
-    }
+    const lapsed = account !== null && (await retireLapsedDifference(client, account, new Date()));
     if (!lapsed && reference?.startsWith(CHARGE_REFERENCE) === true) {
       const charge = await client.getCharge(reference.slice(CHARGE_REFERENCE.length));
       // A card difference is CONFIRMED before RECEIVED: neither is still waiting for payment.
       if (charge.invoiceUrl != null && !isPaidCharge(charge)) return { url: charge.invoiceUrl };
     }
+    const waiting = await waitingPixLink(client, reference);
+    if (waiting !== null) return { url: waiting };
     if (account?.subscriptionId == null) throw validationError("Não há pagamento em aberto agora.");
     const { state } = await readSubscriptionState(client, {
       subscriptionId: account.subscriptionId,

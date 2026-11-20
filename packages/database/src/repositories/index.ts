@@ -121,6 +121,7 @@ export * from "./admin-report.ts";
 export * from "./admin-exports.ts";
 export * from "./erp-connections.ts";
 export * from "./erp-stock.ts";
+export * from "./erp-stock-exits.ts";
 export * from "./shipment-invoices.ts";
 export * from "./shipment-on-behalf-invoices.ts";
 export * from "./shipment-reseller-invoices.ts";

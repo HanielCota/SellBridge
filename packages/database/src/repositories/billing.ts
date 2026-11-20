@@ -235,6 +235,26 @@ export async function findBillingAccountByPendingReference(
   return account ?? null;
 }
 
+/**
+ * Settles what the account waits on, with `patch` (the plan it paid for, say), only while it
+ * still waits on `reference`: what was opened meanwhile is never erased, and a settlement
+ * delivered twice applies once. True when this call settled it.
+ */
+export async function settlePendingReference(
+  database: DatabaseExecutor,
+  input: { tenantId: string; reference: string; patch?: BillingAccountPatch },
+): Promise<boolean> {
+  const { tenantId, reference, patch = {} } = input;
+  const cleared = await database
+    .update(billingAccounts)
+    .set({ ...patch, pendingPlan: null, pendingReference: null })
+    .where(
+      and(eq(billingAccounts.tenantId, tenantId), eq(billingAccounts.pendingReference, reference)),
+    )
+    .returning({ tenantId: billingAccounts.tenantId });
+  return cleared.length > 0;
+}
+
 /** The owner's e-mail: the payment provider sends the monthly charges there. */
 export async function findBillingOwnerEmail(
   database: DatabaseExecutor,

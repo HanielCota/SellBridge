@@ -5,6 +5,13 @@ const mocks = vi.hoisted(() => ({
     vi.fn<(executor: unknown, input: { patch: Record<string, unknown> }) => Promise<boolean>>(),
   bySubscription: vi.fn<(...input: unknown[]) => Promise<unknown>>(),
   byReference: vi.fn<(...input: unknown[]) => Promise<unknown>>(),
+  settle:
+    vi.fn<
+      (
+        executor: unknown,
+        input: { tenantId: string; reference: string; patch?: unknown },
+      ) => Promise<boolean>
+    >(),
   client: {
     getSubscription: vi.fn<(...input: unknown[]) => Promise<unknown>>(),
     listSubscriptionCharges: vi.fn<(...input: unknown[]) => Promise<unknown[]>>(),
@@ -19,6 +26,7 @@ vi.mock("@sellbridge/database/repositories", () => ({
   applyBillingState: mocks.apply,
   findBillingAccountBySubscription: mocks.bySubscription,
   findBillingAccountByPendingReference: mocks.byReference,
+  settlePendingReference: mocks.settle,
   getBillingAccount: vi.fn<() => Promise<unknown>>(),
 }));
 vi.mock("@/lib/server/environment", () => ({ environment: { BILLING_PAST_DUE_GRACE_DAYS: 7 } }));
@@ -52,6 +60,29 @@ function account(overrides: Record<string, unknown> = {}) {
   };
 }
 
+/** The pro subscription renewing while an elite difference is still pending. */
+function renewal() {
+  mocks.client.getSubscription.mockResolvedValue({
+    id: "sub_old",
+    customer: "cus_pix",
+    status: "ACTIVE",
+    value: 197,
+  });
+  mocks.bySubscription.mockResolvedValue(
+    account({ pendingPlan: "elite", pendingReference: "charge:pay_diff" }),
+  );
+}
+
+/** A paid, cancelled Start month while a dearer Elite Pix waits for its first payment. */
+function waitingAccount() {
+  return account({
+    plan: "start",
+    cancelAtPeriodEnd: true,
+    pendingPlan: "elite",
+    pendingReference: "subscription:sub_waiting",
+  });
+}
+
 function patchApplied(): Record<string, unknown> {
   const call = mocks.apply.mock.calls[0];
   if (call === undefined) throw new Error("no state was applied");
@@ -61,6 +92,7 @@ function patchApplied(): Record<string, unknown> {
 beforeEach(() => {
   vi.clearAllMocks();
   mocks.apply.mockResolvedValue(true);
+  mocks.settle.mockResolvedValue(true);
   mocks.bySubscription.mockResolvedValue(null);
   mocks.byReference.mockResolvedValue(null);
   mocks.client.listSubscriptionCharges.mockResolvedValue([]);
@@ -78,6 +110,90 @@ describe("subscription read back from Asaas", () => {
     await syncBillingSubscription({ subscriptionId: "sub_x", eventId: "evt_1" });
 
     expect(mocks.apply).not.toHaveBeenCalled();
+  });
+
+  it("ends a card checkout subscription no account waits on and gives back what it charged", async () => {
+    mocks.client.getSubscription.mockResolvedValue({
+      id: "sub_orphan",
+      customer: "cus_card",
+      status: "ACTIVE",
+      value: 197,
+      checkoutSession: "chk_cancelled",
+    });
+    mocks.client.listSubscriptionCharges.mockResolvedValue([
+      { id: "pay_card", status: "CONFIRMED", value: 197, dueDate: "2026-11-20" },
+    ]);
+
+    await syncBillingSubscription({ subscriptionId: "sub_orphan", eventId: "evt_orphan" });
+
+    expect(mocks.client.refundCharge).toHaveBeenCalledWith("pay_card", expect.any(String));
+    expect(mocks.client.deleteSubscription).toHaveBeenCalledWith("sub_orphan");
+    expect(mocks.apply).not.toHaveBeenCalled();
+  });
+
+  it("leaves alone a subscription that is already over or never came from a checkout", async () => {
+    mocks.client.getSubscription.mockResolvedValue({
+      id: "sub_gone",
+      customer: "cus_card",
+      status: "INACTIVE",
+      value: 197,
+      deleted: true,
+      checkoutSession: "chk_old",
+    });
+
+    await syncBillingSubscription({ subscriptionId: "sub_gone", eventId: "evt_gone" });
+
+    expect(mocks.client.refundCharge).not.toHaveBeenCalled();
+    expect(mocks.client.deleteSubscription).not.toHaveBeenCalled();
+  });
+
+  describe("a dearer plan's Pix subscription waiting for its first payment", () => {
+    beforeEach(() => {
+      mocks.client.getSubscription.mockResolvedValue({
+        id: "sub_waiting",
+        customer: "cus_pix",
+        status: "ACTIVE",
+        value: 997,
+        billingType: "PIX",
+      });
+      mocks.byReference.mockImplementation(async (_executor, reference) =>
+        reference === "subscription:sub_waiting" ? waitingAccount() : null,
+      );
+    });
+
+    it("leaves the paid month alone while that Pix is unpaid", async () => {
+      mocks.client.listSubscriptionCharges.mockResolvedValue([
+        { id: "pay_elite", status: "PENDING", value: 997, dueDate: "2026-11-20" },
+      ]);
+
+      await syncBillingSubscription({ subscriptionId: "sub_waiting", eventId: "evt_created" });
+
+      expect(mocks.apply).not.toHaveBeenCalled();
+      expect(mocks.client.deleteSubscription).not.toHaveBeenCalled();
+    });
+
+    it("takes over with its first payment and ends the old subscription", async () => {
+      mocks.client.listSubscriptionCharges.mockResolvedValue([
+        {
+          id: "pay_elite",
+          status: "RECEIVED",
+          value: 997,
+          dueDate: "2026-11-20",
+          paymentDate: "2026-11-20",
+        },
+      ]);
+
+      await syncBillingSubscription({ subscriptionId: "sub_waiting", eventId: "evt_paid" });
+
+      expect(patchApplied()).toMatchObject({
+        subscriptionId: "sub_waiting",
+        plan: "elite",
+        paymentMethod: "pix",
+        pendingReference: null,
+        prepaidUntil: null,
+      });
+      expect(mocks.client.deleteSubscription).toHaveBeenCalledWith("sub_old");
+    });
   });
 
   it("binds a card checkout's subscription, keeps the paid month and ends the old one", async () => {
@@ -207,11 +323,32 @@ describe("upgrade difference", () => {
       valueCents: 99_700,
       description: "SellBridge Elite",
     });
-    expect(patchApplied()).toMatchObject({
-      plan: "elite",
-      pendingPlan: null,
-      pendingReference: null,
+    expect(mocks.settle).toHaveBeenCalledWith(expect.anything(), {
+      tenantId: "tenant-a",
+      reference: "charge:pay_diff",
+      patch: { plan: "elite", scheduledPlan: null, scheduledPlanAt: null },
     });
+  });
+
+  it("moves up even when a renewal read that started later was stored first", async () => {
+    mocks.byReference.mockResolvedValue(
+      account({ pendingPlan: "elite", pendingReference: "charge:pay_diff" }),
+    );
+    mocks.client.getCharge.mockResolvedValue({
+      id: "pay_diff",
+      status: "RECEIVED",
+      value: 400,
+      dueDate: "2026-12-04",
+    });
+    mocks.apply.mockResolvedValue(false);
+
+    const outcome = await syncUpgradeCharge({ chargeId: "pay_diff", eventId: "evt_raced" });
+
+    expect(outcome).toBe("applied");
+    expect(mocks.settle).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.objectContaining({ patch: expect.objectContaining({ plan: "elite" }) }),
+    );
   });
 
   // The month the difference covered ended on 2026-12-20 (Brasília).
@@ -234,7 +371,10 @@ describe("upgrade difference", () => {
 
     expect(mocks.client.refundCharge).toHaveBeenCalledWith("pay_diff", expect.any(String));
     expect(mocks.client.changeSubscriptionValue).not.toHaveBeenCalled();
-    expect(patchApplied()).toEqual({ pendingPlan: null, pendingReference: null });
+    expect(mocks.settle).toHaveBeenCalledWith(expect.anything(), {
+      tenantId: "tenant-a",
+      reference: "charge:pay_diff",
+    });
   });
 
   it("moves up when a card confirmed the difference in time, though its money lands later", async () => {
@@ -254,7 +394,10 @@ describe("upgrade difference", () => {
     await syncUpgradeCharge({ chargeId: "pay_diff", eventId: "evt_card" });
 
     expect(mocks.client.refundCharge).not.toHaveBeenCalled();
-    expect(patchApplied()).toMatchObject({ plan: "elite" });
+    expect(mocks.settle).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.objectContaining({ patch: expect.objectContaining({ plan: "elite" }) }),
+    );
   });
 
   it("closes an unpaid difference once the month it covered is over", async () => {
@@ -278,7 +421,51 @@ describe("upgrade difference", () => {
     await syncBillingSubscription({ subscriptionId: "sub_old", eventId: "evt_renewal" });
 
     expect(mocks.client.deleteCharge).toHaveBeenCalledWith("pay_diff");
-    expect(patchApplied()).toMatchObject({ pendingPlan: null, pendingReference: null });
+    expect(mocks.settle).toHaveBeenCalledWith(expect.anything(), {
+      tenantId: "tenant-a",
+      reference: "charge:pay_diff",
+    });
+  });
+
+  it("forgets a late difference already given back without deleting it, and still renews", async () => {
+    renewal();
+    mocks.client.getCharge.mockResolvedValue({
+      id: "pay_diff",
+      status: "RECEIVED",
+      value: 400,
+      dueDate: "2025-12-04",
+      paymentDate: "2025-12-20",
+      externalReference: "upgrade:tenant-a:ref:1766199600000",
+      refunds: [{ status: "PENDING" }],
+    });
+
+    await syncBillingSubscription({ subscriptionId: "sub_old", eventId: "evt_after_refund" });
+
+    expect(mocks.client.deleteCharge).not.toHaveBeenCalled();
+    expect(mocks.client.refundCharge).not.toHaveBeenCalled();
+    expect(mocks.settle).toHaveBeenCalledWith(expect.anything(), {
+      tenantId: "tenant-a",
+      reference: "charge:pay_diff",
+    });
+    expect(mocks.apply).toHaveBeenCalled();
+  });
+
+  it("gives back a late difference the renewal finds before its own notice", async () => {
+    renewal();
+    mocks.client.getCharge.mockResolvedValue({
+      id: "pay_diff",
+      status: "RECEIVED",
+      value: 400,
+      dueDate: "2025-12-04",
+      paymentDate: "2025-12-20",
+      externalReference: "upgrade:tenant-a:ref:1766199600000",
+    });
+
+    await syncBillingSubscription({ subscriptionId: "sub_old", eventId: "evt_renewal_late" });
+
+    expect(mocks.client.refundCharge).toHaveBeenCalledWith("pay_diff", expect.any(String));
+    expect(mocks.client.deleteCharge).not.toHaveBeenCalled();
+    expect(mocks.apply).toHaveBeenCalled();
   });
 
   it("waits while the difference is unpaid", async () => {
@@ -295,6 +482,6 @@ describe("upgrade difference", () => {
     await syncUpgradeCharge({ chargeId: "pay_diff", eventId: "evt_6" });
 
     expect(mocks.client.changeSubscriptionValue).not.toHaveBeenCalled();
-    expect(mocks.apply).not.toHaveBeenCalled();
+    expect(mocks.settle).not.toHaveBeenCalled();
   });
 });

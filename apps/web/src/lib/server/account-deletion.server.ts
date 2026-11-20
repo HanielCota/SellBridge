@@ -19,7 +19,11 @@ import { z } from "zod";
 import { isAsaasError } from "@sellbridge/payments/asaas";
 import { billingClientForCleanup } from "@/features/billing/billing-config.server";
 import { assertNoPendingBillingCreation } from "@/features/billing/billing-lock.server";
-import { CHARGE_REFERENCE, CHECKOUT_REFERENCE } from "@/features/billing/pending-reference";
+import {
+  CHARGE_REFERENCE,
+  CHECKOUT_REFERENCE,
+  SUBSCRIPTION_REFERENCE,
+} from "@/features/billing/pending-reference";
 import { avatarStorageKey } from "@/features/profile/avatar-key";
 import { disconnectStoreForTenant } from "@/features/stores/disconnect-store.server";
 import { assertNothingLeftToResolve } from "@/lib/server/account-deletion-blockers.server";
@@ -79,6 +83,11 @@ async function closeBilling(tenantId: string): Promise<void> {
   if (reference.startsWith(CHECKOUT_REFERENCE)) {
     await removeAtAsaas(async () =>
       client.cancelCheckout(reference.slice(CHECKOUT_REFERENCE.length)),
+    );
+  }
+  if (reference.startsWith(SUBSCRIPTION_REFERENCE)) {
+    await removeAtAsaas(async () =>
+      client.deleteSubscription(reference.slice(SUBSCRIPTION_REFERENCE.length)),
     );
   }
   if (subscriptionId !== null) {
