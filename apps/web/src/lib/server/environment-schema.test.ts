@@ -106,6 +106,20 @@ describe("serverEnvironmentSchema", () => {
       expect(unlimited.success).toBe(true);
     });
 
+    it("starts as production runs today: unlimited mode, no Asaas billing, a Stripe key left over", () => {
+      const parsed = serverEnvironmentSchema.safeParse({
+        ...production,
+        BILLING_UNLIMITED: "true",
+        STRIPE_SECRET_KEY: "sk_live_left_over",
+      });
+
+      expect(parsed.success).toBe(true);
+      expect(parsed.data?.BILLING_UNLIMITED).toBe(true);
+      expect(
+        parsed.data === undefined ? null : Object.hasOwn(parsed.data, "STRIPE_SECRET_KEY"),
+      ).toBe(false);
+    });
+
     it("refuses billing on the Asaas sandbox in production", () => {
       const parsed = serverEnvironmentSchema.safeParse({
         ...production,

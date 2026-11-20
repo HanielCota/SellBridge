@@ -37,13 +37,16 @@ vi.mock("@/lib/server/account-deletion-blockers.server", () => ({
 }));
 vi.mock("@/lib/server/stock-sync", () => ({ requestStockSync: mocks.requestStockSync }));
 vi.mock("@/lib/server/storage", () => ({ fileStorage: { delete: mocks.deleteFile } }));
+const cleanupClient = {
+  deleteSubscriber: mocks.deleteCustomer,
+  cancelCheckout: mocks.cancelCheckout,
+  deleteSubscription: mocks.deleteSubscription,
+  deleteCharge: mocks.deleteCharge,
+};
+/** Null stands for a server without the Asaas keys, as production is before the launch. */
+const asaasCleanup = vi.hoisted(() => ({ configured: true }));
 vi.mock("@/features/billing/billing-config.server", () => ({
-  billingClientForCleanup: () => ({
-    deleteSubscriber: mocks.deleteCustomer,
-    cancelCheckout: mocks.cancelCheckout,
-    deleteSubscription: mocks.deleteSubscription,
-    deleteCharge: mocks.deleteCharge,
-  }),
+  billingClientForCleanup: () => (asaasCleanup.configured ? cleanupClient : null),
 }));
 vi.mock("@/features/stores/disconnect-store.server", () => ({
   disconnectStoreForTenant: mocks.disconnectStoreForTenant,
@@ -71,6 +74,7 @@ const SELLER = {
 
 beforeEach(() => {
   vi.clearAllMocks();
+  asaasCleanup.configured = true;
   mocks.findSoleOwnedTenants.mockResolvedValue(["tenant-a"]);
   mocks.accountFileKeys.mockResolvedValue(["tickets/t1/nota.pdf"]);
   mocks.getBillingAccount.mockResolvedValue({ customerId: "cus_123", subscriptionId: "sub_123" });
@@ -157,6 +161,35 @@ describe("prepareAccountDeletion", () => {
     const checkout = mocks.cancelCheckout.mock.invocationCallOrder[0] ?? 0;
     const deletion = mocks.deleteTenantData.mock.invocationCallOrder[0] ?? 0;
     expect(checkout).toBeLessThan(deletion);
+  });
+
+  it.each([
+    ["never subscribed", null],
+    [
+      "was left without a plan when its old payment link was cleared",
+      { customerId: null, subscriptionId: null, pendingReference: null },
+    ],
+  ])(
+    "deletes a workspace that %s without asking Asaas, even with no Asaas keys",
+    async (_label, account) => {
+      asaasCleanup.configured = false;
+      mocks.getBillingAccount.mockResolvedValue(account);
+
+      await prepareAccountDeletion(SELLER);
+
+      expect(mocks.deleteCustomer).not.toHaveBeenCalled();
+      expect(mocks.deleteSubscription).not.toHaveBeenCalled();
+      expect(mocks.deleteTenantData).toHaveBeenCalledWith({}, "tenant-a");
+    },
+  );
+
+  it("refuses to delete a subscribed workspace when Asaas cannot be reached", async () => {
+    asaasCleanup.configured = false;
+
+    const error = await rejection(prepareAccountDeletion(SELLER));
+
+    expect(isAppError(error) && error.code === "EXTERNAL_PROVIDER").toBe(true);
+    expect(mocks.deleteTenantData).not.toHaveBeenCalled();
   });
 
   it("stops before the subscription or any data while something is left to resolve", async () => {
