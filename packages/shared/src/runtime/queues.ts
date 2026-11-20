@@ -328,9 +328,12 @@ export const deletedStorePauseJobSchema = z.object({
 });
 export type DeletedStorePauseJob = z.infer<typeof deletedStorePauseJobSchema>;
 
-/** One job per store: a deletion asked again while the first job waits adds nothing. */
+/**
+ * One job per store: a deletion asked again while the first job waits adds nothing. No colon:
+ * BullMQ refuses a custom id with one.
+ */
 export function deletedStorePauseJobId(job: Pick<DeletedStorePauseJob, "storeConnectionId">) {
-  return `deleted-store-pause:${job.storeConnectionId}`;
+  return `deleted-store-pause-${job.storeConnectionId}`;
 }
 
 /**
