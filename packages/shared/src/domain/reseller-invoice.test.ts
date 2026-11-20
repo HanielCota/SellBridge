@@ -27,7 +27,9 @@ describe("nextResellerInvoiceCheckAt", () => {
 });
 
 describe("onBehalfLabelRefusal", () => {
+  const IDS = { shipmentId: "parcel-a", orderId: "order-a" } as const;
   const ready = {
+    ...IDS,
     resellerNoteSource: "marketplace",
     remessaAuthorized: true,
     labelReleased: false,
@@ -43,7 +45,7 @@ describe("onBehalfLabelRefusal", () => {
 
   it("waits for the reseller's note", () => {
     const refusal = onBehalfLabelRefusal(
-      [{ resellerNoteSource: null, remessaAuthorized: false, labelReleased: false }],
+      [{ ...IDS, resellerNoteSource: null, remessaAuthorized: false, labelReleased: false }],
       "tiktok_shop",
     );
 
@@ -52,7 +54,7 @@ describe("onBehalfLabelRefusal", () => {
 
   it("asks for the XML when Mercado Livre only got a typed key", () => {
     const refusal = onBehalfLabelRefusal(
-      [{ resellerNoteSource: "typed", remessaAuthorized: true, labelReleased: false }],
+      [{ ...IDS, resellerNoteSource: "typed", remessaAuthorized: true, labelReleased: false }],
       "mercado_livre",
     );
 
@@ -62,14 +64,14 @@ describe("onBehalfLabelRefusal", () => {
   it("takes a typed key on a marketplace that does not ask for the note", () => {
     expect(
       onBehalfLabelRefusal(
-        [{ resellerNoteSource: "typed", remessaAuthorized: true, labelReleased: false }],
+        [{ ...IDS, resellerNoteSource: "typed", remessaAuthorized: true, labelReleased: false }],
         "tiktok_shop",
       ),
     ).toBeNull();
   });
 
   it("lets the label out once the team released the stuck parcel", () => {
-    const stuck = { resellerNoteSource: "uploaded", remessaAuthorized: false } as const;
+    const stuck = { ...IDS, resellerNoteSource: "uploaded", remessaAuthorized: false } as const;
 
     expect(onBehalfLabelRefusal([{ ...stuck, labelReleased: true }], "mercado_livre")).toBeNull();
     expect(onBehalfLabelRefusal([{ ...stuck, labelReleased: false }], "mercado_livre")).toMatch(
@@ -80,8 +82,8 @@ describe("onBehalfLabelRefusal", () => {
   it("keeps holding the label for another parcel of the cart that was not released", () => {
     const refusal = onBehalfLabelRefusal(
       [
-        { resellerNoteSource: null, remessaAuthorized: false, labelReleased: true },
-        { resellerNoteSource: "uploaded", remessaAuthorized: false, labelReleased: false },
+        { ...IDS, resellerNoteSource: null, remessaAuthorized: false, labelReleased: true },
+        { ...IDS, resellerNoteSource: "uploaded", remessaAuthorized: false, labelReleased: false },
       ],
       "mercado_livre",
     );
@@ -89,9 +91,41 @@ describe("onBehalfLabelRefusal", () => {
     expect(refusal).toMatch(/nota de remessa do fornecedor/);
   });
 
+  it("says the hold comes from another order of the cart when this one is ready", () => {
+    const refusal = onBehalfLabelRefusal(
+      [
+        { ...IDS, resellerNoteSource: "uploaded", remessaAuthorized: false, labelReleased: true },
+        {
+          shipmentId: "parcel-b",
+          orderId: "order-b",
+          resellerNoteSource: "uploaded",
+          remessaAuthorized: false,
+          labelReleased: false,
+        },
+      ],
+      "mercado_livre",
+      "order-a",
+    );
+
+    expect(refusal).toMatch(
+      /^Este pedido está pronto, mas a etiqueta do Mercado Livre é a mesma do carrinho/,
+    );
+    expect(refusal).toMatch(/nota de remessa do fornecedor/);
+  });
+
+  it("keeps the plain reason when this order itself still waits", () => {
+    const refusal = onBehalfLabelRefusal(
+      [{ ...IDS, resellerNoteSource: null, remessaAuthorized: false, labelReleased: false }],
+      "mercado_livre",
+      "order-a",
+    );
+
+    expect(refusal).toMatch(/^A etiqueta desta venda à ordem espera a nota de venda do revendedor/);
+  });
+
   it("waits for the remessa that goes in the box", () => {
     const refusal = onBehalfLabelRefusal(
-      [{ resellerNoteSource: "uploaded", remessaAuthorized: false, labelReleased: false }],
+      [{ ...IDS, resellerNoteSource: "uploaded", remessaAuthorized: false, labelReleased: false }],
       "mercado_livre",
     );
 

@@ -260,10 +260,10 @@ describe("venda à ordem notes", () => {
 
     const ready = await findOnBehalfLabelParcels(database, { tenantId, orderId });
 
-    expect(waiting).toEqual([
+    expect(waiting).toMatchObject([
       { resellerNoteSource: null, remessaAuthorized: false, labelReleased: false },
     ]);
-    expect(ready).toEqual([
+    expect(ready).toMatchObject([
       { resellerNoteSource: "typed", remessaAuthorized: true, labelReleased: false },
     ]);
   });
@@ -295,6 +295,8 @@ describe("venda à ordem notes", () => {
 
     expect(parcels).toHaveLength(2);
     expect(parcels).toContainEqual({
+      shipmentId: expect.any(String) as unknown,
+      orderId: expect.any(String) as unknown,
       resellerNoteSource: null,
       remessaAuthorized: false,
       labelReleased: false,
@@ -322,7 +324,7 @@ describe("venda à ordem notes", () => {
       reason: "Bling do fornecedor fora do ar há 3 dias",
     });
     expect(state?.release?.byName).not.toBeNull();
-    expect(await findOnBehalfLabelParcels(database, { tenantId, orderId })).toEqual([
+    expect(await findOnBehalfLabelParcels(database, { tenantId, orderId })).toMatchObject([
       { resellerNoteSource: null, remessaAuthorized: false, labelReleased: true },
     ]);
   });

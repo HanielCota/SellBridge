@@ -313,6 +313,8 @@ export async function findOnBehalfLabelParcels(
       resellerNoteSource: shipmentResellerInvoices.source,
       remessaStatus: remessa.status,
       labelReleasedAt: shipmentResellerInvoices.labelReleasedAt,
+      shipmentId: orderShipments.id,
+      orderId: orderShipments.orderId,
     })
     .from(shipmentResellerInvoices)
     .innerJoin(orderShipments, eq(orderShipments.id, shipmentResellerInvoices.shipmentId))
@@ -326,6 +328,8 @@ export async function findOnBehalfLabelParcels(
     resellerNoteSource: row.resellerNoteSource,
     remessaAuthorized: row.remessaStatus === "authorized",
     labelReleased: row.labelReleasedAt !== null,
+    shipmentId: row.shipmentId,
+    orderId: row.orderId,
   }));
 }
 
