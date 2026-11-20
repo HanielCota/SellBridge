@@ -372,6 +372,45 @@ describe("venda à ordem notes", () => {
     expect(current).toBe(true);
   });
 
+  it("drops a queued Mercado Livre remessa whose note went back to typed, and opens it again later", async () => {
+    const created = await createInvoiceScenario(database, {
+      supplierFiscal: { ...TEST_SUPPLIER_FISCAL, invoiceModel: "on_behalf" },
+      marketplace: "mercado_livre",
+    });
+    cleanups.push(created.cleanup);
+    await queueResellerSaleInvoices(database);
+    await findResellerNote(created.shipmentId, created.tenantId);
+    const uploaded = { source: "uploaded" as const };
+    const typed = { source: "typed" as const };
+    const ofParcel = eq(shipmentResellerInvoices.shipmentId, created.shipmentId);
+    await database.update(shipmentResellerInvoices).set(uploaded).where(ofParcel);
+    await queueOnBehalfInvoices(database);
+    const [remessa] = await database
+      .select({ id: shipmentInvoices.id })
+      .from(shipmentInvoices)
+      .where(
+        and(
+          eq(shipmentInvoices.shipmentId, created.shipmentId),
+          eq(shipmentInvoices.kind, "on_behalf_shipment"),
+        ),
+      );
+    await database.update(shipmentResellerInvoices).set(typed).where(ofParcel);
+
+    const claimed = await claimOnBehalfRemessaDraft(database, {
+      invoiceId: remessa?.id ?? "",
+      shipmentId: created.shipmentId,
+      citedAccessKey: RESELLER_KEY,
+      now: new Date(),
+    });
+    const afterClaim = await kindsOf(created.shipmentId);
+    await database.update(shipmentResellerInvoices).set(uploaded).where(ofParcel);
+    await queueOnBehalfInvoices(database);
+
+    expect(claimed).toBe(false);
+    expect(afterClaim).not.toContain("on_behalf_shipment");
+    expect(await kindsOf(created.shipmentId)).toContain("on_behalf_shipment");
+  });
+
   it("waits to open the remessa of a Mercado Livre order until its note is there", async () => {
     const created = await createInvoiceScenario(database, {
       supplierFiscal: { ...TEST_SUPPLIER_FISCAL, invoiceModel: "on_behalf" },

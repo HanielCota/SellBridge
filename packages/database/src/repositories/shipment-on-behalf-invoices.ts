@@ -417,9 +417,12 @@ export async function releaseOnBehalfLabel(
 
 /**
  * Marks the remessa as asked of the ERP, only while the reseller's note is still `citedAccessKey`
- * (the one the remessa will cite). It holds the note's row meanwhile, as replacing the note does,
- * so a note replaced in between is seen here or there, never missed by both. Returns false when
- * the note changed: the remessa is to be built again with the new one.
+ * (the one the remessa will cite) and, on Mercado Livre, is there and not only typed. It holds the
+ * note's row meanwhile, as replacing the note does, so a note replaced in between is seen here or
+ * there, never missed by both. Returns false when the remessa must not start now: when the note
+ * changed it is built again with the new one; when a Mercado Livre note went back to typed, the
+ * queued remessa is dropped (nothing was asked of the ERP yet) and opens again once the note is
+ * on Mercado Livre.
  */
 export async function claimOnBehalfRemessaDraft(
   database: Database,
@@ -427,11 +430,22 @@ export async function claimOnBehalfRemessaDraft(
 ): Promise<boolean> {
   return database.transaction(async (transaction) => {
     const [note] = await transaction
-      .select({ accessKey: shipmentResellerInvoices.accessKey })
+      .select({
+        accessKey: shipmentResellerInvoices.accessKey,
+        source: shipmentResellerInvoices.source,
+        marketplace: storeConnections.marketplace,
+      })
       .from(shipmentResellerInvoices)
+      .innerJoin(orderShipments, eq(orderShipments.id, shipmentResellerInvoices.shipmentId))
+      .innerJoin(orders, eq(orders.id, orderShipments.orderId))
+      .innerJoin(storeConnections, eq(storeConnections.id, orders.storeConnectionId))
       .where(eq(shipmentResellerInvoices.shipmentId, claim.shipmentId))
-      .for("update");
+      .for("update", { of: shipmentResellerInvoices });
     if (note?.accessKey !== claim.citedAccessKey) {
+      return false;
+    }
+    if (note.marketplace === "mercado_livre" && note.source === "typed") {
+      await transaction.delete(shipmentInvoices).where(eq(shipmentInvoices.id, claim.invoiceId));
       return false;
     }
     await transaction
