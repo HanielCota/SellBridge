@@ -29,7 +29,11 @@ const COLOR_SHORTCUTS: readonly OptionShortcut[] = [
   "Marrom",
 ].map((name) => ({ label: name, names: [name] }));
 
-const SHOE_SIZES = Array.from({ length: 11 }, (_, index) => String(34 + index));
+const SMALLEST_SHOE_SIZE = 34;
+const LARGEST_SHOE_SIZE = 44;
+const SHOE_SIZES = Array.from({ length: LARGEST_SHOE_SIZE - SMALLEST_SHOE_SIZE + 1 }, (_, index) =>
+  String(SMALLEST_SHOE_SIZE + index),
+);
 
 const SIZE_SHORTCUTS: readonly OptionShortcut[] = [
   { label: "Calçados: 34 a 44", names: SHOE_SIZES },

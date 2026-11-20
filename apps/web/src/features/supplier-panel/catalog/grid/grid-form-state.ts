@@ -459,14 +459,16 @@ interface StoredCombinationStock {
   readonly stock: number;
 }
 
-function sentName(
-  options: readonly { key: string; name: string }[],
-  key: string | null,
-): string | null {
-  if (key === null) {
-    return null;
-  }
-  return options.find((option) => option.key === key)?.name.trim() ?? null;
+function sentNames(options: readonly { key: string; name: string }[]): Map<string, string> {
+  return new Map(options.map((option) => [option.key, option.name.trim()]));
+}
+
+function nameOf(names: ReadonlyMap<string, string>, key: string | null): string | null {
+  return key === null ? null : (names.get(key) ?? null);
+}
+
+function pairOf(colorKey: string | null, sizeKey: string | null): string {
+  return `${colorKey ?? ""}\u0000${sizeKey ?? ""}`;
 }
 
 /**
@@ -479,25 +481,27 @@ export function withSaveAnswer(
   sent: { grid: GridFormState; combinations: readonly GridFormCombination[] },
   stored: readonly StoredCombinationStock[],
 ): GridFormState {
+  const colorNames = sentNames(sent.grid.colors);
+  const sizeNames = sentNames(sent.grid.sizes);
+  const storedByName = new Map(stored.map((entry) => [pairOf(entry.color, entry.size), entry]));
+  const sentByPair = new Map(
+    sent.combinations.map((entry) => [pairOf(entry.colorKey, entry.sizeKey), entry]),
+  );
   const storedStock = (combination: GridFormCombination) =>
-    stored.find(
-      (entry) =>
-        entry.color === sentName(sent.grid.colors, combination.colorKey) &&
-        entry.size === sentName(sent.grid.sizes, combination.sizeKey),
+    storedByName.get(
+      pairOf(nameOf(colorNames, combination.colorKey), nameOf(sizeNames, combination.sizeKey)),
     );
   return {
     colors: state.colors.map((color) => {
-      const name = sentName(sent.grid.colors, color.key);
+      const name = nameOf(colorNames, color.key);
       return name === null ? color : { ...color, savedName: name };
     }),
     sizes: state.sizes.map((size) => {
-      const name = sentName(sent.grid.sizes, size.key);
+      const name = nameOf(sizeNames, size.key);
       return name === null ? size : { ...size, savedName: name };
     }),
     combinations: state.combinations.map((combination) => {
-      const sentCombination = sent.combinations.find((entry) =>
-        isPair(entry, combination.colorKey, combination.sizeKey),
-      );
+      const sentCombination = sentByPair.get(pairOf(combination.colorKey, combination.sizeKey));
       const saved = sentCombination === undefined ? undefined : storedStock(sentCombination);
       if (sentCombination === undefined || saved === undefined) {
         return combination;

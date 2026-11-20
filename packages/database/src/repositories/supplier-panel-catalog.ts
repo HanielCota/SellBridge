@@ -30,6 +30,10 @@ import {
   suppliers,
 } from "../schema/index.ts";
 
+import type { ProductExportSource } from "@sellbridge/shared/supplier-panel-export";
+import { matchesEveryWord } from "./sql/search-pattern.ts";
+import { getSupplierFiscalFallback } from "./supplier-brand.ts";
+
 /** The columns the list filters read, on the products table or an alias of it. */
 interface ProductTable {
   readonly supplierId: AnyColumn;
@@ -38,9 +42,6 @@ interface ProductTable {
   readonly title: AnyColumn;
   readonly fiscal: AnyColumn;
 }
-import type { ProductExportSource } from "@sellbridge/shared/supplier-panel-export";
-import { matchesEveryWord } from "./sql/search-pattern.ts";
-import { getSupplierFiscalFallback } from "./supplier-brand.ts";
 
 export type SupplierPanelProductRow = typeof supplierProducts.$inferSelect;
 
@@ -51,7 +52,6 @@ export interface SupplierPanelProduct extends SupplierPanelProductRow {
   completeness: CompletenessReport;
 }
 
-/** A row of the panel list: `deletable` while no reseller ever published or sold it. */
 /** A colour and size grid, shown once in the list for all its combinations. */
 export interface PanelListGrid {
   readonly modelId: string;
@@ -62,6 +62,7 @@ export interface PanelListGrid {
   readonly stock: number;
 }
 
+/** A row of the panel list: `deletable` while no reseller ever published or sold it. */
 export interface SupplierPanelListProduct extends SupplierPanelProduct {
   deletable: boolean;
   /** Set on the row that stands for a whole grid; null for a product of its own. */
