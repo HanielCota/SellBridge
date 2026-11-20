@@ -6,16 +6,8 @@ import { loadRootEnvironmentFile } from "@sellbridge/shared/environment-file";
 loadRootEnvironmentFile();
 // Browser tests must not inherit payment, mail or alert credentials from a developer's .env.
 for (const key of [
-  "STRIPE_SECRET_KEY",
-  "STRIPE_WEBHOOK_SECRET",
-  "STRIPE_START_PRICE_ID",
-  "STRIPE_PRO_PRICE_ID",
-  "STRIPE_BUSINESS_PRICE_ID",
-  "STRIPE_BLACK_PRICE_ID",
-  "STRIPE_ELITE_PRICE_ID",
   "BILLING_LAUNCHED_AT",
   "BILLING_TRANSITION_ENDS_AT",
-  "STRIPE_PORTAL_CONFIGURATION_ID",
   "RESEND_API_KEY",
   "ALERT_WEBHOOK_URL",
   "MERCADO_LIVRE_CLIENT_ID",

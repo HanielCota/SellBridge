@@ -17,7 +17,6 @@ import { isStaffRole } from "@sellbridge/shared/staff-access";
 import { APIError } from "better-auth/api";
 import { z } from "zod";
 import { isAsaasError } from "@sellbridge/payments/asaas";
-import { Stripe } from "stripe";
 import { billingClientForCleanup } from "@/features/billing/billing-config.server";
 import { assertNoPendingBillingCreation } from "@/features/billing/billing-lock.server";
 import {
@@ -25,7 +24,6 @@ import {
   CHECKOUT_REFERENCE,
   SUBSCRIPTION_REFERENCE,
 } from "@/features/billing/pending-reference";
-import { stripeClient, stripeKeyMissing } from "@/features/billing/stripe.server";
 import { avatarStorageKey } from "@/features/profile/avatar-key";
 import { disconnectStoreForTenant } from "@/features/stores/disconnect-store.server";
 import { assertNothingLeftToResolve } from "@/lib/server/account-deletion-blockers.server";
@@ -73,12 +71,6 @@ async function closeBilling(tenantId: string): Promise<void> {
     return;
   }
 
-  if (account.provider === "stripe") {
-    await closeLegacyBilling(customerId, subscriptionId);
-    await forgetBillingCustomer(database, tenantId);
-    return;
-  }
-
   const client = billingClientForCleanup();
   if (client === null) {
     throw new AppError("EXTERNAL_PROVIDER", UNREACHABLE_MESSAGE);
@@ -106,40 +98,6 @@ async function closeBilling(tenantId: string): Promise<void> {
   }
 
   await forgetBillingCustomer(database, tenantId);
-}
-
-/** Before the migration, identifiers in billing_accounts belonged to Stripe. */
-async function closeLegacyBilling(
-  customerId: string | null,
-  subscriptionId: string | null,
-): Promise<void> {
-  if (stripeKeyMissing()) {
-    // Without the key nothing can be closed at Stripe; the deletion goes on and the team does it.
-    logger.error("account.legacy_billing_left_open", {
-      customerId,
-      subscriptionId,
-      reason:
-        "A conta excluída ainda tinha cobrança antiga na Stripe e a chave da Stripe não está configurada: cancele o cliente e a assinatura à mão no painel da Stripe.",
-    });
-    return;
-  }
-  try {
-    const stripe = stripeClient();
-    if (customerId !== null) {
-      await stripe.customers.del(customerId);
-      return;
-    }
-
-    if (subscriptionId !== null) {
-      await stripe.subscriptions.cancel(subscriptionId);
-    }
-  } catch (error) {
-    if (error instanceof Stripe.errors.StripeError && error.statusCode === 404) {
-      return;
-    }
-
-    throw new AppError("EXTERNAL_PROVIDER", UNREACHABLE_MESSAGE, { cause: error });
-  }
 }
 
 /** Something Asaas no longer has is already the goal of the call. */
