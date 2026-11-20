@@ -177,11 +177,15 @@ function useGridRules(
 function rememberSavedModel(
   queryClient: QueryClient,
   supplierId: string,
-  data: ModelFormData & { model: SavedModel },
+  data: Omit<ModelFormData, "groupedAt"> & { model: SavedModel },
 ): void {
+  // A save never changes whether the grid came from grouping products: keep what was loaded.
   queryClient.setQueryData(
     supplierPanelModelFormQueryOptions(supplierId, data.model.id).queryKey,
-    data,
+    (previous) => ({
+      ...data,
+      groupedAt: previous?.available === true ? previous.groupedAt : null,
+    }),
   );
   void queryClient.invalidateQueries({
     queryKey: [...supplierPanelCatalogKey(supplierId), "list"],
