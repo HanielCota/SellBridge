@@ -3,6 +3,7 @@ import { member, supplierProducts, suppliers, user } from "@sellbridge/database/
 import { eq } from "drizzle-orm";
 import { e2eDatabase } from "./database";
 import { gotoHydrated, pickBrandNiche, signUpAsSupplier } from "./helpers";
+import { giveTestBrand } from "./supplier-accounts";
 
 /*
  * The product form asks what Mercado Livre shows on the listing: its category for the title and
@@ -162,4 +163,51 @@ test("keeps side by side sheet inputs on the same line on a computer screen", as
     (await page.getByRole("textbox", { name, exact: true }).boundingBox())?.y;
   expect(await topOf("Marca")).toBe(await topOf("Modelo (obrigatório)"));
   expect(await topOf("Código de barras (GTIN)")).toBe(await topOf("Peso da embalagem (g)"));
+});
+
+// Regression: a saved product without a Mercado Livre category got the first guess filled in on
+// opening, which the autosave then wrote, changing an approved product nobody had edited.
+test("opening an approved product without a Mercado Livre category changes nothing", async ({
+  page,
+}) => {
+  const email = await signUpAsSupplier(page, "Ateliê Só Abriu");
+  emails.push(email);
+  const supplierId = await giveTestBrand(database, email, `Ateliê Só Abriu ${Date.now()}`);
+  const [product] = await database
+    .insert(supplierProducts)
+    .values({
+      supplierId,
+      sku: `SO-ABRIU-${Date.now()}`,
+      title: "Bolsinha infantil preta com zíper",
+      description: "Bolsinha de teste, aprovada antes de a ficha do Mercado Livre existir.",
+      costCents: 2500,
+      suggestedPriceCents: 4990,
+      stock: 10,
+      imageUrls: [],
+      reviewStatus: "approved",
+    })
+    .returning({ id: supplierProducts.id });
+  if (product === undefined) {
+    throw new Error("test product not created");
+  }
+  const storedRow = async () =>
+    (await database.select().from(supplierProducts).where(eq(supplierProducts.id, product.id)))[0];
+  const before = await storedRow();
+
+  await gotoHydrated(page, `/fornecedor/painel/produtos?product=${product.id}`);
+  await page.getByRole("button", { name: /2..*Dados obrigatórios/ }).click();
+  // Mercado Livre answered with its guess, whether the form offers it or fills it in.
+  await expect(page.getByText(/Categoria (sugerida )?no Mercado Livre:/)).toBeVisible({
+    timeout: SAVE_TIMEOUT,
+  });
+  // Longer than the autosave pause: a save started by opening would have landed by now.
+  await page.waitForTimeout(3000);
+
+  expect(await storedRow()).toEqual(before);
+  expect(before?.reviewStatus).toBe("approved");
+
+  await page.getByRole("button", { name: "Usar esta categoria" }).click();
+  await expect
+    .poll(async () => (await storedRow())?.mercadoLivreCategoryId, { timeout: SAVE_TIMEOUT })
+    .toBe("MLB7022");
 });
