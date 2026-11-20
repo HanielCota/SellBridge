@@ -1,4 +1,5 @@
 import { BILLING_PLANS, billingLimits, billingNotice } from "@sellbridge/shared/billing";
+import { isAppError } from "@sellbridge/shared/errors";
 import { logger } from "@sellbridge/shared/logger";
 import {
   billingUsage,
@@ -17,8 +18,8 @@ import type { NewStoreBlock } from "./new-store-block";
 
 type BillingAccount = NonNullable<Awaited<ReturnType<typeof getBillingAccount>>>;
 
-/** Within this of its end, a paid month is read again on the visit: the renewal may be in. */
 const DAY_IN_MS = 86_400_000;
+/** Within this of its end, a paid month is read again on the visit: the renewal may be in. */
 const REFRESH_BEFORE_END_IN_MS = 2 * DAY_IN_MS;
 
 /** The access as the page shows it: dates as ISO strings, limits null while unlimited. */
@@ -85,7 +86,7 @@ async function isOwner(tenantId: string, userId: string): Promise<boolean> {
     await requireBillingOwner(database, tenantId, userId);
     return true;
   } catch (error) {
-    if (error instanceof Error && "code" in error && error.code === "FORBIDDEN") return false;
+    if (isAppError(error) && error.code === "FORBIDDEN") return false;
     throw error;
   }
 }
