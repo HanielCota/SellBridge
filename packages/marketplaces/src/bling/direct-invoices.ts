@@ -48,6 +48,20 @@ const NFE_MODEL = "55";
 const PENDING_PAGE_LIMIT = 100;
 const MAX_RECOVERY_PAGES = 10;
 
+const operationListSchema = z.object({
+  data: z.array(z.object({ id: z.number().int(), descricao: z.string() })),
+});
+/** `situacao` 1 lists the active operations only. */
+const ACTIVE_OPERATIONS = 1;
+/** Accounts keep a handful of operations; one large page holds them all. */
+const OPERATION_PAGE_LIMIT = 100;
+
+/** An operation ("natureza de operação") of the account, as Bling names it. */
+export interface BlingOperation {
+  readonly id: number;
+  readonly name: string;
+}
+
 const idResponseSchema = z.object({ data: z.object({ id: z.number().int() }) });
 const pendingListSchema = z.object({
   data: z.array(
@@ -137,6 +151,22 @@ async function findMatchingDraft(
 
 export function blingDirectInvoiceCalls(call: BlingCall) {
   return {
+    /** The account's active operations (`GET /naturezas-operacoes`), for the supplier to pick. */
+    async listOperations(): Promise<BlingOperation[]> {
+      const query = new URLSearchParams({
+        situacao: String(ACTIVE_OPERATIONS),
+        limite: String(OPERATION_PAGE_LIMIT),
+      });
+      const response = await call({
+        path: `/naturezas-operacoes?${query.toString()}`,
+        schema: operationListSchema,
+      });
+      return response.data.map((operation) => ({
+        id: operation.id,
+        name: operation.descricao.trim(),
+      }));
+    },
+
     /** Creates the NF-e (not sent yet) and returns its id. */
     async createDirectInvoice(invoice: BlingNewDirectInvoice): Promise<number> {
       const response = await call({
