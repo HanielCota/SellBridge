@@ -27,6 +27,7 @@ const SOURCE_LABELS: Record<ResellerInvoiceSource, string> = {
   marketplace: "Lida no pedido do marketplace",
   typed: "Chave informada por você",
   uploaded: "XML enviado por você ao Mercado Livre",
+  bling: "Emitida pelo seu Bling",
 };
 
 /** Mercado Livre takes the note only as its XML: a typed key never reaches it. */
