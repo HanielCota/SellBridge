@@ -326,7 +326,7 @@ describe("first subscription", () => {
     const today = asaasDueDate(new Date(), 0);
 
     it.each(["active", "past_due"])(
-      "charges a dearer plan by Pix today instead of handing it the %s Start month",
+      "charges a dearer plan by Pix today, keeping the %s Start month until that Pix is paid",
       async (status) => {
         mocks.account.mockResolvedValue(cancelledStart(status));
 
@@ -335,18 +335,51 @@ describe("first subscription", () => {
         expect(mocks.client.createPixSubscription).toHaveBeenCalledWith(
           expect.objectContaining({ valueCents: 99_700, firstDueDate: today }),
         );
-        expect(mocks.save).toHaveBeenCalledWith(
+        expect(mocks.save).toHaveBeenLastCalledWith(expect.anything(), "tenant-a", {
+          pendingPlan: "elite",
+          pendingReference: "subscription:sub_new",
+        });
+        expect(mocks.save).not.toHaveBeenCalledWith(
           expect.anything(),
           "tenant-a",
-          expect.objectContaining({
-            plan: "elite",
-            prepaidUntil: null,
-            status: "incomplete",
-            periodEnd: null,
-          }),
+          expect.objectContaining({ plan: "elite" }),
         );
       },
     );
+
+    it("goes back to the same plan after an abandoned dearer Pix without charging again", async () => {
+      const account = {
+        ...cancelledStart("active"),
+        pendingPlan: "elite",
+        pendingReference: "subscription:sub_waiting",
+      };
+      mocks.account.mockResolvedValue(account);
+
+      await startSubscription({ ...input, plan: "start", method: "pix" });
+
+      expect(mocks.client.deleteSubscription).toHaveBeenCalledWith("sub_waiting");
+      expect(mocks.client.createPixSubscription).not.toHaveBeenCalledWith(
+        expect.objectContaining({ firstDueDate: today }),
+      );
+      expect(mocks.save).toHaveBeenCalledWith(
+        expect.anything(),
+        "tenant-a",
+        expect.objectContaining({ plan: "start", prepaidUntil: account.periodEnd }),
+      );
+    });
+
+    it("sends the reseller back to the first Pix of the dearer plan still waiting", async () => {
+      mocks.account.mockResolvedValue({
+        ...cancelledStart("active"),
+        pendingPlan: "elite",
+        pendingReference: "subscription:sub_waiting",
+      });
+
+      const result = await openPendingPayment({ tenantId: "tenant-a", userId: "owner-a" });
+
+      expect(mocks.client.listSubscriptionCharges).toHaveBeenCalledWith("sub_waiting");
+      expect(result).toEqual({ url: OPEN_PIX.invoiceUrl });
+    });
 
     it("charges a dearer plan by card today", async () => {
       mocks.account.mockResolvedValue(cancelledStart("active"));

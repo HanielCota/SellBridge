@@ -23,7 +23,7 @@ import { database } from "@/lib/server/database";
 import { environment } from "@/lib/server/environment";
 import { billingClient } from "./billing-config.server";
 import { paidMonthCarriedTo } from "./paid-month";
-import { CHARGE_REFERENCE, CHECKOUT_REFERENCE } from "./pending-reference";
+import { CHARGE_REFERENCE, CHECKOUT_REFERENCE, SUBSCRIPTION_REFERENCE } from "./pending-reference";
 import { upgradeUntil } from "./upgrade-reference";
 
 type BillingAccount = NonNullable<Awaited<ReturnType<typeof getBillingAccount>>>;
@@ -62,20 +62,29 @@ function firstPaidPatch(account: BillingAccount, charges: readonly AsaasSubscrip
   return first === undefined ? {} : { firstPaidOn: first };
 }
 
-/** The account a subscription belongs to: its own, or the one whose card checkout created it. */
+/**
+ * The account a subscription belongs to: its own, the one whose card checkout created it, or
+ * the one whose Pix subscription for a dearer plan waits for its first payment.
+ */
 async function accountOf(subscription: AsaasSubscription): Promise<BillingAccount | null> {
   const bound = await findBillingAccountBySubscription(database, subscription.id);
   if (bound !== null) return bound;
-  if (subscription.checkoutSession == null) return null;
+  if (subscription.checkoutSession != null) {
+    return findBillingAccountByPendingReference(
+      database,
+      `${CHECKOUT_REFERENCE}${subscription.checkoutSession}`,
+    );
+  }
   return findBillingAccountByPendingReference(
     database,
-    `${CHECKOUT_REFERENCE}${subscription.checkoutSession}`,
+    `${SUBSCRIPTION_REFERENCE}${subscription.id}`,
   );
 }
 
 /**
- * A card checkout's subscription replaces the account's former one. It takes the paid month
- * over only for a plan that costs no more: a dearer one waits for its own first payment.
+ * A card checkout's subscription, or a waiting Pix one once paid, replaces the account's former
+ * one. It takes the paid month over only for a plan that costs no more: a dearer one starts
+ * with its own first payment.
  */
 function adoptionPatch(
   account: BillingAccount,
@@ -89,7 +98,7 @@ function adoptionPatch(
     subscriptionId: subscription.id,
     customerId: subscription.customer,
     plan,
-    paymentMethod: "credit_card",
+    paymentMethod: subscription.billingType === "PIX" ? "pix" : "credit_card",
     pendingPlan: null,
     pendingReference: null,
     prepaidUntil: carried,
@@ -178,6 +187,10 @@ export async function syncBillingSubscription(input: {
     subscriptionId: subscription.id,
     prepaidUntil,
   });
+  // A waiting Pix subscription takes over only with its first payment; until then the month
+  // already paid stays as it is.
+  const waiting = account.pendingReference === `${SUBSCRIPTION_REFERENCE}${subscription.id}`;
+  if (adopting && waiting && !charges.some(isPaidCharge)) return;
   const patch = {
     ...adoption,
     ...firstPaidPatch(account, charges),

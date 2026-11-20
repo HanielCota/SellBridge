@@ -10,7 +10,12 @@ import { logger } from "@sellbridge/shared/logger";
 import { database } from "@/lib/server/database";
 import { billingLockDatabase } from "./billing-lock-database.server";
 import { syncBillingSubscription, syncUpgradeCharge } from "./billing-sync.server";
-import { CHARGE_REFERENCE, CHECKOUT_REFERENCE, CREATION_REFERENCE } from "./pending-reference";
+import {
+  CHARGE_REFERENCE,
+  CHECKOUT_REFERENCE,
+  CREATION_REFERENCE,
+  SUBSCRIPTION_REFERENCE,
+} from "./pending-reference";
 
 type BillingAccount = NonNullable<Awaited<ReturnType<typeof getBillingAccount>>>;
 
@@ -171,6 +176,9 @@ export async function retireUnpaid(
   }
   if (reference?.startsWith(CHECKOUT_REFERENCE) === true) {
     await retireCheckout(client, account, reference.slice(CHECKOUT_REFERENCE.length));
+  }
+  if (reference?.startsWith(SUBSCRIPTION_REFERENCE) === true) {
+    await retireIncompleteSubscription(client, reference.slice(SUBSCRIPTION_REFERENCE.length));
   }
   if (account.subscriptionId !== null && account.status === "incomplete") {
     await retireIncompleteSubscription(client, account.subscriptionId);

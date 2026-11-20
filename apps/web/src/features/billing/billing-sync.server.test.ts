@@ -73,6 +73,16 @@ function renewal() {
   );
 }
 
+/** A paid, cancelled Start month while a dearer Elite Pix waits for its first payment. */
+function waitingAccount() {
+  return account({
+    plan: "start",
+    cancelAtPeriodEnd: true,
+    pendingPlan: "elite",
+    pendingReference: "subscription:sub_waiting",
+  });
+}
+
 function patchApplied(): Record<string, unknown> {
   const call = mocks.apply.mock.calls[0];
   if (call === undefined) throw new Error("no state was applied");
@@ -135,6 +145,55 @@ describe("subscription read back from Asaas", () => {
 
     expect(mocks.client.refundCharge).not.toHaveBeenCalled();
     expect(mocks.client.deleteSubscription).not.toHaveBeenCalled();
+  });
+
+  describe("a dearer plan's Pix subscription waiting for its first payment", () => {
+    beforeEach(() => {
+      mocks.client.getSubscription.mockResolvedValue({
+        id: "sub_waiting",
+        customer: "cus_pix",
+        status: "ACTIVE",
+        value: 997,
+        billingType: "PIX",
+      });
+      mocks.byReference.mockImplementation(async (_executor, reference) =>
+        reference === "subscription:sub_waiting" ? waitingAccount() : null,
+      );
+    });
+
+    it("leaves the paid month alone while that Pix is unpaid", async () => {
+      mocks.client.listSubscriptionCharges.mockResolvedValue([
+        { id: "pay_elite", status: "PENDING", value: 997, dueDate: "2026-11-20" },
+      ]);
+
+      await syncBillingSubscription({ subscriptionId: "sub_waiting", eventId: "evt_created" });
+
+      expect(mocks.apply).not.toHaveBeenCalled();
+      expect(mocks.client.deleteSubscription).not.toHaveBeenCalled();
+    });
+
+    it("takes over with its first payment and ends the old subscription", async () => {
+      mocks.client.listSubscriptionCharges.mockResolvedValue([
+        {
+          id: "pay_elite",
+          status: "RECEIVED",
+          value: 997,
+          dueDate: "2026-11-20",
+          paymentDate: "2026-11-20",
+        },
+      ]);
+
+      await syncBillingSubscription({ subscriptionId: "sub_waiting", eventId: "evt_paid" });
+
+      expect(patchApplied()).toMatchObject({
+        subscriptionId: "sub_waiting",
+        plan: "elite",
+        paymentMethod: "pix",
+        pendingReference: null,
+        prepaidUntil: null,
+      });
+      expect(mocks.client.deleteSubscription).toHaveBeenCalledWith("sub_old");
+    });
   });
 
   it("binds a card checkout's subscription, keeps the paid month and ends the old one", async () => {

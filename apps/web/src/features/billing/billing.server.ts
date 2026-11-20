@@ -13,7 +13,7 @@ import { database } from "@/lib/server/database";
 import { billingEnabled, billingRules } from "./billing-config.server";
 import type { BillingNoticeView } from "./billing-notice";
 import { syncBillingSubscription, syncUpgradeCharge } from "./billing-sync.server";
-import { CHARGE_REFERENCE } from "./pending-reference";
+import { CHARGE_REFERENCE, SUBSCRIPTION_REFERENCE } from "./pending-reference";
 import type { NewStoreBlock } from "./new-store-block";
 
 type BillingAccount = NonNullable<Awaited<ReturnType<typeof getBillingAccount>>>;
@@ -70,6 +70,12 @@ async function refreshOnVisit(tenantId: string): Promise<void> {
     if (reference?.startsWith(CHARGE_REFERENCE) === true) {
       await syncUpgradeCharge({
         chargeId: reference.slice(CHARGE_REFERENCE.length),
+        eventId: null,
+      });
+    }
+    if (reference?.startsWith(SUBSCRIPTION_REFERENCE) === true) {
+      await syncBillingSubscription({
+        subscriptionId: reference.slice(SUBSCRIPTION_REFERENCE.length),
         eventId: null,
       });
     }

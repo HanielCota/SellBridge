@@ -298,6 +298,22 @@ describe("prepareAccountDeletion", () => {
     expect(checkout).toBeLessThan(deletion);
   });
 
+  it("ends a dearer plan's Pix subscription still waiting for payment before deleting data", async () => {
+    mocks.getBillingAccount.mockResolvedValue({
+      customerId: "cus_123",
+      subscriptionId: "sub_123",
+      pendingReference: "subscription:sub_waiting",
+    });
+
+    await prepareAccountDeletion(SELLER);
+
+    expect(mocks.deleteSubscription).toHaveBeenCalledWith("sub_waiting");
+    expect(mocks.deleteSubscription).toHaveBeenCalledWith("sub_123");
+    const waiting = mocks.deleteSubscription.mock.invocationCallOrder[0] ?? 0;
+    const deletion = mocks.deleteTenantData.mock.invocationCallOrder[0] ?? 0;
+    expect(waiting).toBeLessThan(deletion);
+  });
+
   it("stops before the subscription or any data while something is left to resolve", async () => {
     mocks.assertNothingLeftToResolve.mockRejectedValue(LEFT_TO_RESOLVE);
 
