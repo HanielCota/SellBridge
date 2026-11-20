@@ -10,6 +10,7 @@ export * from "./store-catalog.ts";
 export * from "./product-heat.ts";
 export {
   deleteUnsoldProductModel,
+  findSkusTakenOutsideModel,
   MODEL_IN_USE_MESSAGE,
   publishProductModel,
   saveProductModelDraft,

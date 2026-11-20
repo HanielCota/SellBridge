@@ -289,15 +289,19 @@ async function writeOptions(
   }
 }
 
-async function assertSkusFreeOutsideModel(
-  transaction: DatabaseExecutor,
-  input: CatalogSaveModelDraftInput,
-): Promise<void> {
+/**
+ * The SKUs of a grid save that another product of the supplier already uses: what the form
+ * shows on those fields before saving, so the supplier fixes them and the autosave goes on.
+ */
+export async function findSkusTakenOutsideModel(
+  executor: DatabaseExecutor,
+  input: Pick<CatalogSaveModelDraftInput, "supplierId" | "modelId" | "grid">,
+): Promise<string[]> {
   const skus = input.grid.combinations.map((combination) => combination.sku);
   if (skus.length === 0) {
-    return;
+    return [];
   }
-  const taken = await transaction
+  const taken = await executor
     .select({ sku: supplierProducts.sku })
     .from(supplierProducts)
     .where(
@@ -308,9 +312,18 @@ async function assertSkusFreeOutsideModel(
       ),
     )
     .orderBy(asc(supplierProducts.sku));
+  return taken.map((row) => row.sku);
+}
+
+/** The same check inside the save, for a SKU another product took since the form checked. */
+async function assertSkusFreeOutsideModel(
+  transaction: DatabaseExecutor,
+  input: CatalogSaveModelDraftInput,
+): Promise<void> {
+  const taken = await findSkusTakenOutsideModel(transaction, input);
   if (taken.length > 0) {
     throw conflictError(
-      `Já existe outro produto com ${taken.length === 1 ? "o SKU" : "os SKUs"} ${taken.map((row) => row.sku).join(", ")} neste fornecedor`,
+      `Já existe outro produto com ${taken.length === 1 ? "o SKU" : "os SKUs"} ${taken.join(", ")} neste fornecedor`,
     );
   }
 }

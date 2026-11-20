@@ -1,5 +1,6 @@
 import {
   deleteUnsoldProductModel,
+  findSkusTakenOutsideModel,
   getProductModel,
   getSupplierTaxDefaults,
   publishProductModel,
@@ -61,13 +62,17 @@ export async function loadPanelModelForm(input: {
 }
 
 /**
- * Autosave answers a conflict (another tab, a sale, a SKU in use) as a result, not an error: the
- * form must stop saving and say why, and a server function error reaches the browser without
- * its code.
+ * Autosave answers a conflict (another tab, a sale) as a result, not an error: the form must
+ * stop saving and say why, and a server function error reaches the browser without its code. A
+ * SKU another product uses is answered apart, as the field to fix: saving goes on after it.
  */
 export async function writePanelModelDraft(input: CatalogSaveModelDraftInput) {
   assertProductGridEnabled();
   const result = await panelWrite("supplier_panel.model_save_failed", async () => {
+    const takenSkus = await findSkusTakenOutsideModel(database, input);
+    if (takenSkus.length > 0) {
+      return { saved: false as const, takenSkus };
+    }
     try {
       return { saved: true as const, model: await saveProductModelDraft(database, input) };
     } catch (error) {
