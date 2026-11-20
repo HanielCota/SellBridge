@@ -10,6 +10,7 @@ import {
   MissingInvoiceDataError,
   nextInvoiceAttemptAt,
   onBehalfCfop,
+  parcelNoteKinds,
   resolveInvoiceItemTax,
 } from "./supplier-invoice.ts";
 
@@ -294,5 +295,15 @@ describe("onBehalfCfop", () => {
     });
 
     expect(cfop).toBe("6118");
+  });
+});
+
+describe("parcelNoteKinds", () => {
+  it("reads the direct note or the remessa as the note in the box", () => {
+    expect(parcelNoteKinds("box")).toEqual(["direct", "on_behalf_shipment"]);
+  });
+
+  it("reads the sale to the reseller on its own", () => {
+    expect(parcelNoteKinds("sale")).toEqual(["on_behalf_sale"]);
   });
 });
