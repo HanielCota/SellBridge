@@ -37,13 +37,78 @@ function textBetween(xml: string, open: string, close: string, from = 0): string
   return xml.slice(contentStart, end);
 }
 
+/** Markup that holds text, not elements: a tag inside it is no part of the note. */
+const HIDDEN_TEXT = [
+  { open: "<!--", close: "-->" },
+  { open: "<![CDATA[", close: "]]>" },
+] as const;
+
+/**
+ * The XML without comments and CDATA sections, or null when one is never closed. One pass with
+ * `indexOf`, so a crafted file still costs linear time.
+ */
+function withoutHiddenText(xml: string): string | null {
+  // Each marker's next place, looked up again only once the scan has passed it.
+  const nextAt = HIDDEN_TEXT.map((marker) => xml.indexOf(marker.open));
+  const kept: string[] = [];
+  let position = 0;
+  for (;;) {
+    let markerIndex = -1;
+    for (const [index, at] of nextAt.entries()) {
+      const best = markerIndex === -1 ? -1 : (nextAt[markerIndex] ?? -1);
+      if (at !== -1 && (best === -1 || at < best)) {
+        markerIndex = index;
+      }
+    }
+    const marker = HIDDEN_TEXT[markerIndex];
+    const start = nextAt[markerIndex];
+    if (marker === undefined || start === undefined) {
+      kept.push(xml.slice(position));
+      return kept.join("");
+    }
+    kept.push(xml.slice(position, start));
+    const end = xml.indexOf(marker.close, start + marker.open.length);
+    if (end === -1) {
+      return null;
+    }
+    position = end + marker.close.length;
+    for (const [index, at] of nextAt.entries()) {
+      const open = HIDDEN_TEXT[index]?.open;
+      if (at !== -1 && at < position && open !== undefined) {
+        nextAt[index] = xml.indexOf(open, position);
+      }
+    }
+  }
+}
+
+const TAG_NAME_END = /[\s/>]/;
+
+/** Where the element `name` opens from `from`, its name ending there (not `<infNFeSupl`); -1 if never. */
+function tagStart(xml: string, name: string, from = 0): number {
+  const open = `<${name}`;
+  for (let at = xml.indexOf(open, from); at !== -1; at = xml.indexOf(open, at + open.length)) {
+    if (TAG_NAME_END.test(xml.charAt(at + open.length))) {
+      return at;
+    }
+  }
+  return -1;
+}
+
+function occurrences(xml: string, name: string): number {
+  let count = 0;
+  for (let at = tagStart(xml, name); at !== -1; at = tagStart(xml, name, at + name.length + 1)) {
+    count += 1;
+  }
+  return count;
+}
+
 /** The body of the first `infProt` inside `protNFe`, SEFAZ's answer about the note. */
 function protocolOf(xml: string): string | null {
   const protocolStart = xml.indexOf("<protNFe");
   if (protocolStart === -1) {
     return null;
   }
-  const infProtStart = xml.indexOf("<infProt", protocolStart);
+  const infProtStart = tagStart(xml, "infProt", protocolStart);
   if (infProtStart === -1) {
     return null;
   }
@@ -56,7 +121,8 @@ function protocolOf(xml: string): string | null {
 
 /** The 44 digits of the note's `infNFe Id="NFe…"`, read from its opening tag only. */
 function noteIdOf(xml: string): string | null {
-  const opening = textBetween(xml, "<infNFe", ">");
+  const start = tagStart(xml, "infNFe");
+  const opening = start === -1 ? null : textBetween(xml, "<infNFe", ">", start);
   if (opening === null) {
     return null;
   }
@@ -64,8 +130,13 @@ function noteIdOf(xml: string): string | null {
 }
 
 /** The note's access key, or why the file is not an authorized NF-e, in the reseller's words. */
-export function readAuthorizedNfeXml(xml: string): NfeXmlReading {
-  if (!xml.includes("<nfeProc") || !xml.includes("<protNFe")) {
+export function readAuthorizedNfeXml(file: string): NfeXmlReading {
+  const xml = withoutHiddenText(file);
+  if (xml === null || !xml.includes("<nfeProc") || !xml.includes("<protNFe")) {
+    return { accessKey: null, problem: NOT_NFE };
+  }
+  // One note and one answer of SEFAZ: a second one would leave which is which to chance.
+  if (occurrences(xml, "infProt") !== 1 || occurrences(xml, "infNFe") !== 1) {
     return { accessKey: null, problem: NOT_NFE };
   }
   const protocol = protocolOf(xml);

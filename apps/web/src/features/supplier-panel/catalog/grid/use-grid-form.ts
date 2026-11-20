@@ -2,7 +2,7 @@ import type { FiscalFallback } from "@sellbridge/shared/product-fiscal";
 import { GRID_AXIS_ATTRIBUTES, type ProductModelShared } from "@sellbridge/shared/product-grid";
 import type { SupplierTaxSetup } from "@sellbridge/shared/supplier-fiscal";
 import { requiredAttributesFor } from "@sellbridge/shared/supplier-panel-catalog-completeness";
-import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { type QueryClient, useMutation, useQueryClient } from "@tanstack/react-query";
 import { type SetStateAction, useCallback, useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 import { useUnsavedChanges } from "@/hooks/use-unsaved-changes";
@@ -35,7 +35,10 @@ import {
 import { supplierPanelModelFormQueryOptions } from "./grid.queries";
 import { ModelAutosaver, type ModelFormSnapshot, type SentModel } from "./model-autosaver";
 
-type ModelFormData = Awaited<ReturnType<typeof supplierPanelGetModelForm>>;
+type ModelFormData = Extract<
+  Awaited<ReturnType<typeof supplierPanelGetModelForm>>,
+  { available: true }
+>;
 export type SavedModel = NonNullable<ModelFormData["model"]>;
 
 /**
@@ -170,6 +173,21 @@ function useGridRules(
   return { category, ficha, required, report };
 }
 
+/** A saved grid reopens from the cache as saved, and the product list shows it. */
+function rememberSavedModel(
+  queryClient: QueryClient,
+  supplierId: string,
+  data: ModelFormData & { model: SavedModel },
+): void {
+  queryClient.setQueryData(
+    supplierPanelModelFormQueryOptions(supplierId, data.model.id).queryKey,
+    data,
+  );
+  void queryClient.invalidateQueries({
+    queryKey: [...supplierPanelCatalogKey(supplierId), "list"],
+  });
+}
+
 /**
  * Everything the grid form holds: the shared values and the grid being typed, the live
  * completeness, the server autosave and the publication.
@@ -197,14 +215,12 @@ export function useGridForm(options: GridFormOptions) {
           model.combinations,
         ),
       }));
-      queryClient.setQueryData(supplierPanelModelFormQueryOptions(supplierId, model.id).queryKey, {
+      rememberSavedModel(queryClient, supplierId, {
+        available: true,
         model,
         categories: [...categories],
         taxDefaults,
         brandNiche,
-      });
-      void queryClient.invalidateQueries({
-        queryKey: [...supplierPanelCatalogKey(supplierId), "list"],
       });
     },
     [queryClient, supplierId, categories, taxDefaults, brandNiche],

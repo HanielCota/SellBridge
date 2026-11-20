@@ -142,4 +142,50 @@ describe("sendMercadoLivreSaleInvoice", () => {
 
     await expect(sent).rejects.toThrow(/mesmo CNPJ/);
   });
+
+  it("gives up on a send Mercado Livre never answers, instead of waiting forever", async () => {
+    const { request, config } = setup(Response.json(ORDER), NO_NOTE());
+    request.mockImplementationOnce(
+      async (_input, init) =>
+        await new Promise<Response>((_resolve, reject) => {
+          init?.signal?.addEventListener("abort", () => reject(new Error("aborted")));
+        }),
+    );
+
+    const sent = sendMercadoLivreSaleInvoice(
+      { ...config, retry: { retries: 0, timeoutMilliseconds: 50 } },
+      store,
+      { orderId: "2000123", accessKey: KEY, xml: XML },
+    );
+
+    await expect(sent).rejects.toThrow("Falha de rede ao falar com o marketplace");
+  });
+
+  it("asks to reconnect the store when Mercado Livre refuses its token", async () => {
+    const { config } = setup(
+      Response.json(ORDER),
+      NO_NOTE(),
+      Response.json({ message: "invalid access token" }, { status: 401 }),
+    );
+
+    const sent = sendMercadoLivreSaleInvoice(config, store, {
+      orderId: "2000123",
+      accessKey: KEY,
+      xml: XML,
+    });
+
+    await expect(sent).rejects.toMatchObject({ code: "EXTERNAL_PROVIDER_AUTH" });
+  });
+
+  it("refuses an order that has no shipment yet", async () => {
+    const { config } = setup(Response.json({ seller: { id: 99 }, shipping: null }));
+
+    const sent = sendMercadoLivreSaleInvoice(config, store, {
+      orderId: "2000123",
+      accessKey: KEY,
+      xml: XML,
+    });
+
+    await expect(sent).rejects.toThrow("O pedido ainda não tem envio no Mercado Livre");
+  });
 });

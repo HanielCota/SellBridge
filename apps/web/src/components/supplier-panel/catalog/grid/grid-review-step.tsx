@@ -46,6 +46,7 @@ function PriceRange({ grid }: { grid: GridFormState }) {
 export function GridReviewStep({
   values,
   grid,
+  modelCode,
   categoryName,
   status,
   hasDraftCombination,
@@ -54,6 +55,8 @@ export function GridReviewStep({
 }: Omit<SubmitProps, "blockingCount"> & {
   values: PanelFormValues;
   grid: GridFormState;
+  /** The code the spreadsheet uses for this grid; null until the first save. */
+  modelCode: string | null;
   categoryName: string | null;
   status: "approved" | "draft";
   hasDraftCombination: boolean;
@@ -66,6 +69,9 @@ export function GridReviewStep({
       <dl className="divide-y divide-border">
         <SummaryRow label="Categoria">{categoryName ?? "Não informado"}</SummaryRow>
         <SummaryRow label="Título">{values.title || "Não informado"}</SummaryRow>
+        <SummaryRow label="Código do modelo (na planilha)">
+          {modelCode ?? "Criado ao salvar"}
+        </SummaryRow>
         <SummaryRow label="Cores">
           {colors.length === 0 ? "Sem cores" : LIST_FORMAT.format(colors)}
         </SummaryRow>

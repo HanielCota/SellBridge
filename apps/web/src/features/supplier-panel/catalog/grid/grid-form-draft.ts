@@ -61,6 +61,14 @@ function moneyCents(text: string): number {
   return text.trim() === "" ? 0 : (parseCsvMoney(text) ?? Number.NaN);
 }
 
+/** The typed price, or the one the cost suggests while none was typed. */
+function suggestedPriceOf(typed: string, costCents: number): number {
+  if (typed.trim() !== "") {
+    return moneyCents(typed);
+  }
+  return costCents > 0 ? defaultSuggestedPriceCents(costCents) : 0;
+}
+
 function names(state: GridFormState) {
   return {
     color: new Map(state.colors.map((color) => [color.key, color.name.trim()])),
@@ -86,12 +94,7 @@ function parseCombination(
     return { kind: "skipped" };
   }
   const costCents = moneyCents(combination.cost);
-  const typedPrice = combination.suggestedPrice.trim() !== "";
-  const suggestedPriceCents = typedPrice
-    ? moneyCents(combination.suggestedPrice)
-    : costCents > 0
-      ? defaultSuggestedPriceCents(costCents)
-      : 0;
+  const suggestedPriceCents = suggestedPriceOf(combination.suggestedPrice, costCents);
   const stock = combination.stock.trim() === "" ? 0 : parseStockCount(combination.stock.trim());
   const errors: Record<string, string> = {};
   if (combination.sku.trim() === "") {

@@ -2,6 +2,9 @@ import { conflictError, notFoundError } from "@sellbridge/shared/errors";
 import {
   combinationOwnFields,
   materializeCombination,
+  modelCodeFromTitle,
+  modelCodeKey,
+  type GridColor,
   type GridCombination,
   type MaterializedCombination,
   type ProductGrid,
@@ -13,7 +16,7 @@ import {
   withFiscalFallback,
   type FiscalFallback,
 } from "@sellbridge/shared/product-fiscal";
-import { and, asc, eq, inArray } from "drizzle-orm";
+import { and, asc, eq, inArray, like, or, sql } from "drizzle-orm";
 import type { Database, DatabaseExecutor } from "../client.ts";
 import {
   productModelColors,
@@ -28,6 +31,8 @@ import { getSupplierFiscalFallback } from "./supplier-brand.ts";
 export interface ProductModelDetail {
   readonly id: string;
   readonly supplierId: string;
+  /** The supplier's code for the model, as the spreadsheet carries it. */
+  readonly code: string;
   readonly updatedAt: Date;
   readonly values: ProductModelShared;
   readonly colors: readonly { name: string; imageUrls: string[] }[];
@@ -78,6 +83,45 @@ async function assertSkusAreFree(
     throw conflictError(
       `Já existe produto com ${taken.length === 1 ? "o SKU" : "os SKUs"} ${taken.map((row) => row.sku).join(", ")} neste fornecedor`,
     );
+  }
+}
+
+/**
+ * The code a new model takes: the one given, when free (a spreadsheet's code is the supplier's
+ * own, never renamed), or the title's with "-2", "-3"… until it is free.
+ *
+ * @throws {AppError} CONFLICT when a given code already belongs to another model of the supplier.
+ */
+export async function modelCodeFor(
+  transaction: DatabaseExecutor,
+  input: { supplierId: string; code?: string | undefined; title: string },
+): Promise<string> {
+  const base = modelCodeKey(input.code ?? modelCodeFromTitle(input.title));
+  const upperCode = sql<string>`upper(${productModels.code})`;
+  const taken = new Set(
+    (
+      await transaction
+        .select({ code: productModels.code })
+        .from(productModels)
+        .where(
+          and(
+            eq(productModels.supplierId, input.supplierId),
+            or(eq(upperCode, base), like(upperCode, `${base}-%`)),
+          ),
+        )
+    ).map((row) => modelCodeKey(row.code)),
+  );
+  if (input.code !== undefined && taken.has(base)) {
+    throw conflictError(`Já existe um modelo com o código "${base}" neste fornecedor`);
+  }
+  if (!taken.has(base)) {
+    return base;
+  }
+  for (let suffix = 2; ; suffix += 1) {
+    const candidate = `${base}-${suffix}`;
+    if (!taken.has(candidate)) {
+      return candidate;
+    }
   }
 }
 
@@ -143,45 +187,148 @@ export function combinationRow(
  * @param input.grid - Already validated with `productGridSchema`.
  * @param input.reviewStatus - "approved" from the team, "draft" from the supplier panel; a
  *   combination without NCM, origin and unit is saved as a draft either way.
- * @throws AppError CONFLICT when a combination's SKU already exists for the supplier.
+ * @throws {AppError} CONFLICT when a combination's SKU already exists for the supplier.
  */
 export async function createProductModel(
   database: Database,
   input: {
     supplierId: string;
+    /** The spreadsheet's "codigo_modelo"; left out, the code comes from the title. */
+    code?: string | undefined;
     values: ProductModelShared;
     grid: ProductGrid;
     reviewStatus: "approved" | "draft";
   },
 ): Promise<{ modelId: string; combinationIds: string[] }> {
-  const { supplierId, values, grid } = input;
   return await database.transaction(async (transaction) => {
-    await lockSupplier(transaction, supplierId);
-    await assertSkusAreFree(
-      transaction,
-      supplierId,
-      grid.combinations.map((combination) => combination.sku),
-    );
-    const [model] = await transaction
-      .insert(productModels)
-      .values({ supplierId, ...values, imageUrls: [...values.imageUrls] })
-      .returning({ id: productModels.id });
-    if (model === undefined) {
-      throw new Error("product_models insert returned no row");
-    }
-    await insertOptions(transaction, model.id, grid);
-    const fallback = await getSupplierFiscalFallback(transaction, supplierId);
-    const photos = colorPhotos(grid);
-    const rows = grid.combinations.map((combination) => {
-      const row = combinationRow({ supplierId, modelId: model.id, values, photos }, combination);
-      return { ...row, reviewStatus: reviewStatusFor(input.reviewStatus, row, fallback) };
-    });
-    const inserted = await transaction
-      .insert(supplierProducts)
-      .values(rows)
-      .returning({ id: supplierProducts.id });
-    return { modelId: model.id, combinationIds: inserted.map((row) => row.id) };
+    await lockSupplier(transaction, input.supplierId);
+    return await insertProductModel(transaction, input);
   });
+}
+
+/** `createProductModel` inside a transaction the caller holds, with the supplier locked. */
+export async function insertProductModel(
+  transaction: DatabaseExecutor,
+  input: Parameters<typeof createProductModel>[1],
+): Promise<{ modelId: string; combinationIds: string[] }> {
+  const { supplierId, values, grid } = input;
+  const code = await modelCodeFor(transaction, {
+    supplierId,
+    code: input.code,
+    title: values.title,
+  });
+  await assertSkusAreFree(
+    transaction,
+    supplierId,
+    grid.combinations.map((combination) => combination.sku),
+  );
+  const [model] = await transaction
+    .insert(productModels)
+    .values({ supplierId, code, ...values, imageUrls: [...values.imageUrls] })
+    .returning({ id: productModels.id });
+  if (model === undefined) {
+    throw new Error("product_models insert returned no row");
+  }
+  await insertOptions(transaction, model.id, grid);
+  const fallback = await getSupplierFiscalFallback(transaction, supplierId);
+  const photos = colorPhotos(grid);
+  const rows = grid.combinations.map((combination) => {
+    const row = combinationRow({ supplierId, modelId: model.id, values, photos }, combination);
+    return { ...row, reviewStatus: reviewStatusFor(input.reviewStatus, row, fallback) };
+  });
+  const inserted = await transaction
+    .insert(supplierProducts)
+    .values(rows)
+    .returning({ id: supplierProducts.id });
+  return { modelId: model.id, combinationIds: inserted.map((row) => row.id) };
+}
+
+/**
+ * Adds colours, sizes and combinations to a grid the supplier has, each combination built from
+ * the model's stored shared data. The caller holds the supplier lock.
+ *
+ * @throws {AppError} NOT_FOUND when the model is not the supplier's; CONFLICT when a SKU is taken.
+ */
+export async function addCombinationsToModel(
+  transaction: DatabaseExecutor,
+  input: {
+    supplierId: string;
+    modelId: string;
+    colors: readonly GridColor[];
+    sizes: readonly string[];
+    combinations: readonly GridCombination[];
+  },
+): Promise<string[]> {
+  const { supplierId, modelId } = input;
+  await assertSkusAreFree(
+    transaction,
+    supplierId,
+    input.combinations.map((combination) => combination.sku),
+  );
+  const [model] = await transaction
+    .select()
+    .from(productModels)
+    .where(and(eq(productModels.id, modelId), eq(productModels.supplierId, supplierId)));
+  if (model === undefined) {
+    throw notFoundError("Modelo não encontrado neste fornecedor");
+  }
+  const storedColors = await transaction
+    .select({ name: productModelColors.name, imageUrls: productModelColors.imageUrls })
+    .from(productModelColors)
+    .where(eq(productModelColors.modelId, modelId));
+  const storedSizes = await transaction
+    .select({ name: productModelSizes.name })
+    .from(productModelSizes)
+    .where(eq(productModelSizes.modelId, modelId));
+  await appendOptions(transaction, modelId, {
+    colors: input.colors.map((color, index) => ({
+      ...color,
+      position: storedColors.length + index,
+    })),
+    sizes: input.sizes.map((name, index) => ({ name, position: storedSizes.length + index })),
+  });
+  const photos = new Map(
+    [...storedColors, ...input.colors].map((color) => [color.name, [...color.imageUrls]]),
+  );
+  const values = sharedValues(model);
+  const fallback = await getSupplierFiscalFallback(transaction, supplierId);
+  if (input.combinations.length === 0) {
+    return [];
+  }
+  const rows = input.combinations.map((combination) => {
+    const row = combinationRow({ supplierId, modelId, values, photos }, combination);
+    return { ...row, reviewStatus: reviewStatusFor("approved", row, fallback) };
+  });
+  const inserted = await transaction
+    .insert(supplierProducts)
+    .values(rows)
+    .returning({ id: supplierProducts.id });
+  return inserted.map((row) => row.id);
+}
+
+async function appendOptions(
+  transaction: DatabaseExecutor,
+  modelId: string,
+  options: {
+    colors: readonly { name: string; imageUrls: readonly string[]; position: number }[];
+    sizes: readonly { name: string; position: number }[];
+  },
+): Promise<void> {
+  if (options.colors.length > 0) {
+    await transaction.insert(productModelColors).values(
+      options.colors.map((color) => ({
+        modelId,
+        name: color.name,
+        position: color.position,
+        imageUrls: [...color.imageUrls],
+      })),
+    );
+  }
+  if (options.sizes.length > 0) {
+    await transaction
+      .insert(productModelSizes)
+      .values(options.sizes.map((size) => ({ modelId, name: size.name, position: size.position })));
+  }
 }
 
 async function insertOptions(
@@ -210,7 +357,7 @@ async function insertOptions(
  * Saves the model's shared data and rewrites every combination from it, so no combination keeps
  * an old title, photo or attribute. Stock, prices, SKUs and review status are left as they are.
  *
- * @throws AppError NOT_FOUND when the model does not belong to the supplier.
+ * @throws {AppError} NOT_FOUND when the model does not belong to the supplier.
  */
 export async function updateProductModel(
   database: Database,
@@ -336,6 +483,7 @@ export async function getProductModel(
   return {
     id: model.id,
     supplierId: model.supplierId,
+    code: model.code,
     updatedAt: model.updatedAt,
     values: sharedValues(model),
     colors,

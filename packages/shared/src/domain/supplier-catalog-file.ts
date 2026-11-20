@@ -13,12 +13,14 @@ import { looksLikeZip } from "./supplier-panel-import-zip.ts";
 /**
  * The supplier's EnvioVelox catalog, which the admin import already reads, turned into the product
  * CSV the supplier panel previews; null for any other file (the panel's own template, a CSV),
- * which goes through the panel's usual reading. The categories load only for a catalog.
+ * which goes through the panel's usual reading. The categories load only for a catalog. With
+ * `gridColumns`, a product in several colours or sizes comes out as one grid.
  */
 export async function readSupplierCatalogFile(
   bytes: Uint8Array,
   fileName: string,
   loadCategories: () => Promise<readonly CatalogCategory[]>,
+  options: { readonly gridColumns?: boolean } = {},
 ): Promise<CatalogImport | null> {
   if (!looksLikeZip(bytes)) {
     return null;
@@ -44,5 +46,9 @@ export async function readSupplierCatalogFile(
   }
 
   const catalogs = catalogSheets.flatMap((sheet) => detectSpreadsheet(sheet, fileName) ?? []);
-  return buildCatalogImport({ sheets: catalogs, categories: await loadCategories() });
+  return buildCatalogImport({
+    sheets: catalogs,
+    categories: await loadCategories(),
+    gridColumns: options.gridColumns === true,
+  });
 }

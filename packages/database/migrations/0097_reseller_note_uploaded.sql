@@ -1,2 +1,0 @@
-ALTER TABLE "shipment_reseller_invoices" DROP CONSTRAINT "shipment_reseller_invoices_source_check";--> statement-breakpoint
-ALTER TABLE "shipment_reseller_invoices" ADD CONSTRAINT "shipment_reseller_invoices_source_check" CHECK ("shipment_reseller_invoices"."source" is null or "shipment_reseller_invoices"."source" in ('marketplace', 'typed', 'uploaded'));

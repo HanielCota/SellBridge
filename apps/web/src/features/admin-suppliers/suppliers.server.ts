@@ -29,6 +29,7 @@ import type {
   adminSetProductActiveSchema,
 } from "@sellbridge/shared/schemas";
 import { database } from "@/lib/server/database";
+import { productGridEnabled } from "@/lib/server/product-grid-switch";
 import { requestStockSync } from "@/lib/server/stock-sync";
 
 /** A page of suppliers, and how many active ones still have no panel login. */
@@ -117,7 +118,7 @@ function previewToken(content: string, plan: SupplierProductImportPlan): string 
 }
 
 export async function previewAdminProductCsv(input: z.infer<typeof adminProductCsvSchema>) {
-  const parsed = parseProductCsv(input.content);
+  const parsed = parseProductCsv(input.content, { gridColumns: productGridEnabled() });
   const plan = await previewSupplierProductImport(database, input.supplierId, parsed.rows);
   return {
     created: plan.created,
@@ -127,6 +128,9 @@ export async function previewAdminProductCsv(input: z.infer<typeof adminProductC
       (first, second) => first.line - second.line,
     ),
     previewToken: previewToken(input.content, plan),
+    grids: plan.grids.length,
+    gridCombinations: plan.grids.reduce((sum, grid) => sum + grid.combinations.length, 0),
+    notices: plan.notices,
   };
 }
 
@@ -136,7 +140,7 @@ export async function previewAdminProductCsv(input: z.infer<typeof adminProductC
  * a draft. Decided on 2026-10-25; before, the admin's import approved every row at once.
  */
 export async function confirmAdminProductCsv(input: z.infer<typeof adminConfirmProductCsvSchema>) {
-  const parsed = parseProductCsv(input.content);
+  const parsed = parseProductCsv(input.content, { gridColumns: productGridEnabled() });
   if (parsed.errors.length > 0) {
     throw validationError("Corrija os erros do CSV antes de importar");
   }

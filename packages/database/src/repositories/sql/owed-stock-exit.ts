@@ -62,7 +62,8 @@ export const notYetInBling = sql`(
       not exists (${invoicedParcel})
       and not exists (
         select 1 from erp_stock_exits as posted
-        where posted.order_item_id = item.id and posted.status <> 'posting'
+        where posted.order_item_id = item.id and posted.operation = 'exit'
+          and posted.status <> 'posting'
       )
     )
     or (exists (${invoicedParcel}) and not exists (${saleOrderInBling}))

@@ -35,6 +35,22 @@ describe("readSupplierCatalogFile", () => {
     expect(normalized.records.size).toBe(2);
   });
 
+  it("hands a product in several sizes to the panel's preview as one grid when grids are on", async () => {
+    const file = buildXlsx([
+      [...envioVeloxHeader, "Cor", "Tamanho"],
+      ["TEN-37", "Tênis casual", "", 0, 39.9, 12, "", "Calçados", "Preto", "37"],
+      ["TEN-38", "Tênis casual", "", 0, 39.9, 4, "", "Calçados", "Preto", "38"],
+    ]);
+
+    const converted = await readSupplierCatalogFile(file, "envio.xlsx", categories, {
+      gridColumns: true,
+    });
+
+    const normalized = normalizeImportFile(utf8(converted?.csv ?? ""), { gridColumns: true });
+    expect(normalized.canonicalCsv.split("\n")[0]).toContain("codigo_modelo;cor;tamanho");
+    expect(converted?.csv).toContain('"TENIS-CASUAL";"Preto";"38"');
+  });
+
   // Regression (security audit, 31/10/2026): every row got a map as wide as the header, and the
   // categories were loaded, before the product limit was checked.
   it("refuses a catalog past the product limit before loading categories", async () => {

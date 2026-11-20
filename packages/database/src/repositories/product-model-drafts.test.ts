@@ -15,7 +15,10 @@ import {
   saveProductModelDraft,
 } from "./product-model-drafts.ts";
 import { getProductModel } from "./product-models.ts";
-import { listSupplierPanelProducts } from "./supplier-panel-catalog.ts";
+import {
+  listSupplierPanelProducts,
+  supplierCatalogExportBatches,
+} from "./supplier-panel-catalog.ts";
 
 const database = createTestDatabase();
 let supplierId = "";
@@ -111,6 +114,24 @@ describe("saveProductModelDraft", () => {
       [`${prefix}-P-39`, "draft"],
     ]);
     expect((await rowOf(`${prefix}-P-38`))?.title).toBe("Tênis Casual Couro - Preto 38");
+  });
+
+  it("names a new grid after its title, never repeating another grid's code", async () => {
+    const prefix = randomUUID().slice(0, 8);
+    const title = `Tênis Código ${prefix}`;
+    const input = draft(prefix);
+
+    const first = await saveProductModelDraft(database, {
+      ...input,
+      values: { ...input.values, title },
+    });
+    const second = await saveProductModelDraft(database, {
+      ...draft(`${prefix}b`),
+      values: { ...input.values, title },
+    });
+
+    expect(first.code).toBe(`TENIS-CODIGO-${prefix.toUpperCase()}`);
+    expect(second.code).toBe(`TENIS-CODIGO-${prefix.toUpperCase()}-2`);
   });
 
   it("saves a grid still being typed, with a colour that has no combination yet", async () => {
@@ -321,5 +342,52 @@ describe("supplier panel list", () => {
       stock: 8,
     });
     expect(list.counts.all).toBe(1);
+  });
+
+  it("counts a grid without NF-e data once among the products missing it", async () => {
+    const prefix = randomUUID().slice(0, 8);
+    const input = draft(prefix);
+    const search = {
+      supplierId,
+      status: "all",
+      query: undefined,
+      sort: "title",
+      direction: "asc",
+      page: 1,
+      pageSize: 25,
+      fiscal: "all",
+    } as const;
+    const before = await listSupplierPanelProducts(database, search);
+
+    await saveProductModelDraft(database, {
+      ...input,
+      values: { ...input.values, fiscal: { ...input.values.fiscal, ncm: null } },
+    });
+
+    const after = await listSupplierPanelProducts(database, search);
+    expect(after.missingFiscalCount - before.missingFiscalCount).toBe(1);
+  });
+});
+
+describe("spreadsheet export", () => {
+  it("exports each combination with its model's code and title, its colour and size", async () => {
+    const prefix = randomUUID().slice(0, 8);
+    const saved = await saveProductModelDraft(database, draft(prefix));
+    const rows = [];
+
+    for await (const batch of supplierCatalogExportBatches(
+      database,
+      { supplierId, status: "all", query: prefix, fiscal: "all" },
+      100,
+    )) {
+      rows.push(...batch);
+    }
+
+    expect(rows.find((entry) => entry.sku === `${prefix}-P-38`)?.grid).toEqual({
+      modelCode: saved.code,
+      modelTitle: "Tênis Casual Couro",
+      color: "Preto",
+      size: "38",
+    });
   });
 });

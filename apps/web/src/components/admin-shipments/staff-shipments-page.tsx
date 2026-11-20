@@ -15,6 +15,7 @@ import { ToneStatus } from "@/components/data/tone-status";
 import { EmptyState } from "@/components/feedback/empty-state";
 import { ErrorState } from "@/components/feedback/error-state";
 import { PageHeader } from "@/components/layout/page-header";
+import { StaffOnBehalfLabel } from "@/components/admin-shipments/staff-on-behalf-label";
 import { TrackingParcel } from "@/components/tracking/tracking-parcel";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
@@ -253,7 +254,12 @@ function ParcelDetail({ shipmentId }: { shipmentId: string | undefined }) {
       </p>
     );
   }
-  return <TrackingParcel parcel={query.data} reader="staff" />;
+  return (
+    <div className="grid gap-4">
+      <StaffOnBehalfLabel shipmentId={shipmentId} />
+      <TrackingParcel parcel={query.data} reader="staff" />
+    </div>
+  );
 }
 
 /** `/admin/envios`: every customer's parcels, filters on the left, the chosen one on the right. */

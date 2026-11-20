@@ -76,7 +76,6 @@ import { Route as ApiWebhooksAsaasRouteImport } from './routes/api/webhooks/asaa
 import { Route as ApiWebhooksAsaasAssinaturaRouteImport } from './routes/api/webhooks/asaas-assinatura'
 import { Route as ApiWebhooksBlingRouteImport } from './routes/api/webhooks/bling'
 import { Route as ApiWebhooksMercadoPagoRouteImport } from './routes/api/webhooks/mercado-pago'
-import { Route as ApiWebhooksStripeRouteImport } from './routes/api/webhooks/stripe'
 import { Route as FornecedorConviteIndexRouteImport } from './routes/fornecedor/convite/index'
 import { Route as FornecedorConviteTokenRouteImport } from './routes/fornecedor/convite/$token'
 import { Route as FornecedorPedidoTokenRouteImport } from './routes/fornecedor/pedido/$token'
@@ -482,11 +481,6 @@ const ApiWebhooksBlingRoute = ApiWebhooksBlingRouteImport.update({
 const ApiWebhooksMercadoPagoRoute = ApiWebhooksMercadoPagoRouteImport.update({
   id: '/api/webhooks/mercado-pago',
   path: '/api/webhooks/mercado-pago',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const ApiWebhooksStripeRoute = ApiWebhooksStripeRouteImport.update({
-  id: '/api/webhooks/stripe',
-  path: '/api/webhooks/stripe',
   getParentRoute: () => rootRouteImport,
 } as any)
 const FornecedorConviteIndexRoute = FornecedorConviteIndexRouteImport.update({
@@ -958,7 +952,6 @@ export interface FileRoutesByFullPath {
   '/api/webhooks/asaas-assinatura': typeof ApiWebhooksAsaasAssinaturaRoute
   '/api/webhooks/bling': typeof ApiWebhooksBlingRoute
   '/api/webhooks/mercado-pago': typeof ApiWebhooksMercadoPagoRoute
-  '/api/webhooks/stripe': typeof ApiWebhooksStripeRoute
   '/fornecedor/convite/$token': typeof FornecedorConviteTokenRoute
   '/fornecedor/pedido/$token': typeof FornecedorPedidoTokenRoute
   '/fornecedores/': typeof AppFornecedoresIndexRoute
@@ -1092,7 +1085,6 @@ export interface FileRoutesByTo {
   '/api/webhooks/asaas-assinatura': typeof ApiWebhooksAsaasAssinaturaRoute
   '/api/webhooks/bling': typeof ApiWebhooksBlingRoute
   '/api/webhooks/mercado-pago': typeof ApiWebhooksMercadoPagoRoute
-  '/api/webhooks/stripe': typeof ApiWebhooksStripeRoute
   '/fornecedor/convite/$token': typeof FornecedorConviteTokenRoute
   '/fornecedor/pedido/$token': typeof FornecedorPedidoTokenRoute
   '/fornecedores': typeof AppFornecedoresIndexRoute
@@ -1233,7 +1225,6 @@ export interface FileRoutesById {
   '/api/webhooks/asaas-assinatura': typeof ApiWebhooksAsaasAssinaturaRoute
   '/api/webhooks/bling': typeof ApiWebhooksBlingRoute
   '/api/webhooks/mercado-pago': typeof ApiWebhooksMercadoPagoRoute
-  '/api/webhooks/stripe': typeof ApiWebhooksStripeRoute
   '/fornecedor/convite/$token': typeof FornecedorConviteTokenRoute
   '/fornecedor/pedido/$token': typeof FornecedorPedidoTokenRoute
   '/_app/fornecedores/': typeof AppFornecedoresIndexRoute
@@ -1373,7 +1364,6 @@ export interface FileRouteTypes {
     | '/api/webhooks/asaas-assinatura'
     | '/api/webhooks/bling'
     | '/api/webhooks/mercado-pago'
-    | '/api/webhooks/stripe'
     | '/fornecedor/convite/$token'
     | '/fornecedor/pedido/$token'
     | '/fornecedores/'
@@ -1507,7 +1497,6 @@ export interface FileRouteTypes {
     | '/api/webhooks/asaas-assinatura'
     | '/api/webhooks/bling'
     | '/api/webhooks/mercado-pago'
-    | '/api/webhooks/stripe'
     | '/fornecedor/convite/$token'
     | '/fornecedor/pedido/$token'
     | '/fornecedores'
@@ -1647,7 +1636,6 @@ export interface FileRouteTypes {
     | '/api/webhooks/asaas-assinatura'
     | '/api/webhooks/bling'
     | '/api/webhooks/mercado-pago'
-    | '/api/webhooks/stripe'
     | '/fornecedor/convite/$token'
     | '/fornecedor/pedido/$token'
     | '/_app/fornecedores/'
@@ -1752,7 +1740,6 @@ export interface RootRouteChildren {
   ApiWebhooksAsaasAssinaturaRoute: typeof ApiWebhooksAsaasAssinaturaRoute
   ApiWebhooksBlingRoute: typeof ApiWebhooksBlingRoute
   ApiWebhooksMercadoPagoRoute: typeof ApiWebhooksMercadoPagoRoute
-  ApiWebhooksStripeRoute: typeof ApiWebhooksStripeRoute
   FornecedorConviteTokenRoute: typeof FornecedorConviteTokenRoute
   FornecedorPedidoTokenRoute: typeof FornecedorPedidoTokenRoute
   FornecedorConviteIndexRoute: typeof FornecedorConviteIndexRoute
@@ -2265,13 +2252,6 @@ declare module '@tanstack/react-router' {
       path: '/api/webhooks/mercado-pago'
       fullPath: '/api/webhooks/mercado-pago'
       preLoaderRoute: typeof ApiWebhooksMercadoPagoRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/api/webhooks/stripe': {
-      id: '/api/webhooks/stripe'
-      path: '/api/webhooks/stripe'
-      fullPath: '/api/webhooks/stripe'
-      preLoaderRoute: typeof ApiWebhooksStripeRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/fornecedor/convite/': {
@@ -3020,7 +3000,6 @@ const rootRouteChildren: RootRouteChildren = {
   ApiWebhooksAsaasAssinaturaRoute: ApiWebhooksAsaasAssinaturaRoute,
   ApiWebhooksBlingRoute: ApiWebhooksBlingRoute,
   ApiWebhooksMercadoPagoRoute: ApiWebhooksMercadoPagoRoute,
-  ApiWebhooksStripeRoute: ApiWebhooksStripeRoute,
   FornecedorConviteTokenRoute: FornecedorConviteTokenRoute,
   FornecedorPedidoTokenRoute: FornecedorPedidoTokenRoute,
   FornecedorConviteIndexRoute: FornecedorConviteIndexRoute,

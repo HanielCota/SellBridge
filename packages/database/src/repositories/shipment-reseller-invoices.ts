@@ -14,11 +14,12 @@ import {
   or,
   sql,
 } from "drizzle-orm";
-import type { Database } from "../client.ts";
+import type { Database, DatabaseExecutor } from "../client.ts";
 import {
   orders,
   orderShipments,
   resellerErpConnections,
+  shipmentInvoices,
   shipmentResellerInvoices,
   storeConnections,
   supplierErpConnections,
@@ -237,80 +238,133 @@ export async function scheduleResellerSaleInvoiceCheck(
     );
 }
 
+const REMESSA_STARTED =
+  "A remessa do fornecedor já cita a nota registrada neste pedido. Para trocar a nota, fale com o suporte do SellBridge.";
+
 /**
- * Saves the key the reseller typed for its own parcel.
+ * The supplier's remessa was not asked of its ERP yet: until then it cites no note, and the
+ * reseller may still replace a wrong one.
+ */
+function remessaNotStartedSql(shipmentId: string) {
+  return sql`not exists (select 1 from ${shipmentInvoices} where ${shipmentInvoices.shipmentId} = ${shipmentId} and ${shipmentInvoices.kind} = 'on_behalf_shipment' and (${shipmentInvoices.erpInvoiceId} is not null or ${shipmentInvoices.erpDraftRequestedAt} is not null))`;
+}
+
+/** Whether the supplier's remessa of the parcel was asked of its ERP: it then cites the note. */
+async function remessaStarted(executor: DatabaseExecutor, shipmentId: string): Promise<boolean> {
+  const [row] = await executor
+    .select({ id: shipmentInvoices.id })
+    .from(shipmentInvoices)
+    .where(
+      and(
+        eq(shipmentInvoices.shipmentId, shipmentId),
+        eq(shipmentInvoices.kind, "on_behalf_shipment"),
+        or(
+          isNotNull(shipmentInvoices.erpInvoiceId),
+          isNotNull(shipmentInvoices.erpDraftRequestedAt),
+        ),
+      ),
+    );
+  return row !== undefined;
+}
+
+/**
+ * Saves the reseller's note of its parcel with `source`: on a parcel still waiting, over the same
+ * note (its XML after its typed key), or over another note while the supplier's remessa has not
+ * started. Holds the note's row meanwhile, as the remessa's start does (see
+ * `claimOnBehalfRemessaDraft`). The same note already saved is left as it is, but for a typed key
+ * whose XML now reached the marketplace.
+ */
+async function saveResellerSaleInvoiceOf(
+  database: Database,
+  note: {
+    tenantId: string;
+    shipmentId: string;
+    parts: AccessKeyParts;
+    now: Date;
+    source: "typed" | "uploaded";
+  },
+): Promise<void> {
+  await database.transaction(async (transaction) => {
+    const [existing] = await transaction
+      .select({
+        id: shipmentResellerInvoices.id,
+        accessKey: shipmentResellerInvoices.accessKey,
+        source: shipmentResellerInvoices.source,
+      })
+      .from(shipmentResellerInvoices)
+      .where(
+        and(
+          eq(shipmentResellerInvoices.shipmentId, note.shipmentId),
+          eq(shipmentResellerInvoices.tenantId, note.tenantId),
+        ),
+      )
+      .for("update");
+    if (existing === undefined) {
+      throw notFoundError("Este pedido não espera a sua nota de venda");
+    }
+    const sameNote = existing.accessKey === note.parts.accessKey;
+    // The same note stays as it is, except a typed key whose XML now reached the marketplace.
+    if (sameNote && (note.source === "typed" || existing.source !== "typed")) {
+      return;
+    }
+    const replacing = existing.accessKey !== null && !sameNote;
+    if (replacing && (await remessaStarted(transaction, note.shipmentId))) {
+      throw conflictError(REMESSA_STARTED);
+    }
+    await transaction
+      .update(shipmentResellerInvoices)
+      .set({ ...foundValues(note.parts, note.now), issuedAt: null, source: note.source })
+      .where(eq(shipmentResellerInvoices.id, existing.id));
+  });
+}
+/**
+ * Saves the key the reseller typed for its own parcel; it replaces a wrong one while the
+ * supplier's remessa has not started.
  *
  * @throws {AppError} NOT_FOUND when the parcel is not the reseller's or waits for no note;
- * CONFLICT when its note is already saved.
+ * CONFLICT when another note is saved and the remessa already cites it.
  */
 export async function saveTypedResellerSaleInvoice(
   database: Database,
   typed: { tenantId: string; shipmentId: string; parts: AccessKeyParts; now: Date },
 ): Promise<void> {
-  const ofTenantParcel = and(
-    eq(shipmentResellerInvoices.shipmentId, typed.shipmentId),
-    eq(shipmentResellerInvoices.tenantId, typed.tenantId),
-  );
-  const saved = await database
-    .update(shipmentResellerInvoices)
-    .set({ ...foundValues(typed.parts, typed.now), issuedAt: null, source: "typed" })
-    .where(and(ofTenantParcel, isNull(shipmentResellerInvoices.accessKey)))
-    .returning({ id: shipmentResellerInvoices.id });
-  if (saved.length > 0) {
-    return;
-  }
-  const [existing] = await database
-    .select({ id: shipmentResellerInvoices.id })
-    .from(shipmentResellerInvoices)
-    .where(ofTenantParcel);
-  if (existing === undefined) {
-    throw notFoundError("Este pedido não espera a sua nota de venda");
-  }
-  throw conflictError("A nota de venda deste pedido já foi registrada");
+  await saveResellerSaleInvoiceOf(database, { ...typed, source: "typed" });
 }
 
 /**
  * Saves the reseller's note whose XML it uploaded (and SellBridge sent to the marketplace): on a
- * parcel still waiting, or over the same note it typed before.
+ * parcel still waiting, over the same note, or over another one while the supplier's remessa has
+ * not started.
  *
  * @throws {AppError} NOT_FOUND when the parcel is not the reseller's or waits for no note;
- * CONFLICT when another note is already saved for it.
+ * CONFLICT when another note is saved and the remessa already cites it.
  */
 export async function saveUploadedResellerSaleInvoice(
   database: Database,
   uploaded: { tenantId: string; shipmentId: string; parts: AccessKeyParts; now: Date },
 ): Promise<void> {
-  const ofTenantParcel = and(
-    eq(shipmentResellerInvoices.shipmentId, uploaded.shipmentId),
-    eq(shipmentResellerInvoices.tenantId, uploaded.tenantId),
-  );
-  const saved = await database
-    .update(shipmentResellerInvoices)
-    .set({ ...foundValues(uploaded.parts, uploaded.now), issuedAt: null, source: "uploaded" })
-    .where(
-      and(
-        ofTenantParcel,
-        or(
-          isNull(shipmentResellerInvoices.accessKey),
-          and(
-            eq(shipmentResellerInvoices.accessKey, uploaded.parts.accessKey),
-            eq(shipmentResellerInvoices.source, "typed"),
-          ),
-        ),
-      ),
-    )
-    .returning({ id: shipmentResellerInvoices.id });
-  if (saved.length > 0) {
-    return;
-  }
-  const [existing] = await database
+  await saveResellerSaleInvoiceOf(database, { ...uploaded, source: "uploaded" });
+}
+
+/**
+ * Whether the reseller may still put another note on its parcel: no note yet, or the supplier's
+ * remessa has not started. Read before the note is sent anywhere.
+ */
+export async function canReplaceResellerSaleInvoice(
+  database: Database,
+  input: { tenantId: string; shipmentId: string },
+): Promise<boolean> {
+  const [row] = await database
     .select({ id: shipmentResellerInvoices.id })
     .from(shipmentResellerInvoices)
-    .where(ofTenantParcel);
-  if (existing === undefined) {
-    throw notFoundError("Este pedido não espera a sua nota de venda");
-  }
-  throw conflictError("Este pedido já tem outra nota de venda registrada. Envie o XML dessa nota.");
+    .where(
+      and(
+        eq(shipmentResellerInvoices.shipmentId, input.shipmentId),
+        eq(shipmentResellerInvoices.tenantId, input.tenantId),
+        or(isNull(shipmentResellerInvoices.accessKey), remessaNotStartedSql(input.shipmentId)),
+      ),
+    );
+  return row !== undefined;
 }
 
 /** The reseller's sale note of a parcel, as the order screens show it. */

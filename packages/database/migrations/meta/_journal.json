@@ -684,15 +684,36 @@
     {
       "idx": 97,
       "version": "7",
-      "when": 1795165892018,
-      "tag": "0097_reseller_note_uploaded",
+      "when": 1795165877090,
+      "tag": "0097_product_model_code",
       "breakpoints": true
     },
     {
       "idx": 98,
       "version": "7",
-      "when": 1795165971307,
-      "tag": "0098_reseller_bling_sale_notes",
+      "when": 1795172930592,
+      "tag": "0098_erp_stock_entries",
+      "breakpoints": true
+    },
+    {
+      "idx": 99,
+      "version": "7",
+      "when": 1795190640442,
+      "tag": "0099_drop_stripe_billing",
+      "breakpoints": true
+    },
+    {
+      "idx": 100,
+      "version": "7",
+      "when": 1795197963883,
+      "tag": "0100_reseller_note_uploaded",
+      "breakpoints": true
+    },
+    {
+      "idx": 101,
+      "version": "7",
+      "when": 1795207035908,
+      "tag": "0101_reseller_bling_sale_notes",
       "breakpoints": true
     }
   ]

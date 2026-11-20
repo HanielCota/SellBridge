@@ -4,7 +4,7 @@ import type {
 } from "@sellbridge/shared/supplier-panel-catalog-schemas";
 import type { AutosaveState } from "../draft-autosaver";
 import type { PanelFormValues } from "../draft-form";
-import { parseModelDraft } from "./grid-form-draft";
+import { combinationField, parseModelDraft } from "./grid-form-draft";
 import type { GridFormCombination, GridFormState } from "./grid-form-state";
 
 /** What the grid form edits: the model's shared values and the grid itself. */
@@ -18,7 +18,10 @@ export interface StoredModelVersion {
 }
 
 export type SaveModelResult<TModel extends StoredModelVersion> =
-  { saved: true; model: TModel } | { saved: false; conflict: string };
+  | { saved: true; model: TModel }
+  | { saved: false; conflict: string }
+  /** SKUs another product already uses: the fields to fix, after which saving goes on. */
+  | { saved: false; takenSkus: readonly string[] };
 
 /** What one stored save carried, so the form can match the answer back to what it typed. */
 export interface SentModel {
@@ -49,6 +52,23 @@ function typedContent(snapshot: ModelFormSnapshot): string {
       ({ savedStock: _saved, ...combination }) => combination,
     ),
   });
+}
+
+/** Each combination whose SKU another product uses, with what to do about it. */
+function takenSkuErrors(
+  snapshot: ModelFormSnapshot,
+  takenSkus: readonly string[],
+): Record<string, string> {
+  const taken = new Set(takenSkus);
+  const errors: Record<string, string> = {};
+  for (const combination of snapshot.grid.combinations) {
+    const sku = combination.sku.trim();
+    if (taken.has(sku)) {
+      errors[combinationField(combination, "sku")] =
+        `O SKU ${sku} já é de outro produto seu. Use outro código.`;
+    }
+  }
+  return errors;
 }
 
 /**
@@ -96,25 +116,28 @@ export class ModelAutosaver<TModel extends StoredModelVersion> {
       return;
     }
     this.#inFlight = true;
-    let saved = false;
+    let goesOn = true;
     try {
-      saved = await this.#send(snapshot, serialized);
+      goesOn = await this.#send(snapshot, serialized);
     } catch (error) {
       this.#options.onState({ kind: "error", message: this.#options.describeError(error) });
     } finally {
       this.#inFlight = false;
     }
-    if (saved && typedContent(this.#latest) !== this.#lastSent) {
+    // Typed while this request was out (a SKU fixed while its refusal was on the way): send that
+    // now, as the change itself found a request in flight and sent nothing.
+    if (goesOn && typedContent(this.#latest) !== serialized) {
       await this.flush();
     }
   }
 
+  /** Sends one save; false when saving must stop (a conflict), true otherwise. */
   async #send(snapshot: ModelFormSnapshot, serialized: string): Promise<boolean> {
     const options = this.#options;
     const parsed = parseModelDraft(snapshot.values, snapshot.grid);
     if (!parsed.ok) {
       options.onState({ kind: "invalid", errors: parsed.errors });
-      return false;
+      return true;
     }
     options.onState({ kind: "saving" });
     const result = await options.save({
@@ -123,6 +146,10 @@ export class ModelAutosaver<TModel extends StoredModelVersion> {
       grid: parsed.grid,
       expectedUpdatedAt: this.#version,
     });
+    if ("takenSkus" in result) {
+      options.onState({ kind: "invalid", errors: takenSkuErrors(snapshot, result.takenSkus) });
+      return true;
+    }
     if (!result.saved) {
       this.#stopped = true;
       options.onState({ kind: "conflict", message: result.conflict });

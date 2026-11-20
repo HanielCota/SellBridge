@@ -11,7 +11,6 @@ import type { SupplierImportState } from "@/features/supplier-panel/import/use-s
 
 type Files = SupplierImportState["files"];
 
-const COLUMN_SECTIONS = importColumnSections();
 const DownloadIcon = ACTION_ICONS.downloadFile.icon;
 const count = new Intl.NumberFormat("pt-BR");
 
@@ -101,6 +100,7 @@ function GuideDownload({ files }: { files: Files }) {
  * Mercado Livre attributes a listing needs are checked when it is published, not here).
  */
 export function ImportTemplatePanel({ files }: { files: Files }) {
+  const sections = importColumnSections(files.data?.gridColumns ?? false);
   return (
     <SectionCard
       title="Colunas da planilha"
@@ -109,10 +109,10 @@ export function ImportTemplatePanel({ files }: { files: Files }) {
       <div className="space-y-4">
         <section aria-label="Colunas obrigatórias" className="space-y-2">
           <h3 className="text-footnote font-medium text-muted-foreground">Obrigatórias</h3>
-          <ColumnRows columns={COLUMN_SECTIONS.required} />
+          <ColumnRows columns={sections.required} />
         </section>
         <div className="border-b border-border">
-          {COLUMN_SECTIONS.optional.map((group) => (
+          {sections.optional.map((group) => (
             <Disclosure
               key={group.title}
               title={group.title}

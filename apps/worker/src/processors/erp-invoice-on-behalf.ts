@@ -1,15 +1,17 @@
 import {
+  claimOnBehalfRemessaDraft,
   recordShipmentInvoiceProgress,
   type CitedInvoice,
   type OnBehalfInvoiceContext,
   type OnBehalfReseller,
   type ShipmentInvoiceWork,
 } from "@sellbridge/database/repositories";
-import { isMarketplaceError } from "@sellbridge/marketplaces";
+import { isMarketplaceError, marketplaceError } from "@sellbridge/marketplaces";
 import type {
   BlingAddress,
   BlingDirectInvoiceItem,
   BlingNewDirectInvoice,
+  BlingReferencedInvoice,
 } from "@sellbridge/marketplaces/bling";
 import { parseAccessKey } from "@sellbridge/shared/nfe-access-key";
 import type { SupplierFiscalProfile } from "@sellbridge/shared/supplier-fiscal";
@@ -47,6 +49,8 @@ const NO_CITED_NOTE =
 /** Bling takes the operation's date and time in Brazil, "YYYY-MM-DD HH:mm:ss". */
 const DRAFT_NOT_CONFIRMED =
   "O Bling não confirmou a criação da remessa. Confira se a nota existe no Bling antes de enviar outra.";
+const RESELLER_NOTE_CHANGED =
+  "A nota de venda do revendedor mudou antes da remessa sair. A remessa será montada de novo com a nota nova.";
 const DEFINITIVE_DRAFT_REFUSALS = new Set([400, 401, 403, 404, 422, 429]);
 
 const BRAZIL_TIME = new Intl.DateTimeFormat("en-GB", {
@@ -190,10 +194,13 @@ async function ensureRemessa(
   return invoiceId;
 }
 
+/** A remessa always cites the reseller's sale note. */
+type RemessaDraft = BlingNewDirectInvoice & { readonly referencedInvoice: BlingReferencedInvoice };
+
 async function createOrRecoverRemessa(
   dependencies: InvoiceStepDependencies,
   work: ShipmentInvoiceWork,
-  draft: BlingNewDirectInvoice,
+  draft: RemessaDraft,
 ): Promise<number> {
   const { client, database } = dependencies;
   const requestedAt = work.erpDraftRequestedAt;
@@ -213,9 +220,17 @@ async function createOrRecoverRemessa(
     return recovered;
   }
 
-  await recordShipmentInvoiceProgress(database, work.id, {
-    erpDraftRequestedAt: now(dependencies),
+  // Only while the reseller's note is still the one this remessa cites: one replaced since it was
+  // read makes the remessa build again with the new note.
+  const claimed = await claimOnBehalfRemessaDraft(database, {
+    invoiceId: work.id,
+    shipmentId: work.shipmentId,
+    citedAccessKey: draft.referencedInvoice.accessKey,
+    now: now(dependencies),
   });
+  if (!claimed) {
+    throw marketplaceError(RESELLER_NOTE_CHANGED, { retryable: true });
+  }
 
   try {
     return await client.createDirectInvoice(draft);
