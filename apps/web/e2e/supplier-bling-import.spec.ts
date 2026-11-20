@@ -273,7 +273,8 @@ test("o fornecedor importa do Bling um tênis com cores e tamanhos e ele vira um
       .toSorted((first, second) => first.sku.localeCompare(second.sku))
       .map((row) => [row.sku, row.erpProductId, row.model]),
   ).toEqual([
-    [skus[0], 9101, `TEN-BLING-${run}`],
-    [skus[1], 9102, `TEN-BLING-${run}`],
+    // The import links nothing: the stock sync links each SKU to Bling on its own check.
+    [skus[0], null, `TEN-BLING-${run}`],
+    [skus[1], null, `TEN-BLING-${run}`],
   ]);
 });

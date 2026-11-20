@@ -210,7 +210,7 @@ export function isBlingReadRunning(overview: BlingOverview): boolean {
   return overview.read?.status === "reading";
 }
 
-/** Why products of a read were left out: no code in Bling, or a code another product already has. */
+/** A read counted as the product list will show it. */
 export interface BlingProductCounts {
   /** Products as the product list will show them: a grid once, whatever its variations. */
   readonly products: number;
@@ -254,16 +254,17 @@ export function gridProductsNote(
   return `${integer.format(counts.grids)} deles têm cores e tamanhos: as ${variations} variações entram como ${integer.format(counts.grids)} produtos, cada variação com o próprio preço.`;
 }
 
-/** Products whose variations are not colour and size only (voltage, flavour): one row each. */
+/** Products whose variations do not form a grid (voltage, a repeated colour and size): one row each. */
 export function separatedProductsNote(count: number): string {
   const amount = integer.format(count);
   const subject =
     count === 1
       ? `${amount} produto com variações entra`
       : `${amount} produtos com variações entram`;
-  return `${subject} com uma linha por variação, sem grade de cores e tamanhos: as variações não são só cor e tamanho.`;
+  return `${subject} com uma linha por variação, sem grade de cores e tamanhos: as variações não formam uma grade (outras opções, como voltagem, ou cor e tamanho repetidos).`;
 }
 
+/** Why products of a read were left out: no code in Bling, or a code another product already has. */
 export function skippedProductsNote(count: number): string {
   const amount = integer.format(count);
   const subject = count === 1 ? `${amount} produto ficou` : `${amount} produtos ficaram`;

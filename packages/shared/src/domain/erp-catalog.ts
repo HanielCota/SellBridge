@@ -8,6 +8,8 @@ import {
   productUnitSchema,
 } from "./product-fiscal.ts";
 import { unifyErpGrids } from "./erp-catalog-grid.ts";
+
+export { withoutGridsOfSeparateProducts } from "./erp-catalog-grid.ts";
 import { PRODUCT_CSV_GRID_COLUMNS } from "./product-csv.ts";
 import { combinationLabel, MAX_GRID_OPTION_LENGTH, MAX_MODEL_CODE_LENGTH } from "./product-grid.ts";
 

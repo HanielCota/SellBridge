@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   buildErpCatalogCsv,
+  withoutGridsOfSeparateProducts,
   erpCatalogReadResultSchema,
   planErpCatalogImport,
   type ErpCatalogItem,
@@ -133,5 +134,60 @@ describe("erpCatalogReadResultSchema with grids", () => {
 
     expect(parsed.separated).toEqual([]);
     expect(parsed.items[0]?.grid).toBeUndefined();
+  });
+});
+
+describe("grids of the review of #325", () => {
+  it("writes a grid with a SKU already sold separately as separate products", () => {
+    const items = [variation("TEN-P-38", "Preto", "38"), variation("TEN-P-39", "Preto", "39")];
+
+    const ready = withoutGridsOfSeparateProducts(items, new Set(["TEN-P-38"]));
+
+    expect(ready.map((item) => item.grid ?? null)).toEqual([null, null]);
+  });
+
+  it("keeps a grid none of whose SKUs is sold separately", () => {
+    const items = [variation("TEN-P-38", "Preto", "38")];
+
+    const ready = withoutGridsOfSeparateProducts(items, new Set(["OUTRO"]));
+
+    expect(ready[0]?.grid).toMatchObject({ modelCode: "TEN-CASUAL" });
+  });
+
+  it("joins the photos of one colour written with and without its accent", () => {
+    const items = [
+      variation("TEN-P-38", "Café", "38", { imageUrls: ["https://cdn.exemplo.com/c1.jpg"] }),
+      variation("TEN-P-39", "Cafe", "39", { imageUrls: ["https://cdn.exemplo.com/c2.jpg"] }),
+    ];
+
+    const plan = planGridImport({
+      rows: gridRows(items),
+      existingSkus: new Map(),
+      existingModels: new Map(),
+    });
+
+    expect(plan.errors).toEqual([]);
+    expect(plan.grids[0]?.colors).toEqual([
+      {
+        name: "Café",
+        imageUrls: ["https://cdn.exemplo.com/c1.jpg", "https://cdn.exemplo.com/c2.jpg"],
+      },
+    ]);
+  });
+
+  it("unifies one grid whose code comes in two cases", () => {
+    const items = [
+      variation("TEN-P-38", "Preto", "38", { description: "Couro legítimo" }),
+      variation("TEN-P-39", "Preto", "39", {
+        grid: { modelCode: "ten-casual", modelTitle: "Tênis Casual", color: "Preto", size: "39" },
+      }),
+    ];
+
+    const rows = gridRows(items);
+
+    expect(rows.map((row) => row.product.description)).toEqual([
+      "Couro legítimo",
+      "Couro legítimo",
+    ]);
   });
 });
