@@ -30,14 +30,23 @@ const serverEnvironmentShape = z.object({
   STRIPE_PORTAL_CONFIGURATION_ID: z.string().startsWith("bpc_").optional(),
   STRIPE_SECRET_KEY: z.string().min(1).optional(),
   STRIPE_WEBHOOK_SECRET: z.string().min(1).optional(),
+  STRIPE_START_PRICE_ID: z.string().startsWith("price_").optional(),
   STRIPE_PRO_PRICE_ID: z.string().startsWith("price_").optional(),
   STRIPE_BUSINESS_PRICE_ID: z.string().startsWith("price_").optional(),
+  STRIPE_BLACK_PRICE_ID: z.string().startsWith("price_").optional(),
+  STRIPE_ELITE_PRICE_ID: z.string().startsWith("price_").optional(),
   /**
-   * Production without Stripe refuses to start unless this says so: no Stripe means no plan
-   * limits at all (item 16, N8).
+   * When the paid plans went live (ISO 8601, UTC). Accounts created before it keep today's
+   * access, without limits, until BILLING_TRANSITION_ENDS_AT; accounts created after it need a plan.
+   */
+  BILLING_LAUNCHED_AT: z.iso.datetime({ offset: true }).optional(),
+  BILLING_TRANSITION_ENDS_AT: z.iso.datetime({ offset: true }).optional(),
+  /**
+   * Production without the plans' billing (SellBridge's Asaas account and the launch dates)
+   * refuses to start unless this says so: it means no plan limits at all (item 16, N8).
    */
   BILLING_UNLIMITED: booleanFlagEnvironmentSchema,
-  /** Days a failed renewal (past_due) keeps the paid limits before falling back to Gratuito. */
+  /** Days a failed renewal (past_due) keeps the plan before the account is left without one. */
   BILLING_PAST_DUE_GRACE_DAYS: z.coerce.number().int().min(0).max(60).default(7),
   NODE_ENV: nodeEnvironmentSchema,
   DATABASE_URL: z.url(),
@@ -149,12 +158,15 @@ const serverEnvironmentShape = z.object({
   SUPPORT_ASSISTANT_PROVIDER: z.enum(SUPPORT_ASSISTANT_PROVIDERS).default("faq"),
 });
 
-const STRIPE_REQUIRED_KEYS = [
-  "STRIPE_SECRET_KEY",
-  "STRIPE_WEBHOOK_SECRET",
-  "STRIPE_PRO_PRICE_ID",
-  "STRIPE_BUSINESS_PRICE_ID",
+/** SellBridge's Asaas account: the plans' monthly fee is charged there. */
+const BILLING_ASAAS_REQUIRED_KEYS = [
+  "ASAAS_API_KEY",
+  "ASAAS_WALLET_ID",
+  "ASAAS_WEBHOOK_TOKEN",
 ] as const;
+
+/** Without both dates in production, every account would lose its access the day billing starts. */
+const TRANSITION_REQUIRED_KEYS = ["BILLING_LAUNCHED_AT", "BILLING_TRANSITION_ENDS_AT"] as const;
 
 type ServerEnvironmentShape = z.infer<typeof serverEnvironmentShape>;
 
@@ -173,16 +185,40 @@ function checkProductionBilling(value: ServerEnvironmentShape, context: z.Refine
   if (value.BILLING_UNLIMITED) {
     return;
   }
-  for (const key of STRIPE_REQUIRED_KEYS) {
+  for (const key of [...BILLING_ASAAS_REQUIRED_KEYS, ...TRANSITION_REQUIRED_KEYS]) {
     if (value[key] !== undefined) {
       continue;
     }
     context.addIssue({
       code: "custom",
       path: [key],
-      message: "obrigatória em produção; sem o Stripe defina BILLING_UNLIMITED=true (sem limites)",
+      message:
+        "obrigatória em produção; sem a cobrança dos planos defina BILLING_UNLIMITED=true (sem limites)",
     });
   }
+}
+
+function checkBillingTransition(value: ServerEnvironmentShape, context: z.RefinementCtx) {
+  const { BILLING_LAUNCHED_AT: launchedAt, BILLING_TRANSITION_ENDS_AT: endsAt } = value;
+  if (launchedAt === undefined && endsAt === undefined) {
+    return;
+  }
+  if (launchedAt === undefined || endsAt === undefined) {
+    context.addIssue({
+      code: "custom",
+      path: [launchedAt === undefined ? "BILLING_LAUNCHED_AT" : "BILLING_TRANSITION_ENDS_AT"],
+      message: "defina as duas datas da transição (lançamento e fim) ou nenhuma",
+    });
+    return;
+  }
+  if (new Date(endsAt) > new Date(launchedAt)) {
+    return;
+  }
+  context.addIssue({
+    code: "custom",
+    path: ["BILLING_TRANSITION_ENDS_AT"],
+    message: "deve ser depois de BILLING_LAUNCHED_AT",
+  });
 }
 
 /** Without the key password recovery fails for everyone, so production refuses to start. */
@@ -198,6 +234,7 @@ function checkProductionEmail(value: ServerEnvironmentShape, context: z.Refineme
 }
 
 export const serverEnvironmentSchema = serverEnvironmentShape.superRefine((value, context) => {
+  checkBillingTransition(value, context);
   if (value.NODE_ENV !== "production") {
     return;
   }

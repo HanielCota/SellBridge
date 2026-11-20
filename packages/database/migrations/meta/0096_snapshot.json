@@ -1,5 +1,5 @@
 {
-  "id": "5f8b3674-8b3b-4859-a208-94a53f90a0c3",
+  "id": "0052c556-9321-434f-adc9-cb0b6fce5d24",
   "prevId": "55da238f-02e3-4eb2-8fcb-d18379a60388",
   "version": "7",
   "dialect": "postgresql",
@@ -7076,6 +7076,13 @@
           "primaryKey": true,
           "notNull": true
         },
+        "provider": {
+          "name": "provider",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'stripe'"
+        },
         "customer_id": {
           "name": "customer_id",
           "type": "text",
@@ -7121,6 +7128,48 @@
           "primaryKey": false,
           "notNull": true,
           "default": 0
+        },
+        "payment_method": {
+          "name": "payment_method",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "scheduled_plan": {
+          "name": "scheduled_plan",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "scheduled_plan_at": {
+          "name": "scheduled_plan_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "pending_plan": {
+          "name": "pending_plan",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "pending_reference": {
+          "name": "pending_reference",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "prepaid_until": {
+          "name": "prepaid_until",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "first_paid_on": {
+          "name": "first_paid_on",
+          "type": "date",
+          "primaryKey": false,
+          "notNull": false
         }
       },
       "indexes": {},
@@ -7157,7 +7206,20 @@
         }
       },
       "policies": {},
-      "checkConstraints": {},
+      "checkConstraints": {
+        "billing_accounts_provider_check": {
+          "name": "billing_accounts_provider_check",
+          "value": "\"billing_accounts\".\"provider\" in ('stripe', 'asaas')"
+        },
+        "billing_accounts_payment_method_check": {
+          "name": "billing_accounts_payment_method_check",
+          "value": "\"billing_accounts\".\"payment_method\" is null or \"billing_accounts\".\"payment_method\" in ('pix', 'credit_card')"
+        },
+        "billing_accounts_scheduled_plan_check": {
+          "name": "billing_accounts_scheduled_plan_check",
+          "value": "(\"billing_accounts\".\"scheduled_plan\" is null) = (\"billing_accounts\".\"scheduled_plan_at\" is null)"
+        }
+      },
       "isRLSEnabled": false
     },
     "public.billing_events": {
@@ -8056,13 +8118,6 @@
           "primaryKey": false,
           "notNull": true
         },
-        "operation": {
-          "name": "operation",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "default": "'exit'"
-        },
         "supplier_id": {
           "name": "supplier_id",
           "type": "uuid",
@@ -8133,17 +8188,11 @@
         }
       },
       "indexes": {
-        "erp_stock_exits_order_item_operation_idx": {
-          "name": "erp_stock_exits_order_item_operation_idx",
+        "erp_stock_exits_order_item_idx": {
+          "name": "erp_stock_exits_order_item_idx",
           "columns": [
             {
               "expression": "order_item_id",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            },
-            {
-              "expression": "operation",
               "isExpression": false,
               "asc": true,
               "nulls": "last"
@@ -8219,10 +8268,6 @@
         "erp_stock_exits_quantity_check": {
           "name": "erp_stock_exits_quantity_check",
           "value": "\"erp_stock_exits\".\"quantity\" > 0"
-        },
-        "erp_stock_exits_operation_check": {
-          "name": "erp_stock_exits_operation_check",
-          "value": "\"erp_stock_exits\".\"operation\" in ('exit','entry')"
         }
       },
       "isRLSEnabled": false

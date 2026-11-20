@@ -677,8 +677,15 @@
     {
       "idx": 96,
       "version": "7",
-      "when": 1795163350756,
-      "tag": "0096_erp_stock_entries",
+      "when": 1795160406319,
+      "tag": "0096_billing_asaas",
+      "breakpoints": true
+    },
+    {
+      "idx": 97,
+      "version": "7",
+      "when": 1795165879685,
+      "tag": "0097_erp_stock_entries",
       "breakpoints": true
     }
   ]

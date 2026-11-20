@@ -30,6 +30,12 @@ export const RESPONSE_TARGET_HOURS: Record<TicketPriority, number> = {
   low: 48,
 };
 
+/** Priority support (the Elite plan): a ticket opens as high priority at least. */
+export function withPrioritySupport(priority: TicketPriority): TicketPriority {
+  if (priority === "urgent") return "urgent";
+  return "high";
+}
+
 /** A ticket support answered and the reseller left unanswered for this long is closed. */
 export const AUTO_CLOSE_AFTER_DAYS = 7;
 

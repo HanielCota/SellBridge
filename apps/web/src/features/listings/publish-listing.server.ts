@@ -1,4 +1,4 @@
-import { billingConfigured } from "@/features/billing/stripe.server";
+import { billingRules } from "@/features/billing/billing-config.server";
 import {
   assertBillingCapacity,
   assertStoresSellSupplier,
@@ -95,7 +95,7 @@ export async function publishListing(
   const created = await createListingWithTargets(
     database,
     tenantId,
-    { ...draft, billingEnabled: billingConfigured() },
+    { ...draft, billing: billingRules() },
     storeIds,
   );
   await enqueueTargets(tenantId, created.targetIds);
@@ -115,9 +115,15 @@ export async function publishListings(
 ): Promise<string[]> {
   // Each listing is its own transaction; checking the whole batch first keeps a batch that does
   // not fit the plan from publishing its first few and failing on the rest.
-  if (billingConfigured()) {
+  const rules = billingRules();
+  if (rules !== null) {
     // One plan slot per listing and destination store (item 16, N7).
-    await assertBillingCapacity(database, tenantId, "listings", drafts.length * storeIds.length);
+    await assertBillingCapacity(database, {
+      tenantId,
+      rules,
+      resource: "listings",
+      requested: drafts.length * storeIds.length,
+    });
   }
   const targetIds: string[] = [];
   try {
@@ -125,7 +131,7 @@ export async function publishListings(
       const created = await createListingWithTargets(
         database,
         tenantId,
-        { ...draft, billingEnabled: billingConfigured() },
+        { ...draft, billing: billingRules() },
         storeIds,
       );
       targetIds.push(...created.targetIds);
