@@ -252,3 +252,18 @@ export async function setOnBehalfOperations(
     .returning({ id: supplierErpConnections.id });
   return updated.length > 0;
 }
+
+/**
+ * Whether the parcel is sold in venda à ordem and its reseller's sale note was found: null for a
+ * parcel of the direct note, which has no reseller note at all.
+ */
+export async function findResellerNoteState(
+  database: Database,
+  shipmentId: string,
+): Promise<{ found: boolean } | null> {
+  const [row] = await database
+    .select({ accessKey: shipmentResellerInvoices.accessKey })
+    .from(shipmentResellerInvoices)
+    .where(eq(shipmentResellerInvoices.shipmentId, shipmentId));
+  return row === undefined ? null : { found: row.accessKey !== null };
+}

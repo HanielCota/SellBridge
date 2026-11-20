@@ -55,6 +55,42 @@ describe("fiscalProfileInput", () => {
   });
 });
 
+describe("venda à ordem CFOPs", () => {
+  it("starts with the usual remessa and sale codes", () => {
+    expect(supplierFiscalFormValues(null)).toMatchObject({
+      fiscalOnBehalfShipmentInState: "5923",
+      fiscalOnBehalfShipmentOutOfState: "6923",
+      fiscalOnBehalfSaleInState: "5119",
+      fiscalOnBehalfSaleOutOfState: "6119",
+    });
+  });
+
+  it("keeps the codes of a supplier who makes its goods after saving and reading back", () => {
+    const own = {
+      ...FILLED,
+      fiscalOnBehalfSaleInState: "5118",
+      fiscalOnBehalfSaleOutOfState: "6118",
+    };
+
+    const stored = supplierFiscalProfileSchema.parse(fiscalProfileInput(own));
+
+    expect(supplierFiscalFormValues(stored)).toMatchObject({
+      fiscalOnBehalfSaleInState: "5118",
+      fiscalOnBehalfSaleOutOfState: "6118",
+    });
+  });
+
+  it("points a wrong venda à ordem code at its field", () => {
+    const parsed = supplierFiscalProfileSchema.safeParse(
+      fiscalProfileInput({ ...FILLED, fiscalOnBehalfShipmentOutOfState: "5923" }),
+    );
+
+    const [issue] = parsed.error?.issues ?? [];
+    expect(issue?.message).toBe("Use um CFOP para outro estado com 4 números, como 6923");
+    expect(fiscalErrorField(issue?.path ?? [])).toBe("fiscalOnBehalfShipmentOutOfState");
+  });
+});
+
 describe("fiscalErrorField", () => {
   it("points an issue inside the profile at its form field", () => {
     expect(fiscalErrorField(["address", "cep"])).toBe("fiscalCep");

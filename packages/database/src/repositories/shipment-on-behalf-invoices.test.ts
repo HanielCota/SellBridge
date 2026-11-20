@@ -1,4 +1,4 @@
-import { eq } from "drizzle-orm";
+import { and, eq } from "drizzle-orm";
 import { afterAll, afterEach, describe, expect, it } from "vitest";
 import { shipmentInvoices, shipmentResellerInvoices, tenantProfile } from "../schema/index.ts";
 import { createTestDatabase } from "../testing/fixtures.ts";
@@ -14,6 +14,7 @@ import {
   resellerShipmentInvoices,
 } from "./shipment-invoices.ts";
 import {
+  findResellerNoteState,
   loadOnBehalfInvoiceContext,
   queueOnBehalfInvoices,
 } from "./shipment-on-behalf-invoices.ts";
@@ -24,6 +25,7 @@ const cleanups: (() => Promise<void>)[] = [];
 /** A sale note of the scenario's reseller (CNPJ 45.723.174/0001-10). */
 const RESELLER_KEY = "35261145723174000110550010000000771000000770";
 const REMESSA_KEY = "31261111222333000181550010000012341000012345";
+const SALE_KEY = "31261111222333000181550010000012351000012350";
 
 async function onBehalfScenario() {
   const created = await createInvoiceScenario(database, {
@@ -186,5 +188,56 @@ describe("venda à ordem notes", () => {
       shipmentOperationId: null,
       saleOperationId: null,
     });
+  });
+
+  it("reads the sale to the reseller apart from the note in the box", async () => {
+    const { shipmentId, tenantId, supplierId } = await onBehalfScenario();
+    await findResellerNote(shipmentId, tenantId);
+    await authorizeRemessa(shipmentId);
+    const [sale] = await database
+      .select({ id: shipmentInvoices.id })
+      .from(shipmentInvoices)
+      .where(
+        and(
+          eq(shipmentInvoices.shipmentId, shipmentId),
+          eq(shipmentInvoices.kind, "on_behalf_sale"),
+        ),
+      );
+    const beforeAuthorized = await findShipmentInvoiceFiles(database, shipmentId, "sale");
+    await markShipmentInvoiceAuthorized(database, {
+      invoiceId: sale?.id ?? "",
+      number: "1235",
+      series: "1",
+      accessKey: SALE_KEY,
+      danfeUrl: null,
+      authorizedAt: new Date(),
+    });
+
+    const supplierView = await findSupplierShipmentInvoice(
+      database,
+      { supplierId, shipmentId },
+      "sale",
+    );
+    const resellerView = await resellerShipmentInvoices(database, [shipmentId], "sale");
+    const files = await findShipmentInvoiceFiles(database, shipmentId, "sale");
+
+    expect(beforeAuthorized).toBeNull();
+    expect(supplierView?.accessKey).toBe(SALE_KEY);
+    expect(resellerView.get(shipmentId)?.number).toBe("1235");
+    expect(files?.accessKey).toBe(SALE_KEY);
+  });
+
+  it("tells a venda à ordem parcel waiting for the reseller's note from a direct one", async () => {
+    const onBehalf = await onBehalfScenario();
+    const direct = await createInvoiceScenario(database);
+    cleanups.push(direct.cleanup);
+    await queueResellerSaleInvoices(database);
+
+    const waiting = await findResellerNoteState(database, onBehalf.shipmentId);
+    await findResellerNote(onBehalf.shipmentId, onBehalf.tenantId);
+
+    expect(waiting).toEqual({ found: false });
+    expect(await findResellerNoteState(database, onBehalf.shipmentId)).toEqual({ found: true });
+    expect(await findResellerNoteState(database, direct.shipmentId)).toBeNull();
   });
 });
