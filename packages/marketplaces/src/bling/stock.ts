@@ -127,3 +127,17 @@ export async function findBlingIdsBySku(
   }
   return links;
 }
+
+/**
+ * The warehouse SellBridge's sales leave from: the account's default active one, or its only
+ * active one; null when Bling has several and none is the default (the supplier must pick one).
+ */
+export async function defaultBlingDepositId(client: BlingClient): Promise<number | null> {
+  const deposits = await client.listActiveDeposits();
+  const marked = deposits.find((deposit) => deposit.isDefault);
+  if (marked !== undefined) {
+    return marked.id;
+  }
+  const only = deposits.length === 1 ? deposits[0] : undefined;
+  return only?.id ?? null;
+}

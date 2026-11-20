@@ -1,6 +1,6 @@
 {
-  "id": "7c1e7c65-8106-446e-ab2f-b9fc1965c83e",
-  "prevId": "21debd87-486c-4197-8117-cd08bbd3cfff",
+  "id": "0052c556-9321-434f-adc9-cb0b6fce5d24",
+  "prevId": "55da238f-02e3-4eb2-8fcb-d18379a60388",
   "version": "7",
   "dialect": "postgresql",
   "tables": {
@@ -3294,6 +3294,27 @@
           "columns": [
             {
               "expression": "order_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "changed_at",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "order_status_changes_status_idx": {
+          "name": "order_status_changes_status_idx",
+          "columns": [
+            {
+              "expression": "status",
               "isExpression": false,
               "asc": true,
               "nulls": "last"
@@ -7055,6 +7076,13 @@
           "primaryKey": true,
           "notNull": true
         },
+        "provider": {
+          "name": "provider",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'stripe'"
+        },
         "customer_id": {
           "name": "customer_id",
           "type": "text",
@@ -7100,6 +7128,48 @@
           "primaryKey": false,
           "notNull": true,
           "default": 0
+        },
+        "payment_method": {
+          "name": "payment_method",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "scheduled_plan": {
+          "name": "scheduled_plan",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "scheduled_plan_at": {
+          "name": "scheduled_plan_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "pending_plan": {
+          "name": "pending_plan",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "pending_reference": {
+          "name": "pending_reference",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "prepaid_until": {
+          "name": "prepaid_until",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "first_paid_on": {
+          "name": "first_paid_on",
+          "type": "date",
+          "primaryKey": false,
+          "notNull": false
         }
       },
       "indexes": {},
@@ -7136,7 +7206,20 @@
         }
       },
       "policies": {},
-      "checkConstraints": {},
+      "checkConstraints": {
+        "billing_accounts_provider_check": {
+          "name": "billing_accounts_provider_check",
+          "value": "\"billing_accounts\".\"provider\" in ('stripe', 'asaas')"
+        },
+        "billing_accounts_payment_method_check": {
+          "name": "billing_accounts_payment_method_check",
+          "value": "\"billing_accounts\".\"payment_method\" is null or \"billing_accounts\".\"payment_method\" in ('pix', 'credit_card')"
+        },
+        "billing_accounts_scheduled_plan_check": {
+          "name": "billing_accounts_scheduled_plan_check",
+          "value": "(\"billing_accounts\".\"scheduled_plan\" is null) = (\"billing_accounts\".\"scheduled_plan_at\" is null)"
+        }
+      },
       "isRLSEnabled": false
     },
     "public.billing_events": {
@@ -7961,13 +8044,7 @@
           "name": "supplier_id",
           "type": "uuid",
           "primaryKey": false,
-          "notNull": false
-        },
-        "tenant_id": {
-          "name": "tenant_id",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false
+          "notNull": true
         },
         "user_id": {
           "name": "user_id",
@@ -8004,19 +8081,6 @@
           "onDelete": "cascade",
           "onUpdate": "no action"
         },
-        "erp_oauth_states_tenant_id_organization_id_fk": {
-          "name": "erp_oauth_states_tenant_id_organization_id_fk",
-          "tableFrom": "erp_oauth_states",
-          "tableTo": "organization",
-          "columnsFrom": [
-            "tenant_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
-          "onDelete": "cascade",
-          "onUpdate": "no action"
-        },
         "erp_oauth_states_user_id_user_id_fk": {
           "name": "erp_oauth_states_user_id_user_id_fk",
           "tableFrom": "erp_oauth_states",
@@ -8034,10 +8098,176 @@
       "compositePrimaryKeys": {},
       "uniqueConstraints": {},
       "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "public.erp_stock_exits": {
+      "name": "erp_stock_exits",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "order_item_id": {
+          "name": "order_item_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "supplier_id": {
+          "name": "supplier_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "supplier_product_id": {
+          "name": "supplier_product_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "erp_product_id": {
+          "name": "erp_product_id",
+          "type": "bigint",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "quantity": {
+          "name": "quantity",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "sku": {
+          "name": "sku",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "external_order_id": {
+          "name": "external_order_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "status": {
+          "name": "status",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "erp_stock_id": {
+          "name": "erp_stock_id",
+          "type": "bigint",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "problem": {
+          "name": "problem",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "updated_at": {
+          "name": "updated_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {
+        "erp_stock_exits_order_item_idx": {
+          "name": "erp_stock_exits_order_item_idx",
+          "columns": [
+            {
+              "expression": "order_item_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": true,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "erp_stock_exits_posting_idx": {
+          "name": "erp_stock_exits_posting_idx",
+          "columns": [
+            {
+              "expression": "created_at",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "where": "\"erp_stock_exits\".\"status\" = 'posting'",
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {
+        "erp_stock_exits_order_item_id_order_items_id_fk": {
+          "name": "erp_stock_exits_order_item_id_order_items_id_fk",
+          "tableFrom": "erp_stock_exits",
+          "tableTo": "order_items",
+          "columnsFrom": [
+            "order_item_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        },
+        "erp_stock_exits_supplier_id_suppliers_id_fk": {
+          "name": "erp_stock_exits_supplier_id_suppliers_id_fk",
+          "tableFrom": "erp_stock_exits",
+          "tableTo": "suppliers",
+          "columnsFrom": [
+            "supplier_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        },
+        "erp_stock_exits_supplier_product_id_supplier_products_id_fk": {
+          "name": "erp_stock_exits_supplier_product_id_supplier_products_id_fk",
+          "tableFrom": "erp_stock_exits",
+          "tableTo": "supplier_products",
+          "columnsFrom": [
+            "supplier_product_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "set null",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
       "checkConstraints": {
-        "erp_oauth_states_owner_check": {
-          "name": "erp_oauth_states_owner_check",
-          "value": "(\"erp_oauth_states\".\"supplier_id\" is null) <> (\"erp_oauth_states\".\"tenant_id\" is null)"
+        "erp_stock_exits_quantity_check": {
+          "name": "erp_stock_exits_quantity_check",
+          "value": "\"erp_stock_exits\".\"quantity\" > 0"
         }
       },
       "isRLSEnabled": false
@@ -8098,179 +8328,6 @@
           ]
         }
       },
-      "uniqueConstraints": {},
-      "policies": {},
-      "checkConstraints": {},
-      "isRLSEnabled": false
-    },
-    "public.reseller_erp_connections": {
-      "name": "reseller_erp_connections",
-      "schema": "",
-      "columns": {
-        "id": {
-          "name": "id",
-          "type": "uuid",
-          "primaryKey": true,
-          "notNull": true,
-          "default": "gen_random_uuid()"
-        },
-        "tenant_id": {
-          "name": "tenant_id",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "provider": {
-          "name": "provider",
-          "type": "erp_provider",
-          "typeSchema": "public",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "access_token_enc": {
-          "name": "access_token_enc",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "refresh_token_enc": {
-          "name": "refresh_token_enc",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "expires_at": {
-          "name": "expires_at",
-          "type": "timestamp with time zone",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "status": {
-          "name": "status",
-          "type": "store_connection_status",
-          "typeSchema": "public",
-          "primaryKey": false,
-          "notNull": true,
-          "default": "'connected'"
-        },
-        "last_error": {
-          "name": "last_error",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "account_name": {
-          "name": "account_name",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "sale_notes_enabled_at": {
-          "name": "sale_notes_enabled_at",
-          "type": "timestamp with time zone",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "sale_note_settings": {
-          "name": "sale_note_settings",
-          "type": "jsonb",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "connected_by_user_id": {
-          "name": "connected_by_user_id",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "connected_at": {
-          "name": "connected_at",
-          "type": "timestamp with time zone",
-          "primaryKey": false,
-          "notNull": true,
-          "default": "now()"
-        },
-        "updated_at": {
-          "name": "updated_at",
-          "type": "timestamp with time zone",
-          "primaryKey": false,
-          "notNull": true,
-          "default": "now()"
-        }
-      },
-      "indexes": {
-        "reseller_erp_connections_tenant_provider_idx": {
-          "name": "reseller_erp_connections_tenant_provider_idx",
-          "columns": [
-            {
-              "expression": "tenant_id",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            },
-            {
-              "expression": "provider",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            }
-          ],
-          "isUnique": true,
-          "concurrently": false,
-          "method": "btree",
-          "with": {}
-        },
-        "reseller_erp_connections_expiry_idx": {
-          "name": "reseller_erp_connections_expiry_idx",
-          "columns": [
-            {
-              "expression": "status",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            },
-            {
-              "expression": "expires_at",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            }
-          ],
-          "isUnique": false,
-          "concurrently": false,
-          "method": "btree",
-          "with": {}
-        }
-      },
-      "foreignKeys": {
-        "reseller_erp_connections_tenant_id_organization_id_fk": {
-          "name": "reseller_erp_connections_tenant_id_organization_id_fk",
-          "tableFrom": "reseller_erp_connections",
-          "tableTo": "organization",
-          "columnsFrom": [
-            "tenant_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
-          "onDelete": "cascade",
-          "onUpdate": "no action"
-        },
-        "reseller_erp_connections_connected_by_user_id_user_id_fk": {
-          "name": "reseller_erp_connections_connected_by_user_id_user_id_fk",
-          "tableFrom": "reseller_erp_connections",
-          "tableTo": "user",
-          "columnsFrom": [
-            "connected_by_user_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
-          "onDelete": "set null",
-          "onUpdate": "no action"
-        }
-      },
-      "compositePrimaryKeys": {},
       "uniqueConstraints": {},
       "policies": {},
       "checkConstraints": {},
@@ -8578,36 +8635,6 @@
           "notNull": true,
           "default": 0
         },
-        "erp_contact_id": {
-          "name": "erp_contact_id",
-          "type": "bigint",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "erp_invoice_id": {
-          "name": "erp_invoice_id",
-          "type": "bigint",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "erp_draft_requested_at": {
-          "name": "erp_draft_requested_at",
-          "type": "timestamp with time zone",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "erp_sent_at": {
-          "name": "erp_sent_at",
-          "type": "timestamp with time zone",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "erp_stopped_at": {
-          "name": "erp_stopped_at",
-          "type": "timestamp with time zone",
-          "primaryKey": false,
-          "notNull": false
-        },
         "next_check_at": {
           "name": "next_check_at",
           "type": "timestamp with time zone",
@@ -8712,7 +8739,7 @@
       "checkConstraints": {
         "shipment_reseller_invoices_source_check": {
           "name": "shipment_reseller_invoices_source_check",
-          "value": "\"shipment_reseller_invoices\".\"source\" is null or \"shipment_reseller_invoices\".\"source\" in ('marketplace', 'typed', 'uploaded', 'bling')"
+          "value": "\"shipment_reseller_invoices\".\"source\" is null or \"shipment_reseller_invoices\".\"source\" in ('marketplace', 'typed')"
         },
         "shipment_reseller_invoices_found_check": {
           "name": "shipment_reseller_invoices_found_check",
@@ -8855,6 +8882,13 @@
           "type": "timestamp with time zone",
           "primaryKey": false,
           "notNull": false
+        },
+        "stock_exits_since": {
+          "name": "stock_exits_since",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
         },
         "connected_by_user_id": {
           "name": "connected_by_user_id",

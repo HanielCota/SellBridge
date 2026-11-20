@@ -36,6 +36,7 @@ import {
   STORE_CONNECT_ERROR_CODES,
   STORE_CONNECT_ERROR_MESSAGES,
 } from "@/features/stores/store-connect-errors";
+import type { NewStoreBlock } from "@/features/billing/new-store-block";
 import type { MarketplaceOption } from "@/features/stores/stores.functions";
 import { storesQueryOptions } from "@/features/stores/stores.queries";
 import { storeSuppliersQueryOptions } from "@/features/stores/store-suppliers.queries";
@@ -180,6 +181,8 @@ const ONBOARDING_STEPS = [
 interface NewStoreChoice {
   supplier: NewStoreSupplier | null;
   onChooseSupplier: () => void;
+  /** Set when the plan holds no new store: the marketplaces give way to the plans. */
+  planBlock?: NewStoreBlock | null;
 }
 
 function FirstStoreOnboarding({
@@ -216,6 +219,7 @@ function FirstStoreOnboarding({
         marketplaces={marketplaces}
         supplier={choice.supplier}
         onChooseSupplier={choice.onChooseSupplier}
+        planBlock={choice.planBlock ?? null}
       />
     </section>
   );
@@ -266,6 +270,7 @@ function AddStoreSection({
         marketplaces={marketplaces}
         supplier={choice.supplier}
         onChooseSupplier={choice.onChooseSupplier}
+        planBlock={choice.planBlock ?? null}
       />
     </section>
   );
@@ -419,11 +424,12 @@ function StoresContent() {
   if (query.isError) {
     return <ErrorState message={errorMessage(query.error)} onRetry={() => void query.refetch()} />;
   }
-  const { stores, marketplaces } = query.data;
+  const { stores, marketplaces, newStoreBlock } = query.data;
+  const choice = { ...newStore.choice, planBlock: newStoreBlock };
   if (stores.length === 0) {
     return (
       <>
-        <FirstStoreOnboarding marketplaces={marketplaces} choice={newStore.choice} />
+        <FirstStoreOnboarding marketplaces={marketplaces} choice={choice} />
         {newStore.dialog}
       </>
     );
@@ -442,7 +448,7 @@ function StoresContent() {
       </section>
       <AddStoreSection
         marketplaces={marketplaces}
-        choice={newStore.choice}
+        choice={choice}
         sellInExisting={sellInExisting}
       />
       <DisconnectStoreDialog store={pendingDisconnect} onClose={() => setPendingDisconnect(null)} />

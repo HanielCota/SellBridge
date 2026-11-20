@@ -140,12 +140,22 @@ async function deleteWorkspace(database: Database, tenantId: string): Promise<vo
 }
 
 /**
- * Forgets the workspace's Stripe customer once it is deleted there, so a deletion retried after
- * a later step failed does not ask Stripe for a customer that no longer exists.
+ * Forgets the workspace's payment-provider customer once it is deleted there, so a deletion
+ * retried after a later step failed does not ask for a customer that no longer exists.
  */
 export async function forgetBillingCustomer(database: Database, tenantId: string): Promise<void> {
   await database
     .update(billingAccounts)
-    .set({ customerId: null, subscriptionId: null, plan: "free", status: "canceled" })
+    .set({
+      customerId: null,
+      subscriptionId: null,
+      plan: "free",
+      status: "canceled",
+      scheduledPlan: null,
+      scheduledPlanAt: null,
+      pendingPlan: null,
+      pendingReference: null,
+      prepaidUntil: null,
+    })
     .where(eq(billingAccounts.tenantId, tenantId));
 }

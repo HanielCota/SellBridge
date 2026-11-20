@@ -5,7 +5,7 @@ import { logger } from "@sellbridge/shared/logger";
 import { z } from "zod";
 import { database } from "@/lib/server/database";
 import { environment } from "@/lib/server/environment";
-import { billingConfigured, stripeClient } from "./stripe.server";
+import { billingConfigured, planOfPrice, stripeClient } from "./stripe.server";
 
 const subscriptionSchema = z.object({
   id: z.string(),
@@ -116,12 +116,6 @@ async function currentSubscription(object: { id: string; customer: string }) {
   return subscriptionSchema.parse(
     current ?? (await stripe.subscriptions.retrieve(object.id, {}, STRIPE_WEBHOOK_LIMITS)),
   );
-}
-
-function planOfPrice(priceId: string | undefined) {
-  if (priceId === environment.STRIPE_PRO_PRICE_ID) return "pro";
-  if (priceId === environment.STRIPE_BUSINESS_PRICE_ID) return "business";
-  return "free";
 }
 
 type StripeSubscription = z.infer<typeof subscriptionSchema>;

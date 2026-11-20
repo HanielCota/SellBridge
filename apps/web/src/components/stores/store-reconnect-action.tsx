@@ -29,7 +29,7 @@ export function ReconnectAction({
       ) : (
         <Button asChild variant="outline" size="sm">
           <a
-            href={withProfile(`/api/oauth/${marketplace}/start`)}
+            href={withProfile(`/api/oauth/${marketplace}/start?reconectar=1`)}
             aria-label={`Reconectar ${storeName}`}
           >
             <PlugIcon weight="bold" aria-hidden="true" />

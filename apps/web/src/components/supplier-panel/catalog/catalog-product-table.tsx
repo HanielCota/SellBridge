@@ -1,4 +1,5 @@
 import type {
+  PanelListGrid,
   SupplierPanelListProduct,
   SupplierPanelProduct,
 } from "@sellbridge/database/repositories";
@@ -25,6 +26,21 @@ export interface CatalogPage {
 }
 
 export type OpenProduct = (productId: string, focusField?: string) => void;
+export type OpenGrid = (modelId: string) => void;
+
+function countOf(count: number, one: string, many: string): string {
+  return `${count} ${count === 1 ? one : many}`;
+}
+
+/** "2 cores · 5 tamanhos", leaving out an axis the grid does not have. */
+function gridOptionsLine(grid: PanelListGrid): string {
+  return [
+    grid.colors > 0 ? countOf(grid.colors, "cor", "cores") : null,
+    grid.sizes > 0 ? countOf(grid.sizes, "tamanho", "tamanhos") : null,
+  ]
+    .filter((part) => part !== null)
+    .join(" · ");
+}
 
 /** Where "Corrigir" lands: the reviewer's first reason, else the first thing blocking. */
 function fieldToFix(product: SupplierPanelProduct): string | undefined {
@@ -69,7 +85,8 @@ function ProductActions({
   return (
     <div className="flex flex-wrap items-center gap-2">
       <ProductAction product={product} onOpen={onOpen} />
-      <ProductSaleToggle product={product} />
+      {/* A grid goes on and off sale combination by combination, inside its form. */}
+      {product.grid === null ? <ProductSaleToggle product={product} /> : null}
       <ProductDeleteButton product={product} />
     </div>
   );
@@ -125,7 +142,13 @@ function RejectionLine({ product }: { product: SupplierPanelProduct }) {
 }
 
 /** The name opens the product too, on the field to fix: the obvious place to click. */
-function ProductCell({ product, onOpen }: { product: SupplierPanelProduct; onOpen: OpenProduct }) {
+function ProductCell({
+  product,
+  onOpen,
+}: {
+  product: SupplierPanelListProduct;
+  onOpen: OpenProduct;
+}) {
   return (
     <div className="flex max-w-[23rem] min-w-[12rem] items-start gap-3 whitespace-normal">
       <ProductThumbnail product={product} />
@@ -147,11 +170,16 @@ function ProductThumbnail({ product }: { product: SupplierPanelProduct }) {
   );
 }
 
+function productName(product: SupplierPanelListProduct): string {
+  const title = product.grid?.title ?? product.title;
+  return title.trim() === "" ? "Sem título" : title;
+}
+
 function ProductCellText({
   product,
   onOpen,
 }: {
-  product: SupplierPanelProduct;
+  product: SupplierPanelListProduct;
   onOpen: OpenProduct;
 }) {
   return (
@@ -161,14 +189,40 @@ function ProductCellText({
         onClick={() => onOpen(product.id, fieldToFix(product))}
         className="line-clamp-2 cursor-pointer rounded-sm text-left font-medium underline-offset-4 outline-none hover:underline focus-visible:ring-3 focus-visible:ring-ring/50"
       >
-        {product.title || "Sem título"}
+        {productName(product)}
       </button>
       <p className="text-footnote text-muted-foreground">
-        {product.categoryName ?? "Sem categoria"}
+        {product.grid === null
+          ? (product.categoryName ?? "Sem categoria")
+          : `${gridOptionsLine(product.grid)} · ${product.categoryName ?? "Sem categoria"}`}
       </p>
       <RejectionLine product={product} />
     </div>
   );
+}
+
+/** A grid has one code per combination, so its row says how many. */
+function CodeCell({ product }: { product: SupplierPanelListProduct }) {
+  if (product.grid !== null) {
+    return (
+      <span className="text-footnote text-muted-foreground">
+        {countOf(product.grid.combinations, "combinação", "combinações")}
+      </span>
+    );
+  }
+  return (
+    <span className="block max-w-[9rem] font-mono text-footnote break-all whitespace-normal">
+      {product.sku}
+    </span>
+  );
+}
+
+/** Each combination of a grid has its own cost, shown inside the grid. */
+function CostCell({ product }: { product: SupplierPanelListProduct }) {
+  if (product.grid !== null) {
+    return <span className="text-footnote text-muted-foreground">Cada combinação</span>;
+  }
+  return <Money cents={product.costCents} />;
 }
 
 const columnHelper = createServerColumnHelper<SupplierPanelListProduct>();
@@ -190,11 +244,7 @@ function catalogColumns(
     }),
     columnHelper.accessor("sku", {
       header: header("sku", "Código"),
-      cell: (information) => (
-        <span className="block max-w-[9rem] font-mono text-footnote break-all whitespace-normal">
-          {information.getValue()}
-        </span>
-      ),
+      cell: (information) => <CodeCell product={information.row.original} />,
     }),
     columnHelper.display({
       id: "status",
@@ -203,11 +253,15 @@ function catalogColumns(
     }),
     columnHelper.accessor("costCents", {
       header: header("costCents", "Custo"),
-      cell: (information) => <Money cents={information.getValue()} />,
+      cell: (information) => <CostCell product={information.row.original} />,
     }),
     columnHelper.accessor("stock", {
       header: header("stock", "Estoque"),
-      cell: (information) => <span className="tabular-nums">{information.getValue()}</span>,
+      cell: (information) => (
+        <span className="tabular-nums">
+          {information.row.original.grid?.stock ?? information.getValue()}
+        </span>
+      ),
     }),
     columnHelper.accessor("updatedAt", {
       header: header("updatedAt", "Atualizado"),
@@ -233,11 +287,19 @@ function MobileProductRow({
       <div className="flex items-start gap-3">
         <ProductThumbnail product={product} />
         <div className="min-w-0 space-y-1">
-          <p className="font-medium">{product.title || "Sem título"}</p>
-          <p className="text-footnote text-muted-foreground">
-            <span className="font-mono">{product.sku}</span>, {formatCents(product.costCents)},{" "}
-            {product.stock} un.
-          </p>
+          <p className="font-medium">{productName(product)}</p>
+          {product.grid === null ? (
+            <p className="text-footnote text-muted-foreground">
+              <span className="font-mono">{product.sku}</span>, {formatCents(product.costCents)},{" "}
+              {product.stock} un.
+            </p>
+          ) : (
+            <p className="text-footnote text-muted-foreground">
+              {gridOptionsLine(product.grid)} ·{" "}
+              {countOf(product.grid.combinations, "combinação", "combinações")} ·{" "}
+              {product.grid.stock} un.
+            </p>
+          )}
           <RejectionLine product={product} />
         </div>
       </div>
@@ -259,23 +321,34 @@ export function CatalogProductTable({
   sort,
   onSort,
   onOpen,
+  onOpenGrid,
   onPageChange,
 }: {
   data: CatalogPage;
   sort: CatalogSort;
   onSort: (sort: CatalogSort) => void;
   onOpen: OpenProduct;
+  onOpenGrid: OpenGrid;
   onPageChange: (page: number) => void;
 }) {
+  // A grid's row opens the grid form; any other row opens the product.
+  const open: OpenProduct = (productId, focusField) => {
+    const grid = data.items.find((item) => item.id === productId)?.grid ?? null;
+    if (grid === null) {
+      onOpen(productId, focusField);
+      return;
+    }
+    onOpenGrid(grid.modelId);
+  };
   return (
     <DataTable
-      columns={catalogColumns(sort, onSort, onOpen)}
+      columns={catalogColumns(sort, onSort, open)}
       data={data.items}
       caption="Produtos"
       getRowId={(row) => row.id}
       pinLastColumn
       dense
-      renderMobileRow={(row) => <MobileProductRow product={row} onOpen={onOpen} />}
+      renderMobileRow={(row) => <MobileProductRow product={row} onOpen={open} />}
       footer={
         <PaginationBar
           page={data.page}

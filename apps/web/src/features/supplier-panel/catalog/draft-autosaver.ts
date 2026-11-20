@@ -6,6 +6,8 @@ export const AUTOSAVE_DELAY_MILLISECONDS = 800;
 export type AutosaveState =
   | { kind: "idle" }
   | { kind: "needs-sku" }
+  /** The grid form waits for the product's name before its first save. */
+  | { kind: "needs-title" }
   | { kind: "invalid"; errors: Record<string, string> }
   | { kind: "saving" }
   | { kind: "saved"; at: Date }

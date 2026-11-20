@@ -1,47 +1,39 @@
 import { Stripe } from "stripe";
+import { BILLING_PLAN_IDS, type BillingPlanId } from "@sellbridge/shared/billing";
 import { validationError } from "@sellbridge/shared/errors";
 import { environment } from "@/lib/server/environment";
 
+function priceIds(): Record<BillingPlanId, string | undefined> {
+  return {
+    start: environment.STRIPE_START_PRICE_ID,
+    pro: environment.STRIPE_PRO_PRICE_ID,
+    business: environment.STRIPE_BUSINESS_PRICE_ID,
+    black: environment.STRIPE_BLACK_PRICE_ID,
+    elite: environment.STRIPE_ELITE_PRICE_ID,
+  };
+}
+
 export function billingConfigured() {
-  return Boolean(
-    environment.STRIPE_SECRET_KEY &&
-    environment.STRIPE_WEBHOOK_SECRET &&
-    environment.STRIPE_PRO_PRICE_ID &&
-    environment.STRIPE_BUSINESS_PRICE_ID,
+  return (
+    environment.STRIPE_SECRET_KEY !== undefined && environment.STRIPE_WEBHOOK_SECRET !== undefined
   );
 }
 
+/** Production may drop the Stripe keys once Asaas sells the plans; legacy cleanup must not need them. */
+export function stripeKeyMissing(): boolean {
+  return environment.STRIPE_SECRET_KEY === undefined;
+}
+
 export function stripeClient() {
-  if (!billingConfigured() || !environment.STRIPE_SECRET_KEY) {
+  if (environment.STRIPE_SECRET_KEY === undefined) {
     throw validationError("A cobrança ainda não foi configurada");
   }
   return new Stripe(environment.STRIPE_SECRET_KEY, { maxNetworkRetries: 2, timeout: 15000 });
 }
 
-export function priceId(plan: "pro" | "business") {
-  const price =
-    plan === "pro" ? environment.STRIPE_PRO_PRICE_ID : environment.STRIPE_BUSINESS_PRICE_ID;
-  if (!price) throw validationError("Plano indisponível");
-  return price;
-}
-
-export async function availablePlans() {
-  if (!billingConfigured()) return [];
-  const stripe = stripeClient();
-  return Promise.all(
-    (["pro", "business"] as const).map(async (id) => {
-      const price = await stripe.prices.retrieve(priceId(id));
-      if (
-        !price.active ||
-        price.currency !== "brl" ||
-        price.recurring?.interval !== "month" ||
-        price.recurring.interval_count !== 1 ||
-        price.unit_amount === null ||
-        price.type !== "recurring"
-      ) {
-        throw validationError("Configure preços mensais fixos em BRL para os planos");
-      }
-      return { id, priceCents: price.unit_amount };
-    }),
-  );
+/** The plan a Stripe price sells, or "none" for a price this application does not sell. */
+export function planOfPrice(price: string | undefined): BillingPlanId | "none" {
+  if (price === undefined) return "none";
+  const prices = priceIds();
+  return BILLING_PLAN_IDS.find((plan) => prices[plan] === price) ?? "none";
 }
