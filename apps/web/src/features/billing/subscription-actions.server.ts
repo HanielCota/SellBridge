@@ -25,6 +25,7 @@ import { database } from "@/lib/server/database";
 import { environment } from "@/lib/server/environment";
 import { billingClient } from "./billing-config.server";
 import {
+  assertAsaasBillingAccount,
   assertNoPendingBillingCreation,
   reserveBillingCreation,
   retireUnpaid,
@@ -66,6 +67,7 @@ function paidMonthLeft(account: BillingAccount | null): Date | null {
 
 async function liveAccount(tenantId: string): Promise<BillingAccount> {
   const account = await getBillingAccount(database, tenantId);
+  assertAsaasBillingAccount(account);
   assertNoPendingBillingCreation(account?.pendingReference);
   if (account === null || !isLive(account) || account.subscriptionId === null) {
     throw conflictError("Você ainda não tem uma assinatura ativa.");
@@ -128,7 +130,7 @@ async function ensureSubscriber(
       email,
       externalReference: tenantId,
     }));
-  await saveBillingAccount(database, tenantId, { customerId });
+  await saveBillingAccount(database, tenantId, { provider: "asaas", customerId });
   return customerId;
 }
 
@@ -242,6 +244,7 @@ export async function startSubscription(input: {
   const plan = billingPlan(input.plan);
   return withBillingLock(input.tenantId, async () => {
     const account = await getBillingAccount(database, input.tenantId);
+    assertAsaasBillingAccount(account);
     assertNoPendingBillingCreation(account?.pendingReference);
     if (account !== null && isLive(account)) {
       throw conflictError("Você já tem um plano. Para trocar, use o botão do plano que você quer.");
@@ -419,6 +422,7 @@ export async function openPendingPayment(input: { tenantId: string; userId: stri
   const client = billingClient();
   return withBillingLock(input.tenantId, async () => {
     const account = await getBillingAccount(database, input.tenantId);
+    assertAsaasBillingAccount(account);
     const reference = account?.pendingReference ?? null;
     assertNoPendingBillingCreation(reference);
     if (reference?.startsWith(CHARGE_REFERENCE) === true) {

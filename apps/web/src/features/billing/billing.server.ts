@@ -63,7 +63,7 @@ function needsRefresh(account: BillingAccount): boolean {
 async function refreshOnVisit(tenantId: string): Promise<void> {
   if (!billingEnabled()) return;
   const account = await getBillingAccount(database, tenantId);
-  if (account === null) return;
+  if (account?.provider !== "asaas") return;
   try {
     const reference = account.pendingReference;
     if (reference?.startsWith(CHARGE_REFERENCE) === true) {

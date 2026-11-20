@@ -8,6 +8,7 @@ import { isAsaasError, type AsaasBillingClient } from "@sellbridge/payments/asaa
 import { AppError, conflictError } from "@sellbridge/shared/errors";
 import { logger } from "@sellbridge/shared/logger";
 import { database } from "@/lib/server/database";
+import { billingLockDatabase } from "./billing-lock-database.server";
 import { CHARGE_REFERENCE, CHECKOUT_REFERENCE, CREATION_REFERENCE } from "./pending-reference";
 
 type BillingAccount = NonNullable<Awaited<ReturnType<typeof getBillingAccount>>>;
@@ -18,7 +19,7 @@ export const UNREACHABLE_MESSAGE =
 /** One subscription change per tenant at a time; it holds no row, only an advisory lock. */
 export async function withBillingLock<Result>(tenantId: string, run: () => Promise<Result>) {
   try {
-    return await database.transaction(async (transaction) => {
+    return await billingLockDatabase().transaction(async (transaction) => {
       if (!(await tryLockBillingCheckout(transaction, tenantId))) {
         throw conflictError("Já estamos cuidando da sua assinatura. Aguarde alguns segundos.");
       }
@@ -32,6 +33,19 @@ export async function withBillingLock<Result>(tenantId: string, run: () => Promi
 }
 
 const REJECTED_CREATION_STATUSES = new Set([400, 401, 403, 404, 422, 429]);
+
+export function assertAsaasBillingAccount(
+  account: Pick<BillingAccount, "provider" | "customerId" | "subscriptionId"> | null,
+): void {
+  if (
+    account?.provider === "stripe" &&
+    (account.customerId !== null || account.subscriptionId !== null)
+  ) {
+    throw conflictError(
+      "Esta conta ainda tem um vínculo de cobrança com o Stripe. Fale com o suporte para concluir a troca.",
+    );
+  }
+}
 
 export function assertNoPendingBillingCreation(reference: string | null | undefined): void {
   if (reference?.startsWith(CREATION_REFERENCE) === true) {
@@ -50,6 +64,7 @@ export async function reserveBillingCreation<Result>(
   assertNoPendingBillingCreation(previousReference);
   const reference = randomUUID();
   await saveBillingAccount(database, tenantId, {
+    provider: "asaas",
     pendingReference: `${CREATION_REFERENCE}${reference}`,
   });
 

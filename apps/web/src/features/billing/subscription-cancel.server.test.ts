@@ -28,6 +28,11 @@ vi.mock("@/lib/server/database", () => ({
     transaction: async (operation: (executor: object) => Promise<unknown>) => operation({}),
   },
 }));
+vi.mock("./billing-lock-database.server", () => ({
+  billingLockDatabase: () => ({
+    transaction: async (operation: (executor: object) => Promise<unknown>) => operation({}),
+  }),
+}));
 vi.mock("./billing-config.server", () => ({ billingClient: () => mocks.client }));
 
 import { cancelSubscription } from "./subscription-cancel.server";

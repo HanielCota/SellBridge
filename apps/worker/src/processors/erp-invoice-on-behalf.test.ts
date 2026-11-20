@@ -345,6 +345,40 @@ describe("venda à ordem notes", () => {
     expect(callsTo(bling, "POST /Api/v3/nfe")).toHaveLength(1);
   });
 
+  it("keeps an authorized remessa from triggering a sale in a reconnected account", async () => {
+    const { shipmentId, supplierId, sku } = await scenario();
+    const bling = fakeBling({ sku });
+
+    await processor(bling)();
+    await processor(bling, { now: minutesFromNow(3) })();
+    await upsertErpConnection(database, {
+      supplierId,
+      provider: "bling",
+      userId: null,
+      tokens: {
+        accessTokenEnc: cipher.encrypt("different-account-access"),
+        refreshTokenEnc: cipher.encrypt("different-account-refresh"),
+        expiresAt: new Date(Date.now() + 3_600_000),
+      },
+    });
+    const [connection] = await database
+      .select()
+      .from(schema.supplierErpConnections)
+      .where(eq(schema.supplierErpConnections.supplierId, supplierId));
+
+    await processor(bling, { now: minutesFromNow(6) })();
+
+    expect(connection).toMatchObject({
+      onBehalfShipmentOperationId: null,
+      onBehalfSaleOperationId: null,
+    });
+    expect(await noteOf(shipmentId, "on_behalf_sale")).toMatchObject({
+      status: "attention",
+      problem: expect.stringContaining("conexão do Bling mudou"),
+    });
+    expect(callsTo(bling, "POST /Api/v3/pedidos/vendas")).toHaveLength(0);
+  });
+
   it("issues no supplier note while the reseller's sale note is missing", async () => {
     const created = await createInvoiceScenario(database, {
       supplierFiscal: { ...TEST_SUPPLIER_FISCAL, invoiceModel: "on_behalf" },

@@ -173,6 +173,8 @@ export interface ShipmentInvoiceWork {
   readonly erpOrderId: number | null;
   readonly erpInvoiceId: number | null;
   readonly erpDraftRequestedAt: Date | null;
+  readonly createdAt: Date;
+  readonly erpConnectedAt: Date | null;
   readonly supplierId: string;
   readonly supplierFiscal: SupplierFiscalProfile | null;
   readonly shipmentId: string;
@@ -210,6 +212,7 @@ async function invoiceHeader(database: Database, invoiceId: string) {
       shipmentStatus: orderShipments.status,
       orderStatus: orders.status,
       erpStatus: supplierErpConnections.status,
+      erpConnectedAt: supplierErpConnections.connectedAt,
       invoiceEnabledAt: supplierErpConnections.invoiceEnabledAt,
       orderId: orders.id,
       externalOrderId: orders.externalOrderId,
@@ -319,6 +322,8 @@ export async function loadShipmentInvoiceWork(
     erpOrderId: invoice.erpOrderId,
     erpInvoiceId: invoice.erpInvoiceId,
     erpDraftRequestedAt: invoice.erpDraftRequestedAt,
+    createdAt: invoice.createdAt,
+    erpConnectedAt: header.erpConnectedAt,
     supplierId: invoice.supplierId,
     supplierFiscal: readSupplierFiscalProfile(header.fiscalProfile),
     shipmentId: invoice.shipmentId,

@@ -84,13 +84,19 @@ sempre que há pagamento esperando ou a mensalidade está a menos de 2 dias.
 
 Mudanças da assinatura são serializadas por organização com uma trava consultiva
 (`pg_try_advisory_xact_lock`), que não segura linha: a publicação e a conexão de loja nunca esperam
-o Asaas. Ao excluir a conta, a assinatura e o cliente no Asaas são removidos antes de qualquer dado.
+o Asaas. A trava usa um pool PostgreSQL separado e limitado a duas conexões por processo web.
+Ao excluir a conta, a assinatura e o cliente no Asaas são removidos antes de qualquer dado.
 
 A criação de cobrança, assinatura Pix ou checkout grava primeiro uma reserva em
 \`billing_accounts.pending_reference\` (\`creating:<id>\`). A referência externa na operação do
 Asaas inclui o mesmo ID. Se a confirmação se perder, o suporte deve reconciliar a operação no
 Asaas e registrar o recurso identificado ou confirmar que a criação falhou antes de liberar
 nova tentativa.
+
+Os vínculos de cobrança antigos continuam identificados como Stripe. O suporte precisa
+encerrar ou reconciliar essas assinaturas no Stripe antes de liberar a troca para o Asaas.
+Durante a transição, mantenha as credenciais do Stripe e os preços legados se houver contas
+ainda vinculadas a ele.
 
 ## Lançamento
 

@@ -14,16 +14,13 @@ function priceIds(): Record<BillingPlanId, string | undefined> {
 }
 
 export function billingConfigured() {
-  const prices = priceIds();
   return (
-    environment.STRIPE_SECRET_KEY !== undefined &&
-    environment.STRIPE_WEBHOOK_SECRET !== undefined &&
-    BILLING_PLAN_IDS.every((plan) => prices[plan] !== undefined)
+    environment.STRIPE_SECRET_KEY !== undefined && environment.STRIPE_WEBHOOK_SECRET !== undefined
   );
 }
 
 export function stripeClient() {
-  if (!billingConfigured() || environment.STRIPE_SECRET_KEY === undefined) {
+  if (environment.STRIPE_SECRET_KEY === undefined) {
     throw validationError("A cobrança ainda não foi configurada");
   }
   return new Stripe(environment.STRIPE_SECRET_KEY, { maxNetworkRetries: 2, timeout: 15000 });

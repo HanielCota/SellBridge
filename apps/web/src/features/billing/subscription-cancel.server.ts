@@ -16,7 +16,12 @@ import {
 import { AppError, conflictError } from "@sellbridge/shared/errors";
 import { database } from "@/lib/server/database";
 import { billingClient } from "./billing-config.server";
-import { retireUnpaid, UNREACHABLE_MESSAGE, withBillingLock } from "./billing-lock.server";
+import {
+  assertAsaasBillingAccount,
+  retireUnpaid,
+  UNREACHABLE_MESSAGE,
+  withBillingLock,
+} from "./billing-lock.server";
 import { readSubscriptionState } from "./billing-sync.server";
 
 type BillingAccount = NonNullable<Awaited<ReturnType<typeof getBillingAccount>>>;
@@ -25,6 +30,7 @@ const REFUND_DESCRIPTION = "Cancelamento em até 7 dias da primeira mensalidade"
 
 async function cancellableAccount(tenantId: string) {
   const account = await getBillingAccount(database, tenantId);
+  assertAsaasBillingAccount(account);
   if (account?.subscriptionId == null || account.cancelAtPeriodEnd) {
     throw conflictError("Você não tem uma assinatura ativa para cancelar.");
   }

@@ -138,7 +138,7 @@ export interface OnBehalfInvoiceContext {
   /** The reseller's own sale note, which the remessa cites; null while it is not found. */
   readonly resellerNote: CitedInvoice | null;
   /** The authorized remessa, which the sale to the reseller cites; null until then. */
-  readonly shipmentNote: CitedInvoice | null;
+  readonly shipmentNote: (CitedInvoice & { readonly createdAt: Date }) | null;
   /** Null when the reseller no longer sells as a company. */
   readonly reseller: OnBehalfReseller | null;
   /** The supplier ERP's operations ("naturezas de operação"); null until chosen. */
@@ -167,6 +167,7 @@ async function shipmentNoteOf(database: Database, shipmentId: string) {
       accessKey: shipmentInvoices.accessKey,
       number: shipmentInvoices.number,
       series: shipmentInvoices.series,
+      createdAt: shipmentInvoices.createdAt,
     })
     .from(shipmentInvoices)
     .where(

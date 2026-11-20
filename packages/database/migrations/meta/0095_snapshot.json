@@ -1,5 +1,5 @@
 {
-  "id": "e697287c-f653-4504-bc5b-931179812f22",
+  "id": "4a99faf0-e4b9-4d13-891c-82ff4f246053",
   "prevId": "367ab172-dd34-4001-9fc2-edafa0686626",
   "version": "7",
   "dialect": "postgresql",
@@ -7055,6 +7055,13 @@
           "primaryKey": true,
           "notNull": true
         },
+        "provider": {
+          "name": "provider",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'stripe'"
+        },
         "customer_id": {
           "name": "customer_id",
           "type": "text",
@@ -7179,6 +7186,10 @@
       },
       "policies": {},
       "checkConstraints": {
+        "billing_accounts_provider_check": {
+          "name": "billing_accounts_provider_check",
+          "value": "\"billing_accounts\".\"provider\" in ('stripe', 'asaas')"
+        },
         "billing_accounts_payment_method_check": {
           "name": "billing_accounts_payment_method_check",
           "value": "\"billing_accounts\".\"payment_method\" is null or \"billing_accounts\".\"payment_method\" in ('pix', 'credit_card')"

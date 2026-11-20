@@ -41,6 +41,11 @@ vi.mock("@/lib/server/database", () => ({
     transaction: async (operation: (executor: object) => Promise<unknown>) => operation({}),
   },
 }));
+vi.mock("./billing-lock-database.server", () => ({
+  billingLockDatabase: () => ({
+    transaction: async (operation: (executor: object) => Promise<unknown>) => operation({}),
+  }),
+}));
 vi.mock("./billing-config.server", () => ({ billingClient: () => mocks.client }));
 
 import { AsaasError } from "@sellbridge/payments/asaas";
@@ -137,6 +142,15 @@ describe("first subscription", () => {
       "ainda não confirmou",
     );
     expect(mocks.client.createPixSubscription).toHaveBeenCalledTimes(1);
+  });
+
+  it("does not start an Asaas subscription while the account is linked to Stripe", async () => {
+    mocks.account.mockResolvedValue(liveAccount({ provider: "stripe", status: "incomplete" }));
+
+    await expect(startSubscription({ ...input, method: "pix" })).rejects.toThrow("com o Stripe");
+
+    expect(mocks.client.createPixSubscription).not.toHaveBeenCalled();
+    expect(mocks.client.deleteSubscription).not.toHaveBeenCalled();
   });
 
   it("denies non-owners before contacting the payment provider", async () => {

@@ -131,7 +131,9 @@ export async function applyBillingEvent(
   const [account] = await database
     .select()
     .from(billingAccounts)
-    .where(eq(billingAccounts.customerId, input.customerId))
+    .where(
+      and(eq(billingAccounts.customerId, input.customerId), eq(billingAccounts.provider, "stripe")),
+    )
     .for("update");
   if (!account) return;
   const [event] = await database
@@ -198,7 +200,7 @@ export async function findBillingCustomer(database: DatabaseExecutor, customerId
   const [account] = await database
     .select()
     .from(billingAccounts)
-    .where(eq(billingAccounts.customerId, customerId));
+    .where(and(eq(billingAccounts.customerId, customerId), eq(billingAccounts.provider, "stripe")));
   return account ?? null;
 }
 
@@ -207,6 +209,7 @@ export type BillingAccountPatch = Partial<
   Pick<
     typeof billingAccounts.$inferInsert,
     | "customerId"
+    | "provider"
     | "subscriptionId"
     | "plan"
     | "status"
@@ -230,7 +233,7 @@ export async function saveBillingAccount(
 ) {
   await database
     .insert(billingAccounts)
-    .values({ tenantId, ...patch })
+    .values({ tenantId, provider: "asaas", ...patch })
     .onConflictDoUpdate({ target: billingAccounts.tenantId, set: patch });
 }
 
@@ -278,7 +281,12 @@ export async function findBillingAccountBySubscription(
   const [account] = await database
     .select()
     .from(billingAccounts)
-    .where(eq(billingAccounts.subscriptionId, subscriptionId));
+    .where(
+      and(
+        eq(billingAccounts.subscriptionId, subscriptionId),
+        eq(billingAccounts.provider, "asaas"),
+      ),
+    );
   return account ?? null;
 }
 
@@ -290,7 +298,9 @@ export async function findBillingAccountByPendingReference(
   const [account] = await database
     .select()
     .from(billingAccounts)
-    .where(eq(billingAccounts.pendingReference, reference));
+    .where(
+      and(eq(billingAccounts.pendingReference, reference), eq(billingAccounts.provider, "asaas")),
+    );
   return account ?? null;
 }
 
