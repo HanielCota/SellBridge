@@ -10,7 +10,7 @@ import {
 } from "@sellbridge/shared/notification-events";
 import type { InvoiceStatus } from "@sellbridge/shared/supplier-invoice";
 import { conflictError, notFoundError } from "@sellbridge/shared/errors";
-import { and, asc, eq, gte, inArray, isNotNull, isNull, lte, notInArray, sql } from "drizzle-orm";
+import { and, asc, eq, inArray, isNull, lte, sql } from "drizzle-orm";
 import type { Database, DatabaseExecutor } from "../client.ts";
 import {
   orderItems,
@@ -23,7 +23,11 @@ import {
   suppliers,
 } from "../schema/index.ts";
 import { notifyWorkspace } from "./notification-producers.ts";
-import { UNINVOICED_ORDER_STATUSES, UNINVOICED_SHIPMENT_STATUSES } from "./sql/uninvoiced.ts";
+import {
+  parcelGetsInvoice,
+  UNINVOICED_ORDER_STATUSES,
+  UNINVOICED_SHIPMENT_STATUSES,
+} from "./sql/uninvoiced.ts";
 
 /**
  * Opens an invoice for each new parcel of a supplier whose ERP issues its notes: parcels created
@@ -42,8 +46,6 @@ export async function queueNewShipmentInvoices(database: Database): Promise<numb
       and(
         eq(supplierErpConnections.supplierId, orderShipments.supplierId),
         eq(supplierErpConnections.status, "connected"),
-        isNotNull(supplierErpConnections.invoiceEnabledAt),
-        gte(orderShipments.createdAt, supplierErpConnections.invoiceEnabledAt),
       ),
     )
     .innerJoin(orders, eq(orders.id, orderShipments.orderId))
@@ -51,8 +53,12 @@ export async function queueNewShipmentInvoices(database: Database): Promise<numb
     .where(
       and(
         isNull(shipmentInvoices.id),
-        notInArray(orderShipments.status, [...UNINVOICED_SHIPMENT_STATUSES]),
-        notInArray(orders.status, [...UNINVOICED_ORDER_STATUSES]),
+        parcelGetsInvoice({
+          invoiceEnabledAt: supplierErpConnections.invoiceEnabledAt,
+          parcelCreatedAt: orderShipments.createdAt,
+          parcelStatus: orderShipments.status,
+          orderStatus: orders.status,
+        }),
       ),
     );
   if (candidates.length === 0) {
