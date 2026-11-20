@@ -13,7 +13,7 @@ import {
   type GridImportGroup,
 } from "@sellbridge/shared/product-grid-import";
 import { defaultSuggestedPriceCents } from "@sellbridge/shared/schemas";
-import { and, eq, inArray, sql } from "drizzle-orm";
+import { and, eq, inArray, isNull, sql } from "drizzle-orm";
 import type { DatabaseExecutor } from "../client.ts";
 import {
   productModelColors,
@@ -34,6 +34,30 @@ export interface PlannedGrid {
   readonly combinations: readonly GridCombination[];
   /** Combinations the file sends with "ativo" = não. */
   readonly offSaleSkus: readonly string[];
+}
+
+/**
+ * Of the given SKUs, those the supplier sells as products of their own (not in a grid): a
+ * catalog file keeps their product as separate rows, so reimporting it changes nothing.
+ */
+export async function findSingleProductSkus(
+  database: DatabaseExecutor,
+  input: { supplierId: string; skus: readonly string[] },
+): Promise<Set<string>> {
+  if (input.skus.length === 0) {
+    return new Set();
+  }
+  const rows = await database
+    .select({ sku: supplierProducts.sku })
+    .from(supplierProducts)
+    .where(
+      and(
+        eq(supplierProducts.supplierId, input.supplierId),
+        inArray(supplierProducts.sku, [...input.skus]),
+        isNull(supplierProducts.modelId),
+      ),
+    );
+  return new Set(rows.map((row) => row.sku));
 }
 
 async function existingSkusOf(
