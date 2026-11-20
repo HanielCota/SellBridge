@@ -11,6 +11,7 @@ import {
 import { loadResellerSaleIssueWork } from "./reseller-sale-issue.ts";
 import {
   claimDueResellerSaleInvoices,
+  claimResellerSaleDraft,
   queueResellerSaleInvoices,
   recordErpResellerSaleInvoice,
   recordResellerSaleIssueProgress,
@@ -174,6 +175,19 @@ describe("the note issued by the reseller's ERP", () => {
       number: "79",
       source: "bling",
     });
+  });
+
+  it("gives the mark of the note asked of Bling to one run only", async () => {
+    const { invoiceId } = await scenario({
+      marketplace: "mercado_livre",
+      issuingSince: new Date(Date.now() - 3_600_000),
+    });
+    const now = new Date();
+
+    const first = await claimResellerSaleDraft(database, { invoiceId, now });
+    const second = await claimResellerSaleDraft(database, { invoiceId, now });
+
+    expect([first, second]).toEqual([true, false]);
   });
 
   it("loads the lines, the reseller's state and the saved settings", async () => {

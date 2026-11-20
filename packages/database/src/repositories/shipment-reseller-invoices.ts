@@ -440,6 +440,31 @@ export async function recordResellerSaleIssueProgress(
     );
 }
 
+/**
+ * Marks that the note is being asked of the reseller's Bling, only when no run marked it before:
+ * two runs on the same note never both create it.
+ *
+ * @returns Whether this run got the mark.
+ */
+export async function claimResellerSaleDraft(
+  database: Database,
+  claim: { invoiceId: string; now: Date },
+): Promise<boolean> {
+  const updated = await database
+    .update(shipmentResellerInvoices)
+    .set({ erpDraftRequestedAt: claim.now })
+    .where(
+      and(
+        eq(shipmentResellerInvoices.id, claim.invoiceId),
+        isNull(shipmentResellerInvoices.accessKey),
+        isNull(shipmentResellerInvoices.erpDraftRequestedAt),
+        isNull(shipmentResellerInvoices.erpInvoiceId),
+      ),
+    )
+    .returning({ id: shipmentResellerInvoices.id });
+  return updated.length > 0;
+}
+
 /** The reseller's ERP could not issue the note: it waits, with `problem`, for the reseller. */
 export async function stopResellerSaleIssue(
   database: Database,

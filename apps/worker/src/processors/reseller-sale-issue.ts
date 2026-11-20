@@ -1,5 +1,6 @@
 import type { Database } from "@sellbridge/database";
 import {
+  claimResellerSaleDraft,
   loadResellerSaleIssueWork,
   recordErpResellerSaleInvoice,
   recordResellerSaleIssueProgress,
@@ -11,6 +12,7 @@ import {
 import {
   isMarketplaceError,
   isRetryableError,
+  marketplaceError,
   type BuyerBilling,
   type MercadoLivreApprovedPayment,
   type MercadoLivreSalePayments,
@@ -83,6 +85,7 @@ const CANCELLED_IN_BLING =
 const WRONG_XML =
   "O Bling entregou um XML que não é o desta nota. Baixe o XML no Bling e envie aqui.";
 const NO_BLING = "Conecte o Bling de novo em Integrações para continuar.";
+const DRAFT_TAKEN = "Outra rodada já está criando esta nota no Bling.";
 const NO_SELLER_ACCOUNT =
   "Falta o nome da sua conta do Mercado Livre, que vai na nota. Conecte a loja de novo em Lojas e peça para tentar de novo.";
 /** NT 2020.006: idCadIntTran, the seller's account at the intermediary, takes 2 to 60 characters. */
@@ -250,9 +253,13 @@ async function createOrRecoverSaleNote(
     }
     return recovered;
   }
-  await recordResellerSaleIssueProgress(dependencies.database, due.id, {
-    erpDraftRequestedAt: input.now,
+  const claimed = await claimResellerSaleDraft(dependencies.database, {
+    invoiceId: due.id,
+    now: input.now,
   });
+  if (!claimed) {
+    throw marketplaceError(DRAFT_TAKEN, { retryable: true });
+  }
   try {
     return await client.createDirectInvoice(draft);
   } catch (error) {
