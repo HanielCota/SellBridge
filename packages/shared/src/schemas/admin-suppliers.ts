@@ -98,6 +98,11 @@ export const adminSupplierSearchSchema = z.object({
   pageSize: withFallback(z.coerce.number().int().min(5).max(50).default(20), 20),
 });
 export type AdminSupplierSearch = z.infer<typeof adminSupplierSearchSchema>;
+/** The supplier list's address: "panel=none" keeps only suppliers with no panel login yet. */
+export const adminSupplierListSearchSchema = adminSupplierSearchSchema.extend({
+  panel: optionalParameter(z.enum(["none"])),
+});
+export type AdminSupplierListSearch = z.infer<typeof adminSupplierListSearchSchema>;
 export const adminSupplierIdSchema = z.object({ supplierId: z.uuid() });
 export const adminSupplierProductsSchema = adminSupplierSearchSchema.extend({
   supplierId: z.uuid(),

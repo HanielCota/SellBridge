@@ -21,7 +21,7 @@ import { FloatingPasswordField, FloatingTextField } from "@/components/form/floa
 import { InlineFormError } from "@/components/form/inline-form-error";
 import { rememberSignUpProfileFn } from "@/features/auth/sign-up-profile.functions";
 import { rememberPendingConfirmation } from "@/features/auth/pending-confirmation";
-import { CONFIRMATION_CALLBACK_URL } from "@/features/auth/sign-in-error";
+import { confirmationCallbackUrl } from "@/features/auth/sign-in-error";
 import { authClient } from "@/lib/auth-client";
 import { succeedsOrReports } from "@/lib/report-route-error";
 
@@ -53,7 +53,7 @@ function signUpErrorMessage(code: string | undefined): string {
   return SIGN_UP_ERRORS[code] ?? GENERIC_SIGN_UP_ERROR;
 }
 
-function useSignUpForm(profileKind: ProfileKind) {
+function useSignUpForm(profileKind: ProfileKind, redirect: string | undefined) {
   const navigate = useNavigate();
   const [submitError, setSubmitError] = useState<string | null>(null);
 
@@ -78,7 +78,7 @@ function useSignUpForm(profileKind: ProfileKind) {
       const signUpBody = {
         ...account,
         acceptedTermsVersion: TERMS_VERSION,
-        callbackURL: CONFIRMATION_CALLBACK_URL,
+        callbackURL: confirmationCallbackUrl(redirect),
       };
       const result = await authClient.signUp.email(signUpBody);
       if (result.error) {
@@ -164,8 +164,14 @@ function termsErrorMessage(errors: readonly unknown[]): string | null {
   return errors.length > 0 ? "Marque que você aceita os termos para criar a conta." : null;
 }
 
-function SignUpForm({ profileKind }: { profileKind: ProfileKind }) {
-  const { form, submitError } = useSignUpForm(profileKind);
+function SignUpForm({
+  profileKind,
+  redirect,
+}: {
+  profileKind: ProfileKind;
+  redirect: string | undefined;
+}) {
+  const { form, submitError } = useSignUpForm(profileKind, redirect);
   const hasSubmitted = useStore(form.store, (state) => state.submissionAttempts > 0);
 
   return (
@@ -185,8 +191,17 @@ function SignUpForm({ profileKind }: { profileKind: ProfileKind }) {
   );
 }
 
-/** `/cadastro` and `/cadastro/fornecedor`: the same page, opened on one profile or the other. */
-export function SignUpPage({ initialKind }: { initialKind: ProfileKind }) {
+/**
+ * `/cadastro` and `/cadastro/fornecedor`: the same page, opened on one profile or the other.
+ * `redirect` is where the person goes after confirming the e-mail and signing in (an invite).
+ */
+export function SignUpPage({
+  initialKind,
+  redirect,
+}: {
+  initialKind: ProfileKind;
+  redirect?: string | undefined;
+}) {
   const signInOptions = authLayoutRoute.useLoaderData();
   const [profileKind, setProfileKind] = useState<ProfileKind>(initialKind);
   return (
@@ -196,18 +211,19 @@ export function SignUpPage({ initialKind }: { initialKind: ProfileKind }) {
         <SignUpProfileChoice value={profileKind} onChange={setProfileKind} />
         {signInOptions.google ? (
           <GoogleSignIn
-            callbackURL="/dashboard"
+            callbackURL={redirect ?? "/dashboard"}
             onBeforeRedirect={async () => {
               await rememberSignUpProfileFn({ data: { kind: profileKind } });
             }}
           />
         ) : null}
-        <SignUpForm profileKind={profileKind} />
+        <SignUpForm profileKind={profileKind} redirect={redirect} />
       </div>
       <p className="text-center text-subhead text-muted-foreground">
         Já tem conta?{" "}
         <Link
           to="/login"
+          search={{ redirect }}
           className="font-medium text-brand-text underline-offset-4 hover:underline"
         >
           Entrar

@@ -2,6 +2,7 @@ export * from "./region.ts";
 export * from "./restart-seller-shipment.ts";
 export * from "./account-profiles.ts";
 export * from "./supplier-brand.ts";
+export * from "./supplier-panel-invite.ts";
 export * from "./suppliers.ts";
 export * from "./stores.ts";
 export * from "./store-names.ts";
