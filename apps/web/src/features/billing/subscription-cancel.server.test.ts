@@ -109,6 +109,17 @@ describe("cancellation", () => {
     });
   });
 
+  it("still ends the refunded subscription at Asaas when its state loses every write", async () => {
+    setToday("2026-11-26");
+    mocks.apply.mockResolvedValue(false);
+
+    const result = await cancelSubscription(input);
+
+    expect(mocks.client.refundCharge).toHaveBeenCalled();
+    expect(mocks.client.deleteSubscription).toHaveBeenCalledWith("sub_live");
+    expect(result.refundCents).toBe(19_700);
+  });
+
   it("stamps the cancellation again when a read stamped meanwhile was stored first", async () => {
     setToday("2026-11-27");
     mocks.apply.mockResolvedValueOnce(false);
