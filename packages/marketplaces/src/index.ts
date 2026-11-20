@@ -20,6 +20,11 @@ export {
   sendMercadoLivreSaleInvoice,
 } from "./mercado-livre/sale-invoice.ts";
 export {
+  readMercadoLivreSalePayments,
+  type MercadoLivreApprovedPayment,
+  type MercadoLivreSalePayments,
+} from "./mercado-livre/sale-payments.ts";
+export {
   packageDimensionsOf,
   readMercadoLivreCommission,
   readMercadoLivreShippingCost,
