@@ -1,6 +1,6 @@
 import type { adminListSuppliers } from "@/features/admin-suppliers/suppliers.functions";
 import type { AdminSupplier } from "@sellbridge/database/repositories";
-import type { AdminSupplierSearch } from "@sellbridge/shared/schemas";
+import type { AdminSupplierListSearch } from "@sellbridge/shared/schemas";
 import { StorefrontIcon } from "@phosphor-icons/react";
 import { useQuery, type UseQueryResult } from "@tanstack/react-query";
 import { Link } from "@tanstack/react-router";
@@ -12,6 +12,7 @@ import { ToneStatus } from "@/components/data/tone-status";
 import { EmptyState } from "@/components/feedback/empty-state";
 import { ErrorState } from "@/components/feedback/error-state";
 import { PageHeader } from "@/components/layout/page-header";
+import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { adminSuppliersQueryOptions } from "@/features/admin-suppliers/suppliers.queries";
@@ -23,6 +24,14 @@ import { ACTION_ICONS, CONTROL_HINTS } from "@/components/icons/action-icons";
 import { Hint } from "@/components/ui/hint";
 import { ApprovalQueueNotice } from "@/components/supplier-approval/approval-queue-notice";
 import { supplierSituation } from "@/components/supplier-approval/supplier-situation";
+
+/** A supplier with a panel login opens as the supplier; one without it orders only by link. */
+function SupplierAccessCell({ supplier }: { supplier: AdminSupplier }) {
+  if (supplier.organizationId === null) {
+    return <ToneStatus tone="warning" label="Sem painel" />;
+  }
+  return <EnterSupplierButton supplier={supplier} />;
+}
 
 const columnHelper = createServerColumnHelper<AdminSupplier>();
 const supplierColumns = columnHelper.columns([
@@ -50,15 +59,16 @@ const supplierColumns = columnHelper.columns([
   columnHelper.display({
     id: "account",
     header: "Acesso",
-    cell: (information) => <EnterSupplierButton supplier={information.row.original} />,
+    cell: (information) => <SupplierAccessCell supplier={information.row.original} />,
   }),
 ]);
 
 const CreateIcon = ACTION_ICONS.createProduct.icon;
 
 interface SupplierIndexProps {
-  search: AdminSupplierSearch;
+  search: AdminSupplierListSearch;
   onSearch: (query: string | undefined) => void;
+  onPanelFilter: (panel: "none" | undefined) => void;
   onPageChange: (page: number) => void;
   onCreated: (supplierId: string) => void;
 }
@@ -104,7 +114,7 @@ function SupplierTable({
             </p>
             <ToneStatus {...supplierSituation(row)} />
           </Link>
-          <EnterSupplierButton supplier={row} />
+          <SupplierAccessCell supplier={row} />
         </div>
       )}
       footer={
@@ -120,7 +130,51 @@ function SupplierTable({
   );
 }
 
-export function SupplierIndex({ search, onSearch, onPageChange, onCreated }: SupplierIndexProps) {
+/**
+ * How many active suppliers still order only by link, and the way to list just them: the team
+ * invites each one to the panel before the order link stops working.
+ */
+function WithoutPanelNotice({
+  count,
+  filtered,
+  onPanelFilter,
+}: {
+  count: number;
+  filtered: boolean;
+  onPanelFilter: (panel: "none" | undefined) => void;
+}) {
+  if (count === 0 && !filtered) {
+    return null;
+  }
+  const sentence =
+    count === 1
+      ? "1 fornecedor ativo ainda não tem acesso ao painel e recebe os pedidos só por link."
+      : `${count} fornecedores ativos ainda não têm acesso ao painel e recebem os pedidos só por link.`;
+  return (
+    <Alert>
+      <AlertDescription className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <span>
+          {count === 0 ? "Todos os fornecedores ativos já têm acesso ao painel." : sentence}
+        </span>
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={() => onPanelFilter(filtered ? undefined : "none")}
+        >
+          {filtered ? "Ver todos os fornecedores" : "Ver só os sem painel"}
+        </Button>
+      </AlertDescription>
+    </Alert>
+  );
+}
+
+export function SupplierIndex({
+  search,
+  onSearch,
+  onPanelFilter,
+  onPageChange,
+  onCreated,
+}: SupplierIndexProps) {
   const [creating, setCreating] = useState(false);
   const query = useQuery(adminSuppliersQueryOptions(search));
   const { term, setTerm } = useUrlSearchQuery({ urlQuery: search.query, commitQuery: onSearch });
@@ -148,6 +202,13 @@ export function SupplierIndex({ search, onSearch, onPageChange, onCreated }: Sup
         value={term}
         onValueChange={setTerm}
       />
+      {query.data === undefined ? null : (
+        <WithoutPanelNotice
+          count={query.data.withoutPanelCount}
+          filtered={search.panel === "none"}
+          onPanelFilter={onPanelFilter}
+        />
+      )}
       <div aria-busy={query.isFetching}>
         <SupplierTable query={query} onPageChange={onPageChange} />
       </div>

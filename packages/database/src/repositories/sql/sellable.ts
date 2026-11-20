@@ -48,6 +48,16 @@ export function productListable(): SQL {
   return sql`(${supplierProducts.active} and ${supplierProducts.reviewStatus} = 'approved')`;
 }
 
+/**
+ * `productListable` for what a reseller browses, picks and publishes: a combination of a colour
+ * and size grid is offered through its model, never on its own (decision of 19/11/2026). Live
+ * listings keep `productListable`, so a product grouped later keeps selling where it is listed.
+ * Needs `supplier_products` in the FROM clause.
+ */
+export function productOfferedInCatalog(): SQL {
+  return sql`(${productListable()} and ${supplierProducts.modelId} is null)`;
+}
+
 /** `productListable` as a column, for `CatalogAvailability.productActive`. */
 export function productListableColumn(): SQL<boolean> {
   return sql<boolean>`${productListable()}`.mapWith(Boolean);
@@ -120,7 +130,7 @@ export function listingSellable(): SQL {
  * `suppliers` in the FROM clause.
  */
 export function supplierFindable(): SQL {
-  return sql`(${publicSupplier()} and ${supplierOpenToResellers()} and ${supplierReceivingRuleMet()} and exists (select 1 from ${supplierProducts} where ${supplierProducts.supplierId} = ${suppliers.id} and ${productListable()}))`;
+  return sql`(${publicSupplier()} and ${supplierOpenToResellers()} and ${supplierReceivingRuleMet()} and exists (select 1 from ${supplierProducts} where ${supplierProducts.supplierId} = ${suppliers.id} and ${productOfferedInCatalog()}))`;
 }
 
 /**

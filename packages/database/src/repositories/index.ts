@@ -2,13 +2,26 @@ export * from "./region.ts";
 export * from "./restart-seller-shipment.ts";
 export * from "./account-profiles.ts";
 export * from "./supplier-brand.ts";
+export * from "./supplier-panel-invite.ts";
 export * from "./suppliers.ts";
 export * from "./stores.ts";
 export * from "./store-names.ts";
 export * from "./store-suppliers.ts";
 export * from "./store-catalog.ts";
 export * from "./product-heat.ts";
-export * from "./product-models.ts";
+export {
+  deleteUnsoldProductModel,
+  MODEL_IN_USE_MESSAGE,
+  publishProductModel,
+  saveProductModelDraft,
+} from "./product-model-drafts.ts";
+export {
+  createProductModel,
+  getProductModel,
+  updateProductModel,
+  type ProductModelCombination,
+  type ProductModelDetail,
+} from "./product-models.ts";
 export * from "./store-activity.ts";
 export * from "./store-disconnect.ts";
 export * from "./account-export.ts";
@@ -25,6 +38,7 @@ export * from "./listing-descriptions.ts";
 export * from "./listing-batch-progress.ts";
 export * from "./webhooks.ts";
 export * from "./orders.ts";
+export * from "./order-check.ts";
 export * from "./support.ts";
 export * from "./support-create.ts";
 export * from "./support-performance.ts";

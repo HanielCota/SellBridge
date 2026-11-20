@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { MARKETPLACES } from "../schemas/stores.ts";
 
 /** Queue names shared by the web app (producer) and the worker (consumer). */
 export const QUEUE_NAMES = {
@@ -38,6 +39,10 @@ export const QUEUE_NAMES = {
   supplierApproval: "supplier-approval",
   /** Checks once a day that each Mercado Livre store does not buy at its supplier's address. */
   buyerAddressCheck: "buyer-address-check",
+  /** Zero stock for the listings of a store whose account was deleted, until every one is paused. */
+  deletedStorePause: "deleted-store-pause",
+  /** Asks each store's marketplace for its recent sales and brings in the ones whose notice was lost. */
+  orderCheck: "order-check",
 } as const;
 
 export const publishListingJobSchema = z.object({
@@ -133,6 +138,27 @@ export function storeOrderCatchUpJobId(job: StoreOrderCatchUpJob): string {
 
   throw new Error(`Invalid store order catch-up start date: ${JSON.stringify(job.since)}`);
 }
+
+/** One store's periodic order check (docs/decisions/2026-11-19-conferencia-periodica-de-pedidos.md). */
+export const orderCheckJobSchema = z.object({
+  storeConnectionId: z.uuid(),
+  /** Start of the sales read: two days back, or the store's connection when it is newer. */
+  from: z.iso.datetime(),
+});
+export type OrderCheckJob = z.infer<typeof orderCheckJobSchema>;
+
+/** One check per store at a time: a run never stacks onto a check still waiting or running. */
+export function orderCheckJobId(job: Pick<OrderCheckJob, "storeConnectionId">): string {
+  return `order-check-${job.storeConnectionId}`;
+}
+
+/** A refused read (rate limit, outage) is tried again a little later, three times in all. */
+export const ORDER_CHECK_JOB_OPTIONS = {
+  attempts: 3,
+  backoff: { type: "exponential", delay: 60_000 },
+  removeOnComplete: 100,
+  removeOnFail: 1000,
+} as const;
 
 export const autoForwardJobSchema = z.object({ orderId: z.uuid() });
 
@@ -307,6 +333,46 @@ export type OrderMessageFollowUpJob = z.infer<typeof orderMessageFollowUpJobSche
 export function orderMessageFollowUpJobId(job: OrderMessageFollowUpJob, runAt: Date): string {
   return `order-message:${job.shipmentId}:${job.author}:${runAt.getTime()}`;
 }
+
+/**
+ * The listings of a store whose account is being deleted. The store's rows are deleted right
+ * after, so the job carries what pausing needs: the access token stays encrypted, as in the
+ * database, and leaves Redis with the job (`DELETED_STORE_PAUSE_JOB_OPTIONS`).
+ */
+export const deletedStorePauseJobSchema = z.object({
+  tenantId: z.uuid(),
+  storeConnectionId: z.uuid(),
+  marketplace: z.enum([...MARKETPLACES, "mock"]),
+  externalShopId: z.string().min(1),
+  accessTokenEnc: z.string().min(1),
+  listings: z
+    .array(z.object({ externalId: z.string().min(1), priceCents: z.number().int().min(0) }))
+    .min(1),
+});
+export type DeletedStorePauseJob = z.infer<typeof deletedStorePauseJobSchema>;
+
+/**
+ * One job per store: a deletion asked again while the first job waits adds nothing. No colon:
+ * BullMQ refuses a custom id with one.
+ */
+export function deletedStorePauseJobId(job: Pick<DeletedStorePauseJob, "storeConnectionId">) {
+  return `deleted-store-pause-${job.storeConnectionId}`;
+}
+
+/**
+ * Retries for about two hours (1, 2, 4 … 64 minutes apart), inside the access token's lifetime
+ * (4 hours at Shopee, 6 at Mercado Livre), since a deleted store's token is never refreshed. The
+ * job is removed when it ends either way, so the token does not outlive it; a final failure
+ * reaches the admin Problemas page. The first run waits a minute, so a stock round already
+ * running when the account goes cannot put stock back after the zero.
+ */
+export const DELETED_STORE_PAUSE_JOB_OPTIONS = {
+  delay: 60_000,
+  attempts: 8,
+  backoff: { type: "exponential", delay: 60_000 },
+  removeOnComplete: true,
+  removeOnFail: true,
+} as const;
 
 export const ORDER_MESSAGE_FOLLOW_UP_JOB_OPTIONS = {
   attempts: 3,

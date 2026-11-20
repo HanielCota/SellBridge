@@ -1,5 +1,6 @@
 import { randomUUID } from "node:crypto";
 import { hasErrorCode } from "@sellbridge/shared/errors";
+import { parseProductCsv } from "@sellbridge/shared/product-csv";
 import type {
   GridCombination,
   ProductGrid,
@@ -9,9 +10,12 @@ import { eq } from "drizzle-orm";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { productModels, supplierProducts, suppliers } from "../schema/index.ts";
 import { createTestDatabase, createTestTenants } from "../testing/fixtures.ts";
+import { importSupplierProducts, saveAdminSupplierProduct } from "./admin-suppliers.ts";
 import { recordManualOrder } from "./orders.ts";
 import { createProductModel, getProductModel, updateProductModel } from "./product-models.ts";
 import { ensureManualStore } from "./stores.ts";
+import { saveSupplierPanelDraft } from "./supplier-panel-catalog-writes.ts";
+import { getSellableCatalogProduct, listSellableCatalog } from "./suppliers.ts";
 
 const database = createTestDatabase();
 let supplierId = "";
@@ -309,5 +313,129 @@ describe("stock of a combination", () => {
 
     expect((await combinationRow(`${prefix}-P-38`)).reservedStock).toBe(2);
     expect((await combinationRow(`${prefix}-P-39`)).reservedStock).toBe(0);
+  });
+});
+
+describe("reseller catalog", () => {
+  it("offers a model's combinations only through the model, never one by one", async () => {
+    const prefix = randomUUID().slice(0, 8);
+    const marker = `Grade oculta ${prefix}`;
+    await createProductModel(database, {
+      supplierId,
+      values: { ...values, title: marker },
+      grid: shoeGrid(prefix),
+      reviewStatus: "approved",
+    });
+    const [single] = await database
+      .insert(supplierProducts)
+      .values({
+        supplierId,
+        sku: `${prefix}-AVULSO`,
+        title: `${marker} avulso`,
+        costCents: 5000,
+        suggestedPriceCents: 9990,
+        stock: 3,
+      })
+      .returning({ id: supplierProducts.id });
+    const black38 = await combinationRow(`${prefix}-P-38`);
+    const tenantId = tenants.ids[0] ?? "";
+
+    const catalog = await listSellableCatalog(
+      database,
+      tenantId,
+      { search: marker, sort: "title" },
+      { page: 1, pageSize: 50 },
+    );
+
+    expect(catalog.items.map((product) => product.id)).toEqual([single?.id]);
+    await expect(getSellableCatalogProduct(database, black38.id)).rejects.toMatchObject({
+      code: "NOT_FOUND",
+    });
+  });
+});
+
+describe("writes outside the grid", () => {
+  it("lets an import change only a combination's own values", async () => {
+    const prefix = randomUUID().slice(0, 8);
+    await createProductModel(database, {
+      supplierId,
+      values,
+      grid: shoeGrid(prefix),
+      reviewStatus: "approved",
+    });
+
+    await importSupplierProducts(database, {
+      supplierId,
+      rows: parseProductCsv(`sku;titulo;custo;estoque
+${prefix}-P-38;Outro nome;60;7`).rows,
+      validatePreview: () => undefined,
+    });
+
+    expect(await combinationRow(`${prefix}-P-38`)).toMatchObject({
+      title: "Tênis Casual - Preto 38",
+      imageUrls: ["https://cdn.example.com/preto.jpg"],
+      mercadoLivreAttributes: { BRAND: "Pegada", MODEL: "Casual", GTIN: "7891234567895" },
+      reviewStatus: "approved",
+      costCents: 6000,
+      stock: 7,
+    });
+  });
+
+  it("refuses the team form on a combination", async () => {
+    const prefix = randomUUID().slice(0, 8);
+    await createProductModel(database, {
+      supplierId,
+      values,
+      grid: shoeGrid(prefix),
+      reviewStatus: "approved",
+    });
+    const black38 = await combinationRow(`${prefix}-P-38`);
+
+    const attempt = saveAdminSupplierProduct(database, {
+      supplierId,
+      productId: black38.id,
+      sku: black38.sku,
+      title: "Outro nome",
+      description: "",
+      costCents: 5000,
+      suggestedPriceCents: 9990,
+      stock: 4,
+      categoryId: null,
+      imageUrls: [],
+      mercadoLivreAttributes: {},
+    });
+
+    await expect(attempt).rejects.toSatisfy((error) => hasErrorCode(error, "VALIDATION"));
+    expect((await combinationRow(`${prefix}-P-38`)).title).toBe("Tênis Casual - Preto 38");
+  });
+
+  it("refuses the panel's single product form on a combination", async () => {
+    const prefix = randomUUID().slice(0, 8);
+    await createProductModel(database, {
+      supplierId,
+      values,
+      grid: shoeGrid(prefix),
+      reviewStatus: "approved",
+    });
+    const black38 = await combinationRow(`${prefix}-P-38`);
+
+    const attempt = saveSupplierPanelDraft(database, {
+      supplierId,
+      productId: black38.id,
+      values: {
+        sku: black38.sku,
+        title: "Outro nome",
+        description: "",
+        costCents: 5000,
+        suggestedPriceCents: 9990,
+        stock: 4,
+        categoryId: null,
+        imageUrls: [],
+        mercadoLivreAttributes: {},
+      },
+    });
+
+    await expect(attempt).rejects.toSatisfy((error) => hasErrorCode(error, "VALIDATION"));
+    expect((await combinationRow(`${prefix}-P-38`)).title).toBe("Tênis Casual - Preto 38");
   });
 });
