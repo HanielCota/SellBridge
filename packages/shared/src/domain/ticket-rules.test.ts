@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { hasErrorCode } from "../runtime/errors.ts";
 import {
+  withPrioritySupport,
   assertCanRate,
   assertCanReply,
   assertCustomerCanClose,
@@ -155,5 +156,15 @@ describe("responseWindowUsed", () => {
   it("stays between 0 and 1", () => {
     expect(responseWindowUsed(since, "urgent", new Date("2026-10-13T00:00:00Z"))).toBe(1);
     expect(responseWindowUsed(since, "normal", new Date("2026-10-11T00:00:00Z"))).toBe(0);
+  });
+});
+
+describe("priority support", () => {
+  it.each(["low", "normal", "high"] as const)("opens a %s ticket as high priority", (priority) => {
+    expect(withPrioritySupport(priority)).toBe("high");
+  });
+
+  it("keeps an urgent ticket urgent", () => {
+    expect(withPrioritySupport("urgent")).toBe("urgent");
   });
 });

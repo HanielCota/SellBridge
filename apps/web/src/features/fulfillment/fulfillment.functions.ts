@@ -1,4 +1,5 @@
 import {
+  findPanelOrderOfLink,
   getSupplierShipment,
   listOperationalOrders,
   reforwardShipment,
@@ -78,9 +79,14 @@ function privateResponse() {
 export const getSupplierShipmentFn = createServerFn({ method: "POST" })
   .middleware([publicMiddleware])
   .validator(z.object({ token: supplierTokenSchema }))
-  .handler(({ data }) => {
+  .handler(async ({ data }) => {
     privateResponse();
-    return getSupplierShipment(database, data.token);
+    // A supplier with its own panel works from there: the link only says where to go.
+    const panelOrder = await findPanelOrderOfLink(database, data.token);
+    if (panelOrder !== null) {
+      return { access: "panel" as const, externalOrderId: panelOrder.externalOrderId };
+    }
+    return { access: "link" as const, shipment: await getSupplierShipment(database, data.token) };
   });
 export const updateSupplierShipmentFn = createServerFn({ method: "POST" })
   .middleware([publicMiddleware, blockedContactLogging("supplier_link")])

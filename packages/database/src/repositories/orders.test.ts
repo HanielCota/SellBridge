@@ -109,7 +109,13 @@ describe("marketplace orders and sync", () => {
     });
     expect(first.status).toBe("created");
     // The cancel lets go of the one item of ours that was holding stock.
-    expect(second).toEqual({ status: "updated", orderId: first.orderId, stockMoves: 1 });
+    expect(second).toEqual({
+      status: "updated",
+      orderId: first.orderId,
+      previousStatus: "paid",
+      orderStatus: "cancelled",
+      stockMoves: 1,
+    });
 
     const order = await database.query.orders.findFirst({ where: eq(orders.id, first.orderId) });
     expect(order?.status).toBe("cancelled");

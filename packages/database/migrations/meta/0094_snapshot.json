@@ -1,5 +1,5 @@
 {
-  "id": "9be79a3a-3256-4725-8dad-5fe0195b9bf1",
+  "id": "367ab172-dd34-4001-9fc2-edafa0686626",
   "prevId": "e7841e75-966f-4fbe-9b4f-e8553e2c75c7",
   "version": "7",
   "dialect": "postgresql",
@@ -1134,12 +1134,6 @@
           "primaryKey": false,
           "notNull": false
         },
-        "code": {
-          "name": "code",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true
-        },
         "title": {
           "name": "title",
           "type": "text",
@@ -1259,27 +1253,6 @@
             },
             {
               "expression": "supplier_id",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            }
-          ],
-          "isUnique": true,
-          "concurrently": false,
-          "method": "btree",
-          "with": {}
-        },
-        "product_models_supplier_code_idx": {
-          "name": "product_models_supplier_code_idx",
-          "columns": [
-            {
-              "expression": "supplier_id",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            },
-            {
-              "expression": "code",
               "isExpression": false,
               "asc": true,
               "nulls": "last"
@@ -8136,6 +8109,13 @@
           "primaryKey": false,
           "notNull": true
         },
+        "kind": {
+          "name": "kind",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'direct'"
+        },
         "status": {
           "name": "status",
           "type": "text",
@@ -8158,6 +8138,12 @@
         "erp_invoice_id": {
           "name": "erp_invoice_id",
           "type": "bigint",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "erp_draft_requested_at": {
+          "name": "erp_draft_requested_at",
+          "type": "timestamp with time zone",
           "primaryKey": false,
           "notNull": false
         },
@@ -8227,11 +8213,17 @@
         }
       },
       "indexes": {
-        "shipment_invoices_shipment_idx": {
-          "name": "shipment_invoices_shipment_idx",
+        "shipment_invoices_shipment_kind_idx": {
+          "name": "shipment_invoices_shipment_kind_idx",
           "columns": [
             {
               "expression": "shipment_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "kind",
               "isExpression": false,
               "asc": true,
               "nulls": "last"
@@ -8309,6 +8301,10 @@
         "shipment_invoices_status_check": {
           "name": "shipment_invoices_status_check",
           "value": "\"shipment_invoices\".\"status\" in ('queued','sent','authorized','attention','cancelled')"
+        },
+        "shipment_invoices_kind_check": {
+          "name": "shipment_invoices_kind_check",
+          "value": "\"shipment_invoices\".\"kind\" in ('direct','on_behalf_shipment','on_behalf_sale')"
         }
       },
       "isRLSEnabled": false
@@ -8593,6 +8589,18 @@
         "invoice_enabled_at": {
           "name": "invoice_enabled_at",
           "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "on_behalf_shipment_operation_id": {
+          "name": "on_behalf_shipment_operation_id",
+          "type": "bigint",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "on_behalf_sale_operation_id": {
+          "name": "on_behalf_sale_operation_id",
+          "type": "bigint",
           "primaryKey": false,
           "notNull": false
         },

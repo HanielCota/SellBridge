@@ -73,9 +73,12 @@ import { Route as ApiV1OpenapiDotjsonRouteImport } from './routes/api/v1/openapi
 import { Route as ApiV1StoresRouteImport } from './routes/api/v1/stores'
 import { Route as ApiWebhooksMarketplaceRouteImport } from './routes/api/webhooks/$marketplace'
 import { Route as ApiWebhooksAsaasRouteImport } from './routes/api/webhooks/asaas'
+import { Route as ApiWebhooksAsaasAssinaturaRouteImport } from './routes/api/webhooks/asaas-assinatura'
 import { Route as ApiWebhooksBlingRouteImport } from './routes/api/webhooks/bling'
 import { Route as ApiWebhooksMercadoPagoRouteImport } from './routes/api/webhooks/mercado-pago'
 import { Route as ApiWebhooksStripeRouteImport } from './routes/api/webhooks/stripe'
+import { Route as FornecedorConviteIndexRouteImport } from './routes/fornecedor/convite/index'
+import { Route as FornecedorConviteTokenRouteImport } from './routes/fornecedor/convite/$token'
 import { Route as FornecedorPedidoTokenRouteImport } from './routes/fornecedor/pedido/$token'
 import { Route as AppAdminChamadosIndexRouteImport } from './routes/_app/admin/chamados/index'
 import { Route as AppAdminChamadosTicketIdRouteImport } from './routes/_app/admin/chamados/$ticketId'
@@ -464,6 +467,12 @@ const ApiWebhooksAsaasRoute = ApiWebhooksAsaasRouteImport.update({
   path: '/api/webhooks/asaas',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiWebhooksAsaasAssinaturaRoute =
+  ApiWebhooksAsaasAssinaturaRouteImport.update({
+    id: '/api/webhooks/asaas-assinatura',
+    path: '/api/webhooks/asaas-assinatura',
+    getParentRoute: () => rootRouteImport,
+  } as any)
 const ApiWebhooksBlingRoute = ApiWebhooksBlingRouteImport.update({
   id: '/api/webhooks/bling',
   path: '/api/webhooks/bling',
@@ -477,6 +486,16 @@ const ApiWebhooksMercadoPagoRoute = ApiWebhooksMercadoPagoRouteImport.update({
 const ApiWebhooksStripeRoute = ApiWebhooksStripeRouteImport.update({
   id: '/api/webhooks/stripe',
   path: '/api/webhooks/stripe',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const FornecedorConviteIndexRoute = FornecedorConviteIndexRouteImport.update({
+  id: '/fornecedor/convite/',
+  path: '/fornecedor/convite/',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const FornecedorConviteTokenRoute = FornecedorConviteTokenRouteImport.update({
+  id: '/fornecedor/convite/$token',
+  path: '/fornecedor/convite/$token',
   getParentRoute: () => rootRouteImport,
 } as any)
 const FornecedorPedidoTokenRoute = FornecedorPedidoTokenRouteImport.update({
@@ -929,14 +948,17 @@ export interface FileRoutesByFullPath {
   '/api/v1/stores': typeof ApiV1StoresRoute
   '/api/webhooks/$marketplace': typeof ApiWebhooksMarketplaceRoute
   '/api/webhooks/asaas': typeof ApiWebhooksAsaasRoute
+  '/api/webhooks/asaas-assinatura': typeof ApiWebhooksAsaasAssinaturaRoute
   '/api/webhooks/bling': typeof ApiWebhooksBlingRoute
   '/api/webhooks/mercado-pago': typeof ApiWebhooksMercadoPagoRoute
   '/api/webhooks/stripe': typeof ApiWebhooksStripeRoute
+  '/fornecedor/convite/$token': typeof FornecedorConviteTokenRoute
   '/fornecedor/pedido/$token': typeof FornecedorPedidoTokenRoute
   '/fornecedores/': typeof AppFornecedoresIndexRoute
   '/pedidos/': typeof AppPedidosIndexRoute
   '/publicacoes/': typeof AppPublicacoesIndexRoute
   '/suporte/': typeof AppSuporteIndexRoute
+  '/fornecedor/convite/': typeof FornecedorConviteIndexRoute
   '/admin/chamados/$ticketId': typeof AppAdminChamadosTicketIdRoute
   '/admin/chamados/metricas': typeof AppAdminChamadosMetricasRoute
   '/admin/clientes/$userId': typeof AppAdminClientesUserIdRoute
@@ -1059,14 +1081,17 @@ export interface FileRoutesByTo {
   '/api/v1/stores': typeof ApiV1StoresRoute
   '/api/webhooks/$marketplace': typeof ApiWebhooksMarketplaceRoute
   '/api/webhooks/asaas': typeof ApiWebhooksAsaasRoute
+  '/api/webhooks/asaas-assinatura': typeof ApiWebhooksAsaasAssinaturaRoute
   '/api/webhooks/bling': typeof ApiWebhooksBlingRoute
   '/api/webhooks/mercado-pago': typeof ApiWebhooksMercadoPagoRoute
   '/api/webhooks/stripe': typeof ApiWebhooksStripeRoute
+  '/fornecedor/convite/$token': typeof FornecedorConviteTokenRoute
   '/fornecedor/pedido/$token': typeof FornecedorPedidoTokenRoute
   '/fornecedores': typeof AppFornecedoresIndexRoute
   '/pedidos': typeof AppPedidosIndexRoute
   '/publicacoes': typeof AppPublicacoesIndexRoute
   '/suporte': typeof AppSuporteIndexRoute
+  '/fornecedor/convite': typeof FornecedorConviteIndexRoute
   '/admin/chamados/$ticketId': typeof AppAdminChamadosTicketIdRoute
   '/admin/chamados/metricas': typeof AppAdminChamadosMetricasRoute
   '/admin/clientes/$userId': typeof AppAdminClientesUserIdRoute
@@ -1196,14 +1221,17 @@ export interface FileRoutesById {
   '/api/v1/stores': typeof ApiV1StoresRoute
   '/api/webhooks/$marketplace': typeof ApiWebhooksMarketplaceRoute
   '/api/webhooks/asaas': typeof ApiWebhooksAsaasRoute
+  '/api/webhooks/asaas-assinatura': typeof ApiWebhooksAsaasAssinaturaRoute
   '/api/webhooks/bling': typeof ApiWebhooksBlingRoute
   '/api/webhooks/mercado-pago': typeof ApiWebhooksMercadoPagoRoute
   '/api/webhooks/stripe': typeof ApiWebhooksStripeRoute
+  '/fornecedor/convite/$token': typeof FornecedorConviteTokenRoute
   '/fornecedor/pedido/$token': typeof FornecedorPedidoTokenRoute
   '/_app/fornecedores/': typeof AppFornecedoresIndexRoute
   '/_app/pedidos/': typeof AppPedidosIndexRoute
   '/_app/publicacoes/': typeof AppPublicacoesIndexRoute
   '/_app/suporte/': typeof AppSuporteIndexRoute
+  '/fornecedor/convite/': typeof FornecedorConviteIndexRoute
   '/_app/admin/chamados/$ticketId': typeof AppAdminChamadosTicketIdRoute
   '/_app/admin/chamados/metricas': typeof AppAdminChamadosMetricasRoute
   '/_app/admin/clientes/$userId': typeof AppAdminClientesUserIdRoute
@@ -1332,14 +1360,17 @@ export interface FileRouteTypes {
     | '/api/v1/stores'
     | '/api/webhooks/$marketplace'
     | '/api/webhooks/asaas'
+    | '/api/webhooks/asaas-assinatura'
     | '/api/webhooks/bling'
     | '/api/webhooks/mercado-pago'
     | '/api/webhooks/stripe'
+    | '/fornecedor/convite/$token'
     | '/fornecedor/pedido/$token'
     | '/fornecedores/'
     | '/pedidos/'
     | '/publicacoes/'
     | '/suporte/'
+    | '/fornecedor/convite/'
     | '/admin/chamados/$ticketId'
     | '/admin/chamados/metricas'
     | '/admin/clientes/$userId'
@@ -1462,14 +1493,17 @@ export interface FileRouteTypes {
     | '/api/v1/stores'
     | '/api/webhooks/$marketplace'
     | '/api/webhooks/asaas'
+    | '/api/webhooks/asaas-assinatura'
     | '/api/webhooks/bling'
     | '/api/webhooks/mercado-pago'
     | '/api/webhooks/stripe'
+    | '/fornecedor/convite/$token'
     | '/fornecedor/pedido/$token'
     | '/fornecedores'
     | '/pedidos'
     | '/publicacoes'
     | '/suporte'
+    | '/fornecedor/convite'
     | '/admin/chamados/$ticketId'
     | '/admin/chamados/metricas'
     | '/admin/clientes/$userId'
@@ -1598,14 +1632,17 @@ export interface FileRouteTypes {
     | '/api/v1/stores'
     | '/api/webhooks/$marketplace'
     | '/api/webhooks/asaas'
+    | '/api/webhooks/asaas-assinatura'
     | '/api/webhooks/bling'
     | '/api/webhooks/mercado-pago'
     | '/api/webhooks/stripe'
+    | '/fornecedor/convite/$token'
     | '/fornecedor/pedido/$token'
     | '/_app/fornecedores/'
     | '/_app/pedidos/'
     | '/_app/publicacoes/'
     | '/_app/suporte/'
+    | '/fornecedor/convite/'
     | '/_app/admin/chamados/$ticketId'
     | '/_app/admin/chamados/metricas'
     | '/_app/admin/clientes/$userId'
@@ -1699,10 +1736,13 @@ export interface RootRouteChildren {
   ApiV1StoresRoute: typeof ApiV1StoresRoute
   ApiWebhooksMarketplaceRoute: typeof ApiWebhooksMarketplaceRoute
   ApiWebhooksAsaasRoute: typeof ApiWebhooksAsaasRoute
+  ApiWebhooksAsaasAssinaturaRoute: typeof ApiWebhooksAsaasAssinaturaRoute
   ApiWebhooksBlingRoute: typeof ApiWebhooksBlingRoute
   ApiWebhooksMercadoPagoRoute: typeof ApiWebhooksMercadoPagoRoute
   ApiWebhooksStripeRoute: typeof ApiWebhooksStripeRoute
+  FornecedorConviteTokenRoute: typeof FornecedorConviteTokenRoute
   FornecedorPedidoTokenRoute: typeof FornecedorPedidoTokenRoute
+  FornecedorConviteIndexRoute: typeof FornecedorConviteIndexRoute
   ApiAdminExportarAuditoriaRoute: typeof ApiAdminExportarAuditoriaRoute
   ApiAdminExportarChamadosRoute: typeof ApiAdminExportarChamadosRoute
   ApiAdminExportarClientesRoute: typeof ApiAdminExportarClientesRoute
@@ -2192,6 +2232,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiWebhooksAsaasRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/webhooks/asaas-assinatura': {
+      id: '/api/webhooks/asaas-assinatura'
+      path: '/api/webhooks/asaas-assinatura'
+      fullPath: '/api/webhooks/asaas-assinatura'
+      preLoaderRoute: typeof ApiWebhooksAsaasAssinaturaRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/webhooks/bling': {
       id: '/api/webhooks/bling'
       path: '/api/webhooks/bling'
@@ -2211,6 +2258,20 @@ declare module '@tanstack/react-router' {
       path: '/api/webhooks/stripe'
       fullPath: '/api/webhooks/stripe'
       preLoaderRoute: typeof ApiWebhooksStripeRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/fornecedor/convite/': {
+      id: '/fornecedor/convite/'
+      path: '/fornecedor/convite'
+      fullPath: '/fornecedor/convite/'
+      preLoaderRoute: typeof FornecedorConviteIndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/fornecedor/convite/$token': {
+      id: '/fornecedor/convite/$token'
+      path: '/fornecedor/convite/$token'
+      fullPath: '/fornecedor/convite/$token'
+      preLoaderRoute: typeof FornecedorConviteTokenRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/fornecedor/pedido/$token': {
@@ -2935,10 +2996,13 @@ const rootRouteChildren: RootRouteChildren = {
   ApiV1StoresRoute: ApiV1StoresRoute,
   ApiWebhooksMarketplaceRoute: ApiWebhooksMarketplaceRoute,
   ApiWebhooksAsaasRoute: ApiWebhooksAsaasRoute,
+  ApiWebhooksAsaasAssinaturaRoute: ApiWebhooksAsaasAssinaturaRoute,
   ApiWebhooksBlingRoute: ApiWebhooksBlingRoute,
   ApiWebhooksMercadoPagoRoute: ApiWebhooksMercadoPagoRoute,
   ApiWebhooksStripeRoute: ApiWebhooksStripeRoute,
+  FornecedorConviteTokenRoute: FornecedorConviteTokenRoute,
   FornecedorPedidoTokenRoute: FornecedorPedidoTokenRoute,
+  FornecedorConviteIndexRoute: FornecedorConviteIndexRoute,
   ApiAdminExportarAuditoriaRoute: ApiAdminExportarAuditoriaRoute,
   ApiAdminExportarChamadosRoute: ApiAdminExportarChamadosRoute,
   ApiAdminExportarClientesRoute: ApiAdminExportarClientesRoute,
@@ -2987,13 +3051,3 @@ const rootRouteChildren: RootRouteChildren = {
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
   ._addFileTypes<FileRouteTypes>()
-
-import type { getRouter } from './router.tsx'
-import type { startInstance } from './start.ts'
-declare module '@tanstack/react-start' {
-  interface Register {
-    ssr: true
-    router: Awaited<ReturnType<typeof getRouter>>
-    config: Awaited<ReturnType<typeof startInstance.getOptions>>
-  }
-}

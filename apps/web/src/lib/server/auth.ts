@@ -34,6 +34,7 @@ import {
 } from "./impersonation-window.ts";
 import { database } from "./database.ts";
 import { renderActionEmail } from "@sellbridge/shared/email-layout";
+import { clientIpAddressOptions } from "./client-address.ts";
 import { environment } from "./environment.ts";
 import { sendEmail } from "./mailer.ts";
 import { findFirstOrganizationId } from "./membership.ts";
@@ -520,7 +521,7 @@ export const auth = betterAuth({
     // A stolen session must not be able to guess the password through account deletion.
     customRules: { "/delete-user": { window: 60, max: 5 } },
   },
-  advanced: { ipAddress: { ipAddressHeaders: [environment.CLIENT_IP_HEADER] } },
+  advanced: { ipAddress: clientIpAddressOptions(environment.CLIENT_IP_HEADER) },
   emailAndPassword: {
     enabled: true,
     minPasswordLength: MIN_PASSWORD_LENGTH,

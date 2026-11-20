@@ -6,8 +6,8 @@ import {
   adminSetProductActiveSchema,
   adminSetSupplierActiveSchema,
   adminSupplierIdSchema,
+  adminSupplierListSearchSchema,
   adminSupplierProductsSchema,
-  adminSupplierSearchSchema,
 } from "@sellbridge/shared/schemas";
 import { createServerFn } from "@tanstack/react-start";
 import { adminMiddleware } from "@/lib/server/middleware";
@@ -30,7 +30,7 @@ import {
 
 export const adminListSuppliers = createServerFn({ method: "GET" })
   .middleware([adminMiddleware])
-  .validator(adminSupplierSearchSchema)
+  .validator(adminSupplierListSearchSchema)
   .handler(async ({ data }) => await loadAdminSuppliers(data));
 export const adminGetSupplier = createServerFn({ method: "GET" })
   .middleware([adminMiddleware])

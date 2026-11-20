@@ -8,6 +8,7 @@ const validEnvironment = {
   BETTER_AUTH_URL: "https://app.sellbridge.com.br",
   BETTER_AUTH_SECRET: "a-real-secret-with-more-than-32-characters",
   TOKEN_ENCRYPTION_KEY: Buffer.alloc(32, 1).toString("base64"),
+  RESEND_API_KEY: "re_test_key",
 };
 
 const placeholderSecret = "troque-por-um-segredo-com-32-caracteres-ou-mais";
@@ -29,6 +30,23 @@ describe("serverEnvironmentSchema", () => {
       BETTER_AUTH_SECRET: placeholderSecret,
     });
     expect(parsed.success).toBe(true);
+  });
+
+  // Regression (S5): production started without the e-mail key and password recovery failed silently.
+  it("refuses to start production without the e-mail key", () => {
+    const { RESEND_API_KEY: _omitted, ...withoutEmailKey } = validEnvironment;
+    const parsed = serverEnvironmentSchema.safeParse({
+      ...withoutEmailKey,
+      NODE_ENV: "production",
+      BILLING_UNLIMITED: "true",
+    });
+    expect(parsed.success).toBe(false);
+    expect(parsed.error?.issues.map((issue) => issue.path)).toEqual([["RESEND_API_KEY"]]);
+  });
+
+  it("keeps development free of the e-mail key", () => {
+    const { RESEND_API_KEY: _omitted, ...withoutEmailKey } = validEnvironment;
+    expect(serverEnvironmentSchema.safeParse(withoutEmailKey).success).toBe(true);
   });
 
   it("normalizes the client IP header and defaults to x-forwarded-for", () => {
@@ -72,32 +90,33 @@ describe("serverEnvironmentSchema", () => {
   });
 
   describe("billing in production (item 16, N8)", () => {
-    const stripe = {
-      STRIPE_SECRET_KEY: "sk_live_x",
-      STRIPE_WEBHOOK_SECRET: "whsec_x",
-      STRIPE_PRO_PRICE_ID: "price_pro",
-      STRIPE_BUSINESS_PRICE_ID: "price_business",
+    const asaas = {
+      ASAAS_API_KEY: "$aact_prod_x",
+      ASAAS_WALLET_ID: "wallet_x",
+      ASAAS_WEBHOOK_TOKEN: "t".repeat(40),
+      BILLING_LAUNCHED_AT: "2026-12-01T03:00:00Z",
+      BILLING_TRANSITION_ENDS_AT: "2026-12-31T03:00:00Z",
     };
     const production = { ...validEnvironment, NODE_ENV: "production" };
 
-    // Regression: without the Stripe variables production silently ran with no plan limits.
-    it("refuses to start without Stripe", () => {
+    // Regression: without the billing variables production silently ran with no plan limits.
+    it("refuses to start without the Asaas account that charges the plans", () => {
       const parsed = serverEnvironmentSchema.safeParse(production);
       expect(parsed.success).toBe(false);
-      expect(parsed.error?.issues[0]?.path).toEqual(["STRIPE_SECRET_KEY"]);
+      expect(parsed.error?.issues[0]?.path).toEqual(["ASAAS_API_KEY"]);
     });
 
-    it("refuses a partial Stripe configuration", () => {
+    it("refuses a partial Asaas configuration", () => {
       const parsed = serverEnvironmentSchema.safeParse({
         ...production,
-        ...stripe,
-        STRIPE_WEBHOOK_SECRET: undefined,
+        ...asaas,
+        ASAAS_WEBHOOK_TOKEN: undefined,
       });
-      expect(parsed.error?.issues[0]?.path).toEqual(["STRIPE_WEBHOOK_SECRET"]);
+      expect(parsed.error?.issues[0]?.path).toEqual(["ASAAS_WEBHOOK_TOKEN"]);
     });
 
-    it("starts with Stripe complete or with the explicit unlimited mode", () => {
-      expect(serverEnvironmentSchema.safeParse({ ...production, ...stripe }).success).toBe(true);
+    it("starts with the Asaas account complete or with the explicit unlimited mode", () => {
+      expect(serverEnvironmentSchema.safeParse({ ...production, ...asaas }).success).toBe(true);
       const unlimited = serverEnvironmentSchema.safeParse({
         ...production,
         BILLING_UNLIMITED: "true",
@@ -105,7 +124,47 @@ describe("serverEnvironmentSchema", () => {
       expect(unlimited.success).toBe(true);
     });
 
-    it("keeps development free of Stripe and defaults the grace to 7 days", () => {
+    it("refuses billing on the Asaas sandbox in production", () => {
+      const parsed = serverEnvironmentSchema.safeParse({
+        ...production,
+        ...asaas,
+        ASAAS_API_URL: "https://api-sandbox.asaas.com/v3",
+      });
+      expect(parsed.error?.issues[0]?.path).toEqual(["ASAAS_API_URL"]);
+    });
+
+    // Without the dates every account created before the launch would lose its access at once.
+    it("refuses billing without the transition dates", () => {
+      const parsed = serverEnvironmentSchema.safeParse({
+        ...production,
+        ...asaas,
+        BILLING_LAUNCHED_AT: undefined,
+        BILLING_TRANSITION_ENDS_AT: undefined,
+      });
+      expect(parsed.error?.issues.map((issue) => issue.path)).toEqual([
+        ["BILLING_LAUNCHED_AT"],
+        ["BILLING_TRANSITION_ENDS_AT"],
+      ]);
+    });
+
+    it("refuses a transition that ends before the launch", () => {
+      const parsed = serverEnvironmentSchema.safeParse({
+        ...validEnvironment,
+        BILLING_LAUNCHED_AT: "2026-12-31T03:00:00Z",
+        BILLING_TRANSITION_ENDS_AT: "2026-12-01T03:00:00Z",
+      });
+      expect(parsed.error?.issues[0]?.path).toEqual(["BILLING_TRANSITION_ENDS_AT"]);
+    });
+
+    it("refuses one transition date without the other", () => {
+      const parsed = serverEnvironmentSchema.safeParse({
+        ...validEnvironment,
+        BILLING_LAUNCHED_AT: "2026-12-01T03:00:00Z",
+      });
+      expect(parsed.error?.issues[0]?.path).toEqual(["BILLING_TRANSITION_ENDS_AT"]);
+    });
+
+    it("keeps development free of plan billing and defaults the grace to 7 days", () => {
       expect(serverEnvironmentSchema.parse(validEnvironment)).toMatchObject({
         BILLING_UNLIMITED: false,
         BILLING_PAST_DUE_GRACE_DAYS: 7,

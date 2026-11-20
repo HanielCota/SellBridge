@@ -1,23 +1,37 @@
 import {
   accountFileKeys,
   deleteTenantData,
+  findLiveStoreTargets,
   findSoleOwnedTenants,
+  findStoreAccessForPause,
   forgetBillingCustomer,
   getBillingAccount,
   listStoreConnections,
 } from "@sellbridge/database/repositories";
+import { withDeadline } from "@sellbridge/shared/deadline";
 import { AppError, forbiddenError, isAppError } from "@sellbridge/shared/errors";
+import { listingIdsForProblem } from "@sellbridge/shared/job-failures";
 import { logger } from "@sellbridge/shared/logger";
 import { isPlatformOwner } from "@sellbridge/shared/platform-owner";
 import { isStaffRole } from "@sellbridge/shared/staff-access";
 import { APIError } from "better-auth/api";
 import { z } from "zod";
-import { billingConfigured, stripeClient } from "@/features/billing/stripe.server";
+import { isAsaasError } from "@sellbridge/payments/asaas";
+import { Stripe } from "stripe";
+import { billingClientForCleanup } from "@/features/billing/billing-config.server";
+import { assertNoPendingBillingCreation } from "@/features/billing/billing-lock.server";
+import {
+  CHARGE_REFERENCE,
+  CHECKOUT_REFERENCE,
+  SUBSCRIPTION_REFERENCE,
+} from "@/features/billing/pending-reference";
+import { stripeClient, stripeKeyMissing } from "@/features/billing/stripe.server";
 import { avatarStorageKey } from "@/features/profile/avatar-key";
 import { disconnectStoreForTenant } from "@/features/stores/disconnect-store.server";
 import { assertNothingLeftToResolve } from "@/lib/server/account-deletion-blockers.server";
 import { database } from "@/lib/server/database";
 import { environment } from "@/lib/server/environment";
+import { enqueueDeletedStorePause } from "@/lib/server/queues";
 import { requestStockSync } from "@/lib/server/stock-sync";
 import { fileStorage } from "@/lib/server/storage";
 
@@ -37,57 +51,165 @@ export type DeletingAccount = z.infer<typeof deletingAccountSchema>;
 const TEAM_ACCOUNT_MESSAGE =
   "Contas da equipe não são excluídas por aqui. Fale com o dono da plataforma.";
 
-/** Stripe's answer for a customer that is already gone: the goal of the call, reached before. */
-const alreadyDeletedSchema = z.object({ code: z.literal("resource_missing") });
+const UNREACHABLE_MESSAGE =
+  "Não foi possível cancelar a assinatura agora. Tente excluir a conta de novo em alguns minutos.";
 
 /**
- * The customer's Stripe record goes too, which also cancels any live subscription: no charge
- * may outlive the account. Failing here stops the deletion before any data is touched. The
- * customer is then forgotten, so a deletion retried after a later failure does not ask again.
+ * What is open at Asaas closes too, with no refund: an unpaid upgrade difference or card
+ * checkout, the subscription with its unpaid charges, and the customer. No charge may outlive
+ * the account. Failing here stops the deletion before any data is touched. Payments already
+ * made stay at Asaas as SellBridge's record; the customer is then forgotten here, so nothing
+ * links them to the person and a retried deletion does not ask again.
  */
 async function closeBilling(tenantId: string): Promise<void> {
   const account = await getBillingAccount(database, tenantId);
-  if (account === null || account.customerId === null || !billingConfigured()) {
+  if (account === null) {
     return;
   }
-  await deleteStripeCustomer(account.customerId);
+
+  const { customerId, subscriptionId, pendingReference } = account;
+  assertNoPendingBillingCreation(pendingReference);
+  if (customerId === null && subscriptionId === null && pendingReference === null) {
+    return;
+  }
+
+  if (account.provider === "stripe") {
+    await closeLegacyBilling(customerId, subscriptionId);
+    await forgetBillingCustomer(database, tenantId);
+    return;
+  }
+
+  const client = billingClientForCleanup();
+  if (client === null) {
+    throw new AppError("EXTERNAL_PROVIDER", UNREACHABLE_MESSAGE);
+  }
+
+  const reference = pendingReference ?? "";
+  if (reference.startsWith(CHARGE_REFERENCE)) {
+    await removeAtAsaas(async () => client.deleteCharge(reference.slice(CHARGE_REFERENCE.length)));
+  }
+  if (reference.startsWith(CHECKOUT_REFERENCE)) {
+    await removeAtAsaas(async () =>
+      client.cancelCheckout(reference.slice(CHECKOUT_REFERENCE.length)),
+    );
+  }
+  if (reference.startsWith(SUBSCRIPTION_REFERENCE)) {
+    await removeAtAsaas(async () =>
+      client.deleteSubscription(reference.slice(SUBSCRIPTION_REFERENCE.length)),
+    );
+  }
+  if (subscriptionId !== null) {
+    await removeAtAsaas(async () => client.deleteSubscription(subscriptionId));
+  }
+  if (customerId !== null) {
+    await removeAtAsaas(async () => client.deleteSubscriber(customerId));
+  }
+
   await forgetBillingCustomer(database, tenantId);
 }
 
-async function deleteStripeCustomer(customerId: string): Promise<void> {
+/** Before the migration, identifiers in billing_accounts belonged to Stripe. */
+async function closeLegacyBilling(
+  customerId: string | null,
+  subscriptionId: string | null,
+): Promise<void> {
+  if (stripeKeyMissing()) {
+    // Without the key nothing can be closed at Stripe; the deletion goes on and the team does it.
+    logger.error("account.legacy_billing_left_open", {
+      customerId,
+      subscriptionId,
+      reason:
+        "A conta excluída ainda tinha cobrança antiga na Stripe e a chave da Stripe não está configurada: cancele o cliente e a assinatura à mão no painel da Stripe.",
+    });
+    return;
+  }
   try {
-    await stripeClient().customers.del(customerId);
-  } catch (error) {
-    if (alreadyDeletedSchema.safeParse(error).success) {
+    const stripe = stripeClient();
+    if (customerId !== null) {
+      await stripe.customers.del(customerId);
       return;
     }
-    throw new AppError(
-      "EXTERNAL_PROVIDER",
-      "Não foi possível cancelar a assinatura agora. Tente excluir a conta de novo em alguns minutos.",
-      { cause: error },
-    );
+
+    if (subscriptionId !== null) {
+      await stripe.subscriptions.cancel(subscriptionId);
+    }
+  } catch (error) {
+    if (error instanceof Stripe.errors.StripeError && error.statusCode === 404) {
+      return;
+    }
+
+    throw new AppError("EXTERNAL_PROVIDER", UNREACHABLE_MESSAGE, { cause: error });
   }
 }
 
-/**
- * The person waits on the dialog: past this budget, the remaining stores are disconnected
- * without pausing (each pause run has its own 20 s cap), instead of the request timing out and
- * the deletion being retried halfway.
- */
-const PAUSE_BUDGET_MILLISECONDS = 30_000;
+/** Something Asaas no longer has is already the goal of the call. */
+async function removeAtAsaas(remove: () => Promise<unknown>): Promise<void> {
+  try {
+    await remove();
+  } catch (error) {
+    if (isAsaasError(error) && error.status === 404) {
+      return;
+    }
+    throw new AppError("EXTERNAL_PROVIDER", UNREACHABLE_MESSAGE, { cause: error });
+  }
+}
 
-/** Connected stores are disconnected with their listings paused, as the store page does. */
-async function closeStores(tenantId: string, deadline: number): Promise<void> {
+/** How long the deletion waits on Redis to take the pause job before giving up. */
+const HAND_OVER_DEADLINE_MILLISECONDS = 5000;
+
+const HAND_OVER_FAILED_MESSAGE =
+  "Não foi possível pausar seus anúncios agora. Tente excluir a conta de novo em alguns minutos.";
+
+/**
+ * The store's live listings go to the worker, which sends zero stock and keeps trying until every
+ * one is paused (`deleted-store-pause`): a deleted account must not leave listings selling. The
+ * store's rows are deleted next, so the job carries its access. Failing to hand them over stops
+ * the deletion before any data is touched. A store with no access left (expired, in error) cannot
+ * be paused at all: the team gets the listings on Problemas, to pause them by hand.
+ */
+async function handOverListingPause(
+  store: { tenantId: string; storeConnectionId: string },
+  marketplace: string,
+) {
+  const listings = await findLiveStoreTargets(database, store);
+  if (listings.length === 0) {
+    return;
+  }
+  const access = await findStoreAccessForPause(database, store);
+  if (access === null) {
+    logger.error("account.deleted_store_listings_unpausable", {
+      ...store,
+      marketplace,
+      listings: listings.length,
+      externalIds: listingIdsForProblem(listings.map((listing) => listing.externalId)),
+    });
+    return;
+  }
+  const job = {
+    ...store,
+    ...access,
+    listings: listings.map(({ externalId, priceCents }) => ({ externalId, priceCents })),
+  };
+  try {
+    await withDeadline(
+      enqueueDeletedStorePause(job),
+      HAND_OVER_DEADLINE_MILLISECONDS,
+      "Pausa dos anúncios",
+    );
+  } catch (error) {
+    throw new AppError("EXTERNAL_PROVIDER", HAND_OVER_FAILED_MESSAGE, { cause: error });
+  }
+}
+
+/** Every store hands its live listings over to be paused; the connected ones are then disconnected. */
+async function closeStores(tenantId: string): Promise<void> {
   const stores = await listStoreConnections(database, tenantId);
   for (const store of stores) {
+    await handOverListingPause({ tenantId, storeConnectionId: store.id }, store.marketplace);
     if (store.status !== "connected") {
       continue;
     }
-    await disconnectStoreForTenant({
-      tenantId,
-      storeConnectionId: store.id,
-      pauseListings: Date.now() < deadline,
-    });
+    await disconnectStoreForTenant({ tenantId, storeConnectionId: store.id, pauseListings: false });
   }
 }
 
@@ -123,9 +245,8 @@ export async function prepareAccountDeletion(account: DeletingAccount): Promise<
   for (const tenantId of tenantIds) {
     await closeBilling(tenantId);
   }
-  const deadline = Date.now() + PAUSE_BUDGET_MILLISECONDS;
   for (const tenantId of tenantIds) {
-    await closeStores(tenantId, deadline);
+    await closeStores(tenantId);
     await deleteTenantData(database, tenantId);
   }
   if (tenantIds.length > 0) {
