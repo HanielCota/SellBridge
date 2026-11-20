@@ -57,7 +57,7 @@ const BRAZIL_TIME = new Intl.DateTimeFormat("en-GB", {
   hourCycle: "h23",
 });
 
-function brazilDateTime(date: Date): string {
+export function brazilDateTime(date: Date): string {
   return `${brazilDay(date)} ${BRAZIL_TIME.format(date)}`;
 }
 
