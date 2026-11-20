@@ -250,7 +250,8 @@ async function invoiceHeader(database: Database, invoiceId: string) {
   return row;
 }
 
-async function invoiceLines(
+/** The parcel's items as note lines; an item without its order line is left out. */
+export async function parcelInvoiceLines(
   database: Database,
   orderId: string,
   items: readonly { orderItemId: string; sku: string; title: string; quantity: number }[],
@@ -312,7 +313,7 @@ export async function loadShipmentInvoiceWork(
     return null;
   }
   const { invoice } = header;
-  const lines = await invoiceLines(database, header.orderId, header.items);
+  const lines = await parcelInvoiceLines(database, header.orderId, header.items);
   const onBehalf =
     invoice.kind === "direct"
       ? null

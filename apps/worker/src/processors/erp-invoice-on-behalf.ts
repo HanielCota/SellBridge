@@ -11,6 +11,7 @@ import type {
   BlingAddress,
   BlingDirectInvoiceItem,
   BlingNewDirectInvoice,
+  BlingReferencedInvoice,
 } from "@sellbridge/marketplaces/bling";
 import { parseAccessKey } from "@sellbridge/shared/nfe-access-key";
 import type { SupplierFiscalProfile } from "@sellbridge/shared/supplier-fiscal";
@@ -60,7 +61,7 @@ const BRAZIL_TIME = new Intl.DateTimeFormat("en-GB", {
   hourCycle: "h23",
 });
 
-function brazilDateTime(date: Date): string {
+export function brazilDateTime(date: Date): string {
   return `${brazilDay(date)} ${BRAZIL_TIME.format(date)}`;
 }
 
@@ -193,10 +194,13 @@ async function ensureRemessa(
   return invoiceId;
 }
 
+/** A remessa always cites the reseller's sale note. */
+type RemessaDraft = BlingNewDirectInvoice & { readonly referencedInvoice: BlingReferencedInvoice };
+
 async function createOrRecoverRemessa(
   dependencies: InvoiceStepDependencies,
   work: ShipmentInvoiceWork,
-  draft: BlingNewDirectInvoice,
+  draft: RemessaDraft,
 ): Promise<number> {
   const { client, database } = dependencies;
   const requestedAt = work.erpDraftRequestedAt;
