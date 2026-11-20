@@ -17,7 +17,7 @@ import { Stripe } from "stripe";
 import { billingClientForCleanup } from "@/features/billing/billing-config.server";
 import { assertNoPendingBillingCreation } from "@/features/billing/billing-lock.server";
 import { CHARGE_REFERENCE, CHECKOUT_REFERENCE } from "@/features/billing/pending-reference";
-import { stripeClient } from "@/features/billing/stripe.server";
+import { stripeClient, stripeKeyMissing } from "@/features/billing/stripe.server";
 import { avatarStorageKey } from "@/features/profile/avatar-key";
 import { disconnectStoreForTenant } from "@/features/stores/disconnect-store.server";
 import { assertNothingLeftToResolve } from "@/lib/server/account-deletion-blockers.server";
@@ -99,6 +99,16 @@ async function closeLegacyBilling(
   customerId: string | null,
   subscriptionId: string | null,
 ): Promise<void> {
+  if (stripeKeyMissing()) {
+    // Without the key nothing can be closed at Stripe; the deletion goes on and the team does it.
+    logger.error("account.legacy_billing_left_open", {
+      customerId,
+      subscriptionId,
+      reason:
+        "A conta excluída ainda tinha cobrança antiga na Stripe e a chave da Stripe não está configurada: cancele o cliente e a assinatura à mão no painel da Stripe.",
+    });
+    return;
+  }
   try {
     const stripe = stripeClient();
     if (customerId !== null) {

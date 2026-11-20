@@ -19,6 +19,11 @@ export function billingConfigured() {
   );
 }
 
+/** Production may drop the Stripe keys once Asaas sells the plans; legacy cleanup must not need them. */
+export function stripeKeyMissing(): boolean {
+  return environment.STRIPE_SECRET_KEY === undefined;
+}
+
 export function stripeClient() {
   if (environment.STRIPE_SECRET_KEY === undefined) {
     throw validationError("A cobrança ainda não foi configurada");

@@ -1,4 +1,5 @@
 import { conflictError, isAppError } from "@sellbridge/shared/errors";
+import { logger } from "@sellbridge/shared/logger";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const mocks = vi.hoisted(() => ({
@@ -22,6 +23,7 @@ const mocks = vi.hoisted(() => ({
   disconnectStoreForTenant: vi.fn<(request: unknown) => Promise<unknown>>(),
   deleteCustomer: vi.fn<(customerId: string) => Promise<unknown>>(),
   deleteStripeCustomer: vi.fn<(customerId: string) => Promise<unknown>>(),
+  stripeKeyMissing: vi.fn<() => boolean>(),
   cancelCheckout: vi.fn<(checkoutId: string) => Promise<void>>(),
   deleteSubscription: vi.fn<(subscriptionId: string) => Promise<unknown>>(),
   deleteCharge: vi.fn<(chargeId: string) => Promise<unknown>>(),
@@ -41,6 +43,7 @@ vi.mock("@/lib/server/stock-sync", () => ({ requestStockSync: mocks.requestStock
 vi.mock("@/lib/server/storage", () => ({ fileStorage: { delete: mocks.deleteFile } }));
 vi.mock("@/features/billing/stripe.server", () => ({
   stripeClient: () => ({ customers: { del: mocks.deleteStripeCustomer } }),
+  stripeKeyMissing: mocks.stripeKeyMissing,
 }));
 vi.mock("@/features/billing/billing-config.server", () => ({
   billingClientForCleanup: () => ({
@@ -76,6 +79,7 @@ const SELLER = {
 
 beforeEach(() => {
   vi.clearAllMocks();
+  mocks.stripeKeyMissing.mockReturnValue(false);
   mocks.findSoleOwnedTenants.mockResolvedValue(["tenant-a"]);
   mocks.accountFileKeys.mockResolvedValue(["tickets/t1/nota.pdf"]);
   mocks.getBillingAccount.mockResolvedValue({ customerId: "cus_123", subscriptionId: "sub_123" });
@@ -163,6 +167,27 @@ describe("prepareAccountDeletion", () => {
     const provider = mocks.deleteStripeCustomer.mock.invocationCallOrder[0] ?? 0;
     const deletion = mocks.deleteTenantData.mock.invocationCallOrder[0] ?? 0;
     expect(provider).toBeLessThan(deletion);
+  });
+
+  it("deletes a legacy Stripe account without the Stripe key and tells the team", async () => {
+    mocks.stripeKeyMissing.mockReturnValue(true);
+    mocks.getBillingAccount.mockResolvedValue({
+      provider: "stripe",
+      customerId: "cus_stripe",
+      subscriptionId: "sub_stripe",
+      pendingReference: null,
+    });
+    const errorLog = vi.spyOn(logger, "error").mockImplementation(() => undefined);
+
+    await prepareAccountDeletion(SELLER);
+
+    expect(mocks.deleteStripeCustomer).not.toHaveBeenCalled();
+    expect(mocks.deleteTenantData).toHaveBeenCalled();
+    expect(errorLog).toHaveBeenCalledWith(
+      "account.legacy_billing_left_open",
+      expect.objectContaining({ customerId: "cus_stripe" }),
+    );
+    errorLog.mockRestore();
   });
 
   it("closes an open card checkout before deleting an account without a customer", async () => {
