@@ -154,8 +154,11 @@ describe("webhook text", () => {
   });
 });
 
-it("rejects the retired mock endpoint before reading or recording its payload", async () => {
-  expect((await handleWebhook(notification(), "mock")).status).toBe(404);
-  expect(mocks.verifyWebhook).not.toHaveBeenCalled();
-  expect(mocks.recordWebhookEvent).not.toHaveBeenCalled();
-});
+it.each(["mock", "stripe"])(
+  "rejects the retired %s endpoint before reading or recording its payload",
+  async (retired) => {
+    expect((await handleWebhook(notification(), retired)).status).toBe(404);
+    expect(mocks.verifyWebhook).not.toHaveBeenCalled();
+    expect(mocks.recordWebhookEvent).not.toHaveBeenCalled();
+  },
+);
