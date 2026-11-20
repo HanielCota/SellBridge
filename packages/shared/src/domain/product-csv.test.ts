@@ -211,6 +211,18 @@ describe("grid columns in the product CSV", () => {
     expect(parsed.rows[0]?.product.grid).toEqual({ modelCode: "TEN", color: "Preto", size: "38" });
   });
 
+  it("reads a model code typed in lowercase as the same code in capitals", () => {
+    const parsed = parseProductCsv(
+      `${gridHeader}
+TEN-P-38;Tênis Casual;59,90;5; ten-casual ;Preto;38`,
+      {
+        gridColumns: true,
+      },
+    );
+
+    expect(parsed.rows[0]?.product.grid?.modelCode).toBe("TEN-CASUAL");
+  });
+
   it("refuses the grid columns while grids are off", () => {
     expect(() =>
       parseProductCsv(`${gridHeader}\nTEN-P-38;Tênis Casual;59,90;5;TEN;Preto;38`),

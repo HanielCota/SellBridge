@@ -13,7 +13,7 @@ import { LISTING_MAX_PRICE_CENTS } from "../schemas/stores.ts";
 import { PRODUCT_CSV_ATTRIBUTE_COLUMNS, parseCsvAttributes } from "./product-csv-attributes.ts";
 import { PRODUCT_CSV_FISCAL_COLUMNS, parseCsvFiscal } from "./product-csv-fiscal.ts";
 import { productFiscalPatchSchema, type ProductFiscalPatch } from "./product-fiscal.ts";
-import { MAX_GRID_OPTION_LENGTH, MAX_MODEL_CODE_LENGTH } from "./product-grid.ts";
+import { MAX_GRID_OPTION_LENGTH, MAX_MODEL_CODE_LENGTH, modelCodeKey } from "./product-grid.ts";
 
 export const PRODUCT_CSV_TEMPLATE =
   "\uFEFFsku;titulo;descricao;custo;estoque;categoria;imagens;ativo;preco_sugerido;marca;modelo;gtin;peso_g;altura_cm;largura_cm;comprimento_cm;ncm;origem;unidade;cest;peso_liquido_g;cfop_estado;cfop_fora;csosn_cst;cst_pis_cofins\r\nEXEMPLO-001;Produto de exemplo;Descrição do produto;12,90;10;;https://example.com/produto.jpg;sim;19,90;Marca Exemplo;MOD-01;7891234567895;350;10;15;20;6402.99.90;0;PAR;;300;;;;\r\n";
@@ -291,7 +291,8 @@ function cellOrNull(value: string | undefined): string | null {
 function gridCells(
   values: Readonly<Record<string, string>>,
 ): { cells: ProductCsvGridCells | undefined } | { reason: string } {
-  const modelCode = cellOrNull(values.codigo_modelo);
+  const typedCode = cellOrNull(values.codigo_modelo);
+  const modelCode = typedCode === null ? null : modelCodeKey(typedCode);
   const color = cellOrNull(values.cor);
   const size = cellOrNull(values.tamanho);
   if (modelCode === null) {

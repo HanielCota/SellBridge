@@ -28,6 +28,14 @@ export const modelCodeSchema = freeText()
   .min(1, "Informe o código do modelo. Exemplo: TENIS-CASUAL")
   .max(MAX_MODEL_CODE_LENGTH, `Use até ${MAX_MODEL_CODE_LENGTH} caracteres no código do modelo`);
 
+/**
+ * How two model codes are compared: "tenis-casual" and "TENIS-CASUAL" are the same model, in the
+ * spreadsheet, in the database and in codes stored before the comparison ignored case.
+ */
+export function modelCodeKey(code: string): string {
+  return code.trim().toUpperCase();
+}
+
 /** "Tênis Casual Couro" → "TENIS-CASUAL-COURO": the code a grid typed in the form starts with. */
 export function modelCodeFromTitle(title: string): string {
   const code = stripAccents(title)

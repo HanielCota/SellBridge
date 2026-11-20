@@ -3,6 +3,7 @@ import {
   combinationOwnFields,
   materializeCombination,
   modelCodeFromTitle,
+  modelCodeKey,
   type GridColor,
   type GridCombination,
   type MaterializedCombination,
@@ -15,7 +16,7 @@ import {
   withFiscalFallback,
   type FiscalFallback,
 } from "@sellbridge/shared/product-fiscal";
-import { and, asc, eq, inArray, like, or } from "drizzle-orm";
+import { and, asc, eq, inArray, like, or, sql } from "drizzle-orm";
 import type { Database, DatabaseExecutor } from "../client.ts";
 import {
   productModelColors,
@@ -95,7 +96,8 @@ export async function modelCodeFor(
   transaction: DatabaseExecutor,
   input: { supplierId: string; code?: string | undefined; title: string },
 ): Promise<string> {
-  const base = input.code ?? modelCodeFromTitle(input.title);
+  const base = modelCodeKey(input.code ?? modelCodeFromTitle(input.title));
+  const upperCode = sql<string>`upper(${productModels.code})`;
   const taken = new Set(
     (
       await transaction
@@ -104,10 +106,10 @@ export async function modelCodeFor(
         .where(
           and(
             eq(productModels.supplierId, input.supplierId),
-            or(eq(productModels.code, base), like(productModels.code, `${base}-%`)),
+            or(eq(upperCode, base), like(upperCode, `${base}-%`)),
           ),
         )
-    ).map((row) => row.code),
+    ).map((row) => modelCodeKey(row.code)),
   );
   if (input.code !== undefined && taken.has(base)) {
     throw conflictError(`Já existe um modelo com o código "${base}" neste fornecedor`);

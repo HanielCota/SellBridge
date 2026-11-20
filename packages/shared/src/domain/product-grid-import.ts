@@ -4,6 +4,7 @@ import {
   combinationTitle,
   gridProblems,
   MAX_GRID_COMBINATIONS,
+  modelCodeKey,
   sortSizeNames,
 } from "./product-grid.ts";
 import { stripAccents } from "./text.ts";
@@ -25,7 +26,7 @@ export interface ExistingImportSku {
   readonly size: string | null;
 }
 
-/** A grid the supplier already has, found by its code. */
+/** A grid the supplier already has, found by its code (keyed by `modelCodeKey`). */
 export interface ExistingImportModel {
   readonly id: string;
   readonly code: string;
@@ -90,7 +91,13 @@ function groupsByCode(rows: readonly ProductCsvRow[]) {
       plain.push(row);
       continue;
     }
-    groups.set(cells.modelCode, [...(groups.get(cells.modelCode) ?? []), row]);
+    const key = modelCodeKey(cells.modelCode);
+    const group = groups.get(key);
+    if (group === undefined) {
+      groups.set(key, [row]);
+      continue;
+    }
+    group.push(row);
   }
   return { plain, groups };
 }
@@ -324,7 +331,7 @@ function existingCombinationProblem(
   if (cells === undefined) {
     return null;
   }
-  const sameGrid = existing.modelCode === cells.modelCode;
+  const sameGrid = modelCodeKey(existing.modelCode ?? "") === modelCodeKey(cells.modelCode);
   const samePair = pairKey(existing.color, existing.size) === pairKey(cells.color, cells.size);
   if (sameGrid && samePair) {
     return null;
@@ -381,7 +388,7 @@ export function planGridImport(input: {
       }
       errors.push({ line: row.line, reason: problem });
     }
-    const model = input.existingModels.get(code);
+    const model = input.existingModels.get(modelCodeKey(code));
     const group =
       model === undefined ? newGrid(code, fresh, errors) : addedToGrid(model, fresh, errors);
     if (group !== null) {

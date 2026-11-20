@@ -221,3 +221,26 @@ describe("planGridImport errors of a whole grid", () => {
     );
   });
 });
+
+describe("planGridImport model codes", () => {
+  it("treats a code in another case as the same model", () => {
+    const plan = planGridImport({
+      rows: [
+        row(2, "TEN-P-38", { color: "Preto", size: "38" }),
+        {
+          ...row(3, "TEN-P-39", { color: "Preto", size: "39" }),
+          product: {
+            ...row(3, "TEN-P-39", { color: "Preto", size: "39" }).product,
+            grid: { modelCode: "ten", color: "Preto", size: "39" },
+          },
+        },
+      ],
+      existingSkus: none,
+      existingModels: noModels,
+    });
+
+    expect(plan.errors).toEqual([]);
+    expect(plan.grids).toHaveLength(1);
+    expect(plan.grids[0]?.combinations).toHaveLength(2);
+  });
+});

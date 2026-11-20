@@ -1,8 +1,9 @@
 import type { ProductCsvError, ProductCsvRow } from "@sellbridge/shared/product-csv";
-import type {
-  GridColor,
-  GridCombination,
-  ProductModelShared,
+import {
+  modelCodeKey,
+  type GridColor,
+  type GridCombination,
+  type ProductModelShared,
 } from "@sellbridge/shared/product-grid";
 import {
   gridPairKey,
@@ -12,7 +13,7 @@ import {
   type GridImportGroup,
 } from "@sellbridge/shared/product-grid-import";
 import { defaultSuggestedPriceCents } from "@sellbridge/shared/schemas";
-import { and, eq, inArray } from "drizzle-orm";
+import { and, eq, inArray, sql } from "drizzle-orm";
 import type { DatabaseExecutor } from "../client.ts";
 import {
   productModelColors,
@@ -59,6 +60,25 @@ async function existingSkusOf(
   return new Map(rows.map(({ sku, ...existing }) => [sku, existing]));
 }
 
+/** Rows grouped by their model (the project targets ES2023: no Map.groupBy). */
+function byModel<Row extends { readonly modelId: string | null }>(
+  rows: readonly Row[],
+): Map<string, Row[]> {
+  const groups = new Map<string, Row[]>();
+  for (const row of rows) {
+    if (row.modelId === null) {
+      continue;
+    }
+    const group = groups.get(row.modelId);
+    if (group === undefined) {
+      groups.set(row.modelId, [row]);
+      continue;
+    }
+    group.push(row);
+  }
+  return groups;
+}
+
 async function existingModelsOf(
   database: DatabaseExecutor,
   supplierId: string,
@@ -67,10 +87,16 @@ async function existingModelsOf(
   if (codes.length === 0) {
     return new Map();
   }
+  const keys = codes.map(modelCodeKey);
   const models = await database
     .select({ id: productModels.id, code: productModels.code })
     .from(productModels)
-    .where(and(eq(productModels.supplierId, supplierId), inArray(productModels.code, [...codes])));
+    .where(
+      and(
+        eq(productModels.supplierId, supplierId),
+        inArray(sql`upper(${productModels.code})`, keys),
+      ),
+    );
   const ids = models.map((model) => model.id);
   if (ids.length === 0) {
     return new Map();
@@ -93,17 +119,20 @@ async function existingModelsOf(
       .from(supplierProducts)
       .where(inArray(supplierProducts.modelId, ids)),
   ]);
+  const colorsOf = byModel(colors);
+  const sizesOf = byModel(sizes);
+  const combinationsOf = byModel(combinations);
   return new Map(
     models.map((model) => [
-      model.code,
+      modelCodeKey(model.code),
       {
         ...model,
-        colors: colors.filter((color) => color.modelId === model.id).map((color) => color.name),
-        sizes: sizes.filter((size) => size.modelId === model.id).map((size) => size.name),
+        colors: (colorsOf.get(model.id) ?? []).map((color) => color.name),
+        sizes: (sizesOf.get(model.id) ?? []).map((size) => size.name),
         pairs: new Set(
-          combinations
-            .filter((combination) => combination.modelId === model.id)
-            .map((combination) => gridPairKey(combination.color, combination.size)),
+          (combinationsOf.get(model.id) ?? []).map((combination) =>
+            gridPairKey(combination.color, combination.size),
+          ),
         ),
       },
     ]),

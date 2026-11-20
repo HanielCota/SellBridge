@@ -50,7 +50,7 @@ afterAll(async () => {
 
 describe("grids from the product spreadsheet", () => {
   it("creates one grid from rows sharing a model code", async () => {
-    const code = `TEN-${randomUUID().slice(0, 6)}`;
+    const code = `TEN-${randomUUID().slice(0, 6).toUpperCase()}`;
 
     const result = await importRows([
       `${code}-P-38;Tênis Planilha;59,90;5;https://cdn.example.com/p.jpg;64039990;0;PAR;${code};Preto;38`,
@@ -72,6 +72,26 @@ describe("grids from the product spreadsheet", () => {
       imageUrls: ["https://cdn.example.com/b.jpg"],
       stock: 2,
     });
+  });
+
+  it("grows a model stored with a code in another case instead of creating a second one", async () => {
+    const code = `MIX-${randomUUID().slice(0, 6).toUpperCase()}`;
+    await importRows([`${code}-P-38;Tênis Caixa;59,90;5;;64039990;0;PAR;${code};Preto;38`]);
+    await database
+      .update(productModels)
+      .set({ code: code.toLowerCase() })
+      .where(eq(productModels.code, code));
+
+    await importRows([`${code}-P-39;Tênis Caixa;59,90;3;;;;;${code};Preto;39`]);
+
+    const models = await database
+      .select({ id: productModels.id })
+      .from(productModels)
+      .where(eq(productModels.supplierId, supplierId));
+    const grown = await rowOf(`${code}-P-39`);
+    const first = await rowOf(`${code}-P-38`);
+    expect(grown?.modelId).toBe(first?.modelId);
+    expect(new Set(models.map((model) => model.id)).has(first?.modelId ?? "")).toBe(true);
   });
 
   it("keeps an old one-product-per-size catalog as separate products", async () => {
