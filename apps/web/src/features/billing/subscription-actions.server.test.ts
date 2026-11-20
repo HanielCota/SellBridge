@@ -20,6 +20,7 @@ const mocks = vi.hoisted(() => ({
     deleteCharge: vi.fn<(...input: unknown[]) => Promise<boolean>>(),
     changeSubscriptionValue: vi.fn<(...input: unknown[]) => Promise<unknown>>(),
     createOneOffCharge: vi.fn<(...input: unknown[]) => Promise<unknown>>(),
+    getCharge: vi.fn<(...input: unknown[]) => Promise<unknown>>(),
   },
 }));
 vi.mock("@sellbridge/database/repositories", () => ({
@@ -49,7 +50,7 @@ vi.mock("./billing-lock-database.server", () => ({
 vi.mock("./billing-config.server", () => ({ billingClient: () => mocks.client }));
 
 import { AsaasError } from "@sellbridge/payments/asaas";
-import { changePlan, startSubscription } from "./subscription-actions.server";
+import { changePlan, openPendingPayment, startSubscription } from "./subscription-actions.server";
 
 const input = { tenantId: "tenant-a", userId: "owner-a", plan: "pro" as const };
 const HOLDER = {
@@ -369,5 +370,24 @@ describe("plan change", () => {
       code: "CONFLICT",
     });
     expect(mocks.client.createOneOffCharge).not.toHaveBeenCalled();
+  });
+});
+
+describe("paying what is open", () => {
+  it("never sends the reseller to an upgrade difference the card already paid", async () => {
+    mocks.account.mockResolvedValue(liveAccount({ pendingReference: "charge:pay_diff" }));
+    mocks.client.getCharge.mockResolvedValue({
+      id: "pay_diff",
+      status: "CONFIRMED",
+      value: 50,
+      dueDate: "2026-11-19",
+      invoiceUrl: "https://asaas.test/i/diff",
+    });
+    mocks.client.getSubscription.mockResolvedValue(PIX_SUBSCRIPTION);
+    mocks.client.listSubscriptionCharges.mockResolvedValue([]);
+
+    await expect(openPendingPayment({ tenantId: "tenant-a", userId: "owner-a" })).rejects.toThrow(
+      "Não há pagamento em aberto agora.",
+    );
   });
 });

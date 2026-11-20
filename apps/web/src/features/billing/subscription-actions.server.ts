@@ -9,6 +9,7 @@ import {
 import {
   asaasDueDate,
   isAsaasError,
+  isPaidCharge,
   type AsaasBillingClient,
   type AsaasCheckoutPayer,
 } from "@sellbridge/payments/asaas";
@@ -427,8 +428,8 @@ export async function openPendingPayment(input: { tenantId: string; userId: stri
     assertNoPendingBillingCreation(reference);
     if (reference?.startsWith(CHARGE_REFERENCE) === true) {
       const charge = await client.getCharge(reference.slice(CHARGE_REFERENCE.length));
-      if (charge.invoiceUrl != null && charge.status !== "RECEIVED")
-        return { url: charge.invoiceUrl };
+      // A card difference is CONFIRMED before RECEIVED: neither is still waiting for payment.
+      if (charge.invoiceUrl != null && !isPaidCharge(charge)) return { url: charge.invoiceUrl };
     }
     if (account?.subscriptionId == null) throw validationError("Não há pagamento em aberto agora.");
     const { state } = await readSubscriptionState(client, {
