@@ -2,6 +2,7 @@ import {
   parseErpCatalogExportResult,
   type RefusedErpProduct,
 } from "@sellbridge/shared/erp-catalog-export";
+import type { ErpImportRow } from "@sellbridge/shared/erp-catalog";
 import type { SupplierImportResult } from "@sellbridge/shared/supplier-panel-import-schemas";
 import { formatAbsoluteTime } from "@/lib/relative-time";
 
@@ -207,6 +208,60 @@ export function isBlingExportRunning(overview: BlingOverview | undefined): boole
 /** A read still moving: a new one would only replace it and spend the account's quota twice. */
 export function isBlingReadRunning(overview: BlingOverview): boolean {
   return overview.read?.status === "reading";
+}
+
+/** A read counted as the product list will show it. */
+export interface BlingProductCounts {
+  /** Products as the product list will show them: a grid once, whatever its variations. */
+  readonly products: number;
+  readonly existing: number;
+  readonly fresh: number;
+  readonly grids: number;
+  readonly gridVariations: number;
+}
+
+/**
+ * The read's rows counted as products: a grid's variations are one product, new while any of
+ * them is new; a product of its own is one.
+ */
+export function countBlingProducts(
+  rows: readonly Pick<ErpImportRow, "sku" | "needsCost" | "modelCode">[],
+): BlingProductCounts {
+  const fresh = new Map<string, boolean>();
+  for (const row of rows) {
+    const key = row.modelCode === null ? `sku:${row.sku}` : `grid:${row.modelCode}`;
+    fresh.set(key, (fresh.get(key) ?? false) || row.needsCost);
+  }
+  const freshCount = [...fresh.values()].filter((isFresh) => isFresh).length;
+  const gridRows = rows.filter((row) => row.modelCode !== null);
+  return {
+    products: fresh.size,
+    existing: fresh.size - freshCount,
+    fresh: freshCount,
+    grids: new Set(gridRows.map((row) => row.modelCode)).size,
+    gridVariations: gridRows.length,
+  };
+}
+
+/** How a read's grids come in, so the product count above them adds up. */
+export function gridProductsNote(
+  counts: Pick<BlingProductCounts, "grids" | "gridVariations">,
+): string {
+  const variations = integer.format(counts.gridVariations);
+  if (counts.grids === 1) {
+    return `1 deles tem cores e tamanhos: as ${variations} variações entram como um produto só, cada uma com o próprio preço.`;
+  }
+  return `${integer.format(counts.grids)} deles têm cores e tamanhos: as ${variations} variações entram como ${integer.format(counts.grids)} produtos, cada variação com o próprio preço.`;
+}
+
+/** Products whose variations do not form a grid (voltage, a repeated colour and size): one row each. */
+export function separatedProductsNote(count: number): string {
+  const amount = integer.format(count);
+  const subject =
+    count === 1
+      ? `${amount} produto com variações entra`
+      : `${amount} produtos com variações entram`;
+  return `${subject} com uma linha por variação, sem grade de cores e tamanhos: as variações não formam uma grade (outras opções, como voltagem, ou cor e tamanho repetidos).`;
 }
 
 /** Why products of a read were left out: no code in Bling, or a code another product already has. */
