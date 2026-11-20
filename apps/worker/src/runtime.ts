@@ -11,7 +11,9 @@ import {
   readMercadoLivreAccountAddresses,
   readMercadoLivreBuyerBilling,
   readMercadoLivreSaleInvoice,
+  readMercadoLivreSalePayments,
   readMercadoLivreClaim,
+  sendMercadoLivreSaleInvoice,
   readMercadoLivreShipmentOrders,
   searchMercadoLivreClaims,
   type ConnectorRegistry,
@@ -27,6 +29,7 @@ import { createCnpjLookup } from "@sellbridge/shared/cnpj-lookup";
 import { installErrorAlerts } from "@sellbridge/shared/error-alerts";
 import { installProblemRecorder } from "@sellbridge/database/problem-recorder";
 import { installPortugueseZodMessages } from "@sellbridge/shared/zod-messages";
+import { conflictError } from "@sellbridge/shared/errors";
 import { logger } from "@sellbridge/shared/logger";
 import { createMailer } from "@sellbridge/shared/mailer";
 import { createEmailQuota } from "@sellbridge/shared/email-quota";
@@ -87,6 +90,8 @@ import {
 } from "./processors/erp-stock-sync.ts";
 import { createResellerInvoiceReadProcessor } from "./processors/reseller-invoice-read.ts";
 import { resolveStoreCredentials } from "./lib/store-access.ts";
+import { resellerBlingClient } from "./processors/erp-bling-client.ts";
+import type { ResellerSaleIssueDependencies } from "./processors/reseller-sale-issue.ts";
 import { createNotificationDeliveryProcessor } from "./processors/notification-delivery.ts";
 import { blingInvoiceFileReader, createInvoiceAttachments } from "./lib/invoice-attachments.ts";
 import { createDeletedStorePauseProcessor } from "./processors/deleted-store-pause.ts";
@@ -301,10 +306,53 @@ function erpStockWorker(
   });
 }
 
+const RECONNECT_STORE = "Conecte a loja do Mercado Livre de novo para continuar.";
+
+/** The reseller's own Bling issuing its sale note, with the Mercado Livre calls it needs. */
+function resellerSaleIssueDependencies(context: WorkerContext): ResellerSaleIssueDependencies {
+  const { database, cipher, mercadoLivreConfig } = context;
+  const credentials = blingCredentials();
+  const storeOf = (work: { store: Parameters<typeof resolveStoreCredentials>[1] }) => {
+    const store = resolveStoreCredentials(cipher, work.store);
+    if (store === null) {
+      throw conflictError(RECONNECT_STORE);
+    }
+    return store;
+  };
+  return {
+    database,
+    clientFor: (tenantId) =>
+      credentials === null
+        ? null
+        : resellerBlingClient(
+            {
+              database,
+              cipher,
+              blingCredentials: credentials,
+              limiter: context.blingLimiter,
+              fetchImplementation: fetch,
+            },
+            tenantId,
+          ),
+    readBuyerBilling: async (work) =>
+      readMercadoLivreBuyerBilling(mercadoLivreConfig, storeOf(work), work.externalOrderId),
+    readSalePayments: async (work) =>
+      readMercadoLivreSalePayments(mercadoLivreConfig, storeOf(work), work.externalOrderId),
+    sendSaleInvoice: async (work, note) => {
+      await sendMercadoLivreSaleInvoice(mercadoLivreConfig, storeOf(work), {
+        orderId: work.externalOrderId,
+        accessKey: note.accessKey,
+        xml: note.xml,
+      });
+    },
+  };
+}
+
 function createResellerInvoiceReader(context: WorkerContext) {
   const { database, cipher, mercadoLivreConfig } = context;
   return createResellerInvoiceReadProcessor({
     database,
+    issue: resellerSaleIssueDependencies(context),
     readSaleInvoice: async (due) => {
       if (due.store.marketplace !== "mercado_livre") {
         return null;

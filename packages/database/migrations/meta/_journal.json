@@ -708,6 +708,13 @@
       "when": 1795197963883,
       "tag": "0100_reseller_note_uploaded",
       "breakpoints": true
+    },
+    {
+      "idx": 101,
+      "version": "7",
+      "when": 1795207035908,
+      "tag": "0101_reseller_bling_sale_notes",
+      "breakpoints": true
     }
   ]
 }

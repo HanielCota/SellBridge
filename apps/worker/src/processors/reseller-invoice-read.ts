@@ -7,6 +7,10 @@ import {
   type DueResellerSaleInvoice,
 } from "@sellbridge/database/repositories";
 import { logger } from "@sellbridge/shared/logger";
+import {
+  issueResellerSaleInvoice,
+  type ResellerSaleIssueDependencies,
+} from "./reseller-sale-issue.ts";
 import { parseAccessKey, resellerAccessKeyProblem } from "@sellbridge/shared/nfe-access-key";
 import {
   nextResellerInvoiceCheckAt,
@@ -17,6 +21,8 @@ export interface ResellerInvoiceReadDependencies {
   readonly database: Database;
   /** The note attached to the marketplace's order; null when there is none or no channel reads it. */
   readonly readSaleInvoice: (due: DueResellerSaleInvoice) => Promise<MarketplaceSaleInvoice | null>;
+  /** Issues the note on the reseller's own Bling when the reseller turned that on. */
+  readonly issue?: ResellerSaleIssueDependencies;
   readonly now?: () => Date;
 }
 
@@ -95,7 +101,8 @@ async function checkOne(
 
 /**
  * Opens the reseller's sale note of new venda à ordem parcels and looks for it on the
- * marketplace's order until it is there (or the reseller types its key).
+ * marketplace's order until it is there (or the reseller types its key). When the reseller's own
+ * Bling issues the note, it is issued there instead.
  */
 export function createResellerInvoiceReadProcessor(dependencies: ResellerInvoiceReadDependencies) {
   return async function readResellerInvoices(): Promise<ResellerInvoiceReadSummary> {
@@ -109,7 +116,12 @@ export function createResellerInvoiceReadProcessor(dependencies: ResellerInvoice
     let found = 0;
     // One at a time: the reads share each store's marketplace quota.
     for (const note of due) {
-      if (await checkOne(dependencies, note, now)) {
+      const issue = dependencies.issue;
+      const done =
+        note.issuesFromErp && issue !== undefined
+          ? await issueResellerSaleInvoice(issue, note, now)
+          : await checkOne(dependencies, note, now);
+      if (done) {
         found += 1;
       }
     }

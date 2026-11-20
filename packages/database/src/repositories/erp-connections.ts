@@ -41,14 +41,29 @@ export async function createErpOAuthState(
   });
 }
 
+/** Whose ERP account a consent connects: a supplier's or a reseller's own. */
+export type ErpOAuthOwner =
+  | { readonly kind: "supplier"; readonly supplierId: string }
+  | { readonly kind: "reseller"; readonly tenantId: string };
+
+function ownerOf(row: { supplierId: string | null; tenantId: string | null }): ErpOAuthOwner {
+  if (row.supplierId !== null) {
+    return { kind: "supplier", supplierId: row.supplierId };
+  }
+  if (row.tenantId !== null) {
+    return { kind: "reseller", tenantId: row.tenantId };
+  }
+  throw new Error("ERP OAuth state without an owner");
+}
+
 /**
- * Deletes the state and returns its supplier, only for the same user and provider and before it
+ * Deletes the state and returns its owner, only for the same user and provider and before it
  * expires: a state is good for one callback, from the person who started it.
  */
 export async function consumeErpOAuthState(
   database: Database,
   input: { state: string; userId: string; provider: ErpProvider },
-): Promise<{ supplierId: string } | null> {
+): Promise<ErpOAuthOwner | null> {
   const [row] = await database
     .delete(erpOAuthStates)
     .where(and(eq(erpOAuthStates.state, input.state), eq(erpOAuthStates.provider, input.provider)))
@@ -62,7 +77,7 @@ export async function consumeErpOAuthState(
   if (row.expiresAt.getTime() <= Date.now()) {
     return null;
   }
-  return { supplierId: row.supplierId };
+  return ownerOf(row);
 }
 
 /** Saves the supplier's ERP account as connected; reconnecting replaces the old tokens. */
