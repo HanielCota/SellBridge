@@ -27,7 +27,7 @@ import { tickets } from "./support.ts";
 /**
  * A returned parcel's claim with its supplier: the support ticket where the supplier sends
  * photos, and the team's decision on crediting the reseller the supplier cost it paid.
- * A credit is a recorded balance only: no Stripe charge or payout moves the money yet.
+ * A credit is a recorded balance only: no charge or payout moves the money yet.
  */
 export const returnClaims = pgTable(
   "return_claims",

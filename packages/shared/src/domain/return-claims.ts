@@ -6,7 +6,7 @@ import { formatCents, type Cents } from "./money.ts";
 /*
  * A parcel that came back opens a claim with its supplier: the reseller already paid the
  * supplier's cost for that order, and the team decides whether the supplier gives it back.
- * The decision is a recorded credit balance only; no money moves through Stripe or a payout yet.
+ * The decision is a recorded credit balance only; no money moves through a charge or a payout yet.
  */
 
 /** Mirrors the `return_claims.status` check constraint. */

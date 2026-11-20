@@ -57,7 +57,7 @@ const AREA_RULES: readonly AreaRule[] = [
   { area: "invoices", events: /^erp\.|^bling\.|invoice|nfe|fiscal/, queues: /^erp-/ },
   {
     area: "payments",
-    events: /^billing\.|^mercado_pago\.|^stripe\.|payment|payout|subscription/,
+    events: /^billing\.|^mercado_pago\.|payment|payout|subscription/,
     queues: /payment/,
   },
   {

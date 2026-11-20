@@ -174,7 +174,7 @@ export function billingLimits(access: BillingAccess): { stores: number; listings
 
 /**
  * When a past_due subscription loses its paid limits: the failed renewal (the period start) plus
- * the grace, never past the period Stripe would bill next.
+ * the grace, never past the period Asaas would bill next.
  */
 export function pastDueAccessEnd(
   period: { periodStart: Date; periodEnd: Date },
