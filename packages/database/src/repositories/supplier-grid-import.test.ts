@@ -1,11 +1,13 @@
 import { randomUUID } from "node:crypto";
 import { parseProductCsv } from "@sellbridge/shared/product-csv";
+import { planGridImport } from "@sellbridge/shared/product-grid-import";
 import { eq } from "drizzle-orm";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { productModels, supplierProducts, suppliers } from "../schema/index.ts";
 import { createTestDatabase } from "../testing/fixtures.ts";
 import { importSupplierProducts, previewSupplierProductImport } from "./admin-suppliers.ts";
 import { getProductModel } from "./product-models.ts";
+import { resolveGrids } from "./supplier-grid-import.ts";
 
 const database = createTestDatabase();
 let supplierId = "";
@@ -112,5 +114,23 @@ describe("grids from the product spreadsheet", () => {
       title: "Tênis Estoque - Preto 38",
       stock: 9,
     });
+  });
+});
+
+describe("resolveGrids", () => {
+  it("marks every line of a new grid whose category is unknown", () => {
+    const plan = planGridImport({
+      rows: rows([
+        "SEM-CAT-P-38;Tênis sem categoria;59,90;4;;64039990;0;PAR;SEMCAT;Preto;38",
+        "SEM-CAT-P-39;Tênis sem categoria;59,90;2;;;;;SEMCAT;Preto;39",
+      ]).map((entry) => ({ ...entry, product: { ...entry.product, categorySlug: "nao-existe" } })),
+      existingSkus: new Map(),
+      existingModels: new Map(),
+    });
+
+    const resolved = resolveGrids(plan.grids, () => undefined);
+
+    expect(resolved.grids).toEqual([]);
+    expect(resolved.errors.map((error) => error.line)).toEqual([2, 3]);
   });
 });

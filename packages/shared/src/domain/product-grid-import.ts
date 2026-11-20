@@ -204,6 +204,17 @@ function combinationsOf(
   }));
 }
 
+/**
+ * A problem of the grid as a whole, on each of its lines: importing only the valid lines then
+ * leaves the whole grid out, instead of retrying it without its first line.
+ */
+export function onEveryLine(
+  rows: readonly { readonly line: number }[],
+  reason: string,
+): ProductCsvError[] {
+  return rows.map((row) => ({ line: row.line, reason }));
+}
+
 /** A new grid: shared data agree, and the grid follows the same rules as the form's. */
 function newGrid(code: string, rows: readonly ProductCsvRow[], errors: ProductCsvError[]) {
   const [first] = rows;
@@ -235,7 +246,7 @@ function newGrid(code: string, rows: readonly ProductCsvRow[], errors: ProductCs
     })),
   });
   for (const problem of problems) {
-    errors.push({ line: first.line, reason: `Código do modelo: ${problem} (modelo ${code})` });
+    errors.push(...onEveryLine(rows, `Código do modelo: ${problem} (modelo ${code})`));
   }
   if (errors.length > before) {
     return null;
@@ -281,10 +292,12 @@ function addedToGrid(
     seen.add(key);
   }
   if (seen.size > MAX_GRID_COMBINATIONS) {
-    errors.push({
-      line: first.line,
-      reason: `Código do modelo: o modelo ${model.code} passaria de ${MAX_GRID_COMBINATIONS} combinações (ficaria com ${seen.size}). Divida em dois modelos`,
-    });
+    errors.push(
+      ...onEveryLine(
+        rows,
+        `Código do modelo: o modelo ${model.code} passaria de ${MAX_GRID_COMBINATIONS} combinações (ficaria com ${seen.size}). Divida em dois modelos`,
+      ),
+    );
   }
   if (errors.length > before) {
     return null;

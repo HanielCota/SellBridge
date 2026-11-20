@@ -6,6 +6,7 @@ import type {
 } from "@sellbridge/shared/product-grid";
 import {
   gridPairKey,
+  onEveryLine,
   type ExistingImportModel,
   type ExistingImportSku,
   type GridImportGroup,
@@ -164,9 +165,8 @@ export function resolveGrids(
   for (const group of groups) {
     const slug = group.first.categorySlug;
     const categoryId = slug === null ? null : categoryIdOf(slug);
-    const firstLine = group.combinations[0]?.line ?? 0;
     if (group.modelId === null && categoryId === undefined) {
-      errors.push({ line: firstLine, reason: `Categoria desconhecida: ${slug ?? ""}` });
+      errors.push(...onEveryLine(group.combinations, `Categoria desconhecida: ${slug ?? ""}`));
       continue;
     }
     grids.push({
