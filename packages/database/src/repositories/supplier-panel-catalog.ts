@@ -10,16 +10,13 @@ import {
   requiredAttributesFor,
   type CompletenessReport,
 } from "@sellbridge/shared/supplier-panel-catalog-completeness";
-import {
-  PRODUCT_REVIEW_STATUSES,
-  type ProductReviewStatus,
-} from "@sellbridge/shared/supplier-panel-catalog-status";
+import type { ProductReviewStatus } from "@sellbridge/shared/supplier-panel-catalog-status";
 import {
   readProductFiscal,
   withFiscalFallback,
   type FiscalFallback,
 } from "@sellbridge/shared/product-fiscal";
-import { and, asc, count, desc, eq, gt, sql, type AnyColumn } from "drizzle-orm";
+import { and, asc, count, desc, eq, gt, sql, type AnyColumn, type SQL } from "drizzle-orm";
 import { alias } from "drizzle-orm/pg-core";
 import type { DatabaseExecutor } from "../client.ts";
 import {
@@ -75,7 +72,11 @@ export interface SupplierPanelListProduct extends SupplierPanelProduct {
  * No listing and no order item points at the product: deleting it leaves no reseller listing
  * or sale history behind. Everything else can only go off sale.
  */
-export const neverListedNorSold = sql<boolean>`not exists (select 1 from ${listings} where ${listings.supplierProductId} = ${supplierProducts.id}) and not exists (select 1 from ${orderItems} where ${orderItems.supplierProductId} = ${supplierProducts.id})`;
+export const neverListedNorSold = neverListedNorSoldById(supplierProducts.id);
+
+function neverListedNorSoldById(productId: AnyColumn) {
+  return sql<boolean>`not exists (select 1 from ${listings} where ${listings.supplierProductId} = ${productId}) and not exists (select 1 from ${orderItems} where ${orderItems.supplierProductId} = ${productId})`;
+}
 
 export type SupplierPanelStatusCounts = Record<ProductReviewStatus | "all", number>;
 
@@ -105,14 +106,6 @@ async function countMissingFiscal(
     .where(and(eq(supplierProducts.supplierId, supplierId), missingFiscalData(fallback)));
   return row?.value ?? 0;
 }
-
-const SORT_COLUMNS: Readonly<Record<CatalogSortColumn, AnyColumn>> = {
-  title: supplierProducts.title,
-  sku: supplierProducts.sku,
-  stock: supplierProducts.stock,
-  costCents: supplierProducts.costCents,
-  updatedAt: supplierProducts.updatedAt,
-};
 
 export const panelProductColumns = {
   product: supplierProducts,
@@ -165,27 +158,28 @@ async function countByStatus(
   },
 ): Promise<SupplierPanelStatusCounts> {
   const { query, onlyMissingFiscal, fiscalFallback } = filters;
-  const rows = await database
-    // A grid counts once, like the row that stands for it.
-    .select({
-      status: supplierProducts.reviewStatus,
-      value: sql<number>`count(distinct coalesce(${supplierProducts.modelId}, ${supplierProducts.id}))::int`,
-    })
-    .from(supplierProducts)
-    .where(
-      and(
-        eq(supplierProducts.supplierId, supplierId),
-        query === undefined
-          ? undefined
-          : matchesEveryWord(query, [supplierProducts.sku, supplierProducts.title]),
-        onlyMissingFiscal ? missingFiscalData(fiscalFallback) : undefined,
-      ),
-    )
-    .groupBy(supplierProducts.reviewStatus);
+  const condition = and(
+    eq(supplierProducts.supplierId, supplierId),
+    query === undefined
+      ? undefined
+      : matchesEveryWord(query, [supplierProducts.sku, supplierProducts.title]),
+    onlyMissingFiscal ? missingFiscalData(fiscalFallback) : undefined,
+  );
+  // A grid counts once, like the row that stands for it; in "all" too, even when its
+  // combinations sit in different statuses.
+  const once = sql<number>`count(distinct coalesce(${supplierProducts.modelId}, ${supplierProducts.id}))::int`;
+  const [rows, [allCount]] = await Promise.all([
+    database
+      .select({ status: supplierProducts.reviewStatus, value: once })
+      .from(supplierProducts)
+      .where(condition)
+      .groupBy(supplierProducts.reviewStatus),
+    database.select({ value: once }).from(supplierProducts).where(condition),
+  ]);
   const byStatus = new Map(rows.map((row) => [row.status, row.value]));
   const of = (status: ProductReviewStatus) => byStatus.get(status) ?? 0;
   return {
-    all: PRODUCT_REVIEW_STATUSES.reduce((sum, status) => sum + of(status), 0),
+    all: allCount?.value ?? 0,
     draft: of("draft"),
     in_review: of("in_review"),
     approved: of("approved"),
@@ -222,6 +216,8 @@ function onceForItsGrid(
   return sql`(${supplierProducts.modelId} is null or ${supplierProducts.id} = (select ${gridCombination.id} from ${supplierProducts} ${gridCombination} where ${gridCombination.modelId} = ${supplierProducts.modelId} and ${panelListCondition(input, fiscalFallback, gridCombination)} order by ${gridCombination.id} limit 1))`;
 }
 
+const gridStockSum = sql<number>`(select coalesce(sum(${gridCombination.stock}), 0)::int from ${supplierProducts} ${gridCombination} where ${gridCombination.modelId} = ${supplierProducts.modelId} and ${gridCombination.active})`;
+
 /** What the grid row shows: the model's name, its options and the stock of all combinations. */
 const gridSummaryColumns = {
   gridTitle: sql<
@@ -230,8 +226,26 @@ const gridSummaryColumns = {
   gridColors: sql<number>`(select count(*)::int from ${productModelColors} where ${productModelColors.modelId} = ${supplierProducts.modelId})`,
   gridSizes: sql<number>`(select count(*)::int from ${productModelSizes} where ${productModelSizes.modelId} = ${supplierProducts.modelId})`,
   gridCombinations: sql<number>`(select count(*)::int from ${supplierProducts} ${gridCombination} where ${gridCombination.modelId} = ${supplierProducts.modelId} and ${gridCombination.active})`,
-  gridStock: sql<number>`(select coalesce(sum(${gridCombination.stock}), 0)::int from ${supplierProducts} ${gridCombination} where ${gridCombination.modelId} = ${supplierProducts.modelId} and ${gridCombination.active})`,
+  gridStock: gridStockSum,
 };
+
+/**
+ * A grid row sorts by what it shows: the stock of all its combinations and, as its cost, the
+ * lowest one; a product of its own by its own values.
+ */
+const SORT_COLUMNS: Readonly<Record<CatalogSortColumn, AnyColumn | SQL>> = {
+  title: supplierProducts.title,
+  sku: supplierProducts.sku,
+  stock: sql`case when ${supplierProducts.modelId} is null then ${supplierProducts.stock} else ${gridStockSum} end`,
+  costCents: sql`case when ${supplierProducts.modelId} is null then ${supplierProducts.costCents} else (select min(${gridCombination.costCents}) from ${supplierProducts} ${gridCombination} where ${gridCombination.modelId} = ${supplierProducts.modelId} and ${gridCombination.active}) end`,
+  updatedAt: supplierProducts.updatedAt,
+};
+
+/**
+ * The delete button's promise: a grid row only offers it when no combination was ever listed or
+ * sold, as `deleteUnsoldProductModel` requires.
+ */
+const deletableRow = sql<boolean>`case when ${supplierProducts.modelId} is null then ${neverListedNorSold} else not exists (select 1 from ${supplierProducts} ${gridCombination} where ${gridCombination.modelId} = ${supplierProducts.modelId} and not (${neverListedNorSoldById(gridCombination.id)})) end`;
 
 function gridOf(row: {
   product: { modelId: string | null };
@@ -268,7 +282,7 @@ export async function listSupplierPanelProducts(
   const order = input.direction === "asc" ? asc : desc;
   const [rows, counts, missingFiscalCount] = await Promise.all([
     database
-      .select({ ...panelProductColumns, ...gridSummaryColumns, deletable: neverListedNorSold })
+      .select({ ...panelProductColumns, ...gridSummaryColumns, deletable: deletableRow })
       .from(supplierProducts)
       .leftJoin(categories, eq(categories.id, supplierProducts.categoryId))
       .where(and(condition, onceForItsGrid(input, fiscalFallback)))
