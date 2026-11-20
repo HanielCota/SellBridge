@@ -206,3 +206,41 @@ describe("planGridImport", () => {
     expect(plan.grids[0]?.combinations[0]).toMatchObject({ color: "Preto", size: "40" });
   });
 });
+
+describe("planGridImport errors of a whole grid", () => {
+  it("marks every line of a grid past 50 combinations, so importing the valid lines leaves it out", () => {
+    const lines = Array.from({ length: 51 }, (_, index) =>
+      row(index + 2, `TEN-${index}`, { color: "Preto", size: String(index + 1) }),
+    );
+
+    const plan = planGridImport({ rows: lines, existingSkus: none, existingModels: noModels });
+
+    expect(plan.grids).toEqual([]);
+    expect(new Set(plan.errors.map((error) => error.line))).toEqual(
+      new Set(lines.map((entry) => entry.line)),
+    );
+  });
+});
+
+describe("planGridImport model codes", () => {
+  it("treats a code in another case as the same model", () => {
+    const plan = planGridImport({
+      rows: [
+        row(2, "TEN-P-38", { color: "Preto", size: "38" }),
+        {
+          ...row(3, "TEN-P-39", { color: "Preto", size: "39" }),
+          product: {
+            ...row(3, "TEN-P-39", { color: "Preto", size: "39" }).product,
+            grid: { modelCode: "ten", color: "Preto", size: "39" },
+          },
+        },
+      ],
+      existingSkus: none,
+      existingModels: noModels,
+    });
+
+    expect(plan.errors).toEqual([]);
+    expect(plan.grids).toHaveLength(1);
+    expect(plan.grids[0]?.combinations).toHaveLength(2);
+  });
+});

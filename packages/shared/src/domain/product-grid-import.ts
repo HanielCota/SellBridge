@@ -4,6 +4,7 @@ import {
   combinationTitle,
   gridProblems,
   MAX_GRID_COMBINATIONS,
+  modelCodeKey,
   sortSizeNames,
 } from "./product-grid.ts";
 import { stripAccents } from "./text.ts";
@@ -25,7 +26,7 @@ export interface ExistingImportSku {
   readonly size: string | null;
 }
 
-/** A grid the supplier already has, found by its code. */
+/** A grid the supplier already has, found by its code (keyed by `modelCodeKey`). */
 export interface ExistingImportModel {
   readonly id: string;
   readonly code: string;
@@ -75,7 +76,7 @@ function pairKey(color: string | null, size: string | null): string {
   return `${nameKey(color)}\u0000${nameKey(size)}`;
 }
 
-/** The row without its grid cells: what the plain import reads. */
+// The row without its grid cells: what the plain import reads.
 function plainRow(row: ProductCsvRow, title: string = row.product.title): ProductCsvRow {
   const { grid: _cells, ...product } = row.product;
   return { line: row.line, product: { ...product, title } };
@@ -90,7 +91,13 @@ function groupsByCode(rows: readonly ProductCsvRow[]) {
       plain.push(row);
       continue;
     }
-    groups.set(cells.modelCode, [...(groups.get(cells.modelCode) ?? []), row]);
+    const key = modelCodeKey(cells.modelCode);
+    const group = groups.get(key);
+    if (group === undefined) {
+      groups.set(key, [row]);
+      continue;
+    }
+    group.push(row);
   }
   return { plain, groups };
 }
@@ -204,6 +211,17 @@ function combinationsOf(
   }));
 }
 
+/**
+ * A problem of the grid as a whole, on each of its lines: importing only the valid lines then
+ * leaves the whole grid out, instead of retrying it without its first line.
+ */
+export function onEveryLine(
+  rows: readonly { readonly line: number }[],
+  reason: string,
+): ProductCsvError[] {
+  return rows.map((row) => ({ line: row.line, reason }));
+}
+
 /** A new grid: shared data agree, and the grid follows the same rules as the form's. */
 function newGrid(code: string, rows: readonly ProductCsvRow[], errors: ProductCsvError[]) {
   const [first] = rows;
@@ -235,7 +253,7 @@ function newGrid(code: string, rows: readonly ProductCsvRow[], errors: ProductCs
     })),
   });
   for (const problem of problems) {
-    errors.push({ line: first.line, reason: `Código do modelo: ${problem} (modelo ${code})` });
+    errors.push(...onEveryLine(rows, `Código do modelo: ${problem} (modelo ${code})`));
   }
   if (errors.length > before) {
     return null;
@@ -281,10 +299,12 @@ function addedToGrid(
     seen.add(key);
   }
   if (seen.size > MAX_GRID_COMBINATIONS) {
-    errors.push({
-      line: first.line,
-      reason: `Código do modelo: o modelo ${model.code} passaria de ${MAX_GRID_COMBINATIONS} combinações (ficaria com ${seen.size}). Divida em dois modelos`,
-    });
+    errors.push(
+      ...onEveryLine(
+        rows,
+        `Código do modelo: o modelo ${model.code} passaria de ${MAX_GRID_COMBINATIONS} combinações (ficaria com ${seen.size}). Divida em dois modelos`,
+      ),
+    );
   }
   if (errors.length > before) {
     return null;
@@ -311,7 +331,7 @@ function existingCombinationProblem(
   if (cells === undefined) {
     return null;
   }
-  const sameGrid = existing.modelCode === cells.modelCode;
+  const sameGrid = modelCodeKey(existing.modelCode ?? "") === modelCodeKey(cells.modelCode);
   const samePair = pairKey(existing.color, existing.size) === pairKey(cells.color, cells.size);
   if (sameGrid && samePair) {
     return null;
@@ -368,7 +388,7 @@ export function planGridImport(input: {
       }
       errors.push({ line: row.line, reason: problem });
     }
-    const model = input.existingModels.get(code);
+    const model = input.existingModels.get(modelCodeKey(code));
     const group =
       model === undefined ? newGrid(code, fresh, errors) : addedToGrid(model, fresh, errors);
     if (group !== null) {

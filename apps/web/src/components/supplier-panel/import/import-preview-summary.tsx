@@ -126,10 +126,7 @@ function SummaryHeader({ preview }: { preview: SupplierImportPreview }) {
   );
 }
 
-/**
- * Products with colours and sizes the file creates, and the rows that went in as separate
- * products instead, each with its row number and why.
- */
+// The grids the file creates, and the rows that went in as separate products instead.
 function GridNotices({
   grids,
   combinations,

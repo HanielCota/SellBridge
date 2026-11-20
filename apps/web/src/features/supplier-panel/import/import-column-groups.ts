@@ -1,3 +1,4 @@
+import { PRODUCT_CSV_GRID_COLUMNS } from "@sellbridge/shared/product-csv";
 import {
   importColumns,
   type ImportColumnGuide,
@@ -38,8 +39,8 @@ const OPTIONAL_GROUPS: readonly { readonly title: string; readonly columns: read
     },
   ];
 
-/** Only while grids are on: the columns that turn rows into one product in colours and sizes. */
-const GRID_GROUP = { title: "Cores e tamanhos", columns: ["codigo_modelo", "cor", "tamanho"] };
+// Only while grids are on: the columns that turn rows into one product in colours and sizes.
+const GRID_GROUP = { title: "Cores e tamanhos", columns: [...PRODUCT_CSV_GRID_COLUMNS] };
 
 export interface ImportColumnGroup {
   readonly title: string;
