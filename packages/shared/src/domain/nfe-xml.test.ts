@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { readAuthorizedNfeXml } from "./nfe-xml.ts";
+import { MAX_NFE_XML_BYTES, readAuthorizedNfeXml } from "./nfe-xml.ts";
 
 const KEY = "35261111222333000181550010000048211123456789";
 
@@ -37,5 +37,16 @@ describe("readAuthorizedNfeXml", () => {
     const other = "35261111222333000181550010000048221123456780";
 
     expect(readAuthorizedNfeXml(nfeProc({ key: other })).problem).toMatch(/não é o XML/);
+  });
+
+  it("reads a crafted file of repeated tags in linear time", () => {
+    const opening = "<nfeProc><protNFe><infProt>";
+    const filler = "<infNFe <protNFe <infProt ".repeat(MAX_NFE_XML_BYTES / 26);
+    const startedAt = performance.now();
+
+    const reading = readAuthorizedNfeXml(opening + filler);
+
+    expect(reading.problem).not.toBeNull();
+    expect(performance.now() - startedAt).toBeLessThan(500);
   });
 });
