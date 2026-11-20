@@ -122,7 +122,7 @@ function MainProductChoice({
   onChoose: () => void;
 }) {
   return (
-    <label className="flex min-h-11 cursor-pointer items-center gap-2 text-sm sm:mt-6">
+    <label className="col-span-2 flex min-h-11 cursor-pointer items-center gap-2 text-sm sm:col-span-1 sm:mt-6">
       <input
         type="radio"
         name={name}
@@ -168,7 +168,7 @@ export function GroupingProductRow(props: GroupingProductRowProps) {
         checked={draft.checked}
         onCheck={(checked) => onChange({ checked })}
       />
-      <div className="grid gap-3 sm:grid-cols-[1fr_1fr_auto] sm:items-start">
+      <div className="grid grid-cols-2 items-start gap-3 sm:grid-cols-[minmax(0,16rem)_minmax(0,9rem)_auto] sm:gap-4">
         <OptionField
           id={`${id}-color`}
           label="Cor"
