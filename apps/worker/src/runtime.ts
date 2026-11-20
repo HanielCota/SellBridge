@@ -46,6 +46,7 @@ import {
   PUBLISH_JOB_OPTIONS,
   QUEUE_NAMES,
   releaseFinishedJob,
+  RETURN_DEADLINES_JOB_NAME,
   STOCK_SYNC_JOB_NAME,
   STOCK_SYNC_JOB_OPTIONS,
 } from "@sellbridge/shared/queues";
@@ -536,9 +537,6 @@ function paymentWorkers(context: WorkerContext): Worker[] {
   ];
 }
 
-/** Shares the ticket queue: both are slow sweeps of support deadlines. */
-const RETURN_DEADLINES_JOB = "close-overdue-returns";
-
 function accountAddressConfig(context: WorkerContext): MercadoLivreConfig {
   const fetchImplementation = context.accountAddressFetch;
   if (fetchImplementation === undefined) {
@@ -601,7 +599,7 @@ function deliveryWorkers(context: WorkerContext): Worker[] {
   return [
     new Worker(
       QUEUE_NAMES.ticketAutoClose,
-      async (job) => (job.name === RETURN_DEADLINES_JOB ? processReturns() : processTickets()),
+      async (job) => (job.name === RETURN_DEADLINES_JOB_NAME ? processReturns() : processTickets()),
       { connection, concurrency: 1 },
     ),
     new Worker(QUEUE_NAMES.supplierApproval, async () => processApprovals(), {
@@ -640,7 +638,7 @@ async function scheduleQueues(queues: WorkerContext["queues"]): Promise<void> {
   await scheduleRecurring(queues.webhookSweep, "sweep-unprocessed-webhook-events", 5 * 60 * 1000);
   await scheduleRecurring(queues.webhookSweep, WEBHOOK_EVENT_PRUNE_JOB, 60 * 60 * 1000);
   await scheduleRecurring(queues.ticketClose, "close-idle-tickets", 60 * 60 * 1000);
-  await scheduleRecurring(queues.ticketClose, RETURN_DEADLINES_JOB, 15 * 60 * 1000);
+  await scheduleRecurring(queues.ticketClose, RETURN_DEADLINES_JOB_NAME, 15 * 60 * 1000);
   await scheduleRecurring(queues.supplierApproval, "check-pending-suppliers", 15 * 60 * 1000);
   await scheduleRecurring(queues.tokenRefresh, "refresh-expiring-tokens", 10 * 60 * 1000);
   await scheduleRecurring(queues.shipmentTracking, "track-shipments", 30 * 60 * 1000);

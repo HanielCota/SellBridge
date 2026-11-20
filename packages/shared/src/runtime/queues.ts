@@ -208,6 +208,8 @@ export const STOCK_SYNC_JOB_OPTIONS = {
 export const WEBHOOK_EVENT_JOB_NAME = "webhook";
 /** A reconnected store's catch-up of missed sales, in the same queue but with no stored event. */
 export const STORE_ORDER_CATCH_UP_JOB_NAME = "order-catch-up";
+/** The return deadlines round, sharing the ticket queue: both are slow sweeps of deadlines. */
+export const RETURN_DEADLINES_JOB_NAME = "close-overdue-returns";
 
 /**
  * Webhook processing: marketplaces expect a quick 200, the real work is retried here.
