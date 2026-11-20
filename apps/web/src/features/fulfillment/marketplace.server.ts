@@ -19,6 +19,7 @@ import { findOnBehalfLabelParcels, findOrderLabelParcels } from "@sellbridge/dat
 import { orders, orderShipments, storeConnections } from "@sellbridge/database/schema";
 import { onBehalfLabelRefusal } from "@sellbridge/shared/reseller-invoice";
 import { labelSharingRefusal } from "@/features/fulfillment/label-sharing";
+import { saleNoteXmlRefusal } from "@/features/fulfillment/sale-note-xml";
 import { isShippingBlocked } from "@/features/fulfillment/shipping-block";
 import { database } from "@/lib/server/database";
 import { mercadoLivreApiConfig, tiktokShopApiConfig, tokenCipher } from "@/lib/server/marketplaces";
@@ -211,11 +212,12 @@ export async function loadMarketplaceLabels(
 }
 
 /**
- * Sends the reseller's own sale note (its XML) to the marketplace of the parcel's order, where the
- * label needs it. Only Mercado Livre asks for it; elsewhere there is nothing to send.
+ * Sends the reseller's own sale note (its XML) to the Mercado Livre shipment of the parcel's
+ * order, where the label needs it. Other marketplaces take the typed key instead.
  *
- * @throws {AppError} NOT_FOUND when the parcel is not the reseller's; CONFLICT when the store must
- * be reconnected; EXTERNAL_PROVIDER when Mercado Livre refuses the note, with the reason.
+ * @throws {AppError} NOT_FOUND when the parcel is not the reseller's; CONFLICT when the order is not
+ * on Mercado Livre or the store must be reconnected; EXTERNAL_PROVIDER when Mercado Livre refuses
+ * the note, with the reason.
  */
 export async function sendResellerSaleNoteToMarketplace(
   tenantId: string,
@@ -227,8 +229,9 @@ export async function sendResellerSaleNoteToMarketplace(
     .where(and(eq(orderShipments.id, input.shipmentId), eq(orderShipments.tenantId, tenantId)));
   if (parcel === undefined) throw notFoundError("Pedido não encontrado");
   const row = await orderStore(tenantId, parcel.orderId);
-  if (row.store.marketplace !== "mercado_livre") {
-    return;
+  const refusal = saleNoteXmlRefusal(row.store.marketplace);
+  if (refusal !== null) {
+    throw conflictError(refusal);
   }
   await sendMercadoLivreSaleInvoice(mercadoLivreApiConfig, storeCredentials(row.store), {
     orderId: row.externalOrderId,
