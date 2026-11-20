@@ -1,9 +1,11 @@
-import { isAppError } from "@sellbridge/shared/errors";
+import { isAppError, type AppError } from "@sellbridge/shared/errors";
 import type { MarketplaceSaleInvoice } from "@sellbridge/shared/reseller-invoice";
 import { z } from "zod";
-import { marketplaceError } from "../errors.ts";
+import { marketplaceAuthError, marketplaceError } from "../errors.ts";
+import { fetchWithRetry } from "../http.ts";
 import type { StoreCredentials } from "../types.ts";
-import { requestJson, type MercadoLivreConfig } from "./client.ts";
+import { logRefusal, requestJson, type MercadoLivreConfig } from "./client.ts";
+import { readMercadoLivreJson } from "./json.ts";
 import { externalIdSchema } from "./schemas.ts";
 
 /**
@@ -126,9 +128,24 @@ const GENERIC_REFUSAL =
 
 const refusalBodySchema = z.object({ error: z.string().optional() }).loose();
 
-async function refusalCode(response: Response): Promise<string | null> {
-  const body = refusalBodySchema.safeParse(await response.json().catch(() => null));
-  return body.success ? (body.data.error ?? null) : null;
+/**
+ * Mercado Livre's refusal in the reseller's words: a refused token asks to reconnect the store,
+ * a known code says what to fix, anything else asks to try again later.
+ */
+async function refusalOf(response: Response): Promise<AppError> {
+  const raw = await readMercadoLivreJson(response);
+  if (response.status === 401) {
+    return marketplaceAuthError();
+  }
+  logRefusal(raw, response.status);
+  const body = refusalBodySchema.safeParse(raw);
+  const code = body.success ? (body.data.error ?? null) : null;
+  const refusal = code === null ? undefined : SALE_INVOICE_REFUSALS[code];
+  return marketplaceError(refusal ?? GENERIC_REFUSAL, {
+    retryable: response.status === 429 || response.status >= 500,
+    status: response.status,
+    ...(code === null ? {} : { causes: [code] }),
+  });
 }
 
 /**
@@ -163,7 +180,9 @@ export async function sendMercadoLivreSaleInvoice(
   if (attached?.accessKey === input.accessKey) {
     return;
   }
-  const response = await fetchImplementation(
+  // The shared path: its time limit keeps a stuck call from leaving the reseller in "Enviando…".
+  const response = await fetchWithRetry(
+    fetchImplementation,
     `${SALE_INVOICE_URL}/${encodeURIComponent(shipmentId)}/invoice_data?siteId=MLB`,
     {
       method: "POST",
@@ -174,15 +193,10 @@ export async function sendMercadoLivreSaleInvoice(
       },
       body: input.xml,
     },
+    config.retry,
   );
   if (response.ok) {
     return;
   }
-  const code = await refusalCode(response);
-  const refusal = code === null ? undefined : SALE_INVOICE_REFUSALS[code];
-  throw marketplaceError(refusal ?? GENERIC_REFUSAL, {
-    retryable: response.status === 429 || response.status >= 500,
-    status: response.status,
-    ...(code === null ? {} : { causes: [code] }),
-  });
+  throw await refusalOf(response);
 }
