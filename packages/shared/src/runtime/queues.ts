@@ -72,6 +72,8 @@ export const ERP_STOCK_JOB_NAMES = {
   checkAll: "check-all-erp-stock",
   checkSupplier: "check-erp-stock",
   refreshSupplier: "refresh-erp-stock",
+  /** Posts to Bling the stock exits of sales whose NF-e did not go through SellBridge. */
+  postExits: "post-erp-stock-exits",
 } as const;
 
 export const erpStockSupplierJobSchema = z.object({ supplierId: z.uuid() });
