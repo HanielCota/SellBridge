@@ -3,6 +3,7 @@ import { z } from "zod";
 import {
   alertWebhookUrlEnvironmentSchema,
   booleanFlagEnvironmentSchema,
+  emailDailyCapEnvironmentShape,
   logLevelEnvironmentSchema,
   nodeEnvironmentSchema,
   parseEnvironment,
@@ -89,6 +90,29 @@ describe("alertWebhookUrlEnvironmentSchema", () => {
     expect(() =>
       parseEnvironment(alertSchema, { ALERT_WEBHOOK_URL: "http://hooks.example.test/x" }),
     ).toThrow(/ALERT_WEBHOOK_URL/);
+  });
+});
+
+describe("emailDailyCapEnvironmentShape", () => {
+  const capSchema = z.object(emailDailyCapEnvironmentShape);
+
+  it("defaults to a conservative allowance when nothing is set", () => {
+    expect(parseEnvironment(capSchema, {})).toEqual({
+      EMAIL_DAILY_CAP: 500,
+      EMAIL_DAILY_CAP_PER_RECIPIENT: 50,
+      EMAIL_ACCOUNT_DAILY_CAP: 100,
+      EMAIL_ACCOUNT_DAILY_CAP_PER_RECIPIENT: 10,
+    });
+  });
+
+  it("accepts zero, which sends none", () => {
+    expect(parseEnvironment(capSchema, { EMAIL_DAILY_CAP: "0" }).EMAIL_DAILY_CAP).toBe(0);
+  });
+
+  it.each(["-1", "1.5", "abc", "100001"])("refuses %s as an allowance", (value) => {
+    expect(() => parseEnvironment(capSchema, { EMAIL_DAILY_CAP: value })).toThrow(
+      /EMAIL_DAILY_CAP/,
+    );
   });
 });
 

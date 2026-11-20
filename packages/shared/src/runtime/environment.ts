@@ -64,6 +64,26 @@ export const tokenEncryptionKeyEnvironmentSchema = z
  */
 export const alertWebhookUrlEnvironmentSchema = z.url({ protocol: /^https$/ }).optional();
 
+/** Above any plan this product would run on: a typo with extra zeros fails startup. */
+const EMAIL_DAILY_CAP_MAXIMUM = 100_000;
+
+/** A daily e-mail allowance: a whole number from 0 (send none) up; anything else fails startup. */
+function dailyEmailCapSchema(defaultValue: number) {
+  return z.coerce.number().int().min(0).max(EMAIL_DAILY_CAP_MAXIMUM).default(defaultValue);
+}
+
+/**
+ * The most e-mails sent per day (America/Sao_Paulo), by the web app and the worker together.
+ * Account e-mails (address confirmation, new password) have their own allowance, so a burst of
+ * notices cannot hold them back. See docs/decisions/2026-11-20-teto-de-emails.md.
+ */
+export const emailDailyCapEnvironmentShape = {
+  EMAIL_DAILY_CAP: dailyEmailCapSchema(500),
+  EMAIL_DAILY_CAP_PER_RECIPIENT: dailyEmailCapSchema(50),
+  EMAIL_ACCOUNT_DAILY_CAP: dailyEmailCapSchema(100),
+  EMAIL_ACCOUNT_DAILY_CAP_PER_RECIPIENT: dailyEmailCapSchema(10),
+};
+
 /**
  * SHOPEE_SHOWCASE_UNITS: units Shopee listings show on top of the real ones (worker and web).
  * A whole number from 0 (off) to 100000; a negative or fractional value fails startup.

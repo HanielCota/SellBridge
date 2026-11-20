@@ -1,5 +1,6 @@
-import { AppError, configurationError } from "../runtime/errors.ts";
+import { AppError, configurationError, isAppError } from "../runtime/errors.ts";
 import { logger } from "../runtime/logger.ts";
+import type { EmailCategory, EmailQuota, EmailQuotaVerdict } from "./email-quota.ts";
 
 const RESEND_ENDPOINT = "https://api.resend.com/emails";
 /** A hung provider must not hold the caller (a sign-up, a forward) open. */
@@ -18,6 +19,8 @@ export interface OutgoingEmail {
   /** Optional HTML part; `text` stays as the fallback for clients without HTML. */
   html?: string;
   attachments?: readonly EmailAttachment[];
+  /** Which daily allowance pays for it; `general` unless the person needs it to get in. */
+  category?: EmailCategory;
 }
 
 /** Sends one e-mail; rejects with an `AppError` that says whether a later try may pass. */
@@ -29,6 +32,8 @@ export interface MailerOptions {
   /** Sender, as "Name <address>". */
   from: string;
   production: boolean;
+  /** The daily allowance every e-mail is counted against before it reaches the provider. */
+  quota: EmailQuota;
   /** Injected for tests; defaults to the global fetch. */
   fetch?: typeof fetch;
 }
@@ -82,9 +87,76 @@ async function postToResend(
   }
 }
 
+type RefusedVerdict = Extract<EmailQuotaVerdict, { allowed: false }>;
+
+const DAILY_CAP_REASONS: Readonly<Record<EmailCategory, Record<RefusedVerdict["scope"], string>>> =
+  {
+    general: {
+      system:
+        "O limite diário de e-mails do sistema foi atingido. Os avisos por e-mail voltam a sair amanhã.",
+      recipient:
+        "Uma pessoa atingiu o limite diário de e-mails. Os e-mails para ela voltam a sair amanhã.",
+    },
+    account: {
+      system:
+        "O limite diário de e-mails de conta (confirmação e nova senha) foi atingido. Eles voltam a sair amanhã.",
+      recipient:
+        "Uma pessoa atingiu o limite diário de e-mails de conta (confirmação e nova senha). Voltam a sair amanhã.",
+    },
+  };
+
+/** Whether `error` is the mailer refusing an e-mail because today's allowance is used up. */
+export function emailDailyCapResetsAt(error: unknown): Date | null {
+  if (!isAppError(error) || error.code !== "RATE_LIMITED") {
+    return null;
+  }
+  return error.details.retryAt ?? null;
+}
+
+function refuseOverDailyCap(email: OutgoingEmail, verdict: RefusedVerdict): never {
+  const category = email.category ?? "general";
+  const fields = { category, scope: verdict.scope, subject: email.subject };
+  logger.warn("email.daily_cap_blocked", fields);
+  if (verdict.firstToday) {
+    // Once a day per allowance: this is the line the team reads on Problemas and in the alert.
+    logger.error("email.daily_cap_reached", {
+      ...fields,
+      reason: DAILY_CAP_REASONS[category][verdict.scope],
+      resetsAt: verdict.resetsAt.toISOString(),
+    });
+  }
+  throw new AppError("RATE_LIMITED", "O limite de e-mails de hoje foi atingido. Tente amanhã.", {
+    details: { retryable: true, retryAt: verdict.resetsAt },
+  });
+}
+
 /**
- * A transactional e-mail sender over Resend, for the web app and the worker alike. The
- * recipient is never logged: it is an e-mail address, which the logs must not carry.
+ * Counts the e-mail against today's allowance. When the counters cannot be read, an account
+ * e-mail still goes (sign-up and password reset are few and already rate limited); any other
+ * waits, because sending uncounted is what the allowance exists to prevent.
+ */
+async function reserveDailyAllowance(quota: EmailQuota, email: OutgoingEmail): Promise<void> {
+  const category = email.category ?? "general";
+  let verdict: EmailQuotaVerdict;
+  try {
+    verdict = await quota.reserve({ to: email.to, category });
+  } catch (error) {
+    if (category === "account") {
+      logger.warn("email.daily_cap_unavailable", { category, error });
+      return;
+    }
+    logger.error("email.daily_cap_unavailable", { category, error });
+    throw emailProviderError(null, error);
+  }
+  if (!verdict.allowed) {
+    refuseOverDailyCap(email, verdict);
+  }
+}
+
+/**
+ * A transactional e-mail sender over Resend, for the web app and the worker alike, held to a
+ * daily allowance. The recipient is never logged: it is an e-mail address, which the logs must
+ * not carry.
  */
 export function createMailer(options: MailerOptions): SendEmail {
   return async function sendEmail(email: OutgoingEmail): Promise<void> {
@@ -101,6 +173,7 @@ export function createMailer(options: MailerOptions): SendEmail {
       });
       return;
     }
+    await reserveDailyAllowance(options.quota, email);
     const response = await postToResend({ ...options, apiKey }, email);
     if (!response.ok) {
       logger.error("email.send_failed", { status: response.status, subject: email.subject });

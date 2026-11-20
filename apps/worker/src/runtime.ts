@@ -29,6 +29,8 @@ import { installProblemRecorder } from "@sellbridge/database/problem-recorder";
 import { installPortugueseZodMessages } from "@sellbridge/shared/zod-messages";
 import { logger } from "@sellbridge/shared/logger";
 import { createMailer } from "@sellbridge/shared/mailer";
+import { createEmailQuota } from "@sellbridge/shared/email-quota";
+import { createRedisEmailQuotaStore } from "@sellbridge/shared/redis-email-quota-store";
 import {
   AUTO_FORWARD_JOB_OPTIONS,
   autoForwardJobId,
@@ -165,6 +167,16 @@ function createContext(connectors: ConnectorRegistry, options: WorkerOptions) {
       apiKey: environment.RESEND_API_KEY,
       from: environment.EMAIL_FROM,
       production: environment.NODE_ENV === "production",
+      // The same counters the web app uses: the allowance is of the product, not of a process.
+      quota: createEmailQuota({
+        store: createRedisEmailQuotaStore(queues.notifications),
+        limits: {
+          accountDaily: environment.EMAIL_ACCOUNT_DAILY_CAP,
+          accountPerRecipientDaily: environment.EMAIL_ACCOUNT_DAILY_CAP_PER_RECIPIENT,
+          generalDaily: environment.EMAIL_DAILY_CAP,
+          generalPerRecipientDaily: environment.EMAIL_DAILY_CAP_PER_RECIPIENT,
+        },
+      }),
     }),
     mercadoLivreConfig: {
       clientId: environment.MERCADO_LIVRE_CLIENT_ID ?? "",
