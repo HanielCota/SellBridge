@@ -247,6 +247,7 @@ async function listPaymentMethods(call: BlingCall): Promise<BlingPaymentMethod[]
     schema: paymentMethodListSchema,
   });
   const methods: BlingPaymentMethod[] = [];
+  // One detail at a time: Bling allows only a few calls per second for each account.
   for (const method of response.data) {
     const cardBrand = CARD_PAYMENT_TYPES.has(method.tipoPagamento)
       ? await cardBrandOf(call, method.id)
