@@ -34,6 +34,9 @@ type FailureKind = "not_received" | "refused" | "uncertain";
 /** The access stopped working: the supplier's other exits wait for the reconnection too. */
 class ConnectionLostError extends Error {}
 
+/** Bling's rate limit answered (after the client's own retries): the supplier's other exits wait. */
+class RateLimitedError extends Error {}
+
 function statusOf(error: unknown): number | null {
   if (!isMarketplaceError(error)) {
     return null;
@@ -107,7 +110,7 @@ async function endFailedPost(
     if (isReconnectError(error)) {
       throw new ConnectionLostError();
     }
-    return "retryLater";
+    throw new RateLimitedError();
   }
   const reason = kind === "refused" ? refusedReason(exit, error) : uncertainReason(exit);
   await markErpStockExitForTeam(dependencies.database, {
@@ -185,6 +188,11 @@ async function postSupplierExits(
       }
     }
   } catch (error) {
+    if (error instanceof RateLimitedError) {
+      logger.warn("erp.stock_exit_rate_limited", { supplierId });
+      outcomes.push("retryLater");
+      return outcomes;
+    }
     if (error instanceof ConnectionLostError || isReconnectError(error)) {
       logger.warn("erp.stock_exit_waiting_reconnection", { supplierId });
       return outcomes;

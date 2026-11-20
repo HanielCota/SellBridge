@@ -209,6 +209,36 @@ describe("postDueErpStockExits", () => {
     expect((await exitRow(sale.orderItemId))?.status).toBe("posted");
   });
 
+  it("leaves the supplier's other exits for the next run once the rate limit answered", async () => {
+    const sale = await shippedSale();
+    const [other] = await database
+      .insert(schema.orderItems)
+      .values({
+        tenantId: sale.tenantId,
+        orderId: sale.orderId,
+        supplierProductId: sale.productId,
+        title: "Chinelo",
+        quantity: 1,
+        unitPriceCents: 4990,
+        unitCostCents: 2000,
+        stockState: "consumed",
+      })
+      .returning({ id: schema.orderItems.id });
+    if (other === undefined) throw new Error("second item not created");
+    const bling = fakeBling({
+      exitStatuses: [429, 429, 429, 429, 429],
+      deposits: ONE_DEFAULT_DEPOSIT,
+    });
+    vi.spyOn(logger, "warn").mockImplementation(() => undefined);
+
+    const summary = await postDueErpStockExits(dependenciesFor(bling.fetchImplementation));
+
+    expect(summary).toEqual({ posted: 0, forTeam: 0, retryLater: 1 });
+    expect(await exitRow(sale.orderItemId)).toBeUndefined();
+    expect(await exitRow(other.id)).toBeUndefined();
+    expect(new Set(bling.exits.map((exit) => JSON.stringify(exit))).size).toBe(1);
+  });
+
   it("waits for the reconnection when Bling refuses the access, leaving the exit due", async () => {
     const sale = await shippedSale();
     const bling = fakeBling({
