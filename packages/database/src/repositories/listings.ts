@@ -1,3 +1,4 @@
+import type { BillingRules } from "@sellbridge/shared/billing";
 import { assertBillingCapacity } from "./billing.ts";
 import { conflictError, notFoundError } from "@sellbridge/shared/errors";
 import { toPaginated, type Paginated, type Pagination } from "@sellbridge/shared/schemas";
@@ -24,7 +25,8 @@ import { publicationBlockedReason } from "./publication-completion.ts";
 type ListingTargetStatus = (typeof listingTargets.$inferSelect)["status"];
 
 export interface NewListingInput {
-  billingEnabled?: boolean;
+  /** Plan limits to enforce; null or absent where billing is off. */
+  billing?: BillingRules | null;
   supplierProductId: string;
   title: string;
   description: string;
@@ -98,7 +100,7 @@ export async function createListingWithTargets(
     throw conflictError("Escolha ao menos uma loja de destino");
   }
   return database.transaction(async (transaction) => {
-    const { billingEnabled, ...values } = input;
+    const { billing = null, ...values } = input;
     await assertNotListedYet(transaction, tenantId, values.supplierProductId, storeConnectionIds);
     await assertPrivateProductPublication(
       transaction,
@@ -106,9 +108,14 @@ export async function createListingWithTargets(
       values.supplierProductId,
       storeConnectionIds,
     );
-    if (billingEnabled) {
+    if (billing !== null) {
       // One plan slot per destination store (item 16, N7).
-      await assertBillingCapacity(transaction, tenantId, "listings", storeConnectionIds.length);
+      await assertBillingCapacity(transaction, {
+        tenantId,
+        rules: billing,
+        resource: "listings",
+        requested: storeConnectionIds.length,
+      });
     }
     const [listing] = await transaction
       .insert(listings)

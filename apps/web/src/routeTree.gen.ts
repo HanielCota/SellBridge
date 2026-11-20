@@ -73,6 +73,7 @@ import { Route as ApiV1OpenapiDotjsonRouteImport } from './routes/api/v1/openapi
 import { Route as ApiV1StoresRouteImport } from './routes/api/v1/stores'
 import { Route as ApiWebhooksMarketplaceRouteImport } from './routes/api/webhooks/$marketplace'
 import { Route as ApiWebhooksAsaasRouteImport } from './routes/api/webhooks/asaas'
+import { Route as ApiWebhooksAsaasAssinaturaRouteImport } from './routes/api/webhooks/asaas-assinatura'
 import { Route as ApiWebhooksBlingRouteImport } from './routes/api/webhooks/bling'
 import { Route as ApiWebhooksMercadoPagoRouteImport } from './routes/api/webhooks/mercado-pago'
 import { Route as ApiWebhooksStripeRouteImport } from './routes/api/webhooks/stripe'
@@ -466,6 +467,12 @@ const ApiWebhooksAsaasRoute = ApiWebhooksAsaasRouteImport.update({
   path: '/api/webhooks/asaas',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiWebhooksAsaasAssinaturaRoute =
+  ApiWebhooksAsaasAssinaturaRouteImport.update({
+    id: '/api/webhooks/asaas-assinatura',
+    path: '/api/webhooks/asaas-assinatura',
+    getParentRoute: () => rootRouteImport,
+  } as any)
 const ApiWebhooksBlingRoute = ApiWebhooksBlingRouteImport.update({
   id: '/api/webhooks/bling',
   path: '/api/webhooks/bling',
@@ -941,6 +948,7 @@ export interface FileRoutesByFullPath {
   '/api/v1/stores': typeof ApiV1StoresRoute
   '/api/webhooks/$marketplace': typeof ApiWebhooksMarketplaceRoute
   '/api/webhooks/asaas': typeof ApiWebhooksAsaasRoute
+  '/api/webhooks/asaas-assinatura': typeof ApiWebhooksAsaasAssinaturaRoute
   '/api/webhooks/bling': typeof ApiWebhooksBlingRoute
   '/api/webhooks/mercado-pago': typeof ApiWebhooksMercadoPagoRoute
   '/api/webhooks/stripe': typeof ApiWebhooksStripeRoute
@@ -1073,6 +1081,7 @@ export interface FileRoutesByTo {
   '/api/v1/stores': typeof ApiV1StoresRoute
   '/api/webhooks/$marketplace': typeof ApiWebhooksMarketplaceRoute
   '/api/webhooks/asaas': typeof ApiWebhooksAsaasRoute
+  '/api/webhooks/asaas-assinatura': typeof ApiWebhooksAsaasAssinaturaRoute
   '/api/webhooks/bling': typeof ApiWebhooksBlingRoute
   '/api/webhooks/mercado-pago': typeof ApiWebhooksMercadoPagoRoute
   '/api/webhooks/stripe': typeof ApiWebhooksStripeRoute
@@ -1212,6 +1221,7 @@ export interface FileRoutesById {
   '/api/v1/stores': typeof ApiV1StoresRoute
   '/api/webhooks/$marketplace': typeof ApiWebhooksMarketplaceRoute
   '/api/webhooks/asaas': typeof ApiWebhooksAsaasRoute
+  '/api/webhooks/asaas-assinatura': typeof ApiWebhooksAsaasAssinaturaRoute
   '/api/webhooks/bling': typeof ApiWebhooksBlingRoute
   '/api/webhooks/mercado-pago': typeof ApiWebhooksMercadoPagoRoute
   '/api/webhooks/stripe': typeof ApiWebhooksStripeRoute
@@ -1350,6 +1360,7 @@ export interface FileRouteTypes {
     | '/api/v1/stores'
     | '/api/webhooks/$marketplace'
     | '/api/webhooks/asaas'
+    | '/api/webhooks/asaas-assinatura'
     | '/api/webhooks/bling'
     | '/api/webhooks/mercado-pago'
     | '/api/webhooks/stripe'
@@ -1482,6 +1493,7 @@ export interface FileRouteTypes {
     | '/api/v1/stores'
     | '/api/webhooks/$marketplace'
     | '/api/webhooks/asaas'
+    | '/api/webhooks/asaas-assinatura'
     | '/api/webhooks/bling'
     | '/api/webhooks/mercado-pago'
     | '/api/webhooks/stripe'
@@ -1620,6 +1632,7 @@ export interface FileRouteTypes {
     | '/api/v1/stores'
     | '/api/webhooks/$marketplace'
     | '/api/webhooks/asaas'
+    | '/api/webhooks/asaas-assinatura'
     | '/api/webhooks/bling'
     | '/api/webhooks/mercado-pago'
     | '/api/webhooks/stripe'
@@ -1723,6 +1736,7 @@ export interface RootRouteChildren {
   ApiV1StoresRoute: typeof ApiV1StoresRoute
   ApiWebhooksMarketplaceRoute: typeof ApiWebhooksMarketplaceRoute
   ApiWebhooksAsaasRoute: typeof ApiWebhooksAsaasRoute
+  ApiWebhooksAsaasAssinaturaRoute: typeof ApiWebhooksAsaasAssinaturaRoute
   ApiWebhooksBlingRoute: typeof ApiWebhooksBlingRoute
   ApiWebhooksMercadoPagoRoute: typeof ApiWebhooksMercadoPagoRoute
   ApiWebhooksStripeRoute: typeof ApiWebhooksStripeRoute
@@ -2216,6 +2230,13 @@ declare module '@tanstack/react-router' {
       path: '/api/webhooks/asaas'
       fullPath: '/api/webhooks/asaas'
       preLoaderRoute: typeof ApiWebhooksAsaasRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/webhooks/asaas-assinatura': {
+      id: '/api/webhooks/asaas-assinatura'
+      path: '/api/webhooks/asaas-assinatura'
+      fullPath: '/api/webhooks/asaas-assinatura'
+      preLoaderRoute: typeof ApiWebhooksAsaasAssinaturaRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/api/webhooks/bling': {
@@ -2975,6 +2996,7 @@ const rootRouteChildren: RootRouteChildren = {
   ApiV1StoresRoute: ApiV1StoresRoute,
   ApiWebhooksMarketplaceRoute: ApiWebhooksMarketplaceRoute,
   ApiWebhooksAsaasRoute: ApiWebhooksAsaasRoute,
+  ApiWebhooksAsaasAssinaturaRoute: ApiWebhooksAsaasAssinaturaRoute,
   ApiWebhooksBlingRoute: ApiWebhooksBlingRoute,
   ApiWebhooksMercadoPagoRoute: ApiWebhooksMercadoPagoRoute,
   ApiWebhooksStripeRoute: ApiWebhooksStripeRoute,
@@ -3029,13 +3051,3 @@ const rootRouteChildren: RootRouteChildren = {
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
   ._addFileTypes<FileRouteTypes>()
-
-import type { getRouter } from './router.tsx'
-import type { startInstance } from './start.ts'
-declare module '@tanstack/react-start' {
-  interface Register {
-    ssr: true
-    router: Awaited<ReturnType<typeof getRouter>>
-    config: Awaited<ReturnType<typeof startInstance.getOptions>>
-  }
-}

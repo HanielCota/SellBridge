@@ -20,6 +20,7 @@ import {
   supplierProducts,
   suppliers,
 } from "../schema/index.ts";
+import type { BillingRules } from "@sellbridge/shared/billing";
 import { assertBillingCapacity } from "./billing.ts";
 import { availabilityColumns } from "./listing-overview.ts";
 import { productWeightGrams } from "./sql/product-weight.ts";
@@ -235,7 +236,7 @@ export async function resetListingErrorsForRetry(
   database: Database,
   tenantId: string,
   listingIds: readonly string[],
-  options: { billingEnabled: boolean },
+  options: { billing: BillingRules | null },
 ): Promise<string[]> {
   await requireTenantListings(database, tenantId, listingIds);
   return database.transaction(async (transaction) => {
@@ -251,12 +252,17 @@ export async function resetListingErrorsForRetry(
       eq(listingTargets.status, RETRYABLE_TARGET_STATUS),
       targetMatchesStoreSupplier(),
     );
-    if (options.billingEnabled) {
+    if (options.billing !== null) {
       const [failed] = await transaction
         .select({ value: count() })
         .from(listingTargets)
         .where(failedTargets);
-      await assertBillingCapacity(transaction, tenantId, "listings", failed?.value ?? 0);
+      await assertBillingCapacity(transaction, {
+        tenantId,
+        rules: options.billing,
+        resource: "listings",
+        requested: failed?.value ?? 0,
+      });
     }
     const reset = await transaction
       .update(listingTargets)
