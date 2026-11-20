@@ -443,13 +443,16 @@ export function gridFillProblems(fill: GridFill): Partial<Record<keyof GridFill,
 }
 
 /** "-2", "-3"… after a code another combination already has ("Verde-Água" and "Verde Agua"). */
-function uniqueSku(candidate: string, used: Set<string>): string {
+function uniqueSku(candidate: string, used: ReadonlySet<string>): string {
   let sku = candidate;
   for (let copy = 2; used.has(sku); copy += 1) {
     sku = `${candidate}-${copy}`;
   }
-  used.add(sku);
   return sku;
+}
+
+function optionName(names: ReadonlyMap<string, string>, key: string | null): string | null {
+  return key === null ? null : (names.get(key) ?? null);
 }
 
 /**
@@ -463,23 +466,26 @@ export function withCombinationsFilled(state: GridFormState, fill: GridFill): Gr
   const used = new Set(
     state.combinations.map((combination) => combination.sku.trim()).filter((sku) => sku !== ""),
   );
+  const skuOf = (combination: GridFormCombination): string => {
+    if (combination.sku.trim() !== "" || fill.skuBase.trim() === "") {
+      return combination.sku;
+    }
+    const sku = uniqueSku(
+      suggestedSku(
+        fill.skuBase,
+        optionName(colorName, combination.colorKey),
+        optionName(sizeName, combination.sizeKey),
+      ),
+      used,
+    );
+    used.add(sku);
+    return sku;
+  };
   return {
     ...state,
     combinations: state.combinations.map((combination) => ({
       ...combination,
-      sku:
-        combination.sku.trim() === "" && fill.skuBase.trim() !== ""
-          ? uniqueSku(
-              suggestedSku(
-                fill.skuBase,
-                combination.colorKey === null
-                  ? null
-                  : (colorName.get(combination.colorKey) ?? null),
-                combination.sizeKey === null ? null : (sizeName.get(combination.sizeKey) ?? null),
-              ),
-              used,
-            )
-          : combination.sku,
+      sku: skuOf(combination),
       cost: fill.cost.trim() === "" ? combination.cost : fill.cost,
       suggestedPrice:
         fill.suggestedPrice.trim() === "" ? combination.suggestedPrice : fill.suggestedPrice,

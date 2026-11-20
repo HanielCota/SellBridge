@@ -18,12 +18,13 @@ import { environment } from "@/lib/server/environment";
 import { loadProductCategories } from "@/lib/server/reference-data";
 import { panelWrite, propagateApprovedChange } from "../catalog.server";
 
-/**
- * Grids stay off until the grid listing is ready (decision of 19/11/2026): off, every grid
- * route answers as if grids did not exist, whatever a request sends.
- */
 const GRIDS_UNAVAILABLE_MESSAGE = "Produtos com cores e tamanhos ainda não estão disponíveis.";
 
+/**
+ * Grids stay off until the grid listing is ready (decision of 19/11/2026): off, every grid write
+ * is refused with that sentence, whatever a request sends, and the form says so instead of
+ * opening.
+ */
 function assertProductGridEnabled(): void {
   if (environment.PRODUCT_GRID_ENABLED) {
     return;
