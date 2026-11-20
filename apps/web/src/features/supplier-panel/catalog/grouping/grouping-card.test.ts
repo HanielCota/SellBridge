@@ -79,7 +79,8 @@ describe("groupingConsequence", () => {
       "Os 3 produtos viram 1 na sua lista.",
       "Os 5 anúncios que os revendedores já têm no ar continuam iguais e vendendo.",
       "Código, estoque e preço de cada um não mudam.",
-      "Nome, fotos e ficha passam a ser os do produto principal.",
+      "O nome de cada um vira o do produto com a cor e o tamanho, e as fotos de cada cor juntam as fotos dos produtos dessa cor.",
+      "Descrição, ficha, produto sob encomenda e somente transportadora passam a ser os do produto principal.",
       "Você pode separar de novo depois.",
     ]);
   });

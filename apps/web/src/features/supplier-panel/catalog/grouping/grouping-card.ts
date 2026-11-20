@@ -92,6 +92,16 @@ function plural(count: number, one: string, many: string): string {
   return `${count} ${count === 1 ? one : many}`;
 }
 
+function listingsSentence(live: number): string {
+  if (live === 0) {
+    return "Nenhum deles tem anúncio no ar agora.";
+  }
+  if (live === 1) {
+    return "O anúncio que os revendedores já têm no ar continua igual e vendendo.";
+  }
+  return `Os ${live} anúncios que os revendedores já têm no ar continuam iguais e vendendo.`;
+}
+
 /**
  * What confirming does, with the real numbers: "Os 8 produtos viram 1 na sua lista. Os 5 anúncios
  * no ar continuam iguais e vendendo…".
@@ -102,11 +112,10 @@ export function groupingConsequence(
   const live = products.reduce((sum, product) => sum + product.liveListings, 0);
   return [
     `Os ${plural(products.length, "produto", "produtos")} viram 1 na sua lista.`,
-    live === 0
-      ? "Nenhum deles tem anúncio no ar agora."
-      : `${live === 1 ? "O anúncio" : `Os ${live} anúncios`} que os revendedores já têm no ar ${live === 1 ? "continua igual e vendendo" : "continuam iguais e vendendo"}.`,
+    listingsSentence(live),
     "Código, estoque e preço de cada um não mudam.",
-    "Nome, fotos e ficha passam a ser os do produto principal.",
+    "O nome de cada um vira o do produto com a cor e o tamanho, e as fotos de cada cor juntam as fotos dos produtos dessa cor.",
+    "Descrição, ficha, produto sob encomenda e somente transportadora passam a ser os do produto principal.",
     "Você pode separar de novo depois.",
   ];
 }
