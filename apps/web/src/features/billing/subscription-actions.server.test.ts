@@ -473,6 +473,37 @@ describe("plan change", () => {
     expect(result).toEqual({ url: null });
   });
 
+  it.each([
+    ["scheduling a smaller plan", {}, "start"],
+    [
+      "undoing a scheduled smaller plan",
+      { scheduledPlan: "start", scheduledPlanAt: new Date(Date.now() + 10 * 86_400_000) },
+      "elite",
+    ],
+  ] as const)(
+    "closes a card checkout priced for the old plan when %s",
+    async (_label, overrides, target) => {
+      mocks.account.mockResolvedValue(
+        liveAccount({
+          plan: "elite",
+          paymentMethod: "credit_card",
+          pendingPlan: "elite",
+          pendingReference: "checkout:chk_card",
+          ...overrides,
+        }),
+      );
+
+      await changePlan({ ...input, plan: target });
+
+      expect(mocks.client.cancelCheckout).toHaveBeenCalledWith("chk_card");
+      expect(mocks.save).toHaveBeenCalledWith(
+        expect.anything(),
+        "tenant-a",
+        expect.objectContaining({ pendingPlan: null, pendingReference: null }),
+      );
+    },
+  );
+
   it("refuses a change while a monthly charge is late", async () => {
     mocks.account.mockResolvedValue(liveAccount({ status: "past_due" }));
 

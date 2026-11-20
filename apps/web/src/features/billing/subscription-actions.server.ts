@@ -322,6 +322,9 @@ async function applyPlanChange(
   if (change.kind === "keep" || account.subscriptionId === null) return { url: null };
   if (change.kind === "upgrade_pay")
     return openUpgradeCharge(client, { tenantId, account, plan, change });
+  // A card checkout or a difference opened before was priced for the plan being left.
+  await retireUnpaid(client, { ...account, subscriptionId: null });
+  const retired = { pendingPlan: null, pendingReference: null };
   const current = isBillingPlanId(account.plan) ? billingPlan(account.plan) : plan;
   const charged = change.kind === "cancel_schedule" ? current : plan;
   await client.changeSubscriptionValue(account.subscriptionId, {
@@ -330,6 +333,7 @@ async function applyPlanChange(
   });
   if (change.kind === "schedule") {
     await saveBillingAccount(database, tenantId, {
+      ...retired,
       scheduledPlan: plan.id,
       scheduledPlanAt: change.startsAt,
     });
@@ -338,6 +342,7 @@ async function applyPlanChange(
   const now = change.kind === "upgrade_now" ? { plan: plan.id } : {};
   await saveBillingAccount(database, tenantId, {
     ...now,
+    ...retired,
     scheduledPlan: null,
     scheduledPlanAt: null,
   });
