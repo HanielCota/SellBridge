@@ -6,6 +6,7 @@ import { ErrorState } from "@/components/feedback/error-state";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
+  separatedProductsNote,
   skippedProductsNote,
   type BlingImportOutcome,
 } from "@/features/supplier-panel/bling/bling-overview";
@@ -35,11 +36,8 @@ function Summary({
   rows,
   truncated,
   skipped,
-}: {
-  rows: readonly ErpImportRow[];
-  truncated: boolean;
-  skipped: number;
-}) {
+  separated,
+}: Pick<PreviewBodyProps, "rows" | "truncated" | "skipped" | "separated">) {
   const existing = rows.filter((row) => !row.needsCost).length;
   const fresh = rows.length - existing;
   return (
@@ -55,6 +53,9 @@ function Summary({
       </p>
       {skipped > 0 ? (
         <p className="text-sm text-muted-foreground">{skippedProductsNote(skipped)}</p>
+      ) : null}
+      {separated > 0 ? (
+        <p className="text-sm text-muted-foreground">{separatedProductsNote(separated)}</p>
       ) : null}
       {truncated ? (
         <p className="text-sm text-muted-foreground">
@@ -91,6 +92,7 @@ interface PreviewBodyProps {
   readonly readId: string;
   readonly rows: ErpImportRow[];
   readonly skipped: number;
+  readonly separated: number;
   readonly truncated: boolean;
   readonly savedTenths: number | null;
   readonly onImported: (outcome: BlingImportOutcome) => void;
@@ -170,7 +172,7 @@ function PreviewBody(props: PreviewBodyProps) {
       aria-label="Prévia do Bling"
       className="surface-card grid gap-4 rounded-3xl bg-card p-5 sm:p-6"
     >
-      <Summary rows={props.rows} truncated={props.truncated} skipped={props.skipped} />
+      <Summary {...props} />
       {newRows.length > 0 ? (
         <>
           <BlingDiscountRule savedTenths={props.savedTenths} onApply={prices.applyDiscount} />
@@ -228,6 +230,7 @@ export function BlingPreview(props: {
       readId={props.readId}
       rows={rows.data.rows}
       skipped={rows.data.skipped.length}
+      separated={rows.data.separated}
       truncated={rows.data.truncated}
       savedTenths={props.savedTenths}
       onImported={props.onImported}

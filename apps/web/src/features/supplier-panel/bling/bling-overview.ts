@@ -216,6 +216,16 @@ export function isBlingReadRunning(overview: BlingOverview): boolean {
 }
 
 /** Why products of a read were left out: no code in Bling, or a code another product already has. */
+/** Products whose variations are not colour and size only (voltage, flavour): one row each. */
+export function separatedProductsNote(count: number): string {
+  const amount = integer.format(count);
+  const subject =
+    count === 1
+      ? `${amount} produto com variações entra`
+      : `${amount} produtos com variações entram`;
+  return `${subject} com uma linha por variação, sem grade de cores e tamanhos: as variações não são só cor e tamanho.`;
+}
+
 export function skippedProductsNote(count: number): string {
   const amount = integer.format(count);
   const subject = count === 1 ? `${amount} produto ficou` : `${amount} produtos ficaram`;
