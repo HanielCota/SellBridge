@@ -93,10 +93,9 @@ Asaas inclui o mesmo ID. Se a confirmação se perder, o suporte deve reconcilia
 Asaas e registrar o recurso identificado ou confirmar que a criação falhou antes de liberar
 nova tentativa.
 
-Os vínculos de cobrança antigos continuam identificados como Stripe. O suporte precisa
-encerrar ou reconciliar essas assinaturas no Stripe antes de liberar a troca para o Asaas.
-Durante a transição, mantenha as credenciais do Stripe e os preços legados se houver contas
-ainda vinculadas a ele.
+O Stripe não é mais usado. A migração `0096_drop_stripe_billing` deixa sem plano as contas que
+ainda tinham vínculo com ele (só contas de teste: a produção nunca cobrou pelo Stripe) e apaga a
+coluna que marcava o provedor.
 
 ## Lançamento
 
