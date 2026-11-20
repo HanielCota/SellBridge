@@ -1,7 +1,10 @@
 import { useState, type FormEvent } from "react";
 import { TextField } from "@/components/form/form-field";
 import { Button } from "@/components/ui/button";
-import type { GridFill } from "@/features/supplier-panel/catalog/grid/grid-form-state";
+import {
+  gridFillProblems,
+  type GridFill,
+} from "@/features/supplier-panel/catalog/grid/grid-form-state";
 
 const EMPTY_FILL: GridFill = { skuBase: "", cost: "", suggestedPrice: "", stock: "" };
 
@@ -17,6 +20,37 @@ const FILL_FIELDS = [
   { key: "stock", label: "Estoque (un.)", inputMode: "numeric", placeholder: "Exemplo: 10" },
 ] as const;
 
+type FillProblems = Partial<Record<keyof GridFill, string>>;
+
+function problemsOf(problems: FillProblems, key: keyof GridFill): string[] {
+  const problem = problems[key];
+  return problem === undefined ? [] : [problem];
+}
+
+function FillFields(props: {
+  fill: GridFill;
+  problems: FillProblems;
+  onChange: (key: keyof GridFill, value: string) => void;
+}) {
+  return (
+    <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+      {FILL_FIELDS.map((field) => (
+        <TextField
+          key={field.key}
+          id={`grid-fill-${field.key}`}
+          label={field.label}
+          value={props.fill[field.key]}
+          errors={problemsOf(props.problems, field.key)}
+          inputMode={field.inputMode}
+          placeholder={field.placeholder}
+          autoComplete="off"
+          onValueChange={(value) => props.onChange(field.key, value)}
+        />
+      ))}
+    </div>
+  );
+}
+
 /**
  * Typed once for every combination, so a grid of 30 is not 30 forms: the code base becomes
  * "TEN-CASUAL-PRETO-38" only where no SKU was typed, and blank fields change nothing.
@@ -29,9 +63,15 @@ export function GridFillForm({
   onFill: (fill: GridFill) => void;
 }) {
   const [fill, setFill] = useState<GridFill>(EMPTY_FILL);
+  const [problems, setProblems] = useState<FillProblems>({});
   const empty = Object.values(fill).every((value) => value.trim() === "");
   function submit(event: FormEvent) {
     event.preventDefault();
+    const found = gridFillProblems(fill);
+    setProblems(found);
+    if (Object.keys(found).length > 0) {
+      return;
+    }
     onFill(fill);
     setFill(EMPTY_FILL);
   }
@@ -51,21 +91,14 @@ export function GridFillForm({
           TEN-CASUAL-PRETO-38) e não troca um SKU que você já digitou.
         </p>
       </div>
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        {FILL_FIELDS.map((field) => (
-          <TextField
-            key={field.key}
-            id={`grid-fill-${field.key}`}
-            label={field.label}
-            value={fill[field.key]}
-            errors={[]}
-            inputMode={field.inputMode}
-            placeholder={field.placeholder}
-            autoComplete="off"
-            onValueChange={(value) => setFill((current) => ({ ...current, [field.key]: value }))}
-          />
-        ))}
-      </div>
+      <FillFields
+        fill={fill}
+        problems={problems}
+        onChange={(key, value) => {
+          setFill((current) => ({ ...current, [key]: value }));
+          setProblems(({ [key]: _fixed, ...others }) => others);
+        }}
+      />
       <Button
         type="submit"
         variant="secondary"

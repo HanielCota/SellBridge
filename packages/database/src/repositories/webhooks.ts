@@ -188,7 +188,7 @@ export async function findHeldWebhookEvents(
     .limit(held.limit);
 }
 
-/** The store a reconnection catch-up reads from, while it is still connected. */
+/** The store a reconnection catch-up or an order check reads from, while it is still connected. */
 export async function findConnectedStoreById(database: Database, storeConnectionId: string) {
   const row = await database.query.storeConnections.findFirst({
     where: and(
@@ -200,6 +200,7 @@ export async function findConnectedStoreById(database: Database, storeConnection
       tenantId: true,
       marketplace: true,
       externalShopId: true,
+      shopName: true,
       accessTokenEnc: true,
     },
   });

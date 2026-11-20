@@ -15,6 +15,7 @@ import {
   gte,
   ilike,
   inArray,
+  isNotNull,
   lt,
   notExists,
   or,
@@ -215,6 +216,8 @@ function detailShipments(database: Database, tenantId: string, orderId: string) 
       supplierId: orderShipments.supplierId,
       supplierName: suppliers.name,
       catalogKind: suppliers.catalogKind,
+      /** The supplier works from its panel: the reseller shares no link with it. */
+      supplierHasPanel: sql<boolean>`${suppliers.organizationId} is not null`,
       address: orderShipments.address,
       items: orderShipments.items,
       notes: orderShipments.notes,
@@ -255,9 +258,10 @@ export async function getFulfillmentDetail(database: Database, tenantId: string,
   const [store] = stores;
   if (!store) throw notFoundError("Loja do pedido não encontrada");
   const shipmentIds = shipments.map((row) => row.id);
-  const [events, invoices, resellerNotes] = await Promise.all([
+  const [events, invoices, purchaseInvoices, resellerNotes] = await Promise.all([
     eventsForShipments(database, shipmentIds),
     resellerShipmentInvoices(database, shipmentIds),
+    resellerShipmentInvoices(database, shipmentIds, "sale"),
     resellerSaleInvoicesOf(database, tenantId, shipmentIds),
   ]);
   return {
@@ -274,8 +278,10 @@ export async function getFulfillmentDetail(database: Database, tenantId: string,
     shipments: shipments.map((shipment) => ({
       ...timing.withShipmentDelay(shipment, new Date()),
       events: events.filter((event) => event.shipmentId === shipment.id),
-      /** The NF-e the supplier's ERP issues for this parcel, from its first step. */
+      /** The NF-e in the box (direct, or the remessa), from its first step. */
       invoice: invoices.get(shipment.id) ?? null,
+      /** In venda à ordem, the supplier's sale to the reseller: the reseller's purchase note. */
+      purchaseInvoice: purchaseInvoices.get(shipment.id) ?? null,
       /** In venda à ordem, the reseller's own sale note to the buyer; null in the other model. */
       resellerNote: resellerNotes.get(shipment.id) ?? null,
     })),
@@ -356,7 +362,7 @@ export async function reforwardShipment(database: Database, tenantId: string, sh
     if (!shipment) throw conflictError("Só um envio cancelado pode ser reencaminhado");
     // The same rule as the first forward: a supplier turned off by the admin gets no new parcel.
     const [supplier] = await transaction
-      .select({ active: suppliers.active })
+      .select({ active: suppliers.active, organizationId: suppliers.organizationId })
       .from(suppliers)
       .where(eq(suppliers.id, shipment.supplierId));
     if (!supplier?.active)
@@ -365,10 +371,22 @@ export async function reforwardShipment(database: Database, tenantId: string, sh
       shipmentId,
       status: "forwarded",
       actor: SHIPMENT_ACTORS.reseller,
-      note: "Reencaminhado ao fornecedor. Compartilhe o novo link com ele.",
+      note:
+        supplier.organizationId === null
+          ? "Reencaminhado ao fornecedor. Compartilhe o novo link com ele."
+          : "Reencaminhado ao fornecedor. Ele vê o pedido no painel.",
     });
     return { shipmentId, supplierId: shipment.supplierId, token: link.token };
   });
+}
+
+/**
+ * Parcels an order link still opens: a directory supplier the team runs for them. A supplier with
+ * its own panel works from there, so its links no longer open the parcel.
+ */
+function linkShipmentSource() {
+  return sql`exists (select 1 from ${suppliers} where ${suppliers.id} = ${orderShipments.supplierId}
+    and ${suppliers.catalogKind} = 'supplier' and ${suppliers.organizationId} is null)`;
 }
 
 function publicShipmentSource() {
@@ -385,7 +403,7 @@ export async function rotateSupplierLink(database: Database, tenantId: string, s
       and(
         eq(orderShipments.id, shipmentId),
         eq(orderShipments.tenantId, tenantId),
-        publicShipmentSource(),
+        linkShipmentSource(),
         inArray(orderShipments.status, ["forwarded", "accepted", "picking", "ready", "shipped"]),
       ),
     )
@@ -401,6 +419,30 @@ export async function revokeSupplierLink(database: Database, tenantId: string, s
     .where(and(eq(orderShipments.id, shipmentId), eq(orderShipments.tenantId, tenantId)))
     .returning({ id: orderShipments.id });
   if (!shipment) throw notFoundError("Envio não encontrado");
+}
+
+/**
+ * The order an unexpired link points to when its supplier now works from the panel, or null.
+ * Only the order number: the parcel itself opens in the panel, after the sign-in.
+ */
+export async function findPanelOrderOfLink(
+  database: Database,
+  token: string,
+): Promise<{ externalOrderId: string } | null> {
+  const [row] = await database
+    .select({ externalOrderId: orders.externalOrderId })
+    .from(orderShipments)
+    .innerJoin(orders, eq(orders.id, orderShipments.orderId))
+    .innerJoin(suppliers, eq(suppliers.id, orderShipments.supplierId))
+    .where(
+      and(
+        eq(suppliers.catalogKind, "supplier"),
+        isNotNull(suppliers.organizationId),
+        eq(orderShipments.supplierTokenHash, hashSupplierToken(token)),
+        gt(orderShipments.supplierTokenExpiresAt, new Date()),
+      ),
+    );
+  return row ?? null;
 }
 
 export async function getSupplierShipment(database: Database, token: string) {
@@ -421,7 +463,7 @@ export async function getSupplierShipment(database: Database, token: string) {
     .innerJoin(suppliers, eq(suppliers.id, orderShipments.supplierId))
     .where(
       and(
-        publicShipmentSource(),
+        linkShipmentSource(),
         eq(orderShipments.supplierTokenHash, hashSupplierToken(token)),
         gt(orderShipments.supplierTokenExpiresAt, new Date()),
       ),
@@ -562,7 +604,7 @@ function shipmentAccessFilter(access: ShipmentAccess) {
     return and(eq(orderShipments.supplierId, access.supplierId), publicShipmentSource());
   }
   return and(
-    publicShipmentSource(),
+    linkShipmentSource(),
     eq(orderShipments.supplierTokenHash, hashSupplierToken(access.token)),
     gt(orderShipments.supplierTokenExpiresAt, new Date()),
   );

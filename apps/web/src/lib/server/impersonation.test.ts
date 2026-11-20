@@ -71,8 +71,11 @@ describe("what an admin may do inside a customer's account", () => {
     "deleteWebhookEndpointFn",
     "setWebhookEndpointEnabledFn",
     "disconnectStoreFn",
-    "checkoutBilling",
-    "manageBilling",
+    "subscribeBilling",
+    "changeBillingPlan",
+    "openBillingPayment",
+    "changeBillingPaymentMethod",
+    "cancelBilling",
     "saveOnboardingHolder",
     // The supplier's company data and the e-mail that receives its orders.
     "updateOwnBrandFn",

@@ -102,6 +102,22 @@ export const blingCompanyResponseSchema = z.object({
   data: z.object({ id: z.string().trim().min(1) }),
 });
 
+/** `GET /depositos` (OpenAPI `DepositosDadosDTO`): the account's warehouses. */
+export const blingDepositListResponseSchema = z.object({
+  data: z.array(
+    z.object({
+      id: z.number().int(),
+      situacao: z.number().int(),
+      padrao: z.boolean(),
+    }),
+  ),
+});
+
+/** `POST /estoques` (OpenAPI `BasePostResponse`): the id of the stock record created. */
+export const blingCreatedStockResponseSchema = z.object({
+  data: z.object({ id: z.number().int() }),
+});
+
 export const blingCreatedProductResponseSchema = z.object({
   data: z.object({ id: z.number() }),
 });

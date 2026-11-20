@@ -7,6 +7,7 @@ import {
   erpConnectRefusal,
   erpOwnerActionRefusal,
   invoicingRefusal,
+  onBehalfOperationsRefusal,
 } from "./bling-connection";
 
 const SUPPLIER = "8b0f6f7e-1c1f-4d9a-9a39-5c1f6f0b2a11";
@@ -170,5 +171,44 @@ describe("invoicingRefusal", () => {
     });
 
     expect(refusal).not.toBeNull();
+  });
+});
+
+describe("onBehalfOperationsRefusal", () => {
+  const choice = {
+    actor: { viewerKind: "supplier" as const, impersonatedBy: null },
+    connected: true,
+    knownOperationIds: new Set([501, 502]),
+    shipmentOperationId: 501,
+    saleOperationId: 502,
+  };
+
+  it("lets the supplier save two different active operations", () => {
+    expect(onBehalfOperationsRefusal(choice)).toBeNull();
+  });
+
+  it("refuses the team during a visit", () => {
+    const refusal = onBehalfOperationsRefusal({
+      ...choice,
+      actor: { viewerKind: "supplier", impersonatedBy: "admin-1" },
+    });
+
+    expect(refusal).toMatch(/visita da equipe/);
+  });
+
+  it("asks to connect Bling first", () => {
+    expect(onBehalfOperationsRefusal({ ...choice, connected: false })).toMatch(/Conecte o Bling/);
+  });
+
+  it("refuses the same operation for both notes", () => {
+    const refusal = onBehalfOperationsRefusal({ ...choice, saleOperationId: 501 });
+
+    expect(refusal).toMatch(/naturezas diferentes/);
+  });
+
+  it("refuses an operation the supplier's Bling does not have active", () => {
+    const refusal = onBehalfOperationsRefusal({ ...choice, saleOperationId: 999 });
+
+    expect(refusal).toMatch(/não está mais ativa/);
   });
 });

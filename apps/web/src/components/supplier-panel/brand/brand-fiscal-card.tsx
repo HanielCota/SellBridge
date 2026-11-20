@@ -14,7 +14,7 @@ import {
   INVOICE_MODELS,
   type InvoiceModel,
 } from "@sellbridge/shared/supplier-invoice";
-import { useCallback } from "react";
+import { useCallback, type ReactNode } from "react";
 import { PRODUCT_ORIGIN_OPTIONS, PRODUCT_UNIT_OPTIONS } from "@/components/form/fiscal-options";
 import { firstErrorMessage, TextField } from "@/components/form/form-field";
 import { SelectField } from "@/components/form/select-field";
@@ -29,6 +29,8 @@ interface BrandFiscalCardProps {
   values: SupplierFiscalFormValues;
   errors: Record<string, string[]>;
   onChange: (change: Partial<SupplierFiscalFormValues>) => void;
+  /** Shown under "Venda à ordem" when it is chosen: the supplier's Bling operations. */
+  onBehalfOperations?: ReactNode;
 }
 
 function errorsOf(
@@ -277,11 +279,55 @@ function DefaultsFields({ values, errors, onChange }: BrandFiscalCardProps) {
 
 const INVOICE_MODEL_DESCRIPTIONS: Readonly<Record<InvoiceModel, string>> = {
   direct: "Você emite uma nota de venda para quem comprou no marketplace.",
-  on_behalf: "Três notas, com o revendedor no meio.",
+  on_behalf:
+    "O revendedor que vende como empresa emite a nota de venda para o comprador. Você emite a remessa, que vai na caixa, e a venda para o revendedor. Quem vende como pessoa física continua com a nota direta.",
 };
 
-/** "Como sai a nota": direct to the buyer today; the order sale shows as coming soon. */
-function InvoiceModelFields({ values, onChange }: BrandFiscalCardProps) {
+/** The CFOPs of the two venda à ordem notes, already filled with the usual codes. */
+function OnBehalfCfopFields({ values, errors, onChange }: BrandFiscalCardProps) {
+  const fields = [
+    { field: "fiscalOnBehalfShipmentInState", label: "Remessa · dentro do estado" },
+    { field: "fiscalOnBehalfShipmentOutOfState", label: "Remessa · outro estado" },
+    { field: "fiscalOnBehalfSaleInState", label: "Venda ao revendedor · dentro do estado" },
+    { field: "fiscalOnBehalfSaleOutOfState", label: "Venda ao revendedor · outro estado" },
+  ] as const;
+  return (
+    <fieldset className="grid gap-3">
+      <legend className="mb-1 text-sm font-semibold">CFOP da venda à ordem</legend>
+      <p className="text-sm text-muted-foreground">
+        Já vêm com os códigos de costume (5923/6923 e 5119/6119). Se você fabrica os produtos, a
+        venda ao revendedor costuma ser 5118/6118: confira com o seu contador.
+      </p>
+      <div className="grid gap-4 sm:grid-cols-2">
+        {fields.map(({ field, label }) => (
+          <TextField
+            key={field}
+            id={`brand-fiscal-${field}`}
+            label={label}
+            value={values[field]}
+            inputMode="numeric"
+            errors={errorsOf(errors, field)}
+            onValueChange={(value) => onChange({ [field]: value })}
+          />
+        ))}
+      </div>
+    </fieldset>
+  );
+}
+
+/** "Como sai a nota": the choice, and the setup venda à ordem needs once it is chosen. */
+function InvoiceModelFields(props: BrandFiscalCardProps) {
+  const isOnBehalf = props.values.fiscalInvoiceModel === "on_behalf";
+  return (
+    <div className="grid gap-4">
+      <InvoiceModelChoice {...props} />
+      {isOnBehalf ? props.onBehalfOperations : null}
+      {isOnBehalf ? <OnBehalfCfopFields {...props} /> : null}
+    </div>
+  );
+}
+
+function InvoiceModelChoice({ values, onChange }: BrandFiscalCardProps) {
   return (
     <fieldset className="grid gap-3 sm:grid-cols-2">
       <legend className="mb-1 text-sm font-semibold">Como sai a nota</legend>

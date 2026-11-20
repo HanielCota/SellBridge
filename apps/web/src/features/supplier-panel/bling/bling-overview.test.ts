@@ -184,9 +184,9 @@ describe("blingStockLine", () => {
     );
   });
 
-  it("says what turns it on while the NF-e through Bling is off", () => {
-    expect(blingStockLine({ ...view, invoiceEnabledAt: null })).toBe(
-      "O estoque passa a acompanhar o Bling sozinho quando a nota fiscal pelo Bling estiver ligada.",
+  it("says the stock follows Bling even while the NF-e through Bling is off", () => {
+    expect(blingStockLine({ ...view, invoiceEnabledAt: null })).toMatch(
+      /^Estoque atualizado sozinho pelo Bling · última conferência: /,
     );
   });
 });

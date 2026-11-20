@@ -87,7 +87,7 @@ test("sem Bling conectado, o fornecedor vê um botão para conectar e a planilha
   await expect(page.getByRole("heading", { level: 1, name: "Importar produtos" })).toBeVisible();
   const card = page.getByRole("region", { name: "Importar do Bling" });
   await expect(
-    card.getByText("O SellBridge só lê: nada muda no seu Bling.", { exact: false }),
+    card.getByText("cada venda do SellBridge dá baixa no estoque do seu Bling", { exact: false }),
   ).toBeVisible();
   await expect(card.getByRole("link", { name: "Conectar Bling" })).toHaveAttribute(
     "href",

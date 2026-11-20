@@ -1,6 +1,6 @@
 import { z } from "zod";
 import type { ProductFiscal } from "./product-fiscal.ts";
-import type { SupplierTaxDefaults } from "./supplier-fiscal.ts";
+import type { OnBehalfCfops, SupplierTaxDefaults } from "./supplier-fiscal.ts";
 
 /**
  * The NF-e a supplier's ERP issues for one parcel (one order, one supplier). Every tax choice
@@ -11,8 +11,8 @@ import type { SupplierTaxDefaults } from "./supplier-fiscal.ts";
 /**
  * How the sale is invoiced ("Como sai a nota"):
  * - direct: one sale NF-e from the supplier straight to the marketplace buyer (model A);
- * - on_behalf: "venda à ordem", three notes with the reseller in the middle (model B, not built
- *   yet: the screen shows it as "em breve" and the job holds such parcels back).
+ * - on_behalf: "venda à ordem", three notes with the reseller in the middle (model B). A reseller
+ *   who sells with a CPF stays on the direct note (decision of 18/11/2026).
  */
 export const INVOICE_MODELS = ["direct", "on_behalf"] as const;
 export type InvoiceModel = (typeof INVOICE_MODELS)[number];
@@ -23,8 +23,51 @@ export const INVOICE_MODEL_LABELS: Readonly<Record<InvoiceModel, string>> = {
   on_behalf: "Venda à ordem",
 };
 
-/** Models the job can issue today; the others are shown as coming soon. */
-export const AVAILABLE_INVOICE_MODELS: readonly InvoiceModel[] = ["direct"];
+/** Models the supplier can pick on the brand screen; the others are shown as coming soon. */
+export const AVAILABLE_INVOICE_MODELS: readonly InvoiceModel[] = ["direct", "on_behalf"];
+
+/**
+ * The notes a supplier's ERP issues for one parcel:
+ * - direct: the sale to the marketplace buyer (model A);
+ * - on_behalf_shipment: in venda à ordem, the remessa to the buyer, which goes in the box and
+ *   cites the reseller's own sale note;
+ * - on_behalf_sale: in venda à ordem, the sale to the reseller, which cites the remessa's key.
+ */
+export const INVOICE_KINDS = ["direct", "on_behalf_shipment", "on_behalf_sale"] as const;
+export type InvoiceKind = (typeof INVOICE_KINDS)[number];
+
+/** The note that travels with the parcel: there is one per parcel, whatever the model. */
+export const BOX_INVOICE_KINDS: readonly InvoiceKind[] = ["direct", "on_behalf_shipment"];
+
+/**
+ * Which of a parcel's notes the screens mean: the one in the box (direct or remessa) or, in
+ * venda à ordem, the supplier's sale to the reseller.
+ */
+export const PARCEL_NOTES = ["box", "sale"] as const;
+export type ParcelNote = (typeof PARCEL_NOTES)[number];
+
+export function parcelNoteKinds(note: ParcelNote): readonly InvoiceKind[] {
+  return note === "box" ? BOX_INVOICE_KINDS : ["on_behalf_sale"];
+}
+
+/**
+ * The CFOP of a venda à ordem note: in-state or out-of-state, from the supplier's settings. The
+ * remessa compares the supplier's state with the buyer's, the sale with the reseller's.
+ */
+export function onBehalfCfop(
+  cfops: OnBehalfCfops,
+  input: {
+    kind: "on_behalf_shipment" | "on_behalf_sale";
+    supplierState: string;
+    recipientState: string;
+  },
+): string {
+  const inState = input.supplierState.toUpperCase() === input.recipientState.toUpperCase();
+  if (input.kind === "on_behalf_shipment") {
+    return inState ? cfops.shipmentInState : cfops.shipmentOutOfState;
+  }
+  return inState ? cfops.saleInState : cfops.saleOutOfState;
+}
 
 /**
  * - queued: waiting for the job (first try or a retry after a passing failure);

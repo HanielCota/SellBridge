@@ -1,6 +1,8 @@
 import { formatCentsForInput } from "@sellbridge/shared/money";
+import { parseCsvMoney } from "@sellbridge/shared/product-csv";
 import { sortSizeNames } from "@sellbridge/shared/product-grid";
 import { stripAccents } from "@sellbridge/shared/text";
+import { parseStockCount } from "../draft-form";
 
 /**
  * The colour and size grid as the supplier edits it. Colours and sizes carry a key of their own,
@@ -241,6 +243,72 @@ export function withSizeRemoved(state: GridFormState, key: string): GridFormStat
   };
 }
 
+/** A colour or size taken out of the grid, with the grid as it was, so it can be put back. */
+export interface RemovedOption {
+  readonly axis: "color" | "size";
+  readonly key: string;
+  readonly before: GridFormState;
+}
+
+function optionsOf(state: GridFormState, axis: RemovedOption["axis"]) {
+  return axis === "color" ? state.colors : state.sizes;
+}
+
+function optionKeyOf(combination: GridFormCombination, axis: RemovedOption["axis"]) {
+  return axis === "color" ? combination.colorKey : combination.sizeKey;
+}
+
+function otherKeyOf(combination: GridFormCombination, axis: RemovedOption["axis"]) {
+  return axis === "color" ? combination.sizeKey : combination.colorKey;
+}
+
+function withOptionInserted<Option extends { key: string }>(
+  options: readonly Option[],
+  option: Option,
+  index: number,
+): Option[] {
+  return options.toSpliced(Math.min(index, options.length), 0, option);
+}
+
+/**
+ * Puts back a removed colour or size with the combinations it took along, over the grid as it is
+ * now: whatever was typed since stays. A combination whose other option was removed meanwhile
+ * stays out, and nothing comes back when an option of the same name was added meanwhile. When
+ * it was the last colour (or size), the stand-in combinations made for the other options give
+ * way to the ones it had.
+ */
+export function withOptionRestored(state: GridFormState, removed: RemovedOption): GridFormState {
+  const { axis, key, before } = removed;
+  const previous = optionsOf(before, axis);
+  const index = previous.findIndex((option) => option.key === key);
+  const name = previous[index]?.name;
+  const current = optionsOf(state, axis);
+  if (name === undefined || current.some((entry) => sameOptionName(entry.name, name))) {
+    return state;
+  }
+  const otherKeys = new Set(
+    optionsOf(state, axis === "color" ? "size" : "color").map((entry) => entry.key),
+  );
+  const restored = before.combinations.filter((combination) => {
+    const other = otherKeyOf(combination, axis);
+    return optionKeyOf(combination, axis) === key && (other === null || otherKeys.has(other));
+  });
+  const kept =
+    current.length === 0
+      ? state.combinations.filter((combination) => optionKeyOf(combination, axis) !== null)
+      : state.combinations;
+  const combinations = [...kept, ...restored];
+  const color = before.colors[index];
+  if (axis === "color" && color !== undefined) {
+    return { ...state, colors: withOptionInserted(state.colors, color, index), combinations };
+  }
+  const size = before.sizes[index];
+  if (axis === "size" && size !== undefined) {
+    return { ...state, sizes: withOptionInserted(state.sizes, size, index), combinations };
+  }
+  return state;
+}
+
 /** Turns one pair of colour and size on (blank values) or off ("Não vendo esta"). */
 export function withCombinationToggled(
   state: GridFormState,
@@ -297,23 +365,83 @@ export interface GridFill {
   readonly stock: string;
 }
 
+function amountProblem(text: string): string | null {
+  const value = text.trim();
+  if (value === "" || parseCsvMoney(value) !== null) {
+    return null;
+  }
+  return `"${value}" não é um valor em reais. Exemplo: 59,90`;
+}
+
+function stockProblem(text: string): string | null {
+  const value = text.trim();
+  if (value === "") {
+    return null;
+  }
+  const units = parseStockCount(value);
+  if (Number.isInteger(units) && units >= 0) {
+    return null;
+  }
+  return `"${value}" não é uma quantidade. Use um número inteiro, por exemplo 10`;
+}
+
+/**
+ * Why a value of "Preencher todas" cannot be copied to every combination, by field: a value
+ * typed halfway ("59,") would land in all of them at once. Empty when all can.
+ */
+export function gridFillProblems(fill: GridFill): Partial<Record<keyof GridFill, string>> {
+  const problems: Partial<Record<keyof GridFill, string>> = {};
+  const cost = amountProblem(fill.cost);
+  const suggestedPrice = amountProblem(fill.suggestedPrice);
+  const stock = stockProblem(fill.stock);
+  if (cost !== null) {
+    problems.cost = cost;
+  }
+  if (suggestedPrice !== null) {
+    problems.suggestedPrice = suggestedPrice;
+  }
+  if (stock !== null) {
+    problems.stock = stock;
+  }
+  return problems;
+}
+
+/** "-2", "-3"… after a code another combination already has ("Verde-Água" and "Verde Agua"). */
+function uniqueSku(candidate: string, used: Set<string>): string {
+  let sku = candidate;
+  for (let copy = 2; used.has(sku); copy += 1) {
+    sku = `${candidate}-${copy}`;
+  }
+  used.add(sku);
+  return sku;
+}
+
 /**
  * Fills every combination at once: the code only where none was typed (a SKU is the supplier's
- * own and never replaced), cost, price and stock wherever the fill has a value.
+ * own and never replaced), cost, price and stock wherever the fill has a value. A code that
+ * would repeat another combination's gets a number after it.
  */
 export function withCombinationsFilled(state: GridFormState, fill: GridFill): GridFormState {
   const colorName = new Map(state.colors.map((color) => [color.key, color.name]));
   const sizeName = new Map(state.sizes.map((size) => [size.key, size.name]));
+  const used = new Set(
+    state.combinations.map((combination) => combination.sku.trim()).filter((sku) => sku !== ""),
+  );
   return {
     ...state,
     combinations: state.combinations.map((combination) => ({
       ...combination,
       sku:
         combination.sku.trim() === "" && fill.skuBase.trim() !== ""
-          ? suggestedSku(
-              fill.skuBase,
-              combination.colorKey === null ? null : (colorName.get(combination.colorKey) ?? null),
-              combination.sizeKey === null ? null : (sizeName.get(combination.sizeKey) ?? null),
+          ? uniqueSku(
+              suggestedSku(
+                fill.skuBase,
+                combination.colorKey === null
+                  ? null
+                  : (colorName.get(combination.colorKey) ?? null),
+                combination.sizeKey === null ? null : (sizeName.get(combination.sizeKey) ?? null),
+              ),
+              used,
             )
           : combination.sku,
       cost: fill.cost.trim() === "" ? combination.cost : fill.cost,
@@ -331,14 +459,16 @@ interface StoredCombinationStock {
   readonly stock: number;
 }
 
-function sentName(
-  options: readonly { key: string; name: string }[],
-  key: string | null,
-): string | null {
-  if (key === null) {
-    return null;
-  }
-  return options.find((option) => option.key === key)?.name.trim() ?? null;
+function sentNames(options: readonly { key: string; name: string }[]): Map<string, string> {
+  return new Map(options.map((option) => [option.key, option.name.trim()]));
+}
+
+function nameOf(names: ReadonlyMap<string, string>, key: string | null): string | null {
+  return key === null ? null : (names.get(key) ?? null);
+}
+
+function pairOf(colorKey: string | null, sizeKey: string | null): string {
+  return `${colorKey ?? ""}\u0000${sizeKey ?? ""}`;
 }
 
 /**
@@ -351,25 +481,27 @@ export function withSaveAnswer(
   sent: { grid: GridFormState; combinations: readonly GridFormCombination[] },
   stored: readonly StoredCombinationStock[],
 ): GridFormState {
+  const colorNames = sentNames(sent.grid.colors);
+  const sizeNames = sentNames(sent.grid.sizes);
+  const storedByName = new Map(stored.map((entry) => [pairOf(entry.color, entry.size), entry]));
+  const sentByPair = new Map(
+    sent.combinations.map((entry) => [pairOf(entry.colorKey, entry.sizeKey), entry]),
+  );
   const storedStock = (combination: GridFormCombination) =>
-    stored.find(
-      (entry) =>
-        entry.color === sentName(sent.grid.colors, combination.colorKey) &&
-        entry.size === sentName(sent.grid.sizes, combination.sizeKey),
+    storedByName.get(
+      pairOf(nameOf(colorNames, combination.colorKey), nameOf(sizeNames, combination.sizeKey)),
     );
   return {
     colors: state.colors.map((color) => {
-      const name = sentName(sent.grid.colors, color.key);
+      const name = nameOf(colorNames, color.key);
       return name === null ? color : { ...color, savedName: name };
     }),
     sizes: state.sizes.map((size) => {
-      const name = sentName(sent.grid.sizes, size.key);
+      const name = nameOf(sizeNames, size.key);
       return name === null ? size : { ...size, savedName: name };
     }),
     combinations: state.combinations.map((combination) => {
-      const sentCombination = sent.combinations.find((entry) =>
-        isPair(entry, combination.colorKey, combination.sizeKey),
-      );
+      const sentCombination = sentByPair.get(pairOf(combination.colorKey, combination.sizeKey));
       const saved = sentCombination === undefined ? undefined : storedStock(sentCombination);
       if (sentCombination === undefined || saved === undefined) {
         return combination;
