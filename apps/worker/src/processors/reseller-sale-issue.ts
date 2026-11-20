@@ -22,7 +22,7 @@ import type {
   BlingInvoiceInstallment,
   BlingNewDirectInvoice,
 } from "@sellbridge/marketplaces/bling";
-import { parseAccessKey } from "@sellbridge/shared/nfe-access-key";
+import { parseAccessKey, resellerAccessKeyProblem } from "@sellbridge/shared/nfe-access-key";
 import { readAuthorizedNfeXml } from "@sellbridge/shared/nfe-xml";
 import {
   allocateInstallments,
@@ -83,6 +83,15 @@ const CANCELLED_IN_BLING =
 const WRONG_XML =
   "O Bling entregou um XML que não é o desta nota. Baixe o XML no Bling e envie aqui.";
 const NO_BLING = "Conecte o Bling de novo em Integrações para continuar.";
+const NOT_A_COMPANY =
+  "Cadastre o CNPJ da sua empresa em Meu cadastro: a nota de venda sai no nome dela. Depois peça para tentar de novo.";
+
+function resellerCnpjOf(due: DueResellerSaleInvoice): string {
+  if (due.resellerCnpj === null) {
+    throw new InvoiceStopError(NOT_A_COMPANY);
+  }
+  return due.resellerCnpj;
+}
 
 /** A definitive refusal of the create call clears the mark: the note surely does not exist. */
 const DEFINITIVE_DRAFT_REFUSALS = new Set([400, 401, 403, 404, 422, 429]);
@@ -291,7 +300,10 @@ async function createSaleNote(
   return invoiceId;
 }
 
-/** Downloads the authorized note's XML, checks it is this note and hands it to Mercado Livre. */
+/**
+ * Downloads the authorized note's XML, checks it is this note, issued by the reseller's CNPJ (a
+ * Bling of another company issues in that company's name), and hands it to Mercado Livre.
+ */
 async function passOnAuthorized(
   dependencies: ResellerSaleIssueDependencies,
   client: BlingClient,
@@ -299,12 +311,17 @@ async function passOnAuthorized(
     due: DueResellerSaleInvoice;
     work: ResellerSaleIssueWork;
     invoice: BlingInvoice;
+    resellerCnpj: string;
     now: Date;
   },
 ): Promise<ResellerSaleIssueStep> {
   const accessKey = input.invoice.accessKey;
   if (accessKey === null) {
     return "waiting";
+  }
+  const issuerProblem = resellerAccessKeyProblem(accessKey, input.resellerCnpj);
+  if (issuerProblem !== null) {
+    throw new InvoiceStopError(`A nota que saiu do seu Bling não serve. ${issuerProblem}`);
   }
   const xml = new TextDecoder().decode(await client.getInvoiceDocument(accessKey, "xml"));
   const reading = readAuthorizedNfeXml(xml);
@@ -365,13 +382,14 @@ export async function advanceResellerSaleIssue(
   if (client === null) {
     throw new InvoiceStopError(NO_BLING);
   }
+  const resellerCnpj = resellerCnpjOf(input.due);
   const plan = salePlan(input.work);
   const invoiceId =
     input.due.erpInvoiceId ?? (await createSaleNote(dependencies, client, { ...input, plan }));
   const invoice = await client.getInvoice(invoiceId);
   const outcome = blingInvoiceOutcome(invoice.situacao);
   if (outcome === "authorized") {
-    return passOnAuthorized(dependencies, client, { ...input, invoice });
+    return passOnAuthorized(dependencies, client, { ...input, invoice, resellerCnpj });
   }
   if (outcome === "refused") {
     throw new InvoiceStopError(refusedInvoiceReason(invoice.situacao));

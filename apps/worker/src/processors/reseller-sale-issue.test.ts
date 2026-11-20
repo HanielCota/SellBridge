@@ -246,4 +246,30 @@ describe("the reseller's sale note issued by its own Bling", () => {
     expect((await noteOf(shipmentId))?.problem).toMatch(/código de autorização do cartão/);
     expect(bling.state.created).toBeNull();
   });
+
+  it("stops without passing on a note its Bling issued under another company's CNPJ", async () => {
+    const { shipmentId, tenantId, sku } = await scenario(settingsWithCard);
+    await database
+      .update(schema.tenantProfile)
+      .set({ cnpj: "11222333000181" })
+      .where(eq(schema.tenantProfile.tenantId, tenantId));
+    const bling = fakeBling(sku);
+    const sendSaleInvoice = vi.fn<ResellerSaleIssueDependencies["sendSaleInvoice"]>(async () => {});
+    let clock = Date.now();
+    const run = processor({
+      ...bling,
+      sale: CARD_SALE,
+      sendSaleInvoice,
+      now: () => new Date(clock),
+    });
+
+    await run();
+    clock += 3_600_000;
+    await run();
+
+    const note = await noteOf(shipmentId);
+    expect(sendSaleInvoice).not.toHaveBeenCalled();
+    expect(note?.accessKey).toBeNull();
+    expect(note?.problem).toMatch(/^A nota que saiu do seu Bling não serve\. .*45\.723\.174/);
+  });
 });
