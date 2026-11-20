@@ -18,6 +18,9 @@ function StatusLine({ state }: { state: AutosaveState }) {
     case "needs-sku": {
       return <span className="text-muted-foreground">Informe o código para salvar</span>;
     }
+    case "needs-title": {
+      return <span className="text-muted-foreground">Informe o nome do produto para salvar</span>;
+    }
     case "invalid": {
       return (
         <span className="text-amber-700 dark:text-amber-400">
