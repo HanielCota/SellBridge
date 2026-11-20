@@ -42,27 +42,34 @@ export interface OnBehalfLabelParcel {
   readonly resellerNoteSource: ResellerInvoiceSource | null;
   /** The supplier's remessa, the note in the box, is authorized. */
   readonly remessaAuthorized: boolean;
+  /** The SellBridge team let this parcel's label out although a note is stuck. */
+  readonly labelReleased: boolean;
 }
+
+/** Where to turn when a note cannot come out at all. */
+const ASK_SUPPORT = " Se a nota não puder sair, fale com o suporte do SellBridge.";
 
 /**
  * Why the order's label must wait in venda à ordem, or null: the parcel ships with the remessa, and
  * Mercado Livre also needs the reseller's own note on its order (a typed key never reached it).
+ * A parcel the team released no longer holds the label (decision of 20/11/2026).
  */
 export function onBehalfLabelRefusal(
   parcels: readonly OnBehalfLabelParcel[],
   marketplace: string,
 ): string | null {
-  if (parcels.some((parcel) => parcel.resellerNoteSource === null)) {
-    return "A etiqueta desta venda à ordem espera a nota de venda do revendedor. Ela sai assim que a nota chegar e a remessa for autorizada.";
+  const held = parcels.filter((parcel) => !parcel.labelReleased);
+  if (held.some((parcel) => parcel.resellerNoteSource === null)) {
+    return `A etiqueta desta venda à ordem espera a nota de venda do revendedor. Ela sai assim que a nota chegar e a remessa for autorizada.${ASK_SUPPORT}`;
   }
   if (
     marketplace === "mercado_livre" &&
-    parcels.some((parcel) => parcel.resellerNoteSource === "typed")
+    held.some((parcel) => parcel.resellerNoteSource === "typed")
   ) {
-    return "O Mercado Livre ainda não tem a nota de venda do revendedor. O revendedor envia o XML da nota no pedido do SellBridge, e a etiqueta sai em seguida.";
+    return `O Mercado Livre ainda não tem a nota de venda do revendedor. O revendedor envia o XML da nota no pedido do SellBridge, e a etiqueta sai em seguida.${ASK_SUPPORT}`;
   }
-  if (parcels.some((parcel) => !parcel.remessaAuthorized)) {
-    return "A etiqueta desta venda à ordem espera a nota de remessa do fornecedor, que vai na caixa. Ela sai assim que a remessa for autorizada.";
+  if (held.some((parcel) => !parcel.remessaAuthorized)) {
+    return `A etiqueta desta venda à ordem espera a nota de remessa do fornecedor, que vai na caixa. Ela sai assim que a remessa for autorizada.${ASK_SUPPORT}`;
   }
   return null;
 }
