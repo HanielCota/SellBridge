@@ -14,7 +14,7 @@ Fatia 4 das variações de cor e tamanho. Guilherme aprovou o plano em 20/11 pel
   - **Não muda:** o id de cada produto, o SKU, o estoque, o reservado, o custo, o preço sugerido, a situação e o "à venda". Anúncios e pedidos apontam para o mesmo produto e não percebem nada.
   - **Muda:**
     - o nome vira "Modelo - Cor Tamanho";
-    - a descrição, a ficha, o fiscal, a categoria, a garantia e o vídeo passam a ser os do produto principal;
+    - a descrição, a ficha (sem código de barras, cor e tamanho, que são de cada produto), o fiscal, a categoria, a garantia, o vídeo, o "produto sob encomenda" e o "somente transportadora" passam a ser os do produto principal, e a tela diz isso antes de juntar;
     - as fotos de uma cor juntam as fotos dos produtos dessa cor;
     - o código de barras e o peso de cada produto continuam dele.
 - **Recusas:** juntar nunca muda a situação de ninguém. A tela mostra o motivo ao lado do produto e o botão espera.
