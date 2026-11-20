@@ -426,7 +426,7 @@ describe("plan change", () => {
       expect.objectContaining({
         customerId: "cus_a",
         billingType: "PIX",
-        externalReference: expect.stringMatching(/^upgrade:tenant-a:[a-f0-9-]+$/),
+        externalReference: expect.stringMatching(/^upgrade:tenant-a:[a-f0-9-]+:\d{13}$/),
       }),
     );
     expect(mocks.save).toHaveBeenCalledWith(expect.anything(), "tenant-a", {
@@ -515,6 +515,31 @@ describe("plan change", () => {
 });
 
 describe("paying what is open", () => {
+  it("closes a difference whose month is over and offers the monthly fee instead", async () => {
+    mocks.account.mockResolvedValue(
+      liveAccount({ pendingPlan: "elite", pendingReference: "charge:pay_diff" }),
+    );
+    mocks.client.getCharge.mockResolvedValue({
+      id: "pay_diff",
+      status: "OVERDUE",
+      value: 50,
+      dueDate: "2025-12-04",
+      invoiceUrl: "https://asaas.test/i/diff",
+      externalReference: "upgrade:tenant-a:ref:1766199600000",
+    });
+    mocks.client.getSubscription.mockResolvedValue({ ...PIX_SUBSCRIPTION, id: "sub_live" });
+    mocks.client.listSubscriptionCharges.mockResolvedValue([OPEN_PIX]);
+
+    const result = await openPendingPayment({ tenantId: "tenant-a", userId: "owner-a" });
+
+    expect(mocks.client.deleteCharge).toHaveBeenCalledWith("pay_diff");
+    expect(mocks.save).toHaveBeenCalledWith(expect.anything(), "tenant-a", {
+      pendingPlan: null,
+      pendingReference: null,
+    });
+    expect(result).toEqual({ url: OPEN_PIX.invoiceUrl });
+  });
+
   it("never sends the reseller to an upgrade difference the card already paid", async () => {
     mocks.account.mockResolvedValue(liveAccount({ pendingReference: "charge:pay_diff" }));
     mocks.client.getCharge.mockResolvedValue({

@@ -33,10 +33,15 @@ import {
   UNREACHABLE_MESSAGE,
   withBillingLock,
 } from "./billing-lock.server";
-import { planDescription, readSubscriptionState } from "./billing-sync.server";
+import {
+  planDescription,
+  readSubscriptionState,
+  retireLapsedDifference,
+} from "./billing-sync.server";
 import { CHARGE_REFERENCE, CHECKOUT_REFERENCE } from "./pending-reference";
 import { paidMonthCarriedTo } from "./paid-month";
 import { planChangeOf, type PlanChange } from "./plan-change";
+import { upgradeReference } from "./upgrade-reference";
 
 export type BillingPaymentMethod = "pix" | "credit_card";
 type BillingAccount = NonNullable<Awaited<ReturnType<typeof getBillingAccount>>>;
@@ -389,7 +394,7 @@ async function openUpgradeCharge(
         valueCents: change.differenceCents,
         dueDate: asaasDueDate(new Date(), 0),
         description: `Diferença para o plano ${plan.name} até ${dayLabel(change.until)}`,
-        externalReference: `upgrade:${tenantId}:${reference}`,
+        externalReference: upgradeReference(tenantId, reference, change.until),
         successUrl: returnUrl("troca"),
       }),
   );
@@ -425,7 +430,15 @@ export async function openPendingPayment(input: { tenantId: string; userId: stri
     assertAsaasBillingAccount(account);
     const reference = account?.pendingReference ?? null;
     assertNoPendingBillingCreation(reference);
-    if (reference?.startsWith(CHARGE_REFERENCE) === true) {
+    // A difference whose month is over no longer moves the plan up: it is closed, not offered.
+    const lapsed = await retireLapsedDifference(client, reference, new Date());
+    if (lapsed) {
+      await saveBillingAccount(database, input.tenantId, {
+        pendingPlan: null,
+        pendingReference: null,
+      });
+    }
+    if (!lapsed && reference?.startsWith(CHARGE_REFERENCE) === true) {
       const charge = await client.getCharge(reference.slice(CHARGE_REFERENCE.length));
       // A card difference is CONFIRMED before RECEIVED: neither is still waiting for payment.
       if (charge.invoiceUrl != null && !isPaidCharge(charge)) return { url: charge.invoiceUrl };

@@ -9,9 +9,9 @@ import { z } from "zod";
 import { environment } from "@/lib/server/environment";
 import { billingEnabled } from "./billing-config.server";
 import { syncBillingSubscription, syncUpgradeCharge } from "./billing-sync.server";
+import { UPGRADE_REFERENCE } from "./upgrade-reference";
 
 const MAX_BODY_BYTES = 64 * 1024;
-const UPGRADE_REFERENCE = "upgrade:";
 
 /** The parts of a notice from SellBridge's own Asaas account that the plans read. */
 const billingNoticeSchema = z.object({

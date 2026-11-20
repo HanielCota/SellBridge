@@ -11,6 +11,8 @@ const mocks = vi.hoisted(() => ({
     deleteSubscription: vi.fn<(...input: unknown[]) => Promise<boolean>>(),
     getCharge: vi.fn<(...input: unknown[]) => Promise<unknown>>(),
     changeSubscriptionValue: vi.fn<(...input: unknown[]) => Promise<unknown>>(),
+    refundCharge: vi.fn<(...input: unknown[]) => Promise<unknown>>(),
+    deleteCharge: vi.fn<(...input: unknown[]) => Promise<boolean>>(),
   },
 }));
 vi.mock("@sellbridge/database/repositories", () => ({
@@ -210,6 +212,73 @@ describe("upgrade difference", () => {
       pendingPlan: null,
       pendingReference: null,
     });
+  });
+
+  // The month the difference covered ended on 2026-12-20 (Brasília).
+  const coveredUntil = "upgrade:tenant-a:ref:1797735600000";
+
+  it("gives back a difference paid only after the month it covered, keeping the plan", async () => {
+    mocks.byReference.mockResolvedValue(
+      account({ pendingPlan: "elite", pendingReference: "charge:pay_diff" }),
+    );
+    mocks.client.getCharge.mockResolvedValue({
+      id: "pay_diff",
+      status: "RECEIVED",
+      value: 400,
+      dueDate: "2026-12-04",
+      paymentDate: "2026-12-20",
+      externalReference: coveredUntil,
+    });
+
+    await syncUpgradeCharge({ chargeId: "pay_diff", eventId: "evt_late" });
+
+    expect(mocks.client.refundCharge).toHaveBeenCalledWith("pay_diff", expect.any(String));
+    expect(mocks.client.changeSubscriptionValue).not.toHaveBeenCalled();
+    expect(patchApplied()).toEqual({ pendingPlan: null, pendingReference: null });
+  });
+
+  it("moves up when a card confirmed the difference in time, though its money lands later", async () => {
+    mocks.byReference.mockResolvedValue(
+      account({ pendingPlan: "elite", pendingReference: "charge:pay_diff" }),
+    );
+    mocks.client.getCharge.mockResolvedValue({
+      id: "pay_diff",
+      status: "RECEIVED",
+      value: 400,
+      dueDate: "2026-12-04",
+      confirmedDate: "2026-12-19",
+      paymentDate: "2027-01-18",
+      externalReference: coveredUntil,
+    });
+
+    await syncUpgradeCharge({ chargeId: "pay_diff", eventId: "evt_card" });
+
+    expect(mocks.client.refundCharge).not.toHaveBeenCalled();
+    expect(patchApplied()).toMatchObject({ plan: "elite" });
+  });
+
+  it("closes an unpaid difference once the month it covered is over", async () => {
+    mocks.client.getSubscription.mockResolvedValue({
+      id: "sub_old",
+      customer: "cus_pix",
+      status: "ACTIVE",
+      value: 197,
+    });
+    mocks.bySubscription.mockResolvedValue(
+      account({ pendingPlan: "elite", pendingReference: "charge:pay_diff" }),
+    );
+    mocks.client.getCharge.mockResolvedValue({
+      id: "pay_diff",
+      status: "OVERDUE",
+      value: 400,
+      dueDate: "2025-12-04",
+      externalReference: "upgrade:tenant-a:ref:1766199600000",
+    });
+
+    await syncBillingSubscription({ subscriptionId: "sub_old", eventId: "evt_renewal" });
+
+    expect(mocks.client.deleteCharge).toHaveBeenCalledWith("pay_diff");
+    expect(patchApplied()).toMatchObject({ pendingPlan: null, pendingReference: null });
   });
 
   it("waits while the difference is unpaid", async () => {

@@ -6,6 +6,7 @@ import {
   type BillingAccountPatch,
 } from "@sellbridge/database/repositories";
 import {
+  asaasDueDate,
   isAsaasError,
   isPaidCharge,
   paidOn,
@@ -22,6 +23,7 @@ import { environment } from "@/lib/server/environment";
 import { billingClient } from "./billing-config.server";
 import { paidMonthCarriedTo } from "./paid-month";
 import { CHARGE_REFERENCE, CHECKOUT_REFERENCE } from "./pending-reference";
+import { upgradeUntil } from "./upgrade-reference";
 
 type BillingAccount = NonNullable<Awaited<ReturnType<typeof getBillingAccount>>>;
 
@@ -145,6 +147,9 @@ export async function syncBillingSubscription(input: {
   }
   const adopting = account.subscriptionId !== subscription.id;
   const adoption = adopting ? adoptionPatch(account, subscription) : {};
+  // A renewal ends the month an open upgrade difference was worked out for.
+  const lapsed =
+    !adopting && (await retireLapsedDifference(client, account.pendingReference, new Date()));
   const prepaidUntil = adopting ? (adoption.prepaidUntil ?? null) : account.prepaidUntil;
   const { charges, state } = await readSubscriptionState(client, {
     subscriptionId: subscription.id,
@@ -152,6 +157,7 @@ export async function syncBillingSubscription(input: {
   });
   const patch = {
     ...adoption,
+    ...(lapsed ? RETIRED_DIFFERENCE : {}),
     ...firstPaidPatch(account, charges),
     ...statePatch(prepaidUntil, state),
     ...scheduledPatch(account, state),
@@ -171,9 +177,49 @@ export async function syncBillingSubscription(input: {
   });
 }
 
+const LATE_DIFFERENCE_REFUND = "Diferença de plano paga depois do fim do mês a que se referia";
+const RETIRED_DIFFERENCE = { pendingPlan: null, pendingReference: null };
+
+/** The day the difference counts as paid: a card is confirmed long before its money lands. */
+function differencePaidOn(charge: AsaasSubscriptionCharge): string {
+  const days = [charge.confirmedDate, charge.paymentDate].filter(
+    (day): day is string => day != null,
+  );
+  return days.toSorted()[0] ?? charge.dueDate;
+}
+
+/** Paid on or after the day the month it was worked out for ended: it covers nothing. */
+function paidTooLate(charge: AsaasSubscriptionCharge): boolean {
+  const until = upgradeUntil(charge.externalReference);
+  return until !== null && differencePaidOn(charge) >= asaasDueDate(until, 0);
+}
+
+/**
+ * Deletes an unpaid upgrade difference whose month is over: paying it would move the plan up
+ * for a month already gone. True when the account's pending plan should be cleared.
+ */
+export async function retireLapsedDifference(
+  client: AsaasBillingClient,
+  reference: string | null,
+  now: Date,
+): Promise<boolean> {
+  if (reference?.startsWith(CHARGE_REFERENCE) !== true) return false;
+  const chargeId = reference.slice(CHARGE_REFERENCE.length);
+  try {
+    const charge = await client.getCharge(chargeId);
+    const until = upgradeUntil(charge.externalReference);
+    if (isPaidCharge(charge) || until === null || until > now) return false;
+    await client.deleteCharge(chargeId);
+    return true;
+  } catch (error) {
+    if (isAsaasError(error) && error.status === 404) return true;
+    throw error;
+  }
+}
+
 /**
  * The upgrade difference was paid: the new plan starts now, and the subscription charges its
- * full price from the next month on.
+ * full price from the next month on. Paid only after its month ended, it is given back instead.
  */
 export async function syncUpgradeCharge(input: {
   chargeId: string;
@@ -188,6 +234,19 @@ export async function syncUpgradeCharge(input: {
   if (account?.pendingPlan == null || !isBillingPlanId(account.pendingPlan)) return;
   const charge = await client.getCharge(input.chargeId);
   if (!isPaidCharge(charge)) return;
+  if (paidTooLate(charge)) {
+    await client.refundCharge(charge.id, LATE_DIFFERENCE_REFUND);
+    await database.transaction(async (transaction) =>
+      applyBillingState(transaction, {
+        tenantId: account.tenantId,
+        eventId: input.eventId,
+        observedAt,
+        patch: RETIRED_DIFFERENCE,
+      }),
+    );
+    logger.warn("billing.late_difference_refunded", { eventId: input.eventId });
+    return;
+  }
   const plan = billingPlan(account.pendingPlan);
   if (account.subscriptionId !== null) {
     await client.changeSubscriptionValue(account.subscriptionId, {
