@@ -109,6 +109,20 @@ describe("cancellation", () => {
     });
   });
 
+  it("stamps the cancellation again when a read stamped meanwhile was stored first", async () => {
+    setToday("2026-11-27");
+    mocks.apply.mockResolvedValueOnce(false);
+
+    await cancelSubscription(input);
+
+    expect(mocks.apply).toHaveBeenCalledTimes(2);
+    expect(mocks.save).toHaveBeenCalledWith(
+      expect.anything(),
+      "tenant-a",
+      expect.objectContaining({ cancelAtPeriodEnd: true }),
+    );
+  });
+
   it("keeps the plan until the end of the paid month, with no refund after 7 days", async () => {
     setToday("2026-11-27");
 

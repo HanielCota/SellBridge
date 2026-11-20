@@ -63,10 +63,16 @@ async function refundOnCancel(
 
 /**
  * Stamped like a read from Asaas: a notice sync that read the subscription before it was
- * cancelled can no longer write it back as active.
+ * cancelled can no longer write it back as active. A sync stamped between this call and its
+ * write may still win once; stamped again, the cancellation is newer than any read before it.
  */
 async function saveCancellation(tenantId: string, patch: BillingAccountPatch): Promise<void> {
-  await applyBillingState(database, { tenantId, eventId: null, observedAt: Date.now(), patch });
+  const save = async () =>
+    applyBillingState(database, { tenantId, eventId: null, observedAt: Date.now(), patch });
+  if (await save()) return;
+  if (await save()) return;
+  // Asaas already has it cancelled: the next read of the subscription brings the page up to date.
+  throw conflictError("A assinatura foi cancelada. Atualize a página em alguns segundos para ver.");
 }
 
 /** What cancelling does before the reseller confirms: until when the plan lasts, or the refund. */
