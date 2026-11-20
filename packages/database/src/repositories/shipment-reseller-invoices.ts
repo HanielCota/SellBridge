@@ -1,6 +1,19 @@
 import { conflictError, notFoundError } from "@sellbridge/shared/errors";
 import type { AccessKeyParts } from "@sellbridge/shared/nfe-access-key";
-import { and, asc, eq, gte, inArray, isNotNull, isNull, lte, notInArray, sql } from "drizzle-orm";
+import type { ResellerInvoiceSource } from "@sellbridge/shared/reseller-invoice";
+import {
+  and,
+  asc,
+  eq,
+  gte,
+  inArray,
+  isNotNull,
+  isNull,
+  lte,
+  notInArray,
+  or,
+  sql,
+} from "drizzle-orm";
 import type { Database } from "../client.ts";
 import {
   orders,
@@ -220,12 +233,56 @@ export async function saveTypedResellerSaleInvoice(
   throw conflictError("A nota de venda deste pedido já foi registrada");
 }
 
+/**
+ * Saves the reseller's note whose XML it uploaded (and SellBridge sent to the marketplace): on a
+ * parcel still waiting, or over the same note it typed before.
+ *
+ * @throws {AppError} NOT_FOUND when the parcel is not the reseller's or waits for no note;
+ * CONFLICT when another note is already saved for it.
+ */
+export async function saveUploadedResellerSaleInvoice(
+  database: Database,
+  uploaded: { tenantId: string; shipmentId: string; parts: AccessKeyParts; now: Date },
+): Promise<void> {
+  const ofTenantParcel = and(
+    eq(shipmentResellerInvoices.shipmentId, uploaded.shipmentId),
+    eq(shipmentResellerInvoices.tenantId, uploaded.tenantId),
+  );
+  const saved = await database
+    .update(shipmentResellerInvoices)
+    .set({ ...foundValues(uploaded.parts, uploaded.now), issuedAt: null, source: "uploaded" })
+    .where(
+      and(
+        ofTenantParcel,
+        or(
+          isNull(shipmentResellerInvoices.accessKey),
+          and(
+            eq(shipmentResellerInvoices.accessKey, uploaded.parts.accessKey),
+            eq(shipmentResellerInvoices.source, "typed"),
+          ),
+        ),
+      ),
+    )
+    .returning({ id: shipmentResellerInvoices.id });
+  if (saved.length > 0) {
+    return;
+  }
+  const [existing] = await database
+    .select({ id: shipmentResellerInvoices.id })
+    .from(shipmentResellerInvoices)
+    .where(ofTenantParcel);
+  if (existing === undefined) {
+    throw notFoundError("Este pedido não espera a sua nota de venda");
+  }
+  throw conflictError("Este pedido já tem outra nota de venda registrada. Envie o XML dessa nota.");
+}
+
 /** The reseller's sale note of a parcel, as the order screens show it. */
 export interface ResellerSaleInvoice {
   readonly accessKey: string | null;
   readonly number: string | null;
   readonly series: string | null;
-  readonly source: "marketplace" | "typed" | null;
+  readonly source: ResellerInvoiceSource | null;
   readonly foundAt: Date | null;
   readonly problem: string | null;
 }

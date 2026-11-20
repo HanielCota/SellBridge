@@ -14,6 +14,7 @@ import {
   resellerShipmentInvoices,
 } from "./shipment-invoices.ts";
 import {
+  findOnBehalfLabelParcels,
   findResellerNoteState,
   loadOnBehalfInvoiceContext,
   queueOnBehalfInvoices,
@@ -239,5 +240,25 @@ describe("venda à ordem notes", () => {
     expect(waiting).toEqual({ found: false });
     expect(await findResellerNoteState(database, onBehalf.shipmentId)).toEqual({ found: true });
     expect(await findResellerNoteState(database, direct.shipmentId)).toBeNull();
+  });
+
+  it("tells the label which notes of the order are in place", async () => {
+    const { shipmentId, tenantId, orderId } = await onBehalfScenario();
+    await queueResellerSaleInvoices(database);
+    const waiting = await findOnBehalfLabelParcels(database, orderId);
+    await findResellerNote(shipmentId, tenantId);
+    await authorizeRemessa(shipmentId);
+
+    const ready = await findOnBehalfLabelParcels(database, orderId);
+
+    expect(waiting).toEqual([{ resellerNoteSource: null, remessaAuthorized: false }]);
+    expect(ready).toEqual([{ resellerNoteSource: "typed", remessaAuthorized: true }]);
+  });
+
+  it("finds no venda à ordem parcel on an order of direct notes", async () => {
+    const direct = await createInvoiceScenario(database);
+    cleanups.push(direct.cleanup);
+
+    expect(await findOnBehalfLabelParcels(database, direct.orderId)).toEqual([]);
   });
 });

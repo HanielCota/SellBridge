@@ -1,4 +1,5 @@
 import type { BillingAddress } from "@sellbridge/shared/billing-address";
+import type { OnBehalfLabelParcel } from "@sellbridge/shared/reseller-invoice";
 import type { InvoiceKind } from "@sellbridge/shared/supplier-invoice";
 import { and, eq, gte, isNotNull, isNull, notInArray } from "drizzle-orm";
 import { alias } from "drizzle-orm/pg-core";
@@ -266,4 +267,31 @@ export async function findResellerNoteState(
     .from(shipmentResellerInvoices)
     .where(eq(shipmentResellerInvoices.shipmentId, shipmentId));
   return row === undefined ? null : { found: row.accessKey !== null };
+}
+
+/**
+ * The venda à ordem parcels of an order, for its label: where the reseller's note came from and
+ * whether the remessa is authorized. Empty for an order of direct notes only.
+ */
+export async function findOnBehalfLabelParcels(
+  database: Database,
+  orderId: string,
+): Promise<OnBehalfLabelParcel[]> {
+  const remessa = alias(shipmentInvoices, "label_remessa");
+  const rows = await database
+    .select({
+      resellerNoteSource: shipmentResellerInvoices.source,
+      remessaStatus: remessa.status,
+    })
+    .from(shipmentResellerInvoices)
+    .innerJoin(orderShipments, eq(orderShipments.id, shipmentResellerInvoices.shipmentId))
+    .leftJoin(
+      remessa,
+      and(eq(remessa.shipmentId, orderShipments.id), eq(remessa.kind, "on_behalf_shipment")),
+    )
+    .where(eq(orderShipments.orderId, orderId));
+  return rows.map((row) => ({
+    resellerNoteSource: row.resellerNoteSource,
+    remessaAuthorized: row.remessaStatus === "authorized",
+  }));
 }

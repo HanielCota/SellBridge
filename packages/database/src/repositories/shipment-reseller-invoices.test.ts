@@ -14,6 +14,7 @@ import {
   recordMarketplaceResellerSaleInvoice,
   resellerSaleInvoicesOf,
   saveTypedResellerSaleInvoice,
+  saveUploadedResellerSaleInvoice,
   scheduleResellerSaleInvoiceCheck,
 } from "./shipment-reseller-invoices.ts";
 
@@ -172,6 +173,58 @@ describe("saveTypedResellerSaleInvoice", () => {
 
     await expect(
       saveTypedResellerSaleInvoice(database, {
+        tenantId: randomUUID(),
+        shipmentId,
+        parts: keyParts(TYPED_KEY),
+        now: new Date(),
+      }),
+    ).rejects.toMatchObject({ code: "NOT_FOUND" });
+  });
+});
+
+describe("saveUploadedResellerSaleInvoice", () => {
+  it("keeps the note whose XML the reseller sent", async () => {
+    const { shipmentId, tenantId } = await scenario();
+    await queueResellerSaleInvoices(database);
+
+    await saveUploadedResellerSaleInvoice(database, {
+      tenantId,
+      shipmentId,
+      parts: keyParts(TYPED_KEY),
+      now: new Date(),
+    });
+
+    expect(await noteOf(shipmentId)).toMatchObject({ accessKey: TYPED_KEY, source: "uploaded" });
+  });
+
+  it("takes the XML of the note the reseller typed before", async () => {
+    const { shipmentId, tenantId } = await scenario();
+    await queueResellerSaleInvoices(database);
+    const note = { tenantId, shipmentId, parts: keyParts(TYPED_KEY), now: new Date() };
+    await saveTypedResellerSaleInvoice(database, note);
+
+    await saveUploadedResellerSaleInvoice(database, note);
+
+    expect((await noteOf(shipmentId))?.source).toBe("uploaded");
+  });
+
+  it("refuses the XML of another note than the one already saved", async () => {
+    const { shipmentId, tenantId } = await scenario();
+    await queueResellerSaleInvoices(database);
+    const note = { tenantId, shipmentId, parts: keyParts(TYPED_KEY), now: new Date() };
+    await saveTypedResellerSaleInvoice(database, note);
+
+    await expect(
+      saveUploadedResellerSaleInvoice(database, { ...note, parts: keyParts(MARKETPLACE_KEY) }),
+    ).rejects.toMatchObject({ code: "CONFLICT" });
+  });
+
+  it("refuses a parcel of another reseller", async () => {
+    const { shipmentId } = await scenario();
+    await queueResellerSaleInvoices(database);
+
+    await expect(
+      saveUploadedResellerSaleInvoice(database, {
         tenantId: randomUUID(),
         shipmentId,
         parts: keyParts(TYPED_KEY),
