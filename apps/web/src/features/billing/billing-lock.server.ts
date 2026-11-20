@@ -97,61 +97,61 @@ async function readUnlessGone<Result>(read: () => Promise<Result>): Promise<Resu
   }
 }
 
+async function removeUnlessGone(remove: () => Promise<unknown>): Promise<void> {
+  await readUnlessGone(remove);
+}
+
 /**
- * The local status lags behind a delayed notice: what Asaas already has as paid is synced
- * instead of deleted, and the action stops so the reseller sees the plan it paid for.
+ * An upgrade difference still open is deleted. One already paid is synced: in time, it moved
+ * the plan up and the action stops so the reseller sees it; too late, it was given back and the
+ * action goes on. One given back before is left alone.
  */
-async function assertStillUnpaid(
-  client: AsaasBillingClient,
-  account: BillingAccount,
-): Promise<void> {
-  const reference = account.pendingReference;
-  if (reference?.startsWith(CHARGE_REFERENCE) === true) {
-    const chargeId = reference.slice(CHARGE_REFERENCE.length);
-    const charge = await readUnlessGone(async () => client.getCharge(chargeId));
-    if (charge !== null && isPaidCharge(charge)) {
-      await syncUpgradeCharge({ chargeId, eventId: null });
-      throw conflictError(PAID_MEANWHILE);
-    }
+async function retireDifference(client: AsaasBillingClient, chargeId: string): Promise<void> {
+  const charge = await readUnlessGone(async () => client.getCharge(chargeId));
+  if (charge === null) return;
+  if (isPaidCharge(charge)) {
+    const outcome = await syncUpgradeCharge({ chargeId, eventId: null });
+    if (outcome === "applied") throw conflictError(PAID_MEANWHILE);
+    return;
   }
-  const { subscriptionId } = account;
-  if (subscriptionId === null || account.status !== "incomplete") return;
+  const open =
+    (charge.status === "PENDING" || charge.status === "OVERDUE") && charge.deleted !== true;
+  if (open) await removeUnlessGone(async () => client.deleteCharge(chargeId));
+}
+
+/** A first fee Asaas already received is synced, not deleted with its subscription. */
+async function retireIncompleteSubscription(
+  client: AsaasBillingClient,
+  subscriptionId: string,
+): Promise<void> {
   const charges = await readUnlessGone(async () => client.listSubscriptionCharges(subscriptionId));
   if (charges?.some(isPaidCharge) === true) {
     await syncBillingSubscription({ subscriptionId, eventId: null });
     throw conflictError(PAID_MEANWHILE);
   }
+  await removeUnlessGone(async () => client.deleteSubscription(subscriptionId));
 }
 
-/** Closes what was opened and never paid, so an old link cannot start a second subscription. */
+/**
+ * Closes what was opened and never paid, so an old link cannot start a second subscription.
+ * The local status lags behind a delayed notice, so Asaas is read first: what it already has
+ * as paid is synced instead of deleted.
+ */
 export async function retireUnpaid(
   client: AsaasBillingClient,
   account: BillingAccount,
 ): Promise<void> {
   const reference = account.pendingReference;
   assertNoPendingBillingCreation(reference);
-  await assertStillUnpaid(client, account);
-  const steps: Promise<unknown>[] = [];
-  if (reference?.startsWith(CHECKOUT_REFERENCE) === true) {
-    steps.push(client.cancelCheckout(reference.slice(CHECKOUT_REFERENCE.length)));
-  }
   if (reference?.startsWith(CHARGE_REFERENCE) === true) {
-    steps.push(client.deleteCharge(reference.slice(CHARGE_REFERENCE.length)));
+    await retireDifference(client, reference.slice(CHARGE_REFERENCE.length));
+  }
+  if (reference?.startsWith(CHECKOUT_REFERENCE) === true) {
+    await removeUnlessGone(async () =>
+      client.cancelCheckout(reference.slice(CHECKOUT_REFERENCE.length)),
+    );
   }
   if (account.subscriptionId !== null && account.status === "incomplete") {
-    steps.push(client.deleteSubscription(account.subscriptionId));
-  }
-  const results = await Promise.allSettled(steps);
-  for (const result of results) {
-    if (result.status !== "rejected") {
-      continue;
-    }
-
-    const error: unknown = result.reason;
-    if (isAsaasError(error) && error.status === 404) {
-      continue;
-    }
-
-    throw error;
+    await retireIncompleteSubscription(client, account.subscriptionId);
   }
 }

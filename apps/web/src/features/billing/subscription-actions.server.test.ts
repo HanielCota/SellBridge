@@ -7,7 +7,8 @@ const mocks = vi.hoisted(() => ({
   save: vi.fn<(...input: unknown[]) => Promise<void>>(),
   tryLock: vi.fn<(...input: unknown[]) => Promise<boolean>>(),
   syncSubscription: vi.fn<(...input: unknown[]) => Promise<void>>(),
-  syncUpgrade: vi.fn<(...input: unknown[]) => Promise<void>>(),
+  syncUpgrade: vi.fn<(...input: unknown[]) => Promise<string>>(),
+  settle: vi.fn<(...input: unknown[]) => Promise<boolean>>(),
   holder: vi.fn<(...input: unknown[]) => Promise<unknown>>(),
   email: vi.fn<(...input: unknown[]) => Promise<string | null>>(),
   client: {
@@ -23,6 +24,7 @@ const mocks = vi.hoisted(() => ({
     changeSubscriptionValue: vi.fn<(...input: unknown[]) => Promise<unknown>>(),
     createOneOffCharge: vi.fn<(...input: unknown[]) => Promise<unknown>>(),
     getCharge: vi.fn<(...input: unknown[]) => Promise<unknown>>(),
+    findSubscriptionsOfCustomer: vi.fn<(...input: unknown[]) => Promise<unknown[]>>(),
   },
 }));
 vi.mock("@sellbridge/database/repositories", () => ({
@@ -35,6 +37,7 @@ vi.mock("@sellbridge/database/repositories", () => ({
   applyBillingState: vi.fn<() => Promise<boolean>>(),
   findBillingAccountByPendingReference: vi.fn<() => Promise<unknown>>(),
   findBillingAccountBySubscription: vi.fn<() => Promise<unknown>>(),
+  settlePendingReference: mocks.settle,
 }));
 vi.mock("@/lib/server/environment", () => ({
   environment: { APP_URL: "https://sellbridge.test", BILLING_PAST_DUE_GRACE_DAYS: 7 },
@@ -108,6 +111,8 @@ beforeEach(() => {
   mocks.holder.mockResolvedValue(HOLDER);
   mocks.email.mockResolvedValue("dono@example.com");
   mocks.client.findSubscriber.mockResolvedValue(null);
+  mocks.client.findSubscriptionsOfCustomer.mockResolvedValue([]);
+  mocks.settle.mockResolvedValue(true);
   mocks.client.createSubscriber.mockResolvedValue("cus_a");
   mocks.client.createPixSubscription.mockResolvedValue(PIX_SUBSCRIPTION);
   mocks.client.listSubscriptionCharges.mockResolvedValue([OPEN_PIX]);
@@ -163,6 +168,7 @@ describe("first subscription", () => {
       }),
     );
     mocks.client.getCharge.mockResolvedValue({ ...OPEN_PIX, id: "pay_diff", status: "CONFIRMED" });
+    mocks.syncUpgrade.mockResolvedValue("applied");
 
     await expect(startSubscription({ ...input, method: "pix" })).rejects.toMatchObject({
       code: "CONFLICT",
@@ -170,6 +176,44 @@ describe("first subscription", () => {
 
     expect(mocks.syncUpgrade).toHaveBeenCalledWith({ chargeId: "pay_diff", eventId: null });
     expect(mocks.client.deleteCharge).not.toHaveBeenCalled();
+  });
+
+  it("goes on after a difference paid too late was given back, without deleting it", async () => {
+    mocks.account.mockResolvedValue(
+      liveAccount({
+        status: "canceled",
+        subscriptionId: null,
+        pendingReference: "charge:pay_diff",
+      }),
+    );
+    mocks.client.getCharge.mockResolvedValue({ ...OPEN_PIX, id: "pay_diff", status: "RECEIVED" });
+    mocks.syncUpgrade.mockResolvedValue("given_back");
+
+    await startSubscription({ ...input, method: "pix" });
+
+    expect(mocks.client.deleteCharge).not.toHaveBeenCalled();
+    expect(mocks.client.createPixSubscription).toHaveBeenCalled();
+  });
+
+  it("never deletes a difference Asaas already gave back", async () => {
+    mocks.account.mockResolvedValue(
+      liveAccount({
+        status: "canceled",
+        subscriptionId: null,
+        pendingReference: "charge:pay_diff",
+      }),
+    );
+    mocks.client.getCharge.mockResolvedValue({
+      ...OPEN_PIX,
+      id: "pay_diff",
+      status: "RECEIVED",
+      refunds: [{ status: "DONE" }],
+    });
+
+    await startSubscription({ ...input, method: "pix" });
+
+    expect(mocks.client.deleteCharge).not.toHaveBeenCalled();
+    expect(mocks.syncUpgrade).not.toHaveBeenCalled();
   });
 
   it("deletes an incomplete subscription Asaas still has unpaid", async () => {
@@ -533,9 +577,9 @@ describe("paying what is open", () => {
     const result = await openPendingPayment({ tenantId: "tenant-a", userId: "owner-a" });
 
     expect(mocks.client.deleteCharge).toHaveBeenCalledWith("pay_diff");
-    expect(mocks.save).toHaveBeenCalledWith(expect.anything(), "tenant-a", {
-      pendingPlan: null,
-      pendingReference: null,
+    expect(mocks.settle).toHaveBeenCalledWith(expect.anything(), {
+      tenantId: "tenant-a",
+      reference: "charge:pay_diff",
     });
     expect(result).toEqual({ url: OPEN_PIX.invoiceUrl });
   });

@@ -431,13 +431,7 @@ export async function openPendingPayment(input: { tenantId: string; userId: stri
     const reference = account?.pendingReference ?? null;
     assertNoPendingBillingCreation(reference);
     // A difference whose month is over no longer moves the plan up: it is closed, not offered.
-    const lapsed = await retireLapsedDifference(client, reference, new Date());
-    if (lapsed) {
-      await saveBillingAccount(database, input.tenantId, {
-        pendingPlan: null,
-        pendingReference: null,
-      });
-    }
+    const lapsed = account !== null && (await retireLapsedDifference(client, account, new Date()));
     if (!lapsed && reference?.startsWith(CHARGE_REFERENCE) === true) {
       const charge = await client.getCharge(reference.slice(CHARGE_REFERENCE.length));
       // A card difference is CONFIRMED before RECEIVED: neither is still waiting for payment.

@@ -22,6 +22,7 @@ import {
   applyBillingState,
   assertBillingCapacity,
   billingUsage,
+  settlePendingReference,
   findBillingAccountByPendingReference,
   findBillingAccountBySubscription,
   getBillingAccount,
@@ -388,6 +389,40 @@ describe("subscription state from the provider", () => {
     expect((await findBillingAccountByPendingReference(database, checkoutId))?.pendingPlan).toBe(
       "elite",
     );
+    await cleanup();
+  });
+
+  it("settles what the account waits on only while it still waits on the same reference", async () => {
+    const { tenantId, cleanup } = await accountCreatedAt(new Date());
+    await saveBillingAccount(database, tenantId, {
+      plan: "start",
+      pendingPlan: "elite",
+      pendingReference: "charge:pay_new",
+    });
+    const paid = { plan: "elite" };
+
+    const stale = await settlePendingReference(database, {
+      tenantId,
+      reference: "charge:pay_old",
+      patch: paid,
+    });
+    const current = await settlePendingReference(database, {
+      tenantId,
+      reference: "charge:pay_new",
+      patch: paid,
+    });
+    const repeated = await settlePendingReference(database, {
+      tenantId,
+      reference: "charge:pay_new",
+      patch: { plan: "pro" },
+    });
+
+    expect([stale, current, repeated]).toEqual([false, true, false]);
+    expect(await getBillingAccount(database, tenantId)).toMatchObject({
+      plan: "elite",
+      pendingPlan: null,
+      pendingReference: null,
+    });
     await cleanup();
   });
 
