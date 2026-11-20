@@ -1,3 +1,4 @@
+import { logger } from "@sellbridge/shared/logger";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const mocks = vi.hoisted(() => ({
@@ -112,7 +113,7 @@ describe("subscription read back from Asaas", () => {
     expect(mocks.apply).not.toHaveBeenCalled();
   });
 
-  it("ends a card checkout subscription no account waits on and gives back what it charged", async () => {
+  it("reports a card checkout subscription no account waits on, moving no money", async () => {
     mocks.client.getSubscription.mockResolvedValue({
       id: "sub_orphan",
       customer: "cus_card",
@@ -124,11 +125,23 @@ describe("subscription read back from Asaas", () => {
       { id: "pay_card", status: "CONFIRMED", value: 197, dueDate: "2026-11-20" },
     ]);
 
+    const reported = vi.spyOn(logger, "error").mockImplementation(() => undefined);
+
     await syncBillingSubscription({ subscriptionId: "sub_orphan", eventId: "evt_orphan" });
 
-    expect(mocks.client.refundCharge).toHaveBeenCalledWith("pay_card", expect.any(String));
-    expect(mocks.client.deleteSubscription).toHaveBeenCalledWith("sub_orphan");
+    expect(mocks.client.refundCharge).not.toHaveBeenCalled();
+    expect(mocks.client.deleteSubscription).not.toHaveBeenCalled();
     expect(mocks.apply).not.toHaveBeenCalled();
+    expect(reported).toHaveBeenCalledWith(
+      "billing.orphan_checkout_subscription",
+      expect.objectContaining({
+        problemKey: "orphan-checkout:sub_orphan",
+        subscriptionId: "sub_orphan",
+        customerId: "cus_card",
+        checkoutId: "chk_cancelled",
+      }),
+    );
+    reported.mockRestore();
   });
 
   it("leaves alone a subscription that is already over or never came from a checkout", async () => {
@@ -170,6 +183,27 @@ describe("subscription read back from Asaas", () => {
 
       expect(mocks.apply).not.toHaveBeenCalled();
       expect(mocks.client.deleteSubscription).not.toHaveBeenCalled();
+    });
+
+    it.each([
+      ["its first Pix went overdue", "OVERDUE", PAID_UNTIL],
+      ["the paid month ran out", "PENDING", new Date(Date.now() - 86_400_000)],
+    ])("ends it once %s, leaving the account as it was", async (_label, status, periodEnd) => {
+      mocks.byReference.mockImplementation(async (_executor, reference) =>
+        reference === "subscription:sub_waiting" ? { ...waitingAccount(), periodEnd } : null,
+      );
+      mocks.client.listSubscriptionCharges.mockResolvedValue([
+        { id: "pay_elite", status, value: 997, dueDate: "2026-11-20" },
+      ]);
+
+      await syncBillingSubscription({ subscriptionId: "sub_waiting", eventId: "evt_abandoned" });
+
+      expect(mocks.client.deleteSubscription).toHaveBeenCalledWith("sub_waiting");
+      expect(mocks.settle).toHaveBeenCalledWith(expect.anything(), {
+        tenantId: "tenant-a",
+        reference: "subscription:sub_waiting",
+      });
+      expect(mocks.apply).not.toHaveBeenCalled();
     });
 
     it("takes over with its first payment and ends the old subscription", async () => {
@@ -447,6 +481,23 @@ describe("upgrade difference", () => {
       tenantId: "tenant-a",
       reference: "charge:pay_diff",
     });
+    expect(mocks.apply).toHaveBeenCalled();
+  });
+
+  it("keeps waiting on a lapsed difference whose card is still in risk analysis", async () => {
+    renewal();
+    mocks.client.getCharge.mockResolvedValue({
+      id: "pay_diff",
+      status: "AWAITING_RISK_ANALYSIS",
+      value: 400,
+      dueDate: "2025-12-04",
+      externalReference: "upgrade:tenant-a:ref:1766199600000",
+    });
+
+    await syncBillingSubscription({ subscriptionId: "sub_old", eventId: "evt_in_review" });
+
+    expect(mocks.client.deleteCharge).not.toHaveBeenCalled();
+    expect(mocks.settle).not.toHaveBeenCalled();
     expect(mocks.apply).toHaveBeenCalled();
   });
 

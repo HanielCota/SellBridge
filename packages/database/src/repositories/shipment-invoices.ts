@@ -10,8 +10,10 @@ import {
 } from "@sellbridge/shared/notification-events";
 import {
   BOX_INVOICE_KINDS,
+  parcelNoteKinds,
   type InvoiceKind,
   type InvoiceStatus,
+  type ParcelNote,
 } from "@sellbridge/shared/supplier-invoice";
 import { conflictError, notFoundError } from "@sellbridge/shared/errors";
 import { and, asc, eq, inArray, isNull, lte, sql } from "drizzle-orm";
@@ -523,10 +525,11 @@ export async function scheduleShipmentInvoiceRetry(
     .where(eq(shipmentInvoices.id, input.invoiceId));
 }
 
-/** The note in the box of one of the supplier's parcels, as the order screen shows it; null when none. */
+/** A note of one of the supplier's parcels (the one in the box by default), as the order screen shows it; null when none. */
 export async function findSupplierShipmentInvoice(
   database: Database,
   input: { supplierId: string; shipmentId: string },
+  note: ParcelNote = "box",
 ) {
   const [row] = await database
     .select({
@@ -544,7 +547,7 @@ export async function findSupplierShipmentInvoice(
       and(
         eq(shipmentInvoices.shipmentId, input.shipmentId),
         eq(shipmentInvoices.supplierId, input.supplierId),
-        inArray(shipmentInvoices.kind, [...BOX_INVOICE_KINDS]),
+        inArray(shipmentInvoices.kind, [...parcelNoteKinds(note)]),
       ),
     );
   return row ?? null;
@@ -625,6 +628,7 @@ export interface ResellerShipmentInvoice {
 export async function resellerShipmentInvoices(
   database: Database,
   shipmentIds: readonly string[],
+  note: ParcelNote = "box",
 ): Promise<Map<string, ResellerShipmentInvoice>> {
   if (shipmentIds.length === 0) {
     return new Map();
@@ -643,7 +647,7 @@ export async function resellerShipmentInvoices(
     .where(
       and(
         inArray(shipmentInvoices.shipmentId, [...shipmentIds]),
-        inArray(shipmentInvoices.kind, [...BOX_INVOICE_KINDS]),
+        inArray(shipmentInvoices.kind, [...parcelNoteKinds(note)]),
       ),
     );
   return new Map(rows.map(({ shipmentId, ...invoice }) => [shipmentId, invoice]));
@@ -660,10 +664,11 @@ export interface ShipmentInvoiceFiles {
   readonly accessKey: string;
 }
 
-/** The parcel's authorized note in the box, with its access key; null while it has none. */
+/** The parcel's authorized note (the one in the box by default), with its access key; null while it has none. */
 export async function findShipmentInvoiceFiles(
   database: Database,
   shipmentId: string,
+  note: ParcelNote = "box",
 ): Promise<ShipmentInvoiceFiles | null> {
   const [row] = await database
     .select({
@@ -680,7 +685,7 @@ export async function findShipmentInvoiceFiles(
       and(
         eq(shipmentInvoices.shipmentId, shipmentId),
         eq(shipmentInvoices.status, "authorized"),
-        inArray(shipmentInvoices.kind, [...BOX_INVOICE_KINDS]),
+        inArray(shipmentInvoices.kind, [...parcelNoteKinds(note)]),
       ),
     );
   if (row === undefined || row.accessKey === null) {

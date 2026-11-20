@@ -138,27 +138,46 @@ async function retireSubscription(client: AsaasBillingClient, subscriptionId: st
   }
 }
 
-const ORPHAN_REFUND = "Assinatura criada por um pagamento já cancelado no SellBridge";
+/**
+ * A waiting Pix subscription whose first charge went overdue unpaid, or whose paid month ran out,
+ * was given up: it ends, or Asaas would keep charging the plan and reminding the reseller.
+ */
+async function endAbandonedPix(
+  client: AsaasBillingClient,
+  input: { account: BillingAccount; subscriptionId: string; charges: AsaasSubscriptionCharge[] },
+): Promise<void> {
+  const { account, subscriptionId, charges } = input;
+  const overdue = charges.some((charge) => charge.status === "OVERDUE");
+  const monthOver = account.periodEnd === null || account.periodEnd <= new Date();
+  if (!overdue && !monthOver) return;
+  await retireSubscription(client, subscriptionId);
+  const reference = `${SUBSCRIPTION_REFERENCE}${subscriptionId}`;
+  await settlePendingReference(database, { tenantId: account.tenantId, reference });
+  logger.info("billing.abandoned_pix_ended", {});
+}
 
 /**
- * A live card checkout subscription no account waits on: the checkout was cancelled here after
- * the card had been taken. Nobody gets a plan from it, so it ends and what it charged goes back
- * instead of charging the card every month.
+ * A live card checkout subscription no account waits on: most likely a checkout cancelled here
+ * after the card had been taken, its notice late. Whether the reseller should keep it cannot be
+ * told from here, so no money moves: the team gets a problem of its own, with what it needs to
+ * find the reseller at Asaas and end it or give the money back by hand.
  */
-async function closeOrphanCheckoutSubscription(
-  client: AsaasBillingClient,
+function reportOrphanCheckoutSubscription(
   subscription: AsaasSubscription,
   eventId: string | null,
-): Promise<void> {
+): void {
   if (subscription.checkoutSession == null || subscription.deleted === true) {
     logger.info("billing.subscription_not_ours", { eventId });
     return;
   }
-  const charges = await client.listSubscriptionCharges(subscription.id);
-  const paid = charges.filter(isPaidCharge);
-  await Promise.all(paid.map(async (charge) => client.refundCharge(charge.id, ORPHAN_REFUND)));
-  await retireSubscription(client, subscription.id);
-  logger.error("billing.orphan_checkout_subscription_closed", { eventId, refunded: paid.length });
+  logger.error("billing.orphan_checkout_subscription", {
+    problemKey: `orphan-checkout:${subscription.id}`,
+    eventId,
+    subscriptionId: subscription.id,
+    customerId: subscription.customer,
+    checkoutId: subscription.checkoutSession,
+    externalReference: subscription.externalReference ?? null,
+  });
 }
 
 /**
@@ -175,7 +194,7 @@ export async function syncBillingSubscription(input: {
   const subscription = await client.getSubscription(input.subscriptionId);
   const account = await accountOf(subscription);
   if (account === null) {
-    await closeOrphanCheckoutSubscription(client, subscription, input.eventId);
+    reportOrphanCheckoutSubscription(subscription, input.eventId);
     return;
   }
   const adopting = account.subscriptionId !== subscription.id;
@@ -190,7 +209,10 @@ export async function syncBillingSubscription(input: {
   // A waiting Pix subscription takes over only with its first payment; until then the month
   // already paid stays as it is.
   const waiting = account.pendingReference === `${SUBSCRIPTION_REFERENCE}${subscription.id}`;
-  if (adopting && waiting && !charges.some(isPaidCharge)) return;
+  if (adopting && waiting && !charges.some(isPaidCharge)) {
+    await endAbandonedPix(client, { account, subscriptionId: subscription.id, charges });
+    return;
+  }
   const patch = {
     ...adoption,
     ...firstPaidPatch(account, charges),
@@ -228,8 +250,20 @@ function paidTooLate(charge: AsaasSubscriptionCharge): boolean {
   return until !== null && differencePaidOn(charge) >= asaasDueDate(until, 0);
 }
 
-function isOpenCharge(charge: AsaasSubscriptionCharge): boolean {
+/** Still waiting for the reseller to pay it: it may be deleted. */
+export function isOpenCharge(charge: AsaasSubscriptionCharge): boolean {
   return (charge.status === "PENDING" || charge.status === "OVERDUE") && charge.deleted !== true;
+}
+
+const GIVEN_BACK_STATUSES = new Set(["REFUNDED", "REFUND_REQUESTED", "REFUND_IN_PROGRESS"]);
+
+/**
+ * Over for good: deleted, or its money given back. Anything else that is neither paid nor open
+ * (a card still in risk analysis, say) may still be confirmed, so it is still waited on.
+ */
+export function isGivenBackCharge(charge: AsaasSubscriptionCharge): boolean {
+  if (charge.deleted === true || GIVEN_BACK_STATUSES.has(charge.status)) return true;
+  return charge.refunds?.some((refund) => refund.status !== "CANCELLED") === true;
 }
 
 async function readChargeUnlessGone(
@@ -277,6 +311,7 @@ export async function retireLapsedDifference(
       return true;
     }
     if (isOpenCharge(charge)) await removeChargeUnlessGone(client, charge.id);
+    if (!isOpenCharge(charge) && !isGivenBackCharge(charge)) return false;
   }
   return settlePendingReference(database, { tenantId: account.tenantId, reference });
 }

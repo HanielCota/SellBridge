@@ -16,6 +16,7 @@ import {
   type AsaasSubscriptionCharge,
 } from "@sellbridge/payments/asaas";
 import { AppError, conflictError } from "@sellbridge/shared/errors";
+import { logger } from "@sellbridge/shared/logger";
 import { database } from "@/lib/server/database";
 import { billingClient } from "./billing-config.server";
 import { retireUnpaid, UNREACHABLE_MESSAGE, withBillingLock } from "./billing-lock.server";
@@ -59,14 +60,15 @@ async function refundOnCancel(
  * Stamped like a read from Asaas: a notice sync that read the subscription before it was
  * cancelled can no longer write it back as active. A sync stamped between this call and its
  * write may still win once; stamped again, the cancellation is newer than any read before it.
+ * Never thrown: the subscription must still end at Asaas, and the next read of it brings the
+ * account up to date.
  */
 async function saveCancellation(tenantId: string, patch: BillingAccountPatch): Promise<void> {
   const save = async () =>
     applyBillingState(database, { tenantId, eventId: null, observedAt: Date.now(), patch });
   if (await save()) return;
   if (await save()) return;
-  // Asaas already has it cancelled: the next read of the subscription brings the page up to date.
-  throw conflictError("A assinatura foi cancelada. Atualize a página em alguns segundos para ver.");
+  logger.warn("billing.cancellation_not_stored", {});
 }
 
 /** What cancelling does before the reseller confirms: until when the plan lasts, or the refund. */

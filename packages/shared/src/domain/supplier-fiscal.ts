@@ -43,11 +43,21 @@ export type SupplierTaxDefaults = z.infer<typeof supplierTaxDefaultsSchema>;
  * the buyer (5923/6923) and the sale to the reseller (5119/6119; 5118/6118 for goods the supplier
  * makes itself). Settings, so the accountant's answer is a change of value, not of code.
  */
+function onBehalfCfopSchema(example: string) {
+  const inState = example.startsWith("5");
+  const where = inState ? "dentro do estado" : "para outro estado";
+  return z
+    .string()
+    .trim()
+    .regex(inState ? /^5\d{3}$/ : /^6\d{3}$/, `Use um CFOP ${where} com 4 números, como ${example}`)
+    .default(example);
+}
+
 export const onBehalfCfopsSchema = z.object({
-  shipmentInState: cfopInStateSchema.default("5923"),
-  shipmentOutOfState: cfopOutOfStateSchema.default("6923"),
-  saleInState: cfopInStateSchema.default("5119"),
-  saleOutOfState: cfopOutOfStateSchema.default("6119"),
+  shipmentInState: onBehalfCfopSchema("5923"),
+  shipmentOutOfState: onBehalfCfopSchema("6923"),
+  saleInState: onBehalfCfopSchema("5119"),
+  saleOutOfState: onBehalfCfopSchema("6119"),
 });
 export type OnBehalfCfops = z.infer<typeof onBehalfCfopsSchema>;
 

@@ -51,7 +51,8 @@ async function handleInvoiceFile(request: Request, orderId: string): Promise<Res
   const validOrderId = z.uuid().parse(orderId);
   const query = invoiceFileQuerySchema.parse(Object.fromEntries(new URL(request.url).searchParams));
   const requester = await requesterOf(request, query.fornecedor);
-  const files = await findShipmentInvoiceFiles(database, query.envio);
+  const note = query.nota === "venda" ? "sale" : "box";
+  const files = await findShipmentInvoiceFiles(database, query.envio, note);
   if (files === null) {
     throw notFoundError("A nota fiscal deste pacote ainda não foi emitida.");
   }

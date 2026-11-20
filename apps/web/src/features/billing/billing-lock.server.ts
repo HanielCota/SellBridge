@@ -9,7 +9,12 @@ import { AppError, conflictError } from "@sellbridge/shared/errors";
 import { logger } from "@sellbridge/shared/logger";
 import { database } from "@/lib/server/database";
 import { billingLockDatabase } from "./billing-lock-database.server";
-import { syncBillingSubscription, syncUpgradeCharge } from "./billing-sync.server";
+import {
+  isGivenBackCharge,
+  isOpenCharge,
+  syncBillingSubscription,
+  syncUpgradeCharge,
+} from "./billing-sync.server";
 import {
   CHARGE_REFERENCE,
   CHECKOUT_REFERENCE,
@@ -78,6 +83,11 @@ export async function reserveBillingCreation<Result>(
 const PAID_MEANWHILE =
   "O seu pagamento acabou de entrar e a assinatura foi atualizada. Atualize a página e confira.";
 
+const CHANGED_MEANWHILE =
+  "A diferença de plano acabou de mudar no Asaas. Atualize a página e tente de novo.";
+const STILL_IN_REVIEW =
+  "O pagamento da diferença de plano ainda está em análise no Asaas. Tente de novo em alguns minutos.";
+
 /** Something Asaas no longer has is no longer waiting for payment. */
 async function readUnlessGone<Result>(read: () => Promise<Result>): Promise<Result | null> {
   try {
@@ -102,12 +112,14 @@ async function retireDifference(client: AsaasBillingClient, chargeId: string): P
   if (charge === null) return;
   if (isPaidCharge(charge)) {
     const outcome = await syncUpgradeCharge({ chargeId, eventId: null });
-    if (outcome === "applied") throw conflictError(PAID_MEANWHILE);
+    if (outcome === "given_back") return;
+    throw conflictError(outcome === "applied" ? PAID_MEANWHILE : CHANGED_MEANWHILE);
+  }
+  if (isOpenCharge(charge)) {
+    await removeUnlessGone(async () => client.deleteCharge(chargeId));
     return;
   }
-  const open =
-    (charge.status === "PENDING" || charge.status === "OVERDUE") && charge.deleted !== true;
-  if (open) await removeUnlessGone(async () => client.deleteCharge(chargeId));
+  if (!isGivenBackCharge(charge)) throw conflictError(STILL_IN_REVIEW);
 }
 
 /**
