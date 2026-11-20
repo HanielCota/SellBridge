@@ -24,7 +24,7 @@ export const INVOICE_MODEL_LABELS: Readonly<Record<InvoiceModel, string>> = {
 };
 
 /** Models the supplier can pick on the brand screen; the others are shown as coming soon. */
-export const AVAILABLE_INVOICE_MODELS: readonly InvoiceModel[] = ["direct"];
+export const AVAILABLE_INVOICE_MODELS: readonly InvoiceModel[] = ["direct", "on_behalf"];
 
 /**
  * The notes a supplier's ERP issues for one parcel:
@@ -38,6 +38,17 @@ export type InvoiceKind = (typeof INVOICE_KINDS)[number];
 
 /** The note that travels with the parcel: there is one per parcel, whatever the model. */
 export const BOX_INVOICE_KINDS: readonly InvoiceKind[] = ["direct", "on_behalf_shipment"];
+
+/**
+ * Which of a parcel's notes the screens mean: the one in the box (direct or remessa) or, in
+ * venda à ordem, the supplier's sale to the reseller.
+ */
+export const PARCEL_NOTES = ["box", "sale"] as const;
+export type ParcelNote = (typeof PARCEL_NOTES)[number];
+
+export function parcelNoteKinds(note: ParcelNote): readonly InvoiceKind[] {
+  return note === "box" ? BOX_INVOICE_KINDS : ["on_behalf_sale"];
+}
 
 /**
  * The CFOP of a venda à ordem note: in-state or out-of-state, from the supplier's settings. The
