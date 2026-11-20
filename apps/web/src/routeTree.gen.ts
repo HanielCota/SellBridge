@@ -76,7 +76,6 @@ import { Route as ApiWebhooksAsaasRouteImport } from './routes/api/webhooks/asaa
 import { Route as ApiWebhooksAsaasAssinaturaRouteImport } from './routes/api/webhooks/asaas-assinatura'
 import { Route as ApiWebhooksBlingRouteImport } from './routes/api/webhooks/bling'
 import { Route as ApiWebhooksMercadoPagoRouteImport } from './routes/api/webhooks/mercado-pago'
-import { Route as ApiWebhooksStripeRouteImport } from './routes/api/webhooks/stripe'
 import { Route as FornecedorPedidoTokenRouteImport } from './routes/fornecedor/pedido/$token'
 import { Route as AppAdminChamadosIndexRouteImport } from './routes/_app/admin/chamados/index'
 import { Route as AppAdminChamadosTicketIdRouteImport } from './routes/_app/admin/chamados/$ticketId'
@@ -479,11 +478,6 @@ const ApiWebhooksBlingRoute = ApiWebhooksBlingRouteImport.update({
 const ApiWebhooksMercadoPagoRoute = ApiWebhooksMercadoPagoRouteImport.update({
   id: '/api/webhooks/mercado-pago',
   path: '/api/webhooks/mercado-pago',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const ApiWebhooksStripeRoute = ApiWebhooksStripeRouteImport.update({
-  id: '/api/webhooks/stripe',
-  path: '/api/webhooks/stripe',
   getParentRoute: () => rootRouteImport,
 } as any)
 const FornecedorPedidoTokenRoute = FornecedorPedidoTokenRouteImport.update({
@@ -939,7 +933,6 @@ export interface FileRoutesByFullPath {
   '/api/webhooks/asaas-assinatura': typeof ApiWebhooksAsaasAssinaturaRoute
   '/api/webhooks/bling': typeof ApiWebhooksBlingRoute
   '/api/webhooks/mercado-pago': typeof ApiWebhooksMercadoPagoRoute
-  '/api/webhooks/stripe': typeof ApiWebhooksStripeRoute
   '/fornecedor/pedido/$token': typeof FornecedorPedidoTokenRoute
   '/fornecedores/': typeof AppFornecedoresIndexRoute
   '/pedidos/': typeof AppPedidosIndexRoute
@@ -1070,7 +1063,6 @@ export interface FileRoutesByTo {
   '/api/webhooks/asaas-assinatura': typeof ApiWebhooksAsaasAssinaturaRoute
   '/api/webhooks/bling': typeof ApiWebhooksBlingRoute
   '/api/webhooks/mercado-pago': typeof ApiWebhooksMercadoPagoRoute
-  '/api/webhooks/stripe': typeof ApiWebhooksStripeRoute
   '/fornecedor/pedido/$token': typeof FornecedorPedidoTokenRoute
   '/fornecedores': typeof AppFornecedoresIndexRoute
   '/pedidos': typeof AppPedidosIndexRoute
@@ -1208,7 +1200,6 @@ export interface FileRoutesById {
   '/api/webhooks/asaas-assinatura': typeof ApiWebhooksAsaasAssinaturaRoute
   '/api/webhooks/bling': typeof ApiWebhooksBlingRoute
   '/api/webhooks/mercado-pago': typeof ApiWebhooksMercadoPagoRoute
-  '/api/webhooks/stripe': typeof ApiWebhooksStripeRoute
   '/fornecedor/pedido/$token': typeof FornecedorPedidoTokenRoute
   '/_app/fornecedores/': typeof AppFornecedoresIndexRoute
   '/_app/pedidos/': typeof AppPedidosIndexRoute
@@ -1345,7 +1336,6 @@ export interface FileRouteTypes {
     | '/api/webhooks/asaas-assinatura'
     | '/api/webhooks/bling'
     | '/api/webhooks/mercado-pago'
-    | '/api/webhooks/stripe'
     | '/fornecedor/pedido/$token'
     | '/fornecedores/'
     | '/pedidos/'
@@ -1476,7 +1466,6 @@ export interface FileRouteTypes {
     | '/api/webhooks/asaas-assinatura'
     | '/api/webhooks/bling'
     | '/api/webhooks/mercado-pago'
-    | '/api/webhooks/stripe'
     | '/fornecedor/pedido/$token'
     | '/fornecedores'
     | '/pedidos'
@@ -1613,7 +1602,6 @@ export interface FileRouteTypes {
     | '/api/webhooks/asaas-assinatura'
     | '/api/webhooks/bling'
     | '/api/webhooks/mercado-pago'
-    | '/api/webhooks/stripe'
     | '/fornecedor/pedido/$token'
     | '/_app/fornecedores/'
     | '/_app/pedidos/'
@@ -1715,7 +1703,6 @@ export interface RootRouteChildren {
   ApiWebhooksAsaasAssinaturaRoute: typeof ApiWebhooksAsaasAssinaturaRoute
   ApiWebhooksBlingRoute: typeof ApiWebhooksBlingRoute
   ApiWebhooksMercadoPagoRoute: typeof ApiWebhooksMercadoPagoRoute
-  ApiWebhooksStripeRoute: typeof ApiWebhooksStripeRoute
   FornecedorPedidoTokenRoute: typeof FornecedorPedidoTokenRoute
   ApiAdminExportarAuditoriaRoute: typeof ApiAdminExportarAuditoriaRoute
   ApiAdminExportarChamadosRoute: typeof ApiAdminExportarChamadosRoute
@@ -2225,13 +2212,6 @@ declare module '@tanstack/react-router' {
       path: '/api/webhooks/mercado-pago'
       fullPath: '/api/webhooks/mercado-pago'
       preLoaderRoute: typeof ApiWebhooksMercadoPagoRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/api/webhooks/stripe': {
-      id: '/api/webhooks/stripe'
-      path: '/api/webhooks/stripe'
-      fullPath: '/api/webhooks/stripe'
-      preLoaderRoute: typeof ApiWebhooksStripeRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/fornecedor/pedido/$token': {
@@ -2959,7 +2939,6 @@ const rootRouteChildren: RootRouteChildren = {
   ApiWebhooksAsaasAssinaturaRoute: ApiWebhooksAsaasAssinaturaRoute,
   ApiWebhooksBlingRoute: ApiWebhooksBlingRoute,
   ApiWebhooksMercadoPagoRoute: ApiWebhooksMercadoPagoRoute,
-  ApiWebhooksStripeRoute: ApiWebhooksStripeRoute,
   FornecedorPedidoTokenRoute: FornecedorPedidoTokenRoute,
   ApiAdminExportarAuditoriaRoute: ApiAdminExportarAuditoriaRoute,
   ApiAdminExportarChamadosRoute: ApiAdminExportarChamadosRoute,

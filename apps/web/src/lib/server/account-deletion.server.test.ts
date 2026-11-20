@@ -11,7 +11,6 @@ const mocks = vi.hoisted(() => ({
       database: unknown,
       tenantId: string,
     ) => Promise<{
-      provider?: "stripe" | "asaas";
       customerId: string | null;
       subscriptionId: string | null;
       pendingReference?: string | null;
@@ -21,7 +20,6 @@ const mocks = vi.hoisted(() => ({
     vi.fn<(database: unknown, tenantId: string) => Promise<{ id: string; status: string }[]>>(),
   disconnectStoreForTenant: vi.fn<(request: unknown) => Promise<unknown>>(),
   deleteCustomer: vi.fn<(customerId: string) => Promise<unknown>>(),
-  deleteStripeCustomer: vi.fn<(customerId: string) => Promise<unknown>>(),
   cancelCheckout: vi.fn<(checkoutId: string) => Promise<void>>(),
   deleteSubscription: vi.fn<(subscriptionId: string) => Promise<unknown>>(),
   deleteCharge: vi.fn<(chargeId: string) => Promise<unknown>>(),
@@ -39,9 +37,6 @@ vi.mock("@/lib/server/account-deletion-blockers.server", () => ({
 }));
 vi.mock("@/lib/server/stock-sync", () => ({ requestStockSync: mocks.requestStockSync }));
 vi.mock("@/lib/server/storage", () => ({ fileStorage: { delete: mocks.deleteFile } }));
-vi.mock("@/features/billing/stripe.server", () => ({
-  stripeClient: () => ({ customers: { del: mocks.deleteStripeCustomer } }),
-}));
 vi.mock("@/features/billing/billing-config.server", () => ({
   billingClientForCleanup: () => ({
     deleteSubscriber: mocks.deleteCustomer,
@@ -146,23 +141,6 @@ describe("prepareAccountDeletion", () => {
     const charge = mocks.deleteCharge.mock.invocationCallOrder[0] ?? 0;
     const data = mocks.deleteTenantData.mock.invocationCallOrder[0] ?? 0;
     expect(charge).toBeLessThan(data);
-  });
-
-  it("closes a legacy Stripe account through Stripe before deleting any data", async () => {
-    mocks.getBillingAccount.mockResolvedValue({
-      provider: "stripe",
-      customerId: "cus_stripe",
-      subscriptionId: "sub_stripe",
-      pendingReference: null,
-    });
-
-    await prepareAccountDeletion(SELLER);
-
-    expect(mocks.deleteStripeCustomer).toHaveBeenCalledWith("cus_stripe");
-    expect(mocks.deleteCustomer).not.toHaveBeenCalled();
-    const provider = mocks.deleteStripeCustomer.mock.invocationCallOrder[0] ?? 0;
-    const deletion = mocks.deleteTenantData.mock.invocationCallOrder[0] ?? 0;
-    expect(provider).toBeLessThan(deletion);
   });
 
   it("closes an open card checkout before deleting an account without a customer", async () => {
