@@ -117,6 +117,7 @@ import { Route as ApiFornecedorProdutosImagensRouteImport } from './routes/api/f
 import { Route as ApiFornecedorVendasExportarRouteImport } from './routes/api/fornecedor/vendas/exportar'
 import { Route as ApiIntegracoesBlingConectarRouteImport } from './routes/api/integracoes/bling/conectar'
 import { Route as ApiIntegracoesBlingRetornoRouteImport } from './routes/api/integracoes/bling/retorno'
+import { Route as ApiIntegracoesBlingRevendaRouteImport } from './routes/api/integracoes/bling/revenda'
 import { Route as ApiIntegracoesMercadoPagoConectarRouteImport } from './routes/api/integracoes/mercado-pago/conectar'
 import { Route as ApiIntegracoesMercadoPagoRetornoRouteImport } from './routes/api/integracoes/mercado-pago/retorno'
 import { Route as ApiOauthMarketplaceCallbackRouteImport } from './routes/api/oauth/$marketplace/callback'
@@ -720,6 +721,12 @@ const ApiIntegracoesBlingRetornoRoute =
     path: '/api/integracoes/bling/retorno',
     getParentRoute: () => rootRouteImport,
   } as any)
+const ApiIntegracoesBlingRevendaRoute =
+  ApiIntegracoesBlingRevendaRouteImport.update({
+    id: '/api/integracoes/bling/revenda',
+    path: '/api/integracoes/bling/revenda',
+    getParentRoute: () => rootRouteImport,
+  } as any)
 const ApiIntegracoesMercadoPagoConectarRoute =
   ApiIntegracoesMercadoPagoConectarRouteImport.update({
     id: '/api/integracoes/mercado-pago/conectar',
@@ -984,6 +991,7 @@ export interface FileRoutesByFullPath {
   '/api/fornecedor/vendas/exportar': typeof ApiFornecedorVendasExportarRoute
   '/api/integracoes/bling/conectar': typeof ApiIntegracoesBlingConectarRoute
   '/api/integracoes/bling/retorno': typeof ApiIntegracoesBlingRetornoRoute
+  '/api/integracoes/bling/revenda': typeof ApiIntegracoesBlingRevendaRoute
   '/api/integracoes/mercado-pago/conectar': typeof ApiIntegracoesMercadoPagoConectarRoute
   '/api/integracoes/mercado-pago/retorno': typeof ApiIntegracoesMercadoPagoRetornoRoute
   '/api/oauth/$marketplace/callback': typeof ApiOauthMarketplaceCallbackRoute
@@ -1116,6 +1124,7 @@ export interface FileRoutesByTo {
   '/api/fornecedor/vendas/exportar': typeof ApiFornecedorVendasExportarRoute
   '/api/integracoes/bling/conectar': typeof ApiIntegracoesBlingConectarRoute
   '/api/integracoes/bling/retorno': typeof ApiIntegracoesBlingRetornoRoute
+  '/api/integracoes/bling/revenda': typeof ApiIntegracoesBlingRevendaRoute
   '/api/integracoes/mercado-pago/conectar': typeof ApiIntegracoesMercadoPagoConectarRoute
   '/api/integracoes/mercado-pago/retorno': typeof ApiIntegracoesMercadoPagoRetornoRoute
   '/api/oauth/$marketplace/callback': typeof ApiOauthMarketplaceCallbackRoute
@@ -1255,6 +1264,7 @@ export interface FileRoutesById {
   '/api/fornecedor/vendas/exportar': typeof ApiFornecedorVendasExportarRoute
   '/api/integracoes/bling/conectar': typeof ApiIntegracoesBlingConectarRoute
   '/api/integracoes/bling/retorno': typeof ApiIntegracoesBlingRetornoRoute
+  '/api/integracoes/bling/revenda': typeof ApiIntegracoesBlingRevendaRoute
   '/api/integracoes/mercado-pago/conectar': typeof ApiIntegracoesMercadoPagoConectarRoute
   '/api/integracoes/mercado-pago/retorno': typeof ApiIntegracoesMercadoPagoRetornoRoute
   '/api/oauth/$marketplace/callback': typeof ApiOauthMarketplaceCallbackRoute
@@ -1393,6 +1403,7 @@ export interface FileRouteTypes {
     | '/api/fornecedor/vendas/exportar'
     | '/api/integracoes/bling/conectar'
     | '/api/integracoes/bling/retorno'
+    | '/api/integracoes/bling/revenda'
     | '/api/integracoes/mercado-pago/conectar'
     | '/api/integracoes/mercado-pago/retorno'
     | '/api/oauth/$marketplace/callback'
@@ -1525,6 +1536,7 @@ export interface FileRouteTypes {
     | '/api/fornecedor/vendas/exportar'
     | '/api/integracoes/bling/conectar'
     | '/api/integracoes/bling/retorno'
+    | '/api/integracoes/bling/revenda'
     | '/api/integracoes/mercado-pago/conectar'
     | '/api/integracoes/mercado-pago/retorno'
     | '/api/oauth/$marketplace/callback'
@@ -1663,6 +1675,7 @@ export interface FileRouteTypes {
     | '/api/fornecedor/vendas/exportar'
     | '/api/integracoes/bling/conectar'
     | '/api/integracoes/bling/retorno'
+    | '/api/integracoes/bling/revenda'
     | '/api/integracoes/mercado-pago/conectar'
     | '/api/integracoes/mercado-pago/retorno'
     | '/api/oauth/$marketplace/callback'
@@ -1744,6 +1757,7 @@ export interface RootRouteChildren {
   ApiFornecedorVendasExportarRoute: typeof ApiFornecedorVendasExportarRoute
   ApiIntegracoesBlingConectarRoute: typeof ApiIntegracoesBlingConectarRoute
   ApiIntegracoesBlingRetornoRoute: typeof ApiIntegracoesBlingRetornoRoute
+  ApiIntegracoesBlingRevendaRoute: typeof ApiIntegracoesBlingRevendaRoute
   ApiIntegracoesMercadoPagoConectarRoute: typeof ApiIntegracoesMercadoPagoConectarRoute
   ApiIntegracoesMercadoPagoRetornoRoute: typeof ApiIntegracoesMercadoPagoRetornoRoute
   ApiOauthMarketplaceCallbackRoute: typeof ApiOauthMarketplaceCallbackRoute
@@ -2527,6 +2541,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiIntegracoesBlingRetornoRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/integracoes/bling/revenda': {
+      id: '/api/integracoes/bling/revenda'
+      path: '/api/integracoes/bling/revenda'
+      fullPath: '/api/integracoes/bling/revenda'
+      preLoaderRoute: typeof ApiIntegracoesBlingRevendaRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/integracoes/mercado-pago/conectar': {
       id: '/api/integracoes/mercado-pago/conectar'
       path: '/api/integracoes/mercado-pago/conectar'
@@ -2996,6 +3017,7 @@ const rootRouteChildren: RootRouteChildren = {
   ApiFornecedorVendasExportarRoute: ApiFornecedorVendasExportarRoute,
   ApiIntegracoesBlingConectarRoute: ApiIntegracoesBlingConectarRoute,
   ApiIntegracoesBlingRetornoRoute: ApiIntegracoesBlingRetornoRoute,
+  ApiIntegracoesBlingRevendaRoute: ApiIntegracoesBlingRevendaRoute,
   ApiIntegracoesMercadoPagoConectarRoute:
     ApiIntegracoesMercadoPagoConectarRoute,
   ApiIntegracoesMercadoPagoRetornoRoute: ApiIntegracoesMercadoPagoRetornoRoute,

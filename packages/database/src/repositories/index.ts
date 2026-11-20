@@ -127,6 +127,8 @@ export * from "./erp-stock-exits.ts";
 export * from "./shipment-invoices.ts";
 export * from "./shipment-on-behalf-invoices.ts";
 export * from "./shipment-reseller-invoices.ts";
+export * from "./reseller-erp-connections.ts";
+export * from "./reseller-sale-issue.ts";
 export * from "./supplier-payments.ts";
 export * from "./asaas-payments.ts";
 export * from "./receiving-rules.ts";

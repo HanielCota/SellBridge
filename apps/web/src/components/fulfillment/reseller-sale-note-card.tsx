@@ -1,4 +1,11 @@
-import { CheckIcon, ClockIcon, ReceiptIcon, UploadSimpleIcon } from "@phosphor-icons/react";
+import {
+  ArrowClockwiseIcon,
+  CheckIcon,
+  ClockIcon,
+  ReceiptIcon,
+  UploadSimpleIcon,
+  WarningCircleIcon,
+} from "@phosphor-icons/react";
 import { accessKeyFormatProblem } from "@sellbridge/shared/nfe-access-key";
 import { MAX_NFE_XML_BYTES } from "@sellbridge/shared/nfe-xml";
 import type { ResellerInvoiceSource } from "@sellbridge/shared/reseller-invoice";
@@ -11,6 +18,7 @@ import {
   saveResellerSaleNoteFn,
   uploadResellerSaleNoteXmlFn,
 } from "@/features/fulfillment/reseller-sale-note.functions";
+import { retryResellerSaleNoteFn } from "@/features/reseller-bling/reseller-bling.functions";
 import { errorMessage } from "@/lib/errors";
 import { formatAbsoluteTime } from "@/lib/relative-time";
 
@@ -21,12 +29,17 @@ export interface ResellerSaleNote {
   source: ResellerInvoiceSource | null;
   foundAt: Date | null;
   problem: string | null;
+  /** The reseller's own Bling issues it. */
+  issuedByErp: boolean;
+  /** The Bling stopped on it; `problem` says why. */
+  erpStopped: boolean;
 }
 
 const SOURCE_LABELS: Record<ResellerInvoiceSource, string> = {
   marketplace: "Lida no pedido do marketplace",
   typed: "Chave informada por você",
   uploaded: "XML enviado por você ao Mercado Livre",
+  bling: "Emitida pelo seu Bling",
 };
 
 /** Mercado Livre takes the note only as its XML: a typed key never reaches it. */
@@ -267,9 +280,110 @@ function MissingOnMarketplace({
   );
 }
 
+/** "Tentar de novo": the note goes back to the reseller's Bling. */
+function useErpRetry(shipmentId: string, onSaved: () => Promise<void>) {
+  const [error, setError] = useState<string | null>(null);
+  const [isSending, setIsSending] = useState(false);
+  async function retry() {
+    setError(null);
+    setIsSending(true);
+    try {
+      await retryResellerSaleNoteFn({ data: { shipmentId } });
+      await onSaved();
+    } catch (failure) {
+      setError(errorMessage(failure));
+    } finally {
+      setIsSending(false);
+    }
+  }
+  return { error, isSending, retry };
+}
+
+/** The Bling stopped: why, the retry, and the XML as the way out. */
+function ErpStopped({
+  note,
+  shipmentId,
+  onSaved,
+}: {
+  note: ResellerSaleNote;
+  shipmentId: string;
+  onSaved: () => Promise<void>;
+}) {
+  const retry = useErpRetry(shipmentId, onSaved);
+  return (
+    <div className="grid gap-3">
+      <output className="block text-subhead text-destructive">{note.problem}</output>
+      <Button
+        type="button"
+        disabled={retry.isSending}
+        className="min-h-11 w-full sm:w-fit"
+        onClick={() => void retry.retry()}
+      >
+        <ArrowClockwiseIcon aria-hidden="true" />
+        {retry.isSending ? "Pedindo…" : "Tentar de novo"}
+      </Button>
+      {retry.error === null ? null : (
+        <output className="block text-footnote text-destructive">{retry.error}</output>
+      )}
+      <p className="text-subhead text-muted-foreground">
+        Se preferir, emita a nota no seu sistema e envie o XML: o SellBridge manda para o Mercado
+        Livre.
+      </p>
+      <XmlUploadForm shipmentId={shipmentId} onSaved={onSaved} />
+    </div>
+  );
+}
+
+function WaitingPill({ note }: { note: ResellerSaleNote }) {
+  if (note.erpStopped) {
+    return (
+      <TonePill
+        tone="danger"
+        label="Parada no seu Bling"
+        icon={<WarningCircleIcon aria-hidden="true" className="size-3.5" />}
+      />
+    );
+  }
+  return (
+    <TonePill
+      tone="warning"
+      label={note.issuedByErp ? "Seu Bling está emitindo" : "Esperando a sua nota"}
+      icon={<ClockIcon aria-hidden="true" className="size-3.5" />}
+    />
+  );
+}
+
+function MissingNote({
+  note,
+  shipmentId,
+  marketplace,
+  onSaved,
+}: {
+  note: ResellerSaleNote;
+  shipmentId: string;
+  marketplace: string;
+  onSaved: () => Promise<void>;
+}) {
+  if (note.erpStopped) {
+    return <ErpStopped note={note} shipmentId={shipmentId} onSaved={onSaved} />;
+  }
+  if (note.issuedByErp) {
+    return (
+      <p className="text-subhead text-muted-foreground">
+        O seu Bling está emitindo esta nota para o comprador. Assim que a SEFAZ autorizar, o
+        SellBridge manda a nota para o Mercado Livre, e as notas do fornecedor seguem.
+      </p>
+    );
+  }
+  return (
+    <WaitingNote note={note} shipmentId={shipmentId} marketplace={marketplace} onSaved={onSaved} />
+  );
+}
+
 /**
- * The reseller's own sale NF-e of a venda à ordem parcel: found on the marketplace's order or
- * typed here. The supplier's notes wait for it.
+ * The reseller's own sale NF-e of a venda à ordem parcel: found on the marketplace's order,
+ * typed or sent as XML here, or issued by the reseller's own Bling. The supplier's notes wait
+ * for it.
  */
 export function ResellerSaleNoteCard({
   shipmentId,
@@ -293,11 +407,7 @@ export function ResellerSaleNoteCard({
           Sua nota de venda
         </h3>
         {accessKey === null ? (
-          <TonePill
-            tone="warning"
-            label="Esperando a sua nota"
-            icon={<ClockIcon aria-hidden="true" className="size-3.5" />}
-          />
+          <WaitingPill note={note} />
         ) : (
           <TonePill
             tone="success"
@@ -307,7 +417,7 @@ export function ResellerSaleNoteCard({
         )}
       </div>
       {accessKey === null ? (
-        <WaitingNote
+        <MissingNote
           note={note}
           shipmentId={shipmentId}
           marketplace={marketplace}

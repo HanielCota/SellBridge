@@ -123,18 +123,71 @@ export const erpStockRefreshRequests = pgTable(
   ],
 );
 
-/** Short-lived OAuth state for an ERP connection, against CSRF and replay. */
-export const erpOAuthStates = pgTable("erp_oauth_states", {
-  state: text().primaryKey(),
-  supplierId: uuid()
-    .notNull()
-    .references(() => suppliers.id, { onDelete: "cascade" }),
-  userId: text()
-    .notNull()
-    .references(() => user.id, { onDelete: "cascade" }),
-  provider: erpProviderEnum().notNull(),
-  expiresAt: timestamp({ withTimezone: true }).notNull(),
-});
+/**
+ * Short-lived OAuth state for an ERP connection, against CSRF and replay. It belongs to a supplier
+ * (its catalog and notes) or to a reseller (its own sale notes), never both.
+ */
+export const erpOAuthStates = pgTable(
+  "erp_oauth_states",
+  {
+    state: text().primaryKey(),
+    supplierId: uuid().references(() => suppliers.id, { onDelete: "cascade" }),
+    tenantId: text().references(() => organization.id, { onDelete: "cascade" }),
+    userId: text()
+      .notNull()
+      .references(() => user.id, { onDelete: "cascade" }),
+    provider: erpProviderEnum().notNull(),
+    expiresAt: timestamp({ withTimezone: true }).notNull(),
+  },
+  (table) => [
+    check(
+      "erp_oauth_states_owner_check",
+      sql`(${table.supplierId} is null) <> (${table.tenantId} is null)`,
+    ),
+  ],
+);
+
+/**
+ * A reseller's own ERP account (Bling), connected by OAuth to issue its sale note of venda à
+ * ordem (note 1) to the buyer. Kept apart from the supplier's: it never imports a catalog.
+ */
+export const resellerErpConnections = pgTable(
+  "reseller_erp_connections",
+  {
+    id: uuid().primaryKey().defaultRandom(),
+    tenantId: text()
+      .notNull()
+      .references(() => organization.id, { onDelete: "cascade" }),
+    provider: erpProviderEnum().notNull(),
+    /** AES-256-GCM ciphertext (see packages/shared/src/runtime/token-cipher.ts). */
+    accessTokenEnc: text(),
+    refreshTokenEnc: text(),
+    expiresAt: timestamp({ withTimezone: true }),
+    status: storeConnectionStatusEnum().notNull().default("connected"),
+    lastError: text(),
+    /** The ERP account's company name, shown on the connection card; null when not read. */
+    accountName: text(),
+    /**
+     * Since when the ERP issues the reseller's sale notes; null while the reseller sends them
+     * itself. Parcels created before it keep waiting for the reseller's note.
+     */
+    saleNotesEnabledAt: timestamp({ withTimezone: true }),
+    /** The note's fiscal settings, validated with `resellerBlingSettingsSchema` when read. */
+    saleNoteSettings: jsonb(),
+    /** The reseller member who authorized it, kept for the audit trail. */
+    connectedByUserId: text().references(() => user.id, { onDelete: "set null" }),
+    connectedAt: timestamp({ withTimezone: true }).defaultNow().notNull(),
+    updatedAt: timestamp({ withTimezone: true })
+      .defaultNow()
+      .$onUpdate(() => new Date())
+      .notNull(),
+  },
+  (table) => [
+    uniqueIndex("reseller_erp_connections_tenant_provider_idx").on(table.tenantId, table.provider),
+    /** The refresh job reads connected rows by expiry. */
+    index("reseller_erp_connections_expiry_idx").on(table.status, table.expiresAt),
+  ],
+);
 
 /**
  * The latest read of a supplier's ERP catalog, done by the worker (a large catalog takes minutes
@@ -258,8 +311,17 @@ export const shipmentResellerInvoices = pgTable(
     labelReleasedAt: timestamp({ withTimezone: true }),
     labelReleasedByUserId: text().references(() => user.id, { onDelete: "set null" }),
     labelReleaseReason: text(),
-    /** Reads of the marketplace so far; spaces the next one. */
+    /** Reads of the marketplace so far, or steps of the reseller's ERP; spaces the next one. */
     checks: integer().notNull().default(0),
+    /** The note issued by the reseller's own ERP: its ids there, saved as they come. */
+    erpContactId: bigint({ mode: "number" }),
+    erpInvoiceId: bigint({ mode: "number" }),
+    /** Set before asking the ERP to create the note: a retry looks for it before making another. */
+    erpDraftRequestedAt: timestamp({ withTimezone: true }),
+    /** When the note went to SEFAZ through the reseller's ERP. */
+    erpSentAt: timestamp({ withTimezone: true }),
+    /** The ERP could not issue the note (`problem` says why); it waits for the reseller to retry. */
+    erpStoppedAt: timestamp({ withTimezone: true }),
     nextCheckAt: timestamp({ withTimezone: true }).defaultNow().notNull(),
     createdAt: timestamp({ withTimezone: true }).defaultNow().notNull(),
     updatedAt: timestamp({ withTimezone: true })
@@ -276,7 +338,7 @@ export const shipmentResellerInvoices = pgTable(
     index("shipment_reseller_invoices_tenant_idx").on(table.tenantId),
     check(
       "shipment_reseller_invoices_source_check",
-      sql`${table.source} is null or ${table.source} in ('marketplace', 'typed', 'uploaded')`,
+      sql`${table.source} is null or ${table.source} in ('marketplace', 'typed', 'uploaded', 'bling')`,
     ),
     check(
       "shipment_reseller_invoices_found_check",

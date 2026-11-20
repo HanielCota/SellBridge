@@ -1,7 +1,10 @@
 import {
   findErpConnection,
+  findResellerErpConnection,
   recordErpRefreshFailure,
+  recordResellerErpRefreshFailure,
   rotateErpTokens,
+  rotateResellerErpTokens,
 } from "@sellbridge/database/repositories";
 import {
   createBlingClient,
@@ -42,6 +45,36 @@ export function supplierBlingClient(
           rotateErpTokens(database, { connectionId, previousRefreshTokenEnc, tokens }),
         markExpired: async (connectionId, refreshTokenEnc, lastError) => {
           await recordErpRefreshFailure(database, {
+            connectionId,
+            refreshTokenEnc,
+            lastError,
+            expired: true,
+          });
+        },
+      },
+    }),
+  });
+}
+
+/** A Bling client acting on the reseller's own connected account (its sale notes). */
+export function resellerBlingClient(
+  tenantId: string,
+  credentials: BlingAppCredentials,
+): BlingClient {
+  return createBlingClient({
+    http: { fetchImplementation: fetch },
+    limiter,
+    access: storedBlingAccess({
+      accountKey: `reseller:${tenantId}`,
+      credentials,
+      cipher: tokenCipher,
+      fetchImplementation: fetch,
+      store: {
+        load: async () => findResellerErpConnection(database, { tenantId, provider: "bling" }),
+        rotate: async (connectionId, previousRefreshTokenEnc, tokens) =>
+          rotateResellerErpTokens(database, { connectionId, previousRefreshTokenEnc, tokens }),
+        markExpired: async (connectionId, refreshTokenEnc, lastError) => {
+          await recordResellerErpRefreshFailure(database, {
             connectionId,
             refreshTokenEnc,
             lastError,
