@@ -20,6 +20,7 @@
     "./supplier-panel-import-table": "./src/domain/supplier-panel-import-table.ts",
     "./brazilian-states": "./src/domain/brazilian-states.ts",
     "./billing-address": "./src/domain/billing-address.ts",
+    "./product-brand": "./src/domain/product-brand.ts",
     "./product-fiscal": "./src/domain/product-fiscal.ts",
     "./product-grid": "./src/domain/product-grid.ts",
     "./product-grid-import": "./src/domain/product-grid-import.ts",
