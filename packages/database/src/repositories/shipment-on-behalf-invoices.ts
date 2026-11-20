@@ -1,6 +1,8 @@
 import type { BillingAddress } from "@sellbridge/shared/billing-address";
+import type { OnBehalfLabelParcel } from "@sellbridge/shared/reseller-invoice";
 import type { InvoiceKind } from "@sellbridge/shared/supplier-invoice";
-import { and, eq, gte, isNotNull, isNull, notInArray } from "drizzle-orm";
+import { conflictError, notFoundError } from "@sellbridge/shared/errors";
+import { and, eq, gte, isNotNull, isNull, ne, notInArray, or } from "drizzle-orm";
 import { alias } from "drizzle-orm/pg-core";
 import type { Database } from "../client.ts";
 import {
@@ -8,8 +10,10 @@ import {
   orderShipments,
   shipmentInvoices,
   shipmentResellerInvoices,
+  storeConnections,
   supplierErpConnections,
   tenantProfile,
+  user,
 } from "../schema/index.ts";
 import { UNINVOICED_ORDER_STATUSES, UNINVOICED_SHIPMENT_STATUSES } from "./sql/uninvoiced.ts";
 
@@ -20,7 +24,9 @@ const saleGoesAhead = and(
 
 /**
  * Opens the remessa (supplier → buyer) of each venda à ordem parcel whose reseller note was
- * found, while the supplier's ERP issues its notes and the sale goes ahead.
+ * found, while the supplier's ERP issues its notes and the sale goes ahead. On Mercado Livre the
+ * note must be there first (a typed key never reaches it): until then the reseller may still
+ * replace it, and the remessa would cite a note Mercado Livre does not have.
  */
 async function queueOnBehalfShipments(database: Database): Promise<number> {
   const candidates = await database
@@ -47,6 +53,7 @@ async function queueOnBehalfShipments(database: Database): Promise<number> {
       ),
     )
     .innerJoin(orders, eq(orders.id, orderShipments.orderId))
+    .innerJoin(storeConnections, eq(storeConnections.id, orders.storeConnectionId))
     .leftJoin(
       shipmentInvoices,
       and(
@@ -54,7 +61,16 @@ async function queueOnBehalfShipments(database: Database): Promise<number> {
         eq(shipmentInvoices.kind, "on_behalf_shipment"),
       ),
     )
-    .where(and(isNull(shipmentInvoices.id), saleGoesAhead));
+    .where(
+      and(
+        isNull(shipmentInvoices.id),
+        saleGoesAhead,
+        or(
+          ne(storeConnections.marketplace, "mercado_livre"),
+          ne(shipmentResellerInvoices.source, "typed"),
+        ),
+      ),
+    );
   return insertNotes(database, candidates, "on_behalf_shipment");
 }
 
@@ -266,4 +282,162 @@ export async function findResellerNoteState(
     .from(shipmentResellerInvoices)
     .where(eq(shipmentResellerInvoices.shipmentId, shipmentId));
   return row === undefined ? null : { found: row.accessKey !== null };
+}
+
+/**
+ * The venda à ordem parcels behind an order's label: where the reseller's note came from and
+ * whether the remessa is authorized. A Mercado Livre cart has one label for all its orders, so
+ * every parcel of the cart counts. Empty for labels of direct notes only.
+ */
+export async function findOnBehalfLabelParcels(
+  database: Database,
+  input: { tenantId: string; orderId: string },
+): Promise<OnBehalfLabelParcel[]> {
+  const [order] = await database
+    .select({ storeConnectionId: orders.storeConnectionId, packId: orders.marketplacePackId })
+    .from(orders)
+    .where(and(eq(orders.id, input.orderId), eq(orders.tenantId, input.tenantId)));
+  if (order === undefined) {
+    return [];
+  }
+  const sameLabel =
+    order.packId === null
+      ? eq(orders.id, input.orderId)
+      : and(
+          eq(orders.storeConnectionId, order.storeConnectionId),
+          eq(orders.marketplacePackId, order.packId),
+        );
+  const remessa = alias(shipmentInvoices, "label_remessa");
+  const rows = await database
+    .select({
+      resellerNoteSource: shipmentResellerInvoices.source,
+      remessaStatus: remessa.status,
+      labelReleasedAt: shipmentResellerInvoices.labelReleasedAt,
+    })
+    .from(shipmentResellerInvoices)
+    .innerJoin(orderShipments, eq(orderShipments.id, shipmentResellerInvoices.shipmentId))
+    .innerJoin(orders, eq(orders.id, orderShipments.orderId))
+    .leftJoin(
+      remessa,
+      and(eq(remessa.shipmentId, orderShipments.id), eq(remessa.kind, "on_behalf_shipment")),
+    )
+    .where(and(eq(orders.tenantId, input.tenantId), sameLabel));
+  return rows.map((row) => ({
+    resellerNoteSource: row.resellerNoteSource,
+    remessaAuthorized: row.remessaStatus === "authorized",
+    labelReleased: row.labelReleasedAt !== null,
+  }));
+}
+
+/** A venda à ordem parcel's label as the team sees it in Admin › Envios. */
+export interface OnBehalfLabelState {
+  readonly tenantId: string;
+  readonly orderId: string;
+  readonly marketplace: string;
+  /** Who let the label out although a note was stuck, when and why; null while it waits. */
+  readonly release: {
+    readonly at: Date;
+    readonly byName: string | null;
+    readonly reason: string;
+  } | null;
+}
+
+/** The parcel's label state, or null when the parcel is not sold in venda à ordem. */
+export async function findOnBehalfLabelState(
+  database: Database,
+  shipmentId: string,
+): Promise<OnBehalfLabelState | null> {
+  const releasedBy = alias(user, "label_released_by");
+  const [row] = await database
+    .select({
+      tenantId: orderShipments.tenantId,
+      orderId: orderShipments.orderId,
+      marketplace: storeConnections.marketplace,
+      releasedAt: shipmentResellerInvoices.labelReleasedAt,
+      releasedByName: releasedBy.name,
+      reason: shipmentResellerInvoices.labelReleaseReason,
+    })
+    .from(shipmentResellerInvoices)
+    .innerJoin(orderShipments, eq(orderShipments.id, shipmentResellerInvoices.shipmentId))
+    .innerJoin(orders, eq(orders.id, orderShipments.orderId))
+    .innerJoin(storeConnections, eq(storeConnections.id, orders.storeConnectionId))
+    .leftJoin(releasedBy, eq(releasedBy.id, shipmentResellerInvoices.labelReleasedByUserId))
+    .where(eq(shipmentResellerInvoices.shipmentId, shipmentId));
+  if (row === undefined) {
+    return null;
+  }
+  const release =
+    row.releasedAt === null
+      ? null
+      : { at: row.releasedAt, byName: row.releasedByName, reason: row.reason ?? "" };
+  return {
+    tenantId: row.tenantId,
+    orderId: row.orderId,
+    marketplace: row.marketplace,
+    release,
+  };
+}
+
+/**
+ * Lets a venda à ordem parcel's label out although a note is stuck, keeping who did it and why.
+ *
+ * @throws {AppError} NOT_FOUND when the parcel is not sold in venda à ordem; CONFLICT when its
+ * label was already released.
+ */
+export async function releaseOnBehalfLabel(
+  database: Database,
+  release: { shipmentId: string; userId: string; reason: string; now: Date },
+): Promise<void> {
+  const updated = await database
+    .update(shipmentResellerInvoices)
+    .set({
+      labelReleasedAt: release.now,
+      labelReleasedByUserId: release.userId,
+      labelReleaseReason: release.reason,
+    })
+    .where(
+      and(
+        eq(shipmentResellerInvoices.shipmentId, release.shipmentId),
+        isNull(shipmentResellerInvoices.labelReleasedAt),
+      ),
+    )
+    .returning({ id: shipmentResellerInvoices.id });
+  if (updated.length > 0) {
+    return;
+  }
+  const [existing] = await database
+    .select({ id: shipmentResellerInvoices.id })
+    .from(shipmentResellerInvoices)
+    .where(eq(shipmentResellerInvoices.shipmentId, release.shipmentId));
+  if (existing === undefined) {
+    throw notFoundError("Este envio não é de venda à ordem");
+  }
+  throw conflictError("A etiqueta deste envio já foi liberada");
+}
+
+/**
+ * Marks the remessa as asked of the ERP, only while the reseller's note is still `citedAccessKey`
+ * (the one the remessa will cite). It holds the note's row meanwhile, as replacing the note does,
+ * so a note replaced in between is seen here or there, never missed by both. Returns false when
+ * the note changed: the remessa is to be built again with the new one.
+ */
+export async function claimOnBehalfRemessaDraft(
+  database: Database,
+  claim: { invoiceId: string; shipmentId: string; citedAccessKey: string; now: Date },
+): Promise<boolean> {
+  return database.transaction(async (transaction) => {
+    const [note] = await transaction
+      .select({ accessKey: shipmentResellerInvoices.accessKey })
+      .from(shipmentResellerInvoices)
+      .where(eq(shipmentResellerInvoices.shipmentId, claim.shipmentId))
+      .for("update");
+    if (note?.accessKey !== claim.citedAccessKey) {
+      return false;
+    }
+    await transaction
+      .update(shipmentInvoices)
+      .set({ erpDraftRequestedAt: claim.now })
+      .where(eq(shipmentInvoices.id, claim.invoiceId));
+    return true;
+  });
 }

@@ -693,6 +693,23 @@ describe("Mercado Livre category requirements", () => {
     ]);
   });
 
+  it("sends the category's generic brand when the supplier left the brand empty", async () => {
+    const { ml, calls } = connector({
+      ...publishRoutes,
+      [`GET ${API}/categories/MLB1/attributes`]: () => json(200, HANDBAG_ATTRIBUTES),
+      [`POST ${API}/categories/MLB1/attributes/conditional`]: () =>
+        json(200, { required_attributes: [] }),
+    });
+
+    await ml.publishProduct(store, {
+      ...product,
+      mercadoLivreAttributes: { BRAND: "", MODEL: "BI-01" },
+    });
+
+    const created = JSON.parse(calls.find((call) => call.url === `${API}/items`)?.body ?? "{}");
+    expect(created.attributes).toContainEqual({ id: "BRAND", value_name: "Generic" });
+  });
+
   it("publishes in the category the supplier chose instead of predicting one", async () => {
     const { ml, calls } = connector({
       [`POST ${API}/items`]: () => json(201, { id: "MLB9" }),
@@ -724,7 +741,7 @@ describe("Mercado Livre category requirements", () => {
     await ml.publishProduct(store, {
       ...product,
       mercadoLivreAttributes: {
-        BRAND: "Genérica",
+        BRAND: "Lua Bolsas",
         MODEL: "BI-01",
         IS_VEGAN: "Sim",
         GENDER: "Meninas",
@@ -733,7 +750,7 @@ describe("Mercado Livre category requirements", () => {
 
     const created = JSON.parse(calls.find((call) => call.url === `${API}/items`)?.body ?? "{}");
     expect(created.attributes).toEqual([
-      { id: "BRAND", value_name: "Genérica" },
+      { id: "BRAND", value_name: "Lua Bolsas" },
       { id: "MODEL", value_name: "BI-01" },
       { id: "IS_VEGAN", value_name: "Sim", value_id: "242085" },
       { id: "GENDER", value_name: "Meninas" },
@@ -816,13 +833,13 @@ describe("Mercado Livre category requirements", () => {
       ...publishRoutes,
       [`GET ${API}/categories/MLB1/attributes`]: () =>
         json(200, [
-          { id: "BRAND", name: "Marca", tags: { required: true } },
+          { id: "COLOR", name: "Cor", tags: { required: true } },
           { id: "MODEL", name: "Modelo", tags: { new_required: true } },
         ]),
     });
     await expect(ml.publishProduct(store, product, guard)).rejects.toMatchObject({
       details: { retryable: false },
-      message: expect.stringContaining("Marca (BRAND), Modelo (MODEL)"),
+      message: expect.stringContaining("Cor (COLOR), Modelo (MODEL)"),
     });
     expect(calls.some((call) => call.method === "POST" && call.url === `${API}/items`)).toBe(false);
     expect(guard.beforeCreate).not.toHaveBeenCalled();
@@ -983,6 +1000,46 @@ describe("publication recovery", () => {
       false,
     );
   });
+
+  it("publishes a new item when the only match is a closed item made outside SellBridge", async () => {
+    const { ml, calls } = connector({
+      ...recoveryRoutes,
+      [`GET ${API}/items/MLB1`]: () =>
+        json(200, { ...remoteItem, seller_custom_field: null, status: "closed" }),
+      [`GET ${API}/sites/MLB/domain_discovery/search`]: () => json(200, [{ category_id: "MLB1" }]),
+      [`POST ${API}/items`]: () => json(201, { id: "MLB2", permalink: null }),
+      [`POST ${API}/items/MLB2/description`]: () => json(201, {}),
+    });
+
+    const result = await ml.publishProduct(store, product);
+
+    expect(result).toMatchObject({ externalId: "MLB2", descriptionError: null });
+    expect(calls.some((call) => call.method === "PUT" && call.url.includes("/items/MLB1"))).toBe(
+      false,
+    );
+  });
+
+  it.each([
+    ["active", "ativo"],
+    ["paused", "pausado"],
+  ])(
+    "names the %s item made outside SellBridge and how to clear it",
+    async (status, statusWord) => {
+      const { ml, calls } = connector({
+        ...recoveryRoutes,
+        [`GET ${API}/items/MLB1`]: () =>
+          json(200, { ...remoteItem, seller_custom_field: null, status }),
+      });
+
+      const publishing = ml.publishProduct(store, product);
+
+      await expect(publishing).rejects.toMatchObject({
+        message: `Sua conta do Mercado Livre já tem um anúncio ${statusWord} com este SKU, feito fora do SellBridge (código MLB1). Encerre esse anúncio no Mercado Livre e clique em Reprocessar.`,
+        details: { retryable: false },
+      });
+      expect(calls.some((call) => call.url === `${API}/items`)).toBe(false);
+    },
+  );
 
   it("refuses multiple exact matches", async () => {
     const { ml } = connector({

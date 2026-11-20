@@ -50,7 +50,7 @@ function forLog(text: string | undefined): string | undefined {
 }
 
 /** The screen only names the code; the marketplace's own words stay here for support. */
-function logRefusal(raw: unknown, status: number): void {
+export function logRefusal(raw: unknown, status: number): void {
   const body = errorBodySchema.safeParse(raw);
   logger.warn("mercado_livre.refused", {
     status,

@@ -77,6 +77,14 @@ describe("shipments.view", () => {
   });
 });
 
+describe("shipments.release_label", () => {
+  it("lets supervisors and admins release a stuck label, never agents", () => {
+    expect(hasStaffPermission("agent", "shipments.release_label")).toBe(false);
+    expect(hasStaffPermission("supervisor", "shipments.release_label")).toBe(true);
+    expect(hasStaffPermission("admin", "shipments.release_label")).toBe(true);
+  });
+});
+
 describe("settings.manage", () => {
   it("lets only admins change platform settings", () => {
     expect(hasStaffPermission("admin", "settings.manage")).toBe(true);

@@ -1,9 +1,11 @@
-import { isAppError } from "@sellbridge/shared/errors";
+import { isAppError, type AppError } from "@sellbridge/shared/errors";
 import type { MarketplaceSaleInvoice } from "@sellbridge/shared/reseller-invoice";
 import { z } from "zod";
-import { marketplaceError } from "../errors.ts";
+import { marketplaceAuthError, marketplaceError } from "../errors.ts";
+import { fetchWithRetry } from "../http.ts";
 import type { StoreCredentials } from "../types.ts";
-import { requestJson, type MercadoLivreConfig } from "./client.ts";
+import { logRefusal, requestJson, type MercadoLivreConfig } from "./client.ts";
+import { readMercadoLivreJson } from "./json.ts";
 import { externalIdSchema } from "./schemas.ts";
 
 /**
@@ -76,6 +78,14 @@ export async function readMercadoLivreSaleInvoice(
   if (shipmentId === null) {
     return null;
   }
+  return shipmentInvoice(context, store, shipmentId);
+}
+
+async function shipmentInvoice(
+  context: Parameters<typeof requestJson>[0],
+  store: StoreCredentials,
+  shipmentId: string,
+): Promise<MarketplaceSaleInvoice | null> {
   try {
     const invoice = await requestJson(context, {
       schema: invoiceDataSchema,
@@ -93,4 +103,100 @@ export async function readMercadoLivreSaleInvoice(
     }
     throw error;
   }
+}
+
+const SALE_INVOICE_URL = "https://api.mercadolibre.com/shipments";
+
+/**
+ * Mercado Livre's refusals of an imported note ("Importar Nota Fiscal › Referências de código de
+ * erro"), in the reseller's words. Any other code gets the generic message.
+ */
+const SALE_INVOICE_REFUSALS: Readonly<Record<string, string>> = {
+  invalid_sender_cnpj:
+    "O Mercado Livre recusou a nota: ela precisa ser da empresa dona da loja, com o mesmo CNPJ.",
+  wrong_sender_zipcode:
+    "O Mercado Livre recusou a nota: o CEP de quem emitiu é diferente do CEP de onde o pacote sai. Fale com o suporte do SellBridge.",
+  different_state_nfe_shipment_origin:
+    "O Mercado Livre recusou a nota: o estado de quem emitiu é diferente do estado de onde o pacote sai. Fale com o suporte do SellBridge.",
+  invalid_nfe_cstat:
+    "O Mercado Livre recusou a nota: ela ainda não foi autorizada pela SEFAZ. Envie o XML da nota autorizada.",
+  duplicated_fiscal_key:
+    "Esta nota já foi usada em outro pedido do Mercado Livre. Envie a nota deste pedido.",
+};
+const GENERIC_REFUSAL =
+  "O Mercado Livre não aceitou a nota agora. Confira se o pedido ainda espera a nota e tente de novo em alguns minutos.";
+
+const refusalBodySchema = z.object({ error: z.string().optional() }).loose();
+
+/**
+ * Mercado Livre's refusal in the reseller's words: a refused token asks to reconnect the store,
+ * a known code says what to fix, anything else asks to try again later.
+ */
+async function refusalOf(response: Response): Promise<AppError> {
+  const raw = await readMercadoLivreJson(response);
+  if (response.status === 401) {
+    return marketplaceAuthError();
+  }
+  logRefusal(raw, response.status);
+  const body = refusalBodySchema.safeParse(raw);
+  const code = body.success ? (body.data.error ?? null) : null;
+  const refusal = code === null ? undefined : SALE_INVOICE_REFUSALS[code];
+  return marketplaceError(refusal ?? GENERIC_REFUSAL, {
+    retryable: response.status === 429 || response.status >= 500,
+    status: response.status,
+    ...(code === null ? {} : { causes: [code] }),
+  });
+}
+
+/**
+ * Sends the reseller's own sale note (its authorized XML) to the order's shipment, as "Importar
+ * Nota Fiscal" asks: `POST /shipments/{id}/invoice_data?siteId=MLB` with the `nfeProc` as body.
+ * Without it, drop-off and cross-docking labels never come out.
+ *
+ * @throws {AppError} EXTERNAL_PROVIDER, not retryable, with the reason in the reseller's words when
+ * Mercado Livre refuses it or the order has no shipment; retryable when it is busy.
+ */
+export async function sendMercadoLivreSaleInvoice(
+  config: MercadoLivreConfig,
+  store: StoreCredentials,
+  input: { orderId: string; accessKey: string; xml: string },
+): Promise<void> {
+  if (!/^\d+$/.test(input.orderId)) {
+    throw marketplaceError("Número de pedido inválido", { retryable: false });
+  }
+  const fetchImplementation = config.fetchImplementation ?? fetch;
+  const context = { config, fetchImplementation, now: config.now ?? (() => new Date()) };
+  const shipmentId = await shipmentIdOf(context, store, input.orderId);
+  if (shipmentId === null) {
+    throw marketplaceError(
+      "O pedido ainda não tem envio no Mercado Livre. Tente de novo mais tarde.",
+      {
+        retryable: false,
+      },
+    );
+  }
+  // An earlier send whose answer was lost may have saved it: sending again would be "duplicated".
+  const attached = await shipmentInvoice(context, store, shipmentId);
+  if (attached?.accessKey === input.accessKey) {
+    return;
+  }
+  // The shared path: its time limit keeps a stuck call from leaving the reseller in "Enviando…".
+  const response = await fetchWithRetry(
+    fetchImplementation,
+    `${SALE_INVOICE_URL}/${encodeURIComponent(shipmentId)}/invoice_data?siteId=MLB`,
+    {
+      method: "POST",
+      headers: {
+        accept: "application/json",
+        authorization: `Bearer ${store.accessToken}`,
+        "content-type": "application/xml",
+      },
+      body: input.xml,
+    },
+    config.retry,
+  );
+  if (response.ok) {
+    return;
+  }
+  throw await refusalOf(response);
 }

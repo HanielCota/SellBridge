@@ -128,19 +128,30 @@ describe("evaluateCompleteness", () => {
 
   it("blocks on attributes the category requires and stops suggesting them", () => {
     const report = evaluateCompleteness(
-      product({ mercadoLivreAttributes: { MODEL: "X1" } }),
+      product({ mercadoLivreAttributes: { BRAND: "Acme" } }),
       requiredAttributesFor("eletronicos"),
     );
     expect(report.blocking).toEqual([
       {
-        field: "attributes.BRAND",
+        field: "attributes.MODEL",
         rule: "attribute_required",
         severity: "blocking",
-        message: "Informe marca: o Mercado Livre exige nesta categoria",
+        message: "Informe modelo: o Mercado Livre exige nesta categoria",
       },
     ]);
-    expect(report.improvements.some((issue) => issue.field === "attributes.BRAND")).toBe(false);
+    expect(report.improvements.some((issue) => issue.field === "attributes.MODEL")).toBe(false);
     expect(report.canSubmit).toBe(false);
+  });
+
+  it("only suggests a brand the category requires, since none goes as the generic brand", () => {
+    const report = evaluateCompleteness(product({ mercadoLivreAttributes: { MODEL: "X1" } }), [
+      ...requiredAttributesFor("eletronicos"),
+      { id: "BRAND", label: "Marca" },
+    ]);
+
+    expect(report.blocking).toEqual([]);
+    expect(report.canSubmit).toBe(true);
+    expect(report.improvements.map((issue) => issue.field)).toContain("attributes.BRAND");
   });
 
   it("weighs a blocking rule more than an improvement", () => {

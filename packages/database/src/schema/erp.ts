@@ -1,5 +1,6 @@
 import { sql } from "drizzle-orm";
 import type { InvoiceKind, InvoiceStatus } from "@sellbridge/shared/supplier-invoice";
+import { RESELLER_INVOICE_SOURCES } from "@sellbridge/shared/reseller-invoice";
 import {
   bigint,
   check,
@@ -245,11 +246,18 @@ export const shipmentResellerInvoices = pgTable(
     series: text(),
     /** When the marketplace says the note was issued; null for a typed key. */
     issuedAt: timestamp({ withTimezone: true }),
-    /** Where the key came from: the marketplace's order or the reseller typing it. */
-    source: text({ enum: ["marketplace", "typed"] }),
+    /** Where the key came from: the marketplace's order, the reseller typing it or its XML. */
+    source: text({ enum: RESELLER_INVOICE_SOURCES }),
     foundAt: timestamp({ withTimezone: true }),
     /** Why the note on the marketplace's order does not serve, in the reseller's words. */
     problem: text(),
+    /**
+     * The SellBridge team let the label out although a note is stuck (decision of 20/11/2026):
+     * when, who and why. Null while the label waits for the notes.
+     */
+    labelReleasedAt: timestamp({ withTimezone: true }),
+    labelReleasedByUserId: text().references(() => user.id, { onDelete: "set null" }),
+    labelReleaseReason: text(),
     /** Reads of the marketplace so far; spaces the next one. */
     checks: integer().notNull().default(0),
     nextCheckAt: timestamp({ withTimezone: true }).defaultNow().notNull(),
@@ -268,7 +276,7 @@ export const shipmentResellerInvoices = pgTable(
     index("shipment_reseller_invoices_tenant_idx").on(table.tenantId),
     check(
       "shipment_reseller_invoices_source_check",
-      sql`${table.source} is null or ${table.source} in ('marketplace', 'typed')`,
+      sql`${table.source} is null or ${table.source} in ('marketplace', 'typed', 'uploaded')`,
     ),
     check(
       "shipment_reseller_invoices_found_check",

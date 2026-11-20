@@ -41,6 +41,11 @@ export type StaffPermission =
   | "reviews.moderate"
   /** Reads every customer's parcels and their tracking, to answer "cadê meu pedido?". */
   | "shipments.view"
+  /**
+   * Lets a venda à ordem parcel's label out although a note is stuck (Bling disconnected, SEFAZ
+   * refused the remessa): a fiscal exception, so not for agents.
+   */
+  | "shipments.release_label"
   /** Platform-wide values, like SellBridge's fee on supplier payments: money, so admins only. */
   | "settings.manage";
 
@@ -63,6 +68,7 @@ const PERMISSIONS: Record<StaffRole, readonly StaffPermission[]> = {
     "support.credit_returns",
     "customers.impersonate",
     "shipments.view",
+    "shipments.release_label",
   ],
   admin: [
     "support.answer",
@@ -77,6 +83,7 @@ const PERMISSIONS: Record<StaffRole, readonly StaffPermission[]> = {
     "suppliers.flag",
     "reviews.moderate",
     "shipments.view",
+    "shipments.release_label",
     "settings.manage",
   ],
 };
