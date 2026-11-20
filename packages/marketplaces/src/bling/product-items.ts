@@ -3,6 +3,7 @@ import { MAX_MODEL_TITLE_LENGTH } from "@sellbridge/shared/product-grid";
 import type { BlingProductDetail, BlingProductFields, BlingVariation } from "./schemas.ts";
 import {
   blingModelCode,
+  failsAsGrid,
   readVariationOptions,
   type VariationOptions,
 } from "./variation-options.ts";
@@ -21,7 +22,7 @@ export interface BlingCatalogMapping {
 }
 
 const SEPARATED_REASON =
-  "As variações não são só cor e tamanho: cada uma entrou como um produto separado";
+  "As variações não formam uma grade de cores e tamanhos: cada uma entrou como um produto separado";
 
 function blankToNull(value: string | null | undefined): string | null {
   if (value == null) {
@@ -162,7 +163,7 @@ function mapVariations(product: BlingProductDetail): BlingCatalogMapping {
   const options = gridOptionsOf(active, product.nome);
   const modelTitle = product.nome.trim().slice(0, MAX_MODEL_TITLE_LENGTH);
   const mapped = mapSources(active.map((variation) => withParentDefaults(variation, product)));
-  if (options === null || modelTitle === "") {
+  if (options === null || modelTitle === "" || failsAsGrid(options)) {
     const separated = active.length > 0 ? [{ name: product.nome, reason: SEPARATED_REASON }] : [];
     return { ...mapped, separated };
   }

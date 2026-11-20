@@ -145,7 +145,7 @@ describe("blingProductToItems with colours and sizes", () => {
       ["LIQ-220", null],
     ]);
     expect(mapping.separated).toEqual([
-      { name: "Tênis Casual", reason: expect.stringContaining("não são só cor e tamanho") },
+      { name: "Tênis Casual", reason: expect.stringContaining("não formam uma grade") },
     ]);
   });
 
@@ -162,5 +162,72 @@ describe("blingProductToItems with colours and sizes", () => {
 
     expect(item).toMatchObject({ sku: "BOLSA", erpProductId: 20 });
     expect(item?.grid).toBeUndefined();
+  });
+});
+
+function named(id: number, sku: string, options: string) {
+  return { ...variation(id, sku, "x"), variacao: { nome: options } };
+}
+
+describe("blingProductToItems variations that fail as a grid", () => {
+  it.each([
+    ["mixes variations with and without a size", ["Cor:Preto", "Cor:Preto;Tamanho:38"]],
+    ["repeats a colour and size", ["Cor:Preto;Tamanho:38", "Cor:preto;Tamanho:38"]],
+  ])("keeps separate a product whose variations %s", (_case, names) => {
+    const product = shoe(names.map((name, index) => named(20 + index, `SKU-${index}`, name)));
+
+    const mapping = blingProductToItems(product);
+
+    expect(mapping.items.every((item) => (item.grid ?? null) === null)).toBe(true);
+    expect(mapping.separated).toHaveLength(1);
+  });
+
+  it("keeps separate a product with more variations than a grid takes", () => {
+    const product = shoe(
+      Array.from({ length: 51 }, (_, index) =>
+        named(100 + index, `G-${index}`, `Tamanho:${index}`),
+      ),
+    );
+
+    expect(blingProductToItems(product).separated).toHaveLength(1);
+  });
+
+  it("keeps separate a variation whose full name does not start with its parent's", () => {
+    const product = shoe(
+      [variation(11, "TEN-P-38", "Cor:Preto;Tamanho:38")].map((entry) => ({
+        ...entry,
+        nome: "Outro nome Cor:Preto;Tamanho:38",
+      })),
+    );
+
+    const mapping = blingProductToItems(product);
+
+    expect(mapping.items[0]?.grid ?? null).toBeNull();
+    expect(mapping.separated).toHaveLength(1);
+  });
+
+  it("leaves inactive variations out and still makes the grid of the active ones", () => {
+    const product = shoe([
+      named(11, "TEN-P-38", "Cor:Preto;Tamanho:38"),
+      { ...named(12, "TEN-P-39", "Voltagem:110V"), situacao: "I" as const },
+      named(13, "TEN-P-40", "Cor:Preto;Tamanho:40"),
+    ]);
+
+    const mapping = blingProductToItems(product);
+
+    expect(mapping.items.map((item) => [item.sku, item.grid?.size])).toEqual([
+      ["TEN-P-38", "38"],
+      ["TEN-P-40", "40"],
+    ]);
+    expect(mapping.separated).toEqual([]);
+  });
+
+  it("keeps separate the variations of a parent without a name", () => {
+    const product = { ...shoe([named(11, "TEN-P-38", "Cor:Preto;Tamanho:38")]), nome: "  " };
+
+    const mapping = blingProductToItems(product);
+
+    expect(mapping.items[0]?.grid ?? null).toBeNull();
+    expect(mapping.separated).toHaveLength(1);
   });
 });
