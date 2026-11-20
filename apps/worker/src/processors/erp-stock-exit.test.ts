@@ -2,11 +2,11 @@ import { schema } from "@sellbridge/database";
 import { createInvoiceScenario } from "@sellbridge/database/testing/shipment-invoice";
 import { createBlingRateLimiter } from "@sellbridge/marketplaces/bling";
 import { logger } from "@sellbridge/shared/logger";
-import { eq } from "drizzle-orm";
+import { and, eq } from "drizzle-orm";
 import { afterAll, afterEach, describe, expect, it, vi } from "vitest";
 import { createWorkerTestEnvironment } from "../testing/fixtures.ts";
 import type { ErpBlingDependencies } from "./erp-bling-client.ts";
-import { postDueErpStockExits } from "./erp-stock-exit.ts";
+import { postDueErpStockEntries, postDueErpStockExits } from "./erp-stock-exit.ts";
 
 const { database, cipher } = createWorkerTestEnvironment();
 const cleanups: (() => Promise<void>)[] = [];
@@ -293,5 +293,91 @@ describe("postDueErpStockExits", () => {
     expect(bling.exits).toEqual([]);
     expect((await exitRow(sale.orderItemId))?.status).toBe("uncertain");
     expect(loggedEvents(error)).toContain("erp.stock_exit_uncertain");
+  });
+});
+
+/** A sale whose exit SellBridge already posted, and its return put back on the shelf. */
+async function returnedSale() {
+  const sale = await shippedSale();
+  await database.insert(schema.erpStockExits).values({
+    orderItemId: sale.orderItemId,
+    operation: "exit",
+    supplierId: sale.supplierId,
+    supplierProductId: sale.productId,
+    erpProductId: 777,
+    quantity: 2,
+    sku: sale.sku,
+    externalOrderId: sale.externalOrderId,
+    status: "posted",
+  });
+  await database.insert(schema.returnClaims).values({
+    shipmentId: sale.shipmentId,
+    orderId: sale.orderId,
+    sellerTenantId: sale.tenantId,
+    supplierId: sale.supplierId,
+    supplierCostCents: 1_000,
+    restockItemIds: [sale.orderItemId],
+    stockReturnedAt: new Date(),
+  });
+  return sale;
+}
+
+async function entryRow(orderItemId: string) {
+  const [row] = await database
+    .select({ status: schema.erpStockExits.status, problem: schema.erpStockExits.problem })
+    .from(schema.erpStockExits)
+    .where(
+      and(
+        eq(schema.erpStockExits.orderItemId, orderItemId),
+        eq(schema.erpStockExits.operation, "entry"),
+      ),
+    );
+  return row;
+}
+
+describe("postDueErpStockEntries", () => {
+  it("puts a returned unit back in Bling once, so the next stock check keeps it", async () => {
+    const sale = await returnedSale();
+    const bling = fakeBling({ exitStatuses: [], deposits: ONE_DEFAULT_DEPOSIT });
+    const dependencies = dependenciesFor(bling.fetchImplementation);
+
+    await postDueErpStockEntries(dependencies);
+    await postDueErpStockEntries(dependencies);
+
+    expect(bling.exits).toEqual([
+      {
+        produto: { id: 777 },
+        deposito: { id: 14 },
+        operacao: "E",
+        quantidade: 2,
+        observacoes: `SellBridge: devolução do pedido ${sale.externalOrderId}`,
+      },
+    ]);
+    expect((await entryRow(sale.orderItemId))?.status).toBe("posted");
+  });
+
+  it("never resends an entry whose answer failed, and tells the team what to check", async () => {
+    const sale = await returnedSale();
+    const bling = fakeBling({ exitStatuses: [500, 201], deposits: ONE_DEFAULT_DEPOSIT });
+    const dependencies = dependenciesFor(bling.fetchImplementation);
+    const error = vi.spyOn(logger, "error").mockImplementation(() => undefined);
+
+    await postDueErpStockEntries(dependencies);
+    await postDueErpStockEntries(dependencies);
+
+    expect(bling.exits).toHaveLength(1);
+    const row = await entryRow(sale.orderItemId);
+    expect(row?.status).toBe("uncertain");
+    expect(row?.problem).toContain("entrada de estoque da devolução");
+    expect(loggedEvents(error)).toContain("erp.stock_entry_uncertain");
+  });
+
+  it("leaves the sale's exit alone: the exits run posts nothing for a returned item", async () => {
+    await returnedSale();
+    const bling = fakeBling({ exitStatuses: [], deposits: ONE_DEFAULT_DEPOSIT });
+
+    await postDueErpStockExits(dependenciesFor(bling.fetchImplementation));
+
+    expect(bling.exits).toEqual([]);
   });
 });

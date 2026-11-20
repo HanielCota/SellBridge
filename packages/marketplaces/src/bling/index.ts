@@ -5,7 +5,7 @@ export {
   type BlingAccountAccess,
   type BlingClient,
   type BlingNewProduct,
-  type BlingStockExit,
+  type BlingStockMovement,
 } from "./client.ts";
 export {
   type BlingDirectInvoiceItem,

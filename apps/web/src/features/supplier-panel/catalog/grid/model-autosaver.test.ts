@@ -139,6 +139,33 @@ describe("ModelAutosaver", () => {
     expect(states.at(-1)).toMatchObject({ kind: "saved" });
   });
 
+  it("sends a SKU fixed while its refusal was still on the way", async () => {
+    const refusal = deferredSave();
+    const save = vi
+      .fn<Save>()
+      .mockImplementationOnce(async () => await refusal.promise)
+      .mockResolvedValue({ saved: true, model: { updatedAt: storedAt } });
+    const { saver, states } = autosaver(save);
+    const pair = { colorKey: "c1", sizeKey: null };
+    const colored = withColorAdded(EMPTY_GRID_FORM_STATE, "Preto", "c1");
+    saver.update({ ...titled, grid: withCombinationChanged(colored, pair, { sku: "TEN-P" }) });
+    const first = saver.flush();
+    saver.update({ ...titled, grid: withCombinationChanged(colored, pair, { sku: "TEN-PRETO" }) });
+
+    refusal.resolve({ saved: false, takenSkus: ["TEN-P"] });
+    await first;
+
+    expect(save).toHaveBeenCalledTimes(2);
+    expect(save).toHaveBeenLastCalledWith(
+      expect.objectContaining({
+        grid: expect.objectContaining({
+          combinations: [expect.objectContaining({ sku: "TEN-PRETO" })],
+        }),
+      }),
+    );
+    expect(states.at(-1)).toMatchObject({ kind: "saved" });
+  });
+
   it("saves right away what was typed while a save was out", async () => {
     const pending = deferredSave();
     const save = vi

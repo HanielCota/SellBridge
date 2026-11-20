@@ -220,6 +220,35 @@ describe("undoing a removed colour or size", () => {
     expect(pairs(restored).toSorted()).toEqual(["Branco/38", "Branco/39"]);
   });
 
+  it("pairs a colour back with the sizes added after it was removed", () => {
+    const colours = withCombinationChanged(
+      withColorAdded(withColorAdded(EMPTY_GRID_FORM_STATE, "Preto", "c1"), "Branco", "c2"),
+      { colorKey: "c1", sizeKey: null },
+      { sku: "TEN-P" },
+    );
+    const edited = withSizesAdded(withColorRemoved(colours, "c1"), [{ name: "38", key: "s1" }]);
+
+    const restored = withOptionRestored(edited, { axis: "color", key: "c1", before: colours });
+
+    expect(pairs(restored).toSorted()).toEqual(["Branco/38", "Preto/38"]);
+    expect(
+      restored.combinations.find((entry) => entry.colorKey === "c1" && entry.sizeKey === "s1")?.sku,
+    ).toBe("TEN-P");
+  });
+
+  it("sells a restored colour in a size added since, and keeps off a pair it was not sold in", () => {
+    const before = withCombinationToggled(typedBranco, { colorKey: "c2", sizeKey: "s2" }, false);
+    const edited = withSizesAdded(withColorRemoved(before, "c2"), [{ name: "40", key: "s3" }]);
+
+    const restored = withOptionRestored(edited, { axis: "color", key: "c2", before });
+
+    expect(
+      pairs(restored)
+        .filter((pair) => pair.startsWith("Branco"))
+        .toSorted(),
+    ).toEqual(["Branco/38", "Branco/40"]);
+  });
+
   it("brings nothing back when a colour of the same name was added meanwhile", () => {
     const edited = withColorAdded(withColorRemoved(typedBranco, "c2"), "branco", "c3");
 
