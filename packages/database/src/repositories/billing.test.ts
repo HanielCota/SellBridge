@@ -25,7 +25,6 @@ import {
   findBillingAccountBySubscription,
   getBillingAccount,
   saveBillingAccount,
-  saveBillingCustomer,
   tryLockBillingCheckout,
 } from "./billing.ts";
 import { createListingWithTargets } from "./listings.ts";
@@ -105,7 +104,7 @@ afterAll(async () => {
 });
 describe("tenant billing persistence", () => {
   it("isolates customer and subscription data", async () => {
-    await saveBillingCustomer(database, tenants.tenantA, customerId);
+    await saveBillingAccount(database, tenants.tenantA, { customerId });
     expect((await getBillingAccount(database, tenants.tenantA))?.customerId).toBe(customerId);
     expect(await getBillingAccount(database, tenants.tenantB)).toBeNull();
   });

@@ -78,17 +78,6 @@ export async function tryLockBillingCheckout(
   return rows[0]?.locked === true;
 }
 
-export async function saveBillingCustomer(
-  database: DatabaseExecutor,
-  tenantId: string,
-  customerId: string,
-) {
-  await database
-    .insert(billingAccounts)
-    .values({ tenantId, customerId })
-    .onConflictDoUpdate({ target: billingAccounts.tenantId, set: { customerId } });
-}
-
 /**
  * Stores not disconnected, and live publications: one per destination store, failed ones left
  * out (item 16, N7). A disconnected store keeps its slots: its publications come back alive on
