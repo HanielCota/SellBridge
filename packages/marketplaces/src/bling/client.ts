@@ -138,8 +138,8 @@ export interface BlingStockMovement {
   readonly note: string;
 }
 
-/** `POST /estoques` operations SellBridge sends: "S" (Saída). */
-type BlingStockOperation = "S";
+/** `POST /estoques` operations: "S" (Saída) and "E" (Entrada); "B" (Balanço) is never sent. */
+type BlingStockOperation = "S" | "E";
 
 /**
  * Posts one stock record and returns its id. Bling takes no idempotency key: the caller makes
@@ -172,7 +172,10 @@ async function postStockRecord(
   return response.data.id;
 }
 
-/** Where SellBridge's own sales leave Bling's stock: the default warehouse and the exit. */
+/**
+ * Where SellBridge's own sales leave Bling's stock, and their returns come back: the default
+ * warehouse, the exit and the entry.
+ */
 function blingStockExitCalls(call: BlingCall) {
   return {
     /** The account's active warehouses, with which one is the default. */
@@ -189,6 +192,11 @@ function blingStockExitCalls(call: BlingCall) {
     /** Posts a stock exit ("S") once and returns its id. */
     async postStockExit(exit: BlingStockMovement): Promise<number> {
       return postStockRecord(call, "S", exit);
+    },
+
+    /** Posts a stock entry ("E") once and returns its id. */
+    async postStockEntry(entry: BlingStockMovement): Promise<number> {
+      return postStockRecord(call, "E", entry);
     },
   };
 }

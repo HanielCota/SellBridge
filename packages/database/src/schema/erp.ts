@@ -277,10 +277,15 @@ export const shipmentResellerInvoices = pgTable(
   ],
 );
 
+/** An exit lowers the ERP's stock for a sale; an entry puts back the units of its return. */
+export type ErpStockOperation = "exit" | "entry";
+
 /**
- * The stock exit SellBridge posted (or tried to post) to the supplier's ERP for one sold item
- * whose NF-e did not go through SellBridge. One row per order item, reserved before the call:
- * the ERP has no idempotency key, so a row that exists is never posted again.
+ * The stock movement SellBridge posted (or tried to post) to the supplier's ERP for one order
+ * item: the exit of a sale whose NF-e did not go through SellBridge and, when that item's
+ * return goes back on the shelf, the entry that reverses it. One row per item and operation,
+ * reserved before the call: the ERP has no idempotency key, so a row that exists is never
+ * posted again.
  */
 export const erpStockExits = pgTable(
   "erp_stock_exits",
@@ -289,6 +294,7 @@ export const erpStockExits = pgTable(
     orderItemId: uuid()
       .notNull()
       .references(() => orderItems.id, { onDelete: "cascade" }),
+    operation: text().$type<ErpStockOperation>().notNull().default("exit"),
     supplierId: uuid()
       .notNull()
       .references(() => suppliers.id, { onDelete: "cascade" }),
@@ -300,7 +306,7 @@ export const erpStockExits = pgTable(
     externalOrderId: text().notNull(),
     /** "posting" (reserved), "posted", "uncertain" (the team checks the ERP) or "failed". */
     status: text().$type<"posting" | "posted" | "uncertain" | "failed">().notNull(),
-    /** The ERP's id of the posted exit. */
+    /** The ERP's id of the posted movement. */
     erpStockId: bigint({ mode: "number" }),
     /** Why it did not post, in the team's words. */
     problem: text(),
@@ -311,11 +317,12 @@ export const erpStockExits = pgTable(
       .notNull(),
   },
   (table) => [
-    uniqueIndex("erp_stock_exits_order_item_idx").on(table.orderItemId),
+    uniqueIndex("erp_stock_exits_order_item_operation_idx").on(table.orderItemId, table.operation),
     /** The sweep finds reservations a crash left half done. */
     index("erp_stock_exits_posting_idx")
       .on(table.createdAt)
       .where(sql`${table.status} = 'posting'`),
     check("erp_stock_exits_quantity_check", sql`${table.quantity} > 0`),
+    check("erp_stock_exits_operation_check", sql`${table.operation} in ('exit','entry')`),
   ],
 );

@@ -92,6 +92,34 @@ describe("postStockExit", () => {
   });
 });
 
+describe("postStockEntry", () => {
+  it("posts an entry (operation E) of the product into the warehouse and returns its id", async () => {
+    const sent: unknown[] = [];
+    const { client } = clientAnswering((_url, init) => {
+      sent.push(typeof init?.body === "string" ? JSON.parse(init.body) : null);
+      return json(201, { data: { id: 9002 } });
+    });
+
+    const id = await client.postStockEntry({
+      erpProductId: 777,
+      depositId: 14,
+      quantity: 1,
+      note: "SellBridge: devolução do pedido 2000012345",
+    });
+
+    expect(id).toBe(9002);
+    expect(sent).toEqual([
+      {
+        produto: { id: 777 },
+        deposito: { id: 14 },
+        operacao: "E",
+        quantidade: 1,
+        observacoes: "SellBridge: devolução do pedido 2000012345",
+      },
+    ]);
+  });
+});
+
 function clientWithDeposits(deposits: { id: number; situacao: number; padrao: boolean }[]) {
   return clientAnswering(() =>
     json(200, {
