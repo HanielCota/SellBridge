@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   EMPTY_GRID_FORM_STATE,
+  gridFillProblems,
   gridFormStateOf,
   suggestedSku,
   withColorAdded,
@@ -225,5 +226,47 @@ describe("undoing a removed colour or size", () => {
     const restored = withOptionRestored(edited, removedBranco);
 
     expect(restored).toBe(edited);
+  });
+});
+
+describe("Preencher todas", () => {
+  it("never gives two combinations the same code when colour names read the same", () => {
+    const greens = withColorAdded(
+      withColorAdded(EMPTY_GRID_FORM_STATE, "Verde-Água", "g1"),
+      "Verde Agua",
+      "g2",
+    );
+
+    const filled = withCombinationsFilled(greens, {
+      skuBase: "TEN",
+      cost: "",
+      suggestedPrice: "",
+      stock: "",
+    });
+
+    expect(filled.combinations.map((combination) => combination.sku)).toEqual([
+      "TEN-VERDEAGUA",
+      "TEN-VERDEAGUA-2",
+    ]);
+  });
+
+  it("refuses a value typed halfway, saying how to write it", () => {
+    const problems = gridFillProblems({
+      skuBase: "TEN",
+      cost: "59,",
+      suggestedPrice: "119,90",
+      stock: "1,5",
+    });
+
+    expect(problems).toEqual({
+      cost: '"59," não é um valor em reais. Exemplo: 59,90',
+      stock: '"1,5" não é uma quantidade. Use um número inteiro, por exemplo 10',
+    });
+  });
+
+  it("finds nothing to refuse in blank or well-typed values", () => {
+    expect(
+      gridFillProblems({ skuBase: "", cost: "59,90", suggestedPrice: "", stock: "10" }),
+    ).toEqual({});
   });
 });

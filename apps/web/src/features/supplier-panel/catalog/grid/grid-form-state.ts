@@ -1,6 +1,8 @@
 import { formatCentsForInput } from "@sellbridge/shared/money";
+import { parseCsvMoney } from "@sellbridge/shared/product-csv";
 import { sortSizeNames } from "@sellbridge/shared/product-grid";
 import { stripAccents } from "@sellbridge/shared/text";
+import { parseStockCount } from "../draft-form";
 
 /**
  * The colour and size grid as the supplier edits it. Colours and sizes carry a key of their own,
@@ -363,23 +365,83 @@ export interface GridFill {
   readonly stock: string;
 }
 
+function amountProblem(text: string): string | null {
+  const value = text.trim();
+  if (value === "" || parseCsvMoney(value) !== null) {
+    return null;
+  }
+  return `"${value}" não é um valor em reais. Exemplo: 59,90`;
+}
+
+function stockProblem(text: string): string | null {
+  const value = text.trim();
+  if (value === "") {
+    return null;
+  }
+  const units = parseStockCount(value);
+  if (Number.isInteger(units) && units >= 0) {
+    return null;
+  }
+  return `"${value}" não é uma quantidade. Use um número inteiro, por exemplo 10`;
+}
+
+/**
+ * Why a value of "Preencher todas" cannot be copied to every combination, by field: a value
+ * typed halfway ("59,") would land in all of them at once. Empty when all can.
+ */
+export function gridFillProblems(fill: GridFill): Partial<Record<keyof GridFill, string>> {
+  const problems: Partial<Record<keyof GridFill, string>> = {};
+  const cost = amountProblem(fill.cost);
+  const suggestedPrice = amountProblem(fill.suggestedPrice);
+  const stock = stockProblem(fill.stock);
+  if (cost !== null) {
+    problems.cost = cost;
+  }
+  if (suggestedPrice !== null) {
+    problems.suggestedPrice = suggestedPrice;
+  }
+  if (stock !== null) {
+    problems.stock = stock;
+  }
+  return problems;
+}
+
+/** "-2", "-3"… after a code another combination already has ("Verde-Água" and "Verde Agua"). */
+function uniqueSku(candidate: string, used: Set<string>): string {
+  let sku = candidate;
+  for (let copy = 2; used.has(sku); copy += 1) {
+    sku = `${candidate}-${copy}`;
+  }
+  used.add(sku);
+  return sku;
+}
+
 /**
  * Fills every combination at once: the code only where none was typed (a SKU is the supplier's
- * own and never replaced), cost, price and stock wherever the fill has a value.
+ * own and never replaced), cost, price and stock wherever the fill has a value. A code that
+ * would repeat another combination's gets a number after it.
  */
 export function withCombinationsFilled(state: GridFormState, fill: GridFill): GridFormState {
   const colorName = new Map(state.colors.map((color) => [color.key, color.name]));
   const sizeName = new Map(state.sizes.map((size) => [size.key, size.name]));
+  const used = new Set(
+    state.combinations.map((combination) => combination.sku.trim()).filter((sku) => sku !== ""),
+  );
   return {
     ...state,
     combinations: state.combinations.map((combination) => ({
       ...combination,
       sku:
         combination.sku.trim() === "" && fill.skuBase.trim() !== ""
-          ? suggestedSku(
-              fill.skuBase,
-              combination.colorKey === null ? null : (colorName.get(combination.colorKey) ?? null),
-              combination.sizeKey === null ? null : (sizeName.get(combination.sizeKey) ?? null),
+          ? uniqueSku(
+              suggestedSku(
+                fill.skuBase,
+                combination.colorKey === null
+                  ? null
+                  : (colorName.get(combination.colorKey) ?? null),
+                combination.sizeKey === null ? null : (sizeName.get(combination.sizeKey) ?? null),
+              ),
+              used,
             )
           : combination.sku,
       cost: fill.cost.trim() === "" ? combination.cost : fill.cost,
