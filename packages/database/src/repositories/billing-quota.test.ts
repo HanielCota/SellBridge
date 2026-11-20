@@ -1,3 +1,4 @@
+import { billingPlan } from "@sellbridge/shared/billing";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { and, eq } from "drizzle-orm";
 import { listings, listingTargets, storeConnections } from "../schema/index.ts";
@@ -5,6 +6,7 @@ import {
   createTestDatabase,
   createTestSupplierProduct,
   createTestTenantPair,
+  grantTestPlan,
   testStoreInput,
 } from "../testing/fixtures.ts";
 import { billingUsage } from "./billing.ts";
@@ -12,7 +14,8 @@ import { resetListingErrorsForRetry } from "./listing-actions.ts";
 import { createListingWithTargets } from "./listings.ts";
 import { upsertStoreConnection } from "./stores.ts";
 
-const FREE_LISTINGS = 25;
+const START_LISTINGS = billingPlan("start").listings;
+const RULES = { transition: null };
 
 const database = createTestDatabase();
 let tenants: Awaited<ReturnType<typeof createTestTenantPair>>;
@@ -21,6 +24,7 @@ let storeIds: string[];
 
 beforeAll(async () => {
   tenants = await createTestTenantPair(database);
+  await grantTestPlan(database, tenants.tenantA, "start");
   products = await Promise.all(
     ["QUOTA-1", "QUOTA-2"].map(async (sku) =>
       createTestSupplierProduct(database, {
@@ -51,7 +55,7 @@ function listingInput(productId: string) {
     title: "Cota",
     description: "",
     priceCents: 2500,
-    billingEnabled: true,
+    billing: RULES,
   };
 }
 
@@ -107,7 +111,7 @@ describe("listing quota by destination store", () => {
     const fillers = await database
       .insert(listings)
       .values(
-        Array.from({ length: FREE_LISTINGS - 2 }, () => ({
+        Array.from({ length: START_LISTINGS - 2 }, () => ({
           tenantId: tenants.tenantA,
           supplierProductId: products[0]?.productId ?? "",
           title: "Enchimento",
@@ -125,7 +129,7 @@ describe("listing quota by destination store", () => {
         idempotencyKey: crypto.randomUUID(),
       })),
     );
-    // 23 filler + 1 live target = 24 of 25: a listing for two stores does not fit.
+    // 298 filler + 1 live target = 299 of 300: a listing for two stores does not fit.
     await expect(
       createListingWithTargets(
         database,
@@ -147,7 +151,7 @@ describe("listing quota by destination store", () => {
       .from(listingTargets)
       .where(and(eq(listingTargets.tenantId, tenants.tenantA), eq(listingTargets.status, "error")));
     if (failed === undefined) throw new Error("missing failed target");
-    // 23 filler + 1 live = 24 of 25 after the previous test; take the last slot.
+    // 298 filler + 1 live = 299 of 300 after the previous test; take the last slot.
     await createListingWithTargets(
       database,
       tenants.tenantA,
@@ -156,12 +160,12 @@ describe("listing quota by destination store", () => {
     );
     await expect(
       resetListingErrorsForRetry(database, tenants.tenantA, [failed.listingId], {
-        billingEnabled: true,
+        billing: RULES,
       }),
     ).rejects.toMatchObject({ code: "FORBIDDEN" });
     await expect(
       resetListingErrorsForRetry(database, tenants.tenantA, [failed.listingId], {
-        billingEnabled: false,
+        billing: null,
       }),
     ).resolves.toHaveLength(1);
   });
@@ -188,9 +192,11 @@ describe("listing quota by destination store", () => {
       status: "published",
       idempotencyKey: crypto.randomUUID(),
     });
-    expect((await billingUsage(database, tenants.tenantA)).listings).toBeGreaterThan(FREE_LISTINGS);
+    expect((await billingUsage(database, tenants.tenantA)).listings).toBeGreaterThan(
+      START_LISTINGS,
+    );
     await expect(
-      resetListingErrorsForRetry(database, tenants.tenantA, [extra.id], { billingEnabled: true }),
+      resetListingErrorsForRetry(database, tenants.tenantA, [extra.id], { billing: RULES }),
     ).resolves.toEqual([]);
   });
 });

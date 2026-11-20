@@ -62,8 +62,9 @@ export function BlingConnectCard({ supplierId }: { supplierId: string }) {
   return (
     <CardShell>
       <CardHeading title="Importar do Bling">
-        Conecte sua conta Bling uma vez e traga os produtos com NCM, unidade, peso e estoque. O
-        SellBridge só lê: nada muda no seu Bling.
+        Conecte sua conta Bling uma vez e traga os produtos com NCM, unidade, peso e estoque.
+        Depois, o estoque se atualiza sozinho, e cada venda do SellBridge dá baixa no estoque do seu
+        Bling.
       </CardHeading>
       <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
         <Button asChild size="lg">

@@ -25,6 +25,8 @@ const environment = {
   BILLING_UNLIMITED: "true",
   BETTER_AUTH_SECRET: randomBytes(32).toString("hex"),
   TOKEN_ENCRYPTION_KEY: randomBytes(32).toString("base64"),
+  // Production refuses to start without an e-mail key; the smoke test sends no e-mail.
+  RESEND_API_KEY: "re_smoke_test_unused",
 };
 
 async function docker(args, timeout = 120_000) {

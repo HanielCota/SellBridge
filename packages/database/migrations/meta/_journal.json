@@ -670,8 +670,22 @@
     {
       "idx": 95,
       "version": "7",
-      "when": 1795138610016,
-      "tag": "0095_reseller_note_uploaded",
+      "when": 1795153373592,
+      "tag": "0095_erp_stock_exits",
+      "breakpoints": true
+    },
+    {
+      "idx": 96,
+      "version": "7",
+      "when": 1795160406319,
+      "tag": "0096_billing_asaas",
+      "breakpoints": true
+    },
+    {
+      "idx": 97,
+      "version": "7",
+      "when": 1795165892018,
+      "tag": "0097_reseller_note_uploaded",
       "breakpoints": true
     }
   ]

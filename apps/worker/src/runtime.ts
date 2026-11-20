@@ -75,6 +75,7 @@ import {
 import { createErpCatalogExportProcessor } from "./processors/erp-catalog-export.ts";
 import { createErpCatalogReadProcessor } from "./processors/erp-catalog-read.ts";
 import { createErpInvoiceProcessor } from "./processors/erp-invoice-issue.ts";
+import { postDueErpStockExits } from "./processors/erp-stock-exit.ts";
 import {
   checkAllErpStock,
   checkSupplierErpStock,
@@ -85,6 +86,7 @@ import { createResellerInvoiceReadProcessor } from "./processors/reseller-invoic
 import { resolveStoreCredentials } from "./lib/store-access.ts";
 import { createNotificationDeliveryProcessor } from "./processors/notification-delivery.ts";
 import { blingInvoiceFileReader, createInvoiceAttachments } from "./lib/invoice-attachments.ts";
+import { createDeletedStorePauseProcessor } from "./processors/deleted-store-pause.ts";
 import { createOrderMessageFollowUpProcessor } from "./processors/order-message-follow-up.ts";
 import { createWebhookDeliveryProcessor } from "./processors/webhook-delivery.ts";
 import { createShipmentTrackingProcessor } from "./processors/shipment-tracking.ts";
@@ -208,6 +210,7 @@ function marketplaceWorkers(context: WorkerContext): Worker[] {
   const processPublish = createPublishListingProcessor(options);
   const processStock = createStockPriceSyncProcessor(options);
   const processRefresh = createTokenRefreshProcessor({ database, connectors, cipher });
+  const processDeletedStorePause = createDeletedStorePauseProcessor({ connectors, cipher });
   const processErpRefresh = createErpTokenRefreshProcessor({
     database,
     cipher,
@@ -225,6 +228,11 @@ function marketplaceWorkers(context: WorkerContext): Worker[] {
       concurrency: 1,
     }),
     new Worker(
+      QUEUE_NAMES.deletedStorePause,
+      async (job) => processDeletedStorePause(toJobContext(job)),
+      { connection, concurrency: 1 },
+    ),
+    new Worker(
       QUEUE_NAMES.tokenRefresh,
       async () => runTokenRefreshes({ stores: processRefresh, erp: processErpRefresh }),
       { connection, concurrency: 1 },
@@ -239,6 +247,9 @@ async function runErpStockJob(
 ): Promise<unknown> {
   if (job.name === ERP_STOCK_JOB_NAMES.checkAll) {
     return checkAllErpStock(dependencies);
+  }
+  if (job.name === ERP_STOCK_JOB_NAMES.postExits) {
+    return postDueErpStockExits(dependencies);
   }
   const { supplierId } = erpStockSupplierJobSchema.parse(job.data);
   if (job.name === ERP_STOCK_JOB_NAMES.checkSupplier) {
@@ -642,6 +653,8 @@ async function scheduleQueues(queues: WorkerContext["queues"]): Promise<void> {
   await scheduleRecurring(queues.erpInvoices, "issue-erp-invoices", 2 * 60 * 1000);
   // Lost Bling notices are caught within 15 minutes; see docs/decisions for the quota math.
   await scheduleRecurring(queues.erpStock, ERP_STOCK_JOB_NAMES.checkAll, 15 * 60 * 1000);
+  // A sale's exit reaches Bling within a minute, before a check could read the old balance.
+  await scheduleRecurring(queues.erpStock, ERP_STOCK_JOB_NAMES.postExits, 60 * 1000);
   await scheduleRecurring(queues.supplierPayments, "reconcile-supplier-payments", 5 * 60 * 1000);
   // Hourly, so a day's checks are spread out; each store is due once a day.
   await scheduleRecurring(queues.buyerAddressCheck, "check-buyer-addresses", 60 * 60 * 1000);

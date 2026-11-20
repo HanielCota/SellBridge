@@ -8,8 +8,13 @@ loadRootEnvironmentFile();
 for (const key of [
   "STRIPE_SECRET_KEY",
   "STRIPE_WEBHOOK_SECRET",
+  "STRIPE_START_PRICE_ID",
   "STRIPE_PRO_PRICE_ID",
   "STRIPE_BUSINESS_PRICE_ID",
+  "STRIPE_BLACK_PRICE_ID",
+  "STRIPE_ELITE_PRICE_ID",
+  "BILLING_LAUNCHED_AT",
+  "BILLING_TRANSITION_ENDS_AT",
   "STRIPE_PORTAL_CONFIGURATION_ID",
   "RESEND_API_KEY",
   "ALERT_WEBHOOK_URL",
@@ -24,6 +29,9 @@ for (const key of [
   process.env[key] = "";
 }
 process.env.AUTO_FORWARD_ENABLED = "false";
+// Colour and size grids stay off in production until the grid listing is ready; the test
+// site turns them on so the supplier's grid form is tested (decision of 19/11/2026).
+process.env.PRODUCT_GRID_ENABLED = "true";
 // The Bling card shows only with app keys; these fake ones never reach Bling, since the specs
 // seed the connection and the catalog read instead of going through Bling.
 process.env.BLING_CLIENT_ID = "e2e-bling-client";
