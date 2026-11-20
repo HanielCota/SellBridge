@@ -673,6 +673,13 @@
       "when": 1795138610016,
       "tag": "0095_reseller_note_uploaded",
       "breakpoints": true
+    },
+    {
+      "idx": 96,
+      "version": "7",
+      "when": 1795159748486,
+      "tag": "0096_reseller_bling_sale_notes",
+      "breakpoints": true
     }
   ]
 }

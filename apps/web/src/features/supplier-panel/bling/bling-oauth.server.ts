@@ -165,6 +165,9 @@ export async function handleBlingConnectCallback(request: Request): Promise<Resp
   if (stateRecord === null) {
     return importPage(request, "expirado");
   }
+  if (stateRecord.kind !== "supplier") {
+    return importPage(request, "sem_permissao");
+  }
   const profile = requester.profiles.find((item) => item.supplierId === stateRecord.supplierId);
   const supplierIds = requester.profiles.map((item) => item.supplierId);
   const refusal = erpConnectRefusal(
