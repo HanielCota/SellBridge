@@ -1,6 +1,6 @@
 # 2026-11-20: Juntar produtos que já existem numa grade
 
-Fatia 4 da Margot#1058 (variações de cor e tamanho). Guilherme aprovou o plano em 20/11 pela Central ("mãos a obra então"). Vale só com `PRODUCT_GRID_ENABLED` ligada; desligada, o botão não aparece e o servidor responde "não encontrado".
+Fatia 4 das variações de cor e tamanho. Guilherme aprovou o plano em 20/11 pela Central ("mãos a obra então"). Vale só com `PRODUCT_GRID_ENABLED` ligada; desligada, o botão não aparece e o servidor responde "não encontrado".
 
 - **Onde fica:** em Produtos, o botão "Juntar cores e tamanhos" abre a tela "Sugestões de grade". A equipe pode fazer pelo fornecedor com o "agir como cliente"; o registro guarda quem agiu (a pessoa da equipe, quando é ela).
 - **Sugestões, só leitura:**
@@ -21,6 +21,7 @@ Fatia 4 da Margot#1058 (variações de cor e tamanho). Guilherme aprovou o plano
   - Cor e tamanho repetidos, ou faltando onde os outros têm.
   - NCM, origem ou unidade diferentes do produto principal, comparados como a nota lê (com a origem e a unidade da Marca). Um modelo tem um fiscal só; o fornecedor corrige o produto antes. CEST e impostos seguem o principal.
   - Um produto à venda que perderia algo que tinha (foto, ficha obrigatória, dados da nota). Diferente do cadastro da grade, que tira de venda a combinação que ficou incompleta, aqui o grupo é recusado.
+- **Abrir a grade juntada não salva nada:** numa grade já salva, a categoria do Mercado Livre que falta aparece como sugestão, com "Usar esta categoria". Antes, o formulário a preenchia sozinho, salvava e podia tirar de venda combinações aprovadas incompletas. Editar de verdade um campo exigido continua seguindo a regra da fatia 2 (aprovado incompleto vira rascunho). O produto simples tem o mesmo problema e ficou para uma tarefa separada.
 - **Desfazer e separar:** o "antes" de cada produto fica guardado (`product_groupings` e `product_grouping_items`): nome, descrição, fotos, ficha, fiscal, categoria, garantia e vídeo.
   - **"Desfazer":** no aviso logo depois de juntar, por 10 segundos.
   - **"Separar de novo":** fica no cadastro da grade, sem prazo.
