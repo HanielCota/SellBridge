@@ -16,12 +16,17 @@ vi.mock("@/lib/server/database", () => ({ database: { transaction: mocks.transac
 vi.mock("@/lib/server/environment", () => ({
   environment: {
     STRIPE_WEBHOOK_SECRET: "whsec_test",
+    STRIPE_SECRET_KEY: "sk_test_local",
+    STRIPE_START_PRICE_ID: "price_start",
     STRIPE_PRO_PRICE_ID: "price_pro",
     STRIPE_BUSINESS_PRICE_ID: "price_business",
+    STRIPE_BLACK_PRICE_ID: "price_black",
+    STRIPE_ELITE_PRICE_ID: "price_elite",
     BILLING_PAST_DUE_GRACE_DAYS: 7,
   },
 }));
-vi.mock("./stripe.server", () => ({
+vi.mock("./stripe.server", async (importOriginal) => ({
+  planOfPrice: (await importOriginal<typeof import("./stripe.server")>()).planOfPrice,
   billingConfigured: () => true,
   stripeClient: () => ({
     webhooks: new Stripe("sk_test_local").webhooks,
@@ -158,6 +163,19 @@ describe("signed billing webhook", () => {
       {},
       expect.objectContaining({ subscriptionId: "sub_new", plan: "business" }),
     );
+  });
+  it.each([
+    ["price_start", "start"],
+    ["price_black", "black"],
+    ["price_elite", "elite"],
+    ["price_other_app", "none"],
+  ])("maps the price %s to the plan %s", async (price, plan) => {
+    const item = { current_period_start: 1797408000, current_period_end: 1800000000 };
+    mocks.list.mockResolvedValue({
+      data: [{ ...subscription, items: { data: [{ ...item, price: { id: price } }] } }],
+    });
+    await handleBillingWebhook(request());
+    expect(mocks.apply).toHaveBeenCalledWith({}, expect.objectContaining({ plan }));
   });
   it("restricts paused payment collection", async () => {
     mocks.list.mockResolvedValue({

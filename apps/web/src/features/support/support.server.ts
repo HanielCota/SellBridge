@@ -9,7 +9,7 @@ import {
   requireTicketAbout,
 } from "@sellbridge/database/repositories";
 import { notFoundError, validationError } from "@sellbridge/shared/errors";
-import { assertCanReply } from "@sellbridge/shared/ticket-rules";
+import { assertCanReply, withPrioritySupport } from "@sellbridge/shared/ticket-rules";
 import { planSupportTicket } from "@sellbridge/shared/support-topics";
 import {
   formatAssistantNote,
@@ -26,6 +26,7 @@ import {
   type TicketAboutInput,
 } from "@sellbridge/shared/schemas";
 import { z } from "zod";
+import { hasPrioritySupport } from "@/features/billing/billing.server";
 import { auth } from "@/lib/server/auth";
 import { database } from "@/lib/server/database";
 import { environment } from "@/lib/server/environment";
@@ -157,7 +158,10 @@ export function handleCreateTicket(request: Request) {
       about: input.about,
       description: input.body,
     });
-    const about = await readTicketAbout(formData, session.tenantId);
+    const [about, prioritySupport] = await Promise.all([
+      readTicketAbout(formData, session.tenantId),
+      hasPrioritySupport(session.tenantId),
+    ]);
     const files = await validateAttachments(formData);
     const attachments = await storeAttachments(fileStorage, session.tenantId, files);
     const { ticketId } = await saveWithAttachments(fileStorage, attachments, () =>
@@ -165,7 +169,7 @@ export function handleCreateTicket(request: Request) {
         tenantId: session.tenantId,
         userId: session.userId,
         category: input.category,
-        priority: plan.priority,
+        priority: prioritySupport ? withPrioritySupport(plan.priority) : plan.priority,
         subject: plan.subject,
         situationId: plan.situationId,
         body: input.body,

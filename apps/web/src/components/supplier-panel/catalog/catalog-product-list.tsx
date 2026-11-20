@@ -25,7 +25,7 @@ import { supplierPanelProductsQueryOptions } from "@/features/supplier-panel/cat
 import { usePanelSupplierActive } from "@/features/supplier-panel/use-panel-supplier";
 import { useUrlSearchQuery } from "@/hooks/use-url-search-query";
 import { errorMessage } from "@/lib/errors";
-import { CatalogProductTable, type OpenProduct } from "./catalog-product-table";
+import { CatalogProductTable, type OpenGrid, type OpenProduct } from "./catalog-product-table";
 import { ProductSpreadsheetMenu } from "./product-spreadsheet-menu";
 import { ACTION_ICONS } from "@/components/icons/action-icons";
 import { Hint } from "@/components/ui/hint";
@@ -93,6 +93,7 @@ function CatalogListBody({
   search,
   onSearchChange,
   onOpenProduct,
+  onOpenGrid,
   onCreateProduct,
 }: Omit<CatalogProductListProps, "supplierId"> & { query: CatalogListQuery }) {
   const canAddProducts = usePanelSupplierActive();
@@ -134,6 +135,7 @@ function CatalogListBody({
       sort={{ sort: search.sort, direction: search.direction }}
       onSort={(sort) => onSearchChange({ ...sort, page: 1 })}
       onOpen={onOpenProduct}
+      onOpenGrid={onOpenGrid}
       onPageChange={(page) => onSearchChange({ page })}
     />
   );
@@ -144,6 +146,8 @@ interface CatalogProductListProps {
   search: CatalogListSearch;
   onSearchChange: (change: Partial<CatalogListSearch>) => void;
   onOpenProduct: OpenProduct;
+  /** Opens a colour and size grid in its own form. */
+  onOpenGrid: OpenGrid;
   onCreateProduct: () => void;
   /** More header actions, before "Cadastrar produto" (the page's "Baixar"). */
   headerActions?: ReactNode;
@@ -237,6 +241,7 @@ export function CatalogProductList({
   search,
   onSearchChange,
   onOpenProduct,
+  onOpenGrid,
   onCreateProduct,
   headerActions,
 }: CatalogProductListProps) {
@@ -272,6 +277,7 @@ export function CatalogProductList({
           search={search}
           onSearchChange={onSearchChange}
           onOpenProduct={onOpenProduct}
+          onOpenGrid={onOpenGrid}
           onCreateProduct={onCreateProduct}
         />
       </div>

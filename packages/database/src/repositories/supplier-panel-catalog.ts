@@ -20,8 +20,27 @@ import {
   type FiscalFallback,
 } from "@sellbridge/shared/product-fiscal";
 import { and, asc, count, desc, eq, gt, sql, type AnyColumn } from "drizzle-orm";
+import { alias } from "drizzle-orm/pg-core";
 import type { DatabaseExecutor } from "../client.ts";
-import { categories, listings, orderItems, supplierProducts, suppliers } from "../schema/index.ts";
+import {
+  categories,
+  listings,
+  orderItems,
+  productModelColors,
+  productModels,
+  productModelSizes,
+  supplierProducts,
+  suppliers,
+} from "../schema/index.ts";
+
+/** The columns the list filters read, on the products table or an alias of it. */
+interface ProductTable {
+  readonly supplierId: AnyColumn;
+  readonly reviewStatus: AnyColumn;
+  readonly sku: AnyColumn;
+  readonly title: AnyColumn;
+  readonly fiscal: AnyColumn;
+}
 import type { ProductExportSource } from "@sellbridge/shared/supplier-panel-export";
 import { matchesEveryWord } from "./sql/search-pattern.ts";
 import { getSupplierFiscalFallback } from "./supplier-brand.ts";
@@ -36,8 +55,20 @@ export interface SupplierPanelProduct extends SupplierPanelProductRow {
 }
 
 /** A row of the panel list: `deletable` while no reseller ever published or sold it. */
+/** A colour and size grid, shown once in the list for all its combinations. */
+export interface PanelListGrid {
+  readonly modelId: string;
+  readonly title: string;
+  readonly colors: number;
+  readonly sizes: number;
+  readonly combinations: number;
+  readonly stock: number;
+}
+
 export interface SupplierPanelListProduct extends SupplierPanelProduct {
   deletable: boolean;
+  /** Set on the row that stands for a whole grid; null for a product of its own. */
+  grid: PanelListGrid | null;
 }
 
 /**
@@ -52,12 +83,15 @@ export type SupplierPanelStatusCounts = Record<ProductReviewStatus | "all", numb
  * A product whose NF-e cannot be issued yet: no NCM, or no origin or unit while Marca has none
  * to lend it either.
  */
-function missingFiscalData(fallback: FiscalFallback | null) {
-  const noNcm = sql<boolean>`${supplierProducts.fiscal} ->> 'ncm' is null`;
+function missingFiscalData(
+  fallback: FiscalFallback | null,
+  products: ProductTable = supplierProducts,
+) {
+  const noNcm = sql<boolean>`${products.fiscal} ->> 'ncm' is null`;
   if (fallback !== null) {
     return noNcm;
   }
-  return sql<boolean>`(${noNcm} or ${supplierProducts.fiscal} ->> 'origin' is null or ${supplierProducts.fiscal} ->> 'unit' is null)`;
+  return sql<boolean>`(${noNcm} or ${products.fiscal} ->> 'origin' is null or ${products.fiscal} ->> 'unit' is null)`;
 }
 
 async function countMissingFiscal(
@@ -132,7 +166,11 @@ async function countByStatus(
 ): Promise<SupplierPanelStatusCounts> {
   const { query, onlyMissingFiscal, fiscalFallback } = filters;
   const rows = await database
-    .select({ status: supplierProducts.reviewStatus, value: count() })
+    // A grid counts once, like the row that stands for it.
+    .select({
+      status: supplierProducts.reviewStatus,
+      value: sql<number>`count(distinct coalesce(${supplierProducts.modelId}, ${supplierProducts.id}))::int`,
+    })
     .from(supplierProducts)
     .where(
       and(
@@ -159,15 +197,61 @@ async function countByStatus(
 function panelListCondition(
   input: Pick<CatalogListSearch, "status" | "query" | "fiscal"> & { supplierId: string },
   fiscalFallback: FiscalFallback | null,
+  products: ProductTable = supplierProducts,
 ) {
   return and(
-    eq(supplierProducts.supplierId, input.supplierId),
-    input.status === "all" ? undefined : eq(supplierProducts.reviewStatus, input.status),
+    eq(products.supplierId, input.supplierId),
+    input.status === "all" ? undefined : eq(products.reviewStatus, input.status),
     input.query === undefined
       ? undefined
-      : matchesEveryWord(input.query, [supplierProducts.sku, supplierProducts.title]),
-    input.fiscal === "missing" ? missingFiscalData(fiscalFallback) : undefined,
+      : matchesEveryWord(input.query, [products.sku, products.title]),
+    input.fiscal === "missing" ? missingFiscalData(fiscalFallback, products) : undefined,
   );
+}
+
+const gridCombination = alias(supplierProducts, "grid_combination");
+
+/**
+ * A grid shows in the list once, through its first combination (in id order) that matches the
+ * same filters; a product of its own always shows.
+ */
+function onceForItsGrid(
+  input: Pick<CatalogListSearch, "status" | "query" | "fiscal"> & { supplierId: string },
+  fiscalFallback: FiscalFallback | null,
+) {
+  return sql`(${supplierProducts.modelId} is null or ${supplierProducts.id} = (select ${gridCombination.id} from ${supplierProducts} ${gridCombination} where ${gridCombination.modelId} = ${supplierProducts.modelId} and ${panelListCondition(input, fiscalFallback, gridCombination)} order by ${gridCombination.id} limit 1))`;
+}
+
+/** What the grid row shows: the model's name, its options and the stock of all combinations. */
+const gridSummaryColumns = {
+  gridTitle: sql<
+    string | null
+  >`(select ${productModels.title} from ${productModels} where ${productModels.id} = ${supplierProducts.modelId})`,
+  gridColors: sql<number>`(select count(*)::int from ${productModelColors} where ${productModelColors.modelId} = ${supplierProducts.modelId})`,
+  gridSizes: sql<number>`(select count(*)::int from ${productModelSizes} where ${productModelSizes.modelId} = ${supplierProducts.modelId})`,
+  gridCombinations: sql<number>`(select count(*)::int from ${supplierProducts} ${gridCombination} where ${gridCombination.modelId} = ${supplierProducts.modelId} and ${gridCombination.active})`,
+  gridStock: sql<number>`(select coalesce(sum(${gridCombination.stock}), 0)::int from ${supplierProducts} ${gridCombination} where ${gridCombination.modelId} = ${supplierProducts.modelId} and ${gridCombination.active})`,
+};
+
+function gridOf(row: {
+  product: { modelId: string | null };
+  gridTitle: string | null;
+  gridColors: number;
+  gridSizes: number;
+  gridCombinations: number;
+  gridStock: number;
+}): PanelListGrid | null {
+  if (row.product.modelId === null || row.gridTitle === null) {
+    return null;
+  }
+  return {
+    modelId: row.product.modelId,
+    title: row.gridTitle,
+    colors: row.gridColors,
+    sizes: row.gridSizes,
+    combinations: row.gridCombinations,
+    stock: row.gridStock,
+  };
 }
 
 /**
@@ -184,10 +268,10 @@ export async function listSupplierPanelProducts(
   const order = input.direction === "asc" ? asc : desc;
   const [rows, counts, missingFiscalCount] = await Promise.all([
     database
-      .select({ ...panelProductColumns, deletable: neverListedNorSold })
+      .select({ ...panelProductColumns, ...gridSummaryColumns, deletable: neverListedNorSold })
       .from(supplierProducts)
       .leftJoin(categories, eq(categories.id, supplierProducts.categoryId))
-      .where(condition)
+      .where(and(condition, onceForItsGrid(input, fiscalFallback)))
       .orderBy(order(SORT_COLUMNS[input.sort]), asc(supplierProducts.id))
       .limit(input.pageSize)
       .offset((input.page - 1) * input.pageSize),
@@ -204,6 +288,7 @@ export async function listSupplierPanelProducts(
       rows.map((row): SupplierPanelListProduct => ({
         ...withPanelCompleteness(row, fiscalFallback),
         deletable: row.deletable,
+        grid: gridOf(row),
       })),
       counts[input.status],
       pagination,

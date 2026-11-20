@@ -67,7 +67,7 @@ export function isAsaasError(error: unknown): error is AsaasError {
 
 export interface AsaasRequest<Result> {
   readonly path: string;
-  readonly method?: "GET" | "POST" | "DELETE";
+  readonly method?: "GET" | "POST" | "PUT" | "DELETE";
   readonly body?: unknown;
   readonly schema: z.ZodType<Result>;
 }

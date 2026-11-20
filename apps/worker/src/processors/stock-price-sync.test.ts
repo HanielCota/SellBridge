@@ -251,7 +251,7 @@ describe("stock-price-sync processor", () => {
     });
 
     const retried = await resetListingErrorsForRetry(database, tenantId, [ended?.listingId ?? ""], {
-      billingEnabled: false,
+      billing: null,
     });
 
     expect(retried).toContain(closedTargetId);

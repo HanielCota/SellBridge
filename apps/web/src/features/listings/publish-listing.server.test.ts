@@ -17,7 +17,7 @@ vi.mock("@sellbridge/database/repositories", () => ({
   findConnectedStores: mocks.findConnectedStores,
   findStoresHeldByBuyerAddress: mocks.findStoresHeldByBuyerAddress,
 }));
-vi.mock("@/features/billing/stripe.server", () => ({ billingConfigured: () => false }));
+vi.mock("@/features/billing/billing-config.server", () => ({ billingRules: () => null }));
 vi.mock("@/lib/server/database", () => ({ database: {} }));
 vi.mock("@/lib/server/queues", () => ({ enqueuePublishJobs: vi.fn<() => Promise<void>>() }));
 
