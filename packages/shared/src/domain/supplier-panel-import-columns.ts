@@ -183,6 +183,40 @@ export const IMPORT_COLUMNS: readonly ImportColumnGuide[] = [
   },
 ];
 
+/**
+ * A product sold in colours and sizes: one line per combination, all with the same model code.
+ * Known only while grids are on (PRODUCT_GRID_ENABLED); off, they are unknown columns.
+ */
+export const GRID_IMPORT_COLUMNS: readonly ImportColumnGuide[] = [
+  {
+    column: "codigo_modelo",
+    label: "Código do modelo",
+    required: false,
+    format:
+      "Só para produto com cores ou tamanhos: o mesmo código em todas as linhas do produto, até 60 caracteres",
+    example: "TENIS-CASUAL",
+  },
+  {
+    column: "cor",
+    label: "Cor",
+    required: false,
+    format: "A cor desta linha, até 40 letras; vazio se o produto só tem tamanhos",
+    example: "Preto",
+  },
+  {
+    column: "tamanho",
+    label: "Tamanho",
+    required: false,
+    format: "O tamanho desta linha, até 40 letras; vazio se o produto só tem cores",
+    example: "38",
+  },
+];
+
+/** The columns a spreadsheet may have: the grid ones only while grids are on. */
+export function importColumns(gridColumns: boolean): readonly ImportColumnGuide[] {
+  return gridColumns ? [...IMPORT_COLUMNS, ...GRID_IMPORT_COLUMNS] : IMPORT_COLUMNS;
+}
+
 /** Exported files carry the reason for each failed row here; a re-import ignores it. */
 export const IMPORT_ERROR_COLUMN = "erro";
 
@@ -192,11 +226,11 @@ export function canonicalColumnName(header: string): string {
 }
 
 export function columnGuide(column: string): ImportColumnGuide | null {
-  return IMPORT_COLUMNS.find((entry) => entry.column === column) ?? null;
+  return importColumns(true).find((entry) => entry.column === column) ?? null;
 }
 
 export function columnGuideByLabel(label: string): ImportColumnGuide | null {
-  return IMPORT_COLUMNS.find((entry) => entry.label === label.trim()) ?? null;
+  return importColumns(true).find((entry) => entry.label === label.trim()) ?? null;
 }
 
 /** 0 → "A", 26 → "AA": the letter Excel shows above the column. */

@@ -1,5 +1,5 @@
 import { productExportRow, type ProductExportSource } from "./supplier-panel-export.ts";
-import { IMPORT_COLUMNS, IMPORT_ERROR_COLUMN } from "./supplier-panel-import-columns.ts";
+import { IMPORT_ERROR_COLUMN, importColumns } from "./supplier-panel-import-columns.ts";
 import type { ImportRowIssues, ImportTableShape } from "./supplier-panel-import-issues.ts";
 import { type ImportRecord, serializeSemicolonRow } from "./supplier-panel-import-table.ts";
 
@@ -13,7 +13,12 @@ const EXCEL_LINE_BREAK = "\r\n";
 const ISSUE_SEPARATOR = " | ";
 
 /** The template's first line; the product export starts with the same one. */
-const IMPORT_HEADER: readonly string[] = IMPORT_COLUMNS.map((entry) => entry.column);
+function importHeader(gridColumns: boolean): string[] {
+  return importColumns(gridColumns).map((entry) => entry.column);
+}
+
+/** The grid columns stay blank in the example: it is a product of its own. */
+const GRID_COLUMN_NAMES: ReadonlySet<string> = new Set(["codigo_modelo", "cor", "tamanho"]);
 
 function excelLines(rows: readonly (readonly string[])[]): string {
   return rows.map((row) => `${serializeSemicolonRow(row)}${EXCEL_LINE_BREAK}`).join("");
@@ -24,33 +29,43 @@ function excelCsv(rows: readonly (readonly string[])[]): string {
 }
 
 /** Every column, plus one example product; the category is a real one when the platform has any. */
-export function buildImportTemplateCsv(categorySlug: string | null): string {
-  const example = IMPORT_COLUMNS.map((entry) =>
-    entry.column === "categoria" ? (categorySlug ?? "") : entry.example,
-  );
-  return excelCsv([IMPORT_HEADER, example]);
+export function buildImportTemplateCsv(categorySlug: string | null, gridColumns = false): string {
+  const example = importColumns(gridColumns).map((entry) => {
+    if (entry.column === "categoria") {
+      return categorySlug ?? "";
+    }
+    return GRID_COLUMN_NAMES.has(entry.column) ? "" : entry.example;
+  });
+  return excelCsv([importHeader(gridColumns), example]);
 }
 
 /** How the product export starts: the BOM and the template's header. */
-export function productExportStart(): string {
-  return excelCsv([IMPORT_HEADER]);
+export function productExportStart(gridColumns = false): string {
+  return excelCsv([importHeader(gridColumns)]);
 }
 
 /** One line per product, sent in batches after `productExportStart`. */
-export function productExportLines(products: readonly ProductExportSource[]): string {
-  return excelLines(products.map(productExportRow));
+export function productExportLines(
+  products: readonly ProductExportSource[],
+  gridColumns = false,
+): string {
+  return excelLines(products.map((product) => productExportRow(product, gridColumns)));
 }
 
 /** The supplier's products in the template's format, ready to edit and import back. */
-export function buildProductExportCsv(products: readonly ProductExportSource[]): string {
-  return `${productExportStart()}${productExportLines(products)}`;
+export function buildProductExportCsv(
+  products: readonly ProductExportSource[],
+  gridColumns = false,
+): string {
+  return `${productExportStart(gridColumns)}${productExportLines(products, gridColumns)}`;
 }
 
 /** What each column takes, then the category identifiers the "categoria" column accepts. */
 export function buildImportGuideCsv(
   categories: readonly { readonly name: string; readonly slug: string }[],
+  gridColumns = false,
 ): string {
-  const columns = IMPORT_COLUMNS.map((entry) => [
+  const columns = importColumns(gridColumns).map((entry) => [
     entry.column,
     entry.required ? "sim" : "não",
     entry.format,

@@ -37,6 +37,7 @@ import {
   combinationRow,
   getProductModel,
   lockSupplier,
+  modelCodeFor,
   rewriteCombinations,
   type ProductModelDetail,
 } from "./product-models.ts";
@@ -87,9 +88,13 @@ async function writeModel(
   input: CatalogSaveModelDraftInput,
 ): Promise<void> {
   const values = { ...input.values, imageUrls: [...input.values.imageUrls] };
+  const code = await modelCodeFor(transaction, {
+    supplierId: input.supplierId,
+    title: input.values.title,
+  });
   const created = await transaction
     .insert(productModels)
-    .values({ id: input.modelId, supplierId: input.supplierId, ...values })
+    .values({ id: input.modelId, supplierId: input.supplierId, code, ...values })
     .onConflictDoNothing({ target: productModels.id })
     .returning({ id: productModels.id });
   if (created.length > 0) {
@@ -289,15 +294,19 @@ async function writeOptions(
   }
 }
 
-async function assertSkusFreeOutsideModel(
-  transaction: DatabaseExecutor,
-  input: CatalogSaveModelDraftInput,
-): Promise<void> {
+/**
+ * The SKUs of a grid save that another product of the supplier already uses: what the form
+ * shows on those fields before saving, so the supplier fixes them and the autosave goes on.
+ */
+export async function findSkusTakenOutsideModel(
+  executor: DatabaseExecutor,
+  input: Pick<CatalogSaveModelDraftInput, "supplierId" | "modelId" | "grid">,
+): Promise<string[]> {
   const skus = input.grid.combinations.map((combination) => combination.sku);
   if (skus.length === 0) {
-    return;
+    return [];
   }
-  const taken = await transaction
+  const taken = await executor
     .select({ sku: supplierProducts.sku })
     .from(supplierProducts)
     .where(
@@ -308,9 +317,18 @@ async function assertSkusFreeOutsideModel(
       ),
     )
     .orderBy(asc(supplierProducts.sku));
+  return taken.map((row) => row.sku);
+}
+
+/** The same check inside the save, for a SKU another product took since the form checked. */
+async function assertSkusFreeOutsideModel(
+  transaction: DatabaseExecutor,
+  input: CatalogSaveModelDraftInput,
+): Promise<void> {
+  const taken = await findSkusTakenOutsideModel(transaction, input);
   if (taken.length > 0) {
     throw conflictError(
-      `Já existe outro produto com ${taken.length === 1 ? "o SKU" : "os SKUs"} ${taken.map((row) => row.sku).join(", ")} neste fornecedor`,
+      `Já existe outro produto com ${taken.length === 1 ? "o SKU" : "os SKUs"} ${taken.join(", ")} neste fornecedor`,
     );
   }
 }
@@ -414,7 +432,7 @@ function publishingProblems(
 }
 
 /** A combination on sale goes back to draft when an edit of the model leaves it unsellable. */
-async function demoteUnsellableCombinations(
+export async function demoteUnsellableCombinations(
   transaction: DatabaseExecutor,
   input: { supplierId: string; modelId: string; categoryId: string | null },
 ): Promise<void> {

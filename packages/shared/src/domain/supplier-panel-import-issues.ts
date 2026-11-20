@@ -3,7 +3,7 @@ import { CONTACT_REFUSAL_MESSAGES } from "../schemas/contact-guard.ts";
 import {
   columnGuide,
   columnGuideByLabel,
-  IMPORT_COLUMNS,
+  importColumns,
   type ImportColumnGuide,
 } from "./supplier-panel-import-columns.ts";
 import type { ImportRecord } from "./supplier-panel-import-table.ts";
@@ -34,9 +34,10 @@ const MAX_SHOWN_VALUE = 80;
  * so the reason is cut only where the next part starts with a known column label.
  */
 const REASON_LABELS = [
-  ...IMPORT_COLUMNS.map((entry) => entry.label),
+  ...importColumns(true).map((entry) => entry.label),
   "Linha",
   "Atributos do Mercado Livre",
+  "Cor e tamanho",
 ];
 const REASON_SEPARATOR = new RegExp(
   // Labels are plain words ("Preço sugerido"), with nothing a regular expression would read.

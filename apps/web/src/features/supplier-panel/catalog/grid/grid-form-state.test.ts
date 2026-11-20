@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   EMPTY_GRID_FORM_STATE,
+  gridFillProblems,
   gridFormStateOf,
   suggestedSku,
   withColorAdded,
@@ -8,7 +9,9 @@ import {
   withCombinationChanged,
   withCombinationsFilled,
   withCombinationToggled,
+  withOptionRestored,
   withSaveAnswer,
+  withSizeRemoved,
   withSizesAdded,
   type GridFormState,
 } from "./grid-form-state";
@@ -165,5 +168,134 @@ describe("withSaveAnswer", () => {
       stock: "3",
       savedStock: 3,
     });
+  });
+});
+
+describe("undoing a removed colour or size", () => {
+  const typedBranco = withCombinationChanged(
+    twoByTwo,
+    { colorKey: "c2", sizeKey: "s1" },
+    { sku: "TEN-B-38" },
+  );
+  const removedBranco = { axis: "color" as const, key: "c2", before: typedBranco };
+
+  it("puts back only the removed colour and keeps what was typed since", () => {
+    const edited = withCombinationChanged(
+      withColorRemoved(typedBranco, "c2"),
+      { colorKey: "c1", sizeKey: "s1" },
+      { sku: "TEN-P-38" },
+    );
+
+    const restored = withOptionRestored(edited, removedBranco);
+
+    expect(restored.colors.map((color) => color.name)).toEqual(["Preto", "Branco"]);
+    expect(pairs(restored).toSorted()).toEqual(["Branco/38", "Branco/39", "Preto/38", "Preto/39"]);
+    expect(
+      restored.combinations.find((entry) => entry.colorKey === "c1" && entry.sizeKey === "s1")?.sku,
+    ).toBe("TEN-P-38");
+    expect(
+      restored.combinations.find((entry) => entry.colorKey === "c2" && entry.sizeKey === "s1")?.sku,
+    ).toBe("TEN-B-38");
+  });
+
+  it("leaves out a combination whose size was removed meanwhile", () => {
+    const edited = withSizeRemoved(withColorRemoved(typedBranco, "c2"), "s2");
+
+    const restored = withOptionRestored(edited, removedBranco);
+
+    expect(pairs(restored).toSorted()).toEqual(["Branco/38", "Preto/38"]);
+  });
+
+  it("brings the last colour back in place of the size-only stand-ins", () => {
+    const onlyBranco = withColorRemoved(typedBranco, "c1");
+    const before = withCombinationChanged(
+      onlyBranco,
+      { colorKey: "c2", sizeKey: "s1" },
+      { sku: "TEN-B-38" },
+    );
+    const edited = withColorRemoved(before, "c2");
+
+    const restored = withOptionRestored(edited, { axis: "color", key: "c2", before });
+
+    expect(pairs(restored).toSorted()).toEqual(["Branco/38", "Branco/39"]);
+  });
+
+  it("pairs a colour back with the sizes added after it was removed", () => {
+    const colours = withCombinationChanged(
+      withColorAdded(withColorAdded(EMPTY_GRID_FORM_STATE, "Preto", "c1"), "Branco", "c2"),
+      { colorKey: "c1", sizeKey: null },
+      { sku: "TEN-P" },
+    );
+    const edited = withSizesAdded(withColorRemoved(colours, "c1"), [{ name: "38", key: "s1" }]);
+
+    const restored = withOptionRestored(edited, { axis: "color", key: "c1", before: colours });
+
+    expect(pairs(restored).toSorted()).toEqual(["Branco/38", "Preto/38"]);
+    expect(
+      restored.combinations.find((entry) => entry.colorKey === "c1" && entry.sizeKey === "s1")?.sku,
+    ).toBe("TEN-P");
+  });
+
+  it("sells a restored colour in a size added since, and keeps off a pair it was not sold in", () => {
+    const before = withCombinationToggled(typedBranco, { colorKey: "c2", sizeKey: "s2" }, false);
+    const edited = withSizesAdded(withColorRemoved(before, "c2"), [{ name: "40", key: "s3" }]);
+
+    const restored = withOptionRestored(edited, { axis: "color", key: "c2", before });
+
+    expect(
+      pairs(restored)
+        .filter((pair) => pair.startsWith("Branco"))
+        .toSorted(),
+    ).toEqual(["Branco/38", "Branco/40"]);
+  });
+
+  it("brings nothing back when a colour of the same name was added meanwhile", () => {
+    const edited = withColorAdded(withColorRemoved(typedBranco, "c2"), "branco", "c3");
+
+    const restored = withOptionRestored(edited, removedBranco);
+
+    expect(restored).toBe(edited);
+  });
+});
+
+describe("Preencher todas", () => {
+  it("never gives two combinations the same code when colour names read the same", () => {
+    const greens = withColorAdded(
+      withColorAdded(EMPTY_GRID_FORM_STATE, "Verde-Água", "g1"),
+      "Verde Agua",
+      "g2",
+    );
+
+    const filled = withCombinationsFilled(greens, {
+      skuBase: "TEN",
+      cost: "",
+      suggestedPrice: "",
+      stock: "",
+    });
+
+    expect(filled.combinations.map((combination) => combination.sku)).toEqual([
+      "TEN-VERDEAGUA",
+      "TEN-VERDEAGUA-2",
+    ]);
+  });
+
+  it("refuses a value typed halfway, saying how to write it", () => {
+    const problems = gridFillProblems({
+      skuBase: "TEN",
+      cost: "59,",
+      suggestedPrice: "119,90",
+      stock: "1,5",
+    });
+
+    expect(problems).toEqual({
+      cost: '"59," não é um valor em reais. Exemplo: 59,90',
+      stock: '"1,5" não é uma quantidade. Use um número inteiro, por exemplo 10',
+    });
+  });
+
+  it("finds nothing to refuse in blank or well-typed values", () => {
+    expect(
+      gridFillProblems({ skuBase: "", cost: "59,90", suggestedPrice: "", stock: "10" }),
+    ).toEqual({});
   });
 });

@@ -4,6 +4,7 @@ import {
   erpStockExits,
   orderItems,
   orderStatusChanges,
+  returnClaims,
   shipmentInvoices,
   supplierErpConnections,
   supplierProducts,
@@ -12,6 +13,7 @@ import { createTestDatabase } from "../testing/fixtures.ts";
 import { createInvoiceScenario } from "../testing/shipment-invoice-fixtures.ts";
 import { applyErpStockReadings } from "./erp-stock.ts";
 import {
+  listErpStockEntriesDue,
   listErpStockExitsDue,
   markErpStockExitForTeam,
   markErpStockExitPosted,
@@ -156,8 +158,8 @@ describe("never posting the same exit twice", () => {
     const due = await dueFor(sale.orderItemId);
     if (due === undefined) throw new Error("exit not due");
 
-    const first = await reserveErpStockExit(database, due);
-    const second = await reserveErpStockExit(database, due);
+    const first = await reserveErpStockExit(database, due, "exit");
+    const second = await reserveErpStockExit(database, due, "exit");
 
     expect(first).not.toBeNull();
     expect(second).toBeNull();
@@ -170,7 +172,7 @@ describe("never posting the same exit twice", () => {
     for (const sale of [posted, uncertain]) {
       const due = await dueFor(sale.orderItemId);
       if (due === undefined) throw new Error("exit not due");
-      const exitId = await reserveErpStockExit(database, due);
+      const exitId = await reserveErpStockExit(database, due, "exit");
       if (exitId === null) throw new Error("not reserved");
       if (sale === posted) {
         await markErpStockExitPosted(database, { exitId, erpStockId: 5 });
@@ -187,7 +189,7 @@ describe("never posting the same exit twice", () => {
     const sale = await shippedSale();
     const due = await dueFor(sale.orderItemId);
     if (due === undefined) throw new Error("exit not due");
-    const exitId = await reserveErpStockExit(database, due);
+    const exitId = await reserveErpStockExit(database, due, "exit");
     if (exitId === null) throw new Error("not reserved");
 
     await releaseErpStockExit(database, exitId);
@@ -199,14 +201,17 @@ describe("never posting the same exit twice", () => {
     const sale = await shippedSale();
     const due = await dueFor(sale.orderItemId);
     if (due === undefined) throw new Error("exit not due");
-    const exitId = await reserveErpStockExit(database, due);
+    const exitId = await reserveErpStockExit(database, due, "exit");
     if (exitId === null) throw new Error("not reserved");
     await database
       .update(erpStockExits)
       .set({ createdAt: new Date(Date.now() - 11 * 60_000) })
       .where(eq(erpStockExits.id, exitId));
 
-    const stalled = await takeStalledErpStockExits(database, "parou no meio");
+    const stalled = await takeStalledErpStockExits(database, {
+      operation: "exit",
+      problem: "parou no meio",
+    });
 
     expect(stalled).toContainEqual({
       exitId,
@@ -215,9 +220,9 @@ describe("never posting the same exit twice", () => {
       externalOrderId: sale.externalOrderId,
       quantity: 2,
     });
-    expect(await takeStalledErpStockExits(database, "parou no meio")).not.toContainEqual(
-      expect.objectContaining({ exitId }),
-    );
+    expect(
+      await takeStalledErpStockExits(database, { operation: "exit", problem: "parou no meio" }),
+    ).not.toContainEqual(expect.objectContaining({ exitId }));
   });
 });
 
@@ -280,7 +285,7 @@ describe("stock readings while exits wait for Bling", () => {
     const sale = await shippedSale();
     const due = await dueFor(sale.orderItemId);
     if (due === undefined) throw new Error("exit not due");
-    const exitId = await reserveErpStockExit(database, due);
+    const exitId = await reserveErpStockExit(database, due, "exit");
     if (exitId === null) throw new Error("not reserved");
     await markErpStockExitPosted(database, { exitId, erpStockId: 5 });
 
@@ -291,10 +296,90 @@ describe("stock readings while exits wait for Bling", () => {
     const sale = await shippedSale();
     const due = await dueFor(sale.orderItemId);
     if (due === undefined) throw new Error("exit not due");
-    const exitId = await reserveErpStockExit(database, due);
+    const exitId = await reserveErpStockExit(database, due, "exit");
     if (exitId === null) throw new Error("not reserved");
     await markErpStockExitForTeam(database, { exitId, status: "uncertain", problem: "x" });
 
     expect(await readStock(sale, 10)).toBe(10);
+  });
+});
+
+/** The sale's exit, in the given state, and its return put back on the supplier's shelf. */
+async function returnedToShelf(options: {
+  exitStatus?: "posted" | "uncertain";
+  restocked?: boolean;
+}) {
+  const sale = await shippedSale();
+  await database.insert(erpStockExits).values({
+    orderItemId: sale.orderItemId,
+    operation: "exit",
+    supplierId: sale.supplierId,
+    supplierProductId: sale.productId,
+    erpProductId: 777,
+    quantity: 2,
+    sku: sale.sku,
+    externalOrderId: sale.externalOrderId,
+    status: options.exitStatus ?? "posted",
+  });
+  await database.insert(returnClaims).values({
+    shipmentId: sale.shipmentId,
+    orderId: sale.orderId,
+    sellerTenantId: sale.tenantId,
+    supplierId: sale.supplierId,
+    supplierCostCents: 1_000,
+    restockItemIds: [sale.orderItemId],
+    stockReturnedAt: options.restocked === false ? null : new Date(),
+  });
+  return sale;
+}
+
+async function entryDueFor(orderItemId: string) {
+  const due = await listErpStockEntriesDue(database, 1000);
+  return due.find((entry) => entry.orderItemId === orderItemId);
+}
+
+describe("listErpStockEntriesDue", () => {
+  it("lists the entry that reverses the posted exit of a return put back on the shelf", async () => {
+    const sale = await returnedToShelf({});
+
+    const due = await entryDueFor(sale.orderItemId);
+
+    expect(due).toEqual({
+      orderItemId: sale.orderItemId,
+      supplierId: sale.supplierId,
+      supplierProductId: sale.productId,
+      erpProductId: 777,
+      sku: sale.sku,
+      title: "Chinelo",
+      quantity: 2,
+      externalOrderId: sale.externalOrderId,
+    });
+  });
+
+  it("gives no entry when SellBridge did not surely post the sale's exit", async () => {
+    const sale = await returnedToShelf({ exitStatus: "uncertain" });
+
+    expect(await entryDueFor(sale.orderItemId)).toBeUndefined();
+  });
+
+  it("gives no entry while the return has not gone back on the shelf", async () => {
+    const sale = await returnedToShelf({ restocked: false });
+
+    expect(await entryDueFor(sale.orderItemId)).toBeUndefined();
+  });
+
+  it("reserves the entry apart from the item's exit, and only once", async () => {
+    const sale = await returnedToShelf({});
+    const due = await entryDueFor(sale.orderItemId);
+    if (due === undefined) {
+      throw new Error("entrada não listada");
+    }
+
+    const first = await reserveErpStockExit(database, due, "entry");
+    const second = await reserveErpStockExit(database, due, "entry");
+
+    expect(first).not.toBeNull();
+    expect(second).toBeNull();
+    expect(await entryDueFor(sale.orderItemId)).toBeUndefined();
   });
 });
