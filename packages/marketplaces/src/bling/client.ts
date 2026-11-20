@@ -130,12 +130,46 @@ function createBlingCaller(options: BlingClientOptions) {
   };
 }
 
-/** One stock exit: `quantity` units of the product leave `depositId` (`POST /estoques`, "S"). */
-export interface BlingStockExit {
+/** `quantity` units of the product leaving (exit) or coming back to (entry) `depositId`. */
+export interface BlingStockMovement {
   readonly erpProductId: number;
   readonly depositId: number;
   readonly quantity: number;
   readonly note: string;
+}
+
+/** `POST /estoques` operations SellBridge sends: "S" (Saída). */
+type BlingStockOperation = "S";
+
+/**
+ * Posts one stock record and returns its id. Bling takes no idempotency key: the caller makes
+ * sure the same movement is never sent twice, and never retries one whose answer was lost.
+ */
+async function postStockRecord(
+  call: BlingCall,
+  operation: BlingStockOperation,
+  movement: BlingStockMovement,
+): Promise<number> {
+  if (!Number.isInteger(movement.quantity) || movement.quantity <= 0) {
+    throw new RangeError(
+      `Stock movement quantity must be a positive integer, got ${movement.quantity}`,
+    );
+  }
+  const response = await call({
+    path: "/estoques",
+    init: {
+      method: "POST",
+      body: JSON.stringify({
+        produto: { id: movement.erpProductId },
+        deposito: { id: movement.depositId },
+        operacao: operation,
+        quantidade: movement.quantity,
+        observacoes: movement.note,
+      }),
+    },
+    schema: blingCreatedStockResponseSchema,
+  });
+  return response.data.id;
 }
 
 /** Where SellBridge's own sales leave Bling's stock: the default warehouse and the exit. */
@@ -152,31 +186,9 @@ function blingStockExitCalls(call: BlingCall) {
         .map((deposit) => ({ id: deposit.id, isDefault: deposit.padrao }));
     },
 
-    /**
-     * Posts a stock exit and returns its id. Bling takes no idempotency key: the caller makes
-     * sure the same exit is never sent twice, and never retries one whose answer was lost.
-     */
-    async postStockExit(exit: BlingStockExit): Promise<number> {
-      if (!Number.isInteger(exit.quantity) || exit.quantity <= 0) {
-        throw new RangeError(
-          `Stock exit quantity must be a positive integer, got ${exit.quantity}`,
-        );
-      }
-      const response = await call({
-        path: "/estoques",
-        init: {
-          method: "POST",
-          body: JSON.stringify({
-            produto: { id: exit.erpProductId },
-            deposito: { id: exit.depositId },
-            operacao: "S",
-            quantidade: exit.quantity,
-            observacoes: exit.note,
-          }),
-        },
-        schema: blingCreatedStockResponseSchema,
-      });
-      return response.data.id;
+    /** Posts a stock exit ("S") once and returns its id. */
+    async postStockExit(exit: BlingStockMovement): Promise<number> {
+      return postStockRecord(call, "S", exit);
     },
   };
 }
