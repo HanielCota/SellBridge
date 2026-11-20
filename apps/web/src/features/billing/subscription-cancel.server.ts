@@ -1,7 +1,8 @@
 import {
+  applyBillingState,
   getBillingAccount,
   requireBillingOwner,
-  saveBillingAccount,
+  type BillingAccountPatch,
 } from "@sellbridge/database/repositories";
 import {
   asaasDueDate,
@@ -60,6 +61,14 @@ async function refundOnCancel(
   });
 }
 
+/**
+ * Stamped like a read from Asaas: a notice sync that read the subscription before it was
+ * cancelled can no longer write it back as active.
+ */
+async function saveCancellation(tenantId: string, patch: BillingAccountPatch): Promise<void> {
+  await applyBillingState(database, { tenantId, eventId: null, observedAt: Date.now(), patch });
+}
+
 /** What cancelling does before the reseller confirms: until when the plan lasts, or the refund. */
 export async function quoteCancellation(input: { tenantId: string; userId: string }) {
   await requireBillingOwner(database, input.tenantId, input.userId);
@@ -93,7 +102,7 @@ export async function cancelSubscription(input: { tenantId: string; userId: stri
     if (refund !== null) {
       await client.refundCharge(refund.id, REFUND_DESCRIPTION);
       // The money is back: a retry no longer sees the refunded fee, so the plan ends now.
-      await saveBillingAccount(database, input.tenantId, {
+      await saveCancellation(input.tenantId, {
         status: "canceled",
         periodEnd: new Date(),
       });
@@ -101,7 +110,7 @@ export async function cancelSubscription(input: { tenantId: string; userId: stri
     await client.deleteSubscription(account.subscriptionId);
     const endsNow =
       refund !== null || account.status === "incomplete" || account.status === "canceled";
-    await saveBillingAccount(database, input.tenantId, {
+    await saveCancellation(input.tenantId, {
       cancelAtPeriodEnd: true,
       scheduledPlan: null,
       scheduledPlanAt: null,

@@ -4,6 +4,8 @@ const mocks = vi.hoisted(() => ({
   owner: vi.fn<(...input: unknown[]) => Promise<void>>(),
   account: vi.fn<(...input: unknown[]) => Promise<unknown>>(),
   save: vi.fn<(...input: unknown[]) => Promise<void>>(),
+  apply:
+    vi.fn<(executor: unknown, input: { tenantId: string; patch: unknown }) => Promise<boolean>>(),
   client: {
     getSubscription: vi.fn<(...input: unknown[]) => Promise<unknown>>(),
     listSubscriptionCharges: vi.fn<(...input: unknown[]) => Promise<unknown[]>>(),
@@ -18,7 +20,7 @@ vi.mock("@sellbridge/database/repositories", () => ({
   getBillingAccount: mocks.account,
   saveBillingAccount: mocks.save,
   tryLockBillingCheckout: async () => true,
-  applyBillingState: vi.fn<() => Promise<boolean>>(),
+  applyBillingState: mocks.apply,
   findBillingAccountByPendingReference: vi.fn<() => Promise<unknown>>(),
   findBillingAccountBySubscription: vi.fn<() => Promise<unknown>>(),
 }));
@@ -73,6 +75,11 @@ beforeEach(() => {
   vi.clearAllMocks();
   vi.useFakeTimers({ toFake: ["Date"] });
   mocks.owner.mockResolvedValue();
+  // Applied state lands where saved state does, so each case reads what cancelling wrote.
+  mocks.apply.mockImplementation(async (executor, applied) => {
+    await mocks.save(executor, applied.tenantId, applied.patch);
+    return true;
+  });
   mocks.account.mockResolvedValue(account());
   mocks.client.getSubscription.mockResolvedValue({
     id: "sub_live",
@@ -89,6 +96,19 @@ afterEach(() => {
 });
 
 describe("cancellation", () => {
+  it("stamps the cancellation so an earlier notice sync cannot write the plan back", async () => {
+    setToday("2026-11-27");
+
+    await cancelSubscription(input);
+
+    expect(mocks.apply).toHaveBeenCalledWith(expect.anything(), {
+      tenantId: "tenant-a",
+      eventId: null,
+      observedAt: Date.now(),
+      patch: expect.objectContaining({ cancelAtPeriodEnd: true }),
+    });
+  });
+
   it("keeps the plan until the end of the paid month, with no refund after 7 days", async () => {
     setToday("2026-11-27");
 
