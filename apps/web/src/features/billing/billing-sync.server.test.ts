@@ -185,6 +185,27 @@ describe("subscription read back from Asaas", () => {
       expect(mocks.client.deleteSubscription).not.toHaveBeenCalled();
     });
 
+    it.each([
+      ["its first Pix went overdue", "OVERDUE", PAID_UNTIL],
+      ["the paid month ran out", "PENDING", new Date(Date.now() - 86_400_000)],
+    ])("ends it once %s, leaving the account as it was", async (_label, status, periodEnd) => {
+      mocks.byReference.mockImplementation(async (_executor, reference) =>
+        reference === "subscription:sub_waiting" ? { ...waitingAccount(), periodEnd } : null,
+      );
+      mocks.client.listSubscriptionCharges.mockResolvedValue([
+        { id: "pay_elite", status, value: 997, dueDate: "2026-11-20" },
+      ]);
+
+      await syncBillingSubscription({ subscriptionId: "sub_waiting", eventId: "evt_abandoned" });
+
+      expect(mocks.client.deleteSubscription).toHaveBeenCalledWith("sub_waiting");
+      expect(mocks.settle).toHaveBeenCalledWith(expect.anything(), {
+        tenantId: "tenant-a",
+        reference: "subscription:sub_waiting",
+      });
+      expect(mocks.apply).not.toHaveBeenCalled();
+    });
+
     it("takes over with its first payment and ends the old subscription", async () => {
       mocks.client.listSubscriptionCharges.mockResolvedValue([
         {

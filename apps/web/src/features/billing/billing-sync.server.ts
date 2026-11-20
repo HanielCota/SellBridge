@@ -139,6 +139,24 @@ async function retireSubscription(client: AsaasBillingClient, subscriptionId: st
 }
 
 /**
+ * A waiting Pix subscription whose first charge went overdue unpaid, or whose paid month ran out,
+ * was given up: it ends, or Asaas would keep charging the plan and reminding the reseller.
+ */
+async function endAbandonedPix(
+  client: AsaasBillingClient,
+  input: { account: BillingAccount; subscriptionId: string; charges: AsaasSubscriptionCharge[] },
+): Promise<void> {
+  const { account, subscriptionId, charges } = input;
+  const overdue = charges.some((charge) => charge.status === "OVERDUE");
+  const monthOver = account.periodEnd === null || account.periodEnd <= new Date();
+  if (!overdue && !monthOver) return;
+  await retireSubscription(client, subscriptionId);
+  const reference = `${SUBSCRIPTION_REFERENCE}${subscriptionId}`;
+  await settlePendingReference(database, { tenantId: account.tenantId, reference });
+  logger.info("billing.abandoned_pix_ended", {});
+}
+
+/**
  * A live card checkout subscription no account waits on: most likely a checkout cancelled here
  * after the card had been taken, its notice late. Whether the reseller should keep it cannot be
  * told from here, so no money moves: the team gets a problem of its own, with what it needs to
@@ -191,7 +209,10 @@ export async function syncBillingSubscription(input: {
   // A waiting Pix subscription takes over only with its first payment; until then the month
   // already paid stays as it is.
   const waiting = account.pendingReference === `${SUBSCRIPTION_REFERENCE}${subscription.id}`;
-  if (adopting && waiting && !charges.some(isPaidCharge)) return;
+  if (adopting && waiting && !charges.some(isPaidCharge)) {
+    await endAbandonedPix(client, { account, subscriptionId: subscription.id, charges });
+    return;
+  }
   const patch = {
     ...adoption,
     ...firstPaidPatch(account, charges),
