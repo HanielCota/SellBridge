@@ -1,5 +1,5 @@
 {
-  "id": "27e2947b-f5a4-4d63-bd03-c71c4c5929b7",
+  "id": "17583f3b-1754-4390-acfa-b7cc932d4985",
   "prevId": "0052c556-9321-434f-adc9-cb0b6fce5d24",
   "version": "7",
   "dialect": "postgresql",
@@ -1134,6 +1134,12 @@
           "primaryKey": false,
           "notNull": false
         },
+        "code": {
+          "name": "code",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
         "title": {
           "name": "title",
           "type": "text",
@@ -1253,6 +1259,27 @@
             },
             {
               "expression": "supplier_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": true,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "product_models_supplier_code_idx": {
+          "name": "product_models_supplier_code_idx",
+          "columns": [
+            {
+              "expression": "supplier_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "code",
               "isExpression": false,
               "asc": true,
               "nulls": "last"
@@ -8118,13 +8145,6 @@
           "primaryKey": false,
           "notNull": true
         },
-        "operation": {
-          "name": "operation",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "default": "'exit'"
-        },
         "supplier_id": {
           "name": "supplier_id",
           "type": "uuid",
@@ -8195,17 +8215,11 @@
         }
       },
       "indexes": {
-        "erp_stock_exits_order_item_operation_idx": {
-          "name": "erp_stock_exits_order_item_operation_idx",
+        "erp_stock_exits_order_item_idx": {
+          "name": "erp_stock_exits_order_item_idx",
           "columns": [
             {
               "expression": "order_item_id",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            },
-            {
-              "expression": "operation",
               "isExpression": false,
               "asc": true,
               "nulls": "last"
@@ -8281,10 +8295,6 @@
         "erp_stock_exits_quantity_check": {
           "name": "erp_stock_exits_quantity_check",
           "value": "\"erp_stock_exits\".\"quantity\" > 0"
-        },
-        "erp_stock_exits_operation_check": {
-          "name": "erp_stock_exits_operation_check",
-          "value": "\"erp_stock_exits\".\"operation\" in ('exit','entry')"
         }
       },
       "isRLSEnabled": false

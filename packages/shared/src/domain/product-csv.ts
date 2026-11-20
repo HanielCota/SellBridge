@@ -13,6 +13,7 @@ import { LISTING_MAX_PRICE_CENTS } from "../schemas/stores.ts";
 import { PRODUCT_CSV_ATTRIBUTE_COLUMNS, parseCsvAttributes } from "./product-csv-attributes.ts";
 import { PRODUCT_CSV_FISCAL_COLUMNS, parseCsvFiscal } from "./product-csv-fiscal.ts";
 import { productFiscalPatchSchema, type ProductFiscalPatch } from "./product-fiscal.ts";
+import { MAX_GRID_OPTION_LENGTH, MAX_MODEL_CODE_LENGTH } from "./product-grid.ts";
 
 export const PRODUCT_CSV_TEMPLATE =
   "\uFEFFsku;titulo;descricao;custo;estoque;categoria;imagens;ativo;preco_sugerido;marca;modelo;gtin;peso_g;altura_cm;largura_cm;comprimento_cm;ncm;origem;unidade;cest;peso_liquido_g;cfop_estado;cfop_fora;csosn_cst;cst_pis_cofins\r\nEXEMPLO-001;Produto de exemplo;Descrição do produto;12,90;10;;https://example.com/produto.jpg;sim;19,90;Marca Exemplo;MOD-01;7891234567895;350;10;15;20;6402.99.90;0;PAR;;300;;;;\r\n";
@@ -27,6 +28,19 @@ const allowedColumns = [
   ...PRODUCT_CSV_ATTRIBUTE_COLUMNS,
   ...PRODUCT_CSV_FISCAL_COLUMNS,
 ];
+/**
+ * A colour and size grid in the spreadsheet: rows sharing a "codigo_modelo" are one grid, each
+ * row one combination. Accepted only while grids are on (PRODUCT_GRID_ENABLED).
+ */
+export const PRODUCT_CSV_GRID_COLUMNS = ["codigo_modelo", "cor", "tamanho"] as const;
+
+/** The grid cells of a row, set only when its "codigo_modelo" is filled. */
+export interface ProductCsvGridCells {
+  readonly modelCode: string;
+  readonly color: string | null;
+  readonly size: string | null;
+}
+
 export interface ProductCsvError {
   line: number;
   reason: string;
@@ -57,13 +71,23 @@ export interface ProductCsvRow {
     fiscal?: ProductFiscalPatch | undefined;
     suggestedPriceCents?: number | undefined;
     active?: boolean | undefined;
+    grid?: ProductCsvGridCells | undefined;
   };
+}
+
+export interface ParseProductCsvOptions {
+  /** Grids are on: "codigo_modelo", "cor" and "tamanho" are known columns. */
+  readonly gridColumns?: boolean;
 }
 export interface ParsedProductCsv {
   rows: ProductCsvRow[];
   errors: ProductCsvError[];
   /** Valid rows whose description came with emojis, stored without them (Mercado Livre refuses them). */
   emojisRemoved: number;
+}
+
+function isGridColumn(column: string): boolean {
+  return PRODUCT_CSV_GRID_COLUMNS.some((gridColumn) => gridColumn === column);
 }
 
 /** Decimal separator is unambiguous; grouping separators and rounding are rejected. */
@@ -258,6 +282,48 @@ function rowCandidate(
   };
 }
 
+function cellOrNull(value: string | undefined): string | null {
+  const trimmed = (value ?? "").trim();
+  return trimmed === "" ? null : trimmed;
+}
+
+/** The row's grid cells, or why they cannot make a combination. */
+function gridCells(
+  values: Readonly<Record<string, string>>,
+): { cells: ProductCsvGridCells | undefined } | { reason: string } {
+  const modelCode = cellOrNull(values.codigo_modelo);
+  const color = cellOrNull(values.cor);
+  const size = cellOrNull(values.tamanho);
+  if (modelCode === null) {
+    return color === null && size === null
+      ? { cells: undefined }
+      : {
+          reason:
+            "Código do modelo: informe o mesmo código em todas as cores e tamanhos do produto. Exemplo: TENIS-CASUAL",
+        };
+  }
+  if (modelCode.length > MAX_MODEL_CODE_LENGTH) {
+    return {
+      reason: `Código do modelo: use até ${MAX_MODEL_CODE_LENGTH} caracteres (recebido: ${modelCode.length})`,
+    };
+  }
+  if (color === null && size === null) {
+    return {
+      reason:
+        "Cor e tamanho: informe a cor, o tamanho ou os dois desta variação. Exemplo: Preto e 38",
+    };
+  }
+  const tooLong = [color, size].find(
+    (name) => name !== null && name.length > MAX_GRID_OPTION_LENGTH,
+  );
+  if (tooLong !== undefined && tooLong !== null) {
+    return {
+      reason: `Cor e tamanho: use até ${MAX_GRID_OPTION_LENGTH} letras (recebido: "${tooLong}")`,
+    };
+  }
+  return { cells: { modelCode, color, size } };
+}
+
 function validateRecord(
   record: CsvRecord,
   headers: string[],
@@ -280,6 +346,7 @@ function validateRecord(
   seen.add(sku);
   const attributes = parseCsvAttributes(values);
   const fiscal = parseCsvFiscal(values);
+  const grid = gridCells(values);
   const parsed = csvRowSchema.safeParse(
     rowCandidate(
       values,
@@ -299,14 +366,22 @@ function validateRecord(
         )),
     ...("reason" in attributes ? [attributes.reason] : []),
     ...("reason" in fiscal ? [fiscal.reason] : []),
+    ...("reason" in grid ? [grid.reason] : []),
   ];
   if (!parsed.success || reasons.length > 0) {
     return { line: record.line, reason: reasons.join("; ") };
   }
-  return { line: record.line, product: parsed.data };
+  const cells = "cells" in grid ? grid.cells : undefined;
+  return {
+    line: record.line,
+    product: cells === undefined ? parsed.data : { ...parsed.data, grid: cells },
+  };
 }
 
-export function parseProductCsv(input: string): ParsedProductCsv {
+export function parseProductCsv(
+  input: string,
+  options: ParseProductCsvOptions = {},
+): ParsedProductCsv {
   if (new TextEncoder().encode(input).byteLength > MAX_PRODUCT_CSV_BYTES) {
     throw validationError("O arquivo CSV deve ter no máximo 2 MiB");
   }
@@ -321,7 +396,10 @@ export function parseProductCsv(input: string): ParsedProductCsv {
   if (
     new Set(headers).size !== headers.length ||
     requiredColumns.some((column) => !headers.includes(column)) ||
-    headers.some((column) => !allowedColumns.includes(column))
+    headers.some(
+      (column) =>
+        !allowedColumns.includes(column) && !(options.gridColumns === true && isGridColumn(column)),
+    )
   ) {
     throw validationError("Cabeçalho inválido. Use o modelo CSV disponibilizado");
   }

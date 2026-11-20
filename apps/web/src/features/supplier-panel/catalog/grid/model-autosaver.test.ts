@@ -2,7 +2,7 @@ import type { CatalogSaveModelDraftInput } from "@sellbridge/shared/supplier-pan
 import { describe, expect, it, vi } from "vitest";
 import type { AutosaveState } from "../draft-autosaver";
 import { panelFormValues } from "../draft-form";
-import { EMPTY_GRID_FORM_STATE, withColorAdded } from "./grid-form-state";
+import { EMPTY_GRID_FORM_STATE, withColorAdded, withCombinationChanged } from "./grid-form-state";
 import { ModelAutosaver, type ModelFormSnapshot, type SaveModelResult } from "./model-autosaver";
 
 const base = {
@@ -114,6 +114,29 @@ describe("ModelAutosaver", () => {
 
     expect(save).toHaveBeenCalledTimes(1);
     expect(states.at(-1)).toEqual({ kind: "conflict", message: "Mudou em outra janela" });
+  });
+
+  it("shows a SKU another product uses on its field and saves again once it is changed", async () => {
+    const save = vi
+      .fn<Save>()
+      .mockResolvedValueOnce({ saved: false, takenSkus: ["TEN-P"] })
+      .mockResolvedValue({ saved: true, model: { updatedAt: storedAt } });
+    const { saver, states } = autosaver(save);
+    const pair = { colorKey: "c1", sizeKey: null };
+    const colored = withColorAdded(EMPTY_GRID_FORM_STATE, "Preto", "c1");
+    saver.update({ ...titled, grid: withCombinationChanged(colored, pair, { sku: "TEN-P" }) });
+    await saver.flush();
+    const refused = states.at(-1);
+
+    saver.update({ ...titled, grid: withCombinationChanged(colored, pair, { sku: "TEN-PRETO" }) });
+    await saver.flush();
+
+    expect(refused).toEqual({
+      kind: "invalid",
+      errors: { "grid.c1.-.sku": "O SKU TEN-P já é de outro produto seu. Use outro código." },
+    });
+    expect(save).toHaveBeenCalledTimes(2);
+    expect(states.at(-1)).toMatchObject({ kind: "saved" });
   });
 
   it("saves right away what was typed while a save was out", async () => {
