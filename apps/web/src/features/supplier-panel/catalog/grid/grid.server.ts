@@ -34,23 +34,30 @@ function approvedCombinationIds(model: ProductModelDetail): string[] {
     .map((combination) => combination.id);
 }
 
-/** The model being edited (or none for a new one) and what the form chooses from. */
+/**
+ * The model being edited (or none for a new one), what the form chooses from and the brand's
+ * niche, the category a new grid most likely belongs to.
+ */
 export async function loadPanelModelForm(input: {
   supplierId: string;
   modelId?: string | undefined;
 }) {
   assertProductGridEnabled();
-  const [model, categories, taxDefaults] = await Promise.all([
+  const [model, categories, taxDefaults, brand] = await Promise.all([
     input.modelId === undefined
       ? Promise.resolve(null)
       : getProductModel(database, { supplierId: input.supplierId, modelId: input.modelId }),
     loadProductCategories(),
     getSupplierTaxDefaults(database, input.supplierId),
+    database.query.suppliers.findFirst({
+      where: (supplier, { eq }) => eq(supplier.id, input.supplierId),
+      columns: { niche: true },
+    }),
   ]);
   if (input.modelId !== undefined && model === null) {
     throw notFoundError("Produto não encontrado neste fornecedor");
   }
-  return { model, categories, taxDefaults };
+  return { model, categories, taxDefaults, brandNiche: brand?.niche ?? null };
 }
 
 /**
