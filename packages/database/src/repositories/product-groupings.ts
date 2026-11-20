@@ -25,7 +25,8 @@ import {
   type FiscalFallback,
 } from "@sellbridge/shared/product-fiscal";
 import { stripAccents } from "@sellbridge/shared/text";
-import { and, asc, count, eq, inArray, isNull } from "drizzle-orm";
+import { logger } from "@sellbridge/shared/logger";
+import { and, asc, count, eq, inArray, isNull, sql } from "drizzle-orm";
 import type { Database, DatabaseExecutor } from "../client.ts";
 import {
   listings,
@@ -70,27 +71,33 @@ const SALE_PHOTO_POINTS = 3;
 const FISCAL_POINTS = 100;
 const APPROVED_POINTS = 1000;
 const DESCRIPTION_POINTS = 5;
+/**
+ * Suggestions read at most this many products outside a grid (by SKU): well above the biggest
+ * catalog today (508), and a bound on what one screen load costs.
+ */
+export const MAX_GROUPING_CANDIDATES = 5000;
 
 function sharedFiscalOf(fiscal: unknown, fallback: FiscalFallback | null): SharedFiscal {
   const read = withFiscalFallback(readProductFiscal(fiscal), fallback);
   return { ncm: read.ncm, origin: read.origin, unit: read.unit };
 }
 
+/**
+ * Photos, sheet answers and description, counted by the database: the screen never reads them,
+ * only how filled in each product is.
+ */
+const contentPoints = sql<number>`(least(cardinality(${supplierProducts.imageUrls}), ${sql.raw(String(MAX_OPTION_PHOTOS))}) * ${sql.raw(String(SALE_PHOTO_POINTS))} + (select count(*) from jsonb_object_keys(${supplierProducts.mercadoLivreAttributes})) + case when btrim(${supplierProducts.description}) = '' then 0 else ${sql.raw(String(DESCRIPTION_POINTS))} end)::int`;
+
 /** The suggested main product is the one that loses least as the model: sold, fiscal, photos. */
 function completenessOf(
-  row: Pick<
-    ProductRow,
-    "reviewStatus" | "fiscal" | "imageUrls" | "mercadoLivreAttributes" | "description"
-  >,
+  row: { reviewStatus: string; fiscal: unknown; contentPoints: number },
   fallback: FiscalFallback | null,
 ): number {
   const fiscal = withFiscalFallback(readProductFiscal(row.fiscal), fallback);
   return (
     (row.reviewStatus === "approved" ? APPROVED_POINTS : 0) +
     (hasRequiredFiscalData(fiscal) ? FISCAL_POINTS : 0) +
-    Math.min(row.imageUrls.length, MAX_OPTION_PHOTOS) * SALE_PHOTO_POINTS +
-    Object.keys(row.mercadoLivreAttributes).length +
-    (row.description.trim() === "" ? 0 : DESCRIPTION_POINTS)
+    row.contentPoints
   );
 }
 
@@ -130,10 +137,9 @@ export async function listGroupingSuggestions(
         id: supplierProducts.id,
         sku: supplierProducts.sku,
         title: supplierProducts.title,
-        description: supplierProducts.description,
         categoryId: supplierProducts.categoryId,
-        imageUrls: supplierProducts.imageUrls,
-        mercadoLivreAttributes: supplierProducts.mercadoLivreAttributes,
+        imageUrl: sql<string | null>`${supplierProducts.imageUrls}[1]`,
+        contentPoints,
         fiscal: supplierProducts.fiscal,
         stock: supplierProducts.stock,
         reservedStock: supplierProducts.reservedStock,
@@ -142,8 +148,12 @@ export async function listGroupingSuggestions(
       })
       .from(supplierProducts)
       .where(and(eq(supplierProducts.supplierId, supplierId), isNull(supplierProducts.modelId)))
-      .orderBy(asc(supplierProducts.sku)),
+      .orderBy(asc(supplierProducts.sku))
+      .limit(MAX_GROUPING_CANDIDATES),
   ]);
+  if (rows.length === MAX_GROUPING_CANDIDATES) {
+    logger.warn("product_grouping.candidates_capped", { supplierId, read: rows.length });
+  }
   const suggestions = suggestGroupings(
     rows.map((row) => ({ ...row, completeness: completenessOf(row, fallback) })),
   );
@@ -159,7 +169,7 @@ export async function listGroupingSuggestions(
       id: product.id,
       sku: product.sku,
       title: product.title,
-      imageUrl: product.imageUrls[0] ?? null,
+      imageUrl: product.imageUrl,
       stock: product.stock,
       reservedStock: product.reservedStock,
       active: product.active,

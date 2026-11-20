@@ -442,6 +442,23 @@ describe("separateGroupedModel", () => {
 });
 
 describe("listGroupingSuggestions", () => {
+  it("suggests as main the approved product with the most photos", async () => {
+    const prefix = randomUUID().slice(0, 6);
+    const rows = await shoes(prefix);
+    await database
+      .update(supplierProducts)
+      .set({ imageUrls: ["https://cdn.example.com/1.jpg", "https://cdn.example.com/2.jpg"] })
+      .where(eq(supplierProducts.id, rows[1]?.id ?? ""));
+
+    const suggestions = await listGroupingSuggestions(database, supplierId);
+
+    const mine = suggestions.find((suggestion) => suggestion.modelTitle === `Tênis ${prefix}`);
+    expect(mine?.mainProductId).toBe(rows[1]?.id);
+    expect(mine?.products.find((entry) => entry.id === rows[1]?.id)?.imageUrl).toBe(
+      "https://cdn.example.com/1.jpg",
+    );
+  });
+
   it("suggests the products outside a grid with their live listings", async () => {
     const prefix = randomUUID().slice(0, 6);
     const rows = await shoes(prefix);
