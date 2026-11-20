@@ -1,6 +1,12 @@
 import { and, eq } from "drizzle-orm";
 import { afterAll, afterEach, describe, expect, it } from "vitest";
-import { shipmentInvoices, shipmentResellerInvoices, tenantProfile } from "../schema/index.ts";
+import {
+  orders,
+  orderShipments,
+  shipmentInvoices,
+  shipmentResellerInvoices,
+  tenantProfile,
+} from "../schema/index.ts";
 import { createTestDatabase } from "../testing/fixtures.ts";
 import {
   createInvoiceScenario,
@@ -245,20 +251,54 @@ describe("venda à ordem notes", () => {
   it("tells the label which notes of the order are in place", async () => {
     const { shipmentId, tenantId, orderId } = await onBehalfScenario();
     await queueResellerSaleInvoices(database);
-    const waiting = await findOnBehalfLabelParcels(database, orderId);
+    const waiting = await findOnBehalfLabelParcels(database, { tenantId, orderId });
     await findResellerNote(shipmentId, tenantId);
     await authorizeRemessa(shipmentId);
 
-    const ready = await findOnBehalfLabelParcels(database, orderId);
+    const ready = await findOnBehalfLabelParcels(database, { tenantId, orderId });
 
     expect(waiting).toEqual([{ resellerNoteSource: null, remessaAuthorized: false }]);
     expect(ready).toEqual([{ resellerNoteSource: "typed", remessaAuthorized: true }]);
+  });
+
+  it("holds a cart's label while any order of the cart still waits for its notes", async () => {
+    const { shipmentId, tenantId, orderId } = await onBehalfScenario();
+    const packId = `pack-${crypto.randomUUID().slice(0, 8)}`;
+    await database.update(orders).set({ marketplacePackId: packId }).where(eq(orders.id, orderId));
+    const [orderA] = await database.select().from(orders).where(eq(orders.id, orderId));
+    const [parcelA] = await database
+      .select()
+      .from(orderShipments)
+      .where(eq(orderShipments.id, shipmentId));
+    if (orderA === undefined || parcelA === undefined) {
+      throw new Error("scenario order missing");
+    }
+    const { id: _orderAId, ...orderFields } = orderA;
+    const [orderB] = await database
+      .insert(orders)
+      .values({ ...orderFields, externalOrderId: `${orderA.externalOrderId}-B` })
+      .returning({ id: orders.id });
+    const { id: _parcelAId, ...parcelFields } = parcelA;
+    await database.insert(orderShipments).values({ ...parcelFields, orderId: orderB?.id ?? "" });
+    await queueResellerSaleInvoices(database);
+    await findResellerNote(shipmentId, tenantId);
+    await authorizeRemessa(shipmentId);
+
+    const parcels = await findOnBehalfLabelParcels(database, { tenantId, orderId });
+
+    expect(parcels).toHaveLength(2);
+    expect(parcels).toContainEqual({ resellerNoteSource: null, remessaAuthorized: false });
   });
 
   it("finds no venda à ordem parcel on an order of direct notes", async () => {
     const direct = await createInvoiceScenario(database);
     cleanups.push(direct.cleanup);
 
-    expect(await findOnBehalfLabelParcels(database, direct.orderId)).toEqual([]);
+    expect(
+      await findOnBehalfLabelParcels(database, {
+        tenantId: direct.tenantId,
+        orderId: direct.orderId,
+      }),
+    ).toEqual([]);
   });
 });

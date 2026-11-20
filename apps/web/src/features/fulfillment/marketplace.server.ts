@@ -80,7 +80,7 @@ async function labelAccess(tenantId: string, orderId: string) {
     );
   if (isShippingBlocked(row.orderStatus)) throw conflictError("Pedido sem liberação para envio");
   const notesRefusal = onBehalfLabelRefusal(
-    await findOnBehalfLabelParcels(database, orderId),
+    await findOnBehalfLabelParcels(database, { tenantId, orderId }),
     row.store.marketplace,
   );
   if (notesRefusal !== null) throw conflictError(notesRefusal);

@@ -270,13 +270,28 @@ export async function findResellerNoteState(
 }
 
 /**
- * The venda à ordem parcels of an order, for its label: where the reseller's note came from and
- * whether the remessa is authorized. Empty for an order of direct notes only.
+ * The venda à ordem parcels behind an order's label: where the reseller's note came from and
+ * whether the remessa is authorized. A Mercado Livre cart has one label for all its orders, so
+ * every parcel of the cart counts. Empty for labels of direct notes only.
  */
 export async function findOnBehalfLabelParcels(
   database: Database,
-  orderId: string,
+  input: { tenantId: string; orderId: string },
 ): Promise<OnBehalfLabelParcel[]> {
+  const [order] = await database
+    .select({ storeConnectionId: orders.storeConnectionId, packId: orders.marketplacePackId })
+    .from(orders)
+    .where(and(eq(orders.id, input.orderId), eq(orders.tenantId, input.tenantId)));
+  if (order === undefined) {
+    return [];
+  }
+  const sameLabel =
+    order.packId === null
+      ? eq(orders.id, input.orderId)
+      : and(
+          eq(orders.storeConnectionId, order.storeConnectionId),
+          eq(orders.marketplacePackId, order.packId),
+        );
   const remessa = alias(shipmentInvoices, "label_remessa");
   const rows = await database
     .select({
@@ -285,11 +300,12 @@ export async function findOnBehalfLabelParcels(
     })
     .from(shipmentResellerInvoices)
     .innerJoin(orderShipments, eq(orderShipments.id, shipmentResellerInvoices.shipmentId))
+    .innerJoin(orders, eq(orders.id, orderShipments.orderId))
     .leftJoin(
       remessa,
       and(eq(remessa.shipmentId, orderShipments.id), eq(remessa.kind, "on_behalf_shipment")),
     )
-    .where(eq(orderShipments.orderId, orderId));
+    .where(and(eq(orders.tenantId, input.tenantId), sameLabel));
   return rows.map((row) => ({
     resellerNoteSource: row.resellerNoteSource,
     remessaAuthorized: row.remessaStatus === "authorized",
