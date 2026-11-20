@@ -5,7 +5,7 @@ import {
   supplierErpConnections,
   supplierProducts,
 } from "../schema/index.ts";
-import { owedStockExit } from "./sql/owed-stock-exit.ts";
+import { notYetInBling } from "./sql/owed-stock-exit.ts";
 
 /**
  * A supplier whose stock follows its Bling account: any connected one. SellBridge's own sales
@@ -328,10 +328,8 @@ export interface ErpStockChange {
 }
 
 /**
- * Units of the product that left the shelf but whose stock exit Bling has not received yet
- * (not tried, still being posted, or blocked by a missing default warehouse or a lost
- * connection): Bling's balance still counts them. Exits the team must check are left out.
- * Expects the alias `product` of the row being updated.
+ * Units of the product that left the shelf but that Bling's balance still counts (see
+ * `notYetInBling`). Expects the alias `product` of the row being updated.
  */
 const unitsAwaitingExit = sql`
   select coalesce(sum(item.quantity), 0)::integer
@@ -339,12 +337,7 @@ const unitsAwaitingExit = sql`
   join orders as sale on sale.id = item.order_id
   join supplier_erp_connections as connection
     on connection.supplier_id = product.supplier_id and connection.provider = 'bling'
-  where item.supplier_product_id = product.id
-    and ${owedStockExit}
-    and not exists (
-      select 1 from erp_stock_exits as posted
-      where posted.order_item_id = item.id and posted.status <> 'posting'
-    )
+  where item.supplier_product_id = product.id and ${notYetInBling}
 `;
 
 /**

@@ -74,7 +74,7 @@ Decisão do Guilherme, repassada pela Central em 19/11/2026: "Aprova os dois" (o
   - Recusa do Bling (4xx): a linha fica como "falhou".
   - Resultado desconhecido (tempo esgotado, 5xx, ou um worker que parou no meio por mais de 10 minutos): a linha fica como "incerta".
   - Nos dois últimos casos, nada é mandado de novo, e a página Problemas mostra o produto, o pedido e a quantidade para a equipe conferir no Bling.
-- **Enquanto a saída não chega ao Bling:** a conferência de estoque desconta do saldo do Bling as unidades das saídas ainda não lançadas, para o SellBridge não voltar a vender o que já saiu. As saídas "falhou" e "incerta" ficam com a equipe e não são descontadas.
+- **Enquanto a saída não chega ao Bling:** a conferência de estoque desconta do saldo do Bling as unidades das saídas ainda não lançadas, para o SellBridge não voltar a vender o que já saiu. As saídas "falhou" e "incerta" ficam com a equipe e não são descontadas. O mesmo desconto vale para o pacote com nota pelo SellBridge que ainda não tem pedido de venda no Bling (nota na fila, parada em "atenção" ou cancelada antes do pedido): sem o pedido, o Bling não baixou. Se o fornecedor resolver a nota emitindo direto no Bling, o desconto continua; o erro fica do lado seguro (vender a menos, nunca em dobro).
 - **Limite de chamadas:** se o Bling responder com o limite de chamadas, as outras saídas do mesmo fornecedor esperam a próxima rodada.
 - **Ritmo:** a cada minuto, para a saída chegar ao Bling antes que a conferência de 15 minutos leia o saldo antigo.
 - **Sem depósito padrão:** se o Bling tiver vários depósitos ativos e nenhum padrão, nada é lançado e Problemas pede para o fornecedor marcar um.

@@ -234,6 +234,42 @@ async function readStock(sale: { supplierId: string; productId: string }, balanc
   return product?.stock;
 }
 describe("stock readings while exits wait for Bling", () => {
+  it("takes off the units of a parcel whose NF-e stopped before its Bling sale order", async () => {
+    const sale = await shippedSale();
+    await database.insert(shipmentInvoices).values({
+      shipmentId: sale.shipmentId,
+      supplierId: sale.supplierId,
+      provider: "bling",
+      status: "attention",
+    });
+
+    expect(await readStock(sale, 10)).toBe(8);
+  });
+
+  it("takes off the units of a parcel whose NF-e was cancelled before any Bling sale order", async () => {
+    const sale = await shippedSale();
+    await database.insert(shipmentInvoices).values({
+      shipmentId: sale.shipmentId,
+      supplierId: sale.supplierId,
+      provider: "bling",
+      status: "cancelled",
+    });
+
+    expect(await readStock(sale, 10)).toBe(8);
+  });
+
+  it("keeps Bling's balance once the parcel's NF-e has its Bling sale order", async () => {
+    const sale = await shippedSale();
+    await database.insert(shipmentInvoices).values({
+      shipmentId: sale.shipmentId,
+      supplierId: sale.supplierId,
+      provider: "bling",
+      erpOrderId: 4242,
+    });
+
+    expect(await readStock(sale, 10)).toBe(10);
+  });
+
   it("takes off the units whose exit Bling has not received yet", async () => {
     const sale = await shippedSale();
 
