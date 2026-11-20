@@ -38,6 +38,8 @@ export interface ResellerSaleIssueWork {
     readonly id: string;
     readonly marketplace: string;
     readonly externalShopId: string;
+    /** The reseller's account name on the marketplace: Mercado Livre's nickname. */
+    readonly shopName: string;
     readonly accessTokenEnc: string | null;
   };
 }
@@ -61,6 +63,7 @@ export async function loadResellerSaleIssueWork(
         id: storeConnections.id,
         marketplace: storeConnections.marketplace,
         externalShopId: storeConnections.externalShopId,
+        shopName: storeConnections.shopName,
         accessTokenEnc: storeConnections.accessTokenEnc,
       },
     })

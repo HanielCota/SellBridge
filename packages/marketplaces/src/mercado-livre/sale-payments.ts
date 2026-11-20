@@ -5,14 +5,12 @@ import { requestJson, type MercadoLivreConfig } from "./client.ts";
 import { externalIdSchema } from "./schemas.ts";
 
 /**
- * What the reseller's sale note needs from the order besides the buyer's document: the buyer's
- * nickname (the intermediary's `nomeUsuario`) and the approved payments, with each card's
- * authorization code (NT 2025.001). Read from `GET /orders/{id}`; never logged or stored.
+ * What the reseller's sale note needs from the order besides the buyer's document: the approved
+ * payments, with each card's authorization code (NT 2025.001). Read from `GET /orders/{id}`; never logged or stored.
  */
 
 const orderPaymentsSchema = z.object({
   seller: z.object({ id: externalIdSchema }),
-  buyer: z.object({ nickname: z.string().nullish() }).nullish(),
   payments: z
     .array(
       z.object({
@@ -37,7 +35,6 @@ export interface MercadoLivreApprovedPayment {
 }
 
 export interface MercadoLivreSalePayments {
-  readonly buyerNickname: string | null;
   readonly payments: readonly MercadoLivreApprovedPayment[];
 }
 
@@ -56,7 +53,7 @@ function toCents(amount: number | null | undefined): number | null {
 }
 
 /**
- * The buyer's nickname and the order's approved payments.
+ * The order's approved payments.
  *
  * @throws {AppError} EXTERNAL_PROVIDER, not retryable, when the order number is not numeric or the
  * order belongs to another seller.
@@ -97,5 +94,5 @@ export async function readMercadoLivreSalePayments(
       amountCents,
     });
   }
-  return { buyerNickname: presentText(order.buyer?.nickname), payments };
+  return { payments };
 }

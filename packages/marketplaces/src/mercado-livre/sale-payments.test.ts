@@ -18,7 +18,7 @@ function setup(order: unknown) {
 }
 
 describe("readMercadoLivreSalePayments", () => {
-  it("reads the buyer's nickname and the approved payments with their authorization code", async () => {
+  it("reads the approved payments with their authorization code", async () => {
     const { config } = setup({
       seller: { id: 99 },
       buyer: { nickname: "JULIANA.COSTA" },
@@ -43,7 +43,6 @@ describe("readMercadoLivreSalePayments", () => {
     const read = await readMercadoLivreSalePayments(config, store, "55");
 
     expect(read).toEqual({
-      buyerNickname: "JULIANA.COSTA",
       payments: [
         { type: "credit_card", methodId: "master", authorizationCode: "008877", amountCents: 9990 },
       ],

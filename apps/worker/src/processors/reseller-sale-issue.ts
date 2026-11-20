@@ -83,6 +83,19 @@ const CANCELLED_IN_BLING =
 const WRONG_XML =
   "O Bling entregou um XML que não é o desta nota. Baixe o XML no Bling e envie aqui.";
 const NO_BLING = "Conecte o Bling de novo em Integrações para continuar.";
+const NO_SELLER_ACCOUNT =
+  "Falta o nome da sua conta do Mercado Livre, que vai na nota. Conecte a loja de novo em Lojas e peça para tentar de novo.";
+/** NT 2020.006: idCadIntTran, the seller's account at the intermediary, takes 2 to 60 characters. */
+const SELLER_ACCOUNT_LENGTH = { min: 2, max: 60 } as const;
+
+/** The reseller's Mercado Livre account: Bling's `nomeUsuario`, the NF-e's `idCadIntTran`. */
+function sellerAccountOf(work: ResellerSaleIssueWork): string {
+  const account = work.store.shopName.trim();
+  if (account.length < SELLER_ACCOUNT_LENGTH.min || account.length > SELLER_ACCOUNT_LENGTH.max) {
+    throw new InvoiceStopError(NO_SELLER_ACCOUNT);
+  }
+  return account;
+}
 const NOT_A_COMPANY =
   "Cadastre o CNPJ da sua empresa em Meu cadastro: a nota de venda sai no nome dela. Depois peça para tentar de novo.";
 
@@ -273,6 +286,7 @@ async function createSaleNote(
   const { due, work } = input;
   const { settings, cfop } = input.plan;
   const items = saleItems(work, cfop);
+  const sellerAccount = sellerAccountOf(work);
   const totalCents = items.reduce((sum, item) => sum + item.unitPriceCents * item.quantity, 0);
   const sale = await dependencies.readSalePayments(work);
   const installments = saleInstallments(settings, sale.payments, {
@@ -288,7 +302,7 @@ async function createSaleNote(
     referencedInvoice: null,
     draftReference: `SellBridge venda ${due.id}`,
     notes: `Pedido ${work.externalOrderId} no Mercado Livre, enviado pelo SellBridge.`,
-    intermediary: { cnpj: settings.intermediaryCnpj, userName: sale.buyerNickname ?? "" },
+    intermediary: { cnpj: settings.intermediaryCnpj, userName: sellerAccount },
     installments,
   };
   const invoiceId = await createOrRecoverSaleNote(dependencies, client, {

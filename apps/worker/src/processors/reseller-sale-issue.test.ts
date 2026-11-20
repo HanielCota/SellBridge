@@ -33,7 +33,6 @@ const PERSON: BuyerBilling = {
   stateRegistration: null,
 };
 const CARD_SALE: MercadoLivreSalePayments = {
-  buyerNickname: "MARIA.SILVA",
   payments: [
     { type: "credit_card", methodId: "master", authorizationCode: "008877", amountCents: 12_990 },
   ],
@@ -149,6 +148,14 @@ function processor(input: {
   });
 }
 
+/** The reseller's Mercado Livre account name, as connecting the shop saves it. */
+async function nameShop(tenantId: string, shopName: string) {
+  await database
+    .update(schema.storeConnections)
+    .set({ shopName })
+    .where(eq(schema.storeConnections.tenantId, tenantId));
+}
+
 async function noteOf(shipmentId: string) {
   const [row] = await database
     .select()
@@ -173,7 +180,8 @@ afterAll(async () => {
 
 describe("the reseller's sale note issued by its own Bling", () => {
   it("creates the note with Mercado Livre and the card, sends it and passes its XML on", async () => {
-    const { shipmentId, sku } = await scenario(settingsWithCard);
+    const { shipmentId, tenantId, sku } = await scenario(settingsWithCard);
+    await nameShop(tenantId, "ANA.REVENDA");
     const bling = fakeBling(sku);
     const sendSaleInvoice = vi.fn<ResellerSaleIssueDependencies["sendSaleInvoice"]>(async () => {});
     let clock = Date.now();
@@ -191,7 +199,7 @@ describe("the reseller's sale note issued by its own Bling", () => {
     expect(bling.state.created).toMatchObject({
       naturezaOperacao: { id: SALE_OPERATION },
       contato: { id: 12 },
-      intermediador: { cnpj: "03007331000141", nomeUsuario: "MARIA.SILVA" },
+      intermediador: { cnpj: "03007331000141", nomeUsuario: "ANA.REVENDA" },
       parcelas: [{ formaPagamento: { id: CARD_METHOD }, caut: "008877" }],
       itens: [{ codigo: sku, cfop: "6120" }],
     });
@@ -271,5 +279,22 @@ describe("the reseller's sale note issued by its own Bling", () => {
     expect(sendSaleInvoice).not.toHaveBeenCalled();
     expect(note?.accessKey).toBeNull();
     expect(note?.problem).toMatch(/^A nota que saiu do seu Bling não serve\. .*45\.723\.174/);
+  });
+
+  it("stops before creating anything when the shop has no Mercado Livre account name", async () => {
+    const { shipmentId, tenantId, sku } = await scenario(settingsWithCard);
+    await nameShop(tenantId, " ");
+    const bling = fakeBling(sku);
+    const run = processor({
+      ...bling,
+      sale: CARD_SALE,
+      sendSaleInvoice: async () => {},
+      now: () => new Date(),
+    });
+
+    await run();
+
+    expect((await noteOf(shipmentId))?.problem).toMatch(/nome da sua conta do Mercado Livre/);
+    expect(bling.state.created).toBeNull();
   });
 });
