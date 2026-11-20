@@ -2,7 +2,7 @@ import { randomBytes } from "node:crypto";
 import { validationError } from "@sellbridge/shared/errors";
 import { hostnameWithoutBrackets, isNonPublicAddress } from "@sellbridge/shared/network-address";
 
-/** Recognizable by secret scanners, like Stripe's: integrators know what it is at a glance. */
+/** The common webhook secret prefix: secret scanners and integrators recognize it at a glance. */
 export const WEBHOOK_SECRET_PREFIX = "whsec_";
 
 /** 32 random bytes; stored encrypted because the worker needs it back to sign requests. */
