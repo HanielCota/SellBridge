@@ -105,7 +105,7 @@ export async function cancelSubscription(input: { tenantId: string; userId: stri
   return withBillingLock(input.tenantId, async () => {
     const account = await cancellableAccount(input.tenantId);
     const refund = await refundOnCancel(client, account);
-    await retireUnpaid(client, { ...account, subscriptionId: null });
+    await retireUnpaid(client, { ...account, subscriptionId: null }, { cancelling: true });
     // Given back before the subscription ends: a failure leaves it running, never unpaid.
     if (refund !== null) {
       await client.refundCharge(refund.id, REFUND_DESCRIPTION);

@@ -1,5 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { forbiddenError } from "@sellbridge/shared/errors";
+import { logger } from "@sellbridge/shared/logger";
 
 const mocks = vi.hoisted(() => ({
   owner: vi.fn<(...input: unknown[]) => Promise<void>>(),
@@ -223,6 +224,33 @@ describe("first subscription", () => {
 
     expect(mocks.client.deleteCharge).not.toHaveBeenCalled();
     expect(mocks.client.createPixSubscription).not.toHaveBeenCalled();
+  });
+
+  it("stops and tells the team while the difference is under a chargeback", async () => {
+    mocks.account.mockResolvedValue(
+      liveAccount({
+        status: "canceled",
+        subscriptionId: null,
+        pendingReference: "charge:pay_diff",
+      }),
+    );
+    mocks.client.getCharge.mockResolvedValue({
+      ...OPEN_PIX,
+      id: "pay_diff",
+      status: "CHARGEBACK_REQUESTED",
+    });
+    const reported = vi.spyOn(logger, "error").mockImplementation(() => undefined);
+
+    await expect(startSubscription({ ...input, method: "pix" })).rejects.toMatchObject({
+      code: "CONFLICT",
+    });
+
+    expect(reported).toHaveBeenCalledWith(
+      "billing.difference_in_dispute",
+      expect.objectContaining({ problemKey: "difference-dispute:pay_diff" }),
+    );
+    expect(mocks.client.deleteCharge).not.toHaveBeenCalled();
+    reported.mockRestore();
   });
 
   it("stops when a paid difference no longer matches what the account waits on", async () => {

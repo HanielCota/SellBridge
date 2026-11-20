@@ -1,3 +1,4 @@
+import { logger } from "@sellbridge/shared/logger";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 const mocks = vi.hoisted(() => ({
@@ -13,6 +14,7 @@ const mocks = vi.hoisted(() => ({
     deleteSubscription: vi.fn<(...input: unknown[]) => Promise<boolean>>(),
     deleteCharge: vi.fn<(...input: unknown[]) => Promise<boolean>>(),
     cancelCheckout: vi.fn<(...input: unknown[]) => Promise<void>>(),
+    getCharge: vi.fn<(...input: unknown[]) => Promise<unknown>>(),
   },
 }));
 vi.mock("@sellbridge/database/repositories", () => ({
@@ -197,6 +199,27 @@ describe("cancellation", () => {
       "tenant-a",
       expect.objectContaining({ status: "canceled" }),
     );
+  });
+
+  it("cancels even while an upgrade difference is under a chargeback", async () => {
+    setToday("2026-11-27");
+    mocks.account.mockResolvedValue(account({ pendingReference: "charge:pay_diff" }));
+    mocks.client.getCharge.mockResolvedValue({
+      id: "pay_diff",
+      status: "CHARGEBACK_REQUESTED",
+      value: 50,
+      dueDate: "2026-11-25",
+    });
+    const reported = vi.spyOn(logger, "error").mockImplementation(() => undefined);
+
+    await cancelSubscription(input);
+
+    expect(mocks.client.deleteSubscription).toHaveBeenCalledWith("sub_live");
+    expect(reported).toHaveBeenCalledWith(
+      "billing.difference_in_dispute",
+      expect.objectContaining({ problemKey: "difference-dispute:pay_diff" }),
+    );
+    reported.mockRestore();
   });
 
   it("refuses to cancel twice", async () => {
