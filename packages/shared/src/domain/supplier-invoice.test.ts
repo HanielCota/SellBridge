@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { EMPTY_PRODUCT_FISCAL, type ProductFiscal } from "./product-fiscal.ts";
-import { suggestedTaxDefaults } from "./supplier-fiscal.ts";
+import { onBehalfCfopsSchema, suggestedTaxDefaults } from "./supplier-fiscal.ts";
 import {
   blingInvoiceOutcome,
   formatAccessKey,
@@ -9,6 +9,7 @@ import {
   invoiceStopReason,
   MissingInvoiceDataError,
   nextInvoiceAttemptAt,
+  onBehalfCfop,
   resolveInvoiceItemTax,
 } from "./supplier-invoice.ts";
 
@@ -242,5 +243,56 @@ describe("invoiceFileName", () => {
 
   it("falls back to the access key when the note has no number", () => {
     expect(invoiceFileName({ number: null, accessKey }, "danfe")).toBe(`danfe-${accessKey}.pdf`);
+  });
+});
+
+describe("onBehalfCfop", () => {
+  const cfops = onBehalfCfopsSchema.parse({});
+
+  it("uses the in-state remessa CFOP when the buyer is in the supplier's state", () => {
+    const cfop = onBehalfCfop(cfops, {
+      kind: "on_behalf_shipment",
+      supplierState: "MG",
+      recipientState: "mg",
+    });
+
+    expect(cfop).toBe("5923");
+  });
+
+  it("uses the out-of-state remessa CFOP when the buyer is in another state", () => {
+    const cfop = onBehalfCfop(cfops, {
+      kind: "on_behalf_shipment",
+      supplierState: "MG",
+      recipientState: "SP",
+    });
+
+    expect(cfop).toBe("6923");
+  });
+
+  it("uses the sale CFOPs for the note to the reseller", () => {
+    const inState = onBehalfCfop(cfops, {
+      kind: "on_behalf_sale",
+      supplierState: "SP",
+      recipientState: "SP",
+    });
+    const outOfState = onBehalfCfop(cfops, {
+      kind: "on_behalf_sale",
+      supplierState: "SP",
+      recipientState: "RJ",
+    });
+
+    expect([inState, outOfState]).toEqual(["5119", "6119"]);
+  });
+
+  it("follows the supplier's own codes, such as 5118 for goods it makes", () => {
+    const own = onBehalfCfopsSchema.parse({ saleInState: "5118", saleOutOfState: "6118" });
+
+    const cfop = onBehalfCfop(own, {
+      kind: "on_behalf_sale",
+      supplierState: "MG",
+      recipientState: "BA",
+    });
+
+    expect(cfop).toBe("6118");
   });
 });

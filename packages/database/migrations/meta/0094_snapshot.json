@@ -1,5 +1,5 @@
 {
-  "id": "e174e3e6-2fd6-4d3e-96e8-c713c0b287dd",
+  "id": "367ab172-dd34-4001-9fc2-edafa0686626",
   "prevId": "e7841e75-966f-4fbe-9b4f-e8553e2c75c7",
   "version": "7",
   "dialect": "postgresql",
@@ -3294,27 +3294,6 @@
           "columns": [
             {
               "expression": "order_id",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            },
-            {
-              "expression": "changed_at",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            }
-          ],
-          "isUnique": false,
-          "concurrently": false,
-          "method": "btree",
-          "with": {}
-        },
-        "order_status_changes_status_idx": {
-          "name": "order_status_changes_status_idx",
-          "columns": [
-            {
-              "expression": "status",
               "isExpression": false,
               "asc": true,
               "nulls": "last"
@@ -8039,177 +8018,6 @@
       "checkConstraints": {},
       "isRLSEnabled": false
     },
-    "public.erp_stock_exits": {
-      "name": "erp_stock_exits",
-      "schema": "",
-      "columns": {
-        "id": {
-          "name": "id",
-          "type": "uuid",
-          "primaryKey": true,
-          "notNull": true,
-          "default": "gen_random_uuid()"
-        },
-        "order_item_id": {
-          "name": "order_item_id",
-          "type": "uuid",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "supplier_id": {
-          "name": "supplier_id",
-          "type": "uuid",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "supplier_product_id": {
-          "name": "supplier_product_id",
-          "type": "uuid",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "erp_product_id": {
-          "name": "erp_product_id",
-          "type": "bigint",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "quantity": {
-          "name": "quantity",
-          "type": "integer",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "sku": {
-          "name": "sku",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "external_order_id": {
-          "name": "external_order_id",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "status": {
-          "name": "status",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "erp_stock_id": {
-          "name": "erp_stock_id",
-          "type": "bigint",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "problem": {
-          "name": "problem",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "created_at": {
-          "name": "created_at",
-          "type": "timestamp with time zone",
-          "primaryKey": false,
-          "notNull": true,
-          "default": "now()"
-        },
-        "updated_at": {
-          "name": "updated_at",
-          "type": "timestamp with time zone",
-          "primaryKey": false,
-          "notNull": true,
-          "default": "now()"
-        }
-      },
-      "indexes": {
-        "erp_stock_exits_order_item_idx": {
-          "name": "erp_stock_exits_order_item_idx",
-          "columns": [
-            {
-              "expression": "order_item_id",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            }
-          ],
-          "isUnique": true,
-          "concurrently": false,
-          "method": "btree",
-          "with": {}
-        },
-        "erp_stock_exits_posting_idx": {
-          "name": "erp_stock_exits_posting_idx",
-          "columns": [
-            {
-              "expression": "created_at",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            }
-          ],
-          "isUnique": false,
-          "where": "\"erp_stock_exits\".\"status\" = 'posting'",
-          "concurrently": false,
-          "method": "btree",
-          "with": {}
-        }
-      },
-      "foreignKeys": {
-        "erp_stock_exits_order_item_id_order_items_id_fk": {
-          "name": "erp_stock_exits_order_item_id_order_items_id_fk",
-          "tableFrom": "erp_stock_exits",
-          "tableTo": "order_items",
-          "columnsFrom": [
-            "order_item_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
-          "onDelete": "cascade",
-          "onUpdate": "no action"
-        },
-        "erp_stock_exits_supplier_id_suppliers_id_fk": {
-          "name": "erp_stock_exits_supplier_id_suppliers_id_fk",
-          "tableFrom": "erp_stock_exits",
-          "tableTo": "suppliers",
-          "columnsFrom": [
-            "supplier_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
-          "onDelete": "cascade",
-          "onUpdate": "no action"
-        },
-        "erp_stock_exits_supplier_product_id_supplier_products_id_fk": {
-          "name": "erp_stock_exits_supplier_product_id_supplier_products_id_fk",
-          "tableFrom": "erp_stock_exits",
-          "tableTo": "supplier_products",
-          "columnsFrom": [
-            "supplier_product_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
-          "onDelete": "set null",
-          "onUpdate": "no action"
-        }
-      },
-      "compositePrimaryKeys": {},
-      "uniqueConstraints": {},
-      "policies": {},
-      "checkConstraints": {
-        "erp_stock_exits_quantity_check": {
-          "name": "erp_stock_exits_quantity_check",
-          "value": "\"erp_stock_exits\".\"quantity\" > 0"
-        }
-      },
-      "isRLSEnabled": false
-    },
     "public.erp_stock_refresh_requests": {
       "name": "erp_stock_refresh_requests",
       "schema": "",
@@ -8301,6 +8109,13 @@
           "primaryKey": false,
           "notNull": true
         },
+        "kind": {
+          "name": "kind",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'direct'"
+        },
         "status": {
           "name": "status",
           "type": "text",
@@ -8323,6 +8138,12 @@
         "erp_invoice_id": {
           "name": "erp_invoice_id",
           "type": "bigint",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "erp_draft_requested_at": {
+          "name": "erp_draft_requested_at",
+          "type": "timestamp with time zone",
           "primaryKey": false,
           "notNull": false
         },
@@ -8392,11 +8213,17 @@
         }
       },
       "indexes": {
-        "shipment_invoices_shipment_idx": {
-          "name": "shipment_invoices_shipment_idx",
+        "shipment_invoices_shipment_kind_idx": {
+          "name": "shipment_invoices_shipment_kind_idx",
           "columns": [
             {
               "expression": "shipment_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "kind",
               "isExpression": false,
               "asc": true,
               "nulls": "last"
@@ -8474,6 +8301,10 @@
         "shipment_invoices_status_check": {
           "name": "shipment_invoices_status_check",
           "value": "\"shipment_invoices\".\"status\" in ('queued','sent','authorized','attention','cancelled')"
+        },
+        "shipment_invoices_kind_check": {
+          "name": "shipment_invoices_kind_check",
+          "value": "\"shipment_invoices\".\"kind\" in ('direct','on_behalf_shipment','on_behalf_sale')"
         }
       },
       "isRLSEnabled": false
@@ -8761,6 +8592,18 @@
           "primaryKey": false,
           "notNull": false
         },
+        "on_behalf_shipment_operation_id": {
+          "name": "on_behalf_shipment_operation_id",
+          "type": "bigint",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "on_behalf_sale_operation_id": {
+          "name": "on_behalf_sale_operation_id",
+          "type": "bigint",
+          "primaryKey": false,
+          "notNull": false
+        },
         "erp_company_id": {
           "name": "erp_company_id",
           "type": "text",
@@ -8785,13 +8628,6 @@
           "type": "timestamp with time zone",
           "primaryKey": false,
           "notNull": false
-        },
-        "stock_exits_since": {
-          "name": "stock_exits_since",
-          "type": "timestamp with time zone",
-          "primaryKey": false,
-          "notNull": true,
-          "default": "now()"
         },
         "connected_by_user_id": {
           "name": "connected_by_user_id",

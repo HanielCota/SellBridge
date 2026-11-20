@@ -20,6 +20,7 @@ import { SupplierForm } from "./supplier-form";
 import { SupplierFlagsSection } from "./supplier-flags-section";
 import { SupplierApprovalCard } from "@/components/supplier-approval/supplier-approval-card";
 import { supplierSituation } from "@/components/supplier-approval/supplier-situation";
+import { SupplierPanelInvite } from "./supplier-panel-invite";
 import { SupplierReviewsSection } from "./supplier-reviews-section";
 import { sellersSummary, SupplierSellers } from "./supplier-sellers";
 import { CONTROL_HINTS } from "@/components/icons/action-icons";
@@ -140,6 +141,7 @@ export function SupplierDetail({
     <div className="space-y-6">
       <SupplierHeader supplier={query.data.supplier} sellers={query.data.sellers} />
       <SupplierApprovalCard supplierId={supplierId} supplierName={query.data.supplier.name} />
+      <SupplierPanelInvite supplier={query.data.supplier} />
       <SupplierFlagsSection supplierId={supplierId} />
       <SupplierForm key={supplierId} detail={query.data} />
       <SupplierSellers stores={query.data.sellers} />

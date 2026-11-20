@@ -5,6 +5,7 @@ import {
   blingRequest,
   type BlingHttpOptions,
 } from "./http.ts";
+import { blingDirectInvoiceCalls } from "./direct-invoices.ts";
 import { blingInvoiceCalls, type BlingCall } from "./invoices.ts";
 import type { BlingTokens } from "./oauth.ts";
 import type { BlingRateLimiter } from "./rate-limit.ts";
@@ -226,6 +227,7 @@ export function createBlingClient(options: BlingClientOptions) {
 
   return {
     ...blingInvoiceCalls(call),
+    ...blingDirectInvoiceCalls(call),
     ...blingStockCalls(call),
     ...blingStockExitCalls(call),
     /** One page of the summary list (active products by default). */

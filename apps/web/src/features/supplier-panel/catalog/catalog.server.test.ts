@@ -28,6 +28,7 @@ vi.mock("@sellbridge/database/repositories", () => ({
   submitSupplierPanelProduct: mocks.submit,
 }));
 vi.mock("@/lib/server/database", () => ({ database: {} }));
+vi.mock("@/lib/server/environment", () => ({ environment: { PRODUCT_GRID_ENABLED: false } }));
 vi.mock("@/lib/server/queues", () => ({ enqueueStockPriceSync: mocks.enqueue }));
 vi.mock("@sellbridge/shared/logger", () => ({
   logger: { info: mocks.log, warn: mocks.log, error: mocks.log },
@@ -140,7 +141,7 @@ describe("writePanelApproval", () => {
     });
     expect(mocks.approve).toHaveBeenCalledWith({}, { supplierId, productId, reviewerId: "admin" });
     expect(mocks.log).toHaveBeenCalledWith("supplier_panel.short_reservation_failed", {
-      productId,
+      productIds: [productId],
       error: expect.any(Error),
     });
   });

@@ -20,6 +20,10 @@ const PRODUCT_TITLE_MAX_LENGTH = 300;
 export const MAX_MODEL_TITLE_LENGTH =
   PRODUCT_TITLE_MAX_LENGTH - " - ".length - " ".length - 2 * MAX_GRID_OPTION_LENGTH;
 
+/** Refuses an edit of one combination's shared data outside its grid. */
+export const COMBINATION_EDITED_OUTSIDE_GRID_MESSAGE =
+  "Este produto faz parte de uma grade de cores e tamanhos: altere o nome, as fotos e a ficha pela grade, no cadastro do produto.";
+
 /** Identifies one unit of a model: a barcode never belongs to the whole grid. */
 const COMBINATION_ONLY_ATTRIBUTES: ReadonlySet<string> = new Set(["GTIN"]);
 
@@ -113,11 +117,13 @@ function axisProblem(
   return null;
 }
 
-function combinationProblems(grid: {
+interface GridShape {
   colors: readonly GridColor[];
   sizes: readonly string[];
   combinations: readonly GridCombination[];
-}): string[] {
+}
+
+function combinationProblems(grid: GridShape): string[] {
   const colorNames = new Set(grid.colors.map((color) => color.name));
   const sizeNames = new Set(grid.sizes);
   const problems: string[] = [];
@@ -143,11 +149,7 @@ function combinationProblems(grid: {
   return problems;
 }
 
-function unusedOptionProblems(grid: {
-  colors: readonly GridColor[];
-  sizes: readonly string[];
-  combinations: readonly GridCombination[];
-}): string[] {
+function unusedOptionProblems(grid: GridShape): string[] {
   const usedColors = new Set(grid.combinations.map((combination) => combination.color));
   const usedSizes = new Set(grid.combinations.map((combination) => combination.size));
   return [
@@ -161,21 +163,10 @@ function unusedOptionProblems(grid: {
 }
 
 /**
- * Everything wrong with a grid, in words the supplier can act on; empty when it can be saved.
- * Combinations may skip pairs (a colour without the biggest size), but every colour and size
- * listed must be sold in at least one of them.
+ * What makes a grid unsafe to store at all: too many combinations, repeated names, a combination
+ * outside the grid, a repeated pair or SKU. A grid being typed may still lack combinations.
  */
-export function gridProblems(grid: {
-  colors: readonly GridColor[];
-  sizes: readonly string[];
-  combinations: readonly GridCombination[];
-}): string[] {
-  if (grid.colors.length === 0 && grid.sizes.length === 0) {
-    return ["Informe pelo menos uma cor ou um tamanho"];
-  }
-  if (grid.combinations.length === 0) {
-    return ["Informe pelo menos uma combinação de cor e tamanho"];
-  }
+export function gridStructureProblems(grid: GridShape): string[] {
   if (grid.combinations.length > MAX_GRID_COMBINATIONS) {
     return [
       `A grade pode ter até ${MAX_GRID_COMBINATIONS} combinações (recebido: ${grid.combinations.length}). Divida em dois modelos.`,
@@ -187,8 +178,74 @@ export function gridProblems(grid: {
     ),
     ...repeatedNames(grid.sizes).map((name) => `O tamanho "${name}" aparece mais de uma vez`),
     ...combinationProblems(grid),
-    ...unusedOptionProblems(grid),
   ];
+}
+
+/**
+ * Everything wrong with a grid, in words the supplier can act on; empty when it can be sold.
+ * Combinations may skip pairs (a colour without the biggest size), but every colour and size
+ * listed must be sold in at least one of them.
+ */
+export function gridProblems(grid: GridShape): string[] {
+  if (grid.colors.length === 0 && grid.sizes.length === 0) {
+    return ["Informe pelo menos uma cor ou um tamanho"];
+  }
+  if (grid.combinations.length === 0) {
+    return ["Informe pelo menos uma combinação de cor e tamanho"];
+  }
+  return [...gridStructureProblems(grid), ...unusedOptionProblems(grid)];
+}
+
+/** A colour or size as the form sends it: `previousName` when the supplier renamed it. */
+export const gridDraftColorSchema = gridColorSchema.extend({
+  previousName: optionNameSchema.optional(),
+});
+export const gridDraftSizeSchema = z.object({
+  name: optionNameSchema,
+  previousName: optionNameSchema.optional(),
+});
+export const gridDraftCombinationSchema = gridCombinationSchema.extend({
+  /** The stock the form last showed: a sale meanwhile wins over a count left untouched. */
+  expectedStock: z.number().int().optional(),
+});
+
+/**
+ * The grid as the supplier is typing it, saved on every change: it may still lack combinations
+ * or leave a colour unused, but never holds repeated names, pairs or SKUs.
+ */
+export const productGridDraftSchema = z
+  .object({
+    colors: z.array(gridDraftColorSchema).max(MAX_GRID_COMBINATIONS),
+    sizes: z.array(gridDraftSizeSchema).max(MAX_GRID_COMBINATIONS),
+    combinations: z.array(gridDraftCombinationSchema).max(MAX_GRID_COMBINATIONS * 2),
+  })
+  .superRefine((draft, context) => {
+    for (const problem of gridStructureProblems(gridOfDraft(draft))) {
+      context.addIssue({ code: "custom", message: problem });
+    }
+  });
+export type ProductGridDraft = z.infer<typeof productGridDraftSchema>;
+
+/** The draft without the form's bookkeeping (renames, the stock it showed). */
+export function gridOfDraft(draft: {
+  colors: readonly z.infer<typeof gridDraftColorSchema>[];
+  sizes: readonly z.infer<typeof gridDraftSizeSchema>[];
+  combinations: readonly z.infer<typeof gridDraftCombinationSchema>[];
+}): ProductGrid {
+  return {
+    colors: draft.colors.map((color) => ({ name: color.name, imageUrls: color.imageUrls })),
+    sizes: draft.sizes.map((size) => size.name),
+    combinations: draft.combinations.map((combination) => ({
+      color: combination.color,
+      size: combination.size,
+      sku: combination.sku,
+      gtin: combination.gtin,
+      costCents: combination.costCents,
+      suggestedPriceCents: combination.suggestedPriceCents,
+      stock: combination.stock,
+      netWeightGrams: combination.netWeightGrams,
+    })),
+  };
 }
 
 const LETTER_SIZE_RANK: ReadonlyMap<string, number> = new Map([
