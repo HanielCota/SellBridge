@@ -15,8 +15,9 @@ import {
   BATCH_LABEL_MARKETPLACE,
   isLabelMarketplace,
 } from "@sellbridge/shared/supplier-order-labels";
-import { findOrderLabelParcels } from "@sellbridge/database/repositories";
+import { findOnBehalfLabelParcels, findOrderLabelParcels } from "@sellbridge/database/repositories";
 import { orders, orderShipments, storeConnections } from "@sellbridge/database/schema";
+import { onBehalfLabelRefusal } from "@sellbridge/shared/reseller-invoice";
 import { labelSharingRefusal } from "@/features/fulfillment/label-sharing";
 import { isShippingBlocked } from "@/features/fulfillment/shipping-block";
 import { database } from "@/lib/server/database";
@@ -78,6 +79,11 @@ async function labelAccess(tenantId: string, orderId: string) {
       "Etiqueta de postagem disponível para Mercado Livre e TikTok Shop. Nos demais envios, registre a transportadora e o rastreio manualmente.",
     );
   if (isShippingBlocked(row.orderStatus)) throw conflictError("Pedido sem liberação para envio");
+  const notesRefusal = onBehalfLabelRefusal(
+    await findOnBehalfLabelParcels(database, orderId),
+    row.store.marketplace,
+  );
+  if (notesRefusal !== null) throw conflictError(notesRefusal);
   return {
     marketplace: row.store.marketplace,
     store: storeCredentials(row.store),

@@ -10,10 +10,16 @@ import {
   tenantProfile,
   user,
 } from "@sellbridge/database/schema";
-import { eq } from "drizzle-orm";
+import { createTokenCipher } from "@sellbridge/shared/token-cipher";
+import { eq, inArray } from "drizzle-orm";
 import { forwardableProduct } from "./catalog-fixtures";
 import { e2eDatabase } from "./database";
+import { requireEnvironmentVariable } from "./environment";
 import { completeOnboarding, gotoHydrated, signUp } from "./helpers";
+import {
+  E2E_MERCADO_LIVRE_NOTE_ORDER_PREFIX,
+  E2E_MERCADO_LIVRE_NOTE_SELLER_ID,
+} from "./mercado-livre.fixture";
 
 // Venda à ordem: the reseller's company issues the buyer's note; the order asks for it.
 const database = e2eDatabase();
@@ -35,26 +41,42 @@ async function tenantOf(email: string): Promise<string> {
   return row.tenantId;
 }
 
-async function insertOrder(tenantId: string) {
+/** A Mercado Livre store the stand-in answers for, with a real ciphertext the server opens. */
+function mercadoLivreStore() {
+  const cipher = createTokenCipher(requireEnvironmentVariable("TOKEN_ENCRYPTION_KEY"));
+  return {
+    marketplace: "mercado_livre" as const,
+    externalShopId: E2E_MERCADO_LIVRE_NOTE_SELLER_ID,
+    accessTokenEnc: cipher.encrypt("mock-access-token"),
+    refreshTokenEnc: cipher.encrypt("mock-refresh-token"),
+    externalOrderId: `${E2E_MERCADO_LIVRE_NOTE_ORDER_PREFIX}${Date.now()}`,
+  };
+}
+
+async function insertOrder(tenantId: string, onMercadoLivre = false) {
+  const mercadoLivre = onMercadoLivre ? mercadoLivreStore() : null;
   const [store] = await database
     .insert(storeConnections)
     .values({
       tenantId,
-      marketplace: "mock",
-      externalShopId: `shop-${randomUUID().slice(0, 8)}`,
+      marketplace: mercadoLivre?.marketplace ?? "mock",
+      externalShopId: mercadoLivre?.externalShopId ?? `shop-${randomUUID().slice(0, 8)}`,
       shopName: "Loja Venda à Ordem",
-      accessTokenEnc: null,
-      refreshTokenEnc: null,
+      accessTokenEnc: mercadoLivre?.accessTokenEnc ?? null,
+      refreshTokenEnc: mercadoLivre?.refreshTokenEnc ?? null,
       expiresAt: new Date(Date.now() + 3_600_000),
     })
     .returning({ id: storeConnections.id });
   if (store === undefined) throw new Error("Store missing");
+  if (onMercadoLivre) {
+    mercadoLivreStoreIds.push(store.id);
+  }
   const [order] = await database
     .insert(orders)
     .values({
       tenantId,
       storeConnectionId: store.id,
-      externalOrderId: `E2E-ORDEM-${randomUUID().slice(0, 8)}`,
+      externalOrderId: mercadoLivre?.externalOrderId ?? `E2E-ORDEM-${randomUUID().slice(0, 8)}`,
       status: "paid",
       buyerName: "Juliana Costa",
       orderedAt: new Date(),
@@ -66,7 +88,7 @@ async function insertOrder(tenantId: string) {
 }
 
 /** A company reseller's forwarded parcel whose sale note the job is still looking for. */
-async function seedParcelWaitingForNote(email: string): Promise<string> {
+async function seedParcelWaitingForNote(email: string, onMercadoLivre = false): Promise<string> {
   const tenantId = await tenantOf(email);
   await database
     .update(tenantProfile)
@@ -74,7 +96,7 @@ async function seedParcelWaitingForNote(email: string): Promise<string> {
     .where(eq(tenantProfile.tenantId, tenantId));
   const product = await forwardableProduct(database);
   if (product === undefined) throw new Error("Seed demo missing");
-  const orderId = await insertOrder(tenantId);
+  const orderId = await insertOrder(tenantId, onMercadoLivre);
   const [item] = await database
     .insert(orderItems)
     .values({
@@ -122,7 +144,16 @@ function noteCard(page: Page) {
   return page.getByRole("region", { name: "Sua nota de venda" });
 }
 
+/** Mercado Livre stores this spec connected: the stand-in's shop may be live only once. */
+const mercadoLivreStoreIds: string[] = [];
+
 test.afterAll(async () => {
+  if (mercadoLivreStoreIds.length > 0) {
+    await database
+      .update(storeConnections)
+      .set({ status: "disconnected" })
+      .where(inArray(storeConnections.id, mercadoLivreStoreIds));
+  }
   await database.$client.end();
 });
 
@@ -154,4 +185,50 @@ test("a company reseller pastes the key of its own sale note on the order", asyn
   await expect(card.getByText("Nota 4821 · série 1")).toBeVisible();
   await expect(card.getByText("Chave informada por você")).toBeVisible();
   await expect(card.getByLabel("Chave de acesso da sua nota (44 números)")).toHaveCount(0);
+});
+
+/** The authorized NF-e of RESELLER_KEY, as the reseller's system downloads it. */
+function authorizedNfeXml(): string {
+  return [
+    '<?xml version="1.0" encoding="UTF-8"?>',
+    '<nfeProc versao="4.00" xmlns="http://www.portalfiscal.inf.br/nfe">',
+    `<NFe><infNFe versao="4.00" Id="NFe${RESELLER_KEY}"><ide><nNF>4821</nNF></ide></infNFe></NFe>`,
+    `<protNFe versao="4.00"><infProt><chNFe>${RESELLER_KEY}</chNFe><cStat>100</cStat></infProt></protNFe>`,
+    "</nfeProc>",
+  ].join("");
+}
+
+test("on Mercado Livre the reseller sends its note's XML and SellBridge passes it on", async ({
+  page,
+}) => {
+  test.setTimeout(120_000);
+  const email = await signUp(page, "Revenda XML Ordem");
+  await completeOnboarding(page);
+  const orderId = await seedParcelWaitingForNote(email, true);
+  await gotoHydrated(page, `/pedidos/${orderId}`);
+  const card = noteCard(page);
+  const file = card.getByLabel("Arquivo XML da nota (.xml)");
+  const labelBefore = await page.request.get(`/api/pedidos/${orderId}/etiqueta`);
+  expect(labelBefore.status()).toBe(409);
+  expect(await labelBefore.text()).toContain("espera a nota de venda do revendedor");
+
+  await file.setInputFiles({
+    name: "danfe.pdf.xml",
+    mimeType: "application/xml",
+    buffer: Buffer.from("<html>danfe</html>"),
+  });
+  await card.getByRole("button", { name: "Enviar XML" }).click();
+  await expect(card.getByText(/não é o XML de uma NF-e autorizada/)).toBeVisible();
+  await file.setInputFiles({
+    name: "nota-4821.xml",
+    mimeType: "application/xml",
+    buffer: Buffer.from(authorizedNfeXml()),
+  });
+  await card.getByRole("button", { name: "Enviar XML" }).click();
+
+  await expect(card.getByText(/Nota recebida · /)).toBeVisible();
+  await expect(card.getByText("XML enviado por você ao Mercado Livre")).toBeVisible();
+  await expect(card.getByLabel("Chave de acesso da sua nota (44 números)")).toHaveCount(0);
+  const labelAfter = await page.request.get(`/api/pedidos/${orderId}/etiqueta`);
+  expect(await labelAfter.text()).toContain("espera a nota de remessa do fornecedor");
 });
