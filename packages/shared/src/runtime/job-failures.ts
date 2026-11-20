@@ -8,6 +8,22 @@ import {
 
 type QueueName = (typeof QUEUE_NAMES)[keyof typeof QUEUE_NAMES];
 
+/** Listing ids a problem names; the rest are only counted. */
+const LISTING_IDS_IN_PROBLEM = 20;
+
+/**
+ * The marketplace ids of listings the team must pause by hand, for a problem's text. Each id gets
+ * a prefix, so the scrubbing of personal data (`scrubText`) never takes a numeric one for a CPF.
+ */
+export function listingIdsForProblem(externalIds: readonly string[]): string {
+  const named = externalIds
+    .slice(0, LISTING_IDS_IN_PROBLEM)
+    .map((externalId) => `id_${externalId}`)
+    .join(", ");
+  const rest = externalIds.length - LISTING_IDS_IN_PROBLEM;
+  return rest > 0 ? `${named} and ${rest} more` : named;
+}
+
 /** The log event of a worker job that failed its last attempt; the admin Problemas page keeps it. */
 export const JOB_FAILED_FINAL_EVENT = "job.failed_final";
 

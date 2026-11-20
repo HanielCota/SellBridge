@@ -3,6 +3,7 @@ import {
   isRetryableError,
   type MarketplaceConnector,
 } from "@sellbridge/marketplaces";
+import { listingIdsForProblem } from "@sellbridge/shared/job-failures";
 import { logger } from "@sellbridge/shared/logger";
 import { type DeletedStorePauseJob, deletedStorePauseJobSchema } from "@sellbridge/shared/queues";
 import type { TokenCipher } from "@sellbridge/shared/token-cipher";
@@ -16,9 +17,6 @@ interface DeletedStorePauseDependencies {
   >;
   cipher: Pick<TokenCipher, "decrypt">;
 }
-
-/** Listing ids named in the error the team reads on Problemas; the rest are only counted. */
-const LISTED_IDS_IN_ERROR = 20;
 
 interface PauseRound {
   leftLive: string[];
@@ -57,12 +55,7 @@ async function zeroStockForEach(
 }
 
 function leftLiveMessage(job: DeletedStorePauseJob, leftLive: readonly string[]): string {
-  const named = leftLive.slice(0, LISTED_IDS_IN_ERROR).join(", ");
-  const more =
-    leftLive.length > LISTED_IDS_IN_ERROR
-      ? ` and ${leftLive.length - LISTED_IDS_IN_ERROR} more`
-      : "";
-  return `${leftLive.length} listing(s) of ${job.marketplace} shop ${job.externalShopId} still live: ${named}${more}`;
+  return `${leftLive.length} listing(s) of ${job.marketplace} shop_${job.externalShopId} still live: ${listingIdsForProblem(leftLive)}`;
 }
 
 /**

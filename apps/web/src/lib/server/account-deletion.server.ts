@@ -10,6 +10,7 @@ import {
 } from "@sellbridge/database/repositories";
 import { withDeadline } from "@sellbridge/shared/deadline";
 import { AppError, forbiddenError, isAppError } from "@sellbridge/shared/errors";
+import { listingIdsForProblem } from "@sellbridge/shared/job-failures";
 import { logger } from "@sellbridge/shared/logger";
 import { isPlatformOwner } from "@sellbridge/shared/platform-owner";
 import { isStaffRole } from "@sellbridge/shared/staff-access";
@@ -83,9 +84,13 @@ const HAND_OVER_FAILED_MESSAGE =
  * The store's live listings go to the worker, which sends zero stock and keeps trying until every
  * one is paused (`deleted-store-pause`): a deleted account must not leave listings selling. The
  * store's rows are deleted next, so the job carries its access. Failing to hand them over stops
- * the deletion before any data is touched.
+ * the deletion before any data is touched. A store with no access left (expired, in error) cannot
+ * be paused at all: the team gets the listings on Problemas, to pause them by hand.
  */
-async function handOverListingPause(store: { tenantId: string; storeConnectionId: string }) {
+async function handOverListingPause(
+  store: { tenantId: string; storeConnectionId: string },
+  marketplace: string,
+) {
   const listings = await findLiveStoreTargets(database, store);
   if (listings.length === 0) {
     return;
@@ -94,7 +99,9 @@ async function handOverListingPause(store: { tenantId: string; storeConnectionId
   if (access === null) {
     logger.error("account.deleted_store_listings_unpausable", {
       ...store,
+      marketplace,
       listings: listings.length,
+      externalIds: listingIdsForProblem(listings.map((listing) => listing.externalId)),
     });
     return;
   }
@@ -114,14 +121,14 @@ async function handOverListingPause(store: { tenantId: string; storeConnectionId
   }
 }
 
-/** Connected stores hand their listings over to be paused, then are disconnected. */
+/** Every store hands its live listings over to be paused; the connected ones are then disconnected. */
 async function closeStores(tenantId: string): Promise<void> {
   const stores = await listStoreConnections(database, tenantId);
   for (const store of stores) {
+    await handOverListingPause({ tenantId, storeConnectionId: store.id }, store.marketplace);
     if (store.status !== "connected") {
       continue;
     }
-    await handOverListingPause({ tenantId, storeConnectionId: store.id });
     await disconnectStoreForTenant({ tenantId, storeConnectionId: store.id, pauseListings: false });
   }
 }

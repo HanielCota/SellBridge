@@ -116,7 +116,7 @@ describe("deleted store pause", () => {
     });
 
     await expect(process(jobFor(ids))).rejects.toThrow(
-      "23 listing(s) of mercado_livre shop shop-1 still live: MLB0",
+      "23 listing(s) of mercado_livre shop_shop-1 still live: id_MLB0, id_MLB1",
     );
     await expect(process(jobFor(ids))).rejects.toThrow("and 3 more");
   });

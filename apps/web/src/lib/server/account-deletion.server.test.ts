@@ -1,4 +1,5 @@
 import { conflictError, isAppError } from "@sellbridge/shared/errors";
+import { logger } from "@sellbridge/shared/logger";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const mocks = vi.hoisted(() => ({
@@ -9,7 +10,12 @@ const mocks = vi.hoisted(() => ({
   getBillingAccount:
     vi.fn<(database: unknown, tenantId: string) => Promise<{ customerId: string | null } | null>>(),
   listStoreConnections:
-    vi.fn<(database: unknown, tenantId: string) => Promise<{ id: string; status: string }[]>>(),
+    vi.fn<
+      (
+        database: unknown,
+        tenantId: string,
+      ) => Promise<{ id: string; status: string; marketplace: string }[]>
+    >(),
   disconnectStoreForTenant: vi.fn<(request: unknown) => Promise<unknown>>(),
   deleteCustomer: vi.fn<(customerId: string) => Promise<unknown>>(),
   deleteFile: vi.fn<(key: string) => Promise<void>>(),
@@ -79,8 +85,8 @@ beforeEach(() => {
   mocks.accountFileKeys.mockResolvedValue(["tickets/t1/nota.pdf"]);
   mocks.getBillingAccount.mockResolvedValue({ customerId: "cus_123" });
   mocks.listStoreConnections.mockResolvedValue([
-    { id: "store-1", status: "connected" },
-    { id: "store-2", status: "expired" },
+    { id: "store-1", status: "connected", marketplace: "mercado_livre" },
+    { id: "store-2", status: "expired", marketplace: "mercado_livre" },
   ]);
   mocks.disconnectStoreForTenant.mockResolvedValue({ paused: 1, leftLive: 0 });
   mocks.deleteCustomer.mockResolvedValue({ deleted: true });
@@ -92,11 +98,16 @@ beforeEach(() => {
   mocks.findLiveStoreTargets.mockResolvedValue([
     { targetId: "target-1", externalId: "MLB1", priceCents: 4990 },
   ]);
-  mocks.findStoreAccessForPause.mockResolvedValue({
-    marketplace: "mercado_livre",
-    externalShopId: "shop-1",
-    accessTokenEnc: "encrypted-token",
-  });
+  // Like the repository: only a connected store still has access to call the marketplace with.
+  mocks.findStoreAccessForPause.mockImplementation(async (_database, store) =>
+    Reflect.get(Object(store), "storeConnectionId") === "store-1"
+      ? {
+          marketplace: "mercado_livre",
+          externalShopId: "shop-1",
+          accessTokenEnc: "encrypted-token",
+        }
+      : null,
+  );
   mocks.enqueueDeletedStorePause.mockResolvedValue(undefined);
 });
 
@@ -158,6 +169,21 @@ describe("prepareAccountDeletion", () => {
     );
     expect(mocks.disconnectStoreForTenant).not.toHaveBeenCalled();
     expect(mocks.deleteTenantData).not.toHaveBeenCalled();
+  });
+
+  it("names on Problemas the listings a store without access leaves live", async () => {
+    const reportError = vi.spyOn(logger, "error");
+
+    await prepareAccountDeletion(SELLER);
+
+    expect(mocks.enqueueDeletedStorePause).toHaveBeenCalledTimes(1);
+    expect(reportError).toHaveBeenCalledWith("account.deleted_store_listings_unpausable", {
+      tenantId: "tenant-a",
+      storeConnectionId: "store-2",
+      marketplace: "mercado_livre",
+      listings: 1,
+      externalIds: "id_MLB1",
+    });
   });
 
   it("has nothing to hand over for a store without live listings", async () => {

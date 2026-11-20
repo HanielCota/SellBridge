@@ -12,7 +12,8 @@
 - A falha final aparece em Problemas, com os anúncios que ficaram no ar, para a equipe pausar à mão.
 - O trabalho sai do Redis ao terminar, com sucesso ou falha, e a chave sai junto.
 - Se o trabalho não puder ser posto na fila (Redis fora), a exclusão para antes de desconectar ou apagar qualquer coisa e pede para tentar de novo em alguns minutos.
-- Uma loja conectada sem chave de acesso não tem como ser pausada: o caso vira um erro em Problemas, e a exclusão segue.
+- Uma loja sem acesso (expirada, com erro ou sem chave) não tem como ser pausada. Os anúncios dela vão para Problemas com a lista, para a equipe pausar à mão, e a exclusão segue.
+- Em Problemas, cada número de anúncio aparece com o prefixo `id_`, para a limpeza de dados pessoais não confundir um número longo com CPF.
 
 **Por quê:** uma conta excluída não pode deixar anúncio vendendo, porque ninguém mais atenderia esses pedidos.
 
