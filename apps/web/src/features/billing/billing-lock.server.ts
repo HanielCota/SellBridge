@@ -4,11 +4,12 @@ import {
   saveBillingAccount,
   tryLockBillingCheckout,
 } from "@sellbridge/database/repositories";
-import { isAsaasError, type AsaasBillingClient } from "@sellbridge/payments/asaas";
+import { isAsaasError, isPaidCharge, type AsaasBillingClient } from "@sellbridge/payments/asaas";
 import { AppError, conflictError } from "@sellbridge/shared/errors";
 import { logger } from "@sellbridge/shared/logger";
 import { database } from "@/lib/server/database";
 import { billingLockDatabase } from "./billing-lock-database.server";
+import { syncBillingSubscription, syncUpgradeCharge } from "./billing-sync.server";
 import { CHARGE_REFERENCE, CHECKOUT_REFERENCE, CREATION_REFERENCE } from "./pending-reference";
 
 type BillingAccount = NonNullable<Awaited<ReturnType<typeof getBillingAccount>>>;
@@ -83,6 +84,45 @@ export async function reserveBillingCreation<Result>(
   }
 }
 
+const PAID_MEANWHILE =
+  "O seu pagamento acabou de entrar e a assinatura foi atualizada. Atualize a página e confira.";
+
+/** Something Asaas no longer has is no longer waiting for payment. */
+async function readUnlessGone<Result>(read: () => Promise<Result>): Promise<Result | null> {
+  try {
+    return await read();
+  } catch (error) {
+    if (isAsaasError(error) && error.status === 404) return null;
+    throw error;
+  }
+}
+
+/**
+ * The local status lags behind a delayed notice: what Asaas already has as paid is synced
+ * instead of deleted, and the action stops so the reseller sees the plan it paid for.
+ */
+async function assertStillUnpaid(
+  client: AsaasBillingClient,
+  account: BillingAccount,
+): Promise<void> {
+  const reference = account.pendingReference;
+  if (reference?.startsWith(CHARGE_REFERENCE) === true) {
+    const chargeId = reference.slice(CHARGE_REFERENCE.length);
+    const charge = await readUnlessGone(async () => client.getCharge(chargeId));
+    if (charge !== null && isPaidCharge(charge)) {
+      await syncUpgradeCharge({ chargeId, eventId: null });
+      throw conflictError(PAID_MEANWHILE);
+    }
+  }
+  const { subscriptionId } = account;
+  if (subscriptionId === null || account.status !== "incomplete") return;
+  const charges = await readUnlessGone(async () => client.listSubscriptionCharges(subscriptionId));
+  if (charges?.some(isPaidCharge) === true) {
+    await syncBillingSubscription({ subscriptionId, eventId: null });
+    throw conflictError(PAID_MEANWHILE);
+  }
+}
+
 /** Closes what was opened and never paid, so an old link cannot start a second subscription. */
 export async function retireUnpaid(
   client: AsaasBillingClient,
@@ -90,6 +130,7 @@ export async function retireUnpaid(
 ): Promise<void> {
   const reference = account.pendingReference;
   assertNoPendingBillingCreation(reference);
+  await assertStillUnpaid(client, account);
   const steps: Promise<unknown>[] = [];
   if (reference?.startsWith(CHECKOUT_REFERENCE) === true) {
     steps.push(client.cancelCheckout(reference.slice(CHECKOUT_REFERENCE.length)));

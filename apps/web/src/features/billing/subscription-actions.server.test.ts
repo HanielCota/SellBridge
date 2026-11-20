@@ -6,6 +6,8 @@ const mocks = vi.hoisted(() => ({
   account: vi.fn<(...input: unknown[]) => Promise<unknown>>(),
   save: vi.fn<(...input: unknown[]) => Promise<void>>(),
   tryLock: vi.fn<(...input: unknown[]) => Promise<boolean>>(),
+  syncSubscription: vi.fn<(...input: unknown[]) => Promise<void>>(),
+  syncUpgrade: vi.fn<(...input: unknown[]) => Promise<void>>(),
   holder: vi.fn<(...input: unknown[]) => Promise<unknown>>(),
   email: vi.fn<(...input: unknown[]) => Promise<string | null>>(),
   client: {
@@ -48,6 +50,11 @@ vi.mock("./billing-lock-database.server", () => ({
   }),
 }));
 vi.mock("./billing-config.server", () => ({ billingClient: () => mocks.client }));
+vi.mock("./billing-sync.server", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("./billing-sync.server")>()),
+  syncBillingSubscription: mocks.syncSubscription,
+  syncUpgradeCharge: mocks.syncUpgrade,
+}));
 
 import { AsaasError, asaasDueDate } from "@sellbridge/payments/asaas";
 import { changePlan, openPendingPayment, startSubscription } from "./subscription-actions.server";
@@ -127,6 +134,51 @@ describe("first subscription", () => {
 
     expect(mocks.client.cancelCheckout).toHaveBeenCalledWith("chk_old");
     expect(mocks.client.createPixSubscription).not.toHaveBeenCalled();
+  });
+
+  it("syncs a first fee Asaas already received instead of deleting its subscription", async () => {
+    mocks.account.mockResolvedValue(liveAccount({ status: "incomplete", periodEnd: null }));
+    mocks.client.listSubscriptionCharges.mockResolvedValue([
+      { ...OPEN_PIX, status: "RECEIVED", paymentDate: "2026-11-19" },
+    ]);
+
+    await expect(startSubscription({ ...input, method: "pix" })).rejects.toMatchObject({
+      code: "CONFLICT",
+    });
+
+    expect(mocks.syncSubscription).toHaveBeenCalledWith({
+      subscriptionId: "sub_live",
+      eventId: null,
+    });
+    expect(mocks.client.deleteSubscription).not.toHaveBeenCalled();
+    expect(mocks.client.createPixSubscription).not.toHaveBeenCalled();
+  });
+
+  it("syncs an upgrade difference Asaas already received instead of deleting it", async () => {
+    mocks.account.mockResolvedValue(
+      liveAccount({
+        status: "canceled",
+        subscriptionId: null,
+        pendingReference: "charge:pay_diff",
+      }),
+    );
+    mocks.client.getCharge.mockResolvedValue({ ...OPEN_PIX, id: "pay_diff", status: "CONFIRMED" });
+
+    await expect(startSubscription({ ...input, method: "pix" })).rejects.toMatchObject({
+      code: "CONFLICT",
+    });
+
+    expect(mocks.syncUpgrade).toHaveBeenCalledWith({ chargeId: "pay_diff", eventId: null });
+    expect(mocks.client.deleteCharge).not.toHaveBeenCalled();
+  });
+
+  it("deletes an incomplete subscription Asaas still has unpaid", async () => {
+    mocks.account.mockResolvedValue(liveAccount({ status: "incomplete", periodEnd: null }));
+
+    await startSubscription({ ...input, method: "pix" });
+
+    expect(mocks.client.deleteSubscription).toHaveBeenCalledWith("sub_live");
+    expect(mocks.syncSubscription).not.toHaveBeenCalled();
   });
 
   it("keeps an uncertain creation reserved and refuses to create a second subscription", async () => {
