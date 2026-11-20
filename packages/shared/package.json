@@ -23,6 +23,7 @@
     "./product-fiscal": "./src/domain/product-fiscal.ts",
     "./product-grid": "./src/domain/product-grid.ts",
     "./product-grid-import": "./src/domain/product-grid-import.ts",
+    "./product-grouping": "./src/domain/product-grouping.ts",
     "./product-sale-terms": "./src/domain/product-sale-terms.ts",
     "./supplier-fiscal": "./src/domain/supplier-fiscal.ts",
     "./supplier-invoice": "./src/domain/supplier-invoice.ts",

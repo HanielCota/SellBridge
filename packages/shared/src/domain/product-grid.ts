@@ -14,7 +14,7 @@ import { stripAccents } from "./text.ts";
  */
 export const MAX_GRID_COMBINATIONS = 50;
 export const MAX_GRID_OPTION_LENGTH = 40;
-const MAX_OPTION_PHOTOS = 20;
+export const MAX_OPTION_PHOTOS = 20;
 const PRODUCT_TITLE_MAX_LENGTH = 300;
 /** Leaves room for " - {colour} {size}" inside the product title limit. */
 export const MAX_MODEL_TITLE_LENGTH =
@@ -309,6 +309,11 @@ function sizeSortKey(name: string, index: number): readonly [number, number] {
     return [1, rank];
   }
   return [2, index];
+}
+
+/** "38", "33/34" or "GG": a word the size order knows, so a name's last word reads as a size. */
+export function isKnownSizeName(name: string): boolean {
+  return sizeSortKey(name, 0)[0] < 2;
 }
 
 /**
