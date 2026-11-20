@@ -116,25 +116,28 @@ export class ModelAutosaver<TModel extends StoredModelVersion> {
       return;
     }
     this.#inFlight = true;
-    let saved = false;
+    let goesOn = true;
     try {
-      saved = await this.#send(snapshot, serialized);
+      goesOn = await this.#send(snapshot, serialized);
     } catch (error) {
       this.#options.onState({ kind: "error", message: this.#options.describeError(error) });
     } finally {
       this.#inFlight = false;
     }
-    if (saved && typedContent(this.#latest) !== this.#lastSent) {
+    // Typed while this request was out (a SKU fixed while its refusal was on the way): send that
+    // now, as the change itself found a request in flight and sent nothing.
+    if (goesOn && typedContent(this.#latest) !== serialized) {
       await this.flush();
     }
   }
 
+  /** Sends one save; false when saving must stop (a conflict), true otherwise. */
   async #send(snapshot: ModelFormSnapshot, serialized: string): Promise<boolean> {
     const options = this.#options;
     const parsed = parseModelDraft(snapshot.values, snapshot.grid);
     if (!parsed.ok) {
       options.onState({ kind: "invalid", errors: parsed.errors });
-      return false;
+      return true;
     }
     options.onState({ kind: "saving" });
     const result = await options.save({
@@ -145,7 +148,7 @@ export class ModelAutosaver<TModel extends StoredModelVersion> {
     });
     if ("takenSkus" in result) {
       options.onState({ kind: "invalid", errors: takenSkuErrors(snapshot, result.takenSkus) });
-      return false;
+      return true;
     }
     if (!result.saved) {
       this.#stopped = true;
