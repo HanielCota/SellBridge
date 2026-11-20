@@ -90,7 +90,7 @@ async function assertSkusAreFree(
  * The code a new model takes: the one given, when free (a spreadsheet's code is the supplier's
  * own, never renamed), or the title's with "-2", "-3"… until it is free.
  *
- * @throws AppError CONFLICT when a given code already belongs to another model of the supplier.
+ * @throws {AppError} CONFLICT when a given code already belongs to another model of the supplier.
  */
 export async function modelCodeFor(
   transaction: DatabaseExecutor,
@@ -187,7 +187,7 @@ export function combinationRow(
  * @param input.grid - Already validated with `productGridSchema`.
  * @param input.reviewStatus - "approved" from the team, "draft" from the supplier panel; a
  *   combination without NCM, origin and unit is saved as a draft either way.
- * @throws AppError CONFLICT when a combination's SKU already exists for the supplier.
+ * @throws {AppError} CONFLICT when a combination's SKU already exists for the supplier.
  */
 export async function createProductModel(
   database: Database,
@@ -247,7 +247,7 @@ export async function insertProductModel(
  * Adds colours, sizes and combinations to a grid the supplier has, each combination built from
  * the model's stored shared data. The caller holds the supplier lock.
  *
- * @throws AppError NOT_FOUND when the model is not the supplier's; CONFLICT when a SKU is taken.
+ * @throws {AppError} NOT_FOUND when the model is not the supplier's; CONFLICT when a SKU is taken.
  */
 export async function addCombinationsToModel(
   transaction: DatabaseExecutor,
@@ -357,7 +357,7 @@ async function insertOptions(
  * Saves the model's shared data and rewrites every combination from it, so no combination keeps
  * an old title, photo or attribute. Stock, prices, SKUs and review status are left as they are.
  *
- * @throws AppError NOT_FOUND when the model does not belong to the supplier.
+ * @throws {AppError} NOT_FOUND when the model does not belong to the supplier.
  */
 export async function updateProductModel(
   database: Database,

@@ -76,7 +76,7 @@ function pairKey(color: string | null, size: string | null): string {
   return `${nameKey(color)}\u0000${nameKey(size)}`;
 }
 
-/** The row without its grid cells: what the plain import reads. */
+// The row without its grid cells: what the plain import reads.
 function plainRow(row: ProductCsvRow, title: string = row.product.title): ProductCsvRow {
   const { grid: _cells, ...product } = row.product;
   return { line: row.line, product: { ...product, title } };

@@ -36,13 +36,16 @@ export function modelCodeKey(code: string): string {
   return code.trim().toUpperCase();
 }
 
+/** Room for the "-2", "-3"… a repeated code gets (see `modelCodeFor`). */
+const CODE_SUFFIX_ROOM = 4;
+
 /** "Tênis Casual Couro" → "TENIS-CASUAL-COURO": the code a grid typed in the form starts with. */
 export function modelCodeFromTitle(title: string): string {
   const code = stripAccents(title)
     .toUpperCase()
     .replaceAll(/[^A-Z0-9]+/g, "-")
     .replaceAll(/^-+|-+$/g, "")
-    .slice(0, MAX_MODEL_CODE_LENGTH - 4)
+    .slice(0, MAX_MODEL_CODE_LENGTH - CODE_SUFFIX_ROOM)
     .replaceAll(/-+$/g, "");
   return code === "" ? "MODELO" : code;
 }

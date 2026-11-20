@@ -287,7 +287,7 @@ function cellOrNull(value: string | undefined): string | null {
   return trimmed === "" ? null : trimmed;
 }
 
-/** The row's grid cells, or why they cannot make a combination. */
+// The row's grid cells, or why they cannot make a combination.
 function gridCells(
   values: Readonly<Record<string, string>>,
 ): { cells: ProductCsvGridCells | undefined } | { reason: string } {
