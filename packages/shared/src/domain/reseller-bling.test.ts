@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  allocateInstallments,
   defaultResellerBlingSettings,
   guessPaymentMethods,
   paymentMethodFor,
@@ -102,5 +103,25 @@ describe("paymentMethodFor", () => {
     );
 
     expect(found.problem).toMatch(/envie o XML/);
+  });
+});
+
+describe("allocateInstallments", () => {
+  it("gives the whole note to a single payment", () => {
+    expect(allocateInstallments(9_990, [{ amountCents: 12_490 }])).toEqual([9_990]);
+  });
+
+  it("splits by what each payment paid and leaves the rounding on the last", () => {
+    expect(allocateInstallments(1_000, [{ amountCents: 1 }, { amountCents: 2 }])).toEqual([
+      333, 667,
+    ]);
+  });
+
+  it("returns nothing for an order without payments", () => {
+    expect(allocateInstallments(1_000, [])).toEqual([]);
+  });
+
+  it("refuses a negative total", () => {
+    expect(() => allocateInstallments(-1, [{ amountCents: 1 }])).toThrow(RangeError);
   });
 });

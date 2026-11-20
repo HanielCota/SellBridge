@@ -251,3 +251,33 @@ export function paymentMethodFor(
   }
   return { methodId, slot, problem: null };
 }
+
+/**
+ * Splits the note's total among the order's payments in proportion to what each paid, the
+ * rounding left on the last one: a Mercado Livre payment covers the whole order and its shipping,
+ * while the note covers one parcel's goods.
+ *
+ * @param totalCents - The note's total in cents. Must be a non-negative integer.
+ * @throws {RangeError} When the total is not a non-negative integer or a payment is negative.
+ */
+export function allocateInstallments(
+  totalCents: number,
+  payments: readonly { readonly amountCents: number }[],
+): number[] {
+  if (!Number.isInteger(totalCents) || totalCents < 0) {
+    throw new RangeError(`Note total must be a non-negative integer, got ${totalCents}`);
+  }
+  if (
+    payments.some((payment) => !Number.isInteger(payment.amountCents) || payment.amountCents < 0)
+  ) {
+    throw new RangeError("Payment amounts must be non-negative integers");
+  }
+  const paid = payments.reduce((sum, payment) => sum + payment.amountCents, 0);
+  if (payments.length === 0 || paid === 0) {
+    return payments.map(() => 0);
+  }
+  const shares = payments.map((payment) => Math.floor((totalCents * payment.amountCents) / paid));
+  const allocated = shares.reduce((sum, share) => sum + share, 0);
+  const lastIndex = shares.length - 1;
+  return shares.with(lastIndex, (shares[lastIndex] ?? 0) + totalCents - allocated);
+}
