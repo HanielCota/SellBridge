@@ -8,7 +8,9 @@ import {
   withCombinationChanged,
   withCombinationsFilled,
   withCombinationToggled,
+  withOptionRestored,
   withSaveAnswer,
+  withSizeRemoved,
   withSizesAdded,
   type GridFormState,
 } from "./grid-form-state";
@@ -165,5 +167,63 @@ describe("withSaveAnswer", () => {
       stock: "3",
       savedStock: 3,
     });
+  });
+});
+
+describe("undoing a removed colour or size", () => {
+  const typedBranco = withCombinationChanged(
+    twoByTwo,
+    { colorKey: "c2", sizeKey: "s1" },
+    { sku: "TEN-B-38" },
+  );
+  const removedBranco = { axis: "color" as const, key: "c2", before: typedBranco };
+
+  it("puts back only the removed colour and keeps what was typed since", () => {
+    const edited = withCombinationChanged(
+      withColorRemoved(typedBranco, "c2"),
+      { colorKey: "c1", sizeKey: "s1" },
+      { sku: "TEN-P-38" },
+    );
+
+    const restored = withOptionRestored(edited, removedBranco);
+
+    expect(restored.colors.map((color) => color.name)).toEqual(["Preto", "Branco"]);
+    expect(pairs(restored).toSorted()).toEqual(["Branco/38", "Branco/39", "Preto/38", "Preto/39"]);
+    expect(
+      restored.combinations.find((entry) => entry.colorKey === "c1" && entry.sizeKey === "s1")?.sku,
+    ).toBe("TEN-P-38");
+    expect(
+      restored.combinations.find((entry) => entry.colorKey === "c2" && entry.sizeKey === "s1")?.sku,
+    ).toBe("TEN-B-38");
+  });
+
+  it("leaves out a combination whose size was removed meanwhile", () => {
+    const edited = withSizeRemoved(withColorRemoved(typedBranco, "c2"), "s2");
+
+    const restored = withOptionRestored(edited, removedBranco);
+
+    expect(pairs(restored).toSorted()).toEqual(["Branco/38", "Preto/38"]);
+  });
+
+  it("brings the last colour back in place of the size-only stand-ins", () => {
+    const onlyBranco = withColorRemoved(typedBranco, "c1");
+    const before = withCombinationChanged(
+      onlyBranco,
+      { colorKey: "c2", sizeKey: "s1" },
+      { sku: "TEN-B-38" },
+    );
+    const edited = withColorRemoved(before, "c2");
+
+    const restored = withOptionRestored(edited, { axis: "color", key: "c2", before });
+
+    expect(pairs(restored).toSorted()).toEqual(["Branco/38", "Branco/39"]);
+  });
+
+  it("brings nothing back when a colour of the same name was added meanwhile", () => {
+    const edited = withColorAdded(withColorRemoved(typedBranco, "c2"), "branco", "c3");
+
+    const restored = withOptionRestored(edited, removedBranco);
+
+    expect(restored).toBe(edited);
   });
 });

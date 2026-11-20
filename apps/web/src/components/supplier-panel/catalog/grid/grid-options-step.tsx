@@ -10,7 +10,9 @@ import {
   withSizeRemoved,
   withSizeRenamed,
   withSizesAdded,
+  withOptionRestored,
   type GridFormState,
+  type RemovedOption,
 } from "@/features/supplier-panel/catalog/grid/grid-form-state";
 import { GridCombinations } from "./grid-combinations";
 import { GridFillForm } from "./grid-fill-form";
@@ -38,21 +40,32 @@ const SIZE_SHORTCUTS: readonly OptionShortcut[] = [
 
 type ChangeGrid = (update: (grid: GridFormState) => GridFormState) => void;
 
-/** Removing a colour or size takes its combinations along, so it can be undone for a while. */
+/**
+ * Removing a colour or size takes its combinations along, so it can be undone for a while.
+ * Undoing puts back only that option and its combinations: what was typed since stays.
+ */
 function removeWithUndo(
   grid: GridFormState,
   changeGrid: ChangeGrid,
-  removal: { name: string; remove: (grid: GridFormState) => GridFormState },
+  removal: { name: string; axis: RemovedOption["axis"]; key: string },
 ) {
-  const before = grid;
-  const after = removal.remove(grid);
-  const gone = before.combinations.length - after.combinations.length;
+  const after =
+    removal.axis === "color"
+      ? withColorRemoved(grid, removal.key)
+      : withSizeRemoved(grid, removal.key);
+  const gone = grid.combinations.length - after.combinations.length;
+  const removed: RemovedOption = { axis: removal.axis, key: removal.key, before: grid };
   changeGrid(() => after);
   toast(
     gone === 0
       ? `${removal.name} saiu da grade`
       : `${removal.name} saiu da grade com ${gone === 1 ? "1 combinação" : `${gone} combinações`}`,
-    { action: { label: "Desfazer", onClick: () => changeGrid(() => before) } },
+    {
+      action: {
+        label: "Desfazer",
+        onClick: () => changeGrid((current) => withOptionRestored(current, removed)),
+      },
+    },
   );
 }
 
@@ -93,7 +106,8 @@ function ColorList({ grid, errors, changeGrid }: ListProps) {
       onRemove={(key) =>
         removeWithUndo(grid, changeGrid, {
           name: grid.colors.find((color) => color.key === key)?.name ?? "A cor",
-          remove: (current) => withColorRemoved(current, key),
+          axis: "color",
+          key,
         })
       }
     />
@@ -121,7 +135,8 @@ function SizeList({ grid, errors, changeGrid }: ListProps) {
       onRemove={(key) =>
         removeWithUndo(grid, changeGrid, {
           name: `O tamanho ${grid.sizes.find((size) => size.key === key)?.name ?? ""}`.trim(),
-          remove: (current) => withSizeRemoved(current, key),
+          axis: "size",
+          key,
         })
       }
     />

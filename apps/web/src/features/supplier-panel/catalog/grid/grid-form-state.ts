@@ -241,6 +241,72 @@ export function withSizeRemoved(state: GridFormState, key: string): GridFormStat
   };
 }
 
+/** A colour or size taken out of the grid, with the grid as it was, so it can be put back. */
+export interface RemovedOption {
+  readonly axis: "color" | "size";
+  readonly key: string;
+  readonly before: GridFormState;
+}
+
+function optionsOf(state: GridFormState, axis: RemovedOption["axis"]) {
+  return axis === "color" ? state.colors : state.sizes;
+}
+
+function optionKeyOf(combination: GridFormCombination, axis: RemovedOption["axis"]) {
+  return axis === "color" ? combination.colorKey : combination.sizeKey;
+}
+
+function otherKeyOf(combination: GridFormCombination, axis: RemovedOption["axis"]) {
+  return axis === "color" ? combination.sizeKey : combination.colorKey;
+}
+
+function withOptionInserted<Option extends { key: string }>(
+  options: readonly Option[],
+  option: Option,
+  index: number,
+): Option[] {
+  return options.toSpliced(Math.min(index, options.length), 0, option);
+}
+
+/**
+ * Puts back a removed colour or size with the combinations it took along, over the grid as it is
+ * now: whatever was typed since stays. A combination whose other option was removed meanwhile
+ * stays out, and nothing comes back when an option of the same name was added meanwhile. When
+ * it was the last colour (or size), the stand-in combinations made for the other options give
+ * way to the ones it had.
+ */
+export function withOptionRestored(state: GridFormState, removed: RemovedOption): GridFormState {
+  const { axis, key, before } = removed;
+  const previous = optionsOf(before, axis);
+  const index = previous.findIndex((option) => option.key === key);
+  const name = previous[index]?.name;
+  const current = optionsOf(state, axis);
+  if (name === undefined || current.some((entry) => sameOptionName(entry.name, name))) {
+    return state;
+  }
+  const otherKeys = new Set(
+    optionsOf(state, axis === "color" ? "size" : "color").map((entry) => entry.key),
+  );
+  const restored = before.combinations.filter((combination) => {
+    const other = otherKeyOf(combination, axis);
+    return optionKeyOf(combination, axis) === key && (other === null || otherKeys.has(other));
+  });
+  const kept =
+    current.length === 0
+      ? state.combinations.filter((combination) => optionKeyOf(combination, axis) !== null)
+      : state.combinations;
+  const combinations = [...kept, ...restored];
+  const color = before.colors[index];
+  if (axis === "color" && color !== undefined) {
+    return { ...state, colors: withOptionInserted(state.colors, color, index), combinations };
+  }
+  const size = before.sizes[index];
+  if (axis === "size" && size !== undefined) {
+    return { ...state, sizes: withOptionInserted(state.sizes, size, index), combinations };
+  }
+  return state;
+}
+
 /** Turns one pair of colour and size on (blank values) or off ("Não vendo esta"). */
 export function withCombinationToggled(
   state: GridFormState,
