@@ -83,8 +83,9 @@ test("o fornecedor baixa os próprios produtos pelo menu e reenvia a planilha se
   const lines = csv.replace(/^\uFEFF/, "").split("\r\n");
   expect(lines[0]).toMatch(/^sku;titulo;descricao;custo;estoque;/);
   expect(lines.filter((line) => line.startsWith("E2E-EXP-"))).toEqual([
-    `${OWN_SKUS[0]};Saia plissada midi - Rosa;;1234,56;12;;;sim;2499,90;;;;;;;;62045200;0;UN;;;;;;`,
-    `${OWN_SKUS[1]};Blusa básica;;9,90;3;;;sim;19,90;;;;;;;;;;;;;;;;`,
+    // The test site has grids on: codigo_modelo, cor and tamanho close each line, blank here.
+    `${OWN_SKUS[0]};Saia plissada midi - Rosa;;1234,56;12;;;sim;2499,90;;;;;;;;62045200;0;UN;;;;;;;;;`,
+    `${OWN_SKUS[1]};Blusa básica;;9,90;3;;;sim;19,90;;;;;;;;;;;;;;;;;;;`,
   ]);
   expect(csv).not.toContain(FOREIGN_SKU);
 

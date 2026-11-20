@@ -2,7 +2,7 @@ import { formatCsvAttributes } from "./product-csv-attributes.ts";
 import { formatCsvFiscal } from "./product-csv-fiscal.ts";
 import { formatCsvMoney, guardFormulaCell } from "./product-csv.ts";
 import { readProductFiscal } from "./product-fiscal.ts";
-import { IMPORT_COLUMNS } from "./supplier-panel-import-columns.ts";
+import { importColumns } from "./supplier-panel-import-columns.ts";
 
 /**
  * The supplier's products as rows of the import spreadsheet: downloaded, edited in Excel and
@@ -23,6 +23,13 @@ export interface ProductExportSource {
   readonly mercadoLivreAttributes: Readonly<Record<string, string>>;
   /** The stored `fiscal` column; values that no longer pass the rules come out blank. */
   readonly fiscal: unknown;
+  /** Set on a combination of a colour and size grid; null for a product of its own. */
+  readonly grid: {
+    readonly modelCode: string;
+    readonly modelTitle: string;
+    readonly color: string | null;
+    readonly size: string | null;
+  } | null;
 }
 
 const IMAGE_SEPARATOR = "|";
@@ -39,10 +46,11 @@ function textCells(cells: Readonly<Record<string, string>>): Record<string, stri
  *
  * @throws {Error} When an import column has no cell here (the export fell behind the import).
  */
-export function productExportRow(product: ProductExportSource): string[] {
+export function productExportRow(product: ProductExportSource, gridColumns = false): string[] {
   const cells: Record<string, string> = {
     sku: product.sku,
-    titulo: guardFormulaCell(product.title),
+    // A combination's title is its model's: colour and size go in their own columns.
+    titulo: guardFormulaCell(product.grid?.modelTitle ?? product.title),
     descricao: guardFormulaCell(product.description),
     custo: formatCsvMoney(product.costCents),
     estoque: String(product.stock),
@@ -52,8 +60,11 @@ export function productExportRow(product: ProductExportSource): string[] {
     preco_sugerido: formatCsvMoney(product.suggestedPriceCents),
     ...textCells(formatCsvAttributes(product.mercadoLivreAttributes)),
     ...formatCsvFiscal(readProductFiscal(product.fiscal)),
+    codigo_modelo: guardFormulaCell(product.grid?.modelCode ?? ""),
+    cor: guardFormulaCell(product.grid?.color ?? ""),
+    tamanho: guardFormulaCell(product.grid?.size ?? ""),
   };
-  return IMPORT_COLUMNS.map((entry) => {
+  return importColumns(gridColumns).map((entry) => {
     const cell = cells[entry.column];
     if (cell === undefined) {
       throw new Error(`The product export has no cell for the import column "${entry.column}"`);

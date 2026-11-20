@@ -1,5 +1,5 @@
 {
-  "id": "0c0ece6d-8d95-429f-8313-c6f52a29c214",
+  "id": "17583f3b-1754-4390-acfa-b7cc932d4985",
   "prevId": "0052c556-9321-434f-adc9-cb0b6fce5d24",
   "version": "7",
   "dialect": "postgresql",
@@ -1134,6 +1134,12 @@
           "primaryKey": false,
           "notNull": false
         },
+        "code": {
+          "name": "code",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
         "title": {
           "name": "title",
           "type": "text",
@@ -1253,6 +1259,27 @@
             },
             {
               "expression": "supplier_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": true,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "product_models_supplier_code_idx": {
+          "name": "product_models_supplier_code_idx",
+          "columns": [
+            {
+              "expression": "supplier_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "code",
               "isExpression": false,
               "asc": true,
               "nulls": "last"
@@ -7076,6 +7103,13 @@
           "primaryKey": true,
           "notNull": true
         },
+        "provider": {
+          "name": "provider",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'stripe'"
+        },
         "customer_id": {
           "name": "customer_id",
           "type": "text",
@@ -7200,6 +7234,10 @@
       },
       "policies": {},
       "checkConstraints": {
+        "billing_accounts_provider_check": {
+          "name": "billing_accounts_provider_check",
+          "value": "\"billing_accounts\".\"provider\" in ('stripe', 'asaas')"
+        },
         "billing_accounts_payment_method_check": {
           "name": "billing_accounts_payment_method_check",
           "value": "\"billing_accounts\".\"payment_method\" is null or \"billing_accounts\".\"payment_method\" in ('pix', 'credit_card')"

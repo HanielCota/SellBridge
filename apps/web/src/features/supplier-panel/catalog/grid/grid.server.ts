@@ -1,5 +1,6 @@
 import {
   deleteUnsoldProductModel,
+  findSkusTakenOutsideModel,
   getProductModel,
   getSupplierTaxDefaults,
   publishProductModel,
@@ -17,15 +18,18 @@ import { environment } from "@/lib/server/environment";
 import { loadProductCategories } from "@/lib/server/reference-data";
 import { panelWrite, propagateApprovedChange } from "../catalog.server";
 
+const GRIDS_UNAVAILABLE_MESSAGE = "Produtos com cores e tamanhos ainda não estão disponíveis.";
+
 /**
- * Grids stay off until the grid listing is ready (decision of 19/11/2026): off, every grid
- * route answers as if grids did not exist, whatever a request sends.
+ * Grids stay off until the grid listing is ready (decision of 19/11/2026): off, every grid write
+ * is refused with that sentence, whatever a request sends, and the form says so instead of
+ * opening.
  */
 function assertProductGridEnabled(): void {
   if (environment.PRODUCT_GRID_ENABLED) {
     return;
   }
-  throw notFoundError("Página não encontrada");
+  throw notFoundError(GRIDS_UNAVAILABLE_MESSAGE);
 }
 
 function approvedCombinationIds(model: ProductModelDetail): string[] {
@@ -36,13 +40,20 @@ function approvedCombinationIds(model: ProductModelDetail): string[] {
 
 /**
  * The model being edited (or none for a new one), what the form chooses from and the brand's
- * niche, the category a new grid most likely belongs to.
+ * niche, the category a new grid most likely belongs to. While grids are switched off it says
+ * so, and the form shows it with the way back, rather than an error to retry.
  */
 export async function loadPanelModelForm(input: {
   supplierId: string;
   modelId?: string | undefined;
 }) {
-  assertProductGridEnabled();
+  if (environment.PRODUCT_GRID_ENABLED) {
+    return await loadAvailableModelForm(input);
+  }
+  return { available: false as const };
+}
+
+async function loadAvailableModelForm(input: { supplierId: string; modelId?: string | undefined }) {
   const [model, categories, taxDefaults, brand] = await Promise.all([
     input.modelId === undefined
       ? Promise.resolve(null)
@@ -57,17 +68,27 @@ export async function loadPanelModelForm(input: {
   if (input.modelId !== undefined && model === null) {
     throw notFoundError("Produto não encontrado neste fornecedor");
   }
-  return { model, categories, taxDefaults, brandNiche: brand?.niche ?? null };
+  return {
+    available: true as const,
+    model,
+    categories,
+    taxDefaults,
+    brandNiche: brand?.niche ?? null,
+  };
 }
 
 /**
- * Autosave answers a conflict (another tab, a sale, a SKU in use) as a result, not an error: the
- * form must stop saving and say why, and a server function error reaches the browser without
- * its code.
+ * Autosave answers a conflict (another tab, a sale) as a result, not an error: the form must
+ * stop saving and say why, and a server function error reaches the browser without its code. A
+ * SKU another product uses is answered apart, as the field to fix: saving goes on after it.
  */
 export async function writePanelModelDraft(input: CatalogSaveModelDraftInput) {
   assertProductGridEnabled();
   const result = await panelWrite("supplier_panel.model_save_failed", async () => {
+    const takenSkus = await findSkusTakenOutsideModel(database, input);
+    if (takenSkus.length > 0) {
+      return { saved: false as const, takenSkus };
+    }
     try {
       return { saved: true as const, model: await saveProductModelDraft(database, input) };
     } catch (error) {

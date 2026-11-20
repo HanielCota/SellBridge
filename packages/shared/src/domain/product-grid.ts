@@ -20,6 +20,25 @@ const PRODUCT_TITLE_MAX_LENGTH = 300;
 export const MAX_MODEL_TITLE_LENGTH =
   PRODUCT_TITLE_MAX_LENGTH - " - ".length - " ".length - 2 * MAX_GRID_OPTION_LENGTH;
 
+export const MAX_MODEL_CODE_LENGTH = 60;
+
+/** The supplier's code for a model, as the spreadsheet's "codigo_modelo" carries it. */
+export const modelCodeSchema = freeText()
+  .trim()
+  .min(1, "Informe o código do modelo. Exemplo: TENIS-CASUAL")
+  .max(MAX_MODEL_CODE_LENGTH, `Use até ${MAX_MODEL_CODE_LENGTH} caracteres no código do modelo`);
+
+/** "Tênis Casual Couro" → "TENIS-CASUAL-COURO": the code a grid typed in the form starts with. */
+export function modelCodeFromTitle(title: string): string {
+  const code = stripAccents(title)
+    .toUpperCase()
+    .replaceAll(/[^A-Z0-9]+/g, "-")
+    .replaceAll(/^-+|-+$/g, "")
+    .slice(0, MAX_MODEL_CODE_LENGTH - 4)
+    .replaceAll(/-+$/g, "");
+  return code === "" ? "MODELO" : code;
+}
+
 /** Refuses an edit of one combination's shared data outside its grid. */
 export const COMBINATION_EDITED_OUTSIDE_GRID_MESSAGE =
   "Este produto faz parte de uma grade de cores e tamanhos: altere o nome, as fotos e a ficha pela grade, no cadastro do produto.";
@@ -364,11 +383,6 @@ function filledFiscal(fiscal: ProductFiscalPatch): ProductFiscalPatch {
   );
 }
 
-/**
- * The full product a combination is, built from its model and its own values. The model is the
- * only place shared data is edited; every save rewrites its combinations with this, so catalog,
- * publishing, orders and invoices keep reading one complete product row as they always did.
- */
 /** The combination's colour and size, as the sheet names them ("Tênis - Preto 38" is size 38). */
 function axisAttributes(own: Pick<CombinationOwnValues, "color" | "size">): Record<string, string> {
   return {
@@ -377,6 +391,11 @@ function axisAttributes(own: Pick<CombinationOwnValues, "color" | "size">): Reco
   };
 }
 
+/**
+ * The full product a combination is, built from its model and its own values. The model is the
+ * only place shared data is edited; every save rewrites its combinations with this, so catalog,
+ * publishing, orders and invoices keep reading one complete product row as they always did.
+ */
 export function materializeCombination(
   model: ProductModelShared,
   own: CombinationOwnValues,

@@ -15,6 +15,7 @@ vi.mock("@/features/admin-suppliers/suppliers.server", () => ({
   confirmAdminProductCsv: mocks.confirm,
 }));
 vi.mock("@/lib/server/database", () => ({ database: {} }));
+vi.mock("@/lib/server/product-grid-switch", () => ({ productGridEnabled: () => false }));
 vi.mock("@sellbridge/shared/logger", () => ({
   logger: { info: mocks.log, warn: mocks.log, error: mocks.log },
 }));
@@ -36,6 +37,9 @@ function fakePreview(input: { supplierId: string; content: string }) {
     emojisRemoved: parsed.emojisRemoved,
     errors: parsed.errors,
     previewToken: token,
+    grids: 0,
+    gridCombinations: 0,
+    notices: [],
   });
 }
 
@@ -139,6 +143,9 @@ describe("previewSupplierImport", () => {
       created: 0,
       updated: 0,
       emojisRemoved: 0,
+      grids: 0,
+      gridCombinations: 0,
+      notices: [],
       errors: [{ line: 2, reason: "x" }],
       previewToken: token,
     });

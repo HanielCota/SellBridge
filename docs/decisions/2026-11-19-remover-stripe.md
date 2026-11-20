@@ -15,7 +15,7 @@ planos passou a ser cobrada pelo Asaas, e o Stripe saiu do produto.
   - as dependências `stripe` e `@stripe/cli` e o script `billing:listen`;
   - o caminho do Stripe na exclusão de conta;
   - o registro da validação em modo de teste (`docs/billing-validation.md`).
-- **Banco:** a migração `0097_drop_stripe_billing` deixa sem plano as contas ainda ligadas ao Stripe
+- **Banco:** a migração `0099_drop_stripe_billing` deixa sem plano as contas ainda ligadas ao Stripe
   e apaga a coluna `billing_accounts.provider`. Ela faz o mesmo que a exclusão faz com um cliente:
   apaga os vínculos, o plano volta a "sem plano" e a situação fica "cancelada". Só contas de teste
   têm esse vínculo. A produção nunca cobrou pelo Stripe: em 19/11 e de novo em 20/11, nenhuma

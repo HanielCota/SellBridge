@@ -1,12 +1,12 @@
 import { and, eq, lt, sql } from "drizzle-orm";
 import type { Database } from "../client.ts";
-import { erpStockExits } from "../schema/index.ts";
+import { erpStockExits, type ErpStockOperation } from "../schema/index.ts";
 import { owedStockExit } from "./sql/owed-stock-exit.ts";
 
 /** A reservation still "posting" after this long lost its worker mid-call. */
 const STALLED_POSTING_IN_MINUTES = 10;
 
-/** A sold item whose stock exit is due in the supplier's ERP. */
+/** An order item whose stock movement (a sale's exit, or its return's entry) is due in the ERP. */
 export interface ErpStockExitDue {
   readonly orderItemId: string;
   readonly supplierId: string;
@@ -29,16 +29,7 @@ export async function listErpStockExitsDue(
   database: Database,
   limit: number,
 ): Promise<ErpStockExitDue[]> {
-  const rows = await database.execute<{
-    order_item_id: string;
-    supplier_id: string;
-    supplier_product_id: string;
-    erp_product_id: string | number;
-    sku: string;
-    title: string;
-    quantity: number;
-    external_order_id: string;
-  }>(sql`
+  const rows = await database.execute<DueMovementRow>(sql`
     select item.id as order_item_id, product.supplier_id, product.id as supplier_product_id,
       product.erp_product_id, product.sku, item.title, item.quantity,
       sale.external_order_id
@@ -54,12 +45,28 @@ export async function listErpStockExitsDue(
     join orders as sale on sale.id = item.order_id
     where ${owedStockExit}
       and not exists (
-        select 1 from erp_stock_exits as posted where posted.order_item_id = item.id
+        select 1 from erp_stock_exits as posted
+        where posted.order_item_id = item.id and posted.operation = 'exit'
       )
     order by item.id
     limit ${limit}
   `);
-  return rows.map((row) => ({
+  return rows.map(toDueMovement);
+}
+
+type DueMovementRow = {
+  order_item_id: string;
+  supplier_id: string;
+  supplier_product_id: string;
+  erp_product_id: string | number;
+  sku: string;
+  title: string;
+  quantity: number;
+  external_order_id: string;
+};
+
+function toDueMovement(row: DueMovementRow): ErpStockExitDue {
+  return {
     orderItemId: row.order_item_id,
     supplierId: row.supplier_id,
     supplierProductId: row.supplier_product_id,
@@ -68,21 +75,62 @@ export async function listErpStockExitsDue(
     title: row.title,
     quantity: row.quantity,
     externalOrderId: row.external_order_id,
-  }));
+  };
 }
 
 /**
- * Reserves the item's exit before calling the ERP and returns its id; null when a row already
- * exists (posted, being posted, or waiting for the team): an exit is never posted twice.
+ * Returned items the supplier put back on its shelf whose sale's exit SellBridge posted to the
+ * ERP, with no entry row yet: the entry reverses that exit, same product and quantity. An item
+ * whose exit SellBridge did not post (its NF-e went through SellBridge, or the exit waits on the
+ * team) gets no entry: the ERP's own stock moved some other way, and an entry could count the
+ * units twice. Needs the same connection rules as the exits.
+ */
+export async function listErpStockEntriesDue(
+  database: Database,
+  limit: number,
+): Promise<ErpStockExitDue[]> {
+  const rows = await database.execute<DueMovementRow>(sql`
+    select item.id as order_item_id, product.supplier_id, product.id as supplier_product_id,
+      sold.erp_product_id, sold.sku, item.title, sold.quantity, sold.external_order_id
+    from return_claims as claim
+    join order_items as item
+      on item.order_id = claim.order_id and item.id = any(claim.restock_item_ids)
+    join erp_stock_exits as sold
+      on sold.order_item_id = item.id and sold.operation = 'exit' and sold.status = 'posted'
+    join supplier_products as product
+      on product.id = item.supplier_product_id and product.erp_product_id = sold.erp_product_id
+    join supplier_erp_connections as connection
+      on connection.supplier_id = product.supplier_id
+      and connection.provider = 'bling'
+      and connection.status = 'connected'
+      and connection.stock_checked_at >= connection.connected_at
+    where claim.stock_returned_at is not null
+      and claim.stock_returned_at >= connection.stock_exits_since
+      and not exists (
+        select 1 from erp_stock_exits as returned
+        where returned.order_item_id = item.id and returned.operation = 'entry'
+      )
+    order by item.id
+    limit ${limit}
+  `);
+  return rows.map(toDueMovement);
+}
+
+/**
+ * Reserves the item's movement before calling the ERP and returns its id; null when a row of
+ * that operation already exists (posted, being posted, or waiting for the team): a movement is
+ * never posted twice.
  */
 export async function reserveErpStockExit(
   database: Database,
   exit: ErpStockExitDue,
+  operation: ErpStockOperation,
 ): Promise<string | null> {
   const [row] = await database
     .insert(erpStockExits)
     .values({
       orderItemId: exit.orderItemId,
+      operation,
       supplierId: exit.supplierId,
       supplierProductId: exit.supplierProductId,
       erpProductId: exit.erpProductId,
@@ -91,7 +139,7 @@ export async function reserveErpStockExit(
       externalOrderId: exit.externalOrderId,
       status: "posting",
     })
-    .onConflictDoNothing({ target: erpStockExits.orderItemId })
+    .onConflictDoNothing({ target: [erpStockExits.orderItemId, erpStockExits.operation] })
     .returning({ id: erpStockExits.id });
   return row?.id ?? null;
 }
@@ -144,14 +192,15 @@ export interface StalledErpStockExit {
  */
 export async function takeStalledErpStockExits(
   database: Database,
-  problem: string,
+  input: { operation: ErpStockOperation; problem: string },
 ): Promise<StalledErpStockExit[]> {
   return database
     .update(erpStockExits)
-    .set({ status: "uncertain", problem })
+    .set({ status: "uncertain", problem: input.problem })
     .where(
       and(
         eq(erpStockExits.status, "posting"),
+        eq(erpStockExits.operation, input.operation),
         lt(
           erpStockExits.createdAt,
           sql`now() - make_interval(mins => ${STALLED_POSTING_IN_MINUTES})`,
