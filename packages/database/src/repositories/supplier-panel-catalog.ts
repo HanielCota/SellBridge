@@ -355,7 +355,27 @@ const exportColumns = {
   active: supplierProducts.active,
   mercadoLivreAttributes: supplierProducts.mercadoLivreAttributes,
   fiscal: supplierProducts.fiscal,
+  modelCode: productModels.code,
+  modelTitle: productModels.title,
+  color: supplierProducts.color,
+  size: supplierProducts.size,
 };
+
+/** A combination comes out with its model's code and title, its colour and its size. */
+function exportSource(
+  row: {
+    modelCode: string | null;
+    modelTitle: string | null;
+    color: string | null;
+    size: string | null;
+  } & Omit<ProductExportSource, "grid">,
+): ProductExportSource {
+  const { modelCode, modelTitle, color, size, ...product } = row;
+  return {
+    ...product,
+    grid: modelCode === null || modelTitle === null ? null : { modelCode, modelTitle, color, size },
+  };
+}
 
 /**
  * The products the panel list shows with these filters, in SKU order, a batch at a time: the
@@ -378,13 +398,16 @@ export async function* supplierCatalogExportBatches(
   let afterSku: string | null = null;
   let batchWasFull = true;
   while (batchWasFull) {
-    const rows: ProductExportSource[] = await database
-      .select(exportColumns)
-      .from(supplierProducts)
-      .leftJoin(categories, eq(categories.id, supplierProducts.categoryId))
-      .where(and(condition, afterSku === null ? undefined : gt(supplierProducts.sku, afterSku)))
-      .orderBy(asc(supplierProducts.sku))
-      .limit(batchSize);
+    const rows: ProductExportSource[] = (
+      await database
+        .select(exportColumns)
+        .from(supplierProducts)
+        .leftJoin(categories, eq(categories.id, supplierProducts.categoryId))
+        .leftJoin(productModels, eq(productModels.id, supplierProducts.modelId))
+        .where(and(condition, afterSku === null ? undefined : gt(supplierProducts.sku, afterSku)))
+        .orderBy(asc(supplierProducts.sku))
+        .limit(batchSize)
+    ).map(exportSource);
     if (rows.length > 0) {
       yield rows;
     }

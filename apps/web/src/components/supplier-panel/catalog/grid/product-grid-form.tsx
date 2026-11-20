@@ -167,6 +167,7 @@ function ReviewStep({ form }: { form: GridForm }) {
     <GridReviewStep
       values={form.values}
       grid={form.grid}
+      modelCode={form.saved?.code ?? null}
       categoryName={form.category?.name ?? null}
       status={form.status}
       hasDraftCombination={

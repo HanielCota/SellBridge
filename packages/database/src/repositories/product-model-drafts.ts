@@ -37,6 +37,7 @@ import {
   combinationRow,
   getProductModel,
   lockSupplier,
+  modelCodeFor,
   rewriteCombinations,
   type ProductModelDetail,
 } from "./product-models.ts";
@@ -87,9 +88,13 @@ async function writeModel(
   input: CatalogSaveModelDraftInput,
 ): Promise<void> {
   const values = { ...input.values, imageUrls: [...input.values.imageUrls] };
+  const code = await modelCodeFor(transaction, {
+    supplierId: input.supplierId,
+    title: input.values.title,
+  });
   const created = await transaction
     .insert(productModels)
-    .values({ id: input.modelId, supplierId: input.supplierId, ...values })
+    .values({ id: input.modelId, supplierId: input.supplierId, code, ...values })
     .onConflictDoNothing({ target: productModels.id })
     .returning({ id: productModels.id });
   if (created.length > 0) {
@@ -427,7 +432,7 @@ function publishingProblems(
 }
 
 /** A combination on sale goes back to draft when an edit of the model leaves it unsellable. */
-async function demoteUnsellableCombinations(
+export async function demoteUnsellableCombinations(
   transaction: DatabaseExecutor,
   input: { supplierId: string; modelId: string; categoryId: string | null },
 ): Promise<void> {

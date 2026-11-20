@@ -680,6 +680,13 @@
       "when": 1795160406319,
       "tag": "0096_billing_asaas",
       "breakpoints": true
+    },
+    {
+      "idx": 97,
+      "version": "7",
+      "when": 1795165877090,
+      "tag": "0097_product_model_code",
+      "breakpoints": true
     }
   ]
 }

@@ -67,6 +67,7 @@ function savedModel(reviewStatus: string): ProductModelDetail {
   return {
     id: input.modelId,
     supplierId: input.supplierId,
+    code: "TENIS-CASUAL",
     updatedAt: new Date("2026-11-19T12:00:00Z"),
     values: modelValues,
     colors: [{ name: "Preto", imageUrls: [] }],
