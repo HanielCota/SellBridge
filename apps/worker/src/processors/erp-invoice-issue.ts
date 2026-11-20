@@ -116,6 +116,23 @@ async function recordFailure(
   });
 }
 
+const CONNECTION_CHANGED_PROBLEM =
+  "A conexão do Bling mudou depois que esta nota entrou na fila. Confira a nota na conta original antes de emitir outra.";
+
+function invoiceConnectionEpoch(work: ShipmentInvoiceWork): Date | undefined {
+  if (work.kind === "direct") {
+    return undefined;
+  }
+
+  const connectedAt = work.erpConnectedAt;
+  const firstNoteCreatedAt = work.onBehalf?.shipmentNote?.createdAt ?? work.createdAt;
+  if (connectedAt === null || connectedAt > firstNoteCreatedAt) {
+    throw new InvoiceStopError(CONNECTION_CHANGED_PROBLEM);
+  }
+
+  return connectedAt;
+}
+
 async function processOne(
   dependencies: ErpInvoiceDependencies & { blingCredentials: BlingAppCredentials },
   invoiceId: string,
@@ -142,7 +159,8 @@ async function processOne(
     return;
   }
   try {
-    const client = supplierBlingClient(dependencies, work.supplierId);
+    const epoch = invoiceConnectionEpoch(work);
+    const client = supplierBlingClient(dependencies, work.supplierId, epoch);
     const advance = work.kind === "direct" ? advanceInvoice : advanceOnBehalfInvoice;
     await advance({ ...dependencies, client }, work);
   } catch (error) {
