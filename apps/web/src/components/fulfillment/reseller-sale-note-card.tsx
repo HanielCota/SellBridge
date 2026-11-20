@@ -1,11 +1,16 @@
-import { CheckIcon, ClockIcon, ReceiptIcon } from "@phosphor-icons/react";
+import { CheckIcon, ClockIcon, ReceiptIcon, UploadSimpleIcon } from "@phosphor-icons/react";
 import { accessKeyFormatProblem } from "@sellbridge/shared/nfe-access-key";
+import { MAX_NFE_XML_BYTES } from "@sellbridge/shared/nfe-xml";
+import type { ResellerInvoiceSource } from "@sellbridge/shared/reseller-invoice";
 import { formatAccessKey } from "@sellbridge/shared/supplier-invoice";
 import { useState } from "react";
 import { TonePill } from "@/components/data/tone-status";
 import { FloatingTextField } from "@/components/form/floating-field";
 import { Button } from "@/components/ui/button";
-import { saveResellerSaleNoteFn } from "@/features/fulfillment/reseller-sale-note.functions";
+import {
+  saveResellerSaleNoteFn,
+  uploadResellerSaleNoteXmlFn,
+} from "@/features/fulfillment/reseller-sale-note.functions";
 import { errorMessage } from "@/lib/errors";
 import { formatAbsoluteTime } from "@/lib/relative-time";
 
@@ -13,15 +18,100 @@ export interface ResellerSaleNote {
   accessKey: string | null;
   number: string | null;
   series: string | null;
-  source: "marketplace" | "typed" | null;
+  source: ResellerInvoiceSource | null;
   foundAt: Date | null;
   problem: string | null;
 }
 
-const SOURCE_LABELS = {
+const SOURCE_LABELS: Record<ResellerInvoiceSource, string> = {
   marketplace: "Lida no pedido do marketplace",
   typed: "Chave informada por você",
-} as const;
+  uploaded: "XML enviado por você ao Mercado Livre",
+};
+
+/** Mercado Livre takes the note only as its XML: a typed key never reaches it. */
+function wantsXml(marketplace: string): boolean {
+  return marketplace === "mercado_livre";
+}
+
+/** The XML file and its send: read in the browser, checked and sent on by the server. */
+function useXmlUpload(shipmentId: string, onSaved: () => Promise<void>) {
+  const [file, setFile] = useState<File | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [isSending, setIsSending] = useState(false);
+  async function send() {
+    setError(null);
+    if (file === null) {
+      setError("Escolha o arquivo XML da nota.");
+      return;
+    }
+    if (file.size > MAX_NFE_XML_BYTES) {
+      setError(
+        "Este arquivo é grande demais para ser o XML de uma nota. Confira se é o .xml da nota.",
+      );
+      return;
+    }
+    setIsSending(true);
+    try {
+      await uploadResellerSaleNoteXmlFn({ data: { shipmentId, xml: await file.text() } });
+      await onSaved();
+    } catch (failure) {
+      setError(errorMessage(failure));
+    } finally {
+      setIsSending(false);
+    }
+  }
+  return { error, isSending, setFile, send };
+}
+
+/** "Enviar XML": the file Mercado Livre needs to let the label out. */
+function XmlUploadForm({
+  shipmentId,
+  onSaved,
+}: {
+  shipmentId: string;
+  onSaved: () => Promise<void>;
+}) {
+  const upload = useXmlUpload(shipmentId, onSaved);
+  const inputId = `reseller-note-xml-${shipmentId}`;
+  const errorId = `${inputId}-error`;
+  return (
+    <form
+      noValidate
+      className="grid gap-3"
+      onSubmit={(event) => {
+        event.preventDefault();
+        void upload.send();
+      }}
+    >
+      <label htmlFor={inputId} className="text-subhead font-medium">
+        Arquivo XML da nota (.xml)
+      </label>
+      <input
+        id={inputId}
+        type="file"
+        accept=".xml,application/xml,text/xml"
+        aria-describedby={upload.error === null ? undefined : errorId}
+        className="text-subhead file:mr-3 file:min-h-11 file:rounded-full file:border file:bg-transparent file:px-4 file:font-medium"
+        onChange={(event) => upload.setFile(event.target.files?.[0] ?? null)}
+      />
+      {upload.error === null ? null : (
+        <output id={errorId} className="block text-footnote text-destructive">
+          {upload.error}
+        </output>
+      )}
+      <Button
+        type="submit"
+        variant="outline"
+        disabled={upload.isSending}
+        className="min-h-11 w-full sm:w-fit"
+      >
+        <UploadSimpleIcon aria-hidden="true" />
+        {upload.isSending ? "Enviando…" : "Enviar XML"}
+      </Button>
+    </form>
+  );
+}
 
 function FoundNote({ note, keyDigits }: { note: ResellerSaleNote; keyDigits: string }) {
   const series = note.series === null ? "" : ` · série ${note.series}`;
@@ -125,26 +215,55 @@ function TypedKeyForm({
 function WaitingNote({
   note,
   shipmentId,
+  marketplace,
   onSaved,
 }: {
   note: ResellerSaleNote;
   shipmentId: string;
+  marketplace: string;
   onSaved: () => Promise<void>;
 }) {
+  const xml = wantsXml(marketplace);
   return (
     <>
       <p className="text-subhead text-muted-foreground">
         Nesta venda, quem emite a nota para o comprador é a sua empresa (venda à ordem). Emita no
         seu sistema (UpSeller, Bling ou outro) e envie ao marketplace: o SellBridge encontra a nota
-        no pedido sozinho. Se ela não aparecer aqui, cole a chave de acesso.
+        no pedido sozinho.{" "}
+        {xml
+          ? "Se o seu sistema não enviar, mande aqui o arquivo XML da nota: o SellBridge envia ao Mercado Livre."
+          : "Se ela não aparecer aqui, cole a chave de acesso."}
       </p>
       {note.problem === null ? null : (
         <output className="block text-footnote text-amber-700 dark:text-amber-400">
           {note.problem}
         </output>
       )}
-      <TypedKeyForm shipmentId={shipmentId} onSaved={onSaved} />
+      {xml ? (
+        <XmlUploadForm shipmentId={shipmentId} onSaved={onSaved} />
+      ) : (
+        <TypedKeyForm shipmentId={shipmentId} onSaved={onSaved} />
+      )}
     </>
+  );
+}
+
+/** A key typed before, on Mercado Livre: the supplier's notes go on, but the label waits for it. */
+function MissingOnMarketplace({
+  shipmentId,
+  onSaved,
+}: {
+  shipmentId: string;
+  onSaved: () => Promise<void>;
+}) {
+  return (
+    <div className="grid gap-3 rounded-xl bg-amber-500/10 p-3">
+      <p className="text-subhead">
+        O Mercado Livre ainda não tem esta nota, e a etiqueta só sai com ela. Envie o arquivo XML da
+        nota: o SellBridge manda para o Mercado Livre.
+      </p>
+      <XmlUploadForm shipmentId={shipmentId} onSaved={onSaved} />
+    </div>
   );
 }
 
@@ -154,10 +273,12 @@ function WaitingNote({
  */
 export function ResellerSaleNoteCard({
   shipmentId,
+  marketplace,
   note,
   onSaved,
 }: {
   shipmentId: string;
+  marketplace: string;
   note: ResellerSaleNote;
   onSaved: () => Promise<void>;
 }) {
@@ -186,10 +307,18 @@ export function ResellerSaleNoteCard({
         )}
       </div>
       {accessKey === null ? (
-        <WaitingNote note={note} shipmentId={shipmentId} onSaved={onSaved} />
+        <WaitingNote
+          note={note}
+          shipmentId={shipmentId}
+          marketplace={marketplace}
+          onSaved={onSaved}
+        />
       ) : (
         <FoundNote note={note} keyDigits={accessKey} />
       )}
+      {accessKey !== null && note.source === "typed" && wantsXml(marketplace) ? (
+        <MissingOnMarketplace shipmentId={shipmentId} onSaved={onSaved} />
+      ) : null}
     </section>
   );
 }

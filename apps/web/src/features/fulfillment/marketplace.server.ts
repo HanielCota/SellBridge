@@ -4,6 +4,7 @@ import {
   getMercadoLivreLabels,
   getMercadoLivreShipping,
   getTikTokShopShippingLabel,
+  sendMercadoLivreSaleInvoice,
   type MercadoLivreLabelFile,
   type PrintedLabel,
   type StoreCredentials,
@@ -15,7 +16,7 @@ import {
   isLabelMarketplace,
 } from "@sellbridge/shared/supplier-order-labels";
 import { findOrderLabelParcels } from "@sellbridge/database/repositories";
-import { orders, storeConnections } from "@sellbridge/database/schema";
+import { orders, orderShipments, storeConnections } from "@sellbridge/database/schema";
 import { labelSharingRefusal } from "@/features/fulfillment/label-sharing";
 import { isShippingBlocked } from "@/features/fulfillment/shipping-block";
 import { database } from "@/lib/server/database";
@@ -201,4 +202,31 @@ export async function loadMarketplaceLabels(
       ...batch.refused.map((item) => ({ orderId: internal(item.orderId), error: item.error })),
     ],
   };
+}
+
+/**
+ * Sends the reseller's own sale note (its XML) to the marketplace of the parcel's order, where the
+ * label needs it. Only Mercado Livre asks for it; elsewhere there is nothing to send.
+ *
+ * @throws {AppError} NOT_FOUND when the parcel is not the reseller's; CONFLICT when the store must
+ * be reconnected; EXTERNAL_PROVIDER when Mercado Livre refuses the note, with the reason.
+ */
+export async function sendResellerSaleNoteToMarketplace(
+  tenantId: string,
+  input: { shipmentId: string; accessKey: string; xml: string },
+): Promise<void> {
+  const [parcel] = await database
+    .select({ orderId: orderShipments.orderId })
+    .from(orderShipments)
+    .where(and(eq(orderShipments.id, input.shipmentId), eq(orderShipments.tenantId, tenantId)));
+  if (parcel === undefined) throw notFoundError("Pedido não encontrado");
+  const row = await orderStore(tenantId, parcel.orderId);
+  if (row.store.marketplace !== "mercado_livre") {
+    return;
+  }
+  await sendMercadoLivreSaleInvoice(mercadoLivreApiConfig, storeCredentials(row.store), {
+    orderId: row.externalOrderId,
+    accessKey: input.accessKey,
+    xml: input.xml,
+  });
 }
