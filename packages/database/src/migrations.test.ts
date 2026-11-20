@@ -515,11 +515,13 @@ describe("migrations", { timeout: MIGRATION_TEST_TIMEOUT }, () => {
         insert into organization (id, name, slug, created_at) values
           ('org-stripe', 'Stripe', 'stripe-billing', now()),
           ('org-asaas', 'Asaas', 'asaas-billing', now()),
+          ('org-customer-only', 'Cliente', 'customer-only-billing', now()),
           ('org-unlinked', 'Sem vínculo', 'unlinked-billing', now())`;
       await sql`
         insert into billing_accounts (tenant_id, provider, customer_id, subscription_id, plan, status, period_end) values
           ('org-stripe', 'stripe', 'cus_stripe', 'sub_stripe', 'pro', 'active', '2026-12-20T00:00:00Z'),
           ('org-asaas', 'asaas', 'cus_asaas', 'sub_asaas', 'elite', 'active', '2026-12-20T00:00:00Z'),
+          ('org-customer-only', 'stripe', 'cus_only', null, 'pro', 'incomplete', null),
           ('org-unlinked', 'stripe', null, null, 'start', 'active', null)`;
     });
 
@@ -546,6 +548,13 @@ describe("migrations", { timeout: MIGRATION_TEST_TIMEOUT }, () => {
         subscription_id: "sub_asaas",
         plan: "elite",
         status: "active",
+      },
+      {
+        tenant_id: "org-customer-only",
+        customer_id: null,
+        subscription_id: null,
+        plan: "free",
+        status: "canceled",
       },
       {
         tenant_id: "org-stripe",
