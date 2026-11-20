@@ -5,11 +5,14 @@ import {
   blingRequest,
   type BlingHttpOptions,
 } from "./http.ts";
+import { blingDirectInvoiceCalls } from "./direct-invoices.ts";
 import { blingInvoiceCalls, type BlingCall } from "./invoices.ts";
 import type { BlingTokens } from "./oauth.ts";
 import type { BlingRateLimiter } from "./rate-limit.ts";
 import {
   blingCompanyResponseSchema,
+  blingCreatedStockResponseSchema,
+  blingDepositListResponseSchema,
   blingStockBalanceResponseSchema,
   blingCreatedProductResponseSchema,
   blingProductDetailResponseSchema,
@@ -127,6 +130,57 @@ function createBlingCaller(options: BlingClientOptions) {
   };
 }
 
+/** One stock exit: `quantity` units of the product leave `depositId` (`POST /estoques`, "S"). */
+export interface BlingStockExit {
+  readonly erpProductId: number;
+  readonly depositId: number;
+  readonly quantity: number;
+  readonly note: string;
+}
+
+/** Where SellBridge's own sales leave Bling's stock: the default warehouse and the exit. */
+function blingStockExitCalls(call: BlingCall) {
+  return {
+    /** The account's active warehouses, with which one is the default. */
+    async listActiveDeposits(): Promise<{ id: number; isDefault: boolean }[]> {
+      const response = await call({
+        path: "/depositos?situacao=1&limite=100",
+        schema: blingDepositListResponseSchema,
+      });
+      return response.data
+        .filter((deposit) => deposit.situacao === 1)
+        .map((deposit) => ({ id: deposit.id, isDefault: deposit.padrao }));
+    },
+
+    /**
+     * Posts a stock exit and returns its id. Bling takes no idempotency key: the caller makes
+     * sure the same exit is never sent twice, and never retries one whose answer was lost.
+     */
+    async postStockExit(exit: BlingStockExit): Promise<number> {
+      if (!Number.isInteger(exit.quantity) || exit.quantity <= 0) {
+        throw new RangeError(
+          `Stock exit quantity must be a positive integer, got ${exit.quantity}`,
+        );
+      }
+      const response = await call({
+        path: "/estoques",
+        init: {
+          method: "POST",
+          body: JSON.stringify({
+            produto: { id: exit.erpProductId },
+            deposito: { id: exit.depositId },
+            operacao: "S",
+            quantidade: exit.quantity,
+            observacoes: exit.note,
+          }),
+        },
+        schema: blingCreatedStockResponseSchema,
+      });
+      return response.data.id;
+    },
+  };
+}
+
 /** The stock sync's reads: the account's company id and product balances. */
 function blingStockCalls(call: BlingCall) {
   return {
@@ -173,7 +227,9 @@ export function createBlingClient(options: BlingClientOptions) {
 
   return {
     ...blingInvoiceCalls(call),
+    ...blingDirectInvoiceCalls(call),
     ...blingStockCalls(call),
+    ...blingStockExitCalls(call),
     /** One page of the summary list (active products by default). */
     async listProducts(input: { page: number; criterio?: 1 | 2 | 3 | 4 | 5 }) {
       const query = new URLSearchParams({

@@ -1,6 +1,7 @@
 import { loadProductCategories } from "@/lib/server/reference-data";
 import { createHash } from "node:crypto";
 import {
+  countSuppliersWithoutPanel,
   getAdminSupplier,
   importSupplierProducts,
   listAdminSupplierProducts,
@@ -19,6 +20,7 @@ import { logger } from "@sellbridge/shared/logger";
 import { parseProductCsv } from "@sellbridge/shared/product-csv";
 import type { z } from "zod";
 import type {
+  AdminSupplierListSearch,
   AdminSupplierSearch,
   adminConfirmProductCsvSchema,
   adminProductCsvSchema,
@@ -30,8 +32,13 @@ import { database } from "@/lib/server/database";
 import { productGridEnabled } from "@/lib/server/product-grid-switch";
 import { requestStockSync } from "@/lib/server/stock-sync";
 
-export async function loadAdminSuppliers(search: AdminSupplierSearch) {
-  return await listAdminSuppliers(database, search.query, search);
+/** A page of suppliers, and how many active ones still have no panel login. */
+export async function loadAdminSuppliers(search: AdminSupplierListSearch) {
+  const [page, withoutPanelCount] = await Promise.all([
+    listAdminSuppliers(database, search.query, search, { withoutPanel: search.panel === "none" }),
+    countSuppliersWithoutPanel(database),
+  ]);
+  return { ...page, withoutPanelCount };
 }
 
 /** The supplier, the categories for its products and the shops that sell it. */

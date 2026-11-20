@@ -1,11 +1,11 @@
-import { adminSupplierSearchSchema } from "@sellbridge/shared/schemas";
+import { adminSupplierListSearchSchema } from "@sellbridge/shared/schemas";
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { SupplierIndex } from "@/components/admin-suppliers/supplier-index";
 import { adminSuppliersQueryOptions } from "@/features/admin-suppliers/suppliers.queries";
 import { prefetchOnServer } from "@/lib/prefetch";
 
 export const Route = createFileRoute("/_app/admin/fornecedores/")({
-  validateSearch: adminSupplierSearchSchema,
+  validateSearch: adminSupplierListSearchSchema,
   loaderDeps: ({ search }) => search,
   loader: ({ context, deps }) =>
     prefetchOnServer(context.queryClient, adminSuppliersQueryOptions(deps)),
@@ -21,6 +21,9 @@ function SuppliersPage() {
       search={search}
       onSearch={(query) =>
         void navigate({ search: (previous) => ({ ...previous, query, page: 1 }), replace: true })
+      }
+      onPanelFilter={(panel) =>
+        void navigate({ search: (previous) => ({ ...previous, panel, page: 1 }), replace: true })
       }
       onPageChange={(page) =>
         void navigate({ search: (previous) => ({ ...previous, page }), replace: true })

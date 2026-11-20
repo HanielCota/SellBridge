@@ -46,7 +46,7 @@ import { useNow } from "@/hooks/use-now";
 import { SplitLabelNotice } from "@/components/fulfillment/split-order-notice";
 import { LabelFormatMenu } from "./label-format-menu";
 import { LabelStatus, PostingDeadlineStatus } from "./order-row-parts";
-import { SupplierInvoiceCard } from "./supplier-invoice-card";
+import { SupplierParcelNotes } from "./supplier-parcel-notes";
 import { SupplierParcelTracking } from "./supplier-parcel-tracking";
 
 type PanelShipment = Awaited<
@@ -313,11 +313,13 @@ function PanelBody({ supplierId, shipmentId }: { supplierId: string; shipmentId:
   return (
     <div className="space-y-4">
       <OrderFacts shipment={query.data} />
-      <SupplierInvoiceCard
+      <SupplierParcelNotes
         supplierId={supplierId}
         shipmentId={shipmentId}
         orderId={query.data.orderId}
         invoice={query.data.invoice}
+        saleInvoice={query.data.saleInvoice}
+        resellerNote={query.data.resellerNote}
       />
       <StopAlert saleBlocked={saleBlocked} hold={hold} shipment={query.data} />
       {query.data.splitOrder ? <SplitLabelNotice /> : null}

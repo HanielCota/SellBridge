@@ -429,8 +429,10 @@ test("a parcel of an order on hold warns the supplier and offers no next step", 
   const supplier = await context.newPage();
   try {
     await gotoHydrated(supplier, `/fornecedor/pedido/${link.token}`);
-    const warning = supplier.getByRole("alert");
-    await expect(warning).toContainText("Pedido sem liberação para envio");
+    const warning = supplier
+      .getByRole("alert")
+      .filter({ hasText: "Pedido sem liberação para envio" });
+    await expect(warning).toBeVisible();
     await expect(warning).toContainText("Fale com o revendedor");
     await expect(
       supplier.getByRole("button", { name: "Marcar como aceito", exact: true }),

@@ -62,3 +62,21 @@ No aplicativo do SellBridge no Bling, aba Webhooks: cadastrar o servidor `https:
 - https://developer.bling.com.br/limites: 3 por segundo, 120.000 por dia, bloqueios de IP.
 - https://developer.bling.com.br/aplicativos: o token vale 6 horas e o de renovação, 30 dias.
 - OpenAPI oficial: `GET /estoques/saldos` (`idsProdutos[]` até 100, `filtroSaldoEstoque` com padrão 1), `GET /empresas/me/dados-basicos` e `POST /estoques`.
+
+## Passo 2: a saída das vendas do SellBridge lançada no Bling
+
+Decisão do Guilherme, repassada pela Central em 19/11/2026: "Aprova os dois" (opção A).
+
+- **O que é lançado:** a saída do item vendido pelo SellBridge, no Bling do fornecedor, quando o pacote é enviado e a NF-e não saiu pelo SellBridge. É o mesmo momento em que o SellBridge baixa o próprio estoque. Usa `POST /estoques` com a operação `S`, o produto ligado e a quantidade, a partir do depósito padrão ativo do Bling (ou do único ativo). A observação diz "SellBridge: venda do pedido <número>". Nunca é criado pedido nem nota.
+- **Quem entra:** pacote com nota pelo SellBridge não recebe saída, porque o pedido de venda daquela nota já baixa o estoque no Bling. Isso vale também para o pacote que a fila de notas ainda vai pegar (ela roda a cada 2 minutos, e o pacote pode ser enviado antes). Produto sem ligação com o Bling também não recebe. Só entram vendas enviadas depois que o recurso ligou (`supplier_erp_connections.stock_exits_since`), nunca as antigas. Uma saída travada (conexão perdida, depósito padrão faltando) é lançada quando destravar, por mais tempo que tenha esperado.
+- **Nunca duas vezes:** o `POST /estoques` do Bling não aceita chave de idempotência e a API não lista os lançamentos feitos. Por isso, cada item tem uma linha em `erp_stock_exits`, com chave única e reservada antes da chamada.
+  - Acesso recusado ou limite de chamadas: o Bling com certeza não registrou, então a reserva é desfeita e a próxima rodada tenta de novo.
+  - Recusa do Bling (4xx): a linha fica como "falhou".
+  - Resultado desconhecido (tempo esgotado, 5xx, ou um worker que parou no meio por mais de 10 minutos): a linha fica como "incerta".
+  - Nos dois últimos casos, nada é mandado de novo, e a página Problemas mostra o produto, o pedido e a quantidade para a equipe conferir no Bling.
+- **Enquanto a saída não chega ao Bling:** a conferência de estoque desconta do saldo do Bling as unidades das saídas ainda não lançadas, para o SellBridge não voltar a vender o que já saiu. As saídas "falhou" e "incerta" ficam com a equipe e não são descontadas. O mesmo desconto vale para o pacote com nota pelo SellBridge que ainda não tem pedido de venda no Bling (nota na fila, parada em "atenção" ou cancelada antes do pedido): sem o pedido, o Bling não baixou. Se o fornecedor resolver a nota emitindo direto no Bling, o desconto continua; o erro fica do lado seguro (vender a menos, nunca em dobro).
+- **Limite de chamadas:** se o Bling responder com o limite de chamadas, as outras saídas do mesmo fornecedor esperam a próxima rodada.
+- **Ritmo:** a cada minuto, para a saída chegar ao Bling antes que a conferência de 15 minutos leia o saldo antigo.
+- **Sem depósito padrão:** se o Bling tiver vários depósitos ativos e nenhum padrão, nada é lançado e Problemas pede para o fornecedor marcar um.
+- **Com isso, o automático vale para todo fornecedor com o Bling conectado.** O cartão do Bling deixa de falar da nota.
+- **Fora:** devolução e cancelamento depois do envio não lançam entrada no Bling; o fornecedor confere quando a mercadoria volta.

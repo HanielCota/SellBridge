@@ -1,5 +1,5 @@
 import { sql } from "drizzle-orm";
-import type { InvoiceStatus } from "@sellbridge/shared/supplier-invoice";
+import type { InvoiceKind, InvoiceStatus } from "@sellbridge/shared/supplier-invoice";
 import {
   bigint,
   check,
@@ -16,7 +16,8 @@ import {
 import { organization, user } from "./auth.ts";
 import { erpCatalogReadStatusEnum, erpProviderEnum, storeConnectionStatusEnum } from "./enums.ts";
 import { orderShipments } from "./fulfillment.ts";
-import { suppliers } from "./suppliers.ts";
+import { orderItems } from "./orders.ts";
+import { supplierProducts, suppliers } from "./suppliers.ts";
 
 /**
  * A supplier's ERP account (Bling first), connected by OAuth. Owned by the supplier, not by a
@@ -58,6 +59,12 @@ export const supplierErpConnections = pgTable(
      */
     invoiceEnabledAt: timestamp({ withTimezone: true }),
     /**
+     * The ERP's ids of the two operations ("naturezas de operação") of venda à ordem: the remessa
+     * to the buyer and the sale to the reseller. They belong to this ERP account; null until chosen.
+     */
+    onBehalfShipmentOperationId: bigint({ mode: "number" }),
+    onBehalfSaleOperationId: bigint({ mode: "number" }),
+    /**
      * The ERP's own company id (Bling: `GET /empresas/me/dados-basicos` → `id`), which its
      * notifications carry as `companyId`; null until read, and cleared on reconnection.
      */
@@ -68,6 +75,11 @@ export const supplierErpConnections = pgTable(
     stockCheckFailures: integer().notNull().default(0),
     /** When the ERP last sent a stock notification for this account. */
     lastStockNoticeAt: timestamp({ withTimezone: true }),
+    /**
+     * Sales shipped from this moment on have their stock exit posted to the ERP (the ones whose
+     * NF-e did not go through SellBridge); earlier sales never are.
+     */
+    stockExitsSince: timestamp({ withTimezone: true }).defaultNow().notNull(),
     /** The supplier member who authorized it, kept for the audit trail. */
     connectedByUserId: text().references(() => user.id, { onDelete: "set null" }),
     connectedAt: timestamp({ withTimezone: true }).defaultNow().notNull(),
@@ -154,8 +166,9 @@ export const erpCatalogReads = pgTable(
 );
 
 /**
- * The NF-e of one parcel, issued through the supplier's ERP: the ERP's ids of each step (so a
- * retry goes on from where it stopped instead of creating twice), and what the supplier sees.
+ * An NF-e of one parcel, issued through the supplier's ERP: the ERP's ids of each step (so a
+ * retry goes on from where it stopped instead of creating twice), and what the supplier sees. A
+ * parcel has one note of each kind: the direct sale, or the two notes of venda à ordem.
  */
 export const shipmentInvoices = pgTable(
   "shipment_invoices",
@@ -168,11 +181,14 @@ export const shipmentInvoices = pgTable(
       .notNull()
       .references(() => suppliers.id, { onDelete: "cascade" }),
     provider: erpProviderEnum().notNull(),
+    kind: text().$type<InvoiceKind>().notNull().default("direct"),
     status: text().$type<InvoiceStatus>().notNull().default("queued"),
     /** The ERP's contact, sale order and note ids, set as each step succeeds. */
     erpContactId: bigint({ mode: "number" }),
     erpOrderId: bigint({ mode: "number" }),
     erpInvoiceId: bigint({ mode: "number" }),
+    /** Set before creating a direct Bling draft so an uncertain response never causes another POST. */
+    erpDraftRequestedAt: timestamp({ withTimezone: true }),
     number: text(),
     series: text(),
     accessKey: text(),
@@ -190,7 +206,7 @@ export const shipmentInvoices = pgTable(
       .notNull(),
   },
   (table) => [
-    uniqueIndex("shipment_invoices_shipment_idx").on(table.shipmentId),
+    uniqueIndex("shipment_invoices_shipment_kind_idx").on(table.shipmentId, table.kind),
     /** The job reads the notes due, the oldest first. */
     index("shipment_invoices_due_idx")
       .on(table.nextAttemptAt)
@@ -199,6 +215,10 @@ export const shipmentInvoices = pgTable(
     check(
       "shipment_invoices_status_check",
       sql`${table.status} in ('queued','sent','authorized','attention','cancelled')`,
+    ),
+    check(
+      "shipment_invoices_kind_check",
+      sql`${table.kind} in ('direct','on_behalf_shipment','on_behalf_sale')`,
     ),
   ],
 );
@@ -254,5 +274,48 @@ export const shipmentResellerInvoices = pgTable(
       "shipment_reseller_invoices_found_check",
       sql`(${table.accessKey} is null) = (${table.source} is null)`,
     ),
+  ],
+);
+
+/**
+ * The stock exit SellBridge posted (or tried to post) to the supplier's ERP for one sold item
+ * whose NF-e did not go through SellBridge. One row per order item, reserved before the call:
+ * the ERP has no idempotency key, so a row that exists is never posted again.
+ */
+export const erpStockExits = pgTable(
+  "erp_stock_exits",
+  {
+    id: uuid().primaryKey().defaultRandom(),
+    orderItemId: uuid()
+      .notNull()
+      .references(() => orderItems.id, { onDelete: "cascade" }),
+    supplierId: uuid()
+      .notNull()
+      .references(() => suppliers.id, { onDelete: "cascade" }),
+    supplierProductId: uuid().references(() => supplierProducts.id, { onDelete: "set null" }),
+    erpProductId: bigint({ mode: "number" }).notNull(),
+    quantity: integer().notNull(),
+    /** The SKU and the marketplace order number, kept so the team knows what to check. */
+    sku: text().notNull(),
+    externalOrderId: text().notNull(),
+    /** "posting" (reserved), "posted", "uncertain" (the team checks the ERP) or "failed". */
+    status: text().$type<"posting" | "posted" | "uncertain" | "failed">().notNull(),
+    /** The ERP's id of the posted exit. */
+    erpStockId: bigint({ mode: "number" }),
+    /** Why it did not post, in the team's words. */
+    problem: text(),
+    createdAt: timestamp({ withTimezone: true }).defaultNow().notNull(),
+    updatedAt: timestamp({ withTimezone: true })
+      .defaultNow()
+      .$onUpdate(() => new Date())
+      .notNull(),
+  },
+  (table) => [
+    uniqueIndex("erp_stock_exits_order_item_idx").on(table.orderItemId),
+    /** The sweep finds reservations a crash left half done. */
+    index("erp_stock_exits_posting_idx")
+      .on(table.createdAt)
+      .where(sql`${table.status} = 'posting'`),
+    check("erp_stock_exits_quantity_check", sql`${table.quantity} > 0`),
   ],
 );
