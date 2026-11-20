@@ -42,6 +42,7 @@ const FAILURE_REASONS: Readonly<Record<QueueName, string>> = {
   [QUEUE_NAMES.webhookEventSweep]: "A conferência dos avisos de venda não processados falhou.",
   [QUEUE_NAMES.ticketAutoClose]: "O fechamento automático de chamados parados falhou.",
   [QUEUE_NAMES.shipmentTracking]: "A leitura do rastreio dos pacotes falhou.",
+  [QUEUE_NAMES.orderCheck]: "A conferência das vendas recentes no marketplace falhou.",
   [QUEUE_NAMES.orderAutoForward]:
     "O encaminhamento automático do pedido ao fornecedor falhou em todas as tentativas. Encaminhe o pedido à mão ou tente de novo.",
   [QUEUE_NAMES.notificationDelivery]: "O envio de e-mails e avisos aos clientes falhou.",

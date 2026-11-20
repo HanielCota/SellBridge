@@ -1,4 +1,5 @@
 import { conflictError, notFoundError, validationError } from "@sellbridge/shared/errors";
+import { COMBINATION_EDITED_OUTSIDE_GRID_MESSAGE } from "@sellbridge/shared/product-grid";
 import type {
   CatalogDraftValues,
   CatalogProductRef,
@@ -287,6 +288,9 @@ export async function saveSupplierPanelDraft(
     assertIcmsFitsRegime(input, profile?.regime ?? null);
     await assertUniqueSku(transaction, input);
     const stored = await lockProduct(transaction, input);
+    if (stored !== undefined && stored.modelId !== null) {
+      throw validationError(COMBINATION_EDITED_OUTSIDE_GRID_MESSAGE);
+    }
     if (stored !== undefined) {
       await updateDraft(transaction, stored, input, {
         now,
