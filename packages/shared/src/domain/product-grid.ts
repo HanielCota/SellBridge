@@ -24,6 +24,12 @@ export const MAX_MODEL_TITLE_LENGTH =
 export const COMBINATION_EDITED_OUTSIDE_GRID_MESSAGE =
   "Este produto faz parte de uma grade de cores e tamanhos: altere o nome, as fotos e a ficha pela grade, no cadastro do produto.";
 
+/**
+ * What the grid itself answers in Mercado Livre's sheet: each combination's colour and size,
+ * so the model's sheet never asks them.
+ */
+export const GRID_AXIS_ATTRIBUTES: ReadonlySet<string> = new Set(["COLOR", "MAIN_COLOR", "SIZE"]);
+
 /** Identifies one unit of a model: a barcode never belongs to the whole grid. */
 const COMBINATION_ONLY_ATTRIBUTES: ReadonlySet<string> = new Set(["GTIN"]);
 
@@ -346,7 +352,9 @@ export interface MaterializedCombination {
 
 function sharedAttributes(attributes: Readonly<Record<string, string>>): Record<string, string> {
   return Object.fromEntries(
-    Object.entries(attributes).filter(([key]) => !COMBINATION_ONLY_ATTRIBUTES.has(key)),
+    Object.entries(attributes).filter(
+      ([key]) => !COMBINATION_ONLY_ATTRIBUTES.has(key) && !GRID_AXIS_ATTRIBUTES.has(key),
+    ),
   );
 }
 
@@ -361,6 +369,14 @@ function filledFiscal(fiscal: ProductFiscalPatch): ProductFiscalPatch {
  * only place shared data is edited; every save rewrites its combinations with this, so catalog,
  * publishing, orders and invoices keep reading one complete product row as they always did.
  */
+/** The combination's colour and size, as the sheet names them ("Tênis - Preto 38" is size 38). */
+function axisAttributes(own: Pick<CombinationOwnValues, "color" | "size">): Record<string, string> {
+  return {
+    ...(own.color === null ? {} : { COLOR: own.color }),
+    ...(own.size === null ? {} : { SIZE: own.size }),
+  };
+}
+
 export function materializeCombination(
   model: ProductModelShared,
   own: CombinationOwnValues,
@@ -372,6 +388,7 @@ export function materializeCombination(
     imageUrls: [...(own.colorImageUrls.length > 0 ? own.colorImageUrls : model.imageUrls)],
     mercadoLivreAttributes: {
       ...sharedAttributes(model.mercadoLivreAttributes),
+      ...axisAttributes(own),
       ...own.variantAttributes,
     },
     mercadoLivreCategoryId: model.mercadoLivreCategoryId,
