@@ -16,6 +16,7 @@ export const sendEmail = createMailer({
   production: environment.NODE_ENV === "production",
   quota: createEmailQuota({
     store: sharedEmailQuotaStore,
+    recipientKeySecret: environment.TOKEN_ENCRYPTION_KEY,
     limits: {
       accountDaily: environment.EMAIL_ACCOUNT_DAILY_CAP,
       accountPerRecipientDaily: environment.EMAIL_ACCOUNT_DAILY_CAP_PER_RECIPIENT,

@@ -170,6 +170,7 @@ function createContext(connectors: ConnectorRegistry, options: WorkerOptions) {
       // The same counters the web app uses: the allowance is of the product, not of a process.
       quota: createEmailQuota({
         store: createRedisEmailQuotaStore(queues.notifications),
+        recipientKeySecret: environment.TOKEN_ENCRYPTION_KEY,
         limits: {
           accountDaily: environment.EMAIL_ACCOUNT_DAILY_CAP,
           accountPerRecipientDaily: environment.EMAIL_ACCOUNT_DAILY_CAP_PER_RECIPIENT,

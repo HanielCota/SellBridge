@@ -97,11 +97,17 @@ const DAILY_CAP_REASONS: Readonly<Record<EmailCategory, Record<RefusedVerdict["s
       recipient:
         "Uma pessoa atingiu o limite diário de e-mails. Os e-mails para ela voltam a sair amanhã.",
     },
-    account: {
+    account_sign_up: {
       system:
-        "O limite diário de e-mails de conta (confirmação e nova senha) foi atingido. Eles voltam a sair amanhã.",
+        "O limite diário de e-mails de cadastro (confirmação de e-mail) foi atingido. Eles voltam a sair amanhã.",
       recipient:
-        "Uma pessoa atingiu o limite diário de e-mails de conta (confirmação e nova senha). Voltam a sair amanhã.",
+        "Um endereço atingiu o limite diário de e-mails de cadastro. Voltam a sair amanhã.",
+    },
+    account_access: {
+      system:
+        "O limite diário de e-mails de acesso (nova senha e convite da equipe) foi atingido. Eles voltam a sair amanhã.",
+      recipient:
+        "Uma pessoa atingiu o limite diário de e-mails de acesso (nova senha). Voltam a sair amanhã.",
     },
   };
 
@@ -131,23 +137,26 @@ function refuseOverDailyCap(email: OutgoingEmail, verdict: RefusedVerdict): neve
 }
 
 /**
- * Counts the e-mail against today's allowance. When the counters cannot be read, an account
+ * Reads today's allowance for the e-mail. When the counters cannot be read, an account
  * e-mail still goes (sign-up and password reset are few and already rate limited); any other
  * waits, because sending uncounted is what the allowance exists to prevent.
  */
-async function reserveDailyAllowance(quota: EmailQuota, email: OutgoingEmail): Promise<void> {
+async function readVerdict(quota: EmailQuota, email: OutgoingEmail): Promise<EmailQuotaVerdict> {
   const category = email.category ?? "general";
-  let verdict: EmailQuotaVerdict;
   try {
-    verdict = await quota.reserve({ to: email.to, category });
+    return await quota.reserve({ to: email.to, category });
   } catch (error) {
-    if (category === "account") {
+    if (category !== "general") {
       logger.warn("email.daily_cap_unavailable", { category, error });
-      return;
+      return { allowed: true };
     }
     logger.error("email.daily_cap_unavailable", { category, error });
     throw emailProviderError(null, error);
   }
+}
+
+async function reserveDailyAllowance(quota: EmailQuota, email: OutgoingEmail): Promise<void> {
+  const verdict = await readVerdict(quota, email);
   if (!verdict.allowed) {
     refuseOverDailyCap(email, verdict);
   }

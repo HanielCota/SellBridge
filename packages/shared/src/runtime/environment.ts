@@ -74,8 +74,8 @@ function dailyEmailCapSchema(defaultValue: number) {
 
 /**
  * The most e-mails sent per day (America/Sao_Paulo), by the web app and the worker together.
- * Account e-mails (address confirmation, new password) have their own allowance, so a burst of
- * notices cannot hold them back. See docs/decisions/2026-11-20-teto-de-emails.md.
+ * Account e-mails have their own allowance, applied to sign-up e-mails and to access e-mails
+ * (new password) each on its own, so neither notices nor sign-ups can hold a password reset back. See docs/decisions/2026-11-20-teto-de-emails.md.
  */
 export const emailDailyCapEnvironmentShape = {
   EMAIL_DAILY_CAP: dailyEmailCapSchema(500),

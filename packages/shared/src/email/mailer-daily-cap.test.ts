@@ -38,6 +38,7 @@ function setup(overrides: Partial<EmailQuotaLimits> = {}, store = createMemoryEm
   const quota = createEmailQuota({
     store,
     limits: { ...limits, ...overrides },
+    recipientKeySecret: "test-secret",
     now: () => clock.now,
   });
   const send = createMailer({ apiKey: "re_test", from, production: true, quota, fetch: fetcher });
@@ -140,18 +141,83 @@ describe("createMailer daily allowance", () => {
     const { send } = setup();
     await sendAll(send, [to("a"), to("b"), to("c"), to("d")]);
 
-    const outcomes = await sendAll(send, [{ ...to("a"), category: "account" }]);
+    const outcomes = await sendAll(send, [
+      { ...to("a"), category: "account_access" },
+      { ...to("a"), category: "account_sign_up" },
+    ]);
 
-    expect(outcomes).toEqual(["sent"]);
+    expect(outcomes).toEqual(["sent", "sent"]);
   });
 
-  it("holds account e-mails to their own allowance", async () => {
+  it("holds each kind of account e-mail to its own allowance", async () => {
     const { send } = setup();
-    const reset: OutgoingEmail = { ...email, category: "account" };
+    const reset: OutgoingEmail = { ...email, category: "account_access" };
 
     const outcomes = await sendAll(send, [reset, reset, reset]);
 
     expect(outcomes).toEqual(["sent", "sent", "refused"]);
+  });
+
+  it("still sends a password reset after sign-ups used up the sign-up allowance", async () => {
+    const { send } = setup();
+    const signUps = ["a", "b", "c"].map((name): OutgoingEmail => ({
+      ...to(name),
+      category: "account_sign_up",
+    }));
+    const signUpOutcomes = await sendAll(send, signUps);
+
+    const outcomes = await sendAll(send, [{ ...to("dona"), category: "account_access" }]);
+
+    expect(signUpOutcomes).toEqual(["sent", "sent", "refused"]);
+    expect(outcomes).toEqual(["sent"]);
+  });
+
+  it("still sends a person's password reset after sign-ups with that address filled its allowance", async () => {
+    const { send } = setup({ accountDaily: 10, accountPerRecipientDaily: 1 });
+    const signUp: OutgoingEmail = { ...to("dona"), category: "account_sign_up" };
+    const signUpOutcomes = await sendAll(send, [signUp, signUp]);
+
+    const outcomes = await sendAll(send, [{ ...to("dona"), category: "account_access" }]);
+
+    expect(signUpOutcomes).toEqual(["sent", "refused"]);
+    expect(outcomes).toEqual(["sent"]);
+  });
+
+  it("still refuses, without the alert, when it cannot tell who alerts first", async () => {
+    const memory = createMemoryEmailQuotaStore();
+    const store: EmailQuotaStore = {
+      reserve: async (reservation) => memory.reserve(reservation),
+      claimOnce: async () => {
+        throw new Error("redis timed out");
+      },
+    };
+    const { fetcher, send } = setup({ generalDaily: 0 }, store);
+
+    const error = await failure(send(email));
+
+    expect(emailDailyCapResetsAt(error)).not.toBeNull();
+    expect(fetcher).not.toHaveBeenCalled();
+    expect(eventsLogged(logs.error, "email.daily_cap_reached")).toHaveLength(0);
+    expect(eventsLogged(logs.warn, "email.daily_cap_alert_unclaimed")).toHaveLength(1);
+  });
+
+  it("keys the recipient counter by a secret, never by the address", async () => {
+    const keys: string[] = [];
+    const recording: EmailQuotaStore = {
+      reserve: async (reservation) => {
+        keys.push(reservation.recipientKey);
+        return "reserved";
+      },
+      claimOnce: async () => false,
+    };
+    const quotaWith = (secret: string) =>
+      createEmailQuota({ store: recording, limits, recipientKeySecret: secret });
+
+    await quotaWith("one").reserve({ to: email.to, category: "general" });
+    await quotaWith("two").reserve({ to: email.to, category: "general" });
+
+    expect(keys[0]).not.toBe(keys[1]);
+    expect(keys.join()).not.toContain("fornecedor");
   });
 
   it("adds up the web app and the worker on the same counters", async () => {
@@ -187,7 +253,7 @@ describe("createMailer when the counters cannot be read", () => {
   it("still sends an account e-mail", async () => {
     const { fetcher, send } = setup({}, brokenStore);
 
-    await send({ ...email, category: "account" });
+    await send({ ...email, category: "account_access" });
 
     expect(fetcher).toHaveBeenCalledTimes(1);
   });

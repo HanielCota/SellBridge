@@ -22,7 +22,11 @@ redis.call('EXPIRE', KEYS[2], ARGV[3])
 return 0
 `;
 
-/** The queue connection retries forever while Redis is down; a send must not wait that long. */
+/**
+ * The queue connection retries forever while Redis is down; a send must not wait that long.
+ * Giving up does not cancel the command: Redis may still count an e-mail that was then held
+ * back, which errs on the side of sending less.
+ */
 const REDIS_DEADLINE_IN_MS = 1_000;
 
 const RESULT_BY_ANSWER: Readonly<Record<string, EmailQuotaReservationResult>> = {

@@ -261,7 +261,7 @@ async function sendResetPasswordEmail({
   if (await isPendingTeamInvite(database, user.id)) {
     await sendEmail({
       to: user.email,
-      category: "account",
+      category: "account_access",
       ...renderActionEmail(teamInviteEmail(url), environment.APP_URL),
     });
     return;
@@ -281,7 +281,7 @@ async function sendResetPasswordEmail({
     },
     environment.APP_URL,
   );
-  await sendEmail({ to: user.email, category: "account", ...email });
+  await sendEmail({ to: user.email, category: "account_access", ...email });
 }
 
 async function sendVerificationEmail({ user, url }: { user: { email: string }; url: string }) {
@@ -300,7 +300,7 @@ async function sendVerificationEmail({ user, url }: { user: { email: string }; u
     },
     environment.APP_URL,
   );
-  await sendEmail({ to: user.email, category: "account", ...email });
+  await sendEmail({ to: user.email, category: "account_sign_up", ...email });
 }
 
 /**
@@ -323,7 +323,7 @@ async function sendExistingAccountEmail({ user }: { user: { email: string } }) {
     },
     environment.APP_URL,
   );
-  await sendEmail({ to: user.email, category: "account", ...email });
+  await sendEmail({ to: user.email, category: "account_sign_up", ...email });
 }
 
 const E_MAIL_SIGN_IN_PATH = "/sign-in/email";
