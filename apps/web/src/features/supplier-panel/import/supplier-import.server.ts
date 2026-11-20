@@ -1,5 +1,5 @@
 import { loadProductCategories } from "@/lib/server/reference-data";
-import { getAdminSupplier } from "@sellbridge/database/repositories";
+import { findSingleProductSkus, getAdminSupplier } from "@sellbridge/database/repositories";
 import { findSourceLine, type CatalogImport } from "@sellbridge/shared/catalog-spreadsheet";
 import { conflictError, validationError } from "@sellbridge/shared/errors";
 import { logger } from "@sellbridge/shared/logger";
@@ -98,6 +98,8 @@ async function readSupplierFile(input: SupplierImportPreviewInput) {
   const gridColumns = productGridEnabled();
   const catalog = await readSupplierCatalogFile(bytes, input.fileName, loadProductCategories, {
     gridColumns,
+    loadSingleSkus: async (skus) =>
+      await findSingleProductSkus(database, { supplierId: input.supplierId, skus }),
   });
   if (catalog === null) {
     return { normalized: normalizeImportFile(bytes, { gridColumns }), catalog };
