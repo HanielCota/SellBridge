@@ -105,6 +105,21 @@ describe("diagnostic receiver", () => {
     expect(log).toHaveBeenCalledTimes(30);
   });
 
+  // Regression: the receiver reads the client address with the same rule as the login limit.
+  it("keeps one budget for a client that pads the forwarded header", async () => {
+    const { handleErrorReport } = await import("./error-reports");
+    const statuses: number[] = [];
+
+    for (let index = 0; index < 31; index += 1) {
+      const padded = `10.0.0.${index}, 203.0.113.7`;
+      statuses.push(
+        (await handleErrorReport(request(report, "https://app.example", padded))).status,
+      );
+    }
+
+    expect(statuses.at(-1)).toBe(429);
+  });
+
   it("keeps listening to other clients when one spends its budget", async () => {
     const { handleErrorReport } = await import("./error-reports");
     for (let index = 0; index < 61; index += 1) {

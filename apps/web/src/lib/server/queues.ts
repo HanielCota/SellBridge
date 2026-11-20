@@ -1,4 +1,7 @@
 import {
+  DELETED_STORE_PAUSE_JOB_OPTIONS,
+  type DeletedStorePauseJob,
+  deletedStorePauseJobId,
   enqueueStoreOrderCatchUpJob,
   erpCatalogExportJobId,
   erpCatalogExportJobSchema,
@@ -222,4 +225,17 @@ export async function retryFailedJob(queueName: string, jobId: string): Promise<
   }
   await job.retry("failed");
   return "retried";
+}
+
+let deletedStorePauseQueue: Queue | null = null;
+
+/** Hands a deleted account's live listings to the worker, which pauses them until done. */
+export async function enqueueDeletedStorePause(job: DeletedStorePauseJob): Promise<void> {
+  deletedStorePauseQueue ??= new Queue(QUEUE_NAMES.deletedStorePause, {
+    connection: { url: environment.REDIS_URL },
+  });
+  await deletedStorePauseQueue.add("pause-deleted-store", job, {
+    ...DELETED_STORE_PAUSE_JOB_OPTIONS,
+    jobId: deletedStorePauseJobId(job),
+  });
 }

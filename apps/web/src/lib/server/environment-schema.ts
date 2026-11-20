@@ -83,7 +83,10 @@ const serverEnvironmentShape = z.object({
     ),
   LOG_LEVEL: logLevelEnvironmentSchema,
   ALERT_WEBHOOK_URL: alertWebhookUrlEnvironmentSchema,
-  /** Transactional e-mail (password reset). Without it, development logs the message. */
+  /**
+   * Transactional e-mail (password reset, e-mail confirmation). Required in production, where a
+   * missing key would make every reset fail; development logs the message instead.
+   */
   RESEND_API_KEY: z.string().min(1).optional(),
   EMAIL_FROM: z.string().min(3).default("SellBridge <no-reply@sellbridge.local>"),
   /** "Continuar com Google" appears only when both are set. */
@@ -127,7 +130,8 @@ const serverEnvironmentShape = z.object({
    */
   WEBHOOK_ALLOW_PRIVATE_URLS: booleanFlagEnvironmentSchema,
   /**
-   * Header holding the client IP used by the login rate limit. Behind the Cloudflare proxy use
+   * Header holding the client IP used by the login rate limit (rule and proxy assumption in
+   * lib/server/client-address.ts). Behind the Cloudflare proxy use
    * "cf-connecting-ip": x-forwarded-for would then carry Cloudflare's address for every user.
    */
   CLIENT_IP_HEADER: z.string().trim().toLowerCase().default("x-forwarded-for"),
@@ -181,12 +185,25 @@ function checkProductionBilling(value: ServerEnvironmentShape, context: z.Refine
   }
 }
 
+/** Without the key password recovery fails for everyone, so production refuses to start. */
+function checkProductionEmail(value: ServerEnvironmentShape, context: z.RefinementCtx) {
+  if (value.RESEND_API_KEY !== undefined) {
+    return;
+  }
+  context.addIssue({
+    code: "custom",
+    path: ["RESEND_API_KEY"],
+    message: "obrigatória em produção; sem ela a recuperação de senha não envia e-mail",
+  });
+}
+
 export const serverEnvironmentSchema = serverEnvironmentShape.superRefine((value, context) => {
   if (value.NODE_ENV !== "production") {
     return;
   }
   checkPlaceholderSecret(value, context);
   checkProductionBilling(value, context);
+  checkProductionEmail(value, context);
   refuseMercadoPagoStandInsInProduction(value, context);
   refuseAsaasStandInsInProduction(value, context);
   refusePrivateWebhookUrlsInProduction(value, context);
