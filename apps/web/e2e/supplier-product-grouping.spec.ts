@@ -2,12 +2,14 @@ import { randomUUID } from "node:crypto";
 import { expect, type Page, test } from "@playwright/test";
 import {
   createListingWithTargets,
+  groupProducts,
   markTargetPublished,
   upsertStoreConnection,
 } from "@sellbridge/database/repositories";
 import {
   listings,
   member,
+  productModels,
   storeConnections,
   supplierProducts,
   user,
@@ -188,4 +190,45 @@ test("um produto com a mesma cor e tamanho de outro fica marcado e o botão espe
     page.getByText(`Preto 39 já é o SKU JUN${stamp}-BRA-38: corrija a cor ou o tamanho`),
   ).toBeVisible();
   await expect(page.getByRole("button", { name: "Juntar 3 produtos" })).toBeDisabled();
+});
+
+test("abrir uma grade juntada não salva nada nem tira produto de venda", async ({ page }) => {
+  const email = await accounts.signUp(page, `Fornecedor abre ${stamp}`);
+  const supplierId = await giveTestBrand(database, email, `Calçados abre ${stamp}`);
+  const shoes = await seedShoes(supplierId);
+  const ids = shoes.map((shoe) => shoe.id);
+  const result = await groupProducts(database, {
+    supplierId,
+    groupedBy: "e2e",
+    modelTitle: name,
+    mainProductId: shoes[0]?.id ?? "",
+    products: shoes.map((shoe) => {
+      const [color = null, size = null] = shoe.title.split(" - ")[1]?.split(" ") ?? [];
+      return { productId: shoe.id, color, size };
+    }),
+  });
+  if (!result.grouped) {
+    throw new Error("grouping refused");
+  }
+  const modelVersion = async () =>
+    (
+      await database
+        .select({ updatedAt: productModels.updatedAt })
+        .from(productModels)
+        .where(eq(productModels.id, result.modelId))
+    )[0]?.updatedAt.getTime();
+  const before = { model: await modelVersion(), rows: await rows(ids) };
+
+  await gotoHydrated(page, `/fornecedor/painel/produtos?grade=${result.modelId}`);
+  await page
+    .getByRole("button", { name: /Dados do produto/ })
+    .first()
+    .click();
+  // Mercado Livre answered with its guess, whether the form offers it or fills it in.
+  await expect(page.getByText(/Categoria (sugerida )?no Mercado Livre:/)).toBeVisible();
+  // Longer than the autosave pause: a save started by opening would have landed by now.
+  await page.waitForTimeout(3000);
+
+  expect({ model: await modelVersion(), rows: await rows(ids) }).toEqual(before);
+  await expect(page.getByRole("button", { name: "Usar esta categoria" })).toBeVisible();
 });

@@ -148,7 +148,9 @@ function useGridRules(
   setValues: (update: SetStateAction<PanelFormValues>) => void,
 ) {
   const category = options.categories.find((option) => option.id === snapshot.values.categoryId);
-  const sheet = useMercadoLivreFicha(options.supplierId, snapshot.values, setValues);
+  const sheet = useMercadoLivreFicha(options.supplierId, snapshot.values, setValues, {
+    autoPick: options.model === null,
+  });
   // Colour and size come from each combination, so the model's sheet neither shows nor asks them.
   const fields = useMemo(
     () => sheet.fields?.filter((field) => !GRID_AXIS_ATTRIBUTES.has(field.id)) ?? null,
