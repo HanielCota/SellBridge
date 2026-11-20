@@ -1,4 +1,9 @@
-import { MAX_MODEL_TITLE_LENGTH, modelCodeFromTitle } from "./product-grid.ts";
+import {
+  MAX_MODEL_CODE_LENGTH,
+  MAX_MODEL_TITLE_LENGTH,
+  modelCodeFromTitle,
+  optionKey,
+} from "./product-grid.ts";
 
 /** One product of the supplier's catalog, before it is written as a line of the product CSV. */
 export interface CatalogRecord {
@@ -33,14 +38,38 @@ export type WithGrid<Record extends CatalogRecord> = Record & {
 
 export type CatalogGridRecord = WithGrid<CatalogRecord>;
 
-const MAX_IMAGES = 20;
+/** Photos a catalog row (or a grid's colour) keeps, the product import's own limit. */
+export const MAX_CATALOG_IMAGES = 20;
 
-const colorKey = (record: CatalogRecord): string => record.color?.trim().toLowerCase() ?? "";
+const CODE_HASH_LENGTH = 6;
+// Leaves room for "-<hash>" and the "-2" suffix a repeated code gets, inside 60 characters.
+const CODE_BASE_LENGTH = MAX_MODEL_CODE_LENGTH - CODE_HASH_LENGTH - 1 - 4;
+
+// Colours compared as the planner compares them: "Café", "cafe " and "Cafe" are one colour.
+const colorKey = (record: CatalogRecord): string =>
+  record.color === null ? "" : optionKey(record.color);
 
 const withoutVariant = (record: CatalogRecord): boolean =>
   record.color === null && record.size === null;
 
-function groupsByModelCode<Record extends CatalogRecord>(
+// FNV-1a: the same name always gives the same short hash, so a reimport keeps the code.
+function nameHash(text: string): string {
+  let hash = 0x81_1c_9d_c5;
+  for (const char of text) {
+    hash ^= char.codePointAt(0) ?? 0;
+    hash = Math.imul(hash, 0x01_00_01_93) >>> 0;
+  }
+  return hash.toString(36).toUpperCase().padStart(CODE_HASH_LENGTH, "0").slice(-CODE_HASH_LENGTH);
+}
+
+// Readable from the name, unique by its hash: long names that differ only at the end, and a
+// grid typed in the form with a similar title, never share a code.
+function catalogModelCode(nameKey: string): string {
+  const base = modelCodeFromTitle(nameKey).slice(0, CODE_BASE_LENGTH).replaceAll(/-+$/g, "");
+  return `${base}-${nameHash(nameKey)}`;
+}
+
+function groupsByName<Record extends CatalogRecord>(
   records: readonly Record[],
 ): Map<string, Record[]> {
   const groups = new Map<string, Record[]>();
@@ -48,10 +77,10 @@ function groupsByModelCode<Record extends CatalogRecord>(
     if (withoutVariant(record)) {
       continue;
     }
-    const code = modelCodeFromTitle(record.supplierName);
-    const group = groups.get(code);
+    const key = optionKey(record.supplierName);
+    const group = groups.get(key);
     if (group === undefined) {
-      groups.set(code, [record]);
+      groups.set(key, [record]);
       continue;
     }
     group.push(record);
@@ -59,7 +88,16 @@ function groupsByModelCode<Record extends CatalogRecord>(
   return groups;
 }
 
-/** A colour's photos: every photo its rows bring, so sizes listing them apart never disagree. */
+// A grid has the same options on every row: a "Único" row among sized ones, or a row without
+// a colour among coloured ones, keeps the product as separate rows, as before grids.
+function mixedOptions(records: readonly CatalogRecord[]): boolean {
+  const colored = records.filter((record) => record.color !== null).length;
+  const sized = records.filter((record) => record.size !== null).length;
+  const partly = (count: number) => count > 0 && count < records.length;
+  return partly(colored) || partly(sized);
+}
+
+// A colour's photos: every photo its rows bring, so sizes listing them apart never disagree.
 function photosByColor(records: readonly CatalogRecord[]): Map<string, string[]> {
   const photos = new Map<string, Set<string>>();
   for (const record of records) {
@@ -70,13 +108,11 @@ function photosByColor(records: readonly CatalogRecord[]): Map<string, string[]>
     }
     photos.set(key, known);
   }
-  return new Map([...photos].map(([key, urls]) => [key, [...urls].slice(0, MAX_IMAGES)]));
+  return new Map([...photos].map(([key, urls]) => [key, [...urls].slice(0, MAX_CATALOG_IMAGES)]));
 }
 
-/**
- * The data a grid shares, taken once for all its rows: the row a Shopee listing enriched leads,
- * so rows without a listing never disagree with it.
- */
+// The data a grid shares, taken once for all its rows: the row a Shopee listing enriched leads,
+// so rows without a listing never disagree with it.
 function sharedOf(records: readonly CatalogRecord[]) {
   const lead = records.find((record) => record.enriched) ?? records[0];
   return {
@@ -100,20 +136,36 @@ function asGrid<Record extends CatalogRecord>(
   }));
 }
 
+// Whether the rows of one product stay separate products, as before grids.
+function staysSeparate(
+  records: readonly CatalogRecord[],
+  singleSkus: ReadonlySet<string>,
+): boolean {
+  return (
+    records.length < 2 ||
+    mixedOptions(records) ||
+    records.some((record) => singleSkus.has(record.sku))
+  );
+}
+
 /**
- * Catalog rows of one product in two or more colours or sizes, written as one grid: the same
- * model code, generated from the supplier's name for the product, and each row's colour and size. A product with a
- * single colour and size stays a product of its own, as before grids existed.
+ * Catalog rows of one product in two or more colours or sizes, written as one grid: rows with
+ * the same "Nome produto" (accents, case and spacing aside) get one model code, made from the
+ * name and a short hash of it, and their own colour and size. As before grids, a product stays
+ * separate rows when it has a single row, mixes rows with and without a colour or size, or has a
+ * SKU the supplier already sells as a product of its own (`singleSkus`): reimporting an old
+ * catalog changes nothing.
  */
 export function groupCatalogGrids<Record extends CatalogRecord>(
   records: readonly Record[],
+  singleSkus: ReadonlySet<string> = new Set(),
 ): WithGrid<Record>[] {
   const grids = new Map<Record, WithGrid<Record>>();
-  for (const [code, group] of groupsByModelCode(records)) {
-    if (group.length < 2) {
+  for (const [nameKey, group] of groupsByName(records)) {
+    if (staysSeparate(group, singleSkus)) {
       continue;
     }
-    const rows = asGrid(code, group);
+    const rows = asGrid(catalogModelCode(nameKey), group);
     group.forEach((record, index) => {
       const row = rows[index];
       if (row !== undefined) {
