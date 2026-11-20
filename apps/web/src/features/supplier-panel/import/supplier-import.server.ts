@@ -95,14 +95,17 @@ async function prepareConfirmation(supplierId: string, content: string) {
  */
 async function readSupplierFile(input: SupplierImportPreviewInput) {
   const bytes = Buffer.from(input.fileBase64, "base64");
-  const catalog = await readSupplierCatalogFile(bytes, input.fileName, loadProductCategories);
+  const gridColumns = productGridEnabled();
+  const catalog = await readSupplierCatalogFile(bytes, input.fileName, loadProductCategories, {
+    gridColumns,
+  });
   if (catalog === null) {
-    return {
-      normalized: normalizeImportFile(bytes, { gridColumns: productGridEnabled() }),
-      catalog,
-    };
+    return { normalized: normalizeImportFile(bytes, { gridColumns }), catalog };
   }
-  return { normalized: normalizeImportFile(new TextEncoder().encode(catalog.csv)), catalog };
+  return {
+    normalized: normalizeImportFile(new TextEncoder().encode(catalog.csv), { gridColumns }),
+    catalog,
+  };
 }
 
 function onSpreadsheetRows(

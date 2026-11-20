@@ -16,7 +16,7 @@ import {
   withFiscalFallback,
   type FiscalFallback,
 } from "@sellbridge/shared/product-fiscal";
-import { and, asc, count, desc, eq, gt, sql, type AnyColumn, type SQL } from "drizzle-orm";
+import { and, asc, desc, eq, gt, sql, type AnyColumn, type SQL } from "drizzle-orm";
 import { alias } from "drizzle-orm/pg-core";
 import type { DatabaseExecutor } from "../client.ts";
 import {
@@ -102,7 +102,10 @@ async function countMissingFiscal(
   fallback: FiscalFallback | null,
 ): Promise<number> {
   const [row] = await database
-    .select({ value: count() })
+    // A grid counts once, like the row that stands for it in the list.
+    .select({
+      value: sql<number>`count(distinct coalesce(${supplierProducts.modelId}, ${supplierProducts.id}))::int`,
+    })
     .from(supplierProducts)
     .where(and(eq(supplierProducts.supplierId, supplierId), missingFiscalData(fallback)));
   return row?.value ?? 0;
