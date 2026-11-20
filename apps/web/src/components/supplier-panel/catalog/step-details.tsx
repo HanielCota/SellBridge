@@ -1,4 +1,7 @@
-import type { RequiredAttribute } from "@sellbridge/shared/supplier-panel-catalog-completeness";
+import {
+  blocksPublishing,
+  type RequiredAttribute,
+} from "@sellbridge/shared/supplier-panel-catalog-completeness";
 import { attributeFieldLabel } from "@sellbridge/shared/supplier-product-attributes";
 import { TextField } from "@/components/form/form-field";
 import { EmojiFreeTextareaField } from "@/components/form/emoji-free-textarea-field";
@@ -35,6 +38,10 @@ const CODE_INPUT = {
   autoComplete: "off",
   spellCheck: false,
 } as const;
+
+/** A product without its own brand goes as the marketplace's generic brand (`isNoBrand`). */
+const NO_BRAND_HINT =
+  "Produto sem marca? Deixe em branco ou escreva Sem marca: no Mercado Livre ele sai com a marca genérica.";
 
 /** Barcodes and package measures are typed as digits; the rest of the sheet is free text. */
 const ATTRIBUTE_INPUTS: Readonly<Record<string, { inputMode: "numeric" }>> = {
@@ -166,7 +173,8 @@ function TextAttributeField({
 }) {
   const field = `attributes.${attribute.id}`;
   return (
-    <div className="grid gap-2">
+    // Content at the top: a note or checkbox under one field must not push its neighbor's input down.
+    <div className="grid content-start gap-2">
       <TextField
         id={inputIdOf(field)}
         label={required ? `${attribute.label} (obrigatório)` : attribute.label}
@@ -180,6 +188,9 @@ function TextAttributeField({
           : { ...CODE_INPUT, ...ATTRIBUTE_INPUTS[attribute.id] })}
       />
       <FieldReason field={field} reasons={reasons} />
+      {attribute.id === "BRAND" ? (
+        <p className="text-footnote leading-normal text-muted-foreground">{NO_BRAND_HINT}</p>
+      ) : null}
       {showFiscal && attribute.id === "GTIN" ? (
         <NoGtinCheckbox values={values} onChange={onChange} />
       ) : null}
@@ -202,7 +213,7 @@ function AttributeFields({
   sheet: MercadoLivreSheet | undefined;
   variant: DetailsVariant;
 }) {
-  const requiredIds = new Set(required.map((attribute) => attribute.id));
+  const requiredIds = new Set(required.filter(blocksPublishing).map((attribute) => attribute.id));
   const asText = textAttributes(values, required, { sheet, variant });
   return (
     <fieldset className="grid gap-4 sm:grid-cols-2">

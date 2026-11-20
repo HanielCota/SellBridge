@@ -1,3 +1,4 @@
+import { PRODUCT_CSV_GRID_COLUMNS } from "./product-csv.ts";
 import { productExportRow, type ProductExportSource } from "./supplier-panel-export.ts";
 import { IMPORT_ERROR_COLUMN, importColumns } from "./supplier-panel-import-columns.ts";
 import type { ImportRowIssues, ImportTableShape } from "./supplier-panel-import-issues.ts";
@@ -18,7 +19,7 @@ function importHeader(gridColumns: boolean): string[] {
 }
 
 /** The grid columns stay blank in the example: it is a product of its own. */
-const GRID_COLUMN_NAMES: ReadonlySet<string> = new Set(["codigo_modelo", "cor", "tamanho"]);
+const GRID_COLUMN_NAMES: ReadonlySet<string> = new Set(PRODUCT_CSV_GRID_COLUMNS);
 
 function excelLines(rows: readonly (readonly string[])[]): string {
   return rows.map((row) => `${serializeSemicolonRow(row)}${EXCEL_LINE_BREAK}`).join("");

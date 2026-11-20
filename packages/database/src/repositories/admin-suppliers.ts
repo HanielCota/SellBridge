@@ -582,10 +582,8 @@ export async function previewSupplierProductImport(
   return withGrids(plan, gridPlan, availableCategories);
 }
 
-/**
- * The plan with the file's grids. A new grid counts as one new product and a grown one as one
- * updated product, as the supplier's product list shows them (one row per grid).
- */
+// A new grid counts as one new product and a grown one as one updated product, as the
+// supplier's product list shows them (one row per grid).
 function withGrids(
   plan: SupplierProductImportPlan,
   gridPlan: GridImportPlan,

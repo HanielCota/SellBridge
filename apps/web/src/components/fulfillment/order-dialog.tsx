@@ -69,10 +69,11 @@ function paymentLine(shipment: Detail["shipments"][number]) {
 }
 /** In venda à ordem the reseller's own note comes first: the supplier's notes wait for it. */
 function invoiceCards(
-  orderId: string,
+  order: { id: string; marketplace: string },
   shipment: Detail["shipments"][number],
   refresh: () => Promise<void>,
 ) {
+  const orderId = order.id;
   if (shipment.invoice === null && shipment.resellerNote === null) {
     return null;
   }
@@ -81,6 +82,7 @@ function invoiceCards(
       {shipment.resellerNote === null ? null : (
         <ResellerSaleNoteCard
           shipmentId={shipment.id}
+          marketplace={order.marketplace}
           note={shipment.resellerNote}
           onSaved={refresh}
         />
@@ -126,7 +128,7 @@ function ShipmentList({
       // A parcel waiting for the supplier's account or the payment cannot be moved for it either.
       blocked={blocked || shipment.preparationHold !== null}
       payment={paymentLine(shipment)}
-      invoice={invoiceCards(detail.order.id, shipment, refresh)}
+      invoice={invoiceCards(detail.order, shipment, refresh)}
       onUpdate={async (input) => {
         await updateShipmentFn({ data: input });
         await refresh();

@@ -8,10 +8,6 @@ export const billingAccounts = pgTable(
     tenantId: text("tenant_id")
       .primaryKey()
       .references(() => organization.id, { onDelete: "cascade" }),
-    /** Before Asaas, every provider link was created by Stripe. */
-    provider: text("provider", { enum: ["stripe", "asaas"] })
-      .notNull()
-      .default("stripe"),
     /** The payer at the payment provider (Asaas `cus_...`). */
     customerId: text("customer_id").unique(),
     /** The monthly subscription at the payment provider (Asaas `sub_...`). */
@@ -46,7 +42,6 @@ export const billingAccounts = pgTable(
     firstPaidOn: date("first_paid_on", { mode: "string" }),
   },
   (table) => [
-    check("billing_accounts_provider_check", sql`${table.provider} in ('stripe', 'asaas')`),
     check(
       "billing_accounts_payment_method_check",
       sql`${table.paymentMethod} is null or ${table.paymentMethod} in ('pix', 'credit_card')`,

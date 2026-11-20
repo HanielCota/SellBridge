@@ -75,6 +75,7 @@ export const IMPERSONATED_ACTION_COPY: Readonly<Record<string, string>> = {
   revokeSupplierLinkFn: "cancelou o link do fornecedor",
   refreshMarketplaceTrackingFn: "atualizou o rastreio",
   saveResellerSaleNoteFn: "informou a chave da nota de venda",
+  uploadResellerSaleNoteXmlFn: "enviou o XML da nota de venda",
   createListing: "publicou um produto",
   publishProductsInBulk: "publicou produtos em massa",
   retryListings: "reprocessou publicações",
