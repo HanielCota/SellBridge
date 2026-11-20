@@ -8,6 +8,10 @@ import {
 import { isMarketplaceError } from "@sellbridge/marketplaces";
 import { blingAuthorizationUrl, exchangeBlingCode } from "@sellbridge/marketplaces/bling";
 import { logger } from "@sellbridge/shared/logger";
+import {
+  finishResellerBlingConnect,
+  integrationsPage,
+} from "@/features/reseller-bling/reseller-bling-oauth.server";
 import { auth } from "@/lib/server/auth";
 import { appOriginFor } from "@/lib/server/app-origin";
 import { database } from "@/lib/server/database";
@@ -141,7 +145,8 @@ async function saveConnection(input: { supplierId: string; userId: string; code:
 
 /**
  * GET /api/integracoes/bling/retorno: the state must be this user's and fresh, and the user must
- * still be a member of that supplier's profile, before the code is traded for tokens.
+ * still be a member of that supplier's profile, before the code is traded for tokens. A state
+ * a reseller started goes on to the reseller's own connection.
  */
 export async function handleBlingConnectCallback(request: Request): Promise<Response> {
   const requester = await signedInRequester(request);
@@ -154,19 +159,30 @@ export async function handleBlingConnectCallback(request: Request): Promise<Resp
   if (!query.success) {
     return importPage(request, "resposta_invalida");
   }
+  const state = query.data.state;
+  const stateRecord =
+    state === undefined
+      ? null
+      : await consumeErpOAuthState(database, {
+          state,
+          userId: requester.userId,
+          provider: "bling",
+        });
   if ("error" in query.data) {
-    return importPage(request, "cancelado");
+    return stateRecord?.kind === "reseller"
+      ? integrationsPage(request, "cancelado")
+      : importPage(request, "cancelado");
   }
-  const stateRecord = await consumeErpOAuthState(database, {
-    state: query.data.state,
-    userId: requester.userId,
-    provider: "bling",
-  });
   if (stateRecord === null) {
     return importPage(request, "expirado");
   }
-  if (stateRecord.kind !== "supplier") {
-    return importPage(request, "sem_permissao");
+  if (stateRecord.kind === "reseller") {
+    return finishResellerBlingConnect(request, {
+      tenantId: stateRecord.tenantId,
+      userId: requester.userId,
+      impersonatedBy: requester.impersonatedBy,
+      code: query.data.code,
+    });
   }
   const profile = requester.profiles.find((item) => item.supplierId === stateRecord.supplierId);
   const supplierIds = requester.profiles.map((item) => item.supplierId);
