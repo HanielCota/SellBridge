@@ -16,6 +16,7 @@ import {
   recordErpResellerSaleInvoice,
   recordResellerSaleIssueProgress,
   retryResellerSaleIssue,
+  scheduleResellerSaleInvoiceCheck,
   stopResellerSaleIssue,
 } from "./shipment-reseller-invoices.ts";
 
@@ -136,6 +137,24 @@ describe("stopping and retrying", () => {
 
     expect(whileStopped).toBeUndefined();
     expect(afterRetry?.issuesFromErp).toBe(true);
+  });
+
+  it("counts the checks from zero again when the reseller retries", async () => {
+    const { invoiceId, tenantId, shipmentId } = await scenario({
+      marketplace: "mercado_livre",
+      issuingSince: new Date(Date.now() - 3_600_000),
+    });
+    await scheduleResellerSaleInvoiceCheck(database, {
+      invoiceId,
+      checks: 8,
+      nextCheckAt: new Date(),
+      problem: null,
+    });
+    await stopResellerSaleIssue(database, { invoiceId, problem: "Parada", now: new Date() });
+
+    await retryResellerSaleIssue(database, { tenantId, shipmentId, now: new Date() });
+
+    expect((await claimed(invoiceId))?.checks).toBe(0);
   });
 
   it("refuses to retry a note of another reseller", async () => {

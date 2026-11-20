@@ -482,7 +482,8 @@ export async function stopResellerSaleIssue(
 }
 
 /**
- * Puts a stopped note of the reseller's parcel back in line for its ERP.
+ * Puts a stopped note of the reseller's parcel back in line for its ERP. Its checks count from
+ * zero again, so the wait for SEFAZ after a new send gets its full time.
  *
  * @throws {AppError} NOT_FOUND when the parcel is not the reseller's or its note is not stopped.
  */
@@ -492,7 +493,7 @@ export async function retryResellerSaleIssue(
 ): Promise<void> {
   const updated = await database
     .update(shipmentResellerInvoices)
-    .set({ erpStoppedAt: null, problem: null, nextCheckAt: retry.now })
+    .set({ erpStoppedAt: null, problem: null, checks: 0, nextCheckAt: retry.now })
     .where(
       and(
         eq(shipmentResellerInvoices.tenantId, retry.tenantId),
