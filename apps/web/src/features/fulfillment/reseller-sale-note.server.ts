@@ -1,4 +1,5 @@
 import {
+  canReplaceResellerSaleInvoice,
   findBillingHolder,
   resellerSaleInvoicesOf,
   saveTypedResellerSaleInvoice,
@@ -13,13 +14,16 @@ import { sendResellerSaleNoteToMarketplace } from "./marketplace.server";
 
 const NOT_A_COMPANY =
   "Cadastre o CNPJ da sua empresa em Meu cadastro: a nota de venda sai no nome dela.";
+const REMESSA_STARTED =
+  "A remessa do fornecedor já cita a nota registrada neste pedido. Para trocar a nota, fale com o suporte do SellBridge.";
 
 /**
  * Saves the key the reseller typed for its parcel, once it is a valid NF-e of the reseller's own
- * CNPJ.
+ * CNPJ. It replaces a wrong one while the supplier's remessa has not started.
  *
  * @throws {AppError} VALIDATION when the key does not serve, CONFLICT when the reseller has no
- * CNPJ or the note is already saved, NOT_FOUND when the parcel waits for no note of this reseller.
+ * CNPJ or the remessa already cites another note, NOT_FOUND when the parcel waits for no note of
+ * this reseller.
  */
 export async function saveResellerSaleNote(
   tenantId: string,
@@ -46,12 +50,14 @@ export async function saveResellerSaleNote(
 
 /**
  * Takes the XML of the reseller's own sale note: checks it is an authorized NF-e of the reseller's
- * CNPJ, sends it to the marketplace of the order (Mercado Livre needs it for the label) and saves
- * it. Nothing is saved when the marketplace refuses it.
+ * CNPJ, sends it to the order's Mercado Livre shipment (the label needs it) and saves it. The note
+ * already saved is a success; another one replaces it while the supplier's remessa has not
+ * started. Nothing is saved when Mercado Livre refuses it.
  *
  * @throws {AppError} VALIDATION when the file does not serve, CONFLICT when the reseller has no
- * CNPJ or another note is saved, NOT_FOUND when the parcel waits for no note of this reseller,
- * EXTERNAL_PROVIDER when the marketplace refuses the note.
+ * CNPJ, the order is not on Mercado Livre or the remessa already cites another note, NOT_FOUND
+ * when the parcel waits for no note of this reseller, EXTERNAL_PROVIDER when Mercado Livre
+ * refuses the note.
  */
 export async function uploadResellerSaleNoteXml(
   tenantId: string,
@@ -78,10 +84,16 @@ export async function uploadResellerSaleNoteXml(
   if (saved === undefined) {
     throw notFoundError("Este pedido não espera a sua nota de venda");
   }
-  const otherNote =
-    saved.accessKey !== null && (saved.accessKey !== reading.accessKey || saved.source !== "typed");
-  if (otherNote) {
-    throw conflictError("Este pedido já tem a sua nota de venda registrada.");
+  // The same note is already there and on the marketplace (sent before, or read there meanwhile).
+  if (saved.accessKey === reading.accessKey && saved.source !== "typed") {
+    return;
+  }
+  const replaceable = await canReplaceResellerSaleInvoice(database, {
+    tenantId,
+    shipmentId: input.shipmentId,
+  });
+  if (!replaceable) {
+    throw conflictError(REMESSA_STARTED);
   }
   await sendResellerSaleNoteToMarketplace(tenantId, {
     shipmentId: input.shipmentId,

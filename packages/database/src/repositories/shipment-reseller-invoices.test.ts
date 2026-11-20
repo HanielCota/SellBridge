@@ -1,14 +1,21 @@
 import { randomUUID } from "node:crypto";
 import { parseAccessKey, type AccessKeyParts } from "@sellbridge/shared/nfe-access-key";
-import { eq } from "drizzle-orm";
+import { and, eq } from "drizzle-orm";
 import { afterEach, describe, expect, it } from "vitest";
-import { orders, shipmentResellerInvoices, tenantProfile } from "../schema/index.ts";
+import {
+  orders,
+  shipmentInvoices,
+  shipmentResellerInvoices,
+  tenantProfile,
+} from "../schema/index.ts";
 import { createTestDatabase } from "../testing/fixtures.ts";
 import {
   createInvoiceScenario,
   TEST_SUPPLIER_FISCAL,
 } from "../testing/shipment-invoice-fixtures.ts";
+import { queueOnBehalfInvoices } from "./shipment-on-behalf-invoices.ts";
 import {
+  canReplaceResellerSaleInvoice,
   claimDueResellerSaleInvoices,
   queueResellerSaleInvoices,
   recordMarketplaceResellerSaleInvoice,
@@ -47,6 +54,20 @@ async function noteOf(shipmentId: string) {
     .from(shipmentResellerInvoices)
     .where(eq(shipmentResellerInvoices.shipmentId, shipmentId));
   return row;
+}
+
+/** The supplier's remessa of the parcel asked of its ERP: from then on it cites the saved note. */
+async function startRemessa(shipmentId: string) {
+  await queueOnBehalfInvoices(database);
+  await database
+    .update(shipmentInvoices)
+    .set({ erpDraftRequestedAt: new Date() })
+    .where(
+      and(
+        eq(shipmentInvoices.shipmentId, shipmentId),
+        eq(shipmentInvoices.kind, "on_behalf_shipment"),
+      ),
+    );
 }
 
 async function claimAll() {
@@ -156,15 +177,29 @@ describe("saveTypedResellerSaleInvoice", () => {
     });
   });
 
-  it("refuses a second key once the note is saved", async () => {
+  it("replaces a wrong key while the supplier's remessa has not started", async () => {
     const { shipmentId, tenantId } = await scenario();
     await queueResellerSaleInvoices(database);
     const typed = { tenantId, shipmentId, parts: keyParts(TYPED_KEY), now: new Date() };
     await saveTypedResellerSaleInvoice(database, typed);
+    await queueOnBehalfInvoices(database);
+
+    await saveTypedResellerSaleInvoice(database, { ...typed, parts: keyParts(MARKETPLACE_KEY) });
+
+    expect((await noteOf(shipmentId))?.accessKey).toBe(MARKETPLACE_KEY);
+  });
+
+  it("refuses another key once the supplier's remessa was asked of its ERP", async () => {
+    const { shipmentId, tenantId } = await scenario();
+    await queueResellerSaleInvoices(database);
+    const typed = { tenantId, shipmentId, parts: keyParts(TYPED_KEY), now: new Date() };
+    await saveTypedResellerSaleInvoice(database, typed);
+    await startRemessa(shipmentId);
 
     await expect(
       saveTypedResellerSaleInvoice(database, { ...typed, parts: keyParts(MARKETPLACE_KEY) }),
     ).rejects.toMatchObject({ code: "CONFLICT" });
+    expect(await canReplaceResellerSaleInvoice(database, { tenantId, shipmentId })).toBe(false);
   });
 
   it("refuses a parcel of another reseller", async () => {
@@ -208,15 +243,53 @@ describe("saveUploadedResellerSaleInvoice", () => {
     expect((await noteOf(shipmentId))?.source).toBe("uploaded");
   });
 
-  it("refuses the XML of another note than the one already saved", async () => {
+  it("takes the XML of another note over a wrong typed key before the remessa starts", async () => {
     const { shipmentId, tenantId } = await scenario();
     await queueResellerSaleInvoices(database);
     const note = { tenantId, shipmentId, parts: keyParts(TYPED_KEY), now: new Date() };
     await saveTypedResellerSaleInvoice(database, note);
 
+    await saveUploadedResellerSaleInvoice(database, { ...note, parts: keyParts(MARKETPLACE_KEY) });
+
+    expect(await noteOf(shipmentId)).toMatchObject({
+      accessKey: MARKETPLACE_KEY,
+      source: "uploaded",
+    });
+  });
+
+  it("refuses the XML of another note once the remessa cites the saved one", async () => {
+    const { shipmentId, tenantId } = await scenario();
+    await queueResellerSaleInvoices(database);
+    const note = { tenantId, shipmentId, parts: keyParts(TYPED_KEY), now: new Date() };
+    await saveTypedResellerSaleInvoice(database, note);
+    await startRemessa(shipmentId);
+
     await expect(
       saveUploadedResellerSaleInvoice(database, { ...note, parts: keyParts(MARKETPLACE_KEY) }),
     ).rejects.toMatchObject({ code: "CONFLICT" });
+  });
+
+  it("takes the note the marketplace read meanwhile as already saved", async () => {
+    const { shipmentId, tenantId } = await scenario();
+    await queueResellerSaleInvoices(database);
+    const [due] = (await claimAll()).filter((row) => row.externalOrderId !== "");
+    const note = await noteOf(shipmentId);
+    await recordMarketplaceResellerSaleInvoice(database, {
+      invoiceId: note?.id ?? due?.id ?? "",
+      parts: keyParts(TYPED_KEY),
+      issuedAt: null,
+      now: new Date(),
+    });
+    await startRemessa(shipmentId);
+
+    await saveUploadedResellerSaleInvoice(database, {
+      tenantId,
+      shipmentId,
+      parts: keyParts(TYPED_KEY),
+      now: new Date(),
+    });
+
+    expect((await noteOf(shipmentId))?.source).toBe("marketplace");
   });
 
   it("refuses a parcel of another reseller", async () => {
