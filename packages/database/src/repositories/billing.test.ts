@@ -176,6 +176,7 @@ describe("tenant billing persistence", () => {
   // past_due keeps the plan through the grace (item 16, N9); an unpaid subscription does not,
   // and there is no free plan to fall back to.
   it("leaves no room for a new store once the subscription is unpaid", async () => {
+    await grantTestPlan(database, tenants.tenantA, "pro");
     await upsertStoreConnection(database, {
       ...testStoreInput(tenants.tenantA, "paid-a"),
       billing: RULES,
