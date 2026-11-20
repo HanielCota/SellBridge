@@ -27,6 +27,7 @@ export interface ErpBlingDependencies {
 export function supplierBlingClient(
   dependencies: ErpBlingDependencies & { blingCredentials: BlingAppCredentials },
   supplierId: string,
+  expectedConnectedAt?: Date,
 ): BlingClient {
   const { database } = dependencies;
   return createBlingClient({
@@ -38,7 +39,18 @@ export function supplierBlingClient(
       cipher: dependencies.cipher,
       fetchImplementation: dependencies.fetchImplementation,
       store: {
-        load: async () => findErpConnection(database, { supplierId, provider: "bling" }),
+        load: async () => {
+          const connection = await findErpConnection(database, { supplierId, provider: "bling" });
+
+          if (
+            expectedConnectedAt !== undefined &&
+            connection?.connectedAt.getTime() !== expectedConnectedAt.getTime()
+          ) {
+            return null;
+          }
+
+          return connection;
+        },
         rotate: async (connectionId, previousRefreshTokenEnc, tokens) =>
           rotateErpTokens(database, { connectionId, previousRefreshTokenEnc, tokens }),
         markExpired: async (connectionId, refreshTokenEnc, lastError) => {

@@ -79,3 +79,14 @@ export function signInErrorMessage(failure: SignInFailure): string {
 
   return MESSAGE_BY_CODE[failure.code ?? ""] ?? WRONG_CREDENTIALS;
 }
+
+/**
+ * The confirmation link's landing for a sign-up that started somewhere else (a supplier invite):
+ * after the sign-in the person goes back there instead of the account's setup.
+ */
+export function confirmationCallbackUrl(redirect: string | undefined): string {
+  if (redirect === undefined) {
+    return CONFIRMATION_CALLBACK_URL;
+  }
+  return `/login?emailConfirmado=true&redirect=${encodeURIComponent(redirect)}`;
+}

@@ -4,6 +4,7 @@ import {
   loadShipmentInvoiceWork,
   markShipmentInvoiceAttention,
   queueNewShipmentInvoices,
+  queueOnBehalfInvoices,
   scheduleShipmentInvoiceRetry,
   type ShipmentInvoiceWork,
 } from "@sellbridge/database/repositories";
@@ -19,6 +20,7 @@ import {
   type InvoiceStopReason,
 } from "@sellbridge/shared/supplier-invoice";
 import { supplierBlingClient, type ErpBlingDependencies } from "./erp-bling-client.ts";
+import { advanceOnBehalfInvoice } from "./erp-invoice-on-behalf.ts";
 import { advanceInvoice, InvoiceStopError } from "./erp-invoice-steps.ts";
 
 export interface ErpInvoiceDependencies extends ErpBlingDependencies {
@@ -114,6 +116,23 @@ async function recordFailure(
   });
 }
 
+const CONNECTION_CHANGED_PROBLEM =
+  "A conexão do Bling mudou depois que esta nota entrou na fila. Confira a nota na conta original antes de emitir outra.";
+
+function invoiceConnectionEpoch(work: ShipmentInvoiceWork): Date | undefined {
+  if (work.kind === "direct") {
+    return undefined;
+  }
+
+  const connectedAt = work.erpConnectedAt;
+  const firstNoteCreatedAt = work.onBehalf?.shipmentNote?.createdAt ?? work.createdAt;
+  if (connectedAt === null || connectedAt > firstNoteCreatedAt) {
+    throw new InvoiceStopError(CONNECTION_CHANGED_PROBLEM);
+  }
+
+  return connectedAt;
+}
+
 async function processOne(
   dependencies: ErpInvoiceDependencies & { blingCredentials: BlingAppCredentials },
   invoiceId: string,
@@ -125,7 +144,12 @@ async function processOne(
   // The note may have waited up to an hour: the sale, the switch and the link are checked again.
   const stop = invoiceStopReason(work);
   if (stop !== null) {
-    logger.warn("erp.invoice_stopped", { invoiceId, supplierId: work.supplierId, reason: stop });
+    logger.warn("erp.invoice_stopped", {
+      invoiceId,
+      supplierId: work.supplierId,
+      kind: work.kind,
+      reason: stop,
+    });
     await markShipmentInvoiceAttention(dependencies.database, {
       invoiceId,
       problem: STOP_PROBLEMS[stop],
@@ -135,12 +159,15 @@ async function processOne(
     return;
   }
   try {
-    const client = supplierBlingClient(dependencies, work.supplierId);
-    await advanceInvoice({ ...dependencies, client }, work);
+    const epoch = invoiceConnectionEpoch(work);
+    const client = supplierBlingClient(dependencies, work.supplierId, epoch);
+    const advance = work.kind === "direct" ? advanceInvoice : advanceOnBehalfInvoice;
+    await advance({ ...dependencies, client }, work);
   } catch (error) {
     logger.warn("erp.invoice_step_failed", {
       invoiceId,
       supplierId: work.supplierId,
+      kind: work.kind,
       stopped: isSupplierStop(error),
       error,
     });
@@ -149,8 +176,9 @@ async function processOne(
 }
 
 /**
- * Issues, through each supplier's Bling, the NF-e of new parcels of suppliers who turned it on,
- * and follows the notes waiting for SEFAZ. Does nothing while the Bling app keys are unset.
+ * Issues, through each supplier's Bling, the NF-e of new parcels of suppliers who turned it on
+ * (the direct note, or the two of venda à ordem), and follows the notes waiting for SEFAZ. Does
+ * nothing while the Bling app keys are unset.
  */
 export function createErpInvoiceProcessor(dependencies: ErpInvoiceDependencies) {
   return async function processErpInvoices(): Promise<ErpInvoiceSummary> {
@@ -158,7 +186,9 @@ export function createErpInvoiceProcessor(dependencies: ErpInvoiceDependencies) 
     if (credentials === null) {
       return { queued: 0, processed: 0 };
     }
-    const queued = await queueNewShipmentInvoices(dependencies.database);
+    const queued =
+      (await queueNewShipmentInvoices(dependencies.database)) +
+      (await queueOnBehalfInvoices(dependencies.database));
     const now = dependencies.now?.() ?? new Date();
     const ids = await claimDueShipmentInvoices(dependencies.database, {
       now,

@@ -33,6 +33,12 @@ export const TEST_SUPPLIER_FISCAL: SupplierFiscalProfile = {
     ibgeCode: "3122306",
   },
   invoiceModel: "direct",
+  onBehalfCfops: {
+    shipmentInState: "5923",
+    shipmentOutOfState: "6923",
+    saleInState: "5119",
+    saleOutOfState: "6119",
+  },
   defaults: {
     cfopInState: "5102",
     cfopOutOfState: "6102",

@@ -96,7 +96,13 @@ export async function upsertErpConnection(
     .values({ supplierId: input.supplierId, provider: input.provider, ...values })
     .onConflictDoUpdate({
       target: [supplierErpConnections.supplierId, supplierErpConnections.provider],
-      set: { ...values, invoiceEnabledAt },
+      set: {
+        ...values,
+        invoiceEnabledAt,
+        // Operation ids belong to the authenticated Bling account.
+        onBehalfShipmentOperationId: null,
+        onBehalfSaleOperationId: null,
+      },
     })
     .returning();
   if (row === undefined) {

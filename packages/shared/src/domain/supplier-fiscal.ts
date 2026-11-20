@@ -38,6 +38,19 @@ export const supplierTaxDefaultsSchema = z.object({
 });
 export type SupplierTaxDefaults = z.infer<typeof supplierTaxDefaultsSchema>;
 
+/**
+ * The CFOPs of the supplier's two notes in venda à ordem (Ajuste SINIEF 3/2024): the remessa to
+ * the buyer (5923/6923) and the sale to the reseller (5119/6119; 5118/6118 for goods the supplier
+ * makes itself). Settings, so the accountant's answer is a change of value, not of code.
+ */
+export const onBehalfCfopsSchema = z.object({
+  shipmentInState: cfopInStateSchema.default("5923"),
+  shipmentOutOfState: cfopOutOfStateSchema.default("6923"),
+  saleInState: cfopInStateSchema.default("5119"),
+  saleOutOfState: cfopOutOfStateSchema.default("6119"),
+});
+export type OnBehalfCfops = z.infer<typeof onBehalfCfopsSchema>;
+
 export const supplierFiscalProfileSchema = z
   .object({
     cnpj: cnpjSchema,
@@ -50,6 +63,8 @@ export const supplierFiscalProfileSchema = z
     address: billingAddressSchema.extend({ ibgeCode: ibgeCityCodeSchema }),
     defaults: supplierTaxDefaultsSchema,
     invoiceModel: invoiceModelSchema.default("direct"),
+    /** Profiles saved before venda à ordem existed read the usual codes. */
+    onBehalfCfops: onBehalfCfopsSchema.default(() => onBehalfCfopsSchema.parse({})),
   })
   .superRefine((profile, context) => {
     if (!isCityOfState(profile.address.ibgeCode, profile.address.state)) {

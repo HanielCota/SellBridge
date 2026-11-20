@@ -29,8 +29,8 @@ function isHttps(request: Request): boolean {
   );
 }
 
-/** Pages opened by a secret token in the path: the supplier's order and the buyer's tracking. */
-const SECRET_LINK_PREFIXES = ["/fornecedor/pedido/", "/rastreio/"];
+/** Pages opened by a secret token in the path: the supplier's order and invite, the buyer's tracking. */
+const SECRET_LINK_PREFIXES = ["/fornecedor/pedido/", "/fornecedor/convite/", "/rastreio/"];
 
 const securityHeadersMiddleware = createMiddleware().server(async ({ next, request }) => {
   const result = await next();

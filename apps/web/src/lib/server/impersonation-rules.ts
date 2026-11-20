@@ -23,6 +23,8 @@ export const BLOCKED_WHILE_IMPERSONATING: Readonly<Record<string, string>> = {
   // The supplier's company data and orders e-mail travel together in the brand form. A first
   // brand may be registered during a visit, see `assertVisitKeepsOrdersEmail`.
   updateOwnBrandFn: "mudar os dados da empresa ou o e-mail de pedidos",
+  // Who runs a supplier from the panel is the supplier's own decision, never the team's visit.
+  acceptSupplierInviteFn: "aceitar o convite de um fornecedor",
   acceptTermsFn: "aceitar os termos de uso",
   // A ticket opened in the customer's name would keep the account open to the team after the
   // ticket that justified the visit is closed. Named "area.action": it is an HTTP route.

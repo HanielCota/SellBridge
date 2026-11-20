@@ -181,6 +181,11 @@ export interface MarketplaceConnector {
   listOrders(credentials: StoreCredentials, since: Date): Promise<MarketplaceOrderBatch>;
   /** Loads one order referenced by a webhook `resource` (the payload itself is never trusted). */
   fetchOrder(credentials: StoreCredentials, resource: string): Promise<MarketplaceOrder>;
+  /**
+   * Optional: the `fetchOrder` resource of an order known only by its number, so the periodic
+   * order check reads it the way a notification does. Absent means the check skips the marketplace.
+   */
+  orderResource?: (externalOrderId: string) => string;
   verifyWebhook(request: WebhookRequest): Promise<WebhookVerification>;
   /** Reads the order reference of a stored webhook event; null when the topic is not about orders. */
   parseStoredOrderEvent(topic: string, rawPayload: unknown): StoredOrderEvent | null;

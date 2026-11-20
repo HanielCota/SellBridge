@@ -1,5 +1,5 @@
 import type { Database } from "@sellbridge/database";
-import { upsertMarketplaceOrder } from "@sellbridge/database/repositories";
+import { upsertMarketplaceOrder, type UpsertOrderResult } from "@sellbridge/database/repositories";
 import { logger } from "@sellbridge/shared/logger";
 import { type MarketplaceOrder, sealShippingAddress } from "@sellbridge/marketplaces";
 import type { TokenCipher } from "@sellbridge/shared/token-cipher";
@@ -65,7 +65,7 @@ export async function saveMarketplaceOrder(
   store: { id: string; tenantId: string },
   order: MarketplaceOrder,
   source: OrderSource,
-): Promise<"created" | "updated"> {
+): Promise<UpsertOrderResult> {
   const result = await upsertMarketplaceOrder(
     dependencies.database,
     store.tenantId,
@@ -75,8 +75,9 @@ export async function saveMarketplaceOrder(
   if (result.stockMoves > 0) {
     await requestStockSyncSafely(dependencies, source);
   }
-  if (order.status === "paid") {
+  if (order.status === "paid" && result.orderStatus === "paid") {
     await requestAutoForwardSafely(dependencies, { source, orderId: result.orderId });
   }
-  return result.status;
+
+  return result;
 }
