@@ -76,7 +76,7 @@ import {
 import { createErpCatalogExportProcessor } from "./processors/erp-catalog-export.ts";
 import { createErpCatalogReadProcessor } from "./processors/erp-catalog-read.ts";
 import { createErpInvoiceProcessor } from "./processors/erp-invoice-issue.ts";
-import { postDueErpStockExits } from "./processors/erp-stock-exit.ts";
+import { postDueErpStockEntries, postDueErpStockExits } from "./processors/erp-stock-exit.ts";
 import {
   checkAllErpStock,
   checkSupplierErpStock,
@@ -250,7 +250,10 @@ async function runErpStockJob(
     return checkAllErpStock(dependencies);
   }
   if (job.name === ERP_STOCK_JOB_NAMES.postExits) {
-    return postDueErpStockExits(dependencies);
+    // The same minute's sweep posts the returns' entries: both are SellBridge's own movements.
+    const exits = await postDueErpStockExits(dependencies);
+    const entries = await postDueErpStockEntries(dependencies);
+    return { exits, entries };
   }
   const { supplierId } = erpStockSupplierJobSchema.parse(job.data);
   if (job.name === ERP_STOCK_JOB_NAMES.checkSupplier) {
