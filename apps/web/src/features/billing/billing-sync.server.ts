@@ -20,6 +20,7 @@ import { logger } from "@sellbridge/shared/logger";
 import { database } from "@/lib/server/database";
 import { environment } from "@/lib/server/environment";
 import { billingClient } from "./billing-config.server";
+import { paidMonthCarriedTo } from "./paid-month";
 import { CHARGE_REFERENCE, CHECKOUT_REFERENCE } from "./pending-reference";
 
 type BillingAccount = NonNullable<Awaited<ReturnType<typeof getBillingAccount>>>;
@@ -69,20 +70,26 @@ async function accountOf(subscription: AsaasSubscription): Promise<BillingAccoun
   );
 }
 
-/** A card checkout's subscription replaces the account's former one and takes its paid month. */
+/**
+ * A card checkout's subscription replaces the account's former one. It takes the paid month
+ * over only for a plan that costs no more: a dearer one waits for its own first payment.
+ */
 function adoptionPatch(
   account: BillingAccount,
   subscription: AsaasSubscription,
 ): BillingAccountPatch {
-  const stillPaid = account.periodEnd !== null && account.periodEnd > new Date();
+  const plan = account.pendingPlan ?? account.plan;
+  const carried = isBillingPlanId(plan)
+    ? paidMonthCarriedTo(account, billingPlan(plan), new Date())
+    : null;
   return {
     subscriptionId: subscription.id,
     customerId: subscription.customer,
-    plan: account.pendingPlan ?? account.plan,
+    plan,
     paymentMethod: "credit_card",
     pendingPlan: null,
     pendingReference: null,
-    prepaidUntil: stillPaid ? account.periodEnd : null,
+    prepaidUntil: carried,
     cancelAtPeriodEnd: false,
   };
 }

@@ -35,6 +35,7 @@ import {
 } from "./billing-lock.server";
 import { planDescription, readSubscriptionState } from "./billing-sync.server";
 import { CHARGE_REFERENCE, CHECKOUT_REFERENCE } from "./pending-reference";
+import { paidMonthCarriedTo } from "./paid-month";
 import { planChangeOf, type PlanChange } from "./plan-change";
 
 export type BillingPaymentMethod = "pix" | "credit_card";
@@ -57,13 +58,6 @@ function dayLabel(date: Date): string {
 function isLive(account: BillingAccount): boolean {
   const paying = account.status === "active" || account.status === "past_due";
   return account.subscriptionId !== null && !account.cancelAtPeriodEnd && paying;
-}
-
-/** A month already paid that has not run out: a new subscription starts charging after it. */
-function paidMonthLeft(account: BillingAccount | null): Date | null {
-  if (account === null || account.periodEnd === null) return null;
-  if (account.status !== "active" && account.status !== "past_due") return null;
-  return account.periodEnd > new Date() ? account.periodEnd : null;
 }
 
 async function liveAccount(tenantId: string): Promise<BillingAccount> {
@@ -139,7 +133,7 @@ async function openPixSubscription(
   client: AsaasBillingClient,
   input: { tenantId: string; account: BillingAccount | null; plan: BillingPlan },
 ) {
-  const prepaidUntil = paidMonthLeft(input.account);
+  const prepaidUntil = paidMonthCarriedTo(input.account, input.plan, new Date());
   const firstDueDate =
     prepaidUntil === null
       ? asaasDueDate(new Date(), 0)
@@ -254,7 +248,7 @@ export async function startSubscription(input: {
     if (input.method === "pix") {
       return openPixSubscription(client, { tenantId: input.tenantId, account, plan });
     }
-    const prepaidUntil = paidMonthLeft(account);
+    const prepaidUntil = paidMonthCarriedTo(account, plan, new Date());
     const firstDueDate =
       prepaidUntil === null
         ? asaasDueDate(new Date(), 0)

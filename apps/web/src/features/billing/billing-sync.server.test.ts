@@ -105,6 +105,28 @@ describe("subscription read back from Asaas", () => {
     expect(mocks.client.deleteSubscription).toHaveBeenCalledWith("sub_old");
   });
 
+  it("binds a card checkout for a dearer plan without handing it the cheaper paid month", async () => {
+    mocks.client.getSubscription.mockResolvedValue({
+      id: "sub_card",
+      customer: "cus_card",
+      status: "ACTIVE",
+      value: 997,
+      checkoutSession: "chk_1",
+    });
+    mocks.byReference.mockResolvedValue(
+      account({
+        plan: "start",
+        cancelAtPeriodEnd: true,
+        pendingPlan: "elite",
+        pendingReference: "checkout:chk_1",
+      }),
+    );
+
+    await syncBillingSubscription({ subscriptionId: "sub_card", eventId: "evt_dearer" });
+
+    expect(patchApplied()).toMatchObject({ plan: "elite", prepaidUntil: null, periodEnd: null });
+  });
+
   it("does not end the old subscription when a newer read already won", async () => {
     mocks.client.getSubscription.mockResolvedValue({
       id: "sub_card",
