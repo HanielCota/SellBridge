@@ -254,7 +254,7 @@ async function syncOrder(sync: OrderSync): Promise<WebhookOutcome> {
     credentials,
     sync.resource,
   );
-  const status = await saveMarketplaceOrder(dependencies, store, order, {
+  const { status } = await saveMarketplaceOrder(dependencies, store, order, {
     webhookEventId: sync.webhookEventId,
   });
   await markWebhookProcessed(dependencies.database, sync.webhookEventId);

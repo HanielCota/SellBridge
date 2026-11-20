@@ -472,6 +472,24 @@ describe("orders", () => {
     expect(order.orderedAt.toISOString()).toBe("2026-03-01T13:00:00.000Z");
   });
 
+  it("reads an order known only by its number the way a notification does", async () => {
+    const { ml } = connector({ [`GET ${API}/orders/2000003508897196`]: () => json(200, rawOrder) });
+
+    const resource = ml.orderResource?.("2000003508897196") ?? "";
+    const order = await ml.fetchOrder(store, resource);
+
+    expect(resource).toBe("/orders/2000003508897196");
+    expect(order.externalOrderId).toBe("2000003508897196");
+  });
+
+  it("refuses an order number that is not all digits as final", () => {
+    const { ml } = connector({});
+
+    expect(() => ml.orderResource?.("../items/MLB1")).toThrow(
+      expect.objectContaining({ details: expect.objectContaining({ retryable: false }) }),
+    );
+  });
+
   it("refuses an order sold by another seller as final", async () => {
     const foreignOrder = { ...rawOrder, seller: { id: 123 } };
     const { ml } = connector({
