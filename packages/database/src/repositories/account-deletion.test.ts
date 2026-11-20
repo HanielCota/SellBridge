@@ -7,7 +7,10 @@ import {
   member,
   user,
   organization,
+  orderShipments,
   orders,
+  returnClaimPhotos,
+  returnClaims,
   storeConnections,
   supplierErpConnections,
   supplierPaymentAccounts,
@@ -20,6 +23,7 @@ import {
   createTestDatabase,
   createTestSupplierProduct,
   createTestUsers,
+  testAddress,
   testStoreInput,
 } from "../testing/fixtures.ts";
 import {
@@ -99,6 +103,70 @@ describe("account deletion", () => {
     expect(await accountFileKeys(database, { userId: leaving, tenantIds: [tenantId] })).toEqual([
       `tickets/${ticket.id}/nota.pdf`,
     ]);
+  });
+
+  it("lists the photos of the workspace's returns, which go with its sales", async () => {
+    const tenantId = await createOrganization();
+    const store = await upsertStoreConnection(
+      database,
+      testStoreInput(tenantId, `photos-${tenantId}`),
+    );
+    const [supplier] = await database
+      .insert(suppliers)
+      .values({
+        name: "Fornecedor",
+        niche: "Teste",
+        state: "SP",
+        city: "X",
+        organizationId: tenantId,
+      })
+      .returning({ id: suppliers.id });
+    const [order] = await database
+      .insert(orders)
+      .values({
+        tenantId,
+        storeConnectionId: store.id,
+        externalOrderId: `PHOTO-${tenantId}`,
+        status: "delivered",
+        totalCents: 1000,
+        orderedAt: new Date(),
+      })
+      .returning({ id: orders.id });
+    const [shipment] = await database
+      .insert(orderShipments)
+      .values({
+        tenantId,
+        orderId: order?.id ?? "",
+        supplierId: supplier?.id ?? "",
+        address: testAddress,
+        items: [],
+        status: "returned",
+      })
+      .returning({ id: orderShipments.id });
+    const [claim] = await database
+      .insert(returnClaims)
+      .values({
+        shipmentId: shipment?.id ?? "",
+        orderId: order?.id ?? "",
+        sellerTenantId: tenantId,
+        supplierId: supplier?.id ?? "",
+        supplierCostCents: 500,
+      })
+      .returning({ id: returnClaims.id });
+    const storageKey = `returns/${tenantId}/etiqueta.jpg`;
+    await database.insert(returnClaimPhotos).values({
+      claimId: claim?.id ?? "",
+      side: "seller",
+      storageKey,
+      fileName: "etiqueta.jpg",
+      mimeType: "image/jpeg",
+      sizeBytes: 10,
+    });
+
+    const keys = await accountFileKeys(database, { userId: leaving, tenantIds: [tenantId] });
+
+    expect(keys).toEqual([storageKey]);
+    await database.delete(returnClaims).where(eq(returnClaims.id, claim?.id ?? ""));
   });
 
   it("deletes a workspace with its stores and sales", async () => {

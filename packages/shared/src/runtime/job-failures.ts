@@ -2,6 +2,7 @@ import {
   autoForwardJobId,
   erpCatalogExportJobId,
   QUEUE_NAMES,
+  RETURN_DEADLINES_JOB_NAME,
   STORE_ORDER_CATCH_UP_JOB_NAME,
   WEBHOOK_EVENT_JOB_NAME,
 } from "./queues.ts";
@@ -43,8 +44,13 @@ export function hasOwnFailureReport(job: { queue: string; name: string }): boole
   return job.queue === QUEUE_NAMES.webhookEvents && job.name === WEBHOOK_EVENT_JOB_NAME;
 }
 
-const STORE_ORDER_CATCH_UP_REASON =
-  "A busca das vendas feitas enquanto a loja estava desconectada falhou em todas as tentativas: confira as vendas no marketplace e lance à mão as que faltarem.";
+/** Jobs that share a queue with another kind of job and need their own reason. */
+const JOB_NAME_REASONS: Readonly<Record<string, string>> = {
+  [STORE_ORDER_CATCH_UP_JOB_NAME]:
+    "A busca das vendas feitas enquanto a loja estava desconectada falhou em todas as tentativas: confira as vendas no marketplace e lance à mão as que faltarem.",
+  [RETURN_DEADLINES_JOB_NAME]:
+    "O fechamento dos prazos de devolução falhou: devoluções vencidas podem não ter sido encerradas nem o estoque devolvido.",
+};
 
 /** What stopped, in the team's words, for the title of the problem. */
 const FAILURE_REASONS: Readonly<Record<QueueName, string>> = {
@@ -144,6 +150,13 @@ export function jobFailureReason(queue: string): string {
   return UNKNOWN_QUEUE_REASON;
 }
 
+function failureReasonOf(job: { queue: string; name: string }): string {
+  if (Object.hasOwn(JOB_NAME_REASONS, job.name)) {
+    return Reflect.get(JOB_NAME_REASONS, job.name);
+  }
+  return jobFailureReason(job.queue);
+}
+
 function subjectOf(data: unknown): Record<string, string> {
   if (typeof data !== "object" || data === null) {
     return {};
@@ -167,10 +180,7 @@ export function finalJobFailureFields(job: FailedJob): Record<string, unknown> {
   const subject = subjectOf(job.data);
   const retryable = retryableJobIdOf(job.queue, subject) !== null;
   return {
-    reason:
-      job.name === STORE_ORDER_CATCH_UP_JOB_NAME
-        ? STORE_ORDER_CATCH_UP_REASON
-        : jobFailureReason(job.queue),
+    reason: failureReasonOf(job),
     queue: job.queue,
     jobId: job.jobId,
     attemptsMade: job.attemptsMade,

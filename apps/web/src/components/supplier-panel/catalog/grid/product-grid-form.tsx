@@ -26,8 +26,11 @@ import { GridReviewStep } from "./grid-review-step";
 import { CategoryQuestion, GridTypeQuestion } from "./grid-type-question";
 
 type GridForm = ReturnType<typeof useGridForm>;
-type FormData = Awaited<
-  ReturnType<NonNullable<ReturnType<typeof supplierPanelModelFormQueryOptions>["queryFn"]>>
+type FormData = Extract<
+  Awaited<
+    ReturnType<NonNullable<ReturnType<typeof supplierPanelModelFormQueryOptions>["queryFn"]>>
+  >,
+  { available: true }
 >;
 
 interface ProductGridFormProps {
@@ -305,6 +308,24 @@ function LoadedForm({
   );
 }
 
+/** Grids switched off: a link or an old tab lands here, and the way back is the list. */
+function GridsUnavailable({ onBack }: { onBack: () => void }) {
+  return (
+    <section className="surface-card grid max-w-xl gap-3 rounded-3xl bg-card p-5 sm:p-6">
+      <h1 className="text-title3 font-semibold">
+        Produtos com cores e tamanhos ainda não estão disponíveis
+      </h1>
+      <p className="text-sm text-muted-foreground">
+        Enquanto isso, cadastre cada cor e tamanho como um produto simples.
+      </p>
+      <Button className="min-h-11 justify-self-start" onClick={onBack}>
+        <ArrowLeftIcon aria-hidden="true" />
+        Voltar para os produtos
+      </Button>
+    </section>
+  );
+}
+
 /**
  * The supplier's form for a product sold in colours and sizes: one model, saved as one product
  * per combination, published all at once.
@@ -318,5 +339,8 @@ export function ProductGridForm(props: ProductGridFormProps) {
   if (query.isError) {
     return <ErrorState message={errorMessage(query.error)} onRetry={() => void query.refetch()} />;
   }
-  return <LoadedForm {...props} modelId={draftId} data={query.data} />;
+  if (query.data.available) {
+    return <LoadedForm {...props} modelId={draftId} data={query.data} />;
+  }
+  return <GridsUnavailable onBack={props.onBack} />;
 }
