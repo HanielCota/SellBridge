@@ -79,7 +79,8 @@ export const IMPORT_COLUMNS: readonly ImportColumnGuide[] = [
     column: "marca",
     label: "Marca",
     required: false,
-    format: "Até 255 caracteres, exigido pelo Mercado Livre em muitas categorias",
+    format:
+      "Até 255 caracteres. Produto sem marca: deixe vazio ou escreva Sem marca, e no Mercado Livre ele sai com a marca genérica",
     example: "Marca Exemplo",
   },
   {
