@@ -39,6 +39,7 @@ vi.mock("./billing-lock-database.server", () => ({
 }));
 vi.mock("./billing-config.server", () => ({ billingClient: () => mocks.client }));
 
+import { AsaasError } from "@sellbridge/payments/asaas";
 import { cancelSubscription } from "./subscription-cancel.server";
 
 const input = { tenantId: "tenant-a", userId: "owner-a" };
@@ -220,6 +221,20 @@ describe("cancellation", () => {
       expect.objectContaining({ problemKey: "difference-dispute:pay_diff" }),
     );
     reported.mockRestore();
+  });
+
+  it("finishes cancelling when Asaas already ended the subscription", async () => {
+    setToday("2026-11-27");
+    mocks.client.deleteSubscription.mockRejectedValueOnce(new AsaasError("gone", { status: 404 }));
+
+    const result = await cancelSubscription(input);
+
+    expect(result).toEqual({ endsAt: PERIOD_END.toISOString(), refundCents: null });
+    expect(mocks.save).toHaveBeenCalledWith(
+      expect.anything(),
+      "tenant-a",
+      expect.objectContaining({ cancelAtPeriodEnd: true }),
+    );
   });
 
   it("refuses to cancel twice", async () => {

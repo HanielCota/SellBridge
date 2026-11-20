@@ -77,6 +77,16 @@ async function saveCancellation(tenantId: string, patch: BillingAccountPatch): P
   logger.warn("billing.cancellation_not_stored", {});
 }
 
+/** A subscription Asaas no longer has is already what cancelling asks for (a retried cancel). */
+async function endSubscription(client: AsaasBillingClient, subscriptionId: string) {
+  try {
+    await client.deleteSubscription(subscriptionId);
+  } catch (error) {
+    if (isAsaasError(error) && error.status === 404) return;
+    throw error;
+  }
+}
+
 /** What cancelling does before the reseller confirms: until when the plan lasts, or the refund. */
 export async function quoteCancellation(input: { tenantId: string; userId: string }) {
   await requireBillingOwner(database, input.tenantId, input.userId);
@@ -115,7 +125,7 @@ export async function cancelSubscription(input: { tenantId: string; userId: stri
         periodEnd: new Date(),
       });
     }
-    await client.deleteSubscription(account.subscriptionId);
+    await endSubscription(client, account.subscriptionId);
     const endsNow =
       refund !== null || account.status === "incomplete" || account.status === "canceled";
     await saveCancellation(input.tenantId, {
