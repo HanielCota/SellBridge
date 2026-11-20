@@ -1,6 +1,7 @@
 import { logger } from "@sellbridge/shared/logger";
 import { z } from "zod";
 import { errorReportSchema, redactDiagnostic } from "../error-diagnostics";
+import { clientAddress } from "./client-address";
 
 const MAX_BODY_BYTES = 8192;
 const WINDOW_MILLISECONDS = 60_000;
@@ -41,13 +42,11 @@ function reportEnvironment() {
 }
 
 /**
- * The client a report comes from: the address the proxy forwards (the header Better Auth also
- * reads, `CLIENT_IP_HEADER`), its first hop. Reports with none share one bucket.
+ * The client a report comes from, read exactly as the login limit reads it (`CLIENT_IP_HEADER`).
+ * Reports without a trusted address share one bucket.
  */
 function clientKey(request: Request): string {
-  const header = reportEnvironment().CLIENT_IP_HEADER;
-  const first = request.headers.get(header)?.split(",")[0]?.trim();
-  return first === undefined || first === "" ? "unknown" : first;
+  return clientAddress(request, reportEnvironment().CLIENT_IP_HEADER) ?? "unknown";
 }
 
 /**

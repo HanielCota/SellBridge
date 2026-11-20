@@ -1,11 +1,13 @@
 import {
+  applyBillingState,
   getBillingAccount,
   requireBillingOwner,
-  saveBillingAccount,
+  type BillingAccountPatch,
 } from "@sellbridge/database/repositories";
 import {
   asaasDueDate,
   centsFromAsaasValue,
+  FIRST_FEE_REFUND_DAYS,
   isAsaasError,
   isPaidCharge,
   paidOn,
@@ -21,7 +23,7 @@ import { readSubscriptionState } from "./billing-sync.server";
 
 type BillingAccount = NonNullable<Awaited<ReturnType<typeof getBillingAccount>>>;
 
-const REFUND_DESCRIPTION = "Cancelamento em até 7 dias da primeira mensalidade";
+const REFUND_DESCRIPTION = `Cancelamento em até ${FIRST_FEE_REFUND_DAYS} dias da primeira mensalidade`;
 
 async function cancellableAccount(tenantId: string) {
   const account = await getBillingAccount(database, tenantId);
@@ -51,6 +53,14 @@ async function refundOnCancel(
     firstPaidOn: account.firstPaidOn ?? firstPaid,
     today: asaasDueDate(new Date(), 0),
   });
+}
+
+/**
+ * Stamped like a read from Asaas: a notice sync that read the subscription before it was
+ * cancelled can no longer write it back as active.
+ */
+async function saveCancellation(tenantId: string, patch: BillingAccountPatch): Promise<void> {
+  await applyBillingState(database, { tenantId, eventId: null, observedAt: Date.now(), patch });
 }
 
 /** What cancelling does before the reseller confirms: until when the plan lasts, or the refund. */
@@ -83,10 +93,18 @@ export async function cancelSubscription(input: { tenantId: string; userId: stri
     const refund = await refundOnCancel(client, account);
     await retireUnpaid(client, { ...account, subscriptionId: null });
     // Given back before the subscription ends: a failure leaves it running, never unpaid.
-    if (refund !== null) await client.refundCharge(refund.id, REFUND_DESCRIPTION);
+    if (refund !== null) {
+      await client.refundCharge(refund.id, REFUND_DESCRIPTION);
+      // The money is back: a retry no longer sees the refunded fee, so the plan ends now.
+      await saveCancellation(input.tenantId, {
+        status: "canceled",
+        periodEnd: new Date(),
+      });
+    }
     await client.deleteSubscription(account.subscriptionId);
-    const endsNow = refund !== null || account.status === "incomplete";
-    await saveBillingAccount(database, input.tenantId, {
+    const endsNow =
+      refund !== null || account.status === "incomplete" || account.status === "canceled";
+    await saveCancellation(input.tenantId, {
       cancelAtPeriodEnd: true,
       scheduledPlan: null,
       scheduledPlanAt: null,

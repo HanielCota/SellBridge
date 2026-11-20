@@ -30,7 +30,7 @@ import { availableStock } from "./sql/available-stock.ts";
 import { productWeightGrams } from "./sql/product-weight.ts";
 import {
   catalogVisibleTo,
-  productListable,
+  productOfferedInCatalog,
   publicSupplier,
   supplierFindable,
   supplierOpenToResellers,
@@ -51,7 +51,7 @@ export interface SupplierSummary {
 /** How many products of the supplier a reseller can sell. */
 const listableProductCount = sql<number>`(select count(*) from ${supplierProducts} where ${and(
   eq(supplierProducts.supplierId, suppliers.id),
-  productListable(),
+  productOfferedInCatalog(),
 )})`.mapWith(Number);
 
 export interface ListSuppliersFilters {
@@ -113,7 +113,7 @@ function nicheOrProductMatch(search: string): SQL | undefined {
     exists(
       sql`(select 1 from ${supplierProducts} where ${and(
         eq(supplierProducts.supplierId, suppliers.id),
-        productListable(),
+        productOfferedInCatalog(),
         onProduct,
       )})`,
     ),
@@ -266,7 +266,10 @@ export interface CatalogProduct {
 }
 
 function catalogConditions(supplierId: string, filters: CatalogFilters): SQL[] {
-  const conditions: SQL[] = [eq(supplierProducts.supplierId, supplierId), productListable()];
+  const conditions: SQL[] = [
+    eq(supplierProducts.supplierId, supplierId),
+    productOfferedInCatalog(),
+  ];
   conditions.push(
     exists(
       sql`(select 1 from ${suppliers} where ${and(eq(suppliers.id, supplierProducts.supplierId), supplierOpenToResellers(), supplierReceivingRuleMet(), publicSupplier())})`,
@@ -351,7 +354,7 @@ export async function listSupplierCategories(
     .where(
       and(
         eq(supplierProducts.supplierId, supplierId),
-        productListable(),
+        productOfferedInCatalog(),
         supplierOpenToResellers(),
         supplierReceivingRuleMet(),
         publicSupplier(),
@@ -399,7 +402,7 @@ export async function getSellableCatalogProduct(
     .where(
       and(
         eq(supplierProducts.id, productId),
-        productListable(),
+        productOfferedInCatalog(),
         supplierOpenToResellers(),
         supplierReceivingRuleMet(),
         catalogVisibleTo(tenantId),
@@ -444,7 +447,7 @@ function isPublishedBy(tenantId: string): SQL {
 
 function sellableCatalogConditions(tenantId: string, filters: SellableCatalogFilters): SQL[] {
   const conditions: SQL[] = [
-    productListable(),
+    productOfferedInCatalog(),
     supplierOpenToResellers(),
     supplierReceivingRuleMet(),
     catalogVisibleTo(tenantId),
@@ -593,7 +596,7 @@ export async function listSellableCategories(
     .innerJoin(suppliers, eq(suppliers.id, supplierProducts.supplierId))
     .where(
       and(
-        productListable(),
+        productOfferedInCatalog(),
         supplierOpenToResellers(),
         supplierReceivingRuleMet(),
         catalogVisibleTo(tenantId),

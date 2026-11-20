@@ -9,6 +9,7 @@ import {
 import {
   asaasDueDate,
   isAsaasError,
+  isPaidCharge,
   type AsaasBillingClient,
   type AsaasCheckoutPayer,
 } from "@sellbridge/payments/asaas";
@@ -31,9 +32,15 @@ import {
   UNREACHABLE_MESSAGE,
   withBillingLock,
 } from "./billing-lock.server";
-import { planDescription, readSubscriptionState } from "./billing-sync.server";
+import {
+  planDescription,
+  readSubscriptionState,
+  retireLapsedDifference,
+} from "./billing-sync.server";
 import { CHARGE_REFERENCE, CHECKOUT_REFERENCE } from "./pending-reference";
+import { paidMonthCarriedTo } from "./paid-month";
 import { planChangeOf, type PlanChange } from "./plan-change";
+import { upgradeReference } from "./upgrade-reference";
 
 export type BillingPaymentMethod = "pix" | "credit_card";
 type BillingAccount = NonNullable<Awaited<ReturnType<typeof getBillingAccount>>>;
@@ -55,13 +62,6 @@ function dayLabel(date: Date): string {
 function isLive(account: BillingAccount): boolean {
   const paying = account.status === "active" || account.status === "past_due";
   return account.subscriptionId !== null && !account.cancelAtPeriodEnd && paying;
-}
-
-/** A month already paid that has not run out: a new subscription starts charging after it. */
-function paidMonthLeft(account: BillingAccount | null): Date | null {
-  if (account === null || account.periodEnd === null) return null;
-  if (account.status !== "active" && account.status !== "past_due") return null;
-  return account.periodEnd > new Date() ? account.periodEnd : null;
 }
 
 async function liveAccount(tenantId: string): Promise<BillingAccount> {
@@ -136,7 +136,7 @@ async function openPixSubscription(
   client: AsaasBillingClient,
   input: { tenantId: string; account: BillingAccount | null; plan: BillingPlan },
 ) {
-  const prepaidUntil = paidMonthLeft(input.account);
+  const prepaidUntil = paidMonthCarriedTo(input.account, input.plan, new Date());
   const firstDueDate =
     prepaidUntil === null
       ? asaasDueDate(new Date(), 0)
@@ -250,7 +250,7 @@ export async function startSubscription(input: {
     if (input.method === "pix") {
       return openPixSubscription(client, { tenantId: input.tenantId, account, plan });
     }
-    const prepaidUntil = paidMonthLeft(account);
+    const prepaidUntil = paidMonthCarriedTo(account, plan, new Date());
     const firstDueDate =
       prepaidUntil === null
         ? asaasDueDate(new Date(), 0)
@@ -324,6 +324,9 @@ async function applyPlanChange(
   if (change.kind === "keep" || account.subscriptionId === null) return { url: null };
   if (change.kind === "upgrade_pay")
     return openUpgradeCharge(client, { tenantId, account, plan, change });
+  // A card checkout or a difference opened before was priced for the plan being left.
+  await retireUnpaid(client, { ...account, subscriptionId: null });
+  const retired = { pendingPlan: null, pendingReference: null };
   const current = isBillingPlanId(account.plan) ? billingPlan(account.plan) : plan;
   const charged = change.kind === "cancel_schedule" ? current : plan;
   await client.changeSubscriptionValue(account.subscriptionId, {
@@ -332,6 +335,7 @@ async function applyPlanChange(
   });
   if (change.kind === "schedule") {
     await saveBillingAccount(database, tenantId, {
+      ...retired,
       scheduledPlan: plan.id,
       scheduledPlanAt: change.startsAt,
     });
@@ -340,6 +344,7 @@ async function applyPlanChange(
   const now = change.kind === "upgrade_now" ? { plan: plan.id } : {};
   await saveBillingAccount(database, tenantId, {
     ...now,
+    ...retired,
     scheduledPlan: null,
     scheduledPlanAt: null,
   });
@@ -386,7 +391,7 @@ async function openUpgradeCharge(
         valueCents: change.differenceCents,
         dueDate: asaasDueDate(new Date(), 0),
         description: `Diferença para o plano ${plan.name} até ${dayLabel(change.until)}`,
-        externalReference: `upgrade:${tenantId}:${reference}`,
+        externalReference: upgradeReference(tenantId, reference, change.until),
         successUrl: returnUrl("troca"),
       }),
   );
@@ -421,10 +426,18 @@ export async function openPendingPayment(input: { tenantId: string; userId: stri
     const account = await getBillingAccount(database, input.tenantId);
     const reference = account?.pendingReference ?? null;
     assertNoPendingBillingCreation(reference);
-    if (reference?.startsWith(CHARGE_REFERENCE) === true) {
+    // A difference whose month is over no longer moves the plan up: it is closed, not offered.
+    const lapsed = await retireLapsedDifference(client, reference, new Date());
+    if (lapsed) {
+      await saveBillingAccount(database, input.tenantId, {
+        pendingPlan: null,
+        pendingReference: null,
+      });
+    }
+    if (!lapsed && reference?.startsWith(CHARGE_REFERENCE) === true) {
       const charge = await client.getCharge(reference.slice(CHARGE_REFERENCE.length));
-      if (charge.invoiceUrl != null && charge.status !== "RECEIVED")
-        return { url: charge.invoiceUrl };
+      // A card difference is CONFIRMED before RECEIVED: neither is still waiting for payment.
+      if (charge.invoiceUrl != null && !isPaidCharge(charge)) return { url: charge.invoiceUrl };
     }
     if (account?.subscriptionId == null) throw validationError("Não há pagamento em aberto agora.");
     const { state } = await readSubscriptionState(client, {

@@ -41,6 +41,8 @@ const RECORDED_WARNINGS: Readonly<Record<string, (fields: Record<string, unknown
   "claim.mediation": () => true,
   // A parcel stuck because its supplier has no approved receiving account (rule of 18/11/2026).
   "supplier_payments.receiving_account_missing": () => true,
+  // A sale the periodic order check brought in: its notice was lost, which the team must know.
+  "order.found_by_check": () => true,
 };
 
 interface AreaRule {

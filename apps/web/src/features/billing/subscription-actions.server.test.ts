@@ -6,6 +6,8 @@ const mocks = vi.hoisted(() => ({
   account: vi.fn<(...input: unknown[]) => Promise<unknown>>(),
   save: vi.fn<(...input: unknown[]) => Promise<void>>(),
   tryLock: vi.fn<(...input: unknown[]) => Promise<boolean>>(),
+  syncSubscription: vi.fn<(...input: unknown[]) => Promise<void>>(),
+  syncUpgrade: vi.fn<(...input: unknown[]) => Promise<void>>(),
   holder: vi.fn<(...input: unknown[]) => Promise<unknown>>(),
   email: vi.fn<(...input: unknown[]) => Promise<string | null>>(),
   client: {
@@ -20,6 +22,7 @@ const mocks = vi.hoisted(() => ({
     deleteCharge: vi.fn<(...input: unknown[]) => Promise<boolean>>(),
     changeSubscriptionValue: vi.fn<(...input: unknown[]) => Promise<unknown>>(),
     createOneOffCharge: vi.fn<(...input: unknown[]) => Promise<unknown>>(),
+    getCharge: vi.fn<(...input: unknown[]) => Promise<unknown>>(),
   },
 }));
 vi.mock("@sellbridge/database/repositories", () => ({
@@ -47,9 +50,14 @@ vi.mock("./billing-lock-database.server", () => ({
   }),
 }));
 vi.mock("./billing-config.server", () => ({ billingClient: () => mocks.client }));
+vi.mock("./billing-sync.server", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("./billing-sync.server")>()),
+  syncBillingSubscription: mocks.syncSubscription,
+  syncUpgradeCharge: mocks.syncUpgrade,
+}));
 
-import { AsaasError } from "@sellbridge/payments/asaas";
-import { changePlan, startSubscription } from "./subscription-actions.server";
+import { AsaasError, asaasDueDate } from "@sellbridge/payments/asaas";
+import { changePlan, openPendingPayment, startSubscription } from "./subscription-actions.server";
 
 const input = { tenantId: "tenant-a", userId: "owner-a", plan: "pro" as const };
 const HOLDER = {
@@ -87,6 +95,11 @@ function liveAccount(overrides: Record<string, unknown> = {}) {
   };
 }
 
+/** A Start month paid up front, cancelled so it does not renew. */
+function cancelledStart(status: string) {
+  return liveAccount({ plan: "start", status, cancelAtPeriodEnd: true });
+}
+
 beforeEach(() => {
   vi.clearAllMocks();
   mocks.owner.mockResolvedValue();
@@ -121,6 +134,51 @@ describe("first subscription", () => {
 
     expect(mocks.client.cancelCheckout).toHaveBeenCalledWith("chk_old");
     expect(mocks.client.createPixSubscription).not.toHaveBeenCalled();
+  });
+
+  it("syncs a first fee Asaas already received instead of deleting its subscription", async () => {
+    mocks.account.mockResolvedValue(liveAccount({ status: "incomplete", periodEnd: null }));
+    mocks.client.listSubscriptionCharges.mockResolvedValue([
+      { ...OPEN_PIX, status: "RECEIVED", paymentDate: "2026-11-19" },
+    ]);
+
+    await expect(startSubscription({ ...input, method: "pix" })).rejects.toMatchObject({
+      code: "CONFLICT",
+    });
+
+    expect(mocks.syncSubscription).toHaveBeenCalledWith({
+      subscriptionId: "sub_live",
+      eventId: null,
+    });
+    expect(mocks.client.deleteSubscription).not.toHaveBeenCalled();
+    expect(mocks.client.createPixSubscription).not.toHaveBeenCalled();
+  });
+
+  it("syncs an upgrade difference Asaas already received instead of deleting it", async () => {
+    mocks.account.mockResolvedValue(
+      liveAccount({
+        status: "canceled",
+        subscriptionId: null,
+        pendingReference: "charge:pay_diff",
+      }),
+    );
+    mocks.client.getCharge.mockResolvedValue({ ...OPEN_PIX, id: "pay_diff", status: "CONFIRMED" });
+
+    await expect(startSubscription({ ...input, method: "pix" })).rejects.toMatchObject({
+      code: "CONFLICT",
+    });
+
+    expect(mocks.syncUpgrade).toHaveBeenCalledWith({ chargeId: "pay_diff", eventId: null });
+    expect(mocks.client.deleteCharge).not.toHaveBeenCalled();
+  });
+
+  it("deletes an incomplete subscription Asaas still has unpaid", async () => {
+    mocks.account.mockResolvedValue(liveAccount({ status: "incomplete", periodEnd: null }));
+
+    await startSubscription({ ...input, method: "pix" });
+
+    expect(mocks.client.deleteSubscription).toHaveBeenCalledWith("sub_live");
+    expect(mocks.syncSubscription).not.toHaveBeenCalled();
   });
 
   it("keeps an uncertain creation reserved and refuses to create a second subscription", async () => {
@@ -186,6 +244,59 @@ describe("first subscription", () => {
     expect(mocks.client.createPixSubscription).toHaveBeenCalledWith(
       expect.objectContaining({ customerId: "cus_a" }),
     );
+  });
+
+  describe("after cancelling a paid month", () => {
+    const today = asaasDueDate(new Date(), 0);
+
+    it.each(["active", "past_due"])(
+      "charges a dearer plan by Pix today instead of handing it the %s Start month",
+      async (status) => {
+        mocks.account.mockResolvedValue(cancelledStart(status));
+
+        await startSubscription({ ...input, plan: "elite", method: "pix" });
+
+        expect(mocks.client.createPixSubscription).toHaveBeenCalledWith(
+          expect.objectContaining({ valueCents: 99_700, firstDueDate: today }),
+        );
+        expect(mocks.save).toHaveBeenCalledWith(
+          expect.anything(),
+          "tenant-a",
+          expect.objectContaining({
+            plan: "elite",
+            prepaidUntil: null,
+            status: "incomplete",
+            periodEnd: null,
+          }),
+        );
+      },
+    );
+
+    it("charges a dearer plan by card today", async () => {
+      mocks.account.mockResolvedValue(cancelledStart("active"));
+
+      await startSubscription({ ...input, plan: "elite", method: "credit_card" });
+
+      expect(mocks.client.createRecurringCheckout).toHaveBeenCalledWith(
+        expect.objectContaining({ valueCents: 99_700, firstDueDate: today }),
+      );
+    });
+
+    it("lets the same plan start charging when the paid month ends", async () => {
+      const account = cancelledStart("active");
+      mocks.account.mockResolvedValue(account);
+
+      await startSubscription({ ...input, plan: "start", method: "pix" });
+
+      expect(mocks.client.createPixSubscription).not.toHaveBeenCalledWith(
+        expect.objectContaining({ firstDueDate: today }),
+      );
+      expect(mocks.save).toHaveBeenCalledWith(
+        expect.anything(),
+        "tenant-a",
+        expect.objectContaining({ plan: "start", prepaidUntil: account.periodEnd }),
+      );
+    });
   });
 
   it("refuses to sell a second subscription to an account with a live one", async () => {
@@ -306,7 +417,7 @@ describe("plan change", () => {
       expect.objectContaining({
         customerId: "cus_a",
         billingType: "PIX",
-        externalReference: expect.stringMatching(/^upgrade:tenant-a:[a-f0-9-]+$/),
+        externalReference: expect.stringMatching(/^upgrade:tenant-a:[a-f0-9-]+:\d{13}$/),
       }),
     );
     expect(mocks.save).toHaveBeenCalledWith(expect.anything(), "tenant-a", {
@@ -353,6 +464,37 @@ describe("plan change", () => {
     expect(result).toEqual({ url: null });
   });
 
+  it.each([
+    ["scheduling a smaller plan", {}, "start"],
+    [
+      "undoing a scheduled smaller plan",
+      { scheduledPlan: "start", scheduledPlanAt: new Date(Date.now() + 10 * 86_400_000) },
+      "elite",
+    ],
+  ] as const)(
+    "closes a card checkout priced for the old plan when %s",
+    async (_label, overrides, target) => {
+      mocks.account.mockResolvedValue(
+        liveAccount({
+          plan: "elite",
+          paymentMethod: "credit_card",
+          pendingPlan: "elite",
+          pendingReference: "checkout:chk_card",
+          ...overrides,
+        }),
+      );
+
+      await changePlan({ ...input, plan: target });
+
+      expect(mocks.client.cancelCheckout).toHaveBeenCalledWith("chk_card");
+      expect(mocks.save).toHaveBeenCalledWith(
+        expect.anything(),
+        "tenant-a",
+        expect.objectContaining({ pendingPlan: null, pendingReference: null }),
+      );
+    },
+  );
+
   it("refuses a change while a monthly charge is late", async () => {
     mocks.account.mockResolvedValue(liveAccount({ status: "past_due" }));
 
@@ -360,5 +502,49 @@ describe("plan change", () => {
       code: "CONFLICT",
     });
     expect(mocks.client.createOneOffCharge).not.toHaveBeenCalled();
+  });
+});
+
+describe("paying what is open", () => {
+  it("closes a difference whose month is over and offers the monthly fee instead", async () => {
+    mocks.account.mockResolvedValue(
+      liveAccount({ pendingPlan: "elite", pendingReference: "charge:pay_diff" }),
+    );
+    mocks.client.getCharge.mockResolvedValue({
+      id: "pay_diff",
+      status: "OVERDUE",
+      value: 50,
+      dueDate: "2025-12-04",
+      invoiceUrl: "https://asaas.test/i/diff",
+      externalReference: "upgrade:tenant-a:ref:1766199600000",
+    });
+    mocks.client.getSubscription.mockResolvedValue({ ...PIX_SUBSCRIPTION, id: "sub_live" });
+    mocks.client.listSubscriptionCharges.mockResolvedValue([OPEN_PIX]);
+
+    const result = await openPendingPayment({ tenantId: "tenant-a", userId: "owner-a" });
+
+    expect(mocks.client.deleteCharge).toHaveBeenCalledWith("pay_diff");
+    expect(mocks.save).toHaveBeenCalledWith(expect.anything(), "tenant-a", {
+      pendingPlan: null,
+      pendingReference: null,
+    });
+    expect(result).toEqual({ url: OPEN_PIX.invoiceUrl });
+  });
+
+  it("never sends the reseller to an upgrade difference the card already paid", async () => {
+    mocks.account.mockResolvedValue(liveAccount({ pendingReference: "charge:pay_diff" }));
+    mocks.client.getCharge.mockResolvedValue({
+      id: "pay_diff",
+      status: "CONFIRMED",
+      value: 50,
+      dueDate: "2026-11-19",
+      invoiceUrl: "https://asaas.test/i/diff",
+    });
+    mocks.client.getSubscription.mockResolvedValue(PIX_SUBSCRIPTION);
+    mocks.client.listSubscriptionCharges.mockResolvedValue([]);
+
+    await expect(openPendingPayment({ tenantId: "tenant-a", userId: "owner-a" })).rejects.toThrow(
+      "Não há pagamento em aberto agora.",
+    );
   });
 });

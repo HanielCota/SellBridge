@@ -122,6 +122,12 @@ a menos que `BILLING_UNLIMITED=true` diga que a operação roda sem limites. As 
 sozinhas não ligam a cobrança dos planos: elas também servem ao repasse com proteção dos
 fornecedores.
 
+**Depois do lançamento, não volte a `BILLING_UNLIMITED=true` com assinaturas ativas.** O modo sem
+limites desliga a cobrança só do lado do SellBridge: as assinaturas que já existem no Asaas
+continuam gerando cobranças todo mês, e as ações da tela de assinatura (cancelar, trocar de plano,
+trocar a forma de pagamento) ficam fora do ar. Antes de ligar esse modo, cancele as assinaturas no
+painel do Asaas e avise os revendedores.
+
 **Nota da mensalidade:** o Asaas emite NFS-e automática por assinatura
 (`POST /v3/subscriptions/{id}/invoiceSettings`), com a conta habilitada para notas e o serviço
 municipal configurado. Ainda não está ligado: fica para uma próxima entrega.

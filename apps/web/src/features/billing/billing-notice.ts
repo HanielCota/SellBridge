@@ -16,7 +16,11 @@ export interface BillingNoticeCopy {
 
 function lastDayOf(isoDate: string): string {
   // The transition ends at a moment; the reseller still has the whole day before it.
-  const lastMoment = new Date(new Date(isoDate).getTime() - 1);
+  const end = new Date(isoDate);
+  if (Number.isNaN(end.getTime())) {
+    throw new RangeError(`Transition end is not a date: ${isoDate}`);
+  }
+  const lastMoment = new Date(end.getTime() - 1);
   return lastMoment.toLocaleDateString("pt-BR", { timeZone: REPORT_TIME_ZONE });
 }
 

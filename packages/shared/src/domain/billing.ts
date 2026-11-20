@@ -62,6 +62,11 @@ export function isBillingPlanId(value: string): value is BillingPlanId {
   return BILLING_PLANS.some((plan) => plan.id === value);
 }
 
+/**
+ * The plan with this id.
+ *
+ * @throws {Error} When the id is not one of `BILLING_PLANS` (a type guard was skipped).
+ */
 export function billingPlan(id: BillingPlanId): BillingPlan {
   const plan = BILLING_PLANS.find((candidate) => candidate.id === id);
   if (plan === undefined) {

@@ -188,6 +188,31 @@ const NEW_PRODUCT_HINT =
   "Informe o código do produto (SKU) para começar a salvar sozinho. Depois, você pode sair e continuar o cadastro quando quiser.";
 const SAVED_PRODUCT_HINT = "Tudo o que você muda é salvo sozinho.";
 
+function ProductFormHeader({
+  form,
+  onBack,
+}: {
+  form: ReturnType<typeof useProductForm>;
+  onBack: () => void;
+}) {
+  return (
+    <PageHeader
+      back={
+        <BackButton
+          onBack={() => {
+            if (form.canDiscard()) {
+              onBack();
+            }
+          }}
+        />
+      }
+      title={form.values.title.trim() === "" ? "Novo produto" : form.values.title}
+      description={form.saved === null ? NEW_PRODUCT_HINT : SAVED_PRODUCT_HINT}
+      actions={form.saved === null ? undefined : <ReviewStatus status={form.status} />}
+    />
+  );
+}
+
 function LoadedForm({
   supplierId,
   productId,
@@ -203,6 +228,7 @@ function LoadedForm({
     categories: data.categories,
     taxDefaults: data.taxDefaults,
     brandNiche: data.brandNiche,
+    productGridEnabled: data.productGridEnabled,
   });
   const [step, setStep] = useState<FormStepId>(() =>
     focusField === undefined ? "category" : stepOfField(focusField),
@@ -211,18 +237,7 @@ function LoadedForm({
   useDraftAddress(form, onCreated);
   return (
     <div className="space-y-6">
-      <PageHeader
-        back={
-          <BackButton
-            onBack={() => {
-              if (form.canDiscard()) onBack();
-            }}
-          />
-        }
-        title={form.values.title.trim() === "" ? "Novo produto" : form.values.title}
-        description={form.saved === null ? NEW_PRODUCT_HINT : SAVED_PRODUCT_HINT}
-        actions={form.saved === null ? undefined : <ReviewStatus status={form.status} />}
-      />
+      <ProductFormHeader form={form} onBack={onBack} />
       <div className="grid items-start gap-6 lg:grid-cols-[minmax(0,1fr)_20rem]">
         <section className="surface-card min-w-0 space-y-6 rounded-3xl bg-card p-5 sm:p-6">
           <FormStepper current={step} blocking={form.report.blocking} onSelect={setStep} />

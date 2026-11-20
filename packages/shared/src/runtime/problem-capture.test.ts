@@ -24,6 +24,18 @@ function claimOpened(claimId: string) {
   );
 }
 
+function foundByCheck(storeConnectionId: string, externalOrderId: string) {
+  return captureProblem(
+    entry("warn", "order.found_by_check", {
+      storeConnectionId,
+      reason: `A venda ${externalOrderId} do Mercado Livre não entrou pelo aviso e foi trazida pela conferência periódica.`,
+      problemKey: `order-check:${storeConnectionId}`,
+    }),
+    "worker",
+    OCCURRED_AT,
+  );
+}
+
 describe("captureProblem", () => {
   it("keeps the ids of the tenant, store and listing and the error's message", () => {
     const captured = captureProblem(
@@ -76,6 +88,16 @@ describe("captureProblem", () => {
       message: "Reclamação aberta pelo comprador no pedido 2000014428837134",
     });
     expect(first?.fingerprint).not.toBe(second?.fingerprint);
+  });
+
+  it("records the sales the order check brought in, one row per store, under orders", () => {
+    const first = foundByCheck("store-1", "2000014428837134");
+    const sameStore = foundByCheck("store-1", "2000014428837135");
+    const otherStore = foundByCheck("store-2", "2000014428837136");
+
+    expect(first).toMatchObject({ area: "orders", storeConnectionId: "store-1" });
+    expect(sameStore?.fingerprint).toBe(first?.fingerprint);
+    expect(otherStore?.fingerprint).not.toBe(first?.fingerprint);
   });
 
   it("ignores other warnings", () => {
@@ -202,6 +224,9 @@ describe("problemAreaOf", () => {
     ["store.order_catch_up_not_queued", null, "orders"],
     ["supplier_panel.batch_label_failed", null, "orders"],
     ["claim.opened", null, "claims"],
+    ["order.found_by_check", null, "orders"],
+    ["store.order_check_without_access", null, "orders"],
+    ["worker.error", "order-check", "orders"],
     ["worker.error", "marketplace-claim-sweep", "claims"],
     ["worker.error", "publish-listing", "publishing"],
     ["worker.error", "webhook-events", "orders"],

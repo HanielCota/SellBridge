@@ -9,7 +9,7 @@ import type { Database } from "../client.ts";
 import { categories, supplierProducts, suppliers, tenantProfile } from "../schema/index.ts";
 import { countRecentUnitsSold } from "./product-heat.ts";
 import {
-  productListable,
+  productOfferedInCatalog,
   publicSupplier,
   supplierOpenToResellers,
   supplierReceivingRuleMet,
@@ -112,7 +112,7 @@ async function listSupplierCategories(
     .where(
       and(
         inArray(suppliers.id, [...supplierIds]),
-        productListable(),
+        productOfferedInCatalog(),
         supplierOpenToResellers(),
         supplierReceivingRuleMet(),
       ),

@@ -29,7 +29,11 @@ function dueDateParts(dueDate: string): { year: number; month: number; day: numb
   return { year: Number(match[1]), month: Number(match[2]), day: Number(match[3]) };
 }
 
-/** The moment a due date (Brasília calendar) begins. */
+/**
+ * The moment a due date (Brasília calendar) begins.
+ *
+ * @throws {RangeError} When `dueDate` is not `YYYY-MM-DD` or not a real calendar day.
+ */
 export function startOfDueDate(dueDate: string): Date {
   const { year, month, day } = dueDateParts(dueDate);
   const text = `${String(year).padStart(4, "0")}-${String(month).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
