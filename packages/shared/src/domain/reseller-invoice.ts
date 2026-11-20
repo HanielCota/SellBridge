@@ -33,7 +33,7 @@ export interface MarketplaceSaleInvoice {
  * Where the reseller's note came from: read on the marketplace's order, typed as a key, or its XML
  * uploaded by the reseller (and sent on to the marketplace).
  */
-export const RESELLER_INVOICE_SOURCES = ["marketplace", "typed", "uploaded"] as const;
+export const RESELLER_INVOICE_SOURCES = ["marketplace", "typed", "uploaded", "bling"] as const;
 export type ResellerInvoiceSource = (typeof RESELLER_INVOICE_SOURCES)[number];
 
 /** A venda à ordem parcel of the order whose label is asked for. */

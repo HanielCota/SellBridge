@@ -9,6 +9,7 @@ export * from "./store-names.ts";
 export * from "./store-suppliers.ts";
 export * from "./store-catalog.ts";
 export * from "./product-heat.ts";
+export { findSingleProductSkus } from "./supplier-grid-import.ts";
 export {
   deleteUnsoldProductModel,
   findSkusTakenOutsideModel,
@@ -126,6 +127,8 @@ export * from "./erp-stock-exits.ts";
 export * from "./shipment-invoices.ts";
 export * from "./shipment-on-behalf-invoices.ts";
 export * from "./shipment-reseller-invoices.ts";
+export * from "./reseller-erp-connections.ts";
+export * from "./reseller-sale-issue.ts";
 export * from "./supplier-payments.ts";
 export * from "./asaas-payments.ts";
 export * from "./receiving-rules.ts";

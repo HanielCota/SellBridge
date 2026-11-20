@@ -53,10 +53,17 @@ const blingProductFields = {
   midia: blingMediaSchema,
 };
 
+/** A variation of a "V" product; `variacao.nome` names its options ("Cor:Preto;Tamanho:38"). */
+const blingVariationSchema = z.object({
+  ...blingProductFields,
+  variacao: z.object({ nome: z.string() }).nullish(),
+});
+export type BlingVariation = z.infer<typeof blingVariationSchema>;
+
 export const blingProductDetailSchema = z.object({
   ...blingProductFields,
   formato: z.enum(["S", "V", "E"]),
-  variacoes: z.array(z.object(blingProductFields)).nullish(),
+  variacoes: z.array(blingVariationSchema).nullish(),
 });
 export type BlingProductDetail = z.infer<typeof blingProductDetailSchema>;
 export type BlingProductFields = z.infer<z.ZodObject<typeof blingProductFields>>;

@@ -18,6 +18,7 @@ import type { Database, DatabaseExecutor } from "../client.ts";
 import {
   orders,
   orderShipments,
+  resellerErpConnections,
   shipmentInvoices,
   shipmentResellerInvoices,
   storeConnections,
@@ -82,7 +83,20 @@ export async function queueResellerSaleInvoices(database: Database): Promise<num
 /** A reseller note still missing, with what reading the marketplace needs. */
 export interface DueResellerSaleInvoice {
   readonly id: string;
+  readonly shipmentId: string;
+  readonly tenantId: string;
   readonly checks: number;
+  /**
+   * The reseller's own ERP issues this note: it is connected with issuing on since before the
+   * parcel was created, and the order is on Mercado Livre (the only channel it sends notes to).
+   * A note the ERP already started stays with it.
+   */
+  readonly issuesFromErp: boolean;
+  /** How far the ERP got: its ids and when the note was asked for and sent; null before. */
+  readonly erpContactId: number | null;
+  readonly erpInvoiceId: number | null;
+  readonly erpDraftRequestedAt: Date | null;
+  readonly erpSentAt: Date | null;
   readonly externalOrderId: string;
   /** Digits; the note must be issued by this CNPJ. Null when the reseller stopped being a company. */
   readonly resellerCnpj: string | null;
@@ -93,6 +107,42 @@ export interface DueResellerSaleInvoice {
     readonly accessTokenEnc: string | null;
   };
 }
+
+/** The reseller's ERP account that issues a parcel's note: connected, issuing since before it. */
+const ISSUING_CONNECTION = and(
+  eq(resellerErpConnections.tenantId, shipmentResellerInvoices.tenantId),
+  eq(resellerErpConnections.provider, "bling"),
+  eq(resellerErpConnections.status, "connected"),
+  isNotNull(resellerErpConnections.saleNotesEnabledAt),
+  gte(orderShipments.createdAt, resellerErpConnections.saleNotesEnabledAt),
+);
+
+/**
+ * Whether that account issues the note: only for Mercado Livre orders. A note its Bling already
+ * started stays there after issuing is turned off or the account reconnects, so a note that may be
+ * authorized is never asked for again by hand.
+ */
+const ISSUED_BY_ERP = sql<boolean>`${storeConnections.marketplace} = 'mercado_livre' and (${resellerErpConnections.id} is not null or ${shipmentResellerInvoices.erpDraftRequestedAt} is not null or ${shipmentResellerInvoices.erpInvoiceId} is not null)`;
+
+const DUE_COLUMNS = {
+  id: shipmentResellerInvoices.id,
+  shipmentId: shipmentResellerInvoices.shipmentId,
+  tenantId: shipmentResellerInvoices.tenantId,
+  checks: shipmentResellerInvoices.checks,
+  issuesFromErp: ISSUED_BY_ERP,
+  erpContactId: shipmentResellerInvoices.erpContactId,
+  erpInvoiceId: shipmentResellerInvoices.erpInvoiceId,
+  erpDraftRequestedAt: shipmentResellerInvoices.erpDraftRequestedAt,
+  erpSentAt: shipmentResellerInvoices.erpSentAt,
+  externalOrderId: orders.externalOrderId,
+  resellerCnpj: tenantProfile.cnpj,
+  store: {
+    id: storeConnections.id,
+    marketplace: storeConnections.marketplace,
+    externalShopId: storeConnections.externalShopId,
+    accessTokenEnc: storeConnections.accessTokenEnc,
+  },
+};
 
 /**
  * Takes up to `limit` missing notes due for a read of the marketplace, for sales still going
@@ -105,26 +155,17 @@ export async function claimDueResellerSaleInvoices(
 ): Promise<DueResellerSaleInvoice[]> {
   return database.transaction(async (transaction) => {
     const due = await transaction
-      .select({
-        id: shipmentResellerInvoices.id,
-        checks: shipmentResellerInvoices.checks,
-        externalOrderId: orders.externalOrderId,
-        resellerCnpj: tenantProfile.cnpj,
-        store: {
-          id: storeConnections.id,
-          marketplace: storeConnections.marketplace,
-          externalShopId: storeConnections.externalShopId,
-          accessTokenEnc: storeConnections.accessTokenEnc,
-        },
-      })
+      .select(DUE_COLUMNS)
       .from(shipmentResellerInvoices)
       .innerJoin(orderShipments, eq(orderShipments.id, shipmentResellerInvoices.shipmentId))
       .innerJoin(orders, eq(orders.id, orderShipments.orderId))
       .innerJoin(storeConnections, eq(storeConnections.id, orders.storeConnectionId))
       .leftJoin(tenantProfile, eq(tenantProfile.tenantId, shipmentResellerInvoices.tenantId))
+      .leftJoin(resellerErpConnections, ISSUING_CONNECTION)
       .where(
         and(
           isNull(shipmentResellerInvoices.accessKey),
+          isNull(shipmentResellerInvoices.erpStoppedAt),
           lte(
             shipmentResellerInvoices.nextCheckAt,
             sql`greatest(${claim.now.toISOString()}::timestamptz, now())`,
@@ -339,6 +380,10 @@ export interface ResellerSaleInvoice {
   readonly source: ResellerInvoiceSource | null;
   readonly foundAt: Date | null;
   readonly problem: string | null;
+  /** The reseller's own Bling issues it (turned on before the parcel, on Mercado Livre). */
+  readonly issuedByErp: boolean;
+  /** The Bling stopped on it: `problem` says why, and it waits for the reseller to retry. */
+  readonly erpStopped: boolean;
 }
 
 /** The reseller notes of the tenant's parcels, by parcel id; parcels without one are absent. */
@@ -359,8 +404,14 @@ export async function resellerSaleInvoicesOf(
       source: shipmentResellerInvoices.source,
       foundAt: shipmentResellerInvoices.foundAt,
       problem: shipmentResellerInvoices.problem,
+      issuedByErp: ISSUED_BY_ERP,
+      erpStopped: sql<boolean>`${shipmentResellerInvoices.erpStoppedAt} is not null`,
     })
     .from(shipmentResellerInvoices)
+    .innerJoin(orderShipments, eq(orderShipments.id, shipmentResellerInvoices.shipmentId))
+    .innerJoin(orders, eq(orders.id, orderShipments.orderId))
+    .innerJoin(storeConnections, eq(storeConnections.id, orders.storeConnectionId))
+    .leftJoin(resellerErpConnections, ISSUING_CONNECTION)
     .where(
       and(
         eq(shipmentResellerInvoices.tenantId, tenantId),
@@ -368,4 +419,107 @@ export async function resellerSaleInvoicesOf(
       ),
     );
   return new Map(rows.map(({ shipmentId, ...invoice }) => [shipmentId, invoice]));
+}
+
+/** How far the reseller's ERP got with the note; each id is saved as soon as it comes. */
+export async function recordResellerSaleIssueProgress(
+  database: Database,
+  invoiceId: string,
+  progress: {
+    erpContactId?: number;
+    erpInvoiceId?: number;
+    erpDraftRequestedAt?: Date | null;
+    erpSentAt?: Date;
+  },
+): Promise<void> {
+  await database
+    .update(shipmentResellerInvoices)
+    .set(progress)
+    .where(
+      and(eq(shipmentResellerInvoices.id, invoiceId), isNull(shipmentResellerInvoices.accessKey)),
+    );
+}
+
+/**
+ * Marks that the note is being asked of the reseller's Bling, only when no run marked it before:
+ * two runs on the same note never both create it.
+ *
+ * @returns Whether this run got the mark.
+ */
+export async function claimResellerSaleDraft(
+  database: Database,
+  claim: { invoiceId: string; now: Date },
+): Promise<boolean> {
+  const updated = await database
+    .update(shipmentResellerInvoices)
+    .set({ erpDraftRequestedAt: claim.now })
+    .where(
+      and(
+        eq(shipmentResellerInvoices.id, claim.invoiceId),
+        isNull(shipmentResellerInvoices.accessKey),
+        isNull(shipmentResellerInvoices.erpDraftRequestedAt),
+        isNull(shipmentResellerInvoices.erpInvoiceId),
+      ),
+    )
+    .returning({ id: shipmentResellerInvoices.id });
+  return updated.length > 0;
+}
+
+/** The reseller's ERP could not issue the note: it waits, with `problem`, for the reseller. */
+export async function stopResellerSaleIssue(
+  database: Database,
+  stop: { invoiceId: string; problem: string; now: Date },
+): Promise<void> {
+  await database
+    .update(shipmentResellerInvoices)
+    .set({ erpStoppedAt: stop.now, problem: stop.problem })
+    .where(
+      and(
+        eq(shipmentResellerInvoices.id, stop.invoiceId),
+        isNull(shipmentResellerInvoices.accessKey),
+      ),
+    );
+}
+
+/**
+ * Puts a stopped note of the reseller's parcel back in line for its ERP. Its checks count from
+ * zero again, so the wait for SEFAZ after a new send gets its full time.
+ *
+ * @throws {AppError} NOT_FOUND when the parcel is not the reseller's or its note is not stopped.
+ */
+export async function retryResellerSaleIssue(
+  database: Database,
+  retry: { tenantId: string; shipmentId: string; now: Date },
+): Promise<void> {
+  const updated = await database
+    .update(shipmentResellerInvoices)
+    .set({ erpStoppedAt: null, problem: null, checks: 0, nextCheckAt: retry.now })
+    .where(
+      and(
+        eq(shipmentResellerInvoices.tenantId, retry.tenantId),
+        eq(shipmentResellerInvoices.shipmentId, retry.shipmentId),
+        isNull(shipmentResellerInvoices.accessKey),
+        isNotNull(shipmentResellerInvoices.erpStoppedAt),
+      ),
+    )
+    .returning({ id: shipmentResellerInvoices.id });
+  if (updated.length === 0) {
+    throw notFoundError("Esta nota não está parada");
+  }
+}
+
+/** Saves the note the reseller's ERP issued and Mercado Livre got; one already found stays. */
+export async function recordErpResellerSaleInvoice(
+  database: Database,
+  found: { invoiceId: string; parts: AccessKeyParts; now: Date },
+): Promise<void> {
+  await database
+    .update(shipmentResellerInvoices)
+    .set({ ...foundValues(found.parts, found.now), issuedAt: found.now, source: "bling" })
+    .where(
+      and(
+        eq(shipmentResellerInvoices.id, found.invoiceId),
+        isNull(shipmentResellerInvoices.accessKey),
+      ),
+    );
 }
