@@ -8,7 +8,7 @@ Respeite as regras da casa (sem `else`, `async/await` sem `.then` encadeado, che
 
 ## Como pensar
 
-Não é busca por padrão com grep. Leia o código e siga o caminho de cada dado: de onde vem (usuário, marketplace, Stripe, CSV, URL, banco), por onde passa e onde é exibido, gravado, enviado ou executado. Para cada trecho, pergunte: o que um usuário mal-intencionado, uma rede lenta, uma resposta fora de ordem ou um volume 100 vezes maior fariam aqui?
+Não é busca por padrão com grep. Leia o código e siga o caminho de cada dado: de onde vem (usuário, marketplace, Asaas, CSV, URL, banco), por onde passa e onde é exibido, gravado, enviado ou executado. Para cada trecho, pergunte: o que um usuário mal-intencionado, uma rede lenta, uma resposta fora de ordem ou um volume 100 vezes maior fariam aqui?
 
 ## Ordem obrigatória
 
@@ -17,7 +17,7 @@ Não é busca por padrão com grep. Leia o código e siga o caminho de cada dado
 - Toda entrada externa validada e normalizada na borda: Zod com `.trim()`, tamanho mínimo e máximo, formato; texto livre sem caracteres de controle onde não fazem sentido.
 - Saída segura em cada destino: HTML (`dangerouslySetInnerHTML`, HTML montado em string para impressão ou e-mail), atributos e URLs (`href`/`src` com `javascript:` ou `data:`), CSV exportado (fórmulas `= + - @` executadas pelo Excel), cabeçalhos HTTP, nomes de arquivo, logs (sem tokens, senhas, e-mails completos).
 - Redirecionamentos e links montados com input do usuário (open redirect).
-- Dados de terceiros (Mercado Livre, Stripe, CEP) tratados como não confiáveis antes de exibir ou gravar.
+- Dados de terceiros (Mercado Livre, Asaas, CEP) tratados como não confiáveis antes de exibir ou gravar.
 
 ### Fase 2 — Async
 

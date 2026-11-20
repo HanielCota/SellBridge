@@ -505,6 +505,83 @@ describe("migrations", { timeout: MIGRATION_TEST_TIMEOUT }, () => {
     expect(listings.map((row) => row.description)).toEqual(expected);
   });
 
+  it("drop_stripe_billing leaves Stripe-linked accounts without a plan and keeps Asaas ones", async () => {
+    const migration = journal.entries.find((entry) => entry.tag.endsWith("_drop_stripe_billing"));
+    if (migration === undefined) throw new Error("drop_stripe_billing migration missing");
+    const url = await throwawayDatabase();
+    await applyMigrationsUpTo(url, migration.idx - 1);
+    await withClient(url, async (sql) => {
+      await sql`
+        insert into organization (id, name, slug, created_at) values
+          ('org-stripe', 'Stripe', 'stripe-billing', now()),
+          ('org-asaas', 'Asaas', 'asaas-billing', now()),
+          ('org-customer-only', 'Cliente', 'customer-only-billing', now()),
+          ('org-unlinked', 'Sem vínculo', 'unlinked-billing', now()),
+          ('org-subscription-only', 'Assinatura', 'subscription-only-billing', now())`;
+      await sql`
+        insert into billing_accounts (tenant_id, provider, customer_id, subscription_id, plan, status, period_end) values
+          ('org-stripe', 'stripe', 'cus_stripe', 'sub_stripe', 'pro', 'active', '2026-12-20T00:00:00Z'),
+          ('org-asaas', 'asaas', 'cus_asaas', 'sub_asaas', 'elite', 'active', '2026-12-20T00:00:00Z'),
+          ('org-customer-only', 'stripe', 'cus_only', null, 'pro', 'incomplete', null),
+          ('org-unlinked', 'stripe', null, null, 'start', 'active', null),
+          ('org-subscription-only', 'stripe', null, 'sub_only', 'black', 'past_due', '2026-12-20T00:00:00Z')`;
+    });
+
+    await runMigrator(url);
+
+    const rows = await withClient(
+      url,
+      (sql) => sql<
+        {
+          tenant_id: string;
+          customer_id: string | null;
+          subscription_id: string | null;
+          plan: string;
+          status: string;
+        }[]
+      >`
+        select tenant_id, customer_id, subscription_id, plan, status from billing_accounts
+        order by tenant_id`,
+    );
+    expect([...rows]).toEqual([
+      {
+        tenant_id: "org-asaas",
+        customer_id: "cus_asaas",
+        subscription_id: "sub_asaas",
+        plan: "elite",
+        status: "active",
+      },
+      {
+        tenant_id: "org-customer-only",
+        customer_id: null,
+        subscription_id: null,
+        plan: "free",
+        status: "canceled",
+      },
+      {
+        tenant_id: "org-stripe",
+        customer_id: null,
+        subscription_id: null,
+        plan: "free",
+        status: "canceled",
+      },
+      {
+        tenant_id: "org-subscription-only",
+        customer_id: null,
+        subscription_id: null,
+        plan: "free",
+        status: "canceled",
+      },
+      {
+        tenant_id: "org-unlinked",
+        customer_id: null,
+        subscription_id: null,
+        plan: "start",
+        status: "active",
+      },
+    ]);
+  });
+
   it("M1: the region leftovers of the CPF change are gone and the holder stays", async () => {
     const url = await throwawayDatabase();
     await runMigrator(url);

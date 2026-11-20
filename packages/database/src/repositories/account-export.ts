@@ -201,7 +201,7 @@ async function exportApiKeys(database: Database, tenantId: string) {
     .where(eq(apiKeys.tenantId, tenantId));
 }
 
-/** The plan, without Stripe's ids. */
+/** The plan, without the payment provider's ids. */
 async function exportBilling(database: Database, tenantId: string) {
   const [row] = await database
     .select({

@@ -4,7 +4,6 @@ import { signUp, waitForHydration } from "./helpers";
 test("shows the five plans and keeps checkout unavailable until billing is configured", async ({
   page,
 }) => {
-  test.skip(Boolean(process.env.STRIPE_SECRET_KEY), "Requires billing disabled");
   await signUp(page, "Assinatura E2E");
   await waitForHydration(page);
   // The plan sits at the foot of the sidebar, under support.

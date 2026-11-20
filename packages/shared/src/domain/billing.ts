@@ -177,18 +177,6 @@ export function billingLimits(access: BillingAccess): { stores: number; listings
   return { stores: access.plan.stores, listings: access.plan.listings };
 }
 
-/**
- * When a past_due subscription loses its paid limits: the failed renewal (the period start) plus
- * the grace, never past the period Stripe would bill next.
- */
-export function pastDueAccessEnd(
-  period: { periodStart: Date; periodEnd: Date },
-  graceDays: number,
-): Date {
-  const graceEnd = period.periodStart.getTime() + graceDays * DAY_MILLISECONDS;
-  return new Date(Math.min(graceEnd, period.periodEnd.getTime()));
-}
-
 export type BillingNotice =
   | { kind: "past_due"; accessUntil: Date }
   | { kind: "payment_failed" }
