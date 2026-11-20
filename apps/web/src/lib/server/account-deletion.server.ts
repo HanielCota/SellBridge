@@ -1,12 +1,16 @@
 import {
   accountFileKeys,
   deleteTenantData,
+  findLiveStoreTargets,
   findSoleOwnedTenants,
+  findStoreAccessForPause,
   forgetBillingCustomer,
   getBillingAccount,
   listStoreConnections,
 } from "@sellbridge/database/repositories";
+import { withDeadline } from "@sellbridge/shared/deadline";
 import { AppError, forbiddenError, isAppError } from "@sellbridge/shared/errors";
+import { listingIdsForProblem } from "@sellbridge/shared/job-failures";
 import { logger } from "@sellbridge/shared/logger";
 import { isPlatformOwner } from "@sellbridge/shared/platform-owner";
 import { isStaffRole } from "@sellbridge/shared/staff-access";
@@ -23,6 +27,7 @@ import { disconnectStoreForTenant } from "@/features/stores/disconnect-store.ser
 import { assertNothingLeftToResolve } from "@/lib/server/account-deletion-blockers.server";
 import { database } from "@/lib/server/database";
 import { environment } from "@/lib/server/environment";
+import { enqueueDeletedStorePause } from "@/lib/server/queues";
 import { requestStockSync } from "@/lib/server/stock-sync";
 import { fileStorage } from "@/lib/server/storage";
 
@@ -140,25 +145,62 @@ async function removeAtAsaas(remove: () => Promise<unknown>): Promise<void> {
   }
 }
 
-/**
- * The person waits on the dialog: past this budget, the remaining stores are disconnected
- * without pausing (each pause run has its own 20 s cap), instead of the request timing out and
- * the deletion being retried halfway.
- */
-const PAUSE_BUDGET_MILLISECONDS = 30_000;
+/** How long the deletion waits on Redis to take the pause job before giving up. */
+const HAND_OVER_DEADLINE_MILLISECONDS = 5000;
 
-/** Connected stores are disconnected with their listings paused, as the store page does. */
-async function closeStores(tenantId: string, deadline: number): Promise<void> {
+const HAND_OVER_FAILED_MESSAGE =
+  "Não foi possível pausar seus anúncios agora. Tente excluir a conta de novo em alguns minutos.";
+
+/**
+ * The store's live listings go to the worker, which sends zero stock and keeps trying until every
+ * one is paused (`deleted-store-pause`): a deleted account must not leave listings selling. The
+ * store's rows are deleted next, so the job carries its access. Failing to hand them over stops
+ * the deletion before any data is touched. A store with no access left (expired, in error) cannot
+ * be paused at all: the team gets the listings on Problemas, to pause them by hand.
+ */
+async function handOverListingPause(
+  store: { tenantId: string; storeConnectionId: string },
+  marketplace: string,
+) {
+  const listings = await findLiveStoreTargets(database, store);
+  if (listings.length === 0) {
+    return;
+  }
+  const access = await findStoreAccessForPause(database, store);
+  if (access === null) {
+    logger.error("account.deleted_store_listings_unpausable", {
+      ...store,
+      marketplace,
+      listings: listings.length,
+      externalIds: listingIdsForProblem(listings.map((listing) => listing.externalId)),
+    });
+    return;
+  }
+  const job = {
+    ...store,
+    ...access,
+    listings: listings.map(({ externalId, priceCents }) => ({ externalId, priceCents })),
+  };
+  try {
+    await withDeadline(
+      enqueueDeletedStorePause(job),
+      HAND_OVER_DEADLINE_MILLISECONDS,
+      "Pausa dos anúncios",
+    );
+  } catch (error) {
+    throw new AppError("EXTERNAL_PROVIDER", HAND_OVER_FAILED_MESSAGE, { cause: error });
+  }
+}
+
+/** Every store hands its live listings over to be paused; the connected ones are then disconnected. */
+async function closeStores(tenantId: string): Promise<void> {
   const stores = await listStoreConnections(database, tenantId);
   for (const store of stores) {
+    await handOverListingPause({ tenantId, storeConnectionId: store.id }, store.marketplace);
     if (store.status !== "connected") {
       continue;
     }
-    await disconnectStoreForTenant({
-      tenantId,
-      storeConnectionId: store.id,
-      pauseListings: Date.now() < deadline,
-    });
+    await disconnectStoreForTenant({ tenantId, storeConnectionId: store.id, pauseListings: false });
   }
 }
 
@@ -194,9 +236,8 @@ export async function prepareAccountDeletion(account: DeletingAccount): Promise<
   for (const tenantId of tenantIds) {
     await closeBilling(tenantId);
   }
-  const deadline = Date.now() + PAUSE_BUDGET_MILLISECONDS;
   for (const tenantId of tenantIds) {
-    await closeStores(tenantId, deadline);
+    await closeStores(tenantId);
     await deleteTenantData(database, tenantId);
   }
   if (tenantIds.length > 0) {
