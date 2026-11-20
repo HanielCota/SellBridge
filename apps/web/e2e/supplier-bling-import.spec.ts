@@ -248,11 +248,15 @@ test("o fornecedor importa do Bling um tênis com cores e tamanhos e ele vira um
 
   await gotoHydrated(page, "/fornecedor/painel/importar");
   const preview = page.getByRole("region", { name: "Prévia do Bling" });
+  await expect(
+    preview.getByRole("heading", { name: "1 produto encontrado no Bling" }),
+  ).toBeVisible();
+  await expect(preview).toContainText("as 2 variações entram como um produto só");
   await expect(preview.getByText("Tênis Bling · Preto 38")).toBeVisible();
   await expect(preview).toContainText("1 produto com variações entra com uma linha por variação");
   await preview.getByLabel("O revendedor paga").fill("50");
   await preview.getByRole("button", { name: "Aplicar a todos" }).click();
-  await preview.getByRole("button", { name: /^Importar/ }).click();
+  await preview.getByRole("button", { name: "Importar 1 produto novo" }).click();
   await expect(page.getByRole("heading", { name: "Importação do Bling concluída" })).toBeVisible();
 
   const rows = await database

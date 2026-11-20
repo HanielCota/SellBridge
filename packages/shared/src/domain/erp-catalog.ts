@@ -235,6 +235,8 @@ export interface ErpImportRow {
   readonly currentCostCents: number | null;
   /** A new product: the supplier types the reseller price before it can be imported. */
   readonly needsCost: boolean;
+  /** The grid this variation comes in as, while grids are on; null for a product of its own. */
+  readonly modelCode: string | null;
 }
 
 /** "Tênis Casual · Preto 38" for a grid's variation, the ERP's own name for anything else. */
@@ -264,6 +266,7 @@ export function planErpCatalogImport(
       erpPriceCents: validCents(item.priceCents),
       currentCostCents,
       needsCost: currentCostCents === null,
+      modelCode: options.gridColumns === true ? (item.grid?.modelCode ?? null) : null,
     };
   });
 }

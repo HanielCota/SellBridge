@@ -6,6 +6,8 @@ import { ErrorState } from "@/components/feedback/error-state";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
+  countBlingProducts,
+  gridProductsNote,
   separatedProductsNote,
   skippedProductsNote,
   type BlingImportOutcome,
@@ -38,12 +40,11 @@ function Summary({
   skipped,
   separated,
 }: Pick<PreviewBodyProps, "rows" | "truncated" | "skipped" | "separated">) {
-  const existing = rows.filter((row) => !row.needsCost).length;
-  const fresh = rows.length - existing;
+  const { products, existing, fresh, ...grids } = countBlingProducts(rows);
   return (
     <div className="grid gap-1.5">
       <h2 className="text-subhead font-medium">
-        {count(rows.length, "produto encontrado", "produtos encontrados")} no Bling
+        {count(products, "produto encontrado", "produtos encontrados")} no Bling
       </h2>
       <p className="text-sm text-muted-foreground">
         <strong className="font-medium text-foreground">{integer.format(existing)}</strong>{" "}
@@ -51,6 +52,9 @@ function Summary({
         o mesmo. <strong className="font-medium text-foreground">{integer.format(fresh)}</strong>{" "}
         {fresh === 1 ? "é novo e precisa" : "são novos e precisam"} do preço para o revendedor.
       </p>
+      {grids.grids > 0 ? (
+        <p className="text-sm text-muted-foreground">{gridProductsNote(grids)}</p>
+      ) : null}
       {skipped > 0 ? (
         <p className="text-sm text-muted-foreground">{skippedProductsNote(skipped)}</p>
       ) : null}
@@ -145,6 +149,11 @@ function PreviewFooter(props: {
   );
 }
 
+function productsToImport(rows: readonly ErpImportRow[]) {
+  const counts = countBlingProducts(rows);
+  return { created: counts.fresh, updated: counts.existing };
+}
+
 function PreviewBody(props: PreviewBodyProps) {
   const newRows = useMemo(() => props.rows.filter((row) => row.needsCost), [props.rows]);
   const prices = usePreviewPrices(props.rows, props.savedTenths);
@@ -198,8 +207,7 @@ function PreviewBody(props: PreviewBodyProps) {
       ) : null}
       <PreviewFooter
         missing={priced.missing}
-        created={newRows.length}
-        updated={props.rows.length - newRows.length}
+        {...productsToImport(props.rows)}
         importing={importing.isPending}
         onImport={startImport}
         onCancel={() => discardRead.mutate()}

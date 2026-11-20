@@ -111,6 +111,7 @@ describe("planErpCatalogImport with grids", () => {
     });
 
     expect(row?.title).toBe("Tênis Casual · Preto 38");
+    expect(row?.modelCode).toBe("TEN-CASUAL");
   });
 
   it("keeps the ERP's own name while grids are off", () => {
