@@ -7,7 +7,11 @@ import {
 } from "@sellbridge/database/repositories";
 import { conflictError, notFoundError, validationError } from "@sellbridge/shared/errors";
 import { logger } from "@sellbridge/shared/logger";
-import { parseAccessKey, resellerAccessKeyProblem } from "@sellbridge/shared/nfe-access-key";
+import {
+  parseAccessKey,
+  resellerAccessKeyProblem,
+  type AccessKeyParts,
+} from "@sellbridge/shared/nfe-access-key";
 import { readAuthorizedNfeXml } from "@sellbridge/shared/nfe-xml";
 import { database } from "@/lib/server/database";
 import { sendResellerSaleNoteToMarketplace } from "./marketplace.server";
@@ -49,6 +53,31 @@ export async function saveResellerSaleNote(
 }
 
 /**
+ * Puts another note over the saved one, as typed: on Mercado Livre the remessa waits for the note
+ * to be there, so it cannot start citing this one before Mercado Livre has it.
+ *
+ * @throws {AppError} CONFLICT when the supplier's remessa already cites the saved note.
+ */
+async function replaceBeforeSending(
+  tenantId: string,
+  input: { shipmentId: string; parts: AccessKeyParts },
+): Promise<void> {
+  const replaceable = await canReplaceResellerSaleInvoice(database, {
+    tenantId,
+    shipmentId: input.shipmentId,
+  });
+  if (!replaceable) {
+    throw conflictError(REMESSA_STARTED);
+  }
+  await saveTypedResellerSaleInvoice(database, {
+    tenantId,
+    shipmentId: input.shipmentId,
+    parts: input.parts,
+    now: new Date(),
+  });
+}
+
+/**
  * Takes the XML of the reseller's own sale note: checks it is an authorized NF-e of the reseller's
  * CNPJ, sends it to the order's Mercado Livre shipment (the label needs it) and saves it. The note
  * already saved is a success; another one replaces it while the supplier's remessa has not
@@ -84,16 +113,13 @@ export async function uploadResellerSaleNoteXml(
   if (saved === undefined) {
     throw notFoundError("Este pedido não espera a sua nota de venda");
   }
+  const sameNote = saved.accessKey === reading.accessKey;
   // The same note is already there and on the marketplace (sent before, or read there meanwhile).
-  if (saved.accessKey === reading.accessKey && saved.source !== "typed") {
+  if (sameNote && saved.source !== "typed") {
     return;
   }
-  const replaceable = await canReplaceResellerSaleInvoice(database, {
-    tenantId,
-    shipmentId: input.shipmentId,
-  });
-  if (!replaceable) {
-    throw conflictError(REMESSA_STARTED);
+  if (!sameNote) {
+    await replaceBeforeSending(tenantId, { shipmentId: input.shipmentId, parts });
   }
   await sendResellerSaleNoteToMarketplace(tenantId, {
     shipmentId: input.shipmentId,

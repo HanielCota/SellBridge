@@ -2,7 +2,7 @@ import type { BillingAddress } from "@sellbridge/shared/billing-address";
 import type { OnBehalfLabelParcel } from "@sellbridge/shared/reseller-invoice";
 import type { InvoiceKind } from "@sellbridge/shared/supplier-invoice";
 import { conflictError, notFoundError } from "@sellbridge/shared/errors";
-import { and, eq, gte, isNotNull, isNull, notInArray } from "drizzle-orm";
+import { and, eq, gte, isNotNull, isNull, ne, notInArray, or } from "drizzle-orm";
 import { alias } from "drizzle-orm/pg-core";
 import type { Database } from "../client.ts";
 import {
@@ -24,7 +24,9 @@ const saleGoesAhead = and(
 
 /**
  * Opens the remessa (supplier → buyer) of each venda à ordem parcel whose reseller note was
- * found, while the supplier's ERP issues its notes and the sale goes ahead.
+ * found, while the supplier's ERP issues its notes and the sale goes ahead. On Mercado Livre the
+ * note must be there first (a typed key never reaches it): until then the reseller may still
+ * replace it, and the remessa would cite a note Mercado Livre does not have.
  */
 async function queueOnBehalfShipments(database: Database): Promise<number> {
   const candidates = await database
@@ -51,6 +53,7 @@ async function queueOnBehalfShipments(database: Database): Promise<number> {
       ),
     )
     .innerJoin(orders, eq(orders.id, orderShipments.orderId))
+    .innerJoin(storeConnections, eq(storeConnections.id, orders.storeConnectionId))
     .leftJoin(
       shipmentInvoices,
       and(
@@ -58,7 +61,16 @@ async function queueOnBehalfShipments(database: Database): Promise<number> {
         eq(shipmentInvoices.kind, "on_behalf_shipment"),
       ),
     )
-    .where(and(isNull(shipmentInvoices.id), saleGoesAhead));
+    .where(
+      and(
+        isNull(shipmentInvoices.id),
+        saleGoesAhead,
+        or(
+          ne(storeConnections.marketplace, "mercado_livre"),
+          ne(shipmentResellerInvoices.source, "typed"),
+        ),
+      ),
+    );
   return insertNotes(database, candidates, "on_behalf_shipment");
 }
 
@@ -401,4 +413,31 @@ export async function releaseOnBehalfLabel(
     throw notFoundError("Este envio não é de venda à ordem");
   }
   throw conflictError("A etiqueta deste envio já foi liberada");
+}
+
+/**
+ * Marks the remessa as asked of the ERP, only while the reseller's note is still `citedAccessKey`
+ * (the one the remessa will cite). It holds the note's row meanwhile, as replacing the note does,
+ * so a note replaced in between is seen here or there, never missed by both. Returns false when
+ * the note changed: the remessa is to be built again with the new one.
+ */
+export async function claimOnBehalfRemessaDraft(
+  database: Database,
+  claim: { invoiceId: string; shipmentId: string; citedAccessKey: string; now: Date },
+): Promise<boolean> {
+  return database.transaction(async (transaction) => {
+    const [note] = await transaction
+      .select({ accessKey: shipmentResellerInvoices.accessKey })
+      .from(shipmentResellerInvoices)
+      .where(eq(shipmentResellerInvoices.shipmentId, claim.shipmentId))
+      .for("update");
+    if (note?.accessKey !== claim.citedAccessKey) {
+      return false;
+    }
+    await transaction
+      .update(shipmentInvoices)
+      .set({ erpDraftRequestedAt: claim.now })
+      .where(eq(shipmentInvoices.id, claim.invoiceId));
+    return true;
+  });
 }

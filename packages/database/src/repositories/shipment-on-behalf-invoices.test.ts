@@ -20,6 +20,7 @@ import {
   resellerShipmentInvoices,
 } from "./shipment-invoices.ts";
 import {
+  claimOnBehalfRemessaDraft,
   findOnBehalfLabelParcels,
   findOnBehalfLabelState,
   releaseOnBehalfLabel,
@@ -343,6 +344,53 @@ describe("venda à ordem notes", () => {
       releaseOnBehalfLabel(database, { ...release, shipmentId: direct.shipmentId }),
     ).rejects.toMatchObject({ code: "NOT_FOUND" });
     expect(await findOnBehalfLabelState(database, direct.shipmentId)).toBeNull();
+  });
+
+  it("starts the remessa only while the reseller's note is still the one it cites", async () => {
+    const { shipmentId, tenantId } = await onBehalfScenario();
+    await queueResellerSaleInvoices(database);
+    await findResellerNote(shipmentId, tenantId);
+    await queueOnBehalfInvoices(database);
+    const [remessa] = await database
+      .select({ id: shipmentInvoices.id })
+      .from(shipmentInvoices)
+      .where(
+        and(
+          eq(shipmentInvoices.shipmentId, shipmentId),
+          eq(shipmentInvoices.kind, "on_behalf_shipment"),
+        ),
+      );
+    const claim = { invoiceId: remessa?.id ?? "", shipmentId, now: new Date() };
+
+    const stale = await claimOnBehalfRemessaDraft(database, { ...claim, citedAccessKey: SALE_KEY });
+    const current = await claimOnBehalfRemessaDraft(database, {
+      ...claim,
+      citedAccessKey: RESELLER_KEY,
+    });
+
+    expect(stale).toBe(false);
+    expect(current).toBe(true);
+  });
+
+  it("waits to open the remessa of a Mercado Livre order until its note is there", async () => {
+    const created = await createInvoiceScenario(database, {
+      supplierFiscal: { ...TEST_SUPPLIER_FISCAL, invoiceModel: "on_behalf" },
+      marketplace: "mercado_livre",
+    });
+    cleanups.push(created.cleanup);
+    await queueResellerSaleInvoices(database);
+    await findResellerNote(created.shipmentId, created.tenantId);
+
+    await queueOnBehalfInvoices(database);
+    const whileTyped = await kindsOf(created.shipmentId);
+    await database
+      .update(shipmentResellerInvoices)
+      .set({ source: "uploaded" })
+      .where(eq(shipmentResellerInvoices.shipmentId, created.shipmentId));
+    await queueOnBehalfInvoices(database);
+
+    expect(whileTyped).not.toContain("on_behalf_shipment");
+    expect(await kindsOf(created.shipmentId)).toContain("on_behalf_shipment");
   });
 
   it("finds no venda à ordem parcel on an order of direct notes", async () => {

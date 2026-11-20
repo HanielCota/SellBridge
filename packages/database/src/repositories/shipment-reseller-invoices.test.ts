@@ -257,6 +257,18 @@ describe("saveUploadedResellerSaleInvoice", () => {
     });
   });
 
+  it("takes the XML of the same typed note even once the remessa cites it", async () => {
+    const { shipmentId, tenantId } = await scenario();
+    await queueResellerSaleInvoices(database);
+    const note = { tenantId, shipmentId, parts: keyParts(TYPED_KEY), now: new Date() };
+    await saveTypedResellerSaleInvoice(database, note);
+    await startRemessa(shipmentId);
+
+    await saveUploadedResellerSaleInvoice(database, note);
+
+    expect(await noteOf(shipmentId)).toMatchObject({ accessKey: TYPED_KEY, source: "uploaded" });
+  });
+
   it("refuses the XML of another note once the remessa cites the saved one", async () => {
     const { shipmentId, tenantId } = await scenario();
     await queueResellerSaleInvoices(database);

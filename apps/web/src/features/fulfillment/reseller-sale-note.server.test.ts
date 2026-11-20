@@ -58,6 +58,16 @@ describe("uploadResellerSaleNoteXml", () => {
     expect(mocks.saveUploaded).toHaveBeenCalledTimes(1);
   });
 
+  it("sends the XML of the same typed note even once the remessa cites it", async () => {
+    mocks.saved = { accessKey: KEY, source: "typed" };
+    mocks.replaceable = false;
+
+    await uploadResellerSaleNoteXml("tenant", { shipmentId: SHIPMENT_ID, xml: authorizedXml(KEY) });
+
+    expect(mocks.send).toHaveBeenCalledTimes(1);
+    expect(mocks.saveUploaded).toHaveBeenCalledTimes(1);
+  });
+
   it("sends nothing and points to support once the remessa cites the saved note", async () => {
     mocks.saved = { accessKey: OTHER_KEY, source: "typed" };
     mocks.replaceable = false;
