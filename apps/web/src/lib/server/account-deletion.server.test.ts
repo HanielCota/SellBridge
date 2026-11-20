@@ -12,7 +12,6 @@ const mocks = vi.hoisted(() => ({
       database: unknown,
       tenantId: string,
     ) => Promise<{
-      provider?: "stripe" | "asaas";
       customerId: string | null;
       subscriptionId: string | null;
       pendingReference?: string | null;
@@ -27,8 +26,6 @@ const mocks = vi.hoisted(() => ({
     >(),
   disconnectStoreForTenant: vi.fn<(request: unknown) => Promise<unknown>>(),
   deleteCustomer: vi.fn<(customerId: string) => Promise<unknown>>(),
-  deleteStripeCustomer: vi.fn<(customerId: string) => Promise<unknown>>(),
-  stripeKeyMissing: vi.fn<() => boolean>(),
   cancelCheckout: vi.fn<(checkoutId: string) => Promise<void>>(),
   deleteSubscription: vi.fn<(subscriptionId: string) => Promise<unknown>>(),
   deleteCharge: vi.fn<(chargeId: string) => Promise<unknown>>(),
@@ -64,17 +61,16 @@ vi.mock("@/lib/server/queues", () => ({
 }));
 vi.mock("@/lib/server/stock-sync", () => ({ requestStockSync: mocks.requestStockSync }));
 vi.mock("@/lib/server/storage", () => ({ fileStorage: { delete: mocks.deleteFile } }));
-vi.mock("@/features/billing/stripe.server", () => ({
-  stripeClient: () => ({ customers: { del: mocks.deleteStripeCustomer } }),
-  stripeKeyMissing: mocks.stripeKeyMissing,
-}));
+const cleanupClient = {
+  deleteSubscriber: mocks.deleteCustomer,
+  cancelCheckout: mocks.cancelCheckout,
+  deleteSubscription: mocks.deleteSubscription,
+  deleteCharge: mocks.deleteCharge,
+};
+/** Null stands for a server without the Asaas keys, as production is before the launch. */
+const asaasCleanup = vi.hoisted(() => ({ configured: true }));
 vi.mock("@/features/billing/billing-config.server", () => ({
-  billingClientForCleanup: () => ({
-    deleteSubscriber: mocks.deleteCustomer,
-    cancelCheckout: mocks.cancelCheckout,
-    deleteSubscription: mocks.deleteSubscription,
-    deleteCharge: mocks.deleteCharge,
-  }),
+  billingClientForCleanup: () => (asaasCleanup.configured ? cleanupClient : null),
 }));
 vi.mock("@/features/stores/disconnect-store.server", () => ({
   disconnectStoreForTenant: mocks.disconnectStoreForTenant,
@@ -104,7 +100,7 @@ const SELLER = {
 
 beforeEach(() => {
   vi.clearAllMocks();
-  mocks.stripeKeyMissing.mockReturnValue(false);
+  asaasCleanup.configured = true;
   mocks.findSoleOwnedTenants.mockResolvedValue(["tenant-a"]);
   mocks.accountFileKeys.mockResolvedValue(["tickets/t1/nota.pdf"]);
   mocks.getBillingAccount.mockResolvedValue({ customerId: "cus_123", subscriptionId: "sub_123" });
@@ -244,44 +240,6 @@ describe("prepareAccountDeletion", () => {
     expect(charge).toBeLessThan(data);
   });
 
-  it("closes a legacy Stripe account through Stripe before deleting any data", async () => {
-    mocks.getBillingAccount.mockResolvedValue({
-      provider: "stripe",
-      customerId: "cus_stripe",
-      subscriptionId: "sub_stripe",
-      pendingReference: null,
-    });
-
-    await prepareAccountDeletion(SELLER);
-
-    expect(mocks.deleteStripeCustomer).toHaveBeenCalledWith("cus_stripe");
-    expect(mocks.deleteCustomer).not.toHaveBeenCalled();
-    const provider = mocks.deleteStripeCustomer.mock.invocationCallOrder[0] ?? 0;
-    const deletion = mocks.deleteTenantData.mock.invocationCallOrder[0] ?? 0;
-    expect(provider).toBeLessThan(deletion);
-  });
-
-  it("deletes a legacy Stripe account without the Stripe key and tells the team", async () => {
-    mocks.stripeKeyMissing.mockReturnValue(true);
-    mocks.getBillingAccount.mockResolvedValue({
-      provider: "stripe",
-      customerId: "cus_stripe",
-      subscriptionId: "sub_stripe",
-      pendingReference: null,
-    });
-    const errorLog = vi.spyOn(logger, "error").mockImplementation(() => undefined);
-
-    await prepareAccountDeletion(SELLER);
-
-    expect(mocks.deleteStripeCustomer).not.toHaveBeenCalled();
-    expect(mocks.deleteTenantData).toHaveBeenCalled();
-    expect(errorLog).toHaveBeenCalledWith(
-      "account.legacy_billing_left_open",
-      expect.objectContaining({ customerId: "cus_stripe" }),
-    );
-    errorLog.mockRestore();
-  });
-
   it("closes an open card checkout before deleting an account without a customer", async () => {
     mocks.getBillingAccount.mockResolvedValue({
       customerId: null,
@@ -296,6 +254,35 @@ describe("prepareAccountDeletion", () => {
     const checkout = mocks.cancelCheckout.mock.invocationCallOrder[0] ?? 0;
     const deletion = mocks.deleteTenantData.mock.invocationCallOrder[0] ?? 0;
     expect(checkout).toBeLessThan(deletion);
+  });
+
+  it.each([
+    ["never subscribed", null],
+    [
+      "was left without a plan when its old payment link was cleared",
+      { customerId: null, subscriptionId: null, pendingReference: null },
+    ],
+  ])(
+    "deletes a workspace that %s without asking Asaas, even with no Asaas keys",
+    async (_label, account) => {
+      asaasCleanup.configured = false;
+      mocks.getBillingAccount.mockResolvedValue(account);
+
+      await prepareAccountDeletion(SELLER);
+
+      expect(mocks.deleteCustomer).not.toHaveBeenCalled();
+      expect(mocks.deleteSubscription).not.toHaveBeenCalled();
+      expect(mocks.deleteTenantData).toHaveBeenCalledWith({}, "tenant-a");
+    },
+  );
+
+  it("refuses to delete a subscribed workspace when Asaas cannot be reached", async () => {
+    asaasCleanup.configured = false;
+
+    const error = await rejection(prepareAccountDeletion(SELLER));
+
+    expect(isAppError(error) && error.code === "EXTERNAL_PROVIDER").toBe(true);
+    expect(mocks.deleteTenantData).not.toHaveBeenCalled();
   });
 
   it("ends a dearer plan's Pix subscription still waiting for payment before deleting data", async () => {

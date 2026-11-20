@@ -28,13 +28,24 @@ export const modelCodeSchema = freeText()
   .min(1, "Informe o código do modelo. Exemplo: TENIS-CASUAL")
   .max(MAX_MODEL_CODE_LENGTH, `Use até ${MAX_MODEL_CODE_LENGTH} caracteres no código do modelo`);
 
+/**
+ * How two model codes are compared: "tenis-casual" and "TENIS-CASUAL" are the same model, in the
+ * spreadsheet, in the database and in codes stored before the comparison ignored case.
+ */
+export function modelCodeKey(code: string): string {
+  return code.trim().toUpperCase();
+}
+
+/** Room for the "-2", "-3"… a repeated code gets (see `modelCodeFor`). */
+const CODE_SUFFIX_ROOM = 4;
+
 /** "Tênis Casual Couro" → "TENIS-CASUAL-COURO": the code a grid typed in the form starts with. */
 export function modelCodeFromTitle(title: string): string {
   const code = stripAccents(title)
     .toUpperCase()
     .replaceAll(/[^A-Z0-9]+/g, "-")
     .replaceAll(/^-+|-+$/g, "")
-    .slice(0, MAX_MODEL_CODE_LENGTH - 4)
+    .slice(0, MAX_MODEL_CODE_LENGTH - CODE_SUFFIX_ROOM)
     .replaceAll(/-+$/g, "");
   return code === "" ? "MODELO" : code;
 }

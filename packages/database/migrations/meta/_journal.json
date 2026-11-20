@@ -694,6 +694,13 @@
       "when": 1795172930592,
       "tag": "0098_erp_stock_entries",
       "breakpoints": true
+    },
+    {
+      "idx": 99,
+      "version": "7",
+      "when": 1795190640442,
+      "tag": "0099_drop_stripe_billing",
+      "breakpoints": true
     }
   ]
 }

@@ -45,19 +45,6 @@ export async function withBillingLock<Result>(tenantId: string, run: () => Promi
 
 const REJECTED_CREATION_STATUSES = new Set([400, 401, 403, 404, 422, 429]);
 
-export function assertAsaasBillingAccount(
-  account: Pick<BillingAccount, "provider" | "customerId" | "subscriptionId"> | null,
-): void {
-  if (
-    account?.provider === "stripe" &&
-    (account.customerId !== null || account.subscriptionId !== null)
-  ) {
-    throw conflictError(
-      "Esta conta ainda tem um vínculo de cobrança com o Stripe. Fale com o suporte para concluir a troca.",
-    );
-  }
-}
-
 export function assertNoPendingBillingCreation(reference: string | null | undefined): void {
   if (reference?.startsWith(CREATION_REFERENCE) === true) {
     throw conflictError(
@@ -75,7 +62,6 @@ export async function reserveBillingCreation<Result>(
   assertNoPendingBillingCreation(previousReference);
   const reference = randomUUID();
   await saveBillingAccount(database, tenantId, {
-    provider: "asaas",
     pendingReference: `${CREATION_REFERENCE}${reference}`,
   });
 

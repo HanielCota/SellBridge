@@ -6,7 +6,6 @@ import {
   billingLimits,
   billingNotice,
   paidBillingPlan,
-  pastDueAccessEnd,
   upgradeDifferenceCents,
 } from "./billing.ts";
 
@@ -136,25 +135,6 @@ describe("billing access", () => {
       now,
     );
     expect(billingLimits(access)).toEqual({ stores: 40, listings: 20_000 });
-  });
-});
-
-describe("past_due grace", () => {
-  const periodStart = new Date("2026-10-10T12:00:00Z");
-  const periodEnd = new Date("2026-11-10T12:00:00Z");
-
-  it("ends the paid access the configured days after the failed renewal", () => {
-    expect(pastDueAccessEnd({ periodStart, periodEnd }, 7)).toEqual(
-      new Date("2026-10-17T12:00:00Z"),
-    );
-  });
-
-  it("never extends access past the paid period", () => {
-    expect(pastDueAccessEnd({ periodStart, periodEnd }, 60)).toEqual(periodEnd);
-  });
-
-  it("ends at once with no grace", () => {
-    expect(pastDueAccessEnd({ periodStart, periodEnd }, 0)).toEqual(periodStart);
   });
 });
 
