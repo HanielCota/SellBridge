@@ -9,7 +9,7 @@ const mocks = vi.hoisted(() => ({
   syncSubscription: vi.fn<(...input: unknown[]) => Promise<void>>(),
   syncUpgrade: vi.fn<(...input: unknown[]) => Promise<string>>(),
   settle: vi.fn<(...input: unknown[]) => Promise<boolean>>(),
-  planChangeOf: vi.fn<(...input: unknown[]) => unknown>(),
+  planChangeOf: vi.fn<(typeof import("./plan-change"))["planChangeOf"]>(),
   holder: vi.fn<(...input: unknown[]) => Promise<unknown>>(),
   email: vi.fn<(...input: unknown[]) => Promise<string | null>>(),
   client: {
