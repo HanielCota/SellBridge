@@ -216,6 +216,29 @@ describe("first subscription", () => {
     expect(mocks.syncUpgrade).not.toHaveBeenCalled();
   });
 
+  it("syncs the subscription a paid card checkout created instead of cancelling the checkout", async () => {
+    mocks.account.mockResolvedValue(
+      liveAccount({
+        status: "canceled",
+        subscriptionId: null,
+        pendingReference: "checkout:chk_paid",
+      }),
+    );
+    mocks.client.findSubscriptionsOfCustomer.mockResolvedValue([
+      { ...PIX_SUBSCRIPTION, id: "sub_from_checkout", checkoutSession: "chk_paid" },
+    ]);
+
+    await expect(startSubscription({ ...input, method: "pix" })).rejects.toMatchObject({
+      code: "CONFLICT",
+    });
+
+    expect(mocks.syncSubscription).toHaveBeenCalledWith({
+      subscriptionId: "sub_from_checkout",
+      eventId: null,
+    });
+    expect(mocks.client.cancelCheckout).not.toHaveBeenCalled();
+  });
+
   it("deletes an incomplete subscription Asaas still has unpaid", async () => {
     mocks.account.mockResolvedValue(liveAccount({ status: "incomplete", periodEnd: null }));
 

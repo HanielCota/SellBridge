@@ -119,6 +119,29 @@ async function retireDifference(client: AsaasBillingClient, chargeId: string): P
   if (open) await removeUnlessGone(async () => client.deleteCharge(chargeId));
 }
 
+/**
+ * Asaas cannot be asked about a checkout, but the subscription a paid one created can be found
+ * among the customer's: it is synced instead of left orphaned, charging the card every month.
+ */
+async function retireCheckout(
+  client: AsaasBillingClient,
+  account: BillingAccount,
+  checkoutId: string,
+): Promise<void> {
+  if (account.customerId !== null) {
+    const subscriptions = await client.findSubscriptionsOfCustomer(account.customerId);
+    const created = subscriptions.find(
+      (subscription) =>
+        subscription.checkoutSession === checkoutId && subscription.deleted !== true,
+    );
+    if (created !== undefined) {
+      await syncBillingSubscription({ subscriptionId: created.id, eventId: null });
+      throw conflictError(PAID_MEANWHILE);
+    }
+  }
+  await removeUnlessGone(async () => client.cancelCheckout(checkoutId));
+}
+
 /** A first fee Asaas already received is synced, not deleted with its subscription. */
 async function retireIncompleteSubscription(
   client: AsaasBillingClient,
@@ -147,9 +170,7 @@ export async function retireUnpaid(
     await retireDifference(client, reference.slice(CHARGE_REFERENCE.length));
   }
   if (reference?.startsWith(CHECKOUT_REFERENCE) === true) {
-    await removeUnlessGone(async () =>
-      client.cancelCheckout(reference.slice(CHECKOUT_REFERENCE.length)),
-    );
+    await retireCheckout(client, account, reference.slice(CHECKOUT_REFERENCE.length));
   }
   if (account.subscriptionId !== null && account.status === "incomplete") {
     await retireIncompleteSubscription(client, account.subscriptionId);
