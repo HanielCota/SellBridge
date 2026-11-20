@@ -138,27 +138,28 @@ async function retireSubscription(client: AsaasBillingClient, subscriptionId: st
   }
 }
 
-const ORPHAN_REFUND = "Assinatura criada por um pagamento já cancelado no SellBridge";
-
 /**
- * A live card checkout subscription no account waits on: the checkout was cancelled here after
- * the card had been taken. Nobody gets a plan from it, so it ends and what it charged goes back
- * instead of charging the card every month.
+ * A live card checkout subscription no account waits on: most likely a checkout cancelled here
+ * after the card had been taken, its notice late. Whether the reseller should keep it cannot be
+ * told from here, so no money moves: the team gets a problem of its own, with what it needs to
+ * find the reseller at Asaas and end it or give the money back by hand.
  */
-async function closeOrphanCheckoutSubscription(
-  client: AsaasBillingClient,
+function reportOrphanCheckoutSubscription(
   subscription: AsaasSubscription,
   eventId: string | null,
-): Promise<void> {
+): void {
   if (subscription.checkoutSession == null || subscription.deleted === true) {
     logger.info("billing.subscription_not_ours", { eventId });
     return;
   }
-  const charges = await client.listSubscriptionCharges(subscription.id);
-  const paid = charges.filter(isPaidCharge);
-  await Promise.all(paid.map(async (charge) => client.refundCharge(charge.id, ORPHAN_REFUND)));
-  await retireSubscription(client, subscription.id);
-  logger.error("billing.orphan_checkout_subscription_closed", { eventId, refunded: paid.length });
+  logger.error("billing.orphan_checkout_subscription", {
+    problemKey: `orphan-checkout:${subscription.id}`,
+    eventId,
+    subscriptionId: subscription.id,
+    customerId: subscription.customer,
+    checkoutId: subscription.checkoutSession,
+    externalReference: subscription.externalReference ?? null,
+  });
 }
 
 /**
@@ -175,7 +176,7 @@ export async function syncBillingSubscription(input: {
   const subscription = await client.getSubscription(input.subscriptionId);
   const account = await accountOf(subscription);
   if (account === null) {
-    await closeOrphanCheckoutSubscription(client, subscription, input.eventId);
+    reportOrphanCheckoutSubscription(subscription, input.eventId);
     return;
   }
   const adopting = account.subscriptionId !== subscription.id;

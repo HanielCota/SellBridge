@@ -1,3 +1,4 @@
+import { logger } from "@sellbridge/shared/logger";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const mocks = vi.hoisted(() => ({
@@ -112,7 +113,7 @@ describe("subscription read back from Asaas", () => {
     expect(mocks.apply).not.toHaveBeenCalled();
   });
 
-  it("ends a card checkout subscription no account waits on and gives back what it charged", async () => {
+  it("reports a card checkout subscription no account waits on, moving no money", async () => {
     mocks.client.getSubscription.mockResolvedValue({
       id: "sub_orphan",
       customer: "cus_card",
@@ -124,11 +125,23 @@ describe("subscription read back from Asaas", () => {
       { id: "pay_card", status: "CONFIRMED", value: 197, dueDate: "2026-11-20" },
     ]);
 
+    const reported = vi.spyOn(logger, "error").mockImplementation(() => undefined);
+
     await syncBillingSubscription({ subscriptionId: "sub_orphan", eventId: "evt_orphan" });
 
-    expect(mocks.client.refundCharge).toHaveBeenCalledWith("pay_card", expect.any(String));
-    expect(mocks.client.deleteSubscription).toHaveBeenCalledWith("sub_orphan");
+    expect(mocks.client.refundCharge).not.toHaveBeenCalled();
+    expect(mocks.client.deleteSubscription).not.toHaveBeenCalled();
     expect(mocks.apply).not.toHaveBeenCalled();
+    expect(reported).toHaveBeenCalledWith(
+      "billing.orphan_checkout_subscription",
+      expect.objectContaining({
+        problemKey: "orphan-checkout:sub_orphan",
+        subscriptionId: "sub_orphan",
+        customerId: "cus_card",
+        checkoutId: "chk_cancelled",
+      }),
+    );
+    reported.mockRestore();
   });
 
   it("leaves alone a subscription that is already over or never came from a checkout", async () => {
