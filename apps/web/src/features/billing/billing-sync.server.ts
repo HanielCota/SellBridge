@@ -250,8 +250,20 @@ function paidTooLate(charge: AsaasSubscriptionCharge): boolean {
   return until !== null && differencePaidOn(charge) >= asaasDueDate(until, 0);
 }
 
-function isOpenCharge(charge: AsaasSubscriptionCharge): boolean {
+/** Still waiting for the reseller to pay it: it may be deleted. */
+export function isOpenCharge(charge: AsaasSubscriptionCharge): boolean {
   return (charge.status === "PENDING" || charge.status === "OVERDUE") && charge.deleted !== true;
+}
+
+const GIVEN_BACK_STATUSES = new Set(["REFUNDED", "REFUND_REQUESTED", "REFUND_IN_PROGRESS"]);
+
+/**
+ * Over for good: deleted, or its money given back. Anything else that is neither paid nor open
+ * (a card still in risk analysis, say) may still be confirmed, so it is still waited on.
+ */
+export function isGivenBackCharge(charge: AsaasSubscriptionCharge): boolean {
+  if (charge.deleted === true || GIVEN_BACK_STATUSES.has(charge.status)) return true;
+  return charge.refunds?.some((refund) => refund.status !== "CANCELLED") === true;
 }
 
 async function readChargeUnlessGone(
@@ -299,6 +311,7 @@ export async function retireLapsedDifference(
       return true;
     }
     if (isOpenCharge(charge)) await removeChargeUnlessGone(client, charge.id);
+    if (!isOpenCharge(charge) && !isGivenBackCharge(charge)) return false;
   }
   return settlePendingReference(database, { tenantId: account.tenantId, reference });
 }

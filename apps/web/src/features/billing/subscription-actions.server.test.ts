@@ -203,6 +203,46 @@ describe("first subscription", () => {
     expect(mocks.client.createPixSubscription).toHaveBeenCalled();
   });
 
+  it("stops while the difference's card is still in risk analysis, deleting nothing", async () => {
+    mocks.account.mockResolvedValue(
+      liveAccount({
+        status: "canceled",
+        subscriptionId: null,
+        pendingReference: "charge:pay_diff",
+      }),
+    );
+    mocks.client.getCharge.mockResolvedValue({
+      ...OPEN_PIX,
+      id: "pay_diff",
+      status: "AWAITING_RISK_ANALYSIS",
+    });
+
+    await expect(startSubscription({ ...input, method: "pix" })).rejects.toMatchObject({
+      code: "CONFLICT",
+    });
+
+    expect(mocks.client.deleteCharge).not.toHaveBeenCalled();
+    expect(mocks.client.createPixSubscription).not.toHaveBeenCalled();
+  });
+
+  it("stops when a paid difference no longer matches what the account waits on", async () => {
+    mocks.account.mockResolvedValue(
+      liveAccount({
+        status: "canceled",
+        subscriptionId: null,
+        pendingReference: "charge:pay_diff",
+      }),
+    );
+    mocks.client.getCharge.mockResolvedValue({ ...OPEN_PIX, id: "pay_diff", status: "RECEIVED" });
+    mocks.syncUpgrade.mockResolvedValue("not_waiting");
+
+    await expect(startSubscription({ ...input, method: "pix" })).rejects.toMatchObject({
+      code: "CONFLICT",
+    });
+
+    expect(mocks.client.createPixSubscription).not.toHaveBeenCalled();
+  });
+
   it("never deletes a difference Asaas already gave back", async () => {
     mocks.account.mockResolvedValue(
       liveAccount({

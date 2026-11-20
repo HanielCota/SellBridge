@@ -484,6 +484,23 @@ describe("upgrade difference", () => {
     expect(mocks.apply).toHaveBeenCalled();
   });
 
+  it("keeps waiting on a lapsed difference whose card is still in risk analysis", async () => {
+    renewal();
+    mocks.client.getCharge.mockResolvedValue({
+      id: "pay_diff",
+      status: "AWAITING_RISK_ANALYSIS",
+      value: 400,
+      dueDate: "2025-12-04",
+      externalReference: "upgrade:tenant-a:ref:1766199600000",
+    });
+
+    await syncBillingSubscription({ subscriptionId: "sub_old", eventId: "evt_in_review" });
+
+    expect(mocks.client.deleteCharge).not.toHaveBeenCalled();
+    expect(mocks.settle).not.toHaveBeenCalled();
+    expect(mocks.apply).toHaveBeenCalled();
+  });
+
   it("gives back a late difference the renewal finds before its own notice", async () => {
     renewal();
     mocks.client.getCharge.mockResolvedValue({
