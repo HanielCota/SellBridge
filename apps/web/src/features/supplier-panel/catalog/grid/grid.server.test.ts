@@ -1,4 +1,5 @@
 import type {
+  findSkusTakenOutsideModel,
   ProductModelDetail,
   reserveShortItems,
   saveProductModelDraft,
@@ -13,6 +14,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 const mocks = vi.hoisted(() => ({
   environment: { PRODUCT_GRID_ENABLED: false },
   save: vi.fn<typeof saveProductModelDraft>(),
+  takenSkus: vi.fn<typeof findSkusTakenOutsideModel>(),
   reserveShort: vi.fn<typeof reserveShortItems>(),
   enqueue: vi.fn<() => Promise<void>>(),
   log: vi.fn<(event: string, fields: Record<string, unknown>) => void>(),
@@ -20,6 +22,7 @@ const mocks = vi.hoisted(() => ({
 vi.mock("@/lib/server/environment", () => ({ environment: mocks.environment }));
 vi.mock("@sellbridge/database/repositories", () => ({
   saveProductModelDraft: mocks.save,
+  findSkusTakenOutsideModel: mocks.takenSkus,
   reserveShortItems: mocks.reserveShort,
 }));
 vi.mock("@/lib/server/database", () => ({ database: {} }));
@@ -98,24 +101,39 @@ beforeEach(() => {
   mocks.environment.PRODUCT_GRID_ENABLED = false;
   mocks.enqueue.mockResolvedValue(undefined);
   mocks.reserveShort.mockResolvedValue(0);
+  mocks.takenSkus.mockResolvedValue([]);
 });
 
 describe("grid switch", () => {
-  it("answers the grid form as missing while grids are switched off", async () => {
-    const attempt = loadPanelModelForm(input);
+  it("tells the grid form grids are not available while they are switched off", async () => {
+    const answer = await loadPanelModelForm(input);
 
-    await expect(attempt).rejects.toSatisfy((error) => hasErrorCode(error, "NOT_FOUND"));
+    expect(answer).toEqual({ available: false });
   });
 
-  it("saves nothing while grids are switched off", async () => {
+  it("saves nothing while grids are switched off, saying so", async () => {
     const attempt = writePanelModelDraft(draftInput);
 
-    await expect(attempt).rejects.toSatisfy((error) => hasErrorCode(error, "NOT_FOUND"));
+    await expect(attempt).rejects.toSatisfy(
+      (error) =>
+        hasErrorCode(error, "NOT_FOUND") &&
+        error.userMessage === "Produtos com cores e tamanhos ainda não estão disponíveis.",
+    );
     expect(mocks.save).not.toHaveBeenCalled();
   });
 });
 
 describe("writePanelModelDraft", () => {
+  it("answers a SKU another product uses as the field to fix, saving nothing", async () => {
+    mocks.environment.PRODUCT_GRID_ENABLED = true;
+    mocks.takenSkus.mockResolvedValue(["TEN-P-38"]);
+
+    const result = await writePanelModelDraft(draftInput);
+
+    expect(result).toEqual({ saved: false, takenSkus: ["TEN-P-38"] });
+    expect(mocks.save).not.toHaveBeenCalled();
+  });
+
   it("answers a conflict as a result the form can show", async () => {
     mocks.environment.PRODUCT_GRID_ENABLED = true;
     mocks.save.mockRejectedValue(conflictError("Este produto mudou em outra janela"));

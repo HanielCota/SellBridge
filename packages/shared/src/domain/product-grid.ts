@@ -364,11 +364,6 @@ function filledFiscal(fiscal: ProductFiscalPatch): ProductFiscalPatch {
   );
 }
 
-/**
- * The full product a combination is, built from its model and its own values. The model is the
- * only place shared data is edited; every save rewrites its combinations with this, so catalog,
- * publishing, orders and invoices keep reading one complete product row as they always did.
- */
 /** The combination's colour and size, as the sheet names them ("Tênis - Preto 38" is size 38). */
 function axisAttributes(own: Pick<CombinationOwnValues, "color" | "size">): Record<string, string> {
   return {
@@ -377,6 +372,11 @@ function axisAttributes(own: Pick<CombinationOwnValues, "color" | "size">): Reco
   };
 }
 
+/**
+ * The full product a combination is, built from its model and its own values. The model is the
+ * only place shared data is edited; every save rewrites its combinations with this, so catalog,
+ * publishing, orders and invoices keep reading one complete product row as they always did.
+ */
 export function materializeCombination(
   model: ProductModelShared,
   own: CombinationOwnValues,
