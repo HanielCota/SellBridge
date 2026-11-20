@@ -1,5 +1,5 @@
 {
-  "id": "f7c4ad14-f295-48b3-9cac-c7b70ff1b9f5",
+  "id": "0052c556-9321-434f-adc9-cb0b6fce5d24",
   "prevId": "55da238f-02e3-4eb2-8fcb-d18379a60388",
   "version": "7",
   "dialect": "postgresql",
@@ -1134,12 +1134,6 @@
           "primaryKey": false,
           "notNull": false
         },
-        "code": {
-          "name": "code",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true
-        },
         "title": {
           "name": "title",
           "type": "text",
@@ -1259,27 +1253,6 @@
             },
             {
               "expression": "supplier_id",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            }
-          ],
-          "isUnique": true,
-          "concurrently": false,
-          "method": "btree",
-          "with": {}
-        },
-        "product_models_supplier_code_idx": {
-          "name": "product_models_supplier_code_idx",
-          "columns": [
-            {
-              "expression": "supplier_id",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            },
-            {
-              "expression": "code",
               "isExpression": false,
               "asc": true,
               "nulls": "last"
@@ -7103,6 +7076,13 @@
           "primaryKey": true,
           "notNull": true
         },
+        "provider": {
+          "name": "provider",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'stripe'"
+        },
         "customer_id": {
           "name": "customer_id",
           "type": "text",
@@ -7148,6 +7128,48 @@
           "primaryKey": false,
           "notNull": true,
           "default": 0
+        },
+        "payment_method": {
+          "name": "payment_method",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "scheduled_plan": {
+          "name": "scheduled_plan",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "scheduled_plan_at": {
+          "name": "scheduled_plan_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "pending_plan": {
+          "name": "pending_plan",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "pending_reference": {
+          "name": "pending_reference",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "prepaid_until": {
+          "name": "prepaid_until",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "first_paid_on": {
+          "name": "first_paid_on",
+          "type": "date",
+          "primaryKey": false,
+          "notNull": false
         }
       },
       "indexes": {},
@@ -7184,7 +7206,20 @@
         }
       },
       "policies": {},
-      "checkConstraints": {},
+      "checkConstraints": {
+        "billing_accounts_provider_check": {
+          "name": "billing_accounts_provider_check",
+          "value": "\"billing_accounts\".\"provider\" in ('stripe', 'asaas')"
+        },
+        "billing_accounts_payment_method_check": {
+          "name": "billing_accounts_payment_method_check",
+          "value": "\"billing_accounts\".\"payment_method\" is null or \"billing_accounts\".\"payment_method\" in ('pix', 'credit_card')"
+        },
+        "billing_accounts_scheduled_plan_check": {
+          "name": "billing_accounts_scheduled_plan_check",
+          "value": "(\"billing_accounts\".\"scheduled_plan\" is null) = (\"billing_accounts\".\"scheduled_plan_at\" is null)"
+        }
+      },
       "isRLSEnabled": false
     },
     "public.billing_events": {
