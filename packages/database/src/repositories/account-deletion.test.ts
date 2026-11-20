@@ -259,7 +259,7 @@ describe("account deletion", () => {
     );
   });
 
-  it("forgets the Stripe customer, so a retried deletion does not ask Stripe again", async () => {
+  it("forgets the Asaas customer, so a retried deletion does not ask Asaas again", async () => {
     const tenantId = await createOrganization();
     await database
       .insert(billingAccounts)

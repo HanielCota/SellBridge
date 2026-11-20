@@ -114,47 +114,6 @@ export async function billingUsage(database: DatabaseExecutor, tenantId: string)
   return { listings: listingCounts[0]?.value ?? 0, stores: storeCounts[0]?.value ?? 0 };
 }
 
-export async function applyBillingEvent(
-  database: DatabaseExecutor,
-  input: {
-    eventId: string;
-    /** When the state was read from Stripe, in Unix milliseconds: the newest read wins. */
-    observedAt: number;
-    customerId: string;
-    subscriptionId: string;
-    plan: string;
-    status: string;
-    periodEnd: Date | null;
-    cancelAtPeriodEnd: boolean;
-  },
-) {
-  const [account] = await database
-    .select()
-    .from(billingAccounts)
-    .where(
-      and(eq(billingAccounts.customerId, input.customerId), eq(billingAccounts.provider, "stripe")),
-    )
-    .for("update");
-  if (!account) return;
-  const [event] = await database
-    .insert(billingEvents)
-    .values({ id: input.eventId })
-    .onConflictDoNothing()
-    .returning();
-  if (!event || account.lastEventCreated > input.observedAt) return;
-  await database
-    .update(billingAccounts)
-    .set({
-      subscriptionId: input.subscriptionId,
-      plan: input.plan,
-      status: input.status,
-      periodEnd: input.periodEnd,
-      cancelAtPeriodEnd: input.cancelAtPeriodEnd,
-      lastEventCreated: input.observedAt,
-    })
-    .where(eq(billingAccounts.tenantId, account.tenantId));
-}
-
 /**
  * Refuses when `requested` more stores or listing slots would pass the plan. A listing asks one
  * slot per destination store; a batch asks for all of its slots at once, so it is refused whole
@@ -195,21 +154,11 @@ export async function assertBillingCapacity(
   );
 }
 
-/** The account bound to a Stripe customer, or null for customers outside this application. */
-export async function findBillingCustomer(database: DatabaseExecutor, customerId: string) {
-  const [account] = await database
-    .select()
-    .from(billingAccounts)
-    .where(and(eq(billingAccounts.customerId, customerId), eq(billingAccounts.provider, "stripe")));
-  return account ?? null;
-}
-
 /** The columns a subscription change writes; the rest of the row stays as it is. */
 export type BillingAccountPatch = Partial<
   Pick<
     typeof billingAccounts.$inferInsert,
     | "customerId"
-    | "provider"
     | "subscriptionId"
     | "plan"
     | "status"
@@ -233,7 +182,7 @@ export async function saveBillingAccount(
 ) {
   await database
     .insert(billingAccounts)
-    .values({ tenantId, provider: "asaas", ...patch })
+    .values({ tenantId, ...patch })
     .onConflictDoUpdate({ target: billingAccounts.tenantId, set: patch });
 }
 
@@ -281,12 +230,7 @@ export async function findBillingAccountBySubscription(
   const [account] = await database
     .select()
     .from(billingAccounts)
-    .where(
-      and(
-        eq(billingAccounts.subscriptionId, subscriptionId),
-        eq(billingAccounts.provider, "asaas"),
-      ),
-    );
+    .where(eq(billingAccounts.subscriptionId, subscriptionId));
   return account ?? null;
 }
 
@@ -298,9 +242,7 @@ export async function findBillingAccountByPendingReference(
   const [account] = await database
     .select()
     .from(billingAccounts)
-    .where(
-      and(eq(billingAccounts.pendingReference, reference), eq(billingAccounts.provider, "asaas")),
-    );
+    .where(eq(billingAccounts.pendingReference, reference));
   return account ?? null;
 }
 

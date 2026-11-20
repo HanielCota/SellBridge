@@ -18,7 +18,6 @@ import {
   testStoreInput,
 } from "../testing/fixtures.ts";
 import {
-  applyBillingEvent,
   applyBillingState,
   assertBillingCapacity,
   billingUsage,
@@ -90,7 +89,6 @@ async function accountCreatedAt(createdAt: Date) {
 let tenants: Awaited<ReturnType<typeof createTestTenantPair>>;
 let catalog: Awaited<ReturnType<typeof createTestSupplierProduct>>;
 const customerId = `cus_${randomUUID()}`;
-const eventId = `evt_${randomUUID()}`;
 beforeAll(async () => {
   tenants = await createTestTenantPair(database);
   catalog = await createTestSupplierProduct(database, {
@@ -103,7 +101,6 @@ beforeAll(async () => {
 afterAll(async () => {
   await tenants.cleanup();
   await catalog.cleanup();
-  await database.delete(billingEvents).where(eq(billingEvents.id, eventId));
   await database.$client.end();
 });
 describe("tenant billing persistence", () => {
@@ -112,36 +109,8 @@ describe("tenant billing persistence", () => {
     expect((await getBillingAccount(database, tenants.tenantA))?.customerId).toBe(customerId);
     expect(await getBillingAccount(database, tenants.tenantB)).toBeNull();
   });
-  it("deduplicates delivery and rejects older events", async () => {
-    const input = {
-      eventId,
-      observedAt: 20,
-      customerId,
-      subscriptionId: "sub_test",
-      plan: "pro",
-      status: "active",
-      periodEnd: new Date(Date.now() + 86400000),
-      cancelAtPeriodEnd: false,
-    };
-    await database.transaction(async (transaction) => applyBillingEvent(transaction, input));
-    await database.transaction(async (transaction) =>
-      applyBillingEvent(transaction, { ...input, status: "canceled" }),
-    );
-    expect((await getBillingAccount(database, tenants.tenantA))?.status).toBe("active");
-    const oldId = `evt_${randomUUID()}`;
-    await database.transaction(async (transaction) =>
-      applyBillingEvent(transaction, {
-        ...input,
-        eventId: oldId,
-        observedAt: 10,
-        status: "canceled",
-      }),
-    );
-    expect((await getBillingAccount(database, tenants.tenantA))?.status).toBe("active");
-    await database.delete(billingEvents).where(eq(billingEvents.id, oldId));
-  });
   // Regression (item 16.a, N5): checkout held the organization row lock while it waited on
-  // Stripe, so publishing and store connection stalled behind a payment page.
+  // the payment provider, so publishing and store connection stalled behind a payment page.
   it("serializes checkout without blocking capacity checks", async () => {
     const checkoutHeld = deferred();
     const lockTaken = deferred();
@@ -323,18 +292,12 @@ describe("tenant billing persistence", () => {
   it("stores an observation time in milliseconds after 2038", async () => {
     const observedAt = Date.UTC(2040, 0, 1);
     const lateEventId = `evt_${randomUUID()}`;
-    await database.transaction(async (transaction) =>
-      applyBillingEvent(transaction, {
-        eventId: lateEventId,
-        observedAt,
-        customerId,
-        subscriptionId: "sub_test",
-        plan: "pro",
-        status: "active",
-        periodEnd: new Date(Date.now() + 86400000),
-        cancelAtPeriodEnd: false,
-      }),
-    );
+    await applyBillingState(database, {
+      tenantId: tenants.tenantA,
+      eventId: lateEventId,
+      observedAt,
+      patch: { plan: "pro", status: "active", periodEnd: new Date(Date.now() + 86400000) },
+    });
     expect((await getBillingAccount(database, tenants.tenantA))?.lastEventCreated).toBe(observedAt);
     await database.delete(billingEvents).where(eq(billingEvents.id, lateEventId));
   });

@@ -673,6 +673,13 @@
       "when": 1795133149906,
       "tag": "0095_billing_asaas",
       "breakpoints": true
+    },
+    {
+      "idx": 96,
+      "version": "7",
+      "when": 1795154436510,
+      "tag": "0096_drop_stripe_billing",
+      "breakpoints": true
     }
   ]
 }
