@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 import type { FetchLike } from "../http.ts";
-import { readMercadoLivreSaleInvoice } from "./sale-invoice.ts";
+import { readMercadoLivreSaleInvoice, sendMercadoLivreSaleInvoice } from "./sale-invoice.ts";
 
 const store = { externalShopId: "99", accessToken: "test-token" };
 const KEY = "35261111222333000181550010000048211123456789";
@@ -86,5 +86,60 @@ describe("readMercadoLivreSaleInvoice", () => {
     await expect(readMercadoLivreSaleInvoice(config, store, "55")).rejects.toMatchObject({
       details: { retryable: true },
     });
+  });
+});
+
+const XML = '<?xml version="1.0" encoding="UTF-8"?><nfeProc versao="4.00"></nfeProc>';
+const NO_NOTE = () => Response.json({ message: "not found" }, { status: 404 });
+
+describe("sendMercadoLivreSaleInvoice", () => {
+  it("posts the note's XML to the order's shipment", async () => {
+    const { request, config } = setup(
+      Response.json(ORDER),
+      NO_NOTE(),
+      Response.json({ id: 1 }, { status: 201 }),
+    );
+
+    await sendMercadoLivreSaleInvoice(config, store, {
+      orderId: "2000123",
+      accessKey: KEY,
+      xml: XML,
+    });
+
+    const [url, init] = request.mock.calls[2] ?? [];
+    expect(String(url)).toBe(
+      "https://api.mercadolibre.com/shipments/53932058390/invoice_data?siteId=MLB",
+    );
+    expect(init?.method).toBe("POST");
+    expect(new Headers(init?.headers).get("content-type")).toBe("application/xml");
+    expect(init?.body).toBe(XML);
+  });
+
+  it("sends nothing when the shipment already carries this note", async () => {
+    const { request, config } = setup(Response.json(ORDER), Response.json({ fiscal_key: KEY }));
+
+    await sendMercadoLivreSaleInvoice(config, store, {
+      orderId: "2000123",
+      accessKey: KEY,
+      xml: XML,
+    });
+
+    expect(request).toHaveBeenCalledTimes(2);
+  });
+
+  it("says in the reseller's words why Mercado Livre refused the note", async () => {
+    const { config } = setup(
+      Response.json(ORDER),
+      NO_NOTE(),
+      Response.json({ error: "invalid_sender_cnpj", message: "x" }, { status: 400 }),
+    );
+
+    const sent = sendMercadoLivreSaleInvoice(config, store, {
+      orderId: "2000123",
+      accessKey: KEY,
+      xml: XML,
+    });
+
+    await expect(sent).rejects.toThrow(/mesmo CNPJ/);
   });
 });
