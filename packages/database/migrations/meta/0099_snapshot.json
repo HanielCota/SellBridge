@@ -1,5 +1,5 @@
 {
-  "id": "5badd2e9-bfe4-4a77-94be-d9d2a090b739",
+  "id": "0da7fc64-e00a-4039-aded-4fd8e96483e1",
   "prevId": "6b2cf7e9-6b79-4e95-88d6-09028778fbab",
   "version": "7",
   "dialect": "postgresql",
@@ -8672,6 +8672,24 @@
           "primaryKey": false,
           "notNull": false
         },
+        "label_released_at": {
+          "name": "label_released_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "label_released_by_user_id": {
+          "name": "label_released_by_user_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "label_release_reason": {
+          "name": "label_release_reason",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
         "checks": {
           "name": "checks",
           "type": "integer",
@@ -8774,6 +8792,19 @@
             "id"
           ],
           "onDelete": "cascade",
+          "onUpdate": "no action"
+        },
+        "shipment_reseller_invoices_label_released_by_user_id_user_id_fk": {
+          "name": "shipment_reseller_invoices_label_released_by_user_id_user_id_fk",
+          "tableFrom": "shipment_reseller_invoices",
+          "tableTo": "user",
+          "columnsFrom": [
+            "label_released_by_user_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "set null",
           "onUpdate": "no action"
         }
       },

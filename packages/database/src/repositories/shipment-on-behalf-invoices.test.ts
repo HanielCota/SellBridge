@@ -7,7 +7,7 @@ import {
   shipmentResellerInvoices,
   tenantProfile,
 } from "../schema/index.ts";
-import { createTestDatabase } from "../testing/fixtures.ts";
+import { createTestDatabase, createTestUsers } from "../testing/fixtures.ts";
 import {
   createInvoiceScenario,
   TEST_SUPPLIER_FISCAL,
@@ -21,6 +21,8 @@ import {
 } from "./shipment-invoices.ts";
 import {
   findOnBehalfLabelParcels,
+  findOnBehalfLabelState,
+  releaseOnBehalfLabel,
   findResellerNoteState,
   loadOnBehalfInvoiceContext,
   queueOnBehalfInvoices,
@@ -257,8 +259,12 @@ describe("venda à ordem notes", () => {
 
     const ready = await findOnBehalfLabelParcels(database, { tenantId, orderId });
 
-    expect(waiting).toEqual([{ resellerNoteSource: null, remessaAuthorized: false }]);
-    expect(ready).toEqual([{ resellerNoteSource: "typed", remessaAuthorized: true }]);
+    expect(waiting).toEqual([
+      { resellerNoteSource: null, remessaAuthorized: false, labelReleased: false },
+    ]);
+    expect(ready).toEqual([
+      { resellerNoteSource: "typed", remessaAuthorized: true, labelReleased: false },
+    ]);
   });
 
   it("holds a cart's label while any order of the cart still waits for its notes", async () => {
@@ -287,7 +293,56 @@ describe("venda à ordem notes", () => {
     const parcels = await findOnBehalfLabelParcels(database, { tenantId, orderId });
 
     expect(parcels).toHaveLength(2);
-    expect(parcels).toContainEqual({ resellerNoteSource: null, remessaAuthorized: false });
+    expect(parcels).toContainEqual({
+      resellerNoteSource: null,
+      remessaAuthorized: false,
+      labelReleased: false,
+    });
+  });
+
+  it("keeps who released a stuck label, when and why, and lets the label count it", async () => {
+    const { shipmentId, tenantId, orderId } = await onBehalfScenario();
+    await queueResellerSaleInvoices(database);
+    const users = await createTestUsers(database, 1);
+    cleanups.push(users.cleanup);
+    const userId = users.ids[0] ?? "";
+    const now = new Date("2026-11-20T15:00:00Z");
+
+    await releaseOnBehalfLabel(database, {
+      shipmentId,
+      userId,
+      reason: "Bling do fornecedor fora do ar há 3 dias",
+      now,
+    });
+
+    const state = await findOnBehalfLabelState(database, shipmentId);
+    expect(state?.release).toMatchObject({
+      at: now,
+      reason: "Bling do fornecedor fora do ar há 3 dias",
+    });
+    expect(state?.release?.byName).not.toBeNull();
+    expect(await findOnBehalfLabelParcels(database, { tenantId, orderId })).toEqual([
+      { resellerNoteSource: null, remessaAuthorized: false, labelReleased: true },
+    ]);
+  });
+
+  it("refuses to release a label twice, or one of a parcel not sold in venda à ordem", async () => {
+    const { shipmentId } = await onBehalfScenario();
+    const direct = await createInvoiceScenario(database);
+    cleanups.push(direct.cleanup);
+    await queueResellerSaleInvoices(database);
+    const users = await createTestUsers(database, 1);
+    cleanups.push(users.cleanup);
+    const release = { userId: users.ids[0] ?? "", reason: "Remessa recusada", now: new Date() };
+    await releaseOnBehalfLabel(database, { ...release, shipmentId });
+
+    await expect(releaseOnBehalfLabel(database, { ...release, shipmentId })).rejects.toMatchObject({
+      code: "CONFLICT",
+    });
+    await expect(
+      releaseOnBehalfLabel(database, { ...release, shipmentId: direct.shipmentId }),
+    ).rejects.toMatchObject({ code: "NOT_FOUND" });
+    expect(await findOnBehalfLabelState(database, direct.shipmentId)).toBeNull();
   });
 
   it("finds no venda à ordem parcel on an order of direct notes", async () => {

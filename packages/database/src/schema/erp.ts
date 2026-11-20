@@ -251,6 +251,13 @@ export const shipmentResellerInvoices = pgTable(
     foundAt: timestamp({ withTimezone: true }),
     /** Why the note on the marketplace's order does not serve, in the reseller's words. */
     problem: text(),
+    /**
+     * The SellBridge team let the label out although a note is stuck (decision of 20/11/2026):
+     * when, who and why. Null while the label waits for the notes.
+     */
+    labelReleasedAt: timestamp({ withTimezone: true }),
+    labelReleasedByUserId: text().references(() => user.id, { onDelete: "set null" }),
+    labelReleaseReason: text(),
     /** Reads of the marketplace so far; spaces the next one. */
     checks: integer().notNull().default(0),
     nextCheckAt: timestamp({ withTimezone: true }).defaultNow().notNull(),

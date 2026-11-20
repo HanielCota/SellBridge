@@ -1,6 +1,7 @@
 import type { BillingAddress } from "@sellbridge/shared/billing-address";
 import type { OnBehalfLabelParcel } from "@sellbridge/shared/reseller-invoice";
 import type { InvoiceKind } from "@sellbridge/shared/supplier-invoice";
+import { conflictError, notFoundError } from "@sellbridge/shared/errors";
 import { and, eq, gte, isNotNull, isNull, notInArray } from "drizzle-orm";
 import { alias } from "drizzle-orm/pg-core";
 import type { Database } from "../client.ts";
@@ -9,8 +10,10 @@ import {
   orderShipments,
   shipmentInvoices,
   shipmentResellerInvoices,
+  storeConnections,
   supplierErpConnections,
   tenantProfile,
+  user,
 } from "../schema/index.ts";
 import { UNINVOICED_ORDER_STATUSES, UNINVOICED_SHIPMENT_STATUSES } from "./sql/uninvoiced.ts";
 
@@ -297,6 +300,7 @@ export async function findOnBehalfLabelParcels(
     .select({
       resellerNoteSource: shipmentResellerInvoices.source,
       remessaStatus: remessa.status,
+      labelReleasedAt: shipmentResellerInvoices.labelReleasedAt,
     })
     .from(shipmentResellerInvoices)
     .innerJoin(orderShipments, eq(orderShipments.id, shipmentResellerInvoices.shipmentId))
@@ -309,5 +313,92 @@ export async function findOnBehalfLabelParcels(
   return rows.map((row) => ({
     resellerNoteSource: row.resellerNoteSource,
     remessaAuthorized: row.remessaStatus === "authorized",
+    labelReleased: row.labelReleasedAt !== null,
   }));
+}
+
+/** A venda à ordem parcel's label as the team sees it in Admin › Envios. */
+export interface OnBehalfLabelState {
+  readonly tenantId: string;
+  readonly orderId: string;
+  readonly marketplace: string;
+  /** Who let the label out although a note was stuck, when and why; null while it waits. */
+  readonly release: {
+    readonly at: Date;
+    readonly byName: string | null;
+    readonly reason: string;
+  } | null;
+}
+
+/** The parcel's label state, or null when the parcel is not sold in venda à ordem. */
+export async function findOnBehalfLabelState(
+  database: Database,
+  shipmentId: string,
+): Promise<OnBehalfLabelState | null> {
+  const releasedBy = alias(user, "label_released_by");
+  const [row] = await database
+    .select({
+      tenantId: orderShipments.tenantId,
+      orderId: orderShipments.orderId,
+      marketplace: storeConnections.marketplace,
+      releasedAt: shipmentResellerInvoices.labelReleasedAt,
+      releasedByName: releasedBy.name,
+      reason: shipmentResellerInvoices.labelReleaseReason,
+    })
+    .from(shipmentResellerInvoices)
+    .innerJoin(orderShipments, eq(orderShipments.id, shipmentResellerInvoices.shipmentId))
+    .innerJoin(orders, eq(orders.id, orderShipments.orderId))
+    .innerJoin(storeConnections, eq(storeConnections.id, orders.storeConnectionId))
+    .leftJoin(releasedBy, eq(releasedBy.id, shipmentResellerInvoices.labelReleasedByUserId))
+    .where(eq(shipmentResellerInvoices.shipmentId, shipmentId));
+  if (row === undefined) {
+    return null;
+  }
+  const release =
+    row.releasedAt === null
+      ? null
+      : { at: row.releasedAt, byName: row.releasedByName, reason: row.reason ?? "" };
+  return {
+    tenantId: row.tenantId,
+    orderId: row.orderId,
+    marketplace: row.marketplace,
+    release,
+  };
+}
+
+/**
+ * Lets a venda à ordem parcel's label out although a note is stuck, keeping who did it and why.
+ *
+ * @throws {AppError} NOT_FOUND when the parcel is not sold in venda à ordem; CONFLICT when its
+ * label was already released.
+ */
+export async function releaseOnBehalfLabel(
+  database: Database,
+  release: { shipmentId: string; userId: string; reason: string; now: Date },
+): Promise<void> {
+  const updated = await database
+    .update(shipmentResellerInvoices)
+    .set({
+      labelReleasedAt: release.now,
+      labelReleasedByUserId: release.userId,
+      labelReleaseReason: release.reason,
+    })
+    .where(
+      and(
+        eq(shipmentResellerInvoices.shipmentId, release.shipmentId),
+        isNull(shipmentResellerInvoices.labelReleasedAt),
+      ),
+    )
+    .returning({ id: shipmentResellerInvoices.id });
+  if (updated.length > 0) {
+    return;
+  }
+  const [existing] = await database
+    .select({ id: shipmentResellerInvoices.id })
+    .from(shipmentResellerInvoices)
+    .where(eq(shipmentResellerInvoices.shipmentId, release.shipmentId));
+  if (existing === undefined) {
+    throw notFoundError("Este envio não é de venda à ordem");
+  }
+  throw conflictError("A etiqueta deste envio já foi liberada");
 }
