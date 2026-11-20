@@ -129,6 +129,7 @@ export async function forwardRecipients(
       items: orderShipments.items,
       externalOrderId: orders.externalOrderId,
       contactEmail: suppliers.contactEmail,
+      organizationId: suppliers.organizationId,
       acceptWithinHours: suppliers.acceptWithinHours,
       dispatchWithinHours: suppliers.dispatchWithinHours,
     })
@@ -142,8 +143,9 @@ export async function forwardRecipients(
         publicSupplier(),
       ),
     );
-  return rows.map((row) => ({
+  return rows.map(({ organizationId, ...row }) => ({
     ...row,
+    hasPanel: organizationId !== null,
     items: row.items.map(({ title, sku, quantity }) => ({ title, sku, quantity })),
   }));
 }

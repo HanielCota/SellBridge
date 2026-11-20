@@ -41,6 +41,8 @@ export const QUEUE_NAMES = {
   buyerAddressCheck: "buyer-address-check",
   /** Zero stock for the listings of a store whose account was deleted, until every one is paused. */
   deletedStorePause: "deleted-store-pause",
+  /** Asks each store's marketplace for its recent sales and brings in the ones whose notice was lost. */
+  orderCheck: "order-check",
 } as const;
 
 export const publishListingJobSchema = z.object({
@@ -136,6 +138,27 @@ export function storeOrderCatchUpJobId(job: StoreOrderCatchUpJob): string {
 
   throw new Error(`Invalid store order catch-up start date: ${JSON.stringify(job.since)}`);
 }
+
+/** One store's periodic order check (docs/decisions/2026-11-19-conferencia-periodica-de-pedidos.md). */
+export const orderCheckJobSchema = z.object({
+  storeConnectionId: z.uuid(),
+  /** Start of the sales read: two days back, or the store's connection when it is newer. */
+  from: z.iso.datetime(),
+});
+export type OrderCheckJob = z.infer<typeof orderCheckJobSchema>;
+
+/** One check per store at a time: a run never stacks onto a check still waiting or running. */
+export function orderCheckJobId(job: Pick<OrderCheckJob, "storeConnectionId">): string {
+  return `order-check-${job.storeConnectionId}`;
+}
+
+/** A refused read (rate limit, outage) is tried again a little later, three times in all. */
+export const ORDER_CHECK_JOB_OPTIONS = {
+  attempts: 3,
+  backoff: { type: "exponential", delay: 60_000 },
+  removeOnComplete: 100,
+  removeOnFail: 1000,
+} as const;
 
 export const autoForwardJobSchema = z.object({ orderId: z.uuid() });
 

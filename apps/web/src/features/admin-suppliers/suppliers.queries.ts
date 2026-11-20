@@ -1,8 +1,8 @@
-import type { AdminSupplierSearch } from "@sellbridge/shared/schemas";
+import type { AdminSupplierListSearch, AdminSupplierSearch } from "@sellbridge/shared/schemas";
 import { keepPreviousData, queryOptions } from "@tanstack/react-query";
 import { adminGetSupplier, adminListProducts, adminListSuppliers } from "./suppliers.functions";
 
-export const adminSuppliersQueryOptions = (search: AdminSupplierSearch) =>
+export const adminSuppliersQueryOptions = (search: AdminSupplierListSearch) =>
   queryOptions({
     queryKey: ["admin-suppliers", search],
     queryFn: () => adminListSuppliers({ data: search }),

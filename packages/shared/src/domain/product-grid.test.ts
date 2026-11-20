@@ -7,6 +7,7 @@ import {
   MAX_GRID_COMBINATIONS,
   MAX_MODEL_TITLE_LENGTH,
   materializeCombination,
+  productGridDraftSchema,
   productGridSchema,
   type ProductModelShared,
   sortSizeNames,
@@ -312,5 +313,29 @@ describe("combinationOwnFields", () => {
       variantAttributes: { GTIN: "7891234567895" },
       variantFiscal: { netWeightGrams: 780 },
     });
+  });
+});
+
+describe("productGridDraftSchema", () => {
+  it("saves a grid still being typed: a colour without combinations yet", () => {
+    const result = productGridDraftSchema.safeParse({
+      colors: [{ name: "Preto", imageUrls: [] }],
+      sizes: [{ name: "38" }],
+      combinations: [],
+    });
+
+    expect(result.success).toBe(true);
+  });
+
+  it("never saves the same SKU on two combinations", () => {
+    const result = productGridDraftSchema.safeParse({
+      colors: [{ name: "Preto", imageUrls: [] }],
+      sizes: [{ name: "38" }, { name: "39" }],
+      combinations: [combination("Preto", "38", "TEN-1"), combination("Preto", "39", "TEN-1")],
+    });
+
+    expect(result.error?.issues.map((issue) => issue.message)).toEqual([
+      "O SKU TEN-1 aparece em mais de uma combinação",
+    ]);
   });
 });

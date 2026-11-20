@@ -14,6 +14,7 @@ import { and, eq, inArray, sql } from "drizzle-orm";
 import type { DatabaseExecutor } from "../client.ts";
 import { categories, supplierProducts } from "../schema/index.ts";
 import { getSupplierFiscalFallback } from "./supplier-brand.ts";
+import { keptOnCombination } from "./sql/grid-combination.ts";
 
 /** An import row as the admin import plans it: attributes may be absent (blank cells). */
 type ImportedRow = Omit<EditableProductFields, "mercadoLivreAttributes" | "fiscal"> & {
@@ -94,9 +95,10 @@ export async function reviewedImportValues<TProduct extends ImportedRow>(
   });
   return {
     values,
+    // A combination keeps its status: it was judged on shared data the import does not write.
     conflictSet: {
-      reviewStatus: sql`excluded.review_status`,
-      submittedAt: sql`excluded.submitted_at`,
+      reviewStatus: keptOnCombination(sql`excluded.review_status`, supplierProducts.reviewStatus),
+      submittedAt: keptOnCombination(sql`excluded.submitted_at`, supplierProducts.submittedAt),
     },
   };
 }

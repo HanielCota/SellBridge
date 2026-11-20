@@ -21,6 +21,7 @@ import type {
   CatalogSetActiveInput,
 } from "@sellbridge/shared/supplier-panel-catalog-schemas";
 import { database } from "@/lib/server/database";
+import { environment } from "@/lib/server/environment";
 import { requestStockSync } from "@/lib/server/stock-sync";
 
 export async function loadPanelProducts(input: CatalogListSearch & { supplierId: string }) {
@@ -49,11 +50,20 @@ export async function loadPanelProductForm(input: {
       columns: { niche: true },
     }),
   ]);
-  return { product, categories, taxDefaults, brandNiche: brand?.niche ?? null };
+  return {
+    product,
+    categories,
+    taxDefaults,
+    brandNiche: brand?.niche ?? null,
+    productGridEnabled: environment.PRODUCT_GRID_ENABLED,
+  };
 }
 
 /** Database failures become one clear message; typed errors pass through unchanged. */
-async function panelWrite<TResult>(event: string, write: () => Promise<TResult>): Promise<TResult> {
+export async function panelWrite<TResult>(
+  event: string,
+  write: () => Promise<TResult>,
+): Promise<TResult> {
   try {
     return await write();
   } catch (error) {
@@ -71,11 +81,11 @@ async function panelWrite<TResult>(event: string, write: () => Promise<TResult>)
  * An approved product's stock and cost reach the resellers' listings: paid items that came up
  * short get the new units first, then the worker syncs. Both run after the save committed.
  */
-async function propagateApprovedChange(productId: string): Promise<void> {
+export async function propagateApprovedChange(productIds: readonly string[]): Promise<void> {
   try {
-    await reserveShortItems(database, [productId]);
+    await reserveShortItems(database, [...productIds]);
   } catch (error) {
-    logger.error("supplier_panel.short_reservation_failed", { productId, error });
+    logger.error("supplier_panel.short_reservation_failed", { productIds, error });
   }
   await requestStockSync("supplier_panel.catalog_sync_deferred");
 }
@@ -97,7 +107,7 @@ export async function writePanelDraft(input: CatalogSaveDraftInput) {
     }
   });
   if (result.saved && result.product.reviewStatus === "approved") {
-    await propagateApprovedChange(result.product.id);
+    await propagateApprovedChange([result.product.id]);
   }
   return result;
 }
@@ -108,7 +118,7 @@ export async function writePanelSubmission(ref: CatalogProductRef) {
     "supplier_panel.submit_failed",
     async () => await submitSupplierPanelProduct(database, ref),
   );
-  await propagateApprovedChange(product.id);
+  await propagateApprovedChange([product.id]);
   return product;
 }
 
@@ -117,7 +127,7 @@ export async function writePanelApproval(ref: CatalogProductRef, reviewerId: str
     "supplier_panel.approve_failed",
     async () => await approveSupplierPanelProduct(database, { ...ref, reviewerId }),
   );
-  await propagateApprovedChange(product.id);
+  await propagateApprovedChange([product.id]);
   return product;
 }
 
