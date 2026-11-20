@@ -1,5 +1,11 @@
 import type { ErpCatalogItem } from "@sellbridge/shared/erp-catalog";
-import type { BlingProductDetail, BlingProductFields } from "./schemas.ts";
+import { MAX_MODEL_TITLE_LENGTH } from "@sellbridge/shared/product-grid";
+import type { BlingProductDetail, BlingProductFields, BlingVariation } from "./schemas.ts";
+import {
+  blingModelCode,
+  readVariationOptions,
+  type VariationOptions,
+} from "./variation-options.ts";
 
 /** Why a Bling product did not become an import row, shown to the supplier with its name. */
 export interface SkippedBlingProduct {
@@ -10,7 +16,12 @@ export interface SkippedBlingProduct {
 export interface BlingCatalogMapping {
   readonly items: ErpCatalogItem[];
   readonly skipped: SkippedBlingProduct[];
+  /** Products with variations that came in one product per variation instead of as a grid. */
+  readonly separated: SkippedBlingProduct[];
 }
+
+const SEPARATED_REASON =
+  "As variações não são só cor e tamanho: cada uma entrou como um produto separado";
 
 function blankToNull(value: string | null | undefined): string | null {
   if (value == null) {
@@ -77,6 +88,7 @@ function toItem(fields: BlingProductFields): ErpCatalogItem | SkippedBlingProduc
   }
   return {
     sku,
+    erpProductId: fields.id,
     title: fields.nome.trim(),
     description: blankToNull(fields.descricaoCurta) ?? "",
     priceCents: priceCents(fields.preco),
@@ -94,16 +106,7 @@ function toItem(fields: BlingProductFields): ErpCatalogItem | SkippedBlingProduc
   };
 }
 
-/**
- * One import row per sellable item: a simple product is one row, a product with variations is
- * one row per variation (each with its own Bling code as SKU) and none for the parent.
- */
-export function blingProductToItems(product: BlingProductDetail): BlingCatalogMapping {
-  const variations = product.variacoes ?? [];
-  const sources =
-    product.formato === "V" && variations.length > 0
-      ? variations.map((variation) => withParentDefaults(variation, product))
-      : [product];
+function mapSources(sources: readonly BlingProductFields[]) {
   const items: ErpCatalogItem[] = [];
   const skipped: SkippedBlingProduct[] = [];
   for (const source of sources) {
@@ -118,4 +121,74 @@ export function blingProductToItems(product: BlingProductDetail): BlingCatalogMa
     items.push(mapped);
   }
   return { items, skipped };
+}
+
+/**
+ * Bling's name for a variation's options: `variacao.nome`, or what its full name adds to its
+ * parent's ("BABUCHE NUVEM Cor:MARINHO;Tamanho:33/34") when the answer leaves that out.
+ */
+function optionsName(variation: BlingVariation, parentName: string): string {
+  const own = variation.variacao?.nome;
+  if (own !== undefined) {
+    return own;
+  }
+  const name = variation.nome.trim();
+  const prefix = parentName.trim();
+  return prefix !== "" && name.startsWith(prefix) ? name.slice(prefix.length) : "";
+}
+
+/** Each variation's colour and size, or null when one of them names anything else. */
+function gridOptionsOf(
+  variations: readonly BlingVariation[],
+  parentName: string,
+): VariationOptions[] | null {
+  const options: VariationOptions[] = [];
+  for (const variation of variations) {
+    const read = readVariationOptions(optionsName(variation, parentName));
+    if (read === null) {
+      return null;
+    }
+    options.push(read);
+  }
+  return options;
+}
+
+/**
+ * A "V" product's variations, each one a product of its own: in its parent's grid when every
+ * active variation is named by colour and size only, separate (as before grids) otherwise.
+ */
+function mapVariations(product: BlingProductDetail): BlingCatalogMapping {
+  const active = (product.variacoes ?? []).filter((variation) => variation.situacao !== "I");
+  const options = gridOptionsOf(active, product.nome);
+  const modelTitle = product.nome.trim().slice(0, MAX_MODEL_TITLE_LENGTH);
+  const mapped = mapSources(active.map((variation) => withParentDefaults(variation, product)));
+  if (options === null || modelTitle === "") {
+    const separated = active.length > 0 ? [{ name: product.nome, reason: SEPARATED_REASON }] : [];
+    return { ...mapped, separated };
+  }
+  const optionsBySku = new Map(
+    active.flatMap((variation, index) => {
+      const sku = blankToNull(variation.codigo);
+      const option = options[index];
+      return sku === null || option === undefined ? [] : [[sku, option] as const];
+    }),
+  );
+  const modelCode = blingModelCode(product);
+  const items = mapped.items.map((item) => {
+    const option = optionsBySku.get(item.sku);
+    return option === undefined ? item : { ...item, grid: { modelCode, modelTitle, ...option } };
+  });
+  return { items, skipped: mapped.skipped, separated: [] };
+}
+
+/**
+ * One import row per sellable item: a simple product is one row, a product with variations is
+ * one row per variation (each with its own Bling code as SKU and Bling id) and none for the
+ * parent. Variations named by colour and size carry their grid.
+ */
+export function blingProductToItems(product: BlingProductDetail): BlingCatalogMapping {
+  if (product.formato === "V" && (product.variacoes ?? []).length > 0) {
+    return mapVariations(product);
+  }
+  return { ...mapSources([product]), separated: [] };
 }
