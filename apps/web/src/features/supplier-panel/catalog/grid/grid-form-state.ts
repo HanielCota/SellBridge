@@ -270,12 +270,55 @@ function withOptionInserted<Option extends { key: string }>(
   return options.toSpliced(Math.min(index, options.length), 0, option);
 }
 
+function pairWith(
+  axis: RemovedOption["axis"],
+  key: string,
+  otherKey: string | null,
+): { colorKey: string | null; sizeKey: string | null } {
+  return axis === "color"
+    ? { colorKey: key, sizeKey: otherKey }
+    : { colorKey: otherKey, sizeKey: key };
+}
+
 /**
- * Puts back a removed colour or size with the combinations it took along, over the grid as it is
- * now: whatever was typed since stays. A combination whose other option was removed meanwhile
- * stays out, and nothing comes back when an option of the same name was added meanwhile. When
- * it was the last colour (or size), the stand-in combinations made for the other options give
- * way to the ones it had.
+ * The restored option's combinations against the grid as it is now: the pairs it had stay as
+ * they were, a pair it was not sold in stays off, and an option added since is sold blank. Sold
+ * alone before the other axis existed, its values go to the first option of that axis, as when
+ * the first size of a colours-only grid is added.
+ */
+function restoredCombinations(state: GridFormState, removed: RemovedOption): GridFormCombination[] {
+  const { axis, key, before } = removed;
+  const otherAxis = axis === "color" ? "size" : "color";
+  const own = before.combinations.filter((combination) => optionKeyOf(combination, axis) === key);
+  const byOther = new Map(own.map((combination) => [otherKeyOf(combination, axis), combination]));
+  const alone = byOther.get(null);
+  const others = optionsOf(state, otherAxis);
+  if (others.length === 0) {
+    const pair = pairWith(axis, key, null);
+    return [alone ?? blankCombination(pair.colorKey, pair.sizeKey)];
+  }
+  const knewBefore = new Set(optionsOf(before, otherAxis).map((option) => option.key));
+  return others.flatMap((other, index) => {
+    const pair = pairWith(axis, key, other.key);
+    const kept = byOther.get(other.key);
+    if (kept !== undefined) {
+      return [kept];
+    }
+    if (knewBefore.has(other.key)) {
+      return [];
+    }
+    if (alone !== undefined && index === 0) {
+      return [{ ...alone, ...pair }];
+    }
+    return [blankCombination(pair.colorKey, pair.sizeKey)];
+  });
+}
+
+/**
+ * Puts back a removed colour or size with its combinations, over the grid as it is now:
+ * whatever was typed since stays, and nothing comes back when an option of the same name was
+ * added meanwhile. When it was the last colour (or size), the stand-in combinations made for the
+ * other options give way to the ones it brings.
  */
 export function withOptionRestored(state: GridFormState, removed: RemovedOption): GridFormState {
   const { axis, key, before } = removed;
@@ -286,18 +329,11 @@ export function withOptionRestored(state: GridFormState, removed: RemovedOption)
   if (name === undefined || current.some((entry) => sameOptionName(entry.name, name))) {
     return state;
   }
-  const otherKeys = new Set(
-    optionsOf(state, axis === "color" ? "size" : "color").map((entry) => entry.key),
-  );
-  const restored = before.combinations.filter((combination) => {
-    const other = otherKeyOf(combination, axis);
-    return optionKeyOf(combination, axis) === key && (other === null || otherKeys.has(other));
-  });
   const kept =
     current.length === 0
       ? state.combinations.filter((combination) => optionKeyOf(combination, axis) !== null)
       : state.combinations;
-  const combinations = [...kept, ...restored];
+  const combinations = [...kept, ...restoredCombinations(state, removed)];
   const color = before.colors[index];
   if (axis === "color" && color !== undefined) {
     return { ...state, colors: withOptionInserted(state.colors, color, index), combinations };
