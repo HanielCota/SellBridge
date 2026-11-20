@@ -115,12 +115,15 @@ const ISSUING_CONNECTION = and(
   gte(orderShipments.createdAt, resellerErpConnections.saleNotesEnabledAt),
 );
 
+/** Whether that account issues the note: it does only for Mercado Livre orders. */
+const ISSUED_BY_ERP = sql<boolean>`${resellerErpConnections.id} is not null and ${storeConnections.marketplace} = 'mercado_livre'`;
+
 const DUE_COLUMNS = {
   id: shipmentResellerInvoices.id,
   shipmentId: shipmentResellerInvoices.shipmentId,
   tenantId: shipmentResellerInvoices.tenantId,
   checks: shipmentResellerInvoices.checks,
-  issuesFromErp: sql<boolean>`${resellerErpConnections.id} is not null and ${storeConnections.marketplace} = 'mercado_livre'`,
+  issuesFromErp: ISSUED_BY_ERP,
   erpContactId: shipmentResellerInvoices.erpContactId,
   erpInvoiceId: shipmentResellerInvoices.erpInvoiceId,
   erpDraftRequestedAt: shipmentResellerInvoices.erpDraftRequestedAt,
@@ -318,6 +321,10 @@ export interface ResellerSaleInvoice {
   readonly source: ResellerInvoiceSource | null;
   readonly foundAt: Date | null;
   readonly problem: string | null;
+  /** The reseller's own Bling issues it (turned on before the parcel, on Mercado Livre). */
+  readonly issuedByErp: boolean;
+  /** The Bling stopped on it: `problem` says why, and it waits for the reseller to retry. */
+  readonly erpStopped: boolean;
 }
 
 /** The reseller notes of the tenant's parcels, by parcel id; parcels without one are absent. */
@@ -338,8 +345,14 @@ export async function resellerSaleInvoicesOf(
       source: shipmentResellerInvoices.source,
       foundAt: shipmentResellerInvoices.foundAt,
       problem: shipmentResellerInvoices.problem,
+      issuedByErp: ISSUED_BY_ERP,
+      erpStopped: sql<boolean>`${shipmentResellerInvoices.erpStoppedAt} is not null`,
     })
     .from(shipmentResellerInvoices)
+    .innerJoin(orderShipments, eq(orderShipments.id, shipmentResellerInvoices.shipmentId))
+    .innerJoin(orders, eq(orders.id, orderShipments.orderId))
+    .innerJoin(storeConnections, eq(storeConnections.id, orders.storeConnectionId))
+    .leftJoin(resellerErpConnections, ISSUING_CONNECTION)
     .where(
       and(
         eq(shipmentResellerInvoices.tenantId, tenantId),

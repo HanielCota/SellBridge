@@ -310,6 +310,8 @@ describe("marketplace reads", () => {
       source: null,
       foundAt: null,
       problem: "A nota foi emitida por outro CNPJ.",
+      issuedByErp: false,
+      erpStopped: false,
     });
     expect(await noteOf(shipmentId)).toMatchObject({ checks: 1, nextCheckAt });
   });
