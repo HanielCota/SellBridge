@@ -96,6 +96,8 @@ beforeEach(() => {
   mocks.settle.mockResolvedValue(true);
   mocks.bySubscription.mockResolvedValue(null);
   mocks.byReference.mockResolvedValue(null);
+  // A value queued for one case must not leak into the next.
+  mocks.client.listSubscriptionCharges.mockReset();
   mocks.client.listSubscriptionCharges.mockResolvedValue([]);
 });
 
