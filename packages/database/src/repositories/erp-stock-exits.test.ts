@@ -10,6 +10,7 @@ import {
 } from "../schema/index.ts";
 import { createTestDatabase } from "../testing/fixtures.ts";
 import { createInvoiceScenario } from "../testing/shipment-invoice-fixtures.ts";
+import { applyErpStockReadings } from "./erp-stock.ts";
 import {
   listErpStockExitsDue,
   markErpStockExitForTeam,
@@ -102,6 +103,20 @@ describe("listErpStockExitsDue", () => {
 
   it("lists a parcel created before the supplier turned the NF-e through SellBridge on", async () => {
     const sale = await shippedSale({ invoiceEnabledAt: new Date(Date.now() + 60_000) });
+
+    expect(await dueFor(sale.orderItemId)).toBeDefined();
+  });
+
+  it("lists an exit a lost connection blocked for more than a week", async () => {
+    const sale = await shippedSale();
+    await database
+      .update(supplierErpConnections)
+      .set({ stockExitsSince: new Date(Date.now() - 30 * 86_400_000) })
+      .where(eq(supplierErpConnections.supplierId, sale.supplierId));
+    await database
+      .update(orderStatusChanges)
+      .set({ changedAt: new Date(Date.now() - 8 * 86_400_000) })
+      .where(eq(orderStatusChanges.orderId, sale.orderId));
 
     expect(await dueFor(sale.orderItemId)).toBeDefined();
   });
@@ -203,5 +218,47 @@ describe("never posting the same exit twice", () => {
     expect(await takeStalledErpStockExits(database, "parou no meio")).not.toContainEqual(
       expect.objectContaining({ exitId }),
     );
+  });
+});
+
+async function readStock(sale: { supplierId: string; productId: string }, balance: number) {
+  await applyErpStockReadings(database, {
+    supplierId: sale.supplierId,
+    readAt: new Date(),
+    readings: [{ erpProductId: 777, stock: balance }],
+  });
+  const [product] = await database
+    .select({ stock: supplierProducts.stock })
+    .from(supplierProducts)
+    .where(eq(supplierProducts.id, sale.productId));
+  return product?.stock;
+}
+describe("stock readings while exits wait for Bling", () => {
+  it("takes off the units whose exit Bling has not received yet", async () => {
+    const sale = await shippedSale();
+
+    expect(await readStock(sale, 10)).toBe(8);
+  });
+
+  it("keeps Bling's balance once the exit was posted", async () => {
+    const sale = await shippedSale();
+    const due = await dueFor(sale.orderItemId);
+    if (due === undefined) throw new Error("exit not due");
+    const exitId = await reserveErpStockExit(database, due);
+    if (exitId === null) throw new Error("not reserved");
+    await markErpStockExitPosted(database, { exitId, erpStockId: 5 });
+
+    expect(await readStock(sale, 10)).toBe(10);
+  });
+
+  it("leaves Bling's balance to the team when the exit is uncertain", async () => {
+    const sale = await shippedSale();
+    const due = await dueFor(sale.orderItemId);
+    if (due === undefined) throw new Error("exit not due");
+    const exitId = await reserveErpStockExit(database, due);
+    if (exitId === null) throw new Error("not reserved");
+    await markErpStockExitForTeam(database, { exitId, status: "uncertain", problem: "x" });
+
+    expect(await readStock(sale, 10)).toBe(10);
   });
 });

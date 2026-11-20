@@ -5,6 +5,7 @@ import {
   supplierErpConnections,
   supplierProducts,
 } from "../schema/index.ts";
+import { owedStockExit } from "./sql/owed-stock-exit.ts";
 
 /**
  * A supplier whose stock follows its Bling account: any connected one. SellBridge's own sales
@@ -327,8 +328,28 @@ export interface ErpStockChange {
 }
 
 /**
+ * Units of the product that left the shelf but whose stock exit Bling has not received yet
+ * (not tried, still being posted, or blocked by a missing default warehouse or a lost
+ * connection): Bling's balance still counts them. Exits the team must check are left out.
+ * Expects the alias `product` of the row being updated.
+ */
+const unitsAwaitingExit = sql`
+  select coalesce(sum(item.quantity), 0)::integer
+  from order_items as item
+  join orders as sale on sale.id = item.order_id
+  join supplier_erp_connections as connection
+    on connection.supplier_id = product.supplier_id and connection.provider = 'bling'
+  where item.supplier_product_id = product.id
+    and ${owedStockExit}
+    and not exists (
+      select 1 from erp_stock_exits as posted
+      where posted.order_item_id = item.id and posted.status <> 'posting'
+    )
+`;
+
+/**
  * Writes the balances read from Bling at `readAt` into the linked products' `stock`, and only
- * `stock`. A product already holding a reading taken later keeps it (notifications and checks
+ * `stock`, less the units whose exit Bling has not received yet. A product already holding a reading taken later keeps it (notifications and checks
  * may finish out of order). Returns the products whose stock changed.
  */
 export async function applyErpStockReadings(
@@ -354,7 +375,8 @@ export async function applyErpStockReadings(
     reserved_stock: number;
   }>(sql`
     update supplier_products as product
-    set stock = reading.stock, erp_stock_read_at = ${readAt}::timestamptz
+    set stock = greatest(reading.stock - (${unitsAwaitingExit}), 0),
+      erp_stock_read_at = ${readAt}::timestamptz
     from (values ${values}) as reading(erp_product_id, stock), supplier_products as previous
     where previous.id = product.id
       and product.supplier_id = ${input.supplierId}
