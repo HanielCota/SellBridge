@@ -79,4 +79,19 @@ describe("readAuthorizedNfeXml", () => {
 
     expect(performance.now() - startedAt).toBeLessThan(500);
   });
+
+  it("reads a note whose tag breaks the line before its attributes", () => {
+    const xml = nfeProc().replace("<infNFe versao", "<infNFe\n  versao");
+
+    expect(readAuthorizedNfeXml(xml)).toEqual({ accessKey: KEY, problem: null });
+  });
+
+  it("refuses two notes even when one tag breaks the line before its attributes", () => {
+    const other = "35261121611372000396550010000000101876543210";
+    const second = `<NFe><infNFe\tId="NFe${other}"></infNFe></NFe>`;
+
+    const reading = readAuthorizedNfeXml(nfeProc().replace("<NFe>", `${second}<NFe>`));
+
+    expect(reading.problem).toMatch(/não é o XML/);
+  });
 });

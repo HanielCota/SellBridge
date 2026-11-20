@@ -81,9 +81,22 @@ function withoutHiddenText(xml: string): string | null {
   }
 }
 
-function occurrences(xml: string, tag: string): number {
+const TAG_NAME_END = /[\s/>]/;
+
+/** Where the element `name` opens from `from`, its name ending there (not `<infNFeSupl`); -1 if never. */
+function tagStart(xml: string, name: string, from = 0): number {
+  const open = `<${name}`;
+  for (let at = xml.indexOf(open, from); at !== -1; at = xml.indexOf(open, at + open.length)) {
+    if (TAG_NAME_END.test(xml.charAt(at + open.length))) {
+      return at;
+    }
+  }
+  return -1;
+}
+
+function occurrences(xml: string, name: string): number {
   let count = 0;
-  for (let at = xml.indexOf(tag); at !== -1; at = xml.indexOf(tag, at + tag.length)) {
+  for (let at = tagStart(xml, name); at !== -1; at = tagStart(xml, name, at + name.length + 1)) {
     count += 1;
   }
   return count;
@@ -95,7 +108,7 @@ function protocolOf(xml: string): string | null {
   if (protocolStart === -1) {
     return null;
   }
-  const infProtStart = xml.indexOf("<infProt", protocolStart);
+  const infProtStart = tagStart(xml, "infProt", protocolStart);
   if (infProtStart === -1) {
     return null;
   }
@@ -108,7 +121,8 @@ function protocolOf(xml: string): string | null {
 
 /** The 44 digits of the note's `infNFe Id="NFe…"`, read from its opening tag only. */
 function noteIdOf(xml: string): string | null {
-  const opening = textBetween(xml, "<infNFe", ">");
+  const start = tagStart(xml, "infNFe");
+  const opening = start === -1 ? null : textBetween(xml, "<infNFe", ">", start);
   if (opening === null) {
     return null;
   }
@@ -122,7 +136,7 @@ export function readAuthorizedNfeXml(file: string): NfeXmlReading {
     return { accessKey: null, problem: NOT_NFE };
   }
   // One note and one answer of SEFAZ: a second one would leave which is which to chance.
-  if (occurrences(xml, "<infProt") !== 1 || occurrences(xml, "<infNFe ") !== 1) {
+  if (occurrences(xml, "infProt") !== 1 || occurrences(xml, "infNFe") !== 1) {
     return { accessKey: null, problem: NOT_NFE };
   }
   const protocol = protocolOf(xml);
