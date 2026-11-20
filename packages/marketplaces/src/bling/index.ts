@@ -9,6 +9,7 @@ export {
 } from "./client.ts";
 export {
   type BlingDirectInvoiceItem,
+  type BlingOperation,
   type BlingNewDirectInvoice,
   type BlingReferencedInvoice,
 } from "./direct-invoices.ts";

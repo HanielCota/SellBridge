@@ -169,3 +169,31 @@ export function invoicingRefusal(input: {
   }
   return null;
 }
+
+/**
+ * Why the venda à ordem operations cannot be saved, or null: only the supplier itself, with Bling
+ * connected, two different operations, both active in its Bling.
+ */
+export function onBehalfOperationsRefusal(input: {
+  actor: ErpActor;
+  connected: boolean;
+  knownOperationIds: ReadonlySet<number>;
+  shipmentOperationId: number;
+  saleOperationId: number;
+}): string | null {
+  const refusal = erpOwnerActionRefusal(input.actor);
+  if (refusal !== null) {
+    return refusal;
+  }
+  if (!input.connected) {
+    return "Conecte o Bling antes de escolher as naturezas de operação.";
+  }
+  if (input.shipmentOperationId === input.saleOperationId) {
+    return "A remessa e a venda para o revendedor usam naturezas diferentes. Escolha uma para cada.";
+  }
+  const known = input.knownOperationIds;
+  if (!known.has(input.shipmentOperationId) || !known.has(input.saleOperationId)) {
+    return "Uma das naturezas escolhidas não está mais ativa no seu Bling. Atualize a página e escolha de novo.";
+  }
+  return null;
+}

@@ -90,6 +90,15 @@ function invoiceCards(
           orderId={orderId}
           shipmentId={shipment.id}
           invoice={shipment.invoice}
+          noteRole={shipment.resellerNote === null ? "direct" : "remessa"}
+        />
+      )}
+      {shipment.purchaseInvoice === null ? null : (
+        <ResellerInvoiceCard
+          orderId={orderId}
+          shipmentId={shipment.id}
+          invoice={shipment.purchaseInvoice}
+          noteRole="purchase"
         />
       )}
     </>
