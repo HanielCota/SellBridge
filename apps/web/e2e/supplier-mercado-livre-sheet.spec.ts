@@ -142,3 +142,24 @@ test("the product form asks the Mercado Livre category and its own fields", asyn
     .poll(async () => (await storedProduct(sku))?.categoryId, { timeout: SAVE_TIMEOUT })
     .toBe("MLB1430");
 });
+
+// Regression: the note under the brand and the "no barcode" box under the barcode stretched the
+// grid row, so the input beside each of them sat lower than its neighbor on a computer screen.
+test("keeps side by side sheet inputs on the same line on a computer screen", async ({ page }) => {
+  await page.setViewportSize({ width: 1440, height: 900 });
+  const email = await signUpAsSupplier(page, "Ateliê Bolsas Alinhadas");
+  emails.push(email);
+  await page.getByLabel("Nome da marca").fill("Ateliê Bolsas Alinhadas");
+  await pickBrandNiche(page, "Casa e decoração");
+  await page.getByLabel("Cidade de onde você envia").fill("Cunha");
+  await page.getByRole("button", { name: /^(Cadastrar marca|Salvar)$/ }).click();
+  await expect(page).toHaveURL(/\/fornecedor\/painel\/produtos/);
+
+  await openNewProduct(page, `BOLSA-ALINHADA-${Date.now()}`);
+  await expect(page.getByLabel("Modelo (obrigatório)")).toBeVisible({ timeout: SAVE_TIMEOUT });
+
+  const topOf = async (name: string) =>
+    (await page.getByRole("textbox", { name, exact: true }).boundingBox())?.y;
+  expect(await topOf("Marca")).toBe(await topOf("Modelo (obrigatório)"));
+  expect(await topOf("Código de barras (GTIN)")).toBe(await topOf("Peso da embalagem (g)"));
+});

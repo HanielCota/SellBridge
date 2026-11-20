@@ -206,7 +206,8 @@ function FichaInput({
   const unit = field.kind === "measure" ? field.defaultUnit : null;
   const listId = field.options.length === 0 ? undefined : `${id}-options`;
   return (
-    <div className="grid gap-2">
+    // Content at the top: a hint under this field must not push its neighbor's input down.
+    <div className="grid content-start gap-2">
       <TextField
         id={id}
         label={fieldLabel(field)}

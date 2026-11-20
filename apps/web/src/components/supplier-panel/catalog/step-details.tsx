@@ -173,7 +173,8 @@ function TextAttributeField({
 }) {
   const field = `attributes.${attribute.id}`;
   return (
-    <div className="grid gap-2">
+    // Content at the top: a note or checkbox under one field must not push its neighbor's input down.
+    <div className="grid content-start gap-2">
       <TextField
         id={inputIdOf(field)}
         label={required ? `${attribute.label} (obrigatório)` : attribute.label}
