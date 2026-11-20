@@ -99,6 +99,22 @@ describe("claiming a note the reseller's ERP issues", () => {
 
     expect(due?.issuesFromErp).toBe(false);
   });
+
+  it("keeps on the Bling path a note its Bling started before issuing was turned off", async () => {
+    const { invoiceId, tenantId } = await scenario({
+      marketplace: "mercado_livre",
+      issuingSince: new Date(Date.now() - 3_600_000),
+    });
+    await recordResellerSaleIssueProgress(database, invoiceId, { erpDraftRequestedAt: new Date() });
+    await database
+      .update(resellerErpConnections)
+      .set({ saleNotesEnabledAt: null })
+      .where(eq(resellerErpConnections.tenantId, tenantId));
+
+    const due = await claimed(invoiceId);
+
+    expect(due?.issuesFromErp).toBe(true);
+  });
 });
 
 describe("stopping and retrying", () => {
@@ -171,6 +187,7 @@ describe("the note issued by the reseller's ERP", () => {
     expect(work?.lines.map((line) => line.sku)).toEqual([sku]);
     expect(work?.resellerAddress?.state).toBe("MG");
     expect(work?.settings?.operationId).toBe(77);
+    expect(work?.erpConnected).toBe(true);
     expect(work?.store.marketplace).toBe("mercado_livre");
   });
 });

@@ -89,6 +89,7 @@ export interface DueResellerSaleInvoice {
   /**
    * The reseller's own ERP issues this note: it is connected with issuing on since before the
    * parcel was created, and the order is on Mercado Livre (the only channel it sends notes to).
+   * A note the ERP already started stays with it.
    */
   readonly issuesFromErp: boolean;
   /** How far the ERP got: its ids and when the note was asked for and sent; null before. */
@@ -116,8 +117,12 @@ const ISSUING_CONNECTION = and(
   gte(orderShipments.createdAt, resellerErpConnections.saleNotesEnabledAt),
 );
 
-/** Whether that account issues the note: it does only for Mercado Livre orders. */
-const ISSUED_BY_ERP = sql<boolean>`${resellerErpConnections.id} is not null and ${storeConnections.marketplace} = 'mercado_livre'`;
+/**
+ * Whether that account issues the note: only for Mercado Livre orders. A note its Bling already
+ * started stays there after issuing is turned off or the account reconnects, so a note that may be
+ * authorized is never asked for again by hand.
+ */
+const ISSUED_BY_ERP = sql<boolean>`${storeConnections.marketplace} = 'mercado_livre' and (${resellerErpConnections.id} is not null or ${shipmentResellerInvoices.erpDraftRequestedAt} is not null or ${shipmentResellerInvoices.erpInvoiceId} is not null)`;
 
 const DUE_COLUMNS = {
   id: shipmentResellerInvoices.id,

@@ -297,4 +297,28 @@ describe("the reseller's sale note issued by its own Bling", () => {
     expect((await noteOf(shipmentId))?.problem).toMatch(/nome da sua conta do Mercado Livre/);
     expect(bling.state.created).toBeNull();
   });
+
+  it("stops instead of asking for the note by hand when the Bling that made it is gone", async () => {
+    const { shipmentId, tenantId, sku } = await scenario(settingsWithCard);
+    const bling = fakeBling(sku);
+    let clock = Date.now();
+    const run = processor({
+      ...bling,
+      sale: CARD_SALE,
+      sendSaleInvoice: async () => {},
+      now: () => new Date(clock),
+    });
+    await run();
+    await database
+      .delete(schema.resellerErpConnections)
+      .where(eq(schema.resellerErpConnections.tenantId, tenantId));
+    clock += 3_600_000;
+
+    await run();
+
+    const note = await noteOf(shipmentId);
+    expect(note?.erpInvoiceId).toBe(9001);
+    expect(note?.erpStoppedAt).not.toBeNull();
+    expect(note?.problem).toBe("Conecte o Bling de novo em Integrações para continuar.");
+  });
 });

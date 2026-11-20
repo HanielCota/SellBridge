@@ -34,6 +34,8 @@ export interface ResellerSaleIssueWork {
   readonly resellerAddress: BillingAddress | null;
   /** Null when the reseller has not saved them since connecting. */
   readonly settings: ResellerBlingSettings | null;
+  /** Whether the reseller's Bling account is connected now. */
+  readonly erpConnected: boolean;
   readonly store: {
     readonly id: string;
     readonly marketplace: string;
@@ -91,6 +93,7 @@ export async function loadResellerSaleIssueWork(
     supplierFiscal: readSupplierFiscalProfile(row.supplierFiscal),
     resellerAddress: row.resellerAddress ?? null,
     settings: connection?.saleNoteSettings ?? null,
+    erpConnected: connection?.status === "connected",
     store: row.store,
   };
 }

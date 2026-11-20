@@ -396,10 +396,14 @@ export async function advanceResellerSaleIssue(
   if (client === null) {
     throw new InvoiceStopError(NO_BLING);
   }
+  if (!input.work.erpConnected) {
+    throw new InvoiceStopError(NO_BLING);
+  }
   const resellerCnpj = resellerCnpjOf(input.due);
-  const plan = salePlan(input.work);
+  // A note already in Bling needs the settings only to check its CFOP: reconnecting clears them.
   const invoiceId =
-    input.due.erpInvoiceId ?? (await createSaleNote(dependencies, client, { ...input, plan }));
+    input.due.erpInvoiceId ??
+    (await createSaleNote(dependencies, client, { ...input, plan: salePlan(input.work) }));
   const invoice = await client.getInvoice(invoiceId);
   const outcome = blingInvoiceOutcome(invoice.situacao);
   if (outcome === "authorized") {
@@ -412,7 +416,12 @@ export async function advanceResellerSaleIssue(
     throw new InvoiceStopError(CANCELLED_IN_BLING);
   }
   if (outcome === "editable") {
-    return sendWhenRight(dependencies, client, { ...input, invoiceId, invoice, cfop: plan.cfop });
+    return sendWhenRight(dependencies, client, {
+      ...input,
+      invoiceId,
+      invoice,
+      cfop: salePlan(input.work).cfop,
+    });
   }
   return "waiting";
 }
