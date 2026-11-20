@@ -329,7 +329,7 @@ async function appendOptions(
   }
 }
 
-async function insertOptions(
+export async function insertOptions(
   transaction: DatabaseExecutor,
   modelId: string,
   grid: ProductGrid,

@@ -382,7 +382,7 @@ async function writeCombinations(
   }
 }
 
-async function categorySlugOf(
+export async function categorySlugOf(
   transaction: DatabaseExecutor,
   categoryId: string | null,
 ): Promise<string | null> {
@@ -399,16 +399,11 @@ async function categorySlugOf(
   return category.slug;
 }
 
-/**
- * What stops one combination from being sold, besides its stock: a size may be out of stock while
- * the others sell. Messages are the completeness ones, prefixed by the combination's name.
- */
-function publishingProblems(
+function saleBlockers(
   row: typeof supplierProducts.$inferSelect,
   categorySlug: string | null,
   fallback: FiscalFallback | null,
-): string[] {
-  const label = combinationLabel(row.color, row.size);
+) {
   const report = evaluateCompleteness(
     {
       ...row,
@@ -422,12 +417,45 @@ function publishingProblems(
     description: row.description,
     ...row.mercadoLivreAttributes,
   });
-  return [
-    ...report.blocking
+  return {
+    completeness: report.blocking
       .filter((issue) => issue.field !== "stock")
-      .map((issue) => `${label}: ${issue.message}`),
-    ...(contact === null ? [] : [`${SUPPLIER_TEXT_CONTACT_REFUSED} Corrija o campo "${contact}".`]),
-    ...(isProhibitedProduct(row) ? [`${label}: este produto não pode ser vendido`] : []),
+      .map((issue) => issue.message),
+    contact:
+      contact === null ? null : `${SUPPLIER_TEXT_CONTACT_REFUSED} Corrija o campo "${contact}".`,
+    prohibited: isProhibitedProduct(row),
+  };
+}
+
+/**
+ * What stops one combination from being sold, besides its stock: a size may be out of stock while
+ * the others sell. Messages are the completeness ones, prefixed by the combination's name.
+ */
+function publishingProblems(
+  row: typeof supplierProducts.$inferSelect,
+  categorySlug: string | null,
+  fallback: FiscalFallback | null,
+): string[] {
+  const label = combinationLabel(row.color, row.size);
+  const blockers = saleBlockers(row, categorySlug, fallback);
+  return [
+    ...blockers.completeness.map((message) => `${label}: ${message}`),
+    ...(blockers.contact === null ? [] : [blockers.contact]),
+    ...(blockers.prohibited ? [`${label}: este produto não pode ser vendido`] : []),
+  ];
+}
+
+/** What stops a product from being sold besides its stock, in the completeness words. */
+export function saleProblems(
+  row: typeof supplierProducts.$inferSelect,
+  categorySlug: string | null,
+  fallback: FiscalFallback | null,
+): string[] {
+  const blockers = saleBlockers(row, categorySlug, fallback);
+  return [
+    ...blockers.completeness,
+    ...(blockers.contact === null ? [] : [blockers.contact]),
+    ...(blockers.prohibited ? ["Este produto não pode ser vendido"] : []),
   ];
 }
 
