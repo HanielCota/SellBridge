@@ -149,14 +149,14 @@ describe("private product publication", () => {
   it("clears a stopped queue only after an explicit retry of a ready product", async () => {
     await archiveSellerProduct(database, tenants.tenantA, productId);
     await expect(
-      resetListingErrorsForRetry(database, tenants.tenantA, [listingId], { billingEnabled: false }),
+      resetListingErrorsForRetry(database, tenants.tenantA, [listingId], { billing: null }),
     ).rejects.toMatchObject({ code: "CONFLICT" });
     await database
       .update(supplierProducts)
       .set({ active: true })
       .where(eq(supplierProducts.id, productId));
     const retried = await resetListingErrorsForRetry(database, tenants.tenantA, [listingId], {
-      billingEnabled: false,
+      billing: null,
     });
     expect(retried).toHaveLength(1);
     const queued = await database.query.listingTargets.findFirst({

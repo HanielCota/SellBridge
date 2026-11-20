@@ -1,4 +1,4 @@
-import { effectiveBillingPlan } from "@sellbridge/shared/billing";
+import { billingAccess, billingLimits, type BillingRules } from "@sellbridge/shared/billing";
 import { and, eq, count, ne, sql } from "drizzle-orm";
 import { forbiddenError } from "@sellbridge/shared/errors";
 import type { Database, DatabaseExecutor } from "../client.ts";
@@ -7,6 +7,7 @@ import {
   billingEvents,
   member,
   organization,
+  user,
   listingTargets,
   storeConnections,
 } from "../schema/index.ts";
@@ -28,18 +29,44 @@ export async function requireBillingOwner(database: Database, tenantId: string, 
     throw forbiddenError("Somente o proprietário pode gerenciar a assinatura");
 }
 
+/** Locks the tenant for a capacity check and returns when it was created (for the transition). */
 export async function lockBillingTenant(database: DatabaseExecutor, tenantId: string) {
-  await database
-    .select({ id: organization.id })
+  const [tenant] = await database
+    .select({ createdAt: organization.createdAt })
     .from(organization)
     .where(eq(organization.id, tenantId))
     .for("update");
+  if (tenant === undefined) throw forbiddenError("Organização não encontrada");
+  return tenant.createdAt;
+}
+
+/** When the tenant was created: accounts from before the launch get the transition. */
+export async function findBillingTenantCreatedAt(database: DatabaseExecutor, tenantId: string) {
+  const [tenant] = await database
+    .select({ createdAt: organization.createdAt })
+    .from(organization)
+    .where(eq(organization.id, tenantId));
+  if (tenant === undefined) throw forbiddenError("Organização não encontrada");
+  return tenant.createdAt;
+}
+
+/** What the tenant may use now under the billing rules: a plan, the launch transition or nothing. */
+export async function findBillingAccess(
+  database: DatabaseExecutor,
+  tenantId: string,
+  rules: BillingRules,
+) {
+  const [tenantCreatedAt, account] = await Promise.all([
+    findBillingTenantCreatedAt(database, tenantId),
+    getBillingAccount(database, tenantId),
+  ]);
+  return billingAccess({ subscription: account, tenantCreatedAt, transition: rules.transition });
 }
 
 /**
- * Serializes opening a checkout per tenant with a transaction-scoped advisory lock. It holds no
- * row, so publishing and connecting stores never wait on Stripe (item 16.a, N5). False when
- * another checkout of the same tenant is still being opened.
+ * Serializes subscription changes per tenant with a transaction-scoped advisory lock. It holds no
+ * row, so publishing and connecting stores never wait on the payment provider (item 16.a, N5).
+ * False when another change of the same tenant is still running.
  */
 export async function tryLockBillingCheckout(
   database: DatabaseExecutor,
@@ -104,7 +131,9 @@ export async function applyBillingEvent(
   const [account] = await database
     .select()
     .from(billingAccounts)
-    .where(eq(billingAccounts.customerId, input.customerId))
+    .where(
+      and(eq(billingAccounts.customerId, input.customerId), eq(billingAccounts.provider, "stripe")),
+    )
     .for("update");
   if (!account) return;
   const [event] = await database
@@ -129,27 +158,41 @@ export async function applyBillingEvent(
 /**
  * Refuses when `requested` more stores or listing slots would pass the plan. A listing asks one
  * slot per destination store; a batch asks for all of its slots at once, so it is refused whole
- * instead of stopping halfway at the limit.
+ * instead of stopping halfway at the limit. Without a plan (and outside the launch transition)
+ * nothing new fits: there is no free plan.
  */
 export async function assertBillingCapacity(
   database: DatabaseExecutor,
-  tenantId: string,
-  resource: "stores" | "listings",
-  requested = 1,
+  input: {
+    tenantId: string;
+    rules: BillingRules;
+    resource: "stores" | "listings";
+    requested?: number;
+  },
 ) {
+  const { tenantId, resource, requested = 1 } = input;
   // Asking for nothing never passes the plan, even for a tenant already over it after a downgrade.
   if (requested <= 0) {
     return;
   }
-  await lockBillingTenant(database, tenantId);
+  const tenantCreatedAt = await lockBillingTenant(database, tenantId);
   const account = await getBillingAccount(database, tenantId);
-  const plan = effectiveBillingPlan(account);
+  const access = billingAccess({
+    subscription: account,
+    tenantCreatedAt,
+    transition: input.rules.transition,
+  });
+  const limits = billingLimits(access);
+  if (limits === null) return;
   const usage = await billingUsage(database, tenantId);
-  if (usage[resource] + requested > plan[resource]) {
-    throw forbiddenError(
-      `Limite do plano ${plan.name} atingido. Gerencie sua assinatura para ampliar ${resource === "stores" ? "as lojas" : "os anúncios"}.`,
-    );
+  if (usage[resource] + requested <= limits[resource]) return;
+  const what = resource === "stores" ? "conectar lojas" : "publicar anúncios";
+  if (access.kind !== "plan") {
+    throw forbiddenError(`Para ${what}, escolha um plano em Assinatura.`);
   }
+  throw forbiddenError(
+    `Limite do plano ${access.plan.name} atingido. Para ${what}, mude para um plano maior em Assinatura.`,
+  );
 }
 
 /** The account bound to a Stripe customer, or null for customers outside this application. */
@@ -157,6 +200,140 @@ export async function findBillingCustomer(database: DatabaseExecutor, customerId
   const [account] = await database
     .select()
     .from(billingAccounts)
-    .where(eq(billingAccounts.customerId, customerId));
+    .where(and(eq(billingAccounts.customerId, customerId), eq(billingAccounts.provider, "stripe")));
   return account ?? null;
+}
+
+/** The columns a subscription change writes; the rest of the row stays as it is. */
+export type BillingAccountPatch = Partial<
+  Pick<
+    typeof billingAccounts.$inferInsert,
+    | "customerId"
+    | "provider"
+    | "subscriptionId"
+    | "plan"
+    | "status"
+    | "periodEnd"
+    | "cancelAtPeriodEnd"
+    | "paymentMethod"
+    | "scheduledPlan"
+    | "scheduledPlanAt"
+    | "pendingPlan"
+    | "pendingReference"
+    | "prepaidUntil"
+    | "firstPaidOn"
+  >
+>;
+
+/** Writes part of the tenant's billing account, creating the row on the first write. */
+export async function saveBillingAccount(
+  database: DatabaseExecutor,
+  tenantId: string,
+  patch: BillingAccountPatch,
+) {
+  await database
+    .insert(billingAccounts)
+    .values({ tenantId, provider: "asaas", ...patch })
+    .onConflictDoUpdate({ target: billingAccounts.tenantId, set: patch });
+}
+
+/**
+ * Applies a state read from the provider. A notice delivered twice is applied once, and a read
+ * that started before the one already stored never overwrites it.
+ */
+export async function applyBillingState(
+  database: DatabaseExecutor,
+  input: {
+    tenantId: string;
+    /** The provider's notice id; null when the state was read on the reseller's visit. */
+    eventId: string | null;
+    /** When the state was read from the provider, in Unix milliseconds. */
+    observedAt: number;
+    patch: BillingAccountPatch;
+  },
+): Promise<boolean> {
+  const [account] = await database
+    .select({ lastEventCreated: billingAccounts.lastEventCreated })
+    .from(billingAccounts)
+    .where(eq(billingAccounts.tenantId, input.tenantId))
+    .for("update");
+  if (account === undefined || account.lastEventCreated > input.observedAt) return false;
+  if (input.eventId !== null) {
+    const [event] = await database
+      .insert(billingEvents)
+      .values({ id: input.eventId })
+      .onConflictDoNothing()
+      .returning();
+    if (event === undefined) return false;
+  }
+  await database
+    .update(billingAccounts)
+    .set({ ...input.patch, lastEventCreated: input.observedAt })
+    .where(eq(billingAccounts.tenantId, input.tenantId));
+  return true;
+}
+
+/** The account bound to a subscription, or null for subscriptions outside this application. */
+export async function findBillingAccountBySubscription(
+  database: DatabaseExecutor,
+  subscriptionId: string,
+) {
+  const [account] = await database
+    .select()
+    .from(billingAccounts)
+    .where(
+      and(
+        eq(billingAccounts.subscriptionId, subscriptionId),
+        eq(billingAccounts.provider, "asaas"),
+      ),
+    );
+  return account ?? null;
+}
+
+/** The account waiting on a card checkout or an upgrade charge. */
+export async function findBillingAccountByPendingReference(
+  database: DatabaseExecutor,
+  reference: string,
+) {
+  const [account] = await database
+    .select()
+    .from(billingAccounts)
+    .where(
+      and(eq(billingAccounts.pendingReference, reference), eq(billingAccounts.provider, "asaas")),
+    );
+  return account ?? null;
+}
+
+/**
+ * Settles what the account waits on, with `patch` (the plan it paid for, say), only while it
+ * still waits on `reference`: what was opened meanwhile is never erased, and a settlement
+ * delivered twice applies once. True when this call settled it.
+ */
+export async function settlePendingReference(
+  database: DatabaseExecutor,
+  input: { tenantId: string; reference: string; patch?: BillingAccountPatch },
+): Promise<boolean> {
+  const { tenantId, reference, patch = {} } = input;
+  const cleared = await database
+    .update(billingAccounts)
+    .set({ ...patch, pendingPlan: null, pendingReference: null })
+    .where(
+      and(eq(billingAccounts.tenantId, tenantId), eq(billingAccounts.pendingReference, reference)),
+    )
+    .returning({ tenantId: billingAccounts.tenantId });
+  return cleared.length > 0;
+}
+
+/** The owner's e-mail: the payment provider sends the monthly charges there. */
+export async function findBillingOwnerEmail(
+  database: DatabaseExecutor,
+  tenantId: string,
+): Promise<string | null> {
+  const [owner] = await database
+    .select({ email: user.email })
+    .from(member)
+    .innerJoin(user, eq(user.id, member.userId))
+    .where(and(eq(member.organizationId, tenantId), eq(member.role, "owner")))
+    .limit(1);
+  return owner?.email ?? null;
 }
