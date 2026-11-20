@@ -29,8 +29,12 @@ afterEach(async () => {
 });
 
 /** A supplier without the NF-e through SellBridge whose sold item was shipped just now. */
-async function shippedSale(options: { linked?: boolean; consumed?: boolean } = {}) {
-  const scenario = await createInvoiceScenario(database, { invoiceEnabledAt: null });
+async function shippedSale(
+  options: { linked?: boolean; consumed?: boolean; invoiceEnabledAt?: Date | null } = {},
+) {
+  const scenario = await createInvoiceScenario(database, {
+    invoiceEnabledAt: options.invoiceEnabledAt ?? null,
+  });
   cleanups.push(scenario.cleanup);
   await database
     .update(supplierErpConnections)
@@ -88,6 +92,18 @@ describe("listErpStockExitsDue", () => {
     });
 
     expect(await dueFor(sale.orderItemId)).toBeUndefined();
+  });
+
+  it("leaves out a parcel the invoice job will invoice, before its NF-e row exists", async () => {
+    const sale = await shippedSale({ invoiceEnabledAt: new Date(Date.now() - 3_600_000) });
+
+    expect(await dueFor(sale.orderItemId)).toBeUndefined();
+  });
+
+  it("lists a parcel created before the supplier turned the NF-e through SellBridge on", async () => {
+    const sale = await shippedSale({ invoiceEnabledAt: new Date(Date.now() + 60_000) });
+
+    expect(await dueFor(sale.orderItemId)).toBeDefined();
   });
 
   it("leaves out sales shipped before the account started posting exits", async () => {

@@ -1,6 +1,7 @@
 import { and, eq, lt, sql } from "drizzle-orm";
 import type { Database } from "../client.ts";
 import { erpStockExits } from "../schema/index.ts";
+import { UNINVOICED_SHIPMENT_STATUSES } from "./sql/uninvoiced.ts";
 
 /** Sales shipped longer ago than this are not looked at again (the sweep runs every minute). */
 const LOOKBACK_IN_DAYS = 7;
@@ -22,9 +23,30 @@ export interface ErpStockExitDue {
 }
 
 /**
+ * The item's parcel gets its NF-e through SellBridge: it has the note's row, or the invoice job
+ * will open one (it runs every two minutes, so the parcel may ship first). Its sale order lowers
+ * Bling's stock, so an exit would lower it twice.
+ */
+const invoicedParcel = sql`
+  select 1 from order_shipments as parcel
+  where parcel.order_id = item.order_id and parcel.supplier_id = product.supplier_id
+    and (
+      exists (select 1 from shipment_invoices as invoice where invoice.shipment_id = parcel.id)
+      or (
+        connection.invoice_enabled_at is not null
+        and parcel.created_at >= connection.invoice_enabled_at
+        and parcel.status not in (${sql.join(
+          UNINVOICED_SHIPMENT_STATUSES.map((status) => sql`${status}`),
+          sql`, `,
+        )})
+      )
+    )
+`;
+
+/**
  * Sold items whose units left the supplier's shelf (shipped), linked to a connected Bling
- * account, shipped since the account's `stock_exits_since`, whose parcel has no NF-e through
- * SellBridge (its sale order already lowers Bling's stock) and with no exit row yet.
+ * account, shipped since the account's `stock_exits_since`, whose parcel does not get its NF-e
+ * through SellBridge (its sale order already lowers Bling's stock) and with no exit row yet.
  */
 export async function listErpStockExitsDue(
   database: Database,
@@ -65,11 +87,7 @@ export async function listErpStockExitsDue(
       and not exists (
         select 1 from erp_stock_exits as posted where posted.order_item_id = item.id
       )
-      and not exists (
-        select 1 from order_shipments as parcel
-        join shipment_invoices as invoice on invoice.shipment_id = parcel.id
-        where parcel.order_id = item.order_id and parcel.supplier_id = product.supplier_id
-      )
+      and not exists (${invoicedParcel})
     order by item.id
     limit ${limit}
   `);
