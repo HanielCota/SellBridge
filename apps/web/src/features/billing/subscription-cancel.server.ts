@@ -90,9 +90,17 @@ export async function cancelSubscription(input: { tenantId: string; userId: stri
     const refund = await refundOnCancel(client, account);
     await retireUnpaid(client, { ...account, subscriptionId: null });
     // Given back before the subscription ends: a failure leaves it running, never unpaid.
-    if (refund !== null) await client.refundCharge(refund.id, REFUND_DESCRIPTION);
+    if (refund !== null) {
+      await client.refundCharge(refund.id, REFUND_DESCRIPTION);
+      // The money is back: a retry no longer sees the refunded fee, so the plan ends now.
+      await saveBillingAccount(database, input.tenantId, {
+        status: "canceled",
+        periodEnd: new Date(),
+      });
+    }
     await client.deleteSubscription(account.subscriptionId);
-    const endsNow = refund !== null || account.status === "incomplete";
+    const endsNow =
+      refund !== null || account.status === "incomplete" || account.status === "canceled";
     await saveBillingAccount(database, input.tenantId, {
       cancelAtPeriodEnd: true,
       scheduledPlan: null,

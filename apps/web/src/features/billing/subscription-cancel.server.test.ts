@@ -140,6 +140,20 @@ describe("cancellation", () => {
     expect(mocks.save).not.toHaveBeenCalled();
   });
 
+  it("ends the plan once the first fee is refunded, even when ending the subscription fails", async () => {
+    setToday("2026-11-20");
+    mocks.client.refundCharge.mockResolvedValue({});
+    mocks.client.deleteSubscription.mockRejectedValue(new Error("Asaas fora do ar"));
+
+    await expect(cancelSubscription(input)).rejects.toThrow("Asaas fora do ar");
+    expect(mocks.client.refundCharge).toHaveBeenCalledWith("pay_first", expect.any(String));
+    expect(mocks.save).toHaveBeenCalledWith(
+      expect.anything(),
+      "tenant-a",
+      expect.objectContaining({ status: "canceled" }),
+    );
+  });
+
   it("refuses to cancel twice", async () => {
     mocks.account.mockResolvedValue(account({ cancelAtPeriodEnd: true }));
 
