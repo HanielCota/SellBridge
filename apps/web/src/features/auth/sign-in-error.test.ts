@@ -1,5 +1,11 @@
 import { describe, expect, it } from "vitest";
-import { confirmationLinkNotice, isUnconfirmedEmail, signInErrorMessage } from "./sign-in-error";
+import {
+  CONFIRMATION_CALLBACK_URL,
+  confirmationCallbackUrl,
+  confirmationLinkNotice,
+  isUnconfirmedEmail,
+  signInErrorMessage,
+} from "./sign-in-error";
 
 describe("confirmationLinkNotice", () => {
   it("tells the person the e-mail is confirmed and asks for the password", () => {
@@ -67,5 +73,19 @@ describe("signInErrorMessage", () => {
     expect(signInErrorMessage({ status: 0 })).toBe(
       "Não foi possível entrar agora. Confira sua conexão e tente de novo.",
     );
+  });
+});
+
+describe("confirmationCallbackUrl", () => {
+  it("keeps the account's setup when the sign-up started on the sign-up page", () => {
+    expect(confirmationCallbackUrl(undefined)).toBe(CONFIRMATION_CALLBACK_URL);
+  });
+
+  it("sends the person back to where the sign-up started after the sign-in", () => {
+    const url = new URL(confirmationCallbackUrl("/fornecedor/convite/abc.123.def"), "http://x");
+
+    expect(url.pathname).toBe("/login");
+    expect(url.searchParams.get("emailConfirmado")).toBe("true");
+    expect(url.searchParams.get("redirect")).toBe("/fornecedor/convite/abc.123.def");
   });
 });

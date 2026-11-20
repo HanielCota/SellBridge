@@ -1,4 +1,5 @@
 import { conflictError, isAppError } from "@sellbridge/shared/errors";
+import { logger } from "@sellbridge/shared/logger";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const mocks = vi.hoisted(() => ({
@@ -9,12 +10,32 @@ const mocks = vi.hoisted(() => ({
   getBillingAccount:
     vi.fn<(database: unknown, tenantId: string) => Promise<{ customerId: string | null } | null>>(),
   listStoreConnections:
-    vi.fn<(database: unknown, tenantId: string) => Promise<{ id: string; status: string }[]>>(),
+    vi.fn<
+      (
+        database: unknown,
+        tenantId: string,
+      ) => Promise<{ id: string; status: string; marketplace: string }[]>
+    >(),
   disconnectStoreForTenant: vi.fn<(request: unknown) => Promise<unknown>>(),
   deleteCustomer: vi.fn<(customerId: string) => Promise<unknown>>(),
   deleteFile: vi.fn<(key: string) => Promise<void>>(),
   assertNothingLeftToResolve: vi.fn<(input: unknown) => Promise<void>>(),
   requestStockSync: vi.fn<(failureEvent: string) => Promise<boolean>>(),
+  findLiveStoreTargets:
+    vi.fn<
+      (
+        database: unknown,
+        store: unknown,
+      ) => Promise<{ targetId: string; externalId: string; priceCents: number }[]>
+    >(),
+  findStoreAccessForPause:
+    vi.fn<
+      (
+        database: unknown,
+        store: unknown,
+      ) => Promise<{ marketplace: string; externalShopId: string; accessTokenEnc: string } | null>
+    >(),
+  enqueueDeletedStorePause: vi.fn<(job: unknown) => Promise<void>>(),
 }));
 
 vi.mock("@/lib/server/database", () => ({ database: {} }));
@@ -23,6 +44,9 @@ vi.mock("@/lib/server/environment", () => ({
 }));
 vi.mock("@/lib/server/account-deletion-blockers.server", () => ({
   assertNothingLeftToResolve: mocks.assertNothingLeftToResolve,
+}));
+vi.mock("@/lib/server/queues", () => ({
+  enqueueDeletedStorePause: mocks.enqueueDeletedStorePause,
 }));
 vi.mock("@/lib/server/stock-sync", () => ({ requestStockSync: mocks.requestStockSync }));
 vi.mock("@/lib/server/storage", () => ({ fileStorage: { delete: mocks.deleteFile } }));
@@ -40,6 +64,8 @@ vi.mock("@sellbridge/database/repositories", () => ({
   forgetBillingCustomer: mocks.forgetBillingCustomer,
   getBillingAccount: mocks.getBillingAccount,
   listStoreConnections: mocks.listStoreConnections,
+  findLiveStoreTargets: mocks.findLiveStoreTargets,
+  findStoreAccessForPause: mocks.findStoreAccessForPause,
 }));
 
 const { assertDeletionRequest, beforeAccountDeletion, prepareAccountDeletion } =
@@ -59,8 +85,8 @@ beforeEach(() => {
   mocks.accountFileKeys.mockResolvedValue(["tickets/t1/nota.pdf"]);
   mocks.getBillingAccount.mockResolvedValue({ customerId: "cus_123" });
   mocks.listStoreConnections.mockResolvedValue([
-    { id: "store-1", status: "connected" },
-    { id: "store-2", status: "expired" },
+    { id: "store-1", status: "connected", marketplace: "mercado_livre" },
+    { id: "store-2", status: "expired", marketplace: "mercado_livre" },
   ]);
   mocks.disconnectStoreForTenant.mockResolvedValue({ paused: 1, leftLive: 0 });
   mocks.deleteCustomer.mockResolvedValue({ deleted: true });
@@ -69,6 +95,20 @@ beforeEach(() => {
   mocks.forgetBillingCustomer.mockResolvedValue(undefined);
   mocks.assertNothingLeftToResolve.mockResolvedValue(undefined);
   mocks.requestStockSync.mockResolvedValue(true);
+  mocks.findLiveStoreTargets.mockResolvedValue([
+    { targetId: "target-1", externalId: "MLB1", priceCents: 4990 },
+  ]);
+  // Like the repository: only a connected store still has access to call the marketplace with.
+  mocks.findStoreAccessForPause.mockImplementation(async (_database, store) =>
+    Reflect.get(Object(store), "storeConnectionId") === "store-1"
+      ? {
+          marketplace: "mercado_livre",
+          externalShopId: "shop-1",
+          accessTokenEnc: "encrypted-token",
+        }
+      : null,
+  );
+  mocks.enqueueDeletedStorePause.mockResolvedValue(undefined);
 });
 
 const LEFT_TO_RESOLVE = conflictError("Antes de excluir a conta, resolva: 2 pedidos para enviar.");
@@ -90,7 +130,7 @@ describe("prepareAccountDeletion", () => {
     expect(mocks.disconnectStoreForTenant).toHaveBeenCalledWith({
       tenantId: "tenant-a",
       storeConnectionId: "store-1",
-      pauseListings: true,
+      pauseListings: false,
     });
     expect(mocks.deleteTenantData).toHaveBeenCalledWith({}, "tenant-a");
     expect(mocks.deleteFile).toHaveBeenCalledWith("tickets/t1/nota.pdf");
@@ -100,6 +140,59 @@ describe("prepareAccountDeletion", () => {
     const billing = mocks.deleteCustomer.mock.invocationCallOrder[0] ?? 0;
     const data = mocks.deleteTenantData.mock.invocationCallOrder[0] ?? 0;
     expect(billing).toBeLessThan(data);
+  });
+
+  // Regression: pausing a deleted account's listings goes to a job that retries until done.
+  it("hands every live listing to the worker that pauses them, before the data goes", async () => {
+    await prepareAccountDeletion(SELLER);
+
+    expect(mocks.enqueueDeletedStorePause).toHaveBeenCalledWith({
+      tenantId: "tenant-a",
+      storeConnectionId: "store-1",
+      marketplace: "mercado_livre",
+      externalShopId: "shop-1",
+      accessTokenEnc: "encrypted-token",
+      listings: [{ externalId: "MLB1", priceCents: 4990 }],
+    });
+    const handedOver = mocks.enqueueDeletedStorePause.mock.invocationCallOrder[0] ?? 0;
+    const data = mocks.deleteTenantData.mock.invocationCallOrder[0] ?? 0;
+    expect(handedOver).toBeLessThan(data);
+  });
+
+  it("stops before disconnecting or deleting when the listings cannot be handed over", async () => {
+    mocks.enqueueDeletedStorePause.mockRejectedValue(new Error("redis down"));
+
+    const error = await rejection(prepareAccountDeletion(SELLER));
+
+    expect(isAppError(error) && error.userMessage).toBe(
+      "Não foi possível pausar seus anúncios agora. Tente excluir a conta de novo em alguns minutos.",
+    );
+    expect(mocks.disconnectStoreForTenant).not.toHaveBeenCalled();
+    expect(mocks.deleteTenantData).not.toHaveBeenCalled();
+  });
+
+  it("names on Problemas the listings a store without access leaves live", async () => {
+    const reportError = vi.spyOn(logger, "error");
+
+    await prepareAccountDeletion(SELLER);
+
+    expect(mocks.enqueueDeletedStorePause).toHaveBeenCalledTimes(1);
+    expect(reportError).toHaveBeenCalledWith("account.deleted_store_listings_unpausable", {
+      tenantId: "tenant-a",
+      storeConnectionId: "store-2",
+      marketplace: "mercado_livre",
+      listings: 1,
+      externalIds: "id_MLB1",
+    });
+  });
+
+  it("has nothing to hand over for a store without live listings", async () => {
+    mocks.findLiveStoreTargets.mockResolvedValue([]);
+
+    await prepareAccountDeletion(SELLER);
+
+    expect(mocks.enqueueDeletedStorePause).not.toHaveBeenCalled();
+    expect(mocks.deleteTenantData).toHaveBeenCalledWith({}, "tenant-a");
   });
 
   it("stops before touching any data when the subscription cannot be cancelled", async () => {
