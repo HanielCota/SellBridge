@@ -181,6 +181,30 @@ describe("groupProducts", () => {
     expect(after[2]?.reviewStatus).toBe("draft");
   });
 
+  it("keeps barcode, colour and size out of the model's shared sheet", async () => {
+    const prefix = randomUUID().slice(0, 6);
+    const rows = await shoes(prefix);
+    await database
+      .update(supplierProducts)
+      .set({
+        mercadoLivreAttributes: {
+          BRAND: "Pegada",
+          GTIN: "7891234567895",
+          COLOR: "Preto",
+          SIZE: "38",
+        },
+      })
+      .where(eq(supplierProducts.id, rows[0]?.id ?? ""));
+
+    const { modelId } = await grouped(rows);
+
+    const [model] = await database
+      .select({ attributes: productModels.mercadoLivreAttributes })
+      .from(productModels)
+      .where(eq(productModels.id, modelId));
+    expect(model?.attributes).toEqual({ BRAND: "Pegada" });
+  });
+
   it("refuses a product whose NCM differs from the main product's, writing nothing", async () => {
     const prefix = randomUUID().slice(0, 6);
     const first = await product(prefix, { color: "Preto", size: "38" });

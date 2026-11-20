@@ -385,7 +385,10 @@ export interface MaterializedCombination {
   readonly fiscal: ProductFiscalPatch;
 }
 
-function sharedAttributes(attributes: Readonly<Record<string, string>>): Record<string, string> {
+/** The sheet a model shares: never one unit's barcode, nor the colour and size the grid gives. */
+export function sharedAttributes(
+  attributes: Readonly<Record<string, string>>,
+): Record<string, string> {
   return Object.fromEntries(
     Object.entries(attributes).filter(
       ([key]) => !COMBINATION_ONLY_ATTRIBUTES.has(key) && !GRID_AXIS_ATTRIBUTES.has(key),
