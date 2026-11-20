@@ -27,14 +27,6 @@ import {
 const PLACEHOLDER_SECRET_PREFIX = "troque-por-";
 
 const serverEnvironmentShape = z.object({
-  STRIPE_PORTAL_CONFIGURATION_ID: z.string().startsWith("bpc_").optional(),
-  STRIPE_SECRET_KEY: z.string().min(1).optional(),
-  STRIPE_WEBHOOK_SECRET: z.string().min(1).optional(),
-  STRIPE_START_PRICE_ID: z.string().startsWith("price_").optional(),
-  STRIPE_PRO_PRICE_ID: z.string().startsWith("price_").optional(),
-  STRIPE_BUSINESS_PRICE_ID: z.string().startsWith("price_").optional(),
-  STRIPE_BLACK_PRICE_ID: z.string().startsWith("price_").optional(),
-  STRIPE_ELITE_PRICE_ID: z.string().startsWith("price_").optional(),
   /**
    * When the paid plans went live (ISO 8601, UTC). Accounts created before it keep today's
    * access, without limits, until BILLING_TRANSITION_ENDS_AT; accounts created after it need a plan.
