@@ -78,6 +78,8 @@ interface ProductFormOptions {
   categories: readonly CategoryOption[];
   taxDefaults: SupplierTaxSetup | null;
   brandNiche: string | null;
+  /** Whether a new product may be a colour and size grid (PRODUCT_GRID_ENABLED). */
+  productGridEnabled: boolean;
 }
 
 /**
@@ -91,12 +93,23 @@ function openingValues(options: ProductFormOptions): PanelFormValues {
   });
 }
 
+/** What the form query holds once a product is saved, so reopening it needs no request. */
+function formDataOf(options: ProductFormOptions, stored: SavedProduct) {
+  return {
+    product: stored,
+    categories: [...options.categories],
+    taxDefaults: options.taxDefaults,
+    brandNiche: options.brandNiche,
+    productGridEnabled: options.productGridEnabled,
+  };
+}
+
 /**
  * Everything the step form holds: the values being typed, the live completeness, the server
  * autosave and the submission for review.
  */
 export function useProductForm(options: ProductFormOptions) {
-  const { supplierId, productId, product, categories, taxDefaults, brandNiche } = options;
+  const { supplierId, productId, product, categories, taxDefaults } = options;
   const queryClient = useQueryClient();
   const [openedWith] = useState(() => openingValues(options));
   const [values, setValues] = useState<PanelFormValues>(openedWith);
@@ -117,7 +130,7 @@ export function useProductForm(options: ProductFormOptions) {
       setSaved(stored);
       queryClient.setQueryData(
         supplierPanelProductFormQueryOptions(supplierId, stored.id).queryKey,
-        { product: stored, categories: [...categories], taxDefaults, brandNiche },
+        formDataOf(options, stored),
       );
       // A sale moved the shelf while the supplier left stock alone: show the real count.
       setValues((current) =>

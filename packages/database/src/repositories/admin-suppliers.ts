@@ -1,5 +1,6 @@
 import type { ListingPauseReason } from "@sellbridge/shared/listing-pause-reasons";
 import { conflictError, notFoundError, validationError } from "@sellbridge/shared/errors";
+import { COMBINATION_EDITED_OUTSIDE_GRID_MESSAGE } from "@sellbridge/shared/product-grid";
 import {
   defaultSuggestedPriceCents,
   toPaginated,
@@ -34,6 +35,7 @@ import { timestampOf } from "./sql/raw-values.ts";
 import { matchesEveryWord } from "./sql/search-pattern.ts";
 import { reviewedImportValues } from "./supplier-panel-import-review.ts";
 import { getSupplierFiscalFallback } from "./supplier-brand.ts";
+import { keptOnCombination } from "./sql/grid-combination.ts";
 import { publicSupplier } from "./sql/sellable.ts";
 
 export type AdminSupplier = typeof suppliers.$inferSelect;
@@ -290,12 +292,29 @@ async function fiscalRuleStatus(
   return hasRequiredFiscalData(next) ? {} : { reviewStatus: "draft" };
 }
 
+/** The team form edits a product of its own; a grid combination changes through its model. */
+async function assertNotGridCombination(
+  transaction: DatabaseExecutor,
+  ids: { supplierId: string; productId: string },
+): Promise<void> {
+  const [product] = await transaction
+    .select({ modelId: supplierProducts.modelId })
+    .from(supplierProducts)
+    .where(
+      and(eq(supplierProducts.id, ids.productId), eq(supplierProducts.supplierId, ids.supplierId)),
+    );
+  if (product !== undefined && product.modelId !== null) {
+    throw validationError(COMBINATION_EDITED_OUTSIDE_GRID_MESSAGE);
+  }
+}
+
 async function updateProduct(
   transaction: DatabaseExecutor,
   ids: { supplierId: string; productId: string },
   values: AdminProductValues,
   expectedStock: number | undefined,
 ) {
+  await assertNotGridCombination(transaction, ids);
   const { stock, ...rest } = values;
   const keepsShelf = expectedStock !== undefined && stock === expectedStock;
   const status = await fiscalRuleStatus(transaction, ids, values.fiscal);
@@ -570,6 +589,33 @@ function withNewProductFiscalRule<
   });
 }
 
+/**
+ * What an import writes over a product it finds by SKU. A grid combination takes only its own
+ * values (cost, stock, price, on sale); its shared data comes from its model.
+ */
+function importedValuesSet() {
+  return {
+    title: keptOnCombination(sql`excluded.title`, supplierProducts.title),
+    description: keptOnCombination(sql`excluded.description`, supplierProducts.description),
+    costCents: sql`excluded.cost_cents`,
+    stock: sql`excluded.stock`,
+    categoryId: keptOnCombination(sql`excluded.category_id`, supplierProducts.categoryId),
+    imageUrls: keptOnCombination(sql`excluded.image_urls`, supplierProducts.imageUrls),
+    active: sql`excluded.active`,
+    suggestedPriceCents: sql`excluded.suggested_price_cents`,
+    // Item 18: the CSV's attributes win; blank cells (absent keys) keep the product's own.
+    mercadoLivreAttributes: keptOnCombination(
+      sql`${supplierProducts.mercadoLivreAttributes} || excluded.mercado_livre_attributes`,
+      supplierProducts.mercadoLivreAttributes,
+    ),
+    // Same for the fiscal cells; `fiscal_required` is left as the stored product has it.
+    fiscal: keptOnCombination(
+      sql`${supplierProducts.fiscal} || excluded.fiscal`,
+      supplierProducts.fiscal,
+    ),
+  };
+}
+
 /** All rows commit together; conflicts preserve product ids and therefore listing/order references. */
 export async function importSupplierProducts(
   database: Database,
@@ -606,22 +652,7 @@ export async function importSupplierProducts(
       )
       .onConflictDoUpdate({
         target: [supplierProducts.supplierId, supplierProducts.sku],
-        set: {
-          title: sql`excluded.title`,
-          description: sql`excluded.description`,
-          costCents: sql`excluded.cost_cents`,
-          stock: sql`excluded.stock`,
-          categoryId: sql`excluded.category_id`,
-          imageUrls: sql`excluded.image_urls`,
-          active: sql`excluded.active`,
-          suggestedPriceCents: sql`excluded.suggested_price_cents`,
-          // Item 18: the CSV's attributes win; blank cells (absent keys) keep the product's own.
-          mercadoLivreAttributes: sql`${supplierProducts.mercadoLivreAttributes} || excluded.mercado_livre_attributes`,
-          // Same for the fiscal cells; `fiscal_required` is left as the stored product has it.
-          fiscal: sql`${supplierProducts.fiscal} || excluded.fiscal`,
-          ...reviewed?.conflictSet,
-          updatedAt: new Date(),
-        },
+        set: { ...importedValuesSet(), ...reviewed?.conflictSet, updatedAt: new Date() },
       })
       .returning({ id: supplierProducts.id });
     const pausedTargets = await pauseUnsellableListings(transaction, input.supplierId);

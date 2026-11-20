@@ -101,6 +101,11 @@ const serverEnvironmentShape = z.object({
     .optional(),
   SHOPEE_PARTNER_KEY: z.string().optional(),
   SHOPEE_SANDBOX: booleanFlagEnvironmentSchema,
+  /**
+   * Colour and size grids (decision of 19/11/2026): off until the whole path, from the supplier's
+   * form to the grid listing, is ready. Off, suppliers never see the question and nothing changes.
+   */
+  PRODUCT_GRID_ENABLED: booleanFlagEnvironmentSchema,
   /** TikTok Shop app (Partner Center); the connector stays off until all three are set. */
   TIKTOK_SHOP_APP_KEY: z.string().optional(),
   TIKTOK_SHOP_APP_SECRET: z.string().optional(),
