@@ -102,6 +102,41 @@ describe("subscription read back from Asaas", () => {
     expect(mocks.apply).not.toHaveBeenCalled();
   });
 
+  it("ends a card checkout subscription no account waits on and gives back what it charged", async () => {
+    mocks.client.getSubscription.mockResolvedValue({
+      id: "sub_orphan",
+      customer: "cus_card",
+      status: "ACTIVE",
+      value: 197,
+      checkoutSession: "chk_cancelled",
+    });
+    mocks.client.listSubscriptionCharges.mockResolvedValue([
+      { id: "pay_card", status: "CONFIRMED", value: 197, dueDate: "2026-11-20" },
+    ]);
+
+    await syncBillingSubscription({ subscriptionId: "sub_orphan", eventId: "evt_orphan" });
+
+    expect(mocks.client.refundCharge).toHaveBeenCalledWith("pay_card", expect.any(String));
+    expect(mocks.client.deleteSubscription).toHaveBeenCalledWith("sub_orphan");
+    expect(mocks.apply).not.toHaveBeenCalled();
+  });
+
+  it("leaves alone a subscription that is already over or never came from a checkout", async () => {
+    mocks.client.getSubscription.mockResolvedValue({
+      id: "sub_gone",
+      customer: "cus_card",
+      status: "INACTIVE",
+      value: 197,
+      deleted: true,
+      checkoutSession: "chk_old",
+    });
+
+    await syncBillingSubscription({ subscriptionId: "sub_gone", eventId: "evt_gone" });
+
+    expect(mocks.client.refundCharge).not.toHaveBeenCalled();
+    expect(mocks.client.deleteSubscription).not.toHaveBeenCalled();
+  });
+
   it("binds a card checkout's subscription, keeps the paid month and ends the old one", async () => {
     mocks.client.getSubscription.mockResolvedValue({
       id: "sub_card",

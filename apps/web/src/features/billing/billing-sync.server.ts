@@ -129,6 +129,29 @@ async function retireSubscription(client: AsaasBillingClient, subscriptionId: st
   }
 }
 
+const ORPHAN_REFUND = "Assinatura criada por um pagamento já cancelado no SellBridge";
+
+/**
+ * A live card checkout subscription no account waits on: the checkout was cancelled here after
+ * the card had been taken. Nobody gets a plan from it, so it ends and what it charged goes back
+ * instead of charging the card every month.
+ */
+async function closeOrphanCheckoutSubscription(
+  client: AsaasBillingClient,
+  subscription: AsaasSubscription,
+  eventId: string | null,
+): Promise<void> {
+  if (subscription.checkoutSession == null || subscription.deleted === true) {
+    logger.info("billing.subscription_not_ours", { eventId });
+    return;
+  }
+  const charges = await client.listSubscriptionCharges(subscription.id);
+  const paid = charges.filter(isPaidCharge);
+  await Promise.all(paid.map(async (charge) => client.refundCharge(charge.id, ORPHAN_REFUND)));
+  await retireSubscription(client, subscription.id);
+  logger.error("billing.orphan_checkout_subscription_closed", { eventId, refunded: paid.length });
+}
+
 /**
  * Reads a subscription back from Asaas and stores what it is worth: a notice only says which
  * one changed. A card checkout's new subscription is bound here, and the one it replaces ends.
@@ -143,7 +166,7 @@ export async function syncBillingSubscription(input: {
   const subscription = await client.getSubscription(input.subscriptionId);
   const account = await accountOf(subscription);
   if (account === null) {
-    logger.info("billing.subscription_not_ours", { eventId: input.eventId });
+    await closeOrphanCheckoutSubscription(client, subscription, input.eventId);
     return;
   }
   const adopting = account.subscriptionId !== subscription.id;
