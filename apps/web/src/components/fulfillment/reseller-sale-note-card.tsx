@@ -3,7 +3,7 @@ import { accessKeyFormatProblem } from "@sellbridge/shared/nfe-access-key";
 import { MAX_NFE_XML_BYTES } from "@sellbridge/shared/nfe-xml";
 import type { ResellerInvoiceSource } from "@sellbridge/shared/reseller-invoice";
 import { formatAccessKey } from "@sellbridge/shared/supplier-invoice";
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { TonePill } from "@/components/data/tone-status";
 import { FloatingTextField } from "@/components/form/floating-field";
 import { Button } from "@/components/ui/button";
@@ -36,15 +36,10 @@ function wantsXml(marketplace: string): boolean {
 
 /** The XML file and its send: read in the browser, checked and sent on by the server. */
 function useXmlUpload(shipmentId: string, onSaved: () => Promise<void>) {
-  const [file, setFile] = useState<File | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [isSending, setIsSending] = useState(false);
-  async function send() {
+  async function send(file: File) {
     setError(null);
-    if (file === null) {
-      setError("Escolha o arquivo XML da nota.");
-      return;
-    }
     if (file.size > MAX_NFE_XML_BYTES) {
       setError(
         "Este arquivo é grande demais para ser o XML de uma nota. Confira se é o .xml da nota.",
@@ -61,10 +56,13 @@ function useXmlUpload(shipmentId: string, onSaved: () => Promise<void>) {
       setIsSending(false);
     }
   }
-  return { error, isSending, setFile, send };
+  return { error, isSending, send };
 }
 
-/** "Enviar XML": the file Mercado Livre needs to let the label out. */
+/**
+ * "Enviar o XML da nota": picks the file Mercado Livre needs to let the label out and sends it at
+ * once. The browser's own file field is hidden: its text follows the browser's language.
+ */
 function XmlUploadForm({
   shipmentId,
   onSaved,
@@ -73,43 +71,45 @@ function XmlUploadForm({
   onSaved: () => Promise<void>;
 }) {
   const upload = useXmlUpload(shipmentId, onSaved);
-  const inputId = `reseller-note-xml-${shipmentId}`;
-  const errorId = `${inputId}-error`;
+  const input = useRef<HTMLInputElement>(null);
+  const errorId = `reseller-note-xml-${shipmentId}-error`;
   return (
-    <form
-      noValidate
-      className="grid gap-3"
-      onSubmit={(event) => {
-        event.preventDefault();
-        void upload.send();
-      }}
-    >
-      <label htmlFor={inputId} className="text-subhead font-medium">
-        Arquivo XML da nota (.xml)
-      </label>
+    <div className="grid gap-3">
       <input
-        id={inputId}
+        ref={input}
         type="file"
         accept=".xml,application/xml,text/xml"
-        aria-describedby={upload.error === null ? undefined : errorId}
-        className="text-subhead file:mr-3 file:min-h-11 file:rounded-full file:border file:bg-transparent file:px-4 file:font-medium"
-        onChange={(event) => upload.setFile(event.target.files?.[0] ?? null)}
+        aria-label="Arquivo XML da nota (.xml)"
+        tabIndex={-1}
+        className="sr-only"
+        disabled={upload.isSending}
+        onChange={(event) => {
+          const file = event.target.files?.[0];
+          const picker = event.currentTarget;
+          // Cleared so the same file can be picked again after the reseller fixes it.
+          picker.value = "";
+          if (file !== undefined) {
+            void upload.send(file);
+          }
+        }}
       />
+      <Button
+        type="button"
+        variant="outline"
+        disabled={upload.isSending}
+        aria-describedby={upload.error === null ? undefined : errorId}
+        className="min-h-11 w-full sm:w-fit"
+        onClick={() => input.current?.click()}
+      >
+        <UploadSimpleIcon aria-hidden="true" />
+        {upload.isSending ? "Enviando…" : "Enviar o XML da nota"}
+      </Button>
       {upload.error === null ? null : (
         <output id={errorId} className="block text-footnote text-destructive">
           {upload.error}
         </output>
       )}
-      <Button
-        type="submit"
-        variant="outline"
-        disabled={upload.isSending}
-        className="min-h-11 w-full sm:w-fit"
-      >
-        <UploadSimpleIcon aria-hidden="true" />
-        {upload.isSending ? "Enviando…" : "Enviar XML"}
-      </Button>
-    </form>
+    </div>
   );
 }
 

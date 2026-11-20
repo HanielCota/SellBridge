@@ -211,20 +211,19 @@ test("on Mercado Livre the reseller sends its note's XML and SellBridge passes i
   const labelBefore = await page.request.get(`/api/pedidos/${orderId}/etiqueta`);
   expect(labelBefore.status()).toBe(409);
   expect(await labelBefore.text()).toContain("espera a nota de venda do revendedor");
+  await expect(card.getByRole("button", { name: "Enviar o XML da nota" })).toBeVisible();
 
   await file.setInputFiles({
     name: "danfe.pdf.xml",
     mimeType: "application/xml",
     buffer: Buffer.from("<html>danfe</html>"),
   });
-  await card.getByRole("button", { name: "Enviar XML" }).click();
   await expect(card.getByText(/não é o XML de uma NF-e autorizada/)).toBeVisible();
   await file.setInputFiles({
     name: "nota-4821.xml",
     mimeType: "application/xml",
     buffer: Buffer.from(authorizedNfeXml()),
   });
-  await card.getByRole("button", { name: "Enviar XML" }).click();
 
   await expect(card.getByText(/Nota recebida · /)).toBeVisible();
   await expect(card.getByText("XML enviado por você ao Mercado Livre")).toBeVisible();
