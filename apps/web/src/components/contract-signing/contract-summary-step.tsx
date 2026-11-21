@@ -6,6 +6,7 @@ import { AuthSubmitButton } from "@/components/auth/auth-page";
 import { submitHandler } from "@/components/form/form-bindings";
 import { InlineFormError } from "@/components/form/inline-form-error";
 import { Checkbox } from "@/components/ui/checkbox";
+import { summaryItemElementId } from "@/features/contract-signing/use-contract-signing";
 import { cn } from "@/lib/utils";
 
 interface ContractSummaryStepProps {
@@ -36,7 +37,7 @@ export function ContractSummaryStep(props: ContractSummaryStepProps) {
         {contract.summary.map((item) => (
           <SummaryLine
             key={item.id}
-            id={`contract-item-${item.id}`}
+            id={summaryItemElementId(item.id)}
             text={item.text}
             checked={props.confirmed.has(item.id)}
             invalid={props.highlighted.has(item.id)}

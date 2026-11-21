@@ -17,6 +17,11 @@ function uncheckedMessage(total: number): string {
   return `Faltam marcar ${total} pontos. Eles estão destacados acima.`;
 }
 
+/** The checkbox of a summary line, shared with the step that draws it. */
+export function summaryItemElementId(itemId: string): string {
+  return `contract-item-${itemId}`;
+}
+
 function browserTimeZone(): string {
   return Intl.DateTimeFormat().resolvedOptions().timeZone;
 }
@@ -48,11 +53,16 @@ function useSummaryChoice(contract: ContractDocument) {
     remaining.delete(itemId);
     setHighlighted(remaining);
   }
-  /** Highlights what is unticked and says so; null when everything is ticked. */
+  /** Highlights what is unticked, moves to the first one and says so; null when all are ticked. */
   function missingMessage(): string | null {
     const unchecked = uncheckedSummaryItems(contract, [...confirmed]);
     setHighlighted(new Set(unchecked));
-    return unchecked.length === 0 ? null : uncheckedMessage(unchecked.length);
+    const [first] = unchecked;
+    if (first === undefined) {
+      return null;
+    }
+    document.getElementById(summaryItemElementId(first))?.focus();
+    return uncheckedMessage(unchecked.length);
   }
   return { confirmed, highlighted, toggle, missingMessage };
 }

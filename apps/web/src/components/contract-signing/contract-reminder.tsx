@@ -3,14 +3,14 @@ import { SignatureIcon } from "@phosphor-icons/react";
 import { Link, useRouterState } from "@tanstack/react-router";
 import { buttonVariants } from "@/components/ui/button";
 import type { SessionContract } from "@/features/contract-signing/contract-gate";
-import { formatDeadlineDay } from "@/lib/relative-time";
+import { formatShortDate } from "@/lib/relative-time";
 import { cn } from "@/lib/utils";
 
 /** What happens at the deadline, said before it comes. */
 function reminderText(contract: SessionContract, kind: ProfileKind, deadline: Date): string {
-  const day = formatDeadlineDay(deadline);
+  const day = formatShortDate(deadline);
   if (contract.standing === "overdue") {
-    return `O prazo para assinar o contrato da SellBridge acabou (${day}). Assine para continuar recebendo pedidos novos.`;
+    return `O prazo para assinar o contrato da SellBridge acabou em ${day}. Assine para continuar recebendo pedidos novos.`;
   }
   if (kind === "seller") {
     return `Assine o contrato da SellBridge até ${day}. Depois dessa data, o painel só abre depois da assinatura.`;
