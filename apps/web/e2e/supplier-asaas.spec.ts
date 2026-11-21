@@ -36,15 +36,19 @@ test.afterAll(async () => {
   await database.$client.end();
 });
 
+interface FakeAsaasCharge {
+  billingType: string;
+  deleted: boolean;
+  value: number;
+  split: { walletId: string; fixedValue: number }[];
+}
+
 /** Every charge the fake Asaas holds for a parcel, the removed ones too. */
-async function asaasChargesOf(
-  page: Page,
-  reference: string,
-): Promise<{ billingType: string; deleted: boolean }[]> {
+async function asaasChargesOf(page: Page, reference: string): Promise<FakeAsaasCharge[]> {
   const response = await page.request.get(
     `/__e2e/asaas/test/cobrancas?externalReference=${encodeURIComponent(reference)}`,
   );
-  const body: { data: { billingType: string; deleted: boolean }[] } = await response.json();
+  const body: { data: FakeAsaasCharge[] } = await response.json();
   return body.data;
 }
 
@@ -63,8 +67,14 @@ async function demoStore() {
   return { tenantId: tenant.id, storeId: store.id };
 }
 
-/** A paid sale of the demo reseller forwarded to the supplier: 2 baskets at R$ 40 each. */
-async function forwardedSale(supplierId: string): Promise<{ orderId: string; shipmentId: string }> {
+/**
+ * A paid sale of the demo reseller forwarded to the supplier: 2 baskets at R$ 40 each, plus the
+ * shipping the buyer paid and the reseller owes Mercado Livre, when given.
+ */
+async function forwardedSale(
+  supplierId: string,
+  shippingCents = 0,
+): Promise<{ orderId: string; shipmentId: string }> {
   const [product] = await database
     .insert(supplierProducts)
     .values({
@@ -85,7 +95,8 @@ async function forwardedSale(supplierId: string): Promise<{ orderId: string; shi
       storeConnectionId: storeId,
       externalOrderId: `E2E-AS-${randomUUID().slice(0, 8)}`,
       status: "paid",
-      totalCents: 19_800,
+      totalCents: 19_800 + shippingCents,
+      sellerShippingCents: shippingCents,
       buyerName: "Paula Ribeiro",
       orderedAt: new Date(),
     })
@@ -227,6 +238,36 @@ test("o revendedor troca o Pix pelo cartão e o Asaas nunca oferece boleto", asy
   expect(charges.map((charge) => [charge.billingType, charge.deleted])).toEqual([
     ["PIX", true],
     ["CREDIT_CARD", false],
+  ]);
+});
+
+test("a parte do SellBridge sai só do valor dos produtos, nunca do frete", async ({
+  page,
+  browser,
+}) => {
+  const email = await accounts.signUp(page, "Cestaria Frete E2E");
+  const supplierId = await giveTestBrand(database, email, "Cestaria Frete E2E");
+  const sale = await forwardedSale(supplierId, 2_390);
+  await openApprovedAsaasAccount(page);
+
+  const reseller = await (await browser.newContext({ locale: "pt-BR" })).newPage();
+  await signIn(reseller, DEMO_USER);
+  await gotoHydrated(reseller, `/pedidos/${sale.orderId}`);
+  await reseller.getByRole("button", { name: "Pagar com Pix" }).click();
+  await expect(reseller.getByText("Total: R$ 80,00")).toBeVisible();
+  await reseller.getByRole("button", { name: "Pagar com Pix" }).click();
+  await expect(reseller.getByText(/Fornecedor pago ·/)).toBeVisible();
+  await reseller.context().close();
+
+  const [payment] = await database
+    .select()
+    .from(shipmentPayments)
+    .where(eq(shipmentPayments.shipmentId, sale.shipmentId));
+  const charges = await asaasChargesOf(page, payment?.id ?? "");
+  const feeCents = Math.round((8_000 * (payment?.platformFeeBasisPoints ?? 0)) / 10_000);
+  expect(payment).toMatchObject({ amountCents: 8_000, platformFeeCents: feeCents });
+  expect(charges.map((charge) => [charge.value, charge.split])).toEqual([
+    [80, [{ walletId: expect.any(String), fixedValue: feeCents / 100 }]],
   ]);
 });
 

@@ -48,6 +48,24 @@ describe("platformFeeCents", () => {
     expect(fee).toBe(150);
   });
 
+  test("takes 4% of R$ 59,90 as R$ 2,40, rounding 239,6 cents up", () => {
+    const fee = platformFeeCents(5990, 400);
+
+    expect(fee).toBe(240);
+  });
+
+  test("takes 4% of R$ 12,34 as R$ 0,49, rounding 49,36 cents down", () => {
+    const fee = platformFeeCents(1234, 400);
+
+    expect(fee).toBe(49);
+  });
+
+  test("takes nothing from a one-cent payment at 4%", () => {
+    const fee = platformFeeCents(1, 400);
+
+    expect(fee).toBe(0);
+  });
+
   test("is zero when the rate is zero", () => {
     const fee = platformFeeCents(5990, 0);
 
