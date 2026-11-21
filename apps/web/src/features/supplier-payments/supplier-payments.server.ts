@@ -128,6 +128,12 @@ function inReviewMessage(provider: PaymentProviderName | undefined): string {
   return provider === "asaas" ? ASAAS_IN_REVIEW_MESSAGE : IN_REVIEW_MESSAGE;
 }
 const ALREADY_PAID_MESSAGE = "Este envio já foi pago. O valor está na conta do fornecedor.";
+const ALREADY_PAID_PROTECTED_MESSAGE = "Este envio já foi pago. O valor está protegido no Asaas.";
+
+/** Asaas holds the money until the delivery: it is not in the supplier's account yet. */
+function alreadyPaidMessage(provider: PaymentProviderName | undefined): string {
+  return provider === "asaas" ? ALREADY_PAID_PROTECTED_MESSAGE : ALREADY_PAID_MESSAGE;
+}
 const UNCHECKED_MESSAGE =
   "Não conseguimos conferir com o Mercado Pago agora. Tente de novo em alguns minutos.";
 
@@ -278,7 +284,7 @@ async function refusedCheckout(shipmentId: string): Promise<{ checkoutUrl: strin
   if (current?.status === "in_process") {
     throw validationError(inReviewMessage(current.provider));
   }
-  throw validationError(ALREADY_PAID_MESSAGE);
+  throw validationError(alreadyPaidMessage(current?.provider));
 }
 
 /**
