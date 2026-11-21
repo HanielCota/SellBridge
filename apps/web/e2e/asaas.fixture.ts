@@ -53,6 +53,8 @@ interface Charge {
 const accounts = new Map<string, Account>();
 const customers = new Map<string, { accountId: string; externalReference: string }>();
 const charges = new Map<string, Charge>();
+/** Plan subscriptions a test seeds, with their charges: only read back, never charged here. */
+const subscriptions = new Map<string, { subscription: unknown; charges: unknown[] }>();
 
 const escape = (value: string) =>
   value
@@ -502,6 +504,40 @@ function documentsPage(url: URL, response: ServerResponse): void {
   );
 }
 
+/** Seeds a plan subscription of SellBridge's own account, as Asaas would list it. */
+async function seedSubscription(request: IncomingMessage, response: ServerResponse) {
+  const body = await readJson(request);
+  const id = textOf(recordOf(body.subscription).id);
+  if (id === "") {
+    json(response, 400, {});
+    return;
+  }
+  subscriptions.set(id, {
+    subscription: body.subscription,
+    charges: Array.isArray(body.charges) ? body.charges : [],
+  });
+  json(response, 200, { id });
+}
+
+/** A plan subscription and its charges, read with SellBridge's own key. */
+function subscriptionEndpoint(
+  request: IncomingMessage,
+  subscriptionId: string,
+  action: string | undefined,
+  response: ServerResponse,
+): void {
+  const seeded = isPlatform(request) ? subscriptions.get(subscriptionId) : undefined;
+  if (seeded === undefined || request.method !== "GET") {
+    json(response, 404, {});
+    return;
+  }
+  if (action === "payments") {
+    json(response, 200, { hasMore: false, data: seeded.charges });
+    return;
+  }
+  json(response, 200, seeded.subscription);
+}
+
 /** Test helpers: settle a card payment, or read every charge of a reference (duplicates too). */
 function testHelper(path: string, url: URL, response: ServerResponse): void {
   if (path.startsWith("/test/receber/")) {
@@ -536,6 +572,8 @@ async function handleApi(
   if (resource === "payments" && id === undefined) return chargesEndpoint(request, url, response);
   if (resource === "payments" && id !== undefined)
     return chargeAction(request, id, action === undefined ? "" : `/${action}`, response);
+  if (resource === "subscriptions" && id !== undefined)
+    return subscriptionEndpoint(request, id, action, response);
   if (resource === "escrow" && action === "finish" && id !== undefined)
     return finishEscrow(request, id, response);
   if (path === "/myAccount/documents") return documentsEndpoint(request, response);
@@ -556,6 +594,10 @@ async function handle(request: IncomingMessage, response: ServerResponse): Promi
   }
   if (path === "/documentos") {
     documentsPage(url, response);
+    return;
+  }
+  if (path === "/test/assinaturas" && request.method === "POST") {
+    await seedSubscription(request, response);
     return;
   }
   if (path.startsWith("/test/")) {
