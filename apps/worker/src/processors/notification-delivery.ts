@@ -5,12 +5,13 @@ import {
   markNotificationAttemptFailed,
   markNotificationSent,
   markNotificationSkipped,
+  postponeNotification,
   type DueNotificationDelivery,
 } from "@sellbridge/database/repositories";
 import { isAppError } from "@sellbridge/shared/errors";
 import { logger } from "@sellbridge/shared/logger";
 import { QUEUE_NAMES } from "@sellbridge/shared/queues";
-import type { SendEmail } from "@sellbridge/shared/mailer";
+import { emailDailyCapResetsAt, type SendEmail } from "@sellbridge/shared/mailer";
 import { nextNotificationAttemptAt } from "@sellbridge/shared/notification-content";
 import {
   createEmailChannel,
@@ -35,6 +36,8 @@ export interface NotificationDeliverySummary {
   sent: number;
   failed: number;
   skipped: number;
+  /** Held until tomorrow because today's e-mail allowance is used up. */
+  postponed: number;
 }
 
 /** Deliveries per run (every 10 s), sent concurrently. */
@@ -44,7 +47,10 @@ const LEASE_MILLISECONDS = 2 * 60 * 1000;
 /** Delays move by the hour; looking for new ones every 15 minutes is plenty. */
 const LATE_SWEEP_INTERVAL_MILLISECONDS = 15 * 60 * 1000;
 
-type AttemptResult = ChannelOutcome | { status: "failed"; error: string };
+type AttemptResult =
+  | ChannelOutcome
+  | { status: "failed"; error: string }
+  | { status: "postponed"; until: Date; reason: string };
 
 /** Provider messages may echo addresses; only our own messages are stored as written. */
 function attemptErrorMessage(error: unknown): string {
@@ -64,6 +70,11 @@ async function tryDeliver(
   try {
     return await channel.deliver(delivery);
   } catch (error) {
+    const capResetsAt = emailDailyCapResetsAt(error);
+    if (capResetsAt !== null) {
+      // The mailer already logged it and told the team; the notice stays on the bell meanwhile.
+      return { status: "postponed", until: capResetsAt, reason: attemptErrorMessage(error) };
+    }
     logger.warn("notification.channel_failed", {
       deliveryId: delivery.id,
       channel: delivery.channel,
@@ -85,6 +96,10 @@ async function recordResult(
   }
   if (result.status === "skipped") {
     await markNotificationSkipped(database, delivery.id, result.reason);
+    return;
+  }
+  if (result.status === "postponed") {
+    await postponeNotification(database, delivery.id, result);
     return;
   }
   const nextAttemptAt = nextNotificationAttemptAt(delivery.attempts + 1, now);
@@ -138,6 +153,7 @@ function summarize(statuses: readonly (AttemptResult["status"] | null)[]) {
     sent: statuses.filter((status) => status === "sent").length,
     failed: statuses.filter((status) => status === "failed").length,
     skipped: statuses.filter((status) => status === "skipped").length,
+    postponed: statuses.filter((status) => status === "postponed").length,
   };
 }
 
