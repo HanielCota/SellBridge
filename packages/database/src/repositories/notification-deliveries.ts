@@ -218,6 +218,24 @@ export async function markNotificationAttemptFailed(
     .where(stillPending(deliveryId));
 }
 
+/**
+ * Holds a delivery until `until` without spending an attempt: the daily e-mail allowance is
+ * used up, which says nothing against this delivery.
+ */
+export async function postponeNotification(
+  database: Database,
+  deliveryId: string,
+  postponement: { until: Date; reason: string },
+): Promise<void> {
+  await database
+    .update(notificationDeliveries)
+    .set({
+      nextAttemptAt: postponement.until,
+      lastError: postponement.reason.slice(0, MAX_ERROR_LENGTH),
+    })
+    .where(stillPending(deliveryId));
+}
+
 /** The channel cannot deliver at all (push not configured): final, never retried. */
 export async function markNotificationSkipped(
   database: Database,

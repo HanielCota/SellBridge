@@ -274,7 +274,7 @@ async function notifyPreviousAddress(input: { previousEmail: string; maskedEmail
     },
     environment.APP_URL,
   );
-  await sendEmail({ to: input.previousEmail, ...email });
+  await sendEmail({ to: input.previousEmail, category: "account_access", ...email });
 }
 
 /** Better Auth, the mailer and the trail behind `saveCustomerProfile`, for one customer. */
