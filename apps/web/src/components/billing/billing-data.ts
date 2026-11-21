@@ -18,9 +18,16 @@ export function planById(id: string | null | undefined): BillingPlan | null {
   return BILLING_PLANS.find((plan) => plan.id === id) ?? null;
 }
 
+/** The plan in use: the one that sets the limits, or a courtesy plan still waiting to (launch). */
 export function currentPlanOf(data: BillingData): BillingPlan | null {
-  if (data.access.kind !== "plan") return null;
-  return planById(data.access.planId);
+  if (data.access.kind === "plan") return planById(data.access.planId);
+  return planById(data.courtesy?.planId);
+}
+
+/** The plan in use was given by the team: there is nothing to pay, subscribe to or cancel. */
+export function usesCourtesyPlan(data: BillingData): boolean {
+  if (data.courtesy === null) return false;
+  return data.access.kind !== "plan" || data.access.source === "courtesy";
 }
 
 /** A subscription that renews: plan changes go through it instead of a new subscription. */
