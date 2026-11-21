@@ -348,7 +348,7 @@ async function removeChargeUnlessGone(client: AsaasBillingClient, chargeId: stri
 }
 
 /**
- * A difference SellBridge removed when another took its place, paid all the same: the money came
+ * A difference SellBridge removed (another took its place, or its month ended) paid all the same: the money came
  * in and no account waits on it, so no plan moves. The team gets a problem to give it back or
  * settle the plan with the reseller. A paid one that was never removed is the difference already
  * applied, told again by a later notice.
@@ -362,7 +362,7 @@ async function reportReplacedDifferencePaid(
   if (!isPaidCharge(charge) || hasRefund(charge)) return;
   const amount = formatCents(centsFromAsaasValue(charge.value));
   logger.error("billing.replaced_difference_paid", {
-    reason: `Diferença de plano de ${amount} paga depois de trocada por outra: o dinheiro entrou e o plano não mudou. Devolva ao revendedor no Asaas ou acerte o plano com ele.`,
+    reason: `Diferença de plano de ${amount} paga depois que o SellBridge cancelou a cobrança (trocada por outra ou vencida): o dinheiro entrou e o plano não mudou. Devolva ao revendedor no Asaas ou acerte o plano com ele.`,
     problemKey: charge.id,
     tenantId: upgradeTenantId(charge.externalReference),
     chargeId: charge.id,

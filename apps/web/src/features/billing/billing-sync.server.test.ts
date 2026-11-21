@@ -438,7 +438,7 @@ describe("upgrade difference", () => {
     expect(errors).toHaveBeenCalledWith(
       "billing.replaced_difference_paid",
       expect.objectContaining({
-        reason: expect.stringContaining("paga depois de trocada por outra"),
+        reason: expect.stringContaining("paga depois que o SellBridge cancelou a cobrança"),
         problemKey: "pay_replaced",
         tenantId: "tenant-a",
       }),
