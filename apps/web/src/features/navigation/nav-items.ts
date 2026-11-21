@@ -107,15 +107,9 @@ export const ADMIN_NAV_ITEMS: NavItem[] = [
     permission: "shipments.view",
     group: "Atendimento",
   },
-  // Review comments sit next to the suppliers they talk about, for moderation (admin, supervisor).
-  {
-    label: "Avaliações",
-    to: "/admin/avaliacoes",
-    permission: "reviews.moderate",
-    group: "Moderação",
-  },
-  // Errors the site and the worker logged, for whoever fixes them. First in its group, counted:
-  // the refunds the team owes live here, and at 1366px the last tabs of the strip are hidden.
+  // Errors the site and the worker logged, for whoever fixes them. First in its group, counted,
+  // and the group before Moderação: the refunds the team owes live here, and at 1366px the last
+  // tabs of the strip are hidden.
   {
     label: "Problemas",
     to: "/admin/problemas",
@@ -132,6 +126,13 @@ export const ADMIN_NAV_ITEMS: NavItem[] = [
   },
   { label: "Equipe", to: "/admin/equipe", permission: "customers.manage", group: "Equipe" },
   { label: "Auditoria", to: "/admin/auditoria", permission: "audit.view", group: "Equipe" },
+  // Review comments sit next to the suppliers they talk about, for moderation (admin, supervisor).
+  {
+    label: "Avaliações",
+    to: "/admin/avaliacoes",
+    permission: "reviews.moderate",
+    group: "Moderação",
+  },
 ];
 
 /** Support sits at the foot of the menu for every profile, under its own pages. */
