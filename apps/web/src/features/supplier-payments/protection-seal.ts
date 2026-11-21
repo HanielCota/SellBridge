@@ -14,3 +14,14 @@ export function showsProtectionSeal(view: {
   }
   return view.manualRefund?.releasedToSupplier !== true;
 }
+
+/**
+ * The seal's words: before the delivery the money waits for it; once the parcel was cancelled or
+ * came back there is no delivery to wait for, only the money still held until it is settled.
+ */
+export function protectionSealText(badge: SupplierPaymentBadge): string {
+  if (badge.kind === "refunding" || badge.kind === "held") {
+    return "Pagamento protegido: o valor está guardado no Asaas e não foi para o fornecedor";
+  }
+  return "Pagamento protegido: liberado ao fornecedor só depois da entrega";
+}

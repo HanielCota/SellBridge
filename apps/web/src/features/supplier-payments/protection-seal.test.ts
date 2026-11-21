@@ -1,5 +1,5 @@
 import { describe, expect, test } from "vitest";
-import { showsProtectionSeal } from "./protection-seal";
+import { protectionSealText, showsProtectionSeal } from "./protection-seal";
 
 const refunding = { kind: "refunding" } as const;
 
@@ -32,5 +32,11 @@ describe("showsProtectionSeal", () => {
     });
 
     expect(shown).toBe(false);
+  });
+
+  test("no longer promises a delivery once the parcel was cancelled", () => {
+    expect(protectionSealText(refunding)).toBe(
+      "Pagamento protegido: o valor está guardado no Asaas e não foi para o fornecedor",
+    );
   });
 });
