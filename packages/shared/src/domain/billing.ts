@@ -121,6 +121,23 @@ export function paidBillingPlan(
   return billingPlan(plan);
 }
 
+/** A plan the team gave the account with no charge; `expiresAt` null never runs out. */
+export interface BillingCourtesyState {
+  plan: string;
+  expiresAt: Date | null;
+}
+
+/** The courtesy plan in force, or null without one, past its end or for an unknown plan. */
+export function courtesyBillingPlan(
+  courtesy: BillingCourtesyState | null,
+  now = new Date(),
+): BillingPlan | null {
+  if (courtesy === null) return null;
+  if (courtesy.expiresAt !== null && courtesy.expiresAt <= now) return null;
+  if (!isBillingPlanId(courtesy.plan)) return null;
+  return billingPlan(courtesy.plan);
+}
+
 /**
  * What moving up costs for the rest of the paid month: the price difference times the share of
  * the period still ahead, rounded to the cent. Zero when the new plan is not dearer or the
@@ -151,23 +168,44 @@ export function upgradeDifferenceCents(input: {
 
 /** What an account may use now. */
 export type BillingAccess =
-  { kind: "plan"; plan: BillingPlan } | { kind: "transition"; until: Date } | { kind: "none" };
+  | { kind: "plan"; plan: BillingPlan; source: "subscription" | "courtesy" }
+  | { kind: "transition"; until: Date }
+  | { kind: "none" };
 
-export function billingAccess(
-  input: {
-    subscription: BillingSubscriptionState | null;
-    tenantCreatedAt: Date;
-    transition: BillingTransition | null;
-  },
-  now = new Date(),
-): BillingAccess {
-  const plan = paidBillingPlan(input.subscription, now);
-  if (plan !== null) return { kind: "plan", plan };
+/** What decides an account's access: what it pays, what the team gave it and the launch. */
+export interface BillingAccessInput {
+  subscription: BillingSubscriptionState | null;
+  courtesy: BillingCourtesyState | null;
+  tenantCreatedAt: Date;
+  transition: BillingTransition | null;
+}
+
+function transitionEnd(input: BillingAccessInput, now: Date): Date | null {
   const { transition } = input;
-  if (transition === null) return { kind: "none" };
-  if (input.tenantCreatedAt >= transition.launchedAt) return { kind: "none" };
-  if (now >= transition.endsAt) return { kind: "none" };
-  return { kind: "transition", until: transition.endsAt };
+  if (transition === null) return null;
+  if (input.tenantCreatedAt >= transition.launchedAt) return null;
+  if (now >= transition.endsAt) return null;
+  return transition.endsAt;
+}
+
+/**
+ * A paid plan counts first, unless the courtesy plan is at least as large (a month still paid
+ * after the courtesy stopped its renewal). An account in the launch transition keeps its
+ * unlimited access over a courtesy plan, which only takes over when the transition ends.
+ */
+export function billingAccess(input: BillingAccessInput, now = new Date()): BillingAccess {
+  const paid = paidBillingPlan(input.subscription, now);
+  const courtesy = courtesyBillingPlan(input.courtesy, now);
+  if (paid !== null && (courtesy === null || paid.priceCents > courtesy.priceCents)) {
+    return { kind: "plan", plan: paid, source: "subscription" };
+  }
+  if (paid !== null && courtesy !== null) {
+    return { kind: "plan", plan: courtesy, source: "courtesy" };
+  }
+  const until = transitionEnd(input, now);
+  if (until !== null) return { kind: "transition", until };
+  if (courtesy !== null) return { kind: "plan", plan: courtesy, source: "courtesy" };
+  return { kind: "none" };
 }
 
 /** Store and listing ceilings of the access; null means no ceiling (the launch transition). */
@@ -181,21 +219,35 @@ export type BillingNotice =
   | { kind: "past_due"; accessUntil: Date }
   | { kind: "payment_failed" }
   | { kind: "transition"; until: Date; endingSoon: boolean }
+  | { kind: "courtesy_ending"; until: Date }
   | { kind: "no_plan" };
+
+/** Days before a courtesy plan ends when the account and the team start hearing about it. */
+export const COURTESY_WARNING_DAYS = 7;
+
+/** When the courtesy in force ends, once that is at most `COURTESY_WARNING_DAYS` away. */
+export function courtesyEndingAt(
+  courtesy: BillingCourtesyState | null,
+  now = new Date(),
+): Date | null {
+  if (courtesyBillingPlan(courtesy, now) === null) return null;
+  const expiresAt = courtesy?.expiresAt ?? null;
+  if (expiresAt === null) return null;
+  const warningStart = expiresAt.getTime() - COURTESY_WARNING_DAYS * DAY_MILLISECONDS;
+  return now.getTime() >= warningStart ? expiresAt : null;
+}
 
 /**
  * What the reseller must hear about the subscription: a payment to fix, the launch transition
- * running out, a plan to choose, or nothing.
+ * running out, a courtesy plan about to end, a plan to choose, or nothing. An account with a
+ * courtesy plan in force owes nothing and has nothing to choose until it ends.
  */
-export function billingNotice(
-  input: {
-    subscription: BillingSubscriptionState | null;
-    tenantCreatedAt: Date;
-    transition: BillingTransition | null;
-  },
-  now = new Date(),
-): BillingNotice | null {
+export function billingNotice(input: BillingAccessInput, now = new Date()): BillingNotice | null {
   const { subscription } = input;
+  if (courtesyBillingPlan(input.courtesy, now) !== null) {
+    const until = courtesyEndingAt(input.courtesy, now);
+    return until === null ? null : { kind: "courtesy_ending", until };
+  }
   if (subscription?.status === "past_due") {
     const { periodEnd } = subscription;
     if (periodEnd !== null && periodEnd > now) return { kind: "past_due", accessUntil: periodEnd };

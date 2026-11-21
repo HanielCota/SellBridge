@@ -52,6 +52,15 @@ export function CustomerIssueAction({ customer, issue }: IssueActionProps) {
   if (issue.kind === "onboarding") {
     return <ReminderButton userId={customer.id} />;
   }
+  if (issue.kind === "courtesy") {
+    return (
+      <Button variant="outline" size="sm" asChild>
+        <Link to="/admin/clientes/$userId" params={{ userId: customer.id }}>
+          Ver cortesia
+        </Link>
+      </Button>
+    );
+  }
   const target = IMPERSONATE_TARGETS[issue.kind];
   // Said on screen: a disabled button's tooltip never shows on touch, nor in some browsers.
   if (customer.banned) {

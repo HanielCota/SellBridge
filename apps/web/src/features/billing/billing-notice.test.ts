@@ -43,6 +43,17 @@ describe("billingNoticeCopy", () => {
     });
   });
 
+  it("tells a courtesy account its last day and that nothing on air is lost", () => {
+    const copy = billingNoticeCopy({ kind: "courtesy_ending", until: "2027-03-01T03:00:00.000Z" });
+
+    expect(copy).toEqual({
+      title: "Seu plano por cortesia vale até 28/02/2027",
+      description:
+        "Depois, para conectar lojas e publicar, escolha um plano. O que está no ar continua.",
+      tone: "info",
+    });
+  });
+
   it("warns in the last days of the transition", () => {
     const copy = billingNoticeCopy({
       kind: "transition",

@@ -3,7 +3,7 @@ import type {
   CatalogListSearch,
   CatalogStatusFilter,
 } from "@sellbridge/shared/supplier-panel-catalog-schemas";
-import { PackageIcon } from "@phosphor-icons/react";
+import { PackageIcon, SquaresFourIcon } from "@phosphor-icons/react";
 import { useQuery, type UseQueryResult } from "@tanstack/react-query";
 import type { ReactNode } from "react";
 import { FilterTabs } from "@/components/data/filter-tabs";
@@ -95,7 +95,7 @@ function CatalogListBody({
   onOpenProduct,
   onOpenGrid,
   onCreateProduct,
-}: Omit<CatalogProductListProps, "supplierId"> & { query: CatalogListQuery }) {
+}: Omit<CatalogProductListProps, "supplierId" | "onOpenGrouping"> & { query: CatalogListQuery }) {
   const canAddProducts = usePanelSupplierActive();
   if (query.isPending) {
     return <Skeleton className="h-96 rounded-3xl" aria-label="Carregando produtos" />;
@@ -149,6 +149,8 @@ interface CatalogProductListProps {
   /** Opens a colour and size grid in its own form. */
   onOpenGrid: OpenGrid;
   onCreateProduct: () => void;
+  /** Opens "Sugestões de grade"; shown while grids are on. */
+  onOpenGrouping: () => void;
   /** More header actions, before "Cadastrar produto" (the page's "Baixar"). */
   headerActions?: ReactNode;
 }
@@ -164,12 +166,17 @@ function ProductListActions({
   supplierId,
   search,
   productCount,
+  canGroup,
   onCreateProduct,
+  onOpenGrouping,
 }: {
   supplierId: string;
   search: CatalogListSearch;
   productCount: number | undefined;
+  /** Grids are on: the supplier can group products already registered. */
+  canGroup: boolean;
   onCreateProduct: () => void;
+  onOpenGrouping: () => void;
 }) {
   const canAddProducts = usePanelSupplierActive();
   return (
@@ -180,6 +187,12 @@ function ProductListActions({
         productCount={productCount}
         canImport={canAddProducts}
       />
+      {canAddProducts && canGroup ? (
+        <Button variant="outline" onClick={onOpenGrouping}>
+          <SquaresFourIcon aria-hidden="true" />
+          Juntar cores e tamanhos
+        </Button>
+      ) : null}
       {canAddProducts ? <CreateProductButton onCreateProduct={onCreateProduct} /> : null}
     </div>
   );
@@ -243,6 +256,7 @@ export function CatalogProductList({
   onOpenProduct,
   onOpenGrid,
   onCreateProduct,
+  onOpenGrouping,
   headerActions,
 }: CatalogProductListProps) {
   const query = useQuery(supplierPanelProductsQueryOptions(supplierId, search));
@@ -258,7 +272,9 @@ export function CatalogProductList({
               supplierId={supplierId}
               search={search}
               productCount={query.data?.total}
+              canGroup={query.data?.productGridEnabled ?? false}
               onCreateProduct={onCreateProduct}
+              onOpenGrouping={onOpenGrouping}
             />
           </>
         }
