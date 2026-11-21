@@ -20,6 +20,7 @@ import { firstErrorMessage, TextField } from "@/components/form/form-field";
 import { SelectField } from "@/components/form/select-field";
 import { TonePill } from "@/components/data/tone-status";
 import { SectionCard } from "@/components/layout/section-card";
+import { INVOICE_SETUP_ANCHOR } from "@/features/supplier-panel/home/attention-links";
 import { cn } from "@/lib/utils";
 import type { SupplierFiscalFormValues } from "@/features/admin-suppliers/fiscal-form-values";
 import type { CepAddress } from "@/features/cities/cep-lookup";
@@ -31,6 +32,8 @@ interface BrandFiscalCardProps {
   onChange: (change: Partial<SupplierFiscalFormValues>) => void;
   /** Shown under "Venda à ordem" when it is chosen: the supplier's Bling operations. */
   onBehalfOperations?: ReactNode;
+  /** "Nota fiscal pelo Bling", shown right under the choice so both live on one screen. */
+  invoiceSwitch?: ReactNode;
 }
 
 function errorsOf(
@@ -319,8 +322,9 @@ function OnBehalfCfopFields({ values, errors, onChange }: BrandFiscalCardProps) 
 function InvoiceModelFields(props: BrandFiscalCardProps) {
   const isOnBehalf = props.values.fiscalInvoiceModel === "on_behalf";
   return (
-    <div className="grid gap-4">
+    <div id={INVOICE_SETUP_ANCHOR} className="grid scroll-mt-24 gap-4">
       <InvoiceModelChoice {...props} />
+      {props.invoiceSwitch}
       {isOnBehalf ? props.onBehalfOperations : null}
       {isOnBehalf ? <OnBehalfCfopFields {...props} /> : null}
     </div>
