@@ -80,7 +80,8 @@ mensalidade, e a assinatura antiga é encerrada quando a nova aparece. O mês j�
 ## Atraso, aviso e cancelamento
 
 - A mensalidade vence no dia; o plano vale até o fim desse dia. Se o Asaas marca a cobrança como
-  vencida, o plano continua por `BILLING_PAST_DUE_GRACE_DAYS` dias (padrão 7) a partir do
+  vencida, o plano continua por `BILLING_PAST_DUE_GRACE_DAYS` dias (padrão 5, o do contrato do
+  revendedor; mensalidade vencida antes de 01/12/2026 fica com pelo menos os 7 de antes) a partir do
   vencimento, com o aviso "Pagamento da assinatura pendente" no painel e em `/assinatura`, com o
   último dia e o botão "Pagar agora" (abre a fatura do Asaas). Depois disso a conta fica sem plano;
   a assinatura não é cancelada e, se o lojista pagar, o plano volta.
