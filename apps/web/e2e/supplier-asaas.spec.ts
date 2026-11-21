@@ -384,6 +384,9 @@ test("a devolução de um Pix que o Asaas recusa vai para a equipe e o revendedo
   browser,
   baseURL,
 }) => {
+  // Opens an Asaas account, pays, settles, then walks admin and reseller to the ticket: on a
+  // busy CI run it outlives the default 60 s, so it gets the slow budget.
+  test.slow();
   const email = await accounts.signUp(page, "Cestaria Pix Manual E2E");
   const supplierId = await giveTestBrand(database, email, "Cestaria Pix Manual E2E");
   const sale = await forwardedSale(supplierId);
