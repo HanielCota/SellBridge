@@ -79,16 +79,20 @@ export async function grantCourtesy(
 }
 
 /**
- * Takes the courtesy plan back now: the account is left with what it pays, if anything.
+ * Takes the courtesy plan back now: the account is left with what it pays, if anything. Runs
+ * under the same lock as a grant, so it never deletes one given a moment before it read.
  *
- * @throws {AppError} CONFLICT when the tenant has no courtesy plan.
+ * @throws {AppError} CONFLICT when the tenant has no courtesy plan, or another change of its
+ * subscription is still running.
  */
 export async function revokeCourtesy(tenantId: string): Promise<BillingCourtesy> {
-  const courtesy = await getBillingCourtesy(database, tenantId);
-  if (courtesy === null || !(await deleteBillingCourtesy(database, tenantId))) {
-    throw conflictError("Esta conta não tem um plano por cortesia.");
-  }
-  return courtesy;
+  return withBillingLock(tenantId, async () => {
+    const courtesy = await getBillingCourtesy(database, tenantId);
+    if (courtesy === null || !(await deleteBillingCourtesy(database, tenantId))) {
+      throw conflictError("Esta conta não tem um plano por cortesia.");
+    }
+    return courtesy;
+  });
 }
 
 function paidPlanName(account: BillingAccount | null): string | null {

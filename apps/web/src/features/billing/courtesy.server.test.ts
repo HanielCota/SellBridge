@@ -5,6 +5,7 @@ const mocks = vi.hoisted(() => ({
   courtesy: vi.fn<(...input: unknown[]) => Promise<unknown>>(),
   saveCourtesy: vi.fn<(...input: unknown[]) => Promise<void>>(),
   deleteCourtesy: vi.fn<(...input: unknown[]) => Promise<boolean>>(),
+  tryLock: vi.fn<(...input: unknown[]) => Promise<boolean>>(),
   apply:
     vi.fn<(executor: unknown, input: { tenantId: string; patch: unknown }) => Promise<boolean>>(),
   cleanupClient: vi.fn<() => unknown>(),
@@ -29,7 +30,7 @@ vi.mock("@sellbridge/database/repositories", () => ({
   saveBillingCourtesy: mocks.saveCourtesy,
   deleteBillingCourtesy: mocks.deleteCourtesy,
   saveBillingAccount: vi.fn<() => Promise<void>>(),
-  tryLockBillingCheckout: async () => true,
+  tryLockBillingCheckout: mocks.tryLock,
   applyBillingState: mocks.apply,
   requireBillingOwner: vi.fn<() => Promise<void>>(),
   findBillingAccountByPendingReference: vi.fn<() => Promise<unknown>>(),
@@ -89,6 +90,7 @@ beforeEach(() => {
   mocks.account.mockResolvedValue(null);
   mocks.courtesy.mockResolvedValue(null);
   mocks.deleteCourtesy.mockResolvedValue(true);
+  mocks.tryLock.mockResolvedValue(true);
   mocks.apply.mockResolvedValue(true);
   mocks.cleanupClient.mockReturnValue(mocks.client);
   mocks.client.deleteSubscription.mockResolvedValue(true);
@@ -211,6 +213,15 @@ describe("taking a courtesy plan back", () => {
 
     expect(mocks.deleteCourtesy).toHaveBeenCalledWith(expect.anything(), "tenant-a");
     expect(taken).toEqual(courtesy);
+  });
+
+  it("waits for a grant still running instead of deleting what it gives", async () => {
+    mocks.courtesy.mockResolvedValue({ tenantId: "tenant-a", plan: "elite", expiresAt: null });
+    mocks.tryLock.mockResolvedValue(false);
+
+    await expect(revokeCourtesy("tenant-a")).rejects.toMatchObject({ code: "CONFLICT" });
+    expect(mocks.tryLock).toHaveBeenCalledWith(expect.anything(), "tenant-a");
+    expect(mocks.deleteCourtesy).not.toHaveBeenCalled();
   });
 
   it("refuses when the account has none", async () => {
