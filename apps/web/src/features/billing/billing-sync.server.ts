@@ -8,6 +8,7 @@ import {
 } from "@sellbridge/database/repositories";
 import {
   asaasDueDate,
+  centsFromAsaasValue,
   isAsaasError,
   isPaidCharge,
   paidOn,
@@ -19,12 +20,13 @@ import {
 } from "@sellbridge/payments/asaas";
 import { billingPlan, isBillingPlanId } from "@sellbridge/shared/billing";
 import { logger } from "@sellbridge/shared/logger";
+import { formatCents } from "@sellbridge/shared/money";
 import { database } from "@/lib/server/database";
 import { environment } from "@/lib/server/environment";
 import { billingClient } from "./billing-config.server";
 import { paidMonthCarriedTo } from "./paid-month";
 import { CHARGE_REFERENCE, CHECKOUT_REFERENCE, SUBSCRIPTION_REFERENCE } from "./pending-reference";
-import { upgradeUntil } from "./upgrade-reference";
+import { upgradeTenantId, upgradeUntil } from "./upgrade-reference";
 
 type BillingAccount = NonNullable<Awaited<ReturnType<typeof getBillingAccount>>>;
 
@@ -278,7 +280,11 @@ const GIVEN_BACK_STATUSES = new Set(["REFUNDED", "REFUND_REQUESTED", "REFUND_IN_
  * (a card still in risk analysis, say) may still be confirmed, so it is still waited on.
  */
 export function isGivenBackCharge(charge: AsaasSubscriptionCharge): boolean {
-  if (charge.deleted === true || GIVEN_BACK_STATUSES.has(charge.status)) return true;
+  return charge.deleted === true || hasRefund(charge);
+}
+
+function hasRefund(charge: AsaasSubscriptionCharge): boolean {
+  if (GIVEN_BACK_STATUSES.has(charge.status)) return true;
   return charge.refunds?.some((refund) => refund.status !== "CANCELLED") === true;
 }
 
@@ -341,6 +347,29 @@ async function removeChargeUnlessGone(client: AsaasBillingClient, chargeId: stri
   }
 }
 
+/**
+ * A difference SellBridge removed (another took its place, or its month ended) paid all the same: the money came
+ * in and no account waits on it, so no plan moves. The team gets a problem to give it back or
+ * settle the plan with the reseller. A paid one that was never removed is the difference already
+ * applied, told again by a later notice.
+ */
+async function reportReplacedDifferencePaid(
+  client: AsaasBillingClient,
+  input: { chargeId: string; eventId: string | null },
+): Promise<void> {
+  const charge = await readChargeUnlessGone(client, input.chargeId);
+  if (charge === null || charge.deleted !== true) return;
+  if (!isPaidCharge(charge) || hasRefund(charge)) return;
+  const amount = formatCents(centsFromAsaasValue(charge.value));
+  logger.error("billing.replaced_difference_paid", {
+    reason: `Diferença de plano de ${amount} paga depois que o SellBridge cancelou a cobrança (trocada por outra ou vencida): o dinheiro entrou e o plano não mudou. Devolva ao revendedor no Asaas ou acerte o plano com ele.`,
+    problemKey: charge.id,
+    tenantId: upgradeTenantId(charge.externalReference),
+    chargeId: charge.id,
+    eventId: input.eventId,
+  });
+}
+
 export type UpgradeOutcome = "applied" | "given_back" | "unpaid" | "not_waiting";
 
 /**
@@ -355,7 +384,10 @@ export async function syncUpgradeCharge(input: {
   const client = billingClient();
   const reference = `${CHARGE_REFERENCE}${input.chargeId}`;
   const account = await findBillingAccountByPendingReference(database, reference);
-  if (account?.pendingPlan == null || !isBillingPlanId(account.pendingPlan)) return "not_waiting";
+  if (account?.pendingPlan == null || !isBillingPlanId(account.pendingPlan)) {
+    await reportReplacedDifferencePaid(client, input);
+    return "not_waiting";
+  }
   const charge = await client.getCharge(input.chargeId);
   if (!isPaidCharge(charge)) return "unpaid";
   const { tenantId } = account;

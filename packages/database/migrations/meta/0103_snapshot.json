@@ -1,5 +1,5 @@
 {
-  "id": "6e06087a-a974-47f6-9d8b-fa5764b6bdc6",
+  "id": "5e5d50cf-c914-4e4c-b548-31b516b40d9e",
   "prevId": "09d1a0cc-bab3-47df-93ae-209afee3933e",
   "version": "7",
   "dialect": "postgresql",
@@ -7526,6 +7526,95 @@
       },
       "isRLSEnabled": false
     },
+    "public.billing_courtesies": {
+      "name": "billing_courtesies",
+      "schema": "",
+      "columns": {
+        "tenant_id": {
+          "name": "tenant_id",
+          "type": "text",
+          "primaryKey": true,
+          "notNull": true
+        },
+        "plan": {
+          "name": "plan",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "expires_at": {
+          "name": "expires_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "reason": {
+          "name": "reason",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "granted_by": {
+          "name": "granted_by",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "granted_at": {
+          "name": "granted_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "updated_at": {
+          "name": "updated_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {
+        "billing_courtesies_tenant_id_organization_id_fk": {
+          "name": "billing_courtesies_tenant_id_organization_id_fk",
+          "tableFrom": "billing_courtesies",
+          "tableTo": "organization",
+          "columnsFrom": [
+            "tenant_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        },
+        "billing_courtesies_granted_by_user_id_fk": {
+          "name": "billing_courtesies_granted_by_user_id_fk",
+          "tableFrom": "billing_courtesies",
+          "tableTo": "user",
+          "columnsFrom": [
+            "granted_by"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "set null",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {
+        "billing_courtesies_plan_check": {
+          "name": "billing_courtesies_plan_check",
+          "value": "\"billing_courtesies\".\"plan\" in ('start', 'pro', 'business', 'black', 'elite')"
+        }
+      },
+      "isRLSEnabled": false
+    },
     "public.billing_events": {
       "name": "billing_events",
       "schema": "",
@@ -9717,33 +9806,6 @@
           "notNull": true,
           "default": 3
         },
-        "dispatch_cutoff_since": {
-          "name": "dispatch_cutoff_since",
-          "type": "timestamp with time zone",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "mercado_livre_cutoff_minutes": {
-          "name": "mercado_livre_cutoff_minutes",
-          "type": "integer",
-          "primaryKey": false,
-          "notNull": true,
-          "default": 870
-        },
-        "shopee_cutoff_minutes": {
-          "name": "shopee_cutoff_minutes",
-          "type": "integer",
-          "primaryKey": false,
-          "notNull": true,
-          "default": 780
-        },
-        "tiktok_shop_cutoff_minutes": {
-          "name": "tiktok_shop_cutoff_minutes",
-          "type": "integer",
-          "primaryKey": false,
-          "notNull": true,
-          "default": 1080
-        },
         "updated_by_user_id": {
           "name": "updated_by_user_id",
           "type": "text",
@@ -9797,10 +9859,6 @@
         "platform_settings_return_answer_days_check": {
           "name": "platform_settings_return_answer_days_check",
           "value": "\"platform_settings\".\"return_answer_business_days\" between 1 and 5"
-        },
-        "platform_settings_cutoff_minutes_check": {
-          "name": "platform_settings_cutoff_minutes_check",
-          "value": "\"platform_settings\".\"mercado_livre_cutoff_minutes\" between 0 and 1439 and \"platform_settings\".\"shopee_cutoff_minutes\" between 0 and 1439 and \"platform_settings\".\"tiktok_shop_cutoff_minutes\" between 0 and 1439"
         }
       },
       "isRLSEnabled": false
@@ -11021,7 +11079,8 @@
         "listings",
         "ticket",
         "onboarding",
-        "cooling"
+        "cooling",
+        "courtesy"
       ]
     },
     "public.erp_catalog_read_status": {
