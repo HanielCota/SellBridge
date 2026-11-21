@@ -1,5 +1,5 @@
 import { describe, expect, test } from "vitest";
-import { manualRefundDeadlineLine } from "./manual-refund-copy";
+import { manualRefundDeadlineLine, manualRefundExplanation } from "./manual-refund-copy";
 
 // The last moment before a guarantee ending on 20/12/2026 (start of the day in Brasília).
 const LAST_MOMENT = new Date("2026-12-20T02:59:59.999Z");
@@ -21,5 +21,18 @@ describe("manualRefundDeadlineLine", () => {
       passed: true,
       text: "O prazo acabou em 19/12/2026 e o Asaas já liberou o valor ao fornecedor. Combine com ele como devolver ao revendedor.",
     });
+  });
+});
+
+describe("manualRefundExplanation", () => {
+  test("explains the missing free balance only for a Pix", () => {
+    expect(manualRefundExplanation(true)).toContain("A taxa do SellBridge já saiu dessa conta");
+  });
+
+  test("points to the reason Asaas gave for a card, without the Pix explanation", () => {
+    const text = manualRefundExplanation(false);
+
+    expect(text).toContain("no cartão");
+    expect(text).not.toContain("valor inteiro livre");
   });
 });

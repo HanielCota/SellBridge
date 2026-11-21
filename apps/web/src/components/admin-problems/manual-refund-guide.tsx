@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import type { getManualRefundFn } from "@/features/supplier-payments/asaas.functions";
 import { manualRefundQueryOptions } from "@/features/supplier-payments/asaas.queries";
+import { manualRefundExplanation } from "@/features/supplier-payments/manual-refund-copy";
 import { errorMessage } from "@/lib/errors";
 
 type ManualRefund = Awaited<ReturnType<typeof getManualRefundFn>>;
@@ -72,18 +73,18 @@ function ResellerTicket({ refund }: { refund: ManualRefund }) {
 function RefundSteps({ refund }: { refund: ManualRefund }) {
   const amount = formatCents(refund.amountCents);
   const fee = formatCents(refund.platformFeeCents);
-  const tariff = refund.paidByPix ? " e a tarifa do Pix cobrada pelo Asaas" : "";
   return (
     <ol className="list-decimal space-y-2 pl-5 text-sm leading-relaxed">
       <li>
         No Asaas do SellBridge, abra <strong>Parceiros &gt; Subcontas</strong> e ache a conta do
         fornecedor {refund.supplierName}.
       </li>
-      <li>
-        Deixe {amount} livres nessa conta: libere o valor guardado desta cobrança e transfira do
-        SellBridge o que faltar (a taxa de {fee}
-        {tariff}).
-      </li>
+      {refund.paidByPix ? (
+        <li>
+          Deixe {amount} livres nessa conta: libere o valor guardado desta cobrança e transfira do
+          SellBridge o que faltar (a taxa de {fee} e a tarifa do Pix cobrada pelo Asaas).
+        </li>
+      ) : null}
       <li>
         Na conta do fornecedor, abra <strong>Cobranças &gt; Todas</strong>, ache a cobrança pelo
         código acima e clique em <strong>Solicitar estorno</strong>, <strong>Avançar</strong> e{" "}
@@ -103,11 +104,7 @@ function PendingRefund({ refund }: { refund: ManualRefund }) {
   const { deadline } = refund;
   return (
     <>
-      <p className="text-sm">
-        O Asaas só devolve quando a conta do fornecedor tem o valor inteiro livre. A taxa do
-        SellBridge já saiu dessa conta e o resto está guardado, então a devolução não sai sozinha:
-        alguém da equipe faz no Asaas.
-      </p>
+      <p className="text-sm">{manualRefundExplanation(refund.paidByPix)}</p>
       <p className="text-sm font-medium">{deadline.text}</p>
       <RefundFacts refund={refund} deadline={refund.lastDay} />
       <ResellerTicket refund={refund} />
@@ -122,7 +119,7 @@ function PendingRefund({ refund }: { refund: ManualRefund }) {
 }
 
 /**
- * For a refund Asaas refused (a Pix whose fee and split left the supplier's account): the team
+ * For a refund Asaas refused (most often a Pix whose fee and split left the supplier's account): the team
  * gives the money back by hand, so the problem says how much, to whom, from which account, until
  * when and the steps at Asaas.
  */

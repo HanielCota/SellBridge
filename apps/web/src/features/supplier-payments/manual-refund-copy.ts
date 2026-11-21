@@ -32,3 +32,15 @@ export function manualRefundDeadlineLine(
 export function manualRefundDayLabel(lastMoment: Date): string {
   return fullDay.format(lastMoment);
 }
+
+/**
+ * Why the refund did not go through on its own. A Pix refund needs the whole amount free in the
+ * supplier's account, which the fee and the guarantee leave short; a card one is refused for
+ * reasons Asaas gives case by case.
+ */
+export function manualRefundExplanation(paidByPix: boolean): string {
+  if (paidByPix) {
+    return "O Asaas só devolve um Pix quando a conta do fornecedor tem o valor inteiro livre. A taxa do SellBridge já saiu dessa conta e o resto está guardado, então a devolução não sai sozinha: alguém da equipe faz no Asaas.";
+  }
+  return "O Asaas não aceitou devolver este pagamento no cartão. O motivo que ele deu está nos detalhes técnicos, mais abaixo. Alguém da equipe confere e faz a devolução no Asaas.";
+}
