@@ -736,6 +736,13 @@
       "when": 1795246752435,
       "tag": "0104_long_foreign_key_names",
       "breakpoints": true
+    },
+    {
+      "idx": 105,
+      "version": "7",
+      "when": 1795292872290,
+      "tag": "0105_cancel_queued_parcels_of_cancelled_sales",
+      "breakpoints": true
     }
   ]
 }
