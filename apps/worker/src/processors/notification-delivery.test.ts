@@ -14,6 +14,7 @@ let tenants: Awaited<ReturnType<typeof createTestTenants>>;
 let tenantId = "";
 const recipientId = `worker-notice-${crypto.randomUUID()}`;
 const recipientEmail = `${recipientId}@sellbridge.test`;
+const ONE_DAY_IN_MS = 24 * 60 * 60 * 1000;
 
 const content = {
   subject: "Venda paga: Fone",
@@ -98,7 +99,7 @@ describe("notification-delivery processor", () => {
 
   it("holds an e-mail until tomorrow, without spending an attempt, when the daily allowance is used up", async () => {
     await queue("processor:daily-cap", "email");
-    const resetsAt = new Date("2026-11-21T03:00:00Z");
+    const resetsAt = new Date(Date.now() + ONE_DAY_IN_MS);
     const process = createNotificationDeliveryProcessor({
       database,
       appUrl: "https://app.sellbridge.test",
@@ -116,6 +117,10 @@ describe("notification-delivery processor", () => {
     const row = await rowOf("processor:daily-cap");
     expect(row).toMatchObject({ status: "pending", attempts: 0 });
     expect(row?.nextAttemptAt).toEqual(resetsAt);
+    // The held row would fall due inside later tests, which move their clock days ahead.
+    await database
+      .delete(schema.notificationDeliveries)
+      .where(eq(schema.notificationDeliveries.dedupeKey, "processor:daily-cap"));
   });
 
   it("retries a failed e-mail later and gives up when attempts run out", async () => {
