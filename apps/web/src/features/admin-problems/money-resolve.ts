@@ -31,7 +31,7 @@ export function moneyResolveConfirmation(state: MoneyProblemState): ResolveConfi
     return {
       title: "O dinheiro já voltou ao revendedor?",
       description: `O Asaas ainda não confirmou a devolução de ${amount}. Marcando como resolvido, ela sai da lista de problemas em aberto e ninguém mais é lembrado dela. Marque só se o revendedor já recebeu o dinheiro.`,
-      confirmLabel: "Já voltou, marcar como resolvido",
+      confirmLabel: "Marcar como resolvido",
     };
   }
   return {
