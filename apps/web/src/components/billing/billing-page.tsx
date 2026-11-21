@@ -1,4 +1,5 @@
 import { WarningIcon } from "@phosphor-icons/react";
+import { Link } from "@tanstack/react-router";
 import { useState } from "react";
 import { PageHeader } from "@/components/layout/page-header";
 import { Badge } from "@/components/ui/badge";
@@ -233,6 +234,15 @@ function CurrentPlan({ data, askCancel }: { data: BillingData; askCancel: boolea
             {line}
           </p>
         ))}
+        {usesCourtesyPlan(data) ? (
+          <p className="text-muted-foreground">
+            Para mudar de plano,{" "}
+            <Link to="/suporte/novo" className="font-medium text-foreground underline">
+              fale com o suporte
+            </Link>
+            .
+          </p>
+        ) : null}
         {data.notice === null ? null : <NoticeText notice={data.notice} />}
         {data.enabled ? <SubscriptionActions data={data} askCancel={askCancel} /> : null}
       </CardContent>

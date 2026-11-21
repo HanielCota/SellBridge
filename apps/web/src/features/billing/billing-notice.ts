@@ -54,7 +54,7 @@ export function billingNoticeCopy(notice: BillingNoticeView): BillingNoticeCopy 
     return {
       title: `Seu plano por cortesia vale até ${lastDayOf(notice.until)}`,
       description:
-        "Até lá tudo continua como está. Depois, para conectar lojas e publicar, escolha um plano. O que já está no ar continua.",
+        "Depois, para conectar lojas e publicar, escolha um plano. O que está no ar continua.",
       tone: "info",
     };
   }

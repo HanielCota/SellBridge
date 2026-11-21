@@ -1,7 +1,6 @@
 import type { BillingPlan, BillingPlanId } from "@sellbridge/shared/billing";
 import { formatCents } from "@sellbridge/shared/money";
 import { CheckIcon, HeadsetIcon } from "@phosphor-icons/react";
-import { Link } from "@tanstack/react-router";
 import { useState } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -142,17 +141,8 @@ function PlanAction({
     return <p className="text-sm text-muted-foreground">Disponível quando a cobrança começar</p>;
   }
   if (state.kind === "in_use") return <StatusTile>Plano em uso</StatusTile>;
-  if (state.kind === "courtesy") {
-    return (
-      <p className="text-sm text-muted-foreground">
-        Seu plano é cortesia. Para mudar,{" "}
-        <Link to="/suporte/novo" className="font-medium text-foreground underline">
-          fale com o suporte
-        </Link>
-        .
-      </p>
-    );
-  }
+  // Said once, next to the plan in use: four cards repeating it would bury the plans.
+  if (state.kind === "courtesy") return null;
   if (state.kind === "starts") return <StatusTile>{`Começa em ${state.on}`}</StatusTile>;
   const button = (
     <Button

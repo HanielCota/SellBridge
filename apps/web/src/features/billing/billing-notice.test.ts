@@ -49,7 +49,7 @@ describe("billingNoticeCopy", () => {
     expect(copy).toEqual({
       title: "Seu plano por cortesia vale até 28/02/2027",
       description:
-        "Até lá tudo continua como está. Depois, para conectar lojas e publicar, escolha um plano. O que já está no ar continua.",
+        "Depois, para conectar lojas e publicar, escolha um plano. O que está no ar continua.",
       tone: "info",
     });
   });
