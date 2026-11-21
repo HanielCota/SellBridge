@@ -4,9 +4,9 @@
 
 Quando o Asaas não devolve sozinho um pagamento feito por Pix ao fornecedor, a devolução é feita à mão por alguém da equipe do SellBridge, no Asaas. O sistema não tenta outro caminho automático. O trabalho do sistema é deixar o caminho manual claro:
 
-- **Revendedor (tela do pedido):** a situação do pagamento diz que quem devolve é a equipe do SellBridge e mostra o botão "Pedir a devolução à equipe", que abre um chamado no suporte já com o assunto, o pedido e a primeira frase preenchidos. Se já existe chamado aberto sobre o pedido, o botão vira "Ver o chamado da devolução" e leva a ele. A tela mostra o último dia para pedir.
+- **Revendedor (tela do pedido):** a situação do pagamento diz que quem devolve é a equipe do SellBridge e mostra o botão "Pedir a devolução à equipe", que abre um chamado no suporte já com o assunto, o pedido e a primeira frase preenchidos. Se já existe chamado aberto sobre o pedido, sobre a devolução ou não, o botão vira "Ver o chamado deste pedido" e leva a ele. A tela mostra o último dia para pedir; depois do prazo, diz que o Asaas liberou o valor ao fornecedor e que a equipe acerta com ele.
 - **Equipe (Problemas):** o item diz "Devolução manual", o valor, como foi pago e a data-limite. Dentro dele há um guia: valor a devolver, para quem, de qual conta sai, o código da cobrança, o chamado do revendedor e o passo a passo no Asaas.
-- **Prazo:** o Asaas guarda o valor por até 30 dias depois do pagamento. Depois disso ele é liberado ao fornecedor, e a devolução passa a depender do fornecedor.
+- **Prazo:** o Asaas guarda o valor por até 30 dias depois do pagamento e libera no começo do dia de vencimento (horário de Brasília); as telas mostram o último dia inteiro antes disso. Enquanto o Asaas não informa a garantia (no cartão, ela só começa quando o pagamento conta como recebido), nenhuma data é mostrada. Depois do prazo, a devolução passa a depender do fornecedor.
 
 ## Por quê
 
