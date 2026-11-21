@@ -127,6 +127,8 @@ export interface PaidParcelFate {
   endedWithoutDelivery: boolean;
   /** The team settles it by hand (the reseller cancelled after the supplier accepted). */
   heldForTeam: boolean;
+  /** The money already went to the supplier: Asaas released it, or the team chose to. */
+  moneyReleased: boolean;
 }
 
 /** A paid parcel whose money goes back, or waits for the team, instead of going to the supplier. */
@@ -139,6 +141,10 @@ function returningBadge(
   }
   if ((payment.refundRequestedAt ?? null) !== null) {
     return { kind: "refunding" };
+  }
+  // Released money is not on its way back: the supplier was paid, whatever became of the parcel.
+  if (parcel?.moneyReleased === true) {
+    return null;
   }
   if (parcel?.heldForTeam === true) {
     return { kind: "held" };

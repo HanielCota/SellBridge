@@ -125,6 +125,10 @@ function parcelFate(payable: PayableShipment): PaidParcelFate {
     endedWithoutDelivery: ENDED_WITHOUT_DELIVERY.has(payable.status),
     heldForTeam:
       payment?.refundHeldAt != null || (payable.cancelledByResellerAfterAccept && !refundAsked),
+    moneyReleased:
+      payment?.releasedAt != null ||
+      payment?.escrowStatus === "done" ||
+      payment?.teamDecision === "release",
   };
 }
 
@@ -232,6 +236,7 @@ function refundView(payable: PayableShipment, badge: SupplierPaymentBadge) {
 
 const SETTLED_BADGES: ReadonlySet<SupplierPaymentBadge["kind"]> = new Set([
   "paid",
+  "held",
   "refunding",
   "refunded",
 ]);
@@ -262,7 +267,8 @@ export async function loadResellerSupplierPayment(input: { tenantId: string; shi
           paymentMethod: payable.payment.paymentMethod,
           refundRequestedAt: payable.payment.refundRequestedAt,
         };
-  const badge = badgeFor(summary, linked, parcelFate(payable));
+  const fate = parcelFate(payable);
+  const badge = badgeFor(summary, linked, fate);
   const refusal = checkoutRefusal(payable, linked);
   const [preparationHold, manualRefund] = await Promise.all([
     findPreparationHold(database, input.shipmentId),
@@ -280,6 +286,8 @@ export async function loadResellerSupplierPayment(input: { tenantId: string; shi
     refund: refundView(payable, badge),
     /** How the reseller paid ("PIX", "CREDIT_CARD"…), which says how the money comes back. */
     paymentMethod: payable.payment?.paymentMethod ?? null,
+    /** The money already went to the supplier: nothing is held for the reseller any more. */
+    moneyReleased: fate.moneyReleased,
     /** Held until delivery (Asaas): the reseller sees the protection seal. */
     protectedPayment: provider === "asaas",
     provider,

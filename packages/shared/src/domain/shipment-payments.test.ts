@@ -152,7 +152,7 @@ describe("supplierPaymentBadge", () => {
     const badge = supplierPaymentBadge({
       payment: { status: "approved", paidAt, method: "PIX" },
       supplierReceivesHere: true,
-      parcel: { endedWithoutDelivery: true, heldForTeam: false },
+      parcel: { endedWithoutDelivery: true, heldForTeam: false, moneyReleased: false },
     });
 
     expect(badge).toEqual({ kind: "refunding" });
@@ -162,10 +162,20 @@ describe("supplierPaymentBadge", () => {
     const badge = supplierPaymentBadge({
       payment: { status: "approved", paidAt, method: "PIX" },
       supplierReceivesHere: true,
-      parcel: { endedWithoutDelivery: true, heldForTeam: true },
+      parcel: { endedWithoutDelivery: true, heldForTeam: true, moneyReleased: false },
     });
 
     expect(badge).toEqual({ kind: "held" });
+  });
+
+  test("keeps paid once the money went to the supplier, even for a cancelled parcel", () => {
+    const badge = supplierPaymentBadge({
+      payment: { status: "approved", paidAt, method: "PIX" },
+      supplierReceivesHere: true,
+      parcel: { endedWithoutDelivery: true, heldForTeam: true, moneyReleased: true },
+    });
+
+    expect(badge).toEqual({ kind: "paid", paidAt, method: "PIX" });
   });
 
   test("shows a payment under review, so nobody pays again meanwhile", () => {

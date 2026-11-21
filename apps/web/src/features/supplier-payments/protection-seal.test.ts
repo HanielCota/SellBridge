@@ -39,4 +39,15 @@ describe("showsProtectionSeal", () => {
       "Pagamento protegido: o valor está guardado no Asaas e não foi para o fornecedor",
     );
   });
+
+  test("drops the seal once the money went to the supplier", () => {
+    const shown = showsProtectionSeal({
+      protectedPayment: true,
+      badge: { kind: "paid", paidAt: "2026-11-21T12:00:00.000Z", method: "PIX" },
+      manualRefund: null,
+      moneyReleased: true,
+    });
+
+    expect(shown).toBe(false);
+  });
 });
