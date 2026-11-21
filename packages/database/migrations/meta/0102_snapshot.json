@@ -1,5 +1,5 @@
 {
-  "id": "b2d3a76e-fc19-4ad8-a3a4-6855d7dbc6a4",
+  "id": "09d1a0cc-bab3-47df-93ae-209afee3933e",
   "prevId": "18f6f611-416a-496d-bfba-dc4a92db7da4",
   "version": "7",
   "dialect": "postgresql",
@@ -996,6 +996,294 @@
       },
       "policies": {},
       "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "public.product_grouping_items": {
+      "name": "product_grouping_items",
+      "schema": "",
+      "columns": {
+        "grouping_id": {
+          "name": "grouping_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "supplier_product_id": {
+          "name": "supplier_product_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "title": {
+          "name": "title",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "description": {
+          "name": "description",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "category_id": {
+          "name": "category_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "image_urls": {
+          "name": "image_urls",
+          "type": "text[]",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "mercado_livre_attributes": {
+          "name": "mercado_livre_attributes",
+          "type": "jsonb",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "mercado_livre_category_id": {
+          "name": "mercado_livre_category_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "mercado_livre_category_name": {
+          "name": "mercado_livre_category_name",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "warranty_type": {
+          "name": "warranty_type",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "warranty_days": {
+          "name": "warranty_days",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "video_url": {
+          "name": "video_url",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "made_to_order_days": {
+          "name": "made_to_order_days",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "carrier_only": {
+          "name": "carrier_only",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "fiscal": {
+          "name": "fiscal",
+          "type": "jsonb",
+          "primaryKey": false,
+          "notNull": true
+        }
+      },
+      "indexes": {
+        "product_grouping_items_product_idx": {
+          "name": "product_grouping_items_product_idx",
+          "columns": [
+            {
+              "expression": "supplier_product_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {
+        "product_grouping_items_grouping_id_product_groupings_id_fk": {
+          "name": "product_grouping_items_grouping_id_product_groupings_id_fk",
+          "tableFrom": "product_grouping_items",
+          "tableTo": "product_groupings",
+          "columnsFrom": [
+            "grouping_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        },
+        "product_grouping_items_supplier_product_id_supplier_products_id_fk": {
+          "name": "product_grouping_items_supplier_product_id_supplier_products_id_fk",
+          "tableFrom": "product_grouping_items",
+          "tableTo": "supplier_products",
+          "columnsFrom": [
+            "supplier_product_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        },
+        "product_grouping_items_category_id_categories_id_fk": {
+          "name": "product_grouping_items_category_id_categories_id_fk",
+          "tableFrom": "product_grouping_items",
+          "tableTo": "categories",
+          "columnsFrom": [
+            "category_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "set null",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {
+        "product_grouping_items_grouping_id_supplier_product_id_pk": {
+          "name": "product_grouping_items_grouping_id_supplier_product_id_pk",
+          "columns": [
+            "grouping_id",
+            "supplier_product_id"
+          ]
+        }
+      },
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "public.product_groupings": {
+      "name": "product_groupings",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "supplier_id": {
+          "name": "supplier_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "model_id": {
+          "name": "model_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "grouped_by": {
+          "name": "grouped_by",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "separated_at": {
+          "name": "separated_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "separated_by": {
+          "name": "separated_by",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        }
+      },
+      "indexes": {
+        "product_groupings_supplier_idx": {
+          "name": "product_groupings_supplier_idx",
+          "columns": [
+            {
+              "expression": "supplier_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "product_groupings_model_idx": {
+          "name": "product_groupings_model_idx",
+          "columns": [
+            {
+              "expression": "model_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": true,
+          "where": "\"product_groupings\".\"model_id\" is not null",
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {
+        "product_groupings_supplier_id_suppliers_id_fk": {
+          "name": "product_groupings_supplier_id_suppliers_id_fk",
+          "tableFrom": "product_groupings",
+          "tableTo": "suppliers",
+          "columnsFrom": [
+            "supplier_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        },
+        "product_groupings_model_id_product_models_id_fk": {
+          "name": "product_groupings_model_id_product_models_id_fk",
+          "tableFrom": "product_groupings",
+          "tableTo": "product_models",
+          "columnsFrom": [
+            "model_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "set null",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {
+        "product_groupings_separated_check": {
+          "name": "product_groupings_separated_check",
+          "value": "(\"product_groupings\".\"separated_at\" is null) = (\"product_groupings\".\"separated_by\" is null)"
+        }
+      },
       "isRLSEnabled": false
     },
     "public.product_model_colors": {
@@ -10677,242 +10965,6 @@
         "marketplace_claims_status_check": {
           "name": "marketplace_claims_status_check",
           "value": "\"marketplace_claims\".\"status\" in ('opened','closed')"
-        }
-      },
-      "isRLSEnabled": false
-    },
-    "public.buyer_questions": {
-      "name": "buyer_questions",
-      "schema": "",
-      "columns": {
-        "id": {
-          "name": "id",
-          "type": "uuid",
-          "primaryKey": true,
-          "notNull": true,
-          "default": "gen_random_uuid()"
-        },
-        "tenant_id": {
-          "name": "tenant_id",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "store_connection_id": {
-          "name": "store_connection_id",
-          "type": "uuid",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "listing_target_id": {
-          "name": "listing_target_id",
-          "type": "uuid",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "marketplace": {
-          "name": "marketplace",
-          "type": "marketplace",
-          "typeSchema": "public",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "external_question_id": {
-          "name": "external_question_id",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "external_item_id": {
-          "name": "external_item_id",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "text": {
-          "name": "text",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "status": {
-          "name": "status",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "asked_at": {
-          "name": "asked_at",
-          "type": "timestamp with time zone",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "answer_text": {
-          "name": "answer_text",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "answered_at": {
-          "name": "answered_at",
-          "type": "timestamp with time zone",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "answered_by_user_id": {
-          "name": "answered_by_user_id",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "answer_sending_since": {
-          "name": "answer_sending_since",
-          "type": "timestamp with time zone",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "created_at": {
-          "name": "created_at",
-          "type": "timestamp with time zone",
-          "primaryKey": false,
-          "notNull": true,
-          "default": "now()"
-        },
-        "updated_at": {
-          "name": "updated_at",
-          "type": "timestamp with time zone",
-          "primaryKey": false,
-          "notNull": true,
-          "default": "now()"
-        }
-      },
-      "indexes": {
-        "buyer_questions_external_idx": {
-          "name": "buyer_questions_external_idx",
-          "columns": [
-            {
-              "expression": "marketplace",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            },
-            {
-              "expression": "external_question_id",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            }
-          ],
-          "isUnique": true,
-          "concurrently": false,
-          "method": "btree",
-          "with": {}
-        },
-        "buyer_questions_tenant_status_idx": {
-          "name": "buyer_questions_tenant_status_idx",
-          "columns": [
-            {
-              "expression": "tenant_id",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            },
-            {
-              "expression": "status",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            },
-            {
-              "expression": "asked_at",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            }
-          ],
-          "isUnique": false,
-          "concurrently": false,
-          "method": "btree",
-          "with": {}
-        },
-        "buyer_questions_store_waiting_idx": {
-          "name": "buyer_questions_store_waiting_idx",
-          "columns": [
-            {
-              "expression": "store_connection_id",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            }
-          ],
-          "isUnique": false,
-          "where": "\"buyer_questions\".\"status\" = 'unanswered'",
-          "concurrently": false,
-          "method": "btree",
-          "with": {}
-        }
-      },
-      "foreignKeys": {
-        "buyer_questions_tenant_id_organization_id_fk": {
-          "name": "buyer_questions_tenant_id_organization_id_fk",
-          "tableFrom": "buyer_questions",
-          "tableTo": "organization",
-          "columnsFrom": [
-            "tenant_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
-          "onDelete": "cascade",
-          "onUpdate": "no action"
-        },
-        "buyer_questions_store_connection_id_store_connections_id_fk": {
-          "name": "buyer_questions_store_connection_id_store_connections_id_fk",
-          "tableFrom": "buyer_questions",
-          "tableTo": "store_connections",
-          "columnsFrom": [
-            "store_connection_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
-          "onDelete": "cascade",
-          "onUpdate": "no action"
-        },
-        "buyer_questions_listing_target_id_listing_targets_id_fk": {
-          "name": "buyer_questions_listing_target_id_listing_targets_id_fk",
-          "tableFrom": "buyer_questions",
-          "tableTo": "listing_targets",
-          "columnsFrom": [
-            "listing_target_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
-          "onDelete": "cascade",
-          "onUpdate": "no action"
-        },
-        "buyer_questions_answered_by_user_id_user_id_fk": {
-          "name": "buyer_questions_answered_by_user_id_user_id_fk",
-          "tableFrom": "buyer_questions",
-          "tableTo": "user",
-          "columnsFrom": [
-            "answered_by_user_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
-          "onDelete": "set null",
-          "onUpdate": "no action"
-        }
-      },
-      "compositePrimaryKeys": {},
-      "uniqueConstraints": {},
-      "policies": {},
-      "checkConstraints": {
-        "buyer_questions_status_check": {
-          "name": "buyer_questions_status_check",
-          "value": "\"buyer_questions\".\"status\" in ('unanswered','answered','closed','under_review','removed')"
         }
       },
       "isRLSEnabled": false

@@ -23,6 +23,7 @@ import { StepDetails } from "../step-details";
 import { GridOptionsStep } from "./grid-options-step";
 import { GridPhotosStep } from "./grid-photos-step";
 import { GridReviewStep } from "./grid-review-step";
+import { SeparateGridCard } from "../grouping/separate-grid-card";
 import { CategoryQuestion, GridTypeQuestion } from "./grid-type-question";
 
 type GridForm = ReturnType<typeof useGridForm>;
@@ -253,6 +254,32 @@ function GridFormHeader({ form, onBack }: { form: GridForm; onBack: () => void }
   );
 }
 
+/** A grid made by grouping products can be separated again, from its own form. */
+function GroupedGridSection({
+  supplierId,
+  modelId,
+  data,
+  onBack,
+}: {
+  supplierId: string;
+  modelId: string;
+  data: FormData;
+  onBack: () => void;
+}) {
+  if (data.groupedAt === null || data.model === null) {
+    return null;
+  }
+  return (
+    <SeparateGridCard
+      supplierId={supplierId}
+      modelId={modelId}
+      groupedAt={data.groupedAt}
+      products={data.model.combinations.length}
+      onSeparated={onBack}
+    />
+  );
+}
+
 function LoadedForm({
   supplierId,
   modelId,
@@ -304,6 +331,7 @@ function LoadedForm({
           />
         </aside>
       </div>
+      <GroupedGridSection supplierId={supplierId} modelId={modelId} data={data} onBack={onBack} />
     </div>
   );
 }

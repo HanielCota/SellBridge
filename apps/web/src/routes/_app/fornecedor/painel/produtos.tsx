@@ -5,6 +5,7 @@ import { z } from "zod";
 import { CatalogProductList } from "@/components/supplier-panel/catalog/catalog-product-list";
 import { ProductStepForm } from "@/components/supplier-panel/catalog/product-step-form";
 import { ProductGridForm } from "@/components/supplier-panel/catalog/grid/product-grid-form";
+import { GroupingSuggestions } from "@/components/supplier-panel/catalog/grouping/grouping-suggestions";
 import { SupplierDownloadMenu } from "@/components/supplier-panel/report/supplier-download-menu";
 import { usePanelSupplierId } from "@/features/supplier-panel/use-panel-supplier";
 
@@ -17,6 +18,8 @@ const productsSearchSchema = catalogListSearchSchema.extend({
   /** A product sold in colours and sizes: "novo" opens an empty grid, an id opens that grid. */
   grade: optionalParameter(z.union([z.uuid(), z.literal(NEW_PRODUCT)])),
   field: optionalParameter(z.string().max(FIELD_NAME_MAX_LENGTH)),
+  /** "grade" opens the suggestions of products to group into one grid. */
+  sugestoes: optionalParameter(z.literal("grade")),
 });
 
 export const Route = createFileRoute("/_app/fornecedor/painel/produtos")({
@@ -50,18 +53,33 @@ function GridPage({
   );
 }
 
+/** The page's views live in the address: a product, a grid, or the grouping suggestions. */
+function useProductsNavigation() {
+  const navigate = useNavigate({ from: Route.fullPath });
+  return {
+    navigate,
+    openProduct: (next: string | undefined, focus?: string) =>
+      void navigate({
+        search: (previous) => ({ ...previous, product: next, grade: undefined, field: focus }),
+      }),
+    openGrid: (next: string | undefined) =>
+      void navigate({
+        search: (previous) => ({ ...previous, product: undefined, grade: next, field: undefined }),
+      }),
+    openGrouping: (open: boolean) =>
+      void navigate({
+        search: (previous) => ({ ...previous, sugestoes: open ? ("grade" as const) : undefined }),
+      }),
+  };
+}
+
 function SupplierProductsPage() {
   const supplierId = usePanelSupplierId();
-  const { product, grade, field, ...listSearch } = Route.useSearch();
-  const navigate = useNavigate({ from: Route.fullPath });
-  const openProduct = (next: string | undefined, focus?: string) =>
-    void navigate({
-      search: (previous) => ({ ...previous, product: next, grade: undefined, field: focus }),
-    });
-  const openGrid = (next: string | undefined) =>
-    void navigate({
-      search: (previous) => ({ ...previous, product: undefined, grade: next, field: undefined }),
-    });
+  const { product, grade, field, sugestoes, ...listSearch } = Route.useSearch();
+  const { navigate, openProduct, openGrid, openGrouping } = useProductsNavigation();
+  if (sugestoes !== undefined) {
+    return <GroupingSuggestions supplierId={supplierId} onBack={() => openGrouping(false)} />;
+  }
   if (grade !== undefined) {
     return (
       <GridPage
@@ -106,6 +124,7 @@ function SupplierProductsPage() {
       onOpenProduct={(productId, focusField) => openProduct(productId, focusField)}
       onOpenGrid={(modelId) => openGrid(modelId)}
       onCreateProduct={() => openProduct(NEW_PRODUCT)}
+      onOpenGrouping={() => openGrouping(true)}
       headerActions={<SupplierDownloadMenu />}
     />
   );

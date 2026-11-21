@@ -139,3 +139,12 @@ export * from "./marketplace-claims.ts";
 export * from "./buyer-questions.ts";
 export * from "./store-buyer-address.ts";
 export { findPreparationHold } from "./shipment-timing.ts";
+export {
+  findModelGrouping,
+  groupProducts,
+  listGroupingSuggestions,
+  separateGroupedModel,
+  type GroupingSuggestionProduct,
+  type GroupingSuggestionView,
+  type GroupProductsResult,
+} from "./product-groupings.ts";
