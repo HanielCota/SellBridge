@@ -426,7 +426,7 @@ export async function releaseOnBehalfLabel(
  * there, never missed by both. Returns false when the remessa must not start now: when the note
  * changed it is built again with the new one; when a Mercado Livre note went back to typed, the
  * queued remessa is dropped (nothing was asked of the ERP yet) and opens again once the note is
- * on Mercado Livre.
+ * on Mercado Livre. A remessa another run already marked is left to that run: false here.
  */
 export async function claimOnBehalfRemessaDraft(
   database: Database,
@@ -448,14 +448,20 @@ export async function claimOnBehalfRemessaDraft(
     if (note?.accessKey !== claim.citedAccessKey) {
       return false;
     }
+    // A remessa another run already asked of the ERP is never dropped nor asked again.
+    const notAskedYet = and(
+      eq(shipmentInvoices.id, claim.invoiceId),
+      isNull(shipmentInvoices.erpDraftRequestedAt),
+    );
     if (note.marketplace === "mercado_livre" && note.source === "typed") {
-      await transaction.delete(shipmentInvoices).where(eq(shipmentInvoices.id, claim.invoiceId));
+      await transaction.delete(shipmentInvoices).where(notAskedYet);
       return false;
     }
-    await transaction
+    const marked = await transaction
       .update(shipmentInvoices)
       .set({ erpDraftRequestedAt: claim.now })
-      .where(eq(shipmentInvoices.id, claim.invoiceId));
-    return true;
+      .where(notAskedYet)
+      .returning({ id: shipmentInvoices.id });
+    return marked.length > 0;
   });
 }
