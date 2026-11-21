@@ -163,7 +163,7 @@ function CutoffForm({ view }: { view: CutoffView }) {
         <p id={`${switchId}-hint`} className="pl-14 text-footnote text-muted-foreground">
           Venda que chega ao fornecedor antes do horário é postada até o fim daquele dia útil.
           Depois do horário, até o fim do próximo dia útil. Sábado, domingo e feriado nacional não
-          contam.
+          contam. Exemplo: com o corte às 14:30, a venda de sexta às 15:00 é postada até segunda.
         </p>
       </div>
       <fieldset className="grid gap-3 sm:grid-cols-3">
