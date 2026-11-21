@@ -6,6 +6,7 @@ import { database } from "@/lib/server/database";
 import { staffMiddleware } from "@/lib/server/middleware";
 import { trackedParcelViews } from "@/features/tracking/order-tracking.server";
 import { loadStaffOnBehalfLabel, releaseStaffOnBehalfLabel } from "./on-behalf-label.server";
+import { hasEnoughLetters } from "./release-reason";
 
 /** `/admin/envios`: every customer's parcels, for the team answering "cadê meu pedido?". */
 export const listStaffShipmentsFn = createServerFn({ method: "GET" })
@@ -37,8 +38,6 @@ export const staffOnBehalfLabelFn = createServerFn({ method: "GET" })
     async ({ context, data }) => await loadStaffOnBehalfLabel(data.shipmentId, context.role),
   );
 
-/** The fewest characters a release reason takes: a word or two says nothing to an audit. */
-const MIN_RELEASE_REASON_LENGTH = 10;
 const MAX_RELEASE_REASON_LENGTH = 500;
 
 export const releaseOnBehalfLabelFn = createServerFn({ method: "POST" })
@@ -48,8 +47,8 @@ export const releaseOnBehalfLabelFn = createServerFn({ method: "POST" })
       shipmentId: z.uuid(),
       reason: freeText()
         .trim()
-        .min(MIN_RELEASE_REASON_LENGTH, "Escreva o motivo com pelo menos 10 letras.")
-        .max(MAX_RELEASE_REASON_LENGTH, "Use no máximo 500 letras no motivo."),
+        .max(MAX_RELEASE_REASON_LENGTH, "Use no máximo 500 letras no motivo.")
+        .refine(hasEnoughLetters, "Escreva o motivo com pelo menos 10 letras."),
     }),
   )
   .handler(

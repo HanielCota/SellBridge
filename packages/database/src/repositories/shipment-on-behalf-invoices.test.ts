@@ -53,6 +53,22 @@ async function kindsOf(shipmentId: string) {
   return rows.map((row) => row.kind).toSorted();
 }
 
+async function remessaIdOf(shipmentId: string): Promise<string> {
+  const [remessa] = await database
+    .select({ id: shipmentInvoices.id })
+    .from(shipmentInvoices)
+    .where(
+      and(
+        eq(shipmentInvoices.shipmentId, shipmentId),
+        eq(shipmentInvoices.kind, "on_behalf_shipment"),
+      ),
+    );
+  if (remessa === undefined) {
+    throw new Error(`no remessa queued for parcel ${shipmentId}`);
+  }
+  return remessa.id;
+}
+
 async function findResellerNote(shipmentId: string, tenantId: string): Promise<void> {
   await database
     .insert(shipmentResellerInvoices)
@@ -260,10 +276,10 @@ describe("venda à ordem notes", () => {
 
     const ready = await findOnBehalfLabelParcels(database, { tenantId, orderId });
 
-    expect(waiting).toEqual([
+    expect(waiting).toMatchObject([
       { resellerNoteSource: null, remessaAuthorized: false, labelReleased: false },
     ]);
-    expect(ready).toEqual([
+    expect(ready).toMatchObject([
       { resellerNoteSource: "typed", remessaAuthorized: true, labelReleased: false },
     ]);
   });
@@ -295,6 +311,8 @@ describe("venda à ordem notes", () => {
 
     expect(parcels).toHaveLength(2);
     expect(parcels).toContainEqual({
+      shipmentId: expect.any(String) as unknown,
+      orderId: expect.any(String) as unknown,
       resellerNoteSource: null,
       remessaAuthorized: false,
       labelReleased: false,
@@ -322,7 +340,7 @@ describe("venda à ordem notes", () => {
       reason: "Bling do fornecedor fora do ar há 3 dias",
     });
     expect(state?.release?.byName).not.toBeNull();
-    expect(await findOnBehalfLabelParcels(database, { tenantId, orderId })).toEqual([
+    expect(await findOnBehalfLabelParcels(database, { tenantId, orderId })).toMatchObject([
       { resellerNoteSource: null, remessaAuthorized: false, labelReleased: true },
     ]);
   });
@@ -370,6 +388,89 @@ describe("venda à ordem notes", () => {
 
     expect(stale).toBe(false);
     expect(current).toBe(true);
+  });
+
+  it("drops a queued Mercado Livre remessa whose note went back to typed, and opens it again later", async () => {
+    const created = await createInvoiceScenario(database, {
+      supplierFiscal: { ...TEST_SUPPLIER_FISCAL, invoiceModel: "on_behalf" },
+      marketplace: "mercado_livre",
+    });
+    cleanups.push(created.cleanup);
+    await queueResellerSaleInvoices(database);
+    await findResellerNote(created.shipmentId, created.tenantId);
+    const uploaded = { source: "uploaded" as const };
+    const typed = { source: "typed" as const };
+    const ofParcel = eq(shipmentResellerInvoices.shipmentId, created.shipmentId);
+    await database.update(shipmentResellerInvoices).set(uploaded).where(ofParcel);
+    await queueOnBehalfInvoices(database);
+    const [remessa] = await database
+      .select({ id: shipmentInvoices.id })
+      .from(shipmentInvoices)
+      .where(
+        and(
+          eq(shipmentInvoices.shipmentId, created.shipmentId),
+          eq(shipmentInvoices.kind, "on_behalf_shipment"),
+        ),
+      );
+    await database.update(shipmentResellerInvoices).set(typed).where(ofParcel);
+
+    const claimed = await claimOnBehalfRemessaDraft(database, {
+      invoiceId: remessa?.id ?? "",
+      shipmentId: created.shipmentId,
+      citedAccessKey: RESELLER_KEY,
+      now: new Date(),
+    });
+    const afterClaim = await kindsOf(created.shipmentId);
+    await database.update(shipmentResellerInvoices).set(uploaded).where(ofParcel);
+    await queueOnBehalfInvoices(database);
+
+    expect(claimed).toBe(false);
+    expect(afterClaim).not.toContain("on_behalf_shipment");
+    expect(await kindsOf(created.shipmentId)).toContain("on_behalf_shipment");
+  });
+
+  it("lets only one run ask the ERP for the remessa", async () => {
+    const { shipmentId, tenantId } = await onBehalfScenario();
+    await queueResellerSaleInvoices(database);
+    await findResellerNote(shipmentId, tenantId);
+    await queueOnBehalfInvoices(database);
+    const claim = {
+      invoiceId: await remessaIdOf(shipmentId),
+      shipmentId,
+      citedAccessKey: RESELLER_KEY,
+      now: new Date(),
+    };
+    await claimOnBehalfRemessaDraft(database, claim);
+
+    const late = await claimOnBehalfRemessaDraft(database, claim);
+
+    expect(late).toBe(false);
+  });
+
+  it("keeps a remessa another run already asked of the ERP when the note went back to typed", async () => {
+    const created = await createInvoiceScenario(database, {
+      supplierFiscal: { ...TEST_SUPPLIER_FISCAL, invoiceModel: "on_behalf" },
+      marketplace: "mercado_livre",
+    });
+    cleanups.push(created.cleanup);
+    await queueResellerSaleInvoices(database);
+    await findResellerNote(created.shipmentId, created.tenantId);
+    const ofParcel = eq(shipmentResellerInvoices.shipmentId, created.shipmentId);
+    await database.update(shipmentResellerInvoices).set({ source: "uploaded" }).where(ofParcel);
+    await queueOnBehalfInvoices(database);
+    const claim = {
+      invoiceId: await remessaIdOf(created.shipmentId),
+      shipmentId: created.shipmentId,
+      citedAccessKey: RESELLER_KEY,
+      now: new Date(),
+    };
+    await claimOnBehalfRemessaDraft(database, claim);
+    await database.update(shipmentResellerInvoices).set({ source: "typed" }).where(ofParcel);
+
+    const late = await claimOnBehalfRemessaDraft(database, claim);
+
+    expect(late).toBe(false);
+    expect(await kindsOf(created.shipmentId)).toContain("on_behalf_shipment");
   });
 
   it("waits to open the remessa of a Mercado Livre order until its note is there", async () => {
