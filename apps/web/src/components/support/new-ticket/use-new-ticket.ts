@@ -93,7 +93,8 @@ function initialCategory(kind: ProfileKind, search: NewTicketSearch): TicketCate
  */
 function useTicketChoices(kind: ProfileKind, search: NewTicketSearch, onChange: () => void) {
   const [category, setCategory] = useState(() => initialCategory(kind, search));
-  const [situationId, setSituationId] = useState<string | undefined>(undefined);
+  // An unknown situation from the link finds nothing below, so the form simply asks for it.
+  const [situationId, setSituationId] = useState<string | undefined>(search.situacao);
   const topic = category === null ? undefined : findSupportTopic(kind, category);
   const situation = topic === undefined ? undefined : findSupportSituation(topic, situationId);
 

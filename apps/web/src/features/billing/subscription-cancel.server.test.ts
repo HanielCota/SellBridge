@@ -40,7 +40,7 @@ vi.mock("./billing-lock-database.server", () => ({
 vi.mock("./billing-config.server", () => ({ billingClient: () => mocks.client }));
 
 import { AsaasError } from "@sellbridge/payments/asaas";
-import { cancelSubscription } from "./subscription-cancel.server";
+import { cancelSubscription, quoteCancellation } from "./subscription-cancel.server";
 
 const input = { tenantId: "tenant-a", userId: "owner-a" };
 const PERIOD_END = new Date("2026-12-20T03:00:00Z");
@@ -96,6 +96,25 @@ beforeEach(() => {
 
 afterEach(() => {
   vi.useRealTimers();
+});
+
+describe("cancellation terms shown before confirming", () => {
+  it("says the upgrade difference stays when the plan went up after the first fee", async () => {
+    setToday("2026-11-20");
+    mocks.account.mockResolvedValue(account({ plan: "elite" }));
+
+    const terms = await quoteCancellation(input);
+
+    expect(terms).toMatchObject({ refundCents: 19_700, keepsUpgradeDifference: true });
+  });
+
+  it("says nothing about a difference while the plan is the one first paid for", async () => {
+    setToday("2026-11-20");
+
+    const terms = await quoteCancellation(input);
+
+    expect(terms).toMatchObject({ refundCents: 19_700, keepsUpgradeDifference: false });
+  });
 });
 
 describe("cancellation", () => {

@@ -1,0 +1,49 @@
+import { describe, expect, test } from "vitest";
+import { manualRefundDeadlineLine, manualRefundExplanation } from "./manual-refund-copy";
+
+// The last moment before a guarantee ending on 20/12/2026 (start of the day in Brasília).
+const LAST_MOMENT = new Date("2026-12-20T02:59:59.999Z");
+
+describe("manualRefundDeadlineLine", () => {
+  test("asks the team to give the money back by the last whole day", () => {
+    const line = manualRefundDeadlineLine(LAST_MOMENT, new Date("2026-12-19T20:00:00Z"));
+
+    expect(line).toEqual({
+      passed: false,
+      text: "Devolva até 19/12/2026. Depois dessa data o Asaas libera o valor ao fornecedor.",
+    });
+  });
+
+  test("says the money already went to the supplier once the deadline passed", () => {
+    const line = manualRefundDeadlineLine(LAST_MOMENT, new Date("2026-12-20T03:00:00Z"));
+
+    expect(line).toEqual({
+      passed: true,
+      text: "O prazo acabou em 19/12/2026 e o Asaas já liberou o valor ao fornecedor. Combine com ele como devolver ao revendedor.",
+    });
+  });
+});
+
+describe("manualRefundDeadlineLine without a guarantee", () => {
+  test("gives no date and keeps the steps while Asaas has not said until when it holds the money", () => {
+    const line = manualRefundDeadlineLine(null, new Date("2026-12-21T15:00:00Z"));
+
+    expect(line).toEqual({
+      passed: false,
+      text: "O Asaas ainda não informou até quando guarda o valor. Devolva assim que puder.",
+    });
+  });
+});
+
+describe("manualRefundExplanation", () => {
+  test("explains the missing free balance only for a Pix", () => {
+    expect(manualRefundExplanation(true)).toContain("A taxa do SellBridge já saiu dessa conta");
+  });
+
+  test("points to the reason Asaas gave for a card, without the Pix explanation", () => {
+    const text = manualRefundExplanation(false);
+
+    expect(text).toContain("no cartão");
+    expect(text).not.toContain("valor inteiro livre");
+  });
+});
