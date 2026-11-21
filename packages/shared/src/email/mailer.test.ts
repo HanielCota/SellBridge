@@ -6,10 +6,12 @@ const logs = vi.hoisted(() => ({
   error: vi.fn<(event: string, fields: Record<string, unknown>) => void>(),
 }));
 vi.mock("../runtime/logger.ts", () => ({ logger: logs }));
+import { unlimitedEmailQuota } from "./email-quota-testing.ts";
 import { createMailer } from "./mailer.ts";
 
 const email = { to: "fornecedor@exemplo.com.br", subject: "Novo pedido", text: "Olá" };
 const from = "SellBridge <no-reply@sellbridge.local>";
+const quota = unlimitedEmailQuota;
 
 beforeEach(() => {
   logs.info.mockReset();
@@ -28,7 +30,9 @@ async function failure(send: Promise<void>): Promise<AppError> {
 describe("createMailer", () => {
   it("prints the e-mail to the log in development when there is no key", async () => {
     const fetcher = vi.fn<typeof fetch>();
-    await createMailer({ apiKey: undefined, from, production: false, fetch: fetcher })(email);
+    await createMailer({ apiKey: undefined, from, production: false, quota, fetch: fetcher })(
+      email,
+    );
     expect(fetcher).not.toHaveBeenCalled();
     expect(logs.info).toHaveBeenCalledWith(
       "email.development_preview",
@@ -37,13 +41,15 @@ describe("createMailer", () => {
   });
 
   it("refuses to send in production without a key", async () => {
-    const error = await failure(createMailer({ apiKey: undefined, from, production: true })(email));
+    const error = await failure(
+      createMailer({ apiKey: undefined, from, production: true, quota })(email),
+    );
     expect(error.code).toBe("CONFIGURATION");
   });
 
   it("posts to Resend with the key and the sender, and never logs the recipient", async () => {
     const fetcher = vi.fn<typeof fetch>(async () => new Response("{}", { status: 200 }));
-    await createMailer({ apiKey: "re_test", from, production: true, fetch: fetcher })(email);
+    await createMailer({ apiKey: "re_test", from, production: true, quota, fetch: fetcher })(email);
     const [, init] = fetcher.mock.calls[0] ?? [];
     expect(new Headers(init?.headers).get("authorization")).toBe("Bearer re_test");
     expect(JSON.parse(typeof init?.body === "string" ? init.body : "")).toMatchObject({
@@ -57,7 +63,7 @@ describe("createMailer", () => {
     const fetcher = vi.fn<typeof fetch>(async () => new Response("{}", { status: 200 }));
     const attachment = { filename: "nfe-1234.xml", content: new TextEncoder().encode("<nfe/>") };
 
-    await createMailer({ apiKey: "re_test", from, production: true, fetch: fetcher })({
+    await createMailer({ apiKey: "re_test", from, production: true, quota, fetch: fetcher })({
       ...email,
       attachments: [attachment],
     });
@@ -75,7 +81,7 @@ describe("createMailer", () => {
   ])("tells whether a %s answer is worth retrying", async (status, retryable) => {
     const fetcher = vi.fn<typeof fetch>(async () => new Response("{}", { status }));
     const error = await failure(
-      createMailer({ apiKey: "re_test", from, production: true, fetch: fetcher })(email),
+      createMailer({ apiKey: "re_test", from, production: true, quota, fetch: fetcher })(email),
     );
     expect(error.code).toBe("EXTERNAL_PROVIDER");
     expect(error.details).toMatchObject({ retryable, status });
@@ -86,7 +92,7 @@ describe("createMailer", () => {
       throw new TypeError("fetch failed");
     });
     const error = await failure(
-      createMailer({ apiKey: "re_test", from, production: true, fetch: fetcher })(email),
+      createMailer({ apiKey: "re_test", from, production: true, quota, fetch: fetcher })(email),
     );
     expect(error.details).toMatchObject({ retryable: true, status: null });
   });
