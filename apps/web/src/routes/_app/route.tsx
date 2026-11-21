@@ -84,7 +84,7 @@ export const Route = createFileRoute("/_app")({
       throw redirect({ to: "/aceitar-termos", search: { redirect: location.href } });
     }
     // Contracts, section 1: a new profile, or a seller past the 30 days, signs before anything.
-    if (needsContractSigning(session)) {
+    if (needsContractSigning(session, isTeamPage(location.pathname))) {
       throw redirect({
         to: "/assinar-contrato",
         search: { redirect: location.href, perfil: session.profileSlug ?? undefined },
@@ -162,6 +162,7 @@ function SupportChatLauncher({ adminMode }: { adminMode: boolean }) {
 
 function AppLayout() {
   const { session } = Route.useRouteContext();
+  const pathname = useRouterState({ select: (state) => state.location.pathname });
   const navigation = useAppNavigation({
     user: session.user,
     adminMode: session.adminMode,
@@ -196,7 +197,7 @@ function AppLayout() {
             tabIndex={-1}
             className="mx-auto w-full max-w-[1440px] space-y-6 px-4 pt-4 pb-28 md:px-8 md:pt-8 md:pb-32"
           >
-            {showsSigningReminder(session) ? (
+            {showsSigningReminder(session, isTeamPage(pathname)) ? (
               <ContractReminder contract={session.contract} profileKind={session.profileKind} />
             ) : null}
             {session.profileKind === "seller" && !session.teamOnly ? <SetupReminder /> : null}

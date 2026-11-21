@@ -24,33 +24,33 @@ export function toSessionContract(standing: ContractStanding, kind: ProfileKind)
   return { standing: standing.kind, deadline, blocksPanel: signingBlocksPanel(standing, kind) };
 }
 
-/**
- * Whether the app sends the person to the signing screen. An admin visiting a customer is never
- * sent: signing is the customer's own act.
- */
-export function needsContractSigning(session: {
+interface GateSession {
   contract: SessionContract;
   impersonatedBy: string | null;
-}): boolean {
+}
+
+/**
+ * Whether the app sends the person to the signing screen. An admin visiting a customer is never
+ * sent (signing is the customer's own act), and the team pages never wait on a profile's
+ * contract: a team member with a store of their own keeps the team tools.
+ */
+export function needsContractSigning(session: GateSession, onTeamPage: boolean): boolean {
+  if (onTeamPage) {
+    return false;
+  }
   return session.contract.blocksPanel && session.impersonatedBy === null;
 }
 
-/** Whether the strip with the deadline shows above the pages. */
-export function showsSigningReminder(session: {
-  contract: SessionContract;
-  impersonatedBy: string | null;
-}): boolean {
-  if (session.impersonatedBy !== null || session.contract.blocksPanel) {
+/** Whether the strip with the deadline shows above the pages (never on the team pages). */
+export function showsSigningReminder(session: GateSession, onTeamPage: boolean): boolean {
+  if (onTeamPage || session.impersonatedBy !== null || session.contract.blocksPanel) {
     return false;
   }
   return session.contract.standing === "grace" || session.contract.standing === "overdue";
 }
 
 /** Whether the signing screen opens: something to sign, and the customer, not a team visit. */
-export function sessionMaySign(session: {
-  contract: SessionContract;
-  impersonatedBy: string | null;
-}): boolean {
+export function sessionMaySign(session: GateSession): boolean {
   if (session.impersonatedBy !== null) {
     return false;
   }
