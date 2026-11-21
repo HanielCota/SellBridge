@@ -39,6 +39,16 @@ export function formatAbsoluteTime(date: Date): string {
   return absolute.format(date);
 }
 
+const shortDate = new Intl.DateTimeFormat("pt-BR", {
+  dateStyle: "short",
+  timeZone: REPORT_TIME_ZONE,
+});
+
+/** A day as "21/12/2026", in Brazil time: for deadlines written inside a sentence. */
+export function formatShortDate(date: Date): string {
+  return shortDate.format(date);
+}
+
 const clock = new Intl.DateTimeFormat("pt-BR", {
   hour: "2-digit",
   minute: "2-digit",
