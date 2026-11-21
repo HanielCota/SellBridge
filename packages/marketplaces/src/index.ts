@@ -54,4 +54,12 @@ export {
   type MarketplaceClaim,
   type MarketplaceClaimReturn,
 } from "./mercado-livre/claims.ts";
+export {
+  answerMercadoLivreQuestion,
+  MAX_QUESTION_ANSWER_LENGTH,
+  readMercadoLivreQuestion,
+  searchMercadoLivreUnansweredQuestions,
+  type MarketplaceQuestion,
+  type MarketplaceQuestionStatus,
+} from "./mercado-livre/questions.ts";
 export { parseMercadoLivreNotice, type MercadoLivreNotice } from "./mercado-livre/webhook.ts";
