@@ -23,6 +23,7 @@ import { errorMessage } from "@/lib/errors";
 import { formatAbsoluteTime } from "@/lib/relative-time";
 import { prefetchOnServer } from "@/lib/prefetch";
 import { HeldPaymentDecision } from "@/components/admin-problems/held-payment-decision";
+import { ManualRefundGuide } from "@/components/admin-problems/manual-refund-guide";
 
 type ProblemDetail = Awaited<ReturnType<typeof adminGetProblem>>;
 
@@ -234,6 +235,9 @@ function ProblemBody({ problem }: { problem: ProblemDetail }) {
       </div>
       {problem.heldPaymentId === null ? null : (
         <HeldPaymentDecision shipmentPaymentId={problem.heldPaymentId} />
+      )}
+      {problem.manualRefundId === null ? null : (
+        <ManualRefundGuide shipmentPaymentId={problem.manualRefundId} />
       )}
       <ProblemFacts problem={problem} />
       <TechnicalDetails problem={problem} />

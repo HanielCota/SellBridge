@@ -39,6 +39,7 @@ import type {
   SupplierPaymentAccount,
 } from "@sellbridge/database/repositories";
 import { logger } from "@sellbridge/shared/logger";
+import { formatCents } from "@sellbridge/shared/money";
 import {
   AsaasAccountKeyMissingError,
   openAsaasAccount,
@@ -255,11 +256,13 @@ describe("settleHeldPayment", () => {
     expect(requests).toHaveLength(0);
   });
 
-  test("hands a refused refund to the team", async () => {
+  test("hands a Pix refund Asaas refuses for lack of free balance to the team, with the deadline", async () => {
     mocks.requestRefund.mockResolvedValue(parcel({ refundRequestedAt: NOW }));
     mocks.markRefundFailed.mockResolvedValue(true);
+    // What Asaas answers for a Pix whose fee and split left the account (sandbox, 20/11/2026).
+    const refusal = "Não é possível efetuar o estorno pois não há saldo suficiente.";
     replies = [
-      { status: 400, body: { errors: [{ code: "x", description: "Saldo insuficiente." }] } },
+      { status: 400, body: { errors: [{ code: "invalid_action", description: refusal }] } },
     ];
     const errors = vi.spyOn(logger, "error").mockImplementation(() => {});
 
@@ -271,7 +274,14 @@ describe("settleHeldPayment", () => {
 
     expect(outcome).toEqual({ kind: "refund_refused" });
     expect(mocks.markRefundFailed).toHaveBeenCalledOnce();
-    expect(errors).toHaveBeenCalledWith("asaas.refund_refused", expect.anything());
+    expect(errors).toHaveBeenCalledWith(
+      "asaas.refund_refused",
+      expect.objectContaining({
+        reason: `Devolução manual: o Asaas não devolveu sozinho ${formatCents(10_000)} pagos por Pix. Alguém da equipe devolve ao revendedor pelo Asaas até 20/12/2026; depois disso o valor vai para o fornecedor.`,
+        refusal,
+        shipmentPaymentId: PAYMENT_ID,
+      }),
+    );
   });
 
   test("follows the team's refund for a held payment", async () => {

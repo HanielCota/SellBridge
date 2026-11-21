@@ -1,10 +1,13 @@
 import {
+  findManualRefundCase,
+  findOpenSupportTicketForOrder,
   findShipmentPaymentById,
   getNewSupplierRule,
   recordTeamDecision,
   setNewSupplierRule,
   type ShipmentPayment,
 } from "@sellbridge/database/repositories";
+import { manualRefundDeadline } from "@sellbridge/payments/asaas";
 import { notFoundError, validationError } from "@sellbridge/shared/errors";
 import { logger } from "@sellbridge/shared/logger";
 import { database } from "@/lib/server/database";
@@ -34,6 +37,35 @@ export async function loadHeldPaymentDecision(shipmentPaymentId: string) {
     released: payment.releasedAt !== null,
     releasesItselfAt: payment.escrowExpiresAt?.toISOString() ?? null,
     refunded: payment.status === "refunded" || payment.refundRequestedAt !== null,
+  };
+}
+
+/**
+ * What the Problemas page shows for a refund Asaas refused: the team gives the money back by
+ * hand, so it reads how much, to whom, from which supplier account, until when, and the ticket
+ * the reseller opened about the order.
+ */
+export async function loadManualRefund(shipmentPaymentId: string) {
+  const found = await findManualRefundCase(database, shipmentPaymentId);
+  if (found?.payment.provider !== "asaas") {
+    throw notFoundError("Pagamento não encontrado.");
+  }
+  const { payment } = found;
+  const ticketId = await findOpenSupportTicketForOrder(database, {
+    tenantId: found.tenantId,
+    orderId: found.orderId,
+  });
+  return {
+    amountCents: payment.amountCents,
+    platformFeeCents: payment.platformFeeCents,
+    paidByPix: payment.paymentMethod === "PIX",
+    chargeId: payment.providerPaymentId,
+    orderNumber: found.orderNumber,
+    resellerName: found.resellerName,
+    supplierName: found.supplierName,
+    deadline: manualRefundDeadline(payment, new Date()).toISOString(),
+    ticketId,
+    refunded: payment.status === "refunded",
   };
 }
 

@@ -339,9 +339,24 @@ function deleteCharge(charge: Charge, response: ServerResponse): void {
   json(response, 200, { deleted: true, id: charge.id });
 }
 
+/**
+ * Like the real Asaas (sandbox, 20/11/2026): a refund needs the whole amount free in the account.
+ * Of a Pix, the fee and the split have left and the rest sits in the guarantee, so nothing is.
+ */
+function lacksFreeBalance(charge: Charge): boolean {
+  if (charge.billingType !== "PIX") {
+    return false;
+  }
+  return charge.split != null || charge.escrow?.status === "ACTIVE";
+}
+
 function refundCharge(charge: Charge, response: ServerResponse): void {
   if (charge.status !== "RECEIVED" && charge.status !== "CONFIRMED") {
     refuse(response, 400, "Esta cobrança não pode ser estornada.");
+    return;
+  }
+  if (lacksFreeBalance(charge)) {
+    refuse(response, 400, "Não é possível efetuar o estorno pois não há saldo suficiente.");
     return;
   }
   const escrow =

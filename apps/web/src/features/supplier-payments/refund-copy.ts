@@ -1,4 +1,5 @@
 import { formatCents } from "@sellbridge/shared/money";
+import { formatDeadlineDay } from "@/lib/relative-time";
 import type {
   ShipmentPaymentRefundReason,
   SupplierPaymentBadge,
@@ -16,8 +17,29 @@ const GATEWAY_NAMES = { mercado_pago: "Mercado Pago", asaas: "Asaas" } as const;
 
 export interface RefundView {
   reason: ShipmentPaymentRefundReason | null;
-  /** Mercado Pago refused the refund: the team takes it from here. */
+  /** The provider refused the refund: the team takes it from here. */
   failed: boolean;
+}
+
+/** A refund the team makes by hand, asked for through a support ticket. */
+export interface ManualRefundView {
+  /** The ticket already open about the order, or null while the reseller has not asked. */
+  ticketId: string | null;
+  /** The day Asaas stops holding the money (ISO), or null when unknown. */
+  askUntil: string | null;
+}
+
+/** Who gives the money back, and what the reseller does next: ask, or follow the ticket. */
+function manualRefundSentence(manual: ManualRefundView, amount: string, now: Date): string {
+  const who = `Quem devolve os ${amount} é a equipe do SellBridge.`;
+  if (manual.ticketId !== null) {
+    return `${who} Seu pedido de devolução já está com a equipe: a resposta chega no chamado.`;
+  }
+  if (manual.askUntil === null) {
+    return `${who} Peça a devolução pelo botão abaixo.`;
+  }
+  const day = formatDeadlineDay(new Date(manual.askUntil), now);
+  return `${who} Peça a devolução pelo botão abaixo até ${day}: depois dessa data o Asaas libera o valor ao fornecedor.`;
 }
 
 function withReason(reason: ShipmentPaymentRefundReason | null, sentence: string): string {
@@ -37,6 +59,9 @@ export function resellerRefundText(input: {
   amountCents: number;
   /** The gateway the payment went through; Mercado Pago when not said. */
   provider?: keyof typeof GATEWAY_NAMES | null;
+  /** Set when the team gives the money back by hand. */
+  manualRefund?: ManualRefundView | null;
+  now?: Date;
 }): string | null {
   const { badge, refund } = input;
   const amount = formatCents(input.amountCents);
@@ -49,6 +74,12 @@ export function resellerRefundText(input: {
   }
   if (badge.kind !== "refunding" || refund === null) {
     return null;
+  }
+  if (refund.failed && input.manualRefund != null) {
+    return withReason(
+      refund.reason,
+      manualRefundSentence(input.manualRefund, amount, input.now ?? new Date()),
+    );
   }
   if (refund.failed) {
     return withReason(

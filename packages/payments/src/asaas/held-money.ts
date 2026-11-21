@@ -8,6 +8,7 @@ import {
   type SupplierPaymentAccount,
 } from "@sellbridge/database/repositories";
 import {
+  ESCROW_SAFETY_DEADLINE_IN_DAYS,
   escrowActionFor,
   escrowNeedsAttention,
   type EscrowAction,
@@ -143,6 +144,34 @@ async function refund(
   return { kind: "refund_requested", reason: input.reason };
 }
 
+const DAY_IN_MS = 24 * 60 * 60 * 1000;
+const DEADLINE_DAY = new Intl.DateTimeFormat("pt-BR", {
+  day: "2-digit",
+  month: "2-digit",
+  year: "numeric",
+  timeZone: "America/Sao_Paulo",
+});
+const PAID_BY: Readonly<Record<string, string>> = { PIX: " por Pix", CREDIT_CARD: " no cartão" };
+
+/**
+ * The day Asaas stops holding the money and hands it to the supplier: the guarantee's own
+ * deadline, or the longest it lasts counted from the payment.
+ */
+export function manualRefundDeadline(payment: ShipmentPayment, now: Date): Date {
+  if (payment.escrowExpiresAt !== null) {
+    return payment.escrowExpiresAt;
+  }
+  const from = payment.paidAt ?? now;
+  return new Date(from.getTime() + ESCROW_SAFETY_DEADLINE_IN_DAYS * DAY_IN_MS);
+}
+
+/** What the team reads on Problemas: this refund is theirs to make by hand, and until when. */
+function manualRefundReason(payment: ShipmentPayment, now: Date): string {
+  const paidBy = PAID_BY[payment.paymentMethod ?? ""] ?? "";
+  const day = DEADLINE_DAY.format(manualRefundDeadline(payment, now));
+  return `Devolução manual: o Asaas não devolveu sozinho ${formatCents(payment.amountCents)} pagos${paidBy}. Alguém da equipe devolve ao revendedor pelo Asaas até ${day}; depois disso o valor vai para o fornecedor.`;
+}
+
 async function refundRefused(context: AsaasContext, held: HeldPayment, why: string, now: Date) {
   const first = await markShipmentPaymentRefundFailed(context.database, {
     paymentId: held.payment.id,
@@ -151,9 +180,12 @@ async function refundRefused(context: AsaasContext, held: HeldPayment, why: stri
   });
   if (first) {
     logger.error("asaas.refund_refused", {
-      reason: `O Asaas não aceitou devolver ${formatCents(held.payment.amountCents)} ao revendedor: ${why}`,
+      reason: manualRefundReason(held.payment, now),
       problemKey: held.payment.id,
+      refusal: why,
       shipmentPaymentId: held.payment.id,
+      shipmentId: held.payment.shipmentId,
+      supplierId: held.payment.supplierId,
       tenantId: held.tenantId,
       orderId: held.orderId,
     });

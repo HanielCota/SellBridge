@@ -1,5 +1,6 @@
 import {
   disconnectSupplierPaymentAccount,
+  findOpenSupportTicketForOrder,
   findPayableShipment,
   findPreparationHold,
   findShipmentPayment,
@@ -160,7 +161,32 @@ function checkoutRefusal(payable: PayableShipment, linked: boolean): string | nu
   return null;
 }
 
-/** Why SellBridge gave (or is giving) the reseller's money back, and whether Mercado Pago refused. */
+/**
+ * A refund Asaas refused is made by the team by hand, and the reseller asks for it through a
+ * support ticket: the order to open it about, the ticket already open on it, and the day Asaas
+ * stops holding the money. Null for every other payment.
+ */
+async function manualRefundView(tenantId: string, payable: PayableShipment) {
+  const { payment } = payable;
+  if (payment?.provider !== "asaas" || payment.status !== "approved") {
+    return null;
+  }
+  if (payment.refundFailedAt === null) {
+    return null;
+  }
+  const ticketId = await findOpenSupportTicketForOrder(database, {
+    tenantId,
+    orderId: payable.orderId,
+  });
+  return {
+    orderId: payable.orderId,
+    orderName: payable.externalOrderId,
+    ticketId,
+    askUntil: payment.escrowExpiresAt?.toISOString() ?? null,
+  };
+}
+
+/** Why SellBridge gave (or is giving) the reseller's money back, and whether the provider refused. */
 function refundView(payment: ShipmentPayment | null) {
   if (payment?.refundRequestedAt == null) {
     return null;
@@ -202,8 +228,13 @@ export async function loadResellerSupplierPayment(input: { tenantId: string; shi
         };
   const badge = badgeFor(summary, linked);
   const refusal = checkoutRefusal(payable, linked);
-  const preparationHold = await findPreparationHold(database, input.shipmentId);
+  const [preparationHold, manualRefund] = await Promise.all([
+    findPreparationHold(database, input.shipmentId),
+    manualRefundView(input.tenantId, payable),
+  ]);
   return {
+    /** The team gives this payment back by hand; the reseller asks through a ticket. */
+    manualRefund,
     /** Why the supplier may not prepare the parcel yet; null when it may. */
     preparationHold,
     amountCents: shownAmountCents(payable, badge),
