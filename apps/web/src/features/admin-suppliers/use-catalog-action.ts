@@ -2,6 +2,9 @@ import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { errorMessage } from "@/lib/errors";
 
+/** Long enough to read the notice and reach "Desfazer" (WCAG 2.2.1). */
+const UNDO_NOTICE_MILLISECONDS = 10_000;
+
 /**
  * Runs a catalog write, says what it did and refreshes the catalog views. With `undoInput`, the
  * notice offers "Desfazer", which runs the same action with the input it returns.
@@ -21,7 +24,10 @@ export function useCatalogAction<TInput, TResult>(
         typeof message === "string" ? message : message(result),
         undo === null
           ? undefined
-          : { action: { label: "Desfazer", onClick: () => mutation.mutate(undo) } },
+          : {
+              duration: UNDO_NOTICE_MILLISECONDS,
+              action: { label: "Desfazer", onClick: () => mutation.mutate(undo) },
+            },
       );
       if (
         typeof result === "object" &&

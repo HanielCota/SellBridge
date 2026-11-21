@@ -28,6 +28,9 @@ import { roleChangeConfirmation, roleChangedMessage } from "@/features/admin/rol
 import { useAdminAction } from "@/features/admin/use-admin-action";
 import { errorMessage } from "@/lib/errors";
 
+/** Long enough to read the notice and reach "Desfazer" (WCAG 2.2.1). */
+const UNDO_NOTICE_MILLISECONDS = 10_000;
+
 interface AccessProps {
   userId: string;
   /** Names the person in the role question and notice. */
@@ -86,6 +89,7 @@ function useRoleChange(userId: string, name: string, onSaved: () => void) {
         previous === undefined
           ? undefined
           : {
+              duration: UNDO_NOTICE_MILLISECONDS,
               action: {
                 label: "Desfazer",
                 onClick: () => mutation.mutate({ next: previous, previous: change.next }),
