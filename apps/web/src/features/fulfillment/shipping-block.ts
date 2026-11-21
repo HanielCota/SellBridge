@@ -17,16 +17,40 @@ export interface SaleStopNotice {
   description: string;
 }
 
+/** Parcels already with the carrier: a cancelled sale brings them back as a return. */
+const ON_THE_WAY_STATUSES: ReadonlySet<string> = new Set(["shipped", "not_delivered"]);
+
 /**
  * What the supplier reads when the sale stops its parcel: a cancelled sale is final (do not ship),
- * an unpaid or returned one is something to talk over with the reseller. Null when it ships.
+ * an unpaid or returned one is something to talk over with the reseller. A parcel that had already
+ * left comes back as a return; one delivered or back is settled. Null when nothing stops it.
  */
-export function saleStopNotice(orderStatus: string): SaleStopNotice | null {
+export function saleStopNotice(
+  orderStatus: string,
+  parcelStatus: string,
+  where: "panel" | "link" = "panel",
+): SaleStopNotice | null {
+  if (orderStatus === "cancelled" && ON_THE_WAY_STATUSES.has(parcelStatus)) {
+    return {
+      title: "Venda cancelada depois do envio",
+      description:
+        "O pacote já tinha saído. Ele volta para você como devolução: acompanhe pelo rastreio.",
+    };
+  }
+  if (
+    orderStatus === "cancelled" &&
+    (parcelStatus === "delivered" || parcelStatus === "returned")
+  ) {
+    return null;
+  }
   if (orderStatus === "cancelled") {
     return {
       title: "Venda cancelada: não envie",
+      // Only the panel has an "Encerrados" tab to point at.
       description:
-        "O pedido foi cancelado e passou para Encerrados. O prazo não conta mais. Se você já separou o produto, devolva ao estoque.",
+        where === "panel"
+          ? "O pedido foi cancelado e passou para Encerrados. O prazo não conta mais. Se você já separou o produto, devolva ao estoque."
+          : "O pedido foi cancelado. O prazo não conta mais. Se você já separou o produto, devolva ao estoque.",
     };
   }
   if (isShippingBlocked(orderStatus)) {

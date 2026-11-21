@@ -309,7 +309,7 @@ function PanelBody({ supplierId, shipmentId }: { supplierId: string; shipmentId:
   if (query.isError) {
     return <ErrorState message={errorMessage(query.error)} onRetry={() => void query.refetch()} />;
   }
-  const saleStop = saleStopNotice(query.data.orderStatus);
+  const saleStop = saleStopNotice(query.data.orderStatus, query.data.status);
   const hold = query.data.preparationHold;
   const blocked = isPreparationStopped(query.data);
   const tracked = DISPATCHED_FULFILLMENT_STATUSES.includes(query.data.status);
