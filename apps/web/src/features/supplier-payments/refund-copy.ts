@@ -52,8 +52,8 @@ export const CARD_REFUND_TIMING =
   "O estorno aparece na fatura do cartão em até 10 dias úteis, ou na fatura seguinte se a atual já fechou.";
 
 /** The card and Pix words of every payment method Asaas and Mercado Pago report. */
-const CARD_METHODS: ReadonlySet<string> = new Set(["CREDIT_CARD", "credit_card"]);
-const PIX_METHODS: ReadonlySet<string> = new Set(["PIX", "pix", "bank_transfer"]);
+export const CARD_METHODS: ReadonlySet<string> = new Set(["CREDIT_CARD", "credit_card"]);
+export const PIX_METHODS: ReadonlySet<string> = new Set(["PIX", "pix", "bank_transfer"]);
 
 /** How the money is coming back, said by the way it was paid. */
 function refundUnderWaySentence(input: {
@@ -66,7 +66,7 @@ function refundUnderWaySentence(input: {
     return `Estamos devolvendo ${amount} no seu cartão pelo ${gateway}. ${CARD_REFUND_TIMING}`;
   }
   if (paymentMethod !== null && PIX_METHODS.has(paymentMethod) && gateway === "Asaas") {
-    return `Estamos devolvendo ${amount} para você por Pix, pelo Asaas. Se o Asaas não devolver sozinho, a equipe do SellBridge devolve, e o botão para pedir aparece aqui.`;
+    return `Estamos devolvendo ${amount} para você por Pix, pelo Asaas. Se o Asaas não devolver sozinho, a equipe do SellBridge cuida da devolução.`;
   }
   return `Estamos devolvendo ${amount} para você pelo ${gateway}.`;
 }

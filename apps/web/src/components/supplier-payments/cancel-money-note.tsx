@@ -1,4 +1,5 @@
 import { WalletIcon } from "@phosphor-icons/react";
+import type { FulfillmentStatus } from "@sellbridge/shared/schemas";
 import { useQuery } from "@tanstack/react-query";
 import { cancelMoneyNote } from "@/features/supplier-payments/cancel-money-note";
 import { resellerSupplierPaymentQueryOptions } from "@/features/supplier-payments/supplier-payments.queries";
@@ -9,7 +10,7 @@ export function CancelMoneyNote({
   parcelStatus,
 }: {
   shipmentId: string;
-  parcelStatus: string;
+  parcelStatus: FulfillmentStatus;
 }) {
   const query = useQuery(resellerSupplierPaymentQueryOptions(shipmentId));
   if (query.data === undefined) {
@@ -19,6 +20,7 @@ export function CancelMoneyNote({
     badge: query.data.badge,
     amountCents: query.data.amountCents,
     paymentMethod: query.data.paymentMethod,
+    provider: query.data.provider,
     parcelStatus,
   });
   if (note === null) {

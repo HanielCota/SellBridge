@@ -11,11 +11,12 @@ describe("cancelMoneyNote", () => {
       badge: paid,
       amountCents: 8990,
       paymentMethod: "PIX",
+      provider: "asaas",
       parcelStatus: "forwarded",
     });
 
     expect(note).toBe(
-      `Os ${AMOUNT} pagos ao fornecedor voltam para você por Pix, pelo Asaas. Se o Asaas não devolver sozinho, a equipe do SellBridge devolve, e o pedido mostra o botão para pedir.`,
+      `Os ${AMOUNT} pagos ao fornecedor voltam para você por Pix, pelo Asaas. Se o Asaas não devolver sozinho, a equipe do SellBridge cuida da devolução.`,
     );
   });
 
@@ -24,6 +25,7 @@ describe("cancelMoneyNote", () => {
       badge: paid,
       amountCents: 8990,
       paymentMethod: "CREDIT_CARD",
+      provider: "asaas",
       parcelStatus: "forwarded",
     });
 
@@ -36,6 +38,7 @@ describe("cancelMoneyNote", () => {
       badge: paid,
       amountCents: 8990,
       paymentMethod: "CREDIT_CARD",
+      provider: "asaas",
       parcelStatus: "picking",
     });
 
@@ -47,6 +50,7 @@ describe("cancelMoneyNote", () => {
       badge: { kind: "waiting" },
       amountCents: 8990,
       paymentMethod: null,
+      provider: null,
       parcelStatus: "forwarded",
     });
 
