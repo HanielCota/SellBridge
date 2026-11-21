@@ -13,6 +13,7 @@ export const ISSUE_KIND_LABELS: Record<CustomerIssueKind, string> = {
   ticket: "Chamados aguardando",
   onboarding: "Primeiros passos parados",
   cooling: "Vendas em queda",
+  courtesy: "Cortesia acabando",
 };
 
 export interface IssueCopy {
@@ -67,6 +68,15 @@ function coolingCopy(issue: Extract<CustomerIssue, { kind: "cooling" }>): IssueC
   };
 }
 
+function courtesyCopy(issue: Extract<CustomerIssue, { kind: "courtesy" }>): IssueCopy {
+  const left = issue.daysLeft === 1 ? "amanhã" : `em ${issue.daysLeft} dias`;
+  return {
+    title: `Plano sem cobrança acaba ${left}`,
+    description: "Mude a data para renovar. Sem isso, a conta fica sem plano.",
+    badge: `Cortesia acaba ${left}`,
+  };
+}
+
 /** One line about a customer: their most urgent problem, else what is left to set up. */
 export function healthHeadline(health: CustomerHealth): string {
   const [issue] = health.issues;
@@ -96,6 +106,9 @@ export function describeIssue(issue: CustomerIssue): IssueCopy {
   }
   if (issue.kind === "onboarding") {
     return onboardingCopy(issue);
+  }
+  if (issue.kind === "courtesy") {
+    return courtesyCopy(issue);
   }
   return coolingCopy(issue);
 }

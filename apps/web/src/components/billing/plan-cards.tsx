@@ -1,6 +1,7 @@
 import type { BillingPlan, BillingPlanId } from "@sellbridge/shared/billing";
 import { formatCents } from "@sellbridge/shared/money";
 import { CheckIcon, HeadsetIcon } from "@phosphor-icons/react";
+import { Link } from "@tanstack/react-router";
 import { useState } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -21,6 +22,7 @@ import {
   paymentToFix,
   priceOf,
   useBillingAction,
+  usesCourtesyPlan,
   type BillingData,
 } from "./billing-data";
 import { PaymentMethodDialog, PlanChangeDialog, type PaymentMethod } from "./billing-dialogs";
@@ -98,6 +100,7 @@ type PlanCardState =
   | { kind: "off" }
   | { kind: "in_use" }
   | { kind: "starts"; on: string }
+  | { kind: "courtesy" }
   | { kind: "button"; label: string; reason: string | null };
 
 function blockedReason(data: BillingData, live: boolean): string | null {
@@ -107,6 +110,7 @@ function blockedReason(data: BillingData, live: boolean): string | null {
 }
 
 function planCardState(plan: BillingPlan, data: BillingData, isCurrent: boolean): PlanCardState {
+  if (usesCourtesyPlan(data)) return isCurrent ? { kind: "in_use" } : { kind: "courtesy" };
   if (!data.enabled) return { kind: "off" };
   const live = hasLiveSubscription(data);
   const scheduled = data.subscription?.scheduledPlan ?? null;
@@ -138,6 +142,17 @@ function PlanAction({
     return <p className="text-sm text-muted-foreground">Disponível quando a cobrança começar</p>;
   }
   if (state.kind === "in_use") return <StatusTile>Plano em uso</StatusTile>;
+  if (state.kind === "courtesy") {
+    return (
+      <p className="text-sm text-muted-foreground">
+        Seu plano é cortesia. Para mudar,{" "}
+        <Link to="/suporte/novo" className="font-medium text-foreground underline">
+          fale com o suporte
+        </Link>
+        .
+      </p>
+    );
+  }
   if (state.kind === "starts") return <StatusTile>{`Começa em ${state.on}`}</StatusTile>;
   const button = (
     <Button

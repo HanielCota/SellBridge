@@ -22,6 +22,7 @@ import {
   planById,
   useBillingAction,
   useBillingData,
+  usesCourtesyPlan,
   type BillingData,
 } from "./billing-data";
 import { PaymentMethodDialog, type PaymentMethod } from "./billing-dialogs";
@@ -32,6 +33,7 @@ type Subscription = NonNullable<BillingData["subscription"]>;
 
 function SubscriptionBadge({ data }: { data: BillingData }) {
   const { subscription } = data;
+  if (usesCourtesyPlan(data)) return <Badge>Cortesia, sem cobrança</Badge>;
   if (subscription === null || data.access.kind !== "plan") return null;
   if (subscription.status === "past_due") {
     return <Badge variant="destructive">Pagamento pendente</Badge>;
@@ -91,6 +93,29 @@ function subscriptionLines(subscription: Subscription, live: boolean): string[] 
   const scheduled = planById(subscription.scheduledPlan);
   if (scheduled !== null && subscription.scheduledPlanAt !== null) {
     lines.push(`O ${scheduled.name} começa em ${dateLabel(subscription.scheduledPlanAt)}.`);
+  }
+  return lines;
+}
+
+/** What a courtesy plan means for the account: no charge, until when, and what comes after. */
+function courtesyLines(data: BillingData): string[] {
+  const { courtesy } = data;
+  if (courtesy === null) return [];
+  const plan = planById(courtesy.planId);
+  const until =
+    courtesy.expiresAt === null
+      ? "sem data para acabar"
+      : `até ${lastDayLabel(courtesy.expiresAt)}`;
+  if (!usesCourtesyPlan(data)) {
+    return plan === null
+      ? []
+      : [`Quando o mês pago acabar, você continua no plano ${plan.name} por cortesia, ${until}.`];
+  }
+  const lines = [
+    `Este plano é uma cortesia do SellBridge: você não paga mensalidade. Vale ${until}.`,
+  ];
+  if (data.access.kind === "transition") {
+    lines.push(`Os limites do plano começam em ${dateLabel(data.access.until)}.`);
   }
   return lines;
 }
@@ -189,7 +214,8 @@ function CurrentPlan({ data, askCancel }: { data: BillingData; askCancel: boolea
   // Without a plan the limits are zero: "0 de 0 lojas" says nothing, so show the usage alone.
   const limits = data.access.kind === "none" ? null : data.access.limits;
   const live = hasLiveSubscription(data);
-  const lines = data.subscription === null ? [] : subscriptionLines(data.subscription, live);
+  const paidLines = data.subscription === null ? [] : subscriptionLines(data.subscription, live);
+  const lines = [...courtesyLines(data), ...paidLines];
   return (
     <Card>
       <CardHeader>
