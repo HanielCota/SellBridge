@@ -68,9 +68,16 @@ export function onBehalfLabelRefusal(
   if (reason === null) {
     return null;
   }
+  // A ready parcel of this order is held too, but only the parcels still waiting block the label.
+  const blocking = held.filter((parcel) => blocksLabel(parcel, marketplace));
   const onlyOtherOrders =
-    orderId !== undefined && held.every((parcel) => parcel.orderId !== orderId);
+    orderId !== undefined && blocking.every((parcel) => parcel.orderId !== orderId);
   return onlyOtherOrders ? `${OTHER_ORDER_OF_CART}${reason}` : reason;
+}
+
+function blocksLabel(parcel: OnBehalfLabelParcel, marketplace: string): boolean {
+  const notOnMarketplace = marketplace === "mercado_livre" && parcel.resellerNoteSource === "typed";
+  return parcel.resellerNoteSource === null || notOnMarketplace || !parcel.remessaAuthorized;
 }
 
 /** The label of a Mercado Livre cart is one for all its orders. */

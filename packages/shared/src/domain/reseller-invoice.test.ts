@@ -113,6 +113,27 @@ describe("onBehalfLabelRefusal", () => {
     expect(refusal).toMatch(/nota de remessa do fornecedor/);
   });
 
+  it("says the hold comes from another order of the cart when this one is ready but not released", () => {
+    const refusal = onBehalfLabelRefusal(
+      [
+        { ...IDS, resellerNoteSource: "uploaded", remessaAuthorized: true, labelReleased: false },
+        {
+          shipmentId: "parcel-b",
+          orderId: "order-b",
+          resellerNoteSource: "uploaded",
+          remessaAuthorized: false,
+          labelReleased: false,
+        },
+      ],
+      "mercado_livre",
+      "order-a",
+    );
+
+    expect(refusal).toMatch(
+      /^Este pedido está pronto, mas a etiqueta do Mercado Livre é a mesma do carrinho/,
+    );
+  });
+
   it("keeps the plain reason when this order itself still waits", () => {
     const refusal = onBehalfLabelRefusal(
       [{ ...IDS, resellerNoteSource: null, remessaAuthorized: false, labelReleased: false }],
