@@ -9,7 +9,7 @@ import { formatDayHeading } from "@/features/reports/financial-rows";
 import { cn } from "@/lib/utils";
 
 const FEES_HINT =
-  "Comissão do marketplace pela venda, com o frete que você pagou ao Mercado Livre.";
+  "Taxas do marketplace sobre a venda, com o frete que você pagou ao Mercado Livre.";
 
 function ordersLine(summary: SalesSummary): string {
   const parts = [`${summary.orders} ${summary.orders === 1 ? "pedido" : "pedidos"}`];
