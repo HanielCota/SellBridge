@@ -14,6 +14,7 @@ import {
   type getResellerSupplierPaymentFn,
   startSupplierCheckoutFn,
 } from "@/features/supplier-payments/supplier-payments.functions";
+import { showsProtectionSeal } from "@/features/supplier-payments/protection-seal";
 import { resellerRefundText } from "@/features/supplier-payments/refund-copy";
 import { resellerSupplierPaymentQueryOptions } from "@/features/supplier-payments/supplier-payments.queries";
 import { SUPPORT_HOURS_TEXT } from "@/features/support/response-time";
@@ -238,11 +239,7 @@ export function ResellerSupplierPayment({ shipmentId }: { shipmentId: string }) 
         <span className="text-sm text-muted-foreground">Pagamento ao fornecedor</span>
         <SupplierPaymentBadgeView badge={view.badge} paidWord="Fornecedor pago" />
       </div>
-      {view.protectedPayment &&
-      view.badge.kind !== "refunded" &&
-      view.manualRefund?.releasedToSupplier !== true ? (
-        <ProtectedSeal />
-      ) : null}
+      {showsProtectionSeal(view) ? <ProtectedSeal /> : null}
       {view.canPay ? (
         <>
           <p className="flex items-baseline gap-1.5">
