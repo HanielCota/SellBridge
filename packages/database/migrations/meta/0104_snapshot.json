@@ -1,5 +1,5 @@
 {
-  "id": "ca56e121-fdf4-4771-980f-998137416cec",
+  "id": "b790423e-2e27-424a-bdf9-8d1663cb55fb",
   "prevId": "5e5d50cf-c914-4e4c-b548-31b516b40d9e",
   "version": "7",
   "dialect": "postgresql",
@@ -1124,19 +1124,6 @@
           "onDelete": "cascade",
           "onUpdate": "no action"
         },
-        "product_grouping_items_supplier_product_id_supplier_products_id_fk": {
-          "name": "product_grouping_items_supplier_product_id_supplier_products_id_fk",
-          "tableFrom": "product_grouping_items",
-          "tableTo": "supplier_products",
-          "columnsFrom": [
-            "supplier_product_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
-          "onDelete": "cascade",
-          "onUpdate": "no action"
-        },
         "product_grouping_items_category_id_categories_id_fk": {
           "name": "product_grouping_items_category_id_categories_id_fk",
           "tableFrom": "product_grouping_items",
@@ -1148,6 +1135,19 @@
             "id"
           ],
           "onDelete": "set null",
+          "onUpdate": "no action"
+        },
+        "product_grouping_items_product_fk": {
+          "name": "product_grouping_items_product_fk",
+          "tableFrom": "product_grouping_items",
+          "tableTo": "supplier_products",
+          "columnsFrom": [
+            "supplier_product_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
           "onUpdate": "no action"
         }
       },
@@ -2740,19 +2740,6 @@
         }
       },
       "foreignKeys": {
-        "store_buyer_address_checks_store_connection_id_store_connections_id_fk": {
-          "name": "store_buyer_address_checks_store_connection_id_store_connections_id_fk",
-          "tableFrom": "store_buyer_address_checks",
-          "tableTo": "store_connections",
-          "columnsFrom": [
-            "store_connection_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
-          "onDelete": "cascade",
-          "onUpdate": "no action"
-        },
         "store_buyer_address_checks_supplier_id_suppliers_id_fk": {
           "name": "store_buyer_address_checks_supplier_id_suppliers_id_fk",
           "tableFrom": "store_buyer_address_checks",
@@ -2764,6 +2751,19 @@
             "id"
           ],
           "onDelete": "set null",
+          "onUpdate": "no action"
+        },
+        "store_buyer_address_checks_store_connection_fk": {
+          "name": "store_buyer_address_checks_store_connection_fk",
+          "tableFrom": "store_buyer_address_checks",
+          "tableTo": "store_connections",
+          "columnsFrom": [
+            "store_connection_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
           "onUpdate": "no action"
         }
       },
@@ -7356,8 +7356,8 @@
           "onDelete": "cascade",
           "onUpdate": "no action"
         },
-        "supplier_test_orders_supplier_product_id_supplier_products_id_fk": {
-          "name": "supplier_test_orders_supplier_product_id_supplier_products_id_fk",
+        "supplier_test_orders_product_fk": {
+          "name": "supplier_test_orders_product_fk",
           "tableFrom": "supplier_test_orders",
           "tableTo": "supplier_products",
           "columnsFrom": [
@@ -9806,33 +9806,6 @@
           "notNull": true,
           "default": 3
         },
-        "dispatch_cutoff_since": {
-          "name": "dispatch_cutoff_since",
-          "type": "timestamp with time zone",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "mercado_livre_cutoff_minutes": {
-          "name": "mercado_livre_cutoff_minutes",
-          "type": "integer",
-          "primaryKey": false,
-          "notNull": true,
-          "default": 870
-        },
-        "shopee_cutoff_minutes": {
-          "name": "shopee_cutoff_minutes",
-          "type": "integer",
-          "primaryKey": false,
-          "notNull": true,
-          "default": 780
-        },
-        "tiktok_shop_cutoff_minutes": {
-          "name": "tiktok_shop_cutoff_minutes",
-          "type": "integer",
-          "primaryKey": false,
-          "notNull": true,
-          "default": 1080
-        },
         "updated_by_user_id": {
           "name": "updated_by_user_id",
           "type": "text",
@@ -9886,10 +9859,6 @@
         "platform_settings_return_answer_days_check": {
           "name": "platform_settings_return_answer_days_check",
           "value": "\"platform_settings\".\"return_answer_business_days\" between 1 and 5"
-        },
-        "platform_settings_cutoff_minutes_check": {
-          "name": "platform_settings_cutoff_minutes_check",
-          "value": "\"platform_settings\".\"mercado_livre_cutoff_minutes\" between 0 and 1439 and \"platform_settings\".\"shopee_cutoff_minutes\" between 0 and 1439 and \"platform_settings\".\"tiktok_shop_cutoff_minutes\" between 0 and 1439"
         }
       },
       "isRLSEnabled": false
@@ -9976,8 +9945,8 @@
         }
       },
       "foreignKeys": {
-        "shipment_payment_checkouts_shipment_payment_id_shipment_payments_id_fk": {
-          "name": "shipment_payment_checkouts_shipment_payment_id_shipment_payments_id_fk",
+        "shipment_payment_checkouts_payment_fk": {
+          "name": "shipment_payment_checkouts_payment_fk",
           "tableFrom": "shipment_payment_checkouts",
           "tableTo": "shipment_payments",
           "columnsFrom": [
@@ -10796,8 +10765,8 @@
       },
       "indexes": {},
       "foreignKeys": {
-        "marketplace_fee_quotes_store_connection_id_store_connections_id_fk": {
-          "name": "marketplace_fee_quotes_store_connection_id_store_connections_id_fk",
+        "marketplace_fee_quotes_store_connection_fk": {
+          "name": "marketplace_fee_quotes_store_connection_fk",
           "tableFrom": "marketplace_fee_quotes",
           "tableTo": "store_connections",
           "columnsFrom": [
