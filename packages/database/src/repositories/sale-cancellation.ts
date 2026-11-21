@@ -1,4 +1,4 @@
-import { FEE_CHANNEL_NAMES, type FeeChannel } from "@sellbridge/shared/channel-fees";
+import type { FeeChannel } from "@sellbridge/shared/channel-fees";
 import { saleCancelledContent } from "@sellbridge/shared/notification-events";
 import { SUPPLIER_QUEUE_STATUSES } from "@sellbridge/shared/supplier-panel-orders";
 import { SHIPMENT_ACTORS } from "@sellbridge/shared/schemas";
@@ -7,18 +7,25 @@ import type { Transaction } from "../client.ts";
 import { orderShipments, shipmentEvents, storeConnections, suppliers } from "../schema/index.ts";
 import { notifyWorkspace } from "./notification-producers.ts";
 
+/** Where the sale was cancelled, as the note reads it: "no Mercado Livre", "na Shopee". */
+const CHANNEL_PLACES: Readonly<Record<FeeChannel, string>> = {
+  mercado_livre: "no Mercado Livre",
+  tiktok_shop: "no TikTok Shop",
+  shopee: "na Shopee",
+};
+
 function isFeeChannel(marketplace: string): marketplace is FeeChannel {
-  return Object.hasOwn(FEE_CHANNEL_NAMES, marketplace);
+  return Object.hasOwn(CHANNEL_PLACES, marketplace);
 }
 
-/** The channel's name for the supplier ("Mercado Livre"), or null for a channel without one. */
-function channelNameOf(marketplace: string): string | null {
-  return isFeeChannel(marketplace) ? FEE_CHANNEL_NAMES[marketplace] : null;
+/** Where the sale was cancelled, or null for a channel without a name for the supplier. */
+function channelPlaceOf(marketplace: string): string | null {
+  return isFeeChannel(marketplace) ? CHANNEL_PLACES[marketplace] : null;
 }
 
 /** The history note the supplier and the reseller read on the cancelled parcel. */
-export function saleCancelledNote(channelName: string | null): string {
-  const where = channelName === null ? "" : ` no ${channelName}`;
+export function saleCancelledNote(channelPlace: string | null): string {
+  const where = channelPlace === null ? "" : ` ${channelPlace}`;
   return `Venda cancelada${where}. Não envie o produto; se já separou, devolva ao estoque.`;
 }
 
@@ -29,7 +36,7 @@ async function noticeSupplier(
     shipmentId: string;
     supplierId: string;
     externalOrderId: string;
-    channelName: string | null;
+    channelPlace: string | null;
   },
 ): Promise<void> {
   const [supplier] = await transaction
@@ -45,7 +52,7 @@ async function noticeSupplier(
     dedupeKey: `shipment:${input.shipmentId}:sale_cancelled`,
     content: saleCancelledContent({
       externalOrderId: input.externalOrderId,
-      channelName: input.channelName,
+      channelPlace: input.channelPlace,
     }),
   });
 }
@@ -79,7 +86,7 @@ export async function cancelQueuedParcelsOfCancelledSale(
     .select({ marketplace: storeConnections.marketplace })
     .from(storeConnections)
     .where(eq(storeConnections.id, order.storeConnectionId));
-  const channelName = store === undefined ? null : channelNameOf(store.marketplace);
+  const channelPlace = store === undefined ? null : channelPlaceOf(store.marketplace);
   const now = new Date();
   for (const parcel of parcels) {
     await transaction
@@ -90,13 +97,13 @@ export async function cancelQueuedParcelsOfCancelledSale(
       shipmentId: parcel.id,
       status: "cancelled",
       actor: SHIPMENT_ACTORS.sellbridge,
-      note: saleCancelledNote(channelName),
+      note: saleCancelledNote(channelPlace),
     });
     await noticeSupplier(transaction, {
       shipmentId: parcel.id,
       supplierId: parcel.supplierId,
       externalOrderId: order.externalOrderId,
-      channelName,
+      channelPlace,
     });
   }
   return parcels.length;

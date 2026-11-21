@@ -96,7 +96,7 @@ export const NOTIFICATION_EVENT_DEFINITIONS: Record<NotificationEventName, Event
     audience: "reseller",
     label: "Problema na entrega",
     description:
-      "A transportadora não conseguiu entregar um pacote, ele voltou, ou a venda foi cancelada antes do envio.",
+      "A transportadora não conseguiu entregar um pacote ou ele voltou. Para o fornecedor, também a venda cancelada antes do envio.",
     defaults: { in_app: true, email: true, push: true },
   },
   // E-mail only: it carries the note's files, which the bell cannot.
@@ -290,13 +290,13 @@ export function shipmentProblemContent(notice: ShipmentProblemNotice): Notificat
 
 export interface SaleCancelledNotice {
   externalOrderId: string;
-  /** Where the sale was cancelled ("Mercado Livre"), or null when the channel has no name. */
-  channelName: string | null;
+  /** Where the sale was cancelled ("no Mercado Livre", "na Shopee"), or null when unnamed. */
+  channelPlace: string | null;
 }
 
 /** For the supplier: the sale of a parcel in its queue was cancelled, so it must not ship it. */
 export function saleCancelledContent(notice: SaleCancelledNotice): NotificationContent {
-  const where = notice.channelName === null ? "" : ` no ${notice.channelName}`;
+  const where = notice.channelPlace === null ? "" : ` ${notice.channelPlace}`;
   return {
     subject: `Venda cancelada, não envie: pedido ${notice.externalOrderId}`,
     preview: "O pedido passou para Encerrados.",
