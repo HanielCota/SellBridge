@@ -41,12 +41,20 @@ const companySchema = z.object({
     .transform((value) => (typeof value === "boolean" ? value : null)),
 });
 
-/** An MEI is a micro company that opted into the MEI; a blank option is no MEI (not in Simples). */
+const MICRO_COMPANY_CODE = 1;
+
+/**
+ * An MEI is a micro company that opted into the MEI. A micro company whose MEI option is blank
+ * may be an MEI the Simples data has not caught yet, so only an explicit "N" makes it a micro.
+ */
 function companySizeOf(company: z.infer<typeof companySchema>): CompanySize {
   if (company.opcao_pelo_mei === true) {
     return "mei";
   }
   if (company.codigo_porte == null) {
+    return "unknown";
+  }
+  if (company.codigo_porte === MICRO_COMPANY_CODE && company.opcao_pelo_mei !== false) {
     return "unknown";
   }
   return COMPANY_SIZE_BY_CODE.get(company.codigo_porte) ?? "unknown";
