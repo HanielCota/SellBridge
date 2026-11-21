@@ -3,6 +3,7 @@ import {
   CONTRACT_NOT_REQUIRED,
   isContractGateFreePath,
   needsContractSigning,
+  sessionContractOf,
   sessionMaySign,
   showsSigningReminder,
   toSessionContract,
@@ -67,6 +68,17 @@ describe("contract gate", () => {
     expect(isContractGateFreePath("/admin/chamados")).toBe(true);
     expect(isContractGateFreePath("/dashboard")).toBe(false);
     expect(isContractGateFreePath("/suportes")).toBe(false);
+  });
+
+  // Production, 21/11/2026: during and right after the deploy, the panel broke with "Cannot read
+  // properties of undefined" because a server of the previous version answered without `contract`.
+  it("treats a session without the contract field as not required, without breaking", () => {
+    const fromPreviousServer = { impersonatedBy: null };
+
+    expect(needsContractSigning(fromPreviousServer, false)).toBe(false);
+    expect(showsSigningReminder(fromPreviousServer, false)).toBe(false);
+    expect(sessionMaySign(fromPreviousServer)).toBe(false);
+    expect(sessionContractOf(fromPreviousServer)).toEqual(CONTRACT_NOT_REQUIRED);
   });
 
   it("stops everything once signed", () => {
