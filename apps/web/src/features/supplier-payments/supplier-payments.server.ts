@@ -179,15 +179,16 @@ async function manualRefundView(tenantId: string, payable: PayableShipment) {
     tenantId,
     orderId: payable.orderId,
   });
+  const now = new Date();
+  const askUntil = payment.escrowExpiresAt === null ? null : manualRefundLastMoment(payment, now);
   return {
     orderId: payable.orderId,
     orderName: payable.externalOrderId,
     ticketId,
     // Only a guarantee Asaas reported has a day the money leaves; without one there is no date.
-    askUntil:
-      payment.escrowExpiresAt === null
-        ? null
-        : manualRefundLastMoment(payment, new Date()).toISOString(),
+    askUntil: askUntil?.toISOString() ?? null,
+    /** Asaas already released the money to the supplier: it is no longer protected. */
+    releasedToSupplier: askUntil !== null && now.getTime() > askUntil.getTime(),
   };
 }
 

@@ -238,7 +238,11 @@ export function ResellerSupplierPayment({ shipmentId }: { shipmentId: string }) 
         <span className="text-sm text-muted-foreground">Pagamento ao fornecedor</span>
         <SupplierPaymentBadgeView badge={view.badge} paidWord="Fornecedor pago" />
       </div>
-      {view.protectedPayment && view.badge.kind !== "refunded" ? <ProtectedSeal /> : null}
+      {view.protectedPayment &&
+      view.badge.kind !== "refunded" &&
+      view.manualRefund?.releasedToSupplier !== true ? (
+        <ProtectedSeal />
+      ) : null}
       {view.canPay ? (
         <>
           <p className="flex items-baseline gap-1.5">

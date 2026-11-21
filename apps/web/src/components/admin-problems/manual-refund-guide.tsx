@@ -33,13 +33,15 @@ function ChargeFact({ chargeId }: { chargeId: string | null }) {
   );
 }
 
-function RefundFacts({ refund, deadline }: { refund: ManualRefund; deadline: string }) {
+function RefundFacts({ refund }: { refund: ManualRefund }) {
   return (
     <dl className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
       <Fact label="Valor a devolver">{formatCents(refund.amountCents)}</Fact>
       <Fact label="Para quem">{`${refund.resellerName} (revendedor), pedido ${refund.orderNumber}`}</Fact>
       <Fact label="De onde sai">{`Conta Asaas do fornecedor ${refund.supplierName}`}</Fact>
-      <Fact label="Devolver até">{deadline}</Fact>
+      <Fact label={refund.deadline.passed ? "Prazo acabou em" : "Devolver até"}>
+        {refund.lastDay}
+      </Fact>
       <Fact label="Taxa do SellBridge que saiu da conta">
         {formatCents(refund.platformFeeCents)}
       </Fact>
@@ -106,7 +108,7 @@ function PendingRefund({ refund }: { refund: ManualRefund }) {
     <>
       <p className="text-sm">{manualRefundExplanation(refund.paidByPix)}</p>
       <p className="text-sm font-medium">{deadline.text}</p>
-      <RefundFacts refund={refund} deadline={refund.lastDay} />
+      <RefundFacts refund={refund} />
       <ResellerTicket refund={refund} />
       {deadline.passed ? null : (
         <>
