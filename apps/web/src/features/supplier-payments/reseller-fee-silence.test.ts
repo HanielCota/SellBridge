@@ -15,6 +15,7 @@ const TEST_FILE = /\.(test|spec)\.(ts|tsx)$/;
 
 /** Screens only the supplier or the SellBridge team open: the fee belongs there. */
 const SUPPLIER_OR_TEAM_PATHS = [
+  "apps/web/src/components/admin-problems/",
   "apps/web/src/components/admin-settings/",
   "apps/web/src/components/supplier-payments/asaas-receiving-card.tsx",
   "apps/web/src/components/supplier-payments/mercado-pago-account-card.tsx",
@@ -26,7 +27,11 @@ const SUPPLIER_OR_TEAM_PATHS = [
 ];
 
 /** Lines that name the fee in a file the reseller also reaches, but only on a team screen. */
-const TEAM_ONLY_LINES = ['hint: "A taxa do SellBridge nos pagamentos aos fornecedores",'];
+const TEAM_ONLY_LINES = [
+  'hint: "A taxa do SellBridge nos pagamentos aos fornecedores",',
+  // manualRefundExplanation: only the team's manual refund guide (admin-problems) shows it.
+  'return "O Asaas só devolve um Pix quando a conta do fornecedor tem o valor inteiro livre. A taxa do SellBridge já saiu dessa conta e o resto está guardado, então a devolução não sai sozinha: alguém da equipe faz no Asaas.";',
+];
 
 const FEE_MENTIONS = [
   /(taxa|tarifa|comiss[aã]o|percentual)\s+(do|da)\s+(sell\s?bridge|plataforma)/i,
