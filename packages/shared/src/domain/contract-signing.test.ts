@@ -11,6 +11,7 @@ import {
   signingCodeResendWaitInSeconds,
   signingCodeSchema,
   signingCodeUsable,
+  typedSigningCode,
   uncheckedSummaryItems,
 } from "./contract-signing.ts";
 
@@ -157,6 +158,18 @@ describe("signing codes", () => {
       "Digite os 6 números do código enviado ao seu e-mail.",
     );
     expect(signingCodeSchema.safeParse("12a456").success).toBe(false);
+  });
+});
+
+describe("typedSigningCode", () => {
+  it("keeps the six digits of a code pasted with spaces from the e-mail", () => {
+    expect(typedSigningCode(" 123456")).toBe("123456");
+    expect(typedSigningCode("123 456")).toBe("123456");
+    expect(typedSigningCode("123-456 ")).toBe("123456");
+  });
+
+  it("never keeps more than six digits", () => {
+    expect(typedSigningCode("12345678")).toBe("123456");
   });
 });
 

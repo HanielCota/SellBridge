@@ -1,6 +1,7 @@
 import {
   SIGNING_CODE_LENGTH,
   SIGNING_CODE_TTL_IN_MINUTES,
+  typedSigningCode,
 } from "@sellbridge/shared/contract-signing";
 import { useId } from "react";
 import { AuthSubmitButton } from "@/components/auth/auth-page";
@@ -50,13 +51,10 @@ function CodeField(
       <Input
         id={inputId}
         value={props.code}
-        onChange={(event) =>
-          props.onCodeChange(event.target.value.replace(/D/g, "").slice(0, SIGNING_CODE_LENGTH))
-        }
+        onChange={(event) => props.onCodeChange(typedSigningCode(event.target.value))}
         inputMode="numeric"
         autoComplete="one-time-code"
         placeholder="Exemplo: 123456"
-        maxLength={SIGNING_CODE_LENGTH}
         aria-invalid={props.error !== null}
         aria-describedby={props.error === null ? hintId : `${hintId} ${errorId}`}
         className="h-13 text-center text-2xl tracking-[0.4em] tabular-nums"

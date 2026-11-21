@@ -118,6 +118,14 @@ export function signingCodeResendWaitInSeconds(lastSentAt: Date | null, now: Dat
   return Math.max(0, SIGNING_CODE_RESEND_WAIT_IN_SECONDS - elapsedInSeconds);
 }
 
+/**
+ * What the code field keeps from what was typed or pasted: digits only, at most the length of a
+ * code. Pasting " 123 456" from the e-mail gives "123456".
+ */
+export function typedSigningCode(value: string): string {
+  return value.replace(/\D/g, "").slice(0, SIGNING_CODE_LENGTH);
+}
+
 export const signingCodeSchema = z
   .string()
   .trim()
