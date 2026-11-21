@@ -57,7 +57,7 @@ export type { AsaasContext } from "./context.ts";
 export {
   RETRY_UNCONFIRMED_AFTER_IN_MS,
   reportHeldWithoutAccount,
-  manualRefundDeadline,
+  manualRefundLastMoment,
   settleHeldPayment,
   type HeldMoneyOutcome,
 } from "./held-money.ts";

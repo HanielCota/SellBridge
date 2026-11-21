@@ -16,6 +16,7 @@ import {
 } from "@sellbridge/shared/escrow-release";
 import { logger } from "@sellbridge/shared/logger";
 import { formatCents } from "@sellbridge/shared/money";
+import { startOfBrazilDay } from "@sellbridge/shared/period-range";
 import type { ShipmentPaymentRefundReason } from "@sellbridge/shared/shipment-payments";
 import { platformClient, withAsaasAccount } from "./account-access.ts";
 import type { AsaasContext } from "./context.ts";
@@ -154,21 +155,30 @@ const DEADLINE_DAY = new Intl.DateTimeFormat("pt-BR", {
 const PAID_BY: Readonly<Record<string, string>> = { PIX: " por Pix", CREDIT_CARD: " no cartão" };
 
 /**
- * The day Asaas stops holding the money and hands it to the supplier: the guarantee's own
- * deadline, or the longest it lasts counted from the payment.
+ * The moment Asaas stops holding the money and hands it to the supplier: the start (Brasília) of
+ * the guarantee's expiration day, or of the day the longest guarantee ends, counted from the
+ * day of the payment.
  */
-export function manualRefundDeadline(payment: ShipmentPayment, now: Date): Date {
+function manualRefundDeadline(payment: ShipmentPayment, now: Date): Date {
   if (payment.escrowExpiresAt !== null) {
     return payment.escrowExpiresAt;
   }
-  const from = payment.paidAt ?? now;
-  return new Date(from.getTime() + ESCROW_SAFETY_DEADLINE_IN_DAYS * DAY_IN_MS);
+  const paidDay = startOfBrazilDay(payment.paidAt ?? now);
+  return new Date(paidDay.getTime() + ESCROW_SAFETY_DEADLINE_IN_DAYS * DAY_IN_MS);
+}
+
+/**
+ * The last moment the money can still be given back by hand: just before Asaas releases it, so
+ * a day label shows the last whole day (a guarantee ending on 20/12 leaves until 19/12).
+ */
+export function manualRefundLastMoment(payment: ShipmentPayment, now: Date): Date {
+  return new Date(manualRefundDeadline(payment, now).getTime() - 1);
 }
 
 /** What the team reads on Problemas: this refund is theirs to make by hand, and until when. */
 function manualRefundReason(payment: ShipmentPayment, now: Date): string {
   const paidBy = PAID_BY[payment.paymentMethod ?? ""] ?? "";
-  const day = DEADLINE_DAY.format(manualRefundDeadline(payment, now));
+  const day = DEADLINE_DAY.format(manualRefundLastMoment(payment, now));
   return `Devolução manual: o Asaas não devolveu sozinho ${formatCents(payment.amountCents)} pagos${paidBy}. Alguém da equipe devolve ao revendedor pelo Asaas até ${day}; depois disso o valor vai para o fornecedor.`;
 }
 

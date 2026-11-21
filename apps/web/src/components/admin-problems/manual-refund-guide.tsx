@@ -107,7 +107,7 @@ function RefundSteps({ refund }: { refund: ManualRefund }) {
 }
 
 function PendingRefund({ refund }: { refund: ManualRefund }) {
-  const deadline = fullDay.format(new Date(refund.deadline));
+  const deadline = fullDay.format(new Date(refund.lastMoment));
   return (
     <>
       <p className="text-sm">

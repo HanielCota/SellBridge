@@ -284,6 +284,58 @@ describe("settleHeldPayment", () => {
     );
   });
 
+  test("gives the team the last whole day before Asaas releases the money", async () => {
+    mocks.requestRefund.mockResolvedValue(parcel({ refundRequestedAt: NOW }));
+    mocks.markRefundFailed.mockResolvedValue(true);
+    replies = [
+      { status: 400, body: { errors: [{ code: "invalid_action", description: "Sem saldo." }] } },
+    ];
+    const errors = vi.spyOn(logger, "error").mockImplementation(() => {});
+    // Asaas's expirationDate 2026-12-20 is stored as the start of that day in Brasília.
+    const payment = parcel({ escrowExpiresAt: new Date("2026-12-20T03:00:00Z") });
+
+    await settleHeldPayment(context, {
+      account,
+      held: held({ payment, shipmentStatus: "cancelled" }),
+      now: NOW,
+    });
+
+    expect(errors).toHaveBeenCalledWith(
+      "asaas.refund_refused",
+      expect.objectContaining({ reason: expect.stringContaining("pelo Asaas até 19/12/2026;") }),
+    );
+  });
+
+  test("counts the longest guarantee from the day of the payment when Asaas gave no deadline", async () => {
+    mocks.requestRefund.mockResolvedValue(parcel({ refundRequestedAt: NOW }));
+    mocks.markRefundFailed.mockResolvedValue(true);
+    replies = [
+      { status: 400, body: { errors: [{ code: "invalid_action", description: "Sem saldo." }] } },
+    ];
+    const errors = vi.spyOn(logger, "error").mockImplementation(() => {});
+    // Paid at 22:00 in Brasília on 20/11: the guarantee would end at the start of 20/12.
+    const payment = parcel({
+      escrowExpiresAt: null,
+      paidAt: new Date("2026-11-21T01:00:00Z"),
+      paymentMethod: "CREDIT_CARD",
+    });
+
+    await settleHeldPayment(context, {
+      account,
+      held: held({ payment, shipmentStatus: "cancelled" }),
+      now: NOW,
+    });
+
+    expect(errors).toHaveBeenCalledWith(
+      "asaas.refund_refused",
+      expect.objectContaining({
+        reason: expect.stringContaining(
+          "pagos no cartão. Alguém da equipe devolve ao revendedor pelo Asaas até 19/12/2026;",
+        ),
+      }),
+    );
+  });
+
   test("follows the team's refund for a held payment", async () => {
     mocks.requestRefund.mockResolvedValue(parcel({ refundRequestedAt: NOW, refundReason: "team" }));
     replies = [{ status: 200, body: charge({ status: "REFUNDED" }) }];

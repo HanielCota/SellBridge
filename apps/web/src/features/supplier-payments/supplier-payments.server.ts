@@ -42,6 +42,7 @@ import {
   type CheckoutRequest,
   type MercadoPagoContext,
 } from "@sellbridge/payments/mercado-pago";
+import { manualRefundLastMoment } from "@sellbridge/payments/asaas";
 import {
   mercadoPagoContext,
   mercadoPagoNotificationUrl,
@@ -182,7 +183,11 @@ async function manualRefundView(tenantId: string, payable: PayableShipment) {
     orderId: payable.orderId,
     orderName: payable.externalOrderId,
     ticketId,
-    askUntil: payment.escrowExpiresAt?.toISOString() ?? null,
+    // Only a guarantee Asaas reported has a day the money leaves; without one there is no date.
+    askUntil:
+      payment.escrowExpiresAt === null
+        ? null
+        : manualRefundLastMoment(payment, new Date()).toISOString(),
   };
 }
 

@@ -7,7 +7,7 @@ import {
   setNewSupplierRule,
   type ShipmentPayment,
 } from "@sellbridge/database/repositories";
-import { manualRefundDeadline } from "@sellbridge/payments/asaas";
+import { manualRefundLastMoment } from "@sellbridge/payments/asaas";
 import { notFoundError, validationError } from "@sellbridge/shared/errors";
 import { logger } from "@sellbridge/shared/logger";
 import { database } from "@/lib/server/database";
@@ -63,7 +63,8 @@ export async function loadManualRefund(shipmentPaymentId: string) {
     orderNumber: found.orderNumber,
     resellerName: found.resellerName,
     supplierName: found.supplierName,
-    deadline: manualRefundDeadline(payment, new Date()).toISOString(),
+    /** The last moment to give it back by hand: Asaas releases it to the supplier right after. */
+    lastMoment: manualRefundLastMoment(payment, new Date()).toISOString(),
     ticketId,
     refunded: payment.status === "refunded",
   };

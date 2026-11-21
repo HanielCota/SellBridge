@@ -25,7 +25,7 @@ export interface RefundView {
 export interface ManualRefundView {
   /** The ticket already open about the order, or null while the reseller has not asked. */
   ticketId: string | null;
-  /** The day Asaas stops holding the money (ISO), or null when unknown. */
+  /** The last moment before Asaas releases the money to the supplier (ISO), or null when unknown. */
   askUntil: string | null;
 }
 
