@@ -30,7 +30,8 @@ function groupCondition(group: StaffShipmentGroup, now: Date): SQL | undefined {
       and(eq(orderShipments.status, "shipped"), lt(orderShipments.estimatedDeliveryAt, now)),
       and(
         inArray(orderShipments.status, [...BEFORE_DISPATCH]),
-        lt(effectiveDispatchDeadlineAt, now),
+        // A raw SQL date has no column type to encode the Date with, so the instant goes as text.
+        sql`${effectiveDispatchDeadlineAt} < ${now.toISOString()}::timestamptz`,
       ),
     );
   }

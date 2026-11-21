@@ -14,6 +14,7 @@ import {
 import { getDispatchCutoffSettings, setDispatchCutoffSettings } from "./dispatch-cutoff.ts";
 import { forwardOrder } from "./fulfillment.ts";
 import { effectiveDispatchDeadlineAt } from "./shipment-timing.ts";
+import { countStaffShipmentsByGroup } from "./staff-shipments.ts";
 import { upsertStoreConnection } from "./stores.ts";
 
 const database = createTestDatabase();
@@ -230,5 +231,17 @@ describe("posting date from the cutoff", () => {
     const date = await postingDateOf(shipmentId);
 
     expect(date).toBeNull();
+  });
+});
+
+describe("late parcels from the cutoff date", () => {
+  it("counts a parcel past its cutoff date among the team's late ones while the rule is on", async () => {
+    await forwardedParcel(new Date("2026-11-17T10:00:00-03:00"));
+    const off = await countStaffShipmentsByGroup(database);
+
+    await turnCutoff(true);
+    const on = await countStaffShipmentsByGroup(database);
+
+    expect(on.late - off.late).toBeGreaterThanOrEqual(1);
   });
 });
