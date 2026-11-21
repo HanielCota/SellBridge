@@ -2,7 +2,7 @@ import type { ProfileKind } from "@sellbridge/shared/profile-kind";
 import {
   SIGNING_CODE_MAX_ATTEMPTS,
   SIGNING_CODE_TTL_IN_MINUTES,
-  SIGNING_CODES_PER_HOUR,
+  SIGNING_CODES_PER_DAY,
   signingCodeResendWaitInSeconds,
   signingCodeUsable,
 } from "@sellbridge/shared/contract-signing";
@@ -18,9 +18,9 @@ import {
 } from "../schema/index.ts";
 
 const MINUTE_IN_MS = 60 * 1000;
-const HOUR_IN_MS = 60 * MINUTE_IN_MS;
-/** Codes older than this are only noise: each new request clears them. */
-const CODE_KEEP_IN_MS = 24 * HOUR_IN_MS;
+const DAY_IN_MS = 24 * 60 * MINUTE_IN_MS;
+/** Codes older than the daily window are only noise: each new request clears them. */
+const CODE_KEEP_IN_MS = DAY_IN_MS;
 
 /** When the admin turned the contract requirement on; null while off. */
 export async function getContractSigningRequiredSince(
@@ -141,7 +141,7 @@ export async function countProfilesWithoutSignature(
 export type IssueSigningCodeResult =
   | { kind: "issued"; codeId: string; expiresAt: Date }
   | { kind: "wait"; seconds: number }
-  | { kind: "hourly_limit" };
+  | { kind: "daily_limit" };
 
 interface IssueSigningCodeInput extends ContractProfileRef {
   userId: string;
@@ -150,7 +150,7 @@ interface IssueSigningCodeInput extends ContractProfileRef {
 }
 
 /**
- * Stores a new code for the person, unless one went out less than a minute ago or the hourly
+ * Stores a new code for the person, unless one went out less than a minute ago or the daily
  * limit is reached. Earlier codes keep working until the e-mail of this one goes out
  * (`retireEarlierSigningCodes`); a failed e-mail discards it (`discardSigningCode`). Serialized
  * per person, so a double click never issues two.
@@ -215,7 +215,7 @@ export async function retireEarlierSigningCodes(
 
 /**
  * Removes a code whose e-mail never went out: it counts neither for the minute of waiting nor
- * for the hourly limit, and the earlier code keeps working.
+ * for the daily limit, and the earlier code keeps working.
  */
 export async function discardSigningCode(
   database: DatabaseExecutor,
@@ -229,7 +229,7 @@ async function codeRequestRefusal(
   userId: string,
   now: Date,
 ): Promise<IssueSigningCodeResult | null> {
-  const hourAgo = new Date(now.getTime() - HOUR_IN_MS);
+  const dayAgo = new Date(now.getTime() - DAY_IN_MS);
   const [latest] = await transaction
     .select({ createdAt: contractSigningCodes.createdAt })
     .from(contractSigningCodes)
@@ -240,14 +240,14 @@ async function codeRequestRefusal(
   if (seconds > 0) {
     return { kind: "wait", seconds };
   }
-  const [lastHour] = await transaction
+  const [lastDay] = await transaction
     .select({ total: count() })
     .from(contractSigningCodes)
     .where(
-      and(eq(contractSigningCodes.userId, userId), gte(contractSigningCodes.createdAt, hourAgo)),
+      and(eq(contractSigningCodes.userId, userId), gte(contractSigningCodes.createdAt, dayAgo)),
     );
-  if ((lastHour?.total ?? 0) >= SIGNING_CODES_PER_HOUR) {
-    return { kind: "hourly_limit" };
+  if ((lastDay?.total ?? 0) >= SIGNING_CODES_PER_DAY) {
+    return { kind: "daily_limit" };
   }
   return null;
 }

@@ -93,7 +93,7 @@ export const contractSigningCodes = pgTable(
       sql`${table.profileKind} in ${PROFILE_KINDS_SQL}`,
     ),
     check("contract_signing_codes_attempts_check", sql`${table.attempts} >= 0`),
-    /** The person's latest code and the hourly count; leads with user for the cascade too. */
+    /** The person's latest code and the daily count; leads with user for the cascade too. */
     index("contract_signing_codes_user_created_idx").on(table.userId, table.createdAt),
     index("contract_signing_codes_tenant_idx").on(table.tenantId),
   ],

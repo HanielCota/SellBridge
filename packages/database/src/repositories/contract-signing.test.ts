@@ -109,7 +109,7 @@ describe("issueSigningCode", () => {
     expect(second).toEqual({ kind: "wait", seconds: 40 });
   });
 
-  it("stops at five codes an hour", async () => {
+  it("stops at five codes in 24 hours, and opens again after them", async () => {
     const start = new Date();
     for (let minute = 0; minute < 5; minute += 1) {
       expect((await issue(new Date(start.getTime() + minute * 61_000))).kind).toBe("issued");
@@ -117,7 +117,9 @@ describe("issueSigningCode", () => {
 
     const sixth = await issue(new Date(start.getTime() + 5 * 61_000));
 
-    expect(sixth).toEqual({ kind: "hourly_limit" });
+    expect(sixth).toEqual({ kind: "daily_limit" });
+    const nextDay = await issue(new Date(start.getTime() + 25 * 60 * 60_000));
+    expect(nextDay.kind).toBe("issued");
   });
 
   it("keeps the earlier code working until the new e-mail goes out, then retires it", async () => {

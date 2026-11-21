@@ -11,8 +11,11 @@ export const SIGNING_CODE_TTL_IN_MINUTES = 10;
 export const SIGNING_CODE_MAX_ATTEMPTS = 5;
 /** Wait before asking for another code, so a double click never sends two. */
 export const SIGNING_CODE_RESEND_WAIT_IN_SECONDS = 60;
-/** Codes one person may ask for in an hour: caps e-mails sent to one inbox. */
-export const SIGNING_CODES_PER_HOUR = 5;
+/**
+ * Codes one person may ask for in 24 hours: caps the e-mails sent to one inbox, so no one can
+ * spend the daily e-mail allowance.
+ */
+export const SIGNING_CODES_PER_DAY = 5;
 
 /**
  * Where a profile stands with the contract of its kind:

@@ -19,6 +19,7 @@ import {
   contractStanding,
   describeUserAgent,
   SIGNING_CODE_LENGTH,
+  SIGNING_CODES_PER_DAY,
   type ContractStanding,
   uncheckedSummaryItems,
 } from "@sellbridge/shared/contract-signing";
@@ -125,7 +126,7 @@ async function assertMaySign(
 /**
  * E-mails a new code to the person's address and says where it went.
  *
- * @throws {AppError} RATE_LIMITED when asked again within a minute or over the hourly limit.
+ * @throws {AppError} RATE_LIMITED when asked again within a minute or over the daily limit.
  */
 export async function requestSigningCode(
   profile: SigningProfile,
@@ -145,11 +146,13 @@ export async function requestSigningCode(
   if (issued.kind === "wait") {
     throw rateLimitedError(`Aguarde ${issued.seconds} segundos para pedir outro código.`);
   }
-  if (issued.kind === "hourly_limit") {
-    throw rateLimitedError("Você pediu muitos códigos. Tente de novo daqui a uma hora.");
+  if (issued.kind === "daily_limit") {
+    throw rateLimitedError(
+      `Você já pediu ${SIGNING_CODES_PER_DAY} códigos nas últimas 24 horas. Tente de novo mais tarde ou fale com o suporte.`,
+    );
   }
   const rendered = contractCodeEmail({ code, contractTitle: contract.title }, environment.APP_URL);
-  await sendCodeOrDiscard({ to: email, category: "account_access", ...rendered }, issued.codeId);
+  await sendCodeOrDiscard({ to: email, category: "general", ...rendered }, issued.codeId);
   await retireEarlierSigningCodes(database, {
     userId: profile.userId,
     keepCodeId: issued.codeId,

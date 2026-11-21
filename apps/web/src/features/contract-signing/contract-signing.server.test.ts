@@ -7,6 +7,7 @@ import type {
   retireEarlierSigningCodes,
   signContractWithCode,
 } from "@sellbridge/database/repositories";
+import type { OutgoingEmail } from "@sellbridge/shared/mailer";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const mocks = vi.hoisted(() => ({
@@ -18,7 +19,7 @@ const mocks = vi.hoisted(() => ({
   sign: vi.fn<typeof signContractWithCode>(),
   discard: vi.fn<typeof discardSigningCode>(),
   retire: vi.fn<typeof retireEarlierSigningCodes>(),
-  send: vi.fn<(email: { to: string; subject: string; text: string }) => Promise<void>>(),
+  send: vi.fn<(email: OutgoingEmail) => Promise<void>>(),
 }));
 vi.mock("@sellbridge/database/repositories", () => ({
   getContractSigningRequiredSince: mocks.requiredSince,
@@ -117,6 +118,8 @@ describe("requestSigningCode", () => {
 
     expect(sent).toEqual({ sentTo: "m***@loja.com.br" });
     expect(mocks.send.mock.calls[0]?.[0].to).toBe("maria@loja.com.br");
+    // The general allowance: signing codes never use up anyone's password recovery.
+    expect(mocks.send.mock.calls[0]?.[0].category).toBe("general");
     expect(storedHash()).toMatch(/^[0-9a-f]{64}$/);
     expect(storedHash()).not.toContain(emailedCode());
   });
@@ -175,6 +178,22 @@ describe("requestSigningCode", () => {
     });
 
     await expect(request).rejects.toMatchObject({ code: "CONFLICT" });
+  });
+
+  it("stops after five codes in 24 hours, pointing to support", async () => {
+    mocks.issue.mockResolvedValue({ kind: "daily_limit" });
+
+    const request = requestSigningCode(PROFILE, {
+      version: CONTRACT.version,
+      confirmedItemIds: ALL_ITEMS,
+    });
+
+    await expect(request).rejects.toMatchObject({
+      code: "RATE_LIMITED",
+      message:
+        "Você já pediu 5 códigos nas últimas 24 horas. Tente de novo mais tarde ou fale com o suporte.",
+    });
+    expect(mocks.send).not.toHaveBeenCalled();
   });
 
   it("says how long to wait when asked again too soon", async () => {
