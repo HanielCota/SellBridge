@@ -4,6 +4,7 @@ import {
   decideSupplierApproval,
   legalNamesMatch,
   nextCnpjCheck,
+  signupRulesApplyTo,
   supplierApprovalDecisionSchema,
   type ApprovalFacts,
   type CnpjCheck,
@@ -197,6 +198,20 @@ describe("decideSupplierApproval with the contract sign-up rules on", () => {
     const verdict = decideSupplierApproval(facts({ check: check({ companySize: "mei" }) }));
 
     expect(verdict).toEqual({ kind: "approve" });
+  });
+});
+
+describe("signupRulesApplyTo", () => {
+  it("applies to a supplier that signed up once the rules were on", () => {
+    expect(signupRulesApplyTo(minutesLater(1), NOW)).toBe(true);
+  });
+
+  it("leaves out a supplier that signed up before the rules were on", () => {
+    expect(signupRulesApplyTo(NOW, minutesLater(1))).toBe(false);
+  });
+
+  it("applies to nobody while the rules are off", () => {
+    expect(signupRulesApplyTo(NOW, null)).toBe(false);
   });
 });
 

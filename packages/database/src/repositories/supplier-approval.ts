@@ -4,6 +4,7 @@ import {
   APPROVAL_REFUSAL_TEXT,
   decideSupplierApproval,
   nextCnpjCheck,
+  signupRulesApplyTo,
   type ApprovalCompany,
   type ApprovalFacts,
   type ApprovalMissingItem,
@@ -151,7 +152,11 @@ export async function setRequireReceivingAccount(
 
 async function readFacts(database: Database, supplierId: string): Promise<StoredFacts> {
   const [supplier] = await database
-    .select({ status: suppliers.approvalStatus, fiscalProfile: suppliers.fiscalProfile })
+    .select({
+      status: suppliers.approvalStatus,
+      fiscalProfile: suppliers.fiscalProfile,
+      createdAt: suppliers.createdAt,
+    })
     .from(suppliers)
     .where(eq(suppliers.id, supplierId));
   if (supplier === undefined) {
@@ -170,7 +175,7 @@ async function readFacts(database: Database, supplierId: string): Promise<Stored
     check,
     receivingAccountApproved: accountApproved,
     requireReceivingAccount,
-    requireSupplierCompanySize: signupRulesSince !== null,
+    requireSupplierCompanySize: signupRulesApplyTo(supplier.createdAt, signupRulesSince),
   };
 }
 

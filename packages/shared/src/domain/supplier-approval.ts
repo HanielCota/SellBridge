@@ -160,6 +160,18 @@ const FAILED_LOOKUP_REASONS: Partial<Record<CnpjLookupOutcome, ApprovalTeamReaso
 };
 
 /**
+ * Whether the contract sign-up rules apply to a supplier: only to one that signed up after they
+ * were switched on. One already signed up (even if still pending) keeps the rules it signed up
+ * under; the deadline for those comes with the data update notices.
+ */
+export function signupRulesApplyTo(signedUpAt: Date, rulesSince: Date | null): boolean {
+  if (rulesSince === null) {
+    return false;
+  }
+  return signedUpAt.getTime() >= rulesSince.getTime();
+}
+
+/**
  * The contract's size rule over an answered query: an MEI is refused, a blank size goes to the
  * team, and an answer kept before the size was read is asked again. Null when the size passes.
  */

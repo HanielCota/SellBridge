@@ -397,6 +397,20 @@ describe("a supplier who signs up alone with the contract sign-up rules on", () 
     expect(status).toBe("approved");
   });
 
+  it("keeps the old rule for a supplier still pending from before the switch", async () => {
+    const { supplierId } = await signUpSupplier(true);
+    const afterSignUp = new Date(Date.now() + HOUR_IN_MS);
+    await setSignupRules(database, { enabled: true, userId: staffId(), now: afterSignUp });
+
+    try {
+      const status = await runSupplierApprovalCheck(database, supplierId, answering(MEI));
+
+      expect(status).toBe("approved");
+    } finally {
+      await setSignupRules(database, { enabled: false, userId: staffId(), now: NOW });
+    }
+  });
+
   it("leaves a supplier approved before the switch as it was", async () => {
     const { supplierId, productId } = await signUpSupplier(true);
     await runSupplierApprovalCheck(database, supplierId, answering(MEI));
