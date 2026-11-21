@@ -13,6 +13,7 @@ const mocks = vi.hoisted(() => ({
   planChangeOf: vi.fn<(typeof import("./plan-change"))["planChangeOf"]>(),
   holder: vi.fn<(...input: unknown[]) => Promise<unknown>>(),
   email: vi.fn<(...input: unknown[]) => Promise<string | null>>(),
+  courtesy: vi.fn<(...input: unknown[]) => Promise<unknown>>(),
   client: {
     findSubscriber: vi.fn<(...input: unknown[]) => Promise<string | null>>(),
     createSubscriber: vi.fn<(...input: unknown[]) => Promise<string>>(),
@@ -32,6 +33,7 @@ const mocks = vi.hoisted(() => ({
 vi.mock("@sellbridge/database/repositories", () => ({
   requireBillingOwner: mocks.owner,
   getBillingAccount: mocks.account,
+  getBillingCourtesy: mocks.courtesy,
   saveBillingAccount: mocks.save,
   tryLockBillingCheckout: mocks.tryLock,
   findBillingHolder: mocks.holder,
@@ -116,6 +118,7 @@ beforeEach(() => {
   mocks.owner.mockResolvedValue();
   mocks.tryLock.mockResolvedValue(true);
   mocks.account.mockResolvedValue(null);
+  mocks.courtesy.mockResolvedValue(null);
   mocks.holder.mockResolvedValue(HOLDER);
   mocks.email.mockResolvedValue("dono@example.com");
   mocks.client.findSubscriber.mockResolvedValue(null);
@@ -342,6 +345,27 @@ describe("first subscription", () => {
     await expect(startSubscription({ ...input, method: "pix" })).rejects.toThrow(
       "ainda não confirmou",
     );
+    expect(mocks.client.createPixSubscription).toHaveBeenCalledTimes(1);
+  });
+
+  it("refuses to charge an account whose plan is a courtesy in force", async () => {
+    mocks.courtesy.mockResolvedValue({ plan: "elite", expiresAt: null });
+
+    const attempt = startSubscription({ ...input, method: "pix" });
+
+    await expect(attempt).rejects.toThrow("plano por cortesia");
+    expect(mocks.client.createPixSubscription).not.toHaveBeenCalled();
+    expect(mocks.client.createRecurringCheckout).not.toHaveBeenCalled();
+  });
+
+  it("lets an account subscribe once its courtesy is over", async () => {
+    mocks.courtesy.mockResolvedValue({
+      plan: "elite",
+      expiresAt: new Date("2020-01-01T03:00:00Z"),
+    });
+
+    await startSubscription({ ...input, method: "pix" });
+
     expect(mocks.client.createPixSubscription).toHaveBeenCalledTimes(1);
   });
 

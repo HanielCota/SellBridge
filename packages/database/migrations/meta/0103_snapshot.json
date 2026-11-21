@@ -1,5 +1,5 @@
 {
-  "id": "b6cd953e-6a6f-496c-b935-44b8a39911fc",
+  "id": "5e5d50cf-c914-4e4c-b548-31b516b40d9e",
   "prevId": "09d1a0cc-bab3-47df-93ae-209afee3933e",
   "version": "7",
   "dialect": "postgresql",
@@ -1124,6 +1124,19 @@
           "onDelete": "cascade",
           "onUpdate": "no action"
         },
+        "product_grouping_items_supplier_product_id_supplier_products_id_fk": {
+          "name": "product_grouping_items_supplier_product_id_supplier_products_id_fk",
+          "tableFrom": "product_grouping_items",
+          "tableTo": "supplier_products",
+          "columnsFrom": [
+            "supplier_product_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        },
         "product_grouping_items_category_id_categories_id_fk": {
           "name": "product_grouping_items_category_id_categories_id_fk",
           "tableFrom": "product_grouping_items",
@@ -1135,19 +1148,6 @@
             "id"
           ],
           "onDelete": "set null",
-          "onUpdate": "no action"
-        },
-        "product_grouping_items_product_fk": {
-          "name": "product_grouping_items_product_fk",
-          "tableFrom": "product_grouping_items",
-          "tableTo": "supplier_products",
-          "columnsFrom": [
-            "supplier_product_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
-          "onDelete": "cascade",
           "onUpdate": "no action"
         }
       },
@@ -2740,6 +2740,19 @@
         }
       },
       "foreignKeys": {
+        "store_buyer_address_checks_store_connection_id_store_connections_id_fk": {
+          "name": "store_buyer_address_checks_store_connection_id_store_connections_id_fk",
+          "tableFrom": "store_buyer_address_checks",
+          "tableTo": "store_connections",
+          "columnsFrom": [
+            "store_connection_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        },
         "store_buyer_address_checks_supplier_id_suppliers_id_fk": {
           "name": "store_buyer_address_checks_supplier_id_suppliers_id_fk",
           "tableFrom": "store_buyer_address_checks",
@@ -2751,19 +2764,6 @@
             "id"
           ],
           "onDelete": "set null",
-          "onUpdate": "no action"
-        },
-        "store_buyer_address_checks_store_connection_fk": {
-          "name": "store_buyer_address_checks_store_connection_fk",
-          "tableFrom": "store_buyer_address_checks",
-          "tableTo": "store_connections",
-          "columnsFrom": [
-            "store_connection_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
-          "onDelete": "cascade",
           "onUpdate": "no action"
         }
       },
@@ -7356,8 +7356,8 @@
           "onDelete": "cascade",
           "onUpdate": "no action"
         },
-        "supplier_test_orders_product_fk": {
-          "name": "supplier_test_orders_product_fk",
+        "supplier_test_orders_supplier_product_id_supplier_products_id_fk": {
+          "name": "supplier_test_orders_supplier_product_id_supplier_products_id_fk",
           "tableFrom": "supplier_test_orders",
           "tableTo": "supplier_products",
           "columnsFrom": [
@@ -7522,6 +7522,95 @@
         "billing_accounts_scheduled_plan_check": {
           "name": "billing_accounts_scheduled_plan_check",
           "value": "(\"billing_accounts\".\"scheduled_plan\" is null) = (\"billing_accounts\".\"scheduled_plan_at\" is null)"
+        }
+      },
+      "isRLSEnabled": false
+    },
+    "public.billing_courtesies": {
+      "name": "billing_courtesies",
+      "schema": "",
+      "columns": {
+        "tenant_id": {
+          "name": "tenant_id",
+          "type": "text",
+          "primaryKey": true,
+          "notNull": true
+        },
+        "plan": {
+          "name": "plan",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "expires_at": {
+          "name": "expires_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "reason": {
+          "name": "reason",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "granted_by": {
+          "name": "granted_by",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "granted_at": {
+          "name": "granted_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "updated_at": {
+          "name": "updated_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {
+        "billing_courtesies_tenant_id_organization_id_fk": {
+          "name": "billing_courtesies_tenant_id_organization_id_fk",
+          "tableFrom": "billing_courtesies",
+          "tableTo": "organization",
+          "columnsFrom": [
+            "tenant_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        },
+        "billing_courtesies_granted_by_user_id_fk": {
+          "name": "billing_courtesies_granted_by_user_id_fk",
+          "tableFrom": "billing_courtesies",
+          "tableTo": "user",
+          "columnsFrom": [
+            "granted_by"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "set null",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {
+        "billing_courtesies_plan_check": {
+          "name": "billing_courtesies_plan_check",
+          "value": "\"billing_courtesies\".\"plan\" in ('start', 'pro', 'business', 'black', 'elite')"
         }
       },
       "isRLSEnabled": false
@@ -9856,8 +9945,8 @@
         }
       },
       "foreignKeys": {
-        "shipment_payment_checkouts_payment_fk": {
-          "name": "shipment_payment_checkouts_payment_fk",
+        "shipment_payment_checkouts_shipment_payment_id_shipment_payments_id_fk": {
+          "name": "shipment_payment_checkouts_shipment_payment_id_shipment_payments_id_fk",
           "tableFrom": "shipment_payment_checkouts",
           "tableTo": "shipment_payments",
           "columnsFrom": [
@@ -10676,8 +10765,8 @@
       },
       "indexes": {},
       "foreignKeys": {
-        "marketplace_fee_quotes_store_connection_fk": {
-          "name": "marketplace_fee_quotes_store_connection_fk",
+        "marketplace_fee_quotes_store_connection_id_store_connections_id_fk": {
+          "name": "marketplace_fee_quotes_store_connection_id_store_connections_id_fk",
           "tableFrom": "marketplace_fee_quotes",
           "tableTo": "store_connections",
           "columnsFrom": [
@@ -10990,7 +11079,8 @@
         "listings",
         "ticket",
         "onboarding",
-        "cooling"
+        "cooling",
+        "courtesy"
       ]
     },
     "public.erp_catalog_read_status": {

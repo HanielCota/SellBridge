@@ -45,6 +45,7 @@ const CUSTOMER: CustomerSummary = {
   stores: [],
   waitingTickets: 0,
   lastSeenAt: NOW,
+  courtesyExpiresAt: null,
 };
 
 beforeEach(() => {

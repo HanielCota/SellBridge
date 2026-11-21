@@ -47,7 +47,9 @@ export type StaffPermission =
    */
   | "shipments.release_label"
   /** Platform-wide values, like SellBridge's fee on supplier payments: money, so admins only. */
-  | "settings.manage";
+  | "settings.manage"
+  /** Gives a reseller a plan with no charge, changes it and takes it back: money, admins only. */
+  | "billing.grant_courtesy";
 
 const PERMISSIONS: Record<StaffRole, readonly StaffPermission[]> = {
   agent: [
@@ -85,6 +87,7 @@ const PERMISSIONS: Record<StaffRole, readonly StaffPermission[]> = {
     "shipments.view",
     "shipments.release_label",
     "settings.manage",
+    "billing.grant_courtesy",
   ],
 };
 
