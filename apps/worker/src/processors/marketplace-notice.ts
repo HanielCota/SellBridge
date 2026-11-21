@@ -20,13 +20,14 @@ import type { TokenCipher } from "@sellbridge/shared/token-cipher";
 import { UnrecoverableError } from "bullmq";
 import type { JobContext } from "../lib/job-context.ts";
 import { decryptStoreCredentials, storeRateKey } from "../lib/store-access.ts";
+import { type ReadQuestion, syncStoreQuestion } from "./buyer-question-sync.ts";
 import {
   type TrackedShipping,
   type TrackOutcome,
   trackOrderShipment,
 } from "./shipment-tracking.ts";
 
-/** How shipment and claim notifications are read; absent, those topics are only stored. */
+/** How shipment, claim and question notifications are read; absent, those topics are only stored. */
 export interface NoticeReaders {
   parseNotice: (
     marketplace: MarketplaceId,
@@ -37,6 +38,8 @@ export interface NoticeReaders {
   readShipmentOrders: (store: StoreCredentials, shipmentId: string) => Promise<string[]>;
   readShipping: (store: StoreCredentials, externalOrderId: string) => Promise<TrackedShipping>;
   readClaim: (store: StoreCredentials, claimId: string) => Promise<MarketplaceClaim>;
+  /** Absent while buyer questions are off (BUYER_QUESTIONS_ENABLED): the topic is only stored. */
+  readQuestion?: ReadQuestion;
 }
 
 export interface NoticeDependencies {
@@ -48,7 +51,13 @@ export interface NoticeDependencies {
 }
 
 export type NoticeOutcome =
-  "shipment_tracked" | "shipment_unknown" | "claim_saved" | "claim_outside_sellbridge";
+  | "shipment_tracked"
+  | "shipment_unknown"
+  | "claim_saved"
+  | "claim_outside_sellbridge"
+  | "question_saved"
+  | "question_outside_sellbridge"
+  | "question_gone";
 
 /** The event and the connected store it names, already checked by the webhook processor. */
 export interface NoticeEvent {
@@ -80,6 +89,8 @@ export type ClaimSync = "saved" | "outside_sellbridge";
 const SHIPMENT_UNKNOWN_NOTE = "Envio sem pedido a caminho no SellBridge";
 const SHIPMENT_FAILED_NOTE = "A leitura do envio falhou; a tarefa periódica tenta de novo";
 const CLAIM_OUTSIDE_NOTE = "Reclamação de uma venda que não está no SellBridge";
+const QUESTION_OUTSIDE_NOTE = "Pergunta de um anúncio publicado fora do SellBridge";
+const QUESTION_GONE_NOTE = "Pergunta apagada no marketplace";
 
 /** Notifications are unsigned: each marketplace call spends the store's own quota. */
 async function spendStoreQuota(run: StoreRun): Promise<void> {
@@ -214,6 +225,29 @@ async function saveClaimNotice(run: NoticeRun, claimId: string): Promise<NoticeO
   return "claim_saved";
 }
 
+async function saveQuestionNotice(
+  run: NoticeRun,
+  readQuestion: ReadQuestion,
+  questionId: string,
+): Promise<NoticeOutcome> {
+  const { database, acquireRateLimit } = run.dependencies;
+  const synced = await syncStoreQuestion(
+    { ...run, database, acquireRateLimit, readQuestion },
+    questionId,
+  );
+  const webhookEventId = run.event.webhookEventId;
+  if (synced === "outside_sellbridge") {
+    await markWebhookProcessed(database, webhookEventId, QUESTION_OUTSIDE_NOTE);
+    return "question_outside_sellbridge";
+  }
+  if (synced === "gone") {
+    await markWebhookProcessed(database, webhookEventId, QUESTION_GONE_NOTE);
+    return "question_gone";
+  }
+  await markWebhookProcessed(database, webhookEventId);
+  return "question_saved";
+}
+
 async function handleNoticeFailure(
   dependencies: NoticeDependencies,
   context: { webhookEventId: string; job: JobContext },
@@ -232,6 +266,14 @@ async function handleNoticeFailure(
   await markWebhookFailed(dependencies.database, context.webhookEventId, message);
   logger.warn("webhook.notice_failed", { webhookEventId: context.webhookEventId, isFinal, error });
   throw error;
+}
+
+/** The webhook processor only hands over a question notice while questions are on. */
+function requireQuestionReader(dependencies: NoticeDependencies): ReadQuestion {
+  if (dependencies.readers.readQuestion === undefined) {
+    throw new UnrecoverableError("Leitura de perguntas desligada");
+  }
+  return dependencies.readers.readQuestion;
 }
 
 /**
@@ -258,6 +300,9 @@ export async function processMarketplaceNotice(
     };
     if (notice.kind === "shipment") {
       return await trackShipment(run, notice.shipmentId);
+    }
+    if (notice.kind === "question") {
+      return await saveQuestionNotice(run, requireQuestionReader(dependencies), notice.questionId);
     }
     return await saveClaimNotice(run, notice.claimId);
   } catch (error) {
