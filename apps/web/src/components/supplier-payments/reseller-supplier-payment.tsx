@@ -201,7 +201,7 @@ function ManualRefundAction({ view }: { view: PaymentView }) {
     ) : (
       <Link to="/suporte/$ticketId" params={{ ticketId: manual.ticketId }}>
         <ChatCircleDotsIcon aria-hidden="true" />
-        Ver o chamado da devolução
+        Ver o chamado deste pedido
       </Link>
     );
   return (

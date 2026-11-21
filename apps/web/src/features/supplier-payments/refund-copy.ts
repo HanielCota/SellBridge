@@ -23,7 +23,7 @@ export interface RefundView {
 
 /** A refund the team makes by hand, asked for through a support ticket. */
 export interface ManualRefundView {
-  /** The ticket already open about the order, or null while the reseller has not asked. */
+  /** A ticket already open about the order (about the refund or not), or null. */
   ticketId: string | null;
   /** The last moment before Asaas releases the money to the supplier (ISO), or null when unknown. */
   askUntil: string | null;
@@ -33,7 +33,8 @@ export interface ManualRefundView {
 function manualRefundSentence(manual: ManualRefundView, amount: string, now: Date): string {
   const who = `Quem devolve os ${amount} é a equipe do SellBridge.`;
   if (manual.ticketId !== null) {
-    return `${who} Seu pedido de devolução já está com a equipe: a resposta chega no chamado.`;
+    // The open ticket may be about something else on the order, so it is not called a refund request.
+    return `${who} Você já tem um chamado aberto sobre este pedido: peça a devolução por lá.`;
   }
   if (manual.askUntil === null) {
     return `${who} Peça a devolução pelo botão abaixo.`;

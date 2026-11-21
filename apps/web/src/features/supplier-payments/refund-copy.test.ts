@@ -59,7 +59,7 @@ describe("resellerRefundText", () => {
     );
   });
 
-  test("points to the ticket once the reseller asked for the refund", () => {
+  test("sends the reseller to the ticket already open about the order, whatever it is about", () => {
     const text = resellerRefundText({
       badge: { kind: "refunding" },
       refund: { reason: "cancelled", failed: true },
@@ -69,7 +69,7 @@ describe("resellerRefundText", () => {
     });
 
     expect(text).toBe(
-      `O envio foi cancelado. Quem devolve os ${AMOUNT} é a equipe do SellBridge. Seu pedido de devolução já está com a equipe: a resposta chega no chamado.`,
+      `O envio foi cancelado. Quem devolve os ${AMOUNT} é a equipe do SellBridge. Você já tem um chamado aberto sobre este pedido: peça a devolução por lá.`,
     );
   });
 

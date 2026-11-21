@@ -439,8 +439,8 @@ test("a devolução de um Pix que o Asaas recusa vai para a equipe e o revendedo
   // With the ticket open, the order leads to it instead of opening a second one.
   await gotoHydrated(reseller, `/pedidos/${sale.orderId}`);
   await expect(reseller.getByRole("link", { name: "Pedir a devolução à equipe" })).toHaveCount(0);
-  await expect(reseller.getByText(/Seu pedido de devolução já está com a equipe/)).toBeVisible();
-  await expect(reseller.getByRole("link", { name: "Ver o chamado da devolução" })).toHaveAttribute(
+  await expect(reseller.getByText(/Você já tem um chamado aberto sobre este pedido/)).toBeVisible();
+  await expect(reseller.getByRole("link", { name: "Ver o chamado deste pedido" })).toHaveAttribute(
     "href",
     new RegExp(`^${ticketUrl}`),
   );
