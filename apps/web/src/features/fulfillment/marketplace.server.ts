@@ -83,6 +83,7 @@ async function labelAccess(tenantId: string, orderId: string) {
   const notesRefusal = onBehalfLabelRefusal(
     await findOnBehalfLabelParcels(database, { tenantId, orderId }),
     row.store.marketplace,
+    orderId,
   );
   if (notesRefusal !== null) throw conflictError(notesRefusal);
   return {

@@ -14,7 +14,12 @@ export function lastDayLabel(isoDate: string): string {
 interface CancelTerms {
   endsAt: string | null;
   refundCents: number | null;
+  /** The plan went up after the first fee: what was paid to go up is not given back. */
+  keepsUpgradeDifference?: boolean;
 }
+
+const DIFFERENCE_STAYS =
+  "Só essa primeira mensalidade volta: o que você pagou a mais para subir de plano não é devolvido.";
 
 const AFTER_THE_PLAN =
   "Depois disso, pedidos e anúncios no ar continuam, mas você não conecta lojas novas nem publica anúncios novos.";
@@ -22,7 +27,9 @@ const AFTER_THE_PLAN =
 /** What cancelling does, in the reseller's words, before confirming. */
 export function cancelCopy(terms: CancelTerms): string {
   if (terms.refundCents !== null) {
-    return `Como é a sua primeira mensalidade e você pagou há 7 dias ou menos, devolvemos ${formatCents(terms.refundCents)} inteiro pelo Asaas. O plano acaba agora. ${AFTER_THE_PLAN}`;
+    const refund = `Como é a sua primeira mensalidade e você pagou há 7 dias ou menos, devolvemos ${formatCents(terms.refundCents)} inteiro pelo Asaas.`;
+    const difference = terms.keepsUpgradeDifference === true ? ` ${DIFFERENCE_STAYS}` : "";
+    return `${refund}${difference} O plano acaba agora. ${AFTER_THE_PLAN}`;
   }
   const until = terms.endsAt === null ? "o fim do mês pago" : lastDayLabel(terms.endsAt);
   return `Seu plano vale até ${until} e não renova. ${AFTER_THE_PLAN}`;

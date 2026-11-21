@@ -1,6 +1,6 @@
 import { sql } from "drizzle-orm";
 import { bigint, boolean, check, date, pgTable, text, timestamp } from "drizzle-orm/pg-core";
-import { organization } from "./auth.ts";
+import { organization, user } from "./auth.ts";
 
 export const billingAccounts = pgTable(
   "billing_accounts",
@@ -49,6 +49,36 @@ export const billingAccounts = pgTable(
     check(
       "billing_accounts_scheduled_plan_check",
       sql`(${table.scheduledPlan} is null) = (${table.scheduledPlanAt} is null)`,
+    ),
+  ],
+);
+
+/**
+ * A plan the team gave the account with no charge. Kept apart from `billing_accounts`, which
+ * mirrors the payment provider: nothing read from Asaas ever touches a courtesy. Taking it back
+ * deletes the row; who gave, changed or took it, and why, stays in `admin_audit_events`.
+ */
+export const billingCourtesies = pgTable(
+  "billing_courtesies",
+  {
+    tenantId: text("tenant_id")
+      .primaryKey()
+      .references(() => organization.id, { onDelete: "cascade" }),
+    plan: text("plan").notNull(),
+    /** The first moment without the plan; null never runs out. */
+    expiresAt: timestamp("expires_at", { withTimezone: true }),
+    reason: text("reason").notNull(),
+    grantedBy: text("granted_by").references(() => user.id, { onDelete: "set null" }),
+    grantedAt: timestamp("granted_at", { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true })
+      .notNull()
+      .defaultNow()
+      .$onUpdate(() => new Date()),
+  },
+  (table) => [
+    check(
+      "billing_courtesies_plan_check",
+      sql`${table.plan} in ('start', 'pro', 'business', 'black', 'elite')`,
     ),
   ],
 );

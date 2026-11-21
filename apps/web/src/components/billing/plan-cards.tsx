@@ -15,17 +15,13 @@ import {
 } from "@/features/billing/plan-choice";
 import {
   currentPlanOf,
-  dateLabel,
   hasLiveSubscription,
-  OWNER_ONLY_REASON,
-  paymentToFix,
   priceOf,
   useBillingAction,
   type BillingData,
 } from "./billing-data";
+import { planCardState } from "./plan-card-state";
 import { PaymentMethodDialog, PlanChangeDialog, type PaymentMethod } from "./billing-dialogs";
-
-const PAY_FIRST_REASON = "Pague a mensalidade em aberto antes de trocar de plano";
 
 function PlanPrice({ priceCents }: { priceCents: number | undefined }) {
   if (priceCents === undefined) {
@@ -94,32 +90,6 @@ function planCardRing(recommended: boolean, isCurrent: boolean): string | undefi
   return undefined;
 }
 
-type PlanCardState =
-  | { kind: "off" }
-  | { kind: "in_use" }
-  | { kind: "starts"; on: string }
-  | { kind: "button"; label: string; reason: string | null };
-
-function blockedReason(data: BillingData, live: boolean): string | null {
-  if (!data.canManage) return OWNER_ONLY_REASON;
-  if (live && paymentToFix(data)) return PAY_FIRST_REASON;
-  return null;
-}
-
-function planCardState(plan: BillingPlan, data: BillingData, isCurrent: boolean): PlanCardState {
-  if (!data.enabled) return { kind: "off" };
-  const live = hasLiveSubscription(data);
-  const scheduled = data.subscription?.scheduledPlan ?? null;
-  const scheduledAt = data.subscription?.scheduledPlanAt ?? null;
-  if (scheduled === plan.id && scheduledAt !== null)
-    return { kind: "starts", on: dateLabel(scheduledAt) };
-  if (isCurrent && live && scheduled === null) return { kind: "in_use" };
-  const reason = blockedReason(data, live);
-  if (!live) return { kind: "button", label: `Assinar o ${plan.name}`, reason };
-  const label = isCurrent ? `Continuar no ${plan.name}` : `Mudar para ${plan.name}`;
-  return { kind: "button", label, reason };
-}
-
 function PlanAction({
   plan,
   data,
@@ -138,6 +108,8 @@ function PlanAction({
     return <p className="text-sm text-muted-foreground">Disponível quando a cobrança começar</p>;
   }
   if (state.kind === "in_use") return <StatusTile>Plano em uso</StatusTile>;
+  // Said once, next to the plan in use: four cards repeating it would bury the plans.
+  if (state.kind === "courtesy") return null;
   if (state.kind === "starts") return <StatusTile>{`Começa em ${state.on}`}</StatusTile>;
   const button = (
     <Button

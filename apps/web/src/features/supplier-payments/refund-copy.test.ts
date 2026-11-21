@@ -29,6 +29,50 @@ describe("resellerRefundText", () => {
     );
   });
 
+  test("says the team gives the money back and how to ask, with the last day", () => {
+    const text = resellerRefundText({
+      badge: { kind: "refunding" },
+      refund: { reason: "cancelled", failed: true },
+      amountCents: 5990,
+      provider: "asaas",
+      manualRefund: { ticketId: null, askUntil: "2026-12-20T15:00:00.000Z" },
+      now: new Date("2026-11-20T15:00:00.000Z"),
+    });
+
+    expect(text).toBe(
+      `O envio foi cancelado. Quem devolve os ${AMOUNT} é a equipe do SellBridge. Peça a devolução pelo botão abaixo: o prazo vai até 20 de dez., e depois dessa data o Asaas libera o valor ao fornecedor.`,
+    );
+  });
+
+  test("says the team settles with the supplier once Asaas released the money", () => {
+    const text = resellerRefundText({
+      badge: { kind: "refunding" },
+      refund: { reason: "cancelled", failed: true },
+      amountCents: 5990,
+      provider: "asaas",
+      manualRefund: { ticketId: null, askUntil: "2026-12-20T02:59:59.999Z" },
+      now: new Date("2026-12-21T15:00:00.000Z"),
+    });
+
+    expect(text).toBe(
+      `O envio foi cancelado. Quem devolve os ${AMOUNT} é a equipe do SellBridge. O Asaas já liberou o valor ao fornecedor, então a equipe acerta a devolução com ele. Peça pelo botão abaixo.`,
+    );
+  });
+
+  test("sends the reseller to the ticket already open about the order, whatever it is about", () => {
+    const text = resellerRefundText({
+      badge: { kind: "refunding" },
+      refund: { reason: "cancelled", failed: true },
+      amountCents: 5990,
+      provider: "asaas",
+      manualRefund: { ticketId: "8d0c0a52-3b4f-4bb0-9a49-2f1f5d1f7c11", askUntil: null },
+    });
+
+    expect(text).toBe(
+      `O envio foi cancelado. Quem devolve os ${AMOUNT} é a equipe do SellBridge. Você já tem um chamado aberto sobre este pedido: peça a devolução por lá.`,
+    );
+  });
+
   test("confirms the money came back", () => {
     const text = resellerRefundText({
       badge: { kind: "refunded", refundedAt: "2026-11-15T13:00:00.000Z" },
