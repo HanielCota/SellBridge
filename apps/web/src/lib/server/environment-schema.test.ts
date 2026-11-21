@@ -178,10 +178,10 @@ describe("serverEnvironmentSchema", () => {
       expect(parsed.error?.issues[0]?.path).toEqual(["BILLING_TRANSITION_ENDS_AT"]);
     });
 
-    it("keeps development free of plan billing and defaults the grace to 7 days", () => {
+    it("keeps development free of plan billing and defaults the grace to the contract's 5 days", () => {
       expect(serverEnvironmentSchema.parse(validEnvironment)).toMatchObject({
         BILLING_UNLIMITED: false,
-        BILLING_PAST_DUE_GRACE_DAYS: 7,
+        BILLING_PAST_DUE_GRACE_DAYS: 5,
       });
     });
   });
