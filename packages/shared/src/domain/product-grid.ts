@@ -14,7 +14,7 @@ import { stripAccents } from "./text.ts";
  */
 export const MAX_GRID_COMBINATIONS = 50;
 export const MAX_GRID_OPTION_LENGTH = 40;
-const MAX_OPTION_PHOTOS = 20;
+export const MAX_OPTION_PHOTOS = 20;
 const PRODUCT_TITLE_MAX_LENGTH = 300;
 /** Leaves room for " - {colour} {size}" inside the product title limit. */
 export const MAX_MODEL_TITLE_LENGTH =
@@ -322,6 +322,11 @@ function sizeSortKey(name: string, index: number): readonly [number, number] {
   return [2, index];
 }
 
+/** "38", "33/34" or "GG": a word the size order knows, so a name's last word reads as a size. */
+export function isKnownSizeName(name: string): boolean {
+  return sizeSortKey(name, 0)[0] < 2;
+}
+
 /**
  * Sizes in the order a buyer expects (34, 35, 36; P, M, G), for grids read from a spreadsheet or
  * an ERP where rows come in any order. Sizes the rule does not know keep their order, last.
@@ -380,7 +385,10 @@ export interface MaterializedCombination {
   readonly fiscal: ProductFiscalPatch;
 }
 
-function sharedAttributes(attributes: Readonly<Record<string, string>>): Record<string, string> {
+/** The sheet a model shares: never one unit's barcode, nor the colour and size the grid gives. */
+export function sharedAttributes(
+  attributes: Readonly<Record<string, string>>,
+): Record<string, string> {
   return Object.fromEntries(
     Object.entries(attributes).filter(
       ([key]) => !COMBINATION_ONLY_ATTRIBUTES.has(key) && !GRID_AXIS_ATTRIBUTES.has(key),

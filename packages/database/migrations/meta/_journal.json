@@ -715,6 +715,13 @@
       "when": 1795207035908,
       "tag": "0101_reseller_bling_sale_notes",
       "breakpoints": true
+    },
+    {
+      "idx": 102,
+      "version": "7",
+      "when": 1795216675932,
+      "tag": "0102_product_groupings",
+      "breakpoints": true
     }
   ]
 }
