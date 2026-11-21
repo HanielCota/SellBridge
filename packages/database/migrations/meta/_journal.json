@@ -736,6 +736,13 @@
       "when": 1795246752435,
       "tag": "0104_long_foreign_key_names",
       "breakpoints": true
+    },
+    {
+      "idx": 105,
+      "version": "7",
+      "when": 1795285104704,
+      "tag": "0105_contract_signatures",
+      "breakpoints": true
     }
   ]
 }

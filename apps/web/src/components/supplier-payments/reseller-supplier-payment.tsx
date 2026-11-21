@@ -14,7 +14,10 @@ import {
   type getResellerSupplierPaymentFn,
   startSupplierCheckoutFn,
 } from "@/features/supplier-payments/supplier-payments.functions";
-import { showsProtectionSeal } from "@/features/supplier-payments/protection-seal";
+import {
+  protectionSealText,
+  showsProtectionSeal,
+} from "@/features/supplier-payments/protection-seal";
 import { resellerRefundText } from "@/features/supplier-payments/refund-copy";
 import { resellerSupplierPaymentQueryOptions } from "@/features/supplier-payments/supplier-payments.queries";
 import { SUPPORT_HOURS_TEXT } from "@/features/support/response-time";
@@ -168,11 +171,11 @@ function WhyNotPaid({ view }: { view: PaymentView }) {
 }
 
 /** The seal on a protected payment, with Guilherme's words (15/11/2026). */
-function ProtectedSeal() {
+function ProtectedSeal({ text }: { text: string }) {
   return (
     <p className="flex items-start gap-2 rounded-xl bg-emerald-700 px-3 py-2 text-sm font-medium text-white">
       <ShieldCheckIcon aria-hidden="true" className="mt-0.5 size-4 flex-none" weight="fill" />
-      Pagamento protegido: liberado ao fornecedor só depois da entrega
+      {text}
     </p>
   );
 }
@@ -239,7 +242,7 @@ export function ResellerSupplierPayment({ shipmentId }: { shipmentId: string }) 
         <span className="text-sm text-muted-foreground">Pagamento ao fornecedor</span>
         <SupplierPaymentBadgeView badge={view.badge} paidWord="Fornecedor pago" />
       </div>
-      {showsProtectionSeal(view) ? <ProtectedSeal /> : null}
+      {showsProtectionSeal(view) ? <ProtectedSeal text={protectionSealText(view.badge)} /> : null}
       {view.canPay ? (
         <>
           <p className="flex items-baseline gap-1.5">

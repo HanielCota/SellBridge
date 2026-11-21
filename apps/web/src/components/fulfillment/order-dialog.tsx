@@ -28,6 +28,8 @@ import { ResellerInvoiceCard } from "./reseller-invoice-card";
 import { ResellerSaleNoteCard } from "./reseller-sale-note-card";
 import { ShipmentPanel } from "./shipment-panel";
 import { ResellerSupplierPayment } from "@/components/supplier-payments/reseller-supplier-payment";
+import { CancelMoneyNote } from "@/components/supplier-payments/cancel-money-note";
+import { asksForSaleNote } from "@/features/fulfillment/sale-note-request";
 import { TrackParcelLink } from "@/components/tracking/track-parcel-link";
 import { useTabProfileLink } from "@/lib/tab-profile";
 import { ShipmentActionHint, ShipmentActionIcon } from "./shipment-hints";
@@ -67,6 +69,12 @@ function paymentLine(shipment: Detail["shipments"][number]) {
     <ResellerSupplierPayment shipmentId={shipment.id} />
   );
 }
+/** What cancelling does to the money paid to the supplier; none for the reseller's own stock. */
+function cancelNoteFor(shipment: Detail["shipments"][number]) {
+  return shipment.catalogKind === "seller" ? null : (
+    <CancelMoneyNote shipmentId={shipment.id} parcelStatus={shipment.status} />
+  );
+}
 /** In venda à ordem the reseller's own note comes first: the supplier's notes wait for it. */
 function invoiceCards(
   order: { id: string; marketplace: string },
@@ -79,7 +87,8 @@ function invoiceCards(
   }
   return (
     <>
-      {shipment.resellerNote === null ? null : (
+      {shipment.resellerNote === null ||
+      !asksForSaleNote(shipment.status, shipment.resellerNote) ? null : (
         <ResellerSaleNoteCard
           shipmentId={shipment.id}
           marketplace={order.marketplace}
@@ -128,6 +137,7 @@ function ShipmentList({
       // A parcel waiting for the supplier's account or the payment cannot be moved for it either.
       blocked={blocked || shipment.preparationHold !== null}
       payment={paymentLine(shipment)}
+      cancelNote={cancelNoteFor(shipment)}
       invoice={invoiceCards(detail.order, shipment, refresh)}
       onUpdate={async (input) => {
         await updateShipmentFn({ data: input });

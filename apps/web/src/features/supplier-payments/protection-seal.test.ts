@@ -1,5 +1,5 @@
 import { describe, expect, test } from "vitest";
-import { showsProtectionSeal } from "./protection-seal";
+import { protectionSealText, showsProtectionSeal } from "./protection-seal";
 
 const refunding = { kind: "refunding" } as const;
 
@@ -29,6 +29,23 @@ describe("showsProtectionSeal", () => {
       protectedPayment: true,
       badge: { kind: "refunded", refundedAt: null },
       manualRefund: null,
+    });
+
+    expect(shown).toBe(false);
+  });
+
+  test("no longer promises a delivery once the parcel was cancelled", () => {
+    expect(protectionSealText(refunding)).toBe(
+      "Pagamento protegido: o valor está guardado no Asaas e não foi para o fornecedor",
+    );
+  });
+
+  test("drops the seal once the money went to the supplier", () => {
+    const shown = showsProtectionSeal({
+      protectedPayment: true,
+      badge: { kind: "paid", paidAt: "2026-11-21T12:00:00.000Z", method: "PIX" },
+      manualRefund: null,
+      moneyReleased: true,
     });
 
     expect(shown).toBe(false);

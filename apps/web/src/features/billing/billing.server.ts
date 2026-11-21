@@ -12,7 +12,6 @@ import {
   findBillingTenantCreatedAt,
   getBillingAccount,
   getBillingCourtesy,
-  getPaymentFeeSetting,
   requireBillingOwner,
 } from "@sellbridge/database/repositories";
 import { database } from "@/lib/server/database";
@@ -118,12 +117,11 @@ async function isOwner(tenantId: string, userId: string): Promise<boolean> {
 
 export async function billingSummary(tenantId: string, userId: string) {
   await refreshOnVisit(tenantId);
-  const [account, usage, notice, access, fee, canManage, courtesy] = await Promise.all([
+  const [account, usage, notice, access, canManage, courtesy] = await Promise.all([
     getBillingAccount(database, tenantId),
     billingUsage(database, tenantId),
     findBillingNotice(tenantId),
     accessView(tenantId),
-    getPaymentFeeSetting(database),
     isOwner(tenantId, userId),
     courtesyView(tenantId),
   ]);
@@ -140,7 +138,6 @@ export async function billingSummary(tenantId: string, userId: string) {
     access,
     courtesy,
     enabled,
-    platformFeeBasisPoints: fee.basisPoints,
   };
 }
 
