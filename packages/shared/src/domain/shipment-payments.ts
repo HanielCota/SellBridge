@@ -59,9 +59,10 @@ export class InvalidPaymentFeeError extends Error {
 }
 
 /**
- * SellBridge's share of a supplier payment.
+ * SellBridge's share of a supplier payment. The contract takes it from the products' price only:
+ * the amount is each item's cost times its quantity, never the order's shipping.
  *
- * @param amountCents - What the reseller pays, in cents. Must be a positive integer.
+ * @param amountCents - What the reseller pays for the products, in cents. A positive integer.
  * @param feeBasisPoints - The fee rate, between 0 and 3000 (30%).
  * @returns The share in cents, rounded half up, never above the amount.
  * @throws {InvalidPaymentFeeError} When the amount or the rate is out of range or not an integer.

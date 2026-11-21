@@ -19,12 +19,7 @@ export const financialTotalsSchema = z.object({
     .int()
     .describe("Valor devolvido em devoluções; informativo, já fora da receita."),
   commissionsCents: z.number().int().describe("Comissões recebidas do fornecedor."),
-  platformFeeCents: z
-    .number()
-    .int()
-    .describe(
-      "Sempre 0: a taxa do SellBridge sai da parte do fornecedor quando o revendedor paga o pedido, não do lucro do revendedor. Mantido para não quebrar integrações.",
-    ),
+  platformFeeCents: z.number().int().describe("Sempre 0. Mantido para não quebrar integrações."),
   profitCents: z
     .number()
     .int()
