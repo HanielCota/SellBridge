@@ -306,19 +306,15 @@ describe("settleHeldPayment", () => {
     );
   });
 
-  test("counts the longest guarantee from the day of the payment when Asaas gave no deadline", async () => {
+  test("gives the team no date while Asaas reported no guarantee for the payment", async () => {
     mocks.requestRefund.mockResolvedValue(parcel({ refundRequestedAt: NOW }));
     mocks.markRefundFailed.mockResolvedValue(true);
     replies = [
       { status: 400, body: { errors: [{ code: "invalid_action", description: "Sem saldo." }] } },
     ];
     const errors = vi.spyOn(logger, "error").mockImplementation(() => {});
-    // Paid at 22:00 in Brasília on 20/11: the guarantee would end at the start of 20/12.
-    const payment = parcel({
-      escrowExpiresAt: null,
-      paidAt: new Date("2026-11-21T01:00:00Z"),
-      paymentMethod: "CREDIT_CARD",
-    });
+    // A card is held only once Asaas counts it as received, which can be weeks after paying.
+    const payment = parcel({ escrowExpiresAt: null, paymentMethod: "CREDIT_CARD" });
 
     await settleHeldPayment(context, {
       account,
@@ -329,9 +325,7 @@ describe("settleHeldPayment", () => {
     expect(errors).toHaveBeenCalledWith(
       "asaas.refund_refused",
       expect.objectContaining({
-        reason: expect.stringContaining(
-          "pagos no cartão. Alguém da equipe devolve ao revendedor pelo Asaas até 19/12/2026;",
-        ),
+        reason: `Devolução manual: o Asaas não devolveu sozinho ${formatCents(10_000)} pagos no cartão. Alguém da equipe devolve ao revendedor pelo Asaas; o Asaas ainda não informou até quando guarda o valor.`,
       }),
     );
   });

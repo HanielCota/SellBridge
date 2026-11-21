@@ -180,7 +180,7 @@ async function manualRefundView(tenantId: string, payable: PayableShipment) {
     orderId: payable.orderId,
   });
   const now = new Date();
-  const askUntil = payment.escrowExpiresAt === null ? null : manualRefundLastMoment(payment, now);
+  const askUntil = manualRefundLastMoment(payment);
   return {
     orderId: payable.orderId,
     orderName: payable.externalOrderId,

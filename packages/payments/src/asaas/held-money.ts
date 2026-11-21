@@ -8,7 +8,6 @@ import {
   type SupplierPaymentAccount,
 } from "@sellbridge/database/repositories";
 import {
-  ESCROW_SAFETY_DEADLINE_IN_DAYS,
   escrowActionFor,
   escrowNeedsAttention,
   type EscrowAction,
@@ -16,7 +15,6 @@ import {
 } from "@sellbridge/shared/escrow-release";
 import { logger } from "@sellbridge/shared/logger";
 import { formatCents } from "@sellbridge/shared/money";
-import { startOfBrazilDay } from "@sellbridge/shared/period-range";
 import type { ShipmentPaymentRefundReason } from "@sellbridge/shared/shipment-payments";
 import { platformClient, withAsaasAccount } from "./account-access.ts";
 import type { AsaasContext } from "./context.ts";
@@ -145,7 +143,6 @@ async function refund(
   return { kind: "refund_requested", reason: input.reason };
 }
 
-const DAY_IN_MS = 24 * 60 * 60 * 1000;
 const DEADLINE_DAY = new Intl.DateTimeFormat("pt-BR", {
   day: "2-digit",
   month: "2-digit",
@@ -155,31 +152,27 @@ const DEADLINE_DAY = new Intl.DateTimeFormat("pt-BR", {
 const PAID_BY: Readonly<Record<string, string>> = { PIX: " por Pix", CREDIT_CARD: " no cartão" };
 
 /**
- * The moment Asaas stops holding the money and hands it to the supplier: the start (Brasília) of
- * the guarantee's expiration day, or of the day the longest guarantee ends, counted from the
- * day of the payment.
+ * The last moment the money can still be given back by hand: just before Asaas releases it at the
+ * start (Brasília) of the guarantee's expiration day, so a day label shows the last whole day (a
+ * guarantee ending on 20/12 leaves until 19/12). Null while Asaas reported no guarantee: a card is
+ * held only once Asaas counts it as received, which can be weeks after the payment.
  */
-function manualRefundDeadline(payment: ShipmentPayment, now: Date): Date {
-  if (payment.escrowExpiresAt !== null) {
-    return payment.escrowExpiresAt;
+export function manualRefundLastMoment(payment: ShipmentPayment): Date | null {
+  if (payment.escrowExpiresAt === null) {
+    return null;
   }
-  const paidDay = startOfBrazilDay(payment.paidAt ?? now);
-  return new Date(paidDay.getTime() + ESCROW_SAFETY_DEADLINE_IN_DAYS * DAY_IN_MS);
-}
-
-/**
- * The last moment the money can still be given back by hand: just before Asaas releases it, so
- * a day label shows the last whole day (a guarantee ending on 20/12 leaves until 19/12).
- */
-export function manualRefundLastMoment(payment: ShipmentPayment, now: Date): Date {
-  return new Date(manualRefundDeadline(payment, now).getTime() - 1);
+  return new Date(payment.escrowExpiresAt.getTime() - 1);
 }
 
 /** What the team reads on Problemas: this refund is theirs to make by hand, and until when. */
-function manualRefundReason(payment: ShipmentPayment, now: Date): string {
+function manualRefundReason(payment: ShipmentPayment): string {
   const paidBy = PAID_BY[payment.paymentMethod ?? ""] ?? "";
-  const day = DEADLINE_DAY.format(manualRefundLastMoment(payment, now));
-  return `Devolução manual: o Asaas não devolveu sozinho ${formatCents(payment.amountCents)} pagos${paidBy}. Alguém da equipe devolve ao revendedor pelo Asaas até ${day}; depois disso o valor vai para o fornecedor.`;
+  const lead = `Devolução manual: o Asaas não devolveu sozinho ${formatCents(payment.amountCents)} pagos${paidBy}.`;
+  const lastMoment = manualRefundLastMoment(payment);
+  if (lastMoment === null) {
+    return `${lead} Alguém da equipe devolve ao revendedor pelo Asaas; o Asaas ainda não informou até quando guarda o valor.`;
+  }
+  return `${lead} Alguém da equipe devolve ao revendedor pelo Asaas até ${DEADLINE_DAY.format(lastMoment)}; depois disso o valor vai para o fornecedor.`;
 }
 
 async function refundRefused(context: AsaasContext, held: HeldPayment, why: string, now: Date) {
@@ -190,7 +183,7 @@ async function refundRefused(context: AsaasContext, held: HeldPayment, why: stri
   });
   if (first) {
     logger.error("asaas.refund_refused", {
-      reason: manualRefundReason(held.payment, now),
+      reason: manualRefundReason(held.payment),
       problemKey: held.payment.id,
       refusal: why,
       shipmentPaymentId: held.payment.id,

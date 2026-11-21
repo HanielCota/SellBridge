@@ -53,7 +53,7 @@ export async function loadManualRefund(shipmentPaymentId: string) {
   }
   const { payment } = found;
   const now = new Date();
-  const lastMoment = manualRefundLastMoment(payment, now);
+  const lastMoment = manualRefundLastMoment(payment);
   const ticketId = await findOpenSupportTicketForOrder(database, {
     tenantId: found.tenantId,
     orderId: found.orderId,

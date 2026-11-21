@@ -24,6 +24,17 @@ describe("manualRefundDeadlineLine", () => {
   });
 });
 
+describe("manualRefundDeadlineLine without a guarantee", () => {
+  test("gives no date and keeps the steps while Asaas has not said until when it holds the money", () => {
+    const line = manualRefundDeadlineLine(null, new Date("2026-12-21T15:00:00Z"));
+
+    expect(line).toEqual({
+      passed: false,
+      text: "O Asaas ainda não informou até quando guarda o valor. Devolva assim que puder.",
+    });
+  });
+});
+
 describe("manualRefundExplanation", () => {
   test("explains the missing free balance only for a Pix", () => {
     expect(manualRefundExplanation(true)).toContain("A taxa do SellBridge já saiu dessa conta");

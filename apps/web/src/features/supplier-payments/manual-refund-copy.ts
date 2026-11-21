@@ -12,9 +12,15 @@ const fullDay = new Intl.DateTimeFormat("pt-BR", {
  * money to the supplier, in which case the steps at Asaas no longer apply.
  */
 export function manualRefundDeadlineLine(
-  lastMoment: Date,
+  lastMoment: Date | null,
   now: Date,
 ): { passed: boolean; text: string } {
+  if (lastMoment === null) {
+    return {
+      passed: false,
+      text: "O Asaas ainda não informou até quando guarda o valor. Devolva assim que puder.",
+    };
+  }
   const day = fullDay.format(lastMoment);
   if (now.getTime() > lastMoment.getTime()) {
     return {
@@ -28,8 +34,11 @@ export function manualRefundDeadlineLine(
   };
 }
 
-/** The last day as the team reads it in the facts: "19/12/2026". */
-export function manualRefundDayLabel(lastMoment: Date): string {
+/** The last day as the team reads it in the facts: "19/12/2026", or that Asaas has not said. */
+export function manualRefundDayLabel(lastMoment: Date | null): string {
+  if (lastMoment === null) {
+    return "Ainda não informado pelo Asaas";
+  }
   return fullDay.format(lastMoment);
 }
 
