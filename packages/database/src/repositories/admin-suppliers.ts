@@ -19,7 +19,7 @@ import {
   type ProductFiscalPatch,
   type TaxRegime,
 } from "@sellbridge/shared/product-fiscal";
-import { and, asc, count, eq, inArray, isNull, or, sql } from "drizzle-orm";
+import { and, asc, count, eq, getTableColumns, inArray, isNull, or, sql } from "drizzle-orm";
 import type { Database, DatabaseExecutor } from "../client.ts";
 import {
   categories,
@@ -43,10 +43,12 @@ import {
   writePlannedGrids,
   type PlannedGrid,
 } from "./supplier-grid-import.ts";
-import { publicSupplier } from "./sql/sellable.ts";
+import { publicSupplier, receivingAccountApproved } from "./sql/sellable.ts";
 
 export type AdminSupplier = typeof suppliers.$inferSelect;
 export type AdminSupplierProduct = typeof supplierProducts.$inferSelect;
+/** A row of the admin supplier list: whether it can be paid through SellBridge rides along. */
+export type AdminSupplierListItem = AdminSupplier & { receivingAccountApproved: boolean };
 
 /** Global catalog operations are only exposed through admin-protected server functions. */
 export async function listAdminSuppliers(
@@ -62,8 +64,11 @@ export async function listAdminSuppliers(
   const panelCondition = filter.withoutPanel ? isNull(suppliers.organizationId) : undefined;
   const condition = and(publicSupplier(), searchCondition, panelCondition);
   const [total] = await database.select({ value: count() }).from(suppliers).where(condition);
-  const items = await database
-    .select()
+  const items: AdminSupplierListItem[] = await database
+    .select({
+      ...getTableColumns(suppliers),
+      receivingAccountApproved: sql<boolean>`${receivingAccountApproved()}`,
+    })
     .from(suppliers)
     .where(condition)
     .orderBy(asc(suppliers.name), asc(suppliers.id))
