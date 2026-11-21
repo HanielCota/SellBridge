@@ -5,6 +5,7 @@ import { toast } from "sonner";
 import { z } from "zod";
 import { AuthPageHeader } from "@/components/auth/auth-page";
 import { AuthShell } from "@/components/auth/auth-shell";
+import { ACTION_ICONS } from "@/components/icons/action-icons";
 import { useSignOut } from "@/components/layout/user-menu";
 import { Button, buttonVariants } from "@/components/ui/button";
 import { ContractCodeStep } from "@/components/contract-signing/contract-code-step";
@@ -15,6 +16,8 @@ import { useContractSigning } from "@/features/contract-signing/use-contract-sig
 import { needsTermsAcceptance } from "@/features/onboarding/terms-gate";
 import { parseRequestedProfile } from "@/lib/profile-param";
 import { formatAbsoluteTime } from "@/lib/relative-time";
+
+const SupportIcon = ACTION_ICONS.support.icon;
 
 const signContractSearchSchema = z.object({
   redirect: internalPathSchema,
@@ -112,10 +115,29 @@ function SigningWayOut({
   destination: string;
 }) {
   const signOut = useSignOut();
-  if (canSignLater) {
+  return (
+    <div className="grid gap-2">
+      <Link
+        to="/suporte"
+        className={buttonVariants({ variant: "outline", className: "min-h-11 w-full" })}
+      >
+        <SupportIcon aria-hidden="true" />
+        Falar com o suporte
+      </Link>
+      <WayBack
+        canSignLater={canSignLater}
+        destination={destination}
+        onSignOut={() => void signOut()}
+      />
+    </div>
+  );
+}
+
+function WayBack(props: { canSignLater: boolean; destination: string; onSignOut: () => void }) {
+  if (props.canSignLater) {
     return (
       <Link
-        to={destination}
+        to={props.destination}
         className={buttonVariants({ variant: "ghost", className: "min-h-11 w-full" })}
       >
         Assinar depois
@@ -123,12 +145,7 @@ function SigningWayOut({
     );
   }
   return (
-    <Button
-      type="button"
-      variant="ghost"
-      className="min-h-11 w-full"
-      onClick={() => void signOut()}
-    >
+    <Button type="button" variant="ghost" className="min-h-11 w-full" onClick={props.onSignOut}>
       Sair da conta
     </Button>
   );

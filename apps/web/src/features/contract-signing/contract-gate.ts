@@ -29,13 +29,20 @@ interface GateSession {
   impersonatedBy: string | null;
 }
 
+/** Pages that never wait on a contract: the team tools, and support, where a stuck person asks for help. */
+const GATE_FREE_PATHS = ["/admin", "/suporte"] as const;
+
+export function isContractGateFreePath(pathname: string): boolean {
+  return GATE_FREE_PATHS.some((path) => pathname === path || pathname.startsWith(`${path}/`));
+}
+
 /**
  * Whether the app sends the person to the signing screen. An admin visiting a customer is never
- * sent (signing is the customer's own act), and the team pages never wait on a profile's
- * contract: a team member with a store of their own keeps the team tools.
+ * sent (signing is the customer's own act), and the gate-free pages never wait on a
+ * profile's contract (`isContractGateFreePath`).
  */
-export function needsContractSigning(session: GateSession, onTeamPage: boolean): boolean {
-  if (onTeamPage) {
+export function needsContractSigning(session: GateSession, onGateFreePage: boolean): boolean {
+  if (onGateFreePage) {
     return false;
   }
   return session.contract.blocksPanel && session.impersonatedBy === null;

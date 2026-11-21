@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   CONTRACT_NOT_REQUIRED,
+  isContractGateFreePath,
   needsContractSigning,
   sessionMaySign,
   showsSigningReminder,
@@ -58,6 +59,14 @@ describe("contract gate", () => {
 
     expect(needsContractSigning({ ...customer, contract }, true)).toBe(false);
     expect(showsSigningReminder({ ...customer, contract }, true)).toBe(false);
+  });
+
+  it("lets a held person open support and the team tools, nothing else", () => {
+    expect(isContractGateFreePath("/suporte")).toBe(true);
+    expect(isContractGateFreePath("/suporte/novo")).toBe(true);
+    expect(isContractGateFreePath("/admin/chamados")).toBe(true);
+    expect(isContractGateFreePath("/dashboard")).toBe(false);
+    expect(isContractGateFreePath("/suportes")).toBe(false);
   });
 
   it("stops everything once signed", () => {

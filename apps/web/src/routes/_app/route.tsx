@@ -29,6 +29,7 @@ import { findNextStep } from "@/features/onboarding/setup-progress";
 import { needsTermsAcceptance } from "@/features/onboarding/terms-gate";
 import { ContractReminder } from "@/components/contract-signing/contract-reminder";
 import {
+  isContractGateFreePath,
   needsContractSigning,
   showsSigningReminder,
 } from "@/features/contract-signing/contract-gate";
@@ -84,7 +85,7 @@ export const Route = createFileRoute("/_app")({
       throw redirect({ to: "/aceitar-termos", search: { redirect: location.href } });
     }
     // Contracts, section 1: a new profile, or a seller past the 30 days, signs before anything.
-    if (needsContractSigning(session, isTeamPage(location.pathname))) {
+    if (needsContractSigning(session, isContractGateFreePath(location.pathname))) {
       throw redirect({
         to: "/assinar-contrato",
         search: { redirect: location.href, perfil: session.profileSlug ?? undefined },
