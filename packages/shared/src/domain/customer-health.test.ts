@@ -21,9 +21,34 @@ function signals(overrides: Partial<CustomerSignals> = {}): CustomerSignals {
     recentOrders: 20,
     previousOrders: 18,
     lastSeenAt: daysAgo(0),
+    courtesyExpiresAt: null,
     ...overrides,
   };
 }
+
+function inDays(days: number): Date {
+  return new Date(NOW.getTime() + days * 86_400_000);
+}
+
+describe("courtesy plan ending", () => {
+  it("tells the team from seven days before the end, without lowering the score", () => {
+    const health = assessCustomerHealth(signals({ courtesyExpiresAt: inDays(7) }), NOW);
+
+    expect(health.issues).toEqual([{ kind: "courtesy", expiresAt: inDays(7), daysLeft: 7 }]);
+    expect(health.score).toBe(100);
+  });
+
+  it("stays quiet while the end is further away or there is no end", () => {
+    expect(assessCustomerHealth(signals({ courtesyExpiresAt: inDays(8) }), NOW).issues).toEqual([]);
+    expect(assessCustomerHealth(signals({ courtesyExpiresAt: null }), NOW).issues).toEqual([]);
+  });
+
+  it("stops once the plan is over", () => {
+    const health = assessCustomerHealth(signals({ courtesyExpiresAt: NOW }), NOW);
+
+    expect(health.issues).toEqual([]);
+  });
+});
 
 describe("assessCustomerHealth", () => {
   it("gives a healthy seller full marks and no issues", () => {

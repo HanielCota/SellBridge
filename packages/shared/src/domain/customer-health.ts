@@ -1,4 +1,5 @@
 import { CUSTOMER_ISSUE_KINDS, type CustomerIssueKind } from "../schemas/admin.ts";
+import { COURTESY_WARNING_DAYS } from "./billing.ts";
 import { DAY_MILLISECONDS } from "./time.ts";
 
 /**
@@ -17,7 +18,7 @@ const DECLINE_MIN_PREVIOUS_ORDERS = 5;
 const DECLINE_THRESHOLD = 0.5;
 
 /** Points each open issue costs; onboarding costs per missing step instead. */
-const ISSUE_PENALTIES: Record<Exclude<CustomerIssueKind, "onboarding">, number> = {
+const ISSUE_PENALTIES: Record<Exclude<CustomerIssueKind, "onboarding" | "courtesy">, number> = {
   store: 25,
   listings: 15,
   ticket: 10,
@@ -44,6 +45,7 @@ export const ISSUE_SEVERITY: Record<CustomerIssueKind, IssueSeverity> = {
   ticket: "info",
   onboarding: "warning",
   cooling: "muted",
+  courtesy: "warning",
 };
 
 const HEALTH_LEVELS = ["critical", "attention", "healthy"] as const;
@@ -79,6 +81,8 @@ export interface CustomerSignals {
   previousOrders: number;
   /** Last sign-in of the customer themself, never an admin acting as them. */
   lastSeenAt: Date | null;
+  /** When the plan the team gave with no charge ends; null without one or with no end date. */
+  courtesyExpiresAt: Date | null;
 }
 
 export type CustomerIssue =
@@ -87,7 +91,8 @@ export type CustomerIssue =
   | { kind: "ticket"; count: number }
   | { kind: "onboarding"; nextStep: OnboardingStep; completedSteps: number; idleDays: number }
   | { kind: "cooling"; reason: "decline"; dropPercent: number }
-  | { kind: "cooling"; reason: "inactive"; idleDays: number };
+  | { kind: "cooling"; reason: "inactive"; idleDays: number }
+  | { kind: "courtesy"; expiresAt: Date; daysLeft: number };
 
 export interface CustomerHealth {
   /** 0–100, or null for a blocked account, which is out of the running. */
@@ -172,6 +177,19 @@ function coolingIssue(signals: CustomerSignals, now: Date): CustomerIssue | null
   return { kind: "cooling", reason: "inactive", idleDays };
 }
 
+/** A courtesy plan in its last days: the team renews it or lets it end, on purpose either way. */
+function courtesyIssue(signals: CustomerSignals, now: Date): CustomerIssue | null {
+  const expiresAt = signals.courtesyExpiresAt;
+  if (expiresAt === null || expiresAt <= now) {
+    return null;
+  }
+  const millisecondsLeft = expiresAt.getTime() - now.getTime();
+  if (millisecondsLeft > COURTESY_WARNING_DAYS * DAY_MILLISECONDS) {
+    return null;
+  }
+  return { kind: "courtesy", expiresAt, daysLeft: Math.ceil(millisecondsLeft / DAY_MILLISECONDS) };
+}
+
 function collectIssues(signals: CustomerSignals, now: Date): CustomerIssue[] {
   const stores = brokenStores(signals);
   const issues: (CustomerIssue | null)[] = [
@@ -180,14 +198,23 @@ function collectIssues(signals: CustomerSignals, now: Date): CustomerIssue[] {
     signals.waitingTickets > 0 ? { kind: "ticket", count: signals.waitingTickets } : null,
     onboardingIssue(signals, now),
     coolingIssue(signals, now),
+    courtesyIssue(signals, now),
   ];
   return issues.filter((issue) => issue !== null);
+}
+
+/** Onboarding costs per missing step; a courtesy ending says nothing about the account's health. */
+function issuePenalty(issue: CustomerIssue): number {
+  if (issue.kind === "onboarding" || issue.kind === "courtesy") {
+    return 0;
+  }
+  return ISSUE_PENALTIES[issue.kind];
 }
 
 function scoreFor(issues: readonly CustomerIssue[], completedSteps: number): number {
   const missingSteps = ONBOARDING_STEPS.length - completedSteps;
   const penalty = issues.reduce(
-    (total, issue) => total + (issue.kind === "onboarding" ? 0 : ISSUE_PENALTIES[issue.kind]),
+    (total, issue) => total + issuePenalty(issue),
     missingSteps * MISSING_STEP_PENALTY,
   );
   return Math.max(0, 100 - penalty);
