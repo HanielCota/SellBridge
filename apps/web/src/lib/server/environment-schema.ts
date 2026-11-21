@@ -1,5 +1,6 @@
 import {
   alertWebhookUrlEnvironmentSchema,
+  emailDailyCapEnvironmentShape,
   booleanFlagEnvironmentSchema,
   logLevelEnvironmentSchema,
   nodeEnvironmentSchema,
@@ -90,6 +91,7 @@ const serverEnvironmentShape = z.object({
    */
   RESEND_API_KEY: z.string().min(1).optional(),
   EMAIL_FROM: z.string().min(3).default("SellBridge <no-reply@sellbridge.local>"),
+  ...emailDailyCapEnvironmentShape,
   /** "Continuar com Google" appears only when both are set. */
   GOOGLE_CLIENT_ID: z.string().min(1).optional(),
   GOOGLE_CLIENT_SECRET: z.string().min(1).optional(),
