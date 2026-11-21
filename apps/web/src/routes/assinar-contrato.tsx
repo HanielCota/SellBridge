@@ -1,10 +1,12 @@
 import { contractFor } from "@sellbridge/shared/contract-documents";
 import { internalPathSchema } from "@sellbridge/shared/schemas";
-import { createFileRoute, redirect, useNavigate, useRouter } from "@tanstack/react-router";
+import { createFileRoute, Link, redirect, useNavigate, useRouter } from "@tanstack/react-router";
 import { toast } from "sonner";
 import { z } from "zod";
 import { AuthPageHeader } from "@/components/auth/auth-page";
 import { AuthShell } from "@/components/auth/auth-shell";
+import { useSignOut } from "@/components/layout/user-menu";
+import { Button, buttonVariants } from "@/components/ui/button";
 import { ContractCodeStep } from "@/components/contract-signing/contract-code-step";
 import { ContractSummaryStep } from "@/components/contract-signing/contract-summary-step";
 import { getAppSession } from "@/features/auth/session.functions";
@@ -37,13 +39,17 @@ export const Route = createFileRoute("/assinar-contrato")({
     if (!sessionMaySign(session)) {
       throw redirect({ to: search.redirect ?? "/dashboard" });
     }
-    return { profileKind: session.profileKind };
+    // Within the 30 days the person may leave and sign later; past them only signing opens.
+    return {
+      profileKind: session.profileKind,
+      canSignLater: session.contract.standing === "grace",
+    };
   },
   component: SignContractPage,
 });
 
 function SignContractPage() {
-  const { profileKind } = Route.useRouteContext();
+  const { profileKind, canSignLater } = Route.useRouteContext();
   const search = Route.useSearch();
   const navigate = useNavigate();
   const router = useRouter();
@@ -88,7 +94,42 @@ function SignContractPage() {
             onBack={signing.backToSummary}
           />
         )}
+        <SigningWayOut canSignLater={canSignLater} destination={search.redirect ?? "/dashboard"} />
       </div>
     </AuthShell>
+  );
+}
+
+/**
+ * The way out of the screen: back to the panel while the 30 days run, otherwise leaving the
+ * account, so whoever cannot sign now is never stuck on a page without exits.
+ */
+function SigningWayOut({
+  canSignLater,
+  destination,
+}: {
+  canSignLater: boolean;
+  destination: string;
+}) {
+  const signOut = useSignOut();
+  if (canSignLater) {
+    return (
+      <Link
+        to={destination}
+        className={buttonVariants({ variant: "ghost", className: "min-h-11 w-full" })}
+      >
+        Assinar depois
+      </Link>
+    );
+  }
+  return (
+    <Button
+      type="button"
+      variant="ghost"
+      className="min-h-11 w-full"
+      onClick={() => void signOut()}
+    >
+      Sair da conta
+    </Button>
   );
 }

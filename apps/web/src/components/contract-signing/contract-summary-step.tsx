@@ -4,7 +4,6 @@ import { ArrowSquareOutIcon } from "@phosphor-icons/react";
 import { Link } from "@tanstack/react-router";
 import { AuthSubmitButton } from "@/components/auth/auth-page";
 import { submitHandler } from "@/components/form/form-bindings";
-import { InlineFormError } from "@/components/form/inline-form-error";
 import { Checkbox } from "@/components/ui/checkbox";
 import { summaryItemElementId } from "@/features/contract-signing/use-contract-signing";
 import { cn } from "@/lib/utils";
@@ -20,6 +19,8 @@ interface ContractSummaryStepProps {
   onSubmit: () => Promise<void>;
 }
 
+const SUMMARY_ERROR_ID = "contract-summary-error";
+
 /** Step 1: one box per summary line, the full contract a tap away, then the code by e-mail. */
 export function ContractSummaryStep(props: ContractSummaryStepProps) {
   const { contract } = props;
@@ -30,7 +31,10 @@ export function ContractSummaryStep(props: ContractSummaryStepProps) {
           {PROVISIONAL_CONTRACT_NOTICE}
         </p>
       ) : null}
-      <fieldset className="grid gap-2">
+      <fieldset
+        className="grid gap-2"
+        aria-describedby={props.error === null ? undefined : SUMMARY_ERROR_ID}
+      >
         <legend className="mb-2 text-subhead font-medium">
           Marque cada ponto para confirmar que leu:
         </legend>
@@ -58,7 +62,11 @@ export function ContractSummaryStep(props: ContractSummaryStepProps) {
         idleLabel="Enviar código para o meu e-mail"
         pendingLabel="Enviando código…"
       />
-      <InlineFormError message={props.error} />
+      {props.error === null ? null : (
+        <p id={SUMMARY_ERROR_ID} role="alert" className="px-1 text-footnote text-destructive">
+          {props.error}
+        </p>
+      )}
     </form>
   );
 }
@@ -71,9 +79,11 @@ function SummaryLine(props: {
   onCheckedChange: (checked: boolean) => void;
 }) {
   return (
-    <div
+    // The whole card is the label, so a tap anywhere on it ticks the box.
+    <label
+      htmlFor={props.id}
       className={cn(
-        "flex min-h-11 items-start gap-3 rounded-2xl bg-card px-4 py-3",
+        "flex min-h-11 cursor-pointer items-start gap-3 rounded-2xl bg-card px-4 py-3",
         props.invalid && "ring-2 ring-destructive/40",
       )}
     >
@@ -84,9 +94,7 @@ function SummaryLine(props: {
         onCheckedChange={(state) => props.onCheckedChange(state === true)}
         className="mt-0.5"
       />
-      <label htmlFor={props.id} className="text-subhead leading-relaxed">
-        {props.text}
-      </label>
-    </div>
+      <span className="text-subhead leading-relaxed">{props.text}</span>
+    </label>
   );
 }

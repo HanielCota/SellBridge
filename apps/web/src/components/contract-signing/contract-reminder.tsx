@@ -13,9 +13,9 @@ function reminderText(contract: SessionContract, kind: ProfileKind, deadline: Da
     return `O prazo para assinar o contrato da SellBridge acabou em ${day}. Assine para continuar recebendo pedidos novos.`;
   }
   if (kind === "seller") {
-    return `Assine o contrato da SellBridge até ${day}. Depois dessa data, o painel só abre depois da assinatura.`;
+    return `Assine o contrato da SellBridge até ${day}. A partir dessa data, o painel só abre com o contrato assinado.`;
   }
-  return `Assine o contrato da SellBridge até ${day}. Depois dessa data, seus produtos param de receber pedidos novos até a assinatura.`;
+  return `Assine o contrato da SellBridge até ${day}. A partir dessa data, seus produtos param de receber pedidos novos até você assinar.`;
 }
 
 /** The strip above every page while the 30 days run (and for a supplier past them). */

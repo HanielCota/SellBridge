@@ -14,7 +14,7 @@ function uncheckedMessage(total: number): string {
   if (total === 1) {
     return "Falta marcar 1 ponto. Ele está destacado acima.";
   }
-  return `Faltam marcar ${total} pontos. Eles estão destacados acima.`;
+  return `Falta marcar ${total} pontos. Eles estão destacados acima.`;
 }
 
 /** The checkbox of a summary line, shared with the step that draws it. */
