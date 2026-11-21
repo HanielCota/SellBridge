@@ -27,6 +27,8 @@ import {
   type StoreOrderCatchUpJob,
 } from "@sellbridge/shared/queues";
 import { createRedisSlotStore } from "@sellbridge/shared/redis-slots";
+import type { EmailQuotaStore } from "@sellbridge/shared/email-quota";
+import { createRedisEmailQuotaStore } from "@sellbridge/shared/redis-email-quota-store";
 import { Queue } from "bullmq";
 import { environment } from "./environment.ts";
 
@@ -63,6 +65,14 @@ export function sharedRateSlots(namespace: string) {
       createRedisSlotStore(getPublishQueue(), namespace).reserve(key, spacingInMs),
   };
 }
+
+/** The daily e-mail counters, shared with the worker through Redis; connects on first use. */
+export const sharedEmailQuotaStore: EmailQuotaStore = {
+  reserve: async (reservation) =>
+    createRedisEmailQuotaStore(getPublishQueue()).reserve(reservation),
+  claimOnce: async (key, ttlInSeconds) =>
+    createRedisEmailQuotaStore(getPublishQueue()).claimOnce(key, ttlInSeconds),
+};
 
 let webhookQueue: Queue | null = null;
 
