@@ -7,7 +7,7 @@ import { retryAsaasProtectionFn } from "@/features/supplier-payments/asaas.funct
 import { asaasReceivingQueryOptions } from "@/features/supplier-payments/asaas.queries";
 import { errorMessage } from "@/lib/errors";
 import { formatAbsoluteTime } from "@/lib/relative-time";
-import { AsaasAccountDialog } from "./asaas-account-dialog";
+import { AsaasAccountDialog, type ContractAccountRule } from "./asaas-account-dialog";
 import type { ButtonEmphasis } from "./receiving-emphasis";
 import { PaymentPill } from "./supplier-payment-badge";
 
@@ -62,7 +62,7 @@ function OpenCard(props: {
   supplierId: string;
   fee: string;
   emphasis: ButtonEmphasis;
-  companyOnly: boolean;
+  contractRule: ContractAccountRule | null;
 }) {
   const [open, setOpen] = useState(false);
   return (
@@ -76,7 +76,7 @@ function OpenCard(props: {
       </div>
       <AsaasAccountDialog
         supplierId={props.supplierId}
-        companyOnly={props.companyOnly}
+        contractRule={props.contractRule}
         open={open}
         onOpenChange={setOpen}
       />
@@ -244,7 +244,7 @@ export function AsaasReceivingCard(props: {
         supplierId={props.supplierId}
         fee={props.fee}
         emphasis={props.emphasis}
-        companyOnly={props.view.companyOnly}
+        contractRule={props.view.companyOnly ? { companyCnpj: props.view.companyCnpj } : null}
       />
     );
   }
