@@ -107,8 +107,8 @@ function PersonTypeChoice(props: StepProps) {
   if (props.companyOnly) {
     return (
       <p className="text-sm text-muted-foreground">
-        A conta de recebimento é da empresa: use o CNPJ de uma empresa ME, EPP ou maior. MEI e CPF
-        não entram como fornecedor.
+        A conta de recebimento é da empresa: use o CNPJ de uma empresa ME, EPP ou maior. MEI e
+        pessoa física (CPF) não podem ser fornecedor.
       </p>
     );
   }

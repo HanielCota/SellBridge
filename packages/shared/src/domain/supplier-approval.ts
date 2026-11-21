@@ -77,7 +77,7 @@ export const APPROVAL_REFUSAL_TEXT: Record<ApprovalRefusalCause, string> = {
   mei:
     "Seu CNPJ está como MEI na Receita. Para vender como fornecedor na SellBridge, a empresa " +
     "precisa ser ME, EPP ou maior. Se a empresa já saiu do MEI, fale com o suporte e mande o " +
-    "comprovante: a Receita pode levar até um mês para atualizar.",
+    "documento que mostra a saída: a Receita pode levar até um mês para atualizar.",
 };
 
 /** Where a pending supplier stands, as stored after each check. */
