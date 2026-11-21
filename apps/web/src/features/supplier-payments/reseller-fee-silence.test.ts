@@ -1,7 +1,7 @@
 import { readdirSync, readFileSync } from "node:fs";
 import { join, relative, sep } from "node:path";
 import { fileURLToPath } from "node:url";
-import { describe, expect, it } from "vitest";
+import { beforeAll, describe, expect, it } from "vitest";
 
 /*
  * The contract keeps SellBridge's share of each supplier payment out of the reseller's sight: it
@@ -12,6 +12,8 @@ const REPOSITORY_ROOT = fileURLToPath(new URL("../../../../../", import.meta.url
 const SCANNED_FOLDERS = ["apps/web/src", "apps/worker/src", "packages/shared/src"];
 const SOURCE_FILE = /\.(ts|tsx)$/;
 const TEST_FILE = /\.(test|spec)\.(ts|tsx)$/;
+/** Reading about 2,000 files synchronously took up to 5 s in a busy run: past the default. */
+const SCAN_TIMEOUT_IN_MS = 30_000;
 
 /** Screens only the supplier or the SellBridge team open: the fee belongs there. */
 const SUPPLIER_OR_TEAM_PATHS = [
@@ -27,10 +29,17 @@ const SUPPLIER_OR_TEAM_PATHS = [
 ];
 
 /** Lines that name the fee in a file the reseller also reaches, but only on a team screen. */
-const TEAM_ONLY_LINES = [
-  'hint: "A taxa do SellBridge nos pagamentos aos fornecedores",',
-  // manualRefundExplanation: only the team's manual refund guide (admin-problems) shows it.
-  'return "O Asaas só devolve um Pix quando a conta do fornecedor tem o valor inteiro livre. A taxa do SellBridge já saiu dessa conta e o resto está guardado, então a devolução não sai sozinha: alguém da equipe faz no Asaas.";',
+const TEAM_ONLY_LINES: readonly { path: string; line: string }[] = [
+  {
+    // The admin menu's settings entry.
+    path: "apps/web/src/components/icons/action-icons.ts",
+    line: 'hint: "A taxa do SellBridge nos pagamentos aos fornecedores",',
+  },
+  {
+    // manualRefundExplanation: only the team's manual refund guide (admin-problems) shows it.
+    path: "apps/web/src/features/supplier-payments/manual-refund-copy.ts",
+    line: 'return "O Asaas só devolve um Pix quando a conta do fornecedor tem o valor inteiro livre. A taxa do SellBridge já saiu dessa conta e o resto está guardado, então a devolução não sai sozinha: alguém da equipe faz no Asaas.";',
+  },
 ];
 
 const FEE_MENTIONS = [
@@ -62,6 +71,10 @@ function isSupplierOrTeamFile(path: string): boolean {
   return SUPPLIER_OR_TEAM_PATHS.some((allowed) => path.startsWith(allowed));
 }
 
+function isTeamOnlyLine(path: string, line: string): boolean {
+  return TEAM_ONLY_LINES.some((allowed) => allowed.path === path && allowed.line === line.trim());
+}
+
 /** Every line, outside supplier and team screens, that names SellBridge's fee. */
 function resellerFeeMentions(): string[] {
   const files = SCANNED_FOLDERS.flatMap((folder) => sourceFiles(join(REPOSITORY_ROOT, folder)));
@@ -73,7 +86,7 @@ function resellerFeeMentions(): string[] {
     const lines = readFileSync(file, "utf8").split("\n");
     return lines.flatMap((line, index) => {
       const mentionsFee = FEE_MENTIONS.some((pattern) => pattern.test(line));
-      if (!mentionsFee || TEAM_ONLY_LINES.includes(line.trim())) {
+      if (!mentionsFee || isTeamOnlyLine(path, line)) {
         return [];
       }
       return [`${path}:${index + 1}: ${line.trim()}`];
@@ -82,8 +95,14 @@ function resellerFeeMentions(): string[] {
 }
 
 describe("SellBridge's fee on reseller screens", () => {
+  let mentions: string[] = [];
+
+  beforeAll(() => {
+    mentions = resellerFeeMentions();
+  }, SCAN_TIMEOUT_IN_MS);
+
   it("is named on no screen, message or text the reseller reaches", () => {
-    expect(resellerFeeMentions()).toEqual([]);
+    expect(mentions).toEqual([]);
   });
 
   it("would be caught if a reseller screen named it", () => {
