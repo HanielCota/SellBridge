@@ -47,11 +47,15 @@ export function SupplierApprovalCard({
             <span className="text-muted-foreground">Motivo que ele lê no painel: </span>
             <span className="font-medium">{state.refusalReason ?? "Sem motivo registrado"}</span>
           </p>
-          <p className="text-sm text-muted-foreground">
-            Se ele resolveu o motivo (por exemplo, mostrou que a empresa já saiu do MEI), aprove por
-            aqui.
-          </p>
-          <ApproveRefusedSupplier supplierId={supplierId} supplierName={supplierName} />
+          {state.decidedBy === "automatic" ? (
+            <>
+              <p className="text-sm text-muted-foreground">
+                A recusa foi automática. Se ele resolveu o motivo (por exemplo, mostrou que a
+                empresa já saiu do MEI), aprove por aqui.
+              </p>
+              <ApproveRefusedSupplier supplierId={supplierId} supplierName={supplierName} />
+            </>
+          ) : null}
         </div>
       </SectionCard>
     );

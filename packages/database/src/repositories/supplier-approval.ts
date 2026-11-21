@@ -14,7 +14,7 @@ import {
   type CnpjLookupResult,
   type SupplierApprovalStatus,
 } from "@sellbridge/shared/supplier-approval";
-import { and, asc, count, eq, inArray, isNull, ne, or, sql } from "drizzle-orm";
+import { and, asc, count, eq, isNull, ne, or, sql } from "drizzle-orm";
 import type { Database, DatabaseExecutor } from "../client.ts";
 import {
   platformSettings,
@@ -34,6 +34,8 @@ export interface SupplierApprovalState {
   readonly refusalReason: string | null;
   readonly registrationStatus: string | null;
   readonly receitaLegalName: string | null;
+  /** Who refused or approved; null while pending or for a supplier that never had a check. */
+  readonly decidedBy: "automatic" | "team" | null;
 }
 
 const APPROVED_STATE: SupplierApprovalState = {
@@ -44,6 +46,7 @@ const APPROVED_STATE: SupplierApprovalState = {
   refusalReason: null,
   registrationStatus: null,
   receitaLegalName: null,
+  decidedBy: null,
 };
 
 /** The supplier's approval, or the approved state for a supplier that never had a check. */
@@ -60,6 +63,7 @@ export async function getSupplierApprovalState(
       refusalReason: supplierApprovals.refusalReason,
       registrationStatus: supplierApprovals.registrationStatus,
       receitaLegalName: supplierApprovals.receitaLegalName,
+      decidedBy: supplierApprovals.decidedBy,
     })
     .from(suppliers)
     .leftJoin(supplierApprovals, eq(supplierApprovals.supplierId, suppliers.id))
@@ -379,9 +383,26 @@ export type TeamApprovalDecision =
   { readonly decision: "approve" } | { readonly decision: "refuse"; readonly reason: string };
 
 /**
- * The team approves or refuses a pending supplier, or approves a refused one (an MEI that proved
- * it left the MEI before the Receita data caught up). Anything else (the check approved it
- * meanwhile, or a colleague decided first) is refused with a conflict.
+ * Which suppliers a team decision applies to: refusing takes a pending one; approving also takes
+ * one the check refused on its own (an MEI that proved it left the MEI before the Receita data
+ * caught up), never one the team itself refused.
+ */
+function decidableByTeam(decision: TeamApprovalDecision["decision"]) {
+  const pending = eq(suppliers.approvalStatus, "pending");
+  if (decision === "refuse") {
+    return pending;
+  }
+  const refusedAutomatically = and(
+    eq(suppliers.approvalStatus, "refused"),
+    sql`exists (select 1 from ${supplierApprovals} where ${supplierApprovals.supplierId} = ${suppliers.id} and ${supplierApprovals.decidedBy} = 'automatic')`,
+  );
+  return or(pending, refusedAutomatically);
+}
+
+/**
+ * The team approves or refuses a pending supplier, or approves one the check refused on its own.
+ * Anything else (the check approved it meanwhile, a colleague decided first, or the team refused
+ * it) is refused with a conflict.
  * @throws AppError NOT_FOUND for an unknown supplier, CONFLICT when it cannot take that decision.
  */
 export async function decideSupplierApprovalByTeam(
@@ -390,15 +411,11 @@ export async function decideSupplierApprovalByTeam(
 ): Promise<SupplierApprovalStatus> {
   const now = input.now ?? new Date();
   const status = input.decision === "approve" ? "approved" : "refused";
-  const decidableFrom: SupplierApprovalStatus[] =
-    input.decision === "approve" ? ["pending", "refused"] : ["pending"];
   return database.transaction(async (transaction) => {
     const updated = await transaction
       .update(suppliers)
       .set({ approvalStatus: status })
-      .where(
-        and(eq(suppliers.id, input.supplierId), inArray(suppliers.approvalStatus, decidableFrom)),
-      )
+      .where(and(eq(suppliers.id, input.supplierId), decidableByTeam(input.decision)))
       .returning({ id: suppliers.id });
     if (updated.length === 0) {
       const [exists] = await transaction

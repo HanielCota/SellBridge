@@ -125,7 +125,7 @@ async function visibleToResellers(supplierId: string, productId: string) {
 }
 
 beforeAll(async () => {
-  tenants = await createTestTenants(database, 24);
+  tenants = await createTestTenants(database, 30);
   staff = await createTestUsers(database, 1);
   resellerId = organizationAt(0);
   requiredBefore = await getRequireReceivingAccount(database);
@@ -307,6 +307,7 @@ describe("a supplier who signs up alone with the contract sign-up rules on", () 
     const state = await getSupplierApprovalState(database, supplierId);
     expect(state.status).toBe("refused");
     expect(state.refusalReason).toContain("MEI");
+    expect(state.decidedBy).toBe("automatic");
     expect((await visibleToResellers(supplierId, productId)).catalog).toBe(false);
   });
 
@@ -367,6 +368,25 @@ describe("a supplier who signs up alone with the contract sign-up rules on", () 
 
     expect(status).toBe("approved");
     expect((await visibleToResellers(supplierId, productId)).catalog).toBe(true);
+  });
+
+  it("cannot be approved by the team after the team refused it", async () => {
+    const { supplierId } = await signUpSupplier(true);
+    await runSupplierApprovalCheck(database, supplierId, answering({ outcome: "not_found" }));
+    await decideSupplierApprovalByTeam(database, {
+      supplierId,
+      userId: staffId(),
+      decision: "refuse",
+      reason: "CNPJ de outra empresa, conferido pela equipe.",
+    });
+
+    const approval = decideSupplierApprovalByTeam(database, {
+      supplierId,
+      userId: staffId(),
+      decision: "approve",
+    });
+
+    await expect(approval).rejects.toMatchObject({ code: "CONFLICT" });
   });
 
   it("is approved as before when the switch is off, even as an MEI", async () => {
