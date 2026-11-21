@@ -26,6 +26,12 @@ A selfie com prova de vida e o código por SMS dependem de um serviço externo a
 - A etapa extra entra entre as duas etapas da tela (`use-contract-signing.ts`): a etapa 2 só libera depois que o serviço confirmar, e `signContract` passa a exigir a confirmação do serviço antes de gravar.
 - O SMS reaproveita a tabela `contract_signing_codes` e as mesmas regras de validade e tentativas; só muda o envio (o telefone do perfil em vez do e-mail).
 
+## Cuidados antes de ligar a chave
+
+- **Fornecedor:** o aviso dos 30 dias diz que, depois do prazo, os produtos param de receber pedidos novos. Isso só acontece com a parte 3 (pausa dos anúncios pela suspensão do fornecedor, combinada com o chat de regras de cadastro). Não ligar a chave para fornecedores antes da parte 3 estar no ar.
+- **Bloqueio só na tela:** nesta fatia o bloqueio é o desvio das páginas para a tela de assinatura. As funções do servidor e a API pública não conferem a assinatura. A parte 3 decide se o servidor também passa a cobrar (por exemplo, recusar a publicação de quem está bloqueado).
+- **Chave de cifra:** a prova é cifrada com a `TOKEN_ENCRYPTION_KEY`, a mesma dos tokens das lojas, numa versão só e sem dado associado. Trocar essa chave deixa ilegíveis as provas, que precisam durar 5 anos depois do fim do contrato. Antes de qualquer troca, é preciso uma rotação que releia e recifre as provas (ou uma chave própria com versão), a decidir na parte 2, junto com os documentos.
+
 ## O que foi descartado
 
 - **Plugin de código por e-mail do Better Auth (`emailOTP`):** serve para entrar na conta ou confirmar o e-mail, não para assinar um documento específico com prova ligada à versão.
