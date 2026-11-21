@@ -214,6 +214,22 @@ describe("startSupplierCheckout across providers", () => {
     expect(result.checkoutUrl).toContain("pref_id=second");
   });
 
+  it("says an Asaas payment that got there first is protected, not with the supplier", async () => {
+    mocks.findChoice.mockResolvedValue("asaas");
+    mocks.findPayable.mockResolvedValue({ ...payable, payment: null });
+    // Another tab reserved and paid the parcel between the screen and this click.
+    mocks.start.mockResolvedValue(null);
+    mocks.findPayment.mockResolvedValue({
+      ...earlierPayment,
+      provider: "asaas",
+      status: "approved",
+    });
+
+    await expect(startSupplierCheckout(request)).rejects.toThrow(
+      "Este envio já foi pago. O valor está protegido no Asaas.",
+    );
+  });
+
   it("asks Asaas only for the method the reseller picked", async () => {
     mocks.findChoice.mockResolvedValue("asaas");
     mocks.findPayable.mockResolvedValue({ ...payable, payment: null });
