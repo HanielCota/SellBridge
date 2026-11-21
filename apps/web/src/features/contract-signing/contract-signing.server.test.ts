@@ -1,8 +1,10 @@
 import { contractFor } from "@sellbridge/shared/contract-documents";
 import { contractFingerprint } from "@sellbridge/shared/contract-fingerprint";
 import type {
+  discardSigningCode,
   getSigningAccount,
   issueSigningCode,
+  retireEarlierSigningCodes,
   signContractWithCode,
 } from "@sellbridge/database/repositories";
 import { beforeEach, describe, expect, it, vi } from "vitest";
@@ -14,6 +16,8 @@ const mocks = vi.hoisted(() => ({
   account: vi.fn<typeof getSigningAccount>(),
   issue: vi.fn<typeof issueSigningCode>(),
   sign: vi.fn<typeof signContractWithCode>(),
+  discard: vi.fn<typeof discardSigningCode>(),
+  retire: vi.fn<typeof retireEarlierSigningCodes>(),
   send: vi.fn<(email: { to: string; subject: string; text: string }) => Promise<void>>(),
 }));
 vi.mock("@sellbridge/database/repositories", () => ({
@@ -23,6 +27,8 @@ vi.mock("@sellbridge/database/repositories", () => ({
   getSigningAccount: mocks.account,
   issueSigningCode: mocks.issue,
   signContractWithCode: mocks.sign,
+  discardSigningCode: mocks.discard,
+  retireEarlierSigningCodes: mocks.retire,
 }));
 vi.mock("@/lib/server/database", () => ({ database: {} }));
 vi.mock("@/lib/server/environment", () => ({
@@ -52,10 +58,10 @@ function signingRequest(): Request {
   });
 }
 
-/** The code e-mailed by the last request, read from the subject. */
+/** The code e-mailed by the last request, read from the body (never the subject). */
 function emailedCode(): string {
   const [email] = mocks.send.mock.calls.at(-1) ?? [];
-  const code = email?.subject.match(/\d{6}/)?.[0];
+  const code = email?.text.match(/\d{6}/)?.[0];
   if (code === undefined) {
     throw new Error("No code was e-mailed");
   }
@@ -85,7 +91,9 @@ beforeEach(() => {
     companyName: null,
     phone: "11912345678",
   });
-  mocks.issue.mockResolvedValue({ kind: "issued", expiresAt: new Date() });
+  mocks.issue.mockResolvedValue({ kind: "issued", codeId: "code-new", expiresAt: new Date() });
+  mocks.discard.mockResolvedValue();
+  mocks.retire.mockResolvedValue();
   mocks.send.mockResolvedValue();
 });
 
@@ -111,6 +119,29 @@ describe("requestSigningCode", () => {
     expect(mocks.send.mock.calls[0]?.[0].to).toBe("maria@loja.com.br");
     expect(storedHash()).toMatch(/^[0-9a-f]{64}$/);
     expect(storedHash()).not.toContain(emailedCode());
+  });
+
+  it("retires the earlier codes only after the e-mail went out", async () => {
+    await requestSigningCode(PROFILE, { version: CONTRACT.version, confirmedItemIds: ALL_ITEMS });
+
+    expect(mocks.retire).toHaveBeenCalledWith(
+      {},
+      expect.objectContaining({ keepCodeId: "code-new" }),
+    );
+    expect(mocks.discard).not.toHaveBeenCalled();
+  });
+
+  it("discards the new code when the e-mail fails, keeping the earlier one", async () => {
+    mocks.send.mockRejectedValue(new Error("Resend fora do ar"));
+
+    const request = requestSigningCode(PROFILE, {
+      version: CONTRACT.version,
+      confirmedItemIds: ALL_ITEMS,
+    });
+
+    await expect(request).rejects.toThrow("Resend fora do ar");
+    expect(mocks.discard).toHaveBeenCalledWith({}, "code-new");
+    expect(mocks.retire).not.toHaveBeenCalled();
   });
 
   it("refuses with an unticked line, naming it, and sends nothing", async () => {

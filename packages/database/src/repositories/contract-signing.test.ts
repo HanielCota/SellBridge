@@ -13,10 +13,12 @@ import { createTestDatabase, createTestTenants, createTestUsers } from "../testi
 import {
   type ContractSignatureEvidence,
   countProfilesWithoutSignature,
+  discardSigningCode,
   getContractSigningRequiredSince,
   getSigningAccount,
   hasSignedContract,
   issueSigningCode,
+  retireEarlierSigningCodes,
   setContractSigningRequired,
   signContractWithCode,
 } from "./contract-signing.ts";
@@ -118,23 +120,46 @@ describe("issueSigningCode", () => {
     expect(sixth).toEqual({ kind: "hourly_limit" });
   });
 
-  it("makes the earlier code stop working once a new one is sent", async () => {
+  it("keeps the earlier code working until the new e-mail goes out, then retires it", async () => {
     const now = new Date();
     await issue(now);
     await database
       .update(contractSigningCodes)
       .set({ codeHash: "old-hash" })
       .where(eq(contractSigningCodes.userId, userId));
-    await issue(new Date(now.getTime() + 61_000));
+    const later = new Date(now.getTime() + 61_000);
+    const second = await issue(later);
+    if (second.kind !== "issued") throw new Error("second code not issued");
 
-    const [oldCode] = await database
-      .select({ expiresAt: contractSigningCodes.expiresAt })
-      .from(contractSigningCodes)
-      .where(eq(contractSigningCodes.codeHash, "old-hash"));
+    const beforeSending = await oldCodeExpiry();
+    await retireEarlierSigningCodes(database, { userId, keepCodeId: second.codeId, now: later });
+    const afterSending = await oldCodeExpiry();
 
-    expect(oldCode?.expiresAt.getTime()).toBe(now.getTime() + 61_000);
+    expect(beforeSending).toBeGreaterThan(later.getTime());
+    expect(afterSending).toBe(later.getTime());
+  });
+
+  it("forgets a code whose e-mail failed: no minute of waiting, the earlier code still works", async () => {
+    const now = new Date();
+    await issue(now);
+    const later = new Date(now.getTime() + 61_000);
+    const failed = await issue(later);
+    if (failed.kind !== "issued") throw new Error("code not issued");
+
+    await discardSigningCode(database, failed.codeId);
+    const retry = await issue(new Date(later.getTime() + 1000));
+
+    expect(retry.kind).toBe("issued");
   });
 });
+
+async function oldCodeExpiry(): Promise<number | undefined> {
+  const [oldCode] = await database
+    .select({ expiresAt: contractSigningCodes.expiresAt })
+    .from(contractSigningCodes)
+    .where(eq(contractSigningCodes.codeHash, "old-hash"));
+  return oldCode?.expiresAt.getTime();
+}
 
 describe("signContractWithCode", () => {
   it("refuses signing before any code was sent", async () => {

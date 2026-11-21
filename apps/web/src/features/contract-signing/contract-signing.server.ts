@@ -4,7 +4,9 @@ import {
   getProfileCreatedAt,
   getSigningAccount,
   hasSignedContract,
+  discardSigningCode,
   issueSigningCode,
+  retireEarlierSigningCodes,
   signContractWithCode,
   type ContractSignatureEvidence,
   type SignContractResult,
@@ -32,7 +34,7 @@ import { maskEmail } from "@/features/admin/email-change.server";
 import { clientAddress } from "@/lib/server/client-address";
 import { database } from "@/lib/server/database";
 import { environment } from "@/lib/server/environment";
-import { sendEmail } from "@/lib/server/mailer";
+import { type OutgoingEmail, sendEmail } from "@/lib/server/mailer";
 import { tokenCipher } from "@/lib/server/marketplaces";
 
 /** Long enough for any real browser; a longer header is cut, not refused. */
@@ -147,9 +149,28 @@ export async function requestSigningCode(
     throw rateLimitedError("Você pediu muitos códigos. Tente de novo daqui a uma hora.");
   }
   const rendered = contractCodeEmail({ code, contractTitle: contract.title }, environment.APP_URL);
-  await sendEmail({ to: email, category: "account_access", ...rendered });
+  await sendCodeOrDiscard({ to: email, category: "account_access", ...rendered }, issued.codeId);
+  await retireEarlierSigningCodes(database, {
+    userId: profile.userId,
+    keepCodeId: issued.codeId,
+    now: new Date(),
+  });
   logger.info("contract.code_sent", { tenantId: profile.tenantId, kind: profile.kind });
   return { sentTo: maskEmail(email) };
+}
+
+/**
+ * Sends the code; when the e-mail fails the code is discarded, so the person is not left waiting
+ * a minute for a code that never arrived, and the earlier one keeps working.
+ */
+async function sendCodeOrDiscard(email: OutgoingEmail, codeId: string): Promise<void> {
+  try {
+    await sendEmail(email);
+  } catch (error) {
+    await discardSigningCode(database, codeId);
+    logger.warn("contract.code_email_failed", { error });
+    throw error;
+  }
 }
 
 interface SignerIdentity {

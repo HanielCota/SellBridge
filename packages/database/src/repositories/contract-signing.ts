@@ -6,7 +6,7 @@ import {
   signingCodeResendWaitInSeconds,
   signingCodeUsable,
 } from "@sellbridge/shared/contract-signing";
-import { and, count, desc, eq, gte, isNull, lt, notExists, sql } from "drizzle-orm";
+import { and, count, desc, eq, gt, gte, isNull, lt, ne, notExists, sql } from "drizzle-orm";
 import type { Database, DatabaseExecutor } from "../client.ts";
 import {
   contractSignatures,
@@ -139,7 +139,7 @@ export async function countProfilesWithoutSignature(
 }
 
 export type IssueSigningCodeResult =
-  | { kind: "issued"; expiresAt: Date }
+  | { kind: "issued"; codeId: string; expiresAt: Date }
   | { kind: "wait"; seconds: number }
   | { kind: "hourly_limit" };
 
@@ -151,8 +151,9 @@ interface IssueSigningCodeInput extends ContractProfileRef {
 
 /**
  * Stores a new code for the person, unless one went out less than a minute ago or the hourly
- * limit is reached. Earlier codes stop working: only the latest e-mail counts. Serialized per
- * person, so a double click never issues two.
+ * limit is reached. Earlier codes keep working until the e-mail of this one goes out
+ * (`retireEarlierSigningCodes`); a failed e-mail discards it (`discardSigningCode`). Serialized
+ * per person, so a double click never issues two.
  */
 export async function issueSigningCode(
   database: Database,
@@ -174,24 +175,53 @@ export async function issueSigningCode(
     if (refusal !== null) {
       return refusal;
     }
-    await transaction
-      .update(contractSigningCodes)
-      .set({ expiresAt: input.now })
-      .where(
-        and(eq(contractSigningCodes.userId, input.userId), isNull(contractSigningCodes.consumedAt)),
-      );
     const expiresAt = new Date(input.now.getTime() + SIGNING_CODE_TTL_IN_MINUTES * MINUTE_IN_MS);
-    await transaction.insert(contractSigningCodes).values({
-      userId: input.userId,
-      tenantId: input.tenantId,
-      profileKind: input.kind,
-      contractVersion: input.version,
-      codeHash: input.codeHash,
-      expiresAt,
-      createdAt: input.now,
-    });
-    return { kind: "issued", expiresAt };
+    const [created] = await transaction
+      .insert(contractSigningCodes)
+      .values({
+        userId: input.userId,
+        tenantId: input.tenantId,
+        profileKind: input.kind,
+        contractVersion: input.version,
+        codeHash: input.codeHash,
+        expiresAt,
+        createdAt: input.now,
+      })
+      .returning({ id: contractSigningCodes.id });
+    if (created === undefined) {
+      throw new Error("Inserting a signing code returned no row");
+    }
+    return { kind: "issued", codeId: created.id, expiresAt };
   });
+}
+
+/** Once the new code went out by e-mail, the earlier ones of the person stop working. */
+export async function retireEarlierSigningCodes(
+  database: DatabaseExecutor,
+  input: { userId: string; keepCodeId: string; now: Date },
+): Promise<void> {
+  await database
+    .update(contractSigningCodes)
+    .set({ expiresAt: input.now })
+    .where(
+      and(
+        eq(contractSigningCodes.userId, input.userId),
+        ne(contractSigningCodes.id, input.keepCodeId),
+        isNull(contractSigningCodes.consumedAt),
+        gt(contractSigningCodes.expiresAt, input.now),
+      ),
+    );
+}
+
+/**
+ * Removes a code whose e-mail never went out: it counts neither for the minute of waiting nor
+ * for the hourly limit, and the earlier code keeps working.
+ */
+export async function discardSigningCode(
+  database: DatabaseExecutor,
+  codeId: string,
+): Promise<void> {
+  await database.delete(contractSigningCodes).where(eq(contractSigningCodes.id, codeId));
 }
 
 async function codeRequestRefusal(
