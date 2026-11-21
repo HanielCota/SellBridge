@@ -64,7 +64,7 @@ function ResellerTicket({ refund }: { refund: ManualRefund }) {
   }
   return (
     <Button asChild variant="outline" className="w-fit">
-      <Link to="/suporte/$ticketId" params={{ ticketId: refund.ticketId }}>
+      <Link to="/admin/chamados/$ticketId" params={{ ticketId: refund.ticketId }}>
         <ChatCircleDotsIcon aria-hidden="true" />
         Abrir o chamado do revendedor
       </Link>

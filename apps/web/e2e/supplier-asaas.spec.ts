@@ -445,7 +445,12 @@ test("a devolução de um Pix que o Asaas recusa vai para a equipe e o revendedo
     new RegExp(`^${ticketUrl}`),
   );
   await admin.reload();
-  await expect(admin.getByRole("link", { name: "Abrir o chamado do revendedor" })).toBeVisible();
+  await admin.getByRole("link", { name: "Abrir o chamado do revendedor" }).click();
+  // The team's own ticket page, not the reseller's: it opens the conversation the reseller sent.
+  await expect(admin).toHaveURL(new RegExp(`/admin/chamados${ticketUrl.replace("/suporte", "")}`));
+  await expect(
+    admin.getByText(/Quero de volta os R\$\s80,00 que paguei ao fornecedor/).first(),
+  ).toBeVisible();
   await reseller.context().close();
   await admin.context().close();
 });
