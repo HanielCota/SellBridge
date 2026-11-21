@@ -96,12 +96,15 @@ export function ShipmentPanel({
   showHistory = true,
   payment = null,
   invoice = null,
+  cancelNote = null,
 }: {
   shipment: ShipmentView;
   /** The parcel's NF-e, once issued. */
   invoice?: React.ReactNode;
   /** Whether the supplier was paid for the parcel, under its name. */
   payment?: React.ReactNode;
+  /** What cancelling does to the money already paid, shown in the cancel dialog. */
+  cancelNote?: React.ReactNode;
   externalOrderId: string;
   blocked?: boolean;
   /** Who works the panel: the supplier (by link) cannot declare the delivery. */
@@ -130,6 +133,7 @@ export function ShipmentPanel({
           next={blocked ? null : next}
           actsAs={actsAs}
           quietStep={payment !== null}
+          cancelNote={cancelNote}
         />
       )}
       {shipment.status === "shipped" && shipment.trackingCode !== null && !blocked ? (
@@ -330,12 +334,14 @@ function ShipmentActions({
   next,
   actsAs,
   quietStep,
+  cancelNote,
 }: {
   update: ShipmentUpdate;
   shipment: ShipmentView;
   next: FulfillmentStatus | null;
   actsAs: ShipmentOperator;
   quietStep: boolean;
+  cancelNote: React.ReactNode;
 }) {
   const { noteError, setNoteError, contactInNote, sendWithNote } = useStepNote(update);
   const check = useDispatchCheck(update, sendWithNote);
@@ -371,7 +377,12 @@ function ShipmentActions({
           />
         ) : null}
         {DISPATCHED_FULFILLMENT_STATUSES.includes(shipment.status) ? null : (
-          <CancelShipment update={update} supplierName={shipment.supplierName} actsAs={actsAs} />
+          <CancelShipment
+            update={update}
+            supplierName={shipment.supplierName}
+            actsAs={actsAs}
+            moneyNote={cancelNote}
+          />
         )}
       </div>
     </div>
@@ -406,7 +417,7 @@ function cancelCopy(actsAs: ShipmentOperator, supplierName: string) {
   return {
     title: `Cancelar o envio de ${supplierName}?`,
     description:
-      "O link do fornecedor deixa de valer. Enquanto o pedido estiver pago, dá para reencaminhar depois, com um link novo.",
+      "O envio sai da fila do fornecedor. Enquanto o pedido estiver pago, dá para reencaminhar depois.",
   };
 }
 
@@ -447,10 +458,12 @@ function CancelShipment({
   update,
   supplierName,
   actsAs,
+  moneyNote,
 }: {
   update: ShipmentUpdate;
   supplierName: string;
   actsAs: ShipmentOperator;
+  moneyNote: React.ReactNode;
 }) {
   const dialog = useCancelShipment(update);
   const copy = cancelCopy(actsAs, supplierName);
@@ -475,6 +488,7 @@ function CancelShipment({
         onConfirm={dialog.confirm}
       >
         <div className="grid gap-3">
+          {moneyNote}
           <TextareaField
             id="cancel-shipment-reason"
             label="Motivo do cancelamento"
