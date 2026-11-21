@@ -79,9 +79,8 @@ function invoiceSetupItems(input: SupplierAttentionInput, hrefFor: HrefFor): Att
       key: "on-behalf-invoice-off",
       icon: FileTextIcon,
       tone: "danger",
-      title: "A nota da venda à ordem está desligada",
-      description:
-        "Sem ela, a etiqueta sai sem nota. Ligue “Nota fiscal pelo Bling” em Marca, em “Como sai a nota”.",
+      title: "Nota da venda à ordem desligada",
+      description: "A etiqueta sai sem nota. Ligue “Nota fiscal pelo Bling” em Marca.",
       href: hrefFor({ area: "invoice_setup" }),
     },
   ];

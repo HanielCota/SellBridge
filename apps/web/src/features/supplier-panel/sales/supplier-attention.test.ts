@@ -22,7 +22,7 @@ describe("buildSupplierAttention", () => {
 
     expect(items.map((item) => item.key)).toEqual(["on-behalf-invoice-off", "running-out"]);
     expect(items[0]).toMatchObject({
-      title: "A nota da venda à ordem está desligada",
+      title: "Nota da venda à ordem desligada",
       tone: "danger",
       href: "/fornecedor/painel/marca#como-sai-a-nota",
     });
