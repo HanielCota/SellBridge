@@ -2,6 +2,7 @@ import { sql } from "drizzle-orm";
 import {
   boolean,
   check,
+  foreignKey,
   index,
   integer,
   pgEnum,
@@ -229,9 +230,7 @@ export const shipmentPaymentCheckouts = pgTable(
   "shipment_payment_checkouts",
   {
     id: uuid().primaryKey().defaultRandom(),
-    shipmentPaymentId: uuid()
-      .notNull()
-      .references(() => shipmentPayments.id, { onDelete: "cascade" }),
+    shipmentPaymentId: uuid().notNull(),
     preferenceId: text().notNull(),
     amountCents: integer().notNull(),
     platformFeeCents: integer().notNull(),
@@ -240,6 +239,12 @@ export const shipmentPaymentCheckouts = pgTable(
   (table) => [
     uniqueIndex("shipment_payment_checkouts_preference_idx").on(table.preferenceId),
     index("shipment_payment_checkouts_payment_idx").on(table.shipmentPaymentId, table.createdAt),
+    // Named by hand: the generated name passes the 63 characters Postgres keeps.
+    foreignKey({
+      name: "shipment_payment_checkouts_payment_fk",
+      columns: [table.shipmentPaymentId],
+      foreignColumns: [shipmentPayments.id],
+    }).onDelete("cascade"),
   ],
 );
 

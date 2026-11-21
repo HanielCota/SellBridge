@@ -1,4 +1,4 @@
-import { index, pgTable, timestamp, uuid } from "drizzle-orm/pg-core";
+import { foreignKey, index, pgTable, timestamp, uuid } from "drizzle-orm/pg-core";
 import { buyerAddressResultEnum } from "./enums.ts";
 import { storeConnections } from "./stores.ts";
 import { suppliers } from "./suppliers.ts";
@@ -10,9 +10,7 @@ import { suppliers } from "./suppliers.ts";
 export const storeBuyerAddressChecks = pgTable(
   "store_buyer_address_checks",
   {
-    storeConnectionId: uuid()
-      .primaryKey()
-      .references(() => storeConnections.id, { onDelete: "cascade" }),
+    storeConnectionId: uuid().primaryKey(),
     result: buyerAddressResultEnum().notNull(),
     /** The supplier whose address the account buys at; only with "supplier_address". */
     supplierId: uuid().references(() => suppliers.id, { onDelete: "set null" }),
@@ -24,5 +22,11 @@ export const storeBuyerAddressChecks = pgTable(
   (table) => [
     /** The daily check picks the stores checked longest ago. */
     index("store_buyer_address_checks_checked_idx").on(table.checkedAt),
+    // Named by hand: the generated name passes the 63 characters Postgres keeps.
+    foreignKey({
+      name: "store_buyer_address_checks_store_connection_fk",
+      columns: [table.storeConnectionId],
+      foreignColumns: [storeConnections.id],
+    }).onDelete("cascade"),
   ],
 );
