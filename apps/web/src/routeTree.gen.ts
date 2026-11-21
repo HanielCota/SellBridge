@@ -26,6 +26,7 @@ import { Route as AppIntegracoesRouteImport } from './routes/_app/integracoes'
 import { Route as AppLojasRouteImport } from './routes/_app/lojas'
 import { Route as AppOnboardingRouteImport } from './routes/_app/onboarding'
 import { Route as AppPerfilRouteImport } from './routes/_app/perfil'
+import { Route as AppPerguntasRouteImport } from './routes/_app/perguntas'
 import { Route as AppPoliticaDeDevolucaoRouteImport } from './routes/_app/politica-de-devolucao'
 import { Route as AppProductsRouteImport } from './routes/_app/products'
 import { Route as AuthCadastroRouteImport } from './routes/_auth/cadastro'
@@ -228,6 +229,11 @@ const AppOnboardingRoute = AppOnboardingRouteImport.update({
 const AppPerfilRoute = AppPerfilRouteImport.update({
   id: '/perfil',
   path: '/perfil',
+  getParentRoute: () => AppRouteRoute,
+} as any)
+const AppPerguntasRoute = AppPerguntasRouteImport.update({
+  id: '/perguntas',
+  path: '/perguntas',
   getParentRoute: () => AppRouteRoute,
 } as any)
 const AppPoliticaDeDevolucaoRoute = AppPoliticaDeDevolucaoRouteImport.update({
@@ -906,6 +912,7 @@ export interface FileRoutesByFullPath {
   '/lojas': typeof AppLojasRoute
   '/onboarding': typeof AppOnboardingRoute
   '/perfil': typeof AppPerfilRoute
+  '/perguntas': typeof AppPerguntasRoute
   '/politica-de-devolucao': typeof AppPoliticaDeDevolucaoRoute
   '/products': typeof AppProductsRoute
   '/cadastro': typeof AuthCadastroRoute
@@ -1042,6 +1049,7 @@ export interface FileRoutesByTo {
   '/lojas': typeof AppLojasRoute
   '/onboarding': typeof AppOnboardingRoute
   '/perfil': typeof AppPerfilRoute
+  '/perguntas': typeof AppPerguntasRoute
   '/politica-de-devolucao': typeof AppPoliticaDeDevolucaoRoute
   '/products': typeof AppProductsRoute
   '/cadastro': typeof AuthCadastroRoute
@@ -1179,6 +1187,7 @@ export interface FileRoutesById {
   '/_app/lojas': typeof AppLojasRoute
   '/_app/onboarding': typeof AppOnboardingRoute
   '/_app/perfil': typeof AppPerfilRoute
+  '/_app/perguntas': typeof AppPerguntasRoute
   '/_app/politica-de-devolucao': typeof AppPoliticaDeDevolucaoRoute
   '/_app/products': typeof AppProductsRoute
   '/_auth/cadastro': typeof AuthCadastroRoute
@@ -1318,6 +1327,7 @@ export interface FileRouteTypes {
     | '/lojas'
     | '/onboarding'
     | '/perfil'
+    | '/perguntas'
     | '/politica-de-devolucao'
     | '/products'
     | '/cadastro'
@@ -1454,6 +1464,7 @@ export interface FileRouteTypes {
     | '/lojas'
     | '/onboarding'
     | '/perfil'
+    | '/perguntas'
     | '/politica-de-devolucao'
     | '/products'
     | '/cadastro'
@@ -1590,6 +1601,7 @@ export interface FileRouteTypes {
     | '/_app/lojas'
     | '/_app/onboarding'
     | '/_app/perfil'
+    | '/_app/perguntas'
     | '/_app/politica-de-devolucao'
     | '/_app/products'
     | '/_auth/cadastro'
@@ -1902,6 +1914,13 @@ declare module '@tanstack/react-router' {
       path: '/perfil'
       fullPath: '/perfil'
       preLoaderRoute: typeof AppPerfilRouteImport
+      parentRoute: typeof AppRouteRoute
+    }
+    '/_app/perguntas': {
+      id: '/_app/perguntas'
+      path: '/perguntas'
+      fullPath: '/perguntas'
+      preLoaderRoute: typeof AppPerguntasRouteImport
       parentRoute: typeof AppRouteRoute
     }
     '/_app/politica-de-devolucao': {
@@ -2885,6 +2904,7 @@ interface AppRouteRouteChildren {
   AppLojasRoute: typeof AppLojasRoute
   AppOnboardingRoute: typeof AppOnboardingRoute
   AppPerfilRoute: typeof AppPerfilRoute
+  AppPerguntasRoute: typeof AppPerguntasRoute
   AppPoliticaDeDevolucaoRoute: typeof AppPoliticaDeDevolucaoRoute
   AppProductsRoute: typeof AppProductsRoute
   AppFornecedorPainelRouteRoute: typeof AppFornecedorPainelRouteRouteWithChildren
@@ -2915,6 +2935,7 @@ const AppRouteRouteChildren: AppRouteRouteChildren = {
   AppLojasRoute: AppLojasRoute,
   AppOnboardingRoute: AppOnboardingRoute,
   AppPerfilRoute: AppPerfilRoute,
+  AppPerguntasRoute: AppPerguntasRoute,
   AppPoliticaDeDevolucaoRoute: AppPoliticaDeDevolucaoRoute,
   AppProductsRoute: AppProductsRoute,
   AppFornecedorPainelRouteRoute: AppFornecedorPainelRouteRouteWithChildren,

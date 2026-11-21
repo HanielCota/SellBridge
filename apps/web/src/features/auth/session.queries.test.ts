@@ -30,6 +30,7 @@ function sessionFor(profileSlug: string | null): AppSession {
     adminMode: false,
     teamOnly: false,
     termsAccepted: true,
+    buyerQuestionsEnabled: false,
   };
 }
 

@@ -156,6 +156,7 @@ function AppLayout() {
     profileKind: session.profileKind,
     profiles: session.profiles,
     teamOnly: session.teamOnly,
+    buyerQuestionsEnabled: session.buyerQuestionsEnabled,
   });
   return (
     <div className="min-h-svh bg-background">

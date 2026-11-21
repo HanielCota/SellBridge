@@ -7,6 +7,7 @@ import type { ProfileKind } from "@sellbridge/shared/profile-kind";
 import { isTeamModeOn, isTeamOnlyAccount } from "@/features/auth/team-mode";
 import { TERMS_VERSION } from "@sellbridge/shared/terms";
 import { auth, isGoogleSignInEnabled } from "@/lib/server/auth";
+import { buyerQuestionsEnabled } from "@/lib/server/buyer-questions-switch";
 import { database } from "@/lib/server/database";
 import { environment } from "@/lib/server/environment";
 import { listMemberships } from "@/lib/server/membership";
@@ -63,6 +64,8 @@ export interface AppSession {
   teamOnly: boolean;
   /** Whether this person accepted the terms in force (item 26.a): the app asks first. */
   termsAccepted: boolean;
+  /** The "Perguntas" page is on (BUYER_QUESTIONS_ENABLED): the menu shows it. */
+  buyerQuestionsEnabled: boolean;
 }
 
 export const getAppSession = createServerFn({ method: "GET" }).handler(
@@ -95,6 +98,7 @@ export const getAppSession = createServerFn({ method: "GET" }).handler(
         ? new Date(session.session.expiresAt).toISOString()
         : null,
       termsAccepted,
+      buyerQuestionsEnabled: buyerQuestionsEnabled(),
     };
   },
 );

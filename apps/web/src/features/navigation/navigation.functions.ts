@@ -1,4 +1,5 @@
 import {
+  countWaitingBuyerQuestions,
   countParcelAlerts,
   countPendingReviews,
   countFailedListingTargets,
@@ -7,6 +8,7 @@ import {
 import { createServerFn } from "@tanstack/react-start";
 import { database } from "@/lib/server/database";
 import { accountMiddleware } from "@/lib/server/middleware";
+import { buyerQuestionsEnabled } from "@/lib/server/buyer-questions-switch";
 import { reviewableSince } from "@/features/orders/review-window";
 
 /**
@@ -30,19 +32,23 @@ export const getAttentionCounts = createServerFn({ method: "GET" })
         pendingReviews: 0,
         supplierOrders,
         parcelAlerts: 0,
+        buyerQuestions: 0,
       };
     }
-    const [failedListings, unreadSupportReplies, pendingReviews, parcelAlerts] = await Promise.all([
-      countFailedListingTargets(database, context.tenantId),
-      countUnreadSupportReplies(database, context.tenantId, context.userId),
-      countPendingReviews(database, context.tenantId, reviewableSince(new Date())),
-      countParcelAlerts(database, { tenantId: context.tenantId }),
-    ]);
+    const [failedListings, unreadSupportReplies, pendingReviews, parcelAlerts, buyerQuestions] =
+      await Promise.all([
+        countFailedListingTargets(database, context.tenantId),
+        countUnreadSupportReplies(database, context.tenantId, context.userId),
+        countPendingReviews(database, context.tenantId, reviewableSince(new Date())),
+        countParcelAlerts(database, { tenantId: context.tenantId }),
+        buyerQuestionsEnabled() ? countWaitingBuyerQuestions(database, context.tenantId) : 0,
+      ]);
     return {
       failedListings,
       unreadSupportReplies,
       pendingReviews: pendingReviews.total,
       supplierOrders: 0,
       parcelAlerts,
+      buyerQuestions,
     };
   });
