@@ -6,6 +6,7 @@ const quiet: SupplierAttentionInput = {
   ordersToAccept: 0,
   firstAccept: null,
   stoppedInvoices: 0,
+  onBehalfInvoiceOff: false,
   runningOut: { count: 0, productId: null },
   catalog: [],
   unreadSupportReplies: 0,
@@ -16,6 +17,17 @@ function build(input: Partial<SupplierAttentionInput>) {
 }
 
 describe("buildSupplierAttention", () => {
+  it("warns that venda à ordem has no note and opens where to turn it on", () => {
+    const items = build({ onBehalfInvoiceOff: true, runningOut: { count: 1, productId: "p1" } });
+
+    expect(items.map((item) => item.key)).toEqual(["on-behalf-invoice-off", "running-out"]);
+    expect(items[0]).toMatchObject({
+      title: "A nota da venda à ordem está desligada",
+      tone: "danger",
+      href: "/fornecedor/painel/marca#como-sai-a-nota",
+    });
+  });
+
   it("lists nothing when nothing waits for the supplier", () => {
     expect(build({})).toEqual([]);
   });

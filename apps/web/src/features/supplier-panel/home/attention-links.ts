@@ -6,6 +6,9 @@ import type {
 /** Where each item of the home list is fixed, as a plain path under the panel's routes. */
 export const SUPPLIER_PANEL_BASE_PATH = "/fornecedor/painel";
 
+/** The id of "Como sai a nota" on the brand page, so a link lands on it. */
+export const INVOICE_SETUP_ANCHOR = "como-sai-a-nota";
+
 /**
  * The Pedidos tab each filter opens (`SUPPLIER_ORDER_TABS` of the orders area): what waits for
  * the accept lands on "Aceitar", a stopped note on "Com problema", the rest on "A fazer", which
@@ -28,6 +31,9 @@ export function supplierAttentionHref(
   target: SupplierAttentionTarget,
   basePath: string = SUPPLIER_PANEL_BASE_PATH,
 ): string {
+  if (target.area === "invoice_setup") {
+    return `${basePath}/marca#${INVOICE_SETUP_ANCHOR}`;
+  }
   if (target.area === "performance") {
     return withSearch(`${basePath}/desempenho`, { metric: target.metric });
   }
