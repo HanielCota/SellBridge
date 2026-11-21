@@ -113,6 +113,8 @@ export const supportAssistantOutcomeSchema = z.object({
 /** Prefills the new-ticket form from a page that links to it (an error card, a listing). */
 export const newTicketSearchSchema = z.object({
   categoria: optionalParameter(ticketCategorySchema),
+  /** What is going on inside the topic, so a link from a known case skips that question. */
+  situacao: optionalParameter(freeText().trim().max(60)),
   assunto: optionalParameter(freeText().trim().max(120)),
   /** Text the description starts with, e.g. which flag a supplier contests. */
   texto: optionalParameter(freeText().max(300)),

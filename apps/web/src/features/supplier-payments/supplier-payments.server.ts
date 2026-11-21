@@ -1,5 +1,6 @@
 import {
   disconnectSupplierPaymentAccount,
+  findOpenSupportTicketForOrder,
   findPayableShipment,
   findPreparationHold,
   findShipmentPayment,
@@ -41,6 +42,7 @@ import {
   type CheckoutRequest,
   type MercadoPagoContext,
 } from "@sellbridge/payments/mercado-pago";
+import { manualRefundLastMoment } from "@sellbridge/payments/asaas";
 import {
   mercadoPagoContext,
   mercadoPagoNotificationUrl,
@@ -128,6 +130,12 @@ function inReviewMessage(provider: PaymentProviderName | undefined): string {
   return provider === "asaas" ? ASAAS_IN_REVIEW_MESSAGE : IN_REVIEW_MESSAGE;
 }
 const ALREADY_PAID_MESSAGE = "Este envio já foi pago. O valor está na conta do fornecedor.";
+const ALREADY_PAID_PROTECTED_MESSAGE = "Este envio já foi pago. O valor está protegido no Asaas.";
+
+/** Asaas holds the money until the delivery: it is not in the supplier's account yet. */
+function alreadyPaidMessage(provider: PaymentProviderName | undefined): string {
+  return provider === "asaas" ? ALREADY_PAID_PROTECTED_MESSAGE : ALREADY_PAID_MESSAGE;
+}
 const UNCHECKED_MESSAGE =
   "Não conseguimos conferir com o Mercado Pago agora. Tente de novo em alguns minutos.";
 
@@ -154,7 +162,37 @@ function checkoutRefusal(payable: PayableShipment, linked: boolean): string | nu
   return null;
 }
 
-/** Why SellBridge gave (or is giving) the reseller's money back, and whether Mercado Pago refused. */
+/**
+ * A refund Asaas refused is made by the team by hand, and the reseller asks for it through a
+ * support ticket: the order to open it about, the ticket already open on it, and the day Asaas
+ * stops holding the money. Null for every other payment.
+ */
+async function manualRefundView(tenantId: string, payable: PayableShipment) {
+  const { payment } = payable;
+  if (payment?.provider !== "asaas" || payment.status !== "approved") {
+    return null;
+  }
+  if (payment.refundFailedAt === null) {
+    return null;
+  }
+  const ticketId = await findOpenSupportTicketForOrder(database, {
+    tenantId,
+    orderId: payable.orderId,
+  });
+  const now = new Date();
+  const askUntil = manualRefundLastMoment(payment);
+  return {
+    orderId: payable.orderId,
+    orderName: payable.externalOrderId,
+    ticketId,
+    // Only a guarantee Asaas reported has a day the money leaves; without one there is no date.
+    askUntil: askUntil?.toISOString() ?? null,
+    /** Asaas already released the money to the supplier: it is no longer protected. */
+    releasedToSupplier: askUntil !== null && now.getTime() > askUntil.getTime(),
+  };
+}
+
+/** Why SellBridge gave (or is giving) the reseller's money back, and whether the provider refused. */
 function refundView(payment: ShipmentPayment | null) {
   if (payment?.refundRequestedAt == null) {
     return null;
@@ -196,8 +234,13 @@ export async function loadResellerSupplierPayment(input: { tenantId: string; shi
         };
   const badge = badgeFor(summary, linked);
   const refusal = checkoutRefusal(payable, linked);
-  const preparationHold = await findPreparationHold(database, input.shipmentId);
+  const [preparationHold, manualRefund] = await Promise.all([
+    findPreparationHold(database, input.shipmentId),
+    manualRefundView(input.tenantId, payable),
+  ]);
   return {
+    /** The team gives this payment back by hand; the reseller asks through a ticket. */
+    manualRefund,
     /** Why the supplier may not prepare the parcel yet; null when it may. */
     preparationHold,
     amountCents: shownAmountCents(payable, badge),
@@ -278,7 +321,7 @@ async function refusedCheckout(shipmentId: string): Promise<{ checkoutUrl: strin
   if (current?.status === "in_process") {
     throw validationError(inReviewMessage(current.provider));
   }
-  throw validationError(ALREADY_PAID_MESSAGE);
+  throw validationError(alreadyPaidMessage(current?.provider));
 }
 
 /**

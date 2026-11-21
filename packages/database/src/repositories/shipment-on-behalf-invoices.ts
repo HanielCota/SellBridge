@@ -313,6 +313,8 @@ export async function findOnBehalfLabelParcels(
       resellerNoteSource: shipmentResellerInvoices.source,
       remessaStatus: remessa.status,
       labelReleasedAt: shipmentResellerInvoices.labelReleasedAt,
+      shipmentId: orderShipments.id,
+      orderId: orderShipments.orderId,
     })
     .from(shipmentResellerInvoices)
     .innerJoin(orderShipments, eq(orderShipments.id, shipmentResellerInvoices.shipmentId))
@@ -326,6 +328,8 @@ export async function findOnBehalfLabelParcels(
     resellerNoteSource: row.resellerNoteSource,
     remessaAuthorized: row.remessaStatus === "authorized",
     labelReleased: row.labelReleasedAt !== null,
+    shipmentId: row.shipmentId,
+    orderId: row.orderId,
   }));
 }
 
@@ -417,9 +421,12 @@ export async function releaseOnBehalfLabel(
 
 /**
  * Marks the remessa as asked of the ERP, only while the reseller's note is still `citedAccessKey`
- * (the one the remessa will cite). It holds the note's row meanwhile, as replacing the note does,
- * so a note replaced in between is seen here or there, never missed by both. Returns false when
- * the note changed: the remessa is to be built again with the new one.
+ * (the one the remessa will cite) and, on Mercado Livre, is there and not only typed. It holds the
+ * note's row meanwhile, as replacing the note does, so a note replaced in between is seen here or
+ * there, never missed by both. Returns false when the remessa must not start now: when the note
+ * changed it is built again with the new one; when a Mercado Livre note went back to typed, the
+ * queued remessa is dropped (nothing was asked of the ERP yet) and opens again once the note is
+ * on Mercado Livre. A remessa another run already marked is left to that run: false here.
  */
 export async function claimOnBehalfRemessaDraft(
   database: Database,
@@ -427,17 +434,34 @@ export async function claimOnBehalfRemessaDraft(
 ): Promise<boolean> {
   return database.transaction(async (transaction) => {
     const [note] = await transaction
-      .select({ accessKey: shipmentResellerInvoices.accessKey })
+      .select({
+        accessKey: shipmentResellerInvoices.accessKey,
+        source: shipmentResellerInvoices.source,
+        marketplace: storeConnections.marketplace,
+      })
       .from(shipmentResellerInvoices)
+      .innerJoin(orderShipments, eq(orderShipments.id, shipmentResellerInvoices.shipmentId))
+      .innerJoin(orders, eq(orders.id, orderShipments.orderId))
+      .innerJoin(storeConnections, eq(storeConnections.id, orders.storeConnectionId))
       .where(eq(shipmentResellerInvoices.shipmentId, claim.shipmentId))
-      .for("update");
+      .for("update", { of: shipmentResellerInvoices });
     if (note?.accessKey !== claim.citedAccessKey) {
       return false;
     }
-    await transaction
+    // A remessa another run already asked of the ERP is never dropped nor asked again.
+    const notAskedYet = and(
+      eq(shipmentInvoices.id, claim.invoiceId),
+      isNull(shipmentInvoices.erpDraftRequestedAt),
+    );
+    if (note.marketplace === "mercado_livre" && note.source === "typed") {
+      await transaction.delete(shipmentInvoices).where(notAskedYet);
+      return false;
+    }
+    const marked = await transaction
       .update(shipmentInvoices)
       .set({ erpDraftRequestedAt: claim.now })
-      .where(eq(shipmentInvoices.id, claim.invoiceId));
-    return true;
+      .where(notAskedYet)
+      .returning({ id: shipmentInvoices.id });
+    return marked.length > 0;
   });
 }
