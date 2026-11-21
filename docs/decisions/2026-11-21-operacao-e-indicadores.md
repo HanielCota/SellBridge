@@ -10,6 +10,7 @@ Os contratos de Fornecedor e de Vendedor (lista do cliente de 20/11/2026) pedem 
 - **Quando o relógio começa:** no mesmo momento dos prazos do fornecedor, ou seja, no encaminhamento ou no pagamento, quando o admin exige pagamento antes de preparar.
 - **Quem fica de fora:** fornecedor operado pela equipe e pacote do Mercado Livre Full, que o fornecedor não posta.
 - **Chave:** desligada por padrão. Ao ligar, vale só para os pedidos criados daí em diante. Os que já estão com o fornecedor seguem com o prazo de antes, como nas regras de recebimento.
+- **Mudar o horário com a chave ligada** muda também o prazo dos pedidos cobertos que ainda estão com o fornecedor, porque o horário é lido na hora de calcular o prazo. A tela avisa isso antes de salvar. Gravar o horário em cada pedido ficou para depois, se o Guilherme quiser essa garantia.
 - **Com a chave ligada**, a data do corte toma o lugar do prazo em horas do próprio fornecedor nos pedidos sem data do marketplace. Ela aparece em todos os lugares que já mostravam a data do Mercado Livre:
   - "Postar até" no painel do fornecedor;
   - "Despacho atrasado" na fila e nos avisos;
