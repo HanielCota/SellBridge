@@ -178,11 +178,11 @@ const ACTION_COPY: Record<AdminAction, (details: AdminEventDetails | null) => st
       ? `Reenviou o convite para a equipe${as}`
       : `Convidou para a equipe${as}`;
   },
-  // Not the team's doing: the customer tried to send a contact and the server refused it.
   courtesy_granted: (details) => courtesyGivenCopy("Concedeu", details),
   courtesy_changed: (details) => courtesyGivenCopy("Mudou a cortesia para", details),
   courtesy_revoked: (details) =>
     `Retirou ${courtesyPlanLabel(details)} sem cobrança${courtesyReasonLabel(details)}`,
+  // Not the team's doing: the customer tried to send a contact and the server refused it.
   contact_blocked: (details) => `Tentou enviar ${contactKindsLabel(details)} no pedido (bloqueado)`,
 };
 

@@ -95,7 +95,8 @@ describe("courtesy ending in the team's queue", () => {
 
     expect(describeIssue(issue)).toEqual({
       title: "Plano sem cobrança acaba em 3 dias",
-      description: "Mude a data para renovar. Sem isso, a conta fica sem plano.",
+      description:
+        "Mude a data para renovar. Depois do fim, valem as regras de quem não tem plano.",
       badge: "Cortesia acaba em 3 dias",
     });
     expect(describeIssue({ ...issue, daysLeft: 1 }).title).toBe("Plano sem cobrança acaba amanhã");

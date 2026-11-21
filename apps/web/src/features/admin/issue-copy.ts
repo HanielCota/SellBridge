@@ -78,7 +78,7 @@ function courtesyCopy(issue: Extract<CustomerIssue, { kind: "courtesy" }>): Issu
   const left = courtesyLeftLabel(issue.daysLeft);
   return {
     title: `Plano sem cobrança acaba ${left}`,
-    description: "Mude a data para renovar. Sem isso, a conta fica sem plano.",
+    description: "Mude a data para renovar. Depois do fim, valem as regras de quem não tem plano.",
     badge: `Cortesia acaba ${left}`,
   };
 }

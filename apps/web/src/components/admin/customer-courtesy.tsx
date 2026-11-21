@@ -293,7 +293,7 @@ function RevokeDialog({
       open
       onOpenChange={(open) => (open ? undefined : onClose())}
       title={`Retirar o plano ${planName} desta conta?`}
-      description="A conta fica sem plano agora: não conecta loja nova nem publica anúncio novo. Pedidos e anúncios que já estão no ar continuam."
+      description="A conta perde agora o plano sem cobrança e fica com o que paga, se pagar algum. Sem plano, não conecta loja nova nem publica anúncio novo. O que já está no ar continua."
       confirmLabel="Retirar plano"
       pendingLabel="Retirando…"
       isPending={revoke.isPending}
