@@ -479,8 +479,23 @@ describe("marketplace reads", () => {
       problem: "A nota foi emitida por outro CNPJ.",
       issuedByErp: false,
       erpStopped: false,
+      erpStarted: false,
     });
     expect(await noteOf(shipmentId)).toMatchObject({ checks: 1, nextCheckAt });
+  });
+
+  it("says the reseller's Bling already started the note before its key came back", async () => {
+    const { shipmentId, tenantId } = await scenario();
+    await queueResellerSaleInvoices(database);
+    await database
+      .update(shipmentResellerInvoices)
+      .set({ erpDraftRequestedAt: new Date() })
+      .where(eq(shipmentResellerInvoices.shipmentId, shipmentId));
+
+    const note = (await resellerSaleInvoicesOf(database, tenantId, [shipmentId])).get(shipmentId);
+
+    expect(note?.accessKey).toBeNull();
+    expect(note?.erpStarted).toBe(true);
   });
 
   it("shows a reseller only its own parcels' notes", async () => {

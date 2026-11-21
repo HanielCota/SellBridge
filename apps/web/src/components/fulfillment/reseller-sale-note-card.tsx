@@ -33,6 +33,8 @@ export interface ResellerSaleNote {
   issuedByErp: boolean;
   /** The Bling stopped on it; `problem` says why. */
   erpStopped: boolean;
+  /** The Bling already started the note: it may exist there even without its key here. */
+  erpStarted: boolean;
 }
 
 const SOURCE_LABELS: Record<ResellerInvoiceSource, string> = {
