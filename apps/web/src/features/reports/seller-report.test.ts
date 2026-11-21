@@ -301,12 +301,13 @@ describe("seller report", () => {
     expect(parseStoredReport(JSON.parse(JSON.stringify(report)))).toEqual(report);
   });
 
-  it("explains that SellBridge's fee stays out of the profit, since the supplier pays it", () => {
+  it("explains the profit without SellBridge's fee, which the supplier pays and resellers never see", () => {
     const report = buildSellerReport(input());
 
     const profitRule = report.rules.find((rule) => rule.title === "Lucro");
 
-    expect(profitRule?.text).toContain("A taxa do SellBridge não entra");
-    expect(profitRule?.text).not.toContain("% da receita");
+    expect(profitRule?.text).toBe(
+      "Receita menos o custo do fornecedor, a taxa do marketplace e os reembolsos, mais as comissões recebidas.",
+    );
   });
 });

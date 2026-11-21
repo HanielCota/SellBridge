@@ -30,7 +30,7 @@ export const createListingBodySchema = z.object({
   priceCents: listingPriceCentsSchema
     .optional()
     .describe(
-      "Preço de venda em centavos (BRL); precisa cobrir o custo do fornecedor e todas as taxas (marketplace, SellBridge e a margem mínima configurada). " +
+      "Preço de venda em centavos (BRL); precisa cobrir o custo do fornecedor e as taxas do marketplace, com a margem mínima configurada. " +
         "Se omitido, usa o preço sugerido do produto.",
     ),
   storeIds: z

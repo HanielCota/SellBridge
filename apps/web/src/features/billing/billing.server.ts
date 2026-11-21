@@ -6,7 +6,6 @@ import {
   findBillingAccess,
   findBillingTenantCreatedAt,
   getBillingAccount,
-  getPaymentFeeSetting,
   requireBillingOwner,
 } from "@sellbridge/database/repositories";
 import { database } from "@/lib/server/database";
@@ -99,12 +98,11 @@ async function isOwner(tenantId: string, userId: string): Promise<boolean> {
 
 export async function billingSummary(tenantId: string, userId: string) {
   await refreshOnVisit(tenantId);
-  const [account, usage, notice, access, fee, canManage] = await Promise.all([
+  const [account, usage, notice, access, canManage] = await Promise.all([
     getBillingAccount(database, tenantId),
     billingUsage(database, tenantId),
     findBillingNotice(tenantId),
     accessView(tenantId),
-    getPaymentFeeSetting(database),
     isOwner(tenantId, userId),
   ]);
   const enabled = access.kind !== "unlimited";
@@ -119,7 +117,6 @@ export async function billingSummary(tenantId: string, userId: string) {
     notice,
     access,
     enabled,
-    platformFeeBasisPoints: fee.basisPoints,
   };
 }
 
