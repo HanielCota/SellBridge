@@ -1,5 +1,6 @@
 import {
   deleteUnsoldProductModel,
+  findModelGrouping,
   findSkusTakenOutsideModel,
   getProductModel,
   getSupplierTaxDefaults,
@@ -54,10 +55,13 @@ export async function loadPanelModelForm(input: {
 }
 
 async function loadAvailableModelForm(input: { supplierId: string; modelId?: string | undefined }) {
-  const [model, categories, taxDefaults, brand] = await Promise.all([
+  const [model, grouping, categories, taxDefaults, brand] = await Promise.all([
     input.modelId === undefined
       ? Promise.resolve(null)
       : getProductModel(database, { supplierId: input.supplierId, modelId: input.modelId }),
+    input.modelId === undefined
+      ? Promise.resolve(null)
+      : findModelGrouping(database, { supplierId: input.supplierId, modelId: input.modelId }),
     loadProductCategories(),
     getSupplierTaxDefaults(database, input.supplierId),
     database.query.suppliers.findFirst({
@@ -71,6 +75,8 @@ async function loadAvailableModelForm(input: { supplierId: string; modelId?: str
   return {
     available: true as const,
     model,
+    /** Set when the grid came from grouping products: it can be separated again. */
+    groupedAt: grouping?.createdAt.toISOString() ?? null,
     categories,
     taxDefaults,
     brandNiche: brand?.niche ?? null,

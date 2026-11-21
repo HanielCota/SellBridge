@@ -163,3 +163,32 @@ test("o fornecedor importa o catálogo do EnvioVelox e cada tênis em vários ta
     .where(eq(supplierProducts.sku, `ENV${stamp}-BOLSA`));
   expect(bag).toEqual({ title: `Bolsa Envio ${stamp} - Bege`, modelId: null });
 });
+
+test("uma grade nova recebe a categoria do Mercado Livre mesmo quando o palpite chega depois do primeiro salvar", async ({
+  page,
+}) => {
+  const email = await accounts.signUp(page, `Fornecedor palpite ${stamp}`);
+  await giveTestBrand(database, email, `Calçados palpite ${stamp}`);
+  const title = `Tênis Palpite ${stamp}`;
+  // Mercado Livre answers late: the first autosave gives the grid its id before the guess lands.
+  await page.route("**/_serverFn/**", async (route) => {
+    const request = route.request();
+    if (request.method() === "GET" && request.url().includes(String(stamp))) {
+      await new Promise((resolve) => setTimeout(resolve, 4000));
+    }
+    await route.continue();
+  });
+  const delayed = page.waitForRequest(
+    (request) => request.method() === "GET" && request.url().includes(String(stamp)),
+  );
+
+  await gotoHydrated(page, "/fornecedor/painel/produtos?product=novo");
+  await page.getByText("Sim, tem cores ou tamanhos").click();
+  await openStep(page, /Dados do produto/);
+  await page.getByLabel("Título").fill(title);
+  await delayed;
+  await expect(page).toHaveURL(/grade=[0-9a-f-]{36}/);
+
+  await expect(page.getByText("Categoria no Mercado Livre:")).toBeVisible({ timeout: 15_000 });
+  await expect(page.getByText("Categoria sugerida no Mercado Livre:")).toHaveCount(0);
+});
