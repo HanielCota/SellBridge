@@ -3,6 +3,32 @@ import { contractFor } from "../domain/contract-documents.ts";
 import { PROFILE_KINDS } from "../domain/profile-kind.ts";
 import { contractFingerprint } from "./contract-fingerprint.ts";
 
+/**
+ * The text each published version must keep. A signature points to its version: editing the
+ * words without a new version would make every earlier signature cover a text nobody signed.
+ * Changing the contract means bumping `version` and pinning the new hash here.
+ */
+const PINNED_FINGERPRINTS = {
+  supplier: {
+    version: "2026-11-21-provisorio",
+    hash: "91f43fb3ff3c4f0f3cbb480349b2914484b0b9eb95bc95aeb421f8d3f27fe6fb",
+  },
+  seller: {
+    version: "2026-11-21-provisorio",
+    hash: "a14e87d8cab6bf2b2ccd20f6924958961187b8b4f94923030a01517d26536ee0",
+  },
+} as const;
+
+describe("published contract versions", () => {
+  it.each(PROFILE_KINDS)("keeps the %s text tied to its version", (kind) => {
+    const contract = contractFor(kind);
+    const pinned = PINNED_FINGERPRINTS[kind];
+
+    expect(contract.version).toBe(pinned.version);
+    expect(contractFingerprint(contract)).toBe(pinned.hash);
+  });
+});
+
 // Contracts, section 2: each signature keeps the hash of the exact text accepted.
 describe("contractFingerprint", () => {
   it("is a SHA-256 in hex and the same for the same text", () => {
