@@ -27,6 +27,11 @@ import {
 } from "@/lib/tab-profile";
 import { findNextStep } from "@/features/onboarding/setup-progress";
 import { needsTermsAcceptance } from "@/features/onboarding/terms-gate";
+import { ContractReminder } from "@/components/contract-signing/contract-reminder";
+import {
+  needsContractSigning,
+  showsSigningReminder,
+} from "@/features/contract-signing/contract-gate";
 import { setupProgressQueryOptions } from "@/features/reports/reports.queries";
 
 /** Every page of the app carries its profile, so each tab keeps its own (see profile-param.ts). */
@@ -77,6 +82,13 @@ export const Route = createFileRoute("/_app")({
     // Item 26.a (L4): the Google sign-up and a new version of the terms land here too.
     if (needsTermsAcceptance(session)) {
       throw redirect({ to: "/aceitar-termos", search: { redirect: location.href } });
+    }
+    // Contracts, section 1: a new profile, or a seller past the 30 days, signs before anything.
+    if (needsContractSigning(session)) {
+      throw redirect({
+        to: "/assinar-contrato",
+        search: { redirect: location.href, perfil: session.profileSlug ?? undefined },
+      });
     }
     // The kind is the tab's profile: a supplier tab and a seller tab of one account each stay
     // on their own screens.
@@ -184,6 +196,9 @@ function AppLayout() {
             tabIndex={-1}
             className="mx-auto w-full max-w-[1440px] space-y-6 px-4 pt-4 pb-28 md:px-8 md:pt-8 md:pb-32"
           >
+            {showsSigningReminder(session) ? (
+              <ContractReminder contract={session.contract} profileKind={session.profileKind} />
+            ) : null}
             {session.profileKind === "seller" && !session.teamOnly ? <SetupReminder /> : null}
             <Outlet />
           </main>
