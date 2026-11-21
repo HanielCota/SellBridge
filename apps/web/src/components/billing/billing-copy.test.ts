@@ -15,6 +15,20 @@ describe("billing copy", () => {
     expect(copy).toContain("O plano acaba agora.");
   });
 
+  it("warns that what was paid to move up a plan does not come back with the first fee", () => {
+    const copy = cancelCopy({ endsAt: null, refundCents: 9_700, keepsUpgradeDifference: true });
+
+    expect(copy).toContain(
+      "Só essa primeira mensalidade volta: o que você pagou a mais para subir de plano não é devolvido.",
+    );
+  });
+
+  it("says nothing about a plan difference when the plan never went up", () => {
+    const copy = cancelCopy({ endsAt: null, refundCents: 9_700, keepsUpgradeDifference: false });
+
+    expect(copy).not.toContain("subir de plano");
+  });
+
   it("confirms the refund after cancelling", () => {
     expect(cancelledMessage({ endsAt: null, refundCents: 9_700 })).toBe(
       "Assinatura cancelada. Devolvemos R$ 97,00 pelo Asaas.",

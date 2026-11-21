@@ -419,6 +419,48 @@ describe("upgrade difference", () => {
     );
   });
 
+  it("tells the team when a difference replaced by another is paid all the same", async () => {
+    mocks.byReference.mockResolvedValue(null);
+    mocks.client.getCharge.mockResolvedValue({
+      id: "pay_replaced",
+      status: "RECEIVED",
+      value: 875.19,
+      dueDate: "2026-11-20",
+      deleted: true,
+      externalReference: "upgrade:tenant-a:ref:1797735600000",
+    });
+    const errors = vi.spyOn(logger, "error").mockImplementation(() => {});
+
+    const outcome = await syncUpgradeCharge({ chargeId: "pay_replaced", eventId: "evt_old" });
+
+    expect(outcome).toBe("not_waiting");
+    expect(mocks.settle).not.toHaveBeenCalled();
+    expect(errors).toHaveBeenCalledWith(
+      "billing.replaced_difference_paid",
+      expect.objectContaining({
+        reason: expect.stringContaining("paga depois que o SellBridge cancelou a cobrança"),
+        problemKey: "pay_replaced",
+        tenantId: "tenant-a",
+      }),
+    );
+  });
+
+  it("stays quiet when a later notice repeats a difference already applied", async () => {
+    mocks.byReference.mockResolvedValue(null);
+    mocks.client.getCharge.mockResolvedValue({
+      id: "pay_diff",
+      status: "RECEIVED",
+      value: 400,
+      dueDate: "2026-12-04",
+    });
+    const errors = vi.spyOn(logger, "error").mockImplementation(() => {});
+
+    const outcome = await syncUpgradeCharge({ chargeId: "pay_diff", eventId: "evt_again" });
+
+    expect(outcome).toBe("not_waiting");
+    expect(errors).not.toHaveBeenCalled();
+  });
+
   // The month the difference covered ended on 2026-12-20 (Brasília).
   const coveredUntil = "upgrade:tenant-a:ref:1797735600000";
 
