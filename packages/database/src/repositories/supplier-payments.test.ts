@@ -1,7 +1,13 @@
 import { randomUUID } from "node:crypto";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { eq } from "drizzle-orm";
-import { orderItems, orders, orderShipments, platformSettings } from "../schema/index.ts";
+import {
+  orderItems,
+  orders,
+  orderShipments,
+  platformSettings,
+  suppliers,
+} from "../schema/index.ts";
 import {
   createTestDatabase,
   createTestSupplierProduct,
@@ -10,7 +16,9 @@ import {
   testAddress,
   testStoreInput,
 } from "../testing/fixtures.ts";
+import { setDispatchCutoffSettings } from "./dispatch-cutoff.ts";
 import { forwardOrder } from "./fulfillment.ts";
+import { effectiveDispatchDeadlineAt } from "./shipment-timing.ts";
 import { upsertStoreConnection } from "./stores.ts";
 import {
   applyProviderPayment,
@@ -738,6 +746,41 @@ describe("refund of a paid parcel", () => {
     expect(candidate?.timing.status).toBe("forwarded");
     expect(candidate?.timing.forwardedAt).toBeInstanceOf(Date);
     expect(candidate?.timing.dispatchWithinHours).toBe(48);
+  });
+
+  it("keeps the refund on the marketplace date while the cutoff rule is on", async () => {
+    const userId = users.ids[0] ?? "";
+    const mockStoreId = storeId;
+    storeId = (
+      await upsertStoreConnection(database, {
+        ...testStoreInput(tenants.tenantA, randomUUID()),
+        marketplace: "mercado_livre",
+      })
+    ).id;
+    const rule = { mercadoLivre: 0, shopee: 780, tiktokShop: 1080, userId };
+    await setDispatchCutoffSettings(database, { ...rule, enabled: true, now: new Date(0) });
+    try {
+      const shipmentId = await forwardedShipmentId();
+      const payment = await startPayment(shipmentId);
+      await approveWith(payment.id);
+      const [cutoff] = await database
+        .select({ date: effectiveDispatchDeadlineAt })
+        .from(orderShipments)
+        .innerJoin(suppliers, eq(suppliers.id, orderShipments.supplierId))
+        .where(eq(orderShipments.id, shipmentId));
+
+      const rows = await listShipmentPaymentRefundCandidates(database, {
+        provider: "mercado_pago",
+        limit: 1000,
+      });
+      const candidate = rows.find((row) => row.payment.id === payment.id);
+
+      expect(cutoff?.date).toBeInstanceOf(Date);
+      expect(candidate?.timing.dispatchDeadlineAt).toBeNull();
+    } finally {
+      storeId = mockStoreId;
+      await setDispatchCutoffSettings(database, { ...rule, enabled: false, now: new Date() });
+    }
   });
 
   it("does not offer an unpaid parcel or a shipped one", async () => {

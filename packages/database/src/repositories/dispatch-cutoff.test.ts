@@ -2,7 +2,14 @@ import { randomUUID } from "node:crypto";
 import { cutoffPostingDay, DEFAULT_CUTOFF_MINUTES } from "@sellbridge/shared/dispatch-cutoff";
 import { eq } from "drizzle-orm";
 import { afterAll, afterEach, beforeAll, describe, expect, it } from "vitest";
-import { orderItems, orders, orderShipments, shipmentEvents, suppliers } from "../schema/index.ts";
+import {
+  orderItems,
+  orders,
+  orderShipments,
+  platformSettings,
+  shipmentEvents,
+  suppliers,
+} from "../schema/index.ts";
 import {
   createTestDatabase,
   createTestSupplierProduct,
@@ -118,6 +125,18 @@ afterAll(async () => {
   }
   await users.cleanup();
   await database.$client.end();
+});
+
+describe("platform_settings cutoff defaults", () => {
+  it("match the shared defaults", () => {
+    expect(platformSettings.mercadoLivreCutoffMinutes.default).toBe(
+      DEFAULT_CUTOFF_MINUTES.mercado_livre,
+    );
+    expect(platformSettings.shopeeCutoffMinutes.default).toBe(DEFAULT_CUTOFF_MINUTES.shopee);
+    expect(platformSettings.tiktokShopCutoffMinutes.default).toBe(
+      DEFAULT_CUTOFF_MINUTES.tiktok_shop,
+    );
+  });
 });
 
 describe("setDispatchCutoffSettings", () => {
