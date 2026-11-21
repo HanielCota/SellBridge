@@ -245,3 +245,35 @@ describe("late parcels from the cutoff date", () => {
     expect(on.late - off.late).toBeGreaterThanOrEqual(1);
   });
 });
+
+function brasiliaMidnight(daysFromToday: number): Date {
+  const brasiliaNow = new Date(Date.now() - 3 * 3_600_000);
+  const today = brasiliaNow.toISOString().slice(0, 10);
+  const midnight = new Date(`${today}T00:00:00-03:00`);
+  return new Date(midnight.getTime() + daysFromToday * 86_400_000);
+}
+
+async function lateCountWith(postingDate: Date): Promise<number> {
+  const shipmentId = await forwardedParcel(new Date());
+  const before = await countStaffShipmentsByGroup(database);
+  await database
+    .update(orderShipments)
+    .set({ dispatchDeadlineAt: postingDate })
+    .where(eq(orderShipments.id, shipmentId));
+  const after = await countStaffShipmentsByGroup(database);
+  return after.late - before.late;
+}
+
+describe("the team's late tab on the posting day", () => {
+  it("keeps a parcel off the late tab for its whole posting day", async () => {
+    const added = await lateCountWith(brasiliaMidnight(0));
+
+    expect(added).toBe(0);
+  });
+
+  it("puts a parcel on the late tab once its posting day is over", async () => {
+    const added = await lateCountWith(brasiliaMidnight(-1));
+
+    expect(added).toBe(1);
+  });
+});

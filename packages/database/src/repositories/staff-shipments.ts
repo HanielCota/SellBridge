@@ -15,6 +15,7 @@ import {
 } from "../schema/index.ts";
 import {
   effectiveDispatchDeadlineAt,
+  endOfBrazilDay,
   shipmentTimingColumns,
   withShipmentDelay,
 } from "./shipment-timing.ts";
@@ -30,8 +31,9 @@ function groupCondition(group: StaffShipmentGroup, now: Date): SQL | undefined {
       and(eq(orderShipments.status, "shipped"), lt(orderShipments.estimatedDeliveryAt, now)),
       and(
         inArray(orderShipments.status, [...BEFORE_DISPATCH]),
-        // A raw SQL date has no column type to encode the Date with, so the instant goes as text.
-        sql`${effectiveDispatchDeadlineAt} < ${now.toISOString()}::timestamptz`,
+        // A posting date holds for its whole day, as `overdueSince` counts it. A raw SQL date has no
+        // column type to encode the Date with, so the instant goes as text.
+        sql`${endOfBrazilDay(effectiveDispatchDeadlineAt)} <= ${now.toISOString()}::timestamptz`,
       ),
     );
   }

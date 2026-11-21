@@ -167,6 +167,14 @@ export const effectiveDispatchDeadlineAt = sql<Date | null>`coalesce(
   ${orderShipments.dispatchDeadlineAt}, ${cutoffPostingDate}
 )`.mapWith((value: string | null) => (value === null ? null : new Date(value)));
 
+/** Brazil keeps a fixed -03:00 offset (no daylight saving since 2019), as `period-range` does. */
+const BRAZIL_OFFSET = sql.raw("interval '3 hours'");
+
+/** The end of the Brazil calendar day of a timestamp: the instant `overdueSince` returns. */
+export function endOfBrazilDay(column: SQL): SQL<Date | null> {
+  return sql<Date | null>`((date_trunc('day', (${column} at time zone 'UTC') - ${BRAZIL_OFFSET}) + interval '1 day' + ${BRAZIL_OFFSET}) at time zone 'UTC')`;
+}
+
 /** Why one parcel waits before the supplier may prepare it, read inside the caller's transaction. */
 export async function findPreparationHold(
   executor: DatabaseExecutor,
