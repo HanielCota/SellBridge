@@ -125,7 +125,7 @@ async function visibleToResellers(supplierId: string, productId: string) {
 }
 
 beforeAll(async () => {
-  tenants = await createTestTenants(database, 20);
+  tenants = await createTestTenants(database, 24);
   staff = await createTestUsers(database, 1);
   resellerId = organizationAt(0);
   requiredBefore = await getRequireReceivingAccount(database);
