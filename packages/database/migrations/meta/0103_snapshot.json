@@ -1,5 +1,5 @@
 {
-  "id": "1bbba3bc-95ac-4839-83e8-19c67b1e0f0a",
+  "id": "5e5d50cf-c914-4e4c-b548-31b516b40d9e",
   "prevId": "09d1a0cc-bab3-47df-93ae-209afee3933e",
   "version": "7",
   "dialect": "postgresql",
@@ -5743,12 +5743,6 @@
           "primaryKey": false,
           "notNull": false
         },
-        "company_size": {
-          "name": "company_size",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false
-        },
         "checked_at": {
           "name": "checked_at",
           "type": "timestamp with time zone",
@@ -5856,15 +5850,11 @@
         },
         "supplier_approvals_team_reason_check": {
           "name": "supplier_approvals_team_reason_check",
-          "value": "\"supplier_approvals\".\"team_reason\" is null or \"supplier_approvals\".\"team_reason\" in ('cnpj_inactive', 'cnpj_not_found', 'cnpj_unsupported', 'legal_name_mismatch', 'lookup_unavailable', 'company_size_unknown')"
+          "value": "\"supplier_approvals\".\"team_reason\" is null or \"supplier_approvals\".\"team_reason\" in ('cnpj_inactive', 'cnpj_not_found', 'cnpj_unsupported', 'legal_name_mismatch', 'lookup_unavailable')"
         },
         "supplier_approvals_cnpj_outcome_check": {
           "name": "supplier_approvals_cnpj_outcome_check",
           "value": "\"supplier_approvals\".\"cnpj_outcome\" is null or \"supplier_approvals\".\"cnpj_outcome\" in ('active', 'inactive', 'not_found', 'unsupported', 'unavailable')"
-        },
-        "supplier_approvals_company_size_check": {
-          "name": "supplier_approvals_company_size_check",
-          "value": "\"supplier_approvals\".\"company_size\" is null or \"supplier_approvals\".\"company_size\" in ('mei', 'micro', 'small', 'other', 'unknown')"
         },
         "supplier_approvals_decided_by_check": {
           "name": "supplier_approvals_decided_by_check",
@@ -7532,6 +7522,95 @@
         "billing_accounts_scheduled_plan_check": {
           "name": "billing_accounts_scheduled_plan_check",
           "value": "(\"billing_accounts\".\"scheduled_plan\" is null) = (\"billing_accounts\".\"scheduled_plan_at\" is null)"
+        }
+      },
+      "isRLSEnabled": false
+    },
+    "public.billing_courtesies": {
+      "name": "billing_courtesies",
+      "schema": "",
+      "columns": {
+        "tenant_id": {
+          "name": "tenant_id",
+          "type": "text",
+          "primaryKey": true,
+          "notNull": true
+        },
+        "plan": {
+          "name": "plan",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "expires_at": {
+          "name": "expires_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "reason": {
+          "name": "reason",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "granted_by": {
+          "name": "granted_by",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "granted_at": {
+          "name": "granted_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "updated_at": {
+          "name": "updated_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {
+        "billing_courtesies_tenant_id_organization_id_fk": {
+          "name": "billing_courtesies_tenant_id_organization_id_fk",
+          "tableFrom": "billing_courtesies",
+          "tableTo": "organization",
+          "columnsFrom": [
+            "tenant_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        },
+        "billing_courtesies_granted_by_user_id_fk": {
+          "name": "billing_courtesies_granted_by_user_id_fk",
+          "tableFrom": "billing_courtesies",
+          "tableTo": "user",
+          "columnsFrom": [
+            "granted_by"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "set null",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {
+        "billing_courtesies_plan_check": {
+          "name": "billing_courtesies_plan_check",
+          "value": "\"billing_courtesies\".\"plan\" in ('start', 'pro', 'business', 'black', 'elite')"
         }
       },
       "isRLSEnabled": false
@@ -9720,12 +9799,6 @@
           "primaryKey": false,
           "notNull": false
         },
-        "signup_rules_since": {
-          "name": "signup_rules_since",
-          "type": "timestamp with time zone",
-          "primaryKey": false,
-          "notNull": false
-        },
         "return_answer_business_days": {
           "name": "return_answer_business_days",
           "type": "integer",
@@ -11006,7 +11079,8 @@
         "listings",
         "ticket",
         "onboarding",
-        "cooling"
+        "cooling",
+        "courtesy"
       ]
     },
     "public.erp_catalog_read_status": {

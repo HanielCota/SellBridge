@@ -97,6 +97,7 @@ export const customerIssueKindEnum = pgEnum("customer_issue_kind", [
   "ticket",
   "onboarding",
   "cooling",
+  "courtesy",
 ]);
 
 /** Kept in step with `NOTIFICATION_CHANNELS` in `@sellbridge/shared/notification-events`. */

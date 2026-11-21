@@ -60,6 +60,12 @@ function heldPaymentIdOf(event: string, context: Record<string, unknown>): strin
   return event === "asaas.held_payment_needs_decision" && typeof id === "string" ? id : null;
 }
 
+/** The payment a refused refund is about: the team gives it back by hand, with a guide. */
+function manualRefundIdOf(event: string, context: Record<string, unknown>): string | null {
+  const id = context.shipmentPaymentId;
+  return event === "asaas.refund_refused" && typeof id === "string" ? id : null;
+}
+
 export const adminGetProblem = createServerFn({ method: "GET" })
   .middleware([staffMiddleware("audit.view")])
   .validator(problemIdSchema)
@@ -73,6 +79,7 @@ export const adminGetProblem = createServerFn({ method: "GET" })
       ...summary,
       technicalDetails: technicalDetailsOf(problem, context),
       heldPaymentId: heldPaymentIdOf(problem.event, context),
+      manualRefundId: manualRefundIdOf(problem.event, context),
       canRetry: problemRetryOf(problem.event, context) !== null,
     };
   });

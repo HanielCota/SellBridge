@@ -76,6 +76,7 @@ export function countIssues(customers: readonly RankedCustomer[]): IssueCounts {
     ticket: withIssue("ticket"),
     onboarding: withIssue("onboarding"),
     cooling: withIssue("cooling"),
+    courtesy: withIssue("courtesy"),
   };
 }
 

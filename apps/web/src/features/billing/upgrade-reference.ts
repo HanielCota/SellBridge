@@ -17,3 +17,10 @@ export function upgradeUntil(externalReference: string | null | undefined): Date
   if (until === null || Number.isNaN(until.getTime())) return null;
   return until;
 }
+
+/** The tenant an upgrade difference was opened for, or null for a reference without it. */
+export function upgradeTenantId(externalReference: string | null | undefined): string | null {
+  if (externalReference?.startsWith(UPGRADE_REFERENCE) !== true) return null;
+  const tenantId = externalReference.split(":")[1] ?? "";
+  return tenantId === "" ? null : tenantId;
+}

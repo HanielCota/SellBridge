@@ -38,6 +38,9 @@ export type ResellerInvoiceSource = (typeof RESELLER_INVOICE_SOURCES)[number];
 
 /** A venda à ordem parcel of the order whose label is asked for. */
 export interface OnBehalfLabelParcel {
+  readonly shipmentId: string;
+  /** The parcel's order: a Mercado Livre cart puts several orders under one label. */
+  readonly orderId: string;
   /** Null while the reseller's note is not found. */
   readonly resellerNoteSource: ResellerInvoiceSource | null;
   /** The supplier's remessa, the note in the box, is authorized. */
@@ -52,13 +55,36 @@ const ASK_SUPPORT = " Se a nota não puder sair, fale com o suporte do SellBridg
 /**
  * Why the order's label must wait in venda à ordem, or null: the parcel ships with the remessa, and
  * Mercado Livre also needs the reseller's own note on its order (a typed key never reached it).
- * A parcel the team released no longer holds the label (decision of 20/11/2026).
+ * A parcel the team released no longer holds the label (decision of 20/11/2026). Given the order
+ * the label is asked for, a hold that comes only from another order of the cart says so.
  */
 export function onBehalfLabelRefusal(
   parcels: readonly OnBehalfLabelParcel[],
   marketplace: string,
+  orderId?: string,
 ): string | null {
   const held = parcels.filter((parcel) => !parcel.labelReleased);
+  const reason = heldLabelReason(held, marketplace);
+  if (reason === null) {
+    return null;
+  }
+  // A ready parcel of this order is held too, but only the parcels still waiting block the label.
+  const blocking = held.filter((parcel) => blocksLabel(parcel, marketplace));
+  const onlyOtherOrders =
+    orderId !== undefined && blocking.every((parcel) => parcel.orderId !== orderId);
+  return onlyOtherOrders ? `${OTHER_ORDER_OF_CART}${reason}` : reason;
+}
+
+function blocksLabel(parcel: OnBehalfLabelParcel, marketplace: string): boolean {
+  const notOnMarketplace = marketplace === "mercado_livre" && parcel.resellerNoteSource === "typed";
+  return parcel.resellerNoteSource === null || notOnMarketplace || !parcel.remessaAuthorized;
+}
+
+/** The label of a Mercado Livre cart is one for all its orders. */
+const OTHER_ORDER_OF_CART =
+  "Este pedido está pronto, mas a etiqueta do Mercado Livre é a mesma do carrinho, e outro pedido do carrinho ainda não está: ";
+
+function heldLabelReason(held: readonly OnBehalfLabelParcel[], marketplace: string): string | null {
   if (held.some((parcel) => parcel.resellerNoteSource === null)) {
     return `A etiqueta desta venda à ordem espera a nota de venda do revendedor. Ela sai assim que a nota chegar e a remessa for autorizada.${ASK_SUPPORT}`;
   }

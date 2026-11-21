@@ -1,4 +1,9 @@
-import { BILLING_PLANS, billingLimits, billingNotice } from "@sellbridge/shared/billing";
+import {
+  BILLING_PLANS,
+  billingLimits,
+  billingNotice,
+  courtesyBillingPlan,
+} from "@sellbridge/shared/billing";
 import { isAppError } from "@sellbridge/shared/errors";
 import { logger } from "@sellbridge/shared/logger";
 import {
@@ -6,6 +11,7 @@ import {
   findBillingAccess,
   findBillingTenantCreatedAt,
   getBillingAccount,
+  getBillingCourtesy,
   getPaymentFeeSetting,
   requireBillingOwner,
 } from "@sellbridge/database/repositories";
@@ -28,11 +34,24 @@ async function accessView(tenantId: string) {
   if (rules === null) return { kind: "unlimited" as const, limits: null };
   const access = await findBillingAccess(database, tenantId, rules);
   const limits = billingLimits(access);
-  if (access.kind === "plan") return { kind: "plan" as const, planId: access.plan.id, limits };
+  if (access.kind === "plan") {
+    return { kind: "plan" as const, planId: access.plan.id, source: access.source, limits };
+  }
   if (access.kind === "transition") {
     return { kind: "transition" as const, until: access.until.toISOString(), limits };
   }
   return { kind: "none" as const, limits };
+}
+
+/**
+ * The plan the team gave with no charge, while it lasts: shown even with billing off or during
+ * the launch transition, when it does not limit anything yet.
+ */
+async function courtesyView(tenantId: string) {
+  const courtesy = await getBillingCourtesy(database, tenantId);
+  const plan = courtesyBillingPlan(courtesy);
+  if (courtesy === null || plan === null) return null;
+  return { planId: plan.id, expiresAt: courtesy.expiresAt?.toISOString() ?? null };
 }
 
 /** What the page shows of the subscription: no provider ids. */
@@ -99,13 +118,14 @@ async function isOwner(tenantId: string, userId: string): Promise<boolean> {
 
 export async function billingSummary(tenantId: string, userId: string) {
   await refreshOnVisit(tenantId);
-  const [account, usage, notice, access, fee, canManage] = await Promise.all([
+  const [account, usage, notice, access, fee, canManage, courtesy] = await Promise.all([
     getBillingAccount(database, tenantId),
     billingUsage(database, tenantId),
     findBillingNotice(tenantId),
     accessView(tenantId),
     getPaymentFeeSetting(database),
     isOwner(tenantId, userId),
+    courtesyView(tenantId),
   ]);
   const enabled = access.kind !== "unlimited";
   return {
@@ -118,6 +138,7 @@ export async function billingSummary(tenantId: string, userId: string) {
     canManage,
     notice,
     access,
+    courtesy,
     enabled,
     platformFeeBasisPoints: fee.basisPoints,
   };
@@ -126,12 +147,14 @@ export async function billingSummary(tenantId: string, userId: string) {
 export async function findBillingNotice(tenantId: string): Promise<BillingNoticeView | null> {
   const rules = billingRules();
   if (rules === null) return null;
-  const [account, tenantCreatedAt] = await Promise.all([
+  const [account, courtesy, tenantCreatedAt] = await Promise.all([
     getBillingAccount(database, tenantId),
+    getBillingCourtesy(database, tenantId),
     findBillingTenantCreatedAt(database, tenantId),
   ]);
   const notice = billingNotice({
     subscription: account,
+    courtesy,
     tenantCreatedAt,
     transition: rules.transition,
   });
@@ -141,6 +164,9 @@ export async function findBillingNotice(tenantId: string): Promise<BillingNotice
   }
   if (notice.kind === "transition") {
     return { kind: "transition", until: notice.until.toISOString(), endingSoon: notice.endingSoon };
+  }
+  if (notice.kind === "courtesy_ending") {
+    return { kind: "courtesy_ending", until: notice.until.toISOString() };
   }
   return notice;
 }
@@ -172,7 +198,8 @@ export async function findPaidDaysLeft(
     findBillingAccess(database, tenantId, rules),
     getBillingAccount(database, tenantId),
   ]);
-  if (access.kind !== "plan" || account?.periodEnd == null) return null;
+  if (access.kind !== "plan" || access.source !== "subscription") return null;
+  if (account?.periodEnd == null) return null;
   const days = Math.ceil((account.periodEnd.getTime() - Date.now()) / DAY_IN_MS);
   return days > 0 ? { planName: access.plan.name, days } : null;
 }
