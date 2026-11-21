@@ -1,5 +1,5 @@
 {
-  "id": "30872412-82ea-4a4f-8993-c646edf89728",
+  "id": "b790423e-2e27-424a-bdf9-8d1663cb55fb",
   "prevId": "5e5d50cf-c914-4e4c-b548-31b516b40d9e",
   "version": "7",
   "dialect": "postgresql",
@@ -1124,19 +1124,6 @@
           "onDelete": "cascade",
           "onUpdate": "no action"
         },
-        "product_grouping_items_supplier_product_id_supplier_products_id_fk": {
-          "name": "product_grouping_items_supplier_product_id_supplier_products_id_fk",
-          "tableFrom": "product_grouping_items",
-          "tableTo": "supplier_products",
-          "columnsFrom": [
-            "supplier_product_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
-          "onDelete": "cascade",
-          "onUpdate": "no action"
-        },
         "product_grouping_items_category_id_categories_id_fk": {
           "name": "product_grouping_items_category_id_categories_id_fk",
           "tableFrom": "product_grouping_items",
@@ -1148,6 +1135,19 @@
             "id"
           ],
           "onDelete": "set null",
+          "onUpdate": "no action"
+        },
+        "product_grouping_items_product_fk": {
+          "name": "product_grouping_items_product_fk",
+          "tableFrom": "product_grouping_items",
+          "tableTo": "supplier_products",
+          "columnsFrom": [
+            "supplier_product_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
           "onUpdate": "no action"
         }
       },
@@ -2740,19 +2740,6 @@
         }
       },
       "foreignKeys": {
-        "store_buyer_address_checks_store_connection_id_store_connections_id_fk": {
-          "name": "store_buyer_address_checks_store_connection_id_store_connections_id_fk",
-          "tableFrom": "store_buyer_address_checks",
-          "tableTo": "store_connections",
-          "columnsFrom": [
-            "store_connection_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
-          "onDelete": "cascade",
-          "onUpdate": "no action"
-        },
         "store_buyer_address_checks_supplier_id_suppliers_id_fk": {
           "name": "store_buyer_address_checks_supplier_id_suppliers_id_fk",
           "tableFrom": "store_buyer_address_checks",
@@ -2764,6 +2751,19 @@
             "id"
           ],
           "onDelete": "set null",
+          "onUpdate": "no action"
+        },
+        "store_buyer_address_checks_store_connection_fk": {
+          "name": "store_buyer_address_checks_store_connection_fk",
+          "tableFrom": "store_buyer_address_checks",
+          "tableTo": "store_connections",
+          "columnsFrom": [
+            "store_connection_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
           "onUpdate": "no action"
         }
       },
@@ -7356,8 +7356,8 @@
           "onDelete": "cascade",
           "onUpdate": "no action"
         },
-        "supplier_test_orders_supplier_product_id_supplier_products_id_fk": {
-          "name": "supplier_test_orders_supplier_product_id_supplier_products_id_fk",
+        "supplier_test_orders_product_fk": {
+          "name": "supplier_test_orders_product_fk",
           "tableFrom": "supplier_test_orders",
           "tableTo": "supplier_products",
           "columnsFrom": [
@@ -7714,351 +7714,6 @@
       "uniqueConstraints": {},
       "policies": {},
       "checkConstraints": {},
-      "isRLSEnabled": false
-    },
-    "public.contract_signatures": {
-      "name": "contract_signatures",
-      "schema": "",
-      "columns": {
-        "id": {
-          "name": "id",
-          "type": "uuid",
-          "primaryKey": true,
-          "notNull": true,
-          "default": "gen_random_uuid()"
-        },
-        "tenant_id": {
-          "name": "tenant_id",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "user_id": {
-          "name": "user_id",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "profile_kind": {
-          "name": "profile_kind",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "contract_version": {
-          "name": "contract_version",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "contract_hash": {
-          "name": "contract_hash",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "confirmed_item_ids": {
-          "name": "confirmed_item_ids",
-          "type": "jsonb",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "signer_identity_enc": {
-          "name": "signer_identity_enc",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "ip_address_enc": {
-          "name": "ip_address_enc",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "user_agent": {
-          "name": "user_agent",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "device_type": {
-          "name": "device_type",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "browser": {
-          "name": "browser",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "time_zone": {
-          "name": "time_zone",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "verification_method": {
-          "name": "verification_method",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "default": "'email_code'"
-        },
-        "verified_at": {
-          "name": "verified_at",
-          "type": "timestamp with time zone",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "signed_at": {
-          "name": "signed_at",
-          "type": "timestamp with time zone",
-          "primaryKey": false,
-          "notNull": true,
-          "default": "now()"
-        }
-      },
-      "indexes": {
-        "contract_signatures_tenant_version_idx": {
-          "name": "contract_signatures_tenant_version_idx",
-          "columns": [
-            {
-              "expression": "tenant_id",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            },
-            {
-              "expression": "profile_kind",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            },
-            {
-              "expression": "contract_version",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            }
-          ],
-          "isUnique": true,
-          "where": "\"contract_signatures\".\"tenant_id\" is not null",
-          "concurrently": false,
-          "method": "btree",
-          "with": {}
-        },
-        "contract_signatures_user_idx": {
-          "name": "contract_signatures_user_idx",
-          "columns": [
-            {
-              "expression": "user_id",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            }
-          ],
-          "isUnique": false,
-          "concurrently": false,
-          "method": "btree",
-          "with": {}
-        }
-      },
-      "foreignKeys": {
-        "contract_signatures_tenant_id_organization_id_fk": {
-          "name": "contract_signatures_tenant_id_organization_id_fk",
-          "tableFrom": "contract_signatures",
-          "tableTo": "organization",
-          "columnsFrom": [
-            "tenant_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
-          "onDelete": "set null",
-          "onUpdate": "no action"
-        },
-        "contract_signatures_user_id_user_id_fk": {
-          "name": "contract_signatures_user_id_user_id_fk",
-          "tableFrom": "contract_signatures",
-          "tableTo": "user",
-          "columnsFrom": [
-            "user_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
-          "onDelete": "set null",
-          "onUpdate": "no action"
-        }
-      },
-      "compositePrimaryKeys": {},
-      "uniqueConstraints": {},
-      "policies": {},
-      "checkConstraints": {
-        "contract_signatures_profile_kind_check": {
-          "name": "contract_signatures_profile_kind_check",
-          "value": "\"contract_signatures\".\"profile_kind\" in ('seller', 'supplier')"
-        },
-        "contract_signatures_hash_check": {
-          "name": "contract_signatures_hash_check",
-          "value": "\"contract_signatures\".\"contract_hash\" ~ '^[0-9a-f]{64}$'"
-        },
-        "contract_signatures_verification_method_check": {
-          "name": "contract_signatures_verification_method_check",
-          "value": "\"contract_signatures\".\"verification_method\" in ('email_code')"
-        }
-      },
-      "isRLSEnabled": false
-    },
-    "public.contract_signing_codes": {
-      "name": "contract_signing_codes",
-      "schema": "",
-      "columns": {
-        "id": {
-          "name": "id",
-          "type": "uuid",
-          "primaryKey": true,
-          "notNull": true,
-          "default": "gen_random_uuid()"
-        },
-        "user_id": {
-          "name": "user_id",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "tenant_id": {
-          "name": "tenant_id",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "profile_kind": {
-          "name": "profile_kind",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "contract_version": {
-          "name": "contract_version",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "code_hash": {
-          "name": "code_hash",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "attempts": {
-          "name": "attempts",
-          "type": "integer",
-          "primaryKey": false,
-          "notNull": true,
-          "default": 0
-        },
-        "expires_at": {
-          "name": "expires_at",
-          "type": "timestamp with time zone",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "consumed_at": {
-          "name": "consumed_at",
-          "type": "timestamp with time zone",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "created_at": {
-          "name": "created_at",
-          "type": "timestamp with time zone",
-          "primaryKey": false,
-          "notNull": true,
-          "default": "now()"
-        }
-      },
-      "indexes": {
-        "contract_signing_codes_user_created_idx": {
-          "name": "contract_signing_codes_user_created_idx",
-          "columns": [
-            {
-              "expression": "user_id",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            },
-            {
-              "expression": "created_at",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            }
-          ],
-          "isUnique": false,
-          "concurrently": false,
-          "method": "btree",
-          "with": {}
-        },
-        "contract_signing_codes_tenant_idx": {
-          "name": "contract_signing_codes_tenant_idx",
-          "columns": [
-            {
-              "expression": "tenant_id",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            }
-          ],
-          "isUnique": false,
-          "concurrently": false,
-          "method": "btree",
-          "with": {}
-        }
-      },
-      "foreignKeys": {
-        "contract_signing_codes_user_id_user_id_fk": {
-          "name": "contract_signing_codes_user_id_user_id_fk",
-          "tableFrom": "contract_signing_codes",
-          "tableTo": "user",
-          "columnsFrom": [
-            "user_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
-          "onDelete": "cascade",
-          "onUpdate": "no action"
-        },
-        "contract_signing_codes_tenant_id_organization_id_fk": {
-          "name": "contract_signing_codes_tenant_id_organization_id_fk",
-          "tableFrom": "contract_signing_codes",
-          "tableTo": "organization",
-          "columnsFrom": [
-            "tenant_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
-          "onDelete": "cascade",
-          "onUpdate": "no action"
-        }
-      },
-      "compositePrimaryKeys": {},
-      "uniqueConstraints": {},
-      "policies": {},
-      "checkConstraints": {
-        "contract_signing_codes_profile_kind_check": {
-          "name": "contract_signing_codes_profile_kind_check",
-          "value": "\"contract_signing_codes\".\"profile_kind\" in ('seller', 'supplier')"
-        },
-        "contract_signing_codes_attempts_check": {
-          "name": "contract_signing_codes_attempts_check",
-          "value": "\"contract_signing_codes\".\"attempts\" >= 0"
-        }
-      },
       "isRLSEnabled": false
     },
     "public.return_claim_photos": {
@@ -10144,12 +9799,6 @@
           "primaryKey": false,
           "notNull": false
         },
-        "contract_signing_required_since": {
-          "name": "contract_signing_required_since",
-          "type": "timestamp with time zone",
-          "primaryKey": false,
-          "notNull": false
-        },
         "return_answer_business_days": {
           "name": "return_answer_business_days",
           "type": "integer",
@@ -10296,8 +9945,8 @@
         }
       },
       "foreignKeys": {
-        "shipment_payment_checkouts_shipment_payment_id_shipment_payments_id_fk": {
-          "name": "shipment_payment_checkouts_shipment_payment_id_shipment_payments_id_fk",
+        "shipment_payment_checkouts_payment_fk": {
+          "name": "shipment_payment_checkouts_payment_fk",
           "tableFrom": "shipment_payment_checkouts",
           "tableTo": "shipment_payments",
           "columnsFrom": [
@@ -11116,8 +10765,8 @@
       },
       "indexes": {},
       "foreignKeys": {
-        "marketplace_fee_quotes_store_connection_id_store_connections_id_fk": {
-          "name": "marketplace_fee_quotes_store_connection_id_store_connections_id_fk",
+        "marketplace_fee_quotes_store_connection_fk": {
+          "name": "marketplace_fee_quotes_store_connection_fk",
           "tableFrom": "marketplace_fee_quotes",
           "tableTo": "store_connections",
           "columnsFrom": [

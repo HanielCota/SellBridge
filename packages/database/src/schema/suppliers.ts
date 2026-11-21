@@ -369,9 +369,7 @@ export const productGroupingItems = pgTable(
     groupingId: uuid()
       .notNull()
       .references(() => productGroupings.id, { onDelete: "cascade" }),
-    supplierProductId: uuid()
-      .notNull()
-      .references(() => supplierProducts.id, { onDelete: "cascade" }),
+    supplierProductId: uuid().notNull(),
     title: text().notNull(),
     description: text().notNull(),
     categoryId: uuid().references(() => categories.id, { onDelete: "set null" }),
@@ -388,6 +386,12 @@ export const productGroupingItems = pgTable(
   },
   (table) => [
     primaryKey({ columns: [table.groupingId, table.supplierProductId] }),
+    // Named by hand: the generated name has 66 characters and Postgres keeps only 63.
+    foreignKey({
+      name: "product_grouping_items_product_fk",
+      columns: [table.supplierProductId],
+      foreignColumns: [supplierProducts.id],
+    }).onDelete("cascade"),
     /** The foreign key: deleting a product checks its grouping records. */
     index("product_grouping_items_product_idx").on(table.supplierProductId),
   ],
