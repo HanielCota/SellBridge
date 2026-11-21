@@ -1,4 +1,8 @@
-import { getReceivingRules, saveSupplierPaymentChoice } from "@sellbridge/database/repositories";
+import {
+  getReceivingRules,
+  getSignupRulesSince,
+  saveSupplierPaymentChoice,
+} from "@sellbridge/database/repositories";
 import {
   AsaasAccountKeyMissingError,
   isAsaasError,
@@ -16,7 +20,7 @@ import {
   type PaymentProviderName,
 } from "@sellbridge/shared/payment-accounts";
 import { database } from "@/lib/server/database";
-import type { AsaasAccountForm } from "./asaas-account-form";
+import { contractAccountRefusal, type AsaasAccountForm } from "./asaas-account-form";
 import {
   asaasContext,
   asaasNoticeEmail,
@@ -66,9 +70,10 @@ async function currentReview(context: AsaasContext | null, accounts: ReceivingAc
 /** What the supplier's Recebimentos page shows about Asaas and about which account receives. */
 export async function loadAsaasReceiving(supplierId: string) {
   const context = asaasContext();
-  const [accounts, rules] = await Promise.all([
+  const [accounts, rules, signupRulesSince] = await Promise.all([
     receivingAccountsOf(supplierId),
     getReceivingRules(database),
+    getSignupRulesSince(database),
   ]);
   const review = await currentReview(context, accounts);
   const { asaas, rule, confirmedDeliveries, receiving, choice } = accounts;
@@ -76,6 +81,8 @@ export async function loadAsaasReceiving(supplierId: string) {
     available: context !== null,
     /** The admin requires an approved account to sell: without it, the products are hidden. */
     accountRequired: rules.receivingAccountSince !== null,
+    /** The contract sign-up rules are on: the account opens only for a company that is no MEI. */
+    companyOnly: signupRulesSince !== null,
     asaas:
       asaas === null
         ? null
@@ -132,6 +139,17 @@ function asaasRefusal(error: unknown): Error {
   return new Error(String(error));
 }
 
+/** With the contract sign-up rules on, a CPF or MEI account is refused before Asaas is called. */
+async function requireContractAccount(form: AsaasAccountForm): Promise<void> {
+  if ((await getSignupRulesSince(database)) === null) {
+    return;
+  }
+  const refusal = contractAccountRefusal(form);
+  if (refusal !== null) {
+    throw validationError(refusal);
+  }
+}
+
 /**
  * Opens the supplier's Asaas account and turns its protection on. Only the supplier itself,
  * never a team visit; a supplier with an account already open is refused.
@@ -144,6 +162,7 @@ export async function openSupplierAsaasAccount(input: {
 }): Promise<{ protectedNow: boolean }> {
   requireOwner(input.actor);
   const context = requireContext();
+  await requireContractAccount(input.form);
   const noticeEmail = asaasNoticeEmail();
   if (noticeEmail === null) {
     logger.error("asaas.notice_email_missing", {

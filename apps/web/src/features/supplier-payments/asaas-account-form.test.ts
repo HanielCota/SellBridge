@@ -1,5 +1,9 @@
 import { describe, expect, test } from "vitest";
-import { asaasAccountFormSchema, isoDateFromBrazilian } from "./asaas-account-form";
+import {
+  asaasAccountFormSchema,
+  contractAccountRefusal,
+  isoDateFromBrazilian,
+} from "./asaas-account-form";
 
 const TODAY = new Date("2026-11-16T12:00:00Z");
 
@@ -133,5 +137,23 @@ describe("asaasAccountFormSchema", () => {
     });
 
     expect(found).toContain("Informe os 8 números do CEP");
+  });
+});
+
+describe("contractAccountRefusal", () => {
+  test("refuses an account in a person's CPF", () => {
+    const refusal = contractAccountRefusal({ personType: "person" });
+
+    expect(refusal).toContain("Empresa (CNPJ)");
+  });
+
+  test("refuses an MEI company", () => {
+    const refusal = contractAccountRefusal({ personType: "company", companyType: "MEI" });
+
+    expect(refusal).toContain("ME, EPP ou maior");
+  });
+
+  test.each(["LIMITED", "INDIVIDUAL", "ASSOCIATION"])("accepts a %s company", (companyType) => {
+    expect(contractAccountRefusal({ personType: "company", companyType })).toBeNull();
   });
 });

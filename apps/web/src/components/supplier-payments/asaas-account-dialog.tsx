@@ -41,6 +41,8 @@ interface StepProps {
   change: (field: AsaasAccountField, value: string) => void;
   /** Shows the field's warning as soon as the supplier leaves it, not only on Continuar. */
   check: (field: AsaasAccountField) => void;
+  /** The contract sign-up rules are on: only a company account, and never an MEI. */
+  companyOnly: boolean;
 }
 
 function Field(
@@ -96,6 +98,41 @@ function ChoiceButton(props: {
 
 const COMPANY_TYPE_ERROR_ID = "asaas-company-type-error";
 
+function companyTypesFor(companyOnly: boolean) {
+  return companyOnly ? ASAAS_COMPANY_TYPES.filter((type) => type !== "MEI") : ASAAS_COMPANY_TYPES;
+}
+
+function PersonTypeChoice(props: StepProps) {
+  const isPerson = props.values.personType === "person";
+  if (props.companyOnly) {
+    return (
+      <p className="text-sm text-muted-foreground">
+        A conta de recebimento é da empresa: use o CNPJ de uma empresa ME, EPP ou maior. MEI e CPF
+        não entram como fornecedor.
+      </p>
+    );
+  }
+  return (
+    <fieldset className="grid grid-cols-2 gap-2">
+      <legend className="mb-1 text-sm font-medium">Você recebe como</legend>
+      <ChoiceButton
+        name="asaas-person-type"
+        selected={!isPerson}
+        onSelect={() => props.change("personType", "company")}
+      >
+        Empresa (CNPJ)
+      </ChoiceButton>
+      <ChoiceButton
+        name="asaas-person-type"
+        selected={isPerson}
+        onSelect={() => props.change("personType", "person")}
+      >
+        Pessoa (CPF)
+      </ChoiceButton>
+    </fieldset>
+  );
+}
+
 function CompanyTypeField(props: StepProps) {
   return (
     <fieldset
@@ -104,7 +141,7 @@ function CompanyTypeField(props: StepProps) {
     >
       <legend className="mb-1 text-sm font-medium">Tipo de empresa</legend>
       <div className="grid grid-cols-2 gap-2">
-        {ASAAS_COMPANY_TYPES.map((type) => (
+        {companyTypesFor(props.companyOnly).map((type) => (
           <ChoiceButton
             key={type}
             name="asaas-company-type"
@@ -128,23 +165,7 @@ function WhoStep(props: StepProps) {
   const isPerson = props.values.personType === "person";
   return (
     <div className="grid gap-3">
-      <fieldset className="grid grid-cols-2 gap-2">
-        <legend className="mb-1 text-sm font-medium">Você recebe como</legend>
-        <ChoiceButton
-          name="asaas-person-type"
-          selected={!isPerson}
-          onSelect={() => props.change("personType", "company")}
-        >
-          Empresa (CNPJ)
-        </ChoiceButton>
-        <ChoiceButton
-          name="asaas-person-type"
-          selected={isPerson}
-          onSelect={() => props.change("personType", "person")}
-        >
-          Pessoa (CPF)
-        </ChoiceButton>
-      </fieldset>
+      <PersonTypeChoice {...props} />
       <Field {...props} field="name" label={isPerson ? "Nome completo" : "Razão social"} />
       {isPerson ? (
         <>
@@ -259,6 +280,7 @@ function useStepFields(step: number) {
 /** Opens the supplier's Asaas account in three short steps; nothing typed is lost between them. */
 export function AsaasAccountDialog(props: {
   supplierId: string;
+  companyOnly: boolean;
   open: boolean;
   onOpenChange: (open: boolean) => void;
 }) {
@@ -288,7 +310,13 @@ export function AsaasAccountDialog(props: {
             Etapa {step + 1} de {ASAAS_ACCOUNT_STEPS.length}: {ASAAS_ACCOUNT_STEPS[step]?.title}
           </DialogDescription>
         </DialogHeader>
-        <StepView values={values} errors={errors} change={change} check={check} />
+        <StepView
+          values={values}
+          errors={errors}
+          change={change}
+          check={check}
+          companyOnly={props.companyOnly}
+        />
         {open.isError ? (
           <Alert variant="destructive">
             <AlertDescription>{errorMessage(open.error)}</AlertDescription>

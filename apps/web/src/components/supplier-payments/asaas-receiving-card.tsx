@@ -58,7 +58,12 @@ function HowItWorks({ fee }: { fee: string }) {
   );
 }
 
-function OpenCard(props: { supplierId: string; fee: string; emphasis: ButtonEmphasis }) {
+function OpenCard(props: {
+  supplierId: string;
+  fee: string;
+  emphasis: ButtonEmphasis;
+  companyOnly: boolean;
+}) {
   const [open, setOpen] = useState(false);
   return (
     <Shell badge={<PaymentPill tone="neutral">Não aberta</PaymentPill>}>
@@ -69,7 +74,12 @@ function OpenCard(props: { supplierId: string; fee: string; emphasis: ButtonEmph
         </Button>
         <span className="text-sm text-muted-foreground">Leva uns 3 minutos.</span>
       </div>
-      <AsaasAccountDialog supplierId={props.supplierId} open={open} onOpenChange={setOpen} />
+      <AsaasAccountDialog
+        supplierId={props.supplierId}
+        companyOnly={props.companyOnly}
+        open={open}
+        onOpenChange={setOpen}
+      />
     </Shell>
   );
 }
@@ -229,7 +239,14 @@ export function AsaasReceivingCard(props: {
     );
   }
   if (asaas === null) {
-    return <OpenCard supplierId={props.supplierId} fee={props.fee} emphasis={props.emphasis} />;
+    return (
+      <OpenCard
+        supplierId={props.supplierId}
+        fee={props.fee}
+        emphasis={props.emphasis}
+        companyOnly={props.view.companyOnly}
+      />
+    );
   }
   if (asaas.protectionMissing) {
     return <RetryProtection supplierId={props.supplierId} emphasis={props.emphasis} />;

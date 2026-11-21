@@ -19,6 +19,7 @@ function check(overrides: Partial<CnpjCheck> = {}): CnpjCheck {
     outcome: "active",
     legalName: "CASA DAS PANELAS LTDA",
     registrationStatus: "ATIVA",
+    companySize: "micro",
     checkedAt: NOW,
     unavailableSince: null,
     ...overrides,
@@ -31,6 +32,7 @@ function facts(overrides: Partial<ApprovalFacts> = {}): ApprovalFacts {
     check: check(),
     receivingAccountApproved: false,
     requireReceivingAccount: false,
+    requireSupplierCompanySize: false,
     now: NOW,
     ...overrides,
   };
@@ -141,6 +143,63 @@ describe("decideSupplierApproval", () => {
   });
 });
 
+function rulesOn(overrides: Partial<CnpjCheck>): ApprovalFacts {
+  return facts({ requireSupplierCompanySize: true, check: check(overrides) });
+}
+
+describe("decideSupplierApproval with the contract sign-up rules on", () => {
+  it("refuses an MEI", () => {
+    const verdict = decideSupplierApproval(rulesOn({ companySize: "mei" }));
+
+    expect(verdict).toEqual({ kind: "refuse", cause: "mei" });
+  });
+
+  it.each(["micro", "small", "other"] as const)("approves a company of size %s", (companySize) => {
+    const verdict = decideSupplierApproval(rulesOn({ companySize }));
+
+    expect(verdict).toEqual({ kind: "approve" });
+  });
+
+  it("sends a company without a size at the Receita to the team", () => {
+    const verdict = decideSupplierApproval(rulesOn({ companySize: "unknown" }));
+
+    expect(verdict).toEqual({ kind: "needs_team", reason: "company_size_unknown" });
+  });
+
+  it("asks the Receita again when the kept answer has no size", () => {
+    const verdict = decideSupplierApproval(rulesOn({ companySize: null }));
+
+    expect(verdict).toEqual({ kind: "lookup" });
+  });
+
+  it("refuses an MEI even when the legal name differs", () => {
+    const verdict = decideSupplierApproval(
+      rulesOn({ companySize: "mei", legalName: "OUTRA EMPRESA LTDA" }),
+    );
+
+    expect(verdict).toEqual({ kind: "refuse", cause: "mei" });
+  });
+
+  it("keeps retrying while the query is down, before any size rule", () => {
+    const verdict = decideSupplierApproval(
+      rulesOn({
+        outcome: "unavailable",
+        legalName: null,
+        companySize: null,
+        unavailableSince: NOW,
+      }),
+    );
+
+    expect(verdict).toEqual({ kind: "lookup" });
+  });
+
+  it("approves an MEI while the rules are off", () => {
+    const verdict = decideSupplierApproval(facts({ check: check({ companySize: "mei" }) }));
+
+    expect(verdict).toEqual({ kind: "approve" });
+  });
+});
+
 describe("legalNamesMatch", () => {
   it("ignores accents, case, punctuation and the company type", () => {
     expect(legalNamesMatch("Utensílios São João Ltda.", "UTENSILIOS SAO JOAO LTDA")).toBe(true);
@@ -183,7 +242,12 @@ describe("nextCnpjCheck", () => {
 
     const answered = nextCnpjCheck(
       CNPJ,
-      { outcome: "active", legalName: "CASA DAS PANELAS LTDA", registrationStatus: "ATIVA" },
+      {
+        outcome: "active",
+        legalName: "CASA DAS PANELAS LTDA",
+        registrationStatus: "ATIVA",
+        companySize: "small",
+      },
       down,
       minutesLater(15),
     );
@@ -191,6 +255,7 @@ describe("nextCnpjCheck", () => {
     expect(answered).toMatchObject({
       outcome: "active",
       legalName: "CASA DAS PANELAS LTDA",
+      companySize: "small",
       unavailableSince: null,
     });
   });
