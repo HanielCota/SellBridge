@@ -10,6 +10,7 @@ export type NavBadge =
   | "openTickets"
   | "parcelAlerts"
   | "staffParcelAlerts"
+  | "moneyProblems"
   | "supportReplies";
 
 export interface NavItem {
@@ -113,10 +114,15 @@ export const ADMIN_NAV_ITEMS: NavItem[] = [
     permission: "reviews.moderate",
     group: "Moderação",
   },
-  { label: "Equipe", to: "/admin/equipe", permission: "customers.manage", group: "Equipe" },
-  { label: "Auditoria", to: "/admin/auditoria", permission: "audit.view", group: "Equipe" },
-  // Errors the site and the worker logged, with their context, for whoever fixes them.
-  { label: "Problemas", to: "/admin/problemas", permission: "audit.view", group: "Equipe" },
+  // Errors the site and the worker logged, for whoever fixes them. First in its group, counted:
+  // the refunds the team owes live here, and at 1366px the last tabs of the strip are hidden.
+  {
+    label: "Problemas",
+    to: "/admin/problemas",
+    badge: "moneyProblems",
+    permission: "audit.view",
+    group: "Equipe",
+  },
   // SellBridge's fee on supplier payments is money: admins only.
   {
     label: "Configurações",
@@ -124,6 +130,8 @@ export const ADMIN_NAV_ITEMS: NavItem[] = [
     permission: "settings.manage",
     group: "Equipe",
   },
+  { label: "Equipe", to: "/admin/equipe", permission: "customers.manage", group: "Equipe" },
+  { label: "Auditoria", to: "/admin/auditoria", permission: "audit.view", group: "Equipe" },
 ];
 
 /** Support sits at the foot of the menu for every profile, under its own pages. */
@@ -165,6 +173,8 @@ export const BADGE_DESCRIPTIONS: Record<NavBadge, (count: number) => string> = {
     `${count} ${count === 1 ? "pacote atrasado ou com problema" : "pacotes atrasados ou com problema"}`,
   staffParcelAlerts: (count) =>
     `${count} ${count === 1 ? "envio atrasado ou com problema" : "envios atrasados ou com problema"}`,
+  moneyProblems: (count) =>
+    `${count} ${count === 1 ? "devolução ou pagamento esperando a equipe" : "devoluções ou pagamentos esperando a equipe"}`,
   storeMessages: (count) =>
     `${count} ${count === 1 ? "conversa de loja sem ler" : "conversas de lojas sem ler"}`,
   supportReplies: (count) =>
