@@ -14,8 +14,8 @@ Os contratos de Fornecedor e de Vendedor (lista do cliente de 20/11/2026) pedem 
   - "Postar até" no painel do fornecedor;
   - "Despacho atrasado" na fila e nos avisos;
   - o termômetro do fornecedor;
-  - a tela de envios da equipe;
-  - o reembolso por atraso no despacho.
+  - a tela de envios da equipe.
+- **O dinheiro não muda:** o reembolso automático de quem não despachou continua contando só pela data do marketplace ou pelo prazo em horas do fornecedor. Com o horário de corte, ele poderia sair até um dia antes, e mexer em dinheiro espera a decisão do Guilherme.
 - **Onde fica:** o cálculo é feito no banco (`effectiveDispatchDeadlineAt`, em `shipment-timing.ts`), para a fila, os filtros e as contagens concordarem. A regra escrita em TypeScript (`cutoffPostingDay`) é a referência, e um teste confere que as duas dão o mesmo dia.
 - **Descartado:**
   - gravar a data no pedido no momento do encaminhamento, porque ela ficaria errada quando o relógio começa no pagamento;
