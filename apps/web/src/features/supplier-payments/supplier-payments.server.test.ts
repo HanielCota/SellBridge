@@ -75,6 +75,7 @@ vi.mock("@/lib/server/environment", () => ({
 
 import { MercadoPagoError } from "@sellbridge/payments/mercado-pago";
 import { loadResellerSupplierPayment, startSupplierCheckout } from "./supplier-payments.server";
+import { showsProtectionSeal } from "./protection-seal";
 
 const SHIPMENT_ID = "6a1f4d7e-9a43-4b2d-8c3e-4f505f0c9a3e";
 /** The parcel's first checkout closed half an hour ago without a payment SellBridge heard of. */
@@ -96,6 +97,7 @@ const payable = {
   supplierName: "Fornecedor",
   catalogKind: "supplier",
   status: "forwarded",
+  cancelledByResellerAfterAccept: false,
   amountCents: 5990,
   payment: earlierPayment,
 };
@@ -320,5 +322,101 @@ describe("loadResellerSupplierPayment, a refund Asaas refused", () => {
     });
 
     expect(view.manualRefund?.releasedToSupplier).toBe(true);
+  });
+});
+
+/** Paid by Pix through Asaas, then cancelled; the refund round has not run yet. */
+function cancelledPaidParcel(afterAccept: boolean, payment: Record<string, unknown> = {}) {
+  return {
+    ...payable,
+    status: "cancelled",
+    cancelledByResellerAfterAccept: afterAccept,
+    payment: {
+      ...earlierPayment,
+      provider: "asaas",
+      status: "approved",
+      paidAt: new Date(),
+      paymentMethod: "PIX",
+      refundReason: null,
+      refundRequestedAt: null,
+      refundFailedAt: null,
+      refundHeldAt: null,
+      releasedAt: null,
+      escrowStatus: null,
+      teamDecision: null,
+      ...payment,
+    },
+  };
+}
+
+describe("loadResellerSupplierPayment, a paid parcel the reseller cancelled", () => {
+  it("shows the money on its way back instead of a paid supplier", async () => {
+    mocks.findPayable.mockResolvedValue(cancelledPaidParcel(false));
+
+    const view = await loadResellerSupplierPayment({
+      tenantId: "tenant-1",
+      shipmentId: SHIPMENT_ID,
+    });
+
+    expect(view.badge).toEqual({ kind: "refunding" });
+    expect(view.refund).toEqual({ reason: "cancelled", failed: false });
+    expect(view.paymentMethod).toBe("PIX");
+  });
+
+  it("says the team checks first when the supplier had already accepted", async () => {
+    mocks.findPayable.mockResolvedValue(cancelledPaidParcel(true));
+
+    const view = await loadResellerSupplierPayment({
+      tenantId: "tenant-1",
+      shipmentId: SHIPMENT_ID,
+    });
+
+    expect(view.badge).toEqual({ kind: "held" });
+    expect(view.refund).toBeNull();
+  });
+
+  it("shows the supplier paid once the team released the money of a parcel cancelled after the accept", async () => {
+    mocks.findPayable.mockResolvedValue(
+      cancelledPaidParcel(true, {
+        teamDecision: "release",
+        releasedAt: new Date(),
+        escrowStatus: "done",
+      }),
+    );
+
+    const view = await loadResellerSupplierPayment({
+      tenantId: "tenant-1",
+      shipmentId: SHIPMENT_ID,
+    });
+
+    expect(view.badge.kind).toBe("paid");
+    expect(showsProtectionSeal(view)).toBe(false);
+  });
+
+  it("shows the supplier paid once the Asaas guarantee ended on a cancelled parcel", async () => {
+    mocks.findPayable.mockResolvedValue(cancelledPaidParcel(false, { escrowStatus: "done" }));
+
+    const view = await loadResellerSupplierPayment({
+      tenantId: "tenant-1",
+      shipmentId: SHIPMENT_ID,
+    });
+
+    expect(view.badge.kind).toBe("paid");
+    expect(showsProtectionSeal(view)).toBe(false);
+  });
+
+  it("promises back what was charged, not today's cost, while the team checks", async () => {
+    mocks.findPayable.mockResolvedValue({
+      ...cancelledPaidParcel(true, { amountCents: 4590 }),
+      amountCents: 5990,
+    });
+
+    const view = await loadResellerSupplierPayment({
+      tenantId: "tenant-1",
+      shipmentId: SHIPMENT_ID,
+    });
+
+    expect(view.badge).toEqual({ kind: "held" });
+    expect(view.amountCents).toBe(4590);
   });
 });
