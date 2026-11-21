@@ -25,3 +25,4 @@ export * from "./payments.ts";
 export * from "./problems.ts";
 export * from "./fee-quotes.ts";
 export * from "./marketplace-claims.ts";
+export * from "./buyer-questions.ts";
