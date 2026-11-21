@@ -19,6 +19,7 @@ import {
 import {
   decideHeldPayment,
   loadHeldPaymentDecision,
+  loadManualRefund,
   loadNewSupplierRule,
   saveNewSupplierRule,
 } from "./held-payment-decision.server";
@@ -81,6 +82,12 @@ export const getHeldPaymentDecisionFn = createServerFn({ method: "GET" })
   .middleware([staffMiddleware("settings.manage")])
   .validator(z.object({ shipmentPaymentId: z.uuid() }))
   .handler(async ({ data }) => await loadHeldPaymentDecision(data.shipmentPaymentId));
+
+/** Read-only, for whoever may open the problem it belongs to. */
+export const getManualRefundFn = createServerFn({ method: "GET" })
+  .middleware([staffMiddleware("audit.view")])
+  .validator(z.object({ shipmentPaymentId: z.uuid() }))
+  .handler(async ({ data }) => await loadManualRefund(data.shipmentPaymentId));
 
 export const decideHeldPaymentFn = createServerFn({ method: "POST" })
   .middleware([staffMiddleware("settings.manage")])

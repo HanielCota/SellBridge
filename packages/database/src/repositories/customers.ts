@@ -140,6 +140,10 @@ function customerColumns(now: Date) {
       sql`(select count(*) from tickets k where k.tenant_id = ${tenantId} and k.status = 'open')`.mapWith(
         Number,
       ),
+    courtesyExpiresAt:
+      sql`(select bc.expires_at from billing_courtesies bc where bc.tenant_id = ${tenantId})`.mapWith(
+        parseOptionalDate,
+      ),
     lastSeenAt:
       sql`coalesce((select ua.last_seen_at from user_activity ua where ua.user_id = ${user.id}), (select max(ss.updated_at) at time zone 'UTC' from session ss where ss.user_id = ${user.id} and ss.impersonated_by is null))`.mapWith(
         parseOptionalDate,

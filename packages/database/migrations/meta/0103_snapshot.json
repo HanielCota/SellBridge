@@ -1,5 +1,5 @@
 {
-  "id": "c2095dd5-82a0-4cb6-bcf5-0796c745c3b3",
+  "id": "5e5d50cf-c914-4e4c-b548-31b516b40d9e",
   "prevId": "09d1a0cc-bab3-47df-93ae-209afee3933e",
   "version": "7",
   "dialect": "postgresql",
@@ -7526,6 +7526,95 @@
       },
       "isRLSEnabled": false
     },
+    "public.billing_courtesies": {
+      "name": "billing_courtesies",
+      "schema": "",
+      "columns": {
+        "tenant_id": {
+          "name": "tenant_id",
+          "type": "text",
+          "primaryKey": true,
+          "notNull": true
+        },
+        "plan": {
+          "name": "plan",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "expires_at": {
+          "name": "expires_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "reason": {
+          "name": "reason",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "granted_by": {
+          "name": "granted_by",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "granted_at": {
+          "name": "granted_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "updated_at": {
+          "name": "updated_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {
+        "billing_courtesies_tenant_id_organization_id_fk": {
+          "name": "billing_courtesies_tenant_id_organization_id_fk",
+          "tableFrom": "billing_courtesies",
+          "tableTo": "organization",
+          "columnsFrom": [
+            "tenant_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        },
+        "billing_courtesies_granted_by_user_id_fk": {
+          "name": "billing_courtesies_granted_by_user_id_fk",
+          "tableFrom": "billing_courtesies",
+          "tableTo": "user",
+          "columnsFrom": [
+            "granted_by"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "set null",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {
+        "billing_courtesies_plan_check": {
+          "name": "billing_courtesies_plan_check",
+          "value": "\"billing_courtesies\".\"plan\" in ('start', 'pro', 'business', 'black', 'elite')"
+        }
+      },
+      "isRLSEnabled": false
+    },
     "public.billing_events": {
       "name": "billing_events",
       "schema": "",
@@ -7625,351 +7714,6 @@
       "uniqueConstraints": {},
       "policies": {},
       "checkConstraints": {},
-      "isRLSEnabled": false
-    },
-    "public.contract_signatures": {
-      "name": "contract_signatures",
-      "schema": "",
-      "columns": {
-        "id": {
-          "name": "id",
-          "type": "uuid",
-          "primaryKey": true,
-          "notNull": true,
-          "default": "gen_random_uuid()"
-        },
-        "tenant_id": {
-          "name": "tenant_id",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "user_id": {
-          "name": "user_id",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "profile_kind": {
-          "name": "profile_kind",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "contract_version": {
-          "name": "contract_version",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "contract_hash": {
-          "name": "contract_hash",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "confirmed_item_ids": {
-          "name": "confirmed_item_ids",
-          "type": "jsonb",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "signer_identity_enc": {
-          "name": "signer_identity_enc",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "ip_address_enc": {
-          "name": "ip_address_enc",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "user_agent": {
-          "name": "user_agent",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "device_type": {
-          "name": "device_type",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "browser": {
-          "name": "browser",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "time_zone": {
-          "name": "time_zone",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "verification_method": {
-          "name": "verification_method",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "default": "'email_code'"
-        },
-        "verified_at": {
-          "name": "verified_at",
-          "type": "timestamp with time zone",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "signed_at": {
-          "name": "signed_at",
-          "type": "timestamp with time zone",
-          "primaryKey": false,
-          "notNull": true,
-          "default": "now()"
-        }
-      },
-      "indexes": {
-        "contract_signatures_tenant_version_idx": {
-          "name": "contract_signatures_tenant_version_idx",
-          "columns": [
-            {
-              "expression": "tenant_id",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            },
-            {
-              "expression": "profile_kind",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            },
-            {
-              "expression": "contract_version",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            }
-          ],
-          "isUnique": true,
-          "where": "\"contract_signatures\".\"tenant_id\" is not null",
-          "concurrently": false,
-          "method": "btree",
-          "with": {}
-        },
-        "contract_signatures_user_idx": {
-          "name": "contract_signatures_user_idx",
-          "columns": [
-            {
-              "expression": "user_id",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            }
-          ],
-          "isUnique": false,
-          "concurrently": false,
-          "method": "btree",
-          "with": {}
-        }
-      },
-      "foreignKeys": {
-        "contract_signatures_tenant_id_organization_id_fk": {
-          "name": "contract_signatures_tenant_id_organization_id_fk",
-          "tableFrom": "contract_signatures",
-          "tableTo": "organization",
-          "columnsFrom": [
-            "tenant_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
-          "onDelete": "set null",
-          "onUpdate": "no action"
-        },
-        "contract_signatures_user_id_user_id_fk": {
-          "name": "contract_signatures_user_id_user_id_fk",
-          "tableFrom": "contract_signatures",
-          "tableTo": "user",
-          "columnsFrom": [
-            "user_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
-          "onDelete": "set null",
-          "onUpdate": "no action"
-        }
-      },
-      "compositePrimaryKeys": {},
-      "uniqueConstraints": {},
-      "policies": {},
-      "checkConstraints": {
-        "contract_signatures_profile_kind_check": {
-          "name": "contract_signatures_profile_kind_check",
-          "value": "\"contract_signatures\".\"profile_kind\" in ('seller', 'supplier')"
-        },
-        "contract_signatures_hash_check": {
-          "name": "contract_signatures_hash_check",
-          "value": "\"contract_signatures\".\"contract_hash\" ~ '^[0-9a-f]{64}$'"
-        },
-        "contract_signatures_verification_method_check": {
-          "name": "contract_signatures_verification_method_check",
-          "value": "\"contract_signatures\".\"verification_method\" in ('email_code')"
-        }
-      },
-      "isRLSEnabled": false
-    },
-    "public.contract_signing_codes": {
-      "name": "contract_signing_codes",
-      "schema": "",
-      "columns": {
-        "id": {
-          "name": "id",
-          "type": "uuid",
-          "primaryKey": true,
-          "notNull": true,
-          "default": "gen_random_uuid()"
-        },
-        "user_id": {
-          "name": "user_id",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "tenant_id": {
-          "name": "tenant_id",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "profile_kind": {
-          "name": "profile_kind",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "contract_version": {
-          "name": "contract_version",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "code_hash": {
-          "name": "code_hash",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "attempts": {
-          "name": "attempts",
-          "type": "integer",
-          "primaryKey": false,
-          "notNull": true,
-          "default": 0
-        },
-        "expires_at": {
-          "name": "expires_at",
-          "type": "timestamp with time zone",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "consumed_at": {
-          "name": "consumed_at",
-          "type": "timestamp with time zone",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "created_at": {
-          "name": "created_at",
-          "type": "timestamp with time zone",
-          "primaryKey": false,
-          "notNull": true,
-          "default": "now()"
-        }
-      },
-      "indexes": {
-        "contract_signing_codes_user_created_idx": {
-          "name": "contract_signing_codes_user_created_idx",
-          "columns": [
-            {
-              "expression": "user_id",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            },
-            {
-              "expression": "created_at",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            }
-          ],
-          "isUnique": false,
-          "concurrently": false,
-          "method": "btree",
-          "with": {}
-        },
-        "contract_signing_codes_tenant_idx": {
-          "name": "contract_signing_codes_tenant_idx",
-          "columns": [
-            {
-              "expression": "tenant_id",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            }
-          ],
-          "isUnique": false,
-          "concurrently": false,
-          "method": "btree",
-          "with": {}
-        }
-      },
-      "foreignKeys": {
-        "contract_signing_codes_user_id_user_id_fk": {
-          "name": "contract_signing_codes_user_id_user_id_fk",
-          "tableFrom": "contract_signing_codes",
-          "tableTo": "user",
-          "columnsFrom": [
-            "user_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
-          "onDelete": "cascade",
-          "onUpdate": "no action"
-        },
-        "contract_signing_codes_tenant_id_organization_id_fk": {
-          "name": "contract_signing_codes_tenant_id_organization_id_fk",
-          "tableFrom": "contract_signing_codes",
-          "tableTo": "organization",
-          "columnsFrom": [
-            "tenant_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
-          "onDelete": "cascade",
-          "onUpdate": "no action"
-        }
-      },
-      "compositePrimaryKeys": {},
-      "uniqueConstraints": {},
-      "policies": {},
-      "checkConstraints": {
-        "contract_signing_codes_profile_kind_check": {
-          "name": "contract_signing_codes_profile_kind_check",
-          "value": "\"contract_signing_codes\".\"profile_kind\" in ('seller', 'supplier')"
-        },
-        "contract_signing_codes_attempts_check": {
-          "name": "contract_signing_codes_attempts_check",
-          "value": "\"contract_signing_codes\".\"attempts\" >= 0"
-        }
-      },
       "isRLSEnabled": false
     },
     "public.return_claim_photos": {
@@ -10055,12 +9799,6 @@
           "primaryKey": false,
           "notNull": false
         },
-        "contract_signing_required_since": {
-          "name": "contract_signing_required_since",
-          "type": "timestamp with time zone",
-          "primaryKey": false,
-          "notNull": false
-        },
         "return_answer_business_days": {
           "name": "return_answer_business_days",
           "type": "integer",
@@ -11341,7 +11079,8 @@
         "listings",
         "ticket",
         "onboarding",
-        "cooling"
+        "cooling",
+        "courtesy"
       ]
     },
     "public.erp_catalog_read_status": {

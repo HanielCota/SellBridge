@@ -5,6 +5,7 @@ export type BillingNoticeView =
   | { kind: "past_due"; accessUntil: string }
   | { kind: "payment_failed" }
   | { kind: "transition"; until: string; endingSoon: boolean }
+  | { kind: "courtesy_ending"; until: string }
   | { kind: "no_plan" };
 
 export interface BillingNoticeCopy {
@@ -14,11 +15,11 @@ export interface BillingNoticeCopy {
   tone: "danger" | "info";
 }
 
-function lastDayOf(isoDate: string): string {
-  // The transition ends at a moment; the reseller still has the whole day before it.
+export function lastDayOf(isoDate: string): string {
+  // The access ends at a moment; the reseller still has the whole day before it.
   const end = new Date(isoDate);
   if (Number.isNaN(end.getTime())) {
-    throw new RangeError(`Transition end is not a date: ${isoDate}`);
+    throw new RangeError(`Access end is not a date: ${isoDate}`);
   }
   const lastMoment = new Date(end.getTime() - 1);
   return lastMoment.toLocaleDateString("pt-BR", { timeZone: REPORT_TIME_ZONE });
@@ -47,6 +48,14 @@ export function billingNoticeCopy(notice: BillingNoticeView): BillingNoticeCopy 
       description:
         "Até lá tudo continua como está. Depois, para conectar lojas e publicar, é preciso um plano.",
       tone: notice.endingSoon ? "danger" : "info",
+    };
+  }
+  if (notice.kind === "courtesy_ending") {
+    return {
+      title: `Seu plano por cortesia vale até ${lastDayOf(notice.until)}`,
+      description:
+        "Depois, para conectar lojas e publicar, escolha um plano. O que está no ar continua.",
+      tone: "info",
     };
   }
   const lastDay = new Date(notice.accessUntil).toLocaleDateString("pt-BR", {

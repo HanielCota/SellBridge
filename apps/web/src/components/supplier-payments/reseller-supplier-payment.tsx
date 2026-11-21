@@ -1,8 +1,9 @@
-import { ShieldCheckIcon } from "@phosphor-icons/react";
+import { ChatCircleDotsIcon, ShieldCheckIcon } from "@phosphor-icons/react";
 import { formatCents } from "@sellbridge/shared/money";
 import type { SupplierPayMethod } from "@sellbridge/shared/shipment-payments";
 import { RESELLER_HOLD_MESSAGES } from "@sellbridge/shared/receiving-rules";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { Link } from "@tanstack/react-router";
 import { useEffect, useRef } from "react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
@@ -13,8 +14,11 @@ import {
   type getResellerSupplierPaymentFn,
   startSupplierCheckoutFn,
 } from "@/features/supplier-payments/supplier-payments.functions";
+import { showsProtectionSeal } from "@/features/supplier-payments/protection-seal";
 import { resellerRefundText } from "@/features/supplier-payments/refund-copy";
 import { resellerSupplierPaymentQueryOptions } from "@/features/supplier-payments/supplier-payments.queries";
+import { SUPPORT_HOURS_TEXT } from "@/features/support/response-time";
+import { supplierRefundTicketSearch } from "@/features/support/talk-to-support";
 import { errorMessage } from "@/lib/errors";
 import { paymentMethodWord, SupplierPaymentBadgeView } from "./supplier-payment-badge";
 
@@ -174,6 +178,44 @@ function ProtectedSeal() {
 }
 
 /**
+ * The way to the team for a refund it makes by hand: a ticket already about the order and the
+ * amount, or the ticket the reseller opened before, never a second one.
+ */
+function ManualRefundAction({ view }: { view: PaymentView }) {
+  const manual = view.manualRefund;
+  if (manual === null || view.badge.kind !== "refunding") {
+    return null;
+  }
+  const link =
+    manual.ticketId === null ? (
+      <Link
+        to="/suporte/novo"
+        search={supplierRefundTicketSearch({
+          id: manual.orderId,
+          name: manual.orderName,
+          amount: formatCents(view.amountCents),
+        })}
+      >
+        <ChatCircleDotsIcon aria-hidden="true" />
+        Pedir a devolução à equipe
+      </Link>
+    ) : (
+      <Link to="/suporte/$ticketId" params={{ ticketId: manual.ticketId }}>
+        <ChatCircleDotsIcon aria-hidden="true" />
+        Ver o chamado deste pedido
+      </Link>
+    );
+  return (
+    <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
+      <Button asChild size="lg" variant="outline">
+        {link}
+      </Button>
+      <span className="text-sm text-muted-foreground">{SUPPORT_HOURS_TEXT}</span>
+    </div>
+  );
+}
+
+/**
  * The reseller pays the parcel's supplier through Asaas, or sees that it was paid (and when), or
  * why it cannot pay here yet. Mercado Pago is hidden since 18/11/2026; it is named
  * only for a payment that already went through it.
@@ -197,7 +239,7 @@ export function ResellerSupplierPayment({ shipmentId }: { shipmentId: string }) 
         <span className="text-sm text-muted-foreground">Pagamento ao fornecedor</span>
         <SupplierPaymentBadgeView badge={view.badge} paidWord="Fornecedor pago" />
       </div>
-      {view.protectedPayment && view.badge.kind !== "refunded" ? <ProtectedSeal /> : null}
+      {showsProtectionSeal(view) ? <ProtectedSeal /> : null}
       {view.canPay ? (
         <>
           <p className="flex items-baseline gap-1.5">
@@ -220,6 +262,7 @@ export function ResellerSupplierPayment({ shipmentId }: { shipmentId: string }) 
         </p>
       ) : null}
       {refundText === null ? null : <p className="text-sm">{refundText}</p>}
+      <ManualRefundAction view={view} />
       {view.preparationHold === null ? null : (
         <p className="text-sm font-medium">{RESELLER_HOLD_MESSAGES[view.preparationHold]}</p>
       )}

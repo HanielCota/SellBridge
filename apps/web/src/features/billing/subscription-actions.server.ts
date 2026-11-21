@@ -2,6 +2,7 @@ import {
   findBillingHolder,
   findBillingOwnerEmail,
   getBillingAccount,
+  getBillingCourtesy,
   requireBillingOwner,
   saveBillingAccount,
   type BillingAccountPatch,
@@ -16,6 +17,7 @@ import {
 } from "@sellbridge/payments/asaas";
 import {
   billingPlan,
+  courtesyBillingPlan,
   isBillingPlanId,
   type BillingPlan,
   type BillingPlanId,
@@ -258,6 +260,15 @@ async function createCheckout(
   }
 }
 
+/** A courtesy plan in force is not paid for: subscribing would charge an account that owes nothing. */
+async function assertNoCourtesy(tenantId: string): Promise<void> {
+  const courtesy = await getBillingCourtesy(database, tenantId);
+  if (courtesyBillingPlan(courtesy) === null) return;
+  throw conflictError(
+    "Sua conta tem um plano por cortesia, sem cobrança. Para mudar de plano, fale com o suporte.",
+  );
+}
+
 /** The first subscription: Pix paid every month, or a card that renews by itself. */
 export async function startSubscription(input: {
   tenantId: string;
@@ -271,6 +282,7 @@ export async function startSubscription(input: {
   return withBillingLock(input.tenantId, async () => {
     const account = await getBillingAccount(database, input.tenantId);
     assertNoPendingBillingCreation(account?.pendingReference);
+    await assertNoCourtesy(input.tenantId);
     if (account !== null && isLive(account)) {
       throw conflictError("Você já tem um plano. Para trocar, use o botão do plano que você quer.");
     }

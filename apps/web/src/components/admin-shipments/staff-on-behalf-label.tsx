@@ -95,10 +95,16 @@ export function StaffOnBehalfLabel({ shipmentId }: { shipmentId: string }) {
           {view.waiting}
         </p>
       )}
-      {view.waiting !== null && view.release === null && view.canRelease ? (
+      {view.waiting !== null && view.release === null && view.ownHeld && view.canRelease ? (
         <ReleaseForm shipmentId={shipmentId} />
       ) : null}
-      {view.waiting !== null && view.release === null && !view.canRelease ? (
+      {view.waiting !== null && view.release === null && !view.ownHeld ? (
+        <p className="text-sm text-muted-foreground">
+          As notas desta parcela estão prontas: não há o que liberar aqui. A etiqueta espera outro
+          pedido do carrinho.
+        </p>
+      ) : null}
+      {view.waiting !== null && view.release === null && view.ownHeld && !view.canRelease ? (
         <p className="text-sm text-muted-foreground">
           Só supervisores e administradores liberam a etiqueta.
         </p>

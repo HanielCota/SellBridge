@@ -1,7 +1,15 @@
 import type { FulfillmentStatus } from "@sellbridge/shared/schemas";
 import { and, asc, eq, inArray, isNotNull, isNull, lt, or, sql } from "drizzle-orm";
 import type { Database } from "../client.ts";
-import { orderShipments, returnClaims, shipmentEvents, shipmentPayments } from "../schema/index.ts";
+import {
+  orderShipments,
+  orders,
+  organization,
+  returnClaims,
+  shipmentEvents,
+  shipmentPayments,
+  suppliers,
+} from "../schema/index.ts";
 import { cancelledByResellerAfterAccept, type ShipmentPayment } from "./supplier-payments.ts";
 
 /**
@@ -133,4 +141,37 @@ export async function recordTeamDecision(
     )
     .returning({ id: shipmentPayments.id });
   return decided.length > 0;
+}
+
+/** A payment the team gives back by hand, with who is on each side of it. */
+export interface ManualRefundCase {
+  payment: ShipmentPayment;
+  tenantId: string;
+  orderId: string;
+  orderNumber: string;
+  resellerName: string;
+  supplierName: string;
+}
+
+/** What the team needs to give one payment back by hand, or null when it does not exist. */
+export async function findManualRefundCase(
+  database: Database,
+  paymentId: string,
+): Promise<ManualRefundCase | null> {
+  const [row] = await database
+    .select({
+      payment: shipmentPayments,
+      tenantId: orderShipments.tenantId,
+      orderId: orderShipments.orderId,
+      orderNumber: orders.externalOrderId,
+      resellerName: organization.name,
+      supplierName: suppliers.name,
+    })
+    .from(shipmentPayments)
+    .innerJoin(orderShipments, eq(orderShipments.id, shipmentPayments.shipmentId))
+    .innerJoin(orders, eq(orders.id, orderShipments.orderId))
+    .innerJoin(organization, eq(organization.id, orderShipments.tenantId))
+    .innerJoin(suppliers, eq(suppliers.id, shipmentPayments.supplierId))
+    .where(eq(shipmentPayments.id, paymentId));
+  return row ?? null;
 }
