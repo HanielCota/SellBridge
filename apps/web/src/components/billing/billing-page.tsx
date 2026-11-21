@@ -234,7 +234,7 @@ function CurrentPlan({ data, askCancel }: { data: BillingData; askCancel: boolea
             {line}
           </p>
         ))}
-        {usesCourtesyPlan(data) ? (
+        {data.courtesy === null ? null : (
           <p className="text-muted-foreground">
             Para mudar de plano,{" "}
             <Link to="/suporte/novo" className="font-medium text-foreground underline">
@@ -242,7 +242,7 @@ function CurrentPlan({ data, askCancel }: { data: BillingData; askCancel: boolea
             </Link>
             .
           </p>
-        ) : null}
+        )}
         {data.notice === null ? null : <NoticeText notice={data.notice} />}
         {data.enabled ? <SubscriptionActions data={data} askCancel={askCancel} /> : null}
       </CardContent>
