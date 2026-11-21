@@ -68,8 +68,14 @@ function coolingCopy(issue: Extract<CustomerIssue, { kind: "cooling" }>): IssueC
   };
 }
 
+function courtesyLeftLabel(daysLeft: number): string {
+  if (daysLeft <= 0) return "hoje";
+  if (daysLeft === 1) return "amanhã";
+  return `em ${daysLeft} dias`;
+}
+
 function courtesyCopy(issue: Extract<CustomerIssue, { kind: "courtesy" }>): IssueCopy {
-  const left = issue.daysLeft === 1 ? "amanhã" : `em ${issue.daysLeft} dias`;
+  const left = courtesyLeftLabel(issue.daysLeft);
   return {
     title: `Plano sem cobrança acaba ${left}`,
     description: "Mude a data para renovar. Sem isso, a conta fica sem plano.",

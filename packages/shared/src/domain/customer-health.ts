@@ -1,5 +1,6 @@
 import { CUSTOMER_ISSUE_KINDS, type CustomerIssueKind } from "../schemas/admin.ts";
 import { COURTESY_WARNING_DAYS } from "./billing.ts";
+import { brazilIsoDate } from "./period-range.ts";
 import { DAY_MILLISECONDS } from "./time.ts";
 
 /**
@@ -92,6 +93,7 @@ export type CustomerIssue =
   | { kind: "onboarding"; nextStep: OnboardingStep; completedSteps: number; idleDays: number }
   | { kind: "cooling"; reason: "decline"; dropPercent: number }
   | { kind: "cooling"; reason: "inactive"; idleDays: number }
+  /** `daysLeft` counts calendar days in Brasília: 0 on the plan's last day. */
   | { kind: "courtesy"; expiresAt: Date; daysLeft: number };
 
 export interface CustomerHealth {
@@ -187,7 +189,15 @@ function courtesyIssue(signals: CustomerSignals, now: Date): CustomerIssue | nul
   if (millisecondsLeft > COURTESY_WARNING_DAYS * DAY_MILLISECONDS) {
     return null;
   }
-  return { kind: "courtesy", expiresAt, daysLeft: Math.ceil(millisecondsLeft / DAY_MILLISECONDS) };
+  return { kind: "courtesy", expiresAt, daysLeft: calendarDaysToLastDay(expiresAt, now) };
+}
+
+/** Whole calendar days, in Brasília, from today to the last day the plan is valid. */
+function calendarDaysToLastDay(expiresAt: Date, now: Date): number {
+  // The plan ends at a moment: the day before that moment is the last one it covers.
+  const lastDay = brazilIsoDate(new Date(expiresAt.getTime() - 1));
+  const today = brazilIsoDate(now);
+  return Math.round((Date.parse(lastDay) - Date.parse(today)) / DAY_MILLISECONDS);
 }
 
 function collectIssues(signals: CustomerSignals, now: Date): CustomerIssue[] {

@@ -99,5 +99,6 @@ describe("courtesy ending in the team's queue", () => {
       badge: "Cortesia acaba em 3 dias",
     });
     expect(describeIssue({ ...issue, daysLeft: 1 }).title).toBe("Plano sem cobrança acaba amanhã");
+    expect(describeIssue({ ...issue, daysLeft: 0 }).badge).toBe("Cortesia acaba hoje");
   });
 });

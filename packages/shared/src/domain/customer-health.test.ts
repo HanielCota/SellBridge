@@ -43,6 +43,23 @@ describe("courtesy plan ending", () => {
     expect(assessCustomerHealth(signals({ courtesyExpiresAt: null }), NOW).issues).toEqual([]);
   });
 
+  it("says the last day is today, not tomorrow, on the plan's last day", () => {
+    // NOW is 09:00 in Brasília on 11/10; the plan covers that whole day and ends at its midnight.
+    const endOfToday = new Date("2026-10-12T03:00:00Z");
+
+    const health = assessCustomerHealth(signals({ courtesyExpiresAt: endOfToday }), NOW);
+
+    expect(health.issues).toEqual([{ kind: "courtesy", expiresAt: endOfToday, daysLeft: 0 }]);
+  });
+
+  it("counts tomorrow as one day left", () => {
+    const endOfTomorrow = new Date("2026-10-13T03:00:00Z");
+
+    const health = assessCustomerHealth(signals({ courtesyExpiresAt: endOfTomorrow }), NOW);
+
+    expect(health.issues).toMatchObject([{ kind: "courtesy", daysLeft: 1 }]);
+  });
+
   it("stops once the plan is over", () => {
     const health = assessCustomerHealth(signals({ courtesyExpiresAt: NOW }), NOW);
 
