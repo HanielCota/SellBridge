@@ -24,7 +24,11 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Skeleton } from "@/components/ui/skeleton";
-import { isPreparationStopped, isShippingBlocked } from "@/features/fulfillment/shipping-block";
+import {
+  isPreparationStopped,
+  type SaleStopNotice,
+  saleStopNotice,
+} from "@/features/fulfillment/shipping-block";
 import { PreparationHoldAlert } from "./preparation-hold-alert";
 import { displayBuyerName } from "@/features/orders/buyer-name";
 import { channelDispatch } from "@/features/supplier-panel/orders/channel-dispatch";
@@ -269,19 +273,19 @@ function dispatchFromChannel(shipment: PanelShipment, dispatched: boolean) {
 /** The opened parcel: the same shipment panel the supplier link shows, acting as the supplier. */
 /** Why the parcel cannot move, or the NF-e reminder before dispatch when it can. */
 function StopAlert({
-  saleBlocked,
+  saleStop,
   hold,
   shipment,
 }: {
-  saleBlocked: boolean;
+  saleStop: SaleStopNotice | null;
   hold: PreparationHold | null;
   shipment: PanelShipment;
 }) {
-  if (saleBlocked) {
+  if (saleStop !== null) {
     return (
       <Alert variant="destructive">
-        <AlertTitle>Venda não liberada</AlertTitle>
-        <AlertDescription>Fale com o revendedor antes de separar ou despachar.</AlertDescription>
+        <AlertTitle>{saleStop.title}</AlertTitle>
+        <AlertDescription>{saleStop.description}</AlertDescription>
       </Alert>
     );
   }
@@ -305,7 +309,7 @@ function PanelBody({ supplierId, shipmentId }: { supplierId: string; shipmentId:
   if (query.isError) {
     return <ErrorState message={errorMessage(query.error)} onRetry={() => void query.refetch()} />;
   }
-  const saleBlocked = isShippingBlocked(query.data.orderStatus);
+  const saleStop = saleStopNotice(query.data.orderStatus);
   const hold = query.data.preparationHold;
   const blocked = isPreparationStopped(query.data);
   const tracked = DISPATCHED_FULFILLMENT_STATUSES.includes(query.data.status);
@@ -321,7 +325,7 @@ function PanelBody({ supplierId, shipmentId }: { supplierId: string; shipmentId:
         saleInvoice={query.data.saleInvoice}
         resellerNote={query.data.resellerNote}
       />
-      <StopAlert saleBlocked={saleBlocked} hold={hold} shipment={query.data} />
+      <StopAlert saleStop={saleStop} hold={hold} shipment={query.data} />
       {query.data.splitOrder ? <SplitLabelNotice /> : null}
       {tracked ? <SupplierParcelTracking supplierId={supplierId} shipmentId={shipmentId} /> : null}
       <ShipmentPanel
