@@ -8,6 +8,10 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Switch } from "@/components/ui/switch";
+import {
+  type CutoffChoice,
+  cutoffConsequence,
+} from "@/features/dispatch-cutoff/cutoff-consequence";
 import { saveDispatchCutoffFn } from "@/features/dispatch-cutoff/dispatch-cutoff.functions";
 import { dispatchCutoffQueryOptions } from "@/features/dispatch-cutoff/dispatch-cutoff.queries";
 import { errorMessage } from "@/lib/errors";
@@ -18,13 +22,6 @@ type CutoffView = Awaited<
     typeof import("@/features/dispatch-cutoff/dispatch-cutoff.functions").getDispatchCutoffFn
   >
 >;
-
-interface CutoffChoice {
-  enabled: boolean;
-  mercadoLivre: string;
-  shopee: string;
-  tiktokShop: string;
-}
 
 type TimeField = "mercadoLivre" | "shopee" | "tiktokShop";
 
@@ -68,7 +65,7 @@ function useSaveCutoff() {
     onSuccess: async (saved) => {
       toast.success(
         saved.enabled
-          ? "Salvo: pedidos novos sem data do marketplace ganham o prazo pelo horário de corte."
+          ? "Salvo: o prazo pelo horário de corte está ligado."
           : "Salvo: o prazo pelo horário de corte está desligado.",
       );
       await queryClient.invalidateQueries({ queryKey: dispatchCutoffQueryOptions().queryKey });
@@ -88,24 +85,15 @@ function CutoffStatus({ view }: { view: CutoffView }) {
 
 /** What saving changes, written before the click (only when something changes). */
 function Consequence({ view, choice }: { view: CutoffView; choice: CutoffChoice }) {
-  if (choice.enabled && !view.enabled) {
-    return (
-      <p className="rounded-2xl bg-amber-500/10 p-3 text-sm text-amber-900 dark:text-amber-200">
-        Ao salvar: os pedidos que chegarem daqui em diante e não tiverem a data do marketplace
-        passam a ter prazo de postagem pelo horário de corte. Os pedidos que já estão com o
-        fornecedor continuam com o prazo de antes.
-      </p>
-    );
+  const consequence = cutoffConsequence(choiceOf(view), choice);
+  if (consequence === null) {
+    return null;
   }
-  if (!choice.enabled && view.enabled) {
-    return (
-      <p className="rounded-2xl bg-amber-500/10 p-3 text-sm text-amber-900 dark:text-amber-200">
-        Ao salvar: os pedidos sem data do marketplace voltam a usar o prazo em horas de cada
-        fornecedor.
-      </p>
-    );
-  }
-  return null;
+  return (
+    <p className="rounded-2xl bg-amber-500/10 p-3 text-sm text-amber-900 dark:text-amber-200">
+      {consequence}
+    </p>
+  );
 }
 
 function TimeInput(props: {
