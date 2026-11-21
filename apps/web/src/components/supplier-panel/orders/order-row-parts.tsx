@@ -124,7 +124,7 @@ const POSTING_TONES: Record<PostingDeadlineState, StatusTone> = {
   late: "danger",
 };
 
-/** Mercado Livre's date for the parcel to reach the carrier, in color, words and date. */
+/** The day the parcel must reach the carrier, in color, words and date. */
 export function PostingDeadlineStatus({
   parcel,
   now,

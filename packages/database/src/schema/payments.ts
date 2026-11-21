@@ -276,6 +276,15 @@ export const platformSettings = pgTable(
     paymentBeforePreparingSince: timestamp({ withTimezone: true }),
     /** Business days a supplier has to check a returned product when the marketplace gives no date. */
     returnAnswerBusinessDays: integer().notNull().default(3),
+    /**
+     * Since when a parcel without the marketplace's posting date gets one from the marketplace's
+     * cutoff time; null while off (contracts, Guilherme 21/11/2026). Older parcels keep their
+     * times. The cutoffs are minutes after midnight in Brasília.
+     */
+    dispatchCutoffSince: timestamp({ withTimezone: true }),
+    mercadoLivreCutoffMinutes: integer().notNull().default(870),
+    shopeeCutoffMinutes: integer().notNull().default(780),
+    tiktokShopCutoffMinutes: integer().notNull().default(1080),
     updatedByUserId: text().references(() => user.id, { onDelete: "set null" }),
     updatedAt: timestamp({ withTimezone: true }).defaultNow().notNull(),
   },
@@ -296,6 +305,10 @@ export const platformSettings = pgTable(
     check(
       "platform_settings_return_answer_days_check",
       sql`${table.returnAnswerBusinessDays} between 1 and 5`,
+    ),
+    check(
+      "platform_settings_cutoff_minutes_check",
+      sql`${table.mercadoLivreCutoffMinutes} between 0 and 1439 and ${table.shopeeCutoffMinutes} between 0 and 1439 and ${table.tiktokShopCutoffMinutes} between 0 and 1439`,
     ),
   ],
 );

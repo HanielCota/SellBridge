@@ -33,7 +33,7 @@ import {
   supplierPaymentAccounts,
   suppliers,
 } from "../schema/index.ts";
-import { supplierTimingColumns } from "./shipment-timing.ts";
+import { effectiveDispatchDeadlineAt, supplierTimingColumns } from "./shipment-timing.ts";
 
 type PaymentAccountRow = typeof supplierPaymentAccounts.$inferSelect;
 export type PaymentProvider = PaymentAccountRow["provider"];
@@ -855,7 +855,7 @@ export async function listShipmentPaymentRefundCandidates(
       orderNumber: orders.externalOrderId,
       cancelledByResellerAfterAccept: cancelledByResellerAfterAccept(),
       status: orderShipments.status,
-      dispatchDeadlineAt: orderShipments.dispatchDeadlineAt,
+      dispatchDeadlineAt: effectiveDispatchDeadlineAt,
       estimatedDeliveryAt: orderShipments.estimatedDeliveryAt,
       ...supplierTimingColumns,
     })

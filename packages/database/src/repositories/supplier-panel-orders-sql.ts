@@ -32,7 +32,11 @@ import {
   storeConnections,
   suppliers,
 } from "../schema/index.ts";
-import { preparationHold, supplierClockStartedAt } from "./shipment-timing.ts";
+import {
+  effectiveDispatchDeadlineAt,
+  preparationHold,
+  supplierClockStartedAt,
+} from "./shipment-timing.ts";
 import { containsPattern } from "./sql/search-pattern.ts";
 
 /**
@@ -44,12 +48,12 @@ import { containsPattern } from "./sql/search-pattern.ts";
 const BRAZIL_OFFSET = sql.raw("interval '3 hours'");
 
 /** The end of the Brazil calendar day of a timestamp: the instant `overdueSince` returns. */
-function endOfBrazilDay(column: SQL | typeof orderShipments.dispatchDeadlineAt): SQL<Date | null> {
+function endOfBrazilDay(column: SQL): SQL<Date | null> {
   return sql<Date | null>`((date_trunc('day', (${column} at time zone 'UTC') - ${BRAZIL_OFFSET}) + interval '1 day' + ${BRAZIL_OFFSET}) at time zone 'UTC')`;
 }
 
 const acceptAt = sql`(${supplierClockStartedAt} + ${suppliers.acceptWithinHours} * interval '1 hour')`;
-const dispatchAt = sql`coalesce(${endOfBrazilDay(orderShipments.dispatchDeadlineAt)}, ${supplierClockStartedAt} + ${suppliers.dispatchWithinHours} * interval '1 hour')`;
+const dispatchAt = sql`coalesce(${endOfBrazilDay(effectiveDispatchDeadlineAt)}, ${supplierClockStartedAt} + ${suppliers.dispatchWithinHours} * interval '1 hour')`;
 
 const QUEUE_LIST = sql.raw(SUPPLIER_QUEUE_STATUSES.map((status) => `'${status}'`).join(","));
 

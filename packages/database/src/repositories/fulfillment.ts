@@ -455,6 +455,7 @@ export async function getSupplierShipment(database: Database, token: string) {
       supplierName: suppliers.name,
       catalogKind: suppliers.catalogKind,
       preparationHold: timing.preparationHold,
+      dispatchDeadlineAt: timing.effectiveDispatchDeadlineAt,
       ...timing.supplierTimingColumns,
     })
     .from(orderShipments)
@@ -474,8 +475,9 @@ export async function getSupplierShipment(database: Database, token: string) {
     supplierTokenExpiresAt: _expiry,
     buyerTokenHash: _buyerHash,
     tenantId: _tenant,
-    ...shipment
+    ...storedShipment
   } = row.shipment;
+  const shipment = { ...storedShipment, dispatchDeadlineAt: row.dispatchDeadlineAt };
   const events = await database
     .select()
     .from(shipmentEvents)
