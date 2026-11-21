@@ -1,14 +1,17 @@
 import { SIGNING_CODE_TTL_IN_MINUTES } from "../domain/contract-signing.ts";
 import { renderNoticeEmail, type RenderedEmail } from "./layout.ts";
 
-/** The code that confirms a contract signature; the code is the only secret in it. */
+/**
+ * The code that confirms a contract signature. The code stays out of the subject: the mailer logs
+ * every subject, and phones show it on the locked screen.
+ */
 export function contractCodeEmail(
   input: { code: string; contractTitle: string },
   appUrl: string,
 ): RenderedEmail {
   return renderNoticeEmail(
     {
-      subject: `Seu código para assinar: ${input.code}`,
+      subject: "Seu código para assinar o contrato da SellBridge",
       preview: `Use este código para assinar o ${input.contractTitle.toLowerCase()}.`,
       heading: input.code,
       paragraphs: [
