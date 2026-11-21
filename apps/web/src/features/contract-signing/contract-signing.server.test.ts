@@ -43,7 +43,7 @@ vi.mock("@/lib/server/mailer", () => ({ sendEmail: mocks.send }));
 vi.mock("@/lib/server/marketplaces", () => ({
   tokenCipher: { encrypt: (value: string) => `enc:${value}`, decrypt: (value: string) => value },
 }));
-const { loadContractStanding, requestSigningCode, signContract } =
+const { contractStandingUnderSwitch, loadContractStanding, requestSigningCode, signContract } =
   await import("./contract-signing.server");
 
 const PROFILE = { userId: "user-1", tenantId: "tenant-1", kind: "seller" as const };
@@ -106,6 +106,33 @@ describe("loadContractStanding", () => {
       kind: "not_required",
     });
     expect(mocks.hasSigned).not.toHaveBeenCalled();
+  });
+});
+
+describe("contractStandingUnderSwitch", () => {
+  it("reads nothing about the profile while the switch is off", async () => {
+    const standing = await contractStandingUnderSwitch({
+      tenantId: "tenant-1",
+      kind: "seller",
+      requiredSince: null,
+    });
+
+    expect(standing).toEqual({ kind: "not_required" });
+    expect(mocks.requiredSince).not.toHaveBeenCalled();
+    expect(mocks.hasSigned).not.toHaveBeenCalled();
+    expect(mocks.createdAt).not.toHaveBeenCalled();
+  });
+
+  it("uses the switch it was given instead of reading it again", async () => {
+    const standing = await contractStandingUnderSwitch({
+      tenantId: "tenant-1",
+      kind: "seller",
+      requiredSince: new Date("2026-12-01T12:00:00Z"),
+      now: new Date("2026-12-02T12:00:00Z"),
+    });
+
+    expect(standing.kind).toBe("grace");
+    expect(mocks.requiredSince).not.toHaveBeenCalled();
   });
 });
 

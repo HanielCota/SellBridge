@@ -57,9 +57,29 @@ export async function loadContractStanding(
   now = new Date(),
 ): Promise<ContractStanding> {
   const requiredSince = await getContractSigningRequiredSince(database);
+  return contractStandingUnderSwitch({ tenantId, kind, requiredSince, now });
+}
+
+/** When the switch was turned on; the session reads it together with its other lookups. */
+export async function loadContractSigningSince(): Promise<Date | null> {
+  return getContractSigningRequiredSince(database);
+}
+
+/**
+ * The standing once the switch is known: with it off nothing else is read, so the session of
+ * every page costs no extra query while the contracts are not asked.
+ */
+export async function contractStandingUnderSwitch(input: {
+  tenantId: string;
+  kind: ProfileKind;
+  requiredSince: Date | null;
+  now?: Date;
+}): Promise<ContractStanding> {
+  const { tenantId, kind, requiredSince } = input;
   if (requiredSince === null) {
     return { kind: "not_required" };
   }
+  const now = input.now ?? new Date();
   const contract = contractFor(kind);
   const [signedVersionInForce, profileCreatedAt] = await Promise.all([
     hasSignedContract(database, { tenantId, kind, version: contract.version }),

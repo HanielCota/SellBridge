@@ -19,7 +19,10 @@ import {
   type SessionContract,
   toSessionContract,
 } from "@/features/contract-signing/contract-gate";
-import { loadContractStanding } from "@/features/contract-signing/contract-signing.server";
+import {
+  contractStandingUnderSwitch,
+  loadContractSigningSince,
+} from "@/features/contract-signing/contract-signing.server";
 
 /**
  * Admin mode is a display preference: it shows the team tools (support inbox, customers) in the
@@ -81,12 +84,13 @@ export const getAppSession = createServerFn({ method: "GET" }).handler(
     }
     const role = session.user.role ?? "user";
     // Runs before every navigation and hover preload, so the two lookups go out together.
-    const [profile, termsAccepted] = await Promise.all([
+    const [profile, termsAccepted, contractSigningSince] = await Promise.all([
       resolvePageProfile(session.user.id, session.session.activeOrganizationId),
       hasAcceptedTerms(database, session.user.id, TERMS_VERSION),
+      loadContractSigningSince(),
     ]);
     const teamOnly = isTeamOnlyAccount(role, profile.profiles.length);
-    const contract = await sessionContract(profile);
+    const contract = await sessionContract(profile, contractSigningSince);
     return {
       user: {
         id: session.user.id,
@@ -109,12 +113,22 @@ export const getAppSession = createServerFn({ method: "GET" }).handler(
   },
 );
 
-/** Only a profile signs; an account with none (the team) has nothing to sign. */
-async function sessionContract(profile: PageProfile): Promise<SessionContract> {
-  if (profile.tenantId === null) {
+/**
+ * Only a profile signs; an account with none (the team) has nothing to sign, and with the switch
+ * off nobody does, without another query.
+ */
+async function sessionContract(
+  profile: PageProfile,
+  requiredSince: Date | null,
+): Promise<SessionContract> {
+  if (profile.tenantId === null || requiredSince === null) {
     return CONTRACT_NOT_REQUIRED;
   }
-  const standing = await loadContractStanding(profile.tenantId, profile.profileKind);
+  const standing = await contractStandingUnderSwitch({
+    tenantId: profile.tenantId,
+    kind: profile.profileKind,
+    requiredSince,
+  });
   return toSessionContract(standing, profile.profileKind);
 }
 
