@@ -34,7 +34,7 @@ equipe concede a uma conta, uma a uma.
     valem depois.
   - **Antes do lançamento:** a cortesia pode ser concedida com a cobrança ainda desligada
     (`BILLING_UNLIMITED`) e passa a valer quando a cobrança começa.
-- **Banco:** a migração `0102_billing_courtesies` cria a tabela `billing_courtesies` (uma linha por
+- **Banco:** a migração `0103_billing_courtesies` cria a tabela `billing_courtesies` (uma linha por
   conta: plano, fim, motivo, quem concedeu) e acrescenta `courtesy` ao tipo `customer_issue_kind`.
   A cortesia fica fora de `billing_accounts`, que espelha o Asaas: nenhuma leitura do Asaas mexe
   nela. Retirar apaga a linha; o histórico é o registro de ações.
