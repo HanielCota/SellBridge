@@ -206,7 +206,7 @@ function ManualRefundAction({ view }: { view: PaymentView }) {
     );
   return (
     <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
-      <Button asChild size="lg">
+      <Button asChild size="lg" variant="outline">
         {link}
       </Button>
       <span className="text-sm text-muted-foreground">{SUPPORT_HOURS_TEXT}</span>

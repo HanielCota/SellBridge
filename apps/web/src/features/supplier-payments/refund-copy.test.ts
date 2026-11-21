@@ -40,7 +40,7 @@ describe("resellerRefundText", () => {
     });
 
     expect(text).toBe(
-      `O envio foi cancelado. Quem devolve os ${AMOUNT} é a equipe do SellBridge. Peça a devolução pelo botão abaixo até 20 de dez.: depois dessa data o Asaas libera o valor ao fornecedor.`,
+      `O envio foi cancelado. Quem devolve os ${AMOUNT} é a equipe do SellBridge. Peça a devolução pelo botão abaixo: o prazo vai até 20 de dez., e depois dessa data o Asaas libera o valor ao fornecedor.`,
     );
   });
 
