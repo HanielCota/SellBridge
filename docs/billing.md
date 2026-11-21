@@ -31,6 +31,28 @@ o acesso da equipe como cliente, essas ações ficam bloqueadas.
 - **Atendimento prioritário:** o chamado de uma conta Elite abre como prioridade alta (urgente
   continua urgente).
 
+## Conta cortesia (plano sem cobrança)
+
+A equipe pode conceder a uma conta um dos cinco planos sem cobrança (decisão de 20/11/2026,
+[docs/decisions/2026-11-20-conta-cortesia.md](decisions/2026-11-20-conta-cortesia.md)).
+
+- **Onde:** na ficha do cliente em `/admin/clientes`, cartão "Plano sem cobrança". Só o perfil
+  Administrador concede, muda e retira (`billing.grant_courtesy`); o motivo é obrigatório e tudo
+  fica no registro de ações da equipe.
+- **Validade:** até o fim de um dia escolhido (horário de Brasília) ou sem data para acabar. A
+  partir de 7 dias antes, a conta vê o aviso com o último dia e a equipe vê a conta em "Cortesia
+  acabando", na fila de pendências. Vencendo, a conta fica sem plano; o que está no ar continua.
+- **Limites:** os do plano concedido, nos mesmos bloqueios de conectar loja e publicar anúncio. O
+  Elite por cortesia também tem atendimento prioritário.
+- **Cobrança:** nada é criado no Asaas por causa da cortesia. Se a conta já paga um plano, a
+  assinatura para de renovar ao conceder (sem devolução do mês pago; se o Asaas falhar, nada é
+  concedido) e a conta usa o maior dos dois planos até o mês pago acabar. Enquanto a cortesia vale,
+  a conta não assina: para outro plano, a equipe muda a cortesia.
+- **Lançamento:** a cortesia pode ser concedida com a cobrança desligada e passa a valer quando ela
+  começa. Durante a transição, a conta antiga continua sem limites e sem o aviso de escolher plano.
+- **Onde fica:** tabela `billing_courtesies`, separada de `billing_accounts` (que espelha o Asaas).
+  Retirar apaga a linha; o histórico é `admin_audit_events`.
+
 ## Formas de pagamento
 
 - **Cartão de crédito:** renova sozinho. O lojista vai ao Checkout recorrente do Asaas, que só
