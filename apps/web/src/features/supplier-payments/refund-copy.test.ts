@@ -44,6 +44,21 @@ describe("resellerRefundText", () => {
     );
   });
 
+  test("says the team settles with the supplier once Asaas released the money", () => {
+    const text = resellerRefundText({
+      badge: { kind: "refunding" },
+      refund: { reason: "cancelled", failed: true },
+      amountCents: 5990,
+      provider: "asaas",
+      manualRefund: { ticketId: null, askUntil: "2026-12-20T02:59:59.999Z" },
+      now: new Date("2026-12-21T15:00:00.000Z"),
+    });
+
+    expect(text).toBe(
+      `O envio foi cancelado. Quem devolve os ${AMOUNT} é a equipe do SellBridge. O Asaas já liberou o valor ao fornecedor, então a equipe acerta a devolução com ele. Peça pelo botão abaixo.`,
+    );
+  });
+
   test("points to the ticket once the reseller asked for the refund", () => {
     const text = resellerRefundText({
       badge: { kind: "refunding" },

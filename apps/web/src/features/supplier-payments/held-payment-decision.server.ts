@@ -11,6 +11,7 @@ import { manualRefundLastMoment } from "@sellbridge/payments/asaas";
 import { notFoundError, validationError } from "@sellbridge/shared/errors";
 import { logger } from "@sellbridge/shared/logger";
 import { database } from "@/lib/server/database";
+import { manualRefundDayLabel, manualRefundDeadlineLine } from "./manual-refund-copy";
 
 /** Whether the team may still choose what happens to this held payment. */
 function isDecidable(payment: ShipmentPayment): boolean {
@@ -51,6 +52,8 @@ export async function loadManualRefund(shipmentPaymentId: string) {
     throw notFoundError("Pagamento não encontrado.");
   }
   const { payment } = found;
+  const now = new Date();
+  const lastMoment = manualRefundLastMoment(payment, now);
   const ticketId = await findOpenSupportTicketForOrder(database, {
     tenantId: found.tenantId,
     orderId: found.orderId,
@@ -63,8 +66,8 @@ export async function loadManualRefund(shipmentPaymentId: string) {
     orderNumber: found.orderNumber,
     resellerName: found.resellerName,
     supplierName: found.supplierName,
-    /** The last moment to give it back by hand: Asaas releases it to the supplier right after. */
-    lastMoment: manualRefundLastMoment(payment, new Date()).toISOString(),
+    lastDay: manualRefundDayLabel(lastMoment),
+    deadline: manualRefundDeadlineLine(lastMoment, now),
     ticketId,
     refunded: payment.status === "refunded",
   };

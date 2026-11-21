@@ -1,6 +1,5 @@
 import { ChatCircleDotsIcon } from "@phosphor-icons/react";
 import { formatCents } from "@sellbridge/shared/money";
-import { REPORT_TIME_ZONE } from "@sellbridge/shared/period-range";
 import { useQuery } from "@tanstack/react-query";
 import { Link } from "@tanstack/react-router";
 import type { ReactNode } from "react";
@@ -12,13 +11,6 @@ import { manualRefundQueryOptions } from "@/features/supplier-payments/asaas.que
 import { errorMessage } from "@/lib/errors";
 
 type ManualRefund = Awaited<ReturnType<typeof getManualRefundFn>>;
-
-const fullDay = new Intl.DateTimeFormat("pt-BR", {
-  day: "2-digit",
-  month: "2-digit",
-  year: "numeric",
-  timeZone: REPORT_TIME_ZONE,
-});
 
 function Fact({ label, children }: { label: string; children: ReactNode }) {
   return (
@@ -106,8 +98,9 @@ function RefundSteps({ refund }: { refund: ManualRefund }) {
   );
 }
 
+/** Once Asaas released the money, the steps to free it in the supplier's account no longer apply. */
 function PendingRefund({ refund }: { refund: ManualRefund }) {
-  const deadline = fullDay.format(new Date(refund.lastMoment));
+  const { deadline } = refund;
   return (
     <>
       <p className="text-sm">
@@ -115,13 +108,15 @@ function PendingRefund({ refund }: { refund: ManualRefund }) {
         SellBridge já saiu dessa conta e o resto está guardado, então a devolução não sai sozinha:
         alguém da equipe faz no Asaas.
       </p>
-      <p className="text-sm font-medium">
-        {`Devolva até ${deadline}. Depois dessa data o Asaas libera o valor ao fornecedor.`}
-      </p>
-      <RefundFacts refund={refund} deadline={deadline} />
+      <p className="text-sm font-medium">{deadline.text}</p>
+      <RefundFacts refund={refund} deadline={refund.lastDay} />
       <ResellerTicket refund={refund} />
-      <h3 className="text-sm font-medium">Passo a passo</h3>
-      <RefundSteps refund={refund} />
+      {deadline.passed ? null : (
+        <>
+          <h3 className="text-sm font-medium">Passo a passo</h3>
+          <RefundSteps refund={refund} />
+        </>
+      )}
     </>
   );
 }

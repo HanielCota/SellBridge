@@ -38,7 +38,11 @@ function manualRefundSentence(manual: ManualRefundView, amount: string, now: Dat
   if (manual.askUntil === null) {
     return `${who} Peça a devolução pelo botão abaixo.`;
   }
-  const day = formatDeadlineDay(new Date(manual.askUntil), now);
+  const askUntil = new Date(manual.askUntil);
+  if (now.getTime() > askUntil.getTime()) {
+    return `${who} O Asaas já liberou o valor ao fornecedor, então a equipe acerta a devolução com ele. Peça pelo botão abaixo.`;
+  }
+  const day = formatDeadlineDay(askUntil, now);
   return `${who} Peça a devolução pelo botão abaixo: o prazo vai até ${day}, e depois dessa data o Asaas libera o valor ao fornecedor.`;
 }
 
