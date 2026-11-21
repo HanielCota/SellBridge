@@ -2,16 +2,27 @@ import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { errorMessage } from "@/lib/errors";
 
+/**
+ * Runs a catalog write, says what it did and refreshes the catalog views. With `undoInput`, the
+ * notice offers "Desfazer", which runs the same action with the input it returns.
+ */
 export function useCatalogAction<TInput, TResult>(
   action: (input: TInput) => Promise<TResult>,
   message: string | ((result: TResult) => string),
   onSuccess?: (result: TResult) => void,
+  undoInput?: (input: TInput, result: TResult) => TInput | null,
 ) {
   const queryClient = useQueryClient();
-  return useMutation({
+  const mutation = useMutation({
     mutationFn: action,
-    onSuccess: async (result) => {
-      toast.success(typeof message === "string" ? message : message(result));
+    onSuccess: async (result, input) => {
+      const undo = undoInput?.(input, result) ?? null;
+      toast.success(
+        typeof message === "string" ? message : message(result),
+        undo === null
+          ? undefined
+          : { action: { label: "Desfazer", onClick: () => mutation.mutate(undo) } },
+      );
       if (
         typeof result === "object" &&
         result !== null &&
@@ -30,4 +41,5 @@ export function useCatalogAction<TInput, TResult>(
     },
     onError: (error) => toast.error(errorMessage(error)),
   });
+  return mutation;
 }
