@@ -8,16 +8,16 @@ import {
   type BlingConnectionView,
   type BlingReadView,
 } from "@/features/supplier-panel/bling/bling-overview";
+import {
+  BLING_RECONNECT_REASON,
+  blingConnectHref,
+} from "@/features/supplier-panel/bling/bling-connection";
 import { useBlingActions } from "@/features/supplier-panel/bling/use-bling";
 import { errorMessage } from "@/lib/errors";
 import { formatAbsoluteTime } from "@/lib/relative-time";
 import { BlingBadge } from "./bling-badge";
 import { BlingExportOutcome } from "./bling-export-outcome";
 import { InvoiceSetupLink } from "./invoice-setup-link";
-
-function connectHref(supplierId: string): string {
-  return `/api/integracoes/bling/conectar?fornecedor=${encodeURIComponent(supplierId)}`;
-}
 
 function CardShell({ children }: { children: ReactNode }) {
   return (
@@ -68,7 +68,7 @@ export function BlingConnectCard({ supplierId }: { supplierId: string }) {
       </CardHeading>
       <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
         <Button asChild size="lg">
-          <a href={connectHref(supplierId)}>Conectar Bling</a>
+          <a href={blingConnectHref(supplierId)}>Conectar Bling</a>
         </Button>
         <span className="text-sm text-muted-foreground">
           Leva 1 minuto. Você entra no Bling e autoriza.
@@ -78,7 +78,24 @@ export function BlingConnectCard({ supplierId }: { supplierId: string }) {
   );
 }
 
-/** The ERP refused the saved access: the supplier authorizes again. */
+/** Bling refuses part of the work: the authorization predates permissions the app gained. */
+function BlingPermissionCard({ supplierId }: { supplierId: string }) {
+  return (
+    <CardShell>
+      <CardHeading title="Bling" badge={<BlingBadge tone="warning">Precisa reconectar</BlingBadge>}>
+        {BLING_RECONNECT_REASON} Leva 1 minuto: você entra no Bling e autoriza de novo. Seus
+        produtos continuam como estão.
+      </CardHeading>
+      <div>
+        <Button asChild size="lg">
+          <a href={blingConnectHref(supplierId)}>Reconectar o Bling</a>
+        </Button>
+      </div>
+    </CardShell>
+  );
+}
+
+/** The ERP refused the saved access or part of the work: the supplier authorizes again. */
 export function BlingReconnectCard({
   supplierId,
   connection,
@@ -86,6 +103,9 @@ export function BlingReconnectCard({
   supplierId: string;
   connection: BlingConnectionView;
 }) {
+  if (connection.status === "connected" && connection.permissionMissing) {
+    return <BlingPermissionCard supplierId={supplierId} />;
+  }
   const expired = connection.status === "expired";
   return (
     <CardShell>
@@ -102,7 +122,7 @@ export function BlingReconnectCard({
       </CardHeading>
       <div>
         <Button asChild size="lg">
-          <a href={connectHref(supplierId)}>Conectar de novo</a>
+          <a href={blingConnectHref(supplierId)}>Conectar de novo</a>
         </Button>
       </div>
     </CardShell>

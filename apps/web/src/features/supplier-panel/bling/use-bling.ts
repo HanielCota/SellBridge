@@ -9,6 +9,7 @@ import {
   supplierBlingSendCatalog,
   supplierBlingSetInvoicing,
   supplierBlingStartRead,
+  ownBlingToReconnect,
 } from "./bling.functions";
 
 /** While the worker reads the catalog, the page asks for its progress this often. */
@@ -37,6 +38,20 @@ export function useBlingOverview(supplierId: string) {
     queryKey: overviewKey(supplierId),
     queryFn: async () => await supplierBlingOverview({ data: { supplierId } }),
     refetchInterval: (query) => pollInterval(query.state.data),
+  });
+}
+
+/** A missing permission is found by the worker within 15 minutes; the header asks this often. */
+const RECONNECT_CHECK_IN_MS = 5 * 60 * 1000;
+
+/** The header notice's data: the supplier to reconnect, or null. Supplier profiles only. */
+export function useOwnBlingToReconnect(enabled: boolean) {
+  return useQuery({
+    queryKey: ["supplier-panel", "bling-reconnect"] as const,
+    queryFn: async () => await ownBlingToReconnect(),
+    enabled,
+    staleTime: RECONNECT_CHECK_IN_MS,
+    refetchInterval: RECONNECT_CHECK_IN_MS,
   });
 }
 

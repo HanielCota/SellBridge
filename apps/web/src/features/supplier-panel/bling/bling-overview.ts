@@ -18,6 +18,8 @@ export type BlingConnectionStatus = "connected" | "expired" | "error" | "disconn
 
 export interface BlingConnectionView {
   readonly status: BlingConnectionStatus;
+  /** Connected, but Bling refuses calls this authorization has no permission for. */
+  readonly permissionMissing: boolean;
   readonly accountName: string | null;
   /** ISO 8601, UTC. */
   readonly connectedAt: string;
@@ -59,6 +61,7 @@ export interface BlingReadView {
 
 interface ConnectionRow {
   readonly status: BlingConnectionStatus;
+  readonly permissionMissingAt: Date | null;
   readonly accountName: string | null;
   readonly connectedAt: Date;
   readonly lastImportAt: Date | null;
@@ -150,6 +153,18 @@ function exportView(connection: ConnectionRow, now: Date): BlingExportView | nul
   };
 }
 
+/**
+ * Whether the supplier has to authorize the SellBridge app in Bling again: the account is still
+ * connected, but Bling refused a call for a permission granted after it was authorized. A
+ * connection that is no longer connected already asks for "Conectar de novo" on its own.
+ */
+export function needsBlingPermission(connection: {
+  readonly status: BlingConnectionStatus;
+  readonly permissionMissingAt: Date | null;
+}): boolean {
+  return connection.status === "connected" && connection.permissionMissingAt !== null;
+}
+
 /** The page's view; nothing about the account leaks while the feature is off. */
 export function blingOverviewFrom(input: {
   available: boolean;
@@ -169,6 +184,7 @@ export function blingOverviewFrom(input: {
         ? null
         : {
             status: connection.status,
+            permissionMissing: needsBlingPermission(connection),
             accountName: connection.accountName,
             connectedAt: connection.connectedAt.toISOString(),
             lastImportAt: connection.lastImportAt?.toISOString() ?? null,

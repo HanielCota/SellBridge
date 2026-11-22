@@ -6,12 +6,14 @@ import {
   gridProductsNote,
   isBlingExportRunning,
   isBlingReadRunning,
+  needsBlingPermission,
   skippedProductsNote,
   type BlingConnectionView,
 } from "./bling-overview";
 
 const connection = {
   status: "connected" as const,
+  permissionMissingAt: null,
   accountName: null,
   connectedAt: new Date("2026-11-10T12:00:00Z"),
   lastImportAt: null,
@@ -159,9 +161,44 @@ describe("skippedProductsNote", () => {
   });
 });
 
+describe("needsBlingPermission", () => {
+  it("asks to reconnect a connected Bling that refused a call for a missing permission", () => {
+    const refusedAt = new Date("2026-11-22T12:00:00Z");
+
+    const overview = blingOverviewFrom({
+      available: true,
+      connection: { ...connection, permissionMissingAt: refusedAt },
+      read: null,
+      fiscalReady: true,
+      now: NOW,
+    });
+
+    expect(overview.connection?.permissionMissing).toBe(true);
+  });
+
+  it("stops asking once the new authorization cleared the flag", () => {
+    const overview = blingOverviewFrom({
+      available: true,
+      connection: { ...connection, permissionMissingAt: null },
+      read: null,
+      fiscalReady: true,
+      now: NOW,
+    });
+
+    expect(overview.connection?.permissionMissing).toBe(false);
+  });
+
+  it("leaves an expired connection to its own Conectar de novo card", () => {
+    const flagged = { status: "expired" as const, permissionMissingAt: new Date() };
+
+    expect(needsBlingPermission(flagged)).toBe(false);
+  });
+});
+
 describe("blingStockLine", () => {
   const view: BlingConnectionView = {
     status: "connected",
+    permissionMissing: false,
     accountName: null,
     connectedAt: "2026-11-10T12:00:00.000Z",
     lastImportAt: null,
