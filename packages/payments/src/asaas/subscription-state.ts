@@ -6,6 +6,12 @@ const DAY_IN_MS = 24 * 60 * 60 * 1000;
 const BRASILIA_OFFSET = "-03:00";
 const PAID_STATUSES = new Set(["CONFIRMED", "RECEIVED", "RECEIVED_IN_CASH"]);
 const DUE_DATE = /^(\d{4})-(\d{2})-(\d{2})$/;
+/**
+ * The reseller contract cut the grace to 5 days (21/11/2026). A charge due before this day keeps
+ * at least the 7 days the plan page already promised when it went late.
+ */
+const SHORTER_GRACE_FROM_DUE_DATE = "2026-12-01";
+const EARLIER_GRACE_DAYS = 7;
 
 export type SubscriptionStatus = "incomplete" | "active" | "past_due" | "canceled";
 
@@ -111,6 +117,14 @@ function prepaidMonth(prepaidUntil: Date | null): PaidMonth | null {
   return { paidPeriod: { start, end }, paidUntil: prepaidUntil };
 }
 
+/** The grace a late charge gets: the configured one, or the earlier 7 days for an older charge. */
+function graceDaysFor(dueDate: string, graceDays: number): number {
+  if (dueDate < SHORTER_GRACE_FROM_DUE_DATE) {
+    return Math.max(graceDays, EARLIER_GRACE_DAYS);
+  }
+  return graceDays;
+}
+
 /**
  * What a monthly subscription is worth now, read from the charges Asaas keeps: paid until the
  * day after the next due date; a late charge keeps the plan for `graceDays` from its due date.
@@ -143,7 +157,8 @@ export function subscriptionBillingState(input: {
       openCharge,
     };
   }
-  const graceEnd = new Date(startOfDueDate(late.dueDate).getTime() + graceDays * DAY_IN_MS);
+  const lateGraceDays = graceDaysFor(late.dueDate, graceDays);
+  const graceEnd = new Date(startOfDueDate(late.dueDate).getTime() + lateGraceDays * DAY_IN_MS);
   const periodEnd = new Date(Math.max(graceEnd.getTime(), paidUntil.getTime()));
   return { status: "past_due", periodEnd, paidPeriod, cancelAtPeriodEnd: false, openCharge };
 }

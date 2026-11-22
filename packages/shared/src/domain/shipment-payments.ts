@@ -59,9 +59,10 @@ export class InvalidPaymentFeeError extends Error {
 }
 
 /**
- * SellBridge's share of a supplier payment.
+ * SellBridge's share of a supplier payment. The contract takes it from the products' price only:
+ * the amount is each item's cost times its quantity, never the order's shipping.
  *
- * @param amountCents - What the reseller pays, in cents. Must be a positive integer.
+ * @param amountCents - What the reseller pays for the products, in cents. A positive integer.
  * @param feeBasisPoints - The fee rate, between 0 and 3000 (30%).
  * @returns The share in cents, rounded half up, never above the amount.
  * @throws {InvalidPaymentFeeError} When the amount or the rate is out of range or not an integer.
@@ -98,8 +99,13 @@ export type SupplierPaymentBadge =
   | { kind: "waiting" }
   /** Mercado Pago is still analysing the payment: nobody should pay again meanwhile. */
   | { kind: "reviewing" }
-  /** SellBridge asked Mercado Pago to give the money back and it has not confirmed yet. */
+  /**
+   * The money is on its way back: SellBridge asked the provider for it, or the parcel was
+   * cancelled or came back and the next refund round asks for it.
+   */
   | { kind: "refunding" }
+  /** The reseller cancelled after the supplier accepted: the team checks before any money moves. */
+  | { kind: "held" }
   /** The money went back; `refundedAt` is known when SellBridge asked for the refund. */
   | { kind: "refunded"; refundedAt: string | null }
   /** The supplier has no account that receives through SellBridge yet. */
@@ -116,6 +122,40 @@ export interface SupplierPaymentBadgeInput {
   refundRequestedAt?: string | null;
 }
 
+/** What happened to the paid parcel, for the screens that show it. */
+export interface PaidParcelFate {
+  /** Cancelled or back with the supplier: the reseller is owed the money. */
+  endedWithoutDelivery: boolean;
+  /** The team settles it by hand (the reseller cancelled after the supplier accepted). */
+  heldForTeam: boolean;
+  /** The money already went to the supplier: Asaas released it, or the team chose to. */
+  moneyReleased: boolean;
+}
+
+/** A paid parcel whose money goes back, or waits for the team, instead of going to the supplier. */
+function returningBadge(
+  payment: SupplierPaymentBadgeInput,
+  parcel: PaidParcelFate | undefined,
+): SupplierPaymentBadge | null {
+  if (payment.status !== "approved") {
+    return null;
+  }
+  if ((payment.refundRequestedAt ?? null) !== null) {
+    return { kind: "refunding" };
+  }
+  // Released money is not on its way back: the supplier was paid, whatever became of the parcel.
+  if (parcel?.moneyReleased === true) {
+    return null;
+  }
+  if (parcel?.heldForTeam === true) {
+    return { kind: "held" };
+  }
+  if (payment.paidAt !== null && parcel?.endedWithoutDelivery === true) {
+    return { kind: "refunding" };
+  }
+  return null;
+}
+
 /**
  * The badge for a parcel: under review while Mercado Pago analyses it, paid once approved, being
  * refunded once SellBridge asked for the money back, refunded once it went back, waiting while
@@ -127,11 +167,14 @@ export function supplierPaymentBadge(input: {
   supplierReceivesHere: boolean;
   /** False while SellBridge does not take supplier payments at all; true when omitted. */
   paymentsOffered?: boolean;
+  /** What happened to the parcel; omitted where the screen does not show it. */
+  parcel?: PaidParcelFate;
 }): SupplierPaymentBadge {
   const { payment } = input;
   const refundRequestedAt = payment?.refundRequestedAt ?? null;
-  if (payment?.status === "approved" && refundRequestedAt !== null) {
-    return { kind: "refunding" };
+  const returning = payment === null ? null : returningBadge(payment, input.parcel);
+  if (returning !== null) {
+    return returning;
   }
   if (payment?.status === "approved" && payment.paidAt !== null) {
     return { kind: "paid", paidAt: payment.paidAt, method: payment.method };

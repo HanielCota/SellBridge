@@ -277,6 +277,7 @@ function AccountSection({ detail, isSelf }: { detail: CustomerDetail; isSelf: bo
         </div>
         <CustomerAccess
           userId={customer.id}
+          name={customer.name}
           role={customer.role}
           banned={customer.banned}
           banReason={customer.banReason}

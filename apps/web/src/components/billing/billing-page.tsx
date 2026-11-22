@@ -12,7 +12,6 @@ import {
   openBillingPayment,
 } from "@/features/billing/billing.functions";
 import type { BillingUsage } from "@/features/billing/plan-choice";
-import { formatFeePercent } from "@/features/supplier-payments/fee-percent";
 import {
   currentPlanOf,
   dateLabel,
@@ -250,14 +249,11 @@ function CurrentPlan({ data, askCancel }: { data: BillingData; askCancel: boolea
   );
 }
 
-function PlanTerms({ feeBasisPoints }: { feeBasisPoints: number | null }) {
+function PlanTerms() {
   return (
     <div className="space-y-1 text-sm text-muted-foreground">
       <p>
         Todos os planos têm catálogo de fornecedores, pedidos, financeiro, relatórios e suporte.
-        {feeBasisPoints === null || feeBasisPoints === 0
-          ? null
-          : ` Além da mensalidade, a plataforma cobra ${formatFeePercent(feeBasisPoints)} de cada venda.`}
       </p>
       <p>
         A mensalidade é cobrada todo mês, no cartão ou por Pix. Subir de plano vale na hora: você
@@ -299,7 +295,7 @@ export function BillingPage({
       )}
       <CurrentPlan data={data} askCancel={askCancel} />
       <PlanChoices data={data} />
-      <PlanTerms feeBasisPoints={data.platformFeeBasisPoints} />
+      <PlanTerms />
     </div>
   );
 }

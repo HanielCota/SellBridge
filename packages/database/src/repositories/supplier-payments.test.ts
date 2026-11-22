@@ -27,6 +27,7 @@ import {
   disconnectSupplierPaymentAccount,
   openCheckoutUrl,
   findPayableShipment,
+  findShipmentPayment,
   findPaymentAccountsByProviderAccount,
   getPaymentFeeSetting,
   listShipmentPaymentCheckouts,
@@ -52,7 +53,13 @@ let users: Awaited<ReturnType<typeof createTestUsers>>;
 let storeId = "";
 let previousFee: number | null = null;
 
-async function forwardedShipmentId(): Promise<string> {
+/** A forwarded sale of 2 shirts costing R$ 29,95 each; the order may carry shipping. */
+async function forwardedShipmentId(
+  shipping: { totalCents: number; sellerShippingCents: number | null } = {
+    totalCents: 10_000,
+    sellerShippingCents: null,
+  },
+): Promise<string> {
   const [order] = await database
     .insert(orders)
     .values({
@@ -60,7 +67,8 @@ async function forwardedShipmentId(): Promise<string> {
       storeConnectionId: storeId,
       externalOrderId: randomUUID(),
       status: "paid",
-      totalCents: 10_000,
+      totalCents: shipping.totalCents,
+      sellerShippingCents: shipping.sellerShippingCents,
       orderedAt: new Date(),
     })
     .returning();
@@ -251,6 +259,22 @@ describe("payable shipment", () => {
 
     expect(payable?.amountCents).toBe(5990);
     expect(payable?.payment).toBeNull();
+  });
+
+  it("charges only the products when the order carries shipping", async () => {
+    const shipmentId = await forwardedShipmentId({ totalCents: 12_390, sellerShippingCents: 2390 });
+
+    const payable = await findPayableShipment(database, { tenantId: tenants.tenantA, shipmentId });
+
+    expect(payable?.amountCents).toBe(5990);
+  });
+
+  it("charges only the products when the shipping is free", async () => {
+    const shipmentId = await forwardedShipmentId({ totalCents: 10_000, sellerShippingCents: 0 });
+
+    const payable = await findPayableShipment(database, { tenantId: tenants.tenantA, shipmentId });
+
+    expect(payable?.amountCents).toBe(5990);
   });
 
   it("is not found for another tenant", async () => {
@@ -592,6 +616,30 @@ describe("payment fee setting", () => {
 
     expect(setting.basisPoints).toBe(450);
     expect(setting.updatedByUserId).toBe(admin);
+  });
+
+  it("keeps a paid parcel's fee when the admin changes the rate", async () => {
+    const [admin] = users.ids;
+    if (admin === undefined) throw new Error("No user");
+    const shipmentId = await forwardedShipmentId();
+    const payment = await startPayment(shipmentId);
+    await approveWith(payment.id);
+    await setPaymentFeeSetting(database, { basisPoints: 400, userId: admin });
+
+    const restarted = await startShipmentPayment(database, {
+      shipmentId,
+      supplierId: supplier.supplierId,
+      provider: "asaas",
+      amountCents: 5990,
+      platformFeeCents: 240,
+      platformFeeBasisPoints: 400,
+      now: new Date(),
+      reservedUntil: new Date(Date.now() + RESERVATION_IN_MS),
+    });
+    const kept = await findShipmentPayment(database, shipmentId);
+
+    expect(restarted).toBeNull();
+    expect(kept).toMatchObject({ platformFeeCents: 300, platformFeeBasisPoints: 500 });
   });
 
   it("refuses a rate above 30%", async () => {

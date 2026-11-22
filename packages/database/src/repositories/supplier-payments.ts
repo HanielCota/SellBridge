@@ -289,6 +289,8 @@ export interface PayableShipment {
   supplierName: string;
   catalogKind: "supplier" | "seller";
   status: FulfillmentStatus;
+  /** The reseller cancelled it after the supplier accepted: the team settles its money. */
+  cancelledByResellerAfterAccept: boolean;
   /** Each item's cost times its quantity, in cents. */
   amountCents: number;
   payment: ShipmentPayment | null;
@@ -305,6 +307,7 @@ export async function findPayableShipment(
       externalOrderId: orders.externalOrderId,
       supplierName: suppliers.name,
       catalogKind: suppliers.catalogKind,
+      cancelledByResellerAfterAccept: cancelledByResellerAfterAccept(),
     })
     .from(orderShipments)
     .innerJoin(orders, eq(orders.id, orderShipments.orderId))
@@ -327,6 +330,7 @@ export async function findPayableShipment(
     supplierName: row.supplierName,
     catalogKind: row.catalogKind,
     status: row.shipment.status,
+    cancelledByResellerAfterAccept: row.cancelledByResellerAfterAccept,
     amountCents,
     payment,
   };

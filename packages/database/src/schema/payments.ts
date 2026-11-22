@@ -279,6 +279,16 @@ export const platformSettings = pgTable(
      * null while off. Needs the receiving-account rule on (Guilherme, 18/11/2026, "Vamos de C").
      */
     paymentBeforePreparingSince: timestamp({ withTimezone: true }),
+    /**
+     * Since when the contract sign-up rules apply (only ME, EPP and larger companies supply);
+     * null while off. Off until Guilherme switches it on (contracts await the lawyer, 21/11/2026).
+     */
+    signupRulesSince: timestamp({ withTimezone: true }),
+    /**
+     * Since when every profile must sign the contract of its kind; null while off. Off until the
+     * lawyer releases the final text (Guilherme, 21/11/2026).
+     */
+    contractSigningRequiredSince: timestamp({ withTimezone: true }),
     /** Business days a supplier has to check a returned product when the marketplace gives no date. */
     returnAnswerBusinessDays: integer().notNull().default(3),
     /**

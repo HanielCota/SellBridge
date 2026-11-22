@@ -1,5 +1,6 @@
 import {
   type ProblemDetail,
+  countOpenMoneyProblems,
   getProblemEvent,
   listProblemEvents,
   setProblemResolved,
@@ -53,6 +54,11 @@ export const adminListProblems = createServerFn({ method: "GET" })
     });
     return { items: page.items, nextCursor: encodeProblemCursor(page.nextCursor) };
   });
+
+/** The "Problemas" tab counter: refunds and held payments still waiting for the team. */
+export const adminCountOpenMoneyProblems = createServerFn({ method: "GET" })
+  .middleware([staffMiddleware("audit.view")])
+  .handler(async () => await countOpenMoneyProblems(database));
 
 /** The protected payment a "needs a decision" problem is about, for its two buttons. */
 function heldPaymentIdOf(event: string, context: Record<string, unknown>): string | null {

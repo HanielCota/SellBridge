@@ -1,5 +1,5 @@
 {
-  "id": "1c9ed62f-04f3-4e29-b7ac-64de60551b66",
+  "id": "22712caa-74cb-4068-a9f8-f818b59e152f",
   "prevId": "b790423e-2e27-424a-bdf9-8d1663cb55fb",
   "version": "7",
   "dialect": "postgresql",
@@ -7716,6 +7716,351 @@
       "checkConstraints": {},
       "isRLSEnabled": false
     },
+    "public.contract_signatures": {
+      "name": "contract_signatures",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "tenant_id": {
+          "name": "tenant_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "user_id": {
+          "name": "user_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "profile_kind": {
+          "name": "profile_kind",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "contract_version": {
+          "name": "contract_version",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "contract_hash": {
+          "name": "contract_hash",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "confirmed_item_ids": {
+          "name": "confirmed_item_ids",
+          "type": "jsonb",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "signer_identity_enc": {
+          "name": "signer_identity_enc",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "ip_address_enc": {
+          "name": "ip_address_enc",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "user_agent": {
+          "name": "user_agent",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "device_type": {
+          "name": "device_type",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "browser": {
+          "name": "browser",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "time_zone": {
+          "name": "time_zone",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "verification_method": {
+          "name": "verification_method",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'email_code'"
+        },
+        "verified_at": {
+          "name": "verified_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "signed_at": {
+          "name": "signed_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {
+        "contract_signatures_tenant_version_idx": {
+          "name": "contract_signatures_tenant_version_idx",
+          "columns": [
+            {
+              "expression": "tenant_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "profile_kind",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "contract_version",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": true,
+          "where": "\"contract_signatures\".\"tenant_id\" is not null",
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "contract_signatures_user_idx": {
+          "name": "contract_signatures_user_idx",
+          "columns": [
+            {
+              "expression": "user_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {
+        "contract_signatures_tenant_id_organization_id_fk": {
+          "name": "contract_signatures_tenant_id_organization_id_fk",
+          "tableFrom": "contract_signatures",
+          "tableTo": "organization",
+          "columnsFrom": [
+            "tenant_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "set null",
+          "onUpdate": "no action"
+        },
+        "contract_signatures_user_id_user_id_fk": {
+          "name": "contract_signatures_user_id_user_id_fk",
+          "tableFrom": "contract_signatures",
+          "tableTo": "user",
+          "columnsFrom": [
+            "user_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "set null",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {
+        "contract_signatures_profile_kind_check": {
+          "name": "contract_signatures_profile_kind_check",
+          "value": "\"contract_signatures\".\"profile_kind\" in ('seller', 'supplier')"
+        },
+        "contract_signatures_hash_check": {
+          "name": "contract_signatures_hash_check",
+          "value": "\"contract_signatures\".\"contract_hash\" ~ '^[0-9a-f]{64}$'"
+        },
+        "contract_signatures_verification_method_check": {
+          "name": "contract_signatures_verification_method_check",
+          "value": "\"contract_signatures\".\"verification_method\" in ('email_code')"
+        }
+      },
+      "isRLSEnabled": false
+    },
+    "public.contract_signing_codes": {
+      "name": "contract_signing_codes",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "user_id": {
+          "name": "user_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "tenant_id": {
+          "name": "tenant_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "profile_kind": {
+          "name": "profile_kind",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "contract_version": {
+          "name": "contract_version",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "code_hash": {
+          "name": "code_hash",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "attempts": {
+          "name": "attempts",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "default": 0
+        },
+        "expires_at": {
+          "name": "expires_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "consumed_at": {
+          "name": "consumed_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {
+        "contract_signing_codes_user_created_idx": {
+          "name": "contract_signing_codes_user_created_idx",
+          "columns": [
+            {
+              "expression": "user_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "created_at",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "contract_signing_codes_tenant_idx": {
+          "name": "contract_signing_codes_tenant_idx",
+          "columns": [
+            {
+              "expression": "tenant_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {
+        "contract_signing_codes_user_id_user_id_fk": {
+          "name": "contract_signing_codes_user_id_user_id_fk",
+          "tableFrom": "contract_signing_codes",
+          "tableTo": "user",
+          "columnsFrom": [
+            "user_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        },
+        "contract_signing_codes_tenant_id_organization_id_fk": {
+          "name": "contract_signing_codes_tenant_id_organization_id_fk",
+          "tableFrom": "contract_signing_codes",
+          "tableTo": "organization",
+          "columnsFrom": [
+            "tenant_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {
+        "contract_signing_codes_profile_kind_check": {
+          "name": "contract_signing_codes_profile_kind_check",
+          "value": "\"contract_signing_codes\".\"profile_kind\" in ('seller', 'supplier')"
+        },
+        "contract_signing_codes_attempts_check": {
+          "name": "contract_signing_codes_attempts_check",
+          "value": "\"contract_signing_codes\".\"attempts\" >= 0"
+        }
+      },
+      "isRLSEnabled": false
+    },
     "public.return_claim_photos": {
       "name": "return_claim_photos",
       "schema": "",
@@ -9799,39 +10144,18 @@
           "primaryKey": false,
           "notNull": false
         },
+        "contract_signing_required_since": {
+          "name": "contract_signing_required_since",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": false
+        },
         "return_answer_business_days": {
           "name": "return_answer_business_days",
           "type": "integer",
           "primaryKey": false,
           "notNull": true,
           "default": 3
-        },
-        "dispatch_cutoff_since": {
-          "name": "dispatch_cutoff_since",
-          "type": "timestamp with time zone",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "mercado_livre_cutoff_minutes": {
-          "name": "mercado_livre_cutoff_minutes",
-          "type": "integer",
-          "primaryKey": false,
-          "notNull": true,
-          "default": 870
-        },
-        "shopee_cutoff_minutes": {
-          "name": "shopee_cutoff_minutes",
-          "type": "integer",
-          "primaryKey": false,
-          "notNull": true,
-          "default": 780
-        },
-        "tiktok_shop_cutoff_minutes": {
-          "name": "tiktok_shop_cutoff_minutes",
-          "type": "integer",
-          "primaryKey": false,
-          "notNull": true,
-          "default": 1080
         },
         "updated_by_user_id": {
           "name": "updated_by_user_id",
@@ -9886,10 +10210,6 @@
         "platform_settings_return_answer_days_check": {
           "name": "platform_settings_return_answer_days_check",
           "value": "\"platform_settings\".\"return_answer_business_days\" between 1 and 5"
-        },
-        "platform_settings_cutoff_minutes_check": {
-          "name": "platform_settings_cutoff_minutes_check",
-          "value": "\"platform_settings\".\"mercado_livre_cutoff_minutes\" between 0 and 1439 and \"platform_settings\".\"shopee_cutoff_minutes\" between 0 and 1439 and \"platform_settings\".\"tiktok_shop_cutoff_minutes\" between 0 and 1439"
         }
       },
       "isRLSEnabled": false

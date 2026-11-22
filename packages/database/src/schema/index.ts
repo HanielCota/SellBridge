@@ -18,6 +18,7 @@ export * from "./admin.ts";
 export * from "./fulfillment.ts";
 export * from "./billing.ts";
 export * from "./terms.ts";
+export * from "./contract-signatures.ts";
 export * from "./return-claims.ts";
 export * from "./report-snapshots.ts";
 export * from "./erp.ts";

@@ -35,8 +35,12 @@ function ProductActions({
   product: AdminSupplierProduct;
   onEdit: (product: AdminSupplierProduct) => void;
 }) {
-  const setActive = useCatalogAction(adminSetProductActive, (result) =>
-    catalogStatusMessage("Produto", result),
+  // Deactivating pauses the resellers' listings, one click away from "Editar": the notice undoes it.
+  const setActive = useCatalogAction(
+    adminSetProductActive,
+    (result) => catalogStatusMessage("Produto", result),
+    undefined,
+    (input) => (input.data.active ? null : { data: { ...input.data, active: true } }),
   );
   return (
     <div className="flex flex-wrap gap-2">

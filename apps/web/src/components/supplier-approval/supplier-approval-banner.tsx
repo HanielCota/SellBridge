@@ -74,8 +74,7 @@ export function SupplierApprovalBanner({ approval }: { approval: SupplierApprova
         </AlertTitle>
         <AlertDescription className="space-y-2">
           <p>
-            Motivo da equipe SellBridge:{" "}
-            <span className="font-medium">{approval.refusalReason ?? "não informado"}</span>
+            Motivo: <span className="font-medium">{approval.refusalReason ?? "não informado"}</span>
           </p>
           <p>Sua marca não aparece para os revendedores e não dá para cadastrar produtos novos.</p>
           <Link to="/suporte/novo" className={LINK_CLASS}>
