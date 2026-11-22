@@ -1,6 +1,6 @@
 import { logger } from "@sellbridge/shared/logger";
 import type { z } from "zod";
-import { marketplaceAuthError, marketplaceError } from "../errors.ts";
+import { isMarketplaceError, marketplaceAuthError, marketplaceError } from "../errors.ts";
 import { fetchWithRetry, type FetchLike, type RetryOptions } from "../http.ts";
 import { blingErrorResponseSchema } from "./schemas.ts";
 
@@ -51,6 +51,16 @@ function blingIssues(error: z.infer<typeof blingErrorResponseSchema>["error"]): 
   return description === "" ? [] : [description];
 }
 
+const PERMISSION_MISSING_STATUS = 403;
+
+/**
+ * Bling refused the call because the account's authorization lacks the scope it needs: a grant
+ * made before the app gained that scope. Only a new authorization (reconnecting) fixes it.
+ */
+export function isBlingPermissionError(error: unknown): boolean {
+  return isMarketplaceError(error) && error.details.status === PERMISSION_MISSING_STATUS;
+}
+
 function blingFailure(response: Response, body: unknown): Error {
   const parsed = blingErrorResponseSchema.safeParse(body);
   const type = parsed.success ? parsed.data.error.type : null;
@@ -58,10 +68,10 @@ function blingFailure(response: Response, body: unknown): Error {
   if (response.status === 401) {
     return marketplaceAuthError(RECONNECT_MESSAGE);
   }
-  if (response.status === 403) {
+  if (response.status === PERMISSION_MISSING_STATUS) {
     return marketplaceError("O aplicativo do Bling não tem permissão para esta ação", {
       retryable: false,
-      status: 403,
+      status: PERMISSION_MISSING_STATUS,
       causes: type === null ? [] : [type],
     });
   }

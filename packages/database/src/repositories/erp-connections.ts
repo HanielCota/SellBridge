@@ -96,6 +96,8 @@ export async function upsertErpConnection(
     accountName: input.accountName ?? null,
     status: "connected" as const,
     lastError: null,
+    // A new authorization carries every scope the app has today.
+    permissionMissingAt: null,
     connectedByUserId: input.userId,
     connectedAt: new Date(),
   };
@@ -189,6 +191,31 @@ export async function recordErpRefreshFailure(
         eq(supplierErpConnections.id, input.connectionId),
         eq(supplierErpConnections.status, "connected"),
         eq(supplierErpConnections.refreshTokenEnc, input.refreshTokenEnc),
+      ),
+    )
+    .returning({ id: supplierErpConnections.id });
+  return updated.length > 0;
+}
+
+/**
+ * Flags the connection as needing a new authorization (the ERP refused a call for a missing
+ * permission), only while the refused access token is still the saved one; the first refusal's
+ * time is kept.
+ */
+export async function markErpPermissionMissing(
+  database: Database,
+  input: { connectionId: string; accessTokenEnc: string; now: Date },
+): Promise<boolean> {
+  const updated = await database
+    .update(supplierErpConnections)
+    .set({
+      permissionMissingAt: sql`coalesce(${supplierErpConnections.permissionMissingAt}, ${input.now.toISOString()}::timestamptz)`,
+    })
+    .where(
+      and(
+        eq(supplierErpConnections.id, input.connectionId),
+        eq(supplierErpConnections.status, "connected"),
+        eq(supplierErpConnections.accessTokenEnc, input.accessTokenEnc),
       ),
     )
     .returning({ id: supplierErpConnections.id });
