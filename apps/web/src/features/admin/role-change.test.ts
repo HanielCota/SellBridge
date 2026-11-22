@@ -10,7 +10,7 @@ describe("roleChangeConfirmation", () => {
     });
 
     expect(confirmation?.title).toBe("Tornar Daniel Souza Administrador?");
-    expect(confirmation?.description).toContain("a taxa do SellBridge, os pagamentos");
+    expect(confirmation?.description).toContain("os pagamentos, a taxa e as configurações");
     expect(confirmation?.confirmLabel).toBe("Tornar Administrador");
   });
 
