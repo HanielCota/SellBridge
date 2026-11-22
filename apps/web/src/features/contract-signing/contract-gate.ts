@@ -25,8 +25,17 @@ export function toSessionContract(standing: ContractStanding, kind: ProfileKind)
 }
 
 interface GateSession {
-  contract: SessionContract;
+  /**
+   * Optional on purpose: while a deploy rolls out, a page of the new version can get the session
+   * from a server of the previous one, which does not send the field yet.
+   */
+  contract?: SessionContract | undefined;
   impersonatedBy: string | null;
+}
+
+/** The session's contract, or "not required" when the answering server predates the field. */
+export function sessionContractOf(session: GateSession): SessionContract {
+  return session.contract ?? CONTRACT_NOT_REQUIRED;
 }
 
 /** Pages that never wait on a contract: the team tools, and support, where a stuck person asks for help. */
@@ -45,15 +54,16 @@ export function needsContractSigning(session: GateSession, onGateFreePage: boole
   if (onGateFreePage) {
     return false;
   }
-  return session.contract.blocksPanel && session.impersonatedBy === null;
+  return sessionContractOf(session).blocksPanel && session.impersonatedBy === null;
 }
 
 /** Whether the strip with the deadline shows above the pages (never on the team pages). */
 export function showsSigningReminder(session: GateSession, onTeamPage: boolean): boolean {
-  if (onTeamPage || session.impersonatedBy !== null || session.contract.blocksPanel) {
+  const contract = sessionContractOf(session);
+  if (onTeamPage || session.impersonatedBy !== null || contract.blocksPanel) {
     return false;
   }
-  return session.contract.standing === "grace" || session.contract.standing === "overdue";
+  return contract.standing === "grace" || contract.standing === "overdue";
 }
 
 /** Whether the signing screen opens: something to sign, and the customer, not a team visit. */
@@ -61,6 +71,6 @@ export function sessionMaySign(session: GateSession): boolean {
   if (session.impersonatedBy !== null) {
     return false;
   }
-  const standing = session.contract.standing;
+  const standing = sessionContractOf(session).standing;
   return standing === "grace" || standing === "overdue" || standing === "must_sign";
 }
