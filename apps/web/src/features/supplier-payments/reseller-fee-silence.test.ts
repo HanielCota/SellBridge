@@ -42,6 +42,21 @@ const TEAM_ONLY_LINES: readonly { path: string; line: string }[] = [
   },
 ];
 
+/**
+ * The supplier's own contract with SellBridge states the fee (Central, 21/11/2026): these lines
+ * only render in the supplier contract, never in the seller's, which the same file also holds.
+ */
+const SUPPLIER_CONTRACT_LINES: readonly { path: string; line: string }[] = [
+  {
+    path: "packages/shared/src/domain/contract-documents.ts",
+    line: 'text: "A SellBridge fica com 4% do preço do produto, sem contar o frete, separados no momento do pagamento.",',
+  },
+  {
+    path: "packages/shared/src/domain/contract-documents.ts",
+    line: '"O revendedor paga o pedido direto ao fornecedor. A SellBridge recebe 4% do preço do produto, sem contar o frete, separados automaticamente no momento do pagamento.",',
+  },
+];
+
 const FEE_MENTIONS = [
   /(taxa|tarifa|comiss[aã]o|percentual)\s+(do|da)\s+(sell\s?bridge|plataforma)/i,
   /sell\s?bridge\s+(fica com|recebe|cobra|desconta|ret[eé]m)\b/i,
@@ -71,8 +86,10 @@ function isSupplierOrTeamFile(path: string): boolean {
   return SUPPLIER_OR_TEAM_PATHS.some((allowed) => path.startsWith(allowed));
 }
 
-function isTeamOnlyLine(path: string, line: string): boolean {
-  return TEAM_ONLY_LINES.some((allowed) => allowed.path === path && allowed.line === line.trim());
+const ALLOWED_LINES = [...TEAM_ONLY_LINES, ...SUPPLIER_CONTRACT_LINES];
+
+function isAllowedLine(path: string, line: string): boolean {
+  return ALLOWED_LINES.some((allowed) => allowed.path === path && allowed.line === line.trim());
 }
 
 /** Every line, outside supplier and team screens, that names SellBridge's fee. */
@@ -86,7 +103,7 @@ function resellerFeeMentions(): string[] {
     const lines = readFileSync(file, "utf8").split("\n");
     return lines.flatMap((line, index) => {
       const mentionsFee = FEE_MENTIONS.some((pattern) => pattern.test(line));
-      if (!mentionsFee || isTeamOnlyLine(path, line)) {
+      if (!mentionsFee || isAllowedLine(path, line)) {
         return [];
       }
       return [`${path}:${index + 1}: ${line.trim()}`];
