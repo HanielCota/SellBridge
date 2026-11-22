@@ -14,6 +14,7 @@ import {
   type MoneyProblemState,
   moneyResolveConfirmation,
   moneyResolveHint,
+  moneyStateOf,
 } from "@/features/admin-problems/money-resolve";
 import { occurrencesLabel, problemWhenLabel } from "@/features/admin-problems/problem-copy";
 import {
@@ -151,8 +152,8 @@ function ResolveButton({
   );
 }
 
-/** Where the refund or the protected payment stands; null while it loads or failed to load. */
-function useMoneyState(problem: ProblemDetail): MoneyProblemState | null {
+/** Where the refund or the protected payment stands; null while it loads. */
+function useMoneyState(problem: ProblemDetail): MoneyProblemState | "unreadable" | null {
   const refund = useQuery({
     ...manualRefundQueryOptions(problem.manualRefundId ?? ""),
     enabled: problem.manualRefundId !== null,
@@ -161,21 +162,10 @@ function useMoneyState(problem: ProblemDetail): MoneyProblemState | null {
     ...heldPaymentDecisionQueryOptions(problem.heldPaymentId ?? ""),
     enabled: problem.heldPaymentId !== null,
   });
-  if (problem.manualRefundId !== null && refund.data !== undefined) {
-    return {
-      kind: "manual_refund",
-      amountCents: refund.data.amountCents,
-      refunded: refund.data.refunded,
-    };
-  }
-  if (problem.heldPaymentId !== null && held.data !== undefined) {
-    return {
-      kind: "held_payment",
-      amountCents: held.data.amountCents,
-      decidable: held.data.decidable,
-    };
-  }
-  return null;
+  return moneyStateOf({
+    manualRefund: problem.manualRefundId === null ? null : refund,
+    heldPayment: problem.heldPaymentId === null ? null : held,
+  });
 }
 
 /**
@@ -188,6 +178,9 @@ function MoneyResolve({ problem }: { problem: ProblemDetail }) {
   const [asking, setAsking] = useState(false);
   if (state === null) {
     return null;
+  }
+  if (state === "unreadable") {
+    return <ResolveButton problem={problem} />;
   }
   const confirmation = moneyResolveConfirmation(state);
   const hint = moneyResolveHint(state);

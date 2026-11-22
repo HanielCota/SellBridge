@@ -5,6 +5,35 @@ export type MoneyProblemState =
   | { kind: "manual_refund"; amountCents: number; refunded: boolean }
   | { kind: "held_payment"; amountCents: number; decidable: boolean };
 
+interface MoneyRead<TData> {
+  data: TData | undefined;
+  isError: boolean;
+}
+
+/**
+ * Where the money stands from its reads; null while they load. "unreadable" when the read failed
+ * (the payment is gone, for one): the problem must still be resolvable, or it would stay open and
+ * unpruned forever.
+ */
+export function moneyStateOf(input: {
+  manualRefund: MoneyRead<{ amountCents: number; refunded: boolean }> | null;
+  heldPayment: MoneyRead<{ amountCents: number; decidable: boolean }> | null;
+}): MoneyProblemState | "unreadable" | null {
+  const { manualRefund, heldPayment } = input;
+  if (manualRefund !== null && manualRefund.data !== undefined) {
+    const { amountCents, refunded } = manualRefund.data;
+    return { kind: "manual_refund", amountCents, refunded };
+  }
+  if (heldPayment !== null && heldPayment.data !== undefined) {
+    const { amountCents, decidable } = heldPayment.data;
+    return { kind: "held_payment", amountCents, decidable };
+  }
+  if (manualRefund?.isError === true || heldPayment?.isError === true) {
+    return "unreadable";
+  }
+  return null;
+}
+
 export interface ResolveConfirmation {
   title: string;
   description: string;
