@@ -184,9 +184,7 @@ test("as configurações do admin não mostram a proteção para fornecedores no
 
   await gotoHydrated(page, "/admin/configuracoes");
 
-  await expect(
-    page.getByRole("region", { name: "Taxa do SellBridge nos pagamentos" }),
-  ).toBeVisible();
+  await expect(page.getByRole("region", { name: "Aprovação de fornecedor novo" })).toBeVisible();
   await expect(page.getByRole("region", { name: "Proteção para fornecedores novos" })).toHaveCount(
     0,
   );

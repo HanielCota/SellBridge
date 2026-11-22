@@ -15,7 +15,7 @@ const WHAT_THE_ROLE_SEES: Readonly<Record<Exclude<CustomerRole, "user">, string>
   supervisor:
     "lê, distribui e responde os chamados, vê o desempenho do suporte, decide o crédito das devoluções e entra na conta de quem tem chamado aberto.",
   admin:
-    "vê e muda todos os clientes e fornecedores, os pagamentos, a taxa e as configurações, e entra na conta de qualquer cliente.",
+    "vê e muda todos os clientes e fornecedores, os pagamentos e as configurações, e entra na conta de qualquer cliente.",
 };
 
 export interface RoleChangeConfirmation {

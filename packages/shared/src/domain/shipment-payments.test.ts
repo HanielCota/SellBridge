@@ -1,8 +1,7 @@
 import { describe, expect, test } from "vitest";
 import {
-  DEFAULT_PAYMENT_FEE_BASIS_POINTS,
-  effectivePaymentFeeBasisPoints,
   InvalidPaymentFeeError,
+  PAYMENT_FEE_BASIS_POINTS,
   platformFeeCents,
   shipmentPaymentStatusFrom,
   SUPPLIER_PAY_METHODS,
@@ -18,20 +17,12 @@ describe("SUPPLIER_PAY_METHODS", () => {
   });
 });
 
-describe("effectivePaymentFeeBasisPoints", () => {
-  test("uses 4% while the admin has saved no fee", () => {
-    const fee = effectivePaymentFeeBasisPoints(null);
+describe("PAYMENT_FEE_BASIS_POINTS", () => {
+  test("is 4%, so a R$ 100,00 product payment leaves R$ 4,00 to SellBridge", () => {
+    const fee = platformFeeCents(10_000, PAYMENT_FEE_BASIS_POINTS);
 
+    expect(PAYMENT_FEE_BASIS_POINTS).toBe(400);
     expect(fee).toBe(400);
-    expect(fee).toBe(DEFAULT_PAYMENT_FEE_BASIS_POINTS);
-  });
-
-  test("uses the fee the admin saved, zero included", () => {
-    const saved = effectivePaymentFeeBasisPoints(450);
-    const free = effectivePaymentFeeBasisPoints(0);
-
-    expect(saved).toBe(450);
-    expect(free).toBe(0);
   });
 });
 

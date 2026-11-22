@@ -1,9 +1,5 @@
 import { queryOptions } from "@tanstack/react-query";
-import {
-  getPaymentAccountFn,
-  getPaymentFeeFn,
-  getResellerSupplierPaymentFn,
-} from "./supplier-payments.functions";
+import { getPaymentAccountFn, getResellerSupplierPaymentFn } from "./supplier-payments.functions";
 
 export const paymentAccountQueryOptions = (supplierId: string) =>
   queryOptions({
@@ -16,6 +12,3 @@ export const resellerSupplierPaymentQueryOptions = (shipmentId: string) =>
     queryKey: ["reseller-supplier-payment", shipmentId],
     queryFn: () => getResellerSupplierPaymentFn({ data: { shipmentId } }),
   });
-
-export const paymentFeeQueryOptions = () =>
-  queryOptions({ queryKey: ["platform-payment-fee"], queryFn: () => getPaymentFeeFn() });

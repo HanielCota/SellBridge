@@ -37,19 +37,13 @@ export type ShipmentPaymentRefundReason = (typeof SHIPMENT_PAYMENT_REFUND_REASON
 export const SUPPLIER_PAY_METHODS = ["PIX", "CREDIT_CARD"] as const;
 export type SupplierPayMethod = (typeof SUPPLIER_PAY_METHODS)[number];
 
-/** The highest fee the admin may set: 30%, in basis points. */
-export const MAX_PAYMENT_FEE_BASIS_POINTS = 3000;
-/** The fee payments use until an admin saves one: 4%, in basis points (decided 18/11/2026). */
-export const DEFAULT_PAYMENT_FEE_BASIS_POINTS = 400;
+/**
+ * SellBridge's fee on every supplier payment: 4%, in basis points. Fixed in code, with no admin
+ * setting (decided 22/11/2026); a payment keeps the rate it was charged with.
+ */
+export const PAYMENT_FEE_BASIS_POINTS = 400;
+const MAX_PAYMENT_FEE_BASIS_POINTS = 3000;
 const BASIS_POINTS_PER_WHOLE = 10_000;
-
-/** The fee rate a payment uses: the one the admin saved, or the default while none is saved. */
-export function effectivePaymentFeeBasisPoints(savedBasisPoints: number | null): number {
-  if (savedBasisPoints === null) {
-    return DEFAULT_PAYMENT_FEE_BASIS_POINTS;
-  }
-  return savedBasisPoints;
-}
 
 export class InvalidPaymentFeeError extends Error {
   constructor(message: string) {
