@@ -5,6 +5,7 @@ import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { supplierPaymentAccounts, supplierProducts, suppliers } from "../schema/index.ts";
 import { createTestDatabase, createTestTenants, createTestUsers } from "../testing/fixtures.ts";
 import { TEST_SUPPLIER_FISCAL } from "../testing/shipment-invoice-fixtures.ts";
+import { getSignupRulesSince, setSignupRules } from "./signup-rules.ts";
 import { createSupplierBrand } from "./supplier-brand.ts";
 import {
   decideSupplierApprovalByTeam,
@@ -33,12 +34,15 @@ const ACTIVE: CnpjLookupResult = {
   outcome: "active",
   legalName: "ATELIE DIVINOPOLIS CONFECCOES LTDA",
   registrationStatus: "ATIVA",
+  companySize: "micro",
 };
+const MEI: CnpjLookupResult = { ...ACTIVE, companySize: "mei" };
 
 let tenants: Awaited<ReturnType<typeof createTestTenants>>;
 let staff: Awaited<ReturnType<typeof createTestUsers>>;
 let resellerId = "";
 let requiredBefore = false;
+let signupRulesBefore = false;
 const supplierIds: string[] = [];
 
 function staffId(): string {
@@ -121,15 +125,18 @@ async function visibleToResellers(supplierId: string, productId: string) {
 }
 
 beforeAll(async () => {
-  tenants = await createTestTenants(database, 14);
+  tenants = await createTestTenants(database, 30);
   staff = await createTestUsers(database, 1);
   resellerId = organizationAt(0);
   requiredBefore = await getRequireReceivingAccount(database);
+  signupRulesBefore = (await getSignupRulesSince(database)) !== null;
+  await setSignupRules(database, { enabled: false, userId: staffId(), now: NOW });
   await setRequireReceivingAccount(database, { required: false, userId: staffId() });
 });
 
 afterAll(async () => {
   await setRequireReceivingAccount(database, { required: requiredBefore, userId: staffId() });
+  await setSignupRules(database, { enabled: signupRulesBefore, userId: staffId(), now: NOW });
   await database.delete(suppliers).where(inArray(suppliers.id, supplierIds));
   await tenants.cleanup();
   await staff.cleanup();
@@ -279,6 +286,144 @@ describe("a supplier who signs up alone", () => {
   });
 });
 
+async function withRulesOn<Result>(run: () => Promise<Result>): Promise<Result> {
+  await setSignupRules(database, { enabled: true, userId: staffId(), now: NOW });
+  try {
+    return await run();
+  } finally {
+    await setSignupRules(database, { enabled: false, userId: staffId(), now: NOW });
+  }
+}
+
+describe("a supplier who signs up alone with the contract sign-up rules on", () => {
+  it("is refused on its own when the Receita shows an MEI, with the reason in its panel", async () => {
+    const { supplierId, productId } = await signUpSupplier(true);
+
+    const status = await withRulesOn(() =>
+      runSupplierApprovalCheck(database, supplierId, answering(MEI)),
+    );
+
+    expect(status).toBe("refused");
+    const state = await getSupplierApprovalState(database, supplierId);
+    expect(state.status).toBe("refused");
+    expect(state.refusalReason).toContain("MEI");
+    expect(state.decidedBy).toBe("automatic");
+    expect((await visibleToResellers(supplierId, productId)).catalog).toBe(false);
+  });
+
+  it.each(["micro", "small", "other"] as const)(
+    "is approved when the company size is %s",
+    async (companySize) => {
+      const { supplierId } = await signUpSupplier(true);
+
+      const status = await withRulesOn(() =>
+        runSupplierApprovalCheck(database, supplierId, answering({ ...ACTIVE, companySize })),
+      );
+
+      expect(status).toBe("approved");
+    },
+  );
+
+  it("goes to the team when the Receita gives no size", async () => {
+    const { supplierId } = await signUpSupplier(true);
+
+    await withRulesOn(() =>
+      runSupplierApprovalCheck(
+        database,
+        supplierId,
+        answering({ ...ACTIVE, companySize: "unknown" }),
+      ),
+    );
+
+    expect(await getSupplierApprovalState(database, supplierId)).toMatchObject({
+      status: "pending",
+      stage: "needs_team",
+      teamReason: "company_size_unknown",
+    });
+  });
+
+  it("keeps waiting, never approved, while the query is down", async () => {
+    const { supplierId } = await signUpSupplier(true);
+
+    const status = await withRulesOn(() =>
+      runSupplierApprovalCheck(database, supplierId, {
+        ...answering({ outcome: "unavailable" }),
+        now: () => NOW,
+      }),
+    );
+
+    expect(status).toBe("pending");
+    expect((await getSupplierApprovalState(database, supplierId)).stage).toBe("checking");
+  });
+
+  it("can be approved by the team after an automatic MEI refusal", async () => {
+    const { supplierId, productId } = await signUpSupplier(true);
+    await withRulesOn(() => runSupplierApprovalCheck(database, supplierId, answering(MEI)));
+
+    const status = await decideSupplierApprovalByTeam(database, {
+      supplierId,
+      userId: staffId(),
+      decision: "approve",
+    });
+
+    expect(status).toBe("approved");
+    expect((await visibleToResellers(supplierId, productId)).catalog).toBe(true);
+  });
+
+  it("cannot be approved by the team after the team refused it", async () => {
+    const { supplierId } = await signUpSupplier(true);
+    await runSupplierApprovalCheck(database, supplierId, answering({ outcome: "not_found" }));
+    await decideSupplierApprovalByTeam(database, {
+      supplierId,
+      userId: staffId(),
+      decision: "refuse",
+      reason: "CNPJ de outra empresa, conferido pela equipe.",
+    });
+
+    const approval = decideSupplierApprovalByTeam(database, {
+      supplierId,
+      userId: staffId(),
+      decision: "approve",
+    });
+
+    await expect(approval).rejects.toMatchObject({ code: "CONFLICT" });
+  });
+
+  it("is approved as before when the switch is off, even as an MEI", async () => {
+    const { supplierId } = await signUpSupplier(true);
+
+    const status = await runSupplierApprovalCheck(database, supplierId, answering(MEI));
+
+    expect(status).toBe("approved");
+  });
+
+  it("keeps the old rule for a supplier still pending from before the switch", async () => {
+    const { supplierId } = await signUpSupplier(true);
+    const afterSignUp = new Date(Date.now() + HOUR_IN_MS);
+    await setSignupRules(database, { enabled: true, userId: staffId(), now: afterSignUp });
+
+    try {
+      const status = await runSupplierApprovalCheck(database, supplierId, answering(MEI));
+
+      expect(status).toBe("approved");
+    } finally {
+      await setSignupRules(database, { enabled: false, userId: staffId(), now: NOW });
+    }
+  });
+
+  it("leaves a supplier approved before the switch as it was", async () => {
+    const { supplierId, productId } = await signUpSupplier(true);
+    await runSupplierApprovalCheck(database, supplierId, answering(MEI));
+
+    const status = await withRulesOn(() =>
+      runSupplierApprovalCheck(database, supplierId, answering(MEI)),
+    );
+
+    expect(status).toBe("approved");
+    expect((await visibleToResellers(supplierId, productId)).catalog).toBe(true);
+  });
+});
+
 describe("the worker's round of pending suppliers", () => {
   it("leaves the team queue out and takes the least recently checked first", async () => {
     const awaitingTeam = await signUpSupplier(true);
@@ -320,5 +465,26 @@ describe("a supplier the team registered", () => {
       .from(suppliers)
       .where(eq(suppliers.id, supplierId));
     expect(row?.approvalStatus).toBe("approved");
+  });
+});
+
+describe("the contract sign-up rules switch", () => {
+  it("keeps the instant it was turned on, and clears it when turned off", async () => {
+    const later = new Date(NOW.getTime() + HOUR_IN_MS);
+
+    try {
+      await setSignupRules(database, { enabled: true, userId: staffId(), now: NOW });
+      const again = await setSignupRules(database, {
+        enabled: true,
+        userId: staffId(),
+        now: later,
+      });
+      const off = await setSignupRules(database, { enabled: false, userId: staffId(), now: later });
+
+      expect(again).toEqual(NOW);
+      expect(off).toBeNull();
+    } finally {
+      await setSignupRules(database, { enabled: false, userId: staffId(), now: NOW });
+    }
   });
 });

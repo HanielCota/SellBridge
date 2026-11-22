@@ -9,9 +9,20 @@ import type { Plugin } from "vite";
  */
 export const CNPJ_FIXTURE_PREFIX = "/__e2e/cnpj";
 
+/** The Receita size a test asks for; a micro company that is no MEI unless it says otherwise. */
+const SIZE_FIELDS = {
+  micro: { codigo_porte: 1, opcao_pelo_mei: false },
+  small: { codigo_porte: 3, opcao_pelo_mei: null },
+  other: { codigo_porte: 5, opcao_pelo_mei: null },
+  mei: { codigo_porte: 1, opcao_pelo_mei: true },
+  unknown: { codigo_porte: 0, opcao_pelo_mei: null },
+} as const;
+type CompanySizeAnswer = keyof typeof SIZE_FIELDS;
+
 interface CompanyAnswer {
   readonly situation: "active" | "closed" | "down";
   readonly legalName: string;
+  readonly size: CompanySizeAnswer;
 }
 
 const answers = new Map<string, CompanyAnswer>();
@@ -50,6 +61,13 @@ function situationOf(value: unknown): CompanyAnswer["situation"] {
   return "active";
 }
 
+function sizeOf(value: unknown): CompanySizeAnswer {
+  const sizes = Object.keys(SIZE_FIELDS).filter((size): size is CompanySizeAnswer =>
+    Object.hasOwn(SIZE_FIELDS, size),
+  );
+  return sizes.find((size) => size === value) ?? "micro";
+}
+
 function answerCompany(response: ServerResponse, cnpj: string): void {
   const answer = answers.get(cnpj);
   if (answer === undefined) {
@@ -66,6 +84,7 @@ function answerCompany(response: ServerResponse, cnpj: string): void {
     razao_social: answer.legalName,
     situacao_cadastral: active ? 2 : 8,
     descricao_situacao_cadastral: active ? "ATIVA" : "BAIXADA",
+    ...SIZE_FIELDS[answer.size],
   });
 }
 
@@ -78,6 +97,7 @@ async function handle(request: IncomingMessage, response: ServerResponse): Promi
     answers.set(cnpj, {
       situation: situationOf(body.situation),
       legalName: typeof body.legalName === "string" ? body.legalName : "",
+      size: sizeOf(body.size),
     });
     json(response, 200, { cnpj });
     return;

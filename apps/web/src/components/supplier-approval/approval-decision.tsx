@@ -193,3 +193,26 @@ export function ApprovalDecision(props: ApprovalDecisionProps) {
     </div>
   );
 }
+
+/**
+ * Approves a refused supplier once it solved the reason, such as an MEI that shows the company
+ * left the MEI before the Receita data caught up. Approval can be undone by switching the
+ * supplier off, so it takes one click.
+ */
+export function ApproveRefusedSupplier({
+  supplierId,
+  supplierName,
+}: Pick<ApprovalDecisionProps, "supplierId" | "supplierName">) {
+  const decision = useDecision(supplierName);
+  return (
+    <Button
+      size="lg"
+      className="justify-self-start"
+      disabled={decision.isPending}
+      onClick={() => decision.mutate({ data: { supplierId, decision: "approve" } })}
+    >
+      <CheckIcon aria-hidden="true" />
+      {decision.isPending ? "Aprovando…" : "Aprovar mesmo assim"}
+    </Button>
+  );
+}

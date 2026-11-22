@@ -41,6 +41,7 @@ export function SupplierAttentionPanel({
       ordersToAccept: home?.orderTotals.accept ?? 0,
       firstAccept: firstAcceptOf(home),
       stoppedInvoices: home?.stoppedInvoices ?? 0,
+      onBehalfInvoiceOff: home?.onBehalfInvoiceOff ?? false,
       runningOut,
       catalog: home?.catalog ?? [],
       unreadSupportReplies: counts.data?.unreadSupportReplies ?? 0,

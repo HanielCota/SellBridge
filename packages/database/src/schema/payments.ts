@@ -280,6 +280,11 @@ export const platformSettings = pgTable(
      */
     paymentBeforePreparingSince: timestamp({ withTimezone: true }),
     /**
+     * Since when the contract sign-up rules apply (only ME, EPP and larger companies supply);
+     * null while off. Off until Guilherme switches it on (contracts await the lawyer, 21/11/2026).
+     */
+    signupRulesSince: timestamp({ withTimezone: true }),
+    /**
      * Since when every profile must sign the contract of its kind; null while off. Off until the
      * lawyer releases the final text (Guilherme, 21/11/2026).
      */

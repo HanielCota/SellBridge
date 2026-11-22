@@ -1,4 +1,4 @@
-import { cnpjSchema, phoneSchema } from "@sellbridge/shared/account-documents";
+import { cnpjSchema, formatCnpj, phoneSchema } from "@sellbridge/shared/account-documents";
 import { cpfSchema } from "@sellbridge/shared/cpf";
 import { parseBrlToCents } from "@sellbridge/shared/money";
 import { freeText } from "@sellbridge/shared/schemas";
@@ -110,6 +110,38 @@ export function asaasAccountFormSchema(today: Date) {
     }),
   });
   return z.discriminatedUnion("personType", [person, company]);
+}
+
+/**
+ * Why the contract sign-up rules refuse this account, in the supplier's words; null when it
+ * passes. The supplier contract takes ME, EPP and larger companies only, so no CPF and no MEI.
+ */
+export function contractAccountRefusal(form: {
+  personType: "person" | "company";
+  companyType?: string;
+}): string | null {
+  if (form.personType === "person") {
+    return "Pelo contrato, a conta de recebimento é da empresa. Escolha Empresa (CNPJ) e use o CNPJ da empresa.";
+  }
+  if (form.companyType === "MEI") {
+    return "Pelo contrato, MEI não pode ser fornecedor: a empresa precisa ser ME, EPP ou maior.";
+  }
+  return null;
+}
+
+/**
+ * Why the typed CNPJ cannot open the account under the contract sign-up rules, or null: it must
+ * be the CNPJ of the company data the approval checked at the Receita, so a declared company
+ * type never stands in for that check. Both CNPJs are compared as stored (letters and digits).
+ */
+export function contractCnpjProblem(typedCnpj: string, companyCnpj: string | null): string | null {
+  if (companyCnpj === null) {
+    return "Preencha primeiro os Dados fiscais da empresa, em Marca: a conta abre no mesmo CNPJ.";
+  }
+  if (typedCnpj.toUpperCase().replace(/[^0-9A-Z]/g, "") === companyCnpj) {
+    return null;
+  }
+  return `Use o CNPJ dos Dados fiscais da empresa: ${formatCnpj(companyCnpj)}.`;
 }
 
 export type AsaasAccountForm = z.output<ReturnType<typeof asaasAccountFormSchema>>;
