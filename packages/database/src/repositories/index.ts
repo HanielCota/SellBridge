@@ -102,6 +102,7 @@ export * from "./supplier-panel-catalog-writes.ts";
 export * from "./supplier-product-review-queue.ts";
 export * from "./supplier-panel-orders.ts";
 export * from "./supplier-panel-orders-detail.ts";
+export { markStoreMessagesRead } from "./supplier-order-messages.ts";
 export * from "./supplier-test-orders.ts";
 export * from "./supplier-panel-scan.ts";
 export * from "./supplier-panel-home.ts";

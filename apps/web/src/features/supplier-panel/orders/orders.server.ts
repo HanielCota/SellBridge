@@ -4,6 +4,7 @@ import {
   listSupplierResellers,
   listSupplierResellerStores,
   listSupplierShipments,
+  markStoreMessagesRead,
   supplierOwnedShipments,
   retrySupplierShipmentInvoice,
 } from "@sellbridge/database/repositories";
@@ -70,10 +71,12 @@ export async function loadSupplierResellers(supplierId: string) {
   return await listSupplierResellers(database, supplierId);
 }
 
+/** The parcel's panel. Opening it reads the store's messages: they stop being "Mensagem nova". */
 export async function loadSupplierShipment(input: { supplierId: string; shipmentId: string }) {
   const [shipment, badges] = await Promise.all([
     getSupplierPanelShipment(database, input),
     supplierPaymentBadges({ supplierId: input.supplierId, shipmentIds: [input.shipmentId] }),
+    markStoreMessagesRead(database, input),
   ]);
   return { ...shipment, supplierPayment: badges.get(input.shipmentId) ?? NO_ACCOUNT_PAYMENT };
 }

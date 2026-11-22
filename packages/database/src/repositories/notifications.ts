@@ -26,7 +26,7 @@ import {
 import { countPendingReviews } from "./supplier-reviews.ts";
 import { shipmentLateEvents, type ShipmentLateEvent } from "./shipment-timing.ts";
 import {
-  orderMessageEvents,
+  orderMessageBellEvents,
   supportReplyEvents,
   type OrderMessageEvent,
   type SupportReplyEvent,
@@ -488,7 +488,7 @@ export async function listNotificationEvents(
     listingErrorEvents(database, input.tenantId),
     storeProblemEvents(database, input.tenantId),
     supportReplyEvents(database, input, PER_KIND),
-    orderMessageEvents(database, { tenantId: input.tenantId, since: since(), limit: PER_KIND }),
+    orderMessageBellEvents(database, { tenantId: input.tenantId, since: since(), limit: PER_KIND }),
     supplierConversationEvents(database, input, PER_KIND),
     reviewPendingEvents(database, input.tenantId, input.reviewableSince),
     invoiceStoppedEvents(database, input.tenantId, PER_KIND),
