@@ -4,6 +4,8 @@ import {
   effectivePaymentFeeBasisPoints,
   InvalidPaymentFeeError,
   platformFeeCents,
+  type ReforwardPaymentInput,
+  reforwardBlockFor,
   shipmentPaymentStatusFrom,
   SUPPLIER_PAY_METHODS,
   supplierPaymentBadge,
@@ -329,5 +331,54 @@ describe("supplierPaymentRefundReason", () => {
     });
 
     expect(reason).toBeNull();
+  });
+});
+
+describe("reforwardBlockFor", () => {
+  const PAID_AT = new Date("2026-11-20T12:00:00Z");
+  const approved: ReforwardPaymentInput = {
+    status: "approved",
+    refundRequestedAt: null,
+    refundFailedAt: null,
+    refundHeldAt: null,
+    releasedAt: null,
+    escrowStatus: "active",
+    teamDecision: null,
+  };
+
+  test("lets a parcel with no payment be re-forwarded", () => {
+    expect(reforwardBlockFor(null)).toBeNull();
+  });
+
+  test("lets a parcel whose checkout was never paid be re-forwarded", () => {
+    expect(reforwardBlockFor({ ...approved, status: "pending" })).toBeNull();
+  });
+
+  test("blocks a held Pix whose refund Asaas refused and the team makes by hand", () => {
+    const manual = { ...approved, refundRequestedAt: PAID_AT, refundFailedAt: PAID_AT };
+
+    expect(reforwardBlockFor(manual)).toBe("money_returning");
+  });
+
+  test("blocks a paid parcel whose refund was not asked for yet", () => {
+    expect(reforwardBlockFor(approved)).toBe("money_returning");
+  });
+
+  test("blocks a payment the team still checks after a late cancel", () => {
+    expect(reforwardBlockFor({ ...approved, refundHeldAt: PAID_AT })).toBe("held_for_team");
+  });
+
+  test("blocks a payment that already went back to the reseller", () => {
+    expect(reforwardBlockFor({ ...approved, status: "refunded" })).toBe("money_returned");
+  });
+
+  test("lets a parcel whose money Asaas already released be re-forwarded", () => {
+    expect(reforwardBlockFor({ ...approved, escrowStatus: "done" })).toBeNull();
+  });
+
+  test("lets a held parcel be re-forwarded once the team released its money", () => {
+    const released = { ...approved, refundHeldAt: PAID_AT, teamDecision: "release" as const };
+
+    expect(reforwardBlockFor(released)).toBeNull();
   });
 });

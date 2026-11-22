@@ -24,6 +24,7 @@ import { SETTLED_FULFILLMENT_STATUSES } from "@sellbridge/shared/schemas";
 import {
   effectivePaymentFeeBasisPoints,
   platformFeeCents,
+  reforwardBlockFor,
   supplierPaymentBadge,
   type PaidParcelFate,
   type SupplierPaymentBadge,
@@ -291,6 +292,8 @@ export async function loadResellerSupplierPayment(input: { tenantId: string; shi
     /** Held until delivery (Asaas): the reseller sees the protection seal. */
     protectedPayment: provider === "asaas",
     provider,
+    /** Why the cancelled parcel cannot go back to its supplier; null when it can, or is not cancelled. */
+    reforwardBlock: payable.status === "cancelled" ? reforwardBlockFor(payable.payment) : null,
   };
 }
 
