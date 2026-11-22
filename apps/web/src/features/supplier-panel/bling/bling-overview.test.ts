@@ -7,6 +7,7 @@ import {
   isBlingExportRunning,
   isBlingReadRunning,
   needsBlingPermission,
+  needsBlingReconnect,
   skippedProductsNote,
   type BlingConnectionView,
 } from "./bling-overview";
@@ -188,10 +189,26 @@ describe("needsBlingPermission", () => {
     expect(overview.connection?.permissionMissing).toBe(false);
   });
 
-  it("leaves an expired connection to its own Conectar de novo card", () => {
+  it("leaves an expired connection to its own reconnect card", () => {
     const flagged = { status: "expired" as const, permissionMissingAt: new Date() };
 
     expect(needsBlingPermission(flagged)).toBe(false);
+  });
+});
+
+describe("needsBlingReconnect", () => {
+  it("asks the header to show the notice for an expired connection", () => {
+    expect(needsBlingReconnect({ status: "expired", permissionMissingAt: null })).toBe(true);
+  });
+
+  it("asks the header to show the notice for a connection missing a permission", () => {
+    const flagged = { status: "connected" as const, permissionMissingAt: new Date() };
+
+    expect(needsBlingReconnect(flagged)).toBe(true);
+  });
+
+  it("keeps the header quiet for a connection that works", () => {
+    expect(needsBlingReconnect({ status: "connected", permissionMissingAt: null })).toBe(false);
   });
 });
 

@@ -122,7 +122,7 @@ export function BlingReconnectCard({
       </CardHeading>
       <div>
         <Button asChild size="lg">
-          <a href={blingConnectHref(supplierId)}>Conectar de novo</a>
+          <a href={blingConnectHref(supplierId)}>Reconectar o Bling</a>
         </Button>
       </div>
     </CardShell>

@@ -50,7 +50,7 @@ import {
 import {
   blingOverviewFrom,
   isBlingReadRunning,
-  needsBlingPermission,
+  needsBlingReconnect,
   type BlingImportOutcome,
   type BlingOverview,
 } from "./bling-overview";
@@ -96,7 +96,8 @@ export async function loadBlingOverview(supplierId: string): Promise<BlingOvervi
 }
 
 /**
- * The supplier whose Bling must be reconnected for a missing permission, for the header notice;
+ * The supplier whose Bling must be reconnected (expired, or a missing permission), for the header
+ * notice;
  * null when there is nothing to ask (no Bling, a team visit that cannot reconnect it, all fine).
  */
 export async function findOwnBlingToReconnect(context: {
@@ -111,7 +112,7 @@ export async function findOwnBlingToReconnect(context: {
     return null;
   }
   const connection = await findErpConnection(database, { supplierId: supplier.id, ...BLING });
-  if (connection === null || !needsBlingPermission(connection)) {
+  if (connection === null || !needsBlingReconnect(connection)) {
     return null;
   }
   return { supplierId: supplier.id };
