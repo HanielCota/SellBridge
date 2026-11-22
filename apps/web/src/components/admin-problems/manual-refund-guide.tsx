@@ -95,7 +95,7 @@ function RefundSteps({ refund }: { refund: ManualRefund }) {
       </li>
       <li>
         Avise o revendedor no chamado. Quando o Asaas confirmar, o pagamento aparece como devolvido
-        no pedido sozinho; aí marque este problema como resolvido.
+        no pedido sozinho; aí marque este problema como resolvido, no botão logo abaixo.
       </li>
     </ol>
   );
@@ -140,7 +140,8 @@ export function ManualRefundGuide({ shipmentPaymentId }: { shipmentPaymentId: st
       <h2 className="text-subhead font-medium">{`Devolução manual de ${amount}`}</h2>
       {refund.refunded ? (
         <p className="text-sm">
-          Este pagamento já foi devolvido ao revendedor. Pode marcar o problema como resolvido.
+          Este pagamento já foi devolvido ao revendedor. Pode marcar o problema como resolvido, logo
+          abaixo.
         </p>
       ) : (
         <PendingRefund refund={refund} />

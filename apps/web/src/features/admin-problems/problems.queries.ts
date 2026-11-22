@@ -1,6 +1,10 @@
 import type { ProblemSearchParams } from "@sellbridge/shared/schemas";
 import { infiniteQueryOptions, keepPreviousData, queryOptions } from "@tanstack/react-query";
-import { adminGetProblem, adminListProblems } from "./problems.functions";
+import {
+  adminCountOpenMoneyProblems,
+  adminGetProblem,
+  adminListProblems,
+} from "./problems.functions";
 
 /** The first page has no cursor. */
 const FIRST_PAGE = "";
@@ -17,6 +21,16 @@ export const problemListQueryOptions = (search: ProblemSearchParams) =>
     initialPageParam: FIRST_PAGE,
     getNextPageParam: (page) => page.nextCursor ?? undefined,
     placeholderData: keepPreviousData,
+  });
+
+const MONEY_COUNT_REFRESH_MILLISECONDS = 60_000;
+
+/** Under the problems key, so resolving or reopening one refreshes the tab counter too. */
+export const openMoneyProblemCountQueryOptions = () =>
+  queryOptions({
+    queryKey: [...PROBLEMS_QUERY_KEY, "money-count"],
+    queryFn: () => adminCountOpenMoneyProblems(),
+    refetchInterval: MONEY_COUNT_REFRESH_MILLISECONDS,
   });
 
 export const problemQueryOptions = (problemId: string) =>
