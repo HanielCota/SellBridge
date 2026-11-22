@@ -21,12 +21,21 @@ export const CNPJ_LOOKUP_OUTCOMES = [
 ] as const;
 export type CnpjLookupOutcome = (typeof CNPJ_LOOKUP_OUTCOMES)[number];
 
+/**
+ * The company's size as the Receita records it ("porte da empresa" in the open CNPJ data layout:
+ * 01 micro, 03 pequeno porte, 05 demais), with an MEI apart since it is a micro company too.
+ * `unknown` when the Receita left the size blank ("00 – não informado").
+ */
+export const COMPANY_SIZES = ["mei", "micro", "small", "other", "unknown"] as const;
+export type CompanySize = (typeof COMPANY_SIZES)[number];
+
 export type CnpjLookupResult =
   | {
       readonly outcome: "active" | "inactive";
       readonly legalName: string;
       /** The Receita's word for the registration, such as "ATIVA" or "BAIXADA". */
       readonly registrationStatus: string;
+      readonly companySize: CompanySize;
     }
   | { readonly outcome: "not_found" | "unsupported" | "unavailable" };
 
@@ -36,6 +45,8 @@ export interface CnpjCheck {
   readonly outcome: CnpjLookupOutcome;
   readonly legalName: string | null;
   readonly registrationStatus: string | null;
+  /** Null when the query did not answer, or answered before the size was kept. */
+  readonly companySize: CompanySize | null;
   readonly checkedAt: Date;
   /** When the query first failed in a row; null once it answered. */
   readonly unavailableSince: Date | null;
@@ -53,8 +64,21 @@ export const APPROVAL_TEAM_REASONS = [
   "cnpj_unsupported",
   "legal_name_mismatch",
   "lookup_unavailable",
+  "company_size_unknown",
 ] as const;
 export type ApprovalTeamReason = (typeof APPROVAL_TEAM_REASONS)[number];
+
+/** Why the check refuses a supplier on its own: the contract takes ME, EPP and larger only. */
+export const APPROVAL_REFUSAL_CAUSES = ["mei"] as const;
+export type ApprovalRefusalCause = (typeof APPROVAL_REFUSAL_CAUSES)[number];
+
+/** What the supplier reads in its panel after an automatic refusal. */
+export const APPROVAL_REFUSAL_TEXT: Record<ApprovalRefusalCause, string> = {
+  mei:
+    "Seu CNPJ está como MEI na Receita. Para vender como fornecedor na SellBridge, a empresa " +
+    "precisa ser ME, EPP ou maior. Se a empresa já saiu do MEI, fale com o suporte e mande o " +
+    "documento que mostra a saída: a Receita pode levar até um mês para atualizar.",
+};
 
 /** Where a pending supplier stands, as stored after each check. */
 export const APPROVAL_STAGES = ["waiting_supplier", "checking", "needs_team"] as const;
@@ -72,6 +96,8 @@ export interface ApprovalFacts {
   readonly receivingAccountApproved: boolean;
   /** The admin switch "Exigir conta de recebimento para aprovar". */
   readonly requireReceivingAccount: boolean;
+  /** The contract's sign-up rules are on: only ME, EPP and larger companies supply. */
+  readonly requireSupplierCompanySize: boolean;
   readonly now: Date;
 }
 
@@ -80,7 +106,8 @@ export type ApprovalVerdict =
   /** The CNPJ needs a query: never asked, changed since, or the last query was down. */
   | { readonly kind: "lookup" }
   | { readonly kind: "wait_supplier"; readonly missing: readonly ApprovalMissingItem[] }
-  | { readonly kind: "needs_team"; readonly reason: ApprovalTeamReason };
+  | { readonly kind: "needs_team"; readonly reason: ApprovalTeamReason }
+  | { readonly kind: "refuse"; readonly cause: ApprovalRefusalCause };
 
 /** Words that only say the company type: the Receita and the supplier write them differently. */
 const COMPANY_TYPE_WORDS = new Set(["LTDA", "ME", "EPP", "EIRELI", "SA", "S", "A", "MEI", "SLU"]);
@@ -133,6 +160,35 @@ const FAILED_LOOKUP_REASONS: Partial<Record<CnpjLookupOutcome, ApprovalTeamReaso
 };
 
 /**
+ * Whether the contract sign-up rules apply to a supplier: only to one that signed up after they
+ * were switched on. One already signed up (even if still pending) keeps the rules it signed up
+ * under; the deadline for those comes with the data update notices.
+ */
+export function signupRulesApplyTo(signedUpAt: Date, rulesSince: Date | null): boolean {
+  if (rulesSince === null) {
+    return false;
+  }
+  return signedUpAt.getTime() >= rulesSince.getTime();
+}
+
+/**
+ * The contract's size rule over an answered query: an MEI is refused, a blank size goes to the
+ * team, and an answer kept before the size was read is asked again. Null when the size passes.
+ */
+function companySizeVerdict(check: CnpjCheck): ApprovalVerdict | null {
+  if (check.companySize === null) {
+    return { kind: "lookup" };
+  }
+  if (check.companySize === "mei") {
+    return { kind: "refuse", cause: "mei" };
+  }
+  if (check.companySize === "unknown") {
+    return { kind: "needs_team", reason: "company_size_unknown" };
+  }
+  return null;
+}
+
+/**
  * What the automatic check does with a pending supplier. A failure the supplier cannot fix by
  * filling something in goes to the team; the query being down is retried for an hour first.
  */
@@ -152,6 +208,10 @@ export function decideSupplierApproval(facts: ApprovalFacts): ApprovalVerdict {
   const failed = FAILED_LOOKUP_REASONS[check.outcome];
   if (failed !== undefined) {
     return { kind: "needs_team", reason: failed };
+  }
+  const sizeVerdict = facts.requireSupplierCompanySize ? companySizeVerdict(check) : null;
+  if (sizeVerdict !== null) {
+    return sizeVerdict;
   }
   if (check.legalName === null || !legalNamesMatch(company.legalName, check.legalName)) {
     return { kind: "needs_team", reason: "legal_name_mismatch" };
@@ -178,6 +238,7 @@ export function nextCnpjCheck(
       outcome: "unavailable",
       legalName: null,
       registrationStatus: null,
+      companySize: null,
       checkedAt: now,
       unavailableSince: stillFailing ? (previous.unavailableSince ?? previous.checkedAt) : now,
     };
@@ -188,6 +249,7 @@ export function nextCnpjCheck(
     outcome: result.outcome,
     legalName: answered ? result.legalName : null,
     registrationStatus: answered ? result.registrationStatus : null,
+    companySize: answered ? result.companySize : null,
     checkedAt: now,
     unavailableSince: null,
   };
@@ -200,6 +262,7 @@ export const APPROVAL_TEAM_REASON_LABELS: Record<ApprovalTeamReason, string> = {
   cnpj_unsupported: "A consulta pública não reconhece este CNPJ",
   legal_name_mismatch: "Razão social diferente da Receita",
   lookup_unavailable: "Não deu para consultar a Receita",
+  company_size_unknown: "A Receita não informa o porte (ME, EPP ou MEI)",
 };
 
 /** The same reasons as the supplier reads them on its panel. */
@@ -209,6 +272,7 @@ export const APPROVAL_TEAM_REASON_SUPPLIER_TEXT: Record<ApprovalTeamReason, stri
   cnpj_unsupported: "Não conseguimos conferir este CNPJ na consulta pública",
   legal_name_mismatch: "A razão social não é a mesma da Receita",
   lookup_unavailable: "A consulta da Receita está fora do ar",
+  company_size_unknown: "A Receita não informa o porte da sua empresa",
 };
 
 export const APPROVAL_MISSING_LABELS: Record<ApprovalMissingItem, string> = {

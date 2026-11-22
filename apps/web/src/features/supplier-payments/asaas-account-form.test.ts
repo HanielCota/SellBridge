@@ -1,5 +1,10 @@
 import { describe, expect, test } from "vitest";
-import { asaasAccountFormSchema, isoDateFromBrazilian } from "./asaas-account-form";
+import {
+  asaasAccountFormSchema,
+  contractAccountRefusal,
+  contractCnpjProblem,
+  isoDateFromBrazilian,
+} from "./asaas-account-form";
 
 const TODAY = new Date("2026-11-16T12:00:00Z");
 
@@ -133,5 +138,41 @@ describe("asaasAccountFormSchema", () => {
     });
 
     expect(found).toContain("Informe os 8 números do CEP");
+  });
+});
+
+describe("contractAccountRefusal", () => {
+  test("refuses an account in a person's CPF", () => {
+    const refusal = contractAccountRefusal({ personType: "person" });
+
+    expect(refusal).toContain("Empresa (CNPJ)");
+  });
+
+  test("refuses an MEI company", () => {
+    const refusal = contractAccountRefusal({ personType: "company", companyType: "MEI" });
+
+    expect(refusal).toContain("ME, EPP ou maior");
+  });
+
+  test.each(["LIMITED", "INDIVIDUAL", "ASSOCIATION"])("accepts a %s company", (companyType) => {
+    expect(contractAccountRefusal({ personType: "company", companyType })).toBeNull();
+  });
+});
+
+describe("contractCnpjProblem", () => {
+  test("accepts the CNPJ of the company data, typed with the mask", () => {
+    expect(contractCnpjProblem("11.222.333/0001-81", "11222333000181")).toBeNull();
+  });
+
+  test("asks for the company data CNPJ when another one is typed", () => {
+    const problem = contractCnpjProblem("11.444.777/0001-61", "11222333000181");
+
+    expect(problem).toBe("Use o CNPJ dos Dados fiscais da empresa: 11.222.333/0001-81.");
+  });
+
+  test("asks to fill the company data first when there is none", () => {
+    const problem = contractCnpjProblem("11.222.333/0001-81", null);
+
+    expect(problem).toContain("Dados fiscais da empresa");
   });
 });

@@ -30,7 +30,8 @@ import { type AccountMenuEntry, accountMenuEntries } from "./account-pages";
 
 const appRoute = getRouteApi("/_app");
 
-function useSignOut() {
+/** Signs out and clears what belonged to the account; the signing screen reuses it. */
+export function useSignOut() {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   return async function signOut() {

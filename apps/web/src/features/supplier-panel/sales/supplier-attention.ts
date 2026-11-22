@@ -17,6 +17,8 @@ export interface SupplierAttentionInput {
   firstAccept: { label: string; overdue: boolean } | null;
   /** Parcels whose NF-e stopped and waits for the supplier. */
   stoppedInvoices: number;
+  /** Venda à ordem is chosen but no Bling issues the notes: labels go out without them. */
+  onBehalfInvoiceOff: boolean;
   runningOut: { count: number; productId: string | null };
   catalog: readonly CatalogFix[];
   unreadSupportReplies: number;
@@ -64,6 +66,22 @@ function invoiceItems(input: SupplierAttentionInput, hrefFor: HrefFor): Attentio
       ),
       description: "A nota não sai sozinha: abra o pedido para ver o que corrigir.",
       href: hrefFor({ area: "orders", filter: "invoice_stopped" }),
+    },
+  ];
+}
+
+function invoiceSetupItems(input: SupplierAttentionInput, hrefFor: HrefFor): AttentionRow[] {
+  if (!input.onBehalfInvoiceOff) {
+    return [];
+  }
+  return [
+    {
+      key: "on-behalf-invoice-off",
+      icon: FileTextIcon,
+      tone: "danger",
+      title: "Nota da venda à ordem desligada",
+      description: "A etiqueta sai sem nota. Ligue “Nota fiscal pelo Bling” em Marca.",
+      href: hrefFor({ area: "invoice_setup" }),
     },
   ];
 }
@@ -129,8 +147,8 @@ function catalogItems(input: SupplierAttentionInput, hrefFor: HrefFor): Attentio
 }
 
 /**
- * The supplier's "Precisa de você", most urgent first: orders to accept, then stopped notes,
- * then stock (sold out, then running out), then products to fix, then a support reply.
+ * The supplier's "Precisa de você", most urgent first: orders to accept, then stopped notes and
+ * a venda à ordem without its note, then stock (sold out, then running out), then products to fix, then a support reply.
  */
 export function buildSupplierAttention(
   input: SupplierAttentionInput,
@@ -156,6 +174,7 @@ export function buildSupplierAttention(
   return [
     ...acceptItems(input, hrefFor),
     ...invoiceItems(input, hrefFor),
+    ...invoiceSetupItems(input, hrefFor),
     ...stockItems(input, hrefFor),
     ...catalogItems(input, hrefFor),
     ...support,

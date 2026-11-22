@@ -740,8 +740,22 @@
     {
       "idx": 105,
       "version": "7",
-      "when": 1795292872290,
-      "tag": "0105_cancel_queued_parcels_of_cancelled_sales",
+      "when": 1795285104704,
+      "tag": "0105_contract_signatures",
+      "breakpoints": true
+    },
+    {
+      "idx": 106,
+      "version": "7",
+      "when": 1795311750974,
+      "tag": "0106_signup_rules",
+      "breakpoints": true
+    },
+    {
+      "idx": 107,
+      "version": "7",
+      "when": 1795315821614,
+      "tag": "0107_cancel_queued_parcels_of_cancelled_sales",
       "breakpoints": true
     }
   ]

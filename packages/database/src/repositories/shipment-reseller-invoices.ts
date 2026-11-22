@@ -431,6 +431,8 @@ export interface ResellerSaleInvoice {
   readonly issuedByErp: boolean;
   /** The Bling stopped on it: `problem` says why, and it waits for the reseller to retry. */
   readonly erpStopped: boolean;
+  /** The Bling already started the note (draft asked or note created): it may exist there. */
+  readonly erpStarted: boolean;
 }
 
 /** The reseller notes of the tenant's parcels, by parcel id; parcels without one are absent. */
@@ -453,6 +455,7 @@ export async function resellerSaleInvoicesOf(
       problem: shipmentResellerInvoices.problem,
       issuedByErp: ISSUED_BY_ERP,
       erpStopped: sql<boolean>`${shipmentResellerInvoices.erpStoppedAt} is not null`,
+      erpStarted: sql<boolean>`(${shipmentResellerInvoices.erpDraftRequestedAt} is not null or ${shipmentResellerInvoices.erpInvoiceId} is not null)`,
     })
     .from(shipmentResellerInvoices)
     .innerJoin(orderShipments, eq(orderShipments.id, shipmentResellerInvoices.shipmentId))
