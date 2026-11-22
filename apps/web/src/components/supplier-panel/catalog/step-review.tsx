@@ -23,7 +23,7 @@ const STATUS_NOTES: Readonly<Record<ProductReviewStatus, string>> = {
   rejected: "Corrija os campos marcados e publique de novo.",
 };
 
-function SummaryRow({ label, children }: { label: ReactNode; children: ReactNode }) {
+export function SummaryRow({ label, children }: { label: ReactNode; children: ReactNode }) {
   return (
     <div className="flex items-baseline justify-between gap-4 py-2">
       <dt className="text-sm text-muted-foreground">{label}</dt>
@@ -32,7 +32,7 @@ function SummaryRow({ label, children }: { label: ReactNode; children: ReactNode
   );
 }
 
-interface SubmitProps {
+export interface SubmitProps {
   blockingCount: number;
   /** False while a change is still on its way to the server. */
   canSubmitNow: boolean;
@@ -41,7 +41,7 @@ interface SubmitProps {
   onSubmit: () => void;
 }
 
-function SubmitForReview({
+export function SubmitForReview({
   blockingCount,
   canSubmitNow,
   isSubmitting,
@@ -84,6 +84,19 @@ function SubmitForReview({
   );
 }
 
+/** Where the product stands and what publishing does now, in the supplier's words. */
+export function StatusNote({ status }: { status: ProductReviewStatus }) {
+  const supplierApproved = usePanelSupplierApproved();
+  return (
+    <div className="space-y-2 rounded-2xl bg-muted/60 p-4">
+      <ReviewStatus status={status} />
+      <p className="text-sm text-muted-foreground">
+        {status === "draft" && !supplierApproved ? DRAFT_NOTE_UNDER_REVIEW : STATUS_NOTES[status]}
+      </p>
+    </div>
+  );
+}
+
 export function StepReview({
   values,
   categoryName,
@@ -96,7 +109,6 @@ export function StepReview({
   status: ProductReviewStatus;
   report: CompletenessReport;
 }) {
-  const supplierApproved = usePanelSupplierApproved();
   const cost = parseCsvMoney(values.cost);
   return (
     <div className="grid gap-6">
@@ -118,12 +130,7 @@ export function StepReview({
         <SummaryRow label="Estoque">{values.stock || "Não informado"}</SummaryRow>
         <SummaryRow label="Imagens">{values.imageUrls.length}</SummaryRow>
       </dl>
-      <div className="space-y-2 rounded-2xl bg-muted/60 p-4">
-        <ReviewStatus status={status} />
-        <p className="text-sm text-muted-foreground">
-          {status === "draft" && !supplierApproved ? DRAFT_NOTE_UNDER_REVIEW : STATUS_NOTES[status]}
-        </p>
-      </div>
+      <StatusNote status={status} />
       {status === "draft" ? (
         <SubmitForReview {...submit} blockingCount={report.blocking.length} />
       ) : null}

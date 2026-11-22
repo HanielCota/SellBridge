@@ -10,6 +10,8 @@ import {
   organization,
   supplierErpConnections,
   paymentOAuthStates,
+  returnClaimPhotos,
+  returnClaims,
   supplierPaymentAccounts,
   suppliers,
   ticketAttachments,
@@ -44,10 +46,38 @@ export async function findSoleOwnedTenants(database: Database, userId: string): 
 
 /**
  * Stored files that go with the account: attachments of its workspaces' tickets and of the
- * tickets it opened elsewhere (those rows cascade from the user). The database cascade never
- * reaches the disk, so they are collected before the rows go.
+ * tickets it opened elsewhere (those rows cascade from the user), and the photos of its
+ * workspaces' returns. The database cascade never reaches the disk, so they are collected before
+ * the rows go.
  */
 export async function accountFileKeys(
+  database: Database,
+  account: { userId: string; tenantIds: readonly string[] },
+): Promise<string[]> {
+  const [attachmentKeys, photoKeys] = await Promise.all([
+    ticketAttachmentKeys(database, account),
+    returnPhotoKeys(database, account.tenantIds),
+  ]);
+  return [...attachmentKeys, ...photoKeys];
+}
+
+/** Both sides' photos of a return go with the reseller's workspace, whose sale it belongs to. */
+async function returnPhotoKeys(
+  database: Database,
+  tenantIds: readonly string[],
+): Promise<string[]> {
+  if (tenantIds.length === 0) {
+    return [];
+  }
+  const rows = await database
+    .select({ storageKey: returnClaimPhotos.storageKey })
+    .from(returnClaimPhotos)
+    .innerJoin(returnClaims, eq(returnClaims.id, returnClaimPhotos.claimId))
+    .where(inArray(returnClaims.sellerTenantId, [...tenantIds]));
+  return rows.map((row) => row.storageKey);
+}
+
+async function ticketAttachmentKeys(
   database: Database,
   account: { userId: string; tenantIds: readonly string[] },
 ): Promise<string[]> {
@@ -140,12 +170,22 @@ async function deleteWorkspace(database: Database, tenantId: string): Promise<vo
 }
 
 /**
- * Forgets the workspace's Stripe customer once it is deleted there, so a deletion retried after
- * a later step failed does not ask Stripe for a customer that no longer exists.
+ * Forgets the workspace's payment-provider customer once it is deleted there, so a deletion
+ * retried after a later step failed does not ask for a customer that no longer exists.
  */
 export async function forgetBillingCustomer(database: Database, tenantId: string): Promise<void> {
   await database
     .update(billingAccounts)
-    .set({ customerId: null, subscriptionId: null, plan: "free", status: "canceled" })
+    .set({
+      customerId: null,
+      subscriptionId: null,
+      plan: "free",
+      status: "canceled",
+      scheduledPlan: null,
+      scheduledPlanAt: null,
+      pendingPlan: null,
+      pendingReference: null,
+      prepaidUntil: null,
+    })
     .where(eq(billingAccounts.tenantId, tenantId));
 }

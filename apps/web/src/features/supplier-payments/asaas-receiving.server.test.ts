@@ -5,6 +5,9 @@ const mocks = vi.hoisted(() => ({
   getRule: vi.fn<(...input: unknown[]) => Promise<unknown>>(),
   countDeliveries: vi.fn<(...input: unknown[]) => Promise<number>>(),
   saveChoice: vi.fn<(...input: unknown[]) => Promise<void>>(),
+  signupRulesSince: vi.fn<(...input: unknown[]) => Promise<Date | null>>(),
+  companyCnpj: vi.fn<(...input: unknown[]) => Promise<string | null>>(),
+  openAsaasAccount: vi.fn<(...input: unknown[]) => Promise<{ protectedNow: boolean }>>(),
 }));
 vi.mock("@sellbridge/database/repositories", () => ({
   findSupplierPaymentAccount: mocks.findAccount,
@@ -12,6 +15,12 @@ vi.mock("@sellbridge/database/repositories", () => ({
   getNewSupplierRule: mocks.getRule,
   countConfirmedDeliveries: mocks.countDeliveries,
   saveSupplierPaymentChoice: mocks.saveChoice,
+  getSignupRulesSince: mocks.signupRulesSince,
+  getSupplierCompanyCnpj: mocks.companyCnpj,
+}));
+vi.mock("@sellbridge/payments/asaas", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@sellbridge/payments/asaas")>()),
+  openAsaasAccount: mocks.openAsaasAccount,
 }));
 vi.mock("@sellbridge/payments/mercado-pago", async (importOriginal) => {
   const original = await importOriginal<typeof import("@sellbridge/payments/mercado-pago")>();
@@ -44,7 +53,8 @@ vi.mock("@/lib/server/environment", () => ({
   },
 }));
 
-import { chooseReceivingProvider } from "./asaas-receiving.server";
+import type { AsaasAccountForm } from "./asaas-account-form";
+import { chooseReceivingProvider, openSupplierAsaasAccount } from "./asaas-receiving.server";
 
 const SUPPLIER_ID = "5f0c9a3e-6a1f-4d7e-9a43-8b2d1c3e4f50";
 const supplierActor = { viewerKind: "supplier", impersonatedBy: null } as const;
@@ -118,5 +128,70 @@ describe("chooseReceivingProvider", () => {
 
     await expect(visit).rejects.toThrow("Durante a visita da equipe");
     expect(mocks.saveChoice).not.toHaveBeenCalled();
+  });
+});
+
+const COMPANY_CNPJ = "11222333000181";
+const companyForm: AsaasAccountForm = {
+  personType: "company",
+  name: "Casa das Panelas Ltda",
+  document: COMPANY_CNPJ,
+  companyType: "LIMITED",
+  email: "contato@casadaspanelas.com.br",
+  mobilePhone: "11987654321",
+  postalCode: "01001000",
+  address: "Rua das Flores",
+  addressNumber: "100",
+  complement: "",
+  province: "Centro",
+  monthlyIncome: 500_000,
+};
+
+function openAccount(form: AsaasAccountForm) {
+  return openSupplierAsaasAccount({
+    supplierId: SUPPLIER_ID,
+    userId: "user-1",
+    actor: supplierActor,
+    form,
+  });
+}
+
+describe("openSupplierAsaasAccount under the contract sign-up rules", () => {
+  beforeEach(() => {
+    mocks.findAccount.mockResolvedValue(null);
+    mocks.companyCnpj.mockResolvedValue(COMPANY_CNPJ);
+    mocks.openAsaasAccount.mockResolvedValue({ protectedNow: true });
+  });
+
+  it("refuses a CNPJ other than the company data's before calling Asaas", async () => {
+    mocks.signupRulesSince.mockResolvedValue(new Date("2026-11-21T12:00:00Z"));
+
+    const opening = openAccount({ ...companyForm, document: "11444777000161" });
+
+    await expect(opening).rejects.toThrow("Use o CNPJ dos Dados fiscais da empresa");
+    expect(mocks.openAsaasAccount).not.toHaveBeenCalled();
+  });
+
+  it("refuses an MEI declared as such before calling Asaas", async () => {
+    mocks.signupRulesSince.mockResolvedValue(new Date("2026-11-21T12:00:00Z"));
+
+    const opening = openAccount({ ...companyForm, companyType: "MEI" });
+
+    await expect(opening).rejects.toThrow("MEI não pode ser fornecedor");
+    expect(mocks.openAsaasAccount).not.toHaveBeenCalled();
+  });
+
+  it("opens the account in the company data's CNPJ", async () => {
+    mocks.signupRulesSince.mockResolvedValue(new Date("2026-11-21T12:00:00Z"));
+
+    await expect(openAccount(companyForm)).resolves.toEqual({ protectedNow: true });
+  });
+
+  it("opens any CNPJ as before while the rules are off", async () => {
+    mocks.signupRulesSince.mockResolvedValue(null);
+
+    const opening = openAccount({ ...companyForm, document: "11444777000161" });
+
+    await expect(opening).resolves.toEqual({ protectedNow: true });
   });
 });

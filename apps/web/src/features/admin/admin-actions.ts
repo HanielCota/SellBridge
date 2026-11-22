@@ -4,6 +4,8 @@ import {
   CUSTOMER_ROLE_LABELS,
   CUSTOMER_ROLES,
 } from "@sellbridge/shared/schemas";
+import { billingPlan, isBillingPlanId } from "@sellbridge/shared/billing";
+import { lastDayOf } from "@/features/billing/billing-notice";
 import { ISSUE_KIND_LABELS } from "./issue-copy";
 
 /** Everything an admin can do to a customer's account that lands in its timeline. */
@@ -29,6 +31,9 @@ export const ADMIN_ACTIONS = [
   "issue_unsnoozed",
   "team_invited",
   "contact_blocked",
+  "courtesy_granted",
+  "courtesy_changed",
+  "courtesy_revoked",
 ] as const;
 export type AdminAction = (typeof ADMIN_ACTIONS)[number];
 
@@ -75,6 +80,10 @@ export const IMPERSONATED_ACTION_COPY: Readonly<Record<string, string>> = {
   revokeSupplierLinkFn: "cancelou o link do fornecedor",
   refreshMarketplaceTrackingFn: "atualizou o rastreio",
   saveResellerSaleNoteFn: "informou a chave da nota de venda",
+  uploadResellerSaleNoteXmlFn: "enviou o XML da nota de venda",
+  saveResellerBlingFn: "salvou a nota de venda pelo Bling",
+  disconnectResellerBlingFn: "desconectou o Bling da revenda",
+  retryResellerSaleNoteFn: "pediu de novo a nota de venda ao Bling",
   createListing: "publicou um produto",
   publishProductsInBulk: "publicou produtos em massa",
   retryListings: "reprocessou publicações",
@@ -104,6 +113,31 @@ function visitLabel(details: AdminEventDetails | null): string {
   const ticket = details?.ticketCode;
   const reason = typeof ticket === "string" ? ` pelo chamado #${ticket}` : "";
   return `Entrou como ${who}${reason}`;
+}
+
+function courtesyPlanLabel(details: AdminEventDetails | null): string {
+  const plan = details?.plan;
+  if (typeof plan !== "string" || !isBillingPlanId(plan)) {
+    return "um plano";
+  }
+  return `o plano ${billingPlan(plan).name}`;
+}
+
+function courtesyEndLabel(details: AdminEventDetails | null): string {
+  const expiresAt = details?.expiresAt;
+  return typeof expiresAt === "string" ? `até ${lastDayOf(expiresAt)}` : "sem data para acabar";
+}
+
+function courtesyReasonLabel(details: AdminEventDetails | null): string {
+  const reason = details?.reason;
+  return typeof reason === "string" && reason !== "" ? `. Motivo: ${reason}` : "";
+}
+
+/** "Concedeu o plano Elite sem cobrança, até 28/02/2027. Motivo: conta do cliente." */
+function courtesyGivenCopy(verb: string, details: AdminEventDetails | null): string {
+  const given = `${verb} ${courtesyPlanLabel(details)} sem cobrança, ${courtesyEndLabel(details)}`;
+  const stopped = details?.renewalStopped === true ? ". A assinatura paga parou de renovar" : "";
+  return `${given}${courtesyReasonLabel(details)}${stopped}`;
 }
 
 const ACTION_COPY: Record<AdminAction, (details: AdminEventDetails | null) => string> = {
@@ -144,6 +178,10 @@ const ACTION_COPY: Record<AdminAction, (details: AdminEventDetails | null) => st
       ? `Reenviou o convite para a equipe${as}`
       : `Convidou para a equipe${as}`;
   },
+  courtesy_granted: (details) => courtesyGivenCopy("Concedeu", details),
+  courtesy_changed: (details) => courtesyGivenCopy("Mudou a cortesia para", details),
+  courtesy_revoked: (details) =>
+    `Retirou ${courtesyPlanLabel(details)} sem cobrança${courtesyReasonLabel(details)}`,
   // Not the team's doing: the customer tried to send a contact and the server refused it.
   contact_blocked: (details) => `Tentou enviar ${contactKindsLabel(details)} no pedido (bloqueado)`,
 };

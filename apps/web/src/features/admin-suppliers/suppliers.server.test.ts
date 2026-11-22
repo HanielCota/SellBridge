@@ -31,6 +31,7 @@ vi.mock("@sellbridge/database/repositories", () => ({
   reserveShortItems: mocks.reserveShort,
 }));
 vi.mock("@/lib/server/database", () => ({ database: {} }));
+vi.mock("@/lib/server/product-grid-switch", () => ({ productGridEnabled: () => false }));
 vi.mock("@/lib/server/queues", () => ({ enqueueStockPriceSync: mocks.enqueue }));
 vi.mock("@sellbridge/shared/logger", () => ({ logger: { warn: mocks.warn, error: mocks.warn } }));
 import {
@@ -100,7 +101,16 @@ const savedSupplier = {
   fiscalProfile: null,
 };
 function importPlan(revision = "initial"): SupplierProductImportPlan {
-  return { created: 1, updated: 0, errors: [], products: [product], newSkus: [], revision };
+  return {
+    created: 1,
+    updated: 0,
+    errors: [],
+    products: [product],
+    newSkus: [],
+    revision,
+    grids: [],
+    notices: [],
+  };
 }
 beforeEach(() => {
   vi.resetAllMocks();

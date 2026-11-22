@@ -13,6 +13,7 @@ import {
   suppliers,
 } from "../schema/index.ts";
 import { findSupplierShipmentInvoice } from "./shipment-invoices.ts";
+import { findResellerNoteState } from "./shipment-on-behalf-invoices.ts";
 import { preparationHold, supplierDeadlines, supplierTimingColumns } from "./shipment-timing.ts";
 import { splitOrderSql } from "./supplier-panel-orders-sql.ts";
 
@@ -95,7 +96,7 @@ export async function getSupplierPanelShipment(
     tenantId: _tenant,
     ...shipment
   } = row.shipment;
-  const [events, receivable, invoice] = await Promise.all([
+  const [events, receivable, invoice, saleInvoice, resellerNote] = await Promise.all([
     database
       .select()
       .from(shipmentEvents)
@@ -103,6 +104,8 @@ export async function getSupplierPanelShipment(
       .orderBy(asc(shipmentEvents.createdAt), asc(shipmentEvents.id)),
     receivableCents(database, shipment.orderId, shipment.items),
     findSupplierShipmentInvoice(database, input),
+    findSupplierShipmentInvoice(database, input, "sale"),
+    findResellerNoteState(database, input.shipmentId),
   ]);
   const entry = describeQueueEntry({ ...shipment, ...row }, now, row);
   const over =
@@ -129,7 +132,11 @@ export async function getSupplierPanelShipment(
     supplierName: row.supplierName,
     ...supplierDeadlines(shipment, row),
     events,
-    /** The parcel's NF-e issued through the supplier's ERP; null while there is none. */
+    /** The parcel's NF-e in the box (direct, or the remessa); null while there is none. */
     invoice,
+    /** In venda à ordem, the supplier's sale to the reseller; null while there is none. */
+    saleInvoice,
+    /** Null for a parcel of the direct note; else whether the reseller's sale note was found. */
+    resellerNote,
   };
 }

@@ -7,6 +7,11 @@ import {
   productOriginSchema,
   productUnitSchema,
 } from "./product-fiscal.ts";
+import { unifyErpGrids } from "./erp-catalog-grid.ts";
+
+export { withoutGridsOfSeparateProducts } from "./erp-catalog-grid.ts";
+import { PRODUCT_CSV_GRID_COLUMNS } from "./product-csv.ts";
+import { combinationLabel, MAX_GRID_OPTION_LENGTH, MAX_MODEL_CODE_LENGTH } from "./product-grid.ts";
 
 /**
  * A product read from a supplier's ERP (Bling first), before it becomes a row of the product
@@ -29,6 +34,21 @@ export interface ErpCatalogItem {
   readonly gtin: string | null;
   readonly weightGrams: number | null;
   readonly fiscal: ErpFiscalData;
+  /**
+   * The id of this product, or of this variation, in the ERP: what the stock sync links it by.
+   * Absent on reads stored before the ERP id was kept.
+   */
+  readonly erpProductId?: number | null | undefined;
+  /** The grid this variation belongs to; null or absent for a product of its own. */
+  readonly grid?: ErpGridCells | null | undefined;
+}
+
+/** A variation's place in its model, read from the ERP's own variation names. */
+export interface ErpGridCells {
+  readonly modelCode: string;
+  readonly modelTitle: string;
+  readonly color: string | null;
+  readonly size: string | null;
 }
 
 export interface ErpFiscalData {
@@ -168,6 +188,15 @@ function fiscalCells(fiscal: ErpFiscalData): string[] {
   ];
 }
 
+function gridFields(item: ErpCatalogItem, fields: readonly string[]): string[] {
+  const { grid } = item;
+  if (grid === undefined || grid === null) {
+    return [...fields, "", "", ""];
+  }
+  const [sku, , ...rest] = fields;
+  return [sku ?? "", grid.modelTitle, ...rest, grid.modelCode, grid.color ?? "", grid.size ?? ""];
+}
+
 /**
  * The ERP catalog as a product import file (";" separated, quoted cells), so it goes through the
  * same preview, rules and confirmation as a spreadsheet the supplier uploads. The reseller's cost
@@ -175,20 +204,24 @@ function fiscalCells(fiscal: ErpFiscalData): string[] {
  * cost there gets a blank cost, which the import refuses: it is never saved with a wrong price.
  * Products SellBridge already has keep their category, and their photos and description when the
  * ERP has none (`keptFields`, by SKU). It starts with the UTF-8 BOM, like the other files the
- * supplier downloads, so Excel keeps the accents; the import reads it with or without one.
+ * supplier downloads, so Excel keeps the accents; the import reads it with or without one. With
+ * `gridColumns`, variations named by colour and size come out as their model's grid.
  */
 export function buildErpCatalogCsv(
   items: readonly ErpCatalogItem[],
   resellerCosts: ReadonlyMap<string, number>,
   keptFields: ReadonlyMap<string, ErpKeptFields> = new Map(),
+  options: { readonly gridColumns?: boolean } = {},
 ): string {
+  const gridColumns = options.gridColumns === true;
+  const header = gridColumns ? [...CSV_HEADER, ...PRODUCT_CSV_GRID_COLUMNS] : CSV_HEADER;
+  const rows = gridColumns ? unifyErpGrids(items) : items;
   const lines = [
-    CSV_HEADER.join(";"),
-    ...items.map((item) =>
-      toCsvFields(item, resellerCosts.get(item.sku), keptFields.get(item.sku))
-        .map(quoteCsv)
-        .join(";"),
-    ),
+    header.join(";"),
+    ...rows.map((item) => {
+      const fields = toCsvFields(item, resellerCosts.get(item.sku), keptFields.get(item.sku));
+      return (gridColumns ? gridFields(item, fields) : fields).map(quoteCsv).join(";");
+    }),
   ];
   return `${UTF8_BOM}${lines.join("\r\n")}\r\n`;
 }
@@ -204,6 +237,17 @@ export interface ErpImportRow {
   readonly currentCostCents: number | null;
   /** A new product: the supplier types the reseller price before it can be imported. */
   readonly needsCost: boolean;
+  /** The grid this variation comes in as, while grids are on; null for a product of its own. */
+  readonly modelCode: string | null;
+}
+
+/** "Tênis Casual · Preto 38" for a grid's variation, the ERP's own name for anything else. */
+function rowTitle(item: ErpCatalogItem, gridColumns: boolean): string {
+  const { grid } = item;
+  if (gridColumns && grid !== undefined && grid !== null) {
+    return `${grid.modelTitle} · ${combinationLabel(grid.color, grid.size)}`;
+  }
+  return item.title;
 }
 
 /**
@@ -213,16 +257,18 @@ export interface ErpImportRow {
 export function planErpCatalogImport(
   items: readonly ErpCatalogItem[],
   existingCosts: ReadonlyMap<string, number>,
+  options: { readonly gridColumns?: boolean } = {},
 ): ErpImportRow[] {
   return items.map((item) => {
     const currentCostCents = existingCosts.get(item.sku) ?? null;
     return {
       sku: item.sku,
-      title: item.title,
+      title: rowTitle(item, options.gridColumns === true),
       imageUrl: item.imageUrls[0] ?? null,
       erpPriceCents: validCents(item.priceCents),
       currentCostCents,
       needsCost: currentCostCents === null,
+      modelCode: options.gridColumns === true ? (item.grid?.modelCode ?? null) : null,
     };
   });
 }
@@ -252,6 +298,15 @@ export const erpCatalogItemSchema = z.object({
     unit: nullableText(20),
     cest: nullableText(20),
   }),
+  erpProductId: z.number().int().positive().nullish(),
+  grid: z
+    .object({
+      modelCode: z.string().trim().min(1).max(MAX_MODEL_CODE_LENGTH),
+      modelTitle: z.string().trim().min(1).max(500),
+      color: nullableText(MAX_GRID_OPTION_LENGTH),
+      size: nullableText(MAX_GRID_OPTION_LENGTH),
+    })
+    .nullish(),
 });
 
 /** The reseller prices the supplier typed for new products, in cents. */
@@ -318,6 +373,8 @@ export function erpCatalogReadCharacters(
   return characters;
 }
 
+const readNoticeSchema = z.object({ name: z.string().max(500), reason: z.string().max(500) });
+
 /** A stored catalog read, validated whenever it is read back from the database. */
 export const erpCatalogReadResultSchema = z.object({
   items: z
@@ -326,9 +383,9 @@ export const erpCatalogReadResultSchema = z.object({
     .refine((items) => erpCatalogReadCharacters(items) <= MAX_ERP_READ_CHARACTERS, {
       message: "A leitura do catálogo tem texto demais para guardar",
     }),
-  skipped: z
-    .array(z.object({ name: z.string().max(500), reason: z.string().max(500) }))
-    .max(MAX_ERP_READ_ITEMS),
+  skipped: z.array(readNoticeSchema).max(MAX_ERP_READ_ITEMS),
+  /** Absent on reads stored before grids: none of their products came in as one. */
+  separated: z.array(readNoticeSchema).max(MAX_ERP_READ_ITEMS).default([]),
   truncated: z.boolean(),
 });
 

@@ -1,3 +1,4 @@
+import type { BillingRules } from "@sellbridge/shared/billing";
 import { assertBillingCapacity, lockBillingTenant } from "./billing.ts";
 import { conflictError, notFoundError } from "@sellbridge/shared/errors";
 import type { ManualSaleChannel } from "@sellbridge/shared/schemas";
@@ -135,7 +136,8 @@ export async function ensureManualStore(
 }
 
 export interface UpsertStoreConnectionInput {
-  billingEnabled?: boolean;
+  /** Plan limits to enforce; null or absent where billing is off. */
+  billing?: BillingRules | null;
   tenantId: string;
   marketplace: Marketplace;
   externalShopId: string;
@@ -206,7 +208,7 @@ async function saveStoreConnection(
   input: UpsertStoreConnectionInput,
 ): Promise<StoreConnectionSummary> {
   await assertShopFreeForTenant(executor, input);
-  if (input.billingEnabled) {
+  if (input.billing !== undefined && input.billing !== null) {
     await lockBillingTenant(executor, input.tenantId);
     const [existing] = await executor
       .select()
@@ -219,9 +221,15 @@ async function saveStoreConnection(
           ne(storeConnections.status, "disconnected"),
         ),
       );
-    if (!existing) await assertBillingCapacity(executor, input.tenantId, "stores");
+    if (existing === undefined) {
+      await assertBillingCapacity(executor, {
+        tenantId: input.tenantId,
+        rules: input.billing,
+        resource: "stores",
+      });
+    }
   }
-  const { billingEnabled: _billingEnabled, supplierId = null, ...connection } = input;
+  const { billing: _billing, supplierId = null, ...connection } = input;
   const values = { ...connection, status: "connected" as const, lastError: null };
   const [saved] = await executor
     .insert(storeConnections)

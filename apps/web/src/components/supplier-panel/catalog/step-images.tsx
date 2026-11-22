@@ -82,10 +82,12 @@ function linkProblem(url: string, images: readonly string[]): string | null {
 }
 
 function AddImageForm({
+  inputId,
   images,
   serverError,
   onAdd,
 }: {
+  inputId: string;
   images: readonly string[];
   serverError: string | undefined;
   onAdd: (url: string) => void;
@@ -106,10 +108,10 @@ function AddImageForm({
   }
   return (
     <form className="grid gap-2" onSubmit={add} noValidate>
-      <Label htmlFor={inputIdOf("imageUrls")}>Ou cole o link da imagem</Label>
+      <Label htmlFor={inputId}>Ou cole o link da imagem</Label>
       <div className="flex gap-2">
         <Input
-          id={inputIdOf("imageUrls")}
+          id={inputId}
           value={link}
           onChange={(event) => setLink(event.target.value)}
           placeholder="https://"
@@ -226,9 +228,11 @@ function DeviceUpload({
 
 function ImageList({
   images,
+  label,
   onChange,
 }: {
   images: readonly string[];
+  label: string;
   onChange: (imageUrls: string[]) => void;
 }) {
   if (images.length === 0) {
@@ -242,7 +246,7 @@ function ImageList({
   const without = (index: number) => images.filter((_, position) => position !== index);
   return (
     // min-w-0: a long link truncates instead of widening the whole step past its card.
-    <ol className="grid min-w-0 gap-2" aria-label="Imagens do produto">
+    <ol className="grid min-w-0 gap-2" aria-label={label}>
       {images.map((url, index) => (
         <ImageRow
           key={url}
@@ -256,6 +260,45 @@ function ImageList({
   );
 }
 
+/**
+ * Upload from the device, a pasted link and the list with cover and removal: one set of photos
+ * (the product's, or one colour's in a grid). The first photo is the cover.
+ */
+export function ProductImages({
+  supplierId,
+  images,
+  inputId,
+  label,
+  serverError,
+  onChange,
+}: {
+  supplierId: string;
+  images: readonly string[];
+  /** The id of the link field, unique on the page. */
+  inputId: string;
+  /** How screen readers name the list, e.g. "Imagens do produto". */
+  label: string;
+  serverError?: string | undefined;
+  onChange: (imageUrls: string[]) => void;
+}) {
+  return (
+    <>
+      <DeviceUpload
+        supplierId={supplierId}
+        images={images}
+        onAdd={(urls) => onChange([...images, ...urls])}
+      />
+      <AddImageForm
+        inputId={inputId}
+        images={images}
+        serverError={serverError}
+        onAdd={(url) => onChange([...images, url])}
+      />
+      <ImageList images={images} label={label} onChange={onChange} />
+    </>
+  );
+}
+
 export function StepImages({
   values,
   errors,
@@ -263,22 +306,18 @@ export function StepImages({
   onChange,
   supplierId,
 }: StepProps & { supplierId: string }) {
-  const images = values.imageUrls;
   return (
     <div className="grid gap-4">
       <p className="text-sm text-muted-foreground">A primeira imagem é a capa do anúncio.</p>
       <FieldReason field="imageUrls" reasons={reasons} />
-      <DeviceUpload
+      <ProductImages
         supplierId={supplierId}
-        images={images}
-        onAdd={(urls) => onChange({ imageUrls: [...images, ...urls] })}
-      />
-      <AddImageForm
-        images={images}
+        images={values.imageUrls}
+        inputId={inputIdOf("imageUrls")}
+        label="Imagens do produto"
         serverError={errors.imageUrls}
-        onAdd={(url) => onChange({ imageUrls: [...images, url] })}
+        onChange={(imageUrls) => onChange({ imageUrls })}
       />
-      <ImageList images={images} onChange={(imageUrls) => onChange({ imageUrls })} />
     </div>
   );
 }

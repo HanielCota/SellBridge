@@ -1,4 +1,7 @@
 import {
+  DELETED_STORE_PAUSE_JOB_OPTIONS,
+  type DeletedStorePauseJob,
+  deletedStorePauseJobId,
   enqueueStoreOrderCatchUpJob,
   erpCatalogExportJobId,
   erpCatalogExportJobSchema,
@@ -24,6 +27,8 @@ import {
   type StoreOrderCatchUpJob,
 } from "@sellbridge/shared/queues";
 import { createRedisSlotStore } from "@sellbridge/shared/redis-slots";
+import type { EmailQuotaStore } from "@sellbridge/shared/email-quota";
+import { createRedisEmailQuotaStore } from "@sellbridge/shared/redis-email-quota-store";
 import { Queue } from "bullmq";
 import { environment } from "./environment.ts";
 
@@ -60,6 +65,14 @@ export function sharedRateSlots(namespace: string) {
       createRedisSlotStore(getPublishQueue(), namespace).reserve(key, spacingInMs),
   };
 }
+
+/** The daily e-mail counters, shared with the worker through Redis; connects on first use. */
+export const sharedEmailQuotaStore: EmailQuotaStore = {
+  reserve: async (reservation) =>
+    createRedisEmailQuotaStore(getPublishQueue()).reserve(reservation),
+  claimOnce: async (key, ttlInSeconds) =>
+    createRedisEmailQuotaStore(getPublishQueue()).claimOnce(key, ttlInSeconds),
+};
 
 let webhookQueue: Queue | null = null;
 
@@ -222,4 +235,17 @@ export async function retryFailedJob(queueName: string, jobId: string): Promise<
   }
   await job.retry("failed");
   return "retried";
+}
+
+let deletedStorePauseQueue: Queue | null = null;
+
+/** Hands a deleted account's live listings to the worker, which pauses them until done. */
+export async function enqueueDeletedStorePause(job: DeletedStorePauseJob): Promise<void> {
+  deletedStorePauseQueue ??= new Queue(QUEUE_NAMES.deletedStorePause, {
+    connection: { url: environment.REDIS_URL },
+  });
+  await deletedStorePauseQueue.add("pause-deleted-store", job, {
+    ...DELETED_STORE_PAUSE_JOB_OPTIONS,
+    jobId: deletedStorePauseJobId(job),
+  });
 }

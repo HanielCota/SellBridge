@@ -1,5 +1,6 @@
 import {
   type ProblemDetail,
+  countOpenMoneyProblems,
   getProblemEvent,
   listProblemEvents,
   setProblemResolved,
@@ -54,10 +55,21 @@ export const adminListProblems = createServerFn({ method: "GET" })
     return { items: page.items, nextCursor: encodeProblemCursor(page.nextCursor) };
   });
 
+/** The "Problemas" tab counter: refunds and held payments still waiting for the team. */
+export const adminCountOpenMoneyProblems = createServerFn({ method: "GET" })
+  .middleware([staffMiddleware("audit.view")])
+  .handler(async () => await countOpenMoneyProblems(database));
+
 /** The protected payment a "needs a decision" problem is about, for its two buttons. */
 function heldPaymentIdOf(event: string, context: Record<string, unknown>): string | null {
   const id = context.shipmentPaymentId;
   return event === "asaas.held_payment_needs_decision" && typeof id === "string" ? id : null;
+}
+
+/** The payment a refused refund is about: the team gives it back by hand, with a guide. */
+function manualRefundIdOf(event: string, context: Record<string, unknown>): string | null {
+  const id = context.shipmentPaymentId;
+  return event === "asaas.refund_refused" && typeof id === "string" ? id : null;
 }
 
 export const adminGetProblem = createServerFn({ method: "GET" })
@@ -73,6 +85,7 @@ export const adminGetProblem = createServerFn({ method: "GET" })
       ...summary,
       technicalDetails: technicalDetailsOf(problem, context),
       heldPaymentId: heldPaymentIdOf(problem.event, context),
+      manualRefundId: manualRefundIdOf(problem.event, context),
       canRetry: problemRetryOf(problem.event, context) !== null,
     };
   });

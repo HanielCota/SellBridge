@@ -2,6 +2,8 @@ import { describe, expect, it } from "vitest";
 import {
   blingOverviewFrom,
   blingStockLine,
+  countBlingProducts,
+  gridProductsNote,
   isBlingExportRunning,
   isBlingReadRunning,
   skippedProductsNote,
@@ -182,9 +184,9 @@ describe("blingStockLine", () => {
     );
   });
 
-  it("says what turns it on while the NF-e through Bling is off", () => {
-    expect(blingStockLine({ ...view, invoiceEnabledAt: null })).toBe(
-      "O estoque passa a acompanhar o Bling sozinho quando a nota fiscal pelo Bling estiver ligada.",
+  it("says the stock follows Bling even while the NF-e through Bling is off", () => {
+    expect(blingStockLine({ ...view, invoiceEnabledAt: null })).toMatch(
+      /^Estoque atualizado sozinho pelo Bling · última conferência: /,
     );
   });
 });
@@ -280,5 +282,31 @@ describe("send to Bling", () => {
       status: "failed",
       reason: expect.stringContaining("enviar de novo"),
     });
+  });
+});
+
+const importRow = (sku: string, needsCost: boolean, modelCode: string | null = null) => ({
+  sku,
+  needsCost,
+  modelCode,
+});
+
+describe("countBlingProducts", () => {
+  it("counts a grid's variations as one product, new while any of them is new", () => {
+    const counts = countBlingProducts([
+      importRow("TEN-P-38", false, "TEN"),
+      importRow("TEN-P-39", true, "TEN"),
+      importRow("BOLSA", false),
+      importRow("CANECA", true),
+    ]);
+
+    expect(counts).toEqual({ products: 3, existing: 1, fresh: 2, grids: 1, gridVariations: 2 });
+  });
+
+  it("says how a grid's variations come in", () => {
+    expect(gridProductsNote({ grids: 1, gridVariations: 4 })).toBe(
+      "1 deles tem cores e tamanhos: as 4 variações entram como um produto só, cada uma com o próprio preço.",
+    );
+    expect(gridProductsNote({ grids: 2, gridVariations: 9 })).toContain("entram como 2 produtos");
   });
 });

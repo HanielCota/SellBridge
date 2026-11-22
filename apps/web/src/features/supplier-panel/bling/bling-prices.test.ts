@@ -10,6 +10,7 @@ function row(sku: string, overrides: Partial<ErpImportRow> = {}): ErpImportRow {
     erpPriceCents: 3990,
     currentCostCents: null,
     needsCost: true,
+    modelCode: null,
     ...overrides,
   };
 }

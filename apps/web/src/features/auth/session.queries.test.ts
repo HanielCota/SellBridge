@@ -30,6 +30,7 @@ function sessionFor(profileSlug: string | null): AppSession {
     adminMode: false,
     teamOnly: false,
     termsAccepted: true,
+    contract: { standing: "not_required", deadline: null, blocksPanel: false },
   };
 }
 

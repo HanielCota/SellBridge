@@ -7,11 +7,15 @@ import {
   type SupplierPanelViewer,
 } from "@/lib/server/supplier-panel-access";
 
-/** `?envio=<parcel>&arquivo=xml|danfe`, plus `fornecedor=<id>` when the supplier's panel asks. */
+/**
+ * `?envio=<parcel>&arquivo=xml|danfe`, plus `fornecedor=<id>` when the supplier's panel asks and
+ * `nota=venda` for the supplier's sale to the reseller in venda à ordem (else the note in the box).
+ */
 export const invoiceFileQuerySchema = z.object({
   envio: z.uuid(),
   arquivo: z.enum(INVOICE_FILE_KINDS),
   fornecedor: z.uuid().optional(),
+  nota: z.enum(["venda"]).optional(),
 });
 
 /** Who asks for the file: the reseller's workspace, or a supplier panel for one supplier. */

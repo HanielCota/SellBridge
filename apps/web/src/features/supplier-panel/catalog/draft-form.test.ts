@@ -9,6 +9,7 @@ import {
   panelFormValues,
   EMPTY_PRODUCT_FISCAL_FORM_VALUES,
   parseDraft,
+  FORM_STEPS,
   phoneStepLine,
   stepOfField,
   withSuggestedPriceFollowingCost,
@@ -316,6 +317,6 @@ describe("fiscal fields", () => {
 
 describe("phoneStepLine", () => {
   it("names the step and where it sits among the four", () => {
-    expect(phoneStepLine("details")).toBe("Etapa 2 de 4 · Dados obrigatórios");
+    expect(phoneStepLine("details", FORM_STEPS)).toBe("Etapa 2 de 4 · Dados obrigatórios");
   });
 });

@@ -505,6 +505,83 @@ describe("migrations", { timeout: MIGRATION_TEST_TIMEOUT }, () => {
     expect(listings.map((row) => row.description)).toEqual(expected);
   });
 
+  it("drop_stripe_billing leaves Stripe-linked accounts without a plan and keeps Asaas ones", async () => {
+    const migration = journal.entries.find((entry) => entry.tag.endsWith("_drop_stripe_billing"));
+    if (migration === undefined) throw new Error("drop_stripe_billing migration missing");
+    const url = await throwawayDatabase();
+    await applyMigrationsUpTo(url, migration.idx - 1);
+    await withClient(url, async (sql) => {
+      await sql`
+        insert into organization (id, name, slug, created_at) values
+          ('org-stripe', 'Stripe', 'stripe-billing', now()),
+          ('org-asaas', 'Asaas', 'asaas-billing', now()),
+          ('org-customer-only', 'Cliente', 'customer-only-billing', now()),
+          ('org-unlinked', 'Sem vínculo', 'unlinked-billing', now()),
+          ('org-subscription-only', 'Assinatura', 'subscription-only-billing', now())`;
+      await sql`
+        insert into billing_accounts (tenant_id, provider, customer_id, subscription_id, plan, status, period_end) values
+          ('org-stripe', 'stripe', 'cus_stripe', 'sub_stripe', 'pro', 'active', '2026-12-20T00:00:00Z'),
+          ('org-asaas', 'asaas', 'cus_asaas', 'sub_asaas', 'elite', 'active', '2026-12-20T00:00:00Z'),
+          ('org-customer-only', 'stripe', 'cus_only', null, 'pro', 'incomplete', null),
+          ('org-unlinked', 'stripe', null, null, 'start', 'active', null),
+          ('org-subscription-only', 'stripe', null, 'sub_only', 'black', 'past_due', '2026-12-20T00:00:00Z')`;
+    });
+
+    await runMigrator(url);
+
+    const rows = await withClient(
+      url,
+      (sql) => sql<
+        {
+          tenant_id: string;
+          customer_id: string | null;
+          subscription_id: string | null;
+          plan: string;
+          status: string;
+        }[]
+      >`
+        select tenant_id, customer_id, subscription_id, plan, status from billing_accounts
+        order by tenant_id`,
+    );
+    expect([...rows]).toEqual([
+      {
+        tenant_id: "org-asaas",
+        customer_id: "cus_asaas",
+        subscription_id: "sub_asaas",
+        plan: "elite",
+        status: "active",
+      },
+      {
+        tenant_id: "org-customer-only",
+        customer_id: null,
+        subscription_id: null,
+        plan: "free",
+        status: "canceled",
+      },
+      {
+        tenant_id: "org-stripe",
+        customer_id: null,
+        subscription_id: null,
+        plan: "free",
+        status: "canceled",
+      },
+      {
+        tenant_id: "org-subscription-only",
+        customer_id: null,
+        subscription_id: null,
+        plan: "free",
+        status: "canceled",
+      },
+      {
+        tenant_id: "org-unlinked",
+        customer_id: null,
+        subscription_id: null,
+        plan: "start",
+        status: "active",
+      },
+    ]);
+  });
+
   it("M1: the region leftovers of the CPF change are gone and the holder stays", async () => {
     const url = await throwawayDatabase();
     await runMigrator(url);
@@ -528,5 +605,70 @@ describe("migrations", { timeout: MIGRATION_TEST_TIMEOUT }, () => {
         order by column_name`,
     );
     expect(holder.map((row) => row.name)).toEqual(["cpf", "full_name", "starter_supplier_id"]);
+  });
+
+  it("cancel_queued_parcels_of_cancelled_sales frees the queue of sales cancelled before the fix, once", async () => {
+    const migration = journal.entries.find((entry) =>
+      entry.tag.endsWith("_cancel_queued_parcels_of_cancelled_sales"),
+    );
+    if (migration === undefined) throw new Error("cancel_queued_parcels migration missing");
+    const url = await throwawayDatabase();
+    await applyMigrationsUpTo(url, migration.idx - 1);
+    const store = "00000000-0000-4000-8000-000000000105";
+    const supplier = "00000000-0000-4000-8000-000000000106";
+    const parcels: { id: string; order: "cancelled" | "paid"; status: string }[] = [
+      { id: "1", order: "cancelled", status: "forwarded" },
+      { id: "2", order: "cancelled", status: "accepted" },
+      { id: "3", order: "cancelled", status: "shipped" },
+      { id: "4", order: "paid", status: "forwarded" },
+    ];
+    await withClient(url, async (sql) => {
+      await sql`
+        insert into organization (id, name, slug, created_at)
+        values ('org-cancel', 'Loja', 'loja-cancel', now())`;
+      await sql`
+        insert into store_connections (id, tenant_id, marketplace, external_shop_id, shop_name, connected_at)
+        values (${store}, 'org-cancel', 'shopee', 'shop-cancel', 'Loja', now())`;
+      await sql`
+        insert into suppliers (id, name, niche, state, city)
+        values (${supplier}, 'Fornecedor', 'Teste', 'SP', 'Franca')`;
+      for (const parcel of parcels) {
+        const orderId = `00000000-0000-4000-8000-00000000030${parcel.id}`;
+        await sql`
+          insert into orders (id, tenant_id, store_connection_id, external_order_id, status, total_cents, ordered_at)
+          values (${orderId}, 'org-cancel', ${store}, ${`SH-${parcel.id}`}, ${parcel.order}, 10000, now())`;
+        await sql`
+          insert into order_shipments (id, tenant_id, order_id, supplier_id, status, address, items)
+          values (${`00000000-0000-4000-8000-00000000040${parcel.id}`}, 'org-cancel', ${orderId},
+            ${supplier}, ${parcel.status}, '{}'::jsonb, '[]'::jsonb)`;
+      }
+    });
+
+    await runMigrator(url);
+    const file = readFileSync(`${migrationsFolder}/${migration.tag}.sql`, "utf8");
+    await withClient(url, async (sql) => {
+      for (const statement of file.split("--> statement-breakpoint")) {
+        if (statement.trim()) await sql.unsafe(statement);
+      }
+    });
+
+    const rows = await withClient(
+      url,
+      (sql) => sql<{ id: string; status: string; notes: string[] }[]>`
+        select s.id, s.status,
+          coalesce(array_agg(e.note) filter (where e.id is not null), '{}') as notes
+        from order_shipments s
+        left join shipment_events e on e.shipment_id = s.id
+        group by s.id, s.status
+        order by s.id`,
+    );
+    const cancelNote =
+      "Venda cancelada na Shopee. Não envie o produto; se já separou, devolva ao estoque.";
+    expect(rows.map((row) => [row.status, row.notes])).toEqual([
+      ["cancelled", [cancelNote]],
+      ["cancelled", [cancelNote]],
+      ["shipped", []],
+      ["forwarded", []],
+    ]);
   });
 });

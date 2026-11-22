@@ -106,7 +106,7 @@ function ProblemsPage() {
     <>
       <PageHeader
         title="Problemas"
-        description="Erros que o site e as tarefas em segundo plano registraram, o mais recente primeiro. Cada um some 30 dias depois da última vez que aconteceu."
+        description="Erros que o site e as tarefas em segundo plano registraram, o mais recente primeiro. Cada um some 30 dias depois da última vez que aconteceu. Devolução e pagamento guardado em aberto ficam na lista, em qualquer período, até alguém marcar como resolvido."
       />
       <div className="flex flex-col gap-3 lg:flex-row lg:flex-wrap lg:items-center">
         <FilterTabs

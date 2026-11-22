@@ -121,6 +121,11 @@ export const productModels = pgTable(
       .notNull()
       .references(() => suppliers.id, { onDelete: "cascade" }),
     categoryId: uuid().references(() => categories.id, { onDelete: "set null" }),
+    /**
+     * The supplier's own code for the model (the spreadsheet's "codigo_modelo"); one per supplier.
+     * A grid typed in the form gets one from its title.
+     */
+    code: text().notNull(),
     title: text().notNull(),
     description: text().notNull().default(""),
     /** Photos for combinations whose colour has none of its own. */
@@ -149,6 +154,7 @@ export const productModels = pgTable(
     index("product_models_supplier_idx").on(table.supplierId),
     /** Lets a combination's foreign key also prove it belongs to the model's supplier. */
     uniqueIndex("product_models_id_supplier_idx").on(table.id, table.supplierId),
+    uniqueIndex("product_models_supplier_code_idx").on(table.supplierId, table.code),
     check(
       "product_models_sale_terms_check",
       sql`(${table.warrantyType} is null or ${table.warrantyType} in ('none', 'seller', 'factory')) and (${table.warrantyDays} is null or ${table.warrantyDays} between 1 and 3650) and (${table.madeToOrderDays} is null or ${table.madeToOrderDays} between 1 and 60)`,
@@ -318,5 +324,75 @@ export const supplierProducts = pgTable(
       "supplier_products_sale_terms_check",
       sql`(${table.warrantyType} is null or ${table.warrantyType} in ('none', 'seller', 'factory')) and (${table.warrantyDays} is null or ${table.warrantyDays} between 1 and 3650) and (${table.madeToOrderDays} is null or ${table.madeToOrderDays} between 1 and 60)`,
     ),
+  ],
+);
+
+/**
+ * A supplier grouping products they already had into one grid (decision of 20/11/2026). The
+ * products keep their ids, so listings and orders never notice; separating restores them.
+ */
+export const productGroupings = pgTable(
+  "product_groupings",
+  {
+    id: uuid().primaryKey().defaultRandom(),
+    supplierId: uuid()
+      .notNull()
+      .references(() => suppliers.id, { onDelete: "cascade" }),
+    /** Null once separated: the model is deleted, the record stays as the audit trail. */
+    modelId: uuid().references(() => productModels.id, { onDelete: "set null" }),
+    /** The user who grouped (the supplier, or the team acting as the supplier); no FK, like reviews. */
+    groupedBy: text().notNull(),
+    createdAt: timestamp({ withTimezone: true }).defaultNow().notNull(),
+    separatedAt: timestamp({ withTimezone: true }),
+    separatedBy: text(),
+  },
+  (table) => [
+    index("product_groupings_supplier_idx").on(table.supplierId),
+    /** A model comes from one grouping at most while it exists. */
+    uniqueIndex("product_groupings_model_idx")
+      .on(table.modelId)
+      .where(sql`${table.modelId} is not null`),
+    check(
+      "product_groupings_separated_check",
+      sql`(${table.separatedAt} is null) = (${table.separatedBy} is null)`,
+    ),
+  ],
+);
+
+/**
+ * Each grouped product as it was before: what the grid rewrote (name, description, photos, sheet,
+ * fiscal, category and sale terms). Stock, cost and price are not kept: they change for real.
+ */
+export const productGroupingItems = pgTable(
+  "product_grouping_items",
+  {
+    groupingId: uuid()
+      .notNull()
+      .references(() => productGroupings.id, { onDelete: "cascade" }),
+    supplierProductId: uuid().notNull(),
+    title: text().notNull(),
+    description: text().notNull(),
+    categoryId: uuid().references(() => categories.id, { onDelete: "set null" }),
+    imageUrls: text().array().notNull(),
+    mercadoLivreAttributes: jsonb().$type<Record<string, string>>().notNull(),
+    mercadoLivreCategoryId: text(),
+    mercadoLivreCategoryName: text(),
+    warrantyType: text().$type<WarrantyType>(),
+    warrantyDays: integer(),
+    videoUrl: text(),
+    madeToOrderDays: integer(),
+    carrierOnly: boolean().notNull(),
+    fiscal: jsonb().$type<ProductFiscalPatch>().notNull(),
+  },
+  (table) => [
+    primaryKey({ columns: [table.groupingId, table.supplierProductId] }),
+    // Named by hand: the generated name has 66 characters and Postgres keeps only 63.
+    foreignKey({
+      name: "product_grouping_items_product_fk",
+      columns: [table.supplierProductId],
+      foreignColumns: [supplierProducts.id],
+    }).onDelete("cascade"),
+    /** The foreign key: deleting a product checks its grouping records. */
+    index("product_grouping_items_product_idx").on(table.supplierProductId),
   ],
 );

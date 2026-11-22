@@ -31,7 +31,7 @@ SellBridge is a dropshipping/reselling SaaS: resellers connect their stores on m
 - **Sync** — periodic stock and price sync, orders received through idempotent webhooks.
 - **Dashboard and finances** — KPIs, comparison with the previous period, profit, fees, returns, and CSV export.
 - **Support** — tickets with attachments, history, and an admin view.
-- **SaaS billing** — organization subscriptions, monthly Stripe checkout, automatic renewals, invoices and cancellation through the customer portal. Setup: [docs/billing.md](docs/billing.md).
+- **SaaS billing** — five paid plans with the monthly fee charged through Asaas subscriptions (card that renews by itself or Pix every month), upgrades by the prorated difference and cancellation in the app. Setup: [docs/billing.md](docs/billing.md).
 - **Public API** — REST API with organization-scoped keys, scopes, OpenAPI docs, events, and signed webhooks.
 
 ## Stack

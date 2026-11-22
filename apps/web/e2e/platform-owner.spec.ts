@@ -99,7 +99,7 @@ test("admin comum não mexe na conta do dono nem da equipe", async ({ browser })
   await gotoHydrated(ownerPage, `/admin/clientes/${admin.id}`);
   await ownerPage.getByRole("combobox", { name: "Papel do cliente" }).click();
   await ownerPage.getByRole("option", { name: "Revendedor" }).click();
-  await expect(ownerPage.getByText("Papel atualizado")).toBeVisible();
+  await expect(ownerPage.getByText(/ agora é Revendedor$/)).toBeVisible();
   expect(await accountOf(admin.email)).toMatchObject({ role: "user" });
 });
 

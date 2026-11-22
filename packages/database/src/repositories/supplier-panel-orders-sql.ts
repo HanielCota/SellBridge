@@ -32,7 +32,12 @@ import {
   storeConnections,
   suppliers,
 } from "../schema/index.ts";
-import { preparationHold, supplierClockStartedAt } from "./shipment-timing.ts";
+import {
+  effectiveDispatchDeadlineAt,
+  endOfBrazilDay,
+  preparationHold,
+  supplierClockStartedAt,
+} from "./shipment-timing.ts";
 import { containsPattern } from "./sql/search-pattern.ts";
 
 /**
@@ -40,16 +45,8 @@ import { containsPattern } from "./sql/search-pattern.ts";
  * the database. The repository test checks that this order matches `compareQueueUrgency`.
  */
 
-/** Brazil keeps a fixed -03:00 offset (no daylight saving since 2019), as `period-range` does. */
-const BRAZIL_OFFSET = sql.raw("interval '3 hours'");
-
-/** The end of the Brazil calendar day of a timestamp: the instant `overdueSince` returns. */
-function endOfBrazilDay(column: SQL | typeof orderShipments.dispatchDeadlineAt): SQL<Date | null> {
-  return sql<Date | null>`((date_trunc('day', (${column} at time zone 'UTC') - ${BRAZIL_OFFSET}) + interval '1 day' + ${BRAZIL_OFFSET}) at time zone 'UTC')`;
-}
-
 const acceptAt = sql`(${supplierClockStartedAt} + ${suppliers.acceptWithinHours} * interval '1 hour')`;
-const dispatchAt = sql`coalesce(${endOfBrazilDay(orderShipments.dispatchDeadlineAt)}, ${supplierClockStartedAt} + ${suppliers.dispatchWithinHours} * interval '1 hour')`;
+const dispatchAt = sql`coalesce(${endOfBrazilDay(effectiveDispatchDeadlineAt)}, ${supplierClockStartedAt} + ${suppliers.dispatchWithinHours} * interval '1 hour')`;
 
 const QUEUE_LIST = sql.raw(SUPPLIER_QUEUE_STATUSES.map((status) => `'${status}'`).join(","));
 
@@ -91,13 +88,14 @@ export const orderBlocked = inArray(orders.status, [...BLOCKED_ORDER_STATUSES]);
 /** The supplier must connect its receiving account before this parcel can move. */
 const waitsForReceivingAccount = sql<boolean>`coalesce(${preparationHold} = 'receiving_account', false)`;
 
-/** The parcel's NF-e status; null when the supplier's ERP issues no note for it. */
+/** The status of the parcel's NF-e in the box; null when the supplier's ERP issues no note for it. */
 export const invoiceStatus = sql<InvoiceStatus | null>`(
   select ${shipmentInvoices.status} from ${shipmentInvoices}
   where ${shipmentInvoices.shipmentId} = ${orderShipments.id}
+    and ${shipmentInvoices.kind} in ('direct', 'on_behalf_shipment')
 )`;
 
-/** The parcel's NF-e stopped in the ERP and waits for the supplier. */
+/** One of the parcel's NF-e stopped in the ERP and waits for the supplier. */
 export const invoiceStopped = sql<boolean>`exists (
   select 1 from ${shipmentInvoices}
   where ${shipmentInvoices.shipmentId} = ${orderShipments.id}

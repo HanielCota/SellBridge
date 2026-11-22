@@ -1,8 +1,11 @@
 import type { Database } from "@sellbridge/database";
 import {
   findErpConnection,
+  findResellerErpConnection,
   recordErpRefreshFailure,
+  recordResellerErpRefreshFailure,
   rotateErpTokens,
+  rotateResellerErpTokens,
 } from "@sellbridge/database/repositories";
 import type { FetchLike } from "@sellbridge/marketplaces";
 import {
@@ -27,6 +30,7 @@ export interface ErpBlingDependencies {
 export function supplierBlingClient(
   dependencies: ErpBlingDependencies & { blingCredentials: BlingAppCredentials },
   supplierId: string,
+  expectedConnectedAt?: Date,
 ): BlingClient {
   const { database } = dependencies;
   return createBlingClient({
@@ -38,11 +42,53 @@ export function supplierBlingClient(
       cipher: dependencies.cipher,
       fetchImplementation: dependencies.fetchImplementation,
       store: {
-        load: async () => findErpConnection(database, { supplierId, provider: "bling" }),
+        load: async () => {
+          const connection = await findErpConnection(database, { supplierId, provider: "bling" });
+
+          if (
+            expectedConnectedAt !== undefined &&
+            connection?.connectedAt.getTime() !== expectedConnectedAt.getTime()
+          ) {
+            return null;
+          }
+
+          return connection;
+        },
         rotate: async (connectionId, previousRefreshTokenEnc, tokens) =>
           rotateErpTokens(database, { connectionId, previousRefreshTokenEnc, tokens }),
         markExpired: async (connectionId, refreshTokenEnc, lastError) => {
           await recordErpRefreshFailure(database, {
+            connectionId,
+            refreshTokenEnc,
+            lastError,
+            expired: true,
+          });
+        },
+      },
+    }),
+  });
+}
+
+/** A Bling client on the reseller's own saved connection, renewing and saving its tokens. */
+export function resellerBlingClient(
+  dependencies: ErpBlingDependencies & { blingCredentials: BlingAppCredentials },
+  tenantId: string,
+): BlingClient {
+  const { database } = dependencies;
+  return createBlingClient({
+    http: { fetchImplementation: dependencies.fetchImplementation },
+    limiter: dependencies.limiter,
+    access: storedBlingAccess({
+      accountKey: `reseller:${tenantId}`,
+      credentials: dependencies.blingCredentials,
+      cipher: dependencies.cipher,
+      fetchImplementation: dependencies.fetchImplementation,
+      store: {
+        load: async () => findResellerErpConnection(database, { tenantId, provider: "bling" }),
+        rotate: async (connectionId, previousRefreshTokenEnc, tokens) =>
+          rotateResellerErpTokens(database, { connectionId, previousRefreshTokenEnc, tokens }),
+        markExpired: async (connectionId, refreshTokenEnc, lastError) => {
+          await recordResellerErpRefreshFailure(database, {
             connectionId,
             refreshTokenEnc,
             lastError,

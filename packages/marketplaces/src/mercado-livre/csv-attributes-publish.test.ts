@@ -4,7 +4,8 @@ import { createMercadoLivreConnector } from "./mercado-livre-connector.ts";
 
 /*
  * Item 18: a product imported by CSV with brand, model and barcode publishes in a category that
- * requires them; the same product imported without those columns is refused before creation.
+ * requires them; the same product imported without model and barcode is refused before creation
+ * (a missing brand goes as the category's generic brand since 2026-11-18).
  */
 const API = "https://api.mercadolibre.com";
 const store = { externalShopId: "999", accessToken: "APP_USR-token" };
@@ -90,14 +91,14 @@ describe("publishing a CSV-imported product on Mercado Livre", () => {
     });
   });
 
-  it("is refused before creation when the CSV left them out", async () => {
+  it("is refused before creation when the CSV left the model and barcode out", async () => {
     const { ml, createdItems } = connectorRecordingItems();
     const product = importedProduct(
       "sku;titulo;custo;estoque\nTEN-1;Tênis de corrida leve;49,90;5",
     );
 
     await expect(ml.publishProduct(store, product)).rejects.toMatchObject({
-      message: expect.stringContaining("Marca (BRAND)"),
+      message: expect.stringContaining("Modelo (MODEL), Código universal de produto (GTIN)"),
     });
     expect(createdItems).toEqual([]);
   });

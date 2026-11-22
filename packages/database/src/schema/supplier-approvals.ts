@@ -4,6 +4,7 @@ import {
   APPROVAL_STAGES,
   APPROVAL_TEAM_REASONS,
   CNPJ_LOOKUP_OUTCOMES,
+  COMPANY_SIZES,
   SUPPLIER_REFUSAL_REASON_MAX_LENGTH,
   type ApprovalMissingItem,
 } from "@sellbridge/shared/supplier-approval";
@@ -36,6 +37,8 @@ export const supplierApprovals = pgTable(
     cnpjOutcome: text({ enum: CNPJ_LOOKUP_OUTCOMES }),
     receitaLegalName: text(),
     registrationStatus: text(),
+    /** The Receita size of the last answer; null before it answered or before sizes were kept. */
+    companySize: text({ enum: COMPANY_SIZES }),
     checkedAt: timestamp({ withTimezone: true }),
     unavailableSince: timestamp({ withTimezone: true }),
     decidedBy: text({ enum: ["automatic", "team"] }),
@@ -65,6 +68,10 @@ export const supplierApprovals = pgTable(
     check(
       "supplier_approvals_cnpj_outcome_check",
       sql`${table.cnpjOutcome} is null or ${table.cnpjOutcome} in (${quoted(CNPJ_LOOKUP_OUTCOMES)})`,
+    ),
+    check(
+      "supplier_approvals_company_size_check",
+      sql`${table.companySize} is null or ${table.companySize} in (${quoted(COMPANY_SIZES)})`,
     ),
     check(
       "supplier_approvals_decided_by_check",

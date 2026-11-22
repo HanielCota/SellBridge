@@ -7,6 +7,7 @@ import {
   MAX_GRID_COMBINATIONS,
   MAX_MODEL_TITLE_LENGTH,
   materializeCombination,
+  modelCodeFromTitle,
   productGridDraftSchema,
   productGridSchema,
   type ProductModelShared,
@@ -278,8 +279,28 @@ describe("materializeCombination", () => {
       variantFiscal: {},
     });
 
-    expect(withoutOwn.mercadoLivreAttributes).toEqual({ BRAND: "Pegada", MODEL: "Casual" });
+    expect(withoutOwn.mercadoLivreAttributes).toEqual({
+      BRAND: "Pegada",
+      MODEL: "Casual",
+      COLOR: "Preto",
+      SIZE: "38",
+    });
     expect(withOwn.mercadoLivreAttributes.GTIN).toBe("7891234567895");
+  });
+
+  it("names its own colour and size in the sheet, never the model's", () => {
+    const product = materializeCombination(
+      { ...model, mercadoLivreAttributes: { BRAND: "Pegada", COLOR: "Azul", SIZE: "44" } },
+      {
+        color: "Preto",
+        size: null,
+        colorImageUrls: [],
+        variantAttributes: {},
+        variantFiscal: {},
+      },
+    );
+
+    expect(product.mercadoLivreAttributes).toEqual({ BRAND: "Pegada", COLOR: "Preto" });
   });
 
   it("inherits the model's fiscal fields and lets the combination override its weight", () => {
@@ -337,5 +358,15 @@ describe("productGridDraftSchema", () => {
     expect(result.error?.issues.map((issue) => issue.message)).toEqual([
       "O SKU TEN-1 aparece em mais de uma combinação",
     ]);
+  });
+});
+
+describe("modelCodeFromTitle", () => {
+  it("turns the title into a code without accents or spaces", () => {
+    expect(modelCodeFromTitle("Tênis Casual Couro – Linha 2")).toBe("TENIS-CASUAL-COURO-LINHA-2");
+  });
+
+  it("falls back to MODELO when the title has no letters or numbers", () => {
+    expect(modelCodeFromTitle("  —  ")).toBe("MODELO");
   });
 });

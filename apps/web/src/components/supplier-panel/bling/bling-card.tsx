@@ -13,7 +13,7 @@ import { errorMessage } from "@/lib/errors";
 import { formatAbsoluteTime } from "@/lib/relative-time";
 import { BlingBadge } from "./bling-badge";
 import { BlingExportOutcome } from "./bling-export-outcome";
-import { BlingInvoiceSwitch } from "./bling-invoice-switch";
+import { InvoiceSetupLink } from "./invoice-setup-link";
 
 function connectHref(supplierId: string): string {
   return `/api/integracoes/bling/conectar?fornecedor=${encodeURIComponent(supplierId)}`;
@@ -62,8 +62,9 @@ export function BlingConnectCard({ supplierId }: { supplierId: string }) {
   return (
     <CardShell>
       <CardHeading title="Importar do Bling">
-        Conecte sua conta Bling uma vez e traga os produtos com NCM, unidade, peso e estoque. O
-        SellBridge só lê: nada muda no seu Bling.
+        Conecte sua conta Bling uma vez e traga os produtos com NCM, unidade, peso e estoque.
+        Depois, o estoque se atualiza sozinho, e cada venda do SellBridge dá baixa no estoque do seu
+        Bling.
       </CardHeading>
       <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
         <Button asChild size="lg">
@@ -254,7 +255,7 @@ export function BlingConnectedCard(props: {
         &ldquo;Enviar ao Bling&rdquo; só cria lá os produtos que ainda não existem. Nada do que já
         está no seu Bling é alterado.
       </p>
-      <BlingInvoiceSwitch supplierId={props.supplierId} connection={props.connection} />
+      <InvoiceSetupLink />
     </CardShell>
   );
 }

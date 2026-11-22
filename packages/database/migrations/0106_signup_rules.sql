@@ -1,0 +1,5 @@
+ALTER TABLE "supplier_approvals" DROP CONSTRAINT "supplier_approvals_team_reason_check";--> statement-breakpoint
+ALTER TABLE "supplier_approvals" ADD COLUMN "company_size" text;--> statement-breakpoint
+ALTER TABLE "platform_settings" ADD COLUMN "signup_rules_since" timestamp with time zone;--> statement-breakpoint
+ALTER TABLE "supplier_approvals" ADD CONSTRAINT "supplier_approvals_company_size_check" CHECK ("supplier_approvals"."company_size" is null or "supplier_approvals"."company_size" in ('mei', 'micro', 'small', 'other', 'unknown'));--> statement-breakpoint
+ALTER TABLE "supplier_approvals" ADD CONSTRAINT "supplier_approvals_team_reason_check" CHECK ("supplier_approvals"."team_reason" is null or "supplier_approvals"."team_reason" in ('cnpj_inactive', 'cnpj_not_found', 'cnpj_unsupported', 'legal_name_mismatch', 'lookup_unavailable', 'company_size_unknown'));

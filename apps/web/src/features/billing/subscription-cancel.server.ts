@@ -1,0 +1,176 @@
+import {
+  applyBillingState,
+  getBillingAccount,
+  requireBillingOwner,
+  type BillingAccountPatch,
+} from "@sellbridge/database/repositories";
+import {
+  asaasDueDate,
+  centsFromAsaasValue,
+  FIRST_FEE_REFUND_DAYS,
+  isAsaasError,
+  isPaidCharge,
+  paidOn,
+  refundableFirstFee,
+  type AsaasBillingClient,
+  type AsaasSubscriptionCharge,
+} from "@sellbridge/payments/asaas";
+import { billingPlan, isBillingPlanId } from "@sellbridge/shared/billing";
+import { AppError, conflictError } from "@sellbridge/shared/errors";
+import { logger } from "@sellbridge/shared/logger";
+import { database } from "@/lib/server/database";
+import { billingClient } from "./billing-config.server";
+import { retireUnpaid, UNREACHABLE_MESSAGE, withBillingLock } from "./billing-lock.server";
+import { readSubscriptionState } from "./billing-sync.server";
+
+type BillingAccount = NonNullable<Awaited<ReturnType<typeof getBillingAccount>>>;
+
+const REFUND_DESCRIPTION = `Cancelamento em até ${FIRST_FEE_REFUND_DAYS} dias da primeira mensalidade`;
+
+async function cancellableAccount(tenantId: string) {
+  const account = await getBillingAccount(database, tenantId);
+  if (account?.subscriptionId == null || account.cancelAtPeriodEnd) {
+    throw conflictError("Você não tem uma assinatura ativa para cancelar.");
+  }
+  return { ...account, subscriptionId: account.subscriptionId };
+}
+
+/**
+ * The account's first monthly fee, when the plan is cancelled within 7 days of paying it. A
+ * subscription that took over a month already paid never counts as the first.
+ */
+async function refundOnCancel(
+  client: AsaasBillingClient,
+  account: BillingAccount & { subscriptionId: string },
+): Promise<AsaasSubscriptionCharge | null> {
+  if (account.prepaidUntil !== null) return null;
+  const { charges } = await readSubscriptionState(client, {
+    subscriptionId: account.subscriptionId,
+    prepaidUntil: null,
+  });
+  // Before the first notice stored it, the first fee is this subscription's only paid one.
+  const firstPaid = charges.filter(isPaidCharge).map(paidOn).toSorted()[0] ?? null;
+  return refundableFirstFee({
+    charges,
+    firstPaidOn: account.firstPaidOn ?? firstPaid,
+    today: asaasDueDate(new Date(), 0),
+  });
+}
+
+/**
+ * Stamped like a read from Asaas: a notice sync that read the subscription before it was
+ * cancelled can no longer write it back as active. A sync stamped between this call and its
+ * write may still win once; stamped again, the cancellation is newer than any read before it.
+ * Never thrown: the subscription must still end at Asaas, and the next read of it brings the
+ * account up to date.
+ */
+async function saveCancellation(tenantId: string, patch: BillingAccountPatch): Promise<void> {
+  const save = async () =>
+    applyBillingState(database, { tenantId, eventId: null, observedAt: Date.now(), patch });
+  if (await save()) return;
+  if (await save()) return;
+  logger.warn("billing.cancellation_not_stored", {});
+}
+
+/** A subscription Asaas no longer has is already what cancelling asks for (a retried cancel). */
+async function endSubscription(client: AsaasBillingClient, subscriptionId: string) {
+  try {
+    await client.deleteSubscription(subscriptionId);
+  } catch (error) {
+    if (isAsaasError(error) && error.status === 404) return;
+    throw error;
+  }
+}
+
+/**
+ * True when today's plan costs more than the first fee being given back: the reseller moved up
+ * since, and what was paid for that stays (decision of 19/11/2026), so the screen says it.
+ */
+function planWentUpSince(account: BillingAccount, refundCents: number): boolean {
+  if (!isBillingPlanId(account.plan)) return false;
+  return billingPlan(account.plan).priceCents > refundCents;
+}
+
+/**
+ * Stops everything the account pays or was about to pay, for a plan the team gives with no
+ * charge: the subscription stops renewing and what was opened and never paid is closed. Nothing
+ * is given back and the month already paid runs to its end.
+ */
+export async function stopCharging(client: AsaasBillingClient, account: BillingAccount) {
+  await retireUnpaid(client, { ...account, subscriptionId: null }, { cancelling: true });
+  const { subscriptionId } = account;
+  if (subscriptionId === null) {
+    await saveCancellation(account.tenantId, { pendingPlan: null, pendingReference: null });
+    return;
+  }
+  await endSubscription(client, subscriptionId);
+  const neverPaid = account.status === "incomplete";
+  await saveCancellation(account.tenantId, {
+    cancelAtPeriodEnd: true,
+    scheduledPlan: null,
+    scheduledPlanAt: null,
+    pendingPlan: null,
+    pendingReference: null,
+    ...(neverPaid ? { status: "canceled" } : {}),
+  });
+}
+
+/** What cancelling does before the reseller confirms: until when the plan lasts, or the refund. */
+export async function quoteCancellation(input: { tenantId: string; userId: string }) {
+  await requireBillingOwner(database, input.tenantId, input.userId);
+  const client = billingClient();
+  const account = await cancellableAccount(input.tenantId);
+  try {
+    const refund = await refundOnCancel(client, account);
+    const refundCents = refund === null ? null : centsFromAsaasValue(refund.value);
+    return {
+      endsAt: account.periodEnd?.toISOString() ?? null,
+      refundCents,
+      keepsUpgradeDifference: refundCents !== null && planWentUpSince(account, refundCents),
+    };
+  } catch (error) {
+    if (!isAsaasError(error)) throw error;
+    throw new AppError("EXTERNAL_PROVIDER", UNREACHABLE_MESSAGE, { cause: error });
+  }
+}
+
+/**
+ * Ends the subscription: nothing renews and the paid month runs out, with no proportional
+ * refund. The first monthly fee cancelled within 7 days is given back in full and the plan ends
+ * now. Upgrade differences are never given back.
+ */
+export async function cancelSubscription(input: { tenantId: string; userId: string }) {
+  await requireBillingOwner(database, input.tenantId, input.userId);
+  const client = billingClient();
+  return withBillingLock(input.tenantId, async () => {
+    const account = await cancellableAccount(input.tenantId);
+    const refund = await refundOnCancel(client, account);
+    await retireUnpaid(client, { ...account, subscriptionId: null }, { cancelling: true });
+    // Given back before the subscription ends: a failure leaves it running, never unpaid.
+    if (refund !== null) {
+      await client.refundCharge(refund.id, REFUND_DESCRIPTION);
+      // The money is back: a retry no longer sees the refunded fee, so the plan ends now.
+      await saveCancellation(input.tenantId, {
+        status: "canceled",
+        periodEnd: new Date(),
+      });
+    }
+    await endSubscription(client, account.subscriptionId);
+    const endsNow =
+      refund !== null || account.status === "incomplete" || account.status === "canceled";
+    await saveCancellation(input.tenantId, {
+      cancelAtPeriodEnd: true,
+      scheduledPlan: null,
+      scheduledPlanAt: null,
+      pendingPlan: null,
+      pendingReference: null,
+      ...(endsNow
+        ? { status: "canceled", periodEnd: refund === null ? account.periodEnd : new Date() }
+        : {}),
+    });
+    return {
+      endsAt: endsNow ? null : (account.periodEnd?.toISOString() ?? null),
+      refundCents: refund === null ? null : centsFromAsaasValue(refund.value),
+    };
+  });
+}

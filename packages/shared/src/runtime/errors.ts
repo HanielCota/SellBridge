@@ -14,6 +14,8 @@ export type AppErrorCode =
 export interface AppErrorDetails {
   /** Whether trying the same operation again can succeed (rate limit, timeout, 5xx). */
   readonly retryable?: boolean;
+  /** When a refused operation may pass again (a daily allowance that is used up). */
+  readonly retryAt?: Date;
   /** HTTP status returned by an external provider, when there was one. */
   readonly status?: number | null;
   /** Field-level validation problems. */

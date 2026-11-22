@@ -83,17 +83,60 @@ function RefusalReasonField(props: {
   );
 }
 
+/** "Aprovar" asks first, saying what approving opens to the resellers. */
+function ApproveButton(props: {
+  decision: ReturnType<typeof useDecision>;
+  supplierId: string;
+  supplierName: string;
+  quiet: boolean;
+}) {
+  const { decision, supplierId, supplierName } = props;
+  const [approving, setApproving] = useState(false);
+  return (
+    <>
+      <Button
+        size="lg"
+        variant={props.quiet ? "outline" : "default"}
+        disabled={decision.isPending}
+        onClick={() => setApproving(true)}
+      >
+        <CheckIcon aria-hidden="true" />
+        Aprovar
+      </Button>
+      <ConfirmDialog
+        open={approving}
+        onOpenChange={setApproving}
+        title={`Aprovar ${supplierName}?`}
+        description="Os produtos que ele publicar passam a aparecer para os revendedores, que já podem vender. Para voltar atrás depois, desative o fornecedor na ficha dele."
+        confirmLabel="Aprovar fornecedor"
+        pendingLabel="Aprovando…"
+        cancelLabel="Voltar"
+        isPending={decision.isPending}
+        onConfirm={() =>
+          decision.mutate(
+            { data: { supplierId, decision: "approve" } },
+            { onSuccess: () => setApproving(false) },
+          )
+        }
+      />
+    </>
+  );
+}
+
 interface ApprovalDecisionProps {
   readonly supplierId: string;
   readonly supplierName: string;
   readonly onDecided?: () => void;
+  /** In a list of several suppliers no "Aprovar" is the one colored button of the page. */
+  readonly quiet?: boolean;
 }
 
 /**
- * The team's two answers to a pending supplier: approve in one click (it can be switched off
- * later, as any supplier), or refuse with a reason the supplier reads on its panel.
+ * The team's two answers to a pending supplier: approve after reading what it opens (it can be
+ * switched off later, as any supplier), or refuse with a reason the supplier reads on its panel.
  */
-export function ApprovalDecision({ supplierId, supplierName, onDecided }: ApprovalDecisionProps) {
+export function ApprovalDecision(props: ApprovalDecisionProps) {
+  const { supplierId, supplierName, onDecided } = props;
   const decision = useDecision(supplierName, onDecided);
   const [refusing, setRefusing] = useState(false);
   const [typed, setTyped] = useState("");
@@ -101,14 +144,12 @@ export function ApprovalDecision({ supplierId, supplierName, onDecided }: Approv
   const problem = reasonProblem(typed);
   return (
     <div className="flex flex-wrap gap-2">
-      <Button
-        size="lg"
-        disabled={decision.isPending}
-        onClick={() => decision.mutate({ data: { supplierId, decision: "approve" } })}
-      >
-        <CheckIcon aria-hidden="true" />
-        {decision.isPending && !refusing ? "Aprovando…" : "Aprovar"}
-      </Button>
+      <ApproveButton
+        decision={decision}
+        supplierId={supplierId}
+        supplierName={supplierName}
+        quiet={props.quiet ?? false}
+      />
       <Button
         size="lg"
         variant="outline"
@@ -150,5 +191,28 @@ export function ApprovalDecision({ supplierId, supplierName, onDecided }: Approv
         />
       </ConfirmDialog>
     </div>
+  );
+}
+
+/**
+ * Approves a refused supplier once it solved the reason, such as an MEI that shows the company
+ * left the MEI before the Receita data caught up. Approval can be undone by switching the
+ * supplier off, so it takes one click.
+ */
+export function ApproveRefusedSupplier({
+  supplierId,
+  supplierName,
+}: Pick<ApprovalDecisionProps, "supplierId" | "supplierName">) {
+  const decision = useDecision(supplierName);
+  return (
+    <Button
+      size="lg"
+      className="justify-self-start"
+      disabled={decision.isPending}
+      onClick={() => decision.mutate({ data: { supplierId, decision: "approve" } })}
+    >
+      <CheckIcon aria-hidden="true" />
+      {decision.isPending ? "Aprovando…" : "Aprovar mesmo assim"}
+    </Button>
   );
 }

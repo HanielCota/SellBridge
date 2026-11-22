@@ -2,11 +2,28 @@ import {
   autoForwardJobId,
   erpCatalogExportJobId,
   QUEUE_NAMES,
+  RETURN_DEADLINES_JOB_NAME,
   STORE_ORDER_CATCH_UP_JOB_NAME,
   WEBHOOK_EVENT_JOB_NAME,
 } from "./queues.ts";
 
 type QueueName = (typeof QUEUE_NAMES)[keyof typeof QUEUE_NAMES];
+
+/** Listing ids a problem names; the rest are only counted. */
+const LISTING_IDS_IN_PROBLEM = 20;
+
+/**
+ * The marketplace ids of listings the team must pause by hand, for a problem's text. Each id gets
+ * a prefix, so the scrubbing of personal data (`scrubText`) never takes a numeric one for a CPF.
+ */
+export function listingIdsForProblem(externalIds: readonly string[]): string {
+  const named = externalIds
+    .slice(0, LISTING_IDS_IN_PROBLEM)
+    .map((externalId) => `id_${externalId}`)
+    .join(", ");
+  const rest = externalIds.length - LISTING_IDS_IN_PROBLEM;
+  return rest > 0 ? `${named} and ${rest} more` : named;
+}
 
 /** The log event of a worker job that failed its last attempt; the admin Problemas page keeps it. */
 export const JOB_FAILED_FINAL_EVENT = "job.failed_final";
@@ -27,8 +44,13 @@ export function hasOwnFailureReport(job: { queue: string; name: string }): boole
   return job.queue === QUEUE_NAMES.webhookEvents && job.name === WEBHOOK_EVENT_JOB_NAME;
 }
 
-const STORE_ORDER_CATCH_UP_REASON =
-  "A busca das vendas feitas enquanto a loja estava desconectada falhou em todas as tentativas: confira as vendas no marketplace e lance à mão as que faltarem.";
+/** Jobs that share a queue with another kind of job and need their own reason. */
+const JOB_NAME_REASONS: Readonly<Record<string, string>> = {
+  [STORE_ORDER_CATCH_UP_JOB_NAME]:
+    "A busca das vendas feitas enquanto a loja estava desconectada falhou em todas as tentativas: confira as vendas no marketplace e lance à mão as que faltarem.",
+  [RETURN_DEADLINES_JOB_NAME]:
+    "O fechamento dos prazos de devolução falhou: devoluções vencidas podem não ter sido encerradas nem o estoque devolvido.",
+};
 
 /** What stopped, in the team's words, for the title of the problem. */
 const FAILURE_REASONS: Readonly<Record<QueueName, string>> = {
@@ -42,6 +64,7 @@ const FAILURE_REASONS: Readonly<Record<QueueName, string>> = {
   [QUEUE_NAMES.webhookEventSweep]: "A conferência dos avisos de venda não processados falhou.",
   [QUEUE_NAMES.ticketAutoClose]: "O fechamento automático de chamados parados falhou.",
   [QUEUE_NAMES.shipmentTracking]: "A leitura do rastreio dos pacotes falhou.",
+  [QUEUE_NAMES.orderCheck]: "A conferência das vendas recentes no marketplace falhou.",
   [QUEUE_NAMES.orderAutoForward]:
     "O encaminhamento automático do pedido ao fornecedor falhou em todas as tentativas. Encaminhe o pedido à mão ou tente de novo.",
   [QUEUE_NAMES.notificationDelivery]: "O envio de e-mails e avisos aos clientes falhou.",
@@ -58,6 +81,8 @@ const FAILURE_REASONS: Readonly<Record<QueueName, string>> = {
     "A nova conferência dos fornecedores que esperam aprovação falhou: confira a fila de aprovação.",
   [QUEUE_NAMES.buyerAddressCheck]:
     "A conferência do endereço de compra das lojas do Mercado Livre falhou.",
+  [QUEUE_NAMES.deletedStorePause]:
+    "A pausa dos anúncios de uma conta excluída falhou: pause à mão no marketplace os anúncios listados no erro.",
 };
 
 const UNKNOWN_QUEUE_REASON = "Uma tarefa do robô falhou em todas as tentativas.";
@@ -125,6 +150,13 @@ export function jobFailureReason(queue: string): string {
   return UNKNOWN_QUEUE_REASON;
 }
 
+function failureReasonOf(job: { queue: string; name: string }): string {
+  if (Object.hasOwn(JOB_NAME_REASONS, job.name)) {
+    return Reflect.get(JOB_NAME_REASONS, job.name);
+  }
+  return jobFailureReason(job.queue);
+}
+
 function subjectOf(data: unknown): Record<string, string> {
   if (typeof data !== "object" || data === null) {
     return {};
@@ -148,10 +180,7 @@ export function finalJobFailureFields(job: FailedJob): Record<string, unknown> {
   const subject = subjectOf(job.data);
   const retryable = retryableJobIdOf(job.queue, subject) !== null;
   return {
-    reason:
-      job.name === STORE_ORDER_CATCH_UP_JOB_NAME
-        ? STORE_ORDER_CATCH_UP_REASON
-        : jobFailureReason(job.queue),
+    reason: failureReasonOf(job),
     queue: job.queue,
     jobId: job.jobId,
     attemptsMade: job.attemptsMade,
