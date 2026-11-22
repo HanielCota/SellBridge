@@ -11,7 +11,7 @@ import { Button, buttonVariants } from "@/components/ui/button";
 import { ContractCodeStep } from "@/components/contract-signing/contract-code-step";
 import { ContractSummaryStep } from "@/components/contract-signing/contract-summary-step";
 import { getAppSession } from "@/features/auth/session.functions";
-import { sessionMaySign } from "@/features/contract-signing/contract-gate";
+import { sessionContractOf, sessionMaySign } from "@/features/contract-signing/contract-gate";
 import { useContractSigning } from "@/features/contract-signing/use-contract-signing";
 import { needsTermsAcceptance } from "@/features/onboarding/terms-gate";
 import { parseRequestedProfile } from "@/lib/profile-param";
@@ -45,7 +45,7 @@ export const Route = createFileRoute("/assinar-contrato")({
     // Within the 30 days the person may leave and sign later; past them only signing opens.
     return {
       profileKind: session.profileKind,
-      canSignLater: session.contract.standing === "grace",
+      canSignLater: sessionContractOf(session).standing === "grace",
     };
   },
   component: SignContractPage,
