@@ -31,6 +31,7 @@ import { ContractReminder } from "@/components/contract-signing/contract-reminde
 import {
   isContractGateFreePath,
   needsContractSigning,
+  sessionContractOf,
   showsSigningReminder,
 } from "@/features/contract-signing/contract-gate";
 import { setupProgressQueryOptions } from "@/features/reports/reports.queries";
@@ -199,7 +200,10 @@ function AppLayout() {
             className="mx-auto w-full max-w-[1440px] space-y-6 px-4 pt-4 pb-28 md:px-8 md:pt-8 md:pb-32"
           >
             {showsSigningReminder(session, isTeamPage(pathname)) ? (
-              <ContractReminder contract={session.contract} profileKind={session.profileKind} />
+              <ContractReminder
+                contract={sessionContractOf(session)}
+                profileKind={session.profileKind}
+              />
             ) : null}
             {session.profileKind === "seller" && !session.teamOnly ? <SetupReminder /> : null}
             <Outlet />
