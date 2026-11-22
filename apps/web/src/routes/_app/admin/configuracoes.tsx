@@ -5,6 +5,7 @@ import { PaymentFeeCard } from "@/components/admin-settings/payment-fee-card";
 import { RequireReceivingAccountCard } from "@/components/admin-settings/require-receiving-account-card";
 import { ReceivingRulesCard } from "@/components/admin-settings/receiving-rules-card";
 import { ReturnAnswerDaysCard } from "@/components/admin-settings/return-answer-days-card";
+import { SignupRulesCard } from "@/components/admin-settings/signup-rules-card";
 import { PageHeader } from "@/components/layout/page-header";
 import { contractSigningSettingsQueryOptions } from "@/features/contract-signing/contract-signing.queries";
 import { receivingRulesQueryOptions } from "@/features/supplier-payments/receiving-rules.queries";
@@ -34,6 +35,7 @@ function SettingsPage() {
       <PageHeader title="Configurações" description="Valores que valem para toda a plataforma." />
       <PaymentFeeCard />
       <RequireReceivingAccountCard />
+      <SignupRulesCard />
       <ReceivingRulesCard />
       <ReturnAnswerDaysCard />
       <ContractSigningCard />
