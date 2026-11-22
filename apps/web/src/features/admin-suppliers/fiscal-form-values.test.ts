@@ -113,3 +113,9 @@ describe("fiscalErrorField", () => {
     expect(() => fiscalErrorField(["address", "country"])).toThrow(/address\.country/);
   });
 });
+
+describe("the invoice model a supplier starts with", () => {
+  it("starts a supplier without a saved profile on venda à ordem", () => {
+    expect(supplierFiscalFormValues(null).fiscalInvoiceModel).toBe("on_behalf");
+  });
+});

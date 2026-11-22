@@ -2,6 +2,7 @@ import {
   countSupplierShipmentsByTab,
   countSupplierStoppedInvoices,
   getSupplierPanelProfile,
+  isOnBehalfInvoiceOff,
   getSupplierReputationStats,
   listSupplierOutOfStockListed,
   listSupplierProductPhotos,
@@ -53,6 +54,8 @@ export interface SupplierHome {
   orderTotals: { accept: number; progress: number };
   /** Parcels whose NF-e stopped in the ERP and waits for the supplier. */
   stoppedInvoices: number;
+  /** Venda à ordem is chosen but no Bling issues its notes. */
+  onBehalfInvoiceOff: boolean;
   catalog: CatalogFix[];
   health: SupplierHealth;
   /** The public "Fornecedor destaque" badge resellers see: the home's green note. */
@@ -84,16 +87,25 @@ async function loadHomeOrders(supplierId: string, now: Date) {
 /** The "Início" page: one list of what needs the supplier, and the health in one line. */
 export async function loadSupplierHome(supplierId: string): Promise<SupplierHome> {
   const now = new Date();
-  const [profile, healthInput, orders, stock, rejectedProducts, reputation, stoppedInvoices] =
-    await Promise.all([
-      getSupplierPanelProfile(database, supplierId),
-      loadSupplierHealthInput(database, { supplierId, now }),
-      loadHomeOrders(supplierId, now),
-      listSupplierOutOfStockListed(database, supplierId),
-      listSupplierRejectedProducts(database, supplierId),
-      loadPublicReputation(supplierId, now),
-      countSupplierStoppedInvoices(database, supplierId),
-    ]);
+  const [
+    profile,
+    healthInput,
+    orders,
+    stock,
+    rejectedProducts,
+    reputation,
+    stoppedInvoices,
+    onBehalfInvoiceOff,
+  ] = await Promise.all([
+    getSupplierPanelProfile(database, supplierId),
+    loadSupplierHealthInput(database, { supplierId, now }),
+    loadHomeOrders(supplierId, now),
+    listSupplierOutOfStockListed(database, supplierId),
+    listSupplierRejectedProducts(database, supplierId),
+    loadPublicReputation(supplierId, now),
+    countSupplierStoppedInvoices(database, supplierId),
+    isOnBehalfInvoiceOff(database, supplierId),
+  ]);
   const catalog = catalogFixes(stock, rejectedProducts);
   // Ids and counts only: what the list showed, for support to compare with a complaint.
   logger.info("supplier_panel.home_loaded", {
@@ -107,6 +119,7 @@ export async function loadSupplierHome(supplierId: string): Promise<SupplierHome
     supplierName: profile.name,
     ...orders,
     stoppedInvoices,
+    onBehalfInvoiceOff,
     catalog,
     health: computeSupplierHealth(healthInput),
     highlighted: reputation.highlighted,
