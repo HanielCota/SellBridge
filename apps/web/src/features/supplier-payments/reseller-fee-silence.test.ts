@@ -44,7 +44,8 @@ const TEAM_ONLY_LINES: readonly { path: string; line: string }[] = [
 
 /**
  * The supplier's own contract with SellBridge states the fee (Central, 21/11/2026): these lines
- * only render in the supplier contract, never in the seller's, which the same file also holds.
+ * only render in the supplier contract, never in the seller's, which the same file also holds,
+ * and its page opens only for suppliers and the team (`SUPPLIER_CONTRACT_ROUTE`).
  */
 const SUPPLIER_CONTRACT_LINES: readonly { path: string; line: string }[] = [
   {
@@ -56,6 +57,9 @@ const SUPPLIER_CONTRACT_LINES: readonly { path: string; line: string }[] = [
     line: '"O revendedor paga o pedido direto ao fornecedor. A SellBridge recebe 4% do preço do produto, sem contar o frete, separados automaticamente no momento do pagamento.",',
   },
 ];
+
+/** The page that shows the supplier contract; resellers and visitors must stay out (22/11/2026). */
+const SUPPLIER_CONTRACT_ROUTE = "apps/web/src/routes/contrato/fornecedor.tsx";
 
 const FEE_MENTIONS = [
   /(taxa|tarifa|comiss[aã]o|percentual)\s+(do|da)\s+(sell\s?bridge|plataforma)/i,
@@ -120,6 +124,13 @@ describe("SellBridge's fee on reseller screens", () => {
 
   it("is named on no screen, message or text the reseller reaches", () => {
     expect(mentions).toEqual([]);
+  });
+
+  it("only reaches the supplier contract page behind the supplier gate", () => {
+    const page = readFileSync(join(REPOSITORY_ROOT, SUPPLIER_CONTRACT_ROUTE), "utf8");
+
+    expect(page).toContain("beforeLoad:");
+    expect(page).toContain("supplierContractAccess(await getAppSession())");
   });
 
   it("would be caught if a reseller screen named it", () => {
