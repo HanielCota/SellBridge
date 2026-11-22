@@ -859,6 +859,8 @@ export async function listShipmentPaymentRefundCandidates(
       orderNumber: orders.externalOrderId,
       cancelledByResellerAfterAccept: cancelledByResellerAfterAccept(),
       status: orderShipments.status,
+      // The refund keeps the marketplace date only: the cutoff date does not move money until
+      // Guilherme decides it should (contracts, 21/11/2026).
       dispatchDeadlineAt: orderShipments.dispatchDeadlineAt,
       estimatedDeliveryAt: orderShipments.estimatedDeliveryAt,
       ...supplierTimingColumns,

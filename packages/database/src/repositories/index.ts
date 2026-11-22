@@ -116,6 +116,7 @@ export * from "./seller-catalog.ts";
 export * from "./seller-product-admin.ts";
 export * from "./blocked-contacts.ts";
 export * from "./return-claims.ts";
+export * from "./dispatch-cutoff.ts";
 export * from "./return-policy.ts";
 export * from "./return-policy-views.ts";
 export * from "./report-snapshots.ts";

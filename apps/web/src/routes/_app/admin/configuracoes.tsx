@@ -1,5 +1,6 @@
 import { hasStaffPermission } from "@sellbridge/shared/staff-access";
 import { createFileRoute, redirect } from "@tanstack/react-router";
+import { DispatchCutoffCard } from "@/components/admin-settings/dispatch-cutoff-card";
 import { ContractSigningCard } from "@/components/admin-settings/contract-signing-card";
 import { PaymentFeeCard } from "@/components/admin-settings/payment-fee-card";
 import { RequireReceivingAccountCard } from "@/components/admin-settings/require-receiving-account-card";
@@ -7,6 +8,7 @@ import { ReceivingRulesCard } from "@/components/admin-settings/receiving-rules-
 import { ReturnAnswerDaysCard } from "@/components/admin-settings/return-answer-days-card";
 import { SignupRulesCard } from "@/components/admin-settings/signup-rules-card";
 import { PageHeader } from "@/components/layout/page-header";
+import { dispatchCutoffQueryOptions } from "@/features/dispatch-cutoff/dispatch-cutoff.queries";
 import { contractSigningSettingsQueryOptions } from "@/features/contract-signing/contract-signing.queries";
 import { receivingRulesQueryOptions } from "@/features/supplier-payments/receiving-rules.queries";
 import { paymentFeeQueryOptions } from "@/features/supplier-payments/supplier-payments.queries";
@@ -23,6 +25,7 @@ export const Route = createFileRoute("/_app/admin/configuracoes")({
     Promise.all([
       prefetchOnServer(context.queryClient, paymentFeeQueryOptions()),
       prefetchOnServer(context.queryClient, receivingRulesQueryOptions()),
+      prefetchOnServer(context.queryClient, dispatchCutoffQueryOptions()),
       prefetchOnServer(context.queryClient, contractSigningSettingsQueryOptions()),
     ]),
   head: () => ({ meta: [{ title: "Configurações (admin) | SellBridge" }] }),
@@ -38,6 +41,7 @@ function SettingsPage() {
       <SignupRulesCard />
       <ReceivingRulesCard />
       <ReturnAnswerDaysCard />
+      <DispatchCutoffCard />
       <ContractSigningCard />
     </div>
   );

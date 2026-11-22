@@ -18,7 +18,11 @@ import {
   storeConnections,
   suppliers,
 } from "../schema/index.ts";
-import { preparationHold, supplierTimingColumns } from "./shipment-timing.ts";
+import {
+  effectiveDispatchDeadlineAt,
+  preparationHold,
+  supplierTimingColumns,
+} from "./shipment-timing.ts";
 import {
   emailFailed,
   invoiceStatus,
@@ -70,7 +74,7 @@ const rowColumns = {
   carrier: orderShipments.carrier,
   trackingCode: orderShipments.trackingCode,
   marketplaceLogisticType: orderShipments.marketplaceLogisticType,
-  dispatchDeadlineAt: orderShipments.dispatchDeadlineAt,
+  dispatchDeadlineAt: effectiveDispatchDeadlineAt,
   estimatedDeliveryAt: orderShipments.estimatedDeliveryAt,
   updatedAt: orderShipments.updatedAt,
   labelPrintedAt: orderShipments.labelPrintedAt,
