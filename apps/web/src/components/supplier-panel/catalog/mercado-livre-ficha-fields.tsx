@@ -124,33 +124,103 @@ function categoryStatus(ficha: MercadoLivreFicha, title: string): string | null 
   return "Procurando a categoria no Mercado Livre...";
 }
 
+/** Mercado Livre's guess for a saved grid: nothing changes until the supplier confirms it. */
+function SuggestedCategory({
+  suggestion,
+  choosing,
+  onUse,
+  onToggleChooser,
+}: {
+  suggestion: MercadoLivreCategory;
+  choosing: boolean;
+  onUse: () => void;
+  onToggleChooser: () => void;
+}) {
+  return (
+    <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
+      <p className="text-subhead">
+        <span className="text-muted-foreground">Categoria sugerida no Mercado Livre: </span>
+        <span className="font-semibold">{suggestion.name}</span>
+      </p>
+      <Button type="button" size="sm" className="min-h-11" onClick={onUse}>
+        Usar esta categoria
+      </Button>
+      <Button
+        type="button"
+        variant="outline"
+        size="sm"
+        className="min-h-11"
+        aria-expanded={choosing}
+        onClick={onToggleChooser}
+      >
+        {choosing ? "Fechar" : "Escolher outra"}
+      </Button>
+    </div>
+  );
+}
+
+/** What the line says above the chooser: the guess to confirm, the category, or why none yet. */
+function CategoryHeader({
+  ficha,
+  title,
+  choosing,
+  onUse,
+  onToggleChooser,
+}: {
+  ficha: MercadoLivreFicha;
+  title: string;
+  choosing: boolean;
+  onUse: (category: MercadoLivreCategory) => void;
+  onToggleChooser: () => void;
+}) {
+  const { suggestion } = ficha;
+  if (suggestion !== null && ficha.category === null) {
+    return (
+      <SuggestedCategory
+        suggestion={suggestion}
+        choosing={choosing}
+        onUse={() => onUse(suggestion)}
+        onToggleChooser={onToggleChooser}
+      />
+    );
+  }
+  const status = categoryStatus(ficha, title);
+  if (status !== null) {
+    return <p className="text-footnote text-muted-foreground">{status}</p>;
+  }
+  return (
+    <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
+      <p className="text-subhead">
+        <span className="text-muted-foreground">Categoria no Mercado Livre: </span>
+        <span className="font-semibold">{ficha.category?.name}</span>
+      </p>
+      <Button
+        type="button"
+        variant="outline"
+        size="sm"
+        className="min-h-11"
+        aria-expanded={choosing}
+        onClick={onToggleChooser}
+      >
+        {choosing ? "Fechar" : "Trocar categoria"}
+      </Button>
+    </div>
+  );
+}
+
 /** The category the listing goes to, with "Trocar" to pick another of Mercado Livre's. */
 export function MercadoLivreCategoryLine(props: Omit<FichaProps, "errors" | "reasons">) {
   const { ficha, values, onChange } = props;
   const [choosing, setChoosing] = useState(false);
-  const status = categoryStatus(ficha, values.title);
   return (
     <div className="grid gap-3 sm:col-span-2">
-      {status === null ? (
-        <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
-          <p className="text-subhead">
-            <span className="text-muted-foreground">Categoria no Mercado Livre: </span>
-            <span className="font-semibold">{ficha.category?.name}</span>
-          </p>
-          <Button
-            type="button"
-            variant="outline"
-            size="sm"
-            className="min-h-11"
-            aria-expanded={choosing}
-            onClick={() => setChoosing((open) => !open)}
-          >
-            {choosing ? "Fechar" : "Trocar categoria"}
-          </Button>
-        </div>
-      ) : (
-        <p className="text-footnote text-muted-foreground">{status}</p>
-      )}
+      <CategoryHeader
+        ficha={ficha}
+        title={values.title}
+        choosing={choosing}
+        onUse={(category) => onChange({ mercadoLivreCategory: category })}
+        onToggleChooser={() => setChoosing((open) => !open)}
+      />
       {choosing ? (
         <CategoryChooser
           supplierId={props.supplierId}
@@ -206,7 +276,8 @@ function FichaInput({
   const unit = field.kind === "measure" ? field.defaultUnit : null;
   const listId = field.options.length === 0 ? undefined : `${id}-options`;
   return (
-    <div className="grid gap-2">
+    // Content at the top: a hint under this field must not push its neighbor's input down.
+    <div className="grid content-start gap-2">
       <TextField
         id={id}
         label={fieldLabel(field)}

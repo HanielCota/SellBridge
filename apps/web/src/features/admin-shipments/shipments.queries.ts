@@ -3,6 +3,7 @@ import { keepPreviousData, queryOptions } from "@tanstack/react-query";
 import {
   countStaffShipmentsFn,
   listStaffShipmentsFn,
+  staffOnBehalfLabelFn,
   staffParcelTrackingFn,
 } from "./shipments.functions";
 
@@ -27,4 +28,10 @@ export const staffParcelTrackingQueryOptions = (shipmentId: string) =>
   queryOptions({
     queryKey: ["admin", "shipments", "tracking", shipmentId],
     queryFn: () => staffParcelTrackingFn({ data: { shipmentId } }),
+  });
+
+export const staffOnBehalfLabelQueryOptions = (shipmentId: string) =>
+  queryOptions({
+    queryKey: ["admin", "shipments", "on-behalf-label", shipmentId],
+    queryFn: () => staffOnBehalfLabelFn({ data: { shipmentId } }),
   });

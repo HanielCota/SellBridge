@@ -13,7 +13,12 @@ import {
   storeConnections,
   suppliers,
 } from "../schema/index.ts";
-import { shipmentTimingColumns, withShipmentDelay } from "./shipment-timing.ts";
+import {
+  effectiveDispatchDeadlineAt,
+  endOfBrazilDay,
+  shipmentTimingColumns,
+  withShipmentDelay,
+} from "./shipment-timing.ts";
 import { containsPattern } from "./sql/search-pattern.ts";
 
 /** Still with the supplier (or the reseller's own stock): what can miss the dispatch deadline. */
@@ -26,7 +31,9 @@ function groupCondition(group: StaffShipmentGroup, now: Date): SQL | undefined {
       and(eq(orderShipments.status, "shipped"), lt(orderShipments.estimatedDeliveryAt, now)),
       and(
         inArray(orderShipments.status, [...BEFORE_DISPATCH]),
-        lt(orderShipments.dispatchDeadlineAt, now),
+        // A posting date holds for its whole day, as `overdueSince` counts it. A raw SQL date has no
+        // column type to encode the Date with, so the instant goes as text.
+        sql`${endOfBrazilDay(effectiveDispatchDeadlineAt)} <= ${now.toISOString()}::timestamptz`,
       ),
     );
   }
@@ -156,6 +163,8 @@ export async function countStaffShipmentsByGroup(
       const [row] = await database
         .select({ value: count() })
         .from(orderShipments)
+        // The posting date from the cutoff reads the supplier's kind.
+        .innerJoin(suppliers, eq(suppliers.id, orderShipments.supplierId))
         .where(groupCondition(group, now));
       return [group, row?.value ?? 0] as const;
     }),

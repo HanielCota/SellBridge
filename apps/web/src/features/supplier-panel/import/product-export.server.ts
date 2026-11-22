@@ -11,6 +11,7 @@ import {
 import { csvResponse } from "@/features/report-kit/csv-file";
 import { findExportSupplier } from "@/features/supplier-panel/report/supplier-export.server";
 import { database } from "@/lib/server/database";
+import { productGridEnabled } from "@/lib/server/product-grid-switch";
 import { productExportFileName } from "./product-export-file";
 
 /*
@@ -39,7 +40,7 @@ function productExportStream(filter: SupplierCatalogExportFilter): ReadableStrea
   let rows = 0;
   return new ReadableStream({
     start(controller) {
-      controller.enqueue(encoder.encode(productExportStart()));
+      controller.enqueue(encoder.encode(productExportStart(productGridEnabled())));
     },
     async pull(controller) {
       try {
@@ -50,7 +51,7 @@ function productExportStream(filter: SupplierCatalogExportFilter): ReadableStrea
           return;
         }
         rows += next.value.length;
-        controller.enqueue(encoder.encode(productExportLines(next.value)));
+        controller.enqueue(encoder.encode(productExportLines(next.value, productGridEnabled())));
       } catch (error) {
         logger.error("supplier_panel.products_export_failed", {
           supplierId: filter.supplierId,

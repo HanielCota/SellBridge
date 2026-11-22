@@ -1,4 +1,4 @@
-import { billingConfigured } from "@/features/billing/stripe.server";
+import { billingRules } from "@/features/billing/billing-config.server";
 import {
   requestDescriptionResend,
   countRecentUnitsSold,
@@ -87,7 +87,7 @@ export const retryListings = createServerFn({ method: "POST" })
       context.tenantId,
       data.listingIds,
       {
-        billingEnabled: billingConfigured(),
+        billing: billingRules(),
       },
     );
     await enqueueTargets(context.tenantId, targetIds);

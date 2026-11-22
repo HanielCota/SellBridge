@@ -26,3 +26,21 @@ export function supportTicketSearch(
   }
   return { categoria: "listing", anuncio: about.id, assunto: subjectAbout("Anúncio", about.name) };
 }
+
+/**
+ * Opens "Novo chamado" asking the team to give back by hand what the reseller paid a supplier
+ * for this order: topic, situation, order and a first line are filled in, so one tap sends it.
+ */
+export function supplierRefundTicketSearch(order: {
+  id: string;
+  name: string;
+  amount: string;
+}): NewTicketSearch {
+  return {
+    categoria: "payment",
+    situacao: "supplier-refund",
+    pedido: order.id,
+    assunto: subjectAbout("Pedido", order.name),
+    texto: `Quero de volta os ${order.amount} que paguei ao fornecedor no pedido ${order.name}.`,
+  };
+}

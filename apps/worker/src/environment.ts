@@ -1,5 +1,6 @@
 import {
   alertWebhookUrlEnvironmentSchema,
+  emailDailyCapEnvironmentShape,
   booleanFlagEnvironmentSchema,
   logLevelEnvironmentSchema,
   nodeEnvironmentSchema,
@@ -81,6 +82,7 @@ const workerEnvironmentSchema = z
     /** Resend key for the supplier e-mails; without it development logs them and production refuses. */
     RESEND_API_KEY: z.string().min(1).optional(),
     EMAIL_FROM: z.string().min(3).default("SellBridge <no-reply@sellbridge.local>"),
+    ...emailDailyCapEnvironmentShape,
   })
   .superRefine((value, context) => {
     refusePrivateWebhookUrlsInProduction(value, context);

@@ -3,7 +3,7 @@ import type {
   CatalogListSearch,
   CatalogStatusFilter,
 } from "@sellbridge/shared/supplier-panel-catalog-schemas";
-import { PackageIcon } from "@phosphor-icons/react";
+import { PackageIcon, SquaresFourIcon } from "@phosphor-icons/react";
 import { useQuery, type UseQueryResult } from "@tanstack/react-query";
 import type { ReactNode } from "react";
 import { FilterTabs } from "@/components/data/filter-tabs";
@@ -25,7 +25,7 @@ import { supplierPanelProductsQueryOptions } from "@/features/supplier-panel/cat
 import { usePanelSupplierActive } from "@/features/supplier-panel/use-panel-supplier";
 import { useUrlSearchQuery } from "@/hooks/use-url-search-query";
 import { errorMessage } from "@/lib/errors";
-import { CatalogProductTable, type OpenProduct } from "./catalog-product-table";
+import { CatalogProductTable, type OpenGrid, type OpenProduct } from "./catalog-product-table";
 import { ProductSpreadsheetMenu } from "./product-spreadsheet-menu";
 import { ACTION_ICONS } from "@/components/icons/action-icons";
 import { Hint } from "@/components/ui/hint";
@@ -93,8 +93,9 @@ function CatalogListBody({
   search,
   onSearchChange,
   onOpenProduct,
+  onOpenGrid,
   onCreateProduct,
-}: Omit<CatalogProductListProps, "supplierId"> & { query: CatalogListQuery }) {
+}: Omit<CatalogProductListProps, "supplierId" | "onOpenGrouping"> & { query: CatalogListQuery }) {
   const canAddProducts = usePanelSupplierActive();
   if (query.isPending) {
     return <Skeleton className="h-96 rounded-3xl" aria-label="Carregando produtos" />;
@@ -134,6 +135,7 @@ function CatalogListBody({
       sort={{ sort: search.sort, direction: search.direction }}
       onSort={(sort) => onSearchChange({ ...sort, page: 1 })}
       onOpen={onOpenProduct}
+      onOpenGrid={onOpenGrid}
       onPageChange={(page) => onSearchChange({ page })}
     />
   );
@@ -144,7 +146,11 @@ interface CatalogProductListProps {
   search: CatalogListSearch;
   onSearchChange: (change: Partial<CatalogListSearch>) => void;
   onOpenProduct: OpenProduct;
+  /** Opens a colour and size grid in its own form. */
+  onOpenGrid: OpenGrid;
   onCreateProduct: () => void;
+  /** Opens "Sugestões de grade"; shown while grids are on. */
+  onOpenGrouping: () => void;
   /** More header actions, before "Cadastrar produto" (the page's "Baixar"). */
   headerActions?: ReactNode;
 }
@@ -160,12 +166,17 @@ function ProductListActions({
   supplierId,
   search,
   productCount,
+  canGroup,
   onCreateProduct,
+  onOpenGrouping,
 }: {
   supplierId: string;
   search: CatalogListSearch;
   productCount: number | undefined;
+  /** Grids are on: the supplier can group products already registered. */
+  canGroup: boolean;
   onCreateProduct: () => void;
+  onOpenGrouping: () => void;
 }) {
   const canAddProducts = usePanelSupplierActive();
   return (
@@ -176,6 +187,12 @@ function ProductListActions({
         productCount={productCount}
         canImport={canAddProducts}
       />
+      {canAddProducts && canGroup ? (
+        <Button variant="outline" onClick={onOpenGrouping}>
+          <SquaresFourIcon aria-hidden="true" />
+          Juntar cores e tamanhos
+        </Button>
+      ) : null}
       {canAddProducts ? <CreateProductButton onCreateProduct={onCreateProduct} /> : null}
     </div>
   );
@@ -237,7 +254,9 @@ export function CatalogProductList({
   search,
   onSearchChange,
   onOpenProduct,
+  onOpenGrid,
   onCreateProduct,
+  onOpenGrouping,
   headerActions,
 }: CatalogProductListProps) {
   const query = useQuery(supplierPanelProductsQueryOptions(supplierId, search));
@@ -253,7 +272,9 @@ export function CatalogProductList({
               supplierId={supplierId}
               search={search}
               productCount={query.data?.total}
+              canGroup={query.data?.productGridEnabled ?? false}
               onCreateProduct={onCreateProduct}
+              onOpenGrouping={onOpenGrouping}
             />
           </>
         }
@@ -272,6 +293,7 @@ export function CatalogProductList({
           search={search}
           onSearchChange={onSearchChange}
           onOpenProduct={onOpenProduct}
+          onOpenGrid={onOpenGrid}
           onCreateProduct={onCreateProduct}
         />
       </div>

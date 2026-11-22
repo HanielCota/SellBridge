@@ -54,9 +54,22 @@ describe("postingDeadline", () => {
     expect(postingDeadline(parcel({ dispatchDeadlineAt: midnight }), now)?.state).toBe("today");
   });
 
+  it("names the channel of a date that came from the Shopee cutoff", () => {
+    const now = new Date("2026-11-12T10:00:00-03:00");
+
+    expect(postingDeadline(parcel({ marketplace: "shopee" }), now)?.label).toBe(
+      "Postar na Shopee até 14 de nov.",
+    );
+  });
+
+  it("says only the verb for a channel the app no longer sells on", () => {
+    const now = new Date("2026-11-14T08:00:00-03:00");
+
+    expect(postingDeadline(parcel({ marketplace: "mock" }), now)?.label).toBe("Postar hoje");
+  });
+
   it.each([
     { dispatchDeadlineAt: null },
-    { marketplace: "shopee" },
     { status: "shipped" as const },
     { orderStatus: "cancelled" },
   ])("shows no posting date for %j", (overrides) => {

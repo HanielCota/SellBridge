@@ -258,9 +258,10 @@ export async function getFulfillmentDetail(database: Database, tenantId: string,
   const [store] = stores;
   if (!store) throw notFoundError("Loja do pedido não encontrada");
   const shipmentIds = shipments.map((row) => row.id);
-  const [events, invoices, resellerNotes] = await Promise.all([
+  const [events, invoices, purchaseInvoices, resellerNotes] = await Promise.all([
     eventsForShipments(database, shipmentIds),
     resellerShipmentInvoices(database, shipmentIds),
+    resellerShipmentInvoices(database, shipmentIds, "sale"),
     resellerSaleInvoicesOf(database, tenantId, shipmentIds),
   ]);
   return {
@@ -277,8 +278,10 @@ export async function getFulfillmentDetail(database: Database, tenantId: string,
     shipments: shipments.map((shipment) => ({
       ...timing.withShipmentDelay(shipment, new Date()),
       events: events.filter((event) => event.shipmentId === shipment.id),
-      /** The NF-e the supplier's ERP issues for this parcel, from its first step. */
+      /** The NF-e in the box (direct, or the remessa), from its first step. */
       invoice: invoices.get(shipment.id) ?? null,
+      /** In venda à ordem, the supplier's sale to the reseller: the reseller's purchase note. */
+      purchaseInvoice: purchaseInvoices.get(shipment.id) ?? null,
       /** In venda à ordem, the reseller's own sale note to the buyer; null in the other model. */
       resellerNote: resellerNotes.get(shipment.id) ?? null,
     })),
@@ -452,6 +455,7 @@ export async function getSupplierShipment(database: Database, token: string) {
       supplierName: suppliers.name,
       catalogKind: suppliers.catalogKind,
       preparationHold: timing.preparationHold,
+      dispatchDeadlineAt: timing.effectiveDispatchDeadlineAt,
       ...timing.supplierTimingColumns,
     })
     .from(orderShipments)
@@ -471,8 +475,9 @@ export async function getSupplierShipment(database: Database, token: string) {
     supplierTokenExpiresAt: _expiry,
     buyerTokenHash: _buyerHash,
     tenantId: _tenant,
-    ...shipment
+    ...storedShipment
   } = row.shipment;
+  const shipment = { ...storedShipment, dispatchDeadlineAt: row.dispatchDeadlineAt };
   const events = await database
     .select()
     .from(shipmentEvents)

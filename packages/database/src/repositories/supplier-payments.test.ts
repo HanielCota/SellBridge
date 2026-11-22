@@ -1,7 +1,13 @@
 import { randomUUID } from "node:crypto";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { eq } from "drizzle-orm";
-import { orderItems, orders, orderShipments, platformSettings } from "../schema/index.ts";
+import {
+  orderItems,
+  orders,
+  orderShipments,
+  platformSettings,
+  suppliers,
+} from "../schema/index.ts";
 import {
   createTestDatabase,
   createTestSupplierProduct,
@@ -10,7 +16,9 @@ import {
   testAddress,
   testStoreInput,
 } from "../testing/fixtures.ts";
+import { setDispatchCutoffSettings } from "./dispatch-cutoff.ts";
 import { forwardOrder } from "./fulfillment.ts";
+import { effectiveDispatchDeadlineAt } from "./shipment-timing.ts";
 import { upsertStoreConnection } from "./stores.ts";
 import {
   applyProviderPayment,
@@ -19,6 +27,7 @@ import {
   disconnectSupplierPaymentAccount,
   openCheckoutUrl,
   findPayableShipment,
+  findShipmentPayment,
   findPaymentAccountsByProviderAccount,
   getPaymentFeeSetting,
   listShipmentPaymentCheckouts,
@@ -44,7 +53,13 @@ let users: Awaited<ReturnType<typeof createTestUsers>>;
 let storeId = "";
 let previousFee: number | null = null;
 
-async function forwardedShipmentId(): Promise<string> {
+/** A forwarded sale of 2 shirts costing R$ 29,95 each; the order may carry shipping. */
+async function forwardedShipmentId(
+  shipping: { totalCents: number; sellerShippingCents: number | null } = {
+    totalCents: 10_000,
+    sellerShippingCents: null,
+  },
+): Promise<string> {
   const [order] = await database
     .insert(orders)
     .values({
@@ -52,7 +67,8 @@ async function forwardedShipmentId(): Promise<string> {
       storeConnectionId: storeId,
       externalOrderId: randomUUID(),
       status: "paid",
-      totalCents: 10_000,
+      totalCents: shipping.totalCents,
+      sellerShippingCents: shipping.sellerShippingCents,
       orderedAt: new Date(),
     })
     .returning();
@@ -243,6 +259,22 @@ describe("payable shipment", () => {
 
     expect(payable?.amountCents).toBe(5990);
     expect(payable?.payment).toBeNull();
+  });
+
+  it("charges only the products when the order carries shipping", async () => {
+    const shipmentId = await forwardedShipmentId({ totalCents: 12_390, sellerShippingCents: 2390 });
+
+    const payable = await findPayableShipment(database, { tenantId: tenants.tenantA, shipmentId });
+
+    expect(payable?.amountCents).toBe(5990);
+  });
+
+  it("charges only the products when the shipping is free", async () => {
+    const shipmentId = await forwardedShipmentId({ totalCents: 10_000, sellerShippingCents: 0 });
+
+    const payable = await findPayableShipment(database, { tenantId: tenants.tenantA, shipmentId });
+
+    expect(payable?.amountCents).toBe(5990);
   });
 
   it("is not found for another tenant", async () => {
@@ -586,6 +618,30 @@ describe("payment fee setting", () => {
     expect(setting.updatedByUserId).toBe(admin);
   });
 
+  it("keeps a paid parcel's fee when the admin changes the rate", async () => {
+    const [admin] = users.ids;
+    if (admin === undefined) throw new Error("No user");
+    const shipmentId = await forwardedShipmentId();
+    const payment = await startPayment(shipmentId);
+    await approveWith(payment.id);
+    await setPaymentFeeSetting(database, { basisPoints: 400, userId: admin });
+
+    const restarted = await startShipmentPayment(database, {
+      shipmentId,
+      supplierId: supplier.supplierId,
+      provider: "asaas",
+      amountCents: 5990,
+      platformFeeCents: 240,
+      platformFeeBasisPoints: 400,
+      now: new Date(),
+      reservedUntil: new Date(Date.now() + RESERVATION_IN_MS),
+    });
+    const kept = await findShipmentPayment(database, shipmentId);
+
+    expect(restarted).toBeNull();
+    expect(kept).toMatchObject({ platformFeeCents: 300, platformFeeBasisPoints: 500 });
+  });
+
   it("refuses a rate above 30%", async () => {
     const [admin] = users.ids;
     if (admin === undefined) throw new Error("No user");
@@ -738,6 +794,41 @@ describe("refund of a paid parcel", () => {
     expect(candidate?.timing.status).toBe("forwarded");
     expect(candidate?.timing.forwardedAt).toBeInstanceOf(Date);
     expect(candidate?.timing.dispatchWithinHours).toBe(48);
+  });
+
+  it("keeps the refund on the marketplace date while the cutoff rule is on", async () => {
+    const userId = users.ids[0] ?? "";
+    const mockStoreId = storeId;
+    storeId = (
+      await upsertStoreConnection(database, {
+        ...testStoreInput(tenants.tenantA, randomUUID()),
+        marketplace: "mercado_livre",
+      })
+    ).id;
+    const rule = { mercadoLivre: 0, shopee: 780, tiktokShop: 1080, userId };
+    await setDispatchCutoffSettings(database, { ...rule, enabled: true, now: new Date(0) });
+    try {
+      const shipmentId = await forwardedShipmentId();
+      const payment = await startPayment(shipmentId);
+      await approveWith(payment.id);
+      const [cutoff] = await database
+        .select({ date: effectiveDispatchDeadlineAt })
+        .from(orderShipments)
+        .innerJoin(suppliers, eq(suppliers.id, orderShipments.supplierId))
+        .where(eq(orderShipments.id, shipmentId));
+
+      const rows = await listShipmentPaymentRefundCandidates(database, {
+        provider: "mercado_pago",
+        limit: 1000,
+      });
+      const candidate = rows.find((row) => row.payment.id === payment.id);
+
+      expect(cutoff?.date).toBeInstanceOf(Date);
+      expect(candidate?.timing.dispatchDeadlineAt).toBeNull();
+    } finally {
+      storeId = mockStoreId;
+      await setDispatchCutoffSettings(database, { ...rule, enabled: false, now: new Date() });
+    }
   });
 
   it("does not offer an unpaid parcel or a shipped one", async () => {

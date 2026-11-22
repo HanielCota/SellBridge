@@ -18,4 +18,6 @@ export type SupplierAttentionTarget =
   | { area: "orders"; filter: SupplierOrderFilter; shipmentId?: string }
   | { area: "stock"; filter: "out_of_stock_listed"; productId?: string }
   | { area: "catalog"; filter: "rejected"; productId?: string; field?: string }
-  | { area: "performance"; metric: HealthMetricKey };
+  | { area: "performance"; metric: HealthMetricKey }
+  /** Brand and invoice settings, at "Como sai a nota". */
+  | { area: "invoice_setup" };

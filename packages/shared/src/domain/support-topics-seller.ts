@@ -91,6 +91,17 @@ export const SELLER_SUPPORT_TOPICS: readonly SupportTopic[] = [
         notice: null,
       },
       {
+        id: "supplier-refund",
+        label: "Devolução do que paguei a um fornecedor",
+        legend: "O envio foi cancelado e o pagamento ainda não voltou",
+        priority: "high",
+        question: "Qual pagamento precisa voltar para você?",
+        example: "Exemplo: paguei R$ 80,00 por Pix no pedido 4821 e o envio foi cancelado.",
+        attachmentTip: "O comprovante do pagamento, se tiver.",
+        notice:
+          "Nossa equipe faz esta devolução à mão. Avisamos aqui assim que o dinheiro voltar para você.",
+      },
+      {
         id: "invoice",
         label: "Preciso de nota fiscal ou comprovante",
         legend: "Um documento para a contabilidade",

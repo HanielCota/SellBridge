@@ -1,5 +1,6 @@
+import { PRODUCT_CSV_GRID_COLUMNS } from "@sellbridge/shared/product-csv";
 import {
-  IMPORT_COLUMNS,
+  importColumns,
   type ImportColumnGuide,
 } from "@sellbridge/shared/supplier-panel-import-columns";
 
@@ -38,6 +39,9 @@ const OPTIONAL_GROUPS: readonly { readonly title: string; readonly columns: read
     },
   ];
 
+// Only while grids are on: the columns that turn rows into one product in colours and sizes.
+const GRID_GROUP = { title: "Cores e tamanhos", columns: [...PRODUCT_CSV_GRID_COLUMNS] };
+
 export interface ImportColumnGroup {
   readonly title: string;
   readonly columns: readonly ImportColumnGuide[];
@@ -54,9 +58,11 @@ export interface ImportColumnSections {
  * The template's columns as the panel shows them. Throws when a column of the template has no
  * group, so a new column cannot quietly disappear from the panel.
  */
-export function importColumnSections(): ImportColumnSections {
-  const byColumn = new Map(IMPORT_COLUMNS.map((entry) => [entry.column, entry]));
-  const optional = OPTIONAL_GROUPS.map((group) => ({
+export function importColumnSections(gridColumns = false): ImportColumnSections {
+  const columns = importColumns(gridColumns);
+  const groups = gridColumns ? [...OPTIONAL_GROUPS, GRID_GROUP] : OPTIONAL_GROUPS;
+  const byColumn = new Map(columns.map((entry) => [entry.column, entry]));
+  const optional = groups.map((group) => ({
     title: group.title,
     columns: group.columns.map((column) => {
       const entry = byColumn.get(column);
@@ -66,9 +72,9 @@ export function importColumnSections(): ImportColumnSections {
       return entry;
     }),
   }));
-  const grouped = new Set(OPTIONAL_GROUPS.flatMap((group) => group.columns));
-  const required = IMPORT_COLUMNS.filter((entry) => entry.required);
-  const missing = IMPORT_COLUMNS.find((entry) => !entry.required && !grouped.has(entry.column));
+  const grouped = new Set(groups.flatMap((group) => group.columns));
+  const required = columns.filter((entry) => entry.required);
+  const missing = columns.find((entry) => !entry.required && !grouped.has(entry.column));
   if (missing !== undefined) {
     throw new Error(`Template column without a group in the column guide: ${missing.column}`);
   }

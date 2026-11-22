@@ -24,8 +24,12 @@ import { database } from "@/lib/server/database";
 import { environment } from "@/lib/server/environment";
 import { requestStockSync } from "@/lib/server/stock-sync";
 
+/** The list, and whether the grid tools (grouping products into a grid) are on. */
 export async function loadPanelProducts(input: CatalogListSearch & { supplierId: string }) {
-  return await listSupplierPanelProducts(database, input);
+  return {
+    ...(await listSupplierPanelProducts(database, input)),
+    productGridEnabled: environment.PRODUCT_GRID_ENABLED,
+  };
 }
 
 /**

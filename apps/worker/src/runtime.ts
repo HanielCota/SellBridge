@@ -11,7 +11,9 @@ import {
   readMercadoLivreAccountAddresses,
   readMercadoLivreBuyerBilling,
   readMercadoLivreSaleInvoice,
+  readMercadoLivreSalePayments,
   readMercadoLivreClaim,
+  sendMercadoLivreSaleInvoice,
   readMercadoLivreShipmentOrders,
   searchMercadoLivreClaims,
   type ConnectorRegistry,
@@ -27,8 +29,11 @@ import { createCnpjLookup } from "@sellbridge/shared/cnpj-lookup";
 import { installErrorAlerts } from "@sellbridge/shared/error-alerts";
 import { installProblemRecorder } from "@sellbridge/database/problem-recorder";
 import { installPortugueseZodMessages } from "@sellbridge/shared/zod-messages";
+import { conflictError } from "@sellbridge/shared/errors";
 import { logger } from "@sellbridge/shared/logger";
 import { createMailer } from "@sellbridge/shared/mailer";
+import { createEmailQuota } from "@sellbridge/shared/email-quota";
+import { createRedisEmailQuotaStore } from "@sellbridge/shared/redis-email-quota-store";
 import {
   AUTO_FORWARD_JOB_OPTIONS,
   autoForwardJobId,
@@ -38,15 +43,20 @@ import {
   ERP_STOCK_JOB_OPTIONS,
   erpStockCheckJobId,
   erpStockSupplierJobSchema,
+  ORDER_CHECK_JOB_OPTIONS,
+  type OrderCheckJob,
+  orderCheckJobId,
+  orderCheckJobSchema,
   pingQueueConnection,
   PUBLISH_JOB_OPTIONS,
   QUEUE_NAMES,
   releaseFinishedJob,
+  RETURN_DEADLINES_JOB_NAME,
   STOCK_SYNC_JOB_NAME,
   STOCK_SYNC_JOB_OPTIONS,
 } from "@sellbridge/shared/queues";
 import { withDeadline } from "@sellbridge/shared/deadline";
-import { Queue, Worker } from "bullmq";
+import { Queue, UnrecoverableError, Worker } from "bullmq";
 import { startHealthServer } from "./health.ts";
 import { isLastAttempt, toJobContext } from "./lib/job-context.ts";
 import { reportJobFailure } from "./lib/job-failure-report.ts";
@@ -71,6 +81,7 @@ import {
 import { createErpCatalogExportProcessor } from "./processors/erp-catalog-export.ts";
 import { createErpCatalogReadProcessor } from "./processors/erp-catalog-read.ts";
 import { createErpInvoiceProcessor } from "./processors/erp-invoice-issue.ts";
+import { postDueErpStockEntries, postDueErpStockExits } from "./processors/erp-stock-exit.ts";
 import {
   checkAllErpStock,
   checkSupplierErpStock,
@@ -79,12 +90,21 @@ import {
 } from "./processors/erp-stock-sync.ts";
 import { createResellerInvoiceReadProcessor } from "./processors/reseller-invoice-read.ts";
 import { resolveStoreCredentials } from "./lib/store-access.ts";
+import { resellerBlingClient } from "./processors/erp-bling-client.ts";
+import type { ResellerSaleIssueDependencies } from "./processors/reseller-sale-issue.ts";
 import { createNotificationDeliveryProcessor } from "./processors/notification-delivery.ts";
 import { blingInvoiceFileReader, createInvoiceAttachments } from "./lib/invoice-attachments.ts";
+import { createDeletedStorePauseProcessor } from "./processors/deleted-store-pause.ts";
 import { createOrderMessageFollowUpProcessor } from "./processors/order-message-follow-up.ts";
 import { createWebhookDeliveryProcessor } from "./processors/webhook-delivery.ts";
 import { createShipmentTrackingProcessor } from "./processors/shipment-tracking.ts";
 import { createClaimSweepProcessor } from "./processors/marketplace-claim-sweep.ts";
+import {
+  checkStoreOrders,
+  createOrderCheckDispatcher,
+  ORDER_CHECK_DISPATCH_JOB,
+  ORDER_CHECK_MARKETPLACES,
+} from "./processors/order-check.ts";
 import type { NoticeReaders } from "./processors/marketplace-notice.ts";
 import { createWebhookEventProcessor } from "./processors/webhook-event.ts";
 import {
@@ -111,6 +131,7 @@ function createQueues(connection: { url: string; maxRetriesPerRequest: null }) {
     supplierPayments: new Queue(QUEUE_NAMES.supplierPayments, { connection }),
     supplierApproval: new Queue(QUEUE_NAMES.supplierApproval, { connection }),
     buyerAddressCheck: new Queue(QUEUE_NAMES.buyerAddressCheck, { connection }),
+    orderCheck: new Queue(QUEUE_NAMES.orderCheck, { connection }),
   };
 }
 
@@ -151,6 +172,17 @@ function createContext(connectors: ConnectorRegistry, options: WorkerOptions) {
       apiKey: environment.RESEND_API_KEY,
       from: environment.EMAIL_FROM,
       production: environment.NODE_ENV === "production",
+      // The same counters the web app uses: the allowance is of the product, not of a process.
+      quota: createEmailQuota({
+        store: createRedisEmailQuotaStore(queues.notifications),
+        recipientKeySecret: environment.TOKEN_ENCRYPTION_KEY,
+        limits: {
+          accountDaily: environment.EMAIL_ACCOUNT_DAILY_CAP,
+          accountPerRecipientDaily: environment.EMAIL_ACCOUNT_DAILY_CAP_PER_RECIPIENT,
+          generalDaily: environment.EMAIL_DAILY_CAP,
+          generalPerRecipientDaily: environment.EMAIL_DAILY_CAP_PER_RECIPIENT,
+        },
+      }),
     }),
     mercadoLivreConfig: {
       clientId: environment.MERCADO_LIVRE_CLIENT_ID ?? "",
@@ -197,6 +229,7 @@ function marketplaceWorkers(context: WorkerContext): Worker[] {
   const processPublish = createPublishListingProcessor(options);
   const processStock = createStockPriceSyncProcessor(options);
   const processRefresh = createTokenRefreshProcessor({ database, connectors, cipher });
+  const processDeletedStorePause = createDeletedStorePauseProcessor({ connectors, cipher });
   const processErpRefresh = createErpTokenRefreshProcessor({
     database,
     cipher,
@@ -214,6 +247,11 @@ function marketplaceWorkers(context: WorkerContext): Worker[] {
       concurrency: 1,
     }),
     new Worker(
+      QUEUE_NAMES.deletedStorePause,
+      async (job) => processDeletedStorePause(toJobContext(job)),
+      { connection, concurrency: 1 },
+    ),
+    new Worker(
       QUEUE_NAMES.tokenRefresh,
       async () => runTokenRefreshes({ stores: processRefresh, erp: processErpRefresh }),
       { connection, concurrency: 1 },
@@ -228,6 +266,12 @@ async function runErpStockJob(
 ): Promise<unknown> {
   if (job.name === ERP_STOCK_JOB_NAMES.checkAll) {
     return checkAllErpStock(dependencies);
+  }
+  if (job.name === ERP_STOCK_JOB_NAMES.postExits) {
+    // The same minute's sweep posts the returns' entries: both are SellBridge's own movements.
+    const exits = await postDueErpStockExits(dependencies);
+    const entries = await postDueErpStockEntries(dependencies);
+    return { exits, entries };
   }
   const { supplierId } = erpStockSupplierJobSchema.parse(job.data);
   if (job.name === ERP_STOCK_JOB_NAMES.checkSupplier) {
@@ -262,10 +306,53 @@ function erpStockWorker(
   });
 }
 
+const RECONNECT_STORE = "Conecte a loja do Mercado Livre de novo para continuar.";
+
+/** The reseller's own Bling issuing its sale note, with the Mercado Livre calls it needs. */
+function resellerSaleIssueDependencies(context: WorkerContext): ResellerSaleIssueDependencies {
+  const { database, cipher, mercadoLivreConfig } = context;
+  const credentials = blingCredentials();
+  const storeOf = (work: { store: Parameters<typeof resolveStoreCredentials>[1] }) => {
+    const store = resolveStoreCredentials(cipher, work.store);
+    if (store === null) {
+      throw conflictError(RECONNECT_STORE);
+    }
+    return store;
+  };
+  return {
+    database,
+    clientFor: (tenantId) =>
+      credentials === null
+        ? null
+        : resellerBlingClient(
+            {
+              database,
+              cipher,
+              blingCredentials: credentials,
+              limiter: context.blingLimiter,
+              fetchImplementation: fetch,
+            },
+            tenantId,
+          ),
+    readBuyerBilling: async (work) =>
+      readMercadoLivreBuyerBilling(mercadoLivreConfig, storeOf(work), work.externalOrderId),
+    readSalePayments: async (work) =>
+      readMercadoLivreSalePayments(mercadoLivreConfig, storeOf(work), work.externalOrderId),
+    sendSaleInvoice: async (work, note) => {
+      await sendMercadoLivreSaleInvoice(mercadoLivreConfig, storeOf(work), {
+        orderId: work.externalOrderId,
+        accessKey: note.accessKey,
+        xml: note.xml,
+      });
+    },
+  };
+}
+
 function createResellerInvoiceReader(context: WorkerContext) {
   const { database, cipher, mercadoLivreConfig } = context;
   return createResellerInvoiceReadProcessor({
     database,
+    issue: resellerSaleIssueDependencies(context),
     readSaleInvoice: async (due) => {
       if (due.store.marketplace !== "mercado_livre") {
         return null;
@@ -404,6 +491,57 @@ function orderWorkers(context: WorkerContext): Worker[] {
   ];
 }
 
+/** A store whose last check still waits or runs is left to it: runs never stack up. */
+async function enqueueOrderCheck(
+  queue: Queue,
+  job: OrderCheckJob,
+  delayInMs: number,
+): Promise<void> {
+  const jobId = orderCheckJobId(job);
+  const released = await releaseFinishedJob(queue, jobId);
+  if (!released) {
+    return;
+  }
+  await queue.add("check-store", job, { ...ORDER_CHECK_JOB_OPTIONS, jobId, delay: delayInMs });
+}
+
+function parseOrderCheckJob(data: unknown): OrderCheckJob {
+  const parsed = orderCheckJobSchema.safeParse(data);
+  if (!parsed.success) {
+    throw new UnrecoverableError("Payload do job de conferência de pedidos inválido");
+  }
+  return parsed.data;
+}
+
+/** Every 15 minutes, each store's recent sales compared with SellBridge's (lost notifications). */
+function orderCheckWorkers(context: WorkerContext): Worker[] {
+  const { database, connectors, cipher, queues, connection } = context;
+  const dispatch = createOrderCheckDispatcher({
+    database,
+    connectors,
+    marketplaces: ORDER_CHECK_MARKETPLACES,
+    enqueue: async (job, delayInMs) => enqueueOrderCheck(queues.orderCheck, job, delayInMs),
+  });
+  const dependencies = {
+    database,
+    connectors,
+    cipher,
+    acquireRateLimit: context.acquireRateLimit,
+    requestStockSync: async () => requestStockSync(context),
+    requestAutoForward: async (orderId: string) => requestAutoForward(context, orderId),
+  };
+  return [
+    new Worker(
+      QUEUE_NAMES.orderCheck,
+      async (job) =>
+        job.name === ORDER_CHECK_DISPATCH_JOB
+          ? dispatch()
+          : checkStoreOrders(dependencies, parseOrderCheckJob(job.data)),
+      { connection, concurrency: 2 },
+    ),
+  ];
+}
+
 /** Release completed job IDs before recovery, so an earlier failed attempt cannot block a retry. */
 async function enqueueRecoveredPublications(
   queue: Queue,
@@ -467,9 +605,6 @@ function paymentWorkers(context: WorkerContext): Worker[] {
   ];
 }
 
-/** Shares the ticket queue: both are slow sweeps of support deadlines. */
-const RETURN_DEADLINES_JOB = "close-overdue-returns";
-
 function accountAddressConfig(context: WorkerContext): MercadoLivreConfig {
   const fetchImplementation = context.accountAddressFetch;
   if (fetchImplementation === undefined) {
@@ -532,7 +667,7 @@ function deliveryWorkers(context: WorkerContext): Worker[] {
   return [
     new Worker(
       QUEUE_NAMES.ticketAutoClose,
-      async (job) => (job.name === RETURN_DEADLINES_JOB ? processReturns() : processTickets()),
+      async (job) => (job.name === RETURN_DEADLINES_JOB_NAME ? processReturns() : processTickets()),
       { connection, concurrency: 1 },
     ),
     new Worker(QUEUE_NAMES.supplierApproval, async () => processApprovals(), {
@@ -571,14 +706,17 @@ async function scheduleQueues(queues: WorkerContext["queues"]): Promise<void> {
   await scheduleRecurring(queues.webhookSweep, "sweep-unprocessed-webhook-events", 5 * 60 * 1000);
   await scheduleRecurring(queues.webhookSweep, WEBHOOK_EVENT_PRUNE_JOB, 60 * 60 * 1000);
   await scheduleRecurring(queues.ticketClose, "close-idle-tickets", 60 * 60 * 1000);
-  await scheduleRecurring(queues.ticketClose, RETURN_DEADLINES_JOB, 15 * 60 * 1000);
+  await scheduleRecurring(queues.ticketClose, RETURN_DEADLINES_JOB_NAME, 15 * 60 * 1000);
   await scheduleRecurring(queues.supplierApproval, "check-pending-suppliers", 15 * 60 * 1000);
   await scheduleRecurring(queues.tokenRefresh, "refresh-expiring-tokens", 10 * 60 * 1000);
   await scheduleRecurring(queues.shipmentTracking, "track-shipments", 30 * 60 * 1000);
+  await scheduleRecurring(queues.orderCheck, ORDER_CHECK_DISPATCH_JOB, 15 * 60 * 1000);
   await scheduleRecurring(queues.claimSweep, "sweep-marketplace-claims", 24 * 60 * 60 * 1000);
   await scheduleRecurring(queues.erpInvoices, "issue-erp-invoices", 2 * 60 * 1000);
   // Lost Bling notices are caught within 15 minutes; see docs/decisions for the quota math.
   await scheduleRecurring(queues.erpStock, ERP_STOCK_JOB_NAMES.checkAll, 15 * 60 * 1000);
+  // A sale's exit reaches Bling within a minute, before a check could read the old balance.
+  await scheduleRecurring(queues.erpStock, ERP_STOCK_JOB_NAMES.postExits, 60 * 1000);
   await scheduleRecurring(queues.supplierPayments, "reconcile-supplier-payments", 5 * 60 * 1000);
   // Hourly, so a day's checks are spread out; each store is due once a day.
   await scheduleRecurring(queues.buyerAddressCheck, "check-buyer-addresses", 60 * 60 * 1000);
@@ -644,6 +782,7 @@ export async function startWorker(
   const workers = [
     ...marketplaceWorkers(context),
     ...orderWorkers(context),
+    ...orderCheckWorkers(context),
     ...recoveryWorkers(context),
     ...deliveryWorkers(context),
     ...erpWorkers(context),

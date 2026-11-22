@@ -115,9 +115,49 @@ function SummaryHeader({ preview }: { preview: SupplierImportPreview }) {
           tone="danger"
         />
       </dl>
+      <GridNotices
+        grids={preview.grids}
+        combinations={preview.gridCombinations}
+        notices={preview.notices}
+      />
       <EmojiNotice products={preview.emojisRemoved} />
       <PriceWarnings warnings={preview.priceWarnings} />
     </>
+  );
+}
+
+// The grids the file creates, and the rows that went in as separate products instead.
+function GridNotices({
+  grids,
+  combinations,
+  notices,
+}: {
+  grids: number;
+  combinations: number;
+  notices: SupplierImportPreview["notices"];
+}) {
+  if (grids === 0 && notices.length === 0) {
+    return null;
+  }
+  return (
+    <div className="space-y-2 text-sm">
+      {grids > 0 ? (
+        <p className="text-muted-foreground">
+          {plural(grids, "produto com cores e tamanhos", "produtos com cores e tamanhos")}, com{" "}
+          {plural(combinations, "variação", "variações")}. Cada linha vira uma variação dele, e na
+          lista de produtos ele aparece uma vez só.
+        </p>
+      ) : null}
+      {notices.length > 0 ? (
+        <ul className="space-y-1 rounded-2xl border border-amber-700/40 p-4 text-muted-foreground">
+          {notices.map((notice) => (
+            <li key={notice.line}>
+              Linha {count.format(notice.line)}: {notice.message}
+            </li>
+          ))}
+        </ul>
+      ) : null}
+    </div>
   );
 }
 

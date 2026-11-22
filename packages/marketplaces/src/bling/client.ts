@@ -5,11 +5,14 @@ import {
   blingRequest,
   type BlingHttpOptions,
 } from "./http.ts";
+import { blingDirectInvoiceCalls } from "./direct-invoices.ts";
 import { blingInvoiceCalls, type BlingCall } from "./invoices.ts";
 import type { BlingTokens } from "./oauth.ts";
 import type { BlingRateLimiter } from "./rate-limit.ts";
 import {
   blingCompanyResponseSchema,
+  blingCreatedStockResponseSchema,
+  blingDepositListResponseSchema,
   blingStockBalanceResponseSchema,
   blingCreatedProductResponseSchema,
   blingProductDetailResponseSchema,
@@ -127,6 +130,77 @@ function createBlingCaller(options: BlingClientOptions) {
   };
 }
 
+/** `quantity` units of the product leaving (exit) or coming back to (entry) `depositId`. */
+export interface BlingStockMovement {
+  readonly erpProductId: number;
+  readonly depositId: number;
+  readonly quantity: number;
+  readonly note: string;
+}
+
+/** `POST /estoques` operations: "S" (Saída) and "E" (Entrada); "B" (Balanço) is never sent. */
+type BlingStockOperation = "S" | "E";
+
+/**
+ * Posts one stock record and returns its id. Bling takes no idempotency key: the caller makes
+ * sure the same movement is never sent twice, and never retries one whose answer was lost.
+ */
+async function postStockRecord(
+  call: BlingCall,
+  operation: BlingStockOperation,
+  movement: BlingStockMovement,
+): Promise<number> {
+  if (!Number.isInteger(movement.quantity) || movement.quantity <= 0) {
+    throw new RangeError(
+      `Stock movement quantity must be a positive integer, got ${movement.quantity}`,
+    );
+  }
+  const response = await call({
+    path: "/estoques",
+    init: {
+      method: "POST",
+      body: JSON.stringify({
+        produto: { id: movement.erpProductId },
+        deposito: { id: movement.depositId },
+        operacao: operation,
+        quantidade: movement.quantity,
+        observacoes: movement.note,
+      }),
+    },
+    schema: blingCreatedStockResponseSchema,
+  });
+  return response.data.id;
+}
+
+/**
+ * Where SellBridge's own sales leave Bling's stock, and their returns come back: the default
+ * warehouse, the exit and the entry.
+ */
+function blingStockExitCalls(call: BlingCall) {
+  return {
+    /** The account's active warehouses, with which one is the default. */
+    async listActiveDeposits(): Promise<{ id: number; isDefault: boolean }[]> {
+      const response = await call({
+        path: "/depositos?situacao=1&limite=100",
+        schema: blingDepositListResponseSchema,
+      });
+      return response.data
+        .filter((deposit) => deposit.situacao === 1)
+        .map((deposit) => ({ id: deposit.id, isDefault: deposit.padrao }));
+    },
+
+    /** Posts a stock exit ("S") once and returns its id. */
+    async postStockExit(exit: BlingStockMovement): Promise<number> {
+      return postStockRecord(call, "S", exit);
+    },
+
+    /** Posts a stock entry ("E") once and returns its id. */
+    async postStockEntry(entry: BlingStockMovement): Promise<number> {
+      return postStockRecord(call, "E", entry);
+    },
+  };
+}
+
 /** The stock sync's reads: the account's company id and product balances. */
 function blingStockCalls(call: BlingCall) {
   return {
@@ -173,7 +247,9 @@ export function createBlingClient(options: BlingClientOptions) {
 
   return {
     ...blingInvoiceCalls(call),
+    ...blingDirectInvoiceCalls(call),
     ...blingStockCalls(call),
+    ...blingStockExitCalls(call),
     /** One page of the summary list (active products by default). */
     async listProducts(input: { page: number; criterio?: 1 | 2 | 3 | 4 | 5 }) {
       const query = new URLSearchParams({

@@ -37,6 +37,7 @@ import {
   combinationRow,
   getProductModel,
   lockSupplier,
+  modelCodeFor,
   rewriteCombinations,
   type ProductModelDetail,
 } from "./product-models.ts";
@@ -87,9 +88,13 @@ async function writeModel(
   input: CatalogSaveModelDraftInput,
 ): Promise<void> {
   const values = { ...input.values, imageUrls: [...input.values.imageUrls] };
+  const code = await modelCodeFor(transaction, {
+    supplierId: input.supplierId,
+    title: input.values.title,
+  });
   const created = await transaction
     .insert(productModels)
-    .values({ id: input.modelId, supplierId: input.supplierId, ...values })
+    .values({ id: input.modelId, supplierId: input.supplierId, code, ...values })
     .onConflictDoNothing({ target: productModels.id })
     .returning({ id: productModels.id });
   if (created.length > 0) {
@@ -289,15 +294,19 @@ async function writeOptions(
   }
 }
 
-async function assertSkusFreeOutsideModel(
-  transaction: DatabaseExecutor,
-  input: CatalogSaveModelDraftInput,
-): Promise<void> {
+/**
+ * The SKUs of a grid save that another product of the supplier already uses: what the form
+ * shows on those fields before saving, so the supplier fixes them and the autosave goes on.
+ */
+export async function findSkusTakenOutsideModel(
+  executor: DatabaseExecutor,
+  input: Pick<CatalogSaveModelDraftInput, "supplierId" | "modelId" | "grid">,
+): Promise<string[]> {
   const skus = input.grid.combinations.map((combination) => combination.sku);
   if (skus.length === 0) {
-    return;
+    return [];
   }
-  const taken = await transaction
+  const taken = await executor
     .select({ sku: supplierProducts.sku })
     .from(supplierProducts)
     .where(
@@ -308,9 +317,18 @@ async function assertSkusFreeOutsideModel(
       ),
     )
     .orderBy(asc(supplierProducts.sku));
+  return taken.map((row) => row.sku);
+}
+
+/** The same check inside the save, for a SKU another product took since the form checked. */
+async function assertSkusFreeOutsideModel(
+  transaction: DatabaseExecutor,
+  input: CatalogSaveModelDraftInput,
+): Promise<void> {
+  const taken = await findSkusTakenOutsideModel(transaction, input);
   if (taken.length > 0) {
     throw conflictError(
-      `Já existe outro produto com ${taken.length === 1 ? "o SKU" : "os SKUs"} ${taken.map((row) => row.sku).join(", ")} neste fornecedor`,
+      `Já existe outro produto com ${taken.length === 1 ? "o SKU" : "os SKUs"} ${taken.join(", ")} neste fornecedor`,
     );
   }
 }
@@ -364,7 +382,7 @@ async function writeCombinations(
   }
 }
 
-async function categorySlugOf(
+export async function categorySlugOf(
   transaction: DatabaseExecutor,
   categoryId: string | null,
 ): Promise<string | null> {
@@ -381,16 +399,11 @@ async function categorySlugOf(
   return category.slug;
 }
 
-/**
- * What stops one combination from being sold, besides its stock: a size may be out of stock while
- * the others sell. Messages are the completeness ones, prefixed by the combination's name.
- */
-function publishingProblems(
+function saleBlockers(
   row: typeof supplierProducts.$inferSelect,
   categorySlug: string | null,
   fallback: FiscalFallback | null,
-): string[] {
-  const label = combinationLabel(row.color, row.size);
+) {
   const report = evaluateCompleteness(
     {
       ...row,
@@ -404,17 +417,50 @@ function publishingProblems(
     description: row.description,
     ...row.mercadoLivreAttributes,
   });
-  return [
-    ...report.blocking
+  return {
+    completeness: report.blocking
       .filter((issue) => issue.field !== "stock")
-      .map((issue) => `${label}: ${issue.message}`),
-    ...(contact === null ? [] : [`${SUPPLIER_TEXT_CONTACT_REFUSED} Corrija o campo "${contact}".`]),
-    ...(isProhibitedProduct(row) ? [`${label}: este produto não pode ser vendido`] : []),
+      .map((issue) => issue.message),
+    contact:
+      contact === null ? null : `${SUPPLIER_TEXT_CONTACT_REFUSED} Corrija o campo "${contact}".`,
+    prohibited: isProhibitedProduct(row),
+  };
+}
+
+/**
+ * What stops one combination from being sold, besides its stock: a size may be out of stock while
+ * the others sell. Messages are the completeness ones, prefixed by the combination's name.
+ */
+function publishingProblems(
+  row: typeof supplierProducts.$inferSelect,
+  categorySlug: string | null,
+  fallback: FiscalFallback | null,
+): string[] {
+  const label = combinationLabel(row.color, row.size);
+  const blockers = saleBlockers(row, categorySlug, fallback);
+  return [
+    ...blockers.completeness.map((message) => `${label}: ${message}`),
+    ...(blockers.contact === null ? [] : [blockers.contact]),
+    ...(blockers.prohibited ? [`${label}: este produto não pode ser vendido`] : []),
+  ];
+}
+
+/** What stops a product from being sold besides its stock, in the completeness words. */
+export function saleProblems(
+  row: typeof supplierProducts.$inferSelect,
+  categorySlug: string | null,
+  fallback: FiscalFallback | null,
+): string[] {
+  const blockers = saleBlockers(row, categorySlug, fallback);
+  return [
+    ...blockers.completeness,
+    ...(blockers.contact === null ? [] : [blockers.contact]),
+    ...(blockers.prohibited ? ["Este produto não pode ser vendido"] : []),
   ];
 }
 
 /** A combination on sale goes back to draft when an edit of the model leaves it unsellable. */
-async function demoteUnsellableCombinations(
+export async function demoteUnsellableCombinations(
   transaction: DatabaseExecutor,
   input: { supplierId: string; modelId: string; categoryId: string | null },
 ): Promise<void> {

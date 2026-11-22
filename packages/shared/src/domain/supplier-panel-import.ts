@@ -92,7 +92,10 @@ function buildCanonicalCsv(header: readonly string[], records: readonly ImportRe
   return { canonicalCsv: `${lines.join("\n")}\n`, originalLines };
 }
 
-export function normalizeImportFile(bytes: Uint8Array): NormalizedImport {
+export function normalizeImportFile(
+  bytes: Uint8Array,
+  options: { readonly gridColumns?: boolean } = {},
+): NormalizedImport {
   if (bytes.byteLength === 0) {
     throw validationError("O arquivo está vazio; escolha a planilha com os produtos");
   }
@@ -104,7 +107,7 @@ export function normalizeImportFile(bytes: Uint8Array): NormalizedImport {
   if (headerRecord === undefined) {
     throw validationError("O arquivo está vazio; escolha a planilha com os produtos");
   }
-  const checked = checkImportHeader(headerRecord.fields);
+  const checked = checkImportHeader(headerRecord.fields, options);
   if (rows.length === 0) {
     throw validationError(
       "A planilha tem só o cabeçalho; preencha os produtos a partir da linha 2",

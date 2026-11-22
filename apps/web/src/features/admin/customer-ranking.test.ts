@@ -36,6 +36,7 @@ function customer(id: string, overrides: Partial<CustomerSummary> = {}): Custome
     stores: [{ marketplace: "shopee", shopName: "Loja", status: "connected", supplierName: null }],
     waitingTickets: 0,
     lastSeenAt: NOW,
+    courtesyExpiresAt: null,
     ...overrides,
   };
 }
@@ -62,6 +63,7 @@ describe("customer ranking", () => {
       ticket: 1,
       onboarding: 1,
       cooling: 0,
+      courtesy: 0,
     });
   });
 

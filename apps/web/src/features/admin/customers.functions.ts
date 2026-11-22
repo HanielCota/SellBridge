@@ -27,6 +27,7 @@ import {
 } from "@sellbridge/database/repositories";
 import { assessCustomerHealth } from "@sellbridge/shared/customer-health";
 import { conflictError, forbiddenError, notFoundError } from "@sellbridge/shared/errors";
+import { hasStaffPermission } from "@sellbridge/shared/staff-access";
 import { logger } from "@sellbridge/shared/logger";
 import {
   type AccountIdentity,
@@ -56,6 +57,7 @@ import { renderActionEmail } from "@sellbridge/shared/email-layout";
 import { sendEmail } from "@/lib/server/mailer";
 import { adminMiddleware } from "@/lib/server/middleware";
 import { requestStockSync } from "@/lib/server/stock-sync";
+import { courtesyOverview } from "@/features/billing/courtesy.server";
 import { buildReportScope } from "@/features/reports/report-scope.server";
 import type { AdminAction } from "./admin-actions";
 import {
@@ -204,6 +206,8 @@ function accountAccess(actor: AccountIdentity, customer: CustomerSummary) {
     canManage: canManageAccount(actor, customer, environment.ADMIN_EMAILS),
     /** Giving a team role is managing the team: only an owner's role picker works. */
     canGrantTeamRoles: isPlatformOwner(actor, environment.ADMIN_EMAILS),
+    /** A plan with no charge is money: the screen hides what the server would refuse. */
+    canGrantCourtesy: hasStaffPermission(actor.role, "billing.grant_courtesy"),
   };
 }
 
@@ -224,6 +228,7 @@ export const adminGetCustomer = createServerFn({ method: "GET" })
         access,
         events,
         profile: { hasHolder: false, starterSupplier: null },
+        courtesy: null,
         contact: NO_CUSTOMER_CONTACT,
         stores: [],
         summary: null,
@@ -235,12 +240,13 @@ export const adminGetCustomer = createServerFn({ method: "GET" })
       customer.tenantId,
       periodSearchSchema.parse({ period: "30d" }),
     );
-    const [profile, stores, summary, tickets, weeklyOrders] = await Promise.all([
+    const [profile, stores, summary, tickets, weeklyOrders, courtesy] = await Promise.all([
       findOnboardingProfile(database, customer.tenantId),
       listStoreConnections(database, customer.tenantId),
       getSalesSummary(database, scope),
       listTenantTickets(database, customer.tenantId, { status: "open" }, { page: 1, pageSize: 1 }),
       getWeeklyOrderCounts(database, customer.tenantId, ACTIVITY_WEEKS),
+      courtesyOverview(customer.tenantId),
     ]);
     return {
       customer,
@@ -248,6 +254,7 @@ export const adminGetCustomer = createServerFn({ method: "GET" })
       access,
       events,
       weeklyOrders,
+      courtesy,
       profile: holderStatus(profile),
       // adminMiddleware lets only admins in, so the phone comes along.
       contact: customerContactForStaff("admin", profile.holder),
@@ -274,7 +281,7 @@ async function notifyPreviousAddress(input: { previousEmail: string; maskedEmail
     },
     environment.APP_URL,
   );
-  await sendEmail({ to: input.previousEmail, ...email });
+  await sendEmail({ to: input.previousEmail, category: "account_access", ...email });
 }
 
 /** Better Auth, the mailer and the trail behind `saveCustomerProfile`, for one customer. */

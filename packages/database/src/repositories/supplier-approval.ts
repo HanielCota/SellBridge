@@ -1,8 +1,10 @@
 import { notFoundError, conflictError } from "@sellbridge/shared/errors";
 import { readSupplierFiscalProfile } from "@sellbridge/shared/supplier-fiscal";
 import {
+  APPROVAL_REFUSAL_TEXT,
   decideSupplierApproval,
   nextCnpjCheck,
+  signupRulesApplyTo,
   type ApprovalCompany,
   type ApprovalFacts,
   type ApprovalMissingItem,
@@ -21,6 +23,7 @@ import {
   supplierPaymentAccounts,
   suppliers,
 } from "../schema/index.ts";
+import { getSignupRulesSince } from "./signup-rules.ts";
 
 /** Where a supplier's approval stands, as its panel and the team's screens show it. */
 export interface SupplierApprovalState {
@@ -32,6 +35,8 @@ export interface SupplierApprovalState {
   readonly refusalReason: string | null;
   readonly registrationStatus: string | null;
   readonly receitaLegalName: string | null;
+  /** Who refused or approved; null while pending or for a supplier that never had a check. */
+  readonly decidedBy: "automatic" | "team" | null;
 }
 
 const APPROVED_STATE: SupplierApprovalState = {
@@ -42,6 +47,7 @@ const APPROVED_STATE: SupplierApprovalState = {
   refusalReason: null,
   registrationStatus: null,
   receitaLegalName: null,
+  decidedBy: null,
 };
 
 /** The supplier's approval, or the approved state for a supplier that never had a check. */
@@ -58,6 +64,7 @@ export async function getSupplierApprovalState(
       refusalReason: supplierApprovals.refusalReason,
       registrationStatus: supplierApprovals.registrationStatus,
       receitaLegalName: supplierApprovals.receitaLegalName,
+      decidedBy: supplierApprovals.decidedBy,
     })
     .from(suppliers)
     .leftJoin(supplierApprovals, eq(supplierApprovals.supplierId, suppliers.id))
@@ -77,6 +84,7 @@ interface StoredFacts {
   readonly check: CnpjCheck | null;
   readonly receivingAccountApproved: boolean;
   readonly requireReceivingAccount: boolean;
+  readonly requireSupplierCompanySize: boolean;
 }
 
 async function readCheck(database: Database, supplierId: string): Promise<CnpjCheck | null> {
@@ -86,6 +94,7 @@ async function readCheck(database: Database, supplierId: string): Promise<CnpjCh
       outcome: supplierApprovals.cnpjOutcome,
       legalName: supplierApprovals.receitaLegalName,
       registrationStatus: supplierApprovals.registrationStatus,
+      companySize: supplierApprovals.companySize,
       checkedAt: supplierApprovals.checkedAt,
       unavailableSince: supplierApprovals.unavailableSince,
     })
@@ -143,16 +152,21 @@ export async function setRequireReceivingAccount(
 
 async function readFacts(database: Database, supplierId: string): Promise<StoredFacts> {
   const [supplier] = await database
-    .select({ status: suppliers.approvalStatus, fiscalProfile: suppliers.fiscalProfile })
+    .select({
+      status: suppliers.approvalStatus,
+      fiscalProfile: suppliers.fiscalProfile,
+      createdAt: suppliers.createdAt,
+    })
     .from(suppliers)
     .where(eq(suppliers.id, supplierId));
   if (supplier === undefined) {
     throw notFoundError(`Fornecedor não encontrado (id recebido: ${supplierId})`);
   }
-  const [check, accountApproved, requireReceivingAccount] = await Promise.all([
+  const [check, accountApproved, requireReceivingAccount, signupRulesSince] = await Promise.all([
     readCheck(database, supplierId),
     receivingAccountApproved(database, supplierId),
     getRequireReceivingAccount(database),
+    getSignupRulesSince(database),
   ]);
   const profile = readSupplierFiscalProfile(supplier.fiscalProfile);
   return {
@@ -161,6 +175,7 @@ async function readFacts(database: Database, supplierId: string): Promise<Stored
     check,
     receivingAccountApproved: accountApproved,
     requireReceivingAccount,
+    requireSupplierCompanySize: signupRulesApplyTo(supplier.createdAt, signupRulesSince),
   };
 }
 
@@ -173,13 +188,14 @@ function checkColumns(check: CnpjCheck | null) {
     cnpjOutcome: check.outcome,
     receitaLegalName: check.legalName,
     registrationStatus: check.registrationStatus,
+    companySize: check.companySize,
     checkedAt: check.checkedAt,
     unavailableSince: check.unavailableSince,
   };
 }
 
 /** The stage a verdict leaves the supplier in; a lookup still due means the query is retried. */
-function stageColumns(verdict: Exclude<ApprovalVerdict, { kind: "approve" }>) {
+function stageColumns(verdict: Exclude<ApprovalVerdict, { kind: "approve" | "refuse" }>) {
   if (verdict.kind === "wait_supplier") {
     return { stage: "waiting_supplier" as const, missing: [...verdict.missing], teamReason: null };
   }
@@ -187,6 +203,32 @@ function stageColumns(verdict: Exclude<ApprovalVerdict, { kind: "approve" }>) {
     return { stage: "needs_team" as const, missing: [], teamReason: verdict.reason };
   }
   return { stage: "checking" as const, missing: [], teamReason: null };
+}
+
+/** The status an automatic verdict decides, or null while the supplier stays pending. */
+function decidedStatus(verdict: ApprovalVerdict): SupplierApprovalStatus | null {
+  if (verdict.kind === "approve") {
+    return "approved";
+  }
+  if (verdict.kind === "refuse") {
+    return "refused";
+  }
+  return null;
+}
+
+function verdictColumns(verdict: ApprovalVerdict, now: Date) {
+  if (verdict.kind === "approve" || verdict.kind === "refuse") {
+    return {
+      stage: null,
+      missing: [],
+      teamReason: null,
+      decidedBy: "automatic" as const,
+      decidedByUserId: null,
+      decidedAt: now,
+      refusalReason: verdict.kind === "refuse" ? APPROVAL_REFUSAL_TEXT[verdict.cause] : null,
+    };
+  }
+  return stageColumns(verdict);
 }
 
 interface CheckOutcome {
@@ -211,23 +253,14 @@ async function saveVerdict(database: Database, outcome: CheckOutcome): Promise<v
     if (current?.status !== "pending") {
       return;
     }
-    if (verdict.kind === "approve") {
+    const decided = decidedStatus(verdict);
+    if (decided !== null) {
       await transaction
         .update(suppliers)
-        .set({ approvalStatus: "approved" })
+        .set({ approvalStatus: decided })
         .where(eq(suppliers.id, supplierId));
     }
-    const values =
-      verdict.kind === "approve"
-        ? {
-            ...checkColumns(check),
-            stage: null,
-            missing: [],
-            teamReason: null,
-            decidedBy: "automatic" as const,
-            decidedAt: now,
-          }
-        : { ...checkColumns(check), ...stageColumns(verdict) };
+    const values = { ...checkColumns(check), ...verdictColumns(verdict, now) };
     await transaction
       .insert(supplierApprovals)
       .values({ supplierId, ...values })
@@ -264,7 +297,7 @@ export async function runSupplierApprovalCheck(
     verdict = decideSupplierApproval({ ...facts, check });
   }
   await saveVerdict(database, { supplierId, verdict, check, now });
-  return verdict.kind === "approve" ? "approved" : "pending";
+  return decidedStatus(verdict) ?? "pending";
 }
 
 /**
@@ -355,9 +388,27 @@ export type TeamApprovalDecision =
   { readonly decision: "approve" } | { readonly decision: "refuse"; readonly reason: string };
 
 /**
- * The team approves or refuses a pending supplier. A supplier that is no longer pending (the
- * check approved it meanwhile, or a colleague decided first) is refused with a conflict.
- * @throws AppError NOT_FOUND for an unknown supplier, CONFLICT when it is no longer pending.
+ * Which suppliers a team decision applies to: refusing takes a pending one; approving also takes
+ * one the check refused on its own (an MEI that proved it left the MEI before the Receita data
+ * caught up), never one the team itself refused.
+ */
+function decidableByTeam(decision: TeamApprovalDecision["decision"]) {
+  const pending = eq(suppliers.approvalStatus, "pending");
+  if (decision === "refuse") {
+    return pending;
+  }
+  const refusedAutomatically = and(
+    eq(suppliers.approvalStatus, "refused"),
+    sql`exists (select 1 from ${supplierApprovals} where ${supplierApprovals.supplierId} = ${suppliers.id} and ${supplierApprovals.decidedBy} = 'automatic')`,
+  );
+  return or(pending, refusedAutomatically);
+}
+
+/**
+ * The team approves or refuses a pending supplier, or approves one the check refused on its own.
+ * Anything else (the check approved it meanwhile, a colleague decided first, or the team refused
+ * it) is refused with a conflict.
+ * @throws AppError NOT_FOUND for an unknown supplier, CONFLICT when it cannot take that decision.
  */
 export async function decideSupplierApprovalByTeam(
   database: Database,
@@ -369,7 +420,7 @@ export async function decideSupplierApprovalByTeam(
     const updated = await transaction
       .update(suppliers)
       .set({ approvalStatus: status })
-      .where(and(eq(suppliers.id, input.supplierId), eq(suppliers.approvalStatus, "pending")))
+      .where(and(eq(suppliers.id, input.supplierId), decidableByTeam(input.decision)))
       .returning({ id: suppliers.id });
     if (updated.length === 0) {
       const [exists] = await transaction

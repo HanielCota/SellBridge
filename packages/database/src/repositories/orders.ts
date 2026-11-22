@@ -8,6 +8,7 @@ import { reconciledOrderStatus } from "./fulfillment-status.ts";
 import { recordApiEvent } from "./api-events.ts";
 import { syncMarketplaceRefund } from "./marketplace-refunds.ts";
 import { recordOrderStatusChange } from "./order-status-changes.ts";
+import { cancelQueuedParcelsOfCancelledSale } from "./sale-cancellation.ts";
 import { applyStockMoves, reserveShortItems } from "./stock-reservations.ts";
 
 export interface IncomingOrder {
@@ -31,6 +32,8 @@ export interface IncomingOrder {
 export type UpsertOrderResult = {
   status: "created" | "updated";
   orderId: string;
+  previousStatus: IncomingOrder["status"] | null;
+  orderStatus: IncomingOrder["status"];
   /** Stock moves for this order and recovered shortages; above zero, sync the marketplaces. */
   stockMoves: number;
 };
@@ -154,7 +157,12 @@ async function updateExistingOrder(
       }),
     });
   }
-  return { status: "updated", orderId: existing.id };
+  return {
+    status: "updated",
+    orderId: existing.id,
+    previousStatus: existing.status,
+    orderStatus: write.order.status,
+  };
 }
 
 async function insertOrderItems(write: OrderWrite, orderId: string): Promise<void> {
@@ -224,7 +232,12 @@ async function createOrder(write: OrderWrite): Promise<OrderWriteResult | null> 
       previousStatus: null,
     }),
   });
-  return { status: "created", orderId: created.id };
+  return {
+    status: "created",
+    orderId: created.id,
+    previousStatus: null,
+    orderStatus: order.status,
+  };
 }
 
 /** Physical progress of an order: a late marketplace update never moves it back down this ladder. */
@@ -297,6 +310,9 @@ async function writeOrder(write: OrderWrite): Promise<UpsertOrderResult> {
       { ...write, order: { ...write.order, status } },
       existing,
     );
+    if (status === "cancelled") {
+      await cancelQueuedParcelsOfCancelledSale(write.transaction, existing);
+    }
     const stockMoves = await applyStockMoves(write.transaction, existing.id, status);
     await syncMarketplaceRefund(write.transaction, {
       tenantId: write.tenantId,

@@ -1,9 +1,11 @@
 import type { Database } from "@sellbridge/database";
 import {
   findErpConnectionsExpiringBefore,
+  findResellerErpConnectionsExpiringBefore,
   recordErpRefreshFailure,
+  recordResellerErpRefreshFailure,
   rotateErpTokens,
-  type ErpConnection,
+  rotateResellerErpTokens,
 } from "@sellbridge/database/repositories";
 import { isMarketplaceAuthError, type FetchLike } from "@sellbridge/marketplaces";
 import {
@@ -35,15 +37,25 @@ const REFRESH_WINDOW_IN_MS = 30 * 60 * 1000;
 
 const PASSING_FAILURE_MESSAGE = "Falha ao renovar o acesso ao Bling; tentaremos de novo";
 
+/** A connection to renew, a supplier's or a reseller's, with how its table saves the outcome. */
+interface RefreshTarget {
+  readonly id: string;
+  readonly refreshTokenEnc: string | null;
+  /** Who owns it, for the logs: `{ supplierId }` or `{ tenantId }`. */
+  readonly owner: Readonly<Record<string, string>>;
+  readonly rotate: typeof rotateErpTokens;
+  readonly recordFailure: typeof recordErpRefreshFailure;
+}
+
 async function refreshOne(
   dependencies: ErpTokenRefreshDependencies & { blingCredentials: BlingAppCredentials },
-  connection: ErpConnection,
+  connection: RefreshTarget,
 ): Promise<keyof ErpTokenRefreshSummary> {
   const refreshTokenEnc = connection.refreshTokenEnc;
   if (refreshTokenEnc === null) {
     logger.warn("erp.token_refresh_skipped", {
       connectionId: connection.id,
-      supplierId: connection.supplierId,
+      ...connection.owner,
       reason: "missing_refresh_token",
     });
     return "failed";
@@ -56,7 +68,7 @@ async function refreshOne(
       },
       dependencies.cipher.decrypt(refreshTokenEnc),
     );
-    const swapped = await rotateErpTokens(dependencies.database, {
+    const swapped = await connection.rotate(dependencies.database, {
       connectionId: connection.id,
       previousRefreshTokenEnc: refreshTokenEnc,
       tokens: {
@@ -69,7 +81,7 @@ async function refreshOne(
   } catch (error) {
     // Only a refused refresh token expires the connection; an outage keeps it and tries again.
     const expired = isMarketplaceAuthError(error);
-    const recorded = await recordErpRefreshFailure(dependencies.database, {
+    const recorded = await connection.recordFailure(dependencies.database, {
       connectionId: connection.id,
       refreshTokenEnc,
       lastError: expired ? BLING_RECONNECT_MESSAGE : userMessageOr(error, PASSING_FAILURE_MESSAGE),
@@ -77,7 +89,7 @@ async function refreshOne(
     });
     logger.warn("erp.token_refresh_failed", {
       connectionId: connection.id,
-      supplierId: connection.supplierId,
+      ...connection.owner,
       expired,
       error,
     });
@@ -88,6 +100,31 @@ async function refreshOne(
   }
 }
 
+/** The suppliers' and the resellers' ERP accounts whose access token expires soon. */
+async function expiringConnections(database: Database): Promise<RefreshTarget[]> {
+  const threshold = new Date(Date.now() + REFRESH_WINDOW_IN_MS);
+  const [suppliers, resellers] = await Promise.all([
+    findErpConnectionsExpiringBefore(database, threshold),
+    findResellerErpConnectionsExpiringBefore(database, threshold),
+  ]);
+  return [
+    ...suppliers.map((connection) => ({
+      id: connection.id,
+      refreshTokenEnc: connection.refreshTokenEnc,
+      owner: { supplierId: connection.supplierId },
+      rotate: rotateErpTokens,
+      recordFailure: recordErpRefreshFailure,
+    })),
+    ...resellers.map((connection) => ({
+      id: connection.id,
+      refreshTokenEnc: connection.refreshTokenEnc,
+      owner: { tenantId: connection.tenantId },
+      rotate: rotateResellerErpTokens,
+      recordFailure: recordResellerErpRefreshFailure,
+    })),
+  ];
+}
+
 /** Renews the ERP accounts' tokens before they expire, one by one (Bling: 20 token calls/min). */
 export function createErpTokenRefreshProcessor(dependencies: ErpTokenRefreshDependencies) {
   return async function processErpTokenRefresh(): Promise<ErpTokenRefreshSummary> {
@@ -96,10 +133,7 @@ export function createErpTokenRefreshProcessor(dependencies: ErpTokenRefreshDepe
     if (credentials === null) {
       return summary;
     }
-    const expiring = await findErpConnectionsExpiringBefore(
-      dependencies.database,
-      new Date(Date.now() + REFRESH_WINDOW_IN_MS),
-    );
+    const expiring = await expiringConnections(dependencies.database);
     for (const connection of expiring) {
       const outcome = await refreshOne(
         { ...dependencies, blingCredentials: credentials },

@@ -92,6 +92,31 @@ export async function listTicketOrders(
     .orderBy(asc(ticketOrders.createdAt));
 }
 
+/**
+ * The reseller's newest support ticket about this order that is not closed, or null: a screen
+ * that sends the reseller to support opens it instead of a second ticket on the same order.
+ */
+export async function findOpenSupportTicketForOrder(
+  database: Database,
+  input: { tenantId: string; orderId: string },
+): Promise<string | null> {
+  const [row] = await database
+    .select({ id: tickets.id })
+    .from(ticketOrders)
+    .innerJoin(tickets, eq(tickets.id, ticketOrders.ticketId))
+    .where(
+      and(
+        eq(ticketOrders.orderId, input.orderId),
+        eq(tickets.tenantId, input.tenantId),
+        eq(tickets.audience, "platform"),
+        ne(tickets.status, "closed"),
+      ),
+    )
+    .orderBy(desc(tickets.createdAt))
+    .limit(1);
+  return row?.id ?? null;
+}
+
 /** The tenant's latest orders not linked to this ticket yet, optionally searched. */
 export async function listLinkableOrders(
   database: Database,

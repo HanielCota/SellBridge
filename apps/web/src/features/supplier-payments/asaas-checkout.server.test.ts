@@ -97,6 +97,7 @@ const payable: PayableShipment = {
   supplierName: "Cestaria",
   catalogKind: "supplier",
   status: "forwarded",
+  cancelledByResellerAfterAccept: false,
   amountCents: 8000,
   payment,
 };

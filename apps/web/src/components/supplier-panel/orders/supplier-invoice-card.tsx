@@ -12,6 +12,7 @@ import {
   formatAccessKey,
   INVOICE_STATUS_LABELS,
   type InvoiceStatus,
+  type ParcelNote,
 } from "@sellbridge/shared/supplier-invoice";
 import type { ReactNode } from "react";
 import { TonePill } from "@/components/data/tone-status";
@@ -61,7 +62,23 @@ interface ParcelRef {
   supplierId: string;
   shipmentId: string;
   orderId: string;
+  note: ParcelNote;
 }
+
+/** How each note reads on the order: its title and who it is made out to. */
+export type SupplierNoteRole = "direct" | "remessa" | "sale";
+
+const NOTE_TITLES: Record<SupplierNoteRole, string> = {
+  direct: "Nota fiscal",
+  remessa: "Nota de remessa (vai na caixa)",
+  sale: "Nota de venda para o revendedor",
+};
+
+const NOTE_RECIPIENTS: Record<SupplierNoteRole, string> = {
+  direct: "Comprador do pedido",
+  remessa: "Comprador do pedido",
+  sale: "Empresa do revendedor",
+};
 
 function AuthorizedActions({ invoice, parcel }: { invoice: SupplierInvoice; parcel: ParcelRef }) {
   const withProfile = useTabProfileLink();
@@ -100,7 +117,15 @@ function AuthorizedActions({ invoice, parcel }: { invoice: SupplierInvoice; parc
   );
 }
 
-function AuthorizedDetails({ invoice, parcel }: { invoice: SupplierInvoice; parcel: ParcelRef }) {
+function AuthorizedDetails({
+  invoice,
+  parcel,
+  recipient,
+}: {
+  invoice: SupplierInvoice;
+  parcel: ParcelRef;
+  recipient: string;
+}) {
   const number =
     invoice.series === null ? invoice.number : `${invoice.number} · série ${invoice.series}`;
   return (
@@ -112,7 +137,7 @@ function AuthorizedDetails({ invoice, parcel }: { invoice: SupplierInvoice; parc
         </div>
         <div className="min-w-0">
           <dt className="text-footnote text-muted-foreground">Para quem</dt>
-          <dd className="font-medium">Comprador do pedido</dd>
+          <dd className="font-medium">{recipient}</dd>
         </div>
         {invoice.accessKey === null ? null : (
           <div className="min-w-0 sm:col-span-2">
@@ -167,7 +192,7 @@ function ProblemDetails({
 }
 
 /**
- * The parcel's NF-e, issued through the supplier's Bling: where it stands, its number, key and
+ * A note of the parcel, issued through the supplier's Bling: where it stands, its number, key and
  * DANFE once authorized, and what to fix when it stopped. Hidden while the parcel has none.
  */
 export function SupplierInvoiceCard({
@@ -175,22 +200,26 @@ export function SupplierInvoiceCard({
   shipmentId,
   orderId,
   invoice,
+  noteRole = "direct",
 }: {
   supplierId: string;
   shipmentId: string;
   orderId: string;
   invoice: SupplierInvoice | null;
+  noteRole?: SupplierNoteRole;
 }) {
   if (invoice === null) {
     return null;
   }
   const waiting = WAITING_TEXT[invoice.status];
+  const title = NOTE_TITLES[noteRole];
+  const note: ParcelNote = noteRole === "sale" ? "sale" : "box";
   return (
-    <section aria-label="Nota fiscal" className="space-y-3 rounded-2xl border p-4">
+    <section aria-label={title} className="space-y-3 rounded-2xl border p-4">
       <div className="flex flex-wrap items-center justify-between gap-2">
         <h3 className="flex items-center gap-2 text-subhead font-semibold">
           <FileTextIcon aria-hidden="true" className="size-5" />
-          Nota fiscal
+          {title}
         </h3>
         <TonePill
           tone={INVOICE_TONES[invoice.status]}
@@ -199,7 +228,11 @@ export function SupplierInvoiceCard({
         />
       </div>
       {invoice.status === "authorized" ? (
-        <AuthorizedDetails invoice={invoice} parcel={{ supplierId, shipmentId, orderId }} />
+        <AuthorizedDetails
+          invoice={invoice}
+          parcel={{ supplierId, shipmentId, orderId, note }}
+          recipient={NOTE_RECIPIENTS[noteRole]}
+        />
       ) : null}
       {invoice.status === "attention" ? (
         <ProblemDetails supplierId={supplierId} shipmentId={shipmentId} problem={invoice.problem} />

@@ -199,3 +199,57 @@ describe("product CSV descriptions with emojis", () => {
     expect(parsed.emojisRemoved).toBe(1);
   });
 });
+
+describe("grid columns in the product CSV", () => {
+  const gridHeader = "sku;titulo;custo;estoque;codigo_modelo;cor;tamanho";
+
+  it("reads the model code, colour and size of each row while grids are on", () => {
+    const parsed = parseProductCsv(`${gridHeader}\nTEN-P-38;Tênis Casual;59,90;5;TEN;Preto;38`, {
+      gridColumns: true,
+    });
+
+    expect(parsed.rows[0]?.product.grid).toEqual({ modelCode: "TEN", color: "Preto", size: "38" });
+  });
+
+  it("reads a model code typed in lowercase as the same code in capitals", () => {
+    const parsed = parseProductCsv(
+      `${gridHeader}
+TEN-P-38;Tênis Casual;59,90;5; ten-casual ;Preto;38`,
+      {
+        gridColumns: true,
+      },
+    );
+
+    expect(parsed.rows[0]?.product.grid?.modelCode).toBe("TEN-CASUAL");
+  });
+
+  it("refuses the grid columns while grids are off", () => {
+    expect(() =>
+      parseProductCsv(`${gridHeader}\nTEN-P-38;Tênis Casual;59,90;5;TEN;Preto;38`),
+    ).toThrow("Cabeçalho inválido");
+  });
+
+  it("asks for the model code of a row that has a colour", () => {
+    const parsed = parseProductCsv(`${gridHeader}\nTEN-P-38;Tênis Casual;59,90;5;;Preto;38`, {
+      gridColumns: true,
+    });
+
+    expect(parsed.errors[0]?.reason).toContain("Código do modelo: informe o mesmo código");
+  });
+
+  it("asks for a colour or a size of a row that has a model code", () => {
+    const parsed = parseProductCsv(`${gridHeader}\nTEN-P-38;Tênis Casual;59,90;5;TEN;;`, {
+      gridColumns: true,
+    });
+
+    expect(parsed.errors[0]?.reason).toContain("Cor e tamanho: informe a cor, o tamanho");
+  });
+
+  it("leaves a row without grid cells as a product of its own", () => {
+    const parsed = parseProductCsv(`${gridHeader}\nAVULSO;Caneca;19,90;5;;;`, {
+      gridColumns: true,
+    });
+
+    expect(parsed.rows[0]?.product.grid).toBeUndefined();
+  });
+});
