@@ -12,7 +12,11 @@ import { SupplierPageFrame } from "@/components/fulfillment/supplier-page-frame"
 import { ErrorState } from "@/components/feedback/error-state";
 import { updateSupplierShipmentFn } from "@/features/fulfillment/fulfillment.functions";
 import { supplierShipmentQueryOptions } from "@/features/fulfillment/fulfillment.queries";
-import { isPreparationStopped, isShippingBlocked } from "@/features/fulfillment/shipping-block";
+import {
+  isPreparationStopped,
+  type SaleStopNotice,
+  saleStopNotice,
+} from "@/features/fulfillment/shipping-block";
 import { PreparationHoldAlert } from "@/components/supplier-panel/orders/preparation-hold-alert";
 import { inviteFromOrderLinkFn } from "@/features/supplier-invite/supplier-invite.functions";
 import { errorMessage } from "@/lib/errors";
@@ -78,14 +82,14 @@ function ShipmentPanelSkeleton() {
   );
 }
 
-function ShippingBlockedAlert() {
+function ShippingBlockedAlert({ notice }: { notice: SaleStopNotice | null }) {
+  if (notice === null) {
+    return null;
+  }
   return (
     <Alert variant="destructive">
-      <AlertTitle>Pedido sem liberação para envio</AlertTitle>
-      <AlertDescription>
-        O marketplace ainda não liberou este pedido. Fale com o revendedor antes de separar ou
-        enviar.
-      </AlertDescription>
+      <AlertTitle>{notice.title}</AlertTitle>
+      <AlertDescription>{notice.description}</AlertDescription>
     </Alert>
   );
 }
@@ -196,7 +200,9 @@ function SupplierOrderPage() {
     <SupplierPageFrame>
       <OrderHeading externalOrderId={shipment.externalOrderId} />
       <PanelInviteNotice token={token} />
-      {isShippingBlocked(shipment.orderStatus) && <ShippingBlockedAlert />}
+      <ShippingBlockedAlert
+        notice={saleStopNotice(shipment.orderStatus, shipment.status, "link")}
+      />
       {hold !== null && <PreparationHoldAlert hold={hold} showAccountLink={false} />}
       <ShipmentPanel
         shipment={shipment}

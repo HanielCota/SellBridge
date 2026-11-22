@@ -95,7 +95,8 @@ export const NOTIFICATION_EVENT_DEFINITIONS: Record<NotificationEventName, Event
   shipment_problem: {
     audience: "reseller",
     label: "Problema na entrega",
-    description: "A transportadora não conseguiu entregar um pacote, ou ele voltou.",
+    description:
+      "A transportadora não conseguiu entregar um pacote ou ele voltou. Para o fornecedor, também a venda cancelada antes do envio.",
     defaults: { in_app: true, email: true, push: true },
   },
   // E-mail only: it carries the note's files, which the bell cannot.
@@ -283,6 +284,29 @@ export function shipmentProblemContent(notice: ShipmentProblemNotice): Notificat
     ],
     actionLabel: forSupplier ? "Ver no painel" : "Ver pedido",
     actionPath: forSupplier ? "/fornecedor/painel/pedidos" : `/pedidos/${notice.orderId}`,
+    footnote: FOOTNOTE,
+  };
+}
+
+export interface SaleCancelledNotice {
+  externalOrderId: string;
+  /** Where the sale was cancelled ("no Mercado Livre", "na Shopee"), or null when unnamed. */
+  channelPlace: string | null;
+}
+
+/** For the supplier: the sale of a parcel in its queue was cancelled, so it must not ship it. */
+export function saleCancelledContent(notice: SaleCancelledNotice): NotificationContent {
+  const where = notice.channelPlace === null ? "" : ` ${notice.channelPlace}`;
+  return {
+    subject: `Venda cancelada, não envie: pedido ${notice.externalOrderId}`,
+    preview: "O pedido passou para Encerrados.",
+    heading: "Venda cancelada: não envie",
+    paragraphs: [
+      `O pedido ${notice.externalOrderId} foi cancelado${where} e passou para Encerrados. O prazo dele não conta mais.`,
+      "Não envie o produto. Se você já separou, devolva ao estoque.",
+    ],
+    actionLabel: "Ver no painel",
+    actionPath: "/fornecedor/painel/pedidos?tab=closed",
     footnote: FOOTNOTE,
   };
 }

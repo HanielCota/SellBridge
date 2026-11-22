@@ -750,6 +750,13 @@
       "when": 1795311750974,
       "tag": "0106_signup_rules",
       "breakpoints": true
+    },
+    {
+      "idx": 107,
+      "version": "7",
+      "when": 1795315821614,
+      "tag": "0107_cancel_queued_parcels_of_cancelled_sales",
+      "breakpoints": true
     }
   ]
 }
