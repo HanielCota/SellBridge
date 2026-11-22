@@ -5,6 +5,8 @@ import { blingProductToItems, type SkippedBlingProduct } from "./product-items.t
 export interface BlingCatalogRead {
   readonly items: ErpCatalogItem[];
   readonly skipped: SkippedBlingProduct[];
+  /** Products with variations that came in one product per variation instead of as a grid. */
+  readonly separated: SkippedBlingProduct[];
   /** True when the catalog had more products than `maxProducts` and the rest was left out. */
   readonly truncated: boolean;
 }
@@ -81,16 +83,18 @@ export async function readBlingCatalog(
   const maxItems = options.maxItems ?? Number.POSITIVE_INFINITY;
   const items: ErpCatalogItem[] = [];
   const skipped: SkippedBlingProduct[] = [];
+  const separated: SkippedBlingProduct[] = [];
   const seenCodes = new Set<string>();
   for (const [index, id] of listed.ids.entries()) {
     const mapped = blingProductToItems(await client.getProduct(id));
     const { unique, repeated } = withoutRepeatedCodes(mapped.items, seenCodes);
     if (items.length + unique.length > maxItems) {
-      return { items, skipped, truncated: true };
+      return { items, skipped, separated, truncated: true };
     }
     items.push(...unique);
     skipped.push(...mapped.skipped, ...repeated);
+    separated.push(...mapped.separated);
     await options.onProgress?.({ read: index + 1, total: listed.ids.length });
   }
-  return { items, skipped, truncated: listed.truncated };
+  return { items, skipped, separated, truncated: listed.truncated };
 }

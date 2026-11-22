@@ -1,5 +1,10 @@
 import { schema } from "@sellbridge/database";
-import { findErpConnection, upsertErpConnection } from "@sellbridge/database/repositories";
+import {
+  findErpConnection,
+  findResellerErpConnection,
+  upsertErpConnection,
+  upsertResellerErpConnection,
+} from "@sellbridge/database/repositories";
 import { createBlingRateLimiter } from "@sellbridge/marketplaces/bling";
 import { parseErpCatalogExportResult } from "@sellbridge/shared/erp-catalog-export";
 import { logger } from "@sellbridge/shared/logger";
@@ -287,6 +292,44 @@ describe("erp token refresh", () => {
     });
     expect(saved?.status).toBe("connected");
     expect(cipher.decrypt(saved?.refreshTokenEnc ?? "")).toBe("r2");
+  });
+
+  it("renews a reseller's own expiring Bling connection too", async () => {
+    const tenantId = crypto.randomUUID();
+    await database
+      .insert(schema.organization)
+      .values({ id: tenantId, name: "Revenda", slug: `erp-${tenantId}`, createdAt: new Date() });
+    await upsertResellerErpConnection(database, {
+      tenantId,
+      provider: "bling",
+      userId: null,
+      tokens: {
+        accessTokenEnc: cipher.encrypt("access"),
+        refreshTokenEnc: cipher.encrypt("refresh"),
+        expiresAt: new Date(Date.now() + 60_000),
+      },
+    });
+    const fetchImplementation = vi.fn<typeof fetch>(async () =>
+      json(200, {
+        access_token: "a3",
+        refresh_token: "r3",
+        expires_in: 21600,
+        token_type: "Bearer",
+      }),
+    );
+    const process = createErpTokenRefreshProcessor({
+      database,
+      cipher,
+      blingCredentials: credentials,
+      fetchImplementation,
+    });
+
+    await process();
+
+    const saved = await findResellerErpConnection(database, { tenantId, provider: "bling" });
+    await database.delete(schema.organization).where(eq(schema.organization.id, tenantId));
+    expect(saved?.status).toBe("connected");
+    expect(cipher.decrypt(saved?.refreshTokenEnc ?? "")).toBe("r3");
   });
 
   it("expires the connection when Bling refuses the refresh token", async () => {

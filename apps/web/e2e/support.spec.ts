@@ -383,7 +383,8 @@ test("atendente vê só o suporte e assume um chamado da fila", async ({ browser
     .click();
   await admin.getByRole("combobox", { name: "Papel do cliente" }).click();
   await admin.getByRole("option", { name: "Atendente" }).click();
-  await expect(admin.getByText("Papel atualizado")).toBeVisible();
+  await admin.getByRole("button", { name: "Tornar Atendente" }).click();
+  await expect(admin.getByText(/ agora é Atendente$/)).toBeVisible();
 
   // The role is read on every request, so the agent's open session picks it up on reload.
   await gotoHydrated(agent, "/dashboard");

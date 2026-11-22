@@ -134,6 +134,18 @@ export async function getSupplierFiscalFallback(
   return setup?.defaults ?? null;
 }
 
+/** The CNPJ in the supplier's "Dados fiscais da empresa", as stored; null until filled. */
+export async function getSupplierCompanyCnpj(
+  database: DatabaseExecutor,
+  supplierId: string,
+): Promise<string | null> {
+  const [found] = await database
+    .select({ fiscalProfile: suppliers.fiscalProfile })
+    .from(suppliers)
+    .where(eq(suppliers.id, supplierId));
+  return readSupplierFiscalProfile(found?.fiscalProfile ?? null)?.cnpj ?? null;
+}
+
 /** The supplier's regime and default tax codes, for its products' NF-e data; null until filled. */
 export async function getSupplierTaxDefaults(
   database: DatabaseExecutor,

@@ -2,6 +2,7 @@ import { formatCep } from "@sellbridge/shared/billing-address";
 import { formatCnpj } from "@sellbridge/shared/account-documents";
 import type { TaxRegime } from "@sellbridge/shared/product-fiscal";
 import {
+  onBehalfCfopsSchema,
   readSupplierFiscalProfile,
   suggestedTaxDefaults,
 } from "@sellbridge/shared/supplier-fiscal";
@@ -33,6 +34,11 @@ export interface SupplierFiscalFormValues {
   fiscalOrigin: string;
   fiscalUnit: string;
   fiscalInvoiceModel: InvoiceModel;
+  /** Venda à ordem: the remessa to the buyer and the sale to the reseller, in and out of state. */
+  fiscalOnBehalfShipmentInState: string;
+  fiscalOnBehalfShipmentOutOfState: string;
+  fiscalOnBehalfSaleInState: string;
+  fiscalOnBehalfSaleOutOfState: string;
 }
 
 /** The company fields: with all of them empty the supplier has not started its fiscal data. */
@@ -46,6 +52,15 @@ const COMPANY_FIELDS = [
   "fiscalNeighborhood",
   "fiscalCity",
 ] as const satisfies readonly (keyof SupplierFiscalFormValues)[];
+
+function onBehalfValues(cfops = onBehalfCfopsSchema.parse({})) {
+  return {
+    fiscalOnBehalfShipmentInState: cfops.shipmentInState,
+    fiscalOnBehalfShipmentOutOfState: cfops.shipmentOutOfState,
+    fiscalOnBehalfSaleInState: cfops.saleInState,
+    fiscalOnBehalfSaleOutOfState: cfops.saleOutOfState,
+  };
+}
 
 function emptyFiscalValues(): SupplierFiscalFormValues {
   const defaults = suggestedTaxDefaults("simples");
@@ -69,7 +84,9 @@ function emptyFiscalValues(): SupplierFiscalFormValues {
     fiscalPisCofinsCst: defaults.pisCofinsCst,
     fiscalOrigin: String(defaults.origin),
     fiscalUnit: defaults.unit,
-    fiscalInvoiceModel: "direct",
+    // A new supplier starts on venda à ordem (decided 2026-11-21); a saved profile keeps its own.
+    fiscalInvoiceModel: "on_behalf",
+    ...onBehalfValues(),
   };
 }
 
@@ -101,6 +118,7 @@ export function supplierFiscalFormValues(stored: unknown): SupplierFiscalFormVal
     fiscalOrigin: String(defaults.origin),
     fiscalUnit: defaults.unit,
     fiscalInvoiceModel: profile.invoiceModel,
+    ...onBehalfValues(profile.onBehalfCfops),
   };
 }
 
@@ -142,6 +160,12 @@ export function fiscalProfileInput(values: SupplierFiscalFormValues) {
       unit: values.fiscalUnit,
     },
     invoiceModel: values.fiscalInvoiceModel,
+    onBehalfCfops: {
+      shipmentInState: values.fiscalOnBehalfShipmentInState,
+      shipmentOutOfState: values.fiscalOnBehalfShipmentOutOfState,
+      saleInState: values.fiscalOnBehalfSaleInState,
+      saleOutOfState: values.fiscalOnBehalfSaleOutOfState,
+    },
   };
 }
 
@@ -163,6 +187,10 @@ const ERROR_FIELDS: Readonly<Record<string, keyof SupplierFiscalFormValues>> = {
   "defaults.cfopOutOfState": "fiscalCfopOutOfState",
   "defaults.cfopOutOfStateConsumer": "fiscalCfopOutOfStateConsumer",
   invoiceModel: "fiscalInvoiceModel",
+  "onBehalfCfops.shipmentInState": "fiscalOnBehalfShipmentInState",
+  "onBehalfCfops.shipmentOutOfState": "fiscalOnBehalfShipmentOutOfState",
+  "onBehalfCfops.saleInState": "fiscalOnBehalfSaleInState",
+  "onBehalfCfops.saleOutOfState": "fiscalOnBehalfSaleOutOfState",
   "defaults.icmsCode": "fiscalIcmsCode",
   "defaults.pisCofinsCst": "fiscalPisCofinsCst",
   "defaults.origin": "fiscalOrigin",

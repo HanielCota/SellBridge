@@ -13,4 +13,16 @@ describe("invoiceFileLink", () => {
       invoiceFileLink({ orderId: "o-1", shipmentId: "s-1", kind: "xml", supplierId: "f-1" }),
     ).toBe("/api/pedidos/o-1/nota-fiscal?envio=s-1&arquivo=xml&fornecedor=f-1");
   });
+
+  it("asks for the supplier's sale to the reseller in venda à ordem", () => {
+    expect(invoiceFileLink({ orderId: "o-1", shipmentId: "s-1", kind: "xml", note: "sale" })).toBe(
+      "/api/pedidos/o-1/nota-fiscal?envio=s-1&arquivo=xml&nota=venda",
+    );
+  });
+
+  it("leaves the note in the box without a note parameter", () => {
+    expect(invoiceFileLink({ orderId: "o-1", shipmentId: "s-1", kind: "xml", note: "box" })).toBe(
+      "/api/pedidos/o-1/nota-fiscal?envio=s-1&arquivo=xml",
+    );
+  });
 });

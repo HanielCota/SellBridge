@@ -262,13 +262,23 @@ function weightOf(rule: Rule): number {
   return rule.severity === "blocking" ? BLOCKING_WEIGHT : IMPROVEMENT_WEIGHT;
 }
 
+/**
+ * Whether a category's required attribute stops publishing while empty. A missing brand does not:
+ * it goes as the marketplace's generic brand (`@sellbridge/shared/product-brand`), so it is only
+ * suggested.
+ */
+export function blocksPublishing(attribute: Pick<RequiredAttribute, "id">): boolean {
+  return attribute.id !== "BRAND";
+}
+
 export function evaluateCompleteness(
   product: CompletenessProduct,
   requiredAttributes: readonly RequiredAttribute[] = [],
 ): CompletenessReport {
-  const requiredIds = new Set(requiredAttributes.map((attribute) => attribute.id));
+  const blockingAttributes = requiredAttributes.filter(blocksPublishing);
+  const requiredIds = new Set(blockingAttributes.map((attribute) => attribute.id));
   const rules = [
-    ...blockingRules(product, requiredAttributes),
+    ...blockingRules(product, blockingAttributes),
     ...fiscalRules(product),
     ...improvementRules(product, requiredIds),
   ];

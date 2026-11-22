@@ -2,6 +2,7 @@ import { validationError } from "../runtime/errors.ts";
 import {
   canonicalColumnName,
   IMPORT_COLUMNS,
+  importColumns,
   IMPORT_ERROR_COLUMN,
   spreadsheetColumnLetter,
 } from "./supplier-panel-import-columns.ts";
@@ -25,7 +26,6 @@ interface HeaderCell {
   readonly original: string;
 }
 
-const KNOWN_COLUMNS = new Set(IMPORT_COLUMNS.map((entry) => entry.column));
 const REQUIRED_COLUMNS = IMPORT_COLUMNS.filter((entry) => entry.required).map(
   (entry) => entry.column,
 );
@@ -62,8 +62,9 @@ function assertUnique(cells: readonly HeaderCell[]): void {
   );
 }
 
-function assertKnown(cells: readonly HeaderCell[]): void {
-  const unknown = cells.filter((cell) => !KNOWN_COLUMNS.has(cell.name));
+function assertKnown(cells: readonly HeaderCell[], gridColumns: boolean): void {
+  const known = new Set(importColumns(gridColumns).map((entry) => entry.column));
+  const unknown = cells.filter((cell) => !known.has(cell.name));
   if (unknown.length === 0) {
     return;
   }
@@ -81,14 +82,17 @@ function assertRequired(cells: readonly HeaderCell[]): void {
   );
 }
 
-export function checkImportHeader(fields: readonly string[]): CheckedHeader {
+export function checkImportHeader(
+  fields: readonly string[],
+  options: { readonly gridColumns?: boolean } = {},
+): CheckedHeader {
   const all = headerCells(fields);
   const skippedIndex = all.findIndex((cell) => cell.name === IMPORT_ERROR_COLUMN);
   const cells = all.filter((_cell, index) => index !== skippedIndex);
   assertNamed(cells);
   assertRequired(cells);
   assertUnique(cells);
-  assertKnown(cells);
+  assertKnown(cells, options.gridColumns === true);
   return {
     header: cells.map((cell) => cell.name),
     letters: cells.map((cell) => cell.letter),

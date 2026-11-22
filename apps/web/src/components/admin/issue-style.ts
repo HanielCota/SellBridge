@@ -4,6 +4,7 @@ import type { ComponentType } from "react";
 import {
   ListingAlertIcon,
   OnboardingRocketIcon,
+  PaymentCardAlertIcon,
   SalesDropIcon,
   StorePausedIcon,
   SupportHeadsetIcon,
@@ -16,6 +17,7 @@ export const ISSUE_ICONS: Record<CustomerIssueKind, ComponentType<{ className?: 
   ticket: SupportHeadsetIcon,
   onboarding: OnboardingRocketIcon,
   cooling: SalesDropIcon,
+  courtesy: PaymentCardAlertIcon,
 };
 
 /** Tinted tile behind an issue's icon, matching the "Precisa de você" panel. */

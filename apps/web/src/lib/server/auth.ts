@@ -34,6 +34,7 @@ import {
 } from "./impersonation-window.ts";
 import { database } from "./database.ts";
 import { renderActionEmail } from "@sellbridge/shared/email-layout";
+import { clientIpAddressOptions } from "./client-address.ts";
 import { environment } from "./environment.ts";
 import { sendEmail } from "./mailer.ts";
 import { findFirstOrganizationId } from "./membership.ts";
@@ -260,6 +261,7 @@ async function sendResetPasswordEmail({
   if (await isPendingTeamInvite(database, user.id)) {
     await sendEmail({
       to: user.email,
+      category: "account_access",
       ...renderActionEmail(teamInviteEmail(url), environment.APP_URL),
     });
     return;
@@ -279,7 +281,7 @@ async function sendResetPasswordEmail({
     },
     environment.APP_URL,
   );
-  await sendEmail({ to: user.email, ...email });
+  await sendEmail({ to: user.email, category: "account_access", ...email });
 }
 
 async function sendVerificationEmail({ user, url }: { user: { email: string }; url: string }) {
@@ -298,7 +300,7 @@ async function sendVerificationEmail({ user, url }: { user: { email: string }; u
     },
     environment.APP_URL,
   );
-  await sendEmail({ to: user.email, ...email });
+  await sendEmail({ to: user.email, category: "account_sign_up", ...email });
 }
 
 /**
@@ -321,7 +323,7 @@ async function sendExistingAccountEmail({ user }: { user: { email: string } }) {
     },
     environment.APP_URL,
   );
-  await sendEmail({ to: user.email, ...email });
+  await sendEmail({ to: user.email, category: "account_sign_up", ...email });
 }
 
 const E_MAIL_SIGN_IN_PATH = "/sign-in/email";
@@ -520,7 +522,7 @@ export const auth = betterAuth({
     // A stolen session must not be able to guess the password through account deletion.
     customRules: { "/delete-user": { window: 60, max: 5 } },
   },
-  advanced: { ipAddress: { ipAddressHeaders: [environment.CLIENT_IP_HEADER] } },
+  advanced: { ipAddress: clientIpAddressOptions(environment.CLIENT_IP_HEADER) },
   emailAndPassword: {
     enabled: true,
     minPasswordLength: MIN_PASSWORD_LENGTH,

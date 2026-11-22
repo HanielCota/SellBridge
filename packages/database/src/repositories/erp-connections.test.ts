@@ -94,7 +94,7 @@ describe("ERP OAuth state", () => {
 
     const consumed = await consumeErpOAuthState(database, { state, userId, provider: "bling" });
 
-    expect(consumed).toEqual({ supplierId: supplier.supplierId });
+    expect(consumed).toEqual({ kind: "supplier", supplierId: supplier.supplierId });
   });
 
   it("refuses an expired state", async () => {

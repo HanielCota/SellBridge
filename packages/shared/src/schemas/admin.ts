@@ -2,6 +2,7 @@ import { z } from "zod";
 import { freeText, pageNumberSchema, searchQuery } from "./common.ts";
 import { emailSchema, nameSchema } from "./auth.ts";
 import { optionalParameter, withFallback } from "./fallback.ts";
+import { BILLING_PLAN_IDS } from "../domain/billing.ts";
 import { STAFF_ROLES } from "../domain/staff-access.ts";
 
 /** A reseller (`user`) or one of the SellBridge team roles (see staff-access.ts). */
@@ -23,6 +24,7 @@ export const CUSTOMER_ISSUE_KINDS = [
   "ticket",
   "onboarding",
   "cooling",
+  "courtesy",
 ] as const;
 export const customerIssueKindSchema = z.enum(CUSTOMER_ISSUE_KINDS);
 export type CustomerIssueKind = z.infer<typeof customerIssueKindSchema>;
@@ -112,6 +114,24 @@ export const snoozeCustomerIssueSchema = z.object({
     .refine((days) => SNOOZE_DAYS.some((allowed) => allowed === days))
     .nullable(),
 });
+
+/** Why the team gave, changed or took back a courtesy plan: kept in the trail, so never empty. */
+const courtesyReasonSchema = freeText()
+  .trim()
+  .min(5, "Escreva o motivo (pelo menos 5 letras)")
+  .max(300, "O motivo pode ter até 300 letras");
+
+/** Gives a reseller one of the plans with no charge, or changes the one given. */
+export const grantCourtesySchema = z.object({
+  ...customerIdField,
+  plan: z.enum(BILLING_PLAN_IDS, { error: "Escolha o plano" }),
+  /** The last day (YYYY-MM-DD, Brasília) the plan is valid; null never runs out. */
+  lastDay: z.iso.date("Escolha uma data válida").nullable(),
+  reason: courtesyReasonSchema,
+});
+export type GrantCourtesyInput = z.infer<typeof grantCourtesySchema>;
+
+export const revokeCourtesySchema = z.object({ ...customerIdField, reason: courtesyReasonSchema });
 
 /** Inviting a person into the SellBridge team with a role (item 28.a). */
 export const inviteTeamMemberSchema = z.object({

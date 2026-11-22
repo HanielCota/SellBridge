@@ -182,7 +182,7 @@ export function sellerReportRules(): ReportRule[] {
     },
     {
       title: "Lucro",
-      text: "Receita menos o custo do fornecedor, a taxa do marketplace e os reembolsos, mais as comissões recebidas. A taxa do SellBridge não entra: ela sai da parte do fornecedor quando você paga o pedido a ele.",
+      text: "Receita menos o custo do fornecedor, a taxa do marketplace e os reembolsos, mais as comissões recebidas.",
     },
     {
       title: "Taxas",

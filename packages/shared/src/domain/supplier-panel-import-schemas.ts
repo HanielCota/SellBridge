@@ -61,6 +61,12 @@ export interface SupplierImportPreview {
   readonly emojisRemoved: number;
   readonly issues: readonly ImportRowIssues[];
   readonly priceWarnings: readonly ImportPriceWarning[];
+  /** Of the valid rows: products with colours and sizes the import creates or grows. */
+  readonly grids: number;
+  /** How many colour and size combinations those grids bring. */
+  readonly gridCombinations: number;
+  /** What the supplier should know but need not fix, by spreadsheet row. */
+  readonly notices: readonly { readonly line: number; readonly message: string }[];
   /** Only the failed rows plus an "erro" column; empty when nothing failed. */
   readonly failedRowsCsv: string;
   /** What confirming imports (only the valid rows), or null when there is none. */

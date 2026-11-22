@@ -12,6 +12,7 @@ import { SmartDate } from "@/components/data/smart-date";
 import { ToneStatus } from "@/components/data/tone-status";
 import { EmptyState } from "@/components/feedback/empty-state";
 import { ErrorState } from "@/components/feedback/error-state";
+import { CopyButton } from "@/components/integrations/copy-button";
 import { BackLink, PageHeader } from "@/components/layout/page-header";
 import { Skeleton } from "@/components/ui/skeleton";
 import { supplierApprovalQueueQueryOptions } from "@/features/supplier-approval/approval.queries";
@@ -66,16 +67,19 @@ function QueueItem({ supplier }: { supplier: SupplierAwaitingTeam }) {
         <Fact label="Na Receita" value={receitaLine(supplier)} />
       </dl>
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <ApprovalDecision supplierId={supplier.supplierId} supplierName={supplier.name} />
-        <a
-          href={RECEITA_CNPJ_PAGE}
-          target="_blank"
-          rel="noreferrer"
-          className="inline-flex min-h-11 items-center gap-1.5 text-sm font-medium underline underline-offset-4"
-        >
-          Conferir no site da Receita
-          <ArrowSquareOutIcon aria-hidden="true" className="size-4" />
-        </a>
+        <ApprovalDecision supplierId={supplier.supplierId} supplierName={supplier.name} quiet />
+        <div className="flex flex-wrap items-center gap-3">
+          {supplier.cnpj === null ? null : <CopyButton value={supplier.cnpj} label="Copiar CNPJ" />}
+          <a
+            href={RECEITA_CNPJ_PAGE}
+            target="_blank"
+            rel="noreferrer"
+            className="inline-flex min-h-11 items-center gap-1.5 text-sm font-medium underline underline-offset-4"
+          >
+            Conferir no site da Receita
+            <ArrowSquareOutIcon aria-hidden="true" className="size-4" />
+          </a>
+        </div>
       </div>
     </li>
   );

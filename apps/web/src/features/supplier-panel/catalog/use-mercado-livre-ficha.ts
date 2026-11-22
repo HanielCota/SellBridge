@@ -24,12 +24,18 @@ export function mercadoLivreSuggestionsQuery(supplierId: string, title: string) 
 /**
  * The Mercado Livre category of the product and its technical sheet. A product without one gets
  * Mercado Livre's first guess for its title, which the supplier can change.
+ *
+ * @param options.autoPick - False for a grid already saved: filling the guess in would save on
+ *   its own when the form opens and could take approved combinations off sale, so the guess is
+ *   only offered (`suggestion`) for the supplier to confirm.
  */
 export function useMercadoLivreFicha(
   supplierId: string,
   values: PanelFormValues,
   setValues: Dispatch<SetStateAction<PanelFormValues>>,
+  options: { autoPick: boolean } = { autoPick: true },
 ) {
+  const { autoPick } = options;
   const category = values.mercadoLivreCategory;
   const title = useDebouncedValue(values.title.trim(), TITLE_PAUSE_IN_MS);
   const suggestions = useQuery({
@@ -38,7 +44,7 @@ export function useMercadoLivreFicha(
   });
   const firstGuess = suggestions.data?.[0] ?? null;
   useEffect(() => {
-    if (firstGuess === null) {
+    if (firstGuess === null || !autoPick) {
       return;
     }
     setValues((current) =>
@@ -46,7 +52,7 @@ export function useMercadoLivreFicha(
         ? { ...current, mercadoLivreCategory: firstGuess }
         : current,
     );
-  }, [firstGuess, setValues]);
+  }, [autoPick, firstGuess, setValues]);
   const fields = useQuery({
     queryKey: [...supplierPanelCatalogKey(supplierId), "mercado-livre-fields", category?.id],
     queryFn: async () =>
@@ -60,6 +66,8 @@ export function useMercadoLivreFicha(
   });
   return {
     category,
+    /** Mercado Livre's guess waiting for the supplier to confirm it (see `autoPick`). */
+    suggestion: autoPick || category !== null ? null : firstGuess,
     fields: fields.data ?? null,
     loading: category !== null && fields.isPending,
     /** Mercado Livre did not answer: the form goes on with its own fields only. */

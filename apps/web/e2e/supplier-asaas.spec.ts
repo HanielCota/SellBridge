@@ -1,5 +1,7 @@
 import { randomUUID } from "node:crypto";
 import { expect, test, type Page } from "@playwright/test";
+import { installProblemRecorder } from "@sellbridge/database/problem-recorder";
+import { findSupplierPaymentAccount, listHeldPayments } from "@sellbridge/database/repositories";
 import {
   orderItems,
   orders,
@@ -10,8 +12,14 @@ import {
   shipmentPayments,
   storeConnections,
   supplierProducts,
+  ticketOrders,
+  tickets,
 } from "@sellbridge/database/schema";
-import { eq } from "drizzle-orm";
+import { settleHeldPayment } from "@sellbridge/payments/asaas";
+import { createTokenCipher } from "@sellbridge/shared/token-cipher";
+import { and, eq, sql } from "drizzle-orm";
+import { E2E_ASAAS_ENV } from "./asaas.fixture";
+import { requireEnvironmentVariable } from "./environment";
 import { ADMIN_USER, DEMO_USER, gotoHydrated, signIn } from "./helpers";
 import { e2eDatabase } from "./database";
 import { giveTestBrand, supplierAccounts } from "./supplier-accounts";
@@ -25,6 +33,16 @@ const problemIds: string[] = [];
 test.afterAll(async () => {
   // The fee test changes the platform settings: they go back to the defaults.
   await database.delete(platformSettings);
+  // Tickets opened about the test orders go before the orders that pin them.
+  for (const orderId of orderIds) {
+    const pinned = await database
+      .select({ ticketId: ticketOrders.ticketId })
+      .from(ticketOrders)
+      .where(eq(ticketOrders.orderId, orderId));
+    for (const { ticketId } of pinned) {
+      await database.delete(tickets).where(eq(tickets.id, ticketId));
+    }
+  }
   for (const problemId of problemIds) {
     await database.delete(problemEvents).where(eq(problemEvents.id, problemId));
   }
@@ -36,15 +54,19 @@ test.afterAll(async () => {
   await database.$client.end();
 });
 
+interface FakeAsaasCharge {
+  billingType: string;
+  deleted: boolean;
+  value: number;
+  split: { walletId: string; fixedValue: number }[];
+}
+
 /** Every charge the fake Asaas holds for a parcel, the removed ones too. */
-async function asaasChargesOf(
-  page: Page,
-  reference: string,
-): Promise<{ billingType: string; deleted: boolean }[]> {
+async function asaasChargesOf(page: Page, reference: string): Promise<FakeAsaasCharge[]> {
   const response = await page.request.get(
     `/__e2e/asaas/test/cobrancas?externalReference=${encodeURIComponent(reference)}`,
   );
-  const body: { data: { billingType: string; deleted: boolean }[] } = await response.json();
+  const body: { data: FakeAsaasCharge[] } = await response.json();
   return body.data;
 }
 
@@ -63,8 +85,14 @@ async function demoStore() {
   return { tenantId: tenant.id, storeId: store.id };
 }
 
-/** A paid sale of the demo reseller forwarded to the supplier: 2 baskets at R$ 40 each. */
-async function forwardedSale(supplierId: string): Promise<{ orderId: string; shipmentId: string }> {
+/**
+ * A paid sale of the demo reseller forwarded to the supplier: 2 baskets at R$ 40 each, plus the
+ * shipping the buyer paid and the reseller owes Mercado Livre, when given.
+ */
+async function forwardedSale(
+  supplierId: string,
+  shippingCents = 0,
+): Promise<{ orderId: string; shipmentId: string }> {
   const [product] = await database
     .insert(supplierProducts)
     .values({
@@ -85,7 +113,8 @@ async function forwardedSale(supplierId: string): Promise<{ orderId: string; shi
       storeConnectionId: storeId,
       externalOrderId: `E2E-AS-${randomUUID().slice(0, 8)}`,
       status: "paid",
-      totalCents: 19_800,
+      totalCents: 19_800 + shippingCents,
+      sellerShippingCents: shippingCents,
       buyerName: "Paula Ribeiro",
       orderedAt: new Date(),
     })
@@ -230,6 +259,36 @@ test("o revendedor troca o Pix pelo cartão e o Asaas nunca oferece boleto", asy
   ]);
 });
 
+test("a parte do SellBridge sai só do valor dos produtos, nunca do frete", async ({
+  page,
+  browser,
+}) => {
+  const email = await accounts.signUp(page, "Cestaria Frete E2E");
+  const supplierId = await giveTestBrand(database, email, "Cestaria Frete E2E");
+  const sale = await forwardedSale(supplierId, 2_390);
+  await openApprovedAsaasAccount(page);
+
+  const reseller = await (await browser.newContext({ locale: "pt-BR" })).newPage();
+  await signIn(reseller, DEMO_USER);
+  await gotoHydrated(reseller, `/pedidos/${sale.orderId}`);
+  await reseller.getByRole("button", { name: "Pagar com Pix" }).click();
+  await expect(reseller.getByText("Total: R$ 80,00")).toBeVisible();
+  await reseller.getByRole("button", { name: "Pagar com Pix" }).click();
+  await expect(reseller.getByText(/Fornecedor pago ·/)).toBeVisible();
+  await reseller.context().close();
+
+  const [payment] = await database
+    .select()
+    .from(shipmentPayments)
+    .where(eq(shipmentPayments.shipmentId, sale.shipmentId));
+  const charges = await asaasChargesOf(page, payment?.id ?? "");
+  const feeCents = Math.round((8_000 * (payment?.platformFeeBasisPoints ?? 0)) / 10_000);
+  expect(payment).toMatchObject({ amountCents: 8_000, platformFeeCents: feeCents });
+  expect(charges.map((charge) => [charge.value, charge.split])).toEqual([
+    [80, [{ walletId: expect.any(String), fixedValue: feeCents / 100 }]],
+  ]);
+});
+
 test("o admin define a taxa do SellBridge e ela vale no próximo pagamento", async ({
   page,
   browser,
@@ -316,6 +375,128 @@ test("o revendedor vê por que o pagamento protegido está voltando", async ({ p
     ),
   ).toBeVisible();
   await reseller.context().close();
+});
+
+/**
+ * Runs the worker's settlement of one held payment against the fake Asaas, recording problems
+ * the way the worker does. Returns what it decided and the problem it left for the team.
+ */
+async function settleLikeTheWorker(baseURL: string, shipmentId: string) {
+  const recorder = installProblemRecorder(database, { service: "worker" });
+  const held = (await listHeldPayments(database, { limit: 500 })).find(
+    (candidate) => candidate.payment.shipmentId === shipmentId,
+  );
+  if (held === undefined) throw new Error("Held payment missing");
+  const account = await findSupplierPaymentAccount(database, {
+    supplierId: held.payment.supplierId,
+    provider: "asaas",
+  });
+  if (account === null) throw new Error("Asaas account missing");
+  const outcome = await settleHeldPayment(
+    {
+      database,
+      cipher: createTokenCipher(requireEnvironmentVariable("TOKEN_ENCRYPTION_KEY")),
+      settings: {
+        apiUrl: new URL("/__e2e/asaas/v3", baseURL).href,
+        apiKey: E2E_ASAAS_ENV.ASAAS_API_KEY,
+        walletId: E2E_ASAAS_ENV.ASAAS_WALLET_ID,
+        webhookToken: E2E_ASAAS_ENV.ASAAS_WEBHOOK_TOKEN,
+      },
+    },
+    { account, held, now: new Date() },
+  );
+  await recorder.flush();
+  recorder.stop();
+  const [problem] = await database
+    .select({ id: problemEvents.id, message: problemEvents.message })
+    .from(problemEvents)
+    .where(
+      and(
+        eq(problemEvents.event, "asaas.refund_refused"),
+        sql`${problemEvents.context}->>'shipmentPaymentId' = ${held.payment.id}`,
+      ),
+    );
+  if (problem !== undefined) problemIds.push(problem.id);
+  return { outcome, problem };
+}
+
+test("a devolução de um Pix que o Asaas recusa vai para a equipe e o revendedor pede por chamado", async ({
+  page,
+  browser,
+  baseURL,
+}) => {
+  // Opens an Asaas account, pays, settles, then walks admin and reseller to the ticket: on a
+  // busy CI run it outlives the default 60 s, so it gets the slow budget.
+  test.slow();
+  const email = await accounts.signUp(page, "Cestaria Pix Manual E2E");
+  const supplierId = await giveTestBrand(database, email, "Cestaria Pix Manual E2E");
+  const sale = await forwardedSale(supplierId);
+  await openApprovedAsaasAccount(page);
+
+  const reseller = await (await browser.newContext({ locale: "pt-BR" })).newPage();
+  await signIn(reseller, DEMO_USER);
+  await gotoHydrated(reseller, `/pedidos/${sale.orderId}`);
+  await reseller.getByRole("button", { name: "Pagar com Pix" }).click();
+  await reseller.getByRole("button", { name: "Pagar com Pix" }).click();
+  await expect(reseller.getByText("R$ 80,00 pagos por Pix no Asaas.")).toBeVisible();
+
+  // The parcel is cancelled before the supplier accepts: the rule gives the money back.
+  await database
+    .update(orderShipments)
+    .set({ status: "cancelled" })
+    .where(eq(orderShipments.id, sale.shipmentId));
+  const { outcome, problem } = await settleLikeTheWorker(baseURL ?? "", sale.shipmentId);
+  expect(outcome).toEqual({ kind: "refund_refused" });
+  expect(problem?.message).toMatch(
+    /^Devolução manual: o Asaas não devolveu sozinho R\$\s80,00 pagos por Pix\. Alguém da equipe devolve ao revendedor pelo Asaas até \d{2}\/\d{2}\/\d{4}/,
+  );
+
+  const admin = await (await browser.newContext({ locale: "pt-BR" })).newPage();
+  await signIn(admin, ADMIN_USER);
+  await gotoHydrated(admin, `/admin/problemas/${problem?.id}`);
+  await expect(
+    admin.getByRole("heading", { name: "Devolução manual de R$ 80,00", exact: true }),
+  ).toBeVisible();
+  await expect(
+    admin.getByText(/Devolva até \d{2}\/\d{2}\/\d{4}\. Depois dessa data/),
+  ).toBeVisible();
+  await expect(admin.getByText("Conta Asaas do fornecedor Cestaria Pix Manual E2E")).toBeVisible();
+  await expect(admin.getByText(/Solicitar estorno/).first()).toBeVisible();
+  await expect(admin.getByText(/ainda não abriu chamado sobre este pedido/)).toBeVisible();
+
+  await gotoHydrated(reseller, `/pedidos/${sale.orderId}`);
+  await expect(
+    reseller.getByText(
+      /O envio foi cancelado\. Quem devolve os R\$\s80,00 é a equipe do SellBridge\./,
+    ),
+  ).toBeVisible();
+  await expect(reseller.getByText(/não aceitou devolver/)).toHaveCount(0);
+  await reseller.getByRole("link", { name: "Pedir a devolução à equipe" }).click();
+  await expect(reseller.getByRole("heading", { name: "Novo chamado" })).toBeVisible();
+  await expect(reseller.getByRole("textbox").first()).toHaveValue(
+    /Quero de volta os R\$\s80,00 que paguei ao fornecedor no pedido E2E-AS-/,
+  );
+  await reseller.getByRole("button", { name: "Enviar chamado" }).click();
+  await expect(reseller).toHaveURL(/\/suporte\/[0-9a-f-]{36}/);
+  const ticketUrl = new URL(reseller.url()).pathname;
+
+  // With the ticket open, the order leads to it instead of opening a second one.
+  await gotoHydrated(reseller, `/pedidos/${sale.orderId}`);
+  await expect(reseller.getByRole("link", { name: "Pedir a devolução à equipe" })).toHaveCount(0);
+  await expect(reseller.getByText(/Você já tem um chamado aberto sobre este pedido/)).toBeVisible();
+  await expect(reseller.getByRole("link", { name: "Ver o chamado deste pedido" })).toHaveAttribute(
+    "href",
+    new RegExp(`^${ticketUrl}`),
+  );
+  await admin.reload();
+  await admin.getByRole("link", { name: "Abrir o chamado do revendedor" }).click();
+  // The team's own ticket page, not the reseller's: it opens the conversation the reseller sent.
+  await expect(admin).toHaveURL(new RegExp(`/admin/chamados${ticketUrl.replace("/suporte", "")}`));
+  await expect(
+    admin.getByText(/Quero de volta os R\$\s80,00 que paguei ao fornecedor/).first(),
+  ).toBeVisible();
+  await reseller.context().close();
+  await admin.context().close();
 });
 
 /** A paid Asaas parcel whose money is held, and the problem asking the team to decide. */

@@ -1,7 +1,9 @@
 import { ArrowRightIcon } from "@phosphor-icons/react";
+import { Link } from "@tanstack/react-router";
 import { SupplierLogo } from "@/components/suppliers/supplier-logo";
 import { Button } from "@/components/ui/button";
 import { STORES_LOCKED_REASON, useStoresLocked } from "@/components/stores/stores-lock";
+import { newStoreBlockCopy, type NewStoreBlock } from "@/features/billing/new-store-block";
 import type { MarketplaceOption } from "@/features/stores/stores.functions";
 import { GroupedList, MarkSlot } from "./grouped-list";
 import { MarketplaceMark } from "./marketplace-mark";
@@ -154,6 +156,18 @@ function ComingSoonOption({ option }: { option: MarketplaceOption }) {
   );
 }
 
+/** In place of the marketplaces when the plan holds no new store: the way to the plans. */
+function PlanRequiredRow({ block }: { block: NewStoreBlock }) {
+  return (
+    <li className="flex flex-col gap-3 px-5 py-4 sm:flex-row sm:items-center">
+      <p className="min-w-0 flex-1 font-medium">{newStoreBlockCopy(block)}</p>
+      <Button asChild className="h-11 shrink-0 sm:h-9">
+        <Link to="/assinatura">Ver planos</Link>
+      </Button>
+    </li>
+  );
+}
+
 /**
  * Own-only stores connect without a supplier. Other new stores require a selected supplier.
  */
@@ -161,11 +175,20 @@ export function AddStore({
   marketplaces,
   supplier,
   onChooseSupplier,
+  planBlock = null,
 }: {
   marketplaces: MarketplaceOption[];
   supplier: NewStoreSupplier | null;
   onChooseSupplier: () => void;
+  planBlock?: NewStoreBlock | null;
 }) {
+  if (planBlock !== null) {
+    return (
+      <GroupedList>
+        <PlanRequiredRow block={planBlock} />
+      </GroupedList>
+    );
+  }
   const available = marketplaces.filter((option) => option.available);
   const comingSoon = marketplaces.filter((option) => !option.available);
   return (

@@ -14,15 +14,51 @@ import { stripAccents } from "./text.ts";
  */
 export const MAX_GRID_COMBINATIONS = 50;
 export const MAX_GRID_OPTION_LENGTH = 40;
-const MAX_OPTION_PHOTOS = 20;
+export const MAX_OPTION_PHOTOS = 20;
 const PRODUCT_TITLE_MAX_LENGTH = 300;
 /** Leaves room for " - {colour} {size}" inside the product title limit. */
 export const MAX_MODEL_TITLE_LENGTH =
   PRODUCT_TITLE_MAX_LENGTH - " - ".length - " ".length - 2 * MAX_GRID_OPTION_LENGTH;
 
+export const MAX_MODEL_CODE_LENGTH = 60;
+
+/** The supplier's code for a model, as the spreadsheet's "codigo_modelo" carries it. */
+export const modelCodeSchema = freeText()
+  .trim()
+  .min(1, "Informe o código do modelo. Exemplo: TENIS-CASUAL")
+  .max(MAX_MODEL_CODE_LENGTH, `Use até ${MAX_MODEL_CODE_LENGTH} caracteres no código do modelo`);
+
+/**
+ * How two model codes are compared: "tenis-casual" and "TENIS-CASUAL" are the same model, in the
+ * spreadsheet, in the database and in codes stored before the comparison ignored case.
+ */
+export function modelCodeKey(code: string): string {
+  return code.trim().toUpperCase();
+}
+
+/** Room for the "-2", "-3"… a repeated code gets (see `modelCodeFor`). */
+const CODE_SUFFIX_ROOM = 4;
+
+/** "Tênis Casual Couro" → "TENIS-CASUAL-COURO": the code a grid typed in the form starts with. */
+export function modelCodeFromTitle(title: string): string {
+  const code = stripAccents(title)
+    .toUpperCase()
+    .replaceAll(/[^A-Z0-9]+/g, "-")
+    .replaceAll(/^-+|-+$/g, "")
+    .slice(0, MAX_MODEL_CODE_LENGTH - CODE_SUFFIX_ROOM)
+    .replaceAll(/-+$/g, "");
+  return code === "" ? "MODELO" : code;
+}
+
 /** Refuses an edit of one combination's shared data outside its grid. */
 export const COMBINATION_EDITED_OUTSIDE_GRID_MESSAGE =
   "Este produto faz parte de uma grade de cores e tamanhos: altere o nome, as fotos e a ficha pela grade, no cadastro do produto.";
+
+/**
+ * What the grid itself answers in Mercado Livre's sheet: each combination's colour and size,
+ * so the model's sheet never asks them.
+ */
+export const GRID_AXIS_ATTRIBUTES: ReadonlySet<string> = new Set(["COLOR", "MAIN_COLOR", "SIZE"]);
 
 /** Identifies one unit of a model: a barcode never belongs to the whole grid. */
 const COMBINATION_ONLY_ATTRIBUTES: ReadonlySet<string> = new Set(["GTIN"]);
@@ -68,7 +104,7 @@ export const productGridSchema = z
 export type ProductGrid = z.infer<typeof productGridSchema>;
 
 /** Compares option names as people read them: "Preto" and "preto " are the same colour. */
-function optionKey(name: string): string {
+export function optionKey(name: string): string {
   return stripAccents(name).trim().replaceAll(/\s+/g, " ").toLowerCase();
 }
 
@@ -286,6 +322,11 @@ function sizeSortKey(name: string, index: number): readonly [number, number] {
   return [2, index];
 }
 
+/** "38", "33/34" or "GG": a word the size order knows, so a name's last word reads as a size. */
+export function isKnownSizeName(name: string): boolean {
+  return sizeSortKey(name, 0)[0] < 2;
+}
+
 /**
  * Sizes in the order a buyer expects (34, 35, 36; P, M, G), for grids read from a spreadsheet or
  * an ERP where rows come in any order. Sizes the rule does not know keep their order, last.
@@ -344,9 +385,14 @@ export interface MaterializedCombination {
   readonly fiscal: ProductFiscalPatch;
 }
 
-function sharedAttributes(attributes: Readonly<Record<string, string>>): Record<string, string> {
+/** The sheet a model shares: never one unit's barcode, nor the colour and size the grid gives. */
+export function sharedAttributes(
+  attributes: Readonly<Record<string, string>>,
+): Record<string, string> {
   return Object.fromEntries(
-    Object.entries(attributes).filter(([key]) => !COMBINATION_ONLY_ATTRIBUTES.has(key)),
+    Object.entries(attributes).filter(
+      ([key]) => !COMBINATION_ONLY_ATTRIBUTES.has(key) && !GRID_AXIS_ATTRIBUTES.has(key),
+    ),
   );
 }
 
@@ -354,6 +400,14 @@ function filledFiscal(fiscal: ProductFiscalPatch): ProductFiscalPatch {
   return Object.fromEntries(
     Object.entries(fiscal).filter(([, value]) => value !== null && value !== undefined),
   );
+}
+
+/** The combination's colour and size, as the sheet names them ("Tênis - Preto 38" is size 38). */
+function axisAttributes(own: Pick<CombinationOwnValues, "color" | "size">): Record<string, string> {
+  return {
+    ...(own.color === null ? {} : { COLOR: own.color }),
+    ...(own.size === null ? {} : { SIZE: own.size }),
+  };
 }
 
 /**
@@ -372,6 +426,7 @@ export function materializeCombination(
     imageUrls: [...(own.colorImageUrls.length > 0 ? own.colorImageUrls : model.imageUrls)],
     mercadoLivreAttributes: {
       ...sharedAttributes(model.mercadoLivreAttributes),
+      ...axisAttributes(own),
       ...own.variantAttributes,
     },
     mercadoLivreCategoryId: model.mercadoLivreCategoryId,

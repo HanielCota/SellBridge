@@ -13,6 +13,7 @@ import {
 } from "@phosphor-icons/react";
 import type { ComponentType, ReactNode } from "react";
 import { CustomerAccess } from "@/components/admin/customer-access";
+import { CustomerCourtesy } from "@/components/admin/customer-courtesy";
 import {
   CustomerIssueList,
   OnboardingProgress,
@@ -266,9 +267,17 @@ function AccountSection({ detail, isSelf }: { detail: CustomerDetail; isSelf: bo
             hasHolder={detail.profile.hasHolder}
             starterSupplier={detail.profile.starterSupplier}
           />
+          {detail.courtesy === null ? null : (
+            <CustomerCourtesy
+              userId={customer.id}
+              view={detail.courtesy}
+              canGrant={detail.access.canGrantCourtesy}
+            />
+          )}
         </div>
         <CustomerAccess
           userId={customer.id}
+          name={customer.name}
           role={customer.role}
           banned={customer.banned}
           banReason={customer.banReason}

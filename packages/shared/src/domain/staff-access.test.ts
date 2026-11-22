@@ -25,6 +25,14 @@ describe("hasStaffPermission", () => {
     expect(hasStaffPermission("agent", "audit.view")).toBe(false);
   });
 
+  it("lets only an admin give a plan with no charge", () => {
+    expect(hasStaffPermission("admin", "billing.grant_courtesy")).toBe(true);
+    expect(hasStaffPermission("supervisor", "billing.grant_courtesy")).toBe(false);
+    expect(hasStaffPermission("agent", "billing.grant_courtesy")).toBe(false);
+    expect(hasStaffPermission("user", "billing.grant_courtesy")).toBe(false);
+    expect(hasStaffPermission(null, "billing.grant_courtesy")).toBe(false);
+  });
+
   it("lets a supervisor run the queue without touching customer accounts", () => {
     expect(hasStaffPermission("supervisor", "support.assign_others")).toBe(true);
     expect(hasStaffPermission("supervisor", "support.metrics")).toBe(true);
@@ -74,6 +82,14 @@ describe("shipments.view", () => {
     expect(hasStaffPermission("agent", "shipments.view")).toBe(true);
     expect(hasStaffPermission("supervisor", "shipments.view")).toBe(true);
     expect(hasStaffPermission("admin", "shipments.view")).toBe(true);
+  });
+});
+
+describe("shipments.release_label", () => {
+  it("lets supervisors and admins release a stuck label, never agents", () => {
+    expect(hasStaffPermission("agent", "shipments.release_label")).toBe(false);
+    expect(hasStaffPermission("supervisor", "shipments.release_label")).toBe(true);
+    expect(hasStaffPermission("admin", "shipments.release_label")).toBe(true);
   });
 });
 

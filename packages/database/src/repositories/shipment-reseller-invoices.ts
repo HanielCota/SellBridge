@@ -1,22 +1,39 @@
 import { conflictError, notFoundError } from "@sellbridge/shared/errors";
 import type { AccessKeyParts } from "@sellbridge/shared/nfe-access-key";
-import { and, asc, eq, gte, inArray, isNotNull, isNull, lte, notInArray, sql } from "drizzle-orm";
-import type { Database } from "../client.ts";
+import type { ResellerInvoiceSource } from "@sellbridge/shared/reseller-invoice";
+import {
+  and,
+  asc,
+  eq,
+  gte,
+  inArray,
+  isNotNull,
+  isNull,
+  lte,
+  notInArray,
+  or,
+  sql,
+} from "drizzle-orm";
+import type { Database, DatabaseExecutor } from "../client.ts";
 import {
   orders,
   orderShipments,
+  resellerErpConnections,
+  shipmentInvoices,
   shipmentResellerInvoices,
   storeConnections,
   supplierErpConnections,
   suppliers,
   tenantProfile,
 } from "../schema/index.ts";
+import { hasDirectInvoice } from "./sql/on-behalf.ts";
 import { UNINVOICED_ORDER_STATUSES, UNINVOICED_SHIPMENT_STATUSES } from "./sql/uninvoiced.ts";
 
 /**
  * Opens the reseller's sale note of each new parcel sold in venda à ordem: the supplier issues
  * through its ERP with "Venda à ordem" chosen, and the reseller sells as a company (a CPF reseller
- * stays on the supplier's direct note, decision of 18/11/2026). Returns how many were opened.
+ * stays on the supplier's direct note, decision of 18/11/2026). A parcel that already has a direct
+ * note keeps it. Returns how many were opened.
  */
 export async function queueResellerSaleInvoices(database: Database): Promise<number> {
   const candidates = await database
@@ -49,6 +66,7 @@ export async function queueResellerSaleInvoices(database: Database): Promise<num
         isNull(shipmentResellerInvoices.id),
         notInArray(orderShipments.status, [...UNINVOICED_SHIPMENT_STATUSES]),
         notInArray(orders.status, [...UNINVOICED_ORDER_STATUSES]),
+        sql`not ${hasDirectInvoice}`,
       ),
     );
   if (candidates.length === 0) {
@@ -65,7 +83,20 @@ export async function queueResellerSaleInvoices(database: Database): Promise<num
 /** A reseller note still missing, with what reading the marketplace needs. */
 export interface DueResellerSaleInvoice {
   readonly id: string;
+  readonly shipmentId: string;
+  readonly tenantId: string;
   readonly checks: number;
+  /**
+   * The reseller's own ERP issues this note: it is connected with issuing on since before the
+   * parcel was created, and the order is on Mercado Livre (the only channel it sends notes to).
+   * A note the ERP already started stays with it.
+   */
+  readonly issuesFromErp: boolean;
+  /** How far the ERP got: its ids and when the note was asked for and sent; null before. */
+  readonly erpContactId: number | null;
+  readonly erpInvoiceId: number | null;
+  readonly erpDraftRequestedAt: Date | null;
+  readonly erpSentAt: Date | null;
   readonly externalOrderId: string;
   /** Digits; the note must be issued by this CNPJ. Null when the reseller stopped being a company. */
   readonly resellerCnpj: string | null;
@@ -76,6 +107,42 @@ export interface DueResellerSaleInvoice {
     readonly accessTokenEnc: string | null;
   };
 }
+
+/** The reseller's ERP account that issues a parcel's note: connected, issuing since before it. */
+const ISSUING_CONNECTION = and(
+  eq(resellerErpConnections.tenantId, shipmentResellerInvoices.tenantId),
+  eq(resellerErpConnections.provider, "bling"),
+  eq(resellerErpConnections.status, "connected"),
+  isNotNull(resellerErpConnections.saleNotesEnabledAt),
+  gte(orderShipments.createdAt, resellerErpConnections.saleNotesEnabledAt),
+);
+
+/**
+ * Whether that account issues the note: only for Mercado Livre orders. A note its Bling already
+ * started stays there after issuing is turned off or the account reconnects, so a note that may be
+ * authorized is never asked for again by hand.
+ */
+const ISSUED_BY_ERP = sql<boolean>`${storeConnections.marketplace} = 'mercado_livre' and (${resellerErpConnections.id} is not null or ${shipmentResellerInvoices.erpDraftRequestedAt} is not null or ${shipmentResellerInvoices.erpInvoiceId} is not null)`;
+
+const DUE_COLUMNS = {
+  id: shipmentResellerInvoices.id,
+  shipmentId: shipmentResellerInvoices.shipmentId,
+  tenantId: shipmentResellerInvoices.tenantId,
+  checks: shipmentResellerInvoices.checks,
+  issuesFromErp: ISSUED_BY_ERP,
+  erpContactId: shipmentResellerInvoices.erpContactId,
+  erpInvoiceId: shipmentResellerInvoices.erpInvoiceId,
+  erpDraftRequestedAt: shipmentResellerInvoices.erpDraftRequestedAt,
+  erpSentAt: shipmentResellerInvoices.erpSentAt,
+  externalOrderId: orders.externalOrderId,
+  resellerCnpj: tenantProfile.cnpj,
+  store: {
+    id: storeConnections.id,
+    marketplace: storeConnections.marketplace,
+    externalShopId: storeConnections.externalShopId,
+    accessTokenEnc: storeConnections.accessTokenEnc,
+  },
+};
 
 /**
  * Takes up to `limit` missing notes due for a read of the marketplace, for sales still going
@@ -88,26 +155,17 @@ export async function claimDueResellerSaleInvoices(
 ): Promise<DueResellerSaleInvoice[]> {
   return database.transaction(async (transaction) => {
     const due = await transaction
-      .select({
-        id: shipmentResellerInvoices.id,
-        checks: shipmentResellerInvoices.checks,
-        externalOrderId: orders.externalOrderId,
-        resellerCnpj: tenantProfile.cnpj,
-        store: {
-          id: storeConnections.id,
-          marketplace: storeConnections.marketplace,
-          externalShopId: storeConnections.externalShopId,
-          accessTokenEnc: storeConnections.accessTokenEnc,
-        },
-      })
+      .select(DUE_COLUMNS)
       .from(shipmentResellerInvoices)
       .innerJoin(orderShipments, eq(orderShipments.id, shipmentResellerInvoices.shipmentId))
       .innerJoin(orders, eq(orders.id, orderShipments.orderId))
       .innerJoin(storeConnections, eq(storeConnections.id, orders.storeConnectionId))
       .leftJoin(tenantProfile, eq(tenantProfile.tenantId, shipmentResellerInvoices.tenantId))
+      .leftJoin(resellerErpConnections, ISSUING_CONNECTION)
       .where(
         and(
           isNull(shipmentResellerInvoices.accessKey),
+          isNull(shipmentResellerInvoices.erpStoppedAt),
           lte(
             shipmentResellerInvoices.nextCheckAt,
             sql`greatest(${claim.now.toISOString()}::timestamptz, now())`,
@@ -185,36 +243,180 @@ export async function scheduleResellerSaleInvoiceCheck(
     );
 }
 
+const REMESSA_STARTED =
+  "A remessa do fornecedor já cita a nota registrada neste pedido. Para trocar a nota, fale com o suporte do SellBridge.";
+
 /**
- * Saves the key the reseller typed for its own parcel.
+ * The supplier's remessa was not asked of its ERP yet: until then it cites no note, and the
+ * reseller may still replace a wrong one.
+ */
+function remessaNotStartedSql(shipmentId: string) {
+  return sql`not exists (select 1 from ${shipmentInvoices} where ${shipmentInvoices.shipmentId} = ${shipmentId} and ${shipmentInvoices.kind} = 'on_behalf_shipment' and (${shipmentInvoices.erpInvoiceId} is not null or ${shipmentInvoices.erpDraftRequestedAt} is not null))`;
+}
+
+/** Whether the supplier's remessa of the parcel was asked of its ERP: it then cites the note. */
+async function remessaStarted(executor: DatabaseExecutor, shipmentId: string): Promise<boolean> {
+  const [row] = await executor
+    .select({ id: shipmentInvoices.id })
+    .from(shipmentInvoices)
+    .where(
+      and(
+        eq(shipmentInvoices.shipmentId, shipmentId),
+        eq(shipmentInvoices.kind, "on_behalf_shipment"),
+        or(
+          isNotNull(shipmentInvoices.erpInvoiceId),
+          isNotNull(shipmentInvoices.erpDraftRequestedAt),
+        ),
+      ),
+    );
+  return row !== undefined;
+}
+
+const BLING_NOTE_SAVED =
+  "Esta venda já tem a nota que saiu do seu Bling. Para trocar, cancele essa nota no Bling e fale com o suporte do SellBridge.";
+const BLING_ISSUING =
+  "O seu Bling está emitindo a nota desta venda. Espere: se ele parar, o motivo aparece aqui e você pode enviar outra nota.";
+
+/**
+ * Another note while the reseller's Bling holds this one would leave the sale with two: the one
+ * it issued, or the one it may still send to SEFAZ while its run goes on.
+ */
+function refuseWhileBlingHoldsTheNote(existing: {
+  source: ResellerInvoiceSource | null;
+  erpInvoiceId: number | null;
+  erpDraftRequestedAt: Date | null;
+  erpStoppedAt: Date | null;
+}): void {
+  if (existing.source === "bling") {
+    throw conflictError(BLING_NOTE_SAVED);
+  }
+  const blingStarted = existing.erpInvoiceId !== null || existing.erpDraftRequestedAt !== null;
+  if (blingStarted && existing.erpStoppedAt === null) {
+    throw conflictError(BLING_ISSUING);
+  }
+}
+
+/**
+ * Saves the reseller's note of its parcel with `source`: on a parcel still waiting, over the same
+ * note (its XML after its typed key), or over another note while the supplier's remessa has not
+ * started. Holds the note's row meanwhile, as the remessa's start does (see
+ * `claimOnBehalfRemessaDraft`). The same note already saved is left as it is, but for a typed key
+ * whose XML now reached the marketplace.
+ */
+async function saveResellerSaleInvoiceOf(
+  database: Database,
+  note: {
+    tenantId: string;
+    shipmentId: string;
+    parts: AccessKeyParts;
+    now: Date;
+    source: "typed" | "uploaded";
+  },
+): Promise<void> {
+  await database.transaction(async (transaction) => {
+    const [existing] = await transaction
+      .select({
+        id: shipmentResellerInvoices.id,
+        accessKey: shipmentResellerInvoices.accessKey,
+        source: shipmentResellerInvoices.source,
+        erpInvoiceId: shipmentResellerInvoices.erpInvoiceId,
+        erpDraftRequestedAt: shipmentResellerInvoices.erpDraftRequestedAt,
+        erpStoppedAt: shipmentResellerInvoices.erpStoppedAt,
+      })
+      .from(shipmentResellerInvoices)
+      .where(
+        and(
+          eq(shipmentResellerInvoices.shipmentId, note.shipmentId),
+          eq(shipmentResellerInvoices.tenantId, note.tenantId),
+        ),
+      )
+      .for("update");
+    if (existing === undefined) {
+      throw notFoundError("Este pedido não espera a sua nota de venda");
+    }
+    const sameNote = existing.accessKey === note.parts.accessKey;
+    // The same note stays as it is, except a typed key whose XML now reached the marketplace.
+    if (sameNote && (note.source === "typed" || existing.source !== "typed")) {
+      return;
+    }
+    if (!sameNote) {
+      refuseWhileBlingHoldsTheNote(existing);
+    }
+    const replacing = existing.accessKey !== null && !sameNote;
+    if (replacing && (await remessaStarted(transaction, note.shipmentId))) {
+      throw conflictError(REMESSA_STARTED);
+    }
+    await transaction
+      .update(shipmentResellerInvoices)
+      .set({ ...foundValues(note.parts, note.now), issuedAt: null, source: note.source })
+      .where(eq(shipmentResellerInvoices.id, existing.id));
+  });
+}
+/**
+ * Saves the key the reseller typed for its own parcel; it replaces a wrong one while the
+ * supplier's remessa has not started.
  *
  * @throws {AppError} NOT_FOUND when the parcel is not the reseller's or waits for no note;
- * CONFLICT when its note is already saved.
+ * CONFLICT when another note is saved and the remessa already cites it.
  */
 export async function saveTypedResellerSaleInvoice(
   database: Database,
   typed: { tenantId: string; shipmentId: string; parts: AccessKeyParts; now: Date },
 ): Promise<void> {
-  const ofTenantParcel = and(
-    eq(shipmentResellerInvoices.shipmentId, typed.shipmentId),
-    eq(shipmentResellerInvoices.tenantId, typed.tenantId),
-  );
-  const saved = await database
-    .update(shipmentResellerInvoices)
-    .set({ ...foundValues(typed.parts, typed.now), issuedAt: null, source: "typed" })
-    .where(and(ofTenantParcel, isNull(shipmentResellerInvoices.accessKey)))
-    .returning({ id: shipmentResellerInvoices.id });
-  if (saved.length > 0) {
-    return;
-  }
-  const [existing] = await database
+  await saveResellerSaleInvoiceOf(database, { ...typed, source: "typed" });
+}
+
+/**
+ * Saves the reseller's note whose XML it uploaded (and SellBridge sent to the marketplace): on a
+ * parcel still waiting, over the same note, or over another one while the supplier's remessa has
+ * not started.
+ *
+ * @throws {AppError} NOT_FOUND when the parcel is not the reseller's or waits for no note;
+ * CONFLICT when another note is saved and the remessa already cites it.
+ */
+export async function saveUploadedResellerSaleInvoice(
+  database: Database,
+  uploaded: { tenantId: string; shipmentId: string; parts: AccessKeyParts; now: Date },
+): Promise<void> {
+  await saveResellerSaleInvoiceOf(database, { ...uploaded, source: "uploaded" });
+}
+
+/**
+ * Whether the reseller may still put another note on its parcel: no note yet, or the supplier's
+ * remessa has not started. Read before the note is sent anywhere.
+ */
+export async function canReplaceResellerSaleInvoice(
+  database: Database,
+  input: { tenantId: string; shipmentId: string },
+): Promise<boolean> {
+  const [row] = await database
     .select({ id: shipmentResellerInvoices.id })
     .from(shipmentResellerInvoices)
-    .where(ofTenantParcel);
-  if (existing === undefined) {
-    throw notFoundError("Este pedido não espera a sua nota de venda");
-  }
-  throw conflictError("A nota de venda deste pedido já foi registrada");
+    .where(
+      and(
+        eq(shipmentResellerInvoices.shipmentId, input.shipmentId),
+        eq(shipmentResellerInvoices.tenantId, input.tenantId),
+        or(isNull(shipmentResellerInvoices.accessKey), remessaNotStartedSql(input.shipmentId)),
+      ),
+    );
+  return row !== undefined;
+}
+
+/** The id of the note the reseller's Bling created for its parcel, or null when it made none. */
+export async function resellerSaleErpInvoiceIdOf(
+  database: Database,
+  input: { tenantId: string; shipmentId: string },
+): Promise<number | null> {
+  const [row] = await database
+    .select({ erpInvoiceId: shipmentResellerInvoices.erpInvoiceId })
+    .from(shipmentResellerInvoices)
+    .where(
+      and(
+        eq(shipmentResellerInvoices.shipmentId, input.shipmentId),
+        eq(shipmentResellerInvoices.tenantId, input.tenantId),
+      ),
+    );
+  return row?.erpInvoiceId ?? null;
 }
 
 /** The reseller's sale note of a parcel, as the order screens show it. */
@@ -222,9 +424,15 @@ export interface ResellerSaleInvoice {
   readonly accessKey: string | null;
   readonly number: string | null;
   readonly series: string | null;
-  readonly source: "marketplace" | "typed" | null;
+  readonly source: ResellerInvoiceSource | null;
   readonly foundAt: Date | null;
   readonly problem: string | null;
+  /** The reseller's own Bling issues it (turned on before the parcel, on Mercado Livre). */
+  readonly issuedByErp: boolean;
+  /** The Bling stopped on it: `problem` says why, and it waits for the reseller to retry. */
+  readonly erpStopped: boolean;
+  /** The Bling already started the note (draft asked or note created): it may exist there. */
+  readonly erpStarted: boolean;
 }
 
 /** The reseller notes of the tenant's parcels, by parcel id; parcels without one are absent. */
@@ -245,8 +453,15 @@ export async function resellerSaleInvoicesOf(
       source: shipmentResellerInvoices.source,
       foundAt: shipmentResellerInvoices.foundAt,
       problem: shipmentResellerInvoices.problem,
+      issuedByErp: ISSUED_BY_ERP,
+      erpStopped: sql<boolean>`${shipmentResellerInvoices.erpStoppedAt} is not null`,
+      erpStarted: sql<boolean>`(${shipmentResellerInvoices.erpDraftRequestedAt} is not null or ${shipmentResellerInvoices.erpInvoiceId} is not null)`,
     })
     .from(shipmentResellerInvoices)
+    .innerJoin(orderShipments, eq(orderShipments.id, shipmentResellerInvoices.shipmentId))
+    .innerJoin(orders, eq(orders.id, orderShipments.orderId))
+    .innerJoin(storeConnections, eq(storeConnections.id, orders.storeConnectionId))
+    .leftJoin(resellerErpConnections, ISSUING_CONNECTION)
     .where(
       and(
         eq(shipmentResellerInvoices.tenantId, tenantId),
@@ -254,4 +469,107 @@ export async function resellerSaleInvoicesOf(
       ),
     );
   return new Map(rows.map(({ shipmentId, ...invoice }) => [shipmentId, invoice]));
+}
+
+/** How far the reseller's ERP got with the note; each id is saved as soon as it comes. */
+export async function recordResellerSaleIssueProgress(
+  database: Database,
+  invoiceId: string,
+  progress: {
+    erpContactId?: number;
+    erpInvoiceId?: number;
+    erpDraftRequestedAt?: Date | null;
+    erpSentAt?: Date;
+  },
+): Promise<void> {
+  await database
+    .update(shipmentResellerInvoices)
+    .set(progress)
+    .where(
+      and(eq(shipmentResellerInvoices.id, invoiceId), isNull(shipmentResellerInvoices.accessKey)),
+    );
+}
+
+/**
+ * Marks that the note is being asked of the reseller's Bling, only when no run marked it before:
+ * two runs on the same note never both create it.
+ *
+ * @returns Whether this run got the mark.
+ */
+export async function claimResellerSaleDraft(
+  database: Database,
+  claim: { invoiceId: string; now: Date },
+): Promise<boolean> {
+  const updated = await database
+    .update(shipmentResellerInvoices)
+    .set({ erpDraftRequestedAt: claim.now })
+    .where(
+      and(
+        eq(shipmentResellerInvoices.id, claim.invoiceId),
+        isNull(shipmentResellerInvoices.accessKey),
+        isNull(shipmentResellerInvoices.erpDraftRequestedAt),
+        isNull(shipmentResellerInvoices.erpInvoiceId),
+      ),
+    )
+    .returning({ id: shipmentResellerInvoices.id });
+  return updated.length > 0;
+}
+
+/** The reseller's ERP could not issue the note: it waits, with `problem`, for the reseller. */
+export async function stopResellerSaleIssue(
+  database: Database,
+  stop: { invoiceId: string; problem: string; now: Date },
+): Promise<void> {
+  await database
+    .update(shipmentResellerInvoices)
+    .set({ erpStoppedAt: stop.now, problem: stop.problem })
+    .where(
+      and(
+        eq(shipmentResellerInvoices.id, stop.invoiceId),
+        isNull(shipmentResellerInvoices.accessKey),
+      ),
+    );
+}
+
+/**
+ * Puts a stopped note of the reseller's parcel back in line for its ERP. Its checks count from
+ * zero again, so the wait for SEFAZ after a new send gets its full time.
+ *
+ * @throws {AppError} NOT_FOUND when the parcel is not the reseller's or its note is not stopped.
+ */
+export async function retryResellerSaleIssue(
+  database: Database,
+  retry: { tenantId: string; shipmentId: string; now: Date },
+): Promise<void> {
+  const updated = await database
+    .update(shipmentResellerInvoices)
+    .set({ erpStoppedAt: null, problem: null, checks: 0, nextCheckAt: retry.now })
+    .where(
+      and(
+        eq(shipmentResellerInvoices.tenantId, retry.tenantId),
+        eq(shipmentResellerInvoices.shipmentId, retry.shipmentId),
+        isNull(shipmentResellerInvoices.accessKey),
+        isNotNull(shipmentResellerInvoices.erpStoppedAt),
+      ),
+    )
+    .returning({ id: shipmentResellerInvoices.id });
+  if (updated.length === 0) {
+    throw notFoundError("Esta nota não está parada");
+  }
+}
+
+/** Saves the note the reseller's ERP issued and Mercado Livre got; one already found stays. */
+export async function recordErpResellerSaleInvoice(
+  database: Database,
+  found: { invoiceId: string; parts: AccessKeyParts; now: Date },
+): Promise<void> {
+  await database
+    .update(shipmentResellerInvoices)
+    .set({ ...foundValues(found.parts, found.now), issuedAt: found.now, source: "bling" })
+    .where(
+      and(
+        eq(shipmentResellerInvoices.id, found.invoiceId),
+        isNull(shipmentResellerInvoices.accessKey),
+      ),
+    );
 }

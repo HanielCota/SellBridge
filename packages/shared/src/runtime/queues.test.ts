@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  deletedStorePauseJobId,
   enqueueStoreOrderCatchUpJob,
   enqueueWebhookEventJob,
   erpStockRefreshJobId,
@@ -198,5 +199,17 @@ describe("erpStockRefreshJobId", () => {
 
   it("refuses a time that is not a number instead of an id ending in NaN", () => {
     expect(() => erpStockRefreshJobId(job, Number.NaN)).toThrow(RangeError);
+  });
+});
+
+describe("deletedStorePauseJobId", () => {
+  // Regression: BullMQ refused the id (a custom id may hold no colon, or exactly two), so every
+  // deletion with live listings stopped.
+  it("gives an id BullMQ accepts as a custom job id", () => {
+    const id = deletedStorePauseJobId({
+      storeConnectionId: "6a2b8c4d-1e3f-4a5b-8c7d-9e0f1a2b3c4d",
+    });
+
+    expect(id).not.toContain(":");
   });
 });

@@ -206,6 +206,7 @@ describe("planErpCatalogImport", () => {
         erpPriceCents: 3990,
         currentCostCents: 2500,
         needsCost: false,
+        modelCode: null,
       },
     ]);
   });

@@ -15,6 +15,7 @@ import {
 import { alias } from "drizzle-orm/pg-core";
 import { conflictError, notFoundError } from "@sellbridge/shared/errors";
 import {
+  DISPATCHED_FULFILLMENT_STATUSES,
   type FulfillmentStatus,
   type MarketplaceTrackingStatus,
   SETTLED_FULFILLMENT_STATUSES,
@@ -105,7 +106,11 @@ function trackableOrders(database: Database, extra: SQL | undefined) {
     .where(
       and(
         sql`${orderShipments.status} in ${ON_THE_WAY}`,
-        inArray(orders.status, ["paid", "shipped"]),
+        // A sale cancelled after its parcel left is still followed: the parcel comes back.
+        or(
+          inArray(orders.status, ["paid", "shipped"]),
+          and(eq(orders.status, "cancelled"), eq(orderShipments.status, "shipped")),
+        ),
         eq(storeConnections.marketplace, "mercado_livre"),
         eq(storeConnections.status, "connected"),
         isNotNull(storeConnections.accessTokenEnc),
@@ -216,6 +221,25 @@ async function noticeDeliveryProblem(
   });
 }
 
+/** The order's single parcel the marketplace reading applies to, locked. */
+async function trackedParcelOf(transaction: Transaction, order: typeof orders.$inferSelect) {
+  const shipments = await transaction
+    .select()
+    .from(orderShipments)
+    .where(and(eq(orderShipments.orderId, order.id), eq(orderShipments.tenantId, order.tenantId)))
+    .for("update");
+  if (shipments.length !== 1)
+    throw conflictError(
+      "A consulta automática requer um único envio encaminhado; pedidos divididos precisam de rastreio por fornecedor",
+    );
+  const shipment = shipments[0];
+  if (!shipment || shipment.status === "cancelled") throw conflictError("Envio cancelado");
+  // A cancelled sale is only followed for a parcel that already left: it comes back as a return.
+  const leftAlready = DISPATCHED_FULFILLMENT_STATUSES.includes(shipment.status);
+  if (order.status === "cancelled" && !leftAlready) throw conflictError("Pedido cancelado");
+  return shipment;
+}
+
 /** One marketplace parcel cannot be assigned to several suppliers' separate parcels. */
 export async function applyMarketplaceShipment(
   database: Database,
@@ -244,20 +268,9 @@ export async function applyMarketplaceShipment(
       .where(and(eq(orders.id, orderId), eq(orders.tenantId, tenantId)))
       .for("update");
     if (!order) throw notFoundError("Pedido não encontrado");
-    if (order.status === "cancelled") throw conflictError("Pedido cancelado");
     // Settled: a later reading (the return seen again, a lagging "shipped") changes nothing.
     if (order.status === "returned") return { changed: false };
-    const shipments = await transaction
-      .select()
-      .from(orderShipments)
-      .where(and(eq(orderShipments.orderId, orderId), eq(orderShipments.tenantId, tenantId)))
-      .for("update");
-    if (shipments.length !== 1)
-      throw conflictError(
-        "A consulta automática requer um único envio encaminhado; pedidos divididos precisam de rastreio por fornecedor",
-      );
-    const shipment = shipments[0];
-    if (!shipment || shipment.status === "cancelled") throw conflictError("Envio cancelado");
+    const shipment = await trackedParcelOf(transaction, order);
     const status = trackedShipmentStatus(shipment.status, shipping.trackingStatus);
     await transaction
       .update(orderShipments)
