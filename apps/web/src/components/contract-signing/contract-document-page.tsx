@@ -9,7 +9,7 @@ const versionDate = new Intl.DateTimeFormat("pt-BR", {
   timeZone: "UTC",
 });
 
-/** The full text of a contract, public, so it can be read before signing up or signing. */
+/** The full text of a contract, to read before signing up or signing. */
 export function ContractDocumentPage({ contract }: { contract: ContractDocument }) {
   const intro = contract.provisional
     ? `${PROVISIONAL_CONTRACT_NOTICE} Versão ${contract.version}.`

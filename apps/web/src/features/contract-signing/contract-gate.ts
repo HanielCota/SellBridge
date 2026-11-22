@@ -1,5 +1,6 @@
 import { type ContractStanding, signingBlocksPanel } from "@sellbridge/shared/contract-signing";
 import type { ProfileKind } from "@sellbridge/shared/profile-kind";
+import { isStaffRole } from "@sellbridge/shared/staff-access";
 
 /** The tab profile's contract standing, as the session carries it to the browser. */
 export interface SessionContract {
@@ -73,4 +74,31 @@ export function sessionMaySign(session: GateSession): boolean {
   }
   const standing = sessionContractOf(session).standing;
   return standing === "grace" || standing === "overdue" || standing === "must_sign";
+}
+
+interface SupplierContractReader {
+  user: { role: string };
+  profiles: readonly { kind: ProfileKind }[];
+}
+
+/** Who may read the supplier contract page: `sign_in` sends to the login, `not_supplier` explains. */
+export type SupplierContractAccess = "sign_in" | "not_supplier" | "allowed";
+
+/**
+ * The supplier contract states SellBridge's fee, which resellers never see (the client's
+ * contract requirements, section 4): only an account with a supplier profile and the team read it.
+ */
+export function supplierContractAccess(
+  session: SupplierContractReader | null,
+): SupplierContractAccess {
+  if (session === null) {
+    return "sign_in";
+  }
+  if (isStaffRole(session.user.role)) {
+    return "allowed";
+  }
+  if (session.profiles.some((profile) => profile.kind === "supplier")) {
+    return "allowed";
+  }
+  return "not_supplier";
 }
