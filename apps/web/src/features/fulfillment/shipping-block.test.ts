@@ -13,6 +13,13 @@ describe("saleStopNotice", () => {
     expect(saleStopNotice("pending", "forwarded")?.title).toBe("Venda não liberada");
   });
 
+  it("keeps the order link's own words for an unpaid sale", () => {
+    const notice = saleStopNotice("pending", "forwarded", "link");
+
+    expect(notice?.title).toBe("Pedido sem liberação para envio");
+    expect(notice?.description).toContain("Fale com o revendedor");
+  });
+
   it("says nothing about a paid sale", () => {
     expect(saleStopNotice("paid", "forwarded")).toBeNull();
   });

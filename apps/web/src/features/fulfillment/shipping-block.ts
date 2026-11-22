@@ -53,6 +53,13 @@ export function saleStopNotice(
           : "O pedido foi cancelado. O prazo não conta mais. Se você já separou o produto, devolva ao estoque.",
     };
   }
+  if (isShippingBlocked(orderStatus) && where === "link") {
+    return {
+      title: "Pedido sem liberação para envio",
+      description:
+        "O marketplace ainda não liberou este pedido. Fale com o revendedor antes de separar ou enviar.",
+    };
+  }
   if (isShippingBlocked(orderStatus)) {
     return {
       title: "Venda não liberada",
