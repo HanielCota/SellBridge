@@ -25,6 +25,7 @@ import {
   effectivePaymentFeeBasisPoints,
   platformFeeCents,
   supplierPaymentBadge,
+  type PaidParcelFate,
   type SupplierPaymentBadge,
   type SupplierPayMethod,
 } from "@sellbridge/shared/shipment-payments";
@@ -91,6 +92,7 @@ export async function unlinkPaymentAccount(input: {
 function badgeFor(
   summary: ShipmentPaymentSummary | undefined,
   supplierReceivesHere: boolean,
+  parcel?: PaidParcelFate,
 ): SupplierPaymentBadge {
   const paymentsOffered = asaasContext() !== null;
   return supplierPaymentBadge({
@@ -105,7 +107,29 @@ function badgeFor(
           },
     supplierReceivesHere,
     paymentsOffered,
+    ...(parcel === undefined ? {} : { parcel }),
   });
+}
+
+/** Parcels whose money is owed back to the reseller: cancelled, or back with the supplier. */
+const ENDED_WITHOUT_DELIVERY: ReadonlySet<string> = new Set(["cancelled", "returned"]);
+
+/**
+ * What happened to the paid parcel: ended without a delivery, and whether the team settles it
+ * (the reseller cancelled after the supplier accepted and no refund was asked for yet).
+ */
+function parcelFate(payable: PayableShipment): PaidParcelFate {
+  const payment = payable.payment;
+  const refundAsked = payment?.refundRequestedAt != null;
+  return {
+    endedWithoutDelivery: ENDED_WITHOUT_DELIVERY.has(payable.status),
+    heldForTeam:
+      payment?.refundHeldAt != null || (payable.cancelledByResellerAfterAccept && !refundAsked),
+    moneyReleased:
+      payment?.releasedAt != null ||
+      payment?.escrowStatus === "done" ||
+      payment?.teamDecision === "release",
+  };
 }
 
 /** The payment badge of each parcel of one supplier, for its order list. */
@@ -192,16 +216,27 @@ async function manualRefundView(tenantId: string, payable: PayableShipment) {
   };
 }
 
-/** Why SellBridge gave (or is giving) the reseller's money back, and whether the provider refused. */
-function refundView(payment: ShipmentPayment | null) {
-  if (payment?.refundRequestedAt == null) {
+/**
+ * Why SellBridge gave (or is giving) the reseller's money back, and whether the provider refused.
+ * A paid parcel that was cancelled or came back is owed back even before the refund round asks.
+ */
+function refundView(payable: PayableShipment, badge: SupplierPaymentBadge) {
+  const { payment } = payable;
+  if (payment?.refundRequestedAt != null) {
+    return { reason: payment.refundReason, failed: payment.refundFailedAt !== null };
+  }
+  if (badge.kind !== "refunding") {
     return null;
   }
-  return { reason: payment.refundReason, failed: payment.refundFailedAt !== null };
+  return {
+    reason: payable.status === "returned" ? "returned" : "cancelled",
+    failed: false,
+  } as const;
 }
 
 const SETTLED_BADGES: ReadonlySet<SupplierPaymentBadge["kind"]> = new Set([
   "paid",
+  "held",
   "refunding",
   "refunded",
 ]);
@@ -232,7 +267,8 @@ export async function loadResellerSupplierPayment(input: { tenantId: string; shi
           paymentMethod: payable.payment.paymentMethod,
           refundRequestedAt: payable.payment.refundRequestedAt,
         };
-  const badge = badgeFor(summary, linked);
+  const fate = parcelFate(payable);
+  const badge = badgeFor(summary, linked, fate);
   const refusal = checkoutRefusal(payable, linked);
   const [preparationHold, manualRefund] = await Promise.all([
     findPreparationHold(database, input.shipmentId),
@@ -247,7 +283,11 @@ export async function loadResellerSupplierPayment(input: { tenantId: string; shi
     badge,
     canPay: badge.kind === "waiting" && refusal === null,
     refusal,
-    refund: refundView(payable.payment),
+    refund: refundView(payable, badge),
+    /** How the reseller paid ("PIX", "CREDIT_CARD"…), which says how the money comes back. */
+    paymentMethod: payable.payment?.paymentMethod ?? null,
+    /** The money already went to the supplier: nothing is held for the reseller any more. */
+    moneyReleased: fate.moneyReleased,
     /** Held until delivery (Asaas): the reseller sees the protection seal. */
     protectedPayment: provider === "asaas",
     provider,

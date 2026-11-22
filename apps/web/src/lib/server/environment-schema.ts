@@ -39,8 +39,11 @@ const serverEnvironmentShape = z.object({
    * refuses to start unless this says so: it means no plan limits at all (item 16, N8).
    */
   BILLING_UNLIMITED: booleanFlagEnvironmentSchema,
-  /** Days a failed renewal (past_due) keeps the plan before the account is left without one. */
-  BILLING_PAST_DUE_GRACE_DAYS: z.coerce.number().int().min(0).max(60).default(7),
+  /**
+   * Days a failed renewal (past_due) keeps the plan before the account is left without one: 5 in
+   * the reseller contract. Charges due before 2026-12-01 keep at least 7 (subscription-state.ts).
+   */
+  BILLING_PAST_DUE_GRACE_DAYS: z.coerce.number().int().min(0).max(60).default(5),
   NODE_ENV: nodeEnvironmentSchema,
   DATABASE_URL: z.url(),
   REDIS_URL: z.url(),

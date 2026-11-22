@@ -104,4 +104,41 @@ describe("resellerRefundText", () => {
 
     expect(text).toBeNull();
   });
+
+  test("tells a card payer the money goes back to the card and when the bill shows it", () => {
+    const text = resellerRefundText({
+      badge: { kind: "refunding" },
+      refund: { reason: "cancelled", failed: false },
+      amountCents: 5990,
+      provider: "asaas",
+      paymentMethod: "CREDIT_CARD",
+    });
+
+    expect(text).toBe(
+      `O envio foi cancelado. Estamos devolvendo ${AMOUNT} no seu cartão pelo Asaas. O estorno aparece na fatura do cartão em até 10 dias úteis, ou na fatura seguinte se a atual já fechou.`,
+    );
+  });
+
+  test("tells a Pix payer the team steps in if Asaas does not give it back", () => {
+    const text = resellerRefundText({
+      badge: { kind: "refunding" },
+      refund: { reason: "cancelled", failed: false },
+      amountCents: 5990,
+      provider: "asaas",
+      paymentMethod: "PIX",
+    });
+
+    expect(text).toContain("por Pix, pelo Asaas. Se o Asaas não devolver sozinho");
+  });
+
+  test("says the team checks with the supplier before the money moves", () => {
+    const text = resellerRefundText({
+      badge: { kind: "held" },
+      refund: null,
+      amountCents: 5990,
+      provider: "asaas",
+    });
+
+    expect(text).toContain("A equipe do SellBridge confere com ele");
+  });
 });

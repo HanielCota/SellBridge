@@ -1,10 +1,12 @@
 import { hasStaffPermission } from "@sellbridge/shared/staff-access";
 import { createFileRoute, redirect } from "@tanstack/react-router";
+import { ContractSigningCard } from "@/components/admin-settings/contract-signing-card";
 import { PaymentFeeCard } from "@/components/admin-settings/payment-fee-card";
 import { RequireReceivingAccountCard } from "@/components/admin-settings/require-receiving-account-card";
 import { ReceivingRulesCard } from "@/components/admin-settings/receiving-rules-card";
 import { ReturnAnswerDaysCard } from "@/components/admin-settings/return-answer-days-card";
 import { PageHeader } from "@/components/layout/page-header";
+import { contractSigningSettingsQueryOptions } from "@/features/contract-signing/contract-signing.queries";
 import { receivingRulesQueryOptions } from "@/features/supplier-payments/receiving-rules.queries";
 import { paymentFeeQueryOptions } from "@/features/supplier-payments/supplier-payments.queries";
 import { prefetchOnServer } from "@/lib/prefetch";
@@ -20,6 +22,7 @@ export const Route = createFileRoute("/_app/admin/configuracoes")({
     Promise.all([
       prefetchOnServer(context.queryClient, paymentFeeQueryOptions()),
       prefetchOnServer(context.queryClient, receivingRulesQueryOptions()),
+      prefetchOnServer(context.queryClient, contractSigningSettingsQueryOptions()),
     ]),
   head: () => ({ meta: [{ title: "Configurações (admin) | SellBridge" }] }),
   component: SettingsPage,
@@ -33,6 +36,7 @@ function SettingsPage() {
       <RequireReceivingAccountCard />
       <ReceivingRulesCard />
       <ReturnAnswerDaysCard />
+      <ContractSigningCard />
     </div>
   );
 }

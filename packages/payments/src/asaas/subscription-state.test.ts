@@ -1,3 +1,4 @@
+import { paidBillingPlan } from "@sellbridge/shared/billing";
 import { describe, expect, test } from "vitest";
 import {
   nextMonthlyDueDate,
@@ -122,6 +123,38 @@ describe("subscription billing state", () => {
     });
 
     expect(state.periodEnd?.toISOString()).toBe("2026-12-20T03:00:00.000Z");
+  });
+
+  test("keeps the plan through the contract's 5 days of grace and drops it on the next day", () => {
+    const state = subscriptionBillingState({
+      subscription: subscription(),
+      charges: [charge("2026-12-19", "OVERDUE"), charge("2026-11-19", "RECEIVED")],
+      graceDays: 5,
+      prepaidUntil: null,
+    });
+    const subscriptionState = { status: state.status, plan: "pro", periodEnd: state.periodEnd };
+
+    const lastMinute = paidBillingPlan(subscriptionState, new Date("2026-12-23T23:59:00-03:00"));
+    const nextDay = paidBillingPlan(subscriptionState, new Date("2026-12-24T00:00:00-03:00"));
+
+    expect(state.periodEnd?.toISOString()).toBe("2026-12-24T03:00:00.000Z");
+    expect(lastMinute?.id).toBe("pro");
+    expect(nextDay).toBeNull();
+  });
+
+  test("keeps the earlier 7 days of grace for a charge due before December 2026", () => {
+    const state = subscriptionBillingState({
+      subscription: subscription({ nextDueDate: "2026-11-25" }),
+      charges: [charge("2026-11-25", "OVERDUE"), charge("2026-10-25", "RECEIVED")],
+      graceDays: 5,
+      prepaidUntil: null,
+    });
+    const subscriptionState = { status: state.status, plan: "pro", periodEnd: state.periodEnd };
+
+    const sixthDay = paidBillingPlan(subscriptionState, new Date("2026-11-30T12:00:00-03:00"));
+
+    expect(state.periodEnd?.toISOString()).toBe("2026-12-02T03:00:00.000Z");
+    expect(sixthDay?.id).toBe("pro");
   });
 
   test("lets the paid month run out after the subscription is ended", () => {

@@ -262,7 +262,7 @@ export const TERM_HINTS = {
   openDeadline: "Tempo que falta antes de o prazo vencer",
   rejectedProduct: "A equipe do SellBridge pediu ajustes; abra para ver o motivo",
   healthLevel: "Cor geral do seu desempenho; vermelho quando alguma métrica passou do limite",
-  fees: "Taxas do marketplace e do SellBridge sobre a venda, com o frete que você pagou ao Mercado Livre",
+  fees: "Taxas do marketplace sobre a venda, com o frete que você pagou ao Mercado Livre",
   completeness: "Quanto do cadastro está preenchido; produtos completos vendem mais",
   blockingPublish: "Faltam itens obrigatórios: o produto não pode ser publicado",
   canImprove: "Já pode ser publicado, mas fotos e detalhes extras ajudam a vender",

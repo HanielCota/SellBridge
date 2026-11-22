@@ -33,7 +33,6 @@ function paidEliteWithStartCourtesy(): BillingData {
     usage: { stores: 2, listings: 12 },
     plans: BILLING_PLANS,
     prices: [],
-    platformFeeBasisPoints: 0,
   };
 }
 

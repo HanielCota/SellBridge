@@ -48,6 +48,24 @@ describe("platformFeeCents", () => {
     expect(fee).toBe(150);
   });
 
+  test("takes 4% of R$ 59,90 as R$ 2,40, rounding 239,6 cents up", () => {
+    const fee = platformFeeCents(5990, 400);
+
+    expect(fee).toBe(240);
+  });
+
+  test("takes 4% of R$ 12,34 as R$ 0,49, rounding 49,36 cents down", () => {
+    const fee = platformFeeCents(1234, 400);
+
+    expect(fee).toBe(49);
+  });
+
+  test("takes nothing from a one-cent payment at 4%", () => {
+    const fee = platformFeeCents(1, 400);
+
+    expect(fee).toBe(0);
+  });
+
   test("is zero when the rate is zero", () => {
     const fee = platformFeeCents(5990, 0);
 
@@ -146,6 +164,36 @@ describe("supplierPaymentBadge", () => {
     });
 
     expect(badge).toEqual({ kind: "refunding" });
+  });
+
+  test("shows the money on its way back once a paid parcel is cancelled", () => {
+    const badge = supplierPaymentBadge({
+      payment: { status: "approved", paidAt, method: "PIX" },
+      supplierReceivesHere: true,
+      parcel: { endedWithoutDelivery: true, heldForTeam: false, moneyReleased: false },
+    });
+
+    expect(badge).toEqual({ kind: "refunding" });
+  });
+
+  test("says the team checks a paid parcel cancelled after the supplier accepted", () => {
+    const badge = supplierPaymentBadge({
+      payment: { status: "approved", paidAt, method: "PIX" },
+      supplierReceivesHere: true,
+      parcel: { endedWithoutDelivery: true, heldForTeam: true, moneyReleased: false },
+    });
+
+    expect(badge).toEqual({ kind: "held" });
+  });
+
+  test("keeps paid once the money went to the supplier, even for a cancelled parcel", () => {
+    const badge = supplierPaymentBadge({
+      payment: { status: "approved", paidAt, method: "PIX" },
+      supplierReceivesHere: true,
+      parcel: { endedWithoutDelivery: true, heldForTeam: true, moneyReleased: true },
+    });
+
+    expect(badge).toEqual({ kind: "paid", paidAt, method: "PIX" });
   });
 
   test("shows a payment under review, so nobody pays again meanwhile", () => {
