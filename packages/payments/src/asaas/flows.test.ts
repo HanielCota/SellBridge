@@ -451,15 +451,33 @@ describe("applyAsaasCharge", () => {
     });
   });
 
-  test("records the day Asaas confirmed the money, at noon in São Paulo", async () => {
+  test("records a payment confirmed today at the moment SellBridge sees it, late evening included", async () => {
+    // 23:00 on 07/12 in São Paulo, the day Asaas reports the money came in.
+    const lateEvening = new Date("2026-12-08T02:00:00Z");
+    vi.useFakeTimers({ now: lateEvening });
+    mocks.findPayment.mockResolvedValue(parcel({ status: "pending", providerPaymentId: null }));
+    mocks.apply.mockResolvedValue({ kind: "applied", payment: parcel() });
+
+    await applyAsaasCharge(context, { account, charge: charge({ confirmedDate: "2026-12-07" }) });
+
+    vi.useRealTimers();
+    expect(mocks.apply).toHaveBeenCalledWith(
+      context.database,
+      expect.objectContaining({ approvedAt: lateEvening }),
+    );
+  });
+
+  test("records a payment confirmed on an earlier day at the last moment of that day in São Paulo", async () => {
+    vi.useFakeTimers({ now: NOW });
     mocks.findPayment.mockResolvedValue(parcel({ status: "pending", providerPaymentId: null }));
     mocks.apply.mockResolvedValue({ kind: "applied", payment: parcel() });
 
     await applyAsaasCharge(context, { account, charge: charge({ confirmedDate: "2026-12-08" }) });
 
+    vi.useRealTimers();
     expect(mocks.apply).toHaveBeenCalledWith(
       context.database,
-      expect.objectContaining({ approvedAt: new Date("2026-12-08T15:00:00Z") }),
+      expect.objectContaining({ approvedAt: new Date("2026-12-09T02:59:59.999Z") }),
     );
   });
 
