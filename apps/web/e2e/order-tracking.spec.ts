@@ -161,7 +161,7 @@ test("reseller tracks an order by code, by order number, by hand and from the or
   await page.setViewportSize({ width: 1280, height: 720 });
   await expect(page).toHaveURL(new RegExp(`trackOrder=${orderId}`));
 
-  await page.getByRole("button", { name: "Operação" }).click();
+  await page.getByRole("button", { name: "Envio" }).click();
   await page.getByLabel("Buscar por pedido ou comprador").fill(externalId);
   await expect(page.getByRole("button", { name: "Abrir pedido" })).toHaveCount(1);
   await page.getByRole("button", { name: "Abrir pedido" }).click();

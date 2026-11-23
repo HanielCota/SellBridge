@@ -58,7 +58,7 @@ export function FulfillmentDialog({
         <DialogHeader>
           <DialogTitle>Pedido {order?.externalOrderId}</DialogTitle>
           <DialogDescription>
-            Prepare seus envios e acompanhe cada pacote até a entrega.
+            Mande ao fornecedor e acompanhe cada pacote até a entrega.
           </DialogDescription>
         </DialogHeader>
         {order ? <OrderOperations key={order.id} orderId={order.id} /> : null}
@@ -177,6 +177,12 @@ function ShipmentList({
     </ShipmentPanel>
   ));
 }
+/** Why a blocked order cannot be forwarded: only the reason that applies to this one. */
+function blockedOrderNote(status: string): string {
+  if (status === "cancelled") return "Este pedido foi cancelado.";
+  if (status === "returned") return "Este pedido foi devolvido.";
+  return "Este pedido ainda não foi pago. Espere o pagamento para encaminhar.";
+}
 /** Forwarding and every parcel of one order, with the reseller's controls. */
 export function OrderOperations({ orderId }: { orderId: string }) {
   const query = useQuery(fulfillmentQueryOptions(orderId));
@@ -215,9 +221,7 @@ export function OrderOperations({ orderId }: { orderId: string }) {
         marketplace={detail.order.marketplace}
       />
       {blocked ? (
-        <p className="text-sm text-destructive">
-          Pedido sem liberação para envio: pagamento pendente, cancelamento ou devolução.
-        </p>
+        <p className="text-sm text-destructive">{blockedOrderNote(detail.order.status)}</p>
       ) : null}
       {detail.shipments.length === 0 && !blocked ? (
         <ForwardForm detail={detail} onForwarded={onForwarded} />
@@ -247,7 +251,7 @@ function MarketplaceActions({
     mutationFn: () => refreshMarketplaceTrackingFn({ data: { orderId } }),
     onSuccess: async () => {
       await onRefresh();
-      toast.success("Rastreio consultado no marketplace");
+      toast.success("Rastreio atualizado");
     },
     onError: (error) => toast.error(errorMessage(error)),
   });
@@ -311,7 +315,12 @@ function SupplierLink({
       onLink(new URL(`/fornecedor/pedido/${result.token}`, window.location.origin).href);
     },
     onError: (error) => toast.error(errorMessage(error)),
-    onSuccess: () => toast.success("Acesso do fornecedor atualizado"),
+    onSuccess: (_result, action) =>
+      toast.success(
+        action === "revoke"
+          ? "Link desligado. O fornecedor não abre mais o pedido por ele."
+          : "Link novo pronto. Mande ao fornecedor.",
+      ),
   });
   // A settled parcel with no fresh link has nothing to show: no empty row in the toolbar.
   if (closed && !link?.url) return null;
@@ -337,7 +346,7 @@ function SupplierLink({
               onClick={() => mutation.mutate("revoke")}
             >
               <ShipmentActionIcon action="revokeLink" />
-              Revogar acesso
+              Desligar link
             </Button>
           </ShipmentActionHint>
         </div>
@@ -439,8 +448,8 @@ function CopySupplierLink({ url, emailed }: { url: string; emailed: boolean }) {
         </p>
       ) : null}
       <p className="text-xs text-muted-foreground">
-        Compartilhe este link com o fornecedor para ele receber e atualizar o pedido. Válido por 30
-        dias. Um novo link revoga o anterior.
+        Mande este link ao fornecedor para ele ver e atualizar o pedido. Vale por 30 dias. Se gerar
+        outro, este para de funcionar.
       </p>
       <Input aria-label="Link do fornecedor" type="url" readOnly value={url} />
       <Button
@@ -492,7 +501,7 @@ function MarketplaceTools({
   }
   return (
     <p className="text-xs text-muted-foreground">
-      Registre transportadora e rastreio em cada envio. A etiqueta de postagem é emitida pela
+      Anote a transportadora e o código de rastreio em cada envio. A etiqueta sai pela
       transportadora contratada.
     </p>
   );

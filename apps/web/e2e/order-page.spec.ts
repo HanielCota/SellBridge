@@ -101,7 +101,7 @@ test("opens an order from operations with its items, money, progress and shippin
   await expect(page).toHaveURL(new RegExp(`/pedidos/${orderId}([?]|$)`));
   await expect(page.getByRole("heading", { level: 1, name: `Pedido ${externalId}` })).toBeVisible();
   await expect(page.getByText("Juliana Costa").first()).toBeVisible();
-  const items = page.getByRole("region", { name: "Itens" });
+  const items = page.getByRole("region", { name: "Produtos" });
   await expect(items.getByText("R$ 99,00", { exact: true })).toBeVisible();
   const money = page.getByRole("region", { name: "Dinheiro" });
   await expect(money.getByText("Receita")).toBeVisible();
@@ -155,7 +155,7 @@ test("says the review window is over for an order delivered long ago", async ({ 
   await signIn(page, DEMO_USER);
   await gotoHydrated(page, `/pedidos/${lateOrderId}`);
   const rating = page.getByRole("region", { name: "Avaliação" });
-  await expect(rating.getByText("Prazo de 60 dias encerrado")).toBeVisible();
+  await expect(rating.getByText("Passou o prazo de 60 dias para avaliar")).toBeVisible();
   await expect(rating.getByRole("button", { name: "Avaliar" })).toHaveCount(0);
 });
 

@@ -42,7 +42,7 @@ export function ReputationThermometer({
   return (
     <div className={cn("flex gap-1", className)}>
       <span className="sr-only">
-        {level ? `Reputação: ${SCORE_LEVEL_LABELS[level]}` : "Reputação ainda sem nota"}
+        {level ? `Score: ${SCORE_LEVEL_LABELS[level]}` : "Ainda sem score"}
       </span>
       {SCORE_LEVELS.map((segment) => (
         <span

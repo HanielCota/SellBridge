@@ -141,7 +141,7 @@ function OrderItems({
   costPending: boolean;
 }) {
   return (
-    <PageSection id="order-items" title="Itens" card>
+    <PageSection id="order-items" title="Produtos" card>
       <ul className="divide-y">
         {items.map((item) => (
           <li
@@ -186,8 +186,8 @@ function OrderProgress({ history }: { history: OrderPageData["history"] }) {
 /** Why an order without a rating cannot be rated now: not delivered yet, too late, or no sale. */
 function unavailableReview(status: OrderPageData["order"]["status"]): string {
   if (status === "cancelled" || status === "returned") return "Sem avaliação neste pedido";
-  if (status === "delivered") return `Prazo de ${REVIEW_WINDOW_DAYS} dias encerrado`;
-  return "Disponível depois da entrega";
+  if (status === "delivered") return `Passou o prazo de ${REVIEW_WINDOW_DAYS} dias para avaliar`;
+  return "Dá para avaliar depois da entrega";
 }
 
 /**

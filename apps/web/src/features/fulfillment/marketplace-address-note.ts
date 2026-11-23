@@ -5,7 +5,7 @@ const ORDER_SOURCE: Record<MarketplaceId, string> = {
   mercado_livre: "do Mercado Livre",
   shopee: "da Shopee",
   tiktok_shop: "do TikTok Shop",
-  mock: "da integração descontinuada",
+  mock: "da loja simulada",
 };
 
 /** Said above a forward form the marketplace's own address filled. */

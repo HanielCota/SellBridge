@@ -68,7 +68,7 @@ test("trocar o período da visão geral mantém a rolagem da página", async ({ 
 
 test("trocar o período da operação dos pedidos mantém a rolagem da página", async ({ page }) => {
   await gotoHydrated(page, "/pedidos");
-  const operations = page.getByRole("region", { name: "Operação dos pedidos" });
+  const operations = page.getByRole("region", { name: "Pedidos para enviar" });
   const periods = operations.getByRole("group", { name: "Período" });
   const orders = operations.getByRole("list").first();
   await expect(orders).toHaveAttribute("aria-busy", "false");

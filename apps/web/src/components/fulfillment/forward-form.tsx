@@ -134,7 +134,7 @@ function ForwardBlockersNotice({ blockers }: { blockers: readonly string[] }) {
         ))}
       </ul>
       <p>
-        Cancele a venda no canal, ou abra um chamado para a equipe ajudar a resolver.{" "}
+        Cancele o pedido no marketplace ou abra um chamado para a equipe resolver.{" "}
         <Link to="/suporte/novo" className="font-medium underline underline-offset-4">
           Abrir chamado
         </Link>
@@ -212,7 +212,7 @@ function useForwardForm(
         importAddress(result.address);
         return;
       }
-      toast.error("O marketplace não informou o endereço completo");
+      toast.error("O marketplace não mandou o endereço completo. Preencha os campos que faltam.");
     },
     onError: (error) => toast.error(errorMessage(error)),
   });

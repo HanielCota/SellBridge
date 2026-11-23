@@ -70,7 +70,7 @@ const TAG_HINTS: Record<ReviewTag, string> = {
   "packaging:good": "Protegido e bem embalado",
   "packaging:bad": "Produto danificado na entrega",
   "support:good": "Respondeu sem demora",
-  "support:bad": "Sem retorno no tempo esperado",
+  "support:bad": "Demorou para responder",
 };
 
 /** Every tag is "aspect:verdict", so a tag without a known aspect is a bug, not a user error. */
