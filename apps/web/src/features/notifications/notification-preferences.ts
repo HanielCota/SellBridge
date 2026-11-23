@@ -53,7 +53,8 @@ function cellOf(
 }
 
 /**
- * What reaches a supplier profile today: their support tickets and the stores' conversations.
+ * What reaches a supplier profile today: their support tickets, the stores' conversations and the
+ * stores' messages on its orders.
  * Sales, store and listing notices are the reseller's; a supplier saw switches for "Loja
  * desconectada" that never applied to them.
  * New orders reach a supplier by e-mail on the brand's order address, outside these switches.
@@ -62,10 +63,14 @@ const SUPPLIER_EVENTS: ReadonlySet<NotificationEventName> = new Set([
   "support_reply",
   "supplier_conversation",
   "invoice_attention",
+  "store_order_message",
 ]);
 
-/** The supplier's own notes: a reseller never issues one, so never gets the switch. */
-const SUPPLIER_ONLY_EVENTS: ReadonlySet<NotificationEventName> = new Set(["invoice_attention"]);
+/** Notices only a supplier gets (its own notes, the stores' messages), so a reseller has no switch. */
+const SUPPLIER_ONLY_EVENTS: ReadonlySet<NotificationEventName> = new Set([
+  "invoice_attention",
+  "store_order_message",
+]);
 
 function shownTo(kind: ProfileKind, event: NotificationEventName): boolean {
   // Team notices (a new ticket) are not the customer's to choose; the team keeps the default.
@@ -105,6 +110,7 @@ const BELL_KIND_OF_EVENT: Partial<Record<NotificationEventName, NotificationKind
   invoice_attention: "invoice_stopped",
   marketplace_claim: "marketplace_claim",
   store_buyer_address: "store_problem",
+  store_order_message: "order_message",
 };
 
 /** Bell entries the person turned off ("No app" switched off). */

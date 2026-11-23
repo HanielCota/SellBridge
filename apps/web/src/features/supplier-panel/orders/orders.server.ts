@@ -4,6 +4,7 @@ import {
   listSupplierResellers,
   listSupplierResellerStores,
   listSupplierShipments,
+  markStoreMessagesRead,
   supplierOwnedShipments,
   retrySupplierShipmentInvoice,
 } from "@sellbridge/database/repositories";
@@ -51,12 +52,12 @@ export async function loadSupplierShipments(search: SupplierShipmentsSearch) {
     ...page,
     items: page.items.map((item) => ({
       ...item,
-      supplierPayment: badges.get(item.id) ?? OUTSIDE_PAYMENT,
+      supplierPayment: badges.get(item.id) ?? NO_ACCOUNT_PAYMENT,
     })),
   };
 }
 
-const OUTSIDE_PAYMENT: SupplierPaymentBadge = { kind: "outside" };
+const NO_ACCOUNT_PAYMENT: SupplierPaymentBadge = { kind: "no_account" };
 
 export async function loadSupplierShipmentCounts(input: SupplierShipmentCountsSearch) {
   return await countSupplierShipmentsByTab(database, withSaleDates(input));
@@ -70,12 +71,14 @@ export async function loadSupplierResellers(supplierId: string) {
   return await listSupplierResellers(database, supplierId);
 }
 
+/** The parcel's panel. Opening it reads the store's messages: they stop being "Mensagem nova". */
 export async function loadSupplierShipment(input: { supplierId: string; shipmentId: string }) {
   const [shipment, badges] = await Promise.all([
     getSupplierPanelShipment(database, input),
     supplierPaymentBadges({ supplierId: input.supplierId, shipmentIds: [input.shipmentId] }),
+    markStoreMessagesRead(database, input),
   ]);
-  return { ...shipment, supplierPayment: badges.get(input.shipmentId) ?? OUTSIDE_PAYMENT };
+  return { ...shipment, supplierPayment: badges.get(input.shipmentId) ?? NO_ACCOUNT_PAYMENT };
 }
 
 /**

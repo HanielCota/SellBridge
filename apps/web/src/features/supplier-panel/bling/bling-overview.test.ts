@@ -1,13 +1,29 @@
 import { describe, expect, it } from "vitest";
-import { blingOverviewFrom, isBlingReadRunning, skippedProductsNote } from "./bling-overview";
+import {
+  blingOverviewFrom,
+  blingStockLine,
+  countBlingProducts,
+  gridProductsNote,
+  isBlingExportRunning,
+  isBlingReadRunning,
+  needsBlingPermission,
+  needsBlingReconnect,
+  skippedProductsNote,
+  type BlingConnectionView,
+} from "./bling-overview";
 
 const connection = {
   status: "connected" as const,
+  permissionMissingAt: null,
   accountName: null,
   connectedAt: new Date("2026-11-10T12:00:00Z"),
   lastImportAt: null,
   resellerDiscountTenths: 300,
   invoiceEnabledAt: null,
+  stockCheckedAt: null,
+  catalogExportRequestedAt: null,
+  catalogExportFinishedAt: null,
+  catalogExportResult: null,
 };
 
 const read = {
@@ -143,5 +159,208 @@ describe("skippedProductsNote", () => {
 
   it("uses the singular for one product", () => {
     expect(skippedProductsNote(1)).toContain("1 produto ficou de fora");
+  });
+});
+
+describe("needsBlingPermission", () => {
+  it("asks to reconnect a connected Bling that refused a call for a missing permission", () => {
+    const refusedAt = new Date("2026-11-22T12:00:00Z");
+
+    const overview = blingOverviewFrom({
+      available: true,
+      connection: { ...connection, permissionMissingAt: refusedAt },
+      read: null,
+      fiscalReady: true,
+      now: NOW,
+    });
+
+    expect(overview.connection?.permissionMissing).toBe(true);
+  });
+
+  it("stops asking once the new authorization cleared the flag", () => {
+    const overview = blingOverviewFrom({
+      available: true,
+      connection: { ...connection, permissionMissingAt: null },
+      read: null,
+      fiscalReady: true,
+      now: NOW,
+    });
+
+    expect(overview.connection?.permissionMissing).toBe(false);
+  });
+
+  it("leaves an expired connection to its own reconnect card", () => {
+    const flagged = { status: "expired" as const, permissionMissingAt: new Date() };
+
+    expect(needsBlingPermission(flagged)).toBe(false);
+  });
+});
+
+describe("needsBlingReconnect", () => {
+  it("asks the header to show the notice for an expired connection", () => {
+    expect(needsBlingReconnect({ status: "expired", permissionMissingAt: null })).toBe(true);
+  });
+
+  it("asks the header to show the notice for a connection missing a permission", () => {
+    const flagged = { status: "connected" as const, permissionMissingAt: new Date() };
+
+    expect(needsBlingReconnect(flagged)).toBe(true);
+  });
+
+  it("keeps the header quiet for a connection that works", () => {
+    expect(needsBlingReconnect({ status: "connected", permissionMissingAt: null })).toBe(false);
+  });
+});
+
+describe("blingStockLine", () => {
+  const view: BlingConnectionView = {
+    status: "connected",
+    permissionMissing: false,
+    accountName: null,
+    connectedAt: "2026-11-10T12:00:00.000Z",
+    lastImportAt: null,
+    resellerDiscountTenths: null,
+    invoiceEnabledAt: "2026-11-12T12:00:00.000Z",
+    fiscalReady: true,
+    stockCheckedAt: "2026-11-19T17:30:00.000Z",
+    catalogExport: null,
+  };
+
+  it("says the stock follows Bling and when it was last checked", () => {
+    expect(blingStockLine(view)).toMatch(
+      /^Estoque atualizado sozinho pelo Bling · última conferência: .*14:30/,
+    );
+  });
+
+  it("says the first check is on its way before it ran", () => {
+    expect(blingStockLine({ ...view, stockCheckedAt: null })).toBe(
+      "Estoque atualizado sozinho pelo Bling · a primeira conferência sai em até 15 minutos.",
+    );
+  });
+
+  it("says the stock follows Bling even while the NF-e through Bling is off", () => {
+    expect(blingStockLine({ ...view, invoiceEnabledAt: null })).toMatch(
+      /^Estoque atualizado sozinho pelo Bling · última conferência: /,
+    );
+  });
+});
+
+describe("send to Bling", () => {
+  interface ExportColumns {
+    catalogExportRequestedAt?: Date | null;
+    catalogExportFinishedAt?: Date | null;
+    catalogExportResult?: unknown;
+  }
+
+  function exportOf(overrides: ExportColumns, now = NOW) {
+    const overview = blingOverviewFrom({
+      available: true,
+      connection: { ...connection, ...overrides },
+      read: null,
+      fiscalReady: true,
+      now,
+    });
+    return { overview, view: overview.connection?.catalogExport ?? null };
+  }
+
+  it("shows nothing before the first send", () => {
+    expect(exportOf({}).view).toBeNull();
+  });
+
+  it("follows a send asked for after the last one ended", () => {
+    const { overview, view } = exportOf({
+      catalogExportRequestedAt: new Date("2026-11-10T12:08:00Z"),
+      catalogExportFinishedAt: new Date("2026-11-09T12:00:00Z"),
+    });
+
+    expect(view).toEqual({ status: "sending", requestedAt: "2026-11-10T12:08:00.000Z" });
+    expect(isBlingExportRunning(overview)).toBe(true);
+  });
+
+  it("shows what was created and each refused product with the reason", () => {
+    const refused = [{ sku: "CHN-1", title: "Chinelo", reason: "O GTIN informado é inválido" }];
+
+    const { overview, view } = exportOf({
+      catalogExportRequestedAt: new Date("2026-11-10T12:00:00Z"),
+      catalogExportFinishedAt: new Date("2026-11-10T12:04:00Z"),
+      catalogExportResult: {
+        kind: "done",
+        created: 40,
+        alreadyInErp: 12,
+        refusedTotal: 1,
+        refused,
+      },
+    });
+
+    expect(view).toEqual({
+      status: "done",
+      finishedAt: "2026-11-10T12:04:00.000Z",
+      created: 40,
+      alreadyInErp: 12,
+      refusedTotal: 1,
+      refused,
+    });
+    expect(isBlingExportRunning(overview)).toBe(false);
+  });
+
+  it("tells why the send failed", () => {
+    const { view } = exportOf({
+      catalogExportRequestedAt: new Date("2026-11-10T12:00:00Z"),
+      catalogExportFinishedAt: new Date("2026-11-10T12:04:00Z"),
+      catalogExportResult: { kind: "failed", reason: "Conecte o Bling de novo." },
+    });
+
+    expect(view).toMatchObject({ status: "failed", reason: "Conecte o Bling de novo." });
+  });
+
+  it("calls a send still running after two hours stopped, so the supplier can send again", () => {
+    const { view } = exportOf(
+      { catalogExportRequestedAt: new Date("2026-11-10T09:00:00Z") },
+      new Date("2026-11-10T11:30:00Z"),
+    );
+
+    expect(view).toMatchObject({
+      status: "failed",
+      reason: expect.stringContaining("parou no meio"),
+    });
+  });
+
+  it("asks to send again when the stored result cannot be read", () => {
+    const { view } = exportOf({
+      catalogExportRequestedAt: new Date("2026-11-10T12:00:00Z"),
+      catalogExportFinishedAt: new Date("2026-11-10T12:04:00Z"),
+      catalogExportResult: { kind: "unknown" },
+    });
+
+    expect(view).toMatchObject({
+      status: "failed",
+      reason: expect.stringContaining("enviar de novo"),
+    });
+  });
+});
+
+const importRow = (sku: string, needsCost: boolean, modelCode: string | null = null) => ({
+  sku,
+  needsCost,
+  modelCode,
+});
+
+describe("countBlingProducts", () => {
+  it("counts a grid's variations as one product, new while any of them is new", () => {
+    const counts = countBlingProducts([
+      importRow("TEN-P-38", false, "TEN"),
+      importRow("TEN-P-39", true, "TEN"),
+      importRow("BOLSA", false),
+      importRow("CANECA", true),
+    ]);
+
+    expect(counts).toEqual({ products: 3, existing: 1, fresh: 2, grids: 1, gridVariations: 2 });
+  });
+
+  it("says how a grid's variations come in", () => {
+    expect(gridProductsNote({ grids: 1, gridVariations: 4 })).toBe(
+      "1 deles tem cores e tamanhos: as 4 variações entram como um produto só, cada uma com o próprio preço.",
+    );
+    expect(gridProductsNote({ grids: 2, gridVariations: 9 })).toContain("entram como 2 produtos");
   });
 });

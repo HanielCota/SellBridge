@@ -31,6 +31,7 @@ vi.mock("@sellbridge/database/repositories", () => ({
   reserveShortItems: mocks.reserveShort,
 }));
 vi.mock("@/lib/server/database", () => ({ database: {} }));
+vi.mock("@/lib/server/product-grid-switch", () => ({ productGridEnabled: () => false }));
 vi.mock("@/lib/server/queues", () => ({ enqueueStockPriceSync: mocks.enqueue }));
 vi.mock("@sellbridge/shared/logger", () => ({ logger: { warn: mocks.warn, error: mocks.warn } }));
 import {
@@ -62,6 +63,11 @@ const product = {
   videoUrl: null,
   madeToOrderDays: null,
   carrierOnly: false,
+  modelId: null,
+  color: null,
+  size: null,
+  variantAttributes: {},
+  variantFiscal: {},
   active: true,
 };
 /** Review columns of a stored product (supplier panel, migration 0039). */
@@ -95,7 +101,16 @@ const savedSupplier = {
   fiscalProfile: null,
 };
 function importPlan(revision = "initial"): SupplierProductImportPlan {
-  return { created: 1, updated: 0, errors: [], products: [product], newSkus: [], revision };
+  return {
+    created: 1,
+    updated: 0,
+    errors: [],
+    products: [product],
+    newSkus: [],
+    revision,
+    grids: [],
+    notices: [],
+  };
 }
 beforeEach(() => {
   vi.resetAllMocks();
@@ -195,6 +210,8 @@ describe("admin CSV orchestration", () => {
       ...reviewColumns,
       id: "e937a566-b7bc-4305-b3c0-448e7133fcfe",
       reservedStock: 0,
+      erpProductId: null,
+      erpStockReadAt: null,
       createdAt: new Date(),
       updatedAt: new Date(),
     });
@@ -258,6 +275,8 @@ describe("admin CSV orchestration", () => {
         ...reviewColumns,
         id: "6f1b2c4e-0d7a-4c8e-9a51-2f3b4c5d6e7f",
         reservedStock: 0,
+        erpProductId: null,
+        erpStockReadAt: null,
         active: false,
         createdAt: new Date("2026-10-01T00:00:00Z"),
         updatedAt: new Date("2026-10-01T00:00:00Z"),

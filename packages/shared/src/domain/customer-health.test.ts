@@ -21,9 +21,51 @@ function signals(overrides: Partial<CustomerSignals> = {}): CustomerSignals {
     recentOrders: 20,
     previousOrders: 18,
     lastSeenAt: daysAgo(0),
+    courtesyExpiresAt: null,
     ...overrides,
   };
 }
+
+function inDays(days: number): Date {
+  return new Date(NOW.getTime() + days * 86_400_000);
+}
+
+describe("courtesy plan ending", () => {
+  it("tells the team from seven days before the end, without lowering the score", () => {
+    const health = assessCustomerHealth(signals({ courtesyExpiresAt: inDays(7) }), NOW);
+
+    expect(health.issues).toEqual([{ kind: "courtesy", expiresAt: inDays(7), daysLeft: 7 }]);
+    expect(health.score).toBe(100);
+  });
+
+  it("stays quiet while the end is further away or there is no end", () => {
+    expect(assessCustomerHealth(signals({ courtesyExpiresAt: inDays(8) }), NOW).issues).toEqual([]);
+    expect(assessCustomerHealth(signals({ courtesyExpiresAt: null }), NOW).issues).toEqual([]);
+  });
+
+  it("says the last day is today, not tomorrow, on the plan's last day", () => {
+    // NOW is 09:00 in Brasília on 11/10; the plan covers that whole day and ends at its midnight.
+    const endOfToday = new Date("2026-10-12T03:00:00Z");
+
+    const health = assessCustomerHealth(signals({ courtesyExpiresAt: endOfToday }), NOW);
+
+    expect(health.issues).toEqual([{ kind: "courtesy", expiresAt: endOfToday, daysLeft: 0 }]);
+  });
+
+  it("counts tomorrow as one day left", () => {
+    const endOfTomorrow = new Date("2026-10-13T03:00:00Z");
+
+    const health = assessCustomerHealth(signals({ courtesyExpiresAt: endOfTomorrow }), NOW);
+
+    expect(health.issues).toMatchObject([{ kind: "courtesy", daysLeft: 1 }]);
+  });
+
+  it("stops once the plan is over", () => {
+    const health = assessCustomerHealth(signals({ courtesyExpiresAt: NOW }), NOW);
+
+    expect(health.issues).toEqual([]);
+  });
+});
 
 describe("assessCustomerHealth", () => {
   it("gives a healthy seller full marks and no issues", () => {

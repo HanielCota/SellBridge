@@ -9,7 +9,7 @@ import {
   requireTicketAbout,
 } from "@sellbridge/database/repositories";
 import { notFoundError, validationError } from "@sellbridge/shared/errors";
-import { assertCanReply } from "@sellbridge/shared/ticket-rules";
+import { assertCanReply, withPrioritySupport } from "@sellbridge/shared/ticket-rules";
 import { planSupportTicket } from "@sellbridge/shared/support-topics";
 import {
   formatAssistantNote,
@@ -26,6 +26,7 @@ import {
   type TicketAboutInput,
 } from "@sellbridge/shared/schemas";
 import { z } from "zod";
+import { hasPrioritySupport } from "@/features/billing/billing.server";
 import { auth } from "@/lib/server/auth";
 import { database } from "@/lib/server/database";
 import { environment } from "@/lib/server/environment";
@@ -142,6 +143,12 @@ export function handleCreateTicket(request: Request) {
       functionName: "support.createTicket",
       method: "POST",
     });
+    await recordImpersonatedCall({
+      impersonatedBy: session.impersonatedBy,
+      customerId: session.userId,
+      functionName: "support.createTicket",
+      method: "POST",
+    });
     const formData = await readUploadForm(request, session.userId);
     const input = parseCreateTicketForm(formData);
     const plan = planSupportTicket({
@@ -151,7 +158,10 @@ export function handleCreateTicket(request: Request) {
       about: input.about,
       description: input.body,
     });
-    const about = await readTicketAbout(formData, session.tenantId);
+    const [about, prioritySupport] = await Promise.all([
+      readTicketAbout(formData, session.tenantId),
+      hasPrioritySupport(session.tenantId),
+    ]);
     const files = await validateAttachments(formData);
     const attachments = await storeAttachments(fileStorage, session.tenantId, files);
     const { ticketId } = await saveWithAttachments(fileStorage, attachments, () =>
@@ -159,7 +169,7 @@ export function handleCreateTicket(request: Request) {
         tenantId: session.tenantId,
         userId: session.userId,
         category: input.category,
-        priority: plan.priority,
+        priority: prioritySupport ? withPrioritySupport(plan.priority) : plan.priority,
         subject: plan.subject,
         situationId: plan.situationId,
         body: input.body,
@@ -180,12 +190,6 @@ export function handleCreateTicket(request: Request) {
     });
     // Not awaited: the ticket is saved, and the team's e-mail must not hold the reseller.
     void notifyTeamOfNewTicket(ticketId);
-    await recordImpersonatedCall({
-      impersonatedBy: session.impersonatedBy,
-      customerId: session.userId,
-      functionName: "support.createTicket",
-      method: "POST",
-    });
     return jsonResponse(201, { ticketId });
   });
 }
@@ -257,6 +261,12 @@ export function handleTenantReply(request: Request, ticketIdParam: string | unde
       ticketStatus: ticket.status,
     });
     const reply = await readReply(request, session.userId);
+    await recordImpersonatedCall({
+      impersonatedBy: session.impersonatedBy,
+      customerId: session.userId,
+      functionName: "support.reply",
+      method: "POST",
+    });
     const attachments = await storeAttachments(fileStorage, session.tenantId, reply.files);
     await saveWithAttachments(fileStorage, attachments, () =>
       addTicketMessage(database, {
@@ -268,12 +278,6 @@ export function handleTenantReply(request: Request, ticketIdParam: string | unde
         attachments,
       }),
     );
-    await recordImpersonatedCall({
-      impersonatedBy: session.impersonatedBy,
-      customerId: session.userId,
-      functionName: "support.reply",
-      method: "POST",
-    });
     return jsonResponse(201, { ok: true });
   });
 }

@@ -192,9 +192,60 @@ describe("listProblemEvents", () => {
     expect(open.items.map((item) => item.id)).not.toContain(row?.id);
     expect(done.items.map((item) => item.id)).toContain(row?.id);
   });
+
+  it("keeps listing an open manual refund last seen before the period", async () => {
+    const since = new Date(NOW.getTime() + 300 * HOUR);
+    const refund = problem({
+      event: "asaas.refund_refused",
+      area: "payments",
+      occurredAt: new Date(since.getTime() - 8 * 24 * HOUR),
+    });
+    const oldError = problem({
+      area: "payments",
+      occurredAt: new Date(since.getTime() - 8 * 24 * HOUR),
+    });
+    await recordProblems(database, [
+      { problem: refund, count: 1 },
+      { problem: oldError, count: 1 },
+    ]);
+    const [refundRow] = await rowsOf(refund.fingerprint);
+    const [errorRow] = await rowsOf(oldError.fingerprint);
+
+    const open = await listProblemEvents(database, {
+      status: "open",
+      area: "payments",
+      since,
+      limit: 50,
+    });
+
+    const ids = open.items.map((item) => item.id);
+    expect(ids).toContain(refundRow?.id);
+    expect(ids).not.toContain(errorRow?.id);
+  });
 });
 
 describe("setProblemResolved", () => {
+  it("keeps a new failure open when it arrives before a retry resolves the old failure", async () => {
+    const stored = problem();
+    await recordProblems(database, [{ problem: stored, count: 1 }]);
+    const [row] = await rowsOf(stored.fingerprint);
+    const id = row?.id ?? "";
+    await recordProblems(database, [{ problem: stored, count: 1 }]);
+
+    const updated = await setProblemResolved(database, {
+      id,
+      resolvedById: ownerId,
+      now: NOW,
+      expectedOccurrences: 1,
+    });
+
+    expect(updated).toBe(false);
+    expect(await getProblemEvent(database, id)).toMatchObject({
+      occurrences: 2,
+      resolvedAt: null,
+    });
+  });
+
   it("undoes a resolution", async () => {
     const stored = problem();
     await recordProblems(database, [{ problem: stored, count: 1 }]);
@@ -235,6 +286,27 @@ describe("pruneProblemEvents", () => {
 
     expect(await rowsOf(old.fingerprint)).toHaveLength(0);
     expect(await rowsOf(recent.fingerprint)).toHaveLength(1);
+  });
+
+  it("keeps an open manual refund unseen for 30 days until the team resolves it", async () => {
+    const longAgo = new Date(NOW.getTime() - 31 * 24 * HOUR);
+    const openRefund = problem({ event: "asaas.refund_refused", occurredAt: longAgo });
+    const resolvedRefund = problem({ event: "asaas.refund_refused", occurredAt: longAgo });
+    await recordProblems(database, [
+      { problem: openRefund, count: 1 },
+      { problem: resolvedRefund, count: 1 },
+    ]);
+    const [resolvedRow] = await rowsOf(resolvedRefund.fingerprint);
+    await setProblemResolved(database, {
+      id: resolvedRow?.id ?? "",
+      resolvedById: ownerId,
+      now: NOW,
+    });
+
+    await pruneProblemEvents(database, { now: NOW });
+
+    expect(await rowsOf(openRefund.fingerprint)).toHaveLength(1);
+    expect(await rowsOf(resolvedRefund.fingerprint)).toHaveLength(0);
   });
 
   it("keeps the table under the row cap, deleting the problems seen longest ago", async () => {

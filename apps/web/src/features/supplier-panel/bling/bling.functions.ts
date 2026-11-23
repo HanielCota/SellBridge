@@ -3,11 +3,13 @@ import { MAX_RESELLER_DISCOUNT_TENTHS } from "@sellbridge/shared/erp-reseller-pr
 import { supplierImportSupplierSchema } from "@sellbridge/shared/supplier-panel-import-schemas";
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
-import { supplierPanelMiddleware } from "@/lib/server/middleware";
+import { accountMiddleware, supplierPanelMiddleware } from "@/lib/server/middleware";
+import { assertSupplierProfile } from "@/lib/server/supplier-panel-access";
 import {
   buildBlingNewProductsCsv,
   discardBlingRead,
   disconnectBling,
+  findOwnBlingToReconnect,
   importBlingRead,
   setBlingInvoicing,
   loadBlingOverview,
@@ -15,6 +17,7 @@ import {
   requestBlingCatalogExport,
   startBlingRead,
 } from "./bling-import.server";
+import { loadOnBehalfOperations, saveOnBehalfOperations } from "./bling-operations.server";
 
 const blingReadSchema = supplierImportSupplierSchema.extend({ readId: z.uuid() });
 
@@ -23,6 +26,14 @@ export const supplierBlingOverview = createServerFn({ method: "GET" })
   .middleware([supplierPanelMiddleware])
   .validator(supplierImportSupplierSchema)
   .handler(async ({ data }) => await loadBlingOverview(data.supplierId));
+
+/** The header notice: whether the tab's supplier has to reconnect its Bling, and where to. */
+export const ownBlingToReconnect = createServerFn({ method: "GET" })
+  .middleware([accountMiddleware])
+  .handler(async ({ context }) => {
+    assertSupplierProfile(context.profileKind);
+    return findOwnBlingToReconnect(context);
+  });
 
 /** Starts reading the catalog in the background; the page polls the overview for progress. */
 export const supplierBlingStartRead = createServerFn({ method: "POST" })
@@ -100,3 +111,28 @@ export const supplierBlingDiscardRead = createServerFn({ method: "POST" })
     await discardBlingRead(data.supplierId);
     return { discarded: true };
   });
+
+/** The venda à ordem operations of the supplier's Bling, with the two chosen ones. */
+export const supplierBlingOnBehalfOperations = createServerFn({ method: "GET" })
+  .middleware([supplierPanelMiddleware])
+  .validator(supplierImportSupplierSchema)
+  .handler(async ({ data }) => await loadOnBehalfOperations(data.supplierId));
+
+const operationIdSchema = z.number().int().positive();
+
+/** Saves the Bling operations of the remessa and of the sale to the reseller. */
+export const supplierBlingSaveOnBehalfOperations = createServerFn({ method: "POST" })
+  .middleware([supplierPanelMiddleware])
+  .validator(
+    supplierImportSupplierSchema.extend({
+      shipmentOperationId: operationIdSchema,
+      saleOperationId: operationIdSchema,
+    }),
+  )
+  .handler(
+    async ({ data, context }) =>
+      await saveOnBehalfOperations({
+        ...data,
+        actor: { viewerKind: context.viewer.kind, impersonatedBy: context.impersonatedBy },
+      }),
+  );

@@ -56,7 +56,7 @@ export const publicMiddleware = createMiddleware({ type: "function" }).middlewar
 
 /**
  * Inside a customer's account through "Entrar como cliente": some actions are refused, the rest
- * is recorded under the admin's name once it went through.
+ * is recorded under the admin's name before it runs, and refused when it cannot be recorded.
  */
 async function runAsCustomer<Result>(
   session: AccountSession,
@@ -65,9 +65,8 @@ async function runAsCustomer<Result>(
 ): Promise<Result> {
   const visit = { impersonatedBy: session.impersonatedBy, customerId: session.userId, ...call };
   assertAllowedWhileImpersonating(visit);
-  const result = await run();
   await recordImpersonatedCall(visit);
-  return result;
+  return run();
 }
 
 /**

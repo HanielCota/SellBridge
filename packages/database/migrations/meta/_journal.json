@@ -610,6 +610,174 @@
       "when": 1795089927066,
       "tag": "0086_supplier_approval",
       "breakpoints": true
+    },
+    {
+      "idx": 87,
+      "version": "7",
+      "when": 1795106374962,
+      "tag": "0087_reseller_sale_invoices",
+      "breakpoints": true
+    },
+    {
+      "idx": 88,
+      "version": "7",
+      "when": 1795125023456,
+      "tag": "0088_product_models",
+      "breakpoints": true
+    },
+    {
+      "idx": 89,
+      "version": "7",
+      "when": 1795125804231,
+      "tag": "0089_failure_follow_up",
+      "breakpoints": true
+    },
+    {
+      "idx": 90,
+      "version": "7",
+      "when": 1795126233289,
+      "tag": "0090_listing_pause_reason",
+      "breakpoints": true
+    },
+    {
+      "idx": 91,
+      "version": "7",
+      "when": 1795126360473,
+      "tag": "0091_return_policy",
+      "breakpoints": true
+    },
+    {
+      "idx": 92,
+      "version": "7",
+      "when": 1795126455157,
+      "tag": "0092_receiving_rules",
+      "breakpoints": true
+    },
+    {
+      "idx": 93,
+      "version": "7",
+      "when": 1795126647968,
+      "tag": "0093_erp_stock_sync",
+      "breakpoints": true
+    },
+    {
+      "idx": 94,
+      "version": "7",
+      "when": 1795132115936,
+      "tag": "0094_supplier_on_behalf_notes",
+      "breakpoints": true
+    },
+    {
+      "idx": 95,
+      "version": "7",
+      "when": 1795153373592,
+      "tag": "0095_erp_stock_exits",
+      "breakpoints": true
+    },
+    {
+      "idx": 96,
+      "version": "7",
+      "when": 1795160406319,
+      "tag": "0096_billing_asaas",
+      "breakpoints": true
+    },
+    {
+      "idx": 97,
+      "version": "7",
+      "when": 1795165877090,
+      "tag": "0097_product_model_code",
+      "breakpoints": true
+    },
+    {
+      "idx": 98,
+      "version": "7",
+      "when": 1795172930592,
+      "tag": "0098_erp_stock_entries",
+      "breakpoints": true
+    },
+    {
+      "idx": 99,
+      "version": "7",
+      "when": 1795190640442,
+      "tag": "0099_drop_stripe_billing",
+      "breakpoints": true
+    },
+    {
+      "idx": 100,
+      "version": "7",
+      "when": 1795197963883,
+      "tag": "0100_reseller_note_uploaded",
+      "breakpoints": true
+    },
+    {
+      "idx": 101,
+      "version": "7",
+      "when": 1795207035908,
+      "tag": "0101_reseller_bling_sale_notes",
+      "breakpoints": true
+    },
+    {
+      "idx": 102,
+      "version": "7",
+      "when": 1795216675932,
+      "tag": "0102_product_groupings",
+      "breakpoints": true
+    },
+    {
+      "idx": 103,
+      "version": "7",
+      "when": 1795238989367,
+      "tag": "0103_billing_courtesies",
+      "breakpoints": true
+    },
+    {
+      "idx": 104,
+      "version": "7",
+      "when": 1795246752435,
+      "tag": "0104_long_foreign_key_names",
+      "breakpoints": true
+    },
+    {
+      "idx": 105,
+      "version": "7",
+      "when": 1795285104704,
+      "tag": "0105_contract_signatures",
+      "breakpoints": true
+    },
+    {
+      "idx": 106,
+      "version": "7",
+      "when": 1795311750974,
+      "tag": "0106_signup_rules",
+      "breakpoints": true
+    },
+    {
+      "idx": 107,
+      "version": "7",
+      "when": 1795315821614,
+      "tag": "0107_cancel_queued_parcels_of_cancelled_sales",
+      "breakpoints": true
+    },
+    {
+      "idx": 108,
+      "version": "7",
+      "when": 1795360301827,
+      "tag": "0108_dispatch_cutoff",
+      "breakpoints": true
+    },
+    {
+      "idx": 109,
+      "version": "7",
+      "when": 1795383940194,
+      "tag": "0109_bling_permission_missing",
+      "breakpoints": true
+    },
+    {
+      "idx": 110,
+      "version": "7",
+      "when": 1795397426605,
+      "tag": "0110_supplier_messages_read_at",
+      "breakpoints": true
     }
   ]
 }

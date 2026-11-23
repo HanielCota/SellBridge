@@ -1,5 +1,5 @@
 import { z } from "zod";
-import type { CnpjLookupResult } from "../domain/supplier-approval.ts";
+import type { CnpjLookupResult, CompanySize } from "../domain/supplier-approval.ts";
 import { logger } from "./logger.ts";
 
 /**
@@ -14,11 +14,51 @@ const LOOKUP_TIMEOUT_IN_MS = 6000;
 const ACTIVE_REGISTRATION = 2;
 const MAX_RESPONSE_TEXT_LENGTH = 300;
 
+/**
+ * "Porte da empresa" in the Receita's open CNPJ data layout (cnpj-metadados.pdf, read
+ * 21/11/2026): 00 não informado, 01 micro empresa, 03 empresa de pequeno porte, 05 demais.
+ */
+const COMPANY_SIZE_BY_CODE: ReadonlyMap<number, CompanySize> = new Map([
+  [1, "micro"],
+  [3, "small"],
+  [5, "other"],
+]);
+
 const companySchema = z.object({
   razao_social: z.string().trim().min(1).max(MAX_RESPONSE_TEXT_LENGTH),
   situacao_cadastral: z.coerce.number().int(),
   descricao_situacao_cadastral: z.string().trim().max(MAX_RESPONSE_TEXT_LENGTH).nullish(),
+  // Every field but the CNPJ may come blank (Minha Receita's data dictionary): an odd value
+  // reads as "not informed" instead of losing the whole answer.
+  codigo_porte: z
+    .unknown()
+    .optional()
+    .transform((value) => (typeof value === "number" && Number.isInteger(value) ? value : null)),
+  /** "S"/"N"/blank in the Receita's Simples file, as true/false/null. */
+  opcao_pelo_mei: z
+    .unknown()
+    .optional()
+    .transform((value) => (typeof value === "boolean" ? value : null)),
 });
+
+const MICRO_COMPANY_CODE = 1;
+
+/**
+ * An MEI is a micro company that opted into the MEI. A micro company whose MEI option is blank
+ * may be an MEI the Simples data has not caught yet, so only an explicit "N" makes it a micro.
+ */
+function companySizeOf(company: z.infer<typeof companySchema>): CompanySize {
+  if (company.opcao_pelo_mei === true) {
+    return "mei";
+  }
+  if (company.codigo_porte == null) {
+    return "unknown";
+  }
+  if (company.codigo_porte === MICRO_COMPANY_CODE && company.opcao_pelo_mei !== false) {
+    return "unknown";
+  }
+  return COMPANY_SIZE_BY_CODE.get(company.codigo_porte) ?? "unknown";
+}
 
 export type CnpjLookup = (cnpj: string) => Promise<CnpjLookupResult>;
 
@@ -38,6 +78,7 @@ async function readCompany(response: Response): Promise<CnpjLookupResult> {
     outcome: company.situacao_cadastral === ACTIVE_REGISTRATION ? "active" : "inactive",
     legalName: company.razao_social,
     registrationStatus: company.descricao_situacao_cadastral ?? String(company.situacao_cadastral),
+    companySize: companySizeOf(company),
   };
 }
 

@@ -3,7 +3,6 @@ import {
   isPendingTeamInvite,
   dropEmailSignUpPassword,
   promoteVerifiedOwner,
-  recordAdminEvent,
   recordTermsAcceptance,
   setOrganizationKind,
   touchUserActivity,
@@ -26,7 +25,7 @@ import {
 } from "./admin-promotion.ts";
 import { ACCOUNT_SECURITY_PATHS, isClosedToBrowsers } from "./auth-route-policy.ts";
 import { recordImpersonatedCall, recordImpersonationEnded } from "./impersonation.ts";
-import { guardImpersonation, roleOf, startedVisitDetails } from "./impersonation-hook.ts";
+import { guardImpersonation, recordVisitStart, roleOf } from "./impersonation-hook.ts";
 import {
   IMPERSONATION_SECONDS,
   isImpersonationOver,
@@ -35,13 +34,14 @@ import {
 } from "./impersonation-window.ts";
 import { database } from "./database.ts";
 import { renderActionEmail } from "@sellbridge/shared/email-layout";
+import { clientIpAddressOptions } from "./client-address.ts";
 import { environment } from "./environment.ts";
 import { sendEmail } from "./mailer.ts";
 import { findFirstOrganizationId } from "./membership.ts";
 import { findVisitingStaff } from "./visiting-staff.ts";
 import { createProfileForNewUser, E_MAIL_SIGN_UP_PATH } from "./sign-up-profile.ts";
 import { logger } from "@sellbridge/shared/logger";
-import { AppError } from "@sellbridge/shared/errors";
+import { AppError, hasErrorCode } from "@sellbridge/shared/errors";
 import { teamInviteEmail } from "../../features/admin/team-invite-email.ts";
 import { isOwnAvatarImage } from "../../features/profile/avatar-key.ts";
 import {
@@ -185,34 +185,51 @@ const guardAccountRoutes = createAuthMiddleware(async (context) => {
     if (image && !isOwnAvatarImage(image, session.user.id)) {
       throw new APIError("BAD_REQUEST", { message: "Foto inválida" });
     }
+    await recordProfileUpdateDuringVisit({
+      userId: session.user.id,
+      impersonatedBy: impersonatorOf(session.session),
+    });
   }
 });
 
 /**
- * What an admin did on Better Auth's own routes during a visit as the customer, once the route
- * went through: "Voltar ao admin" closes the visit in the timeline, and a name change made there
- * goes under the admin's name like the server functions (`tenantMiddleware`).
+ * A name change made during a visit goes under the admin's name like the server functions
+ * (`tenantMiddleware`), before it runs: refused when the trail cannot be written.
+ */
+async function recordProfileUpdateDuringVisit(visit: {
+  userId: string;
+  impersonatedBy: string | null;
+}): Promise<void> {
+  try {
+    await recordImpersonatedCall({
+      impersonatedBy: visit.impersonatedBy,
+      customerId: visit.userId,
+      functionName: "profile.update",
+      method: "POST",
+    });
+  } catch (error) {
+    if (hasErrorCode(error, "FORBIDDEN")) {
+      throw new APIError("FORBIDDEN", { message: error.userMessage });
+    }
+    throw error;
+  }
+}
+
+/**
+ * "Voltar ao admin", once it went through, closes the visit in the timeline. (A name change made
+ * during a visit is recorded before it runs, in `guardAccountRoutes`.)
  */
 const recordVisitEvents = createAuthMiddleware(async (context) => {
-  const isVisitRoute =
-    context.path === "/admin/stop-impersonating" || context.path === "/update-user";
-  if (!isVisitRoute || isAPIError(context.context.returned)) {
+  if (context.path !== "/admin/stop-impersonating" || isAPIError(context.context.returned)) {
     return;
   }
   const session = await getSessionFromCtx(context);
   if (session === null) {
     return;
   }
-  const visit = { userId: session.user.id, impersonatedBy: impersonatorOf(session.session) };
-  if (context.path === "/admin/stop-impersonating") {
-    await recordImpersonationEnded(visit);
-    return;
-  }
-  await recordImpersonatedCall({
-    impersonatedBy: visit.impersonatedBy,
-    customerId: visit.userId,
-    functionName: "profile.update",
-    method: "POST",
+  await recordImpersonationEnded({
+    userId: session.user.id,
+    impersonatedBy: impersonatorOf(session.session),
   });
 });
 
@@ -244,6 +261,7 @@ async function sendResetPasswordEmail({
   if (await isPendingTeamInvite(database, user.id)) {
     await sendEmail({
       to: user.email,
+      category: "account_access",
       ...renderActionEmail(teamInviteEmail(url), environment.APP_URL),
     });
     return;
@@ -263,7 +281,7 @@ async function sendResetPasswordEmail({
     },
     environment.APP_URL,
   );
-  await sendEmail({ to: user.email, ...email });
+  await sendEmail({ to: user.email, category: "account_access", ...email });
 }
 
 async function sendVerificationEmail({ user, url }: { user: { email: string }; url: string }) {
@@ -282,7 +300,7 @@ async function sendVerificationEmail({ user, url }: { user: { email: string }; u
     },
     environment.APP_URL,
   );
-  await sendEmail({ to: user.email, ...email });
+  await sendEmail({ to: user.email, category: "account_sign_up", ...email });
 }
 
 /**
@@ -305,7 +323,7 @@ async function sendExistingAccountEmail({ user }: { user: { email: string } }) {
     },
     environment.APP_URL,
   );
-  await sendEmail({ to: user.email, ...email });
+  await sendEmail({ to: user.email, category: "account_sign_up", ...email });
 }
 
 const E_MAIL_SIGN_IN_PATH = "/sign-in/email";
@@ -413,23 +431,12 @@ async function recordActivity(userId: string): Promise<void> {
   }
 }
 
-/** A user's own sign-in moves their "last seen"; an admin entering as them goes to the trail. */
+/** A user's own sign-in moves their "last seen"; a visit was recorded before it opened. */
 async function recordSessionStart(session: { userId: string }): Promise<void> {
-  const impersonator = impersonatorOf(session);
-  if (!impersonator) {
-    await recordActivity(session.userId);
+  if (impersonatorOf(session) !== null) {
     return;
   }
-  try {
-    await recordAdminEvent(database, {
-      adminId: impersonator,
-      userId: session.userId,
-      action: "impersonated",
-      details: await startedVisitDetails(impersonator, session.userId),
-    });
-  } catch (error) {
-    logger.warn("admin.audit_record_failed", { userId: session.userId, error });
-  }
+  await recordActivity(session.userId);
 }
 
 export function isAdminEmail(email: string): boolean {
@@ -515,7 +522,7 @@ export const auth = betterAuth({
     // A stolen session must not be able to guess the password through account deletion.
     customRules: { "/delete-user": { window: 60, max: 5 } },
   },
-  advanced: { ipAddress: { ipAddressHeaders: [environment.CLIENT_IP_HEADER] } },
+  advanced: { ipAddress: clientIpAddressOptions(environment.CLIENT_IP_HEADER) },
   emailAndPassword: {
     enabled: true,
     minPasswordLength: MIN_PASSWORD_LENGTH,
@@ -607,6 +614,7 @@ export const auth = betterAuth({
           if (context !== null && context.path === E_MAIL_SIGN_IN_PATH) {
             await refuseUnconfirmedSession(session);
           }
+          await recordVisitStart(session, impersonatorOf(session));
           const organizationId = await findFirstOrganizationId(session.userId);
           return { data: { ...session, activeOrganizationId: organizationId } };
         },

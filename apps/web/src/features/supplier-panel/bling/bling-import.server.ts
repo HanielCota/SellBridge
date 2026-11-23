@@ -4,6 +4,10 @@ import {
   findErpCatalogRead,
   findErpCatalogReadProgress,
   findErpConnection,
+  findSupplierOfProfile,
+  markErpCatalogExportRequested,
+  saveErpCatalogExportResult,
+  findSingleProductSkus,
   findSupplierProductCostsBySku,
   findSupplierProductFieldsKeptOnErpImport,
   getSupplierTaxDefaults,
@@ -16,16 +20,21 @@ import {
   buildErpCatalogCsv,
   erpCatalogReadResultSchema,
   mergeResellerCosts,
-  planErpCatalogImport,
   type ErpCatalogItem,
   type ErpCatalogReadResult,
-  type ErpImportRow,
   type ErpKeptFields,
   type ErpResellerCost,
 } from "@sellbridge/shared/erp-catalog";
 import { conflictError, forbiddenError, validationError } from "@sellbridge/shared/errors";
 import { logger } from "@sellbridge/shared/logger";
 import { database } from "@/lib/server/database";
+import {
+  blingReadRows,
+  gridReadyItems,
+  type BlingGridChoice,
+  type BlingReadRows,
+} from "./bling-read-rows";
+import { productGridEnabled } from "@/lib/server/product-grid-switch";
 import { enqueueErpCatalogExport, enqueueErpCatalogRead } from "@/lib/server/queues";
 import {
   confirmSupplierImport,
@@ -41,6 +50,7 @@ import {
 import {
   blingOverviewFrom,
   isBlingReadRunning,
+  needsBlingReconnect,
   type BlingImportOutcome,
   type BlingOverview,
 } from "./bling-overview";
@@ -83,6 +93,29 @@ export async function loadBlingOverview(supplierId: string): Promise<BlingOvervi
     fiscalReady: taxSetup !== null,
     now: new Date(),
   });
+}
+
+/**
+ * The supplier whose Bling must be reconnected (expired, or a missing permission), for the header
+ * notice;
+ * null when there is nothing to ask (no Bling, a team visit that cannot reconnect it, all fine).
+ */
+export async function findOwnBlingToReconnect(context: {
+  tenantId: string;
+  impersonatedBy: string | null;
+}): Promise<{ supplierId: string } | null> {
+  if (blingCredentials() === null || context.impersonatedBy !== null) {
+    return null;
+  }
+  const supplier = await findSupplierOfProfile(database, context.tenantId);
+  if (supplier === null) {
+    return null;
+  }
+  const connection = await findErpConnection(database, { supplierId: supplier.id, ...BLING });
+  if (connection === null || !needsBlingReconnect(connection)) {
+    return null;
+  }
+  return { supplierId: supplier.id };
 }
 
 /**
@@ -149,10 +182,19 @@ async function readyResult(supplierId: string, readId: string): Promise<ErpCatal
   return parsed.data;
 }
 
-export interface BlingReadRows {
-  readonly rows: ErpImportRow[];
-  readonly skipped: ErpCatalogReadResult["skipped"];
-  readonly truncated: boolean;
+/** Whether grids are on and, if so, which of the read's SKUs are already sold separately. */
+async function gridChoiceOf(
+  supplierId: string,
+  items: readonly ErpCatalogItem[],
+): Promise<BlingGridChoice> {
+  if (productGridEnabled()) {
+    const skus = items.map((item) => item.sku);
+    return {
+      gridColumns: true,
+      singleSkus: await findSingleProductSkus(database, { supplierId, skus }),
+    };
+  }
+  return { gridColumns: false, singleSkus: new Set() };
 }
 
 /** The products of a finished read as the preview lists them, with what each one needs. */
@@ -161,15 +203,14 @@ export async function loadBlingReadRows(
   readId: string,
 ): Promise<BlingReadRows> {
   const result = await readyResult(supplierId, readId);
-  const existingCosts = await findSupplierProductCostsBySku(database, {
-    supplierId,
-    skus: result.items.map((item) => item.sku),
-  });
-  return {
-    rows: planErpCatalogImport(result.items, existingCosts),
-    skipped: result.skipped,
-    truncated: result.truncated,
-  };
+  const [existingCosts, choice] = await Promise.all([
+    findSupplierProductCostsBySku(database, {
+      supplierId,
+      skus: result.items.map((item) => item.sku),
+    }),
+    gridChoiceOf(supplierId, result.items),
+  ]);
+  return blingReadRows(result, existingCosts, choice);
 }
 
 /** The new products of a read as an import spreadsheet with the reseller price left blank. */
@@ -182,8 +223,11 @@ export async function buildBlingNewProductsCsv(
     supplierId,
     skus: result.items.map((item) => item.sku),
   });
-  const newItems = result.items.filter((item) => !existingCosts.has(item.sku));
-  return buildErpCatalogCsv(newItems, new Map());
+  const choice = await gridChoiceOf(supplierId, result.items);
+  const newItems = gridReadyItems(result.items, choice).filter(
+    (item) => !existingCosts.has(item.sku),
+  );
+  return buildErpCatalogCsv(newItems, new Map(), new Map(), { gridColumns: choice.gridColumns });
 }
 
 function chunksOf<Item>(items: readonly Item[], size: number): Item[][] {
@@ -210,7 +254,7 @@ async function importChunk(
   costs: Map<string, number>,
   keptFields: ReadonlyMap<string, ErpKeptFields>,
 ) {
-  const csv = buildErpCatalogCsv(items, costs, keptFields);
+  const csv = buildErpCatalogCsv(items, costs, keptFields, { gridColumns: productGridEnabled() });
   const preview = await previewSupplierImport({
     supplierId,
     fileName: "bling.csv",
@@ -221,6 +265,23 @@ async function importChunk(
       ? null
       : await confirmSupplierImport({ supplierId, ...preview.confirmation });
   return { preview, imported };
+}
+
+/** Every product's reseller cost, or why the import cannot go ahead yet. */
+function resellerCostsOf(
+  items: readonly ErpCatalogItem[],
+  existingCosts: ReadonlyMap<string, number>,
+  typedCosts: readonly ErpResellerCost[],
+): Map<string, number> {
+  const merged = mergeResellerCosts({ items, existingCosts, typedCosts });
+  if (!merged.ok) {
+    throw validationError(merged.message);
+  }
+  const missing = items.filter((item) => !merged.costs.has(item.sku)).length;
+  if (missing > 0) {
+    throw validationError(`Faltam ${missing} preços para o revendedor antes de importar.`);
+  }
+  return merged.costs;
 }
 
 /**
@@ -241,18 +302,7 @@ export async function importBlingRead(input: {
     findSupplierProductCostsBySku(database, { supplierId, skus }),
     findSupplierProductFieldsKeptOnErpImport(database, { supplierId, skus }),
   ]);
-  const merged = mergeResellerCosts({
-    items: result.items,
-    existingCosts,
-    typedCosts: input.costs,
-  });
-  if (!merged.ok) {
-    throw validationError(merged.message);
-  }
-  const missing = result.items.filter((item) => !merged.costs.has(item.sku)).length;
-  if (missing > 0) {
-    throw validationError(`Faltam ${missing} preços para o revendedor antes de importar.`);
-  }
+  const costs = resellerCostsOf(result.items, existingCosts, input.costs);
   const outcome = {
     created: 0,
     updated: 0,
@@ -262,8 +312,9 @@ export async function importBlingRead(input: {
     failedRowsCsv: "",
     emojisRemoved: 0,
   };
-  for (const chunk of chunksOf(result.items, IMPORT_CHUNK_ROWS)) {
-    const { preview, imported } = await importChunk(supplierId, chunk, merged.costs, keptFields);
+  const items = gridReadyItems(result.items, await gridChoiceOf(supplierId, result.items));
+  for (const chunk of chunksOf(items, IMPORT_CHUNK_ROWS)) {
+    const { preview, imported } = await importChunk(supplierId, chunk, costs, keptFields);
     outcome.created += imported?.created ?? 0;
     outcome.updated += imported?.updated ?? 0;
     outcome.pausedTargets += imported?.pausedTargets ?? 0;
@@ -287,6 +338,9 @@ export async function importBlingRead(input: {
   return outcome;
 }
 
+const EXPORT_NOT_STARTED_MESSAGE =
+  "Não deu para começar o envio ao Bling. Clique em Enviar ao Bling o que falta lá para tentar de novo.";
+
 /** Queues the sending of the products Bling does not have yet (worker `erp-catalog-export`). */
 export async function requestBlingCatalogExport(input: {
   supplierId: string;
@@ -298,7 +352,23 @@ export async function requestBlingCatalogExport(input: {
   if (refusal !== null) {
     throw conflictError(refusal);
   }
-  await enqueueErpCatalogExport({ supplierId: input.supplierId });
+  // Marked before the job exists: a send that ends at once never looks older than its request.
+  await markErpCatalogExportRequested(database, {
+    supplierId: input.supplierId,
+    ...BLING,
+    now: new Date(),
+  });
+  try {
+    await enqueueErpCatalogExport({ supplierId: input.supplierId });
+  } catch (error) {
+    await saveErpCatalogExportResult(database, {
+      supplierId: input.supplierId,
+      ...BLING,
+      finishedAt: new Date(),
+      result: { kind: "failed", reason: EXPORT_NOT_STARTED_MESSAGE },
+    });
+    throw error;
+  }
 }
 
 /**

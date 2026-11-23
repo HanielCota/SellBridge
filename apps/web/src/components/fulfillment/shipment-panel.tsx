@@ -1,4 +1,9 @@
 import {
+  PREPARATION_HOLD_LABELS,
+  SUPPLIER_HOLD_LABELS,
+  type PreparationHold,
+} from "@sellbridge/shared/receiving-rules";
+import {
   DELIVERY_CONFIRMED_BY,
   DISPATCHED_FULFILLMENT_STATUSES,
   FULFILLMENT_NEXT,
@@ -67,6 +72,8 @@ export interface ShipmentView {
   acceptBy?: Date | null;
   dispatchBy?: Date | null;
   delay?: ShipmentDelay | null;
+  /** Waiting for the supplier's receiving account or the reseller's payment. */
+  preparationHold?: PreparationHold | null;
   events: { id: string; status: FulfillmentStatus; actor: string; note: string; createdAt: Date }[];
 }
 
@@ -89,12 +96,15 @@ export function ShipmentPanel({
   showHistory = true,
   payment = null,
   invoice = null,
+  cancelNote = null,
 }: {
   shipment: ShipmentView;
   /** The parcel's NF-e, once issued. */
   invoice?: React.ReactNode;
   /** Whether the supplier was paid for the parcel, under its name. */
   payment?: React.ReactNode;
+  /** What cancelling does to the money already paid, shown in the cancel dialog. */
+  cancelNote?: React.ReactNode;
   externalOrderId: string;
   blocked?: boolean;
   /** Who works the panel: the supplier (by link) cannot declare the delivery. */
@@ -123,6 +133,7 @@ export function ShipmentPanel({
           next={blocked ? null : next}
           actsAs={actsAs}
           quietStep={payment !== null}
+          cancelNote={cancelNote}
         />
       )}
       {shipment.status === "shipped" && shipment.trackingCode !== null && !blocked ? (
@@ -323,12 +334,14 @@ function ShipmentActions({
   next,
   actsAs,
   quietStep,
+  cancelNote,
 }: {
   update: ShipmentUpdate;
   shipment: ShipmentView;
   next: FulfillmentStatus | null;
   actsAs: ShipmentOperator;
   quietStep: boolean;
+  cancelNote: React.ReactNode;
 }) {
   const { noteError, setNoteError, contactInNote, sendWithNote } = useStepNote(update);
   const check = useDispatchCheck(update, sendWithNote);
@@ -364,7 +377,12 @@ function ShipmentActions({
           />
         ) : null}
         {DISPATCHED_FULFILLMENT_STATUSES.includes(shipment.status) ? null : (
-          <CancelShipment update={update} supplierName={shipment.supplierName} actsAs={actsAs} />
+          <CancelShipment
+            update={update}
+            supplierName={shipment.supplierName}
+            actsAs={actsAs}
+            moneyNote={cancelNote}
+          />
         )}
       </div>
     </div>
@@ -387,8 +405,11 @@ function ResellerStepNote(props: {
   return <p className="text-footnote text-muted-foreground">{note}</p>;
 }
 
-/** What cancelling means for whoever does it: the supplier hands the order back to the store. */
-function cancelCopy(actsAs: ShipmentOperator, supplierName: string) {
+/**
+ * What cancelling means for whoever does it: the supplier hands the order back to the store. With
+ * a money note, that note says whether the parcel can be re-forwarded (not once it was paid).
+ */
+function cancelCopy(actsAs: ShipmentOperator, supplierName: string, hasMoneyNote: boolean) {
   if (actsAs === "supplier") {
     return {
       title: "Cancelar este envio?",
@@ -398,8 +419,9 @@ function cancelCopy(actsAs: ShipmentOperator, supplierName: string) {
   }
   return {
     title: `Cancelar o envio de ${supplierName}?`,
-    description:
-      "O link do fornecedor deixa de valer. Enquanto o pedido estiver pago, dá para reencaminhar depois, com um link novo.",
+    description: hasMoneyNote
+      ? "O envio sai da fila do fornecedor."
+      : "O envio sai da fila do fornecedor. Enquanto o pedido estiver pago, dá para reencaminhar depois.",
   };
 }
 
@@ -440,13 +462,15 @@ function CancelShipment({
   update,
   supplierName,
   actsAs,
+  moneyNote,
 }: {
   update: ShipmentUpdate;
   supplierName: string;
   actsAs: ShipmentOperator;
+  moneyNote: React.ReactNode;
 }) {
   const dialog = useCancelShipment(update);
-  const copy = cancelCopy(actsAs, supplierName);
+  const copy = cancelCopy(actsAs, supplierName, moneyNote !== null && moneyNote !== undefined);
   return (
     <>
       <ShipmentActionHint action="cancelShipment" operator={actsAs}>
@@ -468,6 +492,7 @@ function CancelShipment({
         onConfirm={dialog.confirm}
       >
         <div className="grid gap-3">
+          {moneyNote}
           <TextareaField
             id="cancel-shipment-reason"
             label="Motivo do cancelamento"
@@ -526,6 +551,25 @@ function useShipmentUpdate(
   };
 }
 
+/** Where the parcel stands; a parcel waiting for the account or the payment says so instead. */
+function StatusPill({ shipment, viewer }: { shipment: ShipmentView; viewer: ShipmentOperator }) {
+  const hold = shipment.preparationHold ?? null;
+  if (hold !== null) {
+    const labels = viewer === "supplier" ? SUPPLIER_HOLD_LABELS : PREPARATION_HOLD_LABELS;
+    return <TonePill tone="warning" label={labels[hold]} />;
+  }
+  return (
+    <TonePill
+      tone={FULFILLMENT_TONES[shipment.status]}
+      label={
+        viewer === "supplier"
+          ? supplierShipmentStatusLabel(shipment.status)
+          : shipmentStatusLabel(shipment.status, shipment.catalogKind)
+      }
+    />
+  );
+}
+
 /** Who handles the parcel and where it stands. */
 function ShipmentHeading({
   shipment,
@@ -540,14 +584,7 @@ function ShipmentHeading({
         {shipment.catalogKind === "seller" ? "Seu envio" : shipment.supplierName}
       </h3>
       <div className="flex flex-col items-start gap-1 sm:items-end">
-        <TonePill
-          tone={FULFILLMENT_TONES[shipment.status]}
-          label={
-            viewer === "supplier"
-              ? supplierShipmentStatusLabel(shipment.status)
-              : shipmentStatusLabel(shipment.status, shipment.catalogKind)
-          }
-        />
+        <StatusPill shipment={shipment} viewer={viewer} />
         {shipment.delay ? (
           <TonePill tone="warning" label={SHIPMENT_DELAY_LABELS[shipment.delay]} />
         ) : null}

@@ -8,7 +8,7 @@ import { z } from "zod";
 const WEB_PROTOCOLS = new Set(["http:", "https:"]);
 
 /** A link Asaas sends to open in the browser; any other scheme (javascript:, data:) is dropped. */
-const webLink = z
+export const webLink = z
   .string()
   .transform((link) =>
     URL.canParse(link) && WEB_PROTOCOLS.has(new URL(link).protocol) ? link : null,

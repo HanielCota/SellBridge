@@ -13,6 +13,7 @@ import {
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 import { recordCatalogWrite } from "@/features/admin-audit/catalog-audit.server";
+import { asaasContext } from "@/features/supplier-payments/asaas.server";
 import { database } from "@/lib/server/database";
 import { adminMiddleware, staffMiddleware } from "@/lib/server/middleware";
 
@@ -61,9 +62,13 @@ export const adminDecideSupplierApproval = createServerFn({ method: "POST" })
     return status;
   });
 
+/** The switch, and whether Asaas is configured: the card only turns it on with Asaas there. */
 export const getRequireReceivingAccountFn = createServerFn({ method: "GET" })
   .middleware([staffMiddleware("settings.manage")])
-  .handler(async () => await getRequireReceivingAccount(database));
+  .handler(async () => ({
+    required: await getRequireReceivingAccount(database),
+    asaasAvailable: asaasContext() !== null,
+  }));
 
 export const saveRequireReceivingAccountFn = createServerFn({ method: "POST" })
   .middleware([staffMiddleware("settings.manage")])

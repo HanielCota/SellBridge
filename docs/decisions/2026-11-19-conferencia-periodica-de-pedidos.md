@@ -1,0 +1,23 @@
+# 2026-11-19: Conferência periódica de pedidos
+
+- **Decisão (dono do produto, "Sim, abre" e, sobre o plano, "Aprova os dois", chat da Central):**
+  - A cada 15 minutos, o worker pergunta ao Mercado Livre, loja por loja, quais vendas ela teve nos últimos 2 dias, e traz as que faltam no SellBridge.
+  - Também acerta a venda que aqui ainda está "aguardando pagamento" e que no Mercado Livre já foi paga.
+  - Cada venda trazida assim aparece em Problemas.
+- **Por quê:**
+  - Até aqui, uma venda só entrava pelo aviso do canal. O Mercado Livre tenta entregar o aviso por 1 hora e depois o apaga. O `missed_feeds` guarda só 2 dias e não registra o período em que o tópico ficou desativado ([Notificações](https://developers.mercadolivre.com.br/pt_br/produto-receba-notificacoes)).
+  - Aviso perdido é venda perdida: o fornecedor não despacha e a revendedora é punida.
+  - A varredura `sweep-unprocessed-webhook-events` só tenta de novo avisos que chegaram e foram gravados. Ela não acha o aviso que nunca chegou.
+- **Como funciona:**
+  - **Um caminho só de entrada:** a venda que falta é lida com `fetchOrder` e gravada com `saveMarketplaceOrder`, as mesmas funções do aviso e da reconexão.
+  - **Não duplica:** a chave única (loja, número do pedido) e a trava da linha garantem que um aviso que chegue depois só atualiza a mesma venda.
+  - **Busca:** `GET /orders/search` com `order.date_created.from` ([Orders](https://developers.mercadolivre.com.br/pt_br/gerenciamento-de-vendas)). O filtro só olha a hora, e a paginação é por `offset`/`limit` de 50.
+  - **Janela:** desde 2 dias atrás, ou desde a conexão da loja, se ela for mais nova. A venda com menos de 2 minutos fica para a rodada seguinte, porque o aviso dela pode estar chegando.
+  - **Ritmo:** um job por loja, com 3 segundos entre uma loja e outra. O limite de chamadas do Mercado Livre vale por aplicativo e por endpoint, sem número publicado, e a recomendação é espaçar as chamadas ([Rate limit / Erro 429](https://developers.mercadolivre.com.br/pt_br/rate-limit-erro-429)). Cada chamada passa também pelo limitador por loja.
+  - **Loja sem acesso** (status `expired` ou `error`, ou token recusado durante a conferência): aparece em Problemas e não é chamada; a reconexão traz as vendas do período. Cada loja é um job separado, então uma loja com falha não trava as outras.
+  - **Shopee e TikTok:** entram quando o connector tiver `orderResource` e o marketplace for posto em `ORDER_CHECK_MARKETPLACES`. Por enquanto, só o Mercado Livre.
+- **Descartado:**
+  - Ler o `missed_feeds`: guarda só 2 dias e não cobre o tópico desativado.
+  - Gravar a venda direto do resultado da busca: a busca não traz o frete do vendedor e pularia a mesma leitura que o aviso faz.
+  - Criar um aviso falso na tabela de eventos para reaproveitar a fila: misturaria avisos reais com inventados.
+  - Esperar 10 minutos antes de considerar o aviso perdido: atrasaria a venda além dos 15 minutos pedidos.

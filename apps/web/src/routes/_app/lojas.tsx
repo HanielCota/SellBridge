@@ -10,6 +10,10 @@ import { ErrorState } from "@/components/feedback/error-state";
 import { PageHeader } from "@/components/layout/page-header";
 import type { PickableSupplier } from "@/components/onboarding/supplier-picker";
 import { AddStore, type NewStoreSupplier } from "@/components/stores/add-store";
+import {
+  ReconnectResumeDialog,
+  type ReconnectedStore,
+} from "@/components/stores/reconnect-resume-dialog";
 import { StoresLockContext } from "@/components/stores/stores-lock";
 import {
   DisconnectStoreDialog,
@@ -32,6 +36,7 @@ import {
   STORE_CONNECT_ERROR_CODES,
   STORE_CONNECT_ERROR_MESSAGES,
 } from "@/features/stores/store-connect-errors";
+import type { NewStoreBlock } from "@/features/billing/new-store-block";
 import type { MarketplaceOption } from "@/features/stores/stores.functions";
 import { storesQueryOptions } from "@/features/stores/stores.queries";
 import { storeSuppliersQueryOptions } from "@/features/stores/store-suppliers.queries";
@@ -44,6 +49,8 @@ const storesSearchSchema = z.object({
   erro: optionalParameter(z.enum(STORE_CONNECT_ERROR_CODES)),
   /** "Vender este fornecedor": offered to the shops already connected, and picked for a new one. */
   fornecedor: optionalParameter(z.uuid()),
+  /** A reconnected store whose listings the disconnection paused: the page asks to resume them. */
+  reativar: optionalParameter(z.uuid()),
 });
 
 export const Route = createFileRoute("/_app/lojas")({
@@ -74,6 +81,7 @@ function useOAuthResultToast() {
   const connected = stores.data?.stores.find((store) => store.id === search.conectada);
   const connectedName = connected?.shopName;
   const pausedListings = connected?.activity.pausedListings ?? 0;
+  const pausedByDisconnection = connected?.activity.pausedByDisconnection ?? 0;
   const navigate = useNavigate({ from: Route.fullPath });
   const shownKey = useRef<string | null>(null);
   useEffect(() => {
@@ -99,20 +107,52 @@ function useOAuthResultToast() {
           onClick: () => void navigate({ to: "/publicacoes", search: { status: "paused" } }),
         },
       };
-      toast.success(
-        connectedName ? `Loja "${connectedName}" conectada` : "Loja conectada",
-        pausedListings > 0 ? pausedNotice : undefined,
-      );
+      const title = connectedName ? `Loja "${connectedName}" conectada` : "Loja conectada";
+      // What the disconnection paused is asked about (useReconnectQuestion); other pauses keep
+      // the reminder.
+      if (pausedByDisconnection > 0) {
+        void navigate({ search: { reativar: search.conectada }, replace: true });
+        return;
+      }
+      toast.success(title, pausedListings > 0 ? pausedNotice : undefined);
     }
     if (search.erro) {
       toast.error(STORE_CONNECT_ERROR_MESSAGES[search.erro]);
     }
     void navigate({ search: {}, replace: true });
-  }, [connectedName, navigate, pausedListings, search.conectada, search.erro, stores.isPending]);
+  }, [
+    connectedName,
+    navigate,
+    pausedByDisconnection,
+    pausedListings,
+    search.conectada,
+    search.erro,
+    stores.isPending,
+  ]);
+}
+
+/** The reconnection question, while the URL names the store and it still has listings to resume. */
+function useReconnectQuestion() {
+  const search = Route.useSearch();
+  const stores = useQuery(storesQueryOptions());
+  const navigate = useNavigate({ from: Route.fullPath });
+  const store = stores.data?.stores.find((candidate) => candidate.id === search.reativar);
+  const pausedListings = store?.activity.pausedByDisconnection ?? 0;
+  const reconnected: ReconnectedStore | null =
+    store === undefined || pausedListings === 0
+      ? null
+      : {
+          id: store.id,
+          title: store.shopName ? `Loja "${store.shopName}" conectada` : "Loja conectada",
+          pausedListings,
+        };
+  const close = () => void navigate({ search: {}, replace: true });
+  return { reconnected, close };
 }
 
 function StoresPage() {
   useOAuthResultToast();
+  const { reconnected, close: closeReconnected } = useReconnectQuestion();
   const { session } = Route.useRouteContext();
   const isImpersonating = session.impersonatedBy !== null;
   return (
@@ -127,6 +167,7 @@ function StoresPage() {
         </p>
       ) : null}
       <StoresContent />
+      <ReconnectResumeDialog store={reconnected} onClose={closeReconnected} />
     </StoresLockContext>
   );
 }
@@ -140,6 +181,8 @@ const ONBOARDING_STEPS = [
 interface NewStoreChoice {
   supplier: NewStoreSupplier | null;
   onChooseSupplier: () => void;
+  /** Set when the plan holds no new store: the marketplaces give way to the plans. */
+  planBlock?: NewStoreBlock | null;
 }
 
 function FirstStoreOnboarding({
@@ -176,6 +219,7 @@ function FirstStoreOnboarding({
         marketplaces={marketplaces}
         supplier={choice.supplier}
         onChooseSupplier={choice.onChooseSupplier}
+        planBlock={choice.planBlock ?? null}
       />
     </section>
   );
@@ -226,6 +270,7 @@ function AddStoreSection({
         marketplaces={marketplaces}
         supplier={choice.supplier}
         onChooseSupplier={choice.onChooseSupplier}
+        planBlock={choice.planBlock ?? null}
       />
     </section>
   );
@@ -379,11 +424,12 @@ function StoresContent() {
   if (query.isError) {
     return <ErrorState message={errorMessage(query.error)} onRetry={() => void query.refetch()} />;
   }
-  const { stores, marketplaces } = query.data;
+  const { stores, marketplaces, newStoreBlock } = query.data;
+  const choice = { ...newStore.choice, planBlock: newStoreBlock };
   if (stores.length === 0) {
     return (
       <>
-        <FirstStoreOnboarding marketplaces={marketplaces} choice={newStore.choice} />
+        <FirstStoreOnboarding marketplaces={marketplaces} choice={choice} />
         {newStore.dialog}
       </>
     );
@@ -402,7 +448,7 @@ function StoresContent() {
       </section>
       <AddStoreSection
         marketplaces={marketplaces}
-        choice={newStore.choice}
+        choice={choice}
         sellInExisting={sellInExisting}
       />
       <DisconnectStoreDialog store={pendingDisconnect} onClose={() => setPendingDisconnect(null)} />

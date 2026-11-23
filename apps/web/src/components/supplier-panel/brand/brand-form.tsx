@@ -6,6 +6,8 @@ import { BrandIdentityFields } from "@/components/supplier-panel/brand/brand-ide
 import { BrandOrdersCard } from "@/components/supplier-panel/brand/brand-orders-card";
 import { BrandPublicCard } from "@/components/supplier-panel/brand/brand-public-card";
 import { BrandSaveBar } from "@/components/supplier-panel/brand/brand-save-bar";
+import { OnBehalfOperations } from "@/components/supplier-panel/brand/on-behalf-operations";
+import { BrandInvoiceSwitch } from "@/components/supplier-panel/brand/brand-invoice-switch";
 import { useBrandForm, type BrandFormState } from "@/features/supplier-panel/brand/use-brand-form";
 
 interface BrandFormProps {
@@ -70,7 +72,13 @@ export function BrandForm({ brand, account, categoryNames, onSaved }: BrandFormP
           onChange={form.change}
         />
         <BrandOrdersCard values={form.values} errors={form.errors} onChange={form.change} />
-        <BrandFiscalCard values={form.values} errors={form.errors} onChange={form.change} />
+        <BrandFiscalCard
+          values={form.values}
+          errors={form.errors}
+          onChange={form.change}
+          onBehalfOperations={<OnBehalfOperations supplierId={brand.id} />}
+          invoiceSwitch={<BrandInvoiceSwitch supplierId={brand.id} />}
+        />
       </fieldset>
       <FormErrorAlert message={form.failure} />
       {form.isDirty ? <BrandSaveBar isPending={form.isPending} onDiscard={form.discard} /> : null}

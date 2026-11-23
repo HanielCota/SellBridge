@@ -18,6 +18,9 @@ export const NOTIFICATION_EVENTS = [
   "invoice_attention",
   "marketplace_claim",
   "store_buyer_address",
+  "receiving_account_needed",
+  "receiving_account_waiting",
+  "store_order_message",
 ] as const;
 export type NotificationEventName = (typeof NOTIFICATION_EVENTS)[number];
 
@@ -93,7 +96,8 @@ export const NOTIFICATION_EVENT_DEFINITIONS: Record<NotificationEventName, Event
   shipment_problem: {
     audience: "reseller",
     label: "Problema na entrega",
-    description: "A transportadora não conseguiu entregar um pacote, ou ele voltou.",
+    description:
+      "A transportadora não conseguiu entregar um pacote ou ele voltou. Para o fornecedor, também a venda cancelada antes do envio.",
     defaults: { in_app: true, email: true, push: true },
   },
   // E-mail only: it carries the note's files, which the bell cannot.
@@ -121,6 +125,27 @@ export const NOTIFICATION_EVENT_DEFINITIONS: Record<NotificationEventName, Event
     audience: "reseller",
     label: "Endereço de compra no fornecedor",
     description: "As compras pessoais da sua conta do marketplace estão indo para o fornecedor.",
+    defaults: { in_app: true, email: true, push: true },
+  },
+  // For the supplier: a new parcel waits until its receiving account is approved.
+  receiving_account_needed: {
+    audience: "reseller",
+    label: "Pedido esperando sua conta de recebimento",
+    description: "Chegou um pedido que só segue depois que você ligar a conta de recebimento.",
+    defaults: { in_app: true, email: true, push: true },
+  },
+  // The team also sees it in Problemas; e-mail is the outside nudge.
+  receiving_account_waiting: {
+    audience: "staff",
+    label: "Pedido parado sem conta de recebimento",
+    description: "Um pedido espera o fornecedor ligar a conta de recebimento.",
+    defaults: { email: true },
+  },
+  // For the supplier with a panel: the other direction of `order_message`.
+  store_order_message: {
+    audience: "reseller",
+    label: "Mensagem da loja num pedido",
+    description: "Uma loja escreveu nas mensagens de um pedido seu.",
     defaults: { in_app: true, email: true, push: true },
   },
   // The team already sees new tickets in the "Chamados" badge; e-mail is the outside nudge.
@@ -237,6 +262,19 @@ const SHIPMENT_PROBLEM_HEADINGS: Record<ShipmentProblemNotice["problem"], string
   returned: "Pacote devolvido",
 };
 
+/** What each side does now. A return follows the return policy: reason first, then the check. */
+function shipmentProblemNextStep(notice: ShipmentProblemNotice): string {
+  const forSupplier = notice.recipient === "supplier";
+  if (notice.problem === "returned") {
+    return forSupplier
+      ? "Confira o produto e responda a devolução no Suporte dentro do prazo. Sem resposta, vale o que o revendedor contar."
+      : "Abra o pedido e conte ao fornecedor por que o comprador devolveu.";
+  }
+  return forSupplier
+    ? "Confira o rastreio e combine com o revendedor o que fazer com o pacote."
+    : "Fale com o comprador pelo chat da venda e acompanhe o rastreio.";
+}
+
 export function shipmentProblemContent(notice: ShipmentProblemNotice): NotificationContent {
   const heading = SHIPMENT_PROBLEM_HEADINGS[notice.problem];
   const forSupplier = notice.recipient === "supplier";
@@ -250,12 +288,33 @@ export function shipmentProblemContent(notice: ShipmentProblemNotice): Notificat
       notice.problem === "not_delivered"
         ? `A transportadora não conseguiu entregar o pedido ${notice.externalOrderId}.`
         : `O pedido ${notice.externalOrderId} voltou para o remetente.`,
-      forSupplier
-        ? "Confira o rastreio e combine com o revendedor o que fazer com o pacote."
-        : "Fale com o comprador pelo chat da venda e acompanhe o rastreio.",
+      shipmentProblemNextStep(notice),
     ],
     actionLabel: forSupplier ? "Ver no painel" : "Ver pedido",
     actionPath: forSupplier ? "/fornecedor/painel/pedidos" : `/pedidos/${notice.orderId}`,
+    footnote: FOOTNOTE,
+  };
+}
+
+export interface SaleCancelledNotice {
+  externalOrderId: string;
+  /** Where the sale was cancelled ("no Mercado Livre", "na Shopee"), or null when unnamed. */
+  channelPlace: string | null;
+}
+
+/** For the supplier: the sale of a parcel in its queue was cancelled, so it must not ship it. */
+export function saleCancelledContent(notice: SaleCancelledNotice): NotificationContent {
+  const where = notice.channelPlace === null ? "" : ` ${notice.channelPlace}`;
+  return {
+    subject: `Venda cancelada, não envie: pedido ${notice.externalOrderId}`,
+    preview: "O pedido passou para Encerrados.",
+    heading: "Venda cancelada: não envie",
+    paragraphs: [
+      `O pedido ${notice.externalOrderId} foi cancelado${where} e passou para Encerrados. O prazo dele não conta mais.`,
+      "Não envie o produto. Se você já separou, devolva ao estoque.",
+    ],
+    actionLabel: "Ver no painel",
+    actionPath: "/fornecedor/painel/pedidos?tab=closed",
     footnote: FOOTNOTE,
   };
 }
@@ -381,6 +440,29 @@ export function orderMessageContent(notice: OrderMessageNotice): NotificationCon
     ],
     actionLabel: "Abrir o pedido",
     actionPath: `/pedidos/${notice.orderId}`,
+    footnote: FOOTNOTE,
+  };
+}
+
+export interface StoreOrderMessageNotice {
+  externalOrderId: string;
+  /** The Pedidos tab that lists the parcel, so the link opens where it is. */
+  supplierTab: string;
+}
+
+/** For the supplier with a panel: a store wrote about an order. The text stays in the app. */
+export function storeOrderMessageContent(notice: StoreOrderMessageNotice): NotificationContent {
+  const search = new URLSearchParams({ tab: notice.supplierTab, query: notice.externalOrderId });
+  return {
+    subject: `Nova mensagem no pedido #${notice.externalOrderId}`,
+    preview: "A loja escreveu nas mensagens do pedido.",
+    heading: "Você tem uma nova mensagem",
+    paragraphs: [
+      `A loja que vendeu o pedido #${notice.externalOrderId} escreveu nas mensagens dele.`,
+      "Abra o pedido no seu painel do SellBridge para ler e responder.",
+    ],
+    actionLabel: "Abrir o pedido",
+    actionPath: `/fornecedor/painel/pedidos?${search.toString()}`,
     footnote: FOOTNOTE,
   };
 }
@@ -529,6 +611,47 @@ export function claimNoticeContent(notice: ClaimNotice): NotificationContent {
     actionPath: forSupplier
       ? `/fornecedor/painel/pedidos?${new URLSearchParams({ tab: notice.supplierTab ?? "todo", query: notice.externalOrderId }).toString()}`
       : `/pedidos/${notice.orderId}`,
+    footnote: FOOTNOTE,
+  };
+}
+
+export interface ReceivingAccountWaitNotice {
+  externalOrderId: string;
+  supplierName: string;
+}
+
+/** For the supplier: a new parcel waits for its receiving account. */
+export function receivingAccountNeededContent(
+  notice: ReceivingAccountWaitNotice,
+): NotificationContent {
+  return {
+    subject: `Pedido ${notice.externalOrderId} esperando sua conta de recebimento`,
+    preview: "Ligue a conta no Asaas para aceitar o pedido.",
+    heading: "Ligue sua conta de recebimento",
+    paragraphs: [
+      `O pedido ${notice.externalOrderId} chegou, mas só segue depois que sua conta de recebimento no Asaas for aprovada.`,
+      "Abra Recebimentos no seu painel, abra a conta e envie os documentos. O revendedor paga você por ela.",
+    ],
+    actionLabel: "Ligar minha conta",
+    actionPath: "/fornecedor/painel/recebimentos",
+    footnote: FOOTNOTE,
+  };
+}
+
+/** For the team: a parcel waits for its supplier's receiving account. */
+export function receivingAccountWaitingContent(
+  notice: ReceivingAccountWaitNotice,
+): NotificationContent {
+  return {
+    subject: `Pedido ${notice.externalOrderId} parado: ${notice.supplierName} sem conta de recebimento`,
+    preview: "O pedido só segue depois que o fornecedor ligar a conta.",
+    heading: "Pedido parado sem conta de recebimento",
+    paragraphs: [
+      `O pedido ${notice.externalOrderId} espera ${notice.supplierName} ligar a conta de recebimento no Asaas. O fornecedor já foi avisado.`,
+      "Se ele não ligar logo, fale com ele: o prazo de postagem do canal continua correndo.",
+    ],
+    actionLabel: "Ver em Problemas",
+    actionPath: "/admin/problemas",
     footnote: FOOTNOTE,
   };
 }

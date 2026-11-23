@@ -1,19 +1,27 @@
+import { logger } from "@sellbridge/shared/logger";
 import { isMarketplaceAuthError } from "../errors.ts";
 import {
   BLING_API_BASE_URL,
   BLING_JWT_HEADERS,
   blingRequest,
+  isBlingPermissionError,
   type BlingHttpOptions,
 } from "./http.ts";
-import { blingInvoiceCalls } from "./invoices.ts";
+import { blingDirectInvoiceCalls } from "./direct-invoices.ts";
+import { blingInvoiceCalls, type BlingCall } from "./invoices.ts";
 import type { BlingTokens } from "./oauth.ts";
 import type { BlingRateLimiter } from "./rate-limit.ts";
 import {
+  blingCompanyResponseSchema,
+  blingCreatedStockResponseSchema,
+  blingDepositListResponseSchema,
+  blingStockBalanceResponseSchema,
   blingCreatedProductResponseSchema,
   blingProductDetailResponseSchema,
   blingProductListResponseSchema,
   type BlingProductDetail,
   type BlingProductSummary,
+  type BlingStockBalance,
 } from "./schemas.ts";
 import type { z } from "zod";
 
@@ -24,6 +32,11 @@ export interface BlingAccountAccess {
   readonly currentTokens: () => Promise<BlingTokens>;
   /** Refreshes, saves and returns the new tokens. */
   readonly refresh: () => Promise<BlingTokens>;
+  /**
+   * Called when Bling refused a call for a missing permission, so the account can be flagged for
+   * a new authorization. The call still fails with Bling's error.
+   */
+  readonly permissionMissing?: () => Promise<void>;
 }
 
 export interface BlingClientOptions {
@@ -38,6 +51,12 @@ const EXPIRY_MARGIN_IN_MS = 60_000;
 
 /** Bling's largest page for `GET /produtos`. */
 export const BLING_PAGE_LIMIT = 100;
+
+/** Products per `GET /estoques/saldos` (the documented maximum with multi-company stock on). */
+export const BLING_STOCK_BATCH_LIMIT = 100;
+
+/** `filtroSaldoEstoque`: 0 zero, 1 positive (the default), 2 negative. */
+export type BlingStockFilter = 0 | 1 | 2;
 
 /** `criterio` of `GET /produtos`: 2 lists active products, 5 lists every status. */
 const ACTIVE_PRODUCTS = 2;
@@ -74,6 +93,19 @@ function newProductBody(product: BlingNewProduct) {
   };
 }
 
+/** Flagging is a side effect: its own failure is logged and never hides Bling's refusal. */
+async function reportPermissionMissing(access: BlingAccountAccess): Promise<void> {
+  const permissionMissing = access.permissionMissing;
+  if (permissionMissing === undefined) {
+    return;
+  }
+  try {
+    await permissionMissing();
+  } catch (error) {
+    logger.warn("bling.permission_flag_failed", { accountKey: access.accountKey, error });
+  }
+}
+
 /** Calls the API for one account: limit, fresh token, and a single refresh-and-retry on 401. */
 function createBlingCaller(options: BlingClientOptions) {
   const now = options.now ?? Date.now;
@@ -104,17 +136,143 @@ function createBlingCaller(options: BlingClientOptions) {
     });
   }
 
+  async function sendReportingPermission<Result>(
+    request: ApiRequest<Result>,
+    tokens: BlingTokens,
+  ): Promise<Result> {
+    try {
+      return await send(request, tokens);
+    } catch (error) {
+      if (isBlingPermissionError(error)) {
+        await reportPermissionMissing(options.access);
+      }
+      throw error;
+    }
+  }
+
   /** A second 401 after the refresh means the account must reconnect. */
   return async function call<Result>(request: ApiRequest<Result>): Promise<Result> {
     const tokens = await usableTokens();
     try {
-      return await send(request, tokens);
+      return await sendReportingPermission(request, tokens);
     } catch (error) {
       if (!isMarketplaceAuthError(error)) {
         throw error;
       }
-      return send(request, await options.access.refresh());
+      return sendReportingPermission(request, await options.access.refresh());
     }
+  };
+}
+
+/** `quantity` units of the product leaving (exit) or coming back to (entry) `depositId`. */
+export interface BlingStockMovement {
+  readonly erpProductId: number;
+  readonly depositId: number;
+  readonly quantity: number;
+  readonly note: string;
+}
+
+/** `POST /estoques` operations: "S" (Saída) and "E" (Entrada); "B" (Balanço) is never sent. */
+type BlingStockOperation = "S" | "E";
+
+/**
+ * Posts one stock record and returns its id. Bling takes no idempotency key: the caller makes
+ * sure the same movement is never sent twice, and never retries one whose answer was lost.
+ */
+async function postStockRecord(
+  call: BlingCall,
+  operation: BlingStockOperation,
+  movement: BlingStockMovement,
+): Promise<number> {
+  if (!Number.isInteger(movement.quantity) || movement.quantity <= 0) {
+    throw new RangeError(
+      `Stock movement quantity must be a positive integer, got ${movement.quantity}`,
+    );
+  }
+  const response = await call({
+    path: "/estoques",
+    init: {
+      method: "POST",
+      body: JSON.stringify({
+        produto: { id: movement.erpProductId },
+        deposito: { id: movement.depositId },
+        operacao: operation,
+        quantidade: movement.quantity,
+        observacoes: movement.note,
+      }),
+    },
+    schema: blingCreatedStockResponseSchema,
+  });
+  return response.data.id;
+}
+
+/**
+ * Where SellBridge's own sales leave Bling's stock, and their returns come back: the default
+ * warehouse, the exit and the entry.
+ */
+function blingStockExitCalls(call: BlingCall) {
+  return {
+    /** The account's active warehouses, with which one is the default. */
+    async listActiveDeposits(): Promise<{ id: number; isDefault: boolean }[]> {
+      const response = await call({
+        path: "/depositos?situacao=1&limite=100",
+        schema: blingDepositListResponseSchema,
+      });
+      return response.data
+        .filter((deposit) => deposit.situacao === 1)
+        .map((deposit) => ({ id: deposit.id, isDefault: deposit.padrao }));
+    },
+
+    /** Posts a stock exit ("S") once and returns its id. */
+    async postStockExit(exit: BlingStockMovement): Promise<number> {
+      return postStockRecord(call, "S", exit);
+    },
+
+    /** Posts a stock entry ("E") once and returns its id. */
+    async postStockEntry(entry: BlingStockMovement): Promise<number> {
+      return postStockRecord(call, "E", entry);
+    },
+  };
+}
+
+/** The stock sync's reads: the account's company id and product balances. */
+function blingStockCalls(call: BlingCall) {
+  return {
+    /** The id Bling's notifications carry as `companyId` for this account. */
+    async getCompanyId(): Promise<string> {
+      const response = await call({
+        path: "/empresas/me/dados-basicos",
+        schema: blingCompanyResponseSchema,
+      });
+      return response.data.id;
+    },
+
+    /**
+     * The stock balance of these products (at most `BLING_STOCK_BATCH_LIMIT`), among those whose
+     * balance matches `filter`: Bling leaves the others out of the answer.
+     */
+    async readStockBalances(
+      productIds: readonly number[],
+      filter: BlingStockFilter,
+    ): Promise<BlingStockBalance[]> {
+      if (productIds.length === 0) {
+        return [];
+      }
+      if (productIds.length > BLING_STOCK_BATCH_LIMIT) {
+        throw new RangeError(
+          `At most ${BLING_STOCK_BATCH_LIMIT} products per stock read, got ${productIds.length}`,
+        );
+      }
+      const query = new URLSearchParams({ filtroSaldoEstoque: String(filter) });
+      for (const id of productIds) {
+        query.append("idsProdutos[]", String(id));
+      }
+      const response = await call({
+        path: `/estoques/saldos?${query.toString()}`,
+        schema: blingStockBalanceResponseSchema,
+      });
+      return response.data;
+    },
   };
 }
 
@@ -123,6 +281,9 @@ export function createBlingClient(options: BlingClientOptions) {
 
   return {
     ...blingInvoiceCalls(call),
+    ...blingDirectInvoiceCalls(call),
+    ...blingStockCalls(call),
+    ...blingStockExitCalls(call),
     /** One page of the summary list (active products by default). */
     async listProducts(input: { page: number; criterio?: 1 | 2 | 3 | 4 | 5 }) {
       const query = new URLSearchParams({

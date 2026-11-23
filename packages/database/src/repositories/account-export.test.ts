@@ -1,5 +1,6 @@
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import {
+  billingAccounts,
   orders,
   orderItems,
   supplierReviews,
@@ -156,6 +157,24 @@ describe("collectAccountExport", () => {
     expect(exported.orders).toEqual([]);
     expect(exported.tickets).toEqual([]);
     expect(exported.billing).toBeNull();
+  });
+
+  it("exports the plan of a subscribed workspace without the payment provider's ids", async () => {
+    const periodEnd = new Date("2026-12-20T03:00:00.000Z");
+    await database.insert(billingAccounts).values({
+      tenantId: tenantB,
+      customerId: `cus_export_${tenantB}`,
+      subscriptionId: `sub_export_${tenantB}`,
+      plan: "pro",
+      status: "active",
+      periodEnd,
+      paymentMethod: "pix",
+    });
+
+    const exported = await collectAccountExport(database, { userId, tenantId: tenantB });
+
+    expect(exported.billing).toEqual({ plan: "pro", status: "active", periodEnd });
+    expect(JSON.stringify(exported)).not.toContain("_export_");
   });
 
   it("keeps the author's own review comments and nobody else's", async () => {

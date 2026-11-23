@@ -1,21 +1,23 @@
-import { PlugsConnectedIcon } from "@phosphor-icons/react";
+import { ArrowsClockwiseIcon, PlugsConnectedIcon } from "@phosphor-icons/react";
 import { useState, type ReactNode } from "react";
 import { toast } from "sonner";
 import { ConfirmDialog } from "@/components/feedback/confirm-dialog";
 import { Button } from "@/components/ui/button";
-import type {
-  BlingConnectionView,
-  BlingReadView,
+import {
+  blingStockLine,
+  type BlingConnectionView,
+  type BlingReadView,
 } from "@/features/supplier-panel/bling/bling-overview";
+import {
+  BLING_RECONNECT_REASON,
+  blingConnectHref,
+} from "@/features/supplier-panel/bling/bling-connection";
 import { useBlingActions } from "@/features/supplier-panel/bling/use-bling";
 import { errorMessage } from "@/lib/errors";
 import { formatAbsoluteTime } from "@/lib/relative-time";
 import { BlingBadge } from "./bling-badge";
-import { BlingInvoiceSwitch } from "./bling-invoice-switch";
-
-function connectHref(supplierId: string): string {
-  return `/api/integracoes/bling/conectar?fornecedor=${encodeURIComponent(supplierId)}`;
-}
+import { BlingExportOutcome } from "./bling-export-outcome";
+import { InvoiceSetupLink } from "./invoice-setup-link";
 
 function CardShell({ children }: { children: ReactNode }) {
   return (
@@ -60,12 +62,13 @@ export function BlingConnectCard({ supplierId }: { supplierId: string }) {
   return (
     <CardShell>
       <CardHeading title="Importar do Bling">
-        Conecte sua conta Bling uma vez e traga os produtos com NCM, unidade, peso e estoque. O
-        SellBridge só lê: nada muda no seu Bling.
+        Conecte sua conta Bling uma vez e traga os produtos com NCM, unidade, peso e estoque.
+        Depois, o estoque se atualiza sozinho, e cada venda do SellBridge dá baixa no estoque do seu
+        Bling.
       </CardHeading>
       <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
         <Button asChild size="lg">
-          <a href={connectHref(supplierId)}>Conectar Bling</a>
+          <a href={blingConnectHref(supplierId)}>Conectar Bling</a>
         </Button>
         <span className="text-sm text-muted-foreground">
           Leva 1 minuto. Você entra no Bling e autoriza.
@@ -75,7 +78,24 @@ export function BlingConnectCard({ supplierId }: { supplierId: string }) {
   );
 }
 
-/** The ERP refused the saved access: the supplier authorizes again. */
+/** Bling refuses part of the work: the authorization predates permissions the app gained. */
+function BlingPermissionCard({ supplierId }: { supplierId: string }) {
+  return (
+    <CardShell>
+      <CardHeading title="Bling" badge={<BlingBadge tone="warning">Precisa reconectar</BlingBadge>}>
+        {BLING_RECONNECT_REASON} Leva 1 minuto: você entra no Bling e autoriza de novo. Seus
+        produtos continuam como estão.
+      </CardHeading>
+      <div>
+        <Button asChild size="lg">
+          <a href={blingConnectHref(supplierId)}>Reconectar o Bling</a>
+        </Button>
+      </div>
+    </CardShell>
+  );
+}
+
+/** The ERP refused the saved access or part of the work: the supplier authorizes again. */
 export function BlingReconnectCard({
   supplierId,
   connection,
@@ -83,6 +103,9 @@ export function BlingReconnectCard({
   supplierId: string;
   connection: BlingConnectionView;
 }) {
+  if (connection.status === "connected" && connection.permissionMissing) {
+    return <BlingPermissionCard supplierId={supplierId} />;
+  }
   const expired = connection.status === "expired";
   return (
     <CardShell>
@@ -99,7 +122,7 @@ export function BlingReconnectCard({
       </CardHeading>
       <div>
         <Button asChild size="lg">
-          <a href={connectHref(supplierId)}>Conectar de novo</a>
+          <a href={blingConnectHref(supplierId)}>Reconectar o Bling</a>
         </Button>
       </div>
     </CardShell>
@@ -173,7 +196,14 @@ function DisconnectLink({ supplierId }: { supplierId: string }) {
   );
 }
 
-function ConnectedActions({ supplierId }: { supplierId: string }) {
+function sendCatalogLabel(isPending: boolean, sending: boolean): string {
+  if (isPending) {
+    return "Enviando…";
+  }
+  return sending ? "Enviando ao Bling…" : "Enviar ao Bling o que falta lá";
+}
+
+function ConnectedActions({ supplierId, sending }: { supplierId: string; sending: boolean }) {
   const { startRead, sendCatalog } = useBlingActions(supplierId);
   return (
     <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
@@ -189,7 +219,7 @@ function ConnectedActions({ supplierId }: { supplierId: string }) {
       <Button
         variant="outline"
         size="lg"
-        disabled={sendCatalog.isPending}
+        disabled={sendCatalog.isPending || sending}
         onClick={() =>
           sendCatalog.mutate(undefined, {
             onSuccess: () =>
@@ -200,7 +230,7 @@ function ConnectedActions({ supplierId }: { supplierId: string }) {
           })
         }
       >
-        {sendCatalog.isPending ? "Enviando…" : "Enviar ao Bling o que falta lá"}
+        {sendCatalogLabel(sendCatalog.isPending, sending)}
       </Button>
       <DisconnectLink supplierId={supplierId} />
     </div>
@@ -214,26 +244,38 @@ export function BlingConnectedCard(props: {
   read: BlingReadView | null;
 }) {
   const { read } = props;
+  const catalogExport = props.connection.catalogExport;
   return (
     <CardShell>
       <CardHeading title="Bling" badge={<BlingBadge tone="success">Conectado</BlingBadge>}>
         {connectionLine(props.connection)}
       </CardHeading>
+      <p className="flex items-start gap-2 text-sm">
+        <ArrowsClockwiseIcon
+          aria-hidden="true"
+          className="mt-0.5 size-4 flex-none text-brand-text"
+        />
+        <span>{blingStockLine(props.connection)}</span>
+      </p>
       {read?.status === "reading" ? (
         <ReadProgress read={read} />
       ) : (
-        <ConnectedActions supplierId={props.supplierId} />
+        <ConnectedActions
+          supplierId={props.supplierId}
+          sending={catalogExport?.status === "sending"}
+        />
       )}
       {read?.status === "failed" ? (
         <p role="alert" className="text-sm font-medium text-destructive">
           {read.error ?? "Não foi possível ler o seu Bling. Tente de novo."}
         </p>
       ) : null}
+      {catalogExport === null ? null : <BlingExportOutcome view={catalogExport} />}
       <p className="text-sm text-muted-foreground">
         &ldquo;Enviar ao Bling&rdquo; só cria lá os produtos que ainda não existem. Nada do que já
         está no seu Bling é alterado.
       </p>
-      <BlingInvoiceSwitch supplierId={props.supplierId} connection={props.connection} />
+      <InvoiceSetupLink />
     </CardShell>
   );
 }

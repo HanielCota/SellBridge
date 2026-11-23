@@ -2,6 +2,7 @@ import { readFile } from "node:fs/promises";
 import { expect, test } from "@playwright/test";
 import {
   erpCatalogReads,
+  productModels,
   supplierErpConnections,
   supplierProducts,
 } from "@sellbridge/database/schema";
@@ -86,7 +87,7 @@ test("sem Bling conectado, o fornecedor vê um botão para conectar e a planilha
   await expect(page.getByRole("heading", { level: 1, name: "Importar produtos" })).toBeVisible();
   const card = page.getByRole("region", { name: "Importar do Bling" });
   await expect(
-    card.getByText("O SellBridge só lê: nada muda no seu Bling.", { exact: false }),
+    card.getByText("cada venda do SellBridge dá baixa no estoque do seu Bling", { exact: false }),
   ).toBeVisible();
   await expect(card.getByRole("link", { name: "Conectar Bling" })).toHaveAttribute(
     "href",
@@ -209,4 +210,71 @@ test("o fornecedor importa do Bling dando o preço dos novos com uma regra e aju
       ),
     );
   expect(connection?.discount).toBe(300);
+});
+
+/** A Bling product with variations by colour and size, as the worker reads it (slice 3c). */
+function gridItem(sku: string, color: string, size: string, erpProductId: number) {
+  return {
+    ...catalogItem(sku, `Tênis Bling Cor:${color};Tamanho:${size}`, 11_990),
+    erpProductId,
+    grid: { modelCode: `TEN-BLING-${run}`, modelTitle: "Tênis Bling", color, size },
+  };
+}
+
+test("o fornecedor importa do Bling um tênis com cores e tamanhos e ele vira um produto só", async ({
+  page,
+}) => {
+  const supplierId = await supplierWithBrand(page, `Calçados Com Bling ${run}`);
+  await seedConnection(supplierId);
+  const skus = [`GRADE-P38-${run}`, `GRADE-P39-${run}`];
+  await database.insert(erpCatalogReads).values({
+    supplierId,
+    provider: "bling",
+    status: "ready",
+    totalProducts: 2,
+    readProducts: 2,
+    finishedAt: new Date(),
+    expiresAt: new Date(Date.now() + 3600_000),
+    result: {
+      items: [
+        gridItem(skus[0] ?? "", "Preto", "38", 9101),
+        gridItem(skus[1] ?? "", "Preto", "39", 9102),
+      ],
+      skipped: [],
+      separated: [{ name: "Chapinha", reason: "As variações não são só cor e tamanho" }],
+      truncated: false,
+    },
+  });
+
+  await gotoHydrated(page, "/fornecedor/painel/importar");
+  const preview = page.getByRole("region", { name: "Prévia do Bling" });
+  await expect(
+    preview.getByRole("heading", { name: "1 produto encontrado no Bling" }),
+  ).toBeVisible();
+  await expect(preview).toContainText("as 2 variações entram como um produto só");
+  await expect(preview.getByText("Tênis Bling · Preto 38")).toBeVisible();
+  await expect(preview).toContainText("1 produto com variações entra com uma linha por variação");
+  await preview.getByLabel("O revendedor paga").fill("50");
+  await preview.getByRole("button", { name: "Aplicar a todos" }).click();
+  await preview.getByRole("button", { name: "Importar 1 produto novo" }).click();
+  await expect(page.getByRole("heading", { name: "Importação do Bling concluída" })).toBeVisible();
+
+  const rows = await database
+    .select({
+      sku: supplierProducts.sku,
+      erpProductId: supplierProducts.erpProductId,
+      model: productModels.code,
+    })
+    .from(supplierProducts)
+    .innerJoin(productModels, eq(productModels.id, supplierProducts.modelId))
+    .where(eq(supplierProducts.supplierId, supplierId));
+  expect(
+    rows
+      .toSorted((first, second) => first.sku.localeCompare(second.sku))
+      .map((row) => [row.sku, row.erpProductId, row.model]),
+  ).toEqual([
+    // The import links nothing: the stock sync links each SKU to Bling on its own check.
+    [skus[0], null, `TEN-BLING-${run}`],
+    [skus[1], null, `TEN-BLING-${run}`],
+  ]);
 });

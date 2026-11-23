@@ -1,9 +1,10 @@
 import { describe, expect, test } from "vitest";
 import {
-  DEFAULT_PAYMENT_FEE_BASIS_POINTS,
-  effectivePaymentFeeBasisPoints,
   InvalidPaymentFeeError,
+  PAYMENT_FEE_BASIS_POINTS,
   platformFeeCents,
+  type ReforwardPaymentInput,
+  reforwardBlockFor,
   shipmentPaymentStatusFrom,
   SUPPLIER_PAY_METHODS,
   supplierPaymentBadge,
@@ -18,20 +19,12 @@ describe("SUPPLIER_PAY_METHODS", () => {
   });
 });
 
-describe("effectivePaymentFeeBasisPoints", () => {
-  test("uses 4% while the admin has saved no fee", () => {
-    const fee = effectivePaymentFeeBasisPoints(null);
+describe("PAYMENT_FEE_BASIS_POINTS", () => {
+  test("is 4%, so a R$ 100,00 product payment leaves R$ 4,00 to SellBridge", () => {
+    const fee = platformFeeCents(10_000, PAYMENT_FEE_BASIS_POINTS);
 
+    expect(PAYMENT_FEE_BASIS_POINTS).toBe(400);
     expect(fee).toBe(400);
-    expect(fee).toBe(DEFAULT_PAYMENT_FEE_BASIS_POINTS);
-  });
-
-  test("uses the fee the admin saved, zero included", () => {
-    const saved = effectivePaymentFeeBasisPoints(450);
-    const free = effectivePaymentFeeBasisPoints(0);
-
-    expect(saved).toBe(450);
-    expect(free).toBe(0);
   });
 });
 
@@ -46,6 +39,24 @@ describe("platformFeeCents", () => {
     const fee = platformFeeCents(5990, 250);
 
     expect(fee).toBe(150);
+  });
+
+  test("takes 4% of R$ 59,90 as R$ 2,40, rounding 239,6 cents up", () => {
+    const fee = platformFeeCents(5990, 400);
+
+    expect(fee).toBe(240);
+  });
+
+  test("takes 4% of R$ 12,34 as R$ 0,49, rounding 49,36 cents down", () => {
+    const fee = platformFeeCents(1234, 400);
+
+    expect(fee).toBe(49);
+  });
+
+  test("takes nothing from a one-cent payment at 4%", () => {
+    const fee = platformFeeCents(1, 400);
+
+    expect(fee).toBe(0);
   });
 
   test("is zero when the rate is zero", () => {
@@ -148,6 +159,36 @@ describe("supplierPaymentBadge", () => {
     expect(badge).toEqual({ kind: "refunding" });
   });
 
+  test("shows the money on its way back once a paid parcel is cancelled", () => {
+    const badge = supplierPaymentBadge({
+      payment: { status: "approved", paidAt, method: "PIX" },
+      supplierReceivesHere: true,
+      parcel: { endedWithoutDelivery: true, heldForTeam: false, moneyReleased: false },
+    });
+
+    expect(badge).toEqual({ kind: "refunding" });
+  });
+
+  test("says the team checks a paid parcel cancelled after the supplier accepted", () => {
+    const badge = supplierPaymentBadge({
+      payment: { status: "approved", paidAt, method: "PIX" },
+      supplierReceivesHere: true,
+      parcel: { endedWithoutDelivery: true, heldForTeam: true, moneyReleased: false },
+    });
+
+    expect(badge).toEqual({ kind: "held" });
+  });
+
+  test("keeps paid once the money went to the supplier, even for a cancelled parcel", () => {
+    const badge = supplierPaymentBadge({
+      payment: { status: "approved", paidAt, method: "PIX" },
+      supplierReceivesHere: true,
+      parcel: { endedWithoutDelivery: true, heldForTeam: true, moneyReleased: true },
+    });
+
+    expect(badge).toEqual({ kind: "paid", paidAt, method: "PIX" });
+  });
+
   test("shows a payment under review, so nobody pays again meanwhile", () => {
     const badge = supplierPaymentBadge({
       payment: { status: "in_process", paidAt: null, method: "credit_card" },
@@ -157,10 +198,20 @@ describe("supplierPaymentBadge", () => {
     expect(badge).toEqual({ kind: "reviewing" });
   });
 
-  test("is paid outside when the supplier has no account here", () => {
+  test("says the supplier has no account when it cannot receive here", () => {
     const badge = supplierPaymentBadge({ payment: null, supplierReceivesHere: false });
 
-    expect(badge).toEqual({ kind: "outside" });
+    expect(badge).toEqual({ kind: "no_account" });
+  });
+
+  test("says paying suppliers is not switched on while SellBridge takes no payments", () => {
+    const badge = supplierPaymentBadge({
+      payment: null,
+      supplierReceivesHere: false,
+      paymentsOffered: false,
+    });
+
+    expect(badge).toEqual({ kind: "not_offered" });
   });
 });
 
@@ -271,5 +322,54 @@ describe("supplierPaymentRefundReason", () => {
     });
 
     expect(reason).toBeNull();
+  });
+});
+
+describe("reforwardBlockFor", () => {
+  const PAID_AT = new Date("2026-11-20T12:00:00Z");
+  const approved: ReforwardPaymentInput = {
+    status: "approved",
+    refundRequestedAt: null,
+    refundFailedAt: null,
+    refundHeldAt: null,
+    releasedAt: null,
+    escrowStatus: "active",
+    teamDecision: null,
+  };
+
+  test("lets a parcel with no payment be re-forwarded", () => {
+    expect(reforwardBlockFor(null)).toBeNull();
+  });
+
+  test("lets a parcel whose checkout was never paid be re-forwarded", () => {
+    expect(reforwardBlockFor({ ...approved, status: "pending" })).toBeNull();
+  });
+
+  test("blocks a held Pix whose refund Asaas refused and the team makes by hand", () => {
+    const manual = { ...approved, refundRequestedAt: PAID_AT, refundFailedAt: PAID_AT };
+
+    expect(reforwardBlockFor(manual)).toBe("money_returning");
+  });
+
+  test("blocks a paid parcel whose refund was not asked for yet", () => {
+    expect(reforwardBlockFor(approved)).toBe("money_returning");
+  });
+
+  test("blocks a payment the team still checks after a late cancel", () => {
+    expect(reforwardBlockFor({ ...approved, refundHeldAt: PAID_AT })).toBe("held_for_team");
+  });
+
+  test("blocks a payment that already went back to the reseller", () => {
+    expect(reforwardBlockFor({ ...approved, status: "refunded" })).toBe("money_returned");
+  });
+
+  test("lets a parcel whose money Asaas already released be re-forwarded", () => {
+    expect(reforwardBlockFor({ ...approved, escrowStatus: "done" })).toBeNull();
+  });
+
+  test("lets a held parcel be re-forwarded once the team released its money", () => {
+    const released = { ...approved, refundHeldAt: PAID_AT, teamDecision: "release" as const };
+
+    expect(reforwardBlockFor(released)).toBeNull();
   });
 });

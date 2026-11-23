@@ -34,6 +34,7 @@ const fullProduct: ProductExportSource = {
     icmsCode: "102",
     pisCofinsCst: "49",
   },
+  grid: null,
 };
 
 const bareProduct: ProductExportSource = {
@@ -48,6 +49,7 @@ const bareProduct: ProductExportSource = {
   active: true,
   mercadoLivreAttributes: {},
   fiscal: {},
+  grid: null,
 };
 
 function importExported(products: readonly ProductExportSource[]) {
@@ -162,5 +164,32 @@ describe("formatCsvMoney", () => {
 
   it.each([-1, 1.5, Number.NaN, Number.POSITIVE_INFINITY])("throws for %s", (cents) => {
     expect(() => formatCsvMoney(cents)).toThrow("non-negative integer");
+  });
+});
+
+describe("grid combinations in the product export", () => {
+  it("exports a combination with its model's title, code, colour and size, and reads it back", () => {
+    const combination: ProductExportSource = {
+      ...bareProduct,
+      sku: "TEN-P-38",
+      title: "Tênis Casual - Preto 38",
+      grid: { modelCode: "TEN-CASUAL", modelTitle: "Tênis Casual", color: "Preto", size: "38" },
+    };
+    const csv = buildProductExportCsv([combination], true);
+
+    const parsed = parseProductCsv(
+      normalizeImportFile(new TextEncoder().encode(csv), { gridColumns: true }).canonicalCsv,
+      { gridColumns: true },
+    );
+
+    expect(parsed.rows[0]?.product).toMatchObject({
+      sku: "TEN-P-38",
+      title: "Tênis Casual",
+      grid: { modelCode: "TEN-CASUAL", color: "Preto", size: "38" },
+    });
+  });
+
+  it("leaves the grid columns out while grids are off", () => {
+    expect(buildImportTemplateCsv(null)).not.toContain("codigo_modelo");
   });
 });

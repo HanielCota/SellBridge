@@ -61,6 +61,11 @@ export interface BlingNewSaleOrder {
   readonly contact: { readonly id: number; readonly name: string };
   readonly items: readonly BlingSaleOrderItem[];
   readonly notes: string;
+  /**
+   * The ERP's operation ("natureza de operação") of every item; left out, Bling uses its default.
+   * Venda à ordem names its own, so the note gets the CFOP of that operation.
+   */
+  readonly operationId?: number;
 }
 
 /** The note as Bling has it now. */
@@ -174,6 +179,8 @@ function contactBody(contact: BlingNewContact) {
  * is the contact's (decision of 10/11/2026, model A).
  */
 function saleOrderBody(order: BlingNewSaleOrder) {
+  const operation =
+    order.operationId === undefined ? {} : { naturezaOperacao: { id: order.operationId } };
   return {
     numeroLoja: order.storeOrderNumber,
     data: order.date,
@@ -187,6 +194,7 @@ function saleOrderBody(order: BlingNewSaleOrder) {
       valor: priceInReais(item.unitPriceCents),
       descricao: item.description,
       produto: { id: item.productId },
+      ...operation,
     })),
     observacoes: order.notes,
   };

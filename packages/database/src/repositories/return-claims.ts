@@ -1,10 +1,11 @@
-import { notFoundError } from "@sellbridge/shared/errors";
+import { conflictError, notFoundError } from "@sellbridge/shared/errors";
 import {
   assertClaimUndecided,
   assertCreditWithinCost,
   type ReturnClaimDecision,
   type ReturnClaimStatus,
 } from "@sellbridge/shared/return-claims";
+import { supplierObligation, type ReturnReason } from "@sellbridge/shared/return-policy";
 import { and, eq, inArray } from "drizzle-orm";
 import type { Database } from "../client.ts";
 import {
@@ -15,6 +16,8 @@ import {
   suppliers,
   user,
 } from "../schema/index.ts";
+import { returnStockOnce } from "./return-policy-close.ts";
+import { findReturnPolicyDetails, type ReturnPolicyDetails } from "./return-policy-views.ts";
 
 export { openReturnClaims, type ReturnedOrder } from "./return-claims-open.ts";
 
@@ -35,6 +38,8 @@ export interface ReturnClaimView {
   supplierName: string;
   sellerName: string;
   items: { title: string; sku: string; quantity: number }[];
+  /** Null for claims the team decides alone (opened before the policy, or a team-run supplier). */
+  policy: ReturnPolicyDetails | null;
 }
 
 /** The claim a ticket was opened for, or null for every other ticket. */
@@ -75,6 +80,7 @@ export async function findReturnClaimByTicket(
       sku: item.sku,
       quantity: item.quantity,
     })),
+    policy: await findReturnPolicyDetails(database, row.id),
   };
 }
 
@@ -121,21 +127,69 @@ function decisionColumns(decision: ReturnClaimDecision, supplierCostCents: numbe
 }
 
 /**
+ * Under the return policy the team only decides a disagreement: until then the supplier is still
+ * checking the product, and a decision would skip its answer.
+ */
+function assertTeamMayDecide(policyStep: string | null): void {
+  if (policyStep !== null && policyStep !== "disputed") {
+    throw conflictError(
+      "O fornecedor ainda está conferindo esta devolução: a equipe só decide em disputa",
+    );
+  }
+}
+
+interface DecidingClaim {
+  id: string;
+  shipmentId: string;
+  orderId: string;
+  policyStep: string | null;
+  reason: ReturnReason | null;
+  returnShippingCents: number | null;
+  supplierCostCents: number;
+  supplierResellable: boolean | null;
+}
+
+/** A disputed return closes with the decision; the return label follows the reseller's reason. */
+function policyCloseColumns(claim: DecidingClaim, credited: boolean, now: Date) {
+  if (claim.policyStep === null) {
+    return {};
+  }
+  const obligation = supplierObligation({
+    reason: claim.reason,
+    supplierCostCents: claim.supplierCostCents,
+    returnShippingCents: claim.returnShippingCents,
+  });
+  return {
+    policyStep: "closed" as const,
+    closeReason: "team_decided" as const,
+    closedAt: now,
+    supplierOwesShippingCents: credited ? obligation.shippingCents : 0,
+  };
+}
+
+/**
  * The team's decision: credit the reseller up to the supplier cost, or not, with a reason.
  * The row is locked so two people deciding at once cannot both write. The credit is a recorded
- * balance only: moving the money (Stripe, payouts) is not part of the product yet.
+ * balance only: moving the money (charges, payouts) is not part of the product yet. Returns the
+ * products put back on the shelf when the supplier said the item can be sold again.
  */
 export async function decideReturnClaim(
   database: Database,
   input: { decision: ReturnClaimDecision; actorId: string; now?: Date },
-): Promise<{ ticketId: string | null; status: ReturnClaimStatus }> {
+): Promise<{ ticketId: string | null; status: ReturnClaimStatus; restockedProductIds: string[] }> {
   const now = input.now ?? new Date();
   return database.transaction(async (transaction) => {
     const [claim] = await transaction
       .select({
         id: returnClaims.id,
+        shipmentId: returnClaims.shipmentId,
+        orderId: returnClaims.orderId,
         status: returnClaims.status,
+        policyStep: returnClaims.policyStep,
+        reason: returnClaims.reason,
+        returnShippingCents: returnClaims.returnShippingCents,
         supplierCostCents: returnClaims.supplierCostCents,
+        supplierResellable: returnClaims.supplierResellable,
         ticketId: returnClaims.ticketId,
       })
       .from(returnClaims)
@@ -146,11 +200,21 @@ export async function decideReturnClaim(
       throw notFoundError("Devolução não encontrada");
     }
     assertClaimUndecided(claim.status);
+    assertTeamMayDecide(claim.policyStep);
     const columns = decisionColumns(input.decision, claim.supplierCostCents);
     await transaction
       .update(returnClaims)
-      .set({ ...columns, decidedById: input.actorId, decidedAt: now })
+      .set({
+        ...columns,
+        ...policyCloseColumns(claim, columns.status === "credited", now),
+        decidedById: input.actorId,
+        decidedAt: now,
+      })
       .where(eq(returnClaims.id, claim.id));
-    return { ticketId: claim.ticketId, status: columns.status };
+    const restockedProductIds =
+      claim.policyStep !== null && claim.supplierResellable === true
+        ? await returnStockOnce(transaction, claim, now)
+        : [];
+    return { ticketId: claim.ticketId, status: columns.status, restockedProductIds };
   });
 }

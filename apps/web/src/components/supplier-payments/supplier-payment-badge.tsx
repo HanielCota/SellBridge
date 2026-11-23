@@ -59,12 +59,18 @@ function badgeText(badge: SupplierPaymentBadge, paidWord: string): string {
   if (badge.kind === "refunding") {
     return "Devolução em andamento";
   }
+  if (badge.kind === "held") {
+    return "Cancelado · equipe conferindo";
+  }
   if (badge.kind === "refunded") {
     return badge.refundedAt === null
       ? "Pagamento devolvido"
       : `Pagamento devolvido · ${formatAbsoluteTime(new Date(badge.refundedAt))}`;
   }
-  return "Pagamento por fora";
+  if (badge.kind === "no_account") {
+    return "Sem conta de recebimento";
+  }
+  return "Pagamento pelo SellBridge não ligado";
 }
 
 const BADGE_KIND_TONES: Record<SupplierPaymentBadge["kind"], PaymentBadgeTone> = {
@@ -72,8 +78,10 @@ const BADGE_KIND_TONES: Record<SupplierPaymentBadge["kind"], PaymentBadgeTone> =
   waiting: "warning",
   reviewing: "warning",
   refunding: "warning",
+  held: "warning",
   refunded: "danger",
-  outside: "neutral",
+  no_account: "neutral",
+  not_offered: "neutral",
 };
 
 /**

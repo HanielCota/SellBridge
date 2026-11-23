@@ -1,27 +1,40 @@
 import { PROBLEM_AREA_LABELS, PROBLEM_SERVICE_LABELS } from "@sellbridge/shared/problem-areas";
-import { CheckIcon, CopyIcon } from "@phosphor-icons/react";
+import { ArrowClockwiseIcon, CheckIcon, CopyIcon } from "@phosphor-icons/react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { createFileRoute, Link } from "@tanstack/react-router";
-import type { ReactNode } from "react";
+import { type ReactNode, useState } from "react";
 import { toast } from "sonner";
 import { TonePill } from "@/components/data/tone-status";
+import { ConfirmDialog } from "@/components/feedback/confirm-dialog";
 import { ErrorState } from "@/components/feedback/error-state";
 import { BackLink } from "@/components/layout/page-header";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
+import {
+  type MoneyProblemState,
+  moneyResolveConfirmation,
+  moneyResolveHint,
+  moneyStateOf,
+} from "@/features/admin-problems/money-resolve";
 import { occurrencesLabel, problemWhenLabel } from "@/features/admin-problems/problem-copy";
 import {
   type adminGetProblem,
+  adminRetryProblem,
   adminSetProblemResolved,
 } from "@/features/admin-problems/problems.functions";
 import {
   PROBLEMS_QUERY_KEY,
   problemQueryOptions,
 } from "@/features/admin-problems/problems.queries";
+import {
+  heldPaymentDecisionQueryOptions,
+  manualRefundQueryOptions,
+} from "@/features/supplier-payments/asaas.queries";
 import { errorMessage } from "@/lib/errors";
 import { formatAbsoluteTime } from "@/lib/relative-time";
 import { prefetchOnServer } from "@/lib/prefetch";
 import { HeldPaymentDecision } from "@/components/admin-problems/held-payment-decision";
+import { ManualRefundGuide } from "@/components/admin-problems/manual-refund-guide";
 
 type ProblemDetail = Awaited<ReturnType<typeof adminGetProblem>>;
 
@@ -62,7 +75,59 @@ function StatusPill({ problem }: { problem: ProblemDetail }) {
   return <TonePill tone="success" label={`Resolvido em ${when}${who}`} />;
 }
 
-function ResolveButton({ problem }: { problem: ProblemDetail }) {
+/** Runs again what the problem is about; the problem closes, and a new failure opens it again. */
+function useRetryProblem(problemId: string) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: () => adminRetryProblem({ data: { problemId } }),
+    onSuccess: async (result) => {
+      toast.success(result.message);
+      await queryClient.invalidateQueries({ queryKey: PROBLEMS_QUERY_KEY });
+    },
+    onError: (error) => toast.error(errorMessage(error)),
+  });
+}
+
+function RetryButton({ problem }: { problem: ProblemDetail }) {
+  const mutation = useRetryProblem(problem.id);
+  return (
+    <Button disabled={mutation.isPending} onClick={() => mutation.mutate()}>
+      <ArrowClockwiseIcon aria-hidden="true" />
+      {mutation.isPending ? "Tentando de novo..." : "Tentar de novo"}
+    </Button>
+  );
+}
+
+function isMoneyProblemDetail(problem: ProblemDetail): boolean {
+  return problem.heldPaymentId !== null || problem.manualRefundId !== null;
+}
+
+/**
+ * With a retry, it is the one main action and resolving by hand steps back. An open money problem
+ * resolves at the end of its money section instead, after the steps.
+ */
+function ProblemActions({ problem }: { problem: ProblemDetail }) {
+  if (problem.resolvedAt === null && isMoneyProblemDetail(problem)) {
+    return null;
+  }
+  if (problem.resolvedAt !== null || !problem.canRetry) {
+    return <ResolveButton problem={problem} />;
+  }
+  return (
+    <div className="flex flex-wrap gap-2">
+      <RetryButton problem={problem} />
+      <ResolveButton problem={problem} secondary />
+    </div>
+  );
+}
+
+function ResolveButton({
+  problem,
+  secondary = false,
+}: {
+  problem: ProblemDetail;
+  secondary?: boolean;
+}) {
   const mutation = useResolveProblem(problem.id);
   if (problem.resolvedAt !== null) {
     return (
@@ -76,10 +141,80 @@ function ResolveButton({ problem }: { problem: ProblemDetail }) {
     );
   }
   return (
-    <Button disabled={mutation.isPending} onClick={() => mutation.mutate(true)}>
+    <Button
+      variant={secondary ? "outline" : "default"}
+      disabled={mutation.isPending}
+      onClick={() => mutation.mutate(true)}
+    >
       <CheckIcon aria-hidden="true" />
       {mutation.isPending ? "Salvando..." : "Marcar como resolvido"}
     </Button>
+  );
+}
+
+/** Where the refund or the protected payment stands; null while it loads. */
+function useMoneyState(problem: ProblemDetail): MoneyProblemState | "unreadable" | null {
+  const refund = useQuery({
+    ...manualRefundQueryOptions(problem.manualRefundId ?? ""),
+    enabled: problem.manualRefundId !== null,
+  });
+  const held = useQuery({
+    ...heldPaymentDecisionQueryOptions(problem.heldPaymentId ?? ""),
+    enabled: problem.heldPaymentId !== null,
+  });
+  return moneyStateOf({
+    manualRefund: problem.manualRefundId === null ? null : refund,
+    heldPayment: problem.heldPaymentId === null ? null : held,
+  });
+}
+
+/**
+ * "Marcar como resolvido" after the money steps: the main button once the money moved; while it
+ * waits, a quieter one that first asks whether the money really came back.
+ */
+function MoneyResolve({ problem }: { problem: ProblemDetail }) {
+  const state = useMoneyState(problem);
+  const mutation = useResolveProblem(problem.id);
+  const [asking, setAsking] = useState(false);
+  if (state === null) {
+    return null;
+  }
+  if (state === "unreadable") {
+    return <ResolveButton problem={problem} />;
+  }
+  const confirmation = moneyResolveConfirmation(state);
+  const hint = moneyResolveHint(state);
+  return (
+    <section className="grid gap-2" aria-label="Resolver o problema">
+      <Button
+        className="w-fit"
+        variant={confirmation === null ? "default" : "outline"}
+        disabled={mutation.isPending}
+        aria-describedby={hint === null ? undefined : "money-resolve-hint"}
+        onClick={() => (confirmation === null ? mutation.mutate(true) : setAsking(true))}
+      >
+        <CheckIcon aria-hidden="true" />
+        {mutation.isPending ? "Salvando..." : "Marcar como resolvido"}
+      </Button>
+      {hint === null ? null : (
+        <p id="money-resolve-hint" className="text-sm text-muted-foreground">
+          {hint}
+        </p>
+      )}
+      {confirmation === null ? null : (
+        <ConfirmDialog
+          open={asking}
+          onOpenChange={setAsking}
+          title={confirmation.title}
+          description={confirmation.description}
+          confirmLabel={confirmation.confirmLabel}
+          pendingLabel="Salvando..."
+          cancelLabel="Voltar"
+          isPending={mutation.isPending}
+          onConfirm={() => mutation.mutate(true, { onSuccess: () => setAsking(false) })}
+        />
+      )}
+    </section>
   );
 }
 
@@ -182,12 +317,18 @@ function ProblemBody({ problem }: { problem: ProblemDetail }) {
           <h1 className="text-2xl leading-tight font-semibold tracking-tight break-words">
             {problem.message}
           </h1>
-          <ResolveButton problem={problem} />
+          <ProblemActions problem={problem} />
         </div>
       </div>
       {problem.heldPaymentId === null ? null : (
         <HeldPaymentDecision shipmentPaymentId={problem.heldPaymentId} />
       )}
+      {problem.manualRefundId === null ? null : (
+        <ManualRefundGuide shipmentPaymentId={problem.manualRefundId} />
+      )}
+      {problem.resolvedAt === null && isMoneyProblemDetail(problem) ? (
+        <MoneyResolve problem={problem} />
+      ) : null}
       <ProblemFacts problem={problem} />
       <TechnicalDetails problem={problem} />
     </>

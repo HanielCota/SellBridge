@@ -1,5 +1,6 @@
 import { type ComponentProps, type Dispatch, type SetStateAction, useState } from "react";
 import { useMutation } from "@tanstack/react-query";
+import { Link } from "@tanstack/react-router";
 import { formatCep } from "@sellbridge/shared/billing-address";
 import { forwardOrderSchema, type DeliveryAddress } from "@sellbridge/shared/schemas";
 import { toast } from "sonner";
@@ -13,6 +14,7 @@ import {
   firstForwardErrorField,
   forwardErrorsByField,
 } from "@/features/fulfillment/forward-errors";
+import { forwardBlockers } from "@/features/fulfillment/forward-blockers";
 import { forwardOrderFn } from "@/features/fulfillment/fulfillment.functions";
 import { addressImportNeeded } from "@/features/fulfillment/address-import-needed";
 import { marketplaceAddressNote } from "@/features/fulfillment/marketplace-address-note";
@@ -74,7 +76,8 @@ export function ForwardForm({
   const form = useForwardForm(detail, onForwarded);
   const { address, notes, loadAddress, forward } = form;
   const ownsItems = detail.items.some((item) => item.catalogKind === "seller");
-  const unmapped = !detail.items.length || detail.items.some((item) => !item.supplierId);
+  const blockers = forwardBlockers(detail.items);
+  const unmapped = blockers.length > 0;
   return (
     <form
       noValidate
@@ -109,11 +112,7 @@ export function ForwardForm({
         onBlur={() => form.setNotesChecked(true)}
         onChange={form.changeNotes}
       />
-      {unmapped ? (
-        <p className="text-sm text-destructive">
-          Um item deste pedido não é de um fornecedor ativo do SellBridge: encaminhe-o por fora.
-        </p>
-      ) : null}
+      {unmapped ? <ForwardBlockersNotice blockers={blockers} /> : null}
       <ForwardButton
         pending={forward.isPending}
         ownsItems={ownsItems}
@@ -121,6 +120,26 @@ export function ForwardForm({
       />
       <PreparationExplanation ownsItems={ownsItems} />
     </form>
+  );
+}
+
+/** Why the order cannot be forwarded, item by item, and where to get it solved. */
+function ForwardBlockersNotice({ blockers }: { blockers: readonly string[] }) {
+  return (
+    <div role="alert" className="grid gap-2 rounded-2xl bg-destructive/10 p-3 text-sm">
+      <p className="font-medium text-destructive">Este pedido não pode ser encaminhado agora:</p>
+      <ul className="grid list-disc gap-1 pl-5">
+        {blockers.map((blocker) => (
+          <li key={blocker}>{blocker}</li>
+        ))}
+      </ul>
+      <p>
+        Cancele a venda no canal, ou abra um chamado para a equipe ajudar a resolver.{" "}
+        <Link to="/suporte/novo" className="font-medium underline underline-offset-4">
+          Abrir chamado
+        </Link>
+      </p>
+    </div>
   );
 }
 
@@ -171,7 +190,7 @@ function PreparationExplanation({ ownsItems }: { ownsItems: boolean }) {
     <p className="text-xs text-muted-foreground">
       {ownsItems
         ? "Você prepara e envia seus produtos; cada fornecedor recebe apenas os itens dele."
-        : "Cada fornecedor recebe só os itens dele. Depois de enviar, aparece o link do pedido para você mandar ao fornecedor."}
+        : "Cada fornecedor recebe só os itens dele e vê o pedido no painel. Se ainda não tiver painel, aparece aqui o link para você mandar a ele."}
     </p>
   );
 }

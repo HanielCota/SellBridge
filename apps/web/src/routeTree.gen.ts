@@ -13,6 +13,7 @@ import { Route as IndexRouteImport } from './routes/index'
 import { Route as AppRouteRouteImport } from './routes/_app/route'
 import { Route as AuthRouteRouteImport } from './routes/_auth/route'
 import { Route as AceitarTermosRouteImport } from './routes/aceitar-termos'
+import { Route as AssinarContratoRouteImport } from './routes/assinar-contrato'
 import { Route as OutroPerfilRouteImport } from './routes/outro-perfil'
 import { Route as PrivacidadeRouteImport } from './routes/privacidade'
 import { Route as TermosRouteImport } from './routes/termos'
@@ -26,6 +27,7 @@ import { Route as AppIntegracoesRouteImport } from './routes/_app/integracoes'
 import { Route as AppLojasRouteImport } from './routes/_app/lojas'
 import { Route as AppOnboardingRouteImport } from './routes/_app/onboarding'
 import { Route as AppPerfilRouteImport } from './routes/_app/perfil'
+import { Route as AppPoliticaDeDevolucaoRouteImport } from './routes/_app/politica-de-devolucao'
 import { Route as AppProductsRouteImport } from './routes/_app/products'
 import { Route as AuthCadastroRouteImport } from './routes/_auth/cadastro'
 import { Route as AuthConfirmeSeuEmailRouteImport } from './routes/_auth/confirme-seu-email'
@@ -34,6 +36,8 @@ import { Route as AuthLoginRouteImport } from './routes/_auth/login'
 import { Route as AuthRedefinirSenhaRouteImport } from './routes/_auth/redefinir-senha'
 import { Route as ApiHealthRouteImport } from './routes/api/health'
 import { Route as ApiVersionRouteImport } from './routes/api/version'
+import { Route as ContratoFornecedorRouteImport } from './routes/contrato/fornecedor'
+import { Route as ContratoVendedorRouteImport } from './routes/contrato/vendedor'
 import { Route as RastreioTokenRouteImport } from './routes/rastreio/$token'
 import { Route as AppAdminAuditoriaRouteImport } from './routes/_app/admin/auditoria'
 import { Route as AppAdminAvaliacoesRouteImport } from './routes/_app/admin/avaliacoes'
@@ -72,8 +76,11 @@ import { Route as ApiV1OpenapiDotjsonRouteImport } from './routes/api/v1/openapi
 import { Route as ApiV1StoresRouteImport } from './routes/api/v1/stores'
 import { Route as ApiWebhooksMarketplaceRouteImport } from './routes/api/webhooks/$marketplace'
 import { Route as ApiWebhooksAsaasRouteImport } from './routes/api/webhooks/asaas'
+import { Route as ApiWebhooksAsaasAssinaturaRouteImport } from './routes/api/webhooks/asaas-assinatura'
+import { Route as ApiWebhooksBlingRouteImport } from './routes/api/webhooks/bling'
 import { Route as ApiWebhooksMercadoPagoRouteImport } from './routes/api/webhooks/mercado-pago'
-import { Route as ApiWebhooksStripeRouteImport } from './routes/api/webhooks/stripe'
+import { Route as FornecedorConviteIndexRouteImport } from './routes/fornecedor/convite/index'
+import { Route as FornecedorConviteTokenRouteImport } from './routes/fornecedor/convite/$token'
 import { Route as FornecedorPedidoTokenRouteImport } from './routes/fornecedor/pedido/$token'
 import { Route as AppAdminChamadosIndexRouteImport } from './routes/_app/admin/chamados/index'
 import { Route as AppAdminChamadosTicketIdRouteImport } from './routes/_app/admin/chamados/$ticketId'
@@ -103,6 +110,9 @@ import { Route as ApiAdminExportarAuditoriaRouteImport } from './routes/api/admi
 import { Route as ApiAdminExportarChamadosRouteImport } from './routes/api/admin/exportar/chamados'
 import { Route as ApiAdminExportarClientesRouteImport } from './routes/api/admin/exportar/clientes'
 import { Route as ApiAdminExportarEquipeRouteImport } from './routes/api/admin/exportar/equipe'
+import { Route as ApiDevolucoesClaimIdMotivoRouteImport } from './routes/api/devolucoes/$claimId/motivo'
+import { Route as ApiDevolucoesClaimIdRespostaRouteImport } from './routes/api/devolucoes/$claimId/resposta'
+import { Route as ApiDevolucoesFotosPhotoIdRouteImport } from './routes/api/devolucoes/fotos/$photoId'
 import { Route as ApiFornecedorExportarCatalogoRouteImport } from './routes/api/fornecedor/exportar/catalogo'
 import { Route as ApiFornecedorExportarPedidosRouteImport } from './routes/api/fornecedor/exportar/pedidos'
 import { Route as ApiFornecedorExportarProdutosRouteImport } from './routes/api/fornecedor/exportar/produtos'
@@ -110,6 +120,7 @@ import { Route as ApiFornecedorProdutosImagensRouteImport } from './routes/api/f
 import { Route as ApiFornecedorVendasExportarRouteImport } from './routes/api/fornecedor/vendas/exportar'
 import { Route as ApiIntegracoesBlingConectarRouteImport } from './routes/api/integracoes/bling/conectar'
 import { Route as ApiIntegracoesBlingRetornoRouteImport } from './routes/api/integracoes/bling/retorno'
+import { Route as ApiIntegracoesBlingRevendaRouteImport } from './routes/api/integracoes/bling/revenda'
 import { Route as ApiIntegracoesMercadoPagoConectarRouteImport } from './routes/api/integracoes/mercado-pago/conectar'
 import { Route as ApiIntegracoesMercadoPagoRetornoRouteImport } from './routes/api/integracoes/mercado-pago/retorno'
 import { Route as ApiOauthMarketplaceCallbackRouteImport } from './routes/api/oauth/$marketplace/callback'
@@ -155,6 +166,11 @@ const AuthRouteRoute = AuthRouteRouteImport.update({
 const AceitarTermosRoute = AceitarTermosRouteImport.update({
   id: '/aceitar-termos',
   path: '/aceitar-termos',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const AssinarContratoRoute = AssinarContratoRouteImport.update({
+  id: '/assinar-contrato',
+  path: '/assinar-contrato',
   getParentRoute: () => rootRouteImport,
 } as any)
 const OutroPerfilRoute = OutroPerfilRouteImport.update({
@@ -222,6 +238,11 @@ const AppPerfilRoute = AppPerfilRouteImport.update({
   path: '/perfil',
   getParentRoute: () => AppRouteRoute,
 } as any)
+const AppPoliticaDeDevolucaoRoute = AppPoliticaDeDevolucaoRouteImport.update({
+  id: '/politica-de-devolucao',
+  path: '/politica-de-devolucao',
+  getParentRoute: () => AppRouteRoute,
+} as any)
 const AppProductsRoute = AppProductsRouteImport.update({
   id: '/products',
   path: '/products',
@@ -260,6 +281,16 @@ const ApiHealthRoute = ApiHealthRouteImport.update({
 const ApiVersionRoute = ApiVersionRouteImport.update({
   id: '/api/version',
   path: '/api/version',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ContratoFornecedorRoute = ContratoFornecedorRouteImport.update({
+  id: '/contrato/fornecedor',
+  path: '/contrato/fornecedor',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ContratoVendedorRoute = ContratoVendedorRouteImport.update({
+  id: '/contrato/vendedor',
+  path: '/contrato/vendedor',
   getParentRoute: () => rootRouteImport,
 } as any)
 const RastreioTokenRoute = RastreioTokenRouteImport.update({
@@ -454,14 +485,30 @@ const ApiWebhooksAsaasRoute = ApiWebhooksAsaasRouteImport.update({
   path: '/api/webhooks/asaas',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiWebhooksAsaasAssinaturaRoute =
+  ApiWebhooksAsaasAssinaturaRouteImport.update({
+    id: '/api/webhooks/asaas-assinatura',
+    path: '/api/webhooks/asaas-assinatura',
+    getParentRoute: () => rootRouteImport,
+  } as any)
+const ApiWebhooksBlingRoute = ApiWebhooksBlingRouteImport.update({
+  id: '/api/webhooks/bling',
+  path: '/api/webhooks/bling',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ApiWebhooksMercadoPagoRoute = ApiWebhooksMercadoPagoRouteImport.update({
   id: '/api/webhooks/mercado-pago',
   path: '/api/webhooks/mercado-pago',
   getParentRoute: () => rootRouteImport,
 } as any)
-const ApiWebhooksStripeRoute = ApiWebhooksStripeRouteImport.update({
-  id: '/api/webhooks/stripe',
-  path: '/api/webhooks/stripe',
+const FornecedorConviteIndexRoute = FornecedorConviteIndexRouteImport.update({
+  id: '/fornecedor/convite/',
+  path: '/fornecedor/convite/',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const FornecedorConviteTokenRoute = FornecedorConviteTokenRouteImport.update({
+  id: '/fornecedor/convite/$token',
+  path: '/fornecedor/convite/$token',
   getParentRoute: () => rootRouteImport,
 } as any)
 const FornecedorPedidoTokenRoute = FornecedorPedidoTokenRouteImport.update({
@@ -632,6 +679,24 @@ const ApiAdminExportarEquipeRoute = ApiAdminExportarEquipeRouteImport.update({
   path: '/api/admin/exportar/equipe',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiDevolucoesClaimIdMotivoRoute =
+  ApiDevolucoesClaimIdMotivoRouteImport.update({
+    id: '/api/devolucoes/$claimId/motivo',
+    path: '/api/devolucoes/$claimId/motivo',
+    getParentRoute: () => rootRouteImport,
+  } as any)
+const ApiDevolucoesClaimIdRespostaRoute =
+  ApiDevolucoesClaimIdRespostaRouteImport.update({
+    id: '/api/devolucoes/$claimId/resposta',
+    path: '/api/devolucoes/$claimId/resposta',
+    getParentRoute: () => rootRouteImport,
+  } as any)
+const ApiDevolucoesFotosPhotoIdRoute =
+  ApiDevolucoesFotosPhotoIdRouteImport.update({
+    id: '/api/devolucoes/fotos/$photoId',
+    path: '/api/devolucoes/fotos/$photoId',
+    getParentRoute: () => rootRouteImport,
+  } as any)
 const ApiFornecedorExportarCatalogoRoute =
   ApiFornecedorExportarCatalogoRouteImport.update({
     id: '/api/fornecedor/exportar/catalogo',
@@ -672,6 +737,12 @@ const ApiIntegracoesBlingRetornoRoute =
   ApiIntegracoesBlingRetornoRouteImport.update({
     id: '/api/integracoes/bling/retorno',
     path: '/api/integracoes/bling/retorno',
+    getParentRoute: () => rootRouteImport,
+  } as any)
+const ApiIntegracoesBlingRevendaRoute =
+  ApiIntegracoesBlingRevendaRouteImport.update({
+    id: '/api/integracoes/bling/revenda',
+    path: '/api/integracoes/bling/revenda',
     getParentRoute: () => rootRouteImport,
   } as any)
 const ApiIntegracoesMercadoPagoConectarRoute =
@@ -840,6 +911,7 @@ const ApiV1WebhookEndpointsEndpointIdDeliveriesRoute =
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/aceitar-termos': typeof AceitarTermosRoute
+  '/assinar-contrato': typeof AssinarContratoRoute
   '/outro-perfil': typeof OutroPerfilRoute
   '/privacidade': typeof PrivacidadeRoute
   '/termos': typeof TermosRoute
@@ -853,6 +925,7 @@ export interface FileRoutesByFullPath {
   '/lojas': typeof AppLojasRoute
   '/onboarding': typeof AppOnboardingRoute
   '/perfil': typeof AppPerfilRoute
+  '/politica-de-devolucao': typeof AppPoliticaDeDevolucaoRoute
   '/products': typeof AppProductsRoute
   '/cadastro': typeof AuthCadastroRoute
   '/confirme-seu-email': typeof AuthConfirmeSeuEmailRoute
@@ -861,6 +934,8 @@ export interface FileRoutesByFullPath {
   '/redefinir-senha': typeof AuthRedefinirSenhaRoute
   '/api/health': typeof ApiHealthRoute
   '/api/version': typeof ApiVersionRoute
+  '/contrato/fornecedor': typeof ContratoFornecedorRoute
+  '/contrato/vendedor': typeof ContratoVendedorRoute
   '/rastreio/$token': typeof RastreioTokenRoute
   '/admin/clientes': typeof AppAdminClientesRouteRouteWithChildren
   '/admin/problemas': typeof AppAdminProblemasRouteRouteWithChildren
@@ -895,13 +970,16 @@ export interface FileRoutesByFullPath {
   '/api/v1/stores': typeof ApiV1StoresRoute
   '/api/webhooks/$marketplace': typeof ApiWebhooksMarketplaceRoute
   '/api/webhooks/asaas': typeof ApiWebhooksAsaasRoute
+  '/api/webhooks/asaas-assinatura': typeof ApiWebhooksAsaasAssinaturaRoute
+  '/api/webhooks/bling': typeof ApiWebhooksBlingRoute
   '/api/webhooks/mercado-pago': typeof ApiWebhooksMercadoPagoRoute
-  '/api/webhooks/stripe': typeof ApiWebhooksStripeRoute
+  '/fornecedor/convite/$token': typeof FornecedorConviteTokenRoute
   '/fornecedor/pedido/$token': typeof FornecedorPedidoTokenRoute
   '/fornecedores/': typeof AppFornecedoresIndexRoute
   '/pedidos/': typeof AppPedidosIndexRoute
   '/publicacoes/': typeof AppPublicacoesIndexRoute
   '/suporte/': typeof AppSuporteIndexRoute
+  '/fornecedor/convite/': typeof FornecedorConviteIndexRoute
   '/admin/chamados/$ticketId': typeof AppAdminChamadosTicketIdRoute
   '/admin/chamados/metricas': typeof AppAdminChamadosMetricasRoute
   '/admin/clientes/$userId': typeof AppAdminClientesUserIdRoute
@@ -924,6 +1002,9 @@ export interface FileRoutesByFullPath {
   '/api/admin/exportar/chamados': typeof ApiAdminExportarChamadosRoute
   '/api/admin/exportar/clientes': typeof ApiAdminExportarClientesRoute
   '/api/admin/exportar/equipe': typeof ApiAdminExportarEquipeRoute
+  '/api/devolucoes/$claimId/motivo': typeof ApiDevolucoesClaimIdMotivoRoute
+  '/api/devolucoes/$claimId/resposta': typeof ApiDevolucoesClaimIdRespostaRoute
+  '/api/devolucoes/fotos/$photoId': typeof ApiDevolucoesFotosPhotoIdRoute
   '/api/fornecedor/exportar/catalogo': typeof ApiFornecedorExportarCatalogoRoute
   '/api/fornecedor/exportar/pedidos': typeof ApiFornecedorExportarPedidosRoute
   '/api/fornecedor/exportar/produtos': typeof ApiFornecedorExportarProdutosRoute
@@ -931,6 +1012,7 @@ export interface FileRoutesByFullPath {
   '/api/fornecedor/vendas/exportar': typeof ApiFornecedorVendasExportarRoute
   '/api/integracoes/bling/conectar': typeof ApiIntegracoesBlingConectarRoute
   '/api/integracoes/bling/retorno': typeof ApiIntegracoesBlingRetornoRoute
+  '/api/integracoes/bling/revenda': typeof ApiIntegracoesBlingRevendaRoute
   '/api/integracoes/mercado-pago/conectar': typeof ApiIntegracoesMercadoPagoConectarRoute
   '/api/integracoes/mercado-pago/retorno': typeof ApiIntegracoesMercadoPagoRetornoRoute
   '/api/oauth/$marketplace/callback': typeof ApiOauthMarketplaceCallbackRoute
@@ -969,6 +1051,7 @@ export interface FileRoutesByFullPath {
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/aceitar-termos': typeof AceitarTermosRoute
+  '/assinar-contrato': typeof AssinarContratoRoute
   '/outro-perfil': typeof OutroPerfilRoute
   '/privacidade': typeof PrivacidadeRoute
   '/termos': typeof TermosRoute
@@ -981,6 +1064,7 @@ export interface FileRoutesByTo {
   '/lojas': typeof AppLojasRoute
   '/onboarding': typeof AppOnboardingRoute
   '/perfil': typeof AppPerfilRoute
+  '/politica-de-devolucao': typeof AppPoliticaDeDevolucaoRoute
   '/products': typeof AppProductsRoute
   '/cadastro': typeof AuthCadastroRoute
   '/confirme-seu-email': typeof AuthConfirmeSeuEmailRoute
@@ -989,6 +1073,8 @@ export interface FileRoutesByTo {
   '/redefinir-senha': typeof AuthRedefinirSenhaRoute
   '/api/health': typeof ApiHealthRoute
   '/api/version': typeof ApiVersionRoute
+  '/contrato/fornecedor': typeof ContratoFornecedorRoute
+  '/contrato/vendedor': typeof ContratoVendedorRoute
   '/rastreio/$token': typeof RastreioTokenRoute
   '/admin/auditoria': typeof AppAdminAuditoriaRoute
   '/admin/avaliacoes': typeof AppAdminAvaliacoesRoute
@@ -1020,13 +1106,16 @@ export interface FileRoutesByTo {
   '/api/v1/stores': typeof ApiV1StoresRoute
   '/api/webhooks/$marketplace': typeof ApiWebhooksMarketplaceRoute
   '/api/webhooks/asaas': typeof ApiWebhooksAsaasRoute
+  '/api/webhooks/asaas-assinatura': typeof ApiWebhooksAsaasAssinaturaRoute
+  '/api/webhooks/bling': typeof ApiWebhooksBlingRoute
   '/api/webhooks/mercado-pago': typeof ApiWebhooksMercadoPagoRoute
-  '/api/webhooks/stripe': typeof ApiWebhooksStripeRoute
+  '/fornecedor/convite/$token': typeof FornecedorConviteTokenRoute
   '/fornecedor/pedido/$token': typeof FornecedorPedidoTokenRoute
   '/fornecedores': typeof AppFornecedoresIndexRoute
   '/pedidos': typeof AppPedidosIndexRoute
   '/publicacoes': typeof AppPublicacoesIndexRoute
   '/suporte': typeof AppSuporteIndexRoute
+  '/fornecedor/convite': typeof FornecedorConviteIndexRoute
   '/admin/chamados/$ticketId': typeof AppAdminChamadosTicketIdRoute
   '/admin/chamados/metricas': typeof AppAdminChamadosMetricasRoute
   '/admin/clientes/$userId': typeof AppAdminClientesUserIdRoute
@@ -1049,6 +1138,9 @@ export interface FileRoutesByTo {
   '/api/admin/exportar/chamados': typeof ApiAdminExportarChamadosRoute
   '/api/admin/exportar/clientes': typeof ApiAdminExportarClientesRoute
   '/api/admin/exportar/equipe': typeof ApiAdminExportarEquipeRoute
+  '/api/devolucoes/$claimId/motivo': typeof ApiDevolucoesClaimIdMotivoRoute
+  '/api/devolucoes/$claimId/resposta': typeof ApiDevolucoesClaimIdRespostaRoute
+  '/api/devolucoes/fotos/$photoId': typeof ApiDevolucoesFotosPhotoIdRoute
   '/api/fornecedor/exportar/catalogo': typeof ApiFornecedorExportarCatalogoRoute
   '/api/fornecedor/exportar/pedidos': typeof ApiFornecedorExportarPedidosRoute
   '/api/fornecedor/exportar/produtos': typeof ApiFornecedorExportarProdutosRoute
@@ -1056,6 +1148,7 @@ export interface FileRoutesByTo {
   '/api/fornecedor/vendas/exportar': typeof ApiFornecedorVendasExportarRoute
   '/api/integracoes/bling/conectar': typeof ApiIntegracoesBlingConectarRoute
   '/api/integracoes/bling/retorno': typeof ApiIntegracoesBlingRetornoRoute
+  '/api/integracoes/bling/revenda': typeof ApiIntegracoesBlingRevendaRoute
   '/api/integracoes/mercado-pago/conectar': typeof ApiIntegracoesMercadoPagoConectarRoute
   '/api/integracoes/mercado-pago/retorno': typeof ApiIntegracoesMercadoPagoRetornoRoute
   '/api/oauth/$marketplace/callback': typeof ApiOauthMarketplaceCallbackRoute
@@ -1097,6 +1190,7 @@ export interface FileRoutesById {
   '/_app': typeof AppRouteRouteWithChildren
   '/_auth': typeof AuthRouteRouteWithChildren
   '/aceitar-termos': typeof AceitarTermosRoute
+  '/assinar-contrato': typeof AssinarContratoRoute
   '/outro-perfil': typeof OutroPerfilRoute
   '/privacidade': typeof PrivacidadeRoute
   '/termos': typeof TermosRoute
@@ -1110,6 +1204,7 @@ export interface FileRoutesById {
   '/_app/lojas': typeof AppLojasRoute
   '/_app/onboarding': typeof AppOnboardingRoute
   '/_app/perfil': typeof AppPerfilRoute
+  '/_app/politica-de-devolucao': typeof AppPoliticaDeDevolucaoRoute
   '/_app/products': typeof AppProductsRoute
   '/_auth/cadastro': typeof AuthCadastroRoute
   '/_auth/confirme-seu-email': typeof AuthConfirmeSeuEmailRoute
@@ -1118,6 +1213,8 @@ export interface FileRoutesById {
   '/_auth/redefinir-senha': typeof AuthRedefinirSenhaRoute
   '/api/health': typeof ApiHealthRoute
   '/api/version': typeof ApiVersionRoute
+  '/contrato/fornecedor': typeof ContratoFornecedorRoute
+  '/contrato/vendedor': typeof ContratoVendedorRoute
   '/rastreio/$token': typeof RastreioTokenRoute
   '/_app/admin/clientes': typeof AppAdminClientesRouteRouteWithChildren
   '/_app/admin/problemas': typeof AppAdminProblemasRouteRouteWithChildren
@@ -1152,13 +1249,16 @@ export interface FileRoutesById {
   '/api/v1/stores': typeof ApiV1StoresRoute
   '/api/webhooks/$marketplace': typeof ApiWebhooksMarketplaceRoute
   '/api/webhooks/asaas': typeof ApiWebhooksAsaasRoute
+  '/api/webhooks/asaas-assinatura': typeof ApiWebhooksAsaasAssinaturaRoute
+  '/api/webhooks/bling': typeof ApiWebhooksBlingRoute
   '/api/webhooks/mercado-pago': typeof ApiWebhooksMercadoPagoRoute
-  '/api/webhooks/stripe': typeof ApiWebhooksStripeRoute
+  '/fornecedor/convite/$token': typeof FornecedorConviteTokenRoute
   '/fornecedor/pedido/$token': typeof FornecedorPedidoTokenRoute
   '/_app/fornecedores/': typeof AppFornecedoresIndexRoute
   '/_app/pedidos/': typeof AppPedidosIndexRoute
   '/_app/publicacoes/': typeof AppPublicacoesIndexRoute
   '/_app/suporte/': typeof AppSuporteIndexRoute
+  '/fornecedor/convite/': typeof FornecedorConviteIndexRoute
   '/_app/admin/chamados/$ticketId': typeof AppAdminChamadosTicketIdRoute
   '/_app/admin/chamados/metricas': typeof AppAdminChamadosMetricasRoute
   '/_app/admin/clientes/$userId': typeof AppAdminClientesUserIdRoute
@@ -1181,6 +1281,9 @@ export interface FileRoutesById {
   '/api/admin/exportar/chamados': typeof ApiAdminExportarChamadosRoute
   '/api/admin/exportar/clientes': typeof ApiAdminExportarClientesRoute
   '/api/admin/exportar/equipe': typeof ApiAdminExportarEquipeRoute
+  '/api/devolucoes/$claimId/motivo': typeof ApiDevolucoesClaimIdMotivoRoute
+  '/api/devolucoes/$claimId/resposta': typeof ApiDevolucoesClaimIdRespostaRoute
+  '/api/devolucoes/fotos/$photoId': typeof ApiDevolucoesFotosPhotoIdRoute
   '/api/fornecedor/exportar/catalogo': typeof ApiFornecedorExportarCatalogoRoute
   '/api/fornecedor/exportar/pedidos': typeof ApiFornecedorExportarPedidosRoute
   '/api/fornecedor/exportar/produtos': typeof ApiFornecedorExportarProdutosRoute
@@ -1188,6 +1291,7 @@ export interface FileRoutesById {
   '/api/fornecedor/vendas/exportar': typeof ApiFornecedorVendasExportarRoute
   '/api/integracoes/bling/conectar': typeof ApiIntegracoesBlingConectarRoute
   '/api/integracoes/bling/retorno': typeof ApiIntegracoesBlingRetornoRoute
+  '/api/integracoes/bling/revenda': typeof ApiIntegracoesBlingRevendaRoute
   '/api/integracoes/mercado-pago/conectar': typeof ApiIntegracoesMercadoPagoConectarRoute
   '/api/integracoes/mercado-pago/retorno': typeof ApiIntegracoesMercadoPagoRetornoRoute
   '/api/oauth/$marketplace/callback': typeof ApiOauthMarketplaceCallbackRoute
@@ -1228,6 +1332,7 @@ export interface FileRouteTypes {
   fullPaths:
     | '/'
     | '/aceitar-termos'
+    | '/assinar-contrato'
     | '/outro-perfil'
     | '/privacidade'
     | '/termos'
@@ -1241,6 +1346,7 @@ export interface FileRouteTypes {
     | '/lojas'
     | '/onboarding'
     | '/perfil'
+    | '/politica-de-devolucao'
     | '/products'
     | '/cadastro'
     | '/confirme-seu-email'
@@ -1249,6 +1355,8 @@ export interface FileRouteTypes {
     | '/redefinir-senha'
     | '/api/health'
     | '/api/version'
+    | '/contrato/fornecedor'
+    | '/contrato/vendedor'
     | '/rastreio/$token'
     | '/admin/clientes'
     | '/admin/problemas'
@@ -1283,13 +1391,16 @@ export interface FileRouteTypes {
     | '/api/v1/stores'
     | '/api/webhooks/$marketplace'
     | '/api/webhooks/asaas'
+    | '/api/webhooks/asaas-assinatura'
+    | '/api/webhooks/bling'
     | '/api/webhooks/mercado-pago'
-    | '/api/webhooks/stripe'
+    | '/fornecedor/convite/$token'
     | '/fornecedor/pedido/$token'
     | '/fornecedores/'
     | '/pedidos/'
     | '/publicacoes/'
     | '/suporte/'
+    | '/fornecedor/convite/'
     | '/admin/chamados/$ticketId'
     | '/admin/chamados/metricas'
     | '/admin/clientes/$userId'
@@ -1312,6 +1423,9 @@ export interface FileRouteTypes {
     | '/api/admin/exportar/chamados'
     | '/api/admin/exportar/clientes'
     | '/api/admin/exportar/equipe'
+    | '/api/devolucoes/$claimId/motivo'
+    | '/api/devolucoes/$claimId/resposta'
+    | '/api/devolucoes/fotos/$photoId'
     | '/api/fornecedor/exportar/catalogo'
     | '/api/fornecedor/exportar/pedidos'
     | '/api/fornecedor/exportar/produtos'
@@ -1319,6 +1433,7 @@ export interface FileRouteTypes {
     | '/api/fornecedor/vendas/exportar'
     | '/api/integracoes/bling/conectar'
     | '/api/integracoes/bling/retorno'
+    | '/api/integracoes/bling/revenda'
     | '/api/integracoes/mercado-pago/conectar'
     | '/api/integracoes/mercado-pago/retorno'
     | '/api/oauth/$marketplace/callback'
@@ -1357,6 +1472,7 @@ export interface FileRouteTypes {
   to:
     | '/'
     | '/aceitar-termos'
+    | '/assinar-contrato'
     | '/outro-perfil'
     | '/privacidade'
     | '/termos'
@@ -1369,6 +1485,7 @@ export interface FileRouteTypes {
     | '/lojas'
     | '/onboarding'
     | '/perfil'
+    | '/politica-de-devolucao'
     | '/products'
     | '/cadastro'
     | '/confirme-seu-email'
@@ -1377,6 +1494,8 @@ export interface FileRouteTypes {
     | '/redefinir-senha'
     | '/api/health'
     | '/api/version'
+    | '/contrato/fornecedor'
+    | '/contrato/vendedor'
     | '/rastreio/$token'
     | '/admin/auditoria'
     | '/admin/avaliacoes'
@@ -1408,13 +1527,16 @@ export interface FileRouteTypes {
     | '/api/v1/stores'
     | '/api/webhooks/$marketplace'
     | '/api/webhooks/asaas'
+    | '/api/webhooks/asaas-assinatura'
+    | '/api/webhooks/bling'
     | '/api/webhooks/mercado-pago'
-    | '/api/webhooks/stripe'
+    | '/fornecedor/convite/$token'
     | '/fornecedor/pedido/$token'
     | '/fornecedores'
     | '/pedidos'
     | '/publicacoes'
     | '/suporte'
+    | '/fornecedor/convite'
     | '/admin/chamados/$ticketId'
     | '/admin/chamados/metricas'
     | '/admin/clientes/$userId'
@@ -1437,6 +1559,9 @@ export interface FileRouteTypes {
     | '/api/admin/exportar/chamados'
     | '/api/admin/exportar/clientes'
     | '/api/admin/exportar/equipe'
+    | '/api/devolucoes/$claimId/motivo'
+    | '/api/devolucoes/$claimId/resposta'
+    | '/api/devolucoes/fotos/$photoId'
     | '/api/fornecedor/exportar/catalogo'
     | '/api/fornecedor/exportar/pedidos'
     | '/api/fornecedor/exportar/produtos'
@@ -1444,6 +1569,7 @@ export interface FileRouteTypes {
     | '/api/fornecedor/vendas/exportar'
     | '/api/integracoes/bling/conectar'
     | '/api/integracoes/bling/retorno'
+    | '/api/integracoes/bling/revenda'
     | '/api/integracoes/mercado-pago/conectar'
     | '/api/integracoes/mercado-pago/retorno'
     | '/api/oauth/$marketplace/callback'
@@ -1484,6 +1610,7 @@ export interface FileRouteTypes {
     | '/_app'
     | '/_auth'
     | '/aceitar-termos'
+    | '/assinar-contrato'
     | '/outro-perfil'
     | '/privacidade'
     | '/termos'
@@ -1497,6 +1624,7 @@ export interface FileRouteTypes {
     | '/_app/lojas'
     | '/_app/onboarding'
     | '/_app/perfil'
+    | '/_app/politica-de-devolucao'
     | '/_app/products'
     | '/_auth/cadastro'
     | '/_auth/confirme-seu-email'
@@ -1505,6 +1633,8 @@ export interface FileRouteTypes {
     | '/_auth/redefinir-senha'
     | '/api/health'
     | '/api/version'
+    | '/contrato/fornecedor'
+    | '/contrato/vendedor'
     | '/rastreio/$token'
     | '/_app/admin/clientes'
     | '/_app/admin/problemas'
@@ -1539,13 +1669,16 @@ export interface FileRouteTypes {
     | '/api/v1/stores'
     | '/api/webhooks/$marketplace'
     | '/api/webhooks/asaas'
+    | '/api/webhooks/asaas-assinatura'
+    | '/api/webhooks/bling'
     | '/api/webhooks/mercado-pago'
-    | '/api/webhooks/stripe'
+    | '/fornecedor/convite/$token'
     | '/fornecedor/pedido/$token'
     | '/_app/fornecedores/'
     | '/_app/pedidos/'
     | '/_app/publicacoes/'
     | '/_app/suporte/'
+    | '/fornecedor/convite/'
     | '/_app/admin/chamados/$ticketId'
     | '/_app/admin/chamados/metricas'
     | '/_app/admin/clientes/$userId'
@@ -1568,6 +1701,9 @@ export interface FileRouteTypes {
     | '/api/admin/exportar/chamados'
     | '/api/admin/exportar/clientes'
     | '/api/admin/exportar/equipe'
+    | '/api/devolucoes/$claimId/motivo'
+    | '/api/devolucoes/$claimId/resposta'
+    | '/api/devolucoes/fotos/$photoId'
     | '/api/fornecedor/exportar/catalogo'
     | '/api/fornecedor/exportar/pedidos'
     | '/api/fornecedor/exportar/produtos'
@@ -1575,6 +1711,7 @@ export interface FileRouteTypes {
     | '/api/fornecedor/vendas/exportar'
     | '/api/integracoes/bling/conectar'
     | '/api/integracoes/bling/retorno'
+    | '/api/integracoes/bling/revenda'
     | '/api/integracoes/mercado-pago/conectar'
     | '/api/integracoes/mercado-pago/retorno'
     | '/api/oauth/$marketplace/callback'
@@ -1616,11 +1753,14 @@ export interface RootRouteChildren {
   AppRouteRoute: typeof AppRouteRouteWithChildren
   AuthRouteRoute: typeof AuthRouteRouteWithChildren
   AceitarTermosRoute: typeof AceitarTermosRoute
+  AssinarContratoRoute: typeof AssinarContratoRoute
   OutroPerfilRoute: typeof OutroPerfilRoute
   PrivacidadeRoute: typeof PrivacidadeRoute
   TermosRoute: typeof TermosRoute
   ApiHealthRoute: typeof ApiHealthRoute
   ApiVersionRoute: typeof ApiVersionRoute
+  ContratoFornecedorRoute: typeof ContratoFornecedorRoute
+  ContratoVendedorRoute: typeof ContratoVendedorRoute
   RastreioTokenRoute: typeof RastreioTokenRoute
   ApiAdminProductImagesRoute: typeof ApiAdminProductImagesRoute
   ApiAuthSplatRoute: typeof ApiAuthSplatRoute
@@ -1636,13 +1776,19 @@ export interface RootRouteChildren {
   ApiV1StoresRoute: typeof ApiV1StoresRoute
   ApiWebhooksMarketplaceRoute: typeof ApiWebhooksMarketplaceRoute
   ApiWebhooksAsaasRoute: typeof ApiWebhooksAsaasRoute
+  ApiWebhooksAsaasAssinaturaRoute: typeof ApiWebhooksAsaasAssinaturaRoute
+  ApiWebhooksBlingRoute: typeof ApiWebhooksBlingRoute
   ApiWebhooksMercadoPagoRoute: typeof ApiWebhooksMercadoPagoRoute
-  ApiWebhooksStripeRoute: typeof ApiWebhooksStripeRoute
+  FornecedorConviteTokenRoute: typeof FornecedorConviteTokenRoute
   FornecedorPedidoTokenRoute: typeof FornecedorPedidoTokenRoute
+  FornecedorConviteIndexRoute: typeof FornecedorConviteIndexRoute
   ApiAdminExportarAuditoriaRoute: typeof ApiAdminExportarAuditoriaRoute
   ApiAdminExportarChamadosRoute: typeof ApiAdminExportarChamadosRoute
   ApiAdminExportarClientesRoute: typeof ApiAdminExportarClientesRoute
   ApiAdminExportarEquipeRoute: typeof ApiAdminExportarEquipeRoute
+  ApiDevolucoesClaimIdMotivoRoute: typeof ApiDevolucoesClaimIdMotivoRoute
+  ApiDevolucoesClaimIdRespostaRoute: typeof ApiDevolucoesClaimIdRespostaRoute
+  ApiDevolucoesFotosPhotoIdRoute: typeof ApiDevolucoesFotosPhotoIdRoute
   ApiFornecedorExportarCatalogoRoute: typeof ApiFornecedorExportarCatalogoRoute
   ApiFornecedorExportarPedidosRoute: typeof ApiFornecedorExportarPedidosRoute
   ApiFornecedorExportarProdutosRoute: typeof ApiFornecedorExportarProdutosRoute
@@ -1650,6 +1796,7 @@ export interface RootRouteChildren {
   ApiFornecedorVendasExportarRoute: typeof ApiFornecedorVendasExportarRoute
   ApiIntegracoesBlingConectarRoute: typeof ApiIntegracoesBlingConectarRoute
   ApiIntegracoesBlingRetornoRoute: typeof ApiIntegracoesBlingRetornoRoute
+  ApiIntegracoesBlingRevendaRoute: typeof ApiIntegracoesBlingRevendaRoute
   ApiIntegracoesMercadoPagoConectarRoute: typeof ApiIntegracoesMercadoPagoConectarRoute
   ApiIntegracoesMercadoPagoRetornoRoute: typeof ApiIntegracoesMercadoPagoRetornoRoute
   ApiOauthMarketplaceCallbackRoute: typeof ApiOauthMarketplaceCallbackRoute
@@ -1703,6 +1850,13 @@ declare module '@tanstack/react-router' {
       path: '/aceitar-termos'
       fullPath: '/aceitar-termos'
       preLoaderRoute: typeof AceitarTermosRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/assinar-contrato': {
+      id: '/assinar-contrato'
+      path: '/assinar-contrato'
+      fullPath: '/assinar-contrato'
+      preLoaderRoute: typeof AssinarContratoRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/outro-perfil': {
@@ -1796,6 +1950,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppPerfilRouteImport
       parentRoute: typeof AppRouteRoute
     }
+    '/_app/politica-de-devolucao': {
+      id: '/_app/politica-de-devolucao'
+      path: '/politica-de-devolucao'
+      fullPath: '/politica-de-devolucao'
+      preLoaderRoute: typeof AppPoliticaDeDevolucaoRouteImport
+      parentRoute: typeof AppRouteRoute
+    }
     '/_app/products': {
       id: '/_app/products'
       path: '/products'
@@ -1850,6 +2011,20 @@ declare module '@tanstack/react-router' {
       path: '/api/version'
       fullPath: '/api/version'
       preLoaderRoute: typeof ApiVersionRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/contrato/fornecedor': {
+      id: '/contrato/fornecedor'
+      path: '/contrato/fornecedor'
+      fullPath: '/contrato/fornecedor'
+      preLoaderRoute: typeof ContratoFornecedorRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/contrato/vendedor': {
+      id: '/contrato/vendedor'
+      path: '/contrato/vendedor'
+      fullPath: '/contrato/vendedor'
+      preLoaderRoute: typeof ContratoVendedorRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/rastreio/$token': {
@@ -2118,6 +2293,20 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiWebhooksAsaasRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/webhooks/asaas-assinatura': {
+      id: '/api/webhooks/asaas-assinatura'
+      path: '/api/webhooks/asaas-assinatura'
+      fullPath: '/api/webhooks/asaas-assinatura'
+      preLoaderRoute: typeof ApiWebhooksAsaasAssinaturaRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/webhooks/bling': {
+      id: '/api/webhooks/bling'
+      path: '/api/webhooks/bling'
+      fullPath: '/api/webhooks/bling'
+      preLoaderRoute: typeof ApiWebhooksBlingRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/webhooks/mercado-pago': {
       id: '/api/webhooks/mercado-pago'
       path: '/api/webhooks/mercado-pago'
@@ -2125,11 +2314,18 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiWebhooksMercadoPagoRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/api/webhooks/stripe': {
-      id: '/api/webhooks/stripe'
-      path: '/api/webhooks/stripe'
-      fullPath: '/api/webhooks/stripe'
-      preLoaderRoute: typeof ApiWebhooksStripeRouteImport
+    '/fornecedor/convite/': {
+      id: '/fornecedor/convite/'
+      path: '/fornecedor/convite'
+      fullPath: '/fornecedor/convite/'
+      preLoaderRoute: typeof FornecedorConviteIndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/fornecedor/convite/$token': {
+      id: '/fornecedor/convite/$token'
+      path: '/fornecedor/convite/$token'
+      fullPath: '/fornecedor/convite/$token'
+      preLoaderRoute: typeof FornecedorConviteTokenRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/fornecedor/pedido/$token': {
@@ -2335,6 +2531,27 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiAdminExportarEquipeRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/devolucoes/$claimId/motivo': {
+      id: '/api/devolucoes/$claimId/motivo'
+      path: '/api/devolucoes/$claimId/motivo'
+      fullPath: '/api/devolucoes/$claimId/motivo'
+      preLoaderRoute: typeof ApiDevolucoesClaimIdMotivoRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/devolucoes/$claimId/resposta': {
+      id: '/api/devolucoes/$claimId/resposta'
+      path: '/api/devolucoes/$claimId/resposta'
+      fullPath: '/api/devolucoes/$claimId/resposta'
+      preLoaderRoute: typeof ApiDevolucoesClaimIdRespostaRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/devolucoes/fotos/$photoId': {
+      id: '/api/devolucoes/fotos/$photoId'
+      path: '/api/devolucoes/fotos/$photoId'
+      fullPath: '/api/devolucoes/fotos/$photoId'
+      preLoaderRoute: typeof ApiDevolucoesFotosPhotoIdRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/fornecedor/exportar/catalogo': {
       id: '/api/fornecedor/exportar/catalogo'
       path: '/api/fornecedor/exportar/catalogo'
@@ -2382,6 +2599,13 @@ declare module '@tanstack/react-router' {
       path: '/api/integracoes/bling/retorno'
       fullPath: '/api/integracoes/bling/retorno'
       preLoaderRoute: typeof ApiIntegracoesBlingRetornoRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/integracoes/bling/revenda': {
+      id: '/api/integracoes/bling/revenda'
+      path: '/api/integracoes/bling/revenda'
+      fullPath: '/api/integracoes/bling/revenda'
+      preLoaderRoute: typeof ApiIntegracoesBlingRevendaRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/api/integracoes/mercado-pago/conectar': {
@@ -2721,6 +2945,7 @@ interface AppRouteRouteChildren {
   AppLojasRoute: typeof AppLojasRoute
   AppOnboardingRoute: typeof AppOnboardingRoute
   AppPerfilRoute: typeof AppPerfilRoute
+  AppPoliticaDeDevolucaoRoute: typeof AppPoliticaDeDevolucaoRoute
   AppProductsRoute: typeof AppProductsRoute
   AppFornecedorPainelRouteRoute: typeof AppFornecedorPainelRouteRouteWithChildren
   AppFinanceiroRelatorioRoute: typeof AppFinanceiroRelatorioRoute
@@ -2750,6 +2975,7 @@ const AppRouteRouteChildren: AppRouteRouteChildren = {
   AppLojasRoute: AppLojasRoute,
   AppOnboardingRoute: AppOnboardingRoute,
   AppPerfilRoute: AppPerfilRoute,
+  AppPoliticaDeDevolucaoRoute: AppPoliticaDeDevolucaoRoute,
   AppProductsRoute: AppProductsRoute,
   AppFornecedorPainelRouteRoute: AppFornecedorPainelRouteRouteWithChildren,
   AppFinanceiroRelatorioRoute: AppFinanceiroRelatorioRoute,
@@ -2811,11 +3037,14 @@ const rootRouteChildren: RootRouteChildren = {
   AppRouteRoute: AppRouteRouteWithChildren,
   AuthRouteRoute: AuthRouteRouteWithChildren,
   AceitarTermosRoute: AceitarTermosRoute,
+  AssinarContratoRoute: AssinarContratoRoute,
   OutroPerfilRoute: OutroPerfilRoute,
   PrivacidadeRoute: PrivacidadeRoute,
   TermosRoute: TermosRoute,
   ApiHealthRoute: ApiHealthRoute,
   ApiVersionRoute: ApiVersionRoute,
+  ContratoFornecedorRoute: ContratoFornecedorRoute,
+  ContratoVendedorRoute: ContratoVendedorRoute,
   RastreioTokenRoute: RastreioTokenRoute,
   ApiAdminProductImagesRoute: ApiAdminProductImagesRoute,
   ApiAuthSplatRoute: ApiAuthSplatRoute,
@@ -2831,13 +3060,19 @@ const rootRouteChildren: RootRouteChildren = {
   ApiV1StoresRoute: ApiV1StoresRoute,
   ApiWebhooksMarketplaceRoute: ApiWebhooksMarketplaceRoute,
   ApiWebhooksAsaasRoute: ApiWebhooksAsaasRoute,
+  ApiWebhooksAsaasAssinaturaRoute: ApiWebhooksAsaasAssinaturaRoute,
+  ApiWebhooksBlingRoute: ApiWebhooksBlingRoute,
   ApiWebhooksMercadoPagoRoute: ApiWebhooksMercadoPagoRoute,
-  ApiWebhooksStripeRoute: ApiWebhooksStripeRoute,
+  FornecedorConviteTokenRoute: FornecedorConviteTokenRoute,
   FornecedorPedidoTokenRoute: FornecedorPedidoTokenRoute,
+  FornecedorConviteIndexRoute: FornecedorConviteIndexRoute,
   ApiAdminExportarAuditoriaRoute: ApiAdminExportarAuditoriaRoute,
   ApiAdminExportarChamadosRoute: ApiAdminExportarChamadosRoute,
   ApiAdminExportarClientesRoute: ApiAdminExportarClientesRoute,
   ApiAdminExportarEquipeRoute: ApiAdminExportarEquipeRoute,
+  ApiDevolucoesClaimIdMotivoRoute: ApiDevolucoesClaimIdMotivoRoute,
+  ApiDevolucoesClaimIdRespostaRoute: ApiDevolucoesClaimIdRespostaRoute,
+  ApiDevolucoesFotosPhotoIdRoute: ApiDevolucoesFotosPhotoIdRoute,
   ApiFornecedorExportarCatalogoRoute: ApiFornecedorExportarCatalogoRoute,
   ApiFornecedorExportarPedidosRoute: ApiFornecedorExportarPedidosRoute,
   ApiFornecedorExportarProdutosRoute: ApiFornecedorExportarProdutosRoute,
@@ -2845,6 +3080,7 @@ const rootRouteChildren: RootRouteChildren = {
   ApiFornecedorVendasExportarRoute: ApiFornecedorVendasExportarRoute,
   ApiIntegracoesBlingConectarRoute: ApiIntegracoesBlingConectarRoute,
   ApiIntegracoesBlingRetornoRoute: ApiIntegracoesBlingRetornoRoute,
+  ApiIntegracoesBlingRevendaRoute: ApiIntegracoesBlingRevendaRoute,
   ApiIntegracoesMercadoPagoConectarRoute:
     ApiIntegracoesMercadoPagoConectarRoute,
   ApiIntegracoesMercadoPagoRetornoRoute: ApiIntegracoesMercadoPagoRetornoRoute,

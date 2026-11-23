@@ -7,7 +7,7 @@ import { retryAsaasProtectionFn } from "@/features/supplier-payments/asaas.funct
 import { asaasReceivingQueryOptions } from "@/features/supplier-payments/asaas.queries";
 import { errorMessage } from "@/lib/errors";
 import { formatAbsoluteTime } from "@/lib/relative-time";
-import { AsaasAccountDialog } from "./asaas-account-dialog";
+import { AsaasAccountDialog, type ContractAccountRule } from "./asaas-account-dialog";
 import type { ButtonEmphasis } from "./receiving-emphasis";
 import { PaymentPill } from "./supplier-payment-badge";
 
@@ -58,7 +58,12 @@ function HowItWorks({ fee }: { fee: string }) {
   );
 }
 
-function OpenCard(props: { supplierId: string; fee: string; emphasis: ButtonEmphasis }) {
+function OpenCard(props: {
+  supplierId: string;
+  fee: string;
+  emphasis: ButtonEmphasis;
+  contractRule: ContractAccountRule | null;
+}) {
   const [open, setOpen] = useState(false);
   return (
     <Shell badge={<PaymentPill tone="neutral">Não aberta</PaymentPill>}>
@@ -69,7 +74,12 @@ function OpenCard(props: { supplierId: string; fee: string; emphasis: ButtonEmph
         </Button>
         <span className="text-sm text-muted-foreground">Leva uns 3 minutos.</span>
       </div>
-      <AsaasAccountDialog supplierId={props.supplierId} open={open} onOpenChange={setOpen} />
+      <AsaasAccountDialog
+        supplierId={props.supplierId}
+        contractRule={props.contractRule}
+        open={open}
+        onOpenChange={setOpen}
+      />
     </Shell>
   );
 }
@@ -222,13 +232,21 @@ export function AsaasReceivingCard(props: {
     return (
       <Shell badge={<PaymentPill tone="neutral">Em breve</PaymentPill>}>
         <p className="text-sm text-muted-foreground">
-          O recebimento com proteção ainda não foi ligado no SellBridge.
+          O recebimento pelo SellBridge ainda não foi ligado. Assim que for, você abre sua conta
+          aqui.
         </p>
       </Shell>
     );
   }
   if (asaas === null) {
-    return <OpenCard supplierId={props.supplierId} fee={props.fee} emphasis={props.emphasis} />;
+    return (
+      <OpenCard
+        supplierId={props.supplierId}
+        fee={props.fee}
+        emphasis={props.emphasis}
+        contractRule={props.view.companyOnly ? { companyCnpj: props.view.companyCnpj } : null}
+      />
+    );
   }
   if (asaas.protectionMissing) {
     return <RetryProtection supplierId={props.supplierId} emphasis={props.emphasis} />;

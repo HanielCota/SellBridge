@@ -150,6 +150,46 @@ describe("Bling client", () => {
     expect(new Headers(retryInit?.headers).get("authorization")).toBe("Bearer first-renewed");
   });
 
+  it("flags the account for a new authorization when Bling refuses a call for a missing permission", async () => {
+    const fetchImplementation = vi.fn<typeof fetch>(async () =>
+      json(403, { error: { type: "FORBIDDEN", message: "insufficient_scope" } }),
+    );
+    const permissionMissing = vi.fn<() => Promise<void>>(async () => {});
+    const { access } = accountAccess();
+
+    const calling = client(fetchImplementation, { ...access, permissionMissing }).getCompanyId();
+
+    await expect(calling).rejects.toThrow("O aplicativo do Bling não tem permissão para esta ação");
+    expect(permissionMissing).toHaveBeenCalledTimes(1);
+  });
+
+  it("does not flag the account when Bling refuses a call for another reason", async () => {
+    const fetchImplementation = vi.fn<typeof fetch>(async () =>
+      json(400, { error: { type: "VALIDATION_ERROR", message: "x" } }),
+    );
+    const permissionMissing = vi.fn<() => Promise<void>>(async () => {});
+    const { access } = accountAccess();
+
+    const calling = client(fetchImplementation, { ...access, permissionMissing }).getCompanyId();
+
+    await expect(calling).rejects.toSatisfy(isMarketplaceError);
+    expect(permissionMissing).not.toHaveBeenCalled();
+  });
+
+  it("still fails with Bling's refusal when flagging the account fails", async () => {
+    const fetchImplementation = vi.fn<typeof fetch>(async () =>
+      json(403, { error: { type: "FORBIDDEN", message: "insufficient_scope" } }),
+    );
+    const permissionMissing = vi.fn<() => Promise<void>>(async () => {
+      throw new Error("database down");
+    });
+    const { access } = accountAccess();
+
+    const calling = client(fetchImplementation, { ...access, permissionMissing }).getCompanyId();
+
+    await expect(calling).rejects.toThrow("O aplicativo do Bling não tem permissão para esta ação");
+  });
+
   it("refreshes before calling when the token is about to expire", async () => {
     const fetchImplementation = vi.fn<typeof fetch>(async () => json(200, { data: simpleProduct }));
     const { access, refresh } = accountAccess(tokens("old", new Date(NOW + 10_000)));

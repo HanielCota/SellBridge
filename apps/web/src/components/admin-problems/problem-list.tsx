@@ -1,5 +1,5 @@
 import type { ProblemListItem } from "@sellbridge/database/repositories";
-import { PROBLEM_AREA_LABELS } from "@sellbridge/shared/problem-areas";
+import { isMoneyProblem, PROBLEM_AREA_LABELS } from "@sellbridge/shared/problem-areas";
 import { CheckCircleIcon, WarningCircleIcon } from "@phosphor-icons/react";
 import type { InfiniteData, UseInfiniteQueryResult } from "@tanstack/react-query";
 import { Link } from "@tanstack/react-router";
@@ -31,6 +31,14 @@ function ProblemWhen({ item }: { item: ProblemListItem }) {
 
 function AreaTag({ item }: { item: ProblemListItem }) {
   return <TonePill tone="muted" showDot={false} label={PROBLEM_AREA_LABELS[item.area]} />;
+}
+
+/** Open refunds and held payments stay on the list until resolved; the tag says why. */
+function MoneyTag({ item }: { item: ProblemListItem }) {
+  if (item.resolvedAt !== null || !isMoneyProblem(item.event)) {
+    return null;
+  }
+  return <TonePill tone="warning" label="Dinheiro esperando a equipe" />;
 }
 
 /** The message opens the detail: the whole problem, its context and "Marcar como resolvido". */
@@ -84,6 +92,7 @@ function ProblemSummary({ item }: { item: ProblemListItem }) {
       <ProblemMessage item={item} />
       <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
         <AreaTag item={item} />
+        <MoneyTag item={item} />
         <ProblemWhen item={item} />
       </div>
     </div>
@@ -115,7 +124,10 @@ function MobileProblemRow({ row }: { row: ProblemListItem }) {
   return (
     <div className="space-y-2">
       <div className="flex items-center justify-between gap-3">
-        <AreaTag item={row} />
+        <div className="flex flex-wrap items-center gap-2">
+          <AreaTag item={row} />
+          <MoneyTag item={row} />
+        </div>
         <span className="text-xs text-muted-foreground tabular-nums">
           {occurrencesLabel(row.occurrences)}
         </span>

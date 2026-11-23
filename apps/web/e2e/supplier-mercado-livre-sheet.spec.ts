@@ -3,6 +3,7 @@ import { member, supplierProducts, suppliers, user } from "@sellbridge/database/
 import { eq } from "drizzle-orm";
 import { e2eDatabase } from "./database";
 import { gotoHydrated, pickBrandNiche, signUpAsSupplier } from "./helpers";
+import { giveTestBrand } from "./supplier-accounts";
 
 /*
  * The product form asks what Mercado Livre shows on the listing: its category for the title and
@@ -118,7 +119,9 @@ test("the product form asks the Mercado Livre category and its own fields", asyn
     timeout: SAVE_TIMEOUT,
   });
   await expect(page.getByText("Bolsas", { exact: true })).toBeVisible();
-  await expect(page.getByLabel("Marca (obrigatório)")).toBeVisible();
+  await expect(page.getByLabel("Modelo (obrigatório)")).toBeVisible();
+  // A missing brand goes as the generic one, so the brand is asked but never required.
+  await expect(page.getByRole("textbox", { name: "Marca", exact: true })).toBeVisible();
   await page.getByRole("combobox", { name: "Gênero" }).click();
   await page.getByRole("option", { name: "Meninas" }).click();
   await page.getByRole("combobox", { name: "É vegano" }).click();
@@ -139,4 +142,72 @@ test("the product form asks the Mercado Livre category and its own fields", asyn
   await expect
     .poll(async () => (await storedProduct(sku))?.categoryId, { timeout: SAVE_TIMEOUT })
     .toBe("MLB1430");
+});
+
+// Regression: the note under the brand and the "no barcode" box under the barcode stretched the
+// grid row, so the input beside each of them sat lower than its neighbor on a computer screen.
+test("keeps side by side sheet inputs on the same line on a computer screen", async ({ page }) => {
+  await page.setViewportSize({ width: 1440, height: 900 });
+  const email = await signUpAsSupplier(page, "Ateliê Bolsas Alinhadas");
+  emails.push(email);
+  await page.getByLabel("Nome da marca").fill("Ateliê Bolsas Alinhadas");
+  await pickBrandNiche(page, "Casa e decoração");
+  await page.getByLabel("Cidade de onde você envia").fill("Cunha");
+  await page.getByRole("button", { name: /^(Cadastrar marca|Salvar)$/ }).click();
+  await expect(page).toHaveURL(/\/fornecedor\/painel\/produtos/);
+
+  await openNewProduct(page, `BOLSA-ALINHADA-${Date.now()}`);
+  await expect(page.getByLabel("Modelo (obrigatório)")).toBeVisible({ timeout: SAVE_TIMEOUT });
+
+  const topOf = async (name: string) =>
+    (await page.getByRole("textbox", { name, exact: true }).boundingBox())?.y;
+  expect(await topOf("Marca")).toBe(await topOf("Modelo (obrigatório)"));
+  expect(await topOf("Código de barras (GTIN)")).toBe(await topOf("Peso da embalagem (g)"));
+});
+
+// Regression: a saved product without a Mercado Livre category got the first guess filled in on
+// opening, which the autosave then wrote, changing an approved product nobody had edited.
+test("opening an approved product without a Mercado Livre category changes nothing", async ({
+  page,
+}) => {
+  const email = await signUpAsSupplier(page, "Ateliê Só Abriu");
+  emails.push(email);
+  const supplierId = await giveTestBrand(database, email, `Ateliê Só Abriu ${Date.now()}`);
+  const [product] = await database
+    .insert(supplierProducts)
+    .values({
+      supplierId,
+      sku: `SO-ABRIU-${Date.now()}`,
+      title: "Bolsinha infantil preta com zíper",
+      description: "Bolsinha de teste, aprovada antes de a ficha do Mercado Livre existir.",
+      costCents: 2500,
+      suggestedPriceCents: 4990,
+      stock: 10,
+      imageUrls: [],
+      reviewStatus: "approved",
+    })
+    .returning({ id: supplierProducts.id });
+  if (product === undefined) {
+    throw new Error("test product not created");
+  }
+  const storedRow = async () =>
+    (await database.select().from(supplierProducts).where(eq(supplierProducts.id, product.id)))[0];
+  const before = await storedRow();
+
+  await gotoHydrated(page, `/fornecedor/painel/produtos?product=${product.id}`);
+  await page.getByRole("button", { name: /2..*Dados obrigatórios/ }).click();
+  // Mercado Livre answered with its guess, whether the form offers it or fills it in.
+  await expect(page.getByText(/Categoria (sugerida )?no Mercado Livre:/)).toBeVisible({
+    timeout: SAVE_TIMEOUT,
+  });
+  // Longer than the autosave pause: a save started by opening would have landed by now.
+  await page.waitForTimeout(3000);
+
+  expect(await storedRow()).toEqual(before);
+  expect(before?.reviewStatus).toBe("approved");
+
+  await page.getByRole("button", { name: "Usar esta categoria" }).click();
+  await expect
+    .poll(async () => (await storedRow())?.mercadoLivreCategoryId, { timeout: SAVE_TIMEOUT })
+    .toBe("MLB7022");
 });

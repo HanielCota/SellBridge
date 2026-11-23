@@ -1,0 +1,385 @@
+import { eq } from "drizzle-orm";
+import { afterEach, describe, expect, it } from "vitest";
+import {
+  erpStockExits,
+  orderItems,
+  orderStatusChanges,
+  returnClaims,
+  shipmentInvoices,
+  supplierErpConnections,
+  supplierProducts,
+} from "../schema/index.ts";
+import { createTestDatabase } from "../testing/fixtures.ts";
+import { createInvoiceScenario } from "../testing/shipment-invoice-fixtures.ts";
+import { applyErpStockReadings } from "./erp-stock.ts";
+import {
+  listErpStockEntriesDue,
+  listErpStockExitsDue,
+  markErpStockExitForTeam,
+  markErpStockExitPosted,
+  releaseErpStockExit,
+  reserveErpStockExit,
+  takeStalledErpStockExits,
+} from "./erp-stock-exits.ts";
+
+const database = createTestDatabase();
+const cleanups: (() => Promise<void>)[] = [];
+
+afterEach(async () => {
+  for (const cleanup of cleanups.splice(0)) {
+    await cleanup();
+  }
+});
+
+/** A supplier without the NF-e through SellBridge whose sold item was shipped just now. */
+async function shippedSale(
+  options: { linked?: boolean; consumed?: boolean; invoiceEnabledAt?: Date | null } = {},
+) {
+  const scenario = await createInvoiceScenario(database, {
+    invoiceEnabledAt: options.invoiceEnabledAt ?? null,
+  });
+  cleanups.push(scenario.cleanup);
+  await database
+    .update(supplierErpConnections)
+    .set({ stockExitsSince: new Date(Date.now() - 60_000), stockCheckedAt: new Date() })
+    .where(eq(supplierErpConnections.supplierId, scenario.supplierId));
+  if (options.linked ?? true) {
+    await database
+      .update(supplierProducts)
+      .set({ erpProductId: 777 })
+      .where(eq(supplierProducts.id, scenario.productId));
+  }
+  if (options.consumed ?? true) {
+    await database
+      .update(orderItems)
+      .set({ stockState: "consumed" })
+      .where(eq(orderItems.id, scenario.orderItemId));
+  }
+  await database.insert(orderStatusChanges).values({
+    tenantId: scenario.tenantId,
+    orderId: scenario.orderId,
+    status: "shipped",
+  });
+  return scenario;
+}
+
+async function dueFor(orderItemId: string) {
+  const due = await listErpStockExitsDue(database, 1000);
+  return due.find((exit) => exit.orderItemId === orderItemId);
+}
+
+describe("listErpStockExitsDue", () => {
+  it("lists a shipped item linked to Bling whose NF-e did not go through SellBridge", async () => {
+    const sale = await shippedSale();
+
+    const due = await dueFor(sale.orderItemId);
+
+    expect(due).toEqual({
+      orderItemId: sale.orderItemId,
+      supplierId: sale.supplierId,
+      supplierProductId: sale.productId,
+      erpProductId: 777,
+      sku: sale.sku,
+      title: "Chinelo",
+      quantity: 2,
+      externalOrderId: sale.externalOrderId,
+    });
+  });
+
+  it("leaves out a parcel with an NF-e through SellBridge, whose sale order lowers Bling", async () => {
+    const sale = await shippedSale();
+    await database.insert(shipmentInvoices).values({
+      shipmentId: sale.shipmentId,
+      supplierId: sale.supplierId,
+      provider: "bling",
+    });
+
+    expect(await dueFor(sale.orderItemId)).toBeUndefined();
+  });
+
+  it("leaves out a parcel the invoice job will invoice, before its NF-e row exists", async () => {
+    const sale = await shippedSale({ invoiceEnabledAt: new Date(Date.now() - 3_600_000) });
+
+    expect(await dueFor(sale.orderItemId)).toBeUndefined();
+  });
+
+  it("lists a parcel created before the supplier turned the NF-e through SellBridge on", async () => {
+    const sale = await shippedSale({ invoiceEnabledAt: new Date(Date.now() + 60_000) });
+
+    expect(await dueFor(sale.orderItemId)).toBeDefined();
+  });
+
+  it("lists an exit a lost connection blocked for more than a week", async () => {
+    const sale = await shippedSale();
+    await database
+      .update(supplierErpConnections)
+      .set({ stockExitsSince: new Date(Date.now() - 30 * 86_400_000) })
+      .where(eq(supplierErpConnections.supplierId, sale.supplierId));
+    await database
+      .update(orderStatusChanges)
+      .set({ changedAt: new Date(Date.now() - 8 * 86_400_000) })
+      .where(eq(orderStatusChanges.orderId, sale.orderId));
+
+    expect(await dueFor(sale.orderItemId)).toBeDefined();
+  });
+
+  it("leaves out sales shipped before the account started posting exits", async () => {
+    const sale = await shippedSale();
+    await database
+      .update(supplierErpConnections)
+      .set({ stockExitsSince: new Date(Date.now() + 60_000) })
+      .where(eq(supplierErpConnections.supplierId, sale.supplierId));
+
+    expect(await dueFor(sale.orderItemId)).toBeUndefined();
+  });
+
+  it("waits after a reconnection until a full check relinked the products", async () => {
+    const sale = await shippedSale();
+    await database
+      .update(supplierErpConnections)
+      .set({ connectedAt: new Date(Date.now() + 1_000) })
+      .where(eq(supplierErpConnections.supplierId, sale.supplierId));
+
+    expect(await dueFor(sale.orderItemId)).toBeUndefined();
+  });
+
+  it("leaves out products not linked to Bling and items not shipped yet", async () => {
+    const unlinked = await shippedSale({ linked: false });
+    const notShipped = await shippedSale({ consumed: false });
+
+    expect(await dueFor(unlinked.orderItemId)).toBeUndefined();
+    expect(await dueFor(notShipped.orderItemId)).toBeUndefined();
+  });
+});
+
+describe("never posting the same exit twice", () => {
+  it("reserves an item once; a second reservation gets nothing", async () => {
+    const sale = await shippedSale();
+    const due = await dueFor(sale.orderItemId);
+    if (due === undefined) throw new Error("exit not due");
+
+    const first = await reserveErpStockExit(database, due, "exit");
+    const second = await reserveErpStockExit(database, due, "exit");
+
+    expect(first).not.toBeNull();
+    expect(second).toBeNull();
+    expect(await dueFor(sale.orderItemId)).toBeUndefined();
+  });
+
+  it("keeps a posted or uncertain exit out of the next sweeps", async () => {
+    const posted = await shippedSale();
+    const uncertain = await shippedSale();
+    for (const sale of [posted, uncertain]) {
+      const due = await dueFor(sale.orderItemId);
+      if (due === undefined) throw new Error("exit not due");
+      const exitId = await reserveErpStockExit(database, due, "exit");
+      if (exitId === null) throw new Error("not reserved");
+      if (sale === posted) {
+        await markErpStockExitPosted(database, { exitId, erpStockId: 5 });
+        continue;
+      }
+      await markErpStockExitForTeam(database, { exitId, status: "uncertain", problem: "x" });
+    }
+
+    expect(await dueFor(posted.orderItemId)).toBeUndefined();
+    expect(await dueFor(uncertain.orderItemId)).toBeUndefined();
+  });
+
+  it("lists the item again once a reservation Bling never received is released", async () => {
+    const sale = await shippedSale();
+    const due = await dueFor(sale.orderItemId);
+    if (due === undefined) throw new Error("exit not due");
+    const exitId = await reserveErpStockExit(database, due, "exit");
+    if (exitId === null) throw new Error("not reserved");
+
+    await releaseErpStockExit(database, exitId);
+
+    expect(await dueFor(sale.orderItemId)).toBeDefined();
+  });
+
+  it("turns a reservation left half done by a stopped worker into one the team checks", async () => {
+    const sale = await shippedSale();
+    const due = await dueFor(sale.orderItemId);
+    if (due === undefined) throw new Error("exit not due");
+    const exitId = await reserveErpStockExit(database, due, "exit");
+    if (exitId === null) throw new Error("not reserved");
+    await database
+      .update(erpStockExits)
+      .set({ createdAt: new Date(Date.now() - 11 * 60_000) })
+      .where(eq(erpStockExits.id, exitId));
+
+    const stalled = await takeStalledErpStockExits(database, {
+      operation: "exit",
+      problem: "parou no meio",
+    });
+
+    expect(stalled).toContainEqual({
+      exitId,
+      supplierId: sale.supplierId,
+      sku: sale.sku,
+      externalOrderId: sale.externalOrderId,
+      quantity: 2,
+    });
+    expect(
+      await takeStalledErpStockExits(database, { operation: "exit", problem: "parou no meio" }),
+    ).not.toContainEqual(expect.objectContaining({ exitId }));
+  });
+});
+
+async function readStock(sale: { supplierId: string; productId: string }, balance: number) {
+  await applyErpStockReadings(database, {
+    supplierId: sale.supplierId,
+    readAt: new Date(),
+    readings: [{ erpProductId: 777, stock: balance }],
+  });
+  const [product] = await database
+    .select({ stock: supplierProducts.stock })
+    .from(supplierProducts)
+    .where(eq(supplierProducts.id, sale.productId));
+  return product?.stock;
+}
+describe("stock readings while exits wait for Bling", () => {
+  it("takes off the units of a parcel whose NF-e stopped before its Bling sale order", async () => {
+    const sale = await shippedSale();
+    await database.insert(shipmentInvoices).values({
+      shipmentId: sale.shipmentId,
+      supplierId: sale.supplierId,
+      provider: "bling",
+      status: "attention",
+    });
+
+    expect(await readStock(sale, 10)).toBe(8);
+  });
+
+  it("takes off the units of a parcel whose NF-e was cancelled before any Bling sale order", async () => {
+    const sale = await shippedSale();
+    await database.insert(shipmentInvoices).values({
+      shipmentId: sale.shipmentId,
+      supplierId: sale.supplierId,
+      provider: "bling",
+      status: "cancelled",
+    });
+
+    expect(await readStock(sale, 10)).toBe(8);
+  });
+
+  it("keeps Bling's balance once the parcel's NF-e has its Bling sale order", async () => {
+    const sale = await shippedSale();
+    await database.insert(shipmentInvoices).values({
+      shipmentId: sale.shipmentId,
+      supplierId: sale.supplierId,
+      provider: "bling",
+      erpOrderId: 4242,
+    });
+
+    expect(await readStock(sale, 10)).toBe(10);
+  });
+
+  it("takes off the units whose exit Bling has not received yet", async () => {
+    const sale = await shippedSale();
+
+    expect(await readStock(sale, 10)).toBe(8);
+  });
+
+  it("keeps Bling's balance once the exit was posted", async () => {
+    const sale = await shippedSale();
+    const due = await dueFor(sale.orderItemId);
+    if (due === undefined) throw new Error("exit not due");
+    const exitId = await reserveErpStockExit(database, due, "exit");
+    if (exitId === null) throw new Error("not reserved");
+    await markErpStockExitPosted(database, { exitId, erpStockId: 5 });
+
+    expect(await readStock(sale, 10)).toBe(10);
+  });
+
+  it("leaves Bling's balance to the team when the exit is uncertain", async () => {
+    const sale = await shippedSale();
+    const due = await dueFor(sale.orderItemId);
+    if (due === undefined) throw new Error("exit not due");
+    const exitId = await reserveErpStockExit(database, due, "exit");
+    if (exitId === null) throw new Error("not reserved");
+    await markErpStockExitForTeam(database, { exitId, status: "uncertain", problem: "x" });
+
+    expect(await readStock(sale, 10)).toBe(10);
+  });
+});
+
+/** The sale's exit, in the given state, and its return put back on the supplier's shelf. */
+async function returnedToShelf(options: {
+  exitStatus?: "posted" | "uncertain";
+  restocked?: boolean;
+}) {
+  const sale = await shippedSale();
+  await database.insert(erpStockExits).values({
+    orderItemId: sale.orderItemId,
+    operation: "exit",
+    supplierId: sale.supplierId,
+    supplierProductId: sale.productId,
+    erpProductId: 777,
+    quantity: 2,
+    sku: sale.sku,
+    externalOrderId: sale.externalOrderId,
+    status: options.exitStatus ?? "posted",
+  });
+  await database.insert(returnClaims).values({
+    shipmentId: sale.shipmentId,
+    orderId: sale.orderId,
+    sellerTenantId: sale.tenantId,
+    supplierId: sale.supplierId,
+    supplierCostCents: 1_000,
+    restockItemIds: [sale.orderItemId],
+    stockReturnedAt: options.restocked === false ? null : new Date(),
+  });
+  return sale;
+}
+
+async function entryDueFor(orderItemId: string) {
+  const due = await listErpStockEntriesDue(database, 1000);
+  return due.find((entry) => entry.orderItemId === orderItemId);
+}
+
+describe("listErpStockEntriesDue", () => {
+  it("lists the entry that reverses the posted exit of a return put back on the shelf", async () => {
+    const sale = await returnedToShelf({});
+
+    const due = await entryDueFor(sale.orderItemId);
+
+    expect(due).toEqual({
+      orderItemId: sale.orderItemId,
+      supplierId: sale.supplierId,
+      supplierProductId: sale.productId,
+      erpProductId: 777,
+      sku: sale.sku,
+      title: "Chinelo",
+      quantity: 2,
+      externalOrderId: sale.externalOrderId,
+    });
+  });
+
+  it("gives no entry when SellBridge did not surely post the sale's exit", async () => {
+    const sale = await returnedToShelf({ exitStatus: "uncertain" });
+
+    expect(await entryDueFor(sale.orderItemId)).toBeUndefined();
+  });
+
+  it("gives no entry while the return has not gone back on the shelf", async () => {
+    const sale = await returnedToShelf({ restocked: false });
+
+    expect(await entryDueFor(sale.orderItemId)).toBeUndefined();
+  });
+
+  it("reserves the entry apart from the item's exit, and only once", async () => {
+    const sale = await returnedToShelf({});
+    const due = await entryDueFor(sale.orderItemId);
+    if (due === undefined) {
+      throw new Error("entrada não listada");
+    }
+
+    const first = await reserveErpStockExit(database, due, "entry");
+    const second = await reserveErpStockExit(database, due, "entry");
+
+    expect(first).not.toBeNull();
+    expect(second).toBeNull();
+    expect(await entryDueFor(sale.orderItemId)).toBeUndefined();
+  });
+});

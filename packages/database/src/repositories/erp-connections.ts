@@ -1,3 +1,4 @@
+import type { ErpCatalogExportResult } from "@sellbridge/shared/erp-catalog-export";
 import { and, asc, eq, gt, inArray, isNotNull, lt, sql } from "drizzle-orm";
 import type { Database, DatabaseExecutor } from "../client.ts";
 import {
@@ -40,14 +41,29 @@ export async function createErpOAuthState(
   });
 }
 
+/** Whose ERP account a consent connects: a supplier's or a reseller's own. */
+export type ErpOAuthOwner =
+  | { readonly kind: "supplier"; readonly supplierId: string }
+  | { readonly kind: "reseller"; readonly tenantId: string };
+
+function ownerOf(row: { supplierId: string | null; tenantId: string | null }): ErpOAuthOwner {
+  if (row.supplierId !== null) {
+    return { kind: "supplier", supplierId: row.supplierId };
+  }
+  if (row.tenantId !== null) {
+    return { kind: "reseller", tenantId: row.tenantId };
+  }
+  throw new Error("ERP OAuth state without an owner");
+}
+
 /**
- * Deletes the state and returns its supplier, only for the same user and provider and before it
+ * Deletes the state and returns its owner, only for the same user and provider and before it
  * expires: a state is good for one callback, from the person who started it.
  */
 export async function consumeErpOAuthState(
   database: Database,
   input: { state: string; userId: string; provider: ErpProvider },
-): Promise<{ supplierId: string } | null> {
+): Promise<ErpOAuthOwner | null> {
   const [row] = await database
     .delete(erpOAuthStates)
     .where(and(eq(erpOAuthStates.state, input.state), eq(erpOAuthStates.provider, input.provider)))
@@ -61,7 +77,7 @@ export async function consumeErpOAuthState(
   if (row.expiresAt.getTime() <= Date.now()) {
     return null;
   }
-  return { supplierId: row.supplierId };
+  return ownerOf(row);
 }
 
 /** Saves the supplier's ERP account as connected; reconnecting replaces the old tokens. */
@@ -80,6 +96,8 @@ export async function upsertErpConnection(
     accountName: input.accountName ?? null,
     status: "connected" as const,
     lastError: null,
+    // A new authorization carries every scope the app has today.
+    permissionMissingAt: null,
     connectedByUserId: input.userId,
     connectedAt: new Date(),
   };
@@ -95,7 +113,13 @@ export async function upsertErpConnection(
     .values({ supplierId: input.supplierId, provider: input.provider, ...values })
     .onConflictDoUpdate({
       target: [supplierErpConnections.supplierId, supplierErpConnections.provider],
-      set: { ...values, invoiceEnabledAt },
+      set: {
+        ...values,
+        invoiceEnabledAt,
+        // Operation ids belong to the authenticated Bling account.
+        onBehalfShipmentOperationId: null,
+        onBehalfSaleOperationId: null,
+      },
     })
     .returning();
   if (row === undefined) {
@@ -167,6 +191,31 @@ export async function recordErpRefreshFailure(
         eq(supplierErpConnections.id, input.connectionId),
         eq(supplierErpConnections.status, "connected"),
         eq(supplierErpConnections.refreshTokenEnc, input.refreshTokenEnc),
+      ),
+    )
+    .returning({ id: supplierErpConnections.id });
+  return updated.length > 0;
+}
+
+/**
+ * Flags the connection as needing a new authorization (the ERP refused a call for a missing
+ * permission), only while the refused access token is still the saved one; the first refusal's
+ * time is kept.
+ */
+export async function markErpPermissionMissing(
+  database: Database,
+  input: { connectionId: string; accessTokenEnc: string; now: Date },
+): Promise<boolean> {
+  const updated = await database
+    .update(supplierErpConnections)
+    .set({
+      permissionMissingAt: sql`coalesce(${supplierErpConnections.permissionMissingAt}, ${input.now.toISOString()}::timestamptz)`,
+    })
+    .where(
+      and(
+        eq(supplierErpConnections.id, input.connectionId),
+        eq(supplierErpConnections.status, "connected"),
+        eq(supplierErpConnections.accessTokenEnc, input.accessTokenEnc),
       ),
     )
     .returning({ id: supplierErpConnections.id });
@@ -491,4 +540,31 @@ export async function deleteErpConnection(
       .returning({ id: supplierErpConnections.id });
     return deleted.length > 0;
   });
+}
+
+/** "Enviar ao Bling o que falta lá" was asked for: the supplier's card shows it running. */
+export async function markErpCatalogExportRequested(
+  database: Database,
+  input: { supplierId: string; provider: ErpProvider; now: Date },
+): Promise<void> {
+  await database
+    .update(supplierErpConnections)
+    .set({ catalogExportRequestedAt: input.now })
+    .where(connectionOf(input));
+}
+
+/** The end of a send to the ERP, done or failed, for the supplier's card. */
+export async function saveErpCatalogExportResult(
+  database: Database,
+  input: {
+    supplierId: string;
+    provider: ErpProvider;
+    finishedAt: Date;
+    result: ErpCatalogExportResult;
+  },
+): Promise<void> {
+  await database
+    .update(supplierErpConnections)
+    .set({ catalogExportFinishedAt: input.finishedAt, catalogExportResult: input.result })
+    .where(connectionOf(input));
 }

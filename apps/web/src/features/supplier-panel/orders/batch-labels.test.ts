@@ -10,6 +10,7 @@ const candidate: LabelCandidate = {
   storeId: "store-a",
   shopName: "Ana Moda",
   marketplace: "mercado_livre",
+  preparationHold: null,
 };
 
 describe("labelRefusal", () => {
@@ -33,6 +34,12 @@ describe("labelRefusal", () => {
 
   it("refuses a sale not released for shipping", () => {
     expect(labelRefusal({ ...candidate, orderStatus: "cancelled" })).toMatch(/liberação/);
+  });
+
+  it("refuses a parcel still waiting for the reseller's payment", () => {
+    expect(labelRefusal({ ...candidate, status: "forwarded", preparationHold: "payment" })).toBe(
+      "Aguardando pagamento do revendedor.",
+    );
   });
 
   it("refuses a parcel that is not the supplier's", () => {

@@ -26,7 +26,6 @@ import {
   orders,
   orderShipments,
   paymentOAuthStates,
-  platformSettings,
   shipmentEvents,
   shipmentPaymentCheckouts,
   shipmentPayments,
@@ -233,53 +232,6 @@ export async function findPaymentAccountsByProviderAccount(
     );
 }
 
-export interface PaymentFeeSetting {
-  /** Null until the admin sets it; payments then use zero. */
-  basisPoints: number | null;
-  updatedAt: Date | null;
-  updatedByUserId: string | null;
-}
-
-export async function getPaymentFeeSetting(database: Database): Promise<PaymentFeeSetting> {
-  const [row] = await database
-    .select({
-      basisPoints: platformSettings.paymentFeeBasisPoints,
-      updatedAt: platformSettings.updatedAt,
-      updatedByUserId: platformSettings.updatedByUserId,
-    })
-    .from(platformSettings)
-    .where(eq(platformSettings.id, 1));
-  if (row === undefined) {
-    return { basisPoints: null, updatedAt: null, updatedByUserId: null };
-  }
-  return row;
-}
-
-/** Saves the fee rate; the database refuses values outside 0–3000 basis points. */
-export async function setPaymentFeeSetting(
-  database: Database,
-  input: { basisPoints: number; userId: string },
-): Promise<PaymentFeeSetting> {
-  const values = {
-    paymentFeeBasisPoints: input.basisPoints,
-    updatedByUserId: input.userId,
-    updatedAt: new Date(),
-  };
-  const [row] = await database
-    .insert(platformSettings)
-    .values({ id: 1, ...values })
-    .onConflictDoUpdate({ target: platformSettings.id, set: values })
-    .returning();
-  if (row === undefined) {
-    throw new Error("Platform settings not saved");
-  }
-  return {
-    basisPoints: row.paymentFeeBasisPoints,
-    updatedAt: row.updatedAt,
-    updatedByUserId: row.updatedByUserId,
-  };
-}
-
 /** A parcel the reseller may pay its supplier for, with what is owed for it. */
 export interface PayableShipment {
   shipmentId: string;
@@ -289,6 +241,8 @@ export interface PayableShipment {
   supplierName: string;
   catalogKind: "supplier" | "seller";
   status: FulfillmentStatus;
+  /** The reseller cancelled it after the supplier accepted: the team settles its money. */
+  cancelledByResellerAfterAccept: boolean;
   /** Each item's cost times its quantity, in cents. */
   amountCents: number;
   payment: ShipmentPayment | null;
@@ -305,6 +259,7 @@ export async function findPayableShipment(
       externalOrderId: orders.externalOrderId,
       supplierName: suppliers.name,
       catalogKind: suppliers.catalogKind,
+      cancelledByResellerAfterAccept: cancelledByResellerAfterAccept(),
     })
     .from(orderShipments)
     .innerJoin(orders, eq(orders.id, orderShipments.orderId))
@@ -327,6 +282,7 @@ export async function findPayableShipment(
     supplierName: row.supplierName,
     catalogKind: row.catalogKind,
     status: row.shipment.status,
+    cancelledByResellerAfterAccept: row.cancelledByResellerAfterAccept,
     amountCents,
     payment,
   };
@@ -755,6 +711,37 @@ export async function markShipmentPaymentChecked(
     .where(eq(shipmentPayments.id, input.paymentId));
 }
 
+/**
+ * A round could not reach the provider about this payment: keeps when that started (the first
+ * such round) and returns it, so the round can tell a passing outage from one to escalate.
+ */
+export async function markShipmentPaymentDeferred(
+  database: Database,
+  input: { paymentId: string; now: Date },
+): Promise<Date> {
+  const [row] = await database
+    .update(shipmentPayments)
+    .set({
+      providerDeferredSince: sql`coalesce(${shipmentPayments.providerDeferredSince}, ${input.now.toISOString()}::timestamptz)`,
+    })
+    .where(eq(shipmentPayments.id, input.paymentId))
+    .returning({ since: shipmentPayments.providerDeferredSince });
+  return row?.since ?? input.now;
+}
+
+/** A round reached the provider about this payment again. */
+export async function clearShipmentPaymentDeferral(
+  database: Database,
+  paymentId: string,
+): Promise<void> {
+  await database
+    .update(shipmentPayments)
+    .set({ providerDeferredSince: null })
+    .where(
+      and(eq(shipmentPayments.id, paymentId), isNotNull(shipmentPayments.providerDeferredSince)),
+    );
+}
+
 /** A paid parcel that may be owed back to the reseller, with what decides it. */
 export interface RefundCandidate {
   payment: ShipmentPayment;
@@ -824,6 +811,8 @@ export async function listShipmentPaymentRefundCandidates(
       orderNumber: orders.externalOrderId,
       cancelledByResellerAfterAccept: cancelledByResellerAfterAccept(),
       status: orderShipments.status,
+      // The refund keeps the marketplace date only: the cutoff date does not move money until
+      // Guilherme decides it should (contracts, 21/11/2026).
       dispatchDeadlineAt: orderShipments.dispatchDeadlineAt,
       estimatedDeliveryAt: orderShipments.estimatedDeliveryAt,
       ...supplierTimingColumns,

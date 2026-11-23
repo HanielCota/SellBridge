@@ -82,7 +82,7 @@ function ConnectionArea(props: {
   if (connection === null) {
     return <BlingConnectCard supplierId={props.supplierId} />;
   }
-  if (connection.status !== "connected") {
+  if (connection.status !== "connected" || connection.permissionMissing) {
     return <BlingReconnectCard supplierId={props.supplierId} connection={connection} />;
   }
   if (read?.status === "ready") {

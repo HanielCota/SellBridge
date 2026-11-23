@@ -1,3 +1,4 @@
+import type { PreparationHold } from "@sellbridge/shared/receiving-rules";
 import { WarningIcon } from "@phosphor-icons/react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import type { LabelFormat } from "@sellbridge/shared/schemas";
@@ -23,7 +24,12 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Skeleton } from "@/components/ui/skeleton";
-import { isShippingBlocked } from "@/features/fulfillment/shipping-block";
+import {
+  isPreparationStopped,
+  type SaleStopNotice,
+  saleStopNotice,
+} from "@/features/fulfillment/shipping-block";
+import { PreparationHoldAlert } from "./preparation-hold-alert";
 import { displayBuyerName } from "@/features/orders/buyer-name";
 import { channelDispatch } from "@/features/supplier-panel/orders/channel-dispatch";
 import { channelLabel } from "@/features/supplier-panel/orders/channel-labels";
@@ -37,13 +43,14 @@ import {
 import { useSupplierShipmentUpdate } from "@/features/supplier-panel/orders/use-order-actions";
 import { errorMessage } from "@/lib/errors";
 import { useTabProfileLink } from "@/lib/tab-profile";
+import { Link } from "@tanstack/react-router";
 import { formatAbsoluteTime } from "@/lib/relative-time";
 import { cn } from "@/lib/utils";
 import { useNow } from "@/hooks/use-now";
 import { SplitLabelNotice } from "@/components/fulfillment/split-order-notice";
 import { LabelFormatMenu } from "./label-format-menu";
 import { LabelStatus, PostingDeadlineStatus } from "./order-row-parts";
-import { SupplierInvoiceCard } from "./supplier-invoice-card";
+import { SupplierParcelNotes } from "./supplier-parcel-notes";
 import { SupplierParcelTracking } from "./supplier-parcel-tracking";
 
 type PanelShipment = Awaited<
@@ -133,10 +140,14 @@ function OrderFacts({ shipment }: { shipment: PanelShipment }) {
     <div className="space-y-3 rounded-2xl bg-muted/50 p-4">
       <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
         <SupplierPaymentBadgeView badge={shipment.supplierPayment} />
-        {shipment.supplierPayment.kind === "outside" ? (
-          <span className="text-footnote text-muted-foreground">
-            O revendedor paga você por fora, como hoje.
-          </span>
+        {/* A parcel already waiting for the account says so in its own notice below. */}
+        {shipment.supplierPayment.kind === "no_account" && shipment.preparationHold === null ? (
+          <Link
+            to="/fornecedor/painel/recebimentos"
+            className="text-footnote underline underline-offset-4"
+          >
+            Ligue sua conta para receber pelo SellBridge
+          </Link>
         ) : null}
       </div>
       <dl className="grid grid-cols-1 gap-x-6 gap-y-2 text-subhead sm:grid-cols-2">
@@ -260,6 +271,30 @@ function dispatchFromChannel(shipment: PanelShipment, dispatched: boolean) {
 }
 
 /** The opened parcel: the same shipment panel the supplier link shows, acting as the supplier. */
+/** Why the parcel cannot move, or the NF-e reminder before dispatch when it can. */
+function StopAlert({
+  saleStop,
+  hold,
+  shipment,
+}: {
+  saleStop: SaleStopNotice | null;
+  hold: PreparationHold | null;
+  shipment: PanelShipment;
+}) {
+  if (saleStop !== null) {
+    return (
+      <Alert variant="destructive">
+        <AlertTitle>{saleStop.title}</AlertTitle>
+        <AlertDescription>{saleStop.description}</AlertDescription>
+      </Alert>
+    );
+  }
+  if (hold !== null) {
+    return <PreparationHoldAlert hold={hold} showAccountLink />;
+  }
+  return <DispatchInvoiceAlert shipment={shipment} />;
+}
+
 function PanelBody({ supplierId, shipmentId }: { supplierId: string; shipmentId: string }) {
   const query = useQuery(supplierPanelShipmentQueryOptions(supplierId, shipmentId));
   const onUpdate = useSupplierShipmentUpdate(supplierId);
@@ -274,26 +309,23 @@ function PanelBody({ supplierId, shipmentId }: { supplierId: string; shipmentId:
   if (query.isError) {
     return <ErrorState message={errorMessage(query.error)} onRetry={() => void query.refetch()} />;
   }
-  const blocked = isShippingBlocked(query.data.orderStatus);
+  const saleStop = saleStopNotice(query.data.orderStatus, query.data.status);
+  const hold = query.data.preparationHold;
+  const blocked = isPreparationStopped(query.data);
   const tracked = DISPATCHED_FULFILLMENT_STATUSES.includes(query.data.status);
   const fromChannel = dispatchFromChannel(query.data, tracked);
   return (
     <div className="space-y-4">
       <OrderFacts shipment={query.data} />
-      <SupplierInvoiceCard
+      <SupplierParcelNotes
         supplierId={supplierId}
         shipmentId={shipmentId}
         orderId={query.data.orderId}
         invoice={query.data.invoice}
+        saleInvoice={query.data.saleInvoice}
+        resellerNote={query.data.resellerNote}
       />
-      {blocked ? (
-        <Alert variant="destructive">
-          <AlertTitle>Venda não liberada</AlertTitle>
-          <AlertDescription>Fale com o revendedor antes de separar ou despachar.</AlertDescription>
-        </Alert>
-      ) : (
-        <DispatchInvoiceAlert shipment={query.data} />
-      )}
+      <StopAlert saleStop={saleStop} hold={hold} shipment={query.data} />
       {query.data.splitOrder ? <SplitLabelNotice /> : null}
       {tracked ? <SupplierParcelTracking supplierId={supplierId} shipmentId={shipmentId} /> : null}
       <ShipmentPanel
@@ -304,7 +336,7 @@ function PanelBody({ supplierId, shipmentId }: { supplierId: string; shipmentId:
         showHistory={!tracked}
         onUpdate={onUpdate}
       >
-        {!isLabelMarketplace(query.data.marketplace) || query.data.splitOrder ? null : (
+        {!isLabelMarketplace(query.data.marketplace) || query.data.splitOrder || blocked ? null : (
           <MarketplaceLabelForm
             supplierId={supplierId}
             shipmentId={shipmentId}
@@ -327,13 +359,20 @@ export function ShipmentPanelDialog({
   opened: { id: string; externalOrderId: string } | null;
   onClose: () => void;
 }) {
+  const queryClient = useQueryClient();
   return (
     <Dialog
       open={opened !== null}
       onOpenChange={(open) => {
-        if (!open) {
-          onClose();
+        if (open) {
+          return;
         }
+        // Opening read the store's messages: the row and the bell drop their "Mensagem nova".
+        void queryClient.invalidateQueries({
+          queryKey: [...supplierOrdersKey(supplierId), "list"],
+        });
+        void queryClient.invalidateQueries({ queryKey: ["notifications"] });
+        onClose();
       }}
     >
       <DialogContent className="max-h-[90svh] overflow-y-auto sm:max-w-3xl">

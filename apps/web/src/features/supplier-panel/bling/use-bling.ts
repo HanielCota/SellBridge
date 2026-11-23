@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import type { BlingOverview } from "./bling-overview";
+import { type BlingOverview, isBlingExportRunning } from "./bling-overview";
 import {
   supplierBlingDisconnect,
   supplierBlingDiscardRead,
@@ -9,10 +9,13 @@ import {
   supplierBlingSendCatalog,
   supplierBlingSetInvoicing,
   supplierBlingStartRead,
+  ownBlingToReconnect,
 } from "./bling.functions";
 
 /** While the worker reads the catalog, the page asks for its progress this often. */
 const READ_POLL_IN_MS = 2000;
+/** While the worker sends products to Bling, the page asks how it went this often. */
+const EXPORT_POLL_IN_MS = 5000;
 
 function overviewKey(supplierId: string) {
   return ["supplier-panel", "bling", supplierId] as const;
@@ -22,12 +25,33 @@ function isReading(overview: BlingOverview | undefined): boolean {
   return overview?.read?.status === "reading";
 }
 
-/** The Bling card's data, polled only while a catalog read is running. */
+function pollInterval(overview: BlingOverview | undefined): number | false {
+  if (isReading(overview)) {
+    return READ_POLL_IN_MS;
+  }
+  return isBlingExportRunning(overview) ? EXPORT_POLL_IN_MS : false;
+}
+
+/** The Bling card's data, polled only while a catalog read or a send to Bling is running. */
 export function useBlingOverview(supplierId: string) {
   return useQuery({
     queryKey: overviewKey(supplierId),
     queryFn: async () => await supplierBlingOverview({ data: { supplierId } }),
-    refetchInterval: (query) => (isReading(query.state.data) ? READ_POLL_IN_MS : false),
+    refetchInterval: (query) => pollInterval(query.state.data),
+  });
+}
+
+/** A missing permission is found by the worker within 15 minutes; the header asks this often. */
+const RECONNECT_CHECK_IN_MS = 5 * 60 * 1000;
+
+/** The header notice's data: the supplier to reconnect, or null. Supplier profiles only. */
+export function useOwnBlingToReconnect(enabled: boolean) {
+  return useQuery({
+    queryKey: ["supplier-panel", "bling-reconnect"] as const,
+    queryFn: async () => await ownBlingToReconnect(),
+    enabled,
+    staleTime: RECONNECT_CHECK_IN_MS,
+    refetchInterval: RECONNECT_CHECK_IN_MS,
   });
 }
 
@@ -43,6 +67,7 @@ export function useBlingActions(supplierId: string) {
   });
   const sendCatalog = useMutation({
     mutationFn: async () => await supplierBlingSendCatalog({ data: { supplierId } }),
+    onSuccess: refresh,
   });
   const disconnect = useMutation({
     mutationFn: async () => await supplierBlingDisconnect({ data: { supplierId } }),

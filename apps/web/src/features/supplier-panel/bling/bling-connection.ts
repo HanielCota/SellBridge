@@ -65,6 +65,15 @@ export const BLING_OUTCOME_MESSAGES: Readonly<
   },
 };
 
+/** Where the supplier starts authorizing the SellBridge app in its Bling (first time or again). */
+export function blingConnectHref(supplierId: string): string {
+  return `/api/integracoes/bling/conectar?fornecedor=${encodeURIComponent(supplierId)}`;
+}
+
+/** Why the supplier is asked to reconnect a Bling that lacks a permission, in its own words. */
+export const BLING_RECONNECT_REASON =
+  "Seu Bling precisa ser reconectado para o SellBridge continuar lendo o estoque e emitindo notas.";
+
 /** The app's keys, or null while they are not configured (the feature is off). */
 export function blingCredentialsFrom(environment: {
   BLING_CLIENT_ID?: string | undefined;
@@ -166,6 +175,34 @@ export function invoicingRefusal(input: {
   }
   if (!input.fiscalReady) {
     return "Preencha os dados fiscais da empresa em Marca antes de ligar a nota fiscal.";
+  }
+  return null;
+}
+
+/**
+ * Why the venda à ordem operations cannot be saved, or null: only the supplier itself, with Bling
+ * connected, two different operations, both active in its Bling.
+ */
+export function onBehalfOperationsRefusal(input: {
+  actor: ErpActor;
+  connected: boolean;
+  knownOperationIds: ReadonlySet<number>;
+  shipmentOperationId: number;
+  saleOperationId: number;
+}): string | null {
+  const refusal = erpOwnerActionRefusal(input.actor);
+  if (refusal !== null) {
+    return refusal;
+  }
+  if (!input.connected) {
+    return "Conecte o Bling antes de escolher as naturezas de operação.";
+  }
+  if (input.shipmentOperationId === input.saleOperationId) {
+    return "A remessa e a venda para o revendedor usam naturezas diferentes. Escolha uma para cada.";
+  }
+  const known = input.knownOperationIds;
+  if (!known.has(input.shipmentOperationId) || !known.has(input.saleOperationId)) {
+    return "Uma das naturezas escolhidas não está mais ativa no seu Bling. Atualize a página e escolha de novo.";
   }
   return null;
 }

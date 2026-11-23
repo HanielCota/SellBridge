@@ -69,6 +69,7 @@ const payment: ShipmentPayment = {
   teamDecision: null,
   teamDecisionAt: null,
   teamDecisionByUserId: null,
+  providerDeferredSince: null,
   createdAt: new Date(),
   updatedAt: new Date(),
 };
@@ -96,6 +97,7 @@ const payable: PayableShipment = {
   supplierName: "Cestaria",
   catalogKind: "supplier",
   status: "forwarded",
+  cancelledByResellerAfterAccept: false,
   amountCents: 8000,
   payment,
 };

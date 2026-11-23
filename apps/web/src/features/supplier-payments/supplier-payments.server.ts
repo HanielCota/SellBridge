@@ -1,14 +1,14 @@
 import {
   disconnectSupplierPaymentAccount,
+  findOpenSupportTicketForOrder,
   findPayableShipment,
+  findPreparationHold,
   findShipmentPayment,
   findSupplierPaymentAccount,
-  getPaymentFeeSetting,
   listShipmentPaymentSummaries,
   openCheckoutUrl,
   releaseShipmentPaymentReservation,
   savePaymentPreference,
-  setPaymentFeeSetting,
   reopenShipmentCheckout,
   startShipmentPayment,
   type PayableShipment,
@@ -20,9 +20,11 @@ import { notFoundError, validationError } from "@sellbridge/shared/errors";
 import { logger } from "@sellbridge/shared/logger";
 import { SETTLED_FULFILLMENT_STATUSES } from "@sellbridge/shared/schemas";
 import {
-  effectivePaymentFeeBasisPoints,
+  PAYMENT_FEE_BASIS_POINTS,
   platformFeeCents,
+  reforwardBlockFor,
   supplierPaymentBadge,
+  type PaidParcelFate,
   type SupplierPaymentBadge,
   type SupplierPayMethod,
 } from "@sellbridge/shared/shipment-payments";
@@ -40,6 +42,7 @@ import {
   type CheckoutRequest,
   type MercadoPagoContext,
 } from "@sellbridge/payments/mercado-pago";
+import { manualRefundLastMoment } from "@sellbridge/payments/asaas";
 import {
   mercadoPagoContext,
   mercadoPagoNotificationUrl,
@@ -47,7 +50,7 @@ import {
 } from "./mercado-pago-accounts.server";
 import { paymentAccountOwnerRefusal, type PaymentAccountActor } from "./mercado-pago-connection";
 import type { PaymentProviderName } from "@sellbridge/shared/payment-accounts";
-import { receivingAccountsOf, type ReceivingAccounts } from "./asaas.server";
+import { asaasContext, receivingAccountsOf, type ReceivingAccounts } from "./asaas.server";
 import { leaveAsaasCharges, openAsaasCheckout, refreshAsaasParcel } from "./asaas-checkout.server";
 
 const PROVIDER = "mercado_pago";
@@ -55,16 +58,13 @@ const PROVIDER = "mercado_pago";
 /** The supplier's receiving page: whether paying here is on and how the account stands. */
 export async function loadPaymentAccount(supplierId: string) {
   const settings = mercadoPagoSettings();
-  const [account, fee] = await Promise.all([
-    findSupplierPaymentAccount(database, { supplierId, provider: PROVIDER }),
-    getPaymentFeeSetting(database),
-  ]);
+  const account = await findSupplierPaymentAccount(database, { supplierId, provider: PROVIDER });
   return {
     available: settings !== null,
     status: account?.status ?? "none",
     connectedAt: account?.connectedAt.toISOString() ?? null,
     updatedAt: account?.updatedAt.toISOString() ?? null,
-    feeBasisPoints: effectivePaymentFeeBasisPoints(fee.basisPoints),
+    feeBasisPoints: PAYMENT_FEE_BASIS_POINTS,
   };
 }
 
@@ -88,7 +88,9 @@ export async function unlinkPaymentAccount(input: {
 function badgeFor(
   summary: ShipmentPaymentSummary | undefined,
   supplierReceivesHere: boolean,
+  parcel?: PaidParcelFate,
 ): SupplierPaymentBadge {
+  const paymentsOffered = asaasContext() !== null;
   return supplierPaymentBadge({
     payment:
       summary === undefined
@@ -100,7 +102,30 @@ function badgeFor(
             refundRequestedAt: summary.refundRequestedAt?.toISOString() ?? null,
           },
     supplierReceivesHere,
+    paymentsOffered,
+    ...(parcel === undefined ? {} : { parcel }),
   });
+}
+
+/** Parcels whose money is owed back to the reseller: cancelled, or back with the supplier. */
+const ENDED_WITHOUT_DELIVERY: ReadonlySet<string> = new Set(["cancelled", "returned"]);
+
+/**
+ * What happened to the paid parcel: ended without a delivery, and whether the team settles it
+ * (the reseller cancelled after the supplier accepted and no refund was asked for yet).
+ */
+function parcelFate(payable: PayableShipment): PaidParcelFate {
+  const payment = payable.payment;
+  const refundAsked = payment?.refundRequestedAt != null;
+  return {
+    endedWithoutDelivery: ENDED_WITHOUT_DELIVERY.has(payable.status),
+    heldForTeam:
+      payment?.refundHeldAt != null || (payable.cancelledByResellerAfterAccept && !refundAsked),
+    moneyReleased:
+      payment?.releasedAt != null ||
+      payment?.escrowStatus === "done" ||
+      payment?.teamDecision === "release",
+  };
 }
 
 /** The payment badge of each parcel of one supplier, for its order list. */
@@ -125,8 +150,17 @@ function inReviewMessage(provider: PaymentProviderName | undefined): string {
   return provider === "asaas" ? ASAAS_IN_REVIEW_MESSAGE : IN_REVIEW_MESSAGE;
 }
 const ALREADY_PAID_MESSAGE = "Este envio já foi pago. O valor está na conta do fornecedor.";
+const ALREADY_PAID_PROTECTED_MESSAGE = "Este envio já foi pago. O valor está protegido no Asaas.";
+
+/** Asaas holds the money until the delivery: it is not in the supplier's account yet. */
+function alreadyPaidMessage(provider: PaymentProviderName | undefined): string {
+  return provider === "asaas" ? ALREADY_PAID_PROTECTED_MESSAGE : ALREADY_PAID_MESSAGE;
+}
 const UNCHECKED_MESSAGE =
   "Não conseguimos conferir com o Mercado Pago agora. Tente de novo em alguns minutos.";
+
+const NO_ACCOUNT_MESSAGE =
+  "Este fornecedor ainda não ligou a conta de recebimento no Asaas. Assim que ligar, o pagamento aparece aqui.";
 
 /** Why the reseller cannot pay this parcel here, or null when it can. */
 function checkoutRefusal(payable: PayableShipment, linked: boolean): string | null {
@@ -140,24 +174,65 @@ function checkoutRefusal(payable: PayableShipment, linked: boolean): string | nu
     return inReviewMessage(payable.payment.provider);
   }
   if (payable.amountCents <= 0) {
-    return "Este pedido não tem o valor do fornecedor. Combine o pagamento com ele por fora.";
+    return "Este pedido não tem o valor do fornecedor. Fale com o suporte para acertar o valor.";
   }
   if (!linked) {
-    return "Este fornecedor ainda não abriu a conta de recebimento no Asaas. Combine o pagamento com ele por fora.";
+    return NO_ACCOUNT_MESSAGE;
   }
   return null;
 }
 
-/** Why SellBridge gave (or is giving) the reseller's money back, and whether Mercado Pago refused. */
-function refundView(payment: ShipmentPayment | null) {
-  if (payment?.refundRequestedAt == null) {
+/**
+ * A refund Asaas refused is made by the team by hand, and the reseller asks for it through a
+ * support ticket: the order to open it about, the ticket already open on it, and the day Asaas
+ * stops holding the money. Null for every other payment.
+ */
+async function manualRefundView(tenantId: string, payable: PayableShipment) {
+  const { payment } = payable;
+  if (payment?.provider !== "asaas" || payment.status !== "approved") {
     return null;
   }
-  return { reason: payment.refundReason, failed: payment.refundFailedAt !== null };
+  if (payment.refundFailedAt === null) {
+    return null;
+  }
+  const ticketId = await findOpenSupportTicketForOrder(database, {
+    tenantId,
+    orderId: payable.orderId,
+  });
+  const now = new Date();
+  const askUntil = manualRefundLastMoment(payment);
+  return {
+    orderId: payable.orderId,
+    orderName: payable.externalOrderId,
+    ticketId,
+    // Only a guarantee Asaas reported has a day the money leaves; without one there is no date.
+    askUntil: askUntil?.toISOString() ?? null,
+    /** Asaas already released the money to the supplier: it is no longer protected. */
+    releasedToSupplier: askUntil !== null && now.getTime() > askUntil.getTime(),
+  };
+}
+
+/**
+ * Why SellBridge gave (or is giving) the reseller's money back, and whether the provider refused.
+ * A paid parcel that was cancelled or came back is owed back even before the refund round asks.
+ */
+function refundView(payable: PayableShipment, badge: SupplierPaymentBadge) {
+  const { payment } = payable;
+  if (payment?.refundRequestedAt != null) {
+    return { reason: payment.refundReason, failed: payment.refundFailedAt !== null };
+  }
+  if (badge.kind !== "refunding") {
+    return null;
+  }
+  return {
+    reason: payable.status === "returned" ? "returned" : "cancelled",
+    failed: false,
+  } as const;
 }
 
 const SETTLED_BADGES: ReadonlySet<SupplierPaymentBadge["kind"]> = new Set([
   "paid",
+  "held",
   "refunding",
   "refunded",
 ]);
@@ -188,17 +263,32 @@ export async function loadResellerSupplierPayment(input: { tenantId: string; shi
           paymentMethod: payable.payment.paymentMethod,
           refundRequestedAt: payable.payment.refundRequestedAt,
         };
-  const badge = badgeFor(summary, linked);
+  const fate = parcelFate(payable);
+  const badge = badgeFor(summary, linked, fate);
   const refusal = checkoutRefusal(payable, linked);
+  const [preparationHold, manualRefund] = await Promise.all([
+    findPreparationHold(database, input.shipmentId),
+    manualRefundView(input.tenantId, payable),
+  ]);
   return {
+    /** The team gives this payment back by hand; the reseller asks through a ticket. */
+    manualRefund,
+    /** Why the supplier may not prepare the parcel yet; null when it may. */
+    preparationHold,
     amountCents: shownAmountCents(payable, badge),
     badge,
     canPay: badge.kind === "waiting" && refusal === null,
     refusal,
-    refund: refundView(payable.payment),
+    refund: refundView(payable, badge),
+    /** How the reseller paid ("PIX", "CREDIT_CARD"…), which says how the money comes back. */
+    paymentMethod: payable.payment?.paymentMethod ?? null,
+    /** The money already went to the supplier: nothing is held for the reseller any more. */
+    moneyReleased: fate.moneyReleased,
     /** Held until delivery (Asaas): the reseller sees the protection seal. */
     protectedPayment: provider === "asaas",
     provider,
+    /** Why the cancelled parcel cannot go back to its supplier; null when it can, or is not cancelled. */
+    reforwardBlock: payable.status === "cancelled" ? reforwardBlockFor(payable.payment) : null,
   };
 }
 
@@ -245,15 +335,13 @@ async function payableWithAccount(input: { tenantId: string; shipmentId: string 
   const account = provider === "asaas" ? accounts.asaas : accounts.mercadoPago;
   const refusal = checkoutRefusal(payable, provider !== null && account?.status === "connected");
   if (refusal !== null || account === null || provider === null) {
-    throw validationError(
-      refusal ?? "Este fornecedor ainda não abriu a conta de recebimento no Asaas.",
-    );
+    throw validationError(refusal ?? NO_ACCOUNT_MESSAGE);
   }
   return { payable, account, provider, accounts };
 }
 
 const RELINK_MESSAGE =
-  "A conta de recebimento deste fornecedor precisa ser ligada de novo. Combine o pagamento com ele por fora.";
+  "A conta de recebimento deste fornecedor precisa ser ligada de novo. Assim que ele ligar, o pagamento aparece aqui.";
 
 /** Long enough to create the preference; a failed attempt frees the parcel right away. */
 const CHECKOUT_RESERVATION_IN_MS = 60_000;
@@ -271,7 +359,7 @@ async function refusedCheckout(shipmentId: string): Promise<{ checkoutUrl: strin
   if (current?.status === "in_process") {
     throw validationError(inReviewMessage(current.provider));
   }
-  throw validationError(ALREADY_PAID_MESSAGE);
+  throw validationError(alreadyPaidMessage(current?.provider));
 }
 
 /**
@@ -440,17 +528,14 @@ async function reserveParcel(
   payable: PayableShipment,
   provider: PaymentProviderName,
 ): Promise<ShipmentPayment | null> {
-  const feeBasisPoints = effectivePaymentFeeBasisPoints(
-    (await getPaymentFeeSetting(database)).basisPoints,
-  );
   const now = new Date();
   return startShipmentPayment(database, {
     shipmentId: payable.shipmentId,
     supplierId: payable.supplierId,
     provider,
     amountCents: payable.amountCents,
-    platformFeeCents: platformFeeCents(payable.amountCents, feeBasisPoints),
-    platformFeeBasisPoints: feeBasisPoints,
+    platformFeeCents: platformFeeCents(payable.amountCents, PAYMENT_FEE_BASIS_POINTS),
+    platformFeeBasisPoints: PAYMENT_FEE_BASIS_POINTS,
     now,
     reservedUntil: new Date(now.getTime() + CHECKOUT_RESERVATION_IN_MS),
   });
@@ -545,20 +630,4 @@ export async function confirmSupplierPaymentReturn(input: {
     }
   }
   return loadResellerSupplierPayment(input);
-}
-
-/** The fee rate the admin sees and edits; the default one while none is saved. */
-export async function loadPaymentFee() {
-  const fee = await getPaymentFeeSetting(database);
-  return {
-    basisPoints: effectivePaymentFeeBasisPoints(fee.basisPoints),
-    isDefault: fee.basisPoints === null,
-    updatedAt: fee.updatedAt?.toISOString() ?? null,
-  };
-}
-
-export async function savePaymentFee(input: { basisPoints: number; userId: string }) {
-  const saved = await setPaymentFeeSetting(database, input);
-  logger.info("platform_settings.payment_fee_changed", { basisPoints: saved.basisPoints });
-  return { basisPoints: saved.basisPoints, updatedAt: saved.updatedAt?.toISOString() ?? null };
 }

@@ -5,7 +5,16 @@ import { toast } from "sonner";
 import { ConfirmDialog } from "@/components/feedback/confirm-dialog";
 import { Button } from "@/components/ui/button";
 import { supplierPanelDeleteProduct } from "@/features/supplier-panel/catalog/catalog.functions";
+import { supplierPanelDeleteModel } from "@/features/supplier-panel/catalog/grid/grid.functions";
 import { errorMessage } from "@/lib/errors";
+
+function deleteDescription(product: SupplierPanelListProduct): string {
+  const name =
+    product.grid === null
+      ? `"${product.title || product.sku}" será apagado de vez`
+      : `"${product.grid.title}" será apagado de vez, com as ${product.grid.combinations} combinações de cor e tamanho`;
+  return `${name}, com os dados e as fotos. Não dá para desfazer. Só aparece esta opção porque nenhum revendedor publicou nem vendeu o produto.`;
+}
 
 /**
  * Deletes a product no reseller ever published or sold; the list offers it only then, and the
@@ -15,10 +24,17 @@ export function ProductDeleteButton({ product }: { product: SupplierPanelListPro
   const queryClient = useQueryClient();
   const [confirming, setConfirming] = useState(false);
   const remove = useMutation({
-    mutationFn: async () =>
-      await supplierPanelDeleteProduct({
-        data: { supplierId: product.supplierId, productId: product.id },
-      }),
+    mutationFn: async () => {
+      if (product.grid === null) {
+        await supplierPanelDeleteProduct({
+          data: { supplierId: product.supplierId, productId: product.id },
+        });
+        return;
+      }
+      await supplierPanelDeleteModel({
+        data: { supplierId: product.supplierId, modelId: product.grid.modelId },
+      });
+    },
     onSuccess: async () => {
       setConfirming(false);
       toast.success("Produto excluído");
@@ -36,7 +52,7 @@ export function ProductDeleteButton({ product }: { product: SupplierPanelListPro
           open={confirming}
           onOpenChange={setConfirming}
           title="Excluir este produto?"
-          description={`"${product.title || product.sku}" será apagado de vez, com os dados e as fotos. Não dá para desfazer. Só aparece esta opção porque nenhum revendedor publicou nem vendeu o produto.`}
+          description={deleteDescription(product)}
           confirmLabel="Excluir"
           pendingLabel="Excluindo…"
           isPending={remove.isPending}

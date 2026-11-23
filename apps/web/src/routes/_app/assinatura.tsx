@@ -10,6 +10,6 @@ export const Route = createFileRoute("/_app/assinatura")({
   component: SubscriptionPage,
 });
 function SubscriptionPage() {
-  const { retorno } = Route.useSearch();
-  return <BillingPage returned={retorno} />;
+  const { retorno, cancelar } = Route.useSearch();
+  return <BillingPage returned={retorno} askCancel={cancelar === "1"} />;
 }

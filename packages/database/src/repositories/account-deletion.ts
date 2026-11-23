@@ -1,5 +1,7 @@
-import { and, eq, inArray, ne, or } from "drizzle-orm";
+import { conflictError } from "@sellbridge/shared/errors";
+import { and, eq, inArray, ne, or, sql } from "drizzle-orm";
 import type { Database } from "../client.ts";
+import { isSerializationFailure } from "../postgres-errors.ts";
 import {
   billingAccounts,
   erpCatalogReads,
@@ -8,12 +10,15 @@ import {
   organization,
   supplierErpConnections,
   paymentOAuthStates,
+  returnClaimPhotos,
+  returnClaims,
   supplierPaymentAccounts,
   suppliers,
   ticketAttachments,
   ticketMessages,
   tickets,
 } from "../schema/index.ts";
+import { assertWorkspaceCanBeDeleted } from "./account-deletion-blockers.ts";
 
 /** Workspaces where the user is the only owner: they go with the account. */
 export async function findSoleOwnedTenants(database: Database, userId: string): Promise<string[]> {
@@ -41,10 +46,38 @@ export async function findSoleOwnedTenants(database: Database, userId: string): 
 
 /**
  * Stored files that go with the account: attachments of its workspaces' tickets and of the
- * tickets it opened elsewhere (those rows cascade from the user). The database cascade never
- * reaches the disk, so they are collected before the rows go.
+ * tickets it opened elsewhere (those rows cascade from the user), and the photos of its
+ * workspaces' returns. The database cascade never reaches the disk, so they are collected before
+ * the rows go.
  */
 export async function accountFileKeys(
+  database: Database,
+  account: { userId: string; tenantIds: readonly string[] },
+): Promise<string[]> {
+  const [attachmentKeys, photoKeys] = await Promise.all([
+    ticketAttachmentKeys(database, account),
+    returnPhotoKeys(database, account.tenantIds),
+  ]);
+  return [...attachmentKeys, ...photoKeys];
+}
+
+/** Both sides' photos of a return go with the reseller's workspace, whose sale it belongs to. */
+async function returnPhotoKeys(
+  database: Database,
+  tenantIds: readonly string[],
+): Promise<string[]> {
+  if (tenantIds.length === 0) {
+    return [];
+  }
+  const rows = await database
+    .select({ storageKey: returnClaimPhotos.storageKey })
+    .from(returnClaimPhotos)
+    .innerJoin(returnClaims, eq(returnClaims.id, returnClaimPhotos.claimId))
+    .where(inArray(returnClaims.sellerTenantId, [...tenantIds]));
+  return rows.map((row) => row.storageKey);
+}
+
+async function ticketAttachmentKeys(
   database: Database,
   account: { userId: string; tenantIds: readonly string[] },
 ): Promise<string[]> {
@@ -70,38 +103,89 @@ export async function accountFileKeys(
  * Deletes a workspace and everything in it: stores, sales, listings, tickets and the holder's
  * CPF all cascade from the organization. A supplier's catalog outlives the workspace (it is only
  * detached), so its ERP and payment account tokens, its ERP catalog read and pending states are
- * deleted with it here.
+ * deleted with it here, and its store is closed for sales until the team takes it over.
  */
 export async function deleteTenantData(database: Database, tenantId: string): Promise<void> {
-  await database.transaction(async (transaction) => {
-    const ranSupplier = transaction
-      .select({ id: suppliers.id })
-      .from(suppliers)
-      .where(eq(suppliers.organizationId, tenantId));
-    await transaction
-      .delete(supplierErpConnections)
-      .where(inArray(supplierErpConnections.supplierId, ranSupplier));
-    await transaction
-      .delete(erpCatalogReads)
-      .where(inArray(erpCatalogReads.supplierId, ranSupplier));
-    await transaction.delete(erpOAuthStates).where(inArray(erpOAuthStates.supplierId, ranSupplier));
-    await transaction
-      .delete(supplierPaymentAccounts)
-      .where(inArray(supplierPaymentAccounts.supplierId, ranSupplier));
-    await transaction
-      .delete(paymentOAuthStates)
-      .where(inArray(paymentOAuthStates.supplierId, ranSupplier));
-    await transaction.delete(organization).where(eq(organization.id, tenantId));
-  });
+  try {
+    await deleteWorkspace(database, tenantId);
+  } catch (error) {
+    if (isSerializationFailure(error)) {
+      throw conflictError(
+        "O perfil mudou durante a exclusão. Confira as pendências e tente de novo.",
+      );
+    }
+
+    throw error;
+  }
+}
+
+async function deleteWorkspace(database: Database, tenantId: string): Promise<void> {
+  await database.transaction(
+    async (transaction) => {
+      const [workspace] = await transaction
+        .select({ id: organization.id })
+        .from(organization)
+        .where(eq(organization.id, tenantId))
+        .for("update");
+      if (workspace === undefined) {
+        return;
+      }
+
+      // Keep new orders and parcels from taking a reference while the final check runs.
+      await transaction
+        .select({ id: suppliers.id })
+        .from(suppliers)
+        .where(eq(suppliers.organizationId, tenantId))
+        .for("update");
+      await assertWorkspaceCanBeDeleted(transaction, tenantId);
+
+      const ranSupplier = transaction
+        .select({ id: suppliers.id })
+        .from(suppliers)
+        .where(eq(suppliers.organizationId, tenantId));
+      await transaction
+        .delete(supplierErpConnections)
+        .where(inArray(supplierErpConnections.supplierId, ranSupplier));
+      await transaction
+        .delete(erpCatalogReads)
+        .where(inArray(erpCatalogReads.supplierId, ranSupplier));
+      await transaction
+        .delete(erpOAuthStates)
+        .where(inArray(erpOAuthStates.supplierId, ranSupplier));
+      await transaction
+        .delete(supplierPaymentAccounts)
+        .where(inArray(supplierPaymentAccounts.supplierId, ranSupplier));
+      await transaction
+        .delete(paymentOAuthStates)
+        .where(inArray(paymentOAuthStates.supplierId, ranSupplier));
+      // No one ships or receives for the catalog anymore: its resellers' listings go to zero stock.
+      await transaction
+        .update(suppliers)
+        .set({ salesClosedAt: sql`coalesce(${suppliers.salesClosedAt}, now())` })
+        .where(eq(suppliers.organizationId, tenantId));
+      await transaction.delete(organization).where(eq(organization.id, tenantId));
+    },
+    { isolationLevel: "serializable" },
+  );
 }
 
 /**
- * Forgets the workspace's Stripe customer once it is deleted there, so a deletion retried after
- * a later step failed does not ask Stripe for a customer that no longer exists.
+ * Forgets the workspace's payment-provider customer once it is deleted there, so a deletion
+ * retried after a later step failed does not ask for a customer that no longer exists.
  */
 export async function forgetBillingCustomer(database: Database, tenantId: string): Promise<void> {
   await database
     .update(billingAccounts)
-    .set({ customerId: null, subscriptionId: null, plan: "free", status: "canceled" })
+    .set({
+      customerId: null,
+      subscriptionId: null,
+      plan: "free",
+      status: "canceled",
+      scheduledPlan: null,
+      scheduledPlanAt: null,
+      pendingPlan: null,
+      pendingReference: null,
+      prepaidUntil: null,
+    })
     .where(eq(billingAccounts.tenantId, tenantId));
 }

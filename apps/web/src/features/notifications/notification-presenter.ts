@@ -107,8 +107,20 @@ function listingUnavailable(
   };
 }
 
-/** The supplier wrote in an order's messages: one entry per order, opening its page. */
+/**
+ * A message in an order's messages, one entry per order: the supplier's opens the store's order
+ * page; the store's opens the supplier's Pedidos on that order, where opening it clears the entry.
+ */
 function orderMessage(event: Extract<NotificationEvent, { kind: "order_message" }>) {
+  if (event.from === "reseller") {
+    const search = new URLSearchParams({ tab: event.supplierTab, query: event.externalOrderId });
+    return {
+      id: `store-message:${event.entityId}:${event.at.getTime()}`,
+      title: "Nova mensagem da loja",
+      detail: `Pedido ${event.externalOrderId} · ${event.storeName}`,
+      href: `/fornecedor/painel/pedidos?${search.toString()}`,
+    };
+  }
   return {
     id: `order-message:${event.entityId}:${event.at.getTime()}`,
     title: "Nova mensagem do fornecedor",

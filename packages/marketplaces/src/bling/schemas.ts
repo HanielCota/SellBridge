@@ -53,10 +53,17 @@ const blingProductFields = {
   midia: blingMediaSchema,
 };
 
+/** A variation of a "V" product; `variacao.nome` names its options ("Cor:Preto;Tamanho:38"). */
+const blingVariationSchema = z.object({
+  ...blingProductFields,
+  variacao: z.object({ nome: z.string() }).nullish(),
+});
+export type BlingVariation = z.infer<typeof blingVariationSchema>;
+
 export const blingProductDetailSchema = z.object({
   ...blingProductFields,
   formato: z.enum(["S", "V", "E"]),
-  variacoes: z.array(z.object(blingProductFields)).nullish(),
+  variacoes: z.array(blingVariationSchema).nullish(),
 });
 export type BlingProductDetail = z.infer<typeof blingProductDetailSchema>;
 export type BlingProductFields = z.infer<z.ZodObject<typeof blingProductFields>>;
@@ -76,6 +83,39 @@ export type BlingProductSummary = z.infer<typeof blingProductSummarySchema>;
 
 export const blingProductListResponseSchema = z.object({
   data: z.array(blingProductSummarySchema),
+});
+
+/** `GET /estoques/saldos` (OpenAPI `EstoquesSaldosBaseDTO`): one row per product asked. */
+export const blingStockBalanceResponseSchema = z.object({
+  data: z.array(
+    z.object({
+      produto: z.object({ id: z.number().int(), codigo: z.string().nullish() }),
+      saldoFisicoTotal: z.number().nullish(),
+      saldoVirtualTotal: z.number().nullish(),
+    }),
+  ),
+});
+export type BlingStockBalance = z.infer<typeof blingStockBalanceResponseSchema>["data"][number];
+
+/** `GET /empresas/me/dados-basicos` (OpenAPI `EmpresasDadosBasicosDTO`): the company id only. */
+export const blingCompanyResponseSchema = z.object({
+  data: z.object({ id: z.string().trim().min(1) }),
+});
+
+/** `GET /depositos` (OpenAPI `DepositosDadosDTO`): the account's warehouses. */
+export const blingDepositListResponseSchema = z.object({
+  data: z.array(
+    z.object({
+      id: z.number().int(),
+      situacao: z.number().int(),
+      padrao: z.boolean(),
+    }),
+  ),
+});
+
+/** `POST /estoques` (OpenAPI `BasePostResponse`): the id of the stock record created. */
+export const blingCreatedStockResponseSchema = z.object({
+  data: z.object({ id: z.number().int() }),
 });
 
 export const blingCreatedProductResponseSchema = z.object({

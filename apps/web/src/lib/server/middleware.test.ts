@@ -1,3 +1,4 @@
+import { problemsLoggedBy } from "@sellbridge/shared/problem-capture-testing";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 type Next = (input?: { context: Record<string, unknown> }) => Promise<unknown>;
@@ -152,6 +153,20 @@ describe("staff middleware", () => {
     const allowed = vi.fn<Next>().mockResolvedValue({ ok: true });
     await expect(run(staffMiddleware("reviews.moderate"), allowed)).resolves.toEqual({ ok: true });
   });
+
+  it("refuses a plan with no charge to everyone but an admin", async () => {
+    const courtesy = staffMiddleware("billing.grant_courtesy");
+    for (const role of ["user", "agent", "supervisor"]) {
+      mocks.getSession.mockResolvedValue({ user: { id: "someone", role } });
+      const refused = vi.fn<Next>();
+      await expect(run(courtesy, refused)).rejects.toMatchObject({ code: "FORBIDDEN" });
+      expect(refused).not.toHaveBeenCalled();
+    }
+
+    mocks.getSession.mockResolvedValue({ user: { id: "boss", role: "admin" } });
+    const allowed = vi.fn<Next>().mockResolvedValue({ ok: true });
+    await expect(run(courtesy, allowed)).resolves.toEqual({ ok: true });
+  });
 });
 
 const post = (name: string): CallInfo => ({ method: "POST", serverFnMeta: { name } });
@@ -174,7 +189,7 @@ describe("tenant middleware inside a customer's account", () => {
     expect(next).not.toHaveBeenCalled();
   });
 
-  it("records the admin behind a write made as the customer, once it went through", async () => {
+  it("records the admin behind a write made as the customer, before it runs", async () => {
     mocks.getSession.mockResolvedValue(impersonated);
     const next = vi.fn<Next>().mockResolvedValue({ ok: true });
     await expect(run(tenantMiddleware, next, post("forwardOrderFn"))).resolves.toEqual({
@@ -191,19 +206,29 @@ describe("tenant middleware inside a customer's account", () => {
     );
   });
 
-  it("records nothing for reads, failed writes or the customer's own session", async () => {
+  it("refuses a write as the customer when the trail cannot be written, and tells the team", async () => {
+    mocks.getSession.mockResolvedValue(impersonated);
+    mocks.recordAdminEvent.mockRejectedValueOnce(new Error("connection refused"));
+    const next = vi.fn<Next>().mockResolvedValue({ ok: true });
+
+    const problems = await problemsLoggedBy(async () => {
+      await expect(run(tenantMiddleware, next, post("forwardOrderFn"))).rejects.toMatchObject({
+        code: "FORBIDDEN",
+        userMessage: expect.stringContaining("Não deu para registrar"),
+      });
+    }, "web");
+
+    expect(next).not.toHaveBeenCalled();
+    expect(problems).toHaveLength(1);
+    expect(problems[0]).toMatchObject({ event: "admin.audit_record_failed" });
+  });
+
+  it("records nothing for reads or the customer's own session", async () => {
     mocks.getSession.mockResolvedValue(impersonated);
     await run(tenantMiddleware, vi.fn<Next>().mockResolvedValue({}), {
       method: "GET",
       serverFnMeta: { name: "getOrderPageFn" },
     });
-    await expect(
-      run(
-        tenantMiddleware,
-        vi.fn<Next>().mockRejectedValue(new Error("falhou")),
-        post("forwardOrderFn"),
-      ),
-    ).rejects.toBeDefined();
     mocks.getSession.mockResolvedValue(own);
     await run(tenantMiddleware, vi.fn<Next>().mockResolvedValue({}), post("disconnectStoreFn"));
     expect(mocks.recordAdminEvent).not.toHaveBeenCalled();

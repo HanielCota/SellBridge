@@ -18,6 +18,8 @@ const mocks = vi.hoisted(() => ({
   findStoreAwaitingReconnection:
     vi.fn<(...args: unknown[]) => Promise<{ id: string; connectedAt: Date } | null>>(),
   enqueueStoreOrderCatchUp: vi.fn<(job: unknown) => Promise<void>>(),
+  findNewStoreBlock: vi.fn<(tenantId: string) => Promise<unknown>>(),
+  findOnboardingProfile: vi.fn<() => Promise<unknown>>(),
   checkBuyerAddressAfterConnect: vi.fn<(store: unknown, credentials: unknown) => Promise<void>>(),
 }));
 
@@ -36,8 +38,8 @@ vi.mock("@/lib/server/environment", () => ({
 }));
 vi.mock("@/lib/server/marketplaces", () => ({
   connectors: {
-    mercado_livre: { exchangeCode: mocks.exchangeCode },
-    shopee: { exchangeCode: mocks.exchangeCode },
+    mercado_livre: { exchangeCode: mocks.exchangeCode, isConfigured: () => true },
+    shopee: { exchangeCode: mocks.exchangeCode, isConfigured: () => true },
   },
   oauthCallbackUrl: (marketplace: string) =>
     `https://sellbridge.test/api/oauth/${marketplace}/callback`,
@@ -45,10 +47,13 @@ vi.mock("@/lib/server/marketplaces", () => ({
     `https://auth.mercadolivre.com.br/authorization?state=${request.state}`,
   tokenCipher: { encrypt: (value: string) => `enc:${value}` },
 }));
-vi.mock("@/features/billing/stripe.server", () => ({ billingConfigured: () => false }));
+vi.mock("@/features/billing/billing-config.server", () => ({ billingRules: () => null }));
+vi.mock("@/features/billing/billing.server", () => ({
+  findNewStoreBlock: mocks.findNewStoreBlock,
+}));
 vi.mock("@sellbridge/database/repositories", () => ({
   assertActiveSupplier: vi.fn<() => Promise<void>>(),
-  findOnboardingProfile: vi.fn<() => Promise<unknown>>(),
+  findOnboardingProfile: mocks.findOnboardingProfile,
   consumeOAuthState: mocks.consumeOAuthState,
   findOAuthStateProfile: mocks.findOAuthStateProfile,
   createOAuthState: mocks.createOAuthState,
@@ -93,6 +98,11 @@ beforeEach(() => {
   mocks.hasLiveStoreConnection.mockResolvedValue(false);
   mocks.findStoreAwaitingReconnection.mockResolvedValue(null);
   mocks.enqueueStoreOrderCatchUp.mockResolvedValue(undefined);
+  mocks.findNewStoreBlock.mockResolvedValue(null);
+  mocks.findOnboardingProfile.mockResolvedValue({
+    productSourceMode: "own",
+    starterSupplier: null,
+  });
   mocks.exchangeCode.mockResolvedValue({
     tokens: { accessToken: "access", refreshToken: "refresh", expiresAt: null },
     shop: SHOP,
@@ -222,6 +232,45 @@ describe("connecting a store while an admin uses the customer's account", () => 
     expect(location.searchParams.get("erro")).toBe("impersonating");
     expect(mocks.exchangeCode).not.toHaveBeenCalled();
     expect(mocks.upsertStoreConnection).not.toHaveBeenCalled();
+  });
+});
+
+async function startedAt(url: string): Promise<URL> {
+  const response = await handleOAuthStart(new Request(url), "mercado_livre");
+  return new URL(response.headers.get("location") ?? "");
+}
+
+// Without a plan the marketplace consent would end refused on the way back (26.b).
+describe("plan before a new store", () => {
+  it("asks an account without a plan to choose one before the consent page", async () => {
+    mocks.findNewStoreBlock.mockResolvedValue({ kind: "choose_plan" });
+
+    const location = await startedAt("https://sellbridge.test/api/oauth/mercado_livre/start");
+
+    expect(location.pathname).toBe("/lojas");
+    expect(location.searchParams.get("erro")).toBe("plan_required");
+    expect(mocks.createOAuthState).not.toHaveBeenCalled();
+  });
+
+  it("asks a full plan for a bigger one before the consent page", async () => {
+    mocks.findNewStoreBlock.mockResolvedValue({ kind: "plan_full", planName: "Start" });
+
+    const location = await startedAt("https://sellbridge.test/api/oauth/mercado_livre/start");
+
+    expect(location.searchParams.get("erro")).toBe("plan_limit");
+    expect(mocks.createOAuthState).not.toHaveBeenCalled();
+  });
+
+  it("lets a store already connected reconnect without a free slot", async () => {
+    mocks.findNewStoreBlock.mockResolvedValue({ kind: "choose_plan" });
+
+    const location = await startedAt(
+      "https://sellbridge.test/api/oauth/mercado_livre/start?reconectar=1",
+    );
+
+    expect(mocks.findNewStoreBlock).not.toHaveBeenCalled();
+    expect(location.searchParams.get("erro")).toBeNull();
+    expect(mocks.createOAuthState).toHaveBeenCalledOnce();
   });
 });
 

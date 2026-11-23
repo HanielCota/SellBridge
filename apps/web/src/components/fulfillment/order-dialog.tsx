@@ -1,6 +1,7 @@
 import { type Dispatch, type SetStateAction, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { SETTLED_FULFILLMENT_STATUSES } from "@sellbridge/shared/schemas";
+import { REFORWARD_BLOCK_MESSAGES } from "@sellbridge/shared/shipment-payments";
 import { toast } from "sonner";
 import { ErrorState } from "@/components/feedback/error-state";
 import { Button } from "@/components/ui/button";
@@ -25,8 +26,12 @@ import { refreshMarketplaceTrackingFn } from "@/features/fulfillment/marketplace
 import { errorMessage } from "@/lib/errors";
 import { ForwardForm } from "./forward-form";
 import { ResellerInvoiceCard } from "./reseller-invoice-card";
+import { ResellerSaleNoteCard } from "./reseller-sale-note-card";
 import { ShipmentPanel } from "./shipment-panel";
 import { ResellerSupplierPayment } from "@/components/supplier-payments/reseller-supplier-payment";
+import { CancelMoneyNote } from "@/components/supplier-payments/cancel-money-note";
+import { asksForSaleNote } from "@/features/fulfillment/sale-note-request";
+import { resellerSupplierPaymentQueryOptions } from "@/features/supplier-payments/supplier-payments.queries";
 import { TrackParcelLink } from "@/components/tracking/track-parcel-link";
 import { useTabProfileLink } from "@/lib/tab-profile";
 import { ShipmentActionHint, ShipmentActionIcon } from "./shipment-hints";
@@ -66,12 +71,50 @@ function paymentLine(shipment: Detail["shipments"][number]) {
     <ResellerSupplierPayment shipmentId={shipment.id} />
   );
 }
-function invoiceCard(orderId: string, shipment: Detail["shipments"][number]) {
-  if (shipment.invoice === null) {
+/** What cancelling does to the money paid to the supplier; none for the reseller's own stock. */
+function cancelNoteFor(shipment: Detail["shipments"][number]) {
+  return shipment.catalogKind === "seller" ? null : (
+    <CancelMoneyNote shipmentId={shipment.id} parcelStatus={shipment.status} />
+  );
+}
+/** In venda à ordem the reseller's own note comes first: the supplier's notes wait for it. */
+function invoiceCards(
+  order: { id: string; marketplace: string },
+  shipment: Detail["shipments"][number],
+  refresh: () => Promise<void>,
+) {
+  const orderId = order.id;
+  if (shipment.invoice === null && shipment.resellerNote === null) {
     return null;
   }
   return (
-    <ResellerInvoiceCard orderId={orderId} shipmentId={shipment.id} invoice={shipment.invoice} />
+    <>
+      {shipment.resellerNote === null ||
+      !asksForSaleNote(shipment.status, shipment.resellerNote) ? null : (
+        <ResellerSaleNoteCard
+          shipmentId={shipment.id}
+          marketplace={order.marketplace}
+          note={shipment.resellerNote}
+          onSaved={refresh}
+        />
+      )}
+      {shipment.invoice === null ? null : (
+        <ResellerInvoiceCard
+          orderId={orderId}
+          shipmentId={shipment.id}
+          invoice={shipment.invoice}
+          noteRole={shipment.resellerNote === null ? "direct" : "remessa"}
+        />
+      )}
+      {shipment.purchaseInvoice === null ? null : (
+        <ResellerInvoiceCard
+          orderId={orderId}
+          shipmentId={shipment.id}
+          invoice={shipment.purchaseInvoice}
+          noteRole="purchase"
+        />
+      )}
+    </>
   );
 }
 /** Each supplier's parcel, with the reseller's own controls: the link, and re-forwarding. */
@@ -93,9 +136,11 @@ function ShipmentList({
       key={shipment.id}
       shipment={shipment}
       externalOrderId={detail.order.externalOrderId}
-      blocked={blocked}
+      // A parcel waiting for the supplier's account or the payment cannot be moved for it either.
+      blocked={blocked || shipment.preparationHold !== null}
       payment={paymentLine(shipment)}
-      invoice={invoiceCard(detail.order.id, shipment)}
+      cancelNote={cancelNoteFor(shipment)}
+      invoice={invoiceCards(detail.order, shipment, refresh)}
       onUpdate={async (input) => {
         await updateShipmentFn({ data: input });
         await refresh();
@@ -112,6 +157,7 @@ function ShipmentList({
       detail.order.status === "paid" ? (
         <ReforwardButton
           shipmentId={shipment.id}
+          supplierHasPanel={shipment.supplierHasPanel}
           onLink={async (url) => {
             setLinks((previous) => ({ ...previous, [shipment.id]: { url, emailed: false } }));
             await refresh();
@@ -120,10 +166,9 @@ function ShipmentList({
       ) : null}
       {shipment.trackingCode === null ? null : <TrackParcelLink orderId={detail.order.id} />}
       {shipment.catalogKind === "seller" ? null : (
-        <SupplierLink
-          shipmentId={shipment.id}
+        <SupplierAccess
+          shipment={shipment}
           link={links[shipment.id]}
-          closed={SETTLED_FULFILLMENT_STATUSES.includes(shipment.status)}
           onLink={(url) =>
             setLinks((previous) => ({ ...previous, [shipment.id]: { url, emailed: false } }))
           }
@@ -149,6 +194,8 @@ export function OrderOperations({ orderId }: { orderId: string }) {
       client.invalidateQueries({ queryKey: ["dashboard"] }),
       client.invalidateQueries({ queryKey: ["order-tracking", orderId] }),
       client.invalidateQueries({ queryKey: ["parcels-in-transit"] }),
+      // Cancelling a paid parcel sends its money back: the payment line and re-forward follow.
+      client.invalidateQueries({ queryKey: ["reseller-supplier-payment"] }),
     ]);
   }
   async function onForwarded(result: Awaited<ReturnType<typeof forwardOrderFn>>) {
@@ -299,14 +346,45 @@ function SupplierLink({
     </div>
   );
 }
-/** The one way forward for a parcel the supplier cancelled: send it again, with a new link. */
+/** A supplier with its own panel sees the parcel there: nothing to share with it. */
+function PanelSupplierNote({ emailed }: { emailed: boolean }) {
+  return (
+    <p className="w-full text-xs text-muted-foreground">
+      {emailed ? "Avisamos o fornecedor por e-mail. " : ""}O fornecedor vê este pedido no painel
+      dele, sem link.
+    </p>
+  );
+}
+
+/** How the supplier reaches the parcel: its panel, or a link the reseller shares. */
+function SupplierAccess({
+  shipment,
+  link,
+  onLink,
+}: {
+  shipment: Detail["shipments"][number];
+  link: SupplierLinkView | undefined;
+  onLink: (url: string) => void;
+}) {
+  const closed = SETTLED_FULFILLMENT_STATUSES.includes(shipment.status);
+  if (shipment.supplierHasPanel) {
+    return closed ? null : <PanelSupplierNote emailed={link?.emailed === true} />;
+  }
+  return <SupplierLink shipmentId={shipment.id} link={link} closed={closed} onLink={onLink} />;
+}
+
+/** The one way forward for a parcel the supplier cancelled: send it again. */
 function ReforwardButton({
   shipmentId,
+  supplierHasPanel,
   onLink,
 }: {
   shipmentId: string;
+  supplierHasPanel: boolean;
   onLink: (url: string) => Promise<void>;
 }) {
+  // A paid parcel's money goes back to the reseller: the server refuses, so say why instead.
+  const payment = useQuery(resellerSupplierPaymentQueryOptions(shipmentId));
   const mutation = useMutation({
     mutationFn: async () => {
       const result = await reforwardShipmentFn({ data: { shipmentId } });
@@ -314,10 +392,18 @@ function ReforwardButton({
     },
     onError: (error) => toast.error(errorMessage(error)),
     onSuccess: () =>
-      toast.success("Envio reencaminhado. Compartilhe o novo link com o fornecedor."),
+      toast.success(
+        supplierHasPanel
+          ? "Envio reencaminhado. O fornecedor vê o pedido no painel."
+          : "Envio reencaminhado. Compartilhe o novo link com o fornecedor.",
+      ),
   });
+  const block = payment.data?.reforwardBlock ?? null;
+  if (block !== null) {
+    return <p className="w-full text-sm">{REFORWARD_BLOCK_MESSAGES[block]}</p>;
+  }
   return (
-    <Button disabled={mutation.isPending} onClick={() => mutation.mutate()}>
+    <Button disabled={payment.isPending || mutation.isPending} onClick={() => mutation.mutate()}>
       Reencaminhar ao fornecedor
     </Button>
   );

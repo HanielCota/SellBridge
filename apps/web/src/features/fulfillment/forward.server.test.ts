@@ -53,6 +53,7 @@ const recipient = {
   acceptWithinHours: 24,
   dispatchWithinHours: 48,
   items: [{ title: "Vestido", sku: "VM-01", quantity: 1 }],
+  hasPanel: false,
 };
 
 beforeEach(() => {

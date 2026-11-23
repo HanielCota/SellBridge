@@ -13,6 +13,7 @@ function store(
     storeConnectionId: `store-${storeName}`,
     status,
     errorReason,
+    pauseReason: null,
     descriptionError: null,
     attempts: 1,
     externalUrl: null,
@@ -89,6 +90,18 @@ describe("listingHealth", () => {
   it("shows publishing before pauses", () => {
     const row = listing([store("A", "pending"), store("B", "paused")]);
     expect(listingHealth(row).label).toBe("Publicando na A");
+  });
+
+  it("says why it is paused, a price that no longer pays first", () => {
+    const disconnected = { ...store("A", "paused"), pauseReason: "store_disconnected" as const };
+    const belowFloor = { ...store("B", "paused"), pauseReason: "price_below_floor" as const };
+
+    const health = listingHealth(listing([disconnected, belowFloor]));
+
+    expect(health).toMatchObject({
+      tone: "paused",
+      reason: "Pausado porque o preço não cobre o custo e as taxas. Ajuste o preço para reativar.",
+    });
   });
 
   it("shows where it is paused", () => {

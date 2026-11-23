@@ -19,6 +19,7 @@ import {
   findSupplierProductFieldsKeptOnErpImport,
   finishErpCatalogRead,
   listSupplierProductsForErpExport,
+  markErpPermissionMissing,
   recordErpCatalogReadProgress,
   recordErpImport,
   recordErpRefreshFailure,
@@ -94,7 +95,7 @@ describe("ERP OAuth state", () => {
 
     const consumed = await consumeErpOAuthState(database, { state, userId, provider: "bling" });
 
-    expect(consumed).toEqual({ supplierId: supplier.supplierId });
+    expect(consumed).toEqual({ kind: "supplier", supplierId: supplier.supplierId });
   });
 
   it("refuses an expired state", async () => {
@@ -209,6 +210,81 @@ describe("ERP connection tokens", () => {
     );
 
     expect(expiring.map((row) => row.supplierId)).toContain(supplier.supplierId);
+  });
+});
+
+describe("ERP permission missing", () => {
+  const firstRefusal = new Date("2026-11-22T12:00:00Z");
+
+  it("flags the connection when its saved authorization was refused, and reconnecting clears it", async () => {
+    const connection = await upsertErpConnection(database, {
+      supplierId: supplier.supplierId,
+      provider: "bling",
+      userId,
+      tokens: tokens("old-grant"),
+    });
+
+    const flagged = await markErpPermissionMissing(database, {
+      connectionId: connection.id,
+      accessTokenEnc: "access-old-grant",
+      now: firstRefusal,
+    });
+    const afterRefusal = await findErpConnection(database, {
+      supplierId: supplier.supplierId,
+      provider: "bling",
+    });
+    const reconnected = await upsertErpConnection(database, {
+      supplierId: supplier.supplierId,
+      provider: "bling",
+      userId,
+      tokens: tokens("new-grant"),
+    });
+
+    expect(flagged).toBe(true);
+    expect(afterRefusal?.permissionMissingAt).toEqual(firstRefusal);
+    expect(afterRefusal?.status).toBe("connected");
+    expect(reconnected.permissionMissingAt).toBeNull();
+  });
+
+  it("keeps the first refusal time when Bling refuses again", async () => {
+    const connection = await upsertErpConnection(database, {
+      supplierId: supplier.supplierId,
+      provider: "bling",
+      userId,
+      tokens: tokens("repeat"),
+    });
+    const flag = { connectionId: connection.id, accessTokenEnc: "access-repeat" };
+    await markErpPermissionMissing(database, { ...flag, now: firstRefusal });
+
+    await markErpPermissionMissing(database, { ...flag, now: new Date("2026-11-22T12:15:00Z") });
+
+    const saved = await findErpConnection(database, {
+      supplierId: supplier.supplierId,
+      provider: "bling",
+    });
+    expect(saved?.permissionMissingAt).toEqual(firstRefusal);
+  });
+
+  it("leaves a reconnected authorization alone when an older one is refused", async () => {
+    const connection = await upsertErpConnection(database, {
+      supplierId: supplier.supplierId,
+      provider: "bling",
+      userId,
+      tokens: tokens("fresh"),
+    });
+
+    const flagged = await markErpPermissionMissing(database, {
+      connectionId: connection.id,
+      accessTokenEnc: "access-before-reconnect",
+      now: firstRefusal,
+    });
+
+    const saved = await findErpConnection(database, {
+      supplierId: supplier.supplierId,
+      provider: "bling",
+    });
+    expect(flagged).toBe(false);
+    expect(saved?.permissionMissingAt).toBeNull();
   });
 });
 

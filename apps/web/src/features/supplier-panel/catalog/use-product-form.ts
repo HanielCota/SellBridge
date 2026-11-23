@@ -51,13 +51,13 @@ function useLiveCompleteness(
  * the category plus those Mercado Livre requires.
  */
 function useCategoryRules(
-  supplierId: string,
+  options: Pick<ProductFormOptions, "supplierId" | "categories">,
   values: PanelFormValues,
   setValues: Dispatch<SetStateAction<PanelFormValues>>,
-  categories: readonly CategoryOption[],
+  autoPick: boolean,
 ) {
-  const category = categories.find((option) => option.id === values.categoryId);
-  const ficha = useMercadoLivreFicha(supplierId, values, setValues);
+  const category = options.categories.find((option) => option.id === values.categoryId);
+  const ficha = useMercadoLivreFicha(options.supplierId, values, setValues, { autoPick });
   const required = useMemo(
     () => withMercadoLivreRequired(requiredAttributesFor(category?.slug), ficha.fields),
     [category?.slug, ficha.fields],
@@ -78,6 +78,8 @@ interface ProductFormOptions {
   categories: readonly CategoryOption[];
   taxDefaults: SupplierTaxSetup | null;
   brandNiche: string | null;
+  /** Whether a new product may be a colour and size grid (PRODUCT_GRID_ENABLED). */
+  productGridEnabled: boolean;
 }
 
 /**
@@ -91,18 +93,32 @@ function openingValues(options: ProductFormOptions): PanelFormValues {
   });
 }
 
+/** What the form query holds once a product is saved, so reopening it needs no request. */
+function formDataOf(options: ProductFormOptions, stored: SavedProduct) {
+  return {
+    product: stored,
+    categories: [...options.categories],
+    taxDefaults: options.taxDefaults,
+    brandNiche: options.brandNiche,
+    productGridEnabled: options.productGridEnabled,
+  };
+}
+
 /**
  * Everything the step form holds: the values being typed, the live completeness, the server
  * autosave and the submission for review.
  */
 export function useProductForm(options: ProductFormOptions) {
-  const { supplierId, productId, product, categories, taxDefaults, brandNiche } = options;
+  const { supplierId, productId, product, taxDefaults } = options;
   const queryClient = useQueryClient();
   const [openedWith] = useState(() => openingValues(options));
   const [values, setValues] = useState<PanelFormValues>(openedWith);
   const edited = useMemo(() => editedFields(openedWith, values), [openedWith, values]);
   const [saved, setSaved] = useState<SavedProduct | null>(product);
-  const { category, ficha, required } = useCategoryRules(supplierId, values, setValues, categories);
+  // Opening a saved product must not change it, so only a product new to this form gets the
+  // Mercado Livre guess filled in. Decided once: the first autosave must not switch it off.
+  const [openedNew] = useState(product === null);
+  const { category, ficha, required } = useCategoryRules(options, values, setValues, openedNew);
   // A new product needs NCM, origin and unit to be published; one from before that rule does not.
   const report = useLiveCompleteness(values, required, {
     required: saved?.fiscalRequired ?? true,
@@ -117,7 +133,7 @@ export function useProductForm(options: ProductFormOptions) {
       setSaved(stored);
       queryClient.setQueryData(
         supplierPanelProductFormQueryOptions(supplierId, stored.id).queryKey,
-        { product: stored, categories: [...categories], taxDefaults, brandNiche },
+        formDataOf(options, stored),
       );
       // A sale moved the shelf while the supplier left stock alone: show the real count.
       setValues((current) =>

@@ -1,6 +1,7 @@
 import { sql } from "drizzle-orm";
 import {
   check,
+  foreignKey,
   index,
   integer,
   jsonb,
@@ -64,6 +65,11 @@ export const orderShipments = pgTable(
      * for a pickup), read with its tracking: the supplier sees whether to wait or take it out.
      */
     marketplaceLogisticType: text(),
+    /**
+     * When the supplier last opened the parcel in its panel: a store message written after it is
+     * "Mensagem nova" in the supplier's orders and bell. Null until the first opening.
+     */
+    supplierMessagesReadAt: timestamp({ withTimezone: true }),
     createdAt: timestamp({ withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp({ withTimezone: true }).notNull().defaultNow(),
   },
@@ -124,7 +130,7 @@ export const supplierTestOrders = pgTable(
     supplierId: uuid()
       .notNull()
       .references(() => suppliers.id, { onDelete: "cascade" }),
-    supplierProductId: uuid().references(() => supplierProducts.id, { onDelete: "set null" }),
+    supplierProductId: uuid(),
     productTitle: text().notNull(),
     productSku: text().notNull(),
     step: text().$type<SupplierTestOrderStep>().notNull().default("received"),
@@ -139,6 +145,12 @@ export const supplierTestOrders = pgTable(
   (table) => [
     // One test order at a time per supplier.
     uniqueIndex("supplier_test_orders_supplier_idx").on(table.supplierId),
+    // Named by hand: the generated name passes the 63 characters Postgres keeps.
+    foreignKey({
+      name: "supplier_test_orders_product_fk",
+      columns: [table.supplierProductId],
+      foreignColumns: [supplierProducts.id],
+    }).onDelete("set null"),
     check(
       "supplier_test_orders_step_check",
       sql`${table.step} in ('received','accepted','label_printed','picked','shipped','delivered')`,
