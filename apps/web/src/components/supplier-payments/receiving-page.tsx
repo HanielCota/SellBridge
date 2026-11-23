@@ -1,7 +1,10 @@
 import { ESCROW_RELEASE_DELAY_IN_DAYS } from "@sellbridge/shared/escrow-release";
+import { ReceiptIcon } from "@phosphor-icons/react";
 import { useQuery } from "@tanstack/react-query";
+import { Link } from "@tanstack/react-router";
 import { ErrorState } from "@/components/feedback/error-state";
 import { PageHeader } from "@/components/layout/page-header";
+import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { asaasReceivingQueryOptions } from "@/features/supplier-payments/asaas.queries";
 import { formatFeePercent } from "@/features/supplier-payments/fee-percent";
@@ -43,6 +46,12 @@ export function ReceivingPage({ supplierId }: { supplierId: string }) {
           emphasis="default"
         />
       )}
+      <Button asChild variant="outline" className="h-11">
+        <Link to="/fornecedor/painel/extrato">
+          <ReceiptIcon aria-hidden="true" />
+          Ver o extrato dos pedidos pagos
+        </Link>
+      </Button>
     </div>
   );
 }

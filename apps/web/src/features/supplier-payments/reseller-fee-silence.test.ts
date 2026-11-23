@@ -22,6 +22,8 @@ const SUPPLIER_OR_TEAM_PATHS = [
   "apps/web/src/components/supplier-payments/asaas-receiving-card.tsx",
   "apps/web/src/components/supplier-payments/mercado-pago-account-card.tsx",
   "apps/web/src/components/supplier-payments/receiving-page.tsx",
+  "apps/web/src/components/supplier-panel/statement/",
+  "apps/web/src/features/supplier-panel/statement/",
   "apps/web/src/routes/_app/admin/",
   "apps/web/src/routes/_app/fornecedor/",
   // The terms of use wait for the lawyer's contract text (decision of 21/11/2026).
