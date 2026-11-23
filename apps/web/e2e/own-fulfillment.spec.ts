@@ -12,7 +12,13 @@ import {
 } from "@sellbridge/database/schema";
 import { eq } from "drizzle-orm";
 import { testStoreInput } from "../../../packages/database/src/testing/fixtures";
-import { gotoHydrated, signUp, stubCepNotFound, OPEN_ORDER_BUTTON } from "./helpers";
+import {
+  gotoHydrated,
+  signUp,
+  stubCepNotFound,
+  OPEN_ORDER_BUTTON,
+  fillAddressField,
+} from "./helpers";
 import { e2eDatabase } from "./database";
 
 // The forward form looks the typed CEP up: answered here, the typed address stays.
@@ -120,10 +126,10 @@ test("mixed parcels separate access and let the owner stop, restart and ship the
     Número: "12",
     Bairro: "Center",
     Cidade: "São Paulo",
-    UF: "SP",
+    Estado: "SP",
     CEP: "01001-000",
   })) {
-    await dialog.getByLabel(label, { exact: true }).fill(value);
+    await fillAddressField(dialog, label, value);
   }
   await expect(dialog.getByText("Você envia este item")).toBeVisible();
   await dialog.getByRole("button", { name: "Preparar envios", exact: true }).click();

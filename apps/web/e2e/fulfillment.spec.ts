@@ -13,7 +13,14 @@ import {
   supplierProducts,
   suppliers,
 } from "@sellbridge/database/schema";
-import { DEMO_USER, gotoHydrated, signIn, stubCepNotFound, OPEN_ORDER_BUTTON } from "./helpers";
+import {
+  DEMO_USER,
+  gotoHydrated,
+  signIn,
+  stubCepNotFound,
+  OPEN_ORDER_BUTTON,
+  fillAddressField,
+} from "./helpers";
 import { forwardableProduct } from "./catalog-fixtures";
 import { e2eDatabase } from "./database";
 
@@ -80,10 +87,10 @@ test("reseller forwards an order and an unauthenticated supplier completes prepa
     Número: "10",
     Bairro: "Centro",
     Cidade: "São Paulo",
-    UF: "SP",
+    Estado: "SP",
     CEP: "01001-000",
   }))
-    await dialog.getByLabel(label, { exact: true }).fill(value);
+    await fillAddressField(dialog, label, value);
   // Enter in an address field does not forward: only the button creates the supplier orders.
   const posts: string[] = [];
   page.on("request", (request) => {
@@ -518,10 +525,10 @@ test("forwarding e-mails the link to a supplier with an order e-mail", async ({ 
       Número: "10",
       Bairro: "Centro",
       Cidade: "São Paulo",
-      UF: "SP",
+      Estado: "SP",
       CEP: "01001-000",
     }))
-      await dialog.getByLabel(label, { exact: true }).fill(value);
+      await fillAddressField(dialog, label, value);
     await dialog.getByRole("button", { name: "Enviar pedido ao fornecedor" }).click();
     await expect(dialog.getByLabel("Link do fornecedor")).toBeVisible();
     await expect(dialog.getByText("Enviamos este link para o e-mail do fornecedor.")).toBeVisible();

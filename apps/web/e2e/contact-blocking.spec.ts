@@ -24,6 +24,7 @@ import {
   signUpAsSupplier,
   stubCepNotFound,
   OPEN_ORDER_BUTTON,
+  fillAddressField,
 } from "./helpers";
 import { e2eDatabase } from "./database";
 
@@ -168,10 +169,10 @@ async function openForwardDialog(page: Page) {
     Número: "10",
     Bairro: "Centro",
     Cidade: "São Paulo",
-    UF: "SP",
+    Estado: "SP",
     CEP: "01001-000",
   }))
-    await dialog.getByLabel(label, { exact: true }).fill(value);
+    await fillAddressField(dialog, label, value);
   return dialog;
 }
 

@@ -75,6 +75,7 @@ for (const [kind, fileName] of LABEL_FILES) {
       await expect(dialog.getByLabel(label, { exact: true })).toHaveValue(value, {
         timeout: 60_000,
       });
+    await expect(dialog.getByLabel("Estado", { exact: true })).toContainText("(SP)");
   });
 }
 
@@ -85,6 +86,5 @@ const EXPECTED_ADDRESS = {
   Complemento: "Apto 45",
   Bairro: "Jardim Paulista",
   Cidade: "São Paulo",
-  UF: "SP",
   CEP: "01310-100",
 };

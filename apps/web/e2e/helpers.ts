@@ -1,5 +1,5 @@
 import { AxeBuilder } from "@axe-core/playwright";
-import { expect, type Page } from "@playwright/test";
+import { expect, type Locator, type Page } from "@playwright/test";
 import { user } from "@sellbridge/database/schema";
 import { eq } from "drizzle-orm";
 import { requireEnvironmentVariable } from "./environment";
@@ -55,6 +55,22 @@ export async function gotoHydrated(page: Page, path: string): Promise<void> {
 
 /** The orders list's button on each row: it names the next step of a paid order not sent yet. */
 export const OPEN_ORDER_BUTTON = /^(Abrir pedido|Enviar ao fornecedor|Preparar o envio)$/;
+
+/**
+ * Fills one field of the forward form's address. The state is picked from its list by its code
+ * ("SP"); every other field is typed.
+ */
+export async function fillAddressField(form: Locator, label: string, value: string) {
+  if (label === "Estado") {
+    await form.getByLabel("Estado", { exact: true }).click();
+    await form
+      .page()
+      .getByRole("option", { name: new RegExp(`\\(${value}\\)`) })
+      .click();
+    return;
+  }
+  await form.getByLabel(label, { exact: true }).fill(value);
+}
 
 export const DEMO_USER = {
   email: "demo@sellbridge.local",

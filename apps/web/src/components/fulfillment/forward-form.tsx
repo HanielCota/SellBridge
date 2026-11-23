@@ -189,7 +189,7 @@ function AddressSource({
   const filledByMarketplace = order.marketplaceAddress !== null;
   return (
     <>
-      {filledByMarketplace && lookupNote === null ? (
+      {filledByMarketplace ? (
         <p className="text-sm text-muted-foreground">{marketplaceAddressNote(order.marketplace)}</p>
       ) : null}
       {lookupNote === null ? null : (
