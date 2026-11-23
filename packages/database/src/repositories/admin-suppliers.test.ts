@@ -217,7 +217,7 @@ describe("admin suppliers", () => {
       origin: 0,
       unit: "UN" as const,
       cest: null,
-      netWeightGrams: null,
+      netWeightGrams: 300,
       cfopInState: null,
       cfopOutOfState: null,
       icmsCode: null,
@@ -239,6 +239,47 @@ describe("admin suppliers", () => {
     });
 
     await database.delete(supplierProducts).where(eq(supplierProducts.id, created.id));
+    expect(created.reviewStatus).toBe("approved");
+    expect(updated.reviewStatus).toBe("draft");
+  });
+
+  it("saves a new product without any weight as a draft and takes it off sale when the weight is erased", async () => {
+    const fiscal = {
+      ncm: "61091000",
+      origin: 0,
+      unit: "UN" as const,
+      cest: null,
+      netWeightGrams: null,
+      cfopInState: null,
+      cfopOutOfState: null,
+      icmsCode: null,
+      pisCofinsCst: null,
+    };
+    const withoutWeight = await saveAdminSupplierProduct(database, {
+      supplierId,
+      ...productValues,
+      sku: "ADMIN-WEIGHT-0",
+      fiscal,
+    });
+    const created = await saveAdminSupplierProduct(database, {
+      supplierId,
+      ...productValues,
+      sku: "ADMIN-WEIGHT-1",
+      fiscal: { ...fiscal, netWeightGrams: 300 },
+    });
+
+    const updated = await saveAdminSupplierProduct(database, {
+      supplierId,
+      ...productValues,
+      sku: "ADMIN-WEIGHT-1",
+      productId: created.id,
+      fiscal,
+    });
+
+    await database
+      .delete(supplierProducts)
+      .where(inArray(supplierProducts.id, [withoutWeight.id, created.id]));
+    expect(withoutWeight.reviewStatus).toBe("draft");
     expect(created.reviewStatus).toBe("approved");
     expect(updated.reviewStatus).toBe("draft");
   });

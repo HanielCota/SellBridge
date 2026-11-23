@@ -77,8 +77,10 @@ export async function reviewedImportValues<TProduct extends ImportedRow>(
         readProductFiscal({ ...previous?.fiscal, ...product.fiscal }),
         fiscalFallback,
       ),
-      // A product the import creates needs NF-e data to go on sale; old ones keep their flag.
+      // A product the import creates needs NF-e data and a weight to go on sale; old ones keep
+      // their flags.
       fiscalRequired: previous?.fiscalRequired ?? true,
+      weightRequired: previous?.weightRequired ?? true,
     };
     const slug = product.categoryId === null ? null : slugById.get(product.categoryId);
     const blocking = evaluateCompleteness(next, requiredAttributesFor(slug)).blocking.length;

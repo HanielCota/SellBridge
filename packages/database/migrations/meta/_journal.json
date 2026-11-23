@@ -778,6 +778,13 @@
       "when": 1795397426605,
       "tag": "0110_supplier_messages_read_at",
       "breakpoints": true
+    },
+    {
+      "idx": 111,
+      "version": "7",
+      "when": 1795465958159,
+      "tag": "0111_weight_required",
+      "breakpoints": true
     }
   ]
 }

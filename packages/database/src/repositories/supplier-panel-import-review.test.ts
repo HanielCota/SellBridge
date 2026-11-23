@@ -13,17 +13,26 @@ import { importSupplierProducts, saveAdminSupplier } from "./admin-suppliers.ts"
  */
 const database = createTestDatabase();
 const REVIEWED_AT = new Date("2026-10-16T12:00:00Z");
-const HEADER = "sku;titulo;custo;estoque;imagens;categoria;ncm;origem;unidade";
+const HEADER = "sku;titulo;custo;estoque;imagens;categoria;peso_g;ncm;origem;unidade";
+/** The packed weight every new product needs to go on sale (weight rule of 23/11/2026). */
+const PACKED_WEIGHT_CELL = "300";
 /** NF-e data every new product needs to go on sale (fiscal rule of 10/11/2026). */
 const FISCAL_CELLS = "6109.10.00;0;UN";
 const categorySlug = `importacao-revisao-${randomUUID().slice(0, 8)}`;
 let supplierId = "";
 
-async function importCsv(lines: readonly string[], reviewAt?: Date, fiscalCells = FISCAL_CELLS) {
+async function importCsv(
+  lines: readonly string[],
+  reviewAt?: Date,
+  fiscalCells = FISCAL_CELLS,
+  weightCell = PACKED_WEIGHT_CELL,
+) {
   return await importSupplierProducts(database, {
     supplierId,
     rows: parseProductCsv(
-      [HEADER, ...lines.map((line) => `${line};${categorySlug};${fiscalCells}`)].join("\n"),
+      [HEADER, ...lines.map((line) => `${line};${categorySlug};${weightCell};${fiscalCells}`)].join(
+        "\n",
+      ),
     ).rows,
     validatePreview: () => undefined,
     ...(reviewAt === undefined ? {} : { reviewAt }),
@@ -120,6 +129,14 @@ describe("supplier spreadsheet import review", () => {
     await importCsv([`${sku};Bebedouro fonte gatos 2 litros;47,00;30;${image}`], REVIEWED_AT, ";;");
 
     expect((await statusOf(sku))?.status).toBe("approved");
+  });
+
+  it("keeps a new product without any weight as a draft", async () => {
+    const sku = `REV-WEIGHT-${randomUUID().slice(0, 6)}`;
+
+    await importCsv([`${sku};Comedouro duplo inox;20,00;8;`], REVIEWED_AT, FISCAL_CELLS, "");
+
+    expect((await statusOf(sku))?.status).toBe("draft");
   });
 
   it("keeps the admin import approving what it writes", async () => {

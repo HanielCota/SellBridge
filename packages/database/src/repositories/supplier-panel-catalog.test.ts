@@ -50,7 +50,7 @@ function readyValues(sku: string): CatalogDraftValues {
     stock: 8,
     categoryId,
     imageUrls: ["https://imagens.test/1.jpg"],
-    mercadoLivreAttributes: {},
+    mercadoLivreAttributes: { SELLER_PACKAGE_WEIGHT: "300" },
     fiscal: { ...EMPTY_PRODUCT_FISCAL, ncm: "61091000", origin: 0, unit: "UN" },
   };
 }
@@ -495,6 +495,88 @@ describe("review flow", () => {
     expect(saved.completeness.fiscal).toEqual([
       expect.objectContaining({ field: "fiscal.ncm", severity: "fiscal" }),
     ]);
+  });
+
+  it("refuses to publish a new product without any weight", async () => {
+    const productId = randomUUID();
+    await saveSupplierPanelDraft(database, {
+      supplierId,
+      productId,
+      values: { ...readyValues("NO-WEIGHT"), mercadoLivreAttributes: {} },
+    });
+
+    const error = await expectAppError(
+      submitSupplierPanelProduct(database, { supplierId, productId }),
+      "VALIDATION",
+    );
+
+    expect(String(error)).toContain("Corrija 1 pendência");
+  });
+
+  it("publishes a new product with only its own weight from the NF-e data", async () => {
+    const productId = randomUUID();
+    const values = readyValues("NET-WEIGHT");
+    await saveSupplierPanelDraft(database, {
+      supplierId,
+      productId,
+      values: {
+        ...values,
+        mercadoLivreAttributes: {},
+        fiscal: { ...values.fiscal, netWeightGrams: 250 },
+      },
+    });
+
+    const published = await submitSupplierPanelProduct(database, { supplierId, productId });
+
+    expect(published.reviewStatus).toBe("approved");
+  });
+
+  it("takes a new product off sale when its weight is erased after it was published", async () => {
+    const productId = randomUUID();
+    await saveSupplierPanelDraft(database, { supplierId, productId, values: readyValues("W-0") });
+    const published = await submitSupplierPanelProduct(database, { supplierId, productId });
+
+    const saved = await saveSupplierPanelDraft(database, {
+      supplierId,
+      productId,
+      values: { ...readyValues("W-0"), mercadoLivreAttributes: {} },
+      expectedUpdatedAt: published.updatedAt.toISOString(),
+    });
+
+    expect(saved.reviewStatus).toBe("draft");
+  });
+
+  it("keeps a product from before the weight rule on sale when it is edited without weight", async () => {
+    const productId = randomUUID();
+    await saveSupplierPanelDraft(database, { supplierId, productId, values: readyValues("OLD-W") });
+    await submitSupplierPanelProduct(database, { supplierId, productId });
+    await database
+      .update(supplierProducts)
+      .set({ mercadoLivreAttributes: {}, weightRequired: false })
+      .where(eq(supplierProducts.id, productId));
+    const stored = await getSupplierPanelProduct(database, { supplierId, productId });
+
+    const saved = await saveSupplierPanelDraft(database, {
+      supplierId,
+      productId,
+      values: {
+        ...readyValues("OLD-W"),
+        title: "Camiseta básica algodão - Preta nova",
+        mercadoLivreAttributes: {},
+      },
+      expectedUpdatedAt: stored.updatedAt.toISOString(),
+    });
+
+    expect(saved.reviewStatus).toBe("approved");
+    expect(saved.completeness.improvements).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          rule: "package_recommended",
+          message:
+            "Informe o peso com embalagem: sem ele, o frete dos revendedores é estimado para até 0,5 kg",
+        }),
+      ]),
+    );
   });
 
   it("puts a complete draft on sale as soon as it is published, with no team review", async () => {

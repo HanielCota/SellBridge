@@ -217,3 +217,70 @@ describe("evaluateCompleteness fiscal data", () => {
     expect(report.fiscal).toEqual([]);
   });
 });
+
+describe("evaluateCompleteness shipping weight", () => {
+  const noPackage = {
+    GTIN: "7891234567895",
+    BRAND: "Marca",
+    MODEL: "Básica",
+  };
+
+  it("blocks publishing a new product without any weight", () => {
+    const report = evaluateCompleteness(
+      product({ mercadoLivreAttributes: noPackage, weightRequired: true }),
+    );
+
+    expect(report.canSubmit).toBe(false);
+    expect(report.blocking).toEqual([
+      expect.objectContaining({
+        field: "attributes.SELLER_PACKAGE_WEIGHT",
+        rule: "weight_required",
+      }),
+    ]);
+  });
+
+  it("accepts a new product with the packed weight", () => {
+    const report = evaluateCompleteness(product({ weightRequired: true }));
+
+    expect(report.canSubmit).toBe(true);
+    expect(report.blocking).toEqual([]);
+  });
+
+  it("accepts a new product with only its own weight from the NF-e data", () => {
+    const report = evaluateCompleteness(
+      product({
+        mercadoLivreAttributes: noPackage,
+        fiscal: { ...EMPTY_PRODUCT_FISCAL, netWeightGrams: 900 },
+        weightRequired: true,
+      }),
+    );
+
+    expect(report.blocking).toEqual([]);
+  });
+
+  it("blocks a new product whose packed weight cannot be read", () => {
+    const report = evaluateCompleteness(
+      product({
+        mercadoLivreAttributes: { ...noPackage, SELLER_PACKAGE_WEIGHT: "0,5 kg" },
+        weightRequired: true,
+      }),
+    );
+
+    expect(report.canSubmit).toBe(false);
+  });
+
+  it("keeps an existing product without weight sellable and says shipping is estimated", () => {
+    const report = evaluateCompleteness(
+      product({ mercadoLivreAttributes: noPackage, weightRequired: false }),
+    );
+
+    expect(report.canSubmit).toBe(true);
+    expect(report.improvements).toEqual([
+      expect.objectContaining({
+        rule: "package_recommended",
+        message:
+          "Informe o peso com embalagem: sem ele, o frete dos revendedores é estimado para até 0,5 kg",
+      }),
+    ]);
+  });
+});

@@ -6,6 +6,7 @@
 
 import { hasRequiredFiscalData, type ProductFiscal } from "./product-fiscal.ts";
 import { findProhibitedProduct, prohibitedProductMessage } from "./prohibited-products.ts";
+import { PACKAGE_WEIGHT_ATTRIBUTE, shippingWeightGrams } from "./shipping-weight.ts";
 
 /**
  * "fiscal": missing NF-e data on a product created before the fiscal fields existed; it is
@@ -46,6 +47,8 @@ export interface CompletenessProduct {
   readonly fiscal?: ProductFiscal;
   /** True for products created after the fiscal fields: publishing needs NCM, origin and unit. */
   readonly fiscalRequired?: boolean;
+  /** True for products created after the weight rule: publishing needs a weight for shipping. */
+  readonly weightRequired?: boolean;
 }
 
 export interface RequiredAttribute {
@@ -147,6 +150,64 @@ function fiscalRules(product: CompletenessProduct): Rule[] {
   ];
 }
 
+/** Whether shipping can be priced on the product's own weight instead of the 0,5 kg estimate. */
+export function hasShippingWeight(
+  product: Pick<CompletenessProduct, "mercadoLivreAttributes" | "fiscal">,
+): boolean {
+  const weight = shippingWeightGrams({
+    mercadoLivreAttributes: product.mercadoLivreAttributes,
+    netWeightGrams: product.fiscal?.netWeightGrams ?? null,
+  });
+  return weight !== null;
+}
+
+/**
+ * Whether a product created under the NF-e and weight rules still meets them: NCM, origin and
+ * unit, and a weight for shipping. A product from before a rule is not held to it. Pass `fiscal`
+ * through `withFiscalFallback` first, as the form does.
+ */
+export function meetsNewProductRules(product: {
+  readonly fiscal: ProductFiscal;
+  readonly fiscalRequired: boolean;
+  readonly weightRequired: boolean;
+  readonly mercadoLivreAttributes: Readonly<Record<string, string>>;
+}): boolean {
+  if (product.fiscalRequired && !hasRequiredFiscalData(product.fiscal)) {
+    return false;
+  }
+  return !product.weightRequired || hasShippingWeight(product);
+}
+
+const WEIGHT_FIELD = `attributes.${PACKAGE_WEIGHT_ATTRIBUTE}`;
+
+function weightRules(product: CompletenessProduct): Rule[] {
+  if (product.weightRequired !== true) {
+    return [];
+  }
+  return [
+    blockingRule(
+      WEIGHT_FIELD,
+      "weight_required",
+      "Informe o peso com embalagem para publicar: o frete é calculado por ele",
+      hasShippingWeight(product),
+    ),
+  ];
+}
+
+/** The package hint; without any weight it says what the reseller's shipping is priced on. */
+function packageRule(product: CompletenessProduct): Rule {
+  const missingPackage = PACKAGE_ATTRIBUTES.find((id) => attributeValue(product, id) === "");
+  const message = hasShippingWeight(product)
+    ? "Informe peso e medidas da embalagem para calcular o frete"
+    : "Informe o peso com embalagem: sem ele, o frete dos revendedores é estimado para até 0,5 kg";
+  return improvementRule(
+    `attributes.${missingPackage ?? PACKAGE_ATTRIBUTES[0]}`,
+    "package_recommended",
+    message,
+    missingPackage === undefined,
+  );
+}
+
 function attributeValue(product: CompletenessProduct, id: string): string {
   return (product.mercadoLivreAttributes[id] ?? "").trim();
 }
@@ -233,7 +294,6 @@ function improvementRules(product: CompletenessProduct, requiredIds: ReadonlySet
             attributeValue(product, id).length > 0,
           ),
         ];
-  const missingPackage = PACKAGE_ATTRIBUTES.find((id) => attributeValue(product, id) === "");
   return [
     improvementRule(
       "description",
@@ -248,12 +308,7 @@ function improvementRules(product: CompletenessProduct, requiredIds: ReadonlySet
       product.imageUrls.length >= RECOMMENDED_IMAGE_COUNT,
     ),
     ...optionalAttribute("GTIN", "o código de barras (GTIN)"),
-    improvementRule(
-      `attributes.${missingPackage ?? PACKAGE_ATTRIBUTES[0]}`,
-      "package_recommended",
-      "Informe peso e medidas da embalagem para calcular o frete",
-      missingPackage === undefined,
-    ),
+    packageRule(product),
     ...optionalAttribute("BRAND", "a marca"),
     ...optionalAttribute("MODEL", "o modelo"),
   ];
@@ -285,6 +340,7 @@ export function evaluateCompleteness(
   const rules = [
     ...blockingRules(product, blockingAttributes),
     ...fiscalRules(product),
+    ...weightRules(product),
     ...improvementRules(product, requiredIds),
   ];
   const totalWeight = rules.reduce((sum, rule) => sum + weightOf(rule), 0);

@@ -92,6 +92,7 @@ function stored(reviewStatus: Stored["reviewStatus"]): Stored {
     categorySlug: null,
     fiscal: {},
     fiscalRequired: false,
+    weightRequired: false,
     completeness: { score: 0, blocking: [], improvements: [], fiscal: [], canSubmit: true },
   };
 }

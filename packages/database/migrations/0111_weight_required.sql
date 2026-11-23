@@ -1,0 +1,1 @@
+ALTER TABLE "supplier_products" ADD COLUMN "weight_required" boolean DEFAULT false NOT NULL;

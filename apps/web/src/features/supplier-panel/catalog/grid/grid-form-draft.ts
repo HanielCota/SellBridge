@@ -327,6 +327,7 @@ export function gridCompleteness(
       mercadoLivreAttributes: sharedAttributes(values),
       fiscal: withFiscalFallback(fiscalForCompleteness(values.fiscal), options.fallback),
       fiscalRequired: true,
+      weightRequired: true,
     },
     options.required,
   );

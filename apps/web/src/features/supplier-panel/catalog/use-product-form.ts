@@ -29,9 +29,9 @@ import { usePanelSupplierApproved } from "@/features/supplier-panel/use-panel-su
 function useLiveCompleteness(
   values: PanelFormValues,
   required: readonly RequiredAttribute[],
-  fiscal: { required: boolean; fallback: FiscalFallback | null },
+  fiscal: { required: boolean; weightRequired: boolean; fallback: FiscalFallback | null },
 ) {
-  const { required: fiscalRequired, fallback } = fiscal;
+  const { required: fiscalRequired, weightRequired, fallback } = fiscal;
   return useMemo(
     () =>
       evaluateCompleteness(
@@ -39,10 +39,11 @@ function useLiveCompleteness(
           ...completenessInput(values),
           fiscal: withFiscalFallback(fiscalForCompleteness(values.fiscal), fallback),
           fiscalRequired,
+          weightRequired,
         },
         required,
       ),
-    [values, required, fiscalRequired, fallback],
+    [values, required, fiscalRequired, weightRequired, fallback],
   );
 }
 
@@ -119,9 +120,11 @@ export function useProductForm(options: ProductFormOptions) {
   // Mercado Livre guess filled in. Decided once: the first autosave must not switch it off.
   const [openedNew] = useState(product === null);
   const { category, ficha, required } = useCategoryRules(options, values, setValues, openedNew);
-  // A new product needs NCM, origin and unit to be published; one from before that rule does not.
+  // A new product needs NCM, origin, unit and a weight to be published; one from before those
+  // rules does not.
   const report = useLiveCompleteness(values, required, {
     required: saved?.fiscalRequired ?? true,
+    weightRequired: saved?.weightRequired ?? true,
     fallback: taxDefaults?.defaults ?? null,
   });
   const autosave = useDraftAutosave({

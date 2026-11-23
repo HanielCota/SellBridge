@@ -79,6 +79,7 @@ const reviewColumns = {
   reviewedBy: null,
   fiscal: {},
   fiscalRequired: false,
+  weightRequired: false,
 };
 const savedSupplier = {
   id: supplierId,
