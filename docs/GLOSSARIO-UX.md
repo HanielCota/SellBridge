@@ -10,6 +10,9 @@ Termos e tom de voz que todos os textos de tela, rótulos e legendas (tooltips) 
 - Legenda (tooltip): uma frase de até ~80 caracteres, sem ponto final, começando por verbo ou pelo que aparece ali.
 - Botão desabilitado: diga o motivo e o que fazer para liberar. Ex.: "Conecte uma loja para publicar este produto".
 - Números e dinheiro no padrão brasileiro: R$ 1.234,56; datas como "16 de out." ou "16/10/2026".
+- **o SellBridge**, sempre no masculino ("no SellBridge", "pelo SellBridge"). Contrato, termos e privacidade seguem a redação do advogado.
+- Erro diz o que aconteceu e o que fazer agora; repetir é **Tentar de novo**, nunca "Tente novamente". Lista vazia diz o que vai aparecer ou o que mudar ("Nenhum pedido com essa busca"), nunca só "Nenhum item encontrado".
+- Nada de "vs.": "que no período anterior". Verbos de balcão: **Digite**, **Escolha**, **Espere**, não "Informe", "Selecione", "Aguarde".
 
 ## Áreas e perfis
 
@@ -22,48 +25,52 @@ Termos e tom de voz que todos os textos de tela, rótulos e legendas (tooltips) 
 
 ## Catálogo e vendas
 
-| Termo                       | Significado                                                              | Não use                                               |
-| --------------------------- | ------------------------------------------------------------------------ | ----------------------------------------------------- |
-| Produto                     | Item do catálogo de um fornecedor                                        | item, SKU, mercadoria                                 |
-| Código                      | Identificação do produto dada pelo fornecedor (na busca)                 | SKU                                                   |
-| Publicação                  | Produto publicado em uma loja do revendedor (aba "Publicações")          | listing                                               |
-| Anúncio                     | A página do produto dentro do marketplace (o que o comprador vê)         | publicação, quando se fala do que está no marketplace |
-| Loja                        | Conta do marketplace conectada ao SellBridge (ex.: Mercado Livre)        | integração, canal                                     |
-| Pedido                      | Uma compra feita por um comprador no marketplace                         | venda, quando se fala de um pedido específico         |
-| Vendas                      | Total ou contagem de pedidos em relatórios ("172 vendas no período")     | pedidos, em indicadores de faturamento                |
-| Comprador                   | Quem comprou no marketplace                                              | cliente (reservado para a área de administração)      |
-| Estoque                     | Quantidade disponível de um produto                                      | saldo, inventário                                     |
-| Custo                       | Quanto o revendedor paga ao fornecedor pelo produto                      | preço de custo, CMV                                   |
-| Preço                       | Quanto o comprador paga no anúncio                                       | valor de venda                                        |
-| Lucro                       | Receita menos custo e taxas                                              | ganho, margem (margem é percentual)                   |
-| Margem                      | Lucro em percentual do preço                                             | lucro                                                 |
-| Saudável / baixa / prejuízo | Faixas da margem no preço: verde, amarelo, vermelho                      | boa, ruim                                             |
-| Taxa do marketplace         | O que o Mercado Livre cobra por venda (média; muda com a categoria)      | comissão, fee                                         |
-| Receita                     | Soma do que os compradores pagaram                                       | faturamento                                           |
-| Ticket médio                | Valor médio de cada pedido no período (receita ÷ pedidos)                | ticket, valor médio por venda                         |
-| Unidades                    | Quantidade de itens vendidos                                             | unid., qtd.                                           |
-| Não conta como venda        | Pedido não pago, cancelado ou devolvido: fica fora da receita e do lucro | fora da receita, inválido                             |
-| Completude                  | Quanto do cadastro do produto está preenchido (selo com % e o que falta) | score, qualidade                                      |
-| Repasse                     | Valor que o marketplace libera para o revendedor                         | saque, transferência                                  |
+| Termo                       | Significado                                                                 | Não use                                               |
+| --------------------------- | --------------------------------------------------------------------------- | ----------------------------------------------------- |
+| Produto                     | Item do catálogo de um fornecedor                                           | item, SKU, mercadoria                                 |
+| Código                      | Identificação do produto dada pelo fornecedor (na busca)                    | SKU                                                   |
+| Publicação                  | Produto publicado em uma loja do revendedor (aba "Publicações")             | listing                                               |
+| Anúncio                     | A página do produto dentro do marketplace (o que o comprador vê)            | publicação, quando se fala do que está no marketplace |
+| Loja                        | Conta do marketplace conectada ao SellBridge (ex.: Mercado Livre)           | integração, canal                                     |
+| Pedido                      | Uma compra feita por um comprador no marketplace                            | venda, quando se fala de um pedido específico         |
+| Vendas                      | Total ou contagem de pedidos em relatórios ("172 vendas no período")        | pedidos, em indicadores de faturamento                |
+| Comprador                   | Quem comprou no marketplace                                                 | cliente (reservado para a área de administração)      |
+| Estoque                     | Quantidade disponível de um produto                                         | saldo, inventário                                     |
+| Custo                       | Quanto o revendedor paga ao fornecedor pelo produto                         | preço de custo, CMV                                   |
+| Preço                       | Quanto o comprador paga no anúncio                                          | valor de venda                                        |
+| Lucro                       | Receita menos custo e taxas                                                 | ganho, margem (margem é percentual)                   |
+| Margem                      | Lucro em percentual do preço                                                | lucro                                                 |
+| Saudável / baixa / prejuízo | Faixas da margem no preço: verde, amarelo, vermelho                         | boa, ruim                                             |
+| Taxa do marketplace         | O que o Mercado Livre cobra por venda (média; muda com a categoria)         | comissão, fee                                         |
+| Receita                     | Soma do que os compradores pagaram                                          | faturamento                                           |
+| Ticket médio                | Valor médio de cada pedido no período (receita ÷ pedidos)                   | ticket, valor médio por venda                         |
+| Unidades                    | Quantidade de itens vendidos                                                | unid., qtd.                                           |
+| Não conta como venda        | Pedido não pago, cancelado ou devolvido: fica fora da receita e do lucro    | fora da receita, inválido                             |
+| Completude                  | Quanto do cadastro do produto está preenchido (selo com % e o que falta)    | score, qualidade                                      |
+| Repasse                     | Valor que o marketplace libera para o revendedor                            | saque, transferência                                  |
+| Sem custo informado         | Venda de produto sem custo no SellBridge; fica "ainda sem lucro"            | custo pendente, fora do lucro                         |
+| Atualizar                   | Pedidos, estoque e preço indo e voltando entre o marketplace e o SellBridge | sincronizar, sincronização                            |
 
 ## Envio e atendimento
 
-| Termo               | Significado                                                         | Não use                                  |
-| ------------------- | ------------------------------------------------------------------- | ---------------------------------------- |
-| Envio               | Despacho de um pedido pelo fornecedor                               | fulfillment, remessa                     |
-| Operar pedido       | Abrir o pedido para encaminhar, imprimir etiquetas e acompanhar     | gerenciar, processar                     |
-| Atrasado            | Prazo de aceite, despacho ou entrega já passou (ícone de relógio)   | vencido, overdue                         |
-| Loja simulada       | Loja de teste do SellBridge: os pedidos dela não são reais          | loja mock, sandbox                       |
-| Etiqueta            | Etiqueta de envio do pedido                                         | label, rótulo                            |
-| Código de rastreio  | Código para acompanhar a entrega                                    | tracking                                 |
-| Chamado             | Pedido de ajuda aberto no Suporte                                   | ticket                                   |
-| Suporte             | Onde se fala com a equipe do SellBridge                             | ajuda, central, help desk                |
-| Avisos              | Notificações do sino                                                | notificações, alertas (em texto de tela) |
-| Avaliação           | Nota e comentário deixados pelo comprador                           | review, feedback                         |
-| Score               | Nota de 0 a 100 do fornecedor, pelas avaliações dos últimos 90 dias | reputação, ranking                       |
-| Fornecedor destaque | Score 90 ou mais, nota 4,7 ou mais e pelo menos 30 pedidos          | top, premium                             |
-| Novo fornecedor     | Fornecedor com menos de 10 avaliações, ainda sem score              | sem nota                                 |
-| Meta                | Limite de devoluções ou cancelamentos; acima dele o score cai       | target, limite                           |
+| Termo                | Significado                                                                                 | Não use                                  |
+| -------------------- | ------------------------------------------------------------------------------------------- | ---------------------------------------- |
+| Envio                | Despacho de um pedido pelo fornecedor                                                       | fulfillment, remessa                     |
+| Operar pedido        | Abrir o pedido para encaminhar, imprimir etiquetas e acompanhar                             | gerenciar, processar                     |
+| Atrasado             | Prazo de aceite, despacho ou entrega já passou (ícone de relógio)                           | vencido, overdue                         |
+| Loja simulada        | Loja de teste do SellBridge: os pedidos dela não são reais                                  | loja mock, sandbox                       |
+| Etiqueta             | Etiqueta de envio do pedido                                                                 | label, rótulo                            |
+| Código de rastreio   | Código para acompanhar a entrega                                                            | tracking                                 |
+| Chamado              | Pedido de ajuda aberto no Suporte                                                           | ticket                                   |
+| Suporte              | Onde se fala com a equipe do SellBridge                                                     | ajuda, central, help desk                |
+| Avisos               | Notificações do sino                                                                        | notificações, alertas (em texto de tela) |
+| Avaliação            | Nota e comentário deixados pelo comprador                                                   | review, feedback                         |
+| Score                | Nota de 0 a 100 do fornecedor, pelas avaliações dos últimos 90 dias                         | reputação, ranking                       |
+| Fornecedor destaque  | Score 90 ou mais, nota 4,7 ou mais e pelo menos 30 pedidos                                  | top, premium                             |
+| Novo fornecedor      | Fornecedor com menos de 10 avaliações, ainda sem score                                      | sem nota                                 |
+| Meta                 | Limite de devoluções ou cancelamentos; acima dele o score cai                               | target                                   |
+| Limite               | Na taxa de cancelamento do fornecedor ("Acima do limite"), onde "meta" leria como coisa boa | meta (nesse caso)                        |
+| Aparelhos conectados | Onde a conta está aberta (celular, computador), no perfil                                   | sessões, dispositivos                    |
 
 ## Ações (verbos padronizados)
 
