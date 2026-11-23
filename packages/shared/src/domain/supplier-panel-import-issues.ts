@@ -43,7 +43,7 @@ const REASON_SEPARATOR = new RegExp(
   // Labels are plain words ("Preço sugerido"), with nothing a regular expression would read.
   `; (?=(?:${REASON_LABELS.join("|")}):)`,
 );
-const DUPLICATE_SKU = "SKU duplicado no arquivo:";
+const DUPLICATE_SKU = "Código repetido no arquivo:";
 const UNKNOWN_CATEGORY = "Categoria desconhecida:";
 const COLUMN_COUNT = "Quantidade de colunas diferente do cabeçalho";
 
@@ -144,7 +144,7 @@ function specialIssue(reason: string, context: RowContext): ImportIssue | null {
     return columnCountIssue(context);
   }
   if (reason.startsWith(DUPLICATE_SKU) && sku !== null) {
-    return cellIssue(sku, context, "SKU repetido de uma linha anterior");
+    return cellIssue(sku, context, "Código repetido de uma linha anterior");
   }
   if (reason.startsWith(UNKNOWN_CATEGORY) && category !== null) {
     return cellIssue(category, context, "Categoria não encontrada");

@@ -21,7 +21,7 @@ export const activeSessionsQueryOptions = () =>
         authClient.getSession(),
       ]);
       if (sessions.error) {
-        throw new Error("Não foi possível carregar suas sessões.");
+        throw new Error("A lista de aparelhos conectados não abriu. Recarregue a página.");
       }
       const currentSession = current.data?.session;
       const currentToken = currentSession?.token;

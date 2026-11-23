@@ -133,7 +133,7 @@ describe("ModelAutosaver", () => {
 
     expect(refused).toEqual({
       kind: "invalid",
-      errors: { "grid.c1.-.sku": "O SKU TEN-P já é de outro produto seu. Use outro código." },
+      errors: { "grid.c1.-.sku": "O código TEN-P já é de outro produto seu. Use outro." },
     });
     expect(save).toHaveBeenCalledTimes(2);
     expect(states.at(-1)).toMatchObject({ kind: "saved" });

@@ -397,7 +397,7 @@ export async function saveAdminSupplierProduct(
         and(eq(supplierProducts.supplierId, supplierId), eq(supplierProducts.sku, values.sku)),
       );
     if (duplicate && duplicate.id !== productId) {
-      throw conflictError("Já existe um produto com este SKU neste fornecedor");
+      throw conflictError("Já existe um produto com este código neste fornecedor");
     }
     const fiscalFallback = await getSupplierFiscalFallback(transaction, supplierId);
     const [product] = productId

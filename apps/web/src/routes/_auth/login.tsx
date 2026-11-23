@@ -16,6 +16,7 @@ import {
   NO_RESPONSE,
   signInErrorMessage,
 } from "@/features/auth/sign-in-error";
+import { accountDeletedNotice } from "@/features/auth/account-deleted-notice";
 import { forgetAppSession } from "@/features/auth/session.queries";
 import { authClient } from "@/lib/auth-client";
 import { shareMeta } from "@/lib/share-meta";
@@ -29,6 +30,8 @@ const loginSearchSchema = z.object({
   senhaRedefinida: z.boolean().optional(),
   /** Set by the e-mail confirmation link, which lands here without opening a session. */
   emailConfirmado: z.boolean().optional(),
+  /** Set by the account deletion, which ends on this page. */
+  contaExcluida: z.boolean().optional(),
 });
 
 const passwordRequiredSchema = signInSchema.shape.password;
@@ -189,6 +192,10 @@ function LoginNotices() {
         {confirmation.message}
       </output>
     );
+  }
+  const deleted = accountDeletedNotice(search);
+  if (deleted !== null) {
+    return <output className="block text-center text-subhead text-brand-text">{deleted}</output>;
   }
   if (search.senhaRedefinida) {
     return (

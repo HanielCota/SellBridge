@@ -330,7 +330,7 @@ export function storeExpiredContent(store: StoreExpiredNotice): NotificationCont
     heading: "Reconecte a sua loja",
     paragraphs: [
       `O acesso à loja ${store.storeName} expirou.`,
-      "Enquanto ela não for reconectada, pedidos novos e estoque não são sincronizados.",
+      "Enquanto você não reconectar, pedidos novos não chegam e o estoque não atualiza.",
     ],
     actionLabel: "Reconectar loja",
     actionPath: "/lojas",

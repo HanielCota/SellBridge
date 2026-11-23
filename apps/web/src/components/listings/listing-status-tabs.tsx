@@ -37,7 +37,7 @@ export function ListingStatusTabs({
 }) {
   return (
     <SegmentedControl
-      legend="Filtrar por status"
+      legend="Mostrar publicações"
       options={OPTIONS}
       labels={LABELS}
       counts={tabCounts(counts)}

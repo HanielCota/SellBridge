@@ -94,6 +94,8 @@ test("deletes the account and its workspace after the password", async ({ page }
   await expect(
     dialog.getByText("Sua assinatura é cancelada na hora, sem devolução."),
   ).toBeVisible();
+  // The 7-day refund of the first fee goes through cancelling the plan, never through deleting.
+  await expect(dialog.getByText("Pagou a primeira mensalidade há 7 dias ou menos?")).toBeVisible();
   await dialog.screenshot({ path: test.info().outputPath("delete-account-dialog.png") });
   await dialog.getByLabel("Sua senha").fill("senha-errada-000");
   await dialog.getByRole("button", { name: "Excluir conta" }).click();
@@ -101,8 +103,9 @@ test("deletes the account and its workspace after the password", async ({ page }
 
   await dialog.getByLabel("Sua senha").fill(PASSWORD);
   await dialog.getByRole("button", { name: "Excluir conta" }).click();
-  // Signed out: the home page sends the visitor on to the login.
-  await expect(page).toHaveURL(/\/(login)?$/);
+  // Signed out on the sign-in, which says what just happened.
+  await expect(page).toHaveURL(/\/login\?contaExcluida=true$/);
+  await expect(page.getByText("Sua conta foi excluída.")).toBeVisible();
   expect(await database.select().from(user).where(eq(user.id, owner.userId))).toEqual([]);
   expect(
     await database.select().from(organization).where(eq(organization.id, owner.tenantId)),

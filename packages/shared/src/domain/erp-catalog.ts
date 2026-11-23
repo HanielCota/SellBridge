@@ -339,12 +339,12 @@ export function mergeResellerCosts(input: {
   const typedSkus = new Set<string>();
   for (const typed of input.typedCosts) {
     if (!importSkus.has(typed.sku)) {
-      return { ok: false, message: `O SKU "${typed.sku}" não está nesta importação.` };
+      return { ok: false, message: `O código "${typed.sku}" não está nesta importação.` };
     }
     if (input.existingCosts.has(typed.sku) || typedSkus.has(typed.sku)) {
       return {
         ok: false,
-        message: `O SKU "${typed.sku}" já tem preço para o revendedor nesta importação.`,
+        message: `O código "${typed.sku}" já tem preço para o revendedor nesta importação.`,
       };
     }
     typedSkus.add(typed.sku);

@@ -12,7 +12,7 @@ function DocumentationLinks() {
       <Button asChild variant="outline" size="sm">
         <a href={API_DOCS_URL} target="_blank" rel="noreferrer">
           <BookOpenIcon aria-hidden="true" />
-          Documentação da API
+          Documentação técnica
           <ArrowSquareOutIcon aria-hidden="true" />
           <span className="sr-only">(abre em nova aba)</span>
         </a>
@@ -29,19 +29,47 @@ function DocumentationLinks() {
 }
 
 /**
- * The Integrações page: header with the documentation links, then one section per kind of
- * integration (API keys, webhooks...) stacked in the order they are passed.
+ * The Integrações page: a plain header, then one section per integration stacked in the order
+ * they are passed. What only a programmer uses goes inside `DeveloperArea`, last.
  */
 export function IntegrationsLayout({ children }: { children: ReactNode }) {
   return (
     <div className="space-y-8">
       <PageHeader
         title="Integrações"
-        description="Conecte seu ERP, planilhas ou sistema próprio ao SellBridge pela API: consulte catálogo, anúncios, pedidos e finanças e publique anúncios sem abrir o app."
-        actions={<DocumentationLinks />}
+        description="Ligue o SellBridge aos programas que a sua empresa já usa."
       />
       {children}
     </div>
+  );
+}
+
+/**
+ * API keys, webhooks and the technical documentation, set apart under its own heading: a lay
+ * reseller reads that it can skip all of it.
+ */
+export function DeveloperArea({ children }: { children: ReactNode }) {
+  return (
+    <section
+      aria-labelledby="programadores-titulo"
+      className="space-y-8 border-t border-border pt-8"
+    >
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
+        <div className="space-y-1">
+          <h2 id="programadores-titulo" className="text-lg font-semibold">
+            Para programadores
+          </h2>
+          <p className="max-w-2xl text-sm text-muted-foreground">
+            Só para quem tem um sistema próprio ou um programador. Para vender pelo SellBridge, você
+            não precisa mexer aqui.
+          </p>
+        </div>
+        <div className="flex shrink-0 flex-wrap gap-2">
+          <DocumentationLinks />
+        </div>
+      </div>
+      {children}
+    </section>
   );
 }
 
@@ -51,6 +79,8 @@ interface IntegrationsSectionProps {
   description: string;
   /** Main action of the section, shown beside its title (e.g. "Nova chave"). */
   action?: ReactNode;
+  /** 3 inside `DeveloperArea`, whose own heading is the 2. */
+  level?: 2 | 3;
   children: ReactNode;
 }
 
@@ -60,16 +90,18 @@ export function IntegrationsSection({
   title,
   description,
   action,
+  level = 2,
   children,
 }: IntegrationsSectionProps) {
   const headingId = `${id}-titulo`;
+  const Heading = level === 2 ? "h2" : "h3";
   return (
     <section id={id} aria-labelledby={headingId} className="scroll-mt-28 space-y-4">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
         <div className="space-y-1">
-          <h2 id={headingId} className="text-subhead font-semibold">
+          <Heading id={headingId} className="text-subhead font-semibold">
             {title}
-          </h2>
+          </Heading>
           <p className="max-w-2xl text-sm text-muted-foreground">{description}</p>
         </div>
         {action ? <div className="shrink-0">{action}</div> : null}

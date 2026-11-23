@@ -20,7 +20,7 @@ async function revokeTokens(tokens: readonly string[]): Promise<void> {
     const batch = tokens.slice(index, index + REVOKE_BATCH_SIZE);
     const results = await Promise.all(batch.map((token) => authClient.revokeSession({ token })));
     if (results.some((result) => result.error)) {
-      throw new Error("Não foi possível desconectar este dispositivo.");
+      throw new Error("Este aparelho continua conectado. Toque em Desconectar de novo.");
     }
   }
 }
@@ -33,8 +33,8 @@ function useRevoke() {
     onSuccess: (_, target) =>
       toast.success(
         target.tokens.length === 1
-          ? "Dispositivo desconectado"
-          : `${target.tokens.length} sessões desconectadas`,
+          ? "Aparelho desconectado"
+          : `${target.tokens.length} acessos desconectados`,
       ),
     onError: (error) => toast.error(errorMessage(error)),
     onSettled: refresh,
@@ -43,10 +43,10 @@ function useRevoke() {
     mutationFn: async () => {
       const result = await authClient.revokeOtherSessions();
       if (result.error) {
-        throw new Error("Não foi possível desconectar os outros dispositivos.");
+        throw new Error("Os outros aparelhos continuam conectados. Toque no botão de novo.");
       }
     },
-    onSuccess: () => toast.success("Outros dispositivos desconectados"),
+    onSuccess: () => toast.success("Outros aparelhos desconectados"),
     onError: (error) => toast.error(errorMessage(error)),
     onSettled: refresh,
   });
@@ -72,10 +72,10 @@ function SessionGroupRow({
       <div className="min-w-0 flex-1">
         <p className="flex flex-wrap items-center gap-2 text-sm font-medium">
           {group.device.browser} no {group.device.os}
-          {group.isCurrent ? <Badge>Este dispositivo</Badge> : null}
+          {group.isCurrent ? <Badge>Este aparelho</Badge> : null}
           {count > 1 ? (
-            <Badge variant="secondary" title={`${count} sessões abertas neste dispositivo`}>
-              {count} sessões
+            <Badge variant="secondary" title={`${count} acessos abertos neste aparelho`}>
+              {count} acessos
             </Badge>
           ) : null}
         </p>
@@ -102,7 +102,7 @@ function SessionGroupRow({
           onClick={onRevoke}
           aria-label={
             count > 1
-              ? `Desconectar ${count} sessões de ${group.device.browser} no ${group.device.os}`
+              ? `Desconectar ${count} acessos de ${group.device.browser} no ${group.device.os}`
               : undefined
           }
         >
@@ -151,7 +151,7 @@ export function SessionsList() {
       </ul>
       {hiddenCount > 0 ? (
         <Button type="button" variant="link" className="px-0" onClick={() => setIsExpanded(true)}>
-          Ver mais {hiddenCount} {hiddenCount === 1 ? "dispositivo" : "dispositivos"}
+          Ver mais {hiddenCount} {hiddenCount === 1 ? "aparelho" : "aparelhos"}
         </Button>
       ) : null}
       {hasOthers ? (
@@ -161,10 +161,10 @@ export function SessionsList() {
           disabled={revoke.others.isPending}
           onClick={() => revoke.others.mutate()}
         >
-          {revoke.others.isPending ? "Desconectando…" : "Sair de todos os outros dispositivos"}
+          {revoke.others.isPending ? "Desconectando…" : "Sair de todos os outros aparelhos"}
         </Button>
       ) : (
-        <p className="text-sm text-muted-foreground">Sua conta está aberta só neste dispositivo.</p>
+        <p className="text-sm text-muted-foreground">Sua conta está aberta só neste aparelho.</p>
       )}
     </div>
   );

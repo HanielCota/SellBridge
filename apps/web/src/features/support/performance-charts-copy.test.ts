@@ -89,7 +89,7 @@ describe("bucketComparison", () => {
   );
 
   it("compares the resolutions with the bucket before", () => {
-    expect(bucketComparison(points, 1, "day")).toBe("Resolvidos ↑ 25% vs. o dia anterior");
+    expect(bucketComparison(points, 1, "day")).toBe("Resolvidos ↑ 25% sobre o dia anterior");
   });
 
   it("has nothing to compare in the first bucket", () => {

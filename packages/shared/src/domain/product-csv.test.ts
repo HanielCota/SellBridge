@@ -79,7 +79,7 @@ describe("product CSV", () => {
 
   it("rejects duplicated trimmed SKUs in the file", () => {
     const parsed = parseProductCsv(`${header}\nA;Primeiro;1;1\n A ;Segundo;2;2`);
-    expect(parsed.errors).toEqual([{ line: 3, reason: "SKU duplicado no arquivo: A" }]);
+    expect(parsed.errors).toEqual([{ line: 3, reason: "Código repetido no arquivo: A" }]);
   });
 
   it("validates image URLs, active flags and optional suggested prices", () => {

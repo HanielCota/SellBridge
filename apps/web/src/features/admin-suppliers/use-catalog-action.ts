@@ -35,7 +35,9 @@ export function useCatalogAction<TInput, TResult>(
         "synchronizationQueued" in result &&
         result.synchronizationQueued === false
       ) {
-        toast.warning("Catálogo salvo. A sincronização será retomada automaticamente pelo worker.");
+        toast.warning(
+          "Catálogo salvo. As lojas recebem a mudança na próxima atualização automática.",
+        );
       }
       await Promise.all([
         queryClient.invalidateQueries({ queryKey: ["admin-suppliers"] }),

@@ -19,7 +19,7 @@ export const SUPPLIER_ORDER_HEADERS = [
   "Recebido em",
   "Pedido",
   "Produto",
-  "SKU",
+  "Código",
   "Quantidade",
   "Valor que você recebe (R$)",
   "Prazo de aceite",
@@ -34,7 +34,7 @@ export const SUPPLIER_ORDER_HEADERS = [
 ] as const;
 
 export const SUPPLIER_PRODUCT_HEADERS = [
-  "SKU",
+  "Código",
   "Produto",
   "Custo para o revendedor (R$)",
   "Estoque",

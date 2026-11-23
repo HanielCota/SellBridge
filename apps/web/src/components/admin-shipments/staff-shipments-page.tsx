@@ -175,7 +175,7 @@ function ShipmentsTable({
     return (
       <EmptyState
         icon={TruckIcon}
-        title="Nenhum envio encontrado"
+        title="Nenhum envio com esse filtro ou busca"
         description="Troque o filtro ou procure por outro código, pedido ou cliente."
       />
     );
@@ -225,7 +225,7 @@ function ShipmentsTableBody({
             <TableHead className="w-[24%]">Pedido</TableHead>
             <TableHead className="w-[26%]">Revendedor e fornecedor</TableHead>
             <TableHead className="w-[28%]">Rastreio</TableHead>
-            <TableHead className="w-[22%]">Status</TableHead>
+            <TableHead className="w-[22%]">Situação</TableHead>
           </TableRow>
         </TableHeader>
         <TableBody>

@@ -125,7 +125,7 @@ function moneyRows(input: SellerReportInput): ReportIndicatorRow[] {
   const profitBase =
     pending === 0
       ? "receita menos custo, taxas e reembolsos"
-      : `sem ${pending} ${plural(pending, "venda", "vendas")} de custo pendente`;
+      : `fora ${pending} ${plural(pending, "venda", "vendas")} sem custo informado`;
   return [
     { kind: "group", label: "Dinheiro das vendas", note: "cancelados e devolvidos não entram" },
     metric({
@@ -168,7 +168,7 @@ function moneyRows(input: SellerReportInput): ReportIndicatorRow[] {
       sense: "neutral",
     }),
     metric({
-      label: "Custo pendente",
+      label: "Sem custo informado",
       base: baseOf(summary.orders, plural(summary.orders, "venda", "vendas")),
       count: pending,
       rate: rateOf(pending, summary.orders),
@@ -193,7 +193,7 @@ function attentionOf(input: SellerReportInput): MonthlyReport["attention"] {
       base: baseOf(all, plural(all, "pedido", "pedidos")),
     },
     {
-      label: "Custo pendente",
+      label: "Sem custo informado",
       count: summary.pendingCostOrders,
       base: baseOf(summary.orders, plural(summary.orders, "venda", "vendas")),
     },

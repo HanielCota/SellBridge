@@ -328,7 +328,7 @@ async function assertSkusFreeOutsideModel(
   const taken = await findSkusTakenOutsideModel(transaction, input);
   if (taken.length > 0) {
     throw conflictError(
-      `Já existe outro produto com ${taken.length === 1 ? "o SKU" : "os SKUs"} ${taken.join(", ")} neste fornecedor`,
+      `Já existe outro produto com ${taken.length === 1 ? "o código" : "os códigos"} ${taken.join(", ")} neste fornecedor`,
     );
   }
 }

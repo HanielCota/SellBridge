@@ -161,7 +161,7 @@ const guardAccountRoutes = createAuthMiddleware(async (context) => {
   }
   if (session.session.impersonatedBy && isImpersonationOver(new Date(session.session.createdAt))) {
     throw new APIError("UNAUTHORIZED", {
-      message: "O acesso como cliente terminou. Volte ao admin.",
+      message: "Sua visita à conta do cliente acabou. Volte para a área da equipe.",
     });
   }
   if (session.session.impersonatedBy) {

@@ -86,7 +86,7 @@ function ProductResults({
   if (products.length === 0) {
     return (
       <p className="rounded-xl bg-muted/50 p-4 text-sm text-muted-foreground">
-        Nenhum produto encontrado. Tente outro nome ou o código do produto.
+        Nenhum produto com esse nome. Tente outro nome ou o código do produto.
       </p>
     );
   }

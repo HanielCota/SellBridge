@@ -32,7 +32,7 @@ function storeCopy(issue: Extract<CustomerIssue, { kind: "store" }>): IssueCopy 
   const expired = issue.stores.some((store) => store.status === "expired");
   const description = expired
     ? "O acesso expirou: pedidos e estoque estão parados."
-    : "A conexão falhou: pedidos e estoque não sincronizam.";
+    : "A loja caiu: pedidos e estoque não estão atualizando.";
   if (issue.stores.length === 1 && first) {
     return {
       title: `Reconectar ${first.shopName}`,
@@ -101,7 +101,7 @@ export function describeIssue(issue: CustomerIssue): IssueCopy {
   }
   if (issue.kind === "listings") {
     const label = plural(issue.count, "publicação com erro", "publicações com erro");
-    return { title: label, description: "Veja o motivo e reprocesse.", badge: label };
+    return { title: label, description: "Veja o motivo e tente publicar de novo.", badge: label };
   }
   if (issue.kind === "ticket") {
     return {

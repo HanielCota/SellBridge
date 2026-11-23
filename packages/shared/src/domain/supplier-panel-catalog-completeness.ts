@@ -184,7 +184,12 @@ function blockingRules(
   requiredAttributes: readonly RequiredAttribute[],
 ): Rule[] {
   return [
-    blockingRule("sku", "sku_required", "Informe o SKU", product.sku.trim().length > 0),
+    blockingRule(
+      "sku",
+      "sku_required",
+      "Preencha o código do produto",
+      product.sku.trim().length > 0,
+    ),
     blockingRule(
       "title",
       "title_min_length",
