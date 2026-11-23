@@ -317,7 +317,8 @@ describe("seller report", () => {
     expect(row).toMatchObject({
       count: -10_000,
       countFormat: "cents",
-      base: "1 venda, já descontadas da receita",
+      base: "1 venda, já descontada da receita",
+      previous: 0,
     });
   });
 

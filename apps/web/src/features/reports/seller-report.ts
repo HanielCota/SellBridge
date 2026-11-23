@@ -117,6 +117,11 @@ function unpaidBaseOf(orders: number): string {
   return `${orders} pedidos: viram venda no mês em que forem pagos`;
 }
 
+/** A loss as a negative number; zero stays zero (a -0 reads as "-R$ 0,00"). */
+function negativeOf(cents: number): number {
+  return cents === 0 ? 0 : -cents;
+}
+
 /**
  * "Cancelados de meses anteriores": sales of an earlier month undone in this one, already taken
  * off the revenue above. Left out while neither month has any.
@@ -129,10 +134,10 @@ function reversedEarlierRows(summary: SalesSummary, previous: SalesSummary): Rep
   return [
     metric({
       label: "Cancelados de meses anteriores",
-      base: `${orders} ${plural(orders, "venda", "vendas")}, já descontadas da receita`,
-      count: -summary.reversedEarlierRevenueCents,
+      base: `${orders} ${plural(orders, "venda", "vendas")}, ${plural(orders, "já descontada", "já descontadas")} da receita`,
+      count: negativeOf(summary.reversedEarlierRevenueCents),
       countFormat: "cents",
-      previous: -previous.reversedEarlierRevenueCents,
+      previous: negativeOf(previous.reversedEarlierRevenueCents),
       sense: "higher_is_better",
       indent: true,
     }),

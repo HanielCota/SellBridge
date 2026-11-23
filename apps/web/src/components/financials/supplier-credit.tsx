@@ -91,8 +91,15 @@ export function AmountNote({
   }
   if (row.fromEarlierPeriod) {
     // A sale of an earlier month: this period only takes its cancellation or refund back.
+    if (revenueCents === 0) {
+      return <span>reembolso</span>;
+    }
+    // On a phone the row already says "venda de 29/10"; the line stays as short as its siblings'.
     return (
-      <span>{revenueCents === 0 ? "reembolso" : `${signedCents(revenueCents)} na receita`}</span>
+      <span>
+        {signedCents(revenueCents)}
+        <span className="max-sm:hidden"> na receita</span>
+      </span>
     );
   }
   if (isVoidOrder(row)) {
