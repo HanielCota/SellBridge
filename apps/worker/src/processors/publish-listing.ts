@@ -50,7 +50,8 @@ export interface PublishDependencies {
 /** `not_pending`: another job owns the target, or it already failed or is paused. */
 export type PublishOutcome = "published" | "paused" | "already_published" | "not_pending";
 
-const UNEXPECTED_FAILURE_REASON = "Erro inesperado ao publicar. Tente reprocessar.";
+const UNEXPECTED_FAILURE_REASON =
+  "A publicação falhou por um erro do SellBridge. Clique em Tentar de novo; se continuar, fale com o suporte.";
 
 async function loadTarget(dependencies: PublishDependencies, tenantId: string, targetId: string) {
   try {
@@ -222,7 +223,7 @@ async function requireSellable(
     await failPermanently(
       dependencies,
       row.target.id,
-      "Esta publicação foi interrompida. Reative o produto e tente publicar de novo quando estiver pronto.",
+      "Esta publicação foi interrompida. Reative o produto e publique de novo.",
     );
   }
   const reason = unavailableReason(row.availability);
@@ -249,7 +250,7 @@ async function requireCredentials(
     return failPermanently(
       dependencies,
       row.target.id,
-      "A loja de destino está desconectada. Reconecte-a e reprocesse.",
+      "A loja está desconectada. Conecte a loja de novo em Lojas e clique em Tentar de novo.",
     );
   }
   return credentials;

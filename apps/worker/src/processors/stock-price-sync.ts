@@ -35,8 +35,9 @@ export interface StockPriceSyncSummary {
   failed: number;
 }
 
-const MISSING_CREDENTIALS_REASON = "Loja sem token de acesso";
-const SYNC_FAILURE_REASON = "Falha ao sincronizar estoque e preço";
+const MISSING_CREDENTIALS_REASON = "A loja perdeu a conexão. Conecte a loja de novo em Lojas.";
+const SYNC_FAILURE_REASON =
+  "Não deu para atualizar o estoque e o preço no anúncio. Tente de novo; se continuar, fale com o suporte.";
 
 /** "store_lost": the store has no usable credentials, so its other listings would fail too. */
 type SyncOutcome = "synced" | "failed" | "store_lost";
