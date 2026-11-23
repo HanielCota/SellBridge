@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   FULFILLMENT_TONES,
+  historyNote,
   shipmentTimeline,
   shipmentsSummary,
   supplierShipmentStatusLabel,
@@ -60,5 +61,17 @@ describe("supplierShipmentStatusLabel", () => {
 
   it("keeps the shared word for the later steps", () => {
     expect(supplierShipmentStatusLabel("shipped")).toBe("Enviado");
+  });
+});
+
+describe("historyNote", () => {
+  it("says the order went to the supplier's panel instead of asking to share the retired link", () => {
+    const note = historyNote("Ordem de fornecimento criada. Compartilhe o link com o fornecedor.");
+
+    expect(note).toBe("Pedido enviado ao fornecedor. Ele vê no painel do SellBridge.");
+  });
+
+  it("keeps any other note as written", () => {
+    expect(historyNote("Separado com cuidado")).toBe("Separado com cuidado");
   });
 });

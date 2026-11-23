@@ -35,6 +35,7 @@ import { printShipment } from "@/features/fulfillment/print-shipment";
 import { resellerStepNote } from "@/features/fulfillment/reseller-step-note";
 import {
   FULFILLMENT_TONES,
+  historyNote,
   shipmentTimeline,
   shipmentStatusLabel,
   supplierShipmentStatusLabel,
@@ -668,7 +669,9 @@ function ShipmentHistory({
             </span>
             <span className="block text-muted-foreground">por {event.actor}</span>
             {event.note ? (
-              <span className="block break-words text-muted-foreground">{event.note}</span>
+              <span className="block break-words text-muted-foreground">
+                {historyNote(event.note)}
+              </span>
             ) : null}
           </DotTimelineItem>
         ))}
