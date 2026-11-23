@@ -11,11 +11,14 @@ const THEME_EVENT = "sellbridge-theme-change";
  */
 export const THEME_COLORS: Readonly<Record<Theme, string>> = { light: "#f4f5f6", dark: "#0e0e10" };
 
-/** Runs before hydration to apply the saved theme and avoid a flash of the wrong colors. */
+/**
+ * Runs before hydration to avoid a flash of the wrong colors: the saved choice when there is one,
+ * otherwise the phone or computer setting (light or dark) on the first visit.
+ */
 export const themeInitScript = [
   "(function(){try{",
   `var t=localStorage.getItem("${STORAGE_KEY}");`,
-  'var d=t?t==="dark":true;',
+  'var d=t?t==="dark":matchMedia("(prefers-color-scheme: dark)").matches;',
   'document.documentElement.classList.toggle("dark",d);',
   "var m=document.querySelector('meta[name=\"theme-color\"]');",
   `if(m){m.setAttribute("content",d?"${THEME_COLORS.dark}":"${THEME_COLORS.light}");}`,
@@ -31,7 +34,7 @@ function getSnapshot(): Theme {
   return document.documentElement.classList.contains("dark") ? "dark" : "light";
 }
 
-/** Dark is the default look; a saved preference for light is applied before hydration. */
+/** The server cannot know the visitor setting; the init script applies the real theme first. */
 function getServerSnapshot(): Theme {
   return "dark";
 }
