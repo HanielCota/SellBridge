@@ -11,6 +11,7 @@ import { MoneyFigure, TrendTag } from "@/components/reports/figures";
 import type { SupplierSalesSituation } from "@sellbridge/shared/supplier-panel-sales";
 import { buildChartPoints } from "@/features/reports/chart-view";
 import { trendTagParts } from "@/features/reports/trend-tone";
+import { runningPeriodTrend } from "@/features/supplier-panel/sales/running-period-trend";
 import {
   supplierAmountLabels,
   supplierTrendPolarity,
@@ -94,11 +95,14 @@ export function SupplierChartHeadline({
   previous: previousTotals,
   series,
   situation,
+  running = false,
 }: {
   summary: HeadlineTotals;
   previous: HeadlineTotals;
   series: SupplierSeries;
   situation: SupplierSalesSituation;
+  /** The period is still running: compared with the same days of the previous one. */
+  running?: boolean;
 }) {
   const isUnits = series === "units";
   const labels = supplierAmountLabels(situation);
@@ -116,8 +120,11 @@ export function SupplierChartHeadline({
           <MoneyFigure cents={current} className="text-3xl" />
         )}
         <TrendTag
-          parts={trendTagParts(current, previous, supplierTrendPolarity(situation))}
-          suffix="vs. período anterior"
+          parts={runningPeriodTrend(
+            trendTagParts(current, previous, supplierTrendPolarity(situation)),
+            running,
+          )}
+          suffix={running ? "vs. mesmos dias do período anterior" : "vs. período anterior"}
         />
       </div>
     </div>
@@ -299,6 +306,7 @@ export function SupplierSalesChart({
               previous={data.previous}
               series={series}
               situation={situation}
+              running={data.period.running}
             />
           }
           tools={tools}

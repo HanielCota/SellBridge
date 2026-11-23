@@ -22,6 +22,7 @@ import { getDispatchCutoffSettings, setDispatchCutoffSettings } from "./dispatch
 import { forwardOrder } from "./fulfillment.ts";
 import { effectiveDispatchDeadlineAt } from "./shipment-timing.ts";
 import { countStaffShipmentsByGroup } from "./staff-shipments.ts";
+import { getSupplierPanelShipment } from "./supplier-panel-orders-detail.ts";
 import { upsertStoreConnection } from "./stores.ts";
 
 const database = createTestDatabase();
@@ -294,5 +295,26 @@ describe("the team's late tab on the posting day", () => {
     const added = await lateCountWith(brasiliaMidnight(-1));
 
     expect(added).toBe(1);
+  });
+});
+
+describe("the supplier's order panel with the cutoff on", () => {
+  it("shows the posting day of the cutoff, not the old dispatch hours", async () => {
+    await turnCutoff(true);
+    const sundayEvening = new Date("2026-11-22T18:00:00-03:00");
+    const shipmentId = await forwardedParcel(sundayEvening);
+    const [parcel] = await database
+      .select({ supplierId: orderShipments.supplierId })
+      .from(orderShipments)
+      .where(eq(orderShipments.id, shipmentId));
+    if (parcel === undefined) throw new Error("No parcel");
+
+    const panel = await getSupplierPanelShipment(
+      database,
+      { supplierId: parcel.supplierId, shipmentId },
+      sundayEvening,
+    );
+
+    expect(panel.dispatchDeadlineAt).toEqual(midnightInBrasilia("2026-11-23"));
   });
 });

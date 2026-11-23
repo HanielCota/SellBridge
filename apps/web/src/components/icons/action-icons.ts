@@ -266,6 +266,8 @@ export const TERM_HINTS = {
   completeness: "Quanto do cadastro está preenchido; produtos completos vendem mais",
   blockingPublish: "Faltam itens obrigatórios: o produto não pode ser publicado",
   canImprove: "Já pode ser publicado, mas fotos e detalhes extras ajudam a vender",
+  pendingOnSale:
+    "O produto continua à venda. Complete os dados que faltam para emitir a nota fiscal dele.",
   completeListing: "Cadastro completo: tem tudo o que o anúncio precisa",
   blockingIssues: "Sem estes itens o produto não pode ser publicado",
   improvementIssues: "Opcionais, mas deixam o anúncio mais completo e vendem mais",

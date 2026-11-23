@@ -105,7 +105,7 @@ const LABEL_OPTIONS = SUPPLIER_LABEL_STATES.map((state) => ({
   label: SUPPLIER_LABEL_STATE_LABELS[state],
 }));
 const PAYMENT_FILTER_LABELS: Record<SupplierPaymentFilter, string> = {
-  paid: "Pagos a você",
+  paid: "Pagos pelo revendedor",
   unpaid: "Ainda não pagos",
 };
 const PAYMENT_OPTIONS = SUPPLIER_PAYMENT_FILTERS.map((payment) => ({

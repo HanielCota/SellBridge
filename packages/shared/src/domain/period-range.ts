@@ -93,6 +93,17 @@ export function comparablePreviousRange(
   return { from: period.previousFrom, to: new Date(period.previousFrom.getTime() + lived) };
 }
 
+/**
+ * Whether the period is still running ("parcial, até hoje"): its change is then measured against
+ * the same stretch of the previous one (`comparablePreviousRange`).
+ */
+export function comparesSameStretch(
+  period: Pick<ResolvedPeriod, "from" | "to">,
+  now: Date,
+): boolean {
+  return now.getTime() > period.from.getTime() && now.getTime() < period.to.getTime();
+}
+
 const HOUR_MILLISECONDS = 60 * 60 * 1000;
 /** Fewest hourly buckets the chart draws: one would be a single dot with no line. */
 const MIN_CHART_HOURS = 2;

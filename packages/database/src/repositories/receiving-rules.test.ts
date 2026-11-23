@@ -5,7 +5,13 @@ import {
 } from "@sellbridge/shared/receiving-rules";
 import { eq } from "drizzle-orm";
 import { afterAll, afterEach, beforeAll, describe, expect, it } from "vitest";
-import { orderItems, orders, orderShipments, platformSettings } from "../schema/index.ts";
+import {
+  orderItems,
+  orders,
+  orderShipments,
+  platformSettings,
+  suppliers,
+} from "../schema/index.ts";
 import {
   createTestDatabase,
   createTestSupplierProduct,
@@ -24,7 +30,9 @@ import {
   savePaymentPreference,
   startShipmentPayment,
 } from "./supplier-payments.ts";
+import { countSupplierParcelsToAccept } from "./supplier-panel-orders.ts";
 import { getSupplierPanelShipment } from "./supplier-panel-orders-detail.ts";
+import { countParcelAlerts } from "./staff-shipments.ts";
 import { assertStoresSellSupplier } from "./store-suppliers.ts";
 import {
   getSellableCatalogProduct,
@@ -318,6 +326,29 @@ describe("parcels waiting before the supplier prepares them", () => {
     expect(parcel.acceptBy).toBeNull();
     expect(parcel.dispatchBy).toBeNull();
     await expect(accept(shipmentId, supplier.supplierId)).rejects.toThrow(HOLD_REFUSALS.payment);
+  });
+
+  it("leaves an unpaid parcel out of what the supplier has to accept", async () => {
+    const supplier = await supplierWithProduct("to-accept");
+    const organization = await createTestTenants(database, 1);
+    cleanups.push(organization.cleanup);
+    const organizationId = organization.ids[0] ?? "";
+    await database
+      .update(suppliers)
+      .set({ organizationId })
+      .where(eq(suppliers.id, supplier.supplierId));
+    await approveAsaas(supplier.supplierId);
+    await turnRules({ requireReceivingAccount: true, paymentBeforePreparing: true });
+    await forwardedParcel(supplier);
+
+    const toAccept = await countSupplierParcelsToAccept(database, supplier.supplierId);
+    const navBadge = await countParcelAlerts(database, {
+      supplierOrganizationId: organizationId,
+      includeForwarded: true,
+    });
+
+    expect(toAccept).toBe(0);
+    expect(navBadge).toBe(0);
   });
 
   it("starts the supplier's times at the payment and releases the parcel", async () => {
