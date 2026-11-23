@@ -281,7 +281,7 @@ describe("publishProductModel", () => {
 
     const attempt = publishProductModel(database, { supplierId, modelId });
 
-    await expect(attempt).rejects.toThrow("Preto 38: Informe o peso com embalagem");
+    await expect(attempt).rejects.toThrow("Preto 38: Informe o peso da embalagem");
     const stored = await getProductModel(database, { supplierId, modelId });
     expect(stored?.combinations.every((entry) => entry.reviewStatus === "draft")).toBe(true);
   });

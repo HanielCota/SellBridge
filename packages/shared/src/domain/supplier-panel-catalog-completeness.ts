@@ -188,7 +188,7 @@ function weightRules(product: CompletenessProduct): Rule[] {
     blockingRule(
       WEIGHT_FIELD,
       "weight_required",
-      "Informe o peso com embalagem para publicar: o frete é calculado por ele",
+      "Informe o peso da embalagem para publicar: o frete é calculado por ele",
       hasShippingWeight(product),
     ),
   ];
@@ -199,7 +199,7 @@ function packageRule(product: CompletenessProduct): Rule {
   const missingPackage = PACKAGE_ATTRIBUTES.find((id) => attributeValue(product, id) === "");
   const message = hasShippingWeight(product)
     ? "Informe peso e medidas da embalagem para calcular o frete"
-    : "Informe o peso com embalagem: sem ele, o frete dos revendedores é estimado para até 0,5 kg";
+    : "Informe o peso da embalagem: sem ele, o frete dos revendedores é estimado para até 0,5 kg";
   return improvementRule(
     `attributes.${missingPackage ?? PACKAGE_ATTRIBUTES[0]}`,
     "package_recommended",

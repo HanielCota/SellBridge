@@ -573,7 +573,7 @@ describe("review flow", () => {
         expect.objectContaining({
           rule: "package_recommended",
           message:
-            "Informe o peso com embalagem: sem ele, o frete dos revendedores é estimado para até 0,5 kg",
+            "Informe o peso da embalagem: sem ele, o frete dos revendedores é estimado para até 0,5 kg",
         }),
       ]),
     );
