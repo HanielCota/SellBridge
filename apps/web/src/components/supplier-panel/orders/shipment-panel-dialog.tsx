@@ -3,7 +3,6 @@ import { WarningIcon } from "@phosphor-icons/react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import type { LabelFormat } from "@sellbridge/shared/schemas";
 import { type ReactNode, useEffect, useRef } from "react";
-import { formatCents } from "@sellbridge/shared/money";
 import { DISPATCHED_FULFILLMENT_STATUSES } from "@sellbridge/shared/schemas";
 import {
   BATCH_LABEL_MARKETPLACE,
@@ -35,6 +34,7 @@ import { channelDispatch } from "@/features/supplier-panel/orders/channel-dispat
 import { channelLabel } from "@/features/supplier-panel/orders/channel-labels";
 import { dispatchInvoiceReminder } from "@/features/supplier-panel/orders/dispatch-invoice-reminder";
 import { orderSteps } from "@/features/supplier-panel/orders/order-steps";
+import { receivableText } from "@/features/supplier-panel/orders/receivable-text";
 import { refreshAfterLabel } from "@/features/supplier-panel/orders/label-refresh";
 import {
   supplierOrdersKey,
@@ -130,7 +130,7 @@ function OrderFacts({ shipment }: { shipment: PanelShipment }) {
     { term: "Canal", detail: <ChannelWithLogo marketplace={shipment.marketplace} /> },
     { term: "Loja do revendedor", detail: shipment.shopName },
     { term: "Cliente", detail: displayBuyerName(shipment.buyerName) },
-    { term: "Você recebe", detail: formatCents(shipment.receivableCents) },
+    { term: "Você recebe", detail: receivableText(shipment) },
   ];
   const method = shippingMethod(shipment.marketplaceLogisticType);
   if (method !== null) {

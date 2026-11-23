@@ -14,6 +14,7 @@ const mocks = vi.hoisted(() => ({
   findChoice: vi.fn<(...input: unknown[]) => Promise<unknown>>(),
   leaveAsaasCharges: vi.fn<(...input: unknown[]) => Promise<void>>(),
   openAsaasCheckout: vi.fn<(...input: unknown[]) => Promise<unknown>>(),
+  summaries: vi.fn<(...input: unknown[]) => Promise<unknown>>(),
 }));
 vi.mock("@sellbridge/database/repositories", () => ({
   findPayableShipment: mocks.findPayable,
@@ -25,6 +26,7 @@ vi.mock("@sellbridge/database/repositories", () => ({
   releaseShipmentPaymentReservation: mocks.release,
   reopenShipmentCheckout: mocks.reopen,
   findSupplierPaymentChoice: mocks.findChoice,
+  listShipmentPaymentSummaries: mocks.summaries,
   findPreparationHold: async () => null,
   findOpenSupportTicketForOrder: async () => null,
   getNewSupplierRule: async () => ({ enabled: false, deliveries: 5 }),
@@ -74,7 +76,11 @@ vi.mock("@/lib/server/environment", () => ({
 }));
 
 import { MercadoPagoError } from "@sellbridge/payments/mercado-pago";
-import { loadResellerSupplierPayment, startSupplierCheckout } from "./supplier-payments.server";
+import {
+  loadResellerSupplierPayment,
+  startSupplierCheckout,
+  supplierPaymentBadges,
+} from "./supplier-payments.server";
 import { showsProtectionSeal } from "./protection-seal";
 
 const SHIPMENT_ID = "6a1f4d7e-9a43-4b2d-8c3e-4f505f0c9a3e";
@@ -418,5 +424,52 @@ describe("loadResellerSupplierPayment, a paid parcel the reseller cancelled", ()
 
     expect(view.badge).toEqual({ kind: "held" });
     expect(view.amountCents).toBe(4590);
+  });
+});
+
+/** A paid parcel in the supplier list, at the given step. */
+function paidSummary(shipmentStatus: string) {
+  return new Map([
+    [
+      SHIPMENT_ID,
+      {
+        status: "approved",
+        paidAt: new Date("2026-11-22T15:00:00Z"),
+        paymentMethod: "PIX",
+        refundRequestedAt: null,
+        fate: {
+          shipmentStatus,
+          cancelledByResellerAfterAccept: false,
+          refundHeldAt: null,
+          releasedAt: null,
+          escrowStatus: "active",
+          teamDecision: null,
+        },
+      },
+    ],
+  ]);
+}
+
+describe("supplierPaymentBadges, the supplier's own list", () => {
+  it("shows the money on its way back for a paid parcel whose sale was cancelled", async () => {
+    mocks.summaries.mockResolvedValue(paidSummary("cancelled"));
+
+    const badges = await supplierPaymentBadges({
+      supplierId: "supplier-1",
+      shipmentIds: [SHIPMENT_ID],
+    });
+
+    expect(badges.get(SHIPMENT_ID)).toEqual({ kind: "refunding" });
+  });
+
+  it("keeps a paid parcel still with the supplier as paid", async () => {
+    mocks.summaries.mockResolvedValue(paidSummary("accepted"));
+
+    const badges = await supplierPaymentBadges({
+      supplierId: "supplier-1",
+      shipmentIds: [SHIPMENT_ID],
+    });
+
+    expect(badges.get(SHIPMENT_ID)?.kind).toBe("paid");
   });
 });

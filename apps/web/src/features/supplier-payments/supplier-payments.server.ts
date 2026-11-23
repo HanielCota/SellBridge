@@ -90,7 +90,7 @@ export async function unlinkPaymentAccount(input: {
 }
 
 function badgeFor(
-  summary: ShipmentPaymentSummary | undefined,
+  summary: Omit<ShipmentPaymentSummary, "fate"> | undefined,
   supplierReceivesHere: boolean,
   parcel?: PaidParcelFate,
 ): SupplierPaymentBadge {
@@ -119,16 +119,40 @@ const ENDED_WITHOUT_DELIVERY: ReadonlySet<string> = new Set(["cancelled", "retur
  * (the reseller cancelled after the supplier accepted and no refund was asked for yet).
  */
 function parcelFate(payable: PayableShipment): PaidParcelFate {
-  const payment = payable.payment;
-  const refundAsked = payment?.refundRequestedAt != null;
+  return fateOf({
+    shipmentStatus: payable.status,
+    cancelledByResellerAfterAccept: payable.cancelledByResellerAfterAccept,
+    refundRequestedAt: payable.payment?.refundRequestedAt ?? null,
+    refundHeldAt: payable.payment?.refundHeldAt ?? null,
+    releasedAt: payable.payment?.releasedAt ?? null,
+    escrowStatus: payable.payment?.escrowStatus ?? null,
+    teamDecision: payable.payment?.teamDecision ?? null,
+  });
+}
+
+/** The same fate for the supplier's list and order window, read from the payment summary. */
+function summaryFate(summary: ShipmentPaymentSummary): PaidParcelFate {
+  return fateOf({ ...summary.fate, refundRequestedAt: summary.refundRequestedAt });
+}
+
+function fateOf(parcel: {
+  shipmentStatus: string;
+  cancelledByResellerAfterAccept: boolean;
+  refundRequestedAt: Date | null;
+  refundHeldAt: Date | null;
+  releasedAt: Date | null;
+  escrowStatus: string | null;
+  teamDecision: string | null;
+}): PaidParcelFate {
+  const refundAsked = parcel.refundRequestedAt !== null;
   return {
-    endedWithoutDelivery: ENDED_WITHOUT_DELIVERY.has(payable.status),
+    endedWithoutDelivery: ENDED_WITHOUT_DELIVERY.has(parcel.shipmentStatus),
     heldForTeam:
-      payment?.refundHeldAt != null || (payable.cancelledByResellerAfterAccept && !refundAsked),
+      parcel.refundHeldAt !== null || (parcel.cancelledByResellerAfterAccept && !refundAsked),
     moneyReleased:
-      payment?.releasedAt != null ||
-      payment?.escrowStatus === "done" ||
-      payment?.teamDecision === "release",
+      parcel.releasedAt !== null ||
+      parcel.escrowStatus === "done" ||
+      parcel.teamDecision === "release",
   };
 }
 
@@ -142,7 +166,15 @@ export async function supplierPaymentBadges(input: {
     receivingAccountsOf(input.supplierId),
   ]);
   const linked = accounts.receiving.provider !== null;
-  return new Map(input.shipmentIds.map((id) => [id, badgeFor(summaries.get(id), linked)]));
+  return new Map(
+    input.shipmentIds.map((id) => {
+      const summary = summaries.get(id);
+      return [
+        id,
+        badgeFor(summary, linked, summary === undefined ? undefined : summaryFate(summary)),
+      ];
+    }),
+  );
 }
 
 const IN_REVIEW_MESSAGE =

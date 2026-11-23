@@ -663,6 +663,15 @@ export interface ShipmentPaymentSummary {
   paidAt: Date | null;
   paymentMethod: string | null;
   refundRequestedAt: Date | null;
+  /** What became of the parcel and its money, which decides whether "paid" still holds. */
+  fate: {
+    shipmentStatus: FulfillmentStatus;
+    cancelledByResellerAfterAccept: boolean;
+    refundHeldAt: Date | null;
+    releasedAt: Date | null;
+    escrowStatus: string | null;
+    teamDecision: string | null;
+  };
 }
 
 export async function listShipmentPaymentSummaries(
@@ -679,8 +688,15 @@ export async function listShipmentPaymentSummaries(
       paidAt: shipmentPayments.paidAt,
       paymentMethod: shipmentPayments.paymentMethod,
       refundRequestedAt: shipmentPayments.refundRequestedAt,
+      shipmentStatus: orderShipments.status,
+      cancelledByResellerAfterAccept: cancelledByResellerAfterAccept(),
+      refundHeldAt: shipmentPayments.refundHeldAt,
+      releasedAt: shipmentPayments.releasedAt,
+      escrowStatus: shipmentPayments.escrowStatus,
+      teamDecision: shipmentPayments.teamDecision,
     })
     .from(shipmentPayments)
+    .innerJoin(orderShipments, eq(orderShipments.id, shipmentPayments.shipmentId))
     .where(inArray(shipmentPayments.shipmentId, [...shipmentIds]));
   return new Map(
     rows.map((row) => [
@@ -690,6 +706,14 @@ export async function listShipmentPaymentSummaries(
         paidAt: row.paidAt,
         paymentMethod: row.paymentMethod,
         refundRequestedAt: row.refundRequestedAt,
+        fate: {
+          shipmentStatus: row.shipmentStatus,
+          cancelledByResellerAfterAccept: row.cancelledByResellerAfterAccept,
+          refundHeldAt: row.refundHeldAt,
+          releasedAt: row.releasedAt,
+          escrowStatus: row.escrowStatus,
+          teamDecision: row.teamDecision,
+        },
       },
     ]),
   );
