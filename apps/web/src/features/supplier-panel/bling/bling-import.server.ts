@@ -4,6 +4,7 @@ import {
   findErpCatalogRead,
   findErpCatalogReadProgress,
   findErpConnection,
+  findSupplierOfProfile,
   markErpCatalogExportRequested,
   saveErpCatalogExportResult,
   findSingleProductSkus,
@@ -49,6 +50,7 @@ import {
 import {
   blingOverviewFrom,
   isBlingReadRunning,
+  needsBlingReconnect,
   type BlingImportOutcome,
   type BlingOverview,
 } from "./bling-overview";
@@ -91,6 +93,29 @@ export async function loadBlingOverview(supplierId: string): Promise<BlingOvervi
     fiscalReady: taxSetup !== null,
     now: new Date(),
   });
+}
+
+/**
+ * The supplier whose Bling must be reconnected (expired, or a missing permission), for the header
+ * notice;
+ * null when there is nothing to ask (no Bling, a team visit that cannot reconnect it, all fine).
+ */
+export async function findOwnBlingToReconnect(context: {
+  tenantId: string;
+  impersonatedBy: string | null;
+}): Promise<{ supplierId: string } | null> {
+  if (blingCredentials() === null || context.impersonatedBy !== null) {
+    return null;
+  }
+  const supplier = await findSupplierOfProfile(database, context.tenantId);
+  if (supplier === null) {
+    return null;
+  }
+  const connection = await findErpConnection(database, { supplierId: supplier.id, ...BLING });
+  if (connection === null || !needsBlingReconnect(connection)) {
+    return null;
+  }
+  return { supplierId: supplier.id };
 }
 
 /**

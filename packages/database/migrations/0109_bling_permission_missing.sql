@@ -1,0 +1,1 @@
+ALTER TABLE "supplier_erp_connections" ADD COLUMN "permission_missing_at" timestamp with time zone;

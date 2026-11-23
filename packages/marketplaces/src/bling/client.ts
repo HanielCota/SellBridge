@@ -1,8 +1,10 @@
+import { logger } from "@sellbridge/shared/logger";
 import { isMarketplaceAuthError } from "../errors.ts";
 import {
   BLING_API_BASE_URL,
   BLING_JWT_HEADERS,
   blingRequest,
+  isBlingPermissionError,
   type BlingHttpOptions,
 } from "./http.ts";
 import { blingDirectInvoiceCalls } from "./direct-invoices.ts";
@@ -30,6 +32,11 @@ export interface BlingAccountAccess {
   readonly currentTokens: () => Promise<BlingTokens>;
   /** Refreshes, saves and returns the new tokens. */
   readonly refresh: () => Promise<BlingTokens>;
+  /**
+   * Called when Bling refused a call for a missing permission, so the account can be flagged for
+   * a new authorization. The call still fails with Bling's error.
+   */
+  readonly permissionMissing?: () => Promise<void>;
 }
 
 export interface BlingClientOptions {
@@ -86,6 +93,19 @@ function newProductBody(product: BlingNewProduct) {
   };
 }
 
+/** Flagging is a side effect: its own failure is logged and never hides Bling's refusal. */
+async function reportPermissionMissing(access: BlingAccountAccess): Promise<void> {
+  const permissionMissing = access.permissionMissing;
+  if (permissionMissing === undefined) {
+    return;
+  }
+  try {
+    await permissionMissing();
+  } catch (error) {
+    logger.warn("bling.permission_flag_failed", { accountKey: access.accountKey, error });
+  }
+}
+
 /** Calls the API for one account: limit, fresh token, and a single refresh-and-retry on 401. */
 function createBlingCaller(options: BlingClientOptions) {
   const now = options.now ?? Date.now;
@@ -116,16 +136,30 @@ function createBlingCaller(options: BlingClientOptions) {
     });
   }
 
+  async function sendReportingPermission<Result>(
+    request: ApiRequest<Result>,
+    tokens: BlingTokens,
+  ): Promise<Result> {
+    try {
+      return await send(request, tokens);
+    } catch (error) {
+      if (isBlingPermissionError(error)) {
+        await reportPermissionMissing(options.access);
+      }
+      throw error;
+    }
+  }
+
   /** A second 401 after the refresh means the account must reconnect. */
   return async function call<Result>(request: ApiRequest<Result>): Promise<Result> {
     const tokens = await usableTokens();
     try {
-      return await send(request, tokens);
+      return await sendReportingPermission(request, tokens);
     } catch (error) {
       if (!isMarketplaceAuthError(error)) {
         throw error;
       }
-      return send(request, await options.access.refresh());
+      return sendReportingPermission(request, await options.access.refresh());
     }
   };
 }
