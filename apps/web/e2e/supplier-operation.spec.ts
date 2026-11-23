@@ -171,10 +171,12 @@ test("o Início do fornecedor mostra os números da operação e muda com o per�
   );
   await expect(now.getByRole("link", { name: /Pedidos atrasados\s*0/ })).toBeVisible();
 
-  const months = page.getByRole("list", { name: "Faturamento de cada mês" });
+  const months = page.getByRole("list", { name: "Vendido em cada mês" });
   await expect(months.getByRole("listitem")).toHaveCount(1);
   await expect(months).toContainText("3 pedidos");
   await expect(months).toContainText(/R\$\s120,00/);
+  // R$ 120,00 minus 4% (R$ 4,80) and three Pix fees (R$ 5,97).
+  await expect(months).toContainText(/Você recebe cerca de R\$\s115,23/);
 
   const best = page.getByRole("list", { name: "Produtos mais vendidos no período" });
   await expect(best.getByText(/\d+ unidades? em estoque/)).toBeVisible();
@@ -190,7 +192,7 @@ test("o Início do fornecedor mostra os números da operação e muda com o per�
   await gotoHydrated(page, "/fornecedor/painel?period=custom&from=2025-01-01&to=2025-01-31");
   await expect(rates).toContainText("Nenhum prazo de envio venceu");
   await expect(rates).toContainText("Nenhum envio no período");
-  await expect(card(page, "Faturamento por mês")).toContainText(
+  await expect(card(page, "Vendido por mês")).toContainText(
     "Quando seus produtos venderem, o valor de cada mês aparece aqui.",
   );
 });
