@@ -81,7 +81,7 @@ async function assertSkusAreFree(
     .orderBy(asc(supplierProducts.sku));
   if (taken.length > 0) {
     throw conflictError(
-      `Já existe produto com ${taken.length === 1 ? "o SKU" : "os SKUs"} ${taken.map((row) => row.sku).join(", ")} neste fornecedor`,
+      `Já existe produto com ${taken.length === 1 ? "o código" : "os códigos"} ${taken.map((row) => row.sku).join(", ")} neste fornecedor`,
     );
   }
 }
