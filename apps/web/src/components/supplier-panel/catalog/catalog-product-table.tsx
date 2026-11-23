@@ -103,6 +103,11 @@ function StatusHeader() {
   );
 }
 
+/** Approved and active: the product sells whatever data it still misses. */
+function isOnSale(product: SupplierPanelProduct): boolean {
+  return product.reviewStatus === "approved" && product.active;
+}
+
 /** The review status above the completeness, as the phone card shows them, in one column. */
 function StatusCell({ product }: { product: SupplierPanelListProduct }) {
   return (
@@ -112,6 +117,7 @@ function StatusCell({ product }: { product: SupplierPanelListProduct }) {
         <CompletenessBadge
           score={product.completeness.score}
           blocking={product.completeness.blocking.length}
+          onSale={isOnSale(product)}
         />
         <MissingFiscalBadge completeness={product.completeness} />
       </div>
@@ -308,6 +314,7 @@ function MobileProductRow({
         <CompletenessBadge
           score={product.completeness.score}
           blocking={product.completeness.blocking.length}
+          onSale={isOnSale(product)}
         />
         <MissingFiscalBadge completeness={product.completeness} />
       </div>

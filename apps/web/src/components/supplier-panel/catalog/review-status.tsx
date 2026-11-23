@@ -8,6 +8,11 @@ import { type StatusTone, TonePill } from "@/components/data/tone-status";
 import { cn } from "@/lib/utils";
 import { TERM_HINTS } from "@/components/icons/action-icons";
 import { HintedText } from "@/components/ui/hint";
+import {
+  completenessLabel,
+  completenessTier,
+  type CompletenessTier,
+} from "@/features/supplier-panel/catalog/completeness-wording";
 
 const REVIEW_TONES: Readonly<Record<ProductReviewStatus, StatusTone>> = {
   draft: "muted",
@@ -30,43 +35,42 @@ export function ProductStatus({ product }: { product: SupplierPanelProduct }) {
   );
 }
 
-/** Score tiers: what blocks publishing reads red even at a high score. */
-function completenessTone(score: number, blocking: number): string {
-  if (blocking > 0) {
-    return "bg-destructive/10 text-destructive dark:bg-destructive/20";
-  }
-  if (score < 100) {
-    return "bg-amber-500/10 text-amber-700 dark:text-amber-400";
-  }
-  return "bg-emerald-500/10 text-emerald-700 dark:text-emerald-400";
-}
+const TIER_TONES: Readonly<Record<CompletenessTier, string>> = {
+  blocked: "bg-destructive/10 text-destructive dark:bg-destructive/20",
+  pending_on_sale: "bg-amber-500/10 text-amber-700 dark:text-amber-400",
+  improvable: "bg-amber-500/10 text-amber-700 dark:text-amber-400",
+  complete: "bg-emerald-500/10 text-emerald-700 dark:text-emerald-400",
+};
 
-function completenessLabel(score: number, blocking: number): string {
-  if (blocking > 0) {
-    return `${blocking} ${blocking === 1 ? "impede" : "impedem"} publicar`;
-  }
-  return score === 100 ? "Anúncio completo" : "Pode melhorar";
-}
-
-function completenessHint(score: number, blocking: number): string {
-  if (blocking > 0) {
-    return TERM_HINTS.blockingPublish;
-  }
-  return score === 100 ? TERM_HINTS.completeListing : TERM_HINTS.canImprove;
-}
+const TIER_HINTS: Readonly<Record<CompletenessTier, string>> = {
+  blocked: TERM_HINTS.blockingPublish,
+  pending_on_sale: TERM_HINTS.pendingOnSale,
+  improvable: TERM_HINTS.canImprove,
+  complete: TERM_HINTS.completeListing,
+};
 
 /** Score plus why, in words: never a bare percentage the supplier has to interpret. */
-export function CompletenessBadge({ score, blocking }: { score: number; blocking: number }) {
+export function CompletenessBadge({
+  score,
+  blocking,
+  onSale = false,
+}: {
+  score: number;
+  blocking: number;
+  /** Approved and active: missing data no longer stops it from selling. */
+  onSale?: boolean;
+}) {
+  const tier = completenessTier({ score, blocking, onSale });
   return (
-    <HintedText label={completenessHint(score, blocking)}>
+    <HintedText label={TIER_HINTS[tier]}>
       <span
         className={cn(
           "inline-flex items-center gap-1.5 rounded-full px-2.5 py-0.5 text-footnote font-medium whitespace-nowrap tabular-nums",
-          completenessTone(score, blocking),
+          TIER_TONES[tier],
         )}
       >
         <span>{score}%</span>
-        <span className="font-normal opacity-80">· {completenessLabel(score, blocking)}</span>
+        <span className="font-normal opacity-80">· {completenessLabel(tier, blocking)}</span>
       </span>
     </HintedText>
   );
