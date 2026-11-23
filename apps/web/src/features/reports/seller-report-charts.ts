@@ -145,7 +145,7 @@ export function sellerReportCharts(input: SellerReportInput): ReportChart[] {
 }
 
 const CASE_TABS: { kind: SellerReportCaseKind; label: string }[] = [
-  { kind: "cost_pending", label: "Custo pendente" },
+  { kind: "cost_pending", label: "Sem custo informado" },
   { kind: "unpaid", label: "Aguardando pagamento" },
   { kind: "cancelled", label: "Cancelados" },
   { kind: "returned", label: "Devolvidos" },
@@ -193,8 +193,8 @@ export function sellerReportRules(): ReportRule[] {
       text: "Reembolsos, comissões e cancelamentos contam no mês em que a venda foi paga, não no dia em que o dinheiro voltou.",
     },
     {
-      title: "Custo pendente",
-      text: "Venda com um item sem produto do catálogo (anúncio criado fora da SellBridge): a receita entra, mas a venda fica fora do lucro e da margem até o custo ser conhecido.",
+      title: "Sem custo informado",
+      text: "Venda de um anúncio criado fora do SellBridge: a receita entra, mas a venda fica ainda sem lucro e sem margem até o custo ser informado.",
     },
     {
       title: "Mês fechado",

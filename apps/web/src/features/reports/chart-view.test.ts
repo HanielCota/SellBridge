@@ -325,7 +325,7 @@ describe("buildWaterfall", () => {
     });
     expect(steps.slice(0, 3)).toEqual([
       { key: "revenue", label: "Receita", cents: 100_000, range: [0, 100_000] },
-      { key: "pending", label: "Custo pendente", cents: -20_000, range: [80_000, 100_000] },
+      { key: "pending", label: "Sem custo informado", cents: -20_000, range: [80_000, 100_000] },
       { key: "cost", label: "Custo dos produtos", cents: -40_000, range: [40_000, 80_000] },
     ]);
     expect(steps.at(-1)).toMatchObject({ key: "profit", cents: 27_000 });
