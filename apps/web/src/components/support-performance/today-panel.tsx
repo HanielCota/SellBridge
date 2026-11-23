@@ -221,7 +221,7 @@ export function TodayPanel({
         <Link
           to="/admin/chamados"
           search={{ queue: "all" }}
-          className="mt-auto flex h-11 items-center justify-center gap-1.5 rounded-full bg-muted text-sm font-medium transition-colors outline-none hover:bg-foreground hover:text-background focus-visible:ring-3 focus-visible:ring-ring/50"
+          className="mt-auto flex h-11 items-center justify-center gap-1.5 rounded-full bg-muted text-sm font-medium transition-colors outline-none hover:bg-selected hover:text-selected-foreground focus-visible:ring-3 focus-visible:ring-ring/50"
         >
           Ver os chamados na fila
           <SeeAllIcon className="size-3.5" weight="bold" aria-hidden="true" />
