@@ -57,8 +57,8 @@ export function BreakdownSection({
             className={cn(
               "-mr-1.5 flex h-8 shrink-0 items-center justify-center gap-1.5 rounded-full px-3 text-sm font-medium text-muted-foreground transition-colors outline-none focus-visible:ring-3 focus-visible:ring-ring/50",
               wholeCardLinks
-                ? "group-hover:bg-foreground group-hover:text-background after:absolute after:inset-0"
-                : "hover:bg-foreground hover:text-background",
+                ? "group-hover:bg-selected group-hover:text-selected-foreground after:absolute after:inset-0"
+                : "hover:bg-selected hover:text-selected-foreground",
             )}
           >
             <span aria-hidden="true">Ver tudo</span>
