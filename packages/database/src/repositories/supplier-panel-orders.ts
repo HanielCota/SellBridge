@@ -246,6 +246,26 @@ export async function countSupplierOperationNow(
   };
 }
 
+/**
+ * Parcels the supplier can accept now: forwarded and not waiting for the reseller's payment or
+ * the receiving account, which the "Para aceitar" counts leave out.
+ */
+export async function countSupplierParcelsToAccept(
+  database: Database,
+  supplierId: string,
+): Promise<number> {
+  const [row] = await database
+    .select({
+      total: countColumn(
+        and(eq(orderShipments.status, "forwarded"), sql`${preparationHold} is null`),
+      ),
+    })
+    .from(orderShipments)
+    .innerJoin(suppliers, eq(suppliers.id, orderShipments.supplierId))
+    .where(supplierScope(supplierId));
+  return row?.total ?? 0;
+}
+
 /** Parcels still in the queue whose NF-e stopped and waits for the supplier. */
 export async function countSupplierStoppedInvoices(
   database: Database,

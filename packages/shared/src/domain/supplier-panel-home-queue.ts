@@ -22,11 +22,14 @@ export interface HomeOrderGroups<TRow> {
 }
 
 /** Splits the queue (already most urgent first) without changing the order inside a group. */
-export function splitHomeOrders<TRow extends { status: FulfillmentStatus }>(
-  rows: readonly TRow[],
-): HomeOrderGroups<TRow> {
+export function splitHomeOrders<
+  TRow extends { status: FulfillmentStatus; preparationHold?: string | null },
+>(rows: readonly TRow[]): HomeOrderGroups<TRow> {
   return {
-    accept: rows.filter((row) => row.status === "forwarded"),
+    // A parcel waiting for the payment cannot be accepted yet: it is not the supplier's to do.
+    accept: rows.filter(
+      (row) => row.status === "forwarded" && (row.preparationHold ?? null) === null,
+    ),
     progress: rows.filter((row) => row.status !== "forwarded"),
   };
 }
