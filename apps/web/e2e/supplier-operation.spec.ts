@@ -176,7 +176,7 @@ test("o Início do fornecedor mostra os números da operação e muda com o per�
   await expect(months).toContainText("3 pedidos");
   await expect(months).toContainText(/R\$\s120,00/);
   // R$ 120,00 minus 4% (R$ 4,80) and three Pix fees (R$ 5,97).
-  await expect(months).toContainText(/Você recebe cerca de R\$\s115,23/);
+  await expect(months).toContainText(/Você recebe cerca de R\$\s109,23/);
 
   const best = page.getByRole("list", { name: "Produtos mais vendidos no período" });
   await expect(best.getByText(/\d+ unidades? em estoque/)).toBeVisible();
