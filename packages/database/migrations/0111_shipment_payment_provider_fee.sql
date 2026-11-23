@@ -1,1 +1,2 @@
-ALTER TABLE "shipment_payments" ADD COLUMN "provider_fee_cents" integer;
+ALTER TABLE "shipment_payments" ADD COLUMN "provider_fee_cents" integer;--> statement-breakpoint
+CREATE INDEX "shipment_payments_supplier_paid_idx" ON "shipment_payments" USING btree ("supplier_id","paid_at" DESC NULLS LAST,"id" DESC NULLS LAST) WHERE "shipment_payments"."paid_at" is not null;
