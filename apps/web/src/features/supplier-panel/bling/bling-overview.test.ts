@@ -6,12 +6,15 @@ import {
   gridProductsNote,
   isBlingExportRunning,
   isBlingReadRunning,
+  needsBlingPermission,
+  needsBlingReconnect,
   skippedProductsNote,
   type BlingConnectionView,
 } from "./bling-overview";
 
 const connection = {
   status: "connected" as const,
+  permissionMissingAt: null,
   accountName: null,
   connectedAt: new Date("2026-11-10T12:00:00Z"),
   lastImportAt: null,
@@ -159,9 +162,60 @@ describe("skippedProductsNote", () => {
   });
 });
 
+describe("needsBlingPermission", () => {
+  it("asks to reconnect a connected Bling that refused a call for a missing permission", () => {
+    const refusedAt = new Date("2026-11-22T12:00:00Z");
+
+    const overview = blingOverviewFrom({
+      available: true,
+      connection: { ...connection, permissionMissingAt: refusedAt },
+      read: null,
+      fiscalReady: true,
+      now: NOW,
+    });
+
+    expect(overview.connection?.permissionMissing).toBe(true);
+  });
+
+  it("stops asking once the new authorization cleared the flag", () => {
+    const overview = blingOverviewFrom({
+      available: true,
+      connection: { ...connection, permissionMissingAt: null },
+      read: null,
+      fiscalReady: true,
+      now: NOW,
+    });
+
+    expect(overview.connection?.permissionMissing).toBe(false);
+  });
+
+  it("leaves an expired connection to its own reconnect card", () => {
+    const flagged = { status: "expired" as const, permissionMissingAt: new Date() };
+
+    expect(needsBlingPermission(flagged)).toBe(false);
+  });
+});
+
+describe("needsBlingReconnect", () => {
+  it("asks the header to show the notice for an expired connection", () => {
+    expect(needsBlingReconnect({ status: "expired", permissionMissingAt: null })).toBe(true);
+  });
+
+  it("asks the header to show the notice for a connection missing a permission", () => {
+    const flagged = { status: "connected" as const, permissionMissingAt: new Date() };
+
+    expect(needsBlingReconnect(flagged)).toBe(true);
+  });
+
+  it("keeps the header quiet for a connection that works", () => {
+    expect(needsBlingReconnect({ status: "connected", permissionMissingAt: null })).toBe(false);
+  });
+});
+
 describe("blingStockLine", () => {
   const view: BlingConnectionView = {
     status: "connected",
+    permissionMissing: false,
     accountName: null,
     connectedAt: "2026-11-10T12:00:00.000Z",
     lastImportAt: null,

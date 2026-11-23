@@ -1,6 +1,7 @@
 import {
   findErpConnection,
   findResellerErpConnection,
+  markErpPermissionMissing,
   recordErpRefreshFailure,
   recordResellerErpRefreshFailure,
   rotateErpTokens,
@@ -49,6 +50,13 @@ export function supplierBlingClient(
             refreshTokenEnc,
             lastError,
             expired: true,
+          });
+        },
+        markPermissionMissing: async (connectionId, accessTokenEnc) => {
+          await markErpPermissionMissing(database, {
+            connectionId,
+            accessTokenEnc,
+            now: new Date(),
           });
         },
       },

@@ -1,5 +1,5 @@
 {
-  "id": "926615a6-99bc-42b0-9590-4eac8f1b2659",
+  "id": "768e33f8-7df0-4c16-8c9e-f803e0130fa0",
   "prevId": "4d38d72c-057b-48e8-9fec-71e5a19eff5a",
   "version": "7",
   "dialect": "postgresql",
@@ -6962,12 +6962,6 @@
           "primaryKey": false,
           "notNull": false
         },
-        "supplier_messages_read_at": {
-          "name": "supplier_messages_read_at",
-          "type": "timestamp with time zone",
-          "primaryKey": false,
-          "notNull": false
-        },
         "created_at": {
           "name": "created_at",
           "type": "timestamp with time zone",
@@ -9830,6 +9824,12 @@
         "last_error": {
           "name": "last_error",
           "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "permission_missing_at": {
+          "name": "permission_missing_at",
+          "type": "timestamp with time zone",
           "primaryKey": false,
           "notNull": false
         },
