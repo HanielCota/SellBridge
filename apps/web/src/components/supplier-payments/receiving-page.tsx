@@ -20,7 +20,7 @@ export function ReceivingPage({ supplierId }: { supplierId: string }) {
   return (
     <div className="space-y-6">
       <PageHeader
-        title="Receber pagamentos"
+        title="Recebimentos"
         description={`É por aqui que os revendedores pagam você: pelo Asaas, numa conta sua. O dinheiro fica guardado e é liberado ${ESCROW_RELEASE_DELAY_IN_DAYS} dias depois da entrega.`}
       />
       {asaasQuery.data?.accountRequired === true && !asaasQuery.data.asaasUsable ? (
