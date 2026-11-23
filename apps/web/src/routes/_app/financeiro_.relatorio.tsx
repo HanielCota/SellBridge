@@ -44,7 +44,7 @@ function SellerReportPage() {
     {
       kind: "spreadsheet",
       label: "Planilha dos pedidos",
-      description: "Cada pedido do período em CSV, com receita, custo, taxas e lucro",
+      description: "Planilha com cada pedido do período: receita, custo, taxas e lucro",
       href: withProfile(sellerReportSpreadsheetUrl(period)),
     },
   ];

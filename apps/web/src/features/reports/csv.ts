@@ -12,7 +12,7 @@ const HEADERS = [
   "Loja",
   "Comprador",
   "Situação",
-  "Itens",
+  "Produtos",
   "Receita",
   "Custo do fornecedor",
   "Taxa do marketplace",

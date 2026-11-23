@@ -104,8 +104,12 @@ describe("marginTagParts", () => {
       direction: "up",
       tone: "good",
       word: "Subiu",
-      amount: "2,1 p.p.",
+      amount: "2,1 pontos",
     });
+  });
+
+  it("keeps the point in the singular below two points", () => {
+    expect(marginTagParts(31.5, 30)).toMatchObject({ amount: "1,5 ponto" });
   });
 
   it("says the margin fell, in red", () => {

@@ -107,8 +107,16 @@ function directionOfCounts(current: number, previous: number): TrendDirection {
 
 const pointsFormat = new Intl.NumberFormat("pt-BR", { maximumFractionDigits: 1 });
 
+/** Portuguese keeps the singular below 2: "1,5 ponto", "2 pontos". */
+const PLURAL_POINTS_FROM = 2;
+
+function pointsAmount(points: number): string {
+  const unit = points < PLURAL_POINTS_FROM ? "ponto" : "pontos";
+  return `${pointsFormat.format(points)} ${unit}`;
+}
+
 /**
- * A margin's move in percentage points ("↑ Subiu 2,1 p.p."), rounded to one decimal; margins in
+ * A margin's move in percentage points ("↑ Subiu 2,1 pontos"), rounded to one decimal; margins in
  * percent (37.5 for 37,5%). Null when either period has no margin.
  */
 export function marginTagParts(
@@ -124,6 +132,6 @@ export function marginTagParts(
     direction,
     tone: trendTone(direction, "higher-is-better"),
     word: TREND_WORDS[direction],
-    amount: direction === "flat" ? "" : `${pointsFormat.format(Math.abs(delta))} p.p.`,
+    amount: direction === "flat" ? "" : pointsAmount(Math.abs(delta)),
   };
 }
