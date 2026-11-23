@@ -26,7 +26,6 @@ import {
   orders,
   orderShipments,
   paymentOAuthStates,
-  platformSettings,
   shipmentEvents,
   shipmentPaymentCheckouts,
   shipmentPayments,
@@ -231,53 +230,6 @@ export async function findPaymentAccountsByProviderAccount(
         eq(supplierPaymentAccounts.providerAccountId, input.providerAccountId),
       ),
     );
-}
-
-export interface PaymentFeeSetting {
-  /** Null until the admin sets it; payments then use zero. */
-  basisPoints: number | null;
-  updatedAt: Date | null;
-  updatedByUserId: string | null;
-}
-
-export async function getPaymentFeeSetting(database: Database): Promise<PaymentFeeSetting> {
-  const [row] = await database
-    .select({
-      basisPoints: platformSettings.paymentFeeBasisPoints,
-      updatedAt: platformSettings.updatedAt,
-      updatedByUserId: platformSettings.updatedByUserId,
-    })
-    .from(platformSettings)
-    .where(eq(platformSettings.id, 1));
-  if (row === undefined) {
-    return { basisPoints: null, updatedAt: null, updatedByUserId: null };
-  }
-  return row;
-}
-
-/** Saves the fee rate; the database refuses values outside 0–3000 basis points. */
-export async function setPaymentFeeSetting(
-  database: Database,
-  input: { basisPoints: number; userId: string },
-): Promise<PaymentFeeSetting> {
-  const values = {
-    paymentFeeBasisPoints: input.basisPoints,
-    updatedByUserId: input.userId,
-    updatedAt: new Date(),
-  };
-  const [row] = await database
-    .insert(platformSettings)
-    .values({ id: 1, ...values })
-    .onConflictDoUpdate({ target: platformSettings.id, set: values })
-    .returning();
-  if (row === undefined) {
-    throw new Error("Platform settings not saved");
-  }
-  return {
-    basisPoints: row.paymentFeeBasisPoints,
-    updatedAt: row.updatedAt,
-    updatedByUserId: row.updatedByUserId,
-  };
 }
 
 /** A parcel the reseller may pay its supplier for, with what is owed for it. */

@@ -3,7 +3,6 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 const mocks = vi.hoisted(() => ({
   findPayable: vi.fn<(...input: unknown[]) => Promise<unknown>>(),
   findAccount: vi.fn<(database: unknown, query: { provider: string }) => Promise<unknown>>(),
-  getFee: vi.fn<(...input: unknown[]) => Promise<unknown>>(),
   start: vi.fn<(...input: unknown[]) => Promise<unknown>>(),
   findPayment: vi.fn<(...input: unknown[]) => Promise<unknown>>(),
   save: vi.fn<(...input: unknown[]) => Promise<void>>(),
@@ -18,7 +17,6 @@ const mocks = vi.hoisted(() => ({
 vi.mock("@sellbridge/database/repositories", () => ({
   findPayableShipment: mocks.findPayable,
   findSupplierPaymentAccount: mocks.findAccount,
-  getPaymentFeeSetting: mocks.getFee,
   startShipmentPayment: mocks.start,
   findShipmentPayment: mocks.findPayment,
   savePaymentPreference: mocks.save,
@@ -133,7 +131,6 @@ beforeEach(() => {
   );
   mocks.findChoice.mockResolvedValue(null);
   mocks.openAsaasCheckout.mockResolvedValue({ checkoutUrl: ASAAS_CHECKOUT });
-  mocks.getFee.mockResolvedValue({ basisPoints: 100 });
   mocks.start.mockResolvedValue({ ...earlierPayment, checkoutExpiresAt: null });
   mocks.createCheckout.mockResolvedValue({
     preferenceId: "pref-second",
@@ -203,6 +200,22 @@ describe("startSupplierCheckout across providers", () => {
     expect(result.checkoutUrl).toBe(ASAAS_CHECKOUT);
     expect(mocks.start).toHaveBeenCalledWith({}, expect.objectContaining({ provider: "asaas" }));
     expect(mocks.createCheckout).not.toHaveBeenCalled();
+  });
+
+  it("charges SellBridge's fixed 4% on the products' price", async () => {
+    mocks.findChoice.mockResolvedValue("asaas");
+    mocks.findPayable.mockResolvedValue({ ...payable, payment: null });
+
+    await startSupplierCheckout(request);
+
+    expect(mocks.start).toHaveBeenCalledWith(
+      {},
+      expect.objectContaining({
+        amountCents: 5990,
+        platformFeeCents: 240,
+        platformFeeBasisPoints: 400,
+      }),
+    );
   });
 
   it("closes the parcel's Asaas charges before charging it on Mercado Pago", async () => {
