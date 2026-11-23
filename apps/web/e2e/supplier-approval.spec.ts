@@ -1,5 +1,5 @@
 import { expect, test, type Page } from "@playwright/test";
-import { member, suppliers, user } from "@sellbridge/database/schema";
+import { member, supplierApprovals, suppliers, user } from "@sellbridge/database/schema";
 import { isValidCnpj } from "@sellbridge/shared/account-documents";
 import { TEST_SUPPLIER_FISCAL } from "@sellbridge/database/testing/shipment-invoice";
 import { eq } from "drizzle-orm";
@@ -141,4 +141,54 @@ test("CNPJ baixado vai para a fila da equipe, que recusa com o motivo", async ({
   await expect(
     page.getByText("O CNPJ está baixado na Receita. Cadastre o CNPJ ativo da empresa."),
   ).toBeVisible();
+});
+
+test("aprovar mesmo assim um fornecedor recusado sozinho pergunta antes e mostra a consequência", async ({
+  page,
+  browser,
+}) => {
+  const name = `Olaria MEI ${stamp}`;
+  const email = await registerBrand(page, name);
+  const supplierId = await supplierIdOf(email);
+  const reason = "A empresa é MEI. Fale com o suporte se ela já saiu do MEI.";
+  await database
+    .update(suppliers)
+    .set({ approvalStatus: "refused" })
+    .where(eq(suppliers.id, supplierId));
+  const decided = {
+    stage: null,
+    decidedBy: "automatic" as const,
+    decidedAt: new Date(),
+    refusalReason: reason,
+  };
+  await database
+    .insert(supplierApprovals)
+    .values({ supplierId, ...decided })
+    .onConflictDoUpdate({ target: supplierApprovals.supplierId, set: decided });
+
+  const team = await browser.newContext();
+  const admin = await team.newPage();
+  await signIn(admin, ADMIN_USER);
+  await enableAdminMode(admin);
+  await gotoHydrated(admin, `/admin/fornecedores/${supplierId}`);
+  await admin.getByRole("button", { name: "Aprovar mesmo assim" }).click();
+  const dialog = admin.getByRole("dialog");
+  await expect(dialog.getByText(/passam a aparecer para os revendedores/)).toBeVisible();
+  await dialog.getByRole("button", { name: "Voltar" }).click();
+  await expect(dialog).toHaveCount(0);
+  const [stillRefused] = await database
+    .select({ approvalStatus: suppliers.approvalStatus })
+    .from(suppliers)
+    .where(eq(suppliers.id, supplierId));
+  expect(stillRefused?.approvalStatus).toBe("refused");
+
+  await admin.getByRole("button", { name: "Aprovar mesmo assim" }).click();
+  await admin.getByRole("dialog").getByRole("button", { name: "Aprovar fornecedor" }).click();
+  await expect(admin.getByText(`${name} aprovado`)).toBeVisible();
+  await team.close();
+  const [stored] = await database
+    .select({ approvalStatus: suppliers.approvalStatus })
+    .from(suppliers)
+    .where(eq(suppliers.id, supplierId));
+  expect(stored?.approvalStatus).toBe("approved");
 });
