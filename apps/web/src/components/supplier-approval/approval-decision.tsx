@@ -88,6 +88,7 @@ function ApproveButton(props: {
   decision: ReturnType<typeof useDecision>;
   supplierId: string;
   supplierName: string;
+  label: string;
   quiet: boolean;
 }) {
   const { decision, supplierId, supplierName } = props;
@@ -96,12 +97,13 @@ function ApproveButton(props: {
     <>
       <Button
         size="lg"
+        className="justify-self-start"
         variant={props.quiet ? "outline" : "default"}
         disabled={decision.isPending}
         onClick={() => setApproving(true)}
       >
         <CheckIcon aria-hidden="true" />
-        Aprovar
+        {props.label}
       </Button>
       <ConfirmDialog
         open={approving}
@@ -148,6 +150,7 @@ export function ApprovalDecision(props: ApprovalDecisionProps) {
         decision={decision}
         supplierId={supplierId}
         supplierName={supplierName}
+        label="Aprovar"
         quiet={props.quiet ?? false}
       />
       <Button
@@ -196,8 +199,7 @@ export function ApprovalDecision(props: ApprovalDecisionProps) {
 
 /**
  * Approves a refused supplier once it solved the reason, such as an MEI that shows the company
- * left the MEI before the Receita data caught up. Approval can be undone by switching the
- * supplier off, so it takes one click.
+ * left the MEI before the Receita data caught up. It asks first, like the queue's "Aprovar".
  */
 export function ApproveRefusedSupplier({
   supplierId,
@@ -205,14 +207,12 @@ export function ApproveRefusedSupplier({
 }: Pick<ApprovalDecisionProps, "supplierId" | "supplierName">) {
   const decision = useDecision(supplierName);
   return (
-    <Button
-      size="lg"
-      className="justify-self-start"
-      disabled={decision.isPending}
-      onClick={() => decision.mutate({ data: { supplierId, decision: "approve" } })}
-    >
-      <CheckIcon aria-hidden="true" />
-      {decision.isPending ? "Aprovando…" : "Aprovar mesmo assim"}
-    </Button>
+    <ApproveButton
+      decision={decision}
+      supplierId={supplierId}
+      supplierName={supplierName}
+      label="Aprovar mesmo assim"
+      quiet={false}
+    />
   );
 }

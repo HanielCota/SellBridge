@@ -15,6 +15,7 @@ import {
   countProfilesWithoutSignature,
   discardSigningCode,
   getContractSigningRequiredSince,
+  getLiveSigningCodeSentAt,
   getSigningAccount,
   hasSignedContract,
   issueSigningCode,
@@ -152,6 +153,33 @@ describe("issueSigningCode", () => {
     const retry = await issue(new Date(later.getTime() + 1000));
 
     expect(retry.kind).toBe("issued");
+  });
+});
+
+describe("getLiveSigningCodeSentAt", () => {
+  it("gives when the last code went out while it can still be typed, and nothing once it expired", async () => {
+    const now = new Date();
+    await issue(now);
+
+    const live = await getLiveSigningCodeSentAt(
+      database,
+      profile(new Date(now.getTime() + 60_000)),
+    );
+    const expired = await getLiveSigningCodeSentAt(
+      database,
+      profile(new Date(now.getTime() + 11 * 60_000)),
+    );
+
+    expect(live?.getTime()).toBe(now.getTime());
+    expect(expired).toBeNull();
+  });
+
+  it("gives nothing once the code was spent on a signature", async () => {
+    const now = new Date();
+    await issue(now);
+    await sign(now, true);
+
+    expect(await getLiveSigningCodeSentAt(database, profile(now))).toBeNull();
   });
 });
 

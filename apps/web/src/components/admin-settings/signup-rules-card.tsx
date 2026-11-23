@@ -1,8 +1,9 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { useId } from "react";
+import { useId, useState } from "react";
 import { toast } from "sonner";
 import { ErrorState } from "@/components/feedback/error-state";
 import { PaymentPill } from "@/components/supplier-payments/supplier-payment-badge";
+import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Switch } from "@/components/ui/switch";
 import { saveSignupRulesFn } from "@/features/signup-rules/signup-rules.functions";
@@ -35,15 +36,52 @@ function SignupRulesStatus({ since }: { since: string | null }) {
   );
 }
 
-/** The switch position: the one being saved, else the stored one; undefined while loading. */
-function shownEnabled(saving: boolean | undefined, since: string | null | undefined) {
-  if (saving !== undefined) {
-    return saving;
-  }
-  if (since === undefined) {
-    return undefined;
-  }
-  return since !== null;
+/** What saving changes, written before the click. */
+function Consequence({ enabled }: { enabled: boolean }) {
+  const lines = enabled
+    ? [
+        "Fornecedor novo que for MEI é recusado na hora, com o motivo no painel dele.",
+        "A conta de recebimento de fornecedor novo só abre no CNPJ.",
+        "Quem já está cadastrado continua como está.",
+      ]
+    : ["O cadastro volta a aceitar fornecedor MEI e conta de recebimento no CPF."];
+  return (
+    <div className="grid gap-1 rounded-2xl bg-amber-500/10 p-3 text-sm text-amber-900 dark:text-amber-200">
+      <p className="font-medium">Ao salvar:</p>
+      <ul className="grid list-disc gap-1 pl-5">
+        {lines.map((line) => (
+          <li key={line}>{line}</li>
+        ))}
+      </ul>
+    </div>
+  );
+}
+
+function SignupRulesForm({ storedEnabled }: { storedEnabled: boolean }) {
+  const switchId = useId();
+  const [enabled, setEnabled] = useState(storedEnabled);
+  const save = useSaveSignupRules();
+  const changed = enabled !== storedEnabled;
+  return (
+    <div className="grid gap-4">
+      <div className="flex min-h-11 items-center gap-3">
+        <Switch id={switchId} checked={enabled} onCheckedChange={setEnabled} />
+        <label htmlFor={switchId} className="text-sm font-medium">
+          Aplicar as regras de cadastro dos contratos
+        </label>
+      </div>
+      {changed ? <Consequence enabled={enabled} /> : null}
+      <div>
+        <Button
+          size="lg"
+          disabled={!changed || save.isPending}
+          onClick={() => save.mutate(enabled)}
+        >
+          {save.isPending ? "Salvando…" : "Salvar"}
+        </Button>
+      </div>
+    </div>
+  );
 }
 
 /**
@@ -51,10 +89,7 @@ function shownEnabled(saving: boolean | undefined, since: string | null | undefi
  * signs off the contracts; it only changes who can sign up from then on, never who already did.
  */
 export function SignupRulesCard() {
-  const switchId = useId();
   const query = useQuery(signupRulesQueryOptions());
-  const save = useSaveSignupRules();
-  const enabled = shownEnabled(save.isPending ? save.variables : undefined, query.data);
   return (
     <section
       aria-labelledby="signup-rules-title"
@@ -77,18 +112,8 @@ export function SignupRulesCard() {
       {query.isError ? (
         <ErrorState message={errorMessage(query.error)} onRetry={() => void query.refetch()} />
       ) : null}
-      {enabled === undefined ? null : (
-        <div className="flex min-h-11 items-center gap-3">
-          <Switch
-            id={switchId}
-            checked={enabled}
-            disabled={save.isPending}
-            onCheckedChange={(next) => save.mutate(next)}
-          />
-          <label htmlFor={switchId} className="text-sm font-medium">
-            {save.isPending ? "Salvando…" : "Aplicar as regras de cadastro dos contratos"}
-          </label>
-        </div>
+      {query.data === undefined ? null : (
+        <SignupRulesForm key={String(query.data)} storedEnabled={query.data !== null} />
       )}
     </section>
   );
