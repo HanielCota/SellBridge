@@ -39,7 +39,7 @@ export function ListingPreview({
   priceCents: number | null;
 }) {
   return (
-    <Card className="animate-in duration-500 ease-out fade-in slide-in-from-bottom-2 motion-reduce:animate-none">
+    <Card>
       <CardHeader>
         <CardTitle className="text-sm font-normal text-muted-foreground">
           Prévia do anúncio
@@ -129,7 +129,7 @@ export function ProfitCard({
   const estimate = estimateProfit(priceCents, product, schedule, channels);
   const isLoss = estimate !== null && estimate.profitCents < 0;
   return (
-    <Card className="animate-in duration-500 ease-out fade-in slide-in-from-bottom-2 motion-reduce:animate-none">
+    <Card>
       <CardContent className="space-y-4">
         <div className="space-y-1">
           <p className="text-sm text-muted-foreground">
