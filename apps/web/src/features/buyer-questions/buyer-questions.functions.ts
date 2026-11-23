@@ -1,11 +1,6 @@
-import {
-  answerMercadoLivreQuestion,
-  MAX_QUESTION_ANSWER_LENGTH,
-  readMercadoLivreQuestion,
-} from "@sellbridge/marketplaces";
+import { answerMercadoLivreQuestion, readMercadoLivreQuestion } from "@sellbridge/marketplaces";
 import { listBuyerQuestions } from "@sellbridge/database/repositories";
 import { notFoundError } from "@sellbridge/shared/errors";
-import { freeText } from "@sellbridge/shared/schemas";
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 import { buyerQuestionsEnabled } from "@/lib/server/buyer-questions-switch";
@@ -13,6 +8,7 @@ import { database } from "@/lib/server/database";
 import { mercadoLivreApiConfig, tokenCipher } from "@/lib/server/marketplaces";
 import { tenantMiddleware } from "@/lib/server/middleware";
 import { answerBuyerQuestion } from "./answer-question.server";
+import { answerTextSchema } from "./answer-text";
 
 /** Questions per page: a busy store's day of questions fits in one. */
 const PAGE_SIZE = 30;
@@ -54,13 +50,7 @@ export const listBuyerQuestionsFn = createServerFn({ method: "GET" })
 
 const answerSchema = z.object({
   questionId: z.uuid("Pergunta inválida"),
-  text: freeText()
-    .trim()
-    .min(1, "Escreva a resposta antes de enviar.")
-    .max(
-      MAX_QUESTION_ANSWER_LENGTH,
-      `A resposta pode ter até ${MAX_QUESTION_ANSWER_LENGTH} caracteres. Encurte o texto.`,
-    ),
+  text: answerTextSchema,
 });
 
 /** Publishes the seller's answer on Mercado Livre; a second click while it sends is refused. */

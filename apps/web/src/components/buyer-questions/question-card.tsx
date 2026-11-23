@@ -13,6 +13,7 @@ import { questionSeal } from "@/features/buyer-questions/question-seal";
 import {
   answerLengthLabel,
   answerProblem,
+  contactProblem,
   MAX_ANSWER_LENGTH,
 } from "@/features/buyer-questions/answer-text";
 import { errorMessage } from "@/lib/errors";
@@ -79,6 +80,8 @@ function AnswerForm({ question }: { question: BuyerQuestionRow }) {
   const [problem, setProblem] = useState<string | null>(null);
   const answer = useAnswerQuestion(question.id, setProblem);
   const sending = answer.isPending || question.answerSending;
+  // A contact is pointed out while typing, not only on send.
+  const shownProblem = problem ?? contactProblem(text);
 
   function submit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -103,7 +106,7 @@ function AnswerForm({ question }: { question: BuyerQuestionRow }) {
           setProblem(null);
         }}
         placeholder="Exemplo: Serve sim, do modelo 2015 em diante. Enviamos em até 2 dias úteis."
-        aria-invalid={problem !== null || text.length > MAX_ANSWER_LENGTH}
+        aria-invalid={shownProblem !== null || text.length > MAX_ANSWER_LENGTH}
         aria-describedby={`${fieldId}-hint ${fieldId}-problem`}
         disabled={sending}
       />
@@ -117,7 +120,7 @@ function AnswerForm({ question }: { question: BuyerQuestionRow }) {
         aria-live="polite"
         className="text-sm text-destructive"
       >
-        {problem}
+        {shownProblem}
       </p>
       <Button type="submit" size="lg" className="w-full sm:w-auto" disabled={sending}>
         {sending ? "Enviando..." : "Responder"}
