@@ -59,6 +59,8 @@
   --color-chart-3: var(--chart-3);
   --color-chart-2: var(--chart-2);
   --color-chart-1: var(--chart-1);
+  --color-selected: var(--selected);
+  --color-selected-foreground: var(--selected-foreground);
   --color-ring: var(--ring);
   --color-input: var(--input);
   --color-border: var(--border);
@@ -146,6 +148,9 @@
   --chart-3: oklch(0.439 0 0);
   --chart-4: oklch(0.371 0 0);
   --chart-5: oklch(0.269 0 0);
+  /* The chosen tab, filter or menu item: ink on the light page, never the action green. */
+  --selected: var(--foreground);
+  --selected-foreground: var(--background);
   --radius: 0.75rem;
 }
 
@@ -175,19 +180,21 @@
   --finance-gain: oklch(0.87 0.16 152);
   --brand-wordmark: oklch(0.87 0.16 152);
   --background: oklch(0.165 0.003 260);
-  --foreground: oklch(0.97 0 0);
+  /* Just under white: full white on graphite reads heavier and flattens the weight scale. */
+  --foreground: oklch(0.93 0 0);
   --card: oklch(0.215 0.004 260);
-  --card-foreground: oklch(0.97 0 0);
+  --card-foreground: oklch(0.93 0 0);
   --popover: oklch(0.24 0.004 260);
-  --popover-foreground: oklch(0.97 0 0);
-  --primary: oklch(0.87 0.16 152);
+  --popover-foreground: oklch(0.93 0 0);
+  /* Calmer than the mint brand mark so the action green does not glow on graphite. */
+  --primary: oklch(0.8 0.15 152);
   --primary-foreground: oklch(0.18 0.02 160);
   --secondary: oklch(0.27 0.004 260);
-  --secondary-foreground: oklch(0.97 0 0);
+  --secondary-foreground: oklch(0.93 0 0);
   --muted: oklch(0.27 0.004 260);
   --muted-foreground: oklch(0.72 0.005 260);
   --accent: oklch(0.27 0.004 260);
-  --accent-foreground: oklch(0.97 0 0);
+  --accent-foreground: oklch(0.93 0 0);
   --destructive: oklch(0.704 0.191 22.216);
   --border: oklch(1 0 0 / 7%);
   --input: oklch(1 0 0 / 12%);
@@ -197,6 +204,9 @@
   --chart-3: oklch(0.439 0 0);
   --chart-4: oklch(0.371 0 0);
   --chart-5: oklch(0.269 0 0);
+  /* A raised graphite step, not inverted white: the chosen item stays quieter than the action. */
+  --selected: oklch(0.34 0.005 260);
+  --selected-foreground: var(--foreground);
 }
 
 @layer base {

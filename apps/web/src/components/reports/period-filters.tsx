@@ -196,7 +196,7 @@ function PeriodSegments({
               TRACK_OPTION_CLASSES,
               "flex-1 px-2.5 sm:flex-none sm:px-3.5",
               // Unchosen periods answer the pointer with a faint pill of their own.
-              "not-has-checked:hover:bg-foreground/[0.06] has-checked:text-background has-checked:hover:text-background",
+              "not-has-checked:hover:bg-foreground/[0.06] has-checked:text-selected-foreground has-checked:hover:text-selected-foreground",
               // Before the first measure (SSR, hydration) the chosen period paints its own pill.
               !indicator && preset === chosen.value && TRACK_FALLBACK_PILL_CLASSES,
               "has-focus-visible:ring-3 has-focus-visible:ring-ring/50",

@@ -8,11 +8,7 @@ import { describe, expect, it } from "vitest";
  */
 const stylesheet = readFileSync(fileURLToPath(new URL("./styles.css", import.meta.url)), "utf8");
 
-/** The light theme: the `:root` block (the dark one is `.dark`, right after it). */
-function lightTokens(): Map<string, string> {
-  const start = stylesheet.indexOf("\n:root {");
-  const end = stylesheet.indexOf("\n.dark {");
-  const block = stylesheet.slice(start, end);
+function tokensIn(block: string): Map<string, string> {
   const tokens = new Map<string, string>();
   for (const match of block.matchAll(/--([a-z0-9-]+):\s*([^;]+);/g)) {
     const [, name, value] = match;
@@ -21,6 +17,27 @@ function lightTokens(): Map<string, string> {
     }
   }
   return tokens;
+}
+
+/** The light theme: the `:root` block (the dark one is `.dark`, right after it). */
+function lightTokens(): Map<string, string> {
+  const start = stylesheet.indexOf("\n:root {");
+  const end = stylesheet.indexOf("\n.dark {");
+  return tokensIn(stylesheet.slice(start, end));
+}
+
+/** The dark theme: the light tokens with the `.dark` block on top, as the browser cascades them. */
+function darkTokens(): Map<string, string> {
+  const start = stylesheet.indexOf("\n.dark {");
+  const end = stylesheet.indexOf("\n}", start);
+  return new Map([...lightTokens(), ...tokensIn(stylesheet.slice(start, end))]);
+}
+
+/** A token's own oklch(), following `var(--other)` within the same theme. */
+function resolve(theme: Map<string, string>, name: string): string | undefined {
+  const value = theme.get(name);
+  const reference = value?.match(/^var\(--([a-z0-9-]+)\)$/)?.[1];
+  return reference === undefined ? value : resolve(theme, reference);
 }
 
 type Linear = readonly [number, number, number];
@@ -64,8 +81,11 @@ function over(color: Linear, alpha: number, base: Linear): Linear {
   return [red ?? 0, green ?? 0, blue ?? 0];
 }
 
+function luminance([red, green, blue]: Linear): number {
+  return 0.2126 * red + 0.7152 * green + 0.0722 * blue;
+}
+
 function contrast(first: Linear, second: Linear): number {
-  const luminance = ([red, green, blue]: Linear) => 0.2126 * red + 0.7152 * green + 0.0722 * blue;
   const [light, dark] = [luminance(first), luminance(second)].toSorted(
     (left, right) => right - left,
   );
@@ -98,5 +118,42 @@ describe("light-mode contrast of small graphics", () => {
   it("the switch's off track (foreground at 45%) reaches 3:1 on cards", () => {
     const foreground = parseOklch(tokens.get("foreground"));
     expect(contrast(over(foreground, 0.45, card), card)).toBeGreaterThanOrEqual(INTERFACE_MINIMUM);
+  });
+});
+
+const TEXT_MINIMUM = 4.5;
+
+describe.each([
+  ["light", lightTokens()],
+  ["dark", darkTokens()],
+])("%s theme: chosen items, actions and checkboxes", (_theme, theme) => {
+  const color = (name: string) => parseOklch(resolve(theme, name));
+
+  it("the chosen item's label reads at 4.5:1 on its fill", () => {
+    expect(contrast(color("selected-foreground"), color("selected"))).toBeGreaterThanOrEqual(
+      TEXT_MINIMUM,
+    );
+  });
+
+  it("the action button's label reads at 4.5:1 on the action green", () => {
+    expect(contrast(color("primary-foreground"), color("primary"))).toBeGreaterThanOrEqual(
+      TEXT_MINIMUM,
+    );
+  });
+
+  it("an empty checkbox's border (foreground at 45%) reaches 3:1 on cards", () => {
+    const surface = color("card");
+    expect(contrast(over(color("foreground"), 0.45, surface), surface)).toBeGreaterThanOrEqual(
+      INTERFACE_MINIMUM,
+    );
+  });
+});
+
+describe("dark theme: the chosen item stays quieter than the action", () => {
+  const theme = darkTokens();
+  const color = (name: string) => parseOklch(resolve(theme, name));
+
+  it("the chosen item's fill is darker than the action green", () => {
+    expect(luminance(color("selected"))).toBeLessThan(luminance(color("primary")));
   });
 });

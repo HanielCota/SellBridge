@@ -18,7 +18,7 @@ function MoreButton({ more }: { more: MoreLink }) {
       <Link
         to={more.to}
         {...(more.search === undefined ? {} : { search: more.search })}
-        className="flex h-11 items-center justify-center gap-1.5 rounded-full bg-muted text-sm font-medium transition-colors outline-none hover:bg-foreground hover:text-background focus-visible:ring-3 focus-visible:ring-ring/50"
+        className="flex h-11 items-center justify-center gap-1.5 rounded-full bg-muted text-sm font-medium transition-colors outline-none hover:bg-selected hover:text-selected-foreground focus-visible:ring-3 focus-visible:ring-ring/50"
       >
         {more.label}
         <SeeAllIcon className="size-3.5" weight="bold" aria-hidden="true" />
