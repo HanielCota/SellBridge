@@ -30,6 +30,15 @@ export * from "./account-export.ts";
 export * from "./account-deletion.ts";
 export * from "./account-deletion-blockers.ts";
 export * from "./listings.ts";
+export {
+  createListingFamilyWithListings,
+  getSellableProductModel,
+  type CreatedListingFamily,
+  type FamilyListingDraft,
+  type SellableCombination,
+  type SellableProductModel,
+  type SkippedCombination,
+} from "./listing-families.ts";
 export { countFailedListingTargets, getListingActivity } from "./active-targets.ts";
 export * from "./listing-sync.ts";
 export * from "./listing-overview.ts";
