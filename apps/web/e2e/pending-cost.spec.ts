@@ -60,7 +60,7 @@ test("financeiro deixa a venda de custo desconhecido fora do lucro e explica", a
   await signIn(page, DEMO_USER);
   await gotoHydrated(page, `/financeiro?period=7d&query=${externalId}`);
   await expect(
-    page.getByText(/R\$\s[\d.,]+ de \d+ vendas? ainda não t[eê]m custo e fic/),
+    page.getByText(/R\$\s[\d.,]+ de \d+ vendas? ainda não t[eê]m custo informado e est/),
   ).toBeVisible();
 
   const statement = page.getByLabel("Financeiro por pedido");

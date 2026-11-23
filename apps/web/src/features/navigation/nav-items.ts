@@ -74,7 +74,7 @@ export const SUPPLIER_NAV_ITEMS: NavItem[] = [
  */
 export const ADMIN_NAV_ITEMS: NavItem[] = [
   {
-    label: "Produtos dos clientes",
+    label: "Produtos",
     to: "/admin/products",
     permission: "customers.manage",
     group: "Contas",
