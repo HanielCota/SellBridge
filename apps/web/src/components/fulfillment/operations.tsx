@@ -40,6 +40,7 @@ import { attentionCountsQueryOptions } from "@/features/navigation/navigation.qu
 import { ordersToForwardTitle } from "@/components/reports/attention-items";
 import { PaymentPill } from "@/components/supplier-payments/supplier-payment-badge";
 import { displayBuyerName } from "@/features/orders/buyer-name";
+import { orderItemsLabel } from "@/features/orders/order-items-label";
 import { storesQueryOptions } from "@/features/stores/stores.queries";
 import { useNow } from "@/hooks/use-now";
 import { useUrlSearchQuery } from "@/hooks/use-url-search-query";
@@ -277,6 +278,7 @@ function OperationRow({
             {row.externalOrderId}
           </Link>
         </p>
+        <ItemsLine firstTitle={row.firstItemTitle} itemCount={row.itemCount} />
         <p className="text-xs text-muted-foreground">
           {displayBuyerName(row.buyerName)} · {row.storeName} · <SmartDate date={row.orderedAt} />
         </p>
@@ -306,6 +308,15 @@ function OperationRow({
       )}
     </li>
   );
+}
+
+/** What sold, so the order is more than its number. */
+function ItemsLine({ firstTitle, itemCount }: { firstTitle: string | null; itemCount: number }) {
+  const label = orderItemsLabel(firstTitle, itemCount);
+  if (label === null) {
+    return null;
+  }
+  return <p className="truncate text-sm">{label}</p>;
 }
 
 /** Each parcel's stage, or what to do before there is one; nothing when the badge says it. */

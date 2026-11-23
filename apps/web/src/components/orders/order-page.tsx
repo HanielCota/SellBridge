@@ -21,6 +21,7 @@ import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { LISTING_LINK_WAITING_MESSAGE, listingLink } from "@/features/listings/listing-link";
 import { displayBuyerName } from "@/features/orders/buyer-name";
+import { orderItemsLabel } from "@/features/orders/order-items-label";
 import type { getOrderPageFn } from "@/features/orders/orders.functions";
 import { TalkToSupportButton } from "@/components/support/talk-to-support-button";
 import { TalkToSupplierButton } from "@/components/supplier-support/talk-to-supplier-button";
@@ -63,6 +64,15 @@ function PageSection({
   );
 }
 
+/** What sold, under the order number: the number alone says nothing to the reseller. */
+function OrderItemsTitle({ items }: { items: OrderPageData["order"]["items"] }) {
+  const label = orderItemsLabel(items[0]?.title ?? null, items.length);
+  if (label === null) {
+    return null;
+  }
+  return <p className="font-medium">{label}</p>;
+}
+
 function OrderHeader({ page }: { page: OrderPageData }) {
   const { order } = page;
   return (
@@ -76,6 +86,7 @@ function OrderHeader({ page }: { page: OrderPageData }) {
           </h1>
           <OrderStatusBadge status={order.status} />
         </div>
+        <OrderItemsTitle items={order.items} />
         <p className="text-sm text-muted-foreground">
           {order.storeName} · {displayBuyerName(order.buyerName)} ·{" "}
           <SmartDate date={order.orderedAt} />
