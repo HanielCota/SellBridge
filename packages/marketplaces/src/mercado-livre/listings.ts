@@ -390,7 +390,7 @@ function assertRequiredAttributes(
   if (missing.length) {
     throw marketplaceError(
       `Faltam campos que o Mercado Livre exige nesta categoria: ${missing.map(({ name }) => name).join(", ")}. Preencha no cadastro do produto e publique de novo.`,
-      { retryable: false },
+      { retryable: false, issues: missing.map(({ id, name }) => `Obrigatório: ${name} (${id})`) },
     );
   }
 }
@@ -436,7 +436,8 @@ async function validateAttributes(
   if (readOnly.length) {
     throw marketplaceError(
       "O cadastro tem campos que o Mercado Livre não aceita receber. Fale com o suporte para corrigir e publique de novo.",
-      { retryable: false },
+      // The field ids stay in the details, where the team reads which fields to remove.
+      { retryable: false, issues: readOnly.map(({ id }) => `Somente leitura: ${id}`) },
     );
   }
 }

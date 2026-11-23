@@ -838,11 +838,29 @@ describe("Mercado Livre category requirements", () => {
         ]),
     });
     await expect(ml.publishProduct(store, product, guard)).rejects.toMatchObject({
-      details: { retryable: false },
+      details: {
+        retryable: false,
+        issues: ["Obrigatório: Cor (COLOR)", "Obrigatório: Modelo (MODEL)"],
+      },
       message: expect.stringContaining("Cor, Modelo"),
     });
     expect(calls.some((call) => call.method === "POST" && call.url === `${API}/items`)).toBe(false);
     expect(guard.beforeCreate).not.toHaveBeenCalled();
+  });
+
+  it("keeps the ids of read-only fields for the team while the reseller reads plain words", async () => {
+    const { ml } = connector({
+      ...publishRoutes,
+      [`GET ${API}/categories/MLB1/attributes`]: () =>
+        json(200, [{ id: "SELLER_SKU", name: "SKU", tags: { read_only: true } }]),
+    });
+
+    const attempt = ml.publishProduct(store, product, publicationGuard());
+
+    await expect(attempt).rejects.toMatchObject({
+      message: expect.not.stringContaining("SELLER_SKU"),
+      details: { retryable: false, issues: ["Somente leitura: SELLER_SKU"] },
+    });
   });
 
   it.each([{ required: [] }, { required: [{ id: "GTIN", name: "Código universal" }] }])(
