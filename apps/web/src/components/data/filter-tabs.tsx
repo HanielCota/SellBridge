@@ -17,6 +17,8 @@ export interface FilterTab<TValue> {
 }
 
 /** The optional count beside a tab's label, dimmed to match the pill under it. */
+const ACTIVE_TAB_CLASSES = "text-selected-foreground hover:text-selected-foreground";
+
 function TabCount({ count, active }: { count: number | undefined; active: boolean }) {
   if (count === undefined) {
     return null;
@@ -25,7 +27,7 @@ function TabCount({ count, active }: { count: number | undefined; active: boolea
     <span
       className={cn(
         "text-xs tabular-nums",
-        active ? "text-background/75" : "text-muted-foreground",
+        active ? "text-selected-foreground/75" : "text-muted-foreground",
       )}
     >
       {count}
@@ -86,7 +88,7 @@ export function FilterTabs<TValue>({
             className={cn(
               TRACK_OPTION_CLASSES,
               "px-3.5 focus-visible:ring-3 focus-visible:ring-ring/50",
-              active ? "text-background hover:text-background" : "hover:bg-foreground/[0.06]",
+              active ? ACTIVE_TAB_CLASSES : "hover:bg-foreground/[0.06]",
               active && !indicator && TRACK_FALLBACK_PILL_CLASSES,
             )}
           >

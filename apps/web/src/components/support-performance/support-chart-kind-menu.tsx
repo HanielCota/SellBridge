@@ -144,7 +144,7 @@ function DefaultFooter({
       <button
         type="button"
         onClick={() => onSetDefault(kind)}
-        className="flex h-9 w-full items-center justify-center rounded-full bg-foreground text-sm font-medium text-background outline-none transition-transform active:scale-[0.98] focus-visible:ring-3 focus-visible:ring-ring/50"
+        className="flex h-9 w-full items-center justify-center rounded-full bg-selected text-sm font-medium text-selected-foreground outline-none transition-transform active:scale-[0.98] focus-visible:ring-3 focus-visible:ring-ring/50"
       >
         Usar {SUPPORT_CHART_COPY[kind].label.toLowerCase()} como padrão
       </button>
