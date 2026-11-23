@@ -13,6 +13,7 @@ const mocks = vi.hoisted(() => ({
         input: { tenantId: string; reference: string; patch?: unknown },
       ) => Promise<boolean>
     >(),
+  enableInvoices: vi.fn<(...input: unknown[]) => Promise<string>>(),
   client: {
     getSubscription: vi.fn<(...input: unknown[]) => Promise<unknown>>(),
     listSubscriptionCharges: vi.fn<(...input: unknown[]) => Promise<unknown[]>>(),
@@ -37,6 +38,9 @@ vi.mock("@/lib/server/database", () => ({
   },
 }));
 vi.mock("./billing-config.server", () => ({ billingClient: () => mocks.client }));
+vi.mock("./subscription-invoices.server", () => ({
+  enableSubscriptionInvoices: mocks.enableInvoices,
+}));
 
 import { syncBillingSubscription, syncUpgradeCharge } from "./billing-sync.server";
 
@@ -291,6 +295,42 @@ describe("subscription read back from Asaas", () => {
     expect(mocks.client.deleteSubscription).toHaveBeenCalledWith("sub_old");
   });
 
+  it("sets up the service invoice of a card subscription once it is bound", async () => {
+    mocks.client.getSubscription.mockResolvedValue({
+      id: "sub_card",
+      customer: "cus_card",
+      status: "ACTIVE",
+      value: 197,
+      checkoutSession: "chk_1",
+    });
+    mocks.byReference.mockResolvedValue(
+      account({ pendingPlan: "pro", pendingReference: "checkout:chk_1" }),
+    );
+
+    await syncBillingSubscription({ subscriptionId: "sub_card", eventId: "evt_2" });
+
+    expect(mocks.enableInvoices).toHaveBeenCalledWith(mocks.client, {
+      tenantId: "tenant-a",
+      subscriptionId: "sub_card",
+      customerId: "cus_card",
+      planId: "pro",
+    });
+  });
+
+  it("leaves the service invoice alone on a renewal of the bound subscription", async () => {
+    mocks.client.getSubscription.mockResolvedValue({
+      id: "sub_old",
+      customer: "cus_pix",
+      status: "ACTIVE",
+      value: 197,
+    });
+    mocks.bySubscription.mockResolvedValue(account());
+
+    await syncBillingSubscription({ subscriptionId: "sub_old", eventId: "evt_9" });
+
+    expect(mocks.enableInvoices).not.toHaveBeenCalled();
+  });
+
   it("binds a card checkout for a dearer plan without handing it the cheaper paid month", async () => {
     mocks.client.getSubscription.mockResolvedValue({
       id: "sub_card",
@@ -395,6 +435,27 @@ describe("upgrade difference", () => {
       tenantId: "tenant-a",
       reference: "charge:pay_diff",
       patch: { plan: "elite", scheduledPlan: null, scheduledPlanAt: null },
+    });
+  });
+
+  it("names the bigger plan on the service invoice once the difference is paid", async () => {
+    mocks.byReference.mockResolvedValue(
+      account({ pendingPlan: "elite", pendingReference: "charge:pay_diff" }),
+    );
+    mocks.client.getCharge.mockResolvedValue({
+      id: "pay_diff",
+      status: "RECEIVED",
+      value: 400,
+      dueDate: "2026-12-04",
+    });
+
+    await syncUpgradeCharge({ chargeId: "pay_diff", eventId: "evt_5" });
+
+    expect(mocks.enableInvoices).toHaveBeenCalledWith(mocks.client, {
+      tenantId: "tenant-a",
+      subscriptionId: "sub_old",
+      customerId: "cus_pix",
+      planId: "elite",
     });
   });
 
