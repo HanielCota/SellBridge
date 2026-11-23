@@ -501,21 +501,6 @@ function renderHatch() {
   );
 }
 
-function renderGradients() {
-  return (
-    <defs>
-      <linearGradient id="cashRevenue" x1="0" y1="0" x2="0" y2="1">
-        <stop offset="0%" stopColor="var(--color-revenue)" stopOpacity={0.12} />
-        <stop offset="100%" stopColor="var(--color-revenue)" stopOpacity={0} />
-      </linearGradient>
-      <linearGradient id="cashProfit" x1="0" y1="0" x2="0" y2="1">
-        <stop offset="0%" stopColor="var(--color-profit)" stopOpacity={0.35} />
-        <stop offset="100%" stopColor="var(--color-profit)" stopOpacity={0.02} />
-      </linearGradient>
-    </defs>
-  );
-}
-
 /** Every value the areas chart will draw, so the axis fits them all. */
 function shownValues(
   data: readonly ChartPoint[],
@@ -603,7 +588,7 @@ const DAILY_AREAS = {
   revenue: {
     dataKey: "revenue",
     color: "var(--color-revenue)",
-    gradient: "url(#cashRevenue)",
+    fillOpacity: 0.06,
     opacity: 0.8,
     width: 2,
     dot: 5,
@@ -611,7 +596,7 @@ const DAILY_AREAS = {
   profit: {
     dataKey: "profit",
     color: "var(--color-profit)",
-    gradient: "url(#cashProfit)",
+    fillOpacity: 0.12,
     opacity: 1,
     width: 3,
     dot: 6,
@@ -635,11 +620,11 @@ function renderDailyArea(
       type="monotone"
       stroke={area.color}
       strokeOpacity={isHovering ? strokeOpacity * 0.6 : strokeOpacity}
-      fillOpacity={isHovering ? 0.5 : 1}
+      fillOpacity={isHovering ? area.fillOpacity / 2 : area.fillOpacity}
       strokeWidth={smooth ? 1.5 : area.width}
       strokeLinecap="round"
       strokeLinejoin="round"
-      fill={smooth ? "none" : area.gradient}
+      fill={smooth ? "none" : area.color}
       activeDot={smooth ? false : renderActiveDot(area.color, area.dot)}
       isAnimationActive={false}
     />
@@ -704,7 +689,6 @@ function CashAreas({
         onMouseMove={onMouseMove}
         onMouseLeave={onMouseLeave}
       >
-        {renderGradients()}
         {renderFrame({
           scale,
           formatY: formatMoneyTick,
