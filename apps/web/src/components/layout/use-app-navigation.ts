@@ -3,6 +3,7 @@ import { hasStaffPermission, isStaffRole } from "@sellbridge/shared/staff-access
 import { useQuery } from "@tanstack/react-query";
 import { useRouterState } from "@tanstack/react-router";
 import type { AccountProfile, SessionUser } from "@/features/auth/session.functions";
+import { openMoneyProblemCountQueryOptions } from "@/features/admin-problems/problems.queries";
 import { staffShipmentCountsQueryOptions } from "@/features/admin-shipments/shipments.queries";
 import {
   attentionCountsQueryOptions,
@@ -22,11 +23,13 @@ import type { BadgeCounts } from "./nav-tab";
 function useNavCounts({
   isAdmin,
   canSeeShipments,
+  canSeeProblems,
   isSupplier,
   hasProfile,
 }: {
   isAdmin: boolean;
   canSeeShipments: boolean;
+  canSeeProblems: boolean;
   isSupplier: boolean;
   hasProfile: boolean;
 }): BadgeCounts {
@@ -34,6 +37,10 @@ function useNavCounts({
   const openTickets = useQuery({ ...openTicketCountQueryOptions(), enabled: isAdmin });
   const storeMessages = useQuery({ ...myUnreadConversationsQueryOptions(), enabled: isSupplier });
   const shipments = useQuery({ ...staffShipmentCountsQueryOptions(), enabled: canSeeShipments });
+  const moneyProblems = useQuery({
+    ...openMoneyProblemCountQueryOptions(),
+    enabled: canSeeProblems,
+  });
   return {
     buyerQuestions: attention.data?.buyerQuestions ?? 0,
     failedListings: attention.data?.failedListings ?? 0,
@@ -42,6 +49,7 @@ function useNavCounts({
     staffParcelAlerts: canSeeShipments
       ? (shipments.data?.late ?? 0) + (shipments.data?.problem ?? 0)
       : 0,
+    moneyProblems: canSeeProblems ? (moneyProblems.data ?? 0) : 0,
     storeMessages: isSupplier ? (storeMessages.data ?? 0) : 0,
     supportReplies: attention.data?.unreadSupportReplies ?? 0,
     supplierOrders: attention.data?.supplierOrders ?? 0,
@@ -112,6 +120,7 @@ export function useAppNavigation(input: NavigationInput): AppNavigationState {
   const counts = useNavCounts({
     isAdmin: adminMode,
     canSeeShipments: adminMode && hasStaffPermission(user.role, "shipments.view"),
+    canSeeProblems: adminMode && hasStaffPermission(user.role, "audit.view"),
     isSupplier: profileKind === "supplier",
     hasProfile: !teamOnly,
   });

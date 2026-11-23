@@ -28,12 +28,19 @@ describe("buildPreferenceRows", () => {
       "support_reply",
       "supplier_conversation",
       "invoice_attention",
+      "store_order_message",
     ]);
   });
 
   it("leaves the supplier's stopped-note notice out of the reseller's screen", () => {
     expect(buildPreferenceRows([], "seller").map((row) => row.event)).not.toContain(
       "invoice_attention",
+    );
+  });
+
+  it("leaves the stores' order messages out of the reseller's screen", () => {
+    expect(buildPreferenceRows([], "seller").map((row) => row.event)).not.toContain(
+      "store_order_message",
     );
   });
 

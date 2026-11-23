@@ -376,7 +376,7 @@ const FILTER_SELECT_CLASSES = "w-auto shrink-0 sm:w-full lg:w-48";
  */
 function PinnedToolbar({ children }: { children: ReactNode }) {
   return (
-    <div className="sticky top-[var(--app-header-height,0px)] z-20 -mx-4 -mt-3 mb-3 flex flex-col gap-3 bg-background/85 px-4 py-3 backdrop-blur-xl md:-mx-8 md:px-8 lg:flex-row">
+    <div className="sticky top-[var(--app-header-height,0px)] z-20 -mx-4 -mt-3 mb-3 flex flex-col gap-3 border-b border-border bg-background px-4 py-3 md:-mx-8 md:px-8 lg:flex-row">
       {children}
     </div>
   );
@@ -480,7 +480,10 @@ function StaffTicketsTable({
   }
   if (query.data.items.length === 0) {
     const text = isFiltered
-      ? { title: "Nenhum chamado encontrado", description: "Ajuste a busca ou os filtros." }
+      ? {
+          title: "Nenhum chamado com esses filtros",
+          description: "Tire um filtro ou mude o que digitou.",
+        }
       : EMPTY_QUEUE_TEXT[queue];
     return <EmptyState icon={TrayIcon} title={text.title} description={text.description} />;
   }

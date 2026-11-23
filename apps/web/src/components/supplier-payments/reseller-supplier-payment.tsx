@@ -1,8 +1,9 @@
-import { ShieldCheckIcon } from "@phosphor-icons/react";
+import { ChatCircleDotsIcon, ShieldCheckIcon } from "@phosphor-icons/react";
 import { formatCents } from "@sellbridge/shared/money";
 import type { SupplierPayMethod } from "@sellbridge/shared/shipment-payments";
 import { RESELLER_HOLD_MESSAGES } from "@sellbridge/shared/receiving-rules";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { Link } from "@tanstack/react-router";
 import { useEffect, useRef } from "react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
@@ -13,10 +14,16 @@ import {
   type getResellerSupplierPaymentFn,
   startSupplierCheckoutFn,
 } from "@/features/supplier-payments/supplier-payments.functions";
+import {
+  protectionSealText,
+  showsProtectionSeal,
+} from "@/features/supplier-payments/protection-seal";
 import { resellerRefundText } from "@/features/supplier-payments/refund-copy";
 import { resellerSupplierPaymentQueryOptions } from "@/features/supplier-payments/supplier-payments.queries";
+import { SUPPORT_HOURS_TEXT } from "@/features/support/response-time";
+import { supplierRefundTicketSearch } from "@/features/support/talk-to-support";
 import { errorMessage } from "@/lib/errors";
-import { paymentMethodWord, SupplierPaymentBadgeView } from "./supplier-payment-badge";
+import { PaymentPill, paymentMethodWord, SupplierPaymentBadgeView } from "./supplier-payment-badge";
 
 /** Mercado Pago's return adds `payment_id` to the order page; `envio` names the parcel. */
 function returnedPaymentId(shipmentId: string): string | null {
@@ -164,12 +171,50 @@ function WhyNotPaid({ view }: { view: PaymentView }) {
 }
 
 /** The seal on a protected payment, with Guilherme's words (15/11/2026). */
-function ProtectedSeal() {
+function ProtectedSeal({ text }: { text: string }) {
   return (
     <p className="flex items-start gap-2 rounded-xl bg-emerald-700 px-3 py-2 text-sm font-medium text-white">
       <ShieldCheckIcon aria-hidden="true" className="mt-0.5 size-4 flex-none" weight="fill" />
-      Pagamento protegido: liberado ao fornecedor só depois da entrega
+      {text}
     </p>
+  );
+}
+
+/**
+ * The way to the team for a refund it makes by hand: a ticket already about the order and the
+ * amount, or the ticket the reseller opened before, never a second one.
+ */
+function ManualRefundAction({ view }: { view: PaymentView }) {
+  const manual = view.manualRefund;
+  if (manual === null || view.badge.kind !== "refunding") {
+    return null;
+  }
+  const link =
+    manual.ticketId === null ? (
+      <Link
+        to="/suporte/novo"
+        search={supplierRefundTicketSearch({
+          id: manual.orderId,
+          name: manual.orderName,
+          amount: formatCents(view.amountCents),
+        })}
+      >
+        <ChatCircleDotsIcon aria-hidden="true" />
+        Pedir a devolução à equipe
+      </Link>
+    ) : (
+      <Link to="/suporte/$ticketId" params={{ ticketId: manual.ticketId }}>
+        <ChatCircleDotsIcon aria-hidden="true" />
+        Ver o chamado deste pedido
+      </Link>
+    );
+  return (
+    <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
+      <Button asChild size="lg" variant="outline">
+        {link}
+      </Button>
+      <span className="text-sm text-muted-foreground">{SUPPORT_HOURS_TEXT}</span>
+    </div>
   );
 }
 
@@ -192,12 +237,23 @@ export function ResellerSupplierPayment({ shipmentId }: { shipmentId: string }) 
   const refundText = resellerRefundText(view);
   const gateway = view.provider === "mercado_pago" ? "Mercado Pago" : "Asaas";
   return (
-    <div className="grid gap-2.5 rounded-2xl bg-muted/70 p-4">
+    // The order page's "Pagar o fornecedor" lands here.
+    <div
+      id={`supplier-payment-${shipmentId}`}
+      tabIndex={-1}
+      className="grid scroll-mt-24 gap-2.5 rounded-2xl bg-muted/70 p-4 outline-none"
+    >
       <div className="flex flex-wrap items-center justify-between gap-2">
         <span className="text-sm text-muted-foreground">Pagamento ao fornecedor</span>
-        <SupplierPaymentBadgeView badge={view.badge} paidWord="Fornecedor pago" />
+        {view.badge.kind === "no_account" ? (
+          // Their missing account is the supplier's to fix: the reseller only learns there is
+          // nothing to pay yet.
+          <PaymentPill tone="neutral">Ainda não precisa pagar</PaymentPill>
+        ) : (
+          <SupplierPaymentBadgeView badge={view.badge} paidWord="Fornecedor pago" />
+        )}
       </div>
-      {view.protectedPayment && view.badge.kind !== "refunded" ? <ProtectedSeal /> : null}
+      {showsProtectionSeal(view) ? <ProtectedSeal text={protectionSealText(view.badge)} /> : null}
       {view.canPay ? (
         <>
           <p className="flex items-baseline gap-1.5">
@@ -220,6 +276,7 @@ export function ResellerSupplierPayment({ shipmentId }: { shipmentId: string }) 
         </p>
       ) : null}
       {refundText === null ? null : <p className="text-sm">{refundText}</p>}
+      <ManualRefundAction view={view} />
       {view.preparationHold === null ? null : (
         <p className="text-sm font-medium">{RESELLER_HOLD_MESSAGES[view.preparationHold]}</p>
       )}

@@ -4,6 +4,8 @@ import {
   CUSTOMER_ROLE_LABELS,
   CUSTOMER_ROLES,
 } from "@sellbridge/shared/schemas";
+import { billingPlan, isBillingPlanId } from "@sellbridge/shared/billing";
+import { lastDayOf } from "@/features/billing/billing-notice";
 import { ISSUE_KIND_LABELS } from "./issue-copy";
 
 /** Everything an admin can do to a customer's account that lands in its timeline. */
@@ -29,6 +31,9 @@ export const ADMIN_ACTIONS = [
   "issue_unsnoozed",
   "team_invited",
   "contact_blocked",
+  "courtesy_granted",
+  "courtesy_changed",
+  "courtesy_revoked",
 ] as const;
 export type AdminAction = (typeof ADMIN_ACTIONS)[number];
 
@@ -81,7 +86,7 @@ export const IMPERSONATED_ACTION_COPY: Readonly<Record<string, string>> = {
   retryResellerSaleNoteFn: "pediu de novo a nota de venda ao Bling",
   createListing: "publicou um produto",
   publishProductsInBulk: "publicou produtos em massa",
-  retryListings: "reprocessou publicações",
+  retryListings: "tentou publicar de novo",
   setListingsPausedFn: "pausou ou reativou publicações",
   updateListingPriceFn: "mudou o preço de uma publicação",
   saveSupplierReviewFn: "avaliou um fornecedor",
@@ -110,6 +115,31 @@ function visitLabel(details: AdminEventDetails | null): string {
   return `Entrou como ${who}${reason}`;
 }
 
+function courtesyPlanLabel(details: AdminEventDetails | null): string {
+  const plan = details?.plan;
+  if (typeof plan !== "string" || !isBillingPlanId(plan)) {
+    return "um plano";
+  }
+  return `o plano ${billingPlan(plan).name}`;
+}
+
+function courtesyEndLabel(details: AdminEventDetails | null): string {
+  const expiresAt = details?.expiresAt;
+  return typeof expiresAt === "string" ? `até ${lastDayOf(expiresAt)}` : "sem data para acabar";
+}
+
+function courtesyReasonLabel(details: AdminEventDetails | null): string {
+  const reason = details?.reason;
+  return typeof reason === "string" && reason !== "" ? `. Motivo: ${reason}` : "";
+}
+
+/** "Concedeu o plano Elite sem cobrança, até 28/02/2027. Motivo: conta do cliente." */
+function courtesyGivenCopy(verb: string, details: AdminEventDetails | null): string {
+  const given = `${verb} ${courtesyPlanLabel(details)} sem cobrança, ${courtesyEndLabel(details)}`;
+  const stopped = details?.renewalStopped === true ? ". A assinatura paga parou de renovar" : "";
+  return `${given}${courtesyReasonLabel(details)}${stopped}`;
+}
+
 const ACTION_COPY: Record<AdminAction, (details: AdminEventDetails | null) => string> = {
   impersonated: (details) => visitLabel(details),
   impersonation_ended: () => "Saiu da conta do cliente",
@@ -123,7 +153,7 @@ const ACTION_COPY: Record<AdminAction, (details: AdminEventDetails | null) => st
       : "Mudou o papel";
   },
   ban_changed: (details) => (details?.banned ? "Bloqueou a conta" : "Desbloqueou a conta"),
-  sessions_revoked: () => "Encerrou as sessões",
+  sessions_revoked: () => "Desconectou o cliente de todos os aparelhos",
   password_reset_sent: () => "Enviou redefinição de senha",
   onboarding_reminder_sent: () => "Enviou lembrete dos primeiros passos",
   // Kept for the history of accounts changed before the address stopped being asked for.
@@ -148,6 +178,10 @@ const ACTION_COPY: Record<AdminAction, (details: AdminEventDetails | null) => st
       ? `Reenviou o convite para a equipe${as}`
       : `Convidou para a equipe${as}`;
   },
+  courtesy_granted: (details) => courtesyGivenCopy("Concedeu", details),
+  courtesy_changed: (details) => courtesyGivenCopy("Mudou a cortesia para", details),
+  courtesy_revoked: (details) =>
+    `Retirou ${courtesyPlanLabel(details)} sem cobrança${courtesyReasonLabel(details)}`,
   // Not the team's doing: the customer tried to send a contact and the server refused it.
   contact_blocked: (details) => `Tentou enviar ${contactKindsLabel(details)} no pedido (bloqueado)`,
 };

@@ -1,4 +1,5 @@
 import { ArrowRightIcon } from "@phosphor-icons/react";
+import { ESCROW_RELEASE_DELAY_IN_DAYS } from "@sellbridge/shared/escrow-release";
 import { Link, type LinkProps } from "@tanstack/react-router";
 import { StepCard } from "@/components/onboarding/setup-guide";
 import { Button } from "@/components/ui/button";
@@ -40,12 +41,11 @@ const STEPS: readonly SupplierStep[] = [
   },
   {
     key: "payment",
-    title: "Ligue sua conta para receber",
-    description:
-      "Com a conta Mercado Pago ligada, o revendedor paga cada pedido pelo SellBridge e o dinheiro cai na sua conta.",
+    title: "Abra sua conta para receber",
+    description: `Com sua conta no Asaas aberta, o revendedor paga cada pedido pelo SellBridge e o dinheiro fica guardado até ${ESCROW_RELEASE_DELAY_IN_DAYS} dias depois da entrega.`,
     done: (setup) => setup.paymentAccountReady,
     link: { to: "/fornecedor/painel/recebimentos" },
-    cta: "Ligar conta Mercado Pago",
+    cta: "Abrir minha conta no Asaas",
     doneCta: "Ver recebimentos",
   },
   {

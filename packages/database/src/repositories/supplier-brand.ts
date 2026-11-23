@@ -134,6 +134,19 @@ export async function getSupplierFiscalFallback(
   return setup?.defaults ?? null;
 }
 
+/** The CNPJ and razão social in the supplier's "Dados fiscais da empresa"; null until filled. */
+export async function getSupplierCompany(
+  database: DatabaseExecutor,
+  supplierId: string,
+): Promise<{ cnpj: string; legalName: string } | null> {
+  const [found] = await database
+    .select({ fiscalProfile: suppliers.fiscalProfile })
+    .from(suppliers)
+    .where(eq(suppliers.id, supplierId));
+  const profile = readSupplierFiscalProfile(found?.fiscalProfile ?? null);
+  return profile === null ? null : { cnpj: profile.cnpj, legalName: profile.legalName };
+}
+
 /** The supplier's regime and default tax codes, for its products' NF-e data; null until filled. */
 export async function getSupplierTaxDefaults(
   database: DatabaseExecutor,

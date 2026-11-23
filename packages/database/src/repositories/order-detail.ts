@@ -1,13 +1,15 @@
 import { notFoundError } from "@sellbridge/shared/errors";
 import type { OrderFinanceInput } from "@sellbridge/shared/finance";
-import { and, asc, eq } from "drizzle-orm";
+import { and, asc, eq, sql } from "drizzle-orm";
 import type { Database } from "../client.ts";
 import {
+  categories,
   listingTargets,
   orderAdjustments,
   orderItems,
   orders,
   storeConnections,
+  supplierProducts,
 } from "../schema/index.ts";
 import { sellerShippingOnce } from "./sql/seller-shipping.ts";
 import type { Marketplace } from "./stores.ts";
@@ -28,6 +30,9 @@ export interface OrderDetailItem {
   listingStatus: ListingTargetStatus | null;
   listingUrl: string | null;
   productId: string | null;
+  /** The catalog product's first photo and its category, for the item's thumbnail. */
+  imageUrl: string | null;
+  categoryName: string | null;
 }
 
 export interface OrderDetailAdjustment {
@@ -98,9 +103,13 @@ async function selectItems(database: Database, tenantId: string, orderId: string
       listingStatus: listingTargets.status,
       listingUrl: listingTargets.externalUrl,
       productId: orderItems.supplierProductId,
+      imageUrl: sql<string | null>`${supplierProducts.imageUrls}[1]`,
+      categoryName: categories.name,
     })
     .from(orderItems)
     .leftJoin(listingTargets, eq(listingTargets.id, orderItems.listingTargetId))
+    .leftJoin(supplierProducts, eq(supplierProducts.id, orderItems.supplierProductId))
+    .leftJoin(categories, eq(categories.id, supplierProducts.categoryId))
     .where(and(eq(orderItems.tenantId, tenantId), eq(orderItems.orderId, orderId)))
     .orderBy(asc(orderItems.title), asc(orderItems.id));
 }

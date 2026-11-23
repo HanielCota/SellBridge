@@ -6,7 +6,7 @@ import {
 import { useQuery } from "@tanstack/react-query";
 import { SectionCard } from "@/components/layout/section-card";
 import { supplierApprovalStateQueryOptions } from "@/features/supplier-approval/approval.queries";
-import { ApprovalDecision } from "./approval-decision";
+import { ApprovalDecision, ApproveRefusedSupplier } from "./approval-decision";
 
 /** What the automatic check is waiting for, in the team's words. */
 function pendingExplanation(state: SupplierApprovalState): string {
@@ -42,10 +42,21 @@ export function SupplierApprovalCard({
         title="Cadastro recusado"
         description="O fornecedor não aparece para os revendedores e não cadastra produtos novos."
       >
-        <p className="text-sm">
-          <span className="text-muted-foreground">Motivo que ele lê no painel: </span>
-          <span className="font-medium">{state.refusalReason ?? "Sem motivo registrado"}</span>
-        </p>
+        <div className="grid gap-4">
+          <p className="text-sm">
+            <span className="text-muted-foreground">Motivo que ele lê no painel: </span>
+            <span className="font-medium">{state.refusalReason ?? "Sem motivo registrado"}</span>
+          </p>
+          {state.decidedBy === "automatic" ? (
+            <>
+              <p className="text-sm text-muted-foreground">
+                A recusa foi automática. Se ele resolveu o motivo (por exemplo, mostrou que a
+                empresa já saiu do MEI), aprove por aqui.
+              </p>
+              <ApproveRefusedSupplier supplierId={supplierId} supplierName={supplierName} />
+            </>
+          ) : null}
+        </div>
       </SectionCard>
     );
   }

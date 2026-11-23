@@ -7,6 +7,7 @@ import { BrandOrdersCard } from "@/components/supplier-panel/brand/brand-orders-
 import { BrandPublicCard } from "@/components/supplier-panel/brand/brand-public-card";
 import { BrandSaveBar } from "@/components/supplier-panel/brand/brand-save-bar";
 import { OnBehalfOperations } from "@/components/supplier-panel/brand/on-behalf-operations";
+import { BrandInvoiceSwitch } from "@/components/supplier-panel/brand/brand-invoice-switch";
 import { useBrandForm, type BrandFormState } from "@/features/supplier-panel/brand/use-brand-form";
 
 interface BrandFormProps {
@@ -76,6 +77,12 @@ export function BrandForm({ brand, account, categoryNames, onSaved }: BrandFormP
           errors={form.errors}
           onChange={form.change}
           onBehalfOperations={<OnBehalfOperations supplierId={brand.id} />}
+          invoiceSwitch={
+            <BrandInvoiceSwitch
+              supplierId={brand.id}
+              invoiceModel={form.values.fiscalInvoiceModel}
+            />
+          }
         />
       </fieldset>
       <FormErrorAlert message={form.failure} />

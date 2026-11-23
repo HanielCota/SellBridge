@@ -18,7 +18,11 @@ import {
   storeConnections,
   suppliers,
 } from "../schema/index.ts";
-import { preparationHold, supplierTimingColumns } from "./shipment-timing.ts";
+import {
+  effectiveDispatchDeadlineAt,
+  preparationHold,
+  supplierTimingColumns,
+} from "./shipment-timing.ts";
 import {
   emailFailed,
   invoiceStatus,
@@ -32,6 +36,7 @@ import {
   supplierScope,
   type SupplierShipmentFilters,
 } from "./supplier-panel-orders-sql.ts";
+import { hasUnreadStoreMessage } from "./supplier-order-messages.ts";
 
 export const SUPPLIER_ORDERS_PAGE_SIZE = 25;
 
@@ -70,13 +75,14 @@ const rowColumns = {
   carrier: orderShipments.carrier,
   trackingCode: orderShipments.trackingCode,
   marketplaceLogisticType: orderShipments.marketplaceLogisticType,
-  dispatchDeadlineAt: orderShipments.dispatchDeadlineAt,
+  dispatchDeadlineAt: effectiveDispatchDeadlineAt,
   estimatedDeliveryAt: orderShipments.estimatedDeliveryAt,
   updatedAt: orderShipments.updatedAt,
   labelPrintedAt: orderShipments.labelPrintedAt,
   labelPrintCount: orderShipments.labelPrintCount,
   labelWaitingSince: orderShipments.labelWaitingSince,
   splitOrder: splitOrderSql,
+  hasUnreadStoreMessage,
   emailFailed,
   invoiceStatus,
   preparationHold,
@@ -240,6 +246,26 @@ export async function countSupplierOperationNow(
     labelsToPrint: row?.labelsToPrint ?? 0,
     labelsLate: row?.labelsLate ?? 0,
   };
+}
+
+/**
+ * Parcels the supplier can accept now: forwarded and not waiting for the reseller's payment or
+ * the receiving account, which the "Para aceitar" counts leave out.
+ */
+export async function countSupplierParcelsToAccept(
+  database: Database,
+  supplierId: string,
+): Promise<number> {
+  const [row] = await database
+    .select({
+      total: countColumn(
+        and(eq(orderShipments.status, "forwarded"), sql`${preparationHold} is null`),
+      ),
+    })
+    .from(orderShipments)
+    .innerJoin(suppliers, eq(suppliers.id, orderShipments.supplierId))
+    .where(supplierScope(supplierId));
+  return row?.total ?? 0;
 }
 
 /** Parcels still in the queue whose NF-e stopped and waits for the supplier. */

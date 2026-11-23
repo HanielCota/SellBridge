@@ -37,6 +37,12 @@ export interface BlingConnectionStore {
     refreshTokenEnc: string,
     lastError: string,
   ) => Promise<void>;
+  /**
+   * Flags that the authorization lacks a permission, only while `accessTokenEnc` is still the
+   * saved one: a reconnection in between brought a new authorization. Stores that do not track
+   * it leave it out.
+   */
+  readonly markPermissionMissing?: (connectionId: string, accessTokenEnc: string) => Promise<void>;
 }
 
 interface UsableConnection {
@@ -107,11 +113,27 @@ export function storedBlingAccess(input: {
   fetchImplementation: FetchLike;
 }): BlingAccountAccess {
   const { cipher, store } = input;
+  // The saved access token behind the tokens last handed out, so a refusal flags that grant only.
+  let lastHandedOut: { connectionId: string; accessTokenEnc: string } | null = null;
+  const markPermissionMissing = store.markPermissionMissing;
   return {
     accountKey: input.accountKey,
     async currentTokens() {
-      return decrypt(cipher, await usableConnection(store));
+      const connection = await usableConnection(store);
+      lastHandedOut = { connectionId: connection.id, accessTokenEnc: connection.accessTokenEnc };
+      return decrypt(cipher, connection);
     },
+    ...(markPermissionMissing === undefined
+      ? {}
+      : {
+          async permissionMissing() {
+            if (lastHandedOut === null) {
+              return;
+            }
+            await markPermissionMissing(lastHandedOut.connectionId, lastHandedOut.accessTokenEnc);
+            logger.warn("bling.permission_missing", { accountKey: input.accountKey });
+          },
+        }),
     async refresh() {
       const connection = await usableConnection(store);
       try {
@@ -119,7 +141,9 @@ export function storedBlingAccess(input: {
           { fetchImplementation: input.fetchImplementation, credentials: input.credentials },
           cipher.decrypt(connection.refreshTokenEnc),
         );
-        await store.rotate(connection.id, connection.refreshTokenEnc, encrypt(cipher, tokens));
+        const encrypted = encrypt(cipher, tokens);
+        await store.rotate(connection.id, connection.refreshTokenEnc, encrypted);
+        lastHandedOut = { connectionId: connection.id, accessTokenEnc: encrypted.accessTokenEnc };
         return tokens;
       } catch (error) {
         if (!isMarketplaceAuthError(error)) {

@@ -34,6 +34,22 @@ describe("team navigation", () => {
       }),
     );
   });
+
+  // At 1366px the strip hid the last tabs, and the refunds the team owes live in Problemas.
+  it("counts Problemas and shows it and Configurações before the other team tabs", () => {
+    const labels = ADMIN_NAV_ITEMS.map((item) => item.label);
+
+    expect(labels.slice(labels.indexOf("Envios") + 1)).toEqual([
+      "Problemas",
+      "Configurações",
+      "Equipe",
+      "Auditoria",
+      "Avaliações",
+    ]);
+    expect(ADMIN_NAV_ITEMS).toContainEqual(
+      expect.objectContaining({ label: "Problemas", badge: "moneyProblems" }),
+    );
+  });
 });
 
 describe("supplier navigation", () => {

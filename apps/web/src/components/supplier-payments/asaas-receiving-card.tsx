@@ -1,13 +1,21 @@
 import { ESCROW_RELEASE_DELAY_IN_DAYS } from "@sellbridge/shared/escrow-release";
+import { formatCents } from "@sellbridge/shared/money";
+import {
+  ASAAS_CARD_FEE_BASIS_POINTS,
+  ASAAS_CARD_FEE_FIXED_CENTS,
+  supplierNetForOrder,
+} from "@sellbridge/shared/supplier-net-amount";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useState, type ReactNode } from "react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { retryAsaasProtectionFn } from "@/features/supplier-payments/asaas.functions";
+import { formatFeePercent } from "@/features/supplier-payments/fee-percent";
 import { asaasReceivingQueryOptions } from "@/features/supplier-payments/asaas.queries";
 import { errorMessage } from "@/lib/errors";
 import { formatAbsoluteTime } from "@/lib/relative-time";
 import { AsaasAccountDialog } from "./asaas-account-dialog";
+import type { ContractAccountRule } from "./asaas-account-fields";
 import type { ButtonEmphasis } from "./receiving-emphasis";
 import { PaymentPill } from "./supplier-payment-badge";
 
@@ -42,26 +50,57 @@ function Shell({ badge, children }: { badge: ReactNode; children: ReactNode }) {
   );
 }
 
-function HowItWorks({ fee }: { fee: string }) {
+const EXAMPLE_ORDER_CENTS = 10_000;
+
+/** "Num pedido de R$ 100,00…": the fees in reais, so "4%" and "tarifa" have a value. */
+function FeeExample({ fee }: { fee: string }) {
+  const pix = supplierNetForOrder(EXAMPLE_ORDER_CENTS, "PIX");
+  const card = supplierNetForOrder(EXAMPLE_ORDER_CENTS, "CREDIT_CARD");
   return (
-    <ol className="grid list-decimal gap-1 pl-5 text-sm text-muted-foreground">
-      <li>O revendedor paga e o dinheiro fica guardado no Asaas.</li>
-      <li>
-        {ESCROW_RELEASE_DELAY_IN_DAYS} dias depois da entrega confirmada, o dinheiro é liberado para
-        você.
-      </li>
-      <li>
-        As tarifas do Asaas saem da sua parte e o SellBridge fica com {fee}. Se o pedido for
-        cancelado ou devolvido antes, o revendedor recebe o dinheiro de volta.
-      </li>
-    </ol>
+    <div className="grid gap-1 rounded-2xl bg-muted px-4 py-3 text-sm">
+      <p>
+        Num pedido de <strong>{formatCents(EXAMPLE_ORDER_CENTS)}</strong> pago no Pix, o SellBridge
+        fica com {formatCents(pix.platformFeeCents)} ({fee}), o Asaas cobra{" "}
+        {formatCents(pix.asaasFeeCents)} e você recebe{" "}
+        <strong className="tabular-nums">{formatCents(pix.netCents)}</strong>.
+      </p>
+      <p className="text-muted-foreground">
+        No cartão, a tarifa do Asaas é {formatCents(card.asaasFeeCents)} (
+        {formatFeePercent(ASAAS_CARD_FEE_BASIS_POINTS)} + {formatCents(ASAAS_CARD_FEE_FIXED_CENTS)})
+        e você recebe {formatCents(card.netCents)}. São as tarifas padrão do Asaas; o valor exato
+        aparece no seu saldo do Asaas.
+      </p>
+    </div>
   );
 }
 
-function OpenCard(props: { supplierId: string; fee: string; emphasis: ButtonEmphasis }) {
+function HowItWorks({ fee }: { fee: string }) {
+  return (
+    <>
+      <ol className="grid list-decimal gap-1 pl-5 text-sm text-muted-foreground">
+        <li>O revendedor paga e o dinheiro fica guardado no Asaas.</li>
+        <li>
+          {ESCROW_RELEASE_DELAY_IN_DAYS} dias depois da entrega confirmada, o dinheiro é liberado
+          para você, já sem os {fee} do SellBridge e a tarifa do Asaas.
+        </li>
+        <li>
+          Se o pedido for cancelado ou devolvido antes, o revendedor recebe o dinheiro de volta.
+        </li>
+      </ol>
+      <FeeExample fee={fee} />
+    </>
+  );
+}
+
+function OpenCard(props: {
+  supplierId: string;
+  fee: string;
+  emphasis: ButtonEmphasis;
+  contractRule: ContractAccountRule | null;
+}) {
   const [open, setOpen] = useState(false);
   return (
-    <Shell badge={<PaymentPill tone="neutral">Não aberta</PaymentPill>}>
+    <Shell badge={<PaymentPill tone="warning">Falta abrir · você ainda não recebe</PaymentPill>}>
       <HowItWorks fee={props.fee} />
       <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
         <Button size="lg" variant={props.emphasis} onClick={() => setOpen(true)}>
@@ -69,7 +108,12 @@ function OpenCard(props: { supplierId: string; fee: string; emphasis: ButtonEmph
         </Button>
         <span className="text-sm text-muted-foreground">Leva uns 3 minutos.</span>
       </div>
-      <AsaasAccountDialog supplierId={props.supplierId} open={open} onOpenChange={setOpen} />
+      <AsaasAccountDialog
+        supplierId={props.supplierId}
+        contractRule={props.contractRule}
+        open={open}
+        onOpenChange={setOpen}
+      />
     </Shell>
   );
 }
@@ -229,7 +273,18 @@ export function AsaasReceivingCard(props: {
     );
   }
   if (asaas === null) {
-    return <OpenCard supplierId={props.supplierId} fee={props.fee} emphasis={props.emphasis} />;
+    return (
+      <OpenCard
+        supplierId={props.supplierId}
+        fee={props.fee}
+        emphasis={props.emphasis}
+        contractRule={
+          props.view.companyOnly
+            ? { companyCnpj: props.view.companyCnpj, companyName: props.view.companyName }
+            : null
+        }
+      />
+    );
   }
   if (asaas.protectionMissing) {
     return <RetryProtection supplierId={props.supplierId} emphasis={props.emphasis} />;

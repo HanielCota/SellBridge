@@ -143,6 +143,38 @@ async function refund(
   return { kind: "refund_requested", reason: input.reason };
 }
 
+const DEADLINE_DAY = new Intl.DateTimeFormat("pt-BR", {
+  day: "2-digit",
+  month: "2-digit",
+  year: "numeric",
+  timeZone: "America/Sao_Paulo",
+});
+const PAID_BY: Readonly<Record<string, string>> = { PIX: " por Pix", CREDIT_CARD: " no cartão" };
+
+/**
+ * The last moment the money can still be given back by hand: just before Asaas releases it at the
+ * start (Brasília) of the guarantee's expiration day, so a day label shows the last whole day (a
+ * guarantee ending on 20/12 leaves until 19/12). Null while Asaas reported no guarantee: a card is
+ * held only once Asaas counts it as received, which can be weeks after the payment.
+ */
+export function manualRefundLastMoment(payment: ShipmentPayment): Date | null {
+  if (payment.escrowExpiresAt === null) {
+    return null;
+  }
+  return new Date(payment.escrowExpiresAt.getTime() - 1);
+}
+
+/** What the team reads on Problemas: this refund is theirs to make by hand, and until when. */
+function manualRefundReason(payment: ShipmentPayment): string {
+  const paidBy = PAID_BY[payment.paymentMethod ?? ""] ?? "";
+  const lead = `Devolução manual: o Asaas não devolveu sozinho ${formatCents(payment.amountCents)} pagos${paidBy}.`;
+  const lastMoment = manualRefundLastMoment(payment);
+  if (lastMoment === null) {
+    return `${lead} Alguém da equipe devolve ao revendedor pelo Asaas; o Asaas ainda não informou até quando guarda o valor.`;
+  }
+  return `${lead} Alguém da equipe devolve ao revendedor pelo Asaas até ${DEADLINE_DAY.format(lastMoment)}; depois disso o valor vai para o fornecedor.`;
+}
+
 async function refundRefused(context: AsaasContext, held: HeldPayment, why: string, now: Date) {
   const first = await markShipmentPaymentRefundFailed(context.database, {
     paymentId: held.payment.id,
@@ -151,9 +183,12 @@ async function refundRefused(context: AsaasContext, held: HeldPayment, why: stri
   });
   if (first) {
     logger.error("asaas.refund_refused", {
-      reason: `O Asaas não aceitou devolver ${formatCents(held.payment.amountCents)} ao revendedor: ${why}`,
+      reason: manualRefundReason(held.payment),
       problemKey: held.payment.id,
+      refusal: why,
       shipmentPaymentId: held.payment.id,
+      shipmentId: held.payment.shipmentId,
+      supplierId: held.payment.supplierId,
       tenantId: held.tenantId,
       orderId: held.orderId,
     });

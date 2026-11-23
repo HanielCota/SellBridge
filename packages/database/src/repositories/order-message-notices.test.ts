@@ -135,7 +135,8 @@ describe("findOrderMessageContext", () => {
       orderId: order.id,
       externalOrderId: order.externalOrderId,
       supplierEmail: "pedidos@fornecedor-mensagens.com.br",
-      supplierHasAccount: false,
+      supplierOrganizationId: null,
+      parcelStatus: "forwarded",
     });
     expect(context?.forwardedAt).toBeInstanceOf(Date);
   });

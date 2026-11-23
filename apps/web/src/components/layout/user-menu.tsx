@@ -30,13 +30,14 @@ import { type AccountMenuEntry, accountMenuEntries } from "./account-pages";
 
 const appRoute = getRouteApi("/_app");
 
-function useSignOut() {
+/** Signs out and clears what belonged to the account; the signing screen reuses it. */
+export function useSignOut() {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   return async function signOut() {
     const result = await authClient.signOut();
     if (result.error) {
-      toast.error("Não foi possível sair. Tente novamente.");
+      toast.error("Você continua na conta. Confira a internet e toque em Sair de novo.");
       return;
     }
     // Cached sessions and profile data belong to the user who just left.

@@ -177,14 +177,16 @@ test("o fornecedor filtra os pedidos por revendedor e pagamento, e vê as etapas
   await expect(orderRow(page, unpaid.externalOrderId)).toBeVisible();
 
   await pick(page, "Revendedor", "Todos os revendedores");
-  await pick(page, "Pagamento", "Pagos a você");
+  await pick(page, "Pagamento", "Pagos pelo revendedor");
   await expect(page).toHaveURL(/payment=paid/);
   await expect(orderRow(page, unpaid.externalOrderId)).toBeHidden();
   await expect(orderRow(page, paid.externalOrderId)).toBeVisible();
 
   // The address keeps the filters: a reload or a shared link shows the same list.
   await page.reload();
-  await expect(page.getByRole("combobox", { name: "Pagamento" })).toHaveText("Pagos a você");
+  await expect(page.getByRole("combobox", { name: "Pagamento" })).toHaveText(
+    "Pagos pelo revendedor",
+  );
   await expect(orderRow(page, unpaid.externalOrderId)).toBeHidden();
 
   await orderRow(page, paid.externalOrderId).click();

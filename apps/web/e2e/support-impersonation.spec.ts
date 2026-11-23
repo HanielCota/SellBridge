@@ -104,7 +104,7 @@ test("atendente entra no painel do fornecedor pelo chamado e volta ao chamado", 
   await agent.page.getByLabel("Cidade de onde você envia").fill("Franca");
   await agent.page.getByRole("button", { name: "Cadastrar marca" }).click();
   await expect(agent.page.getByText("Marca cadastrada")).toBeVisible();
-  await banner.getByRole("button", { name: "Voltar ao admin" }).click();
+  await banner.getByRole("button", { name: "Voltar à equipe" }).click();
   await expect(agent.page).toHaveURL(new RegExp(ticketPath));
   await agent.context.close();
 });
@@ -186,7 +186,7 @@ test("admin entra como fornecedor pela ficha do cliente e volta à ficha", async
   // The panel sends a supplier without a brand on to its brand page: leave once that page is live.
   await expect(admin).toHaveURL(/\/fornecedor\/painel\/marca/);
   await waitForHydration(admin);
-  await banner.getByRole("button", { name: "Voltar ao admin" }).click();
+  await banner.getByRole("button", { name: "Voltar à equipe" }).click();
   await expect(admin).toHaveURL(new RegExp(customerPath));
   await expect(admin.getByText("Entrou como o fornecedor").first()).toBeVisible();
   await adminContext.close();

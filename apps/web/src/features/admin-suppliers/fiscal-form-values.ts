@@ -84,7 +84,8 @@ function emptyFiscalValues(): SupplierFiscalFormValues {
     fiscalPisCofinsCst: defaults.pisCofinsCst,
     fiscalOrigin: String(defaults.origin),
     fiscalUnit: defaults.unit,
-    fiscalInvoiceModel: "direct",
+    // A new supplier starts on venda à ordem (decided 2026-11-21); a saved profile keeps its own.
+    fiscalInvoiceModel: "on_behalf",
     ...onBehalfValues(),
   };
 }

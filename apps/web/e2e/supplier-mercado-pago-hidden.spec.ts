@@ -142,7 +142,9 @@ test("o revendedor não paga pelo Mercado Pago um fornecedor que só tem essa co
   await gotoHydrated(reseller, `/pedidos/${orderId}`);
 
   await expect(
-    reseller.getByText(/Este fornecedor ainda não ligou a conta de recebimento no Asaas/),
+    reseller.getByText(
+      /Você ainda não precisa pagar: o fornecedor ainda não cadastrou onde recebe/,
+    ),
   ).toBeVisible();
   await expect(reseller.getByRole("button", { name: /Pagar com/ })).toHaveCount(0);
   await expect(reseller.getByRole("main").getByText(/Mercado Pago/)).toHaveCount(0);
@@ -184,9 +186,7 @@ test("as configurações do admin não mostram a proteção para fornecedores no
 
   await gotoHydrated(page, "/admin/configuracoes");
 
-  await expect(
-    page.getByRole("region", { name: "Taxa do SellBridge nos pagamentos" }),
-  ).toBeVisible();
+  await expect(page.getByRole("region", { name: "Aprovação de fornecedor novo" })).toBeVisible();
   await expect(page.getByRole("region", { name: "Proteção para fornecedores novos" })).toHaveCount(
     0,
   );

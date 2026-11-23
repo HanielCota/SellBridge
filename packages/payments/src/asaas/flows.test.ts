@@ -39,6 +39,7 @@ import type {
   SupplierPaymentAccount,
 } from "@sellbridge/database/repositories";
 import { logger } from "@sellbridge/shared/logger";
+import { formatCents } from "@sellbridge/shared/money";
 import {
   AsaasAccountKeyMissingError,
   openAsaasAccount,
@@ -255,11 +256,13 @@ describe("settleHeldPayment", () => {
     expect(requests).toHaveLength(0);
   });
 
-  test("hands a refused refund to the team", async () => {
+  test("hands a Pix refund Asaas refuses for lack of free balance to the team, with the deadline", async () => {
     mocks.requestRefund.mockResolvedValue(parcel({ refundRequestedAt: NOW }));
     mocks.markRefundFailed.mockResolvedValue(true);
+    // What Asaas answers for a Pix whose fee and split left the account (sandbox, 20/11/2026).
+    const refusal = "Não é possível efetuar o estorno pois não há saldo suficiente.";
     replies = [
-      { status: 400, body: { errors: [{ code: "x", description: "Saldo insuficiente." }] } },
+      { status: 400, body: { errors: [{ code: "invalid_action", description: refusal }] } },
     ];
     const errors = vi.spyOn(logger, "error").mockImplementation(() => {});
 
@@ -271,7 +274,60 @@ describe("settleHeldPayment", () => {
 
     expect(outcome).toEqual({ kind: "refund_refused" });
     expect(mocks.markRefundFailed).toHaveBeenCalledOnce();
-    expect(errors).toHaveBeenCalledWith("asaas.refund_refused", expect.anything());
+    expect(errors).toHaveBeenCalledWith(
+      "asaas.refund_refused",
+      expect.objectContaining({
+        reason: `Devolução manual: o Asaas não devolveu sozinho ${formatCents(10_000)} pagos por Pix. Alguém da equipe devolve ao revendedor pelo Asaas até 20/12/2026; depois disso o valor vai para o fornecedor.`,
+        refusal,
+        shipmentPaymentId: PAYMENT_ID,
+      }),
+    );
+  });
+
+  test("gives the team the last whole day before Asaas releases the money", async () => {
+    mocks.requestRefund.mockResolvedValue(parcel({ refundRequestedAt: NOW }));
+    mocks.markRefundFailed.mockResolvedValue(true);
+    replies = [
+      { status: 400, body: { errors: [{ code: "invalid_action", description: "Sem saldo." }] } },
+    ];
+    const errors = vi.spyOn(logger, "error").mockImplementation(() => {});
+    // Asaas's expirationDate 2026-12-20 is stored as the start of that day in Brasília.
+    const payment = parcel({ escrowExpiresAt: new Date("2026-12-20T03:00:00Z") });
+
+    await settleHeldPayment(context, {
+      account,
+      held: held({ payment, shipmentStatus: "cancelled" }),
+      now: NOW,
+    });
+
+    expect(errors).toHaveBeenCalledWith(
+      "asaas.refund_refused",
+      expect.objectContaining({ reason: expect.stringContaining("pelo Asaas até 19/12/2026;") }),
+    );
+  });
+
+  test("gives the team no date while Asaas reported no guarantee for the payment", async () => {
+    mocks.requestRefund.mockResolvedValue(parcel({ refundRequestedAt: NOW }));
+    mocks.markRefundFailed.mockResolvedValue(true);
+    replies = [
+      { status: 400, body: { errors: [{ code: "invalid_action", description: "Sem saldo." }] } },
+    ];
+    const errors = vi.spyOn(logger, "error").mockImplementation(() => {});
+    // A card is held only once Asaas counts it as received, which can be weeks after paying.
+    const payment = parcel({ escrowExpiresAt: null, paymentMethod: "CREDIT_CARD" });
+
+    await settleHeldPayment(context, {
+      account,
+      held: held({ payment, shipmentStatus: "cancelled" }),
+      now: NOW,
+    });
+
+    expect(errors).toHaveBeenCalledWith(
+      "asaas.refund_refused",
+      expect.objectContaining({
+        reason: `Devolução manual: o Asaas não devolveu sozinho ${formatCents(10_000)} pagos no cartão. Alguém da equipe devolve ao revendedor pelo Asaas; o Asaas ainda não informou até quando guarda o valor.`,
+      }),
+    );
   });
 
   test("follows the team's refund for a held payment", async () => {
@@ -395,15 +451,33 @@ describe("applyAsaasCharge", () => {
     });
   });
 
-  test("records the day Asaas confirmed the money, at noon in São Paulo", async () => {
+  test("records a payment confirmed today at the moment SellBridge sees it, late evening included", async () => {
+    // 23:00 on 07/12 in São Paulo, the day Asaas reports the money came in.
+    const lateEvening = new Date("2026-12-08T02:00:00Z");
+    vi.useFakeTimers({ now: lateEvening });
+    mocks.findPayment.mockResolvedValue(parcel({ status: "pending", providerPaymentId: null }));
+    mocks.apply.mockResolvedValue({ kind: "applied", payment: parcel() });
+
+    await applyAsaasCharge(context, { account, charge: charge({ confirmedDate: "2026-12-07" }) });
+
+    vi.useRealTimers();
+    expect(mocks.apply).toHaveBeenCalledWith(
+      context.database,
+      expect.objectContaining({ approvedAt: lateEvening }),
+    );
+  });
+
+  test("records a payment confirmed on an earlier day at the last moment of that day in São Paulo", async () => {
+    vi.useFakeTimers({ now: NOW });
     mocks.findPayment.mockResolvedValue(parcel({ status: "pending", providerPaymentId: null }));
     mocks.apply.mockResolvedValue({ kind: "applied", payment: parcel() });
 
     await applyAsaasCharge(context, { account, charge: charge({ confirmedDate: "2026-12-08" }) });
 
+    vi.useRealTimers();
     expect(mocks.apply).toHaveBeenCalledWith(
       context.database,
-      expect.objectContaining({ approvedAt: new Date("2026-12-08T15:00:00Z") }),
+      expect.objectContaining({ approvedAt: new Date("2026-12-09T02:59:59.999Z") }),
     );
   });
 

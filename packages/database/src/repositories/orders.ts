@@ -8,6 +8,7 @@ import { reconciledOrderStatus } from "./fulfillment-status.ts";
 import { recordApiEvent } from "./api-events.ts";
 import { syncMarketplaceRefund } from "./marketplace-refunds.ts";
 import { recordOrderStatusChange } from "./order-status-changes.ts";
+import { cancelQueuedParcelsOfCancelledSale } from "./sale-cancellation.ts";
 import { applyStockMoves, reserveShortItems } from "./stock-reservations.ts";
 
 export interface IncomingOrder {
@@ -309,6 +310,9 @@ async function writeOrder(write: OrderWrite): Promise<UpsertOrderResult> {
       { ...write, order: { ...write.order, status } },
       existing,
     );
+    if (status === "cancelled") {
+      await cancelQueuedParcelsOfCancelledSale(write.transaction, existing);
+    }
     const stockMoves = await applyStockMoves(write.transaction, existing.id, status);
     await syncMarketplaceRefund(write.transaction, {
       tenantId: write.tenantId,

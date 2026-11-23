@@ -21,6 +21,9 @@ function storeWith(status = "connected") {
     load: async () => saved,
     rotate: vi.fn<BlingConnectionStore["rotate"]>(async () => true),
     markExpired: vi.fn<BlingConnectionStore["markExpired"]>(async () => {}),
+    markPermissionMissing: vi.fn<NonNullable<BlingConnectionStore["markPermissionMissing"]>>(
+      async () => {},
+    ),
   };
   return { store, saved };
 }
@@ -125,5 +128,69 @@ describe("storedBlingAccess", () => {
     });
 
     await expect(access.currentTokens()).rejects.toThrow("Conecte o Bling de novo");
+  });
+
+  it("flags the saved authorization whose tokens it handed out when a permission is missing", async () => {
+    const { store, saved } = storeWith();
+    const access = storedBlingAccess({
+      accountKey: "s1",
+      credentials,
+      cipher,
+      store,
+      fetchImplementation: vi.fn<typeof fetch>(),
+    });
+    await access.currentTokens();
+
+    await access.permissionMissing?.();
+
+    expect(store.markPermissionMissing).toHaveBeenCalledWith("connection-1", saved.accessTokenEnc);
+  });
+
+  it("flags the refreshed authorization after a refresh", async () => {
+    const { store } = storeWith();
+    const fetchImplementation = vi.fn<typeof fetch>(async () =>
+      json(200, {
+        access_token: "a2",
+        refresh_token: "r2",
+        expires_in: 21600,
+        token_type: "Bearer",
+      }),
+    );
+    const access = storedBlingAccess({
+      accountKey: "s1",
+      credentials,
+      cipher,
+      store,
+      fetchImplementation,
+    });
+    await access.refresh();
+
+    await access.permissionMissing?.();
+
+    const flag = store.markPermissionMissing;
+    if (flag === undefined) {
+      throw new Error("the test store tracks missing permissions");
+    }
+    const [, flaggedAccessTokenEnc] = vi.mocked(flag).mock.calls[0] ?? [];
+    expect(cipher.decrypt(flaggedAccessTokenEnc ?? "")).toBe("a2");
+  });
+
+  it("offers no flag when the store does not track missing permissions", () => {
+    const { store } = storeWith();
+    const untracked: BlingConnectionStore = {
+      load: store.load,
+      rotate: store.rotate,
+      markExpired: store.markExpired,
+    };
+
+    const access = storedBlingAccess({
+      accountKey: "s1",
+      credentials,
+      cipher,
+      store: untracked,
+      fetchImplementation: vi.fn<typeof fetch>(),
+    });
+
+    expect(access.permissionMissing).toBeUndefined();
   });
 });

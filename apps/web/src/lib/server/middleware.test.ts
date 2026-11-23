@@ -153,6 +153,20 @@ describe("staff middleware", () => {
     const allowed = vi.fn<Next>().mockResolvedValue({ ok: true });
     await expect(run(staffMiddleware("reviews.moderate"), allowed)).resolves.toEqual({ ok: true });
   });
+
+  it("refuses a plan with no charge to everyone but an admin", async () => {
+    const courtesy = staffMiddleware("billing.grant_courtesy");
+    for (const role of ["user", "agent", "supervisor"]) {
+      mocks.getSession.mockResolvedValue({ user: { id: "someone", role } });
+      const refused = vi.fn<Next>();
+      await expect(run(courtesy, refused)).rejects.toMatchObject({ code: "FORBIDDEN" });
+      expect(refused).not.toHaveBeenCalled();
+    }
+
+    mocks.getSession.mockResolvedValue({ user: { id: "boss", role: "admin" } });
+    const allowed = vi.fn<Next>().mockResolvedValue({ ok: true });
+    await expect(run(courtesy, allowed)).resolves.toEqual({ ok: true });
+  });
 });
 
 const post = (name: string): CallInfo => ({ method: "POST", serverFnMeta: { name } });

@@ -45,7 +45,7 @@ test("fornecedor com marca abre o próprio painel com os dados carregados", asyn
   ).toBeVisible();
 
   const profile = new URL(page.url()).searchParams.get("perfil");
-  for (const name of ["Cadastrar o primeiro produto", "Editar minha marca"]) {
+  for (const name of ["Cadastrar o primeiro produto", "Completar minha marca"]) {
     const href = await page.getByRole("link", { name, exact: true }).getAttribute("href");
     expect(new URL(href ?? "", page.url()).searchParams.get("perfil")).toBe(profile);
   }

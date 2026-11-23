@@ -10,7 +10,7 @@ describe("noTicketsDescription", () => {
 
   it("talks about products, not stores, to a supplier", () => {
     expect(noTicketsDescription("supplier")).toBe(
-      "Abra um chamado sobre pedidos, produtos ou repasses. A resposta aparece aqui.",
+      "Abra um chamado sobre pedidos, produtos ou recebimentos. A resposta aparece aqui.",
     );
   });
 });

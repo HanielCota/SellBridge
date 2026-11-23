@@ -13,6 +13,7 @@ import { Route as IndexRouteImport } from './routes/index'
 import { Route as AppRouteRouteImport } from './routes/_app/route'
 import { Route as AuthRouteRouteImport } from './routes/_auth/route'
 import { Route as AceitarTermosRouteImport } from './routes/aceitar-termos'
+import { Route as AssinarContratoRouteImport } from './routes/assinar-contrato'
 import { Route as OutroPerfilRouteImport } from './routes/outro-perfil'
 import { Route as PrivacidadeRouteImport } from './routes/privacidade'
 import { Route as TermosRouteImport } from './routes/termos'
@@ -36,6 +37,8 @@ import { Route as AuthLoginRouteImport } from './routes/_auth/login'
 import { Route as AuthRedefinirSenhaRouteImport } from './routes/_auth/redefinir-senha'
 import { Route as ApiHealthRouteImport } from './routes/api/health'
 import { Route as ApiVersionRouteImport } from './routes/api/version'
+import { Route as ContratoFornecedorRouteImport } from './routes/contrato/fornecedor'
+import { Route as ContratoVendedorRouteImport } from './routes/contrato/vendedor'
 import { Route as RastreioTokenRouteImport } from './routes/rastreio/$token'
 import { Route as AppAdminAuditoriaRouteImport } from './routes/_app/admin/auditoria'
 import { Route as AppAdminAvaliacoesRouteImport } from './routes/_app/admin/avaliacoes'
@@ -166,6 +169,11 @@ const AceitarTermosRoute = AceitarTermosRouteImport.update({
   path: '/aceitar-termos',
   getParentRoute: () => rootRouteImport,
 } as any)
+const AssinarContratoRoute = AssinarContratoRouteImport.update({
+  id: '/assinar-contrato',
+  path: '/assinar-contrato',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const OutroPerfilRoute = OutroPerfilRouteImport.update({
   id: '/outro-perfil',
   path: '/outro-perfil',
@@ -279,6 +287,16 @@ const ApiHealthRoute = ApiHealthRouteImport.update({
 const ApiVersionRoute = ApiVersionRouteImport.update({
   id: '/api/version',
   path: '/api/version',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ContratoFornecedorRoute = ContratoFornecedorRouteImport.update({
+  id: '/contrato/fornecedor',
+  path: '/contrato/fornecedor',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ContratoVendedorRoute = ContratoVendedorRouteImport.update({
+  id: '/contrato/vendedor',
+  path: '/contrato/vendedor',
   getParentRoute: () => rootRouteImport,
 } as any)
 const RastreioTokenRoute = RastreioTokenRouteImport.update({
@@ -899,6 +917,7 @@ const ApiV1WebhookEndpointsEndpointIdDeliveriesRoute =
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/aceitar-termos': typeof AceitarTermosRoute
+  '/assinar-contrato': typeof AssinarContratoRoute
   '/outro-perfil': typeof OutroPerfilRoute
   '/privacidade': typeof PrivacidadeRoute
   '/termos': typeof TermosRoute
@@ -922,6 +941,8 @@ export interface FileRoutesByFullPath {
   '/redefinir-senha': typeof AuthRedefinirSenhaRoute
   '/api/health': typeof ApiHealthRoute
   '/api/version': typeof ApiVersionRoute
+  '/contrato/fornecedor': typeof ContratoFornecedorRoute
+  '/contrato/vendedor': typeof ContratoVendedorRoute
   '/rastreio/$token': typeof RastreioTokenRoute
   '/admin/clientes': typeof AppAdminClientesRouteRouteWithChildren
   '/admin/problemas': typeof AppAdminProblemasRouteRouteWithChildren
@@ -1037,6 +1058,7 @@ export interface FileRoutesByFullPath {
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/aceitar-termos': typeof AceitarTermosRoute
+  '/assinar-contrato': typeof AssinarContratoRoute
   '/outro-perfil': typeof OutroPerfilRoute
   '/privacidade': typeof PrivacidadeRoute
   '/termos': typeof TermosRoute
@@ -1059,6 +1081,8 @@ export interface FileRoutesByTo {
   '/redefinir-senha': typeof AuthRedefinirSenhaRoute
   '/api/health': typeof ApiHealthRoute
   '/api/version': typeof ApiVersionRoute
+  '/contrato/fornecedor': typeof ContratoFornecedorRoute
+  '/contrato/vendedor': typeof ContratoVendedorRoute
   '/rastreio/$token': typeof RastreioTokenRoute
   '/admin/auditoria': typeof AppAdminAuditoriaRoute
   '/admin/avaliacoes': typeof AppAdminAvaliacoesRoute
@@ -1174,6 +1198,7 @@ export interface FileRoutesById {
   '/_app': typeof AppRouteRouteWithChildren
   '/_auth': typeof AuthRouteRouteWithChildren
   '/aceitar-termos': typeof AceitarTermosRoute
+  '/assinar-contrato': typeof AssinarContratoRoute
   '/outro-perfil': typeof OutroPerfilRoute
   '/privacidade': typeof PrivacidadeRoute
   '/termos': typeof TermosRoute
@@ -1197,6 +1222,8 @@ export interface FileRoutesById {
   '/_auth/redefinir-senha': typeof AuthRedefinirSenhaRoute
   '/api/health': typeof ApiHealthRoute
   '/api/version': typeof ApiVersionRoute
+  '/contrato/fornecedor': typeof ContratoFornecedorRoute
+  '/contrato/vendedor': typeof ContratoVendedorRoute
   '/rastreio/$token': typeof RastreioTokenRoute
   '/_app/admin/clientes': typeof AppAdminClientesRouteRouteWithChildren
   '/_app/admin/problemas': typeof AppAdminProblemasRouteRouteWithChildren
@@ -1314,6 +1341,7 @@ export interface FileRouteTypes {
   fullPaths:
     | '/'
     | '/aceitar-termos'
+    | '/assinar-contrato'
     | '/outro-perfil'
     | '/privacidade'
     | '/termos'
@@ -1337,6 +1365,8 @@ export interface FileRouteTypes {
     | '/redefinir-senha'
     | '/api/health'
     | '/api/version'
+    | '/contrato/fornecedor'
+    | '/contrato/vendedor'
     | '/rastreio/$token'
     | '/admin/clientes'
     | '/admin/problemas'
@@ -1452,6 +1482,7 @@ export interface FileRouteTypes {
   to:
     | '/'
     | '/aceitar-termos'
+    | '/assinar-contrato'
     | '/outro-perfil'
     | '/privacidade'
     | '/termos'
@@ -1474,6 +1505,8 @@ export interface FileRouteTypes {
     | '/redefinir-senha'
     | '/api/health'
     | '/api/version'
+    | '/contrato/fornecedor'
+    | '/contrato/vendedor'
     | '/rastreio/$token'
     | '/admin/auditoria'
     | '/admin/avaliacoes'
@@ -1588,6 +1621,7 @@ export interface FileRouteTypes {
     | '/_app'
     | '/_auth'
     | '/aceitar-termos'
+    | '/assinar-contrato'
     | '/outro-perfil'
     | '/privacidade'
     | '/termos'
@@ -1611,6 +1645,8 @@ export interface FileRouteTypes {
     | '/_auth/redefinir-senha'
     | '/api/health'
     | '/api/version'
+    | '/contrato/fornecedor'
+    | '/contrato/vendedor'
     | '/rastreio/$token'
     | '/_app/admin/clientes'
     | '/_app/admin/problemas'
@@ -1729,11 +1765,14 @@ export interface RootRouteChildren {
   AppRouteRoute: typeof AppRouteRouteWithChildren
   AuthRouteRoute: typeof AuthRouteRouteWithChildren
   AceitarTermosRoute: typeof AceitarTermosRoute
+  AssinarContratoRoute: typeof AssinarContratoRoute
   OutroPerfilRoute: typeof OutroPerfilRoute
   PrivacidadeRoute: typeof PrivacidadeRoute
   TermosRoute: typeof TermosRoute
   ApiHealthRoute: typeof ApiHealthRoute
   ApiVersionRoute: typeof ApiVersionRoute
+  ContratoFornecedorRoute: typeof ContratoFornecedorRoute
+  ContratoVendedorRoute: typeof ContratoVendedorRoute
   RastreioTokenRoute: typeof RastreioTokenRoute
   ApiAdminProductImagesRoute: typeof ApiAdminProductImagesRoute
   ApiAuthSplatRoute: typeof ApiAuthSplatRoute
@@ -1823,6 +1862,13 @@ declare module '@tanstack/react-router' {
       path: '/aceitar-termos'
       fullPath: '/aceitar-termos'
       preLoaderRoute: typeof AceitarTermosRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/assinar-contrato': {
+      id: '/assinar-contrato'
+      path: '/assinar-contrato'
+      fullPath: '/assinar-contrato'
+      preLoaderRoute: typeof AssinarContratoRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/outro-perfil': {
@@ -1984,6 +2030,20 @@ declare module '@tanstack/react-router' {
       path: '/api/version'
       fullPath: '/api/version'
       preLoaderRoute: typeof ApiVersionRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/contrato/fornecedor': {
+      id: '/contrato/fornecedor'
+      path: '/contrato/fornecedor'
+      fullPath: '/contrato/fornecedor'
+      preLoaderRoute: typeof ContratoFornecedorRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/contrato/vendedor': {
+      id: '/contrato/vendedor'
+      path: '/contrato/vendedor'
+      fullPath: '/contrato/vendedor'
+      preLoaderRoute: typeof ContratoVendedorRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/rastreio/$token': {
@@ -2998,11 +3058,14 @@ const rootRouteChildren: RootRouteChildren = {
   AppRouteRoute: AppRouteRouteWithChildren,
   AuthRouteRoute: AuthRouteRouteWithChildren,
   AceitarTermosRoute: AceitarTermosRoute,
+  AssinarContratoRoute: AssinarContratoRoute,
   OutroPerfilRoute: OutroPerfilRoute,
   PrivacidadeRoute: PrivacidadeRoute,
   TermosRoute: TermosRoute,
   ApiHealthRoute: ApiHealthRoute,
   ApiVersionRoute: ApiVersionRoute,
+  ContratoFornecedorRoute: ContratoFornecedorRoute,
+  ContratoVendedorRoute: ContratoVendedorRoute,
   RastreioTokenRoute: RastreioTokenRoute,
   ApiAdminProductImagesRoute: ApiAdminProductImagesRoute,
   ApiAuthSplatRoute: ApiAuthSplatRoute,

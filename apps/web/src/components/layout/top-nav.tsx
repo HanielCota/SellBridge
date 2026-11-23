@@ -5,6 +5,7 @@ import { type RefObject, useLayoutEffect, useRef } from "react";
 import { BrandIcon } from "@/components/brand/brand-logo";
 import { SELLER_HOME_PATH, SUPPLIER_PANEL_PATH } from "@/features/auth/profile-routes";
 import type { SessionUser } from "@/features/auth/session.functions";
+import { AccountSetupNotice } from "./account-setup-notice";
 import { AdminTabsBar } from "./admin-tabs-bar";
 import { MobileNav } from "./mobile-nav";
 import { CommandPalette } from "./command-palette";
@@ -74,7 +75,7 @@ export function TopNav({ user, adminMode, profileKind, state }: TopNavProps) {
   return (
     <header
       ref={headerRef}
-      className="sticky top-0 z-30 bg-background/85 pt-[env(safe-area-inset-top)] backdrop-blur-xl"
+      className="sticky top-0 z-30 bg-background pt-[env(safe-area-inset-top)]"
     >
       <div className="mx-auto flex max-w-[1440px] items-center gap-3 px-4 py-4 md:px-8">
         <MobileNav
@@ -89,6 +90,8 @@ export function TopNav({ user, adminMode, profileKind, state }: TopNavProps) {
         <HomeLink isSupplier={isSupplier} />
         <div className="ml-auto flex items-center gap-2">
           <NewVersionNotice />
+          {/* A team member with no profile has no account to set up. */}
+          <AccountSetupNotice enabled={!teamOnly} pathname={state.pathname} />
           {/* The search looks through the seller's orders, listings and stores. */}
           {isSupplier || teamOnly ? null : <CommandPalette />}
           {/* On phones the way in is the first row of the menu sheet: the header has no room. */}

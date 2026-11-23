@@ -5,7 +5,7 @@ import { usePanelSupplierId } from "@/features/supplier-panel/use-panel-supplier
 
 export const Route = createFileRoute("/_app/fornecedor/painel/recebimentos")({
   validateSearch: mercadoPagoOutcomeSearch,
-  head: () => ({ meta: [{ title: "Receber pagamentos | Painel do fornecedor" }] }),
+  head: () => ({ meta: [{ title: "Recebimentos | Painel do fornecedor" }] }),
   component: SupplierReceivingRoute,
 });
 

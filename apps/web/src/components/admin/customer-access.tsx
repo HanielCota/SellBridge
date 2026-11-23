@@ -3,7 +3,9 @@ import {
   CUSTOMER_ROLES,
   type CustomerRole,
 } from "@sellbridge/shared/schemas";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { type ReactNode, useState } from "react";
+import { toast } from "sonner";
 import { ConfirmDialog } from "@/components/feedback/confirm-dialog";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
@@ -22,10 +24,17 @@ import {
   adminSetCustomerRole,
 } from "@/features/admin/customers.functions";
 import { SectionCard } from "@/components/layout/section-card";
+import { roleChangeConfirmation, roleChangedMessage } from "@/features/admin/role-change";
 import { useAdminAction } from "@/features/admin/use-admin-action";
+import { errorMessage } from "@/lib/errors";
+
+/** Long enough to read the notice and reach "Desfazer" (WCAG 2.2.1). */
+const UNDO_NOTICE_MILLISECONDS = 10_000;
 
 interface AccessProps {
   userId: string;
+  /** Names the person in the role question and notice. */
+  name: string;
   role: string;
   banned: boolean;
   banReason: string | null;
@@ -60,34 +69,101 @@ function AccessRow({
   );
 }
 
-function RoleSelect({ userId, role, locked }: Pick<AccessProps, "userId" | "role"> & Locked) {
-  const change = useAdminAction(
-    (next: CustomerRole) => adminSetCustomerRole({ data: { userId, role: next } }),
-    "Papel atualizado",
-  );
+interface RoleChange {
+  next: CustomerRole;
+  /** What "Desfazer" goes back to; undefined when the old role is not one of the list. */
+  previous: CustomerRole | undefined;
+}
+
+/** Saves the role and offers "Desfazer" on the notice, back to the role it had. */
+function useRoleChange(userId: string, name: string, onSaved: () => void) {
+  const queryClient = useQueryClient();
+  const mutation = useMutation({
+    mutationFn: (change: RoleChange) =>
+      adminSetCustomerRole({ data: { userId, role: change.next } }),
+    onSuccess: async (_result, change) => {
+      onSaved();
+      const { previous } = change;
+      toast.success(
+        roleChangedMessage(name, change.next),
+        previous === undefined
+          ? undefined
+          : {
+              duration: UNDO_NOTICE_MILLISECONDS,
+              action: {
+                label: "Desfazer",
+                onClick: () => mutation.mutate({ next: previous, previous: change.next }),
+              },
+            },
+      );
+      await queryClient.invalidateQueries({ queryKey: ["customers"] });
+    },
+    onError: (error) => toast.error(errorMessage(error)),
+  });
+  return mutation;
+}
+
+/**
+ * More access asks first, saying what the person will see; less access applies at once with
+ * "Desfazer". The server checks the permission either way.
+ */
+function RoleSelect({
+  userId,
+  name,
+  role,
+  locked,
+}: Pick<AccessProps, "userId" | "name" | "role"> & Locked) {
+  const [asked, setAsked] = useState<CustomerRole | null>(null);
+  const change = useRoleChange(userId, name, () => setAsked(null));
   const knownRole = CUSTOMER_ROLES.find((option) => option === role);
+  const confirmation =
+    asked === null ? null : roleChangeConfirmation({ name, from: knownRole ?? "user", to: asked });
   return (
-    <Select
-      value={role}
-      disabled={locked || change.isPending}
-      onValueChange={(value) => {
-        const next = CUSTOMER_ROLES.find((option) => option === value);
-        if (next && next !== role) {
-          change.mutate(next);
-        }
-      }}
-    >
-      <SelectTrigger aria-label="Papel do cliente" className="w-44">
-        <SelectValue>{knownRole ? CUSTOMER_ROLE_LABELS[knownRole] : role}</SelectValue>
-      </SelectTrigger>
-      <SelectContent>
-        {CUSTOMER_ROLES.map((option) => (
-          <SelectItem key={option} value={option}>
-            {CUSTOMER_ROLE_LABELS[option]}
-          </SelectItem>
-        ))}
-      </SelectContent>
-    </Select>
+    <>
+      <Select
+        value={role}
+        disabled={locked || change.isPending}
+        onValueChange={(value) => {
+          const next = CUSTOMER_ROLES.find((option) => option === value);
+          if (next === undefined || next === role) {
+            return;
+          }
+          const question = roleChangeConfirmation({ name, from: knownRole ?? "user", to: next });
+          if (question !== null) {
+            setAsked(next);
+            return;
+          }
+          change.mutate({ next, previous: knownRole });
+        }}
+      >
+        <SelectTrigger aria-label="Papel do cliente" className="w-44">
+          <SelectValue>{knownRole ? CUSTOMER_ROLE_LABELS[knownRole] : role}</SelectValue>
+        </SelectTrigger>
+        <SelectContent>
+          {CUSTOMER_ROLES.map((option) => (
+            <SelectItem key={option} value={option}>
+              {CUSTOMER_ROLE_LABELS[option]}
+            </SelectItem>
+          ))}
+        </SelectContent>
+      </Select>
+      <ConfirmDialog
+        open={confirmation !== null}
+        onOpenChange={(open) => setAsked(open ? asked : null)}
+        title={confirmation?.title ?? ""}
+        description={confirmation?.description ?? ""}
+        confirmLabel={confirmation?.confirmLabel ?? ""}
+        pendingLabel="Salvando…"
+        cancelLabel="Voltar"
+        destructive={asked === "admin"}
+        isPending={change.isPending}
+        onConfirm={() => {
+          if (asked !== null) {
+            change.mutate({ next: asked, previous: knownRole });
+          }
+        }}
+      />
+    </>
   );
 }
 
@@ -143,7 +219,7 @@ function BanControl({ userId, banned, locked }: Pick<AccessProps, "userId" | "ba
         open={isOpen}
         onOpenChange={setIsOpen}
         title="Bloquear esta conta?"
-        description="O cliente sai de todos os dispositivos e não consegue mais entrar até ser desbloqueado. Lojas e publicações continuam como estão."
+        description="O cliente sai de todos os aparelhos e não consegue mais entrar até ser desbloqueado. Lojas e publicações continuam como estão."
         confirmLabel="Bloquear"
         pendingLabel="Bloqueando…"
         destructive
@@ -160,20 +236,20 @@ function SessionsControl({ userId, locked }: { userId: string } & Locked) {
   const [isOpen, setIsOpen] = useState(false);
   const revoke = useAdminAction(
     () => adminRevokeCustomerSessions({ data: { userId } }),
-    "Sessões encerradas",
+    "Cliente desconectado de todos os aparelhos",
     () => setIsOpen(false),
   );
   return (
     <>
       <Button variant="outline" disabled={locked} onClick={() => setIsOpen(true)}>
-        Encerrar sessões
+        Desconectar de todos os aparelhos
       </Button>
       <ConfirmDialog
         open={isOpen}
         onOpenChange={setIsOpen}
-        title="Encerrar todas as sessões?"
-        description="O cliente precisará entrar de novo em todos os dispositivos."
-        confirmLabel="Encerrar sessões"
+        title="Desconectar de todos os aparelhos?"
+        description="O cliente vai precisar entrar de novo em todos os aparelhos."
+        confirmLabel="Desconectar"
         pendingLabel="Encerrando…"
         isPending={revoke.isPending}
         onConfirm={() => revoke.mutate(undefined)}
@@ -200,10 +276,10 @@ function PasswordResetButton({ userId, locked }: { userId: string } & Locked) {
 
 function accessDescription({ isSelf, canManage }: Pick<AccessProps, "isSelf" | "canManage">) {
   if (isSelf && !canManage) {
-    return "Esta é a sua conta: troque a senha e veja os dispositivos conectados no seu Perfil.";
+    return "Esta é a sua conta: troque a senha e veja os aparelhos conectados no seu Perfil.";
   }
   if (!canManage) {
-    return "Conta da equipe: só um dono da plataforma altera papel, bloqueio, sessões e senha.";
+    return "Conta da equipe: só um dono da plataforma altera papel, bloqueio, aparelhos conectados e senha.";
   }
   if (isSelf) {
     return "Esta é a sua conta: papel e bloqueio ficam travados.";
@@ -213,6 +289,7 @@ function accessDescription({ isSelf, canManage }: Pick<AccessProps, "isSelf" | "
 
 export function CustomerAccess({
   userId,
+  name,
   role,
   banned,
   banReason,
@@ -232,7 +309,7 @@ export function CustomerAccess({
               ? "Administradores veem e editam todos os clientes."
               : "Só um dono da plataforma dá ou tira acesso à equipe."
           }
-          action={<RoleSelect userId={userId} role={role} locked={roleLocked} />}
+          action={<RoleSelect userId={userId} name={name} role={role} locked={roleLocked} />}
         />
         <AccessRow
           title={banned ? "Conta bloqueada" : "Bloquear conta"}
@@ -244,8 +321,8 @@ export function CustomerAccess({
           action={<BanControl userId={userId} banned={banned} locked={locked || isSelf} />}
         />
         <AccessRow
-          title="Sessões"
-          description="Desconecta o cliente de todos os dispositivos."
+          title="Aparelhos conectados"
+          description="Desconecta o cliente de todos os aparelhos."
           action={<SessionsControl userId={userId} locked={locked} />}
         />
         <AccessRow

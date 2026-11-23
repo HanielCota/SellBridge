@@ -72,7 +72,7 @@ export const Route = createFileRoute("/_app/admin/clientes/")({
     }
     return prefetchOnServer(context.queryClient, customersQueryOptions(search));
   },
-  head: () => ({ meta: [{ title: "Clientes (admin) | SellBridge" }] }),
+  head: () => ({ meta: [{ title: "Clientes (equipe) | SellBridge" }] }),
   component: CustomersPage,
 });
 
@@ -327,7 +327,7 @@ function NoCustomers({
     return (
       <EmptyState
         icon={UsersThreeIcon}
-        title="Nenhum cliente encontrado"
+        title="Nenhum cliente com essa busca"
         description="Confira o nome ou o e-mail buscado."
       />
     );

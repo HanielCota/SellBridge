@@ -1,4 +1,5 @@
 import { getRouteApi } from "@tanstack/react-router";
+import { canAddProducts } from "./can-add-products";
 
 const panelRoute = getRouteApi("/_app/fornecedor/painel");
 
@@ -33,4 +34,13 @@ export function usePanelStoreClosed(): boolean {
 export function usePanelSupplierApproved(): boolean {
   const { approval } = panelRoute.useLoaderData();
   return approval === null || approval.status === "approved";
+}
+
+/** Whether the panel offers "Cadastrar produto" and the import: see `canAddProducts`. */
+export function usePanelSupplierCanAddProducts(): boolean {
+  const { supplier, approval } = panelRoute.useLoaderData();
+  return canAddProducts({
+    active: supplier?.active ?? true,
+    approvalStatus: approval?.status ?? null,
+  });
 }

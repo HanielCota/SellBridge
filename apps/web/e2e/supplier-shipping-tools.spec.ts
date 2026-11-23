@@ -116,7 +116,7 @@ test("o fornecedor acha o pedido pelo cliente, vê o que recebe e confere com o 
   await expect(page.getByText(`${storeName} · ${BUYER}`).filter({ visible: true })).toBeVisible();
   await row.click();
   const dialog = page.getByRole("dialog");
-  await expect(dialog.getByText("Você recebe")).toBeVisible();
+  await expect(dialog.getByText("Você recebe (estimativa)")).toBeVisible();
   await expect(dialog.getByText(/R\$\s80,00/)).toBeVisible();
   await page.keyboard.press("Escape");
 

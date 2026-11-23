@@ -26,7 +26,6 @@ import {
   orders,
   orderShipments,
   paymentOAuthStates,
-  platformSettings,
   shipmentEvents,
   shipmentPaymentCheckouts,
   shipmentPayments,
@@ -233,53 +232,6 @@ export async function findPaymentAccountsByProviderAccount(
     );
 }
 
-export interface PaymentFeeSetting {
-  /** Null until the admin sets it; payments then use zero. */
-  basisPoints: number | null;
-  updatedAt: Date | null;
-  updatedByUserId: string | null;
-}
-
-export async function getPaymentFeeSetting(database: Database): Promise<PaymentFeeSetting> {
-  const [row] = await database
-    .select({
-      basisPoints: platformSettings.paymentFeeBasisPoints,
-      updatedAt: platformSettings.updatedAt,
-      updatedByUserId: platformSettings.updatedByUserId,
-    })
-    .from(platformSettings)
-    .where(eq(platformSettings.id, 1));
-  if (row === undefined) {
-    return { basisPoints: null, updatedAt: null, updatedByUserId: null };
-  }
-  return row;
-}
-
-/** Saves the fee rate; the database refuses values outside 0–3000 basis points. */
-export async function setPaymentFeeSetting(
-  database: Database,
-  input: { basisPoints: number; userId: string },
-): Promise<PaymentFeeSetting> {
-  const values = {
-    paymentFeeBasisPoints: input.basisPoints,
-    updatedByUserId: input.userId,
-    updatedAt: new Date(),
-  };
-  const [row] = await database
-    .insert(platformSettings)
-    .values({ id: 1, ...values })
-    .onConflictDoUpdate({ target: platformSettings.id, set: values })
-    .returning();
-  if (row === undefined) {
-    throw new Error("Platform settings not saved");
-  }
-  return {
-    basisPoints: row.paymentFeeBasisPoints,
-    updatedAt: row.updatedAt,
-    updatedByUserId: row.updatedByUserId,
-  };
-}
-
 /** A parcel the reseller may pay its supplier for, with what is owed for it. */
 export interface PayableShipment {
   shipmentId: string;
@@ -289,6 +241,8 @@ export interface PayableShipment {
   supplierName: string;
   catalogKind: "supplier" | "seller";
   status: FulfillmentStatus;
+  /** The reseller cancelled it after the supplier accepted: the team settles its money. */
+  cancelledByResellerAfterAccept: boolean;
   /** Each item's cost times its quantity, in cents. */
   amountCents: number;
   payment: ShipmentPayment | null;
@@ -305,6 +259,7 @@ export async function findPayableShipment(
       externalOrderId: orders.externalOrderId,
       supplierName: suppliers.name,
       catalogKind: suppliers.catalogKind,
+      cancelledByResellerAfterAccept: cancelledByResellerAfterAccept(),
     })
     .from(orderShipments)
     .innerJoin(orders, eq(orders.id, orderShipments.orderId))
@@ -327,6 +282,7 @@ export async function findPayableShipment(
     supplierName: row.supplierName,
     catalogKind: row.catalogKind,
     status: row.shipment.status,
+    cancelledByResellerAfterAccept: row.cancelledByResellerAfterAccept,
     amountCents,
     payment,
   };
@@ -659,6 +615,15 @@ export interface ShipmentPaymentSummary {
   paidAt: Date | null;
   paymentMethod: string | null;
   refundRequestedAt: Date | null;
+  /** What became of the parcel and its money, which decides whether "paid" still holds. */
+  fate: {
+    shipmentStatus: FulfillmentStatus;
+    cancelledByResellerAfterAccept: boolean;
+    refundHeldAt: Date | null;
+    releasedAt: Date | null;
+    escrowStatus: string | null;
+    teamDecision: string | null;
+  };
 }
 
 export async function listShipmentPaymentSummaries(
@@ -675,8 +640,15 @@ export async function listShipmentPaymentSummaries(
       paidAt: shipmentPayments.paidAt,
       paymentMethod: shipmentPayments.paymentMethod,
       refundRequestedAt: shipmentPayments.refundRequestedAt,
+      shipmentStatus: orderShipments.status,
+      cancelledByResellerAfterAccept: cancelledByResellerAfterAccept(),
+      refundHeldAt: shipmentPayments.refundHeldAt,
+      releasedAt: shipmentPayments.releasedAt,
+      escrowStatus: shipmentPayments.escrowStatus,
+      teamDecision: shipmentPayments.teamDecision,
     })
     .from(shipmentPayments)
+    .innerJoin(orderShipments, eq(orderShipments.id, shipmentPayments.shipmentId))
     .where(inArray(shipmentPayments.shipmentId, [...shipmentIds]));
   return new Map(
     rows.map((row) => [
@@ -686,6 +658,14 @@ export async function listShipmentPaymentSummaries(
         paidAt: row.paidAt,
         paymentMethod: row.paymentMethod,
         refundRequestedAt: row.refundRequestedAt,
+        fate: {
+          shipmentStatus: row.shipmentStatus,
+          cancelledByResellerAfterAccept: row.cancelledByResellerAfterAccept,
+          refundHeldAt: row.refundHeldAt,
+          releasedAt: row.releasedAt,
+          escrowStatus: row.escrowStatus,
+          teamDecision: row.teamDecision,
+        },
       },
     ]),
   );
@@ -855,6 +835,8 @@ export async function listShipmentPaymentRefundCandidates(
       orderNumber: orders.externalOrderId,
       cancelledByResellerAfterAccept: cancelledByResellerAfterAccept(),
       status: orderShipments.status,
+      // The refund keeps the marketplace date only: the cutoff date does not move money until
+      // Guilherme decides it should (contracts, 21/11/2026).
       dispatchDeadlineAt: orderShipments.dispatchDeadlineAt,
       estimatedDeliveryAt: orderShipments.estimatedDeliveryAt,
       ...supplierTimingColumns,

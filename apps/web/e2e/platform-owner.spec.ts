@@ -99,7 +99,7 @@ test("admin comum não mexe na conta do dono nem da equipe", async ({ browser })
   await gotoHydrated(ownerPage, `/admin/clientes/${admin.id}`);
   await ownerPage.getByRole("combobox", { name: "Papel do cliente" }).click();
   await ownerPage.getByRole("option", { name: "Revendedor" }).click();
-  await expect(ownerPage.getByText("Papel atualizado")).toBeVisible();
+  await expect(ownerPage.getByText(/ agora é Revendedor$/)).toBeVisible();
   expect(await accountOf(admin.email)).toMatchObject({ role: "user" });
 });
 
@@ -131,7 +131,7 @@ test("admin comum não desconecta a loja de alguém da equipe", async ({ browser
   await enableAdminMode(page);
 
   await gotoHydrated(page, `/admin/clientes/${member.id}`);
-  await page.getByRole("button", { name: "Desconectar" }).click();
+  await page.getByRole("button", { name: "Desconectar", exact: true }).click();
   await page.getByRole("dialog").getByRole("button", { name: "Desconectar" }).click();
 
   await expect(

@@ -1,9 +1,15 @@
-import { billingAccess, billingLimits, type BillingRules } from "@sellbridge/shared/billing";
+import {
+  billingAccess,
+  billingLimits,
+  type BillingPlanId,
+  type BillingRules,
+} from "@sellbridge/shared/billing";
 import { and, eq, count, ne, sql } from "drizzle-orm";
 import { forbiddenError } from "@sellbridge/shared/errors";
 import type { Database, DatabaseExecutor } from "../client.ts";
 import {
   billingAccounts,
+  billingCourtesies,
   billingEvents,
   member,
   organization,
@@ -18,6 +24,49 @@ export async function getBillingAccount(database: DatabaseExecutor, tenantId: st
     .from(billingAccounts)
     .where(eq(billingAccounts.tenantId, tenantId));
   return account ?? null;
+}
+
+/** The plan the team gave the tenant with no charge, in force or already over; null without one. */
+export async function getBillingCourtesy(database: DatabaseExecutor, tenantId: string) {
+  const [courtesy] = await database
+    .select()
+    .from(billingCourtesies)
+    .where(eq(billingCourtesies.tenantId, tenantId));
+  return courtesy ?? null;
+}
+
+/** Gives the tenant a courtesy plan, or replaces the one it has. */
+export async function saveBillingCourtesy(
+  database: DatabaseExecutor,
+  courtesy: {
+    tenantId: string;
+    plan: BillingPlanId;
+    /** The first moment without the plan; null never runs out. */
+    expiresAt: Date | null;
+    reason: string;
+    grantedBy: string;
+  },
+) {
+  const { plan, expiresAt, reason, grantedBy } = courtesy;
+  await database
+    .insert(billingCourtesies)
+    .values(courtesy)
+    .onConflictDoUpdate({
+      target: billingCourtesies.tenantId,
+      set: { plan, expiresAt, reason, grantedBy, grantedAt: new Date() },
+    });
+}
+
+/** Takes the courtesy plan back. False when the tenant had none. */
+export async function deleteBillingCourtesy(
+  database: DatabaseExecutor,
+  tenantId: string,
+): Promise<boolean> {
+  const deleted = await database
+    .delete(billingCourtesies)
+    .where(eq(billingCourtesies.tenantId, tenantId))
+    .returning({ tenantId: billingCourtesies.tenantId });
+  return deleted.length > 0;
 }
 
 export async function requireBillingOwner(database: Database, tenantId: string, userId: string) {
@@ -56,11 +105,17 @@ export async function findBillingAccess(
   tenantId: string,
   rules: BillingRules,
 ) {
-  const [tenantCreatedAt, account] = await Promise.all([
+  const [tenantCreatedAt, account, courtesy] = await Promise.all([
     findBillingTenantCreatedAt(database, tenantId),
     getBillingAccount(database, tenantId),
+    getBillingCourtesy(database, tenantId),
   ]);
-  return billingAccess({ subscription: account, tenantCreatedAt, transition: rules.transition });
+  return billingAccess({
+    subscription: account,
+    courtesy,
+    tenantCreatedAt,
+    transition: rules.transition,
+  });
 }
 
 /**
@@ -124,9 +179,13 @@ export async function assertBillingCapacity(
     return;
   }
   const tenantCreatedAt = await lockBillingTenant(database, tenantId);
-  const account = await getBillingAccount(database, tenantId);
+  const [account, courtesy] = await Promise.all([
+    getBillingAccount(database, tenantId),
+    getBillingCourtesy(database, tenantId),
+  ]);
   const access = billingAccess({
     subscription: account,
+    courtesy,
     tenantCreatedAt,
     transition: input.rules.transition,
   });

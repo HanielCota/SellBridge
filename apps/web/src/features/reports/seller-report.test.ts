@@ -183,7 +183,7 @@ describe("seller report", () => {
       sense: "lower_is_better",
     });
     expect(metricRow("Devolvidos")).toMatchObject({ count: 1, rate: 1 / 12 });
-    expect(metricRow("Custo pendente")).toMatchObject({
+    expect(metricRow("Sem custo informado")).toMatchObject({
       count: 2,
       rate: 2 / 8,
       base: "de 8 vendas",
@@ -221,7 +221,7 @@ describe("seller report", () => {
   it("computes the margin over the revenue of priced sales only", () => {
     expect(marginOf(CURRENT.summary)).toBe(18_000 / 60_000);
     expect(metricRow("Margem")).toMatchObject({ rate: 0.3, previous: 0.3 });
-    expect(metricRow("Lucro").base).toBe("sem 2 vendas de custo pendente");
+    expect(metricRow("Lucro").base).toBe("fora 2 vendas sem custo informado");
   });
 
   it("leaves rates empty when their base is zero", () => {
@@ -237,7 +237,7 @@ describe("seller report", () => {
     expect(report.empty).toBe(true);
     expect(metricRow("Cancelados", report).rate).toBeNull();
     expect(metricRow("Margem", report).rate).toBeNull();
-    expect(metricRow("Custo pendente", report).previous).toBeNull();
+    expect(metricRow("Sem custo informado", report).previous).toBeNull();
     expect(report.attention).toBeNull();
   });
 
@@ -301,12 +301,13 @@ describe("seller report", () => {
     expect(parseStoredReport(JSON.parse(JSON.stringify(report)))).toEqual(report);
   });
 
-  it("explains that SellBridge's fee stays out of the profit, since the supplier pays it", () => {
+  it("explains the profit without SellBridge's fee, which the supplier pays and resellers never see", () => {
     const report = buildSellerReport(input());
 
     const profitRule = report.rules.find((rule) => rule.title === "Lucro");
 
-    expect(profitRule?.text).toContain("A taxa do SellBridge não entra");
-    expect(profitRule?.text).not.toContain("% da receita");
+    expect(profitRule?.text).toBe(
+      "Receita menos o custo do fornecedor, a taxa do marketplace e os reembolsos, mais as comissões recebidas.",
+    );
   });
 });

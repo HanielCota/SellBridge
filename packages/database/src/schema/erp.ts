@@ -38,6 +38,11 @@ export const supplierErpConnections = pgTable(
     expiresAt: timestamp({ withTimezone: true }),
     status: storeConnectionStatusEnum().notNull().default("connected"),
     lastError: text(),
+    /**
+     * Since when the ERP refuses calls for a permission this authorization lacks (it predates a
+     * scope the app gained); null while none was refused. Reconnecting clears it.
+     */
+    permissionMissingAt: timestamp({ withTimezone: true }),
     /** The ERP account's company name, shown on the connection card; null when not read. */
     accountName: text(),
     /**

@@ -37,19 +37,13 @@ export type ShipmentPaymentRefundReason = (typeof SHIPMENT_PAYMENT_REFUND_REASON
 export const SUPPLIER_PAY_METHODS = ["PIX", "CREDIT_CARD"] as const;
 export type SupplierPayMethod = (typeof SUPPLIER_PAY_METHODS)[number];
 
-/** The highest fee the admin may set: 30%, in basis points. */
-export const MAX_PAYMENT_FEE_BASIS_POINTS = 3000;
-/** The fee payments use until an admin saves one: 4%, in basis points (decided 18/11/2026). */
-export const DEFAULT_PAYMENT_FEE_BASIS_POINTS = 400;
+/**
+ * SellBridge's fee on every supplier payment: 4%, in basis points. Fixed in code, with no admin
+ * setting (decided 22/11/2026); a payment keeps the rate it was charged with.
+ */
+export const PAYMENT_FEE_BASIS_POINTS = 400;
+const MAX_PAYMENT_FEE_BASIS_POINTS = 3000;
 const BASIS_POINTS_PER_WHOLE = 10_000;
-
-/** The fee rate a payment uses: the one the admin saved, or the default while none is saved. */
-export function effectivePaymentFeeBasisPoints(savedBasisPoints: number | null): number {
-  if (savedBasisPoints === null) {
-    return DEFAULT_PAYMENT_FEE_BASIS_POINTS;
-  }
-  return savedBasisPoints;
-}
 
 export class InvalidPaymentFeeError extends Error {
   constructor(message: string) {
@@ -59,9 +53,10 @@ export class InvalidPaymentFeeError extends Error {
 }
 
 /**
- * SellBridge's share of a supplier payment.
+ * SellBridge's share of a supplier payment. The contract takes it from the products' price only:
+ * the amount is each item's cost times its quantity, never the order's shipping.
  *
- * @param amountCents - What the reseller pays, in cents. Must be a positive integer.
+ * @param amountCents - What the reseller pays for the products, in cents. A positive integer.
  * @param feeBasisPoints - The fee rate, between 0 and 3000 (30%).
  * @returns The share in cents, rounded half up, never above the amount.
  * @throws {InvalidPaymentFeeError} When the amount or the rate is out of range or not an integer.
@@ -98,8 +93,13 @@ export type SupplierPaymentBadge =
   | { kind: "waiting" }
   /** Mercado Pago is still analysing the payment: nobody should pay again meanwhile. */
   | { kind: "reviewing" }
-  /** SellBridge asked Mercado Pago to give the money back and it has not confirmed yet. */
+  /**
+   * The money is on its way back: SellBridge asked the provider for it, or the parcel was
+   * cancelled or came back and the next refund round asks for it.
+   */
   | { kind: "refunding" }
+  /** The reseller cancelled after the supplier accepted: the team checks before any money moves. */
+  | { kind: "held" }
   /** The money went back; `refundedAt` is known when SellBridge asked for the refund. */
   | { kind: "refunded"; refundedAt: string | null }
   /** The supplier has no account that receives through SellBridge yet. */
@@ -116,6 +116,40 @@ export interface SupplierPaymentBadgeInput {
   refundRequestedAt?: string | null;
 }
 
+/** What happened to the paid parcel, for the screens that show it. */
+export interface PaidParcelFate {
+  /** Cancelled or back with the supplier: the reseller is owed the money. */
+  endedWithoutDelivery: boolean;
+  /** The team settles it by hand (the reseller cancelled after the supplier accepted). */
+  heldForTeam: boolean;
+  /** The money already went to the supplier: Asaas released it, or the team chose to. */
+  moneyReleased: boolean;
+}
+
+/** A paid parcel whose money goes back, or waits for the team, instead of going to the supplier. */
+function returningBadge(
+  payment: SupplierPaymentBadgeInput,
+  parcel: PaidParcelFate | undefined,
+): SupplierPaymentBadge | null {
+  if (payment.status !== "approved") {
+    return null;
+  }
+  if ((payment.refundRequestedAt ?? null) !== null) {
+    return { kind: "refunding" };
+  }
+  // Released money is not on its way back: the supplier was paid, whatever became of the parcel.
+  if (parcel?.moneyReleased === true) {
+    return null;
+  }
+  if (parcel?.heldForTeam === true) {
+    return { kind: "held" };
+  }
+  if (payment.paidAt !== null && parcel?.endedWithoutDelivery === true) {
+    return { kind: "refunding" };
+  }
+  return null;
+}
+
 /**
  * The badge for a parcel: under review while Mercado Pago analyses it, paid once approved, being
  * refunded once SellBridge asked for the money back, refunded once it went back, waiting while
@@ -127,11 +161,14 @@ export function supplierPaymentBadge(input: {
   supplierReceivesHere: boolean;
   /** False while SellBridge does not take supplier payments at all; true when omitted. */
   paymentsOffered?: boolean;
+  /** What happened to the parcel; omitted where the screen does not show it. */
+  parcel?: PaidParcelFate;
 }): SupplierPaymentBadge {
   const { payment } = input;
   const refundRequestedAt = payment?.refundRequestedAt ?? null;
-  if (payment?.status === "approved" && refundRequestedAt !== null) {
-    return { kind: "refunding" };
+  const returning = payment === null ? null : returningBadge(payment, input.parcel);
+  if (returning !== null) {
+    return returning;
   }
   if (payment?.status === "approved" && payment.paidAt !== null) {
     return { kind: "paid", paidAt: payment.paidAt, method: payment.method };
@@ -204,3 +241,63 @@ export function supplierPaymentRefundReason(input: {
   }
   return "not_dispatched";
 }
+
+/**
+ * Why a cancelled parcel's payment keeps it from going back to the supplier: its money is coming
+ * back to the reseller, waits for the team, or already came back.
+ */
+export type ReforwardBlock = "money_returning" | "held_for_team" | "money_returned";
+
+/** The payment fields that decide whether a cancelled parcel may be re-forwarded. */
+export interface ReforwardPaymentInput {
+  status: ShipmentPaymentStatus;
+  refundRequestedAt: Date | null;
+  refundFailedAt: Date | null;
+  refundHeldAt: Date | null;
+  releasedAt: Date | null;
+  escrowStatus: "active" | "done" | null;
+  teamDecision: "release" | "refund" | null;
+}
+
+/**
+ * Whether a cancelled parcel may go back to its supplier, judged by its payment. A paid parcel
+ * that is cancelled owes the money back to the reseller, so it never returns to the supplier with
+ * that payment: re-forwarding it would leave the supplier waiting for a payment the reseller can
+ * no longer make (one payment per parcel, and a refunded one stays closed). Allowed when nothing
+ * was paid, or when the money already went to the supplier.
+ */
+export function reforwardBlockFor(payment: ReforwardPaymentInput | null): ReforwardBlock | null {
+  if (payment === null) {
+    return null;
+  }
+  if (payment.status === "refunded" || payment.status === "charged_back") {
+    return "money_returned";
+  }
+  if (payment.status !== "approved") {
+    return null;
+  }
+  if (payment.refundRequestedAt !== null || payment.refundFailedAt !== null) {
+    return "money_returning";
+  }
+  const released =
+    payment.releasedAt !== null ||
+    payment.escrowStatus === "done" ||
+    payment.teamDecision === "release";
+  if (released) {
+    return null;
+  }
+  if (payment.refundHeldAt !== null) {
+    return "held_for_team";
+  }
+  return "money_returning";
+}
+
+/** What the reseller reads when a cancelled parcel cannot go back to its supplier. */
+export const REFORWARD_BLOCK_MESSAGES: Record<ReforwardBlock, string> = {
+  money_returning:
+    "Este envio não pode ser reencaminhado: o pagamento ao fornecedor está voltando para você.",
+  held_for_team:
+    "Este envio não pode ser reencaminhado enquanto a equipe do SellBridge confere o pagamento ao fornecedor.",
+  money_returned:
+    "Este envio não pode ser reencaminhado: o pagamento ao fornecedor já voltou para você.",
+};

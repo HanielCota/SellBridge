@@ -8,7 +8,8 @@ import { Hint as AppHint } from "@/components/ui/hint";
 import { formatDayHeading } from "@/features/reports/financial-rows";
 import { cn } from "@/lib/utils";
 
-const FEES_HINT = "Comissão do marketplace pela venda e a tarifa da SellBridge, somadas.";
+const FEES_HINT =
+  "Taxas do marketplace sobre a venda, com o frete que você pagou ao Mercado Livre.";
 
 function ordersLine(summary: SalesSummary): string {
   const parts = [`${summary.orders} ${summary.orders === 1 ? "pedido" : "pedidos"}`];
@@ -21,7 +22,7 @@ function ordersLine(summary: SalesSummary): string {
     parts.push(`${formatCents(summary.returnCents)} devolvidos`);
   }
   if (summary.pendingCostOrders > 0) {
-    parts.push(`${summary.pendingCostOrders} com custo pendente`);
+    parts.push(`${summary.pendingCostOrders} sem custo informado`);
   }
   return parts.join(" · ");
 }
@@ -78,8 +79,8 @@ function PendingClause({ summary }: { summary: SalesSummary }) {
         color="border-dashed border-muted-foreground/60 text-foreground"
       />{" "}
       de {summary.pendingCostOrders} {one ? "venda" : "vendas"} ainda{" "}
-      {one ? "não tem custo e ficou" : "não têm custo e ficaram"} fora do lucro
-      <Hint label={one ? "Por que ficou fora do lucro" : "Por que ficaram fora do lucro"}>
+      {one ? "não tem custo informado e está" : "não têm custo informado e estão"} sem lucro
+      <Hint label={one ? "Por que ainda está sem lucro" : "Por que ainda estão sem lucro"}>
         {PENDING_COST_HINT}
       </Hint>
       .{" "}
@@ -178,7 +179,7 @@ function FooterLine({
           <span className="font-medium text-foreground">{formatDayHeading(pickedDay)} · </span>
         ) : null}
         {ordersLine(summary)}
-        <Hint label="O que fica fora da receita">
+        <Hint label="O que não conta como venda">
           Aguardando pagamento, cancelados e devolvidos não entram na receita nem no lucro
         </Hint>
       </p>

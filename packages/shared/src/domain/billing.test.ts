@@ -5,6 +5,7 @@ import {
   billingAccess,
   billingLimits,
   billingNotice,
+  courtesyBillingPlan,
   paidBillingPlan,
   upgradeDifferenceCents,
 } from "./billing.ts";
@@ -86,7 +87,7 @@ describe("paid plan", () => {
 describe("billing access", () => {
   it("uses the paid plan over the transition", () => {
     const access = billingAccess(
-      { subscription, tenantCreatedAt: existingTenant, transition },
+      { subscription, courtesy: null, tenantCreatedAt: existingTenant, transition },
       now,
     );
     expect(access).toMatchObject({ kind: "plan", plan: { id: "pro" } });
@@ -94,7 +95,7 @@ describe("billing access", () => {
 
   it("keeps an account from before the launch unlimited during the transition", () => {
     const access = billingAccess(
-      { subscription: null, tenantCreatedAt: existingTenant, transition },
+      { subscription: null, courtesy: null, tenantCreatedAt: existingTenant, transition },
       now,
     );
     expect(access).toEqual({ kind: "transition", until: transition.endsAt });
@@ -103,7 +104,7 @@ describe("billing access", () => {
 
   it("gives an account created after the launch no free period", () => {
     const access = billingAccess(
-      { subscription: null, tenantCreatedAt: newTenant, transition },
+      { subscription: null, courtesy: null, tenantCreatedAt: newTenant, transition },
       now,
     );
     expect(access).toEqual({ kind: "none" });
@@ -111,7 +112,7 @@ describe("billing access", () => {
 
   it("ends the transition on its last moment", () => {
     const access = billingAccess(
-      { subscription: null, tenantCreatedAt: existingTenant, transition },
+      { subscription: null, courtesy: null, tenantCreatedAt: existingTenant, transition },
       transition.endsAt,
     );
     expect(access).toEqual({ kind: "none" });
@@ -119,7 +120,7 @@ describe("billing access", () => {
 
   it("has no transition when none is configured", () => {
     const access = billingAccess(
-      { subscription: null, tenantCreatedAt: existingTenant, transition: null },
+      { subscription: null, courtesy: null, tenantCreatedAt: existingTenant, transition: null },
       now,
     );
     expect(access).toEqual({ kind: "none" });
@@ -131,7 +132,12 @@ describe("billing access", () => {
 
   it("limits a paid account to its plan", () => {
     const access = billingAccess(
-      { subscription: { ...subscription, plan: "elite" }, tenantCreatedAt: newTenant, transition },
+      {
+        subscription: { ...subscription, plan: "elite" },
+        courtesy: null,
+        tenantCreatedAt: newTenant,
+        transition,
+      },
       now,
     );
     expect(billingLimits(access)).toEqual({ stores: 40, listings: 20_000 });
@@ -144,7 +150,7 @@ describe("billing notice", () => {
 
   it("warns while the past_due grace runs", () => {
     const notice = billingNotice(
-      { subscription: pastDue, tenantCreatedAt: newTenant, transition },
+      { subscription: pastDue, courtesy: null, tenantCreatedAt: newTenant, transition },
       now,
     );
     expect(notice).toEqual({ kind: "past_due", accessUntil });
@@ -152,20 +158,23 @@ describe("billing notice", () => {
 
   it("says the payment failed once the grace is over", () => {
     const notice = billingNotice(
-      { subscription: pastDue, tenantCreatedAt: newTenant, transition },
+      { subscription: pastDue, courtesy: null, tenantCreatedAt: newTenant, transition },
       accessUntil,
     );
     expect(notice).toEqual({ kind: "payment_failed" });
   });
 
   it("stays quiet for a paid plan", () => {
-    const notice = billingNotice({ subscription, tenantCreatedAt: newTenant, transition }, now);
+    const notice = billingNotice(
+      { subscription, courtesy: null, tenantCreatedAt: newTenant, transition },
+      now,
+    );
     expect(notice).toBeNull();
   });
 
   it("asks an account without a plan to choose one", () => {
     const notice = billingNotice(
-      { subscription: null, tenantCreatedAt: newTenant, transition },
+      { subscription: null, courtesy: null, tenantCreatedAt: newTenant, transition },
       now,
     );
     expect(notice).toEqual({ kind: "no_plan" });
@@ -174,7 +183,7 @@ describe("billing notice", () => {
   it("asks a canceled account to choose a plan again", () => {
     const canceled = { ...subscription, status: "canceled" };
     const notice = billingNotice(
-      { subscription: canceled, tenantCreatedAt: newTenant, transition },
+      { subscription: canceled, courtesy: null, tenantCreatedAt: newTenant, transition },
       now,
     );
     expect(notice).toEqual({ kind: "no_plan" });
@@ -182,7 +191,7 @@ describe("billing notice", () => {
 
   it("tells an account from before the launch when the transition ends", () => {
     const notice = billingNotice(
-      { subscription: null, tenantCreatedAt: existingTenant, transition },
+      { subscription: null, courtesy: null, tenantCreatedAt: existingTenant, transition },
       now,
     );
     expect(notice).toEqual({ kind: "transition", until: transition.endsAt, endingSoon: false });
@@ -191,10 +200,79 @@ describe("billing notice", () => {
   it("warns in the last seven days of the transition", () => {
     const sevenDaysBefore = new Date("2026-12-24T12:00:00Z");
     const notice = billingNotice(
-      { subscription: null, tenantCreatedAt: existingTenant, transition },
+      { subscription: null, courtesy: null, tenantCreatedAt: existingTenant, transition },
       sevenDaysBefore,
     );
     expect(notice).toEqual({ kind: "transition", until: transition.endsAt, endingSoon: true });
+  });
+});
+
+describe("courtesy plan", () => {
+  const expiresAt = new Date("2027-03-01T03:00:00Z");
+  const courtesy = { plan: "elite", expiresAt };
+  const base = { subscription: null, courtesy, tenantCreatedAt: newTenant, transition };
+
+  it("gives the plan and its limits with no subscription", () => {
+    const access = billingAccess(base, now);
+
+    expect(access).toMatchObject({ kind: "plan", plan: { id: "elite" }, source: "courtesy" });
+    expect(billingLimits(access)).toEqual({ stores: 40, listings: 20_000 });
+  });
+
+  it("never runs out without an end date", () => {
+    const farAhead = new Date("2040-01-01T00:00:00Z");
+
+    const plan = courtesyBillingPlan({ plan: "start", expiresAt: null }, farAhead);
+
+    expect(plan?.id).toBe("start");
+  });
+
+  it("ends on its last moment and leaves the account without a plan", () => {
+    expect(billingAccess(base, expiresAt)).toEqual({ kind: "none" });
+    expect(billingNotice(base, expiresAt)).toEqual({ kind: "no_plan" });
+  });
+
+  it("gives nothing for a plan that does not exist", () => {
+    expect(courtesyBillingPlan({ plan: "free", expiresAt: null }, now)).toBeNull();
+  });
+
+  it("asks the account for no plan and no payment while it lasts", () => {
+    const unpaid = { plan: "pro", status: "unpaid", periodEnd: null };
+
+    expect(billingNotice(base, now)).toBeNull();
+    expect(billingNotice({ ...base, subscription: unpaid }, now)).toBeNull();
+  });
+
+  it("warns from seven days before the end", () => {
+    const eightDaysBefore = new Date("2027-02-21T02:59:59Z");
+    const sevenDaysBefore = new Date("2027-02-22T03:00:00Z");
+
+    expect(billingNotice(base, eightDaysBefore)).toBeNull();
+    expect(billingNotice(base, sevenDaysBefore)).toEqual({
+      kind: "courtesy_ending",
+      until: expiresAt,
+    });
+  });
+
+  it("keeps the larger of a month still paid and the courtesy plan", () => {
+    const smallerCourtesy = { ...base, subscription: { ...subscription, plan: "elite" } };
+    const largerCourtesy = { ...base, subscription };
+
+    expect(
+      billingAccess({ ...smallerCourtesy, courtesy: { plan: "start", expiresAt } }, now),
+    ).toMatchObject({ plan: { id: "elite" }, source: "subscription" });
+    expect(billingAccess(largerCourtesy, now)).toMatchObject({
+      plan: { id: "elite" },
+      source: "courtesy",
+    });
+  });
+
+  it("leaves an account from before the launch unlimited, without the transition notice", () => {
+    const existing = { ...base, tenantCreatedAt: existingTenant };
+
+    expect(billingAccess(existing, now)).toEqual({ kind: "transition", until: transition.endsAt });
+    expect(billingNotice(existing, now)).toBeNull();
+    expect(billingAccess(existing, transition.endsAt)).toMatchObject({ source: "courtesy" });
   });
 });
 

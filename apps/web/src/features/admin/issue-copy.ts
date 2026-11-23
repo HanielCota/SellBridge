@@ -13,6 +13,7 @@ export const ISSUE_KIND_LABELS: Record<CustomerIssueKind, string> = {
   ticket: "Chamados aguardando",
   onboarding: "Primeiros passos parados",
   cooling: "Vendas em queda",
+  courtesy: "Cortesia acabando",
 };
 
 export interface IssueCopy {
@@ -31,7 +32,7 @@ function storeCopy(issue: Extract<CustomerIssue, { kind: "store" }>): IssueCopy 
   const expired = issue.stores.some((store) => store.status === "expired");
   const description = expired
     ? "O acesso expirou: pedidos e estoque estão parados."
-    : "A conexão falhou: pedidos e estoque não sincronizam.";
+    : "A loja caiu: pedidos e estoque não estão atualizando.";
   if (issue.stores.length === 1 && first) {
     return {
       title: `Reconectar ${first.shopName}`,
@@ -67,6 +68,21 @@ function coolingCopy(issue: Extract<CustomerIssue, { kind: "cooling" }>): IssueC
   };
 }
 
+function courtesyLeftLabel(daysLeft: number): string {
+  if (daysLeft <= 0) return "hoje";
+  if (daysLeft === 1) return "amanhã";
+  return `em ${daysLeft} dias`;
+}
+
+function courtesyCopy(issue: Extract<CustomerIssue, { kind: "courtesy" }>): IssueCopy {
+  const left = courtesyLeftLabel(issue.daysLeft);
+  return {
+    title: `Plano sem cobrança acaba ${left}`,
+    description: "Mude a data para renovar. Depois do fim, valem as regras de quem não tem plano.",
+    badge: `Cortesia acaba ${left}`,
+  };
+}
+
 /** One line about a customer: their most urgent problem, else what is left to set up. */
 export function healthHeadline(health: CustomerHealth): string {
   const [issue] = health.issues;
@@ -85,7 +101,7 @@ export function describeIssue(issue: CustomerIssue): IssueCopy {
   }
   if (issue.kind === "listings") {
     const label = plural(issue.count, "publicação com erro", "publicações com erro");
-    return { title: label, description: "Veja o motivo e reprocesse.", badge: label };
+    return { title: label, description: "Veja o motivo e tente publicar de novo.", badge: label };
   }
   if (issue.kind === "ticket") {
     return {
@@ -96,6 +112,9 @@ export function describeIssue(issue: CustomerIssue): IssueCopy {
   }
   if (issue.kind === "onboarding") {
     return onboardingCopy(issue);
+  }
+  if (issue.kind === "courtesy") {
+    return courtesyCopy(issue);
   }
   return coolingCopy(issue);
 }

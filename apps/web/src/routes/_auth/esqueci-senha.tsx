@@ -27,7 +27,7 @@ function useForgotPasswordForm() {
         redirectTo: "/redefinir-senha",
       });
       if (result.error) {
-        setSubmitError("Não foi possível enviar o link agora. Tente novamente em instantes.");
+        setSubmitError("Não deu para enviar o link agora. Tente de novo daqui a um minuto.");
         return;
       }
       setSentTo(value.email);

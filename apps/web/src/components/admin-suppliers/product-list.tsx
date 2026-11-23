@@ -35,8 +35,12 @@ function ProductActions({
   product: AdminSupplierProduct;
   onEdit: (product: AdminSupplierProduct) => void;
 }) {
-  const setActive = useCatalogAction(adminSetProductActive, (result) =>
-    catalogStatusMessage("Produto", result),
+  // Deactivating pauses the resellers' listings, one click away from "Editar": the notice undoes it.
+  const setActive = useCatalogAction(
+    adminSetProductActive,
+    (result) => catalogStatusMessage("Produto", result),
+    undefined,
+    (input) => (input.data.active ? null : { data: { ...input.data, active: true } }),
   );
   return (
     <div className="flex flex-wrap gap-2">
@@ -132,8 +136,8 @@ function ProductTable({
     return (
       <EmptyState
         icon={PackageIcon}
-        title="Nenhum produto encontrado"
-        description="Crie um produto, importe um CSV ou ajuste a busca."
+        title="Nenhum produto"
+        description="Crie um produto, importe uma planilha ou mude a busca."
       />
     );
   }

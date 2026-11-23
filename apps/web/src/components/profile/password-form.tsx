@@ -86,15 +86,13 @@ function useChangePassword() {
       return;
     }
     if (result.error) {
-      toast.error("Não foi possível trocar sua senha. Tente novamente.");
+      toast.error("Sua senha não foi trocada. Confira a internet e tente de novo.");
       return;
     }
     setValues(EMPTY);
     await queryClient.invalidateQueries(activeSessionsQueryOptions());
     toast.success(
-      signOutOthers
-        ? "Senha alterada. Os outros dispositivos foram desconectados."
-        : "Senha alterada",
+      signOutOthers ? "Senha trocada. Os outros aparelhos foram desconectados." : "Senha alterada",
     );
   }
 
@@ -118,7 +116,7 @@ function SignOutOthersOption({
         className="mt-0.5"
       />
       <div className="grid gap-1">
-        <Label htmlFor="sign-out-others">Sair dos outros dispositivos</Label>
+        <Label htmlFor="sign-out-others">Sair dos outros aparelhos</Label>
         <p className="text-sm text-muted-foreground">
           Recomendado se você acha que alguém mais conhece sua senha.
         </p>

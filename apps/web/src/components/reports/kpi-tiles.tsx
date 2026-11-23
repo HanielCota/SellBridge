@@ -47,7 +47,7 @@ interface KpiTilesProps extends KpiSeries {
   previous: Totals;
 }
 
-const VERSUS = "vs. anterior";
+const VERSUS = "sobre o anterior";
 const CANCELLED = { one: "cancelado", many: "cancelados" };
 const ORDERS_VALUE = countValue({ one: "pedido", many: "pedidos" });
 

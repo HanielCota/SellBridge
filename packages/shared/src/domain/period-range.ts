@@ -56,6 +56,17 @@ function parseIsoDate(value: string): Date | null {
   return new Date(utcMidnight.getTime() + BRAZIL_OFFSET_MILLISECONDS);
 }
 
+/** The first moment after the given calendar date (YYYY-MM-DD) in Brazil time, or null when invalid. */
+export function endOfBrazilDay(day: string): Date | null {
+  const start = parseIsoDate(day);
+  return start === null ? null : new Date(start.getTime() + DAY_MILLISECONDS);
+}
+
+/** The calendar date (YYYY-MM-DD), in Brazil time, an instant falls on. */
+export function brazilIsoDate(date: Date): string {
+  return toIsoDate(date);
+}
+
 /** Midnight, in Brazil time, of the day the instant falls on. */
 export function startOfBrazilDay(date: Date): Date {
   const parsed = parseIsoDate(toIsoDate(date));
@@ -80,6 +91,17 @@ export function comparablePreviousRange(
     return { from: period.previousFrom, to: period.previousTo };
   }
   return { from: period.previousFrom, to: new Date(period.previousFrom.getTime() + lived) };
+}
+
+/**
+ * Whether the period is still running ("parcial, até hoje"): its change is then measured against
+ * the same stretch of the previous one (`comparablePreviousRange`).
+ */
+export function comparesSameStretch(
+  period: Pick<ResolvedPeriod, "from" | "to">,
+  now: Date,
+): boolean {
+  return now.getTime() > period.from.getTime() && now.getTime() < period.to.getTime();
 }
 
 const HOUR_MILLISECONDS = 60 * 60 * 1000;

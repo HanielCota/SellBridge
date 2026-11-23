@@ -272,9 +272,7 @@ test.describe("financeiro", () => {
   test("mostra estado vazio para conta sem pedidos", async ({ page }) => {
     await signUp(page, "Revendedor Sem Pedidos");
     await gotoHydrated(page, "/financeiro");
-    await expect(
-      page.getByText("Ainda não há movimentações").filter({ visible: true }),
-    ).toBeVisible();
+    await expect(page.getByText("Nenhuma venda ainda").filter({ visible: true })).toBeVisible();
   });
 
   test("bloqueia a exportação sem sessão", async ({ request }) => {

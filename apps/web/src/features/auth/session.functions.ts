@@ -15,6 +15,15 @@ import { staffMiddleware } from "@/lib/server/middleware";
 import { resolveProfileId } from "@/lib/server/tenant-session";
 import { requestedProfileOf } from "@/lib/profile-param";
 import { ADMIN_MODE_COOKIE } from "@/features/auth/admin-mode-cookie";
+import {
+  CONTRACT_NOT_REQUIRED,
+  type SessionContract,
+  toSessionContract,
+} from "@/features/contract-signing/contract-gate";
+import {
+  contractStandingUnderSwitch,
+  loadContractSigningSince,
+} from "@/features/contract-signing/contract-signing.server";
 
 /**
  * Admin mode is a display preference: it shows the team tools (support inbox, customers) in the
@@ -64,6 +73,8 @@ export interface AppSession {
   teamOnly: boolean;
   /** Whether this person accepted the terms in force (item 26.a): the app asks first. */
   termsAccepted: boolean;
+  /** The tab profile's contract: whether it must sign, and until when (contracts, section 1). */
+  contract: SessionContract;
   /** The "Perguntas" page is on (BUYER_QUESTIONS_ENABLED): the menu shows it. */
   buyerQuestionsEnabled: boolean;
 }
@@ -76,11 +87,13 @@ export const getAppSession = createServerFn({ method: "GET" }).handler(
     }
     const role = session.user.role ?? "user";
     // Runs before every navigation and hover preload, so the two lookups go out together.
-    const [profile, termsAccepted] = await Promise.all([
+    const [profile, termsAccepted, contractSigningSince] = await Promise.all([
       resolvePageProfile(session.user.id, session.session.activeOrganizationId),
       hasAcceptedTerms(database, session.user.id, TERMS_VERSION),
+      loadContractSigningSince(),
     ]);
     const teamOnly = isTeamOnlyAccount(role, profile.profiles.length);
+    const contract = await sessionContract(profile, contractSigningSince);
     return {
       user: {
         id: session.user.id,
@@ -98,10 +111,30 @@ export const getAppSession = createServerFn({ method: "GET" }).handler(
         ? new Date(session.session.expiresAt).toISOString()
         : null,
       termsAccepted,
+      contract,
       buyerQuestionsEnabled: buyerQuestionsEnabled(),
     };
   },
 );
+
+/**
+ * Only a profile signs; an account with none (the team) has nothing to sign, and with the switch
+ * off nobody does, without another query.
+ */
+async function sessionContract(
+  profile: PageProfile,
+  requiredSince: Date | null,
+): Promise<SessionContract> {
+  if (profile.tenantId === null || requiredSince === null) {
+    return CONTRACT_NOT_REQUIRED;
+  }
+  const standing = await contractStandingUnderSwitch({
+    tenantId: profile.tenantId,
+    kind: profile.profileKind,
+    requiredSince,
+  });
+  return toSessionContract(standing, profile.profileKind);
+}
 
 interface PageProfile {
   tenantId: string | null;

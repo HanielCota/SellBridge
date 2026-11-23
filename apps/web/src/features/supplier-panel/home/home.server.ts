@@ -1,7 +1,9 @@
 import {
+  countSupplierParcelsToAccept,
   countSupplierShipmentsByTab,
   countSupplierStoppedInvoices,
   getSupplierPanelProfile,
+  isOnBehalfInvoiceOff,
   getSupplierReputationStats,
   listSupplierOutOfStockListed,
   listSupplierProductPhotos,
@@ -53,6 +55,8 @@ export interface SupplierHome {
   orderTotals: { accept: number; progress: number };
   /** Parcels whose NF-e stopped in the ERP and waits for the supplier. */
   stoppedInvoices: number;
+  /** Venda à ordem is chosen but no Bling issues its notes. */
+  onBehalfInvoiceOff: boolean;
   catalog: CatalogFix[];
   health: SupplierHealth;
   /** The public "Fornecedor destaque" badge resellers see: the home's green note. */
@@ -61,9 +65,10 @@ export interface SupplierHome {
 
 /** The queue's most urgent parcels (the "A fazer" tab), each with its product photo. */
 async function loadHomeOrders(supplierId: string, now: Date) {
-  const [shipments, counts] = await Promise.all([
+  const [shipments, counts, toAccept] = await Promise.all([
     listSupplierHomeShipments(database, supplierId, HOME_GROUP_LIMIT, now),
     countSupplierShipmentsByTab(database, { supplierId, query: "" }, now),
+    countSupplierParcelsToAccept(database, supplierId),
   ]);
   const skus = shipments.map((row) => photoSkuOf(row.items)).filter((sku) => sku !== null);
   const photos = await listSupplierProductPhotos(database, { supplierId, skus });
@@ -77,23 +82,32 @@ async function loadHomeOrders(supplierId: string, now: Date) {
       accept: groups.accept.slice(0, HOME_GROUP_LIMIT),
       progress: groups.progress.slice(0, HOME_GROUP_LIMIT),
     },
-    orderTotals: { accept: counts.forwarded, progress: counts.todo - counts.forwarded },
+    orderTotals: { accept: toAccept, progress: counts.todo - counts.forwarded },
   };
 }
 
 /** The "Início" page: one list of what needs the supplier, and the health in one line. */
 export async function loadSupplierHome(supplierId: string): Promise<SupplierHome> {
   const now = new Date();
-  const [profile, healthInput, orders, stock, rejectedProducts, reputation, stoppedInvoices] =
-    await Promise.all([
-      getSupplierPanelProfile(database, supplierId),
-      loadSupplierHealthInput(database, { supplierId, now }),
-      loadHomeOrders(supplierId, now),
-      listSupplierOutOfStockListed(database, supplierId),
-      listSupplierRejectedProducts(database, supplierId),
-      loadPublicReputation(supplierId, now),
-      countSupplierStoppedInvoices(database, supplierId),
-    ]);
+  const [
+    profile,
+    healthInput,
+    orders,
+    stock,
+    rejectedProducts,
+    reputation,
+    stoppedInvoices,
+    onBehalfInvoiceOff,
+  ] = await Promise.all([
+    getSupplierPanelProfile(database, supplierId),
+    loadSupplierHealthInput(database, { supplierId, now }),
+    loadHomeOrders(supplierId, now),
+    listSupplierOutOfStockListed(database, supplierId),
+    listSupplierRejectedProducts(database, supplierId),
+    loadPublicReputation(supplierId, now),
+    countSupplierStoppedInvoices(database, supplierId),
+    isOnBehalfInvoiceOff(database, supplierId),
+  ]);
   const catalog = catalogFixes(stock, rejectedProducts);
   // Ids and counts only: what the list showed, for support to compare with a complaint.
   logger.info("supplier_panel.home_loaded", {
@@ -107,6 +121,7 @@ export async function loadSupplierHome(supplierId: string): Promise<SupplierHome
     supplierName: profile.name,
     ...orders,
     stoppedInvoices,
+    onBehalfInvoiceOff,
     catalog,
     health: computeSupplierHealth(healthInput),
     highlighted: reputation.highlighted,

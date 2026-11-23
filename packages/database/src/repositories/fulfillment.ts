@@ -24,6 +24,7 @@ import {
 } from "drizzle-orm";
 import { conflictError, notFoundError, validationError } from "@sellbridge/shared/errors";
 import { HOLD_REFUSALS } from "@sellbridge/shared/receiving-rules";
+import { REFORWARD_BLOCK_MESSAGES, reforwardBlockFor } from "@sellbridge/shared/shipment-payments";
 import {
   DISPATCHED_FULFILLMENT_STATUSES,
   DELIVERY_CONFIRMED_BY,
@@ -46,6 +47,7 @@ import {
   orders,
   orderShipments,
   shipmentEvents,
+  shipmentPayments,
   storeConnections,
   supplierProducts,
   suppliers,
@@ -140,6 +142,13 @@ async function operationalOrderRows(database: Database, filter: SQL | undefined,
       stockShort: sql<boolean>`exists (select 1 from ${orderItems} where ${orderItems.orderId} = ${orders.id} and ${orderItems.stockState} = 'short')`,
       // Matches the partial index `marketplace_claims_open_idx`.
       openClaim: sql<boolean>`exists (select 1 from ${marketplaceClaims} where ${marketplaceClaims.tenantId} = ${orders.tenantId} and ${marketplaceClaims.orderId} = ${orders.id} and ${marketplaceClaims.status} = 'opened')`,
+      /** The first item's title (by name, like the order page) and how many items there are. */
+      firstItemTitle: sql<
+        string | null
+      >`(select ${orderItems.title} from ${orderItems} where ${orderItems.orderId} = ${orders.id} order by ${orderItems.title} limit 1)`,
+      itemCount: sql<number>`(select count(*)::int from ${orderItems} where ${orderItems.orderId} = ${orders.id})`,
+      /** Every item is the reseller's own stock: there is no supplier to send it to. */
+      ownItemsOnly: sql<boolean>`not exists (select 1 from ${orderItems} left join ${supplierProducts} on ${supplierProducts.id} = ${orderItems.supplierProductId} left join ${suppliers} on ${suppliers.id} = ${supplierProducts.supplierId} where ${orderItems.orderId} = ${orders.id} and coalesce(${suppliers.catalogKind}::text, '') <> 'seller')`,
     })
     .from(orders)
     .innerJoin(storeConnections, eq(storeConnections.id, orders.storeConnectionId))
@@ -196,6 +205,8 @@ function fulfillmentItems(database: Database, tenantId: string, orderId: string)
       id: orderItems.id,
       title: orderItems.title,
       quantity: orderItems.quantity,
+      /** What the supplier charges for one unit: the reseller pays it after forwarding. */
+      unitCostCents: orderItems.unitCostCents,
       supplierId: suppliers.id,
       supplierName: suppliers.name,
       catalogKind: suppliers.catalogKind,
@@ -360,6 +371,7 @@ export async function reforwardShipment(database: Database, tenantId: string, sh
       .where(and(eq(orderShipments.id, shipmentId), eq(orderShipments.status, "cancelled")))
       .returning({ id: orderShipments.id, supplierId: orderShipments.supplierId });
     if (!shipment) throw conflictError("Só um envio cancelado pode ser reencaminhado");
+    await assertPaymentAllowsReforward(transaction, shipmentId);
     // The same rule as the first forward: a supplier turned off by the admin gets no new parcel.
     const [supplier] = await transaction
       .select({ active: suppliers.active, organizationId: suppliers.organizationId })
@@ -378,6 +390,28 @@ export async function reforwardShipment(database: Database, tenantId: string, sh
     });
     return { shipmentId, supplierId: shipment.supplierId, token: link.token };
   });
+}
+
+/**
+ * A paid parcel that was cancelled owes its money back to the reseller: sent to the supplier again,
+ * it would wait for a payment the reseller can no longer make. Throws inside the re-forward, so
+ * the parcel stays cancelled.
+ */
+async function assertPaymentAllowsReforward(transaction: Transaction, shipmentId: string) {
+  const [payment] = await transaction
+    .select({
+      status: shipmentPayments.status,
+      refundRequestedAt: shipmentPayments.refundRequestedAt,
+      refundFailedAt: shipmentPayments.refundFailedAt,
+      refundHeldAt: shipmentPayments.refundHeldAt,
+      releasedAt: shipmentPayments.releasedAt,
+      escrowStatus: shipmentPayments.escrowStatus,
+      teamDecision: shipmentPayments.teamDecision,
+    })
+    .from(shipmentPayments)
+    .where(eq(shipmentPayments.shipmentId, shipmentId));
+  const block = reforwardBlockFor(payment ?? null);
+  if (block !== null) throw conflictError(REFORWARD_BLOCK_MESSAGES[block]);
 }
 
 /**
@@ -455,6 +489,7 @@ export async function getSupplierShipment(database: Database, token: string) {
       supplierName: suppliers.name,
       catalogKind: suppliers.catalogKind,
       preparationHold: timing.preparationHold,
+      dispatchDeadlineAt: timing.effectiveDispatchDeadlineAt,
       ...timing.supplierTimingColumns,
     })
     .from(orderShipments)
@@ -474,8 +509,9 @@ export async function getSupplierShipment(database: Database, token: string) {
     supplierTokenExpiresAt: _expiry,
     buyerTokenHash: _buyerHash,
     tenantId: _tenant,
-    ...shipment
+    ...storedShipment
   } = row.shipment;
+  const shipment = { ...storedShipment, dispatchDeadlineAt: row.dispatchDeadlineAt };
   const events = await database
     .select()
     .from(shipmentEvents)

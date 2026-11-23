@@ -59,7 +59,7 @@ export function DisconnectStoreDialog({
       open={store !== null}
       onOpenChange={(open) => (open ? undefined : onClose())}
       title={`Desconectar ${store?.name ?? "loja"}?`}
-      description="O SellBridge deixa de sincronizar estoque, preço e pedidos desta loja."
+      description="Estoque, preço e pedidos desta loja param de ser atualizados aqui."
       confirmLabel="Desconectar"
       pendingLabel={pauseListings ? "Pausando e desconectando…" : "Desconectando…"}
       isPending={mutation.isPending}

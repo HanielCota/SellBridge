@@ -13,7 +13,14 @@ import {
   supplierProducts,
   suppliers,
 } from "@sellbridge/database/schema";
-import { DEMO_USER, gotoHydrated, signIn, stubCepNotFound } from "./helpers";
+import {
+  DEMO_USER,
+  gotoHydrated,
+  signIn,
+  stubCepNotFound,
+  OPEN_ORDER_BUTTON,
+  fillAddressField,
+} from "./helpers";
 import { forwardableProduct } from "./catalog-fixtures";
 import { e2eDatabase } from "./database";
 
@@ -71,8 +78,8 @@ test("reseller forwards an order and an unauthenticated supplier completes prepa
   await signIn(page, DEMO_USER);
   await gotoHydrated(page, "/pedidos");
   await page.getByLabel("Buscar por pedido ou comprador").fill(externalId);
-  await expect(page.getByRole("button", { name: "Abrir pedido" })).toHaveCount(1);
-  await page.getByRole("button", { name: "Abrir pedido" }).click();
+  await expect(page.getByRole("button", { name: OPEN_ORDER_BUTTON })).toHaveCount(1);
+  await page.getByRole("button", { name: OPEN_ORDER_BUTTON }).click();
   const dialog = page.getByRole("dialog", { name: "Pedido" });
   for (const [label, value] of Object.entries({
     Destinatário: "Maria Silva",
@@ -80,10 +87,10 @@ test("reseller forwards an order and an unauthenticated supplier completes prepa
     Número: "10",
     Bairro: "Centro",
     Cidade: "São Paulo",
-    UF: "SP",
+    Estado: "SP",
     CEP: "01001-000",
   }))
-    await dialog.getByLabel(label, { exact: true }).fill(value);
+    await fillAddressField(dialog, label, value);
   // Enter in an address field does not forward: only the button creates the supplier orders.
   const posts: string[] = [];
   page.on("request", (request) => {
@@ -152,8 +159,8 @@ test("reseller forwards an order and an unauthenticated supplier completes prepa
   // The reseller confirms it.
   await gotoHydrated(page, "/pedidos");
   await page.getByLabel("Buscar por pedido ou comprador").fill(externalId);
-  await expect(page.getByRole("button", { name: "Abrir pedido" })).toHaveCount(1);
-  await page.getByRole("button", { name: "Abrir pedido" }).click();
+  await expect(page.getByRole("button", { name: OPEN_ORDER_BUTTON })).toHaveCount(1);
+  await page.getByRole("button", { name: OPEN_ORDER_BUTTON }).click();
   const reopened = page.getByRole("dialog", { name: "Pedido" });
   await reopened.getByRole("button", { name: "Marcar como entregue", exact: true }).click();
   // Newest first: the delivery heads the history, with who confirmed it.
@@ -217,8 +224,8 @@ test("shows a parcel that failed and came back on the shipment timeline", async 
     await signIn(page, DEMO_USER);
     await gotoHydrated(page, "/pedidos");
     await page.getByLabel("Buscar por pedido ou comprador").fill(returnedId);
-    await expect(page.getByRole("button", { name: "Abrir pedido" })).toHaveCount(1);
-    await page.getByRole("button", { name: "Abrir pedido" }).click();
+    await expect(page.getByRole("button", { name: OPEN_ORDER_BUTTON })).toHaveCount(1);
+    await page.getByRole("button", { name: OPEN_ORDER_BUTTON }).click();
     const dialog = page.getByRole("dialog", { name: "Pedido" });
     const history = dialog.getByRole("list", { name: "Histórico do envio" }).getByRole("listitem");
     await expect(history.nth(0)).toContainText("Devolvido");
@@ -304,8 +311,8 @@ test("the reseller learns a supplier cancelled and re-forwards the parcel", asyn
 
     // And sends it to the supplier again: a new link that opens the parcel from the start.
     await page.getByLabel("Buscar por pedido ou comprador").fill(cancelledId);
-    await expect(page.getByRole("button", { name: "Abrir pedido" })).toHaveCount(1);
-    await page.getByRole("button", { name: "Abrir pedido" }).click();
+    await expect(page.getByRole("button", { name: OPEN_ORDER_BUTTON })).toHaveCount(1);
+    await page.getByRole("button", { name: OPEN_ORDER_BUTTON }).click();
     const dialog = page.getByRole("dialog", { name: "Pedido" });
     await dialog.getByRole("button", { name: "Reencaminhar ao fornecedor" }).click();
     const newLink = dialog.getByLabel("Link do fornecedor");
@@ -369,8 +376,8 @@ test("the reseller confirms before cancelling a supplier's parcel", async ({ pag
     await signIn(page, DEMO_USER);
     await gotoHydrated(page, "/pedidos");
     await page.getByLabel("Buscar por pedido ou comprador").fill(externalOrderId);
-    await expect(page.getByRole("button", { name: "Abrir pedido" })).toHaveCount(1);
-    await page.getByRole("button", { name: "Abrir pedido" }).click();
+    await expect(page.getByRole("button", { name: OPEN_ORDER_BUTTON })).toHaveCount(1);
+    await page.getByRole("button", { name: OPEN_ORDER_BUTTON }).click();
     const panel = page.getByRole("dialog", { name: "Pedido" });
     await panel.getByRole("button", { name: "Cancelar envio" }).click();
     const confirm = page.getByRole("dialog", { name: /^Cancelar o envio de .+\?$/ });
@@ -458,7 +465,7 @@ test("a parcel past its delivery estimate shows as late in operations, the order
     await signIn(page, DEMO_USER);
     await gotoHydrated(page, "/pedidos");
     await page.getByLabel("Buscar por pedido ou comprador").fill(externalOrderId);
-    await expect(page.getByRole("button", { name: "Abrir pedido" })).toHaveCount(1);
+    await expect(page.getByRole("button", { name: OPEN_ORDER_BUTTON })).toHaveCount(1);
     await expect(page.getByText("Entrega atrasada").first()).toBeVisible();
 
     await gotoHydrated(page, `/pedidos/${order.id}`);
@@ -509,8 +516,8 @@ test("forwarding e-mails the link to a supplier with an order e-mail", async ({ 
     await signIn(page, DEMO_USER);
     await gotoHydrated(page, "/pedidos");
     await page.getByLabel("Buscar por pedido ou comprador").fill(externalOrderId);
-    await expect(page.getByRole("button", { name: "Abrir pedido" })).toHaveCount(1);
-    await page.getByRole("button", { name: "Abrir pedido" }).click();
+    await expect(page.getByRole("button", { name: OPEN_ORDER_BUTTON })).toHaveCount(1);
+    await page.getByRole("button", { name: OPEN_ORDER_BUTTON }).click();
     const dialog = page.getByRole("dialog", { name: "Pedido" });
     for (const [label, value] of Object.entries({
       Destinatário: "Maria Silva",
@@ -518,10 +525,10 @@ test("forwarding e-mails the link to a supplier with an order e-mail", async ({ 
       Número: "10",
       Bairro: "Centro",
       Cidade: "São Paulo",
-      UF: "SP",
+      Estado: "SP",
       CEP: "01001-000",
     }))
-      await dialog.getByLabel(label, { exact: true }).fill(value);
+      await fillAddressField(dialog, label, value);
     await dialog.getByRole("button", { name: "Enviar pedido ao fornecedor" }).click();
     await expect(dialog.getByLabel("Link do fornecedor")).toBeVisible();
     await expect(dialog.getByText("Enviamos este link para o e-mail do fornecedor.")).toBeVisible();
@@ -549,7 +556,7 @@ test("a parcel the supplier did not accept in time shows as late, and the suppli
     await signIn(page, DEMO_USER);
     await gotoHydrated(page, "/pedidos");
     await page.getByLabel("Buscar por pedido ou comprador").fill(externalOrderId);
-    await expect(page.getByRole("button", { name: "Abrir pedido" })).toHaveCount(1);
+    await expect(page.getByRole("button", { name: OPEN_ORDER_BUTTON })).toHaveCount(1);
     await expect(page.getByText("Aceite atrasado").first()).toBeVisible();
     await gotoHydrated(page, `/pedidos/${order.id}`);
     await expect(page.getByText("Aceite atrasado").first()).toBeVisible();

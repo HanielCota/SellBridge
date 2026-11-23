@@ -3,7 +3,6 @@ import { WarningIcon } from "@phosphor-icons/react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import type { LabelFormat } from "@sellbridge/shared/schemas";
 import { type ReactNode, useEffect, useRef } from "react";
-import { formatCents } from "@sellbridge/shared/money";
 import { DISPATCHED_FULFILLMENT_STATUSES } from "@sellbridge/shared/schemas";
 import {
   BATCH_LABEL_MARKETPLACE,
@@ -24,13 +23,18 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Skeleton } from "@/components/ui/skeleton";
-import { isPreparationStopped, isShippingBlocked } from "@/features/fulfillment/shipping-block";
+import {
+  isPreparationStopped,
+  type SaleStopNotice,
+  saleStopNotice,
+} from "@/features/fulfillment/shipping-block";
 import { PreparationHoldAlert } from "./preparation-hold-alert";
 import { displayBuyerName } from "@/features/orders/buyer-name";
 import { channelDispatch } from "@/features/supplier-panel/orders/channel-dispatch";
 import { channelLabel } from "@/features/supplier-panel/orders/channel-labels";
 import { dispatchInvoiceReminder } from "@/features/supplier-panel/orders/dispatch-invoice-reminder";
 import { orderSteps } from "@/features/supplier-panel/orders/order-steps";
+import { receivableText } from "@/features/supplier-panel/orders/receivable-text";
 import { refreshAfterLabel } from "@/features/supplier-panel/orders/label-refresh";
 import {
   supplierOrdersKey,
@@ -126,7 +130,14 @@ function OrderFacts({ shipment }: { shipment: PanelShipment }) {
     { term: "Canal", detail: <ChannelWithLogo marketplace={shipment.marketplace} /> },
     { term: "Loja do revendedor", detail: shipment.shopName },
     { term: "Cliente", detail: displayBuyerName(shipment.buyerName) },
-    { term: "Você recebe", detail: formatCents(shipment.receivableCents) },
+    {
+      term: "Você recebe (estimativa)",
+      detail: receivableText({
+        ...shipment,
+        paidMethod:
+          shipment.supplierPayment.kind === "paid" ? shipment.supplierPayment.method : null,
+      }),
+    },
   ];
   const method = shippingMethod(shipment.marketplaceLogisticType);
   if (method !== null) {
@@ -269,19 +280,19 @@ function dispatchFromChannel(shipment: PanelShipment, dispatched: boolean) {
 /** The opened parcel: the same shipment panel the supplier link shows, acting as the supplier. */
 /** Why the parcel cannot move, or the NF-e reminder before dispatch when it can. */
 function StopAlert({
-  saleBlocked,
+  saleStop,
   hold,
   shipment,
 }: {
-  saleBlocked: boolean;
+  saleStop: SaleStopNotice | null;
   hold: PreparationHold | null;
   shipment: PanelShipment;
 }) {
-  if (saleBlocked) {
+  if (saleStop !== null) {
     return (
       <Alert variant="destructive">
-        <AlertTitle>Venda não liberada</AlertTitle>
-        <AlertDescription>Fale com o revendedor antes de separar ou despachar.</AlertDescription>
+        <AlertTitle>{saleStop.title}</AlertTitle>
+        <AlertDescription>{saleStop.description}</AlertDescription>
       </Alert>
     );
   }
@@ -305,7 +316,7 @@ function PanelBody({ supplierId, shipmentId }: { supplierId: string; shipmentId:
   if (query.isError) {
     return <ErrorState message={errorMessage(query.error)} onRetry={() => void query.refetch()} />;
   }
-  const saleBlocked = isShippingBlocked(query.data.orderStatus);
+  const saleStop = saleStopNotice(query.data.orderStatus, query.data.status);
   const hold = query.data.preparationHold;
   const blocked = isPreparationStopped(query.data);
   const tracked = DISPATCHED_FULFILLMENT_STATUSES.includes(query.data.status);
@@ -321,7 +332,7 @@ function PanelBody({ supplierId, shipmentId }: { supplierId: string; shipmentId:
         saleInvoice={query.data.saleInvoice}
         resellerNote={query.data.resellerNote}
       />
-      <StopAlert saleBlocked={saleBlocked} hold={hold} shipment={query.data} />
+      <StopAlert saleStop={saleStop} hold={hold} shipment={query.data} />
       {query.data.splitOrder ? <SplitLabelNotice /> : null}
       {tracked ? <SupplierParcelTracking supplierId={supplierId} shipmentId={shipmentId} /> : null}
       <ShipmentPanel
@@ -355,13 +366,20 @@ export function ShipmentPanelDialog({
   opened: { id: string; externalOrderId: string } | null;
   onClose: () => void;
 }) {
+  const queryClient = useQueryClient();
   return (
     <Dialog
       open={opened !== null}
       onOpenChange={(open) => {
-        if (!open) {
-          onClose();
+        if (open) {
+          return;
         }
+        // Opening read the store's messages: the row and the bell drop their "Mensagem nova".
+        void queryClient.invalidateQueries({
+          queryKey: [...supplierOrdersKey(supplierId), "list"],
+        });
+        void queryClient.invalidateQueries({ queryKey: ["notifications"] });
+        onClose();
       }}
     >
       <DialogContent className="max-h-[90svh] overflow-y-auto sm:max-w-3xl">

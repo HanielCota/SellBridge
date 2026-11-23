@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   chartRanges,
   comparablePreviousRange,
+  comparesSameStretch,
   dayRangeWithin,
   resolvePeriod,
 } from "./period-range.ts";
@@ -165,6 +166,23 @@ describe("comparablePreviousRange", () => {
     expect(comparablePreviousRange(period, new Date("2026-01-01T00:00:00Z")).to).toEqual(
       period.previousTo,
     );
+  });
+});
+
+describe("comparesSameStretch", () => {
+  const period = {
+    from: new Date("2026-11-01T03:00:00Z"),
+    to: new Date("2026-12-01T03:00:00Z"),
+    previousFrom: new Date("2026-10-01T03:00:00Z"),
+    previousTo: new Date("2026-11-01T03:00:00Z"),
+  };
+
+  it("is true while the month is still running", () => {
+    expect(comparesSameStretch(period, new Date("2026-11-22T15:00:00Z"))).toBe(true);
+  });
+
+  it("is false once the month is over", () => {
+    expect(comparesSameStretch(period, new Date("2026-12-02T15:00:00Z"))).toBe(false);
   });
 });
 

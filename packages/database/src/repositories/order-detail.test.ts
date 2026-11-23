@@ -124,6 +124,8 @@ describe("order detail", () => {
         listingId: null,
         listingStatus: null,
         productId: null,
+        imageUrl: null,
+        categoryName: null,
       }),
     ]);
     expect(detail.adjustments.map((adjustment) => adjustment.type).toSorted()).toEqual([

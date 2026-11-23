@@ -1,5 +1,5 @@
 import type { adminListSuppliers } from "@/features/admin-suppliers/suppliers.functions";
-import type { AdminSupplier } from "@sellbridge/database/repositories";
+import type { AdminSupplier, AdminSupplierListItem } from "@sellbridge/database/repositories";
 import type { AdminSupplierListSearch } from "@sellbridge/shared/schemas";
 import { StorefrontIcon } from "@phosphor-icons/react";
 import { useQuery, type UseQueryResult } from "@tanstack/react-query";
@@ -33,7 +33,15 @@ function SupplierAccessCell({ supplier }: { supplier: AdminSupplier }) {
   return <EnterSupplierButton supplier={supplier} />;
 }
 
-const columnHelper = createServerColumnHelper<AdminSupplier>();
+/** Whether the supplier can be paid through SellBridge (an approved Asaas account). */
+function ReceivingStatus({ supplier }: { supplier: AdminSupplierListItem }) {
+  if (supplier.receivingAccountApproved) {
+    return <ToneStatus tone="success" label="Conta de recebimento aprovada" />;
+  }
+  return <ToneStatus tone="muted" label="Sem conta de recebimento" />;
+}
+
+const columnHelper = createServerColumnHelper<AdminSupplierListItem>();
 const supplierColumns = columnHelper.columns([
   columnHelper.accessor("name", {
     header: "Fornecedor",
@@ -55,6 +63,10 @@ const supplierColumns = columnHelper.columns([
   columnHelper.accessor("active", {
     header: "Situação",
     cell: (information) => <ToneStatus {...supplierSituation(information.row.original)} />,
+  }),
+  columnHelper.accessor("receivingAccountApproved", {
+    header: "Recebimento",
+    cell: (information) => <ReceivingStatus supplier={information.row.original} />,
   }),
   columnHelper.display({
     id: "account",
@@ -90,8 +102,8 @@ function SupplierTable({
     return (
       <EmptyState
         icon={StorefrontIcon}
-        title="Nenhum fornecedor encontrado"
-        description="Cadastre o primeiro fornecedor ou ajuste sua busca."
+        title="Nenhum fornecedor"
+        description="Cadastre o primeiro fornecedor ou mude a busca."
       />
     );
   }
@@ -113,6 +125,7 @@ function SupplierTable({
               {row.niche} · {row.city} - {row.state}
             </p>
             <ToneStatus {...supplierSituation(row)} />
+            <ReceivingStatus supplier={row} />
           </Link>
           <SupplierAccessCell supplier={row} />
         </div>

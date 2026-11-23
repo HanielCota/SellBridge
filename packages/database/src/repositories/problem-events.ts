@@ -1,6 +1,23 @@
-import type { ProblemArea, ProblemService } from "@sellbridge/shared/problem-areas";
+import {
+  MONEY_PROBLEM_EVENTS,
+  type ProblemArea,
+  type ProblemService,
+} from "@sellbridge/shared/problem-areas";
 import type { CapturedProblem } from "@sellbridge/shared/problem-capture";
-import { and, desc, eq, gte, isNotNull, isNull, lt, or, sql, type SQL } from "drizzle-orm";
+import {
+  and,
+  desc,
+  eq,
+  gte,
+  inArray,
+  isNotNull,
+  isNull,
+  lt,
+  not,
+  or,
+  sql,
+  type SQL,
+} from "drizzle-orm";
 import { alias, type PgSelect } from "drizzle-orm/pg-core";
 import type { Database } from "../client.ts";
 import {
@@ -19,12 +36,20 @@ export interface ProblemOccurrence {
 
 /** Repeats of an open problem within this window add to its counter instead of a new row. */
 export const PROBLEM_REPEAT_WINDOW_MILLISECONDS = 24 * 60 * 60 * 1000;
-/** Problems unseen for this long are deleted. */
+/** Problems unseen for this long are deleted, except open money ones. */
 export const PROBLEM_RETENTION_DAYS = 30;
 /** The table never holds more problems than this; the ones seen longest ago go first. */
 export const PROBLEM_MAXIMUM_ROWS = 5000;
 
 const DAY_MILLISECONDS = 24 * 60 * 60 * 1000;
+
+/** Money the team still has to move: kept and listed until someone resolves it. */
+function openMoneyProblem(): SQL {
+  return (
+    and(isNull(problemEvents.resolvedAt), inArray(problemEvents.event, MONEY_PROBLEM_EVENTS)) ??
+    sql`false`
+  );
+}
 
 async function addToOpenProblem(
   database: Database,
@@ -91,7 +116,10 @@ export async function recordProblems(
   }
 }
 
-/** Deletes problems unseen for the retention period, then the oldest beyond the row cap. */
+/**
+ * Deletes problems unseen for the retention period, then the oldest beyond the row cap. Open
+ * money problems are never deleted: they count first toward the cap and stay past it.
+ */
 export async function pruneProblemEvents(
   database: Database,
   options: { now: Date; retentionDays?: number; maximumRows?: number },
@@ -101,16 +129,16 @@ export async function pruneProblemEvents(
   const cutoff = new Date(options.now.getTime() - retentionDays * DAY_MILLISECONDS);
   const expired = await database
     .delete(problemEvents)
-    .where(lt(problemEvents.lastSeenAt, cutoff))
+    .where(and(lt(problemEvents.lastSeenAt, cutoff), not(openMoneyProblem())))
     .returning({ id: problemEvents.id });
   const beyondCap = database
     .select({ id: problemEvents.id })
     .from(problemEvents)
-    .orderBy(desc(problemEvents.lastSeenAt), desc(problemEvents.id))
+    .orderBy(desc(openMoneyProblem()), desc(problemEvents.lastSeenAt), desc(problemEvents.id))
     .offset(maximumRows);
   const overflow = await database
     .delete(problemEvents)
-    .where(sql`${problemEvents.id} in (${beyondCap})`)
+    .where(and(sql`${problemEvents.id} in (${beyondCap})`, not(openMoneyProblem())))
     .returning({ id: problemEvents.id });
   return expired.length + overflow.length;
 }
@@ -120,7 +148,7 @@ export type ProblemStatus = "open" | "resolved";
 export interface ProblemSearch {
   status: ProblemStatus;
   area?: ProblemArea | undefined;
-  /** Only problems seen from this moment on. */
+  /** Only problems seen from this moment on; open money problems are listed whatever the age. */
   since: Date;
   /** The last item of the previous page. */
   cursor?: { lastSeenAt: Date; id: string } | undefined;
@@ -225,12 +253,20 @@ function statusCondition(status: ProblemStatus): SQL {
   return isNotNull(problemEvents.resolvedAt);
 }
 
+function periodCondition(search: ProblemSearch): SQL | undefined {
+  const recent = gte(problemEvents.lastSeenAt, search.since);
+  if (search.status === "open") {
+    return or(recent, inArray(problemEvents.event, MONEY_PROBLEM_EVENTS));
+  }
+  return recent;
+}
+
 function searchConditions(search: ProblemSearch): SQL | undefined {
   const area = search.area === undefined ? undefined : eq(problemEvents.area, search.area);
   return and(
     statusCondition(search.status),
     area,
-    gte(problemEvents.lastSeenAt, search.since),
+    periodCondition(search),
     afterCursor(search.cursor),
   );
 }
@@ -251,6 +287,11 @@ export async function listProblemEvents(
     items,
     nextCursor: hasMore && last !== undefined ? { lastSeenAt: last.lastSeenAt, id: last.id } : null,
   };
+}
+
+/** Open money problems (refunds and held payments waiting for the team), for the tab counter. */
+export async function countOpenMoneyProblems(database: Database): Promise<number> {
+  return await database.$count(problemEvents, openMoneyProblem());
 }
 
 /** One problem with its context; null when it does not exist (or was pruned). */

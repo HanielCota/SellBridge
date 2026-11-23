@@ -13,6 +13,7 @@ import {
 } from "@phosphor-icons/react";
 import type { ComponentType, ReactNode } from "react";
 import { CustomerAccess } from "@/components/admin/customer-access";
+import { CustomerCourtesy } from "@/components/admin/customer-courtesy";
 import {
   CustomerIssueList,
   OnboardingProgress,
@@ -44,7 +45,7 @@ import { CustomerScore } from "@/components/admin/customer-cells";
 export const Route = createFileRoute("/_app/admin/clientes/$userId")({
   loader: ({ context, params }) =>
     prefetchOnServer(context.queryClient, customerQueryOptions(params.userId)),
-  head: () => ({ meta: [{ title: "Cliente (admin) | SellBridge" }] }),
+  head: () => ({ meta: [{ title: "Cliente (equipe) | SellBridge" }] }),
   component: CustomerPage,
 });
 
@@ -163,7 +164,7 @@ function activityTiles(detail: CustomerDetail): ActivityTile[] {
         <TrendBadge
           current={customer.recentOrders}
           previous={customer.previousOrders}
-          suffix="vs. mês anterior"
+          suffix="sobre o mês anterior"
         />
       ),
     },
@@ -197,7 +198,6 @@ function ActivityTiles({ detail }: { detail: CustomerDetail }) {
         return (
           <div
             key={tile.label}
-            data-glyph-trigger
             className="surface-card flex flex-col gap-3 rounded-3xl bg-card p-4"
           >
             <span
@@ -266,9 +266,17 @@ function AccountSection({ detail, isSelf }: { detail: CustomerDetail; isSelf: bo
             hasHolder={detail.profile.hasHolder}
             starterSupplier={detail.profile.starterSupplier}
           />
+          {detail.courtesy === null ? null : (
+            <CustomerCourtesy
+              userId={customer.id}
+              view={detail.courtesy}
+              canGrant={detail.access.canGrantCourtesy}
+            />
+          )}
         </div>
         <CustomerAccess
           userId={customer.id}
+          name={customer.name}
           role={customer.role}
           banned={customer.banned}
           banReason={customer.banReason}

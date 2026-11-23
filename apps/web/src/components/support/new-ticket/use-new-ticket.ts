@@ -1,3 +1,4 @@
+import type { LinkedOrder } from "@sellbridge/database/repositories";
 import type { ProfileKind } from "@sellbridge/shared/profile-kind";
 import type { NewTicketSearch } from "@sellbridge/shared/schemas";
 import {
@@ -18,6 +19,7 @@ import {
   selectAttachments,
   type RejectedAttachment,
 } from "@/features/support/attachment-selection";
+import { asksForOrderBeforeSending } from "@/features/support/ticket-audience";
 import { postMultipart } from "@/features/support/upload";
 import { errorMessage } from "@/lib/errors";
 import { DESCRIPTION_FIELD_ID } from "./description-step";
@@ -33,6 +35,8 @@ interface TicketDraft {
   files: readonly File[];
   /** The automatic answer the customer read before asking for a person. */
   assistantAnswerId: string | undefined;
+  /** The order picked in the form, when it was not opened from one. */
+  pickedOrderId: string | undefined;
 }
 
 function buildFormData(draft: TicketDraft, search: NewTicketSearch): FormData {
@@ -41,7 +45,7 @@ function buildFormData(draft: TicketDraft, search: NewTicketSearch): FormData {
   formData.set("situation", draft.situation?.id ?? "");
   formData.set("about", search.assunto ?? "");
   formData.set("body", draft.body);
-  formData.set("orderId", search.pedido ?? "");
+  formData.set("orderId", search.pedido ?? draft.pickedOrderId ?? "");
   formData.set("storeConnectionId", search.loja ?? "");
   formData.set("listingId", search.anuncio ?? "");
   formData.set("assistantAnswerId", draft.assistantAnswerId ?? "");
@@ -93,7 +97,8 @@ function initialCategory(kind: ProfileKind, search: NewTicketSearch): TicketCate
  */
 function useTicketChoices(kind: ProfileKind, search: NewTicketSearch, onChange: () => void) {
   const [category, setCategory] = useState(() => initialCategory(kind, search));
-  const [situationId, setSituationId] = useState<string | undefined>(undefined);
+  // An unknown situation from the link finds nothing below, so the form simply asks for it.
+  const [situationId, setSituationId] = useState<string | undefined>(search.situacao);
   const topic = category === null ? undefined : findSupportTopic(kind, category);
   const situation = topic === undefined ? undefined : findSupportSituation(topic, situationId);
 
@@ -150,6 +155,30 @@ function useSendTicket(search: NewTicketSearch) {
   return { isSending, sendError, sendDraft };
 }
 
+/** "Qual pedido?" on an order topic: the order picked in the form, if any. */
+function useTicketOrder(input: {
+  kind: ProfileKind;
+  topic: SupportTopic | undefined;
+  openedFromOrderId: string | undefined;
+}) {
+  const [pickedOrder, setPickedOrder] = useState<LinkedOrder | null>(null);
+  const asksForOrder =
+    input.topic !== undefined &&
+    asksForOrderBeforeSending({
+      kind: input.kind,
+      category: input.topic.category,
+      openedFromOrderId: input.openedFromOrderId,
+    });
+  return {
+    asksForOrder,
+    pickedOrder,
+    // An order picked under an order topic stays out once the topic changes to another one.
+    pickedOrderId: asksForOrder ? pickedOrder?.orderId : undefined,
+    pickOrder: setPickedOrder,
+    clearOrder: () => setPickedOrder(null),
+  };
+}
+
 /**
  * The new-ticket flow. The text and files written so far survive any change of topic. The first
  * send may stop at the assistant's answer; the next one ("Ainda preciso de ajuda") sends the
@@ -163,6 +192,7 @@ export function useNewTicket(kind: ProfileKind, search: NewTicketSearch) {
   const [body, setBody] = useState(search.texto ?? "");
   const [showTooShort, setShowTooShort] = useState(false);
   const { topic, situation } = choices;
+  const order = useTicketOrder({ kind, topic, openedFromOrderId: search.pedido });
   const needsSituation = topic !== undefined && topic.situations.length > 0;
   const isReadyToWrite = topic !== undefined && (!needsSituation || situation !== undefined);
   const question =
@@ -196,6 +226,7 @@ export function useNewTicket(kind: ProfileKind, search: NewTicketSearch) {
       body,
       files: attachments.files,
       assistantAnswerId: assistant.answer?.id,
+      pickedOrderId: order.pickedOrderId,
     });
   }
 
@@ -209,6 +240,7 @@ export function useNewTicket(kind: ProfileKind, search: NewTicketSearch) {
     showTooShort,
     writeBody,
     send,
+    ...order,
     assistantAnswer: assistant.answer,
     isAskingAssistant: assistant.isAsking,
     isResolvingWithAssistant: assistant.isResolving,

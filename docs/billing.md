@@ -14,8 +14,8 @@ mensalidade é cobrada pelo Asaas, na conta do SellBridge (decisão de 19/11/202
 | Elite    | R$ 997/mês | 40    | 20.000   | Atendimento prioritário (resposta em 8 h) |
 
 Preços e limites ficam em `packages/shared/src/domain/billing.ts` (`BILLING_PLANS`). O resto do
-sistema é igual em todos os planos. A taxa da plataforma por venda (configurada no admin) vale
-junto com a mensalidade e é citada na página. A assinatura pertence à organização; somente seu
+sistema é igual em todos os planos. A taxa do SellBridge (4% do preço dos produtos, fixa no código)
+sai da parte do fornecedor em cada pagamento e não aparece para o revendedor. A assinatura pertence à organização; somente seu
 proprietário pode assinar, pagar, trocar de plano, trocar a forma de pagamento e cancelar. Durante
 o acesso da equipe como cliente, essas ações ficam bloqueadas.
 
@@ -30,6 +30,28 @@ o acesso da equipe como cliente, essas ações ficam bloqueadas.
   avisam com o último dia; nos 7 dias finais o aviso fica vermelho.
 - **Atendimento prioritário:** o chamado de uma conta Elite abre como prioridade alta (urgente
   continua urgente).
+
+## Conta cortesia (plano sem cobrança)
+
+A equipe pode conceder a uma conta um dos cinco planos sem cobrança (decisão de 20/11/2026,
+[docs/decisions/2026-11-20-conta-cortesia.md](decisions/2026-11-20-conta-cortesia.md)).
+
+- **Onde:** na ficha do cliente em `/admin/clientes`, cartão "Plano sem cobrança". Só o perfil
+  Administrador concede, muda e retira (`billing.grant_courtesy`); o motivo é obrigatório e tudo
+  fica no registro de ações da equipe.
+- **Validade:** até o fim de um dia escolhido (horário de Brasília) ou sem data para acabar. A
+  partir de 7 dias antes, a conta vê o aviso com o último dia e a equipe vê a conta em "Cortesia
+  acabando", na fila de pendências. Vencendo, a conta fica sem plano; o que está no ar continua.
+- **Limites:** os do plano concedido, nos mesmos bloqueios de conectar loja e publicar anúncio. O
+  Elite por cortesia também tem atendimento prioritário.
+- **Cobrança:** nada é criado no Asaas por causa da cortesia. Se a conta já paga um plano, a
+  assinatura para de renovar ao conceder (sem devolução do mês pago; se o Asaas falhar, nada é
+  concedido) e a conta usa o maior dos dois planos até o mês pago acabar. Enquanto a cortesia vale,
+  a conta não assina: para outro plano, a equipe muda a cortesia.
+- **Lançamento:** a cortesia pode ser concedida com a cobrança desligada e passa a valer quando ela
+  começa. Durante a transição, a conta antiga continua sem limites e sem o aviso de escolher plano.
+- **Onde fica:** tabela `billing_courtesies`, separada de `billing_accounts` (que espelha o Asaas).
+  Retirar apaga a linha; o histórico é `admin_audit_events`.
 
 ## Formas de pagamento
 
@@ -58,7 +80,8 @@ mensalidade, e a assinatura antiga é encerrada quando a nova aparece. O mês j�
 ## Atraso, aviso e cancelamento
 
 - A mensalidade vence no dia; o plano vale até o fim desse dia. Se o Asaas marca a cobrança como
-  vencida, o plano continua por `BILLING_PAST_DUE_GRACE_DAYS` dias (padrão 7) a partir do
+  vencida, o plano continua por `BILLING_PAST_DUE_GRACE_DAYS` dias (padrão 5, o do contrato do
+  revendedor; mensalidade vencida antes de 01/12/2026 fica com pelo menos os 7 de antes) a partir do
   vencimento, com o aviso "Pagamento da assinatura pendente" no painel e em `/assinatura`, com o
   último dia e o botão "Pagar agora" (abre a fatura do Asaas). Depois disso a conta fica sem plano;
   a assinatura não é cancelada e, se o lojista pagar, o plano volta.

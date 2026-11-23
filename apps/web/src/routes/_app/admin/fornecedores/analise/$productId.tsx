@@ -12,7 +12,7 @@ import { prefetchOnServer } from "@/lib/prefetch";
 export const Route = createFileRoute("/_app/admin/fornecedores/analise/$productId")({
   loader: ({ context, params }) =>
     prefetchOnServer(context.queryClient, reviewProductQueryOptions(params.productId)),
-  head: () => ({ meta: [{ title: "Analisar produto (admin) | SellBridge" }] }),
+  head: () => ({ meta: [{ title: "Analisar produto (equipe) | SellBridge" }] }),
   component: ReviewProductPage,
 });
 

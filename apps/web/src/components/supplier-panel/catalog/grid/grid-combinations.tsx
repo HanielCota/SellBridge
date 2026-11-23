@@ -13,7 +13,7 @@ import { cn } from "@/lib/utils";
 type Pair = { colorKey: string | null; sizeKey: string | null };
 
 const COMBINATION_FIELDS = [
-  { key: "sku", label: "SKU", inputMode: "text" },
+  { key: "sku", label: "Código", inputMode: "text" },
   { key: "stock", label: "Estoque (un.)", inputMode: "numeric" },
   { key: "cost", label: "Custo (R$)", inputMode: "decimal" },
   { key: "suggestedPrice", label: "Preço sugerido (R$)", inputMode: "decimal" },

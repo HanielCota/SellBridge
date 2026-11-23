@@ -5,7 +5,7 @@ import { organization, orderItems, orders, storeConnections } from "@sellbridge/
 import { type MarketplaceShippingAddress, sealShippingAddress } from "@sellbridge/marketplaces";
 import { createTokenCipher } from "@sellbridge/shared/token-cipher";
 import { and, eq, inArray } from "drizzle-orm";
-import { DEMO_USER, gotoHydrated, signIn } from "./helpers";
+import { DEMO_USER, gotoHydrated, signIn, OPEN_ORDER_BUTTON } from "./helpers";
 import { forwardableProduct } from "./catalog-fixtures";
 import { requireEnvironmentVariable } from "./environment";
 
@@ -67,8 +67,8 @@ async function openForwardDialog(page: Page, externalOrderId: string) {
   await signIn(page, DEMO_USER);
   await gotoHydrated(page, "/pedidos");
   await page.getByLabel("Buscar por pedido ou comprador").fill(externalOrderId);
-  await expect(page.getByRole("button", { name: "Abrir pedido" })).toHaveCount(1);
-  await page.getByRole("button", { name: "Abrir pedido" }).click();
+  await expect(page.getByRole("button", { name: OPEN_ORDER_BUTTON })).toHaveCount(1);
+  await page.getByRole("button", { name: OPEN_ORDER_BUTTON }).click();
   const dialog = page.getByRole("dialog", { name: "Pedido" });
   await expect(dialog.getByText(/^Endereço preenchido pelo pedido d/)).toBeVisible();
   return dialog;
@@ -89,6 +89,8 @@ test("opens the forward form filled with the address the marketplace sent", asyn
   const dialog = await openForwardDialog(page, completeExternalId);
   for (const [label, value] of Object.entries(EXPECTED_FIELDS))
     await expect(dialog.getByLabel(label, { exact: true })).toHaveValue(value);
+  // The state is picked from the list, shown with its name.
+  await expect(dialog.getByLabel("Estado", { exact: true })).toContainText(`(${address.state})`);
   // The label reader is the fallback for orders that came without a complete address.
   await expect(dialog.getByRole("button", { name: "Preencher com a etiqueta" })).toHaveCount(0);
   // Still the reseller's to correct before forwarding.
@@ -134,7 +136,7 @@ test("fills the street, district and city from the typed CEP", async ({ page }) 
   await expect(dialog.getByLabel("Rua", { exact: true })).toHaveValue("Avenida Paulista");
   await expect(dialog.getByLabel("Bairro", { exact: true })).toHaveValue("Bela Vista");
   await expect(dialog.getByLabel("Cidade", { exact: true })).toHaveValue("São Paulo");
-  await expect(dialog.getByLabel("UF", { exact: true })).toHaveValue("SP");
+  await expect(dialog.getByLabel("Estado", { exact: true })).toContainText("São Paulo (SP)");
   await expect(
     dialog.getByText("Endereço encontrado pelo CEP. Confira e complete o número."),
   ).toBeVisible();
@@ -158,6 +160,5 @@ const EXPECTED_FIELDS = {
   Complemento: address.complement,
   Bairro: address.neighborhood,
   Cidade: address.city,
-  UF: address.state,
   CEP: address.postalCode,
 };

@@ -232,7 +232,7 @@ function StepContent({
 }
 
 const NEW_PRODUCT_HINT =
-  "Informe o código do produto (SKU) para começar a salvar sozinho. Depois, você pode sair e continuar o cadastro quando quiser.";
+  "Escreva o código do produto e o cadastro passa a salvar sozinho. Você pode sair e continuar depois.";
 const SAVED_PRODUCT_HINT = "Tudo o que você muda é salvo sozinho.";
 
 function ProductFormHeader({ form, onBack }: { form: ProductForm; onBack: () => void }) {

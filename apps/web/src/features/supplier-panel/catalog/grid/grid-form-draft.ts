@@ -98,7 +98,7 @@ function parseCombination(
   const stock = combination.stock.trim() === "" ? 0 : parseStockCount(combination.stock.trim());
   const errors: Record<string, string> = {};
   if (combination.sku.trim() === "") {
-    errors[combinationField(combination, "sku")] = "Informe o SKU";
+    errors[combinationField(combination, "sku")] = "Preencha o código do produto";
   }
   if (Number.isNaN(costCents)) {
     errors[combinationField(combination, "cost")] = INVALID_VALUE_MESSAGE;
@@ -245,7 +245,7 @@ export function parseModelDraft(values: PanelFormValues, state: GridFormState): 
 }
 
 const GRID_RULE_MESSAGES: Readonly<Record<string, string>> = {
-  sku_required: "Informe o SKU de cada combinação",
+  sku_required: "Preencha o código de cada combinação",
   cost_required: "Informe o custo de cada combinação",
   stock_required: "Informe o estoque de pelo menos uma combinação",
 };

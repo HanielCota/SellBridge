@@ -20,7 +20,7 @@ const HEADERS = [
   "Devoluções",
   "Comissões",
   "Lucro",
-  "Custo pendente",
+  "Sem custo informado",
 ];
 
 export const dateFormatter = new Intl.DateTimeFormat("pt-BR", {

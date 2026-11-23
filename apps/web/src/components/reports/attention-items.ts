@@ -1,3 +1,4 @@
+import { HandCoinsIcon, PackageIcon } from "@phosphor-icons/react";
 import type { LinkProps } from "@tanstack/react-router";
 import type { ComponentType } from "react";
 import {
@@ -23,7 +24,10 @@ export interface AttentionItem {
    * Opens the page on the right tab or filter: the reviews item lands on the pending reviews, an
    * idle store's item on the catalog of that store's supplier.
    */
-  search?: { view: "reviews"; review: "pending" } | { store: string };
+  search?:
+    | { view: "reviews"; review: "pending" }
+    | { view: "operations"; stage: "unforwarded" }
+    | { store: string };
 }
 
 export interface StoreState {
@@ -47,6 +51,51 @@ export interface AttentionCounts {
   failedListings: number;
   unreadSupportReplies: number;
   pendingReviews: number;
+  /** Paid orders not sent to the supplier yet. */
+  ordersToForward: number;
+  /** Parcels the supplier prepares only after the reseller pays them. */
+  supplierPaymentsDue: number;
+}
+
+/** "3 pedidos pagos esperando você enviar ao fornecedor": the same words on every screen. */
+export function ordersToForwardTitle(count: number): string {
+  return count === 1
+    ? "1 pedido pago esperando você enviar ao fornecedor"
+    : `${count} pedidos pagos esperando você enviar ao fornecedor`;
+}
+
+/**
+ * First in the panel: a paid sale only moves when the reseller sends it, and a parcel waiting for
+ * the payment only moves when the reseller pays it.
+ */
+function orderItemsFor(counts: AttentionCounts): AttentionItem[] {
+  const items: AttentionItem[] = [];
+  if (counts.ordersToForward > 0) {
+    items.push({
+      key: "orders-to-forward",
+      icon: PackageIcon,
+      tone: "review",
+      title: ordersToForwardTitle(counts.ordersToForward),
+      description: "O fornecedor só prepara depois que você envia o pedido.",
+      to: "/pedidos",
+      search: { view: "operations", stage: "unforwarded" },
+    });
+  }
+  if (counts.supplierPaymentsDue > 0) {
+    items.push({
+      key: "supplier-payments",
+      icon: HandCoinsIcon,
+      tone: "review",
+      title: plural(
+        counts.supplierPaymentsDue,
+        "pagamento ao fornecedor para fazer",
+        "pagamentos ao fornecedor para fazer",
+      ),
+      description: "O fornecedor só começa a preparar depois do pagamento.",
+      to: "/pedidos",
+    });
+  }
+  return items;
 }
 
 /**
@@ -109,13 +158,9 @@ function billingItems(notice: BillingNoticeView | null | undefined): AttentionIt
   ];
 }
 
-export function buildAttentionItems(
-  counts: AttentionCounts,
-  stores: readonly StoreState[],
-  notice: BillingNoticeView | null | undefined,
-): AttentionItem[] {
-  const { failedListings, unreadSupportReplies, pendingReviews } = counts;
-  const storeItems: AttentionItem[] = stores
+/** A store whose access expired: its orders and stock stopped. */
+function expiredStoreItems(stores: readonly StoreState[]): AttentionItem[] {
+  return stores
     .filter((store) => store.status === "expired" || store.status === "error")
     .map((store) => ({
       key: `store-${store.id}`,
@@ -125,14 +170,27 @@ export function buildAttentionItems(
       description: "O acesso expirou: pedidos e estoque estão parados nesta loja.",
       to: "/lojas",
     }));
-  const items = [...storeItems, ...buyerAddressItems(stores), ...billingItems(notice)];
+}
+
+export function buildAttentionItems(
+  counts: AttentionCounts,
+  stores: readonly StoreState[],
+  notice: BillingNoticeView | null | undefined,
+): AttentionItem[] {
+  const { failedListings, unreadSupportReplies, pendingReviews } = counts;
+  const items = [
+    ...orderItemsFor(counts),
+    ...expiredStoreItems(stores),
+    ...buyerAddressItems(stores),
+    ...billingItems(notice),
+  ];
   if (failedListings > 0) {
     items.push({
       key: "listings",
       icon: ListingAlertIcon,
       tone: "danger",
       title: plural(failedListings, "publicação com erro", "publicações com erro"),
-      description: "Veja o motivo e reprocesse.",
+      description: "Veja o motivo e tente de novo.",
       to: "/publicacoes",
     });
   }

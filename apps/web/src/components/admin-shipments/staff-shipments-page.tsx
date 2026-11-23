@@ -10,6 +10,7 @@ import { TruckIcon } from "@phosphor-icons/react";
 import { useQuery } from "@tanstack/react-query";
 import { FilterTabs, type FilterTab } from "@/components/data/filter-tabs";
 import { PaginationBar } from "@/components/data/pagination-bar";
+import { SmartDate } from "@/components/data/smart-date";
 import { SearchInput } from "@/components/data/search-input";
 import { ToneStatus } from "@/components/data/tone-status";
 import { EmptyState } from "@/components/feedback/empty-state";
@@ -38,6 +39,17 @@ import { errorMessage } from "@/lib/errors";
 import { cn } from "@/lib/utils";
 
 type StaffShipmentRow = Awaited<ReturnType<typeof listStaffShipments>>["items"][number];
+
+const NO_TRACKING_YET = "Sem rastreio ainda";
+
+/** When the parcel last changed, so "Aguardando fornecedor" says since when it waits. */
+function LastChange({ row }: { row: StaffShipmentRow }) {
+  return (
+    <p className="text-xs text-muted-foreground">
+      Última mudança: <SmartDate date={new Date(row.updatedAt)} />
+    </p>
+  );
+}
 
 function groupTabs(
   counts: Record<StaffShipmentGroup, number> | undefined,
@@ -81,7 +93,7 @@ function ShipmentRow({
       </TableCell>
       <TableCell className="align-top text-xs break-all whitespace-normal">
         {row.trackingCode === null ? (
-          <span className="text-muted-foreground">Sem código</span>
+          <span className="text-muted-foreground">{NO_TRACKING_YET}</span>
         ) : (
           trackingLine(row.carrier, row.trackingCode)
         )}
@@ -94,6 +106,7 @@ function ShipmentRow({
         {row.delay === null ? null : (
           <ToneStatus tone="warning" label={SHIPMENT_DELAY_LABELS[row.delay]} />
         )}
+        <LastChange row={row} />
       </TableCell>
     </TableRow>
   );
@@ -133,8 +146,9 @@ function MobileShipmentRow({
         {row.catalogKind === "seller" ? "Estoque do revendedor" : row.supplierName}
       </p>
       <p className="text-xs [overflow-wrap:anywhere] text-muted-foreground">
-        {row.trackingCode === null ? "Sem código" : trackingLine(row.carrier, row.trackingCode)}
+        {row.trackingCode === null ? NO_TRACKING_YET : trackingLine(row.carrier, row.trackingCode)}
       </p>
+      <LastChange row={row} />
     </li>
   );
 }
@@ -161,7 +175,7 @@ function ShipmentsTable({
     return (
       <EmptyState
         icon={TruckIcon}
-        title="Nenhum envio encontrado"
+        title="Nenhum envio com esse filtro ou busca"
         description="Troque o filtro ou procure por outro código, pedido ou cliente."
       />
     );
@@ -211,7 +225,7 @@ function ShipmentsTableBody({
             <TableHead className="w-[24%]">Pedido</TableHead>
             <TableHead className="w-[26%]">Revendedor e fornecedor</TableHead>
             <TableHead className="w-[28%]">Rastreio</TableHead>
-            <TableHead className="w-[22%]">Status</TableHead>
+            <TableHead className="w-[22%]">Situação</TableHead>
           </TableRow>
         </TableHeader>
         <TableBody>

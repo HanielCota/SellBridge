@@ -1,3 +1,4 @@
+import { formatCnpj } from "@sellbridge/shared/account-documents";
 import { asaasAccountFormSchema } from "@/features/supplier-payments/asaas-account-form";
 
 /** What the supplier types, as typed (masks applied); the server reads it again with the schema. */
@@ -34,6 +35,27 @@ export const EMPTY_ASAAS_ACCOUNT: AsaasAccountValues = {
   province: "",
   monthlyIncome: "",
 };
+
+/**
+ * The contract sign-up rules, when on: the account opens only in the company data's CNPJ, which
+ * the form starts with, next to its razão social. Null while the rules are off.
+ */
+export interface ContractAccountRule {
+  readonly companyCnpj: string | null;
+  readonly companyName: string | null;
+}
+
+/** Where the form starts: the company data's CNPJ and razão social while the rules ask for them. */
+export function initialAsaasAccount(rule: ContractAccountRule | null): AsaasAccountValues {
+  if (rule?.companyCnpj == null) {
+    return EMPTY_ASAAS_ACCOUNT;
+  }
+  return {
+    ...EMPTY_ASAAS_ACCOUNT,
+    name: rule.companyName ?? "",
+    document: formatCnpj(rule.companyCnpj),
+  };
+}
 
 /** The three steps of opening the account, one group of questions each. */
 export const ASAAS_ACCOUNT_STEPS: readonly {

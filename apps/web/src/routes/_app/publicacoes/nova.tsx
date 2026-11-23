@@ -372,7 +372,7 @@ function ListingFieldsCard({
   readonly submitError: string | null;
 }) {
   return (
-    <Card className="animate-in duration-500 ease-out fade-in slide-in-from-bottom-2 motion-reduce:animate-none">
+    <Card>
       <CardHeader>
         <CardTitle className="text-base">Anúncio</CardTitle>
       </CardHeader>
@@ -838,14 +838,14 @@ function PublishBar({
         return (
           <section
             aria-label="Publicar"
-            className="sticky bottom-4 z-20 flex items-center gap-3 rounded-full bg-card p-1.5 pl-3 shadow-lg ring-1 shadow-black/20 ring-border animate-in duration-300 fade-in slide-in-from-bottom-3 motion-reduce:animate-none"
+            className="sticky bottom-0 z-20 -mx-4 flex items-center gap-3 border-t border-border bg-background px-4 pt-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] md:-mx-8 md:px-8"
           >
             <span className="flex shrink-0" aria-hidden="true">
               {selected.slice(0, 3).map((store) => (
                 <MarketplaceMark
                   key={store.id}
                   marketplace={store.marketplace}
-                  className="-ml-2 size-7 rounded-lg ring-2 ring-card first:ml-0 animate-in zoom-in-75 fade-in duration-200"
+                  className="-ml-2 size-7 rounded-lg ring-2 ring-background first:ml-0"
                 />
               ))}
             </span>

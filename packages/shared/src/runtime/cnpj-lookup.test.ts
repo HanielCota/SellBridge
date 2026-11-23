@@ -19,6 +19,8 @@ describe("createCnpjLookup", () => {
       razao_social: "CASA DAS PANELAS LTDA",
       situacao_cadastral: 2,
       descricao_situacao_cadastral: "ATIVA",
+      codigo_porte: 1,
+      opcao_pelo_mei: false,
     });
 
     const result = await lookUp(CNPJ);
@@ -28,7 +30,43 @@ describe("createCnpjLookup", () => {
       outcome: "active",
       legalName: "CASA DAS PANELAS LTDA",
       registrationStatus: "ATIVA",
+      companySize: "micro",
     });
+  });
+
+  it.each([
+    { codigo_porte: 3, opcao_pelo_mei: null, size: "small" },
+    { codigo_porte: 5, opcao_pelo_mei: null, size: "other" },
+    { codigo_porte: 1, opcao_pelo_mei: true, size: "mei" },
+    { codigo_porte: 1, opcao_pelo_mei: null, size: "unknown" },
+    { codigo_porte: 0, opcao_pelo_mei: false, size: "unknown" },
+    { codigo_porte: null, opcao_pelo_mei: null, size: "unknown" },
+    { codigo_porte: "grande", opcao_pelo_mei: "talvez", size: "unknown" },
+  ])(
+    "reads size code $codigo_porte with MEI option $opcao_pelo_mei as $size",
+    async ({ codigo_porte, opcao_pelo_mei, size }) => {
+      const { lookUp } = answering(200, {
+        razao_social: "CASA DAS PANELAS LTDA",
+        situacao_cadastral: 2,
+        codigo_porte,
+        opcao_pelo_mei,
+      });
+
+      const result = await lookUp(CNPJ);
+
+      expect(result).toMatchObject({ outcome: "active", companySize: size });
+    },
+  );
+
+  it("reads an answer without the size fields as an unknown size", async () => {
+    const { lookUp } = answering(200, {
+      razao_social: "CASA DAS PANELAS LTDA",
+      situacao_cadastral: 2,
+    });
+
+    const result = await lookUp(CNPJ);
+
+    expect(result).toMatchObject({ outcome: "active", companySize: "unknown" });
   });
 
   it("reads a closed company as inactive", async () => {

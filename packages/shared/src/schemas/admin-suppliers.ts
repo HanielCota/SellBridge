@@ -170,7 +170,7 @@ export const adminSaveSupplierSchema = adminSupplierValuesSchema.safeExtend({
 export const adminSetSupplierActiveSchema = adminSupplierIdSchema.extend({ active: z.boolean() });
 
 export const adminProductValuesSchema = z.object({
-  sku: freeText().trim().min(1, "Informe o SKU").max(100),
+  sku: freeText().trim().min(1, "Preencha o código do produto").max(100),
   title: freeText()
     .trim()
     .min(1, "Informe o título")

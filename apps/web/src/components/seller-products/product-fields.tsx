@@ -6,7 +6,7 @@ import { Label } from "@/components/ui/label";
 import { EmojiFreeTextareaField } from "@/components/form/emoji-free-textarea-field";
 
 const FIELDS = [
-  { key: "sku", label: "SKU" },
+  { key: "sku", label: "Código" },
   { key: "title", label: "Nome do produto" },
   { key: "cost", label: "Custo por unidade (R$)" },
   { key: "suggestedPrice", label: "Preço de venda (R$)" },

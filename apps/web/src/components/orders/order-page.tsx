@@ -10,14 +10,18 @@ import { TONE_DOT_CLASSES } from "@/components/data/tone-status";
 import { OrderBreakdown } from "@/components/financials/order-parts";
 import { SupplierCreditLines } from "@/components/financials/supplier-credit";
 import { OrderOperations } from "@/components/fulfillment/order-dialog";
+import { ProductVisual } from "@/components/catalog/product-visual";
+import { OrderNextStep } from "@/components/orders/order-next-step";
 import { OrderClaims } from "@/components/marketplace-claims/order-claims";
 import { ReviewAction } from "@/components/orders/review-action";
 import { ReviewDialog, type ReviewTarget } from "@/components/orders/review-dialog";
 import { OrderReturns } from "@/components/returns/order-returns";
 import { ORDER_TONES, OrderStatusBadge } from "@/components/reports/order-status-badge";
 import { Button } from "@/components/ui/button";
+import { cn } from "@/lib/utils";
 import { LISTING_LINK_WAITING_MESSAGE, listingLink } from "@/features/listings/listing-link";
 import { displayBuyerName } from "@/features/orders/buyer-name";
+import { orderItemsLabel } from "@/features/orders/order-items-label";
 import type { getOrderPageFn } from "@/features/orders/orders.functions";
 import { TalkToSupportButton } from "@/components/support/talk-to-support-button";
 import { TalkToSupplierButton } from "@/components/supplier-support/talk-to-supplier-button";
@@ -31,25 +35,42 @@ function PageSection({
   id,
   title,
   card = false,
+  focusable = false,
   children,
 }: {
   id: string;
   title: string;
+  /** A jump target of the next-step card: it takes the keyboard focus when reached. */
+  focusable?: boolean;
   /** On its own card, like the summaries; the shipping block keeps the page's background. */
   card?: boolean;
   children: ReactNode;
 }) {
   return (
     <section
-      aria-labelledby={id}
-      className={card ? "surface-card rounded-3xl bg-card p-5" : undefined}
+      id={focusable ? id : undefined}
+      tabIndex={focusable ? -1 : undefined}
+      aria-labelledby={`${id}-title`}
+      className={cn(
+        card && "surface-card rounded-3xl bg-card p-5",
+        focusable && "scroll-mt-24 outline-none",
+      )}
     >
-      <h2 id={id} className="mb-3 text-xs text-muted-foreground">
+      <h2 id={`${id}-title`} className="mb-3 text-xs text-muted-foreground">
         {title}
       </h2>
       {children}
     </section>
   );
+}
+
+/** What sold, under the order number: the number alone says nothing to the reseller. */
+function OrderItemsTitle({ items }: { items: OrderPageData["order"]["items"] }) {
+  const label = orderItemsLabel(items[0]?.title ?? null, items.length);
+  if (label === null) {
+    return null;
+  }
+  return <p className="font-medium">{label}</p>;
 }
 
 function OrderHeader({ page }: { page: OrderPageData }) {
@@ -65,6 +86,7 @@ function OrderHeader({ page }: { page: OrderPageData }) {
           </h1>
           <OrderStatusBadge status={order.status} />
         </div>
+        <OrderItemsTitle items={order.items} />
         <p className="text-sm text-muted-foreground">
           {order.storeName} · {displayBuyerName(order.buyerName)} ·{" "}
           <SmartDate date={order.orderedAt} />
@@ -94,7 +116,7 @@ function unitCostText(item: OrderItem, costPending: boolean): string {
   if (item.productId !== null) {
     return `custo ${formatCents(item.unitCostCents)} cada`;
   }
-  return costPending ? "custo pendente" : "sem custo do catálogo";
+  return costPending ? "sem custo informado" : "produto fora do catálogo, sem custo";
 }
 
 /** The ad the item sold from, on Mercado Livre; a line saying why when its link has not come. */
@@ -144,11 +166,18 @@ function OrderItems({
     <PageSection id="order-items" title="Itens" card>
       <ul className="divide-y">
         {items.map((item) => (
-          <li
-            key={item.id}
-            className="flex items-start justify-between gap-4 py-3 first:pt-0 last:pb-0"
-          >
-            <div className="min-w-0">
+          <li key={item.id} className="flex items-start gap-3 py-3 first:pt-0 last:pb-0">
+            {/* The photo tells two variants of one product apart, as the financial list does. */}
+            <span className="size-11 shrink-0 overflow-hidden rounded-xl">
+              <ProductVisual
+                imageUrl={item.imageUrl}
+                title={item.title}
+                categoryName={item.categoryName}
+                compact
+                className="size-full"
+              />
+            </span>
+            <div className="min-w-0 flex-1">
               <p className="font-medium">{item.title}</p>
               <p className="text-sm text-muted-foreground tabular-nums">
                 {item.quantity} × {formatCents(item.unitPriceCents)} ·{" "}
@@ -287,6 +316,7 @@ export function OrderPageView({ page }: { page: OrderPageData }) {
     <div className="mx-auto w-full max-w-6xl space-y-6">
       <BackToOrders />
       <OrderHeader page={page} />
+      <OrderNextStep orderId={page.order.id} />
       <OrderClaims orderId={page.order.id} marketplaceUrl={page.marketplaceUrl} />
       {/* The summary comes first in the page, so a phone shows it right under the heading. */}
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-[minmax(0,1fr)_20rem] lg:items-start">
@@ -298,7 +328,7 @@ export function OrderPageView({ page }: { page: OrderPageData }) {
             marketplace={page.order.marketplace}
             costPending={page.finance.costPending}
           />
-          <PageSection id="order-shipping" title="Envio">
+          <PageSection id="order-shipping" title="Envio" focusable>
             <OrderOperations orderId={page.order.id} />
           </PageSection>
         </div>

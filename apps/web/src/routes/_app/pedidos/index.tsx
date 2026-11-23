@@ -274,19 +274,16 @@ function OrderList({ onReview }: { onReview: (target: ReviewTarget) => void }) {
   }
   if (query.data.items.length === 0) {
     const message = search.query
-      ? { title: "Nenhum pedido encontrado", description: "Tente outro número ou fornecedor." }
+      ? { title: "Nenhum pedido com essa busca", description: "Tente outro número ou fornecedor." }
       : EMPTY_MESSAGES[search.review];
     return <EmptyState icon={ReceiptIcon} {...message} />;
   }
-  const listSignature = query.data.items.map((row) => `${row.orderId}:${row.supplierId}`).join();
   return (
     <div className="space-y-4" aria-busy={query.isFetching}>
-      {/* Old rows dim while the next filter loads, then the new set fades in with a small
-          rise. Reduced motion keeps the fade (opacity only) and drops the rise. */}
+      {/* Old rows dim while the next filter loads. */}
       <ul
-        key={listSignature}
         className={cn(
-          "surface-card divide-y rounded-3xl bg-card px-5 transition-opacity animate-in fade-in slide-in-from-bottom-2 duration-300 ease-[cubic-bezier(0.32,0.72,0,1)] motion-reduce:slide-in-from-bottom-0",
+          "surface-card divide-y rounded-3xl bg-card px-5 transition-opacity",
           query.isPlaceholderData && "opacity-60",
         )}
       >

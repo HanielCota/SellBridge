@@ -17,6 +17,7 @@ import {
 import {
   ASAAS_COMPANY_TYPE_LABELS,
   ASAAS_COMPANY_TYPES,
+  contractCnpjProblem,
 } from "@/features/supplier-payments/asaas-account-form";
 import { openAsaasAccountFn } from "@/features/supplier-payments/asaas.functions";
 import { asaasReceivingQueryOptions } from "@/features/supplier-payments/asaas.queries";
@@ -25,12 +26,13 @@ import { cn } from "@/lib/utils";
 import {
   ASAAS_ACCOUNT_STEPS,
   asaasAccountPayload,
-  EMPTY_ASAAS_ACCOUNT,
   formatBrazilianDate,
+  initialAsaasAccount,
   formatPostalCode,
   stepErrors,
   type AsaasAccountField,
   type AsaasAccountValues,
+  type ContractAccountRule,
 } from "./asaas-account-fields";
 
 type Errors = Partial<Record<AsaasAccountField, string>>;
@@ -41,6 +43,8 @@ interface StepProps {
   change: (field: AsaasAccountField, value: string) => void;
   /** Shows the field's warning as soon as the supplier leaves it, not only on Continuar. */
   check: (field: AsaasAccountField) => void;
+  /** The contract sign-up rules are on: only a company account, and never an MEI. */
+  companyOnly: boolean;
 }
 
 function Field(
@@ -96,6 +100,41 @@ function ChoiceButton(props: {
 
 const COMPANY_TYPE_ERROR_ID = "asaas-company-type-error";
 
+function companyTypesFor(companyOnly: boolean) {
+  return companyOnly ? ASAAS_COMPANY_TYPES.filter((type) => type !== "MEI") : ASAAS_COMPANY_TYPES;
+}
+
+function PersonTypeChoice(props: StepProps) {
+  const isPerson = props.values.personType === "person";
+  if (props.companyOnly) {
+    return (
+      <p className="text-sm text-muted-foreground">
+        A conta de recebimento é da empresa: use o CNPJ de uma empresa ME, EPP ou maior. MEI e
+        pessoa física (CPF) não podem ser fornecedor.
+      </p>
+    );
+  }
+  return (
+    <fieldset className="grid grid-cols-2 gap-2">
+      <legend className="mb-1 text-sm font-medium">Você recebe como</legend>
+      <ChoiceButton
+        name="asaas-person-type"
+        selected={!isPerson}
+        onSelect={() => props.change("personType", "company")}
+      >
+        Empresa (CNPJ)
+      </ChoiceButton>
+      <ChoiceButton
+        name="asaas-person-type"
+        selected={isPerson}
+        onSelect={() => props.change("personType", "person")}
+      >
+        Pessoa (CPF)
+      </ChoiceButton>
+    </fieldset>
+  );
+}
+
 function CompanyTypeField(props: StepProps) {
   return (
     <fieldset
@@ -104,7 +143,7 @@ function CompanyTypeField(props: StepProps) {
     >
       <legend className="mb-1 text-sm font-medium">Tipo de empresa</legend>
       <div className="grid grid-cols-2 gap-2">
-        {ASAAS_COMPANY_TYPES.map((type) => (
+        {companyTypesFor(props.companyOnly).map((type) => (
           <ChoiceButton
             key={type}
             name="asaas-company-type"
@@ -128,23 +167,7 @@ function WhoStep(props: StepProps) {
   const isPerson = props.values.personType === "person";
   return (
     <div className="grid gap-3">
-      <fieldset className="grid grid-cols-2 gap-2">
-        <legend className="mb-1 text-sm font-medium">Você recebe como</legend>
-        <ChoiceButton
-          name="asaas-person-type"
-          selected={!isPerson}
-          onSelect={() => props.change("personType", "company")}
-        >
-          Empresa (CNPJ)
-        </ChoiceButton>
-        <ChoiceButton
-          name="asaas-person-type"
-          selected={isPerson}
-          onSelect={() => props.change("personType", "person")}
-        >
-          Pessoa (CPF)
-        </ChoiceButton>
-      </fieldset>
+      <PersonTypeChoice {...props} />
       <Field {...props} field="name" label={isPerson ? "Nome completo" : "Razão social"} />
       {isPerson ? (
         <>
@@ -160,7 +183,15 @@ function WhoStep(props: StepProps) {
         </>
       ) : (
         <>
-          <Field {...props} field="document" label="CNPJ" format={formatCnpj} />
+          <Field
+            {...props}
+            field="document"
+            label="CNPJ"
+            {...(props.companyOnly
+              ? { hint: "O mesmo dos Dados fiscais da empresa, em Marca." }
+              : {})}
+            format={formatCnpj}
+          />
           <CompanyTypeField {...props} />
         </>
       )}
@@ -238,8 +269,19 @@ function useOpenAccount(supplierId: string, onDone: () => void) {
   });
 }
 
-function useStepFields(step: number) {
-  const [values, setValues] = useState(EMPTY_ASAAS_ACCOUNT);
+/** The step's field warnings, plus the company data CNPJ the contract rules ask for. */
+function errorsOf(values: AsaasAccountValues, step: number, rule: ContractAccountRule | null) {
+  const found: Errors = stepErrors(values, step, new Date());
+  const asksDocument = ASAAS_ACCOUNT_STEPS[step]?.fields.includes("document") ?? false;
+  if (rule === null || found.document !== undefined) {
+    return found;
+  }
+  const problem = asksDocument ? contractCnpjProblem(values.document, rule.companyCnpj) : null;
+  return problem === null ? found : { ...found, document: problem };
+}
+
+function useStepFields(step: number, rule: ContractAccountRule | null) {
+  const [values, setValues] = useState(() => initialAsaasAccount(rule));
   const [errors, setErrors] = useState<Errors>({});
   const change = (field: AsaasAccountField, value: string) => {
     setValues((current) => ({ ...current, [field]: value }));
@@ -250,7 +292,7 @@ function useStepFields(step: number) {
     if (values[field].trim() === "") {
       return;
     }
-    const found = stepErrors(values, step, new Date());
+    const found = errorsOf(values, step, rule);
     setErrors((current) => ({ ...current, [field]: found[field] }));
   };
   return { values, errors, setErrors, change, check };
@@ -259,16 +301,17 @@ function useStepFields(step: number) {
 /** Opens the supplier's Asaas account in three short steps; nothing typed is lost between them. */
 export function AsaasAccountDialog(props: {
   supplierId: string;
+  contractRule: ContractAccountRule | null;
   open: boolean;
   onOpenChange: (open: boolean) => void;
 }) {
   const [step, setStep] = useState(0);
-  const { values, errors, setErrors, change, check } = useStepFields(step);
+  const { values, errors, setErrors, change, check } = useStepFields(step, props.contractRule);
   const open = useOpenAccount(props.supplierId, () => props.onOpenChange(false));
   const isLast = step === ASAAS_ACCOUNT_STEPS.length - 1;
   const StepView = STEP_VIEWS[step] ?? WhoStep;
   const advance = () => {
-    const found = stepErrors(values, step, new Date());
+    const found = errorsOf(values, step, props.contractRule);
     setErrors(found);
     if (Object.keys(found).length > 0) {
       return;
@@ -288,7 +331,13 @@ export function AsaasAccountDialog(props: {
             Etapa {step + 1} de {ASAAS_ACCOUNT_STEPS.length}: {ASAAS_ACCOUNT_STEPS[step]?.title}
           </DialogDescription>
         </DialogHeader>
-        <StepView values={values} errors={errors} change={change} check={check} />
+        <StepView
+          values={values}
+          errors={errors}
+          change={change}
+          check={check}
+          companyOnly={props.contractRule !== null}
+        />
         {open.isError ? (
           <Alert variant="destructive">
             <AlertDescription>{errorMessage(open.error)}</AlertDescription>

@@ -18,7 +18,9 @@ import {
   canReplaceResellerSaleInvoice,
   claimDueResellerSaleInvoices,
   queueResellerSaleInvoices,
+  recordErpResellerSaleInvoice,
   recordMarketplaceResellerSaleInvoice,
+  resellerSaleErpInvoiceIdOf,
   resellerSaleInvoicesOf,
   saveTypedResellerSaleInvoice,
   saveUploadedResellerSaleInvoice,
@@ -319,6 +321,86 @@ describe("saveUploadedResellerSaleInvoice", () => {
   });
 });
 
+async function blingNote(progress: {
+  erpDraftRequestedAt?: Date;
+  erpInvoiceId?: number;
+  erpStoppedAt?: Date;
+}) {
+  const created = await scenario();
+  await queueResellerSaleInvoices(database);
+  await database
+    .update(shipmentResellerInvoices)
+    .set(progress)
+    .where(eq(shipmentResellerInvoices.shipmentId, created.shipmentId));
+  return created;
+}
+
+describe("a note the reseller's Bling holds", () => {
+  it("refuses another note while the reseller's Bling is issuing this one", async () => {
+    const { shipmentId, tenantId } = await blingNote({
+      erpDraftRequestedAt: new Date(),
+      erpInvoiceId: 9001,
+    });
+
+    await expect(
+      saveUploadedResellerSaleInvoice(database, {
+        tenantId,
+        shipmentId,
+        parts: keyParts(TYPED_KEY),
+        now: new Date(),
+      }),
+    ).rejects.toMatchObject({ code: "CONFLICT" });
+    expect((await noteOf(shipmentId))?.accessKey).toBeNull();
+  });
+
+  it("takes another note once the reseller's Bling stopped on its own", async () => {
+    const { shipmentId, tenantId } = await blingNote({
+      erpDraftRequestedAt: new Date(),
+      erpStoppedAt: new Date(),
+    });
+
+    await saveUploadedResellerSaleInvoice(database, {
+      tenantId,
+      shipmentId,
+      parts: keyParts(TYPED_KEY),
+      now: new Date(),
+    });
+
+    expect((await noteOf(shipmentId))?.accessKey).toBe(TYPED_KEY);
+  });
+
+  it("refuses another note over the one the reseller's Bling issued", async () => {
+    const { shipmentId, tenantId } = await blingNote({ erpInvoiceId: 9001 });
+    const invoiceId = (await noteOf(shipmentId))?.id;
+    if (invoiceId === undefined) {
+      throw new Error("the parcel has no reseller note");
+    }
+    await recordErpResellerSaleInvoice(database, {
+      invoiceId,
+      parts: keyParts(MARKETPLACE_KEY),
+      now: new Date(),
+    });
+
+    await expect(
+      saveTypedResellerSaleInvoice(database, {
+        tenantId,
+        shipmentId,
+        parts: keyParts(TYPED_KEY),
+        now: new Date(),
+      }),
+    ).rejects.toMatchObject({ code: "CONFLICT" });
+    expect((await noteOf(shipmentId))?.accessKey).toBe(MARKETPLACE_KEY);
+  });
+
+  it("gives the id of the note the reseller's Bling created", async () => {
+    const { shipmentId, tenantId } = await blingNote({ erpInvoiceId: 9001 });
+
+    const erpInvoiceId = await resellerSaleErpInvoiceIdOf(database, { tenantId, shipmentId });
+
+    expect(erpInvoiceId).toBe(9001);
+  });
+});
+
 describe("marketplace reads", () => {
   it("saves the note read on the marketplace with its issue date", async () => {
     const { shipmentId } = await scenario();
@@ -397,8 +479,23 @@ describe("marketplace reads", () => {
       problem: "A nota foi emitida por outro CNPJ.",
       issuedByErp: false,
       erpStopped: false,
+      erpStarted: false,
     });
     expect(await noteOf(shipmentId)).toMatchObject({ checks: 1, nextCheckAt });
+  });
+
+  it("says the reseller's Bling already started the note before its key came back", async () => {
+    const { shipmentId, tenantId } = await scenario();
+    await queueResellerSaleInvoices(database);
+    await database
+      .update(shipmentResellerInvoices)
+      .set({ erpDraftRequestedAt: new Date() })
+      .where(eq(shipmentResellerInvoices.shipmentId, shipmentId));
+
+    const note = (await resellerSaleInvoicesOf(database, tenantId, [shipmentId])).get(shipmentId);
+
+    expect(note?.accessKey).toBeNull();
+    expect(note?.erpStarted).toBe(true);
   });
 
   it("shows a reseller only its own parcels' notes", async () => {

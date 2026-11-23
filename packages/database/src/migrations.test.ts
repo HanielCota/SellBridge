@@ -606,4 +606,69 @@ describe("migrations", { timeout: MIGRATION_TEST_TIMEOUT }, () => {
     );
     expect(holder.map((row) => row.name)).toEqual(["cpf", "full_name", "starter_supplier_id"]);
   });
+
+  it("cancel_queued_parcels_of_cancelled_sales frees the queue of sales cancelled before the fix, once", async () => {
+    const migration = journal.entries.find((entry) =>
+      entry.tag.endsWith("_cancel_queued_parcels_of_cancelled_sales"),
+    );
+    if (migration === undefined) throw new Error("cancel_queued_parcels migration missing");
+    const url = await throwawayDatabase();
+    await applyMigrationsUpTo(url, migration.idx - 1);
+    const store = "00000000-0000-4000-8000-000000000105";
+    const supplier = "00000000-0000-4000-8000-000000000106";
+    const parcels: { id: string; order: "cancelled" | "paid"; status: string }[] = [
+      { id: "1", order: "cancelled", status: "forwarded" },
+      { id: "2", order: "cancelled", status: "accepted" },
+      { id: "3", order: "cancelled", status: "shipped" },
+      { id: "4", order: "paid", status: "forwarded" },
+    ];
+    await withClient(url, async (sql) => {
+      await sql`
+        insert into organization (id, name, slug, created_at)
+        values ('org-cancel', 'Loja', 'loja-cancel', now())`;
+      await sql`
+        insert into store_connections (id, tenant_id, marketplace, external_shop_id, shop_name, connected_at)
+        values (${store}, 'org-cancel', 'shopee', 'shop-cancel', 'Loja', now())`;
+      await sql`
+        insert into suppliers (id, name, niche, state, city)
+        values (${supplier}, 'Fornecedor', 'Teste', 'SP', 'Franca')`;
+      for (const parcel of parcels) {
+        const orderId = `00000000-0000-4000-8000-00000000030${parcel.id}`;
+        await sql`
+          insert into orders (id, tenant_id, store_connection_id, external_order_id, status, total_cents, ordered_at)
+          values (${orderId}, 'org-cancel', ${store}, ${`SH-${parcel.id}`}, ${parcel.order}, 10000, now())`;
+        await sql`
+          insert into order_shipments (id, tenant_id, order_id, supplier_id, status, address, items)
+          values (${`00000000-0000-4000-8000-00000000040${parcel.id}`}, 'org-cancel', ${orderId},
+            ${supplier}, ${parcel.status}, '{}'::jsonb, '[]'::jsonb)`;
+      }
+    });
+
+    await runMigrator(url);
+    const file = readFileSync(`${migrationsFolder}/${migration.tag}.sql`, "utf8");
+    await withClient(url, async (sql) => {
+      for (const statement of file.split("--> statement-breakpoint")) {
+        if (statement.trim()) await sql.unsafe(statement);
+      }
+    });
+
+    const rows = await withClient(
+      url,
+      (sql) => sql<{ id: string; status: string; notes: string[] }[]>`
+        select s.id, s.status,
+          coalesce(array_agg(e.note) filter (where e.id is not null), '{}') as notes
+        from order_shipments s
+        left join shipment_events e on e.shipment_id = s.id
+        group by s.id, s.status
+        order by s.id`,
+    );
+    const cancelNote =
+      "Venda cancelada na Shopee. Não envie o produto; se já separou, devolva ao estoque.";
+    expect(rows.map((row) => [row.status, row.notes])).toEqual([
+      ["cancelled", [cancelNote]],
+      ["cancelled", [cancelNote]],
+      ["shipped", []],
+      ["forwarded", []],
+    ]);
+  });
 });

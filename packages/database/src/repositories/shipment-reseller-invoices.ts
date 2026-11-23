@@ -272,6 +272,30 @@ async function remessaStarted(executor: DatabaseExecutor, shipmentId: string): P
   return row !== undefined;
 }
 
+const BLING_NOTE_SAVED =
+  "Esta venda já tem a nota que saiu do seu Bling. Para trocar, cancele essa nota no Bling e fale com o suporte do SellBridge.";
+const BLING_ISSUING =
+  "O seu Bling está emitindo a nota desta venda. Espere: se ele parar, o motivo aparece aqui e você pode enviar outra nota.";
+
+/**
+ * Another note while the reseller's Bling holds this one would leave the sale with two: the one
+ * it issued, or the one it may still send to SEFAZ while its run goes on.
+ */
+function refuseWhileBlingHoldsTheNote(existing: {
+  source: ResellerInvoiceSource | null;
+  erpInvoiceId: number | null;
+  erpDraftRequestedAt: Date | null;
+  erpStoppedAt: Date | null;
+}): void {
+  if (existing.source === "bling") {
+    throw conflictError(BLING_NOTE_SAVED);
+  }
+  const blingStarted = existing.erpInvoiceId !== null || existing.erpDraftRequestedAt !== null;
+  if (blingStarted && existing.erpStoppedAt === null) {
+    throw conflictError(BLING_ISSUING);
+  }
+}
+
 /**
  * Saves the reseller's note of its parcel with `source`: on a parcel still waiting, over the same
  * note (its XML after its typed key), or over another note while the supplier's remessa has not
@@ -295,6 +319,9 @@ async function saveResellerSaleInvoiceOf(
         id: shipmentResellerInvoices.id,
         accessKey: shipmentResellerInvoices.accessKey,
         source: shipmentResellerInvoices.source,
+        erpInvoiceId: shipmentResellerInvoices.erpInvoiceId,
+        erpDraftRequestedAt: shipmentResellerInvoices.erpDraftRequestedAt,
+        erpStoppedAt: shipmentResellerInvoices.erpStoppedAt,
       })
       .from(shipmentResellerInvoices)
       .where(
@@ -311,6 +338,9 @@ async function saveResellerSaleInvoiceOf(
     // The same note stays as it is, except a typed key whose XML now reached the marketplace.
     if (sameNote && (note.source === "typed" || existing.source !== "typed")) {
       return;
+    }
+    if (!sameNote) {
+      refuseWhileBlingHoldsTheNote(existing);
     }
     const replacing = existing.accessKey !== null && !sameNote;
     if (replacing && (await remessaStarted(transaction, note.shipmentId))) {
@@ -372,6 +402,23 @@ export async function canReplaceResellerSaleInvoice(
   return row !== undefined;
 }
 
+/** The id of the note the reseller's Bling created for its parcel, or null when it made none. */
+export async function resellerSaleErpInvoiceIdOf(
+  database: Database,
+  input: { tenantId: string; shipmentId: string },
+): Promise<number | null> {
+  const [row] = await database
+    .select({ erpInvoiceId: shipmentResellerInvoices.erpInvoiceId })
+    .from(shipmentResellerInvoices)
+    .where(
+      and(
+        eq(shipmentResellerInvoices.shipmentId, input.shipmentId),
+        eq(shipmentResellerInvoices.tenantId, input.tenantId),
+      ),
+    );
+  return row?.erpInvoiceId ?? null;
+}
+
 /** The reseller's sale note of a parcel, as the order screens show it. */
 export interface ResellerSaleInvoice {
   readonly accessKey: string | null;
@@ -384,6 +431,8 @@ export interface ResellerSaleInvoice {
   readonly issuedByErp: boolean;
   /** The Bling stopped on it: `problem` says why, and it waits for the reseller to retry. */
   readonly erpStopped: boolean;
+  /** The Bling already started the note (draft asked or note created): it may exist there. */
+  readonly erpStarted: boolean;
 }
 
 /** The reseller notes of the tenant's parcels, by parcel id; parcels without one are absent. */
@@ -406,6 +455,7 @@ export async function resellerSaleInvoicesOf(
       problem: shipmentResellerInvoices.problem,
       issuedByErp: ISSUED_BY_ERP,
       erpStopped: sql<boolean>`${shipmentResellerInvoices.erpStoppedAt} is not null`,
+      erpStarted: sql<boolean>`(${shipmentResellerInvoices.erpDraftRequestedAt} is not null or ${shipmentResellerInvoices.erpInvoiceId} is not null)`,
     })
     .from(shipmentResellerInvoices)
     .innerJoin(orderShipments, eq(orderShipments.id, shipmentResellerInvoices.shipmentId))
