@@ -77,7 +77,12 @@ export function BrandForm({ brand, account, categoryNames, onSaved }: BrandFormP
           errors={form.errors}
           onChange={form.change}
           onBehalfOperations={<OnBehalfOperations supplierId={brand.id} />}
-          invoiceSwitch={<BrandInvoiceSwitch supplierId={brand.id} />}
+          invoiceSwitch={
+            <BrandInvoiceSwitch
+              supplierId={brand.id}
+              invoiceModel={form.values.fiscalInvoiceModel}
+            />
+          }
         />
       </fieldset>
       <FormErrorAlert message={form.failure} />

@@ -1,3 +1,4 @@
+import type { InvoiceModel } from "@sellbridge/shared/supplier-invoice";
 import { useState } from "react";
 import { toast } from "sonner";
 import { TonePill } from "@/components/data/tone-status";
@@ -5,6 +6,7 @@ import { ConfirmDialog } from "@/components/feedback/confirm-dialog";
 import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
 import type { BlingConnectionView } from "@/features/supplier-panel/bling/bling-overview";
+import { enableInvoicingDescription } from "@/features/supplier-panel/bling/bling-invoice-text";
 import { useBlingActions } from "@/features/supplier-panel/bling/use-bling";
 import { SUPPLIER_PANEL_BASE_PATH } from "@/features/supplier-panel/home/attention-links";
 import { errorMessage } from "@/lib/errors";
@@ -35,17 +37,21 @@ function InvoiceState({ connection }: { connection: BlingConnectionView }) {
   return <TonePill tone="muted" label="Desligada" />;
 }
 
-function EnableInvoicingDialog(props: {
+function EnableInvoicingDialog({
+  invoiceModel,
+  ...props
+}: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   isPending: boolean;
   onConfirm: () => void;
+  invoiceModel: InvoiceModel;
 }) {
   return (
     <ConfirmDialog
       {...props}
       title="Ligar a nota fiscal pelo Bling?"
-      description="A partir de agora, cada pedido novo seu gera uma nota fiscal de verdade no seu Bling, enviada para a SEFAZ, com o comprador como destinatário. Pedidos que já chegaram não ganham nota aqui. Para desligar, é só voltar a chave."
+      description={enableInvoicingDescription(invoiceModel)}
       cancelLabel="Agora não"
       confirmLabel="Ligar a nota fiscal"
       pendingLabel="Ligando…"
@@ -60,9 +66,11 @@ function EnableInvoicingDialog(props: {
 export function BlingInvoiceSwitch({
   supplierId,
   connection,
+  invoiceModel,
 }: {
   supplierId: string;
   connection: BlingConnectionView;
+  invoiceModel: InvoiceModel;
 }) {
   const [confirming, setConfirming] = useState(false);
   const { setInvoicing } = useBlingActions(supplierId);
@@ -102,6 +110,7 @@ export function BlingInvoiceSwitch({
         open={confirming}
         onOpenChange={setConfirming}
         isPending={setInvoicing.isPending}
+        invoiceModel={invoiceModel}
         onConfirm={() =>
           setInvoicing.mutate(true, {
             onSuccess: () => {
