@@ -64,7 +64,7 @@ function SourceChoiceActions({
   onSave: () => void;
 }) {
   return (
-    <div className="sticky bottom-3 z-10 flex flex-wrap items-center gap-2 rounded-3xl bg-card/90 p-2 backdrop-blur-xl">
+    <div className="sticky bottom-3 z-10 flex flex-wrap items-center gap-2 rounded-3xl border border-border bg-card p-2">
       <Button
         type="button"
         variant="ghost"
