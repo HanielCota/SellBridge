@@ -59,8 +59,12 @@ export const listings = pgTable(
     title: text().notNull(),
     description: text().notNull(),
     priceCents: integer().notNull(),
-    /** The grid publication this combination's listing belongs to; null for a plain product. */
-    familyId: uuid().references(() => listingFamilies.id, { onDelete: "restrict" }),
+    /**
+     * The grid publication this combination's listing belongs to; null for a plain product.
+     * "No action", not "restrict": checked at the end of the statement, so deleting a tenant
+     * cascades to its families and listings together, whatever order Postgres removes them in.
+     */
+    familyId: uuid().references(() => listingFamilies.id, { onDelete: "no action" }),
     createdAt: timestamp({ withTimezone: true }).defaultNow().notNull(),
     updatedAt: timestamp({ withTimezone: true })
       .defaultNow()
