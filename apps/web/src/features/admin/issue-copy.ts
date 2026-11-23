@@ -32,7 +32,7 @@ function storeCopy(issue: Extract<CustomerIssue, { kind: "store" }>): IssueCopy 
   const expired = issue.stores.some((store) => store.status === "expired");
   const description = expired
     ? "O acesso expirou: pedidos e estoque estão parados."
-    : "A conexão falhou: pedidos e estoque não sincronizam.";
+    : "A loja caiu: pedidos e estoque não estão atualizando.";
   if (issue.stores.length === 1 && first) {
     return {
       title: `Reconectar ${first.shopName}`,

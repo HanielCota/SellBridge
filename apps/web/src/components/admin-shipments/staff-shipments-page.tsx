@@ -225,7 +225,7 @@ function ShipmentsTableBody({
             <TableHead className="w-[24%]">Pedido</TableHead>
             <TableHead className="w-[26%]">Revendedor e fornecedor</TableHead>
             <TableHead className="w-[28%]">Rastreio</TableHead>
-            <TableHead className="w-[22%]">Status</TableHead>
+            <TableHead className="w-[22%]">Situação</TableHead>
           </TableRow>
         </TableHeader>
         <TableBody>
