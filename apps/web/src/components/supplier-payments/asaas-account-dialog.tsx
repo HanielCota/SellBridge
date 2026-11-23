@@ -26,12 +26,13 @@ import { cn } from "@/lib/utils";
 import {
   ASAAS_ACCOUNT_STEPS,
   asaasAccountPayload,
-  EMPTY_ASAAS_ACCOUNT,
   formatBrazilianDate,
+  initialAsaasAccount,
   formatPostalCode,
   stepErrors,
   type AsaasAccountField,
   type AsaasAccountValues,
+  type ContractAccountRule,
 } from "./asaas-account-fields";
 
 type Errors = Partial<Record<AsaasAccountField, string>>;
@@ -268,21 +269,6 @@ function useOpenAccount(supplierId: string, onDone: () => void) {
   });
 }
 
-/**
- * The contract sign-up rules, when on: the account opens only in the company data's CNPJ, which
- * the form starts with. Null while the rules are off.
- */
-export interface ContractAccountRule {
-  readonly companyCnpj: string | null;
-}
-
-function initialValues(rule: ContractAccountRule | null): AsaasAccountValues {
-  if (rule?.companyCnpj == null) {
-    return EMPTY_ASAAS_ACCOUNT;
-  }
-  return { ...EMPTY_ASAAS_ACCOUNT, document: formatCnpj(rule.companyCnpj) };
-}
-
 /** The step's field warnings, plus the company data CNPJ the contract rules ask for. */
 function errorsOf(values: AsaasAccountValues, step: number, rule: ContractAccountRule | null) {
   const found: Errors = stepErrors(values, step, new Date());
@@ -295,7 +281,7 @@ function errorsOf(values: AsaasAccountValues, step: number, rule: ContractAccoun
 }
 
 function useStepFields(step: number, rule: ContractAccountRule | null) {
-  const [values, setValues] = useState(() => initialValues(rule));
+  const [values, setValues] = useState(() => initialAsaasAccount(rule));
   const [errors, setErrors] = useState<Errors>({});
   const change = (field: AsaasAccountField, value: string) => {
     setValues((current) => ({ ...current, [field]: value }));

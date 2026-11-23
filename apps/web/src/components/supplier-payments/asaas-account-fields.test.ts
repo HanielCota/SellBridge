@@ -4,6 +4,7 @@ import {
   EMPTY_ASAAS_ACCOUNT,
   formatBrazilianDate,
   formatPostalCode,
+  initialAsaasAccount,
   stepErrors,
 } from "./asaas-account-fields";
 
@@ -66,5 +67,21 @@ describe("stepErrors", () => {
     const errors = stepErrors(EMPTY_ASAAS_ACCOUNT, 2, TODAY);
 
     expect(errors.monthlyIncome).toBe("Informe quanto entra por mês, como 5.000,00");
+  });
+});
+
+describe("initialAsaasAccount", () => {
+  test("starts with the company data razão social next to its CNPJ", () => {
+    const values = initialAsaasAccount({
+      companyCnpj: "11222333000181",
+      companyName: "Olaria Cunha Ltda",
+    });
+
+    expect(values.name).toBe("Olaria Cunha Ltda");
+    expect(values.document).toBe("11.222.333/0001-81");
+  });
+
+  test("starts empty while the contract rules are off", () => {
+    expect(initialAsaasAccount(null)).toEqual(EMPTY_ASAAS_ACCOUNT);
   });
 });
