@@ -1,5 +1,6 @@
 import { formatCep } from "@sellbridge/shared/billing-address";
 import type { BuyerAddressResult } from "@sellbridge/shared/buyer-address";
+import { OTHER_SITUATION_ID } from "@sellbridge/shared/support-topics";
 import type { StatusTone } from "@/components/data/tone-status";
 
 /** A store's last check, as the stores page receives it. */
@@ -137,7 +138,10 @@ export function buyerAddressNoticeCopy(
 /** The new support ticket a held reseller opens to ask for a false alarm to be released. */
 export function falseAlarmTicketSearch(storeConnectionId: string, supplierName: string | null) {
   const supplier = supplierName ?? "do fornecedor";
+  // Topic and situation already picked: the reseller lands on the text, filled in to edit.
   return {
+    categoria: "store" as const,
+    situacao: OTHER_SITUATION_ID,
     loja: storeConnectionId,
     assunto: "Liberar loja: endereço de compra não é o do fornecedor",
     texto: `O SellBridge diz que o meu endereço de compra é o de ${supplier}, mas não é. Explique aqui o motivo (exemplo: moro no mesmo prédio).`,
