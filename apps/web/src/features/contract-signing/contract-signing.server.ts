@@ -2,6 +2,7 @@ import { createHmac, randomInt, timingSafeEqual } from "node:crypto";
 import {
   getContractSigningRequiredSince,
   getProfileCreatedAt,
+  getLiveSigningCodeSentAt,
   getSigningAccount,
   hasSignedContract,
   discardSigningCode,
@@ -20,6 +21,7 @@ import {
   describeUserAgent,
   SIGNING_CODE_LENGTH,
   SIGNING_CODES_PER_DAY,
+  signingCodeResendWaitInSeconds,
   type ContractStanding,
   uncheckedSummaryItems,
 } from "@sellbridge/shared/contract-signing";
@@ -180,6 +182,40 @@ export async function requestSigningCode(
   });
   logger.info("contract.code_sent", { tenantId: profile.tenantId, kind: profile.kind });
   return { sentTo: maskEmail(email) };
+}
+
+export interface PendingSigningCode {
+  sentTo: string;
+  resendWaitInSeconds: number;
+}
+
+/**
+ * The code already sent that can still be typed, so a reload goes back to the code step instead
+ * of spending another of the daily codes; null when there is none or signing is not open.
+ */
+export async function pendingSigningCode(
+  profile: SigningProfile,
+  now = new Date(),
+): Promise<PendingSigningCode | null> {
+  const standing = await loadContractStanding(profile.tenantId, profile.kind, now);
+  if (!canSignContract(standing)) {
+    return null;
+  }
+  const sentAt = await getLiveSigningCodeSentAt(database, {
+    userId: profile.userId,
+    tenantId: profile.tenantId,
+    kind: profile.kind,
+    version: contractFor(profile.kind).version,
+    now,
+  });
+  if (sentAt === null) {
+    return null;
+  }
+  const { email } = await signerIdentity(profile);
+  return {
+    sentTo: maskEmail(email),
+    resendWaitInSeconds: signingCodeResendWaitInSeconds(sentAt, now),
+  };
 }
 
 /**

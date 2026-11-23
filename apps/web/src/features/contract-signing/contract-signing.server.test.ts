@@ -2,6 +2,7 @@ import { contractFor } from "@sellbridge/shared/contract-documents";
 import { contractFingerprint } from "@sellbridge/shared/contract-fingerprint";
 import type {
   discardSigningCode,
+  getLiveSigningCodeSentAt,
   getSigningAccount,
   issueSigningCode,
   retireEarlierSigningCodes,
@@ -20,6 +21,7 @@ const mocks = vi.hoisted(() => ({
   discard: vi.fn<typeof discardSigningCode>(),
   retire: vi.fn<typeof retireEarlierSigningCodes>(),
   send: vi.fn<(email: OutgoingEmail) => Promise<void>>(),
+  liveCodeSentAt: vi.fn<typeof getLiveSigningCodeSentAt>(),
 }));
 vi.mock("@sellbridge/database/repositories", () => ({
   getContractSigningRequiredSince: mocks.requiredSince,
@@ -30,6 +32,7 @@ vi.mock("@sellbridge/database/repositories", () => ({
   signContractWithCode: mocks.sign,
   discardSigningCode: mocks.discard,
   retireEarlierSigningCodes: mocks.retire,
+  getLiveSigningCodeSentAt: mocks.liveCodeSentAt,
 }));
 vi.mock("@/lib/server/database", () => ({ database: {} }));
 vi.mock("@/lib/server/environment", () => ({
@@ -43,8 +46,13 @@ vi.mock("@/lib/server/mailer", () => ({ sendEmail: mocks.send }));
 vi.mock("@/lib/server/marketplaces", () => ({
   tokenCipher: { encrypt: (value: string) => `enc:${value}`, decrypt: (value: string) => value },
 }));
-const { contractStandingUnderSwitch, loadContractStanding, requestSigningCode, signContract } =
-  await import("./contract-signing.server");
+const {
+  contractStandingUnderSwitch,
+  loadContractStanding,
+  pendingSigningCode,
+  requestSigningCode,
+  signContract,
+} = await import("./contract-signing.server");
 
 const PROFILE = { userId: "user-1", tenantId: "tenant-1", kind: "seller" as const };
 const CONTRACT = contractFor("seller");
@@ -96,6 +104,7 @@ beforeEach(() => {
   mocks.discard.mockResolvedValue();
   mocks.retire.mockResolvedValue();
   mocks.send.mockResolvedValue();
+  mocks.liveCodeSentAt.mockResolvedValue(null);
 });
 
 describe("loadContractStanding", () => {
@@ -133,6 +142,36 @@ describe("contractStandingUnderSwitch", () => {
 
     expect(standing.kind).toBe("grace");
     expect(mocks.requiredSince).not.toHaveBeenCalled();
+  });
+});
+
+describe("pendingSigningCode", () => {
+  it("brings back the code step after a reload while the last code still works, sending nothing", async () => {
+    const now = new Date("2026-12-02T12:00:30Z");
+    mocks.liveCodeSentAt.mockResolvedValue(new Date("2026-12-02T12:00:00Z"));
+
+    const pending = await pendingSigningCode(PROFILE, now);
+
+    expect(pending).toEqual({
+      sentTo: expect.stringContaining("@loja.com.br"),
+      resendWaitInSeconds: 30,
+    });
+    expect(pending?.sentTo).not.toBe("maria@loja.com.br");
+    expect(mocks.issue).not.toHaveBeenCalled();
+    expect(mocks.send).not.toHaveBeenCalled();
+  });
+
+  it("opens on the summary when no code can still be typed", async () => {
+    mocks.liveCodeSentAt.mockResolvedValue(null);
+
+    await expect(pendingSigningCode(PROFILE, new Date("2026-12-02T12:00:00Z"))).resolves.toBeNull();
+  });
+
+  it("looks for no code while signing is not open", async () => {
+    mocks.requiredSince.mockResolvedValue(null);
+
+    await expect(pendingSigningCode(PROFILE)).resolves.toBeNull();
+    expect(mocks.liveCodeSentAt).not.toHaveBeenCalled();
   });
 });
 

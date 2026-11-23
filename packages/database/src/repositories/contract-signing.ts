@@ -252,6 +252,38 @@ async function codeRequestRefusal(
   return null;
 }
 
+/**
+ * When the person's latest code for this profile and version went out, while it can still be
+ * typed; null when there is none or it expired, was spent or ran out of tries.
+ */
+export async function getLiveSigningCodeSentAt(
+  database: DatabaseExecutor,
+  input: ContractProfileRef & { userId: string; now: Date },
+): Promise<Date | null> {
+  const [code] = await database
+    .select({
+      createdAt: contractSigningCodes.createdAt,
+      attempts: contractSigningCodes.attempts,
+      expiresAt: contractSigningCodes.expiresAt,
+      consumedAt: contractSigningCodes.consumedAt,
+    })
+    .from(contractSigningCodes)
+    .where(
+      and(
+        eq(contractSigningCodes.userId, input.userId),
+        eq(contractSigningCodes.tenantId, input.tenantId),
+        eq(contractSigningCodes.profileKind, input.kind),
+        eq(contractSigningCodes.contractVersion, input.version),
+      ),
+    )
+    .orderBy(desc(contractSigningCodes.createdAt))
+    .limit(1);
+  if (code === undefined || !signingCodeUsable(code, input.now)) {
+    return null;
+  }
+  return code.createdAt;
+}
+
 /** What is stored with a signature besides the profile, the user and the code check. */
 export interface ContractSignatureEvidence {
   contractHash: string;
