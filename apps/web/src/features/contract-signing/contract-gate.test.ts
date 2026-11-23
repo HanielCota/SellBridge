@@ -6,6 +6,7 @@ import {
   sessionContractOf,
   sessionMaySign,
   showsSigningReminder,
+  supplierContractAccess,
   toSessionContract,
 } from "./contract-gate";
 
@@ -87,5 +88,37 @@ describe("contract gate", () => {
     expect(needsContractSigning({ ...customer, contract }, false)).toBe(false);
     expect(showsSigningReminder({ ...customer, contract }, false)).toBe(false);
     expect(sessionMaySign({ ...customer, contract })).toBe(false);
+  });
+});
+
+// The supplier contract states SellBridge's 4%, which the client keeps from resellers (22/11/2026).
+describe("supplier contract page", () => {
+  const supplierProfile = { slug: "fornecedor-1", kind: "supplier" as const };
+  const sellerProfile = { slug: "loja-1", kind: "seller" as const };
+
+  it("sends an anonymous visitor to the login", () => {
+    expect(supplierContractAccess(null)).toBe("sign_in");
+  });
+
+  it("keeps the text from a reseller", () => {
+    const reseller = { user: { role: "user" }, profiles: [sellerProfile] };
+
+    expect(supplierContractAccess(reseller)).toBe("not_supplier");
+  });
+
+  it("keeps the text from an account with no profile yet", () => {
+    expect(supplierContractAccess({ user: { role: "user" }, profiles: [] })).toBe("not_supplier");
+  });
+
+  it("opens for an account with a supplier profile, even on its reseller tab", () => {
+    const supplier = { user: { role: "user" }, profiles: [sellerProfile, supplierProfile] };
+
+    expect(supplierContractAccess(supplier)).toBe("allowed");
+  });
+
+  it("opens for every team role, with or without a profile", () => {
+    for (const role of ["agent", "supervisor", "admin"]) {
+      expect(supplierContractAccess({ user: { role }, profiles: [] })).toBe("allowed");
+    }
   });
 });

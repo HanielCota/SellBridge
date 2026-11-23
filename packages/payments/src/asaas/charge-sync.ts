@@ -9,6 +9,7 @@ import {
 } from "@sellbridge/database/repositories";
 import { logger } from "@sellbridge/shared/logger";
 import { formatCents } from "@sellbridge/shared/money";
+import { endOfBrazilDay } from "@sellbridge/shared/period-range";
 import { z } from "zod";
 import { withAsaasAccount } from "./account-access.ts";
 import {
@@ -28,18 +29,24 @@ export type AsaasSyncResult =
 
 const externalReferenceSchema = z.uuid();
 
-/** Asaas sends the day the money came in (YYYY-MM-DD, São Paulo); noon keeps it on that day. */
-function approvedAtOf(paidOn: string | null, chargeId: string): Date {
+/**
+ * Asaas sends only the day the money came in (YYYY-MM-DD, São Paulo), never the time. The supplier's
+ * accept and dispatch times count from the payment, so it is recorded at the latest moment it can
+ * have happened: now for a payment of today, the end of the day for one SellBridge sees later.
+ * Either way the supplier's times never start before the reseller really paid.
+ */
+function approvedAtOf(paidOn: string | null, chargeId: string, now: Date): Date {
   if (paidOn === null) {
-    return new Date();
+    return now;
   }
-  const approvedAt = new Date(`${paidOn.slice(0, 10)}T12:00:00-03:00`);
-  if (Number.isNaN(approvedAt.getTime())) {
+  const afterPaidDay = endOfBrazilDay(paidOn.slice(0, 10));
+  if (afterPaidDay === null) {
     throw new AsaasError(`Asaas sent an invalid payment date "${paidOn}" on charge ${chargeId}`, {
       status: null,
     });
   }
-  return approvedAt;
+  const lastMomentOfPaidDay = afterPaidDay.getTime() - 1;
+  return new Date(Math.min(now.getTime(), lastMomentOfPaidDay));
 }
 
 /**
@@ -189,7 +196,7 @@ export async function applyAsaasCharge(
     providerPaymentId: input.charge.id,
     status: state.status,
     paymentMethod: state.paymentMethod,
-    approvedAt: approvedAtOf(paidOn, input.charge.id),
+    approvedAt: approvedAtOf(paidOn, input.charge.id, new Date()),
   });
   if (outcome === null) {
     return { kind: "ignored", reason: "unknown_payment" };
