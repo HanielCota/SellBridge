@@ -21,6 +21,12 @@ import {
   adminRemoveStoreSupplier,
 } from "@/features/admin/customers.functions";
 import { SectionCard } from "@/components/layout/section-card";
+import {
+  BuyerAddressReleaseDialog,
+  CustomerStoreBuyerAddressLine,
+  type CustomerStoreBuyerAddress,
+  type ReleaseTarget,
+} from "./customer-store-buyer-address";
 import { useAdminAction } from "@/features/admin/use-admin-action";
 
 interface CustomerStore {
@@ -34,6 +40,8 @@ interface CustomerStore {
   lastWebhookAt: Date | null;
   /** The suppliers the shop sells, oldest first; none while pending. */
   suppliers: readonly StoreSupplierOption[];
+  /** The last purchase-address check; null for a shop never checked. */
+  buyerAddress: CustomerStoreBuyerAddress | null;
 }
 
 const SUPPLIER_LIST_FORMAT = new Intl.ListFormat("pt-BR", { style: "long", type: "conjunction" });
@@ -75,10 +83,12 @@ function StoreRow({
   store,
   onManageSuppliers,
   onDisconnect,
+  onReleaseBuyerAddress,
 }: {
   store: CustomerStore;
   onManageSuppliers: () => void;
   onDisconnect: () => void;
+  onReleaseBuyerAddress: () => void;
 }) {
   return (
     <li className="flex flex-wrap items-center gap-x-3 gap-y-1.5 rounded-xl px-2 py-2.5 transition-[background-color,box-shadow] duration-100 hover:row-lift">
@@ -105,8 +115,12 @@ function StoreRow({
         </Button>
       </div>
       {/* Full width under the row, lined up with the text: the buttons never squeeze it. */}
-      <div className="basis-full pl-12">
+      <div className="basis-full space-y-2 pl-12">
         <StoreHealthLine store={store} />
+        <CustomerStoreBuyerAddressLine
+          check={store.buyerAddress}
+          onRelease={onReleaseBuyerAddress}
+        />
       </div>
     </li>
   );
@@ -137,6 +151,44 @@ function suppliersTargetOf(
   return { storeId: store.id, storeName: store.shopName, suppliers: store.suppliers };
 }
 
+function releaseTargetOf(store: CustomerStore): ReleaseTarget {
+  return {
+    storeConnectionId: store.id,
+    shopName: store.shopName,
+    supplierName: store.buyerAddress?.supplierName ?? null,
+  };
+}
+
+function DisconnectStoreDialog({
+  userId,
+  target,
+  onClose,
+}: {
+  userId: string;
+  target: CustomerStore | null;
+  onClose: () => void;
+}) {
+  const disconnect = useAdminAction(
+    (storeConnectionId: string) =>
+      adminDisconnectCustomerStore({ data: { userId, storeConnectionId } }),
+    "Loja desconectada",
+    onClose,
+  );
+  return (
+    <ConfirmDialog
+      open={target !== null}
+      onOpenChange={(open) => (open ? undefined : onClose())}
+      title={`Desconectar ${target?.shopName ?? "loja"}?`}
+      description="Os anúncios já publicados continuam no marketplace, mas o SellBridge para de atualizar estoque, preço e pedidos desta loja."
+      confirmLabel="Desconectar"
+      pendingLabel="Desconectando…"
+      destructive
+      isPending={disconnect.isPending}
+      onConfirm={() => (target ? disconnect.mutate(target.id) : undefined)}
+    />
+  );
+}
+
 export function CustomerStores({
   userId,
   stores,
@@ -146,13 +198,8 @@ export function CustomerStores({
 }) {
   const [target, setTarget] = useState<CustomerStore | null>(null);
   const [suppliersStoreId, setSuppliersStoreId] = useState<string | null>(null);
+  const [releaseTarget, setReleaseTarget] = useState<ReleaseTarget | null>(null);
   const supplierActions = useCustomerSupplierActions(userId);
-  const disconnect = useAdminAction(
-    (storeConnectionId: string) =>
-      adminDisconnectCustomerStore({ data: { userId, storeConnectionId } }),
-    "Loja desconectada",
-    () => setTarget(null),
-  );
   return (
     <SectionCard
       title="Lojas conectadas"
@@ -168,25 +215,21 @@ export function CustomerStores({
               store={store}
               onManageSuppliers={() => setSuppliersStoreId(store.id)}
               onDisconnect={() => setTarget(store)}
+              onReleaseBuyerAddress={() => setReleaseTarget(releaseTargetOf(store))}
             />
           ))}
         </ul>
       )}
-      <ConfirmDialog
-        open={target !== null}
-        onOpenChange={(open) => (open ? undefined : setTarget(null))}
-        title={`Desconectar ${target?.shopName ?? "loja"}?`}
-        description="Os anúncios já publicados continuam no marketplace, mas o SellBridge para de atualizar estoque, preço e pedidos desta loja."
-        confirmLabel="Desconectar"
-        pendingLabel="Desconectando…"
-        destructive
-        isPending={disconnect.isPending}
-        onConfirm={() => (target ? disconnect.mutate(target.id) : undefined)}
-      />
+      <DisconnectStoreDialog userId={userId} target={target} onClose={() => setTarget(null)} />
       <StoreSupplierDialog
         target={suppliersTargetOf(stores, suppliersStoreId)}
         actions={supplierActions}
         onClose={() => setSuppliersStoreId(null)}
+      />
+      <BuyerAddressReleaseDialog
+        userId={userId}
+        target={releaseTarget}
+        onClose={() => setReleaseTarget(null)}
       />
     </SectionCard>
   );
