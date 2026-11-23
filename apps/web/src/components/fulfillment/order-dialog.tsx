@@ -1,6 +1,7 @@
 import { type Dispatch, type SetStateAction, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { SETTLED_FULFILLMENT_STATUSES } from "@sellbridge/shared/schemas";
+import { REFORWARD_BLOCK_MESSAGES } from "@sellbridge/shared/shipment-payments";
 import { toast } from "sonner";
 import { ErrorState } from "@/components/feedback/error-state";
 import { Button } from "@/components/ui/button";
@@ -30,6 +31,7 @@ import { ShipmentPanel } from "./shipment-panel";
 import { ResellerSupplierPayment } from "@/components/supplier-payments/reseller-supplier-payment";
 import { CancelMoneyNote } from "@/components/supplier-payments/cancel-money-note";
 import { asksForSaleNote } from "@/features/fulfillment/sale-note-request";
+import { resellerSupplierPaymentQueryOptions } from "@/features/supplier-payments/supplier-payments.queries";
 import { TrackParcelLink } from "@/components/tracking/track-parcel-link";
 import { useTabProfileLink } from "@/lib/tab-profile";
 import { ShipmentActionHint, ShipmentActionIcon } from "./shipment-hints";
@@ -192,6 +194,8 @@ export function OrderOperations({ orderId }: { orderId: string }) {
       client.invalidateQueries({ queryKey: ["dashboard"] }),
       client.invalidateQueries({ queryKey: ["order-tracking", orderId] }),
       client.invalidateQueries({ queryKey: ["parcels-in-transit"] }),
+      // Cancelling a paid parcel sends its money back: the payment line and re-forward follow.
+      client.invalidateQueries({ queryKey: ["reseller-supplier-payment"] }),
     ]);
   }
   async function onForwarded(result: Awaited<ReturnType<typeof forwardOrderFn>>) {
@@ -379,6 +383,8 @@ function ReforwardButton({
   supplierHasPanel: boolean;
   onLink: (url: string) => Promise<void>;
 }) {
+  // A paid parcel's money goes back to the reseller: the server refuses, so say why instead.
+  const payment = useQuery(resellerSupplierPaymentQueryOptions(shipmentId));
   const mutation = useMutation({
     mutationFn: async () => {
       const result = await reforwardShipmentFn({ data: { shipmentId } });
@@ -392,8 +398,12 @@ function ReforwardButton({
           : "Envio reencaminhado. Compartilhe o novo link com o fornecedor.",
       ),
   });
+  const block = payment.data?.reforwardBlock ?? null;
+  if (block !== null) {
+    return <p className="w-full text-sm">{REFORWARD_BLOCK_MESSAGES[block]}</p>;
+  }
   return (
-    <Button disabled={mutation.isPending} onClick={() => mutation.mutate()}>
+    <Button disabled={payment.isPending || mutation.isPending} onClick={() => mutation.mutate()}>
       Reencaminhar ao fornecedor
     </Button>
   );

@@ -405,8 +405,11 @@ function ResellerStepNote(props: {
   return <p className="text-footnote text-muted-foreground">{note}</p>;
 }
 
-/** What cancelling means for whoever does it: the supplier hands the order back to the store. */
-function cancelCopy(actsAs: ShipmentOperator, supplierName: string) {
+/**
+ * What cancelling means for whoever does it: the supplier hands the order back to the store. With
+ * a money note, that note says whether the parcel can be re-forwarded (not once it was paid).
+ */
+function cancelCopy(actsAs: ShipmentOperator, supplierName: string, hasMoneyNote: boolean) {
   if (actsAs === "supplier") {
     return {
       title: "Cancelar este envio?",
@@ -416,8 +419,9 @@ function cancelCopy(actsAs: ShipmentOperator, supplierName: string) {
   }
   return {
     title: `Cancelar o envio de ${supplierName}?`,
-    description:
-      "O envio sai da fila do fornecedor. Enquanto o pedido estiver pago, dá para reencaminhar depois.",
+    description: hasMoneyNote
+      ? "O envio sai da fila do fornecedor."
+      : "O envio sai da fila do fornecedor. Enquanto o pedido estiver pago, dá para reencaminhar depois.",
   };
 }
 
@@ -466,7 +470,7 @@ function CancelShipment({
   moneyNote: React.ReactNode;
 }) {
   const dialog = useCancelShipment(update);
-  const copy = cancelCopy(actsAs, supplierName);
+  const copy = cancelCopy(actsAs, supplierName, moneyNote !== null && moneyNote !== undefined);
   return (
     <>
       <ShipmentActionHint action="cancelShipment" operator={actsAs}>

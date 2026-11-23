@@ -247,3 +247,63 @@ export function supplierPaymentRefundReason(input: {
   }
   return "not_dispatched";
 }
+
+/**
+ * Why a cancelled parcel's payment keeps it from going back to the supplier: its money is coming
+ * back to the reseller, waits for the team, or already came back.
+ */
+export type ReforwardBlock = "money_returning" | "held_for_team" | "money_returned";
+
+/** The payment fields that decide whether a cancelled parcel may be re-forwarded. */
+export interface ReforwardPaymentInput {
+  status: ShipmentPaymentStatus;
+  refundRequestedAt: Date | null;
+  refundFailedAt: Date | null;
+  refundHeldAt: Date | null;
+  releasedAt: Date | null;
+  escrowStatus: "active" | "done" | null;
+  teamDecision: "release" | "refund" | null;
+}
+
+/**
+ * Whether a cancelled parcel may go back to its supplier, judged by its payment. A paid parcel
+ * that is cancelled owes the money back to the reseller, so it never returns to the supplier with
+ * that payment: re-forwarding it would leave the supplier waiting for a payment the reseller can
+ * no longer make (one payment per parcel, and a refunded one stays closed). Allowed when nothing
+ * was paid, or when the money already went to the supplier.
+ */
+export function reforwardBlockFor(payment: ReforwardPaymentInput | null): ReforwardBlock | null {
+  if (payment === null) {
+    return null;
+  }
+  if (payment.status === "refunded" || payment.status === "charged_back") {
+    return "money_returned";
+  }
+  if (payment.status !== "approved") {
+    return null;
+  }
+  if (payment.refundRequestedAt !== null || payment.refundFailedAt !== null) {
+    return "money_returning";
+  }
+  const released =
+    payment.releasedAt !== null ||
+    payment.escrowStatus === "done" ||
+    payment.teamDecision === "release";
+  if (released) {
+    return null;
+  }
+  if (payment.refundHeldAt !== null) {
+    return "held_for_team";
+  }
+  return "money_returning";
+}
+
+/** What the reseller reads when a cancelled parcel cannot go back to its supplier. */
+export const REFORWARD_BLOCK_MESSAGES: Record<ReforwardBlock, string> = {
+  money_returning:
+    "Este envio não pode ser reencaminhado: o pagamento ao fornecedor está voltando para você.",
+  held_for_team:
+    "Este envio não pode ser reencaminhado enquanto a equipe do SellBridge confere o pagamento ao fornecedor.",
+  money_returned:
+    "Este envio não pode ser reencaminhado: o pagamento ao fornecedor já voltou para você.",
+};
