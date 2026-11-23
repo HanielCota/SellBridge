@@ -75,7 +75,7 @@ export function TopNav({ user, adminMode, profileKind, state }: TopNavProps) {
   return (
     <header
       ref={headerRef}
-      className="sticky top-0 z-30 bg-background/85 pt-[env(safe-area-inset-top)] backdrop-blur-xl"
+      className="sticky top-0 z-30 bg-background pt-[env(safe-area-inset-top)]"
     >
       <div className="mx-auto flex max-w-[1440px] items-center gap-3 px-4 py-4 md:px-8">
         <MobileNav

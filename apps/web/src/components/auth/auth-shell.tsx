@@ -26,7 +26,7 @@ export function AuthShell({ children }: { children: ReactNode }) {
         tabIndex={-1}
         className="flex flex-1 flex-col items-center justify-center px-5 pb-20"
       >
-        <div className="flex w-full max-w-[380px] animate-in flex-col items-center duration-500 ease-out fade-in slide-in-from-bottom-2 motion-reduce:animate-none">
+        <div className="flex w-full max-w-[380px] flex-col items-center">
           <AuthBrandLogo />
           <div className="w-full">{children}</div>
         </div>
