@@ -63,7 +63,7 @@ export interface StoreSupplierActions {
 type DialogView =
   { kind: "list" } | { kind: "add" } | { kind: "remove"; supplier: StoreSupplierOption };
 
-const FOOTER_CLASS = "sticky -bottom-5 -mx-5 -mb-5 bg-card/90 px-5 py-3 backdrop-blur-xl";
+const FOOTER_CLASS = "sticky -bottom-5 -mx-5 -mb-5 border-t border-border bg-card px-5 py-3";
 
 function countLabel(count: number, one: string, many: string): string {
   return count === 1 ? `1 ${one}` : `${count.toLocaleString("pt-BR")} ${many}`;
