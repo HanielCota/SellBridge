@@ -16,9 +16,9 @@ export interface FilterTab<TValue> {
   count?: number | undefined;
 }
 
-/** The optional count beside a tab's label, dimmed to match the pill under it. */
 const ACTIVE_TAB_CLASSES = "text-selected-foreground hover:text-selected-foreground";
 
+/** The optional count beside a tab's label, dimmed to match the pill under it. */
 function TabCount({ count, active }: { count: number | undefined; active: boolean }) {
   if (count === undefined) {
     return null;
