@@ -120,12 +120,25 @@ export async function findOpenSupportTicketForOrder(
 /** The tenant's latest orders not linked to this ticket yet, optionally searched. */
 export async function listLinkableOrders(
   database: Database,
-  input: { tenantId: string; ticketId: string; search?: string | undefined; limit: number },
+  input: {
+    tenantId: string;
+    /** Leaves out the orders this ticket already has; absent before the ticket exists. */
+    ticketId?: string | undefined;
+    search?: string | undefined;
+    limit: number;
+  },
 ): Promise<LinkedOrder[]> {
-  const alreadyLinked = database
-    .select({ one: sql`1` })
-    .from(ticketOrders)
-    .where(and(eq(ticketOrders.ticketId, input.ticketId), eq(ticketOrders.orderId, orders.id)));
+  const alreadyLinked =
+    input.ticketId === undefined
+      ? undefined
+      : notExists(
+          database
+            .select({ one: sql`1` })
+            .from(ticketOrders)
+            .where(
+              and(eq(ticketOrders.ticketId, input.ticketId), eq(ticketOrders.orderId, orders.id)),
+            ),
+        );
   return database
     .select(orderColumns)
     .from(orders)
@@ -133,7 +146,7 @@ export async function listLinkableOrders(
     .where(
       and(
         eq(orders.tenantId, input.tenantId),
-        notExists(alreadyLinked),
+        alreadyLinked,
         input.search
           ? matchesEveryWord(input.search, [orders.externalOrderId, orders.buyerName])
           : undefined,

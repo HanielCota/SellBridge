@@ -1,5 +1,10 @@
 import { describe, expect, it } from "vitest";
-import { canLinkOrders, replyTemplatesFor, ticketTopicLabel } from "./ticket-audience";
+import {
+  asksForOrderBeforeSending,
+  canLinkOrders,
+  replyTemplatesFor,
+  ticketTopicLabel,
+} from "./ticket-audience";
 
 describe("ticketTopicLabel", () => {
   it("names the topic the way the supplier saw it", () => {
@@ -21,5 +26,40 @@ describe("canLinkOrders", () => {
   it("only offers the order picker to resellers, whose stores have orders", () => {
     expect(canLinkOrders("seller")).toBe(true);
     expect(canLinkOrders("supplier")).toBe(false);
+  });
+});
+
+describe("asksForOrderBeforeSending", () => {
+  it("asks a reseller which order before sending an order ticket", () => {
+    expect(
+      asksForOrderBeforeSending({
+        kind: "seller",
+        category: "order",
+        openedFromOrderId: undefined,
+      }),
+    ).toBe(true);
+  });
+
+  it("does not ask when the form was opened from an order", () => {
+    expect(
+      asksForOrderBeforeSending({ kind: "seller", category: "order", openedFromOrderId: "x" }),
+    ).toBe(false);
+  });
+
+  it("does not ask on other topics or for a supplier", () => {
+    expect(
+      asksForOrderBeforeSending({
+        kind: "seller",
+        category: "payment",
+        openedFromOrderId: undefined,
+      }),
+    ).toBe(false);
+    expect(
+      asksForOrderBeforeSending({
+        kind: "supplier",
+        category: "order",
+        openedFromOrderId: undefined,
+      }),
+    ).toBe(false);
   });
 });
