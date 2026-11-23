@@ -49,6 +49,11 @@ export interface PublishProductInput {
   videoId?: string | null;
   /** Packed weight in grams (the product's fiscal net weight); TikTok Shop requires it. */
   packageWeightGrams?: number | null;
+  /**
+   * The grid this item is one colour and size of: every combination goes out under this name so
+   * Mercado Livre groups them on one page (User Products family_name). Null for a plain product.
+   */
+  familyName?: string | null;
 }
 
 export interface PublishOptions {

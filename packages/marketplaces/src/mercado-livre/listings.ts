@@ -123,13 +123,17 @@ function itemBody(
   input: PublishProductInput,
   listing: {
     title: string;
+    /** The grid's family name; a plain product's family is its own title. */
+    familyName: string | null;
     categoryId: string;
     userProducts: boolean;
     definitions: readonly FichaAttribute[];
   },
 ) {
   return {
-    ...(listing.userProducts ? { family_name: listing.title } : { title: listing.title }),
+    ...(listing.userProducts
+      ? { family_name: listing.familyName ?? listing.title }
+      : { title: listing.title }),
     category_id: listing.categoryId,
     price: input.priceCents / 100,
     currency_id: "BRL",
@@ -475,6 +479,14 @@ function creationWasRefused(error: unknown): boolean {
   );
 }
 
+/**
+ * A grid's colours and sizes only share one page as User Products items (one per combination,
+ * same family_name). A seller still on the classic model would get unrelated listings, so the
+ * grid is not published there.
+ */
+const GRID_NEEDS_USER_PRODUCTS =
+  "Esta conta do Mercado Livre ainda não usa o modelo de anúncios com cores e tamanhos numa página só. A grade não foi publicada nesta loja.";
+
 /** The item to create, in its category, after the category's required attributes are checked. */
 async function checkedItemBody(
   context: MercadoLivreContext,
@@ -491,12 +503,15 @@ async function checkedItemBody(
     path: `/users/${encodeURIComponent(store.externalShopId)}`,
     init: { accessToken: store.accessToken },
   });
-  const body = itemBody(input, {
-    title,
-    categoryId,
-    userProducts: seller.tags.includes("user_product_seller"),
-    definitions,
-  });
+  const userProducts = seller.tags.includes("user_product_seller");
+  const familyName =
+    input.familyName === undefined || input.familyName === null
+      ? null
+      : input.familyName.slice(0, MAX_TITLE_LENGTH);
+  if (familyName !== null && !userProducts) {
+    throw marketplaceError(GRID_NEEDS_USER_PRODUCTS, { retryable: false });
+  }
+  const body = itemBody(input, { title, familyName, categoryId, userProducts, definitions });
   await validateAttributes(context, store, { body, definitions });
   return body;
 }
