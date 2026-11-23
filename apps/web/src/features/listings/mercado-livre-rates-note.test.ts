@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { ratesNote } from "./mercado-livre-rates-note";
+import { missingWeightNote, ratesNote } from "./mercado-livre-rates-note";
 
 const now = new Date("2026-11-16T15:00:00Z");
 const threeHoursAgo = "2026-11-16T12:00:00.000Z";
@@ -39,5 +39,21 @@ describe("ratesNote", () => {
 
     expect(note).toContain("Frete da sua loja no Mercado Livre, consultado há 3 horas.");
     expect(note).toContain("falta a categoria do produto no Mercado Livre ou ele não respondeu");
+  });
+});
+
+describe("missingWeightNote", () => {
+  it("says shipping is estimated at 0,5 kg when the product has no weight", () => {
+    const note = missingWeightNote(null);
+
+    expect(note).toBe(
+      "O peso do produto não foi informado: o frete foi estimado para um pacote de até 0,5 kg.",
+    );
+  });
+
+  it("says nothing when the product has a weight", () => {
+    const note = missingWeightNote(1300);
+
+    expect(note).toBeNull();
   });
 });
