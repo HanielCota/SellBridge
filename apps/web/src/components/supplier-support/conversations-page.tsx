@@ -61,7 +61,7 @@ function NoConversations({ kind, isFiltered }: { kind: ProfileKind; isFiltered: 
     return (
       <EmptyState
         icon={ChatsCircleIcon}
-        title="Nenhuma conversa com essa busca"
+        title="Nenhuma conversa com esses filtros"
         description={
           kind === "supplier" ? "Mude a busca ou o assunto." : "Mude a busca ou a situação."
         }

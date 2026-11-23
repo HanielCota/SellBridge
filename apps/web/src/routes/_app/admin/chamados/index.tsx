@@ -481,7 +481,7 @@ function StaffTicketsTable({
   if (query.data.items.length === 0) {
     const text = isFiltered
       ? {
-          title: "Nenhum chamado com essa busca",
+          title: "Nenhum chamado com esses filtros",
           description: "Tire um filtro ou mude o que digitou.",
         }
       : EMPTY_QUEUE_TEXT[queue];

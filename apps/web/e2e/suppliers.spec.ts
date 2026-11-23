@@ -162,7 +162,7 @@ test.describe("fornecedores e catálogo", () => {
     await expect(page.getByRole("link", { name: "Ateliê Divinópolis Confecções" })).toHaveCount(0);
 
     await search.fill("zzz-inexistente");
-    await expect(page.getByText("Nenhum fornecedor com essa busca")).toBeVisible();
+    await expect(page.getByText("Nenhum fornecedor com esses filtros")).toBeVisible();
 
     await search.fill("");
     await page.getByRole("button", { name: "Pet", exact: true }).click();
@@ -229,7 +229,7 @@ test.describe("fornecedores e catálogo", () => {
     await expect(page.getByRole("link", { name: "BH Beauty Distribuidora" })).toHaveCount(0);
 
     await page.getByPlaceholder("Buscar nicho ou produto").fill("zzz-inexistente");
-    await expect(page.getByText("Nenhum fornecedor com essa busca")).toBeVisible();
+    await expect(page.getByText("Nenhum fornecedor com esses filtros")).toBeVisible();
     await page.getByRole("button", { name: "Limpar filtros" }).click();
     await expect(page.getByRole("link", { name: "Rio Pet Atacado" })).toBeVisible();
   });

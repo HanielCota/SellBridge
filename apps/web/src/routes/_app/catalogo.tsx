@@ -338,7 +338,7 @@ function NoProducts() {
   return (
     <EmptyState
       icon={PackageIcon}
-      title="Nenhum produto com essa busca"
+      title="Nenhum produto com essa busca ou filtro"
       description="Mude a busca ou limpe os filtros."
       action={
         <Button
