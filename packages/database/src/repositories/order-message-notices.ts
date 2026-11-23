@@ -1,12 +1,16 @@
-import { orderMessageContent } from "@sellbridge/shared/notification-events";
+import {
+  orderMessageContent,
+  storeOrderMessageContent,
+} from "@sellbridge/shared/notification-events";
 import type {
   OrderMessageAuthor,
   OrderMessageMoment,
 } from "@sellbridge/shared/order-message-email-throttle";
-import { SHIPMENT_ACTORS } from "@sellbridge/shared/schemas";
+import { SHIPMENT_ACTORS, type FulfillmentStatus } from "@sellbridge/shared/schemas";
 import { and, asc, eq, sql } from "drizzle-orm";
 import type { Database } from "../client.ts";
 import { orders, orderShipments, shipmentEvents, suppliers } from "../schema/index.ts";
+import { supplierTabFor } from "./marketplace-claims.ts";
 import { notifyWorkspace } from "./notification-producers.ts";
 
 /** What a "new message" notice needs about a parcel, on either side. */
@@ -18,8 +22,9 @@ export interface OrderMessageContext {
   forwardedAt: Date;
   /** The supplier's order e-mail; null when none was registered. */
   supplierEmail: string | null;
-  /** A supplier with its own panel reads messages there; the others only by the link. */
-  supplierHasAccount: boolean;
+  /** The supplier's panel organization: it reads messages there; without one, only by the link. */
+  supplierOrganizationId: string | null;
+  parcelStatus: FulfillmentStatus;
 }
 
 export async function findOrderMessageContext(
@@ -34,16 +39,13 @@ export async function findOrderMessageContext(
       forwardedAt: orderShipments.createdAt,
       supplierEmail: suppliers.contactEmail,
       supplierOrganizationId: suppliers.organizationId,
+      parcelStatus: orderShipments.status,
     })
     .from(orderShipments)
     .innerJoin(orders, eq(orders.id, orderShipments.orderId))
     .innerJoin(suppliers, eq(suppliers.id, orderShipments.supplierId))
     .where(eq(orderShipments.id, shipmentId));
-  if (row === undefined) {
-    return null;
-  }
-  const { supplierOrganizationId, ...context } = row;
-  return { ...context, supplierHasAccount: supplierOrganizationId !== null };
+  return row ?? null;
 }
 
 /**
@@ -62,6 +64,26 @@ export async function queueOrderMessageNotices(
     content: orderMessageContent({
       orderId: context.orderId,
       externalOrderId: context.externalOrderId,
+    }),
+  });
+}
+
+/**
+ * The supplier's people learn a store wrote (bell and e-mail, by each one's choice), in the
+ * supplier's panel organization. The text is not in the notice; `messageKey` keeps a retry single.
+ */
+export async function queueStoreOrderMessageNotices(
+  database: Database,
+  input: { context: OrderMessageContext; supplierOrganizationId: string; messageKey: string },
+): Promise<number> {
+  const { context } = input;
+  return notifyWorkspace(database, {
+    tenantId: input.supplierOrganizationId,
+    event: "store_order_message",
+    dedupeKey: `store_order_message:${input.messageKey}`,
+    content: storeOrderMessageContent({
+      externalOrderId: context.externalOrderId,
+      supplierTab: supplierTabFor(context.parcelStatus),
     }),
   });
 }

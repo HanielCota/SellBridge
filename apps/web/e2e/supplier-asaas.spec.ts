@@ -282,51 +282,26 @@ test("a parte do SellBridge sai só do valor dos produtos, nunca do frete", asyn
     .from(shipmentPayments)
     .where(eq(shipmentPayments.shipmentId, sale.shipmentId));
   const charges = await asaasChargesOf(page, payment?.id ?? "");
-  const feeCents = Math.round((8_000 * (payment?.platformFeeBasisPoints ?? 0)) / 10_000);
-  expect(payment).toMatchObject({ amountCents: 8_000, platformFeeCents: feeCents });
+  expect(payment).toMatchObject({
+    amountCents: 8_000,
+    platformFeeCents: 320,
+    platformFeeBasisPoints: 400,
+  });
   expect(charges.map((charge) => [charge.value, charge.split])).toEqual([
-    [80, [{ walletId: expect.any(String), fixedValue: feeCents / 100 }]],
+    [80, [{ walletId: expect.any(String), fixedValue: 3.2 }]],
   ]);
 });
 
-test("o admin define a taxa do SellBridge e ela vale no próximo pagamento", async ({
-  page,
-  browser,
-}) => {
-  const email = await accounts.signUp(page, "Cestaria Taxa E2E");
-  const supplierId = await giveTestBrand(database, email, "Cestaria Taxa E2E");
-  const sale = await forwardedSale(supplierId);
-  await openApprovedAsaasAccount(page);
+test("a taxa do SellBridge é fixa: o admin não tem campo para mudá-la", async ({ page }) => {
+  await signIn(page, ADMIN_USER);
 
-  const admin = await (await browser.newContext({ locale: "pt-BR" })).newPage();
-  await signIn(admin, ADMIN_USER);
-  await gotoHydrated(admin, "/admin/configuracoes");
-  const fee = admin.getByLabel("Taxa (%)");
-  await fee.fill("31");
-  await fee.blur();
-  await expect(admin.getByRole("alert")).toHaveText("A taxa vai de 0 a 30%. Diminua o valor.");
-  await fee.fill("5");
-  await expect(
-    admin.getByText("Num pedido de R$ 100,00, o SellBridge fica com R$ 5,00."),
-  ).toBeVisible();
-  await admin.getByRole("button", { name: "Salvar taxa" }).click();
-  await expect(admin.getByText(/^5% · desde/)).toBeVisible();
-  await admin.context().close();
+  await gotoHydrated(page, "/admin/configuracoes");
 
-  const reseller = await (await browser.newContext({ locale: "pt-BR" })).newPage();
-  await signIn(reseller, DEMO_USER);
-  await gotoHydrated(reseller, `/pedidos/${sale.orderId}`);
-  await reseller.getByRole("button", { name: "Pagar com Pix" }).click();
-  await expect(reseller.getByText("Total: R$ 80,00")).toBeVisible();
-  await reseller.getByRole("button", { name: "Pagar com Pix" }).click();
-  await expect(reseller.getByText(/Fornecedor pago ·/)).toBeVisible();
-  await reseller.context().close();
-
-  const [payment] = await database
-    .select()
-    .from(shipmentPayments)
-    .where(eq(shipmentPayments.shipmentId, sale.shipmentId));
-  expect(payment).toMatchObject({ platformFeeBasisPoints: 500, platformFeeCents: 400 });
+  await expect(page.getByRole("region", { name: "Aprovação de fornecedor novo" })).toBeVisible();
+  await expect(page.getByRole("region", { name: "Taxa do SellBridge nos pagamentos" })).toHaveCount(
+    0,
+  );
+  await expect(page.getByLabel("Taxa (%)")).toHaveCount(0);
 });
 
 test("o revendedor vê por que o pagamento protegido está voltando", async ({ page, browser }) => {

@@ -4,6 +4,7 @@ import type { Database } from "../client.ts";
 import { orders, orderShipments, shipmentEvents, suppliers } from "../schema/index.ts";
 import type { NotificationReader } from "./notifications.ts";
 import { listUnreadSupportReplies } from "./support.ts";
+import { storeOrderMessageEvents, type StoreOrderMessageEvent } from "./supplier-order-messages.ts";
 
 /*
  * Bell entries for someone answering the reseller: the support team on a ticket, or a supplier in
@@ -18,14 +19,19 @@ export interface SupportReplyEvent {
   subject: string;
 }
 
-export interface OrderMessageEvent {
+/** A supplier message, read by the store. */
+export interface SupplierOrderMessageEvent {
   kind: "order_message";
+  from: "supplier";
   /** The order, so the entry opens its page; one entry per order, its latest message. */
   entityId: string;
   at: Date;
   externalOrderId: string;
   supplierName: string;
 }
+
+/** A message in an order: the supplier's, read by the store, or the store's, read by the supplier. */
+export type OrderMessageEvent = SupplierOrderMessageEvent | StoreOrderMessageEvent;
 
 export async function supportReplyEvents(
   database: Database,
@@ -48,7 +54,7 @@ export async function supportReplyEvents(
 export async function orderMessageEvents(
   database: Database,
   input: { tenantId: string; since: Date; limit: number },
-): Promise<OrderMessageEvent[]> {
+): Promise<SupplierOrderMessageEvent[]> {
   const ranked = database
     .select({
       at: shipmentEvents.createdAt,
@@ -83,13 +89,14 @@ export async function orderMessageEvents(
     )
     .orderBy(desc(ranked.at))
     .limit(input.limit * 5);
-  const latestPerOrder = new Map<string, OrderMessageEvent>();
+  const latestPerOrder = new Map<string, SupplierOrderMessageEvent>();
   for (const row of rows) {
     if (latestPerOrder.has(row.orderId)) {
       continue;
     }
     latestPerOrder.set(row.orderId, {
       kind: "order_message",
+      from: "supplier",
       entityId: row.orderId,
       at: row.at,
       externalOrderId: row.externalOrderId,
@@ -97,4 +104,19 @@ export async function orderMessageEvents(
     });
   }
   return [...latestPerOrder.values()].slice(0, input.limit);
+}
+
+/**
+ * Both sides of the order messages for the bell: a store organization reads its suppliers' messages
+ * since `since`; a supplier profile reads the store messages it has not opened yet.
+ */
+export async function orderMessageBellEvents(
+  database: Database,
+  input: { tenantId: string; since: Date; limit: number },
+): Promise<OrderMessageEvent[]> {
+  const [fromSuppliers, fromStores] = await Promise.all([
+    orderMessageEvents(database, input),
+    storeOrderMessageEvents(database, input),
+  ]);
+  return [...fromSuppliers, ...fromStores];
 }

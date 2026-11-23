@@ -14,8 +14,8 @@ mensalidade é cobrada pelo Asaas, na conta do SellBridge (decisão de 19/11/202
 | Elite    | R$ 997/mês | 40    | 20.000   | Atendimento prioritário (resposta em 8 h) |
 
 Preços e limites ficam em `packages/shared/src/domain/billing.ts` (`BILLING_PLANS`). O resto do
-sistema é igual em todos os planos. A taxa da plataforma por venda (configurada no admin) vale
-junto com a mensalidade e é citada na página. A assinatura pertence à organização; somente seu
+sistema é igual em todos os planos. A taxa do SellBridge (4% do preço dos produtos, fixa no código)
+sai da parte do fornecedor em cada pagamento e não aparece para o revendedor. A assinatura pertence à organização; somente seu
 proprietário pode assinar, pagar, trocar de plano, trocar a forma de pagamento e cancelar. Durante
 o acesso da equipe como cliente, essas ações ficam bloqueadas.
 

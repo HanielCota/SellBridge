@@ -2,7 +2,14 @@ import { randomUUID } from "node:crypto";
 import { DELIVERY_CONFIRMED_BY, type MarketplaceTrackingStatus } from "@sellbridge/shared/schemas";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { and, eq } from "drizzle-orm";
-import { orderItems, orders, orderShipments, shipmentEvents, user } from "../schema/index.ts";
+import {
+  orderItems,
+  orders,
+  orderShipments,
+  shipmentEvents,
+  shipmentPayments,
+  user,
+} from "../schema/index.ts";
 import {
   createTestDatabase,
   createTestSupplierProduct,
@@ -151,6 +158,24 @@ function cancel(shipmentId: string, reason: string, token?: string) {
     },
     token ? { token } : { tenantId: tenants.tenantA },
   );
+}
+
+/** The parcel's supplier payment, as the payment flows leave it. */
+async function insertPayment(
+  shipmentId: string,
+  fields: Partial<typeof shipmentPayments.$inferInsert> & {
+    status: (typeof shipmentPayments.$inferInsert)["status"];
+  },
+) {
+  await database.insert(shipmentPayments).values({
+    shipmentId,
+    supplierId: supplierA.supplierId,
+    provider: "asaas",
+    amountCents: 2000,
+    platformFeeCents: 80,
+    platformFeeBasisPoints: 400,
+    ...fields,
+  });
 }
 
 async function cancelledNotices(userId = `reader-${randomUUID()}`) {
@@ -712,6 +737,60 @@ describe("fulfillment", () => {
     await expect(
       reforwardShipment(database, tenants.tenantA, link.shipmentId),
     ).rejects.toMatchObject({ code: "CONFLICT" });
+  });
+
+  it("keeps a cancelled parcel cancelled while its Pix goes back to the reseller by hand", async () => {
+    const order = await createOrder();
+    const [link] = await forward(order.id);
+    if (!link) throw new Error("No link");
+    await cancel(link.shipmentId, "Desisti da venda");
+    // Asaas refused to refund the held Pix: the team gives it back by hand.
+    const refusedAt = new Date();
+    await insertPayment(link.shipmentId, {
+      status: "approved",
+      paymentMethod: "PIX",
+      paidAt: refusedAt,
+      refundReason: "cancelled",
+      refundRequestedAt: refusedAt,
+      refundFailedAt: refusedAt,
+    });
+
+    await expect(
+      reforwardShipment(database, tenants.tenantA, link.shipmentId),
+    ).rejects.toMatchObject({
+      code: "CONFLICT",
+      message: expect.stringContaining("o pagamento ao fornecedor está voltando para você"),
+    });
+
+    const [shipment] = await database
+      .select({ status: orderShipments.status })
+      .from(orderShipments)
+      .where(eq(orderShipments.id, link.shipmentId));
+    expect(shipment?.status).toBe("cancelled");
+  });
+
+  it("does not re-forward a parcel whose supplier payment already went back", async () => {
+    const order = await createOrder();
+    const [link] = await forward(order.id);
+    if (!link) throw new Error("No link");
+    await cancel(link.shipmentId, "Desisti da venda");
+    await insertPayment(link.shipmentId, { status: "refunded", paymentMethod: "CREDIT_CARD" });
+
+    await expect(
+      reforwardShipment(database, tenants.tenantA, link.shipmentId),
+    ).rejects.toMatchObject({ code: "CONFLICT" });
+  });
+
+  it("re-forwards a cancelled parcel whose checkout was never paid", async () => {
+    const order = await createOrder();
+    const [link] = await forward(order.id);
+    if (!link) throw new Error("No link");
+    await cancel(link.shipmentId, "Produto em falta no depósito", link.token);
+    await insertPayment(link.shipmentId, { status: "pending" });
+
+    const again = await reforwardShipment(database, tenants.tenantA, link.shipmentId);
+
+    expect((await getSupplierShipment(database, again.token)).status).toBe("forwarded");
   });
 
   it("tells the reseller when a supplier cancels, until the parcel is re-forwarded", async () => {

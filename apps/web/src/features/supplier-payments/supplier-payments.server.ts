@@ -5,12 +5,10 @@ import {
   findPreparationHold,
   findShipmentPayment,
   findSupplierPaymentAccount,
-  getPaymentFeeSetting,
   listShipmentPaymentSummaries,
   openCheckoutUrl,
   releaseShipmentPaymentReservation,
   savePaymentPreference,
-  setPaymentFeeSetting,
   reopenShipmentCheckout,
   startShipmentPayment,
   type PayableShipment,
@@ -22,8 +20,9 @@ import { notFoundError, validationError } from "@sellbridge/shared/errors";
 import { logger } from "@sellbridge/shared/logger";
 import { SETTLED_FULFILLMENT_STATUSES } from "@sellbridge/shared/schemas";
 import {
-  effectivePaymentFeeBasisPoints,
+  PAYMENT_FEE_BASIS_POINTS,
   platformFeeCents,
+  reforwardBlockFor,
   supplierPaymentBadge,
   type PaidParcelFate,
   type SupplierPaymentBadge,
@@ -59,16 +58,13 @@ const PROVIDER = "mercado_pago";
 /** The supplier's receiving page: whether paying here is on and how the account stands. */
 export async function loadPaymentAccount(supplierId: string) {
   const settings = mercadoPagoSettings();
-  const [account, fee] = await Promise.all([
-    findSupplierPaymentAccount(database, { supplierId, provider: PROVIDER }),
-    getPaymentFeeSetting(database),
-  ]);
+  const account = await findSupplierPaymentAccount(database, { supplierId, provider: PROVIDER });
   return {
     available: settings !== null,
     status: account?.status ?? "none",
     connectedAt: account?.connectedAt.toISOString() ?? null,
     updatedAt: account?.updatedAt.toISOString() ?? null,
-    feeBasisPoints: effectivePaymentFeeBasisPoints(fee.basisPoints),
+    feeBasisPoints: PAYMENT_FEE_BASIS_POINTS,
   };
 }
 
@@ -323,6 +319,8 @@ export async function loadResellerSupplierPayment(input: { tenantId: string; shi
     /** Held until delivery (Asaas): the reseller sees the protection seal. */
     protectedPayment: provider === "asaas",
     provider,
+    /** Why the cancelled parcel cannot go back to its supplier; null when it can, or is not cancelled. */
+    reforwardBlock: payable.status === "cancelled" ? reforwardBlockFor(payable.payment) : null,
   };
 }
 
@@ -562,17 +560,14 @@ async function reserveParcel(
   payable: PayableShipment,
   provider: PaymentProviderName,
 ): Promise<ShipmentPayment | null> {
-  const feeBasisPoints = effectivePaymentFeeBasisPoints(
-    (await getPaymentFeeSetting(database)).basisPoints,
-  );
   const now = new Date();
   return startShipmentPayment(database, {
     shipmentId: payable.shipmentId,
     supplierId: payable.supplierId,
     provider,
     amountCents: payable.amountCents,
-    platformFeeCents: platformFeeCents(payable.amountCents, feeBasisPoints),
-    platformFeeBasisPoints: feeBasisPoints,
+    platformFeeCents: platformFeeCents(payable.amountCents, PAYMENT_FEE_BASIS_POINTS),
+    platformFeeBasisPoints: PAYMENT_FEE_BASIS_POINTS,
     now,
     reservedUntil: new Date(now.getTime() + CHECKOUT_RESERVATION_IN_MS),
   });
@@ -667,20 +662,4 @@ export async function confirmSupplierPaymentReturn(input: {
     }
   }
   return loadResellerSupplierPayment(input);
-}
-
-/** The fee rate the admin sees and edits; the default one while none is saved. */
-export async function loadPaymentFee() {
-  const fee = await getPaymentFeeSetting(database);
-  return {
-    basisPoints: effectivePaymentFeeBasisPoints(fee.basisPoints),
-    isDefault: fee.basisPoints === null,
-    updatedAt: fee.updatedAt?.toISOString() ?? null,
-  };
-}
-
-export async function savePaymentFee(input: { basisPoints: number; userId: string }) {
-  const saved = await setPaymentFeeSetting(database, input);
-  logger.info("platform_settings.payment_fee_changed", { basisPoints: saved.basisPoints });
-  return { basisPoints: saved.basisPoints, updatedAt: saved.updatedAt?.toISOString() ?? null };
 }

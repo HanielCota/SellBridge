@@ -36,6 +36,7 @@ import {
   supplierScope,
   type SupplierShipmentFilters,
 } from "./supplier-panel-orders-sql.ts";
+import { hasUnreadStoreMessage } from "./supplier-order-messages.ts";
 
 export const SUPPLIER_ORDERS_PAGE_SIZE = 25;
 
@@ -81,6 +82,7 @@ const rowColumns = {
   labelPrintCount: orderShipments.labelPrintCount,
   labelWaitingSince: orderShipments.labelWaitingSince,
   splitOrder: splitOrderSql,
+  hasUnreadStoreMessage,
   emailFailed,
   invoiceStatus,
   preparationHold,

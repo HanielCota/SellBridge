@@ -1,20 +1,11 @@
-import {
-  MAX_PAYMENT_FEE_BASIS_POINTS,
-  SUPPLIER_PAY_METHODS,
-} from "@sellbridge/shared/shipment-payments";
+import { SUPPLIER_PAY_METHODS } from "@sellbridge/shared/shipment-payments";
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
-import {
-  staffMiddleware,
-  supplierPanelMiddleware,
-  tenantMiddleware,
-} from "@/lib/server/middleware";
+import { supplierPanelMiddleware, tenantMiddleware } from "@/lib/server/middleware";
 import {
   confirmSupplierPaymentReturn,
   loadPaymentAccount,
-  loadPaymentFee,
   loadResellerSupplierPayment,
-  savePaymentFee,
   startSupplierCheckout,
   unlinkPaymentAccount,
 } from "./supplier-payments.server";
@@ -76,24 +67,4 @@ export const confirmSupplierPaymentReturnFn = createServerFn({ method: "POST" })
         shipmentId: data.shipmentId,
         providerPaymentId: data.providerPaymentId,
       }),
-  );
-
-export const getPaymentFeeFn = createServerFn({ method: "GET" })
-  .middleware([staffMiddleware("settings.manage")])
-  .handler(async () => await loadPaymentFee());
-
-export const savePaymentFeeFn = createServerFn({ method: "POST" })
-  .middleware([staffMiddleware("settings.manage")])
-  .validator(
-    z.object({
-      basisPoints: z
-        .number()
-        .int("Use no máximo uma casa depois da vírgula.")
-        .min(0, "A taxa não pode ser negativa.")
-        .max(MAX_PAYMENT_FEE_BASIS_POINTS, "A taxa vai de 0 a 30%."),
-    }),
-  )
-  .handler(
-    async ({ data, context }) =>
-      await savePaymentFee({ basisPoints: data.basisPoints, userId: context.userId }),
   );

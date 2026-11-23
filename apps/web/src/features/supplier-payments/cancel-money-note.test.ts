@@ -1,6 +1,6 @@
 import { formatCents } from "@sellbridge/shared/money";
 import { describe, expect, test } from "vitest";
-import { cancelMoneyNote } from "./cancel-money-note";
+import { cancelMoneyNote, cancelReforwardSentence } from "./cancel-money-note";
 
 const AMOUNT = formatCents(8990);
 const paid = { kind: "paid", paidAt: "2026-11-21T12:00:00.000Z", method: "PIX" } as const;
@@ -55,5 +55,19 @@ describe("cancelMoneyNote", () => {
     });
 
     expect(note).toBeNull();
+  });
+});
+
+describe("cancelReforwardSentence", () => {
+  test("does not promise a re-forward once the supplier was paid", () => {
+    expect(cancelReforwardSentence(paid)).toBe(
+      "Depois de cancelar, não dá para reencaminhar este envio ao fornecedor.",
+    );
+  });
+
+  test("keeps the re-forward open while the supplier is not paid", () => {
+    expect(cancelReforwardSentence({ kind: "waiting" })).toBe(
+      "Enquanto o pedido estiver pago, dá para reencaminhar depois.",
+    );
   });
 });
