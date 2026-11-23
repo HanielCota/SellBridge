@@ -1,5 +1,6 @@
 /** What the user sees for any error the app did not word on purpose. */
-export const UNEXPECTED_ERROR_MESSAGE = "Ocorreu um erro inesperado. Tente novamente.";
+export const UNEXPECTED_ERROR_MESSAGE =
+  "Algo falhou do nosso lado. Tente de novo; se repetir, abra um chamado no Suporte.";
 
 /**
  * Error names whose message the user may read: a server function error arrives as a plain

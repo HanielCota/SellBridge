@@ -480,7 +480,10 @@ function StaffTicketsTable({
   }
   if (query.data.items.length === 0) {
     const text = isFiltered
-      ? { title: "Nenhum chamado encontrado", description: "Ajuste a busca ou os filtros." }
+      ? {
+          title: "Nenhum chamado com essa busca",
+          description: "Tire um filtro ou mude o que digitou.",
+        }
       : EMPTY_QUEUE_TEXT[queue];
     return <EmptyState icon={TrayIcon} title={text.title} description={text.description} />;
   }

@@ -175,7 +175,7 @@ function ShipmentsTable({
     return (
       <EmptyState
         icon={TruckIcon}
-        title="Nenhum envio encontrado"
+        title="Nenhum envio com esse filtro ou busca"
         description="Troque o filtro ou procure por outro código, pedido ou cliente."
       />
     );

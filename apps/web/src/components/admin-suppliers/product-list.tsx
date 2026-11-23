@@ -136,8 +136,8 @@ function ProductTable({
     return (
       <EmptyState
         icon={PackageIcon}
-        title="Nenhum produto encontrado"
-        description="Crie um produto, importe um CSV ou ajuste a busca."
+        title="Nenhum produto"
+        description="Crie um produto, importe uma planilha ou mude a busca."
       />
     );
   }

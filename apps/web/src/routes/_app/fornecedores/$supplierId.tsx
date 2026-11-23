@@ -301,8 +301,8 @@ function CatalogResults() {
     return (
       <EmptyState
         icon={PackageIcon}
-        title="Nenhum produto encontrado"
-        description="Ajuste a busca ou os filtros."
+        title="Nenhum produto aqui"
+        description="Mude a busca ou os filtros. Sem filtro, é porque este fornecedor ainda não tem produtos à venda."
       />
     );
   }

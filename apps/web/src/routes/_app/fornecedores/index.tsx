@@ -229,7 +229,7 @@ function SupplierList({ search }: { search: ReturnType<typeof Route.useSearch> }
     return (
       <EmptyState
         icon={StorefrontIcon}
-        title="Nenhum fornecedor encontrado"
+        title={hasFilters(search) ? "Nenhum fornecedor com essa busca" : "Nenhum fornecedor ainda"}
         description={
           hasFilters(search)
             ? "Tente outro nicho, produto ou lugar."

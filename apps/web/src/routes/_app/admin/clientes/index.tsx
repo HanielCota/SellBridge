@@ -327,7 +327,7 @@ function NoCustomers({
     return (
       <EmptyState
         icon={UsersThreeIcon}
-        title="Nenhum cliente encontrado"
+        title="Nenhum cliente com essa busca"
         description="Confira o nome ou o e-mail buscado."
       />
     );

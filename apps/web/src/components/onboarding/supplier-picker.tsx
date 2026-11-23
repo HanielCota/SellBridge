@@ -95,7 +95,7 @@ function SupplierOptions({
     return (
       <EmptyState
         icon={StorefrontIcon}
-        title="Nenhum fornecedor encontrado"
+        title={isFiltered ? "Nenhum fornecedor com essa busca" : "Nenhum fornecedor ainda"}
         description={
           isFiltered ? "Tente outro nome, nicho ou estado." : "Ainda não há fornecedores ativos."
         }

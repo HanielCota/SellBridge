@@ -79,7 +79,7 @@ export function ProductCards({
   if (products.length === 0)
     return (
       <p className="surface-card rounded-3xl bg-card p-8">
-        Nenhum produto encontrado. Cadastre seu primeiro produto ou altere os filtros.
+        Nenhum produto com esse nome ou filtro. Limpe os filtros ou cadastre um produto.
       </p>
     );
   return (

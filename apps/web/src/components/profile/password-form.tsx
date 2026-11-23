@@ -86,7 +86,7 @@ function useChangePassword() {
       return;
     }
     if (result.error) {
-      toast.error("Não foi possível trocar sua senha. Tente novamente.");
+      toast.error("Sua senha não foi trocada. Confira a internet e tente de novo.");
       return;
     }
     setValues(EMPTY);

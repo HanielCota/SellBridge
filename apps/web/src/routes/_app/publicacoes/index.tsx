@@ -171,10 +171,12 @@ function ListingsGrid() {
     return (
       <EmptyState
         icon={MegaphoneIcon}
-        title={isFiltered ? "Nenhuma publicação encontrada" : "Você ainda não publicou produtos"}
+        title={
+          isFiltered ? "Nenhuma publicação com essa busca" : "Você ainda não publicou produtos"
+        }
         description={
           isFiltered
-            ? "Ajuste a busca ou escolha outra situação."
+            ? "Mude a busca ou escolha outra situação."
             : "Escolha produtos no catálogo e publique nas suas lojas."
         }
         action={
