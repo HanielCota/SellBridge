@@ -71,7 +71,7 @@ describe("manual sale draft", () => {
     const result = readManualSale(draft);
 
     expect(result.errors).toEqual({
-      externalOrderId: "Informe o número do pedido, como aparece no canal",
+      externalOrderId: "Digite o número do pedido, como aparece na Shopee ou no TikTok Shop",
       "items.0.quantity": "A quantidade é de pelo menos 1",
     });
   });
@@ -84,7 +84,7 @@ describe("manual sale draft", () => {
 
   it("drops a field's message once it changes, and every product message once the list changes", () => {
     const errors = {
-      externalOrderId: "Informe o número do pedido, como aparece no canal",
+      externalOrderId: "Digite o número do pedido, como aparece na Shopee ou no TikTok Shop",
       buyerName: "Informe o nome do comprador, como está na etiqueta",
       "items.0.quantity": "A quantidade é de pelo menos 1",
     };
@@ -128,7 +128,8 @@ describe("manual sale draft channel fee", () => {
     expect(draftEstimatedFeeCents(draft)).toBeNull();
     expect(draftFeeField(draft)).toBe("");
     expect(readManualSale(draft).errors).toMatchObject({
-      marketplaceFeeCents: "Informe a taxa. Se o canal não cobrou nada, digite 0",
+      marketplaceFeeCents:
+        "Preencha a taxa. Se a Shopee ou o TikTok Shop não cobrou nada, digite 0",
     });
   });
 
@@ -136,7 +137,8 @@ describe("manual sale draft channel fee", () => {
     const result = readManualSale({ ...draftWithProduct(), fee: "" });
 
     expect(result.errors).toEqual({
-      marketplaceFeeCents: "Informe a taxa. Se o canal não cobrou nada, digite 0",
+      marketplaceFeeCents:
+        "Preencha a taxa. Se a Shopee ou o TikTok Shop não cobrou nada, digite 0",
     });
   });
 

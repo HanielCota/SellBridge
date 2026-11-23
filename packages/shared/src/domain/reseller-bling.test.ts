@@ -92,7 +92,7 @@ describe("paymentMethodFor", () => {
     );
 
     expect(found.problem).toBe(
-      'Falta a forma de pagamento "Cartão de débito Visa". Crie no seu Bling, escolha em Integrações › Bling e peça para tentar de novo.',
+      'Falta a forma de pagamento "Cartão de débito Visa". Crie no seu Bling, escolha em Integrações › Bling e toque em Tentar de novo no pedido.',
     );
   });
 

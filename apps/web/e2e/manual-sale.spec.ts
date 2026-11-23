@@ -48,7 +48,9 @@ test("registers a Shopee sale by hand, reads its label and forwards it to the su
   await expect(page.getByText("Adicione pelo menos um produto")).toBeVisible();
 
   await page.getByLabel("Número do pedido").fill(externalOrderId);
-  await expect(page.getByText("Informe o número do pedido, como aparece no canal")).toBeHidden();
+  await expect(
+    page.getByText("Digite o número do pedido, como aparece na Shopee ou no TikTok Shop"),
+  ).toBeHidden();
   await page.getByLabel("Nome do comprador").fill("Maria da Silva");
   await page.getByLabel("Buscar produto").fill(product.title);
   // Products can share a title (two suppliers, or two variants): the button names the code too.

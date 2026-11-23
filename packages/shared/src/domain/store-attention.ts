@@ -27,7 +27,7 @@ export function describeStoreAccess(store: {
 
 const STORE_ACCESS: Record<StoreHealth, StoreAccess> = {
   connected: { label: "Em dia, renova sozinho", tone: "success" },
-  attention: { label: "Renovação falhou, tentaremos de novo", tone: "warning" },
+  attention: { label: "A conexão falhou agora. Tentamos de novo sozinhos", tone: "warning" },
   expired: { label: "Expirado, reconecte a loja", tone: "warning" },
   error: { label: "Com erro, reconecte a loja", tone: "danger" },
   disconnected: { label: "Desconectada", tone: "muted" },

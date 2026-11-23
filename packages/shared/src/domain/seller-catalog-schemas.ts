@@ -26,7 +26,7 @@ export const sellerSaveProductSchema = sellerProductRefSchema
   })
   .refine((input) => keepsNegativeShelfOnly(input.values.stock, input.expectedStock), {
     path: ["values", "stock"],
-    error: "O estoque negativo só pode manter uma falta de estoque já registrada.",
+    error: "O estoque não pode ficar abaixo de zero, a não ser que já estivesse assim.",
   });
 export type SellerSaveProductInput = z.infer<typeof sellerSaveProductSchema>;
 

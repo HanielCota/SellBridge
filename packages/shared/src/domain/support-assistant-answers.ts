@@ -70,7 +70,7 @@ const SELLER_ENTRIES: readonly SupportFaqEntry[] = [
         "Abra a página Lojas.",
         "Na loja que aparece como desconectada, toque em Reconectar.",
         "Entre na sua conta do site onde você vende e autorize o acesso.",
-        "Pronto: pedidos e estoque voltam a atualizar sozinhos.",
+        "Os pedidos e o estoque voltam a atualizar sozinhos.",
       ],
       links: [{ label: "Abrir Lojas", path: "/lojas" }],
     },

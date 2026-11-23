@@ -49,7 +49,7 @@ const UNAVAILABLE_MESSAGES: Record<UnavailableReason, string> = {
   supplier_closed:
     "O fornecedor fechou a loja para vendas por um tempo. Publique de novo quando ele reabrir.",
   product_inactive:
-    "Este produto está indisponível. Tente publicar novamente quando ele estiver disponível.",
+    "O fornecedor parou de vender este produto. Publique de novo quando ele voltar.",
   cost_above_price:
     "O custo do fornecedor passou do preço de venda. Aumente o preço para publicar sem prejuízo.",
 };

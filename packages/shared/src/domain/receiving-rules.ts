@@ -92,7 +92,7 @@ export const RESELLER_HOLD_MESSAGES: Record<PreparationHold, string> = {
   receiving_account:
     "O fornecedor ainda não ligou a conta de recebimento. Ele e a nossa equipe já foram avisados; o pedido segue assim que a conta for aprovada.",
   payment:
-    "Pague o fornecedor para ele começar a preparar o pedido. O prazo de postagem do canal continua correndo.",
+    "Pague o fornecedor para ele começar a preparar o pedido. O prazo de postagem do marketplace continua correndo.",
 };
 
 /** Why a supplier step was refused while the parcel waits. */

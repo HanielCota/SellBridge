@@ -27,7 +27,7 @@ export const LISTING_STATUS_LABELS: Record<ListingStatus, string> = {
   publishing: "Publicando",
   published: "Publicado",
   paused: "Pausado",
-  error: "Erro",
+  error: "Não publicado",
 };
 
 /** Mercado Livre rejects longer titles, so 60 is the ceiling every marketplace accepts. */

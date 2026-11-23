@@ -76,7 +76,7 @@ const manualSaleFieldsSchema = z.object({
   channel: z.enum(MANUAL_SALE_CHANNELS, "Escolha onde foi a venda"),
   externalOrderId: freeText()
     .trim()
-    .min(1, "Informe o número do pedido, como aparece no canal")
+    .min(1, "Digite o número do pedido, como aparece na Shopee ou no TikTok Shop")
     .max(
       MAX_ORDER_NUMBER_LENGTH,
       `O número do pedido tem até ${MAX_ORDER_NUMBER_LENGTH} caracteres`,
@@ -94,7 +94,7 @@ const manualSaleFieldsSchema = z.object({
     }),
   /** What the channel keeps of the sale, as the reseller confirmed it from the channel's order. */
   marketplaceFeeCents: z
-    .number("Informe a taxa. Se o canal não cobrou nada, digite 0")
+    .number("Preencha a taxa. Se a Shopee ou o TikTok Shop não cobrou nada, digite 0")
     .int("Informe a taxa em reais e centavos")
     .min(0, "A taxa não pode ser negativa")
     .max(MAX_STORED_CENTS, "Confira a taxa: ela passa do total da venda"),
