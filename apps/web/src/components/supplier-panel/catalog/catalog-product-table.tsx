@@ -111,7 +111,7 @@ function isOnSale(product: SupplierPanelProduct): boolean {
 /** The review status above the completeness, as the phone card shows them, in one column. */
 function StatusCell({ product }: { product: SupplierPanelListProduct }) {
   return (
-    <div className="flex flex-col items-start gap-1.5">
+    <div className="flex flex-col items-start gap-1.5 whitespace-normal">
       <ProductStatus product={product} />
       <div className="flex flex-wrap items-center gap-1.5">
         <CompletenessBadge

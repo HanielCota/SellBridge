@@ -61,15 +61,17 @@ export function CompletenessBadge({
   onSale?: boolean;
 }) {
   const tier = completenessTier({ score, blocking, onSale });
+  // The label may break onto a second line: "À venda · N dados a completar" is the longest one,
+  // and on one line it pushed the products table past a 1280 px screen.
   return (
     <HintedText label={TIER_HINTS[tier]}>
       <span
         className={cn(
-          "inline-flex items-center gap-1.5 rounded-full px-2.5 py-0.5 text-footnote font-medium whitespace-nowrap tabular-nums",
+          "inline-flex flex-wrap items-center gap-x-1.5 rounded-2xl px-2.5 py-0.5 text-footnote font-medium tabular-nums",
           TIER_TONES[tier],
         )}
       >
-        <span>{score}%</span>
+        <span className="whitespace-nowrap">{score}%</span>
         <span className="font-normal opacity-80">· {completenessLabel(tier, blocking)}</span>
       </span>
     </HintedText>
