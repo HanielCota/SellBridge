@@ -1,9 +1,10 @@
 import { billingPlan, type BillingPlan } from "@sellbridge/shared/billing";
 import { formatCents } from "@sellbridge/shared/money";
-import { CreditCardIcon, PixLogoIcon } from "@phosphor-icons/react";
 import { useQuery } from "@tanstack/react-query";
 import type { ReactNode } from "react";
 import { ConfirmDialog } from "@/components/feedback/confirm-dialog";
+import { CreditCardMark } from "@/components/icons/credit-card-mark";
+import { PixMark } from "@/components/icons/pix-mark";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -39,7 +40,7 @@ function MethodOption({
       onClick={onClick}
       className="flex min-h-11 w-full items-center gap-4 rounded-xl border border-border bg-card p-4 text-left transition-colors hover:bg-muted focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring disabled:opacity-60 sm:p-5"
     >
-      <span className="grid size-12 shrink-0 place-items-center rounded-xl bg-brand/15 text-brand-text">
+      <span className="grid size-12 shrink-0 place-items-center rounded-xl border border-border bg-muted">
         {icon}
       </span>
       <span className="space-y-1">
@@ -75,14 +76,14 @@ export function PaymentMethodDialog({
         </DialogHeader>
         <div className="space-y-3">
           <MethodOption
-            icon={<CreditCardIcon weight="fill" className="size-7" aria-hidden="true" />}
+            icon={<CreditCardMark className="w-9" aria-hidden="true" />}
             title="Cartão de crédito"
             description="Renova sozinho todo mês. Você digita o cartão uma vez, na página segura do Asaas."
             disabled={pending}
             onClick={() => onChoose("credit_card")}
           />
           <MethodOption
-            icon={<PixLogoIcon weight="fill" className="size-7" aria-hidden="true" />}
+            icon={<PixMark className="size-7" aria-hidden="true" />}
             title="Pix"
             description="Todo mês chega um Pix novo no seu e-mail para você pagar."
             disabled={pending}
