@@ -142,6 +142,8 @@ async function operationalOrderRows(database: Database, filter: SQL | undefined,
       stockShort: sql<boolean>`exists (select 1 from ${orderItems} where ${orderItems.orderId} = ${orders.id} and ${orderItems.stockState} = 'short')`,
       // Matches the partial index `marketplace_claims_open_idx`.
       openClaim: sql<boolean>`exists (select 1 from ${marketplaceClaims} where ${marketplaceClaims.tenantId} = ${orders.tenantId} and ${marketplaceClaims.orderId} = ${orders.id} and ${marketplaceClaims.status} = 'opened')`,
+      /** Every item is the reseller's own stock: there is no supplier to send it to. */
+      ownItemsOnly: sql<boolean>`not exists (select 1 from ${orderItems} left join ${supplierProducts} on ${supplierProducts.id} = ${orderItems.supplierProductId} left join ${suppliers} on ${suppliers.id} = ${supplierProducts.supplierId} where ${orderItems.orderId} = ${orders.id} and coalesce(${suppliers.catalogKind}::text, '') <> 'seller')`,
     })
     .from(orders)
     .innerJoin(storeConnections, eq(storeConnections.id, orders.storeConnectionId))
@@ -198,6 +200,8 @@ function fulfillmentItems(database: Database, tenantId: string, orderId: string)
       id: orderItems.id,
       title: orderItems.title,
       quantity: orderItems.quantity,
+      /** What the supplier charges for one unit: the reseller pays it after forwarding. */
+      unitCostCents: orderItems.unitCostCents,
       supplierId: suppliers.id,
       supplierName: suppliers.name,
       catalogKind: suppliers.catalogKind,

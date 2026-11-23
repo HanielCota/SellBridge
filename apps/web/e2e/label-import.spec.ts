@@ -3,7 +3,7 @@ import { fileURLToPath } from "node:url";
 import { expect, test } from "@playwright/test";
 import { organization, orderItems, orders, storeConnections } from "@sellbridge/database/schema";
 import { eq } from "drizzle-orm";
-import { DEMO_USER, gotoHydrated, signIn } from "./helpers";
+import { DEMO_USER, gotoHydrated, signIn, OPEN_ORDER_BUTTON } from "./helpers";
 import { forwardableProduct } from "./catalog-fixtures";
 import { e2eDatabase } from "./database";
 
@@ -67,8 +67,8 @@ for (const [kind, fileName] of LABEL_FILES) {
     await signIn(page, DEMO_USER);
     await gotoHydrated(page, "/pedidos");
     await page.getByLabel("Buscar por pedido ou comprador").fill(externalId);
-    await expect(page.getByRole("button", { name: "Abrir pedido" })).toHaveCount(1);
-    await page.getByRole("button", { name: "Abrir pedido" }).click();
+    await expect(page.getByRole("button", { name: OPEN_ORDER_BUTTON })).toHaveCount(1);
+    await page.getByRole("button", { name: OPEN_ORDER_BUTTON }).click();
     const dialog = page.getByRole("dialog", { name: "Pedido" });
     await dialog.getByLabel("Arquivo da etiqueta de envio").setInputFiles(fixture(fileName));
     for (const [label, value] of Object.entries(EXPECTED_ADDRESS))

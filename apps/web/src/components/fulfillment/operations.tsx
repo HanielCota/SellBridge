@@ -30,7 +30,15 @@ import {
 } from "@/components/ui/select";
 import { Skeleton } from "@/components/ui/skeleton";
 import { operationsQueryOptions } from "@/features/fulfillment/fulfillment.queries";
-import { shipmentsSummary } from "@/features/fulfillment/shipment-timeline";
+import {
+  ORDER_TO_FORWARD_LABEL,
+  shipmentsSummary,
+  toForwardWords,
+  waitsToBeForwarded,
+} from "@/features/fulfillment/shipment-timeline";
+import { attentionCountsQueryOptions } from "@/features/navigation/navigation.queries";
+import { ordersToForwardTitle } from "@/components/reports/attention-items";
+import { PaymentPill } from "@/components/supplier-payments/supplier-payment-badge";
 import { displayBuyerName } from "@/features/orders/buyer-name";
 import { storesQueryOptions } from "@/features/stores/stores.queries";
 import { useNow } from "@/hooks/use-now";
@@ -55,7 +63,7 @@ type OperationRowData = Awaited<
 
 const STAGE_OPTIONS: { value: Search["stage"]; label: string }[] = [
   { value: "all", label: "Todas as etapas" },
-  { value: "unforwarded", label: "Pagos a encaminhar" },
+  { value: "unforwarded", label: ORDER_TO_FORWARD_LABEL },
   ...FULFILLMENT_STATUSES.map((status) => ({ value: status, label: FULFILLMENT_LABELS[status] })),
 ];
 
@@ -85,6 +93,10 @@ export function Operations({
   return (
     <section className="space-y-4" aria-label="Operação dos pedidos">
       <OperationFilters search={search} onChange={onChange} />
+      <OrdersToForwardStrip
+        stage={search.stage}
+        onShowThem={() => onChange({ stage: "unforwarded", opPage: 1 })}
+      />
       {query.isPending ? (
         <Skeleton className="h-64 rounded-3xl" />
       ) : query.isError ? (
@@ -116,6 +128,34 @@ export function Operations({
       )}
       <FulfillmentDialog order={opened} onClose={() => setOpened(null)} />
     </section>
+  );
+}
+
+/**
+ * Above the list while it shows other stages: how many paid orders wait for the reseller, and a
+ * way to see only those.
+ */
+function OrdersToForwardStrip({
+  stage,
+  onShowThem,
+}: {
+  stage: Search["stage"];
+  onShowThem: () => void;
+}) {
+  const counts = useQuery(attentionCountsQueryOptions());
+  const waiting = counts.data?.ordersToForward ?? 0;
+  if (waiting === 0 || stage === "unforwarded") {
+    return null;
+  }
+  return (
+    <div className="flex flex-col gap-3 rounded-2xl bg-amber-500/10 p-4 sm:flex-row sm:items-center sm:justify-between">
+      <p className="text-sm font-medium text-amber-900 dark:text-amber-200">
+        {ordersToForwardTitle(waiting)}
+      </p>
+      <Button variant="outline" className="w-full sm:w-auto" onClick={onShowThem}>
+        Ver só esses
+      </Button>
+    </div>
   );
 }
 
@@ -222,6 +262,7 @@ function OperationRow({
   row: OperationRowData;
   onOpen: (row: OperationRowData) => void;
 }) {
+  const toForward = waitsToBeForwarded(row);
   return (
     <li className="flex flex-wrap items-center gap-3 py-4">
       {/* At least 15rem for the order's text: on a phone, status and action wrap below it. */}
@@ -239,24 +280,41 @@ function OperationRow({
         <p className="text-xs text-muted-foreground">
           {displayBuyerName(row.buyerName)} · {row.storeName} · <SmartDate date={row.orderedAt} />
         </p>
-        <p className="mt-1 text-xs text-muted-foreground">{shipmentsSummary(row.shipments)}</p>
+        <ShipmentsLine row={row} />
       </div>
       <div className="flex flex-col items-start gap-1">
-        <HintedText label={ORDER_STATUS_HINTS[row.status] ?? "Situação do pedido"}>
-          <OrderStatusBadge status={row.status} />
-        </HintedText>
+        {toForward ? (
+          <PaymentPill tone="warning">{toForwardWords(row.ownItemsOnly).badge}</PaymentPill>
+        ) : (
+          <HintedText label={ORDER_STATUS_HINTS[row.status] ?? "Situação do pedido"}>
+            <OrderStatusBadge status={row.status} />
+          </HintedText>
+        )}
         {row.stockShort ? <TonePill tone="warning" label="Falta estoque" /> : null}
         {row.openClaim ? <TonePill tone="danger" label="Reclamação aberta" /> : null}
         <ShipmentDelayBadge shipments={row.shipments} />
       </div>
-      <Hint label={ACTION_ICONS.openOrder.hint} openOnTap={false}>
-        <Button variant="outline" onClick={() => onOpen(row)}>
-          Abrir pedido
-          <OpenOrderIcon aria-hidden="true" />
-        </Button>
-      </Hint>
+      {toForward ? (
+        <Button onClick={() => onOpen(row)}>{toForwardWords(row.ownItemsOnly).button}</Button>
+      ) : (
+        <Hint label={ACTION_ICONS.openOrder.hint} openOnTap={false}>
+          <Button variant="outline" onClick={() => onOpen(row)}>
+            Abrir pedido
+            <OpenOrderIcon aria-hidden="true" />
+          </Button>
+        </Hint>
+      )}
     </li>
   );
+}
+
+/** Each parcel's stage, or what to do before there is one; nothing when the badge says it. */
+function ShipmentsLine({ row }: { row: OperationRowData }) {
+  const line = shipmentsSummary(row.shipments, row.status);
+  if (line === null) {
+    return null;
+  }
+  return <p className="mt-1 text-xs text-muted-foreground">{line}</p>;
 }
 
 /** The first late parcel of the order, as a warning under its status. */

@@ -53,6 +53,9 @@ export async function gotoHydrated(page: Page, path: string): Promise<void> {
   await waitForHydration(page);
 }
 
+/** The orders list's button on each row: it names the next step of a paid order not sent yet. */
+export const OPEN_ORDER_BUTTON = /^(Abrir pedido|Enviar ao fornecedor|Preparar o envio)$/;
+
 export const DEMO_USER = {
   email: "demo@sellbridge.local",
   password: requireEnvironmentVariable("SEED_DEMO_PASSWORD"),

@@ -12,7 +12,7 @@ import {
 } from "@sellbridge/database/schema";
 import { eq } from "drizzle-orm";
 import { testStoreInput } from "../../../packages/database/src/testing/fixtures";
-import { gotoHydrated, signUp, stubCepNotFound } from "./helpers";
+import { gotoHydrated, signUp, stubCepNotFound, OPEN_ORDER_BUTTON } from "./helpers";
 import { e2eDatabase } from "./database";
 
 // The forward form looks the typed CEP up: answered here, the typed address stays.
@@ -104,7 +104,7 @@ test.afterAll(async () => {
 async function openOrder(page: Page) {
   await gotoHydrated(page, "/pedidos");
   await page.getByLabel("Buscar por pedido ou comprador").fill(externalId);
-  await page.getByRole("button", { name: "Abrir pedido", exact: true }).click();
+  await page.getByRole("button", { name: OPEN_ORDER_BUTTON }).click();
   return page.getByRole("dialog", { name: "Pedido" });
 }
 
