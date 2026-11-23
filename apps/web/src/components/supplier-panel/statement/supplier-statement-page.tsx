@@ -24,6 +24,11 @@ interface SupplierStatementPageProps {
   onPeriodChange: (search: ReportPeriodSearch) => void;
 }
 
+/** "Novembro de 2026" inside a sentence reads "novembro de 2026". */
+function lowerFirst(text: string): string {
+  return `${text.charAt(0).toLowerCase()}${text.slice(1)}`;
+}
+
 function StatementSkeleton() {
   return (
     <output
@@ -47,6 +52,10 @@ function TotalsSection(props: SupplierStatementPageProps) {
   if (query.data === undefined) {
     return <Skeleton className="h-72 max-w-3xl rounded-3xl" />;
   }
+  // An empty period shows only the empty state below: a box of zeros says nothing.
+  if (query.data.orders === 0 && query.data.returnedOrders === 0) {
+    return null;
+  }
   return <StatementSummary totals={query.data} />;
 }
 
@@ -65,7 +74,7 @@ function LinesSection(props: SupplierStatementPageProps) {
     return (
       <EmptyState
         icon={ReceiptIcon}
-        title={`Nenhum pedido pago em ${reportPeriodLabel(props.period)}`}
+        title={`Nenhum pedido pago em ${lowerFirst(reportPeriodLabel(props.period))}`}
         description="Quando um revendedor pagar um pedido seu, ele aparece aqui com o valor, as taxas e o dia em que o dinheiro libera."
       />
     );

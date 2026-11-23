@@ -59,8 +59,10 @@ export function StatementSummary({ totals }: { totals: StatementTotals }) {
       {totals.returnedOrders === 0 ? null : (
         <p className="text-sm text-muted-foreground">
           {ordersWord(totals.returnedOrders)} ({formatCents(totals.returnedCents)}){" "}
-          {totals.returnedOrders === 1 ? "voltou" : "voltaram"} para o revendedor e não{" "}
-          {totals.returnedOrders === 1 ? "entra" : "entram"} nessa conta.
+          {totals.returnedOrders === 1
+            ? "foi ou está sendo devolvido ao revendedor e não entra"
+            : "foram ou estão sendo devolvidos ao revendedor e não entram"}{" "}
+          nessa conta.
         </p>
       )}
     </section>

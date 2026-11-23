@@ -177,7 +177,9 @@ test("o fornecedor vê no extrato cada pedido pago, as taxas e quando o dinheiro
   await expect(summary.getByText("R$ 112,42")).toBeVisible();
   await expect(summary.getByText("− R$ 4,80")).toBeVisible();
   await expect(summary.getByText("− cerca de R$ 2,78")).toBeVisible();
-  await expect(summary.getByText(/1 pedido \(R\$\s60,00\) voltou para o revendedor/)).toBeVisible();
+  await expect(
+    summary.getByText(/1 pedido \(R\$\s60,00\) foi ou está sendo devolvido ao revendedor/),
+  ).toBeVisible();
 
   const lines = page.getByRole("list", { name: "Pedidos pagos" }).getByRole("listitem");
   await expect(lines).toHaveCount(3);
