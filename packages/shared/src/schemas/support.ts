@@ -227,7 +227,8 @@ export const setTicketCategorySchema = z.object({
 
 /** Orders the reseller can pin to a ticket, searched by order number or buyer. */
 export const linkableOrdersSchema = z.object({
-  ticketId: ticketIdSchema,
+  /** Left out by the new-ticket form, which picks the order before the ticket exists. */
+  ticketId: ticketIdSchema.optional(),
   query: freeText().trim().max(100).optional(),
 });
 

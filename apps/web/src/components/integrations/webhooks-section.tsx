@@ -41,11 +41,11 @@ function WebhooksContent({
     return (
       <EmptyState
         icon={WebhooksLogoIcon}
-        title="Nenhum webhook cadastrado"
-        description="Cadastre uma URL para receber pedidos e mudanças de anúncios assim que acontecem, sem precisar consultar a API."
+        title="Nenhum aviso automático cadastrado"
+        description="Cadastre o endereço do seu sistema para ele saber na hora de cada pedido e mudança de anúncio."
         action={
           <DisabledHint reason={locked ? INTEGRATIONS_LOCKED_REASON : undefined}>
-            <Button disabled={locked} onClick={onCreate}>
+            <Button variant="outline" disabled={locked} onClick={onCreate}>
               <PlusIcon aria-hidden="true" />
               Novo webhook
             </Button>
@@ -70,8 +70,9 @@ export function WebhooksSection() {
   return (
     <IntegrationsSection
       id="webhooks"
-      title="Webhooks"
-      description="O SellBridge avisa seu sistema por um POST assinado a cada pedido ou mudança de anúncio. Entregas que falham são tentadas de novo."
+      title="Avisos automáticos (webhooks)"
+      description="O SellBridge avisa o seu sistema a cada pedido ou mudança de anúncio. Se o aviso não chegar, tentamos de novo."
+      level={3}
       action={
         <DisabledHint reason={locked ? INTEGRATIONS_LOCKED_REASON : undefined}>
           <Button variant="outline" size="sm" disabled={locked} onClick={() => setIsCreating(true)}>

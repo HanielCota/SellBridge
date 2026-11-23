@@ -49,7 +49,7 @@ function OrderOptions({
   query,
   onPick,
 }: {
-  ticketId: string;
+  ticketId: string | undefined;
   query: string;
   onPick: (order: LinkedOrder) => void;
 }) {
@@ -81,13 +81,12 @@ function OrderOptions({
   );
 }
 
-function useLinkOrder(ticketId: string, onLinked: () => void) {
+function useLinkOrder(ticketId: string) {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: (order: LinkedOrder) =>
       linkMyTicketOrder({ data: { ticketId, orderId: order.orderId } }),
     onSuccess: async (_result, order) => {
-      onLinked();
       toast.success(`Pedido #${order.externalOrderId} vinculado`);
       await queryClient.invalidateQueries({ queryKey: ["tickets"] });
     },
@@ -95,31 +94,40 @@ function useLinkOrder(ticketId: string, onLinked: () => void) {
   });
 }
 
-/** Popover to pin one of the store's orders to the ticket, searched by number or buyer. */
-export function OrderLinkPicker({
+/**
+ * Popover listing the store's orders, searched by number or buyer. Without a ticket (the
+ * new-ticket form) it lists every order; with one, the orders that ticket does not have yet.
+ */
+export function OrderPickerPopover({
   ticketId,
   trigger,
   align = "start",
+  onPick,
 }: {
-  ticketId: string;
+  ticketId: string | undefined;
   trigger: ReactNode;
   align?: "start" | "end";
+  /** Returns true when the popover can close (the pick went through). */
+  onPick: (order: LinkedOrder) => boolean | Promise<boolean>;
 }) {
   const [open, setOpen] = useState(false);
   const [search, setSearch] = useState("");
   const query = useDebouncedValue(search.trim(), SEARCH_DELAY_MILLISECONDS);
-  const link = useLinkOrder(ticketId, () => {
-    setOpen(false);
-    setSearch("");
-  });
+
+  async function pick(order: LinkedOrder) {
+    if (await onPick(order)) {
+      setOpen(false);
+      setSearch("");
+    }
+  }
 
   return (
     <Popover open={open} onOpenChange={setOpen}>
       <PopoverTrigger asChild>{trigger}</PopoverTrigger>
-      <PopoverContent className="w-80 space-y-2 p-2" align={align}>
+      <PopoverContent className="w-80 max-w-[calc(100vw-2rem)] space-y-2 p-2" align={align}>
         <p className="flex items-center gap-1.5 px-1 pt-1 text-xs text-muted-foreground">
           <PackageIcon aria-hidden="true" />
-          Vincule o pedido de que você está falando
+          Escolha o pedido de que você está falando
         </p>
         <SearchInput
           label="Buscar pedido"
@@ -129,18 +137,41 @@ export function OrderLinkPicker({
           onValueChange={setSearch}
         />
         {open ? (
-          <OrderOptions
-            ticketId={ticketId}
-            query={query}
-            onPick={(order) => {
-              if (link.isPending) {
-                return;
-              }
-              link.mutate(order);
-            }}
-          />
+          <OrderOptions ticketId={ticketId} query={query} onPick={(order) => void pick(order)} />
         ) : null}
       </PopoverContent>
     </Popover>
+  );
+}
+
+/** Popover to pin one of the store's orders to an open ticket. */
+export function OrderLinkPicker({
+  ticketId,
+  trigger,
+  align = "start",
+}: {
+  ticketId: string;
+  trigger: ReactNode;
+  align?: "start" | "end";
+}) {
+  const link = useLinkOrder(ticketId);
+  return (
+    <OrderPickerPopover
+      ticketId={ticketId}
+      trigger={trigger}
+      align={align}
+      onPick={async (order) => {
+        if (link.isPending) {
+          return false;
+        }
+        try {
+          await link.mutateAsync(order);
+          return true;
+        } catch {
+          // useLinkOrder already showed the error; the popover stays open to pick again.
+          return false;
+        }
+      }}
+    />
   );
 }

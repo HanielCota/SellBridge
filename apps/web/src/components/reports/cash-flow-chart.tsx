@@ -1279,7 +1279,7 @@ const KIND_TITLES: Record<ChartKind, string> = {
   cumulative: "Receita e lucro acumulados",
 };
 
-/** The gear and the export, side by side. */
+/** The chart kind and the export, side by side, each with its word beside the icon. */
 function ChartTools({
   menu,
   exportUrl,
@@ -1289,8 +1289,8 @@ function ChartTools({
 }) {
   return (
     <div className="flex shrink-0 gap-1.5 sm:gap-2">
-      <ChartKindMenu {...menu} />
-      <ExportLink href={exportUrl} />
+      <ChartKindMenu {...menu} labeled />
+      <ExportLink href={exportUrl} labeled />
     </div>
   );
 }
@@ -1356,6 +1356,19 @@ export function HeadlineWithTools({ headline, tools }: { headline: ReactNode; to
   );
 }
 
+/**
+ * The headline number with the worded chart tools after it: beside the period and store they no
+ * longer fit, and on phones they wrap under the number.
+ */
+function HeadlineAndTools({ headline, tools }: { headline: ReactNode; tools: ReactNode }) {
+  return (
+    <div className="flex flex-wrap items-end gap-x-4 gap-y-3">
+      {headline}
+      {tools}
+    </div>
+  );
+}
+
 interface CashFlowChartProps {
   points: MetricPoint[];
   /** Same buckets for the previous period, for the comparison line. */
@@ -1381,10 +1394,9 @@ interface CashFlowChartProps {
 }
 
 /**
- * Revenue and profit over the period, in the large chart card of the dashboard. Fixed rows, so
- * nothing depends on where a wrap happens: what the page shows (period, store) and the chart
- * tools; the headline number beside the series; then the chart. On phones the tools move down
- * next to the headline, so the period control and the series each get the card's full width.
+ * Revenue and profit over the period, in the large chart card of the dashboard. Rows: what the
+ * page shows (period, store); the headline number with the chart tools, beside the series; then
+ * the chart. The period control gets the card's full width on every screen.
  */
 export function CashFlowChart({
   points,
@@ -1416,9 +1428,9 @@ export function CashFlowChart({
       <h2 id="cash-flow-title" className="sr-only">
         {KIND_TITLES[kind]}
       </h2>
-      <FiltersWithTools filters={filters} tools={tools} />
+      {filters}
       <div className="mt-5 flex flex-wrap items-end justify-between gap-x-6 gap-y-4">
-        <HeadlineWithTools
+        <HeadlineAndTools
           headline={<ChartHeadline kind={kind} current={summary} previous={previous} />}
           tools={tools}
         />

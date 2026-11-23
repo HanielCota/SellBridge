@@ -1,6 +1,9 @@
 import { expect, test, type Page } from "@playwright/test";
 import { DEMO_USER, gotoHydrated, signIn, waitForHydration } from "./helpers";
 
+// The first visit follows the device; these switch flows start from a device set to dark.
+test.use({ colorScheme: "dark" });
+
 async function isDark(page: Page): Promise<boolean> {
   return await page.evaluate(() => document.documentElement.classList.contains("dark"));
 }
@@ -19,7 +22,7 @@ test("the profile menu's theme switch flips by click and keyboard and survives a
   await signIn(page, DEMO_USER);
   await page.setViewportSize({ width: 1366, height: 900 });
   await gotoHydrated(page, "/dashboard");
-  expect(await isDark(page), "dark is the default").toBe(true);
+  expect(await isDark(page), "a dark device opens dark").toBe(true);
   await profileCard(page).click();
   const themeSwitch = menuThemeSwitch(page);
   await expect(themeSwitch).toHaveAttribute("aria-checked", "true");

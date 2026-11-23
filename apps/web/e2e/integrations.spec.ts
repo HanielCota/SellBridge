@@ -13,7 +13,12 @@ test("cria uma chave de leitura, chama a API com ela e revoga", async ({ page, r
     .click();
   await expect(page).toHaveURL(/\/integracoes\?perfil=[a-z0-9-]+$/);
   await expect(page).toHaveTitle("Integrações | SellBridge");
-  await expect(page.getByRole("link", { name: /Documentação da API/ })).toHaveAttribute(
+  // The keys and the docs sit apart, under a heading that tells a lay reseller to skip them.
+  const developerArea = page.getByRole("region", { name: "Para programadores" });
+  await expect(
+    developerArea.getByRole("heading", { name: "Chaves de acesso (API)" }),
+  ).toBeVisible();
+  await expect(developerArea.getByRole("link", { name: /Documentação técnica/ })).toHaveAttribute(
     "href",
     "/api/v1/docs",
   );

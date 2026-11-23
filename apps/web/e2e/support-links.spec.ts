@@ -49,6 +49,35 @@ test("abre um chamado já ligado ao pedido pela página do pedido", async ({ pag
   await expect(page.getByText(`Pedido #${order.externalOrderId}`, { exact: true })).toBeVisible();
 });
 
+test("pergunta qual pedido antes de enviar um chamado de pedido aberto pelo Suporte", async ({
+  page,
+}) => {
+  const order = await demoOrder();
+  await signIn(page, DEMO_USER);
+  await gotoHydrated(page, "/suporte/novo");
+  await page.getByRole("button", { name: /^Pedido ou entrega/ }).click();
+  await page.getByRole("button", { name: /^O rastreio parou/ }).click();
+
+  await expect(page.getByRole("heading", { name: /Qual pedido\?/ })).toBeVisible();
+  await page.getByRole("button", { name: "Escolher pedido" }).click();
+  await page.getByLabel("Buscar pedido").fill(order.externalOrderId);
+  await page
+    .getByRole("list", { name: "Seus pedidos recentes" })
+    .getByRole("button", { name: new RegExp(`#${order.externalOrderId}`) })
+    .click();
+  await expect(page.getByText(`Pedido #${order.externalOrderId}`)).toBeVisible();
+  await page
+    .getByLabel("Desde quando o rastreio não muda?")
+    .fill("Parado em trânsito desde 18/11.");
+  await page.getByRole("button", { name: "Enviar chamado" }).click();
+
+  await expect(page).toHaveURL(/\/suporte\/[0-9a-f-]{36}/);
+  await expect(page.getByText(`Pedido #${order.externalOrderId}`, { exact: true })).toBeVisible();
+  await expect(page.getByText("Qual pedido? Com ele o suporte responde mais rápido.")).toHaveCount(
+    0,
+  );
+});
+
 test("recusa um vínculo com pedido que não é da conta", async ({ page }) => {
   await signIn(page, DEMO_USER);
   await gotoHydrated(
