@@ -33,7 +33,8 @@ function QuestionListing({ question }: { question: BuyerQuestionRow }) {
         />
       </span>
       <div className="min-w-0 space-y-0.5">
-        <p className="truncate text-sm font-medium">{question.listingTitle}</p>
+        {/* Two lines, so the color or size at the end of the title still shows on a phone. */}
+        <p className="line-clamp-2 text-sm font-medium">{question.listingTitle}</p>
         <p className="text-footnote text-muted-foreground">
           {question.storeName ?? "Mercado Livre"}
           {question.itemUrl === null ? null : (
@@ -161,7 +162,10 @@ export function QuestionCard({ question, now }: { question: BuyerQuestionRow; no
     <article className="surface-card space-y-4 rounded-3xl bg-card p-4 sm:p-5">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
         <QuestionListing question={question} />
-        <TonePill tone={seal.tone} label={seal.label} timeBased={seal.timeBased} />
+        {/* On a phone the column would stretch the seal across the card. */}
+        <div className="shrink-0 self-start">
+          <TonePill tone={seal.tone} label={seal.label} timeBased={seal.timeBased} />
+        </div>
       </div>
       <div className="space-y-1">
         <p className="text-subhead font-medium whitespace-pre-line">
