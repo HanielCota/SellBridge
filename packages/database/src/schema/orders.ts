@@ -58,10 +58,20 @@ export const orders = pgTable(
      * month ended counts in the month the money came in.
      */
     paidAt: timestamp({ withTimezone: true }),
+    /**
+     * When a paid sale was first seen cancelled or returned (see `reversedAtOfKnownOrder` in
+     * shared/domain/sale-date.ts); null for orders never paid or still counting. Monthly money
+     * reports take the sale back in the period of this date, so a closed month never changes.
+     */
+    reversedAt: timestamp({ withTimezone: true }),
     createdAt: timestamp({ withTimezone: true }).defaultNow().notNull(),
   },
   (table) => [
     index("orders_tenant_ordered_idx").on(table.tenantId, table.orderedAt),
+    /** The reports' "cancelled from earlier periods": sales undone in the period. */
+    index("orders_tenant_reversed_idx")
+      .on(table.tenantId, table.reversedAt)
+      .where(sql`${table.reversedAt} is not null`),
     /** The reports' period filter: `saleDate` in repositories/sql/counted-orders.ts. */
     index("orders_tenant_sale_date_idx").on(
       table.tenantId,
