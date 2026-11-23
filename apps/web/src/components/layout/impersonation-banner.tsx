@@ -59,7 +59,7 @@ export function ImpersonationBanner({
         disabled={isLeaving}
         onClick={() => void stopImpersonating()}
       >
-        Voltar ao admin
+        Voltar à equipe
       </Button>
     </aside>
   );

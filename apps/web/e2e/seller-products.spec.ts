@@ -182,7 +182,7 @@ test.skip("admin corrections require a reason and platform blocks survive owner 
       adminPage.getByRole("button", { name: "Salvar agora", exact: true }),
     ).toBeDisabled();
     await adminPage
-      .getByLabel("Motivo da alteração administrativa")
+      .getByLabel("Por que a equipe está mudando este produto")
       .fill("Corrected the customer product title.");
     await expect(
       adminPage.getByText("Todas as alterações foram salvas", { exact: true }),

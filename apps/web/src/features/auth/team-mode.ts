@@ -10,7 +10,7 @@ export function teamModeName(role: string): string {
 
 /** The short tag under the name in the account chip while the mode is on. */
 export function teamModeActiveTag(role: string): string {
-  return role === "admin" ? "Modo admin ativo" : "Modo equipe ativo";
+  return role === "admin" ? "Modo administrador ligado" : "Modo equipe ligado";
 }
 
 /**

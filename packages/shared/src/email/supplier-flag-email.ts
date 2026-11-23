@@ -7,7 +7,7 @@ import {
 } from "../domain/supplier-flags.ts";
 
 const FOOTNOTE =
-  "Você recebe este e-mail porque é o contato da sua marca na SellBridge. Se discordar, conteste pelo painel.";
+  "Você recebe este e-mail porque é o contato da sua marca no SellBridge. Se discordar, conteste pelo painel.";
 
 export interface SupplierFlagEmailInput {
   reason: SupplierFlagReason;
