@@ -20,6 +20,7 @@ export const NOTIFICATION_EVENTS = [
   "store_buyer_address",
   "receiving_account_needed",
   "receiving_account_waiting",
+  "store_order_message",
 ] as const;
 export type NotificationEventName = (typeof NOTIFICATION_EVENTS)[number];
 
@@ -139,6 +140,13 @@ export const NOTIFICATION_EVENT_DEFINITIONS: Record<NotificationEventName, Event
     label: "Pedido parado sem conta de recebimento",
     description: "Um pedido espera o fornecedor ligar a conta de recebimento.",
     defaults: { email: true },
+  },
+  // For the supplier with a panel: the other direction of `order_message`.
+  store_order_message: {
+    audience: "reseller",
+    label: "Mensagem da loja num pedido",
+    description: "Uma loja escreveu nas mensagens de um pedido seu.",
+    defaults: { in_app: true, email: true, push: true },
   },
   // The team already sees new tickets in the "Chamados" badge; e-mail is the outside nudge.
   ticket_created: {
@@ -432,6 +440,29 @@ export function orderMessageContent(notice: OrderMessageNotice): NotificationCon
     ],
     actionLabel: "Abrir o pedido",
     actionPath: `/pedidos/${notice.orderId}`,
+    footnote: FOOTNOTE,
+  };
+}
+
+export interface StoreOrderMessageNotice {
+  externalOrderId: string;
+  /** The Pedidos tab that lists the parcel, so the link opens where it is. */
+  supplierTab: string;
+}
+
+/** For the supplier with a panel: a store wrote about an order. The text stays in the app. */
+export function storeOrderMessageContent(notice: StoreOrderMessageNotice): NotificationContent {
+  const search = new URLSearchParams({ tab: notice.supplierTab, query: notice.externalOrderId });
+  return {
+    subject: `Nova mensagem no pedido #${notice.externalOrderId}`,
+    preview: "A loja escreveu nas mensagens do pedido.",
+    heading: "Você tem uma nova mensagem",
+    paragraphs: [
+      `A loja que vendeu o pedido #${notice.externalOrderId} escreveu nas mensagens dele.`,
+      "Abra o pedido no seu painel do SellBridge para ler e responder.",
+    ],
+    actionLabel: "Abrir o pedido",
+    actionPath: `/fornecedor/painel/pedidos?${search.toString()}`,
     footnote: FOOTNOTE,
   };
 }

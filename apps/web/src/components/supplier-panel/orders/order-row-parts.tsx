@@ -22,6 +22,7 @@ import { formatAbsoluteTime } from "@/lib/relative-time";
 import type { SupplierOrderRow } from "@/features/supplier-panel/orders/use-order-actions";
 import { CONTROL_HINTS, SUPPLIER_NEXT_STEP_HINTS } from "@/components/icons/action-icons";
 import { Hint } from "@/components/ui/hint";
+import { UnreadDot } from "@/components/support/ticket-badges";
 import { ChannelLine } from "./channel-line";
 import { SupplierPaymentBadgeView } from "@/components/supplier-payments/supplier-payment-badge";
 import {
@@ -62,6 +63,11 @@ export function OrderSummary({
       >
         Pedido {row.externalOrderId}
       </button>
+      {row.hasUnreadStoreMessage ? (
+        <div>
+          <UnreadDot label="Mensagem nova da loja" />
+        </div>
+      ) : null}
       {row.supplierPayment === undefined ? null : (
         <div>
           <SupplierPaymentBadgeView badge={row.supplierPayment} />

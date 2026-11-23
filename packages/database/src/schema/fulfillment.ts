@@ -65,6 +65,11 @@ export const orderShipments = pgTable(
      * for a pickup), read with its tracking: the supplier sees whether to wait or take it out.
      */
     marketplaceLogisticType: text(),
+    /**
+     * When the supplier last opened the parcel in its panel: a store message written after it is
+     * "Mensagem nova" in the supplier's orders and bell. Null until the first opening.
+     */
+    supplierMessagesReadAt: timestamp({ withTimezone: true }),
     createdAt: timestamp({ withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp({ withTimezone: true }).notNull().defaultNow(),
   },

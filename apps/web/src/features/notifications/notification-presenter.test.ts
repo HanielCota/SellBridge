@@ -257,6 +257,7 @@ describe("an order message in the bell", () => {
   it("says the supplier wrote and opens the order, without the message", () => {
     const presented = presentNotification({
       kind: "order_message",
+      from: "supplier",
       entityId: "order-1",
       at,
       externalOrderId: "2000012345",
@@ -266,6 +267,23 @@ describe("an order message in the bell", () => {
       title: "Nova mensagem do fornecedor",
       detail: "Pedido 2000012345 · Ateliê Divinópolis",
       href: "/pedidos/order-1",
+    });
+  });
+
+  it("tells the supplier a store wrote and opens the order in its Pedidos tab", () => {
+    const presented = presentNotification({
+      kind: "order_message",
+      from: "reseller",
+      entityId: "shipment-1",
+      at,
+      externalOrderId: "2000012345",
+      storeName: "Loja da Ana",
+      supplierTab: "shipped",
+    });
+    expect(presented).toMatchObject({
+      title: "Nova mensagem da loja",
+      detail: "Pedido 2000012345 · Loja da Ana",
+      href: "/fornecedor/painel/pedidos?tab=shipped&query=2000012345",
     });
   });
 });

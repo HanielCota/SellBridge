@@ -359,13 +359,20 @@ export function ShipmentPanelDialog({
   opened: { id: string; externalOrderId: string } | null;
   onClose: () => void;
 }) {
+  const queryClient = useQueryClient();
   return (
     <Dialog
       open={opened !== null}
       onOpenChange={(open) => {
-        if (!open) {
-          onClose();
+        if (open) {
+          return;
         }
+        // Opening read the store's messages: the row and the bell drop their "Mensagem nova".
+        void queryClient.invalidateQueries({
+          queryKey: [...supplierOrdersKey(supplierId), "list"],
+        });
+        void queryClient.invalidateQueries({ queryKey: ["notifications"] });
+        onClose();
       }}
     >
       <DialogContent className="max-h-[90svh] overflow-y-auto sm:max-w-3xl">
