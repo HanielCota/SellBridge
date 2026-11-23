@@ -138,6 +138,8 @@ export function AttentionPanel({
       failedListings: counts.data?.failedListings ?? 0,
       unreadSupportReplies: counts.data?.unreadSupportReplies ?? 0,
       pendingReviews: counts.data?.pendingReviews ?? 0,
+      ordersToForward: counts.data?.ordersToForward ?? 0,
+      supplierPaymentsDue: counts.data?.supplierPaymentsDue ?? 0,
     },
     stores,
     notice.data,
@@ -145,7 +147,7 @@ export function AttentionPanel({
   return (
     <AttentionList
       items={items}
-      allClearDescription="Nenhuma loja desconectada, publicação com erro, resposta ou avaliação pendente."
+      allClearDescription="Nenhum pedido para enviar, loja desconectada, publicação com erro, resposta ou avaliação pendente."
       footer={showMeiTip ? <MeiTip showProfileLink className="mt-4" /> : null}
     />
   );

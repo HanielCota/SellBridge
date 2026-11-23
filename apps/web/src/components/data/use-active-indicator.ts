@@ -7,16 +7,37 @@ export interface IndicatorBox {
   glides: boolean;
 }
 
-/** Scrolls a narrow track (a phone) just enough to show the active option, with no animation. */
-function revealInside(container: HTMLElement, button: HTMLElement): void {
-  const right = button.offsetLeft + button.offsetWidth;
-  if (right > container.scrollLeft + container.clientWidth) {
-    container.scrollTo({ left: right - container.clientWidth });
-    return;
+interface TrackView {
+  scrollLeft: number;
+  clientWidth: number;
+}
+
+interface OptionBox {
+  offsetLeft: number;
+  offsetWidth: number;
+}
+
+/**
+ * Where a narrow track (a phone) scrolls to show the active option, or null to stay put. Only a
+ * new choice, or the first measure, moves it: a layout change (a badge, fonts, a resize) must not
+ * pull back a track the person scrolled, or a tap on a far option lands on another one.
+ */
+export function revealScrollLeft(
+  track: TrackView,
+  option: OptionBox,
+  isNewChoice: boolean,
+): number | null {
+  if (!isNewChoice) {
+    return null;
   }
-  if (button.offsetLeft < container.scrollLeft) {
-    container.scrollTo({ left: button.offsetLeft });
+  const right = option.offsetLeft + option.offsetWidth;
+  if (right > track.scrollLeft + track.clientWidth) {
+    return right - track.clientWidth;
   }
+  if (option.offsetLeft < track.scrollLeft) {
+    return option.offsetLeft;
+  }
+  return null;
 }
 
 /**
@@ -37,8 +58,10 @@ export function useActiveIndicator<TValue>(
       if (!button) {
         return;
       }
-      if (containerRef.current) {
-        revealInside(containerRef.current, button);
+      const container = containerRef.current;
+      const left = container === null ? null : revealScrollLeft(container, button, glides);
+      if (container !== null && left !== null) {
+        container.scrollTo({ left });
       }
       const box = { left: button.offsetLeft, width: button.offsetWidth, glides };
       // The observer also reports when nothing moved (on start, or the track's own resize):

@@ -3,13 +3,11 @@ import { MAX_RESELLER_DISCOUNT_TENTHS } from "@sellbridge/shared/erp-reseller-pr
 import { supplierImportSupplierSchema } from "@sellbridge/shared/supplier-panel-import-schemas";
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
-import { accountMiddleware, supplierPanelMiddleware } from "@/lib/server/middleware";
-import { assertSupplierProfile } from "@/lib/server/supplier-panel-access";
+import { supplierPanelMiddleware } from "@/lib/server/middleware";
 import {
   buildBlingNewProductsCsv,
   discardBlingRead,
   disconnectBling,
-  findOwnBlingToReconnect,
   importBlingRead,
   setBlingInvoicing,
   loadBlingOverview,
@@ -26,14 +24,6 @@ export const supplierBlingOverview = createServerFn({ method: "GET" })
   .middleware([supplierPanelMiddleware])
   .validator(supplierImportSupplierSchema)
   .handler(async ({ data }) => await loadBlingOverview(data.supplierId));
-
-/** The header notice: whether the tab's supplier has to reconnect its Bling, and where to. */
-export const ownBlingToReconnect = createServerFn({ method: "GET" })
-  .middleware([accountMiddleware])
-  .handler(async ({ context }) => {
-    assertSupplierProfile(context.profileKind);
-    return findOwnBlingToReconnect(context);
-  });
 
 /** Starts reading the catalog in the background; the page polls the overview for progress. */
 export const supplierBlingStartRead = createServerFn({ method: "POST" })

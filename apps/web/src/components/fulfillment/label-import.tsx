@@ -87,7 +87,9 @@ export function AddressImportBar({
           disabled={marketplaceImport.isPending}
           onClick={() => marketplaceImport.mutate()}
         >
-          Importar endereço do marketplace
+          {marketplaceImport.isPending
+            ? "Buscando o endereço…"
+            : "Buscar o endereço no Mercado Livre"}
         </Button>
       )}
     </div>

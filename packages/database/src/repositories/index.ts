@@ -80,6 +80,7 @@ export * from "./shipment-labels.ts";
 export * from "./shipment-tracking.ts";
 export * from "./shipment-history.ts";
 export * from "./staff-shipments.ts";
+export { countResellerToDos, type ResellerToDos } from "./reseller-to-dos.ts";
 export * from "./buyer-tracking.ts";
 export * from "./auto-forward.ts";
 export { reserveShortItems } from "./stock-reservations.ts";

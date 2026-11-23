@@ -1,6 +1,7 @@
 import {
   countParcelAlerts,
   countPendingReviews,
+  countResellerToDos,
   countFailedListingTargets,
   countUnreadSupportReplies,
 } from "@sellbridge/database/repositories";
@@ -11,7 +12,8 @@ import { reviewableSince } from "@/features/orders/review-window";
 
 /**
  * What needs attention in the header: unread support replies and parcels late or with a delivery
- * problem for any profile, and for a seller also failed publications and reviews to answer.
+ * problem for any profile, and for a seller also failed publications, reviews to answer, paid
+ * orders to send to the supplier and supplier payments to make.
  */
 export const getAttentionCounts = createServerFn({ method: "GET" })
   .middleware([accountMiddleware])
@@ -30,19 +32,25 @@ export const getAttentionCounts = createServerFn({ method: "GET" })
         pendingReviews: 0,
         supplierOrders,
         parcelAlerts: 0,
+        ordersToForward: 0,
+        supplierPaymentsDue: 0,
       };
     }
-    const [failedListings, unreadSupportReplies, pendingReviews, parcelAlerts] = await Promise.all([
-      countFailedListingTargets(database, context.tenantId),
-      countUnreadSupportReplies(database, context.tenantId, context.userId),
-      countPendingReviews(database, context.tenantId, reviewableSince(new Date())),
-      countParcelAlerts(database, { tenantId: context.tenantId }),
-    ]);
+    const [failedListings, unreadSupportReplies, pendingReviews, parcelAlerts, toDos] =
+      await Promise.all([
+        countFailedListingTargets(database, context.tenantId),
+        countUnreadSupportReplies(database, context.tenantId, context.userId),
+        countPendingReviews(database, context.tenantId, reviewableSince(new Date())),
+        countParcelAlerts(database, { tenantId: context.tenantId }),
+        countResellerToDos(database, context.tenantId),
+      ]);
     return {
       failedListings,
       unreadSupportReplies,
       pendingReviews: pendingReviews.total,
       supplierOrders: 0,
       parcelAlerts,
+      ordersToForward: toDos.ordersToForward,
+      supplierPaymentsDue: toDos.supplierPaymentsDue,
     };
   });

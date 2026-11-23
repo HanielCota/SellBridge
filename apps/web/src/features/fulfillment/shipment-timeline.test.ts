@@ -4,6 +4,9 @@ import {
   historyNote,
   shipmentTimeline,
   shipmentsSummary,
+  blockedOrderMessage,
+  waitsToBeForwarded,
+  toForwardWords,
   supplierShipmentStatusLabel,
 } from "./shipment-timeline";
 
@@ -40,17 +43,63 @@ describe("shipment timeline", () => {
 });
 
 describe("shipmentsSummary", () => {
-  it("says in Portuguese that nothing went to the supplier yet", () => {
-    expect(shipmentsSummary([])).toBe("Ainda não encaminhado ao fornecedor");
+  it("leaves the line to the badge on a paid order that waits to be sent", () => {
+    expect(shipmentsSummary([], "paid")).toBeNull();
+  });
+
+  it("tells the reseller to wait while the buyer has not paid", () => {
+    expect(shipmentsSummary([], "pending")).toBe("Espere o comprador pagar");
+  });
+
+  it("says there is nothing to send on a cancelled sale", () => {
+    expect(shipmentsSummary([], "cancelled")).toBe("Venda cancelada: nada a enviar");
   });
 
   it("names each parcel with its status", () => {
     expect(
-      shipmentsSummary([
-        { status: "picking", catalogKind: "seller", supplierName: "" },
-        { status: "shipped", catalogKind: "supplier", supplierName: "Casa Bela" },
-      ]),
+      shipmentsSummary(
+        [
+          { status: "picking", catalogKind: "seller", supplierName: "" },
+          { status: "shipped", catalogKind: "supplier", supplierName: "Casa Bela" },
+        ],
+        "paid",
+      ),
     ).toMatch(/^Seu envio: .+ · Casa Bela: .+$/);
+  });
+});
+
+describe("blockedOrderMessage", () => {
+  it("tells the reseller the buyer has not paid yet, without blaming a cancellation", () => {
+    expect(blockedOrderMessage("pending", false)).toMatch(/^O comprador ainda não pagou./);
+  });
+
+  it("says a cancelled sale has nothing to send", () => {
+    expect(blockedOrderMessage("cancelled", false)).toBe("Venda cancelada. Não há nada a enviar.");
+  });
+
+  it("points to the parcels of a returned order that had them", () => {
+    expect(blockedOrderMessage("returned", true)).toMatch(/^Pedido devolvido. Veja em cada envio/);
+  });
+});
+
+describe("toForwardWords", () => {
+  it("asks to send to the supplier when the order has supplier items", () => {
+    expect(toForwardWords(false)).toEqual({
+      badge: "Falta enviar ao fornecedor",
+      button: "Enviar ao fornecedor",
+    });
+  });
+
+  it("asks the reseller to prepare an order made only of its own stock", () => {
+    expect(toForwardWords(true).button).toBe("Preparar o envio");
+  });
+});
+
+describe("waitsToBeForwarded", () => {
+  it("marks only a paid order without parcels as waiting for the reseller", () => {
+    expect(waitsToBeForwarded({ status: "paid", shipments: [] })).toBe(true);
+    expect(waitsToBeForwarded({ status: "pending", shipments: [] })).toBe(false);
+    expect(waitsToBeForwarded({ status: "paid", shipments: [{}] })).toBe(false);
   });
 });
 

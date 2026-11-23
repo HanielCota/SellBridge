@@ -192,7 +192,7 @@ const UNCHECKED_MESSAGE =
   "Não conseguimos conferir com o Mercado Pago agora. Tente de novo em alguns minutos.";
 
 const NO_ACCOUNT_MESSAGE =
-  "Este fornecedor ainda não ligou a conta de recebimento no Asaas. Assim que ligar, o pagamento aparece aqui.";
+  "Você ainda não precisa pagar: o fornecedor ainda não cadastrou onde recebe. Ele já pode preparar o pedido, e o botão para pagar aparece aqui quando a conta dele for aprovada.";
 
 /** Why the reseller cannot pay this parcel here, or null when it can. */
 function checkoutRefusal(payable: PayableShipment, linked: boolean): string | null {

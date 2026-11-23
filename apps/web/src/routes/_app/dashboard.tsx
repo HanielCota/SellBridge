@@ -12,6 +12,7 @@ import { KpiTiles } from "@/components/reports/kpi-tiles";
 import { PeriodSummary } from "@/components/reports/period-summary";
 import { ErrorState } from "@/components/feedback/error-state";
 import { AttentionPanel } from "@/components/reports/attention-panel";
+import { OrdersWaitingBanner } from "@/components/reports/orders-waiting-banner";
 import { PeriodFilters } from "@/components/reports/period-filters";
 import { StoreBreakdown, TopProducts } from "@/components/reports/sales-breakdown";
 import { DashboardSetupGuide } from "@/components/onboarding/setup-guide";
@@ -114,6 +115,8 @@ function DashboardContent({ data }: { data: DashboardData }) {
           />
         }
       />
+      {/* Before the charts: a paid sale waiting for the reseller stops the sale itself. */}
+      <OrdersWaitingBanner />
       <div className="grid grid-cols-1 gap-4 xl:grid-cols-[300px_minmax(0,1fr)]">
         <KpiTiles
           summary={summary}
