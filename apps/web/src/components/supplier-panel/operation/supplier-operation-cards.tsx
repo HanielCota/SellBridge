@@ -1,5 +1,6 @@
 import { CaretRightIcon } from "@phosphor-icons/react";
 import { formatCents } from "@sellbridge/shared/money";
+import { ASAAS_PIX_FEE_CENTS, supplierNetForOrders } from "@sellbridge/shared/supplier-net-amount";
 import { HEALTH_METRIC_LABELS } from "@sellbridge/shared/supplier-panel-health";
 import type { SupplierOrderTab } from "@sellbridge/shared/supplier-panel-orders-tabs";
 import type { SupplierLabelState } from "@sellbridge/shared/supplier-order-labels";
@@ -192,21 +193,19 @@ function OperationNowCard({ now }: { now: SupplierOperationData["now"] }) {
   );
 }
 
-/** What the supplier receives in each month of the period, newest first. */
+/** What the supplier sold in each month of the period, newest first, and about what it keeps. */
 function MonthlyRevenueCard({ months }: { months: SupplierOperationData["months"] }) {
   const sold = monthsFromFirstSale(months);
   return (
-    <BreakdownSection
-      title="Faturamento por mês"
-      to="/fornecedor/painel/vendas"
-      hint="Ver suas vendas"
-    >
+    <BreakdownSection title="Vendido por mês" to="/fornecedor/painel/vendas" hint="Ver suas vendas">
       {sold.length > 0 ? (
         <>
           <p className="mb-2 text-xs text-muted-foreground">
-            O que você recebe. O primeiro e o último mês contam só os dias do período.
+            “Você recebe” é uma estimativa: o valor vendido menos os 4% do SellBridge e a tarifa do
+            Asaas ({formatCents(ASAAS_PIX_FEE_CENTS)} por pedido no Pix). O primeiro e o último mês
+            contam só os dias do período.
           </p>
-          <ol className="-my-1 divide-y text-sm" aria-label="Faturamento de cada mês">
+          <ol className="-my-1 divide-y text-sm" aria-label="Vendido em cada mês">
             {sold.toReversed().map((month) => (
               <li key={month.date} className="flex items-center justify-between gap-3 py-2">
                 <span className="space-y-0.5">
@@ -215,8 +214,16 @@ function MonthlyRevenueCard({ months }: { months: SupplierOperationData["months"
                     {formatOrders(month.orders)}
                   </span>
                 </span>
-                <span className="font-medium tabular-nums">
-                  {formatCents(month.receivableCents)}
+                <span className="space-y-0.5 text-right">
+                  <span className="block font-medium tabular-nums">
+                    {formatCents(month.receivableCents)}
+                  </span>
+                  <span className="block text-xs text-muted-foreground tabular-nums">
+                    Você recebe cerca de{" "}
+                    {formatCents(
+                      supplierNetForOrders(month.receivableCents, month.orders).netCents,
+                    )}
+                  </span>
                 </span>
               </li>
             ))}
