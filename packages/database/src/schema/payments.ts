@@ -131,6 +131,11 @@ export const shipmentPayments = pgTable(
     /** The provider's payment type (`pix`, `credit_card`...), once a payment exists. */
     paymentMethod: text(),
     paidAt: timestamp({ withTimezone: true }),
+    /**
+     * What the provider kept as its own fee from the payment, in cents, read when it was approved
+     * (Asaas: value minus netValue). Null for payments approved before it was recorded.
+     */
+    providerFeeCents: integer(),
     /** Last time the reconciliation job read this payment back from the provider. */
     checkedAt: timestamp({ withTimezone: true }),
     /**

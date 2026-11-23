@@ -1,0 +1,1 @@
+ALTER TABLE "shipment_payments" ADD COLUMN "provider_fee_cents" integer;

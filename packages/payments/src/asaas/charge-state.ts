@@ -131,6 +131,23 @@ export function platformShareCents(charge: AsaasPayment, walletId: string): numb
   return share?.fixedValue == null ? 0 : centsFromAsaasValue(share.fixedValue);
 }
 
+/**
+ * What Asaas kept as its own fee from the charge, in cents, or null when it did not say or said
+ * something impossible. `netValue` is the value after Asaas's fee only: SellBridge's split share
+ * comes out of it afterwards (docs.asaas.com/docs/split-de-pagamentos, checked in the sandbox on
+ * 23/11/2026: a R$ 80,00 boleto with a R$ 0,80 split had a netValue of R$ 79,01).
+ */
+export function asaasFeeCents(charge: AsaasPayment): number | null {
+  if (charge.netValue == null) {
+    return null;
+  }
+  const fee = centsFromAsaasValue(charge.value) - centsFromAsaasValue(charge.netValue);
+  if (fee < 0 || fee > centsFromAsaasValue(charge.value)) {
+    return null;
+  }
+  return fee;
+}
+
 /** The charge asks for exactly the parcel's amount, with SellBridge's fee in its split. */
 export function chargeMatchesParcel(
   charge: AsaasPayment,
