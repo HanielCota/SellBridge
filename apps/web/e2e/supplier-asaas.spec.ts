@@ -162,7 +162,7 @@ async function forwardedSale(
 async function openApprovedAsaasAccount(page: Page): Promise<void> {
   await gotoHydrated(page, "/fornecedor/painel/recebimentos");
   const card = page.getByRole("region", { name: /Receber com proteção/ });
-  await expect(card.getByText("Não aberta")).toBeVisible();
+  await expect(card.getByText("Falta abrir · você ainda não recebe")).toBeVisible();
   await card.getByRole("button", { name: "Abrir minha conta no Asaas" }).click();
   const dialog = page.getByRole("dialog", { name: "Abrir conta no Asaas" });
   await dialog.getByRole("button", { name: "Continuar" }).click();
