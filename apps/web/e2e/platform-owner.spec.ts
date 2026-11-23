@@ -131,7 +131,7 @@ test("admin comum não desconecta a loja de alguém da equipe", async ({ browser
   await enableAdminMode(page);
 
   await gotoHydrated(page, `/admin/clientes/${member.id}`);
-  await page.getByRole("button", { name: "Desconectar" }).click();
+  await page.getByRole("button", { name: "Desconectar", exact: true }).click();
   await page.getByRole("dialog").getByRole("button", { name: "Desconectar" }).click();
 
   await expect(

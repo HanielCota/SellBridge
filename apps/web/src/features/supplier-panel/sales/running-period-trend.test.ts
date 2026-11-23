@@ -22,7 +22,7 @@ describe("runningPeriodTrend", () => {
 
 describe("versusText", () => {
   it("says the change is against the same days while the period runs", () => {
-    expect(versusText(true)).toBe("vs. mesmos dias do anterior");
-    expect(versusText(false)).toBe("vs. anterior");
+    expect(versusText(true)).toBe("sobre os mesmos dias do anterior");
+    expect(versusText(false)).toBe("sobre o anterior");
   });
 });

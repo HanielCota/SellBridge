@@ -18,7 +18,7 @@ const SPLIT_COLORS: Record<OrderSplitKind, string> = {
 };
 
 const SPLIT_LABELS: Record<OrderSplitKind, string> = {
-  pending: "Custo pendente",
+  pending: "Sem custo informado",
   cost: "Produtos",
   fee: "Taxas",
   refund: "Reembolso",
@@ -105,11 +105,11 @@ function PendingCostBreakdown({ row }: { row: OrderFinance }) {
             <span aria-hidden="true" className={cn("size-2 rounded-[3px]", PENDING_HATCH_CLASS)} />
             Produtos
           </dt>
-          <dd>custo pendente</dd>
+          <dd>sem custo informado</dd>
         </div>
         <div className="mt-1 flex justify-between gap-4 border-t border-border pt-2">
           <dt className="font-medium">Lucro</dt>
-          <dd className="font-medium text-muted-foreground">fora do lucro</dd>
+          <dd className="font-medium text-muted-foreground">ainda sem lucro</dd>
         </div>
       </dl>
       <p className="text-xs text-muted-foreground">{PENDING_COST_HINT}</p>

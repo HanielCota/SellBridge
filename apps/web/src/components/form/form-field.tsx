@@ -15,7 +15,7 @@ export function firstErrorMessage(errors: readonly unknown[]): string | null {
   if (typeof first === "object" && "message" in first && typeof first.message === "string") {
     return first.message;
   }
-  return "Valor inválido";
+  return "Confira o que você digitou neste campo";
 }
 
 interface TextFieldProps extends Omit<ComponentProps<typeof Input>, "id" | "onChange" | "value"> {

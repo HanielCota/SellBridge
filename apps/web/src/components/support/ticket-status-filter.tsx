@@ -35,8 +35,11 @@ export function TicketStatusFilter({
       value={value ?? ALL_STATUSES}
       onValueChange={(next) => onChange(TICKET_STATUSES.find((status) => status === next))}
     >
-      <SelectTrigger className={cn("sm:w-56", className)} aria-label="Filtrar chamados por status">
-        <SelectValue>{value ? labels[value] : "Todos os status"}</SelectValue>
+      <SelectTrigger
+        className={cn("sm:w-56", className)}
+        aria-label="Filtrar chamados por situação"
+      >
+        <SelectValue>{value ? labels[value] : "Todas as situações"}</SelectValue>
       </SelectTrigger>
       <SelectContent>
         <SelectItem value={ALL_STATUSES}>Todas as situações</SelectItem>

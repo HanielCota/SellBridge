@@ -41,7 +41,7 @@ type ProblemDetail = Awaited<ReturnType<typeof adminGetProblem>>;
 export const Route = createFileRoute("/_app/admin/problemas/$problemId")({
   loader: ({ context, params }) =>
     prefetchOnServer(context.queryClient, problemQueryOptions(params.problemId)),
-  head: () => ({ meta: [{ title: "Problema (admin) | SellBridge" }] }),
+  head: () => ({ meta: [{ title: "Problema (equipe) | SellBridge" }] }),
   component: ProblemPage,
 });
 

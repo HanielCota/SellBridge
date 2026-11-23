@@ -176,7 +176,7 @@ export function CustomerStores({
         open={target !== null}
         onOpenChange={(open) => (open ? undefined : setTarget(null))}
         title={`Desconectar ${target?.shopName ?? "loja"}?`}
-        description="Os anúncios já publicados continuam no marketplace, mas o SellBridge deixa de sincronizar estoque, preço e pedidos desta loja."
+        description="Os anúncios já publicados continuam no marketplace, mas o SellBridge para de atualizar estoque, preço e pedidos desta loja."
         confirmLabel="Desconectar"
         pendingLabel="Desconectando…"
         destructive

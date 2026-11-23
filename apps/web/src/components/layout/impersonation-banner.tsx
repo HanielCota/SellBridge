@@ -29,7 +29,7 @@ export function ImpersonationBanner({
     const result = await authClient.admin.stopImpersonating();
     if (result.error) {
       setIsLeaving(false);
-      toast.error("Não foi possível voltar ao admin. Tente novamente.");
+      toast.error("Você continua na conta do cliente. Toque em Voltar à equipe de novo.");
       return;
     }
     // A plain page load: a router link would carry the customer's `?perfil=` back to the admin.
@@ -59,7 +59,7 @@ export function ImpersonationBanner({
         disabled={isLeaving}
         onClick={() => void stopImpersonating()}
       >
-        Voltar ao admin
+        Voltar à equipe
       </Button>
     </aside>
   );

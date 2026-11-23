@@ -18,14 +18,16 @@ test("records a route failure automatically and keeps page retry usable", async 
       response.url().endsWith("/api/diagnostics/errors") && response.request().method() === "POST",
   );
   await page.getByRole("link", { name: "Lojas", exact: true }).click();
-  await expect(page.getByRole("heading", { name: "Algo deu errado" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Esta página não abriu" })).toBeVisible();
   const response = await delivery;
   expect(response.status()).toBe(204);
   const report = errorReportSchema.parse(response.request().postDataJSON());
   expect(report.route).toBe("/_app/lojas");
   expect(report.buildId).toBeTruthy();
-  await expect(page.getByText(`Erro registrado. Referência: ${report.id}`)).toBeVisible();
+  await expect(
+    page.getByText(`Se for falar com o Suporte, mande este código: ${report.id}`),
+  ).toBeVisible();
   await page.unroute("**/_serverFn/**");
-  await page.getByRole("button", { name: "Tentar novamente" }).click();
+  await page.getByRole("button", { name: "Tentar de novo" }).click();
   await expect(page.getByRole("heading", { name: "Lojas", exact: true })).toBeVisible();
 });

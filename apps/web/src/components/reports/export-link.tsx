@@ -9,6 +9,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Hint } from "@/components/ui/hint";
+import { cn } from "@/lib/utils";
 
 const ExportIcon = ACTION_ICONS.exportReport.icon;
 
@@ -40,9 +41,12 @@ function OptionText({
 export function ExportLink({
   href,
   reportTo = "/financeiro/relatorio",
+  labeled = false,
 }: {
   href: string;
   reportTo?: "/financeiro/relatorio" | "/fornecedor/painel/relatorio";
+  /** Shows "Baixar" beside the icon at every width, for a toolbar that has the room. */
+  labeled?: boolean;
 }) {
   const navigate = useNavigate();
   return (
@@ -50,12 +54,21 @@ export function ExportLink({
       <Hint label="Baixar a planilha dos pedidos ou o relatório com gráficos" openOnTap={false}>
         <DropdownMenuTrigger
           aria-label="Baixar planilha ou relatório"
-          className="flex size-10 shrink-0 items-center justify-center gap-2 rounded-full border border-border text-sm min-[1440px]:w-auto min-[1440px]:pr-3.5 min-[1440px]:pl-3.5 font-medium text-muted-foreground outline-none transition-colors hover:text-foreground focus-visible:ring-3 focus-visible:ring-ring/50 data-[state=open]:border-foreground data-[state=open]:text-foreground"
+          className={cn(
+            "flex h-10 shrink-0 items-center justify-center gap-2 rounded-full border border-border text-sm font-medium text-muted-foreground outline-none transition-colors hover:text-foreground focus-visible:ring-3 focus-visible:ring-ring/50 data-[state=open]:border-foreground data-[state=open]:text-foreground",
+            labeled ? "px-3.5" : "w-10 min-[1440px]:w-auto min-[1440px]:px-3.5",
+          )}
         >
           <ExportIcon className="size-4" aria-hidden="true" />
           {/* Below 1440px the word pushed the store filter to a second row (1280) and cut the
-            period track (768); the icon and its hint stand alone there. */}
-          <span aria-hidden="true" className="hidden items-center gap-1 min-[1440px]:inline-flex">
+            period track (768); unless labeled, the icon and its hint stand alone there. */}
+          <span
+            aria-hidden="true"
+            className={cn(
+              "items-center gap-1",
+              labeled ? "inline-flex" : "hidden min-[1440px]:inline-flex",
+            )}
+          >
             Baixar
             <CaretDownIcon className="size-3" />
           </span>

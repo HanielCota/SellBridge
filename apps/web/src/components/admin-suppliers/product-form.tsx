@@ -166,7 +166,7 @@ export function ProductForm({ supplierId, product, categories, onClose }: Produc
   return (
     <SectionCard
       title={product ? "Editar produto" : "Novo produto"}
-      description="O custo e os preços são informados em reais. A sincronização do anúncio usa o estoque atualizado."
+      description="Custo e preços em reais. O anúncio passa a usar o estoque salvo aqui."
     >
       <form noValidate onSubmit={submit}>
         <fieldset disabled={save.isPending} className="grid gap-4">

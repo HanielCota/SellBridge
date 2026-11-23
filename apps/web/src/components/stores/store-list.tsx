@@ -54,7 +54,7 @@ const PROBLEM_TONES: Record<StoreProblem, string> = {
 /** What to say when the marketplace left no message of its own. */
 const PROBLEM_FALLBACKS: Record<StoreProblem, string> = {
   expired: "A autorização da loja expirou",
-  error: "A loja parou de sincronizar",
+  error: "A loja parou de atualizar",
   disconnected: "A loja foi desconectada",
 };
 
@@ -153,7 +153,7 @@ function StoreSubtitle({
   marketplaceLabel: string;
 }) {
   if (store.status !== "connected") {
-    const problem = `${problemMessage(store.status, store.lastError)} · sincronização pausada`;
+    const problem = `${problemMessage(store.status, store.lastError)} · pedidos e estoque sem atualizar`;
     // Truncated on wide screens, so the full message stays one hover away.
     return (
       <p className={cn("text-sm md:truncate", PROBLEM_TONES[store.status])} title={problem}>

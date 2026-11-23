@@ -45,9 +45,9 @@ export function unavailableReason(availability: CatalogAvailability): Unavailabl
 
 const UNAVAILABLE_MESSAGES: Record<UnavailableReason, string> = {
   supplier_inactive:
-    "O fornecedor deste produto está inativo. Quando ele voltar ao catálogo, reprocesse a publicação.",
+    "O fornecedor deste produto está inativo. Quando ele voltar, publique de novo.",
   supplier_closed:
-    "O fornecedor fechou a loja para vendas por um tempo. Reprocesse a publicação quando ele reabrir.",
+    "O fornecedor fechou a loja para vendas por um tempo. Publique de novo quando ele reabrir.",
   product_inactive:
     "Este produto está indisponível. Tente publicar novamente quando ele estiver disponível.",
   cost_above_price:

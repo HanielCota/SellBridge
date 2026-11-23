@@ -205,7 +205,7 @@ test("mostra erro com motivo e permite reprocessar", async ({ page }) => {
       .filter({ visible: true }),
   ).toBeVisible();
 
-  await page.getByRole("button", { name: "Reprocessar" }).click();
+  await page.getByRole("button", { name: "Tentar de novo" }).click();
   await expect(
     page.getByText("Publicação reenviada para a fila").filter({ visible: true }),
   ).toBeVisible();

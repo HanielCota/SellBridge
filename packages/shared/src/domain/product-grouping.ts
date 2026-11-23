@@ -351,7 +351,7 @@ export function groupingProblems(input: {
       ...(repeated === undefined || (product.color === null && product.size === null)
         ? []
         : [
-            `${combinationLabel(product.color, product.size)} já é o SKU ${repeated.sku}: corrija a cor ou o tamanho`,
+            `${combinationLabel(product.color, product.size)} já é o código ${repeated.sku}: corrija a cor ou o tamanho`,
           ]),
       ...(main === undefined ? [] : fiscalProblems(product, main)),
     ];

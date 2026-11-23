@@ -75,7 +75,7 @@ export type ApprovalRefusalCause = (typeof APPROVAL_REFUSAL_CAUSES)[number];
 /** What the supplier reads in its panel after an automatic refusal. */
 export const APPROVAL_REFUSAL_TEXT: Record<ApprovalRefusalCause, string> = {
   mei:
-    "Seu CNPJ está como MEI na Receita. Para vender como fornecedor na SellBridge, a empresa " +
+    "Seu CNPJ está como MEI na Receita. Para vender como fornecedor no SellBridge, a empresa " +
     "precisa ser ME, EPP ou maior. Se a empresa já saiu do MEI, fale com o suporte e mande o " +
     "documento que mostra a saída: a Receita pode levar até um mês para atualizar.",
 };

@@ -133,7 +133,7 @@ describe("gridProblems", () => {
       combinations: [...shoeGrid.combinations, combination("Azul", "38", "TEN-A-38")],
     };
 
-    expect(gridProblems(grid)).toContain('A cor "Azul" do SKU TEN-A-38 não está na grade');
+    expect(gridProblems(grid)).toContain('A cor "Azul" do código TEN-A-38 não está na grade');
   });
 
   it("asks for the size of a combination when the grid has sizes", () => {
@@ -142,7 +142,7 @@ describe("gridProblems", () => {
       combinations: [...shoeGrid.combinations, combination("Branco", null, "TEN-B")],
     };
 
-    expect(gridProblems(grid)).toContain("Escolha o tamanho do SKU TEN-B");
+    expect(gridProblems(grid)).toContain("Escolha o tamanho do código TEN-B");
   });
 
   it("refuses a colour on a grid that has only sizes", () => {
@@ -152,7 +152,7 @@ describe("gridProblems", () => {
       combinations: [combination("Preto", "P", "C-P")],
     };
 
-    expect(gridProblems(grid)).toEqual(["O SKU C-P tem cor, mas a grade não tem cor"]);
+    expect(gridProblems(grid)).toEqual(["O código C-P tem cor, mas a grade não tem cor"]);
   });
 
   it("refuses the same combination twice and the same SKU twice", () => {
@@ -163,7 +163,7 @@ describe("gridProblems", () => {
 
     expect(gridProblems(grid)).toEqual([
       "A combinação Preto 38 aparece mais de uma vez",
-      "O SKU TEN-P-39 aparece em mais de uma combinação",
+      "O código TEN-P-39 aparece em mais de uma combinação",
     ]);
   });
 
@@ -356,7 +356,7 @@ describe("productGridDraftSchema", () => {
     });
 
     expect(result.error?.issues.map((issue) => issue.message)).toEqual([
-      "O SKU TEN-1 aparece em mais de uma combinação",
+      "O código TEN-1 aparece em mais de uma combinação",
     ]);
   });
 });
