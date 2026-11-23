@@ -1,6 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { ApiKeysSection } from "@/components/integrations/api-keys-section";
-import { IntegrationsLayout } from "@/components/integrations/integrations-layout";
+import { DeveloperArea, IntegrationsLayout } from "@/components/integrations/integrations-layout";
 import { IntegrationsLockContext } from "@/components/integrations/integrations-lock";
 import { ResellerBlingSection } from "@/components/integrations/reseller-bling-section";
 import { WebhooksSection } from "@/components/integrations/webhooks-section";
@@ -35,8 +35,10 @@ function IntegrationsPage() {
           </p>
         ) : null}
         <ResellerBlingSection outcome={bling} />
-        <ApiKeysSection />
-        <WebhooksSection />
+        <DeveloperArea>
+          <ApiKeysSection />
+          <WebhooksSection />
+        </DeveloperArea>
       </IntegrationsLayout>
     </IntegrationsLockContext>
   );

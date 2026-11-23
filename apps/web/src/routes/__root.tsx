@@ -21,7 +21,7 @@ export const Route = createRootRouteWithContext<RouterContext>()({
       // `viewport-fit=cover` lets the fixed bars reach under the notch; they pad by the safe areas.
       { name: "viewport", content: "width=device-width, initial-scale=1, viewport-fit=cover" },
       { name: "color-scheme", content: "dark light" },
-      // Dark is the default theme; the init script swaps it for a saved light preference.
+      // Only a starting value: the init script sets the theme of the saved choice or the device.
       { name: "theme-color", content: THEME_COLORS.dark },
       ...SITE_SHARE_META,
       ...shareMeta({

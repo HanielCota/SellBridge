@@ -284,6 +284,8 @@ interface ChartKindMenuProps<Kind extends MenuChartKind> {
   canCompare: boolean;
   /** The card the menu must stay inside; it shifts, flips or scrolls rather than leave it. */
   boundary: HTMLElement | null;
+  /** Shows "Tipo de gráfico" beside the icon at every width, for a toolbar that has the room. */
+  labeled?: boolean;
 }
 
 /**
@@ -318,21 +320,39 @@ function useMenuThatClosesWhenHidden() {
 /** Gear next to the export: picks how the chart draws the period, and which one opens by default. */
 const ChartKindIcon = ACTION_ICONS.chartKind.icon;
 
-/** The menu button: icon and hint everywhere, the word too where the toolbar has room. */
-function ChartKindTrigger({ triggerRef }: { triggerRef: RefObject<HTMLButtonElement | null> }) {
+/**
+ * The menu button: icon and hint everywhere, the word too where the toolbar has room. A labeled
+ * trigger always shows "Tipo de gráfico" next to the icon.
+ */
+function ChartKindTrigger({
+  triggerRef,
+  labeled,
+}: {
+  triggerRef: RefObject<HTMLButtonElement | null>;
+  labeled: boolean;
+}) {
   return (
     <Hint label={ACTION_ICONS.chartKind.hint} openOnTap={false}>
       <PopoverTrigger
         ref={triggerRef}
         aria-label="Tipo de gráfico"
-        className="flex size-10 shrink-0 items-center justify-center gap-2 rounded-full border border-border text-sm min-[1440px]:w-auto min-[1440px]:pr-4 min-[1440px]:pl-3.5 font-medium text-muted-foreground outline-none transition-colors hover:text-foreground focus-visible:ring-3 focus-visible:ring-ring/50 data-[state=open]:border-foreground data-[state=open]:text-foreground"
+        className={cn(
+          "flex h-10 shrink-0 items-center justify-center gap-2 rounded-full border border-border text-sm font-medium text-muted-foreground outline-none transition-colors hover:text-foreground focus-visible:ring-3 focus-visible:ring-ring/50 data-[state=open]:border-foreground data-[state=open]:text-foreground",
+          labeled
+            ? "pr-4 pl-3.5"
+            : "w-10 min-[1440px]:w-auto min-[1440px]:pr-4 min-[1440px]:pl-3.5",
+        )}
       >
         <ChartKindIcon className="size-4" aria-hidden="true" />
-        {/* Below 1440px the word pushed the store filter to a second row (1280) and cut the period
-        track (768); the icon and its hint stand alone there. */}
-        <span aria-hidden="true" className="hidden min-[1440px]:inline">
-          Gráfico
-        </span>
+        {labeled ? (
+          <span aria-hidden="true">Tipo de gráfico</span>
+        ) : (
+          // Below 1440px the word pushed the store filter to a second row (1280) and cut the
+          // period track (768); the icon and its hint stand alone there.
+          <span aria-hidden="true" className="hidden min-[1440px]:inline">
+            Gráfico
+          </span>
+        )}
       </PopoverTrigger>
     </Hint>
   );
@@ -416,6 +436,7 @@ export function ChartKindMenu<Kind extends MenuChartKind>({
   canAverage,
   canCompare,
   boundary,
+  labeled = false,
 }: ChartKindMenuProps<Kind>) {
   const { offered, choose, saveDefault, hintOf } = useOfferedKinds({
     kinds,
@@ -429,7 +450,7 @@ export function ChartKindMenu<Kind extends MenuChartKind>({
   const { open, setOpen, trigger } = useMenuThatClosesWhenHidden();
   return (
     <Popover open={open} onOpenChange={setOpen}>
-      <ChartKindTrigger triggerRef={trigger} />
+      <ChartKindTrigger triggerRef={trigger} labeled={labeled} />
       <PopoverContent
         align="end"
         collisionBoundary={boundary}

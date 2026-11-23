@@ -42,10 +42,10 @@ function ApiKeysContent({
       <EmptyState
         icon={KeyIcon}
         title="Nenhuma chave criada"
-        description="Crie uma chave para que seu ERP, planilha ou sistema próprio acesse os dados da sua conta."
+        description="Crie uma chave para que o seu sistema ou planilha leia os dados da sua conta."
         action={
           <DisabledHint reason={locked ? INTEGRATIONS_LOCKED_REASON : undefined}>
-            <Button disabled={locked} onClick={onCreate}>
+            <Button variant="outline" disabled={locked} onClick={onCreate}>
               <PlusIcon aria-hidden="true" />
               Nova chave
             </Button>
@@ -70,8 +70,9 @@ export function ApiKeysSection() {
   return (
     <IntegrationsSection
       id="chaves-de-api"
-      title="Chaves de API"
-      description="Cada chave dá acesso aos dados desta organização com as permissões escolhidas. Use uma chave por integração."
+      title="Chaves de acesso (API)"
+      description="Cada chave deixa um sistema seu ler os dados desta conta, só com as permissões que você marcar. Use uma chave para cada sistema."
+      level={3}
       action={
         <DisabledHint reason={locked ? INTEGRATIONS_LOCKED_REASON : undefined}>
           <Button variant="outline" size="sm" disabled={locked} onClick={() => setIsCreating(true)}>

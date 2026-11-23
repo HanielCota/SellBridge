@@ -34,3 +34,17 @@ export function replyTemplatesFor(kind: ProfileKind): readonly ReplyTemplate[] {
 export function canLinkOrders(kind: ProfileKind): boolean {
   return kind === "seller";
 }
+
+/**
+ * The new-ticket form asks "Qual pedido?" before sending on an order topic, unless the form was
+ * opened from an order (it already goes along) or the account has no orders to pick from.
+ */
+export function asksForOrderBeforeSending(input: {
+  kind: ProfileKind;
+  category: TicketCategory;
+  openedFromOrderId: string | undefined;
+}): boolean {
+  return (
+    canLinkOrders(input.kind) && input.category === "order" && input.openedFromOrderId === undefined
+  );
+}
