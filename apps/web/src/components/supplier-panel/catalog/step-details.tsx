@@ -45,8 +45,7 @@ const NO_BRAND_HINT =
   "Produto sem marca? Deixe em branco ou escreva Sem marca: no Mercado Livre ele sai com a marca genérica.";
 
 /** The packed weight is what Mercado Livre charges shipping by, so the reseller's profit too. */
-const PACKAGE_WEIGHT_HINT =
-  "O pacote pronto para enviar, com a caixa, em gramas. Exemplo: 1300. O frete do revendedor é calculado por este peso.";
+const PACKAGE_WEIGHT_HINT = "O pacote pronto para enviar, com a caixa, em gramas.";
 
 /** Barcodes and package measures are typed as digits; the rest of the sheet is free text. */
 const ATTRIBUTE_INPUTS: Readonly<Record<string, { inputMode: "numeric" }>> = {
