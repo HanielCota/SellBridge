@@ -1,7 +1,7 @@
 import {
   getReceivingRules,
   getSignupRulesSince,
-  getSupplierCompanyCnpj,
+  getSupplierCompany,
   saveSupplierPaymentChoice,
 } from "@sellbridge/database/repositories";
 import {
@@ -75,11 +75,11 @@ async function currentReview(context: AsaasContext | null, accounts: ReceivingAc
 /** What the supplier's Recebimentos page shows about Asaas and about which account receives. */
 export async function loadAsaasReceiving(supplierId: string) {
   const context = asaasContext();
-  const [accounts, rules, signupRulesSince, companyCnpj] = await Promise.all([
+  const [accounts, rules, signupRulesSince, company] = await Promise.all([
     receivingAccountsOf(supplierId),
     getReceivingRules(database),
     getSignupRulesSince(database),
-    getSupplierCompanyCnpj(database, supplierId),
+    getSupplierCompany(database, supplierId),
   ]);
   const review = await currentReview(context, accounts);
   const { asaas, rule, confirmedDeliveries, receiving, choice } = accounts;
@@ -90,7 +90,9 @@ export async function loadAsaasReceiving(supplierId: string) {
     /** The contract sign-up rules are on: the account opens only for a company that is no MEI. */
     companyOnly: signupRulesSince !== null,
     /** The CNPJ of the company data, which the account must use while `companyOnly`. */
-    companyCnpj,
+    companyCnpj: company?.cnpj ?? null,
+    /** The razão social of the company data, which the form starts with next to the CNPJ. */
+    companyName: company?.legalName ?? null,
     asaas:
       asaas === null
         ? null
@@ -161,7 +163,7 @@ async function requireContractAccount(supplierId: string, form: AsaasAccountForm
   }
   const cnpjProblem = contractCnpjProblem(
     form.document,
-    await getSupplierCompanyCnpj(database, supplierId),
+    (await getSupplierCompany(database, supplierId))?.cnpj ?? null,
   );
   if (cnpjProblem !== null) {
     throw validationError(cnpjProblem);

@@ -1,4 +1,5 @@
 import {
+  countSupplierParcelsToAccept,
   countSupplierShipmentsByTab,
   countSupplierStoppedInvoices,
   getSupplierPanelProfile,
@@ -64,9 +65,10 @@ export interface SupplierHome {
 
 /** The queue's most urgent parcels (the "A fazer" tab), each with its product photo. */
 async function loadHomeOrders(supplierId: string, now: Date) {
-  const [shipments, counts] = await Promise.all([
+  const [shipments, counts, toAccept] = await Promise.all([
     listSupplierHomeShipments(database, supplierId, HOME_GROUP_LIMIT, now),
     countSupplierShipmentsByTab(database, { supplierId, query: "" }, now),
+    countSupplierParcelsToAccept(database, supplierId),
   ]);
   const skus = shipments.map((row) => photoSkuOf(row.items)).filter((sku) => sku !== null);
   const photos = await listSupplierProductPhotos(database, { supplierId, skus });
@@ -80,7 +82,7 @@ async function loadHomeOrders(supplierId: string, now: Date) {
       accept: groups.accept.slice(0, HOME_GROUP_LIMIT),
       progress: groups.progress.slice(0, HOME_GROUP_LIMIT),
     },
-    orderTotals: { accept: counts.forwarded, progress: counts.todo - counts.forwarded },
+    orderTotals: { accept: toAccept, progress: counts.todo - counts.forwarded },
   };
 }
 

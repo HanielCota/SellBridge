@@ -6,7 +6,7 @@ const mocks = vi.hoisted(() => ({
   countDeliveries: vi.fn<(...input: unknown[]) => Promise<number>>(),
   saveChoice: vi.fn<(...input: unknown[]) => Promise<void>>(),
   signupRulesSince: vi.fn<(...input: unknown[]) => Promise<Date | null>>(),
-  companyCnpj: vi.fn<(...input: unknown[]) => Promise<string | null>>(),
+  company: vi.fn<(...input: unknown[]) => Promise<{ cnpj: string; legalName: string } | null>>(),
   openAsaasAccount: vi.fn<(...input: unknown[]) => Promise<{ protectedNow: boolean }>>(),
 }));
 vi.mock("@sellbridge/database/repositories", () => ({
@@ -16,7 +16,7 @@ vi.mock("@sellbridge/database/repositories", () => ({
   countConfirmedDeliveries: mocks.countDeliveries,
   saveSupplierPaymentChoice: mocks.saveChoice,
   getSignupRulesSince: mocks.signupRulesSince,
-  getSupplierCompanyCnpj: mocks.companyCnpj,
+  getSupplierCompany: mocks.company,
 }));
 vi.mock("@sellbridge/payments/asaas", async (importOriginal) => ({
   ...(await importOriginal<typeof import("@sellbridge/payments/asaas")>()),
@@ -159,7 +159,7 @@ function openAccount(form: AsaasAccountForm) {
 describe("openSupplierAsaasAccount under the contract sign-up rules", () => {
   beforeEach(() => {
     mocks.findAccount.mockResolvedValue(null);
-    mocks.companyCnpj.mockResolvedValue(COMPANY_CNPJ);
+    mocks.company.mockResolvedValue({ cnpj: COMPANY_CNPJ, legalName: "Olaria Cunha Ltda" });
     mocks.openAsaasAccount.mockResolvedValue({ protectedNow: true });
   });
 

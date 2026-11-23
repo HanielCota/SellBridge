@@ -98,6 +98,7 @@ function SalesOverview({ data, home, supplierId, search, onSearchChange, hrefFor
           bucket={data.period.bucket}
           offsetDays={data.period.days}
           situation={search.situation}
+          running={data.period.running}
         />
         <SupplierSalesChart
           data={data}

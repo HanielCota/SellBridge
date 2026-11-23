@@ -9,6 +9,7 @@ import { supplierHomeQueryOptions } from "@/features/supplier-panel/home/home.qu
 import {
   usePanelStoreClosed,
   usePanelSupplierActive,
+  usePanelSupplierCanAddProducts,
 } from "@/features/supplier-panel/use-panel-supplier";
 import { StoreOpenSwitch } from "@/components/supplier-panel/store/store-open-switch";
 import { HomeQueue, HomeQueueSkeleton } from "./home-queue";
@@ -29,6 +30,7 @@ interface SupplierHomeProps {
  */
 function SupplierHeaderActions({ supplierId, active }: { supplierId: string; active: boolean }) {
   const closed = usePanelStoreClosed();
+  const addsProducts = usePanelSupplierCanAddProducts();
   return (
     <>
       {/* The team's switch-off outranks the store: only the team brings that account back. */}
@@ -36,8 +38,8 @@ function SupplierHeaderActions({ supplierId, active }: { supplierId: string; act
       <Button asChild variant="outline">
         <Link to="/fornecedor/painel/produtos">Meus produtos</Link>
       </Button>
-      {/* A switched-off supplier adds no products (the server refuses them too). */}
-      {active ? (
+      {/* A switched-off or refused supplier adds no products. */}
+      {addsProducts ? (
         <Button asChild variant="outline">
           <Link to="/fornecedor/painel/importar">Importar por planilha</Link>
         </Button>
@@ -45,7 +47,7 @@ function SupplierHeaderActions({ supplierId, active }: { supplierId: string; act
       <Button asChild variant="outline">
         <Link to="/fornecedor/painel/marca">Editar minha marca</Link>
       </Button>
-      {active ? (
+      {addsProducts ? (
         <Button asChild>
           <Link to="/fornecedor/painel/produtos" search={{ product: "novo" }}>
             <PlusIcon aria-hidden="true" />

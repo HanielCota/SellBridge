@@ -14,6 +14,7 @@ import {
   suppliers,
 } from "../schema/index.ts";
 import {
+  preparationHold,
   effectiveDispatchDeadlineAt,
   endOfBrazilDay,
   shipmentTimingColumns,
@@ -122,6 +123,12 @@ export async function listStaffShipments(
   };
 }
 
+/** Waiting for the supplier's accept, and free to be accepted (not waiting for the payment). */
+const forwardedToAccept = and(
+  eq(orderShipments.status, "forwarded"),
+  sql`${preparationHold} is null`,
+);
+
 /**
  * Parcels late or with a delivery problem, for the "Pedidos" nav badge: the reseller's (its
  * tenant) or a supplier's (the parcels it ships, by its organization).
@@ -135,7 +142,7 @@ export async function countParcelAlerts(
     groupCondition("late", now),
     groupCondition("problem", now),
     "supplierOrganizationId" in scope && scope.includeForwarded === true
-      ? eq(orderShipments.status, "forwarded")
+      ? forwardedToAccept
       : undefined,
   );
   const owner =

@@ -7,7 +7,8 @@ import { retryAsaasProtectionFn } from "@/features/supplier-payments/asaas.funct
 import { asaasReceivingQueryOptions } from "@/features/supplier-payments/asaas.queries";
 import { errorMessage } from "@/lib/errors";
 import { formatAbsoluteTime } from "@/lib/relative-time";
-import { AsaasAccountDialog, type ContractAccountRule } from "./asaas-account-dialog";
+import { AsaasAccountDialog } from "./asaas-account-dialog";
+import type { ContractAccountRule } from "./asaas-account-fields";
 import type { ButtonEmphasis } from "./receiving-emphasis";
 import { PaymentPill } from "./supplier-payment-badge";
 
@@ -244,7 +245,11 @@ export function AsaasReceivingCard(props: {
         supplierId={props.supplierId}
         fee={props.fee}
         emphasis={props.emphasis}
-        contractRule={props.view.companyOnly ? { companyCnpj: props.view.companyCnpj } : null}
+        contractRule={
+          props.view.companyOnly
+            ? { companyCnpj: props.view.companyCnpj, companyName: props.view.companyName }
+            : null
+        }
       />
     );
   }

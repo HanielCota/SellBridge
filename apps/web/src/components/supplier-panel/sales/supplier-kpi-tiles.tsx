@@ -13,13 +13,15 @@ import { StatTile, type StatTileProps } from "@/components/reports/stat-tile";
 import { buildKpiStory, type KpiMeasure } from "@/features/reports/kpi-story";
 import { trendTagParts, type TrendTagParts } from "@/features/reports/trend-tone";
 import {
+  runningPeriodTrend,
+  versusText,
+} from "@/features/supplier-panel/sales/running-period-trend";
+import {
   supplierAmountLabels,
   supplierTrendPolarity,
 } from "@/features/supplier-panel/sales/amount-labels";
 
 const count = new Intl.NumberFormat("pt-BR");
-
-const VERSUS = "vs. anterior";
 
 interface SupplierKpiSeries {
   points: readonly SupplierSalesPoint[];
@@ -33,6 +35,8 @@ interface SupplierKpiTilesProps extends SupplierKpiSeries {
   summary: SupplierSalesSummary;
   previous: SupplierSalesSummary;
   situation: SupplierSalesSituation;
+  /** The period is still running: compared with the same days of the previous one. */
+  running?: boolean;
   /** The grid; the home stacks the tiles beside its chart, the Vendas page lays them in a row. */
   className?: string;
 }
@@ -109,35 +113,39 @@ export function SupplierKpiTiles({
   summary,
   previous,
   situation,
+  running = false,
   className = "grid gap-4 sm:grid-cols-2 xl:grid-cols-1",
   ...series
 }: SupplierKpiTilesProps) {
   const labels = supplierAmountLabels(situation);
   const polarity = supplierTrendPolarity(situation);
-  const amount = trendTagParts(summary.receivableCents, previous.receivableCents, polarity);
-  const orders = trendTagParts(summary.orders, previous.orders, polarity);
-  const units = trendTagParts(summary.units, previous.units, polarity);
-  const average = trendTagParts(summary.averageOrderCents, previous.averageOrderCents, polarity);
+  const tag = (current: number | null, before: number | null) =>
+    runningPeriodTrend(trendTagParts(current, before, polarity), running);
+  const amount = tag(summary.receivableCents, previous.receivableCents);
+  const orders = tag(summary.orders, previous.orders);
+  const units = tag(summary.units, previous.units);
+  const average = tag(summary.averageOrderCents, previous.averageOrderCents);
+  const versus = versusText(running);
   return (
     <div className={className}>
       <KpiTile
         {...amountTileName(situation)}
         figure={<MoneyFigure cents={summary.receivableCents} />}
-        change={<TrendTag parts={amount} suffix={VERSUS} />}
+        change={<TrendTag parts={amount} suffix={versus} />}
         chart={tileChart(series, RECEIVABLE, amount, MONEY_VALUE)}
       />
       <KpiTile
         label="Pedidos"
         hint="Ver os pedidos dos revendedores"
         figure={<Count value={summary.orders} />}
-        change={<TrendTag parts={orders} suffix={VERSUS} />}
+        change={<TrendTag parts={orders} suffix={versus} />}
         chart={tileChart(series, ORDERS, orders, ORDERS_VALUE)}
       />
       <KpiTile
         label={labels.units}
         hint="Unidades dos seus produtos nos pedidos do período"
         figure={<Count value={summary.units} />}
-        change={<TrendTag parts={units} suffix={VERSUS} />}
+        change={<TrendTag parts={units} suffix={versus} />}
         chart={tileChart(series, UNITS, units, UNITS_VALUE)}
       />
       <KpiTile
@@ -145,7 +153,7 @@ export function SupplierKpiTiles({
         hint={`${TERM_HINTS.supplierAverageOrder}; veja os pedidos`}
         isTerm
         figure={<AverageFigure cents={summary.averageOrderCents} />}
-        change={<TrendTag parts={average} suffix={VERSUS} />}
+        change={<TrendTag parts={average} suffix={versus} />}
         chart={tileChart(series, AVERAGE_ORDER, average, MONEY_VALUE)}
       />
     </div>

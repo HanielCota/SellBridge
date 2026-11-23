@@ -32,6 +32,17 @@ describe("splitHomeOrders", () => {
     expect(groups.accept.map((row) => row.id)).toEqual(["b", "d"]);
     expect(groups.progress.map((row) => row.id)).toEqual(["a", "c"]);
   });
+
+  it("leaves a parcel waiting for the payment out of the parcels to accept", () => {
+    const rows = [
+      { id: "paid", status: "forwarded" as const, preparationHold: null },
+      { id: "unpaid", status: "forwarded" as const, preparationHold: "payment" },
+    ];
+
+    const groups = splitHomeOrders(rows);
+
+    expect(groups.accept.map((row) => row.id)).toEqual(["paid"]);
+  });
 });
 
 describe("photoSkuOf", () => {

@@ -7,7 +7,7 @@ import {
   loadContractSigningSettings,
   saveContractSigningSettings,
 } from "./contract-signing-settings.server";
-import { requestSigningCode, signContract } from "./contract-signing.server";
+import { pendingSigningCode, requestSigningCode, signContract } from "./contract-signing.server";
 
 /** E-mails the code that confirms the signature of the tab's profile. */
 export const requestContractCodeFn = createServerFn({ method: "POST" })
@@ -19,6 +19,18 @@ export const requestContractCodeFn = createServerFn({ method: "POST" })
         { userId: context.userId, tenantId: context.tenantId, kind: context.profileKind },
         data,
       ),
+  );
+
+/** The code already e-mailed that still works, so a reload keeps the person on the code step. */
+export const pendingContractCodeFn = createServerFn({ method: "GET" })
+  .middleware([accountMiddleware])
+  .handler(
+    async ({ context }) =>
+      await pendingSigningCode({
+        userId: context.userId,
+        tenantId: context.tenantId,
+        kind: context.profileKind,
+      }),
   );
 
 /** Signs the contract of the tab's profile with the code from the e-mail. */
