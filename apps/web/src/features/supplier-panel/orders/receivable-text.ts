@@ -1,13 +1,11 @@
 import { formatCents } from "@sellbridge/shared/money";
 import { supplierNetForOrder } from "@sellbridge/shared/supplier-net-amount";
+import { CARD_METHODS } from "@/features/supplier-payments/refund-copy";
 
 const ENDED_SALE_TEXT: Record<string, string> = {
   cancelled: "Nada · venda cancelada",
   returned: "Nada · produto devolvido",
 };
-
-/** Card payments carry the higher Asaas fee; anything else is estimated as Pix. */
-const CARD_METHODS = new Set(["CREDIT_CARD", "credit_card"]);
 
 /**
  * "Você recebe" in the supplier's order window: about what is left of the parcel's cost after
