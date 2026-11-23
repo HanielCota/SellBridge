@@ -175,7 +175,7 @@ function StoresPage() {
 const ONBOARDING_STEPS = [
   "Autorize o SellBridge na sua conta do marketplace.",
   "Publique os produtos dos fornecedores escolhidos para a loja.",
-  "Pedidos, estoque e preço passam a ser sincronizados automaticamente.",
+  "Pedidos, estoque e preço se atualizam sozinhos.",
 ] as const;
 
 interface NewStoreChoice {

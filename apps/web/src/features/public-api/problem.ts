@@ -77,7 +77,11 @@ export function problemFromError(error: unknown): ApiProblem {
     const issues = (error.details.issues ?? []).map((message) => ({ path: "", message }));
     return { ...mapped, detail: error.userMessage, ...(issues.length > 0 ? { issues } : {}) };
   }
-  return { status: 500, code: "internal_error", detail: "Erro inesperado. Tente novamente." };
+  return {
+    status: 500,
+    code: "internal_error",
+    detail: "Erro inesperado do nosso lado. Tente de novo; se repetir, fale com o Suporte.",
+  };
 }
 
 /** RFC 9457 problem details, plus our `code`, the `requestId` and field `issues`. */

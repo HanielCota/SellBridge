@@ -107,8 +107,7 @@ export const REVIEW_REASON_PRESETS = [
     rule: "prohibited_item",
     label: "Produto proibido",
     field: "title",
-    message:
-      "Este produto está na lista de itens proibidos dos marketplaces atendidos pela SellBridge.",
+    message: "Os marketplaces onde o SellBridge publica não aceitam este tipo de produto.",
   },
   {
     rule: "other",

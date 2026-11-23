@@ -113,7 +113,7 @@ function BulkActions({
           tone="danger"
           disabled={isPending}
           onClick={() => run(() => retry.mutate(listingIds))}
-          label="Reprocessar"
+          label="Tentar de novo"
         />
       ) : null}
     </>

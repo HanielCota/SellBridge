@@ -274,7 +274,7 @@ function OrderList({ onReview }: { onReview: (target: ReviewTarget) => void }) {
   }
   if (query.data.items.length === 0) {
     const message = search.query
-      ? { title: "Nenhum pedido encontrado", description: "Tente outro número ou fornecedor." }
+      ? { title: "Nenhum pedido com essa busca", description: "Tente outro número ou fornecedor." }
       : EMPTY_MESSAGES[search.review];
     return <EmptyState icon={ReceiptIcon} {...message} />;
   }

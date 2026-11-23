@@ -2,7 +2,7 @@ import type { TrendTagParts } from "@/features/reports/trend-tone";
 
 /** What the change is measured against, said next to it. */
 export function versusText(running: boolean): string {
-  return running ? "vs. mesmos dias do anterior" : "vs. anterior";
+  return running ? "sobre os mesmos dias do anterior" : "sobre o anterior";
 }
 
 /**

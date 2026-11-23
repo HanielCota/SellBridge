@@ -95,7 +95,7 @@ describe("parseModelDraft", () => {
 
     expect(parsed).toMatchObject({
       ok: false,
-      errors: { grid: "O SKU TEN-P-38 aparece em mais de uma combinação" },
+      errors: { grid: "O código TEN-P-38 aparece em mais de uma combinação" },
     });
   });
 });
@@ -107,7 +107,7 @@ describe("gridCompleteness", () => {
     const report = gridCompleteness(values, twoSizes, { required: [], fallback: null });
 
     expect(report.blocking).toContainEqual(
-      expect.objectContaining({ field: "grid", message: "Informe o SKU de cada combinação" }),
+      expect.objectContaining({ field: "grid", message: "Preencha o código de cada combinação" }),
     );
   });
 

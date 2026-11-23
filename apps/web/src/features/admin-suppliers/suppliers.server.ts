@@ -62,9 +62,13 @@ async function catalogWrite<TResult>(write: () => Promise<TResult>): Promise<TRe
     if (isAppError(error)) {
       throw error;
     }
-    throw new AppError("CONFLICT", "Não foi possível salvar o catálogo. Tente novamente.", {
-      cause: error,
-    });
+    throw new AppError(
+      "CONFLICT",
+      "O catálogo não foi salvo. Tente de novo em alguns segundos; se repetir, avise o time técnico.",
+      {
+        cause: error,
+      },
+    );
   }
 }
 

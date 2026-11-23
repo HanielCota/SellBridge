@@ -129,7 +129,7 @@ export function IndicatorTable({ rows }: { rows: readonly ReportIndicatorRow[] }
                 Meta
               </th>
               <th scope="col" className="py-3 pl-3 text-right font-normal">
-                vs. período anterior
+                Período anterior
               </th>
             </tr>
           </thead>

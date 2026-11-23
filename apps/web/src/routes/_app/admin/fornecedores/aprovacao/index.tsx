@@ -9,7 +9,7 @@ export const Route = createFileRoute("/_app/admin/fornecedores/aprovacao/")({
   loaderDeps: ({ search }) => search,
   loader: ({ context, deps }) =>
     prefetchOnServer(context.queryClient, supplierApprovalQueueQueryOptions(deps)),
-  head: () => ({ meta: [{ title: "Fornecedores em análise (admin) | SellBridge" }] }),
+  head: () => ({ meta: [{ title: "Fornecedores em análise (equipe) | SellBridge" }] }),
   component: ApprovalQueuePage,
 });
 

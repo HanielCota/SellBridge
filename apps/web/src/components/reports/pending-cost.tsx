@@ -10,9 +10,9 @@ export const PENDING_HATCH_CLASS =
 
 /** Why a sale is out of the profit, in the reseller's words. */
 export const PENDING_COST_HINT =
-  "Venda de um anúncio criado fora da SellBridge: sem o custo do produto, ela entra na receita e fica fora do lucro.";
+  "Venda de um anúncio criado fora do SellBridge: sem o custo do produto, ela entra na receita e fica ainda sem lucro.";
 
 /** The row's status where its profit would be. */
 export function PendingCostStatus() {
-  return <ToneStatus tone="warning" label="Custo pendente" />;
+  return <ToneStatus tone="warning" label="Sem custo informado" />;
 }

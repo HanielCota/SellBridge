@@ -37,7 +37,8 @@ const PAGE_COPY: Record<ProfileKind, { description: string }> = {
   },
 };
 
-const GENERIC_SIGN_UP_ERROR = "Não foi possível criar sua conta. Tente novamente.";
+const GENERIC_SIGN_UP_ERROR =
+  "Sua conta não foi criada. Confira a internet e toque em Criar conta de novo.";
 
 // No "account already exists" message: the sign-up answers like a new one and the mailbox owner
 // is told by e-mail (`onExistingUserSignUp`), so the page never reveals which e-mails exist.

@@ -66,11 +66,11 @@ test("the store menu shows the store's health: sync, marketplace events and acce
   await gotoHydrated(page, "/lojas");
   const menuButton = page.getByRole("button", { name: `Opções de ${shopName}` });
   // Screen readers get the same facts from the button, since a menu only walks its items.
-  await expect(menuButton).toHaveAccessibleDescription(/Saúde da loja: .*há 3 horas/);
+  await expect(menuButton).toHaveAccessibleDescription(/Como está a loja: .*há 3 horas/);
   await menuButton.click();
   const menu = page.getByRole("menu");
-  await expect(menu.getByText("Saúde da loja")).toBeVisible();
-  await expect(menu.getByText("Última sincronização")).toBeVisible();
+  await expect(menu.getByText("Como está a loja")).toBeVisible();
+  await expect(menu.getByText("Estoque e preço atualizados")).toBeVisible();
   await expect(menu.getByText("Ainda não houve")).toBeVisible();
   await expect(menu.getByText("Último aviso de pedido")).toBeVisible();
   await expect(menu.getByText("há 3 horas")).toBeVisible();
@@ -80,7 +80,7 @@ test("the store menu shows the store's health: sync, marketplace events and acce
     await page.keyboard.press("Escape");
     await page.setViewportSize({ width, height: 900 });
     await menuButton.click();
-    await expect(menu.getByText("Saúde da loja")).toBeVisible();
+    await expect(menu.getByText("Como está a loja")).toBeVisible();
     const overflow = await menu.evaluate((element) => element.scrollWidth - element.clientWidth);
     expect(overflow, `menu overflows at ${width}px`).toBeLessThanOrEqual(0);
     await menu.screenshot({ path: test.info().outputPath(`store-health-menu-${width}.png`) });

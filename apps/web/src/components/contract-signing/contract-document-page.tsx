@@ -13,7 +13,7 @@ const versionDate = new Intl.DateTimeFormat("pt-BR", {
 export function ContractDocumentPage({ contract }: { contract: ContractDocument }) {
   const intro = contract.provisional
     ? `${PROVISIONAL_CONTRACT_NOTICE} Versão ${contract.version}.`
-    : `Versão ${contract.version}. Este é o texto completo que você assina pela SellBridge.`;
+    : `Versão ${contract.version}. Este é o texto completo que você assina com o SellBridge.`;
   return (
     <LegalPage
       title={contract.title}

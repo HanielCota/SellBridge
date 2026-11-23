@@ -190,7 +190,7 @@ export function buildAttentionItems(
       icon: ListingAlertIcon,
       tone: "danger",
       title: plural(failedListings, "publicação com erro", "publicações com erro"),
-      description: "Veja o motivo e reprocesse.",
+      description: "Veja o motivo e tente de novo.",
       to: "/publicacoes",
     });
   }

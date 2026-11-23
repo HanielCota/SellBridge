@@ -105,8 +105,8 @@ export function Operations({
       ) : query.data.items.length === 0 ? (
         <EmptyState
           icon={PackageIcon}
-          title="Nenhum pedido encontrado"
-          description="Nenhum pedido combina com esta busca, etapa, período e loja. Mude os filtros para ver outros."
+          title="Nenhum pedido com esses filtros"
+          description="Mude a busca, a etapa, o período ou a loja para ver outros."
         />
       ) : (
         <>

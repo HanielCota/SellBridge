@@ -65,7 +65,7 @@ function takenSkuErrors(
     const sku = combination.sku.trim();
     if (taken.has(sku)) {
       errors[combinationField(combination, "sku")] =
-        `O SKU ${sku} já é de outro produto seu. Use outro código.`;
+        `O código ${sku} já é de outro produto seu. Use outro.`;
     }
   }
   return errors;

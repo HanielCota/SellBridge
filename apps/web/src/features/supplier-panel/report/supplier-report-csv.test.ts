@@ -72,7 +72,7 @@ describe("supplier spreadsheets", () => {
       supplierOrderRows([shipmentAt("2026-09-02T15:00:00.000Z")], NOW),
     );
     const [header, first] = file.replace("﻿", "").split("\r\n");
-    expect(header?.startsWith("Recebido em;Pedido;Produto;SKU;Quantidade")).toBe(true);
+    expect(header?.startsWith("Recebido em;Pedido;Produto;Código;Quantidade")).toBe(true);
     expect(first).toContain(";30,00;");
   });
 

@@ -22,6 +22,6 @@ describe("firstErrorMessage", () => {
   });
 
   it("falls back for unknown shapes", () => {
-    expect(firstErrorMessage([{ code: 1 }])).toBe("Valor inválido");
+    expect(firstErrorMessage([{ code: 1 }])).toBe("Confira o que você digitou neste campo");
   });
 });

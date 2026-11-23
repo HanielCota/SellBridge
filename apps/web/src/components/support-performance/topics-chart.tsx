@@ -147,7 +147,7 @@ function TopicsTooltip({
         >
           {difference === 0
             ? `Igual ${previousBucketText(bucket).replace(/^a /, "à ").replace(/^o /, "ao ")}`
-            : `${difference > 0 ? "↑" : "↓"} ${count.format(Math.abs(difference))} vs. ${previousBucketText(bucket)}`}
+            : `${count.format(Math.abs(difference))} a ${difference > 0 ? "mais" : "menos"} que ${previousBucketText(bucket)}`}
         </p>
       )}
     </TooltipCard>

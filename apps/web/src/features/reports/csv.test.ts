@@ -70,7 +70,7 @@ describe("buildFinancialCsv", () => {
   it("leaves the profit blank and says so when the cost is pending", () => {
     const pending = { ...row, costPending: true, pendingCostRevenueCents: 10_000, profitCents: 0 };
     const [header, line] = buildFinancialCsv([pending]).trim().split("\r\n");
-    expect(header?.endsWith(";Lucro;Custo pendente")).toBe(true);
+    expect(header?.endsWith(";Lucro;Sem custo informado")).toBe(true);
     expect(line?.endsWith(";;Sim")).toBe(true);
   });
 

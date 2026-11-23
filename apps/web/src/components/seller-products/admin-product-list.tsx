@@ -69,7 +69,7 @@ export function AdminProductCards({
   products: AdminProducts;
   onOpen: (tenantId: string, productId: string) => void;
 }) {
-  if (products.length === 0) return <p>Nenhum produto encontrado com estes filtros.</p>;
+  if (products.length === 0) return <p>Nenhum produto com estes filtros.</p>;
   return (
     <ul className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
       {products.map((row) => (

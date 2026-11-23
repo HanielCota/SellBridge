@@ -46,7 +46,7 @@ function ActivityFigures({ customer }: { customer: RankedCustomer }) {
           </dd>
         </div>
         <div className="rounded-2xl bg-muted p-3">
-          <dt className="text-footnote text-muted-foreground">Pedidos vs. mês anterior</dt>
+          <dt className="text-footnote text-muted-foreground">Pedidos sobre o mês anterior</dt>
           <dd className="text-lg font-semibold tracking-tight tabular-nums">
             {customer.recentOrders}{" "}
             <span className={cn("text-footnote font-medium", trend.className)}>{trend.label}</span>

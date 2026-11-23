@@ -60,7 +60,7 @@ export function GoldenRulesPage({ supplierId }: { supplierId: string }) {
       <PageHeader
         back={<BackLink to="/fornecedor/painel" label="Início" />}
         title="Regras de ouro"
-        description="O que a SellBridge espera de todo fornecedor. Siga as 5 e sua conta fica em dia."
+        description="O que o SellBridge espera de todo fornecedor. Siga as 5 e sua conta fica em dia."
       />
       <section
         aria-label="As 5 regras"

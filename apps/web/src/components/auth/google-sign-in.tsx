@@ -26,7 +26,8 @@ function GoogleMark() {
   );
 }
 
-const GOOGLE_ERROR_MESSAGE = "Não foi possível continuar com o Google. Tente novamente.";
+const GOOGLE_ERROR_MESSAGE =
+  "O Google não confirmou sua entrada. Toque em Continuar com o Google de novo.";
 
 interface GoogleSignInProps {
   readonly callbackURL: string;

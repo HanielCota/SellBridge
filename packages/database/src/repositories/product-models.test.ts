@@ -194,7 +194,7 @@ describe("createProductModel", () => {
     });
 
     await expect(attempt).rejects.toSatisfy((error) => hasErrorCode(error, "CONFLICT"));
-    await expect(attempt).rejects.toThrow(`Já existe produto com os SKUs ${prefix}-B-38`);
+    await expect(attempt).rejects.toThrow(`Já existe produto com os códigos ${prefix}-B-38`);
     const after = await database
       .select({ id: productModels.id })
       .from(productModels)

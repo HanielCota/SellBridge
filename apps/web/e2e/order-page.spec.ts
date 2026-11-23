@@ -170,5 +170,5 @@ test("a page past the end of the operations list shows the last page, not an emp
   await signIn(page, DEMO_USER);
   await gotoHydrated(page, `/pedidos?opQuery=${externalId}&opPage=999`);
   await expect(page.getByRole("link", { name: externalId })).toBeVisible();
-  await expect(page.getByText("Nenhum pedido encontrado")).toHaveCount(0);
+  await expect(page.getByText("Nenhum pedido com esses filtros")).toHaveCount(0);
 });

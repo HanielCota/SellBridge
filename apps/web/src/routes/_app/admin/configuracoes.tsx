@@ -25,7 +25,7 @@ export const Route = createFileRoute("/_app/admin/configuracoes")({
       prefetchOnServer(context.queryClient, dispatchCutoffQueryOptions()),
       prefetchOnServer(context.queryClient, contractSigningSettingsQueryOptions()),
     ]),
-  head: () => ({ meta: [{ title: "Configurações (admin) | SellBridge" }] }),
+  head: () => ({ meta: [{ title: "Configurações (equipe) | SellBridge" }] }),
   component: SettingsPage,
 });
 

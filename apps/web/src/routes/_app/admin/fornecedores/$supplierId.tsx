@@ -16,7 +16,7 @@ export const Route = createFileRoute("/_app/admin/fornecedores/$supplierId")({
       prefetchOnServer(context.queryClient, adminProductsQueryOptions(params.supplierId, deps)),
     ]);
   },
-  head: () => ({ meta: [{ title: "Fornecedor (admin) | SellBridge" }] }),
+  head: () => ({ meta: [{ title: "Fornecedor (equipe) | SellBridge" }] }),
   component: SupplierPage,
 });
 

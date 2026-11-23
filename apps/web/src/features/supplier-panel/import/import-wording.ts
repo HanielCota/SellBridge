@@ -85,7 +85,7 @@ export function importDoneSummary(
       : null,
     result.synchronizationQueued
       ? "Estoque enviado aos marketplaces."
-      : "O estoque vai aos marketplaces na próxima sincronização.",
+      : "O estoque chega aos anúncios na próxima atualização automática.",
     result.pausedTargets > 0
       ? `${plural(result.pausedTargets, "anúncio pausado", "anúncios pausados")} sem estoque.`
       : null,
