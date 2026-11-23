@@ -126,7 +126,7 @@ describe("fee quotes", () => {
 });
 
 describe("findProductFeeProfile", () => {
-  it("reads the Mercado Livre category, fields and NF-e weight of the product", async () => {
+  it("reads the Mercado Livre category, fields and the packed weight shipping is priced on", async () => {
     const product = await createTestSupplierProduct(database, {
       sku: `FEE-${randomUUID()}`,
       title: "Produto com pacote",
@@ -148,7 +148,7 @@ describe("findProductFeeProfile", () => {
     expect(profile).toEqual({
       categoryId: "MLB1234",
       attributes: { SELLER_PACKAGE_WEIGHT: "450 g" },
-      weightGrams: 300,
+      weightGrams: 450,
     });
   });
 

@@ -52,7 +52,7 @@ export interface ProductFeeProfile {
   categoryId: string | null;
   /** The product's Mercado Livre fields, where the package measures live. */
   attributes: Record<string, string>;
-  /** Net weight from the NF-e data, in grams; null when the supplier gave none. */
+  /** The weight shipping is priced on (packed, else net), in grams; null when the supplier gave none. */
   weightGrams: number | null;
 }
 

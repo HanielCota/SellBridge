@@ -54,6 +54,7 @@
     "./channel-fees": "./src/domain/channel-fees.ts",
     "./mercado-livre-shipping": "./src/domain/mercado-livre-shipping.ts",
     "./fee-model": "./src/domain/fee-model.ts",
+    "./shipping-weight": "./src/domain/shipping-weight.ts",
     "./finance": "./src/domain/finance.ts",
     "./period-range": "./src/domain/period-range.ts",
     "./report-period": "./src/domain/report-period.ts",
