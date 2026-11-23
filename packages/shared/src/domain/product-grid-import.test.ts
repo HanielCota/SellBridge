@@ -81,7 +81,7 @@ describe("planGridImport", () => {
     ]);
     expect(plan.plainRows.every((entry) => entry.product.grid === undefined)).toBe(true);
     expect(plan.notices[0]?.reason).toBe(
-      'As cores e tamanhos de "Tênis Casual" entraram como produtos separados, porque o SKU TEN-P-38 já existe como produto separado. Juntar produtos que já existem numa grade vai ter uma tela própria',
+      'As cores e tamanhos de "Tênis Casual" entraram como produtos separados, porque o código TEN-P-38 já existe como produto separado. Juntar produtos que já existem numa grade vai ter uma tela própria',
     );
   });
 

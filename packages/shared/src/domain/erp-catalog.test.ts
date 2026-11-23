@@ -250,7 +250,10 @@ describe("mergeResellerCosts", () => {
       typedCosts: [{ sku: "OUTRO-SKU", costCents: 4500 }],
     });
 
-    expect(result).toEqual({ ok: false, message: 'O SKU "OUTRO-SKU" não está nesta importação.' });
+    expect(result).toEqual({
+      ok: false,
+      message: 'O código "OUTRO-SKU" não está nesta importação.',
+    });
   });
 
   it("refuses a typed price for a product that keeps its current cost", () => {

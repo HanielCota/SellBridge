@@ -78,7 +78,7 @@ test.skip("seller can start a product from the dashboard and read Portuguese pro
 async function createProduct(page: Page, sku: string) {
   await gotoHydrated(page, "/products");
   await page.getByRole("button", { name: "Cadastrar produto", exact: true }).click();
-  await page.getByLabel("SKU", { exact: true }).fill(sku);
+  await page.getByLabel("Código", { exact: true }).fill(sku);
   await page.getByLabel("Nome do produto", { exact: true }).fill("Private cotton home accessory");
   await page.getByLabel("Custo por unidade (R$)").fill("12,00");
   await page.getByLabel("Preço de venda (R$)").fill("30,00");
@@ -101,7 +101,7 @@ test.skip("seller drafts resume, preserve live stock, duplicate safely and archi
   const sku = `OWN-${Date.now()}`;
   const id = await createProduct(page, sku);
   await page.reload();
-  await expect(page.getByLabel("SKU", { exact: true })).toHaveValue(sku);
+  await expect(page.getByLabel("Código", { exact: true })).toHaveValue(sku);
   await expect(page.getByRole("img", { name: "Imagem do produto 1" })).toBeVisible();
   await database
     .update(supplierProducts)
@@ -122,9 +122,9 @@ test.skip("seller drafts resume, preserve live stock, duplicate safely and archi
   await page.getByRole("button", { name: "Editar produto", exact: true }).click();
   await page.getByRole("button", { name: "Deixar pronto para publicar", exact: true }).click();
   await expect(page.getByText("Pronto para publicar", { exact: true })).toBeVisible();
-  await page.getByLabel("Código do produto duplicado (SKU)", { exact: true }).fill(`${sku}-COPY`);
+  await page.getByLabel("Código da cópia", { exact: true }).fill(`${sku}-COPY`);
   await page.getByRole("button", { name: "Duplicar como rascunho", exact: true }).click();
-  await expect(page.getByLabel("SKU", { exact: true })).toHaveValue(`${sku}-COPY`);
+  await expect(page.getByLabel("Código", { exact: true })).toHaveValue(`${sku}-COPY`);
   await expect(page.getByLabel("Estoque total")).toHaveValue("0");
 });
 
@@ -234,7 +234,7 @@ test.skip("unsaved product changes stay when leaving is cancelled", async ({ pag
   await expect(page.getByLabel("Nome do produto", { exact: true })).toHaveValue(
     "Unfinished private accessory",
   );
-  await page.getByLabel("SKU", { exact: true }).fill(`SAVED-${Date.now()}`);
+  await page.getByLabel("Código", { exact: true }).fill(`SAVED-${Date.now()}`);
   await expect(page.getByText("Todas as alterações foram salvas", { exact: true })).toBeVisible();
   await page.getByRole("button", { name: "Voltar aos produtos", exact: true }).click();
   await expect(page.getByRole("button", { name: "Cadastrar produto", exact: true })).toBeVisible();

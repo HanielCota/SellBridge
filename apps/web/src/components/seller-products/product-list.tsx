@@ -27,7 +27,7 @@ export function ProductsToolbar({
   return (
     <div className="flex flex-wrap items-end gap-4">
       <div className="min-w-0 flex-1">
-        <Label htmlFor="seller-product-search">Buscar por nome ou código (SKU)</Label>
+        <Label htmlFor="seller-product-search">Buscar por nome ou código</Label>
         <Input
           id="seller-product-search"
           value={search.query ?? ""}

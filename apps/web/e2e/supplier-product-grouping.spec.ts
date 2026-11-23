@@ -187,7 +187,7 @@ test("um produto com a mesma cor e tamanho de outro fica marcado e o botão espe
   await page.getByLabel("Tamanho", { exact: true }).first().fill("39");
 
   await expect(
-    page.getByText(`Preto 39 já é o SKU JUN${stamp}-BRA-38: corrija a cor ou o tamanho`),
+    page.getByText(`Preto 39 já é o código JUN${stamp}-BRA-38: corrija a cor ou o tamanho`),
   ).toBeVisible();
   await expect(page.getByRole("button", { name: "Juntar 3 produtos" })).toBeDisabled();
 });

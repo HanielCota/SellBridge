@@ -45,7 +45,7 @@ test("admin cadastra fornecedor, edita produtos e confirma CSV no desktop e celu
   });
   await page.getByRole("button", { name: "Gerar prévia" }).click();
   await expect(page.getByRole("button", { name: "Confirmar importação" })).toBeDisabled();
-  await expect(page.getByRole("row", { name: /SKU duplicado/ })).toContainText("3");
+  await expect(page.getByRole("row", { name: /Código repetido/ })).toContainText("3");
 
   const csv =
     "sku;titulo;custo;estoque\nCSV-MANUAL;Produto atualizado;14.50;20\nCSV-NEW;Produto importado;12,90;5";

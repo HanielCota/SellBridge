@@ -342,7 +342,7 @@ function validateRecord(
   // Same form the schema stores (trimmed, NFC), so "CAFÉ-01" twice in two encodings is caught.
   const sku = (values.sku ?? "").trim().normalize("NFC");
   if (seen.has(sku)) {
-    return { line: record.line, reason: `SKU duplicado no arquivo: ${sku}` };
+    return { line: record.line, reason: `Código repetido no arquivo: ${sku}` };
   }
   seen.add(sku);
   const attributes = parseCsvAttributes(values);

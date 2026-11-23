@@ -142,13 +142,13 @@ function axisProblem(
   sku: string,
 ): string | null {
   if (names.size === 0) {
-    return value === null ? null : `O SKU ${sku} tem ${axis}, mas a grade não tem ${axis}`;
+    return value === null ? null : `O código ${sku} tem ${axis}, mas a grade não tem ${axis}`;
   }
   if (value === null) {
-    return `Escolha ${axis === "cor" ? "a cor" : "o tamanho"} do SKU ${sku}`;
+    return `Escolha ${axis === "cor" ? "a cor" : "o tamanho"} do código ${sku}`;
   }
   if (!names.has(value)) {
-    return `${axis === "cor" ? "A cor" : "O tamanho"} "${value}" do SKU ${sku} não está na grade`;
+    return `${axis === "cor" ? "A cor" : "O tamanho"} "${value}" do código ${sku} não está na grade`;
   }
   return null;
 }
@@ -177,7 +177,7 @@ function combinationProblems(grid: GridShape): string[] {
       problems.push(`A combinação ${label} aparece mais de uma vez`);
     }
     if (seenSkus.has(combination.sku)) {
-      problems.push(`O SKU ${combination.sku} aparece em mais de uma combinação`);
+      problems.push(`O código ${combination.sku} aparece em mais de uma combinação`);
     }
     seenCombinations.add(key);
     seenSkus.add(combination.sku);
