@@ -156,6 +156,12 @@ describe("ticket orders", () => {
     expect(byBuyer.map((order) => order.externalOrderId)).toEqual(["ML-7001"]);
   });
 
+  it("offers the store's orders before the ticket exists, so the form can ask which one", async () => {
+    const offered = await listLinkableOrders(database, { tenantId: tenantA, limit: 10 });
+
+    expect(offered.map((order) => order.orderId)).toEqual([orderA, olderOrderA]);
+  });
+
   it("refuses another store's order or ticket", async () => {
     const ticketId = await openTicket();
     await expect(
