@@ -334,7 +334,9 @@ function useMarketplaceAddress(
       }
       setLookupNote(MISSING_ADDRESS_NOTE);
     },
-    onError: (error) => setLookupNote(`${errorMessage(error)} ${MISSING_ADDRESS_NOTE}`),
+    // The marketplace's own reason ("Número de pedido inválido") means nothing to the reseller,
+    // and what to do next is the same either way.
+    onError: () => setLookupNote(LOOKUP_FAILED_NOTE),
   });
   return { loadAddress, lookupNote };
 }
@@ -483,3 +485,5 @@ function StateSelectField({
 const CEP_HINT = "Digite o CEP: rua, bairro e cidade vêm sozinhos.";
 const MISSING_ADDRESS_NOTE =
   "O Mercado Livre não mandou o endereço completo. Suba a etiqueta ou digite o CEP para preencher.";
+const LOOKUP_FAILED_NOTE =
+  "Não conseguimos buscar o endereço no Mercado Livre agora. Suba a etiqueta ou digite o CEP para preencher.";
