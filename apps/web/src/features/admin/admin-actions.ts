@@ -153,7 +153,7 @@ const ACTION_COPY: Record<AdminAction, (details: AdminEventDetails | null) => st
       : "Mudou o papel";
   },
   ban_changed: (details) => (details?.banned ? "Bloqueou a conta" : "Desbloqueou a conta"),
-  sessions_revoked: () => "Encerrou as sessões",
+  sessions_revoked: () => "Desconectou o cliente de todos os aparelhos",
   password_reset_sent: () => "Enviou redefinição de senha",
   onboarding_reminder_sent: () => "Enviou lembrete dos primeiros passos",
   // Kept for the history of accounts changed before the address stopped being asked for.

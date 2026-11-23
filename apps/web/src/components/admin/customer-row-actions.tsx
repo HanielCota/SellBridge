@@ -129,7 +129,7 @@ function BanDialog({ customer, ban }: { customer: RowCustomer; ban: BanToggle })
       open={ban.isDialogOpen}
       onOpenChange={ban.setIsDialogOpen}
       title={`Bloquear ${customer.name}?`}
-      description="O cliente sai de todos os dispositivos e não consegue mais entrar até ser desbloqueado. Lojas e publicações continuam como estão."
+      description="O cliente sai de todos os aparelhos e não consegue mais entrar até ser desbloqueado. Lojas e publicações continuam como estão."
       confirmLabel="Bloquear"
       pendingLabel="Bloqueando…"
       destructive

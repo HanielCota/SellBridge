@@ -92,9 +92,7 @@ function useChangePassword() {
     setValues(EMPTY);
     await queryClient.invalidateQueries(activeSessionsQueryOptions());
     toast.success(
-      signOutOthers
-        ? "Senha alterada. Os outros dispositivos foram desconectados."
-        : "Senha alterada",
+      signOutOthers ? "Senha trocada. Os outros aparelhos foram desconectados." : "Senha alterada",
     );
   }
 
@@ -118,7 +116,7 @@ function SignOutOthersOption({
         className="mt-0.5"
       />
       <div className="grid gap-1">
-        <Label htmlFor="sign-out-others">Sair dos outros dispositivos</Label>
+        <Label htmlFor="sign-out-others">Sair dos outros aparelhos</Label>
         <p className="text-sm text-muted-foreground">
           Recomendado se você acha que alguém mais conhece sua senha.
         </p>
