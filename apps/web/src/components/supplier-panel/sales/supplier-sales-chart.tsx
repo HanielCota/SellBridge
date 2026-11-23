@@ -124,7 +124,7 @@ export function SupplierChartHeadline({
             trendTagParts(current, previous, supplierTrendPolarity(situation)),
             running,
           )}
-          suffix={running ? "vs. mesmos dias do período anterior" : "vs. período anterior"}
+          suffix={running ? "sobre os mesmos dias do período anterior" : "sobre o período anterior"}
         />
       </div>
     </div>
