@@ -38,5 +38,5 @@ export function missingWeightNote(weightGrams: number | null | undefined): strin
   if (weightGrams !== null && weightGrams !== undefined && weightGrams > 0) {
     return null;
   }
-  return "O peso do produto não foi informado: o frete foi estimado para um pacote de até 0,5 kg.";
+  return "O peso do produto não foi informado: o frete foi estimado para um pacote de até 0,5 kg e pode sair mais caro.";
 }

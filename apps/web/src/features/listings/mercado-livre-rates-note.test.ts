@@ -47,7 +47,7 @@ describe("missingWeightNote", () => {
     const note = missingWeightNote(null);
 
     expect(note).toBe(
-      "O peso do produto não foi informado: o frete foi estimado para um pacote de até 0,5 kg.",
+      "O peso do produto não foi informado: o frete foi estimado para um pacote de até 0,5 kg e pode sair mais caro.",
     );
   });
 
