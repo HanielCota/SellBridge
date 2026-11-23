@@ -51,6 +51,7 @@
     "./erp-catalog-export": "./src/domain/erp-catalog-export.ts",
     "./queues": "./src/runtime/queues.ts",
     "./redis-slots": "./src/runtime/redis-slots.ts",
+    "./redis-rate-limit-store": "./src/runtime/redis-rate-limit-store.ts",
     "./channel-fees": "./src/domain/channel-fees.ts",
     "./mercado-livre-shipping": "./src/domain/mercado-livre-shipping.ts",
     "./fee-model": "./src/domain/fee-model.ts",

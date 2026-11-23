@@ -35,6 +35,12 @@ import {
 import { database } from "./database.ts";
 import { renderActionEmail } from "@sellbridge/shared/email-layout";
 import { clientIpAddressOptions } from "./client-address.ts";
+import {
+  AUTH_RATE_LIMIT_RULES,
+  createAuthRateLimitStorage,
+  createMemoryRateLimitStore,
+} from "./auth-rate-limit.ts";
+import { sharedRateLimitStore } from "./queues.ts";
 import { environment } from "./environment.ts";
 import { sendEmail } from "./mailer.ts";
 import { findFirstOrganizationId } from "./membership.ts";
@@ -515,12 +521,16 @@ export const auth = betterAuth({
   baseURL: environment.BETTER_AUTH_URL,
   secret: environment.BETTER_AUTH_SECRET,
   database: drizzleAdapter(database, { provider: "pg", schema }),
-  // One web instance, so the in-memory store is enough; the default per-path rules
-  // (sign-in, sign-up, password reset) stay in place.
+  // Counted in Redis so a deploy does not reset the limit; Better Auth's defaults still cover
+  // the paths without a rule here (change password, change e-mail, verification e-mail).
   rateLimit: {
     enabled: environment.NODE_ENV === "production",
-    // A stolen session must not be able to guess the password through account deletion.
-    customRules: { "/delete-user": { window: 60, max: 5 } },
+    customRules: AUTH_RATE_LIMIT_RULES,
+    customStorage: createAuthRateLimitStorage({
+      shared: sharedRateLimitStore("auth"),
+      fallback: createMemoryRateLimitStore(),
+      keySecret: environment.BETTER_AUTH_SECRET,
+    }),
   },
   advanced: { ipAddress: clientIpAddressOptions(environment.CLIENT_IP_HEADER) },
   emailAndPassword: {
