@@ -54,7 +54,7 @@ test("o admin dentro da conta do cliente: o que fica travado e o que fica regist
   await gotoHydrated(page, "/lojas");
   await expect(page.getByText("Conectar e desconectar lojas ficam travados")).toBeVisible();
 
-  await banner.getByRole("button", { name: "Voltar ao admin" }).click();
+  await banner.getByRole("button", { name: "Voltar à equipe" }).click();
   await expect(page).toHaveURL(/\/admin\/clientes/);
   await gotoHydrated(page, `/admin/clientes/${customer.id}`);
   await expect(page.getByText("Saiu da conta do cliente")).toBeVisible();

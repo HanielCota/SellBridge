@@ -7,11 +7,14 @@ import { orderItems, supplierProducts, suppliers } from "../schema/index.ts";
 /** Who a forward is credited to: the reseller by hand, or SellBridge on its own (item 21.b). */
 export type ForwardActor = "reseller" | "sellbridge";
 
+/** Orders reach the supplier in its panel now: there is no link left to share. */
+const FORWARDED_BY_RESELLER_NOTE = "Pedido enviado ao fornecedor. Ele vê no painel do SellBridge.";
+
 /** The first history step of each parcel, by who forwarded it. */
 export const FORWARD_CREDIT: Record<ForwardActor, { actor: string; note: string }> = {
   reseller: {
     actor: SHIPMENT_ACTORS.reseller,
-    note: "Ordem de fornecimento criada. Compartilhe o link com o fornecedor.",
+    note: FORWARDED_BY_RESELLER_NOTE,
   },
   sellbridge: {
     actor: SHIPMENT_ACTORS.sellbridge,

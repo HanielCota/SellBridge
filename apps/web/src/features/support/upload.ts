@@ -16,5 +16,7 @@ export async function postMultipart(url: string, formData: FormData): Promise<un
     return body;
   }
   const parsed = apiErrorSchema.safeParse(body);
-  throw new Error(parsed.success ? parsed.data.error : "Não foi possível enviar. Tente novamente.");
+  throw new Error(
+    parsed.success ? parsed.data.error : "Não deu para enviar. Confira a internet e tente de novo.",
+  );
 }

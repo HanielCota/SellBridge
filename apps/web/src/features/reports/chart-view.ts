@@ -357,7 +357,7 @@ export interface WaterfallStep {
 export function buildWaterfall(summary: FlowSummary): WaterfallStep[] {
   const moves: { key: WaterfallTone; label: string; cents: number }[] = [
     // Sales of unknown cost leave the profit first, whole: nothing of them is split below.
-    { key: "pending", label: "Custo pendente", cents: -summary.pendingCostRevenueCents },
+    { key: "pending", label: "Sem custo informado", cents: -summary.pendingCostRevenueCents },
     { key: "cost", label: "Custo dos produtos", cents: -summary.costCents },
     {
       key: "fee",

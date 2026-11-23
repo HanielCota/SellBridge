@@ -199,7 +199,7 @@ function PendingCostNote({ current }: { current: Totals }) {
   return (
     <>
       <Strong>{formatCents(current.pendingCostRevenueCents)}</Strong> em {current.pendingCostOrders}{" "}
-      {one ? "venda" : "vendas"} com custo pendente {one ? "ficou" : "ficaram"} fora do lucro.{" "}
+      {one ? "venda" : "vendas"} sem custo informado {one ? "está" : "estão"} ainda sem lucro.{" "}
     </>
   );
 }

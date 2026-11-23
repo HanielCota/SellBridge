@@ -100,7 +100,7 @@ export function AmountNote({
     <>
       de {formatCents(revenueCents)}
       {/* On a phone the status above already says it; the line stays as short as its siblings'. */}
-      {row.costPending ? <span className="max-sm:hidden"> · fora do lucro</span> : null}
+      {row.costPending ? <span className="max-sm:hidden"> · ainda sem lucro</span> : null}
     </>
   );
 }

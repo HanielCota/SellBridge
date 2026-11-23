@@ -81,9 +81,9 @@ export const supportPerformanceQueryOptions = (input: SupportPerformanceInput) =
     placeholderData: keepPreviousData,
   });
 
-export const myLinkableOrdersQueryOptions = (ticketId: string, query: string) =>
+export const myLinkableOrdersQueryOptions = (ticketId: string | undefined, query: string) =>
   queryOptions({
-    queryKey: ["tickets", "mine", "linkable-orders", ticketId, query],
+    queryKey: ["tickets", "mine", "linkable-orders", ticketId ?? "new", query],
     queryFn: () => listMyLinkableOrders({ data: { ticketId, query: query || undefined } }),
     placeholderData: keepPreviousData,
   });

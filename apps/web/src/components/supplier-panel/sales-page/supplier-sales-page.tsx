@@ -41,7 +41,8 @@ function SalesSkeleton() {
   );
 }
 
-function SalesContent({ data }: { data: SupplierSalesPageData }) {
+/** `running`: the month is still going, compared with the same days of the previous one. */
+function SalesContent({ data, running }: { data: SupplierSalesPageData; running: boolean }) {
   return (
     <>
       <SupplierKpiTiles
@@ -52,6 +53,7 @@ function SalesContent({ data }: { data: SupplierSalesPageData }) {
         bucket={data.bucket}
         offsetDays={data.previousOffsetDays}
         situation="sold"
+        running={running}
         className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4"
       />
       <SalesOrdersChart data={data} />
@@ -105,7 +107,7 @@ export function SupplierSalesPage({ supplierId, search, onPeriodChange }: Suppli
           aria-busy={query.isPlaceholderData}
           className={cn("space-y-4 transition-opacity", query.isPlaceholderData && "opacity-60")}
         >
-          <SalesContent data={query.data} />
+          <SalesContent data={query.data} running={period.status === "partial"} />
         </div>
       )}
     </div>

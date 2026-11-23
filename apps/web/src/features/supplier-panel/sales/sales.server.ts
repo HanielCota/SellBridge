@@ -14,6 +14,7 @@ import { logger } from "@sellbridge/shared/logger";
 import {
   chartRanges,
   comparablePreviousRange,
+  comparesSameStretch,
   resolvePeriod,
 } from "@sellbridge/shared/period-range";
 import {
@@ -87,6 +88,17 @@ async function soldProductsFor(
   return listSupplierProductSales(database, soldScope, RUNNING_OUT_SCAN_LIMIT);
 }
 
+/** The period as the screen reads it; `running`: compared with the same days before. */
+function periodView(period: ReturnType<typeof resolvePeriod>, now: Date) {
+  return {
+    fromDate: period.fromDate,
+    toDate: period.toDate,
+    days: period.days,
+    bucket: period.bucket,
+    running: comparesSameStretch(period, now),
+  };
+}
+
 /** Everything the home draws for the period: totals, chart, best sellers and parcel steps. */
 export async function loadSupplierSales(
   supplierId: string,
@@ -131,12 +143,7 @@ export async function loadSupplierSales(
   });
   return {
     supplierName: profile.name,
-    period: {
-      fromDate: period.fromDate,
-      toDate: period.toDate,
-      days: period.days,
-      bucket: period.bucket,
-    },
+    period: periodView(period, now),
     summary,
     previous,
     timeseries,

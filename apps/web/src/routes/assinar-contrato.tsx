@@ -12,6 +12,7 @@ import { ContractCodeStep } from "@/components/contract-signing/contract-code-st
 import { ContractSummaryStep } from "@/components/contract-signing/contract-summary-step";
 import { getAppSession } from "@/features/auth/session.functions";
 import { sessionContractOf, sessionMaySign } from "@/features/contract-signing/contract-gate";
+import { pendingContractCodeFn } from "@/features/contract-signing/contract-signing.functions";
 import { useContractSigning } from "@/features/contract-signing/use-contract-signing";
 import { needsTermsAcceptance } from "@/features/onboarding/terms-gate";
 import { parseRequestedProfile } from "@/lib/profile-param";
@@ -46,18 +47,19 @@ export const Route = createFileRoute("/assinar-contrato")({
     return {
       profileKind: session.profileKind,
       canSignLater: sessionContractOf(session).standing === "grace",
+      pendingCode: await pendingContractCodeFn(),
     };
   },
   component: SignContractPage,
 });
 
 function SignContractPage() {
-  const { profileKind, canSignLater } = Route.useRouteContext();
+  const { profileKind, canSignLater, pendingCode } = Route.useRouteContext();
   const search = Route.useSearch();
   const navigate = useNavigate();
   const router = useRouter();
   const contract = contractFor(profileKind);
-  const signing = useContractSigning(contract, async (signedAt) => {
+  const signing = useContractSigning(contract, pendingCode, async (signedAt) => {
     toast.success(`Contrato assinado em ${formatAbsoluteTime(new Date(signedAt))}.`);
     await router.invalidate();
     await navigate({ to: search.redirect ?? "/dashboard" });

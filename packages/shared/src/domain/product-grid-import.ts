@@ -293,7 +293,7 @@ function addedToGrid(
       );
       errors.push({
         line: row.line,
-        reason: `Cor e tamanho: o modelo ${model.code} já tem a combinação ${label}. Use o SKU dela ou outra cor ou tamanho`,
+        reason: `Cor e tamanho: o modelo ${model.code} já tem a combinação ${label}. Use o código dela ou outra cor ou tamanho`,
       });
     }
     seen.add(key);
@@ -336,7 +336,7 @@ function existingCombinationProblem(
   if (sameGrid && samePair) {
     return null;
   }
-  return `Cor e tamanho: o SKU ${row.product.sku} já é ${combinationLabel(existing.color, existing.size)} do modelo ${existing.modelCode ?? ""}. Para mudar o modelo, a cor ou o tamanho, use o cadastro do produto`;
+  return `Cor e tamanho: o código ${row.product.sku} já é ${combinationLabel(existing.color, existing.size)} do modelo ${existing.modelCode ?? ""}. Para mudar o modelo, a cor ou o tamanho, use o cadastro do produto`;
 }
 
 /**
@@ -370,7 +370,7 @@ export function planGridImport(input: {
       );
       notices.push({
         line: rows[0]?.line ?? single.line,
-        reason: `As cores e tamanhos de "${single.product.title}" entraram como produtos separados, porque o SKU ${single.product.sku} já existe como produto separado. Juntar produtos que já existem numa grade vai ter uma tela própria`,
+        reason: `As cores e tamanhos de "${single.product.title}" entraram como produtos separados, porque o código ${single.product.sku} já existe como produto separado. Juntar produtos que já existem numa grade vai ter uma tela própria`,
       });
       continue;
     }

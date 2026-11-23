@@ -11,11 +11,11 @@ export function contractCodeEmail(
 ): RenderedEmail {
   return renderNoticeEmail(
     {
-      subject: "Seu código para assinar o contrato da SellBridge",
+      subject: "Seu código para assinar o contrato do SellBridge",
       preview: `Use este código para assinar o ${input.contractTitle.toLowerCase()}.`,
       heading: input.code,
       paragraphs: [
-        `Digite este código na tela para assinar o ${input.contractTitle.toLowerCase()} da SellBridge.`,
+        `Digite este código na tela para assinar o ${input.contractTitle.toLowerCase()} do SellBridge.`,
         `Ele vale por ${SIGNING_CODE_TTL_IN_MINUTES} minutos.`,
       ],
       footnote:

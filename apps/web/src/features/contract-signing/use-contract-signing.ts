@@ -7,6 +7,7 @@ import {
 import { useEffect, useState } from "react";
 import { errorMessage } from "@/lib/errors";
 import { requestContractCodeFn, signContractFn } from "./contract-signing.functions";
+import type { PendingSigningCode } from "./contract-signing.server";
 
 const ONE_SECOND_IN_MS = 1000;
 
@@ -27,8 +28,8 @@ function browserTimeZone(): string {
 }
 
 /** Counts down to zero once a second while above zero. */
-function useCountdown(): [number, (seconds: number) => void] {
-  const [seconds, setSeconds] = useState(0);
+function useCountdown(initialSeconds: number): [number, (seconds: number) => void] {
+  const [seconds, setSeconds] = useState(initialSeconds);
   useEffect(() => {
     const timer =
       seconds > 0 ? setTimeout(() => setSeconds(seconds - 1), ONE_SECOND_IN_MS) : undefined;
@@ -37,8 +38,11 @@ function useCountdown(): [number, (seconds: number) => void] {
   return [seconds, setSeconds];
 }
 
-function useSummaryChoice(contract: ContractDocument) {
-  const [confirmed, setConfirmed] = useState<ReadonlySet<string>>(new Set());
+// A code is only sent once every line is ticked, so a pending one means all of them were.
+function useSummaryChoice(contract: ContractDocument, allTicked: boolean) {
+  const [confirmed, setConfirmed] = useState<ReadonlySet<string>>(
+    () => new Set(allTicked ? contract.summary.map((item) => item.id) : []),
+  );
   const [highlighted, setHighlighted] = useState<ReadonlySet<string>>(new Set());
   function toggle(itemId: string, checked: boolean) {
     const next = new Set(confirmed);
@@ -68,10 +72,14 @@ function useSummaryChoice(contract: ContractDocument) {
 }
 
 /** Asking for a code: where it went, and the wait before another one. */
-function useCodeRequest(contract: ContractDocument, confirmed: ReadonlySet<string>) {
-  const [sentTo, setSentTo] = useState("");
+function useCodeRequest(
+  contract: ContractDocument,
+  confirmed: ReadonlySet<string>,
+  pending: PendingSigningCode | null,
+) {
+  const [sentTo, setSentTo] = useState(pending?.sentTo ?? "");
   const [isSending, setIsSending] = useState(false);
-  const [resendWaitInSeconds, setResendWait] = useCountdown();
+  const [resendWaitInSeconds, setResendWait] = useCountdown(pending?.resendWaitInSeconds ?? 0);
   /** Sends a code; reports a failure through `showError` and says whether it went out. */
   async function send(showError: (message: string | null) => void): Promise<boolean> {
     setIsSending(true);
@@ -127,15 +135,19 @@ function useCodeEntry(
   return { code, setCode, error, setError, isSigning, sign };
 }
 
-/** The two steps of signing: tick every line and get the code, then type it. */
+/**
+ * The two steps of signing: tick every line and get the code, then type it. With a code already
+ * sent and still valid (`pending`, after a reload) it opens on the code step.
+ */
 export function useContractSigning(
   contract: ContractDocument,
+  pending: PendingSigningCode | null,
   onSigned: (signedAt: string) => Promise<void>,
 ) {
-  const summary = useSummaryChoice(contract);
-  const request = useCodeRequest(contract, summary.confirmed);
+  const summary = useSummaryChoice(contract, pending !== null);
+  const request = useCodeRequest(contract, summary.confirmed, pending);
   const entry = useCodeEntry(contract, summary.confirmed, onSigned);
-  const [step, setStep] = useState<"summary" | "code">("summary");
+  const [step, setStep] = useState<"summary" | "code">(pending === null ? "summary" : "code");
   const [summaryError, setSummaryError] = useState<string | null>(null);
 
   async function submitSummary() {

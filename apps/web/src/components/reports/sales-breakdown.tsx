@@ -35,7 +35,9 @@ function marginText(store: StoreRow): string {
   if (margin !== null) {
     return `${formatPercent(margin)} de margem`;
   }
-  return store.pendingCostRevenueCents > 0 ? "custo pendente" : `${formatPercent(0)} de margem`;
+  return store.pendingCostRevenueCents > 0
+    ? "sem custo informado"
+    : `${formatPercent(0)} de margem`;
 }
 
 /**

@@ -15,7 +15,7 @@ export const Route = createFileRoute("/_app/admin/envios")({
   loaderDeps: ({ search }) => ({ group: search.group, query: search.query, page: search.page }),
   loader: ({ context, deps }) =>
     prefetchOnServer(context.queryClient, staffShipmentsQueryOptions(deps)),
-  head: () => ({ meta: [{ title: "Envios (admin) | SellBridge" }] }),
+  head: () => ({ meta: [{ title: "Envios (equipe) | SellBridge" }] }),
   component: ShipmentsRoute,
 });
 

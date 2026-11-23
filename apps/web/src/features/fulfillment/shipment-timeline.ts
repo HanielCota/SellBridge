@@ -78,3 +78,14 @@ export function shipmentsSummary(
     })
     .join(" · ");
 }
+
+/** The first step's note from before the supplier link was retired, still stored on old parcels. */
+const RETIRED_LINK_NOTE = "Ordem de fornecimento criada. Compartilhe o link com o fornecedor.";
+
+/** A history note as people read it today: the retired link's note says where the order went. */
+export function historyNote(note: string): string {
+  if (note === RETIRED_LINK_NOTE) {
+    return "Pedido enviado ao fornecedor. Ele vê no painel do SellBridge.";
+  }
+  return note;
+}

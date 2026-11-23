@@ -14,7 +14,12 @@ import {
 } from "../schema/index.ts";
 import { findSupplierShipmentInvoice } from "./shipment-invoices.ts";
 import { findResellerNoteState } from "./shipment-on-behalf-invoices.ts";
-import { preparationHold, supplierDeadlines, supplierTimingColumns } from "./shipment-timing.ts";
+import {
+  effectiveDispatchDeadlineAt,
+  preparationHold,
+  supplierDeadlines,
+  supplierTimingColumns,
+} from "./shipment-timing.ts";
 import { splitOrderSql } from "./supplier-panel-orders-sql.ts";
 
 /** What the supplier receives for the parcel: each item's cost times its quantity, in cents. */
@@ -61,6 +66,8 @@ async function panelShipmentRow(
       supplierName: suppliers.name,
       splitOrder: splitOrderSql,
       preparationHold,
+      /** The stored marketplace date, or the posting day of the admin cutoff rule. */
+      dispatchDeadlineAt: effectiveDispatchDeadlineAt,
       ...supplierTimingColumns,
     })
     .from(orderShipments)
@@ -94,8 +101,9 @@ export async function getSupplierPanelShipment(
     supplierTokenExpiresAt: _expiry,
     buyerTokenHash: _buyerHash,
     tenantId: _tenant,
-    ...shipment
+    ...storedShipment
   } = row.shipment;
+  const shipment = { ...storedShipment, dispatchDeadlineAt: row.dispatchDeadlineAt };
   const [events, receivable, invoice, saleInvoice, resellerNote] = await Promise.all([
     database
       .select()

@@ -84,7 +84,7 @@ export function StoreHealthRows({
   const access = describeStoreAccess(store);
   return (
     <dl className={cn("space-y-1 text-xs", className)}>
-      <HealthRow label="Última sincronização" hint={TERM_HINTS.lastSync}>
+      <HealthRow label="Estoque e preço atualizados" hint={TERM_HINTS.lastSync}>
         <LastTime date={store.lastSyncedAt} />
       </HealthRow>
       <HealthRow label="Último aviso de pedido" hint={TERM_HINTS.lastOrderPing}>
@@ -115,7 +115,7 @@ export function StoreHealthSection({ store }: { store: StoreHealthFacts }) {
   return (
     <DropdownMenuGroup aria-labelledby={titleId} className="px-2.5 pt-1 pb-2.5">
       <p id={titleId} className="mb-1.5 text-xs font-semibold text-foreground">
-        Saúde da loja
+        Como está a loja
       </p>
       <StoreHealthRows store={store} />
     </DropdownMenuGroup>
@@ -132,7 +132,15 @@ function lastTimeText(date: Date | null): string {
 /** The health facts as one sentence, for the store menu button's accessible description. */
 export function storeHealthSummary(store: StoreHealthFacts): string {
   const access = describeStoreAccess(store);
-  return `Saúde da loja: última sincronização ${lastTimeText(store.lastSyncedAt)}; último aviso de pedido ${lastTimeText(store.lastWebhookAt)}; acesso ${access.label.toLowerCase()}.`;
+  const sync =
+    store.lastSyncedAt === null
+      ? "estoque e preço ainda não atualizados"
+      : `estoque e preço atualizados ${lastTimeText(store.lastSyncedAt)}`;
+  const orderPing =
+    store.lastWebhookAt === null
+      ? "nenhum pedido avisado ainda"
+      : `último pedido avisado ${lastTimeText(store.lastWebhookAt)}`;
+  return `Como está a loja: ${sync}; ${orderPing}; acesso ${access.label.toLowerCase()}.`;
 }
 
 /**
@@ -143,7 +151,7 @@ export function StoreHealthLine({ store }: { store: StoreHealthFacts }) {
   const access = describeStoreAccess(store);
   return (
     <p className="text-footnote text-muted-foreground">
-      Sincronização: <LastTime date={store.lastSyncedAt} /> · Aviso de pedido:{" "}
+      Estoque e preço atualizados: <LastTime date={store.lastSyncedAt} /> · Aviso de pedido:{" "}
       <LastTime date={store.lastWebhookAt} /> · Acesso:{" "}
       <span className={ACCESS_TEXT[access.tone]}>{access.label}</span>
     </p>

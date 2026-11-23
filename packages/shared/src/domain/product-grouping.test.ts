@@ -168,7 +168,9 @@ describe("groupingProblems", () => {
       products: [product("a", { size: "38" }), product("b", { color: "preto", size: "38" })],
     });
 
-    expect(problems.byProduct.b).toEqual(["preto 38 já é o SKU SKU-a: corrija a cor ou o tamanho"]);
+    expect(problems.byProduct.b).toEqual([
+      "preto 38 já é o código SKU-a: corrija a cor ou o tamanho",
+    ]);
   });
 
   it("asks for the colour when the other products have one", () => {

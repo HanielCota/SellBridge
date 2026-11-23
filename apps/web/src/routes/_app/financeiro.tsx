@@ -301,7 +301,7 @@ function FinancialEmptyState({ hasFilters, day }: { hasFilters: boolean; day: st
     return (
       <EmptyState
         icon={MagnifyingGlassIcon}
-        title="Nenhum pedido encontrado"
+        title="Nenhum pedido com esses filtros"
         description="Tente outra busca, outra etapa ou outro período."
       />
     );
@@ -309,7 +309,7 @@ function FinancialEmptyState({ hasFilters, day }: { hasFilters: boolean; day: st
   return (
     <EmptyState
       icon={WalletIcon}
-      title="Ainda não há movimentações"
+      title="Nenhuma venda ainda"
       description="Quando seus produtos publicados venderem, lucro, comissões, devoluções e reembolsos aparecem aqui, pedido a pedido."
       action={
         <Button asChild>

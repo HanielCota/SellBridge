@@ -45,7 +45,7 @@ import { CustomerScore } from "@/components/admin/customer-cells";
 export const Route = createFileRoute("/_app/admin/clientes/$userId")({
   loader: ({ context, params }) =>
     prefetchOnServer(context.queryClient, customerQueryOptions(params.userId)),
-  head: () => ({ meta: [{ title: "Cliente (admin) | SellBridge" }] }),
+  head: () => ({ meta: [{ title: "Cliente (equipe) | SellBridge" }] }),
   component: CustomerPage,
 });
 
@@ -164,7 +164,7 @@ function activityTiles(detail: CustomerDetail): ActivityTile[] {
         <TrendBadge
           current={customer.recentOrders}
           previous={customer.previousOrders}
-          suffix="vs. mês anterior"
+          suffix="sobre o mês anterior"
         />
       ),
     },

@@ -219,7 +219,7 @@ function BanControl({ userId, banned, locked }: Pick<AccessProps, "userId" | "ba
         open={isOpen}
         onOpenChange={setIsOpen}
         title="Bloquear esta conta?"
-        description="O cliente sai de todos os dispositivos e não consegue mais entrar até ser desbloqueado. Lojas e publicações continuam como estão."
+        description="O cliente sai de todos os aparelhos e não consegue mais entrar até ser desbloqueado. Lojas e publicações continuam como estão."
         confirmLabel="Bloquear"
         pendingLabel="Bloqueando…"
         destructive
@@ -236,20 +236,20 @@ function SessionsControl({ userId, locked }: { userId: string } & Locked) {
   const [isOpen, setIsOpen] = useState(false);
   const revoke = useAdminAction(
     () => adminRevokeCustomerSessions({ data: { userId } }),
-    "Sessões encerradas",
+    "Cliente desconectado de todos os aparelhos",
     () => setIsOpen(false),
   );
   return (
     <>
       <Button variant="outline" disabled={locked} onClick={() => setIsOpen(true)}>
-        Encerrar sessões
+        Desconectar de todos os aparelhos
       </Button>
       <ConfirmDialog
         open={isOpen}
         onOpenChange={setIsOpen}
-        title="Encerrar todas as sessões?"
-        description="O cliente precisará entrar de novo em todos os dispositivos."
-        confirmLabel="Encerrar sessões"
+        title="Desconectar de todos os aparelhos?"
+        description="O cliente vai precisar entrar de novo em todos os aparelhos."
+        confirmLabel="Desconectar"
         pendingLabel="Encerrando…"
         isPending={revoke.isPending}
         onConfirm={() => revoke.mutate(undefined)}
@@ -276,10 +276,10 @@ function PasswordResetButton({ userId, locked }: { userId: string } & Locked) {
 
 function accessDescription({ isSelf, canManage }: Pick<AccessProps, "isSelf" | "canManage">) {
   if (isSelf && !canManage) {
-    return "Esta é a sua conta: troque a senha e veja os dispositivos conectados no seu Perfil.";
+    return "Esta é a sua conta: troque a senha e veja os aparelhos conectados no seu Perfil.";
   }
   if (!canManage) {
-    return "Conta da equipe: só um dono da plataforma altera papel, bloqueio, sessões e senha.";
+    return "Conta da equipe: só um dono da plataforma altera papel, bloqueio, aparelhos conectados e senha.";
   }
   if (isSelf) {
     return "Esta é a sua conta: papel e bloqueio ficam travados.";
@@ -321,8 +321,8 @@ export function CustomerAccess({
           action={<BanControl userId={userId} banned={banned} locked={locked || isSelf} />}
         />
         <AccessRow
-          title="Sessões"
-          description="Desconecta o cliente de todos os dispositivos."
+          title="Aparelhos conectados"
+          description="Desconecta o cliente de todos os aparelhos."
           action={<SessionsControl userId={userId} locked={locked} />}
         />
         <AccessRow

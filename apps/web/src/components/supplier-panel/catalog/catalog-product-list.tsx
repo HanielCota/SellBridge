@@ -22,7 +22,7 @@ import {
 import { Skeleton } from "@/components/ui/skeleton";
 import type { supplierPanelListProducts } from "@/features/supplier-panel/catalog/catalog.functions";
 import { supplierPanelProductsQueryOptions } from "@/features/supplier-panel/catalog/catalog.queries";
-import { usePanelSupplierActive } from "@/features/supplier-panel/use-panel-supplier";
+import { usePanelSupplierCanAddProducts } from "@/features/supplier-panel/use-panel-supplier";
 import { useUrlSearchQuery } from "@/hooks/use-url-search-query";
 import { errorMessage } from "@/lib/errors";
 import { CatalogProductTable, type OpenGrid, type OpenProduct } from "./catalog-product-table";
@@ -96,7 +96,7 @@ function CatalogListBody({
   onOpenGrid,
   onCreateProduct,
 }: Omit<CatalogProductListProps, "supplierId" | "onOpenGrouping"> & { query: CatalogListQuery }) {
-  const canAddProducts = usePanelSupplierActive();
+  const canAddProducts = usePanelSupplierCanAddProducts();
   if (query.isPending) {
     return <Skeleton className="h-96 rounded-3xl" aria-label="Carregando produtos" />;
   }
@@ -178,7 +178,7 @@ function ProductListActions({
   onCreateProduct: () => void;
   onOpenGrouping: () => void;
 }) {
-  const canAddProducts = usePanelSupplierActive();
+  const canAddProducts = usePanelSupplierCanAddProducts();
   return (
     <div className="flex flex-wrap gap-3">
       <ProductSpreadsheetMenu

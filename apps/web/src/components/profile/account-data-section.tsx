@@ -7,7 +7,6 @@ import {
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link } from "@tanstack/react-router";
 import { type FormEvent, type ReactNode, useState } from "react";
-import { toast } from "sonner";
 import { TextField } from "@/components/form/form-field";
 import { Button } from "@/components/ui/button";
 import {
@@ -26,6 +25,7 @@ import {
   hasPasswordQueryOptions,
 } from "@/features/profile/account.queries";
 import type { DeletionBlockerLine } from "@/features/profile/deletion-blockers";
+import { ACCOUNT_DELETED_LOGIN_PATH } from "@/features/auth/account-deleted-notice";
 import { authClient } from "@/lib/auth-client";
 import { authErrorMessage } from "@/lib/auth-error-message";
 
@@ -33,7 +33,7 @@ const EXPORT_URL = "/api/conta/exportar";
 
 /** What deleting the account takes with it, said plainly before the password is asked. */
 const DELETION_CONSEQUENCES = [
-  "Sua assinatura é cancelada na hora, sem devolução.",
+  "Sua assinatura é cancelada na hora, sem devolução. Pagou a primeira mensalidade há 7 dias ou menos? Use “Só cancelar o plano” em Assinatura: assim o valor volta inteiro.",
   "As lojas são desconectadas e os anúncios pausados no marketplace.",
   "Pedidos, anúncios, chamados e dados de cadastro são apagados.",
 ];
@@ -61,9 +61,9 @@ function useDeleteAccount() {
       );
       return;
     }
-    toast.success("Sua conta foi excluída");
-    // A full load: the session cookie is gone and every cached query belonged to the account.
-    window.location.assign("/");
+    // A full load: the session cookie is gone and every cached query belonged to the account. A
+    // toast would not survive it, so the sign-in itself says the account was deleted.
+    window.location.assign(ACCOUNT_DELETED_LOGIN_PATH);
   }
 
   return { password, setPassword, error, isDeleting, submit };

@@ -11,7 +11,7 @@ import { errorMessage } from "@/lib/errors";
 async function removeAvatar(): Promise<void> {
   const response = await fetch("/api/perfil/foto", { method: "DELETE" });
   if (!response.ok) {
-    throw new Error("Não foi possível remover a foto. Tente novamente.");
+    throw new Error("A foto continua no perfil. Confira a internet e toque em Remover de novo.");
   }
 }
 

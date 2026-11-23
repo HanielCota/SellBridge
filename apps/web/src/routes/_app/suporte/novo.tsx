@@ -11,6 +11,7 @@ import { AssistantAnswer, ResolvedButton } from "@/components/support/new-ticket
 import { SituationStep, TopicStep } from "@/components/support/new-ticket/choice-steps";
 import { DescriptionStep, SendFooter } from "@/components/support/new-ticket/description-step";
 import { AnsweredStep } from "@/components/support/new-ticket/step-parts";
+import { OrderStep } from "@/components/support/new-ticket/order-step";
 import { useNewTicket } from "@/components/support/new-ticket/use-new-ticket";
 import { TicketSubjectList, hasTicketSubject } from "@/components/support/ticket-subject";
 import { Button } from "@/components/ui/button";
@@ -60,6 +61,9 @@ function WritingSteps({ flow }: { flow: ReturnType<typeof useNewTicket> }) {
   }
   return (
     <>
+      {flow.asksForOrder ? (
+        <OrderStep order={flow.pickedOrder} onPick={flow.pickOrder} onClear={flow.clearOrder} />
+      ) : null}
       <DescriptionStep
         number={flow.needsSituation ? 3 : 2}
         question={situation?.question ?? topic.question}

@@ -104,7 +104,7 @@ function RetryButton({ listingId }: { listingId: string }) {
         className={cn(retry.isPending && "animate-spin motion-reduce:animate-none")}
         aria-hidden="true"
       />
-      Reprocessar
+      Tentar de novo
     </Button>
   );
 }

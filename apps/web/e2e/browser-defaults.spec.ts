@@ -15,6 +15,17 @@ test("the dark theme tells the browser, so native controls and scrollbars turn d
   expect(colorScheme).toBe("dark");
 });
 
+for (const scheme of ["light", "dark"] as const) {
+  test(`a first visit follows the device set to ${scheme}`, async ({ page }) => {
+    await page.emulateMedia({ colorScheme: scheme });
+
+    await gotoHydrated(page, "/login");
+
+    const isDark = await page.evaluate(() => document.documentElement.classList.contains("dark"));
+    expect(isDark).toBe(scheme === "dark");
+  });
+}
+
 test("fields are at least 16px on phones, so iOS does not zoom in on focus", async ({ page }) => {
   await page.setViewportSize({ width: 390, height: 844 });
   await signIn(page, DEMO_USER);

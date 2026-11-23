@@ -10,7 +10,7 @@ const TITLE = "Seller-owned cotton accessory";
 async function createOwnProduct(page: Page) {
   await gotoHydrated(page, "/products");
   await page.getByRole("button", { name: "Cadastrar produto", exact: true }).click();
-  await page.getByLabel("SKU", { exact: true }).fill(`OWN-PUBLISH-${Date.now()}`);
+  await page.getByLabel("Código", { exact: true }).fill(`OWN-PUBLISH-${Date.now()}`);
   await page.getByLabel("Nome do produto", { exact: true }).fill(TITLE);
   await page
     .getByLabel("Descrição", { exact: true })
