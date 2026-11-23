@@ -50,5 +50,5 @@ export const PAGE_COMMANDS: PageCommand[] = [
     keywords: "api chave token webhook erp desenvolvedor",
   },
   { label: "Meu perfil", to: "/perfil", icon: UserCircleIcon, keywords: "foto conta" },
-  { label: "Ajuda e suporte", to: "/suporte", icon: ChatCircleTextIcon, keywords: "chamado ajuda" },
+  { label: "Suporte", to: "/suporte", icon: ChatCircleTextIcon, keywords: "chamado ajuda" },
 ];

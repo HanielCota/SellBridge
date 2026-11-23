@@ -76,7 +76,7 @@ test("a conta nova só entra depois de abrir o link de confirmação", async ({ 
 
   await fillLogin(page, email, SIGN_UP_PASSWORD);
   await expect(page).toHaveURL(/^[^?]*\/onboarding(?:[?#]|$)/);
-  await expect(page.getByRole("heading", { name: "Configure sua conta" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Seus dados e seu fornecedor" })).toBeVisible();
 });
 
 test("o link de confirmação não abre sessão para quem o abre", async ({ browser, request }) => {

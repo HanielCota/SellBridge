@@ -51,7 +51,7 @@ async function assertBelowActiveKeyLimit(
   const activeCount = keys.filter((key) => apiKeyStatus(key, now) === "active").length;
   if (activeCount >= MAX_ACTIVE_API_KEYS) {
     throw conflictError(
-      `Sua organização já tem ${MAX_ACTIVE_API_KEYS} chaves ativas. Revogue as que não usa antes de criar outra.`,
+      `Você já tem ${MAX_ACTIVE_API_KEYS} chaves ativas. Revogue uma que não usa para criar outra.`,
     );
   }
 }

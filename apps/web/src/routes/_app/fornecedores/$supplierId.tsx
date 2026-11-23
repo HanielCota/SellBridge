@@ -91,7 +91,7 @@ function CatalogPage() {
               <Button asChild>
                 <Link to="/lojas" search={{ fornecedor: supplier.id }} hash="adicionar-loja">
                   <StoresIcon weight="bold" aria-hidden="true" />
-                  Vender este fornecedor
+                  Vender os produtos dele
                 </Link>
               </Button>
             </Hint>

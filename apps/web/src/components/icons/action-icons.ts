@@ -147,7 +147,7 @@ export const ACTION_ICONS = {
   /** Stops syncing a store; never the sign-out icon, which leaves the account. */
   disconnectStore: {
     icon: PlugsIcon,
-    hint: "Para de sincronizar esta loja; os anúncios continuam no marketplace",
+    hint: "Para de atualizar estoque e preço desta loja; os anúncios continuam no marketplace",
   },
   /** The supplier's tabs: orders and products share the reseller's icons (same function). */
   supplierHome: {

@@ -70,7 +70,7 @@ function OnboardingStepEditor({
       <Button asChild variant="ghost">
         <Link to="/dashboard">
           <ArrowLeftIcon aria-hidden="true" />
-          Voltar ao painel
+          Voltar à Visão geral
         </Link>
       </Button>
       <PageHeader
@@ -131,8 +131,8 @@ function FirstVisit({ profile }: { profile: OnboardingProfile }) {
   return (
     <div className="mx-auto w-full max-w-3xl space-y-6">
       <PageHeader
-        title="Configure sua conta"
-        description={`Salve seus dados e escolha a origem dos produtos em cerca de ${SIGNUP_MINUTES} minutos.`}
+        title="Seus dados e seu fornecedor"
+        description={`Leva uns ${SIGNUP_MINUTES} minutos.`}
       />
       <section
         aria-label="Cadastro"

@@ -112,7 +112,7 @@ export function ProductSourceChoice({
           De qual fornecedor você vai vender os produtos?
         </h2>
         <p className="text-sm text-muted-foreground">
-          O fornecedor guarda o estoque e envia os produtos aos seus clientes. Este será o
+          O fornecedor guarda o estoque e envia os produtos aos seus compradores. Este será o
           fornecedor da sua próxima loja, e dá para trocar depois.
         </p>
       </div>

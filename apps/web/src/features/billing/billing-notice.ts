@@ -29,7 +29,7 @@ export function lastDayOf(isoDate: string): string {
 export function billingNoticeCopy(notice: BillingNoticeView): BillingNoticeCopy {
   if (notice.kind === "payment_failed") {
     return {
-      title: "Pagamento da assinatura não realizado",
+      title: "A mensalidade não foi paga",
       description:
         "Seus pedidos e anúncios continuam. Para conectar lojas e publicar, pague a mensalidade em aberto.",
       tone: "danger",
@@ -62,7 +62,7 @@ export function billingNoticeCopy(notice: BillingNoticeView): BillingNoticeCopy 
     timeZone: REPORT_TIME_ZONE,
   });
   return {
-    title: "Pagamento da assinatura pendente",
+    title: "Mensalidade em aberto",
     description: `Pague a mensalidade até ${lastDay} para manter o seu plano.`,
     tone: "danger",
   };

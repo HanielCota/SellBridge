@@ -32,7 +32,10 @@ export const RESELLER_BLING_OUTCOME_MESSAGES: Readonly<
     ok: true,
     text: "Bling conectado. Agora escolha a natureza de operação e as formas de pagamento abaixo.",
   },
-  indisponivel: { ok: false, text: "A integração com o Bling ainda não está disponível." },
+  indisponivel: {
+    ok: false,
+    text: "A conexão com o Bling ainda não foi liberada. Fale com o suporte se precisar.",
+  },
   sem_empresa: {
     ok: false,
     text: "Cadastre o CNPJ da sua empresa em Meu cadastro para emitir a nota de venda pelo Bling.",
