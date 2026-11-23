@@ -12,6 +12,13 @@ export function isShippingBlocked(orderStatus: string): boolean {
   return UNSHIPPABLE_ORDER_STATUSES.has(orderStatus);
 }
 
+/** What the reseller reads on an order that cannot be forwarded: the one reason that applies. */
+export function blockedOrderNote(orderStatus: string): string {
+  if (orderStatus === "cancelled") return "Este pedido foi cancelado.";
+  if (orderStatus === "returned") return "Este pedido foi devolvido.";
+  return "Este pedido ainda não foi pago. Espere o pagamento para encaminhar.";
+}
+
 export interface SaleStopNotice {
   title: string;
   description: string;

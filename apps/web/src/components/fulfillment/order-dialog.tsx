@@ -14,6 +14,7 @@ import {
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { fulfillmentQueryOptions } from "@/features/fulfillment/fulfillment.queries";
+import { blockedOrderNote, isShippingBlocked } from "@/features/fulfillment/shipping-block";
 import {
   forwardOrderFn,
   restartOwnShipmentFn,
@@ -178,11 +179,6 @@ function ShipmentList({
   ));
 }
 /** Why a blocked order cannot be forwarded: only the reason that applies to this one. */
-function blockedOrderNote(status: string): string {
-  if (status === "cancelled") return "Este pedido foi cancelado.";
-  if (status === "returned") return "Este pedido foi devolvido.";
-  return "Este pedido ainda não foi pago. Espere o pagamento para encaminhar.";
-}
 /** Forwarding and every parcel of one order, with the reseller's controls. */
 export function OrderOperations({ orderId }: { orderId: string }) {
   const query = useQuery(fulfillmentQueryOptions(orderId));
@@ -212,7 +208,7 @@ export function OrderOperations({ orderId }: { orderId: string }) {
   if (query.isError)
     return <ErrorState message={errorMessage(query.error)} onRetry={() => void query.refetch()} />;
   const detail = query.data;
-  const blocked = ["cancelled", "returned", "pending"].includes(detail.order.status);
+  const blocked = isShippingBlocked(detail.order.status);
   return (
     <div className="space-y-5">
       <MarketplaceTools detail={detail} onRefresh={refresh} />
