@@ -103,8 +103,8 @@ function SegmentedOption({
       onClick={onPress}
       className={cn(
         "relative inline-flex h-full shrink-0 items-center gap-1.5 rounded-full px-4 text-sm font-medium whitespace-nowrap transition-[color,transform] duration-300 outline-none focus-visible:ring-3 focus-visible:ring-ring/50 active:scale-[0.97] active:duration-100 motion-reduce:active:scale-100",
-        isPressed ? "text-background" : "text-muted-foreground hover:text-foreground",
-        isPressed && paintsOwnPill && "bg-foreground shadow-sm",
+        isPressed ? "text-selected-foreground" : "text-muted-foreground hover:text-foreground",
+        isPressed && paintsOwnPill && "bg-selected shadow-sm",
         // The phone sheet leaves 256px for two options with icons: px-4 clipped "Fornecedor" at 375px.
         stretch && "flex-1 justify-center px-2",
       )}
