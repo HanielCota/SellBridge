@@ -198,7 +198,6 @@ function ActivityTiles({ detail }: { detail: CustomerDetail }) {
         return (
           <div
             key={tile.label}
-            data-glyph-trigger
             className="surface-card flex flex-col gap-3 rounded-3xl bg-card p-4"
           >
             <span

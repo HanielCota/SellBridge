@@ -90,7 +90,7 @@ export const SUPPLIER_HOLD_MESSAGES: Record<PreparationHold, string> = {
 /** What the reseller reads on the parcel, with what to do. */
 export const RESELLER_HOLD_MESSAGES: Record<PreparationHold, string> = {
   receiving_account:
-    "O fornecedor ainda não ligou a conta de recebimento. Ele e a nossa equipe já foram avisados; o pedido segue assim que a conta for aprovada.",
+    "Você ainda não precisa pagar. O fornecedor ainda não cadastrou onde recebe: ele e a nossa equipe já foram avisados, e o pedido segue assim que a conta dele for aprovada.",
   payment:
     "Pague o fornecedor para ele começar a preparar o pedido. O prazo de postagem do marketplace continua correndo.",
 };

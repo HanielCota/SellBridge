@@ -143,7 +143,7 @@ export function CustomerQuickView({
   return (
     <section
       aria-label={`Resumo de ${customer.name}`}
-      className="animate-in fade-in-0 slide-in-from-top-1 space-y-5 rounded-3xl bg-foreground/[0.035] p-5 ring-1 ring-foreground/[0.08] duration-300 ease-out motion-reduce:animate-none"
+      className="space-y-5 rounded-3xl bg-foreground/[0.035] p-5 ring-1 ring-foreground/[0.08]"
     >
       <QuickViewHeader customer={customer} isSelf={isSelf} />
       <div className="grid gap-6 lg:grid-cols-[minmax(0,1.15fr)_minmax(0,1fr)]">

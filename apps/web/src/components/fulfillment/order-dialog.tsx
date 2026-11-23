@@ -14,7 +14,7 @@ import {
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { fulfillmentQueryOptions } from "@/features/fulfillment/fulfillment.queries";
-import { blockedOrderNote, isShippingBlocked } from "@/features/fulfillment/shipping-block";
+import { isShippingBlocked } from "@/features/fulfillment/shipping-block";
 import {
   forwardOrderFn,
   restartOwnShipmentFn,
@@ -35,6 +35,8 @@ import { asksForSaleNote } from "@/features/fulfillment/sale-note-request";
 import { resellerSupplierPaymentQueryOptions } from "@/features/supplier-payments/supplier-payments.queries";
 import { TrackParcelLink } from "@/components/tracking/track-parcel-link";
 import { useTabProfileLink } from "@/lib/tab-profile";
+import { attentionCountsQueryOptions } from "@/features/navigation/navigation.queries";
+import { blockedOrderMessage } from "@/features/fulfillment/shipment-timeline";
 import { ShipmentActionHint, ShipmentActionIcon } from "./shipment-hints";
 import { SplitOrderNotice } from "./split-order-notice";
 
@@ -198,6 +200,8 @@ export function OrderOperations({ orderId }: { orderId: string }) {
       client.invalidateQueries({ queryKey: ["parcels-in-transit"] }),
       // Cancelling a paid parcel sends its money back: the payment line and re-forward follow.
       client.invalidateQueries({ queryKey: ["reseller-supplier-payment"] }),
+      // "Pedidos esperando você enviar" on the overview and the orders list.
+      client.invalidateQueries({ queryKey: attentionCountsQueryOptions().queryKey }),
     ]);
   }
   async function onForwarded(result: Awaited<ReturnType<typeof forwardOrderFn>>) {
@@ -217,7 +221,9 @@ export function OrderOperations({ orderId }: { orderId: string }) {
         marketplace={detail.order.marketplace}
       />
       {blocked ? (
-        <p className="text-sm text-destructive">{blockedOrderNote(detail.order.status)}</p>
+        <p className="text-sm text-muted-foreground">
+          {blockedOrderMessage(detail.order.status, detail.shipments.length > 0)}
+        </p>
       ) : null}
       {detail.shipments.length === 0 && !blocked ? (
         <ForwardForm detail={detail} onForwarded={onForwarded} />

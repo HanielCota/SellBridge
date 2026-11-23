@@ -25,10 +25,7 @@ export function CustomerIssueRow({
   const Icon = ISSUE_ICONS[issue.kind];
   const copy = describeIssue(issue);
   return (
-    <li
-      data-glyph-trigger
-      className="flex items-center gap-3 rounded-xl px-2 py-2.5 transition-[background-color,box-shadow] duration-100 hover:row-lift"
-    >
+    <li className="flex items-center gap-3 rounded-xl px-2 py-2.5 transition-[background-color,box-shadow] duration-100 hover:row-lift">
       <span
         className={cn(
           "flex size-8 shrink-0 items-center justify-center rounded-lg",

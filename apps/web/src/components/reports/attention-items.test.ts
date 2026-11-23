@@ -1,9 +1,57 @@
 import { describe, expect, it } from "vitest";
 import { buildAttentionItems } from "./attention-items";
 
-const quiet = { failedListings: 0, unreadSupportReplies: 0, pendingReviews: 0 };
+const quiet = {
+  failedListings: 0,
+  unreadSupportReplies: 0,
+  pendingReviews: 0,
+  ordersToForward: 0,
+  supplierPaymentsDue: 0,
+};
 
 describe("attention panel", () => {
+  it("lists the paid orders to send to the supplier first, opening the list filtered to them", () => {
+    const items = buildAttentionItems(
+      { ...quiet, ordersToForward: 3, failedListings: 1 },
+      [
+        {
+          id: "s1",
+          name: "Loja",
+          status: "expired",
+          liveListings: 0,
+          failedListings: 0,
+          publishingListings: 0,
+        },
+      ],
+      null,
+    );
+
+    expect(items[0]).toMatchObject({
+      key: "orders-to-forward",
+      title: "3 pedidos pagos esperando você enviar ao fornecedor",
+      to: "/pedidos",
+      search: { view: "operations", stage: "unforwarded" },
+    });
+  });
+
+  it("puts the supplier payments to make right after the orders to send", () => {
+    const items = buildAttentionItems(
+      { ...quiet, ordersToForward: 1, supplierPaymentsDue: 2 },
+      [],
+      null,
+    );
+
+    expect(items.map((item) => item.key)).toEqual(["orders-to-forward", "supplier-payments"]);
+    expect(items[0]?.title).toBe("1 pedido pago esperando você enviar ao fornecedor");
+    expect(items[1]?.title).toBe("2 pagamentos ao fornecedor para fazer");
+  });
+
+  it("shows no order item when nothing waits for the reseller", () => {
+    const items = buildAttentionItems(quiet, [], null);
+
+    expect(items).toEqual([]);
+  });
+
   // Regression: "pedidos para avaliar" led to /pedidos on the operations tab, so the orders it
   // counted were nowhere to be seen.
   it("opens the orders page on the reviews tab, filtered to the pending ones", () => {

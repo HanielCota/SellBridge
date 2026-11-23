@@ -1,4 +1,8 @@
-import { FULFILLMENT_LABELS, type FulfillmentStatus } from "@sellbridge/shared/schemas";
+import {
+  FULFILLMENT_LABELS,
+  type FulfillmentStatus,
+  type OrderStatus,
+} from "@sellbridge/shared/schemas";
 import type { StatusTone } from "@/components/data/tone-status";
 
 /** Same palette as the order status (`OrderStatusBadge`): a returned parcel is as red as its order. */
@@ -54,12 +58,42 @@ export function supplierShipmentStatusLabel(status: FulfillmentStatus): string {
   return status === "forwarded" ? "Aguardando seu aceite" : FULFILLMENT_LABELS[status];
 }
 
-/** What the order list shows under an order before any parcel exists. */
-const NOT_FORWARDED_YET = "Ainda não encaminhado ao fornecedor";
+/** The status the order list stresses: a paid order nobody sent to the supplier yet. */
+export const ORDER_TO_FORWARD_LABEL = "Falta enviar ao fornecedor";
 
 /**
- * One line per parcel ("Seu envio: Separando · Fornecedor X: Enviado"), or the not-forwarded
- * line. The empty case used to read "Shipments have not been prepared", in English.
+ * The badge and the button of a paid order nobody sent yet: to the supplier, or, when every item
+ * is the reseller's own stock, to the reseller's own preparation.
+ */
+export function toForwardWords(ownItemsOnly: boolean): { badge: string; button: string } {
+  if (ownItemsOnly) {
+    return { badge: "Falta preparar o envio", button: "Preparar o envio" };
+  }
+  return { badge: ORDER_TO_FORWARD_LABEL, button: "Enviar ao fornecedor" };
+}
+
+/** A paid order with no parcel waits for the reseller: the list gives it its own badge and button. */
+export function waitsToBeForwarded(order: {
+  status: string;
+  shipments: readonly unknown[];
+}): boolean {
+  return order.status === "paid" && order.shipments.length === 0;
+}
+
+/** What the order list says under an order before any parcel exists, by the order's status. */
+const BEFORE_FORWARDING: Record<OrderStatus, string | null> = {
+  // The badge and the button already say it.
+  paid: null,
+  pending: "Espere o comprador pagar",
+  cancelled: "Venda cancelada: nada a enviar",
+  returned: "Pedido devolvido",
+  shipped: "Não foi enviado pelo SellBridge",
+  delivered: "Não foi enviado pelo SellBridge",
+};
+
+/**
+ * One line per parcel ("Seu envio: Separando · Fornecedor X: Enviado"), or, before any parcel,
+ * what the reseller does about the order: wait for the buyer, nothing, or (no line) send it.
  */
 export function shipmentsSummary(
   shipments: readonly {
@@ -67,9 +101,10 @@ export function shipmentsSummary(
     catalogKind: "seller" | "supplier";
     supplierName: string;
   }[],
-): string {
+  orderStatus: OrderStatus,
+): string | null {
   if (shipments.length === 0) {
-    return NOT_FORWARDED_YET;
+    return BEFORE_FORWARDING[orderStatus];
   }
   return shipments
     .map((shipment) => {
@@ -88,4 +123,19 @@ export function historyNote(note: string): string {
     return "Pedido enviado ao fornecedor. Ele vê no painel do SellBridge.";
   }
   return note;
+}
+
+/** Why there is nothing to send, one sentence per situation instead of the three at once. */
+export function blockedOrderMessage(status: OrderStatus, hasParcels: boolean): string {
+  if (status === "pending") {
+    return "O comprador ainda não pagou. Quando o pagamento for confirmado, o botão Enviar ao fornecedor aparece aqui.";
+  }
+  if (hasParcels) {
+    return status === "returned"
+      ? "Pedido devolvido. Veja em cada envio o que acontece com o pacote."
+      : "Venda cancelada. Veja em cada envio o que acontece com o pacote.";
+  }
+  return status === "returned"
+    ? "Pedido devolvido. Não há nada a enviar."
+    : "Venda cancelada. Não há nada a enviar.";
 }

@@ -6,6 +6,6 @@ test("o filtro de etapa da operação fala português", async ({ page }) => {
   await signIn(page, DEMO_USER);
   await gotoHydrated(page, "/pedidos?view=operations&stage=unforwarded");
   await expect(page.getByRole("combobox", { name: "Etapa do envio" })).toHaveText(
-    "Pagos a encaminhar",
+    "Falta enviar ao fornecedor",
   );
 });

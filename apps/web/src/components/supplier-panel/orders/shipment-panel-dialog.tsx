@@ -130,7 +130,14 @@ function OrderFacts({ shipment }: { shipment: PanelShipment }) {
     { term: "Canal", detail: <ChannelWithLogo marketplace={shipment.marketplace} /> },
     { term: "Loja do revendedor", detail: shipment.shopName },
     { term: "Cliente", detail: displayBuyerName(shipment.buyerName) },
-    { term: "Você recebe", detail: receivableText(shipment) },
+    {
+      term: "Você recebe (estimativa)",
+      detail: receivableText({
+        ...shipment,
+        paidMethod:
+          shipment.supplierPayment.kind === "paid" ? shipment.supplierPayment.method : null,
+      }),
+    },
   ];
   const method = shippingMethod(shipment.marketplaceLogisticType);
   if (method !== null) {

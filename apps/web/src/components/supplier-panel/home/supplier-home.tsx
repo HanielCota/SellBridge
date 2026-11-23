@@ -25,8 +25,8 @@ interface SupplierHomeProps {
 }
 
 /**
- * The shortcuts beside "Cadastrar produto", so the products, the spreadsheet import and the brand
- * sit in the header instead of a card of their own above the list.
+ * The store switch and the one main action. Products, the spreadsheet import and the brand are in
+ * the menu, so the header no longer repeats them (it took several rows on a phone).
  */
 function SupplierHeaderActions({ supplierId, active }: { supplierId: string; active: boolean }) {
   const closed = usePanelStoreClosed();
@@ -35,18 +35,7 @@ function SupplierHeaderActions({ supplierId, active }: { supplierId: string; act
     <>
       {/* The team's switch-off outranks the store: only the team brings that account back. */}
       {active ? <StoreOpenSwitch supplierId={supplierId} closed={closed} /> : null}
-      <Button asChild variant="outline">
-        <Link to="/fornecedor/painel/produtos">Meus produtos</Link>
-      </Button>
       {/* A switched-off or refused supplier adds no products. */}
-      {addsProducts ? (
-        <Button asChild variant="outline">
-          <Link to="/fornecedor/painel/importar">Importar por planilha</Link>
-        </Button>
-      ) : null}
-      <Button asChild variant="outline">
-        <Link to="/fornecedor/painel/marca">Editar minha marca</Link>
-      </Button>
       {addsProducts ? (
         <Button asChild>
           <Link to="/fornecedor/painel/produtos" search={{ product: "novo" }}>

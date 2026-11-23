@@ -28,7 +28,7 @@ function OrdersTooltip({
       <TooltipRow color="var(--muted-foreground)" label="Peças" value={count.format(point.units)} />
       <TooltipRow
         color="var(--muted-foreground)"
-        label="Você recebe"
+        label="Valor vendido"
         value={formatMoney(point.receivableCents)}
       />
     </TooltipCard>

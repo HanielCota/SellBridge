@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { blockedOrderNote, saleStopNotice } from "./shipping-block";
+import { saleStopNotice } from "./shipping-block";
 
 describe("saleStopNotice", () => {
   it("tells the supplier not to ship a cancelled sale", () => {
@@ -40,15 +40,5 @@ describe("saleStopNotice", () => {
 
     expect(notice?.title).toBe("Venda cancelada: não envie");
     expect(notice?.description).not.toContain("Encerrados");
-  });
-});
-
-describe("blockedOrderNote", () => {
-  it.each([
-    ["cancelled", "Este pedido foi cancelado."],
-    ["returned", "Este pedido foi devolvido."],
-    ["pending", "Este pedido ainda não foi pago. Espere o pagamento para encaminhar."],
-  ])("names the one reason a %s order cannot be forwarded", (status, note) => {
-    expect(blockedOrderNote(status)).toBe(note);
   });
 });

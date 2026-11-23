@@ -78,6 +78,8 @@ function SalesOverview({ data, home, supplierId, search, onSearchChange, hrefFor
   const exportSearch = new URLSearchParams({ supplierId, ...exportParams(search) });
   return (
     <>
+      {/* What waits for the supplier comes before the numbers that repeat Vendas. */}
+      <SupplierAttentionPanel home={home} runningOut={data.runningOut} hrefFor={hrefFor} />
       <div className="space-y-4">
         <p className="text-sm text-muted-foreground">{formatPeriodCaption(data.period)}</p>
         <SupplierPeriodSummary
@@ -111,10 +113,9 @@ function SalesOverview({ data, home, supplierId, search, onSearchChange, hrefFor
         supplierId={supplierId}
         search={{ period: search.period, from: search.from, to: search.to }}
       />
-      <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
+      <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
         <ParcelStagesCard stages={data.parcelStages} />
         <SupplierTopProducts products={data.topProducts} />
-        <SupplierAttentionPanel home={home} runningOut={data.runningOut} hrefFor={hrefFor} />
       </div>
     </>
   );
