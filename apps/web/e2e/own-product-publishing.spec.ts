@@ -27,7 +27,7 @@ async function createOwnProduct(page: Page) {
       "base64",
     ),
   });
-  await expect(page.getByText("Todas as alterações foram salvas", { exact: true })).toBeVisible();
+  await expect(page.getByText("Tudo salvo", { exact: true })).toBeVisible();
   await page.getByRole("button", { name: "Deixar pronto para publicar", exact: true }).click();
   await expect(page.getByText("Pronto para publicar", { exact: true })).toBeVisible();
 }

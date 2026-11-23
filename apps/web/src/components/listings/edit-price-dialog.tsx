@@ -70,7 +70,7 @@ function belowFloorProblem(
 ): string | null {
   const floorCents = minimumPrice(product, schedule, channels);
   if (floorCents === null) {
-    return "As taxas configuradas não deixam lucro para este produto";
+    return "Com as taxas de hoje, este produto não dá lucro em nenhum preço. Fale com o suporte.";
   }
   if (priceCents >= floorCents) {
     return null;
@@ -88,7 +88,7 @@ function priceProblem(
   channels: SaleChannels,
 ): string | null {
   if (priceCents === null || priceCents <= 0) {
-    return "Informe um preço válido";
+    return "Digite o preço, por exemplo 89,90";
   }
   if (priceCents > LISTING_MAX_PRICE_CENTS) {
     return `O preço de venda pode ser de até ${formatCents(LISTING_MAX_PRICE_CENTS)}`;

@@ -42,9 +42,9 @@ function TextFields({ values, onChange, reservedStock }: FieldsProps & { reserve
           />
           {key === "stock" ? (
             <p className="mt-1 text-xs text-muted-foreground">
-              Inclui {reservedStock}{" "}
-              {reservedStock === 1 ? "unidade reservada" : "unidades reservadas"}. As reservas não
-              ficam disponíveis para novas vendas.
+              {reservedStock === 1
+                ? "1 unidade já está separada para pedidos e não entra em novas vendas."
+                : `${reservedStock} unidades já estão separadas para pedidos e não entram em novas vendas.`}
             </p>
           ) : null}
         </div>

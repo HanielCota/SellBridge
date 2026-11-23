@@ -4,8 +4,8 @@ import type { BulkPublishSkip, BulkPublishSkipReason } from "@sellbridge/shared/
 export const BULK_SKIP_REASONS: Readonly<Record<BulkPublishSkipReason, string>> = {
   already_published: "já publicado",
   out_of_stock: "sem estoque",
-  invalid_title: "título curto ou inválido",
-  invalid_description: "descrição curta ou inválida",
+  invalid_title: "título precisa de ajuste",
+  invalid_description: "descrição precisa de ajuste",
   unavailable: "fora do catálogo",
 };
 

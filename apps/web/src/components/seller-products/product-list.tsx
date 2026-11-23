@@ -95,10 +95,10 @@ export function ProductCards({
           ) : null}
           <h2 className="font-semibold">{item.title || "Rascunho sem título"}</h2>
           <p>
-            {item.sku} · {productStatus(item)}
+            Código {item.sku} · {productStatus(item)}
           </p>
           <p>
-            Estoque: {item.stock} · Reservado: {item.reservedStock}
+            Estoque: {item.stock} · Separado para pedidos: {item.reservedStock}
           </p>
           <Button variant="outline" onClick={() => onOpen(item.id)}>
             Editar produto
