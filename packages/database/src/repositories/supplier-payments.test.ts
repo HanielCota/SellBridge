@@ -1,13 +1,7 @@
 import { randomUUID } from "node:crypto";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { eq } from "drizzle-orm";
-import {
-  orderItems,
-  orders,
-  orderShipments,
-  platformSettings,
-  suppliers,
-} from "../schema/index.ts";
+import { orderItems, orders, orderShipments, suppliers } from "../schema/index.ts";
 import {
   createTestDatabase,
   createTestSupplierProduct,
@@ -29,7 +23,6 @@ import {
   findPayableShipment,
   findShipmentPayment,
   findPaymentAccountsByProviderAccount,
-  getPaymentFeeSetting,
   listShipmentPaymentCheckouts,
   listShipmentPaymentRefundCandidates,
   listShipmentPaymentsToReconcile,
@@ -41,7 +34,6 @@ import {
   reopenShipmentCheckout,
   requestShipmentPaymentRefund,
   savePaymentPreference,
-  setPaymentFeeSetting,
   startShipmentPayment,
   upsertSupplierPaymentAccount,
 } from "./supplier-payments.ts";
@@ -51,7 +43,6 @@ let tenants: Awaited<ReturnType<typeof createTestTenantPair>>;
 let supplier: Awaited<ReturnType<typeof createTestSupplierProduct>>;
 let users: Awaited<ReturnType<typeof createTestUsers>>;
 let storeId = "";
-let previousFee: number | null = null;
 
 /** A forwarded sale of 2 shirts costing R$ 29,95 each; the order may carry shipping. */
 async function forwardedShipmentId(
@@ -123,16 +114,9 @@ beforeAll(async () => {
   });
   storeId = (await upsertStoreConnection(database, testStoreInput(tenants.tenantA, randomUUID())))
     .id;
-  previousFee = (await getPaymentFeeSetting(database)).basisPoints;
 });
 
 afterAll(async () => {
-  if (previousFee === null) {
-    await database.delete(platformSettings);
-  }
-  if (previousFee !== null) {
-    await database.update(platformSettings).set({ paymentFeeBasisPoints: previousFee });
-  }
   await tenants.cleanup();
   await supplier.cleanup();
   await users.cleanup();
@@ -606,25 +590,11 @@ describe("openCheckoutUrl", () => {
   });
 });
 
-describe("payment fee setting", () => {
-  it("saves the rate and reads it back", async () => {
-    const [admin] = users.ids;
-    if (admin === undefined) throw new Error("No user");
-
-    await setPaymentFeeSetting(database, { basisPoints: 450, userId: admin });
-    const setting = await getPaymentFeeSetting(database);
-
-    expect(setting.basisPoints).toBe(450);
-    expect(setting.updatedByUserId).toBe(admin);
-  });
-
-  it("keeps a paid parcel's fee when the admin changes the rate", async () => {
-    const [admin] = users.ids;
-    if (admin === undefined) throw new Error("No user");
+describe("payment fee", () => {
+  it("keeps a paid parcel's fee when a later checkout carries another rate", async () => {
     const shipmentId = await forwardedShipmentId();
     const payment = await startPayment(shipmentId);
     await approveWith(payment.id);
-    await setPaymentFeeSetting(database, { basisPoints: 400, userId: admin });
 
     const restarted = await startShipmentPayment(database, {
       shipmentId,
@@ -640,15 +610,6 @@ describe("payment fee setting", () => {
 
     expect(restarted).toBeNull();
     expect(kept).toMatchObject({ platformFeeCents: 300, platformFeeBasisPoints: 500 });
-  });
-
-  it("refuses a rate above 30%", async () => {
-    const [admin] = users.ids;
-    if (admin === undefined) throw new Error("No user");
-
-    await expect(
-      setPaymentFeeSetting(database, { basisPoints: 3001, userId: admin }),
-    ).rejects.toThrow("Failed query");
   });
 });
 

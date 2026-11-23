@@ -34,3 +34,22 @@ export function cancelMoneyNote(input: {
   }
   return `Os ${amount} pagos ao fornecedor voltam para você.`;
 }
+
+/** Badges whose money goes (or went) back to the reseller once the parcel is cancelled. */
+const RETURNING_BADGES: ReadonlySet<SupplierPaymentBadge["kind"]> = new Set([
+  "paid",
+  "refunding",
+  "held",
+  "refunded",
+]);
+
+/**
+ * Whether the parcel can go back to the supplier after this cancel, said before the click: a paid
+ * parcel's money returns to the reseller, so the server refuses to re-forward it.
+ */
+export function cancelReforwardSentence(badge: SupplierPaymentBadge): string {
+  if (RETURNING_BADGES.has(badge.kind)) {
+    return "Depois de cancelar, não dá para reencaminhar este envio ao fornecedor.";
+  }
+  return "Enquanto o pedido estiver pago, dá para reencaminhar depois.";
+}

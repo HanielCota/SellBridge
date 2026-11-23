@@ -1,0 +1,1 @@
+ALTER TABLE "order_shipments" ADD COLUMN "supplier_messages_read_at" timestamp with time zone;

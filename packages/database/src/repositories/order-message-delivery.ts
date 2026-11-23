@@ -6,6 +6,7 @@ import type { Database } from "../client.ts";
 import {
   findOrderMessageContext,
   queueOrderMessageNotices,
+  queueStoreOrderMessageNotices,
   type OrderMessageContext,
 } from "./order-message-notices.ts";
 
@@ -21,34 +22,23 @@ export interface OrderMessageDelivery {
   appUrl: string;
 }
 
-/** The panel's order list, filtered to the order: it opens only after the supplier signs in. */
-function supplierPanelUrl(context: OrderMessageContext, appUrl: string): string | null {
-  if (!context.supplierHasAccount) {
-    return null;
-  }
-  const path = `/fornecedor/painel/pedidos?query=${encodeURIComponent(context.externalOrderId)}`;
-  return new URL(path, appUrl).toString();
-}
-
+/** A supplier without a panel reads the message by its link, from its order e-mail. */
 async function emailSupplier(context: OrderMessageContext, delivery: OrderMessageDelivery) {
   if (context.supplierEmail === null) {
     logger.info("fulfillment.order_message_no_supplier_email", { orderId: context.orderId });
     return;
   }
   const email = supplierOrderMessageEmail(
-    {
-      externalOrderId: context.externalOrderId,
-      forwardedAt: context.forwardedAt,
-      panelUrl: supplierPanelUrl(context, delivery.appUrl),
-    },
+    { externalOrderId: context.externalOrderId, forwardedAt: context.forwardedAt },
     delivery.appUrl,
   );
   await delivery.sendEmail({ to: context.supplierEmail, ...email });
 }
 
 /**
- * The store learns by bell and e-mail (each person's choice); the supplier by its order e-mail
- * only (no supplier bell in the MVP). `messageKey` keeps a retried store notice from doubling.
+ * The other side learns by bell and e-mail, each person by their own choice: the store, or the
+ * supplier's panel people. A supplier without a panel gets its order e-mail with the link.
+ * `messageKey` keeps a retried notice from doubling.
  */
 export async function deliverOrderMessageNotice(
   delivery: OrderMessageDelivery,
@@ -60,6 +50,14 @@ export async function deliverOrderMessageNotice(
   }
   if (input.author === "supplier") {
     await queueOrderMessageNotices(delivery.database, { context, messageKey: input.messageKey });
+    return;
+  }
+  if (context.supplierOrganizationId !== null) {
+    await queueStoreOrderMessageNotices(delivery.database, {
+      context,
+      supplierOrganizationId: context.supplierOrganizationId,
+      messageKey: input.messageKey,
+    });
     return;
   }
   await emailSupplier(context, delivery);
