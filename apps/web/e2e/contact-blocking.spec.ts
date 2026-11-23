@@ -23,6 +23,8 @@ import {
   signIn,
   signUpAsSupplier,
   stubCepNotFound,
+  OPEN_ORDER_BUTTON,
+  fillAddressField,
 } from "./helpers";
 import { e2eDatabase } from "./database";
 
@@ -158,8 +160,8 @@ async function tamperNextPost(page: Page, from: string, to: string) {
 async function openForwardDialog(page: Page) {
   await gotoHydrated(page, "/pedidos");
   await page.getByLabel("Buscar por pedido ou comprador").fill(externalOrderId);
-  await expect(page.getByRole("button", { name: "Abrir pedido" })).toHaveCount(1);
-  await page.getByRole("button", { name: "Abrir pedido" }).click();
+  await expect(page.getByRole("button", { name: OPEN_ORDER_BUTTON })).toHaveCount(1);
+  await page.getByRole("button", { name: OPEN_ORDER_BUTTON }).click();
   const dialog = page.getByRole("dialog", { name: "Pedido" });
   for (const [label, value] of Object.entries({
     Destinatário: "Maria Teste",
@@ -167,10 +169,10 @@ async function openForwardDialog(page: Page) {
     Número: "10",
     Bairro: "Centro",
     Cidade: "São Paulo",
-    UF: "SP",
+    Estado: "SP",
     CEP: "01001-000",
   }))
-    await dialog.getByLabel(label, { exact: true }).fill(value);
+    await fillAddressField(dialog, label, value);
   return dialog;
 }
 
@@ -270,8 +272,8 @@ test("the supplier cannot send a contact back, by the link or by the panel", asy
   await signIn(page, DEMO_USER);
   await gotoHydrated(page, "/pedidos");
   await page.getByLabel("Buscar por pedido ou comprador").fill(externalOrderId);
-  await expect(page.getByRole("button", { name: "Abrir pedido" })).toHaveCount(1);
-  await page.getByRole("button", { name: "Abrir pedido" }).click();
+  await expect(page.getByRole("button", { name: OPEN_ORDER_BUTTON })).toHaveCount(1);
+  await page.getByRole("button", { name: OPEN_ORDER_BUTTON }).click();
   const dialog = page.getByRole("dialog", { name: "Pedido" });
   await dialog
     .getByRole("button", { name: /Gerar novo link/ })

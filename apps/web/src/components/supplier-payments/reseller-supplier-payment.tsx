@@ -23,7 +23,7 @@ import { resellerSupplierPaymentQueryOptions } from "@/features/supplier-payment
 import { SUPPORT_HOURS_TEXT } from "@/features/support/response-time";
 import { supplierRefundTicketSearch } from "@/features/support/talk-to-support";
 import { errorMessage } from "@/lib/errors";
-import { paymentMethodWord, SupplierPaymentBadgeView } from "./supplier-payment-badge";
+import { PaymentPill, paymentMethodWord, SupplierPaymentBadgeView } from "./supplier-payment-badge";
 
 /** Mercado Pago's return adds `payment_id` to the order page; `envio` names the parcel. */
 function returnedPaymentId(shipmentId: string): string | null {
@@ -237,10 +237,21 @@ export function ResellerSupplierPayment({ shipmentId }: { shipmentId: string }) 
   const refundText = resellerRefundText(view);
   const gateway = view.provider === "mercado_pago" ? "Mercado Pago" : "Asaas";
   return (
-    <div className="grid gap-2.5 rounded-2xl bg-muted/70 p-4">
+    // The order page's "Pagar o fornecedor" lands here.
+    <div
+      id={`supplier-payment-${shipmentId}`}
+      tabIndex={-1}
+      className="grid scroll-mt-24 gap-2.5 rounded-2xl bg-muted/70 p-4 outline-none"
+    >
       <div className="flex flex-wrap items-center justify-between gap-2">
         <span className="text-sm text-muted-foreground">Pagamento ao fornecedor</span>
-        <SupplierPaymentBadgeView badge={view.badge} paidWord="Fornecedor pago" />
+        {view.badge.kind === "no_account" ? (
+          // Their missing account is the supplier's to fix: the reseller only learns there is
+          // nothing to pay yet.
+          <PaymentPill tone="neutral">Ainda não precisa pagar</PaymentPill>
+        ) : (
+          <SupplierPaymentBadgeView badge={view.badge} paidWord="Fornecedor pago" />
+        )}
       </div>
       {showsProtectionSeal(view) ? <ProtectedSeal text={protectionSealText(view.badge)} /> : null}
       {view.canPay ? (

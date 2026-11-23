@@ -32,6 +32,8 @@ const detail: OrderDetail = {
       listingStatus: "published",
       listingUrl: "https://produto.mercadolivre.com.br/MLB-1",
       productId: "product-1",
+      imageUrl: null,
+      categoryName: null,
     },
   ],
   adjustments: [
@@ -72,6 +74,8 @@ describe("presentOrderDetail", () => {
       listingStatus: null,
       listingUrl: null,
       productId: null,
+      imageUrl: null,
+      categoryName: null,
     };
     const dto = presentOrderDetail({ ...detail, items: [...detail.items, outside] });
     expect(dto.totals).toEqual({
