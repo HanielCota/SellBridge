@@ -522,7 +522,13 @@ describe("review flow", () => {
       values: {
         ...values,
         mercadoLivreAttributes: {},
-        fiscal: { ...values.fiscal, netWeightGrams: 250 },
+        fiscal: {
+          ...EMPTY_PRODUCT_FISCAL,
+          ncm: "61091000",
+          origin: 0,
+          unit: "UN",
+          netWeightGrams: 250,
+        },
       },
     });
 
