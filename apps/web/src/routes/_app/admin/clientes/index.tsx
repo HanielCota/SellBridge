@@ -72,7 +72,7 @@ export const Route = createFileRoute("/_app/admin/clientes/")({
     }
     return prefetchOnServer(context.queryClient, customersQueryOptions(search));
   },
-  head: () => ({ meta: [{ title: "Clientes (admin) | SellBridge" }] }),
+  head: () => ({ meta: [{ title: "Clientes (equipe) | SellBridge" }] }),
   component: CustomersPage,
 });
 

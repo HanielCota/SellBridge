@@ -101,7 +101,7 @@ export function describeIssue(issue: CustomerIssue): IssueCopy {
   }
   if (issue.kind === "listings") {
     const label = plural(issue.count, "publicação com erro", "publicações com erro");
-    return { title: label, description: "Veja o motivo e reprocesse.", badge: label };
+    return { title: label, description: "Veja o motivo e tente publicar de novo.", badge: label };
   }
   if (issue.kind === "ticket") {
     return {

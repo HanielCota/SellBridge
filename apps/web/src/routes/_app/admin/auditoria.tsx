@@ -26,7 +26,7 @@ export const Route = createFileRoute("/_app/admin/auditoria")({
   loaderDeps: ({ search }) => search,
   loader: ({ context, deps: search }) =>
     prefetchOnServer(context.queryClient, auditQueryOptions(search)),
-  head: () => ({ meta: [{ title: "Auditoria (admin) | SellBridge" }] }),
+  head: () => ({ meta: [{ title: "Auditoria (equipe) | SellBridge" }] }),
   component: AuditPage,
 });
 

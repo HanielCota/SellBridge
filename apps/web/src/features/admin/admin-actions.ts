@@ -86,7 +86,7 @@ export const IMPERSONATED_ACTION_COPY: Readonly<Record<string, string>> = {
   retryResellerSaleNoteFn: "pediu de novo a nota de venda ao Bling",
   createListing: "publicou um produto",
   publishProductsInBulk: "publicou produtos em massa",
-  retryListings: "reprocessou publicações",
+  retryListings: "tentou publicar de novo",
   setListingsPausedFn: "pausou ou reativou publicações",
   updateListingPriceFn: "mudou o preço de uma publicação",
   saveSupplierReviewFn: "avaliou um fornecedor",

@@ -9,7 +9,7 @@ export const Route = createFileRoute("/_app/admin/fornecedores/")({
   loaderDeps: ({ search }) => search,
   loader: ({ context, deps }) =>
     prefetchOnServer(context.queryClient, adminSuppliersQueryOptions(deps)),
-  head: () => ({ meta: [{ title: "Fornecedores (admin) | SellBridge" }] }),
+  head: () => ({ meta: [{ title: "Fornecedores (equipe) | SellBridge" }] }),
   component: SuppliersPage,
 });
 

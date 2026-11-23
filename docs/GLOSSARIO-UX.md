@@ -12,7 +12,7 @@ Termos e tom de voz que todos os textos de tela, rótulos e legendas (tooltips) 
 - Números e dinheiro no padrão brasileiro: R$ 1.234,56; datas como "16 de out." ou "16/10/2026".
 - **o SellBridge**, sempre no masculino ("no SellBridge", "pelo SellBridge"). Contrato, termos e privacidade seguem a redação do advogado.
 - Erro diz o que aconteceu e o que fazer agora; repetir é **Tentar de novo**, nunca "Tente novamente". Lista vazia diz o que vai aparecer ou o que mudar ("Nenhum pedido com essa busca"), nunca só "Nenhum item encontrado".
-- Nada de "vs.": "que no período anterior". Verbos de balcão: **Digite**, **Escolha**, **Espere**, não "Informe", "Selecione", "Aguarde".
+- Nada de "vs.": "sobre o período anterior" (ou "3 a mais que a semana anterior"). Verbos de balcão: **Digite**, **Escolha**, **Espere**, não "Informe", "Selecione", "Aguarde".
 
 ## Áreas e perfis
 
