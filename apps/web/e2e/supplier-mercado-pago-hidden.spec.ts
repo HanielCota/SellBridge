@@ -142,7 +142,9 @@ test("o revendedor não paga pelo Mercado Pago um fornecedor que só tem essa co
   await gotoHydrated(reseller, `/pedidos/${orderId}`);
 
   await expect(
-    reseller.getByText(/Este fornecedor ainda não ligou a conta de recebimento no Asaas/),
+    reseller.getByText(
+      /Você ainda não precisa pagar: o fornecedor ainda não cadastrou onde recebe/,
+    ),
   ).toBeVisible();
   await expect(reseller.getByRole("button", { name: /Pagar com/ })).toHaveCount(0);
   await expect(reseller.getByRole("main").getByText(/Mercado Pago/)).toHaveCount(0);

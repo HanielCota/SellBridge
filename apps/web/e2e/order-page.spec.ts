@@ -107,6 +107,11 @@ test("opens an order from operations with its items, money, progress and shippin
   await expect(money.getByText("Receita")).toBeVisible();
   await expect(money.getByText("Lucro")).toBeVisible();
   await expect(page.getByRole("region", { name: "Andamento do pedido" })).toContainText("Pago");
+  // Right under the heading: the order waits for the reseller, and the button leads to the form.
+  const nextStep = page.getByRole("region", { name: "Próximo passo" });
+  await expect(nextStep).toContainText("Falta enviar ao fornecedor");
+  await nextStep.getByRole("button", { name: "Enviar ao fornecedor" }).click();
+  await expect(page.locator("#forward-form")).toBeFocused();
   // Shipping is the same operation as the dialog: not forwarded yet, so the forward form.
   await expect(page.getByRole("button", { name: "Enviar pedido ao fornecedor" })).toBeVisible();
   await page.getByRole("main").getByRole("link", { name: "Pedidos", exact: true }).click();
