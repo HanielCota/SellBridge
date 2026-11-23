@@ -78,6 +78,13 @@ export function GoldenRulesPage({ supplierId }: { supplierId: string }) {
           Devoluções
         </h2>
         <ReturnPolicyText />
+        {/* Moving the money for a closed return is not automated yet (decision of 19/11/2026). */}
+        <p className="rounded-2xl bg-muted px-4 py-3 text-sm">
+          <span className="font-semibold">Como o dinheiro sai:</span> enquanto a devolução está
+          aberta, o dinheiro do pedido continua guardado no Asaas. O valor que você deve fica
+          anotado na devolução e a equipe do SellBridge combina o acerto com você. Nada sai da sua
+          conta sem aviso.
+        </p>
       </section>
     </div>
   );
