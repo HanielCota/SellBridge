@@ -81,7 +81,7 @@ export function ReportCases({ tabs }: { tabs: readonly ReportCaseTab[] }) {
             aria-selected={tab.key === current}
             aria-controls={`report-panel-${tab.key}`}
             onClick={() => setCurrent(tab.key)}
-            className="flex min-h-11 items-center gap-1.5 rounded-full border border-border px-4 text-sm text-muted-foreground outline-none hover:text-foreground focus-visible:ring-3 focus-visible:ring-ring/50 aria-selected:border-foreground aria-selected:bg-foreground aria-selected:font-medium aria-selected:text-background"
+            className="flex min-h-11 items-center gap-1.5 rounded-full border border-border px-4 text-sm text-muted-foreground outline-none hover:text-foreground focus-visible:ring-3 focus-visible:ring-ring/50 aria-selected:border-selected aria-selected:bg-selected aria-selected:font-medium aria-selected:text-selected-foreground"
           >
             {tab.label}
             <span className="tabular-nums">{tab.items.length + tab.more}</span>

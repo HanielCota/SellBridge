@@ -274,7 +274,7 @@ function QueueLink({ metric }: { metric: SupportHealthMetric }) {
       <Link
         to="/admin/chamados"
         search={{ queue: "overdue" }}
-        className="inline-flex h-10 shrink-0 items-center gap-1.5 rounded-full bg-muted px-4 text-sm font-medium transition-colors outline-none hover:bg-foreground hover:text-background focus-visible:ring-3 focus-visible:ring-ring/50"
+        className="inline-flex h-10 shrink-0 items-center gap-1.5 rounded-full bg-muted px-4 text-sm font-medium transition-colors outline-none hover:bg-selected hover:text-selected-foreground focus-visible:ring-3 focus-visible:ring-ring/50"
       >
         Ver os {count.format(metric.drillDownTotal)} na fila
         <SeeAllIcon className="size-3.5" weight="bold" aria-hidden="true" />
