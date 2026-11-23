@@ -10,6 +10,7 @@ import {
 } from "@sellbridge/database/repositories";
 import { logger } from "@sellbridge/shared/logger";
 import {
+  createGridListingSchema,
   createListingSchema,
   listingPriceCentsSchema,
   listingsSearchSchema,
@@ -25,6 +26,7 @@ import {
   setListingsPausedForTenant,
   updateListingPriceForTenant,
 } from "./listing-commands.server";
+import { createGridListingForTenant } from "./grid-listing-commands.server";
 import { resumeReconnectedStoreForTenant } from "./listing-resume.server";
 import { chooseNewListingStores } from "./new-listing-stores";
 import { enqueueTargets } from "./publish-listing.server";
@@ -60,6 +62,12 @@ export const createListing = createServerFn({ method: "POST" })
       storeConnectionIds: data.storeConnectionIds,
     }),
   );
+
+/** Publishes a colour and size grid: one listing per combination, one page on Mercado Livre. */
+export const createGridListing = createServerFn({ method: "POST" })
+  .middleware([tenantMiddleware])
+  .validator(createGridListingSchema)
+  .handler(async ({ context, data }) => createGridListingForTenant(context.tenantId, data));
 
 export const listListings = createServerFn({ method: "GET" })
   .middleware([tenantMiddleware])
