@@ -63,9 +63,10 @@ export const OPEN_ORDER_BUTTON = /^(Abrir pedido|Enviar ao fornecedor|Preparar o
 export async function fillAddressField(form: Locator, label: string, value: string) {
   if (label === "Estado") {
     await form.getByLabel("Estado", { exact: true }).click();
+    // Each option reads "São Paulo SP": the code closes its name.
     await form
       .page()
-      .getByRole("option", { name: new RegExp(`\\(${value}\\)`) })
+      .getByRole("option", { name: new RegExp(`\\b${value}$`) })
       .click();
     return;
   }
