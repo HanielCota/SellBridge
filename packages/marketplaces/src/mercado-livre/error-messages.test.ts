@@ -6,8 +6,8 @@ import { ERROR_FIXTURES } from "./fixtures/errors.ts";
 describe("explainMercadoLivreError", () => {
   it("names the missing required attributes and what to do", () => {
     expect(explainMercadoLivreError(ERROR_FIXTURES.missingRequiredAttributes, 400)).toBe(
-      "Faltam atributos obrigatórios para esta categoria no Mercado Livre: BRAND, MODEL. " +
-        "Preencha esses campos no cadastro do produto e publique de novo.",
+      "Faltam campos da ficha técnica que o Mercado Livre exige nesta categoria: BRAND, MODEL. " +
+        "Preencha no cadastro do produto e publique de novo.",
     );
   });
 
@@ -43,8 +43,8 @@ describe("explainMercadoLivreError", () => {
     expect(explainMercadoLivreError(ERROR_FIXTURES.twoErrors, 400)).toBe(
       "As fotos do produto são pequenas demais para o Mercado Livre (mínimo de 500 pixels em um dos lados). " +
         "Fale com o suporte para trocar as fotos e publique de novo. " +
-        "Faltam atributos obrigatórios para esta categoria no Mercado Livre: GTIN. " +
-        "Preencha esses campos no cadastro do produto e publique de novo.",
+        "Faltam campos da ficha técnica que o Mercado Livre exige nesta categoria: GTIN. " +
+        "Preencha no cadastro do produto e publique de novo.",
     );
   });
 
@@ -102,7 +102,7 @@ describe("explainMercadoLivreError", () => {
   it("says a closed item no longer sells and how to publish it again", () => {
     expect(explainMercadoLivreError(ERROR_FIXTURES.closedItemUpdate, 400)).toBe(
       "Este anúncio foi encerrado ou excluído no Mercado Livre e não vende mais. " +
-        "Para vender de novo, clique em Reprocessar: o SellBridge cria um anúncio novo.",
+        "Para vender de novo, clique em Tentar de novo: o SellBridge cria um anúncio novo.",
     );
   });
 

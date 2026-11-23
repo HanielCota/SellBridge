@@ -77,7 +77,9 @@ export async function readMercadoLivreSalePayments(
     init: { accessToken: store.accessToken },
   });
   if (String(order.seller.id) !== store.externalShopId) {
-    throw marketplaceError("Pedido não pertence à loja conectada", { retryable: false });
+    throw marketplaceError("Este pedido é de outra conta do Mercado Livre, não desta loja.", {
+      retryable: false,
+    });
   }
   const payments: MercadoLivreApprovedPayment[] = [];
   for (const payment of order.payments ?? []) {

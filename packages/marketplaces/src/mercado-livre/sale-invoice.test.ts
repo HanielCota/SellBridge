@@ -73,7 +73,7 @@ describe("readMercadoLivreSaleInvoice", () => {
     const { config } = setup(Response.json({ ...ORDER, seller: { id: 7 } }));
 
     await expect(readMercadoLivreSaleInvoice(config, store, "55")).rejects.toThrow(
-      "Pedido não pertence à loja conectada",
+      "Este pedido é de outra conta do Mercado Livre, não desta loja.",
     );
   });
 

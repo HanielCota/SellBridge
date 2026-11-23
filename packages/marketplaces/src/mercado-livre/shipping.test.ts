@@ -213,7 +213,7 @@ describe("Mercado Livre shipping", () => {
   ])("refuses anything but exactly one sale shipment: %j", async (refs) => {
     const { request, config } = setup({}, refs);
     await expect(getMercadoLivreShipping(config, store, "55")).rejects.toMatchObject({
-      message: expect.stringContaining("único envio"),
+      message: expect.stringContaining("não tem um envio só"),
     });
     expect(request).toHaveBeenCalledTimes(2);
   });
@@ -350,7 +350,8 @@ describe("Mercado Livre shipping", () => {
 
     await expect(getMercadoLivreLabel(config, store, "55", "zpl")).rejects.toMatchObject({
       code: "EXTERNAL_PROVIDER",
-      message: "O marketplace não retornou uma etiqueta ZPL válida",
+      message:
+        "O Mercado Livre mandou a etiqueta ZPL com defeito. Tente baixar de novo em alguns minutos.",
     });
   });
   it("prints a batch as one ZPL file", async () => {

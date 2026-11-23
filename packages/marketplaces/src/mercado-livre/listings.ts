@@ -112,7 +112,7 @@ async function predictCategory(
   const [first] = predictions;
   if (!first) {
     throw marketplaceError(
-      "O Mercado Livre não sugeriu uma categoria para este título. Ajuste o título e reprocesse.",
+      "O Mercado Livre não sugeriu uma categoria para este título. Ajuste o título e clique em Tentar de novo.",
       { retryable: false },
     );
   }
@@ -318,7 +318,7 @@ function unmarkedItemError(item: { id: string; status: string }): AppError {
   const statusWord = ITEM_STATUS_WORDS[item.status];
   const listing = statusWord === undefined ? "um anúncio" : `um anúncio ${statusWord}`;
   return marketplaceError(
-    `Sua conta do Mercado Livre já tem ${listing} com este SKU, feito fora do SellBridge (código ${item.id}). Encerre esse anúncio no Mercado Livre e clique em Reprocessar.`,
+    `Sua conta do Mercado Livre já tem ${listing} com este código de produto, feito fora do SellBridge (anúncio ${item.id}). Encerre esse anúncio no Mercado Livre e clique em Tentar de novo.`,
     { retryable: false },
   );
 }
@@ -339,7 +339,7 @@ async function findExistingItem(
     });
     if (search.paging.total > search.results.length) {
       throw marketplaceError(
-        "Há muitos anúncios com este SKU. Confira os anúncios no Mercado Livre antes de reprocessar.",
+        "Há muitos anúncios com este código de produto. Confira no Mercado Livre antes de tentar de novo.",
         { retryable: false },
       );
     }
@@ -353,9 +353,12 @@ async function findExistingItem(
       init: { accessToken: store.accessToken },
     });
     if (String(item.seller_id) !== store.externalShopId || item.id !== id) {
-      throw marketplaceError("Não foi possível confirmar o vendedor do anúncio encontrado.", {
-        retryable: false,
-      });
+      throw marketplaceError(
+        "Achamos um anúncio com este código, mas não deu para confirmar que é da sua conta. Confira no Mercado Livre antes de tentar de novo.",
+        {
+          retryable: false,
+        },
+      );
     }
     // A closed (or deleted) item never sells again, whoever made it: it neither blocks nor is
     // adopted, and the publication gets a new item.
@@ -371,7 +374,7 @@ async function findExistingItem(
   }
   if (matches.length > 1 || (matches[0] && !ADOPTABLE_ITEM_STATUSES.includes(matches[0].status))) {
     throw marketplaceError(
-      "A conciliação encontrou anúncios duplicados ou que não estão ativos nem pausados. Confira-os no Mercado Livre antes de reprocessar.",
+      "Achamos anúncios repetidos, ou que não estão ativos nem pausados, no Mercado Livre. Confira no Mercado Livre antes de tentar de novo.",
       { retryable: false },
     );
   }
@@ -380,14 +383,13 @@ async function findExistingItem(
 }
 
 function assertRequiredAttributes(
-  categoryId: string,
   required: readonly { id: string; name: string }[],
   provided: ReadonlySet<string>,
 ): void {
   const missing = required.filter(({ id }) => !provided.has(id));
   if (missing.length) {
     throw marketplaceError(
-      `Preencha os atributos obrigatórios da categoria ${categoryId} no cadastro do produto: ${missing.map(({ id, name }) => `${name} (${id})`).join(", ")}.`,
+      `Faltam campos que o Mercado Livre exige nesta categoria: ${missing.map(({ name }) => name).join(", ")}. Preencha no cadastro do produto e publique de novo.`,
       { retryable: false },
     );
   }
@@ -414,7 +416,7 @@ async function validateAttributes(
   const provided = new Set(
     body.attributes.filter(({ value_name }) => value_name.trim()).map(({ id }) => id),
   );
-  assertRequiredAttributes(body.category_id, definitions.filter(isRequiredAttribute), provided);
+  assertRequiredAttributes(definitions.filter(isRequiredAttribute), provided);
   if (definitions.some(({ tags }) => tags.conditional_required === true)) {
     const conditional = await requestJson(context, {
       schema: conditionalAttributesSchema,
@@ -426,14 +428,14 @@ async function validateAttributes(
         body: JSON.stringify(body),
       },
     });
-    assertRequiredAttributes(body.category_id, conditional.required_attributes, provided);
+    assertRequiredAttributes(conditional.required_attributes, provided);
   }
   const readOnly = definitions.filter(
     ({ id, tags }) => tags.read_only === true && provided.has(id),
   );
   if (readOnly.length) {
     throw marketplaceError(
-      `Remova os atributos somente de leitura: ${readOnly.map(({ id }) => id).join(", ")}.`,
+      "O cadastro tem campos que o Mercado Livre não aceita receber. Fale com o suporte para corrigir e publique de novo.",
       { retryable: false },
     );
   }
@@ -458,7 +460,7 @@ async function confirmEarlierCreationAbsent(
   if (!options || !startedAt) return;
   if (context.now().getTime() - startedAt.getTime() < CREATION_SETTLE_MILLISECONDS) {
     throw marketplaceError(
-      "Uma criação anterior pode ter sido concluída, mas o anúncio ainda não aparece no Mercado Livre. Aguarde alguns minutos e reprocesse: se ele não existir, será criado.",
+      "O anúncio pode já ter sido criado, mas ainda não aparece no Mercado Livre. Espere alguns minutos e clique em Tentar de novo: se ele não existir, o SellBridge cria.",
       { retryable: false },
     );
   }
