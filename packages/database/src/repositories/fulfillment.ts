@@ -303,8 +303,7 @@ export async function forwardOrder(
       .where(and(eq(orders.id, input.orderId), eq(orders.tenantId, tenantId)))
       .for("update");
     if (!order) throw notFoundError("Pedido não encontrado");
-    if (order.status !== "paid")
-      throw conflictError("Somente pedidos pagos podem ser encaminhados");
+    if (order.status !== "paid") throw conflictError("Só dá para encaminhar pedido pago.");
     const existing = await transaction
       .select({ id: orderShipments.id })
       .from(orderShipments)
@@ -349,7 +348,7 @@ export async function reforwardShipment(database: Database, tenantId: string, sh
       .where(and(eq(orders.id, candidate.orderId), eq(orders.tenantId, tenantId)))
       .for("update");
     if (order?.status !== "paid")
-      throw conflictError("Somente pedidos pagos podem ser reencaminhados");
+      throw conflictError("Só dá para encaminhar de novo um pedido pago.");
     const link = issueSupplierLink();
     const [shipment] = await transaction
       .update(orderShipments)

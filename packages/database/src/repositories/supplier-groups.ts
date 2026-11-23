@@ -52,7 +52,9 @@ export async function supplierGroups(transaction: Transaction, tenantId: string,
         (item.catalogKind === "seller" && item.ownerTenantId === tenantId)),
   );
   if (!items.length || linked.length !== items.length)
-    throw conflictError("Vincule todos os itens a fornecedores ativos antes de encaminhar");
+    throw conflictError(
+      "Algum produto deste pedido está sem fornecedor ativo. Confira os produtos antes de encaminhar.",
+    );
   const grouped = new Map<string, typeof linked>();
   for (const item of linked) {
     grouped.set(item.supplierId, [...(grouped.get(item.supplierId) ?? []), item]);

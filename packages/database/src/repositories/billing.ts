@@ -75,7 +75,7 @@ export async function requireBillingOwner(database: Database, tenantId: string, 
     .from(member)
     .where(and(eq(member.organizationId, tenantId), eq(member.userId, userId)));
   if (!membership || membership.role !== "owner")
-    throw forbiddenError("Somente o proprietário pode gerenciar a assinatura");
+    throw forbiddenError("Só o dono da conta pode mudar a assinatura.");
 }
 
 /** Locks the tenant for a capacity check and returns when it was created (for the transition). */
@@ -85,7 +85,10 @@ export async function lockBillingTenant(database: DatabaseExecutor, tenantId: st
     .from(organization)
     .where(eq(organization.id, tenantId))
     .for("update");
-  if (tenant === undefined) throw forbiddenError("Organização não encontrada");
+  if (tenant === undefined)
+    throw forbiddenError(
+      "Não achamos a sua conta. Saia e entre de novo; se continuar, fale com o suporte.",
+    );
   return tenant.createdAt;
 }
 
@@ -95,7 +98,10 @@ export async function findBillingTenantCreatedAt(database: DatabaseExecutor, ten
     .select({ createdAt: organization.createdAt })
     .from(organization)
     .where(eq(organization.id, tenantId));
-  if (tenant === undefined) throw forbiddenError("Organização não encontrada");
+  if (tenant === undefined)
+    throw forbiddenError(
+      "Não achamos a sua conta. Saia e entre de novo; se continuar, fale com o suporte.",
+    );
   return tenant.createdAt;
 }
 
