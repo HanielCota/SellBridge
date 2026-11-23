@@ -14,6 +14,7 @@ import {
   groupOrdersByDay,
   placedOnAnotherDay,
   saleDateOf,
+  undoneAfterPeriod,
 } from "@/features/reports/financial-rows";
 import { cn } from "@/lib/utils";
 import { isVoidOrder, ProfitAmount, signedCents } from "./order-parts";
@@ -43,16 +44,40 @@ const dayAndMonth = new Intl.DateTimeFormat("pt-BR", {
   timeZone: REPORT_TIME_ZONE,
 });
 
-/** A sale paid days after the order is listed on its payment day, saying when it was placed. */
-function PlacedOn({ row }: { row: OrderFinancialRow }) {
+/** The status badge, only when it changes this period's money: a sale undone later has none. */
+function badgeStatusOf(row: OrderFinancialRow): string | null {
+  if (NOTABLE_STATUSES.has(row.status) && !row.countsAsSale) {
+    return row.status;
+  }
+  return null;
+}
+
+/**
+ * Why the row's date is not the whole story: the earlier sale a cancellation or refund belongs
+ * to, a sale cancelled after this period, or an order paid days after it was placed.
+ */
+function rowContextLabel(row: OrderFinancialRow): string | null {
+  if (row.fromEarlierPeriod) {
+    return `venda de ${dayAndMonth.format(saleDateOf(row))}`;
+  }
+  const undoneAt = undoneAfterPeriod(row);
+  if (undoneAt !== null) {
+    const undone = row.status === "returned" ? "devolvido" : "cancelado";
+    return `${undone} em ${dayAndMonth.format(undoneAt)}`;
+  }
   const placedAt = placedOnAnotherDay(row);
-  if (placedAt === null) {
+  return placedAt === null ? null : `pedido em ${dayAndMonth.format(placedAt)}`;
+}
+
+function PlacedOn({ row }: { row: OrderFinancialRow }) {
+  const label = rowContextLabel(row);
+  if (label === null) {
     return null;
   }
   return (
     <>
       <span aria-hidden="true">·</span>
-      <span className="shrink-0">pedido em {dayAndMonth.format(placedAt)}</span>
+      <span className="shrink-0">{label}</span>
     </>
   );
 }
@@ -97,7 +122,7 @@ function RowSummary({
         {itemsLabel(row.items)}
       </span>
       <span className="flex min-w-0 items-center gap-1.5 text-xs text-muted-foreground">
-        <RowWhen date={saleDateOf(row)} byDay={byDay} />
+        <RowWhen date={row.entryDate} byDay={byDay} />
         <PlacedOn row={row} />
         {showStore ? (
           <>
@@ -105,11 +130,11 @@ function RowSummary({
             <span className="truncate">{row.storeName}</span>
           </>
         ) : null}
-        {NOTABLE_STATUSES.has(row.status) ? (
+        {badgeStatusOf(row) === null ? null : (
           <span className="ml-1 shrink-0 text-foreground max-sm:hidden">
             <OrderStatusBadge status={row.status} />
           </span>
-        ) : null}
+        )}
       </span>
     </span>
   );
@@ -167,7 +192,7 @@ function RowThumb({ row }: { row: OrderFinancialRow }) {
  * amount it had no room and was drawn over "não conta como venda". From `sm` up it stays inline.
  */
 function PhoneStatusLine({ row }: { row: OrderFinancialRow }) {
-  if (!NOTABLE_STATUSES.has(row.status)) {
+  if (badgeStatusOf(row) === null) {
     return null;
   }
   return (
@@ -216,11 +241,13 @@ function StatementRow({
  * and a status that reads the same (the quiet ones count as one).
  */
 function sameSaleKey(row: OrderFinancialRow): string {
-  const status = NOTABLE_STATUSES.has(row.status) ? row.status : "counted";
+  const status = badgeStatusOf(row) ?? "counted";
   return [
     row.items,
     row.storeName,
     status,
+    row.fromEarlierPeriod,
+    rowContextLabel(row),
     row.revenueCents,
     row.profitCents,
     row.costPending,
@@ -239,10 +266,10 @@ function GroupedOrder({ row }: { row: OrderFinancialRow }) {
           >
             <span className="flex min-w-0 items-center gap-1.5 text-muted-foreground">
               <time
-                dateTime={saleDateOf(row).toISOString()}
+                dateTime={row.entryDate.toISOString()}
                 className="shrink-0 text-foreground tabular-nums"
               >
-                {clockTime.format(saleDateOf(row))}
+                {clockTime.format(row.entryDate)}
               </time>
               <PlacedOn row={row} />
               <span aria-hidden="true">·</span>
@@ -271,7 +298,7 @@ function GroupSummaryLine({
   first: OrderFinancialRow;
   showStore: boolean;
 }) {
-  const times = rows.map((row) => saleDateOf(row).getTime());
+  const times = rows.map((row) => row.entryDate.getTime());
   return (
     <span className="flex min-w-0 items-center gap-1.5 overflow-hidden text-xs text-muted-foreground">
       <span className="shrink-0 tabular-nums">
@@ -292,11 +319,11 @@ function GroupSummaryLine({
           <span className="truncate">{first.storeName}</span>
         </span>
       ) : null}
-      {NOTABLE_STATUSES.has(first.status) ? (
+      {badgeStatusOf(first) === null ? null : (
         <span className="ml-1 shrink-0 text-foreground">
           <OrderStatusBadge status={first.status} />
         </span>
-      ) : null}
+      )}
     </span>
   );
 }
@@ -423,7 +450,7 @@ function StatementCard({
  * returned orders, it says "válidas" so the number does not read as a count of the rows below.
  */
 const VOID_ROWS_HINT =
-  "Pedidos aguardando pagamento, cancelados ou devolvidos não contam como venda.";
+  "Pedidos aguardando pagamento, cancelados ou devolvidos não contam como venda. Vendas de meses anteriores aparecem só para descontar o cancelamento ou o reembolso.";
 
 function salesLabel(sales: number, hasVoidRows: boolean): string {
   const noun = sales === 1 ? "venda" : "vendas";
@@ -454,13 +481,17 @@ function DayHeading({
           <span className="font-normal text-muted-foreground"> · continuação</span>
         ) : null}
       </h3>
-      {total && total.orders > 0 ? (
+      {total && (total.orders > 0 || total.profitCents !== 0) ? (
         <Hint label={hasVoidRows ? VOID_ROWS_HINT : undefined}>
           <p className="text-xs text-muted-foreground tabular-nums">
-            <span className={cn(hasVoidRows && "hinted-term")}>
-              {salesLabel(total.orders, hasVoidRows)}
-            </span>
-            {" · "}
+            {total.orders > 0 ? (
+              <>
+                <span className={cn(hasVoidRows && "hinted-term")}>
+                  {salesLabel(total.orders, hasVoidRows)}
+                </span>
+                {" · "}
+              </>
+            ) : null}
             <span
               className={cn(
                 "font-medium",
@@ -500,7 +531,7 @@ function StatementDay({
         <DayHeading
           dayKey={dayKey}
           total={total}
-          hasVoidRows={rows.some(isVoidOrder)}
+          hasVoidRows={rows.some((row) => !row.countsAsSale)}
           continued={split.fromPrevious}
         />
       ) : null}
@@ -562,7 +593,7 @@ export function OrderStatement({
           rows={day.rows}
           total={dayTotals?.get(day.key)}
           split={daySplit({
-            salesOnPage: day.rows.filter((row) => !isVoidOrder(row)).length,
+            salesOnPage: day.rows.filter((row) => row.countsAsSale).length,
             salesInDay: dayTotals?.get(day.key)?.orders ?? 0,
             isFirstDay: index === 0,
             isLastDay: index === days.length - 1,

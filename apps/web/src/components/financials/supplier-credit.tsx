@@ -6,7 +6,7 @@ import { TERM_HINTS } from "@/components/icons/action-icons";
 import { ClaimStatusLine } from "@/components/support/return-claim-parts";
 import { HintedText } from "@/components/ui/hint";
 import { cn } from "@/lib/utils";
-import { isVoidOrder } from "./order-parts";
+import { isVoidOrder, signedCents } from "./order-parts";
 
 const NO_CREDITS: readonly SupplierCredit[] = [];
 
@@ -88,6 +88,12 @@ export function AmountNote({
   }
   if (creditSummary !== null) {
     return <span>{creditSummary}</span>;
+  }
+  if (row.fromEarlierPeriod) {
+    // A sale of an earlier month: this period only takes its cancellation or refund back.
+    return (
+      <span>{revenueCents === 0 ? "reembolso" : `${signedCents(revenueCents)} na receita`}</span>
+    );
   }
   if (isVoidOrder(row)) {
     return (

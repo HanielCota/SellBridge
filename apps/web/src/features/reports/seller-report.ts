@@ -117,9 +117,30 @@ function unpaidBaseOf(orders: number): string {
   return `${orders} pedidos: viram venda no mês em que forem pagos`;
 }
 
-function moneyRows(input: SellerReportInput): ReportIndicatorRow[] {
-  const { summary } = input.current;
-  const previous = input.previous.summary;
+/**
+ * "Cancelados de meses anteriores": sales of an earlier month undone in this one, already taken
+ * off the revenue above. Left out while neither month has any.
+ */
+function reversedEarlierRows(summary: SalesSummary, previous: SalesSummary): ReportMetricRow[] {
+  if (summary.reversedEarlierOrders === 0 && previous.reversedEarlierOrders === 0) {
+    return [];
+  }
+  const orders = summary.reversedEarlierOrders;
+  return [
+    metric({
+      label: "Cancelados de meses anteriores",
+      base: `${orders} ${plural(orders, "venda", "vendas")}, já descontadas da receita`,
+      count: -summary.reversedEarlierRevenueCents,
+      countFormat: "cents",
+      previous: -previous.reversedEarlierRevenueCents,
+      sense: "higher_is_better",
+      indent: true,
+    }),
+  ];
+}
+
+/** Revenue, the earlier sales it lost, the profit and its margin. */
+function revenueAndProfitRows(summary: SalesSummary, previous: SalesSummary): ReportMetricRow[] {
   const pending = summary.pendingCostOrders;
   const pricedRevenue = summary.revenueCents - summary.pendingCostRevenueCents;
   const profitBase =
@@ -127,7 +148,6 @@ function moneyRows(input: SellerReportInput): ReportIndicatorRow[] {
       ? "receita menos custo, taxas e reembolsos"
       : `fora ${pending} ${plural(pending, "venda", "vendas")} sem custo informado`;
   return [
-    { kind: "group", label: "Dinheiro das vendas", note: "cancelados e devolvidos não entram" },
     metric({
       label: "Receita",
       count: summary.revenueCents,
@@ -135,6 +155,7 @@ function moneyRows(input: SellerReportInput): ReportIndicatorRow[] {
       previous: previous.revenueCents,
       sense: "higher_is_better",
     }),
+    ...reversedEarlierRows(summary, previous),
     metric({
       label: "Lucro",
       base: profitBase,
@@ -151,6 +172,20 @@ function moneyRows(input: SellerReportInput): ReportIndicatorRow[] {
       sense: "higher_is_better",
       indent: true,
     }),
+  ];
+}
+
+function moneyRows(input: SellerReportInput): ReportIndicatorRow[] {
+  const { summary } = input.current;
+  const previous = input.previous.summary;
+  const pending = summary.pendingCostOrders;
+  return [
+    {
+      kind: "group",
+      label: "Dinheiro das vendas",
+      note: "cancelados no mês não entram; os de meses anteriores descontam",
+    },
+    ...revenueAndProfitRows(summary, previous),
     metric({
       label: "Ticket médio",
       base: baseOf(summary.orders, plural(summary.orders, "venda", "vendas")),
