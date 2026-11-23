@@ -90,8 +90,8 @@ function ProfilePage() {
 
       {isImpersonating ? (
         <p className="rounded-2xl bg-muted/60 p-4 text-sm text-muted-foreground">
-          Senha, dispositivos conectados e seus dados ficam ocultos enquanto você usa o app como
-          este cliente.
+          Senha, aparelhos conectados e seus dados ficam ocultos enquanto você usa o app como este
+          cliente.
         </p>
       ) : (
         <>
@@ -102,7 +102,7 @@ function ProfilePage() {
             <PasswordSection />
           </SectionCard>
           <SectionCard
-            title="Dispositivos conectados"
+            title="Aparelhos conectados"
             description="Onde sua conta está aberta. Desconecte o que você não reconhecer."
           >
             <SessionsList />

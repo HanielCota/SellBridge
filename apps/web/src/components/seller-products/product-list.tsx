@@ -27,7 +27,7 @@ export function ProductsToolbar({
   return (
     <div className="flex flex-wrap items-end gap-4">
       <div className="min-w-0 flex-1">
-        <Label htmlFor="seller-product-search">Buscar por nome ou código (SKU)</Label>
+        <Label htmlFor="seller-product-search">Buscar por nome ou código</Label>
         <Input
           id="seller-product-search"
           value={search.query ?? ""}
@@ -79,7 +79,7 @@ export function ProductCards({
   if (products.length === 0)
     return (
       <p className="surface-card rounded-3xl bg-card p-8">
-        Nenhum produto encontrado. Cadastre seu primeiro produto ou altere os filtros.
+        Nenhum produto com esse nome ou filtro. Limpe os filtros ou cadastre um produto.
       </p>
     );
   return (

@@ -29,7 +29,9 @@ export async function handleApi(event: string, run: () => Promise<Response>): Pr
       return jsonResponse(STATUS_BY_CODE[error.code], { error: error.userMessage });
     }
     logger.error(`${event}.failed`, { error });
-    return jsonResponse(500, { error: "Erro inesperado. Tente novamente." });
+    return jsonResponse(500, {
+      error: "Algo falhou do nosso lado. Tente de novo; se repetir, abra um chamado no Suporte.",
+    });
   }
 }
 

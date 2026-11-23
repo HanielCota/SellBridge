@@ -102,8 +102,8 @@ function SupplierTable({
     return (
       <EmptyState
         icon={StorefrontIcon}
-        title="Nenhum fornecedor encontrado"
-        description="Cadastre o primeiro fornecedor ou ajuste sua busca."
+        title="Nenhum fornecedor"
+        description="Cadastre o primeiro fornecedor ou mude a busca."
       />
     );
   }

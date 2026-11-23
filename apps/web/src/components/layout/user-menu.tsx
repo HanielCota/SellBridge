@@ -37,7 +37,7 @@ export function useSignOut() {
   return async function signOut() {
     const result = await authClient.signOut();
     if (result.error) {
-      toast.error("Não foi possível sair. Tente novamente.");
+      toast.error("Você continua na conta. Confira a internet e toque em Sair de novo.");
       return;
     }
     // Cached sessions and profile data belong to the user who just left.

@@ -8,7 +8,7 @@ describe("contractCodeEmail", () => {
       "https://app.sellbridge.test",
     );
 
-    expect(email.subject).toBe("Seu código para assinar o contrato da SellBridge");
+    expect(email.subject).toBe("Seu código para assinar o contrato do SellBridge");
     expect(email.subject).not.toContain("042917");
     expect(email.text).toContain("042917");
     expect(email.text).toContain("contrato de vendedor");

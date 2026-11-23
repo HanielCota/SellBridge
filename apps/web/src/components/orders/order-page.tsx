@@ -94,7 +94,7 @@ function unitCostText(item: OrderItem, costPending: boolean): string {
   if (item.productId !== null) {
     return `custo ${formatCents(item.unitCostCents)} cada`;
   }
-  return costPending ? "custo pendente" : "sem custo do catálogo";
+  return costPending ? "sem custo informado" : "produto fora do catálogo, sem custo";
 }
 
 /** The ad the item sold from, on Mercado Livre; a line saying why when its link has not come. */

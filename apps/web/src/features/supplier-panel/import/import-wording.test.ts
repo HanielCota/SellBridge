@@ -68,7 +68,7 @@ describe("importDoneSummary", () => {
     expect(
       importDoneSummary({ ...base, updated: 1, synchronizationQueued: false, pausedTargets: 2 }, 4),
     ).toBe(
-      "1 atualizado. O estoque vai aos marketplaces na próxima sincronização. 2 anúncios pausados sem estoque. 4 linhas com erro ficaram de fora; corrija e envie de novo.",
+      "1 atualizado. O estoque chega aos anúncios na próxima atualização automática. 2 anúncios pausados sem estoque. 4 linhas com erro ficaram de fora; corrija e envie de novo.",
     );
   });
 });

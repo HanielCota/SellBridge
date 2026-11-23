@@ -64,7 +64,7 @@ function InterventionReason({
 }) {
   return (
     <div className="surface-card space-y-2 rounded-2xl bg-card p-5">
-      <Label htmlFor="product-admin-reason">Motivo da alteração administrativa</Label>
+      <Label htmlFor="product-admin-reason">Por que a equipe está mudando este produto</Label>
       <Input
         id="product-admin-reason"
         value={reason}

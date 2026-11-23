@@ -61,7 +61,7 @@ describe("groupIssuesByRow", () => {
   });
 
   it("explains a repeated SKU and broken quotes in plain words", () => {
-    expect(rows[2]?.issues[0]?.message).toContain("SKU repetido");
+    expect(rows[2]?.issues[0]?.message).toContain("Código repetido");
     expect(rows[3]?.issues[0]?.message).toContain("abre aspas e não fecha");
   });
 

@@ -60,27 +60,27 @@ test("financeiro deixa a venda de custo desconhecido fora do lucro e explica", a
   await signIn(page, DEMO_USER);
   await gotoHydrated(page, `/financeiro?period=7d&query=${externalId}`);
   await expect(
-    page.getByText(/R\$\s[\d.,]+ de \d+ vendas? ainda não t[eê]m custo e fic/),
+    page.getByText(/R\$\s[\d.,]+ de \d+ vendas? ainda não t[eê]m custo informado e est/),
   ).toBeVisible();
 
   const statement = page.getByLabel("Financeiro por pedido");
-  await expect(statement.getByText("Custo pendente").first()).toBeVisible();
-  await expect(statement.getByText(/de R\$\s120,00 · fora do lucro/).first()).toBeVisible();
+  await expect(statement.getByText("Sem custo informado").first()).toBeVisible();
+  await expect(statement.getByText(/de R\$\s120,00 · ainda sem lucro/).first()).toBeVisible();
 
   await statement.getByRole("button", { name: new RegExp(externalId) }).click();
   const detail = page.getByRole("dialog");
-  await expect(detail.getByText("custo pendente", { exact: true })).toBeVisible();
+  await expect(detail.getByText("sem custo informado", { exact: true })).toBeVisible();
 });
 
 test("painel tira a venda de custo desconhecido da margem e avisa", async ({ page }) => {
   await signIn(page, DEMO_USER);
   await gotoHydrated(page, "/dashboard?period=7d");
-  await expect(page.getByText(/R\$\s[\d.,]+ em \d+ vendas? com custo pendente fic/)).toBeVisible();
+  await expect(page.getByText(/R\$\s[\d.,]+ em \d+ vendas? sem custo informado est/)).toBeVisible();
 });
 
 test("página do pedido diz que o custo do item é desconhecido", async ({ page }) => {
   await signIn(page, DEMO_USER);
   await gotoHydrated(page, `/pedidos/${orderId}`);
-  await expect(page.getByText(/1 × R\$\s120,00 · custo pendente/)).toBeVisible();
-  await expect(page.getByText("fora do lucro", { exact: true })).toBeVisible();
+  await expect(page.getByText(/1 × R\$\s120,00 · sem custo informado/)).toBeVisible();
+  await expect(page.getByText("ainda sem lucro", { exact: true })).toBeVisible();
 });

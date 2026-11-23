@@ -92,7 +92,7 @@ test("admin edita um cliente, entra como ele e volta", async ({ browser }) => {
   // Impersonation reloads the document; the banner is server-rendered before React owns it.
   await expect(page.getByText("Você está usando a conta de")).toBeVisible();
   await waitForHydration(page);
-  await page.getByRole("button", { name: "Voltar ao admin" }).click();
+  await page.getByRole("button", { name: "Voltar à equipe" }).click();
   await expect(page).toHaveURL(/\/admin\/clientes/);
 
   // Entering as the customer lands in their timeline.

@@ -34,7 +34,7 @@ function CustomerControls({ form, action, settled }: ControlsProps) {
       <PublishCatalogLink form={form} settled={settled} />
       <div className="flex flex-wrap items-end gap-3">
         <div className="grid gap-2">
-          <Label htmlFor="duplicate-sku">Código do produto duplicado (SKU)</Label>
+          <Label htmlFor="duplicate-sku">Código da cópia</Label>
           <Input
             id="duplicate-sku"
             value={newSku}
@@ -117,7 +117,7 @@ function saveStatus(form: SellerProductEditor) {
   if (!form.canSave) return "Informe o motivo antes de salvar as alterações.";
   if (form.state.kind === "saving") return "Salvando…";
   if (form.state.kind === "saved" && !form.dirty) return "Todas as alterações foram salvas";
-  if (form.state.kind === "needs-sku") return "Informe um código (SKU) para começar a salvar.";
+  if (form.state.kind === "needs-sku") return "Digite o código do produto para começar a salvar.";
   return form.dirty ? "Alterações não salvas" : "Nenhuma alteração pendente";
 }
 

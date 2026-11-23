@@ -188,8 +188,8 @@ export function kindHeadline(
     changeGood: change?.good ?? null,
     note:
       kind === "cumulative"
-        ? "resolvidos até agora · vs. período anterior"
-        : "resolvidos no período · vs. período anterior",
+        ? "resolvidos até agora, sobre o período anterior"
+        : "resolvidos no período, sobre o período anterior",
   };
 }
 
@@ -208,5 +208,5 @@ export function bucketComparison(
   if (change === 0) {
     return `Resolvidos iguais ${previousBucketText(bucket).replace(/^a /, "aos da ").replace(/^o /, "aos do ")}`;
   }
-  return `Resolvidos ${change > 0 ? "↑" : "↓"} ${Math.abs(change)}% vs. ${previousBucketText(bucket)}`;
+  return `Resolvidos ${change > 0 ? "↑" : "↓"} ${Math.abs(change)}% sobre ${previousBucketText(bucket)}`;
 }

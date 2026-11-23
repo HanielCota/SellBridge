@@ -10,12 +10,12 @@ import { cn } from "@/lib/utils";
 function reminderText(contract: SessionContract, kind: ProfileKind, deadline: Date): string {
   const day = formatShortDate(deadline);
   if (contract.standing === "overdue") {
-    return `O prazo para assinar o contrato da SellBridge acabou em ${day}. Assine para continuar recebendo pedidos novos.`;
+    return `O prazo para assinar o contrato do SellBridge acabou em ${day}. Assine para continuar recebendo pedidos novos.`;
   }
   if (kind === "seller") {
-    return `Assine o contrato da SellBridge até ${day}. A partir dessa data, o painel só abre com o contrato assinado.`;
+    return `Assine o contrato do SellBridge até ${day}. A partir dessa data, o painel só abre com o contrato assinado.`;
   }
-  return `Assine o contrato da SellBridge até ${day}. A partir dessa data, seus produtos param de receber pedidos novos até você assinar.`;
+  return `Assine o contrato do SellBridge até ${day}. A partir dessa data, seus produtos param de receber pedidos novos até você assinar.`;
 }
 
 /** The strip above every page while the 30 days run (and for a supplier past them). */
@@ -33,7 +33,7 @@ export function ContractReminder({
   const overdue = contract.standing === "overdue";
   return (
     <aside
-      aria-label="Contrato da SellBridge"
+      aria-label="Contrato do SellBridge"
       className={cn(
         "flex flex-col gap-3 rounded-3xl px-5 py-3 sm:flex-row sm:items-center",
         overdue

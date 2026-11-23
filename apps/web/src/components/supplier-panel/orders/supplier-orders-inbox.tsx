@@ -43,7 +43,7 @@ function EmptyOrders({ tab, searching }: { tab: SupplierOrderTab; searching: boo
     return (
       <EmptyState
         icon={MagnifyingGlassIcon}
-        title="Nenhum pedido encontrado"
+        title="Nenhum pedido com essa busca"
         description="Confira a busca e os filtros, ou procure em outra aba."
       />
     );

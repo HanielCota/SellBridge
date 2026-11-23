@@ -32,7 +32,7 @@ export const Route = createFileRoute("/_app/admin/problemas/")({
       await context.queryClient.prefetchInfiniteQuery(problemListQueryOptions(search));
     }
   },
-  head: () => ({ meta: [{ title: "Problemas (admin) | SellBridge" }] }),
+  head: () => ({ meta: [{ title: "Problemas (equipe) | SellBridge" }] }),
   component: ProblemsPage,
 });
 

@@ -26,7 +26,7 @@ export function ProfileNameForm({ name, email }: { name: string; email: string }
     const result = await authClient.updateUser({ name: parsed.data });
     setIsSaving(false);
     if (result.error) {
-      toast.error("Não foi possível salvar seu nome. Tente novamente.");
+      toast.error("Seu nome não foi salvo. Tente de novo.");
       return;
     }
     setValue(parsed.data);
