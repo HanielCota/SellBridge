@@ -65,7 +65,13 @@ function NoticeLink({ notice }: { notice: SetupNotice }) {
     title: notice.reason,
     className: HEADER_NOTICE_CLASS_NAME,
   };
-  const content = <HeaderNoticeContent message={notice.message} action={notice.action} />;
+  const content = (
+    <HeaderNoticeContent
+      message={notice.message}
+      action={notice.action}
+      phoneAction={notice.phoneAction}
+    />
+  );
   const { target } = notice;
   // The Bling authorization is a server route that leaves the app: a plain link, not the router.
   if (target.kind === "authorization") {

@@ -65,8 +65,13 @@ export interface SetupNotice {
   readonly key: string;
   /** What is missing; the computer shows it before the action, the phone only the action. */
   readonly message: string;
-  /** The button's words: they must make sense alone, the phone shows nothing else. */
+  /** The button's words, after the message on the computer. */
   readonly action: string;
+  /**
+   * The words the phone shows alone, short enough for its header; part of message and action
+   * (as read aloud), so voice control finds the link by what it shows.
+   */
+  readonly phoneAction: string;
   /** Why it matters, as the hover text. */
   readonly reason: string;
   readonly target: SetupNoticeTarget;
@@ -80,13 +85,15 @@ const RECEIVING_NOTICES: Partial<Record<ReceivingAccountState, SetupNotice>> = {
     key: "receiving-account-closed",
     message: "Sua conta de recebimento não está aberta",
     action: "Abrir conta para receber",
+    phoneAction: "Conta para receber",
     reason: RECEIVING_REASON,
     target: RECEIVING_PAGE,
   },
   rejected: {
     key: "receiving-account-rejected",
     message: "O Asaas recusou sua conta de recebimento",
-    action: "Ver o que corrigir",
+    action: "Corrigir minha conta",
+    phoneAction: "Corrigir minha conta",
     reason: RECEIVING_REASON,
     target: RECEIVING_PAGE,
   },
@@ -94,6 +101,7 @@ const RECEIVING_NOTICES: Partial<Record<ReceivingAccountState, SetupNotice>> = {
     key: "receiving-account-documents",
     message: "Sua conta de recebimento espera seus documentos",
     action: "Enviar documentos",
+    phoneAction: "Enviar documentos",
     reason: RECEIVING_REASON,
     target: RECEIVING_PAGE,
   },
@@ -104,6 +112,7 @@ function blingReconnectNotice(supplierId: string): SetupNotice {
     key: "bling-reconnect",
     message: "Seu Bling precisa ser reconectado",
     action: "Reconectar o Bling",
+    phoneAction: "Reconectar o Bling",
     reason:
       "Seu Bling precisa ser reconectado para o SellBridge continuar lendo o estoque e emitindo notas.",
     target: { kind: "authorization", href: blingConnectHref(supplierId) },
@@ -114,6 +123,7 @@ const NO_PRODUCTS: SetupNotice = {
   key: "no-products",
   message: "Você ainda não tem produtos no catálogo",
   action: "Cadastrar produto",
+  phoneAction: "Cadastrar produto",
   reason: "Os revendedores só vendem o que você cadastra e publica.",
   target: { kind: "page", page: "new-product" },
 };
@@ -122,6 +132,7 @@ const PRODUCTS_IN_DRAFT: SetupNotice = {
   key: "products-in-draft",
   message: "Seus produtos estão em rascunho",
   action: "Publicar produtos",
+  phoneAction: "Publicar produtos",
   reason: "Produto em rascunho não aparece para os revendedores.",
   target: { kind: "page", page: "products" },
 };
@@ -130,6 +141,7 @@ const ON_BEHALF_INVOICE_OFF: SetupNotice = {
   key: "on-behalf-invoice-off",
   message: "A nota da venda à ordem está desligada",
   action: "Ligar a nota fiscal",
+  phoneAction: "Ligar a nota fiscal",
   reason: "Sem o Bling ligado, a etiqueta sai sem a nota da venda à ordem.",
   target: { kind: "page", page: "brand" },
 };
@@ -140,6 +152,7 @@ const COMPANY_ADDRESS: SetupNotice = {
   key: "company-address",
   message: "Falta o endereço da sua empresa",
   action: "Completar dados da empresa",
+  phoneAction: "Sua empresa",
   reason: "Sem o endereço da empresa, a nota da venda à ordem não sai.",
   target: COMPANY_DATA_PAGE,
 };
@@ -148,6 +161,7 @@ const COMPANY_STATE_REGISTRATION: SetupNotice = {
   key: "company-state-registration",
   message: "Falta a inscrição estadual da sua empresa",
   action: "Completar dados da empresa",
+  phoneAction: "Sua empresa",
   reason: "A nota da venda à ordem leva a inscrição estadual da sua empresa, ou que ela é isenta.",
   target: COMPANY_DATA_PAGE,
 };

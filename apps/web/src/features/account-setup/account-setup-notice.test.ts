@@ -146,6 +146,34 @@ describe("nextResellerSetupNotice", () => {
   });
 });
 
+describe("phoneAction", () => {
+  const notices = [
+    ...(["closed", "rejected", "documents"] as const).map((receivingAccount) =>
+      nextSupplierSetupNotice({ ...SUPPLIER_READY, receivingAccount }),
+    ),
+    nextSupplierSetupNotice({ ...SUPPLIER_READY, blingToReconnect: "s-1" }),
+    nextSupplierSetupNotice({ ...SUPPLIER_READY, products: 0, submittedProducts: 0 }),
+    nextSupplierSetupNotice({ ...SUPPLIER_READY, submittedProducts: 0 }),
+    nextSupplierSetupNotice({ ...SUPPLIER_READY, onBehalfInvoiceOff: true }),
+    nextResellerSetupNotice({ holder: { company: { stateRegistration: null }, address: null } }),
+    nextResellerSetupNotice({ holder: { company: { stateRegistration: null }, address: ADDRESS } }),
+  ];
+
+  it("is part of what the link reads aloud, so voice control finds it", () => {
+    for (const notice of notices) {
+      const spoken = `${notice?.message ?? ""} · ${notice?.action ?? ""}`.toLowerCase();
+
+      expect(spoken).toContain(notice?.phoneAction.toLowerCase());
+    }
+  });
+
+  it("stays short enough for the phone header", () => {
+    for (const notice of notices) {
+      expect(notice?.phoneAction.length).toBeLessThanOrEqual(20);
+    }
+  });
+});
+
 describe("isOnNoticePage", () => {
   const notice = nextSupplierSetupNotice({ ...SUPPLIER_READY, receivingAccount: "closed" });
 

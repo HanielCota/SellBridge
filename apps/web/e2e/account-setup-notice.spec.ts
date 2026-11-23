@@ -2,7 +2,7 @@ import { expect, type Page, test } from "@playwright/test";
 import { member, supplierPaymentAccounts, tenantProfile, user } from "@sellbridge/database/schema";
 import { eq } from "drizzle-orm";
 import { e2eDatabase } from "./database";
-import { gotoHydrated, signUp, testCpf } from "./helpers";
+import { gotoHydrated, labelContentMismatches, signUp, testCpf } from "./helpers";
 import { giveTestBrand, supplierAccounts } from "./supplier-accounts";
 
 const database = e2eDatabase();
@@ -93,6 +93,10 @@ test("a reseller company without an address is asked for it until it is saved", 
   await expect(headerNotice(page, "Completar dados da empresa")).toHaveAccessibleName(
     "Falta o endereço da sua empresa · Completar dados da empresa",
   );
+  // The phone shows only "Sua empresa": voice control still finds the link by it.
+  await page.setViewportSize({ width: 375, height: 812 });
+  await expect(headerNotice(page, "Completar dados da empresa")).toHaveText(/Sua empresa/);
+  expect(await labelContentMismatches(page)).toEqual([]);
 
   await database
     .update(tenantProfile)
