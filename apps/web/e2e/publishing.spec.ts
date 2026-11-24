@@ -249,6 +249,27 @@ test("valida o formulário de publicação e bloqueia preço abaixo do custo", a
   ).toBeVisible();
 });
 
+// Partners' report of 23/11/2026: a price at a loss left "Publicar" looking fine until clicked.
+test("diz o preço mínimo ao lado do preço enquanto ele dá prejuízo, antes de publicar", async ({
+  page,
+}) => {
+  await signUp(page, "Revendedor Prejuízo ao Lado");
+  await onboardWithBhBeauty(page);
+  await connectMockStore(page, "Loja Prejuízo");
+  await openPublishFormForFirstProduct(page);
+
+  await page.getByLabel("Preço de venda", { exact: true }).fill(await centAboveCost(page));
+
+  const note = page.locator("#price-error");
+  await expect(note).toHaveText(
+    /Com as taxas do Mercado Livre, o preço mínimo para não ter prejuízo é R\$\s[\d.,]+/,
+  );
+  await expect(page.getByLabel("Preço de venda", { exact: true })).toHaveAttribute(
+    "aria-invalid",
+    "true",
+  );
+});
+
 /** The listing's description failed and no automatic resend is left: only "Reenviar" sends it. */
 async function requestDescriptionSync(): Promise<void> {
   const url = new URL(requireEnvironmentVariable("REDIS_URL"));

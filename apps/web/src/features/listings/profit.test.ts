@@ -11,6 +11,7 @@ import {
   saleChannelsOf,
   shelfPriceForMargin,
   wholeMarginPercent,
+  marginWords,
   priceForMargin,
 } from "./profit";
 
@@ -208,5 +209,19 @@ describe("marginShortcutPrices", () => {
         estimateProfit(priceCents, serum, schedule, mercadoLivre)?.marginPercent,
       ).toBeGreaterThanOrEqual(marginPercent);
     }
+  });
+});
+
+describe("marginWords", () => {
+  it("calls a negative margin a loss instead of a margin", () => {
+    expect(marginWords(-2.4)).toEqual({ text: "prejuízo", loss: true });
+  });
+
+  it("writes a positive margin as a whole percent", () => {
+    expect(marginWords(19.8)).toEqual({ text: "margem 19%", loss: false });
+  });
+
+  it("writes a break-even price as a zero margin", () => {
+    expect(marginWords(0)).toEqual({ text: "margem 0%", loss: false });
   });
 });

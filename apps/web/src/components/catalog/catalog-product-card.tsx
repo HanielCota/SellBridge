@@ -11,13 +11,28 @@ import {
   estimateProfit,
   isThinMargin,
   type SaleChannels,
-  wholeMarginPercent,
+  marginWords,
 } from "@/features/listings/profit";
 import { useFeeSchedule } from "@/features/reports/fee-schedule.queries";
 import { ProductHeatTag } from "./product-heat-tag";
 import { ProductStockLine } from "./product-stock-line";
 import { ProductVisual } from "./product-visual";
 import { SoldOutFooter, SoldOutRibbon } from "./sold-out";
+
+/** A loss is said as one, in red: a negative margin read like a thin one hid it (23/11/2026). */
+function MarginWords({ margin }: { margin: number }) {
+  const words = marginWords(margin);
+  return (
+    <span
+      className={cn(
+        words.loss && "font-medium text-destructive",
+        !words.loss && isThinMargin(margin) && "text-amber-700 dark:text-amber-500",
+      )}
+    >
+      {words.text}
+    </span>
+  );
+}
 
 /** Suggested price as the headline; cost and the margin it leaves on the store's channel. */
 function PriceLines({
@@ -52,9 +67,7 @@ function PriceLines({
         {margin === undefined ? null : (
           <>
             {" · "}
-            <span className={cn(isThinMargin(margin) && "text-amber-700 dark:text-amber-500")}>
-              margem {wholeMarginPercent(margin)}%
-            </span>
+            <MarginWords margin={margin} />
           </>
         )}
       </p>

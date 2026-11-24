@@ -28,6 +28,17 @@ export function wholeMarginPercent(marginPercent: number): number {
   return Math.floor(marginPercent);
 }
 
+/**
+ * The margin in the catalog's words: a negative one is a loss and is called one, never "margem
+ * -2%", which read like a thin margin (partners' report of 23/11/2026).
+ */
+export function marginWords(marginPercent: number): { text: string; loss: boolean } {
+  if (marginPercent < 0) {
+    return { text: "prejuízo", loss: true };
+  }
+  return { text: `margem ${wholeMarginPercent(marginPercent)}%`, loss: false };
+}
+
 export function isLowStock(stock: number): boolean {
   return stock > 0 && stock <= LOW_STOCK_UNITS;
 }
