@@ -2,12 +2,14 @@ import { CircleNotchIcon } from "@phosphor-icons/react";
 import type { ClipboardEvent, ReactNode } from "react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
+import { ContactWarningText, describedByIds } from "@/components/support/contact-warning-text";
 import { OutOfHoursNotice } from "@/components/support/out-of-hours-notice";
 import { cn } from "@/lib/utils";
 import { STEP_HEADING_IDS, StepHeading } from "./step-parts";
 
 export const DESCRIPTION_FIELD_ID = "new-ticket-body";
 const SHORT_MESSAGE_ID = "new-ticket-body-short";
+const CONTACT_WARNING_ID = "new-ticket-body-contact";
 /** Same cap as `ticketBodySchema`, so a long text stops at the field instead of failing on send. */
 const MAX_DESCRIPTION_LENGTH = 5000;
 
@@ -21,6 +23,7 @@ export function DescriptionStep({
   onChange,
   onPaste,
   tooShortMessage = "Conte um pouco mais para a equipe entender o caso.",
+  contactWarning = null,
 }: {
   number: number;
   question: string;
@@ -33,6 +36,8 @@ export function DescriptionStep({
   onPaste: (event: ClipboardEvent<HTMLTextAreaElement>) => void;
   /** Who needs to understand the case: the team by default, the supplier in a conversation. */
   tooShortMessage?: string;
+  /** Reseller–supplier conversations: why the text cannot go, while it is written. */
+  contactWarning?: string | null;
 }) {
   return (
     <div className="grid gap-2.5">
@@ -49,8 +54,11 @@ export function DescriptionStep({
         maxLength={MAX_DESCRIPTION_LENGTH}
         value={value}
         aria-labelledby={STEP_HEADING_IDS.description}
-        aria-invalid={isTooShort}
-        aria-describedby={isTooShort ? SHORT_MESSAGE_ID : undefined}
+        aria-invalid={isTooShort || contactWarning !== null}
+        aria-describedby={describedByIds([
+          isTooShort ? SHORT_MESSAGE_ID : null,
+          contactWarning === null ? null : CONTACT_WARNING_ID,
+        ])}
         onChange={(event) => onChange(event.target.value)}
         onPaste={onPaste}
       />
@@ -59,6 +67,7 @@ export function DescriptionStep({
           {tooShortMessage}
         </p>
       ) : null}
+      <ContactWarningText id={CONTACT_WARNING_ID} message={contactWarning} />
       {/* Plain text, not a box: a boxed sample reads as an answer already filled in. */}
       <p className="text-sm text-muted-foreground">{example}</p>
     </div>

@@ -49,6 +49,7 @@ import {
   MegaphoneSimpleIcon,
   MinusIcon,
   PackageIcon,
+  ReceiptIcon,
   PaperPlaneTiltIcon,
   PlugsConnectedIcon,
   PlugsIcon,
@@ -164,6 +165,10 @@ export const ACTION_ICONS = {
   supplierReceiving: {
     icon: HandCoinsIcon,
     hint: "Abra sua conta Asaas para receber dos revendedores",
+  },
+  supplierStatement: {
+    icon: ReceiptIcon,
+    hint: "Cada pedido pago, as taxas e o dia em que o dinheiro libera",
   },
   supplierProducts: { icon: PackageIcon, hint: "Seus produtos, estoque e o que está à venda" },
   importProducts: { icon: FileArrowUpIcon, hint: "Cadastrar ou atualizar produtos por planilha" },
@@ -385,6 +390,7 @@ export const NAV_TAB_ICONS: Readonly<Record<string, ActionIconName>> = {
   "/fornecedor/painel/pedidos": "supplierOrders",
   "/fornecedor/painel/vendas": "supplierSales",
   "/fornecedor/painel/recebimentos": "supplierReceiving",
+  "/fornecedor/painel/extrato": "supplierStatement",
   "/fornecedor/painel/produtos": "supplierProducts",
   "/fornecedor/painel/importar": "importProducts",
   "/fornecedor/painel/desempenho": "performance",

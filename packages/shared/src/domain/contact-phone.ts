@@ -20,6 +20,7 @@ const NUMBER_WORDS: Readonly<Record<string, string>> = {
   sete: "7",
   oito: "8",
   nove: "9",
+  dez: "10",
   onze: "11",
   doze: "12",
   treze: "13",
@@ -31,6 +32,32 @@ const NUMBER_WORDS: Readonly<Record<string, string>> = {
   dezoito: "18",
   dezenove: "19",
 };
+
+/** The tens people say for area codes from 21 up and for digit pairs: "vinte e um", "noventa". */
+const TENS_WORDS: Readonly<Record<string, string>> = {
+  vinte: "2",
+  trinta: "3",
+  quarenta: "4",
+  cinquenta: "5",
+  cincoenta: "5",
+  sessenta: "6",
+  setenta: "7",
+  oitenta: "8",
+  noventa: "9",
+};
+
+const UNIT_WORDS = "um|uma|dois|duas|tres|quatro|cinco|seis|meia|sete|oito|nove";
+
+const TENS_NUMBER = new RegExp(
+  String.raw`(?<![a-z])(${Object.keys(TENS_WORDS).join("|")})(?:\s+e\s+(${UNIT_WORDS}))?(?![a-z])`,
+  "g",
+);
+
+function tensAsDigits(_match: string, tens: string, unit: string | undefined): string {
+  const tensDigit = TENS_WORDS[tens] ?? "";
+  const unitDigit = unit === undefined ? "0" : (NUMBER_WORDS[unit] ?? "0");
+  return `${tensDigit}${unitDigit}`;
+}
 
 const NUMBER_WORD = new RegExp(
   `(?<![a-z])(?:${Object.keys(NUMBER_WORDS).join("|")})(?![a-z])`,
@@ -68,6 +95,7 @@ const LONGEST_PHONE = 13;
 
 function spelledAsDigits(text: string): string {
   return text
+    .replace(TENS_NUMBER, tensAsDigits)
     .replace(NUMBER_WORD, (word) => NUMBER_WORDS[word] ?? word)
     .replace(/(?<![a-z\d])0\s*x\s*x\s*/g, "0")
     .replace(LOOKALIKE, (letter) => LOOKALIKE_DIGITS.get(letter) ?? letter)

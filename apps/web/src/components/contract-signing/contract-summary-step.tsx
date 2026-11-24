@@ -1,5 +1,4 @@
 import type { ContractDocument } from "@sellbridge/shared/contract-documents";
-import { PROVISIONAL_CONTRACT_NOTICE } from "@sellbridge/shared/contract-documents";
 import { ArrowSquareOutIcon } from "@phosphor-icons/react";
 import { Link } from "@tanstack/react-router";
 import { AuthSubmitButton } from "@/components/auth/auth-page";
@@ -26,11 +25,6 @@ export function ContractSummaryStep(props: ContractSummaryStepProps) {
   const { contract } = props;
   return (
     <form noValidate className="grid gap-4" onSubmit={submitHandler(props.onSubmit)}>
-      {contract.provisional ? (
-        <p className="rounded-2xl bg-amber-500/10 px-4 py-3 text-footnote text-amber-900 dark:text-amber-200">
-          {PROVISIONAL_CONTRACT_NOTICE}
-        </p>
-      ) : null}
       <fieldset
         className="grid gap-2"
         aria-describedby={props.error === null ? undefined : SUMMARY_ERROR_ID}

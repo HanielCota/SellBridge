@@ -95,7 +95,7 @@ function Reassign({ agent, to }: { agent: AgentPerformance; to: AgentPerformance
         type="button"
         disabled={mutation.isPending || mutation.isSuccess}
         onClick={() => mutation.mutate()}
-        className="flex h-10 w-full items-center justify-center rounded-full bg-foreground text-sm font-medium text-background outline-none transition-transform active:scale-[0.98] focus-visible:ring-3 focus-visible:ring-ring/50 disabled:opacity-60"
+        className="flex h-10 w-full items-center justify-center rounded-full bg-selected text-sm font-medium text-selected-foreground outline-none transition-transform active:scale-[0.98] focus-visible:ring-3 focus-visible:ring-ring/50 disabled:opacity-60"
       >
         {mutation.isSuccess
           ? `Passados para ${firstName(to)}`

@@ -13,7 +13,7 @@ function refusalsFor(body: string) {
 describe("conversationContactRefusals", () => {
   it("names the field and the kind of contact, never the text", () => {
     const refusals = refusalsFor("Me chama no zap 11 98765-4321 que eu resolvo rapidinho");
-    expect(refusals).toEqual([{ field: "body", kinds: ["phone"] }]);
+    expect(refusals).toEqual([{ field: "body", kinds: ["phone", "social"] }]);
     expect(JSON.stringify(refusals)).not.toContain("98765");
   });
 

@@ -14,6 +14,7 @@ import {
 } from "@sellbridge/payments/mercado-pago";
 import {
   asaasEnvironmentFields,
+  invoiceEnvironmentFields,
   refuseAsaasStandInsInProduction,
 } from "@sellbridge/payments/asaas";
 import { SUPPORT_ASSISTANT_PROVIDERS } from "@sellbridge/shared/support-assistant";
@@ -133,6 +134,7 @@ const serverEnvironmentShape = z.object({
    */
   ...mercadoPagoEnvironmentFields,
   ...asaasEnvironmentFields,
+  ...invoiceEnvironmentFields,
   /** The public CNPJ query behind the approval of suppliers who sign up alone. */
   CNPJ_LOOKUP_URL: cnpjLookupUrlEnvironmentSchema,
   /**

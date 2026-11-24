@@ -154,3 +154,4 @@ export {
   type GroupingSuggestionView,
   type GroupProductsResult,
 } from "./product-groupings.ts";
+export * from "./supplier-statement.ts";
