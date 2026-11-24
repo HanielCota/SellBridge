@@ -111,6 +111,7 @@ function Composer({ detail }: { detail: ConversationDetail }) {
         closedHint="Responder reabre a conversa"
         draftKey={`conversation-${conversation.id}`}
         placeholder={PLACEHOLDERS[side]}
+        warnsAboutContact
         onSent={async () => {
           toast.success("Mensagem enviada");
           await queryClient.invalidateQueries({ queryKey: ["tickets"] });

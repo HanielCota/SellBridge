@@ -89,6 +89,12 @@ test("a store writes to its supplier from Suporte, the supplier answers and the 
   await expect(resellerPage).toHaveURL(/\/suporte\/conversas\//);
   await expect(resellerPage.getByText("Aguardando o fornecedor.")).toBeVisible();
 
+  // An invitation to another app is pointed out while typing, before any send.
+  await resellerPage.getByLabel("Sua resposta").fill("Me chama no zap que eu explico melhor");
+  await expect(resellerPage.getByText(PHONE_REFUSED)).toBeVisible();
+  await resellerPage.getByLabel("Sua resposta").fill("");
+  await expect(resellerPage.getByText(PHONE_REFUSED)).toHaveCount(0);
+
   // A phone number is refused on the server and audited, never saved.
   await resellerPage.getByLabel("Sua resposta").fill("Me liga no 11 98765-4321 para combinar");
   await resellerPage.getByRole("button", { name: "Enviar", exact: true }).click();
