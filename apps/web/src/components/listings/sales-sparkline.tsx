@@ -1,4 +1,3 @@
-import { useId } from "react";
 import { cn } from "@/lib/utils";
 
 const WIDTH = 96;
@@ -29,7 +28,6 @@ export function SalesSparkline({
   dailySales: readonly number[];
   muted?: boolean;
 }) {
-  const gradientId = useId();
   if (dailySales.length < 2) {
     return null;
   }
@@ -42,15 +40,10 @@ export function SalesSparkline({
       aria-hidden="true"
       className={cn("shrink-0", muted ? "text-muted-foreground" : "text-chart-brand")}
     >
-      <defs>
-        <linearGradient id={gradientId} x1="0" x2="0" y1="0" y2="1">
-          <stop offset="0" stopColor="currentColor" stopOpacity="0.22" />
-          <stop offset="1" stopColor="currentColor" stopOpacity="0" />
-        </linearGradient>
-      </defs>
       <path
         d={`M0,${HEIGHT} L${points.join(" L")} L${WIDTH},${HEIGHT} Z`}
-        fill={`url(#${gradientId})`}
+        fill="currentColor"
+        fillOpacity={0.1}
       />
       <polyline
         points={points.join(" ")}

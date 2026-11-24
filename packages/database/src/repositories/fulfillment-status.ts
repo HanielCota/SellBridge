@@ -1,3 +1,4 @@
+import { reversedAtOfKnownOrder } from "@sellbridge/shared/sale-date";
 import { and, eq } from "drizzle-orm";
 import { orders, orderShipments, suppliers } from "../schema/index.ts";
 import type { DatabaseExecutor } from "../client.ts";
@@ -48,11 +49,18 @@ export async function syncOrderFromShipments(
     ? "returned"
     : await reconciledOrderStatus(database, order.id, "paid");
   if (status === "paid" || status === order.status) return;
+  const now = new Date();
   await database
     .update(orders)
     .set({
       status,
-      deliveredAt: status === "delivered" ? (order.deliveredAt ?? new Date()) : order.deliveredAt,
+      deliveredAt: status === "delivered" ? (order.deliveredAt ?? now) : order.deliveredAt,
+      reversedAt: reversedAtOfKnownOrder({
+        reversedAt: order.reversedAt,
+        paidAt: order.paidAt,
+        status,
+        now,
+      }),
     })
     .where(and(eq(orders.id, order.id), eq(orders.tenantId, order.tenantId)));
   // Read before the moves below close them: these units really left the shelf.

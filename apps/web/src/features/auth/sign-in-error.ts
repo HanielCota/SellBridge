@@ -64,13 +64,25 @@ const MESSAGE_BY_CODE: Readonly<Record<string, string>> = {
 };
 
 /**
+ * The sign-in, sign-up and reset-link limits last minutes (auth-rate-limit.ts), so the person is
+ * told to wait that long instead of the form's usual "try again" advice.
+ */
+export function tooManyAttemptsMessage(failure: { readonly status: number }): string | null {
+  if (failure.status !== TOO_MANY_REQUESTS) {
+    return null;
+  }
+  return "Muitas tentativas seguidas. Espere alguns minutos e tente de novo.";
+}
+
+/**
  * The sign-in form's message. A wrong e-mail and a wrong password stay one message, so the form
  * never tells which accounts exist; too many attempts, a blocked account and an unreachable
  * server get their own, instead of all reading as a wrong password.
  */
 export function signInErrorMessage(failure: SignInFailure): string {
-  if (failure.status === TOO_MANY_REQUESTS) {
-    return "Muitas tentativas seguidas. Espere um minuto e tente de novo.";
+  const waitMessage = tooManyAttemptsMessage(failure);
+  if (waitMessage !== null) {
+    return waitMessage;
   }
 
   if (failure.status === NO_RESPONSE || failure.status >= FIRST_SERVER_ERROR) {
