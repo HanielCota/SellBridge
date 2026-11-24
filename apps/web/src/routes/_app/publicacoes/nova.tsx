@@ -238,7 +238,8 @@ function useListingForm({ product, stores }: Pick<NewListingData, "product" | "s
       saleChannelsOf(chosen),
     );
     if (floorProblem !== null) {
-      setSubmitError(floorProblem);
+      // The price field already says why, next to the price: take the reseller there.
+      document.getElementById("price")?.focus();
       return;
     }
     try {
@@ -598,7 +599,10 @@ function PricePresets({
   );
 }
 
-/** Under the price: what is wrong with it, or how to fill it in. */
+/**
+ * Under the price: what is wrong with it, then how to fill it in. The unit cost stays on screen
+ * while the price is wrong, since it is what the reseller needs to fix it.
+ */
 function PriceFieldNote({
   message,
   costCents,
@@ -606,19 +610,33 @@ function PriceFieldNote({
   readonly message: string | null;
   readonly costCents: number;
 }) {
-  if (message) {
-    return (
-      <p id="price-error" className="text-sm text-destructive">
-        {message}
-      </p>
-    );
-  }
   return (
-    <p id="price-hint" className="text-xs text-muted-foreground">
-      Informe seu preço de venda ou escolha uma sugestão. Custo por unidade:{" "}
-      {formatCents(costCents)}.
-    </p>
+    <>
+      {message ? (
+        <p id="price-error" className="text-sm text-destructive">
+          {message}
+        </p>
+      ) : null}
+      <p id="price-hint" className="text-xs text-muted-foreground">
+        Informe seu preço de venda ou escolha uma sugestão. Custo por unidade:{" "}
+        {formatCents(costCents)}.
+      </p>
+    </>
   );
+}
+
+/**
+ * The profit of the price on screen and the floor the server applies to it, said next to the
+ * price while it is typed, not only after "Publicar".
+ */
+function usePriceCheck(priceCents: number | null, product: ListingProduct, channels: SaleChannels) {
+  const schedule = useFeeSchedule();
+  const estimate = estimateProfit(priceCents, product, schedule, channels);
+  const floorProblem =
+    priceCents === null || priceCents <= 0
+      ? null
+      : priceFloorProblemOnChannels(priceCents, product, schedule, channels);
+  return { estimate, floorProblem };
 }
 
 /**
@@ -641,8 +659,8 @@ function PriceField({
   readonly onChange: (value: string) => void;
 }) {
   const priceCents = parseBrlToCents(value);
-  const estimate = estimateProfit(priceCents, product, useFeeSchedule(), channels);
-  const message = firstErrorMessage(errors);
+  const { estimate, floorProblem } = usePriceCheck(priceCents, product, channels);
+  const message = firstErrorMessage(errors) ?? floorProblem;
   return (
     <div className="grid gap-2">
       <Label htmlFor="price">Preço de venda</Label>
@@ -669,7 +687,7 @@ function PriceField({
             onBlur();
           }}
           aria-invalid={message ? true : undefined}
-          aria-describedby={message ? "price-error" : "price-hint"}
+          aria-describedby={message ? "price-error price-hint" : "price-hint"}
           className="h-12 w-full rounded-full border border-field-border bg-field pr-36 pl-11 text-lg font-semibold tabular-nums transition-[border-color,box-shadow] outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 aria-invalid:border-destructive aria-invalid:ring-3 aria-invalid:ring-destructive/20"
         />
         <MarginBadge estimate={estimate} />
