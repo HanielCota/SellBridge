@@ -15,6 +15,8 @@ const totals = {
   receivableCents: 16_000,
   resellers: 2,
   averageOrderCents: 5_333,
+  undoneEarlierOrders: 0,
+  undoneEarlierReceivableCents: 0,
 };
 const points = [{ date: "2026-10-20", orders: 3, units: 5, receivableCents: 16_000 }];
 

@@ -17,8 +17,12 @@ import {
 import { trendTagParts } from "@/features/reports/trend-tone";
 
 interface Totals {
+  /** Net of the earlier sales taken back in the period. */
   receivableCents: number;
   orders: number;
+  /** Sales of an earlier period cancelled or returned in this one, and what they were worth. */
+  undoneEarlierOrders?: number;
+  undoneEarlierReceivableCents?: number;
 }
 
 interface SupplierPeriodSummaryProps {
@@ -75,8 +79,28 @@ function LostSentence({ current }: { current: Totals }) {
   );
 }
 
+/**
+ * "Já descontamos R$ 80 de 1 venda de antes, cancelada ou devolvida no período.": earlier sales
+ * the period took back, as the Mercado Livre statement shows them (decision of 23/11/2026). The
+ * amount above is already net of them, the same as the tiles and the chart.
+ */
+function UndoneEarlier({ current }: { current: Totals }) {
+  const orders = current.undoneEarlierOrders ?? 0;
+  if (orders === 0) {
+    return null;
+  }
+  const one = orders === 1;
+  return (
+    <>
+      Já descontamos <Strong>{sentenceReais(current.undoneEarlierReceivableCents ?? 0)}</Strong> de{" "}
+      {orders} {one ? "venda" : "vendas"} de antes,{" "}
+      {one ? "cancelada ou devolvida" : "canceladas ou devolvidas"} no período.{" "}
+    </>
+  );
+}
+
 /** The amount to receive in words, and how it moved against the previous period. */
-function AmountSentence({ current, previous }: Omit<SupplierPeriodSummaryProps, "situation">) {
+function SoldSentence({ current, previous }: { current: Totals; previous: Totals }) {
   if (current.orders === 0) {
     return <>Nenhuma venda no período. </>;
   }
@@ -92,6 +116,15 @@ function AmountSentence({ current, previous }: Omit<SupplierPeriodSummaryProps, 
     <>
       Você vendeu <Strong>{sentenceReais(current.receivableCents)}</Strong> no período
       <Change current={current} previous={previous} />{" "}
+    </>
+  );
+}
+
+function AmountSentence({ current, previous }: Omit<SupplierPeriodSummaryProps, "situation">) {
+  return (
+    <>
+      <SoldSentence current={current} previous={previous} />
+      <UndoneEarlier current={current} />
     </>
   );
 }

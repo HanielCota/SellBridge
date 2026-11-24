@@ -30,6 +30,7 @@ import {
   ClockIcon,
   ArrowRightIcon,
   ChatCircleDotsIcon,
+  ChatCircleTextIcon,
   FactoryIcon,
   FileArrowUpIcon,
   GaugeIcon,
@@ -91,6 +92,10 @@ export const ACTION_ICONS = {
   },
   listings: { icon: MegaphoneSimpleIcon, hint: "Acompanhe os produtos publicados nas suas lojas" },
   orders: { icon: ShoppingBagIcon, hint: "Veja os pedidos dos compradores e acompanhe os envios" },
+  buyerQuestions: {
+    icon: ChatCircleTextIcon,
+    hint: "Responda o que os compradores perguntam nos seus anúncios",
+  },
   stores: { icon: StorefrontIcon, hint: "Conecte e acompanhe suas lojas do Mercado Livre" },
   financials: { icon: WalletIcon, hint: "Veja receita, custos, lucro e repasses" },
   support: {
@@ -376,6 +381,7 @@ export const NAV_TAB_ICONS: Readonly<Record<string, ActionIconName>> = {
   "/catalogo": "catalog",
   "/publicacoes": "listings",
   "/pedidos": "orders",
+  "/perguntas": "buyerQuestions",
   "/lojas": "stores",
   "/financeiro": "financials",
   "/suporte": "support",

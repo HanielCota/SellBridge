@@ -127,7 +127,7 @@ describe("attention panel", () => {
       liveListings: 0,
       failedListings: 0,
       publishingListings: 0,
-      buyerAddressResult: "supplier_address" as const,
+      buyerAddress: { result: "supplier_address" as const, releasedAt: null },
     };
 
     const items = buildAttentionItems(quiet, [held], null);
@@ -151,9 +151,28 @@ describe("attention panel", () => {
       liveListings: 3,
       failedListings: 0,
       publishingListings: 0,
-      buyerAddressResult: "shipping_address" as const,
+      buyerAddress: { result: "shipping_address" as const, releasedAt: null },
     };
 
     expect(buildAttentionItems(quiet, [warned], null)).toEqual([]);
+  });
+
+  it("offers products again to a store the team released as a false alarm", () => {
+    const released = {
+      id: "s1",
+      name: "Loja Centro",
+      status: "connected",
+      liveListings: 0,
+      failedListings: 0,
+      publishingListings: 0,
+      buyerAddress: {
+        result: "supplier_address" as const,
+        releasedAt: new Date("2026-11-23T12:00:00Z"),
+      },
+    };
+
+    const items = buildAttentionItems(quiet, [released], null);
+
+    expect(items.map((item) => item.key)).toEqual(["idle-store-s1"]);
   });
 });

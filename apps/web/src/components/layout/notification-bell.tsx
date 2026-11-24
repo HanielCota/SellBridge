@@ -7,6 +7,7 @@ import {
   MegaphoneIcon,
   PackageIcon,
   PlugsIcon,
+  QuestionIcon,
   ShoppingBagIcon,
   SpeakerHighIcon,
   SpeakerSlashIcon,
@@ -95,6 +96,11 @@ const KIND_STYLES: Record<NotificationKind, { icon: Icon; className: string }> =
   marketplace_claim: {
     icon: MegaphoneIcon,
     className: "bg-red-500/15 text-red-600 dark:text-red-400",
+  },
+  // A buyer waits for an answer: the reply family tint, with its own mark.
+  buyer_question: {
+    icon: QuestionIcon,
+    className: "bg-sky-500/15 text-sky-700 dark:text-sky-400",
   },
 };
 

@@ -18,6 +18,13 @@ export interface SupplierSaleLine {
   paidAt: Date | null;
   externalOrderId: string;
   status: string;
+  /** When a paid sale was cancelled or returned; null while it never was. */
+  reversedAt: Date | null;
+  /**
+   * A sale of an earlier period this one only shows for its cancellation or return: in the sold
+   * figures its quantity and amount are negative.
+   */
+  fromEarlierPeriod: boolean;
   title: string;
   sku: string;
   quantity: number;
@@ -29,6 +36,8 @@ const lineRowSchema = z.object({
   paid_at: z.coerce.date().nullable(),
   external_order_id: z.string(),
   status: z.string(),
+  reversed_at: z.coerce.date().nullable(),
+  earlier: z.boolean(),
   title: z.string(),
   sku: z.string(),
   quantity: sqlIntegerSchema,
@@ -47,6 +56,8 @@ export async function exportSupplierSaleLines(
       l.paid_at,
       o.external_order_id,
       o.status,
+      o.reversed_at,
+      l.entry_date is distinct from l.sale_date as earlier,
       p.title,
       p.sku,
       l.quantity,
@@ -54,7 +65,7 @@ export async function exportSupplierSaleLines(
     from supplier_lines l
     join orders o on o.id = l.order_id
     join supplier_products p on p.id = l.supplier_product_id
-    order by l.sale_date asc, o.external_order_id asc, p.title asc
+    order by l.entry_date asc, o.external_order_id asc, p.title asc
     limit ${SUPPLIER_EXPORT_LIMIT + 1}
   `);
   if (rows.length > SUPPLIER_EXPORT_LIMIT) {
@@ -70,6 +81,8 @@ export async function exportSupplierSaleLines(
       paidAt: row.paid_at,
       externalOrderId: row.external_order_id,
       status: row.status,
+      reversedAt: row.reversed_at,
+      fromEarlierPeriod: row.earlier,
       title: row.title,
       sku: row.sku,
       quantity: row.quantity,

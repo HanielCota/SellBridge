@@ -1,6 +1,6 @@
 import { eq } from "drizzle-orm";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
-import { organization, user } from "../schema/index.ts";
+import { orders, organization, storeConnections, user } from "../schema/index.ts";
 import { createTestDatabase, createTestTenantPair, createTestUsers } from "../testing/fixtures.ts";
 import { getAdminReportRows } from "./admin-report.ts";
 import { addTicketMessage } from "./support.ts";
@@ -59,6 +59,29 @@ beforeAll(async () => {
   await reply(ticketId, current, new Date(opened.getTime() + 2 * HOUR));
   // Replied in March as an agent, then left the team: the role went back to a customer's.
   await database.update(user).set({ role: "user" }).where(eq(user.id, former));
+  // Tenant A's only March sale, cancelled on 5 April: in March it was still a sale.
+  const [store] = await database
+    .insert(storeConnections)
+    .values({
+      tenantId: tenants.tenantA,
+      marketplace: "mock",
+      externalShopId: `admin-report-${tenants.tenantA}`,
+      shopName: "Loja A",
+    })
+    .returning();
+  if (!store) {
+    throw new Error("loja não criada");
+  }
+  await database.insert(orders).values({
+    tenantId: tenants.tenantA,
+    storeConnectionId: store.id,
+    externalOrderId: "ADMIN-REPORT-1",
+    status: "cancelled",
+    totalCents: 10_000,
+    orderedAt: new Date("2003-03-10T12:00:00Z"),
+    paidAt: new Date("2003-03-10T12:00:00Z"),
+    reversedAt: new Date("2003-04-05T12:00:00Z"),
+  });
 });
 
 afterAll(async () => {
@@ -99,5 +122,16 @@ describe("admin report rows", () => {
       now: NOW,
     });
     expect(before.formerStaff.map((member) => member.id)).not.toContain(former);
+  });
+
+  it("counts a reseller whose sale was cancelled only after the month ended", async () => {
+    const rows = await getAdminReportRows(database, {
+      period: PERIOD,
+      previous: PREVIOUS,
+      trendSince: PREVIOUS.from,
+      now: NOW,
+    });
+
+    expect(rows.platform.current.sellersWithOrders).toBe(1);
   });
 });

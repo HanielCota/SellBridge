@@ -4,7 +4,7 @@ import { sql, type SQL } from "drizzle-orm";
 import { z } from "zod";
 import type { Database } from "../client.ts";
 import type { ReportRange } from "./reports.ts";
-import { ORDER_SALE_DATE } from "./sql/counted-orders.ts";
+import { ORDER_SALE_DATE, statusAtPeriodEnd } from "./sql/counted-orders.ts";
 import { sqlIntegerSchema, timestampOf } from "./sql/raw-values.ts";
 import { BUCKET_SQL, type TimeseriesBucket } from "./sql/timeseries-buckets.ts";
 
@@ -31,20 +31,61 @@ function statusList(statuses: readonly OrderStatus[]): SQL {
   );
 }
 
+const SOLD_STATUSES: readonly OrderStatus[] = ["paid", "shipped", "delivered"];
+const UNDONE_STATUSES: readonly OrderStatus[] = ["cancelled", "returned"];
+
 /**
- * CTE `supplier_lines`: one row per sold item of the supplier's products in the scope. The status
- * is compared as text, since the parameters reach Postgres untyped.
+ * What a period does with an earlier sale cancelled or returned in it: the sold figures take it
+ * back ("subtract"), the lost ones list it as a loss of this period ("list"), and the open or
+ * delivered ones, which follow the work, leave it out.
+ */
+type UndoneEarlierMode = "subtract" | "list" | "none";
+
+function undoneEarlierMode(statuses: readonly OrderStatus[]): UndoneEarlierMode {
+  if (SOLD_STATUSES.every((status) => statuses.includes(status))) {
+    return "subtract";
+  }
+  if (statuses.every((status) => UNDONE_STATUSES.includes(status))) {
+    return "list";
+  }
+  return "none";
+}
+
+/**
+ * The supplier's item lines `i` of order `o` the period reads: those sold in it, by the status
+ * the order had when it ended, and, when the statuses ask for it, earlier sales undone in it.
+ */
+function supplierLinesCondition(scope: SupplierSalesScope, mode: UndoneEarlierMode): SQL {
+  const from = timestampOf(scope.range.from);
+  const to = timestampOf(scope.range.to);
+  const ofPeriod = sql`(${ORDER_SALE_DATE} >= ${from} and ${ORDER_SALE_DATE} < ${to}
+    and ${statusAtPeriodEnd(scope.range.to)}::text in (${statusList(scope.statuses)}))`;
+  if (mode === "none") {
+    return ofPeriod;
+  }
+  return sql`(${ofPeriod} or (${ORDER_SALE_DATE} < ${from}
+    and o.reversed_at >= ${from} and o.reversed_at < ${to}
+    and o.status::text in ('cancelled', 'returned')))`;
+}
+
+/**
+ * CTE `supplier_lines`: one row per item of the supplier's products the period reads. Each thing
+ * counts in the period it happened (docs/decisions/2026-11-23-cancelamento-no-mes-em-que-aconteceu.md):
+ * a sale undone after its period still counts there; in the sold figures, the period of the
+ * cancellation takes it back with negative units and amount (`sign` -1, dated `entry_date`).
+ * The status is compared as text, since the parameters reach Postgres untyped.
  */
 export function supplierLinesCte(scope: SupplierSalesScope): SQL {
+  const mode = undoneEarlierMode(scope.statuses);
   const conditions: SQL[] = [
     sql`p.supplier_id = ${scope.supplierId}`,
-    sql`${ORDER_SALE_DATE} >= ${timestampOf(scope.range.from)}`,
-    sql`${ORDER_SALE_DATE} < ${timestampOf(scope.range.to)}`,
-    sql`o.status::text in (${statusList(scope.statuses)})`,
+    supplierLinesCondition(scope, mode),
   ];
   if (scope.supplierProductId !== undefined) {
     conditions.push(sql`i.supplier_product_id = ${scope.supplierProductId}`);
   }
+  const earlier = sql`(${ORDER_SALE_DATE} < ${timestampOf(scope.range.from)})`;
+  const sign = mode === "subtract" ? sql`(case when ${earlier} then -1 else 1 end)` : sql`1`;
   return sql`
     supplier_lines as (
       select
@@ -53,9 +94,11 @@ export function supplierLinesCte(scope: SupplierSalesScope): SQL {
         o.ordered_at,
         o.paid_at,
         ${ORDER_SALE_DATE} as sale_date,
+        case when ${earlier} then o.reversed_at else ${ORDER_SALE_DATE} end as entry_date,
+        ${sign} as sign,
         i.supplier_product_id,
-        i.quantity,
-        i.unit_cost_cents::bigint * i.quantity as receivable
+        ${sign} * i.quantity as quantity,
+        ${sign} * i.unit_cost_cents::bigint * i.quantity as receivable
       from order_items i
       join supplier_products p on p.id = i.supplier_product_id
       join orders o on o.id = i.order_id and o.tenant_id = i.tenant_id
@@ -70,13 +113,22 @@ export interface SupplierSalesSummary {
   /** Resellers (accounts) with at least one of these orders. */
   resellers: number;
   averageOrderCents: number | null;
+  /**
+   * Sales of an earlier period cancelled or returned in this one, and what the supplier would have
+   * received for them (a positive number): already taken off `receivableCents`.
+   */
+  undoneEarlierOrders: number;
+  undoneEarlierReceivableCents: number;
 }
 
 const summaryRowSchema = z.object({
   orders: count,
   units: count,
   receivable: count,
+  sold_receivable: count,
   resellers: count,
+  undone_orders: count,
+  undone_receivable: count,
 });
 
 export async function getSupplierSalesSummary(
@@ -86,10 +138,13 @@ export async function getSupplierSalesSummary(
   const rows = await database.execute(sql`
     with ${supplierLinesCte(scope)}
     select
-      count(distinct order_id) as orders,
+      count(distinct order_id) filter (where sign > 0) as orders,
       coalesce(sum(quantity), 0) as units,
       coalesce(sum(receivable), 0) as receivable,
-      count(distinct tenant_id) as resellers
+      coalesce(sum(receivable) filter (where sign > 0), 0) as sold_receivable,
+      count(distinct tenant_id) filter (where sign > 0) as resellers,
+      count(distinct order_id) filter (where sign < 0) as undone_orders,
+      coalesce(-sum(receivable) filter (where sign < 0), 0) as undone_receivable
     from supplier_lines
   `);
   const row = summaryRowSchema.parse(rows[0]);
@@ -98,7 +153,9 @@ export async function getSupplierSalesSummary(
     units: row.units,
     receivableCents: row.receivable,
     resellers: row.resellers,
-    averageOrderCents: row.orders > 0 ? Math.round(row.receivable / row.orders) : null,
+    averageOrderCents: row.orders > 0 ? Math.round(row.sold_receivable / row.orders) : null,
+    undoneEarlierOrders: row.undone_orders,
+    undoneEarlierReceivableCents: row.undone_receivable,
   };
 }
 
@@ -134,8 +191,8 @@ export async function getSupplierSalesTimeseries(
     ),
     grouped as (
       select
-        date_trunc(${unit}, sale_date at time zone ${REPORT_TIME_ZONE}) as bucket,
-        count(distinct order_id) as orders,
+        date_trunc(${unit}, entry_date at time zone ${REPORT_TIME_ZONE}) as bucket,
+        count(distinct order_id) filter (where sign > 0) as orders,
         sum(quantity) as units,
         sum(receivable) as receivable
       from supplier_lines
