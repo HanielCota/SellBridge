@@ -1,5 +1,5 @@
 {
-  "id": "b0ecf8ed-42bc-43aa-9f65-fec128165111",
+  "id": "0e1fdf24-6d6e-43c6-b988-bcd70ec14072",
   "prevId": "ed90b8b6-f7bf-4778-9382-8c51b01f6da8",
   "version": "7",
   "dialect": "postgresql",
@@ -3772,12 +3772,6 @@
           "primaryKey": false,
           "notNull": false
         },
-        "reversed_at": {
-          "name": "reversed_at",
-          "type": "timestamp with time zone",
-          "primaryKey": false,
-          "notNull": false
-        },
         "created_at": {
           "name": "created_at",
           "type": "timestamp with time zone",
@@ -3804,28 +3798,6 @@
             }
           ],
           "isUnique": false,
-          "concurrently": false,
-          "method": "btree",
-          "with": {}
-        },
-        "orders_tenant_reversed_idx": {
-          "name": "orders_tenant_reversed_idx",
-          "columns": [
-            {
-              "expression": "tenant_id",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            },
-            {
-              "expression": "reversed_at",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            }
-          ],
-          "isUnique": false,
-          "where": "\"orders\".\"reversed_at\" is not null",
           "concurrently": false,
           "method": "btree",
           "with": {}
@@ -10494,6 +10466,12 @@
           "primaryKey": false,
           "notNull": false
         },
+        "provider_fee_cents": {
+          "name": "provider_fee_cents",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false
+        },
         "checked_at": {
           "name": "checked_at",
           "type": "timestamp with time zone",
@@ -10686,6 +10664,34 @@
           ],
           "isUnique": false,
           "where": "\"shipment_payments\".\"status\" in ('approved','charged_back') and \"shipment_payments\".\"released_at\" is null and \"shipment_payments\".\"refund_failed_at\" is null",
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "shipment_payments_supplier_paid_idx": {
+          "name": "shipment_payments_supplier_paid_idx",
+          "columns": [
+            {
+              "expression": "supplier_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "paid_at",
+              "isExpression": false,
+              "asc": false,
+              "nulls": "last"
+            },
+            {
+              "expression": "id",
+              "isExpression": false,
+              "asc": false,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "where": "\"shipment_payments\".\"paid_at\" is not null",
           "concurrently": false,
           "method": "btree",
           "with": {}
