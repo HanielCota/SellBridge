@@ -31,9 +31,9 @@ export interface UploadLimiter {
 }
 
 /**
- * A sliding window per account, kept in memory: one web instance serves the app (the same
- * reason Better Auth's sign-in limits live in memory, see auth.ts). A restart forgets the
- * counts; several instances would need Redis or a table (item 32).
+ * A sliding window per account, kept in memory: one web instance serves the app. A restart
+ * forgets the counts, which only matters for password guessing, so the sign-in limits live in
+ * Redis instead (auth-rate-limit.ts); several instances would need the same here (item 32).
  */
 export function createUploadLimiter(budget: UploadBudget): UploadLimiter {
   const recent = new Map<string, number[]>();

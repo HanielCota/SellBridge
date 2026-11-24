@@ -6,6 +6,7 @@ import { AuthPageHeader, AuthSubmitButton } from "@/components/auth/auth-page";
 import { liveFieldBindings, submitHandler } from "@/components/form/form-bindings";
 import { FloatingTextField } from "@/components/form/floating-field";
 import { InlineFormError } from "@/components/form/inline-form-error";
+import { tooManyAttemptsMessage } from "@/features/auth/sign-in-error";
 import { authClient } from "@/lib/auth-client";
 
 export const Route = createFileRoute("/_auth/esqueci-senha")({
@@ -27,7 +28,10 @@ function useForgotPasswordForm() {
         redirectTo: "/redefinir-senha",
       });
       if (result.error) {
-        setSubmitError("Não deu para enviar o link agora. Tente de novo daqui a um minuto.");
+        setSubmitError(
+          tooManyAttemptsMessage(result.error) ??
+            "Não deu para enviar o link agora. Tente de novo daqui a um minuto.",
+        );
         return;
       }
       setSentTo(value.email);
