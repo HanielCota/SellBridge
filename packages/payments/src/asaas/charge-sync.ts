@@ -4,6 +4,7 @@ import {
   listShipmentPaymentCheckouts,
   markEscrowReleased,
   saveShipmentPaymentEscrow,
+  saveShipmentPaymentProviderFee,
   type ShipmentPayment,
   type SupplierPaymentAccount,
 } from "@sellbridge/database/repositories";
@@ -14,6 +15,7 @@ import { z } from "zod";
 import { withAsaasAccount } from "./account-access.ts";
 import {
   asaasChargeState,
+  asaasFeeCents,
   chargesWithMoneyTaken,
   platformShareCents,
   type AsaasChargeState,
@@ -111,6 +113,25 @@ function logEndedWithoutSellBridge(payment: ShipmentPayment, escrowId: string): 
   });
 }
 
+/**
+ * Keeps the fee Asaas took from a paid parcel for the supplier's statement. Payments still held
+ * when this started being recorded get theirs on the next reading.
+ */
+async function saveProviderFee(
+  context: AsaasContext,
+  payment: ShipmentPayment,
+  charge: AsaasPayment,
+): Promise<void> {
+  if (payment.paidAt === null || payment.providerFeeCents !== null) {
+    return;
+  }
+  const feeCents = asaasFeeCents(charge);
+  if (feeCents === null) {
+    return;
+  }
+  await saveShipmentPaymentProviderFee(context.database, { paymentId: payment.id, feeCents });
+}
+
 /** Keeps the guarantee as Asaas reports it; one ended without SellBridge counts as released. */
 async function saveEscrow(
   context: AsaasContext,
@@ -206,6 +227,7 @@ export async function applyAsaasCharge(
     return { kind: "ignored", reason: "duplicate" };
   }
   await saveEscrow(context, outcome.payment, state);
+  await saveProviderFee(context, outcome.payment, input.charge);
   const saved = await findShipmentPaymentById(context.database, outcome.payment.id);
   return { kind: "applied", payment: saved ?? outcome.payment, charge: state };
 }

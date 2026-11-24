@@ -40,8 +40,11 @@ function assertCents(name: string, value: number): void {
   }
 }
 
-/** The Asaas fee estimated for one payment of this amount, by the method it is paid with. */
-function asaasFeeEstimateCents(amountCents: number, method: SupplierPayMethod): number {
+/**
+ * The Asaas fee estimated for one payment of this amount, by the method it is paid with, in
+ * cents, from Asaas's published standard prices.
+ */
+export function asaasFeeEstimateCents(amountCents: number, method: SupplierPayMethod): number {
   if (method === "PIX") {
     return ASAAS_PIX_FEE_CENTS;
   }

@@ -14,6 +14,7 @@ const mocks = vi.hoisted(() => ({
   holder: vi.fn<(...input: unknown[]) => Promise<unknown>>(),
   email: vi.fn<(...input: unknown[]) => Promise<string | null>>(),
   courtesy: vi.fn<(...input: unknown[]) => Promise<unknown>>(),
+  enableInvoices: vi.fn<(...input: unknown[]) => Promise<string>>(),
   client: {
     findSubscriber: vi.fn<(...input: unknown[]) => Promise<string | null>>(),
     createSubscriber: vi.fn<(...input: unknown[]) => Promise<string>>(),
@@ -57,6 +58,9 @@ vi.mock("./billing-lock-database.server", () => ({
   }),
 }));
 vi.mock("./billing-config.server", () => ({ billingClient: () => mocks.client }));
+vi.mock("./subscription-invoices.server", () => ({
+  enableSubscriptionInvoices: mocks.enableInvoices,
+}));
 vi.mock("./plan-change", async (importOriginal) => ({
   ...(await importOriginal<typeof import("./plan-change")>()),
   planChangeOf: mocks.planChangeOf,
@@ -398,6 +402,17 @@ describe("first subscription", () => {
       expect.objectContaining({ subscriptionId: "sub_new", plan: "pro", status: "incomplete" }),
     );
     expect(result).toEqual({ url: "https://asaas.test/i/1" });
+  });
+
+  it("sets up the service invoice of a new Pix subscription for its plan", async () => {
+    await startSubscription({ ...input, method: "pix" });
+
+    expect(mocks.enableInvoices).toHaveBeenCalledWith(mocks.client, {
+      tenantId: "tenant-a",
+      subscriptionId: "sub_new",
+      customerId: "cus_a",
+      planId: "pro",
+    });
   });
 
   it("reuses the customer already bound to the tenant", async () => {

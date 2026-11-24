@@ -11,6 +11,9 @@ import { cn } from "@/lib/utils";
 const FEES_HINT =
   "Taxas do marketplace sobre a venda, com o frete que você pagou ao Mercado Livre.";
 
+const EARLIER_HINT =
+  "Uma venda paga num mês e cancelada ou devolvida no outro fica como venda no mês do pagamento e sai do mês do cancelamento, como no extrato do Mercado Livre. Assim um mês que já acabou não muda.";
+
 function ordersLine(summary: SalesSummary): string {
   const parts = [`${summary.orders} ${summary.orders === 1 ? "pedido" : "pedidos"}`];
   if (summary.cancelledOrders > 0) {
@@ -88,6 +91,26 @@ function PendingClause({ summary }: { summary: SalesSummary }) {
   );
 }
 
+/**
+ * Sales of an earlier period cancelled or returned in this one, taken off before the costs:
+ * "Saíram R$ 100,00 de 1 venda de antes, cancelada ou devolvida no período."
+ */
+function EarlierClause({ summary, scope }: { summary: SalesSummary; scope: string }) {
+  const one = summary.reversedEarlierOrders === 1;
+  return (
+    <>
+      Saíram{" "}
+      <Amount
+        cents={summary.reversedEarlierRevenueCents}
+        color="border-finance-refund text-foreground"
+      />{" "}
+      de {summary.reversedEarlierOrders} {one ? "venda" : "vendas"} de antes,{" "}
+      {one ? "cancelada ou devolvida" : "canceladas ou devolvidas"} {scope}
+      <Hint label="Por que uma venda antiga desconta agora">{EARLIER_HINT}</Hint>.{" "}
+    </>
+  );
+}
+
 /** Every sale has an unknown cost and nothing else moved: there is no "rest" to break down. */
 function isOnlyPendingCost(summary: SalesSummary): boolean {
   return (
@@ -103,9 +126,12 @@ function isOnlyPendingCost(summary: SalesSummary): boolean {
  */
 function MoneySentence({ summary, scope }: { summary: SalesSummary; scope: string }) {
   const revenue = summary.revenueCents;
+  // What the period's own sales brought in; earlier sales undone in it come off right after.
+  const sold = revenue + summary.reversedEarlierRevenueCents;
+  const hasEarlier = summary.reversedEarlierOrders > 0;
   const fees = summary.feeCents;
   const profit = summary.profitCents;
-  if (revenue === 0 && summary.refundCents === 0 && summary.commissionCents === 0) {
+  if (revenue === 0 && summary.refundCents === 0 && summary.commissionCents === 0 && !hasEarlier) {
     return <p className="mt-3 text-sm text-muted-foreground">Nenhuma venda {scope}.</p>;
   }
   if (isOnlyPendingCost(summary)) {
@@ -118,15 +144,10 @@ function MoneySentence({ summary, scope }: { summary: SalesSummary; scope: strin
   }
   return (
     <p className="mt-3 text-sm leading-7 text-muted-foreground sm:text-subhead">
-      Você vendeu <Amount cents={revenue} color="border-foreground/40 text-foreground" />.{" "}
-      {summary.pendingCostOrders > 0 ? (
-        <>
-          <PendingClause summary={summary} />
-          Do restante,{" "}
-        </>
-      ) : (
-        "Desse valor, "
-      )}
+      Você vendeu <Amount cents={sold} color="border-foreground/40 text-foreground" />.{" "}
+      {hasEarlier ? <EarlierClause summary={summary} scope={scope} /> : null}
+      {summary.pendingCostOrders > 0 ? <PendingClause summary={summary} /> : null}
+      {summary.pendingCostOrders > 0 || hasEarlier ? "Do restante, " : "Desse valor, "}
       <Amount cents={summary.costCents} color="border-finance-cost text-foreground" /> pagaram os
       produtos e <Amount cents={fees} color="border-finance-fee text-foreground" /> foram taxas
       <Hint label="O que entra em taxas">{FEES_HINT}</Hint>
@@ -180,7 +201,8 @@ function FooterLine({
         ) : null}
         {ordersLine(summary)}
         <Hint label="O que não conta como venda">
-          Aguardando pagamento, cancelados e devolvidos não entram na receita nem no lucro
+          Aguardando pagamento, cancelados e devolvidos não entram na receita nem no lucro. Uma
+          venda de antes cancelada ou devolvida no período sai da receita e do lucro dele.
         </Hint>
       </p>
       {pickedDay ? (

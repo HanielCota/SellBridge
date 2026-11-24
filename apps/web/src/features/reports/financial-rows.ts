@@ -85,6 +85,25 @@ export function saleDateOf(row: SaleDates): Date {
   return row.paidAt ?? row.orderedAt;
 }
 
+type UndoneDates = Pick<
+  OrderFinancialRow,
+  "status" | "reversedAt" | "countsAsSale" | "fromEarlierPeriod"
+>;
+
+/**
+ * When a sale that still counts in this period was cancelled or returned afterwards; null for
+ * every other row. It stays a sale here, and the later period takes it back.
+ */
+export function undoneAfterPeriod(row: UndoneDates): Date | null {
+  if (!row.countsAsSale || row.reversedAt === null) {
+    return null;
+  }
+  if (row.status !== "cancelled" && row.status !== "returned") {
+    return null;
+  }
+  return row.reversedAt;
+}
+
 /** The order date, only when the order was paid on another (Brazil) day than it was placed. */
 export function placedOnAnotherDay(row: SaleDates): Date | null {
   if (row.paidAt === null || brazilDayKey(row.paidAt) === brazilDayKey(row.orderedAt)) {
@@ -99,12 +118,14 @@ export interface OrderDay<TRow> {
 }
 
 /**
- * Consecutive rows of the same sale day together, keeping the list's order (newest or oldest
- * first): the list is sorted by sale date, as its totals count.
+ * Consecutive rows of the same day together, keeping the list's order (newest or oldest first):
+ * the list is sorted by the date each row counts on, the sale or what happened to an earlier one.
  */
-export function groupOrdersByDay<TRow extends SaleDates>(rows: readonly TRow[]): OrderDay<TRow>[] {
+export function groupOrdersByDay<TRow extends Pick<OrderFinancialRow, "entryDate">>(
+  rows: readonly TRow[],
+): OrderDay<TRow>[] {
   return rows.reduce<OrderDay<TRow>[]>((days, row) => {
-    const key = brazilDayKey(saleDateOf(row));
+    const key = brazilDayKey(row.entryDate);
     const last = days.at(-1);
     if (last?.key === key) {
       last.rows.push(row);

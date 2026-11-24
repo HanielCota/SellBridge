@@ -19,6 +19,8 @@ describe("presentFinancialSummary", () => {
         unpaidOrders: 1,
         unpaidTotalCents: 3000,
         averageTicketCents: 10_000,
+        reversedEarlierOrders: 0,
+        reversedEarlierRevenueCents: 0,
       },
       { fromDate: "2026-03-01", toDate: "2026-03-07" },
     );

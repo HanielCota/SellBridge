@@ -3,7 +3,7 @@ import {
   type PaymentAccountReviewStatus,
   type PaymentProviderName,
 } from "@sellbridge/shared/payment-accounts";
-import { and, count, eq } from "drizzle-orm";
+import { and, count, eq, isNull } from "drizzle-orm";
 import type { Database } from "../client.ts";
 import {
   orderShipments,
@@ -161,6 +161,23 @@ export async function saveShipmentPaymentEscrow(
       escrowExpiresAt: input.escrowExpiresAt,
     })
     .where(eq(shipmentPayments.id, input.paymentId));
+}
+
+/**
+ * Records the fee the provider kept from a paid parcel, once: a later reading never replaces it.
+ *
+ * @param feeCents - The provider's fee in cents, a non-negative integer.
+ */
+export async function saveShipmentPaymentProviderFee(
+  database: Database,
+  input: { paymentId: string; feeCents: number },
+): Promise<void> {
+  await database
+    .update(shipmentPayments)
+    .set({ providerFeeCents: input.feeCents })
+    .where(
+      and(eq(shipmentPayments.id, input.paymentId), isNull(shipmentPayments.providerFeeCents)),
+    );
 }
 
 /** Puts back in service an account whose protection was missing and is now on. */

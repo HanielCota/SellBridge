@@ -82,7 +82,7 @@ function SwitchForm({ view }: { view: ContractSigningSettingsView }) {
         </div>
         <p id={`${switchId}-hint`} className="pl-14 text-footnote text-muted-foreground">
           Vendedores e fornecedores leem o resumo, marcam cada ponto e assinam com um código enviado
-          ao e-mail. Ligue só quando o advogado liberar o texto final.
+          ao e-mail.
         </p>
       </div>
       {changed ? <Consequence view={view} required={required} /> : null}
@@ -126,7 +126,7 @@ export function ContractSigningCard() {
           {query.data === undefined ? null : <SwitchStatus view={query.data} />}
         </div>
         <p className="text-sm text-muted-foreground">
-          Os textos ainda são provisórios. Veja como estão:{" "}
+          Veja os contratos:{" "}
           <Link to="/contrato/vendedor" target="_blank" className="underline underline-offset-2">
             contrato de vendedor
           </Link>{" "}

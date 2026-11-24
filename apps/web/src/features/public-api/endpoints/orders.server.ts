@@ -79,7 +79,11 @@ export const listOrders = defineApiEndpoint({
       context.now,
     );
     const page = await listOrderFinancials(database, scope, {
-      filters: { statuses: statusesFor(query.status, query.stage), search: query.search },
+      filters: {
+        statuses: statusesFor(query.status, query.stage),
+        search: query.search,
+        filedInPeriodOnly: true,
+      },
       sort: { field: query.sort, direction: query.direction },
       pagination: { page: query.page, pageSize: query.pageSize },
     });

@@ -1,12 +1,16 @@
 import type { OrderFinancialRow } from "@sellbridge/database/repositories";
 import { describe, expect, it } from "vitest";
-import { buildFinancialCsv, centsToCsv, textCell } from "./csv";
+import { buildFinancialCsv, centsToCsv, periodEntryLabel, textCell } from "./csv";
 
 const row: OrderFinancialRow = {
   id: "1",
   externalOrderId: "ORD-1",
   orderedAt: new Date("2026-03-01T13:00:00Z"),
   paidAt: new Date("2026-03-01T13:00:00Z"),
+  reversedAt: null,
+  entryDate: new Date("2026-03-01T13:00:00Z"),
+  fromEarlierPeriod: false,
+  countsAsSale: true,
   deliveredAt: null,
   status: "delivered",
   storeConnectionId: "store-1",
@@ -84,5 +88,44 @@ describe("buildFinancialCsv", () => {
 
   it("handles an empty export", () => {
     expect(buildFinancialCsv([]).trim().split("\r\n")).toHaveLength(1);
+  });
+
+  it("marks a sale cancelled after its month as a sale, with the cancellation date", () => {
+    const cancelledLater = {
+      ...row,
+      status: "cancelled",
+      reversedAt: new Date("2026-04-03T13:00:00Z"),
+      countsAsSale: true,
+    };
+
+    const line = buildFinancialCsv([cancelledLater]).trim().split("\r\n")[1] ?? "";
+
+    expect(line).toContain(";Cancelado;Venda;03/04/2026, 10:00;");
+  });
+});
+
+describe("periodEntryLabel", () => {
+  const entry = { countsAsSale: false, fromEarlierPeriod: true, revenueCents: -10_000 };
+
+  it("names the cancellation of an earlier sale", () => {
+    expect(periodEntryLabel({ ...entry, status: "cancelled" })).toBe(
+      "Cancelamento de venda anterior",
+    );
+  });
+
+  it("names the return of an earlier sale", () => {
+    expect(periodEntryLabel({ ...entry, status: "returned" })).toBe("Devolução de venda anterior");
+  });
+
+  it("names a refund of an earlier sale that still counts", () => {
+    expect(periodEntryLabel({ ...entry, status: "delivered", revenueCents: 0 })).toBe(
+      "Reembolso de venda anterior",
+    );
+  });
+
+  it("says an order of the period cancelled in it is not a sale", () => {
+    const cancelled = { ...entry, fromEarlierPeriod: false, revenueCents: 0, status: "cancelled" };
+
+    expect(periodEntryLabel(cancelled)).toBe("Não conta como venda");
   });
 });

@@ -4,7 +4,7 @@ import {
   type BillingPlanId,
   type BillingRules,
 } from "@sellbridge/shared/billing";
-import { and, eq, count, ne, sql } from "drizzle-orm";
+import { and, eq, count, isNotNull, ne, sql } from "drizzle-orm";
 import { forbiddenError } from "@sellbridge/shared/errors";
 import type { Database, DatabaseExecutor } from "../client.ts";
 import {
@@ -137,6 +137,33 @@ export async function tryLockBillingCheckout(
     sql`select pg_try_advisory_xact_lock(hashtext('billing-checkout'), hashtext(${tenantId})) as locked`,
   );
   return rows[0]?.locked === true;
+}
+
+/**
+ * Turning on a subscription's service invoice, one run per subscription: two at once could each
+ * schedule the invoice of the same paid charge. False when another run holds it.
+ */
+export async function tryLockSubscriptionInvoices(
+  database: DatabaseExecutor,
+  subscriptionId: string,
+): Promise<boolean> {
+  const rows = await database.execute(
+    sql`select pg_try_advisory_xact_lock(hashtext('billing-invoices'), hashtext(${subscriptionId})) as locked`,
+  );
+  return rows[0]?.locked === true;
+}
+
+/** Every account bound to a subscription, for the one-off pass over existing subscriptions. */
+export async function listSubscribedBillingAccounts(database: DatabaseExecutor) {
+  return database
+    .select({
+      tenantId: billingAccounts.tenantId,
+      subscriptionId: billingAccounts.subscriptionId,
+      customerId: billingAccounts.customerId,
+      plan: billingAccounts.plan,
+    })
+    .from(billingAccounts)
+    .where(isNotNull(billingAccounts.subscriptionId));
 }
 
 /**

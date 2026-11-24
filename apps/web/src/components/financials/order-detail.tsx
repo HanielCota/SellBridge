@@ -2,17 +2,27 @@ import type { OrderFinancialRow } from "@sellbridge/database/repositories";
 import { OrderStatusBadge } from "@/components/reports/order-status-badge";
 import { PopoverContent } from "@/components/ui/popover";
 import { displayBuyerName } from "@/features/orders/buyer-name";
-import { placedOnAnotherDay } from "@/features/reports/financial-rows";
+import { placedOnAnotherDay, undoneAfterPeriod } from "@/features/reports/financial-rows";
 import { formatAbsoluteTime } from "@/lib/relative-time";
 import { marginLabel, OrderBreakdown, OrderSplitBar } from "./order-parts";
 import { SupplierCreditLines, useSupplierCredits } from "./supplier-credit";
 
 /** When it was placed, and when it was paid if that was on another day. */
-function whenLabel(row: OrderFinancialRow): string {
+function placedLabel(row: OrderFinancialRow): string {
   if (row.paidAt === null || placedOnAnotherDay(row) === null) {
     return formatAbsoluteTime(row.orderedAt);
   }
   return `Pedido em ${formatAbsoluteTime(row.orderedAt)} · pago em ${formatAbsoluteTime(row.paidAt)}`;
+}
+
+/** Plus when a paid sale was cancelled or returned, the date that moves it between months. */
+function whenLabel(row: OrderFinancialRow): string {
+  const undoneAt = row.fromEarlierPeriod ? row.reversedAt : undoneAfterPeriod(row);
+  if (undoneAt === null) {
+    return placedLabel(row);
+  }
+  const undone = row.status === "returned" ? "devolvido" : "cancelado";
+  return `${placedLabel(row)} · ${undone} em ${formatAbsoluteTime(undoneAt)}`;
 }
 
 /** One order's arithmetic, opened from a statement row: what came in, went out and was left. */

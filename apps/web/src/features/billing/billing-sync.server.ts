@@ -25,6 +25,7 @@ import { database } from "@/lib/server/database";
 import { environment } from "@/lib/server/environment";
 import { billingClient } from "./billing-config.server";
 import { paidMonthCarriedTo } from "./paid-month";
+import { enableSubscriptionInvoices } from "./subscription-invoices.server";
 import { CHARGE_REFERENCE, CHECKOUT_REFERENCE, SUBSCRIPTION_REFERENCE } from "./pending-reference";
 import { upgradeTenantId, upgradeUntil } from "./upgrade-reference";
 
@@ -250,6 +251,15 @@ export async function syncBillingSubscription(input: {
       await retireSubscription(client, account.subscriptionId);
     }
   });
+  // A card subscription reaches us only after its first payment; its invoice is set up here.
+  if (adopting) {
+    await enableSubscriptionInvoices(client, {
+      tenantId: account.tenantId,
+      subscriptionId: subscription.id,
+      customerId: subscription.customer,
+      planId: account.pendingPlan ?? account.plan,
+    });
+  }
 }
 
 const LATE_DIFFERENCE_REFUND = "Diferença de plano paga depois do fim do mês a que se referia";
@@ -400,6 +410,12 @@ export async function syncUpgradeCharge(input: {
     await client.changeSubscriptionValue(account.subscriptionId, {
       valueCents: plan.priceCents,
       description: planDescription(plan.id),
+    });
+    await enableSubscriptionInvoices(client, {
+      tenantId,
+      subscriptionId: account.subscriptionId,
+      customerId: account.customerId,
+      planId: plan.id,
     });
   }
   const patch = { plan: plan.id, scheduledPlan: null, scheduledPlanAt: null };
