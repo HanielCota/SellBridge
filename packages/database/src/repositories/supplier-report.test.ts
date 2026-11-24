@@ -11,7 +11,7 @@ import {
   testAddress,
   testStoreInput,
 } from "../testing/fixtures.ts";
-import { collectKeys, serializeWithoutIds } from "../testing/serialize.ts";
+import { collectKeys, serializeWithoutIdsOrTimes } from "../testing/serialize.ts";
 import { upsertMarketplaceOrder } from "./orders.ts";
 import { upsertStoreConnection } from "./stores.ts";
 import {
@@ -200,7 +200,7 @@ describe("supplier report shipments", () => {
       from: new Date(NOW.getTime() - 10 * DAY),
       to: new Date(NOW.getTime() + HOUR),
     });
-    const text = serializeWithoutIds(rows);
+    const text = serializeWithoutIdsOrTimes(rows);
     expect(text).not.toContain("Comprador Teste");
     expect(text).not.toContain(testAddress.street);
     expect(text).not.toContain("3990");
