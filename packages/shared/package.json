@@ -101,6 +101,7 @@
     "./dispatch-cutoff": "./src/domain/dispatch-cutoff.ts",
     "./shipment-payments": "./src/domain/shipment-payments.ts",
     "./supplier-net-amount": "./src/domain/supplier-net-amount.ts",
+    "./supplier-statement": "./src/domain/supplier-statement.ts",
     "./escrow-release": "./src/domain/escrow-release.ts",
     "./payment-accounts": "./src/domain/payment-accounts.ts",
     "./receiving-rules": "./src/domain/receiving-rules.ts",

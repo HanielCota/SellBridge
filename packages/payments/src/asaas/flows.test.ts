@@ -5,6 +5,7 @@ const mocks = vi.hoisted(() => ({
   listCheckouts: vi.fn<(...input: unknown[]) => Promise<unknown[]>>(),
   apply: vi.fn<(...input: unknown[]) => Promise<unknown>>(),
   saveEscrow: vi.fn<(...input: unknown[]) => Promise<void>>(),
+  saveProviderFee: vi.fn<(...input: unknown[]) => Promise<void>>(),
   markReleased: vi.fn<(...input: unknown[]) => Promise<void>>(),
   claimRelease: vi.fn<(...input: unknown[]) => Promise<boolean>>(),
   requestRefund: vi.fn<(...input: unknown[]) => Promise<unknown>>(),
@@ -20,6 +21,7 @@ vi.mock("@sellbridge/database/repositories", () => ({
   listShipmentPaymentCheckouts: mocks.listCheckouts,
   applyProviderPayment: mocks.apply,
   saveShipmentPaymentEscrow: mocks.saveEscrow,
+  saveShipmentPaymentProviderFee: mocks.saveProviderFee,
   markEscrowReleased: mocks.markReleased,
   claimEscrowRelease: mocks.claimRelease,
   requestShipmentPaymentRefund: mocks.requestRefund,
@@ -120,6 +122,7 @@ function parcel(overrides: Partial<ShipmentPayment> = {}): ShipmentPayment {
     providerPaymentId: "pay_1",
     paymentMethod: "PIX",
     paidAt: new Date(NOW.getTime() - 20 * DAY_IN_MS),
+    providerFeeCents: null,
     checkedAt: null,
     refundReason: null,
     refundRequestedAt: null,
@@ -449,6 +452,45 @@ describe("applyAsaasCharge", () => {
       escrowStatus: "active",
       escrowExpiresAt: new Date("2026-12-20T03:00:00Z"),
     });
+  });
+
+  test("keeps the fee Asaas took from a paid charge, apart from SellBridge's split share", async () => {
+    mocks.findPayment.mockResolvedValue(parcel({ status: "pending", providerPaymentId: null }));
+    mocks.apply.mockResolvedValue({ kind: "applied", payment: parcel() });
+
+    await applyAsaasCharge(context, { account, charge: charge({ netValue: 98.01 }) });
+
+    expect(mocks.saveProviderFee).toHaveBeenCalledWith(context.database, {
+      paymentId: PAYMENT_ID,
+      feeCents: 199,
+    });
+  });
+
+  test("keeps no Asaas fee for a charge that is not paid yet", async () => {
+    mocks.findPayment.mockResolvedValue(parcel({ status: "pending", providerPaymentId: null }));
+    mocks.apply.mockResolvedValue({
+      kind: "applied",
+      payment: parcel({ status: "pending", paidAt: null }),
+    });
+
+    await applyAsaasCharge(context, {
+      account,
+      charge: charge({ status: "PENDING", netValue: 98.01, escrow: null }),
+    });
+
+    expect(mocks.saveProviderFee).not.toHaveBeenCalled();
+  });
+
+  test("never replaces an Asaas fee already kept for the parcel", async () => {
+    mocks.findPayment.mockResolvedValue(parcel());
+    mocks.apply.mockResolvedValue({
+      kind: "unchanged",
+      payment: parcel({ providerFeeCents: 199 }),
+    });
+
+    await applyAsaasCharge(context, { account, charge: charge({ netValue: 97.5 }) });
+
+    expect(mocks.saveProviderFee).not.toHaveBeenCalled();
   });
 
   test("records a payment confirmed today at the moment SellBridge sees it, late evening included", async () => {
