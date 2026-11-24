@@ -3,6 +3,7 @@ import { and, eq, inArray } from "drizzle-orm";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { notificationDeliveries, notificationPreferences, user } from "../schema/index.ts";
 import { createTestDatabase, createTestTenantPair } from "../testing/fixtures.ts";
+import { serializeWithoutIds } from "../testing/serialize.ts";
 import { queueNewTicketNotices } from "./notification-producers.ts";
 import { createTicket } from "./support-create.ts";
 
@@ -79,7 +80,7 @@ describe("queueNewTicketNotices", () => {
       subject: "Chamado novo: Repasse não caiu",
       actionPath: `/admin/chamados/${ticketId}`,
     });
-    expect(JSON.stringify(toAgent?.content)).not.toContain("1234-5");
+    expect(serializeWithoutIds(toAgent?.content)).not.toContain("1234-5");
     expect(await emailsOf(people.agent, ticketId)).toHaveLength(1);
     expect(await emailsOf(people.admin, ticketId)).toHaveLength(1);
     expect(await emailsOf(people.reseller, ticketId)).toEqual([]);

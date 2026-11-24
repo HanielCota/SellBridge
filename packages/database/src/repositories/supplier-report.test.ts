@@ -11,6 +11,7 @@ import {
   testAddress,
   testStoreInput,
 } from "../testing/fixtures.ts";
+import { collectKeys, serializeWithoutIds } from "../testing/serialize.ts";
 import { upsertMarketplaceOrder } from "./orders.ts";
 import { upsertStoreConnection } from "./stores.ts";
 import {
@@ -199,10 +200,12 @@ describe("supplier report shipments", () => {
       from: new Date(NOW.getTime() - 10 * DAY),
       to: new Date(NOW.getTime() + HOUR),
     });
-    const text = JSON.stringify(rows);
+    const text = serializeWithoutIds(rows);
     expect(text).not.toContain("Comprador Teste");
     expect(text).not.toContain(testAddress.street);
     expect(text).not.toContain("3990");
+    expect(text).not.toMatch(/39[.,]9/);
+    expect(collectKeys(rows).filter((key) => /price|total/i.test(key))).toEqual([]);
   });
 
   it("exports only the parcels received in the period", async () => {
