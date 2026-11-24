@@ -45,6 +45,8 @@ export async function listSupplierProductSales(
       select supplier_product_id, sum(quantity) as units, sum(receivable) as receivable
       from supplier_lines
       group by supplier_product_id
+      -- A product only taken back (an earlier sale cancelled here) did not sell in the period.
+      having bool_or(sign > 0)
     )
     select
       p.id,
@@ -108,7 +110,7 @@ export async function getSupplierProductTimeseries(
   const rows = await database.execute(sql`
     with ${supplierLinesCte(scope)}
     select
-      to_char(date_trunc(${unit}, sale_date at time zone ${REPORT_TIME_ZONE}), ${label}) as bucket,
+      to_char(date_trunc(${unit}, entry_date at time zone ${REPORT_TIME_ZONE}), ${label}) as bucket,
       supplier_product_id as product_id,
       sum(quantity) as units,
       sum(receivable) as receivable

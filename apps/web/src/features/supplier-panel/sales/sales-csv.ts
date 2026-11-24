@@ -18,11 +18,33 @@ const HEADERS = [
   "Pago em",
   "Pedido",
   "Situação",
+  "Conta no período como",
+  "Cancelado ou devolvido em",
   "Produto",
   "Código",
   "Quantidade",
   "Valor vendido",
 ];
+
+type SupplierLineEntry = Pick<SupplierSaleLine, "fromEarlierPeriod" | "status">;
+
+/** What the line is in the period: one of its sales, or the cancellation of an earlier one. */
+export function supplierEntryLabel(line: SupplierLineEntry): string {
+  if (line.fromEarlierPeriod) {
+    return line.status === "returned"
+      ? "Devolução de venda anterior"
+      : "Cancelamento de venda anterior";
+  }
+  return "Venda do período";
+}
+
+/** Filled only for a paid sale that was cancelled or returned. */
+function reversedAtCell(line: Pick<SupplierSaleLine, "reversedAt" | "status">): string {
+  if (line.reversedAt === null || (line.status !== "cancelled" && line.status !== "returned")) {
+    return "";
+  }
+  return dateFormatter.format(line.reversedAt);
+}
 
 function toCsvLine(line: SupplierSaleLine): string {
   const text = [
@@ -30,6 +52,8 @@ function toCsvLine(line: SupplierSaleLine): string {
     paidAtCell(line.paidAt),
     line.externalOrderId,
     statusLabel(line.status),
+    supplierEntryLabel(line),
+    reversedAtCell(line),
     line.title,
     line.sku,
   ].map(textCell);
