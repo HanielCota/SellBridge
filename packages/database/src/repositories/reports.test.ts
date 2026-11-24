@@ -42,6 +42,10 @@ interface SeedOrder extends OrderFinanceInput {
   externalOrderId: string;
   orderedAt: string;
   paidAt?: string;
+  /** When the paid sale was cancelled or returned. */
+  reversedAt?: string;
+  /** When the adjustments were recorded; the sale's date by default. */
+  adjustedAt?: string;
   buyerName: string;
   title: string;
   unitPriceCents: number;
@@ -142,6 +146,7 @@ async function insertOrder(tenantId: string, storeConnectionId: string, seed: Se
       buyerName: seed.buyerName,
       orderedAt: new Date(seed.orderedAt),
       paidAt: seed.paidAt === undefined ? null : new Date(seed.paidAt),
+      reversedAt: seed.reversedAt === undefined ? null : new Date(seed.reversedAt),
     })
     .returning();
   if (!order) {
@@ -160,12 +165,18 @@ async function insertOrder(tenantId: string, storeConnectionId: string, seed: Se
     })),
   );
   if (seed.adjustments.length > 0) {
-    await database
-      .insert(orderAdjustments)
-      .values(
-        seed.adjustments.map((adjustment) => ({ ...adjustment, tenantId, orderId: order.id })),
-      );
+    // Recorded with the sale unless the seed says otherwise: a refund counts on its own date.
+    const createdAt = new Date(seed.adjustedAt ?? seed.paidAt ?? seed.orderedAt);
+    await database.insert(orderAdjustments).values(
+      seed.adjustments.map((adjustment) => ({
+        ...adjustment,
+        tenantId,
+        orderId: order.id,
+        createdAt,
+      })),
+    );
   }
+  return order.id;
 }
 
 function scope(overrides: Partial<ReportScope> = {}): ReportScope {
@@ -634,6 +645,173 @@ describe("order financials list", () => {
     await expect(
       exportOrderFinancials(database, scope(), { filters: {}, sort, maxRows: 3 }),
     ).rejects.toMatchObject({ code: "VALIDATION", message: expect.stringContaining("mais de 3") });
+  });
+});
+
+/** Runs a test on a tenant of its own, with one store, and removes it afterwards. */
+async function withTenant(run: (tenantId: string, store: string) => Promise<void>) {
+  const extra = await createTestTenants(database, 1);
+  const [tenantId] = extra.ids;
+  if (!tenantId) {
+    throw new Error("tenant não criado");
+  }
+  try {
+    await run(tenantId, await insertStore(tenantId, "Loja do fechamento"));
+  } finally {
+    await extra.cleanup();
+  }
+}
+
+describe("month closing: each thing counts in the period it happened", () => {
+  const february = { from: new Date("2026-02-01T03:00:00Z"), to: range.from };
+  // R$ 100 sale, R$ 40 of products and R$ 12 of fees: R$ 48 of profit.
+  const SALE: SeedOrder = {
+    externalOrderId: "CLOSE-1",
+    orderedAt: "2026-02-27T15:00:00Z",
+    paidAt: "2026-02-27T15:00:00Z",
+    buyerName: "Paula",
+    title: "Saia",
+    unitPriceCents: 10_000,
+    status: "delivered",
+    totalCents: 10_000,
+    marketplaceFeeCents: 1200,
+    items: [{ quantity: 1, knownUnitCostCents: 4000 }],
+    adjustments: [],
+  };
+  const statementQuery = {
+    filters: {},
+    sort: { field: "orderedAt", direction: "desc" },
+    pagination: { page: 1, pageSize: 10 },
+  } as const;
+
+  it("keeps a closed month's sale when it is cancelled the next month", async () => {
+    await withTenant(async (tenantId, store) => {
+      const orderId = await insertOrder(tenantId, store, SALE);
+      const before = await getSalesSummary(database, scope({ tenantId, range: february }));
+
+      // Cancelled on 3 March: February is over, so March takes the sale back.
+      await database
+        .update(orders)
+        .set({ status: "cancelled", reversedAt: new Date("2026-03-03T15:00:00Z") })
+        .where(eq(orders.id, orderId));
+      const after = await getSalesSummary(database, scope({ tenantId, range: february }));
+
+      expect(before).toMatchObject({ orders: 1, revenueCents: 10_000, profitCents: 4800 });
+      expect(after).toEqual(before);
+    });
+  });
+
+  it("takes a sale of an earlier month back in the month it was cancelled", async () => {
+    await withTenant(async (tenantId, store) => {
+      await insertOrder(tenantId, store, {
+        ...SALE,
+        status: "cancelled",
+        reversedAt: "2026-03-03T15:00:00Z",
+      });
+
+      const march = await getSalesSummary(database, scope({ tenantId }));
+      const days = await getSalesTimeseries(database, scope({ tenantId }), "day");
+      const list = await listOrderFinancials(database, scope({ tenantId }), statementQuery);
+      const februaryList = await listOrderFinancials(
+        database,
+        scope({ tenantId, range: february }),
+        statementQuery,
+      );
+
+      expect(march).toMatchObject({
+        orders: 0,
+        cancelledOrders: 0,
+        revenueCents: -10_000,
+        costCents: -4000,
+        feeCents: -1200,
+        profitCents: -4800,
+        reversedEarlierOrders: 1,
+        reversedEarlierRevenueCents: 10_000,
+        averageTicketCents: null,
+      });
+      expect(days.find((point) => point.date === "2026-03-03")?.revenueCents).toBe(-10_000);
+      expect(list.items).toMatchObject([
+        {
+          externalOrderId: "CLOSE-1",
+          fromEarlierPeriod: true,
+          countsAsSale: false,
+          revenueCents: -10_000,
+          profitCents: -4800,
+          entryDate: new Date("2026-03-03T15:00:00Z"),
+        },
+      ]);
+      expect(februaryList.items).toMatchObject([
+        { externalOrderId: "CLOSE-1", fromEarlierPeriod: false, countsAsSale: true },
+      ]);
+    });
+  });
+
+  it("lists each order once when only the orders filed in the period are asked for", async () => {
+    await withTenant(async (tenantId, store) => {
+      await insertOrder(tenantId, store, {
+        ...SALE,
+        status: "cancelled",
+        reversedAt: "2026-03-03T15:00:00Z",
+      });
+
+      const march = await listOrderFinancials(database, scope({ tenantId }), {
+        ...statementQuery,
+        filters: { filedInPeriodOnly: true },
+      });
+
+      expect(march.items).toEqual([]);
+    });
+  });
+
+  it("leaves a sale paid and cancelled in the same month out of it", async () => {
+    await withTenant(async (tenantId, store) => {
+      await insertOrder(tenantId, store, {
+        ...SALE,
+        orderedAt: "2026-03-02T15:00:00Z",
+        paidAt: "2026-03-02T15:00:00Z",
+        status: "cancelled",
+        reversedAt: "2026-03-04T15:00:00Z",
+      });
+
+      const march = await getSalesSummary(database, scope({ tenantId }));
+
+      expect(march).toMatchObject({
+        orders: 0,
+        cancelledOrders: 1,
+        revenueCents: 0,
+        profitCents: 0,
+        reversedEarlierOrders: 0,
+      });
+    });
+  });
+
+  it("counts a refund in the month it was made, not in the month of the sale", async () => {
+    await withTenant(async (tenantId, store) => {
+      await insertOrder(tenantId, store, {
+        ...SALE,
+        adjustments: [{ type: "refund", amountCents: 500 }],
+        adjustedAt: "2026-03-05T15:00:00Z",
+      });
+
+      const februarySummary = await getSalesSummary(database, scope({ tenantId, range: february }));
+      const march = await getSalesSummary(database, scope({ tenantId }));
+      const list = await listOrderFinancials(database, scope({ tenantId }), statementQuery);
+
+      expect(februarySummary).toMatchObject({
+        revenueCents: 10_000,
+        refundCents: 0,
+        profitCents: 4800,
+      });
+      expect(march).toMatchObject({
+        orders: 0,
+        revenueCents: 0,
+        refundCents: 500,
+        profitCents: -500,
+      });
+      expect(list.items).toMatchObject([
+        { externalOrderId: "CLOSE-1", fromEarlierPeriod: true, revenueCents: 0, refundCents: 500 },
+      ]);
+    });
   });
 });
 

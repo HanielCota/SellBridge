@@ -13,6 +13,7 @@ import { z } from "zod";
 import { DESCRIPTION_FIELD_ID } from "@/components/support/new-ticket/description-step";
 import { focusStepHeading, STEP_HEADING_IDS } from "@/components/support/new-ticket/step-parts";
 import { useTicketFiles } from "@/components/support/new-ticket/use-new-ticket";
+import { useConversationContactWarning } from "@/features/supplier-support/use-conversation-contact-warning";
 import { postMultipart } from "@/features/support/upload";
 import {
   myConversationOrderQueryOptions,
@@ -181,6 +182,23 @@ function useTopicChoice() {
   return { topic, situation, pickTopic, pickSituation, changeTopic };
 }
 
+/** The text the store writes, with its too-short and contact warnings. */
+function useMessageBody() {
+  const [body, setBody] = useState("");
+  const [showTooShort, setShowTooShort] = useState(false);
+  const contact = useConversationContactWarning(body);
+  return {
+    body,
+    showTooShort,
+    setShowTooShort,
+    contact,
+    writeBody: (next: string) => {
+      setBody(next);
+      setShowTooShort(false);
+    },
+  };
+}
+
 /** The new-conversation flow: store, topic, situation, then the message, order and photos. */
 export function useNewConversation(search: NewSupplierConversationSearch) {
   const storeChoice = useStoreChoice(search);
@@ -188,8 +206,8 @@ export function useNewConversation(search: NewSupplierConversationSearch) {
   const attachments = useTicketFiles();
   const sending = useSendConversation();
   const [orderChoice, setOrderChoice] = useState<string | null | undefined>(undefined);
-  const [body, setBody] = useState("");
-  const [showTooShort, setShowTooShort] = useState(false);
+  const message = useMessageBody();
+  const { body, contact } = message;
   const { store } = storeChoice;
   const { topic, situation } = topicChoice;
   const needsSituation = topic !== undefined && topic.situations.length > 0;
@@ -209,8 +227,9 @@ export function useNewConversation(search: NewSupplierConversationSearch) {
     if (store?.supplierId == null || topic === undefined || !isReadyToWrite) {
       return;
     }
+    contact.noteSendAttempt();
     if (body.trim().length < minimumDescriptionLength(situation)) {
-      setShowTooShort(true);
+      message.setShowTooShort(true);
       document.getElementById(DESCRIPTION_FIELD_ID)?.focus();
       return;
     }
@@ -229,6 +248,7 @@ export function useNewConversation(search: NewSupplierConversationSearch) {
     ...storeChoice,
     ...topicChoice,
     ...sending,
+    sendError: contact.unlessWarned(sending.sendError),
     attachments,
     needsSituation,
     isReadyToWrite,
@@ -237,11 +257,9 @@ export function useNewConversation(search: NewSupplierConversationSearch) {
     pickOrder: (next: string | undefined) => setOrderChoice(next ?? null),
     pickStore,
     body,
-    showTooShort,
-    writeBody: (next: string) => {
-      setBody(next);
-      setShowTooShort(false);
-    },
+    showTooShort: message.showTooShort,
+    contactWarning: contact.warning,
+    writeBody: message.writeBody,
     send,
   };
 }

@@ -74,6 +74,7 @@ const parcel: ShipmentPayment = {
   providerPaymentId: null,
   paymentMethod: null,
   paidAt: null,
+  providerFeeCents: null,
   checkedAt: null,
   refundReason: null,
   refundRequestedAt: null,

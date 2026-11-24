@@ -43,6 +43,7 @@ import {
 import { CHARGE_REFERENCE, CHECKOUT_REFERENCE, SUBSCRIPTION_REFERENCE } from "./pending-reference";
 import { paidMonthCarriedTo } from "./paid-month";
 import { planChangeOf, type PlanChange } from "./plan-change";
+import { enableSubscriptionInvoices } from "./subscription-invoices.server";
 import { upgradeReference } from "./upgrade-reference";
 
 export type BillingPaymentMethod = "pix" | "credit_card";
@@ -196,6 +197,12 @@ async function openPixSubscription(
     input.tenantId,
     pixSubscriptionPatch(input.account, input.plan, subscription.id, prepaidUntil),
   );
+  await enableSubscriptionInvoices(client, {
+    tenantId: input.tenantId,
+    subscriptionId: subscription.id,
+    customerId,
+    planId: input.plan.id,
+  });
   const charges = await client.listSubscriptionCharges(subscription.id);
   const first = charges.find((charge) => charge.status === "PENDING" && charge.invoiceUrl != null);
   if (first?.invoiceUrl == null) {
@@ -372,6 +379,12 @@ async function applyPlanChange(
   await client.changeSubscriptionValue(account.subscriptionId, {
     valueCents: charged.priceCents,
     description: planDescription(charged.id),
+  });
+  await enableSubscriptionInvoices(client, {
+    tenantId,
+    subscriptionId: account.subscriptionId,
+    customerId: account.customerId,
+    planId: charged.id,
   });
   if (change.kind === "schedule") {
     await saveBillingAccount(database, tenantId, {

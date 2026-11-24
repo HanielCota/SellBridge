@@ -1,9 +1,10 @@
 import { billingPlan, type BillingPlan } from "@sellbridge/shared/billing";
 import { formatCents } from "@sellbridge/shared/money";
-import { CreditCardIcon, PixLogoIcon } from "@phosphor-icons/react";
 import { useQuery } from "@tanstack/react-query";
 import type { ReactNode } from "react";
 import { ConfirmDialog } from "@/components/feedback/confirm-dialog";
+import { CreditCardMark } from "@/components/icons/credit-card-mark";
+import { PixMark } from "@/components/icons/pix-mark";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -37,11 +38,13 @@ function MethodOption({
       type="button"
       disabled={disabled}
       onClick={onClick}
-      className="flex min-h-11 w-full items-start gap-3 rounded-xl border border-border bg-card p-4 text-left transition-colors hover:bg-muted focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring disabled:opacity-60"
+      className="flex min-h-11 w-full items-center gap-4 rounded-xl border border-border bg-card p-4 text-left transition-colors hover:bg-muted focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring disabled:opacity-60 sm:p-5"
     >
-      <span className="mt-0.5 text-brand-text">{icon}</span>
+      <span className="grid size-12 shrink-0 place-items-center rounded-xl border border-border bg-muted">
+        {icon}
+      </span>
       <span className="space-y-1">
-        <span className="block font-semibold">{title}</span>
+        <span className="block text-base font-semibold">{title}</span>
         <span className="block text-sm text-muted-foreground">{description}</span>
       </span>
     </button>
@@ -66,21 +69,21 @@ export function PaymentMethodDialog({
 }) {
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent>
+      <DialogContent className="gap-5 sm:max-w-lg sm:p-7">
         <DialogHeader>
-          <DialogTitle>{title}</DialogTitle>
+          <DialogTitle className="text-lg">{title}</DialogTitle>
           <DialogDescription>{description}</DialogDescription>
         </DialogHeader>
         <div className="space-y-3">
           <MethodOption
-            icon={<CreditCardIcon className="size-5" aria-hidden="true" />}
+            icon={<CreditCardMark className="w-9" aria-hidden="true" />}
             title="Cartão de crédito"
             description="Renova sozinho todo mês. Você digita o cartão uma vez, na página segura do Asaas."
             disabled={pending}
             onClick={() => onChoose("credit_card")}
           />
           <MethodOption
-            icon={<PixLogoIcon className="size-5" aria-hidden="true" />}
+            icon={<PixMark className="size-7" aria-hidden="true" />}
             title="Pix"
             description="Todo mês chega um Pix novo no seu e-mail para você pagar."
             disabled={pending}

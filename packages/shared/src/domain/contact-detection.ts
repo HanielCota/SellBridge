@@ -1,7 +1,8 @@
 /**
  * Finds contact details in free text a reseller sends a supplier, or the other way round:
- * phones, e-mails, WhatsApp and Telegram links, sites, social network users. Both sides must
- * keep the sale inside SellBridge, so the shipment fields refuse any of them.
+ * phones, e-mails, WhatsApp and Telegram links, sites, social network users, invitations to carry
+ * on in another app ("me chama no zap"). Both sides must keep the sale inside SellBridge, so the
+ * shipment fields refuse any of them.
  *
  * It looks through the usual disguises: digits pulled apart, numbers spelled out, letters for
  * digits, invisible characters, "arroba" and "ponto com". It leaves alone what shipment notes
@@ -71,11 +72,65 @@ const MESSAGING_LINK =
   /(?:wa\.me|wa\.link|whatsapp\.com|t\.me|telegram\.me|linktr\.ee|instagr\.am)(?![\p{L}\p{N}-])/iu;
 
 /**
+ * Site endings read as a domain. Endings that are also Portuguese words (".de", ".no", ".eu",
+ * ".so", ".to", ".pro", ".ar", ".casa") stay out: "chegou.de manhã" typed without a space is a sentence.
+ */
+const SITE_ENDINGS = [
+  "net",
+  "org",
+  "br",
+  "io",
+  "me",
+  "co",
+  "xyz",
+  "tv",
+  "ee",
+  "am",
+  "shop",
+  "store",
+  "online",
+  "site",
+  "app",
+  "info",
+  "biz",
+  "link",
+  "ly",
+  "dev",
+  "ai",
+  "blog",
+  "top",
+  "page",
+  "club",
+  "tech",
+  "website",
+  "space",
+  "live",
+  "life",
+  "digital",
+  "world",
+  "social",
+  "chat",
+  "bio",
+  "gg",
+  "cc",
+  "tk",
+  "pt",
+  "us",
+  "uk",
+  "news",
+  "email",
+  "cloud",
+  "wiki",
+].join("|");
+
+/**
  * A bare domain. Its last part is matched in lowercase, and ".com" not before a lowercase word,
  * so "Chegou.Com cuidado" and "embalar.com cuidado" are sentences, not sites.
  */
-const DOMAIN =
-  /(?<![\p{L}\p{N}@.-])[\p{L}\p{N}][\p{L}\p{N}-]{0,62}(?:\.[\p{L}\p{N}-]{1,63}){0,3}\.(?:com(?!\s+\p{Ll})|net|org|br|io|me|co|xyz|tv|ee|am|shop|store|online|site|app|info|biz|link|ly)(?![\p{L}\p{N}-])/u;
+const DOMAIN = new RegExp(
+  String.raw`(?<![\p{L}\p{N}@.-])[\p{L}\p{N}][\p{L}\p{N}-]{0,62}(?:\.[\p{L}\p{N}-]{1,63}){0,3}\.(?:com(?!\s+\p{Ll})|${SITE_ENDINGS})(?![\p{L}\p{N}-])`,
+  "u",
+);
 
 /** "MINHALOJA.COM.BR": a Brazilian domain in any case. */
 const BRAZILIAN_DOMAIN =
@@ -136,6 +191,35 @@ function hasSocialUser(folded: string): boolean {
   );
 }
 
+/** Apps and chats someone can be invited to, outside SellBridge. */
+const OFF_PLATFORM_APP = String.raw`(?:whats\s?app|whats|zap\s?zap|zapp?|wpp|insta(?:gram)?|ig|face(?:book)?|fb|messenger|telegram|tg|tik\s?tok|kwai|twitter|signal|discord|skype)`;
+
+/** Instagram's and Facebook's private chats, said without the app's name. */
+const PRIVATE_CHAT = String.raw`(?:direct|dm|inbox|pv|privado)`;
+
+const INVITING_VERB = String.raw`(?:chama|chame|chamar|chamo|add|adiciona|adicione|adicionar|segue|siga|seguir|procura|procure|procurar|encontra|encontre|fala|fale|falar|converse|conversar|continua|continue|continuar|manda|mande|mandar|envia|envie|enviar|liga|ligue|ligar|vamos|vamo|bora|vem|passa|passe)`;
+
+/** Words that may sit between the verb and the app: "me chama lá no zap", "manda um oi no insta". */
+const INVITING_FILLER = String.raw`(?:comigo|la|aqui|ai|direto|mensagem|msg|um oi|oi|uma mensagem|mais)`;
+
+/**
+ * "me chama no zap", "me add no insta", "chama no direct", "passa seu whats": a call to carry on
+ * elsewhere. The verb must be the bare invitation, so "o cliente me chamou no zap" is a report.
+ */
+const INVITATION = new RegExp(
+  String.raw`(?<![a-z])${INVITING_VERB}\s+(?:${INVITING_FILLER}\s+){0,2}(?:(?:no|na|pelo|pela|por|pro|pra|para o|para a|em|via)\s+)?(?:(?:o|a|meu|minha|seu|sua|teu|tua)\s+)?(?:${OFF_PLATFORM_APP}|${PRIVATE_CHAT})(?![a-z])`,
+);
+
+/** "qual seu zap?", "tenho whatsapp", "você tem insta?"; "não tenho instagram" is an answer. */
+const APP_EXCHANGE = new RegExp(
+  String.raw`(?<![a-z])qual\s+(?:e\s+)?(?:o\s+)?(?:seu|sua|teu|tua)\s+${OFF_PLATFORM_APP}(?![a-z])|(?<!(?:nao|nem)\s+)(?<![a-z])tenho\s+(?:um\s+)?${OFF_PLATFORM_APP}(?![a-z])|(?<![a-z])(?:voce|vc|ce|tu)\s+(?:tem|usa)\s+${OFF_PLATFORM_APP}(?![a-z])|(?<![a-z])tem\s+${OFF_PLATFORM_APP}\s*\?`,
+);
+
+function hasOffPlatformInvitation(plain: string): boolean {
+  const network = networkSpelling(plain);
+  return INVITATION.test(network) || APP_EXCHANGE.test(network);
+}
+
 function kindsInWindow(window: string): ReadonlySet<ContactKind> {
   const folded = foldedText(window);
   const plain = plainText(folded);
@@ -143,7 +227,7 @@ function kindsInWindow(window: string): ReadonlySet<ContactKind> {
     phone: hasPhone(plain),
     email: hasEmail(plain),
     link: hasLink(folded, plain),
-    social: hasSocialUser(folded),
+    social: hasSocialUser(folded) || hasOffPlatformInvitation(plain),
   };
   return new Set(KIND_ORDER.filter((kind) => found[kind]));
 }

@@ -102,6 +102,7 @@ function WritingSteps({ flow }: { flow: Flow }) {
         value={flow.body}
         isTooShort={flow.showTooShort}
         tooShortMessage="Conte um pouco mais para o fornecedor entender o caso."
+        contactWarning={flow.contactWarning}
         onChange={flow.writeBody}
         onPaste={attachments.pasteFiles}
       />

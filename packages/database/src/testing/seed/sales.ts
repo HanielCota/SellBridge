@@ -317,6 +317,8 @@ interface DemoOrder {
   readonly buyerName: string;
   readonly orderedAt: Date;
   readonly deliveredAt: Date | null;
+  /** When a returned demo sale came back: the reports take it back in that period. */
+  readonly reversedAt: Date | null;
   readonly adjustment: (Adjustment & { readonly createdAt: Date }) | null;
 }
 
@@ -343,6 +345,7 @@ function generateDemoOrder(random: Random, input: DemoOrderInput): DemoOrder {
   const buyerName = random.pick(BUYERS);
   const delayDays = random.integerBetween(2, 10);
   const adjustment = pickAdjustment(random, status, totalCents);
+  const adjustedAt = new Date(orderedAt.getTime() + delayDays * DAY_MILLISECONDS);
   return {
     sale,
     externalOrderId: `MOCK-ORD-${String(input.sequence).padStart(6, "0")}`,
@@ -353,10 +356,8 @@ function generateDemoOrder(random: Random, input: DemoOrderInput): DemoOrder {
     buyerName,
     orderedAt,
     deliveredAt: demoDeliveredAt(status, orderedAt, input.now),
-    adjustment: adjustment && {
-      ...adjustment,
-      createdAt: new Date(orderedAt.getTime() + delayDays * DAY_MILLISECONDS),
-    },
+    reversedAt: status === "returned" ? new Date(Math.min(adjustedAt.getTime(), input.now)) : null,
+    adjustment: adjustment && { ...adjustment, createdAt: adjustedAt },
   };
 }
 
@@ -404,6 +405,7 @@ async function insertDemoOrder(context: SeedSalesContext, demoOrder: DemoOrder):
       orderedAt: demoOrder.orderedAt,
       deliveredAt: demoOrder.deliveredAt,
       paidAt: DEMO_PAID_STATUSES.includes(demoOrder.status) ? demoOrder.orderedAt : null,
+      reversedAt: demoOrder.reversedAt,
     })
     .returning({ id: orders.id });
   if (!order) {
@@ -440,7 +442,10 @@ function demoStatusChanges(demoOrder: DemoOrder) {
   }
   return [
     { status: "paid" as const, changedAt: demoOrder.orderedAt },
-    { status: demoOrder.status, changedAt: demoOrder.deliveredAt ?? demoOrder.orderedAt },
+    {
+      status: demoOrder.status,
+      changedAt: demoOrder.deliveredAt ?? demoOrder.reversedAt ?? demoOrder.orderedAt,
+    },
   ];
 }
 

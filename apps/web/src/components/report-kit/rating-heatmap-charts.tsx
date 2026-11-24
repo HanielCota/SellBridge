@@ -4,9 +4,9 @@ import type { ReportHeatmap } from "@/features/report-kit/report-model";
 /** 5 and 4 stars in the brand, 3 neutral, 2 and 1 in the alert color (they are the problems). */
 const STAR_COLORS: Record<number, string> = {
   5: "var(--chart-brand)",
-  4: "color-mix(in oklch, var(--chart-brand) 55%, var(--card))",
-  3: "color-mix(in oklch, var(--muted-foreground) 45%, var(--card))",
-  2: "color-mix(in oklch, var(--destructive) 55%, var(--card))",
+  4: "color-mix(in oklab, var(--chart-brand) 55%, var(--card))",
+  3: "color-mix(in oklab, var(--muted-foreground) 45%, var(--card))",
+  2: "color-mix(in oklab, var(--destructive) 55%, var(--card))",
   1: "var(--destructive)",
 };
 const RADIUS = 42;
@@ -124,7 +124,7 @@ export function HeatmapChart({ heatmap }: { heatmap: ReportHeatmap }) {
                     key={column}
                     className="h-8 rounded-md text-center font-medium"
                     style={{
-                      backgroundColor: `color-mix(in oklch, var(--chart-brand) ${strength}%, var(--muted))`,
+                      backgroundColor: `color-mix(in oklab, var(--chart-brand) ${strength}%, var(--muted))`,
                       // Dark ink only on the strongest cells; mid tones keep the page's text color (4.5:1).
                       color: strength > 75 ? "var(--brand-ink)" : "var(--foreground)",
                     }}

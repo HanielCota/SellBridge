@@ -1,5 +1,5 @@
 {
-  "id": "a6cdc5a1-860b-4bea-b588-c3ba5b992ad4",
+  "id": "0e1fdf24-6d6e-43c6-b988-bcd70ec14072",
   "prevId": "ed90b8b6-f7bf-4778-9382-8c51b01f6da8",
   "version": "7",
   "dialect": "postgresql",
@@ -2720,24 +2720,6 @@
           "type": "timestamp with time zone",
           "primaryKey": false,
           "notNull": false
-        },
-        "released_at": {
-          "name": "released_at",
-          "type": "timestamp with time zone",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "released_by": {
-          "name": "released_by",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "release_note": {
-          "name": "release_note",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false
         }
       },
       "indexes": {
@@ -2771,19 +2753,6 @@
           "onDelete": "set null",
           "onUpdate": "no action"
         },
-        "store_buyer_address_checks_released_by_user_id_fk": {
-          "name": "store_buyer_address_checks_released_by_user_id_fk",
-          "tableFrom": "store_buyer_address_checks",
-          "tableTo": "user",
-          "columnsFrom": [
-            "released_by"
-          ],
-          "columnsTo": [
-            "id"
-          ],
-          "onDelete": "set null",
-          "onUpdate": "no action"
-        },
         "store_buyer_address_checks_store_connection_fk": {
           "name": "store_buyer_address_checks_store_connection_fk",
           "tableFrom": "store_buyer_address_checks",
@@ -2801,12 +2770,7 @@
       "compositePrimaryKeys": {},
       "uniqueConstraints": {},
       "policies": {},
-      "checkConstraints": {
-        "store_buyer_address_checks_release_check": {
-          "name": "store_buyer_address_checks_release_check",
-          "value": "(\"store_buyer_address_checks\".\"released_at\" is null and \"store_buyer_address_checks\".\"release_note\" is null) or (\"store_buyer_address_checks\".\"released_at\" is not null and \"store_buyer_address_checks\".\"result\" = 'supplier_address' and \"store_buyer_address_checks\".\"release_note\" is not null and btrim(\"store_buyer_address_checks\".\"release_note\") <> '' and char_length(\"store_buyer_address_checks\".\"release_note\") <= 300)"
-        }
-      },
+      "checkConstraints": {},
       "isRLSEnabled": false
     },
     "public.listing_targets": {
@@ -10502,6 +10466,12 @@
           "primaryKey": false,
           "notNull": false
         },
+        "provider_fee_cents": {
+          "name": "provider_fee_cents",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false
+        },
         "checked_at": {
           "name": "checked_at",
           "type": "timestamp with time zone",
@@ -10694,6 +10664,34 @@
           ],
           "isUnique": false,
           "where": "\"shipment_payments\".\"status\" in ('approved','charged_back') and \"shipment_payments\".\"released_at\" is null and \"shipment_payments\".\"refund_failed_at\" is null",
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "shipment_payments_supplier_paid_idx": {
+          "name": "shipment_payments_supplier_paid_idx",
+          "columns": [
+            {
+              "expression": "supplier_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "paid_at",
+              "isExpression": false,
+              "asc": false,
+              "nulls": "last"
+            },
+            {
+              "expression": "id",
+              "isExpression": false,
+              "asc": false,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "where": "\"shipment_payments\".\"paid_at\" is not null",
           "concurrently": false,
           "method": "btree",
           "with": {}
