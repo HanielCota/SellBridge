@@ -23,6 +23,7 @@ import {
 import { hasErrorCode, userMessageOr } from "@sellbridge/shared/errors";
 import { logger } from "@sellbridge/shared/logger";
 import { readProductFiscal } from "@sellbridge/shared/product-fiscal";
+import { shippingWeightGrams } from "@sellbridge/shared/shipping-weight";
 import { youtubeVideoId } from "@sellbridge/shared/product-sale-terms";
 import { publishListingJobSchema } from "@sellbridge/shared/queues";
 import { SUPPLIER_WITHOUT_RECEIVING_MESSAGE } from "@sellbridge/shared/receiving-rules";
@@ -103,7 +104,11 @@ function toPublishProductInput(
       madeToOrderDays: row.product.madeToOrderDays,
     },
     videoId: row.product.videoUrl === null ? null : youtubeVideoId(row.product.videoUrl),
-    packageWeightGrams: readProductFiscal(row.product.fiscal).netWeightGrams,
+    // The packed weight the fee model prices shipping on, else the product's own (shipping-weight.ts).
+    packageWeightGrams: shippingWeightGrams({
+      mercadoLivreAttributes: row.product.mercadoLivreAttributes,
+      netWeightGrams: readProductFiscal(row.product.fiscal).netWeightGrams,
+    }),
     familyName: row.familyName,
   };
 }

@@ -248,6 +248,31 @@ describe("publish-listing processor", () => {
     expect(await targetRow(targetId)).toMatchObject({ status: "publishing", attempts: 1 });
   });
 
+  it("sends the packed weight shipping is priced on, not only the product's own", async () => {
+    // Before the target: each target lists its own copy of the fixture product.
+    await database
+      .update(schema.supplierProducts)
+      .set({
+        mercadoLivreAttributes: { SELLER_PACKAGE_WEIGHT: "1300 g" },
+        fiscal: { netWeightGrams: 900 },
+      })
+      .where(eq(schema.supplierProducts.id, catalog.productId));
+    const { tenantId, targetId } = await createTarget("Peso do pacote");
+    await database
+      .update(schema.supplierProducts)
+      .set({ mercadoLivreAttributes: {}, fiscal: {} })
+      .where(eq(schema.supplierProducts.id, catalog.productId));
+    publishProduct.mockClear();
+
+    await processPublish({
+      data: { tenantId, listingTargetId: targetId },
+      attemptsMade: 0,
+      maxAttempts: 5,
+    });
+
+    expect(publishProduct.mock.calls.map(([, input]) => input.packageWeightGrams)).toEqual([1300]);
+  });
+
   it("persists the remote creation guard and retains it across manual reprocessing", async () => {
     // Before the target: each target lists its own copy of the fixture product.
     await database
