@@ -2,7 +2,9 @@ import { describe, expect, it } from "vitest";
 import {
   type AccountAddress,
   blocksPublishing,
+  buyerAddressReleaseNoteSchema,
   judgeBuyerAddress,
+  keepsRelease,
   type SupplierPlace,
 } from "./buyer-address.ts";
 
@@ -180,12 +182,61 @@ describe("judgeBuyerAddress", () => {
 });
 
 describe("blocksPublishing", () => {
+  const releasedAt = new Date("2026-11-23T12:00:00Z");
+
   it("holds publications back only for a supplier's address", () => {
-    expect(blocksPublishing("supplier_address")).toBe(true);
-    expect(blocksPublishing("shipping_address")).toBe(false);
-    expect(blocksPublishing("no_buying_address")).toBe(false);
-    expect(blocksPublishing("not_checked")).toBe(false);
-    expect(blocksPublishing("ok")).toBe(false);
+    expect(blocksPublishing({ result: "supplier_address", releasedAt: null })).toBe(true);
+    expect(blocksPublishing({ result: "shipping_address", releasedAt: null })).toBe(false);
+    expect(blocksPublishing({ result: "no_buying_address", releasedAt: null })).toBe(false);
+    expect(blocksPublishing({ result: "not_checked", releasedAt: null })).toBe(false);
+    expect(blocksPublishing({ result: "ok", releasedAt: null })).toBe(false);
     expect(blocksPublishing(null)).toBe(false);
+  });
+
+  it("lets a store the team released as a false alarm publish", () => {
+    expect(blocksPublishing({ result: "supplier_address", releasedAt })).toBe(false);
+  });
+});
+
+describe("keepsRelease", () => {
+  const releasedAt = new Date("2026-11-23T12:00:00Z");
+  const released = { result: "supplier_address" as const, supplierId: "supplier-1", releasedAt };
+
+  it("keeps the release while the account buys at the same supplier's address", () => {
+    const verdict = { result: "supplier_address" as const, supplierId: "supplier-1" };
+
+    expect(keepsRelease(released, verdict)).toBe(true);
+  });
+
+  it("drops the release when the account matches another supplier", () => {
+    const verdict = { result: "supplier_address" as const, supplierId: "supplier-2" };
+
+    expect(keepsRelease(released, verdict)).toBe(false);
+  });
+
+  it("drops the release once the address is fixed, so going back holds the store again", () => {
+    expect(keepsRelease(released, { result: "ok" })).toBe(false);
+  });
+
+  it("never releases a store that was not released", () => {
+    const verdict = { result: "supplier_address" as const, supplierId: "supplier-1" };
+
+    expect(keepsRelease({ ...released, releasedAt: null }, verdict)).toBe(false);
+  });
+});
+
+describe("buyerAddressReleaseNoteSchema", () => {
+  it("asks why when the note is blank", () => {
+    expect(buyerAddressReleaseNoteSchema.safeParse("   ").success).toBe(false);
+  });
+
+  it("accepts a short reason, trimmed", () => {
+    expect(buyerAddressReleaseNoteSchema.parse("  Mora no mesmo prédio  ")).toBe(
+      "Mora no mesmo prédio",
+    );
+  });
+
+  it("refuses a note past the limit", () => {
+    expect(buyerAddressReleaseNoteSchema.safeParse("a".repeat(301)).success).toBe(false);
   });
 });

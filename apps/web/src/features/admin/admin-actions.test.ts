@@ -33,6 +33,18 @@ describe("describeAdminEvent", () => {
     );
   });
 
+  it("names the shop and the supplier when the team releases a purchase-address hold", () => {
+    expect(
+      describeAdminEvent("store_buyer_address_released", {
+        storeName: "Loja da Ana",
+        supplierName: "Rio Pet Atacado",
+      }),
+    ).toBe("Liberou Loja da Ana para publicar: o endereço de compra não é o de Rio Pet Atacado");
+    expect(
+      describeAdminEvent("store_buyer_address_released", { storeName: "", supplierName: "" }),
+    ).toBe("Liberou uma loja para publicar: o endereço de compra não é o de um fornecedor");
+  });
+
   it("falls back for actions it does not know", () => {
     expect(describeAdminEvent("something_new", null)).toBe("Ação do administrador");
   });

@@ -18,6 +18,7 @@ import {
   MAX_CUSTOMERS_RANKED,
   previewStoreSupplierRemoval,
   recordAdminEvent,
+  releaseBuyerAddressHold,
   removeStoreSupplier,
   revokeTenantApiKeys,
   snoozeIssue,
@@ -41,6 +42,7 @@ import {
   customerIssuesSearchSchema,
   customersSearchSchema,
   disconnectCustomerStoreSchema,
+  releaseStoreBuyerAddressSchema,
   periodSearchSchema,
   setCustomerBanSchema,
   setCustomerRoleSchema,
@@ -420,6 +422,11 @@ async function supplierNameOf(supplierId: string): Promise<string> {
   return supplier?.name ?? "";
 }
 
+async function storeNameOf(tenantId: string, storeConnectionId: string): Promise<string> {
+  const stores = await listStoreConnections(database, tenantId);
+  return stores.find((store) => store.id === storeConnectionId)?.shopName ?? "";
+}
+
 /** Adds a supplier to a customer's shop, as the customer would on the stores page. */
 export const adminAddStoreSupplier = createServerFn({ method: "POST" })
   .middleware([adminMiddleware])
@@ -481,6 +488,34 @@ export const adminDisconnectCustomerStore = createServerFn({ method: "POST" })
     await disconnectStore(database, tenantId, data.storeConnectionId);
     await recordAdminAction(context.userId, data.userId, "store_disconnected", {
       storeConnectionId: data.storeConnectionId,
+    });
+    return { ok: true };
+  });
+
+/**
+ * A store held by its purchase address that the team found a false alarm (the reseller lives in
+ * the supplier's building) publishes again, until its account matches a different address.
+ */
+export const adminReleaseStoreBuyerAddress = createServerFn({ method: "POST" })
+  .middleware([adminMiddleware])
+  .validator(releaseStoreBuyerAddressSchema)
+  .handler(async ({ context, data }) => {
+    const tenantId = customerTenant(await requireManageableCustomer(context.actor, data.userId));
+    const released = await releaseBuyerAddressHold(database, {
+      tenantId,
+      storeConnectionId: data.storeConnectionId,
+      releasedBy: context.userId,
+      note: data.note,
+      now: new Date(),
+    });
+    if (released === null) {
+      throw conflictError("Esta loja não está mais travada pelo endereço de compra");
+    }
+    // The note stays on the check only: free text may carry an address, never logged.
+    await recordAdminAction(context.userId, data.userId, "store_buyer_address_released", {
+      storeConnectionId: data.storeConnectionId,
+      storeName: await storeNameOf(tenantId, data.storeConnectionId),
+      supplierName: released.supplierId === null ? "" : await supplierNameOf(released.supplierId),
     });
     return { ok: true };
   });
