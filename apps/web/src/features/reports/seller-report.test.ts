@@ -27,6 +27,8 @@ function summary(overrides: Partial<SalesSummary> = {}): SalesSummary {
     unpaidOrders: 0,
     unpaidTotalCents: 0,
     averageTicketCents: null,
+    reversedEarlierOrders: 0,
+    reversedEarlierRevenueCents: 0,
     ...overrides,
   };
 }
@@ -43,6 +45,7 @@ const NO_CASES: SellerReportInput["cases"] = {
   unpaid: { total: 0, items: [] },
   cancelled: { total: 0, items: [] },
   returned: { total: 0, items: [] },
+  undone_earlier: { total: 0, items: [] },
 };
 
 const CURRENT: SellerPeriodNumbers = {
@@ -124,6 +127,9 @@ function input(overrides: Partial<SellerReportInput> = {}): SellerReportInput {
             externalOrderId: "ML-1",
             storeName: "Loja 1",
             orderedAt: new Date("2026-10-05T15:00:00Z"),
+            paidAt: new Date("2026-10-05T15:00:00Z"),
+            reversedAt: null,
+            status: "cancelled",
             totalCents: 9900,
           },
         ],
@@ -215,7 +221,7 @@ describe("seller report", () => {
   it("lists the orders awaiting payment among the cases", () => {
     const keys = buildSellerReport(input()).cases.map((tab) => tab.key);
 
-    expect(keys).toEqual(["cost_pending", "unpaid", "cancelled", "returned"]);
+    expect(keys).toEqual(["cost_pending", "unpaid", "cancelled", "returned", "undone_earlier"]);
   });
 
   it("computes the margin over the revenue of priced sales only", () => {
@@ -294,6 +300,61 @@ describe("seller report", () => {
       detail: "Loja 1",
       href: "/pedidos/o1",
     });
+  });
+
+  it("shows the sales of earlier months cancelled in this one as a negative line", () => {
+    const current = {
+      ...CURRENT,
+      summary: {
+        ...CURRENT.summary,
+        reversedEarlierOrders: 1,
+        reversedEarlierRevenueCents: 10_000,
+      },
+    };
+
+    const row = metricRow("Cancelados de meses anteriores", buildSellerReport(input({ current })));
+
+    expect(row).toMatchObject({
+      count: -10_000,
+      countFormat: "cents",
+      base: "1 venda, já descontada da receita",
+      previous: 0,
+    });
+  });
+
+  it("leaves the earlier cancellations line out while neither month has any", () => {
+    expect(() => metricRow("Cancelados de meses anteriores")).toThrow(
+      "indicador Cancelados de meses anteriores ausente",
+    );
+  });
+
+  it("says which sale an earlier cancellation belongs to and when it happened", () => {
+    const cases = {
+      ...NO_CASES,
+      undone_earlier: {
+        total: 1,
+        items: [
+          {
+            id: "o2",
+            externalOrderId: "ML-2",
+            storeName: "Loja 1",
+            orderedAt: new Date("2026-09-28T15:00:00Z"),
+            paidAt: new Date("2026-09-28T15:00:00Z"),
+            reversedAt: new Date("2026-10-03T15:00:00Z"),
+            status: "cancelled",
+            totalCents: 10_000,
+          },
+        ],
+      },
+    };
+
+    const tab = buildSellerReport(input({ cases })).cases.find(
+      (candidate) => candidate.key === "undone_earlier",
+    );
+
+    expect(tab).toMatchObject({ label: "De meses anteriores", more: 0 });
+    // Intl writes "R$" with a no-break space.
+    expect(tab?.items[0]?.meta).toMatch(/^−R\$\s100,00 · venda de 28\/09 · cancelada em 03\/10$/);
   });
 
   it("fits the stored report shape, so a closed month can be kept", () => {

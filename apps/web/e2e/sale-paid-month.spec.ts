@@ -10,6 +10,7 @@ import {
 import { and, eq, isNotNull } from "drizzle-orm";
 import { DEMO_USER, gotoHydrated, signIn } from "./helpers";
 import { e2eDatabase } from "./database";
+import { MONTHLY_REPORT_VERSION } from "../src/features/report-kit/report-model";
 
 const database = e2eDatabase();
 const externalId = `E2E-PAGO-DEPOIS-${randomUUID()}`;
@@ -148,5 +149,5 @@ test("a closed month kept by the old rule is rebuilt once under the payment-date
         eq(reportSnapshots.month, previousMonth),
       ),
     );
-  expect(kept?.payload).toMatchObject({ version: 2 });
+  expect(kept?.payload).toMatchObject({ version: MONTHLY_REPORT_VERSION });
 });

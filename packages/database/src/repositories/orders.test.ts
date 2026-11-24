@@ -60,6 +60,11 @@ async function paidAt(orderId: string): Promise<Date | null | undefined> {
   return order?.paidAt;
 }
 
+async function reversedAt(orderId: string): Promise<Date | null | undefined> {
+  const order = await database.query.orders.findFirst({ where: eq(orders.id, orderId) });
+  return order?.reversedAt;
+}
+
 afterAll(async () => {
   await tenants.cleanup();
   await catalog.cleanup();
@@ -463,6 +468,29 @@ describe("marketplace orders and sync", () => {
       await upsertMarketplaceOrder(database, tenantA, storeA, { ...order, status: "cancelled" });
 
       expect(await paidAt(orderId)).toEqual(NOW);
+    });
+
+    it("dates the cancellation of a paid sale on the first sync that sees it", async () => {
+      const order = incomingOrder("paid", new Date("2026-10-30T13:00:00Z"));
+      const { orderId } = await upsertMarketplaceOrder(database, tenantA, storeA, order);
+      expect(await reversedAt(orderId)).toBeNull();
+      const cancelledOn = new Date("2026-11-20T15:00:00Z");
+
+      vi.setSystemTime(cancelledOn);
+      await upsertMarketplaceOrder(database, tenantA, storeA, { ...order, status: "cancelled" });
+      vi.setSystemTime(new Date("2026-11-25T15:00:00Z"));
+      await upsertMarketplaceOrder(database, tenantA, storeA, { ...order, status: "cancelled" });
+
+      expect(await reversedAt(orderId)).toEqual(cancelledOn);
+    });
+
+    it("never dates a reversal for an order cancelled before it was paid", async () => {
+      const order = incomingOrder("pending", new Date("2026-11-14T13:00:00Z"));
+      const { orderId } = await upsertMarketplaceOrder(database, tenantA, storeA, order);
+
+      await upsertMarketplaceOrder(database, tenantA, storeA, { ...order, status: "cancelled" });
+
+      expect(await reversedAt(orderId)).toBeNull();
     });
   });
 
