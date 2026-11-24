@@ -10,8 +10,8 @@ import {
   type ProductGrid,
   type ProductModelShared,
 } from "@sellbridge/shared/product-grid";
+import { meetsNewProductRules } from "@sellbridge/shared/supplier-panel-catalog-completeness";
 import {
-  hasRequiredFiscalData,
   readProductFiscal,
   withFiscalFallback,
   type FiscalFallback,
@@ -125,14 +125,25 @@ export async function modelCodeFor(
   }
 }
 
-/** NF-e data as the rules read it: origin and unit from Marca fill the product's empty ones. */
-function hasFiscalData(fiscal: unknown, fallback: FiscalFallback | null): boolean {
-  return hasRequiredFiscalData(withFiscalFallback(readProductFiscal(fiscal), fallback));
+/**
+ * The NF-e and weight rules of a combination created under them, its NF-e data read as the rules
+ * do: origin and unit from Marca fill the product's empty ones.
+ */
+function meetsSaleRules(
+  product: { fiscal: unknown; mercadoLivreAttributes: Readonly<Record<string, string>> },
+  required: { fiscalRequired: boolean; weightRequired: boolean },
+  fallback: FiscalFallback | null,
+): boolean {
+  return meetsNewProductRules({
+    ...required,
+    fiscal: withFiscalFallback(readProductFiscal(product.fiscal), fallback),
+    mercadoLivreAttributes: product.mercadoLivreAttributes,
+  });
 }
 
 /**
- * A combination goes on sale only with its NF-e data and a known cost, as a single product does:
- * a cost of zero means "not filled in", never a free product.
+ * A combination goes on sale only with its NF-e data, a weight and a known cost, as a single
+ * product does: a cost of zero means "not filled in", never a free product.
  */
 function reviewStatusFor(
   requested: "approved" | "draft",
@@ -142,7 +153,8 @@ function reviewStatusFor(
   if (requested === "draft" || product.costCents <= 0) {
     return "draft";
   }
-  return hasFiscalData(product.fiscal, fallback) ? "approved" : "draft";
+  const required = { fiscalRequired: true, weightRequired: true };
+  return meetsSaleRules(product, required, fallback) ? "approved" : "draft";
 }
 
 function colorPhotos(grid: ProductGrid): ReadonlyMap<string, string[]> {
@@ -178,6 +190,7 @@ export function combinationRow(
     suggestedPriceCents: combination.suggestedPriceCents,
     stock: combination.stock,
     fiscalRequired: true,
+    weightRequired: true,
   };
 }
 
@@ -399,6 +412,7 @@ export async function rewriteCombinations(
       variantFiscal: supplierProducts.variantFiscal,
       reviewStatus: supplierProducts.reviewStatus,
       fiscalRequired: supplierProducts.fiscalRequired,
+      weightRequired: supplierProducts.weightRequired,
     })
     .from(supplierProducts)
     .where(eq(supplierProducts.modelId, modelId))
@@ -409,12 +423,10 @@ export async function rewriteCombinations(
       ...combination,
       colorImageUrls: combination.color === null ? [] : (photos.get(combination.color) ?? []),
     });
-    // Erasing the model's NCM, origin or unit takes its combinations off sale, as it does a
-    // single product created under the NF-e rule.
+    // Erasing the model's NCM, origin, unit or weight takes its combinations off sale, as it
+    // does a single product created under those rules.
     const losesFiscal =
-      combination.reviewStatus === "approved" &&
-      combination.fiscalRequired &&
-      !hasFiscalData(product.fiscal, fallback);
+      combination.reviewStatus === "approved" && !meetsSaleRules(product, combination, fallback);
     await transaction
       .update(supplierProducts)
       .set({ ...product, ...(losesFiscal ? { reviewStatus: "draft" as const } : {}) })

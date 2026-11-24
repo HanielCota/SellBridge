@@ -15,6 +15,7 @@ import {
 } from "@/features/supplier-panel/catalog/draft-form";
 import { NO_GTIN } from "@sellbridge/shared/product-fiscal";
 import { MAX_MODEL_TITLE_LENGTH } from "@sellbridge/shared/product-grid";
+import { PACKAGE_WEIGHT_ATTRIBUTE } from "@sellbridge/shared/shipping-weight";
 import type { SupplierTaxSetup } from "@sellbridge/shared/supplier-fiscal";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
@@ -42,6 +43,10 @@ const CODE_INPUT = {
 /** A product without its own brand goes as the marketplace's generic brand (`isNoBrand`). */
 const NO_BRAND_HINT =
   "Produto sem marca? Deixe em branco ou escreva Sem marca: no Mercado Livre ele sai com a marca genérica.";
+
+/** The packed weight is what Mercado Livre charges shipping by, so the reseller's profit too. */
+const PACKAGE_WEIGHT_HINT =
+  "O peso do produto somado ao da caixa: pese o pacote pronto para enviar. Em gramas.";
 
 /** Barcodes and package measures are typed as digits; the rest of the sheet is free text. */
 const ATTRIBUTE_INPUTS: Readonly<Record<string, { inputMode: "numeric" }>> = {
@@ -188,6 +193,9 @@ function TextAttributeField({
           : { ...CODE_INPUT, ...ATTRIBUTE_INPUTS[attribute.id] })}
       />
       <FieldReason field={field} reasons={reasons} />
+      {attribute.id === PACKAGE_WEIGHT_ATTRIBUTE ? (
+        <p className="text-footnote leading-normal text-muted-foreground">{PACKAGE_WEIGHT_HINT}</p>
+      ) : null}
       {attribute.id === "BRAND" ? (
         <p className="text-footnote leading-normal text-muted-foreground">{NO_BRAND_HINT}</p>
       ) : null}

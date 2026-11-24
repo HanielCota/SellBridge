@@ -19,7 +19,8 @@ import { formatCents } from "@sellbridge/shared/money";
 import { cn } from "@/lib/utils";
 import { ACTION_ICONS } from "@/components/icons/action-icons";
 import { HintedText } from "@/components/ui/hint";
-import { type RatesSource, ratesNote } from "@/features/listings/mercado-livre-rates-note";
+import type { RatesSource } from "@/features/listings/mercado-livre-rates-note";
+import { RatesNotes } from "./rates-notes";
 
 /** The new-listing page's side column cards, apart so the route file stays a page of its own. */
 const SupplierShipsIcon = ACTION_ICONS.supplierShips.icon;
@@ -166,7 +167,7 @@ export function ProfitCard({
             <dd className="tabular-nums">{priceCents === null ? "—" : formatCents(priceCents)}</dd>
           </div>
         </dl>
-        <p className="text-xs text-muted-foreground">{ratesNote(ratesSource)}</p>
+        <RatesNotes ratesSource={ratesSource} weightGrams={product.weightGrams} />
       </CardContent>
     </Card>
   );

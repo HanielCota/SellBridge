@@ -32,7 +32,7 @@ import { RUN_STATE_DOT, RUN_STATE_TEXT, RUN_STATE_TINT } from "./run-state-style
 import { TERM_HINTS } from "@/components/icons/action-icons";
 import { HintedText } from "@/components/ui/hint";
 import { useListingMercadoLivreRates } from "@/features/listings/mercado-livre-rates.queries";
-import { ratesNote } from "@/features/listings/mercado-livre-rates-note";
+import { RatesNotes } from "./rates-notes";
 
 type PricedListing = Pick<
   ListingOverviewRow,
@@ -345,7 +345,7 @@ function EditPriceForm({ listing: row, onDone }: { listing: PricedListing; onDon
       />
       <div className="space-y-2">
         <PriceBreakdown costCents={listing.costCents} estimate={estimate} tone={tone} />
-        <p className="text-xs text-muted-foreground">{ratesNote(live)}</p>
+        <RatesNotes ratesSource={live} weightGrams={listing.weightGrams} />
       </div>
       <DialogFooter>
         <Button type="button" variant="outline" onClick={onDone}>

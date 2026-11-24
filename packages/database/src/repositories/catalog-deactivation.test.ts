@@ -75,7 +75,7 @@ async function publishedProduct(supplierId: string, sku = `DES-${randomUUID().sl
     stock: 5,
     categoryId: null,
     imageUrls: [],
-    mercadoLivreAttributes: {},
+    mercadoLivreAttributes: { SELLER_PACKAGE_WEIGHT: "300" },
     fiscal: ON_SALE_FISCAL,
   });
   const targets = await publishTestProduct(database, product.id, [first, second]);
@@ -356,7 +356,7 @@ describe("what the reseller sees", () => {
       stock: 5,
       categoryId: null,
       imageUrls: [],
-      mercadoLivreAttributes: {},
+      mercadoLivreAttributes: { SELLER_PACKAGE_WEIGHT: "300" },
       fiscal: ON_SALE_FISCAL,
     });
     const listing = await createListingWithTargets(
