@@ -15,7 +15,7 @@ import { e2eDatabase } from "./database";
 /** Worker round trip (queue + mocked marketplace latency) before a status settles. */
 const STATUS_TIMEOUT = 20_000;
 
-/** The status line of a listing card ("No ar na Loja X", "Erro na Loja X"...). */
+/** The status line of a listing card ("No ar na Loja X", "Não publicado na Loja X"...). */
 function cardStatus(page: Page, status: string) {
   return page.getByText(status, { exact: true }).filter({ visible: true });
 }
@@ -198,7 +198,9 @@ test("mostra erro com motivo e permite reprocessar", async ({ page }) => {
   await page.getByRole("button", { name: "Publicar" }).click();
 
   await expect(page).toHaveURL(/\/publicacoes/);
-  await expect(cardStatus(page, "Erro na Loja Recusa")).toBeVisible({ timeout: STATUS_TIMEOUT });
+  await expect(cardStatus(page, "Não publicado na Loja Recusa")).toBeVisible({
+    timeout: STATUS_TIMEOUT,
+  });
   await expect(
     page
       .getByText("Anúncio recusado: o título contém termos não permitidos")
@@ -207,9 +209,11 @@ test("mostra erro com motivo e permite reprocessar", async ({ page }) => {
 
   await page.getByRole("button", { name: "Tentar de novo" }).click();
   await expect(
-    page.getByText("Publicação reenviada para a fila").filter({ visible: true }),
+    page.getByText("Publicando de novo. Acompanhe em Publicações.").filter({ visible: true }),
   ).toBeVisible();
-  await expect(cardStatus(page, "Erro na Loja Recusa")).toBeVisible({ timeout: STATUS_TIMEOUT });
+  await expect(cardStatus(page, "Não publicado na Loja Recusa")).toBeVisible({
+    timeout: STATUS_TIMEOUT,
+  });
 });
 
 test("valida o formulário de publicação e bloqueia preço abaixo do custo", async ({ page }) => {

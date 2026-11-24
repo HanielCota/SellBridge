@@ -64,7 +64,9 @@ export function useBulkListingActions(onDone?: () => void) {
     mutationFn: (listingIds: string[]) => retryListings({ data: { listingIds } }),
     onSuccess: async ({ retried }) => {
       toast.success(
-        retried > 0 ? "Publicação reenviada para a fila" : "Nenhuma publicação com erro",
+        retried > 0
+          ? "Publicando de novo. Acompanhe em Publicações."
+          : "Nenhuma publicação com erro",
       );
       await refresh();
       onDone?.();

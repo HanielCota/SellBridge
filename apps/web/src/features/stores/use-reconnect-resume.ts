@@ -13,7 +13,7 @@ export function useReconnectResume(onDone: () => void) {
     onSuccess: async (outcome) => {
       const description = resumeOutcomeMessage(outcome);
       if (outcome.held > 0) {
-        toast.warning("Anúncios conferidos", { description });
+        toast.warning("Alguns anúncios continuam pausados", { description });
       }
       if (outcome.held === 0) {
         toast.success("Anúncios reativados", { description });

@@ -189,7 +189,7 @@ function SupplierFilter({ data }: { data: CatalogData }) {
     <FilterSelect
       label="Fornecedor"
       value={data.supplierFilter ?? undefined}
-      allLabel="Fornecedores"
+      allLabel="Todos os fornecedores"
       options={data.suppliers.map((supplier) => ({ value: supplier.id, label: supplier.name }))}
       onChange={(supplier) => updateSearch({ supplier })}
     />
@@ -228,7 +228,7 @@ function CatalogFilters({ data }: { data: CatalogData }) {
       <FilterSelect
         label="Categoria"
         value={search.category}
-        allLabel="Categorias"
+        allLabel="Todas as categorias"
         options={data.categories.map((category) => ({
           value: category.slug,
           label: category.name,
@@ -330,8 +330,8 @@ function NoProducts() {
     return (
       <EmptyState
         icon={PackageIcon}
-        title="Nenhum produto no catálogo ainda"
-        description="Este fornecedor ainda não tem produtos ativos."
+        title="Este fornecedor ainda não tem produtos à venda"
+        description="Volte mais tarde ou fale com ele em Suporte."
       />
     );
   }
@@ -451,7 +451,7 @@ function SupplierPageLink({ data }: { data: CatalogData | undefined }) {
 
 function headerDescription(data: CatalogData | undefined): string {
   if (data === undefined) {
-    return "Selecione vários produtos para publicar de uma vez.";
+    return "Marque vários produtos e publique de uma vez.";
   }
   const store = data.scopeStores.find((option) => option.id === data.scope.storeId);
   const names = shownSuppliers(data).map((supplier) => supplier.name);

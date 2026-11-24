@@ -140,7 +140,7 @@ test("admin desativa um produto e o revendedor vê o anúncio pausado e o aviso"
 
   // The card menu offers no "Reativar" while the supplier keeps the product off.
   await card.getByRole("button", { name: `Ações de ${productTitle}` }).click();
-  await expect(reseller.getByRole("menuitem", { name: /Indisponível/ })).toBeDisabled();
-  await expect(reseller.getByRole("menuitem", { name: "Reativar" })).toHaveCount(0);
+  await expect(reseller.getByRole("menuitem", { name: /Não dá para reativar/ })).toBeDisabled();
+  await expect(reseller.getByRole("menuitem", { name: "Reativar", exact: true })).toHaveCount(0);
   await reseller.close();
 });

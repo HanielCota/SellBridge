@@ -114,11 +114,11 @@ export function EditorControls({
 }
 
 function saveStatus(form: SellerProductEditor) {
-  if (!form.canSave) return "Informe o motivo antes de salvar as alterações.";
+  if (!form.canSave) return "Escreva o motivo antes de salvar.";
   if (form.state.kind === "saving") return "Salvando…";
-  if (form.state.kind === "saved" && !form.dirty) return "Todas as alterações foram salvas";
+  if (form.state.kind === "saved" && !form.dirty) return "Tudo salvo";
   if (form.state.kind === "needs-sku") return "Digite o código do produto para começar a salvar.";
-  return form.dirty ? "Alterações não salvas" : "Nenhuma alteração pendente";
+  return form.dirty ? "Alterações não salvas" : "Nada para salvar";
 }
 
 export function EditorFeedback({ form }: { form: SellerProductEditor }) {

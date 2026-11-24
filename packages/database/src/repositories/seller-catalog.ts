@@ -149,11 +149,11 @@ export async function activateSellerProduct(
     const product = await getSellerProduct(transaction, tenantId, productId);
     if (product.reviewStatus === "rejected")
       throw validationError(
-        "Este produto está bloqueado pela plataforma. Fale com o suporte para solicitar uma revisão.",
+        "A equipe do SellBridge bloqueou este produto. Fale com o suporte para pedir uma revisão.",
       );
     if (!product.completeness.canSubmit)
       throw validationError(
-        "Preencha os campos obrigatórios do produto antes de deixá-lo pronto para publicar.",
+        "Preencha os campos obrigatórios do produto para deixar ele pronto para publicar.",
       );
     await transaction
       .update(supplierProducts)

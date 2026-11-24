@@ -45,7 +45,7 @@ function bracketed(message: string | undefined): string | null {
 function missingAttributes(cause: MercadoLivreCause): string {
   const attributes = bracketed(cause.message);
   const named = attributes === null ? "" : `: ${attributes}`;
-  return `Faltam atributos obrigatórios para esta categoria no Mercado Livre${named}. Preencha esses campos no cadastro do produto ${AGAIN}`;
+  return `Faltam campos da ficha técnica que o Mercado Livre exige nesta categoria${named}. Preencha no cadastro do produto ${AGAIN}`;
 }
 
 function invalidPrice(cause: MercadoLivreCause): string {
@@ -60,7 +60,7 @@ function invalidPrice(cause: MercadoLivreCause): string {
 const GTIN_REFUSED = `O código de barras (GTIN) do produto não foi aceito pelo Mercado Livre. ${ASK_SUPPORT}`;
 const PICTURE_UNREACHABLE =
   "O Mercado Livre não conseguiu baixar uma das fotos do produto. Tente publicar de novo; se continuar, fale com o suporte.";
-const LONG_ATTRIBUTE = `Um atributo do produto passou do tamanho que o Mercado Livre aceita. ${ASK_SUPPORT}`;
+const LONG_ATTRIBUTE = `Um campo da ficha técnica passou do tamanho que o Mercado Livre aceita. ${ASK_SUPPORT}`;
 
 export const DESCRIPTION_NOT_PLAIN_TEXT =
   "A descrição tem caracteres que o Mercado Livre não aceita (emojis, HTML ou símbolos especiais). Fale com o suporte para deixar só texto simples na descrição.";
@@ -83,7 +83,7 @@ const EXPLANATIONS: Readonly<Record<string, (cause: MercadoLivreCause) => string
   "item.attributes.missing_required": missingAttributes,
   "item.attribute.missing_conditional_required": missingAttributes,
   "item.attribute.missing_catalog_required": () =>
-    `Falta um atributo que o catálogo do Mercado Livre exige. ${ASK_SUPPORT}`,
+    `Falta um campo da ficha técnica que o catálogo do Mercado Livre exige. ${ASK_SUPPORT}`,
   "item.price.invalid": invalidPrice,
   "item.pictures.invalid_size": () =>
     `As fotos do produto são pequenas demais para o Mercado Livre (mínimo de 500 pixels em um dos lados). Fale com o suporte para trocar as fotos ${AGAIN}`,
@@ -129,7 +129,7 @@ function explainCause(cause: MercadoLivreCause): string {
 
 /** Shown when the item was closed or deleted on Mercado Livre: it can never sell again. */
 export const LISTING_ENDED_MESSAGE =
-  "Este anúncio foi encerrado ou excluído no Mercado Livre e não vende mais. Para vender de novo, clique em Reprocessar: o SellBridge cria um anúncio novo.";
+  "Este anúncio foi encerrado ou excluído no Mercado Livre e não vende mais. Para vender de novo, clique em Tentar de novo: o SellBridge cria um anúncio novo.";
 
 const ITEM_NOT_OPEN_MESSAGE =
   "O Mercado Livre só aceita mudanças em anúncios ativos ou pausados, e este não está assim agora (pode ter sido encerrado, excluído ou estar em revisão). Confira o anúncio no Mercado Livre.";

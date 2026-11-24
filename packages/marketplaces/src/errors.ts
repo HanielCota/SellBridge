@@ -52,7 +52,7 @@ export function isMarketplaceListingEndedError(value: unknown): value is AppErro
 
 /** The stored token is no longer accepted; the store must be reconnected. */
 export function marketplaceAuthError(
-  message = "A loja precisa ser reconectada: o acesso foi revogado ou expirou",
+  message = "A loja perdeu a conexão com o SellBridge. Conecte a loja de novo em Lojas.",
 ): AppError {
   return new AppError("EXTERNAL_PROVIDER_AUTH", message, {
     details: { retryable: false, status: 401 },

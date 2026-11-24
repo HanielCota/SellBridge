@@ -64,9 +64,9 @@ test.describe("avaliação de fornecedores", () => {
 
   test("mostra a nota no card e na página do fornecedor", async ({ page }) => {
     await gotoHydrated(page, "/fornecedores?sort=reputation");
-    await expect(page.getByText(/^Reputação: /).first()).toBeAttached();
+    await expect(page.getByText(/^Score: /).first()).toBeAttached();
     await page.getByRole("link", { name: "Franca Calçados Direto da Fábrica" }).click();
-    const panel = page.getByRole("region", { name: "Reputação do fornecedor" });
+    const panel = page.getByRole("region", { name: "Score do fornecedor" });
     await expect(panel.getByText(/Nota do fornecedor · últimos 90 dias/)).toBeVisible();
     await expect(panel.getByText("Taxa de cancelamento")).toBeVisible();
   });

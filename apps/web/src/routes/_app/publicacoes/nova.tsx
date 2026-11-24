@@ -187,9 +187,9 @@ const listingFormSchema = z.object({
     .string()
     .refine(
       (value) => listingPriceCentsSchema.safeParse(parseBrlToCents(value)).success,
-      "Informe um preço entre R$ 0,01 e R$ 1.000.000,00",
+      "Digite um preço entre R$ 0,01 e R$ 1.000.000,00",
     ),
-  storeConnectionIds: z.array(z.string()).min(1, "Escolha ao menos uma loja de destino"),
+  storeConnectionIds: z.array(z.string()).min(1, "Escolha pelo menos uma loja"),
 });
 
 /** The product as the form prices it: with the stores' own Mercado Livre numbers once read. */
@@ -204,7 +204,7 @@ function pluralize(count: number, one: string, other: string): string {
 function successMessage(targetCount: number): string {
   return targetCount > 1
     ? `Publicação enviada para ${targetCount} lojas`
-    : "Publicação enviada para a fila";
+    : "Publicando. Acompanhe em Publicações.";
 }
 
 /** The only store that can still take the product starts ticked; otherwise the reseller picks. */
@@ -223,7 +223,7 @@ function useListingForm({ product, stores }: Pick<NewListingData, "product" | "s
     setSubmitError(null);
     const priceCents = parseBrlToCents(value.price);
     if (priceCents === null) {
-      setSubmitError("Informe um preço válido");
+      setSubmitError("Digite o preço assim: 49,90");
       return;
     }
     // The server's own floor and words, on every chosen store's channel, said before the request.
@@ -335,9 +335,7 @@ function ProfitSentence({
 }) {
   const estimate = estimateProfit(priceCents, product, useFeeSchedule(), channels);
   if (!estimate) {
-    return (
-      <p className="text-sm text-muted-foreground">Informe o preço de venda para ver o lucro.</p>
-    );
+    return <p className="text-sm text-muted-foreground">Digite o preço para ver o lucro.</p>;
   }
   if (estimate.profitCents < 0) {
     return (
@@ -618,8 +616,7 @@ function PriceFieldNote({
         </p>
       ) : null}
       <p id="price-hint" className="text-xs text-muted-foreground">
-        Informe seu preço de venda ou escolha uma sugestão. Custo por unidade:{" "}
-        {formatCents(costCents)}.
+        Digite o preço ou toque numa sugestão. Seu custo: {formatCents(costCents)} por unidade.
       </p>
     </>
   );
@@ -831,7 +828,7 @@ function publishSummary(selected: readonly ListingStore[]): string {
     return `Vai para ${only.shopName}`;
   }
   if (selected.length === 0) {
-    return "Escolha ao menos uma loja";
+    return "Escolha pelo menos uma loja";
   }
   return `Vai para ${pluralize(selected.length, "loja", "lojas")}`;
 }

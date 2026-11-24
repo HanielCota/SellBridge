@@ -62,7 +62,9 @@ describe("readMercadoLivreBuyerBilling", () => {
 
     const reading = readMercadoLivreBuyerBilling(config, store, "55");
 
-    await expect(reading).rejects.toThrow("Pedido não pertence à loja conectada");
+    await expect(reading).rejects.toThrow(
+      "Este pedido é de outra conta do Mercado Livre, não desta loja.",
+    );
   });
 });
 

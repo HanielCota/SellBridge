@@ -34,7 +34,9 @@ describe("bulkPublishHeading", () => {
   it("follows the batch from running to its honest end", () => {
     expect(bulkPublishHeading({ ...none, published: 1, pending: 1 })).toBe("Publicando anúncios");
     expect(bulkPublishHeading({ ...none, published: 2 })).toBe("Tudo no ar");
-    expect(bulkPublishHeading({ ...none, published: 1, failed: 1 })).toBe("Concluída com falhas");
+    expect(bulkPublishHeading({ ...none, published: 1, failed: 1 })).toBe(
+      "Parte dos anúncios não foi ao ar",
+    );
     expect(bulkPublishHeading({ ...none, failed: 2 })).toBe("Nenhum anúncio foi ao ar");
   });
 });

@@ -274,7 +274,7 @@ export function CommandPalette() {
                 className="max-h-[min(30rem,60svh)] overflow-y-auto overscroll-contain p-2 [scrollbar-width:none]"
               >
                 <Command.Empty className="px-3 py-8 text-center text-sm text-muted-foreground">
-                  Nada encontrado para essa busca.
+                  Nada encontrado com “{term}”. Confira a escrita.
                 </Command.Empty>
                 <QuickCommands term={term} go={go} />
                 <SearchResults term={term} go={go} />

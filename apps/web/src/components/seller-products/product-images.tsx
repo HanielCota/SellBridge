@@ -86,7 +86,7 @@ function ImageLink({
             value={link}
             disabled={disabled}
             onChange={(event) => setLink(event.target.value)}
-            placeholder="https://"
+            placeholder="https://site.com.br/foto.jpg"
           />
         </div>
         <Button variant="secondary" disabled={disabled || link.trim() === ""} onClick={add}>
@@ -128,7 +128,7 @@ function ProductGallery({
                   onChange([url, ...images.filter((_, position) => position !== index)])
                 }
               >
-                Definir como capa {index + 1}
+                Usar como capa <span className="sr-only">a foto {index + 1}</span>
               </Button>
             )}
             <Button

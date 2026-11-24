@@ -244,7 +244,9 @@ export function presentNotification(event: NotificationEvent): AppNotification {
         ...base,
         id: `listing:${event.entityId}:${event.at.getTime()}`,
         title: `Publicação recusada: ${event.listingTitle}`,
-        detail: event.errorReason ?? "Erro ao publicar",
+        detail:
+          event.errorReason ??
+          "O marketplace recusou sem dizer o motivo. Abra a publicação para tentar de novo.",
         href: "/publicacoes?status=error",
       };
     case "store_problem":

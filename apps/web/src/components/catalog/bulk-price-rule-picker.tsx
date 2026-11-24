@@ -214,7 +214,7 @@ function marginHint(total: number, adjusted: number): string {
   if (adjusted === 0) {
     return "O que sobra depois das taxas · preço termina em ,90";
   }
-  return `Vale para ${total - adjusted} de ${total} · preço termina em ,90`;
+  return `Vale para ${total - adjusted} de ${total} produtos · preço termina em ,90`;
 }
 
 export function PriceRulePicker({

@@ -101,7 +101,7 @@ test("cada loja vende os fornecedores escolhidos, adicionados e tirados depois",
     page.getByText("Para publicar, adicione este fornecedor a uma das suas lojas."),
   ).toBeVisible();
   await expect(page.getByRole("button", { name: "Publicar" }).first()).toBeDisabled();
-  await page.getByRole("link", { name: "Vender este fornecedor" }).click();
+  await page.getByRole("link", { name: "Vender os produtos dele" }).click();
 
   // The shops already connected can start selling it right there.
   await expect(page).toHaveURL(/\/lojas/);

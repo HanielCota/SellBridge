@@ -59,7 +59,7 @@ export function bulkPublishHeading(tally: BulkPublishTally): string {
     return "Nenhum anúncio foi ao ar";
   }
   if (tally.failed > 0) {
-    return "Concluída com falhas";
+    return "Parte dos anúncios não foi ao ar";
   }
   return "Tudo no ar";
 }

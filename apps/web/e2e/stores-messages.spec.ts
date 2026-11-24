@@ -13,7 +13,7 @@ test("a connection error code shows the app's own message", async ({ page }) => 
   await signIn(page, DEMO_USER);
   await gotoHydrated(page, "/lojas?erro=expired");
   await expect(
-    page.getByText("A solicitação de conexão expirou. Tente conectar novamente."),
+    page.getByText("A conexão demorou demais. Clique em Conectar de novo."),
   ).toBeVisible();
 });
 

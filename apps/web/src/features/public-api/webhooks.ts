@@ -15,7 +15,12 @@ export const RECENT_WEBHOOK_DELIVERIES = 5;
 export const webhookUrlSchema = freeText()
   .trim()
   .max(2000, "Use uma URL de até 2000 caracteres")
-  .pipe(z.url({ protocol: /^https?$/, error: "Informe uma URL http(s) válida" }));
+  .pipe(
+    z.url({
+      protocol: /^https?$/,
+      error: "Use um endereço que comece com https://, como https://seusite.com.br/avisos",
+    }),
+  );
 
 export const webhookDescriptionSchema = freeText()
   .trim()

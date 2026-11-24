@@ -51,7 +51,9 @@ async function shipmentIdOf(
     init: { accessToken: store.accessToken },
   });
   if (String(order.seller.id) !== store.externalShopId) {
-    throw marketplaceError("Pedido não pertence à loja conectada", { retryable: false });
+    throw marketplaceError("Este pedido é de outra conta do Mercado Livre, não desta loja.", {
+      retryable: false,
+    });
   }
   const shipmentId = order.shipping?.id;
   return shipmentId === null || shipmentId === undefined ? null : String(shipmentId);

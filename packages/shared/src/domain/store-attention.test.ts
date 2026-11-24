@@ -32,7 +32,7 @@ describe("describeStoreAccess", () => {
 
   it("says a failed renewal is being retried", () => {
     expect(describeStoreAccess({ status: "connected", lastError: "Instabilidade" })).toEqual({
-      label: "Renovação falhou, tentaremos de novo",
+      label: "A conexão falhou agora. Tentamos de novo sozinhos",
       tone: "warning",
     });
   });

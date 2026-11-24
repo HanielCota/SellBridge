@@ -61,7 +61,7 @@ describe("setup progress", () => {
   });
 
   it("tells when the store is ready, and nothing once it is", () => {
-    expect(setupEtaLabel(NOTHING_DONE)).toBe("Sua loja fica pronta em ~12 min");
+    expect(setupEtaLabel(NOTHING_DONE)).toBe("Faltam uns 12 min para sua loja ficar pronta");
     expect(setupEtaLabel(ALL_DONE)).toBeNull();
   });
 });

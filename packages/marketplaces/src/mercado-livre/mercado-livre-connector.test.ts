@@ -358,7 +358,7 @@ describe("publishing", () => {
         causes: ["item.attributes.missing_required"],
       },
       message: expect.stringMatching(
-        /^Faltam atributos obrigatórios .*: BRAND, MODEL\. Preencha esses campos/,
+        /^Faltam campos da ficha técnica .*: BRAND, MODEL\. Preencha no cadastro/,
       ),
     });
   });
@@ -428,7 +428,7 @@ describe("items closed on Mercado Livre", () => {
 
     await expect(update).rejects.toMatchObject({
       details: { retryable: false, status: 400 },
-      message: expect.stringMatching(/^Faltam atributos obrigatórios/),
+      message: expect.stringMatching(/^Faltam campos da ficha técnica/),
     });
     await expect(update).rejects.not.toMatchObject({ details: { listingEnded: true } });
   });
@@ -496,7 +496,7 @@ describe("orders", () => {
       [`GET ${API}/orders/2000003508897196`]: () => json(200, foreignOrder),
     });
     await expect(ml.fetchOrder(store, "/orders/2000003508897196")).rejects.toMatchObject({
-      message: "Pedido não pertence à loja conectada",
+      message: "Este pedido é de outra conta do Mercado Livre, não desta loja.",
       details: { retryable: false },
     });
   });
@@ -838,11 +838,29 @@ describe("Mercado Livre category requirements", () => {
         ]),
     });
     await expect(ml.publishProduct(store, product, guard)).rejects.toMatchObject({
-      details: { retryable: false },
-      message: expect.stringContaining("Cor (COLOR), Modelo (MODEL)"),
+      details: {
+        retryable: false,
+        issues: ["Obrigatório: Cor (COLOR)", "Obrigatório: Modelo (MODEL)"],
+      },
+      message: expect.stringContaining("Cor, Modelo"),
     });
     expect(calls.some((call) => call.method === "POST" && call.url === `${API}/items`)).toBe(false);
     expect(guard.beforeCreate).not.toHaveBeenCalled();
+  });
+
+  it("keeps the ids of read-only fields for the team while the reseller reads plain words", async () => {
+    const { ml } = connector({
+      ...publishRoutes,
+      [`GET ${API}/categories/MLB1/attributes`]: () =>
+        json(200, [{ id: "SELLER_SKU", name: "SKU", tags: { read_only: true } }]),
+    });
+
+    const attempt = ml.publishProduct(store, product, publicationGuard());
+
+    await expect(attempt).rejects.toMatchObject({
+      message: expect.not.stringContaining("SELLER_SKU"),
+      details: { retryable: false, issues: ["Somente leitura: SELLER_SKU"] },
+    });
   });
 
   it.each([{ required: [] }, { required: [{ id: "GTIN", name: "Código universal" }] }])(
@@ -864,7 +882,7 @@ describe("Mercado Livre category requirements", () => {
       } catch (error) {
         outcome = { error: String(error) };
       }
-      expect(outcome.error?.includes("GTIN") ?? false).toBe(required.length > 0);
+      expect(outcome.error?.includes("Código universal") ?? false).toBe(required.length > 0);
       expect(outcome.id).toBe(required.length ? undefined : "MLB1");
       const validation = calls.find((call) => call.url.endsWith("/attributes/conditional"));
       expect(JSON.parse(validation?.body ?? "{}")).toMatchObject({
@@ -1069,7 +1087,7 @@ describe("publication recovery", () => {
       const publishing = ml.publishProduct(store, product);
 
       await expect(publishing).rejects.toMatchObject({
-        message: `Sua conta do Mercado Livre já tem um anúncio ${statusWord} com este SKU, feito fora do SellBridge (código MLB1). Encerre esse anúncio no Mercado Livre e clique em Reprocessar.`,
+        message: `Sua conta do Mercado Livre já tem um anúncio ${statusWord} com este código de produto, feito fora do SellBridge (anúncio MLB1). Encerre esse anúncio no Mercado Livre e clique em Tentar de novo.`,
         details: { retryable: false },
       });
       expect(calls.some((call) => call.url === `${API}/items`)).toBe(false);
@@ -1084,7 +1102,7 @@ describe("publication recovery", () => {
       [`GET ${API}/items/MLB2`]: () => json(200, { ...remoteItem, id: "MLB2" }),
     });
     await expect(ml.publishProduct(store, product)).rejects.toMatchObject({
-      message: expect.stringContaining("duplicados"),
+      message: expect.stringContaining("repetidos"),
     });
   });
 
@@ -1102,7 +1120,7 @@ describe("publication recovery", () => {
     const guard = publicationGuard(9);
     const { ml, calls } = connector(publishRoutes);
     await expect(ml.publishProduct(store, product, guard)).rejects.toMatchObject({
-      message: expect.stringMatching(/aguarde alguns minutos/i),
+      message: expect.stringMatching(/espere alguns minutos/i),
       details: { retryable: false },
     });
     expect(calls.every((call) => call.method === "GET")).toBe(true);

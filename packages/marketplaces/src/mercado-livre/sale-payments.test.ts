@@ -74,7 +74,7 @@ describe("readMercadoLivreSalePayments", () => {
     const { config } = setup({ seller: { id: 12 }, payments: [] });
 
     await expect(readMercadoLivreSalePayments(config, store, "55")).rejects.toThrow(
-      "Pedido não pertence à loja conectada",
+      "Este pedido é de outra conta do Mercado Livre, não desta loja.",
     );
   });
 

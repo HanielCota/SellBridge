@@ -95,7 +95,7 @@ describe("readMercadoLivreCommission", () => {
 
     await expect(
       readMercadoLivreCommission(config, store, { categoryId: "MLB1234", priceCents: 3390 }),
-    ).rejects.toThrow("comissão do anúncio Clássico");
+    ).rejects.toThrow("taxa do anúncio Clássico");
   });
 
   it("refuses a commission above the whole price", async () => {

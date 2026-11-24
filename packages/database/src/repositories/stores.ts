@@ -244,7 +244,9 @@ async function saveStoreConnection(
     })
     .returning({ id: storeConnections.id });
   if (saved === undefined) {
-    throw conflictError("Não foi possível salvar a conexão da loja");
+    throw conflictError(
+      "Não deu para salvar a conexão da loja. Conecte de novo; se continuar, fale com o suporte.",
+    );
   }
   if (supplierId !== null) {
     await linkSupplierToPendingStore(executor, saved.id, supplierId);
@@ -254,7 +256,9 @@ async function saveStoreConnection(
     .from(storeConnections)
     .where(eq(storeConnections.id, saved.id));
   if (row === undefined) {
-    throw conflictError("Não foi possível salvar a conexão da loja");
+    throw conflictError(
+      "Não deu para salvar a conexão da loja. Conecte de novo; se continuar, fale com o suporte.",
+    );
   }
   return row;
 }

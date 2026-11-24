@@ -57,7 +57,7 @@ export function BillingAddressSection({
         <span className="block text-sm font-medium">Endereço de cobrança</span>
         {isMissing ? (
           <span className="block text-footnote text-amber-700 dark:text-amber-400">
-            Falta o endereço. Preencha para manter seu cadastro em dia.
+            Falta o endereço de cobrança. Preencha abaixo.
           </span>
         ) : null}
         {needsCityCode && !isMissing ? (

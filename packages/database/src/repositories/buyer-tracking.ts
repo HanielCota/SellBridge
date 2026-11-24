@@ -22,7 +22,7 @@ export async function saveBuyerTrackingToken(
     )
     .returning({ id: orderShipments.id });
   if (saved === undefined) {
-    throw notFoundError(`Envio ${input.shipmentId} não encontrado. Atualize o pedido.`);
+    throw notFoundError("Este envio não foi encontrado. Atualize o pedido.");
   }
 }
 

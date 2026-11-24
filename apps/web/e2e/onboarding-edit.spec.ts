@@ -49,12 +49,12 @@ test("completed details remain editable while supplier setup is unfinished", asy
   await expect(name).toHaveValue("Unsaved Customer Name");
 
   page.once("dialog", (dialog) => dialog.dismiss());
-  await page.getByRole("link", { name: "Voltar ao painel" }).click();
+  await page.getByRole("link", { name: "Voltar à Visão geral" }).click();
   await expect(page).toHaveURL(/step=details/);
   await expect(name).toHaveValue("Unsaved Customer Name");
 
   page.once("dialog", (dialog) => dialog.accept());
-  await page.getByRole("link", { name: "Voltar ao painel" }).click();
+  await page.getByRole("link", { name: "Voltar à Visão geral" }).click();
   await expect(page).toHaveURL(/\/dashboard(?:\?|$)/);
   await page.getByRole("link", { name: "Editar dados", exact: true }).click();
   await expect(name).toHaveValue(original);
@@ -62,7 +62,7 @@ test("completed details remain editable while supplier setup is unfinished", asy
   await name.fill("Saved Customer Name");
   await page.getByRole("button", { name: "Salvar dados", exact: true }).click();
   await expect(page.getByRole("button", { name: "Dados salvos", exact: true })).toBeVisible();
-  await page.getByRole("link", { name: "Voltar ao painel" }).click();
+  await page.getByRole("link", { name: "Voltar à Visão geral" }).click();
   await expect(page).toHaveURL(/\/dashboard(?:\?|$)/);
   await page.getByRole("link", { name: "Editar dados", exact: true }).click();
   await expect(name).toHaveValue("Saved Customer Name");
@@ -92,7 +92,7 @@ test("supplier edits can be cancelled and saved without resetting completed deta
     .innerText();
   await pickSupplier(page, otherName);
   page.once("dialog", (dialog) => dialog.dismiss());
-  await page.getByRole("link", { name: "Voltar ao painel" }).click();
+  await page.getByRole("link", { name: "Voltar à Visão geral" }).click();
   await expect(page).toHaveURL(/step=supplier/);
   await page.getByRole("button", { name: "Salvar fornecedor" }).click();
   await expect(page).toHaveURL(/\/dashboard(?:\?|$)/);

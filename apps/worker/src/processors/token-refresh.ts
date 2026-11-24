@@ -27,7 +27,8 @@ export interface TokenRefreshSummary {
   superseded: number;
 }
 
-const TRANSIENT_FAILURE_MESSAGE = "Falha ao renovar o acesso da loja; tentaremos de novo";
+const TRANSIENT_FAILURE_MESSAGE =
+  "Não deu para renovar a conexão da loja agora. O SellBridge tenta de novo sozinho.";
 
 type Connection = Awaited<ReturnType<typeof findConnectionsExpiringBefore>>[number];
 

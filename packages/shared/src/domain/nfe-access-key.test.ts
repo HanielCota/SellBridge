@@ -76,7 +76,7 @@ describe("resellerAccessKeyProblem", () => {
 
   it("refuses a consumer receipt (NFC-e)", () => {
     expect(resellerAccessKeyProblem(CONSUMER_RECEIPT_KEY, RESELLER_CNPJ)).toBe(
-      "Esta chave não é de uma NF-e (modelo 55). Use a chave da nota de venda ao cliente.",
+      "Esta chave não é de uma NF-e (modelo 55). Use a chave da nota de venda ao comprador.",
     );
   });
 

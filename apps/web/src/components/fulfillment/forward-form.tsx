@@ -165,7 +165,7 @@ function ForwardBlockersNotice({ blockers }: { blockers: readonly string[] }) {
         ))}
       </ul>
       <p>
-        Cancele a venda no canal, ou abra um chamado para a equipe ajudar a resolver.{" "}
+        Cancele o pedido no marketplace ou abra um chamado para a equipe resolver.{" "}
         <Link to="/suporte/novo" className="font-medium underline underline-offset-4">
           Abrir chamado
         </Link>

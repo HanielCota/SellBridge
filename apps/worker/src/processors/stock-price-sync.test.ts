@@ -212,7 +212,8 @@ describe("stock-price-sync processor", () => {
     expect(row).toMatchObject({
       syncedStock: null,
       syncedAt: null,
-      syncError: "Falha ao sincronizar estoque e preço",
+      syncError:
+        "Não deu para atualizar o estoque e o preço no anúncio. Tente de novo; se continuar, fale com o suporte.",
     });
     expect(row?.syncAttemptedAt).not.toBeNull();
   });

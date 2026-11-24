@@ -88,7 +88,9 @@ describe("readMercadoLivreClaim", () => {
 
     const read = readMercadoLivreClaim(config, { ...store, externalShopId: "1" }, "5256749420");
 
-    await expect(read).rejects.toThrow("Reclamação não pertence à loja conectada");
+    await expect(read).rejects.toThrow(
+      "Esta reclamação é de outra conta do Mercado Livre, não desta loja.",
+    );
   });
 
   it("refuses a claim id that is not a number before calling the marketplace", async () => {

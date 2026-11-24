@@ -42,3 +42,31 @@ test("os filtros da gestão de produtos deixam espaço entre o título e o campo
     expect(gap, `space under "${name}"`).toBeGreaterThanOrEqual(6);
   }
 });
+
+/*
+ * Regression: in the product cards, the button sat at a different height on each card when one
+ * title wrapped to two lines, since it followed the text instead of the card's bottom.
+ */
+test("os botões dos cartões de produto ficam alinhados no fim de cada cartão", async ({ page }) => {
+  await signIn(page, ADMIN_USER);
+  await enableAdminMode(page);
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await gotoHydrated(page, "/admin/products");
+  const cards = page
+    .getByRole("list")
+    .filter({ has: page.getByRole("heading", { level: 2 }) })
+    .first()
+    .getByRole("listitem");
+  await expect(cards.first()).toBeVisible();
+
+  const gaps = await cards.evaluateAll((items) =>
+    items.map((item) => {
+      const button = item.querySelector("a, button");
+      return Math.round(
+        item.getBoundingClientRect().bottom - (button?.getBoundingClientRect().bottom ?? 0),
+      );
+    }),
+  );
+
+  expect(new Set(gaps).size, `space under each card's button: ${gaps.join(", ")}`).toBe(1);
+});

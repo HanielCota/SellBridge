@@ -140,7 +140,7 @@ function EditorHeader({ form, onBack }: { form: SellerProductEditor; onBack: () 
   return (
     <PageHeader
       title={form.saved === null ? "Novo produto" : form.values.title || "Editar produto"}
-      description="Seu estoque particular. Cadastrar um produto não cria um anúncio no marketplace."
+      description="Produtos que você mesmo cadastra. Cadastrar não publica no marketplace."
       back={
         <Button
           variant="ghost"
