@@ -151,9 +151,49 @@ continuam gerando cobranças todo mês, e as ações da tela de assinatura (canc
 trocar a forma de pagamento) ficam fora do ar. Antes de ligar esse modo, cancele as assinaturas no
 painel do Asaas e avise os revendedores.
 
-**Nota da mensalidade:** o Asaas emite NFS-e automática por assinatura
-(`POST /v3/subscriptions/{id}/invoiceSettings`), com a conta habilitada para notas e o serviço
-municipal configurado. Ainda não está ligado: fica para uma próxima entrega.
+## Nota da mensalidade (NFS-e)
+
+Cada mensalidade paga ganha a sua nota fiscal de serviço, emitida pelo Asaas na conta do SellBridge
+quando o pagamento é confirmado (decisão em
+`docs/decisions/2026-11-23-nota-fiscal-da-mensalidade.md`). O SellBridge liga a nota em cada
+assinatura (`POST /v3/subscriptions/{id}/invoiceSettings`): ao criar a do Pix, ao vincular a do
+cartão e a cada troca de plano (a nota diz o plano). Antes, copia o e-mail do dono e o endereço de
+cobrança para o cliente no Asaas, que recusa a nota sem eles. Na primeira vez em cada assinatura, agenda
+também a nota das mensalidades já pagas (`POST /v3/invoices`), que a configuração não cobre.
+
+**Variáveis do serviço web (Coolify), com os dados do contador.** Decimais com ponto (`2.5`).
+
+| Variável                                                                                                           | O que é                                                                                             |
+| ------------------------------------------------------------------------------------------------------------------ | --------------------------------------------------------------------------------------------------- |
+| `ASAAS_INVOICE_SERVICE_ID`                                                                                         | O serviço municipal, pelo id da lista do Asaas (`GET /v3/fiscalInfo/services`).                     |
+| `ASAAS_INVOICE_SERVICE_CODE`                                                                                       | No lugar do id, quando a prefeitura não tem lista: o código municipal (ex.: `1.03`). Nunca os dois. |
+| `ASAAS_INVOICE_SERVICE_NAME`                                                                                       | O nome do serviço; o Asaas exige mesmo com o id.                                                    |
+| `ASAAS_INVOICE_ISS_PERCENT`                                                                                        | A alíquota do ISS, em %.                                                                            |
+| `ASAAS_INVOICE_RETAIN_ISS`                                                                                         | `true` se o ISS é retido; padrão `false`.                                                           |
+| `ASAAS_INVOICE_PIS_PERCENT`, `_COFINS_`, `_CSLL_`, `_INSS_`, `_IR_PERCENT`                                         | Retenções, em %; padrão 0.                                                                          |
+| `ASAAS_INVOICE_NBS_CODE`                                                                                           | Código NBS, se o contador pedir.                                                                    |
+| `ASAAS_INVOICE_PIS_COFINS_STATUS`, `ASAAS_INVOICE_OPERATION_PIS_PERCENT`, `ASAAS_INVOICE_OPERATION_COFINS_PERCENT` | Só fora do Simples Nacional (o Asaas exige desde 30/06/2026).                                       |
+
+- **Nenhuma definida:** a nota fica desligada e a assinatura segue normal (aviso
+  `billing.invoice_not_configured`).
+- **Definidas pela metade ou com erro:** a nota fica desligada, o site continua no ar e vai um erro
+  para Problemas (`billing.invoice_config_invalid`) dizendo qual corrigir.
+- **O Asaas recusou:** erro em Problemas (`billing.invoice_settings_failed`), com o motivo dele. A
+  assinatura continua valendo. Endereço incompleto da conta é a recusa mais provável.
+- **Ver as notas:** no painel do Asaas, em Notas Fiscais. A prefeitura pode recusar uma nota depois
+  de agendada; isso aparece lá (e pelos eventos `INVOICE_*` do webhook, que o SellBridge ainda não lê).
+
+**Assinaturas criadas antes de as variáveis entrarem.** Depois de definir as variáveis e o site
+reiniciar, rode uma vez no terminal do serviço web, no Coolify:
+
+```sh
+node --import tsx node_modules/@sellbridge/payments/src/asaas/backfill-subscription-invoices.ts
+```
+
+Ele liga a nota em cada assinatura ativa que ainda não tem e agenda a das mensalidades já pagas. Pode
+rodar de novo: quem já tem a nota ligada é pulado. A última linha (`billing.invoice_backfill_done`)
+conta quantas foram ligadas (`enabled`), já estavam (`already_set`), não estão ativas
+(`not_active`) e falharam (`failed`, cada uma também em Problemas).
 
 ## Validação antes de produção
 
@@ -166,4 +206,5 @@ Referências: [Assinaturas](https://docs.asaas.com/docs/assinaturas),
 [Atualizar assinatura](https://docs.asaas.com/reference/atualizar-assinatura-existente),
 [Checkout recorrente](https://docs.asaas.com/docs/checkout-com-assinatura-recorrente),
 [Eventos de assinatura](https://docs.asaas.com/docs/eventos-para-assinaturas) e
-[NFS-e de assinaturas](https://docs.asaas.com/docs/emitir-notas-fiscais-automaticamente-para-assinaturas).
+[NFS-e de assinaturas](https://docs.asaas.com/docs/emitir-notas-fiscais-automaticamente-para-assinaturas) e
+[Agendar nota fiscal](https://docs.asaas.com/reference/agendar-nota-fiscal).

@@ -1,6 +1,7 @@
 import { z } from "zod";
 import { asaasRequest, type AsaasHttpOptions, type AsaasRequest } from "./http.ts";
 import { asaasValueFromCents } from "./money.ts";
+import { subscriptionInvoiceCalls } from "./subscription-invoices.ts";
 import {
   asaasCustomerListSchema,
   asaasCustomerSchema,
@@ -375,6 +376,7 @@ export function createAsaasBillingClient(http: AsaasHttpOptions, apiKey: string)
     ...subscriptionChangeCalls(call),
     ...chargeCalls(call),
     ...refundCalls(call),
+    ...subscriptionInvoiceCalls(call),
   };
 }
 

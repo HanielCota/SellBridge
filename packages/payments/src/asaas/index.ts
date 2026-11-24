@@ -77,6 +77,24 @@ export {
   type AsaasSubscriptionCharge,
 } from "./subscriptions.ts";
 export {
+  invoiceEnvironmentFields,
+  invoiceServiceFrom,
+  type InvoiceEnvironment,
+  type InvoiceServiceSetting,
+} from "./invoice-config.ts";
+export {
+  enableSubscriptionInvoices,
+  invoiceDescription,
+  type InvoiceOutcome,
+  type InvoiceTarget,
+} from "./subscription-invoice-setup.ts";
+export {
+  type AsaasInvoiceService,
+  type AsaasInvoiceTaxes,
+  type AsaasMunicipalService,
+  type AsaasSubscriberContact,
+} from "./subscription-invoices.ts";
+export {
   FIRST_FEE_REFUND_DAYS,
   isPaidCharge,
   paidOn,
