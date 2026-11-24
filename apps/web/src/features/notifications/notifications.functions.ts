@@ -5,6 +5,7 @@ import {
   markNotificationsSeen,
 } from "@sellbridge/database/repositories";
 import { createServerFn } from "@tanstack/react-start";
+import { buyerQuestionsEnabled } from "@/lib/server/buyer-questions-switch";
 import { database } from "@/lib/server/database";
 import { accountMiddleware } from "@/lib/server/middleware";
 import { reviewableSince } from "@/features/orders/review-window";
@@ -25,7 +26,11 @@ export const getNotifications = createServerFn({ method: "GET" })
     ]);
     // Kinds turned off in Perfil › Notificações neither show nor count as unread.
     const hidden = hiddenNotificationKinds(preferences);
-    const shown = events.filter((event) => !hidden.has(event.kind));
+    // Switched off, questions already stored link to a page that is gone.
+    const questionsOff = !buyerQuestionsEnabled();
+    const shown = events.filter(
+      (event) => !hidden.has(event.kind) && !(questionsOff && event.kind === "buyer_question"),
+    );
     return presentNotificationFeed(buildNotificationFeed(shown, seenAt));
   });
 

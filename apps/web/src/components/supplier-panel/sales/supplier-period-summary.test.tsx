@@ -58,3 +58,31 @@ describe("SupplierPeriodSummary", () => {
     expect(text).toContain("Nenhum pedido cancelado ou devolvido no período.");
   });
 });
+
+describe("SupplierPeriodSummary with earlier sales taken back", () => {
+  it("says what the period sold, net, and what earlier cancellations took off", () => {
+    const text = textOf(
+      renderToStaticMarkup(
+        <SupplierPeriodSummary
+          current={{
+            receivableCents: 8_000,
+            orders: 3,
+            undoneEarlierOrders: 1,
+            undoneEarlierReceivableCents: 8_000,
+          }}
+          previous={{ receivableCents: 16_000, orders: 3 }}
+          points={points}
+          bucket="day"
+          fromDate="2026-10-20"
+          situation="sold"
+        />,
+      ),
+    );
+
+    // The same net amount as the tiles and the chart beside the sentence.
+    expect(text).toMatch(/Você vendeu R\$\s80 no período/);
+    expect(text).toMatch(
+      /Já descontamos R\$\s80 de 1 venda de antes, cancelada ou devolvida no período\./,
+    );
+  });
+});

@@ -151,6 +151,7 @@ export * from "./held-payments.ts";
 export * from "./problem-events.ts";
 export * from "./fee-quotes.ts";
 export * from "./marketplace-claims.ts";
+export * from "./buyer-questions.ts";
 export * from "./store-buyer-address.ts";
 export { findPreparationHold } from "./shipment-timing.ts";
 export {

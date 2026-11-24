@@ -23,6 +23,7 @@ import {
   findStoresHeldByBuyerAddress,
   findStoreSupplierPlaces,
   listBuyerAddressChecks,
+  releaseBuyerAddressHold,
 } from "./store-buyer-address.ts";
 import { upsertStoreConnection } from "./stores.ts";
 
@@ -193,6 +194,9 @@ describe("checkStoreBuyerAddress", () => {
 
     expect(Object.keys(row ?? {}).toSorted()).toEqual([
       "checkedAt",
+      "releaseNote",
+      "releasedAt",
+      "releasedBy",
       "result",
       "storeConnectionId",
       "supplierId",
@@ -224,6 +228,105 @@ describe("findStoresHeldByBuyerAddress", () => {
     const held = await findStoresHeldByBuyerAddress(database, tenants.tenantB, [storeId]);
 
     expect(held).toEqual([]);
+  });
+});
+
+async function release(storeConnectionId: string, tenantId = tenants.tenantA) {
+  return releaseBuyerAddressHold(database, {
+    tenantId,
+    storeConnectionId,
+    releasedBy: owner,
+    note: "Mora no mesmo prédio do fornecedor",
+    now: new Date(),
+  });
+}
+
+async function isHeld(storeConnectionId: string) {
+  const held = await findStoresHeldByBuyerAddress(database, tenants.tenantA, [storeConnectionId]);
+  return held.length > 0;
+}
+
+describe("releaseBuyerAddressHold", () => {
+  it("lets a held store publish and leaves the bell", async () => {
+    const storeId = await createStore({ linkSupplier: true });
+    await check(storeId, async () => [atWarehouse]);
+
+    const released = await release(storeId);
+
+    expect(released).toEqual({ supplierId: supplier.supplierId });
+    expect(await isHeld(storeId)).toBe(false);
+    const bell = await findHeldStoresForBell(database, tenants.tenantA, 100);
+    expect(bell.some((store) => store.storeConnectionId === storeId)).toBe(false);
+    expect((await listBuyerAddressChecks(database, tenants.tenantA)).get(storeId)).toMatchObject({
+      result: "supplier_address",
+      releasedAt: expect.any(Date),
+      releaseNote: "Mora no mesmo prédio do fornecedor",
+    });
+  });
+
+  it("keeps the release through the daily check while the address stays the same", async () => {
+    const storeId = await createStore({ linkSupplier: true });
+    await check(storeId, async () => [atWarehouse]);
+    await release(storeId);
+
+    await check(storeId, async () => [atWarehouse]);
+
+    expect(await isHeld(storeId)).toBe(false);
+  });
+
+  it("holds the store again when the address is fixed and later goes back to the supplier", async () => {
+    const storeId = await createStore({ linkSupplier: true });
+    await check(storeId, async () => [atWarehouse]);
+    await release(storeId);
+
+    await check(storeId, async () => [atHome]);
+    await check(storeId, async () => [atWarehouse]);
+
+    expect(await isHeld(storeId)).toBe(true);
+  });
+
+  it("keeps the release when the marketplace cannot be read", async () => {
+    const storeId = await createStore({ linkSupplier: true });
+    await check(storeId, async () => [atWarehouse]);
+    await release(storeId);
+
+    await check(storeId, async () => {
+      throw new Error("Mercado Livre fora do ar");
+    });
+
+    expect(await isHeld(storeId)).toBe(false);
+  });
+
+  it("releases nothing for a store that is not held", async () => {
+    const storeId = await createStore({ linkSupplier: true });
+    await check(storeId, async () => [atHome]);
+
+    expect(await release(storeId)).toBeNull();
+  });
+
+  it("never releases another tenant's store", async () => {
+    const storeId = await createStore({ linkSupplier: true });
+    await check(storeId, async () => [atWarehouse]);
+
+    const released = await release(storeId, tenants.tenantB);
+
+    expect(released).toBeNull();
+    expect(await isHeld(storeId)).toBe(true);
+  });
+});
+
+describe("listBuyerAddressChecks supplier place", () => {
+  it("shows where the matched supplier ships from, so the reseller finds that address", async () => {
+    const storeId = await createStore({ linkSupplier: true });
+    await check(storeId, async () => [atWarehouse]);
+
+    const checks = await listBuyerAddressChecks(database, tenants.tenantA);
+
+    expect(checks.get(storeId)?.supplierPlace).toEqual({
+      street: WAREHOUSE.street,
+      number: WAREHOUSE.number,
+      zipCode: WAREHOUSE.cep,
+    });
   });
 });
 

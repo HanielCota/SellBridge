@@ -1,5 +1,5 @@
 {
-  "id": "cdfbed68-6eb4-41a0-86a8-1f84406487d1",
+  "id": "771cc0b1-1dab-48ad-bc80-6e1a20305c65",
   "prevId": "e8868a46-382f-4006-b29f-93286f273b42",
   "version": "7",
   "dialect": "postgresql",
@@ -2720,6 +2720,24 @@
           "type": "timestamp with time zone",
           "primaryKey": false,
           "notNull": false
+        },
+        "released_at": {
+          "name": "released_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "released_by": {
+          "name": "released_by",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "release_note": {
+          "name": "release_note",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
         }
       },
       "indexes": {
@@ -2753,6 +2771,19 @@
           "onDelete": "set null",
           "onUpdate": "no action"
         },
+        "store_buyer_address_checks_released_by_user_id_fk": {
+          "name": "store_buyer_address_checks_released_by_user_id_fk",
+          "tableFrom": "store_buyer_address_checks",
+          "tableTo": "user",
+          "columnsFrom": [
+            "released_by"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "set null",
+          "onUpdate": "no action"
+        },
         "store_buyer_address_checks_store_connection_fk": {
           "name": "store_buyer_address_checks_store_connection_fk",
           "tableFrom": "store_buyer_address_checks",
@@ -2770,123 +2801,12 @@
       "compositePrimaryKeys": {},
       "uniqueConstraints": {},
       "policies": {},
-      "checkConstraints": {},
-      "isRLSEnabled": false
-    },
-    "public.listing_families": {
-      "name": "listing_families",
-      "schema": "",
-      "columns": {
-        "id": {
-          "name": "id",
-          "type": "uuid",
-          "primaryKey": true,
-          "notNull": true,
-          "default": "gen_random_uuid()"
-        },
-        "tenant_id": {
-          "name": "tenant_id",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "model_id": {
-          "name": "model_id",
-          "type": "uuid",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "name": {
-          "name": "name",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "created_at": {
-          "name": "created_at",
-          "type": "timestamp with time zone",
-          "primaryKey": false,
-          "notNull": true,
-          "default": "now()"
-        },
-        "updated_at": {
-          "name": "updated_at",
-          "type": "timestamp with time zone",
-          "primaryKey": false,
-          "notNull": true,
-          "default": "now()"
+      "checkConstraints": {
+        "store_buyer_address_checks_release_check": {
+          "name": "store_buyer_address_checks_release_check",
+          "value": "(\"store_buyer_address_checks\".\"released_at\" is null and \"store_buyer_address_checks\".\"release_note\" is null) or (\"store_buyer_address_checks\".\"released_at\" is not null and \"store_buyer_address_checks\".\"result\" = 'supplier_address' and \"store_buyer_address_checks\".\"release_note\" is not null and btrim(\"store_buyer_address_checks\".\"release_note\") <> '' and char_length(\"store_buyer_address_checks\".\"release_note\") <= 300)"
         }
       },
-      "indexes": {
-        "listing_families_tenant_model_idx": {
-          "name": "listing_families_tenant_model_idx",
-          "columns": [
-            {
-              "expression": "tenant_id",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            },
-            {
-              "expression": "model_id",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            }
-          ],
-          "isUnique": true,
-          "concurrently": false,
-          "method": "btree",
-          "with": {}
-        },
-        "listing_families_model_idx": {
-          "name": "listing_families_model_idx",
-          "columns": [
-            {
-              "expression": "model_id",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            }
-          ],
-          "isUnique": false,
-          "concurrently": false,
-          "method": "btree",
-          "with": {}
-        }
-      },
-      "foreignKeys": {
-        "listing_families_tenant_id_organization_id_fk": {
-          "name": "listing_families_tenant_id_organization_id_fk",
-          "tableFrom": "listing_families",
-          "tableTo": "organization",
-          "columnsFrom": [
-            "tenant_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
-          "onDelete": "cascade",
-          "onUpdate": "no action"
-        },
-        "listing_families_model_id_product_models_id_fk": {
-          "name": "listing_families_model_id_product_models_id_fk",
-          "tableFrom": "listing_families",
-          "tableTo": "product_models",
-          "columnsFrom": [
-            "model_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
-          "onDelete": "restrict",
-          "onUpdate": "no action"
-        }
-      },
-      "compositePrimaryKeys": {},
-      "uniqueConstraints": {},
-      "policies": {},
-      "checkConstraints": {},
       "isRLSEnabled": false
     },
     "public.listing_targets": {
@@ -3228,12 +3148,6 @@
           "primaryKey": false,
           "notNull": true
         },
-        "family_id": {
-          "name": "family_id",
-          "type": "uuid",
-          "primaryKey": false,
-          "notNull": false
-        },
         "created_at": {
           "name": "created_at",
           "type": "timestamp with time zone",
@@ -3300,21 +3214,6 @@
           "concurrently": false,
           "method": "btree",
           "with": {}
-        },
-        "listings_family_idx": {
-          "name": "listings_family_idx",
-          "columns": [
-            {
-              "expression": "family_id",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            }
-          ],
-          "isUnique": false,
-          "concurrently": false,
-          "method": "btree",
-          "with": {}
         }
       },
       "foreignKeys": {
@@ -3342,19 +3241,6 @@
             "id"
           ],
           "onDelete": "restrict",
-          "onUpdate": "no action"
-        },
-        "listings_family_id_listing_families_id_fk": {
-          "name": "listings_family_id_listing_families_id_fk",
-          "tableFrom": "listings",
-          "tableTo": "listing_families",
-          "columnsFrom": [
-            "family_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
-          "onDelete": "no action",
           "onUpdate": "no action"
         }
       },

@@ -13,12 +13,15 @@ import {
   readMercadoLivreSaleInvoice,
   readMercadoLivreSalePayments,
   readMercadoLivreClaim,
+  readMercadoLivreQuestion,
+  searchMercadoLivreUnansweredQuestions,
   sendMercadoLivreSaleInvoice,
   readMercadoLivreShipmentOrders,
   searchMercadoLivreClaims,
   type ConnectorRegistry,
   type FetchLike,
   type MercadoLivreConfig,
+  type StoreCredentials,
 } from "@sellbridge/marketplaces";
 import { createBlingRateLimiter, type BlingAppCredentials } from "@sellbridge/marketplaces/bling";
 import { asaasSettingsFrom } from "@sellbridge/payments/asaas";
@@ -99,6 +102,7 @@ import { createOrderMessageFollowUpProcessor } from "./processors/order-message-
 import { createWebhookDeliveryProcessor } from "./processors/webhook-delivery.ts";
 import { createShipmentTrackingProcessor } from "./processors/shipment-tracking.ts";
 import { createClaimSweepProcessor } from "./processors/marketplace-claim-sweep.ts";
+import { createQuestionSweepProcessor } from "./processors/buyer-question-sweep.ts";
 import {
   checkStoreOrders,
   createOrderCheckDispatcher,
@@ -125,6 +129,7 @@ function createQueues(connection: { url: string; maxRetriesPerRequest: null }) {
     ticketClose: new Queue(QUEUE_NAMES.ticketAutoClose, { connection }),
     shipmentTracking: new Queue(QUEUE_NAMES.shipmentTracking, { connection }),
     claimSweep: new Queue(QUEUE_NAMES.marketplaceClaimSweep, { connection }),
+    questionSweep: new Queue(QUEUE_NAMES.buyerQuestionSweep, { connection }),
     notifications: new Queue(QUEUE_NAMES.notificationDelivery, { connection }),
     erpInvoices: new Queue(QUEUE_NAMES.erpInvoiceIssue, { connection }),
     erpStock: new Queue(QUEUE_NAMES.erpStockSync, { connection }),
@@ -422,9 +427,19 @@ function erpWorkers(context: WorkerContext): Worker[] {
   ];
 }
 
-/** Shipment and claim notifications, read with Mercado Livre's API; other marketplaces send none. */
+/**
+ * Shipment, claim and question notifications, read with Mercado Livre's API; other marketplaces
+ * send none. Questions are read only while BUYER_QUESTIONS_ENABLED is on.
+ */
 function mercadoLivreNoticeReaders(config: MercadoLivreConfig): NoticeReaders {
+  const questions = environment.BUYER_QUESTIONS_ENABLED
+    ? {
+        readQuestion: async (store: StoreCredentials, questionId: string) =>
+          readMercadoLivreQuestion(config, store, questionId),
+      }
+    : {};
   return {
+    ...questions,
     parseNotice: (marketplace, topic, rawPayload) =>
       marketplace === "mercado_livre" ? parseMercadoLivreNotice(topic, rawPayload) : null,
     readShipmentOrders: async (store, shipmentId) =>
@@ -489,6 +504,23 @@ function orderWorkers(context: WorkerContext): Worker[] {
       concurrency: 1,
     }),
   ];
+}
+
+/** Every 30 minutes, each store's waiting buyer questions read again (lost notifications). */
+function buyerQuestionWorkers(context: WorkerContext): Worker[] {
+  const { database, cipher, connection, mercadoLivreConfig } = context;
+  const processQuestionSweep = createQuestionSweepProcessor({
+    database,
+    cipher,
+    acquireRateLimit: context.acquireRateLimit,
+    readQuestion: async (store, questionId) =>
+      readMercadoLivreQuestion(mercadoLivreConfig, store, questionId),
+    searchUnanswered: async (store) =>
+      searchMercadoLivreUnansweredQuestions(mercadoLivreConfig, store),
+  });
+  // The schedule outlives a switch-off in Redis, so the run itself checks the switch.
+  const run = async () => (environment.BUYER_QUESTIONS_ENABLED ? processQuestionSweep() : null);
+  return [new Worker(QUEUE_NAMES.buyerQuestionSweep, run, { connection, concurrency: 1 })];
 }
 
 /** A store whose last check still waits or runs is left to it: runs never stack up. */
@@ -712,6 +744,7 @@ async function scheduleQueues(queues: WorkerContext["queues"]): Promise<void> {
   await scheduleRecurring(queues.shipmentTracking, "track-shipments", 30 * 60 * 1000);
   await scheduleRecurring(queues.orderCheck, ORDER_CHECK_DISPATCH_JOB, 15 * 60 * 1000);
   await scheduleRecurring(queues.claimSweep, "sweep-marketplace-claims", 24 * 60 * 60 * 1000);
+  await scheduleRecurring(queues.questionSweep, "sweep-buyer-questions", 30 * 60 * 1000);
   await scheduleRecurring(queues.erpInvoices, "issue-erp-invoices", 2 * 60 * 1000);
   // Lost Bling notices are caught within 15 minutes; see docs/decisions for the quota math.
   await scheduleRecurring(queues.erpStock, ERP_STOCK_JOB_NAMES.checkAll, 15 * 60 * 1000);
@@ -782,6 +815,7 @@ export async function startWorker(
   const workers = [
     ...marketplaceWorkers(context),
     ...orderWorkers(context),
+    ...buyerQuestionWorkers(context),
     ...orderCheckWorkers(context),
     ...recoveryWorkers(context),
     ...deliveryWorkers(context),

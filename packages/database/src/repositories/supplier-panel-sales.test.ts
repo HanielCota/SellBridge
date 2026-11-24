@@ -148,7 +148,7 @@ async function sale(input: {
   parcel?: FulfillmentStatus;
   parcelSupplierId?: string;
   /** Exact dates, for a sale outside the March days. */
-  dates?: { orderedAt: Date; paidAt: Date | null };
+  dates?: { orderedAt: Date; paidAt: Date | null; reversedAt?: Date };
 }): Promise<string> {
   const [order] = await database
     .insert(orders)
@@ -161,6 +161,7 @@ async function sale(input: {
       orderedAt:
         input.dates?.orderedAt ?? new Date(`2024-03-0${input.day}T${input.hour ?? 15}:00:00Z`),
       paidAt: input.dates?.paidAt ?? null,
+      reversedAt: input.dates?.reversedAt ?? null,
     })
     .returning({ id: orders.id });
   const orderId = order?.id ?? "";
@@ -210,6 +211,8 @@ describe("getSupplierSalesSummary", () => {
       receivableCents: 3 * 4000 + 4 * 2500,
       resellers: 2,
       averageOrderCents: Math.round(22_000 / 3),
+      undoneEarlierOrders: 0,
+      undoneEarlierReceivableCents: 0,
     });
   });
 
@@ -262,6 +265,72 @@ describe("sales paid after the month they were placed in", () => {
     expect(mayLines.map((line) => line.paidAt?.toISOString())).toEqual([
       "2024-05-02T15:00:00.000Z",
     ]);
+  });
+});
+
+describe("a sale cancelled in the month after it was paid", () => {
+  const june = { from: new Date("2024-06-01T03:00:00Z"), to: new Date("2024-07-01T03:00:00Z") };
+  const july = { from: new Date("2024-07-01T03:00:00Z"), to: new Date("2024-08-01T03:00:00Z") };
+  const LOST: readonly OrderStatus[] = ["cancelled", "returned"];
+
+  beforeAll(async () => {
+    // Paid on 20 June, cancelled on 3 July: June keeps the sale, July takes it back.
+    await sale({
+      tenantId: tenants.tenantA,
+      day: 1,
+      status: "cancelled",
+      lines: [[supplier.productId, 2]],
+      dates: {
+        orderedAt: new Date("2024-06-20T15:00:00Z"),
+        paidAt: new Date("2024-06-20T15:00:00Z"),
+        reversedAt: new Date("2024-07-03T15:00:00Z"),
+      },
+    });
+  });
+
+  it("keeps counting in June, which had ended when it was cancelled", async () => {
+    const inJune = await getSupplierSalesSummary(database, scope({ range: june }));
+    const lostInJune = await getSupplierSalesSummary(
+      database,
+      scope({ range: june, statuses: LOST }),
+    );
+
+    expect(inJune).toMatchObject({ orders: 1, units: 2, receivableCents: 8000 });
+    expect(lostInJune.orders).toBe(0);
+  });
+
+  it("is taken back in July, the month it was cancelled", async () => {
+    const inJuly = await getSupplierSalesSummary(database, scope({ range: july }));
+    const days = await getSupplierSalesTimeseries(database, scope({ range: july }), "day");
+    const lines = await exportSupplierSaleLines(database, scope({ range: july }));
+
+    expect(inJuly).toMatchObject({
+      orders: 0,
+      units: -2,
+      receivableCents: -8000,
+      undoneEarlierOrders: 1,
+      undoneEarlierReceivableCents: 8000,
+      averageOrderCents: null,
+    });
+    expect(days.find((point) => point.date === "2024-07-03")?.receivableCents).toBe(-8000);
+    expect(lines).toMatchObject([
+      { status: "cancelled", fromEarlierPeriod: true, quantity: -2, receivableCents: -8000 },
+    ]);
+  });
+
+  it("is listed among July's lost orders, at its value", async () => {
+    const lostInJuly = await getSupplierSalesSummary(
+      database,
+      scope({ range: july, statuses: LOST }),
+    );
+
+    expect(lostInJuly).toMatchObject({ orders: 1, receivableCents: 8000, undoneEarlierOrders: 0 });
+  });
+
+  it("leaves July's best sellers without a product that only came back", async () => {
+    const products = await listSupplierProductSales(database, scope({ range: july }), 5);
+
+    expect(products).toEqual([]);
   });
 });
 

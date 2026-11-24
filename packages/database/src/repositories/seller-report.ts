@@ -3,7 +3,12 @@ import { sql, type SQL } from "drizzle-orm";
 import { z } from "zod";
 import type { Database } from "../client.ts";
 import type { ReportScope } from "./reports.ts";
-import { isCountedOrder, ORDER_SALE_DATE } from "./sql/counted-orders.ts";
+import {
+  isCountedOrder,
+  ORDER_SALE_DATE,
+  statusAtPeriodEnd,
+  undoneAfterPeriod,
+} from "./sql/counted-orders.ts";
 import { sqlIntegerSchema, timestampOf } from "./sql/raw-values.ts";
 
 /*
@@ -32,22 +37,7 @@ function scopeConditions(scope: ReportScope): SQL {
 
 /** A sale cancelled or returned only after the period ended: in the period it was still a sale. */
 function undoneAfter(scope: ReportScope): SQL {
-  return sql`coalesce(o.reversed_at >= ${timestampOf(scope.range.to)}, false)`;
-}
-
-/**
- * The order's status when the period ended, as reports.ts counts it: a sale undone later shows
- * the last sale status its history had then (paid, if the history does not go back that far).
- */
-function statusAtPeriodEnd(scope: ReportScope): SQL {
-  return sql`case when ${undoneAfter(scope)} then coalesce(
-      (select c.status from order_status_changes c
-        where c.order_id = o.id and c.tenant_id = o.tenant_id
-          and c.changed_at < ${timestampOf(scope.range.to)}
-          and c.status in ('paid', 'shipped', 'delivered')
-        order by c.changed_at desc limit 1),
-      'paid')
-    else o.status end`;
+  return undoneAfterPeriod(scope.range.to);
 }
 
 /** A sale of the period, or one that still was when the period ended. */
@@ -85,7 +75,7 @@ export async function getOrderStatusCounts(
   scope: ReportScope,
 ): Promise<OrderStatusCounts> {
   const rows = await database.execute(sql`
-    select ${statusAtPeriodEnd(scope)} as status, count(*) as orders
+    select ${statusAtPeriodEnd(scope.range.to)} as status, count(*) as orders
     from orders o
     where ${scopeConditions(scope)}
     group by 1

@@ -155,10 +155,84 @@ function invoiceData(id: string, init: RequestInit | undefined): Response {
   return Response.json({ id: Number(id), fiscal_key: key }, { status: 201 });
 }
 
+/**
+ * Buyer questions the stand-in knows: "7702", the 9-digit seller asked, then a 3-digit number.
+ * A number starting with 9 was answered on Mercado Livre itself before SellBridge tried.
+ */
+export const E2E_QUESTION_PREFIX = "7702";
+/** What the stand-in shows as the answer given on Mercado Livre itself. */
+export const STAND_IN_ELSEWHERE_ANSWER = "Respondido direto no Mercado Livre.";
+
+/** A question id of the stand-in for this seller (9 digits) and number (3 digits). */
+export function standInQuestionId(sellerId: string, number: string): string {
+  return `${E2E_QUESTION_PREFIX}${sellerId}${number}`;
+}
+
+const QUESTION_ID = /^7702(\d{9})(\d{3})$/;
+
+/** Answers the stand-in published (`POST /answers`), kept while the test server runs. */
+const publishedAnswers = new Map<string, string>();
+
+function standInQuestion(id: string, answer: string | undefined): Response {
+  return Response.json({
+    id: Number(id),
+    seller_id: Number(QUESTION_ID.exec(id)?.[1] ?? "0"),
+    item_id: "MLB7702",
+    status: answer === undefined ? "UNANSWERED" : "ANSWERED",
+    text: "Pergunta do comprador",
+    date_created: "2026-11-21T10:00:00.000-03:00",
+    answer:
+      answer === undefined
+        ? null
+        : { text: answer, status: "ACTIVE", date_created: "2026-11-21T11:00:00.000-03:00" },
+  });
+}
+
+function answerOf(id: string): string | undefined {
+  if (QUESTION_ID.exec(id)?.[2]?.startsWith("9") === true) {
+    return STAND_IN_ELSEWHERE_ANSWER;
+  }
+  return publishedAnswers.get(id);
+}
+
+/**
+ * `GET /questions/{id}` and `POST /answers` ("Perguntas e respostas"): a question answered once
+ * refuses a second answer, as Mercado Livre does.
+ */
+function questions(url: URL, init: RequestInit | undefined): Response | null {
+  const questionId = /^\/questions\/(\d+)$/.exec(url.pathname)?.[1];
+  if (questionId !== undefined) {
+    return QUESTION_ID.test(questionId)
+      ? standInQuestion(questionId, answerOf(questionId))
+      : notFound();
+  }
+  if (url.pathname !== "/answers" || init?.method !== "POST") {
+    return null;
+  }
+  const body: unknown = JSON.parse(typeof init.body === "string" ? init.body : "{}");
+  const id = String(Reflect.get(Object(body), "question_id"));
+  const text = String(Reflect.get(Object(body), "text"));
+  if (!QUESTION_ID.test(id)) {
+    return notFound();
+  }
+  if (answerOf(id) !== undefined) {
+    return Response.json(
+      { message: "Question already answered", error: "bad_request", status: 400, cause: [] },
+      { status: 400 },
+    );
+  }
+  publishedAnswers.set(id, text);
+  return standInQuestion(id, text);
+}
+
 export const mercadoLivreStandIn: FetchLike = async (input, init) => {
   const url = new URL(input);
   if (url.host !== "api.mercadolibre.com") {
     return notFound();
+  }
+  const question = questions(url, init);
+  if (question !== null) {
+    return question;
   }
   if (url.pathname === "/shipment_labels") {
     return label(url);

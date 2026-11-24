@@ -1,6 +1,8 @@
 import {
   findStoreSuppliers,
   getStoreLastSyncs,
+  listBuyerAddressChecks,
+  type BuyerAddressCheckView,
   type StoreConnectionSummary,
 } from "@sellbridge/database/repositories";
 import { MARKETPLACE_LABELS } from "@sellbridge/marketplaces";
@@ -17,6 +19,15 @@ function suppliersOf<Supplier>(
   });
 }
 
+/** Only what the team's line needs: the supplier's address stays on the reseller's own page. */
+function buyerAddressOf(check: BuyerAddressCheckView | undefined) {
+  if (check === undefined) {
+    return null;
+  }
+  const { result, supplierName, releasedAt, releaseNote } = check;
+  return { result, supplierName, releasedAt, releaseNote };
+}
+
 /**
  * Each shop of the customer for the admin page: the suppliers it sells (none while pending) and
  * the same health facts the seller sees on /lojas, so support reads what the seller reads.
@@ -25,7 +36,7 @@ export async function presentCustomerStores(
   tenantId: string,
   stores: readonly StoreConnectionSummary[],
 ) {
-  const [suppliers, lastSyncs] = await Promise.all([
+  const [suppliers, lastSyncs, buyerAddresses] = await Promise.all([
     findStoreSuppliers(
       database,
       stores.flatMap((store) => store.supplierIds),
@@ -35,6 +46,7 @@ export async function presentCustomerStores(
       tenantId,
       stores.map((store) => store.id),
     ),
+    listBuyerAddressChecks(database, tenantId),
   ]);
   const byId = new Map(suppliers.map((supplier) => [supplier.id, supplier]));
   return stores.map((store) => ({
@@ -47,5 +59,6 @@ export async function presentCustomerStores(
     lastWebhookAt: store.lastWebhookAt,
     lastSyncedAt: lastSyncs.get(store.id) ?? null,
     suppliers: suppliersOf(store, byId),
+    buyerAddress: buyerAddressOf(buyerAddresses.get(store.id)),
   }));
 }

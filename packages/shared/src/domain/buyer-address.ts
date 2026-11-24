@@ -1,3 +1,5 @@
+import { freeText } from "../schemas/common.ts";
+
 /**
  * Whether a reseller's marketplace account buys at its supplier's address. Resellers put the
  * supplier's address on their account for pickup and returns; a personal purchase made with the
@@ -43,10 +45,49 @@ export type BuyerAddressVerdict =
   | { readonly result: "supplier_address"; readonly supplierId: string }
   | { readonly result: "ok" | "shipping_address" | "no_buying_address" };
 
-/** Only this verdict holds new publications back; the others are warnings at most. */
-export function blocksPublishing(result: BuyerAddressResult | null): boolean {
-  return result === "supplier_address";
+/** What a store's last check says, as far as holding new publications goes. */
+export interface BuyerAddressHold {
+  readonly result: BuyerAddressResult;
+  /** When the team found the match a false alarm; null while it was not released. */
+  readonly releasedAt: Date | null;
 }
+
+/**
+ * Only a supplier's address holds new publications back, and only until the team releases it as a
+ * false alarm (a reseller living in the supplier's building); the other verdicts warn at most.
+ */
+export function blocksPublishing(check: BuyerAddressHold | null): boolean {
+  return check !== null && check.result === "supplier_address" && check.releasedAt === null;
+}
+
+/**
+ * A release stands while the account keeps buying at the same supplier's address it was given
+ * for. A fixed address that later goes back to a supplier, or to another one, is held again.
+ */
+export function keepsRelease(
+  previous: { result: BuyerAddressResult; supplierId: string | null; releasedAt: Date | null },
+  verdict: BuyerAddressVerdict,
+): boolean {
+  if (previous.releasedAt === null || previous.result !== "supplier_address") {
+    return false;
+  }
+  return verdict.result === "supplier_address" && verdict.supplierId === previous.supplierId;
+}
+
+export const BUYER_ADDRESS_RELEASE_NOTE_MIN_LENGTH = 5;
+export const BUYER_ADDRESS_RELEASE_NOTE_MAX_LENGTH = 300;
+
+/** Why the team released a held store; the audit log and the reseller's card show it. */
+export const buyerAddressReleaseNoteSchema = freeText()
+  .trim()
+  .min(
+    BUYER_ADDRESS_RELEASE_NOTE_MIN_LENGTH,
+    "Conte por que é alarme falso. Exemplo: o revendedor mora no mesmo prédio do fornecedor.",
+  )
+  .max(
+    BUYER_ADDRESS_RELEASE_NOTE_MAX_LENGTH,
+    `Use até ${BUYER_ADDRESS_RELEASE_NOTE_MAX_LENGTH} caracteres.`,
+  );
 
 interface Place {
   readonly zipCode: string;

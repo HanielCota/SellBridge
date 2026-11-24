@@ -33,7 +33,7 @@ export async function listSupplierSalesByMarketplace(
     with ${supplierLinesCte(scope)}
     select
       s.marketplace::text as marketplace,
-      count(distinct l.order_id) as orders,
+      count(distinct l.order_id) filter (where l.sign > 0) as orders,
       coalesce(sum(l.receivable), 0) as receivable
     from supplier_lines l
     join orders o on o.id = l.order_id
@@ -61,6 +61,7 @@ export async function countSupplierSellingStores(
     select count(distinct o.store_connection_id) as stores
     from supplier_lines l
     join orders o on o.id = l.order_id
+    where l.sign > 0
   `);
   return z.object({ stores: count }).parse(rows[0]).stores;
 }

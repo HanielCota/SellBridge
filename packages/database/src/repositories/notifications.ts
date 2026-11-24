@@ -38,9 +38,11 @@ import {
 } from "./notification-conversation-events.ts";
 import { invoiceStoppedEvents, type InvoiceStoppedEvent } from "./notification-invoice-events.ts";
 import { marketplaceClaimEvents, type MarketplaceClaimEvent } from "./notification-claim-events.ts";
+import { buyerQuestionEvents, type BuyerQuestionEvent } from "./notification-question-events.ts";
 import { findHeldStoresForBell } from "./store-buyer-address.ts";
 
 export type {
+  BuyerQuestionEvent,
   InvoiceStoppedEvent,
   MarketplaceClaimEvent,
   OrderMessageEvent,
@@ -58,6 +60,7 @@ export const STANDING_NOTIFICATION_KINDS: ReadonlySet<NotificationEvent["kind"]>
   "shipment_late",
   "invoice_stopped",
   "marketplace_claim",
+  "buyer_question",
 ]);
 /** Sales are frequent; a handful is enough to show activity without burying problems. */
 const SALES_SHOWN = 5;
@@ -142,7 +145,8 @@ export type NotificationEvent =
   | ShipmentLateEvent
   | ListingUnavailableEvent
   | InvoiceStoppedEvent
-  | MarketplaceClaimEvent;
+  | MarketplaceClaimEvent
+  | BuyerQuestionEvent;
 
 export type { ShipmentLateEvent };
 
@@ -455,31 +459,12 @@ async function readState(
   return { seenAt: read?.seenAt ?? null, clearedAt: read?.clearedAt ?? null };
 }
 
-/**
- * Recent events of the tenant (unsorted, a few per kind) and when the user last opened the
- * notifications. Events up to the user's last clear are left out. Ordering, capping and wording
- * are up to the caller.
- */
-export async function listNotificationEvents(
+/** Every kind's recent events of the tenant, a few per kind and unsorted. */
+async function recentEvents(
   database: Database,
   input: { tenantId: string; userId: string; reviewableSince: Date },
-): Promise<{ events: NotificationEvent[]; seenAt: Date | null }> {
-  const [
-    sales,
-    shortages,
-    cancelled,
-    late,
-    unavailable,
-    listingErrors,
-    stores,
-    support,
-    messages,
-    conversations,
-    reviews,
-    stoppedInvoices,
-    claims,
-    read,
-  ] = await Promise.all([
+): Promise<NotificationEvent[]> {
+  const lists = await Promise.all([
     saleEvents(database, input.tenantId),
     stockShortageEvents(database, input.tenantId),
     shipmentCancelledEvents(database, input.tenantId),
@@ -493,23 +478,24 @@ export async function listNotificationEvents(
     reviewPendingEvents(database, input.tenantId, input.reviewableSince),
     invoiceStoppedEvents(database, input.tenantId, PER_KIND),
     marketplaceClaimEvents(database, input.tenantId, PER_KIND),
+    buyerQuestionEvents(database, input.tenantId, PER_KIND),
+  ]);
+  return lists.flat();
+}
+
+/**
+ * Recent events of the tenant (unsorted, a few per kind) and when the user last opened the
+ * notifications. Events up to the user's last clear are left out. Ordering, capping and wording
+ * are up to the caller.
+ */
+export async function listNotificationEvents(
+  database: Database,
+  input: { tenantId: string; userId: string; reviewableSince: Date },
+): Promise<{ events: NotificationEvent[]; seenAt: Date | null }> {
+  const [events, read] = await Promise.all([
+    recentEvents(database, input),
     readState(database, input),
   ]);
-  const events = [
-    ...sales,
-    ...shortages,
-    ...cancelled,
-    ...late,
-    ...unavailable,
-    ...listingErrors,
-    ...stores,
-    ...support,
-    ...messages,
-    ...conversations,
-    ...reviews,
-    ...stoppedInvoices,
-    ...claims,
-  ];
   const { clearedAt } = read;
   if (clearedAt === null) {
     return { events, seenAt: read.seenAt };

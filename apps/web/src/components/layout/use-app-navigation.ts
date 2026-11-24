@@ -9,7 +9,12 @@ import {
   attentionCountsQueryOptions,
   openTicketCountQueryOptions,
 } from "@/features/navigation/navigation.queries";
-import { ADMIN_NAV_ITEMS, NAV_ITEMS, type NavItem } from "@/features/navigation/nav-items";
+import {
+  ADMIN_NAV_ITEMS,
+  NAV_ITEMS,
+  type NavItem,
+  switchedOnItems,
+} from "@/features/navigation/nav-items";
 import { adminProfileSections, isCurrentSection } from "@/features/navigation/profile-sections";
 import { myUnreadConversationsQueryOptions } from "@/features/supplier-support/supplier-support.queries";
 import type { AppNavigation } from "./nav-list";
@@ -37,6 +42,7 @@ function useNavCounts({
     enabled: canSeeProblems,
   });
   return {
+    buyerQuestions: attention.data?.buyerQuestions ?? 0,
     failedListings: attention.data?.failedListings ?? 0,
     openTickets: isAdmin ? (openTickets.data ?? 0) : 0,
     parcelAlerts: attention.data?.parcelAlerts ?? 0,
@@ -57,6 +63,8 @@ interface NavigationInput {
   profiles: readonly AccountProfile[];
   /** A team member with no profile: the team's pages and the profile page only. */
   teamOnly: boolean;
+  /** Switched-off pages (`NavItem.feature`) stay out of the menu. */
+  buyerQuestionsEnabled: boolean;
 }
 
 function teamItemsFor(role: string): NavItem[] {
@@ -71,8 +79,13 @@ function navigationFor(input: NavigationInput): AppNavigation {
   if (teamOnly) {
     return { profileItems: [], profileSections: [], teamItems: teamItemsFor(user.role), teamOnly };
   }
-  const sections = adminProfileSections(profileKind, profiles);
-  const profileItems = sections.find(isCurrentSection)?.items ?? NAV_ITEMS;
+  const sections = adminProfileSections(profileKind, profiles).map((section) => ({
+    ...section,
+    items: switchedOnItems(section.items, input.buyerQuestionsEnabled),
+  }));
+  const profileItems =
+    sections.find(isCurrentSection)?.items ??
+    switchedOnItems(NAV_ITEMS, input.buyerQuestionsEnabled);
   if (adminMode) {
     return {
       profileItems,
