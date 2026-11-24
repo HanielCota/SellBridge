@@ -1,3 +1,4 @@
+import { blocksPublishing } from "@sellbridge/shared/buyer-address";
 import { formatCents } from "@sellbridge/shared/money";
 import { Link } from "@tanstack/react-router";
 import { PackageIcon, WarningCircleIcon } from "@phosphor-icons/react";
@@ -240,7 +241,7 @@ function StoreSupplierLine({
  * held by its purchase address gets the notice that unlocks it instead.
  */
 function PublishAction({ store, storeName }: { store: StoreWithActivity; storeName: string }) {
-  if (!isIdle(store) || store.buyerAddress?.result === "supplier_address") {
+  if (!isIdle(store) || blocksPublishing(store.buyerAddress)) {
     return null;
   }
   return (

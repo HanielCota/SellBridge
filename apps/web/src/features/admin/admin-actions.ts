@@ -25,6 +25,7 @@ export const ADMIN_ACTIONS = [
   "store_supplier_added",
   "store_supplier_removed",
   "store_disconnected",
+  "store_buyer_address_released",
   "issue_assigned",
   "issue_released",
   "issue_snoozed",
@@ -166,6 +167,8 @@ const ACTION_COPY: Record<AdminAction, (details: AdminEventDetails | null) => st
   store_supplier_removed: (details) =>
     `Tirou ${details?.supplierName ? details.supplierName : "um fornecedor"} de uma loja`,
   store_disconnected: () => "Desconectou uma loja",
+  store_buyer_address_released: (details) =>
+    `Liberou ${details?.storeName ? details.storeName : "uma loja"} para publicar: o endereço de compra não é o de ${details?.supplierName ? details.supplierName : "um fornecedor"}`,
   issue_assigned: (details) => `Assumiu: ${issueLabel(details)}`,
   issue_released: (details) => `Devolveu à equipe: ${issueLabel(details)}`,
   issue_snoozed: (details) =>

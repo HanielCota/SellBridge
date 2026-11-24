@@ -9,7 +9,7 @@ import {
   StorePausedIcon,
   SupportHeadsetIcon,
 } from "@/components/reports/attention-icons";
-import type { BuyerAddressResult } from "@sellbridge/shared/buyer-address";
+import { blocksPublishing, type BuyerAddressHold } from "@sellbridge/shared/buyer-address";
 import { billingNoticeCopy, type BillingNoticeView } from "@/features/billing/billing-notice";
 
 /** What the "Precisa de você" panel lists; kept free of server code so it can be tested alone. */
@@ -40,7 +40,7 @@ export interface StoreState {
   /** Listings queued or on their way to the marketplace. */
   publishingListings: number;
   /** What the last check of the account's purchase address found; absent before any check. */
-  buyerAddressResult?: BuyerAddressResult | null;
+  buyerAddress?: BuyerAddressHold | null;
 }
 
 function plural(count: number, one: string, many: string): string {
@@ -107,7 +107,7 @@ function isWaitingForProducts(store: StoreState): boolean {
   const { liveListings, failedListings, publishingListings } = store;
   const hasListings = liveListings + failedListings + publishingListings > 0;
   // A held store cannot publish yet: its own item says what to fix first.
-  const held = store.buyerAddressResult === "supplier_address";
+  const held = blocksPublishing(store.buyerAddress ?? null);
   return store.status === "connected" && !hasListings && !held;
 }
 
@@ -127,9 +127,7 @@ function idleStoreItems(stores: readonly StoreState[]): AttentionItem[] {
 /** A store whose account buys at its supplier's address: new products wait until it is fixed. */
 function buyerAddressItems(stores: readonly StoreState[]): AttentionItem[] {
   return stores
-    .filter(
-      (store) => store.status === "connected" && store.buyerAddressResult === "supplier_address",
-    )
+    .filter((store) => store.status === "connected" && blocksPublishing(store.buyerAddress ?? null))
     .map((store) => ({
       key: `buyer-address-${store.id}`,
       icon: StorePausedIcon,

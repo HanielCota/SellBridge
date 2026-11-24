@@ -1,0 +1,5 @@
+ALTER TABLE "store_buyer_address_checks" ADD COLUMN "released_at" timestamp with time zone;--> statement-breakpoint
+ALTER TABLE "store_buyer_address_checks" ADD COLUMN "released_by" text;--> statement-breakpoint
+ALTER TABLE "store_buyer_address_checks" ADD COLUMN "release_note" text;--> statement-breakpoint
+ALTER TABLE "store_buyer_address_checks" ADD CONSTRAINT "store_buyer_address_checks_released_by_user_id_fk" FOREIGN KEY ("released_by") REFERENCES "public"."user"("id") ON DELETE set null ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "store_buyer_address_checks" ADD CONSTRAINT "store_buyer_address_checks_release_check" CHECK (("store_buyer_address_checks"."released_at" is null and "store_buyer_address_checks"."release_note" is null) or ("store_buyer_address_checks"."released_at" is not null and "store_buyer_address_checks"."result" = 'supplier_address' and "store_buyer_address_checks"."release_note" is not null and btrim("store_buyer_address_checks"."release_note") <> '' and char_length("store_buyer_address_checks"."release_note") <= 300));

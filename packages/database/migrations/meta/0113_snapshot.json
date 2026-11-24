@@ -1,5 +1,5 @@
 {
-  "id": "afb14167-cfba-4728-953c-c867d1deb166",
+  "id": "771cc0b1-1dab-48ad-bc80-6e1a20305c65",
   "prevId": "e8868a46-382f-4006-b29f-93286f273b42",
   "version": "7",
   "dialect": "postgresql",
@@ -2720,6 +2720,24 @@
           "type": "timestamp with time zone",
           "primaryKey": false,
           "notNull": false
+        },
+        "released_at": {
+          "name": "released_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "released_by": {
+          "name": "released_by",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "release_note": {
+          "name": "release_note",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
         }
       },
       "indexes": {
@@ -2753,6 +2771,19 @@
           "onDelete": "set null",
           "onUpdate": "no action"
         },
+        "store_buyer_address_checks_released_by_user_id_fk": {
+          "name": "store_buyer_address_checks_released_by_user_id_fk",
+          "tableFrom": "store_buyer_address_checks",
+          "tableTo": "user",
+          "columnsFrom": [
+            "released_by"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "set null",
+          "onUpdate": "no action"
+        },
         "store_buyer_address_checks_store_connection_fk": {
           "name": "store_buyer_address_checks_store_connection_fk",
           "tableFrom": "store_buyer_address_checks",
@@ -2770,7 +2801,12 @@
       "compositePrimaryKeys": {},
       "uniqueConstraints": {},
       "policies": {},
-      "checkConstraints": {},
+      "checkConstraints": {
+        "store_buyer_address_checks_release_check": {
+          "name": "store_buyer_address_checks_release_check",
+          "value": "(\"store_buyer_address_checks\".\"released_at\" is null and \"store_buyer_address_checks\".\"release_note\" is null) or (\"store_buyer_address_checks\".\"released_at\" is not null and \"store_buyer_address_checks\".\"result\" = 'supplier_address' and \"store_buyer_address_checks\".\"release_note\" is not null and btrim(\"store_buyer_address_checks\".\"release_note\") <> '' and char_length(\"store_buyer_address_checks\".\"release_note\") <= 300)"
+        }
+      },
       "isRLSEnabled": false
     },
     "public.listing_targets": {
@@ -11526,242 +11562,6 @@
         "marketplace_claims_status_check": {
           "name": "marketplace_claims_status_check",
           "value": "\"marketplace_claims\".\"status\" in ('opened','closed')"
-        }
-      },
-      "isRLSEnabled": false
-    },
-    "public.buyer_questions": {
-      "name": "buyer_questions",
-      "schema": "",
-      "columns": {
-        "id": {
-          "name": "id",
-          "type": "uuid",
-          "primaryKey": true,
-          "notNull": true,
-          "default": "gen_random_uuid()"
-        },
-        "tenant_id": {
-          "name": "tenant_id",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "store_connection_id": {
-          "name": "store_connection_id",
-          "type": "uuid",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "listing_target_id": {
-          "name": "listing_target_id",
-          "type": "uuid",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "marketplace": {
-          "name": "marketplace",
-          "type": "marketplace",
-          "typeSchema": "public",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "external_question_id": {
-          "name": "external_question_id",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "external_item_id": {
-          "name": "external_item_id",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "text": {
-          "name": "text",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "status": {
-          "name": "status",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "asked_at": {
-          "name": "asked_at",
-          "type": "timestamp with time zone",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "answer_text": {
-          "name": "answer_text",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "answered_at": {
-          "name": "answered_at",
-          "type": "timestamp with time zone",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "answered_by_user_id": {
-          "name": "answered_by_user_id",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "answer_sending_since": {
-          "name": "answer_sending_since",
-          "type": "timestamp with time zone",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "created_at": {
-          "name": "created_at",
-          "type": "timestamp with time zone",
-          "primaryKey": false,
-          "notNull": true,
-          "default": "now()"
-        },
-        "updated_at": {
-          "name": "updated_at",
-          "type": "timestamp with time zone",
-          "primaryKey": false,
-          "notNull": true,
-          "default": "now()"
-        }
-      },
-      "indexes": {
-        "buyer_questions_external_idx": {
-          "name": "buyer_questions_external_idx",
-          "columns": [
-            {
-              "expression": "marketplace",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            },
-            {
-              "expression": "external_question_id",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            }
-          ],
-          "isUnique": true,
-          "concurrently": false,
-          "method": "btree",
-          "with": {}
-        },
-        "buyer_questions_tenant_status_idx": {
-          "name": "buyer_questions_tenant_status_idx",
-          "columns": [
-            {
-              "expression": "tenant_id",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            },
-            {
-              "expression": "status",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            },
-            {
-              "expression": "asked_at",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            }
-          ],
-          "isUnique": false,
-          "concurrently": false,
-          "method": "btree",
-          "with": {}
-        },
-        "buyer_questions_store_waiting_idx": {
-          "name": "buyer_questions_store_waiting_idx",
-          "columns": [
-            {
-              "expression": "store_connection_id",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            }
-          ],
-          "isUnique": false,
-          "where": "\"buyer_questions\".\"status\" = 'unanswered'",
-          "concurrently": false,
-          "method": "btree",
-          "with": {}
-        }
-      },
-      "foreignKeys": {
-        "buyer_questions_tenant_id_organization_id_fk": {
-          "name": "buyer_questions_tenant_id_organization_id_fk",
-          "tableFrom": "buyer_questions",
-          "tableTo": "organization",
-          "columnsFrom": [
-            "tenant_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
-          "onDelete": "cascade",
-          "onUpdate": "no action"
-        },
-        "buyer_questions_store_connection_id_store_connections_id_fk": {
-          "name": "buyer_questions_store_connection_id_store_connections_id_fk",
-          "tableFrom": "buyer_questions",
-          "tableTo": "store_connections",
-          "columnsFrom": [
-            "store_connection_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
-          "onDelete": "cascade",
-          "onUpdate": "no action"
-        },
-        "buyer_questions_listing_target_id_listing_targets_id_fk": {
-          "name": "buyer_questions_listing_target_id_listing_targets_id_fk",
-          "tableFrom": "buyer_questions",
-          "tableTo": "listing_targets",
-          "columnsFrom": [
-            "listing_target_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
-          "onDelete": "cascade",
-          "onUpdate": "no action"
-        },
-        "buyer_questions_answered_by_user_id_user_id_fk": {
-          "name": "buyer_questions_answered_by_user_id_user_id_fk",
-          "tableFrom": "buyer_questions",
-          "tableTo": "user",
-          "columnsFrom": [
-            "answered_by_user_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
-          "onDelete": "set null",
-          "onUpdate": "no action"
-        }
-      },
-      "compositePrimaryKeys": {},
-      "uniqueConstraints": {},
-      "policies": {},
-      "checkConstraints": {
-        "buyer_questions_status_check": {
-          "name": "buyer_questions_status_check",
-          "value": "\"buyer_questions\".\"status\" in ('unanswered','answered','closed','under_review','removed')"
         }
       },
       "isRLSEnabled": false
