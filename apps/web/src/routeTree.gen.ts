@@ -27,6 +27,7 @@ import { Route as AppIntegracoesRouteImport } from './routes/_app/integracoes'
 import { Route as AppLojasRouteImport } from './routes/_app/lojas'
 import { Route as AppOnboardingRouteImport } from './routes/_app/onboarding'
 import { Route as AppPerfilRouteImport } from './routes/_app/perfil'
+import { Route as AppPerguntasRouteImport } from './routes/_app/perguntas'
 import { Route as AppPoliticaDeDevolucaoRouteImport } from './routes/_app/politica-de-devolucao'
 import { Route as AppProductsRouteImport } from './routes/_app/products'
 import { Route as AuthCadastroRouteImport } from './routes/_auth/cadastro'
@@ -94,6 +95,7 @@ import { Route as AppAdminProblemasProblemIdRouteImport } from './routes/_app/ad
 import { Route as AppFornecedorPainelIndexRouteImport } from './routes/_app/fornecedor/painel/index'
 import { Route as AppFornecedorPainelConferirRouteImport } from './routes/_app/fornecedor/painel/conferir'
 import { Route as AppFornecedorPainelDesempenhoRouteImport } from './routes/_app/fornecedor/painel/desempenho'
+import { Route as AppFornecedorPainelExtratoRouteImport } from './routes/_app/fornecedor/painel/extrato'
 import { Route as AppFornecedorPainelImportarRouteImport } from './routes/_app/fornecedor/painel/importar'
 import { Route as AppFornecedorPainelMarcaRouteImport } from './routes/_app/fornecedor/painel/marca'
 import { Route as AppFornecedorPainelPedidosRouteImport } from './routes/_app/fornecedor/painel/pedidos'
@@ -236,6 +238,11 @@ const AppOnboardingRoute = AppOnboardingRouteImport.update({
 const AppPerfilRoute = AppPerfilRouteImport.update({
   id: '/perfil',
   path: '/perfil',
+  getParentRoute: () => AppRouteRoute,
+} as any)
+const AppPerguntasRoute = AppPerguntasRouteImport.update({
+  id: '/perguntas',
+  path: '/perguntas',
   getParentRoute: () => AppRouteRoute,
 } as any)
 const AppPoliticaDeDevolucaoRoute = AppPoliticaDeDevolucaoRouteImport.update({
@@ -584,6 +591,12 @@ const AppFornecedorPainelDesempenhoRoute =
     path: '/desempenho',
     getParentRoute: () => AppFornecedorPainelRouteRoute,
   } as any)
+const AppFornecedorPainelExtratoRoute =
+  AppFornecedorPainelExtratoRouteImport.update({
+    id: '/extrato',
+    path: '/extrato',
+    getParentRoute: () => AppFornecedorPainelRouteRoute,
+  } as any)
 const AppFornecedorPainelImportarRoute =
   AppFornecedorPainelImportarRouteImport.update({
     id: '/importar',
@@ -925,6 +938,7 @@ export interface FileRoutesByFullPath {
   '/lojas': typeof AppLojasRoute
   '/onboarding': typeof AppOnboardingRoute
   '/perfil': typeof AppPerfilRoute
+  '/perguntas': typeof AppPerguntasRoute
   '/politica-de-devolucao': typeof AppPoliticaDeDevolucaoRoute
   '/products': typeof AppProductsRoute
   '/cadastro': typeof AuthCadastroRoute
@@ -987,6 +1001,7 @@ export interface FileRoutesByFullPath {
   '/admin/problemas/$problemId': typeof AppAdminProblemasProblemIdRoute
   '/fornecedor/painel/conferir': typeof AppFornecedorPainelConferirRoute
   '/fornecedor/painel/desempenho': typeof AppFornecedorPainelDesempenhoRoute
+  '/fornecedor/painel/extrato': typeof AppFornecedorPainelExtratoRoute
   '/fornecedor/painel/importar': typeof AppFornecedorPainelImportarRoute
   '/fornecedor/painel/marca': typeof AppFornecedorPainelMarcaRoute
   '/fornecedor/painel/pedidos': typeof AppFornecedorPainelPedidosRoute
@@ -1064,6 +1079,7 @@ export interface FileRoutesByTo {
   '/lojas': typeof AppLojasRoute
   '/onboarding': typeof AppOnboardingRoute
   '/perfil': typeof AppPerfilRoute
+  '/perguntas': typeof AppPerguntasRoute
   '/politica-de-devolucao': typeof AppPoliticaDeDevolucaoRoute
   '/products': typeof AppProductsRoute
   '/cadastro': typeof AuthCadastroRoute
@@ -1123,6 +1139,7 @@ export interface FileRoutesByTo {
   '/admin/problemas/$problemId': typeof AppAdminProblemasProblemIdRoute
   '/fornecedor/painel/conferir': typeof AppFornecedorPainelConferirRoute
   '/fornecedor/painel/desempenho': typeof AppFornecedorPainelDesempenhoRoute
+  '/fornecedor/painel/extrato': typeof AppFornecedorPainelExtratoRoute
   '/fornecedor/painel/importar': typeof AppFornecedorPainelImportarRoute
   '/fornecedor/painel/marca': typeof AppFornecedorPainelMarcaRoute
   '/fornecedor/painel/pedidos': typeof AppFornecedorPainelPedidosRoute
@@ -1204,6 +1221,7 @@ export interface FileRoutesById {
   '/_app/lojas': typeof AppLojasRoute
   '/_app/onboarding': typeof AppOnboardingRoute
   '/_app/perfil': typeof AppPerfilRoute
+  '/_app/perguntas': typeof AppPerguntasRoute
   '/_app/politica-de-devolucao': typeof AppPoliticaDeDevolucaoRoute
   '/_app/products': typeof AppProductsRoute
   '/_auth/cadastro': typeof AuthCadastroRoute
@@ -1266,6 +1284,7 @@ export interface FileRoutesById {
   '/_app/admin/problemas/$problemId': typeof AppAdminProblemasProblemIdRoute
   '/_app/fornecedor/painel/conferir': typeof AppFornecedorPainelConferirRoute
   '/_app/fornecedor/painel/desempenho': typeof AppFornecedorPainelDesempenhoRoute
+  '/_app/fornecedor/painel/extrato': typeof AppFornecedorPainelExtratoRoute
   '/_app/fornecedor/painel/importar': typeof AppFornecedorPainelImportarRoute
   '/_app/fornecedor/painel/marca': typeof AppFornecedorPainelMarcaRoute
   '/_app/fornecedor/painel/pedidos': typeof AppFornecedorPainelPedidosRoute
@@ -1346,6 +1365,7 @@ export interface FileRouteTypes {
     | '/lojas'
     | '/onboarding'
     | '/perfil'
+    | '/perguntas'
     | '/politica-de-devolucao'
     | '/products'
     | '/cadastro'
@@ -1408,6 +1428,7 @@ export interface FileRouteTypes {
     | '/admin/problemas/$problemId'
     | '/fornecedor/painel/conferir'
     | '/fornecedor/painel/desempenho'
+    | '/fornecedor/painel/extrato'
     | '/fornecedor/painel/importar'
     | '/fornecedor/painel/marca'
     | '/fornecedor/painel/pedidos'
@@ -1485,6 +1506,7 @@ export interface FileRouteTypes {
     | '/lojas'
     | '/onboarding'
     | '/perfil'
+    | '/perguntas'
     | '/politica-de-devolucao'
     | '/products'
     | '/cadastro'
@@ -1544,6 +1566,7 @@ export interface FileRouteTypes {
     | '/admin/problemas/$problemId'
     | '/fornecedor/painel/conferir'
     | '/fornecedor/painel/desempenho'
+    | '/fornecedor/painel/extrato'
     | '/fornecedor/painel/importar'
     | '/fornecedor/painel/marca'
     | '/fornecedor/painel/pedidos'
@@ -1624,6 +1647,7 @@ export interface FileRouteTypes {
     | '/_app/lojas'
     | '/_app/onboarding'
     | '/_app/perfil'
+    | '/_app/perguntas'
     | '/_app/politica-de-devolucao'
     | '/_app/products'
     | '/_auth/cadastro'
@@ -1686,6 +1710,7 @@ export interface FileRouteTypes {
     | '/_app/admin/problemas/$problemId'
     | '/_app/fornecedor/painel/conferir'
     | '/_app/fornecedor/painel/desempenho'
+    | '/_app/fornecedor/painel/extrato'
     | '/_app/fornecedor/painel/importar'
     | '/_app/fornecedor/painel/marca'
     | '/_app/fornecedor/painel/pedidos'
@@ -1948,6 +1973,13 @@ declare module '@tanstack/react-router' {
       path: '/perfil'
       fullPath: '/perfil'
       preLoaderRoute: typeof AppPerfilRouteImport
+      parentRoute: typeof AppRouteRoute
+    }
+    '/_app/perguntas': {
+      id: '/_app/perguntas'
+      path: '/perguntas'
+      fullPath: '/perguntas'
+      preLoaderRoute: typeof AppPerguntasRouteImport
       parentRoute: typeof AppRouteRoute
     }
     '/_app/politica-de-devolucao': {
@@ -2417,6 +2449,13 @@ declare module '@tanstack/react-router' {
       path: '/desempenho'
       fullPath: '/fornecedor/painel/desempenho'
       preLoaderRoute: typeof AppFornecedorPainelDesempenhoRouteImport
+      parentRoute: typeof AppFornecedorPainelRouteRoute
+    }
+    '/_app/fornecedor/painel/extrato': {
+      id: '/_app/fornecedor/painel/extrato'
+      path: '/extrato'
+      fullPath: '/fornecedor/painel/extrato'
+      preLoaderRoute: typeof AppFornecedorPainelExtratoRouteImport
       parentRoute: typeof AppFornecedorPainelRouteRoute
     }
     '/_app/fornecedor/painel/importar': {
@@ -2903,6 +2942,7 @@ const AppFornecedoresRouteRouteWithChildren =
 interface AppFornecedorPainelRouteRouteChildren {
   AppFornecedorPainelConferirRoute: typeof AppFornecedorPainelConferirRoute
   AppFornecedorPainelDesempenhoRoute: typeof AppFornecedorPainelDesempenhoRoute
+  AppFornecedorPainelExtratoRoute: typeof AppFornecedorPainelExtratoRoute
   AppFornecedorPainelImportarRoute: typeof AppFornecedorPainelImportarRoute
   AppFornecedorPainelMarcaRoute: typeof AppFornecedorPainelMarcaRoute
   AppFornecedorPainelPedidosRoute: typeof AppFornecedorPainelPedidosRoute
@@ -2918,6 +2958,7 @@ const AppFornecedorPainelRouteRouteChildren: AppFornecedorPainelRouteRouteChildr
   {
     AppFornecedorPainelConferirRoute: AppFornecedorPainelConferirRoute,
     AppFornecedorPainelDesempenhoRoute: AppFornecedorPainelDesempenhoRoute,
+    AppFornecedorPainelExtratoRoute: AppFornecedorPainelExtratoRoute,
     AppFornecedorPainelImportarRoute: AppFornecedorPainelImportarRoute,
     AppFornecedorPainelMarcaRoute: AppFornecedorPainelMarcaRoute,
     AppFornecedorPainelPedidosRoute: AppFornecedorPainelPedidosRoute,
@@ -2945,6 +2986,7 @@ interface AppRouteRouteChildren {
   AppLojasRoute: typeof AppLojasRoute
   AppOnboardingRoute: typeof AppOnboardingRoute
   AppPerfilRoute: typeof AppPerfilRoute
+  AppPerguntasRoute: typeof AppPerguntasRoute
   AppPoliticaDeDevolucaoRoute: typeof AppPoliticaDeDevolucaoRoute
   AppProductsRoute: typeof AppProductsRoute
   AppFornecedorPainelRouteRoute: typeof AppFornecedorPainelRouteRouteWithChildren
@@ -2975,6 +3017,7 @@ const AppRouteRouteChildren: AppRouteRouteChildren = {
   AppLojasRoute: AppLojasRoute,
   AppOnboardingRoute: AppOnboardingRoute,
   AppPerfilRoute: AppPerfilRoute,
+  AppPerguntasRoute: AppPerguntasRoute,
   AppPoliticaDeDevolucaoRoute: AppPoliticaDeDevolucaoRoute,
   AppProductsRoute: AppProductsRoute,
   AppFornecedorPainelRouteRoute: AppFornecedorPainelRouteRouteWithChildren,

@@ -3,6 +3,7 @@ import { freeText, pageNumberSchema, searchQuery } from "./common.ts";
 import { emailSchema, nameSchema } from "./auth.ts";
 import { optionalParameter, withFallback } from "./fallback.ts";
 import { BILLING_PLAN_IDS } from "../domain/billing.ts";
+import { buyerAddressReleaseNoteSchema } from "../domain/buyer-address.ts";
 import { STAFF_ROLES } from "../domain/staff-access.ts";
 
 /** A reseller (`user`) or one of the SellBridge team roles (see staff-access.ts). */
@@ -95,6 +96,13 @@ export const adminStoreSupplierSchema = z.object({
 export const disconnectCustomerStoreSchema = z.object({
   ...customerIdField,
   storeConnectionId: z.uuid(),
+});
+
+/** The team found a store held by its purchase address a false alarm. */
+export const releaseStoreBuyerAddressSchema = z.object({
+  ...customerIdField,
+  storeConnectionId: z.uuid(),
+  note: buyerAddressReleaseNoteSchema,
 });
 
 export const assignCustomerIssueSchema = z.object({

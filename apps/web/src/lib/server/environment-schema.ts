@@ -14,6 +14,7 @@ import {
 } from "@sellbridge/payments/mercado-pago";
 import {
   asaasEnvironmentFields,
+  invoiceEnvironmentFields,
   refuseAsaasStandInsInProduction,
 } from "@sellbridge/payments/asaas";
 import { SUPPORT_ASSISTANT_PROVIDERS } from "@sellbridge/shared/support-assistant";
@@ -115,6 +116,11 @@ const serverEnvironmentShape = z.object({
    * form to the grid listing, is ready. Off, suppliers never see the question and nothing changes.
    */
   PRODUCT_GRID_ENABLED: booleanFlagEnvironmentSchema,
+  /**
+   * Buyer questions answered in SellBridge (decision of 21/11/2026): the "Perguntas" page, its
+   * badge and bell entries. Off in production until Guilherme turns it on; the worker has its own.
+   */
+  BUYER_QUESTIONS_ENABLED: booleanFlagEnvironmentSchema,
   /** TikTok Shop app (Partner Center); the connector stays off until all three are set. */
   TIKTOK_SHOP_APP_KEY: z.string().optional(),
   TIKTOK_SHOP_APP_SECRET: z.string().optional(),
@@ -128,6 +134,7 @@ const serverEnvironmentShape = z.object({
    */
   ...mercadoPagoEnvironmentFields,
   ...asaasEnvironmentFields,
+  ...invoiceEnvironmentFields,
   /** The public CNPJ query behind the approval of suppliers who sign up alone. */
   CNPJ_LOOKUP_URL: cnpjLookupUrlEnvironmentSchema,
   /**

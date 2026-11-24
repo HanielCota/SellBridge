@@ -67,10 +67,11 @@ export function parseStoredOrderEvent(topic: string, rawPayload: unknown): Store
   };
 }
 
-/** A shipment or claim notification: only a prompt to read the resource again. */
+/** A shipment, claim or question notification: only a prompt to read the resource again. */
 export type MercadoLivreNotice =
   | { kind: "shipment"; externalShopId: string; shipmentId: string }
-  | { kind: "claim"; externalShopId: string; claimId: string };
+  | { kind: "claim"; externalShopId: string; claimId: string }
+  | { kind: "question"; externalShopId: string; questionId: string };
 
 /** `/shipments/{id}`, with or without the leading slash or a trailing sub-resource. */
 const SHIPMENT_RESOURCE = /^\/?shipments\/(\d{1,20})(?:\/.*)?$/;
@@ -79,20 +80,23 @@ const SHIPMENT_RESOURCE = /^\/?shipments\/(\d{1,20})(?:\/.*)?$/;
  * resource without the leading slash, so the older `/claims/{id}` is read too.
  */
 const CLAIM_RESOURCE = /^\/?(?:post-purchase\/v1\/)?claims\/(\d{1,20})(?:\/.*)?$/;
+/** `/questions/{id}` ("Notificações", topic `questions`). */
+const QUESTION_RESOURCE = /^\/?questions\/(\d{1,20})(?:\/.*)?$/;
+const NOTICE_TOPICS: ReadonlySet<string> = new Set(["shipments", "post_purchase", "questions"]);
 
 function resourceId(pattern: RegExp, resource: string): string | null {
   return pattern.exec(resource)?.[1] ?? null;
 }
 
 /**
- * Reads a stored `shipments` or `post_purchase` notification. Null for any other topic and for a
- * resource that does not name a shipment or claim.
+ * Reads a stored `shipments`, `post_purchase` or `questions` notification. Null for any other
+ * topic and for a resource that does not name a shipment, claim or question.
  */
 export function parseMercadoLivreNotice(
   topic: string,
   rawPayload: unknown,
 ): MercadoLivreNotice | null {
-  if (topic !== "shipments" && topic !== "post_purchase") {
+  if (!NOTICE_TOPICS.has(topic)) {
     return null;
   }
   const parsed = storedOrderNotificationSchema.safeParse(rawPayload);
@@ -103,6 +107,10 @@ export function parseMercadoLivreNotice(
   if (topic === "shipments") {
     const shipmentId = resourceId(SHIPMENT_RESOURCE, parsed.data.resource);
     return shipmentId === null ? null : { kind: "shipment", externalShopId, shipmentId };
+  }
+  if (topic === "questions") {
+    const questionId = resourceId(QUESTION_RESOURCE, parsed.data.resource);
+    return questionId === null ? null : { kind: "question", externalShopId, questionId };
   }
   const claimId = resourceId(CLAIM_RESOURCE, parsed.data.resource);
   return claimId === null ? null : { kind: "claim", externalShopId, claimId };

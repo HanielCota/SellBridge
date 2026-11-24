@@ -36,6 +36,7 @@ import {
   productModels,
   supplierProducts,
 } from "../schema/index.ts";
+import { modelHasListingFamily } from "./listing-families.ts";
 import { categorySlugOf, saleProblems } from "./product-model-drafts.ts";
 import { getProductModel, insertOptions, lockSupplier, modelCodeFor } from "./product-models.ts";
 import { getSupplierFiscalFallback } from "./supplier-brand.ts";
@@ -524,6 +525,23 @@ function beforeColumns(item: typeof productGroupingItems.$inferSelect) {
 }
 
 /**
+ * A grid a reseller publishes as one listing cannot be split: its items share one family on
+ * the marketplace. The model row is locked first, so a publication starting now waits.
+ */
+async function assertNotSoldAsGrid(transaction: DatabaseExecutor, modelId: string): Promise<void> {
+  await transaction
+    .select({ id: productModels.id })
+    .from(productModels)
+    .where(eq(productModels.id, modelId))
+    .for("update");
+  if (await modelHasListingFamily(transaction, modelId)) {
+    throw conflictError(
+      "Revendedores já anunciam este produto como uma grade só, então ele não pode mais ser separado.",
+    );
+  }
+}
+
+/**
  * Turns a grouped grid back into plain products: each grouped product gets its "before" back
  * (name, description, photos, sheet, fiscal, category, sale terms); stock, cost and price stay as
  * they are now. A combination added after grouping becomes a plain product with the grid's name.
@@ -531,7 +549,7 @@ function beforeColumns(item: typeof productGroupingItems.$inferSelect) {
  * nothing: no product id changes. Status and "on sale" stay as they are.
  *
  * @throws AppError NOT_FOUND when the model is not the supplier's; VALIDATION when it did not
- *   come from grouping products.
+ *   come from grouping products; CONFLICT when a reseller already sells it as one grid listing.
  */
 export async function separateGroupedModel(
   database: Database,
@@ -549,6 +567,7 @@ export async function separateGroupedModel(
         "Só dá para separar uma grade feita pela tela Juntar cores e tamanhos.",
       );
     }
+    await assertNotSoldAsGrid(transaction, input.modelId);
     const combinations = await transaction
       .select({ id: supplierProducts.id })
       .from(supplierProducts)

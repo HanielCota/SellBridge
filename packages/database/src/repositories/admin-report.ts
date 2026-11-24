@@ -80,7 +80,11 @@ async function platformAccountCounts(
       and(
         sql`${saleDate(orders.paidAt, orders.orderedAt)} >= ${timestampOf(window.from)}`,
         sql`${saleDate(orders.paidAt, orders.orderedAt)} < ${timestampOf(window.to)}`,
-        isCountedOrder(orders.status),
+        // A sale cancelled only after the period ended was still a sale in it.
+        or(
+          isCountedOrder(orders.status),
+          sql`coalesce(${orders.reversedAt} >= ${timestampOf(window.to)}, false)`,
+        ),
       ),
     );
   return {

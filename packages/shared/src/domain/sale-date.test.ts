@@ -1,5 +1,10 @@
 import { describe, expect, it } from "vitest";
-import { paidAtOfKnownOrder, paidAtOfNewOrder } from "./sale-date.ts";
+import {
+  paidAtOfKnownOrder,
+  paidAtOfNewOrder,
+  reversedAtOfKnownOrder,
+  reversedAtOfNewOrder,
+} from "./sale-date.ts";
 
 // 2 Nov 2026, 10:00 in Brazil.
 const NOW = new Date("2026-11-02T13:00:00.000Z");
@@ -60,5 +65,86 @@ describe("paidAtOfKnownOrder", () => {
     const paidAt = paidAtOfKnownOrder({ paidAt: null, status: "pending", now: NOW });
 
     expect(paidAt).toBeNull();
+  });
+});
+
+describe("reversedAtOfNewOrder", () => {
+  it("undoes a returned order at its payment date", () => {
+    const reversedAt = reversedAtOfNewOrder({ status: "returned", paidAt: NOW });
+
+    expect(reversedAt).toEqual(NOW);
+  });
+
+  it("leaves a cancelled order that was never paid without a reversal", () => {
+    const reversedAt = reversedAtOfNewOrder({ status: "cancelled", paidAt: null });
+
+    expect(reversedAt).toBeNull();
+  });
+
+  it("leaves a paid order without a reversal", () => {
+    const reversedAt = reversedAtOfNewOrder({ status: "paid", paidAt: NOW });
+
+    expect(reversedAt).toBeNull();
+  });
+});
+
+describe("reversedAtOfKnownOrder", () => {
+  const paidAt = new Date("2026-10-28T15:00:00.000Z");
+
+  it("dates the cancellation of a paid sale when the sync first sees it", () => {
+    const reversedAt = reversedAtOfKnownOrder({
+      reversedAt: null,
+      paidAt,
+      status: "cancelled",
+      now: NOW,
+    });
+
+    expect(reversedAt).toEqual(NOW);
+  });
+
+  it("dates a return the same way", () => {
+    const reversedAt = reversedAtOfKnownOrder({
+      reversedAt: null,
+      paidAt,
+      status: "returned",
+      now: NOW,
+    });
+
+    expect(reversedAt).toEqual(NOW);
+  });
+
+  it("keeps the first reversal date on later syncs", () => {
+    const first = new Date("2026-11-01T12:00:00.000Z");
+
+    const reversedAt = reversedAtOfKnownOrder({
+      reversedAt: first,
+      paidAt,
+      status: "cancelled",
+      now: NOW,
+    });
+
+    expect(reversedAt).toEqual(first);
+  });
+
+  it("does not reverse an unpaid order that is cancelled", () => {
+    const reversedAt = reversedAtOfKnownOrder({
+      reversedAt: null,
+      paidAt: null,
+      status: "cancelled",
+      now: NOW,
+    });
+
+    expect(reversedAt).toBeNull();
+  });
+
+  it("does not reverse a sale that still counts", () => {
+    const reversedAt = reversedAtOfKnownOrder({
+      reversedAt: null,
+      paidAt,
+      status: "delivered",
+      now: NOW,
+    });
+
+    expect(reversedAt).toBeNull();
   });
 });

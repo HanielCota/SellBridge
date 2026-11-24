@@ -2,11 +2,8 @@ import type { ProfileKind } from "./profile-kind.ts";
 
 /**
  * The contracts a profile signs before using SellBridge: one for suppliers, one for sellers.
- * Every word the screens show lives here, so the lawyer's final text only replaces this file and
+ * Every word the screens show lives here, so a new text only replaces this file and
  * bumps `version`; the signature records keep the hash of the exact text each person accepted.
- *
- * PROVISIONAL (Guilherme, 21/11/2026): written from the client's list of requirements while the
- * lawyer reviews the contracts. The switch on the settings screen stays off until the final text.
  */
 
 /** One line of the summary: the person ticks each one before signing. */
@@ -27,7 +24,6 @@ export interface ContractDocument {
   readonly version: string;
   /** Day the version takes effect (UTC, ISO 8601): the 30 days of who already uses it start here at the earliest. */
   readonly effectiveAt: string;
-  readonly provisional: boolean;
   readonly title: string;
   /** Where the full text is published. */
   readonly path: "/contrato/fornecedor" | "/contrato/vendedor";
@@ -38,15 +34,10 @@ export interface ContractDocument {
 /** Days who already used SellBridge has to sign once the switch is on or a new version starts. */
 export const CONTRACT_SIGNING_GRACE_DAYS = 30;
 
-/** Shown on top of the full text and the signing screen while `provisional` is true. */
-export const PROVISIONAL_CONTRACT_NOTICE =
-  "Texto provisório: este contrato ainda está em revisão jurídica e pode mudar antes de valer.";
-
 const SUPPLIER_CONTRACT: ContractDocument = {
   kind: "supplier",
   version: "2026-11-21-provisorio",
   effectiveAt: "2026-11-21T00:00:00Z",
-  provisional: true,
   title: "Contrato de fornecedor",
   path: "/contrato/fornecedor",
   summary: [
@@ -136,7 +127,6 @@ const SELLER_CONTRACT: ContractDocument = {
   kind: "seller",
   version: "2026-11-21-provisorio",
   effectiveAt: "2026-11-21T00:00:00Z",
-  provisional: true,
   title: "Contrato de vendedor",
   path: "/contrato/vendedor",
   summary: [

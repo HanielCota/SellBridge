@@ -117,6 +117,46 @@ describe("publish-listing processor", () => {
     expect((await targetRow(targetId)).attempts).toBe(1);
   });
 
+  it("sends a grid combination under its family's name and a plain product without one", async () => {
+    const plain = await createTarget("Produto simples sem grade");
+    const combination = await createTarget("Tênis Casual - Preto 38");
+    const productId = await productOfTarget(combination.targetId);
+    const [product] = await database
+      .select({ supplierId: schema.supplierProducts.supplierId })
+      .from(schema.supplierProducts)
+      .where(eq(schema.supplierProducts.id, productId));
+    const [model] = await database
+      .insert(schema.productModels)
+      .values({ supplierId: product?.supplierId ?? "", code: `W-${Date.now()}`, title: "Tênis" })
+      .returning({ id: schema.productModels.id });
+    const [family] = await database
+      .insert(schema.listingFamilies)
+      .values({ tenantId: combination.tenantId, modelId: model?.id ?? "", name: "Tênis Casual" })
+      .returning({ id: schema.listingFamilies.id });
+    const [target] = await database
+      .select({ listingId: schema.listingTargets.listingId })
+      .from(schema.listingTargets)
+      .where(eq(schema.listingTargets.id, combination.targetId));
+    await database
+      .update(schema.listings)
+      .set({ familyId: family?.id ?? null })
+      .where(eq(schema.listings.id, target?.listingId ?? ""));
+    publishProduct.mockClear();
+
+    for (const { tenantId, targetId } of [plain, combination]) {
+      await processPublish({
+        data: { tenantId, listingTargetId: targetId },
+        attemptsMade: 0,
+        maxAttempts: 5,
+      });
+    }
+
+    expect(publishProduct.mock.calls.map(([, input]) => input.familyName)).toEqual([
+      null,
+      "Tênis Casual",
+    ]);
+  });
+
   it("keeps the listing live and records a description the marketplace refused", async () => {
     const { tenantId, targetId } = await createTarget("Camiseta lisa [sem descricao]");
     const job = { data: { tenantId, listingTargetId: targetId }, attemptsMade: 0, maxAttempts: 5 };

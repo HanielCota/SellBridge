@@ -175,6 +175,10 @@ async function processNotice(
   if (notice === null) {
     return null;
   }
+  // Questions off: the event is closed as an ignored topic, like any other it does not read.
+  if (notice.kind === "question" && dependencies.notices.readQuestion === undefined) {
+    return null;
+  }
   const resolution = await resolveEventStore(dependencies, event, notice.externalShopId);
   if (resolution.kind === "skipped") {
     return resolution.outcome;

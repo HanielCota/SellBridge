@@ -9,7 +9,15 @@ import {
 } from "@sellbridge/database/schema";
 import { and, eq, sql } from "drizzle-orm";
 import { e2eDatabase } from "./database";
-import { completeOnboarding, gotoHydrated, signUp, waitForHydration } from "./helpers";
+import {
+  ADMIN_USER,
+  completeOnboarding,
+  enableAdminMode,
+  gotoHydrated,
+  signIn,
+  signUp,
+  waitForHydration,
+} from "./helpers";
 import { STAND_IN_BUYS_AT_WAREHOUSE_PREFIX, STAND_IN_WAREHOUSE } from "./mercado-livre.fixture";
 
 /*
@@ -28,9 +36,9 @@ test.afterAll(async () => {
   await database.$client.end();
 });
 
-async function tenantOf(email: string): Promise<string> {
+async function sellerOf(email: string): Promise<{ tenantId: string; userId: string }> {
   const [seller] = await database
-    .select({ tenantId: member.organizationId })
+    .select({ tenantId: member.organizationId, userId: user.id })
     .from(user)
     .innerJoin(member, eq(member.userId, user.id))
     .where(eq(user.email, email))
@@ -38,7 +46,31 @@ async function tenantOf(email: string): Promise<string> {
   if (seller === undefined) {
     throw new Error("Conta nova sem organização no banco de teste");
   }
-  return seller.tenantId;
+  return seller;
+}
+
+/** Signs a reseller up, connects one store and links it to a supplier at the warehouse. */
+async function heldStoreSetup(page: Page, label: string) {
+  const email = await signUp(page, `Revendedora ${label}`);
+  await completeOnboarding(page);
+  await expect(page).toHaveURL(/\/lojas/);
+  const shopName = `Loja ${label} E2E ${Date.now()}`;
+  await connectStore(page, shopName);
+  const seller = await sellerOf(email);
+  const [store] = await database
+    .select({ id: storeConnections.id })
+    .from(storeConnections)
+    .where(
+      and(eq(storeConnections.tenantId, seller.tenantId), eq(storeConnections.shopName, shopName)),
+    );
+  if (store === undefined) {
+    throw new Error("Loja conectada não encontrada");
+  }
+  const supplier = await createWarehouseSupplier();
+  await database
+    .insert(storeSuppliers)
+    .values({ storeConnectionId: store.id, supplierId: supplier.id });
+  return { seller, shopName, storeId: store.id, supplier };
 }
 
 /** A supplier whose NF-e address is the stand-in's warehouse. */
@@ -92,42 +124,33 @@ test("a store that buys at its supplier's address is held until the reseller fix
   page,
 }) => {
   test.setTimeout(120_000);
-  const email = await signUp(page, "Revendedora Endereço");
-  await completeOnboarding(page);
-  await expect(page).toHaveURL(/\/lojas/);
-  const shopName = `Loja Endereço E2E ${Date.now()}`;
-  await connectStore(page, shopName);
-
-  const tenantId = await tenantOf(email);
-  const [store] = await database
-    .select({ id: storeConnections.id })
-    .from(storeConnections)
-    .where(and(eq(storeConnections.tenantId, tenantId), eq(storeConnections.shopName, shopName)));
-  if (store === undefined) {
-    throw new Error("Loja conectada não encontrada");
-  }
-  const supplier = await createWarehouseSupplier();
-  await database
-    .insert(storeSuppliers)
-    .values({ storeConnectionId: store.id, supplierId: supplier.id });
+  const { shopName, storeId, supplier } = await heldStoreSetup(page, "Endereço");
 
   // The test consent gives the shop an id Mercado Livre would never use, so it was not read.
   await gotoHydrated(page, "/lojas");
   const card = page.getByRole("listitem").filter({ hasText: shopName });
   await expect(card.getByText("Endereço de compra não conferido")).toBeVisible();
 
-  await setAccount(store.id, true);
+  await setAccount(storeId, true);
   await card.getByRole("button", { name: "Conferir agora" }).click();
   await expect(card.getByText("Compras indo para o fornecedor")).toBeVisible();
   await expect(card.getByText(`vão chegar em ${supplier.name}`)).toBeVisible();
   await expect(card.getByText("não publica produtos novos")).toBeVisible();
   await expect(card.getByRole("link", { name: `Publicar produtos em ${shopName}` })).toHaveCount(0);
+  // The step-by-step names the address to change and ends at the check button.
+  await expect(
+    card.getByText(`${STAND_IN_WAREHOUSE.street}, ${STAND_IN_WAREHOUSE.number}`),
+  ).toBeVisible();
+  await expect(card.getByText("Como arrumar")).toBeVisible();
+  await expect(
+    card.getByRole("listitem").filter({ hasText: "Meus dados › Endereços" }),
+  ).toBeVisible();
 
   await gotoHydrated(page, "/dashboard");
   await expect(page.getByText("Endereço de compra no fornecedor")).toBeVisible();
 
   await gotoHydrated(page, "/lojas");
-  await setAccount(store.id, false);
+  await setAccount(storeId, false);
   await card.getByRole("button", { name: "Já arrumei, conferir de novo" }).click();
   await expect(page.getByText("Endereço de compra certo").filter({ visible: true })).toBeVisible();
   await expect(card.getByText("Compras indo para o fornecedor")).toHaveCount(0);
@@ -137,4 +160,47 @@ test("a store that buys at its supplier's address is held until the reseller fix
     const overflow = await card.evaluate((element) => element.scrollWidth - element.clientWidth);
     expect(overflow, `card overflows at ${width}px`).toBeLessThanOrEqual(0);
   }
+});
+
+test("the team releases a false alarm and the store publishes again", async ({ browser }) => {
+  test.setTimeout(150_000);
+  const resellerContext = await browser.newContext();
+  const reseller = await resellerContext.newPage();
+  const { seller, shopName, storeId, supplier } = await heldStoreSetup(reseller, "Prédio");
+  await setAccount(storeId, true);
+  await gotoHydrated(reseller, "/lojas");
+  const card = reseller.getByRole("listitem").filter({ hasText: shopName });
+  await card.getByRole("button", { name: "Conferir agora" }).click();
+  await expect(card.getByText("Compras indo para o fornecedor")).toBeVisible();
+  // A reseller living at the supplier's address asks for the release through a ticket.
+  await card
+    .getByRole("link", { name: "Não é o endereço do fornecedor? Peça a liberação" })
+    .click();
+  await expect(reseller).toHaveURL(/\/suporte\/novo/);
+  await expect(reseller.getByText("Minha loja conectada").first()).toBeVisible();
+  await expect(reseller.locator("#new-ticket-body")).toHaveValue(/não é/);
+
+  const team = await browser.newPage();
+  await signIn(team, ADMIN_USER);
+  await enableAdminMode(team);
+  await gotoHydrated(team, `/admin/clientes/${seller.userId}`);
+  await expect(team.getByText(`Compras indo para ${supplier.name}`)).toBeVisible();
+  await team.getByRole("button", { name: "Liberar: é alarme falso" }).click();
+  const dialog = team.getByRole("dialog");
+  await dialog.getByRole("button", { name: "Liberar loja" }).click();
+  await expect(dialog.getByText("Conte por que é alarme falso")).toBeVisible();
+  await dialog
+    .getByLabel("Por que é alarme falso?")
+    .fill("Mora no mesmo prédio, outro apartamento");
+  await dialog.getByRole("button", { name: "Liberar loja" }).click();
+  await expect(
+    team.getByText("Loja liberada para publicar").filter({ visible: true }),
+  ).toBeVisible();
+  await expect(team.getByText("Mora no mesmo prédio, outro apartamento")).toBeVisible();
+
+  await gotoHydrated(reseller, "/lojas");
+  await expect(card.getByText("Liberada pela equipe")).toBeVisible();
+  await expect(card.getByText("Motivo: Mora no mesmo prédio, outro apartamento")).toBeVisible();
+  await expect(card.getByRole("link", { name: `Publicar produtos em ${shopName}` })).toBeVisible();
+  await resellerContext.close();
 });

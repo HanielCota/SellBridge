@@ -899,6 +899,41 @@ describe("User Products", () => {
     expect(created).not.toHaveProperty("title");
     expect(created).not.toHaveProperty("variations");
   });
+
+  it("sends a grid combination under the grid's family name with its colour and size", async () => {
+    const { ml, calls } = connector({
+      ...publishRoutes,
+      [`GET ${API}/users/999`]: () => json(200, { tags: ["user_product_seller"] }),
+    });
+
+    await ml.publishProduct(store, {
+      ...product,
+      title: "Tênis Casual - Preto 38",
+      familyName: "Tênis Casual",
+      mercadoLivreAttributes: { BRAND: "Acme", COLOR: "Preto", SIZE: "38" },
+    });
+
+    const created = JSON.parse(calls.find((call) => call.url === `${API}/items`)?.body ?? "{}");
+    expect(created.family_name).toBe("Tênis Casual");
+    expect(created).not.toHaveProperty("title");
+    expect(created.attributes).toEqual(
+      expect.arrayContaining([
+        { id: "COLOR", value_name: "Preto" },
+        { id: "SIZE", value_name: "38" },
+      ]),
+    );
+  });
+
+  it("refuses a grid combination on a seller without User Products, before creating anything", async () => {
+    const guard = publicationGuard();
+    const { ml, calls } = connector({ ...publishRoutes });
+
+    const publishing = ml.publishProduct(store, { ...product, familyName: "Tênis Casual" }, guard);
+
+    await expect(publishing).rejects.toMatchObject({ details: { retryable: false } });
+    expect(calls.some((call) => call.url === `${API}/items`)).toBe(false);
+    expect(guard.beforeCreate).not.toHaveBeenCalled();
+  });
 });
 
 const remoteItem = {

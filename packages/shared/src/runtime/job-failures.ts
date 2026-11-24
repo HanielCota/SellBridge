@@ -77,6 +77,8 @@ const FAILURE_REASONS: Readonly<Record<QueueName, string>> = {
   [QUEUE_NAMES.supplierPayments]: "A rodada de pagamentos dos fornecedores falhou.",
   [QUEUE_NAMES.marketplaceClaimSweep]:
     "A conferência das reclamações do Mercado Livre falhou: reclamações novas podem não ter aparecido.",
+  [QUEUE_NAMES.buyerQuestionSweep]:
+    "A conferência das perguntas dos compradores no Mercado Livre falhou: perguntas novas podem não ter aparecido.",
   [QUEUE_NAMES.supplierApproval]:
     "A nova conferência dos fornecedores que esperam aprovação falhou: confira a fila de aprovação.",
   [QUEUE_NAMES.buyerAddressCheck]:

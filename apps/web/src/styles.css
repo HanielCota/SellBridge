@@ -95,10 +95,13 @@
   --field-border: oklch(0 0 0 / 12%);
   /* Single-series chart color, checked for contrast against each theme's surface. */
   --chart-brand: oklch(0.62 0.16 152);
-  /* The previous period next to the brand series: solid light blue, never a faded gray. */
-  --chart-compare: oklch(0.78 0.08 240);
-  /* Revenue and profit as two series: blue and green, validated as a pair for color blindness. */
-  --chart-revenue: oklch(0.58 0.16 255);
+  /* The previous period next to the brand series: a light graphite with the brand tint, drawn dashed. */
+  --chart-compare: oklch(0.72 0.02 152);
+  /*
+   * Revenue and profit as two series: dark graphite and green. They differ in lightness, not only
+   * in hue, so the pair still reads apart with color blindness.
+   */
+  --chart-revenue: oklch(0.42 0.02 152);
   --chart-profit: oklch(0.62 0.16 152);
   /* Up or down against the previous period: good news green, bad news red (marks such as sparklines). */
   --trend-good: oklch(0.5 0.13 152);
@@ -108,10 +111,10 @@
   --trend-good-fill: color-mix(in srgb, oklch(0.62 0.16 152) 22%, transparent);
   --trend-bad-ink: oklch(0.45 0.19 27);
   --trend-bad-fill: color-mix(in srgb, oklch(0.53 0.22 27) 18%, transparent);
-  /* Finance outflows: cool, desaturated tones that stay distinct without competing with the green. */
-  --finance-cost: oklch(0.6 0.07 255);
-  --finance-fee: oklch(0.6 0.075 300);
-  --finance-refund: oklch(0.62 0.07 350);
+  /* Finance outflows: two graphite steps of the brand tint and a muted red, so the green stays the gain. */
+  --finance-cost: oklch(0.45 0.01 152);
+  --finance-fee: oklch(0.7 0.01 152);
+  --finance-refund: oklch(0.55 0.08 27);
   /* Income on top of sales (commissions): a green apart from profit, above 3:1 on white. */
   --finance-gain: oklch(0.62 0.15 152);
   /* Brand: main green, deep green and ink. */
@@ -164,8 +167,8 @@
   --field: oklch(0.245 0.004 260);
   --field-border: oklch(1 0 0 / 8%);
   --chart-brand: oklch(0.76 0.17 150);
-  --chart-compare: oklch(0.58 0.09 245);
-  --chart-revenue: oklch(0.63 0.16 255);
+  --chart-compare: oklch(0.5 0.02 152);
+  --chart-revenue: oklch(0.72 0.02 152);
   /* Darker than the mint brand, so neither series outshines the other on the graphite card. */
   --chart-profit: oklch(0.66 0.17 150);
   --trend-good: oklch(0.87 0.16 152);
@@ -174,9 +177,9 @@
   --trend-good-fill: color-mix(in srgb, oklch(0.87 0.16 152) 20%, transparent);
   --trend-bad-ink: oklch(0.82 0.12 22);
   --trend-bad-fill: color-mix(in srgb, oklch(0.704 0.191 22.216) 22%, transparent);
-  --finance-cost: oklch(0.74 0.065 255);
-  --finance-fee: oklch(0.74 0.07 300);
-  --finance-refund: oklch(0.76 0.065 350);
+  --finance-cost: oklch(0.75 0.01 152);
+  --finance-fee: oklch(0.55 0.01 152);
+  --finance-refund: oklch(0.72 0.08 27);
   --finance-gain: oklch(0.87 0.16 152);
   --brand-wordmark: oklch(0.87 0.16 152);
   --background: oklch(0.165 0.003 260);

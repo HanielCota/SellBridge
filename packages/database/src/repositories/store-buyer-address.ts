@@ -5,6 +5,7 @@ import {
   type BuyerAddressResult,
   type BuyerAddressVerdict,
   judgeBuyerAddress,
+  keepsRelease,
   type SupplierPlace,
 } from "@sellbridge/shared/buyer-address";
 import { storeBuyerAddressContent } from "@sellbridge/shared/notification-events";
@@ -68,7 +69,9 @@ export async function recordBuyerAddressCheck(
     const [previous] = await transaction
       .select({
         result: storeBuyerAddressChecks.result,
+        supplierId: storeBuyerAddressChecks.supplierId,
         wrongSince: storeBuyerAddressChecks.wrongSince,
+        releasedAt: storeBuyerAddressChecks.releasedAt,
       })
       .from(storeBuyerAddressChecks)
       .where(eq(storeBuyerAddressChecks.storeConnectionId, record.storeConnectionId))
@@ -85,16 +88,23 @@ export async function recordBuyerAddressCheck(
       checkedAt: record.now,
       wrongSince,
     };
+    const release =
+      previous !== undefined && keepsRelease(previous, record.verdict) ? {} : NO_RELEASE;
     await transaction
       .insert(storeBuyerAddressChecks)
       .values({ storeConnectionId: record.storeConnectionId, ...values })
-      .onConflictDoUpdate({ target: storeBuyerAddressChecks.storeConnectionId, set: values });
+      .onConflictDoUpdate({
+        target: storeBuyerAddressChecks.storeConnectionId,
+        set: { ...values, ...release },
+      });
     if (becameWrong) {
       await notifyBuyerAddressWrong(transaction, record);
     }
     return record.verdict.result;
   });
 }
+
+const NO_RELEASE = { releasedAt: null, releasedBy: null, releaseNote: null } as const;
 
 function wrongSinceOf(record: CheckRecord, previous: Date | null, becameWrong: boolean) {
   if (record.verdict?.result !== "supplier_address") {
@@ -298,7 +308,28 @@ export interface BuyerAddressCheckView {
   result: BuyerAddressResult;
   /** The supplier the account buys at; null unless the result is "supplier_address". */
   supplierName: string | null;
+  /** Where that supplier ships from, so the reseller finds it among the account's addresses. */
+  supplierPlace: SupplierPlaceView | null;
   checkedAt: Date;
+  /** When the team released the match as a false alarm; null while it holds the store. */
+  releasedAt: Date | null;
+  releaseNote: string | null;
+}
+
+/** The supplier's street, number and CEP, as its NF-e profile says. */
+export interface SupplierPlaceView {
+  street: string;
+  number: string;
+  zipCode: string;
+}
+
+function supplierPlaceOf(fiscalProfile: unknown): SupplierPlaceView | null {
+  const parsed = storedSupplierAddressSchema.safeParse(fiscalProfile);
+  if (!parsed.success) {
+    return null;
+  }
+  const { cep, street, number } = parsed.data.address;
+  return { street, number, zipCode: cep };
 }
 
 /** The last check of each of the tenant's stores that has one, by store id. */
@@ -311,16 +342,19 @@ export async function listBuyerAddressChecks(
       storeConnectionId: storeBuyerAddressChecks.storeConnectionId,
       result: storeBuyerAddressChecks.result,
       supplierName: suppliers.name,
+      supplierFiscalProfile: suppliers.fiscalProfile,
       checkedAt: storeBuyerAddressChecks.checkedAt,
+      releasedAt: storeBuyerAddressChecks.releasedAt,
+      releaseNote: storeBuyerAddressChecks.releaseNote,
     })
     .from(storeBuyerAddressChecks)
     .innerJoin(storeConnections, eq(storeConnections.id, storeBuyerAddressChecks.storeConnectionId))
     .leftJoin(suppliers, eq(suppliers.id, storeBuyerAddressChecks.supplierId))
     .where(eq(storeConnections.tenantId, tenantId));
   return new Map(
-    rows.map((row) => [
-      row.storeConnectionId,
-      { result: row.result, supplierName: row.supplierName, checkedAt: row.checkedAt },
+    rows.map(({ storeConnectionId, supplierFiscalProfile, ...check }) => [
+      storeConnectionId,
+      { ...check, supplierPlace: supplierPlaceOf(supplierFiscalProfile) },
     ]),
   );
 }
@@ -343,6 +377,7 @@ export async function findStoresHeldByBuyerAddress(
         eq(storeConnections.tenantId, tenantId),
         inArray(storeConnections.id, [...storeConnectionIds]),
         eq(storeBuyerAddressChecks.result, "supplier_address"),
+        isNull(storeBuyerAddressChecks.releasedAt),
       ),
     );
 }
@@ -366,6 +401,7 @@ export async function findHeldStoresForBell(
         eq(storeConnections.tenantId, tenantId),
         eq(storeConnections.status, "connected"),
         eq(storeBuyerAddressChecks.result, "supplier_address"),
+        isNull(storeBuyerAddressChecks.releasedAt),
         isNotNull(storeBuyerAddressChecks.wrongSince),
       ),
     )
@@ -373,4 +409,46 @@ export async function findHeldStoresForBell(
   return rows.flatMap((row) =>
     row.heldSince === null ? [] : [{ ...row, heldSince: row.heldSince }],
   );
+}
+
+interface BuyerAddressRelease {
+  readonly tenantId: string;
+  readonly storeConnectionId: string;
+  /** The team member releasing it. */
+  readonly releasedBy: string;
+  /** Why it is a false alarm, already validated. */
+  readonly note: string;
+  readonly now: Date;
+}
+
+/**
+ * The team found a held store a false alarm (the reseller lives in the supplier's building): the
+ * store publishes again until its account matches a different address. Returns the supplier the
+ * match was with, or null when the store is not the tenant's or is not held anymore.
+ */
+export async function releaseBuyerAddressHold(
+  database: DatabaseExecutor,
+  release: BuyerAddressRelease,
+): Promise<{ supplierId: string | null } | null> {
+  const tenantStore = database
+    .select({ id: storeConnections.id })
+    .from(storeConnections)
+    .where(
+      and(
+        eq(storeConnections.id, release.storeConnectionId),
+        eq(storeConnections.tenantId, release.tenantId),
+      ),
+    );
+  const [released] = await database
+    .update(storeBuyerAddressChecks)
+    .set({ releasedAt: release.now, releasedBy: release.releasedBy, releaseNote: release.note })
+    .where(
+      and(
+        inArray(storeBuyerAddressChecks.storeConnectionId, tenantStore),
+        eq(storeBuyerAddressChecks.result, "supplier_address"),
+        isNull(storeBuyerAddressChecks.releasedAt),
+      ),
+    )
+    .returning({ supplierId: storeBuyerAddressChecks.supplierId });
+  return released ?? null;
 }

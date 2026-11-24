@@ -14,7 +14,9 @@ import {
   useComposerFiles,
   useFileDrop,
 } from "@/components/support/composer-parts";
+import { ContactWarningText, describedByIds } from "@/components/support/contact-warning-text";
 import { Button } from "@/components/ui/button";
+import { useConversationContactWarning } from "@/features/supplier-support/use-conversation-contact-warning";
 import { useReplyDraft, type DraftState } from "@/features/support/reply-draft";
 import { postMultipart } from "@/features/support/upload";
 import { errorMessage } from "@/lib/errors";
@@ -45,7 +47,11 @@ interface ReplyFormProps {
   placeholder?: string;
   /** Beside the send button on a closed thread: what replying does. */
   closedHint?: string;
+  /** Reseller–supplier conversations: warns about a phone, link or app invite before sending. */
+  warnsAboutContact?: boolean;
 }
+
+const CONTACT_WARNING_ID = "reply-body-contact";
 
 function buildReplyFormData(body: string, files: readonly File[]): FormData {
   const formData = new FormData();
@@ -60,8 +66,10 @@ function useReplySubmission({
   endpoint,
   onSent,
   draftKey,
-}: Pick<ReplyFormProps, "endpoint" | "onSent" | "draftKey">) {
+  warnsAboutContact = false,
+}: Pick<ReplyFormProps, "endpoint" | "onSent" | "draftKey" | "warnsAboutContact">) {
   const draft = useReplyDraft(draftKey);
+  const contact = useConversationContactWarning(draft.body, warnsAboutContact);
   const attachments = useComposerFiles();
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [isSending, setIsSending] = useState(false);
@@ -73,6 +81,7 @@ function useReplySubmission({
       return;
     }
     setSubmitError(null);
+    contact.noteSendAttempt();
     if (draft.body.trim().length < MIN_BODY_LENGTH) {
       setSubmitError("Escreva ao menos 10 caracteres");
       return;
@@ -93,7 +102,15 @@ function useReplySubmission({
     }
   }
 
-  return { draft, attachments, submitError, setSubmitError, isSending, submit };
+  return {
+    draft,
+    attachments,
+    submitError: contact.unlessWarned(submitError),
+    setSubmitError,
+    isSending,
+    submit,
+    contactWarning: contact.warning,
+  };
 }
 
 const DRAFT_LABELS: Record<DraftState, string> = {
@@ -158,8 +175,9 @@ export function ReplyForm({
   composerRef,
   placeholder = "Escreva sua resposta para o suporte…",
   closedHint = "Responder reabre o chamado",
+  warnsAboutContact = false,
 }: ReplyFormProps) {
-  const reply = useReplySubmission({ endpoint, onSent, draftKey });
+  const reply = useReplySubmission({ endpoint, onSent, draftKey, warnsAboutContact });
   const { textareaRef } = useComposerText(composerRef);
   const formRef = useRef<HTMLFormElement>(null);
   const drop = useFileDrop(reply.attachments.addFiles);
@@ -186,6 +204,9 @@ export function ReplyForm({
           placeholder={placeholder}
           value={reply.draft.body}
           className={COMPOSER_TEXTAREA_CLASS}
+          aria-describedby={describedByIds([
+            reply.contactWarning === null ? null : CONTACT_WARNING_ID,
+          ])}
           onChange={(event) => reply.draft.setBody(event.target.value)}
           onKeyDown={(event) => submitOnModEnter(event, () => formRef.current?.requestSubmit())}
           onPaste={(event) => {
@@ -203,9 +224,19 @@ export function ReplyForm({
         <ComposerToolbar reply={reply} closedHint={isClosed ? closedHint : null} tools={tools} />
         <DropOverlay visible={drop.isOver} />
       </form>
+      <ComposerMessages reply={reply} />
+    </div>
+  );
+}
+
+/** What stops the reply under the box: a contact, a file refused, a failed send. */
+function ComposerMessages({ reply }: { reply: ReturnType<typeof useReplySubmission> }) {
+  return (
+    <>
+      <ContactWarningText id={CONTACT_WARNING_ID} message={reply.contactWarning} />
       <FileError message={reply.attachments.fileError} />
       <FormErrorAlert message={reply.submitError} />
-    </div>
+    </>
   );
 }
 

@@ -149,14 +149,27 @@ const CASE_TABS: { kind: SellerReportCaseKind; label: string }[] = [
   { kind: "unpaid", label: "Aguardando pagamento" },
   { kind: "cancelled", label: "Cancelados" },
   { kind: "returned", label: "Devolvidos" },
+  { kind: "undone_earlier", label: "De meses anteriores" },
 ];
 
-function caseOf(order: SellerReportCase) {
+/** "venda de 28/10 · cancelada em 03/11": why a sale of another month is on this one. */
+function undoneEarlierMeta(order: SellerReportCase): string {
+  const soldOn = shortDate.format(order.paidAt ?? order.orderedAt);
+  const undone = order.status === "returned" ? "devolvida" : "cancelada";
+  const undoneOn = order.reversedAt === null ? "" : ` em ${shortDate.format(order.reversedAt)}`;
+  return `−${formatReportValue(order.totalCents, "cents")} · venda de ${soldOn} · ${undone}${undoneOn}`;
+}
+
+function caseOf(kind: SellerReportCaseKind, order: SellerReportCase) {
+  const meta =
+    kind === "undone_earlier"
+      ? undoneEarlierMeta(order)
+      : `${formatReportValue(order.totalCents, "cents")} · ${shortDate.format(order.orderedAt)}`;
   return {
     id: order.id,
     title: `Pedido ${order.externalOrderId}`,
     detail: order.storeName,
-    meta: `${formatReportValue(order.totalCents, "cents")} · ${shortDate.format(order.orderedAt)}`,
+    meta,
     href: `/pedidos/${order.id}`,
   };
 }
@@ -165,7 +178,7 @@ export function sellerReportCases(cases: SellerReportInput["cases"]): ReportCase
   return CASE_TABS.map(({ kind, label }) => ({
     key: kind,
     label,
-    items: cases[kind].items.map(caseOf),
+    items: cases[kind].items.map((order) => caseOf(kind, order)),
     more: Math.max(0, cases[kind].total - cases[kind].items.length),
   }));
 }
@@ -189,8 +202,8 @@ export function sellerReportRules(): ReportRule[] {
       text: "A taxa do marketplace é a que ele informa no pedido, não uma estimativa. Se ele corrigir o valor depois, o mês em andamento acompanha; o mês fechado fica como foi guardado.",
     },
     {
-      title: "Reembolsos",
-      text: "Reembolsos, comissões e cancelamentos contam no mês em que a venda foi paga, não no dia em que o dinheiro voltou.",
+      title: "Cancelamentos e reembolsos",
+      text: 'Contam no mês em que aconteceram, como no extrato do Mercado Livre. Uma venda paga num mês e cancelada ou devolvida no outro fica como venda no mês do pagamento e sai da receita e do lucro do mês do cancelamento, na linha "Cancelados de meses anteriores". Um reembolso conta no mês em que foi feito. As comissões ficam no mês da venda.',
     },
     {
       title: "Sem custo informado",
@@ -198,7 +211,7 @@ export function sellerReportRules(): ReportRule[] {
     },
     {
       title: "Mês fechado",
-      text: "Quando o mês termina, os números dele são guardados e não mudam mais, mesmo que um pedido antigo seja reembolsado depois.",
+      text: "O mês fecha à meia-noite do dia 1º, no horário de Brasília. Depois disso os números dele não mudam mais: o que acontecer com uma venda antiga entra no mês em que aconteceu.",
     },
   ];
 }

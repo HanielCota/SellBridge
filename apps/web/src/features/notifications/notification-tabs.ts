@@ -23,7 +23,7 @@ export const NOTIFICATION_TABS: readonly {
   {
     value: "messages",
     label: "Mensagens",
-    empty: "Nenhuma resposta do suporte ou avaliação esperando por você.",
+    empty: "Nenhuma pergunta de comprador, resposta do suporte ou avaliação esperando por você.",
   },
 ];
 
@@ -41,6 +41,7 @@ const TAB_OF_KIND: Record<NotificationKind, Exclude<NotificationTab, "all">> = {
   order_message: "messages",
   supplier_conversation: "messages",
   review_pending: "messages",
+  buyer_question: "messages",
 };
 
 export function belongsToTab(notification: AppNotification, tab: NotificationTab): boolean {

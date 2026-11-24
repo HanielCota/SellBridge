@@ -1,5 +1,5 @@
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
-import { orderItems, orders, storeConnections } from "../schema/index.ts";
+import { orderItems, orders, orderStatusChanges, storeConnections } from "../schema/index.ts";
 import {
   createTestDatabase,
   createTestSupplierProduct,
@@ -180,5 +180,88 @@ describe("seller report queries", () => {
     const cancelled = await listSellerReportCases(database, wider, { kind: "cancelled", limit: 1 });
     expect(cancelled.total).toBe(2);
     expect(cancelled.items.map((item) => item.externalOrderId)).toEqual(["S-3"]);
+  });
+});
+
+describe("a sale of February cancelled in March", () => {
+  const february = { from: new Date("2026-02-01T03:00:00Z"), to: new Date("2026-03-01T03:00:00Z") };
+  let tenantId = "";
+  let extra: Awaited<ReturnType<typeof createTestTenants>> | undefined;
+
+  beforeAll(async () => {
+    extra = await createTestTenants(database, 1);
+    const [id] = extra.ids;
+    if (!id) {
+      throw new Error("tenant não criado");
+    }
+    tenantId = id;
+    const store = await insertStore(tenantId);
+    const [order] = await database
+      .insert(orders)
+      .values({
+        tenantId,
+        storeConnectionId: store,
+        externalOrderId: "LATE-CANCEL",
+        status: "cancelled",
+        totalCents: 10_000,
+        marketplaceFeeCents: 0,
+        orderedAt: new Date("2026-02-25T15:00:00Z"),
+        paidAt: new Date("2026-02-25T15:00:00Z"),
+        reversedAt: new Date("2026-03-04T15:00:00Z"),
+      })
+      .returning();
+    if (!order) {
+      throw new Error("pedido não criado");
+    }
+    await database.insert(orderStatusChanges).values([
+      { tenantId, orderId: order.id, status: "paid", changedAt: new Date("2026-02-25T15:00:00Z") },
+      {
+        tenantId,
+        orderId: order.id,
+        status: "shipped",
+        changedAt: new Date("2026-02-27T15:00:00Z"),
+      },
+      {
+        tenantId,
+        orderId: order.id,
+        status: "cancelled",
+        changedAt: new Date("2026-03-04T15:00:00Z"),
+      },
+    ]);
+  });
+
+  afterAll(async () => {
+    await extra?.cleanup();
+  });
+
+  it("counts it in February with the status it had when February ended", async () => {
+    const statuses = await getOrderStatusCounts(database, { tenantId, range: february });
+    const cancelled = await listSellerReportCases(
+      database,
+      { tenantId, range: february },
+      { kind: "cancelled", limit: 8 },
+    );
+
+    expect(statuses).toMatchObject({ shipped: 1, cancelled: 0 });
+    expect(cancelled.total).toBe(0);
+  });
+
+  it("lists it in March among the sales of earlier months undone there", async () => {
+    const undone = await listSellerReportCases(
+      database,
+      { tenantId, range },
+      { kind: "undone_earlier", limit: 8 },
+    );
+
+    expect(undone).toMatchObject({
+      total: 1,
+      items: [
+        {
+          externalOrderId: "LATE-CANCEL",
+          status: "cancelled",
+          reversedAt: new Date("2026-03-04T15:00:00Z"),
+        },
+      ],
+    });
   });
 });

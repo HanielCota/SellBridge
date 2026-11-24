@@ -138,7 +138,7 @@ function HeatButton({
       style={{
         background: outside
           ? "repeating-linear-gradient(135deg, var(--muted) 0 4px, transparent 4px 8px)"
-          : `color-mix(in oklch, ${tone} ${strength}%, var(--muted))`,
+          : `color-mix(in oklab, ${tone} ${strength}%, var(--muted))`,
       }}
     >
       {cellText(value, mode)}

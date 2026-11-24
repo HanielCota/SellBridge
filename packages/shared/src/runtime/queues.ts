@@ -19,6 +19,8 @@ export const QUEUE_NAMES = {
   shipmentTracking: "shipment-tracking",
   /** Reads each Mercado Livre store's open and recent claims again (safety net for notifications). */
   marketplaceClaimSweep: "marketplace-claim-sweep",
+  /** Reads each Mercado Livre store's waiting buyer questions again (safety net for notifications). */
+  buyerQuestionSweep: "buyer-question-sweep",
   /** Forwards a paid order to its suppliers on its own and e-mails them (item 21.b, flagged). */
   orderAutoForward: "order-auto-forward",
   /** Sends queued e-mail and push notifications to people (item 25). */

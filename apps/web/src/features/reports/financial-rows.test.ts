@@ -10,6 +10,7 @@ import {
   orderCostsCents,
   orderMargin,
   orderSplit,
+  undoneAfterPeriod,
 } from "./financial-rows";
 
 describe("orderCostsCents", () => {
@@ -141,9 +142,9 @@ describe("daySplit", () => {
 describe("groupOrdersByDay", () => {
   it("keeps the list order and starts a group when the day changes", () => {
     const rows = [
-      { id: "a", orderedAt: new Date("2026-10-10T15:00:00Z"), paidAt: null },
-      { id: "b", orderedAt: new Date("2026-10-10T04:00:00Z"), paidAt: null },
-      { id: "c", orderedAt: new Date("2026-10-10T01:00:00Z"), paidAt: null },
+      { id: "a", entryDate: new Date("2026-10-10T15:00:00Z") },
+      { id: "b", entryDate: new Date("2026-10-10T04:00:00Z") },
+      { id: "c", entryDate: new Date("2026-10-10T01:00:00Z") },
     ];
     expect(groupOrdersByDay(rows).map((day) => [day.key, day.rows.map((row) => row.id)])).toEqual([
       ["2026-10-10", ["a", "b"]],
@@ -151,24 +152,17 @@ describe("groupOrdersByDay", () => {
     ]);
   });
 
-  it("groups a sale paid days later under its payment day", () => {
+  it("groups each row under the day it counts on, not the day the order was placed", () => {
+    // A sale paid on 02/11 and the cancellation, on 02/11, of a sale paid in October.
     const rows = [
-      {
-        id: "late",
-        orderedAt: new Date("2026-10-30T15:00:00Z"),
-        paidAt: new Date("2026-11-02T15:00:00Z"),
-      },
-      {
-        id: "same",
-        orderedAt: new Date("2026-11-02T12:00:00Z"),
-        paidAt: new Date("2026-11-02T12:00:00Z"),
-      },
+      { id: "late", entryDate: new Date("2026-11-02T15:00:00Z") },
+      { id: "cancelled-earlier", entryDate: new Date("2026-11-02T12:00:00Z") },
     ];
 
     const days = groupOrdersByDay(rows);
 
     expect(days.map((day) => [day.key, day.rows.map((row) => row.id)])).toEqual([
-      ["2026-11-02", ["late", "same"]],
+      ["2026-11-02", ["late", "cancelled-earlier"]],
     ]);
   });
 });
@@ -222,5 +216,27 @@ describe("formatDayHeading", () => {
   it("spells out older days with the weekday, and the year only when it differs", () => {
     expect(formatDayHeading("2026-10-07", now)).toBe("Quarta-feira, 7 de out.");
     expect(formatDayHeading("2025-12-31", now)).toBe("Quarta-feira, 31 de dez. de 2025");
+  });
+});
+
+describe("undoneAfterPeriod", () => {
+  const cancelledOn = new Date("2026-11-03T15:00:00Z");
+  const row = {
+    status: "cancelled",
+    reversedAt: cancelledOn,
+    countsAsSale: true,
+    fromEarlierPeriod: false,
+  };
+
+  it("gives the cancellation date of a sale that still counts in the period", () => {
+    expect(undoneAfterPeriod(row)).toEqual(cancelledOn);
+  });
+
+  it("gives nothing for an order cancelled within the period", () => {
+    expect(undoneAfterPeriod({ ...row, countsAsSale: false })).toBeNull();
+  });
+
+  it("gives nothing for a sale that was never cancelled", () => {
+    expect(undoneAfterPeriod({ ...row, status: "delivered", reversedAt: null })).toBeNull();
   });
 });

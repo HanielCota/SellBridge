@@ -82,6 +82,7 @@ async function loadStoresWithListings(
   return connections.map((store) => {
     const { liveListings, failedListings, publishingListings } =
       activity.get(store.id) ?? EMPTY_STORE_ACTIVITY;
+    const check = buyerAddresses.get(store.id);
     return {
       id: store.id,
       name: store.shopName,
@@ -89,7 +90,9 @@ async function loadStoresWithListings(
       liveListings,
       failedListings,
       publishingListings,
-      buyerAddressResult: buyerAddresses.get(store.id)?.result ?? null,
+      // Only the hold: the supplier's address stays on the stores page.
+      buyerAddress:
+        check === undefined ? null : { result: check.result, releasedAt: check.releasedAt },
     };
   });
 }

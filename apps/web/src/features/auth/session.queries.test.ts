@@ -31,6 +31,7 @@ function sessionFor(profileSlug: string | null): AppSession {
     teamOnly: false,
     termsAccepted: true,
     contract: { standing: "not_required", deadline: null, blocksPanel: false },
+    buyerQuestionsEnabled: false,
   };
 }
 

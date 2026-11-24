@@ -1,7 +1,12 @@
 import { conflictError } from "@sellbridge/shared/errors";
 import { and, eq, inArray } from "drizzle-orm";
 import type { OrderEventData } from "@sellbridge/shared/public-api";
-import { paidAtOfKnownOrder, paidAtOfNewOrder } from "@sellbridge/shared/sale-date";
+import {
+  paidAtOfKnownOrder,
+  paidAtOfNewOrder,
+  reversedAtOfKnownOrder,
+  reversedAtOfNewOrder,
+} from "@sellbridge/shared/sale-date";
 import type { Database, Transaction } from "../client.ts";
 import { listings, listingTargets, orderItems, orders, supplierProducts } from "../schema/index.ts";
 import { reconciledOrderStatus } from "./fulfillment-status.ts";
@@ -122,6 +127,8 @@ async function updateExistingOrder(
   if (existing.tenantId !== write.tenantId) {
     throw conflictError("Pedido pertence a outra conta");
   }
+  const now = new Date();
+  const paidAt = paidAtOfKnownOrder({ paidAt: existing.paidAt, status: write.order.status, now });
   await write.transaction
     .update(orders)
     .set({
@@ -130,10 +137,12 @@ async function updateExistingOrder(
       marketplaceFeeCents: write.order.marketplaceFeeCents,
       sellerShippingCents: write.order.sellerShippingCents ?? existing.sellerShippingCents,
       deliveredAt: deliveredAtOnUpdate(existing, write.order.status),
-      paidAt: paidAtOfKnownOrder({
-        paidAt: existing.paidAt,
+      paidAt,
+      reversedAt: reversedAtOfKnownOrder({
+        reversedAt: existing.reversedAt,
+        paidAt,
         status: write.order.status,
-        now: new Date(),
+        now,
       }),
       // A later delivery without the address (a status-only update) never erases it.
       shippingAddressEnc: write.order.shippingAddressEnc ?? existing.shippingAddressEnc,
@@ -189,6 +198,11 @@ async function insertOrderItems(write: OrderWrite, orderId: string): Promise<voi
 /** Null when another write created the same order a moment earlier (see `writeOrder`). */
 async function createOrder(write: OrderWrite): Promise<OrderWriteResult | null> {
   const { order } = write;
+  const paidAt = paidAtOfNewOrder({
+    status: order.status,
+    orderedAt: order.orderedAt,
+    now: new Date(),
+  });
   const [created] = await write.transaction
     .insert(orders)
     .values({
@@ -204,11 +218,8 @@ async function createOrder(write: OrderWrite): Promise<OrderWriteResult | null> 
       shippingAddressEnc: order.shippingAddressEnc ?? null,
       orderedAt: order.orderedAt,
       deliveredAt: order.status === "delivered" ? order.orderedAt : null,
-      paidAt: paidAtOfNewOrder({
-        status: order.status,
-        orderedAt: order.orderedAt,
-        now: new Date(),
-      }),
+      paidAt,
+      reversedAt: reversedAtOfNewOrder({ status: order.status, paidAt }),
     })
     .onConflictDoNothing({ target: [orders.storeConnectionId, orders.externalOrderId] })
     .returning({ id: orders.id });

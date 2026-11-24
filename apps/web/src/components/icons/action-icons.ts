@@ -30,6 +30,7 @@ import {
   ClockIcon,
   ArrowRightIcon,
   ChatCircleDotsIcon,
+  ChatCircleTextIcon,
   FactoryIcon,
   FileArrowUpIcon,
   GaugeIcon,
@@ -48,6 +49,7 @@ import {
   MegaphoneSimpleIcon,
   MinusIcon,
   PackageIcon,
+  ReceiptIcon,
   PaperPlaneTiltIcon,
   PlugsConnectedIcon,
   PlugsIcon,
@@ -90,6 +92,10 @@ export const ACTION_ICONS = {
   },
   listings: { icon: MegaphoneSimpleIcon, hint: "Acompanhe os produtos publicados nas suas lojas" },
   orders: { icon: ShoppingBagIcon, hint: "Veja os pedidos dos compradores e acompanhe os envios" },
+  buyerQuestions: {
+    icon: ChatCircleTextIcon,
+    hint: "Responda o que os compradores perguntam nos seus anúncios",
+  },
   stores: { icon: StorefrontIcon, hint: "Conecte e acompanhe suas lojas do Mercado Livre" },
   financials: { icon: WalletIcon, hint: "Veja receita, custos, lucro e repasses" },
   support: {
@@ -159,6 +165,10 @@ export const ACTION_ICONS = {
   supplierReceiving: {
     icon: HandCoinsIcon,
     hint: "Abra sua conta Asaas para receber dos revendedores",
+  },
+  supplierStatement: {
+    icon: ReceiptIcon,
+    hint: "Cada pedido pago, as taxas e o dia em que o dinheiro libera",
   },
   supplierProducts: { icon: PackageIcon, hint: "Seus produtos, estoque e o que está à venda" },
   importProducts: { icon: FileArrowUpIcon, hint: "Cadastrar ou atualizar produtos por planilha" },
@@ -371,6 +381,7 @@ export const NAV_TAB_ICONS: Readonly<Record<string, ActionIconName>> = {
   "/catalogo": "catalog",
   "/publicacoes": "listings",
   "/pedidos": "orders",
+  "/perguntas": "buyerQuestions",
   "/lojas": "stores",
   "/financeiro": "financials",
   "/suporte": "support",
@@ -379,6 +390,7 @@ export const NAV_TAB_ICONS: Readonly<Record<string, ActionIconName>> = {
   "/fornecedor/painel/pedidos": "supplierOrders",
   "/fornecedor/painel/vendas": "supplierSales",
   "/fornecedor/painel/recebimentos": "supplierReceiving",
+  "/fornecedor/painel/extrato": "supplierStatement",
   "/fornecedor/painel/produtos": "supplierProducts",
   "/fornecedor/painel/importar": "importProducts",
   "/fornecedor/painel/desempenho": "performance",

@@ -1,5 +1,5 @@
 {
-  "id": "b76a4b53-729d-4d5b-b454-dda0640932bc",
+  "id": "0e1fdf24-6d6e-43c6-b988-bcd70ec14072",
   "prevId": "ed90b8b6-f7bf-4778-9382-8c51b01f6da8",
   "version": "7",
   "dialect": "postgresql",
@@ -1796,13 +1796,6 @@
         },
         "fiscal_required": {
           "name": "fiscal_required",
-          "type": "boolean",
-          "primaryKey": false,
-          "notNull": true,
-          "default": false
-        },
-        "weight_required": {
-          "name": "weight_required",
           "type": "boolean",
           "primaryKey": false,
           "notNull": true,
@@ -10473,6 +10466,12 @@
           "primaryKey": false,
           "notNull": false
         },
+        "provider_fee_cents": {
+          "name": "provider_fee_cents",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false
+        },
         "checked_at": {
           "name": "checked_at",
           "type": "timestamp with time zone",
@@ -10665,6 +10664,34 @@
           ],
           "isUnique": false,
           "where": "\"shipment_payments\".\"status\" in ('approved','charged_back') and \"shipment_payments\".\"released_at\" is null and \"shipment_payments\".\"refund_failed_at\" is null",
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "shipment_payments_supplier_paid_idx": {
+          "name": "shipment_payments_supplier_paid_idx",
+          "columns": [
+            {
+              "expression": "supplier_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "paid_at",
+              "isExpression": false,
+              "asc": false,
+              "nulls": "last"
+            },
+            {
+              "expression": "id",
+              "isExpression": false,
+              "asc": false,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "where": "\"shipment_payments\".\"paid_at\" is not null",
           "concurrently": false,
           "method": "btree",
           "with": {}

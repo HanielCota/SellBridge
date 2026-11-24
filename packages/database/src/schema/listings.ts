@@ -13,7 +13,38 @@ import {
 import { organization } from "./auth.ts";
 import { listingTargetStatusEnum } from "./enums.ts";
 import { storeConnections } from "./stores.ts";
-import { supplierProducts } from "./suppliers.ts";
+import { productModels, supplierProducts } from "./suppliers.ts";
+
+/**
+ * A reseller's publication of a product grid (product_models): the listings of its combinations,
+ * one per colour and size, sold on Mercado Livre as one family (User Products, family_name).
+ * Each combination stays an ordinary listing with its own price, stock sync and orders.
+ */
+export const listingFamilies = pgTable(
+  "listing_families",
+  {
+    id: uuid().primaryKey().defaultRandom(),
+    tenantId: text()
+      .notNull()
+      .references(() => organization.id, { onDelete: "cascade" }),
+    modelId: uuid()
+      .notNull()
+      .references(() => productModels.id, { onDelete: "restrict" }),
+    /** The family name the marketplace groups the items by (Mercado Livre's family_name). */
+    name: text().notNull(),
+    createdAt: timestamp({ withTimezone: true }).defaultNow().notNull(),
+    updatedAt: timestamp({ withTimezone: true })
+      .defaultNow()
+      .$onUpdate(() => new Date())
+      .notNull(),
+  },
+  (table) => [
+    /** One family per reseller and grid: publishing the missing sizes later adds to it. */
+    uniqueIndex("listing_families_tenant_model_idx").on(table.tenantId, table.modelId),
+    /** The foreign key: separating a grid checks whether a reseller sells it as a family. */
+    index("listing_families_model_idx").on(table.modelId),
+  ],
+);
 
 export const listings = pgTable(
   "listings",
@@ -28,6 +59,12 @@ export const listings = pgTable(
     title: text().notNull(),
     description: text().notNull(),
     priceCents: integer().notNull(),
+    /**
+     * The grid publication this combination's listing belongs to; null for a plain product.
+     * "No action", not "restrict": checked at the end of the statement, so deleting a tenant
+     * cascades to its families and listings together, whatever order Postgres removes them in.
+     */
+    familyId: uuid().references(() => listingFamilies.id, { onDelete: "no action" }),
     createdAt: timestamp({ withTimezone: true }).defaultNow().notNull(),
     updatedAt: timestamp({ withTimezone: true })
       .defaultNow()
@@ -40,6 +77,7 @@ export const listings = pgTable(
     index("listings_tenant_product_idx").on(table.tenantId, table.supplierProductId),
     /** The foreign key: deactivating or deleting a product checks its listings. */
     index("listings_product_idx").on(table.supplierProductId),
+    index("listings_family_idx").on(table.familyId),
   ],
 );
 

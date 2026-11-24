@@ -5,7 +5,23 @@ import {
   confirmationLinkNotice,
   isUnconfirmedEmail,
   signInErrorMessage,
+  tooManyAttemptsMessage,
 } from "./sign-in-error";
+
+// The sign-up and the reset link read a refusal for too many attempts as "check your internet"
+// and "try again in a minute", while their limits last up to an hour.
+describe("tooManyAttemptsMessage", () => {
+  it("asks to wait minutes when the server refused for too many attempts", () => {
+    expect(tooManyAttemptsMessage({ status: 429 })).toBe(
+      "Muitas tentativas seguidas. Espere alguns minutos e tente de novo.",
+    );
+  });
+
+  it("leaves any other failure to the form's own message", () => {
+    expect(tooManyAttemptsMessage({ status: 400 })).toBeNull();
+    expect(tooManyAttemptsMessage({ status: 500 })).toBeNull();
+  });
+});
 
 describe("confirmationLinkNotice", () => {
   it("tells the person the e-mail is confirmed and asks for the password", () => {
@@ -51,9 +67,9 @@ describe("signInErrorMessage", () => {
     expect(signInErrorMessage({ status: 400 })).toBe("E-mail ou senha incorretos.");
   });
 
-  it("tells the person to wait after too many attempts", () => {
+  it("tells the person to wait minutes after too many attempts", () => {
     expect(signInErrorMessage({ status: 429 })).toBe(
-      "Muitas tentativas seguidas. Espere um minuto e tente de novo.",
+      "Muitas tentativas seguidas. Espere alguns minutos e tente de novo.",
     );
   });
 

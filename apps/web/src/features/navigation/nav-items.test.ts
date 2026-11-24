@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  switchedOnItems,
   ACCOUNT_NAV_ITEMS,
   activeNavItemTo,
   ADMIN_NAV_ITEMS,
@@ -59,6 +60,7 @@ describe("supplier navigation", () => {
       "Vendas",
       "Mensagens",
       "Recebimentos",
+      "Extrato",
       "Produtos",
       "Importar planilha",
       "Desempenho",
@@ -91,10 +93,18 @@ describe("menu groups", () => {
       navGroups(NAV_ITEMS).map((group) => [group.heading, group.items.map((item) => item.label)]),
     ).toEqual([
       [null, ["Visão geral"]],
-      ["Vender", ["Fornecedores", "Catálogo", "Publicações", "Pedidos"]],
+      ["Vender", ["Fornecedores", "Catálogo", "Publicações", "Pedidos", "Perguntas"]],
       ["Dinheiro", ["Financeiro"]],
       ["Lojas", ["Lojas", "Integrações"]],
     ]);
+  });
+
+  it("leaves Perguntas out of the menu while buyer questions are off", () => {
+    const off = switchedOnItems(NAV_ITEMS, false).map((item) => item.label);
+    const on = switchedOnItems(NAV_ITEMS, true).map((item) => item.label);
+
+    expect(off).not.toContain("Perguntas");
+    expect(on).toContain("Perguntas");
   });
 
   it("returns no group for no items", () => {

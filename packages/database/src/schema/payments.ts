@@ -131,6 +131,11 @@ export const shipmentPayments = pgTable(
     /** The provider's payment type (`pix`, `credit_card`...), once a payment exists. */
     paymentMethod: text(),
     paidAt: timestamp({ withTimezone: true }),
+    /**
+     * What the provider kept as its own fee from the payment, in cents, read when it was approved
+     * (Asaas: value minus netValue). Null for payments approved before it was recorded.
+     */
+    providerFeeCents: integer(),
     /** Last time the reconciliation job read this payment back from the provider. */
     checkedAt: timestamp({ withTimezone: true }),
     /**
@@ -214,6 +219,10 @@ export const shipmentPayments = pgTable(
       .where(
         sql`${table.status} in ('approved','charged_back') and ${table.releasedAt} is null and ${table.refundFailedAt} is null`,
       ),
+    // The supplier's statement reads one supplier's paid parcels of a period, newest first.
+    index("shipment_payments_supplier_paid_idx")
+      .on(table.supplierId, table.paidAt.desc(), table.id.desc())
+      .where(sql`${table.paidAt} is not null`),
     check(
       "shipment_payments_fee_check",
       sql`${table.platformFeeCents} >= 0 and ${table.platformFeeCents} <= ${table.amountCents}`,

@@ -129,6 +129,16 @@ function orderMessage(event: Extract<NotificationEvent, { kind: "order_message" 
   };
 }
 
+/** A buyer asked on a publication and waits; it stays until answered. */
+function buyerQuestion(event: Extract<NotificationEvent, { kind: "buyer_question" }>) {
+  return {
+    id: `buyer-question:${event.entityId}`,
+    title: `Pergunta nova: ${event.listingTitle}`,
+    detail: event.text === "" ? "Responda para não perder a venda." : `“${event.text}”`,
+    href: "/perguntas",
+  };
+}
+
 /** A new message between store and supplier, worded for whoever reads it. */
 function supplierConversation(
   event: Extract<NotificationEvent, { kind: "supplier_conversation" }>,
@@ -256,6 +266,8 @@ export function presentNotification(event: NotificationEvent): AppNotification {
       return { ...base, ...reviewPending(event) };
     case "marketplace_claim":
       return { ...base, ...marketplaceClaim(event) };
+    case "buyer_question":
+      return { ...base, ...buyerQuestion(event) };
   }
   return {
     ...base,
