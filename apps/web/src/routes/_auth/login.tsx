@@ -206,7 +206,11 @@ function LoginNotices() {
   }
   return (
     <InlineFormError
-      message={search.error ? "Não foi possível entrar com o Google. Tente novamente." : null}
+      message={
+        search.error
+          ? "Não deu para entrar com o Google. Tente de novo ou entre com e-mail e senha."
+          : null
+      }
     />
   );
 }
