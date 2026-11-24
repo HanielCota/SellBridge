@@ -230,7 +230,7 @@ describe("the reseller's sale note issued by its own Bling", () => {
     const note = await noteOf(shipmentId);
     expect(note?.erpStoppedAt).not.toBeNull();
     expect(note?.problem).toBe(
-      'Falta a forma de pagamento "Cartão de crédito Mastercard". Crie no seu Bling, escolha em Integrações › Bling e peça para tentar de novo.',
+      'Falta a forma de pagamento "Cartão de crédito Mastercard". Crie no seu Bling, escolha em Integrações › Bling e toque em Tentar de novo no pedido.',
     );
     expect(bling.state.created).toBeNull();
   });
