@@ -28,3 +28,15 @@ export function ratesNote(source: RatesSource | null, now: Date = new Date()): s
   }
   return ESTIMATE_NOTE;
 }
+
+/**
+ * The line under a profit preview when the product has no weight: shipping is priced as a
+ * package of up to 0,5 kg (`DEFAULT_PRODUCT_WEIGHT_GRAMS`), which may be cheaper than the real one.
+ * Null when the weight is known.
+ */
+export function missingWeightNote(weightGrams: number | null | undefined): string | null {
+  if (weightGrams !== null && weightGrams !== undefined && weightGrams > 0) {
+    return null;
+  }
+  return "O peso do produto não foi informado: o frete foi estimado para um pacote de até 0,5 kg e pode sair mais caro.";
+}

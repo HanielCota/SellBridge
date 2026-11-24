@@ -250,6 +250,12 @@ export const supplierProducts = pgTable(
      * form, the spreadsheet and the ERP import set it on every product they create.
      */
     fiscalRequired: boolean().notNull().default(false),
+    /**
+     * Whether publishing needs a weight (packed, else net) for the shipping estimate. False for
+     * products that existed before the rule: they keep selling on the 0,5 kg estimate while the
+     * supplier fills it in. Every path that creates a supplier's product sets it.
+     */
+    weightRequired: boolean().notNull().default(false),
     active: boolean().notNull().default(true),
     /**
      * Only approved products reach resellers. Admin form and CSV rows default to approved (the

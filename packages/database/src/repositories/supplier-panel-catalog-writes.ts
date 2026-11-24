@@ -8,6 +8,7 @@ import type {
 import {
   evaluateCompleteness,
   isProhibitedProduct,
+  meetsNewProductRules,
   requiredAttributesFor,
 } from "@sellbridge/shared/supplier-panel-catalog-completeness";
 import {
@@ -19,7 +20,6 @@ import {
   type RejectionReason,
 } from "@sellbridge/shared/supplier-panel-catalog-status";
 import {
-  hasRequiredFiscalData,
   icmsOverrideProblem,
   readProductFiscal,
   withFiscalFallback,
@@ -142,11 +142,12 @@ function assertIcmsFitsRegime(input: CatalogSaveDraftInput, regime: TaxRegime | 
 
 /**
  * NF-e data as the rules read it, origin and unit from Marca filling the product's empty ones;
- * `fiscalRequired` is false for products from before the rule.
+ * `fiscalRequired` and `weightRequired` are false for products from before each rule.
  */
 interface FiscalState {
   readonly fiscal: ProductFiscal;
   readonly fiscalRequired: boolean;
+  readonly weightRequired: boolean;
 }
 
 function blockingCount(
@@ -165,14 +166,18 @@ function blockingCount(
 }
 
 /**
- * A product created under the fiscal rule leaves sale when its NCM, origin or unit is erased:
- * an edit that is not reviewed (the fiscal block itself) would otherwise keep it approved.
+ * A product created under the fiscal or weight rule leaves sale when its NCM, origin, unit or
+ * weight is erased: an edit that is not reviewed would otherwise keep it approved.
  */
-function withFiscalRule(next: ProductReviewStatus, fiscalState: FiscalState): ProductReviewStatus {
-  if (next !== "approved" || !fiscalState.fiscalRequired) {
+function withFiscalRule(
+  next: ProductReviewStatus,
+  fiscalState: FiscalState,
+  mercadoLivreAttributes: Readonly<Record<string, string>>,
+): ProductReviewStatus {
+  if (next !== "approved") {
     return next;
   }
-  return hasRequiredFiscalData(fiscalState.fiscal) ? next : "draft";
+  return meetsNewProductRules({ ...fiscalState, mercadoLivreAttributes }) ? next : "draft";
 }
 
 function storedFiscalState(
@@ -182,6 +187,7 @@ function storedFiscalState(
   return {
     fiscal: withFiscalFallback(readProductFiscal(stored.fiscal), fallback),
     fiscalRequired: stored.fiscalRequired,
+    weightRequired: stored.weightRequired,
   };
 }
 
@@ -244,6 +250,7 @@ async function updateDraft(
   const fiscalState = {
     fiscal: withFiscalFallback(values.fiscal, fiscalFallback),
     fiscalRequired: stored.fiscalRequired,
+    weightRequired: stored.weightRequired,
   };
   const reviewedNext = withFiscalRule(
     statusAfterEdit({
@@ -253,6 +260,7 @@ async function updateDraft(
       prohibited: isProhibitedProduct(values),
     }),
     fiscalState,
+    values.mercadoLivreAttributes,
   );
   const contentReady = evaluateCompleteness(
     values,
@@ -311,8 +319,10 @@ export async function saveSupplierPanelDraft(
         supplierId: input.supplierId,
         ...input.values,
         reviewStatus: "draft",
-        // A supplier's new product needs NF-e data to be published; a seller's own one does not.
+        // A supplier's new product needs NF-e data and a weight to be published; a seller's
+        // own one does not.
         fiscalRequired: source.catalogKind === "supplier",
+        weightRequired: source.catalogKind === "supplier",
       })
       .onConflictDoNothing({ target: supplierProducts.id })
       .returning({ id: supplierProducts.id });

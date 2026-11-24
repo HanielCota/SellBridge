@@ -10,8 +10,8 @@ import {
 } from "@sellbridge/shared/schemas";
 import type { ProductCsvError, ProductCsvRow } from "@sellbridge/shared/product-csv";
 import { planGridImport, type GridImportPlan } from "@sellbridge/shared/product-grid-import";
+import { meetsNewProductRules } from "@sellbridge/shared/supplier-panel-catalog-completeness";
 import {
-  hasRequiredFiscalData,
   icmsOverrideProblem,
   readProductFiscal,
   withFiscalFallback,
@@ -278,30 +278,37 @@ const STOCK_MOVED_MESSAGE =
  * changed one only lands while the shelf still holds what the form showed.
  */
 /**
- * A product created under the fiscal rule leaves sale when the team erases its NCM, origin or
- * unit, as it does when the supplier erases them in the panel.
+ * A product created under the fiscal or weight rule leaves sale when the team erases its NCM,
+ * origin, unit or weight, as it does when the supplier erases them in the panel.
  */
 async function fiscalRuleStatus(
   transaction: DatabaseExecutor,
   ids: { supplierId: string; productId: string },
-  fiscal: AdminProductValues["fiscal"],
+  values: Pick<AdminProductValues, "fiscal" | "mercadoLivreAttributes">,
 ): Promise<{ reviewStatus?: "draft" }> {
   const [stored] = await transaction
     .select({
       fiscal: supplierProducts.fiscal,
       fiscalRequired: supplierProducts.fiscalRequired,
+      weightRequired: supplierProducts.weightRequired,
+      mercadoLivreAttributes: supplierProducts.mercadoLivreAttributes,
       reviewStatus: supplierProducts.reviewStatus,
     })
     .from(supplierProducts)
     .where(
       and(eq(supplierProducts.id, ids.productId), eq(supplierProducts.supplierId, ids.supplierId)),
     );
-  if (stored === undefined || !stored.fiscalRequired || stored.reviewStatus !== "approved") {
+  if (stored === undefined || stored.reviewStatus !== "approved") {
     return {};
   }
   const fallback = await getSupplierFiscalFallback(transaction, ids.supplierId);
-  const next = withFiscalFallback(readProductFiscal(fiscal ?? stored.fiscal), fallback);
-  return hasRequiredFiscalData(next) ? {} : { reviewStatus: "draft" };
+  const keeps = meetsNewProductRules({
+    fiscal: withFiscalFallback(readProductFiscal(values.fiscal ?? stored.fiscal), fallback),
+    fiscalRequired: stored.fiscalRequired,
+    weightRequired: stored.weightRequired,
+    mercadoLivreAttributes: values.mercadoLivreAttributes ?? stored.mercadoLivreAttributes,
+  });
+  return keeps ? {} : { reviewStatus: "draft" };
 }
 
 /** The team form edits a product of its own; a grid combination changes through its model. */
@@ -329,7 +336,7 @@ async function updateProduct(
   await assertNotGridCombination(transaction, ids);
   const { stock, ...rest } = values;
   const keepsShelf = expectedStock !== undefined && stock === expectedStock;
-  const status = await fiscalRuleStatus(transaction, ids, values.fiscal);
+  const status = await fiscalRuleStatus(transaction, ids, values);
   const [product] = await transaction
     .update(supplierProducts)
     .set({ ...(keepsShelf ? rest : values), ...status })
@@ -407,11 +414,16 @@ export async function saveAdminSupplierProduct(
           .values({
             supplierId,
             ...values,
-            // A new product needs NF-e data to go on sale; without it the admin saves a draft.
+            // A new product needs NF-e data and a weight to go on sale; without them the admin
+            // saves a draft.
             fiscalRequired: true,
-            ...(hasRequiredFiscalData(
-              withFiscalFallback(readProductFiscal(values.fiscal ?? {}), fiscalFallback),
-            )
+            weightRequired: true,
+            ...(meetsNewProductRules({
+              fiscal: withFiscalFallback(readProductFiscal(values.fiscal ?? {}), fiscalFallback),
+              fiscalRequired: true,
+              weightRequired: true,
+              mercadoLivreAttributes: values.mercadoLivreAttributes ?? {},
+            })
               ? {}
               : { reviewStatus: "draft" as const }),
           })
@@ -613,25 +625,33 @@ function withGrids(
 }
 
 /**
- * A product the import creates needs NCM, origin and unit to go on sale: it is flagged as such
- * and, when the line leaves them out, lands as a draft instead of approved. Updated products
- * keep their flag and status (the conflict clause does not touch them).
+ * A product the import creates needs NCM, origin, unit and a weight to go on sale: it is flagged
+ * as such and, when the line leaves them out, lands as a draft instead of approved. Updated
+ * products keep their flags and status (the conflict clause does not touch them).
  */
 function withNewProductFiscalRule<
-  TProduct extends { sku: string; fiscal?: ProductFiscalPatch | undefined },
+  TProduct extends {
+    sku: string;
+    fiscal?: ProductFiscalPatch | undefined;
+    mercadoLivreAttributes?: Record<string, string> | undefined;
+  },
 >(products: readonly TProduct[], newSkus: readonly string[], fallback: FiscalFallback | null) {
   const created = new Set(newSkus);
   return products.map((product) => {
     if (!created.has(product.sku)) {
       return { ...product, fiscal: product.fiscal ?? {} };
     }
-    const complete = hasRequiredFiscalData(
-      withFiscalFallback(readProductFiscal(product.fiscal ?? {}), fallback),
-    );
+    const complete = meetsNewProductRules({
+      fiscal: withFiscalFallback(readProductFiscal(product.fiscal ?? {}), fallback),
+      fiscalRequired: true,
+      weightRequired: true,
+      mercadoLivreAttributes: product.mercadoLivreAttributes ?? {},
+    });
     return {
       ...product,
       fiscal: product.fiscal ?? {},
       fiscalRequired: true,
+      weightRequired: true,
       ...(complete ? {} : { reviewStatus: "draft" as const }),
     };
   });

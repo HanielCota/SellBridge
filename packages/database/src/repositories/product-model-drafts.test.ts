@@ -41,7 +41,7 @@ const values: ModelDraftValues = {
   description: "Tênis de couro legítimo com solado de borracha.",
   categoryId: null,
   imageUrls: ["https://cdn.example.com/capa.jpg"],
-  mercadoLivreAttributes: { BRAND: "Pegada", MODEL: "Casual" },
+  mercadoLivreAttributes: { BRAND: "Pegada", MODEL: "Casual", SELLER_PACKAGE_WEIGHT: "900" },
   mercadoLivreCategoryId: null,
   mercadoLivreCategoryName: null,
   warrantyType: null,
@@ -267,6 +267,21 @@ describe("publishProductModel", () => {
     const attempt = publishProductModel(database, { supplierId, modelId });
 
     await expect(attempt).rejects.toThrow("Preto 38: Informe NCM");
+    const stored = await getProductModel(database, { supplierId, modelId });
+    expect(stored?.combinations.every((entry) => entry.reviewStatus === "draft")).toBe(true);
+  });
+
+  it("asks each combination for a weight and publishes nothing without one", async () => {
+    const prefix = randomUUID().slice(0, 8);
+    const input = draft(prefix);
+    const { id: modelId } = await saveProductModelDraft(database, {
+      ...input,
+      values: { ...input.values, mercadoLivreAttributes: { BRAND: "Pegada", MODEL: "Casual" } },
+    });
+
+    const attempt = publishProductModel(database, { supplierId, modelId });
+
+    await expect(attempt).rejects.toThrow("Preto 38: Informe o peso da embalagem");
     const stored = await getProductModel(database, { supplierId, modelId });
     expect(stored?.combinations.every((entry) => entry.reviewStatus === "draft")).toBe(true);
   });

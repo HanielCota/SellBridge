@@ -1,11 +1,20 @@
 import { sql } from "drizzle-orm";
 import { supplierProducts } from "../../schema/index.ts";
 
+const packedText = sql`btrim(${supplierProducts.mercadoLivreAttributes}->>'SELLER_PACKAGE_WEIGHT', E' \t\r\n')`;
+
 /**
- * The product's net weight in grams from its NF-e data, or null when the supplier gave none: the
- * weight the shipping estimate is priced on. Only a positive number counts. Needs
- * `supplier_products` in the FROM clause.
+ * `readPackageMeasure(text, "g")` of shared/shipping-weight.ts; null for zero or unreadable text.
+ * Nine digits at most before the decimals (under 1,000,000,000 g, as there), so the cast to integer
+ * never overflows on a typo.
  */
-export const productWeightGrams = sql<
-  number | null
->`case when jsonb_typeof(${supplierProducts.fiscal}->'netWeightGrams') = 'number' and (${supplierProducts.fiscal}->>'netWeightGrams')::numeric > 0 then ceil((${supplierProducts.fiscal}->>'netWeightGrams')::numeric)::integer end`;
+const packedGrams = sql`case when ${packedText} ~* '^0*[0-9]{1,9}([.,][0-9]+)?[[:space:]]*g?$' then nullif(ceil(replace(substring(${packedText} from '^[0-9]+(?:[.,][0-9]+)?'), ',', '.')::numeric), 0)::integer end`;
+
+const netGrams = sql`case when jsonb_typeof(${supplierProducts.fiscal}->'netWeightGrams') = 'number' and (${supplierProducts.fiscal}->>'netWeightGrams')::numeric > 0 then ceil((${supplierProducts.fiscal}->>'netWeightGrams')::numeric)::integer end`;
+
+/**
+ * The weight shipping is priced on, in grams: `shippingWeightGrams` of shared/shipping-weight.ts
+ * in SQL. The packed weight the supplier typed, else the NF-e net weight; null when neither is
+ * there. Needs `supplier_products` in the FROM clause.
+ */
+export const productWeightGrams = sql<number | null>`coalesce(${packedGrams}, ${netGrams})`;
