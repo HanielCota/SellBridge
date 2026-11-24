@@ -18,7 +18,7 @@ describe("catalog description", () => {
         "Ana Moda",
       ),
     ).toBe(
-      "Produtos de BH Beauty Distribuidora para a loja Ana Moda. Selecione vários para publicar de uma vez.",
+      "Produtos de BH Beauty Distribuidora para a loja Ana Moda. Marque vários para publicar de uma vez.",
     );
   });
 
@@ -30,7 +30,7 @@ describe("catalog description", () => {
         null,
       ),
     ).toBe(
-      "Produtos de Rio Pet Atacado, o fornecedor que você escolheu. Selecione vários para publicar de uma vez.",
+      "Produtos de Rio Pet Atacado, o fornecedor que você escolheu. Marque vários para publicar de uma vez.",
     );
   });
 
@@ -42,7 +42,7 @@ describe("catalog description", () => {
         "Ana Moda",
       ),
     ).toBe(
-      "Produtos de BH Beauty Distribuidora e Rio Pet Atacado para a loja Ana Moda. Selecione vários para publicar de uma vez.",
+      "Produtos de BH Beauty Distribuidora e Rio Pet Atacado para a loja Ana Moda. Marque vários para publicar de uma vez.",
     );
   });
 

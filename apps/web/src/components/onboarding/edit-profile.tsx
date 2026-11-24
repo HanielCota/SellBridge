@@ -17,10 +17,7 @@ export function EditOnboardingProfile({
   const [savedHolder, setSavedHolder] = useState(false);
   return (
     <div className="mx-auto w-full max-w-5xl space-y-6">
-      <PageHeader
-        title="Meu cadastro"
-        description="Confira seus dados e o fornecedor dos seus produtos quando quiser."
-      />
+      <PageHeader title="Meu cadastro" />
       <div className="grid grid-cols-1 items-start gap-6 lg:grid-cols-2">
         <section
           aria-labelledby="holder-data"
@@ -73,8 +70,8 @@ function ProductSourceSummary({ profile }: { profile: OnboardingProfile }) {
         </div>
       )}
       <p className="text-sm text-muted-foreground">
-        As alterações valem para as próximas configurações. Lojas, anúncios e pedidos existentes
-        mantêm as configurações atuais.
+        A troca vale só para lojas novas. Suas lojas, anúncios e pedidos de hoje continuam como
+        estão.
       </p>
       <Button asChild variant="outline">
         <Link to="/onboarding" search={{ step: "supplier" }}>

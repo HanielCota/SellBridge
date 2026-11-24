@@ -77,7 +77,7 @@ describe("listingHealth", () => {
     const row = listing([store("A", "paused"), store("Shopee", "error", "Falta a marca")], 0);
     expect(listingHealth(row)).toEqual({
       tone: "error",
-      label: "Erro na Shopee",
+      label: "Não publicado na Shopee",
       reason: "Falta a marca",
     });
   });

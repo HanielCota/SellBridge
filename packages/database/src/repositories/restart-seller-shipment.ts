@@ -69,7 +69,7 @@ async function recordRestart(transaction: Transaction, shipmentId: string) {
       shipmentId,
       status: "accepted",
       actor: SHIPMENT_ACTORS.reseller,
-      note: "Pronto para o revendedor preparar e enviar.",
+      note: "Pronto para você preparar e enviar.",
     },
   ]);
 }

@@ -123,7 +123,7 @@ export const NOTIFICATION_EVENT_DEFINITIONS: Record<NotificationEventName, Event
   },
   store_buyer_address: {
     audience: "reseller",
-    label: "Endereço de compra no fornecedor",
+    label: "Suas compras indo para o fornecedor",
     description: "As compras pessoais da sua conta do marketplace estão indo para o fornecedor.",
     defaults: { in_app: true, email: true, push: true },
   },
@@ -648,7 +648,7 @@ export function receivingAccountWaitingContent(
     heading: "Pedido parado sem conta de recebimento",
     paragraphs: [
       `O pedido ${notice.externalOrderId} espera ${notice.supplierName} ligar a conta de recebimento no Asaas. O fornecedor já foi avisado.`,
-      "Se ele não ligar logo, fale com ele: o prazo de postagem do canal continua correndo.",
+      "Se ele não ligar logo, fale com ele: o prazo de postagem do marketplace continua correndo.",
     ],
     actionLabel: "Ver em Problemas",
     actionPath: "/admin/problemas",

@@ -87,7 +87,7 @@ async function createProduct(page: Page, sku: string) {
   await page
     .getByLabel("Enviar imagens", { exact: true })
     .setInputFiles({ name: "product.png", mimeType: "image/png", buffer: PIXEL_PNG });
-  await expect(page.getByText("Todas as alterações foram salvas", { exact: true })).toBeVisible();
+  await expect(page.getByText("Tudo salvo", { exact: true })).toBeVisible();
   const id = new URL(page.url()).searchParams.get("product");
   if (id === null) throw new Error("Missing product identifier");
   return id;
@@ -111,7 +111,7 @@ test.skip("seller drafts resume, preserve live stock, duplicate safely and archi
     .getByLabel("Descrição", { exact: true })
     .fill("Updated description after a concurrent sale.");
   await expect(page.getByLabel("Estoque total")).toHaveValue("5");
-  await expect(page.getByText("Todas as alterações foram salvas", { exact: true })).toBeVisible();
+  await expect(page.getByText("Tudo salvo", { exact: true })).toBeVisible();
   await page.getByRole("button", { name: "Deixar pronto para publicar", exact: true }).click();
   await expect(page.getByText("Pronto para publicar", { exact: true })).toBeVisible();
   await page.getByRole("button", { name: "Arquivar produto", exact: true }).click();
@@ -184,9 +184,7 @@ test.skip("admin corrections require a reason and platform blocks survive owner 
     await adminPage
       .getByLabel("Por que a equipe está mudando este produto")
       .fill("Corrected the customer product title.");
-    await expect(
-      adminPage.getByText("Todas as alterações foram salvas", { exact: true }),
-    ).toBeVisible();
+    await expect(adminPage.getByText("Tudo salvo", { exact: true })).toBeVisible();
     await expect(
       adminPage
         .getByRole("region", { name: "Ações e histórico do produto" })
@@ -199,7 +197,7 @@ test.skip("admin corrections require a reason and platform blocks survive owner 
     await page
       .getByLabel("Nome do produto", { exact: true })
       .fill("Owner corrected blocked product");
-    await expect(page.getByText("Todas as alterações foram salvas", { exact: true })).toBeVisible();
+    await expect(page.getByText("Tudo salvo", { exact: true })).toBeVisible();
     await expect(
       page.getByRole("button", { name: "Deixar pronto para publicar", exact: true }),
     ).toBeDisabled();
@@ -235,7 +233,7 @@ test.skip("unsaved product changes stay when leaving is cancelled", async ({ pag
     "Unfinished private accessory",
   );
   await page.getByLabel("Código", { exact: true }).fill(`SAVED-${Date.now()}`);
-  await expect(page.getByText("Todas as alterações foram salvas", { exact: true })).toBeVisible();
+  await expect(page.getByText("Tudo salvo", { exact: true })).toBeVisible();
   await page.getByRole("button", { name: "Voltar aos produtos", exact: true }).click();
   await expect(page.getByRole("button", { name: "Cadastrar produto", exact: true })).toBeVisible();
 });

@@ -89,9 +89,9 @@ export function catalogDescription(
   }
   const names = NAME_LIST_FORMAT.format(supplierNames);
   if (scope.kind === "store" && storeName !== null) {
-    return `Produtos de ${names} para a loja ${storeName}. Selecione vários para publicar de uma vez.`;
+    return `Produtos de ${names} para a loja ${storeName}. Marque vários para publicar de uma vez.`;
   }
-  return `Produtos de ${names}, o fornecedor que você escolheu. Selecione vários para publicar de uma vez.`;
+  return `Produtos de ${names}, o fornecedor que você escolheu. Marque vários para publicar de uma vez.`;
 }
 
 /** "X está pausado" or "X e Y estão pausados", for the suppliers the platform deactivated. */
@@ -185,7 +185,7 @@ export function NoSupplierState({
     <EmptyState
       icon={StorefrontIcon}
       title="Escolha um fornecedor para ver os produtos"
-      description="O fornecedor guarda o estoque e envia os produtos aos seus clientes."
+      description="O fornecedor guarda o estoque e envia os produtos aos seus compradores."
       action={
         <Button asChild>
           <Link to="/onboarding" search={{ step: "supplier" }}>

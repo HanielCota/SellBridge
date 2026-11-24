@@ -31,7 +31,7 @@ describe("manualSaleSchema", () => {
     const result = manualSaleSchema.safeParse(sale({ externalOrderId: "   " }));
 
     expect(result.error?.issues[0]?.message).toBe(
-      "Informe o número do pedido, como aparece no canal",
+      "Digite o número do pedido, como aparece na Shopee ou no TikTok Shop",
     );
   });
 
@@ -91,7 +91,7 @@ describe("manualSaleSchema channel fee", () => {
     expect(result.error?.issues).toMatchObject([
       {
         path: ["marketplaceFeeCents"],
-        message: "Informe a taxa. Se o canal não cobrou nada, digite 0",
+        message: "Preencha a taxa. Se a Shopee ou o TikTok Shop não cobrou nada, digite 0",
       },
     ]);
   });

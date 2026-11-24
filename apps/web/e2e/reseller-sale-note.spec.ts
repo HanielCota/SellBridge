@@ -203,7 +203,7 @@ test("a company reseller pastes the key of its own sale note on the order", asyn
 
   await expect(card.getByText(/Nota recebida · /)).toBeVisible();
   await expect(card.getByText("Nota 4821 · série 1")).toBeVisible();
-  await expect(card.getByText("Chave informada por você")).toBeVisible();
+  await expect(card.getByText("Chave digitada por você")).toBeVisible();
   await expect(card.getByLabel("Chave de acesso da sua nota (44 números)")).toHaveCount(0);
 });
 

@@ -13,7 +13,7 @@ function ManualSalePage() {
       <PageHeader
         back={<BackLink to="/pedidos" label="Pedidos" />}
         title="Registrar venda manual"
-        description="Para vendas da Shopee e do TikTok Shop, que ainda não estão ligados ao SellBridge. Depois de registrar, você sobe a etiqueta do canal e envia o pedido ao fornecedor, como nas vendas do Mercado Livre."
+        description="Para pedidos da Shopee e do TikTok Shop. Depois de registrar, suba a etiqueta e mande o pedido ao fornecedor."
       />
       <ManualSaleForm />
     </div>

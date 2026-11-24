@@ -115,6 +115,6 @@ test("produto importado por CSV com marca, modelo e GTIN vai ao ar sem erro de a
   await expect(
     reseller.getByText("No ar na Loja Atributos", { exact: true }).filter({ visible: true }),
   ).toBeVisible({ timeout: STATUS_TIMEOUT });
-  await expect(reseller.getByText(/Faltam atributos obrigatórios/)).toHaveCount(0);
+  await expect(reseller.getByText(/Faltam (atributos obrigatórios|campos)/)).toHaveCount(0);
   await resellerContext.close();
 });

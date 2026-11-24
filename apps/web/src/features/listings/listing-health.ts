@@ -58,7 +58,7 @@ export function listingHealth(row: ListingOverviewRow): ListingHealth {
   const failed = storesWith(row.stores, ["error"]);
   if (failed.length > 0) {
     const reason = failed.find((store) => store.errorReason !== null)?.errorReason ?? null;
-    return { tone: "error", label: `Erro ${whereLabel(failed)}`, reason };
+    return { tone: "error", label: `Não publicado ${whereLabel(failed)}`, reason };
   }
   if (row.stock <= 0) {
     return { tone: "attention", label: "Sem estoque no fornecedor", reason: null };

@@ -107,7 +107,7 @@ test("the customer page in the admin shows the same store health", async ({ brow
   const row = page.getByRole("listitem").filter({ hasText: shopName });
   await expect(row.getByText("Atenção", { exact: true })).toBeVisible();
   await expect(row.getByText("há 3 horas")).toBeVisible();
-  await expect(row.getByText("Renovação falhou, tentaremos de novo")).toBeVisible();
+  await expect(row.getByText("A conexão falhou agora. Tentamos de novo sozinhos")).toBeVisible();
   for (const width of [320, 375, 768, 1280]) {
     await page.setViewportSize({ width, height: 900 });
     const overflow = await row.evaluate((element) => element.scrollWidth - element.clientWidth);

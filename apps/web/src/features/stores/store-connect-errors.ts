@@ -1,11 +1,11 @@
 /** Why connecting a store failed, as the OAuth callback tells the stores page in the URL. */
 export const STORE_CONNECT_ERROR_MESSAGES = {
-  unknown_marketplace: "Marketplace desconhecido",
+  unknown_marketplace: "Não reconhecemos esse marketplace. Escolha um da lista em Lojas.",
   unavailable: "Este marketplace ainda não está disponível",
-  invalid_response: "Resposta de autorização inválida",
+  invalid_response: "O marketplace não terminou a conexão. Clique em Conectar de novo.",
   cancelled:
     "A conexão foi cancelada no marketplace. Para tentar de novo, clique em Conectar e aceite o acesso.",
-  expired: "A solicitação de conexão expirou. Tente conectar novamente.",
+  expired: "A conexão demorou demais. Clique em Conectar de novo.",
   marketplace: "O marketplace recusou a conexão. Tente de novo em instantes.",
   shop_in_use:
     "Esta loja já está conectada em outra conta do SellBridge. Desconecte-a lá antes de conectar aqui.",
@@ -16,7 +16,7 @@ export const STORE_CONNECT_ERROR_MESSAGES = {
   impersonating: "Não é possível conectar lojas durante o acesso como cliente.",
   email_not_verified:
     "Confirme seu e-mail antes de conectar uma loja nova. Reenvie o link na Visão geral.",
-  failed: "Não foi possível conectar a loja",
+  failed: "A loja não conectou. Tente de novo em alguns minutos ou fale com o suporte.",
 } as const;
 
 export type StoreConnectErrorCode = keyof typeof STORE_CONNECT_ERROR_MESSAGES;

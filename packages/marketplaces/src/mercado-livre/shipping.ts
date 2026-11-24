@@ -130,7 +130,9 @@ async function loadSaleShipment(
     init: { accessToken: store.accessToken },
   });
   if (String(order.seller.id) !== store.externalShopId)
-    throw marketplaceError("Pedido não pertence à loja conectada", { retryable: false });
+    throw marketplaceError("Este pedido é de outra conta do Mercado Livre, não desta loja.", {
+      retryable: false,
+    });
   // Hosted View (official Orders docs; the full view was retired at the end of September 2026):
   // the list holds only ids and types, in no promised order, so the sale is picked by type.
   const refs = await requestJson(context, {
@@ -146,9 +148,12 @@ async function loadSaleShipment(
   const forward = refs.filter((ref) => ref.type === "forward");
   const [sale] = forward;
   if (forward.length !== 1 || !sale)
-    throw marketplaceError("O pedido precisa ter um único envio de compra para esta operação", {
-      retryable: false,
-    });
+    throw marketplaceError(
+      "Este pedido não tem um envio só no Mercado Livre, então não dá para tratar por aqui. Faça pelo Mercado Livre.",
+      {
+        retryable: false,
+      },
+    );
   const raw = await requestJson(context, {
     schema: shippingSchema,
     path: `/shipments/${encodeURIComponent(String(sale.id))}`,
@@ -291,10 +296,13 @@ const ZPL_LABEL_START = "^XA";
 
 function invalidLabel(format: LabelFormat, cause?: unknown) {
   const name = format === "pdf" ? "PDF" : "ZPL";
-  return marketplaceError(`O marketplace não retornou uma etiqueta ${name} válida`, {
-    retryable: false,
-    cause,
-  });
+  return marketplaceError(
+    `O Mercado Livre mandou a etiqueta ${name} com defeito. Tente baixar de novo em alguns minutos.`,
+    {
+      retryable: false,
+      cause,
+    },
+  );
 }
 
 /**
@@ -337,10 +345,13 @@ async function fetchLabelFile(
     { ...config.retry, timeoutMilliseconds: 30_000, maxBodyBytes: MAX_LABEL_BYTES },
   );
   if (!response.ok)
-    throw marketplaceError(`Não foi possível emitir a etiqueta (HTTP ${response.status})`, {
-      status: response.status,
-      retryable: response.status >= 500,
-    });
+    throw marketplaceError(
+      `O Mercado Livre não gerou a etiqueta (erro ${response.status}). Tente de novo em alguns minutos.`,
+      {
+        status: response.status,
+        retryable: response.status >= 500,
+      },
+    );
   const bytes = new Uint8Array(await response.arrayBuffer());
   if (bytes.length > MAX_LABEL_BYTES) throw invalidLabel(format);
   if (format === "zpl") return zplLabel(bytes);

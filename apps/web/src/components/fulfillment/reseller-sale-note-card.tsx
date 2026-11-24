@@ -39,7 +39,7 @@ export interface ResellerSaleNote {
 
 const SOURCE_LABELS: Record<ResellerInvoiceSource, string> = {
   marketplace: "Lida no pedido do marketplace",
-  typed: "Chave informada por você",
+  typed: "Chave digitada por você",
   uploaded: "XML enviado por você ao Mercado Livre",
   bling: "Emitida pelo seu Bling",
 };
@@ -242,9 +242,9 @@ function WaitingNote({
   return (
     <>
       <p className="text-subhead text-muted-foreground">
-        Nesta venda, quem emite a nota para o comprador é a sua empresa (venda à ordem). Emita no
-        seu sistema (UpSeller, Bling ou outro) e envie ao marketplace: o SellBridge encontra a nota
-        no pedido sozinho.{" "}
+        Neste pedido, quem emite a nota para o comprador é a sua empresa (venda à ordem). Emita no
+        seu sistema (UpSeller, Bling ou outro) e mande ao marketplace. O SellBridge acha a nota no
+        pedido sozinho.{" "}
         {xml
           ? "Se o seu sistema não enviar, mande aqui o arquivo XML da nota: o SellBridge envia ao Mercado Livre."
           : "Se ela não aparecer aqui, cole a chave de acesso."}

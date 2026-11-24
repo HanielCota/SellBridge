@@ -58,7 +58,7 @@ const ROLE_TEXTS: Record<ResellerNoteRole, RoleText> = {
     coming:
       "O fornecedor está emitindo a remessa, a nota que vai na caixa e cita a sua nota de venda. Quando ela sair, aparece aqui e chega no seu e-mail.",
     about:
-      "A remessa vai na caixa com o pacote e cita a sua nota de venda. O fornecedor a emite por conta e ordem da sua empresa.",
+      "A remessa vai na caixa com o pacote e cita a sua nota de venda. O fornecedor emite essa nota em nome da sua empresa.",
   },
   purchase: {
     title: "Nota de compra (do fornecedor para você)",

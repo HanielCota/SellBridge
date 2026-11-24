@@ -11,7 +11,6 @@ const UNSHIPPABLE_ORDER_STATUSES: ReadonlySet<string> = new Set<OrderStatus>([
 export function isShippingBlocked(orderStatus: string): boolean {
   return UNSHIPPABLE_ORDER_STATUSES.has(orderStatus);
 }
-
 export interface SaleStopNotice {
   title: string;
   description: string;

@@ -422,7 +422,7 @@ function cancelCopy(actsAs: ShipmentOperator, supplierName: string, hasMoneyNote
     title: `Cancelar o envio de ${supplierName}?`,
     description: hasMoneyNote
       ? "O envio sai da fila do fornecedor."
-      : "O envio sai da fila do fornecedor. Enquanto o pedido estiver pago, dá para reencaminhar depois.",
+      : "O envio sai da fila do fornecedor. Se o pedido continuar pago no marketplace, dá para reencaminhar depois.",
   };
 }
 

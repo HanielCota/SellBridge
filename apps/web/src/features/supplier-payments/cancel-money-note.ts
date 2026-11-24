@@ -51,5 +51,5 @@ export function cancelReforwardSentence(badge: SupplierPaymentBadge): string {
   if (RETURNING_BADGES.has(badge.kind)) {
     return "Depois de cancelar, não dá para reencaminhar este envio ao fornecedor.";
   }
-  return "Enquanto o pedido estiver pago, dá para reencaminhar depois.";
+  return "Se o pedido continuar pago no marketplace, dá para reencaminhar depois.";
 }

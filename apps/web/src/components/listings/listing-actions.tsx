@@ -122,7 +122,7 @@ function UnavailableItem({ named }: { named: ListingRunState }) {
       className="text-muted-foreground data-disabled:opacity-100 *:[svg]:text-destructive"
     >
       <ProhibitIcon weight="duotone" aria-hidden="true" />
-      Indisponível
+      Não dá para reativar
       <RunStateChip state="off" named={named} />
     </DropdownMenuItem>
   );

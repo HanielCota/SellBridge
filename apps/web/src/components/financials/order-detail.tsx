@@ -40,7 +40,7 @@ export function OrderDetail({ row }: { row: OrderFinancialRow }) {
     >
       <div className="space-y-1">
         <div className="flex items-center justify-between gap-3">
-          <p className="truncate text-sm font-medium">{row.externalOrderId}</p>
+          <p className="truncate text-sm font-medium">Pedido {row.externalOrderId}</p>
           <OrderStatusBadge status={row.status} />
         </div>
         <p className="text-xs text-muted-foreground">{row.items}</p>

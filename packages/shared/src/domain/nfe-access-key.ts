@@ -95,7 +95,7 @@ export function resellerAccessKeyProblem(input: string, resellerCnpj: string): s
     return formatProblem;
   }
   if (parts.model !== NFE_MODEL) {
-    return "Esta chave não é de uma NF-e (modelo 55). Use a chave da nota de venda ao cliente.";
+    return "Esta chave não é de uma NF-e (modelo 55). Use a chave da nota de venda ao comprador.";
   }
   if (parts.issuerCnpj !== resellerCnpj) {
     return `Esta nota foi emitida pelo CNPJ ${formatCnpj(parts.issuerCnpj)}. Use a nota emitida pela sua empresa, CNPJ ${formatCnpj(resellerCnpj)}.`;

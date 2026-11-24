@@ -173,7 +173,7 @@ describe("presentNotification", () => {
       id: `listing:target-1:${at.getTime()}`,
       kind: "listing_error",
       title: "Publicação recusada: Vestido floral",
-      detail: "Erro ao publicar",
+      detail: "O marketplace recusou sem dizer o motivo. Abra a publicação para tentar de novo.",
       at,
       href: "/publicacoes?status=error",
     });

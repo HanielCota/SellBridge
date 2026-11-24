@@ -21,7 +21,7 @@ export interface ConnectorRegistryConfig {
 export type ConnectorRegistry = Record<MarketplaceId, MarketplaceConnector>;
 
 export const MARKETPLACE_LABELS: Record<MarketplaceId, string> = {
-  mock: "Integração descontinuada",
+  mock: "Loja simulada (desativada)",
   mercado_livre: "Mercado Livre",
   shopee: "Shopee",
   tiktok_shop: "TikTok Shop",

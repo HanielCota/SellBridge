@@ -123,7 +123,9 @@ export async function createListingWithTargets(
       .values({ ...values, tenantId })
       .returning({ id: listings.id });
     if (!listing) {
-      throw conflictError("Não foi possível criar o anúncio");
+      throw conflictError(
+        "Não deu para criar a publicação. Tente de novo; se continuar, fale com o suporte.",
+      );
     }
     const targets = await transaction
       .insert(listingTargets)
@@ -424,7 +426,7 @@ export async function markTargetPublished(
       )
       .returning(listingEventColumns);
     if (!updated) {
-      throw notFoundError("Publicação não encontrada ou já publicada por outra tentativa");
+      throw notFoundError("Esta publicação já foi feita ou não existe mais. Atualize a página.");
     }
     await recordListingEvent(transaction, "listing.published", updated);
   });

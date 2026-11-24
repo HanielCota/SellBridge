@@ -160,7 +160,7 @@ test("o revendedor vê a nota e os motivos, mas nunca o comentário", async ({ p
   const answers = recordServerAnswers(page);
   await signIn(page, DEMO_USER);
   await gotoHydrated(page, `/fornecedores/${supplierId}`);
-  const panel = page.getByRole("region", { name: "Reputação do fornecedor" });
+  const panel = page.getByRole("region", { name: "Score do fornecedor" });
   await expect(panel.getByText("Prazo de despacho")).toBeVisible();
   await expect(page.getByText("O que outros revendedores disseram")).toHaveCount(0);
   // Neither the server-rendered page nor any server function answer carries the comment.

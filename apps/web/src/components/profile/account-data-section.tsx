@@ -57,7 +57,10 @@ function useDeleteAccount() {
       // A refusal may come from something left to resolve: the row lists it once the dialog closes.
       void queryClient.invalidateQueries({ queryKey: deletionBlockersQueryOptions().queryKey });
       setError(
-        authErrorMessage(result.error, "Não foi possível excluir a conta. Tente novamente."),
+        authErrorMessage(
+          result.error,
+          "A conta não foi excluída. Confira a senha e tente de novo; se continuar, fale com o Suporte.",
+        ),
       );
       return;
     }

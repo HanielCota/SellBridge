@@ -73,7 +73,10 @@ export function AdminProductCards({
   return (
     <ul className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
       {products.map((row) => (
-        <li key={row.product.id} className="surface-card space-y-3 rounded-2xl bg-card p-5">
+        <li
+          key={row.product.id}
+          className="surface-card flex h-full flex-col gap-3 rounded-2xl bg-card p-5"
+        >
           <div className="flex items-start gap-3">
             <ProductVisual
               imageUrl={row.product.imageUrls[0] ?? null}
@@ -96,7 +99,7 @@ export function AdminProductCards({
             </div>
           </div>
           {row.tenantId === null ? (
-            <Button asChild variant="outline">
+            <Button asChild variant="outline" className="mt-auto self-start">
               <Link to="/admin/fornecedores/$supplierId" params={{ supplierId: row.sourceId }}>
                 Gerenciar catálogo do fornecedor
               </Link>
@@ -104,6 +107,7 @@ export function AdminProductCards({
           ) : (
             <Button
               variant="outline"
+              className="mt-auto self-start"
               onClick={() => {
                 if (row.tenantId !== null) onOpen(row.tenantId, row.product.id);
               }}

@@ -48,7 +48,7 @@ function StepAction({ step, done = false }: { step: SetupStep; done?: boolean })
     if (done) {
       return (
         <Button asChild variant="outline" className={STEP_ACTION_CLASS_NAME}>
-          <Link to="/perfil">Gerenciar e-mail</Link>
+          <Link to="/perfil">Ver e-mail</Link>
         </Button>
       );
     }
@@ -68,7 +68,7 @@ function StepAction({ step, done = false }: { step: SetupStep; done?: boolean })
   return (
     <Button asChild variant={done ? "outline" : "default"} className={STEP_ACTION_CLASS_NAME}>
       <Link to={step.to}>
-        {done ? (step.key === "hasStore" ? "Gerenciar lojas" : "Gerenciar anúncios") : step.cta}
+        {done ? (step.key === "hasStore" ? "Ver lojas" : "Ver catálogo") : step.cta}
         <ArrowRightIcon aria-hidden="true" />
       </Link>
     </Button>

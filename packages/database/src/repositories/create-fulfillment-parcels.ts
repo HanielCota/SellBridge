@@ -23,12 +23,12 @@ async function recordCreation(context: ParcelContext, shipmentId: string, own: b
     return;
   }
   await context.transaction.insert(shipmentEvents).values([
-    { ...forwarded, note: "Produtos próprios atribuídos ao revendedor para preparação e envio." },
+    { ...forwarded, note: "Produtos do seu catálogo próprio: você prepara e envia." },
     {
       shipmentId,
       status: "accepted",
       actor: credit.actor,
-      note: "Pronto para o revendedor preparar e enviar.",
+      note: "Pronto para você preparar e enviar.",
     },
   ]);
 }

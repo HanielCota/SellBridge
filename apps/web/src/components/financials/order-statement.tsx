@@ -273,7 +273,7 @@ function GroupedOrder({ row }: { row: OrderFinancialRow }) {
               </time>
               <PlacedOn row={row} />
               <span aria-hidden="true">·</span>
-              <span className="truncate">{row.externalOrderId}</span>
+              <span className="truncate">Pedido {row.externalOrderId}</span>
             </span>
             {row.costPending ? (
               <PendingCostStatus />
@@ -447,7 +447,7 @@ function StatementCard({
 
 /**
  * "3 vendas" counts only orders that still count as a sale; when the day also lists cancelled or
- * returned orders, it says "válidas" so the number does not read as a count of the rows below.
+ * returned orders, it says "que contam" so the number does not read as a count of the rows below.
  */
 const VOID_ROWS_HINT =
   "Pedidos aguardando pagamento, cancelados ou devolvidos não contam como venda. Vendas de meses anteriores aparecem só para descontar o cancelamento ou o reembolso.";
@@ -457,7 +457,7 @@ function salesLabel(sales: number, hasVoidRows: boolean): string {
   if (!hasVoidRows) {
     return `${sales} ${noun}`;
   }
-  return `${sales} ${noun} ${sales === 1 ? "válida" : "válidas"}`;
+  return `${sales} ${noun} ${sales === 1 ? "que conta" : "que contam"}`;
 }
 
 function DayHeading({

@@ -27,8 +27,7 @@ import { useUrlSearchQuery } from "@/hooks/use-url-search-query";
 import { errorMessage } from "@/lib/errors";
 
 const DESCRIPTIONS: Record<ProfileKind, string> = {
-  seller:
-    "Fale com o fornecedor de cada loja sobre pedidos, trocas, estoque e produtos. A conversa fica toda aqui.",
+  seller: "Fale com o fornecedor de cada loja sobre pedidos, trocas e estoque.",
   supplier:
     "Mensagens das lojas que vendem seus produtos. Responda por aqui: telefone, e-mail e redes sociais não podem ser enviados.",
 };

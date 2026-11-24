@@ -14,7 +14,7 @@ const HEADERS = [
   "Situação",
   "Conta no período como",
   "Cancelado ou devolvido em",
-  "Itens",
+  "Produtos",
   "Receita",
   "Custo do fornecedor",
   "Taxa do marketplace",

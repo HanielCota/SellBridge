@@ -171,9 +171,9 @@ function feeNote(draft: ManualSaleDraft, estimate: number | null): string {
     return `Calculada pela tabela ${owner} para estes preços. Confira no pedido ${owner} e corrija se for diferente.`;
   }
   if (estimate === null) {
-    return `Valor que você informou, do pedido ${owner}.`;
+    return `Valor que você digitou, do pedido ${owner}.`;
   }
-  return `Valor que você informou. Pela tabela ${owner}, daria ${formatCents(estimate)}.`;
+  return `Valor que você digitou. Pela tabela ${owner}, daria ${formatCents(estimate)}.`;
 }
 
 /**
@@ -192,7 +192,7 @@ function SaleFee({
   const estimate = draftEstimatedFeeCents(draft);
   const describedBy = error === undefined ? FEE_NOTE_ID : `${FEE_FIELD_ID}-error ${FEE_NOTE_ID}`;
   return (
-    <section aria-label="Taxa do canal" className="space-y-2">
+    <section aria-label="Taxa do marketplace" className="space-y-2">
       <TextField
         id={FEE_FIELD_ID}
         label={`Taxa ${FEE_CHANNEL_OWNERS[draft.channel]} (R$)`}

@@ -92,7 +92,7 @@ function useOrdersNavigation() {
 }
 
 const VIEW_TABS: readonly FilterTab<OrdersSearch["view"]>[] = [
-  { value: "operations", label: "Operação" },
+  { value: "operations", label: "Envio" },
   { value: "reviews", label: "Avaliações" },
   { value: "tracking", label: "Rastreio" },
 ];
@@ -130,7 +130,7 @@ function OrdersPage() {
     <>
       <PageHeader
         title="Pedidos"
-        description="Encaminhe vendas aos fornecedores, acompanhe a separação, imprima etiquetas e consulte o rastreio."
+        description="Mande os pedidos aos fornecedores e acompanhe até a entrega."
         actions={<ManualSaleLink />}
       />
       <UnderlineTabs
@@ -210,7 +210,7 @@ function OrderRow({
       <div className="min-w-0 flex-1 space-y-0.5">
         <p className="truncate text-sm font-medium">{row.supplierName}</p>
         <p className="truncate text-xs text-muted-foreground">
-          {row.units} {row.units === 1 ? "item" : "itens"} · {row.items}
+          {row.units} {row.units === 1 ? "unidade" : "unidades"} · {row.items}
         </p>
         <p className="flex flex-wrap items-center gap-x-2 text-xs text-muted-foreground">
           <span>{row.externalOrderId}</span>

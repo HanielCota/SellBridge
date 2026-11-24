@@ -246,7 +246,7 @@ export function paymentMethodFor(
   const methodId = settings.paymentMethods[slot] ?? null;
   if (methodId === null) {
     return {
-      problem: `Falta a forma de pagamento "${paymentSlotLabel(slot)}". Crie no seu Bling, escolha em Integrações › Bling e peça para tentar de novo.`,
+      problem: `Falta a forma de pagamento "${paymentSlotLabel(slot)}". Crie no seu Bling, escolha em Integrações › Bling e toque em Tentar de novo no pedido.`,
     };
   }
   return { methodId, slot, problem: null };

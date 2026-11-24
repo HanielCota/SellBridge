@@ -98,7 +98,7 @@ describe("publishing a CSV-imported product on Mercado Livre", () => {
     );
 
     await expect(ml.publishProduct(store, product)).rejects.toMatchObject({
-      message: expect.stringContaining("Modelo (MODEL), Código universal de produto (GTIN)"),
+      message: expect.stringContaining("Modelo, Código universal de produto"),
     });
     expect(createdItems).toEqual([]);
   });

@@ -89,7 +89,7 @@ function heatmapOf(cells: readonly SalesHeatmapCell[]): ReportHeatmap {
 function splitRow(label: string, period: SellerPeriodNumbers): ReportSplitRow {
   return {
     label,
-    yesLabel: "Sem problema",
+    yesLabel: "Vendas",
     yes: period.summary.orders,
     noLabel: "Cancelados ou devolvidos",
     no: period.statuses.cancelled + period.statuses.returned,
@@ -119,7 +119,7 @@ export function sellerReportCharts(input: SellerReportInput): ReportChart[] {
     },
     {
       kind: "split",
-      title: "Pedidos sem problema e com problema",
+      title: "Vendas e pedidos cancelados ou devolvidos",
       note: "Vendas contra cancelados e devolvidos; aguardando pagamento fica de fora.",
       rows: [splitRow("Este período", current), splitRow("Período anterior", previous)],
     },

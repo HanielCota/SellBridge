@@ -51,7 +51,7 @@ function SuppliersPage() {
     <>
       <PageHeader
         title="Fornecedores"
-        description="Atacadistas de todo o Brasil, com a nota dada por quem já vendeu os produtos deles."
+        description="Fornecedores de todo o Brasil, com a nota de quem já vendeu os produtos deles."
       />
       <SupplierFilters />
       <SupplierList search={search} />

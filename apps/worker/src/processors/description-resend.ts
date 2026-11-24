@@ -23,7 +23,8 @@ const DESCRIPTION_BATCH_SIZE = 50;
  */
 export const DESCRIPTION_RUN_BUDGET_MILLISECONDS = 30 * 1000;
 const DESCRIPTION_FAILURE_REASON = "A descrição não chegou ao marketplace. Reenvie a descrição.";
-const MISSING_CREDENTIALS_REASON = "Loja sem token de acesso. Reconecte a loja e reenvie.";
+const MISSING_CREDENTIALS_REASON =
+  "A loja perdeu a conexão. Conecte a loja de novo e reenvie a descrição.";
 
 async function resendOne(
   dependencies: StockPriceSyncDependencies,

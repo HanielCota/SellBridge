@@ -19,7 +19,7 @@ export const apiScopeSchema = z.enum(API_SCOPES);
 export type ApiScope = z.infer<typeof apiScopeSchema>;
 
 export const API_SCOPE_LABELS: Record<ApiScope, string> = {
-  "catalog:read": "Ler o catálogo da região",
+  "catalog:read": "Ler o catálogo dos fornecedores",
   "stores:read": "Ler as lojas conectadas",
   "listings:read": "Ler anúncios",
   "listings:write": "Criar anúncios, mudar preço, pausar e reativar",

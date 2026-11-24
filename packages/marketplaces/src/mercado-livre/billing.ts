@@ -109,7 +109,9 @@ export async function readMercadoLivreBuyerBilling(
     init: { accessToken: store.accessToken },
   });
   if (String(order.seller.id) !== store.externalShopId) {
-    throw marketplaceError("Pedido não pertence à loja conectada", { retryable: false });
+    throw marketplaceError("Este pedido é de outra conta do Mercado Livre, não desta loja.", {
+      retryable: false,
+    });
   }
   const billingId = order.buyer?.billing_info?.id;
   if (billingId === undefined) {

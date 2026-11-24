@@ -173,7 +173,7 @@ function BreakdownColumn({ reputation }: { reputation: SupplierReputation }) {
 export function ReputationPanel({ supplierId }: { supplierId: string }) {
   const query = useQuery(supplierReputationQueryOptions(supplierId));
   if (query.isPending) {
-    return <Skeleton className="h-56 rounded-3xl" aria-label="Carregando reputação" />;
+    return <Skeleton className="h-56 rounded-3xl" aria-label="Carregando o score" />;
   }
   // The catalog below still works without the score, so a failure only hides the block.
   if (query.isError) {
@@ -182,7 +182,7 @@ export function ReputationPanel({ supplierId }: { supplierId: string }) {
   const { reputation } = query.data;
   return (
     <section
-      aria-label="Reputação do fornecedor"
+      aria-label="Score do fornecedor"
       className="surface-card rounded-3xl bg-card p-5 sm:p-6"
     >
       <div className="grid gap-6 md:grid-cols-[minmax(0,1fr)_minmax(0,1.4fr)] md:gap-10">

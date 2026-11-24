@@ -230,7 +230,7 @@ async function trackedParcelOf(transaction: Transaction, order: typeof orders.$i
     .for("update");
   if (shipments.length !== 1)
     throw conflictError(
-      "A consulta automática requer um único envio encaminhado; pedidos divididos precisam de rastreio por fornecedor",
+      "Este pedido foi dividido entre fornecedores ou ainda não foi encaminhado. Acompanhe o rastreio em cada envio.",
     );
   const shipment = shipments[0];
   if (!shipment || shipment.status === "cancelled") throw conflictError("Envio cancelado");

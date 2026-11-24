@@ -17,7 +17,7 @@ test.describe("cadastro do revendedor", () => {
     const cpf = testCpf();
     await signUp(page, "Revendedor Onboarding");
     await expect(page).toHaveURL(/\/onboarding/);
-    await expect(page.getByRole("heading", { name: "Configure sua conta" })).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Seus dados e seu fornecedor" })).toBeVisible();
     await expect(page.getByText("Etapa 1 de 2 · Seus dados")).toBeVisible();
     await expect(
       page.getByText(
@@ -204,7 +204,7 @@ test.describe("fornecedores e catálogo", () => {
     ).toBeVisible();
     await expect(page.getByRole("link", { name: "Publicar" })).toHaveCount(0);
     await expect(page.getByRole("button", { name: "Publicar" }).first()).toBeDisabled();
-    await expect(page.getByRole("link", { name: "Vender este fornecedor" })).toBeVisible();
+    await expect(page.getByRole("link", { name: "Vender os produtos dele" })).toBeVisible();
   });
 
   test("filtra fornecedores pelo estado e pela cidade de onde enviam", async ({ page }) => {
@@ -237,7 +237,7 @@ test.describe("fornecedores e catálogo", () => {
   test("leva do fornecedor à conexão de uma loja que vende ele", async ({ page }) => {
     await gotoHydrated(page, "/fornecedores");
     await page.getByRole("link", { name: "Rio Pet Atacado" }).click();
-    await page.getByRole("link", { name: "Vender este fornecedor" }).click();
+    await page.getByRole("link", { name: "Vender os produtos dele" }).click();
     await expect(page).toHaveURL(/\/lojas/);
     const addStore = page.getByRole("region", { name: "Adicionar loja" });
     await expect(addStore.getByText("A nova loja vende")).toBeVisible();

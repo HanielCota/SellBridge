@@ -6,10 +6,10 @@ import { Field } from "./shipment-field";
 import type { ShipmentUpdate, ShipmentView } from "./shipment-panel";
 
 const STEP_LABELS: Partial<Record<FulfillmentStatus, string>> = {
-  picking: "Iniciar separação",
+  picking: "Marcar como em separação",
   ready: "Marcar como pronto para envio",
-  shipped: "Registrar envio",
-  delivered: "Confirmar entrega",
+  shipped: "Marcar como enviado",
+  delivered: "Marcar como entregue",
 };
 
 export function OwnShipmentActions({
@@ -72,7 +72,7 @@ function StopPreparation({ update }: { update: ShipmentUpdate }) {
   const [error, setError] = useState<string | null>(null);
   function confirm() {
     if (!reason.trim()) {
-      setError("Informe o motivo para interromper a preparação");
+      setError("Escreva por que vai parar a preparação");
       return;
     }
     update.mutation.mutate(
@@ -97,7 +97,7 @@ function StopPreparation({ update }: { update: ShipmentUpdate }) {
         open={open}
         onOpenChange={setOpen}
         title="Interromper a preparação do seu envio?"
-        description="O pedido ainda precisa destes itens. Retome a preparação quando puder ou cancele e reembolse o pedido no marketplace. Esta ação não cancela o pedido do comprador."
+        description="O comprador ainda espera estes produtos. Volte a preparar quando puder, ou cancele e devolva o dinheiro no marketplace. Parar aqui não cancela o pedido."
         confirmLabel="Interromper preparação"
         pendingLabel="Interrompendo…"
         cancelLabel="Continuar preparando"

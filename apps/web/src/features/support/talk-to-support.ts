@@ -24,7 +24,11 @@ export function supportTicketSearch(
   if (about.kind === "store") {
     return { categoria: "store", loja: about.id, assunto: subjectAbout("Loja", about.name) };
   }
-  return { categoria: "listing", anuncio: about.id, assunto: subjectAbout("Anúncio", about.name) };
+  return {
+    categoria: "listing",
+    anuncio: about.id,
+    assunto: subjectAbout("Publicação", about.name),
+  };
 }
 
 /**

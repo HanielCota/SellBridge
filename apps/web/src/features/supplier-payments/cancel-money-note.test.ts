@@ -67,7 +67,7 @@ describe("cancelReforwardSentence", () => {
 
   test("keeps the re-forward open while the supplier is not paid", () => {
     expect(cancelReforwardSentence({ kind: "waiting" })).toBe(
-      "Enquanto o pedido estiver pago, dá para reencaminhar depois.",
+      "Se o pedido continuar pago no marketplace, dá para reencaminhar depois.",
     );
   });
 });

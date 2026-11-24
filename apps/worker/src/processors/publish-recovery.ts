@@ -17,7 +17,7 @@ const STALE_PENDING_MILLISECONDS = 10 * 60 * 1000;
 const STALLED_PUBLISHING_MILLISECONDS = 15 * 60 * 1000;
 
 export const STALLED_PUBLISHING_REASON =
-  "A publicação foi interrompida. Confira na loja se o anúncio foi criado antes de reprocessar.";
+  "A publicação foi interrompida. Confira na loja se o anúncio foi criado antes de tentar de novo.";
 
 export interface RecoveryJob {
   readonly data: PublishListingJob;

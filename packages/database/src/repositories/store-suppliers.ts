@@ -319,7 +319,7 @@ export async function assertStoresSellSupplier(
 ): Promise<void> {
   const source = await executor.query.suppliers.findFirst({ where: eq(suppliers.id, supplierId) });
   if (source?.catalogKind === "seller" && source.ownerTenantId !== tenantId) {
-    throw notFoundError("Origem do produto não encontrada.");
+    throw notFoundError("Este fornecedor não foi encontrado.");
   }
   // MVP (coordinator decision, 2026-10-22): own products take no new publication, checked
   // before the store list so an empty list cannot skip it.

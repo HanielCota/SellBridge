@@ -92,7 +92,7 @@ export function Operations({
   const [opened, setOpened] = useState<OperationRowData | null>(null);
   const query = useQuery(operationsQueryOptions(operationsQuery(search)));
   return (
-    <section className="space-y-4" aria-label="Operação dos pedidos">
+    <section className="space-y-4" aria-label="Pedidos para enviar">
       <OperationFilters search={search} onChange={onChange} />
       <OrdersToForwardStrip
         stage={search.stage}
@@ -176,7 +176,7 @@ function StageSelect({
       <Hint label={CONTROL_HINTS.orderStage} openOnTap={false}>
         <SelectTrigger
           className="w-full rounded-full sm:w-auto sm:min-w-52"
-          aria-label="Etapa operacional"
+          aria-label="Etapa do envio"
         >
           <SelectValue>{STAGE_OPTIONS.find((option) => option.value === stage)?.label}</SelectValue>
         </SelectTrigger>

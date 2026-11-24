@@ -157,7 +157,7 @@ test("mixed parcels separate access and let the owner stop, restart and ship the
   await confirm.getByLabel("Motivo", { exact: true }).fill("Repack the parcel");
   await confirm.getByRole("button", { name: "Interromper preparação", exact: true }).click();
   await own.getByRole("button", { name: "Retomar preparação", exact: true }).click();
-  await own.getByRole("button", { name: "Iniciar separação", exact: true }).click();
+  await own.getByRole("button", { name: "Marcar como em separação", exact: true }).click();
   await own.getByRole("button", { name: "Marcar como pronto para envio", exact: true }).click();
   await own.getByLabel("Transportadora", { exact: true }).fill("Postal Service");
   await own.getByLabel("Código de rastreio", { exact: true }).fill("OWN123456BR");
@@ -176,10 +176,12 @@ test("mixed parcels separate access and let the owner stop, restart and ship the
   await expect(popup.getByText("Private packing item", { exact: true })).toBeVisible();
   await expect(popup.getByText("External packing item", { exact: true })).toHaveCount(0);
   await popup.close();
-  await own.getByRole("button", { name: "Registrar envio", exact: true }).click();
+  await own.getByRole("button", { name: "Marcar como enviado", exact: true }).click();
   await expect(own.getByText("OWN123456BR", { exact: false })).toBeVisible();
-  await own.getByRole("button", { name: "Confirmar entrega", exact: true }).click();
-  await expect(own.getByRole("button", { name: "Confirmar entrega", exact: true })).toHaveCount(0);
+  await own.getByRole("button", { name: "Marcar como entregue", exact: true }).click();
+  await expect(own.getByRole("button", { name: "Marcar como entregue", exact: true })).toHaveCount(
+    0,
+  );
   const [order] = await database.select().from(orders).where(eq(orders.id, orderId));
   expect(order?.status).toBe("paid");
   for (const label of [

@@ -185,7 +185,9 @@ function assertSellerIsRespondent(claim: z.infer<typeof claimSchema>, store: Sto
     (player) => player.role === "respondent" && String(player.user_id) === store.externalShopId,
   );
   if (!respondent) {
-    throw marketplaceError("Reclamação não pertence à loja conectada", { retryable: false });
+    throw marketplaceError("Esta reclamação é de outra conta do Mercado Livre, não desta loja.", {
+      retryable: false,
+    });
   }
 }
 

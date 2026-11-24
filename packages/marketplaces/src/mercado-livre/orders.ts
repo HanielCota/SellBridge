@@ -184,7 +184,9 @@ export async function fetchOrder(
   // The notification is unsigned and a buyer token can read its own purchases, so an order id
   // known to another seller must not land as a sale of this store (review 2026-10-27).
   if (String(raw.seller.id) !== store.externalShopId) {
-    throw marketplaceError("Pedido não pertence à loja conectada", { retryable: false });
+    throw marketplaceError("Este pedido é de outra conta do Mercado Livre, não desta loja.", {
+      retryable: false,
+    });
   }
   const order = mapMercadoLivreOrder(raw);
   const shipmentId = raw.shipping?.id;

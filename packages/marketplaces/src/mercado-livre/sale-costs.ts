@@ -69,9 +69,12 @@ export async function readMercadoLivreCommission(
   });
   const classic = prices.find((price) => price.listing_type_id === LISTING_TYPE_ID);
   if (classic === undefined) {
-    throw marketplaceError("O Mercado Livre não informou a comissão do anúncio Clássico", {
-      retryable: false,
-    });
+    throw marketplaceError(
+      "O Mercado Livre não informou a taxa do anúncio Clássico. Tente de novo em alguns minutos.",
+      {
+        retryable: false,
+      },
+    );
   }
   return Math.round(classic.sale_fee_details.percentage_fee * PERCENT_TO_BASIS_POINTS);
 }

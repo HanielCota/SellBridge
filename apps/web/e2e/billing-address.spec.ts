@@ -84,7 +84,7 @@ test("an account saved before the address existed is asked for it", async ({ pag
     .where(eq(tenantProfile.tenantId, await tenantIdOf(email)));
 
   await gotoHydrated(page, "/onboarding?step=details");
-  await expect(page.getByText("Falta o endereço.", { exact: false })).toBeVisible();
+  await expect(page.getByText("Falta o endereço de cobrança.", { exact: false })).toBeVisible();
   await expect(page.getByLabel("CEP")).toHaveValue("");
   await page.getByRole("button", { name: "Salvar dados", exact: true }).click();
   await expect(page.getByText("Informe a rua")).toBeVisible();
@@ -93,7 +93,7 @@ test("an account saved before the address existed is asked for it", async ({ pag
   await page.getByRole("button", { name: "Salvar dados", exact: true }).click();
   await expect(page.getByRole("button", { name: "Dados salvos", exact: true })).toBeVisible();
   await expect(page.getByTestId("billing-address")).toHaveText(MASKED_ADDRESS);
-  await expect(page.getByText("Falta o endereço.", { exact: false })).toHaveCount(0);
+  await expect(page.getByText("Falta o endereço de cobrança.", { exact: false })).toHaveCount(0);
 });
 
 async function openTicketAsReseller(browser: Browser) {

@@ -62,7 +62,7 @@ export const SETUP_STEPS: readonly SetupStep[] = [
   {
     key: "hasSupplier",
     title: "Escolha seu fornecedor",
-    description: "Quem guarda o estoque e envia os produtos aos seus clientes.",
+    description: "Quem guarda o estoque e envia os produtos aos seus compradores.",
     to: "/onboarding",
     cta: "Escolher fornecedor",
     estimatedMinutes: 2,
@@ -120,11 +120,11 @@ export function remainingSetupMinutes(progress: SetupProgress): number {
   );
 }
 
-/** "Sua loja fica pronta em ~X min", or null once the setup is done. */
+/** "Faltam uns X min para sua loja ficar pronta", or null once the setup is done. */
 export function setupEtaLabel(progress: SetupProgress): string | null {
   const minutes = remainingSetupMinutes(progress);
   if (minutes === 0) {
     return null;
   }
-  return `Sua loja fica pronta em ~${minutes} min`;
+  return `Faltam uns ${minutes} min para sua loja ficar pronta`;
 }
