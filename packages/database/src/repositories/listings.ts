@@ -12,6 +12,7 @@ import { containsPattern } from "./sql/search-pattern.ts";
 import { supplierOpenColumn, supplierReceivingRuleMet } from "./sql/sellable.ts";
 import { storeSupplierIds } from "./sql/store-supplier-match.ts";
 import {
+  listingFamilies,
   listings,
   listingTargets,
   storeConnections,
@@ -234,6 +235,8 @@ export interface TargetForPublishing {
   source: Pick<typeof suppliers.$inferSelect, "catalogKind" | "ownerTenantId">;
   /** The supplier may sell under the admin's receiving-account rule. */
   supplierReceivingRuleMet: boolean;
+  /** The grid family name the item goes out under; null for a plain product's listing. */
+  familyName: string | null;
 }
 
 export async function getTargetForPublishing(
@@ -252,9 +255,11 @@ export async function getTargetForPublishing(
       supplierOpen: supplierOpenColumn(),
       source: { catalogKind: suppliers.catalogKind, ownerTenantId: suppliers.ownerTenantId },
       supplierReceivingRuleMet: sql<boolean>`${supplierReceivingRuleMet()}`.mapWith(Boolean),
+      familyName: listingFamilies.name,
     })
     .from(listingTargets)
     .innerJoin(listings, eq(listings.id, listingTargets.listingId))
+    .leftJoin(listingFamilies, eq(listingFamilies.id, listings.familyId))
     .innerJoin(supplierProducts, eq(supplierProducts.id, listings.supplierProductId))
     .innerJoin(suppliers, eq(suppliers.id, supplierProducts.supplierId))
     .innerJoin(storeConnections, eq(storeConnections.id, listingTargets.storeConnectionId))
