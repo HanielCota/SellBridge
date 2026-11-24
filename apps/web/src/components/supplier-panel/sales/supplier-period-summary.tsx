@@ -25,14 +25,6 @@ interface Totals {
   undoneEarlierReceivableCents?: number;
 }
 
-/** What the period's own sales were worth, before the earlier sales taken back in it. */
-function soldOf(totals: Totals): Totals {
-  return {
-    receivableCents: totals.receivableCents + (totals.undoneEarlierReceivableCents ?? 0),
-    orders: totals.orders,
-  };
-}
-
 interface SupplierPeriodSummaryProps {
   current: Totals;
   previous: Totals;
@@ -88,8 +80,9 @@ function LostSentence({ current }: { current: Totals }) {
 }
 
 /**
- * "Saíram R$ 80 de 1 venda de antes, cancelada ou devolvida no período.": earlier sales the
- * period took back, as the Mercado Livre statement shows them (decision of 23/11/2026).
+ * "Já descontamos R$ 80 de 1 venda de antes, cancelada ou devolvida no período.": earlier sales
+ * the period took back, as the Mercado Livre statement shows them (decision of 23/11/2026). The
+ * amount above is already net of them, the same as the tiles and the chart.
  */
 function UndoneEarlier({ current }: { current: Totals }) {
   const orders = current.undoneEarlierOrders ?? 0;
@@ -99,8 +92,8 @@ function UndoneEarlier({ current }: { current: Totals }) {
   const one = orders === 1;
   return (
     <>
-      Saíram <Strong>{sentenceReais(current.undoneEarlierReceivableCents ?? 0)}</Strong> de {orders}{" "}
-      {one ? "venda" : "vendas"} de antes,{" "}
+      Já descontamos <Strong>{sentenceReais(current.undoneEarlierReceivableCents ?? 0)}</Strong> de{" "}
+      {orders} {one ? "venda" : "vendas"} de antes,{" "}
       {one ? "cancelada ou devolvida" : "canceladas ou devolvidas"} no período.{" "}
     </>
   );
@@ -130,7 +123,7 @@ function SoldSentence({ current, previous }: { current: Totals; previous: Totals
 function AmountSentence({ current, previous }: Omit<SupplierPeriodSummaryProps, "situation">) {
   return (
     <>
-      <SoldSentence current={soldOf(current)} previous={soldOf(previous)} />
+      <SoldSentence current={current} previous={previous} />
       <UndoneEarlier current={current} />
     </>
   );

@@ -60,7 +60,7 @@ describe("SupplierPeriodSummary", () => {
 });
 
 describe("SupplierPeriodSummary with earlier sales taken back", () => {
-  it("says what the period sold and what earlier cancellations took off", () => {
+  it("says what the period sold, net, and what earlier cancellations took off", () => {
     const text = textOf(
       renderToStaticMarkup(
         <SupplierPeriodSummary
@@ -79,7 +79,10 @@ describe("SupplierPeriodSummary with earlier sales taken back", () => {
       ),
     );
 
-    expect(text).toMatch(/Você vendeu R\$\s160 no período/);
-    expect(text).toMatch(/Saíram R\$\s80 de 1 venda de antes, cancelada ou devolvida no período\./);
+    // The same net amount as the tiles and the chart beside the sentence.
+    expect(text).toMatch(/Você vendeu R\$\s80 no período/);
+    expect(text).toMatch(
+      /Já descontamos R\$\s80 de 1 venda de antes, cancelada ou devolvida no período\./,
+    );
   });
 });
