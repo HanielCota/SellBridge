@@ -4,6 +4,7 @@ import type { LinkProps } from "@tanstack/react-router";
 
 /** Counters shown next to a tab when something there needs attention. */
 export type NavBadge =
+  | "buyerQuestions"
   | "storeMessages"
   | "supplierOrders"
   | "failedListings"
@@ -25,6 +26,8 @@ export interface NavItem {
   exact?: boolean;
   /** The sidebar heading the item sits under; items without one open the list. */
   group?: string;
+  /** Shown only while this switch is on (`AppSession.buyerQuestionsEnabled`). */
+  feature?: "buyerQuestions";
 }
 
 /** Items in a row under the same sidebar heading; `heading` is null for the ungrouped start. */
@@ -40,6 +43,13 @@ export const NAV_ITEMS: NavItem[] = [
   { label: "Catálogo", to: "/catalogo", group: "Vender" },
   { label: "Publicações", to: "/publicacoes", badge: "failedListings", group: "Vender" },
   { label: "Pedidos", to: "/pedidos", badge: "parcelAlerts", group: "Vender" },
+  {
+    label: "Perguntas",
+    to: "/perguntas",
+    badge: "buyerQuestions",
+    group: "Vender",
+    feature: "buyerQuestions",
+  },
   { label: "Financeiro", to: "/financeiro", group: "Dinheiro" },
   { label: "Lojas", to: "/lojas", group: "Lojas" },
   // The marketplace connections sat only in the account menu, where resellers did not find them.
@@ -152,6 +162,14 @@ export const ACCOUNT_NAV_ITEMS: Readonly<Record<ProfileKind, readonly NavItem[]>
   supplier: [SUPPORT_NAV_ITEM, { label: "Marca", to: "/fornecedor/painel/marca" }],
 };
 
+/** The items whose page is switched on (`NavItem.feature`). */
+export function switchedOnItems(
+  items: readonly NavItem[],
+  buyerQuestionsEnabled: boolean,
+): NavItem[] {
+  return items.filter((item) => item.feature === undefined || buyerQuestionsEnabled);
+}
+
 /** Splits the items into runs under the same heading, keeping their order. */
 export function navGroups(items: readonly NavItem[]): NavGroup[] {
   const groups: NavGroup[] = [];
@@ -168,6 +186,8 @@ export function navGroups(items: readonly NavItem[]): NavGroup[] {
 }
 
 export const BADGE_DESCRIPTIONS: Record<NavBadge, (count: number) => string> = {
+  buyerQuestions: (count) =>
+    `${count} ${count === 1 ? "pergunta de comprador esperando resposta" : "perguntas de compradores esperando resposta"}`,
   failedListings: (count) =>
     `${count} ${count === 1 ? "publicação com erro" : "publicações com erro"}`,
   openTickets: (count) => `${count} ${count === 1 ? "chamado aberto" : "chamados abertos"}`,

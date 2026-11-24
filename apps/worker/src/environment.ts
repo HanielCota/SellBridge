@@ -79,6 +79,11 @@ const workerEnvironmentSchema = z
      * Off by default until the supplier login decision (D6); see docs/decisions.md.
      */
     AUTO_FORWARD_ENABLED: booleanFlagEnvironmentSchema,
+    /**
+     * Reads Mercado Livre buyer questions (notifications and a 30-minute check) so resellers answer
+     * them in SellBridge. Off until Guilherme turns it on; see docs/decisions/2026-11-21-perguntas-do-comprador.md.
+     */
+    BUYER_QUESTIONS_ENABLED: booleanFlagEnvironmentSchema,
     /** Resend key for the supplier e-mails; without it development logs them and production refuses. */
     RESEND_API_KEY: z.string().min(1).optional(),
     EMAIL_FROM: z.string().min(3).default("SellBridge <no-reply@sellbridge.local>"),

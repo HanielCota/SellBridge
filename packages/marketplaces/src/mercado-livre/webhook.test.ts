@@ -73,7 +73,18 @@ describe("parseMercadoLivreNotice", () => {
     });
   });
 
+  it("reads the question of a questions notification", () => {
+    const question = { user_id: 123456789, resource: "/questions/5036111111" };
+
+    expect(parseMercadoLivreNotice("questions", question)).toEqual({
+      kind: "question",
+      externalShopId: "123456789",
+      questionId: "5036111111",
+    });
+  });
+
   it("ignores other topics and resources that name nothing it reads", () => {
+    expect(parseMercadoLivreNotice("questions", stored)).toBeNull();
     expect(parseMercadoLivreNotice("orders_v2", stored)).toBeNull();
     expect(parseMercadoLivreNotice("shipments", { ...stored, resource: "/orders/1" })).toBeNull();
     expect(parseMercadoLivreNotice("post_purchase", { user_id: 1 })).toBeNull();
