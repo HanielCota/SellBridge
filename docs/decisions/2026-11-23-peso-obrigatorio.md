@@ -12,10 +12,11 @@
 ## Como funciona
 
 - **Uma regra só:** `shippingWeightGrams` (`packages/shared/src/domain/shipping-weight.ts`). A mesma regra em SQL é `productWeightGrams` (`packages/database/src/repositories/sql/product-weight.ts`), que alimenta todas as telas e checagens de preço; um teste do banco confere que as duas leem cada texto do mesmo jeito. A leitura do texto digitado ("850 g", "850", "450,2") é a mesma que o envio ao Mercado Livre usa (`readPackageMeasure`).
-- **Quem exige:** a coluna nova `supplier_products.weight_required` (migração 0114), falsa para os produtos que já existiam e verdadeira em todo produto que um fornecedor cria daqui em diante: pelo painel, pela planilha, pelo Bling, pela equipe e nas combinações de uma grade. O produto próprio de um revendedor não é cobrado, como já acontece com os dados da nota.
+- **Quem exige:** a coluna nova `supplier_products.weight_required` (migração 0116), falsa para os produtos que já existiam e verdadeira em todo produto que um fornecedor cria daqui em diante: pelo painel, pela planilha, pelo Bling, pela equipe e nas combinações de uma grade. O produto próprio de um revendedor não é cobrado, como já acontece com os dados da nota.
 - **Produto novo sem peso** fica como rascunho, com o aviso "Informe o peso da embalagem para publicar". Apagar o peso de um produto novo já aprovado o tira da venda, como apagar o NCM.
 - **Produto antigo sem peso:** continua à venda. O fornecedor vê, nas melhorias do produto, "Informe o peso da embalagem: sem ele, o frete dos revendedores é estimado para até 0,5 kg". O revendedor vê, embaixo da prévia de lucro (novo anúncio e Editar preço), "O peso do produto não foi informado: o frete foi estimado para um pacote de até 0,5 kg e pode sair mais caro."
 - **Bling:** o peso que o Bling manda já ia para o peso da embalagem; agora ele entra na conta.
+- **Publicação:** o peso do pacote enviado ao marketplace (o TikTok Shop usa esse campo) passa a ser o mesmo da conta: com embalagem, senão o do produto.
 - **Efeito nos preços:** a embalagem pesa mais que o produto, então alguns preços mínimos sobem um pouco. Isso só aparece quando o revendedor mexe no preço, reativa um anúncio ou (com a segunda parte) quando o custo muda. Nenhum anúncio é pausado por causa desta mudança.
 
 ## Descartado
