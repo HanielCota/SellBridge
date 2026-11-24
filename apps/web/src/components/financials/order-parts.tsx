@@ -38,9 +38,15 @@ export function marginLabel(row: OrderFinancialRow): string | null {
   return margin === null ? null : formatPercent(margin);
 }
 
-/** The order is out of the books (unpaid, cancelled or returned): its amounts read as void. */
-export function isVoidOrder(row: OrderFinancialRow): boolean {
-  return row.status === "pending" || row.status === "cancelled" || row.status === "returned";
+/**
+ * The order is out of the period's books (unpaid, or cancelled or returned within it): its
+ * amounts read as void. A sale of an earlier period shown for its cancellation or refund is not:
+ * its amounts are taken off this period.
+ */
+export function isVoidOrder(
+  row: Pick<OrderFinancialRow, "countsAsSale" | "fromEarlierPeriod">,
+): boolean {
+  return !row.countsAsSale && !row.fromEarlierPeriod;
 }
 
 /**
@@ -98,7 +104,7 @@ function PendingCostBreakdown({ row }: { row: OrderFinance }) {
       <dl className="grid gap-1.5 text-footnote">
         <div className="flex justify-between gap-4">
           <dt className="font-medium">Receita</dt>
-          <dd className="font-medium tabular-nums">{formatCents(row.revenueCents)}</dd>
+          <dd className="font-medium tabular-nums">{signedCents(row.revenueCents)}</dd>
         </div>
         <div className="flex justify-between gap-4 text-muted-foreground">
           <dt className="flex items-center gap-2">
@@ -126,7 +132,7 @@ export function OrderBreakdown({ row }: { row: OrderFinance }) {
     <dl className="grid gap-1.5 text-footnote">
       <div className="flex justify-between gap-4">
         <dt className="font-medium">Receita</dt>
-        <dd className="font-medium tabular-nums">{formatCents(row.revenueCents)}</dd>
+        <dd className="font-medium tabular-nums">{signedCents(row.revenueCents)}</dd>
       </div>
       {breakdownEntries(row).map((entry) => (
         <div key={entry.label} className="flex justify-between gap-4 text-muted-foreground">

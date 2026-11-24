@@ -144,12 +144,6 @@ function LinesKind({ report, series, compare, cumulative }: KindProps & { cumula
   );
   return (
     <AreaChart data={points} margin={CHART_MARGIN}>
-      <defs>
-        <linearGradient id="supportResolvedArea" x1="0" y1="0" x2="0" y2="1">
-          <stop offset="0%" stopColor={MAIN} stopOpacity={0.28} />
-          <stop offset="100%" stopColor={MAIN} stopOpacity={0.02} />
-        </linearGradient>
-      </defs>
       {renderAxes({ scale, formatY: (value) => count.format(value), bucket: report.bucket })}
       {tooltip(report, points, false)}
       {compare && series !== "opened" ? (
@@ -180,7 +174,8 @@ function LinesKind({ report, series, compare, cumulative }: KindProps & { cumula
           type="monotone"
           stroke={MAIN}
           strokeWidth={2.5}
-          fill="url(#supportResolvedArea)"
+          fill={MAIN}
+          fillOpacity={0.12}
           isAnimationActive={false}
         />
       )}

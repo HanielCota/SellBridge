@@ -59,6 +59,7 @@ describe("supplier navigation", () => {
       "Vendas",
       "Mensagens",
       "Recebimentos",
+      "Extrato",
       "Produtos",
       "Importar planilha",
       "Desempenho",

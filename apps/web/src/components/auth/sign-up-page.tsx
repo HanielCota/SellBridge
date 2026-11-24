@@ -21,7 +21,7 @@ import { FloatingPasswordField, FloatingTextField } from "@/components/form/floa
 import { InlineFormError } from "@/components/form/inline-form-error";
 import { rememberSignUpProfileFn } from "@/features/auth/sign-up-profile.functions";
 import { rememberPendingConfirmation } from "@/features/auth/pending-confirmation";
-import { confirmationCallbackUrl } from "@/features/auth/sign-in-error";
+import { confirmationCallbackUrl, tooManyAttemptsMessage } from "@/features/auth/sign-in-error";
 import { authClient } from "@/lib/auth-client";
 import { succeedsOrReports } from "@/lib/report-route-error";
 
@@ -83,7 +83,9 @@ function useSignUpForm(profileKind: ProfileKind, redirect: string | undefined) {
       };
       const result = await authClient.signUp.email(signUpBody);
       if (result.error) {
-        setSubmitError(signUpErrorMessage(result.error.code));
+        setSubmitError(
+          tooManyAttemptsMessage(result.error) ?? signUpErrorMessage(result.error.code),
+        );
         return;
       }
       rememberPendingConfirmation(account.email);

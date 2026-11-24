@@ -12,6 +12,8 @@ const HEADERS = [
   "Loja",
   "Comprador",
   "Situação",
+  "Conta no período como",
+  "Cancelado ou devolvido em",
   "Itens",
   "Receita",
   "Custo do fornecedor",
@@ -61,6 +63,42 @@ export function paidAtCell(paidAt: Date | null): string {
   return dateFormatter.format(paidAt);
 }
 
+type PeriodEntry = Pick<
+  OrderFinancialRow,
+  "countsAsSale" | "fromEarlierPeriod" | "revenueCents" | "status"
+>;
+
+/**
+ * What the line is in the period's totals: a sale, the cancellation, return or refund of a sale
+ * of an earlier period (its amounts taken off this one), or an order that is not a sale.
+ */
+export function periodEntryLabel(row: PeriodEntry): string {
+  if (row.countsAsSale) {
+    return "Venda";
+  }
+  if (row.fromEarlierPeriod) {
+    return earlierEntryLabel(row);
+  }
+  return "Não conta como venda";
+}
+
+function earlierEntryLabel(row: PeriodEntry): string {
+  if (row.revenueCents === 0) {
+    return "Reembolso de venda anterior";
+  }
+  return row.status === "returned"
+    ? "Devolução de venda anterior"
+    : "Cancelamento de venda anterior";
+}
+
+/** Filled only for a paid sale that was cancelled or returned. */
+function reversedAtCell(row: Pick<OrderFinancialRow, "reversedAt" | "status">): string {
+  if (row.reversedAt === null || (row.status !== "cancelled" && row.status !== "returned")) {
+    return "";
+  }
+  return dateFormatter.format(row.reversedAt);
+}
+
 function toCsvLine(row: OrderFinancialRow): string {
   const text = [
     dateFormatter.format(row.orderedAt),
@@ -69,6 +107,8 @@ function toCsvLine(row: OrderFinancialRow): string {
     row.storeName,
     row.buyerName ?? "",
     statusLabel(row.status),
+    periodEntryLabel(row),
+    reversedAtCell(row),
     row.items,
   ].map(textCell);
   const amounts = [

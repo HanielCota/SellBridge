@@ -23,6 +23,8 @@ import type {
 } from "@/features/supplier-panel/sales/supplier-chart-data";
 
 const VALUE_COLOR = "var(--chart-brand)";
+// A flat wash under the value line: enough to read the area, never a fade to nothing.
+const VALUE_FILL_OPACITY = 0.12;
 const chartConfig = { value: { label: "Valor", color: VALUE_COLOR } } satisfies ChartConfig;
 
 const count = new Intl.NumberFormat("pt-BR");
@@ -121,15 +123,6 @@ function timelineValues(points: readonly ChartPoint[], layers: ChartLayers): num
   });
 }
 
-const VALUE_GRADIENT = (
-  <defs>
-    <linearGradient id="supplierValue" x1="0" y1="0" x2="0" y2="1">
-      <stop offset="0%" stopColor={VALUE_COLOR} stopOpacity={0.35} />
-      <stop offset="100%" stopColor={VALUE_COLOR} stopOpacity={0.02} />
-    </linearGradient>
-  </defs>
-);
-
 /** The previous period, dashed and quiet behind the current one. */
 function renderPreviousLine(smooth: boolean) {
   return (
@@ -158,7 +151,8 @@ function renderValueArea(smooth: boolean) {
       strokeWidth={smooth ? 1.5 : 3}
       strokeLinecap="round"
       strokeLinejoin="round"
-      fill={smooth ? "none" : "url(#supplierValue)"}
+      fill={smooth ? "none" : VALUE_COLOR}
+      fillOpacity={VALUE_FILL_OPACITY}
       activeDot={smooth ? false : renderActiveDot(VALUE_COLOR, 6)}
       isAnimationActive={false}
     />
@@ -198,7 +192,6 @@ export function TimelinePlot({
   return (
     <PlotBox>
       <ComposedChart data={points} margin={CHART_MARGIN}>
-        {VALUE_GRADIENT}
         {renderFrame({
           scale,
           formatY: tickFormatter(series),

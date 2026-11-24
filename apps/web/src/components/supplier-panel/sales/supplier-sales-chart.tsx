@@ -70,7 +70,7 @@ function SeriesPills({
       {options.map((series) => (
         <label
           key={series.key}
-          className="flex h-10 cursor-pointer items-center gap-2 rounded-full border border-border px-3 text-sm text-muted-foreground transition-colors hover:text-foreground has-checked:border-foreground has-checked:bg-foreground has-checked:font-medium has-checked:text-background has-focus-visible:ring-3 has-focus-visible:ring-ring/40 sm:px-4"
+          className="flex h-10 cursor-pointer items-center gap-2 rounded-full border border-border px-3 text-sm text-muted-foreground transition-colors hover:text-foreground has-checked:border-selected has-checked:bg-selected has-checked:font-medium has-checked:text-selected-foreground has-focus-visible:ring-3 has-focus-visible:ring-ring/40 sm:px-4"
         >
           <input
             type="radio"

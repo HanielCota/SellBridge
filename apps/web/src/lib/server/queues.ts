@@ -27,6 +27,10 @@ import {
   type StoreOrderCatchUpJob,
 } from "@sellbridge/shared/queues";
 import { createRedisSlotStore } from "@sellbridge/shared/redis-slots";
+import {
+  createRedisRateLimitStore,
+  type RateLimitStore,
+} from "@sellbridge/shared/redis-rate-limit-store";
 import type { EmailQuotaStore } from "@sellbridge/shared/email-quota";
 import { createRedisEmailQuotaStore } from "@sellbridge/shared/redis-email-quota-store";
 import { Queue } from "bullmq";
@@ -63,6 +67,14 @@ export function sharedRateSlots(namespace: string) {
   return {
     reserve: async (key: string, spacingInMs: number) =>
       createRedisSlotStore(getPublishQueue(), namespace).reserve(key, spacingInMs),
+  };
+}
+
+/** Request counters in Redis, so a restart keeps them; connects on first use. */
+export function sharedRateLimitStore(namespace: string): RateLimitStore {
+  return {
+    consume: async (key, rule) =>
+      createRedisRateLimitStore(getPublishQueue(), namespace).consume(key, rule),
   };
 }
 
