@@ -103,6 +103,31 @@ export const createListingSchema = z.object({
 });
 export type CreateListingInput = z.infer<typeof createListingSchema>;
 
+/** A grid holds at most 50 combinations (the Shopee limit, decision of 18/11/2026). */
+const GRID_LISTING_MAX_COMBINATIONS = 50;
+
+/**
+ * Publishing a colour and size grid: the chosen combinations, one shared price and, per
+ * combination, an optional price of its own. The family name and description fall back to the
+ * grid's own when left out.
+ */
+export const createGridListingSchema = z.object({
+  modelId: z.uuid(),
+  familyName: listingTitleSchema.optional(),
+  description: listingDescriptionSchema.optional(),
+  priceCents: listingPriceCentsSchema,
+  combinationPrices: z
+    .array(z.object({ supplierProductId: z.uuid(), priceCents: listingPriceCentsSchema }))
+    .max(GRID_LISTING_MAX_COMBINATIONS)
+    .default([]),
+  supplierProductIds: z
+    .array(z.uuid())
+    .min(1, "Escolha ao menos uma cor ou tamanho para publicar")
+    .max(GRID_LISTING_MAX_COMBINATIONS, "Uma grade tem no máximo 50 cores e tamanhos"),
+  storeConnectionIds: listingStoreIdsSchema,
+});
+export type CreateGridListingInput = z.infer<typeof createGridListingSchema>;
+
 export const LISTING_SORTS = ["recent", "best_selling"] as const;
 export const listingSortSchema = z.enum(LISTING_SORTS);
 export type ListingSort = z.infer<typeof listingSortSchema>;

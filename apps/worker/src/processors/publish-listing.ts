@@ -104,6 +104,7 @@ function toPublishProductInput(
     },
     videoId: row.product.videoUrl === null ? null : youtubeVideoId(row.product.videoUrl),
     packageWeightGrams: readProductFiscal(row.product.fiscal).netWeightGrams,
+    familyName: row.familyName,
   };
 }
 
