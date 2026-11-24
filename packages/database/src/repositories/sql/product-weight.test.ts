@@ -24,6 +24,10 @@ const STORED_PACKAGE_WEIGHTS = [
   "meio quilo",
   "12 cm",
   "12x20",
+  "999999999",
+  "0000000001",
+  "1000000000",
+  "99999999999",
 ];
 
 async function weightWith(values: {

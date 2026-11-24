@@ -1,6 +1,12 @@
 /** The Mercado Livre field where the supplier types the packed weight, in grams. */
 export const PACKAGE_WEIGHT_ATTRIBUTE = "SELLER_PACKAGE_WEIGHT";
 
+/**
+ * Measures from here up are unreadable: no package weighs a thousand tonnes, and the SQL twin
+ * (database/repositories/sql/product-weight.ts) stores the result in a Postgres integer.
+ */
+const UNREADABLE_MEASURE_FROM = 1_000_000_000;
+
 /** "500", "32.5 cm", "30,2" or "850g": a positive number, optionally followed by the unit. */
 const MEASURE = /^(\d+(?:[.,]\d+)?)\s*([a-z]*)$/i;
 
@@ -19,7 +25,7 @@ export function readPackageMeasure(stored: string, unit: "g" | "cm"): number | n
     return null;
   }
   const measure = Number((match[1] ?? "").replace(",", "."));
-  if (!Number.isFinite(measure) || measure <= 0) {
+  if (!Number.isFinite(measure) || measure <= 0 || measure >= UNREADABLE_MEASURE_FROM) {
     return null;
   }
   return Math.ceil(measure);

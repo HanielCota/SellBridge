@@ -14,6 +14,9 @@ const PACKAGE_WEIGHT_CASES: readonly (readonly [string, number | null])[] = [
   ["-3", null],
   ["meio quilo", null],
   ["12x20", null],
+  ["999999999", 999_999_999],
+  ["1000000000", null],
+  ["99999999999", null],
 ];
 
 describe("readPackageMeasure", () => {

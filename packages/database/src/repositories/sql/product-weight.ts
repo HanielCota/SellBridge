@@ -3,8 +3,12 @@ import { supplierProducts } from "../../schema/index.ts";
 
 const packedText = sql`btrim(${supplierProducts.mercadoLivreAttributes}->>'SELLER_PACKAGE_WEIGHT', E' \t\r\n')`;
 
-/** `readPackageMeasure(text, "g")` of shared/shipping-weight.ts; null for zero or unreadable text. */
-const packedGrams = sql`case when ${packedText} ~* '^[0-9]+([.,][0-9]+)?[[:space:]]*g?$' then nullif(ceil(replace(substring(${packedText} from '^[0-9]+(?:[.,][0-9]+)?'), ',', '.')::numeric), 0)::integer end`;
+/**
+ * `readPackageMeasure(text, "g")` of shared/shipping-weight.ts; null for zero or unreadable text.
+ * Nine digits at most before the decimals (under 1,000,000,000 g, as there), so the cast to integer
+ * never overflows on a typo.
+ */
+const packedGrams = sql`case when ${packedText} ~* '^0*[0-9]{1,9}([.,][0-9]+)?[[:space:]]*g?$' then nullif(ceil(replace(substring(${packedText} from '^[0-9]+(?:[.,][0-9]+)?'), ',', '.')::numeric), 0)::integer end`;
 
 const netGrams = sql`case when jsonb_typeof(${supplierProducts.fiscal}->'netWeightGrams') = 'number' and (${supplierProducts.fiscal}->>'netWeightGrams')::numeric > 0 then ceil((${supplierProducts.fiscal}->>'netWeightGrams')::numeric)::integer end`;
 
