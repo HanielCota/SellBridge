@@ -10,16 +10,24 @@ import { createFileRoute, Link } from "@tanstack/react-router";
 import { EmptyState } from "@/components/feedback/empty-state";
 import { PageHeader } from "@/components/layout/page-header";
 import { Button } from "@/components/ui/button";
-import { openEntryLink } from "@/features/entry-links/entry-link.functions";
+import {
+  entryLinkSituationSchema,
+  openEntryLink,
+} from "@/features/entry-links/entry-link.functions";
 import type { EntryLinkView } from "@/features/entry-links/open-entry-link.server";
 
 /**
- * Where a person lands from another project's entry link (decision of 25/11/2026). Signing in,
- * signing up, the terms and the contract all happen first in the app layout, which brings the
- * person back here.
+ * Where a person lands after clicking another project's entry link (decision of 25/11/2026). The
+ * click already spent the link and left the choice in a cookie; signing in, signing up, the
+ * terms and the contract happen first in the app layout, which brings the person back here.
  */
-export const Route = createFileRoute("/_app/entrar/$token")({
-  loader: async ({ params }) => openEntryLink({ data: { token: params.token } }),
+export const Route = createFileRoute("/_app/entrar")({
+  // An unknown value is ignored rather than turned into an error page.
+  validateSearch: (search: Record<string, unknown>) => ({
+    situacao: entryLinkSituationSchema.safeParse(search["situacao"]).data,
+  }),
+  loaderDeps: ({ search }) => ({ situacao: search.situacao }),
+  loader: async ({ deps }) => openEntryLink({ data: { situacao: deps.situacao } }),
   head: () => ({ meta: [{ title: "Produtos escolhidos | SellBridge" }] }),
   component: EntryLinkPage,
 });
@@ -31,13 +39,13 @@ const PROBLEMS: Record<ProblemKind, { icon: Icon; title: string; description: st
     icon: LinkBreakIcon,
     title: "Este link não funciona",
     description:
-      "O endereço está incompleto ou foi digitado errado. Volte ao site onde você escolheu os produtos e clique no botão de novo.",
+      "O link está incompleto ou a escolha não ficou guardada neste navegador. Volte ao site onde você escolheu os produtos e clique no botão de novo.",
   },
   expired: {
     icon: ClockIcon,
     title: "Este link venceu",
     description:
-      "Cada link vale por 1 hora. Volte ao site onde você escolheu os produtos e clique no botão de novo para gerar outro.",
+      "Cada link vale por 5 minutos depois de criado. Volte ao site onde você escolheu os produtos e clique no botão de novo para gerar outro.",
   },
   used: {
     icon: LinkBreakIcon,
@@ -50,6 +58,12 @@ const PROBLEMS: Record<ProblemKind, { icon: Icon; title: string; description: st
     title: "Este link é do cliente",
     description:
       "Você está na conta do cliente pela equipe. O link só vale quando o próprio cliente abre, na conta dele.",
+  },
+  staff_account: {
+    icon: UserSwitchIcon,
+    title: "Este link é para revendedores",
+    description:
+      "Você entrou com uma conta da equipe do SellBridge. Abra o link com a conta do revendedor que escolheu os produtos.",
   },
   unavailable: {
     icon: PackageIcon,

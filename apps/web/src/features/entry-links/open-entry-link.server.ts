@@ -3,7 +3,9 @@ import {
   getSellableProducts,
   type SellableCatalogProduct,
 } from "@sellbridge/database/repositories";
+import { isStaffRole } from "@sellbridge/shared/staff-access";
 import {
+  entryChoiceFreshSince,
   entryLinkTokenSchema,
   hashEntryLinkToken,
 } from "@/features/developer-api/entry-link-token.server";
@@ -19,29 +21,34 @@ export type EntryLinkView =
       /** Chosen in the other project but no longer offered (switched off since). */
       unavailableCount: number;
     }
-  | { kind: "invalid" | "expired" | "used" | "team_visit" | "unavailable" };
+  | { kind: "invalid" | "expired" | "used" | "team_visit" | "staff_account" | "unavailable" };
 
 /**
- * Claims the link for the signed-in reseller and shows the choice. "Entrar como cliente" never
- * claims: the link belongs to the person it was handed to.
+ * Claims the choice the browser brought from the link for the signed-in reseller and shows it.
+ * "Entrar como cliente" and team accounts never claim: the choice belongs to the person the link
+ * was handed to.
  */
 export async function openEntryLinkFor(
-  context: { userId: string; tenantId: string; impersonatedBy: string | null },
-  data: { token: string },
+  context: { userId: string; tenantId: string; role: string; impersonatedBy: string | null },
+  choiceSecret: string | undefined,
   now: Date,
 ): Promise<EntryLinkView> {
-  const token = entryLinkTokenSchema.safeParse(data.token);
-  if (!token.success) {
+  const secret = entryLinkTokenSchema.safeParse(choiceSecret);
+  if (!secret.success) {
     return { kind: "invalid" };
   }
   if (context.impersonatedBy !== null) {
     return { kind: "team_visit" };
   }
+  if (isStaffRole(context.role)) {
+    return { kind: "staff_account" };
+  }
   const claim = await claimDeveloperEntryLink(database, {
-    tokenHash: hashEntryLinkToken(token.data),
+    choiceHash: hashEntryLinkToken(secret.data),
     userId: context.userId,
     tenantId: context.tenantId,
     now,
+    freshSince: entryChoiceFreshSince(now),
   });
   if (claim.kind === "not_found") {
     return { kind: "invalid" };

@@ -64,10 +64,10 @@ describe("createDeveloperEntryLinkEndpoint", () => {
     expect(JSON.stringify(mocks.createDeveloperEntryLink.mock.calls)).not.toContain(token);
   });
 
-  it("makes the link expire one hour after it was created", async () => {
+  it("makes the link expire five minutes after it was created", async () => {
     const result = await createLink([PRODUCT_A]);
 
-    expect(result.data.expiresAt).toBe("2026-11-25T13:00:00.000Z");
+    expect(result.data.expiresAt).toBe("2026-11-25T12:05:00.000Z");
   });
 
   it("refuses products resellers cannot pick and names them", async () => {

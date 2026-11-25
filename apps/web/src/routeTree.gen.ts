@@ -22,6 +22,7 @@ import { Route as AppAssinaturaRouteImport } from './routes/_app/assinatura'
 import { Route as AppCatalogoRouteImport } from './routes/_app/catalogo'
 import { Route as AppDashboardRouteImport } from './routes/_app/dashboard'
 import { Route as AppDesenvolvedorRouteImport } from './routes/_app/desenvolvedor'
+import { Route as AppEntrarRouteImport } from './routes/_app/entrar'
 import { Route as AppFinanceiroRouteImport } from './routes/_app/financeiro'
 import { Route as AppFornecedoresRouteRouteImport } from './routes/_app/fornecedores/route'
 import { Route as AppIntegracoesRouteImport } from './routes/_app/integracoes'
@@ -40,6 +41,7 @@ import { Route as ApiHealthRouteImport } from './routes/api/health'
 import { Route as ApiVersionRouteImport } from './routes/api/version'
 import { Route as ContratoFornecedorRouteImport } from './routes/contrato/fornecedor'
 import { Route as ContratoVendedorRouteImport } from './routes/contrato/vendedor'
+import { Route as EntrarTokenRouteImport } from './routes/entrar.$token'
 import { Route as RastreioTokenRouteImport } from './routes/rastreio/$token'
 import { Route as AppAdminAuditoriaRouteImport } from './routes/_app/admin/auditoria'
 import { Route as AppAdminAvaliacoesRouteImport } from './routes/_app/admin/avaliacoes'
@@ -50,7 +52,6 @@ import { Route as AppAdminEquipeRouteImport } from './routes/_app/admin/equipe'
 import { Route as AppAdminProblemasRouteRouteImport } from './routes/_app/admin/problemas/route'
 import { Route as AppAdminProductsRouteImport } from './routes/_app/admin/products'
 import { Route as AppAdminRelatorioRouteImport } from './routes/_app/admin/relatorio'
-import { Route as AppEntrarTokenRouteImport } from './routes/_app/entrar.$token'
 import { Route as AppFinanceiroRelatorioRouteImport } from './routes/_app/financeiro_.relatorio'
 import { Route as AppFornecedorPainelRouteRouteImport } from './routes/_app/fornecedor/painel/route'
 import { Route as AppFornecedoresIndexRouteImport } from './routes/_app/fornecedores/index'
@@ -236,6 +237,11 @@ const AppDesenvolvedorRoute = AppDesenvolvedorRouteImport.update({
   path: '/desenvolvedor',
   getParentRoute: () => AppRouteRoute,
 } as any)
+const AppEntrarRoute = AppEntrarRouteImport.update({
+  id: '/entrar',
+  path: '/entrar',
+  getParentRoute: () => AppRouteRoute,
+} as any)
 const AppFinanceiroRoute = AppFinanceiroRouteImport.update({
   id: '/financeiro',
   path: '/financeiro',
@@ -326,6 +332,11 @@ const ContratoVendedorRoute = ContratoVendedorRouteImport.update({
   path: '/contrato/vendedor',
   getParentRoute: () => rootRouteImport,
 } as any)
+const EntrarTokenRoute = EntrarTokenRouteImport.update({
+  id: '/entrar/$token',
+  path: '/entrar/$token',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const RastreioTokenRoute = RastreioTokenRouteImport.update({
   id: '/rastreio/$token',
   path: '/rastreio/$token',
@@ -375,11 +386,6 @@ const AppAdminRelatorioRoute = AppAdminRelatorioRouteImport.update({
   id: '/relatorio',
   path: '/relatorio',
   getParentRoute: () => AppAdminRouteRoute,
-} as any)
-const AppEntrarTokenRoute = AppEntrarTokenRouteImport.update({
-  id: '/entrar/$token',
-  path: '/entrar/$token',
-  getParentRoute: () => AppRouteRoute,
 } as any)
 const AppFinanceiroRelatorioRoute = AppFinanceiroRelatorioRouteImport.update({
   id: '/financeiro_/relatorio',
@@ -1076,6 +1082,7 @@ export interface FileRoutesByFullPath {
   '/catalogo': typeof AppCatalogoRoute
   '/dashboard': typeof AppDashboardRoute
   '/desenvolvedor': typeof AppDesenvolvedorRoute
+  '/entrar': typeof AppEntrarRoute
   '/financeiro': typeof AppFinanceiroRoute
   '/integracoes': typeof AppIntegracoesRoute
   '/lojas': typeof AppLojasRoute
@@ -1093,6 +1100,7 @@ export interface FileRoutesByFullPath {
   '/api/version': typeof ApiVersionRoute
   '/contrato/fornecedor': typeof ContratoFornecedorRoute
   '/contrato/vendedor': typeof ContratoVendedorRoute
+  '/entrar/$token': typeof EntrarTokenRoute
   '/rastreio/$token': typeof RastreioTokenRoute
   '/admin/clientes': typeof AppAdminClientesRouteRouteWithChildren
   '/admin/problemas': typeof AppAdminProblemasRouteRouteWithChildren
@@ -1104,7 +1112,6 @@ export interface FileRoutesByFullPath {
   '/admin/equipe': typeof AppAdminEquipeRoute
   '/admin/products': typeof AppAdminProductsRoute
   '/admin/relatorio': typeof AppAdminRelatorioRoute
-  '/entrar/$token': typeof AppEntrarTokenRoute
   '/financeiro/relatorio': typeof AppFinanceiroRelatorioRoute
   '/fornecedores/$supplierId': typeof AppFornecedoresSupplierIdRoute
   '/pedidos/$orderId': typeof AppPedidosOrderIdRoute
@@ -1238,6 +1245,7 @@ export interface FileRoutesByTo {
   '/catalogo': typeof AppCatalogoRoute
   '/dashboard': typeof AppDashboardRoute
   '/desenvolvedor': typeof AppDesenvolvedorRoute
+  '/entrar': typeof AppEntrarRoute
   '/financeiro': typeof AppFinanceiroRoute
   '/integracoes': typeof AppIntegracoesRoute
   '/lojas': typeof AppLojasRoute
@@ -1255,6 +1263,7 @@ export interface FileRoutesByTo {
   '/api/version': typeof ApiVersionRoute
   '/contrato/fornecedor': typeof ContratoFornecedorRoute
   '/contrato/vendedor': typeof ContratoVendedorRoute
+  '/entrar/$token': typeof EntrarTokenRoute
   '/rastreio/$token': typeof RastreioTokenRoute
   '/admin/auditoria': typeof AppAdminAuditoriaRoute
   '/admin/avaliacoes': typeof AppAdminAvaliacoesRoute
@@ -1263,7 +1272,6 @@ export interface FileRoutesByTo {
   '/admin/equipe': typeof AppAdminEquipeRoute
   '/admin/products': typeof AppAdminProductsRoute
   '/admin/relatorio': typeof AppAdminRelatorioRoute
-  '/entrar/$token': typeof AppEntrarTokenRoute
   '/financeiro/relatorio': typeof AppFinanceiroRelatorioRoute
   '/fornecedores/$supplierId': typeof AppFornecedoresSupplierIdRoute
   '/pedidos/$orderId': typeof AppPedidosOrderIdRoute
@@ -1401,6 +1409,7 @@ export interface FileRoutesById {
   '/_app/catalogo': typeof AppCatalogoRoute
   '/_app/dashboard': typeof AppDashboardRoute
   '/_app/desenvolvedor': typeof AppDesenvolvedorRoute
+  '/_app/entrar': typeof AppEntrarRoute
   '/_app/financeiro': typeof AppFinanceiroRoute
   '/_app/integracoes': typeof AppIntegracoesRoute
   '/_app/lojas': typeof AppLojasRoute
@@ -1418,6 +1427,7 @@ export interface FileRoutesById {
   '/api/version': typeof ApiVersionRoute
   '/contrato/fornecedor': typeof ContratoFornecedorRoute
   '/contrato/vendedor': typeof ContratoVendedorRoute
+  '/entrar/$token': typeof EntrarTokenRoute
   '/rastreio/$token': typeof RastreioTokenRoute
   '/_app/admin/clientes': typeof AppAdminClientesRouteRouteWithChildren
   '/_app/admin/problemas': typeof AppAdminProblemasRouteRouteWithChildren
@@ -1429,7 +1439,6 @@ export interface FileRoutesById {
   '/_app/admin/equipe': typeof AppAdminEquipeRoute
   '/_app/admin/products': typeof AppAdminProductsRoute
   '/_app/admin/relatorio': typeof AppAdminRelatorioRoute
-  '/_app/entrar/$token': typeof AppEntrarTokenRoute
   '/_app/financeiro_/relatorio': typeof AppFinanceiroRelatorioRoute
   '/_app/fornecedores/$supplierId': typeof AppFornecedoresSupplierIdRoute
   '/_app/pedidos/$orderId': typeof AppPedidosOrderIdRoute
@@ -1566,6 +1575,7 @@ export interface FileRouteTypes {
     | '/catalogo'
     | '/dashboard'
     | '/desenvolvedor'
+    | '/entrar'
     | '/financeiro'
     | '/integracoes'
     | '/lojas'
@@ -1583,6 +1593,7 @@ export interface FileRouteTypes {
     | '/api/version'
     | '/contrato/fornecedor'
     | '/contrato/vendedor'
+    | '/entrar/$token'
     | '/rastreio/$token'
     | '/admin/clientes'
     | '/admin/problemas'
@@ -1594,7 +1605,6 @@ export interface FileRouteTypes {
     | '/admin/equipe'
     | '/admin/products'
     | '/admin/relatorio'
-    | '/entrar/$token'
     | '/financeiro/relatorio'
     | '/fornecedores/$supplierId'
     | '/pedidos/$orderId'
@@ -1728,6 +1738,7 @@ export interface FileRouteTypes {
     | '/catalogo'
     | '/dashboard'
     | '/desenvolvedor'
+    | '/entrar'
     | '/financeiro'
     | '/integracoes'
     | '/lojas'
@@ -1745,6 +1756,7 @@ export interface FileRouteTypes {
     | '/api/version'
     | '/contrato/fornecedor'
     | '/contrato/vendedor'
+    | '/entrar/$token'
     | '/rastreio/$token'
     | '/admin/auditoria'
     | '/admin/avaliacoes'
@@ -1753,7 +1765,6 @@ export interface FileRouteTypes {
     | '/admin/equipe'
     | '/admin/products'
     | '/admin/relatorio'
-    | '/entrar/$token'
     | '/financeiro/relatorio'
     | '/fornecedores/$supplierId'
     | '/pedidos/$orderId'
@@ -1890,6 +1901,7 @@ export interface FileRouteTypes {
     | '/_app/catalogo'
     | '/_app/dashboard'
     | '/_app/desenvolvedor'
+    | '/_app/entrar'
     | '/_app/financeiro'
     | '/_app/integracoes'
     | '/_app/lojas'
@@ -1907,6 +1919,7 @@ export interface FileRouteTypes {
     | '/api/version'
     | '/contrato/fornecedor'
     | '/contrato/vendedor'
+    | '/entrar/$token'
     | '/rastreio/$token'
     | '/_app/admin/clientes'
     | '/_app/admin/problemas'
@@ -1918,7 +1931,6 @@ export interface FileRouteTypes {
     | '/_app/admin/equipe'
     | '/_app/admin/products'
     | '/_app/admin/relatorio'
-    | '/_app/entrar/$token'
     | '/_app/financeiro_/relatorio'
     | '/_app/fornecedores/$supplierId'
     | '/_app/pedidos/$orderId'
@@ -2054,6 +2066,7 @@ export interface RootRouteChildren {
   ApiVersionRoute: typeof ApiVersionRoute
   ContratoFornecedorRoute: typeof ContratoFornecedorRoute
   ContratoVendedorRoute: typeof ContratoVendedorRoute
+  EntrarTokenRoute: typeof EntrarTokenRoute
   RastreioTokenRoute: typeof RastreioTokenRoute
   ApiAdminProductImagesRoute: typeof ApiAdminProductImagesRoute
   ApiAuthSplatRoute: typeof ApiAuthSplatRoute
@@ -2227,6 +2240,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppDesenvolvedorRouteImport
       parentRoute: typeof AppRouteRoute
     }
+    '/_app/entrar': {
+      id: '/_app/entrar'
+      path: '/entrar'
+      fullPath: '/entrar'
+      preLoaderRoute: typeof AppEntrarRouteImport
+      parentRoute: typeof AppRouteRoute
+    }
     '/_app/financeiro': {
       id: '/_app/financeiro'
       path: '/financeiro'
@@ -2353,6 +2373,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ContratoVendedorRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/entrar/$token': {
+      id: '/entrar/$token'
+      path: '/entrar/$token'
+      fullPath: '/entrar/$token'
+      preLoaderRoute: typeof EntrarTokenRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/rastreio/$token': {
       id: '/rastreio/$token'
       path: '/rastreio/$token'
@@ -2422,13 +2449,6 @@ declare module '@tanstack/react-router' {
       fullPath: '/admin/relatorio'
       preLoaderRoute: typeof AppAdminRelatorioRouteImport
       parentRoute: typeof AppAdminRouteRoute
-    }
-    '/_app/entrar/$token': {
-      id: '/_app/entrar/$token'
-      path: '/entrar/$token'
-      fullPath: '/entrar/$token'
-      preLoaderRoute: typeof AppEntrarTokenRouteImport
-      parentRoute: typeof AppRouteRoute
     }
     '/_app/financeiro_/relatorio': {
       id: '/_app/financeiro_/relatorio'
@@ -3416,6 +3436,7 @@ interface AppRouteRouteChildren {
   AppCatalogoRoute: typeof AppCatalogoRoute
   AppDashboardRoute: typeof AppDashboardRoute
   AppDesenvolvedorRoute: typeof AppDesenvolvedorRoute
+  AppEntrarRoute: typeof AppEntrarRoute
   AppFinanceiroRoute: typeof AppFinanceiroRoute
   AppIntegracoesRoute: typeof AppIntegracoesRoute
   AppLojasRoute: typeof AppLojasRoute
@@ -3425,7 +3446,6 @@ interface AppRouteRouteChildren {
   AppPoliticaDeDevolucaoRoute: typeof AppPoliticaDeDevolucaoRoute
   AppProductsRoute: typeof AppProductsRoute
   AppFornecedorPainelRouteRoute: typeof AppFornecedorPainelRouteRouteWithChildren
-  AppEntrarTokenRoute: typeof AppEntrarTokenRoute
   AppFinanceiroRelatorioRoute: typeof AppFinanceiroRelatorioRoute
   AppPedidosOrderIdRoute: typeof AppPedidosOrderIdRoute
   AppPedidosVendaManualRoute: typeof AppPedidosVendaManualRoute
@@ -3449,6 +3469,7 @@ const AppRouteRouteChildren: AppRouteRouteChildren = {
   AppCatalogoRoute: AppCatalogoRoute,
   AppDashboardRoute: AppDashboardRoute,
   AppDesenvolvedorRoute: AppDesenvolvedorRoute,
+  AppEntrarRoute: AppEntrarRoute,
   AppFinanceiroRoute: AppFinanceiroRoute,
   AppIntegracoesRoute: AppIntegracoesRoute,
   AppLojasRoute: AppLojasRoute,
@@ -3458,7 +3479,6 @@ const AppRouteRouteChildren: AppRouteRouteChildren = {
   AppPoliticaDeDevolucaoRoute: AppPoliticaDeDevolucaoRoute,
   AppProductsRoute: AppProductsRoute,
   AppFornecedorPainelRouteRoute: AppFornecedorPainelRouteRouteWithChildren,
-  AppEntrarTokenRoute: AppEntrarTokenRoute,
   AppFinanceiroRelatorioRoute: AppFinanceiroRelatorioRoute,
   AppPedidosOrderIdRoute: AppPedidosOrderIdRoute,
   AppPedidosVendaManualRoute: AppPedidosVendaManualRoute,
@@ -3526,6 +3546,7 @@ const rootRouteChildren: RootRouteChildren = {
   ApiVersionRoute: ApiVersionRoute,
   ContratoFornecedorRoute: ContratoFornecedorRoute,
   ContratoVendedorRoute: ContratoVendedorRoute,
+  EntrarTokenRoute: EntrarTokenRoute,
   RastreioTokenRoute: RastreioTokenRoute,
   ApiAdminProductImagesRoute: ApiAdminProductImagesRoute,
   ApiAuthSplatRoute: ApiAuthSplatRoute,
