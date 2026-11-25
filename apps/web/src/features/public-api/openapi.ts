@@ -4,6 +4,25 @@ import { acceptsBody, type ApiOperation, requiresIdempotencyKey } from "./endpoi
 import { API_ERROR_CODES } from "./problem";
 
 type JsonSchema = Record<string, unknown>;
+type PublicScope = NonNullable<ApiOperation["scope"]>;
+
+/** An operation as the document needs it; each API brings its own scopes. */
+export type DocumentedOperation<TScope extends string> = Omit<ApiOperation, "scope"> & {
+  scope: TScope | null;
+};
+
+/** What differs between the organizations' API and the developer API in the document. */
+export interface OpenApiSettings<TScope extends string> {
+  title: string;
+  bearerFormat: string;
+  scopeLabel: (scope: TScope) => string;
+}
+
+export const PUBLIC_API_SETTINGS: OpenApiSettings<PublicScope> = {
+  title: "SellBridge API",
+  bearerFormat: "sb_live_...",
+  scopeLabel: (scope) => API_SCOPE_LABELS[scope],
+};
 
 function toSchema(schema: z.ZodType, io: "input" | "output"): JsonSchema {
   const { $schema: _ignored, ...rest } = z.toJSONSchema(schema, {
@@ -15,7 +34,15 @@ function toSchema(schema: z.ZodType, io: "input" | "output"): JsonSchema {
 }
 
 /** Each field of a z.object becomes one OpenAPI parameter; anything else has none. */
-function parametersOf(schema: z.ZodType, location: "path" | "query") {
+function parametersOf(schema: z.ZodType, location: "path" | "query"): JsonSchema[] {
+  // The developer API puts `{ organizationId }` in front of reused paths with `.and()`.
+  if (schema instanceof z.ZodIntersection) {
+    const { left, right } = schema.def;
+    if (left instanceof z.ZodType && right instanceof z.ZodType) {
+      return [...parametersOf(left, location), ...parametersOf(right, location)];
+    }
+    return [];
+  }
   if (!(schema instanceof z.ZodObject)) {
     return [];
   }
@@ -51,21 +78,22 @@ const IDEMPOTENCY_HEADER = {
 
 const problemResponse = { $ref: "#/components/responses/Problem" };
 
-function errorResponses(operation: ApiOperation) {
+function errorResponses(operation: Pick<ApiOperation, "params" | "method">) {
   return {
     "400": problemResponse,
     "401": problemResponse,
     "403": problemResponse,
-    ...(operation.params instanceof z.ZodObject && hasFields(operation.params)
-      ? { "404": problemResponse }
-      : {}),
+    ...(parametersOf(operation.params, "path").length > 0 ? { "404": problemResponse } : {}),
     ...(requiresIdempotencyKey(operation) ? { "409": problemResponse } : {}),
     "422": problemResponse,
     "429": problemResponse,
   };
 }
 
-function operationObject(operation: ApiOperation) {
+function operationObject<TScope extends string>(
+  operation: DocumentedOperation<TScope>,
+  scopeLabel: (scope: TScope) => string,
+) {
   const parameters = [
     ...parametersOf(operation.params, "path"),
     ...parametersOf(operation.query, "query"),
@@ -74,7 +102,7 @@ function operationObject(operation: ApiOperation) {
   const scopeNote =
     operation.scope === null
       ? "Qualquer chave válida."
-      : `Escopo: \`${operation.scope}\` (${API_SCOPE_LABELS[operation.scope]}).`;
+      : `Escopo: \`${operation.scope}\` (${scopeLabel(operation.scope)}).`;
   return {
     operationId: operation.operationId,
     tags: [operation.tag],
@@ -120,22 +148,24 @@ const problemSchema = {
   },
 };
 
-/** The OpenAPI 3.1 document of every operation, served at /api/v1/openapi.json. */
-export function buildOpenApiDocument(input: {
-  operations: readonly ApiOperation[];
+/** The OpenAPI 3.1 document of every operation of one API. */
+export function buildOpenApiDocument<TScope extends string>(input: {
+  operations: readonly DocumentedOperation<TScope>[];
   serverUrl: string;
   description: string;
+  settings: OpenApiSettings<TScope>;
 }) {
+  const { settings } = input;
   const paths: Record<string, Record<string, unknown>> = {};
   for (const operation of input.operations) {
     paths[operation.path] = {
       ...paths[operation.path],
-      [operation.method.toLowerCase()]: operationObject(operation),
+      [operation.method.toLowerCase()]: operationObject(operation, settings.scopeLabel),
     };
   }
   return {
     openapi: "3.1.0",
-    info: { title: "SellBridge API", version: "1.0.0", description: input.description },
+    info: { title: settings.title, version: "1.0.0", description: input.description },
     servers: [{ url: input.serverUrl }],
     security: [{ apiKey: [] }],
     tags: [...new Set(input.operations.map((operation) => operation.tag))].map((name) => ({
@@ -144,7 +174,7 @@ export function buildOpenApiDocument(input: {
     paths,
     components: {
       securitySchemes: {
-        apiKey: { type: "http", scheme: "bearer", bearerFormat: "sb_live_..." },
+        apiKey: { type: "http", scheme: "bearer", bearerFormat: settings.bearerFormat },
       },
       schemas: { Problem: problemSchema },
       responses: {
