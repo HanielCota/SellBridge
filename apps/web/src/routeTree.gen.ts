@@ -164,11 +164,12 @@ import { Route as ApiDevV1OrganizationsOrganizationIdFinancialsSummaryRouteImpor
 import { Route as ApiDevV1OrganizationsOrganizationIdListingsIndexRouteImport } from './routes/api/dev/v1/organizations/$organizationId/listings/index'
 import { Route as ApiDevV1OrganizationsOrganizationIdListingsListingIdRouteImport } from './routes/api/dev/v1/organizations/$organizationId/listings/$listingId'
 import { Route as ApiDevV1OrganizationsOrganizationIdOrdersIndexRouteImport } from './routes/api/dev/v1/organizations/$organizationId/orders/index'
-import { Route as ApiDevV1OrganizationsOrganizationIdOrdersOrderIdRouteImport } from './routes/api/dev/v1/organizations/$organizationId/orders/$orderId'
 import { Route as ApiDevV1OrganizationsOrganizationIdTicketsIndexRouteImport } from './routes/api/dev/v1/organizations/$organizationId/tickets/index'
 import { Route as ApiDevV1OrganizationsOrganizationIdTicketsTicketIdRouteImport } from './routes/api/dev/v1/organizations/$organizationId/tickets/$ticketId'
 import { Route as ApiDevV1OrganizationsOrganizationIdCatalogProductsIndexRouteImport } from './routes/api/dev/v1/organizations/$organizationId/catalog/products/index'
 import { Route as ApiDevV1OrganizationsOrganizationIdCatalogProductsProductIdRouteImport } from './routes/api/dev/v1/organizations/$organizationId/catalog/products/$productId'
+import { Route as ApiDevV1OrganizationsOrganizationIdOrdersOrderIdIndexRouteImport } from './routes/api/dev/v1/organizations/$organizationId/orders/$orderId/index'
+import { Route as ApiDevV1OrganizationsOrganizationIdOrdersOrderIdHistoryRouteImport } from './routes/api/dev/v1/organizations/$organizationId/orders/$orderId/history'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
@@ -1011,12 +1012,6 @@ const ApiDevV1OrganizationsOrganizationIdOrdersIndexRoute =
     path: '/api/dev/v1/organizations/$organizationId/orders/',
     getParentRoute: () => rootRouteImport,
   } as any)
-const ApiDevV1OrganizationsOrganizationIdOrdersOrderIdRoute =
-  ApiDevV1OrganizationsOrganizationIdOrdersOrderIdRouteImport.update({
-    id: '/api/dev/v1/organizations/$organizationId/orders/$orderId',
-    path: '/api/dev/v1/organizations/$organizationId/orders/$orderId',
-    getParentRoute: () => rootRouteImport,
-  } as any)
 const ApiDevV1OrganizationsOrganizationIdTicketsIndexRoute =
   ApiDevV1OrganizationsOrganizationIdTicketsIndexRouteImport.update({
     id: '/api/dev/v1/organizations/$organizationId/tickets/',
@@ -1043,6 +1038,18 @@ const ApiDevV1OrganizationsOrganizationIdCatalogProductsProductIdRoute =
       getParentRoute: () => rootRouteImport,
     } as any,
   )
+const ApiDevV1OrganizationsOrganizationIdOrdersOrderIdIndexRoute =
+  ApiDevV1OrganizationsOrganizationIdOrdersOrderIdIndexRouteImport.update({
+    id: '/api/dev/v1/organizations/$organizationId/orders/$orderId/',
+    path: '/api/dev/v1/organizations/$organizationId/orders/$orderId/',
+    getParentRoute: () => rootRouteImport,
+  } as any)
+const ApiDevV1OrganizationsOrganizationIdOrdersOrderIdHistoryRoute =
+  ApiDevV1OrganizationsOrganizationIdOrdersOrderIdHistoryRouteImport.update({
+    id: '/api/dev/v1/organizations/$organizationId/orders/$orderId/history',
+    path: '/api/dev/v1/organizations/$organizationId/orders/$orderId/history',
+    getParentRoute: () => rootRouteImport,
+  } as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
@@ -1196,13 +1203,14 @@ export interface FileRoutesByFullPath {
   '/api/dev/v1/organizations/$organizationId/': typeof ApiDevV1OrganizationsOrganizationIdIndexRoute
   '/api/dev/v1/organizations/$organizationId/financials/summary': typeof ApiDevV1OrganizationsOrganizationIdFinancialsSummaryRoute
   '/api/dev/v1/organizations/$organizationId/listings/$listingId': typeof ApiDevV1OrganizationsOrganizationIdListingsListingIdRoute
-  '/api/dev/v1/organizations/$organizationId/orders/$orderId': typeof ApiDevV1OrganizationsOrganizationIdOrdersOrderIdRoute
   '/api/dev/v1/organizations/$organizationId/tickets/$ticketId': typeof ApiDevV1OrganizationsOrganizationIdTicketsTicketIdRoute
   '/api/dev/v1/organizations/$organizationId/listings/': typeof ApiDevV1OrganizationsOrganizationIdListingsIndexRoute
   '/api/dev/v1/organizations/$organizationId/orders/': typeof ApiDevV1OrganizationsOrganizationIdOrdersIndexRoute
   '/api/dev/v1/organizations/$organizationId/tickets/': typeof ApiDevV1OrganizationsOrganizationIdTicketsIndexRoute
   '/api/dev/v1/organizations/$organizationId/catalog/products/$productId': typeof ApiDevV1OrganizationsOrganizationIdCatalogProductsProductIdRoute
+  '/api/dev/v1/organizations/$organizationId/orders/$orderId/history': typeof ApiDevV1OrganizationsOrganizationIdOrdersOrderIdHistoryRoute
   '/api/dev/v1/organizations/$organizationId/catalog/products/': typeof ApiDevV1OrganizationsOrganizationIdCatalogProductsIndexRoute
+  '/api/dev/v1/organizations/$organizationId/orders/$orderId/': typeof ApiDevV1OrganizationsOrganizationIdOrdersOrderIdIndexRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -1352,13 +1360,14 @@ export interface FileRoutesByTo {
   '/api/dev/v1/organizations/$organizationId': typeof ApiDevV1OrganizationsOrganizationIdIndexRoute
   '/api/dev/v1/organizations/$organizationId/financials/summary': typeof ApiDevV1OrganizationsOrganizationIdFinancialsSummaryRoute
   '/api/dev/v1/organizations/$organizationId/listings/$listingId': typeof ApiDevV1OrganizationsOrganizationIdListingsListingIdRoute
-  '/api/dev/v1/organizations/$organizationId/orders/$orderId': typeof ApiDevV1OrganizationsOrganizationIdOrdersOrderIdRoute
   '/api/dev/v1/organizations/$organizationId/tickets/$ticketId': typeof ApiDevV1OrganizationsOrganizationIdTicketsTicketIdRoute
   '/api/dev/v1/organizations/$organizationId/listings': typeof ApiDevV1OrganizationsOrganizationIdListingsIndexRoute
   '/api/dev/v1/organizations/$organizationId/orders': typeof ApiDevV1OrganizationsOrganizationIdOrdersIndexRoute
   '/api/dev/v1/organizations/$organizationId/tickets': typeof ApiDevV1OrganizationsOrganizationIdTicketsIndexRoute
   '/api/dev/v1/organizations/$organizationId/catalog/products/$productId': typeof ApiDevV1OrganizationsOrganizationIdCatalogProductsProductIdRoute
+  '/api/dev/v1/organizations/$organizationId/orders/$orderId/history': typeof ApiDevV1OrganizationsOrganizationIdOrdersOrderIdHistoryRoute
   '/api/dev/v1/organizations/$organizationId/catalog/products': typeof ApiDevV1OrganizationsOrganizationIdCatalogProductsIndexRoute
+  '/api/dev/v1/organizations/$organizationId/orders/$orderId': typeof ApiDevV1OrganizationsOrganizationIdOrdersOrderIdIndexRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -1515,13 +1524,14 @@ export interface FileRoutesById {
   '/api/dev/v1/organizations/$organizationId/': typeof ApiDevV1OrganizationsOrganizationIdIndexRoute
   '/api/dev/v1/organizations/$organizationId/financials/summary': typeof ApiDevV1OrganizationsOrganizationIdFinancialsSummaryRoute
   '/api/dev/v1/organizations/$organizationId/listings/$listingId': typeof ApiDevV1OrganizationsOrganizationIdListingsListingIdRoute
-  '/api/dev/v1/organizations/$organizationId/orders/$orderId': typeof ApiDevV1OrganizationsOrganizationIdOrdersOrderIdRoute
   '/api/dev/v1/organizations/$organizationId/tickets/$ticketId': typeof ApiDevV1OrganizationsOrganizationIdTicketsTicketIdRoute
   '/api/dev/v1/organizations/$organizationId/listings/': typeof ApiDevV1OrganizationsOrganizationIdListingsIndexRoute
   '/api/dev/v1/organizations/$organizationId/orders/': typeof ApiDevV1OrganizationsOrganizationIdOrdersIndexRoute
   '/api/dev/v1/organizations/$organizationId/tickets/': typeof ApiDevV1OrganizationsOrganizationIdTicketsIndexRoute
   '/api/dev/v1/organizations/$organizationId/catalog/products/$productId': typeof ApiDevV1OrganizationsOrganizationIdCatalogProductsProductIdRoute
+  '/api/dev/v1/organizations/$organizationId/orders/$orderId/history': typeof ApiDevV1OrganizationsOrganizationIdOrdersOrderIdHistoryRoute
   '/api/dev/v1/organizations/$organizationId/catalog/products/': typeof ApiDevV1OrganizationsOrganizationIdCatalogProductsIndexRoute
+  '/api/dev/v1/organizations/$organizationId/orders/$orderId/': typeof ApiDevV1OrganizationsOrganizationIdOrdersOrderIdIndexRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -1677,13 +1687,14 @@ export interface FileRouteTypes {
     | '/api/dev/v1/organizations/$organizationId/'
     | '/api/dev/v1/organizations/$organizationId/financials/summary'
     | '/api/dev/v1/organizations/$organizationId/listings/$listingId'
-    | '/api/dev/v1/organizations/$organizationId/orders/$orderId'
     | '/api/dev/v1/organizations/$organizationId/tickets/$ticketId'
     | '/api/dev/v1/organizations/$organizationId/listings/'
     | '/api/dev/v1/organizations/$organizationId/orders/'
     | '/api/dev/v1/organizations/$organizationId/tickets/'
     | '/api/dev/v1/organizations/$organizationId/catalog/products/$productId'
+    | '/api/dev/v1/organizations/$organizationId/orders/$orderId/history'
     | '/api/dev/v1/organizations/$organizationId/catalog/products/'
+    | '/api/dev/v1/organizations/$organizationId/orders/$orderId/'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -1833,13 +1844,14 @@ export interface FileRouteTypes {
     | '/api/dev/v1/organizations/$organizationId'
     | '/api/dev/v1/organizations/$organizationId/financials/summary'
     | '/api/dev/v1/organizations/$organizationId/listings/$listingId'
-    | '/api/dev/v1/organizations/$organizationId/orders/$orderId'
     | '/api/dev/v1/organizations/$organizationId/tickets/$ticketId'
     | '/api/dev/v1/organizations/$organizationId/listings'
     | '/api/dev/v1/organizations/$organizationId/orders'
     | '/api/dev/v1/organizations/$organizationId/tickets'
     | '/api/dev/v1/organizations/$organizationId/catalog/products/$productId'
+    | '/api/dev/v1/organizations/$organizationId/orders/$orderId/history'
     | '/api/dev/v1/organizations/$organizationId/catalog/products'
+    | '/api/dev/v1/organizations/$organizationId/orders/$orderId'
   id:
     | '__root__'
     | '/'
@@ -1995,13 +2007,14 @@ export interface FileRouteTypes {
     | '/api/dev/v1/organizations/$organizationId/'
     | '/api/dev/v1/organizations/$organizationId/financials/summary'
     | '/api/dev/v1/organizations/$organizationId/listings/$listingId'
-    | '/api/dev/v1/organizations/$organizationId/orders/$orderId'
     | '/api/dev/v1/organizations/$organizationId/tickets/$ticketId'
     | '/api/dev/v1/organizations/$organizationId/listings/'
     | '/api/dev/v1/organizations/$organizationId/orders/'
     | '/api/dev/v1/organizations/$organizationId/tickets/'
     | '/api/dev/v1/organizations/$organizationId/catalog/products/$productId'
+    | '/api/dev/v1/organizations/$organizationId/orders/$orderId/history'
     | '/api/dev/v1/organizations/$organizationId/catalog/products/'
+    | '/api/dev/v1/organizations/$organizationId/orders/$orderId/'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -2086,13 +2099,14 @@ export interface RootRouteChildren {
   ApiDevV1OrganizationsOrganizationIdIndexRoute: typeof ApiDevV1OrganizationsOrganizationIdIndexRoute
   ApiDevV1OrganizationsOrganizationIdFinancialsSummaryRoute: typeof ApiDevV1OrganizationsOrganizationIdFinancialsSummaryRoute
   ApiDevV1OrganizationsOrganizationIdListingsListingIdRoute: typeof ApiDevV1OrganizationsOrganizationIdListingsListingIdRoute
-  ApiDevV1OrganizationsOrganizationIdOrdersOrderIdRoute: typeof ApiDevV1OrganizationsOrganizationIdOrdersOrderIdRoute
   ApiDevV1OrganizationsOrganizationIdTicketsTicketIdRoute: typeof ApiDevV1OrganizationsOrganizationIdTicketsTicketIdRoute
   ApiDevV1OrganizationsOrganizationIdListingsIndexRoute: typeof ApiDevV1OrganizationsOrganizationIdListingsIndexRoute
   ApiDevV1OrganizationsOrganizationIdOrdersIndexRoute: typeof ApiDevV1OrganizationsOrganizationIdOrdersIndexRoute
   ApiDevV1OrganizationsOrganizationIdTicketsIndexRoute: typeof ApiDevV1OrganizationsOrganizationIdTicketsIndexRoute
   ApiDevV1OrganizationsOrganizationIdCatalogProductsProductIdRoute: typeof ApiDevV1OrganizationsOrganizationIdCatalogProductsProductIdRoute
+  ApiDevV1OrganizationsOrganizationIdOrdersOrderIdHistoryRoute: typeof ApiDevV1OrganizationsOrganizationIdOrdersOrderIdHistoryRoute
   ApiDevV1OrganizationsOrganizationIdCatalogProductsIndexRoute: typeof ApiDevV1OrganizationsOrganizationIdCatalogProductsIndexRoute
+  ApiDevV1OrganizationsOrganizationIdOrdersOrderIdIndexRoute: typeof ApiDevV1OrganizationsOrganizationIdOrdersOrderIdIndexRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -3182,13 +3196,6 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiDevV1OrganizationsOrganizationIdOrdersIndexRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/api/dev/v1/organizations/$organizationId/orders/$orderId': {
-      id: '/api/dev/v1/organizations/$organizationId/orders/$orderId'
-      path: '/api/dev/v1/organizations/$organizationId/orders/$orderId'
-      fullPath: '/api/dev/v1/organizations/$organizationId/orders/$orderId'
-      preLoaderRoute: typeof ApiDevV1OrganizationsOrganizationIdOrdersOrderIdRouteImport
-      parentRoute: typeof rootRouteImport
-    }
     '/api/dev/v1/organizations/$organizationId/tickets/': {
       id: '/api/dev/v1/organizations/$organizationId/tickets/'
       path: '/api/dev/v1/organizations/$organizationId/tickets'
@@ -3215,6 +3222,20 @@ declare module '@tanstack/react-router' {
       path: '/api/dev/v1/organizations/$organizationId/catalog/products/$productId'
       fullPath: '/api/dev/v1/organizations/$organizationId/catalog/products/$productId'
       preLoaderRoute: typeof ApiDevV1OrganizationsOrganizationIdCatalogProductsProductIdRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/dev/v1/organizations/$organizationId/orders/$orderId/': {
+      id: '/api/dev/v1/organizations/$organizationId/orders/$orderId/'
+      path: '/api/dev/v1/organizations/$organizationId/orders/$orderId'
+      fullPath: '/api/dev/v1/organizations/$organizationId/orders/$orderId/'
+      preLoaderRoute: typeof ApiDevV1OrganizationsOrganizationIdOrdersOrderIdIndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/dev/v1/organizations/$organizationId/orders/$orderId/history': {
+      id: '/api/dev/v1/organizations/$organizationId/orders/$orderId/history'
+      path: '/api/dev/v1/organizations/$organizationId/orders/$orderId/history'
+      fullPath: '/api/dev/v1/organizations/$organizationId/orders/$orderId/history'
+      preLoaderRoute: typeof ApiDevV1OrganizationsOrganizationIdOrdersOrderIdHistoryRouteImport
       parentRoute: typeof rootRouteImport
     }
   }
@@ -3545,8 +3566,6 @@ const rootRouteChildren: RootRouteChildren = {
     ApiDevV1OrganizationsOrganizationIdFinancialsSummaryRoute,
   ApiDevV1OrganizationsOrganizationIdListingsListingIdRoute:
     ApiDevV1OrganizationsOrganizationIdListingsListingIdRoute,
-  ApiDevV1OrganizationsOrganizationIdOrdersOrderIdRoute:
-    ApiDevV1OrganizationsOrganizationIdOrdersOrderIdRoute,
   ApiDevV1OrganizationsOrganizationIdTicketsTicketIdRoute:
     ApiDevV1OrganizationsOrganizationIdTicketsTicketIdRoute,
   ApiDevV1OrganizationsOrganizationIdListingsIndexRoute:
@@ -3557,8 +3576,12 @@ const rootRouteChildren: RootRouteChildren = {
     ApiDevV1OrganizationsOrganizationIdTicketsIndexRoute,
   ApiDevV1OrganizationsOrganizationIdCatalogProductsProductIdRoute:
     ApiDevV1OrganizationsOrganizationIdCatalogProductsProductIdRoute,
+  ApiDevV1OrganizationsOrganizationIdOrdersOrderIdHistoryRoute:
+    ApiDevV1OrganizationsOrganizationIdOrdersOrderIdHistoryRoute,
   ApiDevV1OrganizationsOrganizationIdCatalogProductsIndexRoute:
     ApiDevV1OrganizationsOrganizationIdCatalogProductsIndexRoute,
+  ApiDevV1OrganizationsOrganizationIdOrdersOrderIdIndexRoute:
+    ApiDevV1OrganizationsOrganizationIdOrdersOrderIdIndexRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

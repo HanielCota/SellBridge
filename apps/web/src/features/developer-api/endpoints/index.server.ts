@@ -2,6 +2,7 @@ import type { DeveloperScope } from "@sellbridge/shared/developer-api";
 import { noInput as noBody } from "@/features/public-api/endpoint";
 import type { DocumentedOperation } from "@/features/public-api/openapi";
 import { getDeveloperMe } from "./me.server";
+import { getDeveloperOrderHistory } from "./order-history.server";
 import { getDeveloperOrder } from "./orders.server";
 import {
   getDeveloperCatalogProduct,
@@ -33,6 +34,7 @@ export const DEVELOPER_ENDPOINTS = [
   getDeveloperListing,
   listDeveloperOrders,
   getDeveloperOrder,
+  getDeveloperOrderHistory,
   getDeveloperFinancialSummary,
   listDeveloperTickets,
   getDeveloperTicket,
