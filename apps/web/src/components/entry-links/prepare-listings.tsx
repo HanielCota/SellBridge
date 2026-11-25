@@ -129,9 +129,7 @@ function ChosenProductList({
  * is published until the person clicks "Publicar" there (decision of 25/11/2026, "Caminho A").
  */
 export function PrepareListings({ choice }: { choice: ReadyChoice }) {
-  const [ticked, setTicked] = useState(() =>
-    initiallyTicked(choice.products.map((product) => product.id)),
-  );
+  const [ticked, setTicked] = useState(() => initiallyTicked(choice.products));
   const [reviewOpen, setReviewOpen] = useState(false);
   const tickedProducts = choice.products.filter((product) => ticked.has(product.id));
   const mercadoLivreIds = mercadoLivreStoreIds(choice.stores);

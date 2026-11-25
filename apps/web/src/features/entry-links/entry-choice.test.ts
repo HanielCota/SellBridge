@@ -21,13 +21,25 @@ function startRoom(listingsUsed: number) {
 
 describe("initiallyTicked", () => {
   it("ticks only as many products as one batch publishes", () => {
-    const ids = Array.from({ length: MAX_BULK_PUBLISH + 5 }, (_, index) => `p${index}`);
+    const products = Array.from({ length: MAX_BULK_PUBLISH + 5 }, (_, index) => ({
+      id: `p${index}`,
+      published: false,
+    }));
 
-    const ticked = initiallyTicked(ids);
+    const ticked = initiallyTicked(products);
 
     expect(ticked.size).toBe(MAX_BULK_PUBLISH);
     expect(ticked.has("p0")).toBe(true);
     expect(ticked.has(`p${MAX_BULK_PUBLISH}`)).toBe(false);
+  });
+
+  it("leaves products already listed unticked", () => {
+    const ticked = initiallyTicked([
+      { id: "listed", published: true },
+      { id: "new", published: false },
+    ]);
+
+    expect([...ticked]).toEqual(["new"]);
   });
 });
 

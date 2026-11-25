@@ -2,9 +2,15 @@ import { feeChannelOf } from "@sellbridge/shared/channel-fees";
 import { MAX_BULK_PUBLISH } from "@sellbridge/shared/schemas";
 import { listingsShortBy, type PlanRoom } from "@/features/billing/plan-room";
 
-/** Every product starts ticked, up to what one batch can publish. */
-export function initiallyTicked(productIds: readonly string[]): ReadonlySet<string> {
-  return new Set(productIds.slice(0, MAX_BULK_PUBLISH));
+/**
+ * Products not yet listed start ticked, up to what one batch can publish; one already listed
+ * would only come back from the review as skipped.
+ */
+export function initiallyTicked(
+  products: readonly { id: string; published: boolean }[],
+): ReadonlySet<string> {
+  const unlisted = products.filter((product) => !product.published);
+  return new Set(unlisted.slice(0, MAX_BULK_PUBLISH).map((product) => product.id));
 }
 
 /** The ticked set after one product is ticked or unticked. */

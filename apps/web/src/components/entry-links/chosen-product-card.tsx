@@ -104,7 +104,11 @@ export function ChosenProductCard({
           <p className="text-sm text-muted-foreground">
             Você paga {formatCents(product.costCents)}
           </p>
-          <SuggestedPriceLine product={product} channels={channels} />
+          {product.published ? (
+            <p className="text-sm font-medium text-muted-foreground">Já anunciado na sua loja</p>
+          ) : (
+            <SuggestedPriceLine product={product} channels={channels} />
+          )}
         </div>
       </label>
     </li>
