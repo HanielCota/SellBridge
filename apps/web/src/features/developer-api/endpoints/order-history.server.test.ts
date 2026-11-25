@@ -9,6 +9,7 @@ const mocks = vi.hoisted(() => ({
 }));
 
 vi.mock("@/lib/server/database", () => ({ database: {} }));
+vi.mock("@/lib/server/environment", () => ({ environment: { DEVELOPER_EMAILS: [] } }));
 vi.mock("@sellbridge/database/repositories", () => mocks);
 
 const { getDeveloperOrderHistory } = await import("./order-history.server");
