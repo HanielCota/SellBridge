@@ -60,4 +60,17 @@ describe("developer API manual", () => {
     expect(page).toContain('<script id="api-reference" type="application/json">');
     expect(page.match(/<\/script>/g)).toHaveLength(2);
   });
+
+  it("escapes a closing script tag that reaches the embedded document", async () => {
+    vi.resetModules();
+    vi.doMock("@/lib/server/environment", () => ({
+      environment: { APP_URL: "https://app.sellbridge.test/</script><b>x", DEVELOPER_EMAILS: [] },
+    }));
+    const docs = await import("./developer-docs.server");
+
+    const page = await docs.developerDocsPageResponse().text();
+
+    expect(page.match(/<\/script>/g)).toHaveLength(2);
+    expect(page).toContain("\\u003c/script>");
+  });
 });
