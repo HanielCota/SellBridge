@@ -145,6 +145,18 @@ export const adminMiddleware = createMiddleware({ type: "function" })
     return next({ context });
   });
 
+/** Requires an account listed in `DEVELOPER_EMAILS`; anyone else gets "not found". */
+export const developerMiddleware = createMiddleware({ type: "function" })
+  .middleware([userFacingErrors])
+  .server(async ({ next }) => {
+    // Imported on use: it reads the server environment, which this shared module and its many
+    // importers must not need just to load.
+    const { requireDeveloperSession } =
+      await import("@/features/developer-api/developer-session.server");
+    const context = await requireDeveloperSession(getRequestHeaders());
+    return next({ context });
+  });
+
 /** Requires a member of the support team with `permission`; injects `userId` and `role`. */
 export function staffMiddleware(permission: StaffPermission) {
   return createMiddleware({ type: "function" })

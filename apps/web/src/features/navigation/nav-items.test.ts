@@ -8,6 +8,7 @@ import {
   NAV_ITEMS,
   SUPPLIER_NAV_ITEMS,
   SUPPORT_NAV_ITEM,
+  teamNavItems,
 } from "./nav-items";
 
 // MVP: sellers sell only supplier products, so their own-product page leaves the menu.
@@ -177,5 +178,19 @@ describe("active tab", () => {
   it("lights a tab for the sections that live under it and nothing elsewhere", () => {
     expect(activeNavItemTo(NAV_ITEMS, "/fornecedores/abc")).toBe("/fornecedores");
     expect(activeNavItemTo(NAV_ITEMS, "/conta")).toBeNull();
+  });
+});
+
+describe("teamNavItems", () => {
+  it("shows the developer tab to a listed developer", () => {
+    const items = teamNavItems("admin", true);
+
+    expect(items.some((item) => item.to === "/desenvolvedor")).toBe(true);
+  });
+
+  it("hides the developer tab from an admin who is not a listed developer", () => {
+    const items = teamNavItems("admin", false);
+
+    expect(items.some((item) => item.to === "/desenvolvedor")).toBe(false);
   });
 });

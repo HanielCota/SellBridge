@@ -21,6 +21,7 @@ import { Route as AppAdminRouteRouteImport } from './routes/_app/admin/route'
 import { Route as AppAssinaturaRouteImport } from './routes/_app/assinatura'
 import { Route as AppCatalogoRouteImport } from './routes/_app/catalogo'
 import { Route as AppDashboardRouteImport } from './routes/_app/dashboard'
+import { Route as AppDesenvolvedorRouteImport } from './routes/_app/desenvolvedor'
 import { Route as AppFinanceiroRouteImport } from './routes/_app/financeiro'
 import { Route as AppFornecedoresRouteRouteImport } from './routes/_app/fornecedores/route'
 import { Route as AppIntegracoesRouteImport } from './routes/_app/integracoes'
@@ -112,6 +113,7 @@ import { Route as ApiAdminExportarAuditoriaRouteImport } from './routes/api/admi
 import { Route as ApiAdminExportarChamadosRouteImport } from './routes/api/admin/exportar/chamados'
 import { Route as ApiAdminExportarClientesRouteImport } from './routes/api/admin/exportar/clientes'
 import { Route as ApiAdminExportarEquipeRouteImport } from './routes/api/admin/exportar/equipe'
+import { Route as ApiDevV1MeRouteImport } from './routes/api/dev/v1/me'
 import { Route as ApiDevolucoesClaimIdMotivoRouteImport } from './routes/api/devolucoes/$claimId/motivo'
 import { Route as ApiDevolucoesClaimIdRespostaRouteImport } from './routes/api/devolucoes/$claimId/resposta'
 import { Route as ApiDevolucoesFotosPhotoIdRouteImport } from './routes/api/devolucoes/fotos/$photoId'
@@ -208,6 +210,11 @@ const AppCatalogoRoute = AppCatalogoRouteImport.update({
 const AppDashboardRoute = AppDashboardRouteImport.update({
   id: '/dashboard',
   path: '/dashboard',
+  getParentRoute: () => AppRouteRoute,
+} as any)
+const AppDesenvolvedorRoute = AppDesenvolvedorRouteImport.update({
+  id: '/desenvolvedor',
+  path: '/desenvolvedor',
   getParentRoute: () => AppRouteRoute,
 } as any)
 const AppFinanceiroRoute = AppFinanceiroRouteImport.update({
@@ -692,6 +699,11 @@ const ApiAdminExportarEquipeRoute = ApiAdminExportarEquipeRouteImport.update({
   path: '/api/admin/exportar/equipe',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiDevV1MeRoute = ApiDevV1MeRouteImport.update({
+  id: '/api/dev/v1/me',
+  path: '/api/dev/v1/me',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ApiDevolucoesClaimIdMotivoRoute =
   ApiDevolucoesClaimIdMotivoRouteImport.update({
     id: '/api/devolucoes/$claimId/motivo',
@@ -933,6 +945,7 @@ export interface FileRoutesByFullPath {
   '/assinatura': typeof AppAssinaturaRoute
   '/catalogo': typeof AppCatalogoRoute
   '/dashboard': typeof AppDashboardRoute
+  '/desenvolvedor': typeof AppDesenvolvedorRoute
   '/financeiro': typeof AppFinanceiroRoute
   '/integracoes': typeof AppIntegracoesRoute
   '/lojas': typeof AppLojasRoute
@@ -1017,6 +1030,7 @@ export interface FileRoutesByFullPath {
   '/api/admin/exportar/chamados': typeof ApiAdminExportarChamadosRoute
   '/api/admin/exportar/clientes': typeof ApiAdminExportarClientesRoute
   '/api/admin/exportar/equipe': typeof ApiAdminExportarEquipeRoute
+  '/api/dev/v1/me': typeof ApiDevV1MeRoute
   '/api/devolucoes/$claimId/motivo': typeof ApiDevolucoesClaimIdMotivoRoute
   '/api/devolucoes/$claimId/resposta': typeof ApiDevolucoesClaimIdRespostaRoute
   '/api/devolucoes/fotos/$photoId': typeof ApiDevolucoesFotosPhotoIdRoute
@@ -1074,6 +1088,7 @@ export interface FileRoutesByTo {
   '/assinatura': typeof AppAssinaturaRoute
   '/catalogo': typeof AppCatalogoRoute
   '/dashboard': typeof AppDashboardRoute
+  '/desenvolvedor': typeof AppDesenvolvedorRoute
   '/financeiro': typeof AppFinanceiroRoute
   '/integracoes': typeof AppIntegracoesRoute
   '/lojas': typeof AppLojasRoute
@@ -1155,6 +1170,7 @@ export interface FileRoutesByTo {
   '/api/admin/exportar/chamados': typeof ApiAdminExportarChamadosRoute
   '/api/admin/exportar/clientes': typeof ApiAdminExportarClientesRoute
   '/api/admin/exportar/equipe': typeof ApiAdminExportarEquipeRoute
+  '/api/dev/v1/me': typeof ApiDevV1MeRoute
   '/api/devolucoes/$claimId/motivo': typeof ApiDevolucoesClaimIdMotivoRoute
   '/api/devolucoes/$claimId/resposta': typeof ApiDevolucoesClaimIdRespostaRoute
   '/api/devolucoes/fotos/$photoId': typeof ApiDevolucoesFotosPhotoIdRoute
@@ -1216,6 +1232,7 @@ export interface FileRoutesById {
   '/_app/assinatura': typeof AppAssinaturaRoute
   '/_app/catalogo': typeof AppCatalogoRoute
   '/_app/dashboard': typeof AppDashboardRoute
+  '/_app/desenvolvedor': typeof AppDesenvolvedorRoute
   '/_app/financeiro': typeof AppFinanceiroRoute
   '/_app/integracoes': typeof AppIntegracoesRoute
   '/_app/lojas': typeof AppLojasRoute
@@ -1300,6 +1317,7 @@ export interface FileRoutesById {
   '/api/admin/exportar/chamados': typeof ApiAdminExportarChamadosRoute
   '/api/admin/exportar/clientes': typeof ApiAdminExportarClientesRoute
   '/api/admin/exportar/equipe': typeof ApiAdminExportarEquipeRoute
+  '/api/dev/v1/me': typeof ApiDevV1MeRoute
   '/api/devolucoes/$claimId/motivo': typeof ApiDevolucoesClaimIdMotivoRoute
   '/api/devolucoes/$claimId/resposta': typeof ApiDevolucoesClaimIdRespostaRoute
   '/api/devolucoes/fotos/$photoId': typeof ApiDevolucoesFotosPhotoIdRoute
@@ -1360,6 +1378,7 @@ export interface FileRouteTypes {
     | '/assinatura'
     | '/catalogo'
     | '/dashboard'
+    | '/desenvolvedor'
     | '/financeiro'
     | '/integracoes'
     | '/lojas'
@@ -1444,6 +1463,7 @@ export interface FileRouteTypes {
     | '/api/admin/exportar/chamados'
     | '/api/admin/exportar/clientes'
     | '/api/admin/exportar/equipe'
+    | '/api/dev/v1/me'
     | '/api/devolucoes/$claimId/motivo'
     | '/api/devolucoes/$claimId/resposta'
     | '/api/devolucoes/fotos/$photoId'
@@ -1501,6 +1521,7 @@ export interface FileRouteTypes {
     | '/assinatura'
     | '/catalogo'
     | '/dashboard'
+    | '/desenvolvedor'
     | '/financeiro'
     | '/integracoes'
     | '/lojas'
@@ -1582,6 +1603,7 @@ export interface FileRouteTypes {
     | '/api/admin/exportar/chamados'
     | '/api/admin/exportar/clientes'
     | '/api/admin/exportar/equipe'
+    | '/api/dev/v1/me'
     | '/api/devolucoes/$claimId/motivo'
     | '/api/devolucoes/$claimId/resposta'
     | '/api/devolucoes/fotos/$photoId'
@@ -1642,6 +1664,7 @@ export interface FileRouteTypes {
     | '/_app/assinatura'
     | '/_app/catalogo'
     | '/_app/dashboard'
+    | '/_app/desenvolvedor'
     | '/_app/financeiro'
     | '/_app/integracoes'
     | '/_app/lojas'
@@ -1726,6 +1749,7 @@ export interface FileRouteTypes {
     | '/api/admin/exportar/chamados'
     | '/api/admin/exportar/clientes'
     | '/api/admin/exportar/equipe'
+    | '/api/dev/v1/me'
     | '/api/devolucoes/$claimId/motivo'
     | '/api/devolucoes/$claimId/resposta'
     | '/api/devolucoes/fotos/$photoId'
@@ -1811,6 +1835,7 @@ export interface RootRouteChildren {
   ApiAdminExportarChamadosRoute: typeof ApiAdminExportarChamadosRoute
   ApiAdminExportarClientesRoute: typeof ApiAdminExportarClientesRoute
   ApiAdminExportarEquipeRoute: typeof ApiAdminExportarEquipeRoute
+  ApiDevV1MeRoute: typeof ApiDevV1MeRoute
   ApiDevolucoesClaimIdMotivoRoute: typeof ApiDevolucoesClaimIdMotivoRoute
   ApiDevolucoesClaimIdRespostaRoute: typeof ApiDevolucoesClaimIdRespostaRoute
   ApiDevolucoesFotosPhotoIdRoute: typeof ApiDevolucoesFotosPhotoIdRoute
@@ -1931,6 +1956,13 @@ declare module '@tanstack/react-router' {
       path: '/dashboard'
       fullPath: '/dashboard'
       preLoaderRoute: typeof AppDashboardRouteImport
+      parentRoute: typeof AppRouteRoute
+    }
+    '/_app/desenvolvedor': {
+      id: '/_app/desenvolvedor'
+      path: '/desenvolvedor'
+      fullPath: '/desenvolvedor'
+      preLoaderRoute: typeof AppDesenvolvedorRouteImport
       parentRoute: typeof AppRouteRoute
     }
     '/_app/financeiro': {
@@ -2570,6 +2602,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiAdminExportarEquipeRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/dev/v1/me': {
+      id: '/api/dev/v1/me'
+      path: '/api/dev/v1/me'
+      fullPath: '/api/dev/v1/me'
+      preLoaderRoute: typeof ApiDevV1MeRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/devolucoes/$claimId/motivo': {
       id: '/api/devolucoes/$claimId/motivo'
       path: '/api/devolucoes/$claimId/motivo'
@@ -2981,6 +3020,7 @@ interface AppRouteRouteChildren {
   AppAssinaturaRoute: typeof AppAssinaturaRoute
   AppCatalogoRoute: typeof AppCatalogoRoute
   AppDashboardRoute: typeof AppDashboardRoute
+  AppDesenvolvedorRoute: typeof AppDesenvolvedorRoute
   AppFinanceiroRoute: typeof AppFinanceiroRoute
   AppIntegracoesRoute: typeof AppIntegracoesRoute
   AppLojasRoute: typeof AppLojasRoute
@@ -3012,6 +3052,7 @@ const AppRouteRouteChildren: AppRouteRouteChildren = {
   AppAssinaturaRoute: AppAssinaturaRoute,
   AppCatalogoRoute: AppCatalogoRoute,
   AppDashboardRoute: AppDashboardRoute,
+  AppDesenvolvedorRoute: AppDesenvolvedorRoute,
   AppFinanceiroRoute: AppFinanceiroRoute,
   AppIntegracoesRoute: AppIntegracoesRoute,
   AppLojasRoute: AppLojasRoute,
@@ -3113,6 +3154,7 @@ const rootRouteChildren: RootRouteChildren = {
   ApiAdminExportarChamadosRoute: ApiAdminExportarChamadosRoute,
   ApiAdminExportarClientesRoute: ApiAdminExportarClientesRoute,
   ApiAdminExportarEquipeRoute: ApiAdminExportarEquipeRoute,
+  ApiDevV1MeRoute: ApiDevV1MeRoute,
   ApiDevolucoesClaimIdMotivoRoute: ApiDevolucoesClaimIdMotivoRoute,
   ApiDevolucoesClaimIdRespostaRoute: ApiDevolucoesClaimIdRespostaRoute,
   ApiDevolucoesFotosPhotoIdRoute: ApiDevolucoesFotosPhotoIdRoute,

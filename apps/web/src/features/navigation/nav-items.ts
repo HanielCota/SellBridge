@@ -1,5 +1,5 @@
 import type { ProfileKind } from "@sellbridge/shared/profile-kind";
-import type { StaffPermission } from "@sellbridge/shared/staff-access";
+import { hasStaffPermission, type StaffPermission } from "@sellbridge/shared/staff-access";
 import type { LinkProps } from "@tanstack/react-router";
 
 /** Counters shown next to a tab when something there needs attention. */
@@ -145,6 +145,21 @@ export const ADMIN_NAV_ITEMS: NavItem[] = [
     group: "Moderação",
   },
 ];
+
+/** Only for accounts in DEVELOPER_EMAILS; nobody else gets the tab or the page. */
+export const DEVELOPER_NAV_ITEM: NavItem = {
+  label: "Desenvolvedor",
+  to: "/desenvolvedor",
+  group: "Equipe",
+};
+
+/** The team tabs the role may use, plus the developer tab for listed developers only. */
+export function teamNavItems(role: string, isDeveloper: boolean): NavItem[] {
+  const staffItems = ADMIN_NAV_ITEMS.filter(
+    (item) => item.permission === undefined || hasStaffPermission(role, item.permission),
+  );
+  return isDeveloper ? [...staffItems, DEVELOPER_NAV_ITEM] : staffItems;
+}
 
 /** Support sits at the foot of the menu for every profile, under its own pages. */
 export const SUPPORT_NAV_ITEM: NavItem = {

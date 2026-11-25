@@ -172,6 +172,7 @@ function AppLayout() {
     profiles: session.profiles,
     teamOnly: session.teamOnly,
     buyerQuestionsEnabled: session.buyerQuestionsEnabled,
+    isDeveloper: session.isDeveloper,
   });
   return (
     <div className="min-h-svh bg-background">

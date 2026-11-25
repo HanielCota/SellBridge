@@ -87,6 +87,19 @@ const serverEnvironmentShape = z.object({
         .map((email) => email.trim().toLowerCase())
         .filter((email) => email.length > 0),
     ),
+  /**
+   * Accounts allowed to open the hidden "Chaves de desenvolvedor" page and use developer keys.
+   * Comma-separated; empty turns the developer API off for everyone, admins included.
+   */
+  DEVELOPER_EMAILS: z
+    .string()
+    .default("")
+    .transform((value) =>
+      value
+        .split(",")
+        .map((email) => email.trim().toLowerCase())
+        .filter((email) => email.length > 0),
+    ),
   LOG_LEVEL: logLevelEnvironmentSchema,
   ALERT_WEBHOOK_URL: alertWebhookUrlEnvironmentSchema,
   /**

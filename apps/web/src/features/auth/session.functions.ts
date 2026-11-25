@@ -5,6 +5,7 @@ import { z } from "zod";
 import { hasAcceptedTerms } from "@sellbridge/database/repositories";
 import type { ProfileKind } from "@sellbridge/shared/profile-kind";
 import { isTeamModeOn, isTeamOnlyAccount } from "@/features/auth/team-mode";
+import { isDeveloperSession } from "@/features/developer-api/developer-access";
 import { TERMS_VERSION } from "@sellbridge/shared/terms";
 import { auth, isGoogleSignInEnabled } from "@/lib/server/auth";
 import { buyerQuestionsEnabled } from "@/lib/server/buyer-questions-switch";
@@ -77,6 +78,8 @@ export interface AppSession {
   contract: SessionContract;
   /** The "Perguntas" page is on (BUYER_QUESTIONS_ENABLED): the menu shows it. */
   buyerQuestionsEnabled: boolean;
+  /** Listed in DEVELOPER_EMAILS: the team bar shows the hidden developer keys page. */
+  isDeveloper: boolean;
 }
 
 export const getAppSession = createServerFn({ method: "GET" }).handler(
@@ -113,6 +116,17 @@ export const getAppSession = createServerFn({ method: "GET" }).handler(
       termsAccepted,
       contract,
       buyerQuestionsEnabled: buyerQuestionsEnabled(),
+      isDeveloper: isDeveloperSession(
+        {
+          account: {
+            email: session.user.email,
+            emailVerified: session.user.emailVerified,
+            banned: session.user.banned === true,
+          },
+          impersonatedBy: session.session.impersonatedBy ?? null,
+        },
+        environment.DEVELOPER_EMAILS,
+      ),
     };
   },
 );
