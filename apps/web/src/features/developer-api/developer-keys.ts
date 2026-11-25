@@ -68,3 +68,7 @@ export function developerKeyStatus(
 
 /** A key as the page shows it, with its status decided by the server's clock. */
 export type DeveloperKeyView = DeveloperApiKeySummary & { status: DeveloperKeyStatus };
+
+export function developerKeyCurlExample(origin: string, secret: string): string {
+  return `curl ${origin}/api/dev/v1/me -H "Authorization: Bearer ${secret}"`;
+}
