@@ -31,6 +31,7 @@ export interface DeveloperEndpoint<TParams extends z.ZodType, TQuery extends z.Z
     caller: DeveloperCaller;
     params: z.output<TParams>;
     query: z.output<TQuery>;
+    requestId: string;
     now: Date;
   }) => Promise<unknown>;
 }
@@ -96,6 +97,7 @@ async function run<TParams extends z.ZodType, TQuery extends z.ZodType>(
       caller,
       params: params.value,
       query: query.value,
+      requestId: base.requestId,
       now: base.now,
     });
     const path = new URL(input.request.url).pathname;
