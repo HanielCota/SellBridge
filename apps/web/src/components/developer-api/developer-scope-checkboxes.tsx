@@ -2,6 +2,7 @@ import {
   DEVELOPER_SCOPE_LABELS,
   DEVELOPER_SCOPES,
   type DeveloperScope,
+  ENTRY_LINK_SCOPE,
   PERSONAL_DATA_REQUIRES,
   PERSONAL_DATA_SCOPE,
 } from "@sellbridge/shared/developer-api";
@@ -9,7 +10,9 @@ import { firstErrorMessage } from "@/components/form/form-field";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
 
-const DATA_SCOPES = DEVELOPER_SCOPES.filter((scope) => scope !== PERSONAL_DATA_SCOPE);
+const DATA_SCOPES = DEVELOPER_SCOPES.filter(
+  (scope) => scope !== PERSONAL_DATA_SCOPE && scope !== ENTRY_LINK_SCOPE,
+);
 
 interface DeveloperScopeCheckboxesProps {
   value: readonly DeveloperScope[];
@@ -76,7 +79,10 @@ function ScopeOption({
   );
 }
 
-/** What the key may read, with the buyer's personal data as its own separate choice. */
+/**
+ * What the key may read, with the buyer's personal data and the one thing it may create (entry
+ * links) as separate choices.
+ */
 export function DeveloperScopeCheckboxes({
   value,
   errors,
@@ -114,6 +120,17 @@ export function DeveloperScopeCheckboxes({
           }
           onCheckedChange={(checked) =>
             onChange(toggledDeveloperScopes(value, PERSONAL_DATA_SCOPE, checked))
+          }
+        />
+      </div>
+      <div className="grid gap-3 rounded-2xl bg-muted/60 p-4">
+        <p className="text-footnote text-muted-foreground">O que a chave pode criar</p>
+        <ScopeOption
+          scope={ENTRY_LINK_SCOPE}
+          checked={value.includes(ENTRY_LINK_SCOPE)}
+          hint="Marque só se o outro projeto manda pessoas para o SellBridge. O link leva ao cadastro ou à entrada com os produtos escolhidos; não muda nada nas contas."
+          onCheckedChange={(checked) =>
+            onChange(toggledDeveloperScopes(value, ENTRY_LINK_SCOPE, checked))
           }
         />
       </div>

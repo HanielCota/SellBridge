@@ -1,5 +1,10 @@
 import { describe, expect, it } from "vitest";
-import { DEVELOPER_SCOPE_LABELS, developerScopesSchema, knownDeveloperScopes } from "./scopes.ts";
+import {
+  DEFAULT_DEVELOPER_SCOPES,
+  DEVELOPER_SCOPE_LABELS,
+  developerScopesSchema,
+  knownDeveloperScopes,
+} from "./scopes.ts";
 
 describe("developerScopesSchema", () => {
   it("accepts orders with the buyer's personal data", () => {
@@ -44,5 +49,13 @@ describe("knownDeveloperScopes", () => {
 describe("DEVELOPER_SCOPE_LABELS", () => {
   it("warns on the support option that messages may carry personal data", () => {
     expect(DEVELOPER_SCOPE_LABELS["support:read"]).toContain("dados pessoais");
+  });
+});
+
+describe("DEFAULT_DEVELOPER_SCOPES", () => {
+  it("leaves entry links and the buyer's address unticked", () => {
+    expect(DEFAULT_DEVELOPER_SCOPES).not.toContain("links:create");
+    expect(DEFAULT_DEVELOPER_SCOPES).not.toContain("buyers:personal");
+    expect(DEFAULT_DEVELOPER_SCOPES).toContain("orders:read");
   });
 });
