@@ -1,7 +1,8 @@
 import { z } from "zod";
 
 /**
- * What a developer key may read, across every organization. The developer ticks them one by
+ * What a developer key may read, across every organization, plus `links:create`, the one thing it
+ * may create: an entry link (decision of 25/11/2026). The developer ticks them one by
  * one when creating the key. `buyers:personal` adds the buyer's shipping address to orders and is
  * never ticked by default (decision of 25/11/2026).
  */
@@ -15,6 +16,7 @@ export const DEVELOPER_SCOPES = [
   "suppliers:read",
   "catalog:read",
   "support:read",
+  "links:create",
 ] as const;
 
 export const developerScopeSchema = z.enum(DEVELOPER_SCOPES);
@@ -30,6 +32,7 @@ export const DEVELOPER_SCOPE_LABELS: Record<DeveloperScope, string> = {
   "suppliers:read": "Fornecedores, produtos e estoque",
   "catalog:read": "Catálogo",
   "support:read": "Chamados de suporte",
+  "links:create": "Criar links que levam uma pessoa ao SellBridge com produtos já escolhidos",
 };
 
 /** Personal buyer data only makes sense on top of orders, so it is refused alone. */
