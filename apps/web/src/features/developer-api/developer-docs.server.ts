@@ -64,7 +64,7 @@ export function buildDeveloperOpenApiDocument() {
 
 /** `<` would let the document close the script tag it is embedded in. */
 function embeddable(document: unknown): string {
-  return JSON.stringify(document).replaceAll("<", "\u003c");
+  return JSON.stringify(document).replaceAll("<", "\\u003c");
 }
 
 /**
