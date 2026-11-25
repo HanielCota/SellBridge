@@ -1,7 +1,8 @@
 import { z } from "zod";
 
 /**
- * What a developer key may read, across every organization. The developer ticks them one by
+ * What a developer key may read, across every organization, plus `links:create`, the one thing it
+ * may create: an entry link (decision of 25/11/2026). The developer ticks them one by
  * one when creating the key. `buyers:personal` adds the buyer's shipping address to orders and is
  * never ticked by default (decision of 25/11/2026).
  */
@@ -15,6 +16,7 @@ export const DEVELOPER_SCOPES = [
   "suppliers:read",
   "catalog:read",
   "support:read",
+  "links:create",
 ] as const;
 
 export const developerScopeSchema = z.enum(DEVELOPER_SCOPES);
@@ -31,11 +33,20 @@ export const DEVELOPER_SCOPE_LABELS: Record<DeveloperScope, string> = {
   "catalog:read": "Catálogo",
   "support:read":
     "Chamados de suporte (as mensagens podem ter dados pessoais que o comprador colou)",
+  "links:create": "Criar links que levam uma pessoa ao SellBridge com produtos já escolhidos",
 };
+
+/** The one scope that creates something (an entry link); never ticked by default. */
+export const ENTRY_LINK_SCOPE: DeveloperScope = "links:create";
 
 /** Personal buyer data only makes sense on top of orders, so it is refused alone. */
 export const PERSONAL_DATA_SCOPE: DeveloperScope = "buyers:personal";
 export const PERSONAL_DATA_REQUIRES: DeveloperScope = "orders:read";
+
+/** Ticked when the form opens: every read but the buyer's personal data, and no entry links. */
+export const DEFAULT_DEVELOPER_SCOPES: readonly DeveloperScope[] = DEVELOPER_SCOPES.filter(
+  (scope) => scope !== PERSONAL_DATA_SCOPE && scope !== ENTRY_LINK_SCOPE,
+);
 
 /** The scopes of a key, without repeats; personal data without orders is refused. */
 export const developerScopesSchema = z

@@ -17,4 +17,15 @@ describe("DeveloperScopeCheckboxes", () => {
     expect(withOrders).not.toContain("CPF");
     expect(withoutOrders).toContain("endereço de entrega");
   });
+
+  it("shows entry links in their own block about what the key creates", () => {
+    const markup = render(["stores:read"]);
+
+    const createBlock = markup.slice(markup.indexOf("O que a chave pode criar"));
+    expect(markup.indexOf("O que a chave pode criar")).toBeGreaterThan(-1);
+    expect(createBlock).toContain("links:create");
+    expect(markup.slice(0, markup.indexOf("O que a chave pode criar"))).not.toContain(
+      "links:create",
+    );
+  });
 });

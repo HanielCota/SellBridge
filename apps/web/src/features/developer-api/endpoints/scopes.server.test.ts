@@ -9,6 +9,7 @@ const reads = await import("./organization-reads.server");
 const orders = await import("./orders.server");
 const suppliers = await import("./suppliers.server");
 const tickets = await import("./tickets.server");
+const entryLinks = await import("./entry-links.server");
 
 describe("developer endpoint scopes", () => {
   it.each([
@@ -26,6 +27,7 @@ describe("developer endpoint scopes", () => {
     [suppliers.listDeveloperSupplierProducts, "suppliers:read"],
     [tickets.listDeveloperTickets, "support:read"],
     [tickets.getDeveloperTicket, "support:read"],
+    [entryLinks.createDeveloperEntryLinkEndpoint, "links:create"],
   ])("%# asks for the scope of the data it returns", (endpoint, scope) => {
     const declared = endpoint.scope;
 

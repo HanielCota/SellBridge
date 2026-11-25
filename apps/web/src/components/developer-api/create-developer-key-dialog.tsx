@@ -1,4 +1,4 @@
-import { DEVELOPER_SCOPES, PERSONAL_DATA_SCOPE } from "@sellbridge/shared/developer-api";
+import { DEFAULT_DEVELOPER_SCOPES } from "@sellbridge/shared/developer-api";
 import { useForm } from "@tanstack/react-form";
 import { useState } from "react";
 import { toast } from "sonner";
@@ -32,10 +32,9 @@ import {
 import { useCreateDeveloperKey } from "@/features/developer-api/use-create-developer-key";
 import { errorMessage } from "@/lib/errors";
 
-/** Everything but the buyer's personal data, which is always a deliberate extra tick. */
 const DEFAULT_VALUES: DeveloperKeyFormValues = {
   name: "",
-  scopes: DEVELOPER_SCOPES.filter((scope) => scope !== PERSONAL_DATA_SCOPE),
+  scopes: [...DEFAULT_DEVELOPER_SCOPES],
   validity: "90",
 };
 
@@ -194,7 +193,7 @@ export function CreateDeveloperKeyDialog({
           </DialogTitle>
           <DialogDescription>
             {secret === null
-              ? "A chave lê os dados de todas as organizações, só nos tipos que você marcar. Ela só lê: não muda nada."
+              ? "A chave lê os dados de todas as organizações, só nos tipos que você marcar, e nunca muda os dados delas. Se você marcar, ela também cria links de entrada."
               : "Use esta chave no cabeçalho Authorization das chamadas a /api/dev/v1."}
           </DialogDescription>
         </DialogHeader>

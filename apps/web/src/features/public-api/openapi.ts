@@ -16,12 +16,15 @@ export interface OpenApiSettings<TScope extends string> {
   title: string;
   bearerFormat: string;
   scopeLabel: (scope: TScope) => string;
+  /** Whether POST operations take an `Idempotency-Key` header. */
+  idempotentPosts: boolean;
 }
 
 export const PUBLIC_API_SETTINGS: OpenApiSettings<PublicScope> = {
   title: "SellBridge API",
   bearerFormat: "sb_live_...",
   scopeLabel: (scope) => API_SCOPE_LABELS[scope],
+  idempotentPosts: true,
 };
 
 function toSchema(schema: z.ZodType, io: "input" | "output"): JsonSchema {
@@ -78,13 +81,17 @@ const IDEMPOTENCY_HEADER = {
 
 const problemResponse = { $ref: "#/components/responses/Problem" };
 
-function errorResponses(operation: Pick<ApiOperation, "params" | "method">) {
+function errorResponses(
+  operation: Pick<ApiOperation, "params" | "method">,
+  idempotentPosts: boolean,
+) {
+  const needsKey = idempotentPosts && requiresIdempotencyKey(operation);
   return {
     "400": problemResponse,
     "401": problemResponse,
     "403": problemResponse,
     ...(parametersOf(operation.params, "path").length > 0 ? { "404": problemResponse } : {}),
-    ...(requiresIdempotencyKey(operation) ? { "409": problemResponse } : {}),
+    ...(needsKey ? { "409": problemResponse } : {}),
     "422": problemResponse,
     "429": problemResponse,
   };
@@ -92,17 +99,18 @@ function errorResponses(operation: Pick<ApiOperation, "params" | "method">) {
 
 function operationObject<TScope extends string>(
   operation: DocumentedOperation<TScope>,
-  scopeLabel: (scope: TScope) => string,
+  settings: OpenApiSettings<TScope>,
 ) {
+  const needsKey = settings.idempotentPosts && requiresIdempotencyKey(operation);
   const parameters = [
     ...parametersOf(operation.params, "path"),
     ...parametersOf(operation.query, "query"),
-    ...(requiresIdempotencyKey(operation) ? [IDEMPOTENCY_HEADER] : []),
+    ...(needsKey ? [IDEMPOTENCY_HEADER] : []),
   ];
   const scopeNote =
     operation.scope === null
       ? "Qualquer chave válida."
-      : `Escopo: \`${operation.scope}\` (${scopeLabel(operation.scope)}).`;
+      : `Escopo: \`${operation.scope}\` (${settings.scopeLabel(operation.scope)}).`;
   return {
     operationId: operation.operationId,
     tags: [operation.tag],
@@ -122,7 +130,7 @@ function operationObject<TScope extends string>(
         description: "Sucesso",
         content: { "application/json": { schema: toSchema(operation.response, "output") } },
       },
-      ...errorResponses(operation),
+      ...errorResponses(operation, settings.idempotentPosts),
     },
   };
 }
@@ -160,7 +168,7 @@ export function buildOpenApiDocument<TScope extends string>(input: {
   for (const operation of input.operations) {
     paths[operation.path] = {
       ...paths[operation.path],
-      [operation.method.toLowerCase()]: operationObject(operation, settings.scopeLabel),
+      [operation.method.toLowerCase()]: operationObject(operation, settings),
     };
   }
   return {

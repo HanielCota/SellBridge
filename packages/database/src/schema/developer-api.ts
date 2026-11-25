@@ -10,7 +10,8 @@ import {
   uniqueIndex,
   uuid,
 } from "drizzle-orm/pg-core";
-import { user } from "./auth.ts";
+import { organization, user } from "./auth.ts";
+import { suppliers } from "./suppliers.ts";
 
 /**
  * Keys the SellBridge developers use to read data across every organization from other
@@ -76,5 +77,38 @@ export const developerApiRequests = pgTable(
   (table) => [
     index("developer_api_requests_key_idx").on(table.keyId, table.createdAt),
     index("developer_api_requests_organization_idx").on(table.organizationId, table.createdAt),
+  ],
+);
+
+/**
+ * A one-time link another project hands a person to continue in SellBridge with a supplier and
+ * products already chosen. The URL carries only a random token, stored as its SHA-256. The first
+ * click spends the token and hands the browser a choice secret (stored as its SHA-256 too); the
+ * first signed-in account to show that secret claims the choice, and no one else can afterwards.
+ */
+export const developerEntryLinks = pgTable(
+  "developer_entry_links",
+  {
+    id: uuid().primaryKey().defaultRandom(),
+    tokenHash: text().notNull(),
+    keyId: uuid()
+      .notNull()
+      .references(() => developerApiKeys.id, { onDelete: "cascade" }),
+    supplierId: uuid()
+      .notNull()
+      .references(() => suppliers.id, { onDelete: "cascade" }),
+    productIds: uuid().array().notNull(),
+    expiresAt: timestamp({ withTimezone: true }).notNull(),
+    consumedAt: timestamp({ withTimezone: true }),
+    choiceHash: text(),
+    claimedAt: timestamp({ withTimezone: true }),
+    claimedByUserId: text().references(() => user.id, { onDelete: "set null" }),
+    claimedTenantId: text().references(() => organization.id, { onDelete: "cascade" }),
+    createdAt: timestamp({ withTimezone: true }).defaultNow().notNull(),
+  },
+  (table) => [
+    uniqueIndex("developer_entry_links_token_hash_idx").on(table.tokenHash),
+    uniqueIndex("developer_entry_links_choice_hash_idx").on(table.choiceHash),
+    index("developer_entry_links_key_idx").on(table.keyId, table.createdAt),
   ],
 );
