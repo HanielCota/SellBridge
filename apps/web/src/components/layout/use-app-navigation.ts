@@ -9,12 +9,7 @@ import {
   attentionCountsQueryOptions,
   openTicketCountQueryOptions,
 } from "@/features/navigation/navigation.queries";
-import {
-  ADMIN_NAV_ITEMS,
-  NAV_ITEMS,
-  type NavItem,
-  switchedOnItems,
-} from "@/features/navigation/nav-items";
+import { NAV_ITEMS, switchedOnItems, teamNavItems } from "@/features/navigation/nav-items";
 import { adminProfileSections, isCurrentSection } from "@/features/navigation/profile-sections";
 import { myUnreadConversationsQueryOptions } from "@/features/supplier-support/supplier-support.queries";
 import type { AppNavigation } from "./nav-list";
@@ -65,19 +60,20 @@ interface NavigationInput {
   teamOnly: boolean;
   /** Switched-off pages (`NavItem.feature`) stay out of the menu. */
   buyerQuestionsEnabled: boolean;
-}
-
-function teamItemsFor(role: string): NavItem[] {
-  return ADMIN_NAV_ITEMS.filter(
-    (item) => item.permission === undefined || hasStaffPermission(role, item.permission),
-  );
+  /** Listed in DEVELOPER_EMAILS: the team pages include the developer keys page. */
+  isDeveloper: boolean;
 }
 
 /** The menu's items; team mode adds the team's and lets the admin switch profiles. */
 function navigationFor(input: NavigationInput): AppNavigation {
   const { user, adminMode, profileKind, profiles, teamOnly } = input;
   if (teamOnly) {
-    return { profileItems: [], profileSections: [], teamItems: teamItemsFor(user.role), teamOnly };
+    return {
+      profileItems: [],
+      profileSections: [],
+      teamItems: teamNavItems(user.role, input.isDeveloper),
+      teamOnly,
+    };
   }
   const sections = adminProfileSections(profileKind, profiles).map((section) => ({
     ...section,
@@ -90,7 +86,7 @@ function navigationFor(input: NavigationInput): AppNavigation {
     return {
       profileItems,
       profileSections: sections,
-      teamItems: teamItemsFor(user.role),
+      teamItems: teamNavItems(user.role, input.isDeveloper),
       teamOnly,
     };
   }
