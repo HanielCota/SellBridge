@@ -30,8 +30,8 @@ export function parseMarginPercent(percent: string): PriceRule | null {
  * validated with the same schema the server applies; while it is invalid the preview falls back
  * to the default margin and the rule cannot be submitted.
  */
-export function usePriceRuleDraft() {
-  const [kind, setKind] = useState<"margin" | "suggested">("margin");
+export function usePriceRuleDraft(initialKind: "margin" | "suggested" = "margin") {
+  const [kind, setKind] = useState<"margin" | "suggested">(initialKind);
   const [percent, setPercent] = useState(String(DEFAULT_MARGIN_PERCENT));
   const margin = parseMarginPercent(percent);
   const percentValid = margin !== null;

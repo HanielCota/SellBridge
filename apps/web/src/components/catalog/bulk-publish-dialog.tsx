@@ -130,19 +130,34 @@ function PublishFooter({
   );
 }
 
+/** How the review opens; without it every store is ticked and the price is a margin. */
+export interface BulkPublishStart {
+  /** Ticked among the eligible stores; ids of other stores are ignored. */
+  storeIds: ReadonlySet<string>;
+  priceKind: "margin" | "suggested";
+}
+
+function startingStoreIds(
+  stores: readonly PublishStore[],
+  start: BulkPublishStart | undefined,
+): ReadonlySet<string> {
+  const ticked = stores.filter((store) => start === undefined || start.storeIds.has(store.id));
+  return new Set(ticked.map((store) => store.id));
+}
+
 function BulkPublishForm({
   products,
   stores,
+  start,
   onPublished,
 }: {
   products: SellableCatalogProduct[];
   stores: PublishStore[];
+  start: BulkPublishStart | undefined;
   onPublished: (batch: PublishedBatch) => void;
 }) {
-  const [storeIds, setStoreIds] = useState<ReadonlySet<string>>(
-    new Set(stores.map((store) => store.id)),
-  );
-  const draft = usePriceRuleDraft();
+  const [storeIds, setStoreIds] = useState(() => startingStoreIds(stores, start));
+  const draft = usePriceRuleDraft(start?.priceKind);
   const overrides = usePriceOverrides();
   const mutation = useBulkPublish(onPublished);
   const isMargin = draft.kind === "margin";
@@ -209,12 +224,14 @@ export function BulkPublishDialog({
   onBatchDone,
   products,
   stores,
+  start,
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   onBatchDone?: () => void;
   products: SellableCatalogProduct[];
   stores: PublishStore[];
+  start?: BulkPublishStart;
 }) {
   const [batch, setBatch] = useState<PublishedBatch | null>(null);
   const eligible = storesForProducts(products, stores);
@@ -227,7 +244,7 @@ export function BulkPublishDialog({
   };
   const body =
     batch === null ? (
-      <BulkPublishForm products={products} stores={eligible} onPublished={setBatch} />
+      <BulkPublishForm products={products} stores={eligible} start={start} onPublished={setBatch} />
     ) : (
       <BulkPublishResult batch={batch} onClose={() => changeOpen(false)} />
     );
