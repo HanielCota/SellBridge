@@ -2,7 +2,7 @@ import { notFoundError } from "@sellbridge/shared/errors";
 import { type Pagination, type Paginated, toPaginated } from "@sellbridge/shared/schemas";
 import { and, asc, count, eq } from "drizzle-orm";
 import type { Database } from "../client.ts";
-import { billingAccounts, orders, organization } from "../schema/index.ts";
+import { billingAccounts, orders, organization, suppliers } from "../schema/index.ts";
 
 /** One organization as the developer API reads it: no provider ids, no metadata. */
 export interface DeveloperOrganization {
@@ -82,4 +82,24 @@ export async function findSealedShippingAddress(
     throw notFoundError("Pedido não encontrado");
   }
   return row.sealed;
+}
+
+export type DeveloperSupplier = typeof suppliers.$inferSelect;
+
+/**
+ * Every supplier, the private catalogs sellers keep for themselves included (unlike the admin
+ * list): developers read everything, and the caller marks which ones are private.
+ */
+export async function listSuppliersForDeveloper(
+  database: Database,
+  pagination: Pagination,
+): Promise<Paginated<DeveloperSupplier>> {
+  const [total] = await database.select({ value: count() }).from(suppliers);
+  const items = await database
+    .select()
+    .from(suppliers)
+    .orderBy(asc(suppliers.name), asc(suppliers.id))
+    .limit(pagination.pageSize)
+    .offset((pagination.page - 1) * pagination.pageSize);
+  return toPaginated(items, total?.value ?? 0, pagination);
 }
