@@ -29,7 +29,8 @@ export const DEVELOPER_SCOPE_LABELS: Record<DeveloperScope, string> = {
   "financials:read": "Resumo financeiro por período",
   "suppliers:read": "Fornecedores, produtos e estoque",
   "catalog:read": "Catálogo",
-  "support:read": "Chamados de suporte",
+  "support:read":
+    "Chamados de suporte (as mensagens podem ter dados pessoais que o comprador colou)",
 };
 
 /** Personal buyer data only makes sense on top of orders, so it is refused alone. */

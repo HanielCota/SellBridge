@@ -124,8 +124,10 @@ export const getDeveloperTicket = defineDeveloperEndpoint({
   tag: "Suporte",
   summary: "Ver um chamado com as mensagens",
   description:
-    "O chamado como a organização o vê: as notas internas da equipe não vêm, e os autores vêm só com o nome.",
+    "O chamado como a organização o vê: as notas internas da equipe não vêm, e os autores vêm só com o nome. As mensagens vêm como foram escritas e podem trazer dados pessoais que o comprador colou (endereço, telefone, CPF).",
   scope: "support:read",
+  // Messages are free text and buyers paste their address or CPF into them.
+  sendsPersonalData: () => true,
   params: organizationParamsSchema.extend({ ticketId: z.uuid().describe("Id do chamado.") }),
   query: noInput,
   response: dataEnvelope(ticketThreadSchema),

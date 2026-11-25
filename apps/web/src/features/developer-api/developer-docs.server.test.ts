@@ -60,4 +60,18 @@ describe("developer API manual", () => {
     expect(page).toContain('<script id="api-reference" type="application/json">');
     expect(page.match(/<\/script>/g)).toHaveLength(2);
   });
+
+  it("only runs the manual script when the CDN file is the one that was checked", async () => {
+    const response = developerDocsPageResponse();
+    const page = await response.text();
+
+    expect(page).toMatch(/<script src="[^"]+" integrity="sha384-[^"]+" crossorigin="anonymous">/);
+    expect(response.headers.get("content-security-policy")).toContain(
+      "script-src https://cdn.jsdelivr.net",
+    );
+  });
+
+  it("warns that ticket messages may carry the buyer's personal data", () => {
+    expect(document.info.description).toContain("mensagens dos chamados");
+  });
 });
