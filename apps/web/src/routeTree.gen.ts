@@ -50,6 +50,7 @@ import { Route as AppAdminEquipeRouteImport } from './routes/_app/admin/equipe'
 import { Route as AppAdminProblemasRouteRouteImport } from './routes/_app/admin/problemas/route'
 import { Route as AppAdminProductsRouteImport } from './routes/_app/admin/products'
 import { Route as AppAdminRelatorioRouteImport } from './routes/_app/admin/relatorio'
+import { Route as AppEntrarTokenRouteImport } from './routes/_app/entrar.$token'
 import { Route as AppFinanceiroRelatorioRouteImport } from './routes/_app/financeiro_.relatorio'
 import { Route as AppFornecedorPainelRouteRouteImport } from './routes/_app/fornecedor/painel/route'
 import { Route as AppFornecedoresIndexRouteImport } from './routes/_app/fornecedores/index'
@@ -114,6 +115,7 @@ import { Route as ApiAdminExportarChamadosRouteImport } from './routes/api/admin
 import { Route as ApiAdminExportarClientesRouteImport } from './routes/api/admin/exportar/clientes'
 import { Route as ApiAdminExportarEquipeRouteImport } from './routes/api/admin/exportar/equipe'
 import { Route as ApiDevV1DocsRouteImport } from './routes/api/dev/v1/docs'
+import { Route as ApiDevV1EntryLinksRouteImport } from './routes/api/dev/v1/entry-links'
 import { Route as ApiDevV1MeRouteImport } from './routes/api/dev/v1/me'
 import { Route as ApiDevV1OpenapiDotjsonRouteImport } from './routes/api/dev/v1/openapi[.]json'
 import { Route as ApiDevolucoesClaimIdMotivoRouteImport } from './routes/api/devolucoes/$claimId/motivo'
@@ -372,6 +374,11 @@ const AppAdminRelatorioRoute = AppAdminRelatorioRouteImport.update({
   id: '/relatorio',
   path: '/relatorio',
   getParentRoute: () => AppAdminRouteRoute,
+} as any)
+const AppEntrarTokenRoute = AppEntrarTokenRouteImport.update({
+  id: '/entrar/$token',
+  path: '/entrar/$token',
+  getParentRoute: () => AppRouteRoute,
 } as any)
 const AppFinanceiroRelatorioRoute = AppFinanceiroRelatorioRouteImport.update({
   id: '/financeiro_/relatorio',
@@ -718,6 +725,11 @@ const ApiAdminExportarEquipeRoute = ApiAdminExportarEquipeRouteImport.update({
 const ApiDevV1DocsRoute = ApiDevV1DocsRouteImport.update({
   id: '/api/dev/v1/docs',
   path: '/api/dev/v1/docs',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiDevV1EntryLinksRoute = ApiDevV1EntryLinksRouteImport.update({
+  id: '/api/dev/v1/entry-links',
+  path: '/api/dev/v1/entry-links',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ApiDevV1MeRoute = ApiDevV1MeRouteImport.update({
@@ -1085,6 +1097,7 @@ export interface FileRoutesByFullPath {
   '/admin/equipe': typeof AppAdminEquipeRoute
   '/admin/products': typeof AppAdminProductsRoute
   '/admin/relatorio': typeof AppAdminRelatorioRoute
+  '/entrar/$token': typeof AppEntrarTokenRoute
   '/financeiro/relatorio': typeof AppFinanceiroRelatorioRoute
   '/fornecedores/$supplierId': typeof AppFornecedoresSupplierIdRoute
   '/pedidos/$orderId': typeof AppPedidosOrderIdRoute
@@ -1142,6 +1155,7 @@ export interface FileRoutesByFullPath {
   '/api/admin/exportar/clientes': typeof ApiAdminExportarClientesRoute
   '/api/admin/exportar/equipe': typeof ApiAdminExportarEquipeRoute
   '/api/dev/v1/docs': typeof ApiDevV1DocsRoute
+  '/api/dev/v1/entry-links': typeof ApiDevV1EntryLinksRoute
   '/api/dev/v1/me': typeof ApiDevV1MeRoute
   '/api/dev/v1/openapi.json': typeof ApiDevV1OpenapiDotjsonRoute
   '/api/devolucoes/$claimId/motivo': typeof ApiDevolucoesClaimIdMotivoRoute
@@ -1241,6 +1255,7 @@ export interface FileRoutesByTo {
   '/admin/equipe': typeof AppAdminEquipeRoute
   '/admin/products': typeof AppAdminProductsRoute
   '/admin/relatorio': typeof AppAdminRelatorioRoute
+  '/entrar/$token': typeof AppEntrarTokenRoute
   '/financeiro/relatorio': typeof AppFinanceiroRelatorioRoute
   '/fornecedores/$supplierId': typeof AppFornecedoresSupplierIdRoute
   '/pedidos/$orderId': typeof AppPedidosOrderIdRoute
@@ -1298,6 +1313,7 @@ export interface FileRoutesByTo {
   '/api/admin/exportar/clientes': typeof ApiAdminExportarClientesRoute
   '/api/admin/exportar/equipe': typeof ApiAdminExportarEquipeRoute
   '/api/dev/v1/docs': typeof ApiDevV1DocsRoute
+  '/api/dev/v1/entry-links': typeof ApiDevV1EntryLinksRoute
   '/api/dev/v1/me': typeof ApiDevV1MeRoute
   '/api/dev/v1/openapi.json': typeof ApiDevV1OpenapiDotjsonRoute
   '/api/devolucoes/$claimId/motivo': typeof ApiDevolucoesClaimIdMotivoRoute
@@ -1404,6 +1420,7 @@ export interface FileRoutesById {
   '/_app/admin/equipe': typeof AppAdminEquipeRoute
   '/_app/admin/products': typeof AppAdminProductsRoute
   '/_app/admin/relatorio': typeof AppAdminRelatorioRoute
+  '/_app/entrar/$token': typeof AppEntrarTokenRoute
   '/_app/financeiro_/relatorio': typeof AppFinanceiroRelatorioRoute
   '/_app/fornecedores/$supplierId': typeof AppFornecedoresSupplierIdRoute
   '/_app/pedidos/$orderId': typeof AppPedidosOrderIdRoute
@@ -1461,6 +1478,7 @@ export interface FileRoutesById {
   '/api/admin/exportar/clientes': typeof ApiAdminExportarClientesRoute
   '/api/admin/exportar/equipe': typeof ApiAdminExportarEquipeRoute
   '/api/dev/v1/docs': typeof ApiDevV1DocsRoute
+  '/api/dev/v1/entry-links': typeof ApiDevV1EntryLinksRoute
   '/api/dev/v1/me': typeof ApiDevV1MeRoute
   '/api/dev/v1/openapi.json': typeof ApiDevV1OpenapiDotjsonRoute
   '/api/devolucoes/$claimId/motivo': typeof ApiDevolucoesClaimIdMotivoRoute
@@ -1566,6 +1584,7 @@ export interface FileRouteTypes {
     | '/admin/equipe'
     | '/admin/products'
     | '/admin/relatorio'
+    | '/entrar/$token'
     | '/financeiro/relatorio'
     | '/fornecedores/$supplierId'
     | '/pedidos/$orderId'
@@ -1623,6 +1642,7 @@ export interface FileRouteTypes {
     | '/api/admin/exportar/clientes'
     | '/api/admin/exportar/equipe'
     | '/api/dev/v1/docs'
+    | '/api/dev/v1/entry-links'
     | '/api/dev/v1/me'
     | '/api/dev/v1/openapi.json'
     | '/api/devolucoes/$claimId/motivo'
@@ -1722,6 +1742,7 @@ export interface FileRouteTypes {
     | '/admin/equipe'
     | '/admin/products'
     | '/admin/relatorio'
+    | '/entrar/$token'
     | '/financeiro/relatorio'
     | '/fornecedores/$supplierId'
     | '/pedidos/$orderId'
@@ -1779,6 +1800,7 @@ export interface FileRouteTypes {
     | '/api/admin/exportar/clientes'
     | '/api/admin/exportar/equipe'
     | '/api/dev/v1/docs'
+    | '/api/dev/v1/entry-links'
     | '/api/dev/v1/me'
     | '/api/dev/v1/openapi.json'
     | '/api/devolucoes/$claimId/motivo'
@@ -1884,6 +1906,7 @@ export interface FileRouteTypes {
     | '/_app/admin/equipe'
     | '/_app/admin/products'
     | '/_app/admin/relatorio'
+    | '/_app/entrar/$token'
     | '/_app/financeiro_/relatorio'
     | '/_app/fornecedores/$supplierId'
     | '/_app/pedidos/$orderId'
@@ -1941,6 +1964,7 @@ export interface FileRouteTypes {
     | '/api/admin/exportar/clientes'
     | '/api/admin/exportar/equipe'
     | '/api/dev/v1/docs'
+    | '/api/dev/v1/entry-links'
     | '/api/dev/v1/me'
     | '/api/dev/v1/openapi.json'
     | '/api/devolucoes/$claimId/motivo'
@@ -2043,6 +2067,7 @@ export interface RootRouteChildren {
   ApiAdminExportarClientesRoute: typeof ApiAdminExportarClientesRoute
   ApiAdminExportarEquipeRoute: typeof ApiAdminExportarEquipeRoute
   ApiDevV1DocsRoute: typeof ApiDevV1DocsRoute
+  ApiDevV1EntryLinksRoute: typeof ApiDevV1EntryLinksRoute
   ApiDevV1MeRoute: typeof ApiDevV1MeRoute
   ApiDevV1OpenapiDotjsonRoute: typeof ApiDevV1OpenapiDotjsonRoute
   ApiDevolucoesClaimIdMotivoRoute: typeof ApiDevolucoesClaimIdMotivoRoute
@@ -2383,6 +2408,13 @@ declare module '@tanstack/react-router' {
       fullPath: '/admin/relatorio'
       preLoaderRoute: typeof AppAdminRelatorioRouteImport
       parentRoute: typeof AppAdminRouteRoute
+    }
+    '/_app/entrar/$token': {
+      id: '/_app/entrar/$token'
+      path: '/entrar/$token'
+      fullPath: '/entrar/$token'
+      preLoaderRoute: typeof AppEntrarTokenRouteImport
+      parentRoute: typeof AppRouteRoute
     }
     '/_app/financeiro_/relatorio': {
       id: '/_app/financeiro_/relatorio'
@@ -2830,6 +2862,13 @@ declare module '@tanstack/react-router' {
       path: '/api/dev/v1/docs'
       fullPath: '/api/dev/v1/docs'
       preLoaderRoute: typeof ApiDevV1DocsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/dev/v1/entry-links': {
+      id: '/api/dev/v1/entry-links'
+      path: '/api/dev/v1/entry-links'
+      fullPath: '/api/dev/v1/entry-links'
+      preLoaderRoute: typeof ApiDevV1EntryLinksRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/api/dev/v1/me': {
@@ -3365,6 +3404,7 @@ interface AppRouteRouteChildren {
   AppPoliticaDeDevolucaoRoute: typeof AppPoliticaDeDevolucaoRoute
   AppProductsRoute: typeof AppProductsRoute
   AppFornecedorPainelRouteRoute: typeof AppFornecedorPainelRouteRouteWithChildren
+  AppEntrarTokenRoute: typeof AppEntrarTokenRoute
   AppFinanceiroRelatorioRoute: typeof AppFinanceiroRelatorioRoute
   AppPedidosOrderIdRoute: typeof AppPedidosOrderIdRoute
   AppPedidosVendaManualRoute: typeof AppPedidosVendaManualRoute
@@ -3397,6 +3437,7 @@ const AppRouteRouteChildren: AppRouteRouteChildren = {
   AppPoliticaDeDevolucaoRoute: AppPoliticaDeDevolucaoRoute,
   AppProductsRoute: AppProductsRoute,
   AppFornecedorPainelRouteRoute: AppFornecedorPainelRouteRouteWithChildren,
+  AppEntrarTokenRoute: AppEntrarTokenRoute,
   AppFinanceiroRelatorioRoute: AppFinanceiroRelatorioRoute,
   AppPedidosOrderIdRoute: AppPedidosOrderIdRoute,
   AppPedidosVendaManualRoute: AppPedidosVendaManualRoute,
@@ -3490,6 +3531,7 @@ const rootRouteChildren: RootRouteChildren = {
   ApiAdminExportarClientesRoute: ApiAdminExportarClientesRoute,
   ApiAdminExportarEquipeRoute: ApiAdminExportarEquipeRoute,
   ApiDevV1DocsRoute: ApiDevV1DocsRoute,
+  ApiDevV1EntryLinksRoute: ApiDevV1EntryLinksRoute,
   ApiDevV1MeRoute: ApiDevV1MeRoute,
   ApiDevV1OpenapiDotjsonRoute: ApiDevV1OpenapiDotjsonRoute,
   ApiDevolucoesClaimIdMotivoRoute: ApiDevolucoesClaimIdMotivoRoute,
