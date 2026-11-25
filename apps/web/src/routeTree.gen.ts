@@ -113,7 +113,9 @@ import { Route as ApiAdminExportarAuditoriaRouteImport } from './routes/api/admi
 import { Route as ApiAdminExportarChamadosRouteImport } from './routes/api/admin/exportar/chamados'
 import { Route as ApiAdminExportarClientesRouteImport } from './routes/api/admin/exportar/clientes'
 import { Route as ApiAdminExportarEquipeRouteImport } from './routes/api/admin/exportar/equipe'
+import { Route as ApiDevV1DocsRouteImport } from './routes/api/dev/v1/docs'
 import { Route as ApiDevV1MeRouteImport } from './routes/api/dev/v1/me'
+import { Route as ApiDevV1OpenapiDotjsonRouteImport } from './routes/api/dev/v1/openapi[.]json'
 import { Route as ApiDevolucoesClaimIdMotivoRouteImport } from './routes/api/devolucoes/$claimId/motivo'
 import { Route as ApiDevolucoesClaimIdRespostaRouteImport } from './routes/api/devolucoes/$claimId/resposta'
 import { Route as ApiDevolucoesFotosPhotoIdRouteImport } from './routes/api/devolucoes/fotos/$photoId'
@@ -713,9 +715,19 @@ const ApiAdminExportarEquipeRoute = ApiAdminExportarEquipeRouteImport.update({
   path: '/api/admin/exportar/equipe',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiDevV1DocsRoute = ApiDevV1DocsRouteImport.update({
+  id: '/api/dev/v1/docs',
+  path: '/api/dev/v1/docs',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ApiDevV1MeRoute = ApiDevV1MeRouteImport.update({
   id: '/api/dev/v1/me',
   path: '/api/dev/v1/me',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiDevV1OpenapiDotjsonRoute = ApiDevV1OpenapiDotjsonRouteImport.update({
+  id: '/api/dev/v1/openapi.json',
+  path: '/api/dev/v1/openapi.json',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ApiDevolucoesClaimIdMotivoRoute =
@@ -1129,7 +1141,9 @@ export interface FileRoutesByFullPath {
   '/api/admin/exportar/chamados': typeof ApiAdminExportarChamadosRoute
   '/api/admin/exportar/clientes': typeof ApiAdminExportarClientesRoute
   '/api/admin/exportar/equipe': typeof ApiAdminExportarEquipeRoute
+  '/api/dev/v1/docs': typeof ApiDevV1DocsRoute
   '/api/dev/v1/me': typeof ApiDevV1MeRoute
+  '/api/dev/v1/openapi.json': typeof ApiDevV1OpenapiDotjsonRoute
   '/api/devolucoes/$claimId/motivo': typeof ApiDevolucoesClaimIdMotivoRoute
   '/api/devolucoes/$claimId/resposta': typeof ApiDevolucoesClaimIdRespostaRoute
   '/api/devolucoes/fotos/$photoId': typeof ApiDevolucoesFotosPhotoIdRoute
@@ -1283,7 +1297,9 @@ export interface FileRoutesByTo {
   '/api/admin/exportar/chamados': typeof ApiAdminExportarChamadosRoute
   '/api/admin/exportar/clientes': typeof ApiAdminExportarClientesRoute
   '/api/admin/exportar/equipe': typeof ApiAdminExportarEquipeRoute
+  '/api/dev/v1/docs': typeof ApiDevV1DocsRoute
   '/api/dev/v1/me': typeof ApiDevV1MeRoute
+  '/api/dev/v1/openapi.json': typeof ApiDevV1OpenapiDotjsonRoute
   '/api/devolucoes/$claimId/motivo': typeof ApiDevolucoesClaimIdMotivoRoute
   '/api/devolucoes/$claimId/resposta': typeof ApiDevolucoesClaimIdRespostaRoute
   '/api/devolucoes/fotos/$photoId': typeof ApiDevolucoesFotosPhotoIdRoute
@@ -1444,7 +1460,9 @@ export interface FileRoutesById {
   '/api/admin/exportar/chamados': typeof ApiAdminExportarChamadosRoute
   '/api/admin/exportar/clientes': typeof ApiAdminExportarClientesRoute
   '/api/admin/exportar/equipe': typeof ApiAdminExportarEquipeRoute
+  '/api/dev/v1/docs': typeof ApiDevV1DocsRoute
   '/api/dev/v1/me': typeof ApiDevV1MeRoute
+  '/api/dev/v1/openapi.json': typeof ApiDevV1OpenapiDotjsonRoute
   '/api/devolucoes/$claimId/motivo': typeof ApiDevolucoesClaimIdMotivoRoute
   '/api/devolucoes/$claimId/resposta': typeof ApiDevolucoesClaimIdRespostaRoute
   '/api/devolucoes/fotos/$photoId': typeof ApiDevolucoesFotosPhotoIdRoute
@@ -1604,7 +1622,9 @@ export interface FileRouteTypes {
     | '/api/admin/exportar/chamados'
     | '/api/admin/exportar/clientes'
     | '/api/admin/exportar/equipe'
+    | '/api/dev/v1/docs'
     | '/api/dev/v1/me'
+    | '/api/dev/v1/openapi.json'
     | '/api/devolucoes/$claimId/motivo'
     | '/api/devolucoes/$claimId/resposta'
     | '/api/devolucoes/fotos/$photoId'
@@ -1758,7 +1778,9 @@ export interface FileRouteTypes {
     | '/api/admin/exportar/chamados'
     | '/api/admin/exportar/clientes'
     | '/api/admin/exportar/equipe'
+    | '/api/dev/v1/docs'
     | '/api/dev/v1/me'
+    | '/api/dev/v1/openapi.json'
     | '/api/devolucoes/$claimId/motivo'
     | '/api/devolucoes/$claimId/resposta'
     | '/api/devolucoes/fotos/$photoId'
@@ -1918,7 +1940,9 @@ export interface FileRouteTypes {
     | '/api/admin/exportar/chamados'
     | '/api/admin/exportar/clientes'
     | '/api/admin/exportar/equipe'
+    | '/api/dev/v1/docs'
     | '/api/dev/v1/me'
+    | '/api/dev/v1/openapi.json'
     | '/api/devolucoes/$claimId/motivo'
     | '/api/devolucoes/$claimId/resposta'
     | '/api/devolucoes/fotos/$photoId'
@@ -2018,7 +2042,9 @@ export interface RootRouteChildren {
   ApiAdminExportarChamadosRoute: typeof ApiAdminExportarChamadosRoute
   ApiAdminExportarClientesRoute: typeof ApiAdminExportarClientesRoute
   ApiAdminExportarEquipeRoute: typeof ApiAdminExportarEquipeRoute
+  ApiDevV1DocsRoute: typeof ApiDevV1DocsRoute
   ApiDevV1MeRoute: typeof ApiDevV1MeRoute
+  ApiDevV1OpenapiDotjsonRoute: typeof ApiDevV1OpenapiDotjsonRoute
   ApiDevolucoesClaimIdMotivoRoute: typeof ApiDevolucoesClaimIdMotivoRoute
   ApiDevolucoesClaimIdRespostaRoute: typeof ApiDevolucoesClaimIdRespostaRoute
   ApiDevolucoesFotosPhotoIdRoute: typeof ApiDevolucoesFotosPhotoIdRoute
@@ -2799,11 +2825,25 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiAdminExportarEquipeRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/dev/v1/docs': {
+      id: '/api/dev/v1/docs'
+      path: '/api/dev/v1/docs'
+      fullPath: '/api/dev/v1/docs'
+      preLoaderRoute: typeof ApiDevV1DocsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/dev/v1/me': {
       id: '/api/dev/v1/me'
       path: '/api/dev/v1/me'
       fullPath: '/api/dev/v1/me'
       preLoaderRoute: typeof ApiDevV1MeRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/dev/v1/openapi.json': {
+      id: '/api/dev/v1/openapi.json'
+      path: '/api/dev/v1/openapi.json'
+      fullPath: '/api/dev/v1/openapi.json'
+      preLoaderRoute: typeof ApiDevV1OpenapiDotjsonRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/api/devolucoes/$claimId/motivo': {
@@ -3449,7 +3489,9 @@ const rootRouteChildren: RootRouteChildren = {
   ApiAdminExportarChamadosRoute: ApiAdminExportarChamadosRoute,
   ApiAdminExportarClientesRoute: ApiAdminExportarClientesRoute,
   ApiAdminExportarEquipeRoute: ApiAdminExportarEquipeRoute,
+  ApiDevV1DocsRoute: ApiDevV1DocsRoute,
   ApiDevV1MeRoute: ApiDevV1MeRoute,
+  ApiDevV1OpenapiDotjsonRoute: ApiDevV1OpenapiDotjsonRoute,
   ApiDevolucoesClaimIdMotivoRoute: ApiDevolucoesClaimIdMotivoRoute,
   ApiDevolucoesClaimIdRespostaRoute: ApiDevolucoesClaimIdRespostaRoute,
   ApiDevolucoesFotosPhotoIdRoute: ApiDevolucoesFotosPhotoIdRoute,

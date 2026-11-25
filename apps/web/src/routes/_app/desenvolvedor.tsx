@@ -1,4 +1,4 @@
-import { KeyIcon, PlusIcon } from "@phosphor-icons/react";
+import { ArrowSquareOutIcon, BookOpenIcon, KeyIcon, PlusIcon } from "@phosphor-icons/react";
 import { useQuery } from "@tanstack/react-query";
 import { createFileRoute, notFound } from "@tanstack/react-router";
 import { useState } from "react";
@@ -34,6 +34,22 @@ export const Route = createFileRoute("/_app/desenvolvedor")({
   head: () => ({ meta: [{ title: "Chaves de desenvolvedor | SellBridge" }] }),
   component: DeveloperKeysPage,
 });
+
+/** Signed-in developers read it here; another project's AI reads `/openapi.json` with its key. */
+const DEVELOPER_DOCS_URL = "/api/dev/v1/docs";
+
+function DeveloperDocsLink() {
+  return (
+    <Button asChild variant="outline">
+      <a href={DEVELOPER_DOCS_URL} target="_blank" rel="noreferrer">
+        <BookOpenIcon aria-hidden="true" />
+        Manual da API
+        <ArrowSquareOutIcon aria-hidden="true" />
+        <span className="sr-only">(abre em nova aba)</span>
+      </a>
+    </Button>
+  );
+}
 
 function DeveloperKeysContent({
   onCreate,
@@ -84,13 +100,16 @@ function DeveloperKeysPage() {
         title="Chaves de desenvolvedor"
         description="Só quem está na lista de desenvolvedores do servidor vê esta página. Cada chave lê, sem mudar nada, os tipos de informação marcados de todas as organizações, e vence na data escolhida."
         actions={
-          // With no keys yet, the empty state holds the only "Nova chave" button.
-          keyCount === 0 ? undefined : (
-            <Button onClick={() => setIsCreating(true)}>
-              <PlusIcon aria-hidden="true" />
-              Nova chave
-            </Button>
-          )
+          <>
+            <DeveloperDocsLink />
+            {/* With no keys yet, the empty state holds the only "Nova chave" button. */}
+            {keyCount === 0 ? null : (
+              <Button onClick={() => setIsCreating(true)}>
+                <PlusIcon aria-hidden="true" />
+                Nova chave
+              </Button>
+            )}
+          </>
         }
       />
       <DeveloperKeysContent onCreate={() => setIsCreating(true)} onRevoke={setPendingRevoke} />

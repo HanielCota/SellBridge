@@ -8,7 +8,12 @@ import { defineDeveloperEndpoint } from "./developer-endpoint.server";
 
 /** Organization ids come from the auth library: text, not uuid. */
 export const organizationParamsSchema = z.object({
-  organizationId: z.string().trim().min(1).max(64),
+  organizationId: z
+    .string()
+    .trim()
+    .min(1)
+    .max(64)
+    .describe("Id da organização (veja `GET /organizations`)."),
 });
 
 /** A read operation of the organizations' own API, reused for any organization. */
@@ -67,10 +72,15 @@ export function forOrganization<
   TResponse extends z.ZodType,
 >(endpoint: OrganizationRead<TParams, TQuery, TResponse>, scope: DeveloperScope) {
   return defineDeveloperEndpoint({
+    path: `/organizations/{organizationId}${endpoint.path}`,
     operationId: endpoint.operationId,
+    tag: endpoint.tag,
+    summary: endpoint.summary,
+    description: endpoint.description,
     scope,
     params: organizationParamsSchema.and(endpoint.params),
     query: endpoint.query,
+    response: endpoint.response,
     handle: async (input) => readAsOrganization(endpoint, input),
   });
 }

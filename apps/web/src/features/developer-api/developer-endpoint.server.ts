@@ -20,25 +20,40 @@ import {
 } from "./developer-authenticate.server";
 import { enforceDeveloperRateLimit } from "./developer-rate-limit.server";
 
-/** One read-only operation of the developer API. */
-export interface DeveloperEndpoint<TParams extends z.ZodType, TQuery extends z.ZodType> {
+/** One read-only operation of the developer API, described once for the route and the manual. */
+export interface DeveloperEndpoint<
+  TParams extends z.ZodType,
+  TQuery extends z.ZodType,
+  TResponse extends z.ZodType = z.ZodType,
+> {
+  /** OpenAPI style, relative to /api/dev/v1: `/organizations/{organizationId}/orders`. */
+  path: string;
   operationId: string;
+  tag: string;
+  summary: string;
+  description?: string | undefined;
   /** null: any valid key may call it (`/me`). */
   scope: DeveloperScope | null;
   params: TParams;
   query: TQuery;
+  /** The whole response body (`{ data, ... }`), used for types and the manual. */
+  response: TResponse;
   handle: (input: {
     caller: DeveloperCaller;
     params: z.output<TParams>;
     query: z.output<TQuery>;
     requestId: string;
     now: Date;
-  }) => Promise<unknown>;
+  }) => Promise<z.input<TResponse>>;
 }
 
-export function defineDeveloperEndpoint<TParams extends z.ZodType, TQuery extends z.ZodType>(
-  endpoint: DeveloperEndpoint<TParams, TQuery>,
-): DeveloperEndpoint<TParams, TQuery> {
+export function defineDeveloperEndpoint<
+  TParams extends z.ZodType,
+  TQuery extends z.ZodType,
+  TResponse extends z.ZodType,
+>(
+  endpoint: DeveloperEndpoint<TParams, TQuery, TResponse>,
+): DeveloperEndpoint<TParams, TQuery, TResponse> {
   return endpoint;
 }
 
