@@ -4,7 +4,6 @@ import type { StaffPermission } from "@sellbridge/shared/staff-access";
 import { createMiddleware } from "@tanstack/react-start";
 import { getRequest, getRequestHeaders, setResponseStatus } from "@tanstack/react-start/server";
 import { z } from "zod";
-import { requireDeveloperSession } from "@/features/developer-api/developer-session.server";
 import { requestedProfileOf } from "../profile-param.ts";
 import {
   type AccountSession,
@@ -150,6 +149,10 @@ export const adminMiddleware = createMiddleware({ type: "function" })
 export const developerMiddleware = createMiddleware({ type: "function" })
   .middleware([userFacingErrors])
   .server(async ({ next }) => {
+    // Imported on use: it reads the server environment, which this shared module and its many
+    // importers must not need just to load.
+    const { requireDeveloperSession } =
+      await import("@/features/developer-api/developer-session.server");
     const context = await requireDeveloperSession(getRequestHeaders());
     return next({ context });
   });
