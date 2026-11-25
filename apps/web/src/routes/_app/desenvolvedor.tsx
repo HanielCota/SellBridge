@@ -19,8 +19,9 @@ import { errorMessage } from "@/lib/errors";
 import { prefetchOnServer } from "@/lib/prefetch";
 
 /**
- * Hidden page for the SellBridge developers (decision of 25/11/2026): not in any menu, and
- * "not found" for every account outside `DEVELOPER_EMAILS`, admins included.
+ * Hidden page for the SellBridge developers (decision of 25/11/2026): only listed developers see
+ * its team-bar tab, and every account outside `DEVELOPER_EMAILS`, admins included, gets
+ * "not found".
  */
 export const Route = createFileRoute("/_app/desenvolvedor")({
   beforeLoad: async () => {
