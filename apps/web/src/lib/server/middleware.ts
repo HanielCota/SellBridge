@@ -4,6 +4,7 @@ import type { StaffPermission } from "@sellbridge/shared/staff-access";
 import { createMiddleware } from "@tanstack/react-start";
 import { getRequest, getRequestHeaders, setResponseStatus } from "@tanstack/react-start/server";
 import { z } from "zod";
+import { requireDeveloperSession } from "@/features/developer-api/developer-session.server";
 import { requestedProfileOf } from "../profile-param.ts";
 import {
   type AccountSession,
@@ -142,6 +143,14 @@ export const adminMiddleware = createMiddleware({ type: "function" })
   .middleware([userFacingErrors])
   .server(async ({ next }) => {
     const context = await requireAdminSession(getRequestHeaders());
+    return next({ context });
+  });
+
+/** Requires an account listed in `DEVELOPER_EMAILS`; anyone else gets "not found". */
+export const developerMiddleware = createMiddleware({ type: "function" })
+  .middleware([userFacingErrors])
+  .server(async ({ next }) => {
+    const context = await requireDeveloperSession(getRequestHeaders());
     return next({ context });
   });
 
