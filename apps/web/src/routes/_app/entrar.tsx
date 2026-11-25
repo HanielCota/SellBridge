@@ -45,7 +45,7 @@ const PROBLEMS: Record<ProblemKind, { icon: Icon; title: string; description: st
     icon: ClockIcon,
     title: "Este link venceu",
     description:
-      "Cada link vale por 5 minutos depois de criado. Volte ao site onde você escolheu os produtos e clique no botão de novo para gerar outro.",
+      "Cada link vale só por alguns minutos. Volte ao site onde você escolheu os produtos e clique no botão de novo para gerar outro.",
   },
   used: {
     icon: LinkBreakIcon,
