@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { developerScopesSchema, knownDeveloperScopes } from "./scopes.ts";
+import { DEVELOPER_SCOPE_LABELS, developerScopesSchema, knownDeveloperScopes } from "./scopes.ts";
 
 describe("developerScopesSchema", () => {
   it("accepts orders with the buyer's personal data", () => {
@@ -38,5 +38,11 @@ describe("knownDeveloperScopes", () => {
     const scopes = knownDeveloperScopes(["stores:read", "old:scope"]);
 
     expect(scopes).toEqual(["stores:read"]);
+  });
+});
+
+describe("DEVELOPER_SCOPE_LABELS", () => {
+  it("warns on the support option that messages may carry personal data", () => {
+    expect(DEVELOPER_SCOPE_LABELS["support:read"]).toContain("dados pessoais");
   });
 });

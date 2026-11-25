@@ -110,7 +110,7 @@ export function DeveloperScopeCheckboxes({
           hint={
             hasOrders
               ? "Marque só se o projeto precisa entregar ou emitir nota. Sem isso, o pedido traz só o nome do comprador."
-              : "Marque “Pedidos” primeiro: endereço e CPF vêm dentro dos pedidos."
+              : "Marque “Pedidos” primeiro: o endereço de entrega vem dentro dos pedidos."
           }
           onCheckedChange={(checked) =>
             onChange(toggledDeveloperScopes(value, PERSONAL_DATA_SCOPE, checked))

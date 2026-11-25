@@ -22,6 +22,7 @@ const PRODUCT_B = "2b6c2c8e-8f0e-4c7a-9a39-3d4b2a1e0f12";
 function caller() {
   return {
     developerApiKeyId: "key-1",
+    createdByUserId: "dev-1",
     name: "Outro projeto",
     prefix: "sb_dev_abcdef",
     scopes: ["links:create" as const],

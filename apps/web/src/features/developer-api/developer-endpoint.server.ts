@@ -1,4 +1,7 @@
-import { recordDeveloperApiRequest } from "@sellbridge/database/repositories";
+import {
+  type DeveloperApiRequestRecord,
+  recordDeveloperApiRequest,
+} from "@sellbridge/database/repositories";
 import type { DeveloperScope } from "@sellbridge/shared/developer-api";
 import { logger } from "@sellbridge/shared/logger";
 import { randomUUID } from "node:crypto";
@@ -23,7 +26,9 @@ import {
   type DeveloperCaller,
   requireDeveloperScope,
 } from "./developer-authenticate.server";
+import { limitDeveloperAddress } from "./developer-address-limit.server";
 import { enforceDeveloperRateLimit } from "./developer-rate-limit.server";
+import { describeDeveloperUse } from "./developer-usage";
 
 /** One read-only operation of the developer API, described once for the route and the manual. */
 export interface DeveloperEndpoint<
@@ -39,6 +44,8 @@ export interface DeveloperEndpoint<
   description?: string | undefined;
   /** null: any valid key may call it (`/me`). */
   scope: DeveloperScope | null;
+  /** Whether a successful answer to this caller carries buyer personal data, for the usage trail. */
+  sendsPersonalData?: ((caller: DeveloperCaller) => boolean) | undefined;
   params: TParams;
   query: TQuery;
   /** The whole response body (`{ data, ... }`), used for types and the manual. */
@@ -104,28 +111,39 @@ interface Admitted {
   rateLimitHeaders: RateLimitHeaders;
 }
 
+/** The outcome, and the key when it was resolved: refused calls of a known key are recorded too. */
+interface Admission {
+  step: StepResult<Admitted>;
+  caller: DeveloperCaller | null;
+}
+
 async function admit(
   request: Request,
   scope: DeveloperScope | null,
   now: Date,
-): Promise<StepResult<Admitted>> {
+): Promise<Admission> {
+  const addressAllowed = await limitDeveloperAddress(request);
+  if (!addressAllowed.ok) {
+    return { step: addressAllowed, caller: null };
+  }
   const authenticated = await authenticateDeveloperKey(
     request.headers,
     now,
     environment.DEVELOPER_EMAILS,
   );
   if (!authenticated.ok) {
-    return authenticated;
+    return { step: authenticated, caller: null };
   }
-  const authorized = requireDeveloperScope(authenticated.value, scope);
+  const caller = authenticated.value;
+  const authorized = requireDeveloperScope(caller, scope);
   if (!authorized.ok) {
-    return authorized;
+    return { step: authorized, caller };
   }
-  const limited = await enforceDeveloperRateLimit(authorized.value.developerApiKeyId, now);
+  const limited = await enforceDeveloperRateLimit(caller, now);
   if (!limited.ok) {
-    return limited;
+    return { step: limited, caller };
   }
-  return proceed({ caller: authorized.value, rateLimitHeaders: limited.value });
+  return { step: proceed({ caller, rateLimitHeaders: limited.value }), caller };
 }
 
 /** Runs the handler and turns its result, or its error, into the response. */
@@ -203,12 +221,7 @@ async function runWithBody<TBody extends z.ZodType, TResponse extends z.ZodType>
 }
 
 /** Usage is recorded for the key's owner to audit; a failure here never fails the request. */
-async function recordUse(record: {
-  developerApiKeyId: string;
-  operation: string;
-  status: number;
-  durationMilliseconds: number;
-}): Promise<void> {
+async function recordUse(record: DeveloperApiRequestRecord): Promise<void> {
   try {
     await recordDeveloperApiRequest(database, record);
   } catch (error) {
@@ -218,33 +231,44 @@ async function recordUse(record: {
 
 /**
  * Every developer request: authenticate the key, re-check its creator, check the scope, rate
- * limit, run, then log and record the use.
+ * limit, run, then log and record the use (refused calls of a known key too).
  */
 async function handleDeveloperRequest(
-  operation: { operationId: string; scope: DeveloperScope | null },
-  request: Request,
+  operation: {
+    operationId: string;
+    scope: DeveloperScope | null;
+    sendsPersonalData?: ((caller: DeveloperCaller) => boolean) | undefined;
+  },
+  input: { request: Request; params: Readonly<Record<string, string>> },
   execute: (base: RequestBase, admitted: Admitted) => Promise<Response>,
 ): Promise<Response> {
   const base = { requestId: randomUUID(), now: new Date() };
   const started = performance.now();
-  const admitted = await admit(request, operation.scope, base.now);
-  const response = admitted.ok
-    ? await execute(base, admitted.value)
-    : problemResponse(admitted.problem, base.requestId);
+  const { step, caller } = await admit(input.request, operation.scope, base.now);
+  const response = step.ok
+    ? await execute(base, step.value)
+    : problemResponse(step.problem, base.requestId);
   const durationMilliseconds = Math.round(performance.now() - started);
   logger.info("developer_api.request", {
     operation: operation.operationId,
     status: response.status,
     requestId: base.requestId,
-    developerApiKeyId: admitted.ok ? admitted.value.caller.developerApiKeyId : null,
+    developerApiKeyId: caller?.developerApiKeyId ?? null,
     durationMilliseconds,
   });
-  if (admitted.ok) {
+  if (caller !== null) {
+    const use = describeDeveloperUse({
+      params: input.params,
+      status: response.status,
+      sendsPersonalData: operation.sendsPersonalData?.(caller) ?? false,
+    });
     await recordUse({
-      developerApiKeyId: admitted.value.caller.developerApiKeyId,
+      developerApiKeyId: caller.developerApiKeyId,
+      keyPrefix: caller.prefix,
       operation: operation.operationId,
       status: response.status,
       durationMilliseconds,
+      ...use,
     });
   }
   return response;
@@ -255,7 +279,7 @@ export function developerRouteHandler<TParams extends z.ZodType, TQuery extends 
   endpoint: DeveloperEndpoint<TParams, TQuery>,
 ) {
   return async (input: RouteInput): Promise<Response> =>
-    handleDeveloperRequest(endpoint, input.request, async (base, admitted) =>
+    handleDeveloperRequest(endpoint, input, async (base, admitted) =>
       run(endpoint, input, base, admitted),
     );
 }
@@ -265,7 +289,9 @@ export function developerPostRouteHandler<TBody extends z.ZodType, TResponse ext
   endpoint: DeveloperBodyEndpoint<TBody, TResponse>,
 ) {
   return async (input: { request: Request }): Promise<Response> =>
-    handleDeveloperRequest(endpoint, input.request, async (base, admitted) =>
-      runWithBody(endpoint, input.request, base, admitted),
+    handleDeveloperRequest(
+      endpoint,
+      { request: input.request, params: {} },
+      async (base, admitted) => runWithBody(endpoint, input.request, base, admitted),
     );
 }

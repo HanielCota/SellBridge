@@ -1,6 +1,7 @@
 import { randomUUID } from "node:crypto";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
-import { orders } from "../schema/index.ts";
+import { eq } from "drizzle-orm";
+import { orders, suppliers } from "../schema/index.ts";
 import {
   createTestDatabase,
   createTestTenantPair,
@@ -11,6 +12,7 @@ import {
   findSealedShippingAddress,
   getOrganizationForDeveloper,
   listOrganizationsForDeveloper,
+  listSuppliersForDeveloper,
 } from "./developer-api-reads.ts";
 import { upsertStoreConnection } from "./stores.ts";
 
@@ -84,5 +86,29 @@ describe("findSealedShippingAddress", () => {
     const lookup = findSealedShippingAddress(database, tenants.tenantB, orderId);
 
     await expect(lookup).rejects.toMatchObject({ code: "NOT_FOUND" });
+  });
+});
+
+describe("suppliers for developers", () => {
+  it("lists a seller's private catalog with its owner", async () => {
+    const [privateCatalog] = await database
+      .insert(suppliers)
+      .values({
+        name: "  Catálogo particular de teste",
+        niche: "Teste",
+        state: "ZZ",
+        city: "X",
+        catalogKind: "seller",
+        ownerTenantId: tenants.tenantB,
+      })
+      .returning({ id: suppliers.id });
+
+    const page = await listSuppliersForDeveloper(database, { page: 1, pageSize: 100 });
+
+    expect(page.items.find((supplier) => supplier.id === privateCatalog?.id)).toMatchObject({
+      catalogKind: "seller",
+      ownerTenantId: tenants.tenantB,
+    });
+    await database.delete(suppliers).where(eq(suppliers.id, privateCatalog?.id ?? ""));
   });
 });

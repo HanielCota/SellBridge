@@ -1,8 +1,8 @@
 import {
-  type AdminSupplier,
   type AdminSupplierProduct,
+  type DeveloperSupplier,
   listAdminSupplierProducts,
-  listAdminSuppliers,
+  listSuppliersForDeveloper,
 } from "@sellbridge/database/repositories";
 import { z } from "zod";
 import {
@@ -30,6 +30,15 @@ const supplierSchema = z.object({
     .string()
     .nullable()
     .describe("Conta do painel do fornecedor; nula quando a equipe cuida dele."),
+  private: z
+    .boolean()
+    .describe(
+      "Verdadeiro para o catálogo particular de um revendedor, que só ele usa e que não aparece para os outros.",
+    ),
+  ownerOrganizationId: z
+    .string()
+    .nullable()
+    .describe("Revendedor dono do catálogo particular; nulo nos fornecedores abertos a todos."),
   createdAt: z.iso.datetime(),
 });
 
@@ -50,7 +59,7 @@ const supplierProductSchema = z.object({
 });
 
 /** Contact e-mail and fiscal profile stay out: they are the supplier's, not catalog data. */
-function presentSupplier(supplier: AdminSupplier): z.input<typeof supplierSchema> {
+function presentSupplier(supplier: DeveloperSupplier): z.input<typeof supplierSchema> {
   return {
     id: supplier.id,
     name: supplier.name,
@@ -64,6 +73,8 @@ function presentSupplier(supplier: AdminSupplier): z.input<typeof supplierSchema
     acceptWithinHours: supplier.acceptWithinHours,
     dispatchWithinHours: supplier.dispatchWithinHours,
     organizationId: supplier.organizationId,
+    private: supplier.catalogKind === "seller",
+    ownerOrganizationId: supplier.ownerTenantId,
     createdAt: supplier.createdAt.toISOString(),
   };
 }
@@ -94,13 +105,13 @@ export const listDeveloperSuppliers = defineDeveloperEndpoint({
   tag: "Fornecedores",
   summary: "Listar fornecedores",
   description:
-    "Os fornecedores que os revendedores podem escolher, em ordem alfabética. Fornecedores particulares de um revendedor ficam de fora.",
+    "Todos os fornecedores, em ordem alfabética, inclusive os catálogos particulares que um revendedor mantém só para ele (marcados com `private`).",
   scope: "suppliers:read",
   params: noInput,
   query: pageQuerySchema,
   response: pageEnvelope(supplierSchema),
   handle: async ({ query }) => {
-    const page = await listAdminSuppliers(database, undefined, query);
+    const page = await listSuppliersForDeveloper(database, query);
     return { data: page.items.map(presentSupplier), pagination: toPaginationMeta(page) };
   },
 });
@@ -110,7 +121,8 @@ export const listDeveloperSupplierProducts = defineDeveloperEndpoint({
   operationId: "listSupplierProducts",
   tag: "Fornecedores",
   summary: "Listar produtos e estoque de um fornecedor",
-  description: "Todos os produtos do fornecedor, ativos ou não, com custo e estoque.",
+  description:
+    "Todos os produtos do fornecedor, ativos ou não, com custo e estoque. Vale também para os catálogos particulares.",
   scope: "suppliers:read",
   params: z.object({ supplierId: z.uuid().describe("Id do fornecedor (veja `GET /suppliers`).") }),
   query: pageQuerySchema,

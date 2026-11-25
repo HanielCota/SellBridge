@@ -1,5 +1,6 @@
 import {
   bigserial,
+  boolean,
   index,
   integer,
   pgTable,
@@ -53,22 +54,30 @@ export const developerApiRateLimits = pgTable(
 );
 
 /**
- * Every call made with a developer key: which operation and how it ended. Never the query
- * string, the key or any returned data.
+ * Every call made with a developer key: which operation, on which organization and record, and
+ * whether buyer personal data went out. Never the query string, the key or any returned data.
+ * The trail outlives the key and its creator: the key id turns null and the prefix stays.
  */
 export const developerApiRequests = pgTable(
   "developer_api_requests",
   {
     id: bigserial({ mode: "number" }).primaryKey(),
-    keyId: uuid()
-      .notNull()
-      .references(() => developerApiKeys.id, { onDelete: "cascade" }),
+    keyId: uuid().references(() => developerApiKeys.id, { onDelete: "set null" }),
+    keyPrefix: text().notNull(),
     operation: text().notNull(),
     status: integer().notNull(),
     durationMilliseconds: integer().notNull(),
+    /** No foreign key on purpose: the trail stays after the organization is deleted. */
+    organizationId: text(),
+    /** The order, ticket, listing, product or supplier id named in the path, when any. */
+    resourceId: text(),
+    personalData: boolean().notNull().default(false),
     createdAt: timestamp({ withTimezone: true }).defaultNow().notNull(),
   },
-  (table) => [index("developer_api_requests_key_idx").on(table.keyId, table.createdAt)],
+  (table) => [
+    index("developer_api_requests_key_idx").on(table.keyId, table.createdAt),
+    index("developer_api_requests_organization_idx").on(table.organizationId, table.createdAt),
+  ],
 );
 
 /**

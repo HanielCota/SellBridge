@@ -1,11 +1,28 @@
 import { DEVELOPER_SCOPE_LABELS, type DeveloperScope } from "@sellbridge/shared/developer-api";
 import { buildOpenApiDocument } from "@/features/public-api/openapi";
 import { environment } from "@/lib/server/environment";
-import { DEVELOPER_REQUESTS_PER_MINUTE } from "./developer-rate-limit.server";
+import {
+  DEVELOPER_REQUESTS_PER_CREATOR_PER_MINUTE,
+  DEVELOPER_REQUESTS_PER_MINUTE,
+} from "./developer-rate-limit.server";
 import { DEVELOPER_OPERATIONS } from "./endpoints/index.server";
 
 /** Same version as the organizations' API reference (`docs.server.ts`). */
-const SCALAR_SCRIPT = "https://cdn.jsdelivr.net/npm/@scalar/api-reference@1.69.2";
+const SCALAR_SCRIPT =
+  "https://cdn.jsdelivr.net/npm/@scalar/api-reference@1.69.2/dist/browser/standalone.js";
+/** The manual runs while a developer is signed in: a changed CDN file must not run at all. */
+const SCALAR_INTEGRITY = "sha384-WIChsUVC1uJ+G1lFA6lPYzOUgXAe8dVxUFIZ7lcENNtV34Esuo81NIxsj8EAQeHB";
+const DOCS_CONTENT_SECURITY_POLICY = [
+  "default-src 'self'",
+  "script-src https://cdn.jsdelivr.net",
+  "style-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net https://fonts.scalar.com",
+  "font-src 'self' data: https://cdn.jsdelivr.net https://fonts.scalar.com",
+  "img-src 'self' data: https:",
+  "connect-src 'self'",
+  "frame-ancestors 'none'",
+  "base-uri 'none'",
+  "form-action 'none'",
+].join("; ");
 
 function developerApiBaseUrl(): string {
   return `${environment.APP_URL.replace(/\/$/, "")}/api/dev/v1`;
@@ -23,11 +40,12 @@ function description(): string {
     "## Convenções",
     "- JSON com nomes em camelCase; dinheiro em centavos (`costCents`), sempre em reais; datas em ISO 8601 (UTC).",
     "- Um recurso vem em `{ data }`; listas vêm em `{ data: [...], pagination }` e aceitam `page` e `pageSize` (até 100).",
-    `- Até ${DEVELOPER_REQUESTS_PER_MINUTE} requisições por minuto por chave; acima disso a resposta é 429 com \`Retry-After\`.`,
+    `- Até ${DEVELOPER_REQUESTS_PER_MINUTE} requisições por minuto por chave e ${DEVELOPER_REQUESTS_PER_CREATOR_PER_MINUTE} somando todas as chaves de quem as criou; acima disso a resposta é 429 com \`Retry-After\`.`,
     "- Uma rota fora dos tipos marcados na chave responde 403; uma organização que não existe responde 404.",
     "- Erros seguem o RFC 9457 (`application/problem+json`) com um `code` estável e o `requestId`.",
     "- Nunca saem tokens das lojas, chaves do Asaas, senhas nem outros segredos. O endereço de entrega do comprador só vem com `buyers:personal`; o CPF do comprador não é guardado pelo SellBridge.",
-    "- A chave é um segredo do servidor: não use a API direto do navegador. Todo uso fica registrado.",
+    "- O endereço de entrega também pode aparecer nas mensagens dos chamados (`support:read`), quando o comprador o colou no texto.",
+    "- A chave é um segredo do servidor: não use a API direto do navegador. Todo uso fica registrado: a operação, a organização, o registro lido e se saiu dado pessoal, inclusive as chamadas recusadas.",
   ].join("\n\n");
 }
 
@@ -65,10 +83,14 @@ export function developerDocsPageResponse(): Response {
   </head>
   <body>
     <script id="api-reference" type="application/json">${embeddable(buildDeveloperOpenApiDocument())}</script>
-    <script src="${SCALAR_SCRIPT}"></script>
+    <script src="${SCALAR_SCRIPT}" integrity="${SCALAR_INTEGRITY}" crossorigin="anonymous"></script>
   </body>
 </html>`;
   return new Response(html, {
-    headers: { "content-type": "text/html; charset=utf-8", "cache-control": "private, no-store" },
+    headers: {
+      "content-type": "text/html; charset=utf-8",
+      "cache-control": "private, no-store",
+      "content-security-policy": DOCS_CONTENT_SECURITY_POLICY,
+    },
   });
 }
