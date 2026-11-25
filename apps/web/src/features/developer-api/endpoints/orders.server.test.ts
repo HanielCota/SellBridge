@@ -10,6 +10,7 @@ const mocks = vi.hoisted(() => ({
 }));
 
 vi.mock("@/lib/server/database", () => ({ database: {} }));
+vi.mock("@/lib/server/environment", () => ({ environment: { DEVELOPER_EMAILS: [] } }));
 vi.mock("@/lib/server/marketplaces", () => ({ tokenCipher: {} }));
 vi.mock("@sellbridge/marketplaces", () => ({ openShippingAddress: mocks.openShippingAddress }));
 vi.mock("@sellbridge/database/repositories", () => ({
