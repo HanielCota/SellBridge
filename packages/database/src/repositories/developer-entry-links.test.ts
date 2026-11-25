@@ -11,6 +11,7 @@ import {
 import { createDeveloperApiKey } from "./developer-api-keys.ts";
 import {
   claimDeveloperEntryLink,
+  consumeDeveloperEntryLink,
   createDeveloperEntryLink,
   findOfferedSupplierProductIds,
 } from "./developer-entry-links.ts";
@@ -18,6 +19,7 @@ import {
 const database = createTestDatabase();
 const NOW = new Date("2026-11-25T12:00:00Z");
 const LATER = new Date("2026-11-25T13:00:00Z");
+const FRESH_SINCE = new Date("2026-11-25T11:00:00Z");
 let tenants: Awaited<ReturnType<typeof createTestTenantPair>>;
 let users: Awaited<ReturnType<typeof createTestUsers>>;
 let catalog: Awaited<ReturnType<typeof createTestSupplierProduct>>;
@@ -116,15 +118,73 @@ describe("findOfferedSupplierProductIds", () => {
   });
 });
 
-describe("claimDeveloperEntryLink", () => {
-  it("hands the choice to the first account that opens the link", async () => {
+/** A link already clicked once: returns the secret the browser would keep. */
+async function clickedLink(): Promise<string> {
+  const tokenHash = await newLink();
+  const choiceHash = randomUUID();
+  await consumeDeveloperEntryLink(database, { tokenHash, choiceHash, now: NOW });
+  return choiceHash;
+}
+
+describe("consumeDeveloperEntryLink", () => {
+  it("spends the token on the first click and names the key that made it", async () => {
     const tokenHash = await newLink();
 
-    const claim = await claimDeveloperEntryLink(database, {
+    const first = await consumeDeveloperEntryLink(database, {
       tokenHash,
+      choiceHash: randomUUID(),
+      now: NOW,
+    });
+
+    expect(first).toMatchObject({ kind: "consumed", issuer: { keyId, keyPrefix: "sb_dev_test" } });
+  });
+
+  it("refuses a second click on the same link", async () => {
+    const tokenHash = await newLink();
+    await consumeDeveloperEntryLink(database, { tokenHash, choiceHash: randomUUID(), now: NOW });
+
+    const second = await consumeDeveloperEntryLink(database, {
+      tokenHash,
+      choiceHash: randomUUID(),
+      now: NOW,
+    });
+
+    expect(second.kind).toBe("used");
+  });
+
+  it("refuses a click after the link expired", async () => {
+    const tokenHash = await newLink(NOW);
+
+    const late = await consumeDeveloperEntryLink(database, {
+      tokenHash,
+      choiceHash: randomUUID(),
+      now: NOW,
+    });
+
+    expect(late.kind).toBe("expired");
+  });
+
+  it("refuses a token that was never issued", async () => {
+    const unknown = await consumeDeveloperEntryLink(database, {
+      tokenHash: randomUUID(),
+      choiceHash: randomUUID(),
+      now: NOW,
+    });
+
+    expect(unknown).toEqual({ kind: "not_found" });
+  });
+});
+
+describe("claimDeveloperEntryLink", () => {
+  it("hands the choice to the first account that shows the secret", async () => {
+    const choiceHash = await clickedLink();
+
+    const claim = await claimDeveloperEntryLink(database, {
+      choiceHash,
       userId: resellerId,
       tenantId: tenants.tenantA,
       now: NOW,
+      freshSince: FRESH_SINCE,
     });
 
     expect(claim).toEqual({
@@ -138,8 +198,14 @@ describe("claimDeveloperEntryLink", () => {
   });
 
   it("shows the same choice again to the account that claimed it", async () => {
-    const tokenHash = await newLink();
-    const claimer = { tokenHash, userId: resellerId, tenantId: tenants.tenantA, now: NOW };
+    const choiceHash = await clickedLink();
+    const claimer = {
+      choiceHash,
+      userId: resellerId,
+      tenantId: tenants.tenantA,
+      now: NOW,
+      freshSince: FRESH_SINCE,
+    };
     await claimDeveloperEntryLink(database, claimer);
 
     const again = await claimDeveloperEntryLink(database, { ...claimer, now: LATER });
@@ -147,44 +213,48 @@ describe("claimDeveloperEntryLink", () => {
     expect(again.kind).toBe("claimed");
   });
 
-  it("refuses a link another account already used", async () => {
-    const tokenHash = await newLink();
+  it("refuses a choice another account already claimed", async () => {
+    const choiceHash = await clickedLink();
     await claimDeveloperEntryLink(database, {
-      tokenHash,
+      choiceHash,
       userId: resellerId,
       tenantId: tenants.tenantA,
       now: NOW,
+      freshSince: FRESH_SINCE,
     });
 
     const claim = await claimDeveloperEntryLink(database, {
-      tokenHash,
+      choiceHash,
       userId: otherResellerId,
       tenantId: tenants.tenantB,
       now: NOW,
+      freshSince: FRESH_SINCE,
     });
 
     expect(claim).toEqual({ kind: "used" });
   });
 
-  it("refuses a link opened after it expired", async () => {
-    const tokenHash = await newLink(NOW);
+  it("refuses a choice clicked too long ago", async () => {
+    const choiceHash = await clickedLink();
 
     const claim = await claimDeveloperEntryLink(database, {
-      tokenHash,
+      choiceHash,
       userId: resellerId,
       tenantId: tenants.tenantA,
-      now: NOW,
+      now: LATER,
+      freshSince: LATER,
     });
 
     expect(claim).toEqual({ kind: "expired" });
   });
 
-  it("refuses a token that was never issued", async () => {
+  it("refuses a secret that was never handed out", async () => {
     const claim = await claimDeveloperEntryLink(database, {
-      tokenHash: randomUUID(),
+      choiceHash: randomUUID(),
       userId: resellerId,
       tenantId: tenants.tenantA,
       now: NOW,
+      freshSince: FRESH_SINCE,
     });
 
     expect(claim).toEqual({ kind: "not_found" });

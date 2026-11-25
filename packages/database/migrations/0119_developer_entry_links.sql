@@ -5,6 +5,8 @@ CREATE TABLE "developer_entry_links" (
 	"supplier_id" uuid NOT NULL,
 	"product_ids" uuid[] NOT NULL,
 	"expires_at" timestamp with time zone NOT NULL,
+	"consumed_at" timestamp with time zone,
+	"choice_hash" text,
 	"claimed_at" timestamp with time zone,
 	"claimed_by_user_id" text,
 	"claimed_tenant_id" text,
@@ -16,4 +18,5 @@ ALTER TABLE "developer_entry_links" ADD CONSTRAINT "developer_entry_links_suppli
 ALTER TABLE "developer_entry_links" ADD CONSTRAINT "developer_entry_links_claimed_by_user_id_user_id_fk" FOREIGN KEY ("claimed_by_user_id") REFERENCES "public"."user"("id") ON DELETE set null ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "developer_entry_links" ADD CONSTRAINT "developer_entry_links_claimed_tenant_id_organization_id_fk" FOREIGN KEY ("claimed_tenant_id") REFERENCES "public"."organization"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
 CREATE UNIQUE INDEX "developer_entry_links_token_hash_idx" ON "developer_entry_links" USING btree ("token_hash");--> statement-breakpoint
+CREATE UNIQUE INDEX "developer_entry_links_choice_hash_idx" ON "developer_entry_links" USING btree ("choice_hash");--> statement-breakpoint
 CREATE INDEX "developer_entry_links_key_idx" ON "developer_entry_links" USING btree ("key_id","created_at");

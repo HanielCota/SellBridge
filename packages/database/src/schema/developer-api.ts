@@ -82,8 +82,9 @@ export const developerApiRequests = pgTable(
 
 /**
  * A one-time link another project hands a person to continue in SellBridge with a supplier and
- * products already chosen. The URL carries only a random token, stored as its SHA-256; the
- * first signed-in account to open it claims it, and no one else can use it afterwards.
+ * products already chosen. The URL carries only a random token, stored as its SHA-256. The first
+ * click spends the token and hands the browser a choice secret (stored as its SHA-256 too); the
+ * first signed-in account to show that secret claims the choice, and no one else can afterwards.
  */
 export const developerEntryLinks = pgTable(
   "developer_entry_links",
@@ -98,6 +99,8 @@ export const developerEntryLinks = pgTable(
       .references(() => suppliers.id, { onDelete: "cascade" }),
     productIds: uuid().array().notNull(),
     expiresAt: timestamp({ withTimezone: true }).notNull(),
+    consumedAt: timestamp({ withTimezone: true }),
+    choiceHash: text(),
     claimedAt: timestamp({ withTimezone: true }),
     claimedByUserId: text().references(() => user.id, { onDelete: "set null" }),
     claimedTenantId: text().references(() => organization.id, { onDelete: "cascade" }),
@@ -105,6 +108,7 @@ export const developerEntryLinks = pgTable(
   },
   (table) => [
     uniqueIndex("developer_entry_links_token_hash_idx").on(table.tokenHash),
+    uniqueIndex("developer_entry_links_choice_hash_idx").on(table.choiceHash),
     index("developer_entry_links_key_idx").on(table.keyId, table.createdAt),
   ],
 );

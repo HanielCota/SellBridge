@@ -1,5 +1,5 @@
 {
-  "id": "8987b614-7fe8-47c5-a9cd-18681cd56961",
+  "id": "1c26f1dc-9d95-4b80-b1b3-46ee41516ede",
   "prevId": "93131963-73eb-432a-a84c-55d17af0ef04",
   "version": "7",
   "dialect": "postgresql",
@@ -6450,6 +6450,18 @@
           "primaryKey": false,
           "notNull": true
         },
+        "consumed_at": {
+          "name": "consumed_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "choice_hash": {
+          "name": "choice_hash",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
         "claimed_at": {
           "name": "claimed_at",
           "type": "timestamp with time zone",
@@ -6482,6 +6494,21 @@
           "columns": [
             {
               "expression": "token_hash",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": true,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "developer_entry_links_choice_hash_idx": {
+          "name": "developer_entry_links_choice_hash_idx",
+          "columns": [
+            {
+              "expression": "choice_hash",
               "isExpression": false,
               "asc": true,
               "nulls": "last"

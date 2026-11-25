@@ -1,6 +1,11 @@
 import { and, eq, gt, inArray, isNull } from "drizzle-orm";
 import type { Database } from "../client.ts";
-import { developerEntryLinks, supplierProducts, suppliers } from "../schema/index.ts";
+import {
+  developerApiKeys,
+  developerEntryLinks,
+  supplierProducts,
+  suppliers,
+} from "../schema/index.ts";
 import {
   productOfferedInCatalog,
   publicSupplier,
@@ -55,6 +60,58 @@ export async function createDeveloperEntryLink(
   return row;
 }
 
+/** The key that made a link, for the usage trail of the click. */
+export interface EntryLinkIssuer {
+  linkId: string;
+  keyId: string;
+  keyPrefix: string;
+}
+
+export type EntryLinkConsumption =
+  | { kind: "consumed"; issuer: EntryLinkIssuer }
+  | { kind: "expired" | "used"; issuer: EntryLinkIssuer }
+  | { kind: "not_found" };
+
+/**
+ * Spends the token on the first click, signed in or not, and binds the choice to the secret the
+ * browser keeps. A second click, or one after expiry, gets nothing.
+ */
+export async function consumeDeveloperEntryLink(
+  database: Database,
+  consumption: { tokenHash: string; choiceHash: string; now: Date },
+): Promise<EntryLinkConsumption> {
+  const [consumed] = await database
+    .update(developerEntryLinks)
+    .set({ consumedAt: consumption.now, choiceHash: consumption.choiceHash })
+    .where(
+      and(
+        eq(developerEntryLinks.tokenHash, consumption.tokenHash),
+        isNull(developerEntryLinks.consumedAt),
+        gt(developerEntryLinks.expiresAt, consumption.now),
+      ),
+    )
+    .returning({ id: developerEntryLinks.id });
+  const [found] = await database
+    .select({
+      linkId: developerEntryLinks.id,
+      keyId: developerEntryLinks.keyId,
+      keyPrefix: developerApiKeys.prefix,
+      consumedAt: developerEntryLinks.consumedAt,
+    })
+    .from(developerEntryLinks)
+    .innerJoin(developerApiKeys, eq(developerApiKeys.id, developerEntryLinks.keyId))
+    .where(eq(developerEntryLinks.tokenHash, consumption.tokenHash))
+    .limit(1);
+  if (found === undefined) {
+    return { kind: "not_found" };
+  }
+  const issuer = { linkId: found.linkId, keyId: found.keyId, keyPrefix: found.keyPrefix };
+  if (consumed !== undefined) {
+    return { kind: "consumed", issuer };
+  }
+  return { kind: found.consumedAt === null ? "expired" : "used", issuer };
+}
+
 /** What a claimed link carries into the app: never the token. */
 export interface ClaimedEntryLink {
   id: string;
@@ -75,21 +132,22 @@ const claimedColumns = {
 };
 
 /**
- * Claims the link for the signed-in account, once. Opening it again from the same account and
- * profile shows the same choice (a reload); any other account, or an expired link, is refused.
+ * Claims the choice behind a browser's secret for the signed-in account, once, while the choice
+ * is fresh (consumed after `freshSince`). The same account and profile see it again on a reload;
+ * any other account is refused.
  */
 export async function claimDeveloperEntryLink(
   database: Database,
-  claim: { tokenHash: string; userId: string; tenantId: string; now: Date },
+  claim: { choiceHash: string; userId: string; tenantId: string; now: Date; freshSince: Date },
 ): Promise<EntryLinkClaim> {
   const [claimed] = await database
     .update(developerEntryLinks)
     .set({ claimedAt: claim.now, claimedByUserId: claim.userId, claimedTenantId: claim.tenantId })
     .where(
       and(
-        eq(developerEntryLinks.tokenHash, claim.tokenHash),
+        eq(developerEntryLinks.choiceHash, claim.choiceHash),
         isNull(developerEntryLinks.claimedAt),
-        gt(developerEntryLinks.expiresAt, claim.now),
+        gt(developerEntryLinks.consumedAt, claim.freshSince),
       ),
     )
     .returning(claimedColumns);
@@ -104,7 +162,7 @@ export async function claimDeveloperEntryLink(
       claimedTenantId: developerEntryLinks.claimedTenantId,
     })
     .from(developerEntryLinks)
-    .where(eq(developerEntryLinks.tokenHash, claim.tokenHash))
+    .where(eq(developerEntryLinks.choiceHash, claim.choiceHash))
     .limit(1);
   if (existing === undefined) {
     return { kind: "not_found" };
