@@ -232,6 +232,7 @@ function LoginPage() {
         Não tem conta?{" "}
         <Link
           to="/cadastro"
+          search={{ redirect: search.redirect }}
           className="font-medium text-brand-text underline-offset-4 hover:underline"
         >
           Criar conta
