@@ -1,6 +1,7 @@
 import type { DeveloperScope } from "@sellbridge/shared/developer-api";
 import { noInput as noBody } from "@/features/public-api/endpoint";
 import type { DocumentedOperation } from "@/features/public-api/openapi";
+import { createDeveloperEntryLinkEndpoint } from "./entry-links.server";
 import { getDeveloperMe } from "./me.server";
 import { getDeveloperOrder } from "./orders.server";
 import {
@@ -38,9 +39,9 @@ export const DEVELOPER_ENDPOINTS = [
   getDeveloperTicket,
 ];
 
-/** The endpoints as the manual describes them: every developer read is a GET without a body. */
-export const DEVELOPER_OPERATIONS: readonly DocumentedOperation<DeveloperScope>[] =
-  DEVELOPER_ENDPOINTS.map((endpoint) => ({
+/** The endpoints as the manual describes them: the reads, then the entry link. */
+const READ_OPERATIONS: DocumentedOperation<DeveloperScope>[] = DEVELOPER_ENDPOINTS.map(
+  (endpoint) => ({
     method: "GET",
     path: endpoint.path,
     operationId: endpoint.operationId,
@@ -52,4 +53,25 @@ export const DEVELOPER_OPERATIONS: readonly DocumentedOperation<DeveloperScope>[
     query: endpoint.query,
     body: noBody,
     response: endpoint.response,
-  }));
+  }),
+);
+
+const entryLink = createDeveloperEntryLinkEndpoint;
+
+export const DEVELOPER_OPERATIONS: readonly DocumentedOperation<DeveloperScope>[] = [
+  ...READ_OPERATIONS,
+  {
+    method: "POST",
+    path: entryLink.path,
+    operationId: entryLink.operationId,
+    tag: entryLink.tag,
+    summary: entryLink.summary,
+    ...(entryLink.description === undefined ? {} : { description: entryLink.description }),
+    scope: entryLink.scope,
+    params: noBody,
+    query: noBody,
+    body: entryLink.body,
+    response: entryLink.response,
+    successStatus: 201,
+  },
+];

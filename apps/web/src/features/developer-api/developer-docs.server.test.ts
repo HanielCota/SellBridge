@@ -22,7 +22,7 @@ function operationAt(path: string) {
 
 describe("developer API manual", () => {
   it("documents every developer endpoint once", () => {
-    const paths = DEVELOPER_ENDPOINTS.map((endpoint) => endpoint.path);
+    const paths = [...DEVELOPER_ENDPOINTS.map((endpoint) => endpoint.path), "/entry-links"];
 
     expect(new Set(paths).size).toBe(paths.length);
     expect(Object.keys(document.paths).toSorted()).toEqual(paths.toSorted());
@@ -52,6 +52,13 @@ describe("developer API manual", () => {
     expect(operation).toMatchObject({
       description: expect.stringContaining("Escopo: `suppliers:read` (Fornecedores"),
     });
+  });
+
+  it("documents the entry link as a POST without an idempotency key", () => {
+    const operation = document.paths["/entry-links"]?.post;
+
+    expect(operation).toMatchObject({ responses: { "201": expect.any(Object) } });
+    expect(JSON.stringify(operation)).not.toContain("Idempotency-Key");
   });
 
   it("embeds the document without letting it close the script tag", async () => {

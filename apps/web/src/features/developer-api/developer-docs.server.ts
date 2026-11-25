@@ -14,7 +14,7 @@ function developerApiBaseUrl(): string {
 function description(): string {
   const base = developerApiBaseUrl();
   return [
-    "API só de leitura para os desenvolvedores do SellBridge usarem os dados em outros projetos. Lê os dados de **todas** as organizações e fornecedores, limitada aos tipos de informação marcados na chave.",
+    "API para os desenvolvedores do SellBridge usarem os dados em outros projetos. Lê os dados de **todas** as organizações e fornecedores, limitada aos tipos de informação marcados na chave. A única coisa que ela cria é o link de entrada (`POST /entry-links`), que leva uma pessoa ao SellBridge com produtos já escolhidos; ela nunca muda os dados de uma organização.",
     "## Começando",
     "1. Na tela **Chaves de desenvolvedor**, crie uma chave e marque o que ela pode ler. Ela aparece uma única vez.",
     "2. Envie a chave em todas as requisições: `Authorization: Bearer sb_dev_...`.",
@@ -40,6 +40,7 @@ export function buildDeveloperOpenApiDocument() {
       title: "SellBridge API de desenvolvedor",
       bearerFormat: "sb_dev_...",
       scopeLabel: (scope) => DEVELOPER_SCOPE_LABELS[scope],
+      idempotentPosts: false,
     },
   });
 }
