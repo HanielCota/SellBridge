@@ -41,7 +41,13 @@ export const getDeveloperPlanUsage = defineDeveloperEndpoint({
     const room = await findPlanRoom(organizationId);
     if (room.kind === "unlimited") {
       return {
-        data: { situation: "unlimited", plan: null, allowed: null, used: room.used, left: null },
+        data: {
+          situation: "unlimited" as const,
+          plan: null,
+          allowed: null,
+          used: room.used,
+          left: null,
+        },
       };
     }
     return {
