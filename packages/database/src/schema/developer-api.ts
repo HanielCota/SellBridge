@@ -42,13 +42,13 @@ export const developerApiKeys = pgTable(
 export const developerApiRateLimits = pgTable(
   "developer_api_rate_limits",
   {
-    developerApiKeyId: uuid()
+    keyId: uuid()
       .notNull()
       .references(() => developerApiKeys.id, { onDelete: "cascade" }),
     windowStart: timestamp({ withTimezone: true }).notNull(),
     requests: integer().notNull(),
   },
-  (table) => [primaryKey({ columns: [table.developerApiKeyId, table.windowStart] })],
+  (table) => [primaryKey({ columns: [table.keyId, table.windowStart] })],
 );
 
 /**
@@ -59,7 +59,7 @@ export const developerApiRequests = pgTable(
   "developer_api_requests",
   {
     id: bigserial({ mode: "number" }).primaryKey(),
-    developerApiKeyId: uuid()
+    keyId: uuid()
       .notNull()
       .references(() => developerApiKeys.id, { onDelete: "cascade" }),
     operation: text().notNull(),
@@ -67,5 +67,5 @@ export const developerApiRequests = pgTable(
     durationMilliseconds: integer().notNull(),
     createdAt: timestamp({ withTimezone: true }).defaultNow().notNull(),
   },
-  (table) => [index("developer_api_requests_key_idx").on(table.developerApiKeyId, table.createdAt)],
+  (table) => [index("developer_api_requests_key_idx").on(table.keyId, table.createdAt)],
 );

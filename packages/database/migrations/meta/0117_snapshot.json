@@ -1,5 +1,5 @@
 {
-  "id": "73f0c09c-2f29-4415-8df7-d8e803dc5058",
+  "id": "f222d510-0d31-45c9-9a83-de316eec3aeb",
   "prevId": "0b71ea03-ba82-4036-a905-dc5a06e6e28b",
   "version": "7",
   "dialect": "postgresql",
@@ -6228,8 +6228,8 @@
       "name": "developer_api_rate_limits",
       "schema": "",
       "columns": {
-        "developer_api_key_id": {
-          "name": "developer_api_key_id",
+        "key_id": {
+          "name": "key_id",
           "type": "uuid",
           "primaryKey": false,
           "notNull": true
@@ -6249,12 +6249,12 @@
       },
       "indexes": {},
       "foreignKeys": {
-        "developer_api_rate_limits_developer_api_key_id_developer_api_keys_id_fk": {
-          "name": "developer_api_rate_limits_developer_api_key_id_developer_api_keys_id_fk",
+        "developer_api_rate_limits_key_id_developer_api_keys_id_fk": {
+          "name": "developer_api_rate_limits_key_id_developer_api_keys_id_fk",
           "tableFrom": "developer_api_rate_limits",
           "tableTo": "developer_api_keys",
           "columnsFrom": [
-            "developer_api_key_id"
+            "key_id"
           ],
           "columnsTo": [
             "id"
@@ -6264,10 +6264,10 @@
         }
       },
       "compositePrimaryKeys": {
-        "developer_api_rate_limits_developer_api_key_id_window_start_pk": {
-          "name": "developer_api_rate_limits_developer_api_key_id_window_start_pk",
+        "developer_api_rate_limits_key_id_window_start_pk": {
+          "name": "developer_api_rate_limits_key_id_window_start_pk",
           "columns": [
-            "developer_api_key_id",
+            "key_id",
             "window_start"
           ]
         }
@@ -6287,8 +6287,8 @@
           "primaryKey": true,
           "notNull": true
         },
-        "developer_api_key_id": {
-          "name": "developer_api_key_id",
+        "key_id": {
+          "name": "key_id",
           "type": "uuid",
           "primaryKey": false,
           "notNull": true
@@ -6324,7 +6324,7 @@
           "name": "developer_api_requests_key_idx",
           "columns": [
             {
-              "expression": "developer_api_key_id",
+              "expression": "key_id",
               "isExpression": false,
               "asc": true,
               "nulls": "last"
@@ -6343,12 +6343,12 @@
         }
       },
       "foreignKeys": {
-        "developer_api_requests_developer_api_key_id_developer_api_keys_id_fk": {
-          "name": "developer_api_requests_developer_api_key_id_developer_api_keys_id_fk",
+        "developer_api_requests_key_id_developer_api_keys_id_fk": {
+          "name": "developer_api_requests_key_id_developer_api_keys_id_fk",
           "tableFrom": "developer_api_requests",
           "tableTo": "developer_api_keys",
           "columnsFrom": [
-            "developer_api_key_id"
+            "key_id"
           ],
           "columnsTo": [
             "id"

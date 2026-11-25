@@ -159,9 +159,9 @@ export async function countDeveloperApiRequest(
 ): Promise<number> {
   const [row] = await database
     .insert(developerApiRateLimits)
-    .values({ developerApiKeyId, windowStart, requests: 1 })
+    .values({ keyId: developerApiKeyId, windowStart, requests: 1 })
     .onConflictDoUpdate({
-      target: [developerApiRateLimits.developerApiKeyId, developerApiRateLimits.windowStart],
+      target: [developerApiRateLimits.keyId, developerApiRateLimits.windowStart],
       set: { requests: sql`${developerApiRateLimits.requests} + 1` },
     })
     .returning({ requests: developerApiRateLimits.requests });
@@ -169,7 +169,7 @@ export async function countDeveloperApiRequest(
     .delete(developerApiRateLimits)
     .where(
       and(
-        eq(developerApiRateLimits.developerApiKeyId, developerApiKeyId),
+        eq(developerApiRateLimits.keyId, developerApiKeyId),
         lt(developerApiRateLimits.windowStart, windowStart),
       ),
     );
@@ -187,5 +187,6 @@ export async function recordDeveloperApiRequest(
   database: Database,
   record: DeveloperApiRequestRecord,
 ): Promise<void> {
-  await database.insert(developerApiRequests).values(record);
+  const { developerApiKeyId, ...rest } = record;
+  await database.insert(developerApiRequests).values({ ...rest, keyId: developerApiKeyId });
 }
