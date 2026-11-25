@@ -161,6 +161,7 @@ import { Route as ApiV1CatalogProductsProductIdRouteImport } from './routes/api/
 import { Route as ApiV1WebhookEndpointsEndpointIdIndexRouteImport } from './routes/api/v1/webhook-endpoints/$endpointId/index'
 import { Route as ApiV1WebhookEndpointsEndpointIdDeliveriesRouteImport } from './routes/api/v1/webhook-endpoints/$endpointId/deliveries'
 import { Route as ApiDevV1OrganizationsOrganizationIdIndexRouteImport } from './routes/api/dev/v1/organizations/$organizationId/index'
+import { Route as ApiDevV1OrganizationsOrganizationIdPlanUsageRouteImport } from './routes/api/dev/v1/organizations/$organizationId/plan-usage'
 import { Route as ApiDevV1OrganizationsOrganizationIdStoresRouteImport } from './routes/api/dev/v1/organizations/$organizationId/stores'
 import { Route as ApiDevV1SuppliersSupplierIdProductsRouteImport } from './routes/api/dev/v1/suppliers/$supplierId/products'
 import { Route as ApiDevV1OrganizationsOrganizationIdFinancialsSummaryRouteImport } from './routes/api/dev/v1/organizations/$organizationId/financials/summary'
@@ -994,6 +995,12 @@ const ApiDevV1OrganizationsOrganizationIdIndexRoute =
     path: '/api/dev/v1/organizations/$organizationId/',
     getParentRoute: () => rootRouteImport,
   } as any)
+const ApiDevV1OrganizationsOrganizationIdPlanUsageRoute =
+  ApiDevV1OrganizationsOrganizationIdPlanUsageRouteImport.update({
+    id: '/api/dev/v1/organizations/$organizationId/plan-usage',
+    path: '/api/dev/v1/organizations/$organizationId/plan-usage',
+    getParentRoute: () => rootRouteImport,
+  } as any)
 const ApiDevV1OrganizationsOrganizationIdStoresRoute =
   ApiDevV1OrganizationsOrganizationIdStoresRouteImport.update({
     id: '/api/dev/v1/organizations/$organizationId/stores',
@@ -1219,6 +1226,7 @@ export interface FileRoutesByFullPath {
   '/api/dev/v1/suppliers/': typeof ApiDevV1SuppliersIndexRoute
   '/api/v1/catalog/products/': typeof ApiV1CatalogProductsIndexRoute
   '/api/v1/webhook-endpoints/$endpointId/': typeof ApiV1WebhookEndpointsEndpointIdIndexRoute
+  '/api/dev/v1/organizations/$organizationId/plan-usage': typeof ApiDevV1OrganizationsOrganizationIdPlanUsageRoute
   '/api/dev/v1/organizations/$organizationId/stores': typeof ApiDevV1OrganizationsOrganizationIdStoresRoute
   '/api/dev/v1/suppliers/$supplierId/products': typeof ApiDevV1SuppliersSupplierIdProductsRoute
   '/api/dev/v1/organizations/$organizationId/': typeof ApiDevV1OrganizationsOrganizationIdIndexRoute
@@ -1379,6 +1387,7 @@ export interface FileRoutesByTo {
   '/api/dev/v1/suppliers': typeof ApiDevV1SuppliersIndexRoute
   '/api/v1/catalog/products': typeof ApiV1CatalogProductsIndexRoute
   '/api/v1/webhook-endpoints/$endpointId': typeof ApiV1WebhookEndpointsEndpointIdIndexRoute
+  '/api/dev/v1/organizations/$organizationId/plan-usage': typeof ApiDevV1OrganizationsOrganizationIdPlanUsageRoute
   '/api/dev/v1/organizations/$organizationId/stores': typeof ApiDevV1OrganizationsOrganizationIdStoresRoute
   '/api/dev/v1/suppliers/$supplierId/products': typeof ApiDevV1SuppliersSupplierIdProductsRoute
   '/api/dev/v1/organizations/$organizationId': typeof ApiDevV1OrganizationsOrganizationIdIndexRoute
@@ -1546,6 +1555,7 @@ export interface FileRoutesById {
   '/api/dev/v1/suppliers/': typeof ApiDevV1SuppliersIndexRoute
   '/api/v1/catalog/products/': typeof ApiV1CatalogProductsIndexRoute
   '/api/v1/webhook-endpoints/$endpointId/': typeof ApiV1WebhookEndpointsEndpointIdIndexRoute
+  '/api/dev/v1/organizations/$organizationId/plan-usage': typeof ApiDevV1OrganizationsOrganizationIdPlanUsageRoute
   '/api/dev/v1/organizations/$organizationId/stores': typeof ApiDevV1OrganizationsOrganizationIdStoresRoute
   '/api/dev/v1/suppliers/$supplierId/products': typeof ApiDevV1SuppliersSupplierIdProductsRoute
   '/api/dev/v1/organizations/$organizationId/': typeof ApiDevV1OrganizationsOrganizationIdIndexRoute
@@ -1712,6 +1722,7 @@ export interface FileRouteTypes {
     | '/api/dev/v1/suppliers/'
     | '/api/v1/catalog/products/'
     | '/api/v1/webhook-endpoints/$endpointId/'
+    | '/api/dev/v1/organizations/$organizationId/plan-usage'
     | '/api/dev/v1/organizations/$organizationId/stores'
     | '/api/dev/v1/suppliers/$supplierId/products'
     | '/api/dev/v1/organizations/$organizationId/'
@@ -1872,6 +1883,7 @@ export interface FileRouteTypes {
     | '/api/dev/v1/suppliers'
     | '/api/v1/catalog/products'
     | '/api/v1/webhook-endpoints/$endpointId'
+    | '/api/dev/v1/organizations/$organizationId/plan-usage'
     | '/api/dev/v1/organizations/$organizationId/stores'
     | '/api/dev/v1/suppliers/$supplierId/products'
     | '/api/dev/v1/organizations/$organizationId'
@@ -2038,6 +2050,7 @@ export interface FileRouteTypes {
     | '/api/dev/v1/suppliers/'
     | '/api/v1/catalog/products/'
     | '/api/v1/webhook-endpoints/$endpointId/'
+    | '/api/dev/v1/organizations/$organizationId/plan-usage'
     | '/api/dev/v1/organizations/$organizationId/stores'
     | '/api/dev/v1/suppliers/$supplierId/products'
     | '/api/dev/v1/organizations/$organizationId/'
@@ -2132,6 +2145,7 @@ export interface RootRouteChildren {
   ApiDevV1SuppliersIndexRoute: typeof ApiDevV1SuppliersIndexRoute
   ApiV1CatalogProductsIndexRoute: typeof ApiV1CatalogProductsIndexRoute
   ApiV1WebhookEndpointsEndpointIdIndexRoute: typeof ApiV1WebhookEndpointsEndpointIdIndexRoute
+  ApiDevV1OrganizationsOrganizationIdPlanUsageRoute: typeof ApiDevV1OrganizationsOrganizationIdPlanUsageRoute
   ApiDevV1OrganizationsOrganizationIdStoresRoute: typeof ApiDevV1OrganizationsOrganizationIdStoresRoute
   ApiDevV1SuppliersSupplierIdProductsRoute: typeof ApiDevV1SuppliersSupplierIdProductsRoute
   ApiDevV1OrganizationsOrganizationIdIndexRoute: typeof ApiDevV1OrganizationsOrganizationIdIndexRoute
@@ -3213,6 +3227,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiDevV1OrganizationsOrganizationIdIndexRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/dev/v1/organizations/$organizationId/plan-usage': {
+      id: '/api/dev/v1/organizations/$organizationId/plan-usage'
+      path: '/api/dev/v1/organizations/$organizationId/plan-usage'
+      fullPath: '/api/dev/v1/organizations/$organizationId/plan-usage'
+      preLoaderRoute: typeof ApiDevV1OrganizationsOrganizationIdPlanUsageRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/dev/v1/organizations/$organizationId/stores': {
       id: '/api/dev/v1/organizations/$organizationId/stores'
       path: '/api/dev/v1/organizations/$organizationId/stores'
@@ -3619,6 +3640,8 @@ const rootRouteChildren: RootRouteChildren = {
   ApiV1CatalogProductsIndexRoute: ApiV1CatalogProductsIndexRoute,
   ApiV1WebhookEndpointsEndpointIdIndexRoute:
     ApiV1WebhookEndpointsEndpointIdIndexRoute,
+  ApiDevV1OrganizationsOrganizationIdPlanUsageRoute:
+    ApiDevV1OrganizationsOrganizationIdPlanUsageRoute,
   ApiDevV1OrganizationsOrganizationIdStoresRoute:
     ApiDevV1OrganizationsOrganizationIdStoresRoute,
   ApiDevV1SuppliersSupplierIdProductsRoute:
