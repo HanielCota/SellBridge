@@ -42,8 +42,9 @@ function PlanVerdict({ check }: { check: PlanCheck }) {
     return (
       <div className="flex flex-wrap items-center gap-3">
         <Warning>
-          Faltam {pluralize(check.short, "anúncio", "anúncios")} no seu plano. Desmarque{" "}
-          {pluralize(check.productsToUntick, "produto", "produtos")} ou mude de plano.
+          {check.short === 1 ? "Falta" : "Faltam"} {pluralize(check.short, "anúncio", "anúncios")}{" "}
+          no seu plano. Desmarque {pluralize(check.productsToUntick, "produto", "produtos")} ou mude
+          de plano.
         </Warning>
         <ChangePlanLink label="Mudar de plano" />
       </div>
