@@ -2,7 +2,7 @@ import { z } from "zod";
 
 /**
  * What a developer key may read, across every organization. The developer ticks them one by
- * one when creating the key. `buyers:personal` adds the buyer's address and CPF to orders and is
+ * one when creating the key. `buyers:personal` adds the buyer's shipping address to orders and is
  * never ticked by default (decision of 25/11/2026).
  */
 export const DEVELOPER_SCOPES = [
@@ -25,7 +25,7 @@ export const DEVELOPER_SCOPE_LABELS: Record<DeveloperScope, string> = {
   "stores:read": "Lojas conectadas",
   "listings:read": "Anúncios",
   "orders:read": "Pedidos, itens e lucro (comprador só com o nome)",
-  "buyers:personal": "Endereço e CPF dos compradores",
+  "buyers:personal": "Endereço de entrega dos compradores",
   "financials:read": "Resumo financeiro por período",
   "suppliers:read": "Fornecedores, produtos e estoque",
   "catalog:read": "Catálogo",
@@ -44,7 +44,7 @@ export const developerScopesSchema = z
   .transform((scopes) => [...new Set(scopes)])
   .refine(
     (scopes) => !scopes.includes(PERSONAL_DATA_SCOPE) || scopes.includes(PERSONAL_DATA_REQUIRES),
-    { message: "Endereço e CPF só vêm junto com os pedidos: marque também “Pedidos”." },
+    { message: "O endereço de entrega só vem junto com os pedidos: marque também “Pedidos”." },
   );
 
 /** Drops anything stored that is no longer a known scope, instead of failing the request. */
