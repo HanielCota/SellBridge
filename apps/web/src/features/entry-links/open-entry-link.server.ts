@@ -17,7 +17,8 @@ export type EntryLinkView =
       kind: "ready";
       supplierId: string;
       supplierName: string;
-      products: Pick<SellableCatalogProduct, "id" | "title" | "imageUrl" | "costCents">[];
+      /** Whole catalog rows: the bulk publish review prices them as the catalog does. */
+      products: SellableCatalogProduct[];
       /** Chosen in the other project but no longer offered (switched off since). */
       unavailableCount: number;
     }
@@ -66,12 +67,7 @@ export async function openEntryLinkFor(
     kind: "ready",
     supplierId: claim.link.supplierId,
     supplierName,
-    products: offered.map((product) => ({
-      id: product.id,
-      title: product.title,
-      imageUrl: product.imageUrl,
-      costCents: product.costCents,
-    })),
+    products: offered,
     unavailableCount: claim.link.productIds.length - offered.length,
   };
 }
