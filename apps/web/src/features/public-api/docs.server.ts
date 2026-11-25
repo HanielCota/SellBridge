@@ -1,6 +1,6 @@
 import { environment } from "@/lib/server/environment";
 import { API_OPERATIONS } from "./endpoints/index.server";
-import { buildOpenApiDocument } from "./openapi";
+import { buildOpenApiDocument, PUBLIC_API_SETTINGS } from "./openapi";
 import { API_REQUESTS_PER_MINUTE } from "./rate-limit.server";
 
 const SCALAR_SCRIPT = "https://cdn.jsdelivr.net/npm/@scalar/api-reference@1.69.2";
@@ -31,6 +31,7 @@ function description(): string {
 
 export function openApiResponse(): Response {
   const document = buildOpenApiDocument({
+    settings: PUBLIC_API_SETTINGS,
     operations: API_OPERATIONS,
     serverUrl: apiBaseUrl(),
     description: description(),

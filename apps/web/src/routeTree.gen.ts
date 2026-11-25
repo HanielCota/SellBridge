@@ -113,7 +113,9 @@ import { Route as ApiAdminExportarAuditoriaRouteImport } from './routes/api/admi
 import { Route as ApiAdminExportarChamadosRouteImport } from './routes/api/admin/exportar/chamados'
 import { Route as ApiAdminExportarClientesRouteImport } from './routes/api/admin/exportar/clientes'
 import { Route as ApiAdminExportarEquipeRouteImport } from './routes/api/admin/exportar/equipe'
+import { Route as ApiDevV1DocsRouteImport } from './routes/api/dev/v1/docs'
 import { Route as ApiDevV1MeRouteImport } from './routes/api/dev/v1/me'
+import { Route as ApiDevV1OpenapiDotjsonRouteImport } from './routes/api/dev/v1/openapi[.]json'
 import { Route as ApiDevolucoesClaimIdMotivoRouteImport } from './routes/api/devolucoes/$claimId/motivo'
 import { Route as ApiDevolucoesClaimIdRespostaRouteImport } from './routes/api/devolucoes/$claimId/resposta'
 import { Route as ApiDevolucoesFotosPhotoIdRouteImport } from './routes/api/devolucoes/fotos/$photoId'
@@ -145,6 +147,8 @@ import { Route as AppAdminFornecedoresAnaliseIndexRouteImport } from './routes/_
 import { Route as AppAdminFornecedoresAnaliseProductIdRouteImport } from './routes/_app/admin/fornecedores/analise/$productId'
 import { Route as AppAdminFornecedoresAprovacaoIndexRouteImport } from './routes/_app/admin/fornecedores/aprovacao/index'
 import { Route as ApiAdminChamadosTicketIdMensagensRouteImport } from './routes/api/admin/chamados/$ticketId/mensagens'
+import { Route as ApiDevV1OrganizationsIndexRouteImport } from './routes/api/dev/v1/organizations/index'
+import { Route as ApiDevV1SuppliersIndexRouteImport } from './routes/api/dev/v1/suppliers/index'
 import { Route as ApiPerfilFotoUserIdFileNameRouteImport } from './routes/api/perfil/foto/$userId/$fileName'
 import { Route as ApiProdutosImagensSupplierIdFileNameRouteImport } from './routes/api/produtos/imagens/$supplierId/$fileName'
 import { Route as ApiSuporteChamadosTicketIdMensagensRouteImport } from './routes/api/suporte/chamados/$ticketId/mensagens'
@@ -153,6 +157,19 @@ import { Route as ApiV1CatalogProductsIndexRouteImport } from './routes/api/v1/c
 import { Route as ApiV1CatalogProductsProductIdRouteImport } from './routes/api/v1/catalog/products/$productId'
 import { Route as ApiV1WebhookEndpointsEndpointIdIndexRouteImport } from './routes/api/v1/webhook-endpoints/$endpointId/index'
 import { Route as ApiV1WebhookEndpointsEndpointIdDeliveriesRouteImport } from './routes/api/v1/webhook-endpoints/$endpointId/deliveries'
+import { Route as ApiDevV1OrganizationsOrganizationIdIndexRouteImport } from './routes/api/dev/v1/organizations/$organizationId/index'
+import { Route as ApiDevV1OrganizationsOrganizationIdStoresRouteImport } from './routes/api/dev/v1/organizations/$organizationId/stores'
+import { Route as ApiDevV1SuppliersSupplierIdProductsRouteImport } from './routes/api/dev/v1/suppliers/$supplierId/products'
+import { Route as ApiDevV1OrganizationsOrganizationIdFinancialsSummaryRouteImport } from './routes/api/dev/v1/organizations/$organizationId/financials/summary'
+import { Route as ApiDevV1OrganizationsOrganizationIdListingsIndexRouteImport } from './routes/api/dev/v1/organizations/$organizationId/listings/index'
+import { Route as ApiDevV1OrganizationsOrganizationIdListingsListingIdRouteImport } from './routes/api/dev/v1/organizations/$organizationId/listings/$listingId'
+import { Route as ApiDevV1OrganizationsOrganizationIdOrdersIndexRouteImport } from './routes/api/dev/v1/organizations/$organizationId/orders/index'
+import { Route as ApiDevV1OrganizationsOrganizationIdTicketsIndexRouteImport } from './routes/api/dev/v1/organizations/$organizationId/tickets/index'
+import { Route as ApiDevV1OrganizationsOrganizationIdTicketsTicketIdRouteImport } from './routes/api/dev/v1/organizations/$organizationId/tickets/$ticketId'
+import { Route as ApiDevV1OrganizationsOrganizationIdCatalogProductsIndexRouteImport } from './routes/api/dev/v1/organizations/$organizationId/catalog/products/index'
+import { Route as ApiDevV1OrganizationsOrganizationIdCatalogProductsProductIdRouteImport } from './routes/api/dev/v1/organizations/$organizationId/catalog/products/$productId'
+import { Route as ApiDevV1OrganizationsOrganizationIdOrdersOrderIdIndexRouteImport } from './routes/api/dev/v1/organizations/$organizationId/orders/$orderId/index'
+import { Route as ApiDevV1OrganizationsOrganizationIdOrdersOrderIdHistoryRouteImport } from './routes/api/dev/v1/organizations/$organizationId/orders/$orderId/history'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
@@ -699,9 +716,19 @@ const ApiAdminExportarEquipeRoute = ApiAdminExportarEquipeRouteImport.update({
   path: '/api/admin/exportar/equipe',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiDevV1DocsRoute = ApiDevV1DocsRouteImport.update({
+  id: '/api/dev/v1/docs',
+  path: '/api/dev/v1/docs',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ApiDevV1MeRoute = ApiDevV1MeRouteImport.update({
   id: '/api/dev/v1/me',
   path: '/api/dev/v1/me',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiDevV1OpenapiDotjsonRoute = ApiDevV1OpenapiDotjsonRouteImport.update({
+  id: '/api/dev/v1/openapi.json',
+  path: '/api/dev/v1/openapi.json',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ApiDevolucoesClaimIdMotivoRoute =
@@ -884,6 +911,17 @@ const ApiAdminChamadosTicketIdMensagensRoute =
     path: '/api/admin/chamados/$ticketId/mensagens',
     getParentRoute: () => rootRouteImport,
   } as any)
+const ApiDevV1OrganizationsIndexRoute =
+  ApiDevV1OrganizationsIndexRouteImport.update({
+    id: '/api/dev/v1/organizations/',
+    path: '/api/dev/v1/organizations/',
+    getParentRoute: () => rootRouteImport,
+  } as any)
+const ApiDevV1SuppliersIndexRoute = ApiDevV1SuppliersIndexRouteImport.update({
+  id: '/api/dev/v1/suppliers/',
+  path: '/api/dev/v1/suppliers/',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ApiPerfilFotoUserIdFileNameRoute =
   ApiPerfilFotoUserIdFileNameRouteImport.update({
     id: '/$userId/$fileName',
@@ -930,6 +968,86 @@ const ApiV1WebhookEndpointsEndpointIdDeliveriesRoute =
   ApiV1WebhookEndpointsEndpointIdDeliveriesRouteImport.update({
     id: '/api/v1/webhook-endpoints/$endpointId/deliveries',
     path: '/api/v1/webhook-endpoints/$endpointId/deliveries',
+    getParentRoute: () => rootRouteImport,
+  } as any)
+const ApiDevV1OrganizationsOrganizationIdIndexRoute =
+  ApiDevV1OrganizationsOrganizationIdIndexRouteImport.update({
+    id: '/api/dev/v1/organizations/$organizationId/',
+    path: '/api/dev/v1/organizations/$organizationId/',
+    getParentRoute: () => rootRouteImport,
+  } as any)
+const ApiDevV1OrganizationsOrganizationIdStoresRoute =
+  ApiDevV1OrganizationsOrganizationIdStoresRouteImport.update({
+    id: '/api/dev/v1/organizations/$organizationId/stores',
+    path: '/api/dev/v1/organizations/$organizationId/stores',
+    getParentRoute: () => rootRouteImport,
+  } as any)
+const ApiDevV1SuppliersSupplierIdProductsRoute =
+  ApiDevV1SuppliersSupplierIdProductsRouteImport.update({
+    id: '/api/dev/v1/suppliers/$supplierId/products',
+    path: '/api/dev/v1/suppliers/$supplierId/products',
+    getParentRoute: () => rootRouteImport,
+  } as any)
+const ApiDevV1OrganizationsOrganizationIdFinancialsSummaryRoute =
+  ApiDevV1OrganizationsOrganizationIdFinancialsSummaryRouteImport.update({
+    id: '/api/dev/v1/organizations/$organizationId/financials/summary',
+    path: '/api/dev/v1/organizations/$organizationId/financials/summary',
+    getParentRoute: () => rootRouteImport,
+  } as any)
+const ApiDevV1OrganizationsOrganizationIdListingsIndexRoute =
+  ApiDevV1OrganizationsOrganizationIdListingsIndexRouteImport.update({
+    id: '/api/dev/v1/organizations/$organizationId/listings/',
+    path: '/api/dev/v1/organizations/$organizationId/listings/',
+    getParentRoute: () => rootRouteImport,
+  } as any)
+const ApiDevV1OrganizationsOrganizationIdListingsListingIdRoute =
+  ApiDevV1OrganizationsOrganizationIdListingsListingIdRouteImport.update({
+    id: '/api/dev/v1/organizations/$organizationId/listings/$listingId',
+    path: '/api/dev/v1/organizations/$organizationId/listings/$listingId',
+    getParentRoute: () => rootRouteImport,
+  } as any)
+const ApiDevV1OrganizationsOrganizationIdOrdersIndexRoute =
+  ApiDevV1OrganizationsOrganizationIdOrdersIndexRouteImport.update({
+    id: '/api/dev/v1/organizations/$organizationId/orders/',
+    path: '/api/dev/v1/organizations/$organizationId/orders/',
+    getParentRoute: () => rootRouteImport,
+  } as any)
+const ApiDevV1OrganizationsOrganizationIdTicketsIndexRoute =
+  ApiDevV1OrganizationsOrganizationIdTicketsIndexRouteImport.update({
+    id: '/api/dev/v1/organizations/$organizationId/tickets/',
+    path: '/api/dev/v1/organizations/$organizationId/tickets/',
+    getParentRoute: () => rootRouteImport,
+  } as any)
+const ApiDevV1OrganizationsOrganizationIdTicketsTicketIdRoute =
+  ApiDevV1OrganizationsOrganizationIdTicketsTicketIdRouteImport.update({
+    id: '/api/dev/v1/organizations/$organizationId/tickets/$ticketId',
+    path: '/api/dev/v1/organizations/$organizationId/tickets/$ticketId',
+    getParentRoute: () => rootRouteImport,
+  } as any)
+const ApiDevV1OrganizationsOrganizationIdCatalogProductsIndexRoute =
+  ApiDevV1OrganizationsOrganizationIdCatalogProductsIndexRouteImport.update({
+    id: '/api/dev/v1/organizations/$organizationId/catalog/products/',
+    path: '/api/dev/v1/organizations/$organizationId/catalog/products/',
+    getParentRoute: () => rootRouteImport,
+  } as any)
+const ApiDevV1OrganizationsOrganizationIdCatalogProductsProductIdRoute =
+  ApiDevV1OrganizationsOrganizationIdCatalogProductsProductIdRouteImport.update(
+    {
+      id: '/api/dev/v1/organizations/$organizationId/catalog/products/$productId',
+      path: '/api/dev/v1/organizations/$organizationId/catalog/products/$productId',
+      getParentRoute: () => rootRouteImport,
+    } as any,
+  )
+const ApiDevV1OrganizationsOrganizationIdOrdersOrderIdIndexRoute =
+  ApiDevV1OrganizationsOrganizationIdOrdersOrderIdIndexRouteImport.update({
+    id: '/api/dev/v1/organizations/$organizationId/orders/$orderId/',
+    path: '/api/dev/v1/organizations/$organizationId/orders/$orderId/',
+    getParentRoute: () => rootRouteImport,
+  } as any)
+const ApiDevV1OrganizationsOrganizationIdOrdersOrderIdHistoryRoute =
+  ApiDevV1OrganizationsOrganizationIdOrdersOrderIdHistoryRouteImport.update({
+    id: '/api/dev/v1/organizations/$organizationId/orders/$orderId/history',
+    path: '/api/dev/v1/organizations/$organizationId/orders/$orderId/history',
     getParentRoute: () => rootRouteImport,
   } as any)
 
@@ -1030,7 +1148,9 @@ export interface FileRoutesByFullPath {
   '/api/admin/exportar/chamados': typeof ApiAdminExportarChamadosRoute
   '/api/admin/exportar/clientes': typeof ApiAdminExportarClientesRoute
   '/api/admin/exportar/equipe': typeof ApiAdminExportarEquipeRoute
+  '/api/dev/v1/docs': typeof ApiDevV1DocsRoute
   '/api/dev/v1/me': typeof ApiDevV1MeRoute
+  '/api/dev/v1/openapi.json': typeof ApiDevV1OpenapiDotjsonRoute
   '/api/devolucoes/$claimId/motivo': typeof ApiDevolucoesClaimIdMotivoRoute
   '/api/devolucoes/$claimId/resposta': typeof ApiDevolucoesClaimIdRespostaRoute
   '/api/devolucoes/fotos/$photoId': typeof ApiDevolucoesFotosPhotoIdRoute
@@ -1074,8 +1194,23 @@ export interface FileRoutesByFullPath {
   '/api/v1/webhook-endpoints/$endpointId/deliveries': typeof ApiV1WebhookEndpointsEndpointIdDeliveriesRoute
   '/admin/fornecedores/analise/': typeof AppAdminFornecedoresAnaliseIndexRoute
   '/admin/fornecedores/aprovacao/': typeof AppAdminFornecedoresAprovacaoIndexRoute
+  '/api/dev/v1/organizations/': typeof ApiDevV1OrganizationsIndexRoute
+  '/api/dev/v1/suppliers/': typeof ApiDevV1SuppliersIndexRoute
   '/api/v1/catalog/products/': typeof ApiV1CatalogProductsIndexRoute
   '/api/v1/webhook-endpoints/$endpointId/': typeof ApiV1WebhookEndpointsEndpointIdIndexRoute
+  '/api/dev/v1/organizations/$organizationId/stores': typeof ApiDevV1OrganizationsOrganizationIdStoresRoute
+  '/api/dev/v1/suppliers/$supplierId/products': typeof ApiDevV1SuppliersSupplierIdProductsRoute
+  '/api/dev/v1/organizations/$organizationId/': typeof ApiDevV1OrganizationsOrganizationIdIndexRoute
+  '/api/dev/v1/organizations/$organizationId/financials/summary': typeof ApiDevV1OrganizationsOrganizationIdFinancialsSummaryRoute
+  '/api/dev/v1/organizations/$organizationId/listings/$listingId': typeof ApiDevV1OrganizationsOrganizationIdListingsListingIdRoute
+  '/api/dev/v1/organizations/$organizationId/tickets/$ticketId': typeof ApiDevV1OrganizationsOrganizationIdTicketsTicketIdRoute
+  '/api/dev/v1/organizations/$organizationId/listings/': typeof ApiDevV1OrganizationsOrganizationIdListingsIndexRoute
+  '/api/dev/v1/organizations/$organizationId/orders/': typeof ApiDevV1OrganizationsOrganizationIdOrdersIndexRoute
+  '/api/dev/v1/organizations/$organizationId/tickets/': typeof ApiDevV1OrganizationsOrganizationIdTicketsIndexRoute
+  '/api/dev/v1/organizations/$organizationId/catalog/products/$productId': typeof ApiDevV1OrganizationsOrganizationIdCatalogProductsProductIdRoute
+  '/api/dev/v1/organizations/$organizationId/orders/$orderId/history': typeof ApiDevV1OrganizationsOrganizationIdOrdersOrderIdHistoryRoute
+  '/api/dev/v1/organizations/$organizationId/catalog/products/': typeof ApiDevV1OrganizationsOrganizationIdCatalogProductsIndexRoute
+  '/api/dev/v1/organizations/$organizationId/orders/$orderId/': typeof ApiDevV1OrganizationsOrganizationIdOrdersOrderIdIndexRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -1170,7 +1305,9 @@ export interface FileRoutesByTo {
   '/api/admin/exportar/chamados': typeof ApiAdminExportarChamadosRoute
   '/api/admin/exportar/clientes': typeof ApiAdminExportarClientesRoute
   '/api/admin/exportar/equipe': typeof ApiAdminExportarEquipeRoute
+  '/api/dev/v1/docs': typeof ApiDevV1DocsRoute
   '/api/dev/v1/me': typeof ApiDevV1MeRoute
+  '/api/dev/v1/openapi.json': typeof ApiDevV1OpenapiDotjsonRoute
   '/api/devolucoes/$claimId/motivo': typeof ApiDevolucoesClaimIdMotivoRoute
   '/api/devolucoes/$claimId/resposta': typeof ApiDevolucoesClaimIdRespostaRoute
   '/api/devolucoes/fotos/$photoId': typeof ApiDevolucoesFotosPhotoIdRoute
@@ -1214,8 +1351,23 @@ export interface FileRoutesByTo {
   '/api/v1/webhook-endpoints/$endpointId/deliveries': typeof ApiV1WebhookEndpointsEndpointIdDeliveriesRoute
   '/admin/fornecedores/analise': typeof AppAdminFornecedoresAnaliseIndexRoute
   '/admin/fornecedores/aprovacao': typeof AppAdminFornecedoresAprovacaoIndexRoute
+  '/api/dev/v1/organizations': typeof ApiDevV1OrganizationsIndexRoute
+  '/api/dev/v1/suppliers': typeof ApiDevV1SuppliersIndexRoute
   '/api/v1/catalog/products': typeof ApiV1CatalogProductsIndexRoute
   '/api/v1/webhook-endpoints/$endpointId': typeof ApiV1WebhookEndpointsEndpointIdIndexRoute
+  '/api/dev/v1/organizations/$organizationId/stores': typeof ApiDevV1OrganizationsOrganizationIdStoresRoute
+  '/api/dev/v1/suppliers/$supplierId/products': typeof ApiDevV1SuppliersSupplierIdProductsRoute
+  '/api/dev/v1/organizations/$organizationId': typeof ApiDevV1OrganizationsOrganizationIdIndexRoute
+  '/api/dev/v1/organizations/$organizationId/financials/summary': typeof ApiDevV1OrganizationsOrganizationIdFinancialsSummaryRoute
+  '/api/dev/v1/organizations/$organizationId/listings/$listingId': typeof ApiDevV1OrganizationsOrganizationIdListingsListingIdRoute
+  '/api/dev/v1/organizations/$organizationId/tickets/$ticketId': typeof ApiDevV1OrganizationsOrganizationIdTicketsTicketIdRoute
+  '/api/dev/v1/organizations/$organizationId/listings': typeof ApiDevV1OrganizationsOrganizationIdListingsIndexRoute
+  '/api/dev/v1/organizations/$organizationId/orders': typeof ApiDevV1OrganizationsOrganizationIdOrdersIndexRoute
+  '/api/dev/v1/organizations/$organizationId/tickets': typeof ApiDevV1OrganizationsOrganizationIdTicketsIndexRoute
+  '/api/dev/v1/organizations/$organizationId/catalog/products/$productId': typeof ApiDevV1OrganizationsOrganizationIdCatalogProductsProductIdRoute
+  '/api/dev/v1/organizations/$organizationId/orders/$orderId/history': typeof ApiDevV1OrganizationsOrganizationIdOrdersOrderIdHistoryRoute
+  '/api/dev/v1/organizations/$organizationId/catalog/products': typeof ApiDevV1OrganizationsOrganizationIdCatalogProductsIndexRoute
+  '/api/dev/v1/organizations/$organizationId/orders/$orderId': typeof ApiDevV1OrganizationsOrganizationIdOrdersOrderIdIndexRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -1317,7 +1469,9 @@ export interface FileRoutesById {
   '/api/admin/exportar/chamados': typeof ApiAdminExportarChamadosRoute
   '/api/admin/exportar/clientes': typeof ApiAdminExportarClientesRoute
   '/api/admin/exportar/equipe': typeof ApiAdminExportarEquipeRoute
+  '/api/dev/v1/docs': typeof ApiDevV1DocsRoute
   '/api/dev/v1/me': typeof ApiDevV1MeRoute
+  '/api/dev/v1/openapi.json': typeof ApiDevV1OpenapiDotjsonRoute
   '/api/devolucoes/$claimId/motivo': typeof ApiDevolucoesClaimIdMotivoRoute
   '/api/devolucoes/$claimId/resposta': typeof ApiDevolucoesClaimIdRespostaRoute
   '/api/devolucoes/fotos/$photoId': typeof ApiDevolucoesFotosPhotoIdRoute
@@ -1361,8 +1515,23 @@ export interface FileRoutesById {
   '/api/v1/webhook-endpoints/$endpointId/deliveries': typeof ApiV1WebhookEndpointsEndpointIdDeliveriesRoute
   '/_app/admin/fornecedores/analise/': typeof AppAdminFornecedoresAnaliseIndexRoute
   '/_app/admin/fornecedores/aprovacao/': typeof AppAdminFornecedoresAprovacaoIndexRoute
+  '/api/dev/v1/organizations/': typeof ApiDevV1OrganizationsIndexRoute
+  '/api/dev/v1/suppliers/': typeof ApiDevV1SuppliersIndexRoute
   '/api/v1/catalog/products/': typeof ApiV1CatalogProductsIndexRoute
   '/api/v1/webhook-endpoints/$endpointId/': typeof ApiV1WebhookEndpointsEndpointIdIndexRoute
+  '/api/dev/v1/organizations/$organizationId/stores': typeof ApiDevV1OrganizationsOrganizationIdStoresRoute
+  '/api/dev/v1/suppliers/$supplierId/products': typeof ApiDevV1SuppliersSupplierIdProductsRoute
+  '/api/dev/v1/organizations/$organizationId/': typeof ApiDevV1OrganizationsOrganizationIdIndexRoute
+  '/api/dev/v1/organizations/$organizationId/financials/summary': typeof ApiDevV1OrganizationsOrganizationIdFinancialsSummaryRoute
+  '/api/dev/v1/organizations/$organizationId/listings/$listingId': typeof ApiDevV1OrganizationsOrganizationIdListingsListingIdRoute
+  '/api/dev/v1/organizations/$organizationId/tickets/$ticketId': typeof ApiDevV1OrganizationsOrganizationIdTicketsTicketIdRoute
+  '/api/dev/v1/organizations/$organizationId/listings/': typeof ApiDevV1OrganizationsOrganizationIdListingsIndexRoute
+  '/api/dev/v1/organizations/$organizationId/orders/': typeof ApiDevV1OrganizationsOrganizationIdOrdersIndexRoute
+  '/api/dev/v1/organizations/$organizationId/tickets/': typeof ApiDevV1OrganizationsOrganizationIdTicketsIndexRoute
+  '/api/dev/v1/organizations/$organizationId/catalog/products/$productId': typeof ApiDevV1OrganizationsOrganizationIdCatalogProductsProductIdRoute
+  '/api/dev/v1/organizations/$organizationId/orders/$orderId/history': typeof ApiDevV1OrganizationsOrganizationIdOrdersOrderIdHistoryRoute
+  '/api/dev/v1/organizations/$organizationId/catalog/products/': typeof ApiDevV1OrganizationsOrganizationIdCatalogProductsIndexRoute
+  '/api/dev/v1/organizations/$organizationId/orders/$orderId/': typeof ApiDevV1OrganizationsOrganizationIdOrdersOrderIdIndexRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -1463,7 +1632,9 @@ export interface FileRouteTypes {
     | '/api/admin/exportar/chamados'
     | '/api/admin/exportar/clientes'
     | '/api/admin/exportar/equipe'
+    | '/api/dev/v1/docs'
     | '/api/dev/v1/me'
+    | '/api/dev/v1/openapi.json'
     | '/api/devolucoes/$claimId/motivo'
     | '/api/devolucoes/$claimId/resposta'
     | '/api/devolucoes/fotos/$photoId'
@@ -1507,8 +1678,23 @@ export interface FileRouteTypes {
     | '/api/v1/webhook-endpoints/$endpointId/deliveries'
     | '/admin/fornecedores/analise/'
     | '/admin/fornecedores/aprovacao/'
+    | '/api/dev/v1/organizations/'
+    | '/api/dev/v1/suppliers/'
     | '/api/v1/catalog/products/'
     | '/api/v1/webhook-endpoints/$endpointId/'
+    | '/api/dev/v1/organizations/$organizationId/stores'
+    | '/api/dev/v1/suppliers/$supplierId/products'
+    | '/api/dev/v1/organizations/$organizationId/'
+    | '/api/dev/v1/organizations/$organizationId/financials/summary'
+    | '/api/dev/v1/organizations/$organizationId/listings/$listingId'
+    | '/api/dev/v1/organizations/$organizationId/tickets/$ticketId'
+    | '/api/dev/v1/organizations/$organizationId/listings/'
+    | '/api/dev/v1/organizations/$organizationId/orders/'
+    | '/api/dev/v1/organizations/$organizationId/tickets/'
+    | '/api/dev/v1/organizations/$organizationId/catalog/products/$productId'
+    | '/api/dev/v1/organizations/$organizationId/orders/$orderId/history'
+    | '/api/dev/v1/organizations/$organizationId/catalog/products/'
+    | '/api/dev/v1/organizations/$organizationId/orders/$orderId/'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -1603,7 +1789,9 @@ export interface FileRouteTypes {
     | '/api/admin/exportar/chamados'
     | '/api/admin/exportar/clientes'
     | '/api/admin/exportar/equipe'
+    | '/api/dev/v1/docs'
     | '/api/dev/v1/me'
+    | '/api/dev/v1/openapi.json'
     | '/api/devolucoes/$claimId/motivo'
     | '/api/devolucoes/$claimId/resposta'
     | '/api/devolucoes/fotos/$photoId'
@@ -1647,8 +1835,23 @@ export interface FileRouteTypes {
     | '/api/v1/webhook-endpoints/$endpointId/deliveries'
     | '/admin/fornecedores/analise'
     | '/admin/fornecedores/aprovacao'
+    | '/api/dev/v1/organizations'
+    | '/api/dev/v1/suppliers'
     | '/api/v1/catalog/products'
     | '/api/v1/webhook-endpoints/$endpointId'
+    | '/api/dev/v1/organizations/$organizationId/stores'
+    | '/api/dev/v1/suppliers/$supplierId/products'
+    | '/api/dev/v1/organizations/$organizationId'
+    | '/api/dev/v1/organizations/$organizationId/financials/summary'
+    | '/api/dev/v1/organizations/$organizationId/listings/$listingId'
+    | '/api/dev/v1/organizations/$organizationId/tickets/$ticketId'
+    | '/api/dev/v1/organizations/$organizationId/listings'
+    | '/api/dev/v1/organizations/$organizationId/orders'
+    | '/api/dev/v1/organizations/$organizationId/tickets'
+    | '/api/dev/v1/organizations/$organizationId/catalog/products/$productId'
+    | '/api/dev/v1/organizations/$organizationId/orders/$orderId/history'
+    | '/api/dev/v1/organizations/$organizationId/catalog/products'
+    | '/api/dev/v1/organizations/$organizationId/orders/$orderId'
   id:
     | '__root__'
     | '/'
@@ -1749,7 +1952,9 @@ export interface FileRouteTypes {
     | '/api/admin/exportar/chamados'
     | '/api/admin/exportar/clientes'
     | '/api/admin/exportar/equipe'
+    | '/api/dev/v1/docs'
     | '/api/dev/v1/me'
+    | '/api/dev/v1/openapi.json'
     | '/api/devolucoes/$claimId/motivo'
     | '/api/devolucoes/$claimId/resposta'
     | '/api/devolucoes/fotos/$photoId'
@@ -1793,8 +1998,23 @@ export interface FileRouteTypes {
     | '/api/v1/webhook-endpoints/$endpointId/deliveries'
     | '/_app/admin/fornecedores/analise/'
     | '/_app/admin/fornecedores/aprovacao/'
+    | '/api/dev/v1/organizations/'
+    | '/api/dev/v1/suppliers/'
     | '/api/v1/catalog/products/'
     | '/api/v1/webhook-endpoints/$endpointId/'
+    | '/api/dev/v1/organizations/$organizationId/stores'
+    | '/api/dev/v1/suppliers/$supplierId/products'
+    | '/api/dev/v1/organizations/$organizationId/'
+    | '/api/dev/v1/organizations/$organizationId/financials/summary'
+    | '/api/dev/v1/organizations/$organizationId/listings/$listingId'
+    | '/api/dev/v1/organizations/$organizationId/tickets/$ticketId'
+    | '/api/dev/v1/organizations/$organizationId/listings/'
+    | '/api/dev/v1/organizations/$organizationId/orders/'
+    | '/api/dev/v1/organizations/$organizationId/tickets/'
+    | '/api/dev/v1/organizations/$organizationId/catalog/products/$productId'
+    | '/api/dev/v1/organizations/$organizationId/orders/$orderId/history'
+    | '/api/dev/v1/organizations/$organizationId/catalog/products/'
+    | '/api/dev/v1/organizations/$organizationId/orders/$orderId/'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -1835,7 +2055,9 @@ export interface RootRouteChildren {
   ApiAdminExportarChamadosRoute: typeof ApiAdminExportarChamadosRoute
   ApiAdminExportarClientesRoute: typeof ApiAdminExportarClientesRoute
   ApiAdminExportarEquipeRoute: typeof ApiAdminExportarEquipeRoute
+  ApiDevV1DocsRoute: typeof ApiDevV1DocsRoute
   ApiDevV1MeRoute: typeof ApiDevV1MeRoute
+  ApiDevV1OpenapiDotjsonRoute: typeof ApiDevV1OpenapiDotjsonRoute
   ApiDevolucoesClaimIdMotivoRoute: typeof ApiDevolucoesClaimIdMotivoRoute
   ApiDevolucoesClaimIdRespostaRoute: typeof ApiDevolucoesClaimIdRespostaRoute
   ApiDevolucoesFotosPhotoIdRoute: typeof ApiDevolucoesFotosPhotoIdRoute
@@ -1868,8 +2090,23 @@ export interface RootRouteChildren {
   ApiSuporteConversasTicketIdMensagensRoute: typeof ApiSuporteConversasTicketIdMensagensRoute
   ApiV1CatalogProductsProductIdRoute: typeof ApiV1CatalogProductsProductIdRoute
   ApiV1WebhookEndpointsEndpointIdDeliveriesRoute: typeof ApiV1WebhookEndpointsEndpointIdDeliveriesRoute
+  ApiDevV1OrganizationsIndexRoute: typeof ApiDevV1OrganizationsIndexRoute
+  ApiDevV1SuppliersIndexRoute: typeof ApiDevV1SuppliersIndexRoute
   ApiV1CatalogProductsIndexRoute: typeof ApiV1CatalogProductsIndexRoute
   ApiV1WebhookEndpointsEndpointIdIndexRoute: typeof ApiV1WebhookEndpointsEndpointIdIndexRoute
+  ApiDevV1OrganizationsOrganizationIdStoresRoute: typeof ApiDevV1OrganizationsOrganizationIdStoresRoute
+  ApiDevV1SuppliersSupplierIdProductsRoute: typeof ApiDevV1SuppliersSupplierIdProductsRoute
+  ApiDevV1OrganizationsOrganizationIdIndexRoute: typeof ApiDevV1OrganizationsOrganizationIdIndexRoute
+  ApiDevV1OrganizationsOrganizationIdFinancialsSummaryRoute: typeof ApiDevV1OrganizationsOrganizationIdFinancialsSummaryRoute
+  ApiDevV1OrganizationsOrganizationIdListingsListingIdRoute: typeof ApiDevV1OrganizationsOrganizationIdListingsListingIdRoute
+  ApiDevV1OrganizationsOrganizationIdTicketsTicketIdRoute: typeof ApiDevV1OrganizationsOrganizationIdTicketsTicketIdRoute
+  ApiDevV1OrganizationsOrganizationIdListingsIndexRoute: typeof ApiDevV1OrganizationsOrganizationIdListingsIndexRoute
+  ApiDevV1OrganizationsOrganizationIdOrdersIndexRoute: typeof ApiDevV1OrganizationsOrganizationIdOrdersIndexRoute
+  ApiDevV1OrganizationsOrganizationIdTicketsIndexRoute: typeof ApiDevV1OrganizationsOrganizationIdTicketsIndexRoute
+  ApiDevV1OrganizationsOrganizationIdCatalogProductsProductIdRoute: typeof ApiDevV1OrganizationsOrganizationIdCatalogProductsProductIdRoute
+  ApiDevV1OrganizationsOrganizationIdOrdersOrderIdHistoryRoute: typeof ApiDevV1OrganizationsOrganizationIdOrdersOrderIdHistoryRoute
+  ApiDevV1OrganizationsOrganizationIdCatalogProductsIndexRoute: typeof ApiDevV1OrganizationsOrganizationIdCatalogProductsIndexRoute
+  ApiDevV1OrganizationsOrganizationIdOrdersOrderIdIndexRoute: typeof ApiDevV1OrganizationsOrganizationIdOrdersOrderIdIndexRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -2602,11 +2839,25 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiAdminExportarEquipeRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/dev/v1/docs': {
+      id: '/api/dev/v1/docs'
+      path: '/api/dev/v1/docs'
+      fullPath: '/api/dev/v1/docs'
+      preLoaderRoute: typeof ApiDevV1DocsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/dev/v1/me': {
       id: '/api/dev/v1/me'
       path: '/api/dev/v1/me'
       fullPath: '/api/dev/v1/me'
       preLoaderRoute: typeof ApiDevV1MeRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/dev/v1/openapi.json': {
+      id: '/api/dev/v1/openapi.json'
+      path: '/api/dev/v1/openapi.json'
+      fullPath: '/api/dev/v1/openapi.json'
+      preLoaderRoute: typeof ApiDevV1OpenapiDotjsonRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/api/devolucoes/$claimId/motivo': {
@@ -2826,6 +3077,20 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiAdminChamadosTicketIdMensagensRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/dev/v1/organizations/': {
+      id: '/api/dev/v1/organizations/'
+      path: '/api/dev/v1/organizations'
+      fullPath: '/api/dev/v1/organizations/'
+      preLoaderRoute: typeof ApiDevV1OrganizationsIndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/dev/v1/suppliers/': {
+      id: '/api/dev/v1/suppliers/'
+      path: '/api/dev/v1/suppliers'
+      fullPath: '/api/dev/v1/suppliers/'
+      preLoaderRoute: typeof ApiDevV1SuppliersIndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/perfil/foto/$userId/$fileName': {
       id: '/api/perfil/foto/$userId/$fileName'
       path: '/$userId/$fileName'
@@ -2880,6 +3145,97 @@ declare module '@tanstack/react-router' {
       path: '/api/v1/webhook-endpoints/$endpointId/deliveries'
       fullPath: '/api/v1/webhook-endpoints/$endpointId/deliveries'
       preLoaderRoute: typeof ApiV1WebhookEndpointsEndpointIdDeliveriesRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/dev/v1/organizations/$organizationId/': {
+      id: '/api/dev/v1/organizations/$organizationId/'
+      path: '/api/dev/v1/organizations/$organizationId'
+      fullPath: '/api/dev/v1/organizations/$organizationId/'
+      preLoaderRoute: typeof ApiDevV1OrganizationsOrganizationIdIndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/dev/v1/organizations/$organizationId/stores': {
+      id: '/api/dev/v1/organizations/$organizationId/stores'
+      path: '/api/dev/v1/organizations/$organizationId/stores'
+      fullPath: '/api/dev/v1/organizations/$organizationId/stores'
+      preLoaderRoute: typeof ApiDevV1OrganizationsOrganizationIdStoresRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/dev/v1/suppliers/$supplierId/products': {
+      id: '/api/dev/v1/suppliers/$supplierId/products'
+      path: '/api/dev/v1/suppliers/$supplierId/products'
+      fullPath: '/api/dev/v1/suppliers/$supplierId/products'
+      preLoaderRoute: typeof ApiDevV1SuppliersSupplierIdProductsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/dev/v1/organizations/$organizationId/financials/summary': {
+      id: '/api/dev/v1/organizations/$organizationId/financials/summary'
+      path: '/api/dev/v1/organizations/$organizationId/financials/summary'
+      fullPath: '/api/dev/v1/organizations/$organizationId/financials/summary'
+      preLoaderRoute: typeof ApiDevV1OrganizationsOrganizationIdFinancialsSummaryRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/dev/v1/organizations/$organizationId/listings/': {
+      id: '/api/dev/v1/organizations/$organizationId/listings/'
+      path: '/api/dev/v1/organizations/$organizationId/listings'
+      fullPath: '/api/dev/v1/organizations/$organizationId/listings/'
+      preLoaderRoute: typeof ApiDevV1OrganizationsOrganizationIdListingsIndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/dev/v1/organizations/$organizationId/listings/$listingId': {
+      id: '/api/dev/v1/organizations/$organizationId/listings/$listingId'
+      path: '/api/dev/v1/organizations/$organizationId/listings/$listingId'
+      fullPath: '/api/dev/v1/organizations/$organizationId/listings/$listingId'
+      preLoaderRoute: typeof ApiDevV1OrganizationsOrganizationIdListingsListingIdRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/dev/v1/organizations/$organizationId/orders/': {
+      id: '/api/dev/v1/organizations/$organizationId/orders/'
+      path: '/api/dev/v1/organizations/$organizationId/orders'
+      fullPath: '/api/dev/v1/organizations/$organizationId/orders/'
+      preLoaderRoute: typeof ApiDevV1OrganizationsOrganizationIdOrdersIndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/dev/v1/organizations/$organizationId/tickets/': {
+      id: '/api/dev/v1/organizations/$organizationId/tickets/'
+      path: '/api/dev/v1/organizations/$organizationId/tickets'
+      fullPath: '/api/dev/v1/organizations/$organizationId/tickets/'
+      preLoaderRoute: typeof ApiDevV1OrganizationsOrganizationIdTicketsIndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/dev/v1/organizations/$organizationId/tickets/$ticketId': {
+      id: '/api/dev/v1/organizations/$organizationId/tickets/$ticketId'
+      path: '/api/dev/v1/organizations/$organizationId/tickets/$ticketId'
+      fullPath: '/api/dev/v1/organizations/$organizationId/tickets/$ticketId'
+      preLoaderRoute: typeof ApiDevV1OrganizationsOrganizationIdTicketsTicketIdRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/dev/v1/organizations/$organizationId/catalog/products/': {
+      id: '/api/dev/v1/organizations/$organizationId/catalog/products/'
+      path: '/api/dev/v1/organizations/$organizationId/catalog/products'
+      fullPath: '/api/dev/v1/organizations/$organizationId/catalog/products/'
+      preLoaderRoute: typeof ApiDevV1OrganizationsOrganizationIdCatalogProductsIndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/dev/v1/organizations/$organizationId/catalog/products/$productId': {
+      id: '/api/dev/v1/organizations/$organizationId/catalog/products/$productId'
+      path: '/api/dev/v1/organizations/$organizationId/catalog/products/$productId'
+      fullPath: '/api/dev/v1/organizations/$organizationId/catalog/products/$productId'
+      preLoaderRoute: typeof ApiDevV1OrganizationsOrganizationIdCatalogProductsProductIdRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/dev/v1/organizations/$organizationId/orders/$orderId/': {
+      id: '/api/dev/v1/organizations/$organizationId/orders/$orderId/'
+      path: '/api/dev/v1/organizations/$organizationId/orders/$orderId'
+      fullPath: '/api/dev/v1/organizations/$organizationId/orders/$orderId/'
+      preLoaderRoute: typeof ApiDevV1OrganizationsOrganizationIdOrdersOrderIdIndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/dev/v1/organizations/$organizationId/orders/$orderId/history': {
+      id: '/api/dev/v1/organizations/$organizationId/orders/$orderId/history'
+      path: '/api/dev/v1/organizations/$organizationId/orders/$orderId/history'
+      fullPath: '/api/dev/v1/organizations/$organizationId/orders/$orderId/history'
+      preLoaderRoute: typeof ApiDevV1OrganizationsOrganizationIdOrdersOrderIdHistoryRouteImport
       parentRoute: typeof rootRouteImport
     }
   }
@@ -3154,7 +3510,9 @@ const rootRouteChildren: RootRouteChildren = {
   ApiAdminExportarChamadosRoute: ApiAdminExportarChamadosRoute,
   ApiAdminExportarClientesRoute: ApiAdminExportarClientesRoute,
   ApiAdminExportarEquipeRoute: ApiAdminExportarEquipeRoute,
+  ApiDevV1DocsRoute: ApiDevV1DocsRoute,
   ApiDevV1MeRoute: ApiDevV1MeRoute,
+  ApiDevV1OpenapiDotjsonRoute: ApiDevV1OpenapiDotjsonRoute,
   ApiDevolucoesClaimIdMotivoRoute: ApiDevolucoesClaimIdMotivoRoute,
   ApiDevolucoesClaimIdRespostaRoute: ApiDevolucoesClaimIdRespostaRoute,
   ApiDevolucoesFotosPhotoIdRoute: ApiDevolucoesFotosPhotoIdRoute,
@@ -3193,9 +3551,37 @@ const rootRouteChildren: RootRouteChildren = {
   ApiV1CatalogProductsProductIdRoute: ApiV1CatalogProductsProductIdRoute,
   ApiV1WebhookEndpointsEndpointIdDeliveriesRoute:
     ApiV1WebhookEndpointsEndpointIdDeliveriesRoute,
+  ApiDevV1OrganizationsIndexRoute: ApiDevV1OrganizationsIndexRoute,
+  ApiDevV1SuppliersIndexRoute: ApiDevV1SuppliersIndexRoute,
   ApiV1CatalogProductsIndexRoute: ApiV1CatalogProductsIndexRoute,
   ApiV1WebhookEndpointsEndpointIdIndexRoute:
     ApiV1WebhookEndpointsEndpointIdIndexRoute,
+  ApiDevV1OrganizationsOrganizationIdStoresRoute:
+    ApiDevV1OrganizationsOrganizationIdStoresRoute,
+  ApiDevV1SuppliersSupplierIdProductsRoute:
+    ApiDevV1SuppliersSupplierIdProductsRoute,
+  ApiDevV1OrganizationsOrganizationIdIndexRoute:
+    ApiDevV1OrganizationsOrganizationIdIndexRoute,
+  ApiDevV1OrganizationsOrganizationIdFinancialsSummaryRoute:
+    ApiDevV1OrganizationsOrganizationIdFinancialsSummaryRoute,
+  ApiDevV1OrganizationsOrganizationIdListingsListingIdRoute:
+    ApiDevV1OrganizationsOrganizationIdListingsListingIdRoute,
+  ApiDevV1OrganizationsOrganizationIdTicketsTicketIdRoute:
+    ApiDevV1OrganizationsOrganizationIdTicketsTicketIdRoute,
+  ApiDevV1OrganizationsOrganizationIdListingsIndexRoute:
+    ApiDevV1OrganizationsOrganizationIdListingsIndexRoute,
+  ApiDevV1OrganizationsOrganizationIdOrdersIndexRoute:
+    ApiDevV1OrganizationsOrganizationIdOrdersIndexRoute,
+  ApiDevV1OrganizationsOrganizationIdTicketsIndexRoute:
+    ApiDevV1OrganizationsOrganizationIdTicketsIndexRoute,
+  ApiDevV1OrganizationsOrganizationIdCatalogProductsProductIdRoute:
+    ApiDevV1OrganizationsOrganizationIdCatalogProductsProductIdRoute,
+  ApiDevV1OrganizationsOrganizationIdOrdersOrderIdHistoryRoute:
+    ApiDevV1OrganizationsOrganizationIdOrdersOrderIdHistoryRoute,
+  ApiDevV1OrganizationsOrganizationIdCatalogProductsIndexRoute:
+    ApiDevV1OrganizationsOrganizationIdCatalogProductsIndexRoute,
+  ApiDevV1OrganizationsOrganizationIdOrdersOrderIdIndexRoute:
+    ApiDevV1OrganizationsOrganizationIdOrdersOrderIdIndexRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

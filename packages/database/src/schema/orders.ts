@@ -42,8 +42,9 @@ export const orders = pgTable(
     buyerName: text(),
     /**
      * The buyer's shipping address the marketplace sent with the order, encrypted with the token
-     * key (`sealShippingAddress` in @sellbridge/marketplaces). Only the reseller's forward form
-     * opens it; never logged, exported or sent to integrators.
+     * key (`sealShippingAddress` in @sellbridge/marketplaces). Opened only for the reseller's forward
+     * form and for developer keys with `buyers:personal`; never logged, exported or sent to the
+     * organizations' integrators.
      */
     shippingAddressEnc: text(),
     orderedAt: timestamp({ withTimezone: true }).notNull(),

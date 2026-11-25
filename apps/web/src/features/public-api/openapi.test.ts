@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { z } from "zod";
 import { dataEnvelope, noInput, pageQuerySchema, type ApiOperation } from "./endpoint";
-import { buildOpenApiDocument } from "./openapi";
+import { buildOpenApiDocument, PUBLIC_API_SETTINGS } from "./openapi";
 
 const getThing: ApiOperation = {
   method: "GET",
@@ -31,6 +31,7 @@ const createThing: ApiOperation = {
 };
 
 const document = buildOpenApiDocument({
+  settings: PUBLIC_API_SETTINGS,
   operations: [getThing, createThing],
   serverUrl: "https://app.test/api/v1",
   description: "Teste",

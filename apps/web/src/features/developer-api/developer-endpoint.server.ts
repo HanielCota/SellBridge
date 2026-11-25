@@ -1,4 +1,7 @@
-import { recordDeveloperApiRequest } from "@sellbridge/database/repositories";
+import {
+  type DeveloperApiRequestRecord,
+  recordDeveloperApiRequest,
+} from "@sellbridge/database/repositories";
 import type { DeveloperScope } from "@sellbridge/shared/developer-api";
 import { logger } from "@sellbridge/shared/logger";
 import { randomUUID } from "node:crypto";
@@ -18,26 +21,46 @@ import {
   type DeveloperCaller,
   requireDeveloperScope,
 } from "./developer-authenticate.server";
+import { limitDeveloperAddress } from "./developer-address-limit.server";
 import { enforceDeveloperRateLimit } from "./developer-rate-limit.server";
+import { describeDeveloperUse } from "./developer-usage";
 
-/** One read-only operation of the developer API. */
-export interface DeveloperEndpoint<TParams extends z.ZodType, TQuery extends z.ZodType> {
+/** One read-only operation of the developer API, described once for the route and the manual. */
+export interface DeveloperEndpoint<
+  TParams extends z.ZodType,
+  TQuery extends z.ZodType,
+  TResponse extends z.ZodType = z.ZodType,
+> {
+  /** OpenAPI style, relative to /api/dev/v1: `/organizations/{organizationId}/orders`. */
+  path: string;
   operationId: string;
+  tag: string;
+  summary: string;
+  description?: string | undefined;
   /** null: any valid key may call it (`/me`). */
   scope: DeveloperScope | null;
+  /** Whether a successful answer to this caller carries buyer personal data, for the usage trail. */
+  sendsPersonalData?: ((caller: DeveloperCaller) => boolean) | undefined;
   params: TParams;
   query: TQuery;
+  /** The whole response body (`{ data, ... }`), used for types and the manual. */
+  response: TResponse;
   handle: (input: {
     caller: DeveloperCaller;
     params: z.output<TParams>;
     query: z.output<TQuery>;
+    requestId: string;
     now: Date;
-  }) => Promise<unknown>;
+  }) => Promise<z.input<TResponse>>;
 }
 
-export function defineDeveloperEndpoint<TParams extends z.ZodType, TQuery extends z.ZodType>(
-  endpoint: DeveloperEndpoint<TParams, TQuery>,
-): DeveloperEndpoint<TParams, TQuery> {
+export function defineDeveloperEndpoint<
+  TParams extends z.ZodType,
+  TQuery extends z.ZodType,
+  TResponse extends z.ZodType,
+>(
+  endpoint: DeveloperEndpoint<TParams, TQuery, TResponse>,
+): DeveloperEndpoint<TParams, TQuery, TResponse> {
   return endpoint;
 }
 
@@ -51,28 +74,39 @@ interface Admitted {
   rateLimitHeaders: RateLimitHeaders;
 }
 
+/** The outcome, and the key when it was resolved: refused calls of a known key are recorded too. */
+interface Admission {
+  step: StepResult<Admitted>;
+  caller: DeveloperCaller | null;
+}
+
 async function admit(
   request: Request,
   scope: DeveloperScope | null,
   now: Date,
-): Promise<StepResult<Admitted>> {
+): Promise<Admission> {
+  const addressAllowed = await limitDeveloperAddress(request);
+  if (!addressAllowed.ok) {
+    return { step: addressAllowed, caller: null };
+  }
   const authenticated = await authenticateDeveloperKey(
     request.headers,
     now,
     environment.DEVELOPER_EMAILS,
   );
   if (!authenticated.ok) {
-    return authenticated;
+    return { step: authenticated, caller: null };
   }
-  const authorized = requireDeveloperScope(authenticated.value, scope);
+  const caller = authenticated.value;
+  const authorized = requireDeveloperScope(caller, scope);
   if (!authorized.ok) {
-    return authorized;
+    return { step: authorized, caller };
   }
-  const limited = await enforceDeveloperRateLimit(authorized.value.developerApiKeyId, now);
+  const limited = await enforceDeveloperRateLimit(caller, now);
   if (!limited.ok) {
-    return limited;
+    return { step: limited, caller };
   }
-  return proceed({ caller: authorized.value, rateLimitHeaders: limited.value });
+  return { step: proceed({ caller, rateLimitHeaders: limited.value }), caller };
 }
 
 async function run<TParams extends z.ZodType, TQuery extends z.ZodType>(
@@ -96,6 +130,7 @@ async function run<TParams extends z.ZodType, TQuery extends z.ZodType>(
       caller,
       params: params.value,
       query: query.value,
+      requestId: base.requestId,
       now: base.now,
     });
     const path = new URL(input.request.url).pathname;
@@ -110,12 +145,7 @@ async function run<TParams extends z.ZodType, TQuery extends z.ZodType>(
 }
 
 /** Usage is recorded for the key's owner to audit; a failure here never fails the request. */
-async function recordUse(record: {
-  developerApiKeyId: string;
-  operation: string;
-  status: number;
-  durationMilliseconds: number;
-}): Promise<void> {
+async function recordUse(record: DeveloperApiRequestRecord): Promise<void> {
   try {
     await recordDeveloperApiRequest(database, record);
   } catch (error) {
@@ -125,7 +155,7 @@ async function recordUse(record: {
 
 /**
  * Turns a developer endpoint into a GET server route handler: authenticate the key, re-check
- * its creator, check the scope, rate limit, validate input, run, and record the use.
+ * its creator, check the scope, rate limit, validate input, run, and record the use (refused calls of a known key too).
  */
 export function developerRouteHandler<TParams extends z.ZodType, TQuery extends z.ZodType>(
   endpoint: DeveloperEndpoint<TParams, TQuery>,
@@ -133,24 +163,31 @@ export function developerRouteHandler<TParams extends z.ZodType, TQuery extends 
   return async (input: RouteInput): Promise<Response> => {
     const base = { requestId: randomUUID(), now: new Date() };
     const started = performance.now();
-    const admitted = await admit(input.request, endpoint.scope, base.now);
-    const response = admitted.ok
-      ? await run(endpoint, input, base, admitted.value)
-      : problemResponse(admitted.problem, base.requestId);
+    const { step, caller } = await admit(input.request, endpoint.scope, base.now);
+    const response = step.ok
+      ? await run(endpoint, input, base, step.value)
+      : problemResponse(step.problem, base.requestId);
     const durationMilliseconds = Math.round(performance.now() - started);
     logger.info("developer_api.request", {
       operation: endpoint.operationId,
       status: response.status,
       requestId: base.requestId,
-      developerApiKeyId: admitted.ok ? admitted.value.caller.developerApiKeyId : null,
+      developerApiKeyId: caller?.developerApiKeyId ?? null,
       durationMilliseconds,
     });
-    if (admitted.ok) {
+    if (caller !== null) {
+      const use = describeDeveloperUse({
+        params: input.params,
+        status: response.status,
+        sendsPersonalData: endpoint.sendsPersonalData?.(caller) ?? false,
+      });
       await recordUse({
-        developerApiKeyId: admitted.value.caller.developerApiKeyId,
+        developerApiKeyId: caller.developerApiKeyId,
+        keyPrefix: caller.prefix,
         operation: endpoint.operationId,
         status: response.status,
         durationMilliseconds,
+        ...use,
       });
     }
     return response;

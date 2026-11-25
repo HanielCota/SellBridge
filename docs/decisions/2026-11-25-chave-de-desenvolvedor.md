@@ -16,6 +16,10 @@
 3. Entre lista de e-mails no servidor com tela escondida (1) e chave criada só por comando no servidor (2): "vamos de 1. coloca so os emails das contas pra quem deve aparecer la no colify".
 4. Sobre endereço e CPF dos compradores: "eu quero o maximo de coisas possivel ai na hora de cirar a chave a pessoa escolhe oque vai na chave".
 
+## Atualização (25/11/2026, etapa 2): sem CPF do comprador
+
+O SellBridge nunca guardou o CPF dos compradores (os marketplaces não mandam), só o endereço de entrega, cifrado. A opção passou a se chamar "Endereço de entrega dos compradores" e entrega só o endereço. Guilherme escolheu "Só endereço" entre isso e anotar uma task para guardar o CPF no futuro.
+
 ## Descartado
 
 - **Estender a v1 das organizações** com mais tipos de dado: cada chave continuaria presa a uma organização, e a tela "Integrações" é vista pelos clientes.

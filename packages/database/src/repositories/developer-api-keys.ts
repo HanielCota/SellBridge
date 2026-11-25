@@ -90,6 +90,7 @@ export async function revokeDeveloperApiKey(
 
 export interface ActiveDeveloperApiKey {
   id: string;
+  createdByUserId: string;
   name: string;
   prefix: string;
   scopes: string[];
@@ -111,6 +112,7 @@ export async function findActiveDeveloperApiKey(
   const [found] = await database
     .select({
       id: developerApiKeys.id,
+      createdByUserId: developerApiKeys.createdByUserId,
       name: developerApiKeys.name,
       prefix: developerApiKeys.prefix,
       scopes: developerApiKeys.scopes,
@@ -176,11 +178,34 @@ export async function countDeveloperApiRequest(
   return row?.requests ?? 1;
 }
 
+/** Total requests in this window across every key the developer made. */
+export async function countDeveloperRequestsByCreator(
+  database: Database,
+  createdByUserId: string,
+  windowStart: Date,
+): Promise<number> {
+  const [row] = await database
+    .select({ requests: sql<number>`coalesce(sum(${developerApiRateLimits.requests}), 0)::int` })
+    .from(developerApiRateLimits)
+    .innerJoin(developerApiKeys, eq(developerApiKeys.id, developerApiRateLimits.keyId))
+    .where(
+      and(
+        eq(developerApiKeys.createdByUserId, createdByUserId),
+        eq(developerApiRateLimits.windowStart, windowStart),
+      ),
+    );
+  return row?.requests ?? 0;
+}
+
 export interface DeveloperApiRequestRecord {
   developerApiKeyId: string;
+  keyPrefix: string;
   operation: string;
   status: number;
   durationMilliseconds: number;
+  organizationId: string | null;
+  resourceId: string | null;
+  personalData: boolean;
 }
 
 export async function recordDeveloperApiRequest(
