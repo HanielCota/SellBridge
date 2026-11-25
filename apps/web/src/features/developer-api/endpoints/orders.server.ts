@@ -38,6 +38,7 @@ export const getDeveloperOrder = defineDeveloperEndpoint({
   summary: getOrder.summary,
   description: `${getOrder.description ?? ""} Com \`buyers:personal\`, traz também o endereço de entrega do comprador.`,
   scope: "orders:read",
+  sendsPersonalData: (caller) => caller.scopes.includes(PERSONAL_DATA_SCOPE),
   params: organizationParamsSchema.and(getOrder.params),
   query: noInput,
   response: dataEnvelope(orderDetailSchema.extend({ shippingAddress: shippingAddressSchema })),

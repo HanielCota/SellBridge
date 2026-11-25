@@ -18,6 +18,7 @@ const DEVELOPERS = ["dev@sellbridge.test"];
 function activeKey(overrides: Record<string, unknown> = {}) {
   return {
     id: "key-1",
+    createdByUserId: "dev-1",
     name: "Painel",
     prefix: "sb_dev_abcdef",
     scopes: ["orders:read"],
@@ -88,6 +89,7 @@ describe("authenticateDeveloperKey", () => {
 describe("requireDeveloperScope", () => {
   const caller = {
     developerApiKeyId: "key-1",
+    createdByUserId: "dev-1",
     name: "Painel",
     prefix: "sb_dev_abcdef",
     scopes: ["orders:read" as const],

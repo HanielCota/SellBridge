@@ -8,6 +8,8 @@ import { hashDeveloperKeySecret, readDeveloperBearerSecret } from "./developer-k
 /** The developer key behind a request and what it may read. */
 export interface DeveloperCaller {
   developerApiKeyId: string;
+  /** The developer who made the key: the rate limit also counts every key they have. */
+  createdByUserId: string;
   name: string;
   prefix: string;
   scopes: readonly DeveloperScope[];
@@ -61,6 +63,7 @@ export async function authenticateDeveloperKey(
   await touchDeveloperApiKey(database, key.id, now);
   return proceed({
     developerApiKeyId: key.id,
+    createdByUserId: key.createdByUserId,
     name: key.name,
     prefix: key.prefix,
     scopes: knownDeveloperScopes(key.scopes),

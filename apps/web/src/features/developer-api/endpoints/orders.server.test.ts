@@ -35,6 +35,7 @@ const ADDRESS = { recipient: "Mariana", street: "Rua A", number: "10", city: "Ca
 function callerWith(scopes: DeveloperScope[]) {
   return {
     developerApiKeyId: "key-1",
+    createdByUserId: "dev-1",
     name: "Painel",
     prefix: "sb_dev_abcdef",
     scopes,
