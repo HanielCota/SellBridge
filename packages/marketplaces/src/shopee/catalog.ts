@@ -6,6 +6,7 @@ import type { PublishProductInput, StoreCredentials } from "../types.ts";
 import { requestShop, type ShopeeContext } from "./client.ts";
 
 const id = z.number().int().positive();
+const BRAZILIAN_PORTUGUESE = "pt-br";
 const candidateSchema = z.object({ category_id: z.array(id) });
 const translatedName = z.object({ language: z.string(), value: z.string() });
 const fieldsSchema = z.object({
@@ -143,7 +144,8 @@ type Category = z.output<typeof fieldsSchema>["list"][number];
 function listingAttributes(category: Category, attributes: Readonly<Record<string, string>>) {
   return (category.attribute_tree ?? []).flatMap((attribute) => {
     const name =
-      attribute.multi_lang?.find((entry) => entry.language === "pt-BR")?.value ?? attribute.name;
+      attribute.multi_lang?.find((entry) => entry.language.toLowerCase() === BRAZILIAN_PORTUGUESE)
+        ?.value ?? attribute.name;
     const source =
       categoryFieldValues(attributes, name) ?? categoryFieldValues(attributes, attribute.name);
     const selected = source
@@ -197,7 +199,7 @@ export async function readListingAttributes(
     path: "/api/v2/product/get_attribute_tree",
     payload: "response",
     schema: fieldsSchema,
-    query: { category_id_list: String(categoryId), language: "pt-BR" },
+    query: { category_id_list: String(categoryId), language: BRAZILIAN_PORTUGUESE },
   });
   const category = response.list.find((entry) => entry.category_id === categoryId);
   if (category === undefined) {
@@ -234,7 +236,7 @@ export async function readListingBrand(
         offset: String(offset),
         page_size: "100",
         status: "1",
-        language: "pt-BR",
+        language: BRAZILIAN_PORTUGUESE,
       },
     });
     const match = result.brand_list.find((entry) =>

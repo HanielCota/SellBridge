@@ -47,12 +47,14 @@ permissions in the Shopee app, and configure its live push callback.
 
 ## Import orders and print labels
 
-- Order status pushes trigger an authenticated read of the sale. A scheduled check recovers
-  recent missing orders and status changes, and reconnection queues a catch-up for the shop.
+- Order status pushes trigger an authenticated read of the sale. The scheduled check uses the
+  order's update time to recover recent changes, including changes to older orders. Reconnection
+  queues a catch-up by creation time for the shop.
   Imported items are linked to SellBridge listings by the Shopee item ID.
 - On an eligible order, use **Gerar etiqueta da Shopee**. For supported channels, SellBridge
   arranges drop-off or a pickup with an unambiguous address and time, requests the standard PDF
   from Shopee, and downloads it when ready. If Shopee is still processing it, try again shortly.
+  Print each Shopee order individually.
 - Submit any required NF-e in Seller Center before requesting the label. Use Seller Center
   when Shopee requires a shipping choice, the order is split into multiple marketplace packages,
   or the channel only offers a thermal label.

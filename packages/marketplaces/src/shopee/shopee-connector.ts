@@ -30,6 +30,7 @@ export function createShopeeConnector(config: ShopeeConfig): MarketplaceConnecto
     updateStockPrice: async (store, update) => updateStockPrice(context, store, update),
     updateDescription: async (store, update) => updateDescription(context, store, update),
     listOrders: async (store, since) => listOrders(context, store, since),
+    listUpdatedOrders: async (store, since) => listOrders(context, store, since, "update_time"),
     fetchOrder: async (store, resource) => fetchOrder(context, store, resource),
     orderResource: (orderId) => orderId,
     verifyWebhook: async (request) => verifyWebhook(config, request),

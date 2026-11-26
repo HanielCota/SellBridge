@@ -130,7 +130,7 @@ export interface MarketplaceOrder {
   items: MarketplaceOrderItem[];
 }
 
-/** A store's orders since a date, oldest first, read up to the connector's limit. */
+/** A store's orders in a date range, oldest order first, read up to the connector's limit. */
 export interface MarketplaceOrderBatch {
   orders: MarketplaceOrder[];
   /** Set when the read stopped at its limit with orders left: the next read starts here. */
@@ -190,6 +190,8 @@ export interface MarketplaceConnector {
   /** Replaces the description of a live listing (the resend of a description that failed). */
   updateDescription(credentials: StoreCredentials, update: DescriptionUpdate): Promise<void>;
   listOrders(credentials: StoreCredentials, since: Date): Promise<MarketplaceOrderBatch>;
+  /** Lists orders changed since a date, including orders created earlier. */
+  listUpdatedOrders?(credentials: StoreCredentials, since: Date): Promise<MarketplaceOrderBatch>;
   /** Loads one order referenced by a webhook `resource` (the payload itself is never trusted). */
   fetchOrder(credentials: StoreCredentials, resource: string): Promise<MarketplaceOrder>;
   /**

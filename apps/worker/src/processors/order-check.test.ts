@@ -250,6 +250,39 @@ describe("periodic order check of one store", () => {
     ]);
   });
 
+  it("reconciles a recently cancelled Shopee order placed before the check window", async () => {
+    const connected = await createTestStore(environment, tenants.first);
+    await database
+      .update(schema.storeConnections)
+      .set({ marketplace: "shopee" })
+      .where(eq(schema.storeConnections.id, connected.id));
+    const paid = sale({ orderedAt: new Date("2026-11-01T12:00:00.000Z") });
+    const { orderId } = await saveMarketplaceOrder(dependencies, connected, paid, {
+      webhookEventId: randomUUID(),
+    });
+    const cancelled = { ...paid, status: "cancelled" } as const;
+    const listUpdatedOrders = vi
+      .fn<(credentials: StoreCredentials, since: Date) => Promise<MarketplaceOrderBatch>>()
+      .mockResolvedValue({ orders: [cancelled], resumeFrom: null });
+    marketplaceSales.set(cancelled.externalOrderId, cancelled);
+
+    await checkStoreOrders(
+      {
+        ...dependencies,
+        connectors: {
+          ...connectors,
+          shopee: { ...connectors.mock, id: "shopee", listUpdatedOrders },
+        },
+      },
+      job(connected.id),
+    );
+
+    expect(listUpdatedOrders).toHaveBeenCalledWith(expect.anything(), new Date(FROM));
+    expect(listOrders).not.toHaveBeenCalled();
+    const stored = await database.query.orders.findFirst({ where: eq(schema.orders.id, orderId) });
+    expect(stored?.status).toBe("cancelled");
+  });
+
   it("does not undo or report a payment when the detail is older than the notification", async () => {
     const warn = vi.spyOn(logger, "warn");
     const pending = sale({ status: "pending" });

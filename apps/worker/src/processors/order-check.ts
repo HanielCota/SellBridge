@@ -283,17 +283,22 @@ async function checkStoreSales(run: StoreRun, from: Date, now: Date): Promise<Sa
   let readFrom = from;
   for (let read = 0; read < MAX_READS_PER_STORE; read += 1) {
     await spendStoreQuota(run);
-    const batch = await run.connector.listOrders(run.credentials, readFrom);
+    const batch = await (run.connector.listUpdatedOrders?.(run.credentials, readFrom) ??
+      run.connector.listOrders(run.credentials, readFrom));
     outcomes.push(...(await checkSales(run, batch.orders, noticeCutoff)));
+
     if (batch.resumeFrom === null) {
       return outcomes;
     }
+
     if (batch.resumeFrom.getTime() <= readFrom.getTime()) {
       // A whole read of sales from one instant: starting there again would never move on.
       break;
     }
+
     readFrom = batch.resumeFrom;
   }
+
   logger.error("order.check_incomplete", {
     reason: `A conferência periódica leu até ${MAX_READS_PER_STORE * 1000} vendas da loja e parou antes do fim; as mais novas ficam para os avisos e a próxima conferência.`,
     tenantId: run.store.tenantId,

@@ -77,7 +77,8 @@ const catalogRoutes = {
           attribute_tree: [
             {
               attribute_id: 30,
-              name: "Cor",
+              name: "Colour family",
+              multi_lang: [{ language: "pt-br", value: "Cor" }],
               mandatory: true,
               attribute_info: { input_type: 1 },
               attribute_value_list: [{ value_id: 15, name: "Azul" }],
@@ -261,6 +262,96 @@ describe("Shopee order intake", () => {
     expect(
       calls.find((call) => call.path.endsWith("/get_order_detail"))?.query.get("order_sn_list"),
     ).toBe(SERIAL);
+    expect(calls[0]?.query.get("time_range_field")).toBe("create_time");
+  });
+
+  it("lists changes to orders placed before the reconciliation window", async () => {
+    const since = new Date(NOW.getTime() - 60_000);
+    const { connector, calls } = setup({
+      "GET /api/v2/order/get_order_list": () => success({ order_list: [RAW_ORDER], more: false }),
+      "GET /api/v2/order/get_order_detail": () => success({ order_list: [RAW_ORDER] }),
+      "POST /api/v2/payment/get_escrow_detail_batch": () => success([]),
+    });
+
+    const page = await connector.listUpdatedOrders?.(STORE, since);
+
+    expect(calls[0]?.query.get("time_range_field")).toBe("update_time");
+    expect(page?.orders).toMatchObject([{ externalOrderId: SERIAL, status: "paid" }]);
+    expect(page?.orders[0]?.orderedAt.getTime()).toBeLessThan(since.getTime());
+  });
+
+  it("resumes an order list after a full batch without dropping the later orders", async () => {
+    const firstSecond = RAW_ORDER.create_time;
+    const laterSecond = firstSecond + 1;
+    const rows = new Map(
+      Array.from({ length: 1_001 }, (_, index) => {
+        const serial = `TEST${index}`;
+        const created = index === 1_000 ? laterSecond : firstSecond;
+        return [
+          serial,
+          { ...RAW_ORDER, order_sn: serial, create_time: created, order_status: "UNPAID" },
+        ];
+      }),
+    );
+    const { connector } = setup({
+      "GET /api/v2/order/get_order_list": ({ query }) => {
+        const offset = Number(query.get("cursor"));
+        const start = Number(query.get("time_from"));
+        const end = Number(query.get("time_to"));
+        const eligible = [...rows.values()].filter(
+          (row) => row.create_time >= start && row.create_time <= end,
+        );
+        const next = offset + 100;
+        return success({
+          order_list: eligible.slice(offset, next),
+          more: next < eligible.length,
+          next_cursor: String(next),
+        });
+      },
+      "GET /api/v2/order/get_order_detail": ({ query }) =>
+        success({
+          order_list: query
+            .get("order_sn_list")
+            ?.split(",")
+            .map((id) => rows.get(id)),
+        }),
+    });
+
+    const first = await connector.listOrders(STORE, new Date(firstSecond * 1_000));
+
+    expect(first.orders).toHaveLength(1_000);
+    expect(first.resumeFrom?.getTime()).toBe(laterSecond * 1_000);
+
+    const rest = await connector.listOrders(STORE, new Date(laterSecond * 1_000));
+    expect(rest.orders.map((order) => order.externalOrderId)).toEqual(["TEST1000"]);
+    expect(rest.resumeFrom).toBeNull();
+  });
+
+  it("leaves the stored state alone while a cancellation is under review", async () => {
+    const order = { ...RAW_ORDER, order_status: "IN_CANCEL" };
+    const { connector, calls } = setup({
+      "GET /api/v2/order/get_order_list": () => success({ order_list: [order], more: false }),
+      "GET /api/v2/order/get_order_detail": () => success({ order_list: [order] }),
+    });
+
+    const page = await connector.listOrders(STORE, new Date(NOW.getTime() - 7_200_000));
+
+    expect(page.orders).toEqual([]);
+    await expect(connector.fetchOrder(STORE, SERIAL)).rejects.toMatchObject({
+      details: expect.objectContaining({ retryable: true }),
+    });
+    expect(calls.some((call) => call.path.includes("/payment/"))).toBe(false);
+  });
+
+  it("rejects unknown order statuses instead of treating them as unpaid", async () => {
+    const { connector } = setup({
+      "GET /api/v2/order/get_order_detail": () =>
+        success({ order_list: [{ ...RAW_ORDER, order_status: "NEW_SHOPEE_STATUS" }] }),
+    });
+
+    await expect(connector.fetchOrder(STORE, SERIAL)).rejects.toThrow(
+      /status de pedido desconhecido/,
+    );
   });
 
   it("rejects an unrelated order returned for a signed notice", async () => {

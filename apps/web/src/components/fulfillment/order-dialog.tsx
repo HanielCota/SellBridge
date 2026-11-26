@@ -1,4 +1,4 @@
-import { type Dispatch, type SetStateAction, useState } from "react";
+import { type Dispatch, type SetStateAction, useId, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { SETTLED_FULFILLMENT_STATUSES } from "@sellbridge/shared/schemas";
 import { REFORWARD_BLOCK_MESSAGES } from "@sellbridge/shared/shipment-payments";
@@ -292,15 +292,21 @@ function LabelLink({ orderId }: { orderId: string }) {
 
 function ShopeeLabelForm({ orderId }: { orderId: string }) {
   const withProfile = useTabProfileLink();
+  const hintId = useId();
+
   return (
     <form
+      className="space-y-2"
       method="post"
       action={withProfile(`/api/pedidos/${orderId}/etiqueta`)}
       target="_blank"
       rel="noopener noreferrer"
     >
       <input type="hidden" name="solicitar" value="revenda" />
-      <Button type="submit" variant="outline" className={WRAPPING_BUTTON}>
+      <p id={hintId} className="text-xs text-muted-foreground">
+        A etiqueta abre em nova aba. A Shopee pode agendar a coleta ao gerar a etiqueta.
+      </p>
+      <Button type="submit" variant="outline" className={WRAPPING_BUTTON} aria-describedby={hintId}>
         Gerar etiqueta da Shopee
       </Button>
     </form>

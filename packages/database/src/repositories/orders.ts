@@ -275,20 +275,20 @@ const PROGRESS_RANK: Partial<Record<IncomingOrder["status"], number>> = {
  * Final statuses the marketplace cannot undo, applied before the parcels are read. A return is
  * known from the shipments, not from the marketplace's order status, which stays "paid" (or
  * partially refunded): a returned order keeps that status until it is cancelled. A cancellation is
- * final on the marketplace: two notifications of one order run as separate jobs, and the "paid"
- * one fetched before the buyer cancelled can land after the "cancelled" one; it must not reopen
- * the order for forwarding and shipping.
+ * final on the marketplace. A notification fetched before the buyer cancelled can land after
+ * the cancellation, so it must not reopen the order for forwarding and shipping.
  */
 function keptFinalStatus(
   current: (typeof orders.$inferSelect)["status"],
   incoming: IncomingOrder["status"],
 ): IncomingOrder["status"] {
-  if (current === "returned" && ["pending", "paid", "shipped", "delivered"].includes(incoming)) {
-    return "returned";
+  if (
+    (current === "returned" || current === "cancelled") &&
+    ["pending", "paid", "shipped", "delivered"].includes(incoming)
+  ) {
+    return current;
   }
-  if (current === "cancelled" && ["pending", "paid"].includes(incoming)) {
-    return "cancelled";
-  }
+
   return incoming;
 }
 

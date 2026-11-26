@@ -95,6 +95,7 @@ const orderStatuses: Readonly<Record<string, MarketplaceOrder["status"]>> = {
   PENDING: "pending",
   READY_TO_SHIP: "paid",
   PROCESSED: "paid",
+  RETRY_SHIP: "paid",
   INVOICE_PENDING: "paid",
   PENDING_INVOICE: "paid",
   SHIPPED: "shipped",
@@ -111,6 +112,13 @@ const MAX_BATCH_ORDERS = 1_000;
 const MAX_LIST_PAGES_PER_WINDOW = 100;
 const WINDOW_SECONDS = 15 * 24 * 60 * 60;
 const ORDER_FIELDS = "total_amount,item_list,recipient_address";
+const cancellationInProgress = z.object({ order_status: z.literal("IN_CANCEL") });
+
+interface OrderWindow {
+  field: "create_time" | "update_time";
+  from: number;
+  to: number;
+}
 
 function parseSerial(serial: string): string {
   if (!orderNumber.safeParse(serial).success) {
@@ -167,9 +175,22 @@ function mapOrder(
   const status = Object.hasOwn(orderStatuses, raw.order_status)
     ? orderStatuses[raw.order_status]
     : undefined;
+
+  if (status === undefined) {
+    if (raw.order_status === "IN_CANCEL") {
+      throw marketplaceError("A Shopee ainda está analisando o cancelamento deste pedido.", {
+        retryable: true,
+      });
+    }
+
+    throw marketplaceError("A Shopee retornou um status de pedido desconhecido.", {
+      retryable: false,
+    });
+  }
+
   return {
     externalOrderId: raw.order_sn,
-    status: status ?? "pending",
+    status,
     totalCents: cents(raw.total_amount),
     marketplaceFeeCents: fees.get(raw.order_sn),
     buyerName: recipient.success ? recipient.data.name?.trim().slice(0, 120) || null : null,
@@ -251,7 +272,12 @@ async function readFees(context: ShopeeContext, store: StoreCredentials, serials
 function feeCandidates(rows: readonly unknown[]): string[] {
   return rows.flatMap((row) => {
     const parsed = orderSchema.safeParse(row);
-    if (!parsed.success || ["UNPAID", "PENDING"].includes(parsed.data.order_status)) {
+
+    if (
+      !parsed.success ||
+      !Object.hasOwn(orderStatuses, parsed.data.order_status) ||
+      orderStatuses[parsed.data.order_status] === "pending"
+    ) {
       return [];
     }
 
@@ -316,8 +342,8 @@ export async function readShippingAddress(
 async function listWindow(
   context: ShopeeContext,
   store: StoreCredentials,
-  from: number,
-  to: number,
+  window: OrderWindow,
+  limit: number,
 ) {
   const seenCursors = new Set<string>();
   const numbers = new Set<string>();
@@ -331,9 +357,9 @@ async function listWindow(
       payload: "response",
       schema: orderListSchema,
       query: {
-        time_range_field: "create_time",
-        time_from: String(from),
-        time_to: String(to),
+        time_range_field: window.field,
+        time_from: String(window.from),
+        time_to: String(window.to),
         page_size: String(LIST_PAGE_SIZE),
         cursor,
         request_order_status_pending: "true",
@@ -341,6 +367,11 @@ async function listWindow(
     });
     for (const order of result.order_list) {
       numbers.add(order.order_sn);
+    }
+
+    // A Date cursor cannot split orders in the same second. Keep that second together.
+    if (numbers.size > limit && window.from < window.to) {
+      return null;
     }
 
     if (!result.more) {
@@ -364,36 +395,51 @@ export async function listOrders(
   context: ShopeeContext,
   store: StoreCredentials,
   since: Date,
+  field: OrderWindow["field"] = "create_time",
 ): Promise<MarketplaceOrderBatch> {
-  const orders: MarketplaceOrder[] = [];
+  const orders = new Map<string, MarketplaceOrder>();
   const until = Math.floor(context.now().getTime() / 1_000);
   let from = Math.floor(since.getTime() / 1_000);
-  while (from <= until && orders.length < MAX_BATCH_ORDERS) {
-    const to = Math.min(until, from + WINDOW_SECONDS - 1);
-    const numbers = await listWindow(context, store, from, to);
+  while (from <= until && orders.size < MAX_BATCH_ORDERS) {
+    const window = { field, from, to: Math.min(until, from + WINDOW_SECONDS - 1) };
+    const limit = MAX_BATCH_ORDERS - orders.size;
+    let numbers = await listWindow(context, store, window, limit);
+    while (numbers === null) {
+      window.to = from + Math.floor((window.to - from) / 2);
+      numbers = await listWindow(context, store, window, limit);
+    }
+
     for (let offset = 0; offset < numbers.length; offset += DETAIL_PAGE_SIZE) {
       const requested = numbers.slice(offset, offset + DETAIL_PAGE_SIZE);
       const detail = await readDetails(context, store, requested, ORDER_FIELDS);
-      const fees = await readFees(context, store, feeCandidates(detail.order_list));
-      const windowOrders = readableOrders(detail.order_list, {
+      // Keep the last visible state until the marketplace resolves the cancellation.
+      const rows = detail.order_list.filter(
+        (row) => !cancellationInProgress.safeParse(row).success,
+      );
+      const fees = await readFees(context, store, feeCandidates(rows));
+      const windowOrders = readableOrders(rows, {
         schema: orderSchema,
         map: (raw) => mapOrder(raw, fees),
         event: "shopee.order_skipped",
         channelOwner: "da Shopee",
         externalShopId: store.externalShopId,
-      });
-      orders.push(
-        ...windowOrders.filter(
-          (order) => requested.includes(order.externalOrderId) && order.orderedAt >= since,
-        ),
+        orderIdField: "order_sn",
+      }).filter(
+        (order) =>
+          requested.includes(order.externalOrderId) &&
+          (field === "update_time" || order.orderedAt >= since),
       );
+
+      for (const order of windowOrders) {
+        orders.set(order.externalOrderId, order);
+      }
     }
 
-    from = to + 1;
+    from = window.to + 1;
   }
 
   return {
-    orders: orders.toSorted(
+    orders: [...orders.values()].toSorted(
       (first, second) => first.orderedAt.getTime() - second.orderedAt.getTime(),
     ),
     resumeFrom: from <= until ? new Date(from * 1_000) : null,
