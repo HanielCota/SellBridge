@@ -5,6 +5,7 @@ import { createDeveloperEntryLinkEndpoint } from "./entry-links.server";
 import { getDeveloperMe } from "./me.server";
 import { getDeveloperOrderHistory } from "./order-history.server";
 import { getDeveloperOrder } from "./orders.server";
+import { getDeveloperPlanUsage } from "./plan-usage.server";
 import {
   getDeveloperCatalogProduct,
   getDeveloperFinancialSummary,
@@ -28,6 +29,7 @@ export const DEVELOPER_ENDPOINTS = [
   listDeveloperSupplierProducts,
   listDeveloperOrganizations,
   getDeveloperOrganization,
+  getDeveloperPlanUsage,
   listDeveloperStores,
   listDeveloperCatalogProducts,
   getDeveloperCatalogProduct,
