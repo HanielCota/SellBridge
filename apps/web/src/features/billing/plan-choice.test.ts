@@ -3,8 +3,8 @@ import { describe, expect, it } from "vitest";
 import { overLimitWarning, planAllowance, priceParts, recommendedPlan } from "./plan-choice";
 
 describe("recommended plan", () => {
-  it("indicates Start for an account that uses nothing yet", () => {
-    expect(recommendedPlan({ stores: 0, listings: 0 }).id).toBe("start");
+  it("indicates Essencial for an account that uses nothing yet", () => {
+    expect(recommendedPlan({ stores: 0, listings: 0 }).id).toBe("essential");
   });
 
   it("indicates the smallest plan that holds what the account uses", () => {

@@ -2,6 +2,8 @@ import { describe, expect, it } from "vitest";
 import {
   BILLING_PLAN_IDS,
   BILLING_PLANS,
+  ENTRY_BILLING_PLAN,
+  FREE_SALE_LIMIT,
   billingAccess,
   billingLimits,
   billingNotice,
@@ -20,8 +22,9 @@ const existingTenant = new Date("2026-11-01T12:00:00Z");
 const newTenant = new Date("2026-12-05T12:00:00Z");
 
 describe("billing plans", () => {
-  it("offers the client's five paid plans and no free plan", () => {
+  it("offers Essencial as the entry subscription without changing existing tiers", () => {
     expect(BILLING_PLANS.map((plan) => plan.name)).toEqual([
+      "Essencial",
       "Start",
       "Pro",
       "Business",
@@ -29,6 +32,7 @@ describe("billing plans", () => {
       "Elite",
     ]);
     expect(BILLING_PLAN_IDS).toEqual(BILLING_PLANS.map((plan) => plan.id));
+    expect(ENTRY_BILLING_PLAN.priceCents).toBe(4_990);
   });
 
   it("grows the limits with each plan", () => {
@@ -85,6 +89,22 @@ describe("paid plan", () => {
 });
 
 describe("billing access", () => {
+  it("keeps the free offer until the last sale slot is used", () => {
+    const input = {
+      subscription: null,
+      courtesy: null,
+      tenantCreatedAt: newTenant,
+      transition,
+      freeSalesUsed: FREE_SALE_LIMIT - 1,
+    };
+    expect(billingAccess(input, now)).toEqual({ kind: "free", salesUsed: 19 });
+    expect(billingNotice(input, now)).toBeNull();
+
+    const exhausted = { ...input, freeSalesUsed: FREE_SALE_LIMIT };
+    expect(billingAccess(exhausted, now)).toEqual({ kind: "none" });
+    expect(billingNotice(exhausted, now)).toEqual({ kind: "free_sales_exhausted" });
+  });
+
   it("uses the paid plan over the transition", () => {
     const access = billingAccess(
       { subscription, courtesy: null, tenantCreatedAt: existingTenant, transition },

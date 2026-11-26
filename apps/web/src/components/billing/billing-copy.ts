@@ -22,7 +22,7 @@ const DIFFERENCE_STAYS =
   "Só essa primeira mensalidade volta: o que você pagou a mais para subir de plano não é devolvido.";
 
 const AFTER_THE_PLAN =
-  "Depois disso, pedidos e anúncios no ar continuam, mas você não conecta lojas novas nem publica anúncios novos.";
+  "Depois disso, os anúncios no ar e os envios em andamento continuam. Para registrar ou encaminhar novas vendas, conectar lojas ou publicar anúncios, você precisa de um plano ativo.";
 
 /** What cancelling does, in the reseller's words, before confirming. */
 export function cancelCopy(terms: CancelTerms): string {

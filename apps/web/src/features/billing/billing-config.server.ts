@@ -1,17 +1,12 @@
 import {
   asaasSettingsFrom,
+  billingRulesFrom,
   createAsaasBillingClient,
   type AsaasBillingClient,
 } from "@sellbridge/payments/asaas";
-import type { BillingRules, BillingTransition } from "@sellbridge/shared/billing";
+import type { BillingRules } from "@sellbridge/shared/billing";
 import { validationError } from "@sellbridge/shared/errors";
 import { environment } from "@/lib/server/environment";
-
-function billingTransition(): BillingTransition | null {
-  const { BILLING_LAUNCHED_AT: launchedAt, BILLING_TRANSITION_ENDS_AT: endsAt } = environment;
-  if (launchedAt === undefined || endsAt === undefined) return null;
-  return { launchedAt: new Date(launchedAt), endsAt: new Date(endsAt) };
-}
 
 /**
  * Plans are charged once SellBridge's Asaas account and the launch dates are set, unless
@@ -19,17 +14,12 @@ function billingTransition(): BillingTransition | null {
  * payments use them too, long before the plans start.
  */
 export function billingEnabled(): boolean {
-  return (
-    !environment.BILLING_UNLIMITED &&
-    asaasSettingsFrom(environment) !== null &&
-    billingTransition() !== null
-  );
+  return billingRules() !== null;
 }
 
 /** The plan limits to enforce, or null while billing is off (no limits at all). */
 export function billingRules(): BillingRules | null {
-  if (!billingEnabled()) return null;
-  return { transition: billingTransition() };
+  return billingRulesFrom(environment);
 }
 
 /** SellBridge's own Asaas account, where the monthly fee is charged. */

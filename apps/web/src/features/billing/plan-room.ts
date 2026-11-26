@@ -1,4 +1,4 @@
-import type { BillingAccess } from "@sellbridge/shared/billing";
+import { ENTRY_BILLING_PLAN, type BillingAccess } from "@sellbridge/shared/billing";
 
 export interface PlanCounts {
   stores: number;
@@ -34,15 +34,18 @@ export function planRoomOf(access: BillingAccess | null, used: PlanCounts): Plan
   if (access === null || access.kind === "transition") {
     return { kind: "unlimited", used };
   }
+
   if (access.kind === "none") {
     const allowed = { stores: 0, listings: 0 };
     return { kind: "no_plan", allowed, used, left: leftOf(allowed, used) };
   }
-  const allowed = { stores: access.plan.stores, listings: access.plan.listings };
+
+  const plan = access.kind === "free" ? ENTRY_BILLING_PLAN : access.plan;
+  const allowed = { stores: plan.stores, listings: plan.listings };
   return {
     kind: "plan",
-    planId: access.plan.id,
-    planName: access.plan.name,
+    planId: access.kind === "free" ? "free" : plan.id,
+    planName: access.kind === "free" ? "Gratuito" : plan.name,
     allowed,
     used,
     left: leftOf(allowed, used),

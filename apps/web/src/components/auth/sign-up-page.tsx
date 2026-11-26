@@ -8,6 +8,8 @@ import {
   signUpFormSchema,
 } from "@sellbridge/shared/schemas";
 import type { ProfileKind } from "@sellbridge/shared/profile-kind";
+import { ENTRY_BILLING_PLAN, FREE_SALE_LIMIT } from "@sellbridge/shared/billing";
+import { formatCents } from "@sellbridge/shared/money";
 import { TERMS_VERSION } from "@sellbridge/shared/terms";
 import { useForm, useStore } from "@tanstack/react-form";
 import { getRouteApi, Link, useNavigate } from "@tanstack/react-router";
@@ -212,6 +214,15 @@ export function SignUpPage({
       <AuthPageHeader title="Criar conta" description={PAGE_COPY[profileKind].description} />
       <div className="grid gap-5">
         <SignUpProfileChoice value={profileKind} onChange={setProfileKind} />
+        {profileKind === "seller" ? (
+          <div className="space-y-1 rounded-2xl border border-border bg-muted px-4 py-3 text-subhead">
+            <p className="font-semibold">Primeiras {FREE_SALE_LIMIT} vendas sem mensalidade</p>
+            <p className="text-muted-foreground">
+              A partir da {FREE_SALE_LIMIT + 1}ª venda, assine o plano {ENTRY_BILLING_PLAN.name} por{" "}
+              {formatCents(ENTRY_BILLING_PLAN.priceCents)} por mês para continuar.
+            </p>
+          </div>
+        ) : null}
         {signInOptions.google ? (
           <GoogleSignIn
             callbackURL={redirect ?? "/dashboard"}

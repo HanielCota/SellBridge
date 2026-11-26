@@ -1,4 +1,4 @@
-import { BILLING_PLANS } from "@sellbridge/shared/billing";
+import { billingPlan } from "@sellbridge/shared/billing";
 import { MAX_BULK_PUBLISH } from "@sellbridge/shared/schemas";
 import { describe, expect, it } from "vitest";
 import { planRoomOf } from "@/features/billing/plan-room";
@@ -10,7 +10,7 @@ import {
   withTicked,
 } from "./entry-choice";
 
-const START = BILLING_PLANS[0];
+const START = billingPlan("start");
 
 function startRoom(listingsUsed: number) {
   return planRoomOf(

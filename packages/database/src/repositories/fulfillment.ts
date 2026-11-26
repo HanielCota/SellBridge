@@ -4,6 +4,7 @@ import { linkFieldsFor } from "./shipment-link-fields.ts";
 import { resellerShipmentInvoices } from "./shipment-invoices.ts";
 import { resellerSaleInvoicesOf } from "./shipment-reseller-invoices.ts";
 import * as timing from "./shipment-timing.ts";
+import { assertBillingSaleAccess } from "./billing.ts";
 import {
   and,
   asc,
@@ -23,6 +24,7 @@ import {
   type SQL,
 } from "drizzle-orm";
 import { conflictError, notFoundError, validationError } from "@sellbridge/shared/errors";
+import type { BillingRules } from "@sellbridge/shared/billing";
 import { HOLD_REFUSALS } from "@sellbridge/shared/receiving-rules";
 import { REFORWARD_BLOCK_MESSAGES, reforwardBlockFor } from "@sellbridge/shared/shipment-payments";
 import {
@@ -304,6 +306,7 @@ export async function forwardOrder(
   database: Database,
   tenantId: string,
   input: z.infer<typeof forwardOrderSchema> & { actor?: ForwardActor },
+  billing: BillingRules | null = null,
 ) {
   return database.transaction(async (transaction) => {
     const [order] = await transaction
@@ -318,6 +321,10 @@ export async function forwardOrder(
       .from(orderShipments)
       .where(eq(orderShipments.orderId, order.id));
     if (existing.length) throw conflictError("Este pedido já foi encaminhado");
+    if (billing !== null && order.freeSaleSlot === null) {
+      await assertBillingSaleAccess(transaction, tenantId, billing);
+    }
+
     const grouped = await supplierGroups(transaction, tenantId, order.id);
     return createFulfillmentParcels(
       {

@@ -4,6 +4,7 @@ import {
   index,
   integer,
   pgTable,
+  smallint,
   text,
   timestamp,
   uniqueIndex,
@@ -59,6 +60,8 @@ export const orders = pgTable(
      * month ended counts in the month the money came in.
      */
     paidAt: timestamp({ withTimezone: true }),
+    /** The account's first 20 confirmed sales retain their slots after refunds or retries. */
+    freeSaleSlot: smallint(),
     /**
      * When a paid sale was first seen cancelled or returned (see `reversedAtOfKnownOrder` in
      * shared/domain/sale-date.ts); null for orders never paid or still counting. Monthly money
@@ -79,6 +82,9 @@ export const orders = pgTable(
       sql`coalesce(${table.paidAt}, ${table.orderedAt})`,
     ),
     uniqueIndex("orders_external_idx").on(table.storeConnectionId, table.externalOrderId),
+    uniqueIndex("orders_tenant_free_sale_slot_idx")
+      .on(table.tenantId, table.freeSaleSlot)
+      .where(sql`${table.freeSaleSlot} is not null`),
     /** The other orders of a cart, for the one-label check. */
     index("orders_store_pack_idx").on(table.storeConnectionId, table.marketplacePackId),
   ],

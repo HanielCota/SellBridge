@@ -8,6 +8,7 @@ import {
 import { validationError } from "@sellbridge/shared/errors";
 import { logger } from "@sellbridge/shared/logger";
 import type { ManualSale } from "@sellbridge/shared/schemas";
+import { billingRules } from "@/features/billing/billing-config.server";
 import { database } from "@/lib/server/database";
 import { requestStockSync } from "@/lib/server/stock-sync";
 
@@ -71,6 +72,7 @@ export async function recordManualSale(
     orderedAt: new Date(),
     marketplaceFeeCents: sale.marketplaceFeeCents,
     items,
+    billing: billingRules(),
   });
   logger.info("manual_sale.recorded", { orderId: result.orderId, channel: sale.channel });
   if (result.stockMoves > 0) {

@@ -1,8 +1,8 @@
-import { BILLING_PLANS } from "@sellbridge/shared/billing";
+import { billingPlan } from "@sellbridge/shared/billing";
 import { describe, expect, it } from "vitest";
 import { listingsShortBy, planRoomOf } from "./plan-room";
 
-const START = BILLING_PLANS[0];
+const START = billingPlan("start");
 
 describe("planRoomOf", () => {
   it("leaves the plan's room after what the account already uses", () => {
