@@ -232,12 +232,23 @@ async function runWithBody<TBody extends z.ZodType, TResponse extends z.ZodType>
   );
 }
 
-/** Usage is recorded for the key's owner to audit; a failure here never fails the request. */
-async function recordUse(record: DeveloperApiRequestRecord): Promise<void> {
+/** Keep a metadata-only audit event when the database cannot store the usage record. */
+async function recordUse(record: DeveloperApiRequestRecord, requestId: string): Promise<void> {
   try {
     await recordDeveloperApiRequest(database, record);
   } catch (error) {
-    logger.error("developer_api.usage_not_recorded", { operation: record.operation, error });
+    const { developerApiKeyId, operation, status, personalData } = record;
+    const delivered = status >= 200 && status < 300;
+    logger.error("developer_api.usage_not_recorded", {
+      requestId,
+      developerApiKeyId,
+      operation,
+      status,
+      personalData,
+      organizationId: delivered ? record.organizationId : null,
+      resourceId: delivered ? record.resourceId : null,
+      errorType: error instanceof Error ? error.name : "Unknown",
+    });
   }
 }
 
@@ -274,14 +285,17 @@ async function handleDeveloperRequest(
       status: response.status,
       sendsPersonalData: operation.sendsPersonalData?.(caller) ?? false,
     });
-    await recordUse({
-      developerApiKeyId: caller.developerApiKeyId,
-      keyPrefix: caller.prefix,
-      operation: operation.operationId,
-      status: response.status,
-      durationMilliseconds,
-      ...use,
-    });
+    await recordUse(
+      {
+        developerApiKeyId: caller.developerApiKeyId,
+        keyPrefix: caller.prefix,
+        operation: operation.operationId,
+        status: response.status,
+        durationMilliseconds,
+        ...use,
+      },
+      base.requestId,
+    );
   }
   return response;
 }

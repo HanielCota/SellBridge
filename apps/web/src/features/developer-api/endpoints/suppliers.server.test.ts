@@ -1,15 +1,17 @@
-import { beforeEach, expect, it, vi } from "vitest";
+import { logger } from "@sellbridge/shared/logger";
+import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import { developerRouteHandler } from "../developer-endpoint.server";
 
-const { listAdminSupplierProducts } = vi.hoisted(() => ({
+const { listAdminSupplierProducts, recordDeveloperApiRequest } = vi.hoisted(() => ({
   listAdminSupplierProducts: vi.fn<() => Promise<unknown>>(),
+  recordDeveloperApiRequest: vi.fn<() => Promise<void>>(),
 }));
 
 vi.mock("@/lib/server/database", () => ({ database: {} }));
 vi.mock("@/lib/server/environment", () => ({ environment: { DEVELOPER_EMAILS: [] } }));
 vi.mock("@sellbridge/database/repositories", () => ({
   listAdminSupplierProducts,
-  recordDeveloperApiRequest: async () => undefined,
+  recordDeveloperApiRequest,
 }));
 vi.mock("../developer-address-limit.server", () => ({
   limitDeveloperAddress: async () => ({ ok: true, value: null }),
@@ -59,6 +61,12 @@ function readProducts() {
 
 beforeEach(() => {
   listAdminSupplierProducts.mockReset();
+  recordDeveloperApiRequest.mockReset();
+  recordDeveloperApiRequest.mockResolvedValue(undefined);
+});
+
+afterEach(() => {
+  vi.restoreAllMocks();
 });
 
 it("returns photos in order and distinguishes available stock from shelf stock", async () => {
@@ -106,4 +114,31 @@ it("returns a traceable error if stored data cannot satisfy the response contrac
   expect(response.status).toBe(500);
   expect(requestId).not.toBeNull();
   expect(await response.json()).toMatchObject({ code: "internal_error", requestId });
+});
+
+it("keeps an audit event with the request and resource IDs if the usage write fails", async () => {
+  const reportError = vi.spyOn(logger, "error").mockImplementation(() => undefined);
+  recordDeveloperApiRequest.mockRejectedValueOnce(new Error("Database unavailable"));
+  listAdminSupplierProducts.mockResolvedValue({
+    items: [{ ...product, imageUrls }],
+    page: 1,
+    pageSize: 20,
+    total: 1,
+    totalPages: 1,
+  });
+
+  const response = await readProducts();
+
+  expect(response.status).toBe(200);
+  expect(reportError).toHaveBeenCalledWith(
+    "developer_api.usage_not_recorded",
+    expect.objectContaining({
+      requestId: response.headers.get("x-request-id"),
+      developerApiKeyId: "key-1",
+      operation: "listSupplierProducts",
+      resourceId: supplierId,
+      status: 200,
+      personalData: false,
+    }),
+  );
 });
