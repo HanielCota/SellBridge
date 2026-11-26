@@ -1,5 +1,6 @@
 import type { AppError } from "@sellbridge/shared/errors";
 import { logger } from "@sellbridge/shared/logger";
+import type { DownloadImage } from "../tiktok-shop/image-download.ts";
 import type { z } from "zod";
 import { marketplaceAuthError, marketplaceError } from "../errors.ts";
 import { fetchWithRetry, type FetchLike, type RetryOptions } from "../http.ts";
@@ -13,6 +14,8 @@ export interface ShopeeConfig {
   partnerKey: string | undefined;
   /** Sandbox V2 keys only work on the sandbox hosts, and live keys only on production. */
   sandbox?: boolean;
+  webhookUrl?: string;
+  downloadImage?: DownloadImage;
   fetchImplementation?: FetchLike;
   retry?: Partial<RetryOptions>;
   now?: () => Date;
@@ -28,7 +31,7 @@ export interface ShopeeContext {
 interface ShopeeHosts {
   /** Open API host: "openplatform.shopee.com.br" serves developers near the US. */
   readonly api: string;
-  /** Fixed seller authorization URL for Brazil. */
+  /** Fixed seller authorization URL for the current environment. */
   readonly authorize: string;
 }
 
@@ -39,7 +42,7 @@ const PRODUCTION_HOSTS: ShopeeHosts = {
 };
 const SANDBOX_HOSTS: ShopeeHosts = {
   api: "https://openplatform.sandbox.test-stable.shopee.sg",
-  authorize: "https://open.sandbox.test-stable.shopee.com.br/auth",
+  authorize: "https://open.sandbox.test-stable.shopee.com/auth",
 };
 
 export function shopeeHosts(config: ShopeeConfig): ShopeeHosts {
@@ -102,12 +105,12 @@ const TRANSIENT_ERRORS: ReadonlySet<string> = new Set([
 ]);
 
 function isTokenRefusal(envelope: ShopeeEnvelope | null): boolean {
-  const error = envelope?.error ?? "";
+  const error = (envelope?.error ?? "").replace(/^common\./, "");
   if (TOKEN_REFUSALS.has(error)) {
     return true;
   }
   const message = (envelope?.message ?? "").toLowerCase();
-  return error === "error_auth" && (message.includes("access_token") || message.includes("shopid"));
+  return error === "error_auth" && /access[_ ]token|shop[_ ]?id/.test(message);
 }
 
 function isRetryableRefusal(error: string, status: number, isIdempotent: boolean): boolean {
@@ -175,7 +178,7 @@ interface ReadOptions<TResponse> {
   readonly payload: PayloadPlace;
   readonly isIdempotent: boolean;
   /** Turns a refusal into a more specific error (an expired authorization code); null keeps it. */
-  readonly explainRefusal?: (envelope: ShopeeEnvelope) => AppError | null;
+  readonly explainRefusal?: (envelope: ShopeeEnvelope, body: unknown) => AppError | null;
 }
 
 const UNEXPECTED_RESPONSE = "Resposta inesperada da Shopee";
@@ -190,7 +193,7 @@ async function readPayload<TResponse>(
     if (response.ok && envelope === null) {
       throw marketplaceError(UNEXPECTED_RESPONSE, { retryable: false });
     }
-    const specific = envelope === null ? null : (options.explainRefusal?.(envelope) ?? null);
+    const specific = envelope === null ? null : (options.explainRefusal?.(envelope, body) ?? null);
     if (specific !== null) {
       logRefusal(envelope, response.status);
       throw specific;
@@ -205,11 +208,10 @@ async function readPayload<TResponse>(
   return parsed.data;
 }
 
-export interface PublicRequest<TResponse> extends Omit<ReadOptions<TResponse>, "isIdempotent"> {
+export type PublicRequest<TResponse> = Omit<ReadOptions<TResponse>, "isIdempotent"> & {
   /** API path, e.g. `/api/v2/auth/token/get`. */
   readonly path: string;
-  readonly json: unknown;
-}
+} & ({ readonly json: unknown } | { readonly form: FormData });
 
 /**
  * A signed Public API call (the token endpoints). Not retried: an authorization code and a
@@ -226,20 +228,25 @@ export async function requestPublic<TResponse>(
     timestamp: String(timestamp),
     sign: signPublicCall({ partnerId, path: request.path, timestamp, partnerKey }),
   });
+  const headers = new Headers({ accept: "application/json" });
+  if ("json" in request) {
+    headers.set("content-type", "application/json");
+  }
+
   const response = await fetchWithRetry(
     context.fetchImplementation,
     `${shopeeHosts(context.config).api}${request.path}?${query.toString()}`,
     {
       method: "POST",
-      headers: { accept: "application/json", "content-type": "application/json" },
-      body: JSON.stringify(request.json),
+      headers,
+      body: "form" in request ? request.form : JSON.stringify(request.json),
     },
     { ...context.config.retry, retries: 0 },
   );
   return readPayload(response, { ...request, isIdempotent: false });
 }
 
-export interface ShopRequest<TResponse> extends Omit<ReadOptions<TResponse>, "isIdempotent"> {
+interface ShopCall {
   readonly method: "GET" | "POST";
   readonly path: string;
   readonly accessToken: string;
@@ -250,14 +257,18 @@ export interface ShopRequest<TResponse> extends Omit<ReadOptions<TResponse>, "is
   readonly json?: unknown;
 }
 
+export type ShopRequest<TResponse> = ShopCall & Omit<ReadOptions<TResponse>, "isIdempotent">;
+
 /**
  * A signed Shop API call. The access token travels in the query, as documented, so the URL is
  * never logged.
  */
-export async function requestShop<TResponse>(
+async function callShop(
   context: ShopeeContext,
-  request: ShopRequest<TResponse>,
-): Promise<TResponse> {
+  request: ShopCall,
+  accept: string,
+  retry = context.config.retry,
+): Promise<Response> {
   const { partnerId, partnerKey } = partnerCredentials(context.config);
   const timestamp = unixSeconds(context);
   const query = new URLSearchParams(request.query);
@@ -277,15 +288,44 @@ export async function requestShop<TResponse>(
     }),
   );
   const body = request.json === undefined ? null : JSON.stringify(request.json);
-  const headers = new Headers({ accept: "application/json" });
+  const headers = new Headers({ accept });
   if (body !== null) {
     headers.set("content-type", "application/json");
   }
-  const response = await fetchWithRetry(
+  return fetchWithRetry(
     context.fetchImplementation,
     `${shopeeHosts(context.config).api}${request.path}?${query.toString()}`,
     { method: request.method, headers, body },
-    context.config.retry,
+    retry,
   );
+}
+
+export async function requestShop<TResponse>(
+  context: ShopeeContext,
+  request: ShopRequest<TResponse>,
+): Promise<TResponse> {
+  const response = await callShop(context, request, "application/json");
   return readPayload(response, { ...request, isIdempotent: request.method === "GET" });
+}
+
+/** The shipping-document API returns the PDF directly, or an API error in JSON. */
+export async function requestShopPdf(
+  context: ShopeeContext,
+  request: ShopCall,
+): Promise<Uint8Array<ArrayBuffer>> {
+  const response = await callShop(context, request, "application/pdf, application/json", {
+    maxBodyBytes: 10 * 1024 * 1024,
+    ...context.config.retry,
+  });
+  const bytes = new Uint8Array(await response.clone().arrayBuffer());
+  if (response.ok && Buffer.from(bytes.subarray(0, 5)).toString("ascii") === "%PDF-") {
+    return bytes;
+  }
+
+  const { envelope } = await readBody(response);
+  if (isRefusal(response, envelope) && (!response.ok || envelope !== null)) {
+    throw refusalError(envelope, response.status, true);
+  }
+
+  throw marketplaceError("A Shopee não enviou uma etiqueta em PDF.", { retryable: false });
 }

@@ -16,6 +16,8 @@ import { z } from "zod";
 import { orderShipments } from "@sellbridge/database/schema";
 import { eq } from "drizzle-orm";
 import { database } from "@/lib/server/database";
+import { appOriginFor } from "@/lib/server/app-origin";
+import { assertSameOrigin } from "@/lib/server/http";
 import { requireSellerRequest } from "@/lib/server/tenant-session";
 import { labelErrorPage } from "@/features/fulfillment/label-error-page";
 import { labelFileName } from "@/features/fulfillment/label-file-name";
@@ -61,7 +63,8 @@ function formatOf(form: URLSearchParams | null): LabelFormat {
 }
 
 /**
- * The reseller opens the label with a GET from their session, as a PDF. The supplier posts a
+ * The reseller opens an existing label with a GET and requests Shopee labels with a POST.
+ * The supplier posts a
  * form: the link's token (see supplier-link-token.ts), or, from the signed-in panel, its supplier
  * and parcel ids, and the format. A token in the URL, from an old link, is refused unread.
  */
@@ -75,26 +78,43 @@ async function labelRequest(
   if (request.method !== "POST") {
     return { tenantId: (await requireSellerRequest(request)).tenantId, format: "pdf" };
   }
+
   const form = await readLabelForm(request);
   const format = formatOf(form);
   const token = tokenOf(form);
   if (token !== null) {
     return { tenantId: await shipmentTenantId(await tokenLabelShipmentId(token, orderId)), format };
   }
+
+  // Private forms can suppress Origin. Fetch Metadata still identifies same-origin submissions.
+  if (request.headers.get("sec-fetch-site") !== "same-origin") {
+    assertSameOrigin(request, appOriginFor(request.url));
+  }
+
   const panelIds = panelLabelIds(form);
   if (panelIds !== null) {
     const shipmentId = await panelLabelShipmentId(request, orderId, panelIds);
     return { tenantId: await shipmentTenantId(shipmentId), format };
   }
+
+  if (form?.get("solicitar") === "revenda") {
+    return { tenantId: (await requireSellerRequest(request)).tenantId, format };
+  }
+
   throw validationError("Abra a etiqueta pelo botão da página do pedido.");
 }
 /**
  * The label of an order allowed to see it, recorded on its parcel: emitted, or not released by
  * the marketplace yet. The supplier's list reads these records as the label's state.
  */
-async function recordedLabel(tenantId: string, orderId: string, format: LabelFormat) {
+async function recordedLabel(
+  tenantId: string,
+  orderId: string,
+  format: LabelFormat,
+  allowGeneration: boolean,
+) {
   try {
-    const label = await loadMarketplaceLabel(tenantId, orderId, format);
+    const label = await loadMarketplaceLabel(tenantId, orderId, format, allowGeneration);
     await keepLabelRecord(
       async () =>
         await recordLabelsPrinted(database, [{ orderId, marketplaceShipmentId: label.shipmentId }]),
@@ -129,7 +149,7 @@ async function handleLabel(request: Request, orderId: string) {
   try {
     const validOrderId = z.uuid().parse(orderId);
     const { tenantId, format } = await labelRequest(request, validOrderId);
-    const label = await recordedLabel(tenantId, validOrderId, format);
+    const label = await recordedLabel(tenantId, validOrderId, format, request.method === "POST");
     return new Response(label.file.bytes, {
       headers: {
         ...labelHeaders(label),

@@ -289,6 +289,23 @@ function LabelLink({ orderId }: { orderId: string }) {
     </Button>
   );
 }
+
+function ShopeeLabelForm({ orderId }: { orderId: string }) {
+  const withProfile = useTabProfileLink();
+  return (
+    <form
+      method="post"
+      action={withProfile(`/api/pedidos/${orderId}/etiqueta`)}
+      target="_blank"
+      rel="noopener noreferrer"
+    >
+      <input type="hidden" name="solicitar" value="revenda" />
+      <Button type="submit" variant="outline" className={WRAPPING_BUTTON}>
+        Gerar etiqueta da Shopee
+      </Button>
+    </form>
+  );
+}
 /** A supplier link shown after it was issued, and whether the supplier already got it by e-mail. */
 interface SupplierLinkView {
   url: string;
@@ -493,6 +510,11 @@ function MarketplaceTools({
   if (detail.order.marketplace === "mercado_livre") {
     return <MarketplaceActions orderId={detail.order.id} onRefresh={onRefresh} />;
   }
+
+  if (detail.order.marketplace === "shopee") {
+    return <ShopeeLabelForm orderId={detail.order.id} />;
+  }
+
   // TikTok Shop's tracking is not read yet; its label is.
   if (detail.order.marketplace === "tiktok_shop") {
     return (

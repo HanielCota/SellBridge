@@ -22,7 +22,7 @@ const mockOrderSchema = z.object({
   externalOrderId: z.string().min(1),
   status: z.enum(["pending", "paid", "shipped", "delivered", "cancelled", "returned"]),
   totalCents: z.number().int().nonnegative(),
-  marketplaceFeeCents: z.number().int().nonnegative(),
+  marketplaceFeeCents: z.number().int().nonnegative().optional(),
   refundedCents: z.number().int().nonnegative().default(0),
   buyerName: z.string().nullable(),
   /** The simulated sale carries a made-up address, so the forward form shows it filled. */

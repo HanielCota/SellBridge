@@ -89,6 +89,7 @@ function toPublishProductInput(
   row: TargetForPublishing,
   dependencies: PublishDependencies,
 ): PublishProductInput {
+  const fiscal = readProductFiscal(row.product.fiscal);
   return {
     idempotencyKey: row.target.idempotencyKey,
     title: row.listing.title,
@@ -108,8 +109,9 @@ function toPublishProductInput(
     // The packed weight the fee model prices shipping on, else the product's own (shipping-weight.ts).
     packageWeightGrams: shippingWeightGrams({
       mercadoLivreAttributes: row.product.mercadoLivreAttributes,
-      netWeightGrams: readProductFiscal(row.product.fiscal).netWeightGrams,
+      netWeightGrams: fiscal.netWeightGrams,
     }),
+    productFiscal: { ncm: fiscal.ncm, origin: fiscal.origin, unit: fiscal.unit, cest: fiscal.cest },
     familyName: row.familyName,
   };
 }
@@ -180,10 +182,14 @@ async function publishClaimedTarget(attempt: PublishAttempt): Promise<PublishOut
   const status = await reconcilePublicationStock(attempt.dependencies, {
     tenantId: attempt.tenantId,
     targetId: attempt.listingTargetId,
-    sent: {
-      stock: unitsToSend(attempt.row, attempt.dependencies),
-      priceCents: attempt.row.listing.priceCents,
-    },
+    ...(result.recovered === true
+      ? {}
+      : {
+          sent: {
+            stock: unitsToSend(attempt.row, attempt.dependencies),
+            priceCents: attempt.row.listing.priceCents,
+          },
+        }),
   });
   logger.info("listing.published", {
     tenantId: attempt.tenantId,

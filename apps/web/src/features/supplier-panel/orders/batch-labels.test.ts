@@ -19,7 +19,11 @@ describe("labelRefusal", () => {
   });
 
   it("refuses a parcel of another channel", () => {
-    expect(labelRefusal({ ...candidate, marketplace: "shopee" })).toMatch(/própria/);
+    expect(labelRefusal({ ...candidate, marketplace: "manual" })).toMatch(/própria/);
+  });
+
+  it("sends a Shopee parcel to the individual label flow", () => {
+    expect(labelRefusal({ ...candidate, marketplace: "shopee" })).toMatch(/Abra o pedido/);
   });
 
   it("sends a TikTok Shop parcel to its own order, since its label prints one at a time", () => {

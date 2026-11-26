@@ -38,7 +38,12 @@ export {
   type MercadoLivreLabelFile,
   type PrintedLabel,
 } from "./mercado-livre/shipping.ts";
-export { createShopeeConnector, type ShopeeConfig } from "./shopee/shopee-connector.ts";
+export {
+  createShopeeConnector,
+  getShopeeShippingLabel,
+  type ShopeeConfig,
+} from "./shopee/shopee-connector.ts";
+export { SHOPEE_IGNORED_TOPIC } from "./shopee/webhook.ts";
 export {
   createTikTokShopConnector,
   getTikTokShopShippingLabel,

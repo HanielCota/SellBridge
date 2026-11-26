@@ -3,6 +3,7 @@ import {
   getMercadoLivreLabel,
   getMercadoLivreLabels,
   getMercadoLivreShipping,
+  getShopeeShippingLabel,
   getTikTokShopShippingLabel,
   sendMercadoLivreSaleInvoice,
   type MercadoLivreLabelFile,
@@ -13,6 +14,7 @@ import type { LabelFormat } from "@sellbridge/shared/schemas";
 import { conflictError, notFoundError } from "@sellbridge/shared/errors";
 import {
   BATCH_LABEL_MARKETPLACE,
+  individualLabelMessage,
   isLabelMarketplace,
 } from "@sellbridge/shared/supplier-order-labels";
 import { findOnBehalfLabelParcels, findOrderLabelParcels } from "@sellbridge/database/repositories";
@@ -22,10 +24,12 @@ import { labelSharingRefusal } from "@/features/fulfillment/label-sharing";
 import { saleNoteXmlRefusal } from "@/features/fulfillment/sale-note-xml";
 import { isShippingBlocked } from "@/features/fulfillment/shipping-block";
 import { database } from "@/lib/server/database";
-import { mercadoLivreApiConfig, tiktokShopApiConfig, tokenCipher } from "@/lib/server/marketplaces";
-
-const TIKTOK_SHOP_BATCH_REFUSAL =
-  "A etiqueta do TikTok Shop sai uma por vez: abra o pedido e imprima por lá.";
+import {
+  mercadoLivreApiConfig,
+  shopeeApiConfig,
+  tiktokShopApiConfig,
+  tokenCipher,
+} from "@/lib/server/marketplaces";
 
 async function orderStore(tenantId: string, orderId: string) {
   const [row] = await database
@@ -77,7 +81,7 @@ async function labelAccess(tenantId: string, orderId: string) {
   const row = await orderStore(tenantId, orderId);
   if (!isLabelMarketplace(row.store.marketplace))
     throw conflictError(
-      "Etiqueta de postagem disponível para Mercado Livre e TikTok Shop. Nos demais envios, registre a transportadora e o rastreio manualmente.",
+      "Etiqueta de postagem disponível para Mercado Livre, Shopee e TikTok Shop. Nos demais envios, registre a transportadora e o rastreio manualmente.",
     );
   if (isShippingBlocked(row.orderStatus)) throw conflictError("Pedido sem liberação para envio");
   const notesRefusal = onBehalfLabelRefusal(
@@ -102,15 +106,15 @@ export interface OrderLabel {
 
 type LabelAccess = Awaited<ReturnType<typeof labelAccess>>;
 
-/** TikTok Shop hands out only a PDF link, which the connector downloads. */
-async function tiktokShopLabel(access: LabelAccess, format: LabelFormat): Promise<OrderLabel> {
-  if (format !== "pdf")
-    throw conflictError("A etiqueta do TikTok Shop sai só em PDF. Escolha a impressora comum.");
-  const label = await getTikTokShopShippingLabel(
-    tiktokShopApiConfig,
-    access.store,
-    access.externalOrderId,
-  );
+async function pdfLabel(access: LabelAccess, format: LabelFormat): Promise<OrderLabel> {
+  if (format !== "pdf") {
+    throw conflictError("Escolha a impressora comum para emitir a etiqueta em PDF.");
+  }
+
+  const label =
+    access.marketplace === "shopee"
+      ? await getShopeeShippingLabel(shopeeApiConfig, access.store, access.externalOrderId)
+      : await getTikTokShopShippingLabel(tiktokShopApiConfig, access.store, access.externalOrderId);
   return {
     file: { format: "pdf", bytes: label.bytes },
     shipmentId: label.packageId,
@@ -123,11 +127,17 @@ export async function loadMarketplaceLabel(
   tenantId: string,
   orderId: string,
   format: LabelFormat,
+  allowGeneration: boolean,
 ): Promise<OrderLabel> {
   const access = await labelAccess(tenantId, orderId);
-  if (access.marketplace === "tiktok_shop") {
-    return tiktokShopLabel(access, format);
+  if (access.marketplace === "shopee" && !allowGeneration) {
+    throw conflictError("Gere a etiqueta da Shopee pelo botão da página do pedido.");
   }
+
+  if (access.marketplace !== BATCH_LABEL_MARKETPLACE) {
+    return pdfLabel(access, format);
+  }
+
   const label = await getMercadoLivreLabel(
     mercadoLivreApiConfig,
     access.store,
@@ -153,7 +163,13 @@ async function labelCheck(tenantId: string, orderId: string): Promise<LabelCheck
   try {
     const access = await labelAccess(tenantId, orderId);
     if (access.marketplace !== BATCH_LABEL_MARKETPLACE) {
-      return { kind: "refused", orderId, error: conflictError(TIKTOK_SHOP_BATCH_REFUSAL) };
+      return {
+        kind: "refused",
+        orderId,
+        error: conflictError(
+          individualLabelMessage(access.marketplace) ?? "Abra o pedido para imprimir a etiqueta.",
+        ),
+      };
     }
     return { kind: "allowed", orderId, access };
   } catch (error) {

@@ -22,7 +22,8 @@ export interface IncomingOrder {
   externalOrderId: string;
   status: (typeof orders.$inferInsert)["status"];
   totalCents: number;
-  marketplaceFeeCents: number;
+  /** Omitted when the channel has yet to report its fee. */
+  marketplaceFeeCents?: number | undefined;
   /** Money given back to the buyer so far; omitted when the source does not report it. */
   refundedCents?: number | undefined;
   /** What the seller pays to ship the sale; omitted when unknown, which keeps the one stored. */
@@ -142,7 +143,7 @@ async function updateExistingOrder(
     .set({
       status: write.order.status,
       totalCents: write.order.totalCents,
-      marketplaceFeeCents: write.order.marketplaceFeeCents,
+      marketplaceFeeCents: write.order.marketplaceFeeCents ?? existing.marketplaceFeeCents,
       sellerShippingCents: write.order.sellerShippingCents ?? existing.sellerShippingCents,
       deliveredAt: deliveredAtOnUpdate(existing, write.order.status),
       paidAt,
@@ -223,7 +224,7 @@ async function createOrder(write: OrderWrite): Promise<OrderWriteResult | null> 
       externalOrderId: order.externalOrderId,
       status: order.status,
       totalCents: order.totalCents,
-      marketplaceFeeCents: order.marketplaceFeeCents,
+      marketplaceFeeCents: order.marketplaceFeeCents ?? 0,
       sellerShippingCents: order.sellerShippingCents ?? null,
       buyerName: order.buyerName,
       marketplacePackId: order.packId ?? null,
