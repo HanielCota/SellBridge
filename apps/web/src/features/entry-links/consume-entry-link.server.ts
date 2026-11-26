@@ -36,6 +36,63 @@ const TRAIL_STATUS_BY_KIND: Record<EntryLinkConsumption["kind"], number> = {
 const PRIVATE_HEADERS = { "cache-control": "no-store", "referrer-policy": "no-referrer" };
 const SECONDS_PER_MINUTE = 60;
 
+const CONFIRMATION_PAGE = `<!doctype html>
+<html lang="pt-BR">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="robots" content="noindex, nofollow">
+    <title>Abrir seleção de produtos | SellBridge</title>
+    <style>
+      :root { color-scheme: light dark; font-family: system-ui, sans-serif; line-height: 1.5; }
+      main { max-width: 34rem; margin: 12vh auto 0; padding: 1rem; }
+      h1 { line-height: 1.2; }
+      button { min-height: 44px; padding: .5rem 1rem; font: inherit; cursor: pointer;
+        color: #fff; background: #0058c7; border: 1px solid currentColor;
+        border-radius: .5rem; }
+    </style>
+  </head>
+  <body>
+    <main>
+      <h1>Abrir seleção de produtos</h1>
+      <p>Continue para ver os produtos que você escolheu no SellBridge.</p>
+      <form method="post">
+        <button type="submit">Abrir seleção</button>
+      </form>
+    </main>
+  </body>
+</html>`;
+
+/** Previews can load this page without changing or revealing the selection. */
+export function entryLinkConfirmation(token: string): Response {
+  if (!entryLinkTokenSchema.safeParse(token).success) {
+    return redirectTo("/entrar?situacao=invalido", null);
+  }
+  return new Response(CONFIRMATION_PAGE, {
+    headers: {
+      ...PRIVATE_HEADERS,
+      "referrer-policy": "origin",
+      "content-type": "text/html; charset=utf-8",
+      "content-security-policy":
+        "default-src 'none'; style-src 'unsafe-inline'; form-action 'self'; frame-ancestors 'none'; base-uri 'none'",
+    },
+  });
+}
+
+export function confirmEntryLink(
+  input: { request: Request; token: string; appOrigin: string },
+  now: Date,
+): Promise<Response> | Response {
+  const { request, token, appOrigin } = input;
+  if (request.headers.get("origin") !== appOrigin) {
+    return new Response("Abra o link novamente e confirme na página do SellBridge.", {
+      status: 403,
+      headers: { ...PRIVATE_HEADERS, "content-type": "text/plain; charset=utf-8" },
+    });
+  }
+  return consumeEntryLinkClick({ token, secureCookie: appOrigin.startsWith("https:") }, now);
+}
+
 function choiceCookie(secret: string, secure: boolean): string {
   const attributes = [
     `${ENTRY_CHOICE_COOKIE}=${secret}`,
@@ -77,7 +134,7 @@ async function recordClick(consumption: EntryLinkConsumption): Promise<void> {
 }
 
 /**
- * The first click on an entry link, signed in or not: spends the token, keeps the choice in an
+ * Confirmation of an entry link, signed in or not: spends the token, keeps the choice in an
  * httpOnly cookie and sends the person to `/entrar`. Sign-in or sign-up happens there, and the
  * choice is claimed after it.
  */

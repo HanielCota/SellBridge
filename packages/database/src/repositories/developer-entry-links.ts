@@ -75,7 +75,7 @@ export type EntryLinkConsumption =
   | { kind: "not_found" };
 
 /**
- * Spends the token on the first click, signed in or not, and binds the choice to the secret the
+ * Spends the token on confirmation, signed in or not, and binds the choice to the secret the
  * browser keeps. A second click, or one after expiry, gets nothing.
  */
 export async function consumeDeveloperEntryLink(

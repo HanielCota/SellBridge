@@ -8,10 +8,12 @@ const mocks = vi.hoisted(() => ({
 vi.mock("@/lib/server/database", () => ({ database: {} }));
 vi.mock("@sellbridge/database/repositories", () => mocks);
 
-const { consumeEntryLinkClick } = await import("./consume-entry-link.server");
+const { confirmEntryLink, consumeEntryLinkClick, entryLinkConfirmation } =
+  await import("./consume-entry-link.server");
 
 const NOW = new Date("2026-11-25T12:00:00Z");
 const TOKEN = "a".repeat(43);
+const APP_ORIGIN = "https://sellbridge.example";
 const ISSUER = { linkId: "link-1", keyId: "key-1", keyPrefix: "sb_dev_abcdef" };
 
 function click(token = TOKEN, secureCookie = true) {
@@ -86,5 +88,40 @@ describe("consumeEntryLinkClick", () => {
     const response = await click(TOKEN, false);
 
     expect(response.headers.get("set-cookie")).not.toContain("Secure");
+  });
+});
+
+describe("entry link confirmation", () => {
+  it("offers a confirmation without consuming the choice on page load", async () => {
+    const response = entryLinkConfirmation(TOKEN);
+
+    expect(response.status).toBe(200);
+    expect(response.headers.get("cache-control")).toBe("no-store");
+    expect(response.headers.get("set-cookie")).toBeNull();
+    expect(await response.text()).toContain('<button type="submit">Abrir seleção</button>');
+    expect(mocks.consumeDeveloperEntryLink).not.toHaveBeenCalled();
+  });
+
+  it("hands the choice to the browser after a confirmation from the app", async () => {
+    const request = new Request(`${APP_ORIGIN}/entrar/${TOKEN}`, {
+      method: "POST",
+      headers: { origin: APP_ORIGIN },
+    });
+
+    const response = await confirmEntryLink({ request, token: TOKEN, appOrigin: APP_ORIGIN }, NOW);
+
+    expect(response.status).toBe(303);
+    expect(response.headers.get("location")).toBe("/entrar");
+    expect(response.headers.get("set-cookie")).toContain("HttpOnly");
+    expect(mocks.consumeDeveloperEntryLink).toHaveBeenCalledTimes(1);
+  });
+
+  it("requires the confirmation to come from the app", async () => {
+    const request = new Request(`${APP_ORIGIN}/entrar/${TOKEN}`, { method: "POST" });
+
+    const response = await confirmEntryLink({ request, token: TOKEN, appOrigin: APP_ORIGIN }, NOW);
+
+    expect(response.status).toBe(403);
+    expect(mocks.consumeDeveloperEntryLink).not.toHaveBeenCalled();
   });
 });

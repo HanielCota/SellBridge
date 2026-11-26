@@ -31,7 +31,7 @@ const entryLinkBodySchema = z.object({
 });
 
 const entryLinkSchema = z.object({
-  url: z.url().describe("Abra para a pessoa; funciona uma única vez."),
+  url: z.url().describe("Abra para a pessoa; a seleção só pode ser confirmada uma vez."),
   expiresAt: z.iso.datetime(),
 });
 
@@ -45,7 +45,7 @@ export const createDeveloperEntryLinkEndpoint = defineDeveloperBodyEndpoint({
   operationId: "createEntryLink",
   tag: "Links de entrada",
   summary: "Criar um link de entrada",
-  description: `Gera o link que leva a pessoa ao SellBridge com o fornecedor e os produtos já escolhidos. Quem não tem conta se cadastra; quem tem entra. O link vale ${ENTRY_LINK_LIFETIME_MINUTES} minutos e uma única vez, e não leva nenhum dado da pessoa. Só aceita produtos que os revendedores podem escolher hoje: ativos, aprovados e de um fornecedor aberto.`,
+  description: `Gera o link que leva a pessoa ao SellBridge com o fornecedor e os produtos já escolhidos. A pessoa tem ${ENTRY_LINK_LIFETIME_MINUTES} minutos para confirmar a seleção, uma única vez. Quem não tem conta se cadastra; quem tem entra. O link não leva nenhum dado da pessoa e só aceita produtos disponíveis para os revendedores.`,
   scope: "links:create",
   body: entryLinkBodySchema,
   response: dataEnvelope(entryLinkSchema),
