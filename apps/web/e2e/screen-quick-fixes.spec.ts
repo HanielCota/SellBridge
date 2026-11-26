@@ -1,4 +1,14 @@
+import { randomUUID } from "node:crypto";
 import { expect, type Page, test } from "@playwright/test";
+import {
+  orderItems,
+  orders,
+  orderShipments,
+  organization,
+  storeConnections,
+} from "@sellbridge/database/schema";
+import { and, eq } from "drizzle-orm";
+import { forwardableProduct } from "./catalog-fixtures";
 import { e2eDatabase } from "./database";
 import { ADMIN_USER, DEMO_USER, enableAdminMode, gotoHydrated, signIn } from "./helpers";
 import { expectSoldOutTagReadable } from "./sold-out-tag";
@@ -181,32 +191,122 @@ test("the ticket search hint fits a phone", async ({ page }) => {
   expect(await placeholderOverflow(page, "Assunto, revendedor ou e-mail")).toBeLessThanOrEqual(0);
 });
 
-test("on a phone the shipments list turns into cards that fit", async ({ page }) => {
-  await signIn(page, ADMIN_USER);
-  await enableAdminMode(page);
-  await page.setViewportSize(PHONE);
-  await gotoHydrated(page, "/admin/envios");
-  const cards = page.getByRole("list", { name: "Envios" });
+async function createStaffShipment() {
+  const [store] = await database
+    .select({ id: storeConnections.id, tenantId: storeConnections.tenantId })
+    .from(storeConnections)
+    .innerJoin(organization, eq(organization.id, storeConnections.tenantId))
+    .where(and(eq(organization.slug, "ana-revendedora-demo"), eq(storeConnections.manual, false)))
+    .limit(1);
+  const product = await forwardableProduct(database);
 
-  await expect(cards).toBeVisible();
-  await expect(page.getByRole("table")).toBeHidden();
-  expect(await sidewaysScroll(page), await elementsPastTheEdge(page)).toBe(0);
-});
+  if (store === undefined || product === undefined) {
+    throw new Error("The demo store or a supplier product is missing.");
+  }
 
-test("long reseller and supplier names never widen the phone shipments page", async ({ page }) => {
-  await signIn(page, ADMIN_USER);
-  await enableAdminMode(page);
-  await page.setViewportSize(PHONE);
-  await gotoHydrated(page, "/admin/envios");
-  const names = page.getByRole("list", { name: "Envios" }).locator("li p").first();
-  await expect(names).toBeVisible();
+  const tenantId = store.tenantId;
+  const externalOrderId = `E2E-STAFF-SHIPMENT-${randomUUID().slice(0, 8)}`;
+  return database.transaction(async (transaction) => {
+    const [order] = await transaction
+      .insert(orders)
+      .values({
+        tenantId,
+        storeConnectionId: store.id,
+        externalOrderId,
+        status: "paid",
+        totalCents: product.suggestedPriceCents,
+        orderedAt: new Date(),
+      })
+      .returning({ id: orders.id });
 
-  // The line never wraps (it ends in "…"); on CI such names made the column 17px wider.
-  await names.evaluate((element) => {
-    element.replaceChildren("Revendedora Devolução Comprida · Calçados Franca Devolução Comprida");
+    if (order === undefined) {
+      throw new Error("The staff shipment order was not created.");
+    }
+
+    const [item] = await transaction
+      .insert(orderItems)
+      .values({
+        tenantId,
+        orderId: order.id,
+        supplierProductId: product.id,
+        title: product.title,
+        quantity: 1,
+        unitPriceCents: product.suggestedPriceCents,
+        unitCostCents: product.costCents,
+      })
+      .returning({ id: orderItems.id });
+
+    if (item === undefined) {
+      throw new Error("The staff shipment item was not created.");
+    }
+
+    await transaction.insert(orderShipments).values({
+      tenantId,
+      orderId: order.id,
+      supplierId: product.supplierId,
+      address: {
+        recipient: "Juliana Costa",
+        street: "Rua das Flores",
+        number: "10",
+        complement: "",
+        neighborhood: "Centro",
+        city: "São Paulo",
+        state: "SP",
+        postalCode: "01001-000",
+      },
+      items: [{ orderItemId: item.id, title: product.title, sku: product.sku, quantity: 1 }],
+    });
+    return { orderId: order.id, url: `/admin/envios?query=${externalOrderId}` };
+  });
+}
+
+test.describe("mobile staff shipment layouts", () => {
+  let shipment: Awaited<ReturnType<typeof createStaffShipment>> | undefined;
+
+  test.beforeAll(async () => {
+    shipment = await createStaffShipment();
   });
 
-  expect(await sidewaysScroll(page), await elementsPastTheEdge(page)).toBe(0);
+  test.beforeEach(async ({ page }) => {
+    if (shipment === undefined) {
+      throw new Error("The staff shipment fixture is missing.");
+    }
+
+    await signIn(page, ADMIN_USER);
+    await enableAdminMode(page);
+    await page.setViewportSize(PHONE);
+    await gotoHydrated(page, shipment.url);
+  });
+
+  test.afterAll(async () => {
+    if (shipment !== undefined) {
+      await database.delete(orders).where(eq(orders.id, shipment.orderId));
+    }
+  });
+
+  test("on a phone the shipments list turns into cards that fit", async ({ page }) => {
+    const cards = page.getByRole("list", { name: "Envios" });
+
+    await expect(cards).toBeVisible();
+    await expect(page.getByRole("table")).toBeHidden();
+    expect(await sidewaysScroll(page), await elementsPastTheEdge(page)).toBe(0);
+  });
+
+  test("long reseller and supplier names never widen the phone shipments page", async ({
+    page,
+  }) => {
+    const names = page.getByRole("list", { name: "Envios" }).locator("li p").first();
+    await expect(names).toBeVisible();
+
+    // The line never wraps (it ends in "…"); on CI such names made the column 17px wider.
+    await names.evaluate((element) => {
+      element.replaceChildren(
+        "Revendedora Devolução Comprida · Calçados Franca Devolução Comprida",
+      );
+    });
+
+    expect(await sidewaysScroll(page), await elementsPastTheEdge(page)).toBe(0);
+  });
 });
 
 test("the support performance page uses the usual title and fits its narrow bars", async ({

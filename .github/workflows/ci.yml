@@ -64,10 +64,14 @@ jobs:
       - run: docker build --target worker -t sellbridge-runtime-worker:ci .
       - run: node scripts/check-production-images.mjs
 
-  e2e:
-    name: E2E tests (Playwright)
+  e2e-shards:
+    name: Playwright shard ${{ matrix.shard }}/4
     runs-on: ubuntu-latest
     needs: checks
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: [1, 2, 3, 4]
     services:
       postgres:
         image: postgres:18-alpine
@@ -111,9 +115,25 @@ jobs:
       - run: pnpm database:migrate
       - run: NODE_ENV=test pnpm --filter @sellbridge/database seed:test
       - run: pnpm --filter @sellbridge/web exec playwright install --with-deps chromium
-      - run: pnpm test:e2e
+      - run: pnpm test:e2e --shard=${{ matrix.shard }}/4
       - uses: actions/upload-artifact@v7
         if: failure()
         with:
-          name: playwright-report
+          name: playwright-report-shard-${{ matrix.shard }}-attempt-${{ github.run_attempt }}
           path: apps/web/playwright-report
+
+  e2e:
+    name: E2E tests (Playwright)
+    runs-on: ubuntu-latest
+    needs: e2e-shards
+    # The required check must run and fail even when the matrix is skipped or cancelled.
+    if: ${{ always() }}
+    steps:
+      - name: Verify all Playwright shards passed
+        env:
+          SHARD_RESULT: ${{ needs.e2e-shards.result }}
+        run: |
+          if [ "$SHARD_RESULT" != success ]; then
+            echo "::error::Playwright shards finished with result: $SHARD_RESULT"
+            exit 1
+          fi
