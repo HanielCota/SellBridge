@@ -327,8 +327,8 @@ describe("Shopee order intake", () => {
     expect(rest.resumeFrom).toBeNull();
   });
 
-  it("leaves the stored state alone while a cancellation is under review", async () => {
-    const order = { ...RAW_ORDER, order_status: "IN_CANCEL" };
+  it.each(["IN_CANCEL", "TO_RETURN"])("preserves the stored state during %s", async (status) => {
+    const order = { ...RAW_ORDER, order_status: status };
     const { connector, calls } = setup({
       "GET /api/v2/order/get_order_list": () => success({ order_list: [order], more: false }),
       "GET /api/v2/order/get_order_detail": () => success({ order_list: [order] }),

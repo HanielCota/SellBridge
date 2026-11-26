@@ -102,7 +102,6 @@ const orderStatuses: Readonly<Record<string, MarketplaceOrder["status"]>> = {
   TO_CONFIRM_RECEIVE: "delivered",
   COMPLETED: "delivered",
   CANCELLED: "cancelled",
-  TO_RETURN: "delivered",
 };
 
 const LIST_PAGE_SIZE = 100;
@@ -112,7 +111,8 @@ const MAX_BATCH_ORDERS = 1_000;
 const MAX_LIST_PAGES_PER_WINDOW = 100;
 const WINDOW_SECONDS = 15 * 24 * 60 * 60;
 const ORDER_FIELDS = "total_amount,item_list,recipient_address";
-const cancellationInProgress = z.object({ order_status: z.literal("IN_CANCEL") });
+const unresolvedOrderStatus = z.enum(["IN_CANCEL", "TO_RETURN"]);
+const unresolvedOrder = z.object({ order_status: unresolvedOrderStatus });
 
 interface OrderWindow {
   field: "create_time" | "update_time";
@@ -177,10 +177,11 @@ function mapOrder(
     : undefined;
 
   if (status === undefined) {
-    if (raw.order_status === "IN_CANCEL") {
-      throw marketplaceError("A Shopee ainda está analisando o cancelamento deste pedido.", {
-        retryable: true,
-      });
+    if (unresolvedOrderStatus.safeParse(raw.order_status).success) {
+      throw marketplaceError(
+        "A Shopee ainda está analisando o cancelamento ou a devolução deste pedido.",
+        { retryable: true },
+      );
     }
 
     throw marketplaceError("A Shopee retornou um status de pedido desconhecido.", {
@@ -412,10 +413,8 @@ export async function listOrders(
     for (let offset = 0; offset < numbers.length; offset += DETAIL_PAGE_SIZE) {
       const requested = numbers.slice(offset, offset + DETAIL_PAGE_SIZE);
       const detail = await readDetails(context, store, requested, ORDER_FIELDS);
-      // Keep the last visible state until the marketplace resolves the cancellation.
-      const rows = detail.order_list.filter(
-        (row) => !cancellationInProgress.safeParse(row).success,
-      );
+      // Keep the last confirmed state during a cancellation or a return request.
+      const rows = detail.order_list.filter((row) => !unresolvedOrder.safeParse(row).success);
       const fees = await readFees(context, store, feeCandidates(rows));
       const windowOrders = readableOrders(rows, {
         schema: orderSchema,

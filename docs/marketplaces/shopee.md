@@ -51,6 +51,7 @@ permissions in the Shopee app, and configure its live push callback.
   order's update time to recover recent changes, including changes to older orders. Reconnection
   queues a catch-up by creation time for the shop.
   Imported items are linked to SellBridge listings by the Shopee item ID.
+  Pending cancellation and return requests retain the last confirmed order status.
 - On an eligible order, use **Gerar etiqueta da Shopee**. For supported channels, SellBridge
   arranges drop-off or a pickup with an unambiguous address and time, requests the standard PDF
   from Shopee, and downloads it when ready. If Shopee is still processing it, try again shortly.
