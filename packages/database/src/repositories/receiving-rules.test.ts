@@ -21,6 +21,7 @@ import {
   testStoreInput,
 } from "../testing/fixtures.ts";
 import { saveAsaasAccount, setPaymentAccountReview } from "./asaas-payments.ts";
+import { findOfferedSupplierProductIds } from "./developer-entry-links.ts";
 import { forwardOrder, updateShipment } from "./fulfillment.ts";
 import { queueReceivingAccountNotices } from "./notification-producers.ts";
 import { getReceivingRules, setReceivingRules } from "./receiving-rules.ts";
@@ -149,6 +150,9 @@ describe("receiving-account rule in the reseller catalog", () => {
     await turnRules({ requireReceivingAccount: true, paymentBeforePreparing: false });
 
     expect(await catalogSkus(unpaid.sku)).toEqual([]);
+    await expect(
+      findOfferedSupplierProductIds(database, unpaid.supplierId, [unpaid.productId]),
+    ).resolves.toEqual([]);
     await expect(getSellableCatalogProduct(database, unpaid.productId, tenantId)).rejects.toThrow(
       "Produto não encontrado no catálogo",
     );

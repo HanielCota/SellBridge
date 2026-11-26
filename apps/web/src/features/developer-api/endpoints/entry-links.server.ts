@@ -58,7 +58,7 @@ export const createDeveloperEntryLinkEndpoint = defineDeveloperBodyEndpoint({
     );
     if (refused.length > 0) {
       throw validationError(
-        "Alguns produtos não podem ser escolhidos: não são desse fornecedor, estão desativados, em revisão, ou o fornecedor não está aberto.",
+        "Alguns produtos não estão disponíveis no catálogo desse fornecedor. Revise a seleção e tente de novo.",
         refused,
       );
     }

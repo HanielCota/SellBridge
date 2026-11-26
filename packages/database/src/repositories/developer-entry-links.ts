@@ -10,6 +10,7 @@ import {
   productOfferedInCatalog,
   publicSupplier,
   supplierOpenToResellers,
+  supplierReceivingRuleMet,
 } from "./sql/sellable.ts";
 
 /**
@@ -34,6 +35,7 @@ export async function findOfferedSupplierProductIds(
         inArray(supplierProducts.id, [...productIds]),
         publicSupplier(),
         supplierOpenToResellers(),
+        supplierReceivingRuleMet(),
         productOfferedInCatalog(),
       ),
     );

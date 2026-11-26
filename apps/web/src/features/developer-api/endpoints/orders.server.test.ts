@@ -31,7 +31,16 @@ const { getDeveloperOrder } = await import("./orders.server");
 
 const ORGANIZATION_ID = "org-1";
 const ORDER_ID = "6f1c2c8e-8f0e-4c7a-9a39-3d4b2a1e0f11";
-const ADDRESS = { recipient: "Mariana", street: "Rua A", number: "10", city: "Campinas" };
+const ADDRESS = {
+  recipient: "Mariana",
+  street: "Rua A",
+  number: "10",
+  complement: "",
+  neighborhood: "Centro",
+  city: "Campinas",
+  state: "SP",
+  postalCode: "13000000",
+};
 
 function callerWith(scopes: DeveloperScope[]) {
   return {
@@ -84,6 +93,7 @@ describe("getDeveloperOrder", () => {
     const result = await readOrder(["orders:read"]);
 
     expect(result.data).not.toHaveProperty("shippingAddress");
+    expect(result.data).not.toHaveProperty("shippingAddressStatus");
     expect(result.data.buyerName).toBe("Mariana");
     expect(mocks.findSealedShippingAddress).not.toHaveBeenCalled();
   });
@@ -92,6 +102,26 @@ describe("getDeveloperOrder", () => {
     const result = await readOrder(["orders:read", "buyers:personal"]);
 
     expect(result.data.shippingAddress).toEqual(ADDRESS);
+    expect(result.data.shippingAddressStatus).toBe("available");
+  });
+
+  it("identifies an address that was never stored", async () => {
+    mocks.findSealedShippingAddress.mockResolvedValue(null);
+
+    const result = await readOrder(["orders:read", "buyers:personal"]);
+
+    expect(result.data).toMatchObject({ shippingAddress: null, shippingAddressStatus: "missing" });
+  });
+
+  it("identifies a stored address that cannot be read", async () => {
+    mocks.openShippingAddress.mockReturnValue(null);
+
+    const result = await readOrder(["orders:read", "buyers:personal"]);
+
+    expect(result.data).toMatchObject({
+      shippingAddress: null,
+      shippingAddressStatus: "unreadable",
+    });
   });
 
   it("reads the order of the organization in the path", async () => {

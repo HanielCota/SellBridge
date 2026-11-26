@@ -148,20 +148,32 @@ async function admit(
 
 /** Runs the handler and turns its result, or its error, into the response. */
 async function respond(
-  operationId: string,
+  operation: { operationId: string; response: z.ZodType },
   context: { request: Request; base: RequestBase; admitted: Admitted; successStatus: number },
   execute: () => Promise<unknown>,
 ): Promise<Response> {
   const { request, base, admitted, successStatus } = context;
   try {
-    const body = await execute();
+    const parsed = operation.response.safeParse(await execute());
+    if (!parsed.success) {
+      logger.error("developer_api.response_invalid", {
+        operation: operation.operationId,
+        requestId: base.requestId,
+        issueCount: parsed.error.issues.length,
+      });
+      return problemResponse(
+        problemFromError(parsed.error),
+        base.requestId,
+        admitted.rateLimitHeaders,
+      );
+    }
     const path = new URL(request.url).pathname;
     const state = { ...base, path, rateLimitHeaders: admitted.rateLimitHeaders };
-    return jsonResponse(state, successStatus, body);
+    return jsonResponse(state, successStatus, parsed.data);
   } catch (error) {
     const problem = problemFromError(error);
     if (problem.status >= 500) {
-      logger.error("developer_api.handler_failed", { operation: operationId, error });
+      logger.error("developer_api.handler_failed", { operation: operation.operationId, error });
     }
     return problemResponse(problem, base.requestId, admitted.rateLimitHeaders);
   }
@@ -184,7 +196,7 @@ async function run<TParams extends z.ZodType, TQuery extends z.ZodType>(
     return problemResponse(query.problem, base.requestId, rateLimitHeaders);
   }
   const context = { request: input.request, base, admitted, successStatus: 200 };
-  return respond(endpoint.operationId, context, async () =>
+  return respond(endpoint, context, async () =>
     endpoint.handle({
       caller,
       params: params.value,
@@ -215,7 +227,7 @@ async function runWithBody<TBody extends z.ZodType, TResponse extends z.ZodType>
     return problemResponse(body.problem, base.requestId, rateLimitHeaders);
   }
   const context = { request, base, admitted, successStatus: 201 };
-  return respond(endpoint.operationId, context, async () =>
+  return respond(endpoint, context, async () =>
     endpoint.handle({ caller, body: body.value, requestId: base.requestId, now: base.now }),
   );
 }
