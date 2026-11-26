@@ -12,13 +12,20 @@ describe("billingNoticeCopy", () => {
     });
   });
 
-  it("keeps orders and listings running once the grace is over, with no free plan", () => {
+  it("explains what continues after the grace period", () => {
     expect(billingNoticeCopy({ kind: "payment_failed" })).toEqual({
       title: "A mensalidade não foi paga",
       description:
-        "Seus pedidos e anúncios continuam. Para conectar lojas e publicar, pague a mensalidade em aberto.",
+        "Seus anúncios e envios em andamento continuam. Pague a mensalidade em aberto para operar novas vendas.",
       tone: "danger",
     });
+  });
+
+  it("shows the entry subscription price when the free sales are used", () => {
+    const copy = billingNoticeCopy({ kind: "free_sales_exhausted" });
+
+    expect(copy.title).toBe("Você usou as 20 vendas gratuitas");
+    expect(copy.description).toContain("Essencial por R$ 49,90 por mês");
   });
 
   it("asks an account without a plan to choose one", () => {

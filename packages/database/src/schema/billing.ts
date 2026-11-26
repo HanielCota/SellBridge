@@ -78,7 +78,7 @@ export const billingCourtesies = pgTable(
   (table) => [
     check(
       "billing_courtesies_plan_check",
-      sql`${table.plan} in ('start', 'pro', 'business', 'black', 'elite')`,
+      sql`${table.plan} in ('essential', 'start', 'pro', 'business', 'black', 'elite')`,
     ),
   ],
 );

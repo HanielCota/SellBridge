@@ -8,6 +8,7 @@ import { logger } from "@sellbridge/shared/logger";
 import type { forwardOrderSchema } from "@sellbridge/shared/schemas";
 import { emailSupplierLinks } from "@sellbridge/shared/supplier-order-email";
 import type { z } from "zod";
+import { billingRules } from "@/features/billing/billing-config.server";
 import { database } from "@/lib/server/database";
 import { environment } from "@/lib/server/environment";
 import { sendEmail } from "@/lib/server/mailer";
@@ -38,7 +39,7 @@ export async function forwardAndNotify(
   tenantId: string,
   input: z.infer<typeof forwardOrderSchema>,
 ): Promise<ForwardedLink[]> {
-  const links = await forwardOrder(database, tenantId, input);
+  const links = await forwardOrder(database, tenantId, input, billingRules());
   await noticeReceivingAccountWaits(links.map((link) => link.shipmentId));
   const recipients = await forwardRecipients(
     database,

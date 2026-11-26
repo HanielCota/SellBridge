@@ -1,4 +1,5 @@
 import { WarningIcon } from "@phosphor-icons/react";
+import { FREE_SALE_LIMIT } from "@sellbridge/shared/billing";
 import { Link } from "@tanstack/react-router";
 import { useState } from "react";
 import { PageHeader } from "@/components/layout/page-header";
@@ -51,6 +52,10 @@ function currentTitle(data: BillingData): string {
     return `Tudo liberado até ${lastDayLabel(data.access.until)}`;
   }
   if (data.access.kind === "unlimited") return "Tudo liberado";
+  if (data.access.kind === "free") {
+    return "Plano gratuito";
+  }
+
   return "Você ainda não tem plano";
 }
 
@@ -228,6 +233,12 @@ function CurrentPlan({ data, askCancel }: { data: BillingData; askCancel: boolea
       </CardHeader>
       <CardContent className="space-y-3">
         <UsageLine usage={data.usage} limits={limits} />
+        {data.access.kind === "free" ? (
+          <p className="text-muted-foreground">
+            <span className="font-semibold text-foreground">{data.access.salesUsed}</span> de{" "}
+            {FREE_SALE_LIMIT} vendas gratuitas usadas
+          </p>
+        ) : null}
         {lines.map((line) => (
           <p key={line} className="text-muted-foreground">
             {line}

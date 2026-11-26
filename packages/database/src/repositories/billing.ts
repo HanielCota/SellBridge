@@ -1,10 +1,12 @@
 import {
   billingAccess,
   billingLimits,
+  FREE_SALE_LIMIT,
+  FREE_SALES_EXHAUSTED_MESSAGE,
   type BillingPlanId,
   type BillingRules,
 } from "@sellbridge/shared/billing";
-import { and, eq, count, isNotNull, ne, sql } from "drizzle-orm";
+import { and, eq, count, desc, isNotNull, ne, sql } from "drizzle-orm";
 import { forbiddenError } from "@sellbridge/shared/errors";
 import type { Database, DatabaseExecutor } from "../client.ts";
 import {
@@ -15,6 +17,7 @@ import {
   organization,
   user,
   listingTargets,
+  orders,
   storeConnections,
 } from "../schema/index.ts";
 
@@ -78,13 +81,13 @@ export async function requireBillingOwner(database: Database, tenantId: string, 
     throw forbiddenError("Só o dono da conta pode mudar a assinatura.");
 }
 
-/** Locks the tenant for a capacity check and returns when it was created (for the transition). */
+/** Serializes capacity and sale-slot checks without blocking foreign key references to the tenant. */
 export async function lockBillingTenant(database: DatabaseExecutor, tenantId: string) {
   const [tenant] = await database
     .select({ createdAt: organization.createdAt })
     .from(organization)
     .where(eq(organization.id, tenantId))
-    .for("update");
+    .for("no key update");
   if (tenant === undefined)
     throw forbiddenError(
       "Não achamos a sua conta. Saia e entre de novo; se continuar, fale com o suporte.",
@@ -105,23 +108,67 @@ export async function findBillingTenantCreatedAt(database: DatabaseExecutor, ten
   return tenant.createdAt;
 }
 
-/** What the tenant may use now under the billing rules: a plan, the launch transition or nothing. */
+/** The highest assigned slot is the number of free sales already used. */
+async function billingFreeSalesUsed(database: DatabaseExecutor, tenantId: string) {
+  const [last] = await database
+    .select({ slot: orders.freeSaleSlot })
+    .from(orders)
+    .where(and(eq(orders.tenantId, tenantId), isNotNull(orders.freeSaleSlot)))
+    .orderBy(desc(orders.freeSaleSlot))
+    .limit(1);
+  return last?.slot ?? 0;
+}
+
+/** Called while holding the billing tenant lock, before recording the first payment. */
+export async function nextFreeSaleSlot(database: DatabaseExecutor, tenantId: string) {
+  const used = await billingFreeSalesUsed(database, tenantId);
+  return used < FREE_SALE_LIMIT ? used + 1 : null;
+}
+
+export async function findBillingAccessInput(
+  database: DatabaseExecutor,
+  tenantId: string,
+  rules: BillingRules,
+  lockedTenantCreatedAt?: Date,
+) {
+  const [tenantCreatedAt, account, courtesy, freeSalesUsed] = await Promise.all([
+    lockedTenantCreatedAt ?? findBillingTenantCreatedAt(database, tenantId),
+    getBillingAccount(database, tenantId),
+    getBillingCourtesy(database, tenantId),
+    billingFreeSalesUsed(database, tenantId),
+  ]);
+  return {
+    subscription: account,
+    courtesy,
+    tenantCreatedAt,
+    transition: rules.transition,
+    freeSalesUsed,
+  };
+}
+
 export async function findBillingAccess(
   database: DatabaseExecutor,
   tenantId: string,
   rules: BillingRules,
 ) {
-  const [tenantCreatedAt, account, courtesy] = await Promise.all([
-    findBillingTenantCreatedAt(database, tenantId),
-    getBillingAccount(database, tenantId),
-    getBillingCourtesy(database, tenantId),
-  ]);
-  return billingAccess({
-    subscription: account,
-    courtesy,
-    tenantCreatedAt,
-    transition: rules.transition,
-  });
+  return billingAccess(await findBillingAccessInput(database, tenantId, rules));
+}
+
+export async function assertBillingSaleAccess(
+  database: DatabaseExecutor,
+  tenantId: string,
+  rules: BillingRules,
+  lockedTenantCreatedAt?: Date,
+): Promise<void> {
+  const input = await findBillingAccessInput(database, tenantId, rules, lockedTenantCreatedAt);
+  const access = billingAccess(input);
+  if (access.kind === "none") {
+    throw forbiddenError(
+      input.freeSalesUsed === FREE_SALE_LIMIT
+        ? FREE_SALES_EXHAUSTED_MESSAGE
+        : "Para continuar com novas vendas, regularize seu plano em Assinatura.",
+    );
+  }
 }
 
 /**
@@ -194,8 +241,7 @@ export async function billingUsage(database: DatabaseExecutor, tenantId: string)
 /**
  * Refuses when `requested` more stores or listing slots would pass the plan. A listing asks one
  * slot per destination store; a batch asks for all of its slots at once, so it is refused whole
- * instead of stopping halfway at the limit. Without a plan (and outside the launch transition)
- * nothing new fits: there is no free plan.
+ * instead of stopping halfway at the limit. The free offer uses the entry plan's capacity.
  */
 export async function assertBillingCapacity(
   database: DatabaseExecutor,
@@ -212,21 +258,20 @@ export async function assertBillingCapacity(
     return;
   }
   const tenantCreatedAt = await lockBillingTenant(database, tenantId);
-  const [account, courtesy] = await Promise.all([
-    getBillingAccount(database, tenantId),
-    getBillingCourtesy(database, tenantId),
-  ]);
-  const access = billingAccess({
-    subscription: account,
-    courtesy,
-    tenantCreatedAt,
-    transition: input.rules.transition,
-  });
+  const access = billingAccess(
+    await findBillingAccessInput(database, tenantId, input.rules, tenantCreatedAt),
+  );
   const limits = billingLimits(access);
   if (limits === null) return;
   const usage = await billingUsage(database, tenantId);
   if (usage[resource] + requested <= limits[resource]) return;
   const what = resource === "stores" ? "conectar lojas" : "publicar anúncios";
+  if (access.kind === "free") {
+    throw forbiddenError(
+      `Limite do plano gratuito atingido. Para ${what}, veja os planos em Assinatura.`,
+    );
+  }
+
   if (access.kind !== "plan") {
     throw forbiddenError(`Para ${what}, escolha um plano em Assinatura.`);
   }

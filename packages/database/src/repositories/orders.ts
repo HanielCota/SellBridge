@@ -1,4 +1,5 @@
 import { conflictError } from "@sellbridge/shared/errors";
+import type { BillingRules } from "@sellbridge/shared/billing";
 import { and, eq, inArray } from "drizzle-orm";
 import type { OrderEventData } from "@sellbridge/shared/public-api";
 import {
@@ -11,6 +12,7 @@ import type { Database, Transaction } from "../client.ts";
 import { listings, listingTargets, orderItems, orders, supplierProducts } from "../schema/index.ts";
 import { reconciledOrderStatus } from "./fulfillment-status.ts";
 import { recordApiEvent } from "./api-events.ts";
+import { assertBillingSaleAccess, lockBillingTenant, nextFreeSaleSlot } from "./billing.ts";
 import { syncMarketplaceRefund } from "./marketplace-refunds.ts";
 import { recordOrderStatusChange } from "./order-status-changes.ts";
 import { cancelQueuedParcelsOfCancelledSale } from "./sale-cancellation.ts";
@@ -129,6 +131,12 @@ async function updateExistingOrder(
   }
   const now = new Date();
   const paidAt = paidAtOfKnownOrder({ paidAt: existing.paidAt, status: write.order.status, now });
+  const freeSaleSlot =
+    existing.freeSaleSlot ??
+    (existing.paidAt === null && paidAt !== null
+      ? await nextFreeSaleSlot(write.transaction, write.tenantId)
+      : null);
+
   await write.transaction
     .update(orders)
     .set({
@@ -138,6 +146,7 @@ async function updateExistingOrder(
       sellerShippingCents: write.order.sellerShippingCents ?? existing.sellerShippingCents,
       deliveredAt: deliveredAtOnUpdate(existing, write.order.status),
       paidAt,
+      freeSaleSlot,
       reversedAt: reversedAtOfKnownOrder({
         reversedAt: existing.reversedAt,
         paidAt,
@@ -203,6 +212,9 @@ async function createOrder(write: OrderWrite): Promise<OrderWriteResult | null> 
     orderedAt: order.orderedAt,
     now: new Date(),
   });
+  const freeSaleSlot =
+    paidAt === null ? null : await nextFreeSaleSlot(write.transaction, write.tenantId);
+
   const [created] = await write.transaction
     .insert(orders)
     .values({
@@ -219,6 +231,7 @@ async function createOrder(write: OrderWrite): Promise<OrderWriteResult | null> 
       orderedAt: order.orderedAt,
       deliveredAt: order.status === "delivered" ? order.orderedAt : null,
       paidAt,
+      freeSaleSlot,
       reversedAt: reversedAtOfNewOrder({ status: order.status, paidAt }),
     })
     .onConflictDoNothing({ target: [orders.storeConnectionId, orders.externalOrderId] })
@@ -370,9 +383,10 @@ export async function upsertMarketplaceOrder(
     storeConnectionId,
     order.items.map((item) => item.externalListingId),
   );
-  const result = await database.transaction(async (transaction) =>
-    writeOrder({ transaction, tenantId, storeConnectionId, order, listingsByExternalId }),
-  );
+  const result = await database.transaction(async (transaction) => {
+    await lockBillingTenant(transaction, tenantId);
+    return writeOrder({ transaction, tenantId, storeConnectionId, order, listingsByExternalId });
+  });
   // Reclaim released units before the worker offers them on marketplaces. Retried terminal
   // events also recover a reservation attempt that failed after the order committed.
   const reserved = await reserveOrderShortages(database, result.orderId);
@@ -439,7 +453,7 @@ export async function recordManualOrder(
   database: Database,
   tenantId: string,
   storeConnectionId: string,
-  order: ManualOrder,
+  order: ManualOrder & { billing?: BillingRules | null },
 ): Promise<UpsertOrderResult> {
   const totalCents = checkedManualTotalCents(order);
   const listingsByExternalId = new Map(
@@ -467,6 +481,11 @@ export async function recordManualOrder(
     })),
   };
   const result = await database.transaction(async (transaction) => {
+    const tenantCreatedAt = await lockBillingTenant(transaction, tenantId);
+    if (order.billing != null) {
+      await assertBillingSaleAccess(transaction, tenantId, order.billing, tenantCreatedAt);
+    }
+
     const created = await createOrder({
       transaction,
       tenantId,

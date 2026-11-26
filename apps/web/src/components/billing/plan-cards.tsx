@@ -198,7 +198,7 @@ export function PlanChoices({ data }: { data: BillingData }) {
       <h2 id="plan-choices-title" className="text-lg font-semibold">
         Planos
       </h2>
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
+      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
         {data.plans.map((plan) => (
           <PlanCard
             key={plan.id}

@@ -14,6 +14,7 @@ import {
 } from "@sellbridge/payments/mercado-pago";
 import {
   asaasEnvironmentFields,
+  billingEnvironmentFields,
   invoiceEnvironmentFields,
   refuseAsaasStandInsInProduction,
 } from "@sellbridge/payments/asaas";
@@ -29,17 +30,7 @@ import {
 const PLACEHOLDER_SECRET_PREFIX = "troque-por-";
 
 const serverEnvironmentShape = z.object({
-  /**
-   * When the paid plans went live (ISO 8601, UTC). Accounts created before it keep today's
-   * access, without limits, until BILLING_TRANSITION_ENDS_AT; accounts created after it need a plan.
-   */
-  BILLING_LAUNCHED_AT: z.iso.datetime({ offset: true }).optional(),
-  BILLING_TRANSITION_ENDS_AT: z.iso.datetime({ offset: true }).optional(),
-  /**
-   * Production without the plans' billing (SellBridge's Asaas account and the launch dates)
-   * refuses to start unless this says so: it means no plan limits at all (item 16, N8).
-   */
-  BILLING_UNLIMITED: booleanFlagEnvironmentSchema,
+  ...billingEnvironmentFields,
   /**
    * Days a failed renewal (past_due) keeps the plan before the account is left without one: 5 in
    * the reseller contract. Charges due before 2026-12-01 keep at least 7 (subscription-state.ts).

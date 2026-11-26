@@ -1,4 +1,4 @@
-import { BILLING_PLANS } from "@sellbridge/shared/billing";
+import { billingPlan } from "@sellbridge/shared/billing";
 import { notFoundError } from "@sellbridge/shared/errors";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
@@ -39,7 +39,7 @@ beforeEach(() => {
   mocks.billingRules.mockReturnValue({ transition: null });
   mocks.findBillingAccess.mockResolvedValue({
     kind: "plan",
-    plan: BILLING_PLANS[0],
+    plan: billingPlan("start"),
     source: "subscription",
   });
   mocks.billingUsage.mockResolvedValue({ stores: 1, listings: 120 });

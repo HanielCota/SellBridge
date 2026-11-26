@@ -15,7 +15,7 @@ const planUsageSchema = z.object({
   plan: z
     .object({ id: z.string(), name: z.string() })
     .nullable()
-    .describe("O plano que vale agora, pago ou de cortesia; null sem plano ou sem limite."),
+    .describe("O plano em uso, incluindo o gratuito; null sem plano ou sem limite."),
   allowed: countsSchema.nullable().describe("O que o plano permite; null quando não há limite."),
   used: countsSchema.describe(
     "Lojas conectadas e anúncios que contam no plano (os com erro não contam).",
