@@ -10,7 +10,7 @@ export function TrackPill({
   canAnimate,
   className,
 }: {
-  box: IndicatorBox;
+  box: IndicatorBox | null;
   canAnimate: boolean;
   className?: string;
 }) {
@@ -19,12 +19,13 @@ export function TrackPill({
       aria-hidden="true"
       className={cn(
         "absolute inset-y-1 left-0 rounded-full bg-selected shadow-sm",
+        box === null && "invisible",
         canAnimate &&
-          box.glides &&
+          box?.glides &&
           "transition-[transform,width] duration-400 ease-[cubic-bezier(0.32,0.72,0,1)] motion-reduce:transition-none",
         className,
       )}
-      style={{ transform: `translateX(${box.left}px)`, width: box.width }}
+      style={{ transform: `translateX(${box?.left ?? 0}px)`, width: box?.width ?? 0 }}
     />
   );
 }
