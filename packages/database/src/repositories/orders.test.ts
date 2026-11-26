@@ -179,28 +179,30 @@ describe("marketplace orders and sync", () => {
     expect(events[1]?.data).toMatchObject({ status: "shipped", previousStatus: "paid" });
   });
 
-  it("never reopens a cancelled order when an older 'paid' notification lands late", async () => {
-    const incoming = {
-      externalOrderId: `ORD-${randomUUID()}`,
-      status: "paid" as const,
-      totalCents: 5000,
-      marketplaceFeeCents: 500,
-      buyerName: null,
-      orderedAt: new Date("2026-02-01T10:00:00Z"),
-      items: [],
-    };
-    const { orderId } = await upsertMarketplaceOrder(database, tenantA, storeA, incoming);
-    await upsertMarketplaceOrder(database, tenantA, storeA, { ...incoming, status: "cancelled" });
-    // The job that fetched the order before the buyer cancelled writes last.
-    await upsertMarketplaceOrder(database, tenantA, storeA, incoming);
-    await upsertMarketplaceOrder(database, tenantA, storeA, { ...incoming, status: "pending" });
+  it.each(["pending", "paid", "shipped", "delivered"] as const)(
+    "keeps an order cancelled when an older %s notification lands late",
+    async (status) => {
+      const incoming = {
+        externalOrderId: `ORD-${randomUUID()}`,
+        status: "paid" as const,
+        totalCents: 5000,
+        marketplaceFeeCents: 500,
+        buyerName: null,
+        orderedAt: new Date("2026-02-01T10:00:00Z"),
+        items: [],
+      };
+      const { orderId } = await upsertMarketplaceOrder(database, tenantA, storeA, incoming);
+      await upsertMarketplaceOrder(database, tenantA, storeA, { ...incoming, status: "cancelled" });
+      // The job that fetched the order before the buyer cancelled writes last.
+      await upsertMarketplaceOrder(database, tenantA, storeA, { ...incoming, status });
 
-    const [row] = await database
-      .select({ status: orders.status })
-      .from(orders)
-      .where(eq(orders.id, orderId));
-    expect(row?.status).toBe("cancelled");
-  });
+      const [row] = await database
+        .select({ status: orders.status })
+        .from(orders)
+        .where(eq(orders.id, orderId));
+      expect(row?.status).toBe("cancelled");
+    },
+  );
 
   it("keeps the cart an order was bought in when a later notification does not say it", async () => {
     const incoming = { ...incomingOrder("paid", new Date("2026-02-01T10:00:00Z")), packId: "9001" };

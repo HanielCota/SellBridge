@@ -65,7 +65,8 @@ export function FilterTabs<TValue>({
       style={mask === undefined ? undefined : { maskImage: mask }}
     >
       <legend className="sr-only">{legend}</legend>
-      {indicator ? <TrackPill box={indicator} canAnimate={canAnimate} /> : null}
+      {/* Inserting the pill during hydration resets the fieldset's horizontal scroll in Chromium. */}
+      <TrackPill box={indicator} canAnimate={canAnimate} />
       {tabs.map((tab) => {
         const active = tab.value === chosen.value;
         return (

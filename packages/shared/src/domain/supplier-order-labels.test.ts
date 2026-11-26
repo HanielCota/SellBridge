@@ -35,12 +35,12 @@ describe("supplierLabelState", () => {
     expect(supplierLabelState({ ...waiting, overdue: true })).toBe("late");
   });
 
-  it("gives a TikTok Shop parcel the same label states", () => {
-    expect(supplierLabelState({ ...record, marketplace: "tiktok_shop" })).toBe("pending");
+  it.each(["tiktok_shop", "shopee"])("gives a %s parcel the same label states", (marketplace) => {
+    expect(supplierLabelState({ ...record, marketplace })).toBe("pending");
   });
 
   it("has no label state for other channels", () => {
-    expect(supplierLabelState({ ...record, marketplace: "shopee" })).toBeNull();
+    expect(supplierLabelState({ ...record, marketplace: "manual" })).toBeNull();
   });
 
   it("has no label state once the parcel left", () => {

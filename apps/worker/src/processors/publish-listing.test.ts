@@ -36,11 +36,14 @@ const mockConnector = environment.connectors.mock;
 const publishProduct = vi.fn<MarketplaceConnector["publishProduct"]>(async (credentials, input) =>
   mockConnector.publishProduct(credentials, input),
 );
+const updateStockPrice = vi.fn<MarketplaceConnector["updateStockPrice"]>(
+  async (credentials, update) => mockConnector.updateStockPrice(credentials, update),
+);
 const processPublish = createPublishListingProcessor({
   ...environment,
   connectors: {
     ...environment.connectors,
-    mock: { ...environment.connectors.mock, publishProduct },
+    mock: { ...environment.connectors.mock, publishProduct, updateStockPrice },
   },
   acquireRateLimit: async () => {},
   safetyUnits: 0,
@@ -309,10 +312,16 @@ describe("publish-listing processor", () => {
       .where(eq(schema.listingTargets.id, targetId));
     publishProduct.mockImplementationOnce(async (_credentials, _input, options) => {
       expect(options?.creationStartedAt).toBeInstanceOf(Date);
-      return { externalId: "MLB-recovered", externalUrl: null };
+      return { externalId: "MLB-recovered", externalUrl: null, recovered: true };
     });
+    updateStockPrice.mockClear();
+
     expect(await processPublish(job)).toBe("published");
     expect((await targetRow(targetId)).externalId).toBe("MLB-recovered");
+    expect(updateStockPrice).toHaveBeenCalledWith(
+      expect.any(Object),
+      expect.objectContaining({ externalId: "MLB-recovered", stock: 7, priceCents: 4990 }),
+    );
   });
 
   it("clears the guard when reprocessing confirms the item never landed", async () => {

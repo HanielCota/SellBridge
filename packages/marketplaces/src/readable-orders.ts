@@ -4,11 +4,12 @@ import type { z } from "zod";
 import type { MarketplaceOrder } from "./types.ts";
 
 /** The order's own id for the log, when the row has a readable one. */
-function orderIdOf(raw: unknown): string | null {
-  if (typeof raw !== "object" || raw === null || !Object.hasOwn(raw, "id")) {
+function orderIdOf(raw: unknown, field: string): string | null {
+  if (typeof raw !== "object" || raw === null || !Object.hasOwn(raw, field)) {
     return null;
   }
-  const id: unknown = Reflect.get(raw, "id");
+
+  const id: unknown = Reflect.get(raw, field);
   return typeof id === "string" || typeof id === "number" ? String(id).slice(0, 40) : null;
 }
 
@@ -19,6 +20,7 @@ interface ReadableOrdersInput<Raw> {
   /** The marketplace after "venda": "do Mercado Livre". */
   channelOwner: string;
   externalShopId: string;
+  orderIdField?: string;
 }
 
 /**
@@ -26,11 +28,14 @@ interface ReadableOrdersInput<Raw> {
  * admin Problemas page (an error), one problem per sale, with what to do about it.
  */
 function reportSkipped(
-  input: Pick<ReadableOrdersInput<unknown>, "event" | "channelOwner" | "externalShopId">,
+  input: Pick<
+    ReadableOrdersInput<unknown>,
+    "event" | "channelOwner" | "externalShopId" | "orderIdField"
+  >,
   row: unknown,
   cause: { error?: unknown; shape?: string },
 ): void {
-  const externalOrderId = orderIdOf(row);
+  const externalOrderId = orderIdOf(row, input.orderIdField ?? "id");
   logger.error(input.event, {
     reason: `Uma venda ${input.channelOwner} veio num formato que o SellBridge não consegue ler e ficou de fora. Confira a venda no painel do canal e, se for do revendedor, lance como venda manual.`,
     externalOrderId,
