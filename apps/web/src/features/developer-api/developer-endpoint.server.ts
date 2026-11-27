@@ -30,6 +30,9 @@ import { limitDeveloperAddress } from "./developer-address-limit.server";
 import { enforceDeveloperRateLimit } from "./developer-rate-limit.server";
 import { describeDeveloperUse } from "./developer-usage";
 
+/** Field paths only, never values: stored data can be personal. A list endpoint can fail per row. */
+const LOGGED_ISSUE_PATHS_LIMIT = 10;
+
 /** One read-only operation of the developer API, described once for the route and the manual. */
 export interface DeveloperEndpoint<
   TParams extends z.ZodType,
@@ -160,6 +163,9 @@ async function respond(
         operation: operation.operationId,
         requestId: base.requestId,
         issueCount: parsed.error.issues.length,
+        issuePaths: parsed.error.issues
+          .slice(0, LOGGED_ISSUE_PATHS_LIMIT)
+          .map((issue) => issue.path.join(".")),
       });
       return problemResponse(
         problemFromError(parsed.error),

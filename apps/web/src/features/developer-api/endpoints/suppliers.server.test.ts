@@ -116,6 +116,25 @@ it("returns a traceable error if stored data cannot satisfy the response contrac
   expect(await response.json()).toMatchObject({ code: "internal_error", requestId });
 });
 
+it("logs which field broke the response contract without its value", async () => {
+  const reportError = vi.spyOn(logger, "error").mockImplementation(() => undefined);
+  listAdminSupplierProducts.mockResolvedValue({
+    items: [{ ...product, title: null, imageUrls }],
+    page: 1,
+    pageSize: 20,
+    total: 1,
+    totalPages: 1,
+  });
+
+  await readProducts();
+
+  expect(reportError).toHaveBeenCalledWith(
+    "developer_api.response_invalid",
+    expect.objectContaining({ issuePaths: ["data.0.title"] }),
+  );
+  expect(JSON.stringify(reportError.mock.calls)).not.toContain(product.sku);
+});
+
 it("keeps an audit event with the request and resource IDs if the usage write fails", async () => {
   const reportError = vi.spyOn(logger, "error").mockImplementation(() => undefined);
   recordDeveloperApiRequest.mockRejectedValueOnce(new Error("Database unavailable"));
