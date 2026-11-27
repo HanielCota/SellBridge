@@ -405,10 +405,10 @@ export async function upsertMarketplaceOrder(
     storeConnectionId,
     order.items.map((item) => item.externalListingId),
   );
-  const result = await database.transaction(async (transaction) => {
-    await lockBillingTenant(transaction, tenantId);
-    return writeOrder({ transaction, tenantId, storeConnectionId, order, listingsByExternalId });
-  });
+  // The account is locked only when the order becomes paid (see nextFreeSaleSlot).
+  const result = await database.transaction(async (transaction) =>
+    writeOrder({ transaction, tenantId, storeConnectionId, order, listingsByExternalId }),
+  );
   // Reclaim released units before the worker offers them on marketplaces. Retried terminal
   // events also recover a reservation attempt that failed after the order committed.
   const reserved = await reserveOrderShortages(database, result.orderId);

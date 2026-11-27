@@ -122,10 +122,11 @@ async function billingFreeSalesUsed(database: DatabaseExecutor, tenantId: string
 }
 
 /**
- * The lowest free slot, or null once all are in use. Called while holding the billing tenant
- * lock, before recording the first payment.
+ * The lowest free slot, or null once all are in use. Called before recording the first payment;
+ * it takes the billing tenant lock itself, so only sales becoming paid wait on each other.
  */
 export async function nextFreeSaleSlot(database: DatabaseExecutor, tenantId: string) {
+  await lockBillingTenant(database, tenantId);
   const inUse = await freeSaleSlotsInUse(database, tenantId);
   const free = Array.from({ length: FREE_SALE_LIMIT }, (_, index) => index + 1).find(
     (slot) => !inUse.has(slot),

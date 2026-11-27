@@ -29,6 +29,7 @@ import {
   findBillingAccountByPendingReference,
   findBillingAccountBySubscription,
   getBillingAccount,
+  lockBillingTenant,
   saveBillingAccount,
   tryLockBillingCheckout,
 } from "./billing.ts";
@@ -321,6 +322,57 @@ describe("tenant billing persistence", () => {
     expect((await getBillingAccount(database, tenants.tenantA))?.lastEventCreated).toBe(observedAt);
     await database.delete(billingEvents).where(eq(billingEvents.id, lateEventId));
   });
+});
+
+it("imports orders that are not becoming paid without waiting on the account", async () => {
+  const { tenantId, cleanup } = await accountCreatedAt(new Date());
+  const released = deferred();
+  try {
+    const { id: storeId } = await upsertStoreConnection(database, testStoreInput(tenantId, "busy"));
+    await publishTestProduct(database, catalog.productId, [{ tenantId, storeId }]);
+    const sale = (externalOrderId: string, status: "pending" | "paid" | "shipped") =>
+      upsertMarketplaceOrder(database, tenantId, storeId, {
+        externalOrderId,
+        status,
+        buyerName: "Test Buyer",
+        orderedAt: new Date(),
+        marketplaceFeeCents: 0,
+        totalCents: 2500,
+        items: [
+          {
+            externalListingId: `EXT-${catalog.productId}-${tenantId}`,
+            title: "Test sale",
+            quantity: 1,
+            unitPriceCents: 2500,
+          },
+        ],
+      });
+    await Promise.all([sale("already-paid", "paid"), sale("paid-together", "paid")]);
+    expect(await findBillingAccess(database, tenantId, RULES)).toEqual({
+      kind: "free",
+      salesUsed: 2,
+    });
+    const locked = deferred();
+    const holder = database.transaction(async (transaction) => {
+      await lockBillingTenant(transaction, tenantId);
+      locked.resolve();
+      await released.promise;
+    });
+    await locked.promise;
+
+    const imports = Promise.all([sale("new-pending", "pending"), sale("already-paid", "shipped")]);
+    const outcome = await Promise.race([
+      imports.then(() => "imported"),
+      new Promise((resolve) => setTimeout(() => resolve("waiting"), 2_000)),
+    ]);
+    released.resolve();
+    await Promise.all([holder, imports]);
+
+    expect(outcome).toBe("imported");
+  } finally {
+    released.resolve();
+    await cleanup();
+  }
 });
 
 it("gives the free sale back when a paid sale is cancelled or returned", async () => {
