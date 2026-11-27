@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { blingModelCode, readVariationOptions } from "./variation-options.ts";
+import { blingModelCode, readVariationOptions, colorInBlingName } from "./variation-options.ts";
 
 describe("readVariationOptions", () => {
   it.each([
@@ -35,5 +35,31 @@ describe("blingModelCode", () => {
     expect(blingModelCode({ id: 7, codigo: "" })).toBe("BLING-7");
     expect(blingModelCode({ id: 8, codigo: null })).toBe("BLING-8");
     expect(blingModelCode({ id: 9, codigo: "X".repeat(61) })).toBe("BLING-9");
+  });
+});
+
+describe("colorInBlingName", () => {
+  it("reads the colour from the full Bling name of a variation", () => {
+    const color = colorInBlingName("BABUCHE NUVEM Cor:MARINHO;Tamanho:33/34");
+
+    expect(color).toBe("MARINHO");
+  });
+
+  it("reads the colour when it comes after the size", () => {
+    const color = colorInBlingName("Chinelo Tamanho:38; cor: Preto fosco");
+
+    expect(color).toBe("Preto fosco");
+  });
+
+  it("finds no colour in a name without one", () => {
+    const color = colorInBlingName("Tênis Corrida Tamanho:40");
+
+    expect(color).toBeNull();
+  });
+
+  it("finds no colour when the name leaves it empty", () => {
+    const color = colorInBlingName("Babuche Cor: ;Tamanho:35");
+
+    expect(color).toBeNull();
   });
 });
