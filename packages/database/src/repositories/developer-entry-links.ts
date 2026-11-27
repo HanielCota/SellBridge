@@ -74,6 +74,33 @@ export type EntryLinkConsumption =
   | { kind: "expired" | "used"; issuer: EntryLinkIssuer }
   | { kind: "not_found" };
 
+export type EntryLinkState = "open" | "expired" | "used" | "not_found";
+
+/**
+ * Reads whether a link can still be confirmed, without spending it: link previews load the page
+ * too, so only the confirmation itself may change the link.
+ */
+export async function findDeveloperEntryLinkState(
+  database: Database,
+  lookup: { tokenHash: string; now: Date },
+): Promise<EntryLinkState> {
+  const [found] = await database
+    .select({
+      consumedAt: developerEntryLinks.consumedAt,
+      expiresAt: developerEntryLinks.expiresAt,
+    })
+    .from(developerEntryLinks)
+    .where(eq(developerEntryLinks.tokenHash, lookup.tokenHash))
+    .limit(1);
+  if (found === undefined) {
+    return "not_found";
+  }
+  if (found.consumedAt !== null) {
+    return "used";
+  }
+  return found.expiresAt > lookup.now ? "open" : "expired";
+}
+
 /**
  * Spends the token on confirmation, signed in or not, and binds the choice to the secret the
  * browser keeps. A second click, or one after expiry, gets nothing.

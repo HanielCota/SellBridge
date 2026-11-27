@@ -9,7 +9,7 @@ import { appOriginFor } from "@/lib/server/app-origin";
 export const Route = createFileRoute("/entrar/$token")({
   server: {
     handlers: {
-      GET: ({ params }) => entryLinkConfirmation(params.token),
+      GET: async ({ params }) => entryLinkConfirmation(params.token, new Date()),
       POST: async ({ request, params }) =>
         confirmEntryLink(
           { request, token: params.token, appOrigin: appOriginFor(request.url) },

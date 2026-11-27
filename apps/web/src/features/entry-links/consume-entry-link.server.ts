@@ -1,6 +1,7 @@
 import {
   consumeDeveloperEntryLink,
   type EntryLinkConsumption,
+  findDeveloperEntryLinkState,
   recordDeveloperApiRequest,
 } from "@sellbridge/database/repositories";
 import { logger } from "@sellbridge/shared/logger";
@@ -63,10 +64,21 @@ const CONFIRMATION_PAGE = `<!doctype html>
   </body>
 </html>`;
 
-/** Previews can load this page without changing or revealing the selection. */
-export function entryLinkConfirmation(token: string): Response {
-  if (!entryLinkTokenSchema.safeParse(token).success) {
+/**
+ * Previews can load this page without changing or revealing the selection. A link that can no
+ * longer be confirmed says so right away instead of offering a button that would only fail.
+ */
+export async function entryLinkConfirmation(token: string, now: Date): Promise<Response> {
+  const parsed = entryLinkTokenSchema.safeParse(token);
+  if (!parsed.success) {
     return redirectTo("/entrar?situacao=invalido", null);
+  }
+  const state = await findDeveloperEntryLinkState(database, {
+    tokenHash: hashEntryLinkToken(parsed.data),
+    now,
+  });
+  if (state !== "open") {
+    return redirectTo(`/entrar?situacao=${SITUATION_BY_KIND[state]}`, null);
   }
   return new Response(CONFIRMATION_PAGE, {
     headers: {

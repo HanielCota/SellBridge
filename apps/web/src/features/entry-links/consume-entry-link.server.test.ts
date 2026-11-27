@@ -2,6 +2,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const mocks = vi.hoisted(() => ({
   consumeDeveloperEntryLink: vi.fn<() => Promise<unknown>>(),
+  findDeveloperEntryLinkState: vi.fn<() => Promise<string>>(),
   recordDeveloperApiRequest: vi.fn<(database: unknown, record: unknown) => Promise<void>>(),
 }));
 
@@ -24,6 +25,7 @@ beforeEach(() => {
   vi.clearAllMocks();
   mocks.consumeDeveloperEntryLink.mockResolvedValue({ kind: "consumed", issuer: ISSUER });
   mocks.recordDeveloperApiRequest.mockResolvedValue(undefined);
+  mocks.findDeveloperEntryLinkState.mockResolvedValue("open");
 });
 
 describe("consumeEntryLinkClick", () => {
@@ -93,13 +95,31 @@ describe("consumeEntryLinkClick", () => {
 
 describe("entry link confirmation", () => {
   it("offers a confirmation without consuming the choice on page load", async () => {
-    const response = entryLinkConfirmation(TOKEN);
+    const response = await entryLinkConfirmation(TOKEN, NOW);
 
     expect(response.status).toBe(200);
     expect(response.headers.get("cache-control")).toBe("no-store");
     expect(response.headers.get("set-cookie")).toBeNull();
     expect(await response.text()).toContain('<button type="submit">Abrir seleção</button>');
     expect(mocks.consumeDeveloperEntryLink).not.toHaveBeenCalled();
+  });
+
+  it("says right away that a used link can no longer be confirmed", async () => {
+    mocks.findDeveloperEntryLinkState.mockResolvedValue("used");
+
+    const response = await entryLinkConfirmation(TOKEN, NOW);
+
+    expect(response.status).toBe(303);
+    expect(response.headers.get("location")).toBe("/entrar?situacao=usado");
+    expect(mocks.consumeDeveloperEntryLink).not.toHaveBeenCalled();
+  });
+
+  it("says right away that an old link expired", async () => {
+    mocks.findDeveloperEntryLinkState.mockResolvedValue("expired");
+
+    const response = await entryLinkConfirmation(TOKEN, NOW);
+
+    expect(response.headers.get("location")).toBe("/entrar?situacao=vencido");
   });
 
   it("hands the choice to the browser after a confirmation from the app", async () => {
