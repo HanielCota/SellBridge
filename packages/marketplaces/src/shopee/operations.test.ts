@@ -2,7 +2,12 @@ import { createHmac } from "node:crypto";
 import { describe, expect, it, vi } from "vitest";
 import { hasMarketplaceCause, LABEL_NOT_READY_CAUSE } from "../errors.ts";
 import type { DownloadImage } from "../tiktok-shop/image-download.ts";
-import { createShopeeConnector, getShopeeShippingLabel } from "./shopee-connector.ts";
+import {
+  createShopeeConnector,
+  getShopeeShippingLabel,
+  readShopeePickupOptions,
+} from "./shopee-connector.ts";
+import { PICKUP_CONFIRMATION_CAUSE } from "./shipping.ts";
 import {
   fakeShopee,
   jsonResponse,
@@ -616,5 +621,117 @@ describe("Shopee label", () => {
     });
 
     await expect(getShopeeShippingLabel(config, STORE, SERIAL)).rejects.toThrow(/Envie a NF-e/);
+  });
+});
+
+describe("Shopee pickup confirmation", () => {
+  const SUPPLIER_ADDRESS_ID = 2_002;
+  const pickupParameters = () =>
+    success({
+      info_needed: { pickup: ["address_id", "pickup_time_id"] },
+      pickup: {
+        address_list: [
+          {
+            address_id: 1_001,
+            address_flag: ["default_address", "return_address"],
+            address: "Avenida Paulista, 1000",
+            district: "Bela Vista",
+            city: "São Paulo",
+            state: "SP",
+            zipcode: "01310-100",
+            time_slot_list: [{ pickup_time_id: "slot-a", date: 1_795_000_000 }],
+          },
+          {
+            address_id: SUPPLIER_ADDRESS_ID,
+            address_flag: ["pickup_address"],
+            address: "Rua das Fábricas, 250",
+            district: "Centro",
+            city: "Divinópolis",
+            state: "MG",
+            zipcode: "35500-024",
+            time_slot_list: [
+              { pickup_time_id: "slot-b", date: 1_795_000_000, flags: ["recommended"] },
+              { pickup_time_id: "slot-c", date: 1_795_086_400 },
+            ],
+          },
+        ],
+      },
+    });
+  const routes = (shipped: unknown[]) => ({
+    "GET /api/v2/order/get_order_detail": () =>
+      success({
+        order_list: [
+          {
+            order_sn: SERIAL,
+            order_status: "READY_TO_SHIP",
+            split_up: false,
+            package_list: [{ package_number: PACKAGE }],
+          },
+        ],
+      }),
+    "GET /api/v2/logistics/get_shipping_parameter": pickupParameters,
+    "POST /api/v2/logistics/ship_order": ({ json }: { json: unknown }) => {
+      shipped.push(json);
+      return jsonResponse({ request_id: "req-ship", error: "" });
+    },
+  });
+
+  it("lists every pickup address of the shop with the slot Shopee recommends", async () => {
+    const { config } = setup(routes([]));
+
+    const options = await readShopeePickupOptions(config, STORE, SERIAL);
+
+    expect(options).toMatchObject({
+      kind: "pickup",
+      addresses: [
+        { addressId: 1_001, zipcode: "01310-100", pickupTimeId: "slot-a" },
+        {
+          addressId: SUPPLIER_ADDRESS_ID,
+          address: "Rua das Fábricas, 250",
+          city: "Divinópolis",
+          pickupTimeId: "slot-b",
+          pickupDate: new Date(1_795_000_000_000),
+        },
+      ],
+    });
+  });
+
+  it("never schedules the pickup on the shop's default address without a confirmation", async () => {
+    const shipped: unknown[] = [];
+    const { config } = setup(routes(shipped));
+
+    const error = await getShopeeShippingLabel(config, STORE, SERIAL).catch(
+      (caught: unknown) => caught,
+    );
+
+    expect(hasMarketplaceCause(error, PICKUP_CONFIRMATION_CAUSE)).toBe(true);
+    expect(shipped).toEqual([]);
+  });
+
+  it("schedules the pickup at the confirmed address and slot", async () => {
+    const shipped: unknown[] = [];
+    const { config } = setup(routes(shipped));
+
+    await getShopeeShippingLabel(config, STORE, SERIAL, {
+      addressId: SUPPLIER_ADDRESS_ID,
+      pickupTimeId: "slot-b",
+    }).catch(() => undefined);
+
+    expect(shipped).toEqual([
+      { order_sn: SERIAL, pickup: { address_id: SUPPLIER_ADDRESS_ID, pickup_time_id: "slot-b" } },
+    ]);
+  });
+
+  it("refuses a confirmed slot Shopee no longer offers, without scheduling", async () => {
+    const shipped: unknown[] = [];
+    const { config } = setup(routes(shipped));
+
+    await expect(
+      getShopeeShippingLabel(config, STORE, SERIAL, {
+        addressId: SUPPLIER_ADDRESS_ID,
+        pickupTimeId: "slot-gone",
+      }),
+    ).rejects.toThrow(/mudou o endereço ou o horário/);
+    expect(shipped).toEqual([]);
   });
 });

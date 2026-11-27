@@ -3,7 +3,11 @@ import { isShopeeConfigured, type ShopeeConfig, type ShopeeContext } from "./cli
 import { publishProduct, updateDescription, updateStockPrice } from "./listings.ts";
 import { authorizationUrl, exchangeCode, refreshTokens } from "./oauth.ts";
 import { fetchOrder, listOrders, readShippingAddress } from "./orders.ts";
-import { getShopeeShippingLabel as readShippingLabel } from "./shipping.ts";
+import {
+  type ConfirmedPickup,
+  getShopeeShippingLabel as readShippingLabel,
+  readShopeePickupOptions as readPickupOptions,
+} from "./shipping.ts";
 import { parseStoredOrderEvent, verifyWebhook } from "./webhook.ts";
 
 export type { ShopeeConfig } from "./client.ts";
@@ -39,10 +43,27 @@ export function createShopeeConnector(config: ShopeeConfig): MarketplaceConnecto
   };
 }
 
+/**
+ * The order's label. When the carrier picks it up, the pickup must be one the person confirmed
+ * from {@link readShopeePickupOptions}: it is never scheduled on the shop's default address alone.
+ *
+ * @throws {AppError} EXTERNAL_PROVIDER with the PICKUP_CONFIRMATION_CAUSE cause when the pickup
+ * needs confirming, and when Shopee no longer offers the confirmed address or time slot.
+ */
 export function getShopeeShippingLabel(
   config: ShopeeConfig,
   store: StoreCredentials,
   orderId: string,
+  pickup?: ConfirmedPickup,
 ) {
-  return readShippingLabel(createContext(config), store, orderId);
+  return readShippingLabel(createContext(config), store, orderId, pickup);
+}
+
+/** Where the carrier can pick the order up, or "not needed" for a drop-off or an arranged one. */
+export function readShopeePickupOptions(
+  config: ShopeeConfig,
+  store: StoreCredentials,
+  orderId: string,
+) {
+  return readPickupOptions(createContext(config), store, orderId);
 }
