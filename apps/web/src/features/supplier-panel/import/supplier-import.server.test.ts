@@ -30,11 +30,12 @@ function fileBase64(text: string): string {
 
 /** Runs the real product-csv rules, as the admin preview does, without the database. */
 function fakePreview(input: { supplierId: string; content: string }) {
-  const parsed = parseProductCsv(input.content);
+  const parsed = parseProductCsv(input.content, { capStock: true });
   return Promise.resolve({
     created: parsed.rows.length,
     updated: 0,
     emojisRemoved: parsed.emojisRemoved,
+    stockCapped: parsed.stockCapped,
     errors: parsed.errors,
     previewToken: token,
     grids: 0,
@@ -143,6 +144,7 @@ describe("previewSupplierImport", () => {
       created: 0,
       updated: 0,
       emojisRemoved: 0,
+      stockCapped: [],
       grids: 0,
       gridCombinations: 0,
       notices: [],

@@ -1,7 +1,11 @@
 import { CaretDownIcon } from "@phosphor-icons/react";
 import { emojisRemovedNotice } from "@sellbridge/shared/emoji";
 import { findSourceLine, SPREADSHEET_KIND_LABEL } from "@sellbridge/shared/catalog-spreadsheet";
-import { PRODUCT_CSV_TEMPLATE, type ProductCsvError } from "@sellbridge/shared/product-csv";
+import {
+  PRODUCT_CSV_TEMPLATE,
+  stockCappedNotice,
+  type ProductCsvError,
+} from "@sellbridge/shared/product-csv";
 import { useRef } from "react";
 import { createServerColumnHelper, DataTable } from "@/components/data/data-table";
 import { SectionCard } from "@/components/layout/section-card";
@@ -91,6 +95,7 @@ function CsvPreview({ importer }: { importer: ReturnType<typeof useProductCsv> }
           {result.created} produtos serão criados e {result.updated} atualizados.{" "}
           {result.errors.length} linhas com erro.
           {withLeadingSpace(emojisRemovedNotice(result.emojisRemoved))}
+          {withLeadingSpace(stockCappedNotice(result.stockCapped))}
         </AlertDescription>
       </Alert>
       {result.errors.length > 0 ? (

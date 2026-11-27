@@ -122,12 +122,16 @@ function previewToken(content: string, plan: SupplierProductImportPlan): string 
 }
 
 export async function previewAdminProductCsv(input: z.infer<typeof adminProductCsvSchema>) {
-  const parsed = parseProductCsv(input.content, { gridColumns: productGridEnabled() });
+  const parsed = parseProductCsv(input.content, {
+    gridColumns: productGridEnabled(),
+    capStock: true,
+  });
   const plan = await previewSupplierProductImport(database, input.supplierId, parsed.rows);
   return {
     created: plan.created,
     updated: plan.updated,
     emojisRemoved: parsed.emojisRemoved,
+    stockCapped: parsed.stockCapped,
     errors: [...parsed.errors, ...plan.errors].toSorted(
       (first, second) => first.line - second.line,
     ),
@@ -144,7 +148,10 @@ export async function previewAdminProductCsv(input: z.infer<typeof adminProductC
  * a draft. Decided on 2026-10-25; before, the admin's import approved every row at once.
  */
 export async function confirmAdminProductCsv(input: z.infer<typeof adminConfirmProductCsvSchema>) {
-  const parsed = parseProductCsv(input.content, { gridColumns: productGridEnabled() });
+  const parsed = parseProductCsv(input.content, {
+    gridColumns: productGridEnabled(),
+    capStock: true,
+  });
   if (parsed.errors.length > 0) {
     throw validationError("Corrija os erros do CSV antes de importar");
   }

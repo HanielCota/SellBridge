@@ -198,6 +198,7 @@ export async function previewSupplierImport(
     created: prepared?.preview.created ?? 0,
     updated: prepared?.preview.updated ?? 0,
     emojisRemoved: prepared?.preview.emojisRemoved ?? 0,
+    stockCapped: prepared?.preview.stockCapped ?? [],
     issues: onSpreadsheetRows(issues, catalog),
     priceWarnings: priceWarnings(normalized, failedLines, catalog),
     grids: prepared?.preview.grids ?? 0,
