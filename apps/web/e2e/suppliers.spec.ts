@@ -127,23 +127,21 @@ test.describe("cadastro do revendedor", () => {
 });
 
 test.describe("busca de fornecedores", () => {
-  test("scrolls overflowing supplier niches with the visible arrow buttons", async ({ page }) => {
-    await page.emulateMedia({ reducedMotion: "reduce" });
+  test("shows the first row of niches and opens the rest with one tap", async ({ page }) => {
     await page.setViewportSize({ width: 375, height: 812 });
     await signIn(page, DEMO_USER);
     await gotoHydrated(page, "/fornecedores");
 
-    const track = page.getByRole("group", { name: "Nicho", exact: true });
-    const left = page.getByRole("button", { name: "Rolar nichos para a esquerda" });
-    const right = page.getByRole("button", { name: "Rolar nichos para a direita" });
-    const position = () => track.evaluate((element) => element.scrollLeft);
+    const niches = page.getByRole("group", { name: "Nicho", exact: true });
+    const pet = niches.getByRole("button", { name: "Pet", exact: true });
+    await expect(pet).toBeHidden();
+    await niches.getByRole("button", { name: /^Mais d+ nichos$/ }).click();
+    await pet.click();
 
-    await expect(right).toBeEnabled();
-    await expect(left).toBeDisabled();
-    await right.click();
-    await expect.poll(position).toBeGreaterThan(0);
-    await left.press("Enter");
-    await expect.poll(position).toBe(0);
+    await expect(page).toHaveURL(/niche=Pet/);
+    // The chosen niche keeps the list open, so the choice stays in sight.
+    await expect(pet).toHaveAttribute("aria-pressed", "true");
+    await expect(pet).toBeVisible();
   });
 
   test("sem endereço, mostra fornecedores de todo o Brasil, sem falar em região", async ({
@@ -219,6 +217,7 @@ test.describe("fornecedores e catálogo", () => {
     await expect(page.getByText("Nenhum fornecedor com esses filtros")).toBeVisible();
 
     await search.fill("");
+    await page.getByRole("button", { name: /^Mais d+ nichos$/ }).click();
     await page.getByRole("button", { name: "Pet", exact: true }).click();
     await expect(page).toHaveURL(/niche=Pet/);
     await expect(page.getByRole("link", { name: "Rio Pet Atacado" })).toBeVisible();

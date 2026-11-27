@@ -7,7 +7,7 @@ import {
 import { keepPreviousData, useQuery } from "@tanstack/react-query";
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { PackageIcon, StorefrontIcon } from "@phosphor-icons/react";
-import { FilterTabs } from "@/components/data/filter-tabs";
+import { CollapsibleFilterChips } from "@/components/data/collapsible-filter-chips";
 import { SearchInput } from "@/components/data/search-input";
 import { EmptyState } from "@/components/feedback/empty-state";
 import { ErrorState } from "@/components/feedback/error-state";
@@ -162,13 +162,10 @@ function NicheTabs() {
     return null;
   }
   return (
-    <div className="-mx-1 px-1 pb-1">
-      <FilterTabs
+    <div className="pb-1">
+      <CollapsibleFilterChips
         legend="Nicho"
-        scrollLabels={{
-          left: "Rolar nichos para a esquerda",
-          right: "Rolar nichos para a direita",
-        }}
+        moreLabel={(hidden) => `Mais ${hidden} ${hidden === 1 ? "nicho" : "nichos"}`}
         tabs={[
           { value: ALL_NICHES, label: "Todos" },
           ...niches.map((niche) => ({ value: niche, label: niche })),
