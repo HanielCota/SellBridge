@@ -1,13 +1,9 @@
 .staff-workspace {
-  --staff-panel-background: #f4f5f6;
+  --staff-panel-background: var(--background);
   display: grid;
   grid-template-columns: 17.5rem minmax(0, 1fr);
   min-block-size: 100svh;
   background: var(--staff-panel-background);
-}
-
-.dark .staff-workspace {
-  --staff-panel-background: var(--background);
 }
 
 .staff-main-panel > header {
@@ -17,20 +13,14 @@
 .staff-header-account,
 .staff-sidebar,
 .staff-account-menu {
-  --staff-highlight: #ebedf0;
-  --staff-green: #44db8e;
+  --staff-highlight: var(--accent);
+  --staff-green: var(--brand);
 }
 
 .staff-sidebar,
 .staff-account-menu {
   background: var(--card);
   color: var(--foreground);
-}
-
-.dark .staff-header-account,
-.dark .staff-sidebar,
-.dark .staff-account-menu {
-  --staff-highlight: var(--accent);
 }
 
 .staff-sidebar {
@@ -150,10 +140,6 @@
   gap: 0.125rem;
   padding: 0.25rem;
   border-radius: 999px;
-  background-color: #ffffff;
-}
-
-.dark .staff-header-controls {
   background-color: var(--card);
 }
 
@@ -348,7 +334,12 @@
   block-size: 1.25rem;
   margin-inline-start: auto;
   border-radius: 100px;
-  background: #707a84;
+  /* The same off state as the app's Switch. */
+  background: color-mix(in oklch, var(--foreground) 45%, transparent);
+}
+
+.dark .staff-account-toggle {
+  background: var(--input);
 }
 
 .staff-account-toggle::after {
@@ -359,7 +350,7 @@
   inline-size: 1rem;
   block-size: 1rem;
   border-radius: 50%;
-  background: #fff;
+  background: white;
   transition: inset-inline-start 160ms ease-out;
 }
 
@@ -404,7 +395,7 @@
   inline-size: 3.5rem;
   block-size: 3.5rem;
   border-radius: 50%;
-  background: #44db8e;
+  background: var(--brand);
   color: var(--brand-ink);
   box-shadow: 0 5px 16px rgb(0 0 0 / 18%);
   touch-action: none;
