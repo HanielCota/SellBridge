@@ -1,9 +1,15 @@
 /**
- * The client's master plan (18/11/2026): five paid plans, no free plan and no trial. Names and
- * prices come from the client; the store and listing limits were approved with the plan table.
- * Asaas charges `priceCents` every month (decision of 19/11/2026).
+ * The paid plans, ordered by price. Asaas charges `priceCents` every month.
  */
 export const BILLING_PLANS = [
+  {
+    id: "essential",
+    priceCents: 4_990,
+    name: "Essencial",
+    stores: 1,
+    listings: 100,
+    prioritySupport: false,
+  },
   {
     id: "start",
     priceCents: 9_700,
@@ -49,7 +55,18 @@ export const BILLING_PLANS = [
 export type BillingPlan = (typeof BILLING_PLANS)[number];
 export type BillingPlanId = BillingPlan["id"];
 
-export const BILLING_PLAN_IDS = ["start", "pro", "business", "black", "elite"] as const;
+export const BILLING_PLAN_IDS = [
+  "essential",
+  "start",
+  "pro",
+  "business",
+  "black",
+  "elite",
+] as const;
+
+export const ENTRY_BILLING_PLAN = BILLING_PLANS[0];
+export const FREE_SALE_LIMIT = 20;
+export const FREE_SALES_EXHAUSTED_MESSAGE = `Você usou as ${FREE_SALE_LIMIT} vendas gratuitas. Escolha um plano em Assinatura para continuar.`;
 
 const PAID_STATUSES: readonly string[] = ["active", "trialing", "past_due"];
 
@@ -77,7 +94,7 @@ export function billingPlan(id: BillingPlanId): BillingPlan {
 
 /**
  * The launch of paid plans: accounts created before `launchedAt` keep today's access, with no
- * limits, until `endsAt`. Accounts created after the launch never get it (no trial).
+ * limits, until `endsAt`.
  */
 export interface BillingTransition {
   launchedAt: Date;
@@ -93,6 +110,7 @@ export interface BillingSubscriptionState {
   plan: string;
   status: string;
   periodEnd: Date | null;
+  firstPaidOn?: string | null;
   /** A smaller plan the reseller chose: it replaces `plan` from `scheduledPlanAt` on. */
   scheduledPlan?: string | null;
   scheduledPlanAt?: Date | null;
@@ -170,6 +188,7 @@ export function upgradeDifferenceCents(input: {
 export type BillingAccess =
   | { kind: "plan"; plan: BillingPlan; source: "subscription" | "courtesy" }
   | { kind: "transition"; until: Date }
+  | { kind: "free"; salesUsed: number }
   | { kind: "none" };
 
 /** What decides an account's access: what it pays, what the team gave it and the launch. */
@@ -178,6 +197,7 @@ export interface BillingAccessInput {
   courtesy: BillingCourtesyState | null;
   tenantCreatedAt: Date;
   transition: BillingTransition | null;
+  freeSalesUsed?: number;
 }
 
 function transitionEnd(input: BillingAccessInput, now: Date): Date | null {
@@ -205,6 +225,16 @@ export function billingAccess(input: BillingAccessInput, now = new Date()): Bill
   const until = transitionEnd(input, now);
   if (until !== null) return { kind: "transition", until };
   if (courtesy !== null) return { kind: "plan", plan: courtesy, source: "courtesy" };
+  const subscription = input.subscription;
+  const neverPaid =
+    subscription === null ||
+    (subscription.firstPaidOn == null &&
+      subscription.periodEnd === null &&
+      !["past_due", "unpaid"].includes(subscription.status));
+  if (neverPaid && input.freeSalesUsed !== undefined && input.freeSalesUsed < FREE_SALE_LIMIT) {
+    return { kind: "free", salesUsed: input.freeSalesUsed };
+  }
+
   return { kind: "none" };
 }
 
@@ -212,6 +242,10 @@ export function billingAccess(input: BillingAccessInput, now = new Date()): Bill
 export function billingLimits(access: BillingAccess): { stores: number; listings: number } | null {
   if (access.kind === "transition") return null;
   if (access.kind === "none") return { stores: 0, listings: 0 };
+  if (access.kind === "free") {
+    return { stores: ENTRY_BILLING_PLAN.stores, listings: ENTRY_BILLING_PLAN.listings };
+  }
+
   return { stores: access.plan.stores, listings: access.plan.listings };
 }
 
@@ -220,6 +254,7 @@ export type BillingNotice =
   | { kind: "payment_failed" }
   | { kind: "transition"; until: Date; endingSoon: boolean }
   | { kind: "courtesy_ending"; until: Date }
+  | { kind: "free_sales_exhausted" }
   | { kind: "no_plan" };
 
 /** Days before a courtesy plan ends when the account and the team start hearing about it. */
@@ -261,5 +296,14 @@ export function billingNotice(input: BillingAccessInput, now = new Date()): Bill
     const warningStart = access.until.getTime() - TRANSITION_WARNING_DAYS * DAY_MILLISECONDS;
     return { kind: "transition", until: access.until, endingSoon: now.getTime() >= warningStart };
   }
+
+  if (access.kind === "free") {
+    return null;
+  }
+
+  if (input.freeSalesUsed === FREE_SALE_LIMIT) {
+    return { kind: "free_sales_exhausted" };
+  }
+
   return { kind: "no_plan" };
 }

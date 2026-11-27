@@ -24,7 +24,7 @@ import {
   type StoreCredentials,
 } from "@sellbridge/marketplaces";
 import { createBlingRateLimiter, type BlingAppCredentials } from "@sellbridge/marketplaces/bling";
-import { asaasSettingsFrom } from "@sellbridge/payments/asaas";
+import { asaasSettingsFrom, billingRulesFrom } from "@sellbridge/payments/asaas";
 import { mercadoPagoSettingsFrom } from "@sellbridge/payments/mercado-pago";
 import { createRedisSlotStore } from "@sellbridge/shared/redis-slots";
 import { createTokenCipher } from "@sellbridge/shared/token-cipher";
@@ -478,6 +478,7 @@ function orderWorkers(context: WorkerContext): Worker[] {
     sendEmail,
     appUrl: environment.APP_URL,
     enabled: environment.AUTO_FORWARD_ENABLED,
+    billing: billingRulesFrom(environment),
   });
   const processTracking = createShipmentTrackingProcessor({
     database,

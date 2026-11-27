@@ -1,4 +1,5 @@
 import type { ListingSaleTerms } from "@sellbridge/shared/product-sale-terms";
+import type { ProductFiscal } from "@sellbridge/shared/product-fiscal";
 import type { Cents } from "@sellbridge/shared/money";
 import type { MarketplaceShippingAddress, ShippingAddressReading } from "./shipping-address.ts";
 
@@ -49,6 +50,8 @@ export interface PublishProductInput {
   videoId?: string | null;
   /** Packed weight in grams (the product's fiscal net weight); TikTok Shop requires it. */
   packageWeightGrams?: number | null;
+  /** Product data shared by sellers; the seller's own tax rates are configured in the channel. */
+  productFiscal?: Pick<ProductFiscal, "ncm" | "origin" | "unit" | "cest">;
   /**
    * The grid this item is one colour and size of: every combination goes out under this name so
    * Mercado Livre groups them on one page (User Products family_name). Null for a plain product.
@@ -69,6 +72,8 @@ export interface PublishOptions {
 export interface PublishedListing {
   externalId: string;
   externalUrl: string | null;
+  /** Recovered an earlier creation, so the worker still needs to confirm stock and price. */
+  recovered?: true;
   /**
    * Why the marketplace did not take the description, in the reseller's words; null when it
    * did. The listing is live either way: a missing description never fails a publication.
@@ -98,7 +103,8 @@ export interface MarketplaceOrder {
   externalOrderId: string;
   status: "pending" | "paid" | "shipped" | "delivered" | "cancelled" | "returned";
   totalCents: Cents;
-  marketplaceFeeCents: Cents;
+  /** Omitted when the marketplace has yet to report its fee. */
+  marketplaceFeeCents?: Cents | undefined;
   /**
    * Money already given back to the buyer across the order's payments (latest total); undefined
    * when the source did not report payments this time.
@@ -124,7 +130,7 @@ export interface MarketplaceOrder {
   items: MarketplaceOrderItem[];
 }
 
-/** A store's orders since a date, oldest first, read up to the connector's limit. */
+/** A store's orders in a date range, oldest order first, read up to the connector's limit. */
 export interface MarketplaceOrderBatch {
   orders: MarketplaceOrder[];
   /** Set when the read stopped at its limit with orders left: the next read starts here. */
@@ -184,6 +190,8 @@ export interface MarketplaceConnector {
   /** Replaces the description of a live listing (the resend of a description that failed). */
   updateDescription(credentials: StoreCredentials, update: DescriptionUpdate): Promise<void>;
   listOrders(credentials: StoreCredentials, since: Date): Promise<MarketplaceOrderBatch>;
+  /** Lists orders changed since a date, including orders created earlier. */
+  listUpdatedOrders?(credentials: StoreCredentials, since: Date): Promise<MarketplaceOrderBatch>;
   /** Loads one order referenced by a webhook `resource` (the payload itself is never trusted). */
   fetchOrder(credentials: StoreCredentials, resource: string): Promise<MarketplaceOrder>;
   /**

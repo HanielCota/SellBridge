@@ -8,6 +8,7 @@ export interface RecordedRequest {
   readonly path: string;
   readonly query: URLSearchParams;
   readonly json: unknown;
+  readonly form: FormData | null;
 }
 
 export type Responder = (request: RecordedRequest) => Response | Promise<Response>;
@@ -75,6 +76,7 @@ export function fakeShopee(routes: Record<string, Responder>) {
       path: url.pathname,
       query: url.searchParams,
       json: typeof body === "string" ? JSON.parse(body) : null,
+      form: body instanceof FormData ? body : null,
     };
     calls.push(request);
     const refused = gatewayRefusal(url);

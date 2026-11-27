@@ -270,9 +270,11 @@ async function connectStore(input: ConnectStoreInput) {
     expiresAt: tokens.expiresAt,
     supplierId: input.supplierId,
   });
+
   if (awaiting?.id === store.id) {
     await requestOrderCatchUp(store.id, awaiting.connectedAt);
   }
+
   await checkBuyerAddressAfterConnect(store, {
     externalShopId: shop.externalShopId,
     accessToken: tokens.accessToken,

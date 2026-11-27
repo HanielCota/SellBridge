@@ -1,4 +1,6 @@
 import { REPORT_TIME_ZONE } from "@sellbridge/shared/period-range";
+import { ENTRY_BILLING_PLAN, FREE_SALE_LIMIT } from "@sellbridge/shared/billing";
+import { formatCents } from "@sellbridge/shared/money";
 
 /** The subscription notice as the server sends it (dates as ISO strings). */
 export type BillingNoticeView =
@@ -6,6 +8,7 @@ export type BillingNoticeView =
   | { kind: "payment_failed" }
   | { kind: "transition"; until: string; endingSoon: boolean }
   | { kind: "courtesy_ending"; until: string }
+  | { kind: "free_sales_exhausted" }
   | { kind: "no_plan" };
 
 export interface BillingNoticeCopy {
@@ -31,17 +34,26 @@ export function billingNoticeCopy(notice: BillingNoticeView): BillingNoticeCopy 
     return {
       title: "A mensalidade não foi paga",
       description:
-        "Seus pedidos e anúncios continuam. Para conectar lojas e publicar, pague a mensalidade em aberto.",
+        "Seus anúncios e envios em andamento continuam. Pague a mensalidade em aberto para operar novas vendas.",
       tone: "danger",
     };
   }
   if (notice.kind === "no_plan") {
     return {
       title: "Escolha seu plano",
-      description: "Com um plano você conecta suas lojas e publica anúncios.",
+      description: "Com um plano você opera novas vendas, conecta lojas e publica anúncios.",
       tone: "info",
     };
   }
+
+  if (notice.kind === "free_sales_exhausted") {
+    return {
+      title: `Você usou as ${FREE_SALE_LIMIT} vendas gratuitas`,
+      description: `Para continuar com novas vendas, assine o ${ENTRY_BILLING_PLAN.name} por ${formatCents(ENTRY_BILLING_PLAN.priceCents)} por mês ou escolha outro plano.`,
+      tone: "info",
+    };
+  }
+
   if (notice.kind === "transition") {
     return {
       title: `Escolha seu plano até ${lastDayOf(notice.until)}`,

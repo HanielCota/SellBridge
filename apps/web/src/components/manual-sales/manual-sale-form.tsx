@@ -65,7 +65,10 @@ function useRecordManualSale() {
       toast.success("Venda registrada", {
         description: "Agora suba a etiqueta e envie o pedido ao fornecedor.",
       });
-      await queryClient.invalidateQueries({ queryKey: ["operations"] });
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: ["operations"] }),
+        queryClient.invalidateQueries({ queryKey: ["billing"] }),
+      ]);
       await navigate({ to: "/pedidos/$orderId", params: { orderId } });
     },
     onError: (error) => toast.error(errorMessage(error)),

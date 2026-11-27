@@ -1,62 +1,90 @@
-# Shopee: referência usada pelo conector
+# Shopee Open Platform setup
 
-Consultado em 2026-11-18 na documentação oficial da Shopee Open Platform v2 (`open.shopee.com`, Developer Guide e API Reference). O conector foi escrito e testado com respostas simuladas no formato documentado, sem chamada real. O que precisa do teste com uma loja (de verdade ou do sandbox) está marcado com **[teste real]**.
+The Shopee connector supports Brazilian shops. It authorizes shops, renews access, publishes
+listings, synchronizes stock and price, imports orders, and requests the Shopee shipping label in PDF.
 
-O conector entra em fatias: 1) conectar e renovar o acesso (esta página); 2) publicar, preço e estoque; 3) pedidos e avisos; 4) preparar envio e etiqueta. Até cada fatia chegar, a operação correspondente responde "ainda não está disponível para a Shopee".
+## Configure a sandbox shop
 
-## Aplicativo ([Crie seu App](https://open.shopee.com/developer-guide/740), [Go Live](https://open.shopee.com/developer-guide/741))
+1. In the [Shopee Open Platform Console](https://open.shopee.com/), create an **ERP System** app.
+   Under **Test Account (Sandbox v2)**, create a Brazilian shop account.
+2. Set `SHOPEE_PARTNER_ID` and `SHOPEE_PARTNER_KEY` to the app's sandbox credentials and set
+   `SHOPEE_SANDBOX=true` in both the web app and worker. Restart both services after saving the
+   configuration. For local development, set these values in the root `.env`.
+3. Set `APP_URL` to the address where the reseller signs in to SellBridge. In the Shopee Console,
+   set the **Test Redirect URL Domain** to the hostname from `APP_URL`. SellBridge sends
+   `{APP_URL}/api/oauth/shopee/callback` as the redirect URI.
+4. In SellBridge, open **Lojas** and choose **Conectar Shopee**. Sign in with the sandbox shop
+   account and grant access. Confirm that SellBridge returns to **Lojas** and shows the shop name.
+5. In the sandbox, verify that the worker renews the access before it expires. Revoke the shop's
+   authorization in Seller Center and verify that the shop can be reconnected.
+6. In **Push Mechanism**, set the callback to `{APP_URL}/api/webhooks/shopee` and enable
+   **Order Status Update Push** (code 3). Use the same scheme, hostname and path, with no trailing
+   slash. The signed callback URI must match exactly. Create a sandbox order for a published
+   listing and verify its status, stock reservation, and PDF label in SellBridge.
 
-- A categoria do app é escolhida na criação e não muda depois. Ela define quais APIs o app pode usar. Para integradora que atende lojas de terceiros, a categoria é **ERP System** (não tem o botão "Authorize" no console: o SellBridge monta o link).
-- A chave do sandbox (app em "Developing") é diferente da de produção, que só existe depois do Go Live.
-- Sem a lista de IPs do servidor (IP Address Whitelist) ligada, a Shopee devolve nome, endereço e CPF do comprador mascarados.
+## Configure production
 
-## Endereços ([API calls](https://open.shopee.com/developer-guide/16), [Authorization and Authentication](https://open.shopee.com/developer-guide/20))
+Complete **Go Live** in the Shopee Console and use the live partner ID and key in both services.
+Set `SHOPEE_SANDBOX=false`. For `APP_URL=https://app.sellbridge.com.br`, use
+`app.sellbridge.com.br` as the **Live Redirect URL Domain** and
+`https://app.sellbridge.com.br/api/oauth/shopee/callback` as the callback URI. Use a Brazilian
+seller account to connect the shop. If the app enforces an IP whitelist, add the outbound IPs of
+the web app and worker. Enable the product, media space, order, payment, logistics, and shop
+permissions in the Shopee app, and configure its live push callback.
 
-|                      | Produção                                                        | Sandbox                                               |
-| -------------------- | --------------------------------------------------------------- | ----------------------------------------------------- |
-| API                  | `https://openplatform.shopee.com.br` (servidores perto dos EUA) | `https://openplatform.sandbox.test-stable.shopee.sg`  |
-| Autorização (Brasil) | `https://open.shopee.com.br/auth`                               | `https://open.sandbox.test-stable.shopee.com.br/auth` |
+## Publish and synchronize
 
-`SHOPEE_SANDBOX=true` troca os dois.
+- A listing uses one SKU. SellBridge assigns it a stable reference beginning with `SB-` in
+  Shopee so the worker can recover a creation when the response was lost. SellBridge uses the
+  Shopee category recommendation and matches
+  the category's attributes and brand against the product information already saved.
+- Set the product's price, description, weight, package dimensions, and public HTTPS photos
+  (JPG or PNG). The connector uses the shop's enabled shipping channels with compatible sizes
+  and weights. Add missing required information before retrying a refused publication.
+- Store stock and price are updated by the worker on the published item. Standard listings use
+  the shop's default stock location. `SHOPEE_SHOWCASE_UNITS` is the existing extra display-stock
+  setting for Shopee. Set it to `0` to send only sellable stock after the safety buffer.
 
-## Assinatura
+## Import orders and print labels
 
-- Toda chamada leva `partner_id`, `timestamp` (segundos; vale 5 minutos) e `sign` na query. As chamadas de loja levam também `access_token` e `shop_id` na query; por isso a URL nunca vai para o log.
-- `sign` = HMAC-SHA256 em hexadecimal minúsculo, chave = partner key, sobre:
-  - chamada pública: `partner_id + caminho + timestamp`;
-  - chamada de loja: `partner_id + caminho + timestamp + access_token + shop_id`.
-- O exemplo de texto assinado da documentação (`2001887/api/v2/shop/get_shop_info1655714431…14701711`) virou teste.
-- GET leva os parâmetros na query; POST leva no corpo JSON. Na referência, `method: 2` é GET e `method: 1` é POST.
+- Order status pushes trigger an authenticated read of the sale. The scheduled check uses the
+  order's update time to recover recent changes, including changes to older orders. Reconnection
+  queues a catch-up by creation time for the shop.
+  Imported items are linked to SellBridge listings by the Shopee item ID.
+  Pending cancellation and return requests retain the last confirmed order status.
+- On an eligible order, use **Gerar etiqueta da Shopee**. For supported channels, SellBridge
+  arranges drop-off or a pickup with an unambiguous address and time, requests the standard PDF
+  from Shopee, and downloads it when ready. If Shopee is still processing it, try again shortly.
+  Print each Shopee order individually.
+- Submit any required NF-e in Seller Center before requesting the label. Use Seller Center
+  when Shopee requires a shipping choice, the order is split into multiple marketplace packages,
+  or the channel only offers a thermal label.
 
-## Autorização da loja
+## OAuth reference
 
-- Link: `{autorização}?partner_id&auth_type=seller&redirect_uri&response_type=code&state`. O domínio do `redirect_uri` precisa ser o cadastrado no console (Live Redirect URL Domain). No sandbox, com o domínio de teste vazio, o domínio não é conferido.
-- O `state` vai como parâmetro documentado **e** dentro do `redirect_uri`, para o retorno achar o state mesmo se a Shopee devolver só `code` e `shop_id`. **[teste real]** qual dos dois volta.
-- O vendedor escolhe por quanto tempo autoriza: 7, 30, 90, 180 ou 365 dias. Passado esse prazo, precisa autorizar de novo.
-- Retorno: `?code=…&shop_id=…`. O `code` vale 10 minutos e uma vez só. Conta principal devolve `main_account_id` no lugar de `shop_id`; o SellBridge pede para entrar com a conta da loja.
-- Token: `POST /api/v2/auth/token/get` (chamada pública), corpo `{ code, partner_id, shop_id }` → `access_token` (4 h), `refresh_token` (30 dias, uso único), `expire_in` (segundos).
-- Renovação: `POST /api/v2/auth/access_token/get`, corpo `{ refresh_token, partner_id, shop_id }` → um par novo. O refresh antigo deixa de valer, e o access token antigo ainda vale 5 minutos. A renovação é por loja, por isso a interface comum passou a receber a loja (`refreshTokens(refreshToken, { externalShopId })`).
-- Nome da loja: `GET /api/v2/shop/get_shop_info` → `shop_name`, `region`, `status`. Só loja do Brasil (`BR`) e ativa (`NORMAL`) conecta.
+| Environment | Authorization URL                                  | API origin                                           |
+| ----------- | -------------------------------------------------- | ---------------------------------------------------- |
+| Production  | `https://open.shopee.com.br/auth`                  | `https://openplatform.shopee.com.br`                 |
+| Sandbox V2  | `https://open.sandbox.test-stable.shopee.com/auth` | `https://openplatform.sandbox.test-stable.shopee.sg` |
 
-## Erros
+- SellBridge sends `partner_id`, `auth_type=seller`, `redirect_uri`, `response_type=code`, and a
+  one-time `state`. It also includes `state` in the callback URI. The shop callback sends `code`
+  and `shop_id`. A main account can return `main_account_id` instead. Connect with the shop account
+  so the connector has a `shop_id` to exchange for tokens.
+- `POST /api/v2/auth/token/get` exchanges the code. `GET /api/v2/shop/get_shop_info` verifies that
+  the shop is active and in Brazil (`BR`). `POST /api/v2/auth/access_token/get` rotates the
+  access and refresh tokens for that shop. The access token typically expires in four hours.
+  Refresh tokens are single use and replacement tokens are stored by the worker.
+- API requests use HMAC-SHA256 over `partner_id + path + timestamp`. Shop calls append
+  `access_token + shop_id`. The API request URL carries the access token, so it is kept out of logs.
+- SellBridge uses mocked Shopee responses for automated coverage. Validate the complete flow
+  with a sandbox shop before using it in production.
 
-- A resposta traz `error` (vazio no sucesso), `message` e `request_id`. A mensagem original da Shopee vai só para o log (`shopee.refused`). A tela mostra o texto em português de `shopee/error-messages.ts`.
-- Acesso morto (`invalid_acceess_token`, `invalid_access_token`, `partner_shop_no_link`, ou `error_auth` falando de access_token ou shop) → a loja precisa reconectar.
-- Refresh token recusado (mensagem citando `refresh_token`) → loja expirada. **[teste real]** o texto exato.
-- `error_rate_limit` e `error_limit` (limite do dia) → tentar de novo. `error_server`, `error_inner` e `error_network` só se repetem em GET.
-
-## Ativação (no dia em que as chaves chegarem)
-
-O conector fica desligado enquanto `SHOPEE_PARTNER_ID` e `SHOPEE_PARTNER_KEY` não estiverem preenchidos; a tela de Lojas mostra a Shopee como "Em breve".
-
-1. No console da Shopee (open.shopee.com > Console):
-   - app da categoria ERP System;
-   - Live Redirect URL Domain `app.sellbridge.com.br`;
-   - Push Mechanism com a URL `https://app.sellbridge.com.br/api/webhooks/shopee` (os avisos entram na fatia 3);
-   - IP Address Whitelist com o IP do servidor.
-2. No Coolify, no app web **e** no worker: `SHOPEE_PARTNER_ID` e `SHOPEE_PARTNER_KEY` (e `SHOPEE_SANDBOX=true` só no ambiente de teste). Reiniciar os dois.
-3. Sandbox: Console > Test Account (Sandbox v2) > criar uma loja de teste do Brasil e autorizar pelo botão "Conectar Shopee" da tela de Lojas. O código de verificação no sandbox é 123456.
-4. Conferir:
-   - o nome da loja na tela;
-   - a renovação do acesso (forçar com `expires_at` perto de vencer);
-   - a reconexão depois de revogar a autorização na Central do Vendedor.
+[Shopee API calls](https://open.shopee.com/developer-guide/16) ·
+[Authorization and Authentication](https://open.shopee.com/developer-guide/20) ·
+[Go Live](https://open.shopee.com/developer-guide/741) ·
+[Create an item](https://open.shopee.com/documents/v2/v2.product.add_item?module=89&type=1) ·
+[Order detail](https://open.shopee.com/documents/v2/v2.order.get_order_detail?module=94&type=1) ·
+[Order Status Update Push](https://open.shopee.com/push-mechanism/1) ·
+[Arrange shipment and print a label](https://open.shopee.com/developer-guide/27) ·
+[Sandbox V2 guide snapshot](https://kgcang.com/library/doc/sources%2Fshopee%2Fprofile.shopee.developer_guide%2Fgetting-started%2F%E6%B2%99%E7%AE%B1%E6%B5%8B%E8%AF%95-v2-0)

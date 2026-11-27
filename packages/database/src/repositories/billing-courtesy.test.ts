@@ -10,7 +10,7 @@ import {
 } from "./billing.ts";
 
 const database = createTestDatabase();
-/** Billing on, launch transition over: without a plan nothing new fits. */
+/** Billing on with no launch transition. */
 const RULES = { transition: null };
 const DAY = 86_400_000;
 
@@ -61,8 +61,11 @@ describe("courtesy plan", () => {
     });
   });
 
-  it("gives nothing to another account", async () => {
-    await expect(mayAdd("stores", tenants.tenantB)).rejects.toThrow("escolha um plano");
+  it("leaves another account on its own free offer", async () => {
+    expect(await findBillingAccess(database, tenants.tenantB, RULES)).toEqual({
+      kind: "free",
+      salesUsed: 0,
+    });
   });
 
   it("replaces the plan and the end when the team changes it", async () => {
@@ -73,24 +76,25 @@ describe("courtesy plan", () => {
     expect(courtesy).toMatchObject({ plan: "start", expiresAt: null, grantedBy: adminId() });
   });
 
-  it("blocks new stores and listings again once it is past its end", async () => {
+  it("falls back to the available free sales once the courtesy expires", async () => {
     await give("elite", new Date(Date.now() - 1000));
 
-    await expect(mayAdd("stores")).rejects.toThrow(
-      "Para conectar lojas, escolha um plano em Assinatura.",
-    );
-    await expect(mayAdd("listings")).rejects.toThrow(
-      "Para publicar anúncios, escolha um plano em Assinatura.",
-    );
+    expect(await findBillingAccess(database, tenants.tenantA, RULES)).toEqual({
+      kind: "free",
+      salesUsed: 0,
+    });
   });
 
-  it("blocks them again once the team takes it back", async () => {
+  it("falls back to the available free sales once the team takes the courtesy back", async () => {
     await give("elite", null);
 
     const taken = await deleteBillingCourtesy(database, tenants.tenantA);
 
     expect(taken).toBe(true);
-    await expect(mayAdd("stores")).rejects.toThrow("escolha um plano");
+    expect(await findBillingAccess(database, tenants.tenantA, RULES)).toEqual({
+      kind: "free",
+      salesUsed: 0,
+    });
     expect(await deleteBillingCourtesy(database, tenants.tenantA)).toBe(false);
   });
 

@@ -1,8 +1,10 @@
-import { marketplaceError } from "../errors.ts";
-import { SHIPPING_ADDRESS_NOT_SUPPORTED } from "../shipping-address.ts";
-import type { MarketplaceConnector, WebhookVerification } from "../types.ts";
+import type { MarketplaceConnector, StoreCredentials } from "../types.ts";
 import { isShopeeConfigured, type ShopeeConfig, type ShopeeContext } from "./client.ts";
+import { publishProduct, updateDescription, updateStockPrice } from "./listings.ts";
 import { authorizationUrl, exchangeCode, refreshTokens } from "./oauth.ts";
+import { fetchOrder, listOrders, readShippingAddress } from "./orders.ts";
+import { getShopeeShippingLabel as readShippingLabel } from "./shipping.ts";
+import { parseStoredOrderEvent, verifyWebhook } from "./webhook.ts";
 
 export type { ShopeeConfig } from "./client.ts";
 
@@ -14,18 +16,6 @@ function createContext(config: ShopeeConfig): ShopeeContext {
   };
 }
 
-/** Operations of the later slices (publishing, orders, labels) until they are written. */
-function notYetAvailable(operation: string): never {
-  throw marketplaceError(`${operation} ainda não está disponível para a Shopee`, {
-    retryable: false,
-  });
-}
-
-/**
- * Composes the Shopee Open Platform v2 modules into a connector. Written from the official
- * reference only (docs/marketplaces/shopee.md, read on 2026-11-18) and tested against documented
- * sample responses. Without partner id and key it reports itself as not configured.
- */
 export function createShopeeConnector(config: ShopeeConfig): MarketplaceConnector {
   const context = createContext(config);
   return {
@@ -36,17 +26,23 @@ export function createShopeeConnector(config: ShopeeConfig): MarketplaceConnecto
     exchangeCode: async (exchange) => exchangeCode(context, exchange),
     refreshTokens: async (refreshToken, store) =>
       refreshTokens(context, refreshToken, store.externalShopId),
-    publishProduct: async () => notYetAvailable("Publicação"),
-    updateStockPrice: async () => notYetAvailable("Atualização de estoque e preço"),
-    updateDescription: async () => notYetAvailable("Atualização de descrição"),
-    listOrders: async () => notYetAvailable("Listagem de pedidos"),
-    fetchOrder: async () => notYetAvailable("Consulta de pedido"),
-    verifyWebhook: async (): Promise<WebhookVerification> => ({
-      valid: false,
-      reason: "Avisos da Shopee ainda não são suportados",
-      payload: null,
-    }),
-    parseStoredOrderEvent: () => null,
-    readShippingAddress: async () => SHIPPING_ADDRESS_NOT_SUPPORTED,
+    publishProduct: async (store, input, options) => publishProduct(context, store, input, options),
+    updateStockPrice: async (store, update) => updateStockPrice(context, store, update),
+    updateDescription: async (store, update) => updateDescription(context, store, update),
+    listOrders: async (store, since) => listOrders(context, store, since),
+    listUpdatedOrders: async (store, since) => listOrders(context, store, since, "update_time"),
+    fetchOrder: async (store, resource) => fetchOrder(context, store, resource),
+    orderResource: (orderId) => orderId,
+    verifyWebhook: async (request) => verifyWebhook(config, request),
+    parseStoredOrderEvent,
+    readShippingAddress: async (store, orderId) => readShippingAddress(context, store, orderId),
   };
+}
+
+export function getShopeeShippingLabel(
+  config: ShopeeConfig,
+  store: StoreCredentials,
+  orderId: string,
+) {
+  return readShippingLabel(createContext(config), store, orderId);
 }

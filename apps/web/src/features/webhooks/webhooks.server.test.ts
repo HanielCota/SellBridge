@@ -8,7 +8,10 @@ const mocks = vi.hoisted(() => ({
 
 vi.mock("@/lib/server/database", () => ({ database: {} }));
 vi.mock("@/lib/server/marketplaces", () => ({
-  connectors: { mercado_livre: { verifyWebhook: mocks.verifyWebhook } },
+  connectors: {
+    mercado_livre: { verifyWebhook: mocks.verifyWebhook },
+    shopee: { verifyWebhook: mocks.verifyWebhook },
+  },
 }));
 vi.mock("@/lib/server/queues", () => ({ enqueueWebhookEvent: mocks.enqueueWebhookEvent }));
 vi.mock("@sellbridge/database/repositories", () => ({
@@ -43,6 +46,23 @@ describe("handleWebhook", () => {
     mocks.recordWebhookEvent.mockResolvedValue({ status: "created", id: "event-1" });
     expect(await deliver()).toEqual({ status: 200, body: { status: "recebido" } });
     expect(mocks.enqueueWebhookEvent).toHaveBeenCalledWith("event-1");
+  });
+
+  it("acknowledges Shopee order pushes with an empty response", async () => {
+    mocks.recordWebhookEvent.mockResolvedValue({ status: "created", id: "shopee-event" });
+    mocks.verifyWebhook.mockResolvedValue({
+      valid: true,
+      event: { externalEventId: "shopee-1", topic: "order_status", payload: {} },
+    });
+
+    const response = await handleWebhook(
+      new Request("https://sellbridge.test/api/webhooks/shopee", { method: "POST", body: "{}" }),
+      "shopee",
+    );
+
+    expect(response.status).toBe(200);
+    expect(await response.text()).toBe("");
+    expect(mocks.enqueueWebhookEvent).toHaveBeenCalledWith("shopee-event");
   });
 
   it("enqueues again a duplicate that was never processed", async () => {

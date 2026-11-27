@@ -415,6 +415,19 @@ describe("first subscription", () => {
     });
   });
 
+  it.each(["pix", "credit_card"] as const)(
+    "offers Essencial at R$ 49.90 via %s",
+    async (method) => {
+      await startSubscription({ ...input, plan: "essential", method });
+
+      const create =
+        method === "pix"
+          ? mocks.client.createPixSubscription
+          : mocks.client.createRecurringCheckout;
+      expect(create).toHaveBeenCalledWith(expect.objectContaining({ valueCents: 4_990 }));
+    },
+  );
+
   it("reuses the customer already bound to the tenant", async () => {
     mocks.account.mockResolvedValue(
       liveAccount({ status: "canceled", subscriptionId: null, periodEnd: null }),

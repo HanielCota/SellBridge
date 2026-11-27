@@ -37,8 +37,8 @@ export const STORE_SPACING_IN_MS = 3000;
 /** Reads of 1000 sales per store and run; a store past 5000 sales in two days is reported. */
 const MAX_READS_PER_STORE = 5;
 
-/** Marketplaces checked today; Shopee and TikTok join once their order reads are confirmed. */
-export const ORDER_CHECK_MARKETPLACES: readonly MarketplaceId[] = ["mercado_livre"];
+/** Marketplaces whose orders are checked alongside their notices. */
+export const ORDER_CHECK_MARKETPLACES: readonly MarketplaceId[] = ["mercado_livre", "shopee"];
 
 /** Job name of the run that spreads the stores' checks. */
 export const ORDER_CHECK_DISPATCH_JOB = "check-store-orders";
@@ -128,7 +128,15 @@ interface StoreRun {
 }
 
 /** What the check did with one sale the marketplace listed. */
-type SaleOutcome = "known" | "found" | "paid_found" | "unchanged_by_check" | "refused";
+type SaleOutcome =
+  "known" | "found" | "paid_found" | "status_found" | "unchanged_by_check" | "refused";
+type LostNotice = "missing" | "payment" | "status";
+
+const SHOPEE_ORDER_PROGRESS: Readonly<Record<string, readonly MarketplaceOrder["status"][]>> = {
+  pending: ["shipped", "delivered", "cancelled"],
+  paid: ["shipped", "delivered", "cancelled"],
+  shipped: ["delivered", "cancelled"],
+};
 
 async function spendStoreQuota(run: StoreRun): Promise<void> {
   await run.dependencies.acquireRateLimit(
@@ -141,15 +149,26 @@ async function spendStoreQuota(run: StoreRun): Promise<void> {
  * notification was lost, and without it the sale never reaches the supplier.
  */
 function lostNoticeKind(
+  marketplace: MarketplaceId,
   sale: MarketplaceOrder,
   storedStatus: string | undefined,
-): "missing" | "payment" | null {
+): LostNotice | null {
   if (storedStatus === undefined) {
     return "missing";
   }
+
   if (storedStatus === "pending" && sale.status === "paid") {
     return "payment";
   }
+
+  if (
+    marketplace === "shopee" &&
+    Object.hasOwn(SHOPEE_ORDER_PROGRESS, storedStatus) &&
+    SHOPEE_ORDER_PROGRESS[storedStatus]?.includes(sale.status)
+  ) {
+    return "status";
+  }
+
   return null;
 }
 
@@ -178,7 +197,7 @@ function reportFoundSale(
  */
 async function bringInSale(
   run: StoreRun,
-  sale: { externalOrderId: string; kind: "missing" | "payment" },
+  sale: { externalOrderId: string; storedStatus: string | undefined; kind: LostNotice },
 ): Promise<SaleOutcome> {
   try {
     await spendStoreQuota(run);
@@ -186,7 +205,11 @@ async function bringInSale(
       run.credentials,
       run.orderResource(sale.externalOrderId),
     );
-    if (sale.kind === "payment" && order.status === "pending") {
+    if (
+      (sale.kind === "payment" && order.status === "pending") ||
+      (sale.kind === "status" &&
+        lostNoticeKind(run.store.marketplace, order, sale.storedStatus) === null)
+    ) {
       return "unchanged_by_check";
     }
 
@@ -201,6 +224,10 @@ async function bringInSale(
     if (saved.previousStatus === "pending" && saved.orderStatus === "paid") {
       reportFoundSale(run, { externalOrderId: sale.externalOrderId, kind: "payment" });
       return "paid_found";
+    }
+
+    if (sale.kind === "status" && saved.previousStatus !== saved.orderStatus) {
+      return "status_found";
     }
 
     return "unchanged_by_check";
@@ -236,12 +263,15 @@ async function checkSales(
   const outcomes: SaleOutcome[] = [];
   // Sequential on purpose: every read shares one store token and its marketplace quota.
   for (const sale of settled) {
-    const kind = lostNoticeKind(sale, stored.get(sale.externalOrderId));
+    const storedStatus = stored.get(sale.externalOrderId);
+    const kind = lostNoticeKind(run.store.marketplace, sale, storedStatus);
     if (kind === null) {
       outcomes.push("known");
       continue;
     }
-    outcomes.push(await bringInSale(run, { externalOrderId: sale.externalOrderId, kind }));
+    outcomes.push(
+      await bringInSale(run, { externalOrderId: sale.externalOrderId, storedStatus, kind }),
+    );
   }
   return outcomes;
 }
@@ -253,17 +283,22 @@ async function checkStoreSales(run: StoreRun, from: Date, now: Date): Promise<Sa
   let readFrom = from;
   for (let read = 0; read < MAX_READS_PER_STORE; read += 1) {
     await spendStoreQuota(run);
-    const batch = await run.connector.listOrders(run.credentials, readFrom);
+    const batch = await (run.connector.listUpdatedOrders?.(run.credentials, readFrom) ??
+      run.connector.listOrders(run.credentials, readFrom));
     outcomes.push(...(await checkSales(run, batch.orders, noticeCutoff)));
+
     if (batch.resumeFrom === null) {
       return outcomes;
     }
+
     if (batch.resumeFrom.getTime() <= readFrom.getTime()) {
       // A whole read of sales from one instant: starting there again would never move on.
       break;
     }
+
     readFrom = batch.resumeFrom;
   }
+
   logger.error("order.check_incomplete", {
     reason: `A conferência periódica leu até ${MAX_READS_PER_STORE * 1000} vendas da loja e parou antes do fim; as mais novas ficam para os avisos e a próxima conferência.`,
     tenantId: run.store.tenantId,
@@ -280,6 +315,7 @@ function summarize(outcomes: readonly SaleOutcome[]): Record<SaleOutcome, number
     known: 0,
     found: 0,
     paid_found: 0,
+    status_found: 0,
     unchanged_by_check: 0,
     refused: 0,
   };

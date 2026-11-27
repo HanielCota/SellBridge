@@ -1,4 +1,5 @@
 import { conflictError } from "@sellbridge/shared/errors";
+import type { BillingRules } from "@sellbridge/shared/billing";
 import { and, eq, inArray } from "drizzle-orm";
 import type { OrderEventData } from "@sellbridge/shared/public-api";
 import {
@@ -11,6 +12,7 @@ import type { Database, Transaction } from "../client.ts";
 import { listings, listingTargets, orderItems, orders, supplierProducts } from "../schema/index.ts";
 import { reconciledOrderStatus } from "./fulfillment-status.ts";
 import { recordApiEvent } from "./api-events.ts";
+import { assertBillingSaleAccess, lockBillingTenant, nextFreeSaleSlot } from "./billing.ts";
 import { syncMarketplaceRefund } from "./marketplace-refunds.ts";
 import { recordOrderStatusChange } from "./order-status-changes.ts";
 import { cancelQueuedParcelsOfCancelledSale } from "./sale-cancellation.ts";
@@ -20,7 +22,8 @@ export interface IncomingOrder {
   externalOrderId: string;
   status: (typeof orders.$inferInsert)["status"];
   totalCents: number;
-  marketplaceFeeCents: number;
+  /** Omitted when the channel has yet to report its fee. */
+  marketplaceFeeCents?: number | undefined;
   /** Money given back to the buyer so far; omitted when the source does not report it. */
   refundedCents?: number | undefined;
   /** What the seller pays to ship the sale; omitted when unknown, which keeps the one stored. */
@@ -129,15 +132,22 @@ async function updateExistingOrder(
   }
   const now = new Date();
   const paidAt = paidAtOfKnownOrder({ paidAt: existing.paidAt, status: write.order.status, now });
+  const freeSaleSlot =
+    existing.freeSaleSlot ??
+    (existing.paidAt === null && paidAt !== null
+      ? await nextFreeSaleSlot(write.transaction, write.tenantId)
+      : null);
+
   await write.transaction
     .update(orders)
     .set({
       status: write.order.status,
       totalCents: write.order.totalCents,
-      marketplaceFeeCents: write.order.marketplaceFeeCents,
+      marketplaceFeeCents: write.order.marketplaceFeeCents ?? existing.marketplaceFeeCents,
       sellerShippingCents: write.order.sellerShippingCents ?? existing.sellerShippingCents,
       deliveredAt: deliveredAtOnUpdate(existing, write.order.status),
       paidAt,
+      freeSaleSlot,
       reversedAt: reversedAtOfKnownOrder({
         reversedAt: existing.reversedAt,
         paidAt,
@@ -203,6 +213,9 @@ async function createOrder(write: OrderWrite): Promise<OrderWriteResult | null> 
     orderedAt: order.orderedAt,
     now: new Date(),
   });
+  const freeSaleSlot =
+    paidAt === null ? null : await nextFreeSaleSlot(write.transaction, write.tenantId);
+
   const [created] = await write.transaction
     .insert(orders)
     .values({
@@ -211,7 +224,7 @@ async function createOrder(write: OrderWrite): Promise<OrderWriteResult | null> 
       externalOrderId: order.externalOrderId,
       status: order.status,
       totalCents: order.totalCents,
-      marketplaceFeeCents: order.marketplaceFeeCents,
+      marketplaceFeeCents: order.marketplaceFeeCents ?? 0,
       sellerShippingCents: order.sellerShippingCents ?? null,
       buyerName: order.buyerName,
       marketplacePackId: order.packId ?? null,
@@ -219,6 +232,7 @@ async function createOrder(write: OrderWrite): Promise<OrderWriteResult | null> 
       orderedAt: order.orderedAt,
       deliveredAt: order.status === "delivered" ? order.orderedAt : null,
       paidAt,
+      freeSaleSlot,
       reversedAt: reversedAtOfNewOrder({ status: order.status, paidAt }),
     })
     .onConflictDoNothing({ target: [orders.storeConnectionId, orders.externalOrderId] })
@@ -261,20 +275,20 @@ const PROGRESS_RANK: Partial<Record<IncomingOrder["status"], number>> = {
  * Final statuses the marketplace cannot undo, applied before the parcels are read. A return is
  * known from the shipments, not from the marketplace's order status, which stays "paid" (or
  * partially refunded): a returned order keeps that status until it is cancelled. A cancellation is
- * final on the marketplace: two notifications of one order run as separate jobs, and the "paid"
- * one fetched before the buyer cancelled can land after the "cancelled" one; it must not reopen
- * the order for forwarding and shipping.
+ * final on the marketplace. A notification fetched before the buyer cancelled can land after
+ * the cancellation, so it must not reopen the order for forwarding and shipping.
  */
 function keptFinalStatus(
   current: (typeof orders.$inferSelect)["status"],
   incoming: IncomingOrder["status"],
 ): IncomingOrder["status"] {
-  if (current === "returned" && ["pending", "paid", "shipped", "delivered"].includes(incoming)) {
-    return "returned";
+  if (
+    (current === "returned" || current === "cancelled") &&
+    ["pending", "paid", "shipped", "delivered"].includes(incoming)
+  ) {
+    return current;
   }
-  if (current === "cancelled" && ["pending", "paid"].includes(incoming)) {
-    return "cancelled";
-  }
+
   return incoming;
 }
 
@@ -370,9 +384,10 @@ export async function upsertMarketplaceOrder(
     storeConnectionId,
     order.items.map((item) => item.externalListingId),
   );
-  const result = await database.transaction(async (transaction) =>
-    writeOrder({ transaction, tenantId, storeConnectionId, order, listingsByExternalId }),
-  );
+  const result = await database.transaction(async (transaction) => {
+    await lockBillingTenant(transaction, tenantId);
+    return writeOrder({ transaction, tenantId, storeConnectionId, order, listingsByExternalId });
+  });
   // Reclaim released units before the worker offers them on marketplaces. Retried terminal
   // events also recover a reservation attempt that failed after the order committed.
   const reserved = await reserveOrderShortages(database, result.orderId);
@@ -439,7 +454,7 @@ export async function recordManualOrder(
   database: Database,
   tenantId: string,
   storeConnectionId: string,
-  order: ManualOrder,
+  order: ManualOrder & { billing?: BillingRules | null },
 ): Promise<UpsertOrderResult> {
   const totalCents = checkedManualTotalCents(order);
   const listingsByExternalId = new Map(
@@ -467,6 +482,11 @@ export async function recordManualOrder(
     })),
   };
   const result = await database.transaction(async (transaction) => {
+    const tenantCreatedAt = await lockBillingTenant(transaction, tenantId);
+    if (order.billing != null) {
+      await assertBillingSaleAccess(transaction, tenantId, order.billing, tenantCreatedAt);
+    }
+
     const created = await createOrder({
       transaction,
       tenantId,

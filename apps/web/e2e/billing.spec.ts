@@ -1,7 +1,7 @@
 import { expect, test } from "@playwright/test";
-import { signUp, waitForHydration } from "./helpers";
+import { gotoHydrated, signUp, waitForHydration } from "./helpers";
 
-test("shows the five plans and keeps checkout unavailable until billing is configured", async ({
+test("shows six plans and keeps checkout unavailable until billing is configured", async ({
   page,
 }) => {
   await signUp(page, "Assinatura E2E");
@@ -15,14 +15,29 @@ test("shows the five plans and keeps checkout unavailable until billing is confi
   await expect(page.getByRole("heading", { name: "Planos e assinatura" })).toBeVisible();
   await expect(page.getByText("Tudo liberado", { exact: true })).toBeVisible();
   await expect(page.getByText("0 lojas conectadas · 0 anúncios")).toBeVisible();
-  // The client's five paid plans, with no free plan.
-  for (const plan of ["Start", "Pro", "Business", "Black", "Elite"]) {
+  for (const plan of ["Essencial", "Start", "Pro", "Business", "Black", "Elite"]) {
     await expect(page.getByRole("heading", { name: plan, exact: true })).toBeVisible();
   }
-  await expect(page.getByText("Gratuito")).toHaveCount(0);
   // Plans without a price say when they open instead of showing a dead, grey button.
   await expect(page.getByRole("button", { name: /Assinar o/ })).toHaveCount(0);
-  await expect(page.getByText("Disponível quando a cobrança começar")).toHaveCount(5);
+  await expect(page.getByText("Disponível quando a cobrança começar")).toHaveCount(6);
   await page.goto("/assinatura?retorno=sucesso");
   await expect(page.getByText(/Pagamento enviado/)).toBeVisible();
+});
+
+test("shows the free sales offer only for reseller sign-up", async ({ page }) => {
+  await page.setViewportSize({ width: 375, height: 812 });
+  await gotoHydrated(page, "/cadastro");
+  const offer = page.getByText("Primeiras 20 vendas sem mensalidade");
+  await expect(offer).toBeVisible();
+  await expect(page.getByText(/21ª venda.*R\$\s49,90 por mês/)).toBeVisible();
+
+  await page.getByText("Quero fornecer", { exact: true }).click();
+  await expect(offer).toHaveCount(0);
+  await page.getByText("Quero vender", { exact: true }).click();
+  await expect(offer).toBeVisible();
+
+  await page.goto("/cadastro/fornecedor");
+  await expect(page.getByRole("radio", { name: /Quero fornecer/ })).toBeChecked();
+  await expect(offer).toHaveCount(0);
 });

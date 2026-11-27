@@ -1,5 +1,5 @@
 import { randomUUID } from "node:crypto";
-import { billingPlan } from "@sellbridge/shared/billing";
+import { billingPlan, FREE_SALE_LIMIT } from "@sellbridge/shared/billing";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { eq } from "drizzle-orm";
 import {
@@ -8,6 +8,7 @@ import {
   listings,
   listingTargets,
   organization,
+  orders,
 } from "../schema/index.ts";
 import {
   createTestDatabase,
@@ -15,12 +16,15 @@ import {
   createTestTenants,
   createTestSupplierProduct,
   grantTestPlan,
+  publishTestProduct,
+  testAddress,
   testStoreInput,
 } from "../testing/fixtures.ts";
 import {
   applyBillingState,
   assertBillingCapacity,
   billingUsage,
+  findBillingAccess,
   settlePendingReference,
   findBillingAccountByPendingReference,
   findBillingAccountBySubscription,
@@ -28,8 +32,10 @@ import {
   saveBillingAccount,
   tryLockBillingCheckout,
 } from "./billing.ts";
+import { forwardOrder } from "./fulfillment.ts";
 import { createListingWithTargets } from "./listings.ts";
-import { upsertStoreConnection } from "./stores.ts";
+import { recordManualOrder, upsertMarketplaceOrder } from "./orders.ts";
+import { ensureManualStore, upsertStoreConnection } from "./stores.ts";
 /** A promise the test settles by hand, to hold a transaction open across concurrent calls. */
 function deferred() {
   const settlers: { resolve: () => void } = { resolve: () => {} };
@@ -173,8 +179,7 @@ describe("tenant billing persistence", () => {
       upsertStoreConnection(database, { ...connection, externalShopId: store.externalShopId }),
     ).resolves.toMatchObject({ id: store.id });
   });
-  // past_due keeps the plan through the grace (item 16, N9); an unpaid subscription does not,
-  // and there is no free plan to fall back to.
+  // An unpaid renewal must not put an existing subscriber back on the introductory offer.
   it("leaves no room for a new store once the subscription is unpaid", async () => {
     await grantTestPlan(database, tenants.tenantA, "pro");
     await upsertStoreConnection(database, {
@@ -252,15 +257,25 @@ describe("tenant billing persistence", () => {
     const launchedAt = new Date(Date.now() - DAY);
     const transition = { launchedAt, endsAt: new Date(Date.now() + DAY) };
 
-    it("refuses the first store of a new account, with no free plan", async () => {
+    it("allows one store on the free offer", async () => {
       const account = await accountCreatedAt(new Date());
-      await expect(
-        upsertStoreConnection(database, {
-          ...testStoreInput(account.tenantId, "first-store"),
-          billing: { transition },
-        }),
-      ).rejects.toThrow("Para conectar lojas, escolha um plano em Assinatura.");
-      await account.cleanup();
+      const firstStoreId = `first-store-${account.tenantId}`;
+      try {
+        await expect(
+          upsertStoreConnection(database, {
+            ...testStoreInput(account.tenantId, firstStoreId),
+            billing: { transition },
+          }),
+        ).resolves.toMatchObject({ externalShopId: firstStoreId });
+        await expect(
+          upsertStoreConnection(database, {
+            ...testStoreInput(account.tenantId, `second-store-${account.tenantId}`),
+            billing: { transition },
+          }),
+        ).rejects.toThrow("Limite do plano gratuito atingido");
+      } finally {
+        await account.cleanup();
+      }
     });
 
     it("keeps an account from before the launch unlimited during the transition", async () => {
@@ -275,16 +290,20 @@ describe("tenant billing persistence", () => {
       await account.cleanup();
     });
 
-    it("blocks an account from before the launch once the transition is over", async () => {
+    it("uses the available free sales once the transition is over", async () => {
       const account = await accountCreatedAt(new Date(launchedAt.getTime() - DAY));
       const ended = { launchedAt, endsAt: new Date(Date.now() - 1_000) };
-      await expect(
-        upsertStoreConnection(database, {
-          ...testStoreInput(account.tenantId, "after-transition"),
-          billing: { transition: ended },
-        }),
-      ).rejects.toMatchObject({ code: "FORBIDDEN" });
-      await account.cleanup();
+      const shopId = `after-transition-${account.tenantId}`;
+      try {
+        await expect(
+          upsertStoreConnection(database, {
+            ...testStoreInput(account.tenantId, shopId),
+            billing: { transition: ended },
+          }),
+        ).resolves.toMatchObject({ externalShopId: shopId });
+      } finally {
+        await account.cleanup();
+      }
     });
   });
 
@@ -302,6 +321,104 @@ describe("tenant billing persistence", () => {
     expect((await getBillingAccount(database, tenants.tenantA))?.lastEventCreated).toBe(observedAt);
     await database.delete(billingEvents).where(eq(billingEvents.id, lateEventId));
   });
+});
+
+it("enforces the 20-sale boundary across manual sales and marketplace orders", async () => {
+  const { tenantId, cleanup } = await accountCreatedAt(new Date());
+  try {
+    const { id: storeId } = await upsertStoreConnection(
+      database,
+      testStoreInput(tenantId, "sales"),
+    );
+    const manualStoreId = await ensureManualStore(database, tenantId, "shopee");
+    await publishTestProduct(database, catalog.productId, [{ tenantId, storeId }]);
+    const order = {
+      externalOrderId: "market-1",
+      buyerName: "Test Buyer",
+      orderedAt: new Date(),
+      marketplaceFeeCents: 0,
+      totalCents: 2500,
+      items: [
+        {
+          externalListingId: `EXT-${catalog.productId}-${tenantId}`,
+          title: "Test sale",
+          quantity: 1,
+          unitPriceCents: 2500,
+        },
+      ],
+    };
+    await upsertMarketplaceOrder(database, tenantId, storeId, { ...order, status: "pending" });
+    expect(await findBillingAccess(database, tenantId, RULES)).toEqual({
+      kind: "free",
+      salesUsed: 0,
+    });
+
+    const firstSale = await upsertMarketplaceOrder(database, tenantId, storeId, {
+      ...order,
+      status: "paid",
+    });
+    // A historical paid order may have received its slot from the status during backfill.
+    await database.update(orders).set({ paidAt: null }).where(eq(orders.id, firstSale.orderId));
+    await upsertMarketplaceOrder(database, tenantId, storeId, { ...order, status: "paid" });
+    await upsertMarketplaceOrder(database, tenantId, storeId, { ...order, status: "cancelled" });
+    expect(await findBillingAccess(database, tenantId, RULES)).toEqual({
+      kind: "free",
+      salesUsed: 1,
+    });
+
+    for (let slot = 2; slot < FREE_SALE_LIMIT; slot++) {
+      await upsertMarketplaceOrder(database, tenantId, storeId, {
+        ...order,
+        externalOrderId: `market-${slot}`,
+        status: "paid",
+      });
+    }
+
+    const record = (externalOrderId: string) =>
+      recordManualOrder(database, tenantId, manualStoreId, {
+        ...order,
+        externalOrderId,
+        items: [
+          {
+            supplierProductId: catalog.productId,
+            title: "Test sale",
+            quantity: 1,
+            unitPriceCents: 2500,
+            costCents: 1000,
+          },
+        ],
+        billing: RULES,
+      });
+    const attempts = await Promise.allSettled([record("manual-1"), record("manual-2")]);
+    const admitted = attempts.find((attempt) => attempt.status === "fulfilled");
+    const rejected = attempts.find((attempt) => attempt.status === "rejected");
+    expect(rejected?.reason).toMatchObject({ code: "FORBIDDEN" });
+    expect(await findBillingAccess(database, tenantId, RULES)).toEqual({ kind: "none" });
+
+    const { orderId } = await upsertMarketplaceOrder(database, tenantId, storeId, {
+      ...order,
+      externalOrderId: "market-over-limit",
+      status: "paid",
+    });
+    expect(await database.query.orders.findFirst({ where: eq(orders.id, orderId) })).toMatchObject({
+      status: "paid",
+      freeSaleSlot: null,
+    });
+    const forward = (id: string) =>
+      forwardOrder(database, tenantId, { orderId: id, address: testAddress, notes: "" }, RULES);
+    if (admitted === undefined) {
+      throw new Error("Missing final free order");
+    }
+
+    await expect(forward(admitted.value.orderId)).resolves.toHaveLength(1);
+    await expect(forward(orderId)).rejects.toMatchObject({ code: "FORBIDDEN" });
+
+    await grantTestPlan(database, tenantId, "essential");
+    await expect(forward(orderId)).resolves.toHaveLength(1);
+    await expect(record("paid-manual")).resolves.toMatchObject({ status: "created" });
+  } finally {
+    await cleanup();
+  }
 });
 
 describe("subscription state from the provider", () => {

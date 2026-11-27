@@ -5,10 +5,9 @@ import {
   PackageIcon,
   UserSwitchIcon,
 } from "@phosphor-icons/react";
-import { formatCents } from "@sellbridge/shared/money";
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { EmptyState } from "@/components/feedback/empty-state";
-import { PageHeader } from "@/components/layout/page-header";
+import { PrepareListings } from "@/components/entry-links/prepare-listings";
 import { Button } from "@/components/ui/button";
 import {
   entryLinkSituationSchema,
@@ -89,68 +88,15 @@ function ProblemState({ kind }: { kind: ProblemKind }) {
   );
 }
 
-function productCountLabel(count: number): string {
-  return count === 1 ? "1 produto" : `${count} produtos`;
-}
-
-function ChosenProducts({ view }: { view: Extract<EntryLinkView, { kind: "ready" }> }) {
-  return (
-    <>
-      <PageHeader
-        title="Seus produtos escolhidos"
-        description={`Você escolheu ${productCountLabel(view.products.length)} de ${view.supplierName}. Veja no catálogo para preparar os anúncios da sua loja.`}
-        actions={
-          <Button asChild>
-            <Link to="/catalogo" search={{ supplier: view.supplierId }}>
-              Ver no catálogo
-            </Link>
-          </Button>
-        }
-      />
-      {view.unavailableCount > 0 ? (
-        <p className="rounded-2xl bg-amber-500/10 px-4 py-3 text-sm text-amber-800 dark:text-amber-200">
-          {productCountLabel(view.unavailableCount)} da sua escolha não{" "}
-          {view.unavailableCount === 1 ? "está" : "estão"} mais à venda e{" "}
-          {view.unavailableCount === 1 ? "ficou" : "ficaram"} de fora.
-        </p>
-      ) : null}
-      <ul className="grid gap-3 sm:grid-cols-2">
-        {view.products.map((product) => (
-          <li key={product.id} className="flex items-center gap-3 rounded-2xl border bg-card p-3">
-            {product.imageUrl === null ? (
-              <div
-                aria-hidden="true"
-                className="grid size-16 shrink-0 place-items-center rounded-xl bg-muted"
-              >
-                <PackageIcon className="size-6 text-muted-foreground" />
-              </div>
-            ) : (
-              <img
-                src={product.imageUrl}
-                alt=""
-                width={64}
-                height={64}
-                className="size-16 shrink-0 rounded-xl object-cover"
-              />
-            )}
-            <div className="min-w-0">
-              <p className="line-clamp-2 font-medium">{product.title}</p>
-              <p className="text-sm text-muted-foreground">
-                Você paga {formatCents(product.costCents)}
-              </p>
-            </div>
-          </li>
-        ))}
-      </ul>
-    </>
-  );
-}
-
 function EntryLinkPage() {
   const view = Route.useLoaderData();
   return (
     <div className="mx-auto grid w-full max-w-3xl gap-6">
-      {view.kind === "ready" ? <ChosenProducts view={view} /> : <ProblemState kind={view.kind} />}
+      {view.kind === "ready" ? (
+        <PrepareListings choice={view} />
+      ) : (
+        <ProblemState kind={view.kind} />
+      )}
     </div>
   );
 }

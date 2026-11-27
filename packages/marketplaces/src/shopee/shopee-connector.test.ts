@@ -127,7 +127,9 @@ describe("Shopee authorization link", () => {
     const link = new URL(connector.getAuthorizationUrl({ state: "s", redirectUri: REDIRECT_URI }));
     await connector.exchangeCode({ code: "c", redirectUri: REDIRECT_URI, externalShopId: SHOP_ID });
 
-    expect(link.host).toBe("open.sandbox.test-stable.shopee.com.br");
+    expect(`${link.origin}${link.pathname}`).toBe(
+      "https://open.sandbox.test-stable.shopee.com/auth",
+    );
     expect(calls.every((call) => call.host === "openplatform.sandbox.test-stable.shopee.sg")).toBe(
       true,
     );
@@ -315,15 +317,5 @@ describe("Shopee refusals", () => {
     expect(messageOf(error)).toBe(
       "A Shopee bloqueou o endereço do servidor do SellBridge. Fale com o suporte do SellBridge.",
     );
-  });
-
-  it("keeps the later operations closed until their slice", async () => {
-    const { connector } = setup();
-
-    const error = await caught(
-      connector.listOrders({ externalShopId: SHOP_ID, accessToken: "a" }, NOW),
-    );
-
-    expect(messageOf(error)).toBe("Listagem de pedidos ainda não está disponível para a Shopee");
   });
 });

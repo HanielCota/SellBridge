@@ -1,17 +1,20 @@
 import {
   BILLING_PLANS,
+  billingAccess,
   billingLimits,
   billingNotice,
   courtesyBillingPlan,
+  type BillingAccess,
+  type BillingCourtesyState,
+  type BillingNotice,
 } from "@sellbridge/shared/billing";
 import { isAppError } from "@sellbridge/shared/errors";
 import { logger } from "@sellbridge/shared/logger";
 import {
   billingUsage,
   findBillingAccess,
-  findBillingTenantCreatedAt,
+  findBillingAccessInput,
   getBillingAccount,
-  getBillingCourtesy,
   requireBillingOwner,
 } from "@sellbridge/database/repositories";
 import { database } from "@/lib/server/database";
@@ -28,10 +31,11 @@ const DAY_IN_MS = 86_400_000;
 const REFRESH_BEFORE_END_IN_MS = 2 * DAY_IN_MS;
 
 /** The access as the page shows it: dates as ISO strings, limits null while unlimited. */
-async function accessView(tenantId: string) {
-  const rules = billingRules();
-  if (rules === null) return { kind: "unlimited" as const, limits: null };
-  const access = await findBillingAccess(database, tenantId, rules);
+function accessView(access: BillingAccess | null) {
+  if (access === null) {
+    return { kind: "unlimited" as const, limits: null };
+  }
+
   const limits = billingLimits(access);
   if (access.kind === "plan") {
     return { kind: "plan" as const, planId: access.plan.id, source: access.source, limits };
@@ -39,6 +43,11 @@ async function accessView(tenantId: string) {
   if (access.kind === "transition") {
     return { kind: "transition" as const, until: access.until.toISOString(), limits };
   }
+
+  if (access.kind === "free") {
+    return { ...access, limits };
+  }
+
   return { kind: "none" as const, limits };
 }
 
@@ -46,8 +55,7 @@ async function accessView(tenantId: string) {
  * The plan the team gave with no charge, while it lasts: shown even with billing off or during
  * the launch transition, when it does not limit anything yet.
  */
-async function courtesyView(tenantId: string) {
-  const courtesy = await getBillingCourtesy(database, tenantId);
+function courtesyView(courtesy: BillingCourtesyState | null) {
   const plan = courtesyBillingPlan(courtesy);
   if (courtesy === null || plan === null) return null;
   return { planId: plan.id, expiresAt: courtesy.expiresAt?.toISOString() ?? null };
@@ -117,44 +125,30 @@ async function isOwner(tenantId: string, userId: string): Promise<boolean> {
 
 export async function billingSummary(tenantId: string, userId: string) {
   await refreshOnVisit(tenantId);
-  const [account, usage, notice, access, canManage, courtesy] = await Promise.all([
-    getBillingAccount(database, tenantId),
+  const rules = billingRules();
+  const [input, usage, canManage] = await Promise.all([
+    findBillingAccessInput(database, tenantId, rules ?? { transition: null }),
     billingUsage(database, tenantId),
-    findBillingNotice(tenantId),
-    accessView(tenantId),
     isOwner(tenantId, userId),
-    courtesyView(tenantId),
   ]);
-  const enabled = access.kind !== "unlimited";
+  const enabled = rules !== null;
+  const now = new Date();
   return {
-    subscription: subscriptionView(account),
+    subscription: subscriptionView(input.subscription),
     usage,
     plans: BILLING_PLANS,
     prices: enabled
       ? BILLING_PLANS.map((plan) => ({ id: plan.id, priceCents: plan.priceCents }))
       : [],
     canManage,
-    notice,
-    access,
-    courtesy,
+    notice: enabled ? noticeView(billingNotice(input, now)) : null,
+    access: accessView(enabled ? billingAccess(input, now) : null),
+    courtesy: courtesyView(input.courtesy),
     enabled,
   };
 }
 
-export async function findBillingNotice(tenantId: string): Promise<BillingNoticeView | null> {
-  const rules = billingRules();
-  if (rules === null) return null;
-  const [account, courtesy, tenantCreatedAt] = await Promise.all([
-    getBillingAccount(database, tenantId),
-    getBillingCourtesy(database, tenantId),
-    findBillingTenantCreatedAt(database, tenantId),
-  ]);
-  const notice = billingNotice({
-    subscription: account,
-    courtesy,
-    tenantCreatedAt,
-    transition: rules.transition,
-  });
+function noticeView(notice: BillingNotice | null): BillingNoticeView | null {
   if (notice === null) return null;
   if (notice.kind === "past_due") {
     return { kind: "past_due", accessUntil: notice.accessUntil.toISOString() };
@@ -168,6 +162,15 @@ export async function findBillingNotice(tenantId: string): Promise<BillingNotice
   return notice;
 }
 
+export async function findBillingNotice(tenantId: string): Promise<BillingNoticeView | null> {
+  const rules = billingRules();
+  if (rules === null) {
+    return null;
+  }
+
+  return noticeView(billingNotice(await findBillingAccessInput(database, tenantId, rules)));
+}
+
 /** Why a new store cannot be connected now, or null when it fits (or billing is off). */
 export async function findNewStoreBlock(tenantId: string): Promise<NewStoreBlock | null> {
   const rules = billingRules();
@@ -179,6 +182,10 @@ export async function findNewStoreBlock(tenantId: string): Promise<NewStoreBlock
   const limits = billingLimits(access);
   if (limits === null || usage.stores < limits.stores) return null;
   if (access.kind === "plan") return { kind: "plan_full", planName: access.plan.name };
+  if (access.kind === "free") {
+    return { kind: "plan_full", planName: "Gratuito" };
+  }
+
   return { kind: "choose_plan" };
 }
 

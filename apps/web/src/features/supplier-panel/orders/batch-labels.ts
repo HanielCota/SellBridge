@@ -1,4 +1,8 @@
-import { BATCH_LABEL_MARKETPLACE, LABEL_STATUSES } from "@sellbridge/shared/supplier-order-labels";
+import {
+  BATCH_LABEL_MARKETPLACE,
+  LABEL_STATUSES,
+  individualLabelMessage,
+} from "@sellbridge/shared/supplier-order-labels";
 import type { FulfillmentStatus, LabelFormat } from "@sellbridge/shared/schemas";
 import { PREPARATION_HOLD_LABELS, type PreparationHold } from "@sellbridge/shared/receiving-rules";
 import { isShippingBlocked } from "@/features/fulfillment/shipping-block";
@@ -43,11 +47,11 @@ export function labelRefusal(candidate: LabelCandidate | undefined): string | nu
   if (candidate === undefined) {
     return "Pedido fora da sua lista. Atualize a página.";
   }
-  if (candidate.marketplace === "tiktok_shop") {
-    return "A etiqueta do TikTok Shop sai uma por vez: abra o pedido e imprima por lá.";
-  }
   if (candidate.marketplace !== BATCH_LABEL_MARKETPLACE) {
-    return "Este canal não tem etiqueta do marketplace: use a sua própria.";
+    return (
+      individualLabelMessage(candidate.marketplace) ??
+      "Este canal não tem etiqueta do marketplace: use a sua própria."
+    );
   }
   if (isShippingBlocked(candidate.orderStatus)) {
     return "Venda sem liberação para envio.";

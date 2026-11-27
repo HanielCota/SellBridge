@@ -1,4 +1,5 @@
 import { recordWebhookEvent, type RecordWebhookInput } from "@sellbridge/database/repositories";
+import { SHOPEE_IGNORED_TOPIC } from "@sellbridge/marketplaces";
 import { withDeadline } from "@sellbridge/shared/deadline";
 import { hasLoneSurrogate, parseJsonText, readTextWithin } from "@sellbridge/shared/http-body";
 import { logger } from "@sellbridge/shared/logger";
@@ -54,6 +55,10 @@ export async function handleWebhook(request: Request, marketplaceParam: string |
     return reply(401, { error: "notificação inválida" });
   }
 
+  if (marketplace.data === "shopee" && verification.event.topic === SHOPEE_IGNORED_TOPIC) {
+    return new Response(null, { status: 200 });
+  }
+
   return acknowledgeValidEvent({
     marketplace: marketplace.data,
     externalEventId: verification.event.externalEventId,
@@ -83,8 +88,13 @@ async function enqueueWithinDeadline(webhookEventId: string): Promise<void> {
 async function acknowledgeValidEvent(input: RecordWebhookInput): Promise<Response> {
   const recorded = await recordWebhookEvent(database, input);
   if (recorded.status === "duplicate" && !recorded.pending) {
-    return reply(200, { status: "duplicado" });
+    return acknowledge(input.marketplace, "duplicado");
   }
+
   await enqueueWithinDeadline(recorded.id);
-  return reply(200, { status: recorded.status === "created" ? "recebido" : "duplicado" });
+  return acknowledge(input.marketplace, recorded.status === "created" ? "recebido" : "duplicado");
+}
+
+function acknowledge(marketplace: string, status: string) {
+  return marketplace === "shopee" ? new Response(null, { status: 200 }) : reply(200, { status });
 }

@@ -374,6 +374,26 @@ describe("reconnecting a store that lost its access", () => {
     expect(mocks.enqueueStoreOrderCatchUp).not.toHaveBeenCalled();
   });
 
+  it("reconnects a Shopee shop and queues order import", async () => {
+    mocks.findStoreAwaitingReconnection.mockResolvedValue({
+      id: "store-1",
+      connectedAt: NOW,
+    });
+    mocks.upsertStoreConnection.mockResolvedValue({ id: "store-1", marketplace: "shopee" });
+    const request = new Request(
+      "https://sellbridge.test/api/oauth/shopee/callback?state=state-1&code=abc&shop_id=727720655",
+    );
+
+    const response = await handleOAuthCallback(request, "shopee");
+
+    const location = new URL(response.headers.get("location") ?? "");
+    expect(location.searchParams.get("conectada")).toBe("store-1");
+    expect(mocks.enqueueStoreOrderCatchUp).toHaveBeenCalledWith({
+      storeConnectionId: "store-1",
+      since: NOW.toISOString(),
+    });
+  });
+
   it("keeps the store connected when the request to read its sales fails", async () => {
     mocks.findStoreAwaitingReconnection.mockResolvedValue({
       id: "store-1",

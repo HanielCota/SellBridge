@@ -4,21 +4,25 @@ import {
   type AuthorizationRequest,
   type MarketplaceId,
   type MercadoLivreConfig,
+  type ShopeeConfig,
   type TikTokShopConfig,
 } from "@sellbridge/marketplaces";
 import { createTokenCipher } from "@sellbridge/shared/token-cipher";
 import { environment } from "./environment.ts";
+
+export const shopeeApiConfig: ShopeeConfig = {
+  partnerId: environment.SHOPEE_PARTNER_ID,
+  partnerKey: environment.SHOPEE_PARTNER_KEY,
+  sandbox: environment.SHOPEE_SANDBOX,
+  webhookUrl: new URL("/api/webhooks/shopee", environment.APP_URL).toString(),
+};
 
 export const connectors = createConnectorRegistry({
   mercadoLivre: {
     clientId: environment.MERCADO_LIVRE_CLIENT_ID,
     clientSecret: environment.MERCADO_LIVRE_CLIENT_SECRET,
   },
-  shopee: {
-    partnerId: environment.SHOPEE_PARTNER_ID,
-    partnerKey: environment.SHOPEE_PARTNER_KEY,
-    sandbox: environment.SHOPEE_SANDBOX,
-  },
+  shopee: shopeeApiConfig,
   tiktokShop: {
     appKey: environment.TIKTOK_SHOP_APP_KEY,
     appSecret: environment.TIKTOK_SHOP_APP_SECRET,

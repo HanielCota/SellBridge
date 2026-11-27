@@ -1,4 +1,6 @@
 import { z } from "zod";
+import type { BillingRules } from "@sellbridge/shared/billing";
+import { booleanFlagEnvironmentSchema } from "@sellbridge/shared/environment";
 import { ASAAS_PRODUCTION_API_URL } from "./http.ts";
 import { ASAAS_WEBHOOK_TOKEN_MAX_LENGTH, ASAAS_WEBHOOK_TOKEN_MIN_LENGTH } from "./webhook.ts";
 
@@ -34,6 +36,24 @@ export interface AsaasEnvironment {
   ASAAS_API_KEY?: string | undefined;
   ASAAS_WALLET_ID?: string | undefined;
   ASAAS_WEBHOOK_TOKEN?: string | undefined;
+}
+
+export const billingEnvironmentFields = {
+  BILLING_LAUNCHED_AT: z.iso.datetime({ offset: true }).optional(),
+  BILLING_TRANSITION_ENDS_AT: z.iso.datetime({ offset: true }).optional(),
+  BILLING_UNLIMITED: booleanFlagEnvironmentSchema,
+};
+
+/** The application and worker enforce the same limits once subscription billing is configured. */
+export function billingRulesFrom(
+  environment: AsaasEnvironment & z.infer<z.ZodObject<typeof billingEnvironmentFields>>,
+): BillingRules | null {
+  const { BILLING_LAUNCHED_AT: launchedAt, BILLING_TRANSITION_ENDS_AT: endsAt } = environment;
+  if (environment.BILLING_UNLIMITED || !launchedAt || !endsAt || !asaasSettingsFrom(environment)) {
+    return null;
+  }
+
+  return { transition: { launchedAt: new Date(launchedAt), endsAt: new Date(endsAt) } };
 }
 
 /**

@@ -841,6 +841,13 @@
       "when": 1795638304018,
       "tag": "0119_developer_entry_links",
       "breakpoints": true
+    },
+    {
+      "idx": 120,
+      "version": "7",
+      "when": 1795704387907,
+      "tag": "0120_free_sales_offer",
+      "breakpoints": true
     }
   ]
 }

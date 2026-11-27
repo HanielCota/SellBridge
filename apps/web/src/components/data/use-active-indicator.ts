@@ -1,4 +1,4 @@
-import { type RefObject, useLayoutEffect, useState } from "react";
+import { type RefObject, useLayoutEffect, useRef, useState } from "react";
 
 export interface IndicatorBox {
   left: number;
@@ -17,26 +17,31 @@ interface OptionBox {
   offsetWidth: number;
 }
 
+type MeasureReason = "initial" | "selection" | "layout";
+
 /**
- * Where a narrow track (a phone) scrolls to show the active option, or null to stay put. Only a
- * new choice, or the first measure, moves it: a layout change (a badge, fonts, a resize) must not
- * pull back a track the person scrolled, or a tap on a far option lands on another one.
+ * Where a narrow track scrolls to show the active option. The first measure reveals the active
+ * option only at the initial scroll position. A person can scroll the HTML before hydration,
+ * and pulling the track back can move a button away just before they tap it.
  */
 export function revealScrollLeft(
   track: TrackView,
   option: OptionBox,
-  isNewChoice: boolean,
+  reason: MeasureReason,
 ): number | null {
-  if (!isNewChoice) {
+  if (reason === "layout" || (reason === "initial" && track.scrollLeft !== 0)) {
     return null;
   }
+
   const right = option.offsetLeft + option.offsetWidth;
   if (right > track.scrollLeft + track.clientWidth) {
     return right - track.clientWidth;
   }
+
   if (option.offsetLeft < track.scrollLeft) {
     return option.offsetLeft;
   }
+
   return null;
 }
 
@@ -50,32 +55,48 @@ export function useActiveIndicator<TValue>(
   buttonRefs: RefObject<Map<TValue, HTMLElement>>,
 ) {
   const [indicator, setIndicator] = useState<IndicatorBox | null>(null);
+  const previousChoice = useRef<{ value: TValue } | null>(null);
 
   useLayoutEffect(() => {
+    const previous = previousChoice.current;
+    const unchangedReason = previous === null ? "initial" : "layout";
+    const effectReason =
+      previous !== null && !Object.is(previous.value, value) ? "selection" : unchangedReason;
+    previousChoice.current = { value };
+
     let measured: IndicatorBox | null = null;
-    const measure = (glides: boolean) => {
+    const measure = (reason: MeasureReason) => {
       const button = buttonRefs.current.get(value);
+
       if (!button) {
         return;
       }
+
       const container = containerRef.current;
-      const left = container === null ? null : revealScrollLeft(container, button, glides);
+      const left = container === null ? null : revealScrollLeft(container, button, reason);
+
       if (container !== null && left !== null) {
         container.scrollTo({ left });
       }
-      const box = { left: button.offsetLeft, width: button.offsetWidth, glides };
+
+      const box = {
+        left: button.offsetLeft,
+        width: button.offsetWidth,
+        glides: reason === "selection",
+      };
       // The observer also reports when nothing moved (on start, or the track's own resize):
       // keeping the last box then leaves a glide that just began running.
       if (measured !== null && measured.left === box.left && measured.width === box.width) {
         return;
       }
+
       measured = box;
       setIndicator(box);
     };
-    measure(true);
+    measure(effectReason);
     // A new choice glides; a layout change (a count that appeared, fonts, a resize) lands at once.
     // A count arriving beside the previous tab used to leave the pill under it for 400 ms.
-    const observer = new ResizeObserver(() => measure(false));
+    const observer = new ResizeObserver(() => measure("layout"));
     if (containerRef.current) {
       observer.observe(containerRef.current);
     }

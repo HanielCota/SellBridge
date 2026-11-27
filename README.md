@@ -31,7 +31,7 @@ SellBridge is a dropshipping/reselling SaaS: resellers connect their stores on m
 - **Sync** — periodic stock and price sync, orders received through idempotent webhooks.
 - **Dashboard and finances** — KPIs, comparison with the previous period, profit, fees, returns, and CSV export.
 - **Support** — tickets with attachments, history, and an admin view.
-- **SaaS billing** — five paid plans with the monthly fee charged through Asaas subscriptions (card that renews by itself or Pix every month), upgrades by the prorated difference and cancellation in the app. Setup: [docs/billing.md](docs/billing.md).
+- **SaaS billing** — the first 20 sales have no monthly fee. Paid plans start at R$ 49.90 per month through Asaas (recurring card or monthly Pix), with prorated upgrades and in-app cancellation. Setup: [docs/billing.md](docs/billing.md).
 - **Public API** — REST API with organization-scoped keys, scopes, OpenAPI docs, events, and signed webhooks.
 
 ## Stack
@@ -80,9 +80,10 @@ The receiver does not require a working database or session. It accepts only sam
 It does not create sample customers, suppliers, products, stores, sales, reviews, or tickets and
 refuses `--reset`. Configure the operator email in `ADMIN_EMAILS` when applicable.
 
-The application connects to real marketplaces only. Mercado Livre requires its client credentials;
-Shopee and TikTok Shop remain explicitly unavailable until their real connectors exist. Carrier
-tracking reports that it is disconnected rather than generating tracking events.
+The application connects to real marketplaces only. Each connector requires its own credentials.
+The [Shopee setup guide](docs/marketplaces/shopee.md) covers connecting a shop, publishing,
+stock and price synchronization, order import, and PDF shipping labels.
+Carrier tracking is currently disconnected.
 
 Synthetic datasets and adapters live under `testing/` and `e2e/`. To prepare a disposable browser
 test database, set `TEST_DATABASE_URL` to a dedicated database whose name contains `test` or `e2e`,
@@ -162,7 +163,7 @@ The pre-commit hook (lefthook) formats, lints, and runs `check:no-else`. CI on G
 apps/web               TanStack Start (dashboard)
 apps/worker            BullMQ queues (publishing, sync, webhooks)
 packages/database      Drizzle schema, migrations, seeds, tenant-scoped repositories
-packages/marketplaces  connectors (Mercado Livre; Shopee and TikTok Shop unavailable)
+packages/marketplaces  connectors (Mercado Livre, Shopee, TikTok Shop)
 packages/shared        Zod schemas, money in cents, CEP, errors, environment, logger
 packages/config        base tsconfig
 ```

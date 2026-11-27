@@ -1,4 +1,4 @@
-import { type Dispatch, type SetStateAction, useState } from "react";
+import { type Dispatch, type SetStateAction, useId, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { SETTLED_FULFILLMENT_STATUSES } from "@sellbridge/shared/schemas";
 import { REFORWARD_BLOCK_MESSAGES } from "@sellbridge/shared/shipment-payments";
@@ -289,6 +289,29 @@ function LabelLink({ orderId }: { orderId: string }) {
     </Button>
   );
 }
+
+function ShopeeLabelForm({ orderId }: { orderId: string }) {
+  const withProfile = useTabProfileLink();
+  const hintId = useId();
+
+  return (
+    <form
+      className="space-y-2"
+      method="post"
+      action={withProfile(`/api/pedidos/${orderId}/etiqueta`)}
+      target="_blank"
+      rel="noopener noreferrer"
+    >
+      <input type="hidden" name="solicitar" value="revenda" />
+      <p id={hintId} className="text-xs text-muted-foreground">
+        A etiqueta abre em nova aba. A Shopee pode agendar a coleta ao gerar a etiqueta.
+      </p>
+      <Button type="submit" variant="outline" className={WRAPPING_BUTTON} aria-describedby={hintId}>
+        Gerar etiqueta da Shopee
+      </Button>
+    </form>
+  );
+}
 /** A supplier link shown after it was issued, and whether the supplier already got it by e-mail. */
 interface SupplierLinkView {
   url: string;
@@ -493,6 +516,11 @@ function MarketplaceTools({
   if (detail.order.marketplace === "mercado_livre") {
     return <MarketplaceActions orderId={detail.order.id} onRefresh={onRefresh} />;
   }
+
+  if (detail.order.marketplace === "shopee") {
+    return <ShopeeLabelForm orderId={detail.order.id} />;
+  }
+
   // TikTok Shop's tracking is not read yet; its label is.
   if (detail.order.marketplace === "tiktok_shop") {
     return (

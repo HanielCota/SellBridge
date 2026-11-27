@@ -2,8 +2,8 @@ import type { FulfillmentStatus } from "../schemas/fulfillment.ts";
 
 /**
  * Where a parcel's marketplace label stands for the supplier, from the label records kept on the
- * parcel. Only Mercado Livre and TikTok Shop hand out labels; other channels ship with the
- * supplier's own. An order split between suppliers has none either, nor one bought in a Mercado
+ * parcel. Mercado Livre, Shopee and TikTok Shop hand out labels. An order split between
+ * suppliers has no shared label, nor does one bought in a Mercado
  * Livre cart with another supplier's products: the marketplace gives one label per order or cart,
  * and one label cannot travel on two parcels.
  * - `waiting`: the marketplace said it has not released the label yet, within the dispatch time;
@@ -23,14 +23,28 @@ export const SUPPLIER_LABEL_STATE_LABELS: Record<SupplierLabelState, string> = {
 };
 
 /** The channels whose label the system emits. */
-export const LABEL_MARKETPLACES = ["mercado_livre", "tiktok_shop"] as const;
+export const LABEL_MARKETPLACES = ["mercado_livre", "tiktok_shop", "shopee"] as const;
 
 /** The one channel whose labels also print in batches and as ZPL. */
 export const BATCH_LABEL_MARKETPLACE = "mercado_livre";
 
-export function isLabelMarketplace(marketplace: string): boolean {
+export function isLabelMarketplace(
+  marketplace: string,
+): marketplace is (typeof LABEL_MARKETPLACES)[number] {
   const marketplaces: readonly string[] = LABEL_MARKETPLACES;
   return marketplaces.includes(marketplace);
+}
+
+export function individualLabelMessage(marketplace: string): string | null {
+  if (marketplace === "shopee") {
+    return "A etiqueta da Shopee sai uma por vez. Abra o pedido para imprimir.";
+  }
+
+  if (marketplace === "tiktok_shop") {
+    return "A etiqueta do TikTok Shop sai uma por vez: abra o pedido e imprima por lá.";
+  }
+
+  return null;
 }
 
 /** Steps where the label still matters: once the parcel leaves, it was already used. */

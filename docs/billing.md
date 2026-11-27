@@ -1,17 +1,17 @@
 # Planos e cobrança do SaaS
 
-A página `/assinatura`, acessível pelo menu da conta, apresenta os cinco planos pagos do plano
-mestre do cliente (decisão de 18/11/2026): não há plano gratuito nem período de teste. A
-mensalidade é cobrada pelo Asaas, na conta do SellBridge (decisão de 19/11/2026,
-[docs/decisions/2026-11-19-mensalidade-pelo-asaas.md](decisions/2026-11-19-mensalidade-pelo-asaas.md)).
+The account menu links to `/assinatura`, which shows the free sales allowance and the paid plans.
+Monthly fees use SellBridge's Asaas account.
+[Asaas subscription decision](decisions/2026-11-19-mensalidade-pelo-asaas.md)
 
-| Plano    | Preço      | Lojas | Anúncios | Extra                                     |
-| -------- | ---------- | ----- | -------- | ----------------------------------------- |
-| Start    | R$ 97/mês  | 3     | 300      |                                           |
-| Pro      | R$ 197/mês | 5     | 1.000    |                                           |
-| Business | R$ 397/mês | 10    | 3.000    |                                           |
-| Black    | R$ 697/mês | 20    | 8.000    |                                           |
-| Elite    | R$ 997/mês | 40    | 20.000   | Atendimento prioritário (resposta em 8 h) |
+| Plano     | Preço        | Lojas | Anúncios | Extra                                     |
+| --------- | ------------ | ----- | -------- | ----------------------------------------- |
+| Essencial | R$ 49,90/mês | 1     | 100      |                                           |
+| Start     | R$ 97/mês    | 3     | 300      |                                           |
+| Pro       | R$ 197/mês   | 5     | 1.000    |                                           |
+| Business  | R$ 397/mês   | 10    | 3.000    |                                           |
+| Black     | R$ 697/mês   | 20    | 8.000    |                                           |
+| Elite     | R$ 997/mês   | 40    | 20.000   | Atendimento prioritário (resposta em 8 h) |
 
 Preços e limites ficam em `packages/shared/src/domain/billing.ts` (`BILLING_PLANS`). O resto do
 sistema é igual em todos os planos. A taxa do SellBridge (4% do preço dos produtos, fixa no código)
@@ -19,12 +19,17 @@ sai da parte do fornecedor em cada pagamento e não aparece para o revendedor. A
 proprietário pode assinar, pagar, trocar de plano, trocar a forma de pagamento e cancelar. Durante
 o acesso da equipe como cliente, essas ações ficam bloqueadas.
 
-## Sem plano e transição
+## Free sales and launch transition
 
-- **Sem plano** (conta nova, assinatura cancelada ou mensalidade não paga depois da carência):
-  não conecta loja nova nem publica anúncio novo. Pedidos, anúncios já no ar, estoque, preço e
-  reconexão de loja continuam. A tela de lojas e o início da conexão mandam para `/assinatura`
-  antes da página de consentimento do marketplace.
+- A reseller can use one connected store and 100 listings while using the first 20 confirmed sales
+  without a monthly fee. A slot is used per order verified as paid, across manual sales and synced
+  marketplace orders. Retries and status changes retain the same slot. A later reversal leaves the
+  slot used. Existing orders with recorded payments count toward the allowance.
+- After the allowance is used, a current subscription or staff courtesy is required to register a
+  manual sale, connect another store, publish a new listing, or forward a marketplace order beyond
+  the free allowance to the supplier. Marketplace orders are still imported. Existing publications,
+  store reconnections, stock and price updates, and shipments already underway continue. The reseller
+  can choose Essencial for R$ 49.90 per month or one of the other paid plans in `/assinatura`.
 - **Transição:** contas criadas antes de `BILLING_LAUNCHED_AT` continuam sem limites até
   `BILLING_TRANSITION_ENDS_AT` (30 dias recomendados). O painel ("Precisa de você") e a página
   avisam com o último dia; nos 7 dias finais o aviso fica vermelho.
@@ -33,15 +38,15 @@ o acesso da equipe como cliente, essas ações ficam bloqueadas.
 
 ## Conta cortesia (plano sem cobrança)
 
-A equipe pode conceder a uma conta um dos cinco planos sem cobrança (decisão de 20/11/2026,
-[docs/decisions/2026-11-20-conta-cortesia.md](decisions/2026-11-20-conta-cortesia.md)).
+Staff can grant any paid plan without charging the account.
+[Courtesy plan decision](decisions/2026-11-20-conta-cortesia.md)
 
 - **Onde:** na ficha do cliente em `/admin/clientes`, cartão "Plano sem cobrança". Só o perfil
   Administrador concede, muda e retira (`billing.grant_courtesy`); o motivo é obrigatório e tudo
   fica no registro de ações da equipe.
-- **Validade:** até o fim de um dia escolhido (horário de Brasília) ou sem data para acabar. A
-  partir de 7 dias antes, a conta vê o aviso com o último dia e a equipe vê a conta em "Cortesia
-  acabando", na fila de pendências. Vencendo, a conta fica sem plano; o que está no ar continua.
+- **Validity** runs through the end of the chosen day in Brasília, or indefinitely. The reseller
+  and staff receive a warning seven days before expiration. When the courtesy ends, accounts that
+  have never paid a subscription can use any remaining free sales.
 - **Limites:** os do plano concedido, nos mesmos bloqueios de conectar loja e publicar anúncio. O
   Elite por cortesia também tem atendimento prioritário.
 - **Cobrança:** nada é criado no Asaas por causa da cortesia. Se a conta já paga um plano, a
@@ -138,6 +143,9 @@ nova tentativa.
    (`ASAAS_API_URL` fica no padrão de produção), `BILLING_LAUNCHED_AT` e
    `BILLING_TRANSITION_ENDS_AT` (ISO 8601 em UTC, por exemplo `2026-12-01T03:00:00Z` para a
    meia-noite de Brasília), e retire `BILLING_UNLIMITED`.
+7. Apply migration `0120_free_sales_offer` before rolling out the web app and worker. Set the same
+   Asaas and billing launch variables on both services so manual and automatic forwarding enforce
+   the same rules. In unlimited mode, set `BILLING_UNLIMITED=true` on both services.
 
 Sem a conta do Asaas e as duas datas, os planos aparecem como "Em breve" e não há limite sobre a
 operação. Em produção isso só é aceito de propósito: o serviço web não inicia sem essas variáveis,

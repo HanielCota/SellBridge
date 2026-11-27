@@ -1,16 +1,12 @@
 import { createMercadoLivreConnector } from "./mercado-livre/mercado-livre-connector.ts";
-import { createShopeeConnector } from "./shopee/shopee-connector.ts";
+import { createShopeeConnector, type ShopeeConfig } from "./shopee/shopee-connector.ts";
 import { createTikTokShopConnector } from "./tiktok-shop/tiktok-shop-connector.ts";
 import type { MarketplaceConnector, MarketplaceId } from "./types.ts";
 import { createUnavailableConnector } from "./unavailable-connector.ts";
 
 export interface ConnectorRegistryConfig {
   mercadoLivre?: { clientId: string | undefined; clientSecret: string | undefined };
-  shopee?: {
-    partnerId: string | undefined;
-    partnerKey: string | undefined;
-    sandbox: boolean;
-  };
+  shopee?: ShopeeConfig;
   tiktokShop?: {
     appKey: string | undefined;
     appSecret: string | undefined;
@@ -35,11 +31,7 @@ export function createConnectorRegistry(config: ConnectorRegistryConfig): Connec
       clientId: config.mercadoLivre?.clientId,
       clientSecret: config.mercadoLivre?.clientSecret,
     }),
-    shopee: createShopeeConnector({
-      partnerId: config.shopee?.partnerId,
-      partnerKey: config.shopee?.partnerKey,
-      sandbox: config.shopee?.sandbox ?? false,
-    }),
+    shopee: createShopeeConnector(config.shopee ?? { partnerId: undefined, partnerKey: undefined }),
     tiktok_shop: createTikTokShopConnector({
       appKey: config.tiktokShop?.appKey,
       appSecret: config.tiktokShop?.appSecret,
