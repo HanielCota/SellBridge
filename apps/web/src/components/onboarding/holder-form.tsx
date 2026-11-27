@@ -5,7 +5,7 @@ import { TAX_REGIME_LABELS, TAX_REGIMES, type TaxRegime } from "@sellbridge/shar
 import { companySchema, fullNameSchema } from "@sellbridge/shared/schemas";
 import { useForm, useStore } from "@tanstack/react-form";
 import { getRouteApi } from "@tanstack/react-router";
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { FloatingTextField } from "@/components/form/floating-field";
 import { BillingNotice } from "@/components/region/billing-holder";
 import { Alert, AlertDescription } from "@/components/ui/alert";
@@ -34,21 +34,27 @@ function useHolderForm(
   const { session } = appRoute.useRouteContext();
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [lastSaved, setLastSaved] = useState(holder);
+  const finalizingSave = useRef(false);
   const form = useForm({
     defaultValues: holderDefaults(holder, session.user.name),
     onSubmit: async ({ value }) => {
       setSubmitError(null);
       try {
         const saved = await saveOnboardingHolder({ data: holderInput(value) });
+        finalizingSave.current = true;
         form.reset(holderDefaults(saved, session.user.name));
         setLastSaved(saved);
         await onSaved(saved);
       } catch (error) {
         setSubmitError(errorMessage(error));
+      } finally {
+        finalizingSave.current = false;
       }
     },
   });
-  return { form, submitError, lastSaved };
+  // The address fields remount after a save and may change form state while navigation settles.
+  const hasUnsavedChanges = () => !finalizingSave.current && !form.state.isDefaultValue;
+  return { form, submitError, lastSaved, hasUnsavedChanges };
 }
 
 /** A saved address whose city has no IBGE code: a company must pick it from the list again. */
@@ -83,12 +89,11 @@ export function HolderForm({
   submitLabel: string;
   onSaved: (saved: BillingHolder) => void | Promise<void>;
 }) {
-  const { form, submitError, lastSaved } = useHolderForm(holder, onSaved);
+  const { form, submitError, lastSaved, hasUnsavedChanges } = useHolderForm(holder, onSaved);
   const hasSubmitted = useStore(form.store, (state) => state.submissionAttempts > 0);
   const isDirty = useStore(form.store, (state) => !state.isDefaultValue);
   const isCompany = useStore(form.store, (state) => state.values.isCompany);
-  // A successful save resets the baseline before React renders the next navigation.
-  useUnsavedChanges(isDirty, () => !form.state.isDefaultValue);
+  useUnsavedChanges(isDirty, hasUnsavedChanges);
   return (
     <form
       noValidate

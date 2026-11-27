@@ -19,6 +19,8 @@ import { countLabel } from "@/lib/count-label";
 export type PickableSupplier = Awaited<ReturnType<typeof listSuppliers>>["suppliers"][number];
 
 const SEARCH_DELAY_MILLISECONDS = 300;
+const OPTION_GRID = "grid min-w-0 grid-cols-1 gap-3 @min-[32rem]:grid-cols-2";
+const ONBOARDING_GRID = "@min-[48rem]:grid-cols-3";
 
 function useSupplierOptions(term: string, state: string) {
   const query = useDebouncedValue(term.trim(), SEARCH_DELAY_MILLISECONDS);
@@ -40,16 +42,18 @@ function useSupplierOptions(term: string, state: string) {
 export function SupplierPicker({
   value,
   onChange,
+  onboarding = false,
 }: {
   value: string | null;
   onChange: (supplier: PickableSupplier) => void;
+  onboarding?: boolean;
 }) {
   const [term, setTerm] = useState("");
   const [state, setState] = useState(ALL_STATES);
   const query = useSupplierOptions(term, state);
   const shown = query.data?.suppliers ?? [];
   return (
-    <div className="grid min-w-0 grid-cols-1 gap-4">
+    <div className="@container grid min-w-0 grid-cols-1 gap-4">
       <div className="flex flex-col gap-3 sm:flex-row">
         <SearchInput
           label="Buscar fornecedor por nome, nicho ou produto"
@@ -58,7 +62,9 @@ export function SupplierPicker({
           value={term}
           onValueChange={setTerm}
         />
-        <SupplierStateSelect value={state} onChange={setState} className="sm:w-56" />
+        {onboarding ? null : (
+          <SupplierStateSelect value={state} onChange={setState} className="sm:w-56" />
+        )}
       </div>
       <SupplierOptions
         query={query}
@@ -66,6 +72,7 @@ export function SupplierPicker({
         value={value}
         onChange={onChange}
         isFiltered={term.trim().length > 0 || state !== ALL_STATES}
+        onboarding={onboarding}
       />
     </div>
   );
@@ -77,16 +84,21 @@ function SupplierOptions({
   value,
   onChange,
   isFiltered,
+  onboarding,
 }: {
   query: ReturnType<typeof useSupplierOptions>;
   suppliers: readonly PickableSupplier[];
   value: string | null;
   onChange: (supplier: PickableSupplier) => void;
   isFiltered: boolean;
+  onboarding: boolean;
 }) {
   const name = useId();
+  const grid = onboarding
+    ? cn(OPTION_GRID, ONBOARDING_GRID)
+    : "grid grid-cols-1 gap-3 sm:grid-cols-2";
   if (query.isPending) {
-    return <SupplierOptionsSkeleton />;
+    return <SupplierOptionsSkeleton grid={grid} />;
   }
   if (query.isError) {
     return <ErrorState message={errorMessage(query.error)} onRetry={() => void query.refetch()} />;
@@ -97,18 +109,17 @@ function SupplierOptions({
         icon={StorefrontIcon}
         title={isFiltered ? "Nenhum fornecedor com esses filtros" : "Nenhum fornecedor ainda"}
         description={
-          isFiltered ? "Tente outro nome, nicho ou estado." : "Ainda não há fornecedores ativos."
+          isFiltered
+            ? onboarding
+              ? "Tente outro nome, nicho ou produto."
+              : "Tente outro nome, nicho ou estado."
+            : "Ainda não há fornecedores ativos."
         }
       />
     );
   }
   return (
-    <div
-      role="radiogroup"
-      aria-label="Fornecedores"
-      aria-busy={query.isFetching}
-      className="grid grid-cols-1 gap-3 sm:grid-cols-2"
-    >
+    <div role="radiogroup" aria-label="Fornecedores" aria-busy={query.isFetching} className={grid}>
       {suppliers.map((supplier) => (
         <SupplierOption
           key={supplier.id}
@@ -178,13 +189,9 @@ function SupplierOption({
   );
 }
 
-function SupplierOptionsSkeleton() {
+function SupplierOptionsSkeleton({ grid }: { grid: string }) {
   return (
-    <output
-      className="grid grid-cols-1 gap-3 sm:grid-cols-2"
-      aria-busy="true"
-      aria-label="Carregando fornecedores"
-    >
+    <output className={grid} aria-busy="true" aria-label="Carregando fornecedores">
       {Array.from({ length: 4 }, (_, index) => (
         <Skeleton key={index} className="h-40 rounded-3xl" />
       ))}

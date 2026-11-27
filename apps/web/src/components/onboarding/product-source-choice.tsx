@@ -64,7 +64,7 @@ function SourceChoiceActions({
   onSave: () => void;
 }) {
   return (
-    <div className="sticky bottom-3 z-10 flex flex-wrap items-center gap-2 rounded-3xl border border-border bg-card p-2">
+    <div className="sticky top-[var(--app-header-height,0px)] z-10 flex flex-wrap items-center justify-between gap-2 border-b border-border bg-card py-2">
       <Button
         type="button"
         variant="ghost"
@@ -116,9 +116,6 @@ export function ProductSourceChoice({
           fornecedor da sua próxima loja, e dá para trocar depois.
         </p>
       </div>
-      <fieldset disabled={saving.isSaving || saving.isSaved} aria-label="Escolha do fornecedor">
-        <SupplierPicker value={supplierId} onChange={(supplier) => setSupplierId(supplier.id)} />
-      </fieldset>
       {saving.error === null ? null : (
         <Alert variant="destructive">
           <AlertDescription>{saving.error}</AlertDescription>
@@ -134,6 +131,17 @@ export function ProductSourceChoice({
           void saving.save({ mode: SUPPLIERS_MODE, supplierId });
         }}
       />
+      <fieldset
+        className="min-w-0"
+        disabled={saving.isSaving || saving.isSaved}
+        aria-label="Escolha do fornecedor"
+      >
+        <SupplierPicker
+          value={supplierId}
+          onChange={(supplier) => setSupplierId(supplier.id)}
+          onboarding
+        />
+      </fieldset>
     </div>
   );
 }

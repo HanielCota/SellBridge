@@ -4,7 +4,7 @@ import {
   SUPPLIER_SORTS,
   supplierListSearchSchema,
 } from "@sellbridge/shared/schemas";
-import { useQuery } from "@tanstack/react-query";
+import { keepPreviousData, useQuery } from "@tanstack/react-query";
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { PackageIcon, StorefrontIcon } from "@phosphor-icons/react";
 import { FilterTabs } from "@/components/data/filter-tabs";
@@ -153,15 +153,22 @@ function CitySelect({ cities }: { cities: readonly string[] }) {
 function NicheTabs() {
   const search = Route.useSearch();
   const navigate = useNavigate({ from: Route.fullPath });
-  const { data } = useQuery(suppliersQueryOptions(search));
+  const { data } = useQuery({
+    ...suppliersQueryOptions(search),
+    placeholderData: keepPreviousData,
+  });
   const niches = data?.niches ?? [];
   if (niches.length === 0) {
     return null;
   }
   return (
-    <div className="-mx-1 overflow-x-auto px-1 pb-1">
+    <div className="-mx-1 px-1 pb-1">
       <FilterTabs
         legend="Nicho"
+        scrollLabels={{
+          left: "Rolar nichos para a esquerda",
+          right: "Rolar nichos para a direita",
+        }}
         tabs={[
           { value: ALL_NICHES, label: "Todos" },
           ...niches.map((niche) => ({ value: niche, label: niche })),

@@ -12,6 +12,36 @@ import {
 
 const PHONE = "(11) 98765-4321";
 
+test("the setup guide advances from saved details to supplier and then to stores", async ({
+  page,
+}) => {
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await signUp(page, "Revendedora Guia de Cadastro");
+  await gotoHydrated(page, "/dashboard");
+  const guide = page.getByRole("region", { name: "Falta pouco para sua primeira venda" });
+  await guide.getByRole("link", { name: "Completar cadastro" }).click();
+  await page.getByLabel("CPF").fill(testCpf());
+  await page.getByLabel("Telefone com DDD").fill(PHONE);
+  await fillBillingAddress(page);
+  await page.getByRole("button", { name: "Salvar dados" }).click();
+
+  await expect(page.getByRole("heading", { name: "Seu fornecedor", exact: true })).toBeVisible();
+  const options = page.getByRole("radiogroup", { name: "Fornecedores" });
+  await expect(options).toBeVisible();
+  await expect(page.getByText("Todo o Brasil", { exact: true })).toHaveCount(0);
+  await expect
+    .poll(() =>
+      options.evaluate(
+        (element) => getComputedStyle(element).gridTemplateColumns.split(" ").length,
+      ),
+    )
+    .toBe(3);
+
+  await pickSupplier(page, "BH Beauty Distribuidora");
+  await page.getByRole("button", { name: "Salvar fornecedor" }).click();
+  await expect(page).toHaveURL(/\/lojas/);
+});
+
 test.describe("cadastro do revendedor", () => {
   test("novo usuário informa nome, CPF e telefone e escolhe o fornecedor", async ({ page }) => {
     const cpf = testCpf();
@@ -92,6 +122,25 @@ test.describe("cadastro do revendedor", () => {
 });
 
 test.describe("busca de fornecedores", () => {
+  test("scrolls overflowing supplier niches with the visible arrow buttons", async ({ page }) => {
+    await page.emulateMedia({ reducedMotion: "reduce" });
+    await page.setViewportSize({ width: 375, height: 812 });
+    await signIn(page, DEMO_USER);
+    await gotoHydrated(page, "/fornecedores");
+
+    const track = page.getByRole("group", { name: "Nicho", exact: true });
+    const left = page.getByRole("button", { name: "Rolar nichos para a esquerda" });
+    const right = page.getByRole("button", { name: "Rolar nichos para a direita" });
+    const position = () => track.evaluate((element) => element.scrollLeft);
+
+    await expect(right).toBeEnabled();
+    await expect(left).toBeDisabled();
+    await right.click();
+    await expect.poll(position).toBeGreaterThan(0);
+    await left.press("Enter");
+    await expect.poll(position).toBe(0);
+  });
+
   test("sem endereço, mostra fornecedores de todo o Brasil, sem falar em região", async ({
     page,
   }) => {

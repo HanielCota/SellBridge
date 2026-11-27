@@ -58,7 +58,10 @@ function StepAction({ step, done = false }: { step: SetupStep; done?: boolean })
     const isHolder = step.key === "hasHolder";
     return (
       <Button asChild variant={done ? "outline" : "default"} className={STEP_ACTION_CLASS_NAME}>
-        <Link to="/onboarding" search={{ step: isHolder ? "details" : "supplier" }}>
+        <Link
+          to="/onboarding"
+          search={{ step: isHolder ? "details" : "supplier", flow: done ? undefined : "setup" }}
+        >
           {done ? (isHolder ? "Editar dados" : "Trocar fornecedor") : step.cta}
           <ArrowRightIcon aria-hidden="true" />
         </Link>
