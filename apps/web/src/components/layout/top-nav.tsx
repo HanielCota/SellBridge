@@ -100,7 +100,9 @@ export function TopNav({
           )}
           <div className="staff-header-controls">
             {isSupplier || teamOnly ? null : <CommandPalette iconOnly />}
-            {teamOnly ? null : <NotificationBell title="Notificações" />}
+            {teamOnly ? null : (
+              <NotificationBell title={isStaffRole(user.role) ? "Notificações" : "Avisos"} />
+            )}
             <ProfileCard user={user} adminMode={adminMode} profileKind={profileKind} inHeader />
           </div>
         </div>
