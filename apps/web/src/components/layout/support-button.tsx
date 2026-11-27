@@ -1,7 +1,7 @@
 import { PlusIcon } from "@phosphor-icons/react";
 import { Link } from "@tanstack/react-router";
 import { Popover } from "radix-ui";
-import { useState } from "react";
+import { useState, type ReactNode } from "react";
 import { ACTION_ICONS } from "@/components/icons/action-icons";
 import type { ProfileKind } from "@sellbridge/shared/profile-kind";
 import { RecentTickets } from "@/components/support/recent-tickets";
@@ -64,10 +64,10 @@ function SupportActions({ kind, onNavigate }: { kind: ProfileKind; onNavigate: (
 }
 
 /** The row's icon, word and unread count. */
-function SupportTriggerContent({ unread }: { unread: number }) {
+function SupportTriggerContent({ unread, icon }: { unread: number; icon: ReactNode }) {
   return (
     <>
-      <SupportIcon className="size-5 shrink-0" aria-hidden="true" />
+      {icon}
       <span className="min-w-0 flex-1 truncate text-left" aria-hidden="true">
         Suporte
       </span>
@@ -84,9 +84,14 @@ function SupportTriggerContent({ unread }: { unread: number }) {
 export function SupportButton({
   unread,
   profileKind,
+  className,
+  icon = <SupportIcon className="size-5 shrink-0" aria-hidden="true" />,
 }: {
   unread: number;
   profileKind: ProfileKind;
+  /** Row classes of the menu it sits in; the old sidebar's tab look by default. */
+  className?: string;
+  icon?: ReactNode;
 }) {
   const [open, setOpen] = useState(false);
   const close = () => setOpen(false);
@@ -96,11 +101,11 @@ export function SupportButton({
         <Popover.Trigger
           aria-label={supportButtonLabel(unread)}
           className={cn(
-            navTabClassName({ isActive: false, paintsOwnPill: true, padding: "px-4" }),
+            className ?? navTabClassName({ isActive: false, paintsOwnPill: true, padding: "px-4" }),
             "w-full data-[state=open]:bg-foreground/[0.06] data-[state=open]:text-foreground",
           )}
         >
-          <SupportTriggerContent unread={unread} />
+          <SupportTriggerContent unread={unread} icon={icon} />
         </Popover.Trigger>
       </Hint>
       <Popover.Portal>
