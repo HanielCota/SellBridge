@@ -14,7 +14,7 @@
     "@sellbridge/marketplaces": "workspace:*",
     "@sellbridge/payments": "workspace:*",
     "@sellbridge/shared": "workspace:*",
-    "bullmq": "^6.3.14",
+    "bullmq": "^6.7.8",
     "drizzle-orm": "^0.45.4",
     "tsx": "^4.23.15",
     "zod": "^4.6.7"
@@ -23,6 +23,6 @@
     "@sellbridge/config": "workspace:*",
     "@types/node": "^26.6.6",
     "typescript": "^7.0.2",
-    "vitest": "^5.1.0"
+    "vitest": "^5.1.1"
   }
 }
