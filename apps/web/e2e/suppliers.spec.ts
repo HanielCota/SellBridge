@@ -20,12 +20,17 @@ test("the setup guide advances from saved details to supplier and then to stores
   await gotoHydrated(page, "/dashboard");
   const guide = page.getByRole("region", { name: "Falta pouco para sua primeira venda" });
   await guide.getByRole("link", { name: "Completar cadastro" }).click();
+  // Each step of the setup keeps the progress in sight, one step leading to the next.
+  const progress = page.getByRole("complementary", { name: "Configuração da conta" });
+  await expect(progress).toContainText("Passo atual: seus dados");
   await page.getByLabel("CPF").fill(testCpf());
   await page.getByLabel("Telefone com DDD").fill(PHONE);
   await fillBillingAddress(page);
   await page.getByRole("button", { name: "Salvar dados" }).click();
 
   await expect(page.getByRole("heading", { name: "Seu fornecedor", exact: true })).toBeVisible();
+  await expect(progress).toContainText("Passo atual: escolha seu fornecedor");
+  await expect(progress).toBeInViewport();
   const options = page.getByRole("radiogroup", { name: "Fornecedores" });
   await expect(options).toBeVisible();
   await expect(page.getByText("Todo o Brasil", { exact: true })).toHaveCount(0);

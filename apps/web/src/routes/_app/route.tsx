@@ -10,6 +10,7 @@ import {
   redirect,
   retainSearchParams,
   useRouterState,
+  useSearch,
 } from "@tanstack/react-router";
 import { StaffSidebarLayout } from "@/components/layout/staff-sidebar";
 import { SideNav } from "@/components/layout/side-nav";
@@ -31,6 +32,7 @@ import {
   tabProfile,
 } from "@/lib/tab-profile";
 import { findNextStep } from "@/features/onboarding/setup-progress";
+import { setupStripMode } from "@/features/onboarding/setup-guide-visibility";
 import { needsTermsAcceptance } from "@/features/onboarding/terms-gate";
 import { ContractReminder } from "@/components/contract-signing/contract-reminder";
 import {
@@ -140,26 +142,22 @@ async function prefetchSetupProgress(
   await queryClient.prefetchQuery(options);
 }
 
-/** Pages that already guide the setup themselves, or are not about the reseller's store. */
-const NO_SETUP_STRIP = ["/dashboard", "/onboarding", "/admin", "/perfil", "/suporte"];
-
 function SetupReminder() {
   const pathname = useRouterState({ select: (state) => state.location.pathname });
-  const hidden = NO_SETUP_STRIP.some(
-    (path) => pathname === path || pathname.startsWith(`${path}/`),
-  );
-  // Disabled, not unmounted: the observer keeps the loader's data cached on pages without the
-  // strip, so it is already there on the next page.
-  const query = useQuery({ ...setupProgressQueryOptions(), enabled: !hidden });
-  if (hidden || !query.data) {
+  const inSetupFlow = useSearch({ strict: false, select: (search) => search.flow === "setup" });
+  const query = useQuery(setupProgressQueryOptions());
+  if (query.data === undefined) {
     return null;
   }
-  const next = findNextStep(query.data);
-  // The page of the next step already explains it.
-  if (next && pathname.startsWith(next.to)) {
+  const mode = setupStripMode({
+    pathname,
+    inSetupFlow,
+    nextStepPath: findNextStep(query.data)?.to,
+  });
+  if (mode === "hidden") {
     return null;
   }
-  return <SetupStrip progress={query.data} />;
+  return <SetupStrip progress={query.data} current={mode === "current"} />;
 }
 
 const dashboardRoute = getRouteApi("/_app/dashboard");

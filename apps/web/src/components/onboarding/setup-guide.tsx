@@ -349,13 +349,15 @@ function StripToggle({
 
 /**
  * A thin reminder on other pages until the setup is done. On the dashboard it is the minimized
- * guide, with the button that brings the whole guide back.
+ * guide, with the button that brings the whole guide back. On the page of the step being done
+ * (`current`) it only shows the progress, so one step leads to the next with the bar in sight.
  */
 export function SetupStrip({
   progress,
   onToggle,
   toggleRef,
-}: { progress: SetupProgress } & Partial<GuideToggleProps>) {
+  current = false,
+}: { progress: SetupProgress; current?: boolean } & Partial<GuideToggleProps>) {
   const next = findNextStep(progress);
   if (!next) {
     return null;
@@ -365,7 +367,8 @@ export function SetupStrip({
       <span className="text-muted-foreground tabular-nums">
         Configuração {setupPercent(progress)}% · ~{remainingSetupMinutes(progress)} min ·
       </span>{" "}
-      Próximo passo: <span className="font-medium">{next.title.toLowerCase()}</span>
+      {current ? "Passo atual" : "Próximo passo"}:{" "}
+      <span className="font-medium">{next.title.toLowerCase()}</span>
     </span>
   );
   const bar = (
@@ -378,9 +381,11 @@ export function SetupStrip({
       aria-label="Configuração da conta"
       className="surface-card flex flex-col gap-3 rounded-3xl bg-card px-5 py-3 sm:flex-row sm:items-center"
     >
-      <div className="flex shrink-0 flex-wrap gap-2">
-        <StepAction step={next} />
-      </div>
+      {current ? null : (
+        <div className="flex shrink-0 flex-wrap gap-2">
+          <StepAction step={next} />
+        </div>
+      )}
       {onToggle === undefined ? (
         <>
           {text}

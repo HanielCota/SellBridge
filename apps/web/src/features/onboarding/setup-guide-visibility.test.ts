@@ -1,6 +1,6 @@
 import { runInNewContext } from "node:vm";
 import { describe, expect, it } from "vitest";
-import { setupGuideInitScript, setupGuideView } from "./setup-guide-visibility";
+import { setupGuideInitScript, setupGuideView, setupStripMode } from "./setup-guide-visibility";
 
 describe("setupGuideView", () => {
   it("opens the whole guide while the setup is not done and nothing was chosen", () => {
@@ -60,5 +60,43 @@ describe("setupGuideInitScript", () => {
     });
 
     expect(dataset).toEqual({});
+  });
+});
+
+describe("setupStripMode", () => {
+  it("keeps the progress on the details and supplier steps of the setup flow", () => {
+    expect(
+      setupStripMode({ pathname: "/onboarding", inSetupFlow: true, nextStepPath: "/onboarding" }),
+    ).toBe("current");
+  });
+
+  it("hides the strip on the profile page opened outside the setup flow", () => {
+    expect(
+      setupStripMode({ pathname: "/onboarding", inSetupFlow: false, nextStepPath: "/onboarding" }),
+    ).toBe("hidden");
+  });
+
+  it("shows the progress without a button on the page of the next step", () => {
+    expect(setupStripMode({ pathname: "/lojas", inSetupFlow: false, nextStepPath: "/lojas" })).toBe(
+      "current",
+    );
+  });
+
+  it("points at the next step from any other store page", () => {
+    expect(
+      setupStripMode({ pathname: "/pedidos", inSetupFlow: false, nextStepPath: "/catalogo" }),
+    ).toBe("next");
+  });
+
+  it("hides the strip once the setup is done", () => {
+    expect(
+      setupStripMode({ pathname: "/pedidos", inSetupFlow: false, nextStepPath: undefined }),
+    ).toBe("hidden");
+  });
+
+  it("keeps the dashboard to its own guide", () => {
+    expect(
+      setupStripMode({ pathname: "/dashboard", inSetupFlow: true, nextStepPath: "/lojas" }),
+    ).toBe("hidden");
   });
 });

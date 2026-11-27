@@ -95,3 +95,37 @@ export function useSetupGuideChoice(): {
   const setHidden = useCallback((hidden: boolean) => saveChoice(hidden), []);
   return { choice, setHidden };
 }
+
+/**
+ * How a page shows the setup strip: not at all, as the step the reseller is doing right now
+ * (progress only, no button to the page they are on), or pointing at the next step.
+ */
+export type SetupStripMode = "hidden" | "current" | "next";
+
+/** Pages that guide the setup themselves, or are not about the reseller's store. */
+const NO_SETUP_STRIP_PATHS = ["/dashboard", "/onboarding", "/admin", "/perfil", "/suporte"];
+
+function isUnder(pathname: string, path: string): boolean {
+  return pathname === path || pathname.startsWith(`${path}/`);
+}
+
+export function setupStripMode({
+  pathname,
+  inSetupFlow,
+  nextStepPath,
+}: {
+  pathname: string;
+  inSetupFlow: boolean;
+  nextStepPath: string | undefined;
+}): SetupStripMode {
+  if (nextStepPath === undefined) {
+    return "hidden";
+  }
+  if (inSetupFlow && isUnder(pathname, "/onboarding")) {
+    return "current";
+  }
+  if (NO_SETUP_STRIP_PATHS.some((path) => isUnder(pathname, path))) {
+    return "hidden";
+  }
+  return isUnder(pathname, nextStepPath) ? "current" : "next";
+}

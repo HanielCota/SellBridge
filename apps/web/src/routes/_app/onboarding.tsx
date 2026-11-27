@@ -138,9 +138,11 @@ function useFinishOnboarding() {
         hasSupplier: search.step === "supplier" || progress.hasSupplier,
       });
       if (next?.key === "hasHolder" || next?.key === "hasSupplier") {
+        // A new step is a new page: start it at the top, where the setup progress is.
         await navigate({
           to: "/onboarding",
           search: { step: next.key === "hasHolder" ? "details" : "supplier", flow: "setup" },
+          resetScroll: true,
         });
         return;
       }
