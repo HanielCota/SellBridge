@@ -38,7 +38,6 @@ const orderSchema = z.object({
   currency: z.literal("BRL"),
   order_status: z.string(),
   create_time: timestamp,
-  total_amount: amount,
   recipient_address: z.unknown().optional(),
   item_list: z
     .array(
@@ -88,6 +87,8 @@ const escrowRowSchema = z.object({
           seller_transaction_fee: signedAmount.optional(),
           seller_order_processing_fee: signedAmount.optional(),
           order_ams_commission_fee: signedAmount.optional(),
+          /** What the buyer finally paid for the items, without shipping (bundle deals included). */
+          cost_of_goods_sold: signedAmount.optional(),
         })
         .optional(),
     })
@@ -114,7 +115,7 @@ const ESCROW_PAGE_SIZE = 20;
 const MAX_BATCH_ORDERS = 1_000;
 const MAX_LIST_PAGES_PER_WINDOW = 100;
 const WINDOW_SECONDS = 15 * 24 * 60 * 60;
-const ORDER_FIELDS = "total_amount,item_list,recipient_address";
+const ORDER_FIELDS = "item_list,recipient_address";
 const unresolvedOrderStatus = z.enum(["IN_CANCEL", "TO_RETURN"]);
 const unresolvedOrder = z.object({ order_status: unresolvedOrderStatus });
 
@@ -132,8 +133,36 @@ function parseSerial(serial: string): string {
   return serial;
 }
 
-function cents(value: number): number {
-  return Math.min(MAX_STORED_CENTS, Math.round(value * 100));
+/** An amount, or a sum of amounts, that must fit the integer cents columns it is stored in. */
+function storedCents(value: number, field: string): number {
+  const result = Math.round(value * 100);
+  if (result > MAX_STORED_CENTS) {
+    // Final, not retryable: reading the order again returns the same amount.
+    throw marketplaceError(
+      `Pedido da Shopee com ${field} acima do valor que o SellBridge guarda.`,
+      {
+        retryable: false,
+      },
+    );
+  }
+  return result;
+}
+
+/** One unit's price: Shopee reports 0 as the discounted price of a bundle deal item. */
+function unitPrice(item: {
+  model_original_price: number;
+  model_discounted_price?: number | null | undefined;
+}) {
+  const discounted = item.model_discounted_price;
+  return discounted === undefined || discounted === null || discounted === 0
+    ? item.model_original_price
+    : discounted;
+}
+
+interface EscrowIncome {
+  feeCents?: number | undefined;
+  /** What the buyer paid for the items, without the shipping (`cost_of_goods_sold`). */
+  itemsTotalCents?: number | undefined;
 }
 
 function fold(text: string): string {
@@ -170,10 +199,27 @@ function readRecipient(raw: unknown) {
   return reading.kind === "available" ? reading.address : null;
 }
 
+/**
+ * The sale's value is what the buyer pays for the items, as with the other marketplaces: Shopee's
+ * `total_amount` also carries the shipping the buyer paid. The escrow's amount is preferred, since
+ * item prices do not show a bundle deal's discount.
+ */
+function itemsTotalCents(raw: z.output<typeof orderSchema>, income: EscrowIncome | undefined) {
+  if (income?.itemsTotalCents !== undefined) {
+    return income.itemsTotalCents;
+  }
+  const total = raw.item_list.reduce(
+    (sum, item) => sum + unitPrice(item) * item.model_quantity_purchased,
+    0,
+  );
+  return storedCents(total, "total");
+}
+
 function mapOrder(
   raw: z.output<typeof orderSchema>,
-  fees: ReadonlyMap<string, number>,
+  escrow: ReadonlyMap<string, EscrowIncome>,
 ): MarketplaceOrder {
+  const income = escrow.get(raw.order_sn);
   const address = readRecipient(raw.recipient_address);
   const recipient = recipientSchema.safeParse(raw.recipient_address);
   const status = Object.hasOwn(orderStatuses, raw.order_status)
@@ -196,8 +242,8 @@ function mapOrder(
   return {
     externalOrderId: raw.order_sn,
     status,
-    totalCents: cents(raw.total_amount),
-    marketplaceFeeCents: fees.get(raw.order_sn),
+    totalCents: itemsTotalCents(raw, income),
+    marketplaceFeeCents: income?.feeCents,
     buyerName: recipient.success ? recipient.data.name?.trim().slice(0, 120) || null : null,
     shippingAddress: address ?? undefined,
     orderedAt: new Date(raw.create_time * 1_000),
@@ -206,7 +252,7 @@ function mapOrder(
         item.model_id === 0 ? String(item.item_id) : `${item.item_id}:${item.model_id}`,
       title: [item.item_name, item.model_name].filter(Boolean).join(" - ").slice(0, 240),
       quantity: item.model_quantity_purchased,
-      unitPriceCents: cents(item.model_discounted_price ?? item.model_original_price),
+      unitPriceCents: storedCents(unitPrice(item), "preço"),
     })),
   };
 }
@@ -259,6 +305,9 @@ function feeCents(
   orderSn: string,
   parts: readonly (number | undefined)[],
 ) {
+  if (parts.every((part) => part === undefined)) {
+    return undefined;
+  }
   const total = Math.round(parts.reduce<number>((sum, part) => sum + (part ?? 0), 0) * 100);
   if (total >= 0) {
     return total;
@@ -268,9 +317,9 @@ function feeCents(
   return 0;
 }
 
-/** Each escrow row is read on its own: one odd row must not drop the fees of the others. */
-async function readFees(context: ShopeeContext, store: StoreCredentials, serials: string[]) {
-  const fees = new Map<string, number>();
+/** Each escrow row is read on its own: one odd row must not drop the income of the others. */
+async function readIncome(context: ShopeeContext, store: StoreCredentials, serials: string[]) {
+  const incomes = new Map<string, EscrowIncome>();
   for (let offset = 0; offset < serials.length; offset += ESCROW_PAGE_SIZE) {
     const requested = serials.slice(offset, offset + ESCROW_PAGE_SIZE);
     for (const raw of await readEscrow(context, store, requested)) {
@@ -285,14 +334,18 @@ async function readFees(context: ShopeeContext, store: StoreCredentials, serials
         continue;
       }
 
-      const parts = Object.values(escrow.order_income);
-      if (parts.some((part) => part !== undefined)) {
-        fees.set(escrow.order_sn, feeCents(store, escrow.order_sn, parts));
-      }
+      const { cost_of_goods_sold: itemsTotal, ...fees } = escrow.order_income;
+      incomes.set(escrow.order_sn, {
+        feeCents: feeCents(store, escrow.order_sn, Object.values(fees)),
+        itemsTotalCents:
+          itemsTotal === undefined || itemsTotal <= 0
+            ? undefined
+            : storedCents(itemsTotal, "total"),
+      });
     }
   }
 
-  return fees;
+  return incomes;
 }
 
 function feeCandidates(rows: readonly unknown[]): string[] {
@@ -329,8 +382,8 @@ export async function fetchOrder(
     throw missingOrder();
   }
 
-  const fees = await readFees(context, store, feeCandidates([order.data]));
-  return mapOrder(order.data, fees);
+  const income = await readIncome(context, store, feeCandidates([order.data]));
+  return mapOrder(order.data, income);
 }
 
 export async function readOrderPackages(
@@ -440,10 +493,10 @@ export async function listOrders(
       const detail = await readDetails(context, store, requested, ORDER_FIELDS);
       // Keep the last confirmed state during a cancellation or a return request.
       const rows = detail.order_list.filter((row) => !unresolvedOrder.safeParse(row).success);
-      const fees = await readFees(context, store, feeCandidates(rows));
+      const income = await readIncome(context, store, feeCandidates(rows));
       const windowOrders = readableOrders(rows, {
         schema: orderSchema,
-        map: (raw) => mapOrder(raw, fees),
+        map: (raw) => mapOrder(raw, income),
         event: "shopee.order_skipped",
         channelOwner: "da Shopee",
         externalShopId: store.externalShopId,

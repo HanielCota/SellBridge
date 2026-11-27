@@ -316,6 +316,64 @@ describe("Shopee order intake", () => {
     ).toEqual({ [SERIAL]: undefined, [OTHER]: 725 });
   });
 
+  it("values the sale by its items, without the shipping the buyer paid", async () => {
+    const { connector } = setup({
+      "GET /api/v2/order/get_order_detail": () =>
+        success({ order_list: [{ ...RAW_ORDER, total_amount: 120.98 }] }),
+      "POST /api/v2/payment/get_escrow_detail_batch": () => success([]),
+    });
+
+    const order = await connector.fetchOrder(STORE, SERIAL);
+
+    expect(order.totalCents).toBe(10_098);
+  });
+
+  it("values a bundle deal by what the buyer paid for the items, never at zero", async () => {
+    const bundle = {
+      ...RAW_ORDER,
+      item_list: [{ ...RAW_ORDER.item_list[0], model_discounted_price: 0 }],
+    };
+    const { connector } = setup({
+      "GET /api/v2/order/get_order_detail": () => success({ order_list: [bundle] }),
+      "POST /api/v2/payment/get_escrow_detail_batch": () =>
+        success([
+          {
+            escrow_detail: {
+              order_sn: SERIAL,
+              order_income: { commission_fee: 5, cost_of_goods_sold: 95 },
+            },
+          },
+        ]),
+    });
+
+    const order = await connector.fetchOrder(STORE, SERIAL);
+
+    expect(order).toMatchObject({
+      totalCents: 9_500,
+      marketplaceFeeCents: 500,
+      items: [{ unitPriceCents: 5_495 }],
+    });
+  });
+
+  it("refuses an order above the stored limit instead of cutting its value", async () => {
+    const huge = {
+      ...RAW_ORDER,
+      item_list: [
+        {
+          ...RAW_ORDER.item_list[0],
+          model_quantity_purchased: 1_000,
+          model_discounted_price: 21_474_836,
+        },
+      ],
+    };
+    const { connector } = setup({
+      "GET /api/v2/order/get_order_detail": () => success({ order_list: [huge] }),
+      "POST /api/v2/payment/get_escrow_detail_batch": () => success([]),
+    });
+
+    await expect(connector.fetchOrder(STORE, SERIAL)).rejects.toThrow(/acima do valor/);
+  });
+
   it("lists changes to orders placed before the reconciliation window", async () => {
     const since = new Date(NOW.getTime() - 60_000);
     const { connector, calls } = setup({
