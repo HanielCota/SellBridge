@@ -111,6 +111,10 @@ export interface BillingSubscriptionState {
   status: string;
   periodEnd: Date | null;
   firstPaidOn?: string | null;
+  /** Bound only once a first payment lands: a waiting Pix subscription stays pending. */
+  subscriptionId?: string | null;
+  /** The end of a month an earlier subscription already paid. */
+  prepaidUntil?: Date | null;
   /** A smaller plan the reseller chose: it replaces `plan` from `scheduledPlanAt` on. */
   scheduledPlan?: string | null;
   scheduledPlanAt?: Date | null;
@@ -209,6 +213,16 @@ function transitionEnd(input: BillingAccessInput, now: Date): Date | null {
 }
 
 /**
+ * Any trace of a payment (a bound subscription, a prepaid month, a first payment day, a period or
+ * an overdue charge) ends the free offer for good, even before the first payment day is stored.
+ */
+function hasNeverPaid(subscription: BillingSubscriptionState): boolean {
+  if (subscription.subscriptionId != null || subscription.prepaidUntil != null) return false;
+  if (subscription.firstPaidOn != null || subscription.periodEnd !== null) return false;
+  return !["past_due", "unpaid"].includes(subscription.status);
+}
+
+/**
  * A paid plan counts first, unless the courtesy plan is at least as large (a month still paid
  * after the courtesy stopped its renewal). An account in the launch transition keeps its
  * unlimited access over a courtesy plan, which only takes over when the transition ends.
@@ -225,12 +239,7 @@ export function billingAccess(input: BillingAccessInput, now = new Date()): Bill
   const until = transitionEnd(input, now);
   if (until !== null) return { kind: "transition", until };
   if (courtesy !== null) return { kind: "plan", plan: courtesy, source: "courtesy" };
-  const subscription = input.subscription;
-  const neverPaid =
-    subscription === null ||
-    (subscription.firstPaidOn == null &&
-      subscription.periodEnd === null &&
-      !["past_due", "unpaid"].includes(subscription.status));
+  const neverPaid = input.subscription === null || hasNeverPaid(input.subscription);
   if (neverPaid && input.freeSalesUsed !== undefined && input.freeSalesUsed < FREE_SALE_LIMIT) {
     return { kind: "free", salesUsed: input.freeSalesUsed };
   }
