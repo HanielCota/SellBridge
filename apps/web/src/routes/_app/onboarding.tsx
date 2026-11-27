@@ -14,11 +14,13 @@ import { EditOnboardingProfile } from "@/components/onboarding/edit-profile";
 import { StepProgress } from "@/components/region/billing-holder";
 import { Button } from "@/components/ui/button";
 import { getOnboardingProfile } from "@/features/onboarding/onboarding.functions";
-import { findNextStep, SETUP_STEPS } from "@/features/onboarding/setup-progress";
+import { findNextStep, SETUP_STEPS, setupStepExit } from "@/features/onboarding/setup-progress";
 import { setupProgressQueryOptions } from "@/features/reports/reports.queries";
 
 const onboardingSearchSchema = z.object({
   redirect: internalPathSchema,
+  // The page the setup flow was started from: once no step is left, the reseller goes back there.
+  from: internalPathSchema,
   step: z.enum(["details", "supplier"]).optional(),
   flow: optionalParameter(z.literal("setup")),
 });
@@ -64,10 +66,10 @@ function OnboardingStepEditor({
   profile: OnboardingProfile;
 }) {
   const finish = useFinishOnboarding();
-  const { flow, redirect } = Route.useSearch();
+  const backFromSupplier = useBackFromSupplier();
+  const { flow } = Route.useSearch();
   const router = useRouter();
   const [saved, setSaved] = useState(false);
-  const navigate = useNavigate();
   return (
     <div className={`mx-auto w-full space-y-6 ${step === "supplier" ? "max-w-6xl" : "max-w-3xl"}`}>
       {step === "details" ? (
@@ -100,21 +102,24 @@ function OnboardingStepEditor({
             }}
           />
         ) : (
-          <ProductSourceChoice
-            profile={profile}
-            onSaved={finish}
-            onBack={() => {
-              if (flow === "setup") {
-                void navigate({ to: "/onboarding", search: { step: "details", flow, redirect } });
-                return;
-              }
-              void navigate({ to: "/dashboard" });
-            }}
-          />
+          <ProductSourceChoice profile={profile} onSaved={finish} onBack={backFromSupplier} />
         )}
       </section>
     </div>
   );
+}
+
+/** In the setup flow the supplier step goes back to the details; outside it, to the overview. */
+function useBackFromSupplier() {
+  const { flow, redirect, from } = Route.useSearch();
+  const navigate = useNavigate();
+  return () => {
+    if (flow === "setup") {
+      void navigate({ to: "/onboarding", search: { step: "details", flow, redirect, from } });
+      return;
+    }
+    void navigate({ to: "/dashboard" });
+  };
 }
 
 /** After saving, the next setup step: the stores while there is none, else the catalog. */
@@ -137,16 +142,21 @@ function useFinishOnboarding() {
         hasHolder: search.step === "details" || progress.hasHolder,
         hasSupplier: search.step === "supplier" || progress.hasSupplier,
       });
-      if (next?.key === "hasHolder" || next?.key === "hasSupplier") {
+      const exit = setupStepExit(next, search.from);
+      if (exit.kind === "profileStep") {
         // A new step is a new page: start it at the top, where the setup progress is.
         await navigate({
           to: "/onboarding",
-          search: { step: next.key === "hasHolder" ? "details" : "supplier", flow: "setup" },
+          search: { step: exit.step, flow: "setup", from: search.from },
           resetScroll: true,
         });
         return;
       }
-      await navigate({ to: next?.to ?? "/dashboard" });
+      if (exit.kind === "page") {
+        await navigate({ to: exit.to });
+        return;
+      }
+      await navigate({ href: exit.href });
       return;
     }
     await navigate({

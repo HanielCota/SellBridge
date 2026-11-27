@@ -1,5 +1,5 @@
 import { ArrowRightIcon, CaretDownIcon, CaretUpIcon, CheckIcon } from "@phosphor-icons/react";
-import { Link } from "@tanstack/react-router";
+import { Link, useRouterState } from "@tanstack/react-router";
 import { createContext, useCallback, useContext, useRef, type ReactNode, type Ref } from "react";
 import { cn } from "@/lib/utils";
 import { ResendVerificationButton } from "@/components/onboarding/resend-verification-button";
@@ -42,6 +42,29 @@ const TOGGLE_FOCUS_CLASS_NAME =
 
 const STEP_ACTION_CLASS_NAME = "h-auto min-h-9 w-fit max-w-full py-2 text-center whitespace-normal";
 
+/**
+ * Opens the details or supplier step. An unfinished one starts the setup flow, which remembers
+ * the page it was opened from and comes back to it once no step is left.
+ */
+function ProfileStepAction({ holder, cta, done }: { holder: boolean; cta: string; done: boolean }) {
+  const here = useRouterState({ select: (state) => state.location.href });
+  return (
+    <Button asChild variant={done ? "outline" : "default"} className={STEP_ACTION_CLASS_NAME}>
+      <Link
+        to="/onboarding"
+        search={{
+          step: holder ? "details" : "supplier",
+          flow: done ? undefined : "setup",
+          from: done ? undefined : here,
+        }}
+      >
+        {done ? (holder ? "Editar dados" : "Trocar fornecedor") : cta}
+        <ArrowRightIcon aria-hidden="true" />
+      </Link>
+    </Button>
+  );
+}
+
 /** The e-mail step resends the link; every other step opens its page. */
 function StepAction({ step, done = false }: { step: SetupStep; done?: boolean }) {
   if (step.key === "hasVerifiedEmail") {
@@ -55,18 +78,7 @@ function StepAction({ step, done = false }: { step: SetupStep; done?: boolean })
     return <ResendVerificationButton label={step.cta} className={STEP_ACTION_CLASS_NAME} />;
   }
   if (step.key === "hasHolder" || step.key === "hasSupplier") {
-    const isHolder = step.key === "hasHolder";
-    return (
-      <Button asChild variant={done ? "outline" : "default"} className={STEP_ACTION_CLASS_NAME}>
-        <Link
-          to="/onboarding"
-          search={{ step: isHolder ? "details" : "supplier", flow: done ? undefined : "setup" }}
-        >
-          {done ? (isHolder ? "Editar dados" : "Trocar fornecedor") : step.cta}
-          <ArrowRightIcon aria-hidden="true" />
-        </Link>
-      </Button>
-    );
+    return <ProfileStepAction holder={step.key === "hasHolder"} cta={step.cta} done={done} />;
   }
   return (
     <Button asChild variant={done ? "outline" : "default"} className={STEP_ACTION_CLASS_NAME}>
