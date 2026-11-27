@@ -21,7 +21,7 @@ export function DashboardHeader({ title = "Visão geral", actions }: DashboardTi
  * The top of the dashboard: the title with the dates it covers, then the plain-language
  * reading of the period (profit, revenue and why). The title has the other pages' size and the
  * menu's name (board 5, approved on 2026-10-25): the reading of the period is what stands out.
- * The setup guide, while the setup is not done, sits between the title and the reading.
+ * The unfinished setup guide can sit above the title or between the title and the reading.
  */
 export function DashboardIntro({
   caption,
@@ -29,9 +29,16 @@ export function DashboardIntro({
   title = "Visão geral",
   actions,
   setup = null,
-}: DashboardTitleProps & { caption: ReactNode; summary: ReactNode; setup?: ReactNode }) {
+  setupBeforeTitle = false,
+}: DashboardTitleProps & {
+  caption: ReactNode;
+  summary: ReactNode;
+  setup?: ReactNode;
+  setupBeforeTitle?: boolean;
+}) {
   return (
     <div className="space-y-8 pb-2">
+      {setupBeforeTitle ? setup : null}
       <div className="flex flex-col gap-4 xl:flex-row xl:items-center xl:justify-between">
         <div className="space-y-2">
           <h1 className={TITLE_CLASSES}>{title}</h1>
@@ -39,7 +46,7 @@ export function DashboardIntro({
         </div>
         {actions}
       </div>
-      {setup}
+      {setupBeforeTitle ? null : setup}
       <section aria-label="Resumo do período">{summary}</section>
     </div>
   );

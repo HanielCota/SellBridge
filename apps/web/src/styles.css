@@ -4,6 +4,9 @@
 @import "@fontsource-variable/manrope";
 @import "./styles/native-controls.css";
 @import "./styles/print.css";
+@import "./styles/staff-sidebar.css";
+@import "./styles/dashboard-setup-guide.css";
+@import "./styles/dashboard-motion.css";
 
 @custom-variant dark (&:is(.dark *));
 
@@ -89,6 +92,8 @@
 }
 
 :root {
+  --disclosure-open-duration: 380ms;
+  --disclosure-close-duration: 300ms;
   /* Grouped surface (brand light gray) behind the login and sign-up forms. */
   --surface-grouped: oklch(0.97 0.002 260);
   --field: oklch(1 0 0);

@@ -17,6 +17,7 @@ export function getRouter() {
     routeTree,
     context: { queryClient },
     scrollRestoration: true,
+    scrollToTopSelectors: ['[data-scroll-restoration-id="staff-main-panel"]'],
     defaultPreload: "intent",
     // QueryClient owns freshness; re-run loaders so a stale preloaded query is refreshed.
     defaultPreloadStaleTime: 0,

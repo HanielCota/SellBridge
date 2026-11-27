@@ -11,6 +11,7 @@ import {
 import { useNavigate } from "@tanstack/react-router";
 import { Command } from "cmdk";
 import { Dialog } from "radix-ui";
+import { cn } from "@/lib/utils";
 import { useEffect, useState } from "react";
 import { useGlobalSearch } from "@/features/search/use-global-search";
 import { ACTION_ICONS } from "@/components/icons/action-icons";
@@ -156,7 +157,7 @@ function SearchResults({ term, go }: { term: string; go: (href: string) => void 
 
 const SearchIcon = ACTION_ICONS.search.icon;
 
-function SearchButton({ onClick }: { onClick: () => void }) {
+function SearchButton({ onClick, iconOnly }: { onClick: () => void; iconOnly: boolean }) {
   return (
     <Hint label={ACTION_ICONS.search.hint} openOnTap={false}>
       <button
@@ -164,10 +165,13 @@ function SearchButton({ onClick }: { onClick: () => void }) {
         onClick={onClick}
         aria-label="Buscar"
         aria-keyshortcuts="Control+K Meta+K"
-        className="flex size-11 shrink-0 items-center justify-center gap-2 rounded-full bg-card text-base text-muted-foreground transition-colors outline-none hover:text-foreground focus-visible:ring-4 focus-visible:ring-ring/30 2xl:w-auto 2xl:px-4"
+        className={cn(
+          "app-search-trigger flex size-11 shrink-0 items-center justify-center gap-2 rounded-full bg-card text-base text-muted-foreground transition-colors outline-none hover:text-foreground focus-visible:ring-4 focus-visible:ring-ring/30",
+          !iconOnly && "2xl:w-auto 2xl:px-4",
+        )}
       >
-        <SearchIcon className="size-5 2xl:size-4" aria-hidden="true" />
-        <span className="hidden 2xl:inline">Buscar</span>
+        <SearchIcon className={cn("size-5", !iconOnly && "2xl:size-4")} aria-hidden="true" />
+        {iconOnly ? null : <span className="hidden 2xl:inline">Buscar</span>}
       </button>
     </Hint>
   );
@@ -237,7 +241,7 @@ function KeyboardHints() {
 }
 
 /** Search box in the header plus the Ctrl+K palette: pages, catalog, listings and orders. */
-export function CommandPalette() {
+export function CommandPalette({ iconOnly = false }: { iconOnly?: boolean }) {
   const [open, setOpen] = useState(false);
   const [term, setTerm] = useState("");
   const navigate = useNavigate();
@@ -249,11 +253,12 @@ export function CommandPalette() {
   }
   return (
     <>
-      <SearchButton onClick={() => setOpen(true)} />
+      <SearchButton onClick={() => setOpen(true)} iconOnly={iconOnly} />
       <Dialog.Root open={open} onOpenChange={setOpen}>
         <Dialog.Portal>
-          <Dialog.Overlay className="fixed inset-0 z-50 bg-black/40" />
+          <Dialog.Overlay data-dashboard-overlay className="fixed inset-0 z-50 bg-black/40" />
           <Dialog.Content
+            data-dashboard-popup
             aria-describedby={undefined}
             className="fixed top-[12svh] left-1/2 z-50 w-[min(40rem,calc(100vw-2rem))] -translate-x-1/2 overflow-hidden rounded-2xl bg-popover text-popover-foreground shadow-xl shadow-black/20 ring-1 ring-border"
           >

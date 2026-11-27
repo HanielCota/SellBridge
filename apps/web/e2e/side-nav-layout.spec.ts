@@ -36,9 +36,8 @@ function sidebar(page: Page) {
     .getByRole("navigation", { name: "Principal" });
 }
 
-/** In team mode, from `lg`, the team's pages sit in a strip under the header. */
-function adminStrip(page: Page) {
-  return page.getByRole("navigation", { name: "Administração" });
+function administration(page: Page) {
+  return sidebar(page).getByRole("region", { name: "Administração" });
 }
 
 /** How far a menu's content runs past its own box sideways (a sideways scrollbar when > 0). */
@@ -88,19 +87,19 @@ async function signInAdminWithSupplierProfile(
   return { slug: supplierProfile.slug };
 }
 
-test("the team's pages sit in the header strip, the sidebar keeps the profile's, and it fits", async ({
+test("the sidebar switches between team and business pages without widening the layout", async ({
   page,
 }) => {
   await signIn(page, ADMIN_USER);
-  await enableAdminMode(page);
+  await gotoHydrated(page, "/admin/clientes");
   await expectPageFits(page);
   const nav = sidebar(page);
-  await expect(nav.getByRole("heading", { name: "Administração", exact: true })).toHaveCount(0);
-  // Pages that before only had a link inside another page or in the account menu.
+  await expect(nav.getByRole("link", { name: "Visão geral" })).toHaveCount(0);
   for (const label of ["Clientes", "Desempenho do suporte", "Auditoria"]) {
-    await expect(adminStrip(page).getByRole("link", { name: label })).toBeAttached();
-    await expect(nav.getByRole("link", { name: label })).toHaveCount(0);
+    await expect(administration(page).getByRole("link", { name: label })).toBeVisible();
   }
+  await nav.getByRole("button", { name: "Meu negócio" }).click();
+  await expect(administration(page).getByRole("link", { name: "Clientes" })).toHaveCount(0);
   await nav.getByRole("link", { name: "Visão geral" }).click();
   await expect(page).toHaveURL(/\/dashboard/);
 });
@@ -163,7 +162,7 @@ test("a team page under another one lights only its own item", async ({ page }) 
   await signIn(page, ADMIN_USER);
   await enableAdminMode(page);
   await gotoHydrated(page, "/admin/chamados/metricas");
-  const nav = adminStrip(page);
+  const nav = administration(page);
   await expect(nav.getByRole("link", { name: "Desempenho do suporte" })).toHaveAttribute(
     "aria-current",
     "page",
@@ -188,7 +187,8 @@ test("staff can enter team mode from the supplier profile", async ({ page }) => 
   await expectPageFits(page);
   await page.getByRole("button", { name: "Modo administrador", exact: true }).click();
   await expect(page).toHaveURL(/\/admin\/products/);
-  await expect(adminStrip(page)).toBeVisible();
+  await expect(administration(page)).toBeVisible();
+  await sidebar(page).getByRole("button", { name: "Meu negócio" }).click();
   await expect(
     page
       .getByRole("complementary", { name: "Menu lateral" })
@@ -201,6 +201,7 @@ test("the admin sidebar switches between the reseller and the supplier items", a
   await page.setViewportSize({ width: 1440, height: 900 });
   const aside = page.getByRole("complementary", { name: "Menu lateral" });
   const nav = sidebar(page);
+  await nav.getByRole("button", { name: "Meu negócio" }).click();
   await expect(aside.getByRole("button", { name: "Revendedor" })).toHaveAttribute(
     "aria-pressed",
     "true",
@@ -225,6 +226,8 @@ test("admin phone menu switches between the reseller and the supplier screens", 
   await page.getByRole("button", { name: "Abrir menu", exact: true }).click();
   const sheet = page.getByRole("dialog", { name: "Navegação" });
   const nav = sheet.getByRole("navigation", { name: "Principal" });
+  const business = nav.getByRole("button", { name: "Meu negócio" });
+  if ((await business.getAttribute("aria-expanded")) === "false") await business.click();
   const profileSwitch = sheet.getByRole("group", { name: "Perfil" });
   const clippedWidth = await profileSwitch.evaluate(
     (element) => element.scrollWidth - element.clientWidth,
@@ -394,8 +397,10 @@ test("a team account's menu has the team switch between the registration and the
   await page.setViewportSize({ width: 1366, height: 900 });
   await gotoHydrated(page, "/dashboard");
 
-  await profileCard(page).click();
-
+  await page
+    .getByRole("banner")
+    .getByRole("button", { name: /Menu do usuário/ })
+    .click();
   const rows = await accountMenuRows(page);
   expect(rows).toHaveLength(5);
   expect(rows.slice(0, 3)).toEqual(["Meu perfil", "Meu cadastro", "Modo administrador"]);

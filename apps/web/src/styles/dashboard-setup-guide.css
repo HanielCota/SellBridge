@@ -1,0 +1,47 @@
+.dashboard-setup-guide[data-view="open"] {
+  --setup-guide-duration: var(--disclosure-open-duration);
+}
+
+.dashboard-setup-guide[data-view="collapsed"] {
+  --setup-guide-duration: var(--disclosure-close-duration);
+}
+
+.dashboard-setup-guide[data-below-header][data-view="collapsed"],
+html[data-setup-guide="hidden"] .dashboard-setup-guide[data-below-header][data-view="pending"] {
+  margin-block-end: 0;
+}
+
+.dashboard-setup-guide > [data-guide-part] {
+  display: grid;
+  grid-template-rows: 0fr;
+  visibility: hidden;
+  transition:
+    grid-template-rows var(--setup-guide-duration, 0s) ease-out,
+    visibility 0s var(--setup-guide-duration, 0s);
+}
+
+.dashboard-setup-guide > [data-guide-part] > div {
+  min-block-size: 0;
+  overflow: clip;
+}
+
+.dashboard-setup-guide[data-view="open"] > [data-guide-part="open"],
+.dashboard-setup-guide[data-view="collapsed"] > [data-guide-part="collapsed"],
+html:not([data-setup-guide="hidden"])
+  .dashboard-setup-guide[data-view="pending"]
+  > [data-guide-part="open"],
+html[data-setup-guide="hidden"]
+  .dashboard-setup-guide[data-view="pending"]
+  > [data-guide-part="collapsed"] {
+  grid-template-rows: 1fr;
+  visibility: visible;
+  transition:
+    grid-template-rows var(--setup-guide-duration, 0s) ease-out,
+    visibility 0s;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .dashboard-setup-guide[data-view] {
+    --setup-guide-duration: 0s;
+  }
+}

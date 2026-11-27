@@ -1,6 +1,6 @@
 import { ArrowRightIcon, CaretDownIcon, CaretUpIcon, CheckIcon } from "@phosphor-icons/react";
 import { Link } from "@tanstack/react-router";
-import { useCallback, useRef, type ReactNode, type Ref } from "react";
+import { createContext, useCallback, useContext, useRef, type ReactNode, type Ref } from "react";
 import { cn } from "@/lib/utils";
 import { ResendVerificationButton } from "@/components/onboarding/resend-verification-button";
 import { Button } from "@/components/ui/button";
@@ -225,47 +225,85 @@ function SetupGuide({
   );
 }
 
+function useDashboardSetupFocus() {
+  const pending = useRef(false);
+  const request = useCallback(() => {
+    pending.current = true;
+  }, []);
+  const focus = useCallback((button: HTMLButtonElement | null) => {
+    if (button !== null && pending.current) {
+      pending.current = false;
+      button.focus({ preventScroll: true });
+    }
+  }, []);
+  return { request, focus };
+}
+
+export const DashboardSetupFocusContext = createContext<ReturnType<
+  typeof useDashboardSetupFocus
+> | null>(null);
+
+export function DashboardSetupProvider({ children }: { children: ReactNode }) {
+  const focus = useDashboardSetupFocus();
+  return <DashboardSetupFocusContext value={focus}>{children}</DashboardSetupFocusContext>;
+}
+
 /**
  * The setup guide on top of the dashboard until the setup is done: a mini tutorial, never
  * removed. The reseller may minimize it to the strip the other pages show; this browser
  * remembers it. Before hydration both are in the HTML and the mark the init script left on
  * `<html>` keeps only the remembered one, so nothing jumps.
  */
-export function DashboardSetupGuide({ progress }: { progress: SetupProgress }) {
+export function DashboardSetupGuide({
+  progress,
+  inHeader = false,
+}: {
+  progress: SetupProgress;
+  inHeader?: boolean;
+}) {
   const { choice, setHidden } = useSetupGuideChoice();
   const view = setupGuideView(findNextStep(progress) === undefined, choice);
-  const focusAfterToggle = useRef(false);
-  // The toggle that just mounted takes the focus of the one the click removed.
-  const toggleRef = useCallback((button: HTMLButtonElement | null) => {
-    if (button !== null && focusAfterToggle.current) {
-      focusAfterToggle.current = false;
-      button.focus();
-    }
-  }, []);
+  const headerFocus = useContext(DashboardSetupFocusContext);
+  const localFocus = useDashboardSetupFocus();
+  const { request, focus } = headerFocus ?? localFocus;
 
   function toggle(hidden: boolean) {
-    focusAfterToggle.current = true;
+    request();
     setHidden(hidden);
   }
 
   if (view === "none") {
     return null;
   }
-  if (view === "open") {
-    return <SetupGuide progress={progress} onToggle={() => toggle(true)} toggleRef={toggleRef} />;
-  }
-  if (view === "collapsed") {
-    return <SetupStrip progress={progress} onToggle={() => toggle(false)} toggleRef={toggleRef} />;
-  }
   return (
-    <>
-      <div className="in-data-[setup-guide=hidden]:hidden">
-        <SetupGuide progress={progress} onToggle={() => toggle(true)} />
-      </div>
-      <div className="hidden in-data-[setup-guide=hidden]:block">
-        <SetupStrip progress={progress} onToggle={() => toggle(false)} />
-      </div>
-    </>
+    <div
+      className="dashboard-setup-guide"
+      data-view={view}
+      data-below-header={(headerFocus !== null && !inHeader) || undefined}
+    >
+      {inHeader ? null : (
+        <div data-guide-part="open" inert={view === "collapsed"}>
+          <div>
+            <SetupGuide
+              progress={progress}
+              onToggle={() => toggle(true)}
+              toggleRef={view === "open" ? focus : undefined}
+            />
+          </div>
+        </div>
+      )}
+      {inHeader || headerFocus === null ? (
+        <div data-guide-part="collapsed" inert={view === "open"}>
+          <div>
+            <SetupStrip
+              progress={progress}
+              onToggle={() => toggle(false)}
+              toggleRef={view === "collapsed" ? focus : undefined}
+            />
+          </div>
+        </div>
+      ) : null}
+    </div>
   );
 }
 
@@ -337,6 +375,9 @@ export function SetupStrip({
       aria-label="Configuração da conta"
       className="surface-card flex flex-col gap-3 rounded-3xl bg-card px-5 py-3 sm:flex-row sm:items-center"
     >
+      <div className="flex shrink-0 flex-wrap gap-2">
+        <StepAction step={next} />
+      </div>
       {onToggle === undefined ? (
         <>
           {text}
@@ -345,9 +386,6 @@ export function SetupStrip({
       ) : (
         <StripToggle onToggle={onToggle} toggleRef={toggleRef} text={text} bar={bar} />
       )}
-      <div className="flex flex-wrap gap-2 sm:ml-auto">
-        <StepAction step={next} />
-      </div>
     </aside>
   );
 }

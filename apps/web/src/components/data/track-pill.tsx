@@ -22,7 +22,7 @@ export function TrackPill({
         box === null && "invisible",
         canAnimate &&
           box?.glides &&
-          "transition-[transform,width] duration-400 ease-[cubic-bezier(0.32,0.72,0,1)] motion-reduce:transition-none",
+          "transition-[transform,width] duration-[var(--track-pill-duration,400ms)] ease-[cubic-bezier(0.32,0.72,0,1)] motion-reduce:transition-none",
         className,
       )}
       style={{ transform: `translateX(${box?.left ?? 0}px)`, width: box?.width ?? 0 }}

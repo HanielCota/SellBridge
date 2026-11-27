@@ -45,7 +45,7 @@ test("o admin vê o problema registrado e marca como resolvido, com desfazer", a
   await signIn(page, ADMIN_USER);
   await enableAdminMode(page);
   await page
-    .getByRole("navigation", { name: "Administração" })
+    .getByRole("region", { name: "Administração" })
     .getByRole("link", { name: "Problemas" })
     .click();
   await expect(page.getByRole("heading", { name: "Problemas", level: 1 })).toBeVisible();
@@ -86,7 +86,7 @@ test("só o admin abre os problemas: atendente e revendedor ficam de fora", asyn
   await enableAdminMode(agent.page);
   await agent.page.goto(`/admin/problemas/${problemId}`);
   await expect(agent.page).toHaveURL(/\/admin\/chamados/);
-  const teamTabs = agent.page.getByRole("navigation", { name: "Administração" });
+  const teamTabs = agent.page.getByRole("region", { name: "Administração" });
   await expect(teamTabs.getByRole("link", { name: /^Chamados/ })).toBeVisible();
   await expect(teamTabs.getByRole("link", { name: "Problemas" })).toHaveCount(0);
   await agent.context.close();

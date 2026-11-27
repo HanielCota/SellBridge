@@ -1,3 +1,5 @@
+import { SolarIcon } from "@/components/layout/solar-icon";
+import { useSupportPosition } from "./use-support-position";
 import { Link, useRouterState } from "@tanstack/react-router";
 import { ACTION_ICONS } from "@/components/icons/action-icons";
 import { Hint } from "@/components/ui/hint";
@@ -17,13 +19,14 @@ const LauncherIcon = ACTION_ICONS.supportChat.icon;
  * and "Avaliar"; the name is in the hint and for screen readers, and every page ends with room
  * for it (the bottom padding of `main`).
  */
-export function SupportLauncher() {
+export function SupportLauncher({ movable = false }: { movable?: boolean }) {
   const pathname = useRouterState({ select: (state) => state.location.pathname });
   const hidden = HIDDEN_ON.some((path) => pathname === path || pathname.startsWith(`${path}/`));
   if (hidden) {
     return null;
   }
   const topic = launcherTopic(pathname);
+  if (movable) return <MovableSupportLauncher topic={topic} />;
   // Outside <main>, so it needs a landmark of its own: content outside every landmark is lost
   // to screen-reader users skipping between regions (axe "region").
   return (
@@ -38,6 +41,29 @@ export function SupportLauncher() {
           <LauncherIcon className="size-7 shrink-0" weight="fill" aria-hidden="true" />
         </Link>
       </Hint>
+    </aside>
+  );
+}
+
+function MovableSupportLauncher({ topic }: { topic: ReturnType<typeof launcherTopic> }) {
+  const { instructions, linkProps } = useSupportPosition();
+  return (
+    <aside aria-label="Suporte" data-print-hidden>
+      <Link
+        to="/suporte/novo"
+        search={topic === undefined ? {} : { categoria: topic }}
+        aria-label="Falar com o suporte"
+        aria-describedby={instructions}
+        title="Falar com o suporte"
+        className="staff-support-link"
+        {...linkProps}
+      >
+        <SolarIcon name="support" className="size-6" />
+        <span id={instructions} className="sr-only">
+          Arraste para mover o botão ou use as setas do teclado. Use Home para voltar ao canto
+          inicial.
+        </span>
+      </Link>
     </aside>
   );
 }
