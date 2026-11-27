@@ -20,6 +20,7 @@ import {
 } from "./category-ficha.ts";
 import {
   kindAttributesFromCategory,
+  kindAttributesFromTitle,
   type KindAttribute,
   missingKindDefinitions,
 } from "./category-kind.ts";
@@ -421,35 +422,45 @@ async function readDefinitions(
 const categoryNameSchema = z.object({ name: z.string().max(255) });
 
 /**
- * The kind fields (see `category-kind.ts`) the supplier left empty, answered by the category
- * name. The category is read only when one is missing.
+ * The kind fields (see `category-kind.ts`) the supplier left empty, answered by the title, else
+ * by the category name. The category is read only when the title answered none.
  */
 async function kindAttributesToSend(
   context: MercadoLivreContext,
   store: StoreCredentials,
   item: {
+    title: string;
     categoryId: string;
     definitions: readonly FichaAttribute[];
     provided: Readonly<Record<string, string>>;
   },
 ): Promise<KindAttribute[]> {
   const missing = missingKindDefinitions(item.definitions, item.provided);
-  if (missing.length === 0) {
-    return [];
+  const fromTitle = kindAttributesFromTitle(missing, item.title);
+  const answeredIds = new Set(fromTitle.map(({ id }) => id));
+  const left = missing.filter(({ id }) => !answeredIds.has(id));
+  if (left.length === 0) {
+    logFilledKinds(fromTitle, { categoryId: item.categoryId, source: "title" });
+    return fromTitle;
   }
   const category = await requestJson(context, {
     schema: categoryNameSchema,
     path: `/categories/${encodeURIComponent(item.categoryId)}`,
     init: { accessToken: store.accessToken },
   });
-  const filled = kindAttributesFromCategory(missing, category.name);
+  const fromCategory = kindAttributesFromCategory(left, category.name);
+  logFilledKinds(fromTitle, { categoryId: item.categoryId, source: "title" });
+  logFilledKinds(fromCategory, { categoryId: item.categoryId, source: "category" });
+  return [...fromTitle, ...fromCategory];
+}
+
+function logFilledKinds(
+  filled: readonly KindAttribute[],
+  context: { categoryId: string; source: "title" | "category" },
+): void {
   for (const attribute of filled) {
-    logger.info("mercado_livre.kind_attribute_filled", {
-      attributeId: attribute.id,
-      categoryId: item.categoryId,
-    });
+    logger.info("mercado_livre.kind_attribute_filled", { attributeId: attribute.id, ...context });
   }
-  return filled;
 }
 
 async function validateAttributes(
@@ -556,6 +567,7 @@ async function checkedItemBody(
     throw marketplaceError(GRID_NEEDS_USER_PRODUCTS, { retryable: false });
   }
   const kindAttributes = await kindAttributesToSend(context, store, {
+    title,
     categoryId,
     definitions,
     provided: input.mercadoLivreAttributes ?? {},

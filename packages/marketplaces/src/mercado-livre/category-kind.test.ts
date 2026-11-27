@@ -1,10 +1,15 @@
 import { describe, expect, it } from "vitest";
 import { z } from "zod";
 import { fichaAttributeSchema } from "./category-ficha.ts";
-import { kindAttributesFromCategory, missingKindDefinitions } from "./category-kind.ts";
+import {
+  kindAttributesFromCategory,
+  kindAttributesFromTitle,
+  missingKindDefinitions,
+} from "./category-kind.ts";
 import { FOOTWEAR_ATTRIBUTES } from "./fixtures/category-footwear.ts";
 
 const definitions = z.array(fichaAttributeSchema).parse(FOOTWEAR_ATTRIBUTES);
+const footwearType = missingKindDefinitions(definitions, {});
 
 describe("missingKindDefinitions", () => {
   it("lists the footwear type when the supplier left it empty", () => {
@@ -20,40 +25,47 @@ describe("missingKindDefinitions", () => {
   });
 });
 
-describe("kindAttributesFromCategory", () => {
-  it("answers the footwear type with the value named like the category", () => {
-    const filled = kindAttributesFromCategory(definitions, "Tênis");
+describe("kindAttributesFromTitle", () => {
+  it("answers the footwear type the title names", () => {
+    const filled = kindAttributesFromTitle(footwearType, "CHINELO NUVEM Cor:PRETO;Tamanho:37/38");
 
-    expect(filled).toEqual([{ id: "FOOTWEAR_TYPE", value_id: "900001", value_name: "Tênis" }]);
+    expect(filled).toEqual([{ id: "FOOTWEAR_TYPE", value_id: "517586", value_name: "Chinelo" }]);
   });
 
-  it("matches a plural category name without accents or case", () => {
-    const filled = kindAttributesFromCategory(definitions, "SANDALIAS");
+  it("matches a plural title word without accents", () => {
+    const filled = kindAttributesFromTitle(footwearType, "Kit 2 sandalias de praia");
 
-    expect(filled).toEqual([{ id: "FOOTWEAR_TYPE", value_id: "900003", value_name: "Sandália" }]);
+    expect(filled).toEqual([{ id: "FOOTWEAR_TYPE", value_id: "517585", value_name: "Sandália" }]);
   });
 
-  it("leaves the footwear type empty when no value is named like the category", () => {
-    const filled = kindAttributesFromCategory(definitions, "Calçados Infantis");
+  it("leaves the footwear type empty when the title names none of the listed kinds", () => {
+    const filled = kindAttributesFromTitle(footwearType, "BABUCHE NUVEM Cor:MARINHO;Tamanho:33/34");
 
     expect(filled).toEqual([]);
   });
 
-  it("leaves the footwear type empty when several values are named like the category", () => {
-    const [footwearType] = missingKindDefinitions(definitions, {});
-    const doubled = footwearType === undefined ? [] : [footwearType];
-    const withTwin = doubled.map((definition) => ({
-      ...definition,
-      values: [...definition.values, { id: "900099", name: "Tenis" }],
-    }));
+  it("leaves the footwear type empty when the title names two kinds", () => {
+    const filled = kindAttributesFromTitle(footwearType, "Chinelo tamanco de borracha");
 
-    const filled = kindAttributesFromCategory(withTwin, "Tênis");
+    expect(filled).toEqual([]);
+  });
+});
+
+describe("kindAttributesFromCategory", () => {
+  it("answers the footwear type with the value named like the whole category", () => {
+    const filled = kindAttributesFromCategory(footwearType, "Tamancos");
+
+    expect(filled).toEqual([{ id: "FOOTWEAR_TYPE", value_id: "3630523", value_name: "Tamanco" }]);
+  });
+
+  it("leaves the footwear type empty when the category names two kinds", () => {
+    const filled = kindAttributesFromCategory(footwearType, "Sandálias e Chinelos");
 
     expect(filled).toEqual([]);
   });
 
   it("leaves the footwear type empty when the category has no name", () => {
-    const filled = kindAttributesFromCategory(definitions, " ");
+    const filled = kindAttributesFromCategory(footwearType, " ");
 
     expect(filled).toEqual([]);
   });
