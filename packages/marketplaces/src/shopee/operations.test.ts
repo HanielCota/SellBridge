@@ -437,6 +437,39 @@ describe("Shopee order intake", () => {
   });
 });
 
+function signed(rawBody: string) {
+  const sign = createHmac("sha256", PARTNER_KEY).update(`${CALLBACK}|${rawBody}`).digest("hex");
+  return { headers: new Headers({ authorization: sign }), rawBody };
+}
+
+describe("Shopee push acknowledgement", () => {
+  it("acknowledges and ignores a signed order push in an unexpected shape", async () => {
+    const { connector } = setup();
+    const request = signed(JSON.stringify({ code: 3, shop_id: 1, data: { status: "SHIPPED" } }));
+
+    const result = await connector.verifyWebhook(request);
+
+    expect(result).toMatchObject({ valid: true, event: { topic: "other", resource: null } });
+  });
+
+  it("acknowledges and ignores a signed push whose body is not JSON", async () => {
+    const { connector } = setup();
+
+    const result = await connector.verifyWebhook(signed("not json"));
+
+    expect(result).toMatchObject({ valid: true, event: { topic: "other" } });
+  });
+
+  it("still refuses an unexpected push without Shopee's signature", async () => {
+    const { connector } = setup();
+    const request = signed(JSON.stringify({ code: 3 }));
+
+    const result = await connector.verifyWebhook({ ...request, rawBody: "{}" });
+
+    expect(result.valid).toBe(false);
+  });
+});
+
 describe("Shopee label", () => {
   const parcel = { order_sn: SERIAL, package_number: PACKAGE };
   const orderDetail = (status: string) =>
