@@ -104,6 +104,13 @@ describe("entry link confirmation", () => {
     expect(mocks.consumeDeveloperEntryLink).not.toHaveBeenCalled();
   });
 
+  it("shows the confirmation with the SellBridge logo the page policy allows", async () => {
+    const response = await entryLinkConfirmation(TOKEN, NOW);
+
+    expect(await response.text()).toContain('src="/brand/sellbridge-logo-light.svg"');
+    expect(response.headers.get("content-security-policy")).toContain("img-src 'self'");
+  });
+
   it("says right away that a used link can no longer be confirmed", async () => {
     mocks.findDeveloperEntryLinkState.mockResolvedValue("used");
 

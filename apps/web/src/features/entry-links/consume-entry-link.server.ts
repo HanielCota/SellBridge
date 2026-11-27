@@ -44,23 +44,57 @@ const CONFIRMATION_PAGE = `<!doctype html>
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <meta name="robots" content="noindex, nofollow">
     <title>Abrir seleção de produtos | SellBridge</title>
+    <link rel="icon" href="/favicon.svg" type="image/svg+xml">
     <style>
-      :root { color-scheme: light dark; font-family: system-ui, sans-serif; line-height: 1.5; }
-      main { max-width: 34rem; margin: 12vh auto 0; padding: 1rem; }
-      h1 { line-height: 1.2; }
-      button { min-height: 44px; padding: .5rem 1rem; font: inherit; cursor: pointer;
-        color: #fff; background: #0058c7; border: 1px solid currentColor;
-        border-radius: .5rem; }
+      @font-face { font-family: "Manrope Variable"; font-style: normal; font-display: swap;
+        font-weight: 200 800; src: url("/fonts/manrope-latin-wght-normal.woff2") format("woff2"); }
+      :root { color-scheme: light dark; --background: oklch(0.97 0.002 260);
+        --foreground: oklch(0.145 0 0); --muted: oklch(0.47 0.008 260);
+        --primary: oklch(0.74 0.19 153);
+        --primary-foreground: oklch(0.2 0.015 250); --focus: oklch(0.5 0.13 152); }
+      @media (prefers-color-scheme: dark) {
+        :root { --background: oklch(0.165 0.003 260); --foreground: oklch(0.93 0 0); --muted: oklch(0.72 0.005 260);
+          --primary: oklch(0.8 0.15 152);
+          --primary-foreground: oklch(0.18 0.02 160); --focus: oklch(0.87 0.16 152); } }
+      * { box-sizing: border-box; }
+      body { margin: 0; min-height: 100svh; display: flex; flex-direction: column;
+        background: var(--background); color: var(--foreground);
+        font-family: "Manrope Variable", "Manrope", system-ui, sans-serif; line-height: 1.5;
+        -webkit-font-smoothing: antialiased; }
+      main { flex: 1; display: flex; flex-direction: column; align-items: center;
+        justify-content: center; padding: 2rem 1.25rem 5rem; }
+      .frame { width: 100%; max-width: 380px; display: flex; flex-direction: column;
+        align-items: center; }
+      .logo { display: block; height: 40px; width: auto; margin-bottom: 1.75rem; }
+      .content { width: 100%; text-align: center; }
+      h1 { margin: 0 0 .5rem; font-size: 1.375rem; line-height: 1.25; font-weight: 700;
+        letter-spacing: -0.01em; }
+      p { margin: 0 0 1.5rem; color: var(--muted); }
+      button { width: 100%; min-height: 50px; padding: .625rem 1rem; font: inherit;
+        font-weight: 600; cursor: pointer; color: var(--primary-foreground);
+        background: var(--primary); border: 0; border-radius: 999px; }
+      button:hover { filter: brightness(0.96); }
+      button:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
+      footer { padding: 1.25rem 1rem; text-align: center; font-size: .75rem; color: var(--muted); }
     </style>
   </head>
   <body>
     <main>
-      <h1>Abrir seleção de produtos</h1>
-      <p>Continue para ver os produtos que você escolheu no SellBridge.</p>
-      <form method="post">
-        <button type="submit">Abrir seleção</button>
-      </form>
+      <div class="frame">
+        <picture>
+          <source srcset="/brand/sellbridge-logo-dark.svg" media="(prefers-color-scheme: dark)">
+          <img class="logo" src="/brand/sellbridge-logo-light.svg" alt="SellBridge" width="160" height="40">
+        </picture>
+        <div class="content">
+          <h1>Abrir seleção de produtos</h1>
+          <p>Continue para ver os produtos que você escolheu no SellBridge.</p>
+          <form method="post">
+            <button type="submit">Abrir seleção</button>
+          </form>
+        </div>
+      </div>
     </main>
+    <footer>© ${new Date().getFullYear()} SellBridge</footer>
   </body>
 </html>`;
 
@@ -86,7 +120,7 @@ export async function entryLinkConfirmation(token: string, now: Date): Promise<R
       "referrer-policy": "origin",
       "content-type": "text/html; charset=utf-8",
       "content-security-policy":
-        "default-src 'none'; style-src 'unsafe-inline'; form-action 'self'; frame-ancestors 'none'; base-uri 'none'",
+        "default-src 'none'; img-src 'self'; font-src 'self'; style-src 'unsafe-inline'; form-action 'self'; frame-ancestors 'none'; base-uri 'none'",
     },
   });
 }
