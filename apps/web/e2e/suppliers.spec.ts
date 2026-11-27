@@ -135,7 +135,7 @@ test.describe("busca de fornecedores", () => {
     const niches = page.getByRole("group", { name: "Nicho", exact: true });
     const pet = niches.getByRole("button", { name: "Pet", exact: true });
     await expect(pet).toBeHidden();
-    await niches.getByRole("button", { name: /^Mais d+ nichos$/ }).click();
+    await niches.getByRole("button", { name: /^Mais \d+ nichos$/ }).click();
     await pet.click();
 
     await expect(page).toHaveURL(/niche=Pet/);
@@ -217,7 +217,7 @@ test.describe("fornecedores e catálogo", () => {
     await expect(page.getByText("Nenhum fornecedor com esses filtros")).toBeVisible();
 
     await search.fill("");
-    await page.getByRole("button", { name: /^Mais d+ nichos$/ }).click();
+    await page.getByRole("button", { name: /^Mais \d+ nichos$/ }).click();
     await page.getByRole("button", { name: "Pet", exact: true }).click();
     await expect(page).toHaveURL(/niche=Pet/);
     await expect(page.getByRole("link", { name: "Rio Pet Atacado" })).toBeVisible();
