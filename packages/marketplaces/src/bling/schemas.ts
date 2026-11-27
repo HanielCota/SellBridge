@@ -77,7 +77,8 @@ export const blingProductSummarySchema = z.object({
   nome: z.string(),
   codigo: z.string().nullish(),
   formato: z.enum(["S", "V", "E"]),
-  situacao: z.enum(["A", "I"]),
+  /** "A" active, "I" inactive, "E" deleted; kept as text so a new status never stops a read. */
+  situacao: z.string(),
 });
 export type BlingProductSummary = z.infer<typeof blingProductSummarySchema>;
 
