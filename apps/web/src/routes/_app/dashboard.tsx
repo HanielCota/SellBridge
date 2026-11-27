@@ -111,7 +111,7 @@ function DashboardContent({ data }: { data: DashboardData }) {
             points={data.timeseries}
             bucket={data.period.bucket}
             fromDate={data.period.fromDate}
-            className="max-w-2xl text-lg"
+            className="max-w-full text-lg lg:max-w-2/3"
           />
         }
       />
