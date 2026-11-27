@@ -73,7 +73,7 @@ function businessItems(shown: ShownMenu): NavItem[] {
   const items = shown.items.flatMap((item) => {
     if (item.to === "/financeiro")
       return [item, ...extra.map((plan) => ({ ...plan, group: "Dinheiro" }))];
-    if (item.group === "Vender") return [{ ...item, group: "Vendas" }];
+    if (item.to === "/dashboard" || item.group === "Vender") return [{ ...item, group: "Vendas" }];
     if (item.group === "Lojas") return [{ ...item, group: "Canais de venda" }];
     return [item];
   });
