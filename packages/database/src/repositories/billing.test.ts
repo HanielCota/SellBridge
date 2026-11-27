@@ -405,16 +405,16 @@ it("enforces the 20-sale boundary across manual sales and marketplace orders", a
       freeSaleSlot: null,
     });
     const forward = (id: string) =>
-      forwardOrder(database, tenantId, { orderId: id, address: testAddress, notes: "" }, RULES);
+      forwardOrder(database, tenantId, { orderId: id, address: testAddress, notes: "" });
     if (admitted === undefined) {
       throw new Error("Missing final free order");
     }
 
     await expect(forward(admitted.value.orderId)).resolves.toHaveLength(1);
-    await expect(forward(orderId)).rejects.toMatchObject({ code: "FORBIDDEN" });
+    // The buyer already paid: the order reaches the supplier even with no plan left.
+    await expect(forward(orderId)).resolves.toHaveLength(1);
 
     await grantTestPlan(database, tenantId, "essential");
-    await expect(forward(orderId)).resolves.toHaveLength(1);
     await expect(record("paid-manual")).resolves.toMatchObject({ status: "created" });
   } finally {
     await cleanup();

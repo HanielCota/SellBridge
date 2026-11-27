@@ -16,8 +16,6 @@ import {
 } from "@sellbridge/payments/mercado-pago";
 import {
   asaasEnvironmentFields,
-  billingEnvironmentFields,
-  billingRulesFrom,
   refuseAsaasStandInsInProduction,
 } from "@sellbridge/payments/asaas";
 import { cnpjLookupUrlEnvironmentSchema } from "@sellbridge/shared/cnpj-lookup";
@@ -59,7 +57,6 @@ const workerEnvironmentSchema = z
      */
     ...mercadoPagoEnvironmentFields,
     ...asaasEnvironmentFields,
-    ...billingEnvironmentFields,
     WORKER_CONCURRENCY: z.coerce.number().int().min(1).max(50).default(5),
     /**
      * Sellable units kept off the marketplaces, per product, as a buffer against shelf counts
@@ -97,20 +94,6 @@ const workerEnvironmentSchema = z
     if (value.NODE_ENV === "production") {
       refuseMercadoPagoStandInsInProduction(value, context);
       refuseAsaasStandInsInProduction(value, context);
-    }
-
-    if (
-      value.NODE_ENV === "production" &&
-      value.AUTO_FORWARD_ENABLED &&
-      !value.BILLING_UNLIMITED &&
-      billingRulesFrom(value) === null
-    ) {
-      context.addIssue({
-        code: "custom",
-        path: ["AUTO_FORWARD_ENABLED"],
-        message:
-          "Automatic forwarding requires the web app's billing settings or BILLING_UNLIMITED=true",
-      });
     }
   });
 
