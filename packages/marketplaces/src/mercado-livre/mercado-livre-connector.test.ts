@@ -358,7 +358,7 @@ describe("publishing", () => {
         causes: ["item.attributes.missing_required"],
       },
       message: expect.stringMatching(
-        /^Faltam campos da ficha técnica .*: BRAND, MODEL\. Preencha no cadastro/,
+        /^Faltam campos da ficha técnica .*: BRAND, MODEL\. Quem preenche é o fornecedor/,
       ),
     });
   });

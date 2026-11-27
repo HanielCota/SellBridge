@@ -393,7 +393,7 @@ function assertRequiredAttributes(
   const missing = required.filter(({ id }) => !provided.has(id));
   if (missing.length) {
     throw marketplaceError(
-      `Faltam campos que o Mercado Livre exige nesta categoria: ${missing.map(({ name }) => name).join(", ")}. Preencha no cadastro do produto e publique de novo.`,
+      `Faltam campos que o Mercado Livre exige nesta categoria: ${missing.map(({ name }) => name).join(", ")}. Quem preenche é o fornecedor, no cadastro do produto. Depois, clique em Tentar de novo.`,
       { retryable: false, issues: missing.map(({ id, name }) => `Obrigatório: ${name} (${id})`) },
     );
   }
