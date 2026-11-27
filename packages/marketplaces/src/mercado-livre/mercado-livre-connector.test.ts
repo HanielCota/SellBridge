@@ -2,6 +2,7 @@ import { describe, expect, it, vi } from "vitest";
 import { logger } from "@sellbridge/shared/logger";
 import { createMercadoLivreConnector } from "./mercado-livre-connector.ts";
 import { ERROR_FIXTURES } from "./fixtures/errors.ts";
+import { FOOTWEAR_ATTRIBUTES } from "./fixtures/category-footwear.ts";
 import { HANDBAG_ATTRIBUTES } from "./fixtures/category-handbags.ts";
 
 interface Recorded {
@@ -1365,5 +1366,64 @@ describe("the shipping the seller pays on a sale", () => {
       expect.objectContaining({ shipmentId: "43000000001" }),
     );
     warn.mockRestore();
+  });
+});
+
+describe("footwear sheet", () => {
+  const footwearRoutes: Record<string, Responder> = {
+    ...publishRoutes,
+    [`GET ${API}/categories/MLB23332/attributes`]: () => json(200, FOOTWEAR_ATTRIBUTES),
+    [`GET ${API}/categories/MLB23332`]: () => json(200, { id: "MLB23332", name: "Tênis" }),
+  };
+  const shoe = { ...product, title: "Tênis Nuvem", mercadoLivreCategoryId: "MLB23332" };
+
+  it("sends the footwear type the category names when the supplier left it empty", async () => {
+    const { ml, calls } = connector(footwearRoutes);
+
+    await ml.publishProduct(store, {
+      ...shoe,
+      mercadoLivreAttributes: { BRAND: "Nuvem", MODEL: "N1", COLOR: "Preto" },
+    });
+
+    const created = JSON.parse(calls.find((call) => call.url === `${API}/items`)?.body ?? "{}");
+    expect(created.attributes).toContainEqual({
+      id: "FOOTWEAR_TYPE",
+      value_id: "900001",
+      value_name: "Tênis",
+    });
+  });
+
+  it("keeps the footwear type the supplier filled and never reads the category", async () => {
+    const { ml, calls } = connector(footwearRoutes);
+
+    await ml.publishProduct(store, {
+      ...shoe,
+      mercadoLivreAttributes: {
+        BRAND: "Nuvem",
+        MODEL: "N1",
+        COLOR: "Preto",
+        FOOTWEAR_TYPE: "Chinelo",
+      },
+    });
+
+    const created = JSON.parse(calls.find((call) => call.url === `${API}/items`)?.body ?? "{}");
+    expect(created.attributes).toContainEqual({ id: "FOOTWEAR_TYPE", value_name: "Chinelo" });
+    expect(calls.some((call) => call.url === `${API}/categories/MLB23332`)).toBe(false);
+  });
+
+  it("names the missing colour and who fills it, without creating the item", async () => {
+    const { ml, calls } = connector(footwearRoutes);
+
+    await expect(
+      ml.publishProduct(store, {
+        ...shoe,
+        mercadoLivreAttributes: { BRAND: "Nuvem", MODEL: "N1" },
+      }),
+    ).rejects.toMatchObject({
+      details: { retryable: false },
+      message:
+        "Faltam campos que o Mercado Livre exige nesta categoria: Cor. Quem preenche é o fornecedor, no cadastro do produto. Depois, clique em Tentar de novo.",
+    });
+    expect(calls.some((call) => call.url === `${API}/items`)).toBe(false);
   });
 });

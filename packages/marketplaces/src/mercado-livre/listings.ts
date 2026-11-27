@@ -18,6 +18,11 @@ import {
   fichaAttributeSchema,
   isRequiredAttribute,
 } from "./category-ficha.ts";
+import {
+  kindAttributesFromCategory,
+  type KindAttribute,
+  missingKindDefinitions,
+} from "./category-kind.ts";
 import { brandToSend } from "./generic-brand.ts";
 import { isPackageAttribute, packageAttributeValue } from "./package-measures.ts";
 import { saleTermsFor } from "./sale-terms.ts";
@@ -128,6 +133,7 @@ function itemBody(
     categoryId: string;
     userProducts: boolean;
     definitions: readonly FichaAttribute[];
+    kindAttributes: readonly KindAttribute[];
   },
 ) {
   return {
@@ -148,6 +154,7 @@ function itemBody(
       ...attributesWithBrand(input, listing.definitions).map((attribute) =>
         withValueId(attribute, listing.definitions),
       ),
+      ...listing.kindAttributes,
       { id: "SELLER_SKU", value_name: input.sku },
     ],
   };
@@ -411,6 +418,40 @@ async function readDefinitions(
   });
 }
 
+const categoryNameSchema = z.object({ name: z.string().max(255) });
+
+/**
+ * The kind fields (see `category-kind.ts`) the supplier left empty, answered by the category
+ * name. The category is read only when one is missing.
+ */
+async function kindAttributesToSend(
+  context: MercadoLivreContext,
+  store: StoreCredentials,
+  item: {
+    categoryId: string;
+    definitions: readonly FichaAttribute[];
+    provided: Readonly<Record<string, string>>;
+  },
+): Promise<KindAttribute[]> {
+  const missing = missingKindDefinitions(item.definitions, item.provided);
+  if (missing.length === 0) {
+    return [];
+  }
+  const category = await requestJson(context, {
+    schema: categoryNameSchema,
+    path: `/categories/${encodeURIComponent(item.categoryId)}`,
+    init: { accessToken: store.accessToken },
+  });
+  const filled = kindAttributesFromCategory(missing, category.name);
+  for (const attribute of filled) {
+    logger.info("mercado_livre.kind_attribute_filled", {
+      attributeId: attribute.id,
+      categoryId: item.categoryId,
+    });
+  }
+  return filled;
+}
+
 async function validateAttributes(
   context: MercadoLivreContext,
   store: StoreCredentials,
@@ -514,7 +555,19 @@ async function checkedItemBody(
   if (familyName !== null && !userProducts) {
     throw marketplaceError(GRID_NEEDS_USER_PRODUCTS, { retryable: false });
   }
-  const body = itemBody(input, { title, familyName, categoryId, userProducts, definitions });
+  const kindAttributes = await kindAttributesToSend(context, store, {
+    categoryId,
+    definitions,
+    provided: input.mercadoLivreAttributes ?? {},
+  });
+  const body = itemBody(input, {
+    title,
+    familyName,
+    categoryId,
+    userProducts,
+    definitions,
+    kindAttributes,
+  });
   await validateAttributes(context, store, { body, definitions });
   return body;
 }
