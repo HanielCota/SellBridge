@@ -323,6 +323,52 @@ describe("tenant billing persistence", () => {
   });
 });
 
+it("gives the free sale back when a paid sale is cancelled or returned", async () => {
+  const { tenantId, cleanup } = await accountCreatedAt(new Date());
+  try {
+    const { id: storeId } = await upsertStoreConnection(
+      database,
+      testStoreInput(tenantId, "reversals"),
+    );
+    await publishTestProduct(database, catalog.productId, [{ tenantId, storeId }]);
+    const sale = (externalOrderId: string, status: "paid" | "cancelled" | "returned") =>
+      upsertMarketplaceOrder(database, tenantId, storeId, {
+        externalOrderId,
+        status,
+        buyerName: "Test Buyer",
+        orderedAt: new Date(),
+        marketplaceFeeCents: 0,
+        totalCents: 2500,
+        items: [
+          {
+            externalListingId: `EXT-${catalog.productId}-${tenantId}`,
+            title: "Test sale",
+            quantity: 1,
+            unitPriceCents: 2500,
+          },
+        ],
+      });
+    const slotOf = async (orderId: string) =>
+      (await database.query.orders.findFirst({ where: eq(orders.id, orderId) }))?.freeSaleSlot;
+    await sale("first", "paid");
+    await sale("second", "paid");
+
+    const cancelled = await sale("first", "cancelled");
+    const returned = await sale("second", "returned");
+    const third = await sale("third", "paid");
+
+    expect(await slotOf(cancelled.orderId)).toBeNull();
+    expect(await slotOf(returned.orderId)).toBeNull();
+    expect(await slotOf(third.orderId)).toBe(1);
+    expect(await findBillingAccess(database, tenantId, RULES)).toEqual({
+      kind: "free",
+      salesUsed: 1,
+    });
+  } finally {
+    await cleanup();
+  }
+});
+
 it("enforces the 20-sale boundary across manual sales and marketplace orders", async () => {
   const { tenantId, cleanup } = await accountCreatedAt(new Date());
   try {
@@ -360,7 +406,6 @@ it("enforces the 20-sale boundary across manual sales and marketplace orders", a
     // A historical paid order may have received its slot from the status during backfill.
     await database.update(orders).set({ paidAt: null }).where(eq(orders.id, firstSale.orderId));
     await upsertMarketplaceOrder(database, tenantId, storeId, { ...order, status: "paid" });
-    await upsertMarketplaceOrder(database, tenantId, storeId, { ...order, status: "cancelled" });
     expect(await findBillingAccess(database, tenantId, RULES)).toEqual({
       kind: "free",
       salesUsed: 1,
