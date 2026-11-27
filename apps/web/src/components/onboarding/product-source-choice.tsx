@@ -63,8 +63,10 @@ function SourceChoiceActions({
   onBack: () => void;
   onSave: () => void;
 }) {
+  // Reaches 1px short of the card edges, so a scrolled card's ring cannot show beside the bar while
+  // the card's own hairline edge stays visible; the divider keeps the content width.
   return (
-    <div className="sticky top-[var(--app-header-height,0px)] z-10 flex flex-wrap items-center justify-between gap-2 border-b border-border bg-card py-2">
+    <div className="sticky top-[calc(var(--app-header-height,0px)+var(--radius-3xl))] z-10 -mx-[calc(1.25rem-1px)] flex flex-wrap items-center justify-between gap-2 bg-card px-[calc(1.25rem-1px)] py-2 after:absolute after:inset-x-[calc(1.25rem-1px)] after:bottom-0 after:h-px after:bg-border sm:-mx-[calc(2rem-1px)] sm:px-[calc(2rem-1px)] sm:after:inset-x-[calc(2rem-1px)]">
       <Button
         type="button"
         variant="ghost"

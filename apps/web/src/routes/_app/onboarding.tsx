@@ -7,6 +7,7 @@ import { createFileRoute, Link, useNavigate, useRouter } from "@tanstack/react-r
 import { useState } from "react";
 import { z } from "zod";
 import { PageHeader } from "@/components/layout/page-header";
+import { CARD_WITH_TOP_CAP_PADDING, CardTopCap } from "@/components/onboarding/card-top-cap";
 import { HolderForm } from "@/components/onboarding/holder-form";
 import { ProductSourceChoice } from "@/components/onboarding/product-source-choice";
 import { EditOnboardingProfile } from "@/components/onboarding/edit-profile";
@@ -81,7 +82,10 @@ function OnboardingStepEditor({
         title={step === "details" ? "Seus dados" : "Seu fornecedor"}
         description="Confira os dados salvos. Você pode voltar e editar quando quiser."
       />
-      <section className="surface-card space-y-5 rounded-3xl bg-card p-5 sm:p-8">
+      <section
+        className={`surface-card space-y-5 rounded-3xl bg-card ${step === "supplier" ? CARD_WITH_TOP_CAP_PADDING : "p-5 sm:p-8"}`}
+      >
+        {step === "supplier" ? <CardTopCap /> : null}
         {step === "details" ? (
           <HolderForm
             holder={profile.holder}
@@ -166,8 +170,9 @@ function FirstVisit({ profile }: { profile: OnboardingProfile }) {
       />
       <section
         aria-label="Cadastro"
-        className="surface-card space-y-5 rounded-3xl bg-card p-5 sm:p-8"
+        className={`surface-card space-y-5 rounded-3xl bg-card ${step === 1 ? CARD_WITH_TOP_CAP_PADDING : "p-5 sm:p-8"}`}
       >
+        {step === 1 ? <CardTopCap /> : null}
         <StepProgress steps={SIGNUP_STEPS} current={step} />
         {step === 0 ? (
           <HolderForm
