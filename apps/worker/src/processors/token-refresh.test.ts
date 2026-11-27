@@ -2,7 +2,8 @@ import { marketplaceError } from "@sellbridge/marketplaces";
 import { MOCK_REVOKED_REFRESH_TOKEN } from "@sellbridge/marketplaces/testing";
 import { schema } from "@sellbridge/database";
 import { eq } from "drizzle-orm";
-import { afterAll, beforeAll, describe, expect, it } from "vitest";
+import { logger } from "@sellbridge/shared/logger";
+import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 import {
   createTestStore,
   createTestTenants,
@@ -127,5 +128,84 @@ describe("token-refresh per shop", () => {
     await createTokenRefreshProcessor({ database, connectors: recording, cipher })();
 
     expect(shopIds).toContain(store.externalShopId);
+  });
+});
+
+/** The test database, whose next `failures` updates fail as a dropped connection would. */
+function failingUpdates(failures: number): typeof database {
+  let left = failures;
+  return new Proxy(database, {
+    get(target, property, receiver) {
+      if (property === "update" && left > 0) {
+        left -= 1;
+        return () => {
+          throw new Error("connection lost");
+        };
+      }
+      const value: unknown = Reflect.get(target, property, receiver);
+      return typeof value === "function" ? value.bind(target) : value;
+    },
+  });
+}
+
+async function expiringStore() {
+  const [tenantId] = tenantIds;
+  if (!tenantId) {
+    throw new Error("tenant ausente");
+  }
+  const store = await createTestStore(environment, tenantId, "connected");
+  await database
+    .update(schema.storeConnections)
+    .set({ expiresAt: new Date(Date.now() - 60_000) })
+    .where(eq(schema.storeConnections.id, store.id));
+  return store;
+}
+
+const rotating = {
+  ...connectors,
+  mock: {
+    ...connectors.mock,
+    refreshTokens: async () => ({
+      accessToken: "acesso-rotacionado",
+      refreshToken: "renovacao-rotacionada",
+      expiresAt: new Date(Date.now() + 4 * 60 * 60_000),
+    }),
+  },
+};
+
+describe("token-refresh when saving the new pair fails", () => {
+  it("saves the rotated refresh token after a failed first save", async () => {
+    const store = await expiringStore();
+
+    await createTokenRefreshProcessor({
+      database: failingUpdates(1),
+      connectors: rotating,
+      cipher,
+    })();
+
+    const row = await database.query.storeConnections.findFirst({
+      where: eq(schema.storeConnections.id, store.id),
+    });
+    expect(row?.refreshTokenEnc && cipher.decrypt(row.refreshTokenEnc)).toBe(
+      "renovacao-rotacionada",
+    );
+  });
+
+  it("reports a lost pair clearly when every save fails", async () => {
+    const store = await expiringStore();
+    const error = vi.spyOn(logger, "error").mockImplementation(() => undefined);
+
+    const summary = await createTokenRefreshProcessor({
+      database: failingUpdates(Number.MAX_SAFE_INTEGER),
+      connectors: rotating,
+      cipher,
+    })();
+
+    expect(summary.failed).toBeGreaterThanOrEqual(1);
+    expect(error).toHaveBeenCalledWith(
+      "store.token_save_failed",
+      expect.objectContaining({ storeConnectionId: store.id }),
+    );
+    error.mockRestore();
   });
 });
