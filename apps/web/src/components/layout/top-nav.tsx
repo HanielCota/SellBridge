@@ -6,7 +6,6 @@ import { BrandIcon } from "@/components/brand/brand-logo";
 import { SELLER_HOME_PATH, SUPPLIER_PANEL_PATH } from "@/features/auth/profile-routes";
 import type { SessionUser } from "@/features/auth/session.functions";
 import { AccountSetupNotice } from "./account-setup-notice";
-import { MobileNav } from "./mobile-nav";
 import { CommandPalette } from "./command-palette";
 import { NewVersionNotice } from "./new-version-notice";
 import { NotificationBell } from "./notification-bell";
@@ -58,7 +57,7 @@ interface TopNavProps {
   readonly adminMode: boolean;
   readonly profileKind: ProfileKind;
   readonly state: AppNavigationState;
-  readonly staffMobileMenu?: ReactNode;
+  readonly staffMobileMenu: ReactNode;
   readonly setupReminder?: ReactNode;
 }
 
@@ -75,11 +74,9 @@ export function TopNav({
   setupReminder,
 }: TopNavProps) {
   const isSupplier = profileKind === "supplier";
-  const staffHeader = Boolean(staffMobileMenu);
   const { teamOnly } = state.navigation;
   // A team member with no profile has nothing to switch to: the mode stays on.
-  const staffRole =
-    isStaffRole(user.role) && !teamOnly && (!staffMobileMenu || !adminMode) ? user.role : null;
+  const staffRole = isStaffRole(user.role) && !teamOnly && !adminMode ? user.role : null;
   const headerRef = useRef<HTMLElement>(null);
   usePublishedHeaderHeight(headerRef);
   return (
@@ -87,25 +84,11 @@ export function TopNav({
       ref={headerRef}
       className="sticky top-0 z-30 bg-background pt-[env(safe-area-inset-top)]"
     >
-      <div
-        className={`mx-auto flex max-w-[1440px] items-center gap-3 px-4 md:px-8 ${staffHeader ? "flex-wrap pt-4 pb-2" : "py-4"}`}
-      >
-        {staffMobileMenu ?? (
-          <MobileNav
-            navigation={state.navigation}
-            user={user}
-            adminMode={adminMode}
-            profileKind={profileKind}
-            pathname={state.pathname}
-            counts={state.counts}
-            teamModeRole={state.teamModeRole}
-          />
-        )}
+      <div className="mx-auto flex max-w-[1440px] flex-wrap items-center gap-3 px-4 pt-4 pb-2 md:px-8">
+        {staffMobileMenu}
         <HomeLink isSupplier={isSupplier} />
         {setupReminder ? <div className="staff-header-setup">{setupReminder}</div> : null}
-        <div
-          className={`ml-auto flex items-center gap-2 ${staffHeader ? "min-w-0 flex-wrap justify-end" : ""}`}
-        >
+        <div className="ml-auto flex min-w-0 flex-wrap items-center justify-end gap-2">
           <NewVersionNotice />
           {/* A team member with no profile has no account to set up. */}
           <AccountSetupNotice enabled={!teamOnly} pathname={state.pathname} />
@@ -115,12 +98,10 @@ export function TopNav({
               <TeamModeButton role={staffRole} active={adminMode} />
             </div>
           )}
-          <div className={staffHeader ? "staff-header-controls" : "contents"}>
-            {isSupplier || teamOnly ? null : <CommandPalette iconOnly={staffHeader} />}
-            {teamOnly ? null : <NotificationBell title={staffHeader ? "Notificações" : "Avisos"} />}
-            {staffHeader ? (
-              <ProfileCard user={user} adminMode={adminMode} profileKind={profileKind} inHeader />
-            ) : null}
+          <div className="staff-header-controls">
+            {isSupplier || teamOnly ? null : <CommandPalette iconOnly />}
+            {teamOnly ? null : <NotificationBell title="Notificações" />}
+            <ProfileCard user={user} adminMode={adminMode} profileKind={profileKind} inHeader />
           </div>
         </div>
       </div>
