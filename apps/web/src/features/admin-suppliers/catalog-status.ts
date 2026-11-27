@@ -15,3 +15,54 @@ export function catalogStatusMessage(
   const paused = pausedListingsLabel(result.pausedTargets);
   return paused === null ? status : `${status} · ${paused}`;
 }
+
+const MISSING_LIST = new Intl.ListFormat("pt-BR", { style: "long", type: "conjunction" });
+
+export interface ProductSaleStatus {
+  readonly tone: "success" | "warning" | "danger" | "info" | "muted";
+  readonly label: string;
+  /** Why a draft is off sale, in the team's words; null when there is nothing to fix. */
+  readonly detail: string | null;
+}
+
+/** Where a supplier product stands for the team, and what keeps a draft off sale. */
+export function productSaleStatus(product: {
+  active: boolean;
+  reviewStatus: "draft" | "in_review" | "approved" | "rejected";
+  fiscalRequired: boolean;
+  weightRequired: boolean;
+  missingForSale: readonly string[];
+}): ProductSaleStatus {
+  if (!product.active) {
+    return { tone: "muted", label: "Desativado", detail: null };
+  }
+  if (product.reviewStatus === "rejected") {
+    return { tone: "danger", label: "Reprovado", detail: null };
+  }
+  if (product.reviewStatus === "in_review") {
+    return { tone: "info", label: "Em análise", detail: null };
+  }
+  if (product.reviewStatus === "approved") {
+    return { tone: "success", label: "Ativo", detail: null };
+  }
+  // Without the team's NF-e and weight rule the draft is the supplier's own, still in their panel.
+  if (!product.fiscalRequired && !product.weightRequired) {
+    return {
+      tone: "warning",
+      label: "Rascunho",
+      detail: "O fornecedor ainda não publicou no painel dele",
+    };
+  }
+  if (product.missingForSale.length === 0) {
+    return {
+      tone: "warning",
+      label: "Rascunho",
+      detail: "Os dados estão completos. Abra em Editar e salve para pôr à venda",
+    };
+  }
+  return {
+    tone: "warning",
+    label: "Rascunho",
+    detail: `Falta ${MISSING_LIST.format(product.missingForSale)}. Preencha em Editar para pôr à venda`,
+  };
+}

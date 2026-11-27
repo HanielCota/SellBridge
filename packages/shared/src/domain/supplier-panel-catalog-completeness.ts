@@ -178,6 +178,29 @@ export function meetsNewProductRules(product: {
   return !product.weightRequired || hasShippingWeight(product);
 }
 
+/**
+ * What `meetsNewProductRules` still misses, in the team's words ("NCM", "peso"), so a draft says
+ * why it is not on sale. Empty when nothing is missing.
+ */
+export function missingForSale(product: Parameters<typeof meetsNewProductRules>[0]): string[] {
+  const missing: string[] = [];
+  if (product.fiscalRequired) {
+    if (product.fiscal.ncm === null) {
+      missing.push("NCM");
+    }
+    if (product.fiscal.origin === null) {
+      missing.push("origem");
+    }
+    if (product.fiscal.unit === null) {
+      missing.push("unidade");
+    }
+  }
+  if (product.weightRequired && !hasShippingWeight(product)) {
+    missing.push("peso");
+  }
+  return missing;
+}
+
 const WEIGHT_FIELD = `attributes.${PACKAGE_WEIGHT_ATTRIBUTE}`;
 
 function weightRules(product: CompletenessProduct): Rule[] {

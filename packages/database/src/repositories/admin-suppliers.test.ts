@@ -284,7 +284,7 @@ describe("admin suppliers", () => {
     expect(updated.reviewStatus).toBe("draft");
   });
 
-  it("puts a team draft on sale once the team fills in its weight", async () => {
+  it("puts a team draft on sale once the team fills in its weight, and lists what a draft misses", async () => {
     const fiscal = {
       ncm: "61091000",
       origin: 0,
@@ -302,6 +302,10 @@ describe("admin suppliers", () => {
       sku: "ADMIN-DRAFT-FILLED",
       fiscal,
     });
+    const listed = await listAdminSupplierProducts(database, supplierId, "ADMIN-DRAFT-FILLED", {
+      page: 1,
+      pageSize: 10,
+    });
 
     const filled = await saveAdminSupplierProduct(database, {
       supplierId,
@@ -313,6 +317,7 @@ describe("admin suppliers", () => {
 
     await database.delete(supplierProducts).where(eq(supplierProducts.id, draft.id));
     expect(draft.reviewStatus).toBe("draft");
+    expect(listed.items[0]?.missingForSale).toEqual(["peso"]);
     expect(filled.reviewStatus).toBe("approved");
     expect(filled.submittedAt).not.toBeNull();
   });

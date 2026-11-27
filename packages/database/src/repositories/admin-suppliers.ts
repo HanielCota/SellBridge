@@ -10,7 +10,10 @@ import {
 } from "@sellbridge/shared/schemas";
 import type { ProductCsvError, ProductCsvRow } from "@sellbridge/shared/product-csv";
 import { planGridImport, type GridImportPlan } from "@sellbridge/shared/product-grid-import";
-import { meetsNewProductRules } from "@sellbridge/shared/supplier-panel-catalog-completeness";
+import {
+  meetsNewProductRules,
+  missingForSale,
+} from "@sellbridge/shared/supplier-panel-catalog-completeness";
 import {
   icmsOverrideProblem,
   readProductFiscal,
@@ -75,6 +78,20 @@ export async function listAdminSuppliers(
     .limit(pagination.pageSize)
     .offset((pagination.page - 1) * pagination.pageSize);
   return toPaginated(items, total?.value ?? 0, pagination);
+}
+
+/** A draft says what keeps it off sale; any other status lists nothing. */
+function withMissingForSale(product: AdminSupplierProduct, fallback: FiscalFallback | null) {
+  const missing =
+    product.reviewStatus === "draft"
+      ? missingForSale({
+          fiscal: withFiscalFallback(readProductFiscal(product.fiscal), fallback),
+          fiscalRequired: product.fiscalRequired,
+          weightRequired: product.weightRequired,
+          mercadoLivreAttributes: product.mercadoLivreAttributes,
+        })
+      : [];
+  return { ...product, missingForSale: missing };
 }
 
 export async function getAdminSupplier(database: DatabaseExecutor, supplierId: string) {
@@ -247,7 +264,12 @@ export async function listAdminSupplierProducts(
     .orderBy(asc(supplierProducts.title), asc(supplierProducts.id))
     .limit(pagination.pageSize)
     .offset((pagination.page - 1) * pagination.pageSize);
-  return toPaginated(items, total?.value ?? 0, pagination);
+  const fallback = await getSupplierFiscalFallback(database, supplierId);
+  return toPaginated(
+    items.map((item) => withMissingForSale(item, fallback)),
+    total?.value ?? 0,
+    pagination,
+  );
 }
 
 export async function listAdminCategories(database: DatabaseExecutor) {
