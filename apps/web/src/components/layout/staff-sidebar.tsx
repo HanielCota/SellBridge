@@ -370,6 +370,9 @@ function SidebarBrand({
   return (
     <Link
       to={profileKind === "supplier" ? "/fornecedor/painel" : "/dashboard"}
+      aria-label={
+        profileKind === "supplier" ? "SellBridge, painel do fornecedor" : "SellBridge, visão geral"
+      }
       className="staff-sidebar-brand"
       onClick={(event) => {
         if (onNavigate) chooseOnPlainClick(event, onNavigate);
