@@ -279,6 +279,71 @@ describe("tenant billing persistence", () => {
       }
     });
 
+    it("refuses a new store and a new listing once the free sales are used up", async () => {
+      const account = await accountCreatedAt(new Date());
+      try {
+        const { id: storeId } = await upsertStoreConnection(
+          database,
+          testStoreInput(account.tenantId, "used-up"),
+        );
+        await publishTestProduct(database, catalog.productId, [
+          { tenantId: account.tenantId, storeId },
+        ]);
+        for (const index of Array.from({ length: FREE_SALE_LIMIT }, (_, position) => position)) {
+          await upsertMarketplaceOrder(database, account.tenantId, storeId, {
+            externalOrderId: `used-up-${index}`,
+            status: "paid",
+            buyerName: "Test Buyer",
+            orderedAt: new Date(),
+            marketplaceFeeCents: 0,
+            totalCents: 2500,
+            items: [
+              {
+                externalListingId: `EXT-${catalog.productId}-${account.tenantId}`,
+                title: "Test sale",
+                quantity: 1,
+                unitPriceCents: 2500,
+              },
+            ],
+          });
+        }
+        const mayAdd = (resource: "stores" | "listings") =>
+          assertBillingCapacity(database, { tenantId: account.tenantId, rules: RULES, resource });
+
+        await expect(mayAdd("stores")).rejects.toThrow(
+          "Para conectar lojas, escolha um plano em Assinatura.",
+        );
+        await expect(mayAdd("listings")).rejects.toThrow(
+          "Para publicar anúncios, escolha um plano em Assinatura.",
+        );
+      } finally {
+        await account.cleanup();
+      }
+    });
+
+    it("refuses a new store and a new listing to an account whose paid plan ended", async () => {
+      const account = await accountCreatedAt(new Date());
+      try {
+        await database.insert(billingAccounts).values({
+          tenantId: account.tenantId,
+          plan: "essential",
+          status: "canceled",
+          subscriptionId: `sub_${randomUUID()}`,
+        });
+        const mayAdd = (resource: "stores" | "listings") =>
+          assertBillingCapacity(database, { tenantId: account.tenantId, rules: RULES, resource });
+
+        await expect(mayAdd("stores")).rejects.toThrow(
+          "Para conectar lojas, escolha um plano em Assinatura.",
+        );
+        await expect(mayAdd("listings")).rejects.toThrow(
+          "Para publicar anúncios, escolha um plano em Assinatura.",
+        );
+      } finally {
+        await account.cleanup();
+      }
+    });
+
     it("keeps an account from before the launch unlimited during the transition", async () => {
       const account = await accountCreatedAt(new Date(launchedAt.getTime() - DAY));
       for (const index of Array.from({ length: START.stores + 1 }, (_, position) => position)) {
