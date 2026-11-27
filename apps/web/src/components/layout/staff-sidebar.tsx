@@ -1,4 +1,5 @@
 import type { ProfileKind } from "@sellbridge/shared/profile-kind";
+import { isStaffRole } from "@sellbridge/shared/staff-access";
 import { Link } from "@tanstack/react-router";
 import { useEffect, useId, useState, type ReactNode } from "react";
 import { DashboardSetupProvider } from "@/components/onboarding/setup-guide";
@@ -62,15 +63,21 @@ function groupTeamItems(items: readonly NavItem[]): NavItem[] {
 }
 
 function businessItems(shown: ShownMenu): NavItem[] {
-  const extra = ACCOUNT_NAV_ITEMS[shown.kind].filter((item) => item.to !== "/suporte");
-  if (shown.kind === "supplier") return [...shown.items, ...extra];
-  return shown.items.flatMap((item) => {
+  const accountItems = ACCOUNT_NAV_ITEMS[shown.kind];
+  const extra = accountItems.filter((item) => item.to !== "/suporte");
+  // The tickets list stays one click away for everyone, last, under its own heading.
+  const support = accountItems
+    .filter((item) => item.to === "/suporte")
+    .map((item) => ({ ...item, group: "Ajuda" }));
+  if (shown.kind === "supplier") return [...shown.items, ...extra, ...support];
+  const items = shown.items.flatMap((item) => {
     if (item.to === "/financeiro")
       return [item, ...extra.map((plan) => ({ ...plan, group: "Dinheiro" }))];
     if (item.group === "Vender") return [{ ...item, group: "Vendas" }];
     if (item.group === "Lojas") return [{ ...item, group: "Canais de venda" }];
     return [item];
   });
+  return [...items, ...support];
 }
 
 const NAV_ICONS: Record<string, SolarIconName> = {
@@ -87,6 +94,7 @@ const NAV_ICONS: Record<string, SolarIconName> = {
   "/fornecedor/painel": "home",
   "/fornecedor/painel/pedidos": "bag",
   "/fornecedor/painel/vendas": "chart",
+  "/suporte": "support",
   "/suporte/revendedores": "support",
   "/fornecedor/painel/recebimentos": "wallet",
   "/fornecedor/painel/extrato": "list",
@@ -232,18 +240,47 @@ interface SidebarContentProps extends StaffSidebarProps {
   onNavigate?: (() => void) | undefined;
 }
 
-function SidebarNavigation({
+function BusinessMenu({
   state,
   profileKind,
-  area,
-  setArea,
   onNavigate,
-  adminMode,
-}: SidebarContentProps) {
-  const { navigation, counts, pathname, teamModeRole } = state;
+}: Pick<SidebarContentProps, "state" | "profileKind" | "onNavigate">) {
+  const { navigation, counts, pathname } = state;
   const [pickedProfile, setPickedProfile] = useState({ current: profileKind, shown: profileKind });
   const shownKind = pickedProfile.current === profileKind ? pickedProfile.shown : profileKind;
   const shown = shownMenu(navigation, shownKind, pathname);
+  return (
+    <>
+      <ProfileSwitch
+        sections={navigation.profileSections}
+        shownKind={shownKind}
+        onChange={(kind) => setPickedProfile({ current: profileKind, shown: kind })}
+      />
+      <NavigationGroups
+        items={businessItems(shown)}
+        activeTo={shown.activeTo}
+        counts={counts}
+        profileSlug={shown.slug}
+        onNavigate={onNavigate}
+      />
+    </>
+  );
+}
+
+function SidebarNavigation(props: SidebarContentProps) {
+  // Only the team splits the menu into "Meu negócio" and "Administração"; a customer's menu is
+  // just their own pages.
+  if (isStaffRole(props.user.role)) return <TeamNavigation {...props} />;
+  return (
+    <nav aria-label="Principal" className="staff-nav">
+      <BusinessMenu {...props} />
+    </nav>
+  );
+}
+
+function TeamNavigation(props: SidebarContentProps) {
+  const { state, area, setArea, onNavigate, adminMode } = props;
+  const { navigation, teamModeRole } = state;
   const teamItems = adminMode ? groupTeamItems(navigation.teamItems) : [];
   return (
     <nav aria-label="Principal" className="staff-nav">
@@ -260,18 +297,7 @@ function SidebarNavigation({
               : undefined
           }
         >
-          <ProfileSwitch
-            sections={navigation.profileSections}
-            shownKind={shownKind}
-            onChange={(kind) => setPickedProfile({ current: profileKind, shown: kind })}
-          />
-          <NavigationGroups
-            items={businessItems(shown)}
-            activeTo={shown.activeTo}
-            counts={counts}
-            profileSlug={shown.slug}
-            onNavigate={onNavigate}
-          />
+          <BusinessMenu {...props} />
         </NavigationSection>
       )}
       <StaffAdministrationSection

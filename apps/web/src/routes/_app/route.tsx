@@ -1,7 +1,6 @@
 import { isStaffRole } from "@sellbridge/shared/staff-access";
 import type { PeriodSearch } from "@sellbridge/shared/schemas";
 import type { ProfileKind } from "@sellbridge/shared/profile-kind";
-import type { ReactNode } from "react";
 import { useQuery, type QueryClient } from "@tanstack/react-query";
 import {
   createFileRoute,
@@ -13,8 +12,6 @@ import {
   useSearch,
 } from "@tanstack/react-router";
 import { StaffSidebarLayout } from "@/components/layout/staff-sidebar";
-import { SideNav } from "@/components/layout/side-nav";
-import { TopNav } from "@/components/layout/top-nav";
 import { useAppNavigation } from "@/components/layout/use-app-navigation";
 import { ImpersonationBanner } from "@/components/layout/impersonation-banner";
 import { SupportLauncher } from "@/components/support/support-launcher";
@@ -172,14 +169,6 @@ function DashboardHeaderGuide({ search }: { search: PeriodSearch }) {
   return data ? <DashboardSetupGuide progress={data.onboarding} inHeader /> : null;
 }
 
-/** In admin mode the team is answering tickets, so the reseller chat stays out of the way. */
-function SupportChatLauncher({ adminMode }: { adminMode: boolean }) {
-  if (adminMode) {
-    return null;
-  }
-  return <SupportLauncher />;
-}
-
 function AppLayout() {
   const { session } = Route.useRouteContext();
   const pathname = useRouterState({ select: (state) => state.location.pathname });
@@ -203,14 +192,6 @@ function AppLayout() {
     session.profileKind === "seller" && !session.teamOnly ? <SetupReminder /> : null;
   const headerSetup =
     pathname === "/dashboard" && setupReminder ? <DashboardHeaderSetup /> : setupReminder;
-  const page = (
-    <AppPage
-      session={session}
-      pathname={pathname}
-      compactTop={staff}
-      setupReminder={staff ? null : setupReminder}
-    />
-  );
   return (
     <div className="min-h-svh bg-background">
       {session.impersonatedBy ? (
@@ -219,48 +200,26 @@ function AppLayout() {
           endsAt={session.impersonationEndsAt}
         />
       ) : null}
-      {staff ? (
-        <StaffSidebarLayout {...shell} setupReminder={headerSetup}>
-          {page}
-          {session.teamOnly || session.adminMode ? null : <SupportLauncher movable />}
-        </StaffSidebarLayout>
-      ) : (
-        <>
-          <div className="lg:flex">
-            <SideNav {...shell} />
-            <div className="min-w-0 flex-1">
-              <TopNav {...shell} />
-              {page}
-            </div>
-          </div>
-          <SupportChatLauncher adminMode={session.adminMode} />
-        </>
-      )}
+      <StaffSidebarLayout {...shell} setupReminder={headerSetup}>
+        <AppPage session={session} pathname={pathname} />
+        {/* In admin mode the team is answering tickets, so the support chat stays out of the way.
+            Only the team can drag it aside: a moving button would surprise a reseller. */}
+        {session.teamOnly || session.adminMode ? null : <SupportLauncher movable={staff} />}
+      </StaffSidebarLayout>
     </div>
   );
 }
 
-function AppPage({
-  session,
-  pathname,
-  compactTop,
-  setupReminder,
-}: {
-  session: AppSession;
-  pathname: string;
-  compactTop: boolean;
-  setupReminder: ReactNode;
-}) {
+function AppPage({ session, pathname }: { session: AppSession; pathname: string }) {
   return (
     <main
       id="main-content"
       tabIndex={-1}
-      className={`mx-auto w-full max-w-[1440px] space-y-6 px-4 pb-28 md:px-8 md:pb-32 ${compactTop ? "pt-2" : "pt-4 md:pt-8"}`}
+      className="mx-auto w-full max-w-[1440px] space-y-6 px-4 pt-2 pb-28 md:px-8 md:pb-32"
     >
       {showsSigningReminder(session, isTeamPage(pathname)) ? (
         <ContractReminder contract={sessionContractOf(session)} profileKind={session.profileKind} />
       ) : null}
-      {setupReminder}
       <Outlet />
     </main>
   );
