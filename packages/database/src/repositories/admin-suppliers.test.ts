@@ -284,6 +284,60 @@ describe("admin suppliers", () => {
     expect(updated.reviewStatus).toBe("draft");
   });
 
+  it("puts a team draft on sale once the team fills in its weight", async () => {
+    const fiscal = {
+      ncm: "61091000",
+      origin: 0,
+      unit: "UN" as const,
+      cest: null,
+      netWeightGrams: null,
+      cfopInState: null,
+      cfopOutOfState: null,
+      icmsCode: null,
+      pisCofinsCst: null,
+    };
+    const draft = await saveAdminSupplierProduct(database, {
+      supplierId,
+      ...productValues,
+      sku: "ADMIN-DRAFT-FILLED",
+      fiscal,
+    });
+
+    const filled = await saveAdminSupplierProduct(database, {
+      supplierId,
+      ...productValues,
+      sku: "ADMIN-DRAFT-FILLED",
+      productId: draft.id,
+      fiscal: { ...fiscal, netWeightGrams: 300 },
+    });
+
+    await database.delete(supplierProducts).where(eq(supplierProducts.id, draft.id));
+    expect(draft.reviewStatus).toBe("draft");
+    expect(filled.reviewStatus).toBe("approved");
+    expect(filled.submittedAt).not.toBeNull();
+  });
+
+  it("leaves a supplier's own panel draft as a draft when the team edits it", async () => {
+    const [panelDraft] = await database
+      .insert(supplierProducts)
+      .values({ supplierId, ...productValues, sku: "ADMIN-PANEL-DRAFT", reviewStatus: "draft" })
+      .returning();
+    if (panelDraft === undefined) {
+      throw new Error("panel draft was not inserted");
+    }
+
+    const edited = await saveAdminSupplierProduct(database, {
+      supplierId,
+      ...productValues,
+      sku: "ADMIN-PANEL-DRAFT",
+      title: "Produto editado pela equipe",
+      productId: panelDraft.id,
+    });
+
+    await database.delete(supplierProducts).where(eq(supplierProducts.id, panelDraft.id));
+    expect(edited.reviewStatus).toBe("draft");
+  });
+
   it("refuses a team-saved product whose own ICMS code does not fit the supplier's regime", async () => {
     await database
       .update(suppliers)
