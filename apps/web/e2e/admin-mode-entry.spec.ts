@@ -76,3 +76,13 @@ test("um link da área de admin abre a tela e liga o modo", async ({ page }) => 
     "page",
   );
 });
+
+// Regression: the team answering tickets in admin mode saw the reseller's support chat button.
+test("o botão de suporte do revendedor some no modo administrador", async ({ page }) => {
+  await startWithAdminModeOff(page);
+  const launcher = page.getByRole("link", { name: "Falar com o suporte" });
+  await expect(launcher).toBeVisible();
+  await page.getByRole("button", { name: "Modo administrador", exact: true }).click();
+  await expect(page).toHaveURL(/\/admin\//);
+  await expect(launcher).toHaveCount(0);
+});

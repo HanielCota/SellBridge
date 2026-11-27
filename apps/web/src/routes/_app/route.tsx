@@ -222,7 +222,7 @@ function AppLayout() {
       {staff ? (
         <StaffSidebarLayout {...shell} setupReminder={headerSetup}>
           {page}
-          {session.teamOnly ? null : <SupportLauncher movable />}
+          {session.teamOnly || session.adminMode ? null : <SupportLauncher movable />}
         </StaffSidebarLayout>
       ) : (
         <>
