@@ -108,7 +108,9 @@ import {
   createOrderCheckDispatcher,
   ORDER_CHECK_DISPATCH_JOB,
   ORDER_CHECK_MARKETPLACES,
+  ORDER_CHECK_WINDOW_IN_MS,
 } from "./processors/order-check.ts";
+import { createRedisUnchangedReads } from "./lib/unchanged-reads.ts";
 import type { NoticeReaders } from "./processors/marketplace-notice.ts";
 import { createWebhookEventProcessor } from "./processors/webhook-event.ts";
 import {
@@ -560,6 +562,7 @@ function orderCheckWorkers(context: WorkerContext): Worker[] {
     connectors,
     cipher,
     acquireRateLimit: context.acquireRateLimit,
+    unchangedReads: createRedisUnchangedReads(queues.orderCheck, ORDER_CHECK_WINDOW_IN_MS),
     requestStockSync: async () => requestStockSync(context),
     requestAutoForward: async (orderId: string) => requestAutoForward(context, orderId),
   };

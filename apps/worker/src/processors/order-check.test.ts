@@ -21,9 +21,11 @@ import {
 import {
   checkStoreOrders,
   createOrderCheckDispatcher,
+  MAX_UNCHANGED_READS,
   ORDER_CHECK_WINDOW_IN_MS,
   STORE_SPACING_IN_MS,
 } from "./order-check.ts";
+import type { UnchangedReads } from "../lib/unchanged-reads.ts";
 import { saveMarketplaceOrder } from "./order-intake.ts";
 
 const environment = createWorkerTestEnvironment();
@@ -46,10 +48,19 @@ const connectors = {
     orderResource: (externalOrderId: string) => `${RESOURCE_PREFIX}${externalOrderId}`,
   },
 };
+/** The Redis counters in one process' memory, emptied before each test. */
+const unchangedCounts = new Map<string, number>();
+const unchangedReads: UnchangedReads = {
+  count: async (key) => unchangedCounts.get(key) ?? 0,
+  add: async (key) => {
+    unchangedCounts.set(key, (unchangedCounts.get(key) ?? 0) + 1);
+  },
+};
 const dependencies = {
   ...environment,
   connectors,
   acquireRateLimit: async () => {},
+  unchangedReads,
   requestStockSync,
   requestAutoForward,
 };
@@ -92,6 +103,7 @@ beforeEach(() => {
   vi.useFakeTimers({ toFake: ["Date"] });
   vi.setSystemTime(NOW);
   marketplaceSales.clear();
+  unchangedCounts.clear();
   listOrders.mockReset();
   fetchOrder.mockReset();
   fetchOrder.mockImplementation(async (_credentials, resource) => {
@@ -281,6 +293,33 @@ describe("periodic order check of one store", () => {
     expect(listOrders).not.toHaveBeenCalled();
     const stored = await database.query.orders.findFirst({ where: eq(schema.orders.id, orderId) });
     expect(stored?.status).toBe("cancelled");
+  });
+
+  it("stops reading again a Shopee sale whose newer state cannot be recorded here", async () => {
+    const connected = await createTestStore(environment, tenants.first);
+    await database
+      .update(schema.storeConnections)
+      .set({ marketplace: "shopee" })
+      .where(eq(schema.storeConnections.id, connected.id));
+    const paid = sale({ orderedAt: new Date("2026-11-01T12:00:00.000Z") });
+    await saveMarketplaceOrder(dependencies, connected, paid, { webhookEventId: randomUUID() });
+    const listUpdatedOrders = vi
+      .fn<(credentials: StoreCredentials, since: Date) => Promise<MarketplaceOrderBatch>>()
+      .mockResolvedValue({ orders: [{ ...paid, status: "shipped" }], resumeFrom: null });
+    marketplaceSales.set(paid.externalOrderId, paid);
+    const shopee = {
+      ...dependencies,
+      connectors: {
+        ...connectors,
+        shopee: { ...connectors.mock, id: "shopee", listUpdatedOrders },
+      },
+    } as const;
+
+    for (let run = 0; run < MAX_UNCHANGED_READS + 2; run += 1) {
+      await checkStoreOrders(shopee, job(connected.id));
+    }
+
+    expect(fetchOrder).toHaveBeenCalledTimes(MAX_UNCHANGED_READS);
   });
 
   it("does not undo or report a payment when the detail is older than the notification", async () => {
