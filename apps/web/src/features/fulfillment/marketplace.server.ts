@@ -1,10 +1,12 @@
 import { and, eq } from "drizzle-orm";
 import {
+  type ConfirmedPickup,
   getMercadoLivreLabel,
   getMercadoLivreLabels,
   getMercadoLivreShipping,
   getShopeeShippingLabel,
   getTikTokShopShippingLabel,
+  readShopeePickupOptions,
   sendMercadoLivreSaleInvoice,
   type MercadoLivreLabelFile,
   type PrintedLabel,
@@ -18,9 +20,16 @@ import {
   isLabelMarketplace,
 } from "@sellbridge/shared/supplier-order-labels";
 import { findOnBehalfLabelParcels, findOrderLabelParcels } from "@sellbridge/database/repositories";
-import { orders, orderShipments, storeConnections } from "@sellbridge/database/schema";
+import { orders, orderShipments, storeConnections, suppliers } from "@sellbridge/database/schema";
+import { readSupplierFiscalProfile } from "@sellbridge/shared/supplier-fiscal";
 import { onBehalfLabelRefusal } from "@sellbridge/shared/reseller-invoice";
 import { labelSharingRefusal } from "@/features/fulfillment/label-sharing";
+import type { PickupConfirmation, PickupMissing } from "@/features/fulfillment/pickup-page";
+import {
+  type SupplierAddress,
+  supplierAddressLines,
+  supplierPickup,
+} from "@/features/fulfillment/shopee-pickup";
 import { saleNoteXmlRefusal } from "@/features/fulfillment/sale-note-xml";
 import { isShippingBlocked } from "@/features/fulfillment/shipping-block";
 import { database } from "@/lib/server/database";
@@ -93,6 +102,7 @@ async function labelAccess(tenantId: string, orderId: string) {
   return {
     marketplace: row.store.marketplace,
     store: storeCredentials(row.store),
+    shopName: row.store.shopName,
     externalOrderId: row.externalOrderId,
   };
 }
@@ -106,14 +116,18 @@ export interface OrderLabel {
 
 type LabelAccess = Awaited<ReturnType<typeof labelAccess>>;
 
-async function pdfLabel(access: LabelAccess, format: LabelFormat): Promise<OrderLabel> {
+async function pdfLabel(
+  access: LabelAccess,
+  format: LabelFormat,
+  pickup: ConfirmedPickup | undefined,
+): Promise<OrderLabel> {
   if (format !== "pdf") {
     throw conflictError("Escolha a impressora comum para emitir a etiqueta em PDF.");
   }
 
   const label =
     access.marketplace === "shopee"
-      ? await getShopeeShippingLabel(shopeeApiConfig, access.store, access.externalOrderId)
+      ? await getShopeeShippingLabel(shopeeApiConfig, access.store, access.externalOrderId, pickup)
       : await getTikTokShopShippingLabel(tiktokShopApiConfig, access.store, access.externalOrderId);
   return {
     file: { format: "pdf", bytes: label.bytes },
@@ -122,12 +136,19 @@ async function pdfLabel(access: LabelAccess, format: LabelFormat): Promise<Order
   };
 }
 
+/** How a label is asked for: its format, and whether a Shopee one may be generated now. */
+export interface LabelAsk {
+  readonly format: LabelFormat;
+  readonly allowGeneration: boolean;
+  /** The Shopee pickup the requester confirmed (`shopeePickupStep`). */
+  readonly pickup?: ConfirmedPickup | undefined;
+}
+
 /** One order's label in the format asked for, with the marketplace's order number. */
 export async function loadMarketplaceLabel(
   tenantId: string,
   orderId: string,
-  format: LabelFormat,
-  allowGeneration: boolean,
+  { format, allowGeneration, pickup }: LabelAsk,
 ): Promise<OrderLabel> {
   const access = await labelAccess(tenantId, orderId);
   if (access.marketplace === "shopee" && !allowGeneration) {
@@ -135,7 +156,7 @@ export async function loadMarketplaceLabel(
   }
 
   if (access.marketplace !== BATCH_LABEL_MARKETPLACE) {
-    return pdfLabel(access, format);
+    return pdfLabel(access, format, pickup);
   }
 
   const label = await getMercadoLivreLabel(
@@ -145,6 +166,78 @@ export async function loadMarketplaceLabel(
     format,
   );
   return { ...label, externalOrderId: access.externalOrderId };
+}
+
+/** The address of the one supplier that ships the order; null when it has none on file. */
+async function orderSupplierAddress(
+  tenantId: string,
+  orderId: string,
+): Promise<SupplierAddress | null> {
+  const rows = await database
+    .selectDistinct({ fiscalProfile: suppliers.fiscalProfile })
+    .from(orderShipments)
+    .innerJoin(suppliers, eq(suppliers.id, orderShipments.supplierId))
+    .where(and(eq(orderShipments.orderId, orderId), eq(orderShipments.tenantId, tenantId)));
+  const [row] = rows;
+  if (rows.length > 1) {
+    throw conflictError(
+      "Este pedido sai de mais de um fornecedor. Organize as coletas na Central do Vendedor da Shopee.",
+    );
+  }
+  return row === undefined ? null : (readSupplierFiscalProfile(row.fiscalProfile)?.address ?? null);
+}
+
+/** What the label request does about the carrier's pickup before asking Shopee for the label. */
+export type ShopeePickupStep =
+  | { kind: "proceed"; pickup: ConfirmedPickup | undefined }
+  | { kind: "confirm"; confirmation: Omit<PickupConfirmation, "form" | "action"> }
+  | { kind: "missing"; missing: PickupMissing };
+
+/**
+ * The pickup rule (decision of 2026-11-27): the carrier picks the parcel up at the supplier's
+ * address, one of the reseller's Shopee pickup addresses, after the requester confirms it. A
+ * confirmation is taken only while it still names the address and slot Shopee offers there.
+ *
+ * @throws {AppError} CONFLICT when the supplier's address is not on file, or several suppliers
+ * ship the order.
+ */
+export async function shopeePickupStep(
+  tenantId: string,
+  orderId: string,
+  confirmed: ConfirmedPickup | null,
+): Promise<ShopeePickupStep> {
+  const access = await labelAccess(tenantId, orderId);
+  if (access.marketplace !== "shopee") {
+    return { kind: "proceed", pickup: undefined };
+  }
+  const options = await readShopeePickupOptions(
+    shopeeApiConfig,
+    access.store,
+    access.externalOrderId,
+  );
+  if (options.kind === "not_needed") {
+    return { kind: "proceed", pickup: undefined };
+  }
+  const supplierAddress = await orderSupplierAddress(tenantId, orderId);
+  if (supplierAddress === null) {
+    throw conflictError(
+      "O endereço da empresa do fornecedor ainda não está no SellBridge, então não dá para agendar a coleta. O fornecedor cadastra em Marca, em Dados fiscais da empresa.",
+    );
+  }
+  const order = { externalOrderId: access.externalOrderId, shopName: access.shopName };
+  const match = supplierPickup(options.addresses, supplierAddress);
+  if (match.kind !== "match") {
+    const lines = supplierAddressLines(supplierAddress);
+    return {
+      kind: "missing",
+      missing: { ...order, supplierAddress: lines, ambiguous: match.kind === "ambiguous" },
+    };
+  }
+  const { choice } = match;
+  if (confirmed?.addressId === choice.addressId && confirmed.pickupTimeId === choice.pickupTimeId) {
+    return { kind: "proceed", pickup: confirmed };
+  }
+  return { kind: "confirm", confirmation: { ...order, choice } };
 }
 
 /** What a batch of one store's labels gave, in this system's order ids. */
