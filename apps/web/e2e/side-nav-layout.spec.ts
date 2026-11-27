@@ -304,10 +304,9 @@ test("the sidebar stays open with no button to shrink it", async ({ page }) => {
   await expect(aside.getByRole("button", { name: /Recolher|Abrir o menu lateral/ })).toHaveCount(0);
 });
 
-function profileCard(page: Page) {
-  return page
-    .getByRole("complementary", { name: "Menu lateral" })
-    .getByRole("button", { name: /Menu do usuário/ });
+/** Since the new layout, every account opens its menu from the header, not the sidebar. */
+function accountButton(page: Page) {
+  return page.getByRole("banner").getByRole("button", { name: /Menu do usuário/ });
 }
 
 /** The open account menu's rows, in order, by their visible names. */
@@ -318,62 +317,61 @@ async function accountMenuRows(page: Page): Promise<string[]> {
     .evaluateAll((elements) => elements.map((element) => element.textContent.trim()));
 }
 
-test("support and the plan sit at the foot, the profile card under them, the header keeps search and bell", async ({
+test("the header holds search, the bell and the account; help opens from Suporte at the menu's foot", async ({
   page,
 }) => {
   await signIn(page, DEMO_USER);
   await page.setViewportSize({ width: 1366, height: 900 });
   await gotoHydrated(page, "/dashboard");
-  const header = page.locator("header").first();
+  const header = page.getByRole("banner");
   const aside = page.getByRole("complementary", { name: "Menu lateral" });
   await expect(header.getByRole("button", { name: /^Buscar/ })).toBeVisible();
   // The demo account may have unread notices, which turn the name into "Avisos: N novos".
   await expect(header.getByRole("button", { name: /^Avisos/ })).toBeVisible();
-  // The account left the header: the sidebar's card holds it.
-  await expect(header.getByRole("button", { name: /Menu do usuário/ })).toHaveCount(0);
-  await expect(header.getByRole("button", { name: /^Suporte/ })).toHaveCount(0);
-  await expect(sidebar(page).getByRole("link", { name: "Meu perfil" })).toHaveCount(0);
+  await expect(accountButton(page)).toContainText("demo@sellbridge.local");
+  await expect(aside.getByRole("button", { name: /Menu do usuário/ })).toHaveCount(0);
 
-  const support = await aside.getByRole("button", { name: /^Suporte/ }).boundingBox();
   const plan = await aside.getByRole("link", { name: "Assinatura", exact: true }).boundingBox();
-  const card = await profileCard(page).boundingBox();
-  expect(support?.y ?? 0, "support above the plan").toBeLessThan(plan?.y ?? 0);
-  expect(plan?.y ?? 0, "the plan above the profile card").toBeLessThan(card?.y ?? 0);
-  await expect(profileCard(page)).toContainText("demo@sellbridge.local");
+  const support = await aside.getByRole("button", { name: /^Suporte/ }).boundingBox();
+  expect(plan?.y ?? 0, "support last, under the plan").toBeLessThan(support?.y ?? 0);
 
   await aside.getByRole("button", { name: /^Suporte/ }).click();
   await expect(page.getByRole("dialog").getByRole("link", { name: "Abrir chamado" })).toBeVisible();
 });
 
-test("the sidebar names its groups in soft labels over their items", async ({ page }) => {
+test("the sidebar names its groups over their items, the overview under Vendas", async ({
+  page,
+}) => {
   await signIn(page, DEMO_USER);
   await page.setViewportSize({ width: 1366, height: 900 });
   await gotoHydrated(page, "/dashboard");
   const nav = sidebar(page);
+  // A customer's menu is just their own pages: the team's section titles never show.
+  await expect(nav.getByRole("heading", { name: "Meu negócio" })).toHaveCount(0);
 
   for (const [group, item] of [
-    ["Vender", "Catálogo"],
+    ["Vendas", "Visão geral"],
+    ["Vendas", "Catálogo"],
     ["Dinheiro", "Financeiro"],
-    ["Lojas", "Integrações"],
+    ["Canais de venda", "Integrações"],
   ] as const) {
-    const named = nav.getByRole("group", { name: group, exact: true });
-    // The group's first child is its written name; the items follow it.
-    await expect(named.locator(":scope > span").first()).toHaveText(group);
-    await expect(named.locator(":scope > span").first()).toBeVisible();
-    await expect(named.getByRole("link", { name: item })).toBeVisible();
+    const heading = nav.getByRole("heading", { name: group, exact: true });
+    const named = nav.locator(".staff-nav-group").filter({ has: heading });
+    await expect(heading).toBeVisible();
+    await expect(named.getByRole("link", { name: item, exact: true })).toBeVisible();
   }
 });
 
-test("the profile card opens the account menu above it, with no team switch for a reseller", async ({
+test("the header's account button opens the account menu, with no team switch for a reseller", async ({
   page,
 }) => {
   await signIn(page, DEMO_USER);
   await page.setViewportSize({ width: 1366, height: 900 });
   await gotoHydrated(page, "/dashboard");
   // Measured before opening: the open menu hides the rest of the page from the accessibility tree.
-  const card = await profileCard(page).boundingBox();
+  const button = await accountButton(page).boundingBox();
 
-  await profileCard(page).click();
+  await accountButton(page).click();
 
   await expect(page.getByRole("menu")).toBeVisible();
   expect(await accountMenuRows(page)).toEqual([
@@ -383,8 +381,8 @@ test("the profile card opens the account menu above it, with no team switch for 
     "Sair da conta",
   ]);
   const menu = await page.getByRole("menu").boundingBox();
-  expect((menu?.y ?? 0) + (menu?.height ?? 0), "menu above the card").toBeLessThanOrEqual(
-    card?.y ?? 0,
+  expect(menu?.y ?? 0, "menu below the button").toBeGreaterThanOrEqual(
+    (button?.y ?? 0) + (button?.height ?? 0),
   );
   await page.getByRole("menuitem", { name: "Meu cadastro" }).click();
   await expect(page).toHaveURL(/\/onboarding/);
@@ -408,13 +406,13 @@ test("a team account's menu has the team switch between the registration and the
   expect(rows[4]).toBe("Sair da conta");
 });
 
-test("signing out from the profile card goes to the login and ends the session", async ({
+test("signing out from the header's account menu goes to the login and ends the session", async ({
   page,
 }) => {
   await signUp(page, "Revendedor Sai Da Conta");
   await gotoHydrated(page, "/dashboard");
 
-  await profileCard(page).click();
+  await accountButton(page).click();
   await page.getByRole("menuitem", { name: "Sair da conta", exact: true }).click();
 
   await expect(page).toHaveURL(/\/login/);
@@ -424,44 +422,50 @@ test("signing out from the profile card goes to the login and ends the session",
 
 /*
  * Regression: the page keeps focused elements 5rem clear of its bottom edge, so focusing the
- * card, always in sight at the sidebar's foot, scrolled the page down by hundreds of pixels.
+ * account button once scrolled the page by hundreds of pixels.
  */
-test("focusing the profile card from the keyboard does not scroll the page", async ({ page }) => {
+test("focusing the account button from the keyboard does not scroll the page", async ({ page }) => {
   await signIn(page, DEMO_USER);
   await page.setViewportSize({ width: 1280, height: 900 });
   await gotoHydrated(page, "/dashboard");
-  await sidebar(page).getByRole("link", { name: "Assinatura", exact: true }).focus();
+  await page
+    .getByRole("banner")
+    .getByRole("button", { name: /^Avisos/ })
+    .focus();
+  const scrolled = () =>
+    page.evaluate(
+      () => window.scrollY + (document.querySelector(".staff-main-panel")?.scrollTop ?? 0),
+    );
   await page.evaluate(() => window.scrollTo(0, 0));
 
   await page.keyboard.press("Tab");
 
-  await expect(profileCard(page)).toBeFocused();
-  expect(await page.evaluate(() => window.scrollY)).toBe(0);
+  await expect(accountButton(page)).toBeFocused();
+  expect(await scrolled()).toBe(0);
 });
 
-test("on a phone the sheet keeps the same foot: support, the plan, then the profile card", async ({
+test("on a phone the header keeps the account and the sheet ends with Suporte", async ({
   page,
 }) => {
   await signIn(page, DEMO_USER);
   await page.setViewportSize({ width: 375, height: 812 });
   await gotoHydrated(page, "/dashboard");
-  const header = page.locator("header").first();
-  await expect(header.getByRole("button", { name: /Menu do usuário/ })).toHaveCount(0);
+  await expect(accountButton(page)).toBeVisible();
 
   await page.getByRole("button", { name: "Abrir menu", exact: true }).click();
   const sheet = page.getByRole("dialog", { name: "Navegação" });
   await expect(sheet.getByRole("link", { name: "SellBridge, visão geral" })).toBeVisible();
   const plan = await sheet.getByRole("link", { name: "Assinatura", exact: true }).boundingBox();
-  const card = sheet.getByRole("button", { name: /Menu do usuário/ });
-  const cardBox = await card.boundingBox();
-  expect(plan?.y ?? 0, "the plan above the profile card").toBeLessThan(cardBox?.y ?? 0);
-  expect((cardBox?.y ?? 0) + (cardBox?.height ?? 0), "card at the foot").toBeGreaterThan(700);
-  await card.click();
+  const support = await sheet.getByRole("button", { name: /^Suporte/ }).boundingBox();
+  expect(plan?.y ?? 0, "support last, under the plan").toBeLessThan(support?.y ?? 0);
+  await expect(sheet.getByRole("button", { name: /Menu do usuário/ })).toHaveCount(0);
+  await sheet.getByRole("button", { name: "Fechar menu" }).click();
+  await expect(sheet).toHaveCount(0);
+
+  await accountButton(page).click();
   expect(await accountMenuRows(page)).toHaveLength(4);
   await page.getByRole("menuitem", { name: "Meu perfil", exact: true }).click();
-
   await expect(page).toHaveURL(/\/perfil/);
-  await expect(sheet).toHaveCount(0);
 });
 
 // Regression: beside the sidebar, long ticket subjects kept to one line and pushed Situação and

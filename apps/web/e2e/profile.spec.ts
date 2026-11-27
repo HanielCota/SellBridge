@@ -16,9 +16,9 @@ test("adiciona, mostra e remove a foto de perfil", async ({ page }) => {
   await page.getByLabel("Escolher foto de perfil").setInputFiles(AVATAR_FIXTURE);
   await expect(page.getByText("Foto de perfil atualizada")).toBeVisible();
 
-  // The photo shows on the profile card at the foot of the sidebar.
-  const sidebar = page.getByRole("complementary", { name: "Menu lateral" });
-  const accountPhoto = sidebar.locator("img[src^='/api/perfil/foto/']");
+  // The photo shows on the account button in the header.
+  const header = page.getByRole("banner");
+  const accountPhoto = header.locator("img[src^='/api/perfil/foto/']");
   await expect(accountPhoto).toBeVisible();
   const source = await accountPhoto.getAttribute("src");
   const photo = await page.request.get(source ?? "");
@@ -27,7 +27,7 @@ test("adiciona, mostra e remove a foto de perfil", async ({ page }) => {
 
   await page.getByRole("button", { name: "Remover" }).click();
   await expect(page.getByText("Foto de perfil removida")).toBeVisible();
-  await expect(sidebar.locator("img[src^='/api/perfil/foto/']")).toHaveCount(0);
+  await expect(header.locator("img[src^='/api/perfil/foto/']")).toHaveCount(0);
   expect((await page.request.get(source ?? "")).status()).toBe(404);
 });
 
@@ -60,12 +60,12 @@ test("recusa arquivo que não é imagem e esconde fotos de quem não está logad
   await anonymous.dispose();
 });
 
-test("a conta no pé do menu abre o menu da conta", async ({ page }) => {
+test("a conta no topo da página abre o menu da conta", async ({ page }) => {
   await signUp(page, "Revendedor Menu Avatar");
   await expect(page).toHaveURL(/\/onboarding/);
   await gotoHydrated(page, "/onboarding");
   await page
-    .getByRole("complementary", { name: "Menu lateral" })
+    .getByRole("banner")
     .getByRole("button", { name: /Menu do usuário: Revendedor Menu Avatar/ })
     .click();
   const menu = page.getByRole("menu");

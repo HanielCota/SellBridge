@@ -46,13 +46,13 @@ test("the profile menu's theme switch flips by click and keyboard and survives a
   await expect(menuThemeSwitch(page)).toHaveAttribute("aria-checked", "false");
 });
 
-test("on a phone the drawer's theme switch is a 44 px target and flips the theme", async ({
+test("on a phone the account menu's theme switch is a 44 px target and flips the theme", async ({
   page,
 }) => {
   await signIn(page, DEMO_USER);
   await page.setViewportSize({ width: 375, height: 812 });
   await gotoHydrated(page, "/dashboard");
-  await page.getByRole("button", { name: "Abrir menu", exact: true }).click();
+  // The account sits in the header on phones too, outside the menu sheet.
   await profileCard(page).click();
   const themeSwitch = menuThemeSwitch(page);
   // The menu zooms in as it opens; measure once it rests at full size.
