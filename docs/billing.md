@@ -24,7 +24,9 @@ o acesso da equipe como cliente, essas ações ficam bloqueadas.
 - A reseller can use one connected store and 100 listings while using the first 20 confirmed sales
   without a monthly fee. A slot is used per order verified as paid, across manual sales and synced
   marketplace orders. Retries and status changes retain the same slot. A later cancellation or
-  return gives the slot back, and the next paid sale takes the lowest free slot. Existing orders with recorded payments count toward the allowance.
+  return gives the slot back, and the next paid sale takes the lowest free slot. Accounts
+  created before the offer (up to 26/11/2026) start at zero when migration
+  `0121_free_sales_restart` runs, like a new account.
 - After the allowance is used, a current subscription or staff courtesy is required to register a
   manual sale, connect another store or publish a new listing. Marketplace orders are still
   imported, and an order the buyer already paid always reaches the supplier, manually or

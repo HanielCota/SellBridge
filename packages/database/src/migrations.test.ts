@@ -671,4 +671,55 @@ describe("migrations", { timeout: MIGRATION_TEST_TIMEOUT }, () => {
       ["forwarded", []],
     ]);
   });
+  it("free_sales_restart starts older accounts at zero and frees the slots of reversed sales", async () => {
+    const migration = journal.entries.find((entry) => entry.tag.endsWith("_free_sales_restart"));
+    if (migration === undefined) throw new Error("free_sales_restart migration missing");
+    const url = await throwawayDatabase();
+    await applyMigrationsUpTo(url, migration.idx - 1);
+    const sales = [
+      { id: "1", tenant: "org-older", slot: 1, reversed: false },
+      { id: "2", tenant: "org-older", slot: 2, reversed: false },
+      { id: "3", tenant: "org-newer", slot: 1, reversed: false },
+      { id: "4", tenant: "org-newer", slot: 2, reversed: true },
+    ];
+    await withClient(url, async (sql) => {
+      await sql`
+        insert into organization (id, name, slug, created_at) values
+          ('org-older', 'Antiga', 'loja-antiga', '2026-11-20T12:00:00Z'),
+          ('org-newer', 'Nova', 'loja-nova', '2026-11-28T12:00:00Z')`;
+      for (const tenant of ["org-older", "org-newer"]) {
+        await sql`
+          insert into store_connections (id, tenant_id, marketplace, external_shop_id, shop_name, connected_at)
+          values (${tenant === "org-older" ? "00000000-0000-4000-8000-000000000501" : "00000000-0000-4000-8000-000000000502"},
+            ${tenant}, 'shopee', ${`shop-${tenant}`}, 'Loja', now())`;
+      }
+      for (const sale of sales) {
+        const store =
+          sale.tenant === "org-older"
+            ? "00000000-0000-4000-8000-000000000501"
+            : "00000000-0000-4000-8000-000000000502";
+        await sql`
+          insert into orders (id, tenant_id, store_connection_id, external_order_id, status, total_cents,
+            ordered_at, paid_at, reversed_at, free_sale_slot)
+          values (${`00000000-0000-4000-8000-00000000060${sale.id}`}, ${sale.tenant}, ${store},
+            ${`SH-${sale.id}`}, ${sale.reversed ? "cancelled" : "paid"}, 10000, now(), now(),
+            ${sale.reversed ? new Date() : null}, ${sale.slot})`;
+      }
+    });
+
+    await runMigrator(url);
+
+    const rows = await withClient(
+      url,
+      (sql) => sql<{ externalOrderId: string; slot: number | null }[]>`
+        select external_order_id as "externalOrderId", free_sale_slot as slot
+        from orders order by external_order_id`,
+    );
+    expect(rows).toEqual([
+      { externalOrderId: "SH-1", slot: null },
+      { externalOrderId: "SH-2", slot: null },
+      { externalOrderId: "SH-3", slot: 1 },
+      { externalOrderId: "SH-4", slot: null },
+    ]);
+  });
 });
