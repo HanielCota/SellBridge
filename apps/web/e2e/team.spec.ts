@@ -131,7 +131,7 @@ test("a atendente sem empresa vê só as telas da equipe e o próprio perfil", a
     await expect(sideMenu.getByRole("link", { name: resellerPage, exact: true })).toHaveCount(0);
   }
   await expect(page.getByRole("button", { name: /^Avisos/ })).toHaveCount(0);
-  await sideMenu.getByRole("button", { name: /^Menu do usuário/ }).click();
+  await page.getByRole("button", { name: /^Menu do usuário/ }).click();
   await expect(page.getByRole("menuitem", { name: "Meu perfil" })).toBeVisible();
   await expect(page.getByRole("menuitem", { name: "Meu cadastro" })).toHaveCount(0);
   await expect(
