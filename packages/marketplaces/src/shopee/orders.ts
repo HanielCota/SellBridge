@@ -14,6 +14,11 @@ const amount = z
   .number()
   .nonnegative()
   .max(MAX_STORED_CENTS / 100);
+/** Escrow lines may be negative: an adjustment or a rebate credits the seller. */
+const signedAmount = z
+  .number()
+  .min(-MAX_STORED_CENTS / 100)
+  .max(MAX_STORED_CENTS / 100);
 const itemId = z.number().int().positive();
 const recipientSchema = z.object({
   name: z.string().optional(),
@@ -71,24 +76,23 @@ const orderListSchema = z.object({
   next_cursor: z.string().optional(),
 });
 
-const escrowSchema = z.array(
-  z.object({
-    escrow_detail: z
-      .object({
-        order_sn: orderNumber,
-        order_income: z
-          .object({
-            commission_fee: amount.optional(),
-            service_fee: amount.optional(),
-            seller_transaction_fee: amount.optional(),
-            seller_order_processing_fee: amount.optional(),
-            order_ams_commission_fee: amount.optional(),
-          })
-          .optional(),
-      })
-      .optional(),
-  }),
-);
+const escrowSchema = z.array(z.unknown());
+const escrowRowSchema = z.object({
+  escrow_detail: z
+    .object({
+      order_sn: orderNumber,
+      order_income: z
+        .object({
+          commission_fee: signedAmount.optional(),
+          service_fee: signedAmount.optional(),
+          seller_transaction_fee: signedAmount.optional(),
+          seller_order_processing_fee: signedAmount.optional(),
+          order_ams_commission_fee: signedAmount.optional(),
+        })
+        .optional(),
+    })
+    .optional(),
+});
 
 const orderStatuses: Readonly<Record<string, MarketplaceOrder["status"]>> = {
   UNPAID: "pending",
@@ -249,20 +253,41 @@ async function readEscrow(context: ShopeeContext, store: StoreCredentials, seria
   }
 }
 
+/** One order's fee in cents; a credit larger than the charges leaves no fee. */
+function feeCents(
+  store: StoreCredentials,
+  orderSn: string,
+  parts: readonly (number | undefined)[],
+) {
+  const total = Math.round(parts.reduce<number>((sum, part) => sum + (part ?? 0), 0) * 100);
+  if (total >= 0) {
+    return total;
+  }
+
+  logger.warn("shopee.order_fee_negative", { externalShopId: store.externalShopId, orderSn });
+  return 0;
+}
+
+/** Each escrow row is read on its own: one odd row must not drop the fees of the others. */
 async function readFees(context: ShopeeContext, store: StoreCredentials, serials: string[]) {
   const fees = new Map<string, number>();
   for (let offset = 0; offset < serials.length; offset += ESCROW_PAGE_SIZE) {
     const requested = serials.slice(offset, offset + ESCROW_PAGE_SIZE);
-    for (const row of await readEscrow(context, store, requested)) {
-      const escrow = row.escrow_detail;
+    for (const raw of await readEscrow(context, store, requested)) {
+      const row = escrowRowSchema.safeParse(raw);
+      if (!row.success) {
+        logger.warn("shopee.order_fee_unreadable", { externalShopId: store.externalShopId });
+        continue;
+      }
+
+      const escrow = row.data.escrow_detail;
       if (escrow?.order_income === undefined || !requested.includes(escrow.order_sn)) {
         continue;
       }
 
       const parts = Object.values(escrow.order_income);
       if (parts.some((part) => part !== undefined)) {
-        const total = parts.reduce<number>((sum, part) => sum + (part ?? 0), 0);
-        fees.set(escrow.order_sn, cents(total));
+        fees.set(escrow.order_sn, feeCents(store, escrow.order_sn, parts));
       }
     }
   }

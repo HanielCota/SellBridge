@@ -265,6 +265,57 @@ describe("Shopee order intake", () => {
     expect(calls[0]?.query.get("time_range_field")).toBe("create_time");
   });
 
+  it("keeps every order's fee when Shopee credits a negative adjustment in the batch", async () => {
+    const OTHER = "261126E81SYYKF";
+    const { connector } = setup({
+      "GET /api/v2/order/get_order_list": () =>
+        success({ order_list: [{ order_sn: SERIAL }, { order_sn: OTHER }], more: false }),
+      "GET /api/v2/order/get_order_detail": () =>
+        success({ order_list: [RAW_ORDER, { ...RAW_ORDER, order_sn: OTHER }] }),
+      "POST /api/v2/payment/get_escrow_detail_batch": () =>
+        success([
+          {
+            escrow_detail: {
+              order_sn: SERIAL,
+              order_income: { commission_fee: 5, service_fee: -1.5 },
+            },
+          },
+          { escrow_detail: { order_sn: OTHER, order_income: { commission_fee: 7.25 } } },
+        ]),
+    });
+
+    const page = await connector.listOrders(STORE, new Date(NOW.getTime() - 7_200_000));
+
+    expect(
+      Object.fromEntries(
+        page.orders.map((order) => [order.externalOrderId, order.marketplaceFeeCents]),
+      ),
+    ).toEqual({ [SERIAL]: 350, [OTHER]: 725 });
+  });
+
+  it("keeps the readable fees when one escrow row is malformed", async () => {
+    const OTHER = "261126E81SYYKF";
+    const { connector } = setup({
+      "GET /api/v2/order/get_order_list": () =>
+        success({ order_list: [{ order_sn: SERIAL }, { order_sn: OTHER }], more: false }),
+      "GET /api/v2/order/get_order_detail": () =>
+        success({ order_list: [RAW_ORDER, { ...RAW_ORDER, order_sn: OTHER }] }),
+      "POST /api/v2/payment/get_escrow_detail_batch": () =>
+        success([
+          { escrow_detail: { order_sn: SERIAL, order_income: { commission_fee: "5,00" } } },
+          { escrow_detail: { order_sn: OTHER, order_income: { commission_fee: 7.25 } } },
+        ]),
+    });
+
+    const page = await connector.listOrders(STORE, new Date(NOW.getTime() - 7_200_000));
+
+    expect(
+      Object.fromEntries(
+        page.orders.map((order) => [order.externalOrderId, order.marketplaceFeeCents]),
+      ),
+    ).toEqual({ [SERIAL]: undefined, [OTHER]: 725 });
+  });
+
   it("lists changes to orders placed before the reconciliation window", async () => {
     const since = new Date(NOW.getTime() - 60_000);
     const { connector, calls } = setup({
