@@ -9,9 +9,9 @@ import type { FichaAttribute } from "./category-ficha.ts";
 const KIND_ATTRIBUTE_IDS: ReadonlySet<string> = new Set(["FOOTWEAR_TYPE"]);
 
 export interface KindAttribute {
-  id: string;
-  value_id: string;
-  value_name: string;
+  readonly id: string;
+  readonly value_id: string;
+  readonly value_name: string;
 }
 
 type ListedValue = FichaAttribute["values"][number];
@@ -32,7 +32,7 @@ function wordKeys(text: string): Set<string> {
 
 /**
  * Shoe names Mercado Livre does not list, read as the listed kind closest to them; the supplier
- * can still pick another in the product sheet. Babuche as Chinelo: Guilherme's choice, 2026-11-27.
+ * can still pick another in the product sheet. Babuche as Chinelo is the product owner's call.
  */
 const KIND_SYNONYMS: ReadonlyMap<string, string> = new Map([["babuche", "chinelo"]]);
 
