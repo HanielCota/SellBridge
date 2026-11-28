@@ -70,7 +70,8 @@ async function productRuleErrors(supplierId: string, normalized: NormalizedImpor
   }
   const preview = await previewAdminProductCsv({ supplierId, content: normalized.canonicalCsv });
   const imageErrors = insecureImageErrors(
-    parseProductCsv(normalized.canonicalCsv, { gridColumns: productGridEnabled() }).rows,
+    parseProductCsv(normalized.canonicalCsv, { gridColumns: productGridEnabled(), capStock: true })
+      .rows,
   );
   return [...preview.errors, ...imageErrors];
 }
@@ -138,8 +139,10 @@ function priceWarnings(
   if (normalized.originalLines.size === 0) {
     return warnings;
   }
-  for (const row of parseProductCsv(normalized.canonicalCsv, { gridColumns: productGridEnabled() })
-    .rows) {
+  for (const row of parseProductCsv(normalized.canonicalCsv, {
+    gridColumns: productGridEnabled(),
+    capStock: true,
+  }).rows) {
     const line = normalized.originalLines.get(row.line) ?? row.line;
     const { sku, costCents, suggestedPriceCents } = row.product;
     if (failedLines.has(line) || suggestedPriceCents === undefined) {
@@ -219,7 +222,7 @@ export async function confirmSupplierImport(
 ): Promise<SupplierImportResult> {
   // The preview left http photos out; a confirmation must not bring them back.
   const insecureUrl = firstInsecureImageUrl(
-    parseProductCsv(input.content, { gridColumns: productGridEnabled() }).rows,
+    parseProductCsv(input.content, { gridColumns: productGridEnabled(), capStock: true }).rows,
   );
   if (insecureUrl !== null) {
     throw validationError(

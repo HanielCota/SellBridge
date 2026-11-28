@@ -139,6 +139,22 @@ describe("previewSupplierImport", () => {
     expect(preview.confirmation?.content).not.toContain("http://");
   });
 
+  it("refuses photos without https on a row whose stock is lowered to the limit", async () => {
+    const file = [
+      "sku;titulo;custo;estoque;imagens",
+      "A-1;Pão;1;99999999;http://exemplo.com/pao.jpg",
+    ].join("\n");
+
+    const preview = await previewSupplierImport({
+      supplierId,
+      fileName: "produtos.csv",
+      fileBase64: fileBase64(file),
+    });
+
+    expect(preview).toMatchObject({ validRows: 0, failedRows: 1 });
+    expect(preview.confirmation).toBeNull();
+  });
+
   it("asks for a new file when the valid rows stop passing together", async () => {
     mocks.preview.mockImplementationOnce(fakePreview).mockResolvedValueOnce({
       created: 0,
@@ -186,6 +202,17 @@ describe("confirmSupplierImport", () => {
       message:
         'Link de imagem inválido (recebido: "http://exemplo.com/a.jpg"); esperado: um link que comece com https://',
     });
+    expect(mocks.confirm).not.toHaveBeenCalled();
+  });
+
+  it("refuses to confirm a photo without https on a row whose stock is lowered to the limit", async () => {
+    const input = {
+      supplierId,
+      content: "sku;titulo;custo;estoque;imagens\nA;B;1;99999999;http://exemplo.com/a.jpg\n",
+      previewToken: token,
+    };
+
+    await expect(confirmSupplierImport(input)).rejects.toMatchObject({ code: "VALIDATION" });
     expect(mocks.confirm).not.toHaveBeenCalled();
   });
 });
