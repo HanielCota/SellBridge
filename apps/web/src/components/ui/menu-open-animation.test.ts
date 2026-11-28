@@ -8,6 +8,8 @@ const MENU_FILES = [
   "./dropdown-menu.tsx",
   "./popover.tsx",
   "../layout/notification-bell.tsx",
+  "./dialog.tsx",
+  "./sheet.tsx",
 ] as const;
 
 describe("menu open animation", () => {
@@ -16,5 +18,12 @@ describe("menu open animation", () => {
 
     expect(source).not.toMatch(/\bdata-(open|closed):/);
     expect(source).toContain("data-[state=open]:animate-in");
+  });
+
+  test("the tooltip animates on the states Radix sets for it", () => {
+    const source = readFileSync(new URL("./tooltip.tsx", import.meta.url), "utf8");
+
+    expect(source).not.toMatch(/\bdata-(open|closed):/);
+    expect(source).toContain("data-[state=instant-open]:animate-in");
   });
 });
