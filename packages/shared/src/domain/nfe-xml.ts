@@ -17,7 +17,14 @@ const NOT_AUTHORIZED =
   "Esta nota ainda não foi autorizada pela SEFAZ. Envie o XML depois que ela for autorizada.";
 
 export type NfeXmlReading =
-  | { readonly accessKey: string; readonly problem: null }
+  | {
+      readonly accessKey: string;
+      /** Each item's CFOP, in the note's order. */
+      readonly cfops: readonly string[];
+      /** When SEFAZ authorized it (`dhRecbto`); null when the protocol has no readable date. */
+      readonly authorizedAt: Date | null;
+      readonly problem: null;
+    }
   | { readonly accessKey: null; readonly problem: string };
 
 /**
@@ -129,6 +136,25 @@ function noteIdOf(xml: string): string | null {
   return textBetween(opening, 'Id="NFe', '"');
 }
 
+const CFOP_OPEN = "<CFOP>";
+
+function itemCfops(xml: string): string[] {
+  const cfops: string[] = [];
+  for (let at = xml.indexOf(CFOP_OPEN); at !== -1; at = xml.indexOf(CFOP_OPEN, at + 1)) {
+    const cfop = textBetween(xml, CFOP_OPEN, "</CFOP>", at);
+    if (cfop !== null) {
+      cfops.push(cfop.trim());
+    }
+  }
+  return cfops;
+}
+
+function authorizedAtOf(protocol: string): Date | null {
+  const text = textBetween(protocol, "<dhRecbto>", "</dhRecbto>");
+  const date = text === null ? null : new Date(text.trim());
+  return date === null || Number.isNaN(date.getTime()) ? null : date;
+}
+
 /** The note's access key, or why the file is not an authorized NF-e, in the reseller's words. */
 export function readAuthorizedNfeXml(file: string): NfeXmlReading {
   const xml = withoutHiddenText(file);
@@ -147,9 +173,17 @@ export function readAuthorizedNfeXml(file: string): NfeXmlReading {
   if (noteIdOf(xml) !== accessKey) {
     return { accessKey: null, problem: NOT_NFE };
   }
-  const status = protocol === null ? null : textBetween(protocol, "<cStat>", "</cStat>");
+  if (protocol === null) {
+    return { accessKey: null, problem: NOT_NFE };
+  }
+  const status = textBetween(protocol, "<cStat>", "</cStat>");
   if (status === null || !AUTHORIZED_STATUSES.has(status)) {
     return { accessKey: null, problem: NOT_AUTHORIZED };
   }
-  return { accessKey, problem: null };
+  return {
+    accessKey,
+    cfops: itemCfops(xml),
+    authorizedAt: authorizedAtOf(protocol),
+    problem: null,
+  };
 }
