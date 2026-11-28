@@ -205,6 +205,33 @@ describe("groupProducts", () => {
     expect(model?.attributes).toEqual({ BRAND: "Pegada" });
   });
 
+  it("keeps the model's colour in every combination of a grid grouped by size only", async () => {
+    const prefix = randomUUID().slice(0, 6);
+    const rows = [
+      await product(prefix, { color: "Marinho", size: "33" }),
+      await product(prefix, { color: "Marinho", size: "34" }),
+    ];
+    await database
+      .update(supplierProducts)
+      .set({ mercadoLivreAttributes: { BRAND: "Nuvem", COLOR: "Marinho", SIZE: "33" } })
+      .where(eq(supplierProducts.id, rows[0]?.id ?? ""));
+    const input = groupInput(rows);
+
+    const result = await groupProducts(database, {
+      ...input,
+      products: input.products.map((choice) => ({ ...choice, color: null })),
+    });
+
+    expect(result.grouped).toBe(true);
+    const sheets = await Promise.all(
+      rows.map(async ({ id }) => (await rowOf(id)).mercadoLivreAttributes),
+    );
+    expect(sheets.map(({ COLOR, SIZE }) => ({ COLOR, SIZE }))).toEqual([
+      { COLOR: "Marinho", SIZE: "33" },
+      { COLOR: "Marinho", SIZE: "34" },
+    ]);
+  });
+
   it("refuses a product whose NCM differs from the main product's, writing nothing", async () => {
     const prefix = randomUUID().slice(0, 6);
     const first = await product(prefix, { color: "Preto", size: "38" });

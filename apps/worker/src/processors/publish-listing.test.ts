@@ -276,6 +276,58 @@ describe("publish-listing processor", () => {
     expect(publishProduct.mock.calls.map(([, input]) => input.packageWeightGrams)).toEqual([1300]);
   });
 
+  it("sends the colour a Bling variation names when its sheet has none", async () => {
+    await database
+      .update(schema.supplierProducts)
+      .set({
+        title: "BABUCHE NUVEM Cor:MARINHO;Tamanho:33/34",
+        mercadoLivreAttributes: { BRAND: "Nuvem" },
+      })
+      .where(eq(schema.supplierProducts.id, catalog.productId));
+    const { tenantId, targetId } = await createTarget("Babuche Nuvem");
+    await database
+      .update(schema.supplierProducts)
+      .set({ title: "Produto worker", mercadoLivreAttributes: {} })
+      .where(eq(schema.supplierProducts.id, catalog.productId));
+    publishProduct.mockClear();
+
+    await processPublish({
+      data: { tenantId, listingTargetId: targetId },
+      attemptsMade: 0,
+      maxAttempts: 5,
+    });
+
+    expect(
+      publishProduct.mock.calls.map(([, input]) => input.mercadoLivreAttributes?.COLOR),
+    ).toEqual(["MARINHO"]);
+  });
+
+  it("keeps the colour the supplier filled over the one in the name", async () => {
+    await database
+      .update(schema.supplierProducts)
+      .set({
+        title: "BABUCHE NUVEM Cor:MARINHO;Tamanho:33/34",
+        mercadoLivreAttributes: { BRAND: "Nuvem", COLOR: "Azul-marinho" },
+      })
+      .where(eq(schema.supplierProducts.id, catalog.productId));
+    const { tenantId, targetId } = await createTarget("Babuche Nuvem");
+    await database
+      .update(schema.supplierProducts)
+      .set({ title: "Produto worker", mercadoLivreAttributes: {} })
+      .where(eq(schema.supplierProducts.id, catalog.productId));
+    publishProduct.mockClear();
+
+    await processPublish({
+      data: { tenantId, listingTargetId: targetId },
+      attemptsMade: 0,
+      maxAttempts: 5,
+    });
+
+    expect(
+      publishProduct.mock.calls.map(([, input]) => input.mercadoLivreAttributes?.COLOR),
+    ).toEqual(["Azul-marinho"]);
+  });
+
   it("persists the remote creation guard and retains it across manual reprocessing", async () => {
     // Before the target: each target lists its own copy of the fixture product.
     await database

@@ -18,6 +18,12 @@ import {
   fichaAttributeSchema,
   isRequiredAttribute,
 } from "./category-ficha.ts";
+import {
+  kindAttributesFromCategory,
+  kindAttributesFromTitle,
+  type KindAttribute,
+  missingKindDefinitions,
+} from "./category-kind.ts";
 import { brandToSend } from "./generic-brand.ts";
 import { isPackageAttribute, packageAttributeValue } from "./package-measures.ts";
 import { saleTermsFor } from "./sale-terms.ts";
@@ -128,6 +134,7 @@ function itemBody(
     categoryId: string;
     userProducts: boolean;
     definitions: readonly FichaAttribute[];
+    kindAttributes: readonly KindAttribute[];
   },
 ) {
   return {
@@ -148,6 +155,7 @@ function itemBody(
       ...attributesWithBrand(input, listing.definitions).map((attribute) =>
         withValueId(attribute, listing.definitions),
       ),
+      ...listing.kindAttributes,
       { id: "SELLER_SKU", value_name: input.sku },
     ],
   };
@@ -393,7 +401,7 @@ function assertRequiredAttributes(
   const missing = required.filter(({ id }) => !provided.has(id));
   if (missing.length) {
     throw marketplaceError(
-      `Faltam campos que o Mercado Livre exige nesta categoria: ${missing.map(({ name }) => name).join(", ")}. Preencha no cadastro do produto e publique de novo.`,
+      `Faltam campos que o Mercado Livre exige nesta categoria: ${missing.map(({ name }) => name).join(", ")}. Quem preenche é o fornecedor, no cadastro do produto. Depois, clique em Tentar de novo.`,
       { retryable: false, issues: missing.map(({ id, name }) => `Obrigatório: ${name} (${id})`) },
     );
   }
@@ -409,6 +417,50 @@ async function readDefinitions(
     path: `/categories/${encodeURIComponent(categoryId)}/attributes`,
     init: { accessToken: store.accessToken },
   });
+}
+
+const categoryNameSchema = z.object({ name: z.string().max(255) });
+
+/**
+ * The kind fields (see `category-kind.ts`) the supplier left empty, answered by the title, else
+ * by the category name. The category is read only when the title answered none.
+ */
+async function kindAttributesToSend(
+  context: MercadoLivreContext,
+  store: StoreCredentials,
+  item: {
+    title: string;
+    categoryId: string;
+    definitions: readonly FichaAttribute[];
+    provided: Readonly<Record<string, string>>;
+  },
+): Promise<KindAttribute[]> {
+  const missing = missingKindDefinitions(item.definitions, item.provided);
+  const fromTitle = kindAttributesFromTitle(missing, item.title);
+  const answeredIds = new Set(fromTitle.map(({ id }) => id));
+  const left = missing.filter(({ id }) => !answeredIds.has(id));
+  if (left.length === 0) {
+    logFilledKinds(fromTitle, { categoryId: item.categoryId, source: "title" });
+    return fromTitle;
+  }
+  const category = await requestJson(context, {
+    schema: categoryNameSchema,
+    path: `/categories/${encodeURIComponent(item.categoryId)}`,
+    init: { accessToken: store.accessToken },
+  });
+  const fromCategory = kindAttributesFromCategory(left, category.name);
+  logFilledKinds(fromTitle, { categoryId: item.categoryId, source: "title" });
+  logFilledKinds(fromCategory, { categoryId: item.categoryId, source: "category" });
+  return [...fromTitle, ...fromCategory];
+}
+
+function logFilledKinds(
+  filled: readonly KindAttribute[],
+  context: { categoryId: string; source: "title" | "category" },
+): void {
+  for (const attribute of filled) {
+    logger.info("mercado_livre.kind_attribute_filled", { attributeId: attribute.id, ...context });
+  }
 }
 
 async function validateAttributes(
@@ -514,7 +566,20 @@ async function checkedItemBody(
   if (familyName !== null && !userProducts) {
     throw marketplaceError(GRID_NEEDS_USER_PRODUCTS, { retryable: false });
   }
-  const body = itemBody(input, { title, familyName, categoryId, userProducts, definitions });
+  const kindAttributes = await kindAttributesToSend(context, store, {
+    title,
+    categoryId,
+    definitions,
+    provided: input.mercadoLivreAttributes ?? {},
+  });
+  const body = itemBody(input, {
+    title,
+    familyName,
+    categoryId,
+    userProducts,
+    definitions,
+    kindAttributes,
+  });
   await validateAttributes(context, store, { body, definitions });
   return body;
 }

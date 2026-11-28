@@ -243,13 +243,16 @@ function gridOf(choices: readonly Choice[]): ProductGrid {
 }
 
 /** The model takes what the main product has: the grid rewrites the others from it. */
-function modelValues(main: ProductRow, modelTitle: string): ProductModelShared {
+function modelValues(main: ProductRow, modelTitle: string, grid: ProductGrid): ProductModelShared {
   return {
     title: modelTitle,
     description: main.description,
     categoryId: main.categoryId,
     imageUrls: main.imageUrls,
-    mercadoLivreAttributes: sharedAttributes(main.mercadoLivreAttributes),
+    mercadoLivreAttributes: sharedAttributes(main.mercadoLivreAttributes, {
+      hasColors: grid.colors.length > 0,
+      hasSizes: grid.sizes.length > 0,
+    }),
     mercadoLivreCategoryId: main.mercadoLivreCategoryId,
     mercadoLivreCategoryName: main.mercadoLivreCategoryName,
     warrantyType: main.warrantyType,
@@ -458,8 +461,8 @@ export async function groupProducts(
     if (main === undefined) {
       throw new Error("the main product passed the checks but is not among the products");
     }
-    const values = modelValues(main.row, input.modelTitle);
     const grid = gridOf(choices);
+    const values = modelValues(main.row, input.modelTitle, grid);
     const structure = gridStructureProblems(grid);
     if (structure.length > 0) {
       return { grouped: false as const, problems: { general: structure, byProduct: {} } };
