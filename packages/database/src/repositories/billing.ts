@@ -6,7 +6,7 @@ import {
   type BillingPlanId,
   type BillingRules,
 } from "@sellbridge/shared/billing";
-import { and, eq, count, desc, isNotNull, ne, sql } from "drizzle-orm";
+import { and, eq, count, isNotNull, ne, sql } from "drizzle-orm";
 import { forbiddenError } from "@sellbridge/shared/errors";
 import type { Database, DatabaseExecutor } from "../client.ts";
 import {
@@ -108,21 +108,30 @@ export async function findBillingTenantCreatedAt(database: DatabaseExecutor, ten
   return tenant.createdAt;
 }
 
-/** The highest assigned slot is the number of free sales already used. */
-async function billingFreeSalesUsed(database: DatabaseExecutor, tenantId: string) {
-  const [last] = await database
+/** A reversed sale gives its slot back, so the slots in use may have gaps. */
+async function freeSaleSlotsInUse(database: DatabaseExecutor, tenantId: string) {
+  const rows = await database
     .select({ slot: orders.freeSaleSlot })
     .from(orders)
-    .where(and(eq(orders.tenantId, tenantId), isNotNull(orders.freeSaleSlot)))
-    .orderBy(desc(orders.freeSaleSlot))
-    .limit(1);
-  return last?.slot ?? 0;
+    .where(and(eq(orders.tenantId, tenantId), isNotNull(orders.freeSaleSlot)));
+  return new Set(rows.flatMap((row) => (row.slot === null ? [] : [row.slot])));
 }
 
-/** Called while holding the billing tenant lock, before recording the first payment. */
+async function billingFreeSalesUsed(database: DatabaseExecutor, tenantId: string) {
+  return (await freeSaleSlotsInUse(database, tenantId)).size;
+}
+
+/**
+ * The lowest free slot, or null once all are in use. Called before recording the first payment;
+ * it takes the billing tenant lock itself, so only sales becoming paid wait on each other.
+ */
 export async function nextFreeSaleSlot(database: DatabaseExecutor, tenantId: string) {
-  const used = await billingFreeSalesUsed(database, tenantId);
-  return used < FREE_SALE_LIMIT ? used + 1 : null;
+  await lockBillingTenant(database, tenantId);
+  const inUse = await freeSaleSlotsInUse(database, tenantId);
+  const free = Array.from({ length: FREE_SALE_LIMIT }, (_, index) => index + 1).find(
+    (slot) => !inUse.has(slot),
+  );
+  return free ?? null;
 }
 
 export async function findBillingAccessInput(

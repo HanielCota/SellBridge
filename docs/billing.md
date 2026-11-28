@@ -23,11 +23,14 @@ o acesso da equipe como cliente, essas ações ficam bloqueadas.
 
 - A reseller can use one connected store and 100 listings while using the first 20 confirmed sales
   without a monthly fee. A slot is used per order verified as paid, across manual sales and synced
-  marketplace orders. Retries and status changes retain the same slot. A later reversal leaves the
-  slot used. Existing orders with recorded payments count toward the allowance.
+  marketplace orders. Retries and status changes retain the same slot. A later cancellation or
+  return gives the slot back, and the next paid sale takes the lowest free slot. Accounts
+  created before the offer (up to 26/11/2026) start at zero when migration
+  `0121_free_sales_restart` runs, like a new account.
 - After the allowance is used, a current subscription or staff courtesy is required to register a
-  manual sale, connect another store, publish a new listing, or forward a marketplace order beyond
-  the free allowance to the supplier. Marketplace orders are still imported. Existing publications,
+  manual sale, connect another store or publish a new listing. Marketplace orders are still
+  imported, and an order the buyer already paid always reaches the supplier, manually or
+  automatically, whatever the plan. Existing publications,
   store reconnections, stock and price updates, and shipments already underway continue. The reseller
   can choose Essencial for R$ 49.90 per month or one of the other paid plans in `/assinatura`.
 - **Transição:** contas criadas antes de `BILLING_LAUNCHED_AT` continuam sem limites até
@@ -143,9 +146,9 @@ nova tentativa.
    (`ASAAS_API_URL` fica no padrão de produção), `BILLING_LAUNCHED_AT` e
    `BILLING_TRANSITION_ENDS_AT` (ISO 8601 em UTC, por exemplo `2026-12-01T03:00:00Z` para a
    meia-noite de Brasília), e retire `BILLING_UNLIMITED`.
-7. Apply migration `0120_free_sales_offer` before rolling out the web app and worker. Set the same
-   Asaas and billing launch variables on both services so manual and automatic forwarding enforce
-   the same rules. In unlimited mode, set `BILLING_UNLIMITED=true` on both services.
+7. Apply migration `0120_free_sales_offer` before rolling out the web app and worker. Forwarding a
+   paid order never depends on the plan, so the worker does not read the billing launch variables.
+   In unlimited mode, set `BILLING_UNLIMITED=true` on the web service.
 
 Sem a conta do Asaas e as duas datas, os planos aparecem como "Em breve" e não há limite sobre a
 operação. Em produção isso só é aceito de propósito: o serviço web não inicia sem essas variáveis,

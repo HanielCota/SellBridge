@@ -8,7 +8,6 @@ import {
   queueReceivingAccountNotices,
 } from "@sellbridge/database/repositories";
 import type { StoreCredentials } from "@sellbridge/marketplaces";
-import type { BillingRules } from "@sellbridge/shared/billing";
 import { isAppError } from "@sellbridge/shared/errors";
 import { logger } from "@sellbridge/shared/logger";
 import type { SendEmail } from "@sellbridge/shared/mailer";
@@ -32,7 +31,6 @@ export interface AutoForwardDependencies {
   appUrl: string;
   /** AUTO_FORWARD_ENABLED: off, a job ends without touching the order. */
   enabled: boolean;
-  billing?: BillingRules | null;
 }
 
 export type AutoForwardOutcome =
@@ -77,14 +75,14 @@ async function forwardOnBehalf(
   address: DeliveryAddress,
 ) {
   try {
-    return await forwardOrder(
-      dependencies.database,
-      candidate.tenantId,
-      { orderId: candidate.orderId, address, notes: "", actor: "sellbridge" },
-      dependencies.billing,
-    );
+    return await forwardOrder(dependencies.database, candidate.tenantId, {
+      orderId: candidate.orderId,
+      address,
+      notes: "",
+      actor: "sellbridge",
+    });
   } catch (error) {
-    if (isAppError(error) && (error.code === "CONFLICT" || error.code === "FORBIDDEN")) {
+    if (isAppError(error) && error.code === "CONFLICT") {
       return null;
     }
 
