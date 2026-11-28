@@ -54,7 +54,7 @@ export function modelCodeFromTitle(title: string): string {
 export const COMBINATION_EDITED_OUTSIDE_GRID_MESSAGE =
   "Este produto faz parte de uma grade de cores e tamanhos: altere o nome, as fotos e a ficha pela grade, no cadastro do produto.";
 
-/** Every sheet field a grid can answer: a grouped model keeps none of them (see `sharedAttributes`). */
+/** Every sheet field a grid can answer. */
 const GRID_AXIS_ATTRIBUTES: ReadonlySet<string> = new Set(["COLOR", "MAIN_COLOR", "SIZE"]);
 
 const COLOR_AXIS_ATTRIBUTES = ["COLOR", "MAIN_COLOR"] as const;
@@ -401,13 +401,18 @@ export interface MaterializedCombination {
   readonly fiscal: ProductFiscalPatch;
 }
 
-/** The sheet a model shares: never one unit's barcode, nor the colour and size the grid gives. */
+/**
+ * The sheet a model shares: never one unit's barcode, nor the colour or size the grid gives (see
+ * `gridAxisAttributes`), so a shoe grouped by size alone keeps its one colour.
+ */
 export function sharedAttributes(
   attributes: Readonly<Record<string, string>>,
+  axes: { readonly hasColors: boolean; readonly hasSizes: boolean },
 ): Record<string, string> {
+  const answered = gridAxisAttributes(axes);
   return Object.fromEntries(
     Object.entries(attributes).filter(
-      ([key]) => !COMBINATION_ONLY_ATTRIBUTES.has(key) && !GRID_AXIS_ATTRIBUTES.has(key),
+      ([key]) => !COMBINATION_ONLY_ATTRIBUTES.has(key) && !answered.has(key),
     ),
   );
 }

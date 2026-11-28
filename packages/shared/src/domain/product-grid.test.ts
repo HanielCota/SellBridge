@@ -12,6 +12,7 @@ import {
   productGridDraftSchema,
   productGridSchema,
   type ProductModelShared,
+  sharedAttributes,
   sortSizeNames,
 } from "./product-grid.ts";
 
@@ -355,6 +356,26 @@ describe("gridAxisAttributes", () => {
     const axes = gridAxisAttributes({ hasColors: false, hasSizes: false });
 
     expect([...axes].toSorted()).toEqual(["COLOR", "MAIN_COLOR", "SIZE"]);
+  });
+});
+
+describe("sharedAttributes", () => {
+  it("keeps the model's colour when the grid has sizes only", () => {
+    const shared = sharedAttributes(
+      { BRAND: "Pegada", COLOR: "Marinho", SIZE: "38", GTIN: "7891234567895" },
+      { hasColors: false, hasSizes: true },
+    );
+
+    expect(shared).toEqual({ BRAND: "Pegada", COLOR: "Marinho" });
+  });
+
+  it("drops colour and size when the grid has both", () => {
+    const shared = sharedAttributes(
+      { BRAND: "Pegada", COLOR: "Marinho", MAIN_COLOR: "Azul", SIZE: "38" },
+      { hasColors: true, hasSizes: true },
+    );
+
+    expect(shared).toEqual({ BRAND: "Pegada" });
   });
 });
 
