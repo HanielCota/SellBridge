@@ -34,6 +34,7 @@ import {
   tryLockBillingCheckout,
 } from "./billing.ts";
 import { forwardOrder } from "./fulfillment.ts";
+import { syncOrderFromShipments } from "./fulfillment-status.ts";
 import { createListingWithTargets } from "./listings.ts";
 import { recordManualOrder, upsertMarketplaceOrder } from "./orders.ts";
 import { ensureManualStore, upsertStoreConnection } from "./stores.ts";
@@ -480,6 +481,44 @@ it("gives the free sale back when a paid sale is cancelled or returned", async (
     expect(await findBillingAccess(database, tenantId, RULES)).toEqual({
       kind: "free",
       salesUsed: 1,
+    });
+  } finally {
+    await cleanup();
+  }
+});
+
+it("gives the free sale back when the parcels show the sale returned", async () => {
+  const { tenantId, cleanup } = await accountCreatedAt(new Date());
+  try {
+    const manualStoreId = await ensureManualStore(database, tenantId, "shopee");
+    const { orderId } = await recordManualOrder(database, tenantId, manualStoreId, {
+      externalOrderId: "returned-by-parcel",
+      buyerName: "Test Buyer",
+      orderedAt: new Date(),
+      marketplaceFeeCents: 0,
+      totalCents: 2500,
+      items: [
+        {
+          supplierProductId: catalog.productId,
+          title: "Test sale",
+          quantity: 1,
+          unitPriceCents: 2500,
+          costCents: 1000,
+        },
+      ],
+    });
+    const order = await database.query.orders.findFirst({ where: eq(orders.id, orderId) });
+    if (order === undefined) throw new Error("missing manual sale");
+
+    await syncOrderFromShipments(database, order, { buyerReturned: true });
+
+    expect(await database.query.orders.findFirst({ where: eq(orders.id, orderId) })).toMatchObject({
+      status: "returned",
+      freeSaleSlot: null,
+    });
+    expect(await findBillingAccess(database, tenantId, RULES)).toEqual({
+      kind: "free",
+      salesUsed: 0,
     });
   } finally {
     await cleanup();
