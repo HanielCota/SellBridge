@@ -2,16 +2,19 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const mocks = vi.hoisted(() => ({
   consumeDeveloperEntryLink: vi.fn<() => Promise<unknown>>(),
+  findDeveloperEntryLinkState: vi.fn<() => Promise<string>>(),
   recordDeveloperApiRequest: vi.fn<(database: unknown, record: unknown) => Promise<void>>(),
 }));
 
 vi.mock("@/lib/server/database", () => ({ database: {} }));
 vi.mock("@sellbridge/database/repositories", () => mocks);
 
-const { consumeEntryLinkClick } = await import("./consume-entry-link.server");
+const { confirmEntryLink, consumeEntryLinkClick, entryLinkConfirmation } =
+  await import("./consume-entry-link.server");
 
 const NOW = new Date("2026-11-25T12:00:00Z");
 const TOKEN = "a".repeat(43);
+const APP_ORIGIN = "https://sellbridge.example";
 const ISSUER = { linkId: "link-1", keyId: "key-1", keyPrefix: "sb_dev_abcdef" };
 
 function click(token = TOKEN, secureCookie = true) {
@@ -22,6 +25,7 @@ beforeEach(() => {
   vi.clearAllMocks();
   mocks.consumeDeveloperEntryLink.mockResolvedValue({ kind: "consumed", issuer: ISSUER });
   mocks.recordDeveloperApiRequest.mockResolvedValue(undefined);
+  mocks.findDeveloperEntryLinkState.mockResolvedValue("open");
 });
 
 describe("consumeEntryLinkClick", () => {
@@ -86,5 +90,65 @@ describe("consumeEntryLinkClick", () => {
     const response = await click(TOKEN, false);
 
     expect(response.headers.get("set-cookie")).not.toContain("Secure");
+  });
+});
+
+describe("entry link confirmation", () => {
+  it("offers a confirmation without consuming the choice on page load", async () => {
+    const response = await entryLinkConfirmation(TOKEN, NOW);
+
+    expect(response.status).toBe(200);
+    expect(response.headers.get("cache-control")).toBe("no-store");
+    expect(response.headers.get("set-cookie")).toBeNull();
+    expect(await response.text()).toContain('<button type="submit">Abrir seleção</button>');
+    expect(mocks.consumeDeveloperEntryLink).not.toHaveBeenCalled();
+  });
+
+  it("shows the confirmation with the SellBridge logo the page policy allows", async () => {
+    const response = await entryLinkConfirmation(TOKEN, NOW);
+
+    expect(await response.text()).toContain('src="/brand/sellbridge-logo-light.svg"');
+    expect(response.headers.get("content-security-policy")).toContain("img-src 'self'");
+  });
+
+  it("says right away that a used link can no longer be confirmed", async () => {
+    mocks.findDeveloperEntryLinkState.mockResolvedValue("used");
+
+    const response = await entryLinkConfirmation(TOKEN, NOW);
+
+    expect(response.status).toBe(303);
+    expect(response.headers.get("location")).toBe("/entrar?situacao=usado");
+    expect(mocks.consumeDeveloperEntryLink).not.toHaveBeenCalled();
+  });
+
+  it("says right away that an old link expired", async () => {
+    mocks.findDeveloperEntryLinkState.mockResolvedValue("expired");
+
+    const response = await entryLinkConfirmation(TOKEN, NOW);
+
+    expect(response.headers.get("location")).toBe("/entrar?situacao=vencido");
+  });
+
+  it("hands the choice to the browser after a confirmation from the app", async () => {
+    const request = new Request(`${APP_ORIGIN}/entrar/${TOKEN}`, {
+      method: "POST",
+      headers: { origin: APP_ORIGIN },
+    });
+
+    const response = await confirmEntryLink({ request, token: TOKEN, appOrigin: APP_ORIGIN }, NOW);
+
+    expect(response.status).toBe(303);
+    expect(response.headers.get("location")).toBe("/entrar");
+    expect(response.headers.get("set-cookie")).toContain("HttpOnly");
+    expect(mocks.consumeDeveloperEntryLink).toHaveBeenCalledTimes(1);
+  });
+
+  it("requires the confirmation to come from the app", async () => {
+    const request = new Request(`${APP_ORIGIN}/entrar/${TOKEN}`, { method: "POST" });
+
+    const response = await confirmEntryLink({ request, token: TOKEN, appOrigin: APP_ORIGIN }, NOW);
+
+    expect(response.status).toBe(403);
+    expect(mocks.consumeDeveloperEntryLink).not.toHaveBeenCalled();
   });
 });

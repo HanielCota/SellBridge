@@ -3,6 +3,7 @@ import {
   combinationOwnFields,
   combinationTitle,
   type GridCombination,
+  gridAxisAttributes,
   gridProblems,
   MAX_GRID_COMBINATIONS,
   MAX_MODEL_TITLE_LENGTH,
@@ -11,6 +12,7 @@ import {
   productGridDraftSchema,
   productGridSchema,
   type ProductModelShared,
+  sharedAttributes,
   sortSizeNames,
 } from "./product-grid.ts";
 
@@ -293,14 +295,33 @@ describe("materializeCombination", () => {
       { ...model, mercadoLivreAttributes: { BRAND: "Pegada", COLOR: "Azul", SIZE: "44" } },
       {
         color: "Preto",
-        size: null,
+        size: "38",
         colorImageUrls: [],
         variantAttributes: {},
         variantFiscal: {},
       },
     );
 
-    expect(product.mercadoLivreAttributes).toEqual({ BRAND: "Pegada", COLOR: "Preto" });
+    expect(product.mercadoLivreAttributes).toEqual({ BRAND: "Pegada", COLOR: "Preto", SIZE: "38" });
+  });
+
+  it("keeps the model's colour for a shoe sold by size only", () => {
+    const product = materializeCombination(
+      { ...model, mercadoLivreAttributes: { BRAND: "Pegada", COLOR: "Marinho" } },
+      {
+        color: null,
+        size: "33/34",
+        colorImageUrls: [],
+        variantAttributes: {},
+        variantFiscal: {},
+      },
+    );
+
+    expect(product.mercadoLivreAttributes).toEqual({
+      BRAND: "Pegada",
+      COLOR: "Marinho",
+      SIZE: "33/34",
+    });
   });
 
   it("inherits the model's fiscal fields and lets the combination override its weight", () => {
@@ -321,6 +342,40 @@ describe("materializeCombination", () => {
 
     expect(inherited.fiscal).toEqual(model.fiscal);
     expect(overridden.fiscal).toEqual({ ...model.fiscal, netWeightGrams: 950 });
+  });
+});
+
+describe("gridAxisAttributes", () => {
+  it("leaves the colour in the model's sheet when the grid has sizes only", () => {
+    const axes = gridAxisAttributes({ hasColors: false, hasSizes: true });
+
+    expect([...axes]).toEqual(["SIZE"]);
+  });
+
+  it("answers colour and size while the grid has neither yet", () => {
+    const axes = gridAxisAttributes({ hasColors: false, hasSizes: false });
+
+    expect([...axes].toSorted()).toEqual(["COLOR", "MAIN_COLOR", "SIZE"]);
+  });
+});
+
+describe("sharedAttributes", () => {
+  it("keeps the model's colour when the grid has sizes only", () => {
+    const shared = sharedAttributes(
+      { BRAND: "Pegada", COLOR: "Marinho", SIZE: "38", GTIN: "7891234567895" },
+      { hasColors: false, hasSizes: true },
+    );
+
+    expect(shared).toEqual({ BRAND: "Pegada", COLOR: "Marinho" });
+  });
+
+  it("drops colour and size when the grid has both", () => {
+    const shared = sharedAttributes(
+      { BRAND: "Pegada", COLOR: "Marinho", MAIN_COLOR: "Azul", SIZE: "38" },
+      { hasColors: true, hasSizes: true },
+    );
+
+    expect(shared).toEqual({ BRAND: "Pegada" });
   });
 });
 

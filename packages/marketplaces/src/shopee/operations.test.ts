@@ -2,7 +2,12 @@ import { createHmac } from "node:crypto";
 import { describe, expect, it, vi } from "vitest";
 import { hasMarketplaceCause, LABEL_NOT_READY_CAUSE } from "../errors.ts";
 import type { DownloadImage } from "../tiktok-shop/image-download.ts";
-import { createShopeeConnector, getShopeeShippingLabel } from "./shopee-connector.ts";
+import {
+  createShopeeConnector,
+  getShopeeShippingLabel,
+  readShopeePickupOptions,
+} from "./shopee-connector.ts";
+import { PICKUP_CONFIRMATION_CAUSE } from "./shipping.ts";
 import {
   fakeShopee,
   jsonResponse,
@@ -265,6 +270,156 @@ describe("Shopee order intake", () => {
     expect(calls[0]?.query.get("time_range_field")).toBe("create_time");
   });
 
+  it.each([
+    ["missing", undefined],
+    ["masked", "M****a"],
+    ["blank", " "],
+  ])("keeps the buyer's address when Shopee sends the name %s", async (_case, name) => {
+    const masked = { ...RAW_ORDER, recipient_address: { ...RAW_ORDER.recipient_address, name } };
+    const { connector } = setup({
+      "GET /api/v2/order/get_order_list": () =>
+        success({ order_list: [{ order_sn: SERIAL }], more: false }),
+      "GET /api/v2/order/get_order_detail": () => success({ order_list: [masked] }),
+      "POST /api/v2/payment/get_escrow_detail_batch": () => success([]),
+    });
+
+    const page = await connector.listOrders(STORE, new Date(NOW.getTime() - 7_200_000));
+
+    expect(page.orders[0]?.buyerName).toBeNull();
+    expect(page.orders[0]?.shippingAddress).toMatchObject({
+      recipient: "Comprador Shopee",
+      street: "Rua Exemplo",
+      postalCode: "30100-001",
+    });
+  });
+
+  it("keeps every order's fee when Shopee credits a negative adjustment in the batch", async () => {
+    const OTHER = "261126E81SYYKF";
+    const { connector } = setup({
+      "GET /api/v2/order/get_order_list": () =>
+        success({ order_list: [{ order_sn: SERIAL }, { order_sn: OTHER }], more: false }),
+      "GET /api/v2/order/get_order_detail": () =>
+        success({ order_list: [RAW_ORDER, { ...RAW_ORDER, order_sn: OTHER }] }),
+      "POST /api/v2/payment/get_escrow_detail_batch": () =>
+        success([
+          {
+            escrow_detail: {
+              order_sn: SERIAL,
+              order_income: { commission_fee: 5, service_fee: -1.5 },
+            },
+          },
+          { escrow_detail: { order_sn: OTHER, order_income: { commission_fee: 7.25 } } },
+        ]),
+    });
+
+    const page = await connector.listOrders(STORE, new Date(NOW.getTime() - 7_200_000));
+
+    expect(
+      Object.fromEntries(
+        page.orders.map((order) => [order.externalOrderId, order.marketplaceFeeCents]),
+      ),
+    ).toEqual({ [SERIAL]: 350, [OTHER]: 725 });
+  });
+
+  it("keeps the readable fees when one escrow row is malformed", async () => {
+    const OTHER = "261126E81SYYKF";
+    const { connector } = setup({
+      "GET /api/v2/order/get_order_list": () =>
+        success({ order_list: [{ order_sn: SERIAL }, { order_sn: OTHER }], more: false }),
+      "GET /api/v2/order/get_order_detail": () =>
+        success({ order_list: [RAW_ORDER, { ...RAW_ORDER, order_sn: OTHER }] }),
+      "POST /api/v2/payment/get_escrow_detail_batch": () =>
+        success([
+          { escrow_detail: { order_sn: SERIAL, order_income: { commission_fee: "5,00" } } },
+          { escrow_detail: { order_sn: OTHER, order_income: { commission_fee: 7.25 } } },
+        ]),
+    });
+
+    const page = await connector.listOrders(STORE, new Date(NOW.getTime() - 7_200_000));
+
+    expect(
+      Object.fromEntries(
+        page.orders.map((order) => [order.externalOrderId, order.marketplaceFeeCents]),
+      ),
+    ).toEqual({ [SERIAL]: undefined, [OTHER]: 725 });
+  });
+
+  it("values the sale by its items, without the shipping the buyer paid", async () => {
+    const { connector } = setup({
+      "GET /api/v2/order/get_order_detail": () =>
+        success({ order_list: [{ ...RAW_ORDER, total_amount: 120.98 }] }),
+      "POST /api/v2/payment/get_escrow_detail_batch": () => success([]),
+    });
+
+    const order = await connector.fetchOrder(STORE, SERIAL);
+
+    expect(order.totalCents).toBe(10_098);
+  });
+
+  it("values a bundle deal by what the buyer paid for the items, never at zero", async () => {
+    const bundle = {
+      ...RAW_ORDER,
+      item_list: [{ ...RAW_ORDER.item_list[0], model_discounted_price: 0 }],
+    };
+    const { connector } = setup({
+      "GET /api/v2/order/get_order_detail": () => success({ order_list: [bundle] }),
+      "POST /api/v2/payment/get_escrow_detail_batch": () =>
+        success([
+          {
+            escrow_detail: {
+              order_sn: SERIAL,
+              order_income: { commission_fee: 5, cost_of_goods_sold: 95 },
+            },
+          },
+        ]),
+    });
+
+    const order = await connector.fetchOrder(STORE, SERIAL);
+
+    expect(order).toMatchObject({
+      totalCents: 9_500,
+      marketplaceFeeCents: 500,
+      items: [{ unitPriceCents: 5_495 }],
+    });
+  });
+
+  it("refuses an order above the stored limit instead of cutting its value", async () => {
+    const huge = {
+      ...RAW_ORDER,
+      item_list: [
+        {
+          ...RAW_ORDER.item_list[0],
+          model_quantity_purchased: 1_000,
+          model_discounted_price: 21_474_836,
+        },
+      ],
+    };
+    const { connector } = setup({
+      "GET /api/v2/order/get_order_detail": () => success({ order_list: [huge] }),
+      "POST /api/v2/payment/get_escrow_detail_batch": () => success([]),
+    });
+
+    await expect(connector.fetchOrder(STORE, SERIAL)).rejects.toThrow(/acima do valor/);
+  });
+
+  it("refuses fees whose sum is above the stored limit instead of failing the save", async () => {
+    const top = 21_474_836;
+    const { connector } = setup({
+      "GET /api/v2/order/get_order_detail": () => success({ order_list: [RAW_ORDER] }),
+      "POST /api/v2/payment/get_escrow_detail_batch": () =>
+        success([
+          {
+            escrow_detail: {
+              order_sn: SERIAL,
+              order_income: { commission_fee: top, service_fee: top },
+            },
+          },
+        ]),
+    });
+
+    await expect(connector.fetchOrder(STORE, SERIAL)).rejects.toThrow(/tarifa acima do valor/);
+  });
+
   it("lists changes to orders placed before the reconciliation window", async () => {
     const since = new Date(NOW.getTime() - 60_000);
     const { connector, calls } = setup({
@@ -386,6 +541,39 @@ describe("Shopee order intake", () => {
   });
 });
 
+function signed(rawBody: string) {
+  const sign = createHmac("sha256", PARTNER_KEY).update(`${CALLBACK}|${rawBody}`).digest("hex");
+  return { headers: new Headers({ authorization: sign }), rawBody };
+}
+
+describe("Shopee push acknowledgement", () => {
+  it("acknowledges and ignores a signed order push in an unexpected shape", async () => {
+    const { connector } = setup();
+    const request = signed(JSON.stringify({ code: 3, shop_id: 1, data: { status: "SHIPPED" } }));
+
+    const result = await connector.verifyWebhook(request);
+
+    expect(result).toMatchObject({ valid: true, event: { topic: "other", resource: null } });
+  });
+
+  it("acknowledges and ignores a signed push whose body is not JSON", async () => {
+    const { connector } = setup();
+
+    const result = await connector.verifyWebhook(signed("not json"));
+
+    expect(result).toMatchObject({ valid: true, event: { topic: "other" } });
+  });
+
+  it("still refuses an unexpected push without Shopee's signature", async () => {
+    const { connector } = setup();
+    const request = signed(JSON.stringify({ code: 3 }));
+
+    const result = await connector.verifyWebhook({ ...request, rawBody: "{}" });
+
+    expect(result.valid).toBe(false);
+  });
+});
+
 describe("Shopee label", () => {
   const parcel = { order_sn: SERIAL, package_number: PACKAGE };
   const orderDetail = (status: string) =>
@@ -474,5 +662,117 @@ describe("Shopee label", () => {
     });
 
     await expect(getShopeeShippingLabel(config, STORE, SERIAL)).rejects.toThrow(/Envie a NF-e/);
+  });
+});
+
+describe("Shopee pickup confirmation", () => {
+  const SUPPLIER_ADDRESS_ID = 2_002;
+  const pickupParameters = () =>
+    success({
+      info_needed: { pickup: ["address_id", "pickup_time_id"] },
+      pickup: {
+        address_list: [
+          {
+            address_id: 1_001,
+            address_flag: ["default_address", "return_address"],
+            address: "Avenida Paulista, 1000",
+            district: "Bela Vista",
+            city: "São Paulo",
+            state: "SP",
+            zipcode: "01310-100",
+            time_slot_list: [{ pickup_time_id: "slot-a", date: 1_795_000_000 }],
+          },
+          {
+            address_id: SUPPLIER_ADDRESS_ID,
+            address_flag: ["pickup_address"],
+            address: "Rua das Fábricas, 250",
+            district: "Centro",
+            city: "Divinópolis",
+            state: "MG",
+            zipcode: "35500-024",
+            time_slot_list: [
+              { pickup_time_id: "slot-b", date: 1_795_000_000, flags: ["recommended"] },
+              { pickup_time_id: "slot-c", date: 1_795_086_400 },
+            ],
+          },
+        ],
+      },
+    });
+  const routes = (shipped: unknown[]) => ({
+    "GET /api/v2/order/get_order_detail": () =>
+      success({
+        order_list: [
+          {
+            order_sn: SERIAL,
+            order_status: "READY_TO_SHIP",
+            split_up: false,
+            package_list: [{ package_number: PACKAGE }],
+          },
+        ],
+      }),
+    "GET /api/v2/logistics/get_shipping_parameter": pickupParameters,
+    "POST /api/v2/logistics/ship_order": ({ json }: { json: unknown }) => {
+      shipped.push(json);
+      return jsonResponse({ request_id: "req-ship", error: "" });
+    },
+  });
+
+  it("lists every pickup address of the shop with the slot Shopee recommends", async () => {
+    const { config } = setup(routes([]));
+
+    const options = await readShopeePickupOptions(config, STORE, SERIAL);
+
+    expect(options).toMatchObject({
+      kind: "pickup",
+      addresses: [
+        { addressId: 1_001, zipcode: "01310-100", pickupTimeId: "slot-a" },
+        {
+          addressId: SUPPLIER_ADDRESS_ID,
+          address: "Rua das Fábricas, 250",
+          city: "Divinópolis",
+          pickupTimeId: "slot-b",
+          pickupDate: new Date(1_795_000_000_000),
+        },
+      ],
+    });
+  });
+
+  it("never schedules the pickup on the shop's default address without a confirmation", async () => {
+    const shipped: unknown[] = [];
+    const { config } = setup(routes(shipped));
+
+    const error = await getShopeeShippingLabel(config, STORE, SERIAL).catch(
+      (caught: unknown) => caught,
+    );
+
+    expect(hasMarketplaceCause(error, PICKUP_CONFIRMATION_CAUSE)).toBe(true);
+    expect(shipped).toEqual([]);
+  });
+
+  it("schedules the pickup at the confirmed address and slot", async () => {
+    const shipped: unknown[] = [];
+    const { config } = setup(routes(shipped));
+
+    await getShopeeShippingLabel(config, STORE, SERIAL, {
+      addressId: SUPPLIER_ADDRESS_ID,
+      pickupTimeId: "slot-b",
+    }).catch(() => undefined);
+
+    expect(shipped).toEqual([
+      { order_sn: SERIAL, pickup: { address_id: SUPPLIER_ADDRESS_ID, pickup_time_id: "slot-b" } },
+    ]);
+  });
+
+  it("refuses a confirmed slot Shopee no longer offers, without scheduling", async () => {
+    const shipped: unknown[] = [];
+    const { config } = setup(routes(shipped));
+
+    await expect(
+      getShopeeShippingLabel(config, STORE, SERIAL, {
+        addressId: SUPPLIER_ADDRESS_ID,
+        pickupTimeId: "slot-gone",
+      }),
+    ).rejects.toThrow(/mudou o endereço ou o horário/);
+    expect(shipped).toEqual([]);
   });
 });

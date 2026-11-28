@@ -30,7 +30,7 @@ afterAll(async () => {
 interface FakeBlingState {
   companyId: string;
   /** Bling products by code, with their virtual balance. */
-  products: { id: number; codigo: string; balance: number }[];
+  products: { id: number; codigo: string; balance: number; situacao?: string }[];
   /** Answers every call with this status (401 = the token is no longer accepted). */
   failWith?: number;
 }
@@ -75,7 +75,7 @@ function productsAnswer(state: FakeBlingState, url: URL): Response {
       codigo: product.codigo,
       nome: product.codigo,
       formato: "S",
-      situacao: "A",
+      situacao: product.situacao ?? "A",
     }));
   return json(200, { data });
 }
@@ -216,6 +216,28 @@ describe("checkSupplierErpStock", () => {
     });
     expect((await productOf(planilhaOnly))?.stock).toBe(4);
     expect(requestListingSync).toHaveBeenCalledTimes(1);
+  });
+
+  it("keeps checking when Bling still lists a deleted product with the same SKU", async () => {
+    const supplierId = await createSupplier({});
+    const productId = await createProduct(supplierId, { sku: "TENIS-38", stock: 10 });
+    const bling = fakeBling({
+      companyId: "company-a",
+      products: [
+        { id: 500, codigo: "TENIS-38", balance: 9, situacao: "E" },
+        { id: 501, codigo: "TENIS-38", balance: 3 },
+      ],
+    });
+    const { dependencies } = dependenciesFor(bling.fetchImplementation);
+
+    const outcome = await checkSupplierErpStock(dependencies, supplierId);
+
+    expect(outcome).toBe("synced");
+    expect(await productOf(productId)).toEqual({
+      stock: 3,
+      title: "Produto TENIS-38",
+      erpProductId: 501,
+    });
   });
 
   it("reads a product sold out in Bling as zero", async () => {

@@ -23,6 +23,7 @@ import {
 import { ToneStatus } from "@/components/data/tone-status";
 import { cn } from "@/lib/utils";
 import { EditPriceDialog } from "./edit-price-dialog";
+import { FailedNotice } from "./failed-notice";
 import { ListingMenu } from "./listing-actions";
 import { ListingLinkButton } from "./listing-link-button";
 import { RUN_STATE_DOT } from "./run-state-style";
@@ -168,6 +169,15 @@ function StatusFooter({ row }: { row: ListingOverviewRow }) {
   // A pause only alarms when it needs the reseller: a price that no longer pays.
   const losesMoney = row.stores.some(({ pauseReason }) => pauseReason === "price_below_floor");
   const calmReason = health.tone === "paused" && !losesMoney;
+  if (health.tone === "error" && health.reason !== null) {
+    return (
+      <div className="space-y-2 border-t border-border pt-3">
+        <FailedNotice label={health.label} reason={health.reason} />
+        <RetryButton listingId={row.listingId} />
+        <MissingDescription row={row} />
+      </div>
+    );
+  }
   return (
     <div className="space-y-2 border-t border-border pt-3">
       <div className="flex flex-wrap items-center justify-between gap-x-2 gap-y-1">

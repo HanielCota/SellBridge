@@ -63,3 +63,4 @@ export {
   parseBlingNotice,
   type BlingNotice,
 } from "./webhooks.ts";
+export { colorInBlingName } from "./variation-options.ts";

@@ -105,6 +105,65 @@ describe("billing access", () => {
     expect(billingNotice(exhausted, now)).toEqual({ kind: "free_sales_exhausted" });
   });
 
+  it("ends the free offer for an account that already paid, before its first payment day is stored", () => {
+    const base = {
+      courtesy: null,
+      tenantCreatedAt: newTenant,
+      transition,
+      freeSalesUsed: 0,
+    };
+    const lapsed = { plan: "essential", status: "canceled", periodEnd: null, firstPaidOn: null };
+
+    const bound = { ...base, subscription: { ...lapsed, subscriptionId: "sub_paid" } };
+    const prepaid = {
+      ...base,
+      subscription: { ...lapsed, prepaidUntil: new Date(now.getTime() - 1) },
+    };
+
+    expect(billingAccess(bound, now)).toEqual({ kind: "none" });
+    expect(billingAccess(prepaid, now)).toEqual({ kind: "none" });
+  });
+
+  it("keeps the free offer for an account whose first payment never came", () => {
+    const waiting = { plan: "essential", status: "free", periodEnd: null, subscriptionId: null };
+
+    const access = billingAccess(
+      {
+        subscription: waiting,
+        courtesy: null,
+        tenantCreatedAt: newTenant,
+        transition,
+        freeSalesUsed: 3,
+      },
+      now,
+    );
+
+    expect(access).toEqual({ kind: "free", salesUsed: 3 });
+  });
+
+  it("keeps the free offer while a Pix subscription waits for its first payment", () => {
+    const waitingPix = {
+      plan: "essential",
+      status: "incomplete",
+      periodEnd: null,
+      firstPaidOn: null,
+      subscriptionId: "sub_waiting",
+    };
+
+    const access = billingAccess(
+      {
+        subscription: waitingPix,
+        courtesy: null,
+        tenantCreatedAt: newTenant,
+        transition,
+        freeSalesUsed: 3,
+      },
+      now,
+    );
+
+    expect(access).toEqual({ kind: "free", salesUsed: 3 });
+  });
+
   it("uses the paid plan over the transition", () => {
     const access = billingAccess(
       { subscription, courtesy: null, tenantCreatedAt: existingTenant, transition },

@@ -1,5 +1,5 @@
 import type { FiscalFallback } from "@sellbridge/shared/product-fiscal";
-import { GRID_AXIS_ATTRIBUTES, type ProductModelShared } from "@sellbridge/shared/product-grid";
+import { gridAxisAttributes, type ProductModelShared } from "@sellbridge/shared/product-grid";
 import type { SupplierTaxSetup } from "@sellbridge/shared/supplier-fiscal";
 import { requiredAttributesFor } from "@sellbridge/shared/supplier-panel-catalog-completeness";
 import { type QueryClient, useMutation, useQueryClient } from "@tanstack/react-query";
@@ -152,21 +152,23 @@ function useGridRules(
   // guess must still fill in if Mercado Livre answers after that.
   const [autoPick] = useState(options.model === null);
   const sheet = useMercadoLivreFicha(options.supplierId, snapshot.values, setValues, { autoPick });
-  // Colour and size come from each combination, so the model's sheet neither shows nor asks them.
+  const hasColors = snapshot.grid.colors.length > 0;
+  const hasSizes = snapshot.grid.sizes.length > 0;
+  // The colour and size the grid has come from each combination, so the model's sheet neither
+  // shows nor asks them; one the grid lacks (a shoe sold by size only) stays in the sheet.
+  const axes = useMemo(() => gridAxisAttributes({ hasColors, hasSizes }), [hasColors, hasSizes]);
   const fields = useMemo(
-    () => sheet.fields?.filter((field) => !GRID_AXIS_ATTRIBUTES.has(field.id)) ?? null,
-    [sheet.fields],
+    () => sheet.fields?.filter((field) => !axes.has(field.id)) ?? null,
+    [sheet.fields, axes],
   );
   const ficha = { ...sheet, fields };
   const required = useMemo(
     () =>
       withMercadoLivreRequired(
-        requiredAttributesFor(category?.slug).filter(
-          (attribute) => !GRID_AXIS_ATTRIBUTES.has(attribute.id),
-        ),
+        requiredAttributesFor(category?.slug).filter((attribute) => !axes.has(attribute.id)),
         fields,
       ),
-    [category?.slug, fields],
+    [category?.slug, fields, axes],
   );
   const fallback: FiscalFallback | null = options.taxDefaults?.defaults ?? null;
   const report = useMemo(

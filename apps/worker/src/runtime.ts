@@ -24,7 +24,7 @@ import {
   type StoreCredentials,
 } from "@sellbridge/marketplaces";
 import { createBlingRateLimiter, type BlingAppCredentials } from "@sellbridge/marketplaces/bling";
-import { asaasSettingsFrom, billingRulesFrom } from "@sellbridge/payments/asaas";
+import { asaasSettingsFrom } from "@sellbridge/payments/asaas";
 import { mercadoPagoSettingsFrom } from "@sellbridge/payments/mercado-pago";
 import { createRedisSlotStore } from "@sellbridge/shared/redis-slots";
 import { createTokenCipher } from "@sellbridge/shared/token-cipher";
@@ -108,7 +108,9 @@ import {
   createOrderCheckDispatcher,
   ORDER_CHECK_DISPATCH_JOB,
   ORDER_CHECK_MARKETPLACES,
+  ORDER_CHECK_WINDOW_IN_MS,
 } from "./processors/order-check.ts";
+import { createRedisUnchangedReads } from "./lib/unchanged-reads.ts";
 import type { NoticeReaders } from "./processors/marketplace-notice.ts";
 import { createWebhookEventProcessor } from "./processors/webhook-event.ts";
 import {
@@ -478,7 +480,6 @@ function orderWorkers(context: WorkerContext): Worker[] {
     sendEmail,
     appUrl: environment.APP_URL,
     enabled: environment.AUTO_FORWARD_ENABLED,
-    billing: billingRulesFrom(environment),
   });
   const processTracking = createShipmentTrackingProcessor({
     database,
@@ -560,6 +561,7 @@ function orderCheckWorkers(context: WorkerContext): Worker[] {
     connectors,
     cipher,
     acquireRateLimit: context.acquireRateLimit,
+    unchangedReads: createRedisUnchangedReads(queues.orderCheck, ORDER_CHECK_WINDOW_IN_MS),
     requestStockSync: async () => requestStockSync(context),
     requestAutoForward: async (orderId: string) => requestAutoForward(context, orderId),
   };

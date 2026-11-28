@@ -54,11 +54,27 @@ export function modelCodeFromTitle(title: string): string {
 export const COMBINATION_EDITED_OUTSIDE_GRID_MESSAGE =
   "Este produto faz parte de uma grade de cores e tamanhos: altere o nome, as fotos e a ficha pela grade, no cadastro do produto.";
 
+/** Every sheet field a grid can answer. */
+const GRID_AXIS_ATTRIBUTES: ReadonlySet<string> = new Set(["COLOR", "MAIN_COLOR", "SIZE"]);
+
+const COLOR_AXIS_ATTRIBUTES = ["COLOR", "MAIN_COLOR"] as const;
+const SIZE_AXIS_ATTRIBUTES = ["SIZE"] as const;
+
 /**
- * What the grid itself answers in Mercado Livre's sheet: each combination's colour and size,
- * so the model's sheet never asks them.
+ * The sheet fields a grid answers by itself: colour only when it has colours, size only when
+ * it has sizes. A shoe sold by size alone still needs its one colour in the model's sheet. A grid
+ * with neither yet has not chosen, so it answers both, as before.
  */
-export const GRID_AXIS_ATTRIBUTES: ReadonlySet<string> = new Set(["COLOR", "MAIN_COLOR", "SIZE"]);
+export function gridAxisAttributes(axes: {
+  readonly hasColors: boolean;
+  readonly hasSizes: boolean;
+}): ReadonlySet<string> {
+  const chosen = new Set<string>([
+    ...(axes.hasColors ? COLOR_AXIS_ATTRIBUTES : []),
+    ...(axes.hasSizes ? SIZE_AXIS_ATTRIBUTES : []),
+  ]);
+  return chosen.size === 0 ? GRID_AXIS_ATTRIBUTES : chosen;
+}
 
 /** Identifies one unit of a model: a barcode never belongs to the whole grid. */
 const COMBINATION_ONLY_ATTRIBUTES: ReadonlySet<string> = new Set(["GTIN"]);
@@ -385,13 +401,18 @@ export interface MaterializedCombination {
   readonly fiscal: ProductFiscalPatch;
 }
 
-/** The sheet a model shares: never one unit's barcode, nor the colour and size the grid gives. */
+/**
+ * The sheet a model shares: never one unit's barcode, nor the colour or size the grid gives (see
+ * `gridAxisAttributes`), so a shoe grouped by size alone keeps its one colour.
+ */
 export function sharedAttributes(
   attributes: Readonly<Record<string, string>>,
+  axes: { readonly hasColors: boolean; readonly hasSizes: boolean },
 ): Record<string, string> {
+  const answered = gridAxisAttributes(axes);
   return Object.fromEntries(
     Object.entries(attributes).filter(
-      ([key]) => !COMBINATION_ONLY_ATTRIBUTES.has(key) && !GRID_AXIS_ATTRIBUTES.has(key),
+      ([key]) => !COMBINATION_ONLY_ATTRIBUTES.has(key) && !answered.has(key),
     ),
   );
 }
@@ -400,6 +421,19 @@ function filledFiscal(fiscal: ProductFiscalPatch): ProductFiscalPatch {
   return Object.fromEntries(
     Object.entries(fiscal).filter(([, value]) => value !== null && value !== undefined),
   );
+}
+
+/** The model's sheet minus the barcode and the colour or size this combination gives itself. */
+function modelSheetFor(
+  attributes: Readonly<Record<string, string>>,
+  own: Pick<CombinationOwnValues, "color" | "size">,
+): Record<string, string> {
+  const answered = new Set<string>([
+    ...COMBINATION_ONLY_ATTRIBUTES,
+    ...(own.color === null ? [] : COLOR_AXIS_ATTRIBUTES),
+    ...(own.size === null ? [] : SIZE_AXIS_ATTRIBUTES),
+  ]);
+  return Object.fromEntries(Object.entries(attributes).filter(([key]) => !answered.has(key)));
 }
 
 /** The combination's colour and size, as the sheet names them ("Tênis - Preto 38" is size 38). */
@@ -425,7 +459,7 @@ export function materializeCombination(
     categoryId: model.categoryId,
     imageUrls: [...(own.colorImageUrls.length > 0 ? own.colorImageUrls : model.imageUrls)],
     mercadoLivreAttributes: {
-      ...sharedAttributes(model.mercadoLivreAttributes),
+      ...modelSheetFor(model.mercadoLivreAttributes, own),
       ...axisAttributes(own),
       ...own.variantAttributes,
     },

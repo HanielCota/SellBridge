@@ -5,7 +5,7 @@ import {
   type BlingClient,
   type BlingStockFilter,
 } from "./client.ts";
-import type { BlingStockBalance } from "./schemas.ts";
+import type { BlingProductSummary, BlingStockBalance } from "./schemas.ts";
 
 /** Largest stock a product row holds (Postgres `integer`). */
 const MAX_STOCK_UNITS = 2_147_483_647;
@@ -99,9 +99,26 @@ export async function readBlingStock(
   return { readings, missing };
 }
 
+const KNOWN_PRODUCT_STATUSES = new Set(["A", "I", "E"]);
+const DELETED_PRODUCT_STATUS = "E";
+const LOGGED_STATUS_LENGTH = 20;
+
+/** A product in Bling's trash keeps its SKU, so it must not take the link from the live one. */
+function isDeletedInBling(product: BlingProductSummary): boolean {
+  if (KNOWN_PRODUCT_STATUSES.has(product.situacao)) {
+    return product.situacao === DELETED_PRODUCT_STATUS;
+  }
+  logger.warn("bling.unknown_product_status", {
+    erpProductId: product.id,
+    status: product.situacao.slice(0, LOGGED_STATUS_LENGTH),
+  });
+  return false;
+}
+
 /**
  * The Bling id of each SKU found in the account, 100 SKUs per request. A code Bling holds on two
- * products is left out: SellBridge cannot tell which one is the supplier's.
+ * products is left out: SellBridge cannot tell which one is the supplier's. Deleted products are
+ * ignored.
  */
 export async function findBlingIdsBySku(
   client: BlingClient,
@@ -112,6 +129,9 @@ export async function findBlingIdsBySku(
     const found = await client.findProductsByCodes(batch);
     const idsByCode = new Map<string, number[]>();
     for (const product of found) {
+      if (isDeletedInBling(product)) {
+        continue;
+      }
       const code = product.codigo ?? "";
       if (code !== "") {
         idsByCode.set(code, [...(idsByCode.get(code) ?? []), product.id]);

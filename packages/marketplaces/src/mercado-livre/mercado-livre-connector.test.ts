@@ -2,6 +2,7 @@ import { describe, expect, it, vi } from "vitest";
 import { logger } from "@sellbridge/shared/logger";
 import { createMercadoLivreConnector } from "./mercado-livre-connector.ts";
 import { ERROR_FIXTURES } from "./fixtures/errors.ts";
+import { FOOTWEAR_ATTRIBUTES, FOOTWEAR_CATEGORY } from "./fixtures/category-footwear.ts";
 import { HANDBAG_ATTRIBUTES } from "./fixtures/category-handbags.ts";
 
 interface Recorded {
@@ -358,7 +359,7 @@ describe("publishing", () => {
         causes: ["item.attributes.missing_required"],
       },
       message: expect.stringMatching(
-        /^Faltam campos da ficha técnica .*: BRAND, MODEL\. Preencha no cadastro/,
+        /^Faltam campos da ficha técnica .*: BRAND, MODEL\. Quem preenche é o fornecedor/,
       ),
     });
   });
@@ -1365,5 +1366,99 @@ describe("the shipping the seller pays on a sale", () => {
       expect.objectContaining({ shipmentId: "43000000001" }),
     );
     warn.mockRestore();
+  });
+});
+
+describe("footwear sheet", () => {
+  const categoryPath = `${API}/categories/${FOOTWEAR_CATEGORY.id}`;
+  const footwearRoutes: Record<string, Responder> = {
+    ...publishRoutes,
+    [`GET ${categoryPath}/attributes`]: () => json(200, FOOTWEAR_ATTRIBUTES),
+    [`GET ${categoryPath}`]: () => json(200, FOOTWEAR_CATEGORY),
+  };
+  const sandal = { ...product, mercadoLivreCategoryId: FOOTWEAR_CATEGORY.id };
+  const sheet = { BRAND: "Nuvem", MODEL: "N1", COLOR: "Preto", SIZE: "37/38" };
+
+  it("sends the footwear type the title names when the supplier left it empty", async () => {
+    const { ml, calls } = connector(footwearRoutes);
+
+    await ml.publishProduct(store, {
+      ...sandal,
+      title: "Chinelo Nuvem Preto 37/38",
+      mercadoLivreAttributes: sheet,
+    });
+
+    const created = JSON.parse(calls.find((call) => call.url === `${API}/items`)?.body ?? "{}");
+    expect(created.attributes).toContainEqual({
+      id: "FOOTWEAR_TYPE",
+      value_id: "517586",
+      value_name: "Chinelo",
+    });
+    expect(calls.some((call) => call.url === categoryPath)).toBe(false);
+  });
+
+  it("keeps the footwear type the supplier filled", async () => {
+    const { ml, calls } = connector(footwearRoutes);
+
+    await ml.publishProduct(store, {
+      ...sandal,
+      title: "Chinelo Nuvem Preto 37/38",
+      mercadoLivreAttributes: { ...sheet, FOOTWEAR_TYPE: "Mule" },
+    });
+
+    const created = JSON.parse(calls.find((call) => call.url === `${API}/items`)?.body ?? "{}");
+    expect(created.attributes).toContainEqual({ id: "FOOTWEAR_TYPE", value_name: "Mule" });
+    expect(created.attributes).not.toContainEqual(
+      expect.objectContaining({ id: "FOOTWEAR_TYPE", value_name: "Chinelo" }),
+    );
+  });
+
+  it("sends a babuche as a chinelo, the closest kind Mercado Livre lists", async () => {
+    const { ml, calls } = connector(footwearRoutes);
+
+    await ml.publishProduct(store, {
+      ...sandal,
+      title: "BABUCHE NUVEM Cor:MARINHO;Tamanho:33/34",
+      mercadoLivreAttributes: sheet,
+    });
+
+    const created = JSON.parse(calls.find((call) => call.url === `${API}/items`)?.body ?? "{}");
+    expect(created.attributes).toContainEqual({
+      id: "FOOTWEAR_TYPE",
+      value_id: "517586",
+      value_name: "Chinelo",
+    });
+  });
+
+  it("names the footwear type a shoe of no listed kind still needs, without creating the item", async () => {
+    const { ml, calls } = connector(footwearRoutes);
+
+    await expect(
+      ml.publishProduct(store, {
+        ...sandal,
+        title: "Rasteirinha Nuvem Marinho 33/34",
+        mercadoLivreAttributes: sheet,
+      }),
+    ).rejects.toMatchObject({
+      details: { retryable: false },
+      message:
+        "Faltam campos que o Mercado Livre exige nesta categoria: Tipo de calçado. Quem preenche é o fornecedor, no cadastro do produto. Depois, clique em Tentar de novo.",
+    });
+    expect(calls.some((call) => call.url === `${API}/items`)).toBe(false);
+  });
+
+  it("names the missing colour and who fills it", async () => {
+    const { ml } = connector(footwearRoutes);
+
+    await expect(
+      ml.publishProduct(store, {
+        ...sandal,
+        title: "Chinelo Nuvem 37/38",
+        mercadoLivreAttributes: { BRAND: "Nuvem", MODEL: "N1", SIZE: "37/38" },
+      }),
+    ).rejects.toMatchObject({
+      message:
+        "Faltam campos que o Mercado Livre exige nesta categoria: Cor. Quem preenche é o fornecedor, no cadastro do produto. Depois, clique em Tentar de novo.",
+    });
   });
 });

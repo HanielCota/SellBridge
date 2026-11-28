@@ -7,7 +7,7 @@ describe("explainMercadoLivreError", () => {
   it("names the missing required attributes and what to do", () => {
     expect(explainMercadoLivreError(ERROR_FIXTURES.missingRequiredAttributes, 400)).toBe(
       "Faltam campos da ficha técnica que o Mercado Livre exige nesta categoria: BRAND, MODEL. " +
-        "Preencha no cadastro do produto e publique de novo.",
+        "Quem preenche é o fornecedor, no cadastro do produto. Depois, clique em Tentar de novo.",
     );
   });
 
@@ -44,7 +44,7 @@ describe("explainMercadoLivreError", () => {
       "As fotos do produto são pequenas demais para o Mercado Livre (mínimo de 500 pixels em um dos lados). " +
         "Fale com o suporte para trocar as fotos e publique de novo. " +
         "Faltam campos da ficha técnica que o Mercado Livre exige nesta categoria: GTIN. " +
-        "Preencha no cadastro do produto e publique de novo.",
+        "Quem preenche é o fornecedor, no cadastro do produto. Depois, clique em Tentar de novo.",
     );
   });
 

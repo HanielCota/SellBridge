@@ -12,6 +12,7 @@ vi.mock("@/lib/server/marketplaces", () => ({
     mercado_livre: { verifyWebhook: mocks.verifyWebhook },
     shopee: { verifyWebhook: mocks.verifyWebhook },
   },
+  shopeeApiConfig: { webhookUrl: "https://sellbridge.test/api/webhooks/shopee" },
 }));
 vi.mock("@/lib/server/queues", () => ({ enqueueWebhookEvent: mocks.enqueueWebhookEvent }));
 vi.mock("@sellbridge/database/repositories", () => ({

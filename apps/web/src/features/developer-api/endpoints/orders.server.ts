@@ -23,9 +23,21 @@ const shippingAddressSchema = z
   })
   .nullable()
   .optional()
+  .describe("Só para chaves com `buyers:personal`. Veja `shippingAddressStatus` se vier nulo.");
+
+const shippingAddressStatusSchema = z
+  .enum(["available", "missing", "unreadable"])
+  .optional()
   .describe(
-    "Só para chaves com `buyers:personal`. Nulo quando o marketplace não mandou o endereço.",
+    "Só para chaves com `buyers:personal`. `available`: endereço disponível; `missing`: sem endereço salvo; `unreadable`: endereço salvo que não pôde ser lido.",
   );
+
+const orderResponseSchema = dataEnvelope(
+  orderDetailSchema.extend({
+    shippingAddress: shippingAddressSchema,
+    shippingAddressStatus: shippingAddressStatusSchema,
+  }),
+);
 
 /**
  * One order, as the organization API shows it. The buyer's shipping address is added only for
@@ -41,18 +53,22 @@ export const getDeveloperOrder = defineDeveloperEndpoint({
   sendsPersonalData: (caller) => caller.scopes.includes(PERSONAL_DATA_SCOPE),
   params: organizationParamsSchema.and(getOrder.params),
   query: noInput,
-  response: dataEnvelope(orderDetailSchema.extend({ shippingAddress: shippingAddressSchema })),
-  handle: async (input) => {
+  response: orderResponseSchema,
+  handle: async (input): Promise<z.input<typeof orderResponseSchema>> => {
     const order = await readAsOrganization(getOrder, input);
-    if (input.caller.scopes.includes(PERSONAL_DATA_SCOPE)) {
-      const sealed = await findSealedShippingAddress(
-        database,
-        input.params.organizationId,
-        input.params.orderId,
-      );
-      const shippingAddress = openShippingAddress(tokenCipher, sealed);
-      return { data: { ...order.data, shippingAddress } };
+    if (!input.caller.scopes.includes(PERSONAL_DATA_SCOPE)) {
+      return order;
     }
-    return order;
+    const sealed = await findSealedShippingAddress(
+      database,
+      input.params.organizationId,
+      input.params.orderId,
+    );
+    if (sealed === null) {
+      return { data: { ...order.data, shippingAddress: null, shippingAddressStatus: "missing" } };
+    }
+    const shippingAddress = openShippingAddress(tokenCipher, sealed);
+    const shippingAddressStatus = shippingAddress === null ? "unreadable" : "available";
+    return { data: { ...order.data, shippingAddress, shippingAddressStatus } };
   },
 });

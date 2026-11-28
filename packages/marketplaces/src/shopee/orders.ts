@@ -14,6 +14,11 @@ const amount = z
   .number()
   .nonnegative()
   .max(MAX_STORED_CENTS / 100);
+/** Escrow lines may be negative: an adjustment or a rebate credits the seller. */
+const signedAmount = z
+  .number()
+  .min(-MAX_STORED_CENTS / 100)
+  .max(MAX_STORED_CENTS / 100);
 const itemId = z.number().int().positive();
 const recipientSchema = z.object({
   name: z.string().optional(),
@@ -33,7 +38,6 @@ const orderSchema = z.object({
   currency: z.literal("BRL"),
   order_status: z.string(),
   create_time: timestamp,
-  total_amount: amount,
   recipient_address: z.unknown().optional(),
   item_list: z
     .array(
@@ -71,24 +75,25 @@ const orderListSchema = z.object({
   next_cursor: z.string().optional(),
 });
 
-const escrowSchema = z.array(
-  z.object({
-    escrow_detail: z
-      .object({
-        order_sn: orderNumber,
-        order_income: z
-          .object({
-            commission_fee: amount.optional(),
-            service_fee: amount.optional(),
-            seller_transaction_fee: amount.optional(),
-            seller_order_processing_fee: amount.optional(),
-            order_ams_commission_fee: amount.optional(),
-          })
-          .optional(),
-      })
-      .optional(),
-  }),
-);
+const escrowSchema = z.array(z.unknown());
+const escrowRowSchema = z.object({
+  escrow_detail: z
+    .object({
+      order_sn: orderNumber,
+      order_income: z
+        .object({
+          commission_fee: signedAmount.optional(),
+          service_fee: signedAmount.optional(),
+          seller_transaction_fee: signedAmount.optional(),
+          seller_order_processing_fee: signedAmount.optional(),
+          order_ams_commission_fee: signedAmount.optional(),
+          /** What the buyer finally paid for the items, without shipping (bundle deals included). */
+          cost_of_goods_sold: signedAmount.optional(),
+        })
+        .optional(),
+    })
+    .optional(),
+});
 
 const orderStatuses: Readonly<Record<string, MarketplaceOrder["status"]>> = {
   UNPAID: "pending",
@@ -110,7 +115,7 @@ const ESCROW_PAGE_SIZE = 20;
 const MAX_BATCH_ORDERS = 1_000;
 const MAX_LIST_PAGES_PER_WINDOW = 100;
 const WINDOW_SECONDS = 15 * 24 * 60 * 60;
-const ORDER_FIELDS = "total_amount,item_list,recipient_address";
+const ORDER_FIELDS = "item_list,recipient_address";
 const unresolvedOrderStatus = z.enum(["IN_CANCEL", "TO_RETURN"]);
 const unresolvedOrder = z.object({ order_status: unresolvedOrderStatus });
 
@@ -128,8 +133,40 @@ function parseSerial(serial: string): string {
   return serial;
 }
 
-function cents(value: number): number {
-  return Math.min(MAX_STORED_CENTS, Math.round(value * 100));
+/** Cents that must fit the integer cents columns they are stored in. */
+function withinStoredLimit(cents: number, field: string): number {
+  if (cents > MAX_STORED_CENTS) {
+    // Final, not retryable: reading the order again returns the same amount.
+    throw marketplaceError(
+      `Pedido da Shopee com ${field} acima do valor que o SellBridge guarda.`,
+      {
+        retryable: false,
+      },
+    );
+  }
+  return cents;
+}
+
+/** An amount, or a sum of amounts, in cents that fit the columns it is stored in. */
+function storedCents(value: number, field: string): number {
+  return withinStoredLimit(Math.round(value * 100), field);
+}
+
+/** One unit's price: Shopee reports 0 as the discounted price of a bundle deal item. */
+function unitPrice(item: {
+  model_original_price: number;
+  model_discounted_price?: number | null | undefined;
+}) {
+  const discounted = item.model_discounted_price;
+  return discounted === undefined || discounted === null || discounted === 0
+    ? item.model_original_price
+    : discounted;
+}
+
+interface EscrowIncome {
+  feeCents?: number | undefined;
+  /** What the buyer paid for the items, without the shipping (`cost_of_goods_sold`). */
+  itemsTotalCents?: number | undefined;
 }
 
 function fold(text: string): string {
@@ -138,6 +175,20 @@ function fold(text: string): string {
     .normalize("NFD")
     .replace(/\p{Diacritic}/gu, "")
     .toUpperCase();
+}
+
+/**
+ * Shopee hides the buyer's name from shops of individual sellers (CPF) and masks it with
+ * asterisks, while still sending the address; the parcel's label carries the real recipient.
+ */
+const MASKED_RECIPIENT_NAME = "Comprador Shopee";
+
+function buyerNameOf(name: string | undefined): string | null {
+  const trimmed = name?.trim() ?? "";
+  if (trimmed === "" || trimmed.includes("*")) {
+    return null;
+  }
+  return trimmed.slice(0, 120);
 }
 
 function readRecipient(raw: unknown) {
@@ -154,7 +205,7 @@ function readRecipient(raw: unknown) {
     ([code, name]) => region === code || region === fold(name),
   )?.[0];
   const reading = shippingAddressReading({
-    recipient: address.name,
+    recipient: buyerNameOf(address.name) ?? MASKED_RECIPIENT_NAME,
     street: address.street || parts[0],
     number: address.number || numberFromText,
     complement: address.complement ?? "",
@@ -166,10 +217,27 @@ function readRecipient(raw: unknown) {
   return reading.kind === "available" ? reading.address : null;
 }
 
+/**
+ * The sale's value is what the buyer pays for the items, as with the other marketplaces: Shopee's
+ * `total_amount` also carries the shipping the buyer paid. The escrow's amount is preferred, since
+ * item prices do not show a bundle deal's discount.
+ */
+function itemsTotalCents(raw: z.output<typeof orderSchema>, income: EscrowIncome | undefined) {
+  if (income?.itemsTotalCents !== undefined) {
+    return income.itemsTotalCents;
+  }
+  const total = raw.item_list.reduce(
+    (sum, item) => sum + unitPrice(item) * item.model_quantity_purchased,
+    0,
+  );
+  return storedCents(total, "total");
+}
+
 function mapOrder(
   raw: z.output<typeof orderSchema>,
-  fees: ReadonlyMap<string, number>,
+  escrow: ReadonlyMap<string, EscrowIncome>,
 ): MarketplaceOrder {
+  const income = escrow.get(raw.order_sn);
   const address = readRecipient(raw.recipient_address);
   const recipient = recipientSchema.safeParse(raw.recipient_address);
   const status = Object.hasOwn(orderStatuses, raw.order_status)
@@ -192,9 +260,11 @@ function mapOrder(
   return {
     externalOrderId: raw.order_sn,
     status,
-    totalCents: cents(raw.total_amount),
-    marketplaceFeeCents: fees.get(raw.order_sn),
-    buyerName: recipient.success ? recipient.data.name?.trim().slice(0, 120) || null : null,
+    totalCents: itemsTotalCents(raw, income),
+    // Checked here, not in the escrow read: one order's odd fee must not drop the whole page.
+    marketplaceFeeCents:
+      income?.feeCents === undefined ? undefined : withinStoredLimit(income.feeCents, "tarifa"),
+    buyerName: recipient.success ? buyerNameOf(recipient.data.name) : null,
     shippingAddress: address ?? undefined,
     orderedAt: new Date(raw.create_time * 1_000),
     items: raw.item_list.map((item) => ({
@@ -202,7 +272,7 @@ function mapOrder(
         item.model_id === 0 ? String(item.item_id) : `${item.item_id}:${item.model_id}`,
       title: [item.item_name, item.model_name].filter(Boolean).join(" - ").slice(0, 240),
       quantity: item.model_quantity_purchased,
-      unitPriceCents: cents(item.model_discounted_price ?? item.model_original_price),
+      unitPriceCents: storedCents(unitPrice(item), "preço"),
     })),
   };
 }
@@ -249,25 +319,53 @@ async function readEscrow(context: ShopeeContext, store: StoreCredentials, seria
   }
 }
 
-async function readFees(context: ShopeeContext, store: StoreCredentials, serials: string[]) {
-  const fees = new Map<string, number>();
+/** One order's fee in cents; a credit larger than the charges leaves no fee. */
+function feeCents(
+  store: StoreCredentials,
+  orderSn: string,
+  parts: readonly (number | undefined)[],
+) {
+  if (parts.every((part) => part === undefined)) {
+    return undefined;
+  }
+  const total = Math.round(parts.reduce<number>((sum, part) => sum + (part ?? 0), 0) * 100);
+  if (total >= 0) {
+    return total;
+  }
+
+  logger.warn("shopee.order_fee_negative", { externalShopId: store.externalShopId, orderSn });
+  return 0;
+}
+
+/** Each escrow row is read on its own: one odd row must not drop the income of the others. */
+async function readIncome(context: ShopeeContext, store: StoreCredentials, serials: string[]) {
+  const incomes = new Map<string, EscrowIncome>();
   for (let offset = 0; offset < serials.length; offset += ESCROW_PAGE_SIZE) {
     const requested = serials.slice(offset, offset + ESCROW_PAGE_SIZE);
-    for (const row of await readEscrow(context, store, requested)) {
-      const escrow = row.escrow_detail;
+    for (const raw of await readEscrow(context, store, requested)) {
+      const row = escrowRowSchema.safeParse(raw);
+      if (!row.success) {
+        logger.warn("shopee.order_fee_unreadable", { externalShopId: store.externalShopId });
+        continue;
+      }
+
+      const escrow = row.data.escrow_detail;
       if (escrow?.order_income === undefined || !requested.includes(escrow.order_sn)) {
         continue;
       }
 
-      const parts = Object.values(escrow.order_income);
-      if (parts.some((part) => part !== undefined)) {
-        const total = parts.reduce<number>((sum, part) => sum + (part ?? 0), 0);
-        fees.set(escrow.order_sn, cents(total));
-      }
+      const { cost_of_goods_sold: itemsTotal, ...fees } = escrow.order_income;
+      incomes.set(escrow.order_sn, {
+        feeCents: feeCents(store, escrow.order_sn, Object.values(fees)),
+        itemsTotalCents:
+          itemsTotal === undefined || itemsTotal <= 0
+            ? undefined
+            : storedCents(itemsTotal, "total"),
+      });
     }
   }
 
-  return fees;
+  return incomes;
 }
 
 function feeCandidates(rows: readonly unknown[]): string[] {
@@ -304,8 +402,8 @@ export async function fetchOrder(
     throw missingOrder();
   }
 
-  const fees = await readFees(context, store, feeCandidates([order.data]));
-  return mapOrder(order.data, fees);
+  const income = await readIncome(context, store, feeCandidates([order.data]));
+  return mapOrder(order.data, income);
 }
 
 export async function readOrderPackages(
@@ -415,10 +513,10 @@ export async function listOrders(
       const detail = await readDetails(context, store, requested, ORDER_FIELDS);
       // Keep the last confirmed state during a cancellation or a return request.
       const rows = detail.order_list.filter((row) => !unresolvedOrder.safeParse(row).success);
-      const fees = await readFees(context, store, feeCandidates(rows));
+      const income = await readIncome(context, store, feeCandidates(rows));
       const windowOrders = readableOrders(rows, {
         schema: orderSchema,
-        map: (raw) => mapOrder(raw, fees),
+        map: (raw) => mapOrder(raw, income),
         event: "shopee.order_skipped",
         channelOwner: "da Shopee",
         externalShopId: store.externalShopId,

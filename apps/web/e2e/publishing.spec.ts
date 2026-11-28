@@ -201,11 +201,10 @@ test("mostra erro com motivo e permite reprocessar", async ({ page }) => {
   await expect(cardStatus(page, "Não publicado na Loja Recusa")).toBeVisible({
     timeout: STATUS_TIMEOUT,
   });
-  await expect(
-    page
-      .getByText("Anúncio recusado: o título contém termos não permitidos")
-      .filter({ visible: true }),
-  ).toBeVisible();
+  await page.getByRole("button", { name: /Não publicado na Loja Recusa/ }).hover();
+  await expect(page.getByRole("tooltip")).toContainText(
+    "Anúncio recusado: o título contém termos não permitidos",
+  );
 
   await page.getByRole("button", { name: "Tentar de novo" }).click();
   await expect(
