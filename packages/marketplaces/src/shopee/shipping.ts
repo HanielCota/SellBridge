@@ -7,6 +7,7 @@ import { readOrderPackages } from "./orders.ts";
 
 const PDF_DOCUMENT_TYPE = "NORMAL_AIR_WAYBILL";
 const NOT_CREATED = "logistics.shipping_document_should_print_first";
+const ALREADY_SHIPPED = "logistics.package_already_shipped";
 const INVOICE_ERRORS = ["logistics.lack_of_invoice_data", "lack_of_invoice_data"];
 const ARRANGED = new Set([
   "LOGISTICS_REQUEST_CREATED",
@@ -31,10 +32,18 @@ const shippingParametersSchema = z.object({
         z.object({
           address_id: z.number().int().positive(),
           address_flag: z.array(z.string()).nullish(),
+          address: z.string().max(500).nullish(),
+          district: z.string().max(200).nullish(),
+          town: z.string().max(200).nullish(),
+          city: z.string().max(200).nullish(),
+          state: z.string().max(200).nullish(),
+          zipcode: z.string().max(20).nullish(),
           time_slot_list: z
             .array(
               z.object({
                 pickup_time_id: z.string().min(1),
+                date: z.number().int().nonnegative().max(253_402_300_799).nullish(),
+                time_text: z.string().max(200).nullish(),
                 flags: z.array(z.string()).nullish(),
               }),
             )
@@ -58,6 +67,33 @@ const documentResultSchema = z.object({
     }),
   ),
 });
+
+/** A pickup address of the reseller's Shopee shop, with the time slot Shopee would take. */
+export interface ShopeePickupChoice {
+  readonly addressId: number;
+  readonly flags: readonly string[];
+  readonly address: string;
+  readonly district: string;
+  readonly city: string;
+  readonly state: string;
+  readonly zipcode: string;
+  readonly pickupTimeId: string | undefined;
+  readonly pickupDate: Date | undefined;
+  readonly timeText: string | undefined;
+}
+
+/** Whether a label needs the carrier's pickup scheduled first, and where it can be. */
+export type ShopeePickupOptions =
+  { kind: "not_needed" } | { kind: "pickup"; addresses: readonly ShopeePickupChoice[] };
+
+/** The pickup the person asking for the label confirmed. */
+export interface ConfirmedPickup {
+  readonly addressId: number;
+  readonly pickupTimeId: string | undefined;
+}
+
+/** Why a Shopee label waits: the pickup address must be confirmed before it is scheduled. */
+export const PICKUP_CONFIRMATION_CAUSE = "pickup_confirmation_needed";
 
 interface LabelRequest {
   context: ShopeeContext;
@@ -112,6 +148,13 @@ function callLogistics<Result>(
   });
 }
 
+function pickupConfirmationNeeded() {
+  return marketplaceError("Confirme o endereço de coleta antes de gerar a etiqueta da Shopee.", {
+    retryable: false,
+    causes: [PICKUP_CONFIRMATION_CAUSE],
+  });
+}
+
 function chooseUnambiguous<Choice>(
   choices: readonly Choice[],
   preferred: (choice: Choice) => boolean,
@@ -124,11 +167,53 @@ function chooseUnambiguous<Choice>(
   return recommended.length === 1 ? recommended[0] : undefined;
 }
 
-function arrangement(parameters: z.output<typeof shippingParametersSchema>) {
+type ShopeeAddress = NonNullable<
+  z.output<typeof shippingParametersSchema>["pickup"]
+>["address_list"][number];
+
+function pickupDate(seconds: number | null | undefined): Date | undefined {
+  return seconds === undefined || seconds === null || seconds === 0
+    ? undefined
+    : new Date(seconds * 1_000);
+}
+
+function pickupChoice(entry: ShopeeAddress, needsTime: boolean): ShopeePickupChoice | null {
+  const slot = chooseUnambiguous(
+    entry.time_slot_list ?? [],
+    (candidate) => candidate.flags?.includes("recommended") === true,
+  );
+  if (slot === undefined && needsTime) {
+    return null;
+  }
+  const timeText = slot?.time_text?.trim() ?? "";
+  return {
+    addressId: entry.address_id,
+    flags: entry.address_flag ?? [],
+    address: entry.address?.trim() ?? "",
+    district: (entry.district ?? entry.town ?? "").trim(),
+    city: entry.city?.trim() ?? "",
+    state: entry.state?.trim() ?? "",
+    zipcode: entry.zipcode?.trim() ?? "",
+    pickupTimeId: slot?.pickup_time_id,
+    pickupDate: pickupDate(slot?.date),
+    timeText: timeText === "" ? undefined : timeText,
+  };
+}
+
+type Arrangement =
+  | { kind: "dropoff" }
+  | { kind: "already_arranged" }
+  | { kind: "pickup"; addresses: ShopeePickupChoice[] };
+
+/**
+ * What the shipment takes: a drop-off, or a pickup at one of the shop's addresses. The pickup is
+ * never scheduled on the shop's default address on its own: the address is confirmed first.
+ */
+function arrangement(parameters: z.output<typeof shippingParametersSchema>): Arrangement {
   const { dropoff, pickup } = parameters.info_needed;
   const addresses = parameters.pickup?.address_list ?? [];
   if (dropoff?.length === 0 && pickup == null && addresses.length === 0) {
-    return { dropoff: {} };
+    return { kind: "dropoff" };
   }
 
   if (
@@ -139,60 +224,87 @@ function arrangement(parameters: z.output<typeof shippingParametersSchema>) {
     throw arrangeInSellerCenter();
   }
 
-  const eligible = pickup.includes("pickup_time_id")
-    ? addresses.filter((entry) => (entry.time_slot_list?.length ?? 0) > 0)
-    : addresses;
-  const address = chooseUnambiguous(
-    eligible,
-    (entry) =>
-      entry.address_flag?.some((flag) => flag.toLowerCase() === "default_address") === true,
-  );
-  if (address === undefined) {
+  const needsTime = pickup.includes("pickup_time_id");
+  const choices = addresses.flatMap((entry) => pickupChoice(entry, needsTime) ?? []);
+  if (choices.length === 0) {
     throw arrangeInSellerCenter();
   }
-
-  const slot = chooseUnambiguous(
-    address.time_slot_list ?? [],
-    (entry) => entry.flags?.includes("recommended") === true,
-  );
-  if (slot === undefined && pickup.includes("pickup_time_id")) {
-    throw arrangeInSellerCenter();
-  }
-
-  return { pickup: { address_id: address.address_id, pickup_time_id: slot?.pickup_time_id } };
+  return { kind: "pickup", addresses: choices };
 }
 
-async function arrangeShipping(request: LabelRequest) {
+/** The confirmed pickup, as Shopee still offers it: an address or a slot it changed is refused. */
+function confirmedPickupBody(addresses: readonly ShopeePickupChoice[], confirmed: ConfirmedPickup) {
+  const choice = addresses.find((entry) => entry.addressId === confirmed.addressId);
+  if (choice === undefined || choice.pickupTimeId !== confirmed.pickupTimeId) {
+    throw marketplaceError(
+      "A Shopee mudou o endereço ou o horário da coleta. Peça a etiqueta de novo para confirmar.",
+      { retryable: false },
+    );
+  }
+  return { address_id: choice.addressId, pickup_time_id: choice.pickupTimeId };
+}
+
+function shipmentBody(choice: Arrangement, confirmed: ConfirmedPickup | undefined) {
+  if (choice.kind === "already_arranged") {
+    return null;
+  }
+  if (choice.kind === "dropoff") {
+    return { dropoff: {} };
+  }
+  if (confirmed === undefined) {
+    throw pickupConfirmationNeeded();
+  }
+  return { pickup: confirmedPickupBody(choice.addresses, confirmed) };
+}
+
+function explainArrangeError(error: unknown) {
+  if (INVOICE_ERRORS.some((code) => hasMarketplaceCause(error, code))) {
+    return invoiceRequired();
+  }
+
+  if (labelWaitingCodes.some((code) => hasMarketplaceCause(error, code))) {
+    return waitForLabel();
+  }
+
+  return error;
+}
+
+async function readArrangement(request: LabelRequest) {
   try {
-    const query = { order_sn: request.parcel.order_sn };
     const parameters = await callLogistics(request, {
       method: "GET",
       path: "/api/v2/logistics/get_shipping_parameter",
       payload: "response",
       schema: shippingParametersSchema,
-      query,
+      query: { order_sn: request.parcel.order_sn },
     });
+    return arrangement(parameters);
+  } catch (error) {
+    if (hasMarketplaceCause(error, ALREADY_SHIPPED)) {
+      return { kind: "already_arranged" } as const;
+    }
+    throw explainArrangeError(error);
+  }
+}
+
+async function arrangeShipping(request: LabelRequest, confirmed: ConfirmedPickup | undefined) {
+  const body = shipmentBody(await readArrangement(request), confirmed);
+  if (body === null) {
+    return;
+  }
+  try {
     await callLogistics(request, {
       method: "POST",
       path: "/api/v2/logistics/ship_order",
       payload: "top",
       schema: z.object({ request_id: z.string() }),
-      json: { ...query, ...arrangement(parameters) },
+      json: { order_sn: request.parcel.order_sn, ...body },
     });
   } catch (error) {
-    if (INVOICE_ERRORS.some((code) => hasMarketplaceCause(error, code))) {
-      throw invoiceRequired();
-    }
-
-    if (hasMarketplaceCause(error, "logistics.package_already_shipped")) {
+    if (hasMarketplaceCause(error, ALREADY_SHIPPED)) {
       return;
     }
-
-    if (labelWaitingCodes.some((code) => hasMarketplaceCause(error, code))) {
-      throw waitForLabel();
-    }
-
-    throw error;
+    throw explainArrangeError(error);
   }
 }
 
@@ -335,11 +447,7 @@ async function requestDocument(request: LabelRequest) {
   }
 }
 
-export async function getShopeeShippingLabel(
-  context: ShopeeContext,
-  store: StoreCredentials,
-  orderId: string,
-) {
+async function labelOrder(context: ShopeeContext, store: StoreCredentials, orderId: string) {
   const order = await readOrderPackages(context, store, orderId);
   if (order.split_up || (order.package_list?.length ?? 0) > 1) {
     throw marketplaceError(
@@ -369,10 +477,43 @@ export async function getShopeeShippingLabel(
     order_sn: order.order_sn,
     ...(item ? { package_number: item.package_number } : {}),
   };
-  const request = { context, store, parcel };
+  return {
+    order,
+    item,
+    request: { context, store, parcel },
+    needsArrangement:
+      order.order_status === "READY_TO_SHIP" && !ARRANGED.has(item?.logistics_status ?? ""),
+  };
+}
+
+/**
+ * Where the carrier can pick up the order, read before the label is asked for: the shop's pickup
+ * addresses, or "not needed" when the shipment is a drop-off or is already arranged.
+ */
+export async function readShopeePickupOptions(
+  context: ShopeeContext,
+  store: StoreCredentials,
+  orderId: string,
+): Promise<ShopeePickupOptions> {
+  const label = await labelOrder(context, store, orderId);
+  if (!label.needsArrangement) {
+    return { kind: "not_needed" };
+  }
+  const choice = await readArrangement(label.request);
+  return choice.kind === "pickup" ? choice : { kind: "not_needed" };
+}
+
+export async function getShopeeShippingLabel(
+  context: ShopeeContext,
+  store: StoreCredentials,
+  orderId: string,
+  pickup?: ConfirmedPickup,
+) {
+  const { order, item, request, needsArrangement } = await labelOrder(context, store, orderId);
+  const { parcel } = request;
   try {
-    if (order.order_status === "READY_TO_SHIP" && !ARRANGED.has(item?.logistics_status ?? "")) {
-      await arrangeShipping(request);
+    if (needsArrangement) {
+      await arrangeShipping(request, pickup);
     }
 
     if (!(await documentExists(request))) {

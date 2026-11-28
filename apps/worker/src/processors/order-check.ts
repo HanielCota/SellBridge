@@ -20,6 +20,7 @@ import {
   expireStoreOnAuthError,
   storeRateKey,
 } from "../lib/store-access.ts";
+import type { UnchangedReads } from "../lib/unchanged-reads.ts";
 import { type OrderIntakeDependencies, saveMarketplaceOrder } from "./order-intake.ts";
 
 /**
@@ -36,6 +37,11 @@ export const NOTICE_GRACE_IN_MS = 2 * 60 * 1000;
 export const STORE_SPACING_IN_MS = 3000;
 /** Reads of 1000 sales per store and run; a store past 5000 sales in two days is reported. */
 const MAX_READS_PER_STORE = 5;
+/**
+ * Reads of one sale whose marketplace state cannot be recorded here (Shopee says shipped while the
+ * supplier has not dispatched it yet) before the check stops spending the store quota on it.
+ */
+export const MAX_UNCHANGED_READS = 3;
 
 /** Marketplaces whose orders are checked alongside their notices. */
 export const ORDER_CHECK_MARKETPLACES: readonly MarketplaceId[] = ["mercado_livre", "shopee"];
@@ -57,6 +63,7 @@ export interface OrderCheckDependencies extends OrderIntakeDependencies {
   connectors: ConnectorRegistry;
   /** The per-store quota every store job spends (`storeRateKey`). */
   acquireRateLimit: (key: string) => Promise<void>;
+  unchangedReads: UnchangedReads;
   now?: () => Date;
 }
 
@@ -129,7 +136,7 @@ interface StoreRun {
 
 /** What the check did with one sale the marketplace listed. */
 type SaleOutcome =
-  "known" | "found" | "paid_found" | "status_found" | "unchanged_by_check" | "refused";
+  "known" | "found" | "paid_found" | "status_found" | "unchanged_by_check" | "given_up" | "refused";
 type LostNotice = "missing" | "payment" | "status";
 
 const SHOPEE_ORDER_PROGRESS: Readonly<Record<string, readonly MarketplaceOrder["status"][]>> = {
@@ -248,6 +255,32 @@ async function bringInSale(
   }
 }
 
+/** The sale and the two states that differ: a new state on either side starts a new count. */
+function unchangedKey(run: StoreRun, sale: MarketplaceOrder, storedStatus: string | undefined) {
+  return `${run.store.id}:${sale.externalOrderId}:${storedStatus ?? "none"}:${sale.status}`;
+}
+
+/** A newer state the marketplace shows, read again only until it proves it cannot be recorded. */
+async function bringInStatus(
+  run: StoreRun,
+  sale: MarketplaceOrder,
+  storedStatus: string | undefined,
+): Promise<SaleOutcome> {
+  const key = unchangedKey(run, sale, storedStatus);
+  if ((await run.dependencies.unchangedReads.count(key)) >= MAX_UNCHANGED_READS) {
+    return "given_up";
+  }
+  const outcome = await bringInSale(run, {
+    externalOrderId: sale.externalOrderId,
+    storedStatus,
+    kind: "status",
+  });
+  if (outcome === "unchanged_by_check") {
+    await run.dependencies.unchangedReads.add(key);
+  }
+  return outcome;
+}
+
 /** Compares one read of sales with the store's orders, in one query, and brings in what is lost. */
 async function checkSales(
   run: StoreRun,
@@ -269,9 +302,13 @@ async function checkSales(
       outcomes.push("known");
       continue;
     }
-    outcomes.push(
-      await bringInSale(run, { externalOrderId: sale.externalOrderId, storedStatus, kind }),
-    );
+    if (kind !== "status") {
+      outcomes.push(
+        await bringInSale(run, { externalOrderId: sale.externalOrderId, storedStatus, kind }),
+      );
+      continue;
+    }
+    outcomes.push(await bringInStatus(run, sale, storedStatus));
   }
   return outcomes;
 }
@@ -317,6 +354,7 @@ function summarize(outcomes: readonly SaleOutcome[]): Record<SaleOutcome, number
     paid_found: 0,
     status_found: 0,
     unchanged_by_check: 0,
+    given_up: 0,
     refused: 0,
   };
   for (const outcome of outcomes) {

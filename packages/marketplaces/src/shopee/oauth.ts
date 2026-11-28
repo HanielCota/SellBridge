@@ -58,10 +58,19 @@ function tokensFrom(
   return { accessToken: token.access_token, refreshToken: token.refresh_token, expiresAt };
 }
 
+/** GetAccessToken's documented error for a code that is expired, already used or invalid. */
+const INVALID_CODE_ERROR = "invalid_code";
+/** RefreshAccessToken's documented errors for a refresh token or shop access that ended. */
+const ENDED_ACCESS_ERRORS: ReadonlySet<string> = new Set([
+  "refresh_token_expired",
+  "error_shop_refresh_token",
+  "shop_access_expired",
+  "shop_no_linked",
+]);
+
 /** A used or expired code (it lasts 10 minutes and works once) asks for a new consent. */
 function explainCodeRefusal(envelope: ShopeeEnvelope): AppError | null {
-  const message = (envelope.message ?? "").toLowerCase();
-  if (!message.includes("code")) {
+  if (envelope.error !== INVALID_CODE_ERROR) {
     return null;
   }
   return marketplaceError(
@@ -128,6 +137,9 @@ export async function exchangeCode(
 
 /** A refresh token that Shopee no longer takes (used, older than 30 days or revoked). */
 function explainRefreshRefusal(envelope: ShopeeEnvelope): AppError | null {
+  if (ENDED_ACCESS_ERRORS.has(envelope.error ?? "")) {
+    return marketplaceAuthError();
+  }
   const message = (envelope.message ?? "").toLowerCase();
   return message.includes("refresh_token") ? marketplaceAuthError() : null;
 }

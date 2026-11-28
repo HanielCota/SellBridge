@@ -1,4 +1,5 @@
 import { createHash, createHmac, timingSafeEqual } from "node:crypto";
+import { logger } from "@sellbridge/shared/logger";
 import { z } from "zod";
 import type { StoredOrderEvent, WebhookRequest, WebhookVerification } from "../types.ts";
 import { isShopeeConfigured, type ShopeeConfig } from "./client.ts";
@@ -52,38 +53,45 @@ export function parseStoredOrderEvent(topic: string, payload: unknown): StoredOr
   };
 }
 
+function parsedBody(rawBody: string): unknown {
+  try {
+    return JSON.parse(rawBody);
+  } catch {
+    return undefined;
+  }
+}
+
+/**
+ * A signed push SellBridge does not use. A push Shopee signed but sent in a shape this code does
+ * not read is acknowledged too: refusing it would only make Shopee send it again and again.
+ */
+function ignoredPush(rawBody: string): WebhookVerification {
+  return {
+    valid: true,
+    event: {
+      externalEventId: createHash("sha256").update(rawBody).digest("hex"),
+      topic: SHOPEE_IGNORED_TOPIC,
+      externalShopId: null,
+      resource: null,
+      payload: null,
+    },
+  };
+}
+
 export function verifyWebhook(config: ShopeeConfig, request: WebhookRequest): WebhookVerification {
   if (!verifies(config, request)) {
     return { valid: false, reason: "Assinatura da Shopee inválida", payload: null };
   }
 
-  let payload: unknown;
-  try {
-    payload = JSON.parse(request.rawBody);
-  } catch {
-    return { valid: false, reason: "Notificação da Shopee inválida", payload: null };
-  }
-
+  const payload = parsedBody(request.rawBody);
   const notice = orderNoticeSchema.safeParse(payload);
   if (!notice.success) {
-    if (
-      typeof payload === "object" &&
-      payload !== null &&
-      Reflect.get(payload, "code") !== ORDER_STATUS_CODE
-    ) {
-      return {
-        valid: true,
-        event: {
-          externalEventId: createHash("sha256").update(request.rawBody).digest("hex"),
-          topic: SHOPEE_IGNORED_TOPIC,
-          externalShopId: null,
-          resource: null,
-          payload: null,
-        },
-      };
+    const code =
+      typeof payload === "object" && payload !== null ? Reflect.get(payload, "code") : null;
+    if (code === ORDER_STATUS_CODE || payload === undefined) {
+      logger.warn("shopee.push_unreadable", { code: typeof code === "number" ? code : null });
     }
-
-    return { valid: false, reason: "Notificação de pedido da Shopee inválida", payload: null };
+    return ignoredPush(request.rawBody);
   }
 
   const { shop_id: shopId, timestamp, data } = notice.data;
