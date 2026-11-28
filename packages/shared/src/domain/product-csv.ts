@@ -96,8 +96,11 @@ export interface ParsedProductCsv {
 
 /** The record with its stock cell lowered to the limit, or null when it is within it. */
 function cappedStockRecord(record: CsvRecord, stockColumn: number): CsvRecord | null {
+  if (stockColumn < 0) {
+    return null;
+  }
   const cell = (record.fields[stockColumn] ?? "").trim();
-  if (stockColumn < 0 || !/^\d+$/.test(cell) || Number(cell) <= MAX_PRODUCT_STOCK) {
+  if (!/^\d+$/.test(cell) || Number(cell) <= MAX_PRODUCT_STOCK) {
     return null;
   }
   return { ...record, fields: record.fields.with(stockColumn, String(MAX_PRODUCT_STOCK)) };
