@@ -1,18 +1,12 @@
-/*
- * Popups keep the same open and close motion on every page. It used to apply only while the
- * overview was on screen: a popup closed by navigating away (the Ctrl+K palette opening an order)
- * lost its exit animation mid-way, Radix never saw it end, and the closed dialog stayed mounted,
- * hiding the new page from assistive technology.
- */
 [data-dashboard] {
   --track-pill-duration: var(--disclosure-close-duration);
 }
 
-:root :where([data-side="top"])[data-state] {
+body:has([data-dashboard]) :where([data-side="top"])[data-state] {
   --disclosure-offset-y: 8px;
 }
 
-:root
+body:has([data-dashboard])
   :where(
     [data-align-trigger="true"],
     [data-dashboard-overlay],
@@ -21,16 +15,16 @@
   --disclosure-offset-y: 0px;
 }
 
-:root .staff-sidebar-mobile[data-state] {
+body:has([data-dashboard]) .staff-sidebar-mobile[data-state] {
   --disclosure-offset-x: -16px;
   --disclosure-offset-y: 0px;
 }
 
-:root .staff-sidebar-mobile:dir(rtl)[data-state] {
+body:has([data-dashboard]) .staff-sidebar-mobile:dir(rtl)[data-state] {
   --disclosure-offset-x: 16px;
 }
 
-:root
+body:has([data-dashboard])
   :where(
     [data-slot="popover-content"],
     [data-slot="dropdown-menu-content"],
@@ -81,4 +75,31 @@
       calc(var(--disclosure-offset-y, -8px) / 2)
     );
   }
+}
+
+/*
+ * The Ctrl+K palette and the bell have no animation of their own, so they keep this motion on
+ * every page. Scoped to the overview, a popup closed by navigating away (the palette opening an
+ * order) lost its exit animation mid-way; Radix never saw it end and the closed dialog stayed
+ * mounted, hiding the new page from assistive technology.
+ */
+:where([data-dashboard-popup], [data-dashboard-overlay]) {
+  &[data-state="open"] {
+    animation: dashboard-disclosure-enter var(--disclosure-open-duration) ease-out backwards;
+  }
+
+  &[data-state="closed"] {
+    pointer-events: none;
+    animation: dashboard-disclosure-exit var(--disclosure-close-duration) ease-out both;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    &[data-state] {
+      animation: none;
+    }
+  }
+}
+
+:where([data-dashboard-overlay])[data-state] {
+  --disclosure-offset-y: 0px;
 }
