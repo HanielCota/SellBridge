@@ -92,7 +92,8 @@ test("supplier edits can be cancelled and saved without resetting completed deta
     .innerText();
   await pickSupplier(page, otherName);
   page.once("dialog", (dialog) => dialog.dismiss());
-  await page.getByRole("link", { name: "Voltar à Visão geral" }).click();
+  // The supplier step leaves through the action bar's back button.
+  await page.getByRole("button", { name: "Voltar", exact: true }).click();
   await expect(page).toHaveURL(/step=supplier/);
   await page.getByRole("button", { name: "Salvar fornecedor" }).click();
   await expect(page).toHaveURL(/\/dashboard(?:\?|$)/);

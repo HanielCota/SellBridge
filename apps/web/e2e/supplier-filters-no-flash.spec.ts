@@ -42,6 +42,8 @@ test("trocar a ordem mantém os cartões na tela até chegarem os novos", async 
 });
 
 test("filtrar pelo nicho mantém os cartões na tela até chegarem os novos", async ({ page }) => {
+  // The niches past the first row wait behind the show-more toggle.
+  await page.getByRole("button", { name: /^Mais \d+ nichos$/ }).click();
   await page.getByRole("button", { name: "Pet", exact: true }).click();
 
   await expect(page).toHaveURL(/niche=Pet/);
