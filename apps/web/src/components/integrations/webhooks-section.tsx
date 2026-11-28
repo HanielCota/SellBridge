@@ -1,14 +1,13 @@
-import { PlusIcon, WebhooksLogoIcon } from "@phosphor-icons/react";
+import { PlusIcon } from "@phosphor-icons/react";
 import { useQuery } from "@tanstack/react-query";
 import { useState } from "react";
-import { EmptyState } from "@/components/feedback/empty-state";
 import { ErrorState } from "@/components/feedback/error-state";
 import { CreateWebhookDialog } from "@/components/integrations/create-webhook-dialog";
 import {
   DeleteWebhookDialog,
   type WebhookToDelete,
 } from "@/components/integrations/delete-webhook-dialog";
-import { IntegrationsSection } from "@/components/integrations/integrations-layout";
+import { CompactEmpty, IntegrationsSection } from "@/components/integrations/integrations-layout";
 import { WebhookEndpointList } from "@/components/integrations/webhook-endpoint-list";
 import {
   INTEGRATIONS_LOCKED_REASON,
@@ -39,10 +38,8 @@ function WebhooksContent({
   }
   if (query.data.length === 0) {
     return (
-      <EmptyState
-        icon={WebhooksLogoIcon}
-        title="Nenhum aviso automático cadastrado"
-        description="Cadastre o endereço do seu sistema para ele saber na hora de cada pedido e mudança de anúncio."
+      <CompactEmpty
+        text="Nenhum aviso automático cadastrado ainda."
         action={
           <DisabledHint reason={locked ? INTEGRATIONS_LOCKED_REASON : undefined}>
             <Button variant="outline" disabled={locked} onClick={onCreate}>
@@ -67,6 +64,8 @@ export function WebhooksSection() {
   const [isCreating, setIsCreating] = useState(false);
   const [pendingDelete, setPendingDelete] = useState<WebhookToDelete | null>(null);
   const locked = useIntegrationsLocked();
+  // With no endpoint yet the empty line carries the button; a second one beside the title repeats it.
+  const hasEndpoints = (useQuery(webhookEndpointsQueryOptions()).data?.length ?? 0) > 0;
   return (
     <IntegrationsSection
       id="webhooks"
@@ -74,12 +73,19 @@ export function WebhooksSection() {
       description="O SellBridge avisa o seu sistema a cada pedido ou mudança de anúncio. Se o aviso não chegar, tentamos de novo."
       level={3}
       action={
-        <DisabledHint reason={locked ? INTEGRATIONS_LOCKED_REASON : undefined}>
-          <Button variant="outline" size="sm" disabled={locked} onClick={() => setIsCreating(true)}>
-            <PlusIcon aria-hidden="true" />
-            Novo webhook
-          </Button>
-        </DisabledHint>
+        hasEndpoints ? (
+          <DisabledHint reason={locked ? INTEGRATIONS_LOCKED_REASON : undefined}>
+            <Button
+              variant="outline"
+              size="sm"
+              disabled={locked}
+              onClick={() => setIsCreating(true)}
+            >
+              <PlusIcon aria-hidden="true" />
+              Novo webhook
+            </Button>
+          </DisabledHint>
+        ) : undefined
       }
     >
       <WebhooksContent onCreate={() => setIsCreating(true)} onDelete={setPendingDelete} />

@@ -1,4 +1,4 @@
-import { ArrowSquareOutIcon, BookOpenIcon, BracketsCurlyIcon } from "@phosphor-icons/react";
+import { ArrowSquareOutIcon, BookOpenIcon, CodeIcon } from "@phosphor-icons/react";
 import type { ReactNode } from "react";
 import { PageHeader } from "@/components/layout/page-header";
 import { Button } from "@/components/ui/button";
@@ -8,7 +8,7 @@ const OPENAPI_URL = "/api/v1/openapi.json";
 
 function DocumentationLinks() {
   return (
-    <>
+    <p className="flex flex-wrap items-center gap-x-4 gap-y-2 text-sm">
       <Button asChild variant="outline" size="sm">
         <a href={API_DOCS_URL} target="_blank" rel="noreferrer">
           <BookOpenIcon aria-hidden="true" />
@@ -17,14 +17,16 @@ function DocumentationLinks() {
           <span className="sr-only">(abre em nova aba)</span>
         </a>
       </Button>
-      <Button asChild variant="ghost" size="sm">
-        <a href={OPENAPI_URL} target="_blank" rel="noreferrer">
-          <BracketsCurlyIcon aria-hidden="true" />
-          OpenAPI
-          <span className="sr-only">(abre em nova aba)</span>
-        </a>
-      </Button>
-    </>
+      <a
+        href={OPENAPI_URL}
+        target="_blank"
+        rel="noreferrer"
+        className="text-muted-foreground underline underline-offset-4 hover:text-foreground"
+      >
+        Arquivo OpenAPI
+        <span className="sr-only">(abre em nova aba)</span>
+      </a>
+    </p>
   );
 }
 
@@ -45,31 +47,40 @@ export function IntegrationsLayout({ children }: { children: ReactNode }) {
 }
 
 /**
- * API keys, webhooks and the technical documentation, set apart under its own heading: a lay
- * reseller reads that it can skip all of it.
+ * API keys, webhooks and the technical documentation, in one card below what a reseller uses:
+ * its heading tells a lay reseller it can skip all of it.
  */
 export function DeveloperArea({ children }: { children: ReactNode }) {
   return (
-    <section
-      aria-labelledby="programadores-titulo"
-      className="space-y-8 border-t border-border pt-8"
-    >
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
-        <div className="space-y-1">
-          <h2 id="programadores-titulo" className="text-lg font-semibold">
+    <section aria-labelledby="programadores-titulo" className="surface-card rounded-3xl bg-card">
+      <div className="flex items-start gap-3.5 p-5 sm:p-6">
+        <span className="grid size-11 flex-none place-items-center rounded-2xl bg-muted text-muted-foreground">
+          <CodeIcon aria-hidden="true" className="size-5" />
+        </span>
+        <div className="grid min-w-0 gap-1">
+          <h2 id="programadores-titulo" className="text-subhead font-medium">
             Para programadores
           </h2>
-          <p className="max-w-2xl text-sm text-muted-foreground">
-            Só para quem tem um sistema próprio ou um programador. Para vender pelo SellBridge, você
-            não precisa mexer aqui.
+          <p className="text-sm text-muted-foreground">
+            Só se você tem um sistema próprio. Para vender, não precisa mexer aqui.
           </p>
         </div>
-        <div className="flex shrink-0 flex-wrap gap-2">
-          <DocumentationLinks />
-        </div>
       </div>
-      {children}
+      <div className="space-y-8 border-t border-border p-5 sm:p-6">
+        <DocumentationLinks />
+        {children}
+      </div>
     </section>
+  );
+}
+
+/** An empty list inside the programmers area: one line and the one button that fills it. */
+export function CompactEmpty({ text, action }: { text: string; action: ReactNode }) {
+  return (
+    <div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl bg-muted/60 px-4 py-3">
+      <p className="text-sm text-muted-foreground">{text}</p>
+      {action}
+    </div>
   );
 }
 

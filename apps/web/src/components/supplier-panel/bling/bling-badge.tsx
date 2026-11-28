@@ -4,6 +4,7 @@ const BADGE_TONES = {
   success: "bg-emerald-700 text-white",
   warning: "bg-amber-700 text-white",
   danger: "bg-destructive text-white",
+  neutral: "bg-muted text-foreground",
 } as const;
 
 /** A solid status pill with its word, the same wherever the Bling import shows a state. */
