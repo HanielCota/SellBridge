@@ -317,7 +317,7 @@ async function accountMenuRows(page: Page): Promise<string[]> {
     .evaluateAll((elements) => elements.map((element) => element.textContent.trim()));
 }
 
-test("the header holds search, the bell and the account; help opens from Suporte at the menu's foot", async ({
+test("the header holds search, the bell and the account; help opens from the corner bubble", async ({
   page,
 }) => {
   await signIn(page, DEMO_USER);
@@ -331,11 +331,11 @@ test("the header holds search, the bell and the account; help opens from Suporte
   await expect(accountButton(page)).toContainText("demo@sellbridge.local");
   await expect(aside.getByRole("button", { name: /Menu do usuário/ })).toHaveCount(0);
 
-  const plan = await aside.getByRole("link", { name: "Assinatura", exact: true }).boundingBox();
-  const support = await aside.getByRole("button", { name: /^Suporte/ }).boundingBox();
-  expect(plan?.y ?? 0, "support last, under the plan").toBeLessThan(support?.y ?? 0);
+  // Support left the menu: the bubble in the corner is the one way to it.
+  await expect(aside.getByRole("button", { name: /^Suporte/ })).toHaveCount(0);
+  await expect(aside.getByRole("link", { name: "Suporte", exact: true })).toHaveCount(0);
 
-  await aside.getByRole("button", { name: /^Suporte/ }).click();
+  await page.getByRole("complementary", { name: "Suporte" }).getByRole("button").click();
   await expect(page.getByRole("dialog").getByRole("link", { name: "Abrir chamado" })).toBeVisible();
 });
 
@@ -356,7 +356,10 @@ test("the sidebar names its groups over their items, the overview under Vendas",
     ["Canais de venda", "Integrações"],
   ] as const) {
     const heading = nav.getByRole("heading", { name: group, exact: true });
-    const named = nav.locator(".staff-nav-group").filter({ has: heading });
+    // A filter locator is matched inside each group, so it must not repeat the outer scope.
+    const named = nav
+      .locator(".staff-nav-group")
+      .filter({ has: page.getByRole("heading", { name: group, exact: true }) });
     await expect(heading).toBeVisible();
     await expect(named.getByRole("link", { name: item, exact: true })).toBeVisible();
   }
@@ -444,7 +447,7 @@ test("focusing the account button from the keyboard does not scroll the page", a
   expect(await scrolled()).toBe(0);
 });
 
-test("on a phone the header keeps the account and the sheet ends with Suporte", async ({
+test("on a phone the header keeps the account and the menu sheet has no Suporte", async ({
   page,
 }) => {
   await signIn(page, DEMO_USER);
@@ -455,9 +458,8 @@ test("on a phone the header keeps the account and the sheet ends with Suporte", 
   await page.getByRole("button", { name: "Abrir menu", exact: true }).click();
   const sheet = page.getByRole("dialog", { name: "Navegação" });
   await expect(sheet.getByRole("link", { name: "SellBridge, visão geral" })).toBeVisible();
-  const plan = await sheet.getByRole("link", { name: "Assinatura", exact: true }).boundingBox();
-  const support = await sheet.getByRole("button", { name: /^Suporte/ }).boundingBox();
-  expect(plan?.y ?? 0, "support last, under the plan").toBeLessThan(support?.y ?? 0);
+  await expect(sheet.getByRole("link", { name: "Assinatura", exact: true })).toBeVisible();
+  await expect(sheet.getByRole("button", { name: /^Suporte/ })).toHaveCount(0);
   await expect(sheet.getByRole("button", { name: /Menu do usuário/ })).toHaveCount(0);
   await sheet.getByRole("button", { name: "Fechar menu" }).click();
   await expect(sheet).toHaveCount(0);
