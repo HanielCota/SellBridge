@@ -57,6 +57,12 @@ describe("colorInBlingName", () => {
     expect(color).toBeNull();
   });
 
+  it("finds no colour when another option runs into it without a semicolon", () => {
+    const color = colorInBlingName("Chinelo Cor:Preto Tamanho:38");
+
+    expect(color).toBeNull();
+  });
+
   it("finds no colour when the name leaves it empty", () => {
     const color = colorInBlingName("Babuche Cor: ;Tamanho:35");
 
