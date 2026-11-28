@@ -141,6 +141,29 @@ describe("billing access", () => {
     expect(access).toEqual({ kind: "free", salesUsed: 3 });
   });
 
+  it("keeps the free offer while a Pix subscription waits for its first payment", () => {
+    const waitingPix = {
+      plan: "essential",
+      status: "incomplete",
+      periodEnd: null,
+      firstPaidOn: null,
+      subscriptionId: "sub_waiting",
+    };
+
+    const access = billingAccess(
+      {
+        subscription: waitingPix,
+        courtesy: null,
+        tenantCreatedAt: newTenant,
+        transition,
+        freeSalesUsed: 3,
+      },
+      now,
+    );
+
+    expect(access).toEqual({ kind: "free", salesUsed: 3 });
+  });
+
   it("uses the paid plan over the transition", () => {
     const access = billingAccess(
       { subscription, courtesy: null, tenantCreatedAt: existingTenant, transition },

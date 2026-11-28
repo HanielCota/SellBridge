@@ -111,7 +111,10 @@ export interface BillingSubscriptionState {
   status: string;
   periodEnd: Date | null;
   firstPaidOn?: string | null;
-  /** Bound only once a first payment lands: a waiting Pix subscription stays pending. */
+  /**
+   * A card subscription is bound after its first payment; a Pix one picked without a paid month
+   * is bound at once, "incomplete" until that payment lands.
+   */
   subscriptionId?: string | null;
   /** The end of a month an earlier subscription already paid. */
   prepaidUntil?: Date | null;
@@ -213,11 +216,13 @@ function transitionEnd(input: BillingAccessInput, now: Date): Date | null {
 }
 
 /**
- * Any trace of a payment (a bound subscription, a prepaid month, a first payment day, a period or
- * an overdue charge) ends the free offer for good, even before the first payment day is stored.
+ * Any trace of a payment (a bound subscription past its first payment, a prepaid month, a first
+ * payment day, a period or an overdue charge) ends the free offer for good, even before the first
+ * payment day is stored. A Pix subscription still waiting for its first payment is no payment.
  */
 function hasNeverPaid(subscription: BillingSubscriptionState): boolean {
-  if (subscription.subscriptionId != null || subscription.prepaidUntil != null) return false;
+  if (subscription.prepaidUntil != null) return false;
+  if (subscription.subscriptionId != null && subscription.status !== "incomplete") return false;
   if (subscription.firstPaidOn != null || subscription.periodEnd !== null) return false;
   return !["past_due", "unpaid"].includes(subscription.status);
 }
