@@ -5,7 +5,6 @@ import {
 } from "@sellbridge/shared/schemas";
 import { useQuery } from "@tanstack/react-query";
 import { createFileRoute, redirect, useNavigate } from "@tanstack/react-router";
-import { useContext } from "react";
 import { cn } from "@/lib/utils";
 import { CashFlowChart } from "@/components/reports/cash-flow-chart";
 import { DashboardHeader, DashboardIntro } from "@/components/reports/dashboard-hero";
@@ -16,10 +15,7 @@ import { AttentionPanel } from "@/components/reports/attention-panel";
 import { OrdersWaitingBanner } from "@/components/reports/orders-waiting-banner";
 import { PeriodFilters } from "@/components/reports/period-filters";
 import { StoreBreakdown, TopProducts } from "@/components/reports/sales-breakdown";
-import {
-  DashboardSetupFocusContext,
-  DashboardSetupGuide,
-} from "@/components/onboarding/setup-guide";
+import { DashboardSetupGuide } from "@/components/onboarding/setup-guide";
 import { findNextStep } from "@/features/onboarding/setup-progress";
 import { Skeleton } from "@/components/ui/skeleton";
 import { teamHomeFor } from "@/features/auth/team-mode";
@@ -103,7 +99,6 @@ function DashboardPage() {
 
 function DashboardContent({ data }: { data: DashboardData }) {
   const search = Route.useSearch();
-  const setupBeforeTitle = useContext(DashboardSetupFocusContext) !== null;
   const withProfile = useTabProfileLink();
   const { onboarding, summary, previous } = data;
   const setupPending = findNextStep(onboarding) !== undefined;
@@ -113,7 +108,6 @@ function DashboardContent({ data }: { data: DashboardData }) {
       <DashboardIntro
         caption={formatPeriodCaption(data.period)}
         setup={<DashboardSetupGuide progress={onboarding} />}
-        setupBeforeTitle={setupBeforeTitle}
         summary={
           <PeriodSummary
             current={summary}

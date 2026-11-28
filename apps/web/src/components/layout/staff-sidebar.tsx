@@ -26,23 +26,28 @@ import type { AppNavigationState } from "./use-app-navigation";
 
 type Area = "business" | "administration";
 
-const TEAM_ORDER = new Map(
-  [
-    "/admin/chamados",
-    "/admin/chamados/metricas",
-    "/admin/avaliacoes",
-    "/admin/products",
-    "/admin/fornecedores",
-    "/admin/clientes",
-    "/admin/envios",
-    "/admin/problemas",
-    "/admin/equipe",
-    "/admin/auditoria",
-    "/admin/configuracoes",
-    "/desenvolvedor",
-  ].map((path, index) => [path, index]),
+/** Matches the `lg` breakpoint, where the sidebar stops being a sheet. */
+const DESKTOP_MEDIA_QUERY = "(min-width: 64rem)";
+
+const TEAM_ORDER = new Map<NavItem["to"], number>(
+  (
+    [
+      "/admin/chamados",
+      "/admin/chamados/metricas",
+      "/admin/avaliacoes",
+      "/admin/products",
+      "/admin/fornecedores",
+      "/admin/clientes",
+      "/admin/envios",
+      "/admin/problemas",
+      "/admin/equipe",
+      "/admin/auditoria",
+      "/admin/configuracoes",
+      "/desenvolvedor",
+    ] satisfies NavItem["to"][]
+  ).map((path, index) => [path, index]),
 );
-const TEAM_GROUP: Record<string, string> = {
+const TEAM_GROUP: Partial<Record<NavItem["to"], string>> = {
   "/admin/chamados": "Atendimento",
   "/admin/chamados/metricas": "Atendimento",
   "/admin/avaliacoes": "Atendimento",
@@ -78,7 +83,7 @@ function businessItems(shown: ShownMenu): NavItem[] {
   return items;
 }
 
-const NAV_ICONS: Record<string, SolarIconName> = {
+const NAV_ICONS: Partial<Record<NavItem["to"], SolarIconName>> = {
   "/dashboard": "home",
   "/fornecedores": "factory",
   "/catalogo": "box",
@@ -130,12 +135,12 @@ function NavigationGroups({
 }) {
   return navGroups(items).map(({ heading, items: groupItems }) => (
     <div key={heading ?? groupItems[0]?.to} className="staff-nav-group">
-      {heading ? <h3>{heading}</h3> : null}
+      {heading === null ? null : <h3>{heading}</h3>}
       {groupItems.map((item) => (
         <StaffNavLink
           key={item.to}
           item={item}
-          count={item.badge ? counts[item.badge] : 0}
+          count={item.badge === undefined ? 0 : counts[item.badge]}
           active={activeTo === item.to}
           profileSlug={profileSlug}
           onNavigate={onNavigate}
@@ -167,12 +172,12 @@ function StaffNavLink({
       aria-current={active ? "page" : undefined}
       className={`staff-nav-row ${navTabClassName({ isActive: active, paintsOwnPill: true, padding: "px-3" })} text-body`}
       onClick={(event) => {
-        if (onNavigate) chooseOnPlainClick(event, onNavigate);
+        if (onNavigate !== undefined) chooseOnPlainClick(event, onNavigate);
       }}
     >
       <SolarIcon name={NAV_ICONS[item.to] ?? "list"} />
       <span className="min-w-0 flex-1">{item.label}</span>
-      {badge && count > 0 ? (
+      {badge !== undefined && count > 0 ? (
         <TabBadge
           isError={badge === "failedListings"}
           count={count}
@@ -205,7 +210,7 @@ function NavigationSection({
     <section aria-labelledby={`${id}-label`}>
       <div className="staff-nav-section-header">
         <h2 id={`${id}-label`}>{label}</h2>
-        {onToggle ? (
+        {onToggle === undefined ? null : (
           <button
             type="button"
             className="staff-nav-section-toggle"
@@ -216,7 +221,7 @@ function NavigationSection({
           >
             <SolarIcon name="chevron" className="staff-nav-chevron size-4.5" />
           </button>
-        ) : null}
+        )}
       </div>
       <div id={id} className="staff-nav-section" data-open={open} inert={!open}>
         <div>{children}</div>
@@ -368,7 +373,7 @@ function SidebarBrand({
       }
       className="staff-sidebar-brand"
       onClick={(event) => {
-        if (onNavigate) chooseOnPlainClick(event, onNavigate);
+        if (onNavigate !== undefined) chooseOnPlainClick(event, onNavigate);
       }}
     >
       <BrandIcon />
@@ -390,7 +395,7 @@ function MobileSidebar({
   const close = () => setOpen(false);
   useEffect(() => {
     if (!open) return undefined;
-    const desktop = window.matchMedia("(min-width: 64rem)");
+    const desktop = window.matchMedia(DESKTOP_MEDIA_QUERY);
     const closeOnDesktop = () => {
       if (desktop.matches) setOpen(false);
     };

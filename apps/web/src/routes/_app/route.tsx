@@ -165,7 +165,7 @@ function DashboardHeaderSetup() {
 
 function DashboardHeaderGuide({ search }: { search: PeriodSearch }) {
   const { data } = useQuery(dashboardQueryOptions(search));
-  return data ? <DashboardSetupGuide progress={data.onboarding} inHeader /> : null;
+  return data === undefined ? null : <DashboardSetupGuide progress={data.onboarding} inHeader />;
 }
 
 function AppLayout() {
@@ -189,7 +189,7 @@ function AppLayout() {
   const setupReminder =
     session.profileKind === "seller" && !session.teamOnly ? <SetupReminder /> : null;
   const headerSetup =
-    pathname === "/dashboard" && setupReminder ? <DashboardHeaderSetup /> : setupReminder;
+    pathname === "/dashboard" && setupReminder !== null ? <DashboardHeaderSetup /> : setupReminder;
   return (
     <div className="min-h-svh bg-background">
       {session.impersonatedBy ? (

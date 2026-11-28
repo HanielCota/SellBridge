@@ -78,6 +78,12 @@ export function SupplierPicker({
   );
 }
 
+function emptySuppliersDescription(isFiltered: boolean, onboarding: boolean): string {
+  if (!isFiltered) return "Ainda não há fornecedores ativos.";
+  if (onboarding) return "Tente outro nome, nicho ou produto.";
+  return "Tente outro nome, nicho ou estado.";
+}
+
 function SupplierOptions({
   query,
   suppliers,
@@ -108,13 +114,7 @@ function SupplierOptions({
       <EmptyState
         icon={StorefrontIcon}
         title={isFiltered ? "Nenhum fornecedor com esses filtros" : "Nenhum fornecedor ainda"}
-        description={
-          isFiltered
-            ? onboarding
-              ? "Tente outro nome, nicho ou produto."
-              : "Tente outro nome, nicho ou estado."
-            : "Ainda não há fornecedores ativos."
-        }
+        description={emptySuppliersDescription(isFiltered, onboarding)}
       />
     );
   }

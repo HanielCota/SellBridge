@@ -103,7 +103,7 @@ export function TopNav({
             {teamOnly ? null : (
               <NotificationBell title={isStaffRole(user.role) ? "Notificações" : "Avisos"} />
             )}
-            <ProfileCard user={user} adminMode={adminMode} profileKind={profileKind} inHeader />
+            <ProfileCard user={user} adminMode={adminMode} profileKind={profileKind} />
           </div>
         </div>
       </div>

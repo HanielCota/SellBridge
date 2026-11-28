@@ -7,7 +7,11 @@ import {
   type SupportPosition,
 } from "./support-position-storage";
 
-const MARGIN = 16;
+const MARGIN_IN_PX = 16;
+/** A pointer has to travel this far before a press counts as a drag rather than a tap. */
+const DRAG_THRESHOLD_IN_PX = 5;
+const KEY_STEP_IN_PX = 16;
+const KEY_STEP_LARGE_IN_PX = 48;
 const DIRECTIONS: Record<string, readonly [number, number]> = {
   ArrowLeft: [-1, 0],
   ArrowRight: [1, 0],
@@ -20,13 +24,13 @@ function movementBounds(button: HTMLButtonElement) {
   const rect = workspace?.getBoundingClientRect();
   const viewport = document.documentElement;
   return {
-    left: Math.max(0, rect?.left ?? 0) + MARGIN,
+    left: Math.max(0, rect?.left ?? 0) + MARGIN_IN_PX,
     right:
       Math.min(viewport.clientWidth, rect?.right ?? viewport.clientWidth) -
       button.offsetWidth -
-      MARGIN,
-    top: MARGIN,
-    bottom: viewport.clientHeight - button.offsetHeight - MARGIN,
+      MARGIN_IN_PX,
+    top: MARGIN_IN_PX,
+    bottom: viewport.clientHeight - button.offsetHeight - MARGIN_IN_PX,
     rtl: getComputedStyle(button).direction === "rtl",
   };
 }
@@ -43,12 +47,7 @@ interface Drag {
   offsetY: number;
 }
 
-interface Position {
-  inline: number;
-  vertical: number;
-}
-
-function place(button: HTMLButtonElement, position: Position) {
+function place(button: HTMLButtonElement, position: SupportPosition) {
   const { left, right, top, bottom, rtl } = movementBounds(button);
   const horizontal = rtl ? 1 - position.inline : position.inline;
   Object.assign(button.style, {
@@ -90,9 +89,9 @@ function useSupportDrag(
     },
     onPointerMove(event) {
       const active = drag.current;
-      if (!active || active.id !== event.pointerId) return;
+      if (active === null || active.id !== event.pointerId) return;
       const distance = Math.hypot(event.clientX - active.startX, event.clientY - active.startY);
-      if (!suppressClick.current && distance < 5) return;
+      if (!suppressClick.current && distance < DRAG_THRESHOLD_IN_PX) return;
       suppressClick.current = true;
       event.currentTarget.setAttribute("data-dragging", "");
       move(event.currentTarget, event.clientX - active.offsetX, event.clientY - active.offsetY);
@@ -135,12 +134,12 @@ export function useSupportPosition() {
 
   useEffect(() => {
     const button = ref.current;
-    if (!button) return undefined;
+    if (button === null) return undefined;
     position.current = readSupportPosition();
     const update = () => place(button, position.current);
     const observer = new ResizeObserver(update);
     const workspace = button.closest("[data-support-workspace]");
-    if (workspace) observer.observe(workspace);
+    if (workspace !== null) observer.observe(workspace);
     const direction = new MutationObserver(update);
     direction.observe(document.documentElement, { attributeFilter: ["dir"] });
     window.addEventListener("resize", update);
@@ -162,9 +161,9 @@ export function useSupportPosition() {
       return;
     }
     const offset = DIRECTIONS[event.key];
-    if (!offset) return;
+    if (offset === undefined) return;
     event.preventDefault();
-    const step = event.shiftKey ? 48 : 16;
+    const step = event.shiftKey ? KEY_STEP_LARGE_IN_PX : KEY_STEP_IN_PX;
     const rect = button.getBoundingClientRect();
     move(button, rect.left + offset[0] * step, rect.top + offset[1] * step);
     saveSupportPosition(position.current);

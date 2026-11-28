@@ -21,22 +21,6 @@ function iconTone(active: boolean): string {
 }
 
 /**
- * Moon, track and sun, drawn for a row that already carries the state (the profile menu's
- * checkbox item). Decorative: the row is what assistive technology reads.
- */
-export function ThemeSwitchTrack({ theme }: { theme: Theme }) {
-  return (
-    <span aria-hidden="true" className="ml-auto flex shrink-0 items-center gap-1.5">
-      <MoonIcon className={cn("size-4", iconTone(theme === "dark"))} weight="fill" />
-      <span className={TRACK}>
-        <span className={cn(KNOB, knobPosition(theme))} />
-      </span>
-      <SunIcon className={cn("size-4", iconTone(theme === "light"))} weight="fill" />
-    </span>
-  );
-}
-
-/**
  * The theme on its own, outside a menu (the sign-in pages): the word "Tema", then a real switch
  * with the moon on the left and the sun on the right. It reads as "Tema escuro", on in the dark
  * theme; Space or Enter flips it.

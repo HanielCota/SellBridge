@@ -46,6 +46,12 @@ const STEP_ACTION_CLASS_NAME = "h-auto min-h-9 w-fit max-w-full py-2 text-center
  * Opens the details or supplier step. An unfinished one starts the setup flow, which remembers
  * the page it was opened from and comes back to it once no step is left.
  */
+function stepActionLabel({ done, holder, cta }: { done: boolean; holder: boolean; cta: string }) {
+  if (!done) return cta;
+  if (holder) return "Editar dados";
+  return "Trocar fornecedor";
+}
+
 function ProfileStepAction({ holder, cta, done }: { holder: boolean; cta: string; done: boolean }) {
   const here = useRouterState({ select: (state) => state.location.href });
   return (
@@ -58,7 +64,7 @@ function ProfileStepAction({ holder, cta, done }: { holder: boolean; cta: string
           from: done ? undefined : here,
         }}
       >
-        {done ? (holder ? "Editar dados" : "Trocar fornecedor") : cta}
+        {stepActionLabel({ done, holder, cta })}
         <ArrowRightIcon aria-hidden="true" />
       </Link>
     </Button>
@@ -254,9 +260,17 @@ function useDashboardSetupFocus() {
   return { request, focus };
 }
 
-export const DashboardSetupFocusContext = createContext<ReturnType<
-  typeof useDashboardSetupFocus
-> | null>(null);
+const DashboardSetupFocusContext = createContext<ReturnType<typeof useDashboardSetupFocus> | null>(
+  null,
+);
+
+function useDashboardSetupFocusContext() {
+  const focus = useContext(DashboardSetupFocusContext);
+  if (focus === null) {
+    throw new Error("DashboardSetupGuide must render inside DashboardSetupProvider");
+  }
+  return focus;
+}
 
 export function DashboardSetupProvider({ children }: { children: ReactNode }) {
   const focus = useDashboardSetupFocus();
@@ -278,9 +292,7 @@ export function DashboardSetupGuide({
 }) {
   const { choice, setHidden } = useSetupGuideChoice();
   const view = setupGuideView(findNextStep(progress) === undefined, choice);
-  const headerFocus = useContext(DashboardSetupFocusContext);
-  const localFocus = useDashboardSetupFocus();
-  const { request, focus } = headerFocus ?? localFocus;
+  const { request, focus } = useDashboardSetupFocusContext();
 
   function toggle(hidden: boolean) {
     request();
@@ -294,7 +306,7 @@ export function DashboardSetupGuide({
     <div
       className="dashboard-setup-guide"
       data-view={view}
-      data-below-header={(headerFocus !== null && !inHeader) || undefined}
+      data-below-header={inHeader ? undefined : true}
     >
       {inHeader ? null : (
         <div data-guide-part="open" inert={view === "collapsed"}>
@@ -307,7 +319,7 @@ export function DashboardSetupGuide({
           </div>
         </div>
       )}
-      {inHeader || headerFocus === null ? (
+      {inHeader ? (
         <div data-guide-part="collapsed" inert={view === "open"}>
           <div>
             <SetupStrip
