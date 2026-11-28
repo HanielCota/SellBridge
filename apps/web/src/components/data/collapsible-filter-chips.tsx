@@ -1,4 +1,4 @@
-import { CaretDownIcon, CaretUpIcon } from "@phosphor-icons/react";
+import { CaretDownIcon } from "@phosphor-icons/react";
 import { useId, useLayoutEffect, useRef, useState, type RefObject } from "react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
@@ -25,9 +25,23 @@ export function chipListView({
   return { kind: "firstRow" };
 }
 
-/** How many chips sit on the first row, and whether there is more than one row. */
+/** Same timing as the other expanding panels (the grouped orders in the statement). */
+const EXPAND_TRANSITION =
+  "transition-[max-height] duration-300 ease-[cubic-bezier(0.32,0.72,0,1)] motion-reduce:transition-none";
+
+/** One chip row plus the 0.25rem room kept on each side for the focus ring. */
+const COLLAPSED_MAX_HEIGHT = "3.25rem";
+
+/**
+ * How many chips sit on the first row, whether there is more than one row, and the full height in
+ * pixels the list grows to when open.
+ */
 function useFirstRow(list: RefObject<HTMLDivElement | null>) {
-  const [firstRow, setFirstRow] = useState({ count: Number.POSITIVE_INFINITY, wraps: false });
+  const [firstRow, setFirstRow] = useState({
+    count: Number.POSITIVE_INFINITY,
+    wraps: false,
+    fullHeightInPx: 0,
+  });
   useLayoutEffect(() => {
     const element = list.current;
     if (element === null) return undefined;
@@ -37,10 +51,13 @@ function useFirstRow(list: RefObject<HTMLDivElement | null>) {
       );
       const top = chips[0]?.offsetTop ?? 0;
       const count = chips.filter((chip) => chip.offsetTop === top).length;
+      const fullHeightInPx = container.scrollHeight;
       setFirstRow((previous) =>
-        previous.count === count && previous.wraps === count < chips.length
+        previous.count === count &&
+        previous.wraps === count < chips.length &&
+        previous.fullHeightInPx === fullHeightInPx
           ? previous
-          : { count, wraps: count < chips.length },
+          : { count, wraps: count < chips.length, fullHeightInPx },
       );
     }
     measure(element);
@@ -93,12 +110,16 @@ export function CollapsibleFilterChips<TValue>({
   return (
     <fieldset className="flex min-w-0 flex-col items-start gap-2 sm:flex-row">
       <legend className="sr-only">{legend}</legend>
+      {/* Always clipped so the height can animate; the padding keeps the focus ring inside. */}
       <div
         ref={list}
         id={listId}
+        style={{
+          maxHeight: collapsed ? COLLAPSED_MAX_HEIGHT : `${firstRow.fullHeightInPx}px`,
+        }}
         className={cn(
-          "flex w-full min-w-0 flex-1 flex-wrap gap-2 sm:w-auto",
-          collapsed && "max-h-11 overflow-hidden",
+          "-m-1 flex w-[calc(100%+0.5rem)] min-w-0 flex-1 flex-wrap gap-2 overflow-hidden p-1 sm:w-auto",
+          EXPAND_TRANSITION,
         )}
       >
         {tabs.map((tab, index) => (
@@ -184,7 +205,13 @@ function ChipListToggle({
       onClick={onToggle}
     >
       {collapsed ? moreLabel(hiddenCount) : "Mostrar menos"}
-      {collapsed ? <CaretDownIcon aria-hidden="true" /> : <CaretUpIcon aria-hidden="true" />}
+      <CaretDownIcon
+        aria-hidden="true"
+        className={cn(
+          "transition-transform duration-300 ease-[cubic-bezier(0.32,0.72,0,1)] motion-reduce:transition-none",
+          !collapsed && "rotate-180",
+        )}
+      />
     </Button>
   );
 }
