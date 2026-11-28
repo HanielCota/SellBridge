@@ -661,7 +661,9 @@ describe("Shopee label", () => {
         refusal("logistics.lack_of_invoice_data", "pending invoice"),
     });
 
-    await expect(getShopeeShippingLabel(config, STORE, SERIAL)).rejects.toThrow(/Envie a NF-e/);
+    await expect(getShopeeShippingLabel(config, STORE, SERIAL)).rejects.toThrow(
+      /só libera a etiqueta depois que a nota fiscal da venda/,
+    );
   });
 });
 
