@@ -671,6 +671,7 @@ describe("migrations", { timeout: MIGRATION_TEST_TIMEOUT }, () => {
       ["forwarded", []],
     ]);
   });
+
   it("free_sales_restart starts older accounts at zero and frees the slots of reversed sales", async () => {
     const migration = journal.entries.find((entry) => entry.tag.endsWith("_free_sales_restart"));
     if (migration === undefined) throw new Error("free_sales_restart migration missing");
