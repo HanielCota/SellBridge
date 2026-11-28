@@ -173,6 +173,20 @@ function fold(text: string): string {
     .toUpperCase();
 }
 
+/**
+ * Shopee hides the buyer's name from shops of individual sellers (CPF) and masks it with
+ * asterisks, while still sending the address; the parcel's label carries the real recipient.
+ */
+const MASKED_RECIPIENT_NAME = "Comprador Shopee";
+
+function buyerNameOf(name: string | undefined): string | null {
+  const trimmed = name?.trim() ?? "";
+  if (trimmed === "" || trimmed.includes("*")) {
+    return null;
+  }
+  return trimmed.slice(0, 120);
+}
+
 function readRecipient(raw: unknown) {
   const parsed = recipientSchema.safeParse(raw);
   if (!parsed.success) {
@@ -187,7 +201,7 @@ function readRecipient(raw: unknown) {
     ([code, name]) => region === code || region === fold(name),
   )?.[0];
   const reading = shippingAddressReading({
-    recipient: address.name,
+    recipient: buyerNameOf(address.name) ?? MASKED_RECIPIENT_NAME,
     street: address.street || parts[0],
     number: address.number || numberFromText,
     complement: address.complement ?? "",
@@ -244,7 +258,7 @@ function mapOrder(
     status,
     totalCents: itemsTotalCents(raw, income),
     marketplaceFeeCents: income?.feeCents,
-    buyerName: recipient.success ? recipient.data.name?.trim().slice(0, 120) || null : null,
+    buyerName: recipient.success ? buyerNameOf(recipient.data.name) : null,
     shippingAddress: address ?? undefined,
     orderedAt: new Date(raw.create_time * 1_000),
     items: raw.item_list.map((item) => ({

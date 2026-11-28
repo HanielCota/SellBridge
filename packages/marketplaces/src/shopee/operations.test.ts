@@ -270,6 +270,29 @@ describe("Shopee order intake", () => {
     expect(calls[0]?.query.get("time_range_field")).toBe("create_time");
   });
 
+  it.each([
+    ["missing", undefined],
+    ["masked", "M****a"],
+    ["blank", " "],
+  ])("keeps the buyer's address when Shopee sends the name %s", async (_case, name) => {
+    const masked = { ...RAW_ORDER, recipient_address: { ...RAW_ORDER.recipient_address, name } };
+    const { connector } = setup({
+      "GET /api/v2/order/get_order_list": () =>
+        success({ order_list: [{ order_sn: SERIAL }], more: false }),
+      "GET /api/v2/order/get_order_detail": () => success({ order_list: [masked] }),
+      "POST /api/v2/payment/get_escrow_detail_batch": () => success([]),
+    });
+
+    const page = await connector.listOrders(STORE, new Date(NOW.getTime() - 7_200_000));
+
+    expect(page.orders[0]?.buyerName).toBeNull();
+    expect(page.orders[0]?.shippingAddress).toMatchObject({
+      recipient: "Comprador Shopee",
+      street: "Rua Exemplo",
+      postalCode: "30100-001",
+    });
+  });
+
   it("keeps every order's fee when Shopee credits a negative adjustment in the batch", async () => {
     const OTHER = "261126E81SYYKF";
     const { connector } = setup({
