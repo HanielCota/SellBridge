@@ -9,6 +9,12 @@ import { z } from "zod";
 /** Mercado Livre's CNPJ as the sale's intermediary, from its "Importar nota fiscal" guide. */
 export const MERCADO_LIVRE_INTERMEDIARY_CNPJ = "03007331000141";
 
+/**
+ * Shopee's CNPJ as the sale's intermediary (SHPS Tecnologia e Serviços Ltda), as Brazilian
+ * marketplace accountants list it; to be confirmed by the reseller's accountant on the first note.
+ */
+export const SHOPEE_INTERMEDIARY_CNPJ = "35635824000112";
+
 /** CFOP of a sale of goods delivered by a third party on the seller's order (venda à ordem). */
 export const RESELLER_SALE_CFOP_DEFAULTS = { inState: "5120", outOfState: "6120" } as const;
 

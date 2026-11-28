@@ -40,13 +40,21 @@ export interface ResellerSaleNote {
 const SOURCE_LABELS: Record<ResellerInvoiceSource, string> = {
   marketplace: "Lida no pedido do marketplace",
   typed: "Chave digitada por você",
-  uploaded: "XML enviado por você ao Mercado Livre",
+  uploaded: "XML enviado por você ao marketplace",
   bling: "Emitida pelo seu Bling",
 };
 
-/** Mercado Livre takes the note only as its XML: a typed key never reaches it. */
+/** Mercado Livre and Shopee take the note only as its XML: a typed key never reaches them. */
 function wantsXml(marketplace: string): boolean {
-  return marketplace === "mercado_livre";
+  return marketplace === "mercado_livre" || marketplace === "shopee";
+}
+
+/** How the reseller's sentences name the order's marketplace. */
+function marketplaceWords(marketplace: string) {
+  if (marketplace === "shopee") {
+    return { subject: "A Shopee", to: "para a Shopee", toward: "à Shopee" };
+  }
+  return { subject: "O Mercado Livre", to: "para o Mercado Livre", toward: "ao Mercado Livre" };
 }
 
 /** The XML file and its send: read in the browser, checked and sent on by the server. */
@@ -75,7 +83,7 @@ function useXmlUpload(shipmentId: string, onSaved: () => Promise<void>) {
 }
 
 /**
- * "Enviar o XML da nota": picks the file Mercado Livre needs to let the label out and sends it at
+ * "Enviar o XML da nota": picks the file the marketplace needs to let the label out and sends it at
  * once. The browser's own file field is hidden: its text follows the browser's language.
  */
 function XmlUploadForm({
@@ -246,7 +254,7 @@ function WaitingNote({
         seu sistema (UpSeller, Bling ou outro) e mande ao marketplace. O SellBridge acha a nota no
         pedido sozinho.{" "}
         {xml
-          ? "Se o seu sistema não enviar, mande aqui o arquivo XML da nota: o SellBridge envia ao Mercado Livre."
+          ? `Se o seu sistema não enviar, mande aqui o arquivo XML da nota: o SellBridge envia ${marketplaceWords(marketplace).toward}.`
           : "Se ela não aparecer aqui, cole a chave de acesso."}
       </p>
       {note.problem === null ? null : (
@@ -263,19 +271,22 @@ function WaitingNote({
   );
 }
 
-/** A key typed before, on Mercado Livre: the supplier's notes go on, but the label waits for it. */
+/** A key typed before: the supplier's notes go on, but the marketplace's label waits for it. */
 function MissingOnMarketplace({
   shipmentId,
+  marketplace,
   onSaved,
 }: {
   shipmentId: string;
+  marketplace: string;
   onSaved: () => Promise<void>;
 }) {
+  const words = marketplaceWords(marketplace);
   return (
     <div className="grid gap-3 rounded-xl bg-amber-500/10 p-3">
       <p className="text-subhead">
-        O Mercado Livre ainda não tem esta nota, e a etiqueta só sai com ela. Envie o arquivo XML da
-        nota: o SellBridge manda para o Mercado Livre.
+        {words.subject} ainda não tem esta nota, e a etiqueta só sai com ela. Envie o arquivo XML da
+        nota: o SellBridge manda {words.to}.
       </p>
       <XmlUploadForm shipmentId={shipmentId} onSaved={onSaved} />
     </div>
@@ -305,10 +316,12 @@ function useErpRetry(shipmentId: string, onSaved: () => Promise<void>) {
 function ErpStopped({
   note,
   shipmentId,
+  marketplace,
   onSaved,
 }: {
   note: ResellerSaleNote;
   shipmentId: string;
+  marketplace: string;
   onSaved: () => Promise<void>;
 }) {
   const retry = useErpRetry(shipmentId, onSaved);
@@ -328,8 +341,8 @@ function ErpStopped({
         <output className="block text-footnote text-destructive">{retry.error}</output>
       )}
       <p className="text-subhead text-muted-foreground">
-        Se preferir, emita a nota no seu sistema e envie o XML: o SellBridge manda para o Mercado
-        Livre.
+        Se preferir, emita a nota no seu sistema e envie o XML: o SellBridge manda{" "}
+        {marketplaceWords(marketplace).to}.
       </p>
       <XmlUploadForm shipmentId={shipmentId} onSaved={onSaved} />
     </div>
@@ -367,13 +380,15 @@ function MissingNote({
   onSaved: () => Promise<void>;
 }) {
   if (note.erpStopped) {
-    return <ErpStopped note={note} shipmentId={shipmentId} onSaved={onSaved} />;
+    return (
+      <ErpStopped note={note} shipmentId={shipmentId} marketplace={marketplace} onSaved={onSaved} />
+    );
   }
   if (note.issuedByErp) {
     return (
       <p className="text-subhead text-muted-foreground">
         O seu Bling está emitindo esta nota para o comprador. Assim que a SEFAZ autorizar, o
-        SellBridge manda a nota para o Mercado Livre, e as notas do fornecedor seguem.
+        SellBridge manda a nota {marketplaceWords(marketplace).to}, e as notas do fornecedor seguem.
       </p>
     );
   }
@@ -429,7 +444,7 @@ export function ResellerSaleNoteCard({
         <FoundNote note={note} keyDigits={accessKey} />
       )}
       {accessKey !== null && note.source === "typed" && wantsXml(marketplace) ? (
-        <MissingOnMarketplace shipmentId={shipmentId} onSaved={onSaved} />
+        <MissingOnMarketplace shipmentId={shipmentId} marketplace={marketplace} onSaved={onSaved} />
       ) : null}
     </section>
   );

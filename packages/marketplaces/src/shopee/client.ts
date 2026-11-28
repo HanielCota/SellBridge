@@ -255,6 +255,8 @@ interface ShopCall {
   readonly query?: Readonly<Record<string, string>>;
   /** Request parameters of a POST call. */
   readonly json?: unknown;
+  /** A file upload (multipart): sent instead of `json`. */
+  readonly form?: FormData;
 }
 
 export type ShopRequest<TResponse> = ShopCall & Omit<ReadOptions<TResponse>, "isIdempotent">;
@@ -287,11 +289,12 @@ async function callShop(
       partnerKey,
     }),
   );
-  const body = request.json === undefined ? null : JSON.stringify(request.json);
+  const json = request.json === undefined ? null : JSON.stringify(request.json);
   const headers = new Headers({ accept });
-  if (body !== null) {
+  if (json !== null && request.form === undefined) {
     headers.set("content-type", "application/json");
   }
+  const body = request.form ?? json;
   return fetchWithRetry(
     context.fetchImplementation,
     `${shopeeHosts(context.config).api}${request.path}?${query.toString()}`,

@@ -67,7 +67,7 @@ export const TEST_INVOICE_ADDRESS = {
 interface InvoiceScenarioOptions {
   /** When the supplier turned emission on; null leaves it off. Defaults to an hour ago. */
   invoiceEnabledAt?: Date | null;
-  marketplace?: "mock" | "mercado_livre";
+  marketplace?: "mock" | "mercado_livre" | "shopee";
   productFiscal?: ProductFiscalPatch;
   supplierFiscal?: SupplierFiscalProfile | null;
 }
@@ -145,7 +145,7 @@ async function createSupplierWithProduct(
 
 async function createStore(
   database: Database,
-  input: { tenantId: string; suffix: string; marketplace: "mock" | "mercado_livre" },
+  input: { tenantId: string; suffix: string; marketplace: "mock" | "mercado_livre" | "shopee" },
 ): Promise<string> {
   const store = required(
     (
@@ -173,7 +173,7 @@ async function createPaidOrder(
     tenantId: string;
     suffix: string;
     productId: string;
-    marketplace: "mock" | "mercado_livre";
+    marketplace: "mock" | "mercado_livre" | "shopee";
   },
 ) {
   const storeId = await createStore(database, input);

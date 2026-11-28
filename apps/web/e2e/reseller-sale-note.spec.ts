@@ -27,6 +27,7 @@ import {
   E2E_MERCADO_LIVRE_NOTE_ORDER_PREFIX,
   E2E_MERCADO_LIVRE_NOTE_SELLER_ID,
 } from "./mercado-livre.fixture";
+import { E2E_SHOPEE_ORDER_PREFIX } from "./shopee.fixture";
 
 // Venda à ordem: the reseller's company issues the buyer's note; the order asks for it.
 const database = e2eDatabase();
@@ -64,36 +65,58 @@ function mercadoLivreStore(shopId: string) {
  * A Mercado Livre order on the stand-in's note seller, or on a shop of its own when the spec
  * never asks Mercado Livre about it: a shop may be live only once, and specs run alongside.
  */
-type OrderChannel = "mock" | "mercado_livre" | "mercado_livre_own_shop";
+type OrderChannel = "mock" | "mercado_livre" | "mercado_livre_own_shop" | "shopee";
 
-async function insertOrder(tenantId: string, channel: OrderChannel = "mock") {
+/** A Shopee store of its own (the stand-in answers any shop), on an order it knows. */
+function shopeeStore() {
+  const cipher = createTokenCipher(requireEnvironmentVariable("TOKEN_ENCRYPTION_KEY"));
+  return {
+    marketplace: "shopee" as const,
+    externalShopId: String(Date.now()).slice(-9),
+    accessTokenEnc: cipher.encrypt("e2e-shopee-token"),
+    refreshTokenEnc: cipher.encrypt("e2e-shopee-refresh"),
+    externalOrderId: `${E2E_SHOPEE_ORDER_PREFIX}${Date.now()}`,
+  };
+}
+
+function connectedStore(channel: OrderChannel) {
+  if (channel === "mock") {
+    return null;
+  }
+  if (channel === "shopee") {
+    return shopeeStore();
+  }
   const shopId =
     channel === "mercado_livre_own_shop"
       ? `e2e-ml-${randomUUID().slice(0, 8)}`
       : E2E_MERCADO_LIVRE_NOTE_SELLER_ID;
-  const mercadoLivre = channel === "mock" ? null : mercadoLivreStore(shopId);
+  return mercadoLivreStore(shopId);
+}
+
+async function insertOrder(tenantId: string, channel: OrderChannel = "mock") {
+  const connected = connectedStore(channel);
   const [store] = await database
     .insert(storeConnections)
     .values({
       tenantId,
-      marketplace: mercadoLivre?.marketplace ?? "mock",
-      externalShopId: mercadoLivre?.externalShopId ?? `shop-${randomUUID().slice(0, 8)}`,
+      marketplace: connected?.marketplace ?? "mock",
+      externalShopId: connected?.externalShopId ?? `shop-${randomUUID().slice(0, 8)}`,
       shopName: "Loja Venda à Ordem",
-      accessTokenEnc: mercadoLivre?.accessTokenEnc ?? null,
-      refreshTokenEnc: mercadoLivre?.refreshTokenEnc ?? null,
+      accessTokenEnc: connected?.accessTokenEnc ?? null,
+      refreshTokenEnc: connected?.refreshTokenEnc ?? null,
       expiresAt: new Date(Date.now() + 3_600_000),
     })
     .returning({ id: storeConnections.id });
   if (store === undefined) throw new Error("Store missing");
-  if (mercadoLivre !== null) {
-    mercadoLivreStoreIds.push(store.id);
+  if (connected !== null) {
+    marketplaceStoreIds.push(store.id);
   }
   const [order] = await database
     .insert(orders)
     .values({
       tenantId,
       storeConnectionId: store.id,
-      externalOrderId: mercadoLivre?.externalOrderId ?? `E2E-ORDEM-${randomUUID().slice(0, 8)}`,
+      externalOrderId: connected?.externalOrderId ?? `E2E-ORDEM-${randomUUID().slice(0, 8)}`,
       status: "paid",
       buyerName: "Juliana Costa",
       orderedAt: new Date(),
@@ -164,15 +187,15 @@ function noteCard(page: Page) {
   return page.getByRole("region", { name: "Sua nota de venda" });
 }
 
-/** Mercado Livre stores this spec connected: the stand-in's shop may be live only once. */
-const mercadoLivreStoreIds: string[] = [];
+/** Marketplace stores this spec connected: a stand-in shop may be live only once. */
+const marketplaceStoreIds: string[] = [];
 
 test.afterAll(async () => {
-  if (mercadoLivreStoreIds.length > 0) {
+  if (marketplaceStoreIds.length > 0) {
     await database
       .update(storeConnections)
       .set({ status: "disconnected" })
-      .where(inArray(storeConnections.id, mercadoLivreStoreIds));
+      .where(inArray(storeConnections.id, marketplaceStoreIds));
   }
   await database.$client.end();
 });
@@ -246,10 +269,39 @@ test("on Mercado Livre the reseller sends its note's XML and SellBridge passes i
   });
 
   await expect(card.getByText(/Nota recebida · /)).toBeVisible();
-  await expect(card.getByText("XML enviado por você ao Mercado Livre")).toBeVisible();
+  await expect(card.getByText("XML enviado por você ao marketplace")).toBeVisible();
   await expect(card.getByLabel("Chave de acesso da sua nota (44 números)")).toHaveCount(0);
   const labelAfter = await page.request.get(`/api/pedidos/${orderId}/etiqueta`);
   expect(await labelAfter.text()).toContain("espera a nota de remessa do fornecedor");
+});
+
+/** The same note with its item's CFOP, which Shopee checks before taking it. */
+function authorizedNfeXmlWithCfop(): string {
+  return authorizedNfeXml().replace(
+    "</ide>",
+    '</ide><det nItem="1"><prod><CFOP>5120</CFOP></prod></det>',
+  );
+}
+
+test("on Shopee the reseller sends its note's XML and SellBridge attaches it to the order", async ({
+  page,
+}) => {
+  test.setTimeout(120_000);
+  const email = await signUp(page, "Revenda XML Shopee");
+  await completeOnboarding(page);
+  const orderId = await seedParcelWaitingForNote(email, "shopee");
+  await gotoHydrated(page, `/pedidos/${orderId}`);
+  const card = noteCard(page);
+  await expect(card.getByText(/o SellBridge envia à Shopee/)).toBeVisible();
+
+  await card.getByLabel("Arquivo XML da nota (.xml)").setInputFiles({
+    name: "nota-4821.xml",
+    mimeType: "application/xml",
+    buffer: Buffer.from(authorizedNfeXmlWithCfop()),
+  });
+
+  await expect(card.getByText(/Nota recebida · /)).toBeVisible();
+  await expect(card.getByText("XML enviado por você ao marketplace")).toBeVisible();
 });
 
 test("a supervisor releases a stuck venda à ordem label with a reason, and it comes out", async ({

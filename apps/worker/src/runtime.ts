@@ -17,8 +17,13 @@ import {
   searchMercadoLivreUnansweredQuestions,
   sendMercadoLivreSaleInvoice,
   readMercadoLivreShipmentOrders,
+  readShopeeBuyerBilling,
+  readShopeeSaleInvoice,
+  readShopeeSalePayments,
   searchMercadoLivreClaims,
+  uploadShopeeSaleInvoice,
   type ConnectorRegistry,
+  type ShopeeConfig,
   type FetchLike,
   type MercadoLivreConfig,
   type StoreCredentials,
@@ -195,6 +200,11 @@ function createContext(connectors: ConnectorRegistry, options: WorkerOptions) {
       clientId: environment.MERCADO_LIVRE_CLIENT_ID ?? "",
       clientSecret: environment.MERCADO_LIVRE_CLIENT_SECRET ?? "",
     },
+    shopeeConfig: {
+      partnerId: environment.SHOPEE_PARTNER_ID,
+      partnerKey: environment.SHOPEE_PARTNER_KEY,
+      sandbox: environment.SHOPEE_SANDBOX,
+    } satisfies ShopeeConfig,
     accountAddressFetch: options.accountAddressFetch,
     erpStockFetch: options.erpStockFetch,
   };
@@ -313,11 +323,11 @@ function erpStockWorker(
   });
 }
 
-const RECONNECT_STORE = "Conecte a loja do Mercado Livre de novo para continuar.";
+const RECONNECT_STORE = "Conecte a loja de novo em Lojas para continuar.";
 
-/** The reseller's own Bling issuing its sale note, with the Mercado Livre calls it needs. */
+/** The reseller's own Bling issuing its sale note, with the marketplace calls it needs. */
 function resellerSaleIssueDependencies(context: WorkerContext): ResellerSaleIssueDependencies {
-  const { database, cipher, mercadoLivreConfig } = context;
+  const { database, cipher, mercadoLivreConfig, shopeeConfig } = context;
   const credentials = blingCredentials();
   const storeOf = (work: { store: Parameters<typeof resolveStoreCredentials>[1] }) => {
     const store = resolveStoreCredentials(cipher, work.store);
@@ -342,26 +352,40 @@ function resellerSaleIssueDependencies(context: WorkerContext): ResellerSaleIssu
             tenantId,
           ),
     readBuyerBilling: async (work) =>
-      readMercadoLivreBuyerBilling(mercadoLivreConfig, storeOf(work), work.externalOrderId),
+      isShopeeStore(work)
+        ? readShopeeBuyerBilling(shopeeConfig, storeOf(work), work.externalOrderId)
+        : readMercadoLivreBuyerBilling(mercadoLivreConfig, storeOf(work), work.externalOrderId),
     readSalePayments: async (work) =>
-      readMercadoLivreSalePayments(mercadoLivreConfig, storeOf(work), work.externalOrderId),
+      isShopeeStore(work)
+        ? readShopeeSalePayments(shopeeConfig, storeOf(work), work.externalOrderId)
+        : readMercadoLivreSalePayments(mercadoLivreConfig, storeOf(work), work.externalOrderId),
+    readAttachedInvoice: async (work) =>
+      isShopeeStore(work)
+        ? readShopeeSaleInvoice(shopeeConfig, storeOf(work), work.externalOrderId)
+        : null,
     sendSaleInvoice: async (work, note) => {
-      await sendMercadoLivreSaleInvoice(mercadoLivreConfig, storeOf(work), {
-        orderId: work.externalOrderId,
-        accessKey: note.accessKey,
-        xml: note.xml,
-      });
+      const send = { orderId: work.externalOrderId, accessKey: note.accessKey, xml: note.xml };
+      if (!isShopeeStore(work)) {
+        await sendMercadoLivreSaleInvoice(mercadoLivreConfig, storeOf(work), send);
+        return;
+      }
+      const outcome = await uploadShopeeSaleInvoice(shopeeConfig, storeOf(work), send);
+      logger.info("reseller_invoice.shopee_upload", { storeId: work.store.id, outcome });
     },
   };
 }
 
+function isShopeeStore(work: { store: { marketplace: string } }): boolean {
+  return work.store.marketplace === "shopee";
+}
+
 function createResellerInvoiceReader(context: WorkerContext) {
-  const { database, cipher, mercadoLivreConfig } = context;
+  const { database, cipher, mercadoLivreConfig, shopeeConfig } = context;
   return createResellerInvoiceReadProcessor({
     database,
     issue: resellerSaleIssueDependencies(context),
     readSaleInvoice: async (due) => {
-      if (due.store.marketplace !== "mercado_livre") {
+      if (due.store.marketplace !== "mercado_livre" && !isShopeeStore(due)) {
         return null;
       }
 
@@ -370,7 +394,9 @@ function createResellerInvoiceReader(context: WorkerContext) {
         return null;
       }
 
-      return readMercadoLivreSaleInvoice(mercadoLivreConfig, store, due.externalOrderId);
+      return isShopeeStore(due)
+        ? readShopeeSaleInvoice(shopeeConfig, store, due.externalOrderId)
+        : readMercadoLivreSaleInvoice(mercadoLivreConfig, store, due.externalOrderId);
     },
   });
 }

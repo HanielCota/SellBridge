@@ -113,7 +113,7 @@ function waitForLabel() {
 
 function invoiceRequired() {
   return marketplaceError(
-    "Envie a NF-e do pedido na Central do Vendedor da Shopee e tente emitir a etiqueta de novo.",
+    "A Shopee só libera a etiqueta depois que a nota fiscal da venda é anexada ao pedido. A revenda envia a nota pelo SellBridge ou pela Central do Vendedor da Shopee: tente de novo em alguns minutos.",
     {
       retryable: false,
     },

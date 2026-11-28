@@ -3,6 +3,7 @@ import {
   claimResellerSaleDraft,
   loadResellerSaleIssueWork,
   recordErpResellerSaleInvoice,
+  recordMarketplaceResellerSaleInvoice,
   recordResellerSaleIssueProgress,
   scheduleResellerSaleInvoiceCheck,
   stopResellerSaleIssue,
@@ -13,6 +14,7 @@ import {
   isMarketplaceError,
   isRetryableError,
   marketplaceError,
+  SHOPEE_INVOICE_DELAY_IN_MS,
   type BuyerBilling,
   type MercadoLivreApprovedPayment,
   type MercadoLivreSalePayments,
@@ -24,6 +26,7 @@ import type {
   BlingInvoiceInstallment,
   BlingNewDirectInvoice,
 } from "@sellbridge/marketplaces/bling";
+import { FEE_CHANNEL_NAMES, feeChannelOf } from "@sellbridge/shared/channel-fees";
 import { parseAccessKey, resellerAccessKeyProblem } from "@sellbridge/shared/nfe-access-key";
 import { readAuthorizedNfeXml } from "@sellbridge/shared/nfe-xml";
 import {
@@ -31,11 +34,15 @@ import {
   isCardSlot,
   paymentMethodFor,
   resellerSaleCfop,
+  SHOPEE_INTERMEDIARY_CNPJ,
   type ResellerBlingSettings,
 } from "@sellbridge/shared/reseller-bling";
 import { userMessageOr } from "@sellbridge/shared/errors";
 import { logger } from "@sellbridge/shared/logger";
-import { nextResellerInvoiceCheckAt } from "@sellbridge/shared/reseller-invoice";
+import {
+  nextResellerInvoiceCheckAt,
+  type MarketplaceSaleInvoice,
+} from "@sellbridge/shared/reseller-invoice";
 import {
   blingInvoiceOutcome,
   MAX_INVOICE_ATTEMPTS,
@@ -46,8 +53,9 @@ import { brazilDay, InvoiceStopError } from "./erp-invoice-steps.ts";
 
 /**
  * The reseller's own sale NF-e of venda à ordem (note 1), issued by the reseller's Bling: made
- * straight in Bling with Mercado Livre as intermediary and the order's payments, sent to SEFAZ,
- * and, once authorized, its XML passed on to Mercado Livre (decision of 20/11/2026).
+ * straight in Bling with the marketplace as intermediary and the order's payments, sent to SEFAZ,
+ * and, once authorized, its XML passed on to the marketplace (decision of 20/11/2026; Mercado
+ * Livre first, Shopee since 28/11/2026).
  */
 
 export interface ResellerSaleIssueDependencies {
@@ -60,6 +68,13 @@ export interface ResellerSaleIssueDependencies {
     work: ResellerSaleIssueWork,
     note: { accessKey: string; xml: string },
   ) => Promise<void>;
+  /**
+   * The note already attached to the marketplace's order (the reseller attached it by hand), read
+   * before a new one is made in Bling; absent where the marketplace does not tell.
+   */
+  readonly readAttachedInvoice?: (
+    work: ResellerSaleIssueWork,
+  ) => Promise<MarketplaceSaleInvoice | null>;
 }
 
 /** Where the note stands after one step. */
@@ -70,12 +85,33 @@ const NO_OPERATION =
 const NO_COMPANY_ADDRESS =
   "Cadastre o endereço da sua empresa em Meu cadastro: a nota de venda sai com ele. Depois peça para tentar de novo.";
 const NO_LINES = "Este pedido não tem itens para a nota.";
-const NO_BUYER_DOCUMENT =
-  "O Mercado Livre não informou o CPF ou CNPJ do comprador. Emita esta nota no seu sistema e envie o XML.";
-const NO_APPROVED_PAYMENT =
-  "O Mercado Livre não mostra pagamento aprovado neste pedido. Emita esta nota no seu sistema e envie o XML.";
-const NO_CARD_AUTHORIZATION =
-  "O Mercado Livre não informou o código de autorização do cartão deste pedido, que a nota precisa. Emita esta nota no seu sistema e envie o XML.";
+function isShopee(work: ResellerSaleIssueWork): boolean {
+  return feeChannelOf(work.store.marketplace) === "shopee";
+}
+
+/** "O Mercado Livre", "A Shopee": the marketplace as a sentence starts with it. */
+function marketplaceSubject(work: ResellerSaleIssueWork): string {
+  const name = FEE_CHANNEL_NAMES[feeChannelOf(work.store.marketplace)];
+  return isShopee(work) ? `A ${name}` : `O ${name}`;
+}
+
+/** "no Mercado Livre", "na Shopee". */
+function marketplaceIn(work: ResellerSaleIssueWork): string {
+  const name = FEE_CHANNEL_NAMES[feeChannelOf(work.store.marketplace)];
+  return isShopee(work) ? `na ${name}` : `no ${name}`;
+}
+
+function noBuyerDocument(work: ResellerSaleIssueWork): string {
+  return `${marketplaceSubject(work)} não informou o CPF ou CNPJ do comprador. Emita esta nota no seu sistema e envie o XML.`;
+}
+
+function noApprovedPayment(work: ResellerSaleIssueWork): string {
+  return `${marketplaceSubject(work)} não mostra pagamento aprovado neste pedido. Emita esta nota no seu sistema e envie o XML.`;
+}
+
+function noCardAuthorization(work: ResellerSaleIssueWork): string {
+  return `${marketplaceSubject(work)} não informou o código de autorização do cartão deste pedido, que a nota precisa. Emita esta nota no seu sistema e envie o XML.`;
+}
 const DRAFT_NOT_CONFIRMED =
   "O seu Bling não confirmou a criação da nota. Confira se ela existe no Bling antes de pedir para tentar de novo.";
 const STUCK_IN_BLING =
@@ -85,19 +121,33 @@ const CANCELLED_IN_BLING =
 const WRONG_XML =
   "O Bling entregou um XML que não é o desta nota. Baixe o XML no Bling e envie aqui.";
 const NO_BLING = "Conecte o Bling de novo em Integrações para continuar.";
+const WRONG_ATTACHED_KEY = "A chave de acesso dela não é válida.";
 const DRAFT_TAKEN = "Outra rodada já está criando esta nota no Bling.";
-const NO_SELLER_ACCOUNT =
-  "Falta o nome da sua conta do Mercado Livre, que vai na nota. Conecte a loja de novo em Lojas e peça para tentar de novo.";
 /** NT 2020.006: idCadIntTran, the seller's account at the intermediary, takes 2 to 60 characters. */
 const SELLER_ACCOUNT_LENGTH = { min: 2, max: 60 } as const;
 
-/** The reseller's Mercado Livre account: Bling's `nomeUsuario`, the NF-e's `idCadIntTran`. */
+/** The reseller's account on the marketplace: Bling's `nomeUsuario`, the NF-e's `idCadIntTran`. */
 function sellerAccountOf(work: ResellerSaleIssueWork): string {
   const account = work.store.shopName.trim();
   if (account.length < SELLER_ACCOUNT_LENGTH.min || account.length > SELLER_ACCOUNT_LENGTH.max) {
-    throw new InvoiceStopError(NO_SELLER_ACCOUNT);
+    throw new InvoiceStopError(
+      `Falta o nome da sua loja ${marketplaceIn(work)}, que vai na nota. Conecte a loja de novo em Lojas e peça para tentar de novo.`,
+    );
   }
   return account;
+}
+
+/**
+ * The marketplace's CNPJ as the sale's intermediary. Mercado Livre's comes from the settings the
+ * reseller's accountant may change; Shopee's is fixed.
+ */
+function intermediaryCnpjOf(work: ResellerSaleIssueWork, settings: ResellerBlingSettings): string {
+  return isShopee(work) ? SHOPEE_INTERMEDIARY_CNPJ : settings.intermediaryCnpj;
+}
+
+/** How long after authorization the marketplace takes the note: Shopee waits on SERPRO. */
+function sendDelayInMs(work: ResellerSaleIssueWork): number {
+  return isShopee(work) ? SHOPEE_INVOICE_DELAY_IN_MS : 0;
 }
 const NOT_A_COMPANY =
   "Cadastre o CNPJ da sua empresa em Meu cadastro: a nota de venda sai no nome dela. Depois peça para tentar de novo.";
@@ -157,7 +207,7 @@ function saleItems(work: ResellerSaleIssueWork, cfop: string): BlingDirectInvoic
 function installmentOf(
   settings: ResellerBlingSettings,
   payment: MercadoLivreApprovedPayment,
-  input: { amountCents: number; date: string },
+  input: { amountCents: number; date: string; work: ResellerSaleIssueWork },
 ): BlingInvoiceInstallment {
   const found = paymentMethodFor(settings, payment);
   if (found.problem !== null) {
@@ -165,7 +215,7 @@ function installmentOf(
   }
   const isCard = isCardSlot(found.slot);
   if (isCard && payment.authorizationCode === null) {
-    throw new InvoiceStopError(NO_CARD_AUTHORIZATION);
+    throw new InvoiceStopError(noCardAuthorization(input.work));
   }
   return {
     date: input.date,
@@ -179,14 +229,18 @@ function installmentOf(
 function saleInstallments(
   settings: ResellerBlingSettings,
   payments: readonly MercadoLivreApprovedPayment[],
-  input: { totalCents: number; date: string },
+  input: { totalCents: number; date: string; work: ResellerSaleIssueWork },
 ): BlingInvoiceInstallment[] {
   if (payments.length === 0) {
-    throw new InvoiceStopError(NO_APPROVED_PAYMENT);
+    throw new InvoiceStopError(noApprovedPayment(input.work));
   }
   const amounts = allocateInstallments(input.totalCents, payments);
   return payments.map((payment, index) =>
-    installmentOf(settings, payment, { amountCents: amounts[index] ?? 0, date: input.date }),
+    installmentOf(settings, payment, {
+      amountCents: amounts[index] ?? 0,
+      date: input.date,
+      work: input.work,
+    }),
   );
 }
 
@@ -200,7 +254,7 @@ async function ensureBuyerContact(
   }
   const billing = await dependencies.readBuyerBilling(input.work);
   if (billing === null) {
-    throw new InvoiceStopError(NO_BUYER_DOCUMENT);
+    throw new InvoiceStopError(noBuyerDocument(input.work));
   }
   const { address } = input.work;
   const contactAddress = {
@@ -299,6 +353,7 @@ async function createSaleNote(
   const installments = saleInstallments(settings, sale.payments, {
     totalCents,
     date: brazilDay(work.orderedAt),
+    work,
   });
   const contactId = await ensureBuyerContact(dependencies, client, { due, work });
   const draft: BlingNewDirectInvoice = {
@@ -308,8 +363,8 @@ async function createSaleNote(
     items,
     referencedInvoice: null,
     draftReference: `SellBridge venda ${due.id}`,
-    notes: `Pedido ${work.externalOrderId} no Mercado Livre, enviado pelo SellBridge.`,
-    intermediary: { cnpj: settings.intermediaryCnpj, userName: sellerAccount },
+    notes: `Pedido ${work.externalOrderId} ${marketplaceIn(work)}, enviado pelo SellBridge.`,
+    intermediary: { cnpj: intermediaryCnpjOf(work, settings), userName: sellerAccount },
     installments,
   };
   const invoiceId = await createOrRecoverSaleNote(dependencies, client, {
@@ -323,7 +378,8 @@ async function createSaleNote(
 
 /**
  * Downloads the authorized note's XML, checks it is this note, issued by the reseller's CNPJ (a
- * Bling of another company issues in that company's name), and hands it to Mercado Livre.
+ * Bling of another company issues in that company's name), and hands it to the marketplace once
+ * the marketplace can know it.
  */
 async function passOnAuthorized(
   dependencies: ResellerSaleIssueDependencies,
@@ -349,6 +405,10 @@ async function passOnAuthorized(
   const parts = parseAccessKey(accessKey);
   if (reading.accessKey !== accessKey || parts === null) {
     throw new InvoiceStopError(WRONG_XML);
+  }
+  const authorizedAt = reading.authorizedAt?.getTime() ?? 0;
+  if (authorizedAt + sendDelayInMs(input.work) > input.now.getTime()) {
+    return "waiting";
   }
   await dependencies.sendSaleInvoice(input.work, { accessKey, xml });
   await recordErpResellerSaleInvoice(dependencies.database, {
@@ -389,8 +449,42 @@ async function sendWhenRight(
 }
 
 /**
+ * Before a note is first made in Bling, whether the reseller already attached one to the order by
+ * hand: it is saved as the order's note, so Bling never issues a second one.
+ */
+async function keptAttachedNote(
+  dependencies: ResellerSaleIssueDependencies,
+  input: { due: DueResellerSaleInvoice; work: ResellerSaleIssueWork; resellerCnpj: string },
+  now: Date,
+): Promise<boolean> {
+  const { due } = input;
+  if (due.erpInvoiceId !== null || due.erpDraftRequestedAt !== null) {
+    return false;
+  }
+  const attached = (await dependencies.readAttachedInvoice?.(input.work)) ?? null;
+  if (attached === null) {
+    return false;
+  }
+  const problem = resellerAccessKeyProblem(attached.accessKey, input.resellerCnpj);
+  const parts = parseAccessKey(attached.accessKey);
+  if (problem !== null || parts === null) {
+    const reason = problem ?? WRONG_ATTACHED_KEY;
+    throw new InvoiceStopError(
+      `A nota anexada ao pedido ${marketplaceIn(input.work)} não serve. ${reason}`,
+    );
+  }
+  await recordMarketplaceResellerSaleInvoice(dependencies.database, {
+    invoiceId: due.id,
+    parts,
+    issuedAt: attached.issuedAt,
+    now,
+  });
+  return true;
+}
+
+/**
  * Takes the reseller's note one step further in its own Bling: creates it (each id saved as it
- * comes), sends it to SEFAZ, and once authorized hands its XML to Mercado Livre.
+ * comes), sends it to SEFAZ, and once authorized hands its XML to the marketplace.
  *
  * @throws {InvoiceStopError} When the reseller must act; other errors come from Bling or the
  * marketplace and are retried by the caller.
@@ -407,6 +501,9 @@ export async function advanceResellerSaleIssue(
     throw new InvoiceStopError(NO_BLING);
   }
   const resellerCnpj = resellerCnpjOf(input.due);
+  if (await keptAttachedNote(dependencies, { ...input, resellerCnpj }, input.now)) {
+    return "issued";
+  }
   // A note already in Bling needs the settings only to check its CFOP: reconnecting clears them.
   const invoiceId =
     input.due.erpInvoiceId ??
@@ -442,7 +539,7 @@ const ISSUE_FAILED =
  * Runs one step of the note and saves what came of it: issued, waiting for the next check, or
  * stopped with the reason the reseller must act on. A passing failure is tried again later.
  *
- * @returns Whether the note is now issued and on Mercado Livre.
+ * @returns Whether the note is now issued and on the marketplace.
  */
 export async function issueResellerSaleInvoice(
   dependencies: ResellerSaleIssueDependencies,

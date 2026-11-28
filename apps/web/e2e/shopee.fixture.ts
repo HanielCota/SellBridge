@@ -41,6 +41,10 @@ function orderNumberOf(url: URL, body: unknown): string {
   if (fromQuery !== null) {
     return fromQuery;
   }
+  if (body instanceof FormData) {
+    const sn = body.get("order_sn");
+    return typeof sn === "string" ? sn : "";
+  }
   const json = typeof body === "string" && body !== "" ? (JSON.parse(body) as unknown) : null;
   const sn: unknown =
     json !== null && typeof json === "object" ? Reflect.get(json, "order_sn") : undefined;
@@ -104,6 +108,20 @@ function orderDetail(orderNumber: string): Response {
   });
 }
 
+/** Takes an NF-e XML file, as upload_invoice_doc does (file_type 4). */
+async function uploadInvoice(body: unknown): Promise<Response> {
+  const file = body instanceof FormData ? body.get("file") : null;
+  const isXml = body instanceof FormData && body.get("file_type") === "4";
+  const isNote = file instanceof Blob && (await file.text()).includes("<nfeProc");
+  if (!isXml || !isNote) {
+    return refusal(
+      "error_param",
+      "Wrong parameters, detail: Please upload a valid Invoice XML file.",
+    );
+  }
+  return Response.json({ request_id: "e2e", error: "", message: "" });
+}
+
 const routes: Record<string, (orderNumber: string) => Response> = {
   "/api/v2/order/get_order_detail": orderDetail,
   "/api/v2/logistics/get_shipping_parameter": (orderNumber) =>
@@ -140,7 +158,8 @@ function orderOfDownload(body: unknown): string {
 export const shopeeStandIn: FetchLike = async (input, init) => {
   const url = new URL(input);
   const route = routes[url.pathname];
-  if (url.host !== API_HOST || route === undefined) {
+  const isUpload = url.pathname === "/api/v2/order/upload_invoice_doc";
+  if (url.host !== API_HOST || (route === undefined && !isUpload)) {
     return refusal("error_not_found", "Wrong parameters, detail: unknown call.");
   }
   const body = init?.body;
@@ -151,6 +170,12 @@ export const shopeeStandIn: FetchLike = async (input, init) => {
       : orderNumberOf(url, body);
   if (!orderNumber.startsWith(E2E_SHOPEE_ORDER_PREFIX)) {
     return refusal("error_not_found", "Wrong parameters, detail: order not found.");
+  }
+  if (isUpload) {
+    return uploadInvoice(body);
+  }
+  if (route === undefined) {
+    return refusal("error_not_found", "Wrong parameters, detail: unknown call.");
   }
   return route(orderNumber);
 };

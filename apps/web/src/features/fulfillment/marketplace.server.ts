@@ -8,6 +8,7 @@ import {
   getTikTokShopShippingLabel,
   readShopeePickupOptions,
   sendMercadoLivreSaleInvoice,
+  uploadShopeeSaleInvoice,
   type MercadoLivreLabelFile,
   type PrintedLabel,
   type StoreCredentials,
@@ -322,12 +323,13 @@ export async function loadMarketplaceLabels(
 }
 
 /**
- * Sends the reseller's own sale note (its XML) to the Mercado Livre shipment of the parcel's
- * order, where the label needs it. Other marketplaces take the typed key instead.
+ * Sends the reseller's own sale note (its XML) to the parcel's order on Mercado Livre or Shopee,
+ * where the label needs it. Other marketplaces take the typed key instead. A Shopee order that
+ * takes no note (Correios) keeps the note here all the same.
  *
- * @throws {AppError} NOT_FOUND when the parcel is not the reseller's; CONFLICT when the order is not
- * on Mercado Livre or the store must be reconnected; EXTERNAL_PROVIDER when Mercado Livre refuses
- * the note, with the reason.
+ * @throws {AppError} NOT_FOUND when the parcel is not the reseller's; CONFLICT when the order is on
+ * another marketplace or the store must be reconnected; EXTERNAL_PROVIDER when the marketplace
+ * refuses the note, with the reason.
  */
 export async function sendResellerSaleNoteToMarketplace(
   tenantId: string,
@@ -343,9 +345,10 @@ export async function sendResellerSaleNoteToMarketplace(
   if (refusal !== null) {
     throw conflictError(refusal);
   }
-  await sendMercadoLivreSaleInvoice(mercadoLivreApiConfig, storeCredentials(row.store), {
-    orderId: row.externalOrderId,
-    accessKey: input.accessKey,
-    xml: input.xml,
-  });
+  const send = { orderId: row.externalOrderId, accessKey: input.accessKey, xml: input.xml };
+  if (row.store.marketplace === "shopee") {
+    await uploadShopeeSaleInvoice(shopeeApiConfig, storeCredentials(row.store), send);
+    return;
+  }
+  await sendMercadoLivreSaleInvoice(mercadoLivreApiConfig, storeCredentials(row.store), send);
 }

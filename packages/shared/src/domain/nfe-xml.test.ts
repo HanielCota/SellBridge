@@ -16,7 +16,27 @@ function nfeProc(input: { id?: string; key?: string; status?: string } = {}): st
 
 describe("readAuthorizedNfeXml", () => {
   it("reads the key of an authorized note", () => {
-    expect(readAuthorizedNfeXml(nfeProc())).toEqual({ accessKey: KEY, problem: null });
+    expect(readAuthorizedNfeXml(nfeProc())).toEqual({
+      accessKey: KEY,
+      cfops: [],
+      authorizedAt: null,
+      problem: null,
+    });
+  });
+
+  it("reads each item's CFOP and when SEFAZ authorized the note", () => {
+    const items =
+      '<det nItem="1"><prod><CFOP>5120</CFOP></prod></det><det nItem="2"><prod><CFOP> 6120 </CFOP></prod></det>';
+    const xml = nfeProc()
+      .replace("</ide>", `</ide>${items}`)
+      .replace("<cStat>", "<dhRecbto>2026-11-28T10:15:00-03:00</dhRecbto><cStat>");
+
+    const reading = readAuthorizedNfeXml(xml);
+
+    expect(reading).toMatchObject({ accessKey: KEY, cfops: ["5120", "6120"] });
+    expect(reading.problem === null ? reading.authorizedAt?.toISOString() : null).toBe(
+      "2026-11-28T13:15:00.000Z",
+    );
   });
 
   it("accepts a note authorized out of time (150)", () => {
@@ -56,7 +76,7 @@ describe("readAuthorizedNfeXml", () => {
 
     const reading = readAuthorizedNfeXml(nfeProc().replace("<protNFe", `${fake}<protNFe`));
 
-    expect(reading).toEqual({ accessKey: KEY, problem: null });
+    expect(reading).toEqual({ accessKey: KEY, cfops: [], authorizedAt: null, problem: null });
   });
 
   it("refuses a file with two answers of SEFAZ", () => {
@@ -83,7 +103,12 @@ describe("readAuthorizedNfeXml", () => {
   it("reads a note whose tag breaks the line before its attributes", () => {
     const xml = nfeProc().replace("<infNFe versao", "<infNFe\n  versao");
 
-    expect(readAuthorizedNfeXml(xml)).toEqual({ accessKey: KEY, problem: null });
+    expect(readAuthorizedNfeXml(xml)).toEqual({
+      accessKey: KEY,
+      cfops: [],
+      authorizedAt: null,
+      problem: null,
+    });
   });
 
   it("refuses two notes even when one tag breaks the line before its attributes", () => {
