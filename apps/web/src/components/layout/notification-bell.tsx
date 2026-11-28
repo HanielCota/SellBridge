@@ -439,7 +439,7 @@ export function NotificationBell({ title = "Avisos" }: { title?: NotificationTit
               event.currentTarget.focus();
             }
           }}
-          className="z-50 w-[min(24rem,calc(100vw-2rem))] origin-(--radix-popover-content-transform-origin) rounded-2xl bg-popover p-2 text-popover-foreground shadow-xl shadow-black/15 ring-1 ring-border outline-none data-[side=bottom]:data-open:slide-in-from-top-2 data-[side=bottom]:data-closed:slide-out-to-top-2 data-[side=top]:data-open:slide-in-from-bottom-2 data-[side=top]:data-closed:slide-out-to-bottom-2 motion-safe:data-open:animate-in data-open:fade-in-0 data-open:duration-[230ms] data-closed:pointer-events-none motion-safe:data-closed:animate-out data-closed:fade-out-0 data-closed:duration-[160ms]"
+          className="z-50 w-[min(24rem,calc(100vw-2rem))] origin-(--radix-popover-content-transform-origin) rounded-2xl bg-popover p-2 text-popover-foreground shadow-xl shadow-black/15 ring-1 ring-border outline-none data-[side=bottom]:data-[state=open]:slide-in-from-top-2 data-[side=bottom]:data-[state=closed]:slide-out-to-top-2 data-[side=top]:data-[state=open]:slide-in-from-bottom-2 data-[side=top]:data-[state=closed]:slide-out-to-bottom-2 motion-safe:data-[state=open]:animate-in data-[state=open]:fade-in-0 data-[state=open]:duration-[230ms] data-[state=closed]:pointer-events-none motion-safe:data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=closed]:duration-[160ms]"
         >
           <PanelHeader canClear={items.length > 0} title={title} />
           <NotificationTabs
