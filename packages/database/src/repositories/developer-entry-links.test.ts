@@ -13,6 +13,7 @@ import {
   claimDeveloperEntryLink,
   consumeDeveloperEntryLink,
   createDeveloperEntryLink,
+  findDeveloperEntryLinkState,
   findOfferedSupplierProductIds,
 } from "./developer-entry-links.ts";
 
@@ -172,6 +173,48 @@ describe("consumeDeveloperEntryLink", () => {
     });
 
     expect(unknown).toEqual({ kind: "not_found" });
+  });
+});
+
+describe("findDeveloperEntryLinkState", () => {
+  it("says a fresh link can still be confirmed and leaves it unspent", async () => {
+    const tokenHash = await newLink();
+
+    const before = await findDeveloperEntryLinkState(database, { tokenHash, now: NOW });
+    const confirmed = await consumeDeveloperEntryLink(database, {
+      tokenHash,
+      choiceHash: randomUUID(),
+      now: NOW,
+    });
+
+    expect(before).toBe("open");
+    expect(confirmed.kind).toBe("consumed");
+  });
+
+  it("says a confirmed link was used", async () => {
+    const tokenHash = await newLink();
+    await consumeDeveloperEntryLink(database, { tokenHash, choiceHash: randomUUID(), now: NOW });
+
+    const state = await findDeveloperEntryLinkState(database, { tokenHash, now: NOW });
+
+    expect(state).toBe("used");
+  });
+
+  it("says an old link expired", async () => {
+    const tokenHash = await newLink(NOW);
+
+    const state = await findDeveloperEntryLinkState(database, { tokenHash, now: NOW });
+
+    expect(state).toBe("expired");
+  });
+
+  it("says a token that was never issued is unknown", async () => {
+    const state = await findDeveloperEntryLinkState(database, {
+      tokenHash: randomUUID(),
+      now: NOW,
+    });
+
+    expect(state).toBe("not_found");
   });
 });
 

@@ -30,6 +30,9 @@ import { limitDeveloperAddress } from "./developer-address-limit.server";
 import { enforceDeveloperRateLimit } from "./developer-rate-limit.server";
 import { describeDeveloperUse } from "./developer-usage";
 
+/** Field paths only, never values: stored data can be personal. A list endpoint can fail per row. */
+const LOGGED_ISSUE_PATHS_LIMIT = 10;
+
 /** One read-only operation of the developer API, described once for the route and the manual. */
 export interface DeveloperEndpoint<
   TParams extends z.ZodType,
@@ -148,20 +151,35 @@ async function admit(
 
 /** Runs the handler and turns its result, or its error, into the response. */
 async function respond(
-  operationId: string,
+  operation: { operationId: string; response: z.ZodType },
   context: { request: Request; base: RequestBase; admitted: Admitted; successStatus: number },
   execute: () => Promise<unknown>,
 ): Promise<Response> {
   const { request, base, admitted, successStatus } = context;
   try {
-    const body = await execute();
+    const parsed = operation.response.safeParse(await execute());
+    if (!parsed.success) {
+      logger.error("developer_api.response_invalid", {
+        operation: operation.operationId,
+        requestId: base.requestId,
+        issueCount: parsed.error.issues.length,
+        issuePaths: parsed.error.issues
+          .slice(0, LOGGED_ISSUE_PATHS_LIMIT)
+          .map((issue) => issue.path.join(".")),
+      });
+      return problemResponse(
+        problemFromError(parsed.error),
+        base.requestId,
+        admitted.rateLimitHeaders,
+      );
+    }
     const path = new URL(request.url).pathname;
     const state = { ...base, path, rateLimitHeaders: admitted.rateLimitHeaders };
-    return jsonResponse(state, successStatus, body);
+    return jsonResponse(state, successStatus, parsed.data);
   } catch (error) {
     const problem = problemFromError(error);
     if (problem.status >= 500) {
-      logger.error("developer_api.handler_failed", { operation: operationId, error });
+      logger.error("developer_api.handler_failed", { operation: operation.operationId, error });
     }
     return problemResponse(problem, base.requestId, admitted.rateLimitHeaders);
   }
@@ -184,7 +202,7 @@ async function run<TParams extends z.ZodType, TQuery extends z.ZodType>(
     return problemResponse(query.problem, base.requestId, rateLimitHeaders);
   }
   const context = { request: input.request, base, admitted, successStatus: 200 };
-  return respond(endpoint.operationId, context, async () =>
+  return respond(endpoint, context, async () =>
     endpoint.handle({
       caller,
       params: params.value,
@@ -215,17 +233,29 @@ async function runWithBody<TBody extends z.ZodType, TResponse extends z.ZodType>
     return problemResponse(body.problem, base.requestId, rateLimitHeaders);
   }
   const context = { request, base, admitted, successStatus: 201 };
-  return respond(endpoint.operationId, context, async () =>
+  return respond(endpoint, context, async () =>
     endpoint.handle({ caller, body: body.value, requestId: base.requestId, now: base.now }),
   );
 }
 
-/** Usage is recorded for the key's owner to audit; a failure here never fails the request. */
-async function recordUse(record: DeveloperApiRequestRecord): Promise<void> {
+/** Keep a metadata-only audit event when the database cannot store the usage record. */
+async function recordUse(record: DeveloperApiRequestRecord, requestId: string): Promise<void> {
   try {
     await recordDeveloperApiRequest(database, record);
   } catch (error) {
-    logger.error("developer_api.usage_not_recorded", { operation: record.operation, error });
+    const { developerApiKeyId, operation, status, personalData } = record;
+    const delivered = status >= 200 && status < 300;
+    logger.error("developer_api.usage_not_recorded", {
+      requestId,
+      developerApiKeyId,
+      operation,
+      status,
+      personalData,
+      organizationId: delivered ? record.organizationId : null,
+      resourceId: delivered ? record.resourceId : null,
+      // The logger keeps a failed query's database code and drops the values bound to it.
+      error,
+    });
   }
 }
 
@@ -262,14 +292,17 @@ async function handleDeveloperRequest(
       status: response.status,
       sendsPersonalData: operation.sendsPersonalData?.(caller) ?? false,
     });
-    await recordUse({
-      developerApiKeyId: caller.developerApiKeyId,
-      keyPrefix: caller.prefix,
-      operation: operation.operationId,
-      status: response.status,
-      durationMilliseconds,
-      ...use,
-    });
+    await recordUse(
+      {
+        developerApiKeyId: caller.developerApiKeyId,
+        keyPrefix: caller.prefix,
+        operation: operation.operationId,
+        status: response.status,
+        durationMilliseconds,
+        ...use,
+      },
+      base.requestId,
+    );
   }
   return response;
 }
