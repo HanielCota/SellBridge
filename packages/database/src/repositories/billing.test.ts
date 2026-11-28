@@ -496,7 +496,6 @@ it("gives the free sale back when the parcels show the sale returned", async () 
       buyerName: "Test Buyer",
       orderedAt: new Date(),
       marketplaceFeeCents: 0,
-      totalCents: 2500,
       items: [
         {
           supplierProductId: catalog.productId,
