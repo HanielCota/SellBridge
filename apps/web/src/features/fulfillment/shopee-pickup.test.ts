@@ -65,6 +65,15 @@ describe("supplierPickup", () => {
     expect(result.kind).toBe("match");
   });
 
+  it.each([
+    ["leading zeros", "0250", "Rua das Fábricas, 250"],
+    ["a thousands dot", "1234", "Rua das Fábricas, 1.234"],
+  ])("matches the same street number written with %s", (_case, number, address) => {
+    const result = supplierPickup([choice({ address })], { ...SUPPLIER, number });
+
+    expect(result.kind).toBe("match");
+  });
+
   it("prefers the one marked as pickup address when two are the supplier's", () => {
     const returns = choice({ addressId: 3_003, flags: ["return_address"] });
 

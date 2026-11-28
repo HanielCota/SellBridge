@@ -20,13 +20,21 @@ function digits(text: string): string {
   return text.replaceAll(/\D/g, "");
 }
 
+/** "0250" and "250" are the same street number. */
+function withoutLeadingZeros(number: string): string {
+  return number.replace(/^0+(?=\d)/, "");
+}
+
 /** Whether Shopee's address line carries the supplier's street number as one of its numbers. */
 function hasStreetNumber(line: string, streetNumber: string): boolean {
-  const wanted = digits(streetNumber);
+  const wanted = withoutLeadingZeros(digits(streetNumber));
   if (NO_NUMBER.test(streetNumber.trim()) || wanted === "") {
     return true;
   }
-  return Array.from(line.matchAll(/\d+/g), (found) => found[0]).includes(wanted);
+  // "1.234" in the line is the number 1234, as the supplier's "1234" or "1.234".
+  const plainLine = line.replaceAll(/(\d)\.(?=\d{3}(?!\d))/g, "$1");
+  const numbers = Array.from(plainLine.matchAll(/\d+/g), (found) => withoutLeadingZeros(found[0]));
+  return numbers.includes(wanted);
 }
 
 function isPickupAddress(choice: ShopeePickupChoice): boolean {
