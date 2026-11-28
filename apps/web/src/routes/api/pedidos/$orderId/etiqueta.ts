@@ -123,13 +123,26 @@ async function labelRequest(
  * the marketplace yet. The supplier's list reads these records as the label's state.
  */
 async function recordedLabel(tenantId: string, orderId: string, ask: LabelAsk) {
+  const label = await recordingLabelWait(orderId, async () =>
+    loadMarketplaceLabel(tenantId, orderId, ask),
+  );
+  await keepLabelRecord(
+    async () =>
+      await recordLabelsPrinted(database, [{ orderId, marketplaceShipmentId: label.shipmentId }]),
+  );
+  return label;
+}
+
+/**
+ * Runs a step that reads the marketplace for the label: a label it has not released yet is
+ * recorded as waiting on the parcel, whichever step (pickup or label) learned it first.
+ */
+async function recordingLabelWait<Result>(
+  orderId: string,
+  step: () => Promise<Result>,
+): Promise<Result> {
   try {
-    const label = await loadMarketplaceLabel(tenantId, orderId, ask);
-    await keepLabelRecord(
-      async () =>
-        await recordLabelsPrinted(database, [{ orderId, marketplaceShipmentId: label.shipmentId }]),
-    );
-    return label;
+    return await step();
   } catch (error) {
     if (hasMarketplaceCause(error, LABEL_NOT_READY_CAUSE)) {
       await keepLabelRecord(async () => await recordLabelsWaiting(database, [orderId]));
@@ -203,7 +216,10 @@ async function pickupOrPage(
     return { pickup: undefined };
   }
   const { tenantId, orderId, form } = labelOrder;
-  const step = await shopeePickupStep(tenantId, orderId, confirmedPickupOf(form));
+  const confirmed = confirmedPickupOf(form);
+  const step = await recordingLabelWait(orderId, async () =>
+    shopeePickupStep(tenantId, orderId, confirmed),
+  );
   if (step.kind === "proceed") {
     return { pickup: step.pickup };
   }
