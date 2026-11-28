@@ -1,12 +1,18 @@
+/*
+ * Popups keep the same open and close motion on every page. It used to apply only while the
+ * overview was on screen: a popup closed by navigating away (the Ctrl+K palette opening an order)
+ * lost its exit animation mid-way, Radix never saw it end, and the closed dialog stayed mounted,
+ * hiding the new page from assistive technology.
+ */
 [data-dashboard] {
   --track-pill-duration: var(--disclosure-close-duration);
 }
 
-body:has([data-dashboard]) :where([data-side="top"])[data-state] {
+:root :where([data-side="top"])[data-state] {
   --disclosure-offset-y: 8px;
 }
 
-body:has([data-dashboard])
+:root
   :where(
     [data-align-trigger="true"],
     [data-dashboard-overlay],
@@ -15,16 +21,16 @@ body:has([data-dashboard])
   --disclosure-offset-y: 0px;
 }
 
-body:has([data-dashboard]) .staff-sidebar-mobile[data-state] {
+:root .staff-sidebar-mobile[data-state] {
   --disclosure-offset-x: -16px;
   --disclosure-offset-y: 0px;
 }
 
-body:has([data-dashboard]) .staff-sidebar-mobile:dir(rtl)[data-state] {
+:root .staff-sidebar-mobile:dir(rtl)[data-state] {
   --disclosure-offset-x: 16px;
 }
 
-body:has([data-dashboard])
+:root
   :where(
     [data-slot="popover-content"],
     [data-slot="dropdown-menu-content"],
