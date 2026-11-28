@@ -14,6 +14,7 @@ import {
   navGroups,
   type NavItem,
 } from "@/features/navigation/nav-items";
+import { staffMenuSections } from "@/features/navigation/staff-menu";
 import type { SessionUser } from "@/features/auth/session.functions";
 import { chooseOnPlainClick, navTabAction, navTabClassName, TabBadge } from "./nav-tab-parts";
 import type { BadgeCounts } from "./nav-tab";
@@ -278,13 +279,23 @@ function SidebarNavigation(props: SidebarContentProps) {
 function TeamNavigation(props: SidebarContentProps) {
   const { state, area, setArea, onNavigate, adminMode } = props;
   const { navigation, teamModeRole } = state;
-  const teamItems = adminMode ? groupTeamItems(navigation.teamItems) : [];
+  const sections = staffMenuSections({
+    teamOnly: navigation.teamOnly,
+    adminMode,
+    teamItemCount: navigation.teamItems.length,
+  });
+  const teamItems = sections.team ? groupTeamItems(navigation.teamItems) : [];
   return (
     <nav aria-label="Principal" className="staff-nav">
       {onNavigate && teamModeRole !== null ? (
         <TeamModeMenuEntry role={teamModeRole} onEnter={onNavigate} />
       ) : null}
-      {navigation.teamOnly ? null : (
+      {sections.empty ? (
+        <p className="px-3 py-2 text-sm text-muted-foreground">
+          Nenhuma área liberada para a sua conta ainda. Fale com quem administra a equipe.
+        </p>
+      ) : null}
+      {sections.business ? (
         <NavigationSection
           label="Meu negócio"
           open={area === "business"}
@@ -296,7 +307,7 @@ function TeamNavigation(props: SidebarContentProps) {
         >
           <BusinessMenu {...props} />
         </NavigationSection>
-      )}
+      ) : null}
       <StaffAdministrationSection
         items={teamItems}
         area={area}
