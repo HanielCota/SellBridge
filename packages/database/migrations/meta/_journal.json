@@ -848,6 +848,13 @@
       "when": 1795704387907,
       "tag": "0120_free_sales_offer",
       "breakpoints": true
+    },
+    {
+      "idx": 121,
+      "version": "7",
+      "when": 1795812835116,
+      "tag": "0121_free_sales_restart",
+      "breakpoints": true
     }
   ]
 }

@@ -50,17 +50,20 @@ export async function syncOrderFromShipments(
     : await reconciledOrderStatus(database, order.id, "paid");
   if (status === "paid" || status === order.status) return;
   const now = new Date();
+  const reversedAt = reversedAtOfKnownOrder({
+    reversedAt: order.reversedAt,
+    paidAt: order.paidAt,
+    status,
+    now,
+  });
   await database
     .update(orders)
     .set({
       status,
       deliveredAt: status === "delivered" ? (order.deliveredAt ?? now) : order.deliveredAt,
-      reversedAt: reversedAtOfKnownOrder({
-        reversedAt: order.reversedAt,
-        paidAt: order.paidAt,
-        status,
-        now,
-      }),
+      reversedAt,
+      // A returned sale gives its free slot back, as the marketplace sync does.
+      ...(reversedAt === null ? {} : { freeSaleSlot: null }),
     })
     .where(and(eq(orders.id, order.id), eq(orders.tenantId, order.tenantId)));
   // Read before the moves below close them: these units really left the shelf.

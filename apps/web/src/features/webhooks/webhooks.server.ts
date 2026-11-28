@@ -6,8 +6,9 @@ import { logger } from "@sellbridge/shared/logger";
 import { marketplaceSchema } from "@sellbridge/shared/schemas";
 import { database } from "@/lib/server/database";
 import { withoutNul } from "@/lib/server/nul-character";
-import { connectors } from "@/lib/server/marketplaces";
+import { connectors, shopeeApiConfig } from "@/lib/server/marketplaces";
 import { enqueueWebhookEvent } from "@/lib/server/queues";
+import { createShopeeRejectionAlert } from "./rejection-alert";
 
 const MAX_BODY_BYTES = 64 * 1024;
 /**
@@ -16,6 +17,7 @@ const MAX_BODY_BYTES = 64 * 1024;
  * sweeper enqueues it again if this enqueue never lands.
  */
 const ENQUEUE_DEADLINE_MILLISECONDS = 300;
+const recordShopeeRejection = createShopeeRejectionAlert();
 
 function reply(status: number, body: Record<string, string>): Response {
   return new Response(JSON.stringify(body), {
@@ -52,6 +54,9 @@ export async function handleWebhook(request: Request, marketplaceParam: string |
     // Logged, not stored: the endpoint is public, and storing every forged or garbage post
     // would let anyone grow the events table without limit.
     logger.warn("webhook.rejected", { marketplace: marketplace.data, reason: verification.reason });
+    if (marketplace.data === "shopee") {
+      recordShopeeRejection(shopeeApiConfig.webhookUrl ?? "/api/webhooks/shopee");
+    }
     return reply(401, { error: "notificação inválida" });
   }
 

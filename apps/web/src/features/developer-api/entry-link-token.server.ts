@@ -5,12 +5,12 @@ import { hashApiKeySecret } from "@/features/public-api/api-key-secret.server";
 const TOKEN_BYTES = 32;
 
 /**
- * The other project hands the link over right away: five minutes is enough to click it and
+ * The other project hands the link over right away: five minutes is enough to confirm it and
  * keeps a link that leaks into a log or a chat useless soon after. It works once.
  */
 export const ENTRY_LINK_LIFETIME_MINUTES = 5;
 /**
- * After the click the choice waits in the browser, long enough to sign up, confirm the e-mail
+ * After confirmation the choice waits in the browser, long enough to sign up, confirm the e-mail
  * and sign the contract.
  */
 export const ENTRY_CHOICE_LIFETIME_MINUTES = 120;

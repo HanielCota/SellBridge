@@ -45,7 +45,7 @@ function bracketed(message: string | undefined): string | null {
 function missingAttributes(cause: MercadoLivreCause): string {
   const attributes = bracketed(cause.message);
   const named = attributes === null ? "" : `: ${attributes}`;
-  return `Faltam campos da ficha técnica que o Mercado Livre exige nesta categoria${named}. Preencha no cadastro do produto ${AGAIN}`;
+  return `Faltam campos da ficha técnica que o Mercado Livre exige nesta categoria${named}. Quem preenche é o fornecedor, no cadastro do produto. Depois, clique em Tentar de novo.`;
 }
 
 function invalidPrice(cause: MercadoLivreCause): string {

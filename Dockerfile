@@ -50,7 +50,9 @@ COPY --from=source --chown=node:node /app/apps/worker/src ./src
 USER node
 HEALTHCHECK --interval=30s --timeout=5s --start-period=30s \
   CMD wget -q -O /dev/null "http://127.0.0.1:${WORKER_HEALTH_PORT:-8080}/health" || exit 1
-CMD ["node", "--import", "tsx", "src/index.ts"]
+# The worker usually comes up minutes before the web, so it migrates too: its queries must never
+# reach columns the database does not have yet.
+CMD ["sh", "-c", "node --import tsx node_modules/@sellbridge/database/src/migrate.ts && exec node --import tsx src/index.ts"]
 
 FROM runtime AS web
 ENV PORT=3000

@@ -28,7 +28,7 @@ function urlOf(input: Parameters<typeof fetch>[0]): URL {
 /** A Bling that filters balances the documented way: positive, zero or negative. */
 function fakeBling(
   balances: readonly Balance[],
-  products: readonly { id: number; codigo: string }[] = [],
+  products: readonly { id: number; codigo: string; situacao?: string }[] = [],
 ) {
   const requests: URL[] = [];
   const fetchImplementation: typeof fetch = async (input) => {
@@ -59,7 +59,7 @@ function fakeBling(
       return json({
         data: products
           .filter((product) => codes.has(product.codigo))
-          .map((product) => ({ ...product, nome: product.codigo, formato: "S", situacao: "A" })),
+          .map((product) => ({ nome: product.codigo, formato: "S", situacao: "A", ...product })),
       });
     }
     throw new Error(`unexpected request ${url.pathname}`);
@@ -178,5 +178,23 @@ describe("findBlingIdsBySku", () => {
     const links = await findBlingIdsBySku(client, ["A", "B", "C"]);
 
     expect(links).toEqual([{ sku: "A", erpProductId: 10 }]);
+  });
+
+  it("skips products deleted in Bling and still links the active one with the same SKU", async () => {
+    const { client } = fakeBling(
+      [],
+      [
+        { id: 10, codigo: "A", situacao: "E" },
+        { id: 11, codigo: "A", situacao: "A" },
+        { id: 20, codigo: "B", situacao: "I" },
+      ],
+    );
+
+    const links = await findBlingIdsBySku(client, ["A", "B"]);
+
+    expect(links).toEqual([
+      { sku: "A", erpProductId: 11 },
+      { sku: "B", erpProductId: 20 },
+    ]);
   });
 });

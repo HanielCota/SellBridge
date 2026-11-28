@@ -29,10 +29,12 @@ import {
   findBillingAccountByPendingReference,
   findBillingAccountBySubscription,
   getBillingAccount,
+  lockBillingTenant,
   saveBillingAccount,
   tryLockBillingCheckout,
 } from "./billing.ts";
 import { forwardOrder } from "./fulfillment.ts";
+import { syncOrderFromShipments } from "./fulfillment-status.ts";
 import { createListingWithTargets } from "./listings.ts";
 import { recordManualOrder, upsertMarketplaceOrder } from "./orders.ts";
 import { ensureManualStore, upsertStoreConnection } from "./stores.ts";
@@ -278,6 +280,71 @@ describe("tenant billing persistence", () => {
       }
     });
 
+    it("refuses a new store and a new listing once the free sales are used up", async () => {
+      const account = await accountCreatedAt(new Date());
+      try {
+        const { id: storeId } = await upsertStoreConnection(
+          database,
+          testStoreInput(account.tenantId, "used-up"),
+        );
+        await publishTestProduct(database, catalog.productId, [
+          { tenantId: account.tenantId, storeId },
+        ]);
+        for (const index of Array.from({ length: FREE_SALE_LIMIT }, (_, position) => position)) {
+          await upsertMarketplaceOrder(database, account.tenantId, storeId, {
+            externalOrderId: `used-up-${index}`,
+            status: "paid",
+            buyerName: "Test Buyer",
+            orderedAt: new Date(),
+            marketplaceFeeCents: 0,
+            totalCents: 2500,
+            items: [
+              {
+                externalListingId: `EXT-${catalog.productId}-${account.tenantId}`,
+                title: "Test sale",
+                quantity: 1,
+                unitPriceCents: 2500,
+              },
+            ],
+          });
+        }
+        const mayAdd = (resource: "stores" | "listings") =>
+          assertBillingCapacity(database, { tenantId: account.tenantId, rules: RULES, resource });
+
+        await expect(mayAdd("stores")).rejects.toThrow(
+          "Para conectar lojas, escolha um plano em Assinatura.",
+        );
+        await expect(mayAdd("listings")).rejects.toThrow(
+          "Para publicar anúncios, escolha um plano em Assinatura.",
+        );
+      } finally {
+        await account.cleanup();
+      }
+    });
+
+    it("refuses a new store and a new listing to an account whose paid plan ended", async () => {
+      const account = await accountCreatedAt(new Date());
+      try {
+        await database.insert(billingAccounts).values({
+          tenantId: account.tenantId,
+          plan: "essential",
+          status: "canceled",
+          subscriptionId: `sub_${randomUUID()}`,
+        });
+        const mayAdd = (resource: "stores" | "listings") =>
+          assertBillingCapacity(database, { tenantId: account.tenantId, rules: RULES, resource });
+
+        await expect(mayAdd("stores")).rejects.toThrow(
+          "Para conectar lojas, escolha um plano em Assinatura.",
+        );
+        await expect(mayAdd("listings")).rejects.toThrow(
+          "Para publicar anúncios, escolha um plano em Assinatura.",
+        );
+      } finally {
+        await account.cleanup();
+      }
+    });
+
     it("keeps an account from before the launch unlimited during the transition", async () => {
       const account = await accountCreatedAt(new Date(launchedAt.getTime() - DAY));
       for (const index of Array.from({ length: START.stores + 1 }, (_, position) => position)) {
@@ -323,6 +390,140 @@ describe("tenant billing persistence", () => {
   });
 });
 
+it("imports orders that are not becoming paid without waiting on the account", async () => {
+  const { tenantId, cleanup } = await accountCreatedAt(new Date());
+  const released = deferred();
+  try {
+    const { id: storeId } = await upsertStoreConnection(database, testStoreInput(tenantId, "busy"));
+    await publishTestProduct(database, catalog.productId, [{ tenantId, storeId }]);
+    const sale = (externalOrderId: string, status: "pending" | "paid" | "shipped") =>
+      upsertMarketplaceOrder(database, tenantId, storeId, {
+        externalOrderId,
+        status,
+        buyerName: "Test Buyer",
+        orderedAt: new Date(),
+        marketplaceFeeCents: 0,
+        totalCents: 2500,
+        items: [
+          {
+            externalListingId: `EXT-${catalog.productId}-${tenantId}`,
+            title: "Test sale",
+            quantity: 1,
+            unitPriceCents: 2500,
+          },
+        ],
+      });
+    await Promise.all([sale("already-paid", "paid"), sale("paid-together", "paid")]);
+    expect(await findBillingAccess(database, tenantId, RULES)).toEqual({
+      kind: "free",
+      salesUsed: 2,
+    });
+    const locked = deferred();
+    const holder = database.transaction(async (transaction) => {
+      await lockBillingTenant(transaction, tenantId);
+      locked.resolve();
+      await released.promise;
+    });
+    await locked.promise;
+
+    const imports = Promise.all([sale("new-pending", "pending"), sale("already-paid", "shipped")]);
+    const outcome = await Promise.race([
+      imports.then(() => "imported"),
+      new Promise((resolve) => setTimeout(() => resolve("waiting"), 2_000)),
+    ]);
+    released.resolve();
+    await Promise.all([holder, imports]);
+
+    expect(outcome).toBe("imported");
+  } finally {
+    released.resolve();
+    await cleanup();
+  }
+});
+
+it("gives the free sale back when a paid sale is cancelled or returned", async () => {
+  const { tenantId, cleanup } = await accountCreatedAt(new Date());
+  try {
+    const { id: storeId } = await upsertStoreConnection(
+      database,
+      testStoreInput(tenantId, "reversals"),
+    );
+    await publishTestProduct(database, catalog.productId, [{ tenantId, storeId }]);
+    const sale = (externalOrderId: string, status: "paid" | "cancelled" | "returned") =>
+      upsertMarketplaceOrder(database, tenantId, storeId, {
+        externalOrderId,
+        status,
+        buyerName: "Test Buyer",
+        orderedAt: new Date(),
+        marketplaceFeeCents: 0,
+        totalCents: 2500,
+        items: [
+          {
+            externalListingId: `EXT-${catalog.productId}-${tenantId}`,
+            title: "Test sale",
+            quantity: 1,
+            unitPriceCents: 2500,
+          },
+        ],
+      });
+    const slotOf = async (orderId: string) =>
+      (await database.query.orders.findFirst({ where: eq(orders.id, orderId) }))?.freeSaleSlot;
+    await sale("first", "paid");
+    await sale("second", "paid");
+
+    const cancelled = await sale("first", "cancelled");
+    const returned = await sale("second", "returned");
+    const third = await sale("third", "paid");
+
+    expect(await slotOf(cancelled.orderId)).toBeNull();
+    expect(await slotOf(returned.orderId)).toBeNull();
+    expect(await slotOf(third.orderId)).toBe(1);
+    expect(await findBillingAccess(database, tenantId, RULES)).toEqual({
+      kind: "free",
+      salesUsed: 1,
+    });
+  } finally {
+    await cleanup();
+  }
+});
+
+it("gives the free sale back when the parcels show the sale returned", async () => {
+  const { tenantId, cleanup } = await accountCreatedAt(new Date());
+  try {
+    const manualStoreId = await ensureManualStore(database, tenantId, "shopee");
+    const { orderId } = await recordManualOrder(database, tenantId, manualStoreId, {
+      externalOrderId: "returned-by-parcel",
+      buyerName: "Test Buyer",
+      orderedAt: new Date(),
+      marketplaceFeeCents: 0,
+      items: [
+        {
+          supplierProductId: catalog.productId,
+          title: "Test sale",
+          quantity: 1,
+          unitPriceCents: 2500,
+          costCents: 1000,
+        },
+      ],
+    });
+    const order = await database.query.orders.findFirst({ where: eq(orders.id, orderId) });
+    if (order === undefined) throw new Error("missing manual sale");
+
+    await syncOrderFromShipments(database, order, { buyerReturned: true });
+
+    expect(await database.query.orders.findFirst({ where: eq(orders.id, orderId) })).toMatchObject({
+      status: "returned",
+      freeSaleSlot: null,
+    });
+    expect(await findBillingAccess(database, tenantId, RULES)).toEqual({
+      kind: "free",
+      salesUsed: 0,
+    });
+  } finally {
+    await cleanup();
+  }
+});
+
 it("enforces the 20-sale boundary across manual sales and marketplace orders", async () => {
   const { tenantId, cleanup } = await accountCreatedAt(new Date());
   try {
@@ -360,7 +561,6 @@ it("enforces the 20-sale boundary across manual sales and marketplace orders", a
     // A historical paid order may have received its slot from the status during backfill.
     await database.update(orders).set({ paidAt: null }).where(eq(orders.id, firstSale.orderId));
     await upsertMarketplaceOrder(database, tenantId, storeId, { ...order, status: "paid" });
-    await upsertMarketplaceOrder(database, tenantId, storeId, { ...order, status: "cancelled" });
     expect(await findBillingAccess(database, tenantId, RULES)).toEqual({
       kind: "free",
       salesUsed: 1,
@@ -405,16 +605,16 @@ it("enforces the 20-sale boundary across manual sales and marketplace orders", a
       freeSaleSlot: null,
     });
     const forward = (id: string) =>
-      forwardOrder(database, tenantId, { orderId: id, address: testAddress, notes: "" }, RULES);
+      forwardOrder(database, tenantId, { orderId: id, address: testAddress, notes: "" });
     if (admitted === undefined) {
       throw new Error("Missing final free order");
     }
 
     await expect(forward(admitted.value.orderId)).resolves.toHaveLength(1);
-    await expect(forward(orderId)).rejects.toMatchObject({ code: "FORBIDDEN" });
+    // The buyer already paid: the order reaches the supplier even with no plan left.
+    await expect(forward(orderId)).resolves.toHaveLength(1);
 
     await grantTestPlan(database, tenantId, "essential");
-    await expect(forward(orderId)).resolves.toHaveLength(1);
     await expect(record("paid-manual")).resolves.toMatchObject({ status: "created" });
   } finally {
     await cleanup();

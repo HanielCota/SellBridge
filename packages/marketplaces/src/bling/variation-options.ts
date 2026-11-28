@@ -49,6 +49,18 @@ export function readVariationOptions(name: string): VariationOptions | null {
   return options.color === null && options.size === null ? null : options;
 }
 
+const COLOR_IN_NAME = /(?:^|[\s;])cor\s*:\s*([^;]+)/i;
+
+/**
+ * The colour a Bling variation names in its full name ("BABUCHE NUVEM Cor:MARINHO;Tamanho:33/34"
+ * is MARINHO), or null when the name has none, one too long to be a colour, or one another
+ * option runs into ("Cor:Preto Tamanho:38" has no ";" to tell where the colour ends).
+ */
+export function colorInBlingName(name: string): string | null {
+  const color = COLOR_IN_NAME.exec(name)?.[1]?.trim() ?? "";
+  return unfitForGrid(color) || color.includes(":") ? null : color;
+}
+
 /** The model's code: the parent's own Bling code, or one made from its Bling id. */
 export function blingModelCode(parent: { id: number; codigo?: string | null | undefined }): string {
   const code = parent.codigo?.trim() ?? "";

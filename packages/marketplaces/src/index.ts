@@ -41,8 +41,15 @@ export {
 export {
   createShopeeConnector,
   getShopeeShippingLabel,
+  readShopeePickupOptions,
   type ShopeeConfig,
 } from "./shopee/shopee-connector.ts";
+export {
+  type ConfirmedPickup,
+  PICKUP_CONFIRMATION_CAUSE,
+  type ShopeePickupChoice,
+  type ShopeePickupOptions,
+} from "./shopee/shipping.ts";
 export { SHOPEE_IGNORED_TOPIC } from "./shopee/webhook.ts";
 export {
   createTikTokShopConnector,

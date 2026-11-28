@@ -4,7 +4,11 @@ import {
   recordLabelsPrinted,
   recordLabelsWaiting,
 } from "@sellbridge/database/repositories";
-import { hasMarketplaceCause, LABEL_NOT_READY_CAUSE } from "@sellbridge/marketplaces";
+import {
+  type ConfirmedPickup,
+  hasMarketplaceCause,
+  LABEL_NOT_READY_CAUSE,
+} from "@sellbridge/marketplaces";
 import { isAppError, validationError } from "@sellbridge/shared/errors";
 import { logger } from "@sellbridge/shared/logger";
 import {
@@ -21,7 +25,17 @@ import { assertSameOrigin } from "@/lib/server/http";
 import { requireSellerRequest } from "@/lib/server/tenant-session";
 import { labelErrorPage } from "@/features/fulfillment/label-error-page";
 import { labelFileName } from "@/features/fulfillment/label-file-name";
-import { loadMarketplaceLabel } from "@/features/fulfillment/marketplace.server";
+import {
+  type LabelAsk,
+  loadMarketplaceLabel,
+  shopeePickupStep,
+} from "@/features/fulfillment/marketplace.server";
+import {
+  PICKUP_ADDRESS_FIELD,
+  PICKUP_TIME_FIELD,
+  pickupConfirmationPage,
+  pickupMissingPage,
+} from "@/features/fulfillment/pickup-page";
 import { keepLabelRecord } from "@/features/fulfillment/label-records.server";
 import {
   assertSupplierLabelAvailable,
@@ -71,19 +85,20 @@ function formatOf(form: URLSearchParams | null): LabelFormat {
 async function labelRequest(
   request: Request,
   orderId: string,
-): Promise<{ tenantId: string; format: LabelFormat }> {
+): Promise<{ tenantId: string; format: LabelFormat; form: URLSearchParams | null }> {
   if (hasTokenInUrl(request)) {
     throw validationError("Abra a etiqueta pelo botão da página do pedido.");
   }
   if (request.method !== "POST") {
-    return { tenantId: (await requireSellerRequest(request)).tenantId, format: "pdf" };
+    return { tenantId: (await requireSellerRequest(request)).tenantId, format: "pdf", form: null };
   }
 
   const form = await readLabelForm(request);
   const format = formatOf(form);
   const token = tokenOf(form);
   if (token !== null) {
-    return { tenantId: await shipmentTenantId(await tokenLabelShipmentId(token, orderId)), format };
+    const shipmentId = await tokenLabelShipmentId(token, orderId);
+    return { tenantId: await shipmentTenantId(shipmentId), format, form };
   }
 
   // Private forms can suppress Origin. Fetch Metadata still identifies same-origin submissions.
@@ -94,11 +109,11 @@ async function labelRequest(
   const panelIds = panelLabelIds(form);
   if (panelIds !== null) {
     const shipmentId = await panelLabelShipmentId(request, orderId, panelIds);
-    return { tenantId: await shipmentTenantId(shipmentId), format };
+    return { tenantId: await shipmentTenantId(shipmentId), format, form };
   }
 
   if (form?.get("solicitar") === "revenda") {
-    return { tenantId: (await requireSellerRequest(request)).tenantId, format };
+    return { tenantId: (await requireSellerRequest(request)).tenantId, format, form };
   }
 
   throw validationError("Abra a etiqueta pelo botão da página do pedido.");
@@ -107,19 +122,27 @@ async function labelRequest(
  * The label of an order allowed to see it, recorded on its parcel: emitted, or not released by
  * the marketplace yet. The supplier's list reads these records as the label's state.
  */
-async function recordedLabel(
-  tenantId: string,
+async function recordedLabel(tenantId: string, orderId: string, ask: LabelAsk) {
+  const label = await recordingLabelWait(orderId, async () =>
+    loadMarketplaceLabel(tenantId, orderId, ask),
+  );
+  await keepLabelRecord(
+    async () =>
+      await recordLabelsPrinted(database, [{ orderId, marketplaceShipmentId: label.shipmentId }]),
+  );
+  return label;
+}
+
+/**
+ * Runs a step that reads the marketplace for the label: a label it has not released yet is
+ * recorded as waiting on the parcel, whichever step (pickup or label) learned it first.
+ */
+async function recordingLabelWait<Result>(
   orderId: string,
-  format: LabelFormat,
-  allowGeneration: boolean,
-) {
+  step: () => Promise<Result>,
+): Promise<Result> {
   try {
-    const label = await loadMarketplaceLabel(tenantId, orderId, format, allowGeneration);
-    await keepLabelRecord(
-      async () =>
-        await recordLabelsPrinted(database, [{ orderId, marketplaceShipmentId: label.shipmentId }]),
-    );
-    return label;
+    return await step();
   } catch (error) {
     if (hasMarketplaceCause(error, LABEL_NOT_READY_CAUSE)) {
       await keepLabelRecord(async () => await recordLabelsWaiting(database, [orderId]));
@@ -145,11 +168,88 @@ function labelHeaders(label: Awaited<ReturnType<typeof recordedLabel>>) {
   };
 }
 
+const confirmedPickupSchema = z.object({
+  addressId: z.coerce.number().int().positive().max(Number.MAX_SAFE_INTEGER),
+  pickupTimeId: z.string().trim().max(200),
+});
+
+/** The pickup the confirmation page sent back; null on a first request. */
+function confirmedPickupOf(form: URLSearchParams | null): ConfirmedPickup | null {
+  const addressId = form?.get(PICKUP_ADDRESS_FIELD) ?? null;
+  if (addressId === null) {
+    return null;
+  }
+  const parsed = confirmedPickupSchema.safeParse({
+    addressId,
+    pickupTimeId: form?.get(PICKUP_TIME_FIELD) ?? "",
+  });
+  if (!parsed.success) {
+    throw validationError("Peça a etiqueta de novo pelo botão da página do pedido.");
+  }
+  const { pickupTimeId } = parsed.data;
+  return {
+    addressId: parsed.data.addressId,
+    pickupTimeId: pickupTimeId === "" ? undefined : pickupTimeId,
+  };
+}
+
+function htmlPage(html: string, status: number): Response {
+  return new Response(html, {
+    status,
+    headers: {
+      "cache-control": "no-store",
+      "content-type": "text/html; charset=utf-8",
+      "referrer-policy": "no-referrer",
+    },
+  });
+}
+
+/**
+ * A Shopee label whose carrier picks the parcel up waits for the requester to confirm where:
+ * this returns the confirmation (or what is missing) as a page, or the pickup to schedule.
+ */
+async function pickupOrPage(
+  request: Request,
+  labelOrder: { tenantId: string; orderId: string; form: URLSearchParams | null },
+): Promise<{ pickup: ConfirmedPickup | undefined } | Response> {
+  if (request.method !== "POST") {
+    return { pickup: undefined };
+  }
+  const { tenantId, orderId, form } = labelOrder;
+  const confirmed = confirmedPickupOf(form);
+  const step = await recordingLabelWait(orderId, async () =>
+    shopeePickupStep(tenantId, orderId, confirmed),
+  );
+  if (step.kind === "proceed") {
+    return { pickup: step.pickup };
+  }
+  if (step.kind === "missing") {
+    return htmlPage(pickupMissingPage(step.missing), 409);
+  }
+  const url = new URL(request.url);
+  return htmlPage(
+    pickupConfirmationPage({
+      ...step.confirmation,
+      form: form ?? new URLSearchParams(),
+      action: url.pathname + url.search,
+    }),
+    200,
+  );
+}
+
 async function handleLabel(request: Request, orderId: string) {
   try {
     const validOrderId = z.uuid().parse(orderId);
-    const { tenantId, format } = await labelRequest(request, validOrderId);
-    const label = await recordedLabel(tenantId, validOrderId, format, request.method === "POST");
+    const { tenantId, format, form } = await labelRequest(request, validOrderId);
+    const step = await pickupOrPage(request, { tenantId, orderId: validOrderId, form });
+    if (step instanceof Response) {
+      return step;
+    }
+    const label = await recordedLabel(tenantId, validOrderId, {
+      format,
+      allowGeneration: request.method === "POST",
+      pickup: step.pickup,
+    });
     return new Response(label.file.bytes, {
       headers: {
         ...labelHeaders(label),

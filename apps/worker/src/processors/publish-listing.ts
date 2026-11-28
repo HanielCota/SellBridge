@@ -14,6 +14,7 @@ import {
   type PublishProductInput,
   type StoreCredentials,
 } from "@sellbridge/marketplaces";
+import { colorInBlingName } from "@sellbridge/marketplaces/bling";
 import type { TokenCipher } from "@sellbridge/shared/token-cipher";
 import { unavailableMessage, unavailableReason } from "@sellbridge/shared/catalog-availability";
 import {
@@ -85,6 +86,24 @@ function publishingCredentials(
   return resolveStoreCredentials(dependencies.cipher, row.store);
 }
 
+/**
+ * The product's sheet, with the colour its Bling name gives when the sheet has none: a Bling
+ * variation imported as a product of its own names its colour only there. The supplier's own
+ * colour always wins.
+ */
+function attributesWithNamedColor(product: TargetForPublishing["product"]): Record<string, string> {
+  const stored = product.mercadoLivreAttributes;
+  if ((stored.COLOR ?? "").trim() !== "") {
+    return stored;
+  }
+  const color = colorInBlingName(product.title);
+  if (color === null) {
+    return stored;
+  }
+  logger.info("publish_listing.color_from_name", { productId: product.id });
+  return { ...stored, COLOR: color };
+}
+
 function toPublishProductInput(
   row: TargetForPublishing,
   dependencies: PublishDependencies,
@@ -98,7 +117,7 @@ function toPublishProductInput(
     stock: unitsToSend(row, dependencies),
     sku: row.product.sku,
     imageUrls: row.product.imageUrls,
-    mercadoLivreAttributes: row.product.mercadoLivreAttributes,
+    mercadoLivreAttributes: attributesWithNamedColor(row.product),
     mercadoLivreCategoryId: row.product.mercadoLivreCategoryId,
     saleTerms: {
       warrantyType: row.product.warrantyType,

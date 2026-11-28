@@ -123,6 +123,27 @@ function orderEventData(
   };
 }
 
+/**
+ * A sale takes a free slot when it is first paid and gives it back once cancelled or returned,
+ * the same reversal the monthly reports take back.
+ */
+async function freeSaleSlotOfKnownOrder(
+  write: OrderWrite,
+  existing: typeof orders.$inferSelect,
+  dates: { paidAt: Date | null; reversedAt: Date | null },
+): Promise<number | null> {
+  if (dates.reversedAt !== null) {
+    return null;
+  }
+  if (existing.freeSaleSlot !== null) {
+    return existing.freeSaleSlot;
+  }
+  if (existing.paidAt !== null || dates.paidAt === null) {
+    return null;
+  }
+  return nextFreeSaleSlot(write.transaction, write.tenantId);
+}
+
 async function updateExistingOrder(
   write: OrderWrite,
   existing: typeof orders.$inferSelect,
@@ -132,11 +153,13 @@ async function updateExistingOrder(
   }
   const now = new Date();
   const paidAt = paidAtOfKnownOrder({ paidAt: existing.paidAt, status: write.order.status, now });
-  const freeSaleSlot =
-    existing.freeSaleSlot ??
-    (existing.paidAt === null && paidAt !== null
-      ? await nextFreeSaleSlot(write.transaction, write.tenantId)
-      : null);
+  const reversedAt = reversedAtOfKnownOrder({
+    reversedAt: existing.reversedAt,
+    paidAt,
+    status: write.order.status,
+    now,
+  });
+  const freeSaleSlot = await freeSaleSlotOfKnownOrder(write, existing, { paidAt, reversedAt });
 
   await write.transaction
     .update(orders)
@@ -148,12 +171,7 @@ async function updateExistingOrder(
       deliveredAt: deliveredAtOnUpdate(existing, write.order.status),
       paidAt,
       freeSaleSlot,
-      reversedAt: reversedAtOfKnownOrder({
-        reversedAt: existing.reversedAt,
-        paidAt,
-        status: write.order.status,
-        now,
-      }),
+      reversedAt,
       // A later delivery without the address (a status-only update) never erases it.
       shippingAddressEnc: write.order.shippingAddressEnc ?? existing.shippingAddressEnc,
       marketplacePackId: write.order.packId ?? existing.marketplacePackId,
@@ -213,8 +231,11 @@ async function createOrder(write: OrderWrite): Promise<OrderWriteResult | null> 
     orderedAt: order.orderedAt,
     now: new Date(),
   });
+  const reversedAt = reversedAtOfNewOrder({ status: order.status, paidAt });
   const freeSaleSlot =
-    paidAt === null ? null : await nextFreeSaleSlot(write.transaction, write.tenantId);
+    paidAt === null || reversedAt !== null
+      ? null
+      : await nextFreeSaleSlot(write.transaction, write.tenantId);
 
   const [created] = await write.transaction
     .insert(orders)
@@ -233,7 +254,7 @@ async function createOrder(write: OrderWrite): Promise<OrderWriteResult | null> 
       deliveredAt: order.status === "delivered" ? order.orderedAt : null,
       paidAt,
       freeSaleSlot,
-      reversedAt: reversedAtOfNewOrder({ status: order.status, paidAt }),
+      reversedAt,
     })
     .onConflictDoNothing({ target: [orders.storeConnectionId, orders.externalOrderId] })
     .returning({ id: orders.id });
@@ -384,10 +405,10 @@ export async function upsertMarketplaceOrder(
     storeConnectionId,
     order.items.map((item) => item.externalListingId),
   );
-  const result = await database.transaction(async (transaction) => {
-    await lockBillingTenant(transaction, tenantId);
-    return writeOrder({ transaction, tenantId, storeConnectionId, order, listingsByExternalId });
-  });
+  // The account is locked only when the order becomes paid (see nextFreeSaleSlot).
+  const result = await database.transaction(async (transaction) =>
+    writeOrder({ transaction, tenantId, storeConnectionId, order, listingsByExternalId }),
+  );
   // Reclaim released units before the worker offers them on marketplaces. Retried terminal
   // events also recover a reservation attempt that failed after the order committed.
   const reserved = await reserveOrderShortages(database, result.orderId);

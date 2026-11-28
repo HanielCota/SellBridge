@@ -177,7 +177,8 @@ describe("Shopee connection", () => {
 
   it("explains a used or expired code in Portuguese", async () => {
     const { connector } = setup({
-      "POST /api/v2/auth/token/get": () => refusal("error_param", "Invalid code"),
+      "POST /api/v2/auth/token/get": () =>
+        refusal("invalid_code", "The code is expired or used or invalid, please check the code."),
     });
 
     const error = await caught(
@@ -185,6 +186,24 @@ describe("Shopee connection", () => {
     );
 
     expect(messageOf(error)).toBe(
+      "A autorização da Shopee expirou antes de terminar. Conecte a loja de novo.",
+    );
+  });
+
+  it("keeps another refusal that mentions the code apart from an expired authorization", async () => {
+    const { connector } = setup({
+      "POST /api/v2/auth/token/get": () =>
+        refusal(
+          "invalid_shop_id",
+          "The code or shop_id is wrong, please check the code or the shop_id.",
+        ),
+    });
+
+    const error = await caught(
+      connector.exchangeCode({ code: "c", redirectUri: REDIRECT_URI, externalShopId: SHOP_ID }),
+    );
+
+    expect(messageOf(error)).not.toBe(
       "A autorização da Shopee expirou antes de terminar. Conecte a loja de novo.",
     );
   });
@@ -244,6 +263,28 @@ describe("Shopee token refresh", () => {
     const { connector } = setup({
       "POST /api/v2/auth/access_token/get": () =>
         refusal("error_param", "Invalid refresh_token", 403),
+    });
+
+    const error = await caught(connector.refreshTokens("velho", { externalShopId: SHOP_ID }));
+
+    expect(isMarketplaceAuthError(error)).toBe(true);
+  });
+
+  it("asks for reconnection on the documented expired refresh token error", async () => {
+    const { connector } = setup({
+      "POST /api/v2/auth/access_token/get": () =>
+        refusal("refresh_token_expired", "Your refresh_token expired.", 403),
+    });
+
+    const error = await caught(connector.refreshTokens("velho", { externalShopId: SHOP_ID }));
+
+    expect(isMarketplaceAuthError(error)).toBe(true);
+  });
+
+  it("asks for reconnection when the shop access ended, whatever the wording", async () => {
+    const { connector } = setup({
+      "POST /api/v2/auth/access_token/get": () =>
+        refusal("shop_access_expired", "Your access to shop has expired.", 403),
     });
 
     const error = await caught(connector.refreshTokens("velho", { externalShopId: SHOP_ID }));
