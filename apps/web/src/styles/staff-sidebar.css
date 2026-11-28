@@ -402,6 +402,11 @@
   user-select: none;
 }
 
+/* Until script puts it at its saved spot, so it never flashes in the corner first. */
+.staff-support-link:not([data-placed]) {
+  visibility: hidden;
+}
+
 .staff-support-link[data-dragging] {
   cursor: grabbing;
 }

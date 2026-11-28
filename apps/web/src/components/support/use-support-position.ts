@@ -1,5 +1,12 @@
 import { useEffect, useId, useRef, type KeyboardEvent, type ComponentProps } from "react";
 
+import {
+  DEFAULT_SUPPORT_POSITION,
+  readSupportPosition,
+  saveSupportPosition,
+  type SupportPosition,
+} from "./support-position-storage";
+
 const MARGIN = 16;
 const DIRECTIONS: Record<string, readonly [number, number]> = {
   ArrowLeft: [-1, 0],
@@ -50,15 +57,21 @@ function place(button: HTMLButtonElement, position: Position) {
     right: "auto",
     bottom: "auto",
   });
+  button.setAttribute("data-placed", "");
 }
 
-function useSupportDrag(move: (button: HTMLButtonElement, left: number, top: number) => void) {
+function useSupportDrag(
+  move: (button: HTMLButtonElement, left: number, top: number) => void,
+  onDropped: () => void,
+) {
   const drag = useRef<Drag | null>(null);
   const suppressClick = useRef(false);
   function stopDrag(event: React.PointerEvent<HTMLButtonElement>) {
     if (drag.current?.id !== event.pointerId) return;
     drag.current = null;
     event.currentTarget.removeAttribute("data-dragging");
+    // Only a real drag moved it; a tap leaves the saved spot alone.
+    if (suppressClick.current) onDropped();
   }
   return {
     onPointerDown(event) {
@@ -106,7 +119,8 @@ function useSupportDrag(move: (button: HTMLButtonElement, left: number, top: num
 export function useSupportPosition() {
   const instructions = useId();
   const ref = useRef<HTMLButtonElement>(null);
-  const position = useRef({ inline: 1, vertical: 1 });
+  // Read after mount: storage does not exist on the server render.
+  const position = useRef<SupportPosition>(DEFAULT_SUPPORT_POSITION);
 
   function move(button: HTMLButtonElement, nextLeft: number, nextTop: number) {
     const { left, right, top, bottom, rtl } = movementBounds(button);
@@ -117,11 +131,12 @@ export function useSupportPosition() {
     };
     place(button, position.current);
   }
-  const dragEvents = useSupportDrag(move);
+  const dragEvents = useSupportDrag(move, () => saveSupportPosition(position.current));
 
   useEffect(() => {
     const button = ref.current;
     if (!button) return undefined;
+    position.current = readSupportPosition();
     const update = () => place(button, position.current);
     const observer = new ResizeObserver(update);
     const workspace = button.closest("[data-support-workspace]");
@@ -141,8 +156,9 @@ export function useSupportPosition() {
     const button = event.currentTarget;
     if (event.key === "Home") {
       event.preventDefault();
-      position.current = { inline: 1, vertical: 1 };
+      position.current = DEFAULT_SUPPORT_POSITION;
       place(button, position.current);
+      saveSupportPosition(position.current);
       return;
     }
     const offset = DIRECTIONS[event.key];
@@ -151,6 +167,7 @@ export function useSupportPosition() {
     const step = event.shiftKey ? 48 : 16;
     const rect = button.getBoundingClientRect();
     move(button, rect.left + offset[0] * step, rect.top + offset[1] * step);
+    saveSupportPosition(position.current);
   }
   return { instructions, buttonProps: { ref, draggable: false, ...dragEvents, onKeyDown } };
 }
