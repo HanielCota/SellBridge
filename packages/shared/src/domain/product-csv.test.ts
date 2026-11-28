@@ -6,7 +6,12 @@ import {
   adminSupplierSearchSchema,
   adminSupplierValuesSchema,
 } from "../schemas/admin-suppliers.ts";
-import { parseCsvMoney, parseProductCsv, PRODUCT_CSV_TEMPLATE } from "./product-csv.ts";
+import {
+  parseCsvMoney,
+  parseProductCsv,
+  PRODUCT_CSV_TEMPLATE,
+  stockCappedNotice,
+} from "./product-csv.ts";
 
 const header = "sku;titulo;custo;estoque";
 
@@ -251,5 +256,34 @@ TEN-P-38;Tênis Casual;59,90;5; ten-casual ;Preto;38`,
     });
 
     expect(parsed.rows[0]?.product.grid).toBeUndefined();
+  });
+});
+
+describe("stock above the limit in the team import", () => {
+  it("lowers a stock above the limit to it instead of refusing the line", () => {
+    const parsed = parseProductCsv(`${header}\nA;Primeiro;1;99999999\nB;Segundo;1;5`, {
+      capStock: true,
+    });
+
+    expect(parsed.errors).toEqual([]);
+    expect(parsed.rows.map((row) => row.product.stock)).toEqual([10_000_000, 5]);
+    expect(parsed.stockCapped).toEqual(["A"]);
+  });
+
+  it("still refuses a stock above the limit where the cap is off", () => {
+    const parsed = parseProductCsv(`${header}\nA;Primeiro;1;99999999`);
+
+    expect(parsed.errors[0]?.reason).toBe("Estoque: valor inválido");
+    expect(parsed.stockCapped).toEqual([]);
+  });
+
+  it("names the products whose stock was lowered", () => {
+    expect(stockCappedNotice(["A"])).toBe(
+      "O produto A tinha estoque acima de 10.000.000 e entra com 10.000.000, o máximo aceito.",
+    );
+    expect(stockCappedNotice(["A", "B", "C", "D", "E", "F", "G"])).toBe(
+      "7 produtos tinham estoque acima de 10.000.000 (A, B, C, D, E e mais 2) e entram com 10.000.000, o máximo aceito.",
+    );
+    expect(stockCappedNotice([])).toBeNull();
   });
 });

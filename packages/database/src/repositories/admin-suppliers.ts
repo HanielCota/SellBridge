@@ -10,7 +10,10 @@ import {
 } from "@sellbridge/shared/schemas";
 import type { ProductCsvError, ProductCsvRow } from "@sellbridge/shared/product-csv";
 import { planGridImport, type GridImportPlan } from "@sellbridge/shared/product-grid-import";
-import { meetsNewProductRules } from "@sellbridge/shared/supplier-panel-catalog-completeness";
+import {
+  meetsNewProductRules,
+  missingForSale,
+} from "@sellbridge/shared/supplier-panel-catalog-completeness";
 import {
   icmsOverrideProblem,
   readProductFiscal,
@@ -75,6 +78,20 @@ export async function listAdminSuppliers(
     .limit(pagination.pageSize)
     .offset((pagination.page - 1) * pagination.pageSize);
   return toPaginated(items, total?.value ?? 0, pagination);
+}
+
+/** A draft says what keeps it off sale; any other status lists nothing. */
+function withMissingForSale(product: AdminSupplierProduct, fallback: FiscalFallback | null) {
+  const missing =
+    product.reviewStatus === "draft"
+      ? missingForSale({
+          fiscal: withFiscalFallback(readProductFiscal(product.fiscal), fallback),
+          fiscalRequired: product.fiscalRequired,
+          weightRequired: product.weightRequired,
+          mercadoLivreAttributes: product.mercadoLivreAttributes,
+        })
+      : [];
+  return { ...product, missingForSale: missing };
 }
 
 export async function getAdminSupplier(database: DatabaseExecutor, supplierId: string) {
@@ -247,7 +264,12 @@ export async function listAdminSupplierProducts(
     .orderBy(asc(supplierProducts.title), asc(supplierProducts.id))
     .limit(pagination.pageSize)
     .offset((pagination.page - 1) * pagination.pageSize);
-  return toPaginated(items, total?.value ?? 0, pagination);
+  const fallback = await getSupplierFiscalFallback(database, supplierId);
+  return toPaginated(
+    items.map((item) => withMissingForSale(item, fallback)),
+    total?.value ?? 0,
+    pagination,
+  );
 }
 
 export async function listAdminCategories(database: DatabaseExecutor) {
@@ -279,13 +301,18 @@ const STOCK_MOVED_MESSAGE =
  */
 /**
  * A product created under the fiscal or weight rule leaves sale when the team erases its NCM,
- * origin, unit or weight, as it does when the supplier erases them in the panel.
+ * origin, unit or weight, as it does when the supplier erases them in the panel, and goes on sale
+ * once the team fills them in: the same rule a new team product meets. Only a draft the rule holds
+ * (its stored NCM, origin, unit or weight is missing) moves. Panel and spreadsheet drafts carry the
+ * rule flags too, so a draft that already meets the rule is the supplier's own choice and stays.
+ * The row is locked (as the update would lock it) so the status is judged on what it overwrites.
  */
 async function fiscalRuleStatus(
   transaction: DatabaseExecutor,
   ids: { supplierId: string; productId: string },
   values: Pick<AdminProductValues, "fiscal" | "mercadoLivreAttributes">,
-): Promise<{ reviewStatus?: "draft" }> {
+  now: Date,
+): Promise<{ reviewStatus?: "draft" | "approved"; submittedAt?: Date }> {
   const [stored] = await transaction
     .select({
       fiscal: supplierProducts.fiscal,
@@ -297,18 +324,34 @@ async function fiscalRuleStatus(
     .from(supplierProducts)
     .where(
       and(eq(supplierProducts.id, ids.productId), eq(supplierProducts.supplierId, ids.supplierId)),
-    );
-  if (stored === undefined || stored.reviewStatus !== "approved") {
+    )
+    .for("no key update");
+  if (
+    stored === undefined ||
+    (stored.reviewStatus !== "approved" && stored.reviewStatus !== "draft")
+  ) {
     return {};
   }
   const fallback = await getSupplierFiscalFallback(transaction, ids.supplierId);
-  const keeps = meetsNewProductRules({
-    fiscal: withFiscalFallback(readProductFiscal(values.fiscal ?? stored.fiscal), fallback),
-    fiscalRequired: stored.fiscalRequired,
-    weightRequired: stored.weightRequired,
-    mercadoLivreAttributes: values.mercadoLivreAttributes ?? stored.mercadoLivreAttributes,
-  });
-  return keeps ? {} : { reviewStatus: "draft" };
+  const meetsRule = (
+    fiscal: Parameters<typeof readProductFiscal>[0],
+    attributes: Readonly<Record<string, string>>,
+  ) =>
+    meetsNewProductRules({
+      fiscal: withFiscalFallback(readProductFiscal(fiscal), fallback),
+      fiscalRequired: stored.fiscalRequired,
+      weightRequired: stored.weightRequired,
+      mercadoLivreAttributes: attributes,
+    });
+  const keeps = meetsRule(
+    values.fiscal ?? stored.fiscal,
+    values.mercadoLivreAttributes ?? stored.mercadoLivreAttributes,
+  );
+  if (stored.reviewStatus === "approved") {
+    return keeps ? {} : { reviewStatus: "draft" };
+  }
+  const heldByRule = !meetsRule(stored.fiscal, stored.mercadoLivreAttributes);
+  return keeps && heldByRule ? { reviewStatus: "approved", submittedAt: now } : {};
 }
 
 /** The team form edits a product of its own; a grid combination changes through its model. */
@@ -336,7 +379,7 @@ async function updateProduct(
   await assertNotGridCombination(transaction, ids);
   const { stock, ...rest } = values;
   const keepsShelf = expectedStock !== undefined && stock === expectedStock;
-  const status = await fiscalRuleStatus(transaction, ids, values);
+  const status = await fiscalRuleStatus(transaction, ids, values, new Date());
   const [product] = await transaction
     .update(supplierProducts)
     .set({ ...(keepsShelf ? rest : values), ...status })

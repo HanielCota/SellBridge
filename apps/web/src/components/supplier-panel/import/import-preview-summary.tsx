@@ -1,4 +1,5 @@
 import { emojisRemovedNotice } from "@sellbridge/shared/emoji";
+import { stockCappedNotice } from "@sellbridge/shared/product-csv";
 import { resellerPriceAboveSuggestedWarning } from "@sellbridge/shared/reseller-price-warning";
 import type {
   ImportPriceWarning,
@@ -52,6 +53,14 @@ function fileDescription(file: SupplierImportPreview["file"]): string {
 
 function EmojiNotice({ products }: { products: number }) {
   const notice = emojisRemovedNotice(products);
+  if (notice === null) {
+    return null;
+  }
+  return <p className="text-sm text-muted-foreground">{notice}</p>;
+}
+
+function StockCappedNotice({ codes }: { codes: readonly string[] }) {
+  const notice = stockCappedNotice(codes);
   if (notice === null) {
     return null;
   }
@@ -121,6 +130,7 @@ function SummaryHeader({ preview }: { preview: SupplierImportPreview }) {
         notices={preview.notices}
       />
       <EmojiNotice products={preview.emojisRemoved} />
+      <StockCappedNotice codes={preview.stockCapped} />
       <PriceWarnings warnings={preview.priceWarnings} />
     </>
   );

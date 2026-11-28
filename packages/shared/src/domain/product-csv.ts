@@ -6,6 +6,7 @@ import {
   knownCostCentsSchema,
   MAX_PRODUCT_CSV_BYTES,
   MAX_PRODUCT_CSV_ROWS,
+  MAX_PRODUCT_STOCK,
 } from "../schemas/admin-suppliers.ts";
 import { freeText } from "../schemas/common.ts";
 import { hasEmoji, removeEmojis } from "./emoji.ts";
@@ -78,12 +79,31 @@ export interface ProductCsvRow {
 export interface ParseProductCsvOptions {
   /** Grids are on: "codigo_modelo", "cor" and "tamanho" are known columns. */
   readonly gridColumns?: boolean;
+  /**
+   * A stock above `MAX_PRODUCT_STOCK` (a supplier's "unlimited" 99999999) is lowered to it instead
+   * of refusing the line, which would hold back the whole all-or-nothing import.
+   */
+  readonly capStock?: boolean;
 }
 export interface ParsedProductCsv {
   rows: ProductCsvRow[];
   errors: ProductCsvError[];
   /** Valid rows whose description came with emojis, stored without them (Mercado Livre refuses them). */
   emojisRemoved: number;
+  /** Codes whose stock was lowered to `MAX_PRODUCT_STOCK` (only with `capStock`). */
+  stockCapped: string[];
+}
+
+/** The record with its stock cell lowered to the limit, or null when it is within it. */
+function cappedStockRecord(record: CsvRecord, stockColumn: number): CsvRecord | null {
+  if (stockColumn < 0) {
+    return null;
+  }
+  const cell = (record.fields[stockColumn] ?? "").trim();
+  if (!/^\d+$/.test(cell) || Number(cell) <= MAX_PRODUCT_STOCK) {
+    return null;
+  }
+  return { ...record, fields: record.fields.with(stockColumn, String(MAX_PRODUCT_STOCK)) };
 }
 
 function isGridColumn(column: string): boolean {
@@ -407,19 +427,41 @@ export function parseProductCsv(
   if (recordsToValidate.length === 0) {
     throw validationError("O CSV não contém produtos");
   }
-  const result: ParsedProductCsv = { rows: [], errors: [], emojisRemoved: 0 };
+  const result: ParsedProductCsv = { rows: [], errors: [], emojisRemoved: 0, stockCapped: [] };
+  const stockColumn = headers.indexOf("estoque");
   const seen = new Set<string>();
   const descriptionColumn = headers.indexOf("descricao");
-  for (const record of recordsToValidate) {
+  for (const original of recordsToValidate) {
+    const capped = options.capStock === true ? cappedStockRecord(original, stockColumn) : null;
+    const record = capped ?? original;
     const validated = validateRecord(record, headers, seen);
     if ("reason" in validated) {
       result.errors.push(validated);
       continue;
     }
     result.rows.push(validated);
+    if (capped !== null) {
+      result.stockCapped.push(validated.product.sku);
+    }
     if (hasEmoji(record.fields[descriptionColumn] ?? "")) {
       result.emojisRemoved += 1;
     }
   }
   return result;
+}
+
+const STOCK_LIMIT = new Intl.NumberFormat("pt-BR").format(MAX_PRODUCT_STOCK);
+const MAX_LISTED_CODES = 5;
+
+/** Told in the import preview when stocks were lowered to the limit; null when none was. */
+export function stockCappedNotice(codes: readonly string[]): string | null {
+  if (codes.length === 0) {
+    return null;
+  }
+  if (codes.length === 1) {
+    return `O produto ${codes[0]} tinha estoque acima de ${STOCK_LIMIT} e entra com ${STOCK_LIMIT}, o máximo aceito.`;
+  }
+  const listed = codes.slice(0, MAX_LISTED_CODES).join(", ");
+  const rest = codes.length > MAX_LISTED_CODES ? ` e mais ${codes.length - MAX_LISTED_CODES}` : "";
+  return `${codes.length} produtos tinham estoque acima de ${STOCK_LIMIT} (${listed}${rest}) e entram com ${STOCK_LIMIT}, o máximo aceito.`;
 }

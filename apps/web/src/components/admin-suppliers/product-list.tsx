@@ -16,7 +16,7 @@ import {
   adminSetProductActive,
   type adminListProducts,
 } from "@/features/admin-suppliers/suppliers.functions";
-import { catalogStatusMessage } from "@/features/admin-suppliers/catalog-status";
+import { catalogStatusMessage, productSaleStatus } from "@/features/admin-suppliers/catalog-status";
 import { shelfLabel, shelfParts } from "@/features/admin-suppliers/shelf-label";
 import { adminProductsQueryOptions } from "@/features/admin-suppliers/suppliers.queries";
 import { useCatalogAction } from "@/features/admin-suppliers/use-catalog-action";
@@ -82,7 +82,22 @@ function ShelfCount({ stock, reservedStock }: { stock: number; reservedStock: nu
   );
 }
 
-const columnHelper = createServerColumnHelper<AdminSupplierProduct>();
+type ListedProduct = AdminSupplierProduct & { missingForSale: readonly string[] };
+
+/** The sale status, and under a draft what keeps it off sale. */
+function SaleStatus({ product }: { product: ListedProduct }) {
+  const status = productSaleStatus(product);
+  return (
+    <div className="grid gap-0.5">
+      <ToneStatus tone={status.tone} label={status.label} />
+      {status.detail === null ? null : (
+        <p className="max-w-56 text-footnote text-muted-foreground">{status.detail}</p>
+      )}
+    </div>
+  );
+}
+
+const columnHelper = createServerColumnHelper<ListedProduct>();
 function productColumns(onEdit: (product: AdminSupplierProduct) => void) {
   return columnHelper.columns([
     columnHelper.accessor("sku", { header: "Código" }),
@@ -100,14 +115,10 @@ function productColumns(onEdit: (product: AdminSupplierProduct) => void) {
         />
       ),
     }),
-    columnHelper.accessor("active", {
+    columnHelper.display({
+      id: "status",
       header: "Situação",
-      cell: (information) => (
-        <ToneStatus
-          tone={information.getValue() ? "success" : "muted"}
-          label={information.getValue() ? "Ativo" : "Desativado"}
-        />
-      ),
+      cell: (information) => <SaleStatus product={information.row.original} />,
     }),
     columnHelper.display({
       id: "actions",
@@ -155,10 +166,7 @@ function ProductTable({
               {row.sku} · {formatCents(row.costCents)} · Estoque:{" "}
               {shelfLabel(row.stock, row.reservedStock)}
             </p>
-            <ToneStatus
-              tone={row.active ? "success" : "muted"}
-              label={row.active ? "Ativo" : "Desativado"}
-            />
+            <SaleStatus product={row} />
           </div>
           <ProductActions product={row} onEdit={onEdit} />
         </div>

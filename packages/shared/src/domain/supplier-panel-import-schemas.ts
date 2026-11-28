@@ -59,6 +59,8 @@ export interface SupplierImportPreview {
   readonly updated: number;
   /** Of the valid rows: descriptions that came with emojis and are stored without them. */
   readonly emojisRemoved: number;
+  /** Of the valid rows: codes whose stock was lowered to the most a product may hold. */
+  readonly stockCapped: readonly string[];
   readonly issues: readonly ImportRowIssues[];
   readonly priceWarnings: readonly ImportPriceWarning[];
   /** Of the valid rows: products with colours and sizes the import creates or grows. */

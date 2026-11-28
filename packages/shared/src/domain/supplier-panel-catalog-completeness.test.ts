@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   evaluateCompleteness,
+  missingForSale,
   requiredAttributesFor,
   type CompletenessProduct,
 } from "./supplier-panel-catalog-completeness.ts";
@@ -282,5 +283,29 @@ describe("evaluateCompleteness shipping weight", () => {
           "Informe o peso da embalagem: sem ele, o frete dos revendedores é estimado para até 0,5 kg",
       }),
     ]);
+  });
+});
+
+describe("missingForSale", () => {
+  it("names every NF-e field and the weight a team product still misses", () => {
+    const missing = missingForSale({
+      fiscal: EMPTY_PRODUCT_FISCAL,
+      fiscalRequired: true,
+      weightRequired: true,
+      mercadoLivreAttributes: {},
+    });
+
+    expect(missing).toEqual(["NCM", "origem", "unidade", "peso"]);
+  });
+
+  it("asks nothing of a product created before the rules", () => {
+    const missing = missingForSale({
+      fiscal: EMPTY_PRODUCT_FISCAL,
+      fiscalRequired: false,
+      weightRequired: false,
+      mercadoLivreAttributes: {},
+    });
+
+    expect(missing).toEqual([]);
   });
 });

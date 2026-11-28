@@ -30,11 +30,12 @@ function fileBase64(text: string): string {
 
 /** Runs the real product-csv rules, as the admin preview does, without the database. */
 function fakePreview(input: { supplierId: string; content: string }) {
-  const parsed = parseProductCsv(input.content);
+  const parsed = parseProductCsv(input.content, { capStock: true });
   return Promise.resolve({
     created: parsed.rows.length,
     updated: 0,
     emojisRemoved: parsed.emojisRemoved,
+    stockCapped: parsed.stockCapped,
     errors: parsed.errors,
     previewToken: token,
     grids: 0,
@@ -138,11 +139,28 @@ describe("previewSupplierImport", () => {
     expect(preview.confirmation?.content).not.toContain("http://");
   });
 
+  it("refuses photos without https on a row whose stock is lowered to the limit", async () => {
+    const file = [
+      "sku;titulo;custo;estoque;imagens",
+      "A-1;Pão;1;99999999;http://exemplo.com/pao.jpg",
+    ].join("\n");
+
+    const preview = await previewSupplierImport({
+      supplierId,
+      fileName: "produtos.csv",
+      fileBase64: fileBase64(file),
+    });
+
+    expect(preview).toMatchObject({ validRows: 0, failedRows: 1 });
+    expect(preview.confirmation).toBeNull();
+  });
+
   it("asks for a new file when the valid rows stop passing together", async () => {
     mocks.preview.mockImplementationOnce(fakePreview).mockResolvedValueOnce({
       created: 0,
       updated: 0,
       emojisRemoved: 0,
+      stockCapped: [],
       grids: 0,
       gridCombinations: 0,
       notices: [],
@@ -184,6 +202,17 @@ describe("confirmSupplierImport", () => {
       message:
         'Link de imagem inválido (recebido: "http://exemplo.com/a.jpg"); esperado: um link que comece com https://',
     });
+    expect(mocks.confirm).not.toHaveBeenCalled();
+  });
+
+  it("refuses to confirm a photo without https on a row whose stock is lowered to the limit", async () => {
+    const input = {
+      supplierId,
+      content: "sku;titulo;custo;estoque;imagens\nA;B;1;99999999;http://exemplo.com/a.jpg\n",
+      previewToken: token,
+    };
+
+    await expect(confirmSupplierImport(input)).rejects.toMatchObject({ code: "VALIDATION" });
     expect(mocks.confirm).not.toHaveBeenCalled();
   });
 });
