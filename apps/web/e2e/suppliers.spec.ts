@@ -266,8 +266,14 @@ test.describe("fornecedores e catálogo", () => {
     // Measured before opening: an open select hides the rest of the page from the a11y tree.
     const field = await stateFilter.boundingBox();
     await stateFilter.click();
-    // The list opens below the field: laid over it, it read as a broken card.
-    const list = await page.getByRole("listbox").boundingBox();
+    // The list opens below the field: laid over it, it read as a broken card. Measured once its
+    // opening slide has ended, since it starts a few pixels higher.
+    const listbox = page.getByRole("listbox");
+    await listbox.evaluate(async (element) => {
+      const content = element.closest('[data-slot="select-content"]') ?? element;
+      await Promise.all(content.getAnimations().map(async (animation) => animation.finished));
+    });
+    const list = await listbox.boundingBox();
     expect(list?.y ?? 0).toBeGreaterThanOrEqual((field?.y ?? 0) + (field?.height ?? 0));
     await expect(page.getByRole("option", { name: "Roraima RR" })).toBeVisible();
     await page.getByRole("option", { name: "Minas Gerais MG" }).click();
