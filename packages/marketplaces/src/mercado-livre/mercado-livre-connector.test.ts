@@ -1413,13 +1413,30 @@ describe("footwear sheet", () => {
     );
   });
 
-  it("names the footwear type a babuche still needs, without creating the item", async () => {
+  it("sends a babuche as a chinelo, the closest kind Mercado Livre lists", async () => {
+    const { ml, calls } = connector(footwearRoutes);
+
+    await ml.publishProduct(store, {
+      ...sandal,
+      title: "BABUCHE NUVEM Cor:MARINHO;Tamanho:33/34",
+      mercadoLivreAttributes: sheet,
+    });
+
+    const created = JSON.parse(calls.find((call) => call.url === `${API}/items`)?.body ?? "{}");
+    expect(created.attributes).toContainEqual({
+      id: "FOOTWEAR_TYPE",
+      value_id: "517586",
+      value_name: "Chinelo",
+    });
+  });
+
+  it("names the footwear type a shoe of no listed kind still needs, without creating the item", async () => {
     const { ml, calls } = connector(footwearRoutes);
 
     await expect(
       ml.publishProduct(store, {
         ...sandal,
-        title: "Babuche Nuvem Marinho 33/34",
+        title: "Rasteirinha Nuvem Marinho 33/34",
         mercadoLivreAttributes: sheet,
       }),
     ).rejects.toMatchObject({

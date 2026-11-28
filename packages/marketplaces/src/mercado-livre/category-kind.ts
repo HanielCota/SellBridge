@@ -30,6 +30,21 @@ function wordKeys(text: string): Set<string> {
   );
 }
 
+/**
+ * Shoe names Mercado Livre does not list, read as the listed kind closest to them; the supplier
+ * can still pick another in the product sheet. Babuche as Chinelo: Guilherme's choice, 2026-11-27.
+ */
+const KIND_SYNONYMS: ReadonlyMap<string, string> = new Map([["babuche", "chinelo"]]);
+
+function titleKeys(title: string): Set<string> {
+  const words = wordKeys(title);
+  const synonyms = [...words].flatMap((word) => {
+    const synonym = KIND_SYNONYMS.get(word);
+    return synonym === undefined ? [] : [synonym];
+  });
+  return new Set([...words, ...synonyms]);
+}
+
 function onlyMatch(definition: FichaAttribute, matches: (value: ListedValue) => boolean) {
   const found = definition.values.filter(matches);
   const [only] = found;
@@ -66,7 +81,7 @@ export function kindAttributesFromTitle(
   definitions: readonly FichaAttribute[],
   title: string,
 ): KindAttribute[] {
-  const titleWords = wordKeys(title);
+  const titleWords = titleKeys(title);
   return answered(definitions, (definition) =>
     onlyMatch(definition, ({ name }) => {
       const valueWords = [...wordKeys(name)];

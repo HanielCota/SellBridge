@@ -38,8 +38,17 @@ describe("kindAttributesFromTitle", () => {
     expect(filled).toEqual([{ id: "FOOTWEAR_TYPE", value_id: "517585", value_name: "Sandália" }]);
   });
 
+  it("reads a babuche as a chinelo", () => {
+    const filled = kindAttributesFromTitle(footwearType, "Kit 2 babuches Nuvem Cor:MARINHO");
+
+    expect(filled).toEqual([{ id: "FOOTWEAR_TYPE", value_id: "517586", value_name: "Chinelo" }]);
+  });
+
   it("leaves the footwear type empty when the title names none of the listed kinds", () => {
-    const filled = kindAttributesFromTitle(footwearType, "BABUCHE NUVEM Cor:MARINHO;Tamanho:33/34");
+    const filled = kindAttributesFromTitle(
+      footwearType,
+      "RASTEIRINHA NUVEM Cor:MARINHO;Tamanho:33/34",
+    );
 
     expect(filled).toEqual([]);
   });
