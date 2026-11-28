@@ -41,9 +41,18 @@ export {
 export {
   createShopeeConnector,
   getShopeeShippingLabel,
+  readShopeeBuyerBilling,
   readShopeePickupOptions,
+  readShopeeSaleInvoice,
+  readShopeeSalePayments,
   type ShopeeConfig,
+  uploadShopeeSaleInvoice,
 } from "./shopee/shopee-connector.ts";
+export {
+  SHOPEE_INVOICE_DELAY_IN_MS,
+  shopeeInvoiceProblem,
+  type ShopeeInvoiceUpload,
+} from "./shopee/invoice.ts";
 export {
   type ConfirmedPickup,
   PICKUP_CONFIRMATION_CAUSE,

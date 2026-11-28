@@ -125,7 +125,7 @@ interface OrderWindow {
   to: number;
 }
 
-function parseSerial(serial: string): string {
+export function parseSerial(serial: string): string {
   if (!orderNumber.safeParse(serial).success) {
     throw marketplaceError("Número de pedido inválido para a Shopee.", { retryable: false });
   }
@@ -277,7 +277,7 @@ function mapOrder(
   };
 }
 
-async function readDetails(
+export async function readDetails(
   context: ShopeeContext,
   store: StoreCredentials,
   serials: readonly string[],

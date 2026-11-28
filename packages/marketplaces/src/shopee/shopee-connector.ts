@@ -1,6 +1,12 @@
 import type { MarketplaceConnector, StoreCredentials } from "../types.ts";
 import { isShopeeConfigured, type ShopeeConfig, type ShopeeContext } from "./client.ts";
 import { publishProduct, updateDescription, updateStockPrice } from "./listings.ts";
+import {
+  readShopeeBuyerBilling as readBuyerBilling,
+  readShopeeSaleInvoice as readSaleInvoice,
+  readShopeeSalePayments as readSalePayments,
+  uploadShopeeSaleInvoice as uploadSaleInvoice,
+} from "./invoice.ts";
 import { authorizationUrl, exchangeCode, refreshTokens } from "./oauth.ts";
 import { fetchOrder, listOrders, readShippingAddress } from "./orders.ts";
 import {
@@ -66,4 +72,49 @@ export function readShopeePickupOptions(
   orderId: string,
 ) {
   return readPickupOptions(createContext(config), store, orderId);
+}
+
+/** The reseller's sale note attached to the order, or null while there is none. */
+export function readShopeeSaleInvoice(
+  config: ShopeeConfig,
+  store: StoreCredentials,
+  orderId: string,
+) {
+  return readSaleInvoice(createContext(config), store, orderId);
+}
+
+/** The buyer's CPF or CNPJ and name for the note; null when Shopee sends no document. */
+export function readShopeeBuyerBilling(
+  config: ShopeeConfig,
+  store: StoreCredentials,
+  orderId: string,
+) {
+  return readBuyerBilling(createContext(config), store, orderId);
+}
+
+/** The order's payments for the note, with the card's brand and authorization code. */
+export function readShopeeSalePayments(
+  config: ShopeeConfig,
+  store: StoreCredentials,
+  orderId: string,
+) {
+  return readSalePayments(createContext(config), store, orderId);
+}
+
+/**
+ * Attaches the reseller's authorized sale note (its XML) to the order. Call it at least
+ * SHOPEE_INVOICE_DELAY_IN_MS after the note was authorized: Shopee does not know it before.
+ *
+ * @returns "sent", "already_attached" when the order already has this note, or "not_taken" when
+ * the order takes no note (a carrier like Correios).
+ * @throws {AppError} EXTERNAL_PROVIDER, not retryable, with the reason in the reseller's words when
+ * the note does not fit Shopee's rules (model 55, accepted CFOPs, up to 1 MB) or Shopee refuses
+ * it; retryable when Shopee is busy or does not know the note yet.
+ */
+export function uploadShopeeSaleInvoice(
+  config: ShopeeConfig,
+  store: StoreCredentials,
+  input: { orderId: string; accessKey: string; xml: string },
+) {
+  return uploadSaleInvoice(createContext(config), store, input);
 }
