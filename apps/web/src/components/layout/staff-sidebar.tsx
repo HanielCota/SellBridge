@@ -19,7 +19,6 @@ import { chooseOnPlainClick, navTabAction, navTabClassName, TabBadge } from "./n
 import type { BadgeCounts } from "./nav-tab";
 import { ProfileSwitch, shownMenu, type ShownMenu } from "./nav-list";
 import { SolarIcon, type SolarIconName } from "./solar-icon";
-import { SupportButton } from "./support-button";
 import { TeamModeMenuEntry } from "./team-mode-entry";
 import { TopNav } from "./top-nav";
 import type { AppNavigationState } from "./use-app-navigation";
@@ -65,12 +64,9 @@ function groupTeamItems(items: readonly NavItem[]): NavItem[] {
 
 function businessItems(shown: ShownMenu): NavItem[] {
   const accountItems = ACCOUNT_NAV_ITEMS[shown.kind];
+  // Support lives in the corner button on every page, so the menu leaves it out.
   const extra = accountItems.filter((item) => item.to !== "/suporte");
-  // The tickets list stays one click away for everyone, last, under its own heading.
-  const support = accountItems
-    .filter((item) => item.to === "/suporte")
-    .map((item) => ({ ...item, group: "Ajuda" }));
-  if (shown.kind === "supplier") return [...shown.items, ...extra, ...support];
+  if (shown.kind === "supplier") return [...shown.items, ...extra];
   const items = shown.items.flatMap((item) => {
     if (item.to === "/financeiro")
       return [item, ...extra.map((plan) => ({ ...plan, group: "Dinheiro" }))];
@@ -78,7 +74,7 @@ function businessItems(shown: ShownMenu): NavItem[] {
     if (item.group === "Lojas") return [{ ...item, group: "Canais de venda" }];
     return [item];
   });
-  return [...items, ...support];
+  return items;
 }
 
 const NAV_ICONS: Record<string, SolarIconName> = {
@@ -124,39 +120,26 @@ function NavigationGroups({
   activeTo,
   profileSlug = null,
   onNavigate,
-  supportKind,
 }: {
   items: readonly NavItem[];
   counts: BadgeCounts;
   activeTo: NavItem["to"] | null;
   profileSlug?: string | null;
   onNavigate?: (() => void) | undefined;
-  /** Opens the help card (hours, new ticket, recent tickets) from "Suporte" instead of a link. */
-  supportKind?: ProfileKind | undefined;
 }) {
   return navGroups(items).map(({ heading, items: groupItems }) => (
     <div key={heading ?? groupItems[0]?.to} className="staff-nav-group">
       {heading ? <h3>{heading}</h3> : null}
-      {groupItems.map((item) =>
-        supportKind !== undefined && item.to === "/suporte" ? (
-          <SupportButton
-            key={item.to}
-            unread={counts.supportReplies}
-            profileKind={supportKind}
-            className={`staff-nav-row ${navTabClassName({ isActive: activeTo === item.to, paintsOwnPill: true, padding: "px-3" })} text-body`}
-            icon={<SolarIcon name="support" />}
-          />
-        ) : (
-          <StaffNavLink
-            key={item.to}
-            item={item}
-            count={item.badge ? counts[item.badge] : 0}
-            active={activeTo === item.to}
-            profileSlug={profileSlug}
-            onNavigate={onNavigate}
-          />
-        ),
-      )}
+      {groupItems.map((item) => (
+        <StaffNavLink
+          key={item.to}
+          item={item}
+          count={item.badge ? counts[item.badge] : 0}
+          active={activeTo === item.to}
+          profileSlug={profileSlug}
+          onNavigate={onNavigate}
+        />
+      ))}
     </div>
   ));
 }
@@ -276,7 +259,6 @@ function BusinessMenu({
         counts={counts}
         profileSlug={shown.slug}
         onNavigate={onNavigate}
-        supportKind={shownKind}
       />
     </>
   );

@@ -8,7 +8,7 @@ const DIRECTIONS: Record<string, readonly [number, number]> = {
   ArrowDown: [0, 1],
 };
 
-function movementBounds(button: HTMLAnchorElement) {
+function movementBounds(button: HTMLButtonElement) {
   const workspace = button.closest("[data-support-workspace]");
   const rect = workspace?.getBoundingClientRect();
   const viewport = document.documentElement;
@@ -41,7 +41,7 @@ interface Position {
   vertical: number;
 }
 
-function place(button: HTMLAnchorElement, position: Position) {
+function place(button: HTMLButtonElement, position: Position) {
   const { left, right, top, bottom, rtl } = movementBounds(button);
   const horizontal = rtl ? 1 - position.inline : position.inline;
   Object.assign(button.style, {
@@ -52,10 +52,10 @@ function place(button: HTMLAnchorElement, position: Position) {
   });
 }
 
-function useSupportDrag(move: (button: HTMLAnchorElement, left: number, top: number) => void) {
+function useSupportDrag(move: (button: HTMLButtonElement, left: number, top: number) => void) {
   const drag = useRef<Drag | null>(null);
   const suppressClick = useRef(false);
-  function stopDrag(event: React.PointerEvent<HTMLAnchorElement>) {
+  function stopDrag(event: React.PointerEvent<HTMLButtonElement>) {
     if (drag.current?.id !== event.pointerId) return;
     drag.current = null;
     event.currentTarget.removeAttribute("data-dragging");
@@ -72,7 +72,7 @@ function useSupportDrag(move: (button: HTMLAnchorElement, left: number, top: num
         offsetY: event.clientY - rect.top,
       };
       suppressClick.current = false;
-      // Touch already captures its target. Leave taps on the anchor's normal click path.
+      // Touch already captures its target. Leave taps on the button's normal click path.
       if (event.pointerType === "mouse") event.currentTarget.setPointerCapture(event.pointerId);
     },
     onPointerMove(event) {
@@ -93,7 +93,7 @@ function useSupportDrag(move: (button: HTMLAnchorElement, left: number, top: num
       event.preventDefault();
     },
   } satisfies Pick<
-    ComponentProps<"a">,
+    ComponentProps<"button">,
     | "onPointerDown"
     | "onPointerMove"
     | "onPointerUp"
@@ -105,10 +105,10 @@ function useSupportDrag(move: (button: HTMLAnchorElement, left: number, top: num
 
 export function useSupportPosition() {
   const instructions = useId();
-  const ref = useRef<HTMLAnchorElement>(null);
+  const ref = useRef<HTMLButtonElement>(null);
   const position = useRef({ inline: 1, vertical: 1 });
 
-  function move(button: HTMLAnchorElement, nextLeft: number, nextTop: number) {
+  function move(button: HTMLButtonElement, nextLeft: number, nextTop: number) {
     const { left, right, top, bottom, rtl } = movementBounds(button);
     const horizontal = fraction(nextLeft, left, right);
     position.current = {
@@ -137,7 +137,7 @@ export function useSupportPosition() {
     };
   }, []);
 
-  function onKeyDown(event: KeyboardEvent<HTMLAnchorElement>) {
+  function onKeyDown(event: KeyboardEvent<HTMLButtonElement>) {
     const button = event.currentTarget;
     if (event.key === "Home") {
       event.preventDefault();
@@ -152,5 +152,5 @@ export function useSupportPosition() {
     const rect = button.getBoundingClientRect();
     move(button, rect.left + offset[0] * step, rect.top + offset[1] * step);
   }
-  return { instructions, linkProps: { ref, draggable: false, ...dragEvents, onKeyDown } };
+  return { instructions, buttonProps: { ref, draggable: false, ...dragEvents, onKeyDown } };
 }

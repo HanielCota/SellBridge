@@ -1,4 +1,3 @@
-import { isStaffRole } from "@sellbridge/shared/staff-access";
 import type { PeriodSearch } from "@sellbridge/shared/schemas";
 import type { ProfileKind } from "@sellbridge/shared/profile-kind";
 import { useQuery, type QueryClient } from "@tanstack/react-query";
@@ -181,7 +180,6 @@ function AppLayout() {
     buyerQuestionsEnabled: session.buyerQuestionsEnabled,
     isDeveloper: session.isDeveloper,
   });
-  const staff = isStaffRole(session.user.role);
   const shell = {
     user: session.user,
     adminMode: session.adminMode,
@@ -202,9 +200,10 @@ function AppLayout() {
       ) : null}
       <StaffSidebarLayout {...shell} setupReminder={headerSetup}>
         <AppPage session={session} pathname={pathname} />
-        {/* In admin mode the team is answering tickets, so the support chat stays out of the way.
-            Only the team can drag it aside: a moving button would surprise a reseller. */}
-        {session.teamOnly || session.adminMode ? null : <SupportLauncher movable={staff} />}
+        {/* In admin mode the team is answering tickets, so the support button stays out of the way. */}
+        {session.teamOnly || session.adminMode ? null : (
+          <SupportLauncher unread={navigation.counts.supportReplies} kind={session.profileKind} />
+        )}
       </StaffSidebarLayout>
     </div>
   );

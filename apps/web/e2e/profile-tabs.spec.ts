@@ -126,8 +126,9 @@ test("keeps a second profile throughout store consent and the callback", async (
 
 test("the corner bubble opens the guided form in the profile of the current tab", async () => {
   await gotoHydrated(tabB, `/lojas?perfil=${profiles.second}`);
-  // The bubble leads to the same guided form as the Suporte button, never a free-text chat.
-  await tabB.getByRole("link", { name: "Falar com o suporte", exact: true }).click();
+  // The bubble's help card leads to the guided form, never a free-text chat.
+  await tabB.getByRole("button", { name: /^Suporte/ }).click();
+  await tabB.getByRole("dialog").getByRole("link", { name: "Abrir chamado" }).click();
   await expect(tabB).toHaveURL(/\/suporte\/novo/);
   await tabB.getByRole("button", { name: /^Pedido ou entrega/ }).click();
   await tabB.getByRole("button", { name: /^O pedido atrasou/ }).click();

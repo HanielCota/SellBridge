@@ -100,7 +100,8 @@ for (const from of ["/financeiro", "/assinatura"]) {
   test(`abre o chamado de dinheiro já no tema a partir de ${from}`, async ({ page }) => {
     await signIn(page, DEMO_USER);
     await gotoHydrated(page, from);
-    await page.getByRole("link", { name: "Falar com o suporte" }).click();
+    await page.getByRole("button", { name: /^Suporte/ }).click();
+    await page.getByRole("dialog").getByRole("link", { name: "Abrir chamado" }).click();
     await expect(page).toHaveURL(/\/suporte\/novo\?categoria=payment/);
     await expect(page.getByText("1. Dinheiro das vendas ou cobrança")).toBeVisible();
     await expect(
@@ -125,7 +126,7 @@ for (const viewport of [
     await signIn(page, DEMO_USER);
     await gotoHydrated(page, "/pedidos?view=reviews");
     await expect(page.getByRole("button", { name: /Avaliar/ }).first()).toBeVisible();
-    const bubble = page.getByRole("link", { name: "Falar com o suporte", exact: true });
+    const bubble = page.getByRole("complementary", { name: "Suporte" }).getByRole("button");
     await expect(bubble).toBeVisible();
     await expect(bubble.getByText("Falar com o suporte")).toHaveCount(0);
 
@@ -144,6 +145,7 @@ for (const viewport of [
     expect(covered).toBe(false);
 
     await bubble.click();
+    await page.getByRole("dialog").getByRole("link", { name: "Abrir chamado" }).click();
     await expect(page).toHaveURL(/\/suporte\/novo(\?perfil=[^&]+)?$/);
   });
 }
