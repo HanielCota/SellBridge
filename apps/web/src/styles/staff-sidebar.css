@@ -351,7 +351,8 @@
   block-size: 1rem;
   border-radius: 50%;
   background: white;
-  transition: inset-inline-start 160ms ease-out;
+  /* Slides with translate, never an inset: the theme test rules out every other transition. */
+  transition: translate 160ms ease-out;
 }
 
 [aria-checked="true"] .staff-account-toggle {
@@ -359,7 +360,11 @@
 }
 
 [aria-checked="true"] .staff-account-toggle::after {
-  inset-inline-start: 14px;
+  translate: 12px 0;
+}
+
+[aria-checked="true"] .staff-account-toggle:dir(rtl)::after {
+  translate: -12px 0;
 }
 
 .staff-toolbar {
@@ -428,6 +433,11 @@
   font-weight: 600;
   line-height: 1;
   box-shadow: 0 0 0 2px var(--background);
+}
+
+/* The dark theme's lighter red gives white digits too little contrast (2.9:1); keep the deep one. */
+.dark .staff-support-count {
+  background: oklch(0.53 0.22 27);
 }
 
 body:has(.staff-sidebar-mobile[data-state="open"]) .staff-support-link {
