@@ -161,3 +161,23 @@ it("keeps an audit event with the request and resource IDs if the usage write fa
     }),
   );
 });
+
+it("keeps the reason the usage write failed in the audit event", async () => {
+  const reportError = vi.spyOn(logger, "error").mockImplementation(() => undefined);
+  const failure = new Error("Database unavailable");
+  recordDeveloperApiRequest.mockRejectedValueOnce(failure);
+  listAdminSupplierProducts.mockResolvedValue({
+    items: [{ ...product, imageUrls }],
+    page: 1,
+    pageSize: 20,
+    total: 1,
+    totalPages: 1,
+  });
+
+  await readProducts();
+
+  expect(reportError).toHaveBeenCalledWith(
+    "developer_api.usage_not_recorded",
+    expect.objectContaining({ error: failure }),
+  );
+});

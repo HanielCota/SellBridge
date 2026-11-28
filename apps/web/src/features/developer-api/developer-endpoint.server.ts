@@ -253,7 +253,8 @@ async function recordUse(record: DeveloperApiRequestRecord, requestId: string): 
       personalData,
       organizationId: delivered ? record.organizationId : null,
       resourceId: delivered ? record.resourceId : null,
-      errorType: error instanceof Error ? error.name : "Unknown",
+      // The logger keeps a failed query's database code and drops the values bound to it.
+      error,
     });
   }
 }
