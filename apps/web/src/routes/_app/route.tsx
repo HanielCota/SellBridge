@@ -141,6 +141,7 @@ async function prefetchSetupProgress(
 function SetupReminder() {
   const pathname = useRouterState({ select: (state) => state.location.pathname });
   const inSetupFlow = useSearch({ strict: false, select: (search) => search.flow === "setup" });
+  const openStep = useSearch({ strict: false, select: (search) => search.step });
   const query = useQuery(setupProgressQueryOptions());
   if (query.data === undefined) {
     return null;
@@ -148,7 +149,8 @@ function SetupReminder() {
   const mode = setupStripMode({
     pathname,
     inSetupFlow,
-    nextStepPath: findNextStep(query.data)?.to,
+    nextStep: findNextStep(query.data),
+    openStep,
   });
   if (mode === "hidden") {
     return null;
