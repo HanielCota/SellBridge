@@ -1,14 +1,18 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { consumeEntryLinkClick } from "@/features/entry-links/consume-entry-link.server";
-import { environment } from "@/lib/server/environment";
+import {
+  confirmEntryLink,
+  entryLinkConfirmation,
+} from "@/features/entry-links/consume-entry-link.server";
+import { appOriginFor } from "@/lib/server/app-origin";
 
-/** The link another project hands out: spent on the first click, signed in or not. */
+/** The link another project hands out: spent on confirmation, signed in or not. */
 export const Route = createFileRoute("/entrar/$token")({
   server: {
     handlers: {
-      GET: async ({ params }) =>
-        consumeEntryLinkClick(
-          { token: params.token, secureCookie: environment.APP_URL.startsWith("https:") },
+      GET: async ({ params }) => entryLinkConfirmation(params.token, new Date()),
+      POST: async ({ request, params }) =>
+        confirmEntryLink(
+          { request, token: params.token, appOrigin: appOriginFor(request.url) },
           new Date(),
         ),
     },
