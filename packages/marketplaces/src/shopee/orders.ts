@@ -133,10 +133,9 @@ function parseSerial(serial: string): string {
   return serial;
 }
 
-/** An amount, or a sum of amounts, that must fit the integer cents columns it is stored in. */
-function storedCents(value: number, field: string): number {
-  const result = Math.round(value * 100);
-  if (result > MAX_STORED_CENTS) {
+/** Cents that must fit the integer cents columns they are stored in. */
+function withinStoredLimit(cents: number, field: string): number {
+  if (cents > MAX_STORED_CENTS) {
     // Final, not retryable: reading the order again returns the same amount.
     throw marketplaceError(
       `Pedido da Shopee com ${field} acima do valor que o SellBridge guarda.`,
@@ -145,7 +144,12 @@ function storedCents(value: number, field: string): number {
       },
     );
   }
-  return result;
+  return cents;
+}
+
+/** An amount, or a sum of amounts, in cents that fit the columns it is stored in. */
+function storedCents(value: number, field: string): number {
+  return withinStoredLimit(Math.round(value * 100), field);
 }
 
 /** One unit's price: Shopee reports 0 as the discounted price of a bundle deal item. */
@@ -257,7 +261,9 @@ function mapOrder(
     externalOrderId: raw.order_sn,
     status,
     totalCents: itemsTotalCents(raw, income),
-    marketplaceFeeCents: income?.feeCents,
+    // Checked here, not in the escrow read: one order's odd fee must not drop the whole page.
+    marketplaceFeeCents:
+      income?.feeCents === undefined ? undefined : withinStoredLimit(income.feeCents, "tarifa"),
     buyerName: recipient.success ? buyerNameOf(recipient.data.name) : null,
     shippingAddress: address ?? undefined,
     orderedAt: new Date(raw.create_time * 1_000),

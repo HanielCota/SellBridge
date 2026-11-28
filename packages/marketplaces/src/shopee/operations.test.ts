@@ -402,6 +402,24 @@ describe("Shopee order intake", () => {
     await expect(connector.fetchOrder(STORE, SERIAL)).rejects.toThrow(/acima do valor/);
   });
 
+  it("refuses fees whose sum is above the stored limit instead of failing the save", async () => {
+    const top = 21_474_836;
+    const { connector } = setup({
+      "GET /api/v2/order/get_order_detail": () => success({ order_list: [RAW_ORDER] }),
+      "POST /api/v2/payment/get_escrow_detail_batch": () =>
+        success([
+          {
+            escrow_detail: {
+              order_sn: SERIAL,
+              order_income: { commission_fee: top, service_fee: top },
+            },
+          },
+        ]),
+    });
+
+    await expect(connector.fetchOrder(STORE, SERIAL)).rejects.toThrow(/tarifa acima do valor/);
+  });
+
   it("lists changes to orders placed before the reconciliation window", async () => {
     const since = new Date(NOW.getTime() - 60_000);
     const { connector, calls } = setup({
