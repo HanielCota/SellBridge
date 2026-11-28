@@ -15,6 +15,7 @@ import {
   CheckIcon,
   ClipboardTextIcon,
   ClockCounterClockwiseIcon,
+  CodeIcon,
   CreditCardIcon,
   DownloadSimpleIcon,
   EnvelopeSimpleIcon,
@@ -193,6 +194,7 @@ export const ACTION_ICONS = {
     hint: "Cadastro dos fornecedores e a fila de produtos para analisar",
   },
   tickets: { icon: ChatsCircleIcon, hint: "Conversas de suporte abertas pelos clientes" },
+  developerKeys: { icon: CodeIcon, hint: "Gerencie as chaves da API de desenvolvedor" },
   staff: {
     icon: IdentificationBadgeIcon,
     hint: "Quem trabalha na administração e o que cada um pode fazer",
@@ -411,4 +413,5 @@ export const NAV_TAB_ICONS: Readonly<Record<string, ActionIconName>> = {
   "/admin/auditoria": "audit",
   "/admin/problemas": "problems",
   "/admin/configuracoes": "platformSettings",
+  "/desenvolvedor": "developerKeys",
 };

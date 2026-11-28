@@ -43,7 +43,13 @@ export function useScrollEdges(scrollerRef: RefObject<HTMLElement | null>): Scro
       if (scroller === null) {
         return;
       }
-      const next = hiddenEdgesOf(scroller.scrollLeft, scroller.clientWidth, scroller.scrollWidth);
+      const rtl = getComputedStyle(scroller).direction === "rtl";
+      const hidden = hiddenEdgesOf(
+        rtl ? -scroller.scrollLeft : scroller.scrollLeft,
+        scroller.clientWidth,
+        scroller.scrollWidth,
+      );
+      const next = rtl ? { start: hidden.end, end: hidden.start } : hidden;
       setEdges((previous) =>
         previous.start === next.start && previous.end === next.end ? previous : next,
       );

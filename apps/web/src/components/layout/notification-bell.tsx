@@ -220,11 +220,11 @@ function SoundToggle() {
   );
 }
 
-function PanelHeader({ canClear }: { canClear: boolean }) {
+function PanelHeader({ canClear, title }: { canClear: boolean; title: string }) {
   const clear = useClearNotifications();
   return (
     <div className="flex items-center justify-between gap-2 px-3 pt-2 pb-1">
-      <p className="text-sm font-semibold">Avisos</p>
+      <p className="text-sm font-semibold">{title}</p>
       <div className="-mr-1.5 flex items-center gap-1">
         <SoundToggle />
         {canClear ? (
@@ -357,7 +357,7 @@ function NotificationTabs({
           />
         ))}
         <span
-          className="absolute -bottom-px left-0 h-0.5 w-1/4 rounded-full bg-brand transition-transform duration-300 ease-[cubic-bezier(0.32,0.72,0,1)] motion-reduce:transition-none"
+          className="absolute -bottom-px left-0 h-0.5 w-1/4 rounded-full bg-brand transition-transform duration-(--disclosure-close-duration) ease-[cubic-bezier(0.32,0.72,0,1)] motion-reduce:transition-none"
           style={{ transform: `translateX(${tabIndex * 100}%)` }}
           aria-hidden="true"
         />
@@ -378,16 +378,20 @@ function NotificationTabs({
 
 const NotificationsIcon = ACTION_ICONS.notifications.icon;
 
-function BellTrigger({ unread }: { unread: number }) {
+type NotificationTitle = "Avisos" | "Notificações";
+
+function BellTrigger({ unread, title }: { unread: number; title: NotificationTitle }) {
+  const unreadLabel = title === "Notificações" ? "nova" : "novo";
+  const unreadSuffix = unread === 1 ? unreadLabel : `${unreadLabel}s`;
   return (
     <Hint label={ACTION_ICONS.notifications.hint} openOnTap={false}>
       <Popover.Trigger
-        aria-label={unread > 0 ? `Avisos: ${badgeCount(unread)} novos` : "Avisos"}
-        className="relative flex size-11 shrink-0 items-center justify-center rounded-full bg-card text-muted-foreground transition-colors outline-none hover:text-foreground focus-visible:ring-4 focus-visible:ring-ring/30"
+        aria-label={unread > 0 ? `${title}: ${badgeCount(unread)} ${unreadSuffix}` : title}
+        className="notification-bell-trigger relative flex size-11 shrink-0 items-center justify-center rounded-full bg-card text-muted-foreground transition-colors outline-none hover:text-foreground focus-visible:ring-4 focus-visible:ring-ring/30"
       >
         <NotificationsIcon className="size-5" aria-hidden="true" />
         {unread > 0 ? (
-          <span className="absolute -top-0.5 -right-0.5 flex h-5 min-w-5 items-center justify-center rounded-full bg-brand px-1 text-caption font-semibold text-primary-foreground tabular-nums">
+          <span className="absolute -end-0.5 -top-0.5 flex h-5 min-w-5 items-center justify-center rounded-full bg-brand px-1 text-caption font-semibold text-primary-foreground tabular-nums">
             {badgeCount(unread)}
           </span>
         ) : null}
@@ -397,7 +401,7 @@ function BellTrigger({ unread }: { unread: number }) {
 }
 
 /** Bell with the unread count; opening it lists recent events and marks them as seen. */
-export function NotificationBell() {
+export function NotificationBell({ title = "Avisos" }: { title?: NotificationTitle }) {
   const query = useQuery(notificationsQueryOptions());
   const markSeen = useMarkSeen();
   useNotificationChime(query.data?.items);
@@ -419,10 +423,12 @@ export function NotificationBell() {
   const items = query.data?.items ?? [];
   return (
     <Popover.Root open={open} onOpenChange={handleOpenChange}>
-      <BellTrigger unread={unread} />
+      <BellTrigger unread={unread} title={title} />
       <Popover.Portal>
         <Popover.Content
+          data-dashboard-popup
           align="end"
+          aria-label={title}
           sideOffset={10}
           tabIndex={-1}
           // Focus lands on the panel, not on its first button: the sound toggle's hint would
@@ -433,9 +439,9 @@ export function NotificationBell() {
               event.currentTarget.focus();
             }
           }}
-          className="z-50 w-[min(24rem,calc(100vw-2rem))] rounded-2xl bg-popover p-2 text-popover-foreground shadow-xl shadow-black/15 ring-1 ring-border outline-none"
+          className="z-50 w-[min(24rem,calc(100vw-2rem))] origin-(--radix-popover-content-transform-origin) rounded-2xl bg-popover p-2 text-popover-foreground shadow-xl shadow-black/15 ring-1 ring-border outline-none data-[side=bottom]:data-[state=open]:slide-in-from-top-2 data-[side=bottom]:data-[state=closed]:slide-out-to-top-2 data-[side=top]:data-[state=open]:slide-in-from-bottom-2 data-[side=top]:data-[state=closed]:slide-out-to-bottom-2 motion-safe:data-[state=open]:animate-in data-[state=open]:fade-in-0 data-[state=open]:duration-[230ms] data-[state=closed]:pointer-events-none motion-safe:data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=closed]:duration-[160ms]"
         >
-          <PanelHeader canClear={items.length > 0} />
+          <PanelHeader canClear={items.length > 0} title={title} />
           <NotificationTabs
             tab={tab}
             onTabChange={setTab}

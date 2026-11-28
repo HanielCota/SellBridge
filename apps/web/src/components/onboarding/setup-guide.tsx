@@ -1,6 +1,6 @@
 import { ArrowRightIcon, CaretDownIcon, CaretUpIcon, CheckIcon } from "@phosphor-icons/react";
-import { Link } from "@tanstack/react-router";
-import { useCallback, useRef, type ReactNode, type Ref } from "react";
+import { Link, useRouterState } from "@tanstack/react-router";
+import { createContext, useCallback, useContext, useRef, type ReactNode, type Ref } from "react";
 import { cn } from "@/lib/utils";
 import { ResendVerificationButton } from "@/components/onboarding/resend-verification-button";
 import { Button } from "@/components/ui/button";
@@ -42,6 +42,35 @@ const TOGGLE_FOCUS_CLASS_NAME =
 
 const STEP_ACTION_CLASS_NAME = "h-auto min-h-9 w-fit max-w-full py-2 text-center whitespace-normal";
 
+/**
+ * Opens the details or supplier step. An unfinished one starts the setup flow, which remembers
+ * the page it was opened from and comes back to it once no step is left.
+ */
+function stepActionLabel({ done, holder, cta }: { done: boolean; holder: boolean; cta: string }) {
+  if (!done) return cta;
+  if (holder) return "Editar dados";
+  return "Trocar fornecedor";
+}
+
+function ProfileStepAction({ holder, cta, done }: { holder: boolean; cta: string; done: boolean }) {
+  const here = useRouterState({ select: (state) => state.location.href });
+  return (
+    <Button asChild variant={done ? "outline" : "default"} className={STEP_ACTION_CLASS_NAME}>
+      <Link
+        to="/onboarding"
+        search={{
+          step: holder ? "details" : "supplier",
+          flow: done ? undefined : "setup",
+          from: done ? undefined : here,
+        }}
+      >
+        {stepActionLabel({ done, holder, cta })}
+        <ArrowRightIcon aria-hidden="true" />
+      </Link>
+    </Button>
+  );
+}
+
 /** The e-mail step resends the link; every other step opens its page. */
 function StepAction({ step, done = false }: { step: SetupStep; done?: boolean }) {
   if (step.key === "hasVerifiedEmail") {
@@ -55,15 +84,7 @@ function StepAction({ step, done = false }: { step: SetupStep; done?: boolean })
     return <ResendVerificationButton label={step.cta} className={STEP_ACTION_CLASS_NAME} />;
   }
   if (step.key === "hasHolder" || step.key === "hasSupplier") {
-    const isHolder = step.key === "hasHolder";
-    return (
-      <Button asChild variant={done ? "outline" : "default"} className={STEP_ACTION_CLASS_NAME}>
-        <Link to="/onboarding" search={{ step: isHolder ? "details" : "supplier" }}>
-          {done ? (isHolder ? "Editar dados" : "Trocar fornecedor") : step.cta}
-          <ArrowRightIcon aria-hidden="true" />
-        </Link>
-      </Button>
-    );
+    return <ProfileStepAction holder={step.key === "hasHolder"} cta={step.cta} done={done} />;
   }
   return (
     <Button asChild variant={done ? "outline" : "default"} className={STEP_ACTION_CLASS_NAME}>
@@ -225,47 +246,91 @@ function SetupGuide({
   );
 }
 
+function useDashboardSetupFocus() {
+  const pending = useRef(false);
+  const request = useCallback(() => {
+    pending.current = true;
+  }, []);
+  const focus = useCallback((button: HTMLButtonElement | null) => {
+    if (button !== null && pending.current) {
+      pending.current = false;
+      button.focus({ preventScroll: true });
+    }
+  }, []);
+  return { request, focus };
+}
+
+const DashboardSetupFocusContext = createContext<ReturnType<typeof useDashboardSetupFocus> | null>(
+  null,
+);
+
+function useDashboardSetupFocusContext() {
+  const focus = useContext(DashboardSetupFocusContext);
+  if (focus === null) {
+    throw new Error("DashboardSetupGuide must render inside DashboardSetupProvider");
+  }
+  return focus;
+}
+
+export function DashboardSetupProvider({ children }: { children: ReactNode }) {
+  const focus = useDashboardSetupFocus();
+  return <DashboardSetupFocusContext value={focus}>{children}</DashboardSetupFocusContext>;
+}
+
 /**
  * The setup guide on top of the dashboard until the setup is done: a mini tutorial, never
  * removed. The reseller may minimize it to the strip the other pages show; this browser
  * remembers it. Before hydration both are in the HTML and the mark the init script left on
  * `<html>` keeps only the remembered one, so nothing jumps.
  */
-export function DashboardSetupGuide({ progress }: { progress: SetupProgress }) {
+export function DashboardSetupGuide({
+  progress,
+  inHeader = false,
+}: {
+  progress: SetupProgress;
+  inHeader?: boolean;
+}) {
   const { choice, setHidden } = useSetupGuideChoice();
   const view = setupGuideView(findNextStep(progress) === undefined, choice);
-  const focusAfterToggle = useRef(false);
-  // The toggle that just mounted takes the focus of the one the click removed.
-  const toggleRef = useCallback((button: HTMLButtonElement | null) => {
-    if (button !== null && focusAfterToggle.current) {
-      focusAfterToggle.current = false;
-      button.focus();
-    }
-  }, []);
+  const { request, focus } = useDashboardSetupFocusContext();
 
   function toggle(hidden: boolean) {
-    focusAfterToggle.current = true;
+    request();
     setHidden(hidden);
   }
 
   if (view === "none") {
     return null;
   }
-  if (view === "open") {
-    return <SetupGuide progress={progress} onToggle={() => toggle(true)} toggleRef={toggleRef} />;
-  }
-  if (view === "collapsed") {
-    return <SetupStrip progress={progress} onToggle={() => toggle(false)} toggleRef={toggleRef} />;
-  }
   return (
-    <>
-      <div className="in-data-[setup-guide=hidden]:hidden">
-        <SetupGuide progress={progress} onToggle={() => toggle(true)} />
-      </div>
-      <div className="hidden in-data-[setup-guide=hidden]:block">
-        <SetupStrip progress={progress} onToggle={() => toggle(false)} />
-      </div>
-    </>
+    <div
+      className="dashboard-setup-guide"
+      data-view={view}
+      data-below-header={inHeader ? undefined : true}
+    >
+      {inHeader ? null : (
+        <div data-guide-part="open" inert={view === "collapsed"}>
+          <div>
+            <SetupGuide
+              progress={progress}
+              onToggle={() => toggle(true)}
+              toggleRef={view === "open" ? focus : undefined}
+            />
+          </div>
+        </div>
+      )}
+      {inHeader ? (
+        <div data-guide-part="collapsed" inert={view === "open"}>
+          <div>
+            <SetupStrip
+              progress={progress}
+              onToggle={() => toggle(false)}
+              toggleRef={view === "collapsed" ? focus : undefined}
+            />
+          </div>
+        </div>
+      ) : null}
+    </div>
   );
 }
 
@@ -308,13 +373,15 @@ function StripToggle({
 
 /**
  * A thin reminder on other pages until the setup is done. On the dashboard it is the minimized
- * guide, with the button that brings the whole guide back.
+ * guide, with the button that brings the whole guide back. On the page of the step being done
+ * (`current`) it only shows the progress, so one step leads to the next with the bar in sight.
  */
 export function SetupStrip({
   progress,
   onToggle,
   toggleRef,
-}: { progress: SetupProgress } & Partial<GuideToggleProps>) {
+  current = false,
+}: { progress: SetupProgress; current?: boolean } & Partial<GuideToggleProps>) {
   const next = findNextStep(progress);
   if (!next) {
     return null;
@@ -324,7 +391,8 @@ export function SetupStrip({
       <span className="text-muted-foreground tabular-nums">
         Configuração {setupPercent(progress)}% · ~{remainingSetupMinutes(progress)} min ·
       </span>{" "}
-      Próximo passo: <span className="font-medium">{next.title.toLowerCase()}</span>
+      {current ? "Passo atual" : "Próximo passo"}:{" "}
+      <span className="font-medium">{next.title.toLowerCase()}</span>
     </span>
   );
   const bar = (
@@ -337,6 +405,11 @@ export function SetupStrip({
       aria-label="Configuração da conta"
       className="surface-card flex flex-col gap-3 rounded-3xl bg-card px-5 py-3 sm:flex-row sm:items-center"
     >
+      {current ? null : (
+        <div className="flex shrink-0 flex-wrap gap-2">
+          <StepAction step={next} />
+        </div>
+      )}
       {onToggle === undefined ? (
         <>
           {text}
@@ -345,9 +418,6 @@ export function SetupStrip({
       ) : (
         <StripToggle onToggle={onToggle} toggleRef={toggleRef} text={text} bar={bar} />
       )}
-      <div className="flex flex-wrap gap-2 sm:ml-auto">
-        <StepAction step={next} />
-      </div>
     </aside>
   );
 }

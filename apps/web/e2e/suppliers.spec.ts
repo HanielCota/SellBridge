@@ -12,6 +12,41 @@ import {
 
 const PHONE = "(11) 98765-4321";
 
+test("the setup guide advances from saved details to supplier and then to stores", async ({
+  page,
+}) => {
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await signUp(page, "Revendedora Guia de Cadastro");
+  await gotoHydrated(page, "/dashboard");
+  const guide = page.getByRole("region", { name: "Falta pouco para sua primeira venda" });
+  await guide.getByRole("link", { name: "Completar cadastro" }).click();
+  // Each step of the setup keeps the progress in sight, one step leading to the next.
+  const progress = page.getByRole("complementary", { name: "Configuração da conta" });
+  await expect(progress).toContainText("Passo atual: seus dados");
+  await page.getByLabel("CPF").fill(testCpf());
+  await page.getByLabel("Telefone com DDD").fill(PHONE);
+  await fillBillingAddress(page);
+  await page.getByRole("button", { name: "Salvar dados" }).click();
+
+  await expect(page.getByRole("heading", { name: "Seu fornecedor", exact: true })).toBeVisible();
+  await expect(progress).toContainText("Passo atual: escolha seu fornecedor");
+  await expect(progress).toBeInViewport();
+  const options = page.getByRole("radiogroup", { name: "Fornecedores" });
+  await expect(options).toBeVisible();
+  await expect(page.getByText("Todo o Brasil", { exact: true })).toHaveCount(0);
+  await expect
+    .poll(() =>
+      options.evaluate(
+        (element) => getComputedStyle(element).gridTemplateColumns.split(" ").length,
+      ),
+    )
+    .toBe(3);
+
+  await pickSupplier(page, "BH Beauty Distribuidora");
+  await page.getByRole("button", { name: "Salvar fornecedor" }).click();
+  await expect(page).toHaveURL(/\/lojas/);
+});
+
 test.describe("cadastro do revendedor", () => {
   test("novo usuário informa nome, CPF e telefone e escolhe o fornecedor", async ({ page }) => {
     const cpf = testCpf();
@@ -92,6 +127,23 @@ test.describe("cadastro do revendedor", () => {
 });
 
 test.describe("busca de fornecedores", () => {
+  test("shows the first row of niches and opens the rest with one tap", async ({ page }) => {
+    await page.setViewportSize({ width: 375, height: 812 });
+    await signIn(page, DEMO_USER);
+    await gotoHydrated(page, "/fornecedores");
+
+    const niches = page.getByRole("group", { name: "Nicho", exact: true });
+    const pet = niches.getByRole("button", { name: "Pet", exact: true });
+    await expect(pet).toBeHidden();
+    await niches.getByRole("button", { name: /^Mais \d+ nichos$/ }).click();
+    await pet.click();
+
+    await expect(page).toHaveURL(/niche=Pet/);
+    // The chosen niche keeps the list open, so the choice stays in sight.
+    await expect(pet).toHaveAttribute("aria-pressed", "true");
+    await expect(pet).toBeVisible();
+  });
+
   test("sem endereço, mostra fornecedores de todo o Brasil, sem falar em região", async ({
     page,
   }) => {
@@ -165,6 +217,7 @@ test.describe("fornecedores e catálogo", () => {
     await expect(page.getByText("Nenhum fornecedor com esses filtros")).toBeVisible();
 
     await search.fill("");
+    await page.getByRole("button", { name: /^Mais \d+ nichos$/ }).click();
     await page.getByRole("button", { name: "Pet", exact: true }).click();
     await expect(page).toHaveURL(/niche=Pet/);
     await expect(page.getByRole("link", { name: "Rio Pet Atacado" })).toBeVisible();
@@ -213,8 +266,14 @@ test.describe("fornecedores e catálogo", () => {
     // Measured before opening: an open select hides the rest of the page from the a11y tree.
     const field = await stateFilter.boundingBox();
     await stateFilter.click();
-    // The list opens below the field: laid over it, it read as a broken card.
-    const list = await page.getByRole("listbox").boundingBox();
+    // The list opens below the field: laid over it, it read as a broken card. Measured once its
+    // opening slide has ended, since it starts a few pixels higher.
+    const listbox = page.getByRole("listbox");
+    await listbox.evaluate(async (element) => {
+      const content = element.closest('[data-slot="select-content"]') ?? element;
+      await Promise.all(content.getAnimations().map(async (animation) => animation.finished));
+    });
+    const list = await listbox.boundingBox();
     expect(list?.y ?? 0).toBeGreaterThanOrEqual((field?.y ?? 0) + (field?.height ?? 0));
     await expect(page.getByRole("option", { name: "Roraima RR" })).toBeVisible();
     await page.getByRole("option", { name: "Minas Gerais MG" }).click();

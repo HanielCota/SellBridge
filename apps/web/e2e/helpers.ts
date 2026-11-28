@@ -291,6 +291,15 @@ export async function enableAdminMode(page: Page): Promise<void> {
     await expect(toggle).toHaveAttribute("aria-checked", "true");
   }
   await page.keyboard.press("Escape");
+  const section = page.getByRole("region", { name: "Administração", exact: true });
+  await expect(section).toBeVisible();
+  const administration = section.getByRole("button", { name: "Administração", exact: true });
+  if (
+    (await administration.count()) > 0 &&
+    (await administration.getAttribute("aria-expanded")) === "false"
+  ) {
+    await administration.click();
+  }
   // Every team role sees the support inbox; customer accounts are for admins only.
   await expect(page.getByRole("link", { name: "Chamados" })).toBeVisible();
 }

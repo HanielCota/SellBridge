@@ -1,3 +1,4 @@
+import type { MouseEvent } from "react";
 import { ACTION_ICONS, NAV_TAB_ICONS, type ActionIcon } from "@/components/icons/action-icons";
 import { cn } from "@/lib/utils";
 
@@ -65,19 +66,27 @@ export function TabBadge({
   count,
   description,
   onActive = false,
+  className,
 }: {
   isError: boolean;
   count: number;
   description: string;
   /** On the lit item's dark pill, the brand green on black was nearly invisible. */
   onActive?: boolean;
+  className?: string | undefined;
 }) {
   return (
     <>
-      <span aria-hidden="true" className={countTagClassName({ isError, onActive })}>
+      <span aria-hidden="true" className={cn(countTagClassName({ isError, onActive }), className)}>
         {count}
       </span>
       <span className="sr-only">, {description}</span>
     </>
   );
+}
+
+export function chooseOnPlainClick(event: MouseEvent<HTMLAnchorElement>, choose: () => void) {
+  if (!event.metaKey && !event.ctrlKey && !event.shiftKey && !event.altKey && event.button === 0) {
+    choose();
+  }
 }

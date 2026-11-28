@@ -4,10 +4,10 @@ import {
   SUPPLIER_SORTS,
   supplierListSearchSchema,
 } from "@sellbridge/shared/schemas";
-import { useQuery } from "@tanstack/react-query";
+import { keepPreviousData, useQuery } from "@tanstack/react-query";
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { PackageIcon, StorefrontIcon } from "@phosphor-icons/react";
-import { FilterTabs } from "@/components/data/filter-tabs";
+import { CollapsibleFilterChips } from "@/components/data/collapsible-filter-chips";
 import { SearchInput } from "@/components/data/search-input";
 import { EmptyState } from "@/components/feedback/empty-state";
 import { ErrorState } from "@/components/feedback/error-state";
@@ -153,15 +153,19 @@ function CitySelect({ cities }: { cities: readonly string[] }) {
 function NicheTabs() {
   const search = Route.useSearch();
   const navigate = useNavigate({ from: Route.fullPath });
-  const { data } = useQuery(suppliersQueryOptions(search));
+  const { data } = useQuery({
+    ...suppliersQueryOptions(search),
+    placeholderData: keepPreviousData,
+  });
   const niches = data?.niches ?? [];
   if (niches.length === 0) {
     return null;
   }
   return (
-    <div className="-mx-1 overflow-x-auto px-1 pb-1">
-      <FilterTabs
+    <div className="pb-1">
+      <CollapsibleFilterChips
         legend="Nicho"
+        moreLabel={(hidden) => `Mais ${hidden} ${hidden === 1 ? "nicho" : "nichos"}`}
         tabs={[
           { value: ALL_NICHES, label: "Todos" },
           ...niches.map((niche) => ({ value: niche, label: niche })),

@@ -4,6 +4,9 @@
 @import "@fontsource-variable/manrope";
 @import "./styles/native-controls.css";
 @import "./styles/print.css";
+@import "./styles/staff-sidebar.css";
+@import "./styles/dashboard-setup-guide.css";
+@import "./styles/dashboard-motion.css";
 
 @custom-variant dark (&:is(.dark *));
 
@@ -89,6 +92,8 @@
 }
 
 :root {
+  --disclosure-open-duration: 380ms;
+  --disclosure-close-duration: 300ms;
   /* Grouped surface (brand light gray) behind the login and sign-up forms. */
   --surface-grouped: oklch(0.97 0.002 260);
   --field: oklch(1 0 0);
@@ -286,8 +291,9 @@
  * slid in. With the preference on they only fade. Outside any layer so it wins over utilities.
  */
 @media (prefers-reduced-motion: reduce) {
-  .animate-in,
-  .animate-out {
+  /* Also the state-prefixed classes (`data-[state=open]:animate-in`), which compile to other names. */
+  [class*="animate-in"],
+  [class*="animate-out"] {
     --tw-enter-scale: 1;
     --tw-exit-scale: 1;
     --tw-enter-translate-x: 0;
@@ -325,6 +331,64 @@
     &:hover::after {
       box-shadow: inset 0 0 0 1px
         color-mix(in oklch, var(--foreground) var(--surface-edge-hover), transparent);
+    }
+  }
+}
+
+/*
+ * First child of a long `surface-card` whose toolbar stays pinned while its list scrolls. At rest it
+ * lies exactly on the card's own top edge; once the card scrolls under the page header it stays
+ * there and redraws the rounded top edge, so the card never looks cut off. Pure CSS, so nothing
+ * switches on scroll and nothing flickers. The card's padding must cover its height.
+ */
+@utility surface-card-pinned-top {
+  --pinned-top-height: var(--radius-3xl);
+  --pinned-top-edge: color-mix(in oklch, var(--foreground) var(--surface-edge), transparent);
+  position: sticky;
+  top: var(--app-header-height, 0px);
+  z-index: 20;
+  height: var(--pinned-top-height);
+  border: 1px solid var(--pinned-top-edge);
+  border-bottom-width: 0;
+  border-radius: var(--pinned-top-height) var(--pinned-top-height) 0 0;
+  background-color: var(--card);
+  transition: border-color 200ms ease-out;
+
+  /* Outside the rounded corners: the page, over the card body that scrolls behind. */
+  &::before,
+  &::after {
+    content: "";
+    position: absolute;
+    top: -1px;
+    width: var(--pinned-top-height);
+    height: var(--pinned-top-height);
+    pointer-events: none;
+  }
+  &::before {
+    left: -1px;
+    background: radial-gradient(
+      circle at 100% 100%,
+      transparent var(--pinned-top-height),
+      var(--background) calc(var(--pinned-top-height) + 0.5px)
+    );
+  }
+  &::after {
+    right: -1px;
+    background: radial-gradient(
+      circle at 0% 100%,
+      transparent var(--pinned-top-height),
+      var(--background) calc(var(--pinned-top-height) + 0.5px)
+    );
+  }
+
+  /* Brightens with the card's own edge on hover. */
+  @media (hover: hover) {
+    .surface-card:hover > & {
+      --pinned-top-edge: color-mix(
+        in oklch,
+        var(--foreground) var(--surface-edge-hover),
+        transparent
+      );
     }
   }
 }

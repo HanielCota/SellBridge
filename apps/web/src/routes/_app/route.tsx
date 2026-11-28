@@ -1,18 +1,20 @@
+import type { PeriodSearch } from "@sellbridge/shared/schemas";
 import type { ProfileKind } from "@sellbridge/shared/profile-kind";
 import { useQuery, type QueryClient } from "@tanstack/react-query";
 import {
   createFileRoute,
+  getRouteApi,
   Outlet,
   redirect,
   retainSearchParams,
   useRouterState,
+  useSearch,
 } from "@tanstack/react-router";
-import { SideNav } from "@/components/layout/side-nav";
-import { TopNav } from "@/components/layout/top-nav";
+import { StaffSidebarLayout } from "@/components/layout/staff-sidebar";
 import { useAppNavigation } from "@/components/layout/use-app-navigation";
 import { ImpersonationBanner } from "@/components/layout/impersonation-banner";
 import { SupportLauncher } from "@/components/support/support-launcher";
-import { SetupStrip } from "@/components/onboarding/setup-guide";
+import { DashboardSetupGuide, SetupStrip } from "@/components/onboarding/setup-guide";
 import { planProfileNavigation } from "@/features/auth/profile-navigation";
 import { profileRedirectFor } from "@/features/auth/profile-routes";
 import { type AppSession, getAppSession } from "@/features/auth/session.functions";
@@ -26,6 +28,7 @@ import {
   tabProfile,
 } from "@/lib/tab-profile";
 import { findNextStep } from "@/features/onboarding/setup-progress";
+import { setupStripMode } from "@/features/onboarding/setup-guide-visibility";
 import { needsTermsAcceptance } from "@/features/onboarding/terms-gate";
 import { ContractReminder } from "@/components/contract-signing/contract-reminder";
 import {
@@ -34,7 +37,10 @@ import {
   sessionContractOf,
   showsSigningReminder,
 } from "@/features/contract-signing/contract-gate";
-import { setupProgressQueryOptions } from "@/features/reports/reports.queries";
+import {
+  dashboardQueryOptions,
+  setupProgressQueryOptions,
+} from "@/features/reports/reports.queries";
 
 /** Every page of the app carries its profile, so each tab keeps its own (see profile-param.ts). */
 function validateAppSearch(search: Record<string, unknown>): { perfil?: string } {
@@ -132,34 +138,36 @@ async function prefetchSetupProgress(
   await queryClient.prefetchQuery(options);
 }
 
-/** Pages that already guide the setup themselves, or are not about the reseller's store. */
-const NO_SETUP_STRIP = ["/dashboard", "/onboarding", "/admin", "/perfil", "/suporte"];
-
 function SetupReminder() {
   const pathname = useRouterState({ select: (state) => state.location.pathname });
-  const hidden = NO_SETUP_STRIP.some(
-    (path) => pathname === path || pathname.startsWith(`${path}/`),
-  );
-  // Disabled, not unmounted: the observer keeps the loader's data cached on pages without the
-  // strip, so it is already there on the next page.
-  const query = useQuery({ ...setupProgressQueryOptions(), enabled: !hidden });
-  if (hidden || !query.data) {
+  const inSetupFlow = useSearch({ strict: false, select: (search) => search.flow === "setup" });
+  const openStep = useSearch({ strict: false, select: (search) => search.step });
+  const query = useQuery(setupProgressQueryOptions());
+  if (query.data === undefined) {
     return null;
   }
-  const next = findNextStep(query.data);
-  // The page of the next step already explains it.
-  if (next && pathname.startsWith(next.to)) {
+  const mode = setupStripMode({
+    pathname,
+    inSetupFlow,
+    nextStep: findNextStep(query.data),
+    openStep,
+  });
+  if (mode === "hidden") {
     return null;
   }
-  return <SetupStrip progress={query.data} />;
+  return <SetupStrip progress={query.data} current={mode === "current"} />;
 }
 
-/** In admin mode the team is answering tickets, so the reseller chat stays out of the way. */
-function SupportChatLauncher({ adminMode }: { adminMode: boolean }) {
-  if (adminMode) {
-    return null;
-  }
-  return <SupportLauncher />;
+const dashboardRoute = getRouteApi("/_app/dashboard");
+
+function DashboardHeaderSetup() {
+  const search = dashboardRoute.useSearch({ shouldThrow: false });
+  return search === undefined ? null : <DashboardHeaderGuide search={search} />;
+}
+
+function DashboardHeaderGuide({ search }: { search: PeriodSearch }) {
+  const { data } = useQuery(dashboardQueryOptions(search));
+  return data === undefined ? null : <DashboardSetupGuide progress={data.onboarding} inHeader />;
 }
 
 function AppLayout() {
@@ -174,6 +182,16 @@ function AppLayout() {
     buyerQuestionsEnabled: session.buyerQuestionsEnabled,
     isDeveloper: session.isDeveloper,
   });
+  const shell = {
+    user: session.user,
+    adminMode: session.adminMode,
+    profileKind: session.profileKind,
+    state: navigation,
+  };
+  const setupReminder =
+    session.profileKind === "seller" && !session.teamOnly ? <SetupReminder /> : null;
+  const headerSetup =
+    pathname === "/dashboard" && setupReminder !== null ? <DashboardHeaderSetup /> : setupReminder;
   return (
     <div className="min-h-svh bg-background">
       {session.impersonatedBy ? (
@@ -182,37 +200,28 @@ function AppLayout() {
           endsAt={session.impersonationEndsAt}
         />
       ) : null}
-      <div className="lg:flex">
-        <SideNav
-          state={navigation}
-          user={session.user}
-          adminMode={session.adminMode}
-          profileKind={session.profileKind}
-        />
-        <div className="min-w-0 flex-1">
-          <TopNav
-            user={session.user}
-            adminMode={session.adminMode}
-            profileKind={session.profileKind}
-            state={navigation}
-          />
-          <main
-            id="main-content"
-            tabIndex={-1}
-            className="mx-auto w-full max-w-[1440px] space-y-6 px-4 pt-4 pb-28 md:px-8 md:pt-8 md:pb-32"
-          >
-            {showsSigningReminder(session, isTeamPage(pathname)) ? (
-              <ContractReminder
-                contract={sessionContractOf(session)}
-                profileKind={session.profileKind}
-              />
-            ) : null}
-            {session.profileKind === "seller" && !session.teamOnly ? <SetupReminder /> : null}
-            <Outlet />
-          </main>
-        </div>
-      </div>
-      <SupportChatLauncher adminMode={session.adminMode} />
+      <StaffSidebarLayout {...shell} setupReminder={headerSetup}>
+        <AppPage session={session} pathname={pathname} />
+        {/* In admin mode the team is answering tickets, so the support button stays out of the way. */}
+        {session.teamOnly || session.adminMode ? null : (
+          <SupportLauncher unread={navigation.counts.supportReplies} kind={session.profileKind} />
+        )}
+      </StaffSidebarLayout>
     </div>
+  );
+}
+
+function AppPage({ session, pathname }: { session: AppSession; pathname: string }) {
+  return (
+    <main
+      id="main-content"
+      tabIndex={-1}
+      className="mx-auto w-full max-w-[1440px] space-y-6 px-4 pt-2 pb-28 md:px-8 md:pb-32"
+    >
+      {showsSigningReminder(session, isTeamPage(pathname)) ? (
+        <ContractReminder contract={sessionContractOf(session)} profileKind={session.profileKind} />
+      ) : null}
+      <Outlet />
+    </main>
   );
 }

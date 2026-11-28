@@ -6,12 +6,15 @@ import { DEMO_USER, gotoHydrated, signIn } from "./helpers";
  * page) used the router's default scroll reset, so the page jumped back to the top every time.
  */
 
+/** Beside the sidebar the page scrolls inside the content panel, not the window. */
 function scrollY(page: Page): Promise<number> {
-  return page.evaluate(() => window.scrollY);
+  return page.evaluate(
+    () => window.scrollY + (document.querySelector(".staff-main-panel")?.scrollTop ?? 0),
+  );
 }
 
 /**
- * Scrolls the window so the control sits right under the sticky top bar, as if the reseller had
+ * Scrolls the page so the control sits right under the sticky top bar, as if the reseller had
  * read past the header (under the bar, Playwright would scroll by itself to reach it). Returns
  * where the control sits on screen.
  */
@@ -21,8 +24,15 @@ async function scrollPast(page: Page, control: Locator): Promise<number> {
   if (box === null || topBar === null) {
     throw new Error("the control or the top bar is not on the page");
   }
-  const target = Math.round(box.y - topBar.height - 16);
-  await page.evaluate((top) => window.scrollTo(0, top), target);
+  const distance = Math.round(box.y - (topBar.y + topBar.height) - 16);
+  await page.evaluate((by) => {
+    const panel = document.querySelector(".staff-main-panel");
+    if (panel !== null && panel.scrollHeight > panel.clientHeight) {
+      panel.scrollBy(0, by);
+      return;
+    }
+    window.scrollBy(0, by);
+  }, distance);
   await expect.poll(() => scrollY(page)).toBeGreaterThan(50);
   return screenTop(control);
 }

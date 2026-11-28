@@ -1,5 +1,5 @@
 import type { OnboardingProfile } from "@sellbridge/database/repositories";
-import { internalPathSchema } from "@sellbridge/shared/schemas";
+import { internalPathSchema, optionalParameter } from "@sellbridge/shared/schemas";
 import { isProductSourceSetupComplete } from "@sellbridge/shared/product-sources";
 import { ArrowLeftIcon } from "@phosphor-icons/react";
 import { useQueryClient } from "@tanstack/react-query";
@@ -7,18 +7,22 @@ import { createFileRoute, Link, useNavigate, useRouter } from "@tanstack/react-r
 import { useState } from "react";
 import { z } from "zod";
 import { PageHeader } from "@/components/layout/page-header";
+import { CARD_WITH_TOP_CAP_PADDING, CardTopCap } from "@/components/onboarding/card-top-cap";
 import { HolderForm } from "@/components/onboarding/holder-form";
 import { ProductSourceChoice } from "@/components/onboarding/product-source-choice";
 import { EditOnboardingProfile } from "@/components/onboarding/edit-profile";
 import { StepProgress } from "@/components/region/billing-holder";
 import { Button } from "@/components/ui/button";
 import { getOnboardingProfile } from "@/features/onboarding/onboarding.functions";
-import { SETUP_STEPS } from "@/features/onboarding/setup-progress";
+import { findNextStep, SETUP_STEPS, setupStepExit } from "@/features/onboarding/setup-progress";
 import { setupProgressQueryOptions } from "@/features/reports/reports.queries";
 
 const onboardingSearchSchema = z.object({
   redirect: internalPathSchema,
+  // The page the setup flow was started from: once no step is left, the reseller goes back there.
+  from: internalPathSchema,
   step: z.enum(["details", "supplier"]).optional(),
+  flow: optionalParameter(z.literal("setup")),
 });
 
 export const Route = createFileRoute("/_app/onboarding")({
@@ -62,43 +66,60 @@ function OnboardingStepEditor({
   profile: OnboardingProfile;
 }) {
   const finish = useFinishOnboarding();
+  const backFromSupplier = useBackFromSupplier();
+  const { flow } = Route.useSearch();
   const router = useRouter();
   const [saved, setSaved] = useState(false);
-  const navigate = useNavigate();
   return (
-    <div className="mx-auto w-full max-w-3xl space-y-6">
-      <Button asChild variant="ghost">
-        <Link to="/dashboard">
-          <ArrowLeftIcon aria-hidden="true" />
-          Voltar à Visão geral
-        </Link>
-      </Button>
+    <div className={`mx-auto w-full space-y-6 ${step === "supplier" ? "max-w-6xl" : "max-w-3xl"}`}>
+      {step === "details" ? (
+        <Button asChild variant="ghost">
+          <Link to="/dashboard">
+            <ArrowLeftIcon aria-hidden="true" />
+            Voltar à Visão geral
+          </Link>
+        </Button>
+      ) : null}
       <PageHeader
         title={step === "details" ? "Seus dados" : "Seu fornecedor"}
         description="Confira os dados salvos. Você pode voltar e editar quando quiser."
       />
-      <section className="surface-card space-y-5 rounded-3xl bg-card p-5 sm:p-8">
+      <section
+        className={`surface-card space-y-5 rounded-3xl bg-card ${step === "supplier" ? CARD_WITH_TOP_CAP_PADDING : "p-5 sm:p-8"}`}
+      >
+        {step === "supplier" ? <CardTopCap /> : null}
         {step === "details" ? (
           <HolderForm
             holder={profile.holder}
             submitLabel={saved ? "Dados salvos" : "Salvar dados"}
             onSaved={async () => {
+              if (flow === "setup") {
+                await finish();
+                return;
+              }
               await router.invalidate();
               setSaved(true);
             }}
           />
         ) : (
-          <ProductSourceChoice
-            profile={profile}
-            onSaved={finish}
-            onBack={() => {
-              void navigate({ to: "/dashboard" });
-            }}
-          />
+          <ProductSourceChoice profile={profile} onSaved={finish} onBack={backFromSupplier} />
         )}
       </section>
     </div>
   );
+}
+
+/** In the setup flow the supplier step goes back to the details; outside it, to the overview. */
+function useBackFromSupplier() {
+  const { flow, redirect, from } = Route.useSearch();
+  const navigate = useNavigate();
+  return () => {
+    if (flow === "setup") {
+      void navigate({ to: "/onboarding", search: { step: "details", flow, redirect, from } });
+      return;
+    }
+    void navigate({ to: "/dashboard" });
+  };
 }
 
 /** After saving, the next setup step: the stores while there is none, else the catalog. */
@@ -109,10 +130,35 @@ function useFinishOnboarding() {
   const queryClient = useQueryClient();
   return async function finish() {
     // Settle the saved profile before navigating; a background reload can leave old form data.
+    const options = setupProgressQueryOptions();
+    await queryClient.cancelQueries({ queryKey: options.queryKey, exact: true });
     const [, progress] = await Promise.all([
       router.invalidate({ sync: true }),
-      queryClient.fetchQuery({ ...setupProgressQueryOptions(), staleTime: 0 }),
+      queryClient.fetchQuery({ ...options, staleTime: 0 }),
     ]);
+    if (search.flow === "setup" && search.redirect === undefined) {
+      const next = findNextStep({
+        ...progress,
+        hasHolder: search.step === "details" || progress.hasHolder,
+        hasSupplier: search.step === "supplier" || progress.hasSupplier,
+      });
+      const exit = setupStepExit(next, search.from);
+      if (exit.kind === "profileStep") {
+        // A new step is a new page: start it at the top, where the setup progress is.
+        await navigate({
+          to: "/onboarding",
+          search: { step: exit.step, flow: "setup", from: search.from },
+          resetScroll: true,
+        });
+        return;
+      }
+      if (exit.kind === "page") {
+        await navigate({ to: exit.to });
+        return;
+      }
+      await navigate({ href: exit.href });
+      return;
+    }
     await navigate({
       to:
         search.redirect ??
@@ -129,15 +175,16 @@ function FirstVisit({ profile }: { profile: OnboardingProfile }) {
   const [step, setStep] = useState(profile.holder === null ? 0 : 1);
   const [holder, setHolder] = useState(profile.holder);
   return (
-    <div className="mx-auto w-full max-w-3xl space-y-6">
+    <div className={`mx-auto w-full space-y-6 ${step === 1 ? "max-w-6xl" : "max-w-3xl"}`}>
       <PageHeader
         title="Seus dados e seu fornecedor"
         description={`Leva uns ${SIGNUP_MINUTES} minutos.`}
       />
       <section
         aria-label="Cadastro"
-        className="surface-card space-y-5 rounded-3xl bg-card p-5 sm:p-8"
+        className={`surface-card space-y-5 rounded-3xl bg-card ${step === 1 ? CARD_WITH_TOP_CAP_PADDING : "p-5 sm:p-8"}`}
       >
+        {step === 1 ? <CardTopCap /> : null}
         <StepProgress steps={SIGNUP_STEPS} current={step} />
         {step === 0 ? (
           <HolderForm

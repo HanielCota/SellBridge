@@ -121,16 +121,19 @@ test("usa a mesma largura das outras páginas em telas largas", async ({ page })
   await page.setViewportSize({ width: 1920, height: 1000 });
   await gotoHydrated(page, "/integracoes");
 
-  const widths = await page.locator("#chaves-de-api").evaluate((section) => {
-    const main = document.getElementById("main-content");
-    if (main === null) {
-      throw new Error("The page has no #main-content");
-    }
-    const style = getComputedStyle(main);
-    const contentWidth =
-      main.clientWidth - parseFloat(style.paddingLeft) - parseFloat(style.paddingRight);
-    return { section: section.getBoundingClientRect().width, content: contentWidth };
-  });
+  // The programmers card spans the page; the sections inside it sit within its padding.
+  const widths = await page
+    .getByRole("region", { name: "Para programadores" })
+    .evaluate((section) => {
+      const main = document.getElementById("main-content");
+      if (main === null) {
+        throw new Error("The page has no #main-content");
+      }
+      const style = getComputedStyle(main);
+      const contentWidth =
+        main.clientWidth - parseFloat(style.paddingLeft) - parseFloat(style.paddingRight);
+      return { section: section.getBoundingClientRect().width, content: contentWidth };
+    });
 
   expect(widths.section).toBeCloseTo(widths.content, 0);
 });

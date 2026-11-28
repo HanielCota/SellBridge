@@ -1,11 +1,10 @@
-import { KeyIcon, PlusIcon } from "@phosphor-icons/react";
+import { PlusIcon } from "@phosphor-icons/react";
 import { useQuery } from "@tanstack/react-query";
 import { useState } from "react";
-import { EmptyState } from "@/components/feedback/empty-state";
 import { ErrorState } from "@/components/feedback/error-state";
 import { ApiKeyList } from "@/components/integrations/api-key-list";
 import { CreateApiKeyDialog } from "@/components/integrations/create-api-key-dialog";
-import { IntegrationsSection } from "@/components/integrations/integrations-layout";
+import { CompactEmpty, IntegrationsSection } from "@/components/integrations/integrations-layout";
 import {
   type ApiKeyToRevoke,
   RevokeApiKeyDialog,
@@ -39,10 +38,8 @@ function ApiKeysContent({
   }
   if (query.data.length === 0) {
     return (
-      <EmptyState
-        icon={KeyIcon}
-        title="Nenhuma chave criada"
-        description="Crie uma chave para que o seu sistema ou planilha leia os dados da sua conta."
+      <CompactEmpty
+        text="Nenhuma chave criada ainda."
         action={
           <DisabledHint reason={locked ? INTEGRATIONS_LOCKED_REASON : undefined}>
             <Button variant="outline" disabled={locked} onClick={onCreate}>
@@ -67,6 +64,8 @@ export function ApiKeysSection() {
   const [isCreating, setIsCreating] = useState(false);
   const [pendingRevoke, setPendingRevoke] = useState<ApiKeyToRevoke | null>(null);
   const locked = useIntegrationsLocked();
+  // With no key yet the empty line carries the button; a second one beside the title repeats it.
+  const hasKeys = (useQuery(apiKeysQueryOptions()).data?.length ?? 0) > 0;
   return (
     <IntegrationsSection
       id="chaves-de-api"
@@ -74,12 +73,19 @@ export function ApiKeysSection() {
       description="Cada chave deixa um sistema seu ler os dados desta conta, só com as permissões que você marcar. Use uma chave para cada sistema."
       level={3}
       action={
-        <DisabledHint reason={locked ? INTEGRATIONS_LOCKED_REASON : undefined}>
-          <Button variant="outline" size="sm" disabled={locked} onClick={() => setIsCreating(true)}>
-            <PlusIcon aria-hidden="true" />
-            Nova chave
-          </Button>
-        </DisabledHint>
+        hasKeys ? (
+          <DisabledHint reason={locked ? INTEGRATIONS_LOCKED_REASON : undefined}>
+            <Button
+              variant="outline"
+              size="sm"
+              disabled={locked}
+              onClick={() => setIsCreating(true)}
+            >
+              <PlusIcon aria-hidden="true" />
+              Nova chave
+            </Button>
+          </DisabledHint>
+        ) : undefined
       }
     >
       <ApiKeysContent onCreate={() => setIsCreating(true)} onRevoke={setPendingRevoke} />

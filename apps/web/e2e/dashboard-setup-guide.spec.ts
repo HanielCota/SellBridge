@@ -1,5 +1,5 @@
 import { expect, test, type Page } from "@playwright/test";
-import { gotoHydrated, signUp } from "./helpers";
+import { ADMIN_USER, gotoHydrated, signIn, signUp } from "./helpers";
 
 const GUIDE_TITLE = "Falta pouco para sua primeira venda";
 
@@ -101,4 +101,31 @@ test.describe("guia de configuração na visão geral", () => {
     await expect(setupStrip(page)).toBeVisible();
     await expect(page.getByRole("heading", { name: GUIDE_TITLE })).toBeHidden();
   });
+});
+
+test("staff open the header guide above the dashboard title and keep keyboard focus", async ({
+  page,
+}) => {
+  await signIn(page, ADMIN_USER);
+  await page.evaluate(() => localStorage.setItem("sellbridge-setup-guide", "hidden"));
+  await gotoHydrated(page, "/dashboard");
+
+  const header = page.getByRole("banner");
+  const show = header.getByRole("button", { name: /Mostrar os passos/ });
+  await expect(show).toBeVisible();
+  await show.press("Enter");
+
+  const hide = setupGuide(page).getByRole("button", { name: /Esconder os passos/ });
+  const title = page.getByRole("heading", { name: "Visão geral", level: 1 });
+  await expect(hide).toBeFocused();
+  await expect
+    .poll(async () => {
+      const guide = await setupGuide(page).boundingBox();
+      const heading = await title.boundingBox();
+      return guide !== null && heading !== null && guide.y + guide.height <= heading.y;
+    })
+    .toBe(true);
+
+  await hide.press("Enter");
+  await expect(show).toBeFocused();
 });

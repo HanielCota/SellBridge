@@ -146,7 +146,7 @@ test("a company reseller starts connecting its own Bling and comes back when it 
   await completeOnboarding(page);
   const tenantId = await companyReseller(email);
   await gotoHydrated(page, "/integracoes");
-  const section = page.getByRole("region", { name: "Nota de venda pelo Bling" });
+  const section = page.getByRole("region", { name: "Bling", exact: true });
   await expect(section.getByRole("link", { name: "Conectar meu Bling" })).toBeVisible();
 
   const start = await page.request.get("/api/integracoes/bling/revenda", { maxRedirects: 0 });
@@ -174,7 +174,7 @@ test("the reseller chooses its own Bling with the likely operation and payment m
   const tenantId = await companyReseller(email);
   await connectBling(tenantId, null);
   await gotoHydrated(page, "/integracoes");
-  const section = page.getByRole("region", { name: "Nota de venda pelo Bling" });
+  const section = page.getByRole("region", { name: "Bling", exact: true });
   await expect(section.getByLabel("Natureza de operação da venda")).toContainText("Venda à ordem");
   await expect(section.getByLabel("Pix")).toContainText("Pix");
 

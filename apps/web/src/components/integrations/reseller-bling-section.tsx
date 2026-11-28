@@ -1,8 +1,9 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { useState } from "react";
+import { Link } from "@tanstack/react-router";
+import { type ReactNode, useState } from "react";
 import { ErrorState } from "@/components/feedback/error-state";
-import { IntegrationsSection } from "@/components/integrations/integrations-layout";
 import { ResellerBlingForm } from "@/components/integrations/reseller-bling-form";
+import { BlingBadge } from "@/components/supplier-panel/bling/bling-badge";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
@@ -37,15 +38,16 @@ function OutcomeNotice({ outcome }: { outcome: ResellerBlingOutcome }) {
   );
 }
 
-function ConnectCard({ expired }: { expired: boolean }) {
+function ConnectStep({ expired }: { expired: boolean }) {
   const withProfile = useTabProfileLink();
   return (
-    <div className="surface-card grid gap-3 rounded-3xl bg-card p-5">
-      <p className="text-sm text-muted-foreground">
-        {expired
-          ? "O Bling pediu para conectar de novo. Enquanto isso, as notas novas esperam o seu XML."
-          : "Conecte o Bling da sua empresa e o SellBridge emite a nota de venda das vendas à ordem por lá, sem você enviar o XML."}
-      </p>
+    <div className="grid gap-3">
+      {expired ? (
+        <p className="text-sm text-muted-foreground">
+          O Bling pediu para conectar de novo. Enquanto isso, as notas novas esperam o arquivo da
+          nota (XML) enviado por você.
+        </p>
+      ) : null}
       <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
         <Button asChild size="lg">
           <a href={withProfile(CONNECT_PATH)}>
@@ -113,53 +115,101 @@ function Disconnect() {
   );
 }
 
+/** Without a CNPJ there is no company note: the one way out is the details step, then back here. */
+function CompanyNeededStep() {
+  return (
+    <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
+      <Button asChild size="lg">
+        <Link
+          to="/onboarding"
+          search={{ step: "details", flow: "setup", redirect: "/integracoes" }}
+        >
+          Cadastrar CNPJ
+        </Link>
+      </Button>
+      <span className="text-sm text-muted-foreground">
+        Leva 1 minuto. Depois você volta para cá.
+      </span>
+    </div>
+  );
+}
+
+const BLING_BADGES = {
+  not_company: <BlingBadge tone="warning">Falta o CNPJ</BlingBadge>,
+  not_connected: <BlingBadge tone="neutral">Não conectado</BlingBadge>,
+  expired: <BlingBadge tone="warning">Precisa reconectar</BlingBadge>,
+  connected: <BlingBadge tone="success">Conectado</BlingBadge>,
+} as const;
+
 function ResellerBlingContent() {
   const query = useQuery(resellerBlingQueryOptions());
   if (query.isPending) {
     return (
-      <Skeleton className="h-40 rounded-3xl" aria-busy="true" aria-label="Carregando o Bling" />
+      <Skeleton className="h-24 rounded-2xl" aria-busy="true" aria-label="Carregando o Bling" />
     );
   }
   if (query.isError) {
     return <ErrorState message={errorMessage(query.error)} onRetry={() => void query.refetch()} />;
   }
   const view = query.data;
-  if (view.status === "not_company") {
-    return (
-      <p className="surface-card rounded-3xl bg-card p-5 text-sm text-muted-foreground">
-        A nota de venda pelo Bling é para quem vende como empresa. Cadastre o CNPJ da sua empresa em
-        Meu cadastro e volte aqui.
-      </p>
-    );
-  }
+  if (view.status === "not_company") return <CompanyNeededStep />;
   if (view.status === "not_connected" || view.status === "expired") {
-    return <ConnectCard expired={view.status === "expired"} />;
+    return <ConnectStep expired={view.status === "expired"} />;
   }
   return (
-    <div className="surface-card grid gap-6 rounded-3xl bg-card p-5">
+    <div className="grid gap-6">
       <ResellerBlingForm view={view} />
       <Disconnect />
     </div>
   );
 }
 
+function BlingHeading({ badge }: { badge: ReactNode }) {
+  return (
+    <div className="flex items-start gap-3.5">
+      <img
+        src="/integrations/bling.png"
+        alt=""
+        width={192}
+        height={192}
+        draggable={false}
+        className="size-11 flex-none rounded-2xl"
+      />
+      <div className="grid min-w-0 gap-1">
+        <div className="flex flex-wrap items-center gap-2">
+          <h2 id="bling-titulo" className="text-subhead font-medium">
+            Bling
+          </h2>
+          {badge}
+        </div>
+        <p className="text-sm text-muted-foreground">
+          Quando você vende, a nota para o comprador sai no nome da sua empresa. Ligue o seu Bling e
+          ela sai sozinha, sem você enviar arquivo.
+        </p>
+      </div>
+    </div>
+  );
+}
+
 /**
- * "Nota de venda pelo Bling": the reseller selling as a company connects its own Bling and
- * chooses whether it issues the sale note of venda à ordem, with the note's fiscal settings.
+ * The reseller selling as a company connects its own Bling, which then issues the sale note of
+ * venda à ordem; the card says where it stands and offers the one step that moves it forward.
  */
 export function ResellerBlingSection({ outcome }: { outcome: ResellerBlingOutcome | undefined }) {
   const query = useQuery(resellerBlingQueryOptions());
-  if (query.data?.status === "unavailable") {
+  const status = query.data?.status;
+  if (status === "unavailable") {
     return null;
   }
   return (
-    <IntegrationsSection
+    <section
       id="bling"
-      title="Nota de venda pelo Bling"
-      description="Nas vendas à ordem, quem emite a nota para o comprador é a sua empresa. Escolha se você envia o XML ou se o seu Bling emite sozinho."
+      aria-labelledby="bling-titulo"
+      className="surface-card grid scroll-mt-28 gap-5 rounded-3xl bg-card p-5 sm:p-6"
     >
+      <BlingHeading badge={status === undefined ? null : BLING_BADGES[status]} />
       {outcome === undefined ? null : <OutcomeNotice outcome={outcome} />}
       <ResellerBlingContent />
-    </IntegrationsSection>
+    </section>
   );
 }

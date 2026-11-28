@@ -1,0 +1,529 @@
+.staff-workspace {
+  --staff-panel-background: var(--background);
+  display: grid;
+  grid-template-columns: 17.5rem minmax(0, 1fr);
+  min-block-size: 100svh;
+  background: var(--staff-panel-background);
+}
+
+.staff-main-panel > header {
+  background: var(--staff-panel-background);
+}
+
+.staff-header-account,
+.staff-sidebar,
+.staff-account-menu {
+  --staff-highlight: var(--accent);
+  --staff-green: var(--brand);
+}
+
+.staff-sidebar,
+.staff-account-menu {
+  background: var(--card);
+  color: var(--foreground);
+}
+
+.staff-sidebar {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  block-size: 100dvh;
+  border-inline-end: 1px solid var(--border);
+}
+
+.staff-sidebar-desktop {
+  position: sticky;
+  inset-block-start: 0;
+}
+
+.staff-sidebar-header {
+  display: flex;
+  flex: none;
+  align-items: center;
+  justify-content: space-between;
+  min-block-size: 4.5rem;
+  padding-inline: 1.375rem;
+  border-block-end: 1px solid var(--border);
+}
+
+.staff-sidebar-brand {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.625rem;
+  border-radius: 0.5rem;
+}
+
+.staff-nav {
+  flex: 1;
+  min-block-size: 0;
+  overflow-y: auto;
+  overscroll-behavior-block: contain;
+  scrollbar-width: thin;
+  scrollbar-color: color-mix(in srgb, var(--foreground) 22%, transparent) transparent;
+  padding: 0.875rem;
+  padding-block-end: max(0.875rem, env(safe-area-inset-bottom));
+}
+
+.staff-nav > section + section {
+  margin-block-start: 0.25rem;
+}
+
+.staff-nav-group {
+  display: grid;
+  gap: 0.25rem;
+  margin-block-start: 0.25rem;
+}
+
+.staff-nav-group h3 {
+  margin-block-start: 0.75rem;
+  padding-inline: 0.625rem;
+  color: var(--muted-foreground);
+  font-size: var(--text-footnote);
+  font-weight: 500;
+}
+
+.staff-account-menu .staff-account-row {
+  display: flex;
+  align-items: center;
+  gap: 0.625rem;
+  inline-size: 100%;
+  min-block-size: 2.875rem;
+  padding: 0.375rem 0.75rem;
+  border-radius: 0.6875rem;
+  font-weight: 400;
+  text-align: start;
+}
+
+.staff-nav-row {
+  block-size: auto;
+  min-block-size: 2.875rem;
+  padding-block: 0.375rem;
+  font-weight: 400;
+  white-space: normal;
+}
+
+.staff-nav-row[aria-current="page"] {
+  background-color: color-mix(in srgb, var(--staff-green) 30%, var(--card));
+  color: var(--foreground);
+}
+
+.staff-nav-section-header {
+  display: flex;
+  min-block-size: 2.75rem;
+  align-items: center;
+  justify-content: space-between;
+  padding-inline-start: 0.75rem;
+}
+
+.staff-nav-section-header h2 {
+  font-size: 0.875rem;
+  font-weight: 400;
+}
+
+.staff-nav-section-toggle {
+  display: grid;
+  flex: none;
+  inline-size: 2.75rem;
+  block-size: 2.75rem;
+  place-items: center;
+  border-radius: 50%;
+}
+
+.staff-nav-section-toggle:hover {
+  background: color-mix(in srgb, var(--foreground) 6%, transparent);
+}
+
+.staff-header-controls {
+  display: flex;
+  flex: none;
+  align-items: center;
+  gap: 0.125rem;
+  padding: 0.25rem;
+  border-radius: 999px;
+  background-color: var(--card);
+}
+
+.staff-header-setup {
+  order: 1;
+  min-inline-size: 0;
+  flex-basis: 100%;
+}
+
+.staff-header-setup:empty {
+  display: none;
+}
+
+.staff-header-setup aside {
+  flex-wrap: wrap;
+  gap: 0.5rem 0.75rem;
+  padding: 0.5rem 0.875rem;
+}
+
+@media (max-width: 63.999rem) {
+  .staff-header-setup:has(> .dashboard-setup-guide[data-view="open"]),
+  html:not([data-setup-guide="hidden"])
+    .staff-header-setup:has(> .dashboard-setup-guide[data-view="pending"]) {
+    display: none;
+  }
+}
+
+@media (min-width: 64rem) {
+  .staff-header-setup {
+    order: 0;
+    flex: 1 1 20rem;
+  }
+}
+
+.staff-header-controls :is(.app-search-trigger, .notification-bell-trigger, .staff-header-account) {
+  background-color: transparent;
+}
+
+.staff-header-controls
+  :is(.app-search-trigger, .notification-bell-trigger, .staff-header-account):is(
+    :hover,
+    [data-state="open"]
+  ) {
+  color: var(--foreground);
+}
+
+.staff-account-menu .staff-account-row[data-highlighted] {
+  background: var(--staff-highlight);
+  color: var(--foreground);
+  box-shadow: none;
+}
+
+.staff-nav-row:focus-visible,
+.staff-nav-section-toggle:focus-visible,
+.staff-sidebar-brand:focus-visible,
+.staff-header-account:focus-visible,
+.staff-account-menu .staff-account-row:focus-visible,
+.staff-mobile-button:focus-visible,
+.staff-support-link:focus-visible {
+  outline: 2px solid var(--ring);
+  outline-offset: 2px;
+}
+
+.staff-nav-chevron {
+  color: var(--muted-foreground);
+}
+
+.staff-nav-chevron path {
+  stroke-width: 1.85;
+}
+
+.staff-nav-chevron:dir(rtl) {
+  scale: -1 1;
+}
+
+.staff-nav-section-toggle:is(:hover, :focus-visible, [aria-expanded="true"]) > .staff-nav-chevron {
+  color: var(--foreground);
+}
+
+[aria-expanded="true"] > .staff-nav-chevron {
+  rotate: 90deg;
+}
+
+[aria-expanded="true"] > .staff-nav-chevron:dir(rtl) {
+  rotate: -90deg;
+}
+
+.staff-nav-section {
+  display: grid;
+  grid-template-rows: 0fr;
+  visibility: hidden;
+  transition:
+    grid-template-rows var(--disclosure-close-duration) ease-out,
+    visibility 0s var(--disclosure-close-duration);
+}
+
+.staff-nav-section > div {
+  min-block-size: 0;
+  overflow: clip;
+}
+
+.staff-nav-section[data-open="true"] {
+  grid-template-rows: 1fr;
+  visibility: visible;
+  transition:
+    grid-template-rows var(--disclosure-open-duration) ease-out,
+    visibility 0s;
+}
+
+.staff-ticket-count,
+.staff-header-account .staff-account-avatar,
+.staff-account-badge {
+  background: var(--staff-green);
+  color: var(--brand-ink);
+}
+
+.staff-account-badge {
+  position: absolute;
+  inset-inline-end: -1px;
+  inset-block-end: -1px;
+  display: grid;
+  place-items: center;
+  inline-size: 1.1875rem;
+  block-size: 1.1875rem;
+  border: 2px solid var(--card);
+  border-radius: 50%;
+}
+
+.staff-account-menu {
+  inline-size: var(--radix-dropdown-menu-trigger-width);
+  border-radius: 1rem;
+  padding: 0.375rem;
+}
+
+.staff-account-menu-header {
+  --staff-account-shift: -8px;
+  inline-size: min(16.5rem, calc(100vw - 1rem));
+}
+
+.staff-account-menu[data-state="open"] {
+  animation: staff-account-enter 230ms ease-out both;
+}
+
+.staff-account-menu[data-state="closed"] {
+  animation: staff-account-exit 160ms ease-out both;
+}
+
+@keyframes staff-account-enter {
+  from {
+    opacity: 0;
+    translate: 0 var(--staff-account-shift, 8px);
+  }
+  to {
+    opacity: 1;
+    translate: 0 0;
+  }
+}
+
+@keyframes staff-account-exit {
+  from {
+    opacity: 1;
+    translate: 0 0;
+  }
+  to {
+    opacity: 0;
+    translate: 0 var(--staff-account-shift, 8px);
+  }
+}
+
+.staff-account-menu .staff-account-row {
+  color: var(--foreground);
+  font-size: 1rem;
+  padding-inline: 0.625rem;
+}
+
+.staff-account-menu .staff-account-row > [data-slot="dropdown-menu-checkbox-item-indicator"] {
+  display: none;
+}
+
+.staff-account-email {
+  padding: 0.5rem 0.625rem;
+  color: var(--muted-foreground);
+  font-size: 0.875rem;
+  font-weight: 400;
+  overflow-wrap: anywhere;
+}
+
+.staff-account-toggle {
+  position: relative;
+  flex: none;
+  inline-size: 2rem;
+  block-size: 1.25rem;
+  margin-inline-start: auto;
+  border-radius: 100px;
+  /* The same off state as the app's Switch. */
+  background: color-mix(in oklch, var(--foreground) 45%, transparent);
+}
+
+.dark .staff-account-toggle {
+  background: var(--input);
+}
+
+.staff-account-toggle::after {
+  content: "";
+  position: absolute;
+  inset-block-start: 2px;
+  inset-inline-start: 2px;
+  inline-size: 1rem;
+  block-size: 1rem;
+  border-radius: 50%;
+  background: white;
+  /* Slides with translate, never an inset: the theme test rules out every other transition. */
+  transition: translate 160ms ease-out;
+}
+
+[aria-checked="true"] .staff-account-toggle {
+  background: var(--staff-green);
+}
+
+[aria-checked="true"] .staff-account-toggle::after {
+  translate: 12px 0;
+}
+
+[aria-checked="true"] .staff-account-toggle:dir(rtl)::after {
+  translate: -12px 0;
+}
+
+.staff-toolbar {
+  display: flex;
+  min-block-size: 4.5rem;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 0.5rem;
+  padding-inline: 1rem;
+}
+
+.staff-mobile-controls {
+  display: none;
+}
+
+.staff-mobile-button {
+  display: grid;
+  place-items: center;
+  inline-size: 2.75rem;
+  block-size: 2.75rem;
+  flex: none;
+  border-radius: 0.6875rem;
+  background: var(--muted);
+}
+
+.staff-support-link {
+  position: fixed;
+  z-index: 40;
+  inset-inline-end: 1rem;
+  inset-block-end: 1rem;
+  display: grid;
+  place-items: center;
+  inline-size: 3.5rem;
+  block-size: 3.5rem;
+  border-radius: 50%;
+  background: var(--brand);
+  color: var(--brand-ink);
+  box-shadow: 0 5px 16px rgb(0 0 0 / 18%);
+  touch-action: none;
+  user-select: none;
+}
+
+/* Until script puts it at its saved spot, so it never flashes in the corner first. */
+.staff-support-link:not([data-placed]) {
+  visibility: hidden;
+}
+
+.staff-support-link[data-dragging] {
+  cursor: grabbing;
+}
+
+/* Unread support replies, on the bubble's top edge so the icon stays readable. */
+.staff-support-count {
+  position: absolute;
+  inset-block-start: -0.25rem;
+  inset-inline-end: -0.25rem;
+  display: grid;
+  place-items: center;
+  min-inline-size: 1.375rem;
+  block-size: 1.375rem;
+  padding-inline: 0.375rem;
+  border-radius: 999px;
+  background: var(--destructive);
+  color: white;
+  font-size: 0.75rem;
+  font-weight: 600;
+  line-height: 1;
+  box-shadow: 0 0 0 2px var(--background);
+}
+
+/* The dark theme's lighter red gives white digits too little contrast (2.9:1); keep the deep one. */
+.dark .staff-support-count {
+  background: oklch(0.53 0.22 27);
+}
+
+body:has(.staff-sidebar-mobile[data-state="open"]) .staff-support-link {
+  visibility: hidden;
+}
+
+@media screen and (min-width: 64rem) {
+  .staff-workspace {
+    background: var(--card);
+  }
+
+  .staff-sidebar-desktop {
+    border-inline-end: 0;
+  }
+
+  .staff-main-panel {
+    block-size: calc(100dvh - 1.5rem);
+    margin-block: 0.75rem;
+    overflow-y: auto;
+    overscroll-behavior-block: contain;
+    border: 1px solid var(--border);
+    border-inline-end: 0;
+    border-start-start-radius: 1.125rem;
+    border-end-start-radius: 1.125rem;
+    background: var(--staff-panel-background);
+  }
+
+  .staff-main-panel > header {
+    border-start-start-radius: inherit;
+  }
+}
+
+@media (max-width: 63.999rem) {
+  .staff-workspace {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .staff-sidebar-desktop {
+    display: none;
+  }
+
+  .staff-mobile-controls {
+    display: flex;
+    align-items: center;
+    gap: 0.375rem;
+  }
+
+  .staff-toolbar {
+    justify-content: space-between;
+    padding-inline: 0.5rem;
+  }
+
+  .staff-sidebar.staff-sidebar-mobile {
+    inset-inline: 0 auto;
+    inline-size: min(17.5rem, 100%);
+    block-size: 100dvh;
+    max-inline-size: none;
+    overflow: hidden;
+  }
+
+  .staff-sidebar-mobile:dir(rtl) {
+    --tw-enter-translate-x: 2.5rem;
+    --tw-exit-translate-x: 2.5rem;
+  }
+
+  .staff-sidebar-mobile .staff-sidebar-header {
+    padding-inline: 0.875rem;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .staff-nav-section,
+  .staff-nav-section[data-open="true"],
+  .staff-account-toggle::after {
+    transition: none;
+  }
+
+  .staff-account-menu[data-state],
+  .staff-sidebar.staff-sidebar-mobile {
+    animation: none;
+  }
+}
+
+@media print {
+  .staff-workspace {
+    display: block;
+    background: var(--background);
+  }
+}

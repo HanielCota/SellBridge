@@ -5,6 +5,7 @@ import {
   PUBLISHING_POLL_MILLISECONDS,
   remainingSetupMinutes,
   SETUP_STEPS,
+  setupStepExit,
   setupEtaLabel,
   setupPercent,
   setupProgressRefetchInterval,
@@ -92,5 +93,36 @@ describe("setup progress refresh", () => {
   it("does not poll when nothing is publishing or nothing was read yet", () => {
     expect(setupProgressRefetchInterval({ ...publishing, isPublishing: false })).toBe(false);
     expect(setupProgressRefetchInterval(undefined)).toBe(false);
+  });
+});
+
+function setupStepByKey(key: string) {
+  return SETUP_STEPS.find((candidate) => candidate.key === key);
+}
+
+describe("setupStepExit", () => {
+  it("opens the supplier step right after the details are saved", () => {
+    expect(setupStepExit(setupStepByKey("hasSupplier"), "/pedidos")).toEqual({
+      kind: "profileStep",
+      step: "supplier",
+    });
+  });
+
+  it("goes to the next step's own page when it is not a profile step", () => {
+    expect(setupStepExit(setupStepByKey("hasStore"), "/pedidos")).toEqual({
+      kind: "page",
+      to: "/lojas",
+    });
+  });
+
+  it("returns to the page the setup was started from once no step is left", () => {
+    expect(setupStepExit(undefined, "/fornecedores?niche=Pet")).toEqual({
+      kind: "origin",
+      href: "/fornecedores?niche=Pet",
+    });
+  });
+
+  it("falls back to the overview when the starting page is unknown", () => {
+    expect(setupStepExit(undefined, undefined)).toEqual({ kind: "origin", href: "/dashboard" });
   });
 });

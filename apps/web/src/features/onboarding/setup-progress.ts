@@ -128,3 +128,23 @@ export function setupEtaLabel(progress: SetupProgress): string | null {
   }
   return `Faltam uns ${minutes} min para sua loja ficar pronta`;
 }
+
+/** Where saving a setup step leads: the next profile step, the next step's page, or back. */
+export type SetupStepExit =
+  | { kind: "profileStep"; step: "details" | "supplier" }
+  | { kind: "page"; to: SetupStep["to"] }
+  | { kind: "origin"; href: string };
+
+/**
+ * After a step of the setup flow is saved: the next unfinished step, and once none is left, the
+ * page the reseller started the setup from (`from`), or the overview when it is unknown.
+ */
+export function setupStepExit(
+  next: SetupStep | undefined,
+  from: string | undefined,
+): SetupStepExit {
+  if (next?.key === "hasHolder") return { kind: "profileStep", step: "details" };
+  if (next?.key === "hasSupplier") return { kind: "profileStep", step: "supplier" };
+  if (next !== undefined) return { kind: "page", to: next.to };
+  return { kind: "origin", href: from ?? "/dashboard" };
+}

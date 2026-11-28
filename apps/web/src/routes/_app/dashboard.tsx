@@ -86,7 +86,11 @@ function DashboardPage() {
   return (
     <div
       aria-busy={query.isPlaceholderData}
-      className={cn("space-y-6 transition-opacity", query.isPlaceholderData && "opacity-60")}
+      data-dashboard
+      className={cn(
+        "space-y-6 transition-opacity motion-reduce:transition-none",
+        query.isPlaceholderData && "opacity-60",
+      )}
     >
       <DashboardContent data={query.data} />
     </div>
@@ -111,12 +115,18 @@ function DashboardContent({ data }: { data: DashboardData }) {
             points={data.timeseries}
             bucket={data.period.bucket}
             fromDate={data.period.fromDate}
-            className="max-w-2xl text-lg"
+            className="max-w-full text-lg lg:max-w-2/3"
           />
         }
       />
       {/* Before the charts: a paid sale waiting for the reseller stops the sale itself. */}
       <OrdersWaitingBanner />
+      {/* What sold and what needs the reseller come first; the charts follow. */}
+      <div className="grid gap-4 lg:grid-cols-3">
+        <StoreBreakdown stores={data.byStore} />
+        <TopProducts products={data.topProducts} />
+        <AttentionPanel stores={data.stores} showMeiTip={onboarding.sellsAsPerson === true} />
+      </div>
       <div className="grid grid-cols-1 gap-4 xl:grid-cols-[300px_minmax(0,1fr)]">
         <KpiTiles
           summary={summary}
@@ -139,11 +149,6 @@ function DashboardContent({ data }: { data: DashboardData }) {
           beforeFirstSale={beforeFirstSale}
         />
       </div>
-      <div className="grid gap-4 lg:grid-cols-3">
-        <StoreBreakdown stores={data.byStore} />
-        <TopProducts products={data.topProducts} />
-        <AttentionPanel stores={data.stores} showMeiTip={onboarding.sellsAsPerson === true} />
-      </div>
     </>
   );
 }
@@ -165,11 +170,11 @@ function DashboardSkeleton() {
             <Skeleton key={index} className="h-44 rounded-3xl" />
           ))}
         </div>
-        <Skeleton className="h-[394px] rounded-3xl sm:h-[426px]" />
         <div className="grid gap-4 lg:grid-cols-3">
           <Skeleton className="h-80 rounded-3xl lg:col-span-2" />
           <Skeleton className="h-80 rounded-3xl" />
         </div>
+        <Skeleton className="h-[394px] rounded-3xl sm:h-[426px]" />
       </div>
     </output>
   );

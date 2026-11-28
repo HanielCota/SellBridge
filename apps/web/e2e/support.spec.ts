@@ -175,7 +175,7 @@ test("botão de suporte avisa a resposta nova, e o revendedor encerra e avalia",
 
   await gotoHydrated(reseller, "/dashboard");
   await reseller.getByRole("button", { name: "Suporte", exact: true }).click();
-  // The corner bubble is a second "Abrir chamado"; this one sits in the Suporte panel.
+  // The corner bubble is the one way to support: it opens the help card.
   await reseller.getByRole("dialog").getByRole("link", { name: "Abrir chamado" }).click();
   await expect(reseller).toHaveURL(/\/suporte\/novo/);
   await waitForHydration(reseller);
@@ -195,16 +195,16 @@ test("botão de suporte avisa a resposta nova, e o revendedor encerra e avalia",
     exact: true,
   });
   await expect(supportButton).toBeVisible();
-  // One reply, one number: the bell lists it without counting it, the corner bubble shows none.
+  // One reply, one number: the bubble counts it, the bell lists it without counting it.
   await expect(reseller.getByRole("button", { name: "Avisos", exact: true })).toBeVisible();
-  await expect(
-    reseller.getByRole("link", { name: "Falar com o suporte", exact: true }),
-  ).toBeVisible();
   await supportButton.click();
   await reseller.getByRole("link", { name: new RegExp(subject) }).click();
   await expect(reseller.getByText("O repasse cai toda sexta-feira.")).toBeVisible();
-  // Reading the reply clears the count on the button.
+  // Reading the reply clears the count on the bubble, which the support pages leave out.
+  const ticketUrl = reseller.url();
+  await gotoHydrated(reseller, "/dashboard");
   await expect(reseller.getByRole("button", { name: "Suporte", exact: true })).toBeVisible();
+  await gotoHydrated(reseller, ticketUrl);
 
   await expect(reseller.getByText("O suporte respondeu.")).toBeVisible();
   await reseller.getByRole("button", { name: "Sim, resolveu" }).click();

@@ -63,8 +63,10 @@ function SourceChoiceActions({
   onBack: () => void;
   onSave: () => void;
 }) {
+  // Reaches 1px short of the card edges, so a scrolled card's ring cannot show beside the bar while
+  // the card's own hairline edge stays visible; the divider keeps the content width.
   return (
-    <div className="sticky bottom-3 z-10 flex flex-wrap items-center gap-2 rounded-3xl border border-border bg-card p-2">
+    <div className="sticky top-[calc(var(--app-header-height,0px)+var(--radius-3xl))] z-10 -mx-[calc(1.25rem-1px)] flex flex-wrap items-center justify-between gap-2 bg-card px-[calc(1.25rem-1px)] py-2 after:absolute after:inset-x-[calc(1.25rem-1px)] after:bottom-0 after:h-px after:bg-border sm:-mx-[calc(2rem-1px)] sm:px-[calc(2rem-1px)] sm:after:inset-x-[calc(2rem-1px)]">
       <Button
         type="button"
         variant="ghost"
@@ -116,9 +118,6 @@ export function ProductSourceChoice({
           fornecedor da sua próxima loja, e dá para trocar depois.
         </p>
       </div>
-      <fieldset disabled={saving.isSaving || saving.isSaved} aria-label="Escolha do fornecedor">
-        <SupplierPicker value={supplierId} onChange={(supplier) => setSupplierId(supplier.id)} />
-      </fieldset>
       {saving.error === null ? null : (
         <Alert variant="destructive">
           <AlertDescription>{saving.error}</AlertDescription>
@@ -134,6 +133,17 @@ export function ProductSourceChoice({
           void saving.save({ mode: SUPPLIERS_MODE, supplierId });
         }}
       />
+      <fieldset
+        className="min-w-0"
+        disabled={saving.isSaving || saving.isSaved}
+        aria-label="Escolha do fornecedor"
+      >
+        <SupplierPicker
+          value={supplierId}
+          onChange={(supplier) => setSupplierId(supplier.id)}
+          onboarding
+        />
+      </fieldset>
     </div>
   );
 }

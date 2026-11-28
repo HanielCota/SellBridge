@@ -1,43 +1,74 @@
-import { Link, useRouterState } from "@tanstack/react-router";
-import { ACTION_ICONS } from "@/components/icons/action-icons";
-import { Hint } from "@/components/ui/hint";
-import { launcherTopic } from "@/features/support/launcher-topic";
-
-/** The support pages already hold the form and the threads. */
-// The new-listing page has a publish bar along the bottom; the bubble covered its button there.
-const HIDDEN_ON = ["/suporte", "/publicacoes/nova"];
-
-const LauncherIcon = ACTION_ICONS.supportChat.icon;
+import type { ProfileKind } from "@sellbridge/shared/profile-kind";
+import { useRouterState } from "@tanstack/react-router";
+import { Popover } from "radix-ui";
+import { useState } from "react";
+import { SolarIcon } from "@/components/layout/solar-icon";
+import { SupportHelpPanel } from "@/components/layout/support-button";
+import { isLauncherHidden, launcherTopic } from "@/features/support/launcher-topic";
+import { supportButtonLabel } from "@/features/support/response-time";
+import { badgeCount } from "@/lib/badge-count";
+import { useSupportPosition } from "./use-support-position";
 
 /**
- * The bubble in the corner of every page: it opens the guided new-ticket form, on the money
- * topic from the money pages. It used to hold a free-text chat that skipped the topic and
- * situation, so those tickets reached the team as "Outro assunto" with no priority worked out. It
- * stays round (board 4, approved on 2026-10-25): its spelled-out label covered "Operar pedido"
- * and "Avaliar"; the name is in the hint and for screen readers, and every page ends with room
- * for it (the bottom padding of `main`).
+ * The one way to support, on every page: a round button in the corner that anyone can drag
+ * anywhere beside the sidebar. It opens the help card (new ticket, supplier conversations,
+ * recent tickets) and counts the support replies not read yet.
  */
-export function SupportLauncher() {
+export function SupportLauncher({ unread, kind }: { unread: number; kind: ProfileKind }) {
   const pathname = useRouterState({ select: (state) => state.location.pathname });
-  const hidden = HIDDEN_ON.some((path) => pathname === path || pathname.startsWith(`${path}/`));
-  if (hidden) {
+  if (isLauncherHidden(pathname)) {
     return null;
   }
-  const topic = launcherTopic(pathname);
-  // Outside <main>, so it needs a landmark of its own: content outside every landmark is lost
-  // to screen-reader users skipping between regions (axe "region").
+  return <MovableSupportLauncher unread={unread} kind={kind} pathname={pathname} />;
+}
+
+function MovableSupportLauncher({
+  unread,
+  kind,
+  pathname,
+}: {
+  unread: number;
+  kind: ProfileKind;
+  pathname: string;
+}) {
+  const { instructions, buttonProps } = useSupportPosition();
+  const [open, setOpen] = useState(false);
+  const close = () => setOpen(false);
+  // Outside <main>, so it needs a landmark of its own (axe "region").
   return (
-    <aside aria-label="Suporte">
-      <Hint label="Falar com o suporte" openOnTap={false}>
-        <Link
-          to="/suporte/novo"
-          search={topic === undefined ? {} : { categoria: topic }}
-          aria-label="Falar com o suporte"
-          className="fixed right-4 bottom-[max(1rem,env(safe-area-inset-bottom))] z-40 flex size-14 items-center justify-center rounded-full bg-brand text-primary-foreground transition-[scale] duration-150 outline-none focus-visible:ring-4 focus-visible:ring-ring/40 active:scale-[0.94] active:duration-100 motion-reduce:active:scale-100 md:right-8 md:bottom-8"
+    <aside aria-label="Suporte" data-print-hidden>
+      <Popover.Root open={open} onOpenChange={setOpen}>
+        <Popover.Trigger
+          aria-label={supportButtonLabel(unread)}
+          aria-describedby={instructions}
+          title="Falar com o suporte"
+          className="staff-support-link"
+          {...buttonProps}
         >
-          <LauncherIcon className="size-7 shrink-0" weight="fill" aria-hidden="true" />
-        </Link>
-      </Hint>
+          <SolarIcon name="support" className="size-6" />
+          {unread > 0 ? (
+            <span aria-hidden="true" className="staff-support-count">
+              {badgeCount(unread)}
+            </span>
+          ) : null}
+          <span id={instructions} className="sr-only">
+            Arraste para mover o botão ou use as setas do teclado. Use Home para voltar ao canto
+            inicial.
+          </span>
+        </Popover.Trigger>
+        <Popover.Portal>
+          <Popover.Content
+            side="top"
+            align="end"
+            sideOffset={12}
+            collisionPadding={16}
+            aria-labelledby="support-panel-title"
+            className="z-50 w-[min(22rem,calc(100vw-2rem))] origin-(--radix-popover-content-transform-origin) space-y-2 rounded-2xl bg-popover p-2 text-popover-foreground shadow-xl shadow-black/15 ring-1 ring-border outline-none data-[side=bottom]:slide-in-from-top-2 data-[side=top]:slide-in-from-bottom-2 data-[state=open]:animate-in data-[state=open]:fade-in-0 data-[state=open]:duration-[230ms] data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=closed]:duration-[160ms]"
+          >
+            <SupportHelpPanel kind={kind} topic={launcherTopic(pathname)} onNavigate={close} />
+          </Popover.Content>
+        </Popover.Portal>
+      </Popover.Root>
     </aside>
   );
 }
