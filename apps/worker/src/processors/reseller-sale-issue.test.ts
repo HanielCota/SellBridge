@@ -52,17 +52,19 @@ function requestUrl(input: Parameters<typeof fetch>[0]): URL {
   return input instanceof URL ? input : new URL(input.url);
 }
 
-function authorizedXml(): string {
+function authorizedXml(authorizedAt?: Date): string {
+  const receipt =
+    authorizedAt === undefined ? "" : `<dhRecbto>${authorizedAt.toISOString()}</dhRecbto>`;
   return [
     '<nfeProc versao="4.00" xmlns="http://www.portalfiscal.inf.br/nfe">',
     `<NFe><infNFe versao="4.00" Id="NFe${BLING_KEY}"></infNFe></NFe>`,
-    `<protNFe><infProt><chNFe>${BLING_KEY}</chNFe><cStat>100</cStat></infProt></protNFe>`,
+    `<protNFe><infProt><chNFe>${BLING_KEY}</chNFe>${receipt}<cStat>100</cStat></infProt></protNFe>`,
     "</nfeProc>",
   ].join("");
 }
 
 /** A Bling that keeps one note: pending until sent, then authorized with BLING_KEY. */
-function fakeBling(sku: string) {
+function fakeBling(sku: string, authorizedAt?: Date) {
   const state = { created: null as unknown, sent: false };
   const fetchImplementation = vi.fn<typeof fetch>(async (input, init) => {
     const url = requestUrl(input);
@@ -90,7 +92,7 @@ function fakeBling(sku: string) {
         : json(200, { data: { situacao: 1, itens } });
     }
     if (url.pathname.endsWith(`/nfe/documento/${BLING_KEY}`)) {
-      const conteudo = gzipSync(Buffer.from(authorizedXml())).toString("base64");
+      const conteudo = gzipSync(Buffer.from(authorizedXml(authorizedAt))).toString("base64");
       return json(200, { data: [{ conteudo }] });
     }
     return json(404, { error: { message: `unexpected ${method} ${url.pathname}` } });
@@ -98,10 +100,13 @@ function fakeBling(sku: string) {
   return { state, fetchImplementation };
 }
 
-async function scenario(settings: ResellerBlingSettings) {
+async function scenario(
+  settings: ResellerBlingSettings,
+  marketplace: "mercado_livre" | "shopee" = "mercado_livre",
+) {
   const created = await createInvoiceScenario(database, {
     supplierFiscal: { ...TEST_SUPPLIER_FISCAL, invoiceModel: "on_behalf" },
-    marketplace: "mercado_livre",
+    marketplace,
   });
   cleanups.push(created.cleanup);
   await database.insert(schema.resellerErpConnections).values({
@@ -121,6 +126,7 @@ function processor(input: {
   sale: MercadoLivreSalePayments;
   sendSaleInvoice: ResellerSaleIssueDependencies["sendSaleInvoice"];
   now: () => Date;
+  readAttachedInvoice?: ResellerSaleIssueDependencies["readAttachedInvoice"];
 }) {
   return createResellerInvoiceReadProcessor({
     database,
@@ -144,6 +150,9 @@ function processor(input: {
       readBuyerBilling: async () => PERSON,
       readSalePayments: async () => input.sale,
       sendSaleInvoice: input.sendSaleInvoice,
+      ...(input.readAttachedInvoice === undefined
+        ? {}
+        : { readAttachedInvoice: input.readAttachedInvoice }),
     },
   });
 }
@@ -294,7 +303,7 @@ describe("the reseller's sale note issued by its own Bling", () => {
 
     await run();
 
-    expect((await noteOf(shipmentId))?.problem).toMatch(/nome da sua conta do Mercado Livre/);
+    expect((await noteOf(shipmentId))?.problem).toMatch(/nome da sua loja no Mercado Livre/);
     expect(bling.state.created).toBeNull();
   });
 
@@ -320,5 +329,62 @@ describe("the reseller's sale note issued by its own Bling", () => {
     expect(note?.erpInvoiceId).toBe(9001);
     expect(note?.erpStoppedAt).not.toBeNull();
     expect(note?.problem).toBe("Conecte o Bling de novo em Integrações para continuar.");
+  });
+});
+
+describe("the reseller's sale note of a Shopee order", () => {
+  it("issues it with Shopee as intermediary and sends it only 5 minutes after authorization", async () => {
+    const { shipmentId, tenantId, sku } = await scenario(settingsWithCard, "shopee");
+    await nameShop(tenantId, "ana.revenda");
+    let clock = Date.now();
+    const bling = fakeBling(sku, new Date(clock + 3_600_000 - 60_000));
+    const sendSaleInvoice = vi.fn<ResellerSaleIssueDependencies["sendSaleInvoice"]>(async () => {});
+    const run = processor({
+      ...bling,
+      sale: CARD_SALE,
+      sendSaleInvoice,
+      now: () => new Date(clock),
+      readAttachedInvoice: async () => null,
+    });
+
+    await run();
+    clock += 3_600_000;
+    await run();
+    const sentRightAfterAuthorization = sendSaleInvoice.mock.calls.length;
+    clock += 10 * 60_000;
+    await database
+      .update(schema.shipmentResellerInvoices)
+      .set({ nextCheckAt: new Date(clock - 1_000) })
+      .where(eq(schema.shipmentResellerInvoices.shipmentId, shipmentId));
+    await run();
+
+    expect(bling.state.created).toMatchObject({
+      intermediador: { cnpj: "35635824000112", nomeUsuario: "ana.revenda" },
+      observacoes: expect.stringContaining("na Shopee") as unknown,
+    });
+    expect(sentRightAfterAuthorization).toBe(0);
+    expect(sendSaleInvoice).toHaveBeenCalledTimes(1);
+    expect(await noteOf(shipmentId)).toMatchObject({ accessKey: BLING_KEY, source: "bling" });
+  });
+
+  it("keeps the note the reseller attached by hand on Shopee and never issues a second one", async () => {
+    const { shipmentId, sku } = await scenario(settingsWithCard, "shopee");
+    const bling = fakeBling(sku);
+    const run = processor({
+      ...bling,
+      sale: CARD_SALE,
+      sendSaleInvoice: async () => {},
+      now: () => new Date(),
+      readAttachedInvoice: async () => ({ accessKey: BLING_KEY, issuedAt: null }),
+    });
+
+    await run();
+
+    expect(bling.state.created).toBeNull();
+    expect(await noteOf(shipmentId)).toMatchObject({
+      accessKey: BLING_KEY,
+      source: "marketplace",
+      erpInvoiceId: null,
+    });
   });
 });
