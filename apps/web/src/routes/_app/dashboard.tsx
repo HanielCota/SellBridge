@@ -127,6 +127,12 @@ function DashboardContent({ data }: { data: DashboardData }) {
       />
       {/* Before the charts: a paid sale waiting for the reseller stops the sale itself. */}
       <OrdersWaitingBanner />
+      {/* What sold and what needs the reseller come first; the charts follow. */}
+      <div className="grid gap-4 lg:grid-cols-3">
+        <StoreBreakdown stores={data.byStore} />
+        <TopProducts products={data.topProducts} />
+        <AttentionPanel stores={data.stores} showMeiTip={onboarding.sellsAsPerson === true} />
+      </div>
       <div className="grid grid-cols-1 gap-4 xl:grid-cols-[300px_minmax(0,1fr)]">
         <KpiTiles
           summary={summary}
@@ -149,11 +155,6 @@ function DashboardContent({ data }: { data: DashboardData }) {
           beforeFirstSale={beforeFirstSale}
         />
       </div>
-      <div className="grid gap-4 lg:grid-cols-3">
-        <StoreBreakdown stores={data.byStore} />
-        <TopProducts products={data.topProducts} />
-        <AttentionPanel stores={data.stores} showMeiTip={onboarding.sellsAsPerson === true} />
-      </div>
     </>
   );
 }
@@ -175,11 +176,11 @@ function DashboardSkeleton() {
             <Skeleton key={index} className="h-44 rounded-3xl" />
           ))}
         </div>
-        <Skeleton className="h-[394px] rounded-3xl sm:h-[426px]" />
         <div className="grid gap-4 lg:grid-cols-3">
           <Skeleton className="h-80 rounded-3xl lg:col-span-2" />
           <Skeleton className="h-80 rounded-3xl" />
         </div>
+        <Skeleton className="h-[394px] rounded-3xl sm:h-[426px]" />
       </div>
     </output>
   );
