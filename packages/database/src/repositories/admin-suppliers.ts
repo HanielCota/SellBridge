@@ -302,8 +302,10 @@ const STOCK_MOVED_MESSAGE =
 /**
  * A product created under the fiscal or weight rule leaves sale when the team erases its NCM,
  * origin, unit or weight, as it does when the supplier erases them in the panel, and goes on sale
- * once the team fills them in: the same rule a new team product meets. Only drafts the rule put
- * there move; a supplier's own panel draft (no rule flags) and a rejected product stay as they are.
+ * once the team fills them in: the same rule a new team product meets. Only a draft the rule holds
+ * (its stored NCM, origin, unit or weight is missing) moves. Panel and spreadsheet drafts carry the
+ * rule flags too, so a draft that already meets the rule is the supplier's own choice and stays.
+ * The row is locked (as the update would lock it) so the status is judged on what it overwrites.
  */
 async function fiscalRuleStatus(
   transaction: DatabaseExecutor,
@@ -322,27 +324,34 @@ async function fiscalRuleStatus(
     .from(supplierProducts)
     .where(
       and(eq(supplierProducts.id, ids.productId), eq(supplierProducts.supplierId, ids.supplierId)),
-    );
-  if (stored === undefined) {
-    return {};
-  }
-  const underRule = stored.fiscalRequired || stored.weightRequired;
-  const movable =
-    stored.reviewStatus === "approved" || (stored.reviewStatus === "draft" && underRule);
-  if (!movable) {
+    )
+    .for("no key update");
+  if (
+    stored === undefined ||
+    (stored.reviewStatus !== "approved" && stored.reviewStatus !== "draft")
+  ) {
     return {};
   }
   const fallback = await getSupplierFiscalFallback(transaction, ids.supplierId);
-  const keeps = meetsNewProductRules({
-    fiscal: withFiscalFallback(readProductFiscal(values.fiscal ?? stored.fiscal), fallback),
-    fiscalRequired: stored.fiscalRequired,
-    weightRequired: stored.weightRequired,
-    mercadoLivreAttributes: values.mercadoLivreAttributes ?? stored.mercadoLivreAttributes,
-  });
+  const meetsRule = (
+    fiscal: Parameters<typeof readProductFiscal>[0],
+    attributes: Readonly<Record<string, string>>,
+  ) =>
+    meetsNewProductRules({
+      fiscal: withFiscalFallback(readProductFiscal(fiscal), fallback),
+      fiscalRequired: stored.fiscalRequired,
+      weightRequired: stored.weightRequired,
+      mercadoLivreAttributes: attributes,
+    });
+  const keeps = meetsRule(
+    values.fiscal ?? stored.fiscal,
+    values.mercadoLivreAttributes ?? stored.mercadoLivreAttributes,
+  );
   if (stored.reviewStatus === "approved") {
     return keeps ? {} : { reviewStatus: "draft" };
   }
-  return keeps ? { reviewStatus: "approved", submittedAt: now } : {};
+  const heldByRule = !meetsRule(stored.fiscal, stored.mercadoLivreAttributes);
+  return keeps && heldByRule ? { reviewStatus: "approved", submittedAt: now } : {};
 }
 
 /** The team form edits a product of its own; a grid combination changes through its model. */

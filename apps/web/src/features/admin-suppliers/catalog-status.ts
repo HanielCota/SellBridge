@@ -29,8 +29,6 @@ export interface ProductSaleStatus {
 export function productSaleStatus(product: {
   active: boolean;
   reviewStatus: "draft" | "in_review" | "approved" | "rejected";
-  fiscalRequired: boolean;
-  weightRequired: boolean;
   missingForSale: readonly string[];
 }): ProductSaleStatus {
   if (!product.active) {
@@ -45,19 +43,12 @@ export function productSaleStatus(product: {
   if (product.reviewStatus === "approved") {
     return { tone: "success", label: "Ativo", detail: null };
   }
-  // Without the team's NF-e and weight rule the draft is the supplier's own, still in their panel.
-  if (!product.fiscalRequired && !product.weightRequired) {
-    return {
-      tone: "warning",
-      label: "Rascunho",
-      detail: "O fornecedor ainda não publicou no painel dele",
-    };
-  }
+  // A draft the NF-e and weight rule does not hold is the supplier's own: a team save leaves it.
   if (product.missingForSale.length === 0) {
     return {
       tone: "warning",
       label: "Rascunho",
-      detail: "Os dados estão completos. Abra em Editar e salve para pôr à venda",
+      detail: "O fornecedor ainda não publicou no painel dele",
     };
   }
   return {

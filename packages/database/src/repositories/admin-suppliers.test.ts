@@ -343,6 +343,43 @@ describe("admin suppliers", () => {
     expect(edited.reviewStatus).toBe("draft");
   });
 
+  it("leaves a complete panel draft under the rule as a draft when the team edits it", async () => {
+    // The panel creates every supplier product with the rule flags set.
+    const [panelDraft] = await database
+      .insert(supplierProducts)
+      .values({
+        supplierId,
+        ...productValues,
+        sku: "ADMIN-PANEL-COMPLETE",
+        reviewStatus: "draft",
+        fiscalRequired: true,
+        weightRequired: true,
+        fiscal: { ncm: "61091000", origin: 0, unit: "UN", netWeightGrams: 300 },
+      })
+      .returning();
+    if (panelDraft === undefined) {
+      throw new Error("panel draft was not inserted");
+    }
+
+    const edited = await saveAdminSupplierProduct(database, {
+      supplierId,
+      ...productValues,
+      sku: "ADMIN-PANEL-COMPLETE",
+      title: "Produto editado pela equipe",
+      productId: panelDraft.id,
+    });
+    const [listed] = (
+      await listAdminSupplierProducts(database, supplierId, "ADMIN-PANEL-COMPLETE", {
+        page: 1,
+        pageSize: 10,
+      })
+    ).items;
+
+    await database.delete(supplierProducts).where(eq(supplierProducts.id, panelDraft.id));
+    expect(edited.reviewStatus).toBe("draft");
+    expect(listed?.missingForSale).toEqual([]);
+  });
+
   it("refuses a team-saved product whose own ICMS code does not fit the supplier's regime", async () => {
     await database
       .update(suppliers)

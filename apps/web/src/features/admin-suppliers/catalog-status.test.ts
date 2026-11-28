@@ -23,8 +23,6 @@ describe("productSaleStatus", () => {
   const teamDraft = {
     active: true,
     reviewStatus: "draft" as const,
-    fiscalRequired: true,
-    weightRequired: true,
   };
 
   it("says which data keeps a team draft off sale", () => {
@@ -34,20 +32,10 @@ describe("productSaleStatus", () => {
     expect(status.detail).toBe("Falta NCM e peso. Preencha em Editar para pôr à venda");
   });
 
-  it("tells the team to save a complete draft to put it on sale", () => {
+  it("leaves a draft with nothing missing for sale to the supplier, since a team save keeps it", () => {
     const status = productSaleStatus({ ...teamDraft, missingForSale: [] });
 
-    expect(status.detail).toBe("Os dados estão completos. Abra em Editar e salve para pôr à venda");
-  });
-
-  it("leaves a supplier's own panel draft to the supplier", () => {
-    const status = productSaleStatus({
-      ...teamDraft,
-      fiscalRequired: false,
-      weightRequired: false,
-      missingForSale: [],
-    });
-
+    expect(status.label).toBe("Rascunho");
     expect(status.detail).toBe("O fornecedor ainda não publicou no painel dele");
   });
 
