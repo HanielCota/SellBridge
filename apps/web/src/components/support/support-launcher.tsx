@@ -4,14 +4,10 @@ import { Popover } from "radix-ui";
 import { useState } from "react";
 import { SolarIcon } from "@/components/layout/solar-icon";
 import { SupportHelpPanel } from "@/components/layout/support-button";
-import { launcherTopic } from "@/features/support/launcher-topic";
+import { isLauncherHidden, launcherTopic } from "@/features/support/launcher-topic";
 import { supportButtonLabel } from "@/features/support/response-time";
 import { badgeCount } from "@/lib/badge-count";
 import { useSupportPosition } from "./use-support-position";
-
-/** The support pages already hold the form and the threads. */
-// The new-listing page has a publish bar along the bottom; the bubble covered its button there.
-const HIDDEN_ON = ["/suporte", "/publicacoes/nova"];
 
 /**
  * The one way to support, on every page: a round button in the corner that anyone can drag
@@ -20,8 +16,7 @@ const HIDDEN_ON = ["/suporte", "/publicacoes/nova"];
  */
 export function SupportLauncher({ unread, kind }: { unread: number; kind: ProfileKind }) {
   const pathname = useRouterState({ select: (state) => state.location.pathname });
-  const hidden = HIDDEN_ON.some((path) => pathname === path || pathname.startsWith(`${path}/`));
-  if (hidden) {
+  if (isLauncherHidden(pathname)) {
     return null;
   }
   return <MovableSupportLauncher unread={unread} kind={kind} pathname={pathname} />;
